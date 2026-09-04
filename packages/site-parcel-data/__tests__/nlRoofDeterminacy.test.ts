@@ -194,6 +194,81 @@ describe('the three non-underdetermined states are DIFFERENT CLAIMS, not shades 
     });
 });
 
+describe('⭐ the BOUND TYPE is an explicit field — the founder’s three shapes (review §5)', () => {
+    it('bouwhoogte alone → prism-upper-bound (UNSHAPED_BY_PLAN)', () => {
+        const r = resolveNlRoofDeterminacy({ goothoogte_m: null, bouwhoogte_m: 12, planTextExamined: true });
+        expect(r.status).toBe('UNSHAPED_BY_PLAN');
+        expect(r.boundType).toBe('prism-upper-bound');
+    });
+    it('goothoogte alone → eaves-plane-no-top: an eaves constraint and NO top', () => {
+        const r = resolveNlRoofDeterminacy({ goothoogte_m: 6, bouwhoogte_m: null, planTextExamined: true });
+        expect(r.status).toBe('UNDERDETERMINED');
+        expect(r.boundType).toBe('eaves-plane-no-top');
+        expect(r.bounds.overallLimitM).toBeNull();
+        expect(r.bounds.roofZoneThicknessM).toBeNull();
+    });
+    it('both limits, no roof rule → roof-zone-slab (the §15 canonical case)', () => {
+        const r = resolveNlRoofDeterminacy({ goothoogte_m: 4, bouwhoogte_m: 10, planTextExamined: true });
+        expect(r.boundType).toBe('roof-zone-slab');
+        expect(r.why).toContain('roof-zone-slab');
+    });
+    it('goothoogte + a single dakhelling from text → section-closed-by-pitch', () => {
+        const r = resolveNlRoofDeterminacy({
+            goothoogte_m: 4,
+            bouwhoogte_m: 10,
+            planTextExamined: true,
+            roofRules: { dakhelling_deg: 45 },
+        });
+        expect(r.status).toBe('UNDERDETERMINED');
+        expect(r.boundType).toBe('section-closed-by-pitch');
+    });
+    it('a pitch RANGE does not close the section — still roof-zone-slab', () => {
+        const r = resolveNlRoofDeterminacy({
+            goothoogte_m: 4,
+            bouwhoogte_m: 10,
+            planTextExamined: true,
+            roofRules: { dakhelling_deg: [30, 60] },
+        });
+        expect(r.boundType).toBe('roof-zone-slab');
+    });
+    it('goothoogte + nokhoogte → closed-by-ridge (form still open)', () => {
+        const r = resolveNlRoofDeterminacy({
+            goothoogte_m: 4,
+            bouwhoogte_m: null,
+            planTextExamined: true,
+            roofRules: { nokhoogte_m: 9 },
+        });
+        expect(r.status).toBe('UNDERDETERMINED');
+        expect(r.boundType).toBe('closed-by-ridge');
+    });
+    it('a cap PLUS a dakvorm is NOT unshaped — the plan shapes the roof; prism-upper-bound, UNDERDETERMINED', () => {
+        const r = resolveNlRoofDeterminacy({
+            goothoogte_m: null,
+            bouwhoogte_m: 10,
+            planTextExamined: true,
+            roofRules: { dakvorm: 'zadeldak' },
+        });
+        expect(r.status).toBe('UNDERDETERMINED');
+        expect(r.boundType).toBe('prism-upper-bound');
+        const s = nlRoofToRuleState(r, REF);
+        // Saying "no-limit-stated" here would be false — the plan DOES state a roof form.
+        expect(s.status).toBe('unrecovered');
+    });
+    it('DETERMINED carries boundType determined; no limits carries none', () => {
+        expect(
+            resolveNlRoofDeterminacy({
+                goothoogte_m: 4,
+                bouwhoogte_m: 10,
+                planTextExamined: true,
+                roofRules: { dakvorm: 'zadeldak', dakhelling_deg: 45 },
+            }).boundType,
+        ).toBe('determined');
+        expect(resolveNlRoofDeterminacy({ goothoogte_m: null, bouwhoogte_m: null, planTextExamined: false }).boundType).toBe(
+            'none',
+        );
+    });
+});
+
 describe('determinism (C58 §1.1) — same input, byte-identical output', () => {
     it('repeats byte-identically across 50 runs', () => {
         const input: NlRoofInputs = {

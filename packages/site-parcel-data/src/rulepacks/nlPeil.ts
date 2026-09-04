@@ -436,6 +436,7 @@ export function nlPeilToRuleState(
             return {
                 rule: 'A2',
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'derivable',
                 failure: 'semantic',
                 mechanism: 'present',
@@ -446,6 +447,7 @@ export function nlPeilToRuleState(
             return {
                 rule: 'A2',
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'extractable',
                 failure: 'pdf',
                 mechanism: 'unknown',

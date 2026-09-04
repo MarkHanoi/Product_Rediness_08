@@ -1,0 +1,2747 @@
+{
+ "generatedAt": "2026-09-04T09:24:41.528Z",
+ "lane": "ENVELOPE-NLDK",
+ "spec": "NL-FOUNDER-BLOCKER-REVIEW.md §6 / §10 move 4 — inhoud targeted probe, buitengebied vs control",
+ "source": "ruimtelijkeplannen.nl/documents/<planId>/r_<planId>.html (KEYLESS), via WMS `verwijzingnaartekst`",
+ "samples": [
+  "nl-phase0-sample-land.json",
+  "nl-phase0-sample-urban.json"
+ ],
+ "seed": 20260903,
+ "requestedPerStratum": 40,
+ "distinctGoverningPlans": 322,
+ "stratumSizes": {
+  "buitengebied": 171,
+  "control": 151
+ },
+ "stratificationRule": "buitengebied := plan naam matches /buitengebied|landelijk gebied/i OR a sampled parcel under the plan has an agrarisch* hoofdgroep; control := the rest",
+ "detector": "a `inhoud` token followed within 160 chars by <number> + (m³|m3|kubieke meter); windows stored VERBATIM; no interpretation",
+ "elapsedSec": 25,
+ "summary": {
+  "buitengebied": {
+   "requested": 40,
+   "fetched": 37,
+   "fetchFailed": 3,
+   "plansWithBebouwingspercentageDefinition": 2,
+   "bebouwingspercentageDenominatorHistogram": {
+    "bouwvlak+bouwperceel": 1,
+    "bouwvlak": 1
+   },
+   "plansWithCubicInhoudRule": 9,
+   "share": "9/37 = 24.3%",
+   "plansWithWonenContext": 6,
+   "plansWithAgrarischContext": 3,
+   "numberHistogramM3": {
+    "30": 1,
+    "50": 3,
+    "100": 1,
+    "300": 1,
+    "750": 4,
+    "900": 1,
+    "2500": 1
+   }
+  },
+  "control": {
+   "requested": 40,
+   "fetched": 36,
+   "fetchFailed": 4,
+   "plansWithBebouwingspercentageDefinition": 4,
+   "bebouwingspercentageDenominatorHistogram": {
+    "bouwvlak+bouwperceel": 1,
+    "unclassified": 1,
+    "bouwperceel": 1,
+    "bouwvlak": 1
+   },
+   "plansWithCubicInhoudRule": 3,
+   "share": "3/36 = 8.3%",
+   "plansWithWonenContext": 3,
+   "plansWithAgrarischContext": 2,
+   "numberHistogramM3": {
+    "50": 2,
+    "200": 1,
+    "250": 1,
+    "300": 1,
+    "700": 1,
+    "750": 1,
+    "900": 1
+   }
+  }
+ },
+ "results": [
+  {
+   "planId": "NL.IMRO.0106.02BP20201000K2-C001",
+   "stratum": "control",
+   "naam": "Assen - Facetbestemmingsplan Parkeren",
+   "naamoverheid": "Gemeente Assen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2021-04-15",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "bestemmingen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0106.02BP20201000K2-C001/r_NL.IMRO.0106.02BP20201000K2-C001.html",
+   "textChars": 12073,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0114.2017025-P701",
+   "stratum": "control",
+   "naam": "Parapluplan Parkeernormen gemeente Emmen",
+   "naamoverheid": "gemeente Emmen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-04-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "bestemmingen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0114.2017025-P701/pt_NL.IMRO.0114.2017025-P701.xml",
+   "textChars": 19327,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0114.2022075-B702",
+   "stratum": "buitengebied",
+   "naam": "Buitengebied Emmen 2011, Veegplan",
+   "naamoverheid": "gemeente Emmen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2026-03-24",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 5,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Esdorpenlandschap",
+    "Agrarisch met waarden - Grootschalige Veenontginningen",
+    "Natuur - Veengebieden en Beekdalen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0114.2022075-B702/r_NL.IMRO.0114.2022075-B702.html",
+   "textChars": 80386,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 4,
+   "inhoudNumbersM3": [
+    2500
+   ],
+   "anyWonenContext": false,
+   "anyAgrarischContext": true,
+   "hits": [
+    {
+     "offset": 10098,
+     "numbersM3": [
+      2500
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 2 Van",
+     "verbatim": "2 Andere bouwwerken (sublid 5.2.6) Na sublid f. wordt een nieuw sublid g. en h. toegevoegd met de volgende tekst: g. de inhoud van één mestsilo bedraagt maximaal 2.500 m³; h. de bouwhoogte van mestsilo's bedraagt maximaal 6 meter. 4.3 Specifieke gebruiksregels (lid 5.5) Na sublid c. wordt een nieuw sublid d. toegevoegd"
+    },
+    {
+     "offset": 12173,
+     "numbersM3": [
+      2500
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 2 Van",
+     "verbatim": "1 Andere bouwwerken (sublid 6.2.5) Na sublid f. wordt een nieuw sublid g. en h. toegevoegd met de volgende tekst: g. de inhoud van één mestsilo bedraagt maximaal 2.500 m³; h. de bouwhoogte van mestsilo's bedraagt maximaal 6 meter. Artikel 6 Agrarisch - Niet grondgebonden 1 (artikel 8) Voor zover gronden binnen dit veeg"
+    },
+    {
+     "offset": 13250,
+     "numbersM3": [
+      2500
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 6 Agrarisch - Niet",
+     "verbatim": "1 Andere bouwwerken (sublid 8.2.5) Na sublid f. wordt een nieuw sublid g. en h. toegevoegd met de volgende tekst: g. de inhoud van één mestsilo bedraagt maximaal 2.500 m³; h. de bouwhoogte van mestsilo's bedraagt maximaal 6 meter. Artikel 7 Agrarisch - Niet grondgebonden 2 (artikel 9) Voor zover gronden binnen dit veeg"
+    },
+    {
+     "offset": 14312,
+     "numbersM3": [
+      2500
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 7 Agrarisch - Niet",
+     "verbatim": " (lid 9.2) 7.2.1 Andere bouwwerken Na sublid f. wordt een nieuw sublid g. en h. toegevoegd met de volgende tekst: g. de inhoud van één mestsilo bedraagt maximaal 2.500 m³; h. de bouwhoogte van mestsilo's bedraagt maximaal 6 meter. Artikel 8 Agrarisch - Veldschuur 1 (artikel 13) Voor zover gronden binnen dit veegplan zi"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0119.Wonen2022-BPC1",
+   "stratum": "buitengebied",
+   "naam": "Paraplubestemmingsplan woningsplitsing en woningomzetting",
+   "naamoverheid": "Gemeente Meppel",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-12-22",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Cultuurhistorische waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0119.Wonen2022-BPC1/r_NL.IMRO.0119.Wonen2022-BPC1.html",
+   "textChars": 11064,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0153.BP20126-0003",
+   "stratum": "buitengebied",
+   "naam": "aanpassing binnenplanse afwijkingsbevoegdheden en wijzigingsbevoegdheden voor Omgevingswet",
+   "naamoverheid": "Gemeente Enschede",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-05-13",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Agrarische functie met landschapswaarden",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0153.BP20126-0003/r_NL.IMRO.0153.BP20126-0003.html",
+   "textChars": 16326,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0163.BPNDVEEGPLAN2024-VG01",
+   "stratum": "control",
+   "naam": "Veegplan gemeente Hellendoorn 2024",
+   "naamoverheid": "gemeente Hellendoorn",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-07-09",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0163.BPNDVEEGPLAN2024-VG01/r_NL.IMRO.0163.BPNDVEEGPLAN2024-VG01.html",
+   "textChars": 84421,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 1,
+   "inhoudNumbersM3": [
+    50
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": false,
+   "hits": [
+    {
+     "offset": 59366,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 25 Wonen - Woonwagenstandplaats De",
+     "verbatim": "plaatse van de aanduiding 'maximum aantal wooneenheden'; b. de maximale oppervlakte per woonwagen bedraagt 50 m²; c. de inhoud van andere, niet voor bewoning bestemde gebouwen bedraagt per woonwagen maximaal 50 m³; d. de maximale goot- en bouwhoogte van gebouwen bedragen respectievelijk 3 m en 5 m; e. de bouwhoogte van"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0168.KRUIMELGEVALLEN-0401",
+   "stratum": "buitengebied",
+   "naam": "Facetregeling kruimelgevallen",
+   "naamoverheid": "gemeente Losser",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-09-17",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Agrarisch - 1",
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0168.KRUIMELGEVALLEN-0401/r_NL.IMRO.0168.KRUIMELGEVALLEN-0401.html",
+   "textChars": 14621,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0175.windmolensBP001-va01",
+   "stratum": "control",
+   "naam": "Parapluplan kleine windmolens",
+   "naamoverheid": "gemeente Ommen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-09-29",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "bestemmingen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0175.windmolensBP001-va01/r_NL.IMRO.0175.windmolensBP001-va01.html",
+   "textChars": 20785,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0177.BP20230010-GV01",
+   "stratum": "buitengebied",
+   "naam": "Buitengebied Raalte, parapluplan erfwindmolens",
+   "naamoverheid": "Gemeente Raalte",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-05-30",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0177.BP20230010-GV01/r_NL.IMRO.0177.BP20230010-GV01.html",
+   "textChars": 9958,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0232.ALG002terrassen-VBP1",
+   "stratum": "control",
+   "naam": "Parapluplan terrassen",
+   "naamoverheid": "gemeente Epe",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-03-08",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "gemengd"
+   ],
+   "bestemmingen": [
+    "Gemengd"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0232.ALG002terrassen-VBP1/r_NL.IMRO.0232.ALG002terrassen-VBP1.html",
+   "textChars": 7136,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0263.BP1217-VG01",
+   "stratum": "buitengebied",
+   "naam": "Parapluherziening parkeren 2022",
+   "naamoverheid": "Gemeente Maasdriel",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-05-11",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden",
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0263.BP1217-VG01/r_NL.IMRO.0263.BP1217-VG01.html",
+   "textChars": 12743,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0268.BP140W44-VG01",
+   "stratum": "buitengebied",
+   "naam": "Buitengebied Dorp Lent - 44 (Wijersterrein)",
+   "naamoverheid": "gemeente Nijmegen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-01-31",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0268.BP140W44-VG01/r_NL.IMRO.0268.BP140W44-VG01.html",
+   "textChars": 132621,
+   "bebouwingspercentageDefinition": "het percentage dat de oppervlakte van (een gedeelte van) het bouwvlak aangeeft dat binnen de aanduiding 'bouwvlak' maximaal mag worden bebouwd. Dit percentage geldt voor elk afzonderlijk bouwperceel. Bij kavelsplitsing geldt dit percentage zowel voor de gezamenlijke bouwpercelen als voor ieder afzonderlijk bouwperceel.",
+   "bebouwingspercentageDenominatorClasses": [
+    "bouwvlak",
+    "bouwperceel"
+   ],
+   "inhoudCubicRuleCount": 1,
+   "inhoudNumbersM3": [
+    50
+   ],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": [
+    {
+     "offset": 84973,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 14 Algemene",
+     "verbatim": "rkeers- en parkeerdiensten en schuilgelegenheden, is binnen alle bestemmingen toegestaan, met dien verstande dat: a. de inhoud van elk gebouw niet meer mag bedragen dan 50 m³; b. de oppervlakte van elke overkapping niet meer mag bedragen dan 20 m²; c. de goothoogte van gebouwen niet meer dan 3 meter mag bedragen en de "
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0268.FBPArcheologie2023-VG01",
+   "stratum": "control",
+   "naam": "Facetbestemmingsplan Archeologie 2023",
+   "naamoverheid": "gemeente Nijmegen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-11-29",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen",
+    "Woongebied"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0268.FBPArcheologie2023-VG01/r_NL.IMRO.0268.FBPArcheologie2023-VG01.html",
+   "textChars": 64374,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0294.PP1803PARKEREN-VA01",
+   "stratum": "buitengebied",
+   "naam": "facetbestemmingsplan parkeren Winterswijk",
+   "naamoverheid": "gemeente Winterswijk",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-06-28",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 4,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "bos",
+    "natuur",
+    "recreatie",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Agrarisch - Cultuurlandschap",
+    "Bos",
+    "Natuur",
+    "Recreatie",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0294.PP1803PARKEREN-VA01/r_NL.IMRO.0294.PP1803PARKEREN-VA01.html",
+   "textChars": 16465,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0303.D6000-0ONH",
+   "stratum": "buitengebied",
+   "naam": "Paraplubestemmingsplan bijzondere woonvormen gemeente Dronten",
+   "naamoverheid": "gemeente Dronten",
+   "typeplan": "bestemmingsplan",
+   "datum": "2017-02-16",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "bestemmingen": [
+    "Agrarisch"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0303.D6000-0ONH/r_NL.IMRO.0303.D6000-0ONH.html",
+   "textChars": 4509,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0310.21001BP0000-VG01",
+   "stratum": "buitengebied",
+   "naam": "Kleine windturbines agrarische bouwblokken",
+   "naamoverheid": "gemeente De Bilt",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-04-25",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - 2"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0310.21001BP0000-VG01/r_NL.IMRO.0310.21001BP0000-VG01.html",
+   "textChars": 18706,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0327.308-0401",
+   "stratum": "control",
+   "naam": "Parapluplan Kamergewijze verhuur en woningsplitsing",
+   "naamoverheid": "Gemeente Leusden",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-03-07",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "bestemmingen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0327.308-0401/r_NL.IMRO.0327.308-0401.html",
+   "textChars": 5475,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0331.01Rosenboom-BP02",
+   "stratum": "buitengebied",
+   "naam": "Benedeneind ZZ tussen 283 en 285",
+   "naamoverheid": "Gemeente Lopik",
+   "typeplan": "bestemmingsplan",
+   "datum": "2016-12-13",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch",
+    "recreatie"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Recreatie - Verblijfsrecreatie"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0331.01Rosenboom-BP02/r_NL.IMRO.0331.01Rosenboom-BP02.html",
+   "textChars": 32052,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0351.HZ2012bgbdivers-vg01",
+   "stratum": "buitengebied",
+   "naam": "Buitengebied 2013 (herziening)",
+   "naamoverheid": "Gemeente Woudenberg",
+   "typeplan": "bestemmingsplan",
+   "datum": "2013-06-27",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "bos"
+   ],
+   "bestemmingen": [
+    "Bos"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0351.HZ2012bgbdivers-vg01/r_NL.IMRO.0351.HZ2012bgbdivers-vg01_index.html -> TOO-SMALL(436)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0351.HZ2012bgbdivers-vg01/r_NL.IMRO.0351.HZ2012bgbdivers-vg01.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0351.HZ2012bgbdivers-vg01/pt_NL.IMRO.0351.HZ2012bgbdivers-vg01.xml -> TOO-SMALL(75)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0351.HZ2012bgbdivers-vg01/r_NL.IMRO.0351.HZ2012bgbdivers-vg01.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0352.bpcotcothen-or01",
+   "stratum": "control",
+   "naam": "Bestemmingsplan Cothen",
+   "naamoverheid": "gemeente Wijk bij Duurstede",
+   "typeplan": "bestemmingsplan",
+   "datum": "2011-11-10",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0352.bpcotcothen-or01/r_NL.IMRO.0352.bpcotcothen-or01_index.html -> TOO-SMALL(334)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0352.bpcotcothen-or01/r_NL.IMRO.0352.bpcotcothen-or01.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0352.bpcotcothen-or01/pt_NL.IMRO.0352.bpcotcothen-or01.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0352.bpcotcothen-or01/r_NL.IMRO.0352.bpcotcothen-or01.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0358.PP02-VG02",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan Kamerverhuurbedrijf Aalsmeer",
+   "naamoverheid": "gemeente Aalsmeer",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-06-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "groen"
+   ],
+   "bestemmingen": [
+    "Groen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0358.PP02-VG02/r_NL.IMRO.0358.PP02-VG02.html",
+   "textChars": 8746,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0363.GA2301PBPGST-VG01",
+   "stratum": "control",
+   "naam": "Drijvende bouwwerken partiële herziening",
+   "naamoverheid": "gemeente Amsterdam",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-04-24",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "water",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Water",
+    "Wonen",
+    "Wonen - 2"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0363.GA2301PBPGST-VG01/pt_NL.IMRO.0363.GA2301PBPGST-VG01.xml",
+   "textChars": 60318,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0394.BPGlgbparkrglsherz-C001",
+   "stratum": "buitengebied",
+   "naam": "Parapluplan parkeerregels – partiële herziening",
+   "naamoverheid": "gemeente Haarlemmermeer",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-03-09",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 4,
+   "hoofdgroepen": [
+    "agrarisch",
+    "bedrijf",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Bedrijf",
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0394.BPGlgbparkrglsherz-C001/r_NL.IMRO.0394.BPGlgbparkrglsherz-C001.html",
+   "textChars": 5658,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0437.PBPEvenementen-VA01",
+   "stratum": "buitengebied",
+   "naam": "Bestemmingsplan Evenemententerreinen, terrassen e.a.",
+   "naamoverheid": "Gemeente Ouder-Amstel",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-01-31",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Natuur- en landschapswaarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0437.PBPEvenementen-VA01/r_NL.IMRO.0437.PBPEvenementen-VA01.html",
+   "textChars": 26901,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0448.TXL2022BP0001-va01",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan Verblijfsrecreatie Texel",
+   "naamoverheid": "Gemeente Texel",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-12-18",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "bedrijf"
+   ],
+   "bestemmingen": [
+    "Bedrijf - Nutsvoorziening"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0448.TXL2022BP0001-va01/r_NL.IMRO.0448.TXL2022BP0001-va01.html",
+   "textChars": 24997,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0505.BP211Darkstores-3001",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan Dark Stores",
+   "naamoverheid": "gemeente Dordrecht",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-07-13",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "bedrijf",
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Bedrijf",
+    "Natuur - 1"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0505.BP211Darkstores-3001/r_NL.IMRO.0505.BP211Darkstores-3001.html",
+   "textChars": 12142,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0513.BPLUDARKSTORES-DF01",
+   "stratum": "control",
+   "naam": "parapluplan Darkstores",
+   "naamoverheid": "Gemeente Gouda",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-04-12",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0513.BPLUDARKSTORES-DF01/r_NL.IMRO.0513.BPLUDARKSTORES-DF01.html",
+   "textChars": 9039,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0518.BP0373ZFlitsbezorg-50VA",
+   "stratum": "control",
+   "naam": "Parapluherziening Flitsbezorging",
+   "naamoverheid": "gemeente 's-Gravenhage",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-12-01",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "verkeer",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Verkeer - 2",
+    "Wonen - 2"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0518.BP0373ZFlitsbezorg-50VA/r_NL.IMRO.0518.BP0373ZFlitsbezorg-50VA.html",
+   "textChars": 92244,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0534.Chwplankruimel-VA01",
+   "stratum": "control",
+   "naam": "Crisis- en herstelwet bestemmingsplan aanvullende bouw- en gebruiksregels Hillegom",
+   "naamoverheid": "Gemeente Hillegom",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-05-30",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "maatschappelijk"
+   ],
+   "bestemmingen": [
+    "Maatschappelijk"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0534.Chwplankruimel-VA01/r_NL.IMRO.0534.Chwplankruimel-VA01.html",
+   "textChars": 20825,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0546.BP00162-0301",
+   "stratum": "control",
+   "naam": "Parapluherziening Fietsparkeren",
+   "naamoverheid": "gemeente Leiden",
+   "typeplan": "bestemmingsplan",
+   "datum": "2021-02-18",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "verkeer",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Verkeer",
+    "Wonen - Woning en woonwagen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0546.BP00162-0301/r_NL.IMRO.0546.BP00162-0301.html",
+   "textChars": 4301,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0553.bpVeegplan-vax1",
+   "stratum": "control",
+   "naam": "Veegplan Lisse",
+   "naamoverheid": "Gemeente Lisse",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-05-30",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0553.bpVeegplan-vax1/r_NL.IMRO.0553.bpVeegplan-vax1.html",
+   "textChars": 180926,
+   "bebouwingspercentageDefinition": "een in de regels of op de verbeelding aangegeven percentage, dat de grootte van het bouwvlak en/of bouwperceel aangeeft, dat maximaal mag worden bebouwd.",
+   "bebouwingspercentageDenominatorClasses": [
+    "bouwvlak",
+    "bouwperceel"
+   ],
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0575.BPPLUparkeren-VA01",
+   "stratum": "control",
+   "naam": "Paraplu Bestemmingsplan Parkeren",
+   "naamoverheid": "gemeente Noordwijk",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-03-15",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "bos",
+    "natuur",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Bos",
+    "Natuur - Duinen - 1",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0575.BPPLUparkeren-VA01/r_NL.IMRO.0575.BPPLUparkeren-VA01.html",
+   "textChars": 5160,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0588.BPBGA13hp0615-VG01",
+   "stratum": "buitengebied",
+   "naam": "1e Herziening Buitengebied 2015",
+   "naamoverheid": "gemeente Korendijk",
+   "typeplan": "bestemmingsplan",
+   "datum": "2015-03-17",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch",
+    "overig"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Bouwen van een bodemgevoelig gebouw",
+    "Bouwen van een grondwatergevoelig gebouw",
+    "Graven in de bodem",
+    "Historische bodemverontreiniging zonder onaanvaardbaar risico",
+    "Nazorg",
+    "Opslaan van grond en baggerspecie",
+    "Saneren van de bodem",
+    "Toepassen van bouwstoffen",
+    "Toepassen van grond of baggerspecie"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0588.BPBGA13hp0615-VG01/r_NL.IMRO.0588.BPBGA13hp0615-VG01.html",
+   "textChars": 188680,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 5,
+   "inhoudNumbersM3": [
+    50,
+    750
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": true,
+   "hits": [
+    {
+     "offset": 59803,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 5 Bedrijf",
+     "verbatim": "bedrijfswoningen mag niet meer bedragen dan 6 m. De bouwhoogte van bedrijfswoningen mag niet meer bedragen dan 10 m. De inhoud van een bedrijfswoning bedraagt ten hoogste 750 m³. De ondergrondse bebouwing en de bijbehorende bouwwerken worden niet meegerekend voor het bepalen van de inhoud. 5.2.4 Bijbehorende bouwwerken"
+    },
+    {
+     "offset": 83822,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 10 Horeca",
+     "verbatim": "niet meer bedragen dan 11 m. 10.2.3 Bedrijfswoningen Voor het bouwen van bedrijfswoningen gelden de volgende regels: De inhoud van een bedrijfswoning bedraagt ten hoogste 750 m³. De ondergrondse bebouwing en de bijbehorende bouwwerken worden niet meegerekend voor het bepalen van de inhoud. De goothoogte van een bedrijf"
+    },
+    {
+     "offset": 89304,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 11 Maatschappelijk",
+     "verbatim": "niet meer bedragen dan 11 m. 11.2.3 Bedrijfswoningen Voor het bouwen van bedrijfswoningen gelden de volgende regels: De inhoud van een bedrijfswoning bedraagt ten hoogste 750 m³. De ondergrondse bebouwing en de bijbehorende bouwwerken worden niet meegerekend voor het bepalen van de inhoud. De goothoogte van een bedrijf"
+    },
+    {
+     "offset": 111528,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 17 Sport",
+     "verbatim": " afstand van ten minste 3 m. 17.2.2 Bedrijfswoningen Voor het bouwen van bedrijfswoningen gelden de volgende regels: De inhoud van een bedrijfswoning bedraagt ten hoogste 750 m³ . De ondergrondse bebouwing en de bijbehorende bouwwerken worden niet meegerekend voor het bepalen van de inhoud. De goothoogte van een bedrij"
+    },
+    {
+     "offset": 179925,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": false,
+     "articleContext": "Artikel 38 Algemene",
+     "verbatim": "; de bouw van transformatorhuisjes, mits deze bouwwerken geen grotere goot– of boeibordhoogte dan 3,5 m en geen grotere inhoud dan 50 m³ hebben; de bouw van straatmeubilair en bouwwerken, geen gebouwen zijnde, die om waterstaatkundige of verkeersredenen noodzakelijk zijn, zoals duikers of keermuren, mits de hoogte niet"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0599.BP1104PapluBioveil-va01",
+   "stratum": "control",
+   "naam": "Parapluherziening biologische veiligheid",
+   "naamoverheid": "gemeente Rotterdam",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-06-14",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 4,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen",
+    "Wonen - 1"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0599.BP1104PapluBioveil-va01/r_NL.IMRO.0599.BP1104PapluBioveil-va01.html -> TOO-SMALL(2980)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0599.BP1104PapluBioveil-va01/pt_NL.IMRO.0599.BP1104PapluBioveil-va01.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0599.BP1104PapluBioveil-va01/r_NL.IMRO.0599.BP1104PapluBioveil-va01.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0611.landelijkgebied-VA01",
+   "stratum": "buitengebied",
+   "naam": "Landelijk gebied 2013",
+   "naamoverheid": "Gemeente Cromstrijen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2013-07-04",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "bedrijf",
+    "overig"
+   ],
+   "bestemmingen": [
+    "Bedrijf",
+    "Bouwen van een bodemgevoelig gebouw",
+    "Bouwen van een grondwatergevoelig gebouw",
+    "Graven in de bodem",
+    "Historische bodemverontreiniging zonder onaanvaardbaar risico",
+    "Nazorg",
+    "Opslaan van grond en baggerspecie",
+    "Saneren van de bodem",
+    "Toepassen van bouwstoffen",
+    "Toepassen van grond of baggerspecie"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0611.landelijkgebied-VA01/r_NL.IMRO.0611.landelijkgebied-VA01_index.html -> TOO-SMALL(428)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0611.landelijkgebied-VA01/r_NL.IMRO.0611.landelijkgebied-VA01.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0611.landelijkgebied-VA01/pt_NL.IMRO.0611.landelijkgebied-VA01.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0611.landelijkgebied-VA01/r_NL.IMRO.0611.landelijkgebied-VA01.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0629.BPCULTERF2014-VG03",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan Cultureel Erfgoed Wassenaar - Panden, objecten en archeologie",
+   "naamoverheid": "gemeente Wassenaar",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-04-12",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0629.BPCULTERF2014-VG03/r_NL.IMRO.0629.BPCULTERF2014-VG03.html",
+   "textChars": 37018,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0654.OPBGBZP2022-0002",
+   "stratum": "buitengebied",
+   "naam": "Chw bestemmingsplan Omgevingsplan Buitengebied Borsele 2018, delegatieregel zonneparken, 2022",
+   "naamoverheid": "Gemeente Borsele",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-01-13",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "overig",
+    "water"
+   ],
+   "bestemmingen": [
+    "Water",
+    "Water - Deltawater",
+    "Waterkering"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0654.OPBGBZP2022-0002/r_NL.IMRO.0654.OPBGBZP2022-0002.html -> TOO-SMALL(720)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0654.OPBGBZP2022-0002/pt_NL.IMRO.0654.OPBGBZP2022-0002.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0654.OPBGBZP2022-0002/r_NL.IMRO.0654.OPBGBZP2022-0002.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0716.BPherstWoonvormen-VG01",
+   "stratum": "control",
+   "naam": "Parapluherziening Woonvormen",
+   "naamoverheid": "gemeente Tholen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-12-08",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 4,
+   "hoofdgroepen": [
+    "verkeer",
+    "water"
+   ],
+   "bestemmingen": [
+    "Verkeer",
+    "Water",
+    "Water - Deltawater"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0716.BPherstWoonvormen-VG01/r_NL.IMRO.0716.BPherstWoonvormen-VG01.html",
+   "textChars": 18466,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0736.BP018BgbWest-va02",
+   "stratum": "buitengebied",
+   "naam": "Buitengebied-West",
+   "naamoverheid": "Gemeente De Ronde Venen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-02-21",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Natuurwaarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0736.BP018BgbWest-va02/r_NL.IMRO.0736.BP018BgbWest-va02.html",
+   "textChars": 220563,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 2,
+   "inhoudNumbersM3": [
+    900
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": false,
+   "hits": [
+    {
+     "offset": 170984,
+     "numbersM3": [
+      900
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 25 Wonen",
+     "verbatim": "stedenbouwkundige eenheid vormen, met inachtneming van het volgende: a. de te splitsen (voormalige) boerderij dient een inhoud te hebben van minimaal 900 m³; b. het bestaande grondoppervlak van het hoofdgebouw mag niet worden vergroot; c. de splitsing mag niet leiden tot twee separate – vrijstaande - woningen; d. de sp"
+    },
+    {
+     "offset": 183030,
+     "numbersM3": [
+      900
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 26 Wonen - Bebouwingsconcentraties",
+     "verbatim": "stedenbouwkundige eenheid vormen, met inachtneming van het volgende: a. de te splitsen (voormalige) boerderij dient een inhoud te hebben van minimaal 900 m³; b. het bestaande grondoppervlak van het hoofdgebouw mag niet worden vergroot; c. de splitsing mag niet leiden tot twee separate – vrijstaande - woningen; d. de sp"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0736.BP022dorpskernen-va02",
+   "stratum": "control",
+   "naam": "Dorpskernen",
+   "naamoverheid": "Gemeente De Ronde Venen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-10-30",
+   "dossierstatus": "geheel in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0736.BP022dorpskernen-va02/r_NL.IMRO.0736.BP022dorpskernen-va02.html",
+   "textChars": 287906,
+   "bebouwingspercentageDefinition": ": een in de regels of op de verbeelding aangegeven percentage, dat de grootte van het deel van een bepaald gebied aangeeft dat maximaal mag worden bebouwd.",
+   "bebouwingspercentageDenominatorClasses": [
+    "unclassified"
+   ],
+   "inhoudCubicRuleCount": 11,
+   "inhoudNumbersM3": [
+    200,
+    250,
+    700,
+    900
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": true,
+   "hits": [
+    {
+     "offset": 41222,
+     "numbersM3": [
+      700
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 3 Agrarisch",
+     "verbatim": ", maximum bouwhoogte (m)' mag de goot- en bouwhoogte van een bedrijfswoning niet meer bedragen dan is aangegeven; e. de inhoud van een bedrijfswoning mag niet meer bedragen dan 700 m³ dan wel de bestaande inhoud indien deze meer bedraagt. 3.2.4 Bijgebouwen en overkappingen bij bedrijfswoningen Voor het bouwen van bijge"
+    },
+    {
+     "offset": 61113,
+     "numbersM3": [
+      900
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 3 Agrarisch",
+     "verbatim": "bouwen ten hoogste 50 m², vermeerderd met 50% van het meerdere van 50 m² aan bedrijfsgebouwen dat wordt gesloopt; 4. de inhoud van een voormalige bedrijfswoning kan worden verruimd tot 900 m³ in geval van sloop van tenminste 500 m² aan voormalige bedrijfsgebouwen van het bedrijf en indien uit een beeldkwaliteitsparagra"
+    },
+    {
+     "offset": 70546,
+     "numbersM3": [
+      700
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 4 Bedrijf",
+     "verbatim": ", maximum bouwhoogte (m)' mag de goot- en bouwhoogte van een bedrijfswoning niet meer bedragen dan is aangegeven; e. de inhoud van een bedrijfswoning mag niet meer bedragen dan 700 m³ dan wel de bestaande inhoud indien deze meer bedraagt. 4.2.4 Bijgebouwen en overkappingen bij bedrijfswoningen Voor het bouwen van bijge"
+    },
+    {
+     "offset": 129116,
+     "numbersM3": [
+      700
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 12 Kantoor",
+     "verbatim": "m), maximum bouwhoogte (m)' mag de goot- en bouwhoogte van bedrijfswoningen niet meer bedragen dan is aangegeven; e. de inhoud van een bedrijfswoning mag niet meer bedragen dan 700 m³ dan wel de bestaande inhoud indien deze meer bedraagt. 12.2.3 Bijgebouwen en overkappingen bij (bedrijfs)woningen Voor het bouwen van bi"
+    },
+    {
+     "offset": 139853,
+     "numbersM3": [
+      700
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 13 Maatschappelijk",
+     "verbatim": " (m), maximum bouwhoogte (m)' mag de goot- en bouwhoogte van dienstwoningen niet meer bedragen dan is aangegeven; e. de inhoud van een dienstwoning mag niet meer bedragen dan 700 m³ dan wel de bestaande inhoud indien deze meer bedraagt. 13.2.5 Bijgebouwen en overkappingen bij (dienst)woningen Voor het bouwen van bijgeb"
+    },
+    {
+     "offset": 158819,
+     "numbersM3": [
+      700
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 17 Recreatie - Jachthaven",
+     "verbatim": ", maximum bouwhoogte (m)' mag de goot- en bouwhoogte van een bedrijfswoning niet meer bedragen dan is aangegeven; e. de inhoud van een bedrijfswoning mag niet meer bedragen dan 700 m³ dan wel de bestaande inhoud indien deze meer bedraagt. 17.2.4 Bijgebouwen en overkappingen bij bedrijfswoningen Voor het bouwen van bijg"
+    },
+    {
+     "offset": 161360,
+     "numbersM3": [
+      200
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 17 Recreatie - Jachthaven",
+     "verbatim": "eer bedragen dan is aangegeven; c. de oppervlakte van een recreatie-appartement mag niet meer bedragen dan 60 m²; d. de inhoud van een recreatie-appartement mag niet meer bedragen dan 200 m³. 17.2.7 Bouwwerken, geen gebouwen en geen overkappingen zijnde Voor het bouwen van bouwwerken, geen gebouwen en geen overkappinge"
+    },
+    {
+     "offset": 172016,
+     "numbersM3": [
+      200
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 19 Recreatie - Verblijfsrecreatie",
+     "verbatim": "), maximum bouwhoogte (m)' mag de goot- en bouwhoogte van recreatiewoningen niet meer bedragen dan is aangegeven; d. de inhoud van een recreatiewoning mag niet meer bedragen dan 200 m³. 19.2.2 Bijgebouwen en overkappingen bij recreatiewoningen Voor het bouwen van bijgebouwen en overkappingen bij recreatiewoningen gelde"
+    },
+    {
+     "offset": 174450,
+     "numbersM3": [
+      250
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 19 Recreatie - Verblijfsrecreatie",
+     "verbatim": "woning Het bevoegd gezag kan bij een omgevingsvergunning afwijken van het bepaalde in lid 19.2.1 onder d om een grotere inhoud voor recreatiewoningen toe te staan, met inachtneming van het volgende: a. de inhoud van een recreatiewoning mag niet meer bedragen dan 250 m³; b. er dient te worden aangetoond dat de recreatie"
+    },
+    {
+     "offset": 174535,
+     "numbersM3": [
+      250
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 19 Recreatie - Verblijfsrecreatie",
+     "verbatim": " lid 19.2.1 onder d om een grotere inhoud voor recreatiewoningen toe te staan, met inachtneming van het volgende: a. de inhoud van een recreatiewoning mag niet meer bedragen dan 250 m³; b. er dient te worden aangetoond dat de recreatiewoning niet wordt of zal worden gebruikt voor permanente bewoning; c. belangen van de"
+    },
+    {
+     "offset": 178269,
+     "numbersM3": [
+      700
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 20 Recreatie - Zeilschool",
+     "verbatim": ", maximum bouwhoogte (m)' mag de goot- en bouwhoogte van een bedrijfswoning niet meer bedragen dan is aangegeven; e. de inhoud van een bedrijfswoning mag niet meer bedragen dan 700 m³ dan wel de bestaande inhoud indien deze meer bedraagt. 20.2.3 Bijgebouwen en overkappingen bij bedrijfswoningen Voor het bouwen van bijg"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0757.BP2019kamerbwoning-VA01",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan Kamerbewoning Boxtel",
+   "naamoverheid": "Gemeente Boxtel",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-10-27",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "recreatie"
+   ],
+   "bestemmingen": [
+    "Recreatie - Dagrecreatie"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0757.BP2019kamerbwoning-VA01/r_NL.IMRO.0757.BP2019kamerbwoning-VA01.html",
+   "textChars": 4943,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0758.BP2021101013-VG01",
+   "stratum": "control",
+   "naam": "Parapluplan Hospita en parkeren 2022",
+   "naamoverheid": "gemeente Breda",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-12-22",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0758.BP2021101013-VG01/pt_NL.IMRO.0758.BP2021101013-VG01.xml",
+   "textChars": 40120,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0762.BP201601-C006",
+   "stratum": "buitengebied",
+   "naam": "Derde herziening bestemmingsplan Buitengebied",
+   "naamoverheid": "gemeente Deurne",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-07-07",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Agrarisch - 3",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0762.BP201601-C006/r_NL.IMRO.0762.BP201601-C006.html",
+   "textChars": 388334,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 2,
+   "inhoudNumbersM3": [
+    750
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": false,
+   "hits": [
+    {
+     "offset": 273572,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 17 Wonen",
+     "verbatim": "nhoud als maximale inhoud; ter plaatse van de aanduiding &#x0027;maximum volume (m3)&#x0027; geldt 900 m 3 als maximale inhoud; ter plaatse van Hazeldonksedreef 6 is een maximale inhoud van 750 m3 toegestaan; indien de woning deel uitmaakt van een (woon)boerderijpand, geldt de inhoud van het totale (woon)boerderijpand "
+    },
+    {
+     "offset": 273631,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 17 Wonen",
+     "verbatim": "x0027;maximum volume (m3)&#x0027; geldt 900 m 3 als maximale inhoud; ter plaatse van Hazeldonksedreef 6 is een maximale inhoud van 750 m3 toegestaan; indien de woning deel uitmaakt van een (woon)boerderijpand, geldt de inhoud van het totale (woon)boerderijpand als maximale inhoud; verbouwing en gebruik van de voormalig"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0762.BP202015-C001",
+   "stratum": "control",
+   "naam": "Herstelbestemmingsplan bebouwd gebied Deurne 2021",
+   "naamoverheid": "Gemeente Deurne",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-07-05",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "woongebied"
+   ],
+   "bestemmingen": [
+    "Woongebied"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0762.BP202015-C001/r_NL.IMRO.0762.BP202015-C001.html",
+   "textChars": 13130,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0823.BPBGHerziening-VAST",
+   "stratum": "buitengebied",
+   "naam": "Buitengebied, correctieve herziening",
+   "naamoverheid": "gemeente Oirschot",
+   "typeplan": "bestemmingsplan",
+   "datum": "2017-11-21",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "natuur",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Natuur- en landschapswaarden",
+    "Natuur",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0823.BPBGHerziening-VAST/r_NL.IMRO.0823.BPBGHerziening-VAST.html",
+   "textChars": 480363,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 2,
+   "inhoudNumbersM3": [
+    750
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": false,
+   "hits": [
+    {
+     "offset": 329149,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 10 Horeca",
+     "verbatim": "jfswoning toegestaan. De goothoogte mag niet meer bedragen dan 4,5 m. De bouwhoogte mag niet meer bedragen dan 10 m. De inhoud mag niet meer bedragen dan 750 m3. De dakhelling mag niet minder bedragen dan 12° en niet meer bedragen dan 45°. Voor het bouwen van bijbehorende bouwwerken (bijgebouwen, aan- en uitbouwen) bij"
+    },
+    {
+     "offset": 335499,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 11 Maatschappelijk",
+     "verbatim": "jfswoning toegestaan. De goothoogte mag niet meer bedragen dan 4,5 m. De bouwhoogte mag niet meer bedragen dan 10 m. De inhoud mag niet meer bedragen dan 750 m3. De dakhelling mag niet minder bedragen dan 12° en niet meer bedragen dan 45°. Voor het bouwen van bijbehorende bouwwerken (bijgebouwen, aan- en uitbouwen) bij"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0824.BPParkeren2024-VA01",
+   "stratum": "buitengebied",
+   "naam": "Parapluplan Parkeren 2024",
+   "naamoverheid": "Gemeente Oisterwijk",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-05-30",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Landschap, natuur en cultuurhistorie - 1",
+    "Agrarisch met waarden - Landschap, natuur en cultuurhistorie 1"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0824.BPParkeren2024-VA01/r_NL.IMRO.0824.BPParkeren2024-VA01.html",
+   "textChars": 4299,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0847.BP02020010-VS02",
+   "stratum": "buitengebied",
+   "naam": "Herstelbesluit Parapluplan huisvesting arbeidsmigranten 2021",
+   "naamoverheid": "Gemeente Someren",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-09-12",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Landschappelijke waarden",
+    "Agrarisch met waarden - Landschapswaarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0847.BP02020010-VS02/r_NL.IMRO.0847.BP02020010-VS02.html",
+   "textChars": 619020,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0880.BP00183-0401",
+   "stratum": "buitengebied",
+   "naam": "Parapluplan Parkeren Wormerland",
+   "naamoverheid": "gemeente Wormerland",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-02-14",
+   "dossierstatus": "vastgesteld",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Landschappelijke waarden",
+    "Natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0880.BP00183-0401/r_NL.IMRO.0880.BP00183-0401.html",
+   "textChars": 6292,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0882.BPSTEDGEBWAUBACH3-VG01",
+   "stratum": "control",
+   "naam": "Stedelijk gebied Waubach",
+   "naamoverheid": "Gemeente Landgraaf",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-10-03",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0882.BPSTEDGEBWAUBACH3-VG01/r_NL.IMRO.0882.BPSTEDGEBWAUBACH3-VG01.html",
+   "textChars": 183384,
+   "bebouwingspercentageDefinition": "een in de verbeelding aangegeven percentage, dat de grootte aangeeft van het deel van een bouwperceel, dat ten hoogste mag worden bebouwd.",
+   "bebouwingspercentageDenominatorClasses": [
+    "bouwperceel"
+   ],
+   "inhoudCubicRuleCount": 3,
+   "inhoudNumbersM3": [
+    50,
+    300,
+    750
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": true,
+   "hits": [
+    {
+     "offset": 23281,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 1 Begrippen",
+     "verbatim": "e leidingen, tele- en datacommunicatieleidingen, riolering, telefooncellen en wachthuisjes, straatvoorzieningen met een inhoud van maximaal 50 m3 per op te richten bouwwerk en een hoogte van maximaal 3,00 meter. 1.106 vrijstaand bijgebouw een bijgebouw, dat qua constructie en visueel vrij staat van het hoofdgebouw of d"
+    },
+    {
+     "offset": 37289,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 4 Agrarisch - Agrarisch",
+     "verbatim": "wlaag maximaal 3,20 meter mag bedragen; e. de bouwdiepte van de bedrijfswoning mag maximaal 17,00 meter bedragen; f. de inhoud van een bedrijfswoning mag ten hoogste 750 m³ bedragen. 4.2.3 Bijgebouwen Voor het bouwen van bijgebouwen gelden de volgende regels: a. per bedrijfswoning mag de maximale oppervlakte van alle a"
+    },
+    {
+     "offset": 47761,
+     "numbersM3": [
+      300
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 4 Agrarisch - Agrarisch",
+     "verbatim": "ardevolle of karakteristieke bebouwing, waar binnen de hoofdbebouwing meerder woningen mogen worden gerealiseerd; 3. de inhoud van een woning ten minste 300 m³ zal bedragen; 4. indien meerdere woningen worden gerealiseerd, voorafgaand aan de realisatie, het oppervlak aan bijgebouwen teruggebracht tot ten hoogste 70 m² "
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0889.Buitengebied2023-VA01",
+   "stratum": "buitengebied",
+   "naam": "Veegplan buitengebied Beesel 2023",
+   "naamoverheid": "gemeente Beesel",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-07-03",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden",
+    "Natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0889.Buitengebied2023-VA01/r_NL.IMRO.0889.Buitengebied2023-VA01.html",
+   "textChars": 60874,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0893.TOP24001H22ABUI-VA01",
+   "stratum": "buitengebied",
+   "naam": "TAM-omgevingsplan Hoofdstuk 22A [parapluregeling hemelwaterafvoer]",
+   "naamoverheid": "Gemeente Bergen (L.)",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-07-29",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "bestemmingen": [
+    "Agrarisch"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0893.TOP24001H22ABUI-VA01/r_NL.IMRO.0893.TOP24001H22ABUI-VA01.html",
+   "textChars": 7579,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0935.bpFlitsbezorging-vg01",
+   "stratum": "control",
+   "naam": "Facetbestemmingsplan Flitsbezorging",
+   "naamoverheid": "Gemeente Maastricht",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-09-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "bedrijf",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Bedrijf",
+    "Verkeer - Railverkeer",
+    "Verkeer - Verblijfsgebied"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0935.bpFlitsbezorging-vg01/r_NL.IMRO.0935.bpFlitsbezorging-vg01.html",
+   "textChars": 6217,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.0946.BPbgbpartherz6e-VA01",
+   "stratum": "buitengebied",
+   "naam": "Buitengebied Nederweert 6e herziening - fijnstofknelpunten",
+   "naamoverheid": "Gemeente Nederweert",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-10-08",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 4,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Esdorpen",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0946.BPbgbpartherz6e-VA01/r_NL.IMRO.0946.BPbgbpartherz6e-VA01.html",
+   "textChars": 5857,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1509.BP000100-VA02",
+   "stratum": "buitengebied",
+   "naam": "Buitengebied Oude IJsselstreek 2017",
+   "naamoverheid": "gemeente Oude IJsselstreek",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-06-28",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "verkeer",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Verkeer",
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1509.BP000100-VA02/r_NL.IMRO.1509.BP000100-VA02.html",
+   "textChars": 347908,
+   "bebouwingspercentageDefinition": "Het deel van het bouwvlak uitgedrukt in procenten dat bebouwd mag worden. 2.1.2 de bouwhoogte van een bouwwerk Vanaf het peil tot aan het hoogste punt van een gebouw of van een overig bouwwerk met uitzondering van ondergeschikte bouwonderdelen, zoals schoorstenen, antennes, en naar de aard daarmee gelijk te stellen bouwonderdelen. 2.1.3 de goothoogte van een bouwwerk Vanaf het peil tot aan de bovenkant van de goot, c.q. de druiplijn, het boeibord, of een daarmee gelijk te stellen constructiedeel. 2.1.4 de hoogte van een windturbine Vanaf het peil tot aan de (wieken)as van de windturbine. 2.1.5 de inhoud van een bouwwerk Tussen de buitenwerkse gevelvlakken en/of het hart van de scheidingsmure",
+   "bebouwingspercentageDenominatorClasses": [
+    "bouwvlak"
+   ],
+   "inhoudCubicRuleCount": 5,
+   "inhoudNumbersM3": [
+    30,
+    300
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": false,
+   "hits": [
+    {
+     "offset": 171381,
+     "numbersM3": [
+      300
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 14 Recreatie - Dagrecreatie",
+     "verbatim": "n recreatiewoningen gelden de volgende regels: a. per bestemmingsvlak is maximaal één recreatiewoning toegestaan; b. de inhoud mag maximaal 300 m³ bedragen; c. de goothoogte mag maximaal 3,5 meter bedragen; d. de bouwhoogte mag maximaal 7 meter bedragen. 14.2.6 bouwwerken, geen gebouwen zijnde Voor het bouwen van bouww"
+    },
+    {
+     "offset": 175370,
+     "numbersM3": [
+      300
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 15 Recreatie - Recreatiewoning",
+     "verbatim": "uwen van recreatiewoningen gelden de volgende regels: a. per bouwvlak is maximaal één recreatiewoning toegestaan; b. de inhoud mag maximaal 300 m³ bedragen; c. de goothoogte mag maximaal 3,5 meter bedragen; d. de bouwhoogte mag maximaal 7 meter bedragen. 15.2.2 bijbehorende bouwwerken en overkappingen bij een recreatie"
+    },
+    {
+     "offset": 182417,
+     "numbersM3": [
+      300
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 16 Recreatie - Verblijfsrecreatie",
+     "verbatim": "maal 10 meter bedragen. 16.2.7 recreatiewoningen Voor het bouwen van recreatiewoningen gelden de volgende regels: a. de inhoud mag maximaal 300 m³ bedragen; b. de goothoogte mag maximaal 3,5 meter bedragen; c. de bouwhoogte mag maximaal 7 meter bedragen. 16.2.8 stacaravans en chalets Voor het bouwen van stacaravans en "
+    },
+    {
+     "offset": 182879,
+     "numbersM3": [
+      30
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 16 Recreatie - Verblijfsrecreatie",
+     "verbatim": "chalet is maximaal 3,5 meter. 16.2.9 trekkershutten Voor het bouwen van trekkershutten gelden de volgende regels: a. de inhoud mag maximaal 30 m³ bedragen; b. de bouwhoogte mag maximaal 3 meter bedragen. 16.2.10 bijbehorende bouwwerken en overkappingen bij een stacaravan Voor het bouwen van bijbehorende bouwwerken en o"
+    },
+    {
+     "offset": 191099,
+     "numbersM3": [
+      30
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 16 Recreatie - Verblijfsrecreatie",
+     "verbatim": "chalet is maximaal 3,5 meter. 17.2.7 trekkershutten Voor het bouwen van trekkershutten gelden de volgende regels: a. de inhoud mag maximaal 30 m³ bedragen; b. de bouwhoogte mag maximaal 3 meter bedragen. 17.2.8 bijbehorende bouwwerken en overkappingen bij een stacaravan Voor het bouwen van bijbehorende bouwwerken en ov"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.1621.PH0006-VAST",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan \"Biomassa\"",
+   "naamoverheid": "Gemeente Lansingerland",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-02-23",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1621.PH0006-VAST/r_NL.IMRO.1621.PH0006-VAST.html",
+   "textChars": 8009,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1658.BPseizoensarb2020-vs01",
+   "stratum": "control",
+   "naam": "Uitsluiten nieuwvestiging logies t.b.v. seizoensarbeiders en arbeidsmigranten",
+   "naamoverheid": "Gemeente Heeze-Leende",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-05-25",
+   "dossierstatus": "deels onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1658.BPseizoensarb2020-vs01/r_NL.IMRO.1658.BPseizoensarb2020-vs01.html",
+   "textChars": 8490,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1669.BPALL2022FACETBPAK-VG01",
+   "stratum": "buitengebied",
+   "naam": "Actualisatie archeologisch beleid en kwaliteitskader",
+   "naamoverheid": "Gemeente Roerdalen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-04-17",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Landschapswaarden - 1"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1669.BPALL2022FACETBPAK-VG01/r_NL.IMRO.1669.BPALL2022FACETBPAK-VG01.html",
+   "textChars": 34667,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1674.2041GROOTTOLBERG-0501",
+   "stratum": "control",
+   "naam": "Groot Tolberg",
+   "naamoverheid": "gemeente Roosendaal",
+   "typeplan": "bestemmingsplan",
+   "datum": "2011-12-28",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen - 1"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1674.2041GROOTTOLBERG-0501/r_NL.IMRO.1674.2041GROOTTOLBERG-0501_Index.html -> TOO-SMALL(1214)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1674.2041GROOTTOLBERG-0501/r_NL.IMRO.1674.2041GROOTTOLBERG-0501.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1674.2041GROOTTOLBERG-0501/pt_NL.IMRO.1674.2041GROOTTOLBERG-0501.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1674.2041GROOTTOLBERG-0501/r_NL.IMRO.1674.2041GROOTTOLBERG-0501.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.1680.AENHKRUIMELREG-VB01",
+   "stratum": "control",
+   "naam": "Facetbestemmingsplan kruimelgevallen",
+   "naamoverheid": "gemeente Aa en Hunze",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-04-04",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "natuur",
+    "recreatie",
+    "water"
+   ],
+   "bestemmingen": [
+    "Natuur",
+    "Recreatie - 4",
+    "Water"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1680.AENHKRUIMELREG-VB01/r_NL.IMRO.1680.AENHKRUIMELREG-VB01.html",
+   "textChars": 14867,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1681.15BP0003-VG01",
+   "stratum": "buitengebied",
+   "naam": "Facetbestemmingsplan Wonen met zorg",
+   "naamoverheid": "gemeente Borger-Odoorn",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-06-27",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 4,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "bestemmingen": [
+    "Agrarisch"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1681.15BP0003-VG01/r_NL.IMRO.1681.15BP0003-VG01.html",
+   "textChars": 6958,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1719.0bp23archeologie-vg01",
+   "stratum": "control",
+   "naam": "Parapluplan Archeologie Drimmelen",
+   "naamoverheid": "Gemeente Drimmelen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-04-17",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1719.0bp23archeologie-vg01/r_NL.IMRO.1719.0bp23archeologie-vg01.html",
+   "textChars": 70053,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1734.0240OOSTpeperstr-VSG1",
+   "stratum": "buitengebied",
+   "naam": "Oosterhout, Peperstraat",
+   "naamoverheid": "Gemeente Overbetuwe",
+   "typeplan": "bestemmingsplan",
+   "datum": "2021-01-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch",
+    "woongebied"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Woongebied"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1734.0240OOSTpeperstr-VSG1/r_NL.IMRO.1734.0240OOSTpeperstr-VSG1.html",
+   "textChars": 51320,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1735.BGxPaasvuren-VS10",
+   "stratum": "buitengebied",
+   "naam": "TAM-omgevingsplan gemeente Hof van Twente Hoofdstuk 22o Paasvuren",
+   "naamoverheid": "gemeente Hof van Twente",
+   "typeplan": "bestemmingsplan",
+   "datum": "2026-03-10",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 5,
+   "hoofdgroepen": [
+    "agrarisch",
+    "agrarisch met waarden",
+    "bedrijventerrein",
+    "bos",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Agrarisch met waarden",
+    "Bedrijventerrein",
+    "Bos",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1735.BGxPaasvuren-VS10/r_NL.IMRO.1735.BGxPaasvuren-VS10.html",
+   "textChars": 6563,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1740.bpNBparaplu2023-vst1",
+   "stratum": "buitengebied",
+   "naam": "Parapluplan 2023",
+   "naamoverheid": "Gemeente Neder-Betuwe",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-07-04",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "agrarisch met waarden",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Agrarisch met waarden - 1",
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1740.bpNBparaplu2023-vst1/r_NL.IMRO.1740.bpNBparaplu2023-vst1.html",
+   "textChars": 41455,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1859.BPRLO20090020-1000",
+   "stratum": "control",
+   "naam": "Ruurlo, Woongebieden 2011",
+   "naamoverheid": "gemeente Berkelland",
+   "typeplan": "bestemmingsplan",
+   "datum": "2012-04-10",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "tuin"
+   ],
+   "bestemmingen": [
+    "Tuin"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1859.BPRLO20090020-1000/r_NL.IMRO.1859.BPRLO20090020-1000_index.html -> TOO-SMALL(444)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1859.BPRLO20090020-1000/r_NL.IMRO.1859.BPRLO20090020-1000.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1859.BPRLO20090020-1000/pt_NL.IMRO.1859.BPRLO20090020-1000.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1859.BPRLO20090020-1000/r_NL.IMRO.1859.BPRLO20090020-1000.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.1876.VPL2401B-VG01",
+   "stratum": "buitengebied",
+   "naam": "Landelijk gebied;Veegplan 2024-1B",
+   "naamoverheid": "Gemeente Bronckhorst",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-04-25",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 6,
+   "hoofdgroepen": [
+    "agrarisch",
+    "agrarisch met waarden",
+    "bos"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Agrarisch met waarden - Landschap",
+    "Bos"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1876.VPL2401B-VG01/pt_NL.IMRO.1876.VPL2401B-VG01.xml",
+   "textChars": 64180,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1883.BPFacetArcheologie-VA01",
+   "stratum": "control",
+   "naam": "Facetbeheersverordening archeologie Sittard-Geleen",
+   "naamoverheid": "gemeente Sittard-Geleen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-12-13",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Verkeersgebied"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1883.BPFacetArcheologie-VA01/r_NL.IMRO.1883.BPFacetArcheologie-VA01.html",
+   "textChars": 23541,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1884.PPALGEMAFWIJKINGEN-VAS1",
+   "stratum": "buitengebied",
+   "naam": "Parapluplan algemene afwijkingen",
+   "naamoverheid": "Gemeente Kaag en Braassem",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-06-17",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden - Natuur en landschapswaarden",
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1884.PPALGEMAFWIJKINGEN-VAS1/r_NL.IMRO.1884.PPALGEMAFWIJKINGEN-VAS1.html",
+   "textChars": 30008,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 1,
+   "inhoudNumbersM3": [
+    750
+   ],
+   "anyWonenContext": true,
+   "anyAgrarischContext": false,
+   "hits": [
+    {
+     "offset": 18966,
+     "numbersM3": [
+      750
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 5 Algemene",
+     "verbatim": " worden gerealiseerd aan of bij: een bestaande of nieuwe woning of; een ander reeds gerealiseerd hoofdgebouw; de totale inhoud van de woning en vergunde bijbehorende bouwwerken bedraagt tezamen niet meer dan 750 m³; indien een bijbehorend bouwwerk in het voorerfgebied wordt gerealiseerd: bedraagt de diepte van een aanb"
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.1894.BPL0176-VG01",
+   "stratum": "buitengebied",
+   "naam": "Parapluplan Parkeernota Peel en Maas",
+   "naamoverheid": "gemeente Peel en Maas",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-06-19",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "verkeer"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1894.BPL0176-VG01/r_NL.IMRO.1894.BPL0176-VG01.html",
+   "textChars": 7445,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1900.2016BPbuitengebied-VA02",
+   "stratum": "buitengebied",
+   "naam": "Bestemmingsplan Buitengebied Súdwest-Fryslân",
+   "naamoverheid": "gemeente Súdwest Fryslân",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-12-18",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Natuur - IJsselmeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1900.2016BPbuitengebied-VA02/r_NL.IMRO.1900.2016BPbuitengebied-VA02.html",
+   "textChars": 267820,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 11,
+   "inhoudNumbersM3": [
+    50,
+    100
+   ],
+   "anyWonenContext": false,
+   "anyAgrarischContext": true,
+   "hits": [
+    {
+     "offset": 42448,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 3 Agrarisch",
+     "verbatim": "behoeve van openbare nutsvoorzieningen en voorzieningen ten behoeve van de waterhuishouding geldt de volgende regel: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van bouwwerken, geen gebouwen zijnde, gelden de volgende regels: de bouwhoogte van bouwwerken, geen gebouwen zijnde, uitsluitend bin"
+    },
+    {
+     "offset": 84084,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 5 Agrarisch - Paardenhouderij",
+     "verbatim": "behoeve van openbare nutsvoorzieningen en voorzieningen ten behoeve van de waterhuishouding geldt de volgende regel: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van bouwwerken, geen gebouwen zijnde, gelden de volgende regels: de bouwhoogte van terrein- en erfafscheidingen mag niet meer dan 2 "
+    },
+    {
+     "offset": 92316,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 6 Bedrijf",
+     "verbatim": "behoeve van openbare nutsvoorzieningen en voorzieningen ten behoeve van de waterhuishouding geldt de volgende regel: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van bouwwerken, geen gebouwen zijnde, gelden de volgende regels: de bouwhoogte van terrein- en erfafscheidingen mag niet meer dan 2 "
+    },
+    {
+     "offset": 98640,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 7 Bedrijf- Loonbedrijf",
+     "verbatim": "behoeve van openbare nutsvoorzieningen en voorzieningen ten behoeve van de waterhuishouding geldt de volgende regel: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van bouwwerken, geen gebouwen zijnde, gelden de volgende regels: de bouwhoogte van terrein- en erfafscheidingen mag niet meer dan 2 "
+    },
+    {
+     "offset": 119089,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 13 Groen",
+     "verbatim": "orzieningen en voorzieningen ten behoeve van de waterhuishouding worden gebouwd, hiervoor gelden de volgende regels: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van bouwwerken, geen gebouwen zijnde, gelden de volgende regels: de bouwhoogte van bouwwerken, geen gebouwen zijnde, voor de geleidi"
+    },
+    {
+     "offset": 164367,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 24 Sport",
+     "verbatim": "behoeve van openbare nutsvoorzieningen en voorzieningen ten behoeve van de waterhuishouding geldt de volgende regel: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van bouwwerken, geen gebouwen zijnde, gelden de volgende regels: de bouwhoogte van terrein- en erfafscheidingen mag niet meer dan 2 "
+    },
+    {
+     "offset": 168848,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 25 Sport - Manege",
+     "verbatim": "behoeve van openbare nutsvoorzieningen en voorzieningen ten behoeve van de waterhuishouding geldt de volgende regel: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van bouwwerken, geen gebouwen zijnde, gelden de volgende regels: de bouwhoogte van terrein- en erfafscheidingen mag niet meer dan 2 "
+    },
+    {
+     "offset": 176147,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 27 Verkeer - Wegverkeer",
+     "verbatim": "orzieningen en voorzieningen ten behoeve van de waterhuishouding worden gebouwd, hiervoor gelden de volgende regels: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van bouwwerken, geen gebouwen zijnde, gelden de volgende regels: de bouwhoogte van bouwwerken, geen gebouwen zijnde, ten behoeve van"
+    },
+    {
+     "offset": 180158,
+     "numbersM3": [
+      50
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 28 Water",
+     "verbatim": "orzieningen en voorzieningen ten behoeve van de waterhuishouding worden gebouwd, hiervoor gelden de volgende regels: de inhoud per gebouw mag niet meer dan 50 m³ bedragen. Voor het bouwen van gebouwen en bouwwerken, geen gebouwen zijnde, ten behoeve van de woonschepen ter plaatse van de aanduiding &quot;woonschepenligp"
+    },
+    {
+     "offset": 263427,
+     "numbersM3": [
+      100
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 43 Algemene",
+     "verbatim": "jes, en naar de aard daarmee gelijk te stellen gebouwtjes en bouwwerken, geen gebouwen zijnde, worden gebouwd, mits: de inhoud per gebouwtje niet meer dan 100 m³ bedraagt; de bouwhoogte van bouwwerken, geen gebouwen zijnde, niet meer dan 15 m bedraagt; met dien verstande dat er geen windturbines mogen worden gebouwd; m"
+    },
+    {
+     "offset": 264268,
+     "numbersM3": [
+      100
+     ],
+     "maximalPhrasing": true,
+     "articleContext": "Artikel 44 Algemene",
+     "verbatim": "d daarmee gelijk te stellen gebouwen en bouwwerken, geen gebouwen zijnde, van openbaar nut mogen worden gebouwd tot een inhoud van ten hoogste 100 m³ en een bouwhoogte van ten hoogste 15 m; in die zin dat de in het plan opgenomen verwijzing naar wetten, verordeningen, circulaires, publicaties, instanties en dergelijke "
+    }
+   ]
+  },
+  {
+   "planId": "NL.IMRO.1901.BPpluWonen-BP80",
+   "stratum": "buitengebied",
+   "naam": "Paraplubestemmingsplan Wonen",
+   "naamoverheid": "gemeente Bodegraven-Reeuwijk",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-10-16",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "agrarisch met waarden",
+    "maatschappelijk",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Agrarisch - Sierteelt",
+    "Agrarisch met waarden",
+    "Maatschappelijk - Begraafplaats",
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1901.BPpluWonen-BP80/r_NL.IMRO.1901.BPpluWonen-BP80.html",
+   "textChars": 14314,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1904.BPArcheologieSV-VG01",
+   "stratum": "buitengebied",
+   "naam": "Parapluplan Archeologie",
+   "naamoverheid": "Gemeente Stichtse Vecht",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-12-16",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "water"
+   ],
+   "bestemmingen": [
+    "Agrarisch met waarden",
+    "Agrarisch met waarden - Landschapswaarden",
+    "Water - Natuur en Landschapswaarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1904.BPArcheologieSV-VG01/r_NL.IMRO.1904.BPArcheologieSV-VG01.html",
+   "textChars": 46136,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1911.BPfacetpw-va01",
+   "stratum": "control",
+   "naam": "Bestemmingsplan Parkeren en Wonen",
+   "naamoverheid": "gemeente Hollands Kroon",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-10-04",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [],
+   "bestemmingen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1911.BPfacetpw-va01/r_NL.IMRO.1911.BPfacetpw-va01.html",
+   "textChars": 8616,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1926.bp000220141-4001",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan Archeologie",
+   "naamoverheid": "Gemeente Pijnacker-Nootdorp",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-10-12",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "water",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Water",
+    "Wonen - 1"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1926.bp000220141-4001/r_NL.IMRO.1926.bp000220141-4001.html",
+   "textChars": 25709,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1940.BPLEM22FRLPARKBREK-VA01",
+   "stratum": "control",
+   "naam": "Lemmer - Frieslandpark Brekkenweg",
+   "naamoverheid": "Gemeente De Fryske Marren",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-05-08",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen - 2"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1940.BPLEM22FRLPARKBREK-VA01/r_NL.IMRO.1940.BPLEM22FRLPARKBREK-VA01.html",
+   "textChars": 82419,
+   "bebouwingspercentageDefinition": ": een in het bouwvlak of in de regels aangegeven percentage, dat de grootte van het deel van een terrein aangeeft dat maximaal mag worden bebouwd;",
+   "bebouwingspercentageDenominatorClasses": [
+    "bouwvlak"
+   ],
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1950.TO2507-vs01",
+   "stratum": "buitengebied",
+   "naam": "TAM-omgevingsplan Westerwolde, pré-mantelzorg en update woningsplitsing",
+   "naamoverheid": "Gemeente Westerwolde",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-10-15",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 5,
+   "hoofdgroepen": [
+    "agrarisch",
+    "verkeer",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Agrarisch - 1",
+    "Verkeer",
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1950.TO2507-vs01/r_NL.IMRO.1950.TO2507-vs01.html",
+   "textChars": 11724,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1954.TAMCASINOAMUSEM-VA01",
+   "stratum": "control",
+   "naam": "TAM-omgevingsplan casino's en amusementshallen",
+   "naamoverheid": "Gemeente Beekdaelen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-12-16",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "natuur"
+   ],
+   "bestemmingen": [
+    "Natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1954.TAMCASINOAMUSEM-VA01/r_NL.IMRO.1954.TAMCASINOAMUSEM-VA01.html",
+   "textChars": 7955,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1959.AltBP159Pluoorlogr-VG01",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan Ontplofbare Oorlogsresten",
+   "naamoverheid": "gemeente Altena",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-03-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1959.AltBP159Pluoorlogr-VG01/r_NL.IMRO.1959.AltBP159Pluoorlogr-VG01.html",
+   "textChars": 11814,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1978.BPwoonvormenMLLN-VA01",
+   "stratum": "buitengebied",
+   "naam": "Paraplubestemmingsplan Huisvesting Arbeidsmigranten",
+   "naamoverheid": "Gemeente Molenlanden",
+   "typeplan": "bestemmingsplan",
+   "datum": "2021-10-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 6,
+   "hoofdgroepen": [
+    "agrarisch",
+    "agrarisch met waarden",
+    "natuur",
+    "overig",
+    "tuin"
+   ],
+   "bestemmingen": [
+    "Agrarisch",
+    "Agrarisch met waarden",
+    "Bouwen van een bodemgevoelig gebouw",
+    "Bouwen van een grondwatergevoelig gebouw",
+    "Graven in de bodem",
+    "Historische bodemverontreiniging zonder onaanvaardbaar risico",
+    "Natuur",
+    "Nazorg",
+    "Opslaan van grond en baggerspecie",
+    "Saneren van de bodem",
+    "Toepassen van bouwstoffen",
+    "Toepassen van grond of baggerspecie",
+    "Tuin"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1978.BPwoonvormenMLLN-VA01/r_NL.IMRO.1978.BPwoonvormenMLLN-VA01.html",
+   "textChars": 5361,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  },
+  {
+   "planId": "NL.IMRO.1980.BPDATACENTERS-VA01",
+   "stratum": "control",
+   "naam": "Paraplubestemmingsplan Datacenters Dijk en Waard",
+   "naamoverheid": "gemeente Dijk en Waard",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-04-23",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "verkeer",
+    "wonen"
+   ],
+   "bestemmingen": [
+    "Verkeer - 1",
+    "Wonen",
+    "Wonen - Uit te werken"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1980.BPDATACENTERS-VA01/pt_NL.IMRO.1980.BPDATACENTERS-VA01.xml",
+   "textChars": 32733,
+   "bebouwingspercentageDefinition": null,
+   "bebouwingspercentageDenominatorClasses": null,
+   "inhoudCubicRuleCount": 0,
+   "inhoudNumbersM3": [],
+   "anyWonenContext": false,
+   "anyAgrarischContext": false,
+   "hits": []
+  }
+ ]
+}
