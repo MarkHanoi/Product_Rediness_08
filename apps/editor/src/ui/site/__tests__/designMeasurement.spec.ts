@@ -260,3 +260,116 @@ describe('L-456 collectAuthoredModelSnapshot — reading the live stores', () =>
         expect(m.design.floors).toBe(1);   // the wall still proves a storey was designed
     });
 });
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// §RESI-ORCH-PERLEVEL (STR §13/§14, lane RESI-ORCH 2026-09-04) — the per-storey carrier.
+//
+// ⭐ WHAT THESE ARMS ARE FOR. The plan recorded §13's gap as *"per-level GFA is computed but only
+// the TOTAL crosses into the model that reaches the panel"*. The measurement was never missing —
+// the carrier was. So the arms here are not about arithmetic (the total arms above already pin
+// that); they are about the two ways a carrier can lie:
+//
+//   1. BY OMISSION — a storey that cannot be measured silently disappearing from the list, so a
+//      user reads five storeys where six exist. Every DESIGNED storey gets a row, always.
+//   2. BY SUBSTITUTION — a storey with no measurable plate carrying 0 m² instead of a refusal.
+//      `designMeasurement` measures `null` rather than `0` at the top level for exactly this
+//      reason ("0 m² against a 500 m² ceiling would render as a PASS on a project with no
+//      building in it"); a per-storey figure that reverts to 0 undoes it one level down.
+//
+// ⭐ AND THE ARM THAT MAKES THE FEATURE WORTH HAVING: a total that refuses wholesale on one bad
+// storey tells the user nothing about WHICH. Per storey, the offending one names itself.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('§RESI-ORCH-PERLEVEL — built area, storey by storey', () => {
+    it('carries one row per DESIGNED storey, lowest first, with the real plate areas', () => {
+        const m = measureAuthoredDesign(house());
+        expect(m.perLevel).toHaveLength(2);
+        expect(m.perLevel[0]!.levelId).toBe('L0');
+        expect(m.perLevel[1]!.levelId).toBe('L1');
+        expect(m.perLevel[0]!.grossAreaM2).toBeCloseTo(80, 6);
+        expect(m.perLevel[1]!.grossAreaM2).toBeCloseTo(60, 6);
+        expect(m.perLevel.every((r) => r.unmeasured === null)).toBe(true);
+    });
+
+    it('agrees with the total it was summed from — one measurement, two granularities', () => {
+        const m = measureAuthoredDesign(house());
+        const sum = m.perLevel.reduce((acc, r) => acc + (r.grossAreaM2 ?? 0), 0);
+        expect(sum).toBeCloseTo(m.design.grossFloorAreaM2!, 6);
+    });
+
+    it('carries the storey NAME and ELEVATION, and never invents a name', () => {
+        const s = house();
+        const anon: AuthoredModelSnapshot = {
+            ...s,
+            levels: [s.levels[0]!, { id: 'L1', name: null, elevation: 3, height: 3 }],
+        };
+        const m = measureAuthoredDesign(anon);
+        expect(m.perLevel[0]!.name).toBe('Ground');
+        // ⛔ null, not "Level 1" / "Storey 2" — a name PRYZM made up is indistinguishable from one
+        // the model carries, and the user would look for it in the level list and not find it.
+        expect(m.perLevel[1]!.name).toBeNull();
+        expect(m.perLevel[1]!.elevation).toBe(3);
+    });
+
+    it('is EMPTY, never a zero row, on a project with nothing authored', () => {
+        const m = measureAuthoredDesign(EMPTY);
+        expect(m.perLevel).toEqual([]);
+        expect(m.design.grossFloorAreaM2).toBeNull();
+    });
+
+    it('gives a storey with no floor plate a stated REASON, never 0 m²', () => {
+        const s = house();
+        // A storey with walls but no slab — the common half-authored state.
+        const noSlabUpstairs: AuthoredModelSnapshot = {
+            ...s,
+            floorPlates: [s.floorPlates[0]!],
+        };
+        const m = measureAuthoredDesign(noSlabUpstairs);
+        const upper = m.perLevel.find((r) => r.levelId === 'L1')!;
+        expect(upper.grossAreaM2).toBeNull();
+        expect(upper.grossAreaM2).not.toBe(0);
+        expect(upper.unmeasured).toBe('no-floor-plates');
+        // …and the storey that IS measurable still reports. This is the whole point.
+        expect(m.perLevel.find((r) => r.levelId === 'L0')!.grossAreaM2).toBeCloseTo(80, 6);
+    });
+
+    it('LOCALISES an overlap refusal to the storey that has it — the total cannot', () => {
+        const s = house();
+        const overlapping: AuthoredModelSnapshot = {
+            ...s,
+            floorPlates: [
+                s.floorPlates[0]!,
+                { levelId: 'L1', ring: rect(0, 0, 10, 6), holes: [] },
+                { levelId: 'L1', ring: rect(2, 2, 8, 5), holes: [] }, // sits inside the first
+            ],
+        };
+        const m = measureAuthoredDesign(overlapping);
+        // The TOTAL refuses wholesale — correct, and uninformative on its own.
+        expect(m.design.grossFloorAreaM2).toBeNull();
+        expect(m.unmeasured.grossFloorAreaM2).toBe('overlapping-floor-plates');
+        // Per storey, the culprit names itself and the innocent storey still reports.
+        const upper = m.perLevel.find((r) => r.levelId === 'L1')!;
+        expect(upper.unmeasured).toBe('overlapping-floor-plates');
+        expect(upper.grossAreaM2).toBeNull();
+        expect(m.perLevel.find((r) => r.levelId === 'L0')!.grossAreaM2).toBeCloseTo(80, 6);
+    });
+
+    it('never drops a designed storey from the list, whatever went wrong on it', () => {
+        const s = house();
+        const broken: AuthoredModelSnapshot = { ...s, floorPlates: [] };
+        const m = measureAuthoredDesign(broken);
+        // Both storeys are still enumerated — omission would understate the building.
+        expect(m.perLevel.map((r) => r.levelId)).toEqual(['L0', 'L1']);
+        expect(m.perLevel.every((r) => r.grossAreaM2 === null)).toBe(true);
+    });
+
+    it('excludes a storey the user created but never built on', () => {
+        const s = house();
+        const withEmptyLevel: AuthoredModelSnapshot = {
+            ...s,
+            levels: [...s.levels, { id: 'L2', name: 'Roof', elevation: 6, height: 3 }],
+        };
+        const m = measureAuthoredDesign(withEmptyLevel);
+        expect(m.perLevel.map((r) => r.levelId)).toEqual(['L0', 'L1']);
+    });
+});

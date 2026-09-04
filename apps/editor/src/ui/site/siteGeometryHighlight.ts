@@ -293,6 +293,10 @@ export type SiteHighlightRole =
     | 'parcel-fill'
     | 'envelope-volume'
     | 'study-volume'
+    // §RESI-ORCH-TARGET-AREA (STR §5) — the user's proposed ground-floor plate. Its own role,
+    // because it is the one thing on the ground that PRYZM did not derive from anything: it is
+    // what the USER asked for, fitted inside the permitted footprint.
+    | 'proposal'
     | 'cue';
 
 /** `subject` renders at its AUTHORED weight; `recede` renders weaker. Never stronger. */
@@ -359,6 +363,11 @@ export function siteHighlightEmphasis(
     role: SiteHighlightRole,
 ): SiteHighlightEmphasis {
     if (role === 'cue') return 'subject';
+    // ⛔ A PROPOSAL IS NEVER THE SUBJECT OF ONE OF THESE SIX NUMBERS. Every one of them is a fact
+    // about the PARCEL or the ORDINANCE — none of them describes what the user asked for. Lighting
+    // the user's own plate when they click "Max footprint" would answer a question about the law
+    // with a picture of a wish.
+    if (role === 'proposal') return 'recede';
     switch (subject) {
         case 'parcel':
             return role === 'parcel-fill' || role === 'parcel-line' ? 'subject' : 'recede';

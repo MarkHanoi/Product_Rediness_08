@@ -180,6 +180,7 @@ describe('§RESI-ORCH-HIGHLIGHT — the emphasis rule: emphasis may never streng
         'parcel-fill',
         'envelope-volume',
         'study-volume',
+        'proposal',
         'cue',
     ];
 
@@ -225,6 +226,15 @@ describe('§RESI-ORCH-HIGHLIGHT — the emphasis rule: emphasis may never streng
             for (const r of ROLES.filter((x) => x !== 'cue')) {
                 expect(siteHighlightEmphasis(s, r), `${s}/${r}`).toBe('recede');
             }
+        }
+    });
+
+    it('never lets the USER PROPOSAL answer a question about the parcel or the law', () => {
+        // §RESI-ORCH-TARGET-AREA — all six subjects are facts about the parcel or the ordinance.
+        // None of them describes what the user asked for, so lighting the user's own plate when
+        // they click "Max footprint" would answer a question about the law with a picture of a wish.
+        for (const s of SITE_HIGHLIGHT_SUBJECTS) {
+            expect(siteHighlightEmphasis(s, 'proposal'), s).toBe('recede');
         }
     });
 

@@ -236,6 +236,9 @@ import { collectAuthoredModelSnapshot, measureAuthoredDesign } from '../site/des
 import {
     buildDesignedVsPermittedFold,
     buildHowMeasuredFold,
+    // §RESI-ORCH-PERLEVEL (STR §13/§14) — the per-storey built-area fold. The plates were already
+    // summed storey by storey inside `measureAuthoredDesign`; only the TOTAL used to survive.
+    buildPerLevelBuiltAreaFold,
     // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the REDUCED card's notice AND its
     // escape hatch. The reduced card was honest and unactionable; this carries the route out.
     buildLegacyDeterminationNoticeHtml,
@@ -293,6 +296,22 @@ import {
     SITE_HIGHLIGHT_ATTR,
     type SiteHighlightSubject,
 } from '../site/siteGeometryHighlight';
+// §RESI-ORCH-TARGET-AREA (STR §5, lane RESI-ORCH 2026-09-04) — *"I want ~120 m² on the ground
+// floor."* The solver is pure and lives next door; this file owns only the control, the wire and
+// the statement it renders. See `targetFootprintAreaSolver.ts` for why this is a PROPOSAL inside a
+// determination rather than a rival envelope, and why it never touches `BuildableEnvelope`.
+import { solveTargetFootprintArea } from '../site/targetFootprintAreaSolver';
+import {
+    resolveLiveTargetFootprintProposal,
+    setTargetFootprintProposal,
+    clearTargetFootprintProposal,
+} from '../site/targetFootprintAreaState';
+import {
+    buildTargetAreaEntryHtml,
+    TARGET_AREA_INPUT_TESTID,
+    TARGET_AREA_SOLVE_BTN_TESTID,
+    TARGET_AREA_CLEAR_BTN_TESTID,
+} from '../site/envelopeCardSections';
 
 /**
  * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
@@ -2706,6 +2725,82 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
+     * §RESI-ORCH-TARGET-AREA (STR §5) — the LAST ANSWER, so a re-render does not blank the user's
+     * entry or, worse, drop a refusal they have not read yet.
+     *
+     * ⛔ THE REFUSAL FLAG IS CARRIED, NOT DERIVED FROM THE PROSE. Sniffing "did this fail?" out of
+     * a sentence is how a refusal comes to render in the success colour — the solver already
+     * decided, and its `ok` is the only thing entitled to answer.
+     *
+     * Not persisted, and not in a store: this is the transcript of one conversation with the card.
+     * The PROPOSAL itself (the geometry) lives in `targetFootprintAreaState`, which the scene
+     * subscribes to; these three are only what the panel needs to redraw its own text.
+     */
+    let targetAreaStatement: string | null = null;
+    let targetAreaRefused = false;
+    let targetAreaTyped: number | null = null;
+
+    /**
+     * §RESI-ORCH-TARGET-AREA (STR §5) — the entry's two buttons.
+     *
+     * ⭐ THE WHOLE FEATURE IS THE REFUSAL, so read that branch first. A target larger than the
+     * permitted footprint does NOT get quietly clipped to what fits: the solver refuses with BOTH
+     * numbers and the difference between them, and the plate on the ground is REMOVED rather than
+     * left showing a previous answer next to a fresh "no". Leaving stale geometry beside a refusal
+     * is how a user comes to believe the refusal was advisory.
+     *
+     * `stopPropagation` because the card header is a drag handle.
+     */
+    const wireTargetAreaEntry = (panel: HTMLDivElement): void => {
+        const input = panel.querySelector(
+            `[data-testid="${TARGET_AREA_INPUT_TESTID}"]`,
+        ) as HTMLInputElement | null;
+        const solveBtn = panel.querySelector(
+            `[data-testid="${TARGET_AREA_SOLVE_BTN_TESTID}"]`,
+        ) as HTMLButtonElement | null;
+        const clearBtn = panel.querySelector(
+            `[data-testid="${TARGET_AREA_CLEAR_BTN_TESTID}"]`,
+        ) as HTMLButtonElement | null;
+        if (clearBtn) {
+            clearBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                clearTargetFootprintProposal();
+                targetAreaStatement = null;
+                targetAreaRefused = false;
+                targetAreaTyped = null;
+                refreshEnvelopePanel();
+            };
+        }
+        if (!input || !solveBtn) return;
+        const solve = (ev: Event): void => {
+            ev.stopPropagation();
+            const env = getLastBuildableEnvelope();
+            const figures = env ? permittedStudyFigures(env) : null;
+            const raw = input.value.trim();
+            const result = solveTargetFootprintArea({
+                permittedRing: env?.insetPolygon ?? [],
+                // The card's ONE producer of this number, so a refusal cannot cite a figure that
+                // differs from the "Buildable footprint" row above it (C06 §13.3).
+                permittedAreaM2: figures?.footprintM2 ?? 0,
+                targetAreaM2: raw === '' ? null : Number(raw),
+            });
+            targetAreaTyped = raw === '' ? null : Number(raw);
+            targetAreaStatement = result.statement;
+            targetAreaRefused = !result.ok;
+            // ⛔ A REFUSAL WITHDRAWS THE GEOMETRY. Never leave the previous plate on the ground
+            // beside a fresh "no" — the picture would keep asserting what the words just denied.
+            setTargetFootprintProposal(result.ok ? result : null);
+            refreshEnvelopePanel();
+        };
+        solveBtn.onclick = solve;
+        // Enter in the field does what the button does — this is a one-field question, and making
+        // a user reach for the mouse to ask it is friction with no purpose.
+        input.onkeydown = (ev) => {
+            if ((ev as KeyboardEvent).key === 'Enter') solve(ev);
+        };
+    };
+
+    /**
      * §RESI-ORCH-COST (2026-09-03) — the two selects on the indicative-cost fold.
      *
      * A no-op when the fold is not on this render (it is built only on the full-determination
@@ -3387,6 +3482,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // §GIS-ENVELOPE-FULL-SECTIONS (L-1650 root cause 2) — "How these were measured" is a
         // first-class fold with arms for the states the old `caveats.length > 0` gate could
         // never reach: nothing-authored, authored-but-unmeasurable, and measure-failed.
+        const safePerLevelSection = buildPerLevelBuiltAreaFold(
+            capacityJoin.measurement, { joinFailed: capacityJoin.joinFailed });
         const safeMeasuredSection = buildHowMeasuredFold(
             capacityJoin.measurement, { joinFailed: capacityJoin.joinFailed });
 
@@ -3846,6 +3943,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 return '';
             }
         })();
+        // ── §RESI-ORCH-TARGET-AREA (STR §5) — the target GROUND-FLOOR AREA entry. ──
+        //
+        // Only on THIS arm (a full determination), never on the refusal card: §5's ask is
+        // *"refuse with BOTH numbers when it exceeds the permitted footprint"*, and a card with no
+        // permitted footprint has only one number to state. The height entry above is the mirror
+        // image — it lives on the refusal card because a typed height stands in for a measurement
+        // that is missing.
+        //
+        // ⚠ THE STALENESS GATE IS ASKED HERE, NOT `getTargetFootprintProposal`. A plate solved
+        // inside a 92 m² footprint is not a proposal about a re-solved 61 m² one; see
+        // `resolveLiveTargetFootprintProposal`. Both this card and the scene ask the same gate, so
+        // they cannot disagree about whether the plate is still live.
+        const safeTargetAreaSection = ((): string => {
+            try {
+                const figures = permittedStudyFigures(env);
+                const live = resolveLiveTargetFootprintProposal(figures.footprintM2);
+                if (live === null && !targetAreaRefused) {
+                    // The gate dropped a stale plate — drop the sentence that described it too,
+                    // or the card would narrate geometry that is no longer on the ground.
+                    if (targetAreaStatement !== null && !targetAreaRefused) targetAreaStatement = null;
+                }
+                return buildTargetAreaEntryHtml(
+                    figures.footprintM2 > 0 ? figures.footprintM2 : null,
+                    targetAreaStatement,
+                    targetAreaRefused,
+                    targetAreaTyped,
+                );
+            } catch (err) {
+                console.warn('[gis][envelope-card] target-area entry failed (non-fatal):', err);
+                return '';
+            }
+        })();
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
         // §UX1-PROSE-ALTITUDE — the three prose bodies on this card are collapsed behind
@@ -3882,7 +4011,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              </div>
              ${safeCapacitySection}
              ${safeMeasuredSection}
+             ${safePerLevelSection}
              ${safeSiteDataBlock}
+             ${safeTargetAreaSection}
              ${safeCostSection}
              ${safeWhyBlock}
              ${safeEnvToggle}`;
@@ -3890,6 +4021,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         wireEnvelopeClose(panel);
         wireEnvelopeCostSelects(panel);
         wireSiteHighlightRows(panel);
+        wireTargetAreaEntry(panel);
         // §OLDPROJ168 — the FULL-card arm. Same reasoning as the refusal arm above: whenever the
         // card is showing a HYDRATED (stored, dated) determination rather than a live one, the
         // "Re-check this parcel" route must be live. Guarded on `hydratedAtIso` so a freshly

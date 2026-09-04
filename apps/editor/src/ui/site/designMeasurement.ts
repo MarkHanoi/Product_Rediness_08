@@ -148,6 +148,38 @@ export const UNMEASURED_REASON_TEXT: Readonly<Record<UnmeasuredReason, string>> 
     'nothing-above-datum': 'Nothing is authored above the project datum.',
 };
 
+/**
+ * §RESI-ORCH-PERLEVEL (STR §13/§14, lane RESI-ORCH 2026-09-04) — ONE designed storey's built area.
+ *
+ * ⭐ WHY THIS TYPE EXISTS. `measureAuthoredDesign` has ALWAYS summed the real floor plates storey
+ * by storey — the loop is right there — and then discarded every intermediate, so only the TOTAL
+ * ever crossed into the model the panel reads. The plan recorded that as *"per-level GFA is
+ * computed but only the total crosses into the model that reaches the panel"*, and it was exactly
+ * right: the measurement was not missing, the CARRIER was.
+ *
+ * ⛔ EVERY STOREY GETS ITS OWN VERDICT, AND THAT IS STRICTLY MORE HONEST THAN THE TOTAL.
+ * The total refuses wholesale on the FIRST storey whose plates overlap — correct for a total, but
+ * it leaves the user with "PRYZM will not report a built area" and no way to know WHICH storey is
+ * the problem. Per storey, the offending one names itself and the others still report. A refusal
+ * that localises itself is the §18 explain-why requirement applied to a measurement.
+ *
+ * ⛔ `grossAreaM2: null` IS NEVER 0. Same rule as the top-level measurement (`designMeasurement.ts`
+ * measures `null`, not `0`, on an empty project): a 0 m² storey against a ceiling would render as
+ * a pass on a storey nobody has built.
+ */
+export interface AuthoredLevelBuiltArea {
+    readonly levelId: string;
+    /** The level record's own name, or null — never invented, never "Level 3" by index. */
+    readonly name: string | null;
+    readonly elevation: number;
+    /** Summed real plate area for this storey (m²), or `null` with `unmeasured` set. */
+    readonly grossAreaM2: number | null;
+    /** `null` means this storey WAS measured. */
+    readonly unmeasured: UnmeasuredReason | null;
+    /** How many plates ≥ the minimum area were summed. 0 whenever `unmeasured` is set. */
+    readonly plateCount: number;
+}
+
 export interface DesignMeasurement {
     /** Exactly the shape `buildCapacityComparison` consumes. Nulls are honest, not defaults. */
     readonly design: MeasuredDesign;
@@ -157,6 +189,17 @@ export interface DesignMeasurement {
     readonly caveats: readonly string[];
     /** Storeys that carry authored elements — the basis of every per-level figure above. */
     readonly designedStoreyCount: number;
+    /**
+     * §RESI-ORCH-PERLEVEL — one entry per DESIGNED storey, lowest first. Empty exactly when
+     * `designedStoreyCount` is 0.
+     *
+     * ⚠ THE ENTRIES DO NOT NECESSARILY SUM TO `design.grossFloorAreaM2`, and that is not a bug to
+     * be "fixed" by reconciling them. When a plate is UNATTRIBUTED the total refuses while the
+     * attributed storeys still measure; when one storey's plates overlap that storey refuses while
+     * the others still measure. Forcing agreement would mean either inventing a figure for the
+     * refusing case or suppressing the honest ones. The renderer says which case it is in words.
+     */
+    readonly perLevel: readonly AuthoredLevelBuiltArea[];
 }
 
 const NOTHING_MEASURED: MeasuredDesign = {
@@ -435,14 +478,14 @@ export function measureAuthoredDesign(snapshot: AuthoredModelSnapshot): DesignMe
                 snapshot.elementLevelIds.length === 0 ? 'no-authored-model' : 'no-levels';
             for (const k of Object.keys(unmeasured) as (keyof MeasuredDesign)[]) unmeasured[k] = reason;
             span.setAttribute('pryzm.design.measured', false);
-            return { design: NOTHING_MEASURED, unmeasured, caveats, designedStoreyCount: 0 };
+            return { design: NOTHING_MEASURED, unmeasured, caveats, designedStoreyCount: 0, perLevel: [] };
         }
         if (designedLevels.length === 0) {
             const reason: UnmeasuredReason =
                 snapshot.elementLevelIds.length === 0 ? 'no-authored-model' : 'no-designed-storey';
             for (const k of Object.keys(unmeasured) as (keyof MeasuredDesign)[]) unmeasured[k] = reason;
             span.setAttribute('pryzm.design.measured', false);
-            return { design: NOTHING_MEASURED, unmeasured, caveats, designedStoreyCount: 0 };
+            return { design: NOTHING_MEASURED, unmeasured, caveats, designedStoreyCount: 0, perLevel: [] };
         }
 
         // ── PLANTAS — real storeys, counted from level records that carry authored elements.
@@ -494,6 +537,43 @@ export function measureAuthoredDesign(snapshot: AuthoredModelSnapshot): DesignMe
             }
         }
 
+        // ── §RESI-ORCH-PERLEVEL (STR §13/§14) — the per-storey figures, from the SAME grouping
+        //    the total above was summed from. ⛔ NOT a second measurement pass: re-deriving the
+        //    per-storey plates here would create a second answer to "what is on storey 2", and the
+        //    one that renders would win silently. Same map, same `sumPlates`, same refusal codes.
+        const perLevel: AuthoredLevelBuiltArea[] = designedLevels.map((l) => {
+            const plates = platesByLevel.get(l.id) ?? [];
+            if (plates.length === 0) {
+                return {
+                    levelId: l.id,
+                    name: l.name,
+                    elevation: l.elevation,
+                    grossAreaM2: null,
+                    unmeasured: 'no-floor-plates' as UnmeasuredReason,
+                    plateCount: 0,
+                };
+            }
+            const sum = sumPlates(plates);
+            if ('refusal' in sum) {
+                return {
+                    levelId: l.id,
+                    name: l.name,
+                    elevation: l.elevation,
+                    grossAreaM2: null,
+                    unmeasured: sum.refusal,
+                    plateCount: 0,
+                };
+            }
+            return {
+                levelId: l.id,
+                name: l.name,
+                elevation: l.elevation,
+                grossAreaM2: sum.areaM2,
+                unmeasured: null,
+                plateCount: plates.length,
+            };
+        });
+
         // ── OCUPACIÓN — the ground storey's real plate. The ground storey is the lowest designed
         //    storey at or above the project datum; a basement is not the footprint on the plot.
         let footprintM2: number | null = null;
@@ -538,6 +618,7 @@ export function measureAuthoredDesign(snapshot: AuthoredModelSnapshot): DesignMe
             unmeasured,
             caveats,
             designedStoreyCount: floors,
+            perLevel,
         };
     } finally {
         span.end();

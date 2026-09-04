@@ -134,6 +134,14 @@ import {
     determineParcelEdgeClassifications,
     FRONT_EDGE,
 } from './parcelEdgeClassificationDetermination';
+// §RESI-ORCH-TARGET-AREA (STR §5, lane RESI-ORCH 2026-09-04) — the user's proposed ground-floor
+// plate. The card solves it; this renderer puts it on the ground. Asked through the STALENESS GATE
+// (`resolveLiveTargetFootprintProposal`), never `getTargetFootprintProposal`, so the scene and the
+// card cannot disagree about whether the plate still describes the current permitted footprint.
+import {
+    resolveLiveTargetFootprintProposal,
+    subscribeTargetFootprintProposal,
+} from './targetFootprintAreaState';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
@@ -176,6 +184,25 @@ const STUDY_DASH_GAP_M = 0.4;
 interface XZPoint {
     readonly x: number;
     readonly z: number;
+}
+
+/**
+ * Shoelace area (m²) of a scene-XZ ring, sign-independent.
+ *
+ * ⚠ USED FOR EXACTLY ONE THING: the §RESI-ORCH-TARGET-AREA staleness read, and only as the FALLBACK
+ * when `insetAreaM2` is absent — the envelope's own field is preferred so this renderer and the
+ * card compare the same number. It is deliberately NOT a general measurement helper: the card's
+ * `permittedStudyFigures` is the ONE producer of the footprint figure the user sees (C06 §13.3).
+ */
+function ringAreaM2XZ(ring: ReadonlyArray<XZPoint>): number {
+    if (ring.length < 3) return 0;
+    let twice = 0;
+    for (let i = 0; i < ring.length; i++) {
+        const a = ring[i]!;
+        const b = ring[(i + 1) % ring.length]!;
+        twice += a.x * b.z - b.x * a.z;
+    }
+    return Math.abs(twice) / 2;
 }
 
 /**
@@ -230,6 +257,11 @@ export class ParcelBoundarySceneRenderer {
         // active, so a rebuild is what makes "clear the highlight" leave no residue. Rebuilds are
         // already the norm here — every boundary commit and every visibility flip does one.
         this.disposers.push(subscribeSiteHighlight(() => this.refresh()));
+
+        // §RESI-ORCH-TARGET-AREA (STR §5) — repaint when the user proposes (or withdraws) a
+        // ground-floor plate. Same PUSH discipline: the card writes the store and stops; it never
+        // reaches into this scene.
+        this.disposers.push(subscribeTargetFootprintProposal(() => this.refresh()));
 
         // Project-switch reset — clear the outline alongside the stores so a
         // Project A parcel never renders against Project B (C19 §1.13).
@@ -375,6 +407,17 @@ export class ParcelBoundarySceneRenderer {
             obj.renderOrder = 0;
         });
 
+        // §RESI-ORCH-TARGET-AREA (STR §5) — the user's proposed ground-floor plate, drawn BEFORE
+        // the emphasis pass so it inherits the layer/pick traverse above like every other overlay.
+        const proposal = this.buildProposedPlate();
+        if (proposal) {
+            proposal.traverse((obj) => {
+                obj.layers.set(EDITOR_LAYER);
+                (obj as unknown as { raycast: () => void }).raycast = () => {};
+            });
+            group.add(proposal);
+        }
+
         // ⭐ §RESI-ORCH-HIGHLIGHT (STR §3) — LAST, and deliberately AFTER the layer/pick traverse
         // above so any cue it adds inherits EDITOR_LAYER + non-pickability from the same single
         // place every other overlay in this group gets them, rather than from a second copy of
@@ -382,6 +425,92 @@ export class ParcelBoundarySceneRenderer {
         this.applyHighlightEmphasis(group, polygon);
 
         return group;
+    }
+
+    /**
+     * §RESI-ORCH-TARGET-AREA (STR §5) — draw the plate the user asked for: *"I want ~120 m² on the
+     * ground floor."* A FLAT footprint with a dashed teal rim, laid inside the permitted footprint
+     * it was eroded from.
+     *
+     * ⛔ FLAT, NEVER EXTRUDED. The user asked for a ground-floor AREA and PRYZM has been told
+     * nothing about a storey height. Extruding this to a "typical" 3 m would put a solid on the
+     * ground carrying a dimension nobody supplied — the same class of invention the limit-plane cue
+     * refuses (§ENVELOPE-SITE-DATA: never synthesise a missing value), and worse in three dimensions
+     * because a reader can see that a NUMBER is a number and cannot see that a SOLID is a guess.
+     *
+     * ⛔ TEAL AND DASHED, i.e. the SKETCH vocabulary — never the plan-backed violet. This plate is
+     * compliant-by-construction on ONE axis only (it is an erosion of the permitted footprint, so
+     * its area cannot exceed it). PRYZM has checked it against nothing else — no setback shaping, no
+     * frontage rule, no party wall. Drawing it in the determination hue would claim all of that.
+     *
+     * ⚠ IT CAN NEVER COLLIDE WITH THE CONTEXT-STUDY MASSING, by construction rather than by luck:
+     * a study massing is only ever surfaced where NO normative envelope resolves, and this plate
+     * only exists where one DID (the card offers the control only on the full-determination arm).
+     *
+     * Returns null when nothing is proposed or the proposal has gone stale. Never throws.
+     */
+    private buildProposedPlate(): THREE.Object3D | null {
+        try {
+            const env = getLastBuildableEnvelope();
+            const permittedRing = (env?.insetPolygon ?? []) as XZPoint[];
+            const permittedAreaM2 = env
+                ? (env.insetAreaM2 || ringAreaM2XZ(permittedRing))
+                : null;
+            const live = resolveLiveTargetFootprintProposal(permittedAreaM2);
+            if (live === null) return null;
+            const ring = live.ring as ReadonlyArray<XZPoint>;
+            if (ring.length < 3) return null;
+
+            const group = new THREE.Group();
+            group.name = 'pryzm-target-footprint-proposal';
+            // Lift above the parcel fill AND above the ground-level highlight cues, so the plate a
+            // user just asked for is never hidden under the surfaces it was derived from.
+            const y = HIGHLIGHT_CUE_Y + GROUND_Y_OFFSET;
+
+            try {
+                const shape = new THREE.Shape();
+                shape.moveTo(ring[0]!.x, -ring[0]!.z);
+                for (let i = 1; i < ring.length; i++) shape.lineTo(ring[i]!.x, -ring[i]!.z);
+                shape.closePath();
+                const geo = new THREE.ShapeGeometry(shape);
+                // The ONE (x, −z) → XZ convention in this file (§PARCEL-SHADE-NOT-MIRRORED).
+                geo.rotateX(-Math.PI / 2);
+                geo.translate(0, y, 0);
+                const mesh = new THREE.Mesh(
+                    geo,
+                    new THREE.MeshBasicMaterial({
+                        color: STUDY_MASSING_TEAL,
+                        transparent: true,
+                        opacity: STUDY_GROUND_SHADE_FILL_ALPHA,
+                        depthWrite: false,
+                        side: THREE.DoubleSide,
+                    }),
+                );
+                mesh.name = 'pryzm-target-footprint-proposal-fill';
+                mesh.userData.siteHighlightRole = 'proposal' satisfies SiteHighlightRole;
+                mesh.userData.isTargetFootprintProposal = true;
+                // The numbers a screenshot test / a11y layer can assert without re-deriving them.
+                mesh.userData.targetFootprintAchievedM2 = live.achievedAreaM2;
+                mesh.userData.targetFootprintTargetM2 = live.targetAreaM2;
+                mesh.userData.targetFootprintInsetM = live.insetM;
+                group.add(mesh);
+            } catch (err) {
+                console.warn('[ParcelBoundarySceneRenderer] proposed-plate triangulation failed:', err);
+            }
+
+            const rim = this.buildDashedRim(ring, y);
+            if (rim) {
+                rim.name = 'pryzm-target-footprint-proposal-rim';
+                rim.userData.siteHighlightRole = 'proposal' satisfies SiteHighlightRole;
+                group.add(rim);
+            }
+            if (group.children.length === 0) return null;
+            group.userData.isTargetFootprintProposal = true;
+            return group;
+        } catch (err) {
+            console.warn('[ParcelBoundarySceneRenderer] §RESI-ORCH-TARGET-AREA plate build failed:', err);
+            return null;
+        }
     }
 
     /**

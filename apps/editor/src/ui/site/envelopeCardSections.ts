@@ -41,6 +41,10 @@ import {
     resolveCapacityVerdict,
 } from './capacityPanelSection';
 import type { DesignMeasurement } from './designMeasurement';
+// §RESI-ORCH-PERLEVEL — the SAME user-facing sentence for each refusal code that the capacity rows
+// print. A second wording table here would let one fold say "no floor slabs are authored" while the
+// fold above it said something else about the identical fact.
+import { UNMEASURED_REASON_TEXT } from './designMeasurement';
 import type { UserSuppliedStudyHeightRecord } from './userSuppliedStudyHeightState';
 
 const _tracer = trace.getTracer('pryzm.site.envelopeCardSections');
@@ -205,6 +209,124 @@ export function buildHowMeasuredFold(
             'How these were measured',
             renderMeasurementCaveatLinesHtml(measurement.caveats),
         );
+    } finally {
+        span.end();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RESI-ORCH-PERLEVEL (STR §13/§14) — BUILT AREA, STOREY BY STOREY
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const PER_LEVEL_SECTION_TESTID = 'envelope-section-per-level';
+
+/**
+ * The per-storey built-area fold.
+ *
+ * §14 asks the panel to show *"per-level GFA · room areas · cost · net vs gross"* continuously, and
+ * §13 records that the per-storey plate sums were already being computed and thrown away. This is
+ * the renderer for the half that now survives (`DesignMeasurement.perLevel`).
+ *
+ * ⛔ FOUR `data-state` ARMS, the same discipline as every fold above:
+ *   · `measure-failed`   — the join threw. A FAILURE, never an empty model.
+ *   · `nothing-authored` — no designed storey exists yet.
+ *   · `partial`          — at least one storey measured AND at least one refused. This arm is the
+ *                          reason the type carries a per-storey reason at all: the storey that
+ *                          cannot be measured NAMES ITSELF, and the others still report.
+ *   · `measured`         — every designed storey reported.
+ *
+ * ⛔ A STOREY WITH NO MEASURABLE PLATE PRINTS ITS REASON, NEVER 0 m² AND NEVER A BLANK CELL.
+ * `designMeasurement.ts` measures `null` rather than `0` precisely so an unbuilt storey cannot
+ * read as a compliant one; a renderer that turned that `null` back into "0 m²" — or into an empty
+ * cell the eye reads as zero — would undo the discipline at the last step.
+ *
+ * ⚠ THE TOTAL IS NOT RE-SUMMED HERE. It comes from `measurement.design.grossFloorAreaM2`, the ONE
+ * producer (C06 §13.3), and when that is `null` the fold says so instead of adding the rows up:
+ * summing the visible rows would silently manufacture the very total the measurement refused.
+ */
+export function buildPerLevelBuiltAreaFold(
+    measurement: DesignMeasurement | null,
+    opts: { readonly joinFailed: boolean },
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildPerLevelBuiltAreaFold');
+    try {
+        if (opts.joinFailed || measurement === null) {
+            span.setAttribute('pryzm.envelopeCard.perLevelArm', 'measure-failed');
+            return fold(
+                PER_LEVEL_SECTION_TESTID,
+                'measure-failed',
+                'Built area by storey — unavailable',
+                `<div style="color:#8a5a00;background:#fff6e8;border-radius:6px;padding:6px 8px;`
+                + `font-size:10px;line-height:1.5;">Measurement of the authored model <b>failed</b> in `
+                + `this session, so there are no per-storey figures. This is a failure, not an empty `
+                + `model.</div>`,
+            );
+        }
+        const rows = measurement.perLevel;
+        if (rows.length === 0) {
+            span.setAttribute('pryzm.envelopeCard.perLevelArm', 'nothing-authored');
+            return fold(
+                PER_LEVEL_SECTION_TESTID,
+                'nothing-authored',
+                'Built area by storey — nothing authored yet',
+                `<div style="color:#8a83a0;font-size:10px;line-height:1.5;">No storey carries any `
+                + `authored element yet, so there is no built area to break down. An unbuilt storey is `
+                + `never shown as 0 m² — 0 against a ceiling would read as a pass.</div>`,
+            );
+        }
+        const refusedCount = rows.filter((r) => r.grossAreaM2 === null).length;
+        // THREE arms, not two: "some storeys measured" and "no storey could be measured" are
+        // different findings and lead to different next actions.
+        const state = refusedCount === 0
+            ? 'measured'
+            : refusedCount === rows.length
+                ? 'none-measured'
+                : 'partial';
+        span.setAttribute('pryzm.envelopeCard.perLevelArm', state);
+        span.setAttribute('pryzm.envelopeCard.perLevelRows', rows.length);
+
+        // Highest storey first — the way a section drawing reads, and the way a user thinks about
+        // "the top floor". The model orders lowest-first because elevation math needs it to.
+        const ordered = [...rows].sort((a, b) => b.elevation - a.elevation);
+        const body = ordered
+            .map((r) => {
+                const label = escHtml(r.name ?? `Storey at ${r.elevation.toFixed(2)} m`);
+                const value = r.grossAreaM2 !== null
+                    ? `<span style="font-weight:600;">${escHtml(r.grossAreaM2.toFixed(0))} m²</span>`
+                    // ⛔ The refusal, in the user's words, in the cell where the number would have
+                    // been. Not a dash: a dash is indistinguishable from a rendering bug.
+                    : `<span data-unmeasured-reason="${escHtml(r.unmeasured ?? 'no-floor-plates')}" `
+                      + `style="color:#8a5a00;font-weight:600;font-size:9.5px;">not measured</span>`;
+                const why = r.grossAreaM2 === null && r.unmeasured !== null
+                    ? `<div style="color:#8a5a00;font-size:9px;line-height:1.4;margin:1px 0 3px 0;">`
+                      + `${escHtml(UNMEASURED_REASON_TEXT[r.unmeasured])}</div>`
+                    : '';
+                return `<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0;">`
+                    + `<span style="color:#6b6480;">${label}`
+                    + `<span style="color:#c3bdd6;"> · ${escHtml(r.elevation.toFixed(2))} m</span></span>`
+                    + `<span style="text-align:right;">${value}</span></div>${why}`;
+            })
+            .join('');
+
+        const total = measurement.design.grossFloorAreaM2;
+        const totalRow = total !== null
+            ? `<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0 0 0;margin-top:3px;border-top:1px solid #efecf7;">`
+              + `<span style="color:#6600FF;font-weight:700;">Total built area</span>`
+              + `<span style="font-weight:700;">${escHtml(total.toFixed(0))} m²</span></div>`
+            // ⛔ NEVER ADD THE ROWS UP HERE. The measurement refused this total for a stated reason;
+            // re-deriving it from the rows that DID measure would manufacture the exact figure the
+            // refusal withheld, and it would be wrong by whatever the refusal was about.
+            : `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #efecf7;color:#8a5a00;font-size:9.5px;line-height:1.45;">`
+              + `PRYZM is not reporting a TOTAL built area — ${escHtml(
+                    measurement.unmeasured.grossFloorAreaM2 !== null
+                        ? UNMEASURED_REASON_TEXT[measurement.unmeasured.grossFloorAreaM2]
+                        : 'the total could not be measured.',
+                )} The storeys above are the ones it could measure; they are not a substitute for the total.</div>`;
+
+        const summary = refusedCount === 0
+            ? 'Built area by storey'
+            : `Built area by storey — ${refusedCount} of ${rows.length} not measured`;
+        return fold(PER_LEVEL_SECTION_TESTID, state, escHtml(summary), body + totalRow);
     } finally {
         span.end();
     }
@@ -712,6 +834,107 @@ export function buildStudyHeightEntryHtml(
                Build study from this height
              </button>
              <div data-testid="${STUDY_HEIGHT_STATUS_TESTID}" style="min-height:14px;margin-top:4px;font-size:9.5px;color:#8a83a0;"></div>
+           </div>`;
+    } finally {
+        span.end();
+    }
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// §RESI-ORCH-TARGET-AREA (lane RESI-ORCH, 2026-09-04) — STR §5's target GROUND-FLOOR AREA entry.
+//
+// The §MANUALENV159 height entry above is this section's proven sibling and its deliberate
+// opposite. That one appears on the REFUSAL card, because a typed height stands in for a
+// measurement PRYZM could not find. This one appears ONLY on the full-determination card, because
+// a target area is meaningless — and, worse, unrefusable — without a permitted footprint to
+// measure it against. §5's whole ask is the refusal: *"refuse with BOTH numbers when it exceeds
+// the permitted footprint."* You cannot state both numbers if you only have one.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+
+export const TARGET_AREA_INPUT_TESTID = 'envelope-target-area-input';
+export const TARGET_AREA_SOLVE_BTN_TESTID = 'envelope-target-area-solve-btn';
+export const TARGET_AREA_CLEAR_BTN_TESTID = 'envelope-target-area-clear-btn';
+export const TARGET_AREA_STATUS_TESTID = 'envelope-target-area-status';
+
+/**
+ * The target-area entry, plus the standing statement of whatever is currently proposed.
+ *
+ * ⛔ FOUR `data-state` ARMS, NEVER TWO — the same discipline the four folds above use, for the
+ * same reason: a REFUSAL and an EMPTY field must not render as one another.
+ *   · `empty`     — nothing asked yet;
+ *   · `proposed`  — a plate is on the ground, and the line says what was ACHIEVED;
+ *   · `refused`   — PRYZM said no, and the line carries the numbers it said no from;
+ *   · `no-footprint` — unreachable: the card has no permitted footprint, so the control is not
+ *                     offered at all. It renders as a stated reason, never as a live box that
+ *                     will always refuse (a control that can only fail is a dead click with a
+ *                     text cursor in it).
+ *
+ * @param permittedAreaM2  the card's ONE permitted-footprint number (`permittedStudyFigures`), so
+ *                         the placeholder and the refusal cannot cite a different figure from the
+ *                         row six lines above them (C06 §13.3).
+ * @param statement        the last solver statement — proposal or refusal — or null.
+ * @param refused          whether `statement` is a refusal. Passed rather than parsed: sniffing a
+ *                         verdict out of prose is how a refusal comes to render as a success.
+ * @param currentTargetM2  what the user last typed, so a re-render does not blank their entry.
+ */
+export function buildTargetAreaEntryHtml(
+    permittedAreaM2: number | null,
+    statement: string | null,
+    refused: boolean,
+    currentTargetM2: number | null,
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildTargetAreaEntryHtml');
+    try {
+        const hasFootprint = permittedAreaM2 !== null && permittedAreaM2 > 0;
+        span.setAttribute('pryzm.envelopeCard.targetAreaHasFootprint', hasFootprint);
+        const state = !hasFootprint
+            ? 'no-footprint'
+            : statement === null
+                ? 'empty'
+                : refused
+                    ? 'refused'
+                    : 'proposed';
+        span.setAttribute('pryzm.envelopeCard.targetAreaState', state);
+
+        const head = `<div data-testid="envelope-target-area-entry" data-state="${state}" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;">
+             <div style="font-weight:700;font-size:10.5px;color:#6600FF;">Know the ground floor you want? Type the area.</div>`;
+
+        if (!hasFootprint) {
+            // The honest unreachable arm. Saying WHY beats offering a box that can only ever say no.
+            return head
+                + `<div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;">PRYZM has not solved a buildable footprint for this parcel, so there is nothing to fit a target area inside. A target only means something measured against a permitted footprint.</div>
+                 </div>`;
+        }
+
+        const valueAttr = currentTargetM2 !== null && Number.isFinite(currentTargetM2)
+            ? ` value="${escHtml(currentTargetM2)}"`
+            : '';
+        // ⚠ The permitted figure is stated IN the control, not only in the refusal. A user who can
+        // see the ceiling before they type is far less likely to need to be refused at all — which
+        // is the difference between guiding a human and correcting one.
+        const statusColour = refused ? '#8a5a00' : '#6b6480';
+        const statusHtml = statement === null
+            ? ''
+            : `<div data-testid="${TARGET_AREA_STATUS_TESTID}" data-state="${refused ? 'refused' : 'proposed'}" style="margin-top:5px;font-size:9.5px;line-height:1.45;color:${statusColour};background:${refused ? '#fdf8ee' : '#faf9fd'};border-left:2px solid ${refused ? '#c9973a' : '#6600FF'};padding:4px 6px;border-radius:0 5px 5px 0;">${escHtml(statement)}</div>`;
+
+        return head
+            + `<div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;">PRYZM will set a plate of that size inside the permitted footprint (${escHtml(permittedAreaM2.toFixed(0))} m²) and tell you what it actually achieved. A STUDY of what fits — not a permit.</div>
+             <div style="display:flex;gap:6px;margin-top:6px;align-items:flex-end;">
+               <div style="flex:1;min-width:0;">
+                 <label style="display:block;font-size:9px;color:#8a83a0;">Ground-floor area (m²)</label>
+                 <input data-testid="${TARGET_AREA_INPUT_TESTID}" type="number" min="1" step="1"${valueAttr} placeholder="e.g. 120" style="width:100%;box-sizing:border-box;padding:5px 6px;border-radius:6px;border:1px solid #d8d3e6;font:600 11px system-ui;" />
+               </div>
+             </div>
+             <div style="display:flex;gap:6px;margin-top:6px;">
+               <button type="button" data-testid="${TARGET_AREA_SOLVE_BTN_TESTID}" style="flex:1;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:6px 10px;border-radius:8px;font:600 11px system-ui;background:#faf9fd;color:#6600FF;">
+                 Fit this on the ground floor
+               </button>
+               <button type="button" data-testid="${TARGET_AREA_CLEAR_BTN_TESTID}" style="flex:none;appearance:none;border:1px solid #d8d3e6;cursor:pointer;padding:6px 10px;border-radius:8px;font:600 11px system-ui;background:#ffffff;color:#8a83a0;">
+                 Clear
+               </button>
+             </div>
+             ${statusHtml}
            </div>`;
     } finally {
         span.end();
