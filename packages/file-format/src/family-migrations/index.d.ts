@@ -14,4 +14,6 @@ export { makeSplitTypeMigrator, type SplitTypeParams, } from './ops/split-type.j
 export { makeAddBoxSolidMigrator, makeSetBoxDimensionsMigrator, readBoxSolid, type AddBoxSolidParams, type SetBoxDimensionsParams, type BoxDimension, type BoxDimensions, type BoxSolidReading, } from './ops/box-solid.js';
 export { makeAddReferencePlaneMigrator, type AddReferencePlaneParams, } from './ops/add-reference-plane.js';
 export { makeDeleteSolidMigrator, type DeleteSolidParams, } from './ops/delete-solid.js';
+export { makeUpdateProfileMigrator, type UpdateProfileParams, type ProfilePointUpdate, } from './ops/update-profile.js';
+export { makeDeleteExpressionMigrator, type DeleteExpressionParams, } from './ops/delete-expression.js';
 //# sourceMappingURL=index.d.ts.map

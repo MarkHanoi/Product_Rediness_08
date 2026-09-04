@@ -155,6 +155,12 @@ export {
   type AddReferencePlaneParams,
   makeDeleteSolidMigrator,
   type DeleteSolidParams,
+  /* --- lane UCE-FAMILY --- profile write-back + the introduce-expression pair --- */
+  makeUpdateProfileMigrator,
+  type UpdateProfileParams,
+  type ProfilePointUpdate,
+  makeDeleteExpressionMigrator,
+  type DeleteExpressionParams,
 } from './family-migrations/index.js';
 // ── Sprint AI/AJ (2026-05-12/13) — import/ + export/ → @pryzm/file-format ────────
 

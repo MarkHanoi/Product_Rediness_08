@@ -22,4 +22,11 @@ export { makeSplitTypeMigrator, } from './ops/split-type.js';
 export { makeAddBoxSolidMigrator, makeSetBoxDimensionsMigrator, readBoxSolid, } from './ops/box-solid.js';
 export { makeAddReferencePlaneMigrator, } from './ops/add-reference-plane.js';
 export { makeDeleteSolidMigrator, } from './ops/delete-solid.js';
+/* ── lane UCE-FAMILY — the two ops that make the definition EDITOR half real ──
+ * `update-profile` is lane U3's OWED O-1 (profile geometry write-back — without
+ * it a mounted sketch surface cannot persist a single dragged vertex);
+ * `delete-expression` is its O-2 (the pair `introduce-expression` names in its
+ * own refusal, whose absence made every formula write-once). */
+export { makeUpdateProfileMigrator, } from './ops/update-profile.js';
+export { makeDeleteExpressionMigrator, } from './ops/delete-expression.js';
 //# sourceMappingURL=index.js.map
