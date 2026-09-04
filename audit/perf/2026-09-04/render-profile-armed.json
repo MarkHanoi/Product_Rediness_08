@@ -1,0 +1,387 @@
+{
+  "R0-instrument-validity": {
+    "rendererGlobalPresent": true,
+    "backendLabel": "webgl-only",
+    "rendererCtor": "dce",
+    "hasDrawCallsField": false,
+    "hasCallsField": true,
+    "programs": 5,
+    "geometries": 1009,
+    "textures": 256,
+    "pixelRatio": 1,
+    "performanceMemoryAvailable": true,
+    "canvasSize": {
+      "w": 960,
+      "h": 950
+    },
+    "glRenderer": {
+      "unmaskedRenderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "unmaskedVendor": "Google Inc. (Google)",
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+    }
+  },
+  "_meta": {
+    "lane": "PERF-round4",
+    "axis": "R (steady-state frame)",
+    "when": "2026-09-04T15:50:01.231Z",
+    "walls": 1000,
+    "env": {
+      "platform": "win32",
+      "node": "v24.15.0"
+    },
+    "reproduce": "node tools/perf/render/run-render-local.mjs"
+  },
+  "R1-live-instancing-census": {
+    "present": true,
+    "groupCount": 0,
+    "totalInstances": 0,
+    "droppedInstanceCount": 0,
+    "spill": [],
+    "topGroups": [],
+    "groupsOfSizeOne": 0,
+    "flagElementInstancingV1": null,
+    "flagFurnitureInstancingV1": null
+  },
+  "R1b-scene-census": {
+    "present": true,
+    "meshes": 1571,
+    "instancedMeshes": 0,
+    "visibleDrawables": 1058,
+    "lines": 1029,
+    "distinctMaterials": 2793,
+    "distinctGeometries": 2601
+  },
+  "R1c-wall-instancing-reject-census": {
+    "present": true,
+    "armedForMs": 75139,
+    "instanced": 1000,
+    "notInstanced": 1000,
+    "rejects": {
+      "noInstanceBridge": null,
+      "hasOpenings": null,
+      "curved": null,
+      "mitreStart": 1000,
+      "mitreEnd": 1000,
+      "rakedNonVertical": null,
+      "multiLayer": null,
+      "hasProfile": null
+    },
+    "traverseCounters": {
+      "traverse.viewActivatedVisibilityGates": 503,
+      "traverse.pascalSceneLighting": 2,
+      "traverse.pbrSceneUpgrader": 1,
+      "traverse.realEnvironment": 6,
+      "traverse.perAdd.deferredSkipped": 1000,
+      "traverse.frustumCulling": 1
+    },
+    "allCounterKeys": [
+      "level.activeLevelChanged",
+      "traverse.frustumCulling",
+      "traverse.pascalSceneLighting",
+      "traverse.pbrSceneUpgrader",
+      "traverse.perAdd.deferredSkipped",
+      "traverse.realEnvironment",
+      "traverse.viewActivatedVisibilityGates",
+      "view.reprojectGraftDemotedByType",
+      "view.reprojectGraftDemotedCoarse",
+      "wall.instanced",
+      "wall.notInstanced",
+      "wall.reject.mitreEnd",
+      "wall.reject.mitreStart"
+    ]
+  },
+  "R2-idle": {
+    "frameMs": {
+      "n": 22,
+      "min": 197.59,
+      "median": 215.79,
+      "p95": 245.91,
+      "p99": 253.39,
+      "max": 253.39
+    },
+    "fps": 4.6,
+    "longFrames50ms": 22,
+    "longFrames16_7ms": 22,
+    "drawCallsPerFrame": {
+      "n": 23,
+      "min": 1251,
+      "median": 1251,
+      "p95": 1251,
+      "p99": 1251,
+      "max": 1251
+    },
+    "drawCallProvenance": "calls/frame (classic WebGLInfo)",
+    "trianglesPerFrame": {
+      "n": 23,
+      "min": 21220,
+      "median": 21220,
+      "p95": 21220,
+      "p99": 21220,
+      "max": 21220
+    },
+    "heapMiB": {
+      "start": 291.4,
+      "end": 300.3,
+      "peak": 300.3,
+      "gcShapedDrops": 0
+    },
+    "cumulativeOdometer": null,
+    "phase": "idle (no input, 5s)"
+  },
+  "R3-orbit": {
+    "frameMs": {
+      "n": 381,
+      "min": 57.55,
+      "median": 200.78,
+      "p95": 389.6,
+      "p99": 1039.36,
+      "max": 4017.27
+    },
+    "fps": 5,
+    "longFrames50ms": 381,
+    "longFrames16_7ms": 381,
+    "drawCallsPerFrame": {
+      "n": 382,
+      "min": 1251,
+      "median": 1251,
+      "p95": 1251,
+      "p99": 1251,
+      "max": 1263
+    },
+    "drawCallProvenance": "calls/frame (classic WebGLInfo)",
+    "trianglesPerFrame": {
+      "n": 382,
+      "min": 21220,
+      "median": 21220,
+      "p95": 21220,
+      "p99": 21220,
+      "max": 22332
+    },
+    "heapMiB": {
+      "start": 302.5,
+      "end": 223,
+      "peak": 335.7,
+      "gcShapedDrops": 7
+    },
+    "cumulativeOdometer": null,
+    "phase": "orbit (120 drag steps @25ms, left button)"
+  },
+  "R4-hover": {
+    "frameMs": {
+      "n": 166,
+      "min": 59.89,
+      "median": 250.9,
+      "p95": 421.75,
+      "p99": 475.88,
+      "max": 540.54
+    },
+    "fps": 4,
+    "longFrames50ms": 166,
+    "longFrames16_7ms": 166,
+    "drawCallsPerFrame": {
+      "n": 167,
+      "min": 1263,
+      "median": 1263,
+      "p95": 1264,
+      "p99": 1264,
+      "max": 1264
+    },
+    "drawCallProvenance": "calls/frame (classic WebGLInfo)",
+    "trianglesPerFrame": {
+      "n": 167,
+      "min": 22332,
+      "median": 22332,
+      "p95": 22332,
+      "p99": 22332,
+      "max": 22332
+    },
+    "heapMiB": {
+      "start": 222.7,
+      "end": 228.1,
+      "peak": 229.8,
+      "gcShapedDrops": 0
+    },
+    "cumulativeOdometer": null,
+    "phase": "hover (120 moves @25ms, no button)"
+  },
+  "R5-pick-latency": {
+    "method": "synthetic pointer/mouse event on the live canvas → selectionManager.selectedObject identity change",
+    "hits": 10,
+    "misses": 2,
+    "latencyMs": {
+      "n": 10,
+      "min": 293.8,
+      "median": 364.18,
+      "p95": 912.48,
+      "p99": 912.48,
+      "max": 912.48
+    },
+    "missReasons": [
+      "selection never changed within 2000ms"
+    ]
+  },
+  "R7-cpu-profile-top-self-time": {
+    "windowDescription": "idle 4s then 60-step orbit, under CDP Profiler",
+    "totalSampledMs": 14524,
+    "top": [
+      {
+        "fn": "(program)",
+        "where": ":0",
+        "selfMs": 9630,
+        "pctOfSampled": 66.3
+      },
+      {
+        "fn": "r",
+        "where": "vendor-three-5o-4cC47.js:4049",
+        "selfMs": 256.3,
+        "pctOfSampled": 1.8
+      },
+      {
+        "fn": "NL",
+        "where": "domain-engine-B2QzmESa.js:507",
+        "selfMs": 220.3,
+        "pctOfSampled": 1.5
+      },
+      {
+        "fn": "renderBufferDirect",
+        "where": "vendor-three-5o-4cC47.js:4049",
+        "selfMs": 206.3,
+        "pctOfSampled": 1.4
+      },
+      {
+        "fn": "ro",
+        "where": "vendor-three-5o-4cC47.js:4049",
+        "selfMs": 176.8,
+        "pctOfSampled": 1.2
+      },
+      {
+        "fn": "f",
+        "where": "vendor-three-5o-4cC47.js:3612",
+        "selfMs": 142.3,
+        "pctOfSampled": 1
+      },
+      {
+        "fn": "updateMatrixWorld",
+        "where": "vendor-three-5o-4cC47.js:1",
+        "selfMs": 120,
+        "pctOfSampled": 0.8
+      },
+      {
+        "fn": "G6",
+        "where": "engineLauncher-CFi-RuCO.js:2551",
+        "selfMs": 119.8,
+        "pctOfSampled": 0.8
+      },
+      {
+        "fn": "E",
+        "where": "vendor-three-5o-4cC47.js:4049",
+        "selfMs": 112.3,
+        "pctOfSampled": 0.8
+      },
+      {
+        "fn": "(anonymous)",
+        "where": "engineLauncher-CFi-RuCO.js:7337",
+        "selfMs": 94,
+        "pctOfSampled": 0.6
+      },
+      {
+        "fn": "(garbage collector)",
+        "where": ":0",
+        "selfMs": 93.8,
+        "pctOfSampled": 0.6
+      },
+      {
+        "fn": "a",
+        "where": "vendor-three-5o-4cC47.js:3612",
+        "selfMs": 88,
+        "pctOfSampled": 0.6
+      },
+      {
+        "fn": "_d",
+        "where": "vendor-three-5o-4cC47.js:4049",
+        "selfMs": 86.5,
+        "pctOfSampled": 0.6
+      },
+      {
+        "fn": "s",
+        "where": "vendor-three-5o-4cC47.js:4049",
+        "selfMs": 84.5,
+        "pctOfSampled": 0.6
+      },
+      {
+        "fn": "updateMatrixWorld",
+        "where": "vendor-three-5o-4cC47.js:1",
+        "selfMs": 83.8,
+        "pctOfSampled": 0.6
+      },
+      {
+        "fn": "Pu",
+        "where": "vendor-three-5o-4cC47.js:4049",
+        "selfMs": 80.3,
+        "pctOfSampled": 0.6
+      },
+      {
+        "fn": "_d",
+        "where": "vendor-three-5o-4cC47.js:4049",
+        "selfMs": 78,
+        "pctOfSampled": 0.5
+      },
+      {
+        "fn": "upload",
+        "where": "vendor-three-5o-4cC47.js:3947",
+        "selfMs": 73,
+        "pctOfSampled": 0.5
+      },
+      {
+        "fn": "bindVertexArray",
+        "where": ":0",
+        "selfMs": 70.5,
+        "pctOfSampled": 0.5
+      },
+      {
+        "fn": "Ls",
+        "where": "vendor-three-5o-4cC47.js:3947",
+        "selfMs": 65,
+        "pctOfSampled": 0.4
+      }
+    ]
+  },
+  "R6-falsification": {
+    "F1_drawCallsAreNotAnOdometer": {
+      "pass": true,
+      "sampled": 382,
+      "first": 1251,
+      "last": 1263,
+      "growth": 12,
+      "thresholdGrowth": 191,
+      "note": "an odometer gains ~1 per render call per frame, so growth would approach the sample count; a flat series is the CORRECT shape for a static scene"
+    },
+    "F2_rendererAdvanced": {
+      "pass": true,
+      "rafFramesObserved": 382,
+      "odometerAdvance": null,
+      "note": "odometerAdvance is null on a classic WebGLRenderer, which keeps no odometer — rafFramesObserved carries the arm there"
+    },
+    "F3_meterSeesAKnownLoad": {
+      "pass": true,
+      "injectedBurnMsPerFrame": 40,
+      "idleMedianMs": 215.79,
+      "burnedMedianMs": 260.21,
+      "deltaMs": 44.42,
+      "note": "the meter must see deliberate CPU burn; this arm does NOT depend on the app being fast at idle"
+    },
+    "F4_orbitVsIdle_INFORMATIONAL": {
+      "idleMedianMs": 215.79,
+      "orbitMedianMs": 200.78,
+      "inconclusive": true,
+      "note": "NOT an assertion. When idle is already >50ms the subject is saturated and this differential carries no signal — recorded so a reader does not mistake the sign for a finding."
+    },
+    "consoleErrorsDuringRun": [
+      "[PlatformSaveController] Save failed: Error: [PlatformShell/D.1] saveDelegate not yet injected\n    at Object.serialize (http://localhost:5390/assets/main-0ETN_zfd.js:41519:8262)\n    at je.saveVersionI",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "[renderer-three/contextLoss] WebGL context lost on <WebGPURendererAdapter/webgl2>. Animations paused. Awaiting context restoration.",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ]
+  }
+}

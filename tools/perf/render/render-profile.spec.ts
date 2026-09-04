@@ -116,6 +116,12 @@ async function newSessionContext(browser: Browser, token: string, reopen: { id: 
       const r = rp as { id: string; name: string };
       sessionStorage.setItem('pryzm.reopenProjectAfterReload', '1');
       sessionStorage.setItem('pryzm.lastOpenProject', JSON.stringify({ projectId: r.id, projectName: r.name }));
+      // §PRYZM-PERF — arm the product's OWN counters BEFORE any wall is built.
+      // `packages/frame-scheduler/src/PerfCounters.ts` is off by default and its
+      // header is explicit that "NOT ARMED is not ZERO": arming after load would
+      // read a row of noughts and look like an exoneration. This is the flag
+      // shape that file documents (`globalThis.__pryzmPerf = true`).
+      (globalThis as Record<string, unknown>)['__pryzmPerf'] = true;
     } catch { /* the run fails loudly downstream */ }
   }, [token, reopen] as const);
   return ctx;
@@ -289,6 +295,26 @@ test('axis R: steady-state render profile on a heavy scene (local prod)', async 
       pixelRatio: typeof rend?.getPixelRatio === 'function' ? rend.getPixelRatio() : null,
       performanceMemoryAvailable: !!(performance as unknown as { memory?: unknown }).memory,
       canvasSize: (() => { const c = document.querySelector('canvas'); return c ? { w: (c as HTMLCanvasElement).width, h: (c as HTMLCanvasElement).height } : null; })(),
+      // ⭐ THE VALIDITY LINE THAT GOVERNS EVERY FRAME-TIME NUMBER BELOW.
+      // Headless Chromium frequently rasterises through SwiftShader (software).
+      // On a software rasteriser the native half of a frame is inflated by an
+      // unknown, large factor, so an absolute ms-per-frame reading here is a
+      // SOFTWARE LOWER BOUND and must never be quoted as a user's FPS. The
+      // GPU-independent findings — draw calls per frame, instance-group count,
+      // distinct material/geometry counts — are unaffected and portable.
+      glRenderer: (() => {
+        try {
+          const c = document.createElement('canvas');
+          const gl = (c.getContext('webgl2') ?? c.getContext('webgl')) as WebGLRenderingContext | null;
+          if (!gl) return null;
+          const ext = gl.getExtension('WEBGL_debug_renderer_info');
+          return {
+            unmaskedRenderer: ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : null,
+            unmaskedVendor: ext ? String(gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)) : null,
+            version: String(gl.getParameter(gl.VERSION)),
+          };
+        } catch { return null; }
+      })(),
     };
   });
   writeResult('R0-instrument-validity', validity);
@@ -335,6 +361,50 @@ test('axis R: steady-state render profile on a heavy scene (local prod)', async 
     return { present: true as const, meshes, instancedMeshes: instanced, visibleDrawables: visibleMeshes, lines, distinctMaterials: materials.size, distinctGeometries: geos.size };
   });
   writeResult('R1b-scene-census', sceneCensus);
+
+  // ── R1c: WHICH CLAUSE rejected each wall from the instanced arm ──────────
+  // `WallFragmentBuilder`'s `isSimpleWall` predicate (:1438) bumps one
+  // `PERF_KEYS.WALL_REJECT_*` counter per FAILING clause, and its own comment
+  // states the live hypothesis: "A generated building MITRES ITS CORNERS, so
+  // the live hypothesis is that joinData.startMN / endMN disqualify most of the
+  // batch. That is a guess until it is counted." This reads the count, on a real
+  // building, in the real app. Clause totals may exceed `notInstanced` because a
+  // wall failing two clauses bumps two keys — read each clause against
+  // `notInstanced`, never against the other clauses.
+  const rejectCensus = await page.evaluate(() => {
+    const w = window as unknown as Record<string, any>;
+    const api = w['pryzmPerf'];
+    if (!api || typeof api.data !== 'function') return { present: false as const, why: 'window.pryzmPerf.data() unavailable' };
+    let snap: any = null;
+    try { snap = api.data()?.snapshot ?? null; } catch (e) { return { present: false as const, why: String(e) }; }
+    if (!snap) return { present: false as const, why: 'report carried no snapshot' };
+    // ⭐ "NOT ARMED" IS NOT "ZERO" — PerfCounters.ts says so in capitals. If the
+    // flag never took, every count below is unmeasured and must not read as 0.
+    if (snap.armedForMs === null || snap.armedForMs === undefined) {
+      return { present: false as const, why: 'counters NEVER ARMED — the numbers would be unmeasured, not zero' };
+    }
+    const c = snap.counters ?? {};
+    const pick = (k: string): number | null => (k in c ? c[k] : null);
+    return {
+      present: true as const,
+      armedForMs: Math.round(snap.armedForMs),
+      instanced: pick('wall.instanced'),
+      notInstanced: pick('wall.notInstanced'),
+      rejects: {
+        noInstanceBridge: pick('wall.reject.noInstanceBridge'),
+        hasOpenings: pick('wall.reject.hasOpenings'),
+        curved: pick('wall.reject.curved'),
+        mitreStart: pick('wall.reject.mitreStart'),
+        mitreEnd: pick('wall.reject.mitreEnd'),
+        rakedNonVertical: pick('wall.reject.rakedNonVertical'),
+        multiLayer: pick('wall.reject.multiLayer'),
+        hasProfile: pick('wall.reject.hasProfile'),
+      },
+      traverseCounters: Object.fromEntries(Object.entries(c).filter(([k]) => k.startsWith('traverse.'))),
+      allCounterKeys: Object.keys(c).sort(),
+    };
+  });
+  writeResult('R1c-wall-instancing-reject-census', rejectCensus);
 
   await page.evaluate(SAMPLER_SRC);
 
