@@ -2568,3 +2568,85 @@ export {
     type FrPrescriptionRow,
     type FrCnigTreeInput,
 } from './rulepacks/frCnigPrescriptionTree.js';
+
+// §NSW-ENVELOPE (lane ENVELOPE-NSW, 2026-09-04) — the NSW vertical-precedence surface.
+//
+// ⚠ EXPORTED, NOT YET ROUTED. This is a pure resolver over already-fetched ePlanning features; it
+// needs a CALLER — the AU parcel route, which is another lane's file. Exporting it is the step
+// that makes it reachable at all (§COMMITTED-IS-NOT-REACHABLE); it is not a claim that any user
+// path reaches it today. Nothing here performs I/O.
+//
+// ⛔ The one thing a consumer must not ignore: `NswVerticalResolution.envelopeIsUpperBound`. When
+// true the reported height is the most the site COULD be, not the most it MAY be — a constraint
+// that can only reduce the envelope was seen and could not be applied (L-616, build prompt §11
+// status C). Rendering that number as a settled maximum is the overstatement this pack exists to
+// refuse. `publishable` carries §1.4's separate requirement: a named signer.
+export {
+    resolveNswVerticalPrecedence,
+    nswReadControl,
+    type NswVerticalControl,
+    type NswVerticalResolution,
+    type NswConditionalUplift,
+    type NswHardCap,
+    type NswRawControlHit,
+    type NswPrecedenceContext,
+} from './rulepacks/au/nswVerticalPrecedence.js';
+export {
+    nswResolveCitation,
+    nswRuleSourceRef,
+    nswMayContributeValue,
+    nswMayPublish,
+    nswAbsenceReason,
+    NSW_AUTHORITY,
+    NSW_CITABLE_STATES,
+    NSW_PUBLISHABLE_STATES,
+    type NswCitation,
+    type NswCitationState,
+} from './rulepacks/au/nswCitationState.js';
+export {
+    nswQuantitySemantics,
+    nswPrincipalHobSemantics,
+    isNswQuantityUnknown,
+    isNswUnevaluatedTopConstraint,
+    describeNswAxisExclusion,
+    NSW_LAY_NAME_SEMANTICS,
+    type NswQuantitySemantics,
+    type NswQuantityAxis,
+    type NswQuantityDatum,
+} from './rulepacks/au/nswLayName.js';
+export {
+    parseNswHeight,
+    nswAbsoluteLevelFromLayClass,
+    areHeightsComparable,
+    describeNswHeight,
+    isNumericHeight,
+    NSW_OBSERVED_UNITS,
+    NSW_RELATIVE_DATUM,
+    type NswHeightValue,
+} from './rulepacks/au/nswHeightValue.js';
+export {
+    nswField,
+    nswText,
+    nswNumber,
+    isNswNull,
+    nswPcoRefToInstrumentId,
+    NSW_NULL_SENTINELS,
+    NSW_FIELD_ALIASES,
+    type NswAttributeBag,
+} from './rulepacks/au/nswPortalAttributes.js';
+export {
+    NSW_EPLANNING_ROOT,
+    NSW_SERVICE,
+    NSW_LAYER,
+    NSW_VERTICAL_LAYERS,
+    NSW_FLOOR_SPACE_LAYERS,
+    nswLayerName,
+} from './rulepacks/au/nswPortalLayers.js';
+export {
+    nswLookupRuling,
+    isNswRulingSigned,
+    NSW_CONTROL_RULINGS,
+    type NswControlRuling,
+    type NswLegalRole,
+    type NswPlaneParameters,
+} from './rulepacks/au/nswClauseRegistry.js';
