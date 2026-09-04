@@ -272,3 +272,89 @@ describe('§RECONCILIATION — one vocabulary, not three', () => {
         );
     });
 });
+
+describe('§DATUM-DECISION + §TYPED-OUTCOMES — the FR founder review (2026-09-04 §0/§9), in the reducer', () => {
+    // A height number READ from a libelle whose datum could not be co-extracted. The resolved
+    // arm's own doctrine says this is not a recovery; `partial` is where the number goes instead.
+    const heightDatumUnknown: RuleState = {
+        rule: 'C2',
+        status: 'unrecovered',
+        reachability: 'extractable',
+        failure: 'semantic',
+        mechanism: 'present',
+        stoppedAt: 'CNIG 39.02 libelle "Hauteur maximale 9 m" — number read, datum not co-extracted',
+        partial: { value: 9, unit: 'm', verbatim: 'Hauteur maximale 9 m' },
+        ref,
+    };
+    // A declared-method derivation: a derived PAU verdict, provenance `estimated` BY ITS OWN LABEL.
+    const derivedPau: RuleState = {
+        rule: 'B5',
+        status: 'resolved',
+        reachability: 'derivable',
+        value: 'inside-derived-pau',
+        unit: null,
+        datum: null,
+        provenance: 'estimated',
+        ref: { ...ref, article: 'L.111-3; CE 29 mars 2017 n° 393730 — derivation, non-authoritative' },
+    };
+    // The silent null the founder's `done` metric exists to drive to zero.
+    const silent: RuleState = {
+        rule: 'D1',
+        status: 'unrecovered',
+        reachability: 'extractable',
+        failure: 'pdf',
+        mechanism: 'unknown',
+        stoppedAt: null,
+        ref,
+    };
+
+    it('the `partial` field parses, defaults to null, and carries the value VERBATIM', () => {
+        const parsed = RuleStateSchema.parse(heightDatumUnknown);
+        expect(parsed.status === 'unrecovered' && parsed.partial?.value).toBe(9);
+        const bare = RuleStateSchema.parse({ ...f1 });
+        expect(bare.status === 'unrecovered' && bare.partial).toBeNull();
+        // A partial with no verbatim is a paraphrase, and a paraphrase is not reviewable.
+        expect(() =>
+            RuleStateSchema.parse({ ...heightDatumUnknown, partial: { value: 9, unit: 'm' } }),
+        ).toThrow();
+    });
+
+    it('⛔ a datum-unresolved height is NOT counted as recovered — it is reported as `partialCarried`', () => {
+        const r = ruleRecovery([heightDatumUnknown, resolved]);
+        expect(r.resolved).toBe(1);
+        expect(r.partialCarried).toBe(1);
+        expect(r.parameterRecoveryRate).toBe(0.5);
+        // What a datum-blind counter would have printed — visible, never silently absorbed.
+        expect(r.resolved + r.partialCarried).toBe(2);
+        // It is not a silent null either: it names where it stopped.
+        expect(r.unrecoveredSilent).toBe(0);
+    });
+
+    it('an `estimated` resolution is a TYPED OUTCOME but not an authoritative parameter', () => {
+        const r = ruleRecovery([derivedPau, resolved]);
+        expect(r.resolved).toBe(2);
+        expect(r.resolvedEstimated).toBe(1);
+        expect(r.parameterRecoveryRate).toBe(0.5); // the derivation leaves this numerator…
+        expect(r.honestAnswerRate).toBe(1); // …and stays in this one.
+    });
+
+    it('`unrecoveredSilent` counts ONLY the states that say nothing, and `typedOutcomeRate` is its complement', () => {
+        const r = ruleRecovery([silent, f1, heightDatumUnknown, pau]);
+        expect(r.unrecovered).toBe(3);
+        expect(r.unrecoveredSilent).toBe(1); // f1 names a document; the partial names a libelle
+        expect(r.typedOutcomeRate).toBe(1 - 1 / 4);
+        expect(ruleRecovery([]).typedOutcomeRate).toBeNull();
+        // "done" is typedOutcomeRate = 1, and it is reachable with parameterRecoveryRate far below 1.
+        const done = ruleRecovery([f1, pau, heightDatumUnknown, derivedPau]);
+        expect(done.typedOutcomeRate).toBe(1);
+        expect(done.parameterRecoveryRate).toBe(0);
+    });
+
+    it('the arithmetic still reconstructs the denominator with the new fields present', () => {
+        const all = [resolved, derivedPau, heightDatumUnknown, silent, f1, f2, pau, qualitative];
+        const r = ruleRecovery(all);
+        expect(r.resolved + r.qualitative + r.alternative + r.unrecovered + r.noLimitStated + r.requiresDetermination).toBe(r.denominator);
+        expect(r.resolvedEstimated).toBeLessThanOrEqual(r.resolved);
+        expect(r.partialCarried + r.unrecoveredSilent).toBeLessThanOrEqual(r.unrecovered);
+    });
+});

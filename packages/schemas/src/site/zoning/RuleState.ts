@@ -410,6 +410,26 @@ export const RuleStateSchema = z.discriminatedUnion('status', [
         mechanism: RuleMechanismPresenceSchema,
         /** Where the trace stopped — the document, page, partition or endpoint. */
         stoppedAt: z.string().min(1).nullable().default(null),
+        /**
+         * §DATUM-DECISION (FR founder review 2026-09-04 §9, lane ENVELOPE-FR) — what WAS read
+         * before the trace stopped, when something was. The canonical case: a height number
+         * recovered from a prescription libelle whose DATUM could not be co-extracted. The
+         * `resolved` arm's own doctrine already says such a number is NOT resolved ("a number on
+         * an unknown plane cannot be multiplied into a volume"); this field is where the number
+         * goes INSTEAD of being lost or — worse — being counted. It is carried VERBATIM with its
+         * unit, it is visible to a reviewer, and `ruleRecovery` reports it as `partialCarried`,
+         * never in any numerator. ⚠ A consumer may DISPLAY a partial ("9 m, datum unresolved");
+         * it may never bind it as a cap. `null` = nothing was read before the stop.
+         */
+        partial: z
+            .object({
+                value: z.union([z.number(), z.string()]),
+                unit: z.string().min(1).nullable().default(null),
+                /** The exact source string the value was read out of — reviewable, never paraphrased. */
+                verbatim: z.string().min(1),
+            })
+            .nullable()
+            .default(null),
         ref: RuleSourceRefSchema,
     }),
 
@@ -486,6 +506,14 @@ export function isRuleRetryable(s: RuleState): boolean {
 export interface RuleRecoveryReport {
     /** `resolved` — an authoritative parameter arrived, with its address. */
     readonly resolved: number;
+    /**
+     * `resolved` with `provenance: 'estimated'` — a DECLARED-METHOD DERIVATION whose result is by
+     * its own label not authoritative (a derived PAU, an assumed-parameter frontage class). A
+     * subset of `resolved`, reported separately and **EXCLUDED from `parameterRecoveryRate`** —
+     * the founder's question is "authoritative parameter without human judgement", and an
+     * estimate is neither. It IS a typed outcome, so it counts in `honestAnswerRate`.
+     */
+    readonly resolvedEstimated: number;
     /** `qualitative` — a real, legally non-numeric answer. Answered, NOT resolved. */
     readonly qualitative: number;
     /** `alternative` — a real answer with no unique reading. Answered, NOT resolved. */
@@ -502,6 +530,19 @@ export interface RuleRecoveryReport {
     readonly requiresDetermination: number;
     /** Failure counts by the founder's six labels, over `unrecovered` only. */
     readonly failures: Readonly<Record<RuleExtractionFailure, number>>;
+    /**
+     * `unrecovered` states carrying a `partial` — a value WAS read (a height number, say) and the
+     * state still refused to call it recovered (its datum is unresolved, §DATUM-DECISION). The
+     * size of the "loose minus strict" gap: `resolved + partialCarried` is what a datum-blind
+     * counter would have reported. Reported so the tightening is visible, never silent.
+     */
+    readonly partialCarried: number;
+    /**
+     * ⛔ THE FOUNDER'S `done` METRIC (FR review 2026-09-04 §0): `unrecovered` states that say
+     * NOTHING about where they stopped — `stoppedAt === null` AND `partial === null`. A silent
+     * null. The target for every jurisdiction is **0**; `typedOutcomeRate` is its complement.
+     */
+    readonly unrecoveredSilent: number;
     /**
      * The questions that were actually ASKED: every state except F2 correct-nulls.
      *
@@ -528,6 +569,13 @@ export interface RuleRecoveryReport {
      * numbers answer different questions and a single figure hides which one is being claimed.
      */
     readonly honestAnswerRate: number | null;
+    /**
+     * `1 − unrecoveredSilent / denominator` — the share of asked questions that received a TYPED
+     * outcome: a parameter, a declared-method derivation, a cited refusal, or an `unrecovered`
+     * that at least names where it stopped. **"Done" is this at 1.0**, not `parameterRecoveryRate`
+     * at 1.0 — the founder's reframing, made a field so it cannot be quietly re-derived.
+     */
+    readonly typedOutcomeRate: number | null;
 }
 
 const EMPTY_FAILURES: Readonly<Record<RuleExtractionFailure, number>> = Object.freeze({
@@ -549,9 +597,12 @@ const EMPTY_FAILURES: Readonly<Record<RuleExtractionFailure, number>> = Object.f
 export function ruleRecovery(states: readonly RuleState[]): RuleRecoveryReport {
     const failures: Record<RuleExtractionFailure, number> = { ...EMPTY_FAILURES };
     let resolved = 0;
+    let resolvedEstimated = 0;
     let qualitative = 0;
     let alternative = 0;
     let unrecovered = 0;
+    let partialCarried = 0;
+    let unrecoveredSilent = 0;
     let f1 = 0;
     let f2 = 0;
     let noLimitStated = 0;
@@ -561,6 +612,7 @@ export function ruleRecovery(states: readonly RuleState[]): RuleRecoveryReport {
         switch (s.status) {
             case 'resolved':
                 resolved += 1;
+                if (s.provenance === 'estimated') resolvedEstimated += 1;
                 break;
             case 'qualitative':
                 qualitative += 1;
@@ -572,6 +624,8 @@ export function ruleRecovery(states: readonly RuleState[]): RuleRecoveryReport {
                 unrecovered += 1;
                 failures[s.failure] += 1;
                 if (s.mechanism === 'absent') f1 += 1;
+                if (s.partial !== null && s.partial !== undefined) partialCarried += 1;
+                else if (s.stoppedAt === null || s.stoppedAt === undefined) unrecoveredSilent += 1;
                 break;
             case 'refused':
                 if (s.basis === 'rule-not-applicable') f2 += 1;
@@ -586,6 +640,7 @@ export function ruleRecovery(states: readonly RuleState[]): RuleRecoveryReport {
 
     return {
         resolved,
+        resolvedEstimated,
         qualitative,
         alternative,
         unrecovered,
@@ -594,9 +649,14 @@ export function ruleRecovery(states: readonly RuleState[]): RuleRecoveryReport {
         noLimitStated,
         requiresDetermination,
         failures: Object.freeze(failures),
+        partialCarried,
+        unrecoveredSilent,
         denominator,
-        parameterRecoveryRate: denominator > 0 ? resolved / denominator : null,
+        // ⚠ An `estimated` resolution is a declared-method derivation, not an authoritative
+        // parameter: it leaves this numerator and stays in the honest one (see the report fields).
+        parameterRecoveryRate: denominator > 0 ? (resolved - resolvedEstimated) / denominator : null,
         honestAnswerRate: denominator > 0 ? honest / denominator : null,
+        typedOutcomeRate: denominator > 0 ? 1 - unrecoveredSilent / denominator : null,
     };
 }
 

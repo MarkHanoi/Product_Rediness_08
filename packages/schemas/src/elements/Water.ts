@@ -98,8 +98,18 @@ export const Water = defineElement('water', {
    * ABSOLUTE world-Y elevation of the water's underside — i.e. the TOP face of
    * the pool floor. Stored, not derived, so `volume` needs no graph walk and a
    * schedule (C28) can read a water row without resolving its pool.
+   *
+   * ⚠ DEFAULT `-1.5`, NOT `0` — corrected 2026-09-04 (L-12898). Both elevations
+   * defaulted to `0`, so `Water.parse({})` tripped refine (1) below on its OWN
+   * defaults and the SCHEMA_REGISTRY sweep in `__tests__/round-trip.test.ts`
+   * ("parse({}) → JSON → parse is byte-identical") had been RED for this kind
+   * since the family landed (`cc695f86`, 2026-07-14). A schema whose defaults
+   * cannot satisfy its own invariants describes a record that can never exist.
+   * `-1.5` is a plain residential pool depth below a `0` surface; every real
+   * writer (`PoolAssembly.ts:218`) sets BOTH fields explicitly, so this default
+   * is reached only by `parse({})` and by no persisted record.
    */
-  bottomElevation: z.number().default(0),
+  bottomElevation: z.number().default(-1.5),
 
   /** Render intent. Water is transparent and blue by convention; both resolve
    *  through the systemType chain like every other dimension (see Pool.ts). */
