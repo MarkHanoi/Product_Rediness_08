@@ -99,14 +99,31 @@ served behind the key-gated DSO. **Recorded as an open question.**
 
 ## §3 — What is BLOCKING
 
+> ⛔ **THIS RANKING WAS INVERTED, and the founder review of 2026-09-04 corrects it.** See
+> [`NL-FOUNDER-BLOCKER-REVIEW.md`](NL-FOUNDER-BLOCKER-REVIEW.md) for the reasoning and the 8-move plan.
+>
+> ⭐ **`voorrangsregeling` (listed 6th below) is actually #1.** Since 2024-01-01 every omgevingsplan
+> is a *tijdelijk deel* that **can only lapse AS A WHOLE**, so the **only legal way** a gemeente can
+> change anything in it is by **adopting voorrangsregels** — and the regeling is the **product of the
+> tijdelijk deel and all successive wijzigingsbesluiten**, running to 2032.
+> **We read the tijdelijk deel; the overrides live in the wijzigingsbesluiten.**
+>
+> ⛔ **So it is not a missing feature on parcels we skip — it is a CORRECTNESS RISK on parcels we
+> answer CONFIDENTLY.** Until it is built, the honest state of every recovered NL parameter is
+> **"as at the tijdelijk deel, overrides not checked."**
+
 - **1. Roof geometry is structurally absent — `not-built` / `pdf`.** 0 of 556 structured
   `dakhelling`/`nokhoogte`; co-occurrence of the two height limits **1/500**. ⭐ The consequence is a
   **product decision, not a bug**: `UNDERDETERMINED` must be a first-class, shippable output.
 - **2. `peil` is unresolved on ~70 % of plans — `semantic`.** 30.3 % resolvable across **17 distinct
   definitions**. ⛔ **`peil = AHN elevation` is not expressible in the shipped model, by design** —
   evidence must name its reference class.
-- **3. `inhoud` (volumetric cap) — `missing-source`.** 0 of 556. Where a plan does impose
-  `inhoud hoofdgebouw maximaal 650 m³`, PRYZM has never seen one in this corpus.
+- **3. `inhoud` (volumetric cap) — ⚠ label DISPUTED, probably a SAMPLING ARTEFACT.** 0 of 556.
+  `inhoud hoofdgebouw maximaal 650 m³` is a real and common construction — but characteristically a
+  **rural / *buitengebied*** rule, which a tile- or parcel-uniform national sample can easily miss
+  while it stays routine where it appears. ⛔ **Probe `bestemming` = agrarisch / wonen in buitengebied
+  before concluding absence.** It is a **D1-equivalent volumetric cap**, so getting it wrong in the
+  same direction as the withdrawn French D1 claim would be an unfortunate rhyme.
 - **4. F1 concentrates in residential — `not-built`.** 26 land + 49 urban, `wonen` 42. **A plan
   governs and serves no envelope mechanism — precisely where users develop.**
 - **5. `bebouwingspercentage` denominator — `semantic`, NOT BUILT.** Some plans measure against the

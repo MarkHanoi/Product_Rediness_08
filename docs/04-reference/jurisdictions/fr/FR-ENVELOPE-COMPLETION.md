@@ -46,6 +46,45 @@ CLASSIFICATION 🟢` are effectively solved; `PARAMETER EXTRACTION 🟡` is wher
 - **`graphic = 0` and `discretionary = 0` are TRACE-DEPTH ARTEFACTS**, not findings about France. The
   trace stops before a graphic would be reached.
 
+### §1.5 — ⭐ The GPU-only CEILING — 3.0 % is not our failure rate
+
+⛔ **The CNIG prescription schema has NO NUMERIC VALUE FIELD.** `PRESCRIPTION_SURF/_LIN/_PCT` carry
+`TYPEPSC`, `STYPEPSC`, `NATURE`, `LIBELLE`, `TXT`, `NOMFIC`, `URLFIC`, `IDURBA`, `DATVALID` — and
+`URLFIC` is defined as *a link to the file containing the text*, hyperlink, empty permitted.
+
+**Paris's `txt=""` is the schema behaving as specified.** The 9-of-24 height result therefore samples
+a **STRUCTURAL CEILING**, not producer quality. A row that must be measured and published:
+
+```
+GPU-only ceiling — share of applying prescriptions
+with a parseable numeric TXT ............................. n/500 = NOT-MEASURED
+```
+
+That reframes the headline from *"we recover 3.0 %"* to *"the national chain can yield at most X %,
+and we recover 3.0 of it."* ⭐ It also forecloses the inevitable "clean up `TXT`" proposal — there is
+nothing to clean; the field was never specified to hold a number.
+
+### §1.6 — ⭐ The target is TYPED OUTCOMES, not 100 % parameters
+
+> **"All parcels" is not reachable, and being exact about which part determines what you build.**
+
+Three things are not data problems and will not become ones: **the ABF's future decision**,
+**mitoyenneté as a legal fact**, and **PAU as an authoritative determination** — on the last, the
+State's own answer to a parliamentary question is that appreciation of urbanised character depends
+closely on local circumstances, so **there can be no definition, still less national criteria**; the
+notion is left to the local authority under the judge's control. **That is a legislature deliberately
+declining to define a standard. No dataset closes it.**
+
+⭐ **So `done` is redefined: every parcel returns a typed outcome** — a parameter set, a
+declared-method derivation, or a cited refusal — **and never a silent null.**
+
+**The target is `unrecovered/silent = 0`, not `recovered = 100 %`.**
+
+And the single completion figure should be replaced by a **matrix — regime × parameter × source
+tier** — every cell independently measured, honest zeros visible. The `D1`-at-0 % row already proves
+the principle: the withdrawn *"France has no D1"* claim would have deleted the row, and **the row is
+the finding.**
+
 ### §1.4 — The instrument measured its own defect first
 
 The smoke run drew **HTTP 429** and labelled parcels `inaccessible` whose data was fully served —
@@ -85,9 +124,23 @@ Ranked by measured contribution to failure. **529 failures over the sample.**
 - **2. ⛔ SRU XML is absent from the corpus — 0 of 81 documents** (66 `.pdf`, 15 `.pdf#page=N`).
   `missing-source`. **This INVERTS PRYZM's own audit**, which ranked the SRU parser
   *"highest value-per-effort"*. **Build the PDF leg; keep SRU opportunistic.**
-- **3. Rule text resists parsing — `semantic`, 81 failures.** Compositional rules
-  (*"ter plaatse van…"*-style constructions) that keyword matching cannot resolve.
-- **4. No source at all — `missing-source`, 59 failures.**
+- **3. Rule text resists parsing — `semantic`, 81 failures.** Compositional French constructions
+  that keyword matching cannot resolve: *"sauf indication contraire portée au document graphique"* ·
+  *"la hauteur peut être portée à … lorsque …"* · *"au droit de …"* · *"sous réserve que …"*.
+  ⚠ **This bullet previously illustrated the point with `"ter plaatse van…"`, which is DUTCH** — it
+  leaked from the NL lane's brief into the FR document. Corrected 2026-09-04. Naming the shapes
+  correctly also tells the parser builder what to target.
+  ⛔ **Split before budgeting:** `semantic-resolvable` vs `semantic-irreducible`, measured separately.
+  CNIG SG6 concedes a written règlement will never be 100 % modellable at level 2 — ambiguous
+  formulations, exceptions and particular cases resist modelling; the goal is progressive coverage of
+  principal rules, not exhaustiveness. One undifferentiated bucket invites budgeting against an
+  asymptote.
+- **4. `missing-source`, 59 failures — MOSTLY A MISCLASSIFICATION.** ⭐ **9,461 of France's 35,010
+  communes have no local urbanism document at all and are subject to the RNU — 23.77 % of national
+  surface** — plus **2,973 carte-communale communes** whose authorisations are instructed on the RNU
+  basis (art. R.162-1). In roughly **12,400 communes there is no municipal PDF to parse**: the
+  applicable rules are national articles, one fixed corpus already structured by the Code's own
+  numbering. *"No PLU found"* is the observation; *"no source"* is the wrong inference.
 - **5. A prescription exists but carries no value.** Only **9 of 24** parcels with a `39.x` height
   prescription yielded a number. Paris: `libelle="Hauteur plafond"`, `txt=""` —
   **`RULE EXISTS = YES, RULE VALUE = NOT ALWAYS`, observed.**
@@ -131,13 +184,33 @@ cadastre + road network + parcel polygon (`derivable`), not a missing dataset.
 
 ---
 
-## §5 — Next measurable step
+## §5 — Next measurable steps
 
-**Build the règlement PDF extraction leg.** It addresses **389 of 529 failures (73.5 %)**, all of
-which stop at a document that is *reachable and unparsed*. Re-run the same 100-parcel audit
-(seed `20260904`) afterwards; the delta is the measurement.
+> ⛔ **Superseded in sequence by the founder review of 2026-09-04** —
+> [`FR-FOUNDER-BLOCKER-REVIEW.md`](FR-FOUNDER-BLOCKER-REVIEW.md) carries the full 8-move plan and its
+> reasoning. The PDF leg is **move 7 of 8**, not move 1: four cheaper moves shift the honest-answer
+> rate first, and one single run decides whether the PDF leg is even the right investment.
 
-⛔ **Do not sequence an SRU-XML parser first.** It measured **0 of 81**.
+**The corrected order:**
+
+1. **RNU / carte-communale national rule pack + regime lookup** — days. ~12,400 communes need no PDF
+   at all; commune RNU status is already served by API Carto.
+2. **Publish the GPU-only `TXT` ceiling** (§1.5) — hours. Stops phantom budgeting.
+3. **Re-run seed `20260904` with `resolveParisPluZone.ts` ENABLED** — one run. ⭐ This decides
+   move 6 vs move 7 and costs almost nothing.
+4. **Frontage derivation** — days. Unblocks every `15.01` road-setback rule.
+5. **PAU as `derivable-non-authoritative` + the datum enum** — ~1 week. Turns two hard 🔴 into typed
+   answers.
+6. **Municipal packs** — APUR, then Lyon, then the rest. Parameter-recovery ↑↑, developer-weighted.
+7. **The règlement PDF leg** — months.
+8. **LiDAR HD swap-in** — days, gated on coverage.
+
+⚠ **Restated honestly:** the PDF leg **puts 389 of 529 failures within reach; post-parse yield is
+UNMEASURED.** Reaching a PDF is not recovering a value — an unknown share lands in `semantic` after
+parsing. The earlier phrasing *"addresses 389 (73.5 %)"* overclaimed and is withdrawn.
+
+⛔ **Do not sequence an SRU-XML parser first.** It measured **0 of 81** — and see §1.5 for *why*, so
+the question stays closed.
 
 ---
 
