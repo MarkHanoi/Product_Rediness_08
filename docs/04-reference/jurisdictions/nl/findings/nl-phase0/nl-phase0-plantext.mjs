@@ -191,20 +191,28 @@ function extractPeil(text) {
  * hard-code the master prompt §7.1 forbids.
  */
 function classifyPeil(text) {
-    const s = text.toLowerCase();
-    const hits = [];
-    if (/kruin van de weg|kruin van de aangrenzende|wegdek/.test(s)) hits.push('road-crown');
-    // ⚠ CORRECTED 2026-09-04 (lane ENVELOPE-NLDK) — the original regex required the UNINFLECTED
+    // ⚠ CORRECTED 2026-09-04 (lane ENVELOPE-NLDK, round 2) — the original regex required the UNINFLECTED
     // "aansluitend afgewerkt maaiveld". Dutch legal prose overwhelmingly writes the INFLECTED
     // "aansluitende afgewerkte maaiveld", so this class was detected on 1 of 20 plans when the
     // true figure is 11. Caught by nlPeil.test.ts, re-reduced offline from the stored texts.
-    if (/aansluitende?\s+(afgewerkte?\s+)?(maaiveld|terrein)|gemiddelde hoogte van het\s+(aansluitende?\s+)?(afgewerkte?\s+)?(terrein|maaiveld)/.test(s)) hits.push('adjoining-finished-ground');
+    // ⚠ CORRECTED AGAIN 2026-09-04 (round 3) — QUOTING the 18 distinct definitions into a catalogue
+    // (`rulepacks/nlPeilCatalogue.ts`) exposed four more misses of the same family: a COMMA between the
+    // adjectives ("aansluitende, afgewerkte" — 0717, 1509), the synonyms "aanliggend afgewerkt terrein" /
+    // "afgewerkte bouwterrein" (1896, 0820), words between "kruin van de" and "weg" (0148), and one
+    // OVER-match — "maaiveld vóór het bouwrijp maken" is the ground BEFORE construction (0148), so it is
+    // neutralised into `maaiveld-other`. Also: "Nieuw Amsterdams Peil", "hoofdingang", water synonyms,
+    // "bovenzijde vloer"/"vloerpeil", "door het waterschap". KEPT IDENTICAL to `classifyNlPeilDefinition`
+    // in `rulepacks/nlPeil.ts` — if the two disagree, the coverage figures stop describing the runtime.
+    const s = text.toLowerCase().replace(/aansluitende?\s+(afgewerkte?\s+)?maaiveld\s+v[oó]{2}r\s+het\s+bouwrijp\s+maken/g, 'maaiveld-voor-bouwrijp-maken');
+    const hits = [];
+    if (/kruin van de[^.;:]{0,40}?\bweg\b|kruin van de aangrenzende|wegdek/.test(s)) hits.push('road-crown');
+    if (/(aansluitende?|aanliggende?),?\s+(afgewerkte?,?\s+)?(maaiveld|terrein)|afgewerkte?,?\s+(aansluitende?|aanliggende?)\s+(maaiveld|terrein)|gemiddelde hoogte van het\s+((aansluitende?|aanliggende?),?\s+)?(afgewerkte?,?\s+)?(terrein|maaiveld)|afgewerkte?\s+bouwterrein/.test(s)) hits.push('adjoining-finished-ground');
     if (/\bmaaiveld\b/.test(s) && !hits.includes('adjoining-finished-ground')) hits.push('maaiveld-other');
-    if (/\bn\.?a\.?p\.?\b|normaal amsterdams peil/.test(s)) hits.push('nap-absolute');
-    if (/hoofdtoegang|toegang van het gebouw|entree/.test(s)) hits.push('main-entrance-referenced');
-    if (/bovenkant.*(afgewerkte )?vloer|begane[- ]grondvloer/.test(s)) hits.push('ground-floor-level');
-    if (/dijk|kade|waterpeil|waterstand|boezempeil/.test(s)) hits.push('water-or-dike');
-    if (/burgemeester en wethouders|bevoegd gezag|nader.{0,20}bepaal/.test(s)) hits.push('authority-determined');
+    if (/\bn\.?a\.?p\.?\b|normaal amsterdams peil|nieuw amsterdams peil/.test(s)) hits.push('nap-absolute');
+    if (/hoofdtoegang|hoofdingang|toegang van het gebouw|entree/.test(s)) hits.push('main-entrance-referenced');
+    if (/bovenkant.*(afgewerkte )?vloer|begane[- ]grondvloer|bovenzijde vloer|vloerpeil/.test(s)) hits.push('ground-floor-level');
+    if (/dijk|kade|waterpeil|waterstand|boezempeil|waterspiegel|waterniveau|waterlijn|oevers/.test(s)) hits.push('water-or-dike');
+    if (/burgemeester en wethouders?|bevoegd gezag|nader.{0,20}bepaal|door het waterschap/.test(s)) hits.push('authority-determined');
     if (hits.length === 0) hits.push('unclassified');
     return hits;
 }

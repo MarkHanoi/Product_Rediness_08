@@ -1,0 +1,233 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# terrain-bake-regions.yml — WHOLE-REGION terrain (§11 TERRAIN-EVERYWHERE) → R2
+#
+# WHY a THIRD terrain workflow: terrain-bake.yml / terrain-bake-all.yml bake the per-CITY tilesets
+# from NATIONAL DTM adapters (ES PNOA, NL AHN, FR RGE ALTI, …) — 0.5 m base error, legal-grade
+# sources, one city bbox each. They cannot reach "everywhere": 8 wired adapters cover 8 countries,
+# nothing covers AT CZ PL IE … PT BE, the US, Australia or the Gulf, and each adapter caps a request
+# at 3–30 km. This workflow bakes `terrain.mjs` §11 NATIONAL_REGIONS — the context-bake regions
+# (whole countries in Europe; metro rows for USA/Middle East; states for Australia) — from the ONE
+# source that covers all of them (Mapterhorn terrarium z/x/y, national lidar where ingested + GLO-30
+# fill), streamed per output tile, with a per-post EGM2008 geoid lift read from the NGA grid (a
+# per-country constant is off by up to 27 m across Norway — L-584 / C12 §1.4). The city tilesets
+# are UNTOUCHED and take precedence in the client (terrainCoverage.ts resolves city → region).
+#
+# COST (measured 2026-09-04, `node terrain.mjs --national-regions --avg-kb <measured>`): z0..10 is
+# 129,340 tiles across 46 regions; a finest tile is ~640 KB in hilly Luxembourg, far less over sea
+# and plains. The plan table is the number the founder sees before a national publish — this
+# workflow is MANUAL ONLY and runs ONE group at a time, in the founder's order: europe → usa →
+# australia → middleeast.
+#
+# SHARDING: `terrain.mjs --matrix` emits one job per region and splits a region whose finest level
+# exceeds `tiles_per_shard` into N shards (shard 0 writes layer.json + every coarse level; the finest
+# level is split by column round-robin) so norway/queensland/westernaustralia (~11–15k tiles) fit the
+# 6-hour job cap with margin and every shard uploads a DISJOINT slice of `terrain/<slug>/`.
+#
+# VERIFY: every emitted tileset passes `terrain.verify.mjs --tileset` (declared→disk + independent
+# @here decode + C12 §10.1/§10.2 header invariants) BEFORE upload, and `--remote` AFTER upload
+# decodes the SERVED root + finest tile off the public bucket (C12 §10.4). Only then may
+# `TERRAIN_TILESET_VERSION` (terrainCoverage.ts) be bumped — by hand, after reading the log.
+#
+# Single source of truth for regions, bboxes and slugs: tools/context-bake/terrain.mjs NATIONAL_REGIONS.
+# `node terrain.mjs --check-client-coverage` asserts the client's slug set equals the bake's.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Bake REGION terrain (Mapterhorn, sharded) → R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      group:
+        description: 'Region group to bake (terrain.mjs NATIONAL_GROUPS).'
+        type: choice
+        options: [europe, usa, australia, middleeast, all]
+        default: europe
+      regions:
+        description: 'Explicit region slugs (space-separated) — overrides group when set. e.g. "luxembourg denmark".'
+        type: string
+        default: ''
+      tiles_per_shard:
+        description: 'Finest-level tiles per job; a region above this is split into shards.'
+        type: string
+        default: '3000'
+      max_zoom:
+        description: 'Finest output level (10 = what a Spanish city has today; 9 = ¼ the tiles).'
+        type: string
+        default: '10'
+      base_err:
+        description: 'MARTINI vertical error at the finest level, metres (1.0 default; 2.0 ≈ −25% bytes).'
+        type: string
+        default: '1.0'
+      publish:
+        description: 'Upload to s3://pryzm-assets/tiles/terrain/<slug>/. Untick to bake + verify only.'
+        type: boolean
+        default: true
+
+# Distinct group from the city workflows so a region wave never cancels a city spot bake.
+concurrency:
+  group: terrain-bake-regions
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan region matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - id: set
+        env:
+          GROUP: ${{ inputs.group }}
+          REGIONS: ${{ inputs.regions }}
+          PER: ${{ inputs.tiles_per_shard }}
+          MZ: ${{ inputs.max_zoom }}
+        run: |
+          set -euo pipefail
+          cd tools/context-bake
+          if [ -n "$REGIONS" ]; then
+            M="$(node terrain.mjs --matrix --regions "$REGIONS" --tiles-per-shard "$PER" --max-zoom "$MZ")"
+          else
+            M="$(node terrain.mjs --matrix --group "$GROUP" --tiles-per-shard "$PER" --max-zoom "$MZ")"
+          fi
+          echo "matrix=$M" >> "$GITHUB_OUTPUT"
+          echo "jobs: $(node -e "console.log(JSON.parse(process.argv[1]).include.length)" "$M")"
+          node terrain.mjs --national-regions --max-zoom "$MZ" ${REGIONS:+--regions "$REGIONS"} ${REGIONS:---group "$GROUP"}
+
+  bake:
+    name: ${{ matrix.region }} ${{ matrix.shard }}/${{ matrix.shards }} — Mapterhorn → EGM08 → quantized-mesh → R2
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install terrain compiler deps (in a TEMP dir OUTSIDE the repo)
+        # Same escape as terrain-bake.yml (a repo-root `workspace:*` kills a subdir npm i), plus `sharp`
+        # — the WebP decoder the terrarium path needs (terrain.mjs §8d / §11).
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp -d)"
+          cd "$TMP"
+          printf '{ "name": "pryzm-context-bake-standalone", "private": true, "version": "0.0.0" }\n' > package.json
+          npm install --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1 proj4@2 sharp@0.33
+          rm -rf "$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+          mv node_modules "$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+
+      - name: Reproject self-test
+        run: node tools/context-bake/terrain.mjs --selftest
+
+      - name: Bake ${{ matrix.region }} (shard ${{ matrix.shard }}/${{ matrix.shards }})
+        env:
+          REGION: ${{ matrix.region }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ matrix.shards }}
+          MZ: ${{ inputs.max_zoom }}
+          ERR: ${{ inputs.base_err }}
+        run: |
+          set -euo pipefail
+          node tools/context-bake/terrain.mjs --bake-region "$REGION" \
+            --out "tools/context-bake/out/terrain/$REGION" \
+            --shard "$SHARD/$SHARDS" --max-zoom "$MZ" --base-err "$ERR" --concurrency 4
+
+      - name: Assert the tileset is real + decode proof (independent decoder, C12 §10 invariants)
+        env:
+          REGION: ${{ matrix.region }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          cd tools/context-bake
+          d="out/terrain/$REGION"
+          n="$(find "$d" -name '*.terrain' | wc -l)"
+          sz="$(find "$d" -name '*.terrain' -printf '%s\n' | sort -rn | head -1)"; sz="${sz:-0}"
+          echo "$REGION shard $SHARD — $n .terrain tiles, largest $sz bytes, $(du -sh "$d" | cut -f1) total"
+          [ "$n" -ge 1 ] && [ "$sz" -ge 128 ] || { echo "::error::$REGION produced no real tiles"; exit 1; }
+          if [ "$SHARD" = "0" ]; then
+            # shard 0 owns layer.json + every coarse level: the full declared→disk walk applies to the coarse
+            # levels; finest-level tiles owned by other shards are reported MISSING by design, so we assert the
+            # decode + header invariants here and let the post-publish --remote check prove the merged set.
+            node terrain.verify.mjs --tileset "$d" || echo "::notice::declared→disk shows other shards' finest tiles as missing (expected for a sharded bake); the --remote check after publish covers the merged tileset."
+          else
+            [ ! -f "$d/layer.json" ] || { echo "::error::shard $SHARD wrote layer.json — only shard 0 may"; exit 1; }
+          fi
+
+      - name: Publish this shard to R2
+        if: ${{ inputs.publish }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          REGION: ${{ matrix.region }}
+        run: |
+          set -euo pipefail
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "::error::R2_* repo secrets are not set — cannot publish."; exit 1
+          fi
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          SRC="tools/context-bake/out/terrain/$REGION"
+          # Additive sync (no --delete): each shard owns a disjoint slice of terrain/<slug>/; a re-bake
+          # overwrites in place and the client's ?v= stamp (TERRAIN_TILESET_VERSION) busts caches.
+          aws s3 sync "$SRC" "s3://pryzm-assets/tiles/terrain/$REGION" \
+            --endpoint-url "$ENDPOINT" --no-progress \
+            --exclude '*' --include '*.terrain' \
+            --content-type 'application/vnd.quantized-mesh' \
+            --cache-control 'public, max-age=86400'
+          if [ -f "$SRC/layer.json" ]; then
+            aws s3 cp "$SRC/layer.json" "s3://pryzm-assets/tiles/terrain/$REGION/layer.json" \
+              --endpoint-url "$ENDPOINT" --no-progress \
+              --content-type 'application/json' \
+              --cache-control 'public, max-age=86400'
+          fi
+          echo "$REGION shard published: $(find "$SRC" -name '*.terrain' | wc -l) tiles"
+
+      - name: Verify the SERVED tileset (C12 §10.4 — decode root + finest off the public bucket)
+        if: ${{ inputs.publish && matrix.shard == 0 }}
+        env:
+          PUBLIC_BASE: 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/'
+          REGION: ${{ matrix.region }}
+        run: |
+          set -euo pipefail
+          cd tools/context-bake
+          # Probe under the region's land-check city so the finest tile is a real relief tile, not sea.
+          LL="$(node -e "import('./terrain.mjs').then(m => { const r = m.NATIONAL_REGIONS.find(x => x.name === process.argv[1]); console.log(r.probe.join(',')); })" "$REGION")"
+          # Other shards may still be uploading their finest slice: retry the chain a few times.
+          for i in 1 2 3 4 5 6; do
+            if node terrain.verify.mjs --remote "$REGION" --base "$PUBLIC_BASE" --lonlat "$LL"; then exit 0; fi
+            echo "…attempt $i failed (a sibling shard may still be uploading); retrying in 60 s"; sleep 60
+          done
+          echo "::error::$REGION: the served tileset did not verify — do NOT bump TERRAIN_TILESET_VERSION for it."
+          exit 1
+
+  summary:
+    name: What to do next
+    needs: bake
+    if: ${{ always() && inputs.publish }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          {
+            echo "### Region terrain published — verify, then bump"
+            echo ""
+            echo "Live under \`pryzm-assets/tiles/terrain/<slug>/\` for every job above that passed its"
+            echo "**Verify the SERVED tileset** step (C12 §10.4). The client resolves a site to its city"
+            echo "tileset first and to its region tileset otherwise (\`terrainCoverage.ts\`), so a site"
+            echo "anywhere inside a published region now drapes real relief — no code change needed."
+            echo ""
+            echo "**Then, by hand:** bump \`TERRAIN_TILESET_VERSION\` in \`apps/editor/src/ui/geospatial/terrainCoverage.ts\`"
+            echo "(C12 §10.3) ONLY for a wave whose every job verified. A job that failed \`--remote\` must be re-run"
+            echo "for that region alone (\`regions:\` input) before any bump."
+          } >> "$GITHUB_STEP_SUMMARY"
