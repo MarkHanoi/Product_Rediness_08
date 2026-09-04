@@ -1,0 +1,2183 @@
+{
+  "version": "1.0",
+  "country": "pt",
+  "measuredAt": "2026-09-03T20:47:15.752Z",
+  "args": {
+    "frame": "both",
+    "n": 120,
+    "seed": 20260903,
+    "gapMs": 340
+  },
+  "frames": {
+    "land": {
+      "frame": "points drawn UNIFORMLY AT RANDOM over the shipped `PORTUGAL_BBOX` mainland routing constant. Answers \"what does a random click on mainland Portugal get?\" — sea and un-transcribed land are REAL outcomes here (`no-plan-served`), not failures.",
+      "points": [
+        {
+          "lat": 38.796351792733184,
+          "lon": -6.590001775324344,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.796351792733184,-6.590001775324344 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.484616280859335,
+          "lon": -6.536943466425873,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.484616280859335,-6.536943466425873 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.273541132151145,
+          "lon": -6.360910290991887,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.273541132151145,-6.360910290991887 (0 features in point bbox)"
+        },
+        {
+          "lat": 39.9330150289461,
+          "lon": -8.81329983358737,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços florestais: Espaço Florestal de Produção",
+          "area": "1015 POMBAL",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.56936721373349,
+          "lon": -9.172056735982187,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.56936721373349,-9.172056735982187 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.65632407646626,
+          "lon": -8.738087451225146,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo urbano - Solo de urbanização programada - Zona de construção programada tipo II",
+          "area": "1609 VIANA DO CASTELO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 39.32800613017753,
+          "lon": -8.160775219579227,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço natural",
+          "area": "1401 ABRANTES",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 40.01848892909475,
+          "lon": -8.648082510591484,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços Florestais de Produção",
+          "area": "0615 SOURE",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.09260330139659,
+          "lon": -7.889172413176857,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Albufeira do Maranhão",
+          "area": "1203 AVIS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.7387406551512,
+          "lon": -8.635092968028038,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço agrícola - Área agrícola não incluído na RAN",
+          "area": "1507 MONTIJO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.938520192494614,
+          "lon": -7.245401430199854,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Agrícola em solos da RAN",
+          "area": "1207 ELVAS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.39697814693209,
+          "lon": -9.139480245672166,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.39697814693209,-9.139480245672166 (0 features in point bbox)"
+        },
+        {
+          "lat": 42.05217973468825,
+          "lon": -6.713237628131173,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 42.05217973468825,-6.713237628131173 (0 features in point bbox)"
+        },
+        {
+          "lat": 39.96956415660679,
+          "lon": -8.488246386079117,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços Florestais de Produção",
+          "area": "1003 ANSIÃO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.30068297607359,
+          "lon": -7.993373065046034,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SOLO RÚSTICO - ESPAÇOS NATURAIS - Espaço natural",
+          "area": "1301 AMARANTE",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.23380211850163,
+          "lon": -8.559086971939541,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços Agrícolas",
+          "area": "1315 VALONGO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.65379990953952,
+          "lon": -7.6376585650956255,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços Agricolas Complementares",
+          "area": "0511 VILA VELHA DE RÓDÃO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 40.54962248420343,
+          "lon": -7.398296572407707,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico –  Espaços naturais",
+          "area": "0903 CELORICO DA BEIRA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.5776941338554,
+          "lon": -6.5706026775529605,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaço Florestal - de Uso Misto Silvícola e Agrícola",
+          "area": "0411 VIMIOSO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.234834610507825,
+          "lon": -9.260169038223102,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.234834610507825,-9.260169038223102 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.358780524088075,
+          "lon": -7.721663444675505,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Agro-Florestal",
+          "area": "1714 VILA REAL",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.98476186005865,
+          "lon": -8.674670346919447,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços florestais: Espaço Florestal de Produção",
+          "area": "1015 POMBAL",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.12139658711385,
+          "lon": -6.909566896641627,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rural - Espaço Florestal de Produção",
+          "area": "0409 TORRE DE MONCORVO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 42.04740680833348,
+          "lon": -6.473353017494082,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 42.04740680833348,-6.473353017494082 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.40727784517221,
+          "lon": -6.844665465666912,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.40727784517221,-6.844665465666912 (0 features in point bbox)"
+        },
+        {
+          "lat": 39.45475696674548,
+          "lon": -7.584217469813302,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços de Uso Múltiplo Agrícola e Florestal e Espaços de Exploração de Recursos Geológicos",
+          "area": "1212 NISA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.619514756929135,
+          "lon": -7.765952522773295,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço florestal",
+          "area": "1702 BOTICAS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.4701578178443,
+          "lon": -9.421636959095485,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.4701578178443,-9.421636959095485 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.26669775468763,
+          "lon": -8.951307534612715,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.26669775468763,-8.951307534612715 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.07941835080273,
+          "lon": -6.319499354483559,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.07941835080273,-6.319499354483559 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.067935787118046,
+          "lon": -7.936681329994462,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Agrícola",
+          "area": "1813 RESENDE",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.56487616314553,
+          "lon": -9.022864640713669,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico -  Espaço Agrícola -Outros Espaços Agrícolas - Tipo II",
+          "area": "1001 ALCOBAÇA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.88981490735896,
+          "lon": -9.147939441748894,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.88981490735896,-9.147939441748894 (0 features in point bbox)"
+        },
+        {
+          "lat": 39.380544218444264,
+          "lon": -6.314489244390279,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.380544218444264,-6.314489244390279 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.0998341323575,
+          "lon": -7.198734550527297,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico-Espaços de Uso Múltiplo Agrícola e Florestal-Áreas de uso múltiplo de tipo II",
+          "area": "0507 PENAMACOR",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 37.10402038900647,
+          "lon": -7.4160642551956695,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.10402038900647,-7.4160642551956695 (0 features in point bbox)"
+        },
+        {
+          "lat": 42.11366227101535,
+          "lon": -7.416167956218123,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 42.11366227101535,-7.416167956218123 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.43576163065154,
+          "lon": -7.155224408046342,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.43576163065154,-7.155224408046342 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.98161189879757,
+          "lon": -7.735578844114206,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.98161189879757,-7.735578844114206 (0 features in point bbox)"
+        },
+        {
+          "lat": 39.59163389753085,
+          "lon": -8.074437882308848,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Agro-silvo-pastoril",
+          "area": "1413 MAÇÃO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.107743993937035,
+          "lon": -9.105286450497806,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Agrícola integrado na RAN",
+          "area": "1101 ALENQUER",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 40.430821266397835,
+          "lon": -7.638538626627996,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços Florestais do Tipo I",
+          "area": "0912 SEIA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.38560666416306,
+          "lon": -6.279189765127375,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.38560666416306,-6.279189765127375 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.54727993679699,
+          "lon": -7.033182381326332,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rural - Espaços de Uso Múltiplo Agrícola e Florestal",
+          "area": "0405 MACEDO DE CAVALEIROS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.96273587830365,
+          "lon": -7.964976423908956,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rural-Espaços de Uso Múltiplo Agrícola e Florestal",
+          "area": "0506 OLEIROS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.14274976835586,
+          "lon": -6.99600581373088,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.14274976835586,-6.99600581373088 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.60212943963707,
+          "lon": -6.565007624588906,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.60212943963707,-6.565007624588906 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.44915340384468,
+          "lon": -8.190482912026345,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico -Espaços Florestais de produção",
+          "area": "1808 MORTÁGUA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.188545332849024,
+          "lon": -6.27210442200303,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.188545332849024,-6.27210442200303 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.58365564981941,
+          "lon": -7.21921747168526,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.58365564981941,-7.21921747168526 (0 features in point bbox)"
+        },
+        {
+          "lat": 39.55332064002287,
+          "lon": -6.995511476323008,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.55332064002287,-6.995511476323008 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.80294089422095,
+          "lon": -8.004960787855088,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaços culturais e naturais - Área de conservação da natureza",
+          "area": "0702 ARRAIOLOS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 40.544778107875025,
+          "lon": -7.886080852267332,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico -  Espaços Florestais - de Produção",
+          "area": "1809 NELAS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 40.520681903208605,
+          "lon": -6.415651487675495,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.520681903208605,-6.415651487675495 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.95022877405864,
+          "lon": -8.52824621615,
+          "cls": "f2-correct-null",
+          "zoneLabel": " Espaço Rural – Espaço Florestal de Produção",
+          "area": "0109 SANTA MARIA DA FEIRA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.49203589947429,
+          "lon": -9.188688196847215,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.49203589947429,-9.188688196847215 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.90785479070619,
+          "lon": -6.344868646143004,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.90785479070619,-6.344868646143004 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.0806770693278,
+          "lon": -8.199479710566811,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SOLO RÚSTICO - Espaços Agrícolas",
+          "area": "1804 CINFÃES",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.172162986989136,
+          "lon": -6.786458919080905,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.172162986989136,-6.786458919080905 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.47171775968745,
+          "lon": -6.773623145441524,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.47171775968745,-6.773623145441524 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.60570932126138,
+          "lon": -6.952540094288997,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.60570932126138,-6.952540094288997 (0 features in point bbox)"
+        },
+        {
+          "lat": 36.90623090143781,
+          "lon": -7.746042282576672,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 36.90623090143781,-7.746042282576672 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.06230154929217,
+          "lon": -9.433657374838367,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.06230154929217,-9.433657374838367 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.287547781411554,
+          "lon": -7.3508574409876015,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.287547781411554,-7.3508574409876015 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.5557901974069,
+          "lon": -9.537848879373632,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.5557901974069,-9.537848879373632 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.37297160583548,
+          "lon": -6.603384152078069,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.37297160583548,-6.603384152078069 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.2871869208524,
+          "lon": -8.039370261272415,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço florestal - Área de produção/protecção",
+          "area": "0808 LOULÉ",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.331301864329724,
+          "lon": -9.307422830397263,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaços Agrícolas - Espaço não integrado na RAN",
+          "area": "1014 PENICHE",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.355316638411026,
+          "lon": -9.104313615034334,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaços Agrícolas - Outra Área Agrícola",
+          "area": "1012 ÓBIDOS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.77988311625086,
+          "lon": -8.88236577718053,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SOLO RÚSTICO - MISTOS DE USO SILVÍCOLA E AGRÍCOLA",
+          "area": "1010 MARINHA GRANDE",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.283702927478586,
+          "lon": -6.729922462976537,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.283702927478586,-6.729922462976537 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.75705266250298,
+          "lon": -9.067727032955736,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.75705266250298,-9.067727032955736 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.77695227423683,
+          "lon": -6.159632574790157,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.77695227423683,-6.159632574790157 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.13762845217716,
+          "lon": -7.629412318952381,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico – Espaços agrossilvopastoris",
+          "area": "0214 VIDIGUEIRA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.28505434663967,
+          "lon": -7.6521730370819565,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Florestal",
+          "area": "1714 VILA REAL",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.524818175728434,
+          "lon": -6.352707688021473,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rural-Espaços Agrícolas",
+          "area": "0406 MIRANDA DO DOURO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.45768639459275,
+          "lon": -9.165728621790185,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Agrícola",
+          "area": "1511 SESIMBRA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 37.30703739337623,
+          "lon": -7.969415041990578,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço florestal - Área de produção/protecção",
+          "area": "0808 LOULÉ",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 40.37500167572871,
+          "lon": -9.339737424999475,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.37500167572871,-9.339737424999475 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.577387991151774,
+          "lon": -7.180302213085815,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.577387991151774,-7.180302213085815 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.732711050543,
+          "lon": -6.567962300637737,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.732711050543,-6.567962300637737 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.16351257844362,
+          "lon": -9.574308361997828,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.16351257844362,-9.574308361997828 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.2777405127883,
+          "lon": -8.909371951851062,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.2777405127883,-8.909371951851062 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.77854540438857,
+          "lon": -7.976819314551539,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços Agrícolas",
+          "area": "0206 CASTRO VERDE",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 37.82210104225669,
+          "lon": -6.467209528689272,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.82210104225669,-6.467209528689272 (0 features in point bbox)"
+        },
+        {
+          "lat": 39.90593699936289,
+          "lon": -9.48004003278911,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.90593699936289,-9.48004003278911 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.661385447089565,
+          "lon": -6.408115747757256,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.661385447089565,-6.408115747757256 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.676492351223715,
+          "lon": -7.592052371962927,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico -  Espaços Agrossilvopastoris",
+          "area": "0710 REDONDO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 40.12659632642754,
+          "lon": -8.92739629864227,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.12659632642754,-8.92739629864227 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.95405759981368,
+          "lon": -7.054850727692246,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.95405759981368,-7.054850727692246 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.93597938029561,
+          "lon": -6.299079065467231,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.93597938029561,-6.299079065467231 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.523890395858324,
+          "lon": -7.988182277791202,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbanizado - Espaços Centrais - Baixa Densidade",
+          "area": "1821 TONDELA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 37.575807459792124,
+          "lon": -8.460885521396994,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço de Valorização e Protecção Ambiental 3 ou 4",
+          "area": "0211 ODEMIRA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.04965221364982,
+          "lon": -8.931868248060345,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Florestal",
+          "area": "1103 AZAMBUJA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.83177114562132,
+          "lon": -6.740779029810801,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.83177114562132,-6.740779029810801 (0 features in point bbox)"
+        },
+        {
+          "lat": 36.91694263468962,
+          "lon": -7.872719421074725,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 36.91694263468962,-7.872719421074725 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.63609349541366,
+          "lon": -8.281648230063729,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rural - Espaço Natural",
+          "area": "0309 PÓVOA DE LANHOSO",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.65824887466152,
+          "lon": -8.952497667539864,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.65824887466152,-8.952497667539864 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.61891910729464,
+          "lon": -8.313982908870093,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico – Espaços Florestais – Espaços Florestais de Produção",
+          "area": "0212 OURIQUE",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.49371656377334,
+          "lon": -9.442266602674499,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.49371656377334,-9.442266602674499 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.836493851873094,
+          "lon": -6.715376392961479,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.836493851873094,-6.715376392961479 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.107734905695544,
+          "lon": -8.172290817392058,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rural-Espaços Agrícolas ou Florestais-Espaços Agrícolas",
+          "area": "1307 MARCO DE CANAVESES",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.2850252276985,
+          "lon": -8.108790376596152,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço agro-florestal",
+          "area": "1401 ABRANTES",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 37.68571234452538,
+          "lon": -9.415723139676265,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.68571234452538,-9.415723139676265 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.88510585876647,
+          "lon": -8.435532619152218,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico - Espaços Agrícolas ou Florestais",
+          "area": "1509 SANTIAGO DO CACÉM",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 37.97248760932125,
+          "lon": -9.257585428562015,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.97248760932125,-9.257585428562015 (0 features in point bbox)"
+        },
+        {
+          "lat": 39.712300006416626,
+          "lon": -6.63407946403604,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.712300006416626,-6.63407946403604 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.82134846765548,
+          "lon": -8.570033805235289,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rústico – Espaços Agrícolas de Produção",
+          "area": "0108 ESTARREJA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 40.68214830150828,
+          "lon": -6.44969960921444,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.68214830150828,-6.44969960921444 (0 features in point bbox)"
+        },
+        {
+          "lat": 40.83692932638805,
+          "lon": -6.685646440507844,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 40.83692932638805,-6.685646440507844 (0 features in point bbox)"
+        },
+        {
+          "lat": 41.02439163164236,
+          "lon": -9.105507873021997,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 41.02439163164236,-9.105507873021997 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.33757086056285,
+          "lon": -6.995091364742256,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.33757086056285,-6.995091364742256 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.06444520608056,
+          "lon": -8.510198793630115,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 37.06444520608056,-8.510198793630115 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.67669949333649,
+          "lon": -8.857489562267437,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Agro-Florestal - CAT.II",
+          "area": "1508 PALMELA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.56462272980716,
+          "lon": -9.431046753446571,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 38.56462272980716,-9.431046753446571 (0 features in point bbox)"
+        },
+        {
+          "lat": 37.696453781449236,
+          "lon": -7.496115734474733,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço Cultural e Natural - Estrutura Biofísica Fundamental ( 1ª Prioridade de investimento)",
+          "area": "0209 MÉRTOLA",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.07153021383565,
+          "lon": -8.17315555459354,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaço florestal - Área de uso ou aptdidão florestal",
+          "area": "1213 PONTE DE SOR",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 41.62159148426727,
+          "lon": -7.0481540056876835,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Rural - Espaços de Uso Múltiplo Agrícola e Florestal",
+          "area": "0405 MACEDO DE CAVALEIROS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 39.708898248011245,
+          "lon": -9.586610353458672,
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": null,
+          "slots": [],
+          "why": "no-feature: crus @ 39.708898248011245,-9.586610353458672 (0 features in point bbox)"
+        },
+        {
+          "lat": 38.985422201803885,
+          "lon": -8.280522022536024,
+          "cls": "f1-gap",
+          "zoneLabel": "Perímetro Urbano de Lagoiços",
+          "area": "1409 CORUCHE",
+          "slots": [],
+          "why": "no-rule-pack: "
+        }
+      ]
+    },
+    "fabric": {
+      "frame": "points drawn by the proven two-stage sampler in `tools/city-completion/parcelSampleProbe.mjs` (equal-probability tile draw × footprint-area-proportional point draw ⇒ unbiased FOR AREA) over OSM NON-PUBLIC building footprints in Lisboa + Porto. An INDEPENDENT, conservative proxy for private buildable land — NOT the legal denominator (L-656).",
+      "points": [
+        {
+          "lat": 38.71034559438758,
+          "lon": -9.152369721848112,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.711838712725196,
+          "lon": -9.150893148018152,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.750150501795844,
+          "lon": -9.223945180919959,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbano",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.7027480290884,
+          "lon": -9.17887784497714,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.713008929546454,
+          "lon": -9.143517224356197,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71471695296134,
+          "lon": -9.14156681274489,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.71069048585817,
+          "lon": -9.151187767241913,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77417513021111,
+          "lon": -9.180033439147058,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional a Consolidar",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.764382129537054,
+          "lon": -9.184239628121468,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.776366451178326,
+          "lon": -9.187898191992758,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaços Florestais com Funções Predominantes de Recreio e Valorização da Paisagem Grande Lisboa",
+          "area": "1116 ODIVELAS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.77186740733014,
+          "lon": -9.178290896025565,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71111008679499,
+          "lon": -9.150118659056778,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.710245347183104,
+          "lon": -9.151115057943233,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71062942831563,
+          "lon": -9.14989471463054,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71385252439625,
+          "lon": -9.141909792449448,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.77551899823139,
+          "lon": -9.100902807806483,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano-Espaços Residenciais-Habitacionais a Reestruturar",
+          "area": "1107 LOURES",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71479495443083,
+          "lon": -9.142588955328634,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.73335082392811,
+          "lon": -9.128236371827438,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.73434592441187,
+          "lon": -9.128429949792578,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.697154947504096,
+          "lon": -9.212152310713234,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano D Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74657871157341,
+          "lon": -9.139651404591737,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71815513698756,
+          "lon": -9.15254030121127,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.772896411346046,
+          "lon": -9.09943672402647,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74678436064634,
+          "lon": -9.138982017329488,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.749319651137306,
+          "lon": -9.22614188202493,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbano",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77440594386233,
+          "lon": -9.190126428065982,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaços Florestais com Funções Predominantes de Recreio e Valorização da Paisagem Grande Lisboa",
+          "area": "1116 ODIVELAS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.71435626876174,
+          "lon": -9.141907560051942,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.71579766664424,
+          "lon": -9.142365049651225,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.749704135953074,
+          "lon": -9.224585668464284,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbano",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.7494095314065,
+          "lon": -9.225777459846778,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbano",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71236067505203,
+          "lon": -9.151006801665751,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74677715212782,
+          "lon": -9.136805917553925,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71056840841386,
+          "lon": -9.150027536604561,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.733084387688976,
+          "lon": -9.126394410907933,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional a Consolidar",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74865080794809,
+          "lon": -9.13830004989201,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.748189446220785,
+          "lon": -9.138890262896204,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71012180276189,
+          "lon": -9.149731133967737,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.747741085234736,
+          "lon": -9.138439329038095,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.696900160254316,
+          "lon": -9.209150733224304,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.750471816643,
+          "lon": -9.22160513890739,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço industrial/serviço - existente",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.69461841136288,
+          "lon": -9.209953124341183,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.7746249601662,
+          "lon": -9.101637876814248,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.773209618601335,
+          "lon": -9.101563965802061,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.715419070134914,
+          "lon": -9.142133164015,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.712171744242255,
+          "lon": -9.152070666263809,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77319497791616,
+          "lon": -9.101560376604848,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.75039012902081,
+          "lon": -9.223929629909893,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbano",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.73381321316982,
+          "lon": -9.127472300597312,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74629881933244,
+          "lon": -9.137809923890535,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77232641806067,
+          "lon": -9.181179459971267,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71729827194606,
+          "lon": -9.155266457942819,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74640455828003,
+          "lon": -9.137778121724565,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74892894831439,
+          "lon": -9.150953012202963,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.697481481128754,
+          "lon": -9.21214376574416,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano D Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71432622544538,
+          "lon": -9.141625465804305,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.73280743927268,
+          "lon": -9.128036735002778,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77631052619281,
+          "lon": -9.187545254609654,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaços Florestais com Funções Predominantes de Recreio e Valorização da Paisagem Grande Lisboa",
+          "area": "1116 ODIVELAS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.71724197513801,
+          "lon": -9.155319537189,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77623447927879,
+          "lon": -9.18993384961582,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço Habitacional a Reconverter",
+          "area": "1116 ODIVELAS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.7714328059967,
+          "lon": -9.179571927608444,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.164279688124786,
+          "lon": -8.560176983137817,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo II",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.138463934382976,
+          "lon": -8.623723310650018,
+          "cls": "f1-gap",
+          "zoneLabel": "Área Urbanizada Centro histórico - Área de Uso Misto - tipo II",
+          "area": "1317 VILA NOVA DE GAIA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17474324937234,
+          "lon": -8.589252635271398,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.1836870855162,
+          "lon": -8.600816017200955,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16357349394768,
+          "lon": -8.626983169321893,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16346223742632,
+          "lon": -8.629807200648706,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15018716248315,
+          "lon": -8.60978378784229,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.160913473189446,
+          "lon": -8.635289734333345,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15018757762532,
+          "lon": -8.620786218937058,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15978778336877,
+          "lon": -8.63515143888053,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16596179445105,
+          "lon": -8.63032980962777,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.132899559107244,
+          "lon": -8.657868457210444,
+          "cls": "f1-gap",
+          "zoneLabel": "Área Urbanizada Consolidada de Tipologia de Moradia",
+          "area": "1317 VILA NOVA DE GAIA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.14238216692542,
+          "lon": -8.564152912243808,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18813417904972,
+          "lon": -8.663879953932996,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.151159923366464,
+          "lon": -8.611385924037751,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18286019637157,
+          "lon": -8.63789491492472,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.149797855400934,
+          "lon": -8.611823464735242,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.180685524026416,
+          "lon": -8.641671266504495,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 41.1700590196727,
+          "lon": -8.555340476040616,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo II",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16503709682484,
+          "lon": -8.628375092970355,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18033259174384,
+          "lon": -8.642071959291192,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 41.15196818545967,
+          "lon": -8.612384095513153,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16593694773723,
+          "lon": -8.629910792153805,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16204651383049,
+          "lon": -8.63547342762726,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.151380340091066,
+          "lon": -8.611879823159157,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.176912863450866,
+          "lon": -8.623738699355727,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.13207033722545,
+          "lon": -8.655615861721175,
+          "cls": "f1-gap",
+          "zoneLabel": "Área Urbanizada Consolidada de Tipologia de Moradia",
+          "area": "1317 VILA NOVA DE GAIA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18424399968536,
+          "lon": -8.603517961672608,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17671908269686,
+          "lon": -8.660839367863856,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.176150154961164,
+          "lon": -8.659750195401587,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.182082122389915,
+          "lon": -8.632391519036727,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.1805297765755,
+          "lon": -8.631028845944302,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.160441401142954,
+          "lon": -8.637117145032356,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15154603386282,
+          "lon": -8.609942789932166,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 41.154813570947375,
+          "lon": -8.604860887340509,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18011711469258,
+          "lon": -8.631040540101937,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18373615311315,
+          "lon": -8.638738284246497,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17240624669489,
+          "lon": -8.555164748454304,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Centrais ",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.14419701746851,
+          "lon": -8.58577402944393,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.14048914788014,
+          "lon": -8.564073832763798,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.165421070204346,
+          "lon": -8.628996255607499,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17673060878773,
+          "lon": -8.589834677642065,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16597768981717,
+          "lon": -8.629818058524204,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.163198916973606,
+          "lon": -8.628728249695929,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.177380054320274,
+          "lon": -8.625169275880845,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17035139466205,
+          "lon": -8.55576393434921,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços de Equipamentos Estruturantes",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 41.16493405270363,
+          "lon": -8.561187713253801,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo II",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15081664749744,
+          "lon": -8.622054202830192,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17720456247047,
+          "lon": -8.624617997070501,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.14090928810077,
+          "lon": -8.565367055967455,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18333566465569,
+          "lon": -8.602377164688065,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 41.131565349783486,
+          "lon": -8.658000345268945,
+          "cls": "f1-gap",
+          "zoneLabel": "Área Urbanizada Consolidada de Tipologia de Moradia",
+          "area": "1317 VILA NOVA DE GAIA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18265693503653,
+          "lon": -8.637450514618095,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.178224074822275,
+          "lon": -8.624963540553763,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17418616328017,
+          "lon": -8.589184016433773,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15969993578554,
+          "lon": -8.636777233336735,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18488377763849,
+          "lon": -8.602760802342981,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.14018190068128,
+          "lon": -8.564845703054884,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17058273023775,
+          "lon": -8.554504672068727,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Centrais ",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15460046107693,
+          "lon": -8.606706565548299,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        }
+      ]
+    }
+  }
+}
