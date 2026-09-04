@@ -178,10 +178,13 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
     // §FIX-BOUNDARY-LINE-RESTORE-STRANDED (L-11528) — see the block at the foot of
     // this function for why the C106 setting-out line moved in here.
     const boundaryLines = readSlice(snapshot, 'boundaryLines');
+    // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §9 — the authored massing volume. See the
+    // block at the foot of this function for why a non-compound family is restored here.
+    const spaceEnvelopes = readSlice(snapshot, 'spaceEnvelopes');
 
     if (lifts.length + liftParts.length + pools.length + waters.length
         + balconies.length + boundaryLines.length + bathroomPods.length
-        + components.length === 0) {
+        + components.length + spaceEnvelopes.length === 0) {
         return { restored, errors, total: 0 };
     }
 
@@ -490,6 +493,67 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
             errors.push(
                 `[restoreCompoundFamilies] §L-11528 boundaryLine restore FAILED — the setting-out ` +
                 `lines are lost: ${String(e)}`,
+            );
+        }
+    }
+
+    // ── ⭐ SPACE ENVELOPE (C114 · ADR-0380) — §FEAT-SPACE-ENVELOPE, L-12900 ──────
+    //
+    // ⚠ THE SECOND NON-COMPOUND FAMILY IN THIS FILE, for the reason `component`'s
+    //    block states in full: this module is where the ONE road runs, and the road is
+    //    what matters, not the shape of the family. It is called ONCE from
+    //    `ProjectLoader`'s COMMON TAIL, past the `if (useImportCommandPath) … else …`
+    //    join, so both load paths get it by construction. A restore placed inside a
+    //    branch is L-11528 — the boundary line was saved and never read back for weeks
+    //    because its restore sat on the path production does not take.
+    //
+    // ⛔ IT DOES NOT RE-DISPATCH `spaceEnvelope.batch.create`, and here the reason is
+    //    sharper than the header's general one. That handler RECOMPUTES
+    //    `footprintAreaM2` / `volumeM3` from the payload (C114 §5 — one writer,
+    //    `recomputeSpaceEnvelopeMetrics`) and re-parses through the schema's three
+    //    refines. Re-dispatching would therefore reconstruct the derived numbers with
+    //    TODAY's solver rather than restore the volume the architect authored — the
+    //    C109 objection, in a family whose numbers feed an intended-area readout. And
+    //    a record that failed a refine introduced after it was saved would be REFUSED
+    //    at validation and dropped on the floor, which is data loss wearing a
+    //    correctness argument. An `add` patch of the serialized record returns the
+    //    SAME envelope, which is the property C13 asks for.
+    //
+    // ⭐ THROUGH THE UNDO ADAPTER — `composedStoreUndoAdapter('spaceEnvelope', …)`,
+    //    already registered in `performUndoRedo.ts`'s `buildUndoStoreMap()`, which
+    //    applies `Store.applyPatch()`: the very method the bus calls on execute,
+    //    resolved LAZILY so a recomposed runtime cannot leave this writing into a
+    //    stale store. Reusing it is what keeps the restore and the undo reading ONE
+    //    store (C84 EI-9).
+    //
+    // ⛔ AND NO RENDER HALF IS CLAIMED (C114 §14a). Nothing subscribes this store's
+    //    `subscribeDirty` at this commit. So the honest statement is: THE RECORD is
+    //    restored — selectable by id, reportable, saveable again — and whether it is
+    //    DRAWN is an axis this module does not touch and does not claim.
+    if (spaceEnvelopes.length > 0) {
+        try {
+            const store = resolveComposedStoreFromWindow('spaceEnvelope');
+            if (store === null) {
+                // ⛔ LOUD, NEVER SILENT (C84 EI-6). UNREACHABLE and EMPTY are different
+                // facts. For THIS family the loss is total rather than partial — no
+                // legacy twin, no member families, no mirror — so an envelope that does
+                // not land here leaves nothing at all on screen to hint at it.
+                errors.push(
+                    `[restoreCompoundFamilies] §FEAT-SPACE-ENVELOPE — runtime.stores.spaceEnvelope is ` +
+                    `not reachable, so ${spaceEnvelopes.length} space envelope(s) are in the file and ` +
+                    `NOT in the model: the authored massing volumes are gone, with nothing left behind.`,
+                );
+            } else {
+                const side = addPatches(spaceEnvelopes, 'spaceEnvelope', errors);
+                if (side.patches.length > 0) {
+                    store.applyPatch(side.patches);
+                    restored['spaceEnvelope'] = side.ids.length;
+                }
+            }
+        } catch (e) {
+            errors.push(
+                `[restoreCompoundFamilies] §FEAT-SPACE-ENVELOPE restore FAILED — the authored space ` +
+                `envelopes are lost: ${String(e)}`,
             );
         }
     }

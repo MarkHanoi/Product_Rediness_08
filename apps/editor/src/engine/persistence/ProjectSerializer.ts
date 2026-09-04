@@ -300,6 +300,34 @@ export interface ProjectSnapshot {
      */
     bathroomPods?: any[];
     /**
+     * §FEAT-SPACE-ENVELOPE (L-12900) · **C114 §9** · ADR-0380 — the AUTHORED spatial
+     * volume an architect places BEFORE any wall exists.
+     *
+     * ⛔ THE LOSS THIS KEY PREVENTS IS TOTAL, NOT PARTIAL, and that is the whole
+     * argument for landing it in the same lane as the family rather than after a
+     * founder reports it. A balcony that lost its parent still left a slab, a finish
+     * and railings on screen — which is precisely why nobody noticed for four days
+     * (L-11530). A space envelope has NO legacy twin, NO member families and NO
+     * mirror into any other store (C114 §2a declines a plugin DTO twin and a
+     * `roomStore` mirror outright, by construction). If this key is absent, the
+     * footprint, the height, the role, the `withinId` membership and the cited basis
+     * vanish TOGETHER and the massing study is simply gone — the `component` /
+     * `liftPart` / `water` shape, where the record is the only copy there is.
+     *
+     * ⚠ AND THE LOSS WOULD HAVE BEEN INVISIBLE TO THE SAVE-TIME WARNING TOO. The C84
+     * EI-6 loop below reports only families this project DECLARES `UNPERSISTED` in
+     * `snapshotFamilyCoverage.ts`; a family with no row at all is in neither list.
+     * `check-snapshot-family-coverage.ts` ARM A read RED for exactly that reason on
+     * the commit that introduced the store — the tripwire firing as designed.
+     *
+     * ADDITIVE AND OPTIONAL, omitted entirely when no envelope was authored, so no
+     * `SNAPSHOT_SCHEMA_VERSION` bump and no migration step (C47) — the identical
+     * disposition `lifts` / `balconies` / `components` carry, for the identical
+     * reason: an old snapshot simply LACKS the key, and "no envelopes were authored"
+     * IS its correct reading.
+     */
+    spaceEnvelopes?: any[];
+    /**
      * §L-1057 / C87 §13.1 CW-P — SPARSE curtain-panel overrides: only the panels a
      * user AUTHORED away from what the grid regenerates. A 20×10 façade with three
      * doors writes 3 entries, not 200; an untouched façade writes none.
@@ -1568,6 +1596,14 @@ export class ProjectSerializer {
         // hand-copied block. See `StoresSlot.component` for why the key on the
         // composed runtime is what makes this read resolve at all (R11 / L-11530).
         const components = readPluginStore('component');
+        // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §9 — the authored massing volume,
+        // through the SAME lazy resolver as the seven above rather than an eighth
+        // hand-copied block. `StoresSlot.spaceEnvelope` is declared in
+        // `packages/runtime-composer/src/types.ts` and ADOPTED (never constructed) in
+        // `composeRuntime.ts` from the `space-envelope` PluginRegistry descriptor —
+        // which is the leg L-11530 was missing for `balcony`, and the reason THAT row
+        // could read `persisted` for four days while every record was destroyed.
+        const spaceEnvelopes = readPluginStore('spaceEnvelope');
 
         // ── C84 EI-6, THE LOUD HALF: say what is about to be destroyed ────────────
         //
@@ -1685,7 +1721,14 @@ export class ProjectSerializer {
             // it counts. ⛔ NOTHING IS DOUBLE-COUNTED HERE and the reason is different
             // from the lift's: a placed component has NO member families at all, so
             // there is no other slice this record could already be inside.
-            (components?.length ?? 0);
+            (components?.length ?? 0) +
+            // ⭐ §FEAT-SPACE-ENVELOPE — an authored space envelope IS an element
+            // (ADR-0380 D1 rules it its own KIND, not a Room), so it counts. ⛔ NOTHING
+            // IS DOUBLE-COUNTED: like a placed component it has no member families, and
+            // unlike a lift its `withinId` children are SIBLING envelopes already in
+            // this same slice — a reference, never ownership (C114 §8), so the parent
+            // does not carry them.
+            (spaceEnvelopes?.length ?? 0);
 
         const snapshot: ProjectSnapshot = {
             schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -1718,6 +1761,12 @@ export class ProjectSerializer {
             // omit-when-absent rule (C47): a project with no placed components writes
             // a snapshot byte-identical to a pre-Phase-4C one.
             components: components?.length ? components : undefined,
+            // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §9 — same omit-when-absent rule
+            // (C47). `undefined` (no such store on the runtime) and `[]` (store
+            // present, empty) collapse to the same omission here, deliberately: for a
+            // SNAPSHOT both mean "this file records no envelopes", while the two stay
+            // DISTINGUISHED at the read above so the warning arm can fire.
+            spaceEnvelopes: spaceEnvelopes?.length ? spaceEnvelopes : undefined,
             // §L-1057 — omitted entirely when nothing was authored, so an untouched
             // project's snapshot is byte-identical to a pre-fix one.
             curtainPanels: curtainPanels.length > 0 ? curtainPanels : undefined,
