@@ -146,6 +146,12 @@ const GATES: Gate[] = [
   // 181 zone-solves · 138 solved · 43 refused (a refusal draws nothing and cannot overstate).
   // Negative-tested against the pre-fix engine: 86 findings, exit 1, both mechanisms named.
   { name: 'envelope-never-overstates (C58 §1.4/§M E2a)', script: 'check-envelope-never-overstates.ts' },
+  // NSW §1.2/§13 DECOMPOSED (lane ENVELOPE-NSW, 2026-09-04). The brief's literal "no value
+  // without a clause citation" is UNSATISFIABLE — LEGIS_REF_CLAUSE is 0.0% on ten of the twelve
+  // NSW vertical overlay layers — so it is split per L-716 into arms A/B/D (hard-0) and C (a
+  // shrink-only ratchet on the uncited count). First reading: RC=0 — 6 parcels · 11 controls ·
+  // teeth T-A/T-B/T-D all fired · ARM C 4/4.
+  { name: 'nsw-citation-arms (NSW §1.2/§13, L-716)',  script: 'check-nsw-citation-arms.ts' },
   { name: 'height-fidelity (L-646/L-647)',            script: 'check-height-fidelity.ts' },
   { name: 'write-route-auth (C08§1.2/L-406)',         script: 'check-write-route-auth.ts' },
   { name: 'command-naming (L-796)',                   script: 'check-command-naming.ts' },
