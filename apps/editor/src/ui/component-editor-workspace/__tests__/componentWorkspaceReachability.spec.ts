@@ -74,6 +74,12 @@ describe('§U3-DEFINITION-WORKSPACE-REACHABILITY · ARM B — ops-only mutation 
         expect(src).toContain('makeRenameParameterMigrator');
         expect(src).toContain('makeChangeParameterTypeMigrator');
         expect(src).toContain('makeDeleteParameterMigrator');
+        // ⭐ lane UCE-FAMILY — the two ops that closed U3's OWED O-1/O-2. Their
+        //   presence HERE is what makes the profile surface's commit button and the
+        //   "Remove formula" button real rather than chrome; the behavioural proof is
+        //   ARM 9 / ARM 9B of the composed-runtime acceptance named in the header.
+        expect(src).toContain('makeUpdateProfileMigrator');
+        expect(src).toContain('makeDeleteExpressionMigrator');
         // The one gateway (the falsification seam) exists and is the ONLY value
         // import of the file-format barrel in this file.
         expect(src).toContain("import('@pryzm/file-format')");
@@ -89,6 +95,10 @@ describe('§U3-DEFINITION-WORKSPACE-REACHABILITY · ARM B — ops-only mutation 
         expect(src).not.toMatch(/document\.parameters\.(push|splice|pop|shift|unshift)/);
         expect(src).not.toMatch(/draft\.document\.parameters\s*=/);
         expect(src).not.toMatch(/draft\.document\.types\s*=/);
+        // The profile write-back is an OP too — a `document.profiles` splice here
+        // would be the rival path the whole gateway exists to prevent.
+        expect(src).not.toMatch(/draft\.document\.profiles\s*=/);
+        expect(src).not.toMatch(/document\.profiles\.(push|splice|pop|shift|unshift)/);
         expect(src).not.toMatch(/\(draft\.document as/);
     });
 

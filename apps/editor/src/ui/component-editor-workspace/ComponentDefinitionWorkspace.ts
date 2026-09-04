@@ -58,13 +58,20 @@
  * ─── WHAT THIS WORKSPACE REFUSES TO PROMISE (UIUX-PLAN §4) ─────────────────────
  * R-a: no boolean-solid tooling — a loaded document carrying one shows the
  *      refusal verbatim in the feature list. R-b: no spline/ellipse buttons.
- * R-n: no shell/thicken/pattern/array. Profile GEOMETRY write-back: the
- *      family-migrations ops export NO profile op (`update-profile` — measured:
- *      `ls family-migrations/ops/` → 8 ops, none touches `document.profiles`),
- *      and minting one outside `@pryzm/file-format` is forbidden to this lane —
- *      so the mounted profile surface states that it cannot persist, BY NAME,
- *      instead of shipping a commit affordance that lies (OWED, recorded in
- *      lane-u3-definition-editor.md).
+ * R-n: no shell/thicken/pattern/array.
+ *
+ * ⭐ **Profile GEOMETRY write-back is CLOSED (lane UCE-FAMILY,
+ *    §UCE-PROFILE-WRITE-BACK).** This block used to record it as OWED — *"the
+ *    family-migrations ops export NO profile op (`update-profile`) … so the
+ *    mounted profile surface states that it cannot persist, BY NAME"*.
+ *    `makeUpdateProfileMigrator` now exists in `@pryzm/file-format` (the
+ *    SANCTIONED path — no document write was minted here), so the surface
+ *    carries a real "Commit geometry" button whose accept goes through
+ *    `applyOp` like every other edit. ⛔ The refusing half survives intact:
+ *    a profile the ring cannot represent without loss (an `arc`, a `circle`,
+ *    an expression-valued coordinate) renders `profileWriteBackDisposition`'s
+ *    named refusal INSTEAD of the button — a read-only profile still never
+ *    gets an affordance that lies.
  */
 
 import type {
@@ -95,8 +102,10 @@ import {
     buildParameterTableModel,
     createComponentParameterTable,
     createComponentProfilePanel,
+    profileWriteBackDisposition,
     runtimeUnitLabel,
     type ComponentParameterTableHandle,
+    type ComponentProfilePanelHandle,
     type ParameterTableModel,
 } from '../component';
 // ⭐ Lane U0's ONE catalogue — the same singleton the handlers and the browser read.
@@ -211,6 +220,12 @@ export interface ComponentDefinitionWorkspaceHandle {
     applyDeleteParameter(parameterId: string): Promise<string | null>;
     /** Mount the 4F profile panel for one of the definition's profiles. */
     openProfile(profileId: string): boolean;
+    /** §UCE-PROFILE-WRITE-BACK — commit the mounted panel's current ring back onto
+     *  the profile through `update-profile`. False when nothing is mounted or the
+     *  panel refused; the refusal is on the panel's status line, never swallowed. */
+    commitProfile(): boolean;
+    /** The mounted profile panel's handle (surface, refusal, status), or null. */
+    profilePanel(): ComponentProfilePanelHandle | null;
     /* ── lane U8 — GEOMETRY AUTHORING (§U8-AUTHORED-SHAPE) ────────────────── */
     /** Open the add-shape form (DOM). */
     beginAddShape(): void;
@@ -668,13 +683,26 @@ export function openComponentDefinitionWorkspace(
         td.colSpan = 5;
 
         if (p.expression !== null && p.expression.trim() !== '') {
-            // Disclosure, not a second validator: the op will speak at apply.
-            const note = el('div', `font-size:11.5px;color:${WARN};margin-bottom:4px;`,
-                `This parameter already carries the formula '${p.expression}'. The ` +
-                'introduce-expression op refuses a second one (a delete-expression op ' +
-                'does not exist in @pryzm/file-format yet — OWED).');
+            // ⭐ §UCE-FORMULA-IS-EDITABLE — this used to be a dead end. `introduce-expression`
+            //   refuses a second formula and its named pair (`delete-expression`) did not
+            //   exist, so a typo in a formula was permanent. Both ops now exist and
+            //   `applyExpression` chains them inside ONE `apply` — so a failed replacement
+            //   leaves the ORIGINAL formula standing rather than a parameter with none.
+            const note = el('div', `font-size:11.5px;color:${MUTED};margin-bottom:4px;`,
+                `This parameter carries the formula '${p.expression}'. Applying a new one ` +
+                'replaces it (delete-expression + introduce-expression, applied together — ' +
+                'if either refuses, the current formula stands). The default it originally ' +
+                'superseded is carried through the replacement.');
             note.setAttribute('data-cdw-expr-existing-note', '');
+            note.setAttribute('data-cdw-expr-replaces', p.expression);
             td.appendChild(note);
+
+            const clearBtn = el('button',
+                'padding:4px 10px;font-size:11.5px;cursor:pointer;margin-bottom:6px;',
+                'Remove formula');
+            clearBtn.setAttribute('data-cdw-expr-clear', parameterId);
+            clearBtn.addEventListener('click', () => { void clearExpression(parameterId); });
+            td.appendChild(clearBtn);
         }
 
         const wrap = el('div', 'display:flex;gap:6px;align-items:center;');
@@ -708,10 +736,48 @@ export function openComponentDefinitionWorkspace(
 
     async function applyExpression(parameterId: string, text: string): Promise<string | null> {
         const v = draft.document.formatVersion;
-        const res = await applyOp((ff) =>
-            ff.makeIntroduceExpressionMigrator(v, v, { parameterId, expression: text }));
+        const existing = paramById(parameterId)?.expression ?? null;
+        const replacing = existing !== null && existing.trim() !== '';
+        const res = await applyOp((ff) => {
+            const introduce = ff.makeIntroduceExpressionMigrator(v, v, { parameterId, expression: text });
+            if (!replacing) return introduce;
+            // ⭐ §UCE-FORMULA-IS-EDITABLE — ONE `apply`, so ONE accept/refuse decision.
+            //   `applyOp` only commits the draft when the whole `apply` returns and the
+            //   document re-validates; running the two ops as two `applyOp` calls would
+            //   leave the parameter formula-less whenever the second refused, which is a
+            //   worse state than the one the author started in.
+            const del = ff.makeDeleteExpressionMigrator(v, v, {
+                parameterId,
+                // The default the ORIGINAL introduce superseded is restored here and
+                // superseded again by the replacement, so the provenance survives the edit.
+                restoreSupersededDefault: true,
+            });
+            return {
+                id: `replace-expression:${parameterId}`,
+                from: v,
+                to: v,
+                description: `replace the expression on parameter ${parameterId}`,
+                apply: (input: RawFamily): RawFamily => introduce.apply(del.apply(input)),
+            };
+        });
         if (!res.ok) { renderRowRefusal(parameterId, res.refusal); return res.refusal; }
-        setStatus('Formula applied to the draft (not yet saved). The superseded default, if any, is recorded as provenance.');
+        setStatus(replacing
+            ? 'Formula replaced in the draft (not yet saved). The original superseded default is carried through.'
+            : 'Formula applied to the draft (not yet saved). The superseded default, if any, is recorded as provenance.');
+        return null;
+    }
+
+    /** §UCE-FORMULA-IS-EDITABLE — remove a formula, restoring the default it
+     *  superseded. The parameter keeps its identity; only the design intent goes. */
+    async function clearExpression(parameterId: string): Promise<string | null> {
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeDeleteExpressionMigrator(v, v, { parameterId }));
+        if (!res.ok) { renderRowRefusal(parameterId, res.refusal); return res.refusal; }
+        const p = paramById(parameterId);
+        setStatus(p && p.defaultValue === null
+            ? 'Formula removed. This parameter now has NO value of its own — the table shows it ' +
+              'as unresolved until a default, a type value or a new formula supplies one.'
+            : `Formula removed; the default it superseded (${String(p?.defaultValue)}) is back in force.`);
         return null;
     }
 
@@ -833,7 +899,14 @@ export function openComponentDefinitionWorkspace(
         row.insertAdjacentElement('afterend', tr);
     }
 
-    /* ── profiles (the 4F surface, mounted; write-back OWED and SAID) ── */
+    /* ── profiles (the 4F surface, mounted; write-back LIVE — §UCE-PROFILE-WRITE-BACK) ── */
+
+    /** The profile whose panel is mounted, so an accepted op — which rebuilds the
+     *  whole card — can put it back. ⚠ Without this a commit erases its own surface:
+     *  `render()` calls `card.replaceChildren()`, so the panel the author just
+     *  committed from would vanish and the moved geometry would read as LOST. */
+    let openProfileId: string | null = null;
+    let profilePanel: ComponentProfilePanelHandle | null = null;
 
     function openProfile(profileId: string): boolean {
         const doc = draft.document;
@@ -864,21 +937,91 @@ export function openComponentDefinitionWorkspace(
                 }
             }
         }
-        const panel = createComponentProfilePanel({ profile, plane, scope, attrPrefix: 'dwp' });
+        const panel = createComponentProfilePanel({
+            profile, plane, scope, attrPrefix: 'dwp',
+            // ⭐ §UCE-PROFILE-WRITE-BACK — the panel hands back an UPDATED `Profile`
+            //   and dispatches nothing (P6, its own header); THIS caller turns it into
+            //   an op. The panel keeps its own refusal voice for the ring-level checks;
+            //   `update-profile` keeps its own for the document-level ones.
+            onCommit: (updated) => { void applyProfileUpdate(profileId, updated); },
+        });
+        openProfileId = profileId;
+        profilePanel = panel;
         host.appendChild(panel.root);
 
-        // ⛔ NO commit affordance — and the absence is EXPLAINED, by name
-        // ([[refusing-half-needs-its-escape-hatch]] — the escape is named too).
-        const owed = el('div', `margin-top:4px;font-size:11.5px;color:${WARN};line-height:1.5;`,
-            'Profile geometry edits cannot be persisted from this workspace: ' +
-            '@pryzm/file-format\'s family-migrations exports no profile write-back op ' +
-            '(an update-profile sibling of introduce-expression) and this lane may not ' +
-            'mint one — recorded as OWED in lane-u3-definition-editor.md. Gestures on ' +
-            'this surface do not write to the definition document.');
-        owed.setAttribute('data-cdw-profile-owed', profileId);
-        host.appendChild(owed);
+        if (panel.surface === null) {
+            // The profile did not evaluate and the panel already rendered the reason.
+            // A commit button over a surface that never opened would be an affordance
+            // for a gesture that cannot exist.
+            return true;
+        }
+
+        const disposition = profileWriteBackDisposition(profile);
+        if (!disposition.writable) {
+            // ⛔ THE REFUSING HALF, KEPT. A profile carrying an arc, a circle or an
+            //    expression-valued coordinate cannot absorb a flattened ring without
+            //    losing the intent that made it parametric — so it gets the NAMED
+            //    reason and its live alternative, never a button
+            //    ([[refusing-half-needs-its-escape-hatch]]: the escape is named too).
+            const ro = el('div', `margin-top:4px;font-size:11.5px;color:${WARN};line-height:1.5;`,
+                `Read-only geometry: ${disposition.refusal.reason}. Try: ${disposition.refusal.alternative}.`);
+            ro.setAttribute('data-cdw-profile-readonly', profileId);
+            ro.setAttribute('data-cdw-profile-readonly-code', disposition.refusal.code);
+            host.appendChild(ro);
+            return true;
+        }
+
+        const commitBtn = el('button',
+            `background:${PURPLE};color:#fff;border:none;padding:4px 14px;border-radius:6px;` +
+            'font-weight:600;cursor:pointer;font-size:12px;margin-top:4px;', 'Commit geometry');
+        commitBtn.setAttribute('data-cdw-profile-commit', profileId);
+        commitBtn.addEventListener('click', () => { panel.commit(); });
+        host.appendChild(commitBtn);
+        host.appendChild(el('div', `margin-top:4px;font-size:11.5px;color:${MUTED};line-height:1.5;`,
+            'Drag a vertex, then commit — the move lands in the draft through the ' +
+            'update-profile op and is persisted by Save definition. Inserting or deleting a ' +
+            'vertex is refused: it would mint or delete the entity ids this profile’s ' +
+            'constraints reference.'));
         return true;
     }
+
+    /**
+     * §UCE-PROFILE-WRITE-BACK — persist a committed ring through the ONE mutation
+     * gateway. The panel already proved the ring corresponds one-to-one with the
+     * profile's points; `update-profile` proves it AGAIN inside the document,
+     * because a UI guard that is the only voice is one deleted line away from a
+     * silent loss (C84 EI-6).
+     */
+    async function applyProfileUpdate(profileId: string, updated: Profile): Promise<string | null> {
+        const v = draft.document.formatVersion;
+        const points: { id: string; x: number; z: number }[] = [];
+        for (const e of updated.entities) {
+            const x = e.data['x'], z = e.data['z'];
+            if (typeof x !== 'number' || typeof z !== 'number') {
+                // Structurally unreachable — `profileWriteBackDisposition` gated the
+                // button on numeric coordinates. Stated rather than cast away: a silent
+                // `as number` here is exactly how a frozen formula would get in.
+                const msg = `Profile point ${e.id} did not commit as a pair of numbers; ` +
+                    'the geometry was NOT written.';
+                setStatus(msg, true);
+                return msg;
+            }
+            points.push({ id: e.id, x, z });
+        }
+        const res = await applyOp((ff) => ff.makeUpdateProfileMigrator(v, v, { profileId, points }));
+        if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
+        setStatus(
+            `Geometry committed to the draft (not yet saved): ${points.length} point(s) of ` +
+            `'${updated.name}' moved. Save definition writes it to the Component.`);
+        return null;
+    }
+
+    /** §UCE-PROFILE-WRITE-BACK — commit the mounted panel's current ring. False when
+     *  no panel is mounted or the panel refused (its status line carries the reason). */
+    function commitProfile(): boolean {
+        return profilePanel?.commit() ?? false;
+    }
+
 
     /* ══════════════════════════════════════════════════════════════════════
      * lane U8 (§U8-AUTHORED-SHAPE) — GEOMETRY AUTHORING
@@ -1437,6 +1580,20 @@ export function openComponentDefinitionWorkspace(
             const host = el('div', 'margin:4px 0;');
             host.setAttribute('data-cdw-profile-host', '');
             card.appendChild(host);
+
+            // ⭐ §UCE-PROFILE-WRITE-BACK — PUT THE PANEL BACK. `render()` opens with
+            //   `card.replaceChildren()`, so an accepted op tears down the surface the
+            //   author is drawing on. Committing a vertex and watching the drawing
+            //   vanish reads as "the edit was lost" — the opposite of what happened.
+            //   Re-mounting from the UPDATED draft is also the only way the moved
+            //   geometry is SEEN, which is the layer the user experiences.
+            if (openProfileId !== null &&
+                (doc.profiles as readonly Profile[]).some((pr) => pr.id === openProfileId)) {
+                openProfile(openProfileId);
+            } else {
+                openProfileId = null;
+                profilePanel = null;
+            }
         }
 
         // reference planes (read-only list — the plan's §U3 list, no reorient UI minted)
@@ -1590,6 +1747,8 @@ export function openComponentDefinitionWorkspace(
         applyDataTypeChange,
         applyDeleteParameter,
         openProfile,
+        commitProfile,
+        profilePanel: () => profilePanel,
         beginAddShape,
         submitAddShape,
         selectShape,

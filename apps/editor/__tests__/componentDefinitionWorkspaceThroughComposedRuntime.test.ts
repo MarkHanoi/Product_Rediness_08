@@ -23,8 +23,12 @@
 //
 // ─── ⚠ WHAT THIS FILE DOES NOT PROVE — stated, so a green is not over-read ─────
 //  1. 3-D pixels for the placed instance — lane 4E's seam (D10 descope stands).
-//  2. Profile GEOMETRY persistence — no family-migrations op exists for profile
-//     write-back (OWED; ARM 9 proves the absence is STATED, not papered over).
+//  2. ⭐ Profile GEOMETRY persistence USED TO BE THE NAMED ABSENCE HERE — *"no
+//     family-migrations op exists for profile write-back (OWED)"*. Lane UCE-FAMILY
+//     closed it: ARM 9 now DRAGS a vertex on the real surface, commits through
+//     `update-profile`, saves through `packFamily` and reads the moved coordinate
+//     back out of the reloaded catalogue document. What is still NOT proven is the
+//     3-D pixel for that moved geometry — item 1 above stands.
 //  3. C110 §3.3's mm/metres delta is INHERITED: values render with the unit the
 //     `RUNTIME_LENGTH_UNITS_PER_METRE` seam derives (mm today).
 
@@ -74,8 +78,10 @@ const NOW = '2026-09-02T00:00:00.000Z';
  *  family-runtime canonical unit (mm today, C110 §3.3). `GlassWidth` carries a
  *  DEFAULT and NO expression — the §64 progressive-parametrisation premise: the
  *  parameter already had a value when the formula arrives. */
+/** A BARE (unprefixed) 26-char id — the spelling `ProfileEntitySchema` takes. */
+const bare = (n: number): string => `${'0'.repeat(24)}${ulidN(n).slice(-2)}`;
+
 async function packedBytes(): Promise<Uint8Array> {
-    const bare = (n: number): string => `${'0'.repeat(24)}${ulidN(n).slice(-2)}`;
     const emptyChecksum = 'sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a';
     const document: FamilyDocument = {
         formatVersion: '1.1',
@@ -405,22 +411,123 @@ describe('§U3-DEFINITION-WORKSPACE — the founder\'s §64 demo, end to end thr
         expect(section.root.querySelector('[data-cpt-superseded="1000"]')).not.toBeNull();
     }, BUDGET);
 
-    it('ARM 9 — the PROFILE LEG: the 4F surface mounts over the declared plane, and the missing write-back op is STATED BY NAME, never a lying commit affordance', () => {
+    it('ARM 9 — ⭐⭐ THE PROFILE LEG, NOW A ROUND TRIP: drag a vertex on the real 4F surface → commit through `update-profile` → save via packFamily → the RELOADED document carries the moved coordinate', async () => {
         const openBtn = ws.root.querySelector(`[data-cdw-profile-open="${PROFILE_ID}"]`);
-        expect(openBtn, 'the definition\'s profile is listed with its affordance').not.toBeNull();
+        expect(openBtn, "the definition's profile is listed with its affordance").not.toBeNull();
 
         expect(ws.openProfile(PROFILE_ID)).toBe(true);
-        const host = ws.root.querySelector('[data-cdw-profile-host]') as HTMLElement;
-        expect(host.querySelector(`[data-dwp-root="${PROFILE_ID}"]`), 'the REAL 4F panel is mounted').not.toBeNull();
+        const host = (): HTMLElement => ws.root.querySelector('[data-cdw-profile-host]') as HTMLElement;
+        expect(host().querySelector(`[data-dwp-root="${PROFILE_ID}"]`), 'the REAL 4F panel is mounted').not.toBeNull();
 
-        // The OWED refusal, in place, by name — [[refusing-half-needs-its-escape-hatch]]:
-        // the absent half is explained, not hidden behind a dead button.
-        const owed = host.querySelector(`[data-cdw-profile-owed="${PROFILE_ID}"]`);
-        expect(owed).not.toBeNull();
-        expect(owed?.textContent).toContain('no profile write-back op');
-        expect(owed?.textContent).toContain('OWED');
-        // No commit affordance exists on this leg.
-        expect(host.querySelector('button')).toBeNull();
+        // ⭐ The OWED notice is GONE and a real affordance stands in its place. This is
+        //   the falsifier for the whole lane: delete `update-profile` and `openProfile`
+        //   has nothing to call.
+        expect(host().querySelector(`[data-cdw-profile-owed="${PROFILE_ID}"]`),
+            'the OWED placeholder is gone — the op exists').toBeNull();
+        const commitBtn = host().querySelector(`[data-cdw-profile-commit="${PROFILE_ID}"]`) as HTMLElement | null;
+        expect(commitBtn, 'a writable profile gets a commit affordance').not.toBeNull();
+        expect(host().querySelector(`[data-cdw-profile-readonly="${PROFILE_ID}"]`),
+            'this profile is all-numeric points — nothing read-only about it').toBeNull();
+
+        // ── THE DRAG, through the SVG the author actually points at ────────────
+        const panel = ws.profilePanel()!;
+        const surface = panel.surface!;
+        expect(surface.ring.length).toBe(4);
+        const before = surface.ring.map((v) => ({ ...v }));
+        // Vertex 2 is the (1.2, 1.5) corner. Aim it at (0.90, 1.20) — on the 50 mm grid
+        // the surface snaps to, so the gesture lands where it was aimed.
+        const target = surface.toPx({ u: 0.9, v: 1.2 });
+        const handleEl = surface.svg.querySelector('[data-dwp-vertex="2"]') as SVGElement;
+        expect(handleEl, 'the vertex handle is on the DOM').not.toBeNull();
+        handleEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 0, clientY: 0 }));
+        surface.svg.dispatchEvent(new PointerEvent('pointermove', {
+            bubbles: true, clientX: target.x, clientY: target.y,
+        }));
+        surface.svg.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+
+        const dragged = surface.ring.map((v) => ({ ...v }));
+        expect(dragged[2], 'the drag moved the ring').not.toEqual(before[2]);
+        expect(dragged[0], 'and moved NOTHING else').toEqual(before[0]);
+
+        // ── THE COMMIT — the button the author clicks ────────────────────
+        commitBtn!.click();
+        await vi.waitFor(() => {
+            expect(ws.statusText).toContain('Geometry committed to the draft');
+        });
+        expect(ws.isDirty()).toBe(true);
+
+        // The DRAFT document carries exactly what the surface drew — same ids, moved
+        // coordinates, nothing minted or dropped. (The profile's origin is (0,0) for
+        // this fixture, so surface coordinates and plane coordinates coincide.)
+        const draftProfile = ws.document.profiles.find((pr) => pr.id === PROFILE_ID)!;
+        expect(draftProfile.entities.length, 'no entity minted or deleted').toBe(4);
+        expect(draftProfile.entities.map((e) => e.id)).toEqual([bare(20), bare(21), bare(22), bare(23)]);
+        expect(draftProfile.entities[2]!.data['x'] as number).toBeCloseTo(dragged[2]!.u, 9);
+        expect(draftProfile.entities[2]!.data['z'] as number).toBeCloseTo(dragged[2]!.v, 9);
+        expect(draftProfile.entities[0]!.data['x']).toBe(0);
+
+        // ── THE ROUND TRIP — packFamily → the ONE catalogue loader → read it back ──
+        const refusal = await ws.save();
+        expect(refusal, 'the save lands').toBeNull();
+        const reloaded = componentCatalog.entry(DEF_ID)!.family.document.profiles
+            .find((pr) => pr.id === PROFILE_ID)!;
+        expect(reloaded.entities[2]!.data['x'] as number, 'the MOVED coordinate survived the round trip')
+            .toBeCloseTo(dragged[2]!.u, 9);
+        expect(reloaded.entities[2]!.data['z'] as number).toBeCloseTo(dragged[2]!.v, 9);
+        expect(reloaded.entities.map((e) => e.id), 'ids intact — constraints still anchorable')
+            .toEqual([bare(20), bare(21), bare(22), bare(23)]);
+
+        // ⭐ The surface SURVIVED its own commit. `render()` replaces the whole card on
+        //   every accepted op; a panel that vanished here would read as "the edit was
+        //   lost" at the exact moment it was saved.
+        const remounted = ws.root.querySelector('[data-cdw-profile-host]') as HTMLElement;
+        expect(remounted.querySelector(`[data-dwp-root="${PROFILE_ID}"]`), 'still mounted').not.toBeNull();
+        expect(ws.profilePanel()!.surface!.ring[2]!.u).toBeCloseTo(dragged[2]!.u, 9);
+    }, BUDGET);
+
+    it('ARM 9B — ⭐⭐ A FORMULA IS EDITABLE: remove it (the default comes back), apply a TYPO, then REPLACE it in ONE accepted apply — the act `introduce-expression` alone could never perform', async () => {
+        // Pre-state from ARM 3/7: GlassWidth carries the §64 formula, no default, 1000
+        // recorded as the superseded default.
+        expect(ws.document.parameters.find((p) => p.id === PARAM_GLASS)!.expression)
+            .toBe('Width - 2*FrameWidth');
+
+        expect(ws.beginExpressionEdit(PARAM_GLASS)).toBe(true);
+        const note = ws.root.querySelector('[data-cdw-expr-existing-note]');
+        expect(note, 'the disclosure still renders').not.toBeNull();
+        expect(note?.getAttribute('data-cdw-expr-replaces'), 'and NAMES the formula it would replace')
+            .toBe('Width - 2*FrameWidth');
+        expect(note?.textContent, 'it no longer says the op is missing').not.toContain('OWED');
+
+        // ── REMOVE — the affordance that did not exist before this lane ────────
+        const clearBtn = ws.root.querySelector(`[data-cdw-expr-clear="${PARAM_GLASS}"]`) as HTMLElement | null;
+        expect(clearBtn, 'a "Remove formula" affordance exists').not.toBeNull();
+        clearBtn!.click();
+        await vi.waitFor(() => {
+            expect(sourceOf(ws.root, PARAM_GLASS)).toBe('default');
+        });
+        const cleared = ws.document.parameters.find((p) => p.id === PARAM_GLASS)!;
+        expect(cleared.expression, 'the formula is gone').toBeNull();
+        expect(cleared.defaultValue, 'and the default it superseded is BACK in force').toBe(1000);
+        expect(cleared.supersededDefault, 'the provenance key went with it').toBeUndefined();
+        expect(valueOf(ws.root, PARAM_GLASS), 'on screen, not just in the document').toBe('1000');
+
+        // ── A TYPO, APPLIED — the state that used to be PERMANENT ─────────────
+        expect(await ws.applyExpression(PARAM_GLASS, 'Width - 2*FrameWidht')).toBeNull();
+        expect(ws.root.querySelector('[data-dcpt-diag="unknown-identifier"]'),
+            'the typo is LOUD, and no value is substituted').not.toBeNull();
+        expect(sourceOf(ws.root, PARAM_GLASS)).toBe('unresolved');
+
+        // ── THE REPAIR — one `applyExpression`, one accept/refuse decision ───────
+        expect(await ws.applyExpression(PARAM_GLASS, 'Width - 2*FrameWidth')).toBeNull();
+        const fixed = ws.document.parameters.find((p) => p.id === PARAM_GLASS)!;
+        expect(fixed.expression).toBe('Width - 2*FrameWidth');
+        expect(sourceOf(ws.root, PARAM_GLASS)).toBe('expression');
+        expect(valueOf(ws.root, PARAM_GLASS), 'and it resolves again').toBe('1050');
+        // D4 survives the edit: the ORIGINAL default is still the recorded provenance,
+        // carried through delete → introduce rather than lost at the seam.
+        expect(fixed.defaultValue).toBeNull();
+        expect(fixed.supersededDefault).toBe(1000);
+        expect(ws.root.querySelector('[data-dcpt-superseded="1000"]')).not.toBeNull();
     }, BUDGET);
 
     it('ARM 10 — rename is LOUD about G-7, and close-without-save DISCARDS the draft: the document moves ONLY through save-via-pack', async () => {
