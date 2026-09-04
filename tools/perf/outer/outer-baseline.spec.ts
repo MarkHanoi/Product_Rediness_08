@@ -141,6 +141,11 @@ async function measureOpen(page: Page, base: string, expectWalls: number, timeou
   } catch {
     return { ok: false, failure: 'engine loading overlay never dismissed' };
   }
+  // eslint-disable-next-line pryzm/no-raf -- NOT a product rAF. This arrow is
+  // SERIALISED BY PLAYWRIGHT and executed inside the driven Chromium page, so it
+  // never enters the PRYZM bundle; it is the standard double-rAF "the main thread
+  // yielded" probe the measurement is FOR. `tools/ga-gate/check-raf-count.ts` — the
+  // P3 authority — already excludes this file and still reads exactly 1 owner.
   await page.evaluate(() => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
   const interactiveMs = Date.now() - t0;
 
@@ -245,6 +250,11 @@ test('axis C: real-UI creation flow — click to usable editor (local prod)', as
     await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 120_000 });
     const canvasMs = Date.now() - tContinue;
     await page.locator('#pryzm-engine-loading-overlay').waitFor({ state: 'hidden', timeout: 120_000 }).catch(() => { /* overlay may never mount on this path */ });
+    // eslint-disable-next-line pryzm/no-raf -- NOT a product rAF. This arrow is
+    // SERIALISED BY PLAYWRIGHT and executed inside the driven Chromium page, so it
+    // never enters the PRYZM bundle; it is the standard double-rAF "the main thread
+    // yielded" probe the measurement is FOR. `tools/ga-gate/check-raf-count.ts` — the
+    // P3 authority — already excludes this file and still reads exactly 1 owner.
     await page.evaluate(() => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
     const usableMs = Date.now() - tContinue;
     const totalMs = Date.now() - tNew;
@@ -311,6 +321,11 @@ test('axis C: project creation — API time vs client hydrate (local prod)', asy
     await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 120_000 });
     const canvasMs = Date.now() - t0;
     await page.locator('#pryzm-engine-loading-overlay').waitFor({ state: 'hidden', timeout: 120_000 });
+    // eslint-disable-next-line pryzm/no-raf -- NOT a product rAF. This arrow is
+    // SERIALISED BY PLAYWRIGHT and executed inside the driven Chromium page, so it
+    // never enters the PRYZM bundle; it is the standard double-rAF "the main thread
+    // yielded" probe the measurement is FOR. `tools/ga-gate/check-raf-count.ts` — the
+    // P3 authority — already excludes this file and still reads exactly 1 owner.
     await page.evaluate(() => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
     const usableMs = Date.now() - t0;
     rows.push({ apiMs: apiLeg.ms, canvasMs, usableMs, clickToUsableMs: apiLeg.ms + usableMs });

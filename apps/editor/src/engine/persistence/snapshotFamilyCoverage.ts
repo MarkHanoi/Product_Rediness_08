@@ -101,7 +101,7 @@ export interface SnapshotFamilyRow {
 }
 
 /**
- * ⛔ ONE ROW PER `super('key')` FOUND UNDER `plugins/*​/src/store.ts`. The gate
+ * ⛔ ONE ROW PER `super('key')` FOUND UNDER `plugins/<pkg>/src/store.ts`. The gate
  * compares the two SETS in BOTH directions, so a missing row and a stale row are
  * both RED — the `check-contract-index-equivalence.ts` discipline (a count can be
  * right while the membership is wrong), applied to persistence.
@@ -177,7 +177,7 @@ export const SNAPSHOT_FAMILY_COVERAGE: readonly SnapshotFamilyRow[] = Object.fre
     // subject is `^plugins/<p>/src/store\.ts$` exactly. They live in files named after
     // their class. A detector that cannot see a family because of its FILENAME is the
     // defect it exists to catch, wearing the detector's uniform — which is why this
-    // gate's subject is every file under `plugins/*​/src/` that extends `Store`.
+    // gate's subject is every file under `plugins/<pkg>/src/` that extends `Store`.
     { storeKey: 'level', status: 'via-legacy-twin', snapshotKey: 'levels',
       reason: 'plugins/plan-view/src/LevelStore.ts — declares `static readonly ephemeral = true` and its own header says levels are "project metadata loaded on project open", not replayed. The AUTHORITY is BimManager: `snapshot.levels` is written from it and restored by AddLevelCommand, which repopulates this session registry. Nothing is lost; the store is a per-session view of a persisted fact.' },
     { storeKey: 'bathroomPod', status: 'persisted', snapshotKey: 'bathroomPods',

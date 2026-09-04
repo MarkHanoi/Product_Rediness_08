@@ -801,7 +801,9 @@ async function download(url, dest) {
       if (permanent || attempt >= MAX) throw e;
       const wait = Math.min(60, 5 * 2 ** (attempt - 1));
       console.warn(`  ⚠ download error "${e && e.message}" (attempt ${attempt}/${MAX}) — retrying in ${wait}s`);
-      try { if (existsSync(dest)) unlinkSync(dest); } catch {}
+      try { if (existsSync(dest)) unlinkSync(dest); } catch { /* best-effort: the partial
+        download is about to be overwritten by the retry anyway, and a failure to unlink it
+        must not mask the download error being retried. */ }
       await new Promise((r) => setTimeout(r, wait * 1000));
     }
   }

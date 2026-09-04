@@ -332,6 +332,19 @@ export default [
       // this ignore list already uses, and linting minified output produced
       // errors about the bundler's own variable names.
       '**/dist-gate/**',
+      // `lane4e-dist/` — 36 MB of vite build output for lane 4E's VERIFY harness,
+      // committed by ACCIDENT in `f564b892` (2026-09-03 06:56) and referenced by
+      // NOTHING in the estate: the only hits for the string are the lane's own audit
+      // transcripts under `audit/universal-component-editor/`. It is a build artefact
+      // by exactly the definition the two entries above already use, and linting it
+      // produced 105 of the 129 lint ERRORS in CI — every one of them a `Definition
+      // for rule 'X' was not found` raised against inline directives the bundler
+      // COPIED out of the sources it inlined. Not one is a code finding.
+      // ⛔ THE IGNORE IS THE SECOND-BEST FIX. The directory should be DELETED and
+      // gitignored — it is stray output, not an input to any gate (the C51 apex-output
+      // gate reads `apps/component-editor/dist-gate/`, not this). `git rm -r lane4e-dist`
+      // was blocked in the lane that found it; the ignore keeps CI honest meanwhile.
+      'lane4e-dist/**',
       'build/**',
       'coverage/**',
       'attached_assets/**',

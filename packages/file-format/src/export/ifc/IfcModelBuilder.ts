@@ -327,10 +327,10 @@ export class IfcModelBuilder {
             case WEBIFC.IFCSTAIRFLIGHT:
             case WEBIFC.IFCRAILING:
             case WEBIFC.IFCCOVERING:
-            // IFCTRANSPORTELEMENT(GlobalId, OwnerHistory, Name, Description, ObjectType,
-            //   ObjectPlacement, Representation, Tag, PredefinedType) — the same
-            //   9-attribute shape as the entities above it.
             case WEBIFC.IFCTRANSPORTELEMENT:
+                // IFCTRANSPORTELEMENT(GlobalId, OwnerHistory, Name, Description, ObjectType,
+                //   ObjectPlacement, Representation, Tag, PredefinedType) — the same
+                //   9-attribute shape as the entities above it.
                 elementRef = this.w(this.api.CreateIfcEntity(this.modelID, ifcType,
                     guid, owner, lb(element.name), null, null, placementRef, shapeRef, null, pdt));
                 break;

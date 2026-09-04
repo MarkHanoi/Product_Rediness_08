@@ -69,7 +69,7 @@ export type XmlScanOutcome =
 
 const MAX_DEPTH = 256;
 
-const NAME_RE = /^[A-Za-z_][A-Za-z0-9_.\-]*$/;
+const NAME_RE = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
 
 interface MutableElement {
     qname: string;

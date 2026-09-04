@@ -636,7 +636,7 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
                 });
                 return;
             }
-            case 'conflicted':
+            case 'conflicted': {
                 // §5.2.2 — refusal names BOTH numbers; never a silent clamp, never
                 // a substituted value. The record keeps its pre-move boundary.
                 // §FIX-CONFLICT-IS-SILENT-STALENESS (L-10802) — REFUSING TO WRITE IS THE
@@ -670,6 +670,7 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
                     `defect. Run window.pryzmFinishHosts() to see which walls this ${this.kind} follows.`
                 );
                 return;
+            }
             case 'undetermined':
             default:
                 // §5.2.1 — never collapsed into 'preserved': this line is the

@@ -5,7 +5,6 @@
     "@pryzm/a11y-tokens",
     "@pryzm/admin-overrides",
     "@pryzm/ai-cost",
-    "@pryzm/ai-host",
     "@pryzm/ai-spend",
     "@pryzm/ai-worker",
     "@pryzm/api-gateway",
@@ -128,7 +127,6 @@
   ],
   "_scriptless_comment": "ARM C — packages that CONTAIN test files but declare NO `test` script, so no invocation of any kind can select them. Each key needs a WRITTEN reason; an absent script is never a reason. This map may only SHRINK.",
   "scriptless": {
-    "@pryzm/bench": "Benchmark harness. Its __tests__/ DO have a runner — the `bench` script (vitest.config.ts includes __tests__/**/*.test.ts) — it is simply not named `test`, and CI invokes `nft:ci` instead. Deliberately NOT renamed: `pnpm -r run test` would then fire 60s-timeout benchmarks across the estate. REVISIT (L-950): give it a `test:ci` scoped to __tests__ only, so the 6 files/27 cases are enforced without the benches.",
-    "@pryzm/geometry-curtain-wall": "OPEN FINDING, NOT AN EXEMPTION — L-950, measured 2026-08-17: `pnpm --filter @pryzm/geometry-curtain-wall exec vitest run` => 25 of 46 tests FAIL across 1 of 4 files. A vitest.config.ts exists, so check-no-dark-test-files sees these files as glob-reachable and passes them; with no `test` script nothing can invoke that runner, so the red has never been seen by CI. Add `test`+`test:ci` and DELETE this row once the 25 failures are triaged. Do not widen this reason to cover new packages."
+    "@pryzm/bench": "Benchmark harness. Its __tests__/ DO have a runner — the `bench` script (vitest.config.ts includes __tests__/**/*.test.ts) — it is simply not named `test`, and CI invokes `nft:ci` instead. Deliberately NOT renamed: `pnpm -r run test` would then fire 60s-timeout benchmarks across the estate. REVISIT (L-950): give it a `test:ci` scoped to __tests__ only, so the 6 files/27 cases are enforced without the benches."
   }
 }

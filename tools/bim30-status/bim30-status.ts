@@ -345,6 +345,9 @@ function runGate(name: string, fast: boolean): GateResult {
  * last non-empty line. Never fabricate — an empty summary stays empty.
  */
 function lastSignificantLine(out: string, gate: string): string {
+  // eslint-disable-next-line no-control-regex -- the ESC control character IS the subject:
+  // this strips ANSI colour codes out of captured child-process output. A regex forbidden
+  // from matching the control character cannot strip it.
   const lines = out.split(/\r?\n/).map((l) => l.replace(/\x1b\[[0-9;]*m/g, '').trim()).filter(Boolean);
   const tagged = lines.filter((l) => l.includes(`[${gate.replace(/^check-/, '')}]`) || l.includes(`[${gate}]`));
   const pick = (tagged.length ? tagged : lines).slice(-1)[0] ?? '';

@@ -126,7 +126,7 @@ export interface NlAknIdentifier {
 }
 
 const AKN_RE =
-    /^\/akn\/nl\/act\/((gm)(\d{4})|pv\d{2}|ws\d{3,4}|mn(?:re)?\d*|[a-z]{2,4}\d*)\/(\d{4})\/([A-Za-z0-9_.\-]+)(?:\/([a-z]{3})@(\d{4}-\d{2}-\d{2});(\d+))?$/;
+    /^\/akn\/nl\/act\/((gm)(\d{4})|pv\d{2}|ws\d{3,4}|mn(?:re)?\d*|[a-z]{2,4}\d*)\/(\d{4})\/([A-Za-z0-9_.-]+)(?:\/([a-z]{3})@(\d{4}-\d{2}-\d{2});(\d+))?$/;
 
 /** Parse an AKN work or expression identifier. Null when the frame does not match. Pure. */
 export function parseNlAknIdentifier(id: string | null | undefined): NlAknIdentifier | null {

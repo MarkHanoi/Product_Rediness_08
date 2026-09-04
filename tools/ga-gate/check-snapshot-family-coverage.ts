@@ -174,7 +174,7 @@ function fail2(msg: string): never {
 // (singular). One character of that drift already made a live channel read
 // "0 subscribers" once ([[grep-silence-has-three-causes]]).
 //
-// ⛔ THE SUBJECT IS **EVERY FILE UNDER `plugins/*​/src/`**, NOT JUST `store.ts` — AND
+// ⛔ THE SUBJECT IS **EVERY FILE UNDER `plugins/<pkg>/src/`**, NOT JUST `store.ts` — AND
 // THAT DIVERGENCE FROM `check-mirror-completeness.ts` IS DELIBERATE AND MEASURED.
 //
 // That gate scans `^plugins/<p>/src/store\.ts$` exactly. Measured 2026-08-26, while

@@ -9,6 +9,11 @@ dist-apex/
 # ship .map files containing server-side source. Consumed by
 # scripts/build/apply-server-deps-overlay.mjs, never served.
 dist-server-deps/
+# Lane 4E's VERIFY-harness vite output. 36 MB of it was committed by accident in
+# `f564b892`; nothing in the estate reads it (only the lane's own audit transcript
+# names the path). Ignored so it is never re-committed; the 54 files already tracked
+# still need an explicit `git rm -r lane4e-dist`.
+lane4e-dist/
 .cache/
 *.log
 .DS_Store
