@@ -4,6 +4,29 @@
 > precisely what to do to go further the moment it becomes possible.
 > **Last updated:** 2026-07-23 · **Maintainer:** UNASSIGNED · **Status:** RESEARCH COMPLETE — pre-implementation
 
+> ⛔ **SUPERSEDED IN PART, 2026-09-04 (lane ENVELOPE-FR). §2 below reads "0 % (not started)" and
+> that is no longer true in either direction — it is too low for the instrument layer and, once the
+> datum decision is applied, roughly right for the parameter layer but for entirely different
+> reasons than §3.1 gives.** The measured state lives in
+> [`FR-ENVELOPE-COMPLETION.md`](FR-ENVELOPE-COMPLETION.md) and
+> [`findings/fr-100-parcel-audit/`](findings/fr-100-parcel-audit/); **read those, not §2.**
+> Three things this file could not have known:
+>
+> - **The instrument layer is 89.9 %** (170/189) — France publishes *which rule applies* nine times
+>   in ten. §2's single figure averages that with the parameter layer and hides both.
+> - ⭐ **The national GPU chain's parameter CEILING is 3.0 % (15/500) and the extractor is at it.**
+>   §3.1 is right that the numbers are in prose PDFs and wrong about the remedy: there is no `TXT`
+>   to clean and no parser to tune. C4, C6 and D1 have a national ceiling of **zero**.
+> - ⭐ **Municipal packs beat the national chain 19×** on parameters (Paris PLU-b: C2 resolved for
+>   **89.5 %** of in-commune parcels vs **0 %** nationally), which **re-orders §3.1's plan**: build
+>   pack adapters BEFORE the PDF leg — but only for HEIGHT. The PDF leg stays the only path to
+>   emprise, volumétrie and floor-area, so it is re-sequenced, never cancelled.
+>
+> ⚠ **And §3.1's "no pack is implemented" is stale:** `resolveParisPluZone.ts` ships and reads the
+> real `plub_hauteur`. It carries an open defect — [L-12898](../../ISSUE-LOG.md), its only
+> jurisdiction gate is a bbox that reaches four neighbouring communes. **Fix that before extending
+> the pack pattern to Lyon or APUR, or every new pack inherits it.**
+
 ---
 
 ## 1 — WHERE WE STOPPED (the one-paragraph truth)
