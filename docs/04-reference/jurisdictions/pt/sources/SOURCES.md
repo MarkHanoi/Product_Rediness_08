@@ -133,6 +133,95 @@ Source: *Plano Diretor Municipal — Regulamento — Janeiro 2023*,
 > exactly THREE city-wide perequação macro-zones.** It is a compensation reference index, **NOT** a
 > per-parcel FAR. **Do not wire it as an envelope value.**
 
+
+### A.0.3b — Porto PDM: the COMPLETENESS read (`VERIFIED-PRIMARY`, whole-document, 2026-09-04)
+
+<!-- Lane ENVELOPE-IBERIA. §A.0.3 above pins the values that EXIST. This section answers the
+     question §A.0.3 never asked — WHAT IS MISSING — because "can a complete envelope be drawn?"
+     cannot be answered from a table of the rows that happen to be present. -->
+
+**Method (reproducible).** `curl -sSL` → HTTP 200, **1 641 985 B**, sha256
+`a9383f794a059d87e1bd5629a3d9ea26240f713fab72c0c970cd7bb6baa3e0d1` — **byte-identical to the §A.0.3
+pin**. Extracted twice: poppler `pdftotext` 4.00 (100 pp, **309 649 chars**) and `pdfjs-dist`
+5.7.284 (100 pp, **307 561 chars**). **All 14 load-bearing sentences re-found independently on their
+cited page in BOTH engines; all negative term counts identical in both.** Whole document indexed:
+**164 articles**, every heading mapped to its PDF page; Arts. 3, 5, 14–16, 17–38, 40–43, 131–135,
+161–164 read **in full**, not grepped.
+
+#### Four articles §A.0.3 did not carry
+
+| Field | Value | Article (verbatim) | Confidence |
+|---|---|---|---|
+| **Blocos Isolados — cércea** | ⛔ **QUALITATIVE ONLY, no number** | **Art. 32.º n.º 6**: «A cércea a adotar deve assegurar a integração urbanística com os edifícios e zonas envolventes.» (PDF p. 20) | `VERIFIED-PRIMARY` |
+| **Blocos Isolados — impermeabilização (GENERAL, not just extensions)** | **≤ 0,6** of the parcel | **Art. 32.º n.º 4**: «O índice de impermeabilização não pode ser superior a 0,6 na área da parcela.» (PDF p. 20) — ⚠ **materially BROADER than the n.º 2 row §A.0.3 pins**, which applies only to extensions of existing sub-1 buildings | `VERIFIED-PRIMARY` |
+| **Moradia — impermeabilização** | **≤ 0,6** of the parcel | **Art. 30.º n.º 1 b)**: «O índice máximo de impermeabilização é de 0,6 da área da parcela, devendo a área remanescente ser ocupada por coberto vegetal e espaços de circulação e de estadia permeáveis, exceto as obras de edificação em parcelas de muito reduzidas dimensões…» (PDF p. 19) — ⛔ **impermeabilisation, NOT footprint. Do not wire as occupation.** | `VERIFIED-PRIMARY` |
+| **AAE Tipo I / Tipo II — the verbatim §A.0.3 lacked** | **1,8** / **1,4**, both defeasible; **área impermeabilizada ≤ 70 %** | **Art. 36.º n.º 1**: «O índice de edificação máximo admitido é de 1,8 o qual poderá assumir outros valores desde que justificados no âmbito de uma UOPG.» · **n.º 2**: «A área impermeabilizada não poderá ser superior a 70% da área da parcela.» · **Art. 38.º n.º 1/n.º 2** identical with **1,4** (both PDF p. 21) | `VERIFIED-PRIMARY` |
+
+⛔ **THE 70 % IS `área impermeabilizada` — PAVING INCLUDED — AND IS *NOT* `ocupação`/`implantação`.**
+Three independent confirmations: (1) the words themselves, the same family as the *índice de
+impermeabilização* of Arts. 24/27/30/32; (2) the regulamento HAS a separate footprint vocabulary
+and uses it deliberately elsewhere — **Art. 42.º n.º 2**: «a **área de implantação** total das
+construções não ultrapasse **20 %** da área total da parcela» (p. 22), **Art. 51.º n.º 2**: «a sua
+**área de implantação** não pode exceder **25 %** da área da parcela» (p. 24); (3) **`índice de
+ocupação` and `taxa de ocupação` are 0 occurrences doc-wide in both engines — Porto has no
+occupation index at all.**
+
+#### The measured absences (counts identical in both engines)
+
+| Term | Occurrences in 100 pp | What it means |
+|---|---:|---|
+| **`afastamento`** (and the stem `afast*`) | **1** | The ONLY setback rule in the whole regulamento is **Art. 30.º n.º 1 d)**, Moradia. There is no general one. |
+| **`cércea máxima`** | **1** | The FUC-II 21 m cap (Art. 27.º n.º 2 b)). It is the document's ONLY hard metric height cap. |
+| `índice de ocupação` · `taxa de ocupação` · `ocupação máxima` · `implantação máxima` | **0 each** | No occupation index exists. |
+| `número máximo de pisos` | **3** | Art. 30.º n.º 1 c), Art. 30.º n.º 3, Art. 47.º n.º 3 — **none in Art. 32.º**. |
+| `profundidade` | **3** | pp. 17–18 only (Arts. 24.º/27.º, FUC I/II). **None in Art. 30.º.** |
+| **`pé-direito`** | **1** | **Art. 3.º d) iii**, «Sótão sem pé-direito regulamentar para fins habitacionais» — a REFERENCE with **no value**. And the external referent is never named: **`RGEU` = 0, `Regulamento Geral das Edificações` = 0, `38382` = 0.** ⇒ **"3 pisos" CANNOT be converted to metres from this document.** |
+| `altura` | **4** | Art. 3.º c) (an extent-based mode, no metric), p. 19 (the H/2 setback), pp. 34/41 (qualitative heritage/coastal). The only `2,40`/`2,70` in the document are **footway widths** (Art. 113.º, p. 48). |
+
+#### No general chapter supplies the defaults — affirmatively, not merely unlocated
+
+Every candidate general chapter was read in full: **Título I Disposições Gerais** (Arts. 1–6, pp.
+7–10) · **Cap. III Secção I Disposições Gerais** — the one directly above Espaços Centrais, and it
+is **Arts. 14, 15, 16 ONLY** (pp. 13–15), all qualitative · **Título V Secção I Edificabilidade**
+(Arts. 131–135, perequação only) · **Título VI Disposições Gerais** (Arts. 161–164). **None sets an
+envelope default.** The residual clause sends omissions OUTSIDE this instrument:
+
+> **Art. 164.º — Omissões**: «A qualquer situação não prevista nas presentes disposições
+> regulamentares aplicar-se-á o disposto na demais legislação vigente e nos regulamentos municipais
+> aplicáveis.» (PDF p. 71)
+
+⚠ **And a correction to §A.0.3's `edificab_m` warning, which was RIGHT but whose figures differ from
+the article's.** Art. 134.º n.º 1 gives the *edificabilidades médias* as **1,2 / 0,7 / 0,25**
+(p. 55); the `cc_czp.gpkg` values §A.0.3 records are **1.18 / 0.67 / 0.25**. **The GPKG is not a
+verbatim copy of the article.** Art. 135.º n.º 1 subordinates them outright — «A edificabilidade de
+cada prédio … respeita as disposições (quantitativas e qualitativas) estabelecidas pelo Plano» —
+which confirms the standing instruction not to wire `edificab_m` as a FAR.
+
+#### ⛔ BOTTOM LINE — no Porto subcategory yields a COMPLETE envelope
+
+**For NO subcategory does the Regulamento supply footprint + height + intensity with nothing missing
+and nothing inferred**, and the missing leg is almost always **HEIGHT IN METRES**.
+
+| Subcategory | Has | Missing |
+|---|---|---|
+| **Blocos Isolados** (32.º) | índice 1 · Iimp 0,6 | height (only the qualitative n.º 6) · storeys · setback · footprint ⇒ **vertically unbounded** |
+| **Moradia** (30.º) | 3 storeys · afastamento H/2 min 3 m · Iimp 0,6 | metres · índice · footprint · depth. ⚠ **AND THE SETBACK IS CIRCULAR**: it is H/2 on an `H` the article never bounds — a function of a free variable, not merely an incomplete rule. |
+| **AAE I / II** (36.º/38.º) | índice 1,8 / 1,4 · Iimp 70 % | ⛔ **no height rule whatsoever** |
+| **Área Histórica** (20.º) | — | entirely qualitative |
+| **FUC I** (24.º) | profundidade 25 m · Iimp 0,3 · roof 30° | height = **the moda da cércea alone** — a measured neighbourhood statistic (the ADR-0379 `context-aggregate` seat), not a stated value |
+| **FUC II** (27.º) | ⭐ **21 m** (the document's only hard metric cap) · profundidade 30 m · Iimp 0,3 | no índice; and the 21 m fires ONLY where the street profile exceeds 21 m **and** yields to a higher moda |
+
+**Compounding this, a UOPG override defeats the stated figure in Arts. 30.º n.º 3, 32.º n.º 3 b),
+36.º n.º 1 and 38.º n.º 1.**
+
+⇒ **PORTO IS CATEGORY C (LEGAL-DATA BLOCKER), NOT CATEGORY A (GATE-ONLY)** under the founder's
+2026-08-03 publication authorization, whose disqualifiers name *"missing height rule"* explicitly.
+**No signature can open an envelope-drawing Porto pack**, because any complete Porto envelope
+requires importing at least one number this instrument does not contain. The gaps are STRUCTURAL,
+not editorial — `afastamento` once in 100 pages, `cércea máxima` once, `índice de ocupação` never,
+`pé-direito` once and only as an unnamed external reference, and Art. 164.º declining to supply
+defaults at all.
+
 ### A.0.4 — Lisboa créditos de construção (`VERIFIED-PRIMARY`)
 
 | Field | Value | Confidence |
@@ -142,6 +231,14 @@ Source: *Plano Diretor Municipal — Regulamento — Janeiro 2023*,
 | **Suspension (PARTIAL)** | **Art. 2.º n.º 1 alínea g) and Art. 5.º n.º 2 alínea i) SUSPENDED** by **Deliberação 415/AML/2022**, 2.º Supl. Boletim Municipal n.º 1486, **11 Aug 2022**. **The regime as a whole remains in force.** | `VERIFIED-PRIMARY` |
 | "PDM Arts. 84/88/89" (prior claim) | **NOT confirmed** in the document read | **downgraded to `ASSERTED-UNVERIFIED`** |
 | Lisboa vocabulary | `índice de edificabilidade` · `superfície de pavimento` · `traçados urbanos` | `VERIFIED-PRIMARY` |
+
+> ⭐ **THE RPDML’S OWN NUMERIC PARAMETERS ARE NOW EXTRACTED — 2026-09-04, lane ENVELOPE-IBERIA.**
+> They live in [`LISBOA-RPDML-PARAMETERS.md`](./LISBOA-RPDML-PARAMETERS.md) (republicação integral,
+> Decl. Retif. 703/2020, sha256-pinned; every value with its artigo, verbatim sentence and PDF page).
+> **Headline: three of the four highest-volume Lisboa zones state NO índice at all and their height
+> is a TRIMMED MEAN of the neighbours’ façade heights (Art. 4.º d)) — Lisboa is not representable
+> as scalars.** ⚠ And `superfície de pavimento` is **NOT** the national `Ac`: Sp EXCLUDES varandas
+> and covered collective exterior space, `Ac` INCLUDES them.
 
 ### A.0.5 — DICOFRE (`VERIFIED-LIVE`, DGT CAOP `cont_municipios`)
 
@@ -256,7 +353,7 @@ Source: *Plano Diretor Municipal — Regulamento — Janeiro 2023*,
 | Lisbon CML 3D model redistribution licence | Licence at geodados-cml.hub.arcgis.com unread | Navigate hub URL → click dataset → read Terms of Use tab; if unclear, email CML data team |
 | CGPR / SiNErGIC specific coverage per target city | The 127 CGPR + 7 SiNErGIC list is approximate; specific confirmation for Braga / Lisboa / Porto not done | Check DGT SNIC portal or SNIG coverage layer for Braga DICOFRE 0303, Lisboa 1106, Porto 1315 |
 | Braga PDM regulamento governing article numbers | Article numbers for índice, cércea, afastamentos not confirmed | Read Braga PDM regulamento directly from SNIT PDF link |
-| Lisbon PDM "categorias de espaço" full list + numeric values | Named in research ("Espaços centrais e residenciais consolidados") but index/cércea not sourced | Read Lisboa PDM regulamento from SNIT; specifically the tabela de parâmetros urbanísticos per categoria |
+| ~~Lisbon PDM "categorias de espaço" full list + numeric values~~ **CLOSED 2026-09-04** | **18 categorias enumerated from CML’s OWN Qualificação layer with its `ART_RPDM` zone→article map, and every envelope parameter extracted from the republicação integral.** ⚠ The finding is that there is largely NO index/cércea to source: Traçados A/B and A–C’s índice, and Actividades Económicas’ height, are ABSENT BY DESIGN — a measured absence, not an unsourced value. | → [`LISBOA-RPDML-PARAMETERS.md`](./LISBOA-RPDML-PARAMETERS.md) §6 carries the six remaining sub-gaps (Svp quadro cells, Anexos I–XII, `QUALIFICACAO.mpk` unpack, DRE alterações 2020→2026, `INFOPDM` contents, zone 7’s munícipio). |
 | Porto PDM "índice de edificação" definition (what counts toward area) | Confirmed that Porto uses Art. 11 definition but exact formula text not read | Read PDMP Arts. 11–12 from SNIT/SNIG PDF; record the exact "área de edificação" definition |
 | Moda da cércea — Porto PDMP governing article | Named mechanism confirmed; specific article number and formula text not read | Read Porto PDMP regulamento — search for "moda da cércea" term |
 | Lisbon "créditos de construção" — Arts. 84/88/89 | Named and article numbers stated in research; full text not read | Read Lisbon incentives regulation Arts. 84/88/89; confirm the mechanism works as stated |
