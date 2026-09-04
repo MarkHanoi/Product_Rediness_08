@@ -82,10 +82,42 @@ Régions produce SRADDET, SCoT is inter-communal — both strategic, neither set
 Construction is permitted only within the *parties actuellement urbanisées*, which is a case-by-case determination by the instructing authority and exists in no dataset. As of published figures, 9,461 of 35,010 communes, 23.77% of national surface. **Re-derive from the current SuDocUH release before quoting.** Emit a cited refusal, never an envelope.
 
 ### 3.4 COS was abolished (VERIFIED)
-Loi ALUR n° 2014-366 of 24 March 2014 removed the coefficient d'occupation des sols and minimum plot size. **There is no floor-area quantum constraint in France.** Consequences:
-- The envelope **is** the entitlement. Yield = volume × efficiency assumptions.
-- No trimming policy is needed. The under-determination problem does not arise.
-- **If your schema requires a floor-area ratio to compute a yield, France is the bug.** Fix the schema, do not special-case France.
+
+> ⚠ **CORRECTED 2026-09-04 (lane ENVELOPE-FR) — the bolded sentence below was TOO BROAD and is
+> withdrawn.** It read: ***"There is no floor-area quantum constraint in France."***
+> The founder's transmission overturns the blanket form
+> ([`FR-FOUNDER-REACHABILITY-BOUNDARY.md`](FR-FOUNDER-REACHABILITY-BOUNDARY.md) §6):
+>
+> > *"Otherwise we could accidentally throw away a legitimate constraint just because it isn't
+> > called COS."*
+>
+> ```
+> COS / old coefficient          = DISCARD (dead, Loi ALUR + the 2015 reform)
+> surface de plancher definition = ACTIVE  (Légifrance LEGIARTI000029593965 repealed the COS, not SDP)
+> floor-area-based rule          = potentially ACTIVE in a given PLU
+> ```
+>
+> **What survives of the paragraph:** COS itself is dead, and a COS token found in a pre-2016
+> règlement is discarded. **What does not:** the leap from "COS is dead" to "no floor-area rule can
+> bind". `D1` is **NULLABLE per jurisdiction — never ABSENT from the vocabulary**
+> (`EnvelopeParameterKey`, `packages/schemas/src/site/zoning/RuleState.ts`).
+>
+> ⛔ **Consequential spec fix for steps 6–7:** §7's *"detect and discard any COS found"* must not
+> over-fire. The detector has to separate a genuine COS (pre-2016 Art. 14 / the COS token — discard,
+> log) from an **SDP-expressed floor-area rule in a current règlement — KEEP, as a live D1**.
+> Deleting the latter as "dead COS" is the L-942 refusing-half defect applied to yield.
+>
+> ⭐ **And this is why the correction is not cosmetic.** The 100-parcel audit
+> ([`findings/fr-100-parcel-audit/`](findings/fr-100-parcel-audit/FR-100-PARCEL-VALUE-RECOVERY-AUDIT.md) §4)
+> carries **D1 as a real measured row: 0 % recovered, 89 `unrecovered` states.** Under the withdrawn
+> claim D1 would have been absent from the table entirely — a constraint class that binds real
+> parcels, invisible instead of measured at zero. **"We recover 0 % of this" and "this does not
+> exist" are different sentences, and only the first is true.**
+
+Loi ALUR n° 2014-366 of 24 March 2014 removed the coefficient d'occupation des sols and minimum plot size. ~~**There is no floor-area quantum constraint in France.**~~ (See the correction box above.) Consequences:
+- The envelope is **usually** the entitlement, and where no SDP rule binds, yield = volume × efficiency assumptions.
+- No COS-style trimming policy is needed for the ordinary case; where a live SDP rule IS found, it binds as a D1 and must be carried.
+- **If your schema requires a floor-area ratio to compute a yield, France is the bug** — a French parcel often has no D1. Fix the schema to permit its ABSENCE; do not delete the key, and do not special-case France.
 - Exception: `L151-28` / `R151-37` majorations permit exceeding gabarit, hauteur and emprise in delimited sectors, capped at 20% per rule. Model as **conditional volumetric increments**, never as a resurrected COS.
 
 ### 3.5 Two règlement structures coexist (VERIFIED)

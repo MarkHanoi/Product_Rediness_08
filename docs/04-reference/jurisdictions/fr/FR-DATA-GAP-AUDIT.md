@@ -145,13 +145,13 @@ carried-verbatim bucket — reachable, not yet reported as QUALITATIVE-RULE. Gap
 
 | # | Piece | Verified state today | Owner | Effort / note |
 |---|---|---|---|---|
-| (a) | **SRU XML (`3_Reglement` Reglement XML) consumption** | **NOT READ ANYWHERE** — grep `sru\|xml` over `countryAdapters/fr/` = 0 hits; the retrieval chain stops at NOMFIC/URLFIC identity. The email's ladder says: try SRU XML BEFORE PDF. Our brief §3.7 (SRU voluntary, pilot-stage) and the email agree it is optional-per-document — so it is the FIRST RUNG of the extraction ladder, never a dependency. Its real-world presence rate is UNKNOWN → make it a measured field of the §3 audit. | US build | Small-to-medium: a parser for a schematized format, engaged only when present. Highest value-per-effort rung of steps 6–7. |
+| (a) | **SRU XML (`3_Reglement` Reglement XML) consumption** | **NOT READ ANYWHERE** — grep `sru\|xml` over `countryAdapters/fr/` = 0 hits; the retrieval chain stops at NOMFIC/URLFIC identity. The email's ladder says: try SRU XML BEFORE PDF. Our brief §3.7 (SRU voluntary, pilot-stage) and the email agree it is optional-per-document — so it is the FIRST RUNG of the extraction ladder, never a dependency. Its real-world presence rate is UNKNOWN → make it a measured field of the §3 audit. | US build | ⛔ **MEASURED 2026-09-04 — and it INVERTS this row.** The §3 audit ran: **0 SRU XML in 81 documents that served a règlement reference** (66 plain `.pdf`, 15 `.pdf#page=N`, zero `.xml`). *"Highest value-per-effort rung of steps 6–7"* is **withdrawn**: a parser for a format that appears 0 times in 81 documents is not the highest value-per-effort rung, and the founder's ladder's *"PDF only where necessary"* means **everywhere** in this sample. **Build the PDF leg first; keep SRU as an opportunistic upgrade engaged only when a `.xml` actually appears.** (n=81 bounds the claim to *"do not sequence the roadmap behind it"*, not *"it never exists"*.) |
 | (b) | **BD TOPO building heights in context + BD TOPO Express weekly** | **PARTIALLY WIRED — the email's premise is half-stale.** `tools/context-bake/heightSources.mjs` has `bdtopo` impl `'live'` (IGN BD TOPO® batiment) and routes `paris: 'bdtopo', lyon: 'bdtopo'`; national `france:` routes to `mnh_fr` (MNH stamp OWED, not OSM-forever). The envelope record's neighbour slice also reads BD TOPO per-point (`frBdTopoNeighbours.ts`). **Not wired:** BD TOPO *Express* weekly refresh — no reference anywhere. | US + DATA | Config/bake work: finish the owed national MNH stamp; treat Express-weekly as a freshness upgrade, not a gap in kind. |
 | (c) | **RGE ALTI profile / façade-datum sampling** | **POINT ELEVATION ONLY.** `frAltimetry.ts` calls `alti/rest/elevation.json` for one point; grep `profil` in the FR adapter = 0 hits. L-584 stands: centroid sampling is a LEGAL defect where the ordinance measures at the façade; the Géoplateforme altimetry service the email cites also serves profiles (`elevationLine`). The datum-honesty note is shipped; the profile sampler is not. | US | Small: same endpoint family, line-of-points request along the frontage edge — but it is BLOCKED-BY (d): you need the road-facing edge before you can profile it. Shared seat with ES A#7/A#14 (Paris HMC conversion, region doc). |
 | (d) | **Frontage-as-computation (email §7)** | **NOT BUILT FOR FR.** Nothing computes road-facing edges from cadastre + roads: the only FR "frontage" hits are prose in `frPrescriptionGeometry.ts` notes; `ptFrenteUrbana.ts` is PT, the street-width providers are ES city packs. Generic geometry primitives exist (`geometry/streetWidth.ts`, `blockRing.ts`) to mirror. The email correctly splits physical frontage 🟢 (computable: parcel edge ∩ road buffer) from legal frontage 🟡. | US | Medium — this is brief §11 step 5 ("frontage typing"), the prerequisite for A3/A4, the H/2 fixed point AND (c). The single most load-bearing unbuilt derivation. |
 | (e) | **SITADEL historical-permits evidence layer** | **NOT WIRED ANYWHERE** — grep = 0 hits in code and FR docs (only the research capture mentions it). | US + DATA | Small (monthly open dataset). Classify honestly: NOT envelope-required — an *evidence/validation* layer (email §12: "validation, not override"). Queue behind the extraction pipeline; useful later as the independent probe source (probe-can-be-wrong-three-ways doctrine). |
 | (f) | **DVF / OCS GE / INPN** | DVF: named in brief §4.3 as "Comparables", zero code. OCS GE: used only in CONTEXT docs (parks/land-cover, `FRANCE-CONTEXT-DATA-DEEP-DIVE-L515.md`), zero envelope code. INPN: zero hits. | DATA (later) | **None is envelope-required.** DVF = valuation/yield (post-envelope product). OCS GE = context rendering (already sourced there). INPN protected areas = a constraint-overlay nice-to-have largely duplicated by the GPU SUP layer we already consume (`parseFrSupAssiette`). Do not let these inflate the gap list. |
-| (g) | **38.02 emprise + 40.02 volumetry polygons; the .97/.98 subtypes; TXT/PDF values** | **NOT CONSUMED.** The consumer reads 14, 15.xx and 39/02 ONLY (`frPrescriptionGeometry.ts`); grep `'38'\|'40'\|97` = 0 typed hits. Today, when the value lives in TXT/PDF, the slice is honestly `unresolved` naming the règlement doc + `#page` (e.g. the uses-slice refusal in `frNoExtraction.ts`) — correct refusal, zero recovery. | US | Three distinct sizes: (i) consuming 38.02/40.02 drawn polygons = DAYS (same shape as the shipped 39/02 parser); (ii) typing the .97 qualitative / .98 alternative subtypes so they surface as QUALITATIVE-RULE / ALTERNATIVE-RULE instead of untyped verbatim = SMALL (extend `FR_PRESCRIPTION_MEANINGS` + a `bindingBasis`-style enum); (iii) numeric extraction from règlement TXT/PDF = the steps 6–7 pipeline, MULTI-WEEK — the moat, and the region doc's declared #1 unblock. PLUi leverage bounds it: 30 documents cover 25% of national population, 283 cover 50% (`FR-PHASE0-REPORT.md` §2). |
+| (g) | **38.02 emprise + 40.02 volumetry polygons; the .97/.98 subtypes; TXT/PDF values** | **NOT CONSUMED.** The consumer reads 14, 15.xx and 39/02 ONLY (`frPrescriptionGeometry.ts`); grep `'38'\|'40'\|97` = 0 typed hits. Today, when the value lives in TXT/PDF, the slice is honestly `unresolved` naming the règlement doc + `#page` (e.g. the uses-slice refusal in `frNoExtraction.ts`) — correct refusal, zero recovery. | US | Three distinct sizes: (i) consuming 38.02/40.02 drawn polygons = DAYS (same shape as the shipped 39/02 parser); (ii) ⭐ **SHIPPED 2026-09-04** — `packages/site-parcel-data/src/rulepacks/frCnigPrescriptionTree.ts` types the `.97` qualitative / `.98` alternative subtypes and emits the shared `RuleState` vocabulary, so a legally non-numeric rule answers `QUALITATIVE RULE` instead of `UNKNOWN`. ⚠ **But the audit corrects the EXPECTATION attached to it:** across 100 parcels `.97` appeared **0 times**, `.98` **once**, the whole `40.x` volumetry family **0**, and `TYPEPSC=14` **0**. The capability is right and cheap; it is **not** a lever on the coverage number — the qualitative rules are in the PDF prose, not in the prescription subtypes; (iii) numeric extraction from règlement TXT/PDF = the steps 6–7 pipeline, MULTI-WEEK — the moat, and the region doc's declared #1 unblock. PLUi leverage bounds it: 30 documents cover 25% of national population, 283 cover 50% (`FR-PHASE0-REPORT.md` §2). |
 | (+) | **Weekly-extract mirror as runtime source** | Port built, decision recorded `FOUNDER-PENDING` (`frExtractMirrorPort.ts` — ≈28.6 GB/31 layers, no PostGIS provisioned). | FOUNDER | Infra/cost decision. The email's "don't hunt more APIs" argues FOR settling it; it also unblocks the two Phase-0 DEFERRED spatial-join metrics. |
 
 ---
@@ -169,7 +169,24 @@ judgement?"* No shipped number answers that, and per the email's own instruction
 boundary estimate must NOT be quoted in any investor spec — it is the hypothesis the next
 experiment tests.
 
-### The 100-parcel value-recovery audit — spec (executable later; NOT run this lane)
+### The 100-parcel value-recovery audit — spec
+
+> ⭐ **RUN 2026-09-04 (lane ENVELOPE-FR). This heading read *"executable later; NOT run this lane"*.**
+> The measurement exists:
+> **[`findings/fr-100-parcel-audit/FR-100-PARCEL-VALUE-RECOVERY-AUDIT.md`](findings/fr-100-parcel-audit/FR-100-PARCEL-VALUE-RECOVERY-AUDIT.md)**
+> — 100 parcels, 0 transport failures, re-runnable at seed `20260904`.
+>
+> **Parameter recovery 23.7 %** (185 / 781 applying rules) · honest-answer 32.3 % ·
+> area-random 19.2 % / urban 28.0 %. And the split that matters:
+> **INSTRUMENT layer (B1+B2) 89.9 % · PARAMETER layer (C2/C4/C5/C6/D1) 3.0 %.**
+> Failures: `pdf` **389** · `semantic` 81 · `missing-source` 59 · `graphic` 0 · `discretionary` 0 ·
+> `inaccessible` 0 — ⚠ the three zeros are trace-depth artefacts, NOT findings about France
+> (see that file's §5 before quoting any number).
+>
+> ⛔ **Read the report, not this box.** In particular it measures the NATIONAL GPU/WFS chain only and
+> therefore UNDERSTATES PRYZM wherever a municipal pack exists — Paris is recorded as
+> `unrecovered/pdf` for height while `resolveParisPluZone.ts` reads the real published
+> `plub_hauteur`.
 
 - **Sampling frame.** The GPU national extract (vintage ≥ 2026-08-29, already on disk,
   13.4 GB MD5-verified). Stratified draw of 100 parcels: ~85 under PLU/PLUi (weighted so
@@ -236,3 +253,11 @@ prescription typing (§2g-ii).
 ---
 
 *Deliverable of lane FR-DATA-AUDIT, 2026-09-03. No code was changed; no commit was made.*
+
+*Amended 2026-09-04 by lane ENVELOPE-FR: §3 heading (the audit was RUN), §2(a) (SRU-XML priority
+inverted by measurement) and §2(g)(ii) (shipped, expectation corrected). The §4 D1 correction was
+applied in place to `FR-MODULE-BUILD-BRIEF.md` §3.4. ⚠ The three remaining §4 targets live in
+`docs/01-strategy/` — `envelope-gap-master/region-iberia-france.md`,
+`BUILDABLE-ENVELOPE-GAP-MASTER.md` and `STR-ENVELOPE-PARAMETER-REFERENCE.md` — and are OUTSIDE this
+lane's exclusive ownership; they are left for the orchestrator so two lanes do not collide on a
+shared strategy doc.*
