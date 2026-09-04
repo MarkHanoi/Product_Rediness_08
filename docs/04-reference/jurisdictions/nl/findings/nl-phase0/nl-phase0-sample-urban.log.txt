@@ -1,0 +1,12 @@
+  ... 25/250 parcels (11s)
+  ... 50/250 parcels (20s)
+  ... 75/250 parcels (30s)
+  ... 100/250 parcels (38s)
+  ... 125/250 parcels (46s)
+  ... 150/250 parcels (55s)
+  ... 175/250 parcels (71s)
+  ... 200/250 parcels (86s)
+  ... 225/250 parcels (96s)
+  ... 250/250 parcels (106s)
+
+WROTE nl-phase0-sample-urban.json — 250 parcels, 106s, skipped 0
