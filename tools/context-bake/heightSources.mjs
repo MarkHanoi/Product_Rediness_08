@@ -46,7 +46,10 @@ import { fileURLToPath } from 'node:url';
 // dalle-index hits parser, the nodata mask, the city working set) lives in its own dependency-free
 // module so vitest can import and pin its decisions; this file keeps the raster/network half.
 import { MNH_FR, MNH_FR_CITY_BBOXES, classifyDalleCoverage, maskNodata, mnhFrDalleHitsUrl, mnhFrGetMapUrl, mnhFrPxDims, parseWfsHits } from './heights/mnhFr.mjs';
-export { MNH_FR, MNH_FR_CITY_BBOXES };
+// §SWISS-NDSM (2026-09-04) — the PURE half of the Swiss national stamp (STAC URL, LV95 tile keying, COG
+// asset selection, the city working set) — same split, same reason.
+import { SWISS_NDSM, SWISS_CITY_BBOXES, lv95TileKey, lv95TileBbox, parseStacCollection, pickCogAsset, swissStacItemsUrl } from './heights/swissNdsm.mjs';
+export { MNH_FR, MNH_FR_CITY_BBOXES, SWISS_NDSM, SWISS_CITY_BBOXES };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
@@ -160,29 +163,22 @@ export const SOURCES = {
     coverage: 'full',
   },
   swissbuildings3d: {
-    country: 'ch', name: 'swissBUILDINGS3D + swissSURFACE3D/swissALTI3D nDSM', impl: 'documented',
-    provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2-mesh (native roofs, incl. overhangs)',
-    endpoint: 'swisstopo OpenData: swissSURFACE3D Raster (DSM) − swissALTI3D (DTM) via data.geo.admin.ch; ' +
-      'swissBUILDINGS3D 2.0/3.0 CityGML + GWR madd.bfs.admin.ch/eCH-0206 = the LoD2-next tier',
-    heightField: 'nDSM = P90(swissSURFACE3D − swissALTI3D) over the eroded footprint (the KEYLESS LoD1-now ' +
-      'path, mirrors DK dhm_overflade−dhm_terraen); swissBUILDINGS3D volumetric solid height ±30–50 cm + ' +
-      'GWR GASTW storeys = the richer LoD2 tier',
+    country: 'ch', name: 'swisstopo swissSURFACE3D Raster − swissALTI3D nDSM (national, keyless) · swissBUILDINGS3D = the LoD2-next tier', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (national 0.5 m DSM / 2 m DTM COGs)', lodNext: 'LoD2-mesh (swissBUILDINGS3D 3.0 native roofs, incl. overhangs)',
+    endpoint: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swisssurface3d-raster (DSM) + ' +
+      '…/ch.swisstopo.swissalti3d (DTM) → per-km² LV95 COG GeoTIFFs, HTTP range-read',
+    heightField: 'nDSM = P90(swissSURFACE3D − swissALTI3D) over the eroded footprint interior (ndsmHeightForBuilding, native LV95 metres); ' +
+      'both products on LN02 (EPSG:5728) so the difference is datum-free height above ground',
     coverage: 'full',
-    keyless: true, // swisstopo geodata is OpenData / CC-BY since 2021 — NO API key, NO repo secret.
-    note: 'CH has TWO real-height paths. (1) LoD1-now, KEYLESS — the OSM-footprint × nDSM join ' +
-      '`stampSwissHeightsOnGeojsonseq` (below): sample swissSURFACE3D-Raster (DSM) minus swissALTI3D (DTM) ' +
-      'over bake\'s own OSM footprints → P90 tagged height, the EXACT DK dhm/ES mds shape, no key. ' +
-      '(2) LoD2-next — swissBUILDINGS3D CityGML volumetric solids (bulk download, not a bbox API) → ' +
-      'offline extract + GWR-by-EGID; the cleaner height but a CityGML parser build. ' +
-      '⚠ impl stays `documented` (not `live`) — LIVE-PROBED 2026-07-27, VERDICT REVISED: the plain WCS-2 ' +
-      'GetCoverage-in-4326 shape below is FALSE (returns HTTP 404 NoSuchKey — data.geo.admin.ch has no WCS ' +
-      'service; it is an object store). The keyless data IS live via STAC: BOTH collections return HTTP 200 ' +
-      '(ch.swisstopo.swissalti3d DTM + ch.swisstopo.swisssurface3d-raster DSM), each /items?bbox= exposing ' +
-      'per-1km COG GeoTIFF tiles in EPSG:2056 (LV95) at 0.5 m/2 m (CC-BY, commercial-OK — same host the ' +
-      'Zürich parcel work proved keyless). So the real LoD1-now wiring is the STAC→COG-stitch path (REUSE ' +
-      'terrain.mjs fetchSwissAltiStac for BOTH coverages) + an LV95↔WGS84 projector (LV95 is Swiss oblique ' +
-      'Mercator, NOT a UTM zone → needs proj4/reproject.mjs, which the buildings bake runner does not yet ' +
-      'install) → a BUILD, not a credential gate. Region keeps OSM until built — no fabricated height.',
+    keyless: true, // swisstopo free geodata — NO API key, NO repo secret; source reference mandatory (terms text verified 2026-09-04).
+    note: 'LIVE 2026-09-04 (lane HEIGHTS-EVERYWHERE round 2): the national STAMP stampSwissHeightsOnGeojsonseq is BUILT on the ' +
+      'STAC→COG channel (heights/swissNdsm.mjs carries every probed number: 0.5 m DSM COG 13.5 MB with 1 m / 2 m overviews, ' +
+      '2 m DTM 1.0 MB, HTTP 206 range reads, nodata −9999, LV95 1 km tiles). It is a bake STAMP over bake\'s own OSM footprints, ' +
+      'NOT a bbox footprint fetcher — the `switzerland` row must declare heightJoin:\'swiss\' (bake.mjs dispatch + stampBboxesFor → ' +
+      'SWISS_CITY_BBOXES) to receive it. Verified on the LIVE Zürich footprints (probe --geojsonseq): see the stamp\'s header. ' +
+      '⚠ HISTORY: the 2026-07-26 draft assumed a WCS at data.geo.admin.ch — that host is an object store (HTTP 404 NoSuchKey, ' +
+      'probed 2026-07-27); the WCS shape was removed 2026-09-04. LoD2-next: swissBUILDINGS3D CityGML solids (bulk, not a bbox ' +
+      'API) + GWR-by-EGID storeys — a CityGML parser build, not started.',
   },
   lod2de: {
     country: 'de', name: 'LoD2-DE (per-Land CityGML)', impl: 'documented',
@@ -481,7 +477,7 @@ export const REGION_SOURCE = {
   italy: { source: 'piedmont_it', status: 'no-source', reason: 'Piedmont-only regional layer — NO national height product; EUBUCCO/GBA ML heights excluded as authoritative (E5 §A.5) (ASSESS IT)' },
   greatbritain: 'ealidar_gb',
   ireland: { source: null, status: 'no-source', reason: 'no cadastre by design; OSi Prime2 commercial → X3-refused; OPW LiDAR partial (ASSESS IE)' },
-  switzerland: 'swissbuildings3d', // ⭐ wire-not-build: stampSwissHeightsOnGeojsonseq (below) is AUTHORED but not imported by bake.mjs — the cheapest measured-height national add (ASSESS CH)
+  switzerland: 'swissbuildings3d', // ⭐ LIVE 2026-09-04 — national STAC→COG stamp BUILT (stampSwissHeightsOnGeojsonseq, working set SWISS_CITY_BBOXES). The bake row must declare heightJoin:'swiss' (orchestrator). L-12883.
   austria: 'geoland_at',
   czechia: 'ruian_cz',
   portugal: 'dgt_pt',
@@ -1522,84 +1518,14 @@ function mdsCoverageUrl([w, s, e, n]) {
     `&SUBSETTINGCRS=${MDS_WCS.crs4326}&OUTPUTCRS=${MDS_WCS.crs4326}`;
 }
 
-// ── CH swisstopo nDSM (swissSURFACE3D Raster − swissALTI3D) — the KEYLESS DK-analogue for Switzerland.
-// Switzerland (like Denmark) has no keyless per-building height ATTRIBUTE reachable by bbox — the
-// LoD2 swissBUILDINGS3D solids are a bulk CityGML download, not a live API. So the honest LoD1-now
-// height is the normalised surface: (roof-inclusive DSM) − (bare-earth DTM), sampled inside each
-// footprint — EXACTLY the DK dhm_overflade−dhm_terraen path, and the ES mds P90-over-eroded-interior
-// robustness. Both swisstopo coverages are OpenData (CC-BY, no key). Requested in EPSG:4326 so the
-// footprints sample in a local metric frame with NO new projector (mirrors the ES MDS path); native
-// swisstopo grids are LV95 (EPSG:2056) — the OUTPUTCRS=4326 reprojection is the seam to live-probe.
-// ⚠ ENDPOINT VERDICT (LIVE-PROBED 2026-07-27): the plain WCS GetCoverage-in-4326 `endpoint` below is
-// DEAD — `https://data.geo.admin.ch/ch.swisstopo.swisssurface3d-raster/wcs` returns HTTP 404 NoSuchKey
-// (data.geo.admin.ch is an object store, NOT a WCS service). So swissCoverageUrl() cannot resolve and
-// stampSwissHeightsOnGeojsonseq degrades to `documented` (keeps OSM) — honest, never a fabricated height.
-// The keyless data is REACHABLE via STAC instead (both verified HTTP 200 this session):
-//   DSM  ch.swisstopo.swisssurface3d-raster  → /items?bbox= → per-1km COG .tif in EPSG:2056 (LV95)
-//   DTM  ch.swisstopo.swissalti3d            → /items?bbox= → per-1km COG .tif in EPSG:2056 (LV95)
-// Wiring this = the STAC→COG-stitch path (reuse terrain.mjs fetchSwissAltiStac for BOTH coverages) + an
-// LV95↔WGS84 projector (proj4/reproject.mjs; LV95 is NOT a UTM zone) — a BUILD, tracked as the gate.
-const SWISSTOPO_NDSM = {
-  // ✖ DEAD (404) — kept only so the guard degrades to `documented`; the real route is STAC (see stacDsm/stacDtm).
-  endpoint: 'https://data.geo.admin.ch/ch.swisstopo.swisssurface3d-raster/wcs',
-  stacDsm: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swisssurface3d-raster', // DSM (roof-inclusive)
-  stacDtm: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d',           // DTM (bare-earth)
-  dsmCoverage: 'ch.swisstopo.swisssurface3d-raster', // DSM — roof-inclusive surface (incl. vegetation)
-  dtmCoverage: 'ch.swisstopo.swissalti3d',           // DTM — bare-earth terrain
-  crs4326: 'http://www.opengis.net/def/crs/EPSG/0/4326',
-  nativeCrs: 'EPSG:2056', // ⚠ STAC COGs are LV95 (verified) — NOT the 4326 the swissCoverageUrl shape assumed.
-  nativeResM: 0.5, // swissSURFACE3D/swissALTI3D native ~0.5 m (2 m tiles also served).
-};
-/** WCS 2.0.1 GetCoverage URL for a swisstopo coverage over a WGS84 [w,s,e,n] box → GeoTIFF in EPSG:4326.
- *  Same shape as `mdsCoverageUrl`; the coverage id + host differ. Keyless. */
-function swissCoverageUrl(coverageId, [w, s, e, n]) {
-  return `${SWISSTOPO_NDSM.endpoint}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=${coverageId}` +
-    `&FORMAT=image/tiff&SUBSET=lat(${s},${n})&SUBSET=long(${w},${e})` +
-    `&SUBSETTINGCRS=${SWISSTOPO_NDSM.crs4326}&OUTPUTCRS=${SWISSTOPO_NDSM.crs4326}`;
-}
-
-/**
- * swisstopo nDSM building height for ONE footprint from the DSM + DTM rasters (both served EPSG:4326).
- * The two-raster analogue of `mdsHeightForBuilding`: identical local-metric-frame erosion + P90, but
- * computes nDSM = DSM − DTM per interior cell (mirrors `ndsmHeightForBuilding`, DK). Robust to
- * chimneys/antennae (P90, not peak); returns null when too few clean samples remain — an HONEST skip.
- * @param extWgs84       exterior ring [[lon,lat]…]
- * @param interiorsWgs84 hole rings [[[lon,lat]…]…]
- * @param dsm            surface raster from readDhmRaster (bboxNative in degrees, EPSG:4326)
- * @param dtm            terrain raster from readDhmRaster (bboxNative in degrees, EPSG:4326)
- */
-export function swissNdsmHeightForBuilding(extWgs84, interiorsWgs84, dsm, dtm, { erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 1.0 } = {}) {
-  if (!Array.isArray(extWgs84) || extWgs84.length < 4) return null;
-  let clon = 0, clat = 0;
-  for (const [lon, lat] of extWgs84) { clon += lon; clat += lat; }
-  clon /= extWgs84.length; clat /= extWgs84.length;
-  const mPerDegLat = 111320, mPerDegLon = 111320 * Math.cos((clat * Math.PI) / 180);
-  const toM = ([lon, lat]) => [(lon - clon) * mPerDegLon, (lat - clat) * mPerDegLat];
-  const ext = extWgs84.map(toM);
-  const rings = [ext, ...(interiorsWgs84 ?? []).filter((r) => Array.isArray(r) && r.length >= 4).map((r) => r.map(toM))];
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const [x, y] of ext) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
-  const nd = [];
-  for (let Y = minY + sampleStepM / 2; Y <= maxY; Y += sampleStepM) {
-    for (let X = minX + sampleStepM / 2; X <= maxX; X += sampleStepM) {
-      if (!_pointInRing(X, Y, ext)) continue;
-      let inHole = false;
-      for (let k = 1; k < rings.length; k++) if (_pointInRing(X, Y, rings[k])) { inHole = true; break; }
-      if (inHole) continue;
-      if (_distToRings(X, Y, rings) < erodeM) continue; // erode inward — drop façade/overhang cells
-      const lon = clon + X / mPerDegLon, lat = clat + Y / mPerDegLat;
-      const ds = sampleRasterNative(dsm, lon, lat); if (!Number.isFinite(ds)) continue;
-      const dt = sampleRasterNative(dtm, lon, lat); if (!Number.isFinite(dt)) continue;
-      const d = ds - dt;
-      if (!Number.isFinite(d) || d < -1) continue; // strongly negative = misalignment/noise → drop
-      nd.push(Math.max(0, d));
-    }
-  }
-  if (nd.length < minSamples) return null;
-  nd.sort((a, b) => a - b);
-  const h = _percentile(nd, percentile);
-  return h > 0 ? { height: clampHeight(h), samples: nd.length, medianNdsm: _percentile(nd, 50), maxNdsm: nd[nd.length - 1] } : null;
-}
+// ── CH swisstopo nDSM (swissSURFACE3D Raster − swissALTI3D) — the KEYLESS DK-analogue for Switzerland. ──
+// The channel, the probed COG structure, the licence text and the city working set live in
+// heights/swissNdsm.mjs (pure, unit-tested); the join itself is `stampSwissHeightsOnGeojsonseq` below.
+// ⚠ HISTORY, kept so nobody rebuilds the dead shape: the 2026-07-26 draft here assumed a WCS 2.0.1
+// GetCoverage-in-4326 at data.geo.admin.ch/<collection>/wcs. That host is an OBJECT STORE — the request
+// returned HTTP 404 NoSuchKey (probed 2026-07-27) — so the draft's `swissCoverageUrl`, its 4326-frame
+// sampler `swissNdsmHeightForBuilding`, and the WCS constants were REMOVED on 2026-09-04. The rebuilt
+// join samples in native LV95 metres through the DK `ndsmHeightForBuilding` (no second sampler).
 
 /**
  * MDS building height for ONE footprint from the mdsn_e025 raster (served in EPSG:4326). Mirrors the DK
@@ -2135,109 +2061,172 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   };
 }
 
-// ── CH WHOLE-REGION join — stamp swisstopo nDSM (DSM−DTM) heights onto bake's OWN OSM footprints. ─
-// §SWISS-NDSM-OSM-JOIN (2026-07-26) — the CH analogue of the ES MDS + DK DHM OSM-joins above, and the
-// Zürich/Geneva/Bern LoD1-now height path. Switzerland has NO keyless national FOOTPRINT feed reachable
-// by bbox (swissTLM3D is a bulk product; the geodienste.ch AV cadastre is per-canton permission-gated —
-// same wall parcel-SELECT hits, L-613), so — exactly like the ES/DK joins — the footprint set is bake's
-// OWN OSM buildings clip, and only tiles that contain footprints fetch a raster. Per footprint the
-// height = P90 of (swissSURFACE3D DSM − swissALTI3D DTM) over the eroded interior → `tagged`.
+// ── CH WHOLE-COUNTRY join — stamp swisstopo nDSM (swissSURFACE3D − swissALTI3D) onto bake's OWN OSM footprints. ─
+// §SWISS-NDSM-OSM-JOIN — authored 2026-07-26 against a WCS that does not exist (data.geo.admin.ch is an
+// object store; probed 404 on 2026-07-27), REBUILT 2026-09-04 (lane HEIGHTS-EVERYWHERE round 2) on the
+// channel that does: STAC → per-km² COG, read by HTTP range at the 1 m overview. The CH analogue of the
+// ES mds / DK dhm / FR mnh_fr joins and the Zürich/Geneva/Bern LoD1-now height path. Switzerland has NO
+// keyless national FOOTPRINT feed reachable by bbox (swissTLM3D is bulk; the geodienste.ch AV cadastre
+// is per-canton permission-gated, L-613), so — exactly like the other joins — the footprint set is
+// bake's OWN OSM buildings clip and only tiles that contain footprints fetch rasters.
 //
-// KEYLESS (swisstopo OpenData / CC-BY — NO api key, NO repo secret; unlike DK's DATAFORDELER_API_KEY).
-// §CONTEXT-DATA-HONESTY: a footprint with no clean nDSM keeps its ORIGINAL OSM tags untouched (its own
-// height/levels, else the client's assumed 9 m default) — never a fabricated number; a raster/read error
-// or the maxTiles cap leaves those footprints at the OSM default. The join only ever ADDS real heights.
+// WHAT IT DOES (see heights/swissNdsm.mjs for every probed number):
+//   1. holds only the footprints inside the declared stamp areas (retainBboxes → SWISS_CITY_BBOXES for
+//      the `switzerland` row; §JOIN-BOUNDED-WORKING-SET), projecting each ring WGS84 → LV95 through the
+//      ONE shared projector (reproject.mjs / proj4 — LV95 is an oblique Mercator on Bessel, not a UTM
+//      zone, so the closed-form UTM helpers the DK join uses cannot serve here);
+//   2. buckets them by swisstopo's OWN 1 km LV95 tile key (the publisher's grid IS the tiling grid,
+//      as the NRW join does with its Kacheln);
+//   3. per populated tile: TWO STAC lookups (DSM + DTM collections, a 100 m box at the tile centre) whose
+//      COG hrefs are MATCHED on the tile token, never constructed; then the DSM at COG overview 1 (1 m,
+//      range-read) and the 2 m DTM whole (~1 MB);
+//   4. height = P90 of (DSM − DTM) over the eroded footprint interior, holes excluded
+//      (`ndsmHeightForBuilding`, the DK function — native metres, unchanged) → `height` +
+//      `pryzm:height_src=measured-lidar`, heightSource 'swisstopo-ndsm'.
 //
-// ⚠ NOT LIVE-ACTIVE — LIVE-PROBED 2026-07-27: the swissCoverageUrl WCS route in SWISSTOPO_NDSM returns
-// HTTP 404 (data.geo.admin.ch has no WCS service), so per-tile fetches fail and this returns `documented`
-// (footprints keep OSM) — it degrades honestly, never abends the bake, never fabricates a height. To make
-// it live: swap swissCoverageUrl for a STAC→COG-stitch fetch (both coverages are keyless HTTP 200 — reuse
-// terrain.mjs fetchSwissAltiStac) and add an LV95(EPSG:2056)↔WGS84 projector (the COGs are LV95, NOT the
-// 4326 this function's sampler assumes). Then wire heightJoin:'swiss' into bake.mjs's §INTEGRATION for
-// `zurich`/`geneva`/`bern` (orchestrator; not this module). See SWISSTOPO_NDSM stacDsm/stacDtm.
+// §CONTEXT-DATA-HONESTY — the values this join keeps DIFFERENT:
+//   • STAC refused / unparseable for a tile      → `tileErrors++` — the index failed us; UNKNOWN, a real failure.
+//   • STAC answered, no asset for this tile      → `voidTiles++` — the collection is national and complete, so
+//                                                   an absent tile is lake / foreign ground. Not an error.
+//   • COG unreadable / timed out                 → `tileErrors++`.
+//   • raster 100 % nodata                        → `voidTiles++` (processed, nothing measurable).
+//   • footprint with < minSamples clean cells    → keeps its ORIGINAL OSM tags. Never a neighbour's height.
+//   • proj4 / geotiff missing in the runner      → `documented` (footprints keep OSM) — a build gate, said by name.
+// KEYLESS (swisstopo free-geodata terms — commercial use allowed, source reference mandatory; verified
+// from the terms text, not the port). ⚠ swissSURFACE3D is all sursol (vegetation too) — P90 over the
+// eroded interior is the same mitigation DK/FR apply to their surface models.
+let _lv95Projector = null;
+/** Lazy LV95 projector via the ONE shared reproject.mjs (proj4). Null → the caller degrades to `documented`. */
+async function loadLv95Projector() {
+  if (_lv95Projector) return _lv95Projector;
+  try { const m = await import('./reproject.mjs'); _lv95Projector = m.getProjector(SWISS_NDSM.nativeCrs); return _lv95Projector; }
+  catch { return null; }
+}
+/** httpGet that turns a network throw into a VALUE (the §FETCH-THROW-IS-NOT-A-SWEEP-ABORT contract). */
+async function httpGetSafe(url, opts) {
+  try { return await httpGet(url, opts); }
+  catch (err) { return { ok: false, status: 0, contentType: '', body: '', reason: String(err?.message ?? err) }; }
+}
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what}: timed out after ${ms} ms`)), ms))]);
+/**
+ * Read ONE Cloud-Optimised GeoTIFF by URL at IFD `level` (0 = full resolution, k = the k-th overview)
+ * → the shared raster shape `{ width, height, values, bboxNative }` in the file's native CRS, with the
+ * GDAL nodata sentinel masked to NaN so `sampleRasterNative` drops it instead of blending it. The
+ * georeference always comes from IFD 0 (overviews carry none); geotiff.js issues HTTP range reads, so
+ * an overview read moves ~1/4^level of the file's bytes.
+ */
+async function readCogLevel(href, level, gt, { nodata = SWISS_NDSM.nodata } = {}) {
+  const tiff = await gt.fromUrl(href, { allowFullFile: true });
+  const img0 = await tiff.getImage(0);
+  const bboxNative = img0.getBoundingBox();
+  const count = await tiff.getImageCount();
+  const useLevel = level > 0 && count > level ? level : 0;
+  const img = useLevel ? await tiff.getImage(useLevel) : img0;
+  const [vals] = await img.readRasters();
+  const values = Float32Array.from(vals);
+  const masked = maskNodata(values, nodata);
+  return { width: img.getWidth(), height: img.getHeight(), values, bboxNative, ifd: useLevel, masked };
+}
+
 export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
-  timeoutMs = 120_000,
-  tileSpanDeg = 0.02, maxTiles = 4000, padDeg = 0.0015,
-  erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 1.0,
+  timeoutMs = 120_000, maxTiles = 4000, retainBboxes = null,
+  dsmOverviewLevel = SWISS_NDSM.dsmOverviewLevel,
+  erodeM = 1.0, percentile = 90, minSamples = 4, sampleStep = 1.0,
 } = {}) {
   if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `Swiss nDSM join: input footprints not found (${inPath})` };
   if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'Swiss nDSM join: no bbox supplied' };
   const gt = await loadGeoTiff();
   if (!gt) return { status: 'documented', reason: 'Swiss nDSM join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
+  const proj = await loadLv95Projector();
+  if (!proj) return { status: 'documented', reason: 'Swiss nDSM join: proj4 / reproject.mjs unavailable (LV95 EPSG:2056 is not a UTM zone) — install proj4 in the bake image; footprints keep OSM default.' };
 
-  // §GEOJSONSEQ-READ — streams; RS-tolerant; an unparseable file is a LOUD error, not "no data".
-  const load = loadJoinFootprints(inPath, 'Swiss nDSM join');
-  if (load.status !== 'ok') return { status: load.status, reason: load.reason };
-  const feats = load.feats;
-  const records = [];
-  for (const feat of feats) {
-    const fp = footprintFromFeature(feat); // WGS84 rings + centroid (raster served EPSG:4326 → no projector)
-    if (fp) records.push({ feat, ...fp });
-  }
+  const stampAreas = stampAreasFor(retainBboxes, bbox);
+  mkdirSync(dirname(outPath), { recursive: true });
+  // §JOIN-BOUNDED-WORKING-SET — stream; hold only footprints inside a stamp bbox, projected to LV95.
+  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
+    const fp = footprintFromFeature(feat);
+    if (!fp) return null;
+    if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
+    const extNative = fp.ext.map(([lon, lat]) => proj.forward(lon, lat));
+    const interiorsNative = fp.interiors.map((r) => r.map(([lon, lat]) => proj.forward(lon, lat)));
+    let cx = 0, cy = 0;
+    for (const [X, Y] of extNative) { cx += X; cy += Y; }
+    cx /= extNative.length; cy /= extNative.length;
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+    return { feat, extNative, interiorsNative, cx, cy };
+  }, 'Swiss nDSM join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
+  const records = load.retained;
+  const read = load.read;
 
-  const [w, s, e, n] = bbox;
-  const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
-  const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
-  let processedTiles = 0, tileErrors = 0, emptyTiles = 0, tileCapHit = false;
-  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose. See the catch below.
+  const buckets = bucketRecords(records, (r) => { const k = lv95TileKey(r.cx, r.cy); return [k.e, k.n]; });
+  let processedTiles = 0, tileErrors = 0, voidTiles = 0, tileCapHit = false, stacRequests = 0;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose (see the MDS join's catch).
   let sweepAborted = false, sweepAbortReason = null;
   const heights = [];
+  const t0 = Date.now();
   try {
-    outer:
-    for (let iy = 0; iy < ny; iy++) {
-      for (let ix = 0; ix < nx; ix++) {
-        const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
-        const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
-        const inTile = records.filter((r) => !r._done && r.clon >= tw && r.clon < te + 1e-9 && r.clat >= ts && r.clat < tn + 1e-9);
-        if (inTile.length === 0) { emptyTiles++; continue; }
-        if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
-        const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
-        const dsmR = await httpGetBuffer(swissCoverageUrl(SWISSTOPO_NDSM.dsmCoverage, rbox), { timeoutMs });
-        const dtmR = await httpGetBuffer(swissCoverageUrl(SWISSTOPO_NDSM.dtmCoverage, rbox), { timeoutMs });
-        if (!dsmR.ok || !dtmR.ok || !/tiff/i.test(dsmR.ct) || !/tiff/i.test(dtmR.ct)) { tileErrors++; for (const r of inTile) r._done = true; continue; }
-        let dsm, dtm;
-        try { dsm = await readDhmRaster(dsmR.ab, gt); dtm = await readDhmRaster(dtmR.ab, gt); }
-        catch { tileErrors++; for (const r of inTile) r._done = true; continue; }
-        for (const r of inTile) {
-          r._done = true;
-          const h = swissNdsmHeightForBuilding(r.ext, r.interiors, dsm, dtm, { erodeM, percentile, minSamples, sampleStepM });
-          if (h) {
-            r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'swissbuildings3d', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
-            heights.push(h.height);
-          }
+    // Visit ONLY populated tiles (sorted → deterministic under the cap).
+    for (const key of [...buckets.keys()].sort()) {
+      const inTile = buckets.get(key);
+      if (!inTile || inTile.length === 0) continue;
+      if (processedTiles >= maxTiles) { tileCapHit = true; break; }
+      const [e, n] = key.split(',').map(Number);
+      const tk = { e, n };
+      // STAC lookup on a 100 m box at the tile CENTRE → the item(s) covering it; the href is then matched
+      // on the tile token + resolution token (pickCogAsset), never constructed from the key.
+      const [X0, Y0, X1, Y1] = lv95TileBbox(tk);
+      const cx = (X0 + X1) / 2, cy = (Y0 + Y1) / 2;
+      const [lonA, latA] = proj.inverse(cx - 50, cy - 50), [lonB, latB] = proj.inverse(cx + 50, cy + 50);
+      const q = [Math.min(lonA, lonB), Math.min(latA, latB), Math.max(lonA, lonB), Math.max(latA, latB)];
+      const lookup = async (collection, resToken) => {
+        stacRequests++;
+        const r = await httpGetSafe(swissStacItemsUrl(collection, q), { timeoutMs: Math.min(timeoutMs, 30_000), headers: { Accept: 'application/json' } });
+        if (!r.ok) return { ok: false, href: null };
+        const c = parseStacCollection(r.body);
+        if (!c) return { ok: false, href: null };
+        return { ok: true, href: pickCogAsset(c, tk, resToken) };
+      };
+      const dsmQ = await lookup(SWISS_NDSM.stacDsm, SWISS_NDSM.dsmResToken);
+      const dtmQ = await lookup(SWISS_NDSM.stacDtm, SWISS_NDSM.dtmResToken);
+      if (!dsmQ.ok || !dtmQ.ok) { tileErrors++; continue; }   // the index refused us — a FAILURE, never "no tile here"
+      if (!dsmQ.href || !dtmQ.href) { voidTiles++; continue; } // the index answered: nothing published here (lake / abroad)
+      let dsm, dtm;
+      try {
+        dsm = await withTimeout(readCogLevel(dsmQ.href, dsmOverviewLevel, gt), timeoutMs, 'swissSURFACE3D COG');
+        dtm = await withTimeout(readCogLevel(dtmQ.href, 0, gt), timeoutMs, 'swissALTI3D COG');
+      } catch { tileErrors++; continue; }
+      processedTiles++;
+      if (dsm.masked === dsm.values.length || dtm.masked === dtm.values.length) { voidTiles++; continue; }
+      for (const r of inTile) {
+        const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
+        if (h) {
+          r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: SWISS_NDSM.heightSourceTag, [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
+          heights.push(h.height);
         }
-        processedTiles++;
       }
     }
-  } catch (err) {
-    // Network cut mid-grid — write whatever we stamped so far (honest partial), never abort the bake.
-    //
-    // §ABORT-IS-NOT-A-CAP (2026-08-01). This used to set `tileCapHit = true`, so an ABORTED sweep
-    // reported itself as "maxTiles N cap hit — rest keep OSM". Measured in run 30706761446: the
-    // Spain MDS join stamped 21,457/431,256 footprints off **16 tiles** while announcing a
-    // **20,000**-tile cap — arithmetically impossible, because `tileCapHit` is otherwise only set
-    // when `processedTiles >= maxTiles`. The join had THROWN after 16 tiles and this line buried it;
-    // Denmark (149 tiles) and Köln (168) stamped ~80 % in the same run, so Spain's 5 % read as a
-    // scope decision rather than the failure it was.
-    //
-    // A CAP is a budget being respected. An ABORT is an error. Reporting the second as the first is
-    // §CONTEXT-DATA-HONESTY collapse (failure and empty are the SAME VALUE — the L-422/457/467/469
-    // family) turned on our own telemetry, and it hid a real defect for an entire 4-hour run.
-    sweepAborted = true;
-    sweepAbortReason = String(err?.message ?? err);
-  }
+  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
-  mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, feats.map((f) => JSON.stringify(f)).join('\n') + '\n');
+  // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   return {
-    status: 'ok', outPath, count: feats.length, footprintCount: records.length, measuredCount: measured,
+    status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
-    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
-    note: `swisstopo nDSM (P90 of swissSURFACE3D−swissALTI3D) stamped onto OSM footprints → ${measured}/${records.length} ` +
-      `footprint(s) got a MEASURED height (tagged); ${processedTiles} tile(s), ${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}.`,
+    tilesProcessed: processedTiles, tileErrors, voidTiles, emptyTiles: 0, tileCapHit, sweepAborted, sweepAbortReason,
+    tileGrid: `${buckets.size} populated LV95 km² tile(s)`, stacRequests, elapsedS: Number(((Date.now() - t0) / 1000).toFixed(1)),
+    retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
+    stampAreas: stampAreas.length, populatedCells: buckets.size,
+    peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
+    note: `swisstopo nDSM (P90 of swissSURFACE3D − swissALTI3D over the eroded footprint) stamped onto OSM footprints → ${measured}/${records.length} ` +
+      `RETAINED footprint(s) got a MEASURED height (tagged); ${read.passedThrough} outside the ${stampAreas.length} stamp bbox(es) passed through ` +
+      `with their original OSM tags; ${processedTiles} km² tile(s) read (${stacRequests} STAC lookups), ${voidTiles} void (unpublished / lake) tile(s), ` +
+      `${tileErrors} tile error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
+      `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
+      `; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
   };
 }
 
@@ -2874,6 +2863,15 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
         'its footprints keep their OSM tags until that row edit lands.',
     };
   }
+  else if (source === 'swissbuildings3d') {
+    // §SWISS-NDSM — live, but (like mnh_fr) a bake STAMP over bake's own footprints, not a footprint fetcher.
+    return {
+      status: 'documented', region, source, provenance: src.provenance,
+      reason: `${src.name}: this source is the bake STAMP stampSwissHeightsOnGeojsonseq, dispatched only when the region ` +
+        `declares heightJoin:'swiss' in bake.mjs (with stampBboxesFor → SWISS_CITY_BBOXES). Region "${region}" does not, so ` +
+        'its footprints keep their OSM tags until that row edit lands.',
+    };
+  }
   else return { status: 'documented', reason: `${src.name} fetcher not implemented`, region, source };
 
   // A never-throwing fetcher may itself report a real gate (blocked/documented) — surface it honestly.
@@ -2917,6 +2915,7 @@ const PROBE_BBOX = {
   lod2de_nrw: [6.94, 50.93, 6.96, 50.95],      // Cologne centre (NRW) — LoD2-DE live reference
   geodanmark: [12.56, 55.67, 12.58, 55.69],    // Copenhagen centre (auth-gated → blocked probe)
   mnh_fr: [2.346, 48.852, 2.352, 48.856],      // Paris, Île de la Cité — the 2026-09-04 live-verification bbox
+  swissbuildings3d: [8.540, 47.370, 8.548, 47.376], // Zürich, inside LV95 km² tile 2683-1247 (Hauptbahnhof) — the 2026-09-04 COG probe tile
 };
 
 export async function probeSource(id) {
@@ -3039,6 +3038,45 @@ export async function probeSource(id) {
       reason: rr.reason ?? decodeError ?? (gt ? null : 'geotiff dep unavailable'),
     };
   }
+  if (id === 'swissbuildings3d') {
+    // §SWISS-NDSM — asserts the FOUR things the stamp depends on, independently: (1) the STAC index answers
+    // and names a COG for the tile, for BOTH collections, (2) the DSM COG decodes at its 1 m overview,
+    // (3) the DTM COG decodes, (4) DSM − DTM over the tile is plausible building/canopy height.
+    const gt = await loadGeoTiff();
+    const proj = await loadLv95Projector();
+    if (!gt || !proj) return { id, status: 'error', reason: gt ? 'proj4 / reproject.mjs unavailable' : 'geotiff dep unavailable' };
+    const [cx, cy] = proj.forward((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2);
+    const tk = lv95TileKey(cx, cy);
+    const q = bbox;
+    const look = async (coll, tok) => { const r = await httpGetSafe(swissStacItemsUrl(coll, q), { timeoutMs: 30_000 }); const c = r.ok ? parseStacCollection(r.body) : null; return { httpStatus: r.status, items: c?.features?.length ?? null, href: c ? pickCogAsset(c, tk, tok) : null }; };
+    const dsmQ = await look(SWISS_NDSM.stacDsm, SWISS_NDSM.dsmResToken);
+    const dtmQ = await look(SWISS_NDSM.stacDtm, SWISS_NDSM.dtmResToken);
+    let dsm = null, dtm = null, err = null, nd = null;
+    try {
+      if (dsmQ.href) dsm = await readCogLevel(dsmQ.href, SWISS_NDSM.dsmOverviewLevel, gt);
+      if (dtmQ.href) dtm = await readCogLevel(dtmQ.href, 0, gt);
+      if (dsm && dtm) {
+        const vals = [];
+        for (let y = 0; y < dsm.height; y += 5) for (let x = 0; x < dsm.width; x += 5) {
+          const X = dsm.bboxNative[0] + (x + 0.5) * (dsm.bboxNative[2] - dsm.bboxNative[0]) / dsm.width;
+          const Y = dsm.bboxNative[3] - (y + 0.5) * (dsm.bboxNative[3] - dsm.bboxNative[1]) / dsm.height;
+          const d = dsm.values[y * dsm.width + x] - sampleRasterNative(dtm, X, Y);
+          if (Number.isFinite(d) && d > 0.5) vals.push(d);
+        }
+        vals.sort((a, b) => a - b);
+        nd = vals.length ? { n: vals.length, p50: _percentile(vals, 50), p90: _percentile(vals, 90), max: vals[vals.length - 1] } : null;
+      }
+    } catch (e) { err = String(e?.message ?? e); }
+    return {
+      id, endpoint: SWISS_NDSM.stacDsm, tile: tk, status: dsm && dtm ? 'ok' : 'error',
+      stac: { dsm: dsmQ, dtm: dtmQ },
+      assertStacNamesBothCogs: !!(dsmQ.href && dtmQ.href), assertDsmDecodes: !!dsm, assertDtmDecodes: !!dtm,
+      dsm: dsm ? { ifd: dsm.ifd, width: dsm.width, height: dsm.height, bboxLv95: dsm.bboxNative, nodataPixels: dsm.masked } : null,
+      dtm: dtm ? { ifd: dtm.ifd, width: dtm.width, height: dtm.height, nodataPixels: dtm.masked } : null,
+      ndsmStats: nd, assertRealHeight: !!nd && nd.p90 > 2.5 && nd.max < 400,
+      provenance: 'tagged', mode: "stamp (bake.mjs heightJoin:'swiss' → stampSwissHeightsOnGeojsonseq)", reason: err,
+    };
+  }
   return { id, status: 'error', reason: `no live probe for "${id}"` };
 }
 
@@ -3076,7 +3114,7 @@ if (isMain) {
     }
     if (args.includes('--probe')) {
       const which = args[args.indexOf('--probe') + 1];
-      const ids = which && !which.startsWith('--') ? [which] : ['bdtopo', '3dbag', 'catastro', 'mds_edificacion', 'lod2de_nrw', 'geodanmark', 'mnh_fr'];
+      const ids = which && !which.startsWith('--') ? [which] : ['bdtopo', '3dbag', 'catastro', 'mds_edificacion', 'lod2de_nrw', 'geodanmark', 'mnh_fr', 'swissbuildings3d'];
       for (const id of ids) {
         console.log(`\n▶ probe ${id} (${SOURCES[id]?.endpoint})`);
         try { console.log(JSON.stringify(await probeSource(id), null, 2)); }

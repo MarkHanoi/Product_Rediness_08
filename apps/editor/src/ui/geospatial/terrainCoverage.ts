@@ -14,10 +14,21 @@
 // code change the moment CI publishes it — the same self-correcting philosophy as the PMTiles
 // context reader (`contextTiles.ts`).
 //
-// DELIBERATELY OMITTED (kept flat — no baked terrain source): Lisbon/Porto (PT — no open national
-// bare-earth DTM), Brussels (BE — regional-split, no keyless national WCS; Brussels-Capital DTM
-// unsourced), Berlin/Munich (DE — per-Land; only NRW is sourced, so Köln IS covered but Berlin/
-// Munich are not in NRW), Riyadh/Jeddah (SA — no open national DTM).
+// §TERRAIN-EVERYWHERE (2026-09-04, terrain.mjs §11) — TWO TABLES, resolved CITY FIRST, then REGION.
+// `TERRAIN_CITY_BBOXES` are the per-city tilesets baked from NATIONAL DTM adapters (0.5 m base error,
+// legal-grade sources). `TERRAIN_REGION_BBOXES` are the whole-region tilesets (`terrain.mjs`
+// NATIONAL_REGIONS — whole countries in Europe, metro rows for USA/Middle East, states for Australia)
+// baked from Mapterhorn terrarium with a per-post EGM2008 lift at z0..10 — the SAME finest level a
+// Spanish city has today. A site outside every city bbox but inside a region now drapes real relief
+// instead of rendering flat. Slugs in BOTH tables MUST match `terrain.mjs` (`REGIONS` / `NATIONAL_REGIONS`
+// `name`) and the R2 path `terrain/<slug>/` — `node tools/context-bake/terrain.mjs
+// --check-client-coverage` asserts the two slug sets are equal in both directions, because a slug in
+// one and not the other is a SILENT 404 (flat ground with no error).
+//
+// FORMERLY "DELIBERATELY OMITTED", NOW COVERED BY THEIR REGION TILESET (visual drape only — the LEGAL
+// DTM status of these cities is unchanged; Mapterhorn is never the L-584 sampling source): Lisbon/Porto
+// → `portugal`, Brussels → `belgium`, Berlin/Munich → `germany`, Riyadh/Jeddah → their own metro rows,
+// Tallinn → `estonia`, Luxembourg City → `luxembourg`, New York/San Francisco → their own metro rows.
 // See docs/04-reference/CONTEXT-TERRAIN-COVERAGE.md.
 import { contextTilesBaseUrl } from './contextTiles';
 
@@ -627,9 +638,68 @@ export const TERRAIN_CITY_BBOXES: ReadonlyArray<{ readonly city: string; readonl
     { city: 'elcasar', bbox: [-5.9951, 38.4709, -5.8551, 38.5909] },
     { city: 'playablanca', bbox: [-13.8981, 28.8043, -13.7581, 28.9243] },
     { city: 'lamangadelmarmenor', bbox: [-0.7865, 37.5813, -0.6465, 37.7013] },
-    // US — 3DEP 1 m (public domain)
-    { city: 'newyork', bbox: [-74.03, 40.70, -73.91, 40.82] },
-    { city: 'sanfrancisco', bbox: [-122.52, 37.70, -122.36, 37.83] },
+    // US — newyork / sanfrancisco moved to TERRAIN_REGION_BBOXES (2026-09-04): 3DEP has no keyless bake
+    // adapter, so their tilesets are the Mapterhorn region bakes under the SAME slugs.
+];
+
+/**
+ * §TERRAIN-EVERYWHERE — the whole-region tilesets. Slug + bbox MIRROR `tools/context-bake/terrain.mjs`
+ * NATIONAL_REGIONS 1:1 (asserted by `terrain.mjs --check-client-coverage`); the R2 path is
+ * `terrain/<region>/`. Resolved only when no city bbox matches (city detail wins where it exists).
+ * Rows are ordered as the bake's groups (europe → usa → australia → middleeast); Europe's bboxes overlap
+ * at borders, so the FIRST match wins — the same first-hit rule the city table uses.
+ */
+export const TERRAIN_REGION_BBOXES: ReadonlyArray<{ readonly region: string; readonly bbox: TerrainBbox }> = [
+    // Europe — whole countries (Mapterhorn national-lidar/GLO-30, per-post EGM2008 lift; z0..10 = the resolution a Spanish city has today)
+    { region: 'spain', bbox: [-9.55, 35.90, 4.60, 43.90] },
+    { region: 'denmark', bbox: [7.70, 54.40, 15.30, 57.90] },
+    { region: 'netherlands', bbox: [3.30, 50.75, 7.30, 53.70] },
+    { region: 'estonia', bbox: [21.60, 57.50, 28.30, 59.80] },
+    { region: 'lithuania', bbox: [20.85, 53.85, 26.90, 56.50] },
+    { region: 'latvia', bbox: [20.90, 55.60, 28.30, 58.10] },
+    { region: 'poland', bbox: [14.05, 48.95, 24.20, 55.00] },
+    { region: 'luxembourg', bbox: [5.70, 49.40, 6.60, 50.20] },
+    { region: 'sweden', bbox: [10.90, 55.20, 24.20, 69.10] },
+    { region: 'finland', bbox: [19.00, 59.70, 31.60, 70.10] },
+    { region: 'norway', bbox: [4.50, 57.90, 31.20, 71.20] },
+    { region: 'germany', bbox: [5.85, 47.25, 15.05, 55.10] },
+    { region: 'france', bbox: [-5.15, 41.30, 9.60, 51.10] },
+    { region: 'italy', bbox: [6.60, 35.40, 18.60, 47.10] },
+    { region: 'greatbritain', bbox: [-8.20, 49.90, 1.80, 60.90] },
+    { region: 'ireland', bbox: [-10.70, 51.30, -5.30, 55.50] },
+    { region: 'switzerland', bbox: [5.90, 45.80, 10.50, 47.85] },
+    { region: 'austria', bbox: [9.50, 46.30, 17.20, 49.05] },
+    { region: 'czechia', bbox: [12.05, 48.50, 18.90, 51.10] },
+    { region: 'portugal', bbox: [-9.60, 36.90, -6.10, 42.20] },
+    { region: 'belgium', bbox: [2.50, 49.50, 6.40, 51.60] },
+    { region: 'croatia', bbox: [13.40, 42.30, 19.50, 46.60] },
+    { region: 'slovenia', bbox: [13.30, 45.40, 16.60, 46.90] },
+    { region: 'greece', bbox: [19.30, 34.70, 29.70, 41.80] },
+    { region: 'hungary', bbox: [16.10, 45.70, 22.95, 48.60] },
+    { region: 'romania', bbox: [20.20, 43.60, 29.80, 48.30] },
+    { region: 'slovakia', bbox: [16.80, 47.70, 22.60, 49.65] },
+    { region: 'bulgaria', bbox: [22.30, 41.20, 28.70, 44.25] },
+    // USA — metro rows (3DEP has no keyless bake adapter; the region tileset IS the city tileset for these slugs)
+    { region: 'newyork', bbox: [-74.03, 40.70, -73.91, 40.82] },
+    { region: 'sanfrancisco', bbox: [-122.52, 37.70, -122.36, 37.83] },
+    { region: 'chicago', bbox: [-87.94, 41.64, -87.52, 42.05] },
+    { region: 'austin', bbox: [-97.95, 30.10, -97.56, 30.52] },
+    { region: 'houston', bbox: [-95.80, 29.52, -95.06, 30.14] },
+    { region: 'boston', bbox: [-71.20, 42.22, -70.98, 42.40] },
+    // Australia — states/territories
+    { region: 'newsouthwales', bbox: [141.00, -37.60, 153.70, -28.10] },
+    { region: 'victoria', bbox: [140.90, -39.20, 150.05, -33.90] },
+    { region: 'queensland', bbox: [138.00, -29.20, 153.60, -9.00] },
+    { region: 'westernaustralia', bbox: [112.90, -35.20, 129.00, -13.50] },
+    { region: 'southaustralia', bbox: [129.00, -38.10, 141.05, -25.90] },
+    { region: 'tasmania', bbox: [143.80, -43.75, 148.55, -39.40] },
+    { region: 'act', bbox: [148.70, -35.95, 149.40, -35.10] },
+    { region: 'northernterritory', bbox: [128.90, -26.10, 138.10, -10.90] },
+    // Middle East — metro rows (SA/AE national DTMs are gov-gated; VISUAL drape only, legal status unchanged)
+    { region: 'riyadh', bbox: [46.60, 24.58, 46.83, 24.80] },
+    { region: 'jeddah', bbox: [39.10, 21.45, 39.28, 21.62] },
+    { region: 'dubai', bbox: [54.95, 24.85, 55.45, 25.35] },
+    { region: 'abudhabi', bbox: [54.28, 24.33, 54.75, 24.62] },
 ];
 
 /** True when `lon,lat` falls inside `bbox` (inclusive). */
@@ -652,6 +722,39 @@ export function cityForLonLat(lon: number, lat: number): string | null {
 }
 
 /**
+ * Resolve a site's `lon,lat` to a whole-REGION tileset slug (`TERRAIN_REGION_BBOXES`), or `null`
+ * outside every region. PURE + testable. Does not consider cities — see `terrainSlugForLonLat`.
+ */
+export function regionForLonLat(lon: number, lat: number): string | null {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+    for (const { region, bbox } of TERRAIN_REGION_BBOXES) {
+        if (inBbox(lon, lat, bbox)) return region;
+    }
+    return null;
+}
+
+/**
+ * §TERRAIN-EVERYWHERE — every tileset slug that could serve `lon,lat`, MOST DETAILED FIRST: the city
+ * tileset (national-DTM bake, 0.5 m) when the point is inside a city bbox, then the region tileset
+ * (Mapterhorn z0..10). Empty outside both. The viewport attaches the first candidate whose `layer.json`
+ * loads; a city that is listed but not yet published (an apikey city without its CI secret) therefore
+ * falls through to its region instead of leaving the site flat.
+ */
+export function terrainSlugCandidates(lon: number, lat: number): readonly string[] {
+    const out: string[] = [];
+    const city = cityForLonLat(lon, lat);
+    if (city) out.push(city);
+    const region = regionForLonLat(lon, lat);
+    if (region && region !== city) out.push(region);
+    return out;
+}
+
+/** The single best tileset slug for `lon,lat` (city first, then region), or `null` outside both. */
+export function terrainSlugForLonLat(lon: number, lat: number): string | null {
+    return terrainSlugCandidates(lon, lat)[0] ?? null;
+}
+
+/**
  * §TERRAIN-TOGGLE (founder 2026-07-27) — the PURE decision "should the baked quantized-mesh
  * terrain provider attach for this site right now?", factored out of `CesiumViewport.
  * maybeAttachTerrainProvider` so the gate is unit-testable with no Cesium/DOM dependency.
@@ -660,8 +763,11 @@ export function cityForLonLat(lon: number, lat: number): string | null {
  *   • toggle-off      — the user turned the 3D-Site terrain OFF (the founder escape hatch).
  *   • photoreal       — the paid Google-3D-tiles path (non-Forma) already carries its own
  *                       ground; draping our mesh under it double-grounds / z-fights.
- *   • no-baked-city   — the site is outside every baked-terrain bbox → keep flat (no regression).
- *   • attach          — a baked city applies; caller still guards on the tileset actually loading.
+ *   • no-baked-city   — the site is outside every baked-terrain bbox (city AND region) → keep flat.
+ *   • attach          — a tileset applies (`city` = the slug, city first then region — §TERRAIN-EVERYWHERE;
+ *                       `candidates` lists every applicable slug most-detailed-first so the caller can
+ *                       fall through to the region when a listed city's layer.json 404s); caller still
+ *                       guards on the tileset actually loading.
  */
 export interface TerrainAttachInputs {
     /** The user TERRAIN ON/OFF toggle (default ON). When false → never attach → flat ground. */
@@ -676,16 +782,17 @@ export interface TerrainAttachInputs {
 
 export type TerrainAttachDecision =
     | { readonly attach: false; readonly reason: 'toggle-off' | 'photoreal' | 'no-baked-city' }
-    | { readonly attach: true; readonly city: string };
+    | { readonly attach: true; readonly city: string; readonly scope: 'city' | 'region'; readonly candidates: readonly string[] };
 
 export function decideBakedTerrainAttach(inp: TerrainAttachInputs): TerrainAttachDecision {
     if (!inp.terrainEnabled) return { attach: false, reason: 'toggle-off' };
     // Skip our terrain ONLY on the true photoreal (non-Forma) path; in Forma the photoreal
     // tileset is hidden and the globe is shown, so draping baked terrain is correct.
     if (inp.photorealActive && !inp.formaMode) return { attach: false, reason: 'photoreal' };
-    const city = cityForLonLat(inp.lon, inp.lat);
-    if (!city) return { attach: false, reason: 'no-baked-city' };
-    return { attach: true, city };
+    const candidates = terrainSlugCandidates(inp.lon, inp.lat);
+    const slug = candidates[0];
+    if (!slug) return { attach: false, reason: 'no-baked-city' };
+    return { attach: true, city: slug, scope: cityForLonLat(inp.lon, inp.lat) === slug ? 'city' : 'region', candidates };
 }
 
 /**

@@ -29,6 +29,72 @@ const T = await import('./terrain.mjs');
 
 const D2R = Math.PI / 180;
 
+// ── §C12-10 HEADER INVARIANTS — the decode-the-tile check C12 §10.4 asks for and that (per C12 §10.2a)
+// "no script implements". Applied to every tile this driver decodes, on disk (--tileset) or off R2
+// (--remote). Each expectation is DERIVED, never a hypothesis of the day (C12 §10.2a MUST):
+//   • centerMag ≈ 6.38e6 — §10.1 rectangle-centre: the header bounding-sphere centre is the ECEF of the
+//     tile rectangle's mid lon/lat at mean height, i.e. a point ON the ellipsoid (|p| ∈ [b, a] + h =
+//     6.357e6..6.378e6 + h). The vertex-centroid bug wrote ~0 (geocentre) for pole-spanning tiles.
+//   • occMag > 1 — §10.2: the scaled-space horizon occludee sits OUTSIDE the unit sphere (1/cos θ > 1
+//     for any tile of non-zero angular size); wide-angle tiles carry the never-cull sentinel 1e4. The
+//     bug wrote (0,0,0), which Cesium reads as "always below the horizon" → root always culled → white.
+//   • vertexNormals extension present — §TERRAIN-NORMALS (L-636): without oct-encoded normals every slope
+//     paints the flat baseColor → the "white mask". The client requests them (requestVertexNormals).
+//   • triangles > 0 — an empty mesh is not a tile.
+const HEADER_MIN = 6.30e6, HEADER_MAX = 6.45e6;   // ellipsoid radii ± the highest terrain on Earth, with margin
+const mag3 = (x, y, z) => Math.hypot(x, y, z);
+export function checkTileInvariants(dec, tag = '') {
+  const h = dec.header;
+  const centerMag = mag3(h.boundingSphereCenterX, h.boundingSphereCenterY, h.boundingSphereCenterZ);
+  const occMag = mag3(h.horizonOcclusionPointX, h.horizonOcclusionPointY, h.horizonOcclusionPointZ);
+  const tris = dec.triangleIndices.length / 3;
+  const normals = !!(dec.extensions && dec.extensions.vertexNormals && dec.extensions.vertexNormals.length > 0);
+  const fails = [];
+  if (!(centerMag > HEADER_MIN && centerMag < HEADER_MAX)) fails.push(`centerMag=${centerMag.toExponential(3)} (§10.1 wants ≈6.38e6 — rectangle centre on the ellipsoid)`);
+  if (!(occMag > 1 - 1e-9)) fails.push(`occMag=${occMag} (§10.2 wants >1; 0 = always culled)`);
+  if (!normals) fails.push('no vertexNormals extension (§TERRAIN-NORMALS L-636 — the white-mask root)');
+  if (!(tris > 0)) fails.push('0 triangles');
+  return { ok: fails.length === 0, fails, centerMag, occMag, tris, verts: dec.vertexData.length / 3, normals, minH: h.minHeight, maxH: h.maxHeight, tag };
+}
+const fmtInv = (r) => `${r.verts} verts, ${r.tris} tris, h[${r.minH.toFixed(1)}..${r.maxH.toFixed(1)}]m, centerMag ${r.centerMag.toExponential(3)}, occMag ${r.occMag >= 100 ? r.occMag.toFixed(0) : r.occMag.toFixed(4)}, normals ${r.normals ? 'YES' : 'NO'} → ${r.ok ? 'PASS' : `FAIL (${r.fails.join('; ')})`}`;
+
+// ── §REMOTE MODE — the SERVED tileset proof (C12 §10.4: "decode the root tile off R2 … before shipping") ──
+// `node terrain.verify.mjs --remote <slug> [--base <tiles base>] [--lonlat lon,lat]` fetches the LIVE
+// layer.json, decodes the root tile(s) Cesium requests first and the finest tile under lon/lat (default:
+// the tileset bounds centre) with the independent @here decoder, and asserts the §C12-10 invariants on
+// the bytes the CDN actually serves. Exit 0 = the tileset is live, complete at the probe, and healthy.
+if (process.argv.includes('--remote')) {
+  const slug = process.argv[process.argv.indexOf('--remote') + 1];
+  const base = (process.argv.includes('--base') ? process.argv[process.argv.indexOf('--base') + 1] : 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/').replace(/\/?$/, '/');
+  const ll = process.argv.includes('--lonlat') ? process.argv[process.argv.indexOf('--lonlat') + 1].split(',').map(Number) : null;
+  const url = `${base}terrain/${slug}`;
+  console.log(`═══ VERIFY REMOTE: ${url} ═══\n`);
+  const get = async (u) => { const r = await fetch(u, { headers: { accept: 'application/vnd.quantized-mesh;extensions=octvertexnormals,application/json,*/*' } }); return { status: r.status, ab: r.ok ? await r.arrayBuffer() : null, lastMod: r.headers.get('last-modified'), ct: r.headers.get('content-type') }; };
+  const lj = await get(`${url}/layer.json`);
+  if (lj.status !== 200) { console.log(`❌ ${url}/layer.json → HTTP ${lj.status} — the tileset is NOT served (404 = never published, or the slug differs from the bake's).`); process.exit(1); }
+  const layer = JSON.parse(Buffer.from(lj.ab).toString('utf8'));
+  console.log(`[0] layer.json HTTP 200 (${lj.ct}; last-modified ${lj.lastMod}) bounds=[${layer.bounds.map((v) => v.toFixed(2)).join(',')}] z0..${layer.maxzoom} tiles=${layer.tiles[0]}`);
+  const rel = (z, x, y) => layer.tiles[0].replace('{z}', z).replace('{x}', x).replace('{y}', y);
+  let allOk = true;
+  const probeTile = async (z, x, y, tag) => {
+    const t = await get(`${url}/${rel(z, x, y)}`);
+    if (t.status !== 200) { console.log(`    ${tag} ${rel(z, x, y).padEnd(22)} → HTTP ${t.status}  FAIL (declared by layer.json, not served)`); allOk = false; return; }
+    const r = checkTileInvariants(decode(t.ab), tag);
+    allOk &&= r.ok;
+    console.log(`    ${tag} ${rel(z, x, y).padEnd(22)} ${String(t.ab.byteLength).padStart(8)} B  ${fmtInv(r)}`);
+  };
+  console.log('[1] root tiles (the first Cesium requests — a culled root is the white-terrain bug):');
+  for (const r of layer.available[0]) for (let x = r.startX; x <= r.endX; x++) for (let y = r.startY; y <= r.endY; y++) await probeTile(0, x, y, 'root  ');
+  const probe = ll ?? [(layer.bounds[0] + layer.bounds[2]) / 2, (layer.bounds[1] + layer.bounds[3]) / 2];
+  console.log(`[2] the request chain for lon/lat ${probe.map((v) => v.toFixed(4)).join(',')} (every level must be served):`);
+  for (let z = 1; z <= layer.maxzoom; z++) {
+    const t = T.tmsTileForLonLat(probe[0], probe[1], z);
+    await probeTile(z, t.x, t.y, z === layer.maxzoom ? 'finest' : `z${String(z).padStart(2)}   `);
+  }
+  console.log(`\n${allOk ? `✅ ${slug}: served, complete along the probe chain, and every decoded header satisfies C12 §10.1/§10.2 with vertex normals.` : `❌ ${slug}: a served tile is missing or violates a C12 §10 header invariant.`}`);
+  process.exit(allOk ? 0 : 1);
+}
+
 // ── §TILESET MODE — the ON-DISK ↔ layer.json AGREEMENT proof (the render-flat bug's direct gate) ──
 // `node terrain.verify.mjs --tileset <dir> [--lonlat lon,lat]` reads the emitted layer.json, walks its
 // `available` array, and asserts EVERY declared `{z}/{x}/{y}.terrain` exists at that exact path (the old
@@ -61,19 +127,24 @@ if (process.argv.includes('--tileset')) {
   });
   console.log(`[2] declared→disk: ${present} present, ${missing} missing  ${missing === 0 ? 'PASS' : 'FAIL'}`);
 
-  // [3] decode the FIRST tile Cesium requests (level-0 available tile) + the finest, independently
+  // [3] decode the FIRST tile Cesium requests (level-0 available tile) + the finest, independently, and
+  //     assert the §C12-10 header invariants on the bytes about to be published (not just "it decodes").
+  let invOk = true;
   const decodeAt = (z, x, y, tag) => {
     const rel = relOf(tmpl, z, x, y);
+    if (!fs.existsSync(path.resolve(dir, rel))) { console.log(`    ${tag} ${rel.padEnd(22)} → MISSING (a sharded bake leaves the finest level to other shards; skipped)`); return null; }
     const buf = fs.readFileSync(path.resolve(dir, rel));
     const dec = decode(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-    console.log(`    ${tag} ${rel.padEnd(22)} → ${dec.vertexData.length / 3} verts, ${dec.triangleIndices.length / 3} tris, h[${dec.header.minHeight.toFixed(1)}..${dec.header.maxHeight.toFixed(1)}]m`);
+    const r = checkTileInvariants(dec, tag);
+    invOk &&= r.ok;
+    console.log(`    ${tag} ${rel.padEnd(22)} → ${fmtInv(r)}`);
     return dec;
   };
   const r0 = layer.available[0][0], rM = layer.available[layer.maxzoom][0];
-  console.log('[3] independent @here decode round-trip:');
+  console.log('[3] independent @here decode round-trip + C12 §10.1/§10.2 header invariants:');
   const d0 = decodeAt(0, r0.startX, r0.startY, 'root  ');
   const dM = decodeAt(layer.maxzoom, rM.startX, rM.startY, 'finest');
-  const decOk = d0.triangleIndices.length > 0 && dM.triangleIndices.length > 0;
+  const decOk = invOk && !!d0 && d0.triangleIndices.length > 0 && (dM === null || dM.triangleIndices.length > 0);
 
   // [4] the EXACT path Cesium requests for a real city lon/lat, at every level, must exist on disk
   const probe = ll ?? [(layer.bounds[0] + layer.bounds[2]) / 2, (layer.bounds[1] + layer.bounds[3]) / 2];

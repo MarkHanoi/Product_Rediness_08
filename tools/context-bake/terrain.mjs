@@ -46,6 +46,13 @@
 //   node terrain.mjs --fetch-nl amsterdam.tif        # keyless AHN WCS GetCoverage → a DTM GeoTIFF
 //   node terrain.mjs --tif <file> --country <cc> \   # compile ONE local GeoTIFF → quantized-mesh
 //        --out out/terrain/<city>
+//   ── §11 TERRAIN-EVERYWHERE (whole regions, Mapterhorn-sourced, per-post EGM2008 lift) ──
+//   node terrain.mjs --national-regions [--max-zoom 10] [--avg-kb 640]   # the founder's cost table
+//   node terrain.mjs --bake-region spain --out out/terrain/spain \       # bake ONE whole region
+//        [--max-zoom 10] [--base-err 1.0] [--geoid egm08|constant] [--shard 0/3] [--concurrency 4]
+//   node terrain.mjs --matrix --group europe [--tiles-per-shard 4000]    # CI matrix JSON (terrain-bake-regions.yml)
+//   node terrain.mjs --list-regions [--group usa]                        # region slugs (space-separated)
+//   node terrain.mjs --check-client-coverage                             # terrainCoverage.ts slug-set == bake slug-set
 //
 // Cross-refs: CONTEXT-DATA-TERRAIN.md (per-country sourcing) · globeGroundAnchor.ts (the datum
 // boundary) · CesiumViewport.ts (runtime wiring, §9 below) · CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md.
@@ -2075,58 +2082,60 @@ export const EGM08_COG_URL = 'https://cdn.proj.org/us_nga_egm08_25.tif';
  * `terrain/<slug>/` == terrainCoverage.ts TERRAIN_REGION_BBOXES. Bboxes are bake.mjs's 1:1.
  * `geoidSepM` = EGM2008 N at the principal city (GeoidEval, PROBED 2026-09-04) — documentation + the
  * explicit `--geoid constant` fallback only; the default bake reads N(lon,lat) per post (EGM08_COG_URL).
+ * `probe` = [lon, lat] of that city's centre — the §TERRARIUM-SPARSE-PYRAMID land check: the source tile
+ * under it MUST be served with relief before a bake reads any 404 as ocean.
  */
 export const NATIONAL_REGIONS = [
   // ── Europe (28 whole-country rows; paris/lyon/koln are §1b cities) ──
-  { name: 'spain',        group: 'europe', bbox: [-9.55, 35.90, 4.60, 43.90],   geoidSepM: 51.67, probeCity: 'Madrid' },
-  { name: 'denmark',      group: 'europe', bbox: [7.70, 54.40, 15.30, 57.90],   geoidSepM: 36.26, probeCity: 'Copenhagen' },
-  { name: 'netherlands',  group: 'europe', bbox: [3.30, 50.75, 7.30, 53.70],    geoidSepM: 43.19, probeCity: 'Amsterdam' },
-  { name: 'estonia',      group: 'europe', bbox: [21.60, 57.50, 28.30, 59.80],  geoidSepM: 18.19, probeCity: 'Tallinn' },
-  { name: 'lithuania',    group: 'europe', bbox: [20.85, 53.85, 26.90, 56.50],  geoidSepM: 25.17, probeCity: 'Vilnius' },
-  { name: 'latvia',       group: 'europe', bbox: [20.90, 55.60, 28.30, 58.10],  geoidSepM: 21.09, probeCity: 'Riga' },
-  { name: 'poland',       group: 'europe', bbox: [14.05, 48.95, 24.20, 55.00],  geoidSepM: 31.22, probeCity: 'Warsaw' },
-  { name: 'luxembourg',   group: 'europe', bbox: [5.70, 49.40, 6.60, 50.20],    geoidSepM: 48.01, probeCity: 'Luxembourg City' },
-  { name: 'sweden',       group: 'europe', bbox: [10.90, 55.20, 24.20, 69.10],  geoidSepM: 23.22, probeCity: 'Stockholm' },
-  { name: 'finland',      group: 'europe', bbox: [19.00, 59.70, 31.60, 70.10],  geoidSepM: 17.80, probeCity: 'Helsinki' },
-  { name: 'norway',       group: 'europe', bbox: [4.50, 57.90, 31.20, 71.20],   geoidSepM: 39.35, probeCity: 'Oslo' },
-  { name: 'germany',      group: 'europe', bbox: [5.85, 47.25, 15.05, 55.10],   geoidSepM: 39.48, probeCity: 'Berlin' },
-  { name: 'france',       group: 'europe', bbox: [-5.15, 41.30, 9.60, 51.10],   geoidSepM: 44.61, probeCity: 'Paris' },
-  { name: 'italy',        group: 'europe', bbox: [6.60, 35.40, 18.60, 47.10],   geoidSepM: 48.41, probeCity: 'Rome' },
-  { name: 'greatbritain', group: 'europe', bbox: [-8.20, 49.90, 1.80, 60.90],   geoidSepM: 46.09, probeCity: 'London' },
-  { name: 'ireland',      group: 'europe', bbox: [-10.70, 51.30, -5.30, 55.50], geoidSepM: 56.40, probeCity: 'Dublin' },
-  { name: 'switzerland',  group: 'europe', bbox: [5.90, 45.80, 10.50, 47.85],   geoidSepM: 49.37, probeCity: 'Bern' },
-  { name: 'austria',      group: 'europe', bbox: [9.50, 46.30, 17.20, 49.05],   geoidSepM: 44.73, probeCity: 'Vienna' },
-  { name: 'czechia',      group: 'europe', bbox: [12.05, 48.50, 18.90, 51.10],  geoidSepM: 44.92, probeCity: 'Prague' },
-  { name: 'portugal',     group: 'europe', bbox: [-9.60, 36.90, -6.10, 42.20],  geoidSepM: 53.77, probeCity: 'Lisbon' },
-  { name: 'belgium',      group: 'europe', bbox: [2.50, 49.50, 6.40, 51.60],    geoidSepM: 45.40, probeCity: 'Brussels' },
-  { name: 'croatia',      group: 'europe', bbox: [13.40, 42.30, 19.50, 46.60],  geoidSepM: 46.06, probeCity: 'Zagreb' },
-  { name: 'slovenia',     group: 'europe', bbox: [13.30, 45.40, 16.60, 46.90],  geoidSepM: 46.90, probeCity: 'Ljubljana' },
-  { name: 'greece',       group: 'europe', bbox: [19.30, 34.70, 29.70, 41.80],  geoidSepM: 38.65, probeCity: 'Athens' },
-  { name: 'hungary',      group: 'europe', bbox: [16.10, 45.70, 22.95, 48.60],  geoidSepM: 43.66, probeCity: 'Budapest' },
-  { name: 'romania',      group: 'europe', bbox: [20.20, 43.60, 29.80, 48.30],  geoidSepM: 35.82, probeCity: 'Bucharest' },
-  { name: 'slovakia',     group: 'europe', bbox: [16.80, 47.70, 22.60, 49.65],  geoidSepM: 43.88, probeCity: 'Bratislava' },
-  { name: 'bulgaria',     group: 'europe', bbox: [22.30, 41.20, 28.70, 44.25],  geoidSepM: 44.60, probeCity: 'Sofia' },
+  { name: 'spain',        group: 'europe', bbox: [-9.55, 35.90, 4.60, 43.90],   geoidSepM: 51.67, probeCity: 'Madrid', probe: [-3.7, 40.42] },
+  { name: 'denmark',      group: 'europe', bbox: [7.70, 54.40, 15.30, 57.90],   geoidSepM: 36.26, probeCity: 'Copenhagen', probe: [12.57, 55.68] },
+  { name: 'netherlands',  group: 'europe', bbox: [3.30, 50.75, 7.30, 53.70],    geoidSepM: 43.19, probeCity: 'Amsterdam', probe: [4.9, 52.37] },
+  { name: 'estonia',      group: 'europe', bbox: [21.60, 57.50, 28.30, 59.80],  geoidSepM: 18.19, probeCity: 'Tallinn', probe: [24.75, 59.44] },
+  { name: 'lithuania',    group: 'europe', bbox: [20.85, 53.85, 26.90, 56.50],  geoidSepM: 25.17, probeCity: 'Vilnius', probe: [25.28, 54.69] },
+  { name: 'latvia',       group: 'europe', bbox: [20.90, 55.60, 28.30, 58.10],  geoidSepM: 21.09, probeCity: 'Riga', probe: [24.11, 56.95] },
+  { name: 'poland',       group: 'europe', bbox: [14.05, 48.95, 24.20, 55.00],  geoidSepM: 31.22, probeCity: 'Warsaw', probe: [21.01, 52.23] },
+  { name: 'luxembourg',   group: 'europe', bbox: [5.70, 49.40, 6.60, 50.20],    geoidSepM: 48.01, probeCity: 'Luxembourg City', probe: [6.13, 49.61] },
+  { name: 'sweden',       group: 'europe', bbox: [10.90, 55.20, 24.20, 69.10],  geoidSepM: 23.22, probeCity: 'Stockholm', probe: [18.07, 59.33] },
+  { name: 'finland',      group: 'europe', bbox: [19.00, 59.70, 31.60, 70.10],  geoidSepM: 17.80, probeCity: 'Helsinki', probe: [24.94, 60.17] },
+  { name: 'norway',       group: 'europe', bbox: [4.50, 57.90, 31.20, 71.20],   geoidSepM: 39.35, probeCity: 'Oslo', probe: [10.75, 59.91] },
+  { name: 'germany',      group: 'europe', bbox: [5.85, 47.25, 15.05, 55.10],   geoidSepM: 39.48, probeCity: 'Berlin', probe: [13.4, 52.52] },
+  { name: 'france',       group: 'europe', bbox: [-5.15, 41.30, 9.60, 51.10],   geoidSepM: 44.61, probeCity: 'Paris', probe: [2.35, 48.86] },
+  { name: 'italy',        group: 'europe', bbox: [6.60, 35.40, 18.60, 47.10],   geoidSepM: 48.41, probeCity: 'Rome', probe: [12.5, 41.9] },
+  { name: 'greatbritain', group: 'europe', bbox: [-8.20, 49.90, 1.80, 60.90],   geoidSepM: 46.09, probeCity: 'London', probe: [-0.13, 51.51] },
+  { name: 'ireland',      group: 'europe', bbox: [-10.70, 51.30, -5.30, 55.50], geoidSepM: 56.40, probeCity: 'Dublin', probe: [-6.26, 53.35] },
+  { name: 'switzerland',  group: 'europe', bbox: [5.90, 45.80, 10.50, 47.85],   geoidSepM: 49.37, probeCity: 'Bern', probe: [7.45, 46.95] },
+  { name: 'austria',      group: 'europe', bbox: [9.50, 46.30, 17.20, 49.05],   geoidSepM: 44.73, probeCity: 'Vienna', probe: [16.37, 48.21] },
+  { name: 'czechia',      group: 'europe', bbox: [12.05, 48.50, 18.90, 51.10],  geoidSepM: 44.92, probeCity: 'Prague', probe: [14.42, 50.09] },
+  { name: 'portugal',     group: 'europe', bbox: [-9.60, 36.90, -6.10, 42.20],  geoidSepM: 53.77, probeCity: 'Lisbon', probe: [-9.14, 38.72] },
+  { name: 'belgium',      group: 'europe', bbox: [2.50, 49.50, 6.40, 51.60],    geoidSepM: 45.40, probeCity: 'Brussels', probe: [4.35, 50.85] },
+  { name: 'croatia',      group: 'europe', bbox: [13.40, 42.30, 19.50, 46.60],  geoidSepM: 46.06, probeCity: 'Zagreb', probe: [15.98, 45.81] },
+  { name: 'slovenia',     group: 'europe', bbox: [13.30, 45.40, 16.60, 46.90],  geoidSepM: 46.90, probeCity: 'Ljubljana', probe: [14.51, 46.05] },
+  { name: 'greece',       group: 'europe', bbox: [19.30, 34.70, 29.70, 41.80],  geoidSepM: 38.65, probeCity: 'Athens', probe: [23.73, 37.98] },
+  { name: 'hungary',      group: 'europe', bbox: [16.10, 45.70, 22.95, 48.60],  geoidSepM: 43.66, probeCity: 'Budapest', probe: [19.04, 47.5] },
+  { name: 'romania',      group: 'europe', bbox: [20.20, 43.60, 29.80, 48.30],  geoidSepM: 35.82, probeCity: 'Bucharest', probe: [26.1, 44.43] },
+  { name: 'slovakia',     group: 'europe', bbox: [16.80, 47.70, 22.60, 49.65],  geoidSepM: 43.88, probeCity: 'Bratislava', probe: [17.11, 48.15] },
+  { name: 'bulgaria',     group: 'europe', bbox: [22.30, 41.20, 28.70, 44.25],  geoidSepM: 44.60, probeCity: 'Sofia', probe: [23.32, 42.7] },
   // ── USA (6 metro rows — context is city-scoped here too; CONUS N is NEGATIVE) ──
-  { name: 'newyork',      group: 'usa', bbox: [-74.03, 40.70, -73.91, 40.82],    geoidSepM: -32.72, probeCity: 'New York' },
-  { name: 'sanfrancisco', group: 'usa', bbox: [-122.52, 37.70, -122.36, 37.83],  geoidSepM: -32.16, probeCity: 'San Francisco' },
-  { name: 'chicago',      group: 'usa', bbox: [-87.94, 41.64, -87.52, 42.05],    geoidSepM: -33.93, probeCity: 'Chicago' },
-  { name: 'austin',       group: 'usa', bbox: [-97.95, 30.10, -97.56, 30.52],    geoidSepM: -26.90, probeCity: 'Austin' },
-  { name: 'houston',      group: 'usa', bbox: [-95.80, 29.52, -95.06, 30.14],    geoidSepM: -28.41, probeCity: 'Houston' },
-  { name: 'boston',       group: 'usa', bbox: [-71.20, 42.22, -70.98, 42.40],    geoidSepM: -28.58, probeCity: 'Boston' },
+  { name: 'newyork',      group: 'usa', bbox: [-74.03, 40.70, -73.91, 40.82],    geoidSepM: -32.72, probeCity: 'New York', probe: [-73.99, 40.75] },
+  { name: 'sanfrancisco', group: 'usa', bbox: [-122.52, 37.70, -122.36, 37.83],  geoidSepM: -32.16, probeCity: 'San Francisco', probe: [-122.42, 37.77] },
+  { name: 'chicago',      group: 'usa', bbox: [-87.94, 41.64, -87.52, 42.05],    geoidSepM: -33.93, probeCity: 'Chicago', probe: [-87.63, 41.88] },
+  { name: 'austin',       group: 'usa', bbox: [-97.95, 30.10, -97.56, 30.52],    geoidSepM: -26.90, probeCity: 'Austin', probe: [-97.74, 30.27] },
+  { name: 'houston',      group: 'usa', bbox: [-95.80, 29.52, -95.06, 30.14],    geoidSepM: -28.41, probeCity: 'Houston', probe: [-95.37, 29.76] },
+  { name: 'boston',       group: 'usa', bbox: [-71.20, 42.22, -70.98, 42.40],    geoidSepM: -28.58, probeCity: 'Boston', probe: [-71.06, 42.36] },
   // ── Australia (8 state/territory rows — huge sparse bboxes; N swings −33 → +51 across them) ──
-  { name: 'newsouthwales',    group: 'australia', bbox: [141.00, -37.60, 153.70, -28.10], geoidSepM: 22.36, probeCity: 'Sydney' },
-  { name: 'victoria',         group: 'australia', bbox: [140.90, -39.20, 150.05, -33.90], geoidSepM: 4.63,  probeCity: 'Melbourne' },
-  { name: 'queensland',       group: 'australia', bbox: [138.00, -29.20, 153.60, -9.00],  geoidSepM: 41.36, probeCity: 'Brisbane' },
-  { name: 'westernaustralia', group: 'australia', bbox: [112.90, -35.20, 129.00, -13.50], geoidSepM: -32.90, probeCity: 'Perth' },
-  { name: 'southaustralia',   group: 'australia', bbox: [129.00, -38.10, 141.05, -25.90], geoidSepM: -0.34, probeCity: 'Adelaide' },
-  { name: 'tasmania',         group: 'australia', bbox: [143.80, -43.75, 148.55, -39.40], geoidSepM: -3.81, probeCity: 'Hobart' },
-  { name: 'act',              group: 'australia', bbox: [148.70, -35.95, 149.40, -35.10], geoidSepM: 19.23, probeCity: 'Canberra' },
-  { name: 'northernterritory', group: 'australia', bbox: [128.90, -26.10, 138.10, -10.90], geoidSepM: 51.06, probeCity: 'Darwin' },
+  { name: 'newsouthwales',    group: 'australia', bbox: [141.00, -37.60, 153.70, -28.10], geoidSepM: 22.36, probeCity: 'Sydney', probe: [151.21, -33.87] },
+  { name: 'victoria',         group: 'australia', bbox: [140.90, -39.20, 150.05, -33.90], geoidSepM: 4.63,  probeCity: 'Melbourne', probe: [144.96, -37.81] },
+  { name: 'queensland',       group: 'australia', bbox: [138.00, -29.20, 153.60, -9.00],  geoidSepM: 41.36, probeCity: 'Brisbane', probe: [153.03, -27.47] },
+  { name: 'westernaustralia', group: 'australia', bbox: [112.90, -35.20, 129.00, -13.50], geoidSepM: -32.90, probeCity: 'Perth', probe: [115.86, -31.95] },
+  { name: 'southaustralia',   group: 'australia', bbox: [129.00, -38.10, 141.05, -25.90], geoidSepM: -0.34, probeCity: 'Adelaide', probe: [138.6, -34.93] },
+  { name: 'tasmania',         group: 'australia', bbox: [143.80, -43.75, 148.55, -39.40], geoidSepM: -3.81, probeCity: 'Hobart', probe: [147.33, -42.88] },
+  { name: 'act',              group: 'australia', bbox: [148.70, -35.95, 149.40, -35.10], geoidSepM: 19.23, probeCity: 'Canberra', probe: [149.13, -35.28] },
+  { name: 'northernterritory', group: 'australia', bbox: [128.90, -26.10, 138.10, -10.90], geoidSepM: 51.06, probeCity: 'Darwin', probe: [130.84, -12.46] },
   // ── Middle East (4 metro rows; SA/AE national DTMs are gov-gated — Mapterhorn = GLO-30 here) ──
-  { name: 'riyadh',       group: 'middleeast', bbox: [46.60, 24.58, 46.83, 24.80], geoidSepM: -7.35, probeCity: 'Riyadh' },
-  { name: 'jeddah',       group: 'middleeast', bbox: [39.10, 21.45, 39.28, 21.62], geoidSepM: 4.73,  probeCity: 'Jeddah' },
-  { name: 'dubai',        group: 'middleeast', bbox: [54.95, 24.85, 55.45, 25.35], geoidSepM: -34.13, probeCity: 'Dubai' },
-  { name: 'abudhabi',     group: 'middleeast', bbox: [54.28, 24.33, 54.75, 24.62], geoidSepM: -33.20, probeCity: 'Abu Dhabi' },
+  { name: 'riyadh',       group: 'middleeast', bbox: [46.60, 24.58, 46.83, 24.80], geoidSepM: -7.35, probeCity: 'Riyadh', probe: [46.72, 24.69] },
+  { name: 'jeddah',       group: 'middleeast', bbox: [39.10, 21.45, 39.28, 21.62], geoidSepM: 4.73,  probeCity: 'Jeddah', probe: [39.19, 21.54] },
+  { name: 'dubai',        group: 'middleeast', bbox: [54.95, 24.85, 55.45, 25.35], geoidSepM: -34.13, probeCity: 'Dubai', probe: [55.27, 25.2] },
+  { name: 'abudhabi',     group: 'middleeast', bbox: [54.28, 24.33, 54.75, 24.62], geoidSepM: -33.20, probeCity: 'Abu Dhabi', probe: [54.37, 24.47] },
 ];
 export const NATIONAL_GROUPS = ['europe', 'usa', 'australia', 'middleeast'];
 
@@ -2177,12 +2186,25 @@ export async function loadGeoidGrid(bboxWsen, { geotiffMod, url = EGM08_COG_URL,
 
 /**
  * LRU cache of DECODED terrarium tiles (Float32 orthometric metres, 512×512) with in-flight de-dup and
- * bounded retry. A 404 at a served zoom is thrown honestly (never a fabricated tile); 5xx/network errors
- * retry with backoff. `stats()` reports what a bake actually pulled from the sponsored CDN.
+ * bounded retry. 5xx/network errors retry with backoff and are THROWN after the last retry (a bake never
+ * silently fills a fetch failure). `stats()` reports what a bake actually pulled from the sponsored CDN.
+ *
+ * §TERRARIUM-SPARSE-PYRAMID (2026-09-04, lane TERRAIN-EVERYWHERE) — a 404 is ABSENT, not an error.
+ * Mapterhorn is a SPARSE pyramid: it serves no tile over open ocean. MEASURED on this machine: North Sea
+ * centre (z8 130/79, z9 260/159, z10 520/318) and the Atlantic west of Ireland → HTTP 404 `Tile not
+ * found` (14 B), while the near-coast sea band IS served as constant tiles (Skagerrak z9 268/155,
+ * Baltic z9 277/162: 52 B WebP, every pixel decodes to EXACTLY 0.00 m). So the pyramid's own encoding of
+ * sea is 0 m where it bothers to emit a tile, and nothing where it does not. The first Denmark bake
+ * (bbox reaches the North Sea) therefore died at z9 on the 404 throw. A 404 now returns `null` (ABSENT,
+ * counted in `stats().absent`) and the sampler reads an absent tile as 0 m — the same value the served
+ * sea tiles carry and the same §COARSE-TILE-SEALEVEL fill the city path uses outside its DTM. It is
+ * DISTINCT from a fetch failure: only a definitive HTTP 404 becomes absent; 5xx/timeouts still throw.
+ * The guard against "absent over LAND" (a coverage hole misread as sea) is bakeNationalRegion's
+ * land check: the region's `probe` city tile MUST be present, or the bake refuses.
  */
 export function createTerrariumCache({ endpoint, tileSize = TERRARIUM_TILE_PX, maxEntries = 128, sharp, retries = 3 }) {
   const map = new Map(); const pending = new Map();
-  let fetched = 0, bytes = 0, hits = 0, retried = 0;
+  let fetched = 0, bytes = 0, hits = 0, retried = 0, absent = 0;
   async function fetchDecode(z, x, y) {
     const url = `${endpoint}/${z}/${x}/${y}.webp`;
     let lastErr;
@@ -2197,7 +2219,7 @@ export function createTerrariumCache({ endpoint, tileSize = TERRARIUM_TILE_PX, m
         return vals;
       } catch (e) {
         lastErr = e;
-        if (/HTTP 404/.test(String(e.message))) break;   // honest: the pyramid does not serve it
+        if (/HTTP 404/.test(String(e.message))) { absent++; return null; }   // §TERRARIUM-SPARSE-PYRAMID: not served = ABSENT (open ocean)
         if (attempt < retries) { retried++; await sleep(400 * 2 ** attempt); }
       }
     }
@@ -2205,19 +2227,18 @@ export function createTerrariumCache({ endpoint, tileSize = TERRARIUM_TILE_PX, m
   }
   async function get(z, x, y) {
     const key = `${z}/${x}/${y}`;
-    const have = map.get(key);
-    if (have) { hits++; map.delete(key); map.set(key, have); return have; }
+    if (map.has(key)) { const have = map.get(key); hits++; map.delete(key); map.set(key, have); return have; }
     if (pending.has(key)) return pending.get(key);
     const p = fetchDecode(z, x, y);
     pending.set(key, p);
     try {
-      const v = await p;
+      const v = await p;                 // Float32Array, or null = ABSENT (cached too — a 404 is definitive)
       map.set(key, v);
       while (map.size > maxEntries) map.delete(map.keys().next().value);
       return v;
     } finally { pending.delete(key); }
   }
-  return { get, stats: () => ({ fetched, bytes, hits, retried, cached: map.size }) };
+  return { get, stats: () => ({ fetched, bytes, hits, retried, absent, cached: map.size }) };
 }
 
 /**
@@ -2253,10 +2274,12 @@ export async function terrariumGridForRect(rectDeg, gridSize, z, cache, coverWse
   const tiles = new Map(); const keys = [];
   for (let ty = tyMin; ty <= tyMax; ty++) for (let tx = txMin; tx <= txMax; tx++) keys.push([tx, ty]);
   await Promise.all(keys.map(async ([tx, ty]) => tiles.set(`${tx}/${ty}`, await cache.get(z, tx, ty))));
+  let absentTiles = 0; for (const t of tiles.values()) if (t === null) absentTiles++;
   const val = (px, py) => {
-    const t = tiles.get(`${px >> 9}/${py >> 9}`);
-    if (!t) throw new Error(`terrarium sample outside prefetched block (px=${px},py=${py},z=${z})`);
-    return t[(py & 511) * TERRARIUM_TILE_PX + (px & 511)];
+    const k = `${px >> 9}/${py >> 9}`;
+    if (!tiles.has(k)) throw new Error(`terrarium sample outside prefetched block (px=${px},py=${py},z=${z})`);
+    const t = tiles.get(k);
+    return t === null ? 0 : t[(py & 511) * TERRARIUM_TILE_PX + (px & 511)];   // ABSENT (§TERRARIUM-SPARSE-PYRAMID) = open ocean = 0 m
   };
   for (let gy = 0; gy < gridSize; gy++) {
     if (!inLat[gy]) continue;
@@ -2268,7 +2291,7 @@ export async function terrariumGridForRect(rectDeg, gridSize, z, cache, coverWse
       out[gy * gridSize + gx] = (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
     }
   }
-  return { grid: out, sourceTiles: keys.length };
+  return { grid: out, sourceTiles: keys.length, absentTiles };
 }
 
 /** MARTINI at `errM`, relaxing the error ×1.5 until the quantized-mesh uint16 vertex budget (65,536)
@@ -2292,7 +2315,7 @@ export async function emitTileChainAsync({ regionWsen, gridForRect, gridSize, ou
   mkdirSync(outDir, { recursive: true });
   const martini = new Martini(gridSize);
   const shardI = shard ? shard.i : 0, shardN = shard ? shard.n : 1;
-  const available = []; const levels = []; let totalBytes = 0, totalTiles = 0, relaxedTiles = 0, sourceTiles = 0;
+  const available = []; const levels = []; let totalBytes = 0, totalTiles = 0, relaxedTiles = 0, sourceTiles = 0, absentTiles = 0;
   for (let z = 0; z <= maxZoom; z++) {
     const { xMin, xMax, yMin, yMax } = tmsTileRangeForBbox(regionWsen, z);
     available.push([{ startX: xMin, startY: yMin, endX: xMax, endY: yMax }]);
@@ -2303,13 +2326,13 @@ export async function emitTileChainAsync({ regionWsen, gridForRect, gridSize, ou
       if (shardN > 1 && z < maxZoom && shardI !== 0) continue;
       for (let y = yMin; y <= yMax; y++) jobs.push([x, y]);
     }
-    const t0 = Date.now(); let next = 0, bytes = 0, minH = Infinity, maxH = -Infinity, relaxed = 0, src = 0;
+    const t0 = Date.now(); let next = 0, bytes = 0, minH = Infinity, maxH = -Infinity, relaxed = 0, src = 0, abs = 0;
     const worker = async () => {
       while (next < jobs.length) {
         const [x, y] = jobs[next++];
         const rectDeg = tmsTileRectDeg(z, x, y);
-        const { grid, sourceTiles: st } = await gridForRect(rectDeg, z);
-        src += st;
+        const { grid, sourceTiles: st, absentTiles: at = 0 } = await gridForRect(rectDeg, z);
+        src += st; abs += at;
         const tileRad = { west: rectDeg[0] * D2R, south: rectDeg[1] * D2R, east: rectDeg[2] * D2R, north: rectDeg[3] * D2R };
         const m = meshTileBounded(martini, grid, errM);
         if (m.relaxed) relaxed++;
@@ -2321,13 +2344,13 @@ export async function emitTileChainAsync({ regionWsen, gridForRect, gridSize, ou
     };
     await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, jobs.length)) }, worker));
     const declared = (xMax - xMin + 1) * (yMax - yMin + 1);
-    totalBytes += bytes; totalTiles += jobs.length; relaxedTiles += relaxed; sourceTiles += src;
-    levels.push({ z, declared, emitted: jobs.length, bytes, errM, seconds: (Date.now() - t0) / 1000, minH, maxH, relaxed });
-    log(`  z${String(z).padStart(2)}  ${String(jobs.length).padStart(6)}/${String(declared).padEnd(6)} tiles  err=${errM.toFixed(2).padStart(7)}m  ${(bytes / 1048576).toFixed(2).padStart(8)} MB  ${((Date.now() - t0) / 1000).toFixed(1).padStart(7)}s  h[${Number.isFinite(minH) ? minH.toFixed(0) : '-'}..${Number.isFinite(maxH) ? maxH.toFixed(0) : '-'}]m${relaxed ? `  (${relaxed} vertex-budget relaxed)` : ''}`);
+    totalBytes += bytes; totalTiles += jobs.length; relaxedTiles += relaxed; sourceTiles += src; absentTiles += abs;
+    levels.push({ z, declared, emitted: jobs.length, bytes, errM, seconds: (Date.now() - t0) / 1000, minH, maxH, relaxed, sourceTiles: src, absentTiles: abs });
+    log(`  z${String(z).padStart(2)}  ${String(jobs.length).padStart(6)}/${String(declared).padEnd(6)} tiles  err=${errM.toFixed(2).padStart(7)}m  ${(bytes / 1048576).toFixed(2).padStart(8)} MB  ${((Date.now() - t0) / 1000).toFixed(1).padStart(7)}s  h[${Number.isFinite(minH) ? minH.toFixed(0) : '-'}..${Number.isFinite(maxH) ? maxH.toFixed(0) : '-'}]m${relaxed ? `  (${relaxed} vertex-budget relaxed)` : ''}${abs ? `  (${abs} absent source tiles → 0 m)` : ''}`);
   }
   if (shardI === 0) writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(regionWsen, available), null, 2));
-  log(`${shardI === 0 ? 'layer.json' : `(shard ${shardI}/${shardN}: no layer.json — shard 0 owns it)`} · bounds ${regionWsen.map((v) => v.toFixed(2)).join(',')} · z0..${maxZoom} · ${totalTiles} tiles · ${(totalBytes / 1048576).toFixed(1)} MB · ${sourceTiles} source-tile reads → ${outDir}`);
-  return { regionWsen, maxZoom, available, levels, totalBytes, totalTiles, relaxedTiles, sourceTiles };
+  log(`${shardI === 0 ? 'layer.json' : `(shard ${shardI}/${shardN}: no layer.json — shard 0 owns it)`} · bounds ${regionWsen.map((v) => v.toFixed(2)).join(',')} · z0..${maxZoom} · ${totalTiles} tiles · ${(totalBytes / 1048576).toFixed(1)} MB · ${sourceTiles} source-tile reads (${absentTiles} absent = open ocean, §TERRARIUM-SPARSE-PYRAMID) → ${outDir}`);
+  return { regionWsen, maxZoom, available, levels, totalBytes, totalTiles, relaxedTiles, sourceTiles, absentTiles };
 }
 
 /**
@@ -2357,20 +2380,37 @@ export async function bakeNationalRegion(region, { outDir, gridSize = NATIONAL_B
   }
   const cache = createTerrariumCache({ endpoint: cfg.endpoint, tileSize: cfg.tileSize, sharp });
   const proj = getProjector('EPSG:3857');
+  const tz = Math.min(Z, cfg.z);
+  // §TERRARIUM-SPARSE-PYRAMID land check — BEFORE any tile is written. The source's 404 is read as open
+  // ocean (0 m) by the sampler; the one thing that would make that a lie is a 404 over LAND (a coverage
+  // hole). So the tile under the region's probe city, at the finest zoom this bake reads, MUST be served.
+  // A region row without `probe` coordinates is refused rather than baked unchecked.
+  if (!bboxOverride) {
+    if (!Array.isArray(region.probe) || region.probe.length !== 2) throw new Error(`region '${region.name}' has no probe [lon,lat] — the sparse-pyramid land check needs one (§11 NATIONAL_REGIONS)`);
+    const [plon, plat] = region.probe;
+    const nT = 2 ** tz, res = (2 * MERC_ORIGIN) / (nT * TERRARIUM_TILE_PX);
+    const [PX] = proj.forward(plon, 0); const [, PY] = proj.forward(0, plat);
+    const ptx = Math.floor((PX + MERC_ORIGIN) / res) >> 9, pty = Math.floor((MERC_ORIGIN - PY) / res) >> 9;
+    const probeTile = await cache.get(tz, ptx, pty);
+    if (probeTile === null) throw new Error(`LAND CHECK FAILED for '${region.name}': ${cfg.endpoint}/${tz}/${ptx}/${pty}.webp (under ${region.probeCity ?? 'the probe city'} ${plon},${plat}) is 404 — a coverage hole over land, so absent≠ocean here; refusing to bake.`);
+    let pmin = Infinity, pmax = -Infinity; for (const v of probeTile) { if (v < pmin) pmin = v; if (v > pmax) pmax = v; }
+    if (!(pmax > pmin)) throw new Error(`LAND CHECK FAILED for '${region.name}': the tile under ${region.probeCity ?? 'the probe city'} is CONSTANT ${pmin} m — that is the source's sea/no-data encoding, not relief; refusing to bake.`);
+    log(`  land check: ${region.probeCity ?? 'probe'} (${plon},${plat}) → terrarium z${tz} ${ptx}/${pty} PRESENT, relief ${pmin.toFixed(1)}..${pmax.toFixed(1)} m orthometric`);
+  }
   const lons = new Float64Array(gridSize), lats = new Float64Array(gridSize);
   const gridForRect = async (rectDeg, z) => {
-    const tz = Math.min(z, cfg.z);   // terrarium zoom = output zoom (1:1 posts, see §11 header); never past the pinned max
-    const { grid, sourceTiles } = await terrariumGridForRect(rectDeg, gridSize, tz, cache, bbox, proj);
+    const zz = Math.min(z, cfg.z);   // terrarium zoom = output zoom (1:1 posts, see §11 header); never past the pinned max
+    const { grid, sourceTiles, absentTiles } = await terrariumGridForRect(rectDeg, gridSize, zz, cache, bbox, proj);
     const [w, s, e, n] = rectDeg;
     for (let i = 0; i < gridSize; i++) { lons[i] = w + (e - w) * (i / (gridSize - 1)); lats[i] = n - (n - s) * (i / (gridSize - 1)); }
     // orthometric (terrarium ≈ EGM2008-referenced; national lidar where ingested) → ellipsoidal, per post
     for (let gy = 0; gy < gridSize; gy++) for (let gx = 0; gx < gridSize; gx++) grid[gy * gridSize + gx] += geoidAt(lons[gx], lats[gy]);
-    return { grid, sourceTiles };
+    return { grid, sourceTiles, absentTiles };
   };
   const t0 = Date.now();
   const res = await emitTileChainAsync({ regionWsen: bbox, gridForRect, gridSize, outDir, Martini, baseErrM: err0, maxZoom: Z, shard, concurrency, log });
   const fetch = cache.stats();
-  log(`  source: ${cfg.endpoint} · ${fetch.fetched} tiles fetched (${(fetch.bytes / 1048576).toFixed(1)} MB), ${fetch.hits} cache hits, ${fetch.retried} retries · ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  log(`  source: ${cfg.endpoint} · ${fetch.fetched} tiles fetched (${(fetch.bytes / 1048576).toFixed(1)} MB), ${fetch.absent} absent (404 = open ocean → 0 m), ${fetch.hits} cache hits, ${fetch.retried} retries · ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   return { status: 'ok', name: region.name, bbox, source: 'mapterhorn', geoid, fetch, seconds: (Date.now() - t0) / 1000, ...res };
 }
 
@@ -2428,6 +2468,99 @@ async function main() {
   const val = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : null);
 
   if (flag('--regions')) { printRegions(); return; }
+
+  // ── §11 TERRAIN-EVERYWHERE CLI ────────────────────────────────────────────────────────────────
+  const groupFilter = (rows) => {
+    const g = val('--group'); const list = val('--regions');
+    if (list) { const want = new Set(list.split(/[\s,]+/).filter(Boolean)); const unknown = [...want].filter((n) => !NATIONAL_REGIONS.some((r) => r.name === n)); if (unknown.length) { console.error(`unknown region(s): ${unknown.join(' ')} (see --list-regions)`); process.exit(1); } return rows.filter((r) => want.has(r.name)); }
+    if (g && g !== 'all') { if (!NATIONAL_GROUPS.includes(g)) { console.error(`unknown group '${g}' (${NATIONAL_GROUPS.join('|')}|all)`); process.exit(1); } return rows.filter((r) => r.group === g); }
+    return rows;
+  };
+
+  // The founder's cost table: declared tiles per region at --max-zoom, extrapolated with a MEASURED
+  // average finest-tile size (--avg-kb; measured 2026-09-04 on this machine: luxembourg 640 KB, see the
+  // lane report) — coarser levels are counted at their own (smaller) share by the finest/total ratio.
+  if (flag('--national-regions')) {
+    const mz = Number(val('--max-zoom') || NATIONAL_BAKE_DEFAULTS.maxZoom);
+    const avgKb = Number(val('--avg-kb') || 0);
+    const rows = groupFilter(planNationalRegions(mz, avgKb ? avgKb * 1024 : null));
+    console.log(`PRYZM terrain — §11 NATIONAL_REGIONS plan at z0..${mz}${avgKb ? ` · storage extrapolated at ${avgKb} KB per tile (finest-level average; coarse levels are cheaper, so this is an UPPER bound)` : ''}\n`);
+    let gTiles = 0, gFinest = 0, gBytes = 0, curG = null;
+    const flush = () => { if (curG) console.log(`    ── ${curG}: ${gFinest} finest / ${gTiles} tiles${avgKb ? ` · ≤ ${(gBytes / 1073741824).toFixed(1)} GB` : ''}\n`); gTiles = gFinest = gBytes = 0; };
+    for (const r of rows) {
+      if (r.group !== curG) { flush(); curG = r.group; }
+      gTiles += r.total; gFinest += r.finest; gBytes += r.estBytes ?? 0;
+      console.log(`  ${r.name.padEnd(18)} ${r.group.padEnd(11)} ${r.spanDeg.padEnd(13)} finest ${String(r.finest).padStart(6)}  total ${String(r.total).padStart(6)}${r.estBytes ? `  ≤ ${(r.estBytes / 1073741824).toFixed(2).padStart(6)} GB` : ''}`);
+    }
+    flush();
+    const all = rows.reduce((a, r) => ({ t: a.t + r.total, f: a.f + r.finest, b: a.b + (r.estBytes ?? 0) }), { t: 0, f: 0, b: 0 });
+    console.log(`  TOTAL ${rows.length} regions: ${all.f} finest / ${all.t} tiles${avgKb ? ` · ≤ ${(all.b / 1073741824).toFixed(1)} GB` : ''}`);
+    return;
+  }
+
+  if (flag('--list-regions')) { console.log(groupFilter(NATIONAL_REGIONS).map((r) => r.name).join(' ')); return; }
+
+  // CI matrix (terrain-bake-regions.yml): one job per region, and a region whose FINEST level exceeds
+  // --tiles-per-shard is split into ceil(finest/N) shards (emitTileChainAsync's shard = finest columns
+  // round-robin; shard 0 also writes layer.json + every coarse level). Measured throughput 2026-09-04:
+  // ~8 finest tiles/s on this machine at concurrency 4, so 4000 tiles ≈ 8–15 min per job on a runner.
+  if (flag('--matrix')) {
+    const per = Number(val('--tiles-per-shard') || 4000);
+    const mz = Number(val('--max-zoom') || NATIONAL_BAKE_DEFAULTS.maxZoom);
+    const plan = new Map(planNationalRegions(mz).map((r) => [r.name, r]));
+    const jobs = [];
+    for (const r of groupFilter(NATIONAL_REGIONS)) {
+      const n = Math.max(1, Math.ceil(plan.get(r.name).finest / per));
+      for (let i = 0; i < n; i++) jobs.push({ region: r.name, group: r.group, shard: i, shards: n, finest: plan.get(r.name).finest });
+    }
+    console.log(JSON.stringify({ include: jobs }));
+    return;
+  }
+
+  // §CLIENT-SLUG-PARITY — the client (terrainCoverage.ts) and the bake MUST name the same slugs: a slug
+  // in one and not the other is a SILENT 404 (client asks for a tileset nobody bakes → flat ground) or a
+  // silent flat (a baked tileset no client ever asks for). Tables are read as TEXT (the precedent of
+  // __tests__/mdsBboxCoversTerrainRegion.spec.ts) so this is a total function of the current source.
+  if (flag('--check-client-coverage')) {
+    const { readFileSync } = await import('node:fs');
+    const path = val('--check-client-coverage') && !val('--check-client-coverage').startsWith('--') ? val('--check-client-coverage') : resolve(HERE, '../../apps/editor/src/ui/geospatial/terrainCoverage.ts');
+    const src = readFileSync(path, 'utf8');
+    const parse = (key) => { const m = new Map(); const re = new RegExp(`\\{\\s*${key}:\\s*'([a-z0-9]+)',\\s*bbox:\\s*\\[([^\\]]+)\\]`, 'g'); let x; while ((x = re.exec(src))) m.set(x[1], x[2].split(',').map((v) => Number(v.trim()))); return m; };
+    const cCities = parse('city'), cRegions = parse('region');
+    const want = CLIENT_TERRAIN_SLUGS();
+    const bakeCities = new Map(REGIONS.map((r) => [r.name, r.bbox])), bakeRegions = new Map(NATIONAL_REGIONS.map((r) => [r.name, r.bbox]));
+    const same = (a, b) => a && b && a.length === 4 && a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
+    const problems = [];
+    for (const c of cCities.keys()) { if (!bakeCities.has(c)) problems.push(`client city '${c}' has NO terrain.mjs REGIONS row → silent 404`); else if (!same(cCities.get(c), bakeCities.get(c))) problems.push(`client city '${c}' bbox ${cCities.get(c)} ≠ REGIONS ${bakeCities.get(c)}`); if (cRegions.has(c)) problems.push(`slug '${c}' is BOTH a client city and a client region`); }
+    for (const c of want.cities) if (!cCities.has(c)) problems.push(`bakeable city '${c}' (source can produce a tileset) is NOT in the client → silent flat`);
+    for (const r of bakeRegions.keys()) { if (!cRegions.has(r)) problems.push(`NATIONAL_REGIONS '${r}' is NOT in the client TERRAIN_REGION_BBOXES → baked but never requested`); else if (!same(cRegions.get(r), bakeRegions.get(r))) problems.push(`client region '${r}' bbox ${cRegions.get(r)} ≠ NATIONAL_REGIONS ${bakeRegions.get(r)}`); }
+    for (const r of cRegions.keys()) if (!bakeRegions.has(r)) problems.push(`client region '${r}' has NO NATIONAL_REGIONS row → silent 404`);
+    console.log(`client: ${cCities.size} cities + ${cRegions.size} regions · bake: ${want.cities.length} client-servable cities (of ${REGIONS.length} rows, ${BAKEABLE_REGIONS.length} bakeable) + ${NATIONAL_REGIONS.length} regions`);
+    if (problems.length) { for (const p of problems) console.log(`  ✖ ${p}`); console.log(`❌ ${problems.length} slug-parity problem(s)`); process.exit(1); }
+    console.log('✅ client slug set == bake slug set (cities and regions, bboxes equal)');
+    return;
+  }
+
+  // §TERRAIN-BAKE-REGION — the CI entry point of terrain-bake-regions.yml (and the local measurement).
+  if (flag('--bake-region')) {
+    const name = val('--bake-region');
+    const region = NATIONAL_REGIONS.find((r) => r.name === name);
+    if (!region) { console.error(`unknown region '${name}' (see --list-regions)`); process.exit(1); }
+    const outDir = val('--out') || resolve(HERE, 'out/terrain', name);
+    const geotiffMod = await import('geotiff');
+    const Martini = (await import('@mapbox/martini')).default;
+    const shardArg = val('--shard'); let shard = null;
+    if (shardArg) { const [i, n] = shardArg.split('/').map(Number); if (!(n >= 1 && i >= 0 && i < n)) { console.error(`--shard must be i/n with 0 ≤ i < n (got '${shardArg}')`); process.exit(1); } if (n > 1) shard = { i, n }; }
+    const opts = { outDir, Martini, geotiffMod, shard,
+      maxZoom: val('--max-zoom') ? Number(val('--max-zoom')) : undefined, baseErrM: val('--base-err') ? Number(val('--base-err')) : undefined,
+      gridSize: Number(val('--grid') || NATIONAL_BAKE_DEFAULTS.gridSize), concurrency: Number(val('--concurrency') || NATIONAL_BAKE_DEFAULTS.concurrency),
+      geoidMode: val('--geoid') || 'egm08', bboxOverride: val('--bbox') ? val('--bbox').split(',').map(Number) : undefined };
+    console.log(`bake region ${name} (${region.group}; ${region.bbox.join(',')}; mapterhorn → z0..${opts.maxZoom ?? NATIONAL_BAKE_DEFAULTS.maxZoom}, base err ${opts.baseErrM ?? NATIONAL_BAKE_DEFAULTS.baseErrM} m, geoid ${opts.geoidMode}${shard ? `, shard ${shard.i}/${shard.n}` : ''})`);
+    const res = await bakeNationalRegion(region, opts);
+    const fine = res.levels[res.levels.length - 1];
+    console.log(`✓ ${name} → ${outDir}  (z0..${res.maxZoom}, ${res.totalTiles} tiles, ${(res.totalBytes / 1048576).toFixed(1)} MB, ${res.seconds.toFixed(0)} s; finest ${fine.emitted} tiles avg ${fine.emitted ? Math.round(fine.bytes / fine.emitted / 1024) : 0} KB; ${res.absentTiles} absent source tiles)`);
+    return;
+  }
 
   if (flag('--selftest')) {
     const { pass, rows } = reprojectSelfTest();
