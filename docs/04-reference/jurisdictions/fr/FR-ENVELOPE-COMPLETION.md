@@ -86,15 +86,20 @@ record and re-computable from it:
 GPU-only ceiling — parameter rows the national chain COULD ever answer
   numeric TXT only  (a text parser's absolute maximum) ...... 9 / 500 = 1.8 %
   + drawn geometry  (14 plan-masse, 15 marge de recul) ..... 15 / 500 = 3.0 %   ← the real ceiling
-ACTUALLY RECOVERED by the shipped chain .................... 15 / 500 = 3.0 %
-                                                    ⇒ 100 % OF THE CEILING
+
+RECOVERED AGAINST THAT CEILING — ⚠ two different extractors, do not merge them:
+  round-1 audit harness, DATUM-BLIND ....................... 15 / 15 = 100 %
+  the SHIPPED tree, after §DATUM-DECISION ................... 6 / 15 =  40 %
+                                       + 9 carried as `partial`, never counted
 ```
 
-> ⛔ **3.0 % is not our failure rate. It is the ceiling, and the extractor is SATURATED against it.**
-> There is no `TXT` to clean, no parser to tune and no further yield in the national chain: every
-> parameter row it can answer, it already answers. **Any further FR parameter recovery must come
-> from a DIFFERENT SOURCE — a municipal pack (§1.8) or the document itself — not from more work on
-> the GPU leg.**
+> ⛔ **3.0 % is not our failure rate. It is the CEILING**, and it is a fact about the CNIG schema,
+> not about our parser. There is no `TXT` to clean and no parser to tune: **a datum-blind reading
+> already saturates the chain at 100 %.** The shipped, datum-honest reading recovers 40 % of that
+> ceiling and carries the rest visibly — and ⚠ **the missing 60 % does not close by extracting
+> harder.** Every one of the nine is a number the chain DID publish; what it withheld is the plane
+> the number is measured from, which lives in the règlement (§1.7). **So further FR parameter
+> recovery must come from a DIFFERENT SOURCE — a municipal pack (§1.8) or the document itself.**
 
 Supporting census, 100 parcels, 262 prescriptions served (all strata A+B):
 

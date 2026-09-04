@@ -273,7 +273,10 @@ qualitative rows alone would explain.
 parameter rows the national chain COULD ever answer
   numeric TXT only ........................  9 / 500 = 1.8 %
   + drawn geometry (14, 15) ............... 15 / 500 = 3.0 %   ← the ceiling
-ACTUALLY RECOVERED ......................... 15 / 500 = 3.0 %   ⇒ 100 % of it
+
+recovered against it — ⚠ TWO extractors, not one:
+  this harness, DATUM-BLIND ............... 15 / 15  = 100 %
+  the SHIPPED tree, after §8.3 .............. 6 / 15  =  40 %  (+9 carried as `partial`)
 ```
 
 **262 prescriptions served across the 100 parcels.** All 262 carry some text; **45.0 % populate a
@@ -282,7 +285,8 @@ non-empty `TXT`**; **5.0 % (13) carry a parseable number anywhere.** Of the 36 i
 `38` emprise: **0 of 4.** `15` implantation: **0 of 7** (it needs none — the drawn line IS the rule).
 `40` volumétrie: **not served once.** `D1`: **no CNIG code exists.**
 
-> ⛔ **So 3.0 % is the CEILING, not the failure rate, and the extractor is saturated against it.**
+> ⛔ **So 3.0 % is the CEILING, not the failure rate** — and a datum-blind reading already saturates
+> it at 100 %, so no parser work raises it (§8.3 is what the shipped reading gives up, and why).
 > C4, C6 and D1 have a national ceiling of **zero**; a further **55 of 500** rows are RNU
 > `requires-determination` refusals no dataset can convert. **There is no `TXT` to clean and no
 > parser to tune — further FR recovery must come from a different SOURCE.**
