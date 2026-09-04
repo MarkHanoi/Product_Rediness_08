@@ -1,0 +1,69 @@
+{
+ "probedAt": "2026-09-04",
+ "elev_MapServer": {
+  "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/MapServer?f=json",
+  "status": 200,
+  "gated": false,
+  "error": null,
+  "description": null,
+  "copyright": null,
+  "layers": [
+   "0:SpotHeight",
+   "1:RelativeHeight",
+   "2:Contour"
+  ]
+ },
+ "elev_FeatureServer": {
+  "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer?f=json",
+  "status": 200,
+  "gated": false,
+  "error": null,
+  "description": null,
+  "copyright": null,
+  "layers": [
+   "0:SpotHeight",
+   "1:RelativeHeight",
+   "2:Contour"
+  ]
+ },
+ "sydneyDcp": {
+  "url": "https://services1.arcgis.com/cNVyNtjGVZybOQWZ/arcgis/rest/services/Sydney_Development_Control_Plan_2012/FeatureServer",
+  "status": 200,
+  "error": null,
+  "copyright": "City of Sydney",
+  "layers": [
+   "0:SDCP 2012 – Active street frontages",
+   "1:SDCP 2012 – Active street frontages clause",
+   "2:SDCP 2012 – Building contributions",
+   "3:SDCP 2012 – Building setbacks and alignment",
+   "4:SDCP 2012 – Building setbacks and alignment clause",
+   "5:SDCP 2012 – Building street frontage height in storeys",
+   "6:SDCP 2012 – Footpath, awnings and colonnades",
+   "7:SDCP 2012 – Building height in storeys",
+   "8:SDCP 2012 – Land application",
+   "9:SDCP 2012 – Late night trading areas",
+   "10:SDCP 2012 – Late night trading areas Main Street",
+   "11:SDCP 2012 – Locality areas",
+   "12:SDCP 2012 – Public domain setbacks",
+   "13:SDCP 2012 – Proposed open space",
+   "14:SDCP 2012 – Pedestrian priority",
+   "15:SDCP 2012 – Specific areas",
+   "16:SDCP 2012 – Specific sites",
+   "17:SDCP 2012 – Streets and lanes",
+   "18:SDCP 2012 – Stormwater management",
+   "19:SDCP 2012 – Signage precincts",
+   "20:SDCP 2012 – Through-site links"
+  ]
+ },
+ "sydneyDcpLayer0": {
+  "id": 0,
+  "name": "SDCP 2012 – Active street frontages",
+  "count": 1017,
+  "fields": [
+   "OBJECTID:esriFieldTypeOID",
+   "DCP_Name:esriFieldTypeString",
+   "Date:esriFieldTypeDate",
+   "Shape__Length:esriFieldTypeDouble"
+  ]
+ }
+}

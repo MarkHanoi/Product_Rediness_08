@@ -1,0 +1,148 @@
+{
+ "probedAt": "2026-09-04",
+ "folders": [
+  "Hosted",
+  "Portal",
+  "public",
+  "SCA",
+  "sixmaps",
+  "Utilities"
+ ],
+ "rootElevationServices": [
+  "NSW_Elevation_and_Depth_Theme_multiCRS (FeatureServer)",
+  "NSW_Elevation_and_Depth_Theme_multiCRS (MapServer)",
+  "NSW_Elevation_and_Depth_Theme (FeatureServer)",
+  "NSW_Elevation_and_Depth_Theme (MapServer)"
+ ],
+ "folderProbes": {},
+ "sydneyAgol": {
+  "total": 885,
+  "items": [
+   {
+    "title": "DCP LEP 2021 Amendments",
+    "type": "Feature Service",
+    "url": "https://services1.arcgis.com/cNVyNtjGVZybOQWZ/arcgis/rest/services/DCP_LEP_Amendment_2021_gdb/FeatureServer"
+   },
+   {
+    "title": "Sydney Development Control Plan 2012",
+    "type": "Feature Service",
+    "url": "https://services1.arcgis.com/cNVyNtjGVZybOQWZ/arcgis/rest/services/Sydney_Development_Control_Plan_2012/FeatureServer"
+   },
+   {
+    "title": "DCP B25 Coastal Hazards",
+    "type": "Feature Service",
+    "url": "https://services1.arcgis.com/KURAxOhGWn5RdCPg/arcgis/rest/services/DCP__B25/FeatureServer"
+   },
+   {
+    "title": "DRM - Feature Layer - Dispositifs de Concentration de Poissons (DCP)",
+    "type": "Feature Service",
+    "url": "https://services.arcgis.com/L4H4rU26VyhEF588/arcgis/rest/services/PERLISIG_DCP/FeatureServer"
+   },
+   {
+    "title": "DCP_CPA_PLY_2025",
+    "type": "Feature Service",
+    "url": "https://services1.arcgis.com/tzwalEyxl2rpamKs/arcgis/rest/services/DCP_CPA_PLY_2025/FeatureServer"
+   },
+   {
+    "title": "LCC DCP road network",
+    "type": "Feature Service",
+    "url": "https://services6.arcgis.com/Ys4U0NCXGgyTtRWx/arcgis/rest/services/LCC_DCP_road_network/FeatureServer"
+   },
+   {
+    "title": "Sydney DCP 2012 Map sheet",
+    "type": "Web Map",
+    "url": null
+   },
+   {
+    "title": "MapPLUTO (DCP Hosted)",
+    "type": "Feature Service",
+    "url": "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/MAPPLUTO/FeatureServer"
+   },
+   {
+    "title": "DCP LEP Amendments property layer",
+    "type": "Feature Service",
+    "url": "https://services1.arcgis.com/cNVyNtjGVZybOQWZ/arcgis/rest/services/Property_Dcp_Lep_Amend/FeatureServer"
+   },
+   {
+    "title": "EquineKeeping_DCP",
+    "type": "Feature Service",
+    "url": "https://services5.arcgis.com/7nsPwEMP38bSkCjy/arcgis/rest/services/EquineKeeping_DCP/FeatureServer"
+   },
+   {
+    "title": "DCP_Area",
+    "type": "Feature Service",
+    "url": "https://services6.arcgis.com/EU3vB12T67eDdisL/arcgis/rest/services/DCP_Area/FeatureServer"
+   },
+   {
+    "title": "DCP Riparian Reserves",
+    "type": "Feature Service",
+    "url": "https://services2.arcgis.com/MLoS3Qx4BXmDoTIY/arcgis/rest/services/DCP_Riparian_Reserves/FeatureServer"
+   },
+   {
+    "title": "Sydney_Development_Control_Plan_2012__8017525837246566997",
+    "type": "Feature Service",
+    "url": "https://services5.arcgis.com/9cBkZtsx7PSOoaCF/arcgis/rest/services/Sydney_Development_Control_Plan_2012__8017525837246566997/FeatureServer"
+   },
+   {
+    "title": "Sydney DCP 2012 Map sheet",
+    "type": "Web Mapping Application",
+    "url": "https://cityofsydney.maps.arcgis.com/apps/InformationLookup/index.html?appid=21cf41980682448aae16510a50aa4313"
+   },
+   {
+    "title": "DCP 2015 _ Shift to State Cadastre_WFL1",
+    "type": "Feature Service",
+    "url": "https://services6.arcgis.com/Dt97ZETeCwwpu8nw/arcgis/rest/services/DCP_2015___Shift_to_State_Cadastre_WFL1/FeatureServer"
+   },
+   {
+    "title": "Legacy DCP Gas Transmission Asset_v1_WFL1",
+    "type": "Feature Service",
+    "url": "https://services5.arcgis.com/yJ7Ru8cs8KVtcSeX/arcgis/rest/services/Legacy_DCP_Gas_Transmission_Asset_v1_WFL1/FeatureServer"
+   },
+   {
+    "title": "Brownfield Cleanup Program DCP Rezoning Study Area",
+    "type": "Feature Service",
+    "url": "https://services6.arcgis.com/IX0rbbPRMd0YfCJN/arcgis/rest/services/Intersect_of_Gowanus_Remediation_Boundaries_and_DCP_Proposed_Zoning_Districts_MapPluto_Updated/FeatureServer"
+   },
+   {
+    "title": "Facility Database (DCP)",
+    "type": "Feature Service",
+    "url": "https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/FacDB/FeatureServer"
+   },
+   {
+    "title": "DCP_NGL_Lines",
+    "type": "Feature Service",
+    "url": "https://services9.arcgis.com/BStAPK2UM8JCcTqa/arcgis/rest/services/DCP_NGL_Lines/FeatureServer"
+   },
+   {
+    "title": "Development Control Plan 2025 _ Land Application Map",
+    "type": "Feature Service",
+    "url": "https://services-ap1.arcgis.com/YixhBZMQhOb0beqS/arcgis/rest/services/Development_Control_Plan_2025___Land_Application_Map/FeatureServer"
+   },
+   {
+    "title": "Shoreline by Type _DCP",
+    "type": "Feature Service",
+    "url": "https://services1.arcgis.com/8cuieNI8NbqQZQVJ/arcgis/rest/services/Shoreline_by_Type__DCP/FeatureServer"
+   },
+   {
+    "title": "DCP_NGL_Stations",
+    "type": "Feature Service",
+    "url": "https://services9.arcgis.com/BStAPK2UM8JCcTqa/arcgis/rest/services/DCP_NGL_stations/FeatureServer"
+   },
+   {
+    "title": "DCP_Planning",
+    "type": "Feature Service",
+    "url": "https://services1.arcgis.com/KURAxOhGWn5RdCPg/arcgis/rest/services/DCP_Planning/FeatureServer"
+   },
+   {
+    "title": "DCP 2015 _ Shift to State Cadastre v1_WFL1",
+    "type": "Feature Service",
+    "url": "https://services6.arcgis.com/Dt97ZETeCwwpu8nw/arcgis/rest/services/DCP_2015___Shift_to_State_Cadastre_v1_WFL1/FeatureServer"
+   },
+   {
+    "title": "NYC DCP Facilities Database",
+    "type": "Feature Service",
+    "url": "https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/Facilities/FeatureServer"
+   }
+  ]
+ }
+}

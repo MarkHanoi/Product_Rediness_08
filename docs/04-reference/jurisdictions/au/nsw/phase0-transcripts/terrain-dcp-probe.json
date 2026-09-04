@@ -1,0 +1,101 @@
+{
+ "probedAt": "2026-09-04",
+ "results": {
+  "elevation-root": {
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services?f=json",
+   "status": 200,
+   "ctype": "application/json;charset=UTF-8",
+   "err": null,
+   "summary": {
+    "services": [
+     "Cadastre_History",
+     "Cadastre_History",
+     "Fauna_MaxentandSOM",
+     "Floods_2021",
+     "Floods_CIR_2021",
+     "Floods_CIR_Mar_2022",
+     "Floods_CIR_Nov_2021",
+     "Floods_CIR_Nov_2022",
+     "Floods_Historical",
+     "Floods_Mar_2022",
+     "Floods_Nov_2021",
+     "Floods_Nov_2022",
+     "Flora_Maxent",
+     "Linescan_Floods_2021",
+     "NSW_Administrative_Boundaries_Theme_multiCRS",
+     "NSW_Administrative_Boundaries_Theme_multiCRS",
+     "NSW_Administrative_Boundaries_Theme",
+     "NSW_Administrative_Boundaries_Theme",
+     "NSW_Elevation_and_Depth_Theme_multiCRS",
+     "NSW_Elevation_and_Depth_Theme_multiCRS",
+     "NSW_Elevation_and_Depth_Theme",
+     "NSW_Elevation_and_Depth_Theme",
+     "NSW_Features_of_Interest_Category_multiCRS",
+     "NSW_Features_of_Interest_Category_multiCRS",
+     "NSW_Features_of_Interest_Category",
+     "NSW_Features_of_Interest_Category",
+     "NSW_FOI_Education_Facilities_multiCRS",
+     "NSW_FOI_Education_Facilities_multiCRS",
+     "NSW_FOI_Education_Facilities",
+     "NSW_FOI_Education_Facilities",
+     "NSW_FOI_Emergency_Service_Facilities_multiCRS",
+     "NSW_FOI_Emergency_Service_Facilities_multiCRS",
+     "NSW_FOI_Emergency_Service_Facilities",
+     "NSW_FOI_Emergency_Service_Facilities",
+     "NSW_FOI_Health_Facilities_multiCRS",
+     "NSW_FOI_Health_Facilities_multiCRS",
+     "NSW_FOI_Health_Facilities",
+     "NSW_FOI_Health_Facilities",
+     "NSW_FOI_Justice_Facilities_multiCRS",
+     "NSW_FOI_Justice_Facilities_multiCRS"
+    ],
+    "folders": [
+     "Hosted",
+     "Portal",
+     "public",
+     "SCA",
+     "sixmaps",
+     "Utilities"
+    ],
+    "currentVersion": 10.91
+   }
+  },
+  "elevation-folder": {
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme?f=json",
+   "status": 200,
+   "ctype": "application/json;charset=UTF-8",
+   "err": null,
+   "summary": {
+    "error": "Token Required"
+   }
+  },
+  "sydney-dcp-root": {
+   "url": "https://sydneyplanning.maps.arcgis.com/sharing/rest?f=json",
+   "status": 200,
+   "ctype": "application/json;charset=utf-8",
+   "err": null,
+   "summary": {
+    "currentVersion": "2026.2"
+   }
+  },
+  "newcastle-dcp": {
+   "url": "https://dcp.newcastle.nsw.gov.au/",
+   "status": 0,
+   "err": "Error: timeout",
+   "summary": {
+    "htmlBytes": 0,
+    "titleHint": null
+   }
+  },
+  "portstephens-dcp": {
+   "url": "https://dcp.portstephens.nsw.gov.au/",
+   "status": 200,
+   "ctype": "text/html; charset=utf-8",
+   "err": null,
+   "summary": {
+    "htmlBytes": 64257,
+    "titleHint": "\r\n\tPort Stephens Council: (DCP) Development Control Plan\r\n"
+   }
+  }
+ }
+}

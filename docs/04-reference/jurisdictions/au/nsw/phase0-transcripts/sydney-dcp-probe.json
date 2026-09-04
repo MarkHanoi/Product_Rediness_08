@@ -1,0 +1,237 @@
+{
+ "probedAt": "2026-09-04",
+ "service": "https://services1.arcgis.com/cNVyNtjGVZybOQWZ/arcgis/rest/services/Sydney_Development_Control_Plan_2012/FeatureServer",
+ "layers": {
+  "1": {
+   "name": "SDCP 2012 – Active street frontages clause",
+   "count": 2,
+   "fields": [
+    "OBJECTID:OID",
+    "DCP_Name:String",
+    "Date:Date",
+    "Shape__Area:Double",
+    "Shape__Length:Double"
+   ],
+   "sample": [
+    {
+     "OBJECTID": 1,
+     "DCP_Name": "Sydney DCP 2012 - APDG",
+     "Date": 1480636800000,
+     "Shape__Area": 12989.752319335938,
+     "Shape__Length": 544.9196478142562
+    },
+    {
+     "OBJECTID": 2,
+     "DCP_Name": "Sydney DCP 2012 - APDG",
+     "Date": 1480636800000,
+     "Shape__Area": 4281.9931640625,
+     "Shape__Length": 311.1290587697958
+    }
+   ]
+  },
+  "3": {
+   "name": "SDCP 2012 – Building setbacks and alignment",
+   "count": 310,
+   "fields": [
+    "OBJECTID:OID",
+    "DCP_Name:String",
+    "Date:Date",
+    "SetbackType:String",
+    "Shape__Length:Double"
+   ],
+   "sample": [
+    {
+     "OBJECTID": 1,
+     "DCP_Name": "Sydney DCP 2012 - Green Square Setbacks",
+     "Date": 1447718400000,
+     "SetbackType": "4m Landscape setback",
+     "Shape__Length": 83.62727487011577
+    },
+    {
+     "OBJECTID": 2,
+     "DCP_Name": "Sydney DCP 2012 - Green Square Setbacks",
+     "Date": 1447718400000,
+     "SetbackType": "4m Landscape setback",
+     "Shape__Length": 78.3400433390136
+    },
+    {
+     "OBJECTID": 3,
+     "DCP_Name": "Sydney DCP 2012 - Green Square Setbacks",
+     "Date": 1447718400000,
+     "SetbackType": "1.5m Primary setback",
+     "Shape__Length": 93.67222892137389
+    }
+   ]
+  },
+  "4": {
+   "name": "SDCP 2012 – Building setbacks and alignment clause",
+   "count": 1,
+   "fields": [
+    "OBJECTID:OID",
+    "DCP_Name:String",
+    "Date:Date",
+    "Section:String",
+    "Shape__Area:Double",
+    "Shape__Length:Double"
+   ],
+   "sample": [
+    {
+     "OBJECTID": 4,
+     "DCP_Name": "Sydney DCP 2012 - 2-32 Baptist St, Surry Hills",
+     "Date": 1535068800000,
+     "Section": "6.2.8",
+     "Shape__Area": 12238.301513671875,
+     "Shape__Length": 496.1521432635523
+    }
+   ]
+  },
+  "5": {
+   "name": "SDCP 2012 – Building street frontage height in storeys",
+   "count": 1214,
+   "fields": [
+    "OBJECTID:OID",
+    "DCP_Name:String",
+    "Date:Date",
+    "Storeys:String",
+    "Shape__Length:Double"
+   ],
+   "sample": [
+    {
+     "OBJECTID": 1,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1355443200000,
+     "Storeys": "2",
+     "Shape__Length": 76.02906668648882
+    },
+    {
+     "OBJECTID": 2,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1355443200000,
+     "Storeys": "2",
+     "Shape__Length": 81.2243255760786
+    },
+    {
+     "OBJECTID": 3,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1355443200000,
+     "Storeys": "2",
+     "Shape__Length": 41.07138135619877
+    }
+   ]
+  },
+  "7": {
+   "name": "SDCP 2012 – Building height in storeys",
+   "count": 3592,
+   "fields": [
+    "OBJECTID:OID",
+    "DCP_Name:String",
+    "Date:Date",
+    "Storeys:String",
+    "Shape__Area:Double",
+    "Shape__Length:Double"
+   ],
+   "sample": [
+    {
+     "OBJECTID": 1,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1355443200000,
+     "Storeys": "10",
+     "Shape__Area": 4816.04052734375,
+     "Shape__Length": 334.7292402618451
+    },
+    {
+     "OBJECTID": 2,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1355443200000,
+     "Storeys": "10",
+     "Shape__Area": 2567.944091796875,
+     "Shape__Length": 237.02529689669927
+    },
+    {
+     "OBJECTID": 3,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1355443200000,
+     "Storeys": "10",
+     "Shape__Area": 2698.154296875,
+     "Shape__Length": 217.96838682476908
+    }
+   ]
+  },
+  "12": {
+   "name": "SDCP 2012 – Public domain setbacks",
+   "count": 133,
+   "fields": [
+    "OBJECTID:OID",
+    "DCP_Name:String",
+    "Date:Date",
+    "SetbackType:String",
+    "Shape__Length:Double"
+   ],
+   "sample": [
+    {
+     "OBJECTID": 1,
+     "DCP_Name": "Sydney DCP 2012 - Enterprise Area Review",
+     "Date": 1664496000000,
+     "SetbackType": "10m Setback - Liveable Green Network",
+     "Shape__Length": 832.0364689940484
+    },
+    {
+     "OBJECTID": 2,
+     "DCP_Name": "Sydney DCP 2012 - Enterprise Area Review",
+     "Date": 1664496000000,
+     "SetbackType": "Liveable Green Network var. width",
+     "Shape__Length": 194.0522235406758
+    },
+    {
+     "OBJECTID": 3,
+     "DCP_Name": "Sydney DCP 2012 - Enterprise Area Review",
+     "Date": 1664496000000,
+     "SetbackType": "Liveable Green Network var. width",
+     "Shape__Length": 61.90940914184056
+    }
+   ]
+  },
+  "16": {
+   "name": "SDCP 2012 – Specific sites",
+   "count": 50,
+   "fields": [
+    "OBJECTID:OID",
+    "DCP_Name:String",
+    "Date:Date",
+    "Section:String",
+    "SiteName:String",
+    "Shape__Area:Double",
+    "Shape__Length:Double"
+   ],
+   "sample": [
+    {
+     "OBJECTID": 2,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1387238400000,
+     "Section": "6.3.1",
+     "SiteName": "87 Bay Street, Glebe",
+     "Shape__Area": 5427.3184814453125,
+     "Shape__Length": 356.3388657398837
+    },
+    {
+     "OBJECTID": 3,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1355443200000,
+     "Section": "6.1.4",
+     "SiteName": "APDG",
+     "Shape__Area": 18194.190795898438,
+     "Shape__Length": 539.9721729331446
+    },
+    {
+     "OBJECTID": 4,
+     "DCP_Name": "Sydney DCP 2012",
+     "Date": 1402617600000,
+     "Section": "6.1.12",
+     "SiteName": "AMP Circular Quay Precinct",
+     "Shape__Area": 12820.381958007812,
+     "Shape__Length": 551.3536755269902
+    }
+   ]
+  }
+ }
+}
