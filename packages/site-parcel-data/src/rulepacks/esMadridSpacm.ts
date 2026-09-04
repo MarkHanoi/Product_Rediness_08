@@ -141,6 +141,31 @@ export const CM_SPACM_JURISDICTION_ID = 'es-md-comunidad-madrid';
  * the second blocker above (`jurisdictionSpecificity.test.ts`'s centre invariant) is untouched by
  * any of this, and `CM_SPACM_ENVELOPE_VERIFIED` is still false so nothing would publish anyway.
  * What changed is that the evidence is now on disk instead of being an argument.
+ *
+ * ── TWO MORE LAYERS ASKED FOR, AND THE ANSWERS ARE OPPOSITE ────────────────────────────────────
+ * `GetCapabilities` on the same endpoint, read 2026-09-04: **408 published layers**.
+ *
+ * ⛔ **`alineaciones` — THE COMUNIDAD DE MADRID PUBLISHES NONE. Measured: `grep -ic alinea` over the
+ * 436 KB capabilities document returns ZERO.** The whole `sitcm:VPLA_V_*` planning family is
+ * `AMBITO · AMBITO_MODIF · AMBITO_LIMITE_SQL · CLASIFICACION · ORDENANZA · RED · RED_TIPO` (each with
+ * `_MODIF` and `_REF_19/23/25` variants) — zones, ámbitos and public networks, no building line.
+ * ⚠ This is a REFUSAL WITH A DENOMINATOR, not a failure to look: the region's ordinance rows carry
+ * `NM_RTR_FRNT/LATL/POST` (setback distances FROM the parcel boundary), which is a different rule
+ * kind from an alignment published as GEOMETRY. Where the legal building line IS published as
+ * geometry in Spain it is municipal and bespoke — València's `MapServer/212`
+ * (`esValenciaAlineaciones.ts`, still blocked on `VALENCIA_R5_ASK`) — and `Murcia:pgou_alineaciones`
+ * is MISLEADINGLY NAMED (a calificación POLYGON layer, not a line; see ES-SIPU-PARAMETER-CROSSMAP.md).
+ * ⇒ There is no regional alineaciones seam to add here, and inventing one from the setback columns
+ * would be the substitution `esValenciaAlineaciones.ts`'s own header forbids.
+ *
+ * ⭐ **`development_status` — ALREADY IN HAND, twice.** It is published BOTH as its own layer
+ * (`sitcm:VPLA_V_CLASIFICACION`, + `_MODIF` and three `_REF_*` vintages) AND as `DS_CLAS_SUE` on the
+ * ordinance row this adapter already reads — `adaptSpacmRow` binds it to `soilClass` and puts it on
+ * `zoningCode.soilClass`. Measured on the 80 real parcels above: Boadilla **Suelo Urbano Consolidado
+ * × 37 · No Consolidado × 2**; Colmenar **Suelo Urbano × 27**. No new fetch is needed; what is
+ * missing is a CANONICAL SEAT — `ZoningRule` has no `developmentStatus` member (grep: 0 hits in
+ * `packages/schemas/src`), so the value rides as a string on the zoning code rather than as a typed
+ * field a consumer can route on. That is a schema amendment, named here, not minted by this lane.
  */
 export const CM_SPACM_REGISTRATION_BLOCKED = true as const;
 
