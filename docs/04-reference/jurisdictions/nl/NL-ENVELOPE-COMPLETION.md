@@ -1,8 +1,17 @@
 # NL — envelope completion status
 
-> **Stamp** 2026-09-04 · **Source** lane ENVELOPE-NLDK primary measurement (Phase 0 M1–M6;
-> commits `d0498f8b`, `8bbbf67c`, and code swept into `3b0afbb5` / `5d88c841`) · **Pattern**
-> identical across all 16 jurisdiction dossiers.
+> **Stamp** 2026-09-04 (**round 4**) · **Source** lane ENVELOPE-NLDK primary measurement (Phase 0
+> M1–M6; commits `d0498f8b`, `8bbbf67c`, code swept into `3b0afbb5` / `5d88c841`, then the founder's
+> 8 moves in `a5e1a864`, `dd279349`, `cb2a6185` and round 4) · **Pattern** identical across all 16
+> jurisdiction dossiers.
+>
+> ⭐ **ROUND-4 CORRECTION, AND IT IS THE POINT OF THIS REVISION.** §3 below is written against the
+> state BEFORE the founder's review was implemented. **Seven of the eight moves have since landed in
+> code, and this document did not move with them** — including blocker 8, whose `not-verified`
+> question was ANSWERED in round 3 inside a source constant no reader of this dossier ever opens.
+> ⛔ *An answer that lives only in a source file has not been delivered.* Every §3 row now carries
+> its **as-built** state; the prose kept above each row is the pre-review reading, retained so the
+> delta is visible rather than erased.
 >
 > ⛔ **Every number here is MEASURED and names its method.** Where a figure was never measured the
 > cell says `not-measured`. Read §1.1 before quoting any single percentage — **NL has no one
@@ -69,11 +78,73 @@ raw AHN elevation. Corrected offline from stored texts; **no re-measurement was 
 "any roof".** The rule exists and is written down; it is unparsed. Calling that a *gap* would
 slander the Dutch planning system; calling it *determined* would invent a triangle.
 
-### §1.6 — M6 · legacy split — an OPEN QUESTION, not a coverage claim
+### §1.6 — M6 · legacy split — the SHAPE is now answered; the VOLUME is still open
 
 **Zero Omgevingsplan / IMOW instruments observed.** The 26–31 % "dated ≥ 2024" figure is a **DATE,
 not an instrument type**. This sample **cannot distinguish** a genuinely small IMOW corpus from one
-served behind the key-gated DSO. **Recorded as an open question.**
+served behind the key-gated DSO. **The volume question stays OPEN — every DSO data plane answers 401.**
+
+⭐ **What is NO LONGER open is the shape of the corpus**, and it explains the zero:
+[`NL-DSO-TIJDELIJK-DEEL-VERDICT.md`](NL-DSO-TIJDELIJK-DEEL-VERDICT.md) establishes from three public
+OpenAPI documents that the tijdelijk deel is **SPLIT** — the **bruidsschat** is a *tijdelijk
+regelingdeel* served by **Ozon / Presenteren v8**, while the **old bestemmingsplannen** are IMRO/Wro
+and served by **ruimtelijkeplannen.nl**. Our sample read the second and not the first, so *"zero IMOW
+observed"* measures **which API we queried**, not what the Netherlands publishes. ⚠ It is therefore
+**not** evidence of a small IMOW corpus, and must never be quoted as such.
+
+### §1.8 — ⭐ M7 · `nokhoogte` in TEXT — the founder asked; it does **NOT** track `dakhelling`
+
+The founder's §5: *"⚠ Measure `nokhoogte` in TEXT too. We report the structured zero but not the text
+share; **if it tracks `dakhelling`, the two together close a lot of triangles.**"*
+
+**Measured** (`findings/nl-phase0/nl-nokhoogte-probe.mjs` → `.json`, seed `20260903`, **60 plans
+drawn of 322 governing, 53 fetched keylessly**, detector = parameter name + a number **in its own
+unit** within 120 chars, windows stored VERBATIM):
+
+| parameter, in plan TEXT | share of fetched plans |
+|---|---|
+| `bouwhoogte` | **43.4 %** (23/53) |
+| `goothoogte` | **32.1 %** (17/53) |
+| `dakhelling` | **20.8 %** (11/53) |
+| **`nokhoogte`** | **7.5 %** (4/53) |
+
+⭐ **The answer is NO, and the reason is sharper than the question.** `nokhoogte AND dakhelling` =
+**0 / 53 = 0.0 %**. They are not complements that stack — they are **ALTERNATIVE DRAFTING
+CONVENTIONS**: a plan fixes the top with a ridge height *or* with a pitch, and in this sample never
+with both. So *"the two together"* closes nothing extra; what closes a roof is **an eaves plane plus
+either one**:
+
+| the closing combination | share |
+|---|---|
+| `goothoogte` **AND** (`nokhoogte` **OR** `dakhelling`) | **24.5 %** (13/53) |
+| `goothoogte` AND `bouwhoogte`, neither nok nor helling (a slab, no roof form) | 7.5 % (4/53) |
+| **none of the four** | **56.6 %** (30/53) |
+
+Binned into the runtime's own `NlRoofBoundType` (§3 item 1), the sample is:
+**`none` 30 · `section-closed-by-pitch` 10 · `prism-upper-bound` 6 · `roof-zone-slab` 4 ·
+`closed-by-ridge` 3** — ⭐ **`UNDERDETERMINED` is not the edge case, it is 43 of 53 plans**, which is
+M5's product decision measured a second way and from a different corpus.
+
+> ⚠ **FOUR LIMITATIONS, FOUND BY READING THE WINDOWS THIS RUN PRODUCED — not predicted by the
+> detector's author — and carried in the artefact as `knownDetectorLimitations`:**
+> **(a)** a *begripsbepaling* that carries numbers is counted (one plan hits on its own definition of
+> `kap`), so `dakhelling` is an **upper bound** on plans that SET a pitch; **(b)** a relative rule
+> ("0,5 m onder de nokhoogte van de dakopbouw") counts as a `nokhoogte`, so **7.5 % is itself an
+> upper bound** and the true share is lower; **(c)** the unit is **per plan, not per bestemming**, so
+> every figure is ≥ the parcel-level share; **(d)** ⛔ **20.8 % is NOT a correction of Phase 0's
+> 28.8 %** — different sample, and a **stricter** detector that demands a number in degrees. Reporting
+> it as a correction would be the defect this dossier keeps documenting.
+
+### §1.7 — ⭐ ONE DISCOVERY CALL REACHES BOTH HALVES
+
+`POST /documenten/_zoek` on **Omgevingsinformatie Ontsluiten v2** takes a **GeoJSON geometry** and a
+date and returns **OW documents and IMRO documents in one list**, each carrying the metadata block
+that says which world it belongs to (`omgevingsdocumentMetadata` vs `imroDocumentMetadata`) — the
+API's own words: *"om te kunnen zoeken naar zowel omgevingsdocumenten in het kader van de
+Omgevingswet (OW), als IMRO-documenten (bestemmingsplannen en dergelijke) in het kader van de Wet op
+de Ruimtelijke Ordening (Wro)."* Only **retrieval** is split, and **both APIs take the same
+`x-api-key` from the same ontwikkelaarsportaal**. Encoded as
+`packages/site-parcel-data/src/rulepacks/nlTijdelijkDeel.ts` (`routeNlDocument`).
 
 ---
 
@@ -115,25 +186,108 @@ served behind the key-gated DSO. **Recorded as an open question.**
 - **1. Roof geometry is structurally absent — `not-built` / `pdf`.** 0 of 556 structured
   `dakhelling`/`nokhoogte`; co-occurrence of the two height limits **1/500**. ⭐ The consequence is a
   **product decision, not a bug**: `UNDERDETERMINED` must be a first-class, shippable output.
+  > ✅ **AS BUILT (move 5, `a5e1a864`).** `nlRoofDeterminacy.ts` ships `UNDERDETERMINED` with an
+  > explicit **`NlRoofBoundType`** — and it carries **seven** shapes, not the founder's three:
+  > `prism-upper-bound` (a cap and no eaves plane) · `eaves-plane-no-top` (**bounded eaves, NO top —
+  > nothing may be drawn above it**) · `roof-zone-slab` · `section-closed-by-pitch` ·
+  > `closed-by-ridge` · `determined` · `none`. `describeNlRoofBoundType()` gives each one line a user
+  > sees, and `none` is explicitly *"not unlimited"* (L-616). **What remains is the plan-text leg
+  > (§3 item 7 below), not the output shape.**
 - **2. `peil` is unresolved on ~70 % of plans — `semantic`.** 30.3 % resolvable across **17 distinct
   definitions**. ⛔ **`peil = AHN elevation` is not expressible in the shipped model, by design** —
   evidence must name its reference class.
+  > ✅ **AS BUILT (move 6, `cb2a6185`).** `nlPeilCatalogue.ts` carries the definitions of the
+  > seed-`20260903` sample **QUOTED as a closed set** (**18** distinct, not 17 — the count moved when
+  > they were quoted rather than counted), plus the `begripsbepaling` extractor. ⚠ The
+  > **Stelselcatalogus finding is the load-bearing one**: `peil` has **no** national concept, while
+  > `straatpeil` does — so the normalisation anchor is `straatpeil`, and a plan's own `peil` stays a
+  > per-plan classification. **Still open: the classifier's accuracy over the corpus.**
 - **3. `inhoud` (volumetric cap) — ⚠ label DISPUTED, probably a SAMPLING ARTEFACT.** 0 of 556.
   `inhoud hoofdgebouw maximaal 650 m³` is a real and common construction — but characteristically a
   **rural / *buitengebied*** rule, which a tile- or parcel-uniform national sample can easily miss
   while it stays routine where it appears. ⛔ **Probe `bestemming` = agrarisch / wonen in buitengebied
   before concluding absence.** It is a **D1-equivalent volumetric cap**, so getting it wrong in the
   same direction as the withdrawn French D1 claim would be an unfortunate rhyme.
+  > ⭐ **MEASURED, AND THE FOUNDER WAS RIGHT (move 4, `nl-inhoud-probe.json`, 2026-09-04).** Targeted
+  > probe over **322 distinct governing plans**, stratified `buitengebied` (171) vs control (151),
+  > **73 plan texts fetched keylessly** from `ruimtelijkeplannen.nl/documents/…`, detector = an
+  > `inhoud` token followed within 160 chars by a number + `m³|m3|kubieke meter`, **windows stored
+  > VERBATIM, no interpretation**:
+  >
+  > | stratum | plans with a cubic `inhoud` rule |
+  > |---|---|
+  > | **buitengebied** | **9 / 37 = 24.3 %** |
+  > | control | 3 / 36 = 8.3 % |
+  >
+  > Values observed: **750 m³ (×4)**, 50 (×3), 900, 2500, 300, 100, 30 in buitengebied.
+  > ⛔ **So "0 of 556" is a LAYER artefact, not an absence** — `inhoud` is a real, common rule that
+  > lives in plan **TEXT** and is not published as a structured field. The correct label is
+  > **`pdf`/text-leg**, never `missing-source`. Getting this wrong in the same direction as the
+  > withdrawn French D1 claim was the risk; it did not happen.
 - **4. F1 concentrates in residential — `not-built`.** 26 land + 49 urban, `wonen` 42. **A plan
   governs and serves no envelope mechanism — precisely where users develop.**
+  > ✅ **AS BUILT (move: founder §8, `a5e1a864`).** `nlF1Guard.ts` refuses to record F1 until the two
+  > cheaper explanations are excluded: **(a)** the operative rule may be the **bruidsschat** (arts.
+  > 22.27 / 22.36 — national, identical everywhere, arriving automatically in every omgevingsplan),
+  > **(b)** a **wijzigingsbesluit** may have added one. ⭐ Either way the state is `not-built`
+  > (*mechanism present, in a layer we do not read*), **not F1**. Since F1 is defined as a CORRECT
+  > NULL, misclassifying here is the expensive direction, and the guard exists to stop it.
 - **5. `bebouwingspercentage` denominator — `semantic`, NOT BUILT.** Some plans measure against the
   `bouwvlak`, others the `(bouw)perceel`. The record of which was **not built this lane**.
+  > ✅ **AS BUILT (move 3, `a5e1a864`).** `nlBebouwingspercentage.ts` makes the denominator a
+  > **REQUIRED field with NO DEFAULT** — a percentage whose denominator is unresolved is
+  > `unrecovered`, never silently applied against the parcel. This was the founder's "cheap fix, real
+  > value" and it is the one that prevents a **scale** error rather than a rounding one.
 - **6. `voorrangsregeling` — `precedence`, NOT BUILT.** Distinct from intersecting constraints;
   implementing only the intersection produces **silent wrong answers**.
+  > ✅ **AS BUILT (move 2, `cb2a6185` + round 4).** `nlVoorrangsregels.ts` applies precedence BEFORE
+  > answering; `nlRegelingIdentity.ts` makes the precedence state **inseparable from every answer**
+  > (`NlPrecedenceCheck` has THREE states — *not checked* ≠ *checked, none apply*), and
+  > `nlPrecedenceRiskCount()` counts the founder's *"correctness risk on parcels we answer
+  > confidently"*. Round 4 adds `nlTijdelijkDeel.ts`: **reading ONE half of the tijdelijk deel is NOT
+  > half-checked, it is NOT CHECKED**, and the unread half is named in the caveat.
+  > ⛔ **What does NOT collapse:** the DSO exposes **no `voorrang` relation**. `Regeling.conditie`
+  > — *"De verhouding is tussen dit tijdelijk deel en de hoofdregeling"* — is **free text**, so the
+  > residue of move 2 is a **classifier over a string**, and `NL_CONDITIE_PATTERNS` is deliberately
+  > **EMPTY** until a corpus is read with a key. ⚠ `unclassified` is **not** "subordinate".
 - **7. Vergunningvrij carve-outs — `not-built`.** Permit-free rights **subtract** on monuments and in
   *beschermd stadsgezicht*. Carve-outs were to be built **before** the general case; neither is built.
+  > ✅ **AS BUILT, AND RE-SCOPED (move 8, `a5e1a864` + `cb2a6185`).** The paragraph above targets the
+  > **Wabo/Bor** regime, and **bijlage II Bor lapsed 2024-01-01** — the founder's §4. `nlVergunningvrij.ts`
+  > is scoped onto the successor: the **Bbl art. 2.29 national floor**, **art. 2.30 lid 1–3**
+  > disapplication (monument / `functieaanduiding rijksbeschermd stads- of dorpsgezicht` **queryable in
+  > IMOW**, not an external heritage dataset), and the **bruidsschat**'s own arts. 22.27 / 22.36.
+  > `nlBebouwingsgebied.ts` implements art. 22.36 as **procedural geometry** (move: the deep audit's
+  > Gap 3) — the IPLO achtererfgebied construction as half-planes, the three-band oppervlakte formula,
+  > and the **4 m switch**: within 4 m a 5 m cap; beyond it `dakvoet ≤ 3 m`, **≥ 2 schuine dakvlakken
+  > ≤ 55°**, and `daknok = min(5, 0.47 × afstand + 3)`. ⛔ **The gemeente now sets vergunningvrij for
+  > *bijbehorende bouwwerken*, so the carve-out layer is national floor + per-plan overlay — never one
+  > static table.**
 - **8. Omgevingsplan / DSO reachability — `credential-gated`, UNRESOLVED.** Zero IMOW observed; the
   DSO is key-gated. ⛔ **This is an open question, not a measured absence.**
+  > ⭐ **ANSWERED for SHAPE (round 3 in code, round 4 in this dossier) — see
+  > [`NL-DSO-TIJDELIJK-DEEL-VERDICT.md`](NL-DSO-TIJDELIJK-DEEL-VERDICT.md).** The tijdelijk deel is
+  > **SPLIT** across Ozon (bruidsschat) and ruimtelijkeplannen.nl (the old bestemmingsplannen); **one
+  > credential and one discovery call reach both** (§1.7). ⛔ **STILL UNRESOLVED for VOLUME:** every
+  > data plane is **401** and **no `DSO_API_KEY` exists in this environment**. It is a **free
+  > registration a HUMAN must complete** at `developer.omgevingswet.overheid.nl` — engineering cannot
+  > close it, and this lane did not fake it. **This is the single blocking dependency for M6.**
+
+- **9. ⭐ APPLICABILITY WAS BEING READ AS INTERSECTION — `semantic`, the deep audit's Gap 1.** Not on
+  the founder's 8-move list, and it is the same *shape* as move 2: **a correctness risk on answers we
+  already give**, not a missing feature on parcels we skip. `parcel intersects rule geometry → rule
+  applies` is **wrong**; a rule resolves on **location + activity + subject + rule-scope + authority +
+  effective-date + exceptions**.
+  > ✅ **AS BUILT (round 4) — `nlApplicability.ts`.** All seven axes carry **three** verdicts
+  > (`satisfied` / `not-satisfied` / `not-evaluated`), and **there is NO path from a subset to
+  > `applies`**: a polygon hit and nothing else returns `undetermined` with `intersectionOnly: true`
+  > and the six unchecked axes named. One refuting axis settles `does-not-apply` — which projects to
+  > **`refused` / `rule-not-applicable` (F2, a CORRECT absence)**, never to our gap.
+  > ⚠ The asymmetry is the design: a rule wrongly applied **invents a constraint** on someone's land;
+  > a rule wrongly disapplied **invents an entitlement**. Both are silent.
+  > ⛔ **Still key-gated:** the axes are fed by **Toepasbaar Opvragen v7**, whose data plane answers
+  > **401**. `NL_APPLICABILITY_SOURCES` records the endpoint per axis and that **none is reachable
+  > today** — which is why `not-evaluated` is a verdict rather than an optimistic default.
 
 ---
 
@@ -164,13 +318,23 @@ served behind the key-gated DSO. **Recorded as an open question.**
 
 ## §5 — Next measurable step
 
-**Two, in this order.**
+⛔ **ONE OF THESE IS NOT ENGINEERING, AND IT BLOCKS THE OTHER TWO.**
 
-1. **Ship `UNDERDETERMINED` as a first-class output** and render permissible *bounds* rather than a
-   shape. M5 says this is the main path; the code already refuses to draw a triangle (§15 fixture).
-2. **Build the plan-text leg for roof rules** — `dakhelling` sits in **28.8 %** of plan text and
-   **0 %** of structured fields. That gap is the measurable prize, and it is the same shape as the
-   French `pdf` finding.
+1. ⛔ **A HUMAN MUST REGISTER FOR `DSO_API_KEY`** at `developer.omgevingswet.overheid.nl`
+   (ontwikkelaarsportaal — free, `x-api-key`, 200 req/s). The same key reaches **Presenteren v8**,
+   **Ruimtelijke Plannen v4**, **Ontsluiten v2** and the **Catalogus**. Until it exists, M6 has no
+   number, `conditie` has no corpus, and every NL answer keeps the caveat *"as at the tijdelijk deel,
+   overrides not checked"*. **No amount of code closes this.** *(The same is true of Denmark's free
+   `DATAFORDELER_USERNAME` / `DATAFORDELER_PASSWORD` — see `../dk/DK-ENVELOPE-COMPLETION.md` §3.1.)*
+2. **Build the plan-text leg for roof rules, zone-scoped** — roof rules cluster in the `bouwregels`
+   of a bestemming, and §1.8 now sizes the prize precisely: **24.5 % of plans carry an eaves plane
+   plus a ridge-or-pitch** and would close, against **0 %** structured. ⚠ **Extract BOTH conventions**
+   — `nokhoogte` and `dakhelling` never co-occur (§1.8), so a leg that reads only one silently drops
+   the plans drafted the other way.
+3. **Classify `conditie`** — the residue of move 2, and it needs (1) first.
+
+> ✅ *"Ship `UNDERDETERMINED` as a first-class output"* was step 1 of the previous revision. **It is
+> shipped** — `NlRoofBoundType`, seven shapes, each with the one line a user sees (§3 item 1).
 
 ---
 
@@ -178,10 +342,18 @@ served behind the key-gated DSO. **Recorded as an open question.**
 
 - `aantal bouwlagen`, setbacks, `bouwdiepte`, overlay classification — **not measured**.
 - The **F1/F2 split of the no-plan parcels was not completed** for NL's counterpart set.
-- `bebouwingspercentage` denominator, `inhoud` volumetric test, `voorrangsregeling`, vergunningvrij
-  carve-outs and `nlMolenbiotoop.ts` were **explicitly refused this lane**, with causes recorded in
-  the findings doc — not silently skipped.
-- **M6 cannot separate a small IMOW corpus from a key-gated one.** Open question.
+- ✅ **`nokhoogte` in TEXT is MEASURED** (§1.8): **7.5 %**, and it does **not** track `dakhelling`
+  (co-occurrence **0.0 %**). ⚠ Both figures are **upper bounds** for the reasons the artefact records.
+- **M6 cannot separate a small IMOW corpus from a key-gated one.** ⭐ **The SHAPE is now answered**
+  (§1.6 / §1.7); the **volume** stays open behind `DSO_API_KEY`.
+- ⛔ **What `conditie` strings actually say is unknown**, and `NL_CONDITIE_PATTERNS` is deliberately
+  empty rather than plausibly populated. A guessed pattern table would be the 10× `peil` error again.
+- ⭐ **NOT a gap any more, and listed here because the previous revision said it was:**
+  `bebouwingspercentage` denominator, the `inhoud` volumetric probe, `voorrangsregeling`,
+  vergunningvrij (**re-scoped onto Bbl 2.29/2.30 — the old scope targeted a REPEALED regime**), the
+  bruidsschat's procedural art. 22.36 geometry, `peil` as a closed enum, the DSO cross-check, and the
+  roof **bound-type** field have all landed. `nlMolenbiotoop.ts` remains **deliberately unbuilt** —
+  §7 shows the existing `geometry/inclinedTop.ts` primitive covers it.
 
 ---
 

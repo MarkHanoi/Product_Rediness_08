@@ -1,0 +1,28 @@
+peil: 200 | 45 concepts | exact 0
+straatpeil: 200 | 1 concepts | exact 1
+maaiveld: 200 | 6 concepts | exact 0
+bouwhoogte: 200 | 4 concepts | exact 2
+goothoogte: 200 | 3 concepts | exact 1
+nokhoogte: 200 | 0 concepts | exact 0
+daknok: 200 | 1 concepts | exact 1
+dakvoet: 200 | 1 concepts | exact 1
+bouwlaag: 200 | 5 concepts | exact 3
+dakhelling: 200 | 4 concepts | exact 2
+achtererfgebied: 200 | 2 concepts | exact 1
+bebouwingsgebied: 200 | 1 concepts | exact 1
+voorerfgebied: 200 | 2 concepts | exact 1
+hoofdgebouw: 200 | 27 concepts | exact 2
+oorspronkelijk hoofdgebouw: 200 | 0 concepts | exact 0
+bijbehorend bouwwerk: 404 | 50 concepts | exact 0
+openbaar toegankelijk gebied: 200 | 11 concepts | exact 1
+erf: 404 | 50 concepts | exact 0
+gebouwerf: 200 | 2 concepts | exact 2
+bouwvlak: 200 | 1 concepts | exact 1
+bouwperceel: 200 | 1 concepts | exact 0
+bebouwingspercentage: 200 | 4 concepts | exact 2
+bouwwerk: 404 | 50 concepts | exact 0
+gebouw: 404 | 50 concepts | exact 0
+omgevingsplanactiviteit: 404 | 50 concepts | exact 0
+bouwactiviteit: 404 | 50 concepts | exact 0
+voorgevelrooilijn: 200 | 0 concepts | exact 0
+perceelsgrens: 200 | 0 concepts | exact 0

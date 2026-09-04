@@ -1,0 +1,1264 @@
+{
+  "generatedAt": "2026-09-04T14:47:49.392Z",
+  "lane": "ENVELOPE-NLDK round 4",
+  "question": "founder review §11: is the tijdelijk deel served through Ozon/Presenteren?",
+  "dsoApiKeyPresent": false,
+  "specs": [
+    {
+      "id": "presenteren-v8",
+      "url": "https://service.omgevingswet.overheid.nl/publiek/omgevingsdocumenten/api/presenteren/v8/openapi.json",
+      "status": 200,
+      "bytes": 273122,
+      "contentType": "application/json",
+      "title": "Omgevingsdocumenten Presenteren",
+      "version": "8.5.2",
+      "schemaCount": 214,
+      "terms": {
+        "tijdelijkDeelVan": [
+          {
+            "schema": "RegelingLinks",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "tijdelijkDeelVan"
+            ],
+            "definition": "{\"title\":\"RegelingLinks\",\"required\":[\"annotaties\",\"documentstructuur\",\"self\"],\"type\":\"object\",\"properties\":{\"self\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"annotaties\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgers\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"tijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"ontwerpTijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}}}}"
+          },
+          {
+            "schema": "RegelingOnderwerpenLinks",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "tijdelijkDeelVan"
+            ],
+            "definition": "{\"title\":\"RegelingOntwerpenLinks\",\"required\":[\"documentstructuur\",\"regeling\"],\"type\":\"object\",\"properties\":{\"regeling\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"}}}"
+          }
+        ],
+        "tijdelijkDelen": [
+          {
+            "schema": "RegelingLinks",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "tijdelijkDelen",
+              "ontwerpTijdelijkDelen"
+            ],
+            "definition": "{\"title\":\"RegelingLinks\",\"required\":[\"annotaties\",\"documentstructuur\",\"self\"],\"type\":\"object\",\"properties\":{\"self\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"annotaties\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgers\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"tijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"ontwerpTijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}}}}"
+          }
+        ],
+        "TijdelijkDeel": [
+          {
+            "schema": "RegelingLinks",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "tijdelijkDeelVan"
+            ],
+            "definition": "{\"title\":\"RegelingLinks\",\"required\":[\"annotaties\",\"documentstructuur\",\"self\"],\"type\":\"object\",\"properties\":{\"self\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"annotaties\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgers\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"tijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"ontwerpTijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}}}}"
+          },
+          {
+            "schema": "RegelingOnderwerpenLinks",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "tijdelijkDeelVan"
+            ],
+            "definition": "{\"title\":\"RegelingOntwerpenLinks\",\"required\":[\"documentstructuur\",\"regeling\"],\"type\":\"object\",\"properties\":{\"regeling\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"}}}"
+          }
+        ],
+        "iMROPlanidentificatie": [],
+        "voorrang": [],
+        "Voorrang": [],
+        "regelingtype": [
+          {
+            "schema": "RegelingType",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"RegelingType\",\"type\":\"string\",\"description\":\"Type regeling uit de limitatieve waardelijst https://gitlab.com/koop/STOP/standaard/-/blob/1.3.0/waardelijsten/soortregeling.xml\",\"example\":\"/join/id/stop/regelingtype_001\"}"
+          }
+        ],
+        "RegelingType": [
+          {
+            "schema": "RegelingType",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"RegelingType\",\"type\":\"string\",\"description\":\"Type regeling uit de limitatieve waardelijst https://gitlab.com/koop/STOP/standaard/-/blob/1.3.0/waardelijsten/soortregeling.xml\",\"example\":\"/join/id/stop/regelingtype_001\"}"
+          }
+        ],
+        "ontwerp": [
+          {
+            "schema": "OntwerpregelingenSort",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"OntwerpregelingenSort\",\"type\":\"string\",\"enum\":[\"identificatie\",\"-identificatie\",\"registratietijdstip\",\"-registratietijdstip\"]}"
+          },
+          {
+            "schema": "Ontwerpregelingen",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Ontwerpregelingen\",\"required\":[\"_embedded\",\"_links\",\"page\"],\"type\":\"object\",\"properties\":{\"_embedded\":{\"title\":\"OntwerpregelingenEmbedded\",\"required\":[\"ontwerpregelingen\"],\"type\":\"object\",\"properties\":{\"ontwerpregelingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Ontwerpregeling\"}}}},\"_links\":{\"$ref\":\"#/components/schemas/HalPaginationLinks\"},\"page\":{\"$ref\":\"#/components/schemas/Page\"}}}"
+          },
+          {
+            "schema": "Ontwerpregeling",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Ontwerpregeling\",\"type\":\"object\",\"description\":\"Een ontwerp tekst (met eventuele afbeeldingen en andere multimedia-elementen) die juridische voorschriften van algemene strekking of beleidsregels bevat.\",\"allOf\":[{\"$ref\":\"#/components/schemas/Omgevingsdocument\"},{\"required\":[\"geregistreerdMet\",\"ontwerpbesluitIdentificatie\",\"technischId\",\"type\"],\"type\":\"object\",\"properties\":{\"ontwerpbesluitIdentificatie\":{\"$ref\":\"#/components/schemas/StopIdentificatie\"},\"besluitMetadata\":{\"$ref\":\"#/components/schemas/BesluitMetadata\"},\"technischId\":{\"$ref\":\"#/components/schemas/TechnischId\"},\"expressionId\":{\"$ref\":\"#/components/schemas/StopIdentificatie\"},\"type\":{\"$ref\":\"#/components/schemas/SoortRegeling\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Ontwerpregistratiegegevens\"},\"opschrift\":{\"title\":\"opschrift\",\"type\":\"string\",\"description\":\"Het opschrift van de regeling. Deze dient overeen te komen met de officiële titel van de regeling.\"},\"citeerTitel\":{\"title\":\"citeerTitel\",\"type\":\"string\",\"description\":\"De titel van de regeling zoals deze wordt gebruikt in aanhalingen.\"},\"conditie\":{\"title\":\"conditie\",\"type\":\"string\",\"description\":\"De verhouding is tussen dit tijdelijk deel en de hoofdregeling.\"},\"heeftBijlagen\":{\"title\":\"heeftBijlagen\",\"type\":\"boolean\"},\"heeftToelichtingen\":{\"title\":\"heeftToelichtingen\",\"type\":\"boolean\"},\"isVervangRegeling\":{\"title\":\"isVervangRegeling\",\"type\":\"boolean\"},\"publicatieID\":{\"type\":\"string\",\"description\":\"Verwijzing naar het besluit dat ten grondslag heeft gelegen aan het ontwerpbesluit.\"},\"procedureverloop\":{\"$ref\":\"#/components/schemas/OntwerpProcedureverloop\"},\"_embedded\":{\"type\":\"object\",\"properties\":{\"ontwerpRegelingsgebied\":{\"$ref\":\"#/components/schemas/EmbeddedOntwerpLocatie\"},\"vastgesteldRegelingsgebied\":{\"$ref\":\"#/components/schemas/EmbeddedLocatie\"}}},\"_links\":{\"$ref\":\"#/components/schemas/OntwerpregelingLinks\"}}}]}"
+          },
+          {
+            "schema": "OntwerpregelingZoekobject",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"OntwerpregelingZoekobject\",\"type\":\"object\",\"properties\":{\"typeBevoegdGezag\":{\"minItems\":1,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/BevoegdGezagType\"}},\"bevoegdGezag\":{\"minItems\":1,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/BevoegdGezagCode\"}},\"typeRegeling\":{\"minItems\":1,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegelingType\"}},\"geometrie\":{\"$ref\":\"#/components/schemas/Geometry\"}},\"description\":\"Zoekobject voor specifieke ontwerpregelingen-bevragingen.\",\"example\":{\"typeBevoegdGezag\":[\"gemeente\",\"provincie\"],\"bevoegdGezag\":[\"gm0000\",\"pv0000\"],\"geometrie\":{\"type\":\"Point\",\"coordinates\":[139784,442870]},\"typeRegeling\":[\"/join/id/stop/regelingtype_001\",\"/join/id/stop/regelingtype_002\"]}}"
+          },
+          {
+            "schema": "DivisieannotatiesOntwerpRenvooi",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Annotaties en renvooi bij vrije-tekststructuur\",\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/AnnotatieOntwerpRenvooiLinks\"}},\"description\":\"Gestructureerde OW-objecten en beoogde wijzigingen (renvooi) bij een ontwerpregeling met vrije-tekststructuur.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij de vastgestelde regeling waar deze ontwerpregeling op gebaseerd is,\\nof alle objecten die horen bij een documentcomponent uit die vastgestelde regeling.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde documentcomponent, worden uitgeleverd. \\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen Tekstdeel heeft een relatie met een of meerdere locaties;\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit het Tekstdeel \\nnaar verwezen vanuit het 'locatieRefs' attribuut.\\n\\nDaarnaast is per objecttype aangegeven welke wijzigingen er beoogd zijn in de ontwerpregeling.\\nDit wordt gedaan in het attribuut '_delta'. Hierin wordt per object aangegeven welke toevoegingen,\\nwijzigingen, of verwijderingen de ontwerpregeling beoogt te doen.\\n\",\"allOf\":[{\"$ref\":\"#/components/schemas/DivisieannotatiesRenvooi\"}]}"
+          },
+          {
+            "schema": "RegeltekstannotatiesOntwerpRenvooi",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Annotaties en renvooi bij artikelstructuur\",\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/AnnotatieOntwerpRenvooiLinks\"}},\"description\":\"Gestructureerde OW-objecten en beoogde wijzigingen bij een ontwerpregeling met artikelstructuur.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij de vastgestelde regeling waar deze ontwerpregeling op gebaseerd is,\\nof alle objecten die horen bij een artikel of lid uit die vastgestelde regeling.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde artikel/lid, worden uitgeleverd.\\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen Tekstdeel heeft een relatie met een of meerdere locaties;\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit het Tekstdeel \\nnaar verwezen vanuit het 'locatieRefs' attribuut.\\n\\nDaarnaast is per objecttype aangegeven welke wijzigingen er beoogd zijn in de ontwerpregeling.\\nDit wordt gedaan in het attribuut '_delta'. Hierin wordt per object aangegeven welke toevoegingen,\\nwijzigingen, of verwijderingen de ontwerpregeling beoogt te doen.\\n\",\"allOf\":[{\"$ref\":\"#/components/schemas/RegeltekstannotatiesRenvooi\"}]}"
+          },
+          {
+            "schema": "OntwerpDocumentstructuur",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"required\":[\"_embedded\"],\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/OntwerpDocumentstructuurLinks\"},\"_embedded\":{\"required\":[\"ontwerpDocumentComponenten\"],\"type\":\"object\",\"properties\":{\"ontwerpDocumentComponenten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpDocumentComponent\"}}}}}}"
+          },
+          {
+            "schema": "OntwerpOnderwerpen",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "ontwerpregelingen"
+            ],
+            "definition": "{\"title\":\"OntwerpOnderwerpen\",\"required\":[\"ontwerpregelingen\"],\"type\":\"object\",\"properties\":{\"ontwerpregelingen\":{\"type\":\"array\",\"items\":{\"title\":\"OntwerpRegelingOnderwerpen\",\"required\":[\"_links\",\"technischId\"],\"type\":\"object\",\"properties\":{\"technischId\":{\"type\":\"string\"},\"beoogdeOpvolgerVan\":{\"type\":\"string\"},\"beoogdTijdelijkDeelVan\":{\"type\":\"string\"},\"gebiedsaanwijzingen\":{\"title\":\"OntwerpGebiedsaanwijzingOnderwerpen\",\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpGebiedsaanwijzingOnderwerp\"}},\"activiteiten\":{\"title\":\"OntwerpActiviteitOnderwerpen\",\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpActiviteitOnderwerp\"}},\"themas\":{\"title\":\"OntwerpThemasOnderwerpen\",\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpThemaOnderwerp\"}},\"_links\":{\"$ref\":\"#/components/schemas/OntwerpRegelingOnderwerpenLinks\"}}}}}}"
+          },
+          {
+            "schema": "RegelingLinks",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "ontwerpTijdelijkDelen"
+            ],
+            "definition": "{\"title\":\"RegelingLinks\",\"required\":[\"annotaties\",\"documentstructuur\",\"self\"],\"type\":\"object\",\"properties\":{\"self\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"annotaties\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgers\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"tijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"ontwerpTijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}}}}"
+          },
+          {
+            "schema": "Ontwerpregistratiegegevens",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Ontwerpregistratiegegevens\",\"required\":[\"tijdstipRegistratie\",\"versie\"],\"type\":\"object\",\"properties\":{\"versie\":{\"title\":\"versie\",\"type\":\"number\",\"example\":1},\"tijdstipRegistratie\":{\"title\":\"tijdstipRegistratie\",\"type\":\"string\",\"description\":\"Tijdstip waarop deze versie beschikbaar is bij Ozon. Deze versie is actief totdat er een nieuwe versie beschikbaar komt. Datumtijd in ISO 8601 formaat.\",\"format\":\"date-time\",\"example\":\"2022-04-12T23:20:50.52Z\"},\"eindRegistratie\":{\"title\":\"eindRegistratie\",\"type\":\"string\",\"description\":\"Tijdstip waarop een nieuwere versie beschikbaar is bij Ozon. Deze versie is vanaf dit moment niet meer actief. Datumtijd in ISO 8601 formaat.\",\"format\":\"date-time\",\"example\":\"2022-04-12T23:20:50.52Z\"}},\"description\":\"Een informatieobject dat de tijdslijnen en versie van een ontwerpobject beschrijft\"}"
+          },
+          {
+            "schema": "OntwerpProcedureverloop",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Procedureverloop\",\"type\":\"object\",\"properties\":{\"bekendOp\":{\"title\":\"bekendOp\",\"type\":\"string\",\"description\":\"De datum waarop het ontwerp bekend is\"},\"ontvangenOp\":{\"title\":\"bekendOp\",\"type\":\"string\",\"description\":\"De datum waarop het ontwerp ontvangen is\"},\"procedurestappen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpProcedurestap\"}}},\"description\":\"De procedure die doorlopen is door deze ontwerpregeling.\"}"
+          },
+          {
+            "schema": "EmbeddedOntwerpLocatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "ontwerpbesluitIdentificatie"
+            ],
+            "definition": "{\"title\":\"OntwerpLocatie\",\"required\":[\"geregistreerdMet\",\"identificatie\",\"ontwerpbesluitIdentificatie\",\"technischId\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/StopIdentificatie\"},\"ontwerpbesluitIdentificatie\":{\"$ref\":\"#/components/schemas/StopIdentificatie\"},\"technischId\":{\"$ref\":\"#/components/schemas/TechnischId\"},\"geometrieIdentificatie\":{\"title\":\"identificatie van de geometrie\",\"type\":\"string\",\"description\":\"De unieke identificatie van de geometrie waar deze locatie naar verwijst.\",\"example\":\"4b46ca74-3840-4ce1-91b6-abf749802f6c\"},\"locatieType\":{\"$ref\":\"#/components/schemas/LocatieType\"},\"noemer\":{\"title\":\"noemer\",\"type\":\"string\",\"description\":\"Tekstuele beschrijving van een Locatie, zodat er als zodanig over deze locatie gesproken kan worden. De beschrijving kan een bepaalde naam zijn waaronder de Locatie bekend staat, maar (lang) niet elke Locatie heef een naam.\"},\"status\":{\"title\":\"status\",\"type\":\"string\",\"description\":\"Met deze status kan aangegeven aangegeven dat een OW-object beëindigd moet worden.\"},\"boundingBox\":{\"$ref\":\"#/components/schemas/BoundingBox\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Ontwerpregistratiegegevens\"},\"_embedded\":{\"type\":\"object\",\"properties\":{\"omvat\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/EmbeddedOntwerpLocatie\"}},\"omvatVastgesteld\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/EmbeddedLocatie\"}}}}},\"description\":\"Ontwerp Locatie met de boundingbox van de geometrie die bij deze locatie behoort\"}"
+          },
+          {
+            "schema": "OntwerpregelingLinks",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"OntwerpregelingLinks\",\"required\":[\"self\"],\"type\":\"object\",\"properties\":{\"self\":{\"$ref\":\"#/components/schemas/HalLink\"},\"annotaties\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgerVan\":{\"allOf\":[{\"$ref\":\"#/components/schemas/HalLink\"},{\"type\":\"object\",\"description\":\"Een HalLink die verwijst naar de vastgestelde regelingen die de ontwerpregeling beoogt op te volgen.\"}]}}}"
+          },
+          {
+            "schema": "AnnotatieOntwerpRenvooiLinks",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "ontwerpregeling"
+            ],
+            "definition": "{\"title\":\"AnnotatieRenvooiLinks\",\"required\":[\"documentstructuur\",\"ontwerpregeling\",\"self\"],\"type\":\"object\",\"properties\":{\"self\":{\"$ref\":\"#/components/schemas/HalLink\"},\"ontwerpregeling\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgerVan\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"}}}"
+          },
+          {
+            "schema": "OntwerpDocumentstructuurLinks",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "ontwerpregeling"
+            ],
+            "definition": "{\"required\":[\"afbeeldingenBasePath\",\"annotaties\",\"ontwerpregeling\",\"self\"],\"type\":\"object\",\"properties\":{\"self\":{\"$ref\":\"#/components/schemas/HalLink\"},\"regeling\":{\"allOf\":[{\"$ref\":\"#/components/schemas/HalLink\"},{\"type\":\"object\",\"description\":\"Deze property komt te vervallen, gebruik in plaats hiervan `ontwerpregeling`\",\"deprecated\":true}]},\"ontwerpregeling\":{\"$ref\":\"#/components/schemas/HalLink\"},\"annotaties\":{\"$ref\":\"#/components/schemas/HalLink\"},\"afbeeldingenBasePath\":{\"allOf\":[{\"$ref\":\"#/components/schemas/HalLink\"},{\"type\":\"object\",\"description\":\"Het absolute pad waaronder de afbeeldingen van het document gevonden kunnen worden. \\nDit pad kan gecombineerd worden met bestandsnamen van afbeeldingen afkomstig uit documentcomponenten om het bestand op te halen.\\n\"}]}}}"
+          },
+          {
+            "schema": "OntwerpDocumentComponent",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "bevatOntwerpInformatie"
+            ],
+            "definition": "{\"title\":\"OntwerpDocumentComponent\",\"required\":[\"expressie\",\"identificatie\",\"type\",\"volgordeNummer\"],\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/DocumentComponentLinks\"},\"identificatie\":{\"$ref\":\"#/components/schemas/WId\"},\"expressie\":{\"$ref\":\"#/components/schemas/EId\"},\"type\":{\"title\":\"type\",\"type\":\"string\"},\"volgordeNummer\":{\"title\":\"volgordeNummer\",\"type\":\"integer\"},\"inhoud\":{\"title\":\"inhoud\",\"type\":\"string\"},\"gereserveerd\":{\"title\":\"gereserveerd\",\"type\":\"string\",\"description\":\"Bevat een duiding of de document component gereserveerd is voor toekomstige invulling\"},\"vervallen\":{\"title\":\"vervallen\",\"type\":\"string\",\"description\":\"Bevat een duiding of de document component eerder inhoud bevatte die nu vervallen is\"},\"conditieArtikel\":{\"$ref\":\"#/components/schemas/ConditieArtikel\"},\"kop\":{\"title\":\"label als XML\",\"type\":\"string\"},\"bevatOntwerpInformatie\":{\"title\":\"bevatOntwerpInformatie\",\"type\":\"boolean\",\"description\":\"`true` als de property `bevatRenvooi` `true` is, of gekoppelde OW-objecten wijzigingen bevatten ten opzichte van de beoogde opvolger. \\n\\n*Deprecated:* Deze property komt te vervallen, de informatie kan opgehaald worden op basis van de `bevatRenvooi`-property en de `_refsBevattenDeltas`-property uit annotaties-endpoints.\\n\",\"deprecated\":true},\"bevatRenvooi\":{\"title\":\"bevatRenvooi\",\"type\":\"boolean\",\"description\":\"`true` als de documentcomponent wijzigingen bevat in de kop of inhoud, zoals inhoudelijke wijziging, of een toevoeging of verwijdering.\"},\"wijzigactie\":{\"type\":\"string\",\"enum\":[\"voegtoe\",\"verwijder\",\"nieuweContainer\",\"verwijderContainer\"]},\"_embedded\":{\"required\":[\"ontwerpDocumentComponenten\"],\"type\":\"object\",\"properties\":{\"ontwerpDocumentComponenten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpDocumentComponent\"}}}}},\"description\":\"DocumentComponent van een ontwerpregeling, zoals bedoeld in CIMOW. Let op: DocumentComponenten van het type 'Begrip' komen dubbel voor:  eerst in de inhoud van het bovenliggende DocumentComponent  en daarnaast als op zichzelf staand embedded DocumentComponent.  Wanneer Begrippen gepresenteerd moeten worden als onderdeel van de lopende tekst,  gebruik dan de inhoud van het bovenliggende DocumentComponent;  wanneer verwezen wordt naar een Begrip vanuit een andere locatie,  gebruik dan het embedded DocumentComponent.\\n\"}"
+          },
+          {
+            "schema": "OntwerpGebiedsaanwijzingOnderwerp",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"OntwerpGebiedsaanwijzingOnderwerp\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/GebiedsaanwijzingOnderwerp\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"GebiedsaanwijzingOnderwerpDelta\",\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerking\"},\"wijzigingen\":{\"title\":\"GebiedsaanwijzingOnderwerpDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"naam\":{\"type\":\"string\",\"example\":\"Leefmilieus\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd.\\n\"}}}}}]}"
+          },
+          {
+            "schema": "OntwerpActiviteitOnderwerp",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"OntwerpActiviteitOnderwerp\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitOnderwerp\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"ActiviteitOnderwerpDelta\",\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerking\"},\"wijzigingen\":{\"title\":\"ActiviteitOnderwerpDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"naam\":{\"type\":\"string\",\"example\":\"Activiteit die werelderfgoed betreft\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd. \\nSommige velden zijn aangemerkt als `nullable`. Een nullable veld met waarde `null` betekent dat het veld in de vastgestelde regeling aanwezig is, maar afwezig in de ontwerpregeling.\\n\"}}}}}]}"
+          },
+          {
+            "schema": "OntwerpThemaOnderwerp",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"OntwerpThemaOnderwerp\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ThemaOnderwerp\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"ThemaOnderwerpDelta\",\"required\":[\"bewerking\"],\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerkingToevoegenVerwijderen\"}}}}}]}"
+          },
+          {
+            "schema": "OntwerpRegelingOnderwerpenLinks",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "ontwerpregeling"
+            ],
+            "definition": "{\"title\":\"RegelingOntwerpenLinks\",\"required\":[\"documentstructuur\",\"ontwerpregeling\"],\"type\":\"object\",\"properties\":{\"ontwerpregeling\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgerVan\":{\"$ref\":\"#/components/schemas/HalLink\"}}}"
+          },
+          {
+            "schema": "OntwerpProcedurestap",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Procedurestap\",\"type\":\"object\",\"properties\":{\"soortStap\":{\"$ref\":\"#/components/schemas/OntwerpSoortStap\"},\"voltooidOp\":{\"title\":\"voltooidOp\",\"type\":\"string\",\"description\":\"De datum waarop het voltooid is.\"}},\"description\":\"\"}"
+          },
+          {
+            "schema": "OntwerpSoortStap",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"soortStap\",\"required\":[\"code\",\"waarde\"],\"type\":\"object\",\"properties\":{\"code\":{\"title\":\"code\",\"type\":\"string\"},\"waarde\":{\"title\":\"waarde\",\"type\":\"string\"}},\"description\":\"De verschillende soorten stappen zijn te vinden in [deze waardelijst](https://gitlab.com/koop/STOP/standaard/-/blob/1.3.0/waardelijsten/procedurestap_ontwerp.xml).\"}"
+          }
+        ],
+        "activiteit": [
+          {
+            "schema": "RegeltekstannotatiesVastgesteld",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "activiteiten"
+            ],
+            "definition": "{\"title\":\"Annotaties bij artikelstructuur op locatie\",\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/AnnotatieLinks\"},\"regelteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Regeltekst\"}},\"regelsVoorIedereen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegelVoorIedereen\"}},\"omgevingswaarderegels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Omgevingswaarderegel\"}},\"instructieregels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Instructieregel\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Gebiedsaanwijzing\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Locatie\"}},\"activiteiten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Activiteit\"}},\"omgevingsnormen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Norm\"}},\"omgevingswaarden\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Norm\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartRegeltekst\"}}},\"description\":\"Gestructureerde OW-objecten bij een regeling met artikelstructuur.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij een regeling, of alle objecten die horen bij een artikel of lid.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde artikel/lid, worden uitgeleverd.\\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen RegelVoorIedereen heeft een relatie met een of meerdere locaties (het werkingsgebied);\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit de RegelVoorIedereen \\nnaar verwezen vanuit het 'locatieRefs' attribuut.\\n\"}"
+          },
+          {
+            "schema": "RegeltekstannotatiesVastgesteldAtLocation",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "activiteiten"
+            ],
+            "definition": "{\"title\":\"Annotaties bij artikelstructuur op locatie\",\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/AnnotatieZoekLinks\"},\"regelteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Regeltekst\"}},\"regelsVoorIedereen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegelVoorIedereen\"}},\"omgevingswaarderegels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Omgevingswaarderegel\"}},\"instructieregels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Instructieregel\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Gebiedsaanwijzing\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Locatie\"}},\"activiteiten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Activiteit\"}},\"omgevingsnormen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Norm\"}},\"omgevingswaarden\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Norm\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartRegeltekst\"}},\"geselecteerdeLocatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}},\"description\":\"Gestructureerde OW-objecten bij een regeling met artikelstructuur en een geo-zoekvraag.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij een regeling én een geo-zoekvraag, of alle objecten die horen bij een artikel of lid én een geo-zoekvraag.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde artikel/lid, worden uitgeleverd.\\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen RegelVoorIedereen heeft een relatie met een of meerdere locaties (het werkingsgebied);\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit de RegelVoorIedereen \\nnaar verwezen vanuit het 'locatieRefs' attribuut.\\n\"}"
+          },
+          {
+            "schema": "RegelVoorIedereen",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "activiteitLocatieaanduidingen"
+            ],
+            "definition": "{\"title\":\"RegelVoorIedereen\",\"type\":\"object\",\"properties\":{\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"activiteitLocatieaanduidingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduiding\"}}},\"allOf\":[{\"$ref\":\"#/components/schemas/RegelVoorIedereenSpec\"}]}"
+          },
+          {
+            "schema": "Activiteit",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Activiteit\",\"required\":[\"symboolcodes\"],\"type\":\"object\",\"properties\":{\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"symboolcodes\":{\"type\":\"object\",\"description\":\"Verouderd. Gebruik symbolisatie op activiteitLocatieaanduidingen.\\n\",\"deprecated\":true,\"allOf\":[{\"$ref\":\"#/components/schemas/Symboolcodes\"}]}},\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitSpec\"}]}"
+          },
+          {
+            "schema": "RegeltekstannotatiesRenvooi",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "activiteiten"
+            ],
+            "definition": "{\"title\":\"Annotaties en renvooi bij artikelstructuur\",\"type\":\"object\",\"properties\":{\"regelteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegeltekstRenvooi\"}},\"regelsVoorIedereen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegelVoorIedereenRenvooi\"}},\"omgevingswaarderegels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OmgevingswaarderegelRenvooi\"}},\"instructieregels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/InstructieregelRenvooi\"}},\"omgevingsnormen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/NormRenvooi\"}},\"omgevingswaarden\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/NormRenvooi\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/GebiedsaanwijzingRenvooi\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/LocatieRenvooi\"}},\"activiteiten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ActiviteitRenvooi\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartRegeltekstRenvooi\"}}}}"
+          },
+          {
+            "schema": "ActiviteitOnderwerp",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "activiteitLocatieaanduidingen"
+            ],
+            "definition": "{\"title\":\"ActiviteitOnderwerp\",\"required\":[\"activiteitLocatieaanduidingen\",\"identificatie\",\"naam\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\"},\"naam\":{\"type\":\"string\"},\"activiteitLocatieaanduidingen\":{\"uniqueItems\":true,\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}"
+          },
+          {
+            "schema": "OntwerpActiviteitOnderwerp",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"OntwerpActiviteitOnderwerp\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitOnderwerp\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"ActiviteitOnderwerpDelta\",\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerking\"},\"wijzigingen\":{\"title\":\"ActiviteitOnderwerpDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"naam\":{\"type\":\"string\",\"example\":\"Activiteit die werelderfgoed betreft\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd. \\nSommige velden zijn aangemerkt als `nullable`. Een nullable veld met waarde `null` betekent dat het veld in de vastgestelde regeling aanwezig is, maar afwezig in de ontwerpregeling.\\n\"}}}}}]}"
+          },
+          {
+            "schema": "RegelVoorIedereenSpec",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "activiteitLocatieaanduidingen"
+            ],
+            "definition": "{\"title\":\"RegelVoorIedereenSpec\",\"required\":[\"idealisatie\",\"identificatie\",\"locatieRefs\",\"regeltekstRef\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.juridischeregel.20240101\"},\"idealisatie\":{\"$ref\":\"#/components/schemas/Idealisatie\"},\"regeltekstRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.regeltekst.chp6art22\"},\"themas\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Thema\"}},\"activiteitLocatieaanduidingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingSpec\"}},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"},\"gebiedsaanwijzingRefs\":{\"$ref\":\"#/components/schemas/GebiedsaanwijzingRefs\"},\"omgevingsnormRefs\":{\"$ref\":\"#/components/schemas/OmgevingsnormRefs\"},\"kaartRefs\":{\"$ref\":\"#/components/schemas/KaartRefs\"}}}"
+          },
+          {
+            "schema": "ActiviteitLocatieaanduiding",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitLocatieaanduiding\",\"required\":[\"symbolisatie\"],\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingSpec\"},{\"required\":[\"symbolisatie\"],\"type\":\"object\",\"properties\":{\"symbolisatie\":{\"$ref\":\"#/components/schemas/Symbolisatie\"}}}]}"
+          },
+          {
+            "schema": "ActiviteitSpec",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "bovenliggendeActiviteitRef",
+              "gerelateerdeActiviteitRefs"
+            ],
+            "definition": "{\"title\":\"ActiviteitSpec\",\"required\":[\"groep\",\"identificatie\",\"naam\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-mnre1034.activiteit.ActiviteitenWerelderfgoed\"},\"naam\":{\"type\":\"string\",\"example\":\"Activiteit die werelderfgoed betreft\"},\"groep\":{\"$ref\":\"#/components/schemas/Activiteitengroep\"},\"bovenliggendeActiviteitRef\":{\"type\":\"string\",\"example\":\"nl.imow-mnre1034.activiteit.ActiviteitInAmvb\"},\"gerelateerdeActiviteitRefs\":{\"$ref\":\"#/components/schemas/ActiviteitRefs\"}}}"
+          },
+          {
+            "schema": "ActiviteitRenvooi",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitRenvooi\",\"required\":[\"symboolcodes\"],\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitSpec\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"ActiviteitDelta\",\"required\":[\"bewerking\"],\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerking\"},\"wijzigingen\":{\"title\":\"ActiviteitDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"naam\":{\"type\":\"string\",\"example\":\"Activiteit die werelderfgoed betreft\"},\"bovenliggendeActiviteitRef\":{\"type\":\"string\",\"nullable\":true,\"example\":\"nl.imow-mnre1034.activiteit.Omgevingsplanactiviteit\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd. \\nSommige velden zijn aangemerkt als `nullable`. Een nullable veld met waarde `null` betekent dat het veld in de vastgestelde regeling aanwezig is, maar afwezig in de ontwerpregeling.\\n\"},\"lijstWijzigingen\":{\"title\":\"ActiviteitDeltaLijstWijzigingen\",\"type\":\"object\",\"properties\":{\"gerelateerdeActiviteitRefs\":{\"$ref\":\"#/components/schemas/LijstWijzigingenActiviteitRefs\"}}}}},\"groep\":{\"$ref\":\"#/components/schemas/ActiviteitengroepRenvooi\"},\"symboolcodes\":{\"$ref\":\"#/components/schemas/SymboolcodesRenvooi\"}}}]}"
+          },
+          {
+            "schema": "ActiviteitLocatieaanduidingSpec",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "activiteitRef",
+              "activiteitregelkwalificatie"
+            ],
+            "definition": "{\"title\":\"ActiviteitLocatieaanduidingSpec\",\"required\":[\"activiteitRef\",\"activiteitregelkwalificatie\",\"identificatie\",\"locatieRefs\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteit.20240101\"},\"activiteitRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteit.20240101\"},\"activiteitregelkwalificatie\":{\"$ref\":\"#/components/schemas/ActiviteitRegelkwalificatie\"},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}}}"
+          },
+          {
+            "schema": "Activiteitengroep",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Activiteitengroep\",\"required\":[\"code\",\"waarde\"],\"type\":\"object\",\"properties\":{\"code\":{\"type\":\"string\",\"example\":\"http://standaarden.omgevingswet.overheid.nl/activiteit/id/concept/Aansluitactiviteit\"},\"waarde\":{\"type\":\"string\",\"example\":\"aansluitactiviteit\"}},\"description\":\"Een categorie, of groep, waaronder een activiteit valt.\\nThema is één van de waarden op de limitatieve waardelijst https://standaarden.omgevingswet.overheid.nl/id/waardelijst/Thema.\\n\"}"
+          },
+          {
+            "schema": "ActiviteitRefs",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitRefs\",\"type\":\"array\",\"items\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteit.20240101\"}}"
+          },
+          {
+            "schema": "ActiviteitLocatieaanduidingRefs",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitLocatieaanduidingRefs\",\"type\":\"array\",\"items\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteitlocatieaanduiding.20240101\"}}"
+          },
+          {
+            "schema": "ActiviteitLocatieaanduidingRenvooi",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitLocatieaanduidingRenvooi\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingSpec\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"ActiviteitLocatieaanduidingDelta\",\"required\":[\"bewerking\"],\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerking\"},\"wijzigingen\":{\"title\":\"ActiviteitLocatieaanduidingDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"activiteitRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteit.20240101\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd.\\n\"},\"lijstWijzigingen\":{\"title\":\"ActiviteitLocatieaanduidingDeltaLijstWijzigingen\",\"type\":\"object\",\"properties\":{\"locatieRefs\":{\"$ref\":\"#/components/schemas/LijstWijzigingenLocatieRefs\"}}}}},\"activiteitregelkwalificatie\":{\"$ref\":\"#/components/schemas/ActiviteitRegelkwalificatieRenvooi\"}}}]}"
+          },
+          {
+            "schema": "LijstWijzigingenActiviteitRefs",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"LijstWijzigingenActiviteitRefs\",\"type\":\"object\",\"properties\":{\"toegevoegd\":{\"$ref\":\"#/components/schemas/ActiviteitRefs\"},\"verwijderd\":{\"$ref\":\"#/components/schemas/ActiviteitRefs\"}}}"
+          },
+          {
+            "schema": "ActiviteitengroepRenvooi",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitengroepRenvooi\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/Activiteitengroep\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"ActiviteitengroepDelta\",\"required\":[\"bewerking\",\"wijzigingen\"],\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerkingWijzigen\"},\"wijzigingen\":{\"title\":\"ActiviteitengroepDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"code\":{\"type\":\"string\",\"example\":\"http://standaarden.omgevingswet.overheid.nl/activiteit/id/concept/MilieubelastendeActiviteit\"},\"waarde\":{\"type\":\"string\",\"nullable\":true,\"example\":\"milieubelastende activiteit\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd. \\nWaarde is `nullable`: indien aanwezig zonder waarde (`null`) betekent dat de veld aanwezig was, maar in renvooi is verwijderd.\\n\"}}}}}]}"
+          },
+          {
+            "schema": "ActiviteitRegelkwalificatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitRegelkwalificatie\",\"required\":[\"code\",\"waarde\"],\"type\":\"object\",\"properties\":{\"code\":{\"type\":\"string\",\"example\":\"http://standaarden.omgevingswet.overheid.nl/activiteitregelkwalificatie/id/concept/Gebod\"},\"waarde\":{\"type\":\"string\",\"example\":\"gebod\"}},\"description\":\"De naam van de kwalificatie van de Juridische regel over een activiteit. \\nThema is één van de waarden op de limitatieve waardelijst https://standaarden.omgevingswet.overheid.nl/id/waardelijst/Activiteitregelkwalificatie.\\n\"}"
+          },
+          {
+            "schema": "ActiviteitRegelkwalificatieRenvooi",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitRegelkwalificatieRenvooi\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitRegelkwalificatie\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"ActiviteitRegelkwalificatieDelta\",\"required\":[\"bewerking\",\"wijzigingen\"],\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerkingWijzigen\"},\"wijzigingen\":{\"title\":\"ActiviteitRegelkwalificatieDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"code\":{\"type\":\"string\",\"example\":\"http://standaarden.omgevingswet.overheid.nl/activiteitregelkwalificatie/id/concept/Informatieplicht\"},\"waarde\":{\"type\":\"string\",\"nullable\":true,\"example\":\"informatieplicht\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd. \\nWaarde is `nullable`: indien aanwezig zonder waarde (`null`) betekent dat de veld aanwezig was, maar in renvooi is verwijderd.\\n\"}}}}}]}"
+          },
+          {
+            "schema": "LijstWijzigingenActiviteitLocatieaanduidingRefs",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"LijstWijzigingenActiviteitLocatieaanduidingRefs\",\"type\":\"object\",\"properties\":{\"toegevoegd\":{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingRefs\"},\"verwijderd\":{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingRefs\"}}}"
+          }
+        ],
+        "Locatie": [
+          {
+            "schema": "LocatieSelectie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"LocatieSelectie\",\"type\":\"string\",\"enum\":[\"primair\"]}"
+          },
+          {
+            "schema": "DivisieannotatiesVastgesteld",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locaties"
+            ],
+            "definition": "{\"title\":\"Annotaties bij vrije-tekststructuur\",\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/AnnotatieLinks\"},\"divisies\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Divisie\"}},\"divisieteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Divisietekst\"}},\"tekstdelen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Tekstdeel\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Gebiedsaanwijzing\"}},\"hoofdlijnen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Hoofdlijn\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Locatie\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartDivisie\"}}},\"description\":\"Gestructureerde OW-objecten bij een regeling met vrije-tekststructuur.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij een regeling, of alle objecten die horen bij een documentcomponent binnen de tekststructuur.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde documentcomponent, worden uitgeleverd. \\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen Tekstdeel heeft een relatie met een of meerdere locaties;\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit het Tekstdeel \\nnaar verwezen vanuit het 'locatieRefs' attribuut.\\n\"}"
+          },
+          {
+            "schema": "DivisieannotatiesVastgesteldAtLocation",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locaties",
+              "geselecteerdeLocatieRefs"
+            ],
+            "definition": "{\"title\":\"Annotaties bij vrije-tekststructuur op locatie\",\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/AnnotatieZoekLinks\"},\"divisies\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Divisie\"}},\"divisieteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Divisietekst\"}},\"tekstdelen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Tekstdeel\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Gebiedsaanwijzing\"}},\"hoofdlijnen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Hoofdlijn\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Locatie\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartDivisie\"}},\"geselecteerdeLocatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}},\"description\":\"Gestructureerde OW-objecten bij een regeling met vrije-tekststructuur en een geo-zoekvraag.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij een regeling én de gegeven geo-zoekvraag, \\nof alle objecten die horen bij een documentcomponent binnen de tekststructuur én de gegeven geo-zoekvraag.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde documentcomponent, worden uitgeleverd. \\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen Tekstdeel heeft een relatie met een of meerdere locaties;\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit het Tekstdeel \\nnaar verwezen vanuit het 'locatieRefs' attribuut.\\n\"}"
+          },
+          {
+            "schema": "RegeltekstannotatiesVastgesteld",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locaties"
+            ],
+            "definition": "{\"title\":\"Annotaties bij artikelstructuur op locatie\",\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/AnnotatieLinks\"},\"regelteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Regeltekst\"}},\"regelsVoorIedereen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegelVoorIedereen\"}},\"omgevingswaarderegels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Omgevingswaarderegel\"}},\"instructieregels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Instructieregel\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Gebiedsaanwijzing\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Locatie\"}},\"activiteiten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Activiteit\"}},\"omgevingsnormen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Norm\"}},\"omgevingswaarden\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Norm\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartRegeltekst\"}}},\"description\":\"Gestructureerde OW-objecten bij een regeling met artikelstructuur.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij een regeling, of alle objecten die horen bij een artikel of lid.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde artikel/lid, worden uitgeleverd.\\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen RegelVoorIedereen heeft een relatie met een of meerdere locaties (het werkingsgebied);\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit de RegelVoorIedereen \\nnaar verwezen vanuit het 'locatieRefs' attribuut.\\n\"}"
+          },
+          {
+            "schema": "RegeltekstannotatiesVastgesteldAtLocation",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locaties",
+              "geselecteerdeLocatieRefs"
+            ],
+            "definition": "{\"title\":\"Annotaties bij artikelstructuur op locatie\",\"type\":\"object\",\"properties\":{\"_links\":{\"$ref\":\"#/components/schemas/AnnotatieZoekLinks\"},\"regelteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Regeltekst\"}},\"regelsVoorIedereen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegelVoorIedereen\"}},\"omgevingswaarderegels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Omgevingswaarderegel\"}},\"instructieregels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Instructieregel\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Gebiedsaanwijzing\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Locatie\"}},\"activiteiten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Activiteit\"}},\"omgevingsnormen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Norm\"}},\"omgevingswaarden\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Norm\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartRegeltekst\"}},\"geselecteerdeLocatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}},\"description\":\"Gestructureerde OW-objecten bij een regeling met artikelstructuur en een geo-zoekvraag.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij een regeling én een geo-zoekvraag, of alle objecten die horen bij een artikel of lid én een geo-zoekvraag.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde artikel/lid, worden uitgeleverd.\\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen RegelVoorIedereen heeft een relatie met een of meerdere locaties (het werkingsgebied);\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit de RegelVoorIedereen \\nnaar verwezen vanuit het 'locatieRefs' attribuut.\\n\"}"
+          },
+          {
+            "schema": "DivisieannotatiesRenvooiAtLocation",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "geselecteerdeLocatieRefs"
+            ],
+            "definition": "{\"title\":\"Annotaties en renvooi bij vrije-tekststructuur op locatie\",\"type\":\"object\",\"properties\":{\"geselecteerdeLocatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}},\"description\":\"Gestructureerde OW-objecten en beoogde wijzigingen (renvooi) bij een regeling met vrije-tekststructuur en een geo-zoekvraag.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij de vastgestelde regeling waar deze ontwerpregeling op gebaseerd is én de gegeven geo-zoekvraag,\\nof alle objecten die horen bij een documentcomponent uit die vastgestelde regeling én de gegeven geo-zoekvraag.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde documentcomponent, worden uitgeleverd. \\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen Tekstdeel heeft een relatie met een of meerdere locaties;\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit het Tekstdeel \\nnaar verwezen vanuit het `locatieRefs` attribuut.\\n\\nDaarnaast is per objecttype aangegeven welke wijzigingen er zijn in de opvolgende regeling.\\nDit wordt gedaan in het attribuut `_delta`. Hierin wordt per object aangegeven welke toevoegingen,\\nwijzigingen, of verwijderingen de opvolgende regeling bevat.\\n\",\"allOf\":[{\"$ref\":\"#/components/schemas/DivisieannotatiesRenvooi\"}]}"
+          },
+          {
+            "schema": "RegeltekstannotatiesRenvooiAtLocation",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "geselecteerdeLocatieRefs"
+            ],
+            "definition": "{\"title\":\"Annotaties en renvooi bij artikelstructuur op locatie\",\"type\":\"object\",\"properties\":{\"geselecteerdeLocatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}},\"description\":\"Gestructureerde OW-objecten en beoogde wijzigingen (renvooi) bij een regeling met artikelstructuur en een geo-zoekvraag.\\n\\nOW-objecten worden uitgeleverd op basis van de vraagstelling, bijv. alle objecten die horen\\nbij de gewijzigde regeling waar de opvolgende regeling op gebaseerd is én de gegeven geo-zoekvraag,\\nof alle objecten die horen bij een artikel of lid uit die gewijzigde regeling én de gegeven geo-zoekvraag.\\nAlle objecten die direct of indirect horen bij de gevraagde regeling\\nof het gevraagde artikel/lid, worden uitgeleverd.\\n\\nObjecten zijn geordend in lijsten (arrays) per objecttype.\\n\\nRelaties tussen de objecten worden aangegeven door '*Refs'-attributen, bijvoorbeeld \\neen Tekstdeel heeft een relatie met een of meerdere locaties;\\ndeze locaties zitten dan apart in deze resource, en er wordt vanuit het Tekstdeel \\nnaar verwezen vanuit het `locatieRefs` attribuut.\\n\\nDaarnaast is per objecttype aangegeven welke wijzigingen er zijn in de opvolgende regeling.\\nDit wordt gedaan in het attribuut `_delta`. Hierin wordt per object aangegeven welke toevoegingen,\\nwijzigingen, of verwijderingen de opvolgende regeling bevat.\\n\",\"allOf\":[{\"$ref\":\"#/components/schemas/RegeltekstannotatiesRenvooi\"}]}"
+          },
+          {
+            "schema": "EmbeddedLocatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "locatieType"
+            ],
+            "definition": "{\"title\":\"EmbeddedLocatie\",\"required\":[\"geregistreerdMet\",\"identificatie\",\"locatieType\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/StopIdentificatie\"},\"geometrieIdentificatie\":{\"title\":\"identificatie van de geometrie\",\"type\":\"string\",\"description\":\"De unieke identificatie van de geometrie waar deze locatie naar verwijst.\",\"example\":\"4b46ca74-3840-4ce1-91b6-abf749802f6c\"},\"locatieType\":{\"$ref\":\"#/components/schemas/LocatieType\"},\"noemer\":{\"title\":\"noemer\",\"type\":\"string\",\"description\":\"Tekstuele beschrijving van een Locatie, zodat er als zodanig over deze locatie gesproken kan worden. De beschrijving kan een bepaalde naam zijn waaronder de Locatie bekend staat, maar (lang) niet elke Locatie heef een naam.\"},\"boundingBox\":{\"$ref\":\"#/components/schemas/BoundingBox\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"_embedded\":{\"type\":\"object\",\"properties\":{\"omvat\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/EmbeddedLocatie\"}}}}},\"description\":\"Locatie met de boundingbox van de geometrie die bij deze locatie behoort\"}"
+          },
+          {
+            "schema": "Locatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Locatie\",\"type\":\"object\",\"properties\":{\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"_extraInfo\":{\"$ref\":\"#/components/schemas/LocatieExtraInfo\"}},\"allOf\":[{\"$ref\":\"#/components/schemas/LocatieSpec\"}]}"
+          },
+          {
+            "schema": "LocatieRefs",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"LocatieRefs\",\"type\":\"array\",\"items\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.gebied.of.gebiedengroep.20240101\"}}"
+          },
+          {
+            "schema": "RegelVoorIedereen",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "activiteitLocatieaanduidingen"
+            ],
+            "definition": "{\"title\":\"RegelVoorIedereen\",\"type\":\"object\",\"properties\":{\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"activiteitLocatieaanduidingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduiding\"}}},\"allOf\":[{\"$ref\":\"#/components/schemas/RegelVoorIedereenSpec\"}]}"
+          },
+          {
+            "schema": "DivisieannotatiesRenvooi",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locaties"
+            ],
+            "definition": "{\"title\":\"Annotaties en renvooi bij vrije-tekststructuur\",\"type\":\"object\",\"properties\":{\"divisies\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/DivisieRenvooi\"}},\"divisieteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/DivisietekstRenvooi\"}},\"tekstdelen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/TekstdeelRenvooi\"}},\"hoofdlijnen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HoofdlijnRenvooi\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/GebiedsaanwijzingRenvooi\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartDivisieRenvooi\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/LocatieRenvooi\"}}}}"
+          },
+          {
+            "schema": "RegeltekstannotatiesRenvooi",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locaties"
+            ],
+            "definition": "{\"title\":\"Annotaties en renvooi bij artikelstructuur\",\"type\":\"object\",\"properties\":{\"regelteksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegeltekstRenvooi\"}},\"regelsVoorIedereen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/RegelVoorIedereenRenvooi\"}},\"omgevingswaarderegels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OmgevingswaarderegelRenvooi\"}},\"instructieregels\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/InstructieregelRenvooi\"}},\"omgevingsnormen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/NormRenvooi\"}},\"omgevingswaarden\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/NormRenvooi\"}},\"gebiedsaanwijzingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/GebiedsaanwijzingRenvooi\"}},\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/LocatieRenvooi\"}},\"activiteiten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ActiviteitRenvooi\"}},\"kaarten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/KaartRegeltekstRenvooi\"}}}}"
+          },
+          {
+            "schema": "EmbeddedOntwerpLocatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "locatieType"
+            ],
+            "definition": "{\"title\":\"OntwerpLocatie\",\"required\":[\"geregistreerdMet\",\"identificatie\",\"ontwerpbesluitIdentificatie\",\"technischId\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/StopIdentificatie\"},\"ontwerpbesluitIdentificatie\":{\"$ref\":\"#/components/schemas/StopIdentificatie\"},\"technischId\":{\"$ref\":\"#/components/schemas/TechnischId\"},\"geometrieIdentificatie\":{\"title\":\"identificatie van de geometrie\",\"type\":\"string\",\"description\":\"De unieke identificatie van de geometrie waar deze locatie naar verwijst.\",\"example\":\"4b46ca74-3840-4ce1-91b6-abf749802f6c\"},\"locatieType\":{\"$ref\":\"#/components/schemas/LocatieType\"},\"noemer\":{\"title\":\"noemer\",\"type\":\"string\",\"description\":\"Tekstuele beschrijving van een Locatie, zodat er als zodanig over deze locatie gesproken kan worden. De beschrijving kan een bepaalde naam zijn waaronder de Locatie bekend staat, maar (lang) niet elke Locatie heef een naam.\"},\"status\":{\"title\":\"status\",\"type\":\"string\",\"description\":\"Met deze status kan aangegeven aangegeven dat een OW-object beëindigd moet worden.\"},\"boundingBox\":{\"$ref\":\"#/components/schemas/BoundingBox\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Ontwerpregistratiegegevens\"},\"_embedded\":{\"type\":\"object\",\"properties\":{\"omvat\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/EmbeddedOntwerpLocatie\"}},\"omvatVastgesteld\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/EmbeddedLocatie\"}}}}},\"description\":\"Ontwerp Locatie met de boundingbox van de geometrie die bij deze locatie behoort\"}"
+          },
+          {
+            "schema": "ActiviteitOnderwerp",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "activiteitLocatieaanduidingen"
+            ],
+            "definition": "{\"title\":\"ActiviteitOnderwerp\",\"required\":[\"activiteitLocatieaanduidingen\",\"identificatie\",\"naam\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\"},\"naam\":{\"type\":\"string\"},\"activiteitLocatieaanduidingen\":{\"uniqueItems\":true,\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}"
+          },
+          {
+            "schema": "LocatieType",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"LocatieType\",\"type\":\"string\",\"enum\":[\"Gebied\",\"Lijn\",\"Punt\",\"Gebiedengroep\",\"Lijnengroep\",\"Puntengroep\",\"Ambtsgebied\"]}"
+          },
+          {
+            "schema": "TekstdeelSpec",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locatieRefs"
+            ],
+            "definition": "{\"title\":\"TekstdeelSpec\",\"required\":[\"identificatie\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.tekstdeel.20220001\"},\"idealisatie\":{\"$ref\":\"#/components/schemas/Idealisatie\"},\"divisieRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.divisie.20220001\"},\"divisietekstRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.divisietekst.20220003\"},\"themas\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Thema\"}},\"locatieRefs\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.gebiedengroep.BuitengebiedWieringerwaard\"}},\"gebiedsaanwijzingRefs\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.gebiedsaanwijzing\"}},\"hoofdlijnRefs\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.hoofdlijn\"}},\"kaartRefs\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.kaart.Herleven\"}}}}"
+          },
+          {
+            "schema": "GebiedsaanwijzingSpec",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locatieRefs"
+            ],
+            "definition": "{\"title\":\"GebiedsaanwijzingSpec\",\"required\":[\"groep\",\"identificatie\",\"locatieRefs\",\"naam\",\"symboolcodes\",\"type\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.gebiedsaanwijzing.20240101\"},\"naam\":{\"type\":\"string\",\"example\":\"Leefmilieus\"},\"groep\":{\"$ref\":\"#/components/schemas/Gebiedsaanwijzinggroep\"},\"type\":{\"$ref\":\"#/components/schemas/TypeGebiedsaanwijzing\"},\"symboolcodes\":{\"$ref\":\"#/components/schemas/Symboolcodes\"},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}}}"
+          },
+          {
+            "schema": "LocatieSpec",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "locatieType",
+              "locatieRefs"
+            ],
+            "definition": "{\"title\":\"Locatie\",\"required\":[\"identificatie\",\"locatieType\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.gebiedengroep.20240101\"},\"noemer\":{\"type\":\"string\",\"example\":\"Gemeente Hollands Kroon\"},\"locatieType\":{\"$ref\":\"#/components/schemas/LocatieType\"},\"geometrieIdentificatie\":{\"type\":\"string\",\"example\":\"4b46ca74-3840-4ce1-91b6-abf749802f6c\"},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}}}"
+          },
+          {
+            "schema": "LocatieExtraInfo",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"extraInfo\",\"type\":\"object\",\"properties\":{\"boundingBox\":{\"$ref\":\"#/components/schemas/BoundingBox\"}}}"
+          },
+          {
+            "schema": "RegelVoorIedereenSpec",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "activiteitLocatieaanduidingen",
+              "locatieRefs"
+            ],
+            "definition": "{\"title\":\"RegelVoorIedereenSpec\",\"required\":[\"idealisatie\",\"identificatie\",\"locatieRefs\",\"regeltekstRef\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.juridischeregel.20240101\"},\"idealisatie\":{\"$ref\":\"#/components/schemas/Idealisatie\"},\"regeltekstRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.regeltekst.chp6art22\"},\"themas\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Thema\"}},\"activiteitLocatieaanduidingen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingSpec\"}},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"},\"gebiedsaanwijzingRefs\":{\"$ref\":\"#/components/schemas/GebiedsaanwijzingRefs\"},\"omgevingsnormRefs\":{\"$ref\":\"#/components/schemas/OmgevingsnormRefs\"},\"kaartRefs\":{\"$ref\":\"#/components/schemas/KaartRefs\"}}}"
+          },
+          {
+            "schema": "ActiviteitLocatieaanduiding",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitLocatieaanduiding\",\"required\":[\"symbolisatie\"],\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingSpec\"},{\"required\":[\"symbolisatie\"],\"type\":\"object\",\"properties\":{\"symbolisatie\":{\"$ref\":\"#/components/schemas/Symbolisatie\"}}}]}"
+          },
+          {
+            "schema": "OmgevingswaarderegelSpec",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locatieRefs"
+            ],
+            "definition": "{\"title\":\"OmgevingswaarderegelSpec\",\"required\":[\"idealisatie\",\"identificatie\",\"locatieRefs\",\"regeltekstRef\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.juridischeregel.20240101\"},\"idealisatie\":{\"$ref\":\"#/components/schemas/Idealisatie\"},\"regeltekstRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.regeltekst.20240101\"},\"themas\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Thema\"}},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"},\"gebiedsaanwijzingRefs\":{\"$ref\":\"#/components/schemas/GebiedsaanwijzingRefs\"},\"omgevingswaardeRefs\":{\"$ref\":\"#/components/schemas/OmgevingswaardeRefs\"},\"kaartRefs\":{\"$ref\":\"#/components/schemas/KaartRefs\"}}}"
+          },
+          {
+            "schema": "InstructieregelSpec",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locatieRefs"
+            ],
+            "definition": "{\"title\":\"InstructieregelSpec\",\"required\":[\"idealisatie\",\"identificatie\",\"locatieRefs\",\"regeltekstRef\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.gm19011.juridischeregel.20240101\"},\"idealisatie\":{\"$ref\":\"#/components/schemas/Idealisatie\"},\"regeltekstRef\":{\"type\":\"string\",\"example\":\"nl.gm19011.regeltekst.20240101\"},\"themas\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Thema\"}},\"instructieregelTaakuitoefeningen\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Adressaat\"}},\"instructieregelInstrumenten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Instrument\"}},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"},\"gebiedsaanwijzingRefs\":{\"$ref\":\"#/components/schemas/GebiedsaanwijzingRefs\"},\"omgevingsnormRefs\":{\"$ref\":\"#/components/schemas/OmgevingsnormRefs\"},\"kaartRefs\":{\"$ref\":\"#/components/schemas/KaartRefs\"}}}"
+          },
+          {
+            "schema": "LocatieRenvooi",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"LocatieRenvooi\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/LocatieSpec\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"LocatieDelta\",\"required\":[\"bewerking\"],\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerking\"},\"wijzigingen\":{\"title\":\"LocatieDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"noemer\":{\"type\":\"string\",\"nullable\":true,\"example\":\"Gemeente Hollands Kroon\"},\"geometrieIdentificatie\":{\"type\":\"string\",\"nullable\":true,\"example\":\"4b46ca74-3840-4ce1-91b6-abf749802f6c\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd. \\nSommige velden zijn aangemerkt als `nullable`. Een nullable veld met waarde `null` betekent dat het veld in de vastgestelde regeling aanwezig is, maar afwezig in de ontwerpregeling.\\n\"},\"lijstWijzigingen\":{\"title\":\"LocatieDeltaLijstWijzigingen\",\"type\":\"object\",\"properties\":{\"locatieRefs\":{\"$ref\":\"#/components/schemas/LijstWijzigingenLocatieRefs\"}}}}},\"_extraInfo\":{\"$ref\":\"#/components/schemas/LocatieExtraInfo\"}}}]}"
+          },
+          {
+            "schema": "ActiviteitLocatieaanduidingSpec",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "locatieRefs"
+            ],
+            "definition": "{\"title\":\"ActiviteitLocatieaanduidingSpec\",\"required\":[\"activiteitRef\",\"activiteitregelkwalificatie\",\"identificatie\",\"locatieRefs\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteit.20240101\"},\"activiteitRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteit.20240101\"},\"activiteitregelkwalificatie\":{\"$ref\":\"#/components/schemas/ActiviteitRegelkwalificatie\"},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}}}"
+          },
+          {
+            "schema": "NormwaardeSpec",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "locatieRefs"
+            ],
+            "definition": "{\"title\":\"NormwaardeSpec\",\"required\":[\"identificatie\",\"locatieRefs\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.normwaarde.20240101\"},\"kwantitatieveWaarde\":{\"type\":\"number\",\"example\":3},\"kwalitatieveWaarde\":{\"type\":\"string\",\"example\":\"laag\"},\"waardeInRegeltekst\":{\"type\":\"string\",\"example\":\"waarde staat in regeltekst\"},\"locatieRefs\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}}}"
+          },
+          {
+            "schema": "ActiviteitLocatieaanduidingRefs",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitLocatieaanduidingRefs\",\"type\":\"array\",\"items\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteitlocatieaanduiding.20240101\"}}"
+          },
+          {
+            "schema": "LijstWijzigingenLocatieRefs",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"LijstWijzigingenLocatieRefs\",\"type\":\"object\",\"properties\":{\"toegevoegd\":{\"$ref\":\"#/components/schemas/LocatieRefs\"},\"verwijderd\":{\"$ref\":\"#/components/schemas/LocatieRefs\"}}}"
+          },
+          {
+            "schema": "ActiviteitLocatieaanduidingRenvooi",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"ActiviteitLocatieaanduidingRenvooi\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingSpec\"},{\"type\":\"object\",\"properties\":{\"_delta\":{\"title\":\"ActiviteitLocatieaanduidingDelta\",\"required\":[\"bewerking\"],\"type\":\"object\",\"properties\":{\"bewerking\":{\"$ref\":\"#/components/schemas/DeltaBewerking\"},\"wijzigingen\":{\"title\":\"ActiviteitLocatieaanduidingDeltaWijzigingen\",\"type\":\"object\",\"properties\":{\"activiteitRef\":{\"type\":\"string\",\"example\":\"nl.imow-gm1911.activiteit.20240101\"}},\"description\":\"Bevat wijzigingen ten opzichte van de originele annotatie. Velden die niet aanwezig zijn, zijn ongewijzigd.\\n\"},\"lijstWijzigingen\":{\"title\":\"ActiviteitLocatieaanduidingDeltaLijstWijzigingen\",\"type\":\"object\",\"properties\":{\"locatieRefs\":{\"$ref\":\"#/components/schemas/LijstWijzigingenLocatieRefs\"}}}}},\"activiteitregelkwalificatie\":{\"$ref\":\"#/components/schemas/ActiviteitRegelkwalificatieRenvooi\"}}}]}"
+          },
+          {
+            "schema": "LijstWijzigingenActiviteitLocatieaanduidingRefs",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"LijstWijzigingenActiviteitLocatieaanduidingRefs\",\"type\":\"object\",\"properties\":{\"toegevoegd\":{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingRefs\"},\"verwijderd\":{\"$ref\":\"#/components/schemas/ActiviteitLocatieaanduidingRefs\"}}}"
+          }
+        ]
+      },
+      "searchEndpoints": {
+        "/regelingen": {
+          "summary": "Alle regelingen opvragen",
+          "parameters": [
+            "geldigOp",
+            "inWerkingOp",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "_expand",
+            "locatieSelectie",
+            "page",
+            "size",
+            "_sort"
+          ],
+          "requestBodySchemaRef": null
+        },
+        "/regelingen/_zoek": {
+          "summary": "Regelingen opvragen die voldoen aan zoekobject-parameters",
+          "parameters": [
+            "Content-Crs",
+            "geldigOp",
+            "inWerkingOp",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "_expand",
+            "locatieSelectie",
+            "page",
+            "size",
+            "_sort"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/RegelingZoekobject"
+        },
+        "/regelingen/{uriIdentificatie}/divisieannotaties/_zoek": {
+          "summary": "Gestructureerde OW-objecten ophalen bij een regeling met vrije-tekststructuur, gefilterd op zoekcriteria.",
+          "parameters": [
+            "Content-Crs",
+            "uriIdentificatie",
+            "geldigOp",
+            "inWerkingOp",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "locatieSelectie"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoZoekRequestBody"
+        },
+        "/regelingen/{uriIdentificatie}/regeltekstannotaties/_zoek": {
+          "summary": "Gestructureerde OW-objecten ophalen bij een regeling met artikelstructuur, gefilterd op zoekcriteria.",
+          "parameters": [
+            "Content-Crs",
+            "uriIdentificatie",
+            "geldigOp",
+            "inWerkingOp",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "locatieSelectie"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoZoekRequestBody"
+        },
+        "/besluitversies/{technischId}/divisieannotaties/renvooi/_zoek": {
+          "summary": "Een enkele besluitversie ophalen met vrijetekststructuur objecten gefilterd op zoekcriteria",
+          "parameters": [
+            "Content-Crs",
+            "technischId",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "locatieSelectie"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoZoekRequestBody"
+        },
+        "/besluitversies/{technischId}/regeltekstannotaties/renvooi/_zoek": {
+          "summary": "Een enkele besluitversie ophalen met artikel-gestructureerde objecten gefilterd op zoekcriteria",
+          "parameters": [
+            "Content-Crs",
+            "technischId",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "locatieSelectie"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoZoekRequestBody"
+        },
+        "/ontwerpregelingen/_zoek": {
+          "summary": "Regelingen opvragen die voldoen aan zoekobject-parameters",
+          "parameters": [
+            "Content-Crs",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "_expand",
+            "locatieSelectie",
+            "page",
+            "size",
+            "_sort"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/OntwerpregelingZoekobject"
+        },
+        "/ontwerpregelingen/{technischId}/regeltekstannotaties/renvooi/_zoek": {
+          "summary": "Een enkele ontwerpregeling ophalen met artikel-gestructureerde objecten gefilterd op zoekcriteria",
+          "parameters": [
+            "Content-Crs",
+            "technischId",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "locatieSelectie"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoZoekRequestBody"
+        },
+        "/ontwerpregelingen/{technischId}/divisieannotaties/renvooi/_zoek": {
+          "summary": "Een enkele ontwerpregeling ophalen met vrijetekststructuur-objecten gefilterd op zoekcriteria",
+          "parameters": [
+            "Content-Crs",
+            "technischId",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "locatieSelectie"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoZoekRequestBody"
+        },
+        "/omgevingsvergunningen/_zoek": {
+          "summary": "Omgevingsvergunningen opvragen die voldoen aan zoekobject-parameters",
+          "parameters": [
+            "Content-Crs",
+            "geldigOp",
+            "inWerkingOp",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "_expand",
+            "page",
+            "size",
+            "_sort"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/OmgevingsvergunningZoekobject"
+        },
+        "/onderwerpen/_zoek": {
+          "summary": "Zoek onderwerpen op basis van een geometrie",
+          "parameters": [
+            "Content-Crs",
+            "geldigOp",
+            "inWerkingOp",
+            "beschikbaarOp",
+            "synchroniseerMetTileset"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoZoekRequestBody"
+        },
+        "/ontwerponderwerpen/_zoek": {
+          "summary": "Zoek ontwerp onderwerpen op basis van een geometrie",
+          "parameters": [
+            "Content-Crs",
+            "beschikbaarOp",
+            "synchroniseerMetTileset",
+            "inzagetermijn",
+            "besluitType"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoZoekRequestBody"
+        }
+      },
+      "rawContext": {
+        "voorrang": {
+          "count": 33,
+          "quotes": [
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met regelingsgebieden en ponsen\",\"required\":false,\"schema\":{\"type\":\"boolean\"}},{\"",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met regelingsgebieden en ponsen\",\"required\":false,\"schema\":{\"type\":\"boolean\"}},{\"",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met regelingsgebieden en ponsen\",\"required\":false,\"schema\":{\"type\":\"boolean\"}},{\"",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_transformXml\",\"in\":\"query\",\"description\":\"Transformeer de XML van bepaalde attributen\\n\\nIn het geval van `_transformXml=inhoud` worden `ref` attribu",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_transformXml\",\"in\":\"query\",\"description\":\"Transformeer de XML van bepaalde attributen\\n\\nIn het geval van `_transformXml=inhoud` worden `ref` attribu",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"page\",\"in\":\"query\",\"description\":\"De page moet minimaal een waarde van 1 hebben.\",\"required\":false,\"schema\":{\"minimum\":1,\"type\":\"integer\",\"format\":\"in",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van resources\",\"required\":false,\"schema\":{\"type\":\"boolean\"}},{\"name\":\"_expandScope\",\"in\":\"query\",\"descri",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van resources\",\"required\":false,\"schema\":{\"type\":\"boolean\"}},{\"name\":\"_expandScope\",\"in\":\"query\",\"descri",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met geconsolideerde regelingsgebieden\",\"required\":false,\"schema\":{\"type\":\"boolean",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met geconsolideerde regelingsgebieden\",\"required\":false,\"schema\":{\"type\":\"boolean",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_conditieArtikel\",\"in\":\"query\",\"description\":\"Bepaal hoe het conditie-artikel wordt uitgeleverd. \\n\\nDe huidige standaardaanpak levert de informatie u",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_conditieArtikel\",\"in\":\"query\",\"description\":\"Bepaal hoe het conditie-artikel wordt uitgeleverd. \\n\\nDe huidige standaardaanpak levert de informatie u",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met regelingsgebieden en ontwerpregelingsgebieden\",\"required\":false,\"schema\":{\"ty",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met regelingsgebieden en ontwerpregelingsgebieden\",\"required\":false,\"schema\":{\"ty",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met regelingsgebieden en ontwerpregelingsgebieden\",\"required\":false,\"schema\":{\"ty",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_transformXml\",\"in\":\"query\",\"description\":\"Transformeer de XML van bepaalde attributen\\n\\nIn het geval van `_transformXml=inhoud` worden `ref` attribu",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_transformXml\",\"in\":\"query\",\"description\":\"Transformeer de XML van bepaalde attributen\\n\\nIn het geval van `_transformXml=inhoud` worden `ref` attribu",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"locatieSelectie\",\"in\":\"query\",\"description\":\"Standaard worden alle locaties met een verwijzing uitgeleverd, dus ook zgn. secundaire locaties waar alle",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met omgevingsvergunninggebieden\",\"required\":false,\"schema\":{\"type\":\"boolean\"}},{\"",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met omgevingsvergunninggebieden\",\"required\":false,\"schema\":{\"type\":\"boolean\"}}],\"",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met omgevingsvergunninggebieden\",\"required\":false,\"schema\":{\"type\":\"boolean\"}},{\"",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}}],\"requestBody\":{\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/GeoZoekRequestBody\"}}},\"required\":true},\"responses\":{\"200\":{\"description\"",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},{\"name\":\"inzagetermijn\",\"in\":\"query\",\"description\":\"Filter ontwerpregelingen op basis van het inzagetermijn en de opgegeven beschikbaarOp tijdreisparameter:\\n ",
+            "vens, ook historische en niet meer geldige gegevens.\\n\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk. \\nWanneer beide parameters meegegeven worden, dan krijgt de expliciete `beschikbaarOp`-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"schema\":{\"$ref\":\"#/components/schemas/Tileset\"}},\"expand-regelingen\":{\"name\":\"_expand\",\"in\":\"query\",\"description\":\"Meeladen van embedded resources met regelingsgebieden en ponsen\",\"required\":false,\"schema\":{\""
+          ]
+        },
+        "IMRO": {
+          "count": 2,
+          "quotes": [
+            "ype\"],\"type\":\"object\",\"properties\":{\"referentienummer\":{\"title\":\"referentienummer\",\"type\":\"string\"},\"type\":{\"$ref\":\"#/components/schemas/SoortVergunning\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"iMROPlanidentificatie\":{\"title\":\"IMRO-planidentificatie\",\"minItems\":0,\"type\":\"array\",\"description\":\"het IMRO-plan-ID waar deze vergunning bij hoort/van afwijkt.\",\"items\":{\"type\":\"string\"}},\"publicatieID\":{\"title\":\"publicatie-ID\",\"type\":\"string\"},\"_embedded\":{\"type\":\"object\",\"properties\":{\"ver",
+            "ntienummer\",\"type\":\"string\"},\"type\":{\"$ref\":\"#/components/schemas/SoortVergunning\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"iMROPlanidentificatie\":{\"title\":\"IMRO-planidentificatie\",\"minItems\":0,\"type\":\"array\",\"description\":\"het IMRO-plan-ID waar deze vergunning bij hoort/van afwijkt.\",\"items\":{\"type\":\"string\"}},\"publicatieID\":{\"title\":\"publicatie-ID\",\"type\":\"string\"},\"_embedded\":{\"type\":\"object\",\"properties\":{\"vergunningsgebied\":{\"$ref\":\"#/components/schemas/EmbeddedLocatie\"}}},\"_lin"
+          ]
+        },
+        "tijdelijk": {
+          "count": 7,
+          "quotes": [
+            "egeven beschikbaarheidsmoment.\\nDeze resource geeft voorkomens die niet meer geldig zijn, voorkomens die nu geldig zijn, en voorkomens die geldig worden in de toekomst.\\nDe voorkomens hebben hal-links naar bijbehorende objecten met hun eigen levensloop, zoals tijdelijke regelingdelen en ontwerpregelingen: - een hal-link naar een tijdelijk regelingdeel wordt opgenomen bij ieder voorkomen dat overlapt in tijd met het tijdelijk regelingdeel; - een hal-link naar een ontwerpregeling wordt opgenomen bij ieder voorkomen w",
+            " meer geldig zijn, voorkomens die nu geldig zijn, en voorkomens die geldig worden in de toekomst.\\nDe voorkomens hebben hal-links naar bijbehorende objecten met hun eigen levensloop, zoals tijdelijke regelingdelen en ontwerpregelingen: - een hal-link naar een tijdelijk regelingdeel wordt opgenomen bij ieder voorkomen dat overlapt in tijd met het tijdelijk regelingdeel; - een hal-link naar een ontwerpregeling wordt opgenomen bij ieder voorkomen waarop de ontwerpregeling gebaseerd werd.\\n\",\"operationId\":\"getRegelingV",
+            "toekomst.\\nDe voorkomens hebben hal-links naar bijbehorende objecten met hun eigen levensloop, zoals tijdelijke regelingdelen en ontwerpregelingen: - een hal-link naar een tijdelijk regelingdeel wordt opgenomen bij ieder voorkomen dat overlapt in tijd met het tijdelijk regelingdeel; - een hal-link naar een ontwerpregeling wordt opgenomen bij ieder voorkomen waarop de ontwerpregeling gebaseerd werd.\\n\",\"operationId\":\"getRegelingVoorkomens\",\"parameters\":[{\"name\":\"uriIdentificatie\",\"in\":\"path\",\"description\":\"Een ident",
+            "ficiële titel van de regeling.\"},\"citeerTitel\":{\"title\":\"citeerTitel\",\"type\":\"string\",\"description\":\"De titel van de regeling zoals deze wordt gebruikt in aanhalingen.\"},\"conditie\":{\"title\":\"conditie\",\"type\":\"string\",\"description\":\"De verhouding is tussen dit tijdelijk deel en de hoofdregeling.\"},\"heeftBijlagen\":{\"title\":\"heeftBijlagen\",\"type\":\"boolean\"},\"heeftToelichtingen\":{\"title\":\"heeftToelichtingen\",\"type\":\"boolean\"},\"isVervangRegeling\":{\"title\":\"isVervangRegeling\",\"type\":\"boolean\"},\"publicatieID\":{\"type\":\"str",
+            "\"RegelingLinks\",\"required\":[\"annotaties\",\"documentstructuur\",\"self\"],\"type\":\"object\",\"properties\":{\"self\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"annotaties\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgers\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"tijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"ontwerpTi",
+            "tructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"annotaties\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgers\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"tijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"ontwerpTijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}}}},\"BevoegdGezagType\":{\"title\":\"Bevoegd gezag TOOI-code\",\"type\":\"",
+            "astlegt.\\n\"},\"RegelingOnderwerpenLinks\":{\"title\":\"RegelingOntwerpenLinks\",\"required\":[\"documentstructuur\",\"regeling\"],\"type\":\"object\",\"properties\":{\"regeling\":{\"$ref\":\"#/components/schemas/HalLink\"},\"documentstructuur\":{\"$ref\":\"#/components/schemas/HalLink\"},\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"}}},\"OntwerpGebiedsaanwijzingOnderwerp\":{\"title\":\"OntwerpGebiedsaanwijzingOnderwerp\",\"type\":\"object\",\"allOf\":[{\"$ref\":\"#/components/schemas/GebiedsaanwijzingOnderwerp\"},{\"type\":\"object\",\"properties\":{\"_de"
+          ]
+        },
+        "Tijdelijk": {
+          "count": 2,
+          "quotes": [
+            "n\"],\"type\":\"object\",\"properties\":{\"ontwerpregelingen\":{\"type\":\"array\",\"items\":{\"title\":\"OntwerpRegelingOnderwerpen\",\"required\":[\"_links\",\"technischId\"],\"type\":\"object\",\"properties\":{\"technischId\":{\"type\":\"string\"},\"beoogdeOpvolgerVan\":{\"type\":\"string\"},\"beoogdTijdelijkDeelVan\":{\"type\":\"string\"},\"gebiedsaanwijzingen\":{\"title\":\"OntwerpGebiedsaanwijzingOnderwerpen\",\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpGebiedsaanwijzingOnderwerp\"}},\"activiteiten\":{\"title\":\"OntwerpActiviteitOnderwerpen\",\"type\":\"ar",
+            ",\"tijdelijkDeelVan\":{\"$ref\":\"#/components/schemas/HalLink\"},\"beoogdeOpvolgers\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"tijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}},\"ontwerpTijdelijkDelen\":{\"minItems\":0,\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/HalLink\"}}}},\"BevoegdGezagType\":{\"title\":\"Bevoegd gezag TOOI-code\",\"type\":\"string\",\"description\":\"Type van het bevoegd gezag, gelimiteerd\\n\",\"enum\":[\"waterschap\",\"provincie\",\"ge"
+          ]
+        }
+      }
+    },
+    {
+      "id": "toepasbaar-opvragen-v7",
+      "url": "https://service.omgevingswet.overheid.nl/publiek/omgevingsdocumenten/api/toepasbaaropvragen/v7/openapi.json",
+      "status": 200,
+      "bytes": 62047,
+      "contentType": "application/json",
+      "title": "Omgevingsdocumenten Toepasbaar",
+      "version": "7.7.5",
+      "schemaCount": 53,
+      "terms": {
+        "tijdelijkDeelVan": [],
+        "tijdelijkDelen": [],
+        "TijdelijkDeel": [],
+        "iMROPlanidentificatie": [],
+        "voorrang": [],
+        "Voorrang": [],
+        "regelingtype": [],
+        "RegelingType": [],
+        "ontwerp": [],
+        "activiteit": [
+          {
+            "schema": "ActiviteitLocatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Locatie\",\"required\":[\"geregistreerdMet\",\"identificatie\",\"juridischeRegelIdentificatie\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"juridischeRegelIdentificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"}},\"description\":\"De Locatie van de ActiviteitVersie, afgeleid via de ActiviteitLocatieaanduiding van de Juridische Regel. De tijdslijnen opgenomen in deze relatie zijn de tijdslijnen van de Juridische Regel, voorzover deze binnen de tijdslijnen van deze ActiviteitVersie vallen.\\n\"}"
+          },
+          {
+            "schema": "ActiviteitMetGeaggregeerdeLocatieInfo",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Activiteit met geaggregeerde locatie informatie\",\"required\":[\"_links\",\"geregistreerdMet\",\"groep\",\"identificatie\",\"laatsteWijzigingOp\",\"naam\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"naam\":{\"type\":\"string\",\"example\":\"Vellen van een houtopstand\"},\"groep\":{\"required\":[\"code\",\"waarde\"],\"type\":\"object\",\"properties\":{\"code\":{\"type\":\"string\"},\"waarde\":{\"type\":\"string\"}}},\"oin\":{\"type\":\"string\",\"description\":\"Extra gegeven (niet van een activiteit). Het OrganisatieIdentificatieNummer van het bevoegd gezag van deze activiteit op het moment van opvragen. Het OIN is ongeversioneerd, en Ozon garandeert niet dat dit juist is op het moment van opvragen.\\n\",\"example\":\"00000001807288111000\",\"deprecated\":true},\"bevoegdGezag\":{\"$ref\":\"#/components/schemas/BevoegdGezag\"},\"is\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"gerelateerd\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Identificatie\"}},\"_links\":{\"$ref\":\"#/components/schemas/ActiviteitHalCollectionLinks\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/ActiviteitRegistratiegegevens\"},\"laatsteWijzigingOp\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2020-05-08\"},\"isGereguleerdVoor\":{\"type\":\"array\",\"description\":\"Deze specifieke activiteit is gereguleerd voor deze specifieke locatie(s). Deze locaties zijn afgeleide gegevens, afgeleid van ActiviteitLocatieaanduidingen (zie CIMOW). Om de specifiek geldige versie van de locatie te verkrijgen kan een aparte (tijdreis)vraag gedaan worden op de locatie-resource.\\n\",\"items\":{\"$ref\":\"#/components/schemas/GeaggregeerdeLocatieInfo\"}}},\"description\":\"De versie van een Activiteit zoals bedoeld in CIMOW, met een minimum aan activiteit locaties in isGereguleerdVoor.  Een versie is een voorkomen van de activiteit in een periode waarin deze ongewijzigd is gebleven.\\n\"}"
+          },
+          {
+            "schema": "ActiviteitenMetGeaggregeerdeLocatieInfo",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"required\":[\"_embedded\",\"_links\",\"page\"],\"type\":\"object\",\"properties\":{\"_embedded\":{\"required\":[\"activiteiten\"],\"type\":\"object\",\"properties\":{\"activiteiten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ActiviteitMetGeaggregeerdeLocatieInfo\"}}}},\"_links\":{\"$ref\":\"#/components/schemas/HalPaginationLinks\"},\"page\":{\"$ref\":\"#/components/schemas/Page\"}}}"
+          },
+          {
+            "schema": "ActiviteitRegistratiegegevens",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Minimum activiteit Registratiegegevens van activiteit\",\"required\":[\"beginGeldigheid\",\"versie\"],\"type\":\"object\",\"properties\":{\"versie\":{\"type\":\"integer\",\"example\":1},\"status\":{\"type\":\"string\",\"description\":\"De status van een object is een aanduiding waarmee aangegeven kan worden dat de OW-informatie, in deze versie van het object, niet meer geldig is. \\nDit geeft bijvoorbeeld aan of deze activiteit beëindigd ('B') is. Het ontbreken van de status betekent dat de versie van het object niet is beëindigd.\\n\",\"enum\":[\"B\"]},\"beginGeldigheid\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2020-05-05\"},\"eindGeldigheid\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2020-07-05\"}},\"description\":\"De registratiegegevens bevatten de tijdslijnen van dit object conform NEN3610:2021.\\n\"}"
+          },
+          {
+            "schema": "ActiviteitRegistratiegegevensVanLocatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Minimum activiteit Registratiegegevens van locatie\",\"required\":[\"beginGeldigheid\"],\"type\":\"object\",\"properties\":{\"beginGeldigheid\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2020-05-05\"},\"eindGeldigheid\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2020-07-05\"}},\"description\":\"De registratiegegevens bevatten de tijdslijnen van dit object conform NEN3610:2021.\\n\"}"
+          },
+          {
+            "schema": "ActiviteitHalCollectionLinks",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"type\":\"object\",\"properties\":{\"self\":{\"type\":\"object\",\"properties\":{\"href\":{\"$ref\":\"#/components/schemas/Href\"}},\"description\":\"uri van de api aanroep die tot dit resultaat heeft geleid\"},\"heeftJuridischeBron\":{\"type\":\"object\",\"properties\":{\"href\":{\"$ref\":\"#/components/schemas/Href\"}},\"description\":\"uri voor het opvragen van de juridische bron\"},\"heeftRegeltekst\":{\"type\":\"object\",\"properties\":{\"href\":{\"$ref\":\"#/components/schemas/Href\"}},\"description\":\"uri voor het opvragen van de regeltekst\"}}}"
+          }
+        ],
+        "Locatie": [
+          {
+            "schema": "Locatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Locatie\",\"required\":[\"_links\",\"geregistreerdMet\",\"identificatie\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"noemer\":{\"title\":\"noemer\",\"type\":\"string\"},\"status\":{\"type\":\"string\",\"description\":\"De status van een object is een aanduiding waarmee aangegeven kan worden dat de OW-informatie, in deze versie van het object, niet meer geldig is. Dit geeft bijvoorbeeld aan of deze activiteit beeindigd ('B') is.\\n\",\"enum\":[\"B\",null]},\"geometrieIdentificatie\":{\"title\":\"Identificatie van de geometrie\",\"type\":\"string\",\"example\":\"4b46ca74-3840-4ce1-91b6-abf749802f6c\"},\"boundingBox\":{\"$ref\":\"#/components/schemas/BoundingBox\"},\"_embedded\":{\"type\":\"object\",\"properties\":{\"omvat\":{\"type\":\"array\",\"description\":\"Locaties binnen locate groep\",\"items\":{\"$ref\":\"#/components/schemas/Locatie\"}}}},\"_links\":{\"$ref\":\"#/components/schemas/HalCollectionLinks\"}}}"
+          },
+          {
+            "schema": "LocatieMetSpatialOperator",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Locatie\",\"required\":[\"_links\",\"geregistreerdMet\",\"identificatie\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"noemer\":{\"title\":\"noemer\",\"type\":\"string\"},\"spatialOperator\":{\"$ref\":\"#/components/schemas/SpatialRelation\"},\"_links\":{\"$ref\":\"#/components/schemas/HalCollectionLinks\"}}}"
+          },
+          {
+            "schema": "PrimaireLocatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"PrimaireLocatie\",\"required\":[\"_links\",\"geregistreerdMet\",\"identificatie\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"noemer\":{\"title\":\"noemer\",\"type\":\"string\"},\"spatialOperator\":{\"$ref\":\"#/components/schemas/SpatialRelation\"},\"_links\":{\"$ref\":\"#/components/schemas/HalCollectionLinks\"}}}"
+          },
+          {
+            "schema": "ActiviteitLocatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Locatie\",\"required\":[\"geregistreerdMet\",\"identificatie\",\"juridischeRegelIdentificatie\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/Registratiegegevens\"},\"juridischeRegelIdentificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"}},\"description\":\"De Locatie van de ActiviteitVersie, afgeleid via de ActiviteitLocatieaanduiding van de Juridische Regel. De tijdslijnen opgenomen in deze relatie zijn de tijdslijnen van de Juridische Regel, voorzover deze binnen de tijdslijnen van deze ActiviteitVersie vallen.\\n\"}"
+          },
+          {
+            "schema": "GeaggregeerdeLocatieInfo",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"GeaggregeerdeLocatieInfo\",\"required\":[\"geregistreerdMet\",\"identificatie\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/ActiviteitRegistratiegegevensVanLocatie\"}},\"description\":\"De Locatie van de ActiviteitVersie, afgeleid via de ActiviteitLocatieaanduiding van de Juridische Regel. De tijdslijnen opgenomen in deze relatie zijn de tijdslijnen van de Juridische Regel, voorzover deze binnen de tijdslijnen van deze ActiviteitVersie vallen.\\n\"}"
+          },
+          {
+            "schema": "ActiviteitMetGeaggregeerdeLocatieInfo",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Activiteit met geaggregeerde locatie informatie\",\"required\":[\"_links\",\"geregistreerdMet\",\"groep\",\"identificatie\",\"laatsteWijzigingOp\",\"naam\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"naam\":{\"type\":\"string\",\"example\":\"Vellen van een houtopstand\"},\"groep\":{\"required\":[\"code\",\"waarde\"],\"type\":\"object\",\"properties\":{\"code\":{\"type\":\"string\"},\"waarde\":{\"type\":\"string\"}}},\"oin\":{\"type\":\"string\",\"description\":\"Extra gegeven (niet van een activiteit). Het OrganisatieIdentificatieNummer van het bevoegd gezag van deze activiteit op het moment van opvragen. Het OIN is ongeversioneerd, en Ozon garandeert niet dat dit juist is op het moment van opvragen.\\n\",\"example\":\"00000001807288111000\",\"deprecated\":true},\"bevoegdGezag\":{\"$ref\":\"#/components/schemas/BevoegdGezag\"},\"is\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"gerelateerd\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Identificatie\"}},\"_links\":{\"$ref\":\"#/components/schemas/ActiviteitHalCollectionLinks\"},\"geregistreerdMet\":{\"$ref\":\"#/components/schemas/ActiviteitRegistratiegegevens\"},\"laatsteWijzigingOp\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2020-05-08\"},\"isGereguleerdVoor\":{\"type\":\"array\",\"description\":\"Deze specifieke activiteit is gereguleerd voor deze specifieke locatie(s). Deze locaties zijn afgeleide gegevens, afgeleid van ActiviteitLocatieaanduidingen (zie CIMOW). Om de specifiek geldige versie van de locatie te verkrijgen kan een aparte (tijdreis)vraag gedaan worden op de locatie-resource.\\n\",\"items\":{\"$ref\":\"#/components/schemas/GeaggregeerdeLocatieInfo\"}}},\"description\":\"De versie van een Activiteit zoals bedoeld in CIMOW, met een minimum aan activiteit locaties in isGereguleerdVoor.  Een versie is een voorkomen van de activiteit in een periode waarin deze ongewijzigd is gebleven.\\n\"}"
+          },
+          {
+            "schema": "ActiviteitenMetGeaggregeerdeLocatieInfo",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"required\":[\"_embedded\",\"_links\",\"page\"],\"type\":\"object\",\"properties\":{\"_embedded\":{\"required\":[\"activiteiten\"],\"type\":\"object\",\"properties\":{\"activiteiten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ActiviteitMetGeaggregeerdeLocatieInfo\"}}}},\"_links\":{\"$ref\":\"#/components/schemas/HalPaginationLinks\"},\"page\":{\"$ref\":\"#/components/schemas/Page\"}}}"
+          },
+          {
+            "schema": "LocatiesMetSpatialOperator",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"required\":[\"_links\",\"page\"],\"type\":\"object\",\"properties\":{\"_embedded\":{\"required\":[\"locaties\"],\"type\":\"object\",\"properties\":{\"locaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/LocatieMetSpatialOperator\"}}}},\"_links\":{\"$ref\":\"#/components/schemas/HalPaginationLinks\"},\"page\":{\"$ref\":\"#/components/schemas/Page\"}}}"
+          },
+          {
+            "schema": "PrimaireLocaties",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"required\":[\"_links\",\"page\"],\"type\":\"object\",\"properties\":{\"_embedded\":{\"required\":[\"primairelocaties\"],\"type\":\"object\",\"properties\":{\"primairelocaties\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/PrimaireLocatie\"}}}},\"_links\":{\"$ref\":\"#/components/schemas/HalPaginationLinks\"},\"page\":{\"$ref\":\"#/components/schemas/Page\"}}}"
+          },
+          {
+            "schema": "ActiviteitRegistratiegegevensVanLocatie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"title\":\"Minimum activiteit Registratiegegevens van locatie\",\"required\":[\"beginGeldigheid\"],\"type\":\"object\",\"properties\":{\"beginGeldigheid\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2020-05-05\"},\"eindGeldigheid\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2020-07-05\"}},\"description\":\"De registratiegegevens bevatten de tijdslijnen van dit object conform NEN3610:2021.\\n\"}"
+          },
+          {
+            "schema": "LocatieZoekobject",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "locatieIdentificaties"
+            ],
+            "definition": "{\"required\":[\"geo\"],\"type\":\"object\",\"properties\":{\"geo\":{\"$ref\":\"#/components/schemas/GeoJsonZoekobject\"},\"locatieIdentificaties\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"description\":\"Zoekobject voor specifieke locatie-bevragingen. \\nHet locatiezoekobject bevat ofwel 1. alleen een geo bestaande uit een geometrie en een spatialOperator, ofwel 2. een geo en een lijst locatie-identificaties.\\n1. Wanneer het locatiezoekobject alleen GeoJSON bevat met de spatialOperator intersects, dan retourneert de zoekopdracht alle locaties die intersecten met de geometrie. Wanneer gevonden locaties daarnaast binnen het zoekgebied vallen, bevat de respons de spatialOperator 'within'.  2. Wanneer het locatiezoekobject zowel GeoJSON als locatie-identificaties bevat, dan retourneert de zoekopdracht alleen de locaties waarvan de identificatie voorkomt in de gegeven lijst met identificaties, die ook gevonden zijn op of binnen de gegeven geometrie.\\n\",\"example\":{\"geo\":{\"geometrie\":{\"type\":\"Point\",\"coordinates\":[188193,503793]},\"spatialOperator\":\"intersects\"},\"locatieIdentificaties\":[\"nl.imow-gm0000.gebied.test\"]}}"
+          },
+          {
+            "schema": "LocatieIdentificatiesEnGeoZoekobject",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "locatieIdentificaties"
+            ],
+            "definition": "{\"required\":[\"geo\",\"locatieIdentificaties\"],\"type\":\"object\",\"properties\":{\"geo\":{\"$ref\":\"#/components/schemas/GeoJsonZoekobject\"},\"locatieIdentificaties\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"description\":\"Zoekobject voor bevragingen op basis van geometrieen en locatie identificaties. Resultaten moeten zich zowel binnen de gegeven geometrie bevinden, als overeenkomen met de één van de opgegeven locatie identificaties.\\n\",\"example\":{\"geo\":{\"geometrie\":{\"type\":\"Point\",\"coordinates\":[188193,503793]},\"spatialOperator\":\"intersects\"},\"locatieIdentificaties\":[\"nl.imow-gm0000.gebied.test\"]}}"
+          },
+          {
+            "schema": "LocatieIdentificatiesOfGeoZoekobject",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "locatieIdentificaties"
+            ],
+            "definition": "{\"type\":\"object\",\"properties\":{\"geo\":{\"$ref\":\"#/components/schemas/GeoJsonZoekobject\"},\"locatieIdentificaties\":{\"minItems\":1,\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"description\":\"Zoekobject voor bevragingen op basis van geometrie of een of meerdere locatie identificaties. Requests die geen van beide of een geometrie én locatie identificaties bevatten worden afgekeurd.\\n\",\"example\":{\"geo\":{\"geometrie\":{\"type\":\"Point\",\"coordinates\":[188193,503793]},\"spatialOperator\":\"intersects\"},\"locatieIdentificaties\":[\"nl.imow-gm0000.gebied.test\"]}}"
+          },
+          {
+            "schema": "PrimaireLocatieZoekobject",
+            "matchedBy": "schema-name",
+            "matchedProperties": [
+              "locatieIdentificaties"
+            ],
+            "definition": "{\"required\":[\"geo\"],\"type\":\"object\",\"properties\":{\"geo\":{\"$ref\":\"#/components/schemas/GeoJsonZoekobject\"},\"locatieIdentificaties\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}},\"description\":\"Zoekobject voor primairelocatie-bevragingen ten behoeve van het bevragen van Vector Tiles.  Het primaireLocatieZoekobject bevat alleen geo en een lijst van primaire locatie-identificaties.  Wanneer met het PrimaireLocatieZoekobject wordt gezocht retourneert de zoekopdracht de locaties waarvan de identificatie voorkomt in de opgegeven lijst met identificaties, die ook gevonden zijn op of binnen de opgegeven geometrie.\\n\",\"example\":{\"geo\":{\"geometrie\":{\"type\":\"Point\",\"coordinates\":[188193,503793]},\"spatialOperator\":\"intersects\"},\"locatieIdentificaties\":[\"nl.imow-gm0000.gebied.test\"]}}"
+          },
+          {
+            "schema": "LocatieIdentificatieZoekobject",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"required\":[\"geo\"],\"type\":\"object\",\"properties\":{\"geo\":{\"$ref\":\"#/components/schemas/GeoJsonZoekobject\"}},\"description\":\"Zoekobject voor specifieke Locatie-bevragingen.\",\"example\":{\"geo\":{\"geometrie\":{\"type\":\"Point\",\"coordinates\":[139784,442870]},\"spatialOperator\":\"intersects\"}}}"
+          },
+          {
+            "schema": "LocatieZoekgebieden",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"type\":\"object\",\"properties\":{\"_embedded\":{\"required\":[\"locaties\"],\"type\":\"object\",\"properties\":{\"locatieidentificaties\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}}}}},\"description\":\"LocatieZoekgebieden\"}"
+          }
+        ]
+      },
+      "searchEndpoints": {
+        "/activiteitidentificaties/_zoek": {
+          "summary": "Activiteit identificaties opvragen die voldoen aan zoekobject-parameters.",
+          "parameters": [
+            "#/components/parameters/geldigOp",
+            "#/components/parameters/inWerkingOp",
+            "#/components/parameters/beschikbaarOp",
+            "#/components/parameters/synchroniseerMetTileset",
+            "#/components/parameters/ContentCrsHeader"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/GeoJsonZoekobject"
+        },
+        "/locaties/_zoek": {
+          "summary": "Locaties opvragen die voldoen aan zoekobject-parameters.",
+          "parameters": [
+            "#/components/parameters/geldigOp",
+            "#/components/parameters/inWerkingOp",
+            "#/components/parameters/beschikbaarOp",
+            "#/components/parameters/synchroniseerMetTileset",
+            "#/components/parameters/Page",
+            "#/components/parameters/Size",
+            "#/components/parameters/ContentCrsHeader"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/LocatieZoekobject"
+        },
+        "/locatieidentificaties/_zoek": {
+          "summary": "Alle locatieIdentificaties opvragen die voldoen aan de geo in het zoekobject",
+          "parameters": [
+            "#/components/parameters/ContentCrsHeader",
+            "#/components/parameters/geldigOp",
+            "#/components/parameters/inWerkingOp",
+            "#/components/parameters/beschikbaarOp",
+            "#/components/parameters/synchroniseerMetTileset"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/LocatieIdentificatiesOfGeoZoekobject"
+        },
+        "/primairelocaties/_zoek": {
+          "summary": "Primaire locaties opvragen die voldoen aan zoekobject-parameters ten behoeve van Vector Tile bevraging.",
+          "parameters": [
+            "#/components/parameters/geldigOp",
+            "#/components/parameters/inWerkingOp",
+            "#/components/parameters/beschikbaarOp",
+            "#/components/parameters/synchroniseerMetTileset",
+            "#/components/parameters/Page",
+            "#/components/parameters/Size",
+            "#/components/parameters/ContentCrsHeader"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/PrimaireLocatieZoekobject"
+        },
+        "/geometrieidentificaties/_zoek": {
+          "summary": "geometrieidentificaties opvragen die voldoen aan zoekobject-parameters ten behoeve van Vector Tile bevraging.",
+          "parameters": [
+            "#/components/parameters/geldigOp",
+            "#/components/parameters/inWerkingOp",
+            "#/components/parameters/beschikbaarOp",
+            "#/components/parameters/synchroniseerMetTileset",
+            "#/components/parameters/ContentCrsHeader"
+          ],
+          "requestBodySchemaRef": "#/components/schemas/LocatieIdentificatiesEnGeoZoekobject"
+        }
+      },
+      "rawContext": {
+        "voorrang": {
+          "count": 1,
+          "quotes": [
+            "s- of beschikbaarheidsas dien je 'volledig' te gebruiken.\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk.  Wanneer beide parameters meegegeven worden, dan krijgt de expliciete beschikbaarOp-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"style\":\"form\",\"explode\":true,\"schema\":{\"type\":\"string\",\"enum\":[\"normaal\",\"volledig\"]}},\"ContentCrsHeader\":{\"name\":\"Content-Crs\",\"in\":\"header\",\"description\":\"Content-Crs\",\"required\":true,\"style\":\"simple\",\"expl"
+          ]
+        },
+        "IMRO": {
+          "count": 0,
+          "quotes": []
+        },
+        "tijdelijk": {
+          "count": 0,
+          "quotes": []
+        },
+        "Tijdelijk": {
+          "count": 0,
+          "quotes": []
+        }
+      }
+    },
+    {
+      "id": "ontsluiten-v2",
+      "url": "https://service.omgevingswet.overheid.nl/publiek/omgevingsinformatie/api/ontsluiten/v2/openapi.json",
+      "status": 200,
+      "bytes": 57377,
+      "contentType": "application/json;charset=UTF-8",
+      "title": "Omgevingsinformatie ontsluiten API",
+      "version": "2.13.1",
+      "schemaCount": 61,
+      "terms": {
+        "tijdelijkDeelVan": [],
+        "tijdelijkDelen": [],
+        "TijdelijkDeel": [],
+        "iMROPlanidentificatie": [],
+        "voorrang": [],
+        "Voorrang": [],
+        "regelingtype": [],
+        "RegelingType": [],
+        "ontwerp": [
+          {
+            "schema": "OmgevingsdocumentMetadata",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "gerelateerdeOntwerpen",
+              "gerelateerdeTijdelijkeOntwerpRegelingdelen",
+              "isOntwerp"
+            ],
+            "definition": "{\"required\":[\"expressionId\",\"isBesluit\",\"isOntwerp\",\"isToekomstig\",\"publicatieUrl\",\"publicatiedatum\"],\"type\":\"object\",\"properties\":{\"expressionId\":{\"$ref\":\"#/components/schemas/ExpressionId\"},\"beginInzagetermijn\":{\"$ref\":\"#/components/schemas/BeginInzagetermijn\"},\"eindeInzagetermijn\":{\"$ref\":\"#/components/schemas/EindeInzagetermijn\"},\"beoogdeOpvolgerVan\":{\"$ref\":\"#/components/schemas/DocumentVersie\"},\"besluitCiteertitel\":{\"$ref\":\"#/components/schemas/BesluitCiteertitel\"},\"gerelateerdeVersies\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Andere vastgestelde versies van dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/DocumentVersie\"}},\"gerelateerdeOntwerpen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Ontwerp omgevingsdocumenten die gebaseerd zijn op dit vastgestelde omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpDocumentVersie\"}},\"gerelateerdeTijdelijkeRegelingdelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke regelingdelen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/DocumentVersie\"}},\"gerelateerdeTijdelijkeOntwerpRegelingdelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke ontwerp regelingdelen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpDocumentVersie\"}},\"gerelateerdeBesluitVersies\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Besluitversies die gerelateerd zijn aan dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/BesluitVersie\"}},\"gerelateerdeTijdelijkeBesluitVersiedelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke besluitversie delen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/BesluitVersie\"}},\"wijzigtRegelingVersie\":{\"$ref\":\"#/components/schemas/ExpressionId\"},\"consolideertRegelingVersie\":{\"$ref\":\"#/components/schemas/ExpressionId\"},\"isBesluit\":{\"$ref\":\"#/components/schemas/IsBesluit\"},\"isOntwerp\":{\"$ref\":\"#/components/schemas/IsOntwerp\"},\"isToekomstig\":{\"$ref\":\"#/components/schemas/IsToekomstig\"},\"tijdelijkRegelingDeelVan\":{\"$ref\":\"#/components/schemas/TijdelijkRegelingDeelVan\"},\"officieleTitel\":{\"type\":\"string\",\"description\":\"Officiële titel van de regeling.\",\"example\":\"Titel van het document.\"},\"publicatiedatum\":{\"$ref\":\"#/components/schemas/Publicatiedatum\"},\"publicatieUrl\":{\"type\":\"string\",\"description\":\"URL van de officiële publicatie van het document.\",\"example\":\"https://identifier-acc.overheid.nl/akn/nl/act/gm0297/2019/reg456/nld@2\"},\"status\":{\"$ref\":\"#/components/schemas/OmgevingsdocumentStatus"
+          },
+          {
+            "schema": "IsOntwerp",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"type\":\"boolean\",\"description\":\"Geeft aan of het een ontwerp betreft. (Omgevingsdocument)\",\"example\":true}"
+          },
+          {
+            "schema": "OntwerpDocumentVersie",
+            "matchedBy": "schema-name",
+            "matchedProperties": [],
+            "definition": "{\"required\":[\"aangeleverdDoorEen\",\"beschikbaarVanaf\",\"expressionId\",\"heeftVectorTiles\",\"identificatie\",\"isToekomstig\",\"publicatiedatum\",\"titel\",\"type\",\"uriIdentificatie\",\"versie\"],\"properties\":{\"identificatie\":{\"$ref\":\"#/components/schemas/Identificatie\"},\"uriIdentificatie\":{\"$ref\":\"#/components/schemas/UriIdentificatie\"},\"versie\":{\"$ref\":\"#/components/schemas/Versie\"},\"titel\":{\"$ref\":\"#/components/schemas/Titel\"},\"aangeleverdDoorEen\":{\"$ref\":\"#/components/schemas/BevoegdGezag\"},\"beschikbaarVanaf\":{\"$ref\":\"#/components/schemas/BeschikbaarVanaf\"},\"beschikbaarTot\":{\"$ref\":\"#/components/schemas/BeschikbaarTot\"},\"heeftVectorTiles\":{\"$ref\":\"#/components/schemas/HeeftVectorTiles\"},\"expressionId\":{\"$ref\":\"#/components/schemas/ExpressionId\"},\"isToekomstig\":{\"$ref\":\"#/components/schemas/IsToekomstig\"},\"publicatiedatum\":{\"$ref\":\"#/components/schemas/Publicatiedatum\"},\"beginInzagetermijn\":{\"$ref\":\"#/components/schemas/BeginInzagetermijn\"},\"eindeInzagetermijn\":{\"$ref\":\"#/components/schemas/EindeInzagetermijn\"},\"beoogdeOpvolgerVan\":{\"$ref\":\"#/components/schemas/DocumentVersie\"},\"besluitCiteertitel\":{\"$ref\":\"#/components/schemas/BesluitCiteertitel\"},\"geometrieIdentificaties\":{\"$ref\":\"#/components/schemas/GeometrieIdentificaties\"},\"type\":{\"$ref\":\"#/components/schemas/Type\"},\"officieleTitel\":{\"$ref\":\"#/components/schemas/OfficeleTitel\"},\"publicatieUrl\":{\"$ref\":\"#/components/schemas/PublicatieUrl\"}},\"description\":\"Specifieke ontwerpversie van een omgevingsdocument.\"}"
+          },
+          {
+            "schema": "DocumentSuggestie",
+            "matchedBy": "property-name",
+            "matchedProperties": [
+              "isOntwerp"
+            ],
+            "definition": "{\"required\":[\"identificatie\",\"isBesluit\",\"isOntwerp\",\"matches\",\"opgesteldDoor\",\"statusdatum\",\"titel\",\"type\",\"uriIdentificatie\"],\"type\":\"object\",\"properties\":{\"titel\":{\"type\":\"string\",\"description\":\"Titel van het document\",\"example\":\"Projectbesluit fietspad Hovenring\"},\"identificatie\":{\"type\":\"string\",\"description\":\"Identificatie van het document\",\"example\":\"NL.IMRO.0861.099101FIETSPHOVENR-0402\"},\"uriIdentificatie\":{\"$ref\":\"#/components/schemas/UriIdentificatie\"},\"type\":{\"type\":\"string\",\"description\":\"Een classificatie van het type gebied\",\"example\":\"Projectbesluit\"},\"opgesteldDoor\":{\"type\":\"string\",\"description\":\"De naam van het bevoegde gezag die dit document opgesteld heeft.\",\"example\":\"Gemeente Veldhoven\"},\"status\":{\"type\":\"string\",\"description\":\"De planstatus van een IMRO document.\",\"example\":\"vastgesteld\"},\"statusdatum\":{\"type\":\"string\",\"description\":\"Voor IMRO documenten geeft dit de datum van de planstatus weer. Voor regelingen en omgevingsvergunningen geeft dit de beginInwerking datum weer (als beginInwerking nog niet is geregistreerd dan geeft het de beginGeldigheid weer). Voor ontwerpregelingen geeft dit de datum van publicatie weer (als de publicatiedatum nog niet is geregistreerd dan geeft het de ontvangenOp datum van het procedureverloop weer).\",\"format\":\"date\",\"example\":\"2025-04-21\"},\"isBesluit\":{\"$ref\":\"#/components/schemas/IsBesluit\"},\"isOntwerp\":{\"$ref\":\"#/components/schemas/IsOntwerp\"},\"matches\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/Match\"}}},\"description\":\"Gevonden matches. Eerst worden exacte matches teruggegeven, aangevuld met fuzzy matches tot het opgegeven limiet\\nwordt bereikt.\"}"
+          }
+        ],
+        "activiteit": [],
+        "Locatie": []
+      },
+      "searchEndpoints": {
+        "/documenten/_zoek": {
+          "summary": "Zoek naar informatie over documenten.",
+          "parameters": [
+            "#/components/parameters/GeldigOp",
+            "#/components/parameters/InclusiefToekomstigGeldig",
+            "#/components/parameters/SynchroniseerMetTileset",
+            "#/components/parameters/BeschikbaarOp",
+            "#/components/parameters/Page",
+            "#/components/parameters/Size",
+            "#/components/parameters/Sort",
+            "#/components/parameters/ContentCrsHeader"
+          ],
+          "requestBodySchemaRef": null
+        }
+      },
+      "rawContext": {
+        "voorrang": {
+          "count": 1,
+          "quotes": [
+            " gegevens, ook historische en niet meer geldige gegevens.\\nCombineren van deze parameter met een expliciete tijdreis langs de beschikbaarOp tijdsas is niet mogelijk.  Wanneer beide parameters meegegeven worden, dan krijgt de expliciete beschikbaarOp-parameter voorrang boven deze parameter.\\n\",\"required\":false,\"style\":\"form\",\"explode\":true,\"schema\":{\"type\":\"string\",\"enum\":[\"Actueel\",\"Volledig\"]}}},\"examples\":{\"ApiDown\":{\"summary\":\"Dienst is niet beschikbaar\",\"value\":{\"app-health\":{\"status\":\"DOWN\"}}},\"ApiUp\":{\"summar"
+          ]
+        },
+        "IMRO": {
+          "count": 55,
+          "quotes": [
+            "mgevingsinformatie ontsluiten API\",\"description\":\"De Omgevingsinformatie ontsluiten API ontsluit omgevingsinformatie uit meerdere bronnen in samenhang. Bijvoorbeeld\\nom te kunnen zoeken naar zowel omgevingsdocumenten in het kader van de Omgevingswet (OW), als IMRO-documenten\\n(bestemmingsplannen en dergelijke) in het kader van de Wet op de Ruimtelijke Ordening (Wro).\\n\\nDeze API volgt de standaarden zoals beschreven in de\\n[DSO API-strategie](https://iplo.nl/digitaal-stelsel/aansluiten/standaarden/api-en-uri-strate",
+            "omponents/parameters/ContentCrsHeader\"}],\"requestBody\":{\"content\":{\"application/json\":{\"schema\":{\"type\":\"object\",\"properties\":{\"_find\":{\"type\":\"string\",\"description\":\"Filtert documenten op titel, identificatie, uriIdentificatie en expressionId.\",\"example\":\"NL.IMRO\"},\"bestuurslaag\":{\"$ref\":\"#/components/schemas/Bestuurslaag\"},\"regelgevingOfOverig\":{\"type\":\"string\",\"description\":\"Geeft aan of het een regeling betreft of een overige standaard.\",\"example\":\"REGELGEVING\",\"enum\":[\"REGELGEVING\",\"OVERIG\"]},\"geometrie\":{\"$re",
+            "ue\":{\"identificaties\":[\"/akn/nl/act/gm0034/2022/Poging2AlmereRegeltekstOnderzoek\",\"/akn/nl/act/gm0034/2023/R_2023040713_0008262\"],\"geometrie\":{\"type\":\"Point\",\"coordinates\":[155000,463000]}}},\"overig\":{\"summary\":\"Overige parameters gevuld\",\"value\":{\"_find\":\"NL.IMRO\",\"regelgevingOfOverig\":\"REGELGEVING\",\"geometrie\":{\"type\":\"Point\",\"coordinates\":[155000,463000]},\"bestuurslaag\":\"GEMEENTE\"}}}}},\"required\":true},\"responses\":{\"200\":{\"$ref\":\"#/components/responses/Documenten\"},\"400\":{\"$ref\":\"#/components/responses/BadReques",
+            "s/schemas/Bekendmaking\"}},\"besluitnummer\":{\"type\":\"string\",\"description\":\"Besluitnummer van het plan.\",\"example\":\"3\"},\"heeftPlankaart\":{\"type\":\"boolean\",\"description\":\"Document heeft een plankaart.\",\"example\":true},\"imroVersie\":{\"type\":\"string\",\"description\":\"IMRO-versie van het plan.\",\"example\":\"IMRO2012\"},\"isHistorisch\":{\"type\":\"boolean\",\"description\":\"Geeft aan of het plan historisch is.\",\"example\":true},\"isTamPlan\":{\"type\":\"boolean\",\"description\":\"Geeft aan of het plan een tijdelijk alternatieve maatregel (TAM)",
+            "er\":{\"type\":\"string\",\"description\":\"Besluitnummer van het plan.\",\"example\":\"3\"},\"heeftPlankaart\":{\"type\":\"boolean\",\"description\":\"Document heeft een plankaart.\",\"example\":true},\"imroVersie\":{\"type\":\"string\",\"description\":\"IMRO-versie van het plan.\",\"example\":\"IMRO2012\"},\"isHistorisch\":{\"type\":\"boolean\",\"description\":\"Geeft aan of het plan historisch is.\",\"example\":true},\"isTamPlan\":{\"type\":\"boolean\",\"description\":\"Geeft aan of het plan een tijdelijk alternatieve maatregel (TAM) is.\",\"example\":true},\"onderdelen\":{\"t",
+            "-22\"},\"items\":{\"$ref\":\"#/components/schemas/PlanOndergrond\"}},\"gerelateerdeVersies\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Andere versies van dit plan.\",\"items\":{\"$ref\":\"#/components/schemas/DocumentVersie\"}}},\"description\":\"Metadata specifiek voor IMRO-documenten. Deze wordt alleen gevuld als het Document een IMRO-document betreft.\"},\"Identificatie\":{\"type\":\"string\",\"description\":\"Identificatie van het document (AKN bij omgevingsdocument, planId bij IMRO-document).\",\"example\":\"/akn/nl/act/gm0301/2020/om",
+            "gerelateerdeVersies\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Andere versies van dit plan.\",\"items\":{\"$ref\":\"#/components/schemas/DocumentVersie\"}}},\"description\":\"Metadata specifiek voor IMRO-documenten. Deze wordt alleen gevuld als het Document een IMRO-document betreft.\"},\"Identificatie\":{\"type\":\"string\",\"description\":\"Identificatie van het document (AKN bij omgevingsdocument, planId bij IMRO-document).\",\"example\":\"/akn/nl/act/gm0301/2020/omgevingsplan\"},\"ExpressionId\":{\"type\":\"string\",\"description\":\"Id",
+            "mentVersie\"}}},\"description\":\"Metadata specifiek voor IMRO-documenten. Deze wordt alleen gevuld als het Document een IMRO-document betreft.\"},\"Identificatie\":{\"type\":\"string\",\"description\":\"Identificatie van het document (AKN bij omgevingsdocument, planId bij IMRO-document).\",\"example\":\"/akn/nl/act/gm0301/2020/omgevingsplan\"},\"ExpressionId\":{\"type\":\"string\",\"description\":\"Identificatie van een specifieke versie van een document. (Omgevingdocument)\",\"example\":\"/akn/nl/act/gm0362/2020/omgevingsplan/nld@2024-03-12;3\"}",
+            "er\",\"description\":\"Versienummer van het document.\",\"format\":\"int32\",\"example\":2},\"Titel\":{\"type\":\"string\",\"description\":\"Titel van het document. Voor omgevingsdocumenten is dit de `citeertitel`, als die niet bekend is wordt de\\n`officieleTitel` gebruikt. Voor IMRO-documenten is dit `naam`.\",\"example\":\"Bestemmingplan Lemmer Centrum\"},\"BesluitCiteertitel\":{\"type\":\"string\",\"description\":\"De citeertitel van het besluit van een regeling. (Omgevingsdocument)\",\"example\":\"Actieplan Geluid\"},\"IsBesluit\":{\"type\":\"boolean\",\"d",
+            "ng\",\"example\":\"regels\"},\"objectgerichteTeksten\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/components/schemas/ObjectgerichteTekst\"}}},\"description\":\"Verwijzing naar planteksten die bij een document horen, gegroepeerd per type (regels, bijlage, toelichting,\\netc...). (IMRO-document)\\nEen onderdeel kan verwijzen naar een objectgerichte tekst, of naar een externe HTML-pagina als er geen\\nobjectgerichte teksten zijn.\"},\"ObjectgerichteTekst\":{\"required\":[\"identificatie\",\"titel\",\"type\"],\"type\":\"object\",\"properties\":{\"identificat",
+            "erwijzen naar een objectgerichte tekst, of naar een externe HTML-pagina als er geen\\nobjectgerichte teksten zijn.\"},\"ObjectgerichteTekst\":{\"required\":[\"identificatie\",\"titel\",\"type\"],\"type\":\"object\",\"properties\":{\"identificatie\":{\"type\":\"string\",\"example\":\"NL.IMRO.PT.bijlagenBijRegels.s41\"},\"titel\":{\"type\":\"string\",\"example\":\"Bijlage bij Regels\"},\"type\":{\"type\":\"string\",\"example\":\"regels\"}},\"description\":\"Verwijzing vanuit de geografie naar teksten over beleid, regels en toelichting die bij een gebied horen.\\n(IMRO",
+            "\"NL.IMRO.PT.bijlagenBijRegels.s41\"},\"titel\":{\"type\":\"string\",\"example\":\"Bijlage bij Regels\"},\"type\":{\"type\":\"string\",\"example\":\"regels\"}},\"description\":\"Verwijzing vanuit de geografie naar teksten over beleid, regels en toelichting die bij een gebied horen.\\n(IMRO-document)\"},\"PlanOndergrond\":{\"required\":[\"type\"],\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"example\":\"grootschalige basiskaart (GBK)\"},\"datum\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2015-03-25\"}},\"description\":\"Naam van de gebruikte onde",
+            "equired\":[\"type\"],\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"example\":\"grootschalige basiskaart (GBK)\"},\"datum\":{\"type\":\"string\",\"format\":\"date\",\"example\":\"2015-03-25\"}},\"description\":\"Naam van de gebruikte ondergrond volgens domein Ondergronden. (IMRO-document)\"},\"RegelStatus\":{\"type\":\"string\",\"nullable\":true,\"enum\":[\"in ontwikkeling\",\"geldend\"],\"example\":null},\"PlanstatusInfo\":{\"required\":[\"datum\",\"planstatus\"],\"type\":\"object\",\"properties\":{\"planstatus\":{\"type\":\"string\",\"example\":\"vastgesteld\",\"enum\":",
+            "ring\",\"example\":\"Bestemmingsplan Hoek Prins Bernhardlaan - Kruisparkweg\"},\"href\":{\"type\":\"string\",\"example\":\"https://zoek.officielebekendmakingen.nl/stcrt-2021-15786.html\"}},\"description\":\"Officiële overheidspublicatie zoals gepubliceerd in de Staatscourant. (IMRO-document)\"},\"Type\":{\"type\":\"string\",\"description\":\"Type van het document, bijvoorbeeld wijzigingsplan of omgevingsplan.\",\"example\":\"Omgevingsplan\",\"enum\":[\"aanwijzingsbesluit\",\"Aanwijzingsbesluit N2000\",\"amvb\",\"AMvB\",\"beheersverordening\",\"bestemmingsplan\"",
+            "s/GeometrieIdentificaties\"},\"type\":{\"$ref\":\"#/components/schemas/Type\"},\"officieleTitel\":{\"$ref\":\"#/components/schemas/OfficeleTitel\"},\"publicatieUrl\":{\"$ref\":\"#/components/schemas/PublicatieUrl\"}},\"description\":\"Specifieke versie van een omgevingsdocument of IMRO-document.\"},\"OntwerpDocumentVersie\":{\"required\":[\"aangeleverdDoorEen\",\"beschikbaarVanaf\",\"expressionId\",\"heeftVectorTiles\",\"identificatie\",\"isToekomstig\",\"publicatiedatum\",\"titel\",\"type\",\"uriIdentificatie\",\"versie\"],\"properties\":{\"identificatie\":{\"$ref\":\"",
+            "ype\",\"uriIdentificatie\"],\"type\":\"object\",\"properties\":{\"titel\":{\"type\":\"string\",\"description\":\"Titel van het document\",\"example\":\"Projectbesluit fietspad Hovenring\"},\"identificatie\":{\"type\":\"string\",\"description\":\"Identificatie van het document\",\"example\":\"NL.IMRO.0861.099101FIETSPHOVENR-0402\"},\"uriIdentificatie\":{\"$ref\":\"#/components/schemas/UriIdentificatie\"},\"type\":{\"type\":\"string\",\"description\":\"Een classificatie van het type gebied\",\"example\":\"Projectbesluit\"},\"opgesteldDoor\":{\"type\":\"string\",\"description\":\"De",
+            "e van het type gebied\",\"example\":\"Projectbesluit\"},\"opgesteldDoor\":{\"type\":\"string\",\"description\":\"De naam van het bevoegde gezag die dit document opgesteld heeft.\",\"example\":\"Gemeente Veldhoven\"},\"status\":{\"type\":\"string\",\"description\":\"De planstatus van een IMRO document.\",\"example\":\"vastgesteld\"},\"statusdatum\":{\"type\":\"string\",\"description\":\"Voor IMRO documenten geeft dit de datum van de planstatus weer. Voor regelingen en omgevingsvergunningen geeft dit de beginInwerking datum weer (als beginInwerking nog niet ",
+            "tion\":\"De naam van het bevoegde gezag die dit document opgesteld heeft.\",\"example\":\"Gemeente Veldhoven\"},\"status\":{\"type\":\"string\",\"description\":\"De planstatus van een IMRO document.\",\"example\":\"vastgesteld\"},\"statusdatum\":{\"type\":\"string\",\"description\":\"Voor IMRO documenten geeft dit de datum van de planstatus weer. Voor regelingen en omgevingsvergunningen geeft dit de beginInwerking datum weer (als beginInwerking nog niet is geregistreerd dan geeft het de beginGeldigheid weer). Voor ontwerpregelingen geeft dit de",
+            ":{\"$ref\":\"#/components/headers/ApiVersion\"}},\"content\":{\"application/hal+json\":{\"schema\":{\"$ref\":\"#/components/schemas/Document\"},\"examples\":{\"omgevingsdocument\":{\"$ref\":\"#/components/examples/Omgevingsdocument\"},\"imro-document\":{\"$ref\":\"#/components/examples/IMRODocument\"}}}}},\"Documenten\":{\"description\":\"OK\",\"headers\":{\"API-Version\":{\"$ref\":\"#/components/headers/ApiVersion\"}},\"content\":{\"application/hal+json\":{\"schema\":{\"$ref\":\"#/components/schemas/Documenten\"},\"examples\":{\"documenten\":{\"$ref\":\"#/components/examp",
+            "dig\"]}}},\"examples\":{\"ApiDown\":{\"summary\":\"Dienst is niet beschikbaar\",\"value\":{\"app-health\":{\"status\":\"DOWN\"}}},\"ApiUp\":{\"summary\":\"Dienst is beschikbaar\",\"value\":{\"app-health\":{\"status\":\"UP\"}}},\"Documenten\":{\"summary\":\"Documenten respons met een IMOW en een IMRO document\",\"value\":{\"_embedded\":{\"documenten\":[{\"identificatie\":\"/akn/nl/act/gm0362/2020/omgevingsplan\",\"uriIdentificatie\":\"_akn_nl_act_gm0362_2020_omgevingsplan\",\"versie\":1,\"titel\":\"Omgevingsplan gemeente Amstelveen\",\"type\":\"omgevingsplan\",\"heeftOntwerpen",
+            "erheid.nl/publiek/omgevingsinformatie/api/ontsluiten/v2/documenten/_akn_nl_act_gm0362_2020_omgevingsplan?geldigOp=2024-01-01&beschikbaarOp=2024-01-01T12%3A34%3A56%2B01%3A00\"}},\"documentOnderdelen\":[],\"ondergronden\":[],\"bekendmakingen\":[]},{\"identificatie\":\"NL.IMRO.0301.wp0102Lansinkweg8-vs01\",\"versie\":2,\"titel\":\"Lansinkweg 8, Zutphen\",\"type\":\"wijzigingsplan\",\"statusRegel\":\"geldend\",\"isOntwerp\":false,\"aangeleverdDoorEen\":{},\"geldigVanaf\":\"2023-08-03\",\"beschikbaarVanaf\":\"2024-08-09T08:24:01.931807Z\",\"status\":\"vastges",
+            "plan\",\"statusRegel\":\"geldend\",\"isOntwerp\":false,\"aangeleverdDoorEen\":{},\"geldigVanaf\":\"2023-08-03\",\"beschikbaarVanaf\":\"2024-08-09T08:24:01.931807Z\",\"status\":\"vastgesteld\",\"statusDossier\":\"geheel onherroepelijk in werking\",\"beroepEnBezwaar\":\"nee\",\"imroVersie\":\"IMRO2012\",\"besluitnummer\":\"565993\",\"isHistorisch\":false,\"isTamPlan\":false,\"heeftPlankaart\":true,\"heeftVectorTiles\":true,\"_links\":{\"self\":{\"href\":\"https://service.omgevingswet.overheid.nl/publiek/omgevingsinformatie/api/ontsluiten/v2/documenten/NL.IMRO.0301.wp0",
+            "imroVersie\":\"IMRO2012\",\"besluitnummer\":\"565993\",\"isHistorisch\":false,\"isTamPlan\":false,\"heeftPlankaart\":true,\"heeftVectorTiles\":true,\"_links\":{\"self\":{\"href\":\"https://service.omgevingswet.overheid.nl/publiek/omgevingsinformatie/api/ontsluiten/v2/documenten/NL.IMRO.0301.wp0102Lansinkweg8-vs01?geldigOp=2024-11-21&beschikbaarOp=2024-11-21T13%3A47%3A02.440387462%2B01%3A00\"}},\"documentOnderdelen\":[{\"type\":\"bijlage bij regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs0",
+            "pi/ontsluiten/v2/documenten/NL.IMRO.0301.wp0102Lansinkweg8-vs01?geldigOp=2024-11-21&beschikbaarOp=2024-11-21T13%3A47%3A02.440387462%2B01%3A00\"}},\"documentOnderdelen\":[{\"type\":\"bijlage bij regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/b_NL.IMRO.0301.wp0102Lansinkweg8-vs01_rb.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijRegels.s409\",\"titel\":\"Bijlagen bij regels\",\"type\":\"bijlagen bij regels\"}]},{\"type\":\"regels\",\"href\":[{\"href\":\"http",
+            "01.wp0102Lansinkweg8-vs01?geldigOp=2024-11-21&beschikbaarOp=2024-11-21T13%3A47%3A02.440387462%2B01%3A00\"}},\"documentOnderdelen\":[{\"type\":\"bijlage bij regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/b_NL.IMRO.0301.wp0102Lansinkweg8-vs01_rb.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijRegels.s409\",\"titel\":\"Bijlagen bij regels\",\"type\":\"bijlagen bij regels\"}]},{\"type\":\"regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/document",
+            "462%2B01%3A00\"}},\"documentOnderdelen\":[{\"type\":\"bijlage bij regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/b_NL.IMRO.0301.wp0102Lansinkweg8-vs01_rb.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijRegels.s409\",\"titel\":\"Bijlagen bij regels\",\"type\":\"bijlagen bij regels\"}]},{\"type\":\"regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/r_NL.IMRO.0301.wp0102Lansinkweg8-vs01.html\"}],\"objec",
+            "0301.wp0102Lansinkweg8-vs01_rb.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijRegels.s409\",\"titel\":\"Bijlagen bij regels\",\"type\":\"bijlagen bij regels\"}]},{\"type\":\"regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/r_NL.IMRO.0301.wp0102Lansinkweg8-vs01.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.regels.s46\",\"titel\":\"Regels\",\"type\":\"regels\"}]},{\"type\":\"bijlage bij toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplann",
+            ",\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijRegels.s409\",\"titel\":\"Bijlagen bij regels\",\"type\":\"bijlagen bij regels\"}]},{\"type\":\"regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/r_NL.IMRO.0301.wp0102Lansinkweg8-vs01.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.regels.s46\",\"titel\":\"Regels\",\"type\":\"regels\"}]},{\"type\":\"bijlage bij toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lan",
+            "\"Bijlagen bij regels\",\"type\":\"bijlagen bij regels\"}]},{\"type\":\"regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/r_NL.IMRO.0301.wp0102Lansinkweg8-vs01.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.regels.s46\",\"titel\":\"Regels\",\"type\":\"regels\"}]},{\"type\":\"bijlage bij toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/b_NL.IMRO.0301.wp0102Lansinkweg8-vs01_tb.html\"}],\"objectgerichteTeksten\":",
+            "sinkweg8-vs01/r_NL.IMRO.0301.wp0102Lansinkweg8-vs01.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.regels.s46\",\"titel\":\"Regels\",\"type\":\"regels\"}]},{\"type\":\"bijlage bij toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/b_NL.IMRO.0301.wp0102Lansinkweg8-vs01_tb.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijToelichting.s45\",\"titel\":\"Bijlagen bij toelichting\",\"type\":\"bijlagen bij toelichting\"}]},{\"type\":\"toelichting\",\"h",
+            "sinkweg8-vs01.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.regels.s46\",\"titel\":\"Regels\",\"type\":\"regels\"}]},{\"type\":\"bijlage bij toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/b_NL.IMRO.0301.wp0102Lansinkweg8-vs01_tb.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijToelichting.s45\",\"titel\":\"Bijlagen bij toelichting\",\"type\":\"bijlagen bij toelichting\"}]},{\"type\":\"toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijke",
+            "itel\":\"Regels\",\"type\":\"regels\"}]},{\"type\":\"bijlage bij toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/b_NL.IMRO.0301.wp0102Lansinkweg8-vs01_tb.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijToelichting.s45\",\"titel\":\"Bijlagen bij toelichting\",\"type\":\"bijlagen bij toelichting\"}]},{\"type\":\"toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/t_NL.IMRO.0301.wp0102Lansinkweg8-",
+            "eg8-vs01_tb.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijToelichting.s45\",\"titel\":\"Bijlagen bij toelichting\",\"type\":\"bijlagen bij toelichting\"}]},{\"type\":\"toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/t_NL.IMRO.0301.wp0102Lansinkweg8-vs01.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.toelichting.s1\",\"titel\":\"Toelichting\",\"type\":\"toelichting\"}]}],\"ondergronden\":[{\"type\":\"basisregistratie kadaster (BRK)\",\"datum",
+            "sten\":[{\"identificatie\":\"NL.IMRO.PT.bijlagenBijToelichting.s45\",\"titel\":\"Bijlagen bij toelichting\",\"type\":\"bijlagen bij toelichting\"}]},{\"type\":\"toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/t_NL.IMRO.0301.wp0102Lansinkweg8-vs01.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.toelichting.s1\",\"titel\":\"Toelichting\",\"type\":\"toelichting\"}]}],\"ondergronden\":[{\"type\":\"basisregistratie kadaster (BRK)\",\"datum\":\"2021-12-10\"}],\"bekendmakingen\":[{\"d",
+            "oelichting\",\"type\":\"bijlagen bij toelichting\"}]},{\"type\":\"toelichting\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs01/t_NL.IMRO.0301.wp0102Lansinkweg8-vs01.html\"}],\"objectgerichteTeksten\":[{\"identificatie\":\"NL.IMRO.PT.toelichting.s1\",\"titel\":\"Toelichting\",\"type\":\"toelichting\"}]}],\"ondergronden\":[{\"type\":\"basisregistratie kadaster (BRK)\",\"datum\":\"2021-12-10\"}],\"bekendmakingen\":[{\"documentType\":\"Gemeenteblad\",\"titel\":\"Wijzigingsplan “Lansinkweg 8”, gemeente Zutphen\",\"",
+            "ice.omgevingswet.overheid.nl/publiek/omgevingsinformatie/api/ontsluiten/v2/documenten/_akn_nl_act_gm0362_2020_omgevingsplan?geldigOp=2024-01-01&beschikbaarOp=2024-01-01T12%3A34%3A56%2B01%3A00\"}},\"documentOnderdelen\":[],\"ondergronden\":[],\"bekendmakingen\":[]}},\"IMRODocument\":{\"summary\":\"IMRO-document\",\"value\":{\"identificatie\":\"NL.IMRO.0301.wp0102Lansinkweg8-vs01\",\"versie\":2,\"titel\":\"Lansinkweg 8, Zutphen\",\"type\":\"wijzigingsplan\",\"statusRegel\":\"geldend\",\"isOntwerp\":false,\"aangeleverdDoorEen\":{},\"geldigVanaf\":\"2023-08-",
+            "nl/publiek/omgevingsinformatie/api/ontsluiten/v2/documenten/_akn_nl_act_gm0362_2020_omgevingsplan?geldigOp=2024-01-01&beschikbaarOp=2024-01-01T12%3A34%3A56%2B01%3A00\"}},\"documentOnderdelen\":[],\"ondergronden\":[],\"bekendmakingen\":[]}},\"IMRODocument\":{\"summary\":\"IMRO-document\",\"value\":{\"identificatie\":\"NL.IMRO.0301.wp0102Lansinkweg8-vs01\",\"versie\":2,\"titel\":\"Lansinkweg 8, Zutphen\",\"type\":\"wijzigingsplan\",\"statusRegel\":\"geldend\",\"isOntwerp\":false,\"aangeleverdDoorEen\":{},\"geldigVanaf\":\"2023-08-03\",\"beschikbaarVanaf\":\"20",
+            "n/v2/documenten/_akn_nl_act_gm0362_2020_omgevingsplan?geldigOp=2024-01-01&beschikbaarOp=2024-01-01T12%3A34%3A56%2B01%3A00\"}},\"documentOnderdelen\":[],\"ondergronden\":[],\"bekendmakingen\":[]}},\"IMRODocument\":{\"summary\":\"IMRO-document\",\"value\":{\"identificatie\":\"NL.IMRO.0301.wp0102Lansinkweg8-vs01\",\"versie\":2,\"titel\":\"Lansinkweg 8, Zutphen\",\"type\":\"wijzigingsplan\",\"statusRegel\":\"geldend\",\"isOntwerp\":false,\"aangeleverdDoorEen\":{},\"geldigVanaf\":\"2023-08-03\",\"beschikbaarVanaf\":\"2024-08-09T08:24:01.931807Z\",\"status\":\"vastges",
+            "plan\",\"statusRegel\":\"geldend\",\"isOntwerp\":false,\"aangeleverdDoorEen\":{},\"geldigVanaf\":\"2023-08-03\",\"beschikbaarVanaf\":\"2024-08-09T08:24:01.931807Z\",\"status\":\"vastgesteld\",\"statusDossier\":\"geheel onherroepelijk in werking\",\"beroepEnBezwaar\":\"nee\",\"imroVersie\":\"IMRO2012\",\"besluitnummer\":\"565993\",\"isHistorisch\":false,\"isTamPlan\":false,\"heeftPlankaart\":true,\"heeftVectorTiles\":true,\"_links\":{\"self\":{\"href\":\"https://service.omgevingswet.overheid.nl/publiek/omgevingsinformatie/api/ontsluiten/v2/documenten/NL.IMRO.0301.wp0",
+            "imroVersie\":\"IMRO2012\",\"besluitnummer\":\"565993\",\"isHistorisch\":false,\"isTamPlan\":false,\"heeftPlankaart\":true,\"heeftVectorTiles\":true,\"_links\":{\"self\":{\"href\":\"https://service.omgevingswet.overheid.nl/publiek/omgevingsinformatie/api/ontsluiten/v2/documenten/NL.IMRO.0301.wp0102Lansinkweg8-vs01?geldigOp=2024-11-21&beschikbaarOp=2024-11-21T13%3A47%3A02.440387462%2B01%3A00\"}},\"documentOnderdelen\":[{\"type\":\"bijlage bij regels\",\"href\":[{\"href\":\"https://www.ruimtelijkeplannen.nl/documents/NL.IMRO.0301.wp0102Lansinkweg8-vs0"
+          ]
+        },
+        "tijdelijk": {
+          "count": 12,
+          "quotes": [
+            " identificatie.\",\"description\":\"Dit endpoint levert informatie over specifieke documenten op basis van een `uriIdentificatie`. \\nZie de parameterbeschrijving hieronder voor uitgebreide informatie over de werking daarvan.\\nIndien een `uriIdentificatie` van een tijdelijk deel wordt gebruikt: \\n - als het een tijdelijk deel is met api_object = 'Regeling', dan bepaalt de `beschikbaarVanaf`-waarde \\n    van dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. In dit geval is het tijdelijke deel te ",
+            "ert informatie over specifieke documenten op basis van een `uriIdentificatie`. \\nZie de parameterbeschrijving hieronder voor uitgebreide informatie over de werking daarvan.\\nIndien een `uriIdentificatie` van een tijdelijk deel wordt gebruikt: \\n - als het een tijdelijk deel is met api_object = 'Regeling', dan bepaalt de `beschikbaarVanaf`-waarde \\n    van dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. In dit geval is het tijdelijke deel te vinden\\n    in de `gerelateerdeTijdelijkeRegelin",
+            "rijving hieronder voor uitgebreide informatie over de werking daarvan.\\nIndien een `uriIdentificatie` van een tijdelijk deel wordt gebruikt: \\n - als het een tijdelijk deel is met api_object = 'Regeling', dan bepaalt de `beschikbaarVanaf`-waarde \\n    van dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. In dit geval is het tijdelijke deel te vinden\\n    in de `gerelateerdeTijdelijkeRegelingdelen`.\\n - als het een tijdelijk deel is met api_object van 'OntwerpRegeling' of 'Besluitversie', da",
+            "tificatie` van een tijdelijk deel wordt gebruikt: \\n - als het een tijdelijk deel is met api_object = 'Regeling', dan bepaalt de `beschikbaarVanaf`-waarde \\n    van dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. In dit geval is het tijdelijke deel te vinden\\n    in de `gerelateerdeTijdelijkeRegelingdelen`.\\n - als het een tijdelijk deel is met api_object van 'OntwerpRegeling' of 'Besluitversie', dan \\nwordt het tijdelijke deel als hoofddocument geretourneerd.\",\"operationId\":\"getDocument\"",
+            "_object = 'Regeling', dan bepaalt de `beschikbaarVanaf`-waarde \\n    van dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. In dit geval is het tijdelijke deel te vinden\\n    in de `gerelateerdeTijdelijkeRegelingdelen`.\\n - als het een tijdelijk deel is met api_object van 'OntwerpRegeling' of 'Besluitversie', dan \\nwordt het tijdelijke deel als hoofddocument geretourneerd.\",\"operationId\":\"getDocument\",\"parameters\":[{\"$ref\":\"#/components/parameters/UriIdentificatie\"},{\"$ref\":\"#/components/par",
+            "l welke versie van de hoofdregeling wordt teruggeleverd. In dit geval is het tijdelijke deel te vinden\\n    in de `gerelateerdeTijdelijkeRegelingdelen`.\\n - als het een tijdelijk deel is met api_object van 'OntwerpRegeling' of 'Besluitversie', dan \\nwordt het tijdelijke deel als hoofddocument geretourneerd.\",\"operationId\":\"getDocument\",\"parameters\":[{\"$ref\":\"#/components/parameters/UriIdentificatie\"},{\"$ref\":\"#/components/parameters/GeldigOp\"},{\"$ref\":\"#/components/parameters/BeschikbaarOp\"},{\"$ref\":\"#/components/p",
+            "mmary\":\"Vraag informatie op over een specifieke versie van een omgevingsdocument, op basis van een expressionId.\",\"description\":\"Dit endpoint levert informatie over specifieke documenten op basis van een `uriIdentificatie`. \\nIndien een `expressionId` van een tijdelijk deel wordt gebruikt, bepaalt de `beschikbaarVanaf`-waarde \\nvan dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. Het tijdelijke deel is te vinden\\nin de `gerelateerdeTijdelijkeRegelingdelen`.\\n\\nLet op: hierbij wordt de inwe",
+            "nt, op basis van een expressionId.\",\"description\":\"Dit endpoint levert informatie over specifieke documenten op basis van een `uriIdentificatie`. \\nIndien een `expressionId` van een tijdelijk deel wordt gebruikt, bepaalt de `beschikbaarVanaf`-waarde \\nvan dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. Het tijdelijke deel is te vinden\\nin de `gerelateerdeTijdelijkeRegelingdelen`.\\n\\nLet op: hierbij wordt de inwerkingtreding (`geldigVanaf`) bewust niet meegenomen. \\nDe selectie van de hoof",
+            "rmatie over specifieke documenten op basis van een `uriIdentificatie`. \\nIndien een `expressionId` van een tijdelijk deel wordt gebruikt, bepaalt de `beschikbaarVanaf`-waarde \\nvan dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. Het tijdelijke deel is te vinden\\nin de `gerelateerdeTijdelijkeRegelingdelen`.\\n\\nLet op: hierbij wordt de inwerkingtreding (`geldigVanaf`) bewust niet meegenomen. \\nDe selectie van de hoofdregeling is uitsluitend gebaseerd op beschikbaarheid, niet op geldigheid.\"",
+            "s/ExpressionId\"},\"consolideertRegelingVersie\":{\"$ref\":\"#/components/schemas/ExpressionId\"},\"isBesluit\":{\"$ref\":\"#/components/schemas/IsBesluit\"},\"isOntwerp\":{\"$ref\":\"#/components/schemas/IsOntwerp\"},\"isToekomstig\":{\"$ref\":\"#/components/schemas/IsToekomstig\"},\"tijdelijkRegelingDeelVan\":{\"$ref\":\"#/components/schemas/TijdelijkRegelingDeelVan\"},\"officieleTitel\":{\"type\":\"string\",\"description\":\"Officiële titel van de regeling.\",\"example\":\"Titel van het document.\"},\"publicatiedatum\":{\"$ref\":\"#/components/schemas/Publicati",
+            "rsie\":{\"type\":\"string\",\"description\":\"IMRO-versie van het plan.\",\"example\":\"IMRO2012\"},\"isHistorisch\":{\"type\":\"boolean\",\"description\":\"Geeft aan of het plan historisch is.\",\"example\":true},\"isTamPlan\":{\"type\":\"boolean\",\"description\":\"Geeft aan of het plan een tijdelijk alternatieve maatregel (TAM) is.\",\"example\":true},\"onderdelen\":{\"type\":\"array\",\"description\":\"Onderdelen van het plan.\",\"items\":{\"$ref\":\"#/components/schemas/Onderdeel\"}},\"ondergronden\":{\"type\":\"array\",\"description\":\"De ondergronden van het plan.\",\"e",
+            "splanregels Projectbesluit\",\"omgevingsvergunning\",\"Omgevingsvergunning\",\"Omgevingsverordening\",\"Omgevingsvisie\",\"Programma\",\"projectbesluit\",\"Projectbesluit\",\"provinciale verordening\",\"reactieve aanwijzing\",\"Reactieve interventie\",\"regeling\",\"structuurvisie\",\"tijdelijke ontheffing buitenplans\",\"Toegangsbeperkingsbesluit\",\"uitwerkingsplan\",\"voorbereidingsbesluit\",\"Voorbeschermingsregels\",\"Voorbeschermingsregels Omgevingsplan\",\"Voorbeschermingsregels Omgevingsverordening\",\"Waterschapsverordening\",\"wijzigingsplan\"]},\""
+          ]
+        },
+        "Tijdelijk": {
+          "count": 10,
+          "quotes": [
+            "\\n - als het een tijdelijk deel is met api_object = 'Regeling', dan bepaalt de `beschikbaarVanaf`-waarde \\n    van dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. In dit geval is het tijdelijke deel te vinden\\n    in de `gerelateerdeTijdelijkeRegelingdelen`.\\n - als het een tijdelijk deel is met api_object van 'OntwerpRegeling' of 'Besluitversie', dan \\nwordt het tijdelijke deel als hoofddocument geretourneerd.\",\"operationId\":\"getDocument\",\"parameters\":[{\"$ref\":\"#/components/parameters/Ur",
+            "n `uriIdentificatie`. \\nIndien een `expressionId` van een tijdelijk deel wordt gebruikt, bepaalt de `beschikbaarVanaf`-waarde \\nvan dat tijdelijke deel welke versie van de hoofdregeling wordt teruggeleverd. Het tijdelijke deel is te vinden\\nin de `gerelateerdeTijdelijkeRegelingdelen`.\\n\\nLet op: hierbij wordt de inwerkingtreding (`geldigVanaf`) bewust niet meegenomen. \\nDe selectie van de hoofdregeling is uitsluitend gebaseerd op beschikbaarheid, niet op geldigheid.\",\"operationId\":\"getOmgevingsdocumentByUriExpressi",
+            "emas/DocumentVersie\"}},\"gerelateerdeOntwerpen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Ontwerp omgevingsdocumenten die gebaseerd zijn op dit vastgestelde omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpDocumentVersie\"}},\"gerelateerdeTijdelijkeRegelingdelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke regelingdelen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/DocumentVersie\"}},\"gerelateerdeTijdelijkeOntwerpRegelingdelen\":{\"unique",
+            "array\",\"description\":\"Ontwerp omgevingsdocumenten die gebaseerd zijn op dit vastgestelde omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpDocumentVersie\"}},\"gerelateerdeTijdelijkeRegelingdelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke regelingdelen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/DocumentVersie\"}},\"gerelateerdeTijdelijkeOntwerpRegelingdelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke ontwerp regelingdelen ",
+            "s/OntwerpDocumentVersie\"}},\"gerelateerdeTijdelijkeRegelingdelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke regelingdelen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/DocumentVersie\"}},\"gerelateerdeTijdelijkeOntwerpRegelingdelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke ontwerp regelingdelen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpDocumentVersie\"}},\"gerelateerdeBesluitVersies\":{\"",
+            "ue,\"type\":\"array\",\"description\":\"Tijdelijke regelingdelen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/DocumentVersie\"}},\"gerelateerdeTijdelijkeOntwerpRegelingdelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke ontwerp regelingdelen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/OntwerpDocumentVersie\"}},\"gerelateerdeBesluitVersies\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Besluitversies die gerelateerd zij",
+            "\":\"#/components/schemas/OntwerpDocumentVersie\"}},\"gerelateerdeBesluitVersies\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Besluitversies die gerelateerd zijn aan dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/BesluitVersie\"}},\"gerelateerdeTijdelijkeBesluitVersiedelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke besluitversie delen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/BesluitVersie\"}},\"wijzigtRegelingVersie\":{\"$ref\":\"#/componen",
+            "uniqueItems\":true,\"type\":\"array\",\"description\":\"Besluitversies die gerelateerd zijn aan dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/BesluitVersie\"}},\"gerelateerdeTijdelijkeBesluitVersiedelen\":{\"uniqueItems\":true,\"type\":\"array\",\"description\":\"Tijdelijke besluitversie delen die van toepassing zijn op dit omgevingsdocument.\",\"items\":{\"$ref\":\"#/components/schemas/BesluitVersie\"}},\"wijzigtRegelingVersie\":{\"$ref\":\"#/components/schemas/ExpressionId\"},\"consolideertRegelingVersie\":{\"$ref\":\"#/components/sch",
+            "/components/schemas/ExpressionId\"},\"isBesluit\":{\"$ref\":\"#/components/schemas/IsBesluit\"},\"isOntwerp\":{\"$ref\":\"#/components/schemas/IsOntwerp\"},\"isToekomstig\":{\"$ref\":\"#/components/schemas/IsToekomstig\"},\"tijdelijkRegelingDeelVan\":{\"$ref\":\"#/components/schemas/TijdelijkRegelingDeelVan\"},\"officieleTitel\":{\"type\":\"string\",\"description\":\"Officiële titel van de regeling.\",\"example\":\"Titel van het document.\"},\"publicatiedatum\":{\"$ref\":\"#/components/schemas/Publicatiedatum\"},\"publicatieUrl\":{\"type\":\"string\",\"description\":",
+            "ment. (Omgevingdocument)\",\"example\":\"/akn/nl/act/gm0362/2020/omgevingsplan/nld@2024-03-12;3\"},\"UriIdentificatie\":{\"type\":\"string\",\"description\":\"URI-veilige identificatie, waarbij `/` is vervangen door `_`.\",\"example\":\"_akn_nl_act_gm0301_2020_omgevingsplan\"},\"TijdelijkRegelingDeelVan\":{\"type\":\"string\",\"description\":\"URI-veilige identificatie, waarbij `/` is vervangen door `_`.\",\"example\":\"_akn_nl_act_gm0301_2020_omgevingsplan\"},\"Versie\":{\"type\":\"integer\",\"description\":\"Versienummer van het document.\",\"format\":\"int3"
+          ]
+        }
+      }
+    }
+  ],
+  "dataPlane": [
+    {
+      "id": "presenteren-regelingen",
+      "url": "https://service.omgevingswet.overheid.nl/publiek/omgevingsdocumenten/api/presenteren/v8/regelingen?page=1&size=1",
+      "status": 401,
+      "contentType": "application/problem+json; charset=UTF-8",
+      "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/Ongeautoriseerd\",\n    \"title\": \"Inloggegevens ontbreken\",\n    \"status\": 401,\n    \"detail\": \"Inloggegevens ontbreken\",\n    \"instance\": \"06468b2045d75a169808361540940eb6\"\n}",
+      "error": null
+    },
+    {
+      "id": "toepasbaar-locaties-zoek",
+      "url": "https://service.omgevingswet.overheid.nl/publiek/omgevingsdocumenten/api/toepasbaaropvragen/v7/locaties/_zoek",
+      "status": 401,
+      "contentType": "application/problem+json; charset=UTF-8",
+      "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/Ongeautoriseerd\",\n    \"title\": \"Inloggegevens ontbreken\",\n    \"status\": 401,\n    \"detail\": \"Inloggegevens ontbreken\",\n    \"instance\": \"c0e5a7da749062998a7f58ae087e6875\"\n}",
+      "error": null
+    },
+    {
+      "id": "rp-opvragen-plannen",
+      "url": "https://ruimte.omgevingswet.overheid.nl/ruimtelijke-plannen/api/opvragen/v4/plannen?pageSize=1",
+      "status": 401,
+      "contentType": "application/json;charset=utf-8",
+      "bodyHead": "{\r\n  \"error\":\"Kadaster - Niet geauthenticeerd.\",\r\n  \"errorDescription\":\"Toegang is alleen voor geauthenticeerde gebruikers.\",\r\n  \"errorDetail\":\"Missing API Key\"\r\n}",
+      "error": null
+    }
+  ],
+  "verdictInputs": {
+    "presenterenServesTijdelijkDeel": true,
+    "presenterenCarriesImroIdentifier": false,
+    "presenterenModelsVoorrang": false
+  }
+}

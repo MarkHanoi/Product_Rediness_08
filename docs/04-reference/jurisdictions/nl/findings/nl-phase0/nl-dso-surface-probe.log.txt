@@ -1,0 +1,9 @@
+omgevingsdocumenten-presenteren-v8: data 401 | spec 200
+omgevingsdocumenten-toepasbaar-opvragen-v7: data 401 | spec 200
+omgevingsinformatie-ontsluiten-v2: data 401 | spec 200
+ruimtelijke-plannen-opvragen-v4: data 200 | spec 200
+catalogus-opvragen-v3: data 401 | spec 200
+toepasbare-regels-uitvoeren-services-v3: data 401 | spec 404 | portal 200
+toepasbare-regels-rtr-raadplegen-v2: data 404 | spec 404 | portal 200
+toepasbare-regels-zoeken-v2: data 404 | spec 404 | portal 200
+stelselcatalogus-website-api: data 200 | spec 200

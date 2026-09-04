@@ -1,0 +1,683 @@
+{
+ "generatedAt": "2026-09-04T11:26:10.220Z",
+ "lane": "ENVELOPE-NLDK round 3",
+ "dsoApiKeyPresent": false,
+ "registerUrl": "https://developer.omgevingswet.overheid.nl/api-register/",
+ "registerQuote": "Met deze REST API kunnen bestaande ruimtelijke plannen worden opgevraagd uit Ruimtelijkeplannen.nl. (api/rp-opvragen, read 2026-09-04)",
+ "guessRejected": [
+  "/publiek/toepasbare-regels/api/rtrgegevens/v2/app-info -> 404 (register base; /app-info is not served there)",
+  "/publiek/toepasbare-regels/api/uitvoeren/v3/app-info -> 404 (guessed; real base is /toepasbareregelsuitvoerenservices/v3)",
+  "/publiek/omgevingsdocumenten/api/opvragen/v1/app-info -> 404 (guessed)",
+  "/publiek/catalogus/api/raadplegen/v1/app-info -> 404 (guessed; real base is /catalogus/api/opvragen/v3)",
+  "stelselcatalogus /api/v1/begrippen?zoekterm=peil -> 404 (guessed; real path is /api/concepten?zoekTerm=, Accept: application/hal+json; application/json -> 406)"
+ ],
+ "apis": [
+  {
+   "id": "omgevingsdocumenten-presenteren-v8",
+   "base": "https://service.omgevingswet.overheid.nl/publiek/omgevingsdocumenten/api/presenteren/v8",
+   "register": "https://developer.omgevingswet.overheid.nl/api-register/api/omgevingsdocument-presenteren/",
+   "dataPlaneAnonymous": {
+    "path": "/app-info",
+    "accept": "application/json",
+    "status": 401,
+    "contentType": "application/problem+json; charset=UTF-8",
+    "error": null,
+    "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/Ongeautoriseerd\",\n    \"title\": \"Inloggegevens ontbreken\",\n    \"status\": 401,\n    \"detail\": \"Inloggegevens ontbreken\",\n    \"insta"
+   },
+   "specAnonymous": {
+    "path": "/openapi.json",
+    "status": 200,
+    "contentType": "application/json",
+    "bytes": 273122
+   },
+   "spec": {
+    "title": "Omgevingsdocumenten Presenteren",
+    "version": "8.5.2",
+    "security": [
+     {
+      "apiKey": []
+     }
+    ],
+    "securitySchemes": {
+     "apiKey": {
+      "type": "apiKey",
+      "description": "De API-key die je hebt gekregen dient bij elke request naar de\nAPI via de `x-api-key` request header meegestuurd te worden. Indien deze\nniet juist wordt meegestuurd, of het een ongeldige key betreft, zul je de\nfoutmelding `403 Forbidden` terugkrijgen.\n",
+      "name": "x-api-key",
+      "in": "header"
+     }
+    },
+    "pathCount": 39,
+    "paths": [
+     "/regelingen",
+     "/regelingen/{uriIdentificatie}",
+     "/regelingen/_zoek",
+     "/regelingen/{uriIdentificatie}/documentstructuur",
+     "/regelingen/{uriIdentificatie}/documentstructuur/{documentComponentWorkId}",
+     "/regelingen/{uriIdentificatie}/voorkomens",
+     "/regelingen/{uriIdentificatie}/divisieannotaties",
+     "/regelingen/{uriIdentificatie}/divisieannotaties/_zoek",
+     "/regelingen/{uriIdentificatie}/regeltekstannotaties",
+     "/regelingen/{uriIdentificatie}/regeltekstannotaties/_zoek",
+     "/afbeeldingen/{bevoegdGezag}/{versieIdentificatie}/{bestandsnaam}",
+     "/besluitversies",
+     "/besluitversies/{technischId}",
+     "/besluitversies/{technischId}/documentstructuur",
+     "/besluitversies/{technischId}/documentstructuur/{documentComponentWorkId}",
+     "/besluitversies/{technischId}/divisieannotaties/renvooi",
+     "/besluitversies/{technischId}/divisieannotaties/renvooi/_zoek",
+     "/besluitversies/{technischId}/regeltekstannotaties/renvooi",
+     "/besluitversies/{technischId}/regeltekstannotaties/renvooi/_zoek",
+     "/ontwerpregelingen",
+     "/ontwerpregelingen/{technischId}",
+     "/ontwerpregelingen/_zoek",
+     "/ontwerpregelingen/{technischId}/divisieannotaties/renvooi",
+     "/ontwerpregelingen/{technischId}/regeltekstannotaties/renvooi",
+     "/ontwerpregelingen/{technischId}/documentstructuur",
+     "/ontwerpregelingen/{technischId}/documentstructuur/{documentComponentWorkId}",
+     "/ontwerpregelingen/{technischId}/regeltekstannotaties/renvooi/_zoek",
+     "/ontwerpregelingen/{technischId}/divisieannotaties/renvooi/_zoek",
+     "/ontwerpafbeeldingen/{bevoegdGezag}/{ontwerpbesluitIdentificatie}/{bestandsnaam}",
+     "/omgevingsvergunningen",
+     "/omgevingsvergunningen/{uriIdentificatie}",
+     "/omgevingsvergunningen/_zoek",
+     "/onderwerpen/_zoek",
+     "/ontwerponderwerpen/_zoek",
+     "/app-health",
+     "/app-info",
+     "/crss",
+     "/openapi.yaml",
+     "/openapi.json"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 7,
+    "tijdelijkDeelVan": 2,
+    "tijdelijkDelen": 1,
+    "gerelateerdeTijdelijkeRegelingdelen": 0,
+    "IMRO": 2,
+    "iMROPlanidentificatie": 1,
+    "isTamPlan": 0,
+    "ruimtelijkeplannen": 0,
+    "bestemmingsplan": 0,
+    "bruidsschat": 0,
+    "voorrang": 33,
+    "geldigOp": 43,
+    "inWerkingOp": 43,
+    "beschikbaarOp": 103,
+    "renvooi": 29,
+    "_delta": 39,
+    "geometrie": 102,
+    "_zoek": 11
+   }
+  },
+  {
+   "id": "omgevingsdocumenten-toepasbaar-opvragen-v7",
+   "base": "https://service.omgevingswet.overheid.nl/publiek/omgevingsdocumenten/api/toepasbaaropvragen/v7",
+   "register": "https://developer.omgevingswet.overheid.nl/api-register/api/omgevingsdocument-toepasbaar-opvragen/",
+   "dataPlaneAnonymous": {
+    "path": "/app-info",
+    "accept": "application/json",
+    "status": 401,
+    "contentType": "application/problem+json; charset=UTF-8",
+    "error": null,
+    "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/Ongeautoriseerd\",\n    \"title\": \"Inloggegevens ontbreken\",\n    \"status\": 401,\n    \"detail\": \"Inloggegevens ontbreken\",\n    \"insta"
+   },
+   "specAnonymous": {
+    "path": "/openapi.json",
+    "status": 200,
+    "contentType": "application/json",
+    "bytes": 62047
+   },
+   "spec": {
+    "title": "Omgevingsdocumenten Toepasbaar",
+    "version": "7.7.5",
+    "security": null,
+    "securitySchemes": null,
+    "pathCount": 15,
+    "paths": [
+     "/activiteitengeaggregeerd/levenscyclus",
+     "/locaties/{identificatie}",
+     "/activiteitengeaggregeerd/{identificatie}/levenscyclus",
+     "/activiteiten/{identificatie}/juridischebron",
+     "/activiteiten/{identificatie}/regelteksten",
+     "/activiteitidentificaties/_zoek",
+     "/locaties/_zoek",
+     "/locatieidentificaties/_zoek",
+     "/primairelocaties/_zoek",
+     "/geometrieidentificaties/_zoek",
+     "/health",
+     "/app-health",
+     "/app-info",
+     "/openapi.yaml",
+     "/openapi.json"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 0,
+    "tijdelijkDeelVan": 0,
+    "tijdelijkDelen": 0,
+    "gerelateerdeTijdelijkeRegelingdelen": 0,
+    "IMRO": 0,
+    "iMROPlanidentificatie": 0,
+    "isTamPlan": 0,
+    "ruimtelijkeplannen": 0,
+    "bestemmingsplan": 0,
+    "bruidsschat": 0,
+    "voorrang": 1,
+    "geldigOp": 12,
+    "inWerkingOp": 12,
+    "beschikbaarOp": 16,
+    "renvooi": 0,
+    "_delta": 0,
+    "geometrie": 48,
+    "_zoek": 5
+   }
+  },
+  {
+   "id": "omgevingsinformatie-ontsluiten-v2",
+   "base": "https://service.omgevingswet.overheid.nl/publiek/omgevingsinformatie/api/ontsluiten/v2",
+   "register": "https://developer.omgevingswet.overheid.nl/api-register/api/omgevingsinformatie-ontsluiten/",
+   "dataPlaneAnonymous": {
+    "path": "/app-info",
+    "accept": "application/json",
+    "status": 401,
+    "contentType": "application/problem+json; charset=UTF-8",
+    "error": null,
+    "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/Ongeautoriseerd\",\n    \"title\": \"Inloggegevens ontbreken\",\n    \"status\": 401,\n    \"detail\": \"Inloggegevens ontbreken\",\n    \"insta"
+   },
+   "specAnonymous": {
+    "path": "/openapi.json",
+    "status": 200,
+    "contentType": "application/json;charset=UTF-8",
+    "bytes": 57377
+   },
+   "spec": {
+    "title": "Omgevingsinformatie ontsluiten API",
+    "version": "2.13.1",
+    "security": [
+     {
+      "apiKey": []
+     }
+    ],
+    "securitySchemes": {
+     "apiKey": {
+      "type": "apiKey",
+      "description": "De API-key die je hebt gekregen dient bij elke request naar de API via de `x-api-key` request header meegestuurd\nte worden. Indien deze niet juist wordt meegestuurd, of het een ongeldige key betreft, zul je de foutmelding\n`403 Forbidden` terugkrijgen.",
+      "name": "x-api-key",
+      "in": "header"
+     }
+    },
+    "pathCount": 9,
+    "paths": [
+     "/documenten/_suggereer",
+     "/documenten/{uriIdentificatie}",
+     "/documenten/_zoek",
+     "/omgevingsdocumentversies/{expressionId}",
+     "/crss",
+     "/openapi.json",
+     "/openapi.yaml",
+     "/app-health",
+     "/app-info"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 12,
+    "tijdelijkDeelVan": 0,
+    "tijdelijkDelen": 0,
+    "gerelateerdeTijdelijkeRegelingdelen": 3,
+    "IMRO": 55,
+    "iMROPlanidentificatie": 0,
+    "isTamPlan": 4,
+    "ruimtelijkeplannen": 8,
+    "bestemmingsplan": 3,
+    "bruidsschat": 0,
+    "voorrang": 1,
+    "geldigOp": 7,
+    "inWerkingOp": 0,
+    "beschikbaarOp": 9,
+    "renvooi": 0,
+    "_delta": 0,
+    "geometrie": 16,
+    "_zoek": 5
+   }
+  },
+  {
+   "id": "ruimtelijke-plannen-opvragen-v4",
+   "base": "https://ruimte.omgevingswet.overheid.nl/ruimtelijke-plannen/api/opvragen/v4",
+   "register": "https://developer.omgevingswet.overheid.nl/api-register/api/rp-opvragen/",
+   "dataPlaneAnonymous": {
+    "path": "/app-info",
+    "accept": "application/json",
+    "status": 200,
+    "contentType": "application/json",
+    "error": null,
+    "bodyHead": "{\"app-info\":{\"description\":\"De Ruimtelijke Plannen API is een aanvullende dienst ten opzichte van de diensten die Ruimtelijkeplannen.nl\\naanbiedt. De verantwoordelijkheid voor de Ruimtelijke Plannen A"
+   },
+   "specAnonymous": {
+    "path": "/openapi.json",
+    "status": 200,
+    "contentType": "application/json",
+    "bytes": 181407
+   },
+   "spec": {
+    "title": "Ruimtelijke Plannen API",
+    "version": "4.5.2",
+    "security": [
+     {
+      "apiKey": []
+     }
+    ],
+    "securitySchemes": {
+     "apiKey": {
+      "type": "apiKey",
+      "description": "De API-key die je hebt gekregen dient bij elke request naar de API via de `X-Api-Key` request header meegestuurd te worden. Indien deze niet juist wordt meegestuurd, of het een ongeldige key betreft, zul je de foutmelding `403 Forbidden` terugkrijgen.",
+      "name": "X-Api-Key",
+      "in": "header"
+     }
+    },
+    "pathCount": 61,
+    "paths": [
+     "/plannen",
+     "/plannen/_zoek",
+     "/plannen/_suggesties",
+     "/plannen/_plansuggesties",
+     "/plannen/{planId}/planobjecten",
+     "/plannen/{planId}/planobjecten/_zoek",
+     "/onderwerpen/_zoek",
+     "/plannen/{planId}",
+     "/plannen/{planId}/cartografiesummaries",
+     "/plannen/{planId}/cartografiesummaries/{id}",
+     "/plannen/{planId}/teksten",
+     "/plannen/{planId}/teksten/{id}",
+     "/plannen/{planId}/artikelen/_zoek",
+     "/plannen/{planId}/bestemmingsvlakken",
+     "/plannen/{planId}/bestemmingsvlakken/_zoek",
+     "/plannen/{planId}/bestemmingsvlakken/{id}",
+     "/plannen/{planId}/bouwvlakken",
+     "/plannen/{planId}/bouwvlakken/_zoek",
+     "/plannen/{planId}/bouwvlakken/{id}",
+     "/plannen/{planId}/functieaanduidingen",
+     "/plannen/{planId}/functieaanduidingen/_zoek",
+     "/plannen/{planId}/functieaanduidingen/{id}",
+     "/plannen/{planId}/bouwaanduidingen",
+     "/plannen/{planId}/bouwaanduidingen/_zoek",
+     "/plannen/{planId}/bouwaanduidingen/{id}",
+     "/plannen/{planId}/lettertekenaanduidingen",
+     "/plannen/{planId}/lettertekenaanduidingen/_zoek",
+     "/plannen/{planId}/lettertekenaanduidingen/{id}",
+     "/plannen/{planId}/maatvoeringen",
+     "/plannen/{planId}/maatvoeringen/_zoek",
+     "/plannen/{planId}/maatvoeringen/{id}",
+     "/plannen/{planId}/figuren",
+     "/plannen/{planId}/figuren/_zoek",
+     "/plannen/{planId}/figuren/{id}",
+     "/plannen/{planId}/gebiedsaanduidingen",
+     "/plannen/{planId}/gebiedsaanduidingen/_zoek",
+     "/plannen/{planId}/gebiedsaanduidingen/{id}",
+     "/plannen/{planId}/structuurvisiegebieden",
+     "/plannen/{planId}/structuurvisiegebieden/_zoek",
+     "/plannen/{planId}/structuurvisiegebieden/{id}",
+     "/plannen/{planId}/structuurvisiecomplexen",
+     "/plannen/{planId}/structuurvisiecomplexen/_zoek",
+     "/plannen/{planId}/structuurvisiecomplexen/{id}",
+     "/plannen/{planId}/structuurvisieverklaringen",
+     "/plannen/{planId}/structuurvisieverklaringen/_zoek",
+     "/plannen/{planId}/structuurvisieverklaringen/{id}",
+     "/plannen/{planId}/besluitvlakken",
+     "/plannen/{planId}/besluitvlakken/_zoek",
+     "/plannen/{planId}/besluitvlakken/{id}",
+     "/plannen/{planId}/besluitsubvlakken",
+     "/plannen/{planId}/besluitsubvlakken/_zoek",
+     "/plannen/{planId}/besluitsubvlakken/{id}",
+     "/plannen/{planId}/bekendmakingen",
+     "/plannen/{planId}/gerelateerde-plannen",
+     "/info",
+     "/app-info",
+     "/health",
+     "/app-health",
+     "/openapi.json",
+     "/openapi.yaml",
+     "/"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 1,
+    "tijdelijkDeelVan": 0,
+    "tijdelijkDelen": 0,
+    "gerelateerdeTijdelijkeRegelingdelen": 0,
+    "IMRO": 173,
+    "iMROPlanidentificatie": 0,
+    "isTamPlan": 6,
+    "ruimtelijkeplannen": 18,
+    "bestemmingsplan": 9,
+    "bruidsschat": 0,
+    "voorrang": 0,
+    "geldigOp": 0,
+    "inWerkingOp": 0,
+    "beschikbaarOp": 7,
+    "renvooi": 0,
+    "_delta": 0,
+    "geometrie": 42,
+    "_zoek": 23
+   }
+  },
+  {
+   "id": "catalogus-opvragen-v3",
+   "base": "https://service.omgevingswet.overheid.nl/publiek/catalogus/api/opvragen/v3",
+   "register": "https://developer.omgevingswet.overheid.nl/api-register/api/catalogus-opvragen/",
+   "dataPlaneAnonymous": {
+    "path": "/app-info",
+    "accept": "application/json",
+    "status": 401,
+    "contentType": "application/problem+json; charset=UTF-8",
+    "error": null,
+    "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/Ongeautoriseerd\",\n    \"title\": \"Inloggegevens ontbreken\",\n    \"status\": 401,\n    \"detail\": \"Inloggegevens ontbreken\",\n    \"insta"
+   },
+   "specAnonymous": {
+    "path": "/openapi.json",
+    "status": 200,
+    "contentType": "application/json;charset=UTF-8",
+    "bytes": 46310
+   },
+   "spec": {
+    "title": "Catalogus API",
+    "version": "3.2.4",
+    "security": [
+     {
+      "Apikey": []
+     }
+    ],
+    "securitySchemes": {
+     "Apikey": {
+      "type": "apiKey",
+      "description": "De API-key die je hebt gekregen dient bij elke request naar de API via de `X-Api-Key` request header meegestuurd\nte worden. Indien deze niet juist wordt meegestuurd, of het een ongeldige key betreft, zul je de foutmelding \n`403 Forbidden` terugkrijgen.",
+      "name": "X-Api-Key",
+      "in": "header"
+     }
+    },
+    "pathCount": 14,
+    "paths": [
+     "/begrippenkaders",
+     "/conceptschemas",
+     "/collecties",
+     "/concepten",
+     "/begrippen",
+     "/activiteiten",
+     "/werkzaamheden",
+     "/bronnen",
+     "/waardelijsten",
+     "/informatieproducten",
+     "/app-info",
+     "/app-health",
+     "/openapi.json",
+     "/openapi.yaml"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 0,
+    "tijdelijkDeelVan": 0,
+    "tijdelijkDelen": 0,
+    "gerelateerdeTijdelijkeRegelingdelen": 0,
+    "IMRO": 0,
+    "iMROPlanidentificatie": 0,
+    "isTamPlan": 0,
+    "ruimtelijkeplannen": 0,
+    "bestemmingsplan": 0,
+    "bruidsschat": 0,
+    "voorrang": 0,
+    "geldigOp": 1,
+    "inWerkingOp": 0,
+    "beschikbaarOp": 0,
+    "renvooi": 0,
+    "_delta": 0,
+    "geometrie": 0,
+    "_zoek": 0
+   }
+  },
+  {
+   "id": "toepasbare-regels-uitvoeren-services-v3",
+   "base": "https://service.omgevingswet.overheid.nl/publiek/toepasbare-regels/api/toepasbareregelsuitvoerenservices/v3",
+   "register": "https://developer.omgevingswet.overheid.nl/api-register/api/uitvoeren-services/",
+   "dataPlaneAnonymous": {
+    "path": "/app-info",
+    "accept": "application/json",
+    "status": 401,
+    "contentType": "application/problem+json; charset=UTF-8",
+    "error": null,
+    "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/Ongeautoriseerd\",\n    \"title\": \"Inloggegevens ontbreken\",\n    \"status\": 401,\n    \"detail\": \"Inloggegevens ontbreken\",\n    \"insta"
+   },
+   "specAnonymous": {
+    "path": "/openapi.json",
+    "status": 404,
+    "contentType": "application/json; charset=UTF-8",
+    "bytes": 260
+   },
+   "publicSpecOnPortal": {
+    "url": "https://developer.omgevingswet.overheid.nl/publish/pages/171046/toepasbareregels-uitvoerenservices-v3.json",
+    "status": 200,
+    "bytes": 59179
+   },
+   "spec": {
+    "title": "Toepasbare Regels Uitvoeren Services",
+    "version": "3.1.3",
+    "security": null,
+    "securitySchemes": null,
+    "pathCount": 8,
+    "paths": [
+     "/",
+     "/app-health",
+     "/app-info",
+     "/indieningsvereisten/_bepaal",
+     "/conclusie/_bepaal",
+     "/toelichtingen/{toelichtingId}",
+     "/toelichtingen",
+     "/maatregelen/_bepaal"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 0,
+    "tijdelijkDeelVan": 0,
+    "tijdelijkDelen": 0,
+    "gerelateerdeTijdelijkeRegelingdelen": 0,
+    "IMRO": 0,
+    "iMROPlanidentificatie": 0,
+    "isTamPlan": 0,
+    "ruimtelijkeplannen": 0,
+    "bestemmingsplan": 0,
+    "bruidsschat": 0,
+    "voorrang": 0,
+    "geldigOp": 0,
+    "inWerkingOp": 0,
+    "beschikbaarOp": 0,
+    "renvooi": 0,
+    "_delta": 0,
+    "geometrie": 3,
+    "_zoek": 0
+   }
+  },
+  {
+   "id": "toepasbare-regels-rtr-raadplegen-v2",
+   "base": "https://service.omgevingswet.overheid.nl/publiek/toepasbare-regels/api/rtrgegevens/v2",
+   "register": "https://developer.omgevingswet.overheid.nl/api-register/api/crud-rtr-gegevens-raadplegen/",
+   "dataPlaneAnonymous": {
+    "path": "/app-info",
+    "accept": "application/json",
+    "status": 404,
+    "contentType": "application/json; charset=UTF-8",
+    "error": null,
+    "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/VerkeerdVerzoek\",\n    \"title\": \"Verkeerd verzoek\",\n    \"status\": 404,\n    \"detail\": \"No matching resource found for given API Re"
+   },
+   "specAnonymous": {
+    "path": "/openapi.json",
+    "status": 404,
+    "contentType": "application/json; charset=UTF-8",
+    "bytes": 260
+   },
+   "publicSpecOnPortal": {
+    "url": "https://developer.omgevingswet.overheid.nl/publish/pages/167490/toepasbareregels-crud-rtr-gegevens-v2.json",
+    "status": 200,
+    "bytes": 72862
+   },
+   "spec": {
+    "title": "CRUD RTR gegevens",
+    "version": "2.4.6",
+    "security": null,
+    "securitySchemes": null,
+    "pathCount": 13,
+    "paths": [
+     "/",
+     "/health",
+     "/info",
+     "/activiteiten",
+     "/activiteiten/_zoek",
+     "/activiteiten/_wijzigingen",
+     "/activiteiten/{urn}",
+     "/werkzaamheden",
+     "/werkzaamheden/{urn}",
+     "/werkzaamheden/{urn}/activiteitKoppelingen",
+     "/werkzaamheden/{urn}/activiteitKoppelingen/{gekoppelde_activiteit_urn}",
+     "/werkzaamheden/{urn}/logischeRelaties",
+     "/werkzaamheden/{urn}/logischeRelaties/{logisch_gerelateerde_werkzaamheid_urn}"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 0,
+    "tijdelijkDeelVan": 0,
+    "tijdelijkDelen": 0,
+    "gerelateerdeTijdelijkeRegelingdelen": 0,
+    "IMRO": 0,
+    "iMROPlanidentificatie": 0,
+    "isTamPlan": 0,
+    "ruimtelijkeplannen": 0,
+    "bestemmingsplan": 0,
+    "bruidsschat": 0,
+    "voorrang": 0,
+    "geldigOp": 0,
+    "inWerkingOp": 0,
+    "beschikbaarOp": 0,
+    "renvooi": 0,
+    "_delta": 0,
+    "geometrie": 3,
+    "_zoek": 1
+   }
+  },
+  {
+   "id": "toepasbare-regels-zoeken-v2",
+   "base": "https://service.omgevingswet.overheid.nl/publiek/toepasbare-regels/api/zoekinterface/v2",
+   "register": "https://developer.omgevingswet.overheid.nl/api-register/api/toepasbare-regels-zoeken/",
+   "dataPlaneAnonymous": {
+    "path": "/app-info",
+    "accept": "application/json",
+    "status": 404,
+    "contentType": "application/json; charset=UTF-8",
+    "error": null,
+    "bodyHead": "{\n    \"type\": \"https://content.omgevingswet.overheid.nl/fout/id/concept/VerkeerdVerzoek\",\n    \"title\": \"Verkeerd verzoek\",\n    \"status\": 404,\n    \"detail\": \"No matching resource found for given API Re"
+   },
+   "specAnonymous": {
+    "path": "/openapi.json",
+    "status": 404,
+    "contentType": "application/json; charset=UTF-8",
+    "bytes": 260
+   },
+   "publicSpecOnPortal": {
+    "url": "https://developer.omgevingswet.overheid.nl/publish/pages/235013/toepasbareregels-zoekinterface-v2.json",
+    "status": 200,
+    "bytes": 31599
+   },
+   "spec": {
+    "title": "Zoeken in activiteiten voor indieningsvereisten, en werkzaamheden",
+    "version": "2.2.3",
+    "security": null,
+    "securitySchemes": null,
+    "pathCount": 7,
+    "paths": [
+     "/",
+     "/health",
+     "/info",
+     "/werkzaamheden/_zoek",
+     "/werkzaamheden/_suggereer",
+     "/activiteiten/_zoek",
+     "/activiteiten/_suggereer"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 0,
+    "tijdelijkDeelVan": 0,
+    "tijdelijkDelen": 0,
+    "gerelateerdeTijdelijkeRegelingdelen": 0,
+    "IMRO": 0,
+    "iMROPlanidentificatie": 0,
+    "isTamPlan": 0,
+    "ruimtelijkeplannen": 0,
+    "bestemmingsplan": 0,
+    "bruidsschat": 0,
+    "voorrang": 0,
+    "geldigOp": 0,
+    "inWerkingOp": 0,
+    "beschikbaarOp": 0,
+    "renvooi": 0,
+    "_delta": 0,
+    "geometrie": 0,
+    "_zoek": 11
+   }
+  },
+  {
+   "id": "stelselcatalogus-website-api",
+   "base": "https://stelselcatalogus.omgevingswet.overheid.nl/api",
+   "register": null,
+   "dataPlaneAnonymous": {
+    "path": "/concepten?zoekTerm=peil&pageSize=5",
+    "accept": "application/hal+json",
+    "status": 200,
+    "contentType": "application/hal+json",
+    "error": null,
+    "bodyHead": "{\"_links\":{\"next\":{\"href\":\"https://stelselcatalogus.omgevingswet.overheid.nl/api/rest-website/concepten?zoekTerm=peil&pageSize=5&page=2\"},\"prev\":{\"href\":null},\"self\":{\"href\":\"https://stelselcatalogus."
+   },
+   "specAnonymous": {
+    "path": "/",
+    "status": 200,
+    "contentType": "text/yaml;charset=utf-8",
+    "bytes": 43900
+   },
+   "spec": {
+    "title": "yaml (not parsed)",
+    "pathCount": 13,
+    "paths": [
+     "/",
+     "/conceptschema",
+     "/conceptschemas",
+     "/concept",
+     "/concepten",
+     "/bron",
+     "/bronnen",
+     "/waardelijst",
+     "/waardelijsten",
+     "/informatieproduct",
+     "/informatieproducten",
+     "/app-health",
+     "/app-info"
+    ]
+   },
+   "keywordCounts": {
+    "tijdelijk": 0,
+    "tijdelijkDeelVan": 0,
+    "tijdelijkDelen": 0,
+    "gerelateerdeTijdelijkeRegelingdelen": 0,
+    "IMRO": 0,
+    "iMROPlanidentificatie": 0,
+    "isTamPlan": 0,
+    "ruimtelijkeplannen": 0,
+    "bestemmingsplan": 0,
+    "bruidsschat": 0,
+    "voorrang": 0,
+    "geldigOp": 1,
+    "inWerkingOp": 0,
+    "beschikbaarOp": 0,
+    "renvooi": 0,
+    "_delta": 0,
+    "geometrie": 0,
+    "_zoek": 0
+   }
+  }
+ ]
+}

@@ -1,8 +1,16 @@
 # DK — envelope completion status
 
-> **Stamp** 2026-09-04 · **Source** lane ENVELOPE-NLDK primary measurement (D1–D6 + gate probes;
-> commits `d0498f8b`, `8bbbf67c`, `ccb451b1`, and code swept into `3b0afbb5` / `5d88c841`) ·
-> **Pattern** identical across all 16 jurisdiction dossiers.
+> **Stamp** 2026-09-04 (**round 4**) · **Source** lane ENVELOPE-NLDK primary measurement (D1–D6 +
+> gate probes; commits `d0498f8b`, `8bbbf67c`, `ccb451b1`, code swept into `3b0afbb5` / `5d88c841`,
+> then `dd279349` (D-tracks) and `b21b7b50` (graphic leg)) · **Pattern** identical across all 16
+> jurisdiction dossiers.
+>
+> ⭐ **ROUND-4 CORRECTION.** §3 items **3, 5 and 7** were written as *NOT BUILT*. **All three have
+> since landed in code and this document did not move with them** — `dkGraphicLeg.ts`,
+> `dkZoneStatus.ts`, `dkOverlayClassification.ts`. Each row now carries its **as-built** state; the
+> pre-build prose is kept above it so the delta is visible rather than erased. *(The NL dossier had
+> the identical failure — see `../nl/NL-ENVELOPE-COMPLETION.md`. An answer that lives only in a
+> source file has not been delivered.)*
 >
 > ⛔ **Every number here is MEASURED and names its method.** Where a figure was never measured the
 > cell says `not-measured`. **Denmark's dominant blocker is a CREDENTIAL, not an absence** — read §3.1
@@ -110,16 +118,50 @@ wrong on the facts while right on the conclusion**:
   `ejendom` and therefore **refused**. Downstream of §3.1.
 - **3. F1 is structural at 61.2 % of lokalplan features — `graphic`.** `iomfangreg = true` means the
   regulation is **drawn**, not numbered. **No credential fixes this**; it needs the graphic leg.
+  > ✅ **AS BUILT (`dd279349`, `b21b7b50`) — `dkGraphicLeg.ts`, and it is MEASURED, not asserted.**
+  > `resolveDkGraphicLeg()` routes the drawn regulation by AUTHORITY ORDER — **byggefelt geometry**
+  > (the digitised drawing) → **delområde extent** (the area the drawn rule applies to, an upper
+  > bound) → **document kortbilag** — and a *transient* byggefelt fetch marks the route
+  > `byggefelt-unresolved` and the answer **UNCACHEABLE** rather than falling silently through to a
+  > PDF pointer (§FAILURE-IS-NOT-EMPTY: a retry could replace a PDF with plan geometry).
+  > **Census `DK_GRAPHIC_ROUTE_CENSUS_2026_09_04`, seed `20260903`:**
+  >
+  > | arm | rows w/ lokalplan | `iomfangreg` true | byggefelt-geometry | delområde-extent | document-kortbilag |
+  > |---|---|---|---|---|---|
+  > | land | 54 | 30 | 4 | **22** | 4 |
+  > | urban | 67 | 47 | 8 | **33** | 6 |
+  >
+  > ⭐ **The delområde route dominates** — the drawn rule is most often reachable only as an *extent*,
+  > which is an upper bound and must be rendered as one. **All 76 distinct doklinks answered
+  > (`206`, `application/pdf`, `dokument.plandata.dk`)** — the documents are reachable; they are
+  > PDFs. **byggefelt publishes a height once in 121 rows** (land 1, urban 0), which is D2's
+  > inversion measured a second way. ⛔ **Still open:** reading the kortbilag itself.
 - **4. Four Part 5–10 endpoints are dead — `inaccessible`.** Miljøportal, SLKS/FBB, LER, DAWA-BBR.
   ⛔ **Marked `UNVERIFIED-ENDPOINT`, NOT `absent`**, per the doctrine's RULE 2 (*never invent an
   endpoint; unverifiable ⇒ mark UNVERIFIED*).
 - **5. Composite zone codes 4 and 7 — `semantic`.** Flattening violates RULE 8.
+  > ✅ **AS BUILT (`dd279349`) — `dkZoneStatus.ts`.** The **live 7-row state codelist**
+  > (`pdk:theme_pdk_codelist_zonestatus_v`, read 2026-09-04) is carried with a `members` column, so
+  > **4 = byzone + landzone** and **7 = byzone + landzone + sommerhusområde** decompose rather than
+  > flatten — and **5** (`sommerhus + landzone`) and **6** (`by + sommerhus`) are composite too, which
+  > the pre-build row did not name. `resolveDkParcelZone()` has five arms including
+  > **`composite-unresolved`** (members named, none picked) and **`zonekort-disagrees`** (a data
+  > conflict surfaced, not averaged). `DK_LANDZONE_R8_NOTE` states RULE 8 in the code: **landzone is
+  > not automatic no-build and not an entitlement** — building there is a *landzonetilladelse* matter
+  > (Planloven §35), i.e. **CONDITIONAL volume, never added to the deterministic volume.**
 - **6. `niveauplan` vs DHM terrain — `semantic`.** RULE 5: **physical ≠ legal.** DHM elevation is
   **not** an established legal *niveauplan*; `physical_terrain_reference` and
   `legal_height_reference` must stay separate fields.
 - **7. Overlay classification not built — `not-built`.** EXCLUSION / CONDITIONAL / SCREENING /
   INFORMATIONAL was **not implemented this lane**. Until it is, no overlay may be treated as
   `NO_BUILD`.
+  > ✅ **AS BUILT (`dd279349`) — `dkOverlayClassification.ts`.** The four legal effects ship as a
+  > closed type **plus a fifth, `UNCLASSIFIED`** — an overlay we do not recognise is *named as
+  > unrecognised*, never defaulted into one of the four. `DK_OVERLAY_REGISTRY` maps each overlay kind
+  > to its effect and to what it **affects** (`footprint` / `height` / `use` / `assessment`), and
+  > **`dkOverlaysPermitNoBuild()` requires an EXPLICIT prohibition** (`DkExplicitProhibition`) — an
+  > overlay's mere presence never yields `NO_BUILD`. ⛔ **That is the whole point of the item**: the
+  > blanket-NO_BUILD reading is what the type system now makes unrepresentable.
 - **8. F1/F2 split of the 439 no-plan parcels — `not-built`.** Explicitly refused and recorded, not
   silently skipped.
 
@@ -132,18 +174,18 @@ wrong on the facts while right on the conclusion**:
 | **Parcel geometry** | **undeterminable (from this egress)** | MAT **401** — credential-gated |
 | **Terrain (physical)** | **undeterminable (from this egress)** | DHM **404** anonymously |
 | **Legal height datum (`niveauplan`)** | **interpretive** | RULE 5 — never derived from DHM |
-| Zone classification | **source-complete** | ⚠ codes 4, 7 composite |
+| Zone classification | **source-complete** | codes **4, 5, 6, 7 composite** — decomposed by `dkZoneStatus.ts`, resolved by zonekort where it agrees, `composite-unresolved` where it cannot |
 | Applicable plan + version | **source-complete** | Plandata, keyless |
 | **Max height** | **source-complete where present** | kommuneplanramme **60.7–74.1 %**; byggefelt **1/15** |
 | Storeys (`maxetage`) | **not-measured** | |
 | **`bebygpct` (site coverage)** | **source-complete, DENOMINATOR-BLOCKED** | only ~30 % parcel-scoped; ~40 % scoped to `ejendom` and refused |
 | Floor-area (`eareal` / `m3_m2`) | **not-measured** | |
 | Setbacks | **not-measured** | |
-| **Volume regulation** | **undeterminable → F1** | ⭐ `iomfangreg` co-occurs with a number **0/183**, over **61.2 %** of features |
+| **Volume regulation** | **F1 → now ROUTED** | ⭐ `iomfangreg` co-occurs with a number **0/183** over **61.2 %** of features; `dkGraphicLeg.ts` routes it — byggefelt 12 · **delområde 55** · document 10 of 121 rows |
 | Roof geometry | **not-measured** | |
 | Density (`boligenhed`) | **not-measured** | |
 | Existing buildings (BBR) | **undeterminable (from this egress)** | **403** — and BBR is **registered existing state, never future rights** (RULE 6) |
-| Overlays (nature, coast, heritage, road, rail, aviation) | **not-built** | classification unimplemented |
+| Overlays (nature, coast, heritage, road, rail, aviation) | **classified** | `DK_OVERLAY_REGISTRY` — EXCLUSION / CONDITIONAL / SCREENING / INFORMATIONAL **+ `UNCLASSIFIED`**; `NO_BUILD` needs an EXPLICIT prohibition |
 | Landzone | **interpretive** | ⛔ landzone is **not** automatic no-build |
 
 ---
@@ -160,16 +202,31 @@ simultaneously unlocks:
 Then re-run D1–D6. **The 2.0 % / 5.8 % deterministic rate is measured against a gated estate; it will
 move, and the delta is the measurement.**
 
-Second, independent of any credential: **build the graphic leg** for the **61.2 %** of lokalplan
-features where `iomfangreg` says the volume is drawn rather than written.
+✅ **Second step of the previous revision — "build the graphic leg" — IS BUILT** (§3 item 3). The
+credential-free step that replaces it is narrower and sharper: **read the kortbilag**, or render the
+**delområde extent** honestly as the upper bound it is, because that route carries **55 of 121**
+measured rows and today yields an extent rather than a footprint.
+
+⛔ **And note what the two dossiers share:** Denmark's next step and the Netherlands' next step are
+**both a free registration a human must complete** (`DATAFORDELER_*` here, `DSO_API_KEY` there). In
+neither country is the dominant blocker engineering, and in neither can this lane close it.
 
 ---
 
 ## §6 — Gaps in evidence
 
 - Storeys, floor-area indices, setbacks, roof geometry and density — **not measured**.
-- **Overlay classification** (EXCLUSION / CONDITIONAL / SCREENING / INFORMATIONAL) — **not built**.
-- **F1/F2 split of the 439 no-plan parcels** — not completed.
+- ⛔ **Reading the kortbilag.** The graphic leg now ROUTES the drawn regulation and proves the
+  documents are reachable (**76/76 doklinks answered `206 application/pdf`**), but nothing reads the
+  drawing. The dominant route is **delområde extent** (55 of 121 rows) — an **upper bound**, not a
+  footprint, and it must be rendered as one.
+- **F1/F2 split of the 439 no-plan parcels** — still not completed. ⚠ **The classification is not
+  obvious and must not be guessed:** a parcel with no lokalplan is usually *governed by a coarser
+  instrument* (kommuneplanramme) or, in landzone, by a **discretionary permission** (Planloven §35) —
+  which is `refused` / `requires-determination`, **not** F1. Recording it as F1 would assert the law
+  is silent where it is in fact conditional.
+- ✅ **NOT gaps any more** (the previous revision listed them): **overlay classification** and the
+  **composite zone codes** are built — see §3 items 5 and 7.
 - Doctrine arms **R3, R5, R6 are marked NOT EXERCISED, not passed** — their data is credential-gated,
   so the rules could not be tested. ⭐ *Not exercised* and *passing* are different verdicts and are
   recorded as such.

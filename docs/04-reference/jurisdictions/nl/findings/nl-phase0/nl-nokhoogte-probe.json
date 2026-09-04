@@ -1,0 +1,2943 @@
+{
+ "generatedAt": "2026-09-04T16:40:18.043Z",
+ "lane": "ENVELOPE-NLDK round 4",
+ "spec": "NL-FOUNDER-BLOCKER-REVIEW.md §5 — \"Measure nokhoogte in TEXT too … if it tracks dakhelling, the two together close a lot of triangles\"",
+ "source": "ruimtelijkeplannen.nl/documents/<planId>/r_<planId>.html (KEYLESS), via WMS `verwijzingnaartekst`",
+ "samples": [
+  "nl-phase0-sample-land.json",
+  "nl-phase0-sample-urban.json"
+ ],
+ "seed": 20260903,
+ "requested": 60,
+ "distinctGoverningPlans": 322,
+ "unit": "PER PLAN, not per parcel — a plan naming a parameter somewhere does not set it for every bestemming, so these are UPPER BOUNDS on the parcel-level share",
+ "detector": "parameter NAME followed within 120 chars by a number in its own unit (m / ° ). A begripsbepaling with no number is deliberately NOT a hit. Windows stored VERBATIM.",
+ "boundTypeRule": "the runtime vocabulary NlRoofBoundType: goot+(nok|helling) closes the section; goot+bouw = roof-zone-slab; goot alone = eaves-plane-no-top; bouw|nok alone = prism-upper-bound; else none",
+ "knownDetectorLimitations": [
+  "A BEGRIPSBEPALING THAT CARRIES NUMBERS IS COUNTED. e.g. NL.IMRO.0606.BP00100-0002 hits on that plan’s own definition of `kap` (\"1.88 … met een dakhelling van ten minste 30° en ten hoogste 60°\"), which DEFINES the word rather than setting the pitch for any bestemming. So `dakhelling` here is an UPPER BOUND on the share of plans that SET a pitch.",
+  "A RELATIVE CONSTRAINT ON THE NOK IS COUNTED AS A NOKHOOGTE. e.g. NL.IMRO.1884.PPALGEMAFWIJKINGEN-VAS1 hits on a dakkapel rule (\"minimaal 0,5 m onder de nokhoogte van de dakopbouw\") — a relation to a ridge, not a ridge height. So `nokhoogte` is likewise an UPPER BOUND, and its measured share is already small.",
+  "PER PLAN, NOT PER BESTEMMING. A plan that sets a goothoogte for `Wonen` and nothing for `Bedrijf` counts once. The parcel-level share is therefore ≤ every figure here.",
+  "THE dakhelling SHARE IS NOT COMPARABLE TO PHASE 0’S 28.8 %. Phase 0 used a different sample and a token-presence detector; this one REQUIRES a number in degrees within 120 chars. A lower number here is a stricter detector, NOT a corrected measurement — do not report it as a correction."
+ ],
+ "elapsedSec": 22,
+ "summary": {
+  "requested": 60,
+  "fetched": 53,
+  "fetchFailed": 7,
+  "shareOfFetchedPlans": {
+   "goothoogte": "17/53 = 32.1%",
+   "bouwhoogte": "23/53 = 43.4%",
+   "nokhoogte": "4/53 = 7.5%",
+   "dakhelling": "11/53 = 20.8%"
+  },
+  "coOccurrence": {
+   "goothoogte AND dakhelling": "10/53 = 18.9%",
+   "goothoogte AND nokhoogte": "3/53 = 5.7%",
+   "goothoogte AND (nokhoogte OR dakhelling)": "13/53 = 24.5%",
+   "nokhoogte AND dakhelling": "0/53 = 0.0%",
+   "goothoogte AND bouwhoogte, no nok and no helling": "4/53 = 7.5%",
+   "none of the four": "30/53 = 56.6%"
+  },
+  "boundTypeHistogram": {
+   "none": 30,
+   "section-closed-by-pitch": 10,
+   "roof-zone-slab": 4,
+   "prism-upper-bound": 6,
+   "closed-by-ridge": 3
+  }
+ },
+ "results": [
+  {
+   "planId": "NL.IMRO.0098.BPFacetWindmolens-VA01",
+   "naam": "Facetbestemmingsplan kleine windturbines Weststellingwerf",
+   "naamoverheid": "Gemeente Weststellingwerf",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-10-10",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0098.BPFacetWindmolens-VA01/r_NL.IMRO.0098.BPFacetWindmolens-VA01.html",
+   "textChars": 7232,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0119.Wonen2022-BPC1",
+   "naam": "Paraplubestemmingsplan woningsplitsing en woningomzetting",
+   "naamoverheid": "Gemeente Meppel",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-12-22",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0119.Wonen2022-BPC1/r_NL.IMRO.0119.Wonen2022-BPC1.html",
+   "textChars": 11064,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0148.Kernen2022-vs01",
+   "naam": "Chw Kernen gemeente Dalfsen 2022",
+   "naamoverheid": "gemeente Dalfsen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-02-03",
+   "dossierstatus": "deels onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "tuin"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0148.Kernen2022-vs01/r_NL.IMRO.0148.Kernen2022-vs01.html",
+   "textChars": 301780,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 17
+   },
+   "numbers": {
+    "goothoogte": [
+     0.25,
+     2,
+     2.75,
+     3,
+     3.5,
+     3.75,
+     4,
+     4.5,
+     5,
+     5.5,
+     6,
+     7
+    ],
+    "bouwhoogte": [
+     0.25,
+     1,
+     2.5,
+     3,
+     4,
+     4.5,
+     5,
+     5.5,
+     6,
+     10,
+     12,
+     14
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     18,
+     25,
+     30,
+     40,
+     60
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     "dat: 1. de afstand van de gebouwen uit de as van de wegen ten minste 20 m bedraagt; 2. de goothoogte ten hoogste 5,5 m bedraagt; 3. de bouwhoogte ten hoogste 12 m bedraagt; 4. de dakhelling ten minste 18 o bedraagt; d. een bedrijfsgebouw ten hoogste één bouwla",
+     "oogste 750 m³, dan wel, indien een grotere woning aanwezig is, de bestaande inhoud; c. de goothoogte ten hoogste 4,5 m bedraagt; d. de dakhelling ten minste 30° bedraagt en ten hoogste 60°. 3.2.3 Bijbehorend bouwwerk bij bedrijfswoning Voor bijbehorende bouwwe"
+    ],
+    "bouwhoogte": [
+     "e gevelbreedte, waarbij de bouwvlakgrens met maximaal 1,5 m wordt overschreden en met een bouwhoogte van maximaal 0,25 m boven de vloer van de eerste verdieping van het hoofdgebouw. 1.58 evenement: Elke voor publiek toegankelijke verrichting van vermaak. 1.59 ",
+     "van de wegen ten minste 20 m bedraagt; 2. de goothoogte ten hoogste 5,5 m bedraagt; 3. de bouwhoogte ten hoogste 12 m bedraagt; 4. de dakhelling ten minste 18 o bedraagt; d. een bedrijfsgebouw ten hoogste één bouwlaag mag bevatten. 3.2.2 Bedrijfswoningen Voor "
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "ning aanwezig is, de bestaande inhoud; c. de goothoogte ten hoogste 4,5 m bedraagt; d. de dakhelling ten minste 30° bedraagt en ten hoogste 60°. 3.2.3 Bijbehorend bouwwerk bij bedrijfswoning Voor bijbehorende bouwwerken bij bedrijfswoningen geldt bovendien dat",
+     "voor niet-inpandige bedrijfswoningen dat: 1. de goothoogte maximaal 4,5 m bedraagt; 2. de dakhelling ten minste 30° en maximaal 60° bedraagt. 5.2.3 Bijbehorende bouwwerken bij een bedrijfswoning Voor bijbehorende bouwwerken bij een bedrijfswoning gelden de vol"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.0150.Chw001D-VG01",
+   "naam": "Chw bestemmingsplan Deventer, stad en dorpen deel D",
+   "naamoverheid": "gemeente Deventer",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-07-01",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "overig",
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0150.Chw001D-VG01/r_NL.IMRO.0150.Chw001D-VG01.html",
+   "textChars": 414089,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 3
+   },
+   "numbers": {
+    "goothoogte": [
+     0.25,
+     0.5,
+     2,
+     3,
+     3.5,
+     5,
+     6,
+     7,
+     8,
+     10,
+     11,
+     14
+    ],
+    "bouwhoogte": [
+     1,
+     2,
+     2.8,
+     3,
+     3.5,
+     4,
+     5,
+     6,
+     8,
+     10,
+     12
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     20,
+     40,
+     55,
+     60
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     "en bijgebouwen ten hoogste: 25 m² mag bedragen; 25% van het achtererf mag bedragen; 2. de goothoogte van aanbouwen, uitbouwen en aangebouwde bijgebouwen niet meer dan 3,5 m, dan wel 0,25 m boven de vloer van de eerste verdieping van het hoofdgebouw, mag bedrag",
+     ", waarbij deze ten minste 1,5 m is gelegen onder de bouwhoogte van het hoofdgebouw; 4. de goothoogte van vrijstaande bijgebouwen niet meer dan 3 m mag bedragen; 5. de bouwhoogte van vrijstaande bijgebouwen mag niet meer dan 5 m mag bedragen. b. artikel 184.1.1"
+    ],
+    "bouwhoogte": [
+     "n, anders dan bedoeld onder g, met een vanaf peil gemeten hoogte die meer bedraagt dan de bouwhoogte van het hoogste bij het betreffende bedrijf behorende gebouw, en ieder geval meer dan 10 m. 27.2 Afwijken van de toegelaten functies 27.2.1 Bevoegdheid Met een",
+     "n, anders dan bedoeld onder g, met een vanaf peil gemeten hoogte die meer bedraagt dan de bouwhoogte van het hoogste bij het betreffende bedrijf behorende gebouw, en ieder geval meer dan 10 m. 28.2 Afwijken van de toegelaten functies 28.2.1 Bevoegdheid Met een"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "de: max. aantal per bouwvlak max. inhoud max. oppervlakte max. goothoogte max. bouwhoogte dakhelling woningen (inclusief aan- en uitbouwen en aangebouwde bijgebouwen) één 750 m³ - 4,5 m 10 m 20°/55° overige bijgebouwen en overkappingen per woning - - 100 m² 3 ",
+     " van een traditionele kapvorm is mogelijk, met inachtneming van de volgende regels: 1. de dakhelling dient ten minste 40° te bedragen; 2. de dakhelling dient ten hoogste 60° te bedragen; 3. de nokrichting dient haaks op de voorgevel van het gebouw te liggen; 4"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.0166.00991291-VB01",
+   "naam": "Zorg en wonen: woningsplitsing, woningomzetting en kamerbewoning (parapluplan)",
+   "naamoverheid": "Gemeente Kampen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-12-17",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0166.00991291-VB01/r_NL.IMRO.0166.00991291-VB01.html",
+   "textChars": 10674,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0175.windmolensBP001-va01",
+   "naam": "Parapluplan kleine windmolens",
+   "naamoverheid": "gemeente Ommen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-09-29",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0175.windmolensBP001-va01/r_NL.IMRO.0175.windmolensBP001-va01.html",
+   "textChars": 20785,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0180.5102019004-VS01",
+   "naam": "Kleinschalige windturbines",
+   "naamoverheid": "gemeente Staphorst",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-06-23",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch",
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0180.5102019004-VS01/r_NL.IMRO.0180.5102019004-VS01.html",
+   "textChars": 10073,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0232.ALG002terrassen-VBP1",
+   "naam": "Parapluplan terrassen",
+   "naamoverheid": "gemeente Epe",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-03-08",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "gemengd"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0232.ALG002terrassen-VBP1/r_NL.IMRO.0232.ALG002terrassen-VBP1.html",
+   "textChars": 7136,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0269.PP001-VG01",
+   "naam": "Paraplubestemmingsplan Oldebroek",
+   "naamoverheid": "gemeente Oldebroek",
+   "typeplan": "bestemmingsplan",
+   "datum": "2021-09-30",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0269.PP001-VG01/r_NL.IMRO.0269.PP001-VG01.html",
+   "textChars": 40436,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 3,
+    "bouwhoogte": 3,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [
+     3.5,
+     8,
+     500,
+     600
+    ],
+    "bouwhoogte": [
+     3.5,
+     8,
+     500,
+     600
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "roof-zone-slab",
+   "samples": {
+    "goothoogte": [
+     "nt te voldoen aan de eisen die in de onderstaande tabel zijn gesteld: woningtype maximale goothoogte maximale bouwhoogte maximale inhoud Vrijstaand 3,50 meter 8,00 meter 600 m 3 Halfvrijstaand 3,50 meter 8,00 meter 500 m 3 Artikel 46.2 lid 1 onder e van het be",
+     "dgebouw dient te voldoen aan de eisen die in de onderstaande tabel zijn gesteld: maximale goothoogte maximale bouwhoogte maximale inhoud 3,50 meter 8,00 meter 500 m 3 Artikel 47.2 lid 1 onder e van het bestemmingsplan \"Buitengebied 2007\" e. de maatvoering van "
+    ],
+    "bouwhoogte": [
+     " eisen die in de onderstaande tabel zijn gesteld: woningtype maximale goothoogte maximale bouwhoogte maximale inhoud Vrijstaand 3,50 meter 8,00 meter 600 m 3 Halfvrijstaand 3,50 meter 8,00 meter 500 m 3 Artikel 46.2 lid 1 onder e van het bestemmingsplan \"Buite",
+     "doen aan de eisen die in de onderstaande tabel zijn gesteld: maximale goothoogte maximale bouwhoogte maximale inhoud 3,50 meter 8,00 meter 500 m 3 Artikel 47.2 lid 1 onder e van het bestemmingsplan \"Buitengebied 2007\" e. de maatvoering van het hoofdgebouw dien"
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0294.PP1803PARKEREN-VA01",
+   "naam": "facetbestemmingsplan parkeren Winterswijk",
+   "naamoverheid": "gemeente Winterswijk",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-06-28",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 4,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "bos",
+    "natuur",
+    "recreatie",
+    "verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0294.PP1803PARKEREN-VA01/r_NL.IMRO.0294.PP1803PARKEREN-VA01.html",
+   "textChars": 16465,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0303.D6000-0ONH",
+   "naam": "Paraplubestemmingsplan bijzondere woonvormen gemeente Dronten",
+   "naamoverheid": "gemeente Dronten",
+   "typeplan": "bestemmingsplan",
+   "datum": "2017-02-16",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0303.D6000-0ONH/r_NL.IMRO.0303.D6000-0ONH.html",
+   "textChars": 4509,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0310.21001BP0000-VG01",
+   "naam": "Kleine windturbines agrarische bouwblokken",
+   "naamoverheid": "gemeente De Bilt",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-04-25",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0310.21001BP0000-VG01/r_NL.IMRO.0310.21001BP0000-VG01.html",
+   "textChars": 18706,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0327.308-0401",
+   "naam": "Parapluplan Kamergewijze verhuur en woningsplitsing",
+   "naamoverheid": "Gemeente Leusden",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-03-07",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0327.308-0401/r_NL.IMRO.0327.308-0401.html",
+   "textChars": 5475,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0327.309-0501",
+   "naam": "TAM-omgevingsplan Hoofdstuk 22a Kamergewijze verhuur/woningsplitsing in beheersverordeninggebieden",
+   "naamoverheid": "Gemeente Leusden",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-09-24",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0327.309-0501/r_NL.IMRO.0327.309-0501.html",
+   "textChars": 6166,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0344.BPCHWZUILEN-VA01",
+   "naam": "Chw bestemmingsplan Zuilen",
+   "naamoverheid": "gemeente Utrecht",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-01-18",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0344.BPCHWZUILEN-VA01/r_NL.IMRO.0344.BPCHWZUILEN-VA01.html",
+   "textChars": 130402,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 2,
+    "bouwhoogte": 12,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [
+     2.5,
+     3.5,
+     5
+    ],
+    "bouwhoogte": [
+     1.5,
+     2.2,
+     5,
+     8,
+     10,
+     16,
+     30
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "roof-zone-slab",
+   "samples": {
+    "goothoogte": [
+     "uwd bijbehorend bouwwerk mag niet meer bedragen dan de goothoogte van de woonwagen; b. de goothoogte van een vrijstaand bijbehorend bouwwerk mag niet meer bedragen dan 2,5 meter met een maximale hoogte van 4 meter; c. een bijbehorend bouwwerk heeft een maximal",
+     " standplaatsen aanvaardbaar is; d. er staat maximaal één woonwagen per standplaats; e. de goothoogte van een woonwagen bedraagt niet meer dan 3,5 meter en de bouwhoogte niet meer dan 5 meter. Hoofdstuk 3 Bouwen en slopen Artikel 31 Inleidende bepalingen over h"
+    ],
+    "bouwhoogte": [
+     "ofdgebouwen Ter plaatse van de aanduiding 'specifieke bouwaanduiding - 2' is een maximale bouwhoogte van 8 meter toegestaan en mag 80% per bouwperceel bebouwd worden. 4.5 Bouwen met vergunning, meer bebouwen Burgemeester en wethouders kunnen met een vergunning",
+     "ofdgebouwen Ter plaatse van de aanduiding 'specifieke bouwaanduiding - 2' is een maximale bouwhoogte van 8 meter toegestaan en mag 80% per bouwperceel bebouwd worden. 5.5 Bouwen met vergunning, meer bebouwen Burgemeester en wethouders kunnen met een vergunning"
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0351.HZ2012bgbdivers-vg01",
+   "naam": "Buitengebied 2013 (herziening)",
+   "naamoverheid": "Gemeente Woudenberg",
+   "typeplan": "bestemmingsplan",
+   "datum": "2013-06-27",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "bos"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0351.HZ2012bgbdivers-vg01/r_NL.IMRO.0351.HZ2012bgbdivers-vg01_index.html -> TOO-SMALL(436)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0351.HZ2012bgbdivers-vg01/r_NL.IMRO.0351.HZ2012bgbdivers-vg01.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0351.HZ2012bgbdivers-vg01/pt_NL.IMRO.0351.HZ2012bgbdivers-vg01.xml -> TOO-SMALL(75)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0351.HZ2012bgbdivers-vg01/r_NL.IMRO.0351.HZ2012bgbdivers-vg01.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0361.BP00157-0305",
+   "naam": "Parapluplan Parkeren 2018",
+   "naamoverheid": "gemeente Alkmaar",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-04-13",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0361.BP00157-0305/r_NL.IMRO.0361.BP00157-0305.html",
+   "textChars": 11942,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0376.BLCDorpHz2020-Va04",
+   "naam": "Blaricum Dorp, herziening 2020",
+   "naamoverheid": "Gemeente Blaricum",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-09-20",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0376.BLCDorpHz2020-Va04/r_NL.IMRO.0376.BLCDorpHz2020-Va04.html",
+   "textChars": 17991,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 2,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     1.3,
+     2,
+     3
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "prism-upper-bound",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     " aanduiding 'specifieke bouwaanduiding - carport' een carport toegestaan met een maximale bouwhoogte van 3 m. 3. In de bouwregels voor bouwwerken, geen gebouwen zijnde (artikel 12.2.2), worden de leden b tot en met e vernummerd tot de leden c tot en met f. 4. ",
+     " geen gebouwen zijnde (artikel 12.2.2) wordt een nieuw lid b toegevoegd, luidende: 'b. de bouwhoogte van klikobergingen bedraagt ten hoogste 1,30 m en het oppervlak ten hoogste 2 m 2 ;'. 5. In de bouwregels voor bouwwerken, geen gebouwen zijnde (artikel 12.2.2"
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0399.BPParkerenHLO2022-0401",
+   "naam": "Parapluplan Parkeren 2022",
+   "naamoverheid": "Gemeente Heiloo",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-02-20",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "gemengd"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0399.BPParkerenHLO2022-0401/r_NL.IMRO.0399.BPParkerenHLO2022-0401.html",
+   "textChars": 5143,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0406.BPKOMOOST2013-OH01",
+   "naam": "Kom-Oost",
+   "naamoverheid": "gemeente Huizen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2013-08-31",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "tuin"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0406.BPKOMOOST2013-OH01/r_NL.IMRO.0406.BPKOMOOST2013-OH01_index.html -> TOO-SMALL(342)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0406.BPKOMOOST2013-OH01/r_NL.IMRO.0406.BPKOMOOST2013-OH01.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0406.BPKOMOOST2013-OH01/pt_NL.IMRO.0406.BPKOMOOST2013-OH01.xml -> TOO-SMALL(78)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0406.BPKOMOOST2013-OH01/r_NL.IMRO.0406.BPKOMOOST2013-OH01.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0484.archeologie-VA01",
+   "naam": "Parapluplan Archeologie",
+   "naamoverheid": "gemeente Alphen aan den Rijn",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-03-28",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0484.archeologie-VA01/r_NL.IMRO.0484.archeologie-VA01.html",
+   "textChars": 33742,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0512.BP2017177-4001",
+   "naam": "Paraplubestemmingsplan Parkeren",
+   "naamoverheid": "gemeente Gorinchem",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-11-28",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0512.BP2017177-4001/r_NL.IMRO.0512.BP2017177-4001.html",
+   "textChars": 7783,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0513.BPLUDARKSTORES-DF01",
+   "naam": "parapluplan Darkstores",
+   "naamoverheid": "Gemeente Gouda",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-04-12",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0513.BPLUDARKSTORES-DF01/r_NL.IMRO.0513.BPLUDARKSTORES-DF01.html",
+   "textChars": 9039,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0606.BP00100-0002",
+   "naam": "Paraplu-bestemmingsplan begrippen en wijze van meten",
+   "naamoverheid": "Gemeente Schiedam",
+   "typeplan": "bestemmingsplan",
+   "datum": "2021-04-20",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "bedrijventerrein",
+    "sport"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0606.BP00100-0002/r_NL.IMRO.0606.BP00100-0002.html",
+   "textChars": 43216,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 1,
+    "nokhoogte": 0,
+    "dakhelling": 1
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     1
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     30,
+     60
+    ]
+   },
+   "boundTypeFromText": "prism-upper-bound",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     "schouwing gelaten, mits de overschrijding van de bouw- en bestemmingsgrenzen, goot- en/of bouwhoogte, niet meer bedraagt dan 1,0 meter; b. een liftschacht, liftkoker en (ondergeschikte dakopbouwen ten behoeve van) een technische installatie buiten beschouwing "
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "dekking van een gebouw in een gebogen vorm dan wel met één of meer schuine zijden met een dakhelling van ten minste 30° en ten hoogste 60°, zonder elementen die als opbouwen zijn aan te merken. 1.88 kas: een gebouw, waarvan de wanden en het dak geheel of grote"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.0606.BP0047-0002",
+   "naam": "Harreweg 63, Schiedam",
+   "naamoverheid": "Gemeente Schiedam",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-05-31",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0606.BP0047-0002/r_NL.IMRO.0606.BP0047-0002.html",
+   "textChars": 45252,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 3,
+    "bouwhoogte": 8,
+    "nokhoogte": 0,
+    "dakhelling": 1
+   },
+   "numbers": {
+    "goothoogte": [
+     3,
+     4.5,
+     5,
+     10
+    ],
+    "bouwhoogte": [
+     0.3,
+     1,
+     3,
+     3.5,
+     4.5,
+     5,
+     5.5,
+     10
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     30,
+     60
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     "anwezig mogen zijn, alsmede sanitaire ruimten met een oppervlakte van maximaal 50 m², een goothoogte van 3,0 meter en een bouwhoogte van 5,0 meter; 5. bed and breakfast 6. ambachtelijke bedrijvigheid, waaronder hoefsmederijen en ateliers; 7. voorzieningen ten ",
+     " deze groter is dan 750 m³; c. het hoofdgebouw moet met een kap te worden afgedekt; d. de goot- en bouwhoogte mag niet meer bedragen dan 4,5 meter, respectievelijk 10,0 meter 5.2.2 Regels ten aanzien van aanbouwen, bijgebouwen en overkappingen a. aanbouwen, bi"
+    ],
+    "bouwhoogte": [
+     "schouwing gelaten, mits de overschrijding van de bouw- en bestemmingsgrenzen, goot- en/of bouwhoogte, niet meer bedraagt dan 1,0 meter; b. een liftschacht, liftkoker en (ondergeschikte dakopbouwen ten behoeve van) een technische installatie buiten beschouwing ",
+     "taire ruimten met een oppervlakte van maximaal 50 m², een goothoogte van 3,0 meter en een bouwhoogte van 5,0 meter; 5. bed and breakfast 6. ambachtelijke bedrijvigheid, waaronder hoefsmederijen en ateliers; 7. voorzieningen ten behoeve van fiets-, roeiboot, of"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "dekking van een gebouw in een gebogen vorm dan wel met één of meer schuine zijden met een dakhelling van ten minste 30° en ten hoogste 60°, zonder elementen die als opbouwen zijn aan te merken. 1.43 Kas een gebouw, waarvan de wanden en het dak geheel of groten"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.0611.landelijkgebied-VA01",
+   "naam": "Landelijk gebied 2013",
+   "naamoverheid": "Gemeente Cromstrijen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2013-07-04",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "bedrijf",
+    "overig"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0611.landelijkgebied-VA01/r_NL.IMRO.0611.landelijkgebied-VA01_index.html -> TOO-SMALL(428)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0611.landelijkgebied-VA01/r_NL.IMRO.0611.landelijkgebied-VA01.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0611.landelijkgebied-VA01/pt_NL.IMRO.0611.landelijkgebied-VA01.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0611.landelijkgebied-VA01/r_NL.IMRO.0611.landelijkgebied-VA01.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0637.BP00096-0003",
+   "naam": "Paraplu Herziening Dagstandplaatsen Zoetermeer",
+   "naamoverheid": "Gemeente Zoetermeer",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-12-10",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0637.BP00096-0003/r_NL.IMRO.0637.BP00096-0003.html",
+   "textChars": 182839,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 11,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [
+     0.3,
+     2.5,
+     3,
+     3.5,
+     5,
+     5.5,
+     6,
+     7,
+     9,
+     10,
+     600,
+     2000
+    ],
+    "bouwhoogte": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     7,
+     8,
+     10,
+     15,
+     25,
+     600
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "roof-zone-slab",
+   "samples": {
+    "goothoogte": [
+     "rijfswoning mag, met inbegrip van aan- en uitbouwen, niet meer bedragen dan 600 m³; f. de goothoogte van een bedrijfswoning mag maximaal 6 m bedragen; g. de bouwhoogte van een bedrijfswoning mag maximaal 10 m bedragen; h. de bouwhoogte van een gebouw ten behoe",
+     "totale oppervlakte van erfbebouwing per bedrijfswoning mag maximaal 60 m² bedragen; c. de goothoogte van erfbebouwing bij de bedrijfswoning mag maximaal 0,3 m boven de bovenkant van de scheidingsconstructie met de tweede bouwlaag van het hoofdgebouw van een be"
+    ],
+    "bouwhoogte": [
+     " uitsluitend ter plaatse van de aanduiding 'verkooppunt motorbrandstoffen met lpg' mag de bouwhoogte van overkappingen maximaal 8 m bedragen; e. de inhoud van een bedrijfswoning mag, met inbegrip van aan- en uitbouwen, niet meer bedragen dan 600 m³; f. de goot",
+     "agen dan 600 m³; f. de goothoogte van een bedrijfswoning mag maximaal 6 m bedragen; g. de bouwhoogte van een bedrijfswoning mag maximaal 10 m bedragen; h. de bouwhoogte van een gebouw ten behoeve van nutsvoorzieningen mag maximaal 4 m bedragen; i. ter plaatse "
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0703.BGRWBP2022-va01",
+   "naam": "Buitengebied 2022",
+   "naamoverheid": "Gemeente Reimerswaal",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-01-24",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 7,
+   "hoofdgroepen": [
+    "agrarisch",
+    "natuur",
+    "overig",
+    "water"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0703.BGRWBP2022-va01/r_NL.IMRO.0703.BGRWBP2022-va01.html",
+   "textChars": 434973,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": true,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 1,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [
+     2,
+     3,
+     4,
+     5,
+     6,
+     8,
+     10,
+     50
+    ],
+    "bouwhoogte": [
+     1.5,
+     2,
+     3,
+     3.5,
+     4,
+     6,
+     7,
+     10,
+     12,
+     14,
+     15,
+     30
+    ],
+    "nokhoogte": [
+     6
+    ],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "closed-by-ridge",
+   "samples": {
+    "goothoogte": [
+     "waanduiding uitgesloten - gebouwen' zijn geen gebouwen en overkappingen toegestaan; b. de goothoogte en / of boeibordhoogte bedraagt niet meer dan: 1. bedrijfsgebouwen, niet zijnde kassen: 8 meter; 2. mestopslagruimten, niet voor handelsdoeleinden: 4 meter; 3.",
+     "de aanduiding 'specifieke vorm van agrarisch – veldschuur', met dien verstande dat: 1. de goothoogte niet meer mag bedragen dan 3 meter; 2. de bouwhoogte niet meer mag bedragen dan 6 meter; b. toegestaan zijn bouwwerken, geen gebouwen zijnde, met dien verstand"
+    ],
+    "bouwhoogte": [
+     "taan en geholpen. 1.73 kas bouwwerken van glas of ander lichtdoorlatend materiaal met een bouwhoogte van 1,50 meter of meer ten behoeve van de teelt of veredeling van gewassen, schuurkassen daaronder begrepen. 1.74 kleinschalige bedrijfsmatige activiteiten het",
+     "r handelsdoeleinden: 4 meter; 3. overige bouwwerken, geen gebouwen zijnde: 3 meter; c. de bouwhoogte bedraagt niet meer dan: 1. bedrijfsgebouwen, niet zijnde kassen: 12 meter; 2. netten ten behoeve van aquacultuurbassins: 1 meter; d. in afwijking van het bepaa"
+    ],
+    "nokhoogte": [
+     "aties en gebouwen bedraagt maximaal 50 m², met een goothoogte van maximaal 3 meter en een nokhoogte van maximaal 6 meter; e. de afstand tot bouwvlakken van derden en de afstand tot de bestemming Natuur bedraagt minimaal 50 meter; f. de afstand tussen onderling"
+    ],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0717.0174BPBgbH5-VG03",
+   "naam": "5e herziening Buitengebied Veere",
+   "naamoverheid": "Gemeente Veere",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-12-14",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "natuur",
+    "water"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0717.0174BPBgbH5-VG03/r_NL.IMRO.0717.0174BPBgbH5-VG03.html",
+   "textChars": 414073,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 3
+   },
+   "numbers": {
+    "goothoogte": [
+     2.5,
+     3,
+     3.3,
+     3.5,
+     4,
+     6,
+     7,
+     8,
+     10,
+     12,
+     15,
+     20
+    ],
+    "bouwhoogte": [
+     1,
+     2,
+     3,
+     3.5,
+     4,
+     5,
+     6,
+     7,
+     8,
+     10,
+     12,
+     15
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     45,
+     55,
+     60,
+     65
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     " toegestaan. 3.2.2 Gebouwen Voor het bouwen van gebouwen gelden de volgende regels: a. de goot- en bouwhoogte van gebouwen bedraagt ten hoogste 8 meter respectievelijk 12 meter; b. de inhoud van een bedrijfswoning, inclusief aan- en uitbouwen, bedraagt ten hoo",
+     "van agrarisch - paardenstallen' is een paardenstal binnen het bouwvlak toegestaan met een goothoogte van ten hoogste 3 meter en een bouwhoogte van ten hoogste 7 meter; g. ter plaatse van de aanduiding 'bedrijfswoning' mogen, voor zover niet aanwezig dan wel te"
+    ],
+    "bouwhoogte": [
+     "erstekende daken tot een overschrijding van het bouwvlak met maximaal 3 meter alsmede een bouwhoogte van maximaal 3 meter buiten beschouwing gelaten. Hoofdstuk 2 Bestemmingsregels Artikel 3 Agrarisch met waarden - Landschaps- en natuurwaarden 3.1 Bestemmingsom",
+     " toegestaan. 3.2.2 Gebouwen Voor het bouwen van gebouwen gelden de volgende regels: a. de goot- en bouwhoogte van gebouwen bedraagt ten hoogste 8 meter respectievelijk 12 meter; b. de inhoud van een bedrijfswoning, inclusief aan- en uitbouwen, bedraagt ten hoo"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "wen worden afgedekt door een constructie van één of meer hellende dakvlakken, bedraagt de dakhelling, tenzij met een aanduiding anders is aangegeven, ten hoogste 55°; c. ter plaatse van de aanduiding 'recreatiewoning' bedraagt het aantal recreatiewoningen maxi",
+     "wen worden afgedekt door een constructie van één of meer hellende dakvlakken, bedraagt de dakhelling, tenzij met een aanduiding anders is aangegeven, ten hoogste 65°; h. ter plaatse van de aanduiding 'vrijstaand' worden hoofdgebouwen met de daarbij behorende a"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.0736.BP018BgbWest-va02",
+   "naam": "Buitengebied-West",
+   "naamoverheid": "Gemeente De Ronde Venen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-02-21",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0736.BP018BgbWest-va02/r_NL.IMRO.0736.BP018BgbWest-va02.html",
+   "textChars": 220563,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 23,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 12
+   },
+   "numbers": {
+    "goothoogte": [
+     2.5,
+     3,
+     3.5,
+     4,
+     4.5,
+     5,
+     6,
+     6.5,
+     7,
+     8,
+     10,
+     12
+    ],
+    "bouwhoogte": [
+     1,
+     1.5,
+     2,
+     2.5,
+     3,
+     4,
+     4.5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     30,
+     50
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     "inachtneming van het volgende: a. het gebouw mag niet meer dan één bouwlaag hebben; b. de goothoogte van kassen mag ten hoogste 7 m bedragen, met dien verstande dat de goothoogte van kassen ter plaatse van de gebiedsaanduiding 'overige zone - 12m' ten hoogste ",
+     "bben; b. de goothoogte van kassen mag ten hoogste 7 m bedragen, met dien verstande dat de goothoogte van kassen ter plaatse van de gebiedsaanduiding 'overige zone - 12m' ten hoogste 10 m mag bedragen; c. de bouwhoogte van kassen mag ten hoogste 10 m bedragen, "
+    ],
+    "bouwhoogte": [
+     "estaande maatvoering als ten hoogste toelaatbaar; e. paardenbakken zijn toegestaan; f. de bouwhoogte van erfafscheidingen bedraagt ten hoogste: 1. 1 m voor zover voor de voorgevelrooilijn van het hoofdgebouw; 2. 2 m voor zover achter de voorgevelrooilijn van h",
+     "het hoofdgebouw; 2. 2 m voor zover achter de voorgevelrooilijn van het hoofdgebouw; g. de bouwhoogte van keerwanden bedraagt ten hoogste 4 m; h. de bouwhoogte van overige bouwwerken, geen gebouw zijnde, bedraagt ten hoogste 12 m. 3.2.2 Buiten bouwvlak Buiten h"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "ngen - 5,5 m 8 m volledig bouwvlak *een bedrijfswoning is afgedekt met een kap waarvan de hellingshoek ten minste 30° en ten hoogste 50° bedraagt; d. voor de eenheden voor recreatief nachtverblijf ter plaatse van de aanduiding 'maximum aantal nachtverblijven' ",
+     "ngen - 5,5 m 8 m volledig bouwvlak *een bedrijfswoning is afgedekt met een kap waarvan de hellingshoek ten minste 30° en ten hoogste 50° bedraagt; d. voor de eenheden voor recreatief nachtverblijf ter plaatse van de aanduiding 'maximum aantal nachtverblijven' "
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.0748.BP0236-0301",
+   "naam": "Parapluplan Parkeren en Standplaatsen",
+   "naamoverheid": "gemeente Bergen op Zoom",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-10-11",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "natuur",
+    "verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0748.BP0236-0301/r_NL.IMRO.0748.BP0236-0301.html",
+   "textChars": 6390,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0758.BP2021101013-VG01",
+   "naam": "Parapluplan Hospita en parkeren 2022",
+   "naamoverheid": "gemeente Breda",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-12-22",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0758.BP2021101013-VG01/pt_NL.IMRO.0758.BP2021101013-VG01.xml",
+   "textChars": 40120,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0820.BPLandgGulberg2018-D003",
+   "naam": "Landgoed Gulbergen 2018",
+   "naamoverheid": "Gemeente Nuenen, Gerwen en Nederwetten",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-04-25",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0820.BPLandgGulberg2018-D003/r_NL.IMRO.0820.BPLandgGulberg2018-D003.html",
+   "textChars": 110577,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 9,
+    "bouwhoogte": 27,
+    "nokhoogte": 0,
+    "dakhelling": 5
+   },
+   "numbers": {
+    "goothoogte": [
+     2,
+     3,
+     4,
+     4.5,
+     5,
+     5.5,
+     6,
+     10,
+     750
+    ],
+    "bouwhoogte": [
+     1,
+     2,
+     2.5,
+     3,
+     3.5,
+     4,
+     4.5,
+     5,
+     5.5,
+     6,
+     10,
+     12
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     12,
+     30,
+     35,
+     45,
+     50
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     "erken, geen gebouwen zijnde, binnen het bouwvlak is als volgt: bedrijfsgebouwen min. max. goothoogte n.v.t. 6 m bouwhoogte n.v.t. 10 m dakhelling 12° 45° bedrijfswoning min. max. goothoogte 1) n.v.t. 4,5 m bouwhoogte 1) n.v.t. 10 m inhoud 2) n.v.t. 750 m³ dakh",
+     " goothoogte n.v.t. 6 m bouwhoogte n.v.t. 10 m dakhelling 12° 45° bedrijfswoning min. max. goothoogte 1) n.v.t. 4,5 m bouwhoogte 1) n.v.t. 10 m inhoud 2) n.v.t. 750 m³ dakhelling 3) 12° 45° 1) Voorzover de bestaande goot- of bouwhoogte van een woning meer bedra"
+    ],
+    "bouwhoogte": [
+     "ijnde, binnen het bouwvlak is als volgt: bedrijfsgebouwen min. max. goothoogte n.v.t. 6 m bouwhoogte n.v.t. 10 m dakhelling 12° 45° bedrijfswoning min. max. goothoogte 1) n.v.t. 4,5 m bouwhoogte 1) n.v.t. 10 m inhoud 2) n.v.t. 750 m³ dakhelling 3) 12° 45° 1) V",
+     "hoogte n.v.t. 10 m dakhelling 12° 45° bedrijfswoning min. max. goothoogte 1) n.v.t. 4,5 m bouwhoogte 1) n.v.t. 10 m inhoud 2) n.v.t. 750 m³ dakhelling 3) 12° 45° 1) Voorzover de bestaande goot- of bouwhoogte van een woning meer bedraagt dan ingevolge bovenstaa"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "lak is als volgt: bedrijfsgebouwen min. max. goothoogte n.v.t. 6 m bouwhoogte n.v.t. 10 m dakhelling 12° 45° bedrijfswoning min. max. goothoogte 1) n.v.t. 4,5 m bouwhoogte 1) n.v.t. 10 m inhoud 2) n.v.t. 750 m³ dakhelling 3) 12° 45° 1) Voorzover de bestaande g",
+     "ng min. max. goothoogte 1) n.v.t. 4,5 m bouwhoogte 1) n.v.t. 10 m inhoud 2) n.v.t. 750 m³ dakhelling 3) 12° 45° 1) Voorzover de bestaande goot- of bouwhoogte van een woning meer bedraagt dan ingevolge bovenstaande tabel is toegestaan, geldt voor die woning de "
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.0823.BPBGHerziening-VAST",
+   "naam": "Buitengebied, correctieve herziening",
+   "naamoverheid": "gemeente Oirschot",
+   "typeplan": "bestemmingsplan",
+   "datum": "2017-11-21",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "natuur",
+    "verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0823.BPBGHerziening-VAST/r_NL.IMRO.0823.BPBGHerziening-VAST.html",
+   "textChars": 480363,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 14
+   },
+   "numbers": {
+    "goothoogte": [
+     2.5,
+     3,
+     4,
+     4.5,
+     5.5,
+     6,
+     8,
+     10,
+     14,
+     20
+    ],
+    "bouwhoogte": [
+     1,
+     1.5,
+     2,
+     2.5,
+     3,
+     4,
+     4.5,
+     5.5,
+     6,
+     7,
+     8,
+     8.5
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     12,
+     45
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     "et bouwen van bedrijfsgebouwen en bedrijfsoverkappingen gelden de volgende bepalingen: De goothoogte van bedrijfsgebouwen mag niet meer bedragen dan 6 m. De bouwhoogte van bedrijfsgebouwen mag niet meer bedragen dan 10 m. De bouwhoogte van bedrijfsoverkappinge",
+     " Kassen mogen uitsluitend worden gebouwd ter plaatse van de aanduiding ‘glastuinbouw’. De goothoogte mag niet meer bedragen dan 6 m. De bouwhoogte mag niet meer bedragen dan 10 m. De afstand tot woningen van derden mag niet minder bedragen dan 50 m. Voor het b"
+    ],
+    "bouwhoogte": [
+     "olgende bepalingen: De goothoogte van bedrijfsgebouwen mag niet meer bedragen dan 6 m. De bouwhoogte van bedrijfsgebouwen mag niet meer bedragen dan 10 m. De bouwhoogte van bedrijfsoverkappingen mag niet meer bedragen dan 6 m. De dakhelling van bedrijfsgebouwe",
+     " bedragen dan 6 m. De bouwhoogte van bedrijfsgebouwen mag niet meer bedragen dan 10 m. De bouwhoogte van bedrijfsoverkappingen mag niet meer bedragen dan 6 m. De dakhelling van bedrijfsgebouwen mag niet minder bedragen dan 12° en niet meer bedragen dan 45°. De"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "agen dan 10 m. De bouwhoogte van bedrijfsoverkappingen mag niet meer bedragen dan 6 m. De dakhelling van bedrijfsgebouwen mag niet minder bedragen dan 12° en niet meer bedragen dan 45°. De oppervlakte van een rijhal mag niet meer bedragen dan 1.200 m 2 . Tot 1",
+     "hoogte mag niet meer bedragen dan 10 m. De inhoud mag niet meer bedragen dan 750 m 3 . De dakhelling mag niet minder bedragen dan 12° en niet meer bedragen dan 45°. Voor het bouwen van bijbehorende bouwwerken (bijgebouwen, aan- en uitbouwen) bij bedrijfswoning"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.08230000KernOirschot-",
+   "naam": "Woonwijken kern Oirschot",
+   "naamoverheid": "",
+   "typeplan": "gemeentelijk plan; bestemmingsplan artikel 10",
+   "datum": "2006-06-01",
+   "dossierstatus": "",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.08230000KernOirschot-/r_NL.IMRO.08230000KernOirschot-.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.08230000KernOirschot-/pt_NL.IMRO.08230000KernOirschot-.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.08230000KernOirschot-/r_NL.IMRO.08230000KernOirschot-.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.0828.BPpplnwonen2023-VG01",
+   "naam": "Parapluplan Wonen - 2023",
+   "naamoverheid": "gemeente Oss",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-06-16",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0828.BPpplnwonen2023-VG01/r_NL.IMRO.0828.BPpplnwonen2023-VG01.html",
+   "textChars": 6500,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0840.1000P0002-DEF1",
+   "naam": "Paraplubestemmingsplan Cultuurhistorie en Archeologie",
+   "naamoverheid": "Gemeente Rucphen",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-12-11",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "bedrijf",
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0840.1000P0002-DEF1/r_NL.IMRO.0840.1000P0002-DEF1.html",
+   "textChars": 27606,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0847.BP02020010-VS02",
+   "naam": "Herstelbesluit Parapluplan huisvesting arbeidsmigranten 2021",
+   "naamoverheid": "Gemeente Someren",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-09-12",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0847.BP02020010-VS02/r_NL.IMRO.0847.BP02020010-VS02.html",
+   "textChars": 619020,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": true,
+    "nokhoogte": true,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 39,
+    "nokhoogte": 1,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     3,
+     3.5
+    ],
+    "nokhoogte": [
+     3
+    ],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "prism-upper-bound",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     "ersonen worden gehuisvest. Het maximaal te huisvesten personen is niet meer dan 40; h. de bouwhoogte van een woonunit mag niet meer bedragen dan 3 m¹; i. de onder e genoemde verblijven moeten worden geplaatst binnen het agrarische bestemmingsvlak; j. de ruimte",
+     "orden verwijderd; 11. Per woonunit mogen maximaal vier personen worden gehuisvest; 12. De bouwhoogte van een woonunit mag niet meer bedragen dan 3,5 m¹; 13. De genoemde verblijven moeten worden geplaatst binnen het agrarische bestemmingsvlak; 14. De ruimtelijk"
+    ],
+    "nokhoogte": [
+     "lusief een minimum van gemeenschappelijke leef- en woonruimte van 5m² per persoon. 7. De (nok)hoogte van een woonunit mag niet meer bedragen dan 3 m¹. 8. De onder 4 genoemde verblijven moeten worden geplaatst binnen het bestemmingsvlak. 9. Per drie huisvesting"
+    ],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0893.TOP24001H22ABUI-VA01",
+   "naam": "TAM-omgevingsplan Hoofdstuk 22A [parapluregeling hemelwaterafvoer]",
+   "naamoverheid": "Gemeente Bergen (L.)",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-07-29",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0893.TOP24001H22ABUI-VA01/r_NL.IMRO.0893.TOP24001H22ABUI-VA01.html",
+   "textChars": 7579,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.0994.2022BP001-VA02",
+   "naam": "Initieel Omgevingsplan Valkenburg aan de Geul 2022",
+   "naamoverheid": "Gemeente Valkenburg aan de Geul",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-12-11",
+   "dossierstatus": "vastgesteld",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.0994.2022BP001-VA02/r_NL.IMRO.0994.2022BP001-VA02.html",
+   "textChars": 689425,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 4
+   },
+   "numbers": {
+    "goothoogte": [
+     3,
+     3.5,
+     4.75,
+     5.5,
+     6,
+     7,
+     11,
+     14,
+     100
+    ],
+    "bouwhoogte": [
+     1,
+     1.5,
+     2,
+     2.5,
+     3,
+     3.5,
+     4,
+     5,
+     6,
+     8,
+     11,
+     12
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     30,
+     45,
+     50,
+     85
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     "tsluitend in het bouwvlak gebouwd; het bouwvlak mag voor maximaal 100% worden bebouwd; de goothoogte van gebouwen, geen woning zijnde, mag maximaal 5,50 meter bedragen, met dien verstande dat ter plaatse van de aanduiding 'maximale goothoogte' de aangeduide ma",
+     "imaal 5,50 meter bedragen, met dien verstande dat ter plaatse van de aanduiding 'maximale goothoogte' de aangeduide maximale goothoogte geldt; de bouwhoogte van gebouwen geen woning zijnde, mag maximaal 11,00 meter bedragen, met dien verstande dat ter plaatse "
+    ],
+    "bouwhoogte": [
+     " aanduiding ‘Kernen’: Voor bouwwerken, geen gebouwen zijnde gelden de volgende regels: de bouwhoogte van erfafscheidingen mag maximaal 2,00 m bedragen; de bouwhoogte van overige bouwwerken, geen gebouwen zijnde mag maximaal 2,50 m bedragen. Uitsluitend ter pla",
+     "n de volgende regels: de bouwhoogte van erfafscheidingen mag maximaal 2,00 m bedragen; de bouwhoogte van overige bouwwerken, geen gebouwen zijnde mag maximaal 2,50 m bedragen. Uitsluitend ter plaatse van de aanduiding ‘Buitengebied’: Op de voor 'Agrarisch' aan"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     " in de voorgevelrooilijn; gebouwen dienen te worden afgedekt met een kap met een minimale dakhelling van 45° en een maximale van 85°; de inhoud van een grondgebonden woning moet minimaal 200 m³ en mag maximaal 1.000 m³ bedragen. De inhoud van een gestapelde wo",
+     "aatse van de aanduiding 'maximale goothoogte' de aangeduide maximale goothoogte geldt; de dakhelling mag maximaal 30° bedragen; de bouwhoogte mag maximaal 8,00 meter bedragen, met dien verstande dat ter plaatse van de aanduiding 'maximale bouwhoogte' de aanged"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.1509.BP000100-VA02",
+   "naam": "Buitengebied Oude IJsselstreek 2017",
+   "naamoverheid": "gemeente Oude IJsselstreek",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-06-28",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "verkeer",
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1509.BP000100-VA02/r_NL.IMRO.1509.BP000100-VA02.html",
+   "textChars": 347908,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [
+     2,
+     3,
+     3.5,
+     4.5,
+     5,
+     6,
+     7,
+     8
+    ],
+    "bouwhoogte": [
+     1.25,
+     1.5,
+     1.7,
+     2,
+     2.5,
+     3,
+     4.5,
+     5,
+     6,
+     8,
+     10,
+     13
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "roof-zone-slab",
+   "samples": {
+    "goothoogte": [
+     "els: a. bedrijfsgebouwen zijn uitsluitend binnen het agrarisch bouwvlak toegestaan; b. de goothoogte van bedrijfsgebouwen mag maximaal 6 meter bedragen; c. de bouwhoogte van bedrijfsgebouwen mag maximaal 13 meter bedragen; d. in afwijking van het bepaalde onde",
+     "ngen' de inhoud niet meer mag bedragen dan de bestaande inhoud vermeerderd met 10%; d. de goothoogte mag maximaal 3,5 meter bedragen; e. de bouwhoogte mag maximaal 8 meter bedragen. 3.2.3 bijbehorende bouwwerken en overkappingen bij een bedrijfs- en platteland"
+    ],
+    "bouwhoogte": [
+     "ak toegestaan; b. de goothoogte van bedrijfsgebouwen mag maximaal 6 meter bedragen; c. de bouwhoogte van bedrijfsgebouwen mag maximaal 13 meter bedragen; d. in afwijking van het bepaalde onder a en c mag de bouwhoogte van een dierenverblijf binnen het terrein ",
+     "uwen mag maximaal 13 meter bedragen; d. in afwijking van het bepaalde onder a en c mag de bouwhoogte van een dierenverblijf binnen het terrein 'specifieke vorm van agrarisch – dierenverblijf' maximaal 1,25 m bedragen; e. de oppervlakte van een dierenverblijf b"
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1699.2022BP047-vg02",
+   "naam": "Buitengebied Noordenveld - veegplan",
+   "naamoverheid": "gemeente Noordenveld",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-09-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1699.2022BP047-vg02/r_NL.IMRO.1699.2022BP047-vg02.html",
+   "textChars": 402369,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 26
+   },
+   "numbers": {
+    "goothoogte": [
+     3,
+     3.5,
+     4,
+     4.5,
+     5,
+     5.5,
+     5.55,
+     6,
+     8,
+     9,
+     12,
+     14
+    ],
+    "bouwhoogte": [
+     3,
+     3.5,
+     4.5,
+     5,
+     5.55,
+     6,
+     7.2,
+     8,
+     9,
+     12,
+     14,
+     2500
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     20,
+     30,
+     60
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     " ontginningsassen; bebouwing voornamelijk in één bouwlaag met kap met overwegend een lage goothoogte (minder dan 3,5 m) en een aan het hoofdgebouw ondergeschikte maatvoering en situering van aanbouwen en bijgebouwen; geomorfologisch van belang zijn de essen me",
+     "an de aanduiding 'ijsbaan', met een bebouwde oppervlakte van maximaal 50 m 2 , en met een goot- en bouwhoogte van respectievelijk maximaal 3 m en 5 m; 3. gebouwen voor openbare nutsvoorzieningen en voorzieningen ten behoeve van de waterhuishouding, met een max"
+    ],
+    "bouwhoogte": [
+     "an de aanduiding 'ijsbaan', met een bebouwde oppervlakte van maximaal 50 m 2 , en met een goot- en bouwhoogte van respectievelijk maximaal 3 m en 5 m; 3. gebouwen voor openbare nutsvoorzieningen en voorzieningen ten behoeve van de waterhuishouding, met een max",
+     "bouw, dan wel ten hoogste de bestaande oppervlakte indien deze meer bedraagt. De maximale bouwhoogte bedraagt ten hoogste 3,5 m, dan wel ten hoogste de bestaande bouwhoogte. 3.2.2 Bouwwerken, geen gebouwen zijnde Voor het bouwen van bouwwerken, geen gebouwen z"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "draagt; j. de goot- en bouwhoogte bedragen ten hoogste 4,5 m, respectievelijk 12 m; k. de dakhelling van bedrijfsgebouwen bedraagt ten minste 20° en ten hoogste 60°. 4.2.2 Bedrijfswoningen Voor het bouwen van bedrijfswoningen gelden de volgende regels: a. per ",
+     "0% van de daadwerkelijke bouwhoogte van het hoofdgebouw, met een maximum van 7,2 m; g. de dakhelling van aan-, uitbouwen en bijgebouwen bedraagt bij het toepassen van een kap ten minste 30° en ten hoogste 60°, waarbij het gebouw bij het bouwen op de bouwpercee"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.1701.0000BP000000000585-0002",
+   "naam": "Kleinschalige hernieuwbare energie",
+   "naamoverheid": "gemeente Westerveld",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-12-20",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 6,
+   "hoofdgroepen": [
+    "agrarisch",
+    "natuur",
+    "verkeer",
+    "water",
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1701.0000BP000000000585-0002/r_NL.IMRO.1701.0000BP000000000585-0002.html",
+   "textChars": 9514,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1709.VeegplanKernen2019-BP40",
+   "naam": "Veegplan Kernen 2019",
+   "naamoverheid": "Gemeente Moerdijk",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-01-30",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1709.VeegplanKernen2019-BP40/r_NL.IMRO.1709.VeegplanKernen2019-BP40.html",
+   "textChars": 4462,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1724.BPUdhb0104-VAST",
+   "naam": "3de Herziening Buitengebied Bergeijk 2022",
+   "naamoverheid": "gemeente Bergeijk",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-06-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "bos"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1724.BPUdhb0104-VAST/r_NL.IMRO.1724.BPUdhb0104-VAST.html",
+   "textChars": 695947,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": true,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 17,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [
+     2,
+     2.5,
+     2.8,
+     3,
+     3.45,
+     3.6,
+     4,
+     4.5,
+     4.7,
+     5,
+     5.5,
+     6.5
+    ],
+    "bouwhoogte": [
+     2,
+     2.5,
+     3,
+     4,
+     4.5,
+     5,
+     5.5,
+     6,
+     6.6,
+     7,
+     7.03,
+     8
+    ],
+    "nokhoogte": [
+     3,
+     3.2,
+     5.5
+    ],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "closed-by-ridge",
+   "samples": {
+    "goothoogte": [
+     "27;specifieke vorm van agrarisch - veehouderij&#x0027; gelden de volgende voorwaarden: De goothoogte mag niet meer bedragen dan 5,5 m. De bouwhoogte mag niet meer bedragen dan 12 m. De oppervlakte van gebouwen, met uitzondering van de bedrijfswoning en bijbeho",
+     "e van agrarische bedrijven, niet zijnde veehouderijen, gelden de volgende voorwaarden: De goothoogte mag niet meer bedragen dan 5,5 m. De bouwhoogte mag niet meer bedragen dan 12 m. Vervallen . Teeltondersteunende kassen mogen worden gebouwd onder de volgende "
+    ],
+    "bouwhoogte": [
+     "x0027; gelden de volgende voorwaarden: De goothoogte mag niet meer bedragen dan 5,5 m. De bouwhoogte mag niet meer bedragen dan 12 m. De oppervlakte van gebouwen, met uitzondering van de bedrijfswoning en bijbehorende bouwwerken bij de bedrijfswoning en gebouw",
+     "rijen, gelden de volgende voorwaarden: De goothoogte mag niet meer bedragen dan 5,5 m. De bouwhoogte mag niet meer bedragen dan 12 m. Vervallen . Teeltondersteunende kassen mogen worden gebouwd onder de volgende voorwaarden: De oppervlakte mag niet meer bedrag"
+    ],
+    "nokhoogte": [
+     "e van bijgebouwen mag niet meer bedragen dan 5,5 m. De dakhelling van bijgebouwen met een nokhoogte tussen 3,2 m en 5,5 m mag niet minder bedragen dan 15º en niet meer dan 45º, tenzij het een aanbouw aan een woning betreft van maximaal 40 m2. Vrijstaande bijge",
+     " de bedrijfswoning mag niet meer bedragen dan 20 m. De dakhelling van bijgebouwen met een nokhoogte tussen 3 m en 5,5 m mag niet minder bedragen dan 15º en niet meer dan 45º. Ter plaatse van de aanduiding ‘maximum aantal wooneenheden’ zijn uitsluitend twee-aan"
+    ],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.17290000BPLBUI2009v1-",
+   "naam": "Gulpen-Wittem buitengebied",
+   "naamoverheid": "",
+   "typeplan": "gemeentelijk plan; bestemmingsplan artikel 10",
+   "datum": "2009-04-02",
+   "dossierstatus": "",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.17290000BPLBUI2009v1-/r_NL.IMRO.17290000BPLBUI2009v1-.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.17290000BPLBUI2009v1-/pt_NL.IMRO.17290000BPLBUI2009v1-.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.17290000BPLBUI2009v1-/r_NL.IMRO.17290000BPLBUI2009v1-.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.1731.Broekstreek-VST1",
+   "naam": "De Broekstreek",
+   "naamoverheid": "Midden-Drenthe",
+   "typeplan": "bestemmingsplan",
+   "datum": "2013-03-28",
+   "dossierstatus": "geheel in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1731.Broekstreek-VST1/r_NL.IMRO.1731.Broekstreek-VST1_Index.html -> TOO-SMALL(850)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1731.Broekstreek-VST1/r_NL.IMRO.1731.Broekstreek-VST1.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1731.Broekstreek-VST1/pt_NL.IMRO.1731.Broekstreek-VST1.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1731.Broekstreek-VST1/r_NL.IMRO.1731.Broekstreek-VST1.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.1734.0323OVBplussenbel-VSG1",
+   "naam": "Overbetuwe, Paraplubestemmingsplan Plussenbeleid",
+   "naamoverheid": "Gemeente Overbetuwe",
+   "typeplan": "bestemmingsplan",
+   "datum": "2020-01-07",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1734.0323OVBplussenbel-VSG1/r_NL.IMRO.1734.0323OVBplussenbel-VSG1.html",
+   "textChars": 11455,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1742.TAMB2024004-0401",
+   "naam": "TAM-omgevingsplan Hoofdstuk 22m Buitengebied, verbranden snoeiafval buiten een installatie",
+   "naamoverheid": "Gemeente Rijssen-Holten",
+   "typeplan": "bestemmingsplan",
+   "datum": "2025-01-30",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "bos"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1742.TAMB2024004-0401/r_NL.IMRO.1742.TAMB2024004-0401.html",
+   "textChars": 5020,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1859.BPRLO20090020-1000",
+   "naam": "Ruurlo, Woongebieden 2011",
+   "naamoverheid": "gemeente Berkelland",
+   "typeplan": "bestemmingsplan",
+   "datum": "2012-04-10",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "tuin"
+   ],
+   "fetch": "FAIL",
+   "tried": [
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1859.BPRLO20090020-1000/r_NL.IMRO.1859.BPRLO20090020-1000_index.html -> TOO-SMALL(444)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1859.BPRLO20090020-1000/r_NL.IMRO.1859.BPRLO20090020-1000.html -> HTTP 404",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1859.BPRLO20090020-1000/pt_NL.IMRO.1859.BPRLO20090020-1000.xml -> TOO-SMALL(21)",
+    "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1859.BPRLO20090020-1000/r_NL.IMRO.1859.BPRLO20090020-1000.xml -> HTTP 404"
+   ]
+  },
+  {
+   "planId": "NL.IMRO.1876.VPL2401B-VG01",
+   "naam": "Landelijk gebied;Veegplan 2024-1B",
+   "naamoverheid": "Gemeente Bronckhorst",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-04-25",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 6,
+   "hoofdgroepen": [
+    "agrarisch",
+    "agrarisch met waarden",
+    "bos"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1876.VPL2401B-VG01/pt_NL.IMRO.1876.VPL2401B-VG01.xml",
+   "textChars": 64180,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1884.PPALGEMAFWIJKINGEN-VAS1",
+   "naam": "Parapluplan algemene afwijkingen",
+   "naamoverheid": "Gemeente Kaag en Braassem",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-06-17",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1884.PPALGEMAFWIJKINGEN-VAS1/r_NL.IMRO.1884.PPALGEMAFWIJKINGEN-VAS1.html",
+   "textChars": 30008,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": true,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 8,
+    "bouwhoogte": 9,
+    "nokhoogte": 2,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [
+     3,
+     3.3,
+     4,
+     5
+    ],
+    "bouwhoogte": [
+     2,
+     3.3,
+     5,
+     6
+    ],
+    "nokhoogte": [
+     0.5
+    ],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "closed-by-ridge",
+   "samples": {
+    "goothoogte": [
+     "khoogte van een aanbouw niet meer dan de aangrenzende bouwlaag, met dien verstande dat de goothoogte niet meer bedraagt dan 3,30 m, tenzij in het oorspronkelijke architectonische of stedenbouwkundige ontwerp is voorzien van een hogere goot- en/of nokhoogte; in",
+     "n het oorspronkelijke bijgebouw; in afwijking van hetgeen onder 3 is benoemd, bedraagt de goothoogte van een aanbouw niet meer dan 3 m boven de goothoogte van het oorspronkelijke hoofdgebouw, met dien verstande dat dit bijbehorende bouwwerk de hoofdingang vorm"
+    ],
+    "bouwhoogte": [
+     "an respectievelijk de goot- en/of bouwhoogte van het hoofdgebouw; bedraagt de goot- en/of bouwhoogte van een aanbouw buiten het bouwvlak niet meer dan de goothoogte van het hoofdgebouw en ten hoogste 3,30 m, met dien verstande dat een kap op een aangebouwd bij",
+     "ogte van de aanbouw niet meer bedraagt dan de goothoogte van het hoofdgebouw; bedraagt de bouwhoogte van een bijgebouw ten hoogste 5 m, waarbij de goothoogte maximaal 3,30 m bedraagt; is een bijgebouw functioneel ondergeschikt aan het hoofdgebouw, voor zover d"
+    ],
+    "nokhoogte": [
+     "minimaal 0,85 m boven de verdiepingsvloer; de bovenkant van de dakkapel niet hoger dan de nokhoogte van het hoofdgebouw; indien er ook sprake is van een dakopbouw, de bovenkant van de dakkapel minimaal 0,5 m onder de nokhoogte van de dakopbouw; de zijkant van ",
+     " er ook sprake is van een dakopbouw, de bovenkant van de dakkapel minimaal 0,5 m onder de nokhoogte van de dakopbouw; de zijkant van de dakkapel minimaal 0,5 m van de zijkanten van het dakvlak, tenzij de dakkapel geschakeld wordt met een andere dakkapel. 5.6 D"
+    ],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1894.BPL0176-VG01",
+   "naam": "Parapluplan Parkeernota Peel en Maas",
+   "naamoverheid": "gemeente Peel en Maas",
+   "typeplan": "bestemmingsplan",
+   "datum": "2018-06-19",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1894.BPL0176-VG01/r_NL.IMRO.1894.BPL0176-VG01.html",
+   "textChars": 7445,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 7,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     15,
+     18
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "prism-upper-bound",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     " in het bestemmingsplan 'Buitengebied Peel en Maas' wordt binnen de bestemming 'Sport' de bouwhoogte voor lichtmasten genoemd in artikel 23.2.5 onder de leden 3 en 5 gewijzigd in maximaal 18 meter. b. in het bestemmingsplan 'Kern Maasbree' wordt binnen de best",
+     "18 meter. b. in het bestemmingsplan 'Kern Maasbree' wordt binnen de bestemming 'Sport' de bouwhoogte voor lichtmasten genoemd in artikel 14.2.2 onder a lid 2 gewijzigd in maximaal 18 meter. c. in het bestemmingsplan 'Kern Maasbree' wordt binnen de bestemming '"
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1896.BP0083-VS01",
+   "naam": "Zevenhont Midden Genemuiden",
+   "naamoverheid": "gemeente Zwartewaterland",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-03-23",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden",
+    "bedrijf"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1896.BP0083-VS01/r_NL.IMRO.1896.BP0083-VS01.html",
+   "textChars": 35586,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 9,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     3,
+     3.5,
+     4,
+     7,
+     8,
+     10,
+     12,
+     30
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "prism-upper-bound",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     "gte mag maximaal bedragen: 1. de aangeduide hoogte ter plaatse van de aanduiding 'maximum bouwhoogte (m)' voor bedrijfsgebouwen; 2. 8 m voor overkappingen, in afwijking hiervan mag de bouwhoogte van overkappingen die aan een gebouw vast worden gebouwd, ten hoo",
+     "en van bouwwerken, geen gebouwen en overkappingen zijnde gelden de volgende regels: a. de bouwhoogte mag maximaal bedragen: 1. 4 m voor keermuren; 2. 7 m voor licht-, reclame- en vlaggenmasten; 3. 12 m voor bouwerken ten behoeve van het bedrijfsproces, niet zi"
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1896.BPWonen-VS01",
+   "naam": "Paraplubestemmingsplan Wonen",
+   "naamoverheid": "gemeente Zwartewaterland",
+   "typeplan": "bestemmingsplan",
+   "datum": "2021-10-14",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch met waarden"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1896.BPWonen-VS01/r_NL.IMRO.1896.BPWonen-VS01.html",
+   "textChars": 7863,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1900.2016BPbuitengebied-VA02",
+   "naam": "Bestemmingsplan Buitengebied Súdwest-Fryslân",
+   "naamoverheid": "gemeente Súdwest Fryslân",
+   "typeplan": "bestemmingsplan",
+   "datum": "2019-12-18",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 2,
+   "hoofdgroepen": [
+    "natuur"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1900.2016BPbuitengebied-VA02/r_NL.IMRO.1900.2016BPbuitengebied-VA02.html",
+   "textChars": 267820,
+   "has": {
+    "goothoogte": true,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": true
+   },
+   "counts": {
+    "goothoogte": 40,
+    "bouwhoogte": 40,
+    "nokhoogte": 0,
+    "dakhelling": 15
+   },
+   "numbers": {
+    "goothoogte": [
+     3,
+     3.5,
+     4.5,
+     5,
+     5.5,
+     6,
+     6.5,
+     8,
+     10,
+     14,
+     20
+    ],
+    "bouwhoogte": [
+     0.5,
+     1,
+     1.5,
+     2,
+     3,
+     4.5,
+     5,
+     5.5,
+     7,
+     10,
+     14
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     15,
+     30,
+     40,
+     55
+    ]
+   },
+   "boundTypeFromText": "section-closed-by-pitch",
+   "samples": {
+    "goothoogte": [
+     "oogste 140 m bedragen, zodanig dat er wordt gebouwd binnen een denkbeeldige rechthoek; de goot- en bouwhoogte van bedrijfsgebouwen mag niet meer dan respectievelijk 5 m en 14 m bedragen; de dakhelling van bedrijfsgebouwen mag niet minder dan 15° bedragen, met ",
+     "e oppervlakte van een niet-inpandige bedrijfswoning mag niet meer dan 150 m² bedragen; de goot- en bouwhoogte van niet-inpandige bedrijfswoningen mag niet meer dan respectievelijk 5 m en 10 m bedragen, dan wel de bestaande goot- en bouwhoogte als deze hoger is"
+    ],
+    "bouwhoogte": [
+     "oogste 140 m bedragen, zodanig dat er wordt gebouwd binnen een denkbeeldige rechthoek; de goot- en bouwhoogte van bedrijfsgebouwen mag niet meer dan respectievelijk 5 m en 14 m bedragen; de dakhelling van bedrijfsgebouwen mag niet minder dan 15° bedragen, met ",
+     "e oppervlakte van een niet-inpandige bedrijfswoning mag niet meer dan 150 m² bedragen; de goot- en bouwhoogte van niet-inpandige bedrijfswoningen mag niet meer dan respectievelijk 5 m en 10 m bedragen, dan wel de bestaande goot- en bouwhoogte als deze hoger is"
+    ],
+    "nokhoogte": [],
+    "dakhelling": [
+     "ouwhoogte van bedrijfsgebouwen mag niet meer dan respectievelijk 5 m en 14 m bedragen; de dakhelling van bedrijfsgebouwen mag niet minder dan 15° bedragen, met uitzondering van een oppervlakte van maximaal 100 m²; het aantal bedrijfswoningen mag niet meer dan ",
+     "lijk 5 m en 10 m bedragen, dan wel de bestaande goot- en bouwhoogte als deze hoger is; de dakhelling van niet-inpandige bedrijfswoningen mag niet minder dan 15° bedragen; de afstand van de voorgevel van een bedrijfswoning tot de as van een weg met de bestemmin"
+    ]
+   }
+  },
+  {
+   "planId": "NL.IMRO.1940.BPDFM21WINDTURBINE-VA01",
+   "naam": "Paraplubestemmingsplan windturbines agrarische bedrijven",
+   "naamoverheid": "Gemeente De Fryske Marren",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-05-11",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 3,
+   "hoofdgroepen": [
+    "agrarisch",
+    "natuur",
+    "verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1940.BPDFM21WINDTURBINE-VA01/r_NL.IMRO.1940.BPDFM21WINDTURBINE-VA01.html",
+   "textChars": 6601,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1952.fbmigpaarden-va01",
+   "naam": "Facetbestemmingsplan Paarden",
+   "naamoverheid": "gemeente",
+   "typeplan": "bestemmingsplan",
+   "datum": "2024-04-25",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 7,
+   "hoofdgroepen": [
+    "agrarisch",
+    "centrum",
+    "natuur",
+    "verkeer",
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1952.fbmigpaarden-va01/r_NL.IMRO.1952.fbmigpaarden-va01.html",
+   "textChars": 11758,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1970.BpDkBetterwirdfas2-VA01",
+   "naam": "Dokkum - Bedrijventerrein Betterwird 3, fase 2",
+   "naamoverheid": "Gemeente Noardeast-Fryslân",
+   "typeplan": "bestemmingsplan",
+   "datum": "2023-01-26",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 1,
+   "hoofdgroepen": [
+    "agrarisch",
+    "verkeer"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1970.BpDkBetterwirdfas2-VA01/r_NL.IMRO.1970.BpDkBetterwirdfas2-VA01.html",
+   "textChars": 49453,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": true,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 15,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10,
+     11,
+     50
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "prism-upper-bound",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [
+     "erige bouwwerken, geen gebouwen en overkappingen zijnde, gelden de volgende regels: a. de bouwhoogte van erf- en terreinafscheidingen mag ten hoogste 1,00 meter bedragen; b. de bouwhoogte van andere overige bouwwerken, geen gebouwen en geen overkappingen zijnd",
+     "de bouwhoogte van erf- en terreinafscheidingen mag ten hoogste 1,00 meter bedragen; b. de bouwhoogte van andere overige bouwwerken, geen gebouwen en geen overkappingen zijnde, mag ten hoogste 5,00 m bedragen. 3.3 Nadere eisen Burgemeester en wethouders kunnen "
+    ],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  },
+  {
+   "planId": "NL.IMRO.1970.BpKleinewindmolens-VA01",
+   "naam": "Paraplubestemmingsplan kleine windmolens gemeente Noardeast-Fryslân",
+   "naamoverheid": "Gemeente Noardeast-Fryslân",
+   "typeplan": "bestemmingsplan",
+   "datum": "2022-01-27",
+   "dossierstatus": "geheel onherroepelijk in werking",
+   "nParcels": 8,
+   "hoofdgroepen": [
+    "agrarisch",
+    "agrarisch met waarden",
+    "wonen"
+   ],
+   "fetch": "OK",
+   "resolvedVia": "https://ruimtelijkeplannen.nl/documents/NL.IMRO.1970.BpKleinewindmolens-VA01/r_NL.IMRO.1970.BpKleinewindmolens-VA01.html",
+   "textChars": 7004,
+   "has": {
+    "goothoogte": false,
+    "bouwhoogte": false,
+    "nokhoogte": false,
+    "dakhelling": false
+   },
+   "counts": {
+    "goothoogte": 0,
+    "bouwhoogte": 0,
+    "nokhoogte": 0,
+    "dakhelling": 0
+   },
+   "numbers": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   },
+   "boundTypeFromText": "none",
+   "samples": {
+    "goothoogte": [],
+    "bouwhoogte": [],
+    "nokhoogte": [],
+    "dakhelling": []
+   }
+  }
+ ]
+}
