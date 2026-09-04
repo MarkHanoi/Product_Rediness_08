@@ -17,7 +17,8 @@
 // setbacks, FAR 2,00, coverage 50 % — on land PRYZM has read no article about. That is the exact
 // defect §L-663 was written for, the exact defect the Balears registration closed for Mallorca
 // (`esBalearsMuib.ts`, L-680) and the Telde registration closed for Gran Canaria (§L-663 again),
-// and it stood unaddressed for 92 212 km².
+// and it stood unaddressed for the whole of MAINLAND Portugal (~89 100 km²; PORTUGAL_BBOX is the
+// Continente routing constant, so the Açores and Madeira are outside this registration too).
 //
 // It stood unaddressed even though the Portuguese chain was BUILT: `countryAdapters/pt/` resolves a
 // real CRUS zone identity live, and `ptPortoPdmDraft.ts` carries a founder-SIGNED, article-pinned
@@ -40,7 +41,7 @@
 // `envelopeAuthorisation.ts` → `UNGATED_AUTHORISED_JURISDICTIONS` on the CÓRDOBA-MUNICIPAL
 // precedent — *"publishes refusals only; it carries no numeric envelope to authorise"* — NOT
 // because anyone signed anything. The moment a Portuguese pack exists it gets its OWN gate at its
-// OWN registration (`ptPortoPdmPack.ts`), which out-ranks this one by §JURISDICTION-SPECIFICITY.
+// OWN registration at `extentResolution: 'municipal'`, which out-ranks this one by §JURISDICTION-SPECIFICITY.
 //
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 // §PT-SPILL-CLOSED-BY-POLYGON — and why this registration does NOT route on the bbox alone.
@@ -69,7 +70,7 @@
 // Spanish border (and beyond the 2000 m coastal tolerance out to sea) the resolver REFUSES, so this
 // registration does not claim, so such a point still reaches `applyEstimatedZoning`. That is
 // UNCHANGED behaviour, not a new hole — and it is the right trade: a 1.5 km strip keeps the
-// estimate it already had, while ~92 000 km² stops being fabricated over. Closing the strip needs
+// estimate it already had, while the rest of the Continente stops being fabricated over. Closing the strip needs
 // finer boundary geometry, not a wider rectangle.
 //
 // PURITY: L2-pure. Data + pure lookups. No I/O.
