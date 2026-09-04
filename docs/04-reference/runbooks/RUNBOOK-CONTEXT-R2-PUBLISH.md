@@ -153,14 +153,34 @@ outages only — never use it with uncommitted lane work on disk.
 - **`tiles-staging/` persists between publishes** and is the merge's input; a re-bake of one region
   replaces only its staged set.
 
-## 7. State as of 2026-09-04 ~11:00Z (measured)
+## 7. State — COMPLETE, measured 2026-09-04 16:08Z
 
-| Layer | Live | Published |
-|---|---|---|
-| buildings | **23.79 GB** · 49 regions | `33795775939` · 2026-09-03 21:01 |
-| roads | **25.22 GB** | `33845044576` · 2026-09-04 09:09 |
-| parks | **12.80 GB** | `33857249739` · 2026-09-04 10:48 |
-| water | in flight | `33865278407` · started 10:52 |
-| landuse · rail · trees | queued | — |
+⭐ **All seven layers are live from the same 49 staged regions.** Every row was verified from the
+public r2.dev host per §3 (200 with today's `Last-Modified` · `Range: bytes=0-127` → **206** ·
+magic `504d 5469 6c65 73`), never from a run's exit code.
 
-Stamp `L661a` (buildings only) live at deploy `a2670110`. **Next stamp L662a after trees.**
+| Layer | Live bytes | Size | Last-Modified (UTC) | Merge run |
+|---|---|---|---|---|
+| buildings | 23,794,734,067 | **23.79 GB** | 2026-09-03 21:01:03 | `33795775939` |
+| roads | 25,221,310,111 | **25.22 GB** | 2026-09-04 09:09:33 | `33845044576` |
+| parks | 12,804,836,502 | **12.80 GB** | 2026-09-04 10:48:54 | `33857249739` |
+| water | 11,684,305,420 | **11.68 GB** | 2026-09-04 12:24:36 | `33865278407` |
+| landuse | 12,133,841,837 | **12.13 GB** | 2026-09-04 15:33:12 | `33882625166` |
+| rail | 1,270,296,996 | **1.27 GB** | 2026-09-04 15:46:05 | `33890361140` |
+| trees | 417,777,328 | **0.42 GB** | 2026-09-04 16:07:13 | `33892581306` |
+
+**87.32 GB total.** Manifest: `layers: [buildings, landuse, parks, rail, roads, trees, water]` (7),
+`regions: 49`, `mergeRunId: 33892581306`, `mergeGitSha d4cf09a4`. Carry-forward
+(§MANIFEST-LAYER-CARRY-FORWARD) held across **all seven** publishes — the layer set only ever grew.
+
+Independent decoder re-read (`tools/context-height-probe/probe.mjs`, Barcelona 41.3874,2.1686):
+verdict **measured** · 6,332 footprints · 6,065 measured-LiDAR · assumed fraction 0.005 ·
+**25/25 covering tiles read, 0 failed, 0 absent**.
+
+Stamp **`L662a`** committed (`contextTiles.ts`). ⚠ **NOT YET DEPLOYED** — CI is red and
+§L-540-CI-GATE correctly refuses the SHA; browsers keep reading `L661a` until a green deploy ships.
+
+### 7.1 ⛔ A 200 is not currency (§LANDUSE-STALE-BEHIND-200)
+`landuse` answered **HTTP 200 the whole time** — with **936,257,447 bytes dated 2026-07-29**, six
+weeks stale, while `rail`/`trees` at least had the decency to 404. The loud failure got noticed
+first; the quiet one was the older and larger lie. **Check `Last-Modified`, never the status code.**

@@ -344,7 +344,50 @@ export function contextTilesOrigin(): string | null {
 // the disk-budget escape (§MERGE-DISK-BUDGET-IS-NAMED — 82.1 GB staged across 7 layers, against a
 // plan that projected 24–57 GB), so cross-layer skew is the accepted, stated cost of shipping
 // buildings now. Re-bump when the remaining layers land.
-export const CONTEXT_TILESET_VERSION = 'L661a';
+// ⭐ L662a (2026-09-04) — **THE COMPLETE SEVEN-LAYER TILESET. The cross-layer skew that L661a
+// declared as an accepted cost is GONE**: every layer below was merged from the SAME 49 staged
+// regions with tile-join, and every one was independently verified from the public host BEFORE
+// this line moved.
+//
+//   | layer     | bytes          | size     | Last-Modified (UTC) | merge run   |
+//   |-----------|----------------|----------|---------------------|-------------|
+//   | buildings | 23,794,734,067 | 23.79 GB | 2026-09-03 21:01:03 | 33795775939 |
+//   | roads     | 25,221,310,111 | 25.22 GB | 2026-09-04 09:09:33 | 33845044576 |
+//   | parks     | 12,804,836,502 | 12.80 GB | 2026-09-04 10:48:54 | 33857249739 |
+//   | water     | 11,684,305,420 | 11.68 GB | 2026-09-04 12:24:36 | 33865278407 |
+//   | landuse   | 12,133,841,837 | 12.13 GB | 2026-09-04 15:33:12 | 33882625166 |
+//   | rail      |  1,270,296,996 |  1.27 GB | 2026-09-04 15:46:05 | 33890361140 |
+//   | trees     |    417,777,328 |  0.42 GB | 2026-09-04 16:07:13 | 33892581306 |
+//
+// 87.32 GB live. `tileset-manifest.json` after the last merge: `layers: [buildings, landuse,
+// parks, rail, roads, trees, water]` (**7**), `regions: 49`, `mergedLayers: ['trees']`,
+// `mergeRunId: 33892581306`, `mergeGitSha: d4cf09a4`.
+//
+// ⭐ **§MANIFEST-LAYER-CARRY-FORWARD HELD ACROSS ALL SEVEN PUBLISHES.** Every per-layer merge
+// REWRITES the manifest, and before `84e6a350` it rewrote it with only the layer it had just
+// merged — publishing roads would have erased buildings from the record the next merge reads. The
+// regression check was re-run after each publish in this sequence and the layer set only ever
+// grew: [buildings] → +roads → +parks → +water → +landuse → +rail → +trees. That is the evidence
+// that per-layer publishing (the §MERGE-DISK-BUDGET-IS-NAMED escape) does not silently amputate
+// the tileset — not an argument that it cannot.
+//
+// ⚠ **TWO OF THESE HAD NEVER BEEN PUBLISHED AT ALL, AND ONE WAS SIX WEEKS STALE BEHIND A 200.**
+// `rail` and `trees` answered 404 under every prior stamp — not because they were unbaked (staged
+// 49/49 since 2026-09-03) but because no publish had ever INCLUDED them; absence in `tiles/` is
+// not absence in `tiles-staging/`. `landuse` was worse: it served **936,257,447 bytes dated
+// 2026-07-29** — a healthy 200 OK carrying six-week-old bytes, which is the harder failure to see
+// precisely because nothing about it looks broken. It is now 12.13 GB. **A layer that answers 200
+// is not thereby current; only Last-Modified says that.**
+//
+// Verified per `docs/04-reference/runbooks/RUNBOOK-CONTEXT-R2-PUBLISH.md` §3 from the public
+// r2.dev host for EACH of the seven — never from a run's own exit code, which is the trap the
+// L661a scar above records: `HTTP 200` with today's `Last-Modified`, a `Range: bytes=0-127` read
+// returning **206** with 128 bytes (PMTiles is entirely range reads — a 200-not-206 makes the
+// archive useless even though the bytes are there), and leading magic `504d 5469 6c65 73`. Then
+// re-read through the BROWSER'S OWN decoder at Barcelona 41.3874,2.1686 with
+// `tools/context-height-probe/probe.mjs --json`: verdict **measured**, 6,332 footprints, 6,065
+// measured-LiDAR (assumed fraction 0.005), **25 of 25 covering tiles read, 0 failed, 0 absent**.
+export const CONTEXT_TILESET_VERSION = 'L662a';
 
 /**
  * The full URL of one layer's PMTiles archive, cache-bust stamp included.
@@ -764,7 +807,11 @@ const archives = new Map<string, PMTiles>();
  * §CTX-KNOWN-MISSING (founder 2026-08-10, GIS speed) — archives whose HEADER read came back
  * 403/404 this session, keyed by the full stamped URL.
  *
- * WHY: `rail.pmtiles` and `trees.pmtiles` are absent from the bucket for v=L660a, so EVERY
+ * ⚠ THE EXAMPLE BELOW IS HISTORY AS OF L662a (2026-09-04): `rail` and `trees` are PUBLISHED and
+ * this memo is dormant for them. The MECHANISM is not history — any layer can be absent under a
+ * future stamp, and the two round trips per failed header read are still paid on the hot path.
+ *
+ * WHY: `rail.pmtiles` and `trees.pmtiles` were absent from the bucket for v=L660a, so EVERY
  * context load re-asked for their headers, and each failed header read costs TWO round trips
  * (the §CTX-RANGE-COALESCE span attempt + its per-member re-issue fallback) — paid again on
  * every re-render of the session, on the same hot path the present layers are streaming on.
