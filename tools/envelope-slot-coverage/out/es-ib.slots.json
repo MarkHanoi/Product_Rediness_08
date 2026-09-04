@@ -1,0 +1,3022 @@
+{
+  "version": "1.0",
+  "country": "es-ib",
+  "measuredAt": "2026-09-04T09:56:34.061Z",
+  "args": {
+    "n": 40,
+    "seed": 20260904,
+    "gapMs": 300,
+    "asOf": "2026-09-04",
+    "muni": null,
+    "shipped": {
+      "BALEARS_ENVELOPE_VERIFIED": false,
+      "isEnvelopePublicationAuthorised": false,
+      "posture": "open-top-indicative",
+      "authorisationReason": "gate-shut",
+      "mayDrawEnvelope": true,
+      "mayPublishAsDetermination": false,
+      "rendererCanExpressOpenTop": true,
+      "proxyPathAgrees": true
+    }
+  },
+  "frames": {
+    "manacor/determination": {
+      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over MANACOR's FULL INSPIRE CP parcel population of 34,257 parcels (ATOM enclosure A.ES.SDGC.CP.07033.zip, 77.4 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: determination (the shipped L-449 gate).",
+      "points": [
+        {
+          "lat": 39.5843421,
+          "lon": 3.1867742,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5747924,
+          "lon": 3.1592027,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5646141,
+          "lon": 3.2078953,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5648681,
+          "lon": 3.2118947,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-CB-2",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Fartàritx RE-CB-2 (RE_IP_CB_2) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.548111,
+          "lon": 3.1615633,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.579801,
+          "lon": 3.1681328,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5587251,
+          "lon": 3.2103612,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5811516,
+          "lon": 3.1856088,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5277687,
+          "lon": 3.189122,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5940091,
+          "lon": 3.2028712,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.6652445,
+          "lon": 3.2292392,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5740679,
+          "lon": 3.2024677,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5554608,
+          "lon": 3.2115873,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5318693,
+          "lon": 3.3094125,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5703612,
+          "lon": 3.2381222,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5730221,
+          "lon": 3.2136794,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5622126,
+          "lon": 3.2081619,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5570352,
+          "lon": 3.3438662,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.4937722,
+          "lon": 3.2216878,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5700779,
+          "lon": 3.2047218,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.534845,
+          "lon": 3.3346533,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EP-1 (RE_EP_1) · fitxa identitat=292436 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4427803,
+          "lon": 3.2769287,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EP-4",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5419227,
+          "lon": 3.2876102,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5178903,
+          "lon": 3.2059612,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5449696,
+          "lon": 3.3330505,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5675335,
+          "lon": 3.2129432,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5161531,
+          "lon": 3.1901882,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.568479,
+          "lon": 3.2003957,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.463682,
+          "lon": 3.2753088,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EU-11",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EU-11 (RE_EU_11) · fitxa identitat=292455 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.547025,
+          "lon": 3.1809812,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5388868,
+          "lon": 3.3330468,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4477229,
+          "lon": 3.2677841,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EP-4",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5084579,
+          "lon": 3.1801921,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5029767,
+          "lon": 3.1953915,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5044938,
+          "lon": 3.1769411,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5812083,
+          "lon": 3.2394383,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5916009,
+          "lon": 3.2227809,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EU-3",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EU-3 (RE_EU_3) · fitxa identitat=292447 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4758209,
+          "lon": 3.247949,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.518182,
+          "lon": 3.2135583,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5441379,
+          "lon": 3.3399639,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        }
+      ]
+    },
+    "manacor/indicative": {
+      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over MANACOR's FULL INSPIRE CP parcel population of 34,257 parcels (ATOM enclosure A.ES.SDGC.CP.07033.zip, 77.4 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: indicative draw (= \"if signed\" for slot counting).",
+      "points": [
+        {
+          "lat": 39.5843421,
+          "lon": 3.1867742,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5747924,
+          "lon": 3.1592027,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5646141,
+          "lon": 3.2078953,
+          "cls": "resolved",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5648681,
+          "lon": 3.2118947,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-CB-2",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Fartàritx RE-CB-2 (RE_IP_CB_2) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.548111,
+          "lon": 3.1615633,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.579801,
+          "lon": 3.1681328,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5587251,
+          "lon": 3.2103612,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5811516,
+          "lon": 3.1856088,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5277687,
+          "lon": 3.189122,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5940091,
+          "lon": 3.2028712,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.6652445,
+          "lon": 3.2292392,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5740679,
+          "lon": 3.2024677,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5554608,
+          "lon": 3.2115873,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5318693,
+          "lon": 3.3094125,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5703612,
+          "lon": 3.2381222,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5730221,
+          "lon": 3.2136794,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5622126,
+          "lon": 3.2081619,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5570352,
+          "lon": 3.3438662,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.4937722,
+          "lon": 3.2216878,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5700779,
+          "lon": 3.2047218,
+          "cls": "resolved",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.534845,
+          "lon": 3.3346533,
+          "cls": "resolved",
+          "zoneLabel": "RE-EP-1",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EP-1 (RE_EP_1) · fitxa identitat=292436 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4427803,
+          "lon": 3.2769287,
+          "cls": "resolved",
+          "zoneLabel": "RE-EP-4",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5419227,
+          "lon": 3.2876102,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5178903,
+          "lon": 3.2059612,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5449696,
+          "lon": 3.3330505,
+          "cls": "resolved",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5675335,
+          "lon": 3.2129432,
+          "cls": "resolved",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5161531,
+          "lon": 3.1901882,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.568479,
+          "lon": 3.2003957,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.463682,
+          "lon": 3.2753088,
+          "cls": "resolved",
+          "zoneLabel": "RE-EU-11",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EU-11 (RE_EU_11) · fitxa identitat=292455 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.547025,
+          "lon": 3.1809812,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5388868,
+          "lon": 3.3330468,
+          "cls": "resolved",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4477229,
+          "lon": 3.2677841,
+          "cls": "resolved",
+          "zoneLabel": "RE-EP-4",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5084579,
+          "lon": 3.1801921,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5029767,
+          "lon": 3.1953915,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5044938,
+          "lon": 3.1769411,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5812083,
+          "lon": 3.2394383,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5916009,
+          "lon": 3.2227809,
+          "cls": "resolved",
+          "zoneLabel": "RE-EU-3",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EU-3 (RE_EU_3) · fitxa identitat=292447 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4758209,
+          "lon": 3.247949,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.518182,
+          "lon": 3.2135583,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5441379,
+          "lon": 3.3399639,
+          "cls": "resolved",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        }
+      ]
+    },
+    "palma/determination": {
+      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: determination (the shipped L-449 gate).",
+      "points": [
+        {
+          "lat": 39.5934378,
+          "lon": 2.6483284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.569854,
+          "lon": 2.7210309,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5806024,
+          "lon": 2.6383134,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5769522,
+          "lon": 2.7149946,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D2a (RE_IP_D2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5804584,
+          "lon": 2.6484613,
+          "cls": "f2-correct-null",
+          "zoneLabel": "A6a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A6a (RE_IP_A6a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6222864,
+          "lon": 2.6241866,
+          "cls": "f2-correct-null",
+          "zoneLabel": "ARE 42-01",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Establiments (RE_IP_ARE_42_01) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5593758,
+          "lon": 2.6754022,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5610375,
+          "lon": 2.6007402,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5713745,
+          "lon": 2.6779468,
+          "cls": "f2-correct-null",
+          "zoneLabel": "L2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Secundàri Minipoligons L2a (IN_L2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5216532,
+          "lon": 2.74254,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Viviendas unifamiliares aisladas, subzona a (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5843341,
+          "lon": 2.6667167,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5072191,
+          "lon": 2.7518284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D(3+a)p",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Edificación residencial entre medianeras: 3 alturas más ático y porche; fuera de profundidad edificable (RE_IP_D3ap_fp) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5739494,
+          "lon": 2.6583259,
+          "cls": "f2-correct-null",
+          "zoneLabel": "A7a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A7a (RE_IP_A7a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5974978,
+          "lon": 2.6882841,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.597321,
+          "lon": 2.5889673,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2d",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Aillada I2d (RE_EU_I2d) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5777084,
+          "lon": 2.6714797,
+          "cls": "f2-correct-null",
+          "zoneLabel": "ARE-SUC",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Sòl urbà consolidat (RE_IP_ARE_SUC) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5818692,
+          "lon": 2.6450441,
+          "cls": "f2-correct-null",
+          "zoneLabel": "F0a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Volumetría Específica F0a (RE_IP_F0a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5927397,
+          "lon": 2.6215039,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5940995,
+          "lon": 2.6470799,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6174371,
+          "lon": 2.6262701,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5752643,
+          "lon": 2.6317121,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5611649,
+          "lon": 2.6716407,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5729301,
+          "lon": 2.6700657,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6210973,
+          "lon": 2.6583317,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2a (RE_EU_J2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5723202,
+          "lon": 2.676183,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5576068,
+          "lon": 2.7800692,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5920731,
+          "lon": 2.6210609,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5514744,
+          "lon": 2.6923704,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D3a (RE_IP_D3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5598466,
+          "lon": 2.6027777,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5423622,
+          "lon": 2.7709599,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6151569,
+          "lon": 2.6347667,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5823882,
+          "lon": 2.6281492,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E5a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Aillada E5a (RE_EP_E5a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6403522,
+          "lon": 2.6037846,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5107473,
+          "lon": 2.7547248,
+          "cls": "f2-correct-null",
+          "zoneLabel": "EQ-AP04 DO",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Equipamientos y dotaciones: Docente (EQ_DO_EQ-AP04_DO) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5881068,
+          "lon": 2.6828765,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5665666,
+          "lon": 2.6626075,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5788134,
+          "lon": 2.6304113,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E4a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5514126,
+          "lon": 2.5977303,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E4a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5604465,
+          "lon": 2.6764737,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5881586,
+          "lon": 2.6814251,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        }
+      ]
+    },
+    "palma/indicative": {
+      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: indicative draw (= \"if signed\" for slot counting).",
+      "points": [
+        {
+          "lat": 39.5934378,
+          "lon": 2.6483284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.569854,
+          "lon": 2.7210309,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5806024,
+          "lon": 2.6383134,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5769522,
+          "lon": 2.7149946,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D2a (RE_IP_D2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5804584,
+          "lon": 2.6484613,
+          "cls": "f2-correct-null",
+          "zoneLabel": "A6a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A6a (RE_IP_A6a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6222864,
+          "lon": 2.6241866,
+          "cls": "f2-correct-null",
+          "zoneLabel": "ARE 42-01",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Establiments (RE_IP_ARE_42_01) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5593758,
+          "lon": 2.6754022,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5610375,
+          "lon": 2.6007402,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5713745,
+          "lon": 2.6779468,
+          "cls": "f2-correct-null",
+          "zoneLabel": "L2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Secundàri Minipoligons L2a (IN_L2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5216532,
+          "lon": 2.74254,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Viviendas unifamiliares aisladas, subzona a (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5843341,
+          "lon": 2.6667167,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5072191,
+          "lon": 2.7518284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D(3+a)p",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Edificación residencial entre medianeras: 3 alturas más ático y porche; fuera de profundidad edificable (RE_IP_D3ap_fp) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5739494,
+          "lon": 2.6583259,
+          "cls": "f2-correct-null",
+          "zoneLabel": "A7a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A7a (RE_IP_A7a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5974978,
+          "lon": 2.6882841,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.597321,
+          "lon": 2.5889673,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2d",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Aillada I2d (RE_EU_I2d) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5777084,
+          "lon": 2.6714797,
+          "cls": "f2-correct-null",
+          "zoneLabel": "ARE-SUC",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Sòl urbà consolidat (RE_IP_ARE_SUC) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5818692,
+          "lon": 2.6450441,
+          "cls": "f2-correct-null",
+          "zoneLabel": "F0a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Volumetría Específica F0a (RE_IP_F0a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5927397,
+          "lon": 2.6215039,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5940995,
+          "lon": 2.6470799,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6174371,
+          "lon": 2.6262701,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5752643,
+          "lon": 2.6317121,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5611649,
+          "lon": 2.6716407,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5729301,
+          "lon": 2.6700657,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6210973,
+          "lon": 2.6583317,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2a (RE_EU_J2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5723202,
+          "lon": 2.676183,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5576068,
+          "lon": 2.7800692,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5920731,
+          "lon": 2.6210609,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5514744,
+          "lon": 2.6923704,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D3a (RE_IP_D3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5598466,
+          "lon": 2.6027777,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5423622,
+          "lon": 2.7709599,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6151569,
+          "lon": 2.6347667,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5823882,
+          "lon": 2.6281492,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E5a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Aillada E5a (RE_EP_E5a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6403522,
+          "lon": 2.6037846,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5107473,
+          "lon": 2.7547248,
+          "cls": "f2-correct-null",
+          "zoneLabel": "EQ-AP04 DO",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Equipamientos y dotaciones: Docente (EQ_DO_EQ-AP04_DO) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5881068,
+          "lon": 2.6828765,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5665666,
+          "lon": 2.6626075,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5788134,
+          "lon": 2.6304113,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E4a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5514126,
+          "lon": 2.5977303,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E4a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5604465,
+          "lon": 2.6764737,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5881586,
+          "lon": 2.6814251,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        }
+      ]
+    },
+    "ALL/determination": {
+      "frame": "both municipalities pooled — 80 real Catastro parcels. ARM: determination.",
+      "points": [
+        {
+          "lat": 39.5843421,
+          "lon": 3.1867742,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5747924,
+          "lon": 3.1592027,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5646141,
+          "lon": 3.2078953,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5648681,
+          "lon": 3.2118947,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-CB-2",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Fartàritx RE-CB-2 (RE_IP_CB_2) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.548111,
+          "lon": 3.1615633,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.579801,
+          "lon": 3.1681328,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5587251,
+          "lon": 3.2103612,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5811516,
+          "lon": 3.1856088,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5277687,
+          "lon": 3.189122,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5940091,
+          "lon": 3.2028712,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.6652445,
+          "lon": 3.2292392,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5740679,
+          "lon": 3.2024677,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5554608,
+          "lon": 3.2115873,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5318693,
+          "lon": 3.3094125,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5703612,
+          "lon": 3.2381222,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5730221,
+          "lon": 3.2136794,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5622126,
+          "lon": 3.2081619,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5570352,
+          "lon": 3.3438662,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.4937722,
+          "lon": 3.2216878,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5700779,
+          "lon": 3.2047218,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.534845,
+          "lon": 3.3346533,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EP-1 (RE_EP_1) · fitxa identitat=292436 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4427803,
+          "lon": 3.2769287,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EP-4",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5419227,
+          "lon": 3.2876102,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5178903,
+          "lon": 3.2059612,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5449696,
+          "lon": 3.3330505,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5675335,
+          "lon": 3.2129432,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5161531,
+          "lon": 3.1901882,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.568479,
+          "lon": 3.2003957,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.463682,
+          "lon": 3.2753088,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EU-11",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EU-11 (RE_EU_11) · fitxa identitat=292455 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.547025,
+          "lon": 3.1809812,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5388868,
+          "lon": 3.3330468,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4477229,
+          "lon": 3.2677841,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EP-4",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5084579,
+          "lon": 3.1801921,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5029767,
+          "lon": 3.1953915,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5044938,
+          "lon": 3.1769411,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5812083,
+          "lon": 3.2394383,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5916009,
+          "lon": 3.2227809,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-EU-3",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-EU-3 (RE_EU_3) · fitxa identitat=292447 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4758209,
+          "lon": 3.247949,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.518182,
+          "lon": 3.2135583,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5441379,
+          "lon": 3.3399639,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5934378,
+          "lon": 2.6483284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.569854,
+          "lon": 2.7210309,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5806024,
+          "lon": 2.6383134,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5769522,
+          "lon": 2.7149946,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D2a (RE_IP_D2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5804584,
+          "lon": 2.6484613,
+          "cls": "f2-correct-null",
+          "zoneLabel": "A6a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A6a (RE_IP_A6a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6222864,
+          "lon": 2.6241866,
+          "cls": "f2-correct-null",
+          "zoneLabel": "ARE 42-01",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Establiments (RE_IP_ARE_42_01) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5593758,
+          "lon": 2.6754022,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5610375,
+          "lon": 2.6007402,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5713745,
+          "lon": 2.6779468,
+          "cls": "f2-correct-null",
+          "zoneLabel": "L2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Secundàri Minipoligons L2a (IN_L2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5216532,
+          "lon": 2.74254,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Viviendas unifamiliares aisladas, subzona a (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5843341,
+          "lon": 2.6667167,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5072191,
+          "lon": 2.7518284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D(3+a)p",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Edificación residencial entre medianeras: 3 alturas más ático y porche; fuera de profundidad edificable (RE_IP_D3ap_fp) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5739494,
+          "lon": 2.6583259,
+          "cls": "f2-correct-null",
+          "zoneLabel": "A7a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A7a (RE_IP_A7a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5974978,
+          "lon": 2.6882841,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.597321,
+          "lon": 2.5889673,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2d",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Aillada I2d (RE_EU_I2d) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5777084,
+          "lon": 2.6714797,
+          "cls": "f2-correct-null",
+          "zoneLabel": "ARE-SUC",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Sòl urbà consolidat (RE_IP_ARE_SUC) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5818692,
+          "lon": 2.6450441,
+          "cls": "f2-correct-null",
+          "zoneLabel": "F0a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Volumetría Específica F0a (RE_IP_F0a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5927397,
+          "lon": 2.6215039,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5940995,
+          "lon": 2.6470799,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6174371,
+          "lon": 2.6262701,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5752643,
+          "lon": 2.6317121,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5611649,
+          "lon": 2.6716407,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5729301,
+          "lon": 2.6700657,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6210973,
+          "lon": 2.6583317,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2a (RE_EU_J2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5723202,
+          "lon": 2.676183,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5576068,
+          "lon": 2.7800692,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5920731,
+          "lon": 2.6210609,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5514744,
+          "lon": 2.6923704,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D3a (RE_IP_D3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5598466,
+          "lon": 2.6027777,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5423622,
+          "lon": 2.7709599,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6151569,
+          "lon": 2.6347667,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5823882,
+          "lon": 2.6281492,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E5a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Aillada E5a (RE_EP_E5a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6403522,
+          "lon": 2.6037846,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5107473,
+          "lon": 2.7547248,
+          "cls": "f2-correct-null",
+          "zoneLabel": "EQ-AP04 DO",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Equipamientos y dotaciones: Docente (EQ_DO_EQ-AP04_DO) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5881068,
+          "lon": 2.6828765,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5665666,
+          "lon": 2.6626075,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5788134,
+          "lon": 2.6304113,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E4a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5514126,
+          "lon": 2.5977303,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E4a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5604465,
+          "lon": 2.6764737,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5881586,
+          "lon": 2.6814251,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        }
+      ]
+    },
+    "ALL/indicative": {
+      "frame": "both municipalities pooled — 80 real Catastro parcels. ARM: indicative draw.",
+      "points": [
+        {
+          "lat": 39.5843421,
+          "lon": 3.1867742,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5747924,
+          "lon": 3.1592027,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5646141,
+          "lon": 3.2078953,
+          "cls": "resolved",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5648681,
+          "lon": 3.2118947,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-CB-2",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Fartàritx RE-CB-2 (RE_IP_CB_2) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.548111,
+          "lon": 3.1615633,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.579801,
+          "lon": 3.1681328,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5587251,
+          "lon": 3.2103612,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5811516,
+          "lon": 3.1856088,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5277687,
+          "lon": 3.189122,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5940091,
+          "lon": 3.2028712,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.6652445,
+          "lon": 3.2292392,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5740679,
+          "lon": 3.2024677,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5554608,
+          "lon": 3.2115873,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5318693,
+          "lon": 3.3094125,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5703612,
+          "lon": 3.2381222,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5730221,
+          "lon": 3.2136794,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5622126,
+          "lon": 3.2081619,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.5570352,
+          "lon": 3.3438662,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.4937722,
+          "lon": 3.2216878,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5700779,
+          "lon": 3.2047218,
+          "cls": "resolved",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.534845,
+          "lon": 3.3346533,
+          "cls": "resolved",
+          "zoneLabel": "RE-EP-1",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EP-1 (RE_EP_1) · fitxa identitat=292436 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4427803,
+          "lon": 3.2769287,
+          "cls": "resolved",
+          "zoneLabel": "RE-EP-4",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5419227,
+          "lon": 3.2876102,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5178903,
+          "lon": 3.2059612,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5449696,
+          "lon": 3.3330505,
+          "cls": "resolved",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5675335,
+          "lon": 3.2129432,
+          "cls": "resolved",
+          "zoneLabel": "RE-NA",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5161531,
+          "lon": 3.1901882,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.568479,
+          "lon": 3.2003957,
+          "cls": "f1-gap",
+          "zoneLabel": "RE-IP-1",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+        },
+        {
+          "lat": 39.463682,
+          "lon": 3.2753088,
+          "cls": "resolved",
+          "zoneLabel": "RE-EU-11",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EU-11 (RE_EU_11) · fitxa identitat=292455 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.547025,
+          "lon": 3.1809812,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5388868,
+          "lon": 3.3330468,
+          "cls": "resolved",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4477229,
+          "lon": 3.2677841,
+          "cls": "resolved",
+          "zoneLabel": "RE-EP-4",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5084579,
+          "lon": 3.1801921,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5029767,
+          "lon": 3.1953915,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5044938,
+          "lon": 3.1769411,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5812083,
+          "lon": 3.2394383,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5916009,
+          "lon": 3.2227809,
+          "cls": "resolved",
+          "zoneLabel": "RE-EU-3",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-EU-3 (RE_EU_3) · fitxa identitat=292447 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.4758209,
+          "lon": 3.247949,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.518182,
+          "lon": 3.2135583,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07033 manacor",
+          "slots": [],
+          "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+        },
+        {
+          "lat": 39.5441379,
+          "lon": 3.3399639,
+          "cls": "resolved",
+          "zoneLabel": "RE-IP-3",
+          "area": "07033 manacor",
+          "slots": [
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage"
+          ],
+          "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+        },
+        {
+          "lat": 39.5934378,
+          "lon": 2.6483284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.569854,
+          "lon": 2.7210309,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5806024,
+          "lon": 2.6383134,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5769522,
+          "lon": 2.7149946,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D2a (RE_IP_D2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5804584,
+          "lon": 2.6484613,
+          "cls": "f2-correct-null",
+          "zoneLabel": "A6a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A6a (RE_IP_A6a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6222864,
+          "lon": 2.6241866,
+          "cls": "f2-correct-null",
+          "zoneLabel": "ARE 42-01",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Establiments (RE_IP_ARE_42_01) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5593758,
+          "lon": 2.6754022,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5610375,
+          "lon": 2.6007402,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5713745,
+          "lon": 2.6779468,
+          "cls": "f2-correct-null",
+          "zoneLabel": "L2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Secundàri Minipoligons L2a (IN_L2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5216532,
+          "lon": 2.74254,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Viviendas unifamiliares aisladas, subzona a (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5843341,
+          "lon": 2.6667167,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5072191,
+          "lon": 2.7518284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D(3+a)p",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Edificación residencial entre medianeras: 3 alturas más ático y porche; fuera de profundidad edificable (RE_IP_D3ap_fp) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5739494,
+          "lon": 2.6583259,
+          "cls": "f2-correct-null",
+          "zoneLabel": "A7a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A7a (RE_IP_A7a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5974978,
+          "lon": 2.6882841,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.597321,
+          "lon": 2.5889673,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2d",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Aillada I2d (RE_EU_I2d) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5777084,
+          "lon": 2.6714797,
+          "cls": "f2-correct-null",
+          "zoneLabel": "ARE-SUC",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Sòl urbà consolidat (RE_IP_ARE_SUC) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5818692,
+          "lon": 2.6450441,
+          "cls": "f2-correct-null",
+          "zoneLabel": "F0a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Volumetría Específica F0a (RE_IP_F0a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5927397,
+          "lon": 2.6215039,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5940995,
+          "lon": 2.6470799,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6174371,
+          "lon": 2.6262701,
+          "cls": "f2-correct-null",
+          "zoneLabel": "I2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5752643,
+          "lon": 2.6317121,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5611649,
+          "lon": 2.6716407,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5729301,
+          "lon": 2.6700657,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6210973,
+          "lon": 2.6583317,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2a (RE_EU_J2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5723202,
+          "lon": 2.676183,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5576068,
+          "lon": 2.7800692,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5920731,
+          "lon": 2.6210609,
+          "cls": "f2-correct-null",
+          "zoneLabel": "J2b",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5514744,
+          "lon": 2.6923704,
+          "cls": "f2-correct-null",
+          "zoneLabel": "D3a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D3a (RE_IP_D3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5598466,
+          "lon": 2.6027777,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5423622,
+          "lon": 2.7709599,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6151569,
+          "lon": 2.6347667,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5823882,
+          "lon": 2.6281492,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E5a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Aillada E5a (RE_EP_E5a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.6403522,
+          "lon": 2.6037846,
+          "cls": "f2-correct-null",
+          "zoneLabel": "SR",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5107473,
+          "lon": 2.7547248,
+          "cls": "f2-correct-null",
+          "zoneLabel": "EQ-AP04 DO",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Equipamientos y dotaciones: Docente (EQ_DO_EQ-AP04_DO) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5881068,
+          "lon": 2.6828765,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5665666,
+          "lon": 2.6626075,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5788134,
+          "lon": 2.6304113,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E4a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5514126,
+          "lon": 2.5977303,
+          "cls": "f2-correct-null",
+          "zoneLabel": "E4a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5604465,
+          "lon": 2.6764737,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B3x",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        },
+        {
+          "lat": 39.5881586,
+          "lon": 2.6814251,
+          "cls": "f2-correct-null",
+          "zoneLabel": "B2a",
+          "area": "07040 palma",
+          "slots": [],
+          "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+        }
+      ]
+    }
+  }
+}

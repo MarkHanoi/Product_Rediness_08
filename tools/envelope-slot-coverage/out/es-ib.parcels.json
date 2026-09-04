@@ -1,0 +1,5959 @@
+{
+  "version": "1.0",
+  "measuredAt": "2026-09-04T09:56:34.082Z",
+  "args": {
+    "n": 40,
+    "seed": 20260904,
+    "gapMs": 300,
+    "asOf": "2026-09-04",
+    "muni": null
+  },
+  "shipped": {
+    "BALEARS_ENVELOPE_VERIFIED": false,
+    "isEnvelopePublicationAuthorised": false,
+    "posture": "open-top-indicative",
+    "authorisationReason": "gate-shut",
+    "mayDrawEnvelope": true,
+    "mayPublishAsDetermination": false,
+    "rendererCanExpressOpenTop": true,
+    "proxyPathAgrees": true
+  },
+  "frameNotes": {
+    "manacor": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over MANACOR's FULL INSPIRE CP parcel population of 34,257 parcels (ATOM enclosure A.ES.SDGC.CP.07033.zip, 77.4 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04.",
+    "palma": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04."
+  },
+  "httpLog": [
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 1125
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 229
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 239
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 181
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 3885
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 1703
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 316
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 2508
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 251
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 110
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 152
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 157
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 97
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 153
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 71
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 159
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 155
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 129
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 310
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 155
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 185
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 124
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 249
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 117
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 124
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 152
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 253
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 630
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 259
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 58
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 121
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 65
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 128
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 83
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 236
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 88
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 172
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 81
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 124
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 78
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 173
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 156
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 201
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 80
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 215
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 63
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 539
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 128
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 185
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 312
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 126
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 74
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 171
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 100
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 169
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 145
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 555
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 152
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 90
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 129
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 104
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 194
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 103
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 129
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 110
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 327
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 183
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 60
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 124
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 70
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 124
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 128
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 129
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 166
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 131
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 107
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 127
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 108
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 123
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 62
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 130
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 78
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 629
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 127
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 104
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 125
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 96
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 177
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 68
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 507
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 723
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 808
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 197
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 254
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 291
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 1178
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 1274
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 783
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 3688
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 1830
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 780
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 475
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 157
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 177
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 185
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 100
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 174
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 360
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 128
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 315
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 153
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 460
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 1262
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 296
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 343
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 219
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 447
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 365
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 519
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 999
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 1129
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 874
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 226
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 246
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 141
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 181
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 255
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 146
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 140
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 209
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 133
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 149
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 233
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 66
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 153
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 227
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 206
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 147
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 282
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 176
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 264
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 228
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 118
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 992
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 1030
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 395
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 198
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 270
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 260
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 323
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 266
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 900
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 1473
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 580
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 486
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 1322
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 625
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 1307
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 1188
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 435
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 1333
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 3563
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 3227
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 906
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 408
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 177
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 134
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 255
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 150
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 457
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 686
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 166
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 124
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 128
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 158
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 88
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 159
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 231
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 145
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 226
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 204
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 231
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 321
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 130
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 322
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 213
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 239
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 206
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 229
+    }
+  ],
+  "crossCheckMismatches": [],
+  "parcels": [
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "000700100ED18B",
+      "officialAreaM2": 126,
+      "point": {
+        "lat": 39.5843421,
+        "lon": 3.1867742
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "000700100ED18B",
+          "07033A02700331"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02600757",
+      "officialAreaM2": 1902,
+      "point": {
+        "lat": 39.5747924,
+        "lon": 3.1592027
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02600757",
+          "07033A02609257"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "8097607ED1789N",
+      "officialAreaM2": 194,
+      "point": {
+        "lat": 39.5646141,
+        "lon": 3.2078953
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8097606ED1789N",
+          "8097607ED1789N",
+          "8097608ED1789N"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_NA",
+        "CODIAJ": "RE-NA",
+        "NOM": "Nucli antic RE-NA",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292430,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292430",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292430",
+        "articleRefsOnParameters": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": true,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 3,
+        "maxHeight_m": null,
+        "maxFAR": 2.4,
+        "maxCoverage": 0.8
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "8397034ED1789N",
+      "officialAreaM2": 126,
+      "point": {
+        "lat": 39.5648681,
+        "lon": 3.2118947
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8397032ED1789N",
+          "8397033ED1789N",
+          "8397034ED1789N",
+          "8397035ED1789N"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "no-drawable-parameters",
+        "detail": "FAR alone — fixes floor area, fixes neither footprint nor height",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_CB_2",
+        "CODIAJ": "RE-CB-2",
+        "NOM": "Fartàritx RE-CB-2",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292433,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292433",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292433",
+        "articleRefsOnParameters": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "articleRefsAnywhere": [
+          "Article 56.3.j",
+          "Article 66",
+          "Article 74"
+        ],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "f1-gap"
+      },
+      "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Fartàritx RE-CB-2 (RE_IP_CB_2) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02500867",
+      "officialAreaM2": 19339,
+      "point": {
+        "lat": 39.548111,
+        "lon": 3.1615633
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02500867"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02700646",
+      "officialAreaM2": 3792,
+      "point": {
+        "lat": 39.579801,
+        "lon": 3.1681328
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02700646"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A03400144",
+      "officialAreaM2": 1529,
+      "point": {
+        "lat": 39.5587251,
+        "lon": 3.2103612
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A03400144"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02700429",
+      "officialAreaM2": 1351,
+      "point": {
+        "lat": 39.5811516,
+        "lon": 3.1856088
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02700429"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02401369",
+      "officialAreaM2": 1171,
+      "point": {
+        "lat": 39.5277687,
+        "lon": 3.189122
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02400822",
+          "07033A02401369"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A00400193",
+      "officialAreaM2": 3316,
+      "point": {
+        "lat": 39.5940091,
+        "lon": 3.2028712
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A00400193"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A00300007",
+      "officialAreaM2": 10748,
+      "point": {
+        "lat": 39.6652445,
+        "lon": 3.2292392
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A00300007"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "7507008ED1870N",
+      "officialAreaM2": 195,
+      "point": {
+        "lat": 39.5740679,
+        "lon": 3.2024677
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "7507008ED1870N",
+          "7507009ED1870N"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "no-drawable-parameters",
+        "detail": "FAR alone — fixes floor area, fixes neither footprint nor height",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_1",
+        "CODIAJ": "RE-IP-1",
+        "NOM": "Intensiva Manacor RE-IP-1",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292441,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292441",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292441",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 74"
+        ],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 6,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "f1-gap"
+      },
+      "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A03400054",
+      "officialAreaM2": 4551,
+      "point": {
+        "lat": 39.5554608,
+        "lon": 3.2115873
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A03400054"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A01800174",
+      "officialAreaM2": 6671,
+      "point": {
+        "lat": 39.5318693,
+        "lon": 3.3094125
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A01800174"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A00700208",
+      "officialAreaM2": 3865,
+      "point": {
+        "lat": 39.5703612,
+        "lon": 3.2381222
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A00700208"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "8506510ED1880N",
+      "officialAreaM2": 19,
+      "point": {
+        "lat": 39.5730221,
+        "lon": 3.2136794
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8506509ED1880N",
+          "8506510ED1880N",
+          "8506523ED1880N"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "no-drawable-parameters",
+        "detail": "FAR alone — fixes floor area, fixes neither footprint nor height",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_1",
+        "CODIAJ": "RE-IP-1",
+        "NOM": "Intensiva Manacor RE-IP-1",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292441,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292441",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292441",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 74"
+        ],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 6,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "f1-gap"
+      },
+      "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "8094706ED1789S",
+      "officialAreaM2": 106,
+      "point": {
+        "lat": 39.5622126,
+        "lon": 3.2081619
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8094705ED1789S",
+          "8094706ED1789S",
+          "8094707ED1789S"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "no-drawable-parameters",
+        "detail": "FAR alone — fixes floor area, fixes neither footprint nor height",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_1",
+        "CODIAJ": "RE-IP-1",
+        "NOM": "Intensiva Manacor RE-IP-1",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292441,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292441",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292441",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 74"
+        ],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 6,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "f1-gap"
+      },
+      "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A01500175",
+      "officialAreaM2": 3672,
+      "point": {
+        "lat": 39.5570352,
+        "lon": 3.3438662
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A01500175"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02200114",
+      "officialAreaM2": 41823,
+      "point": {
+        "lat": 39.4937722,
+        "lon": 3.2216878
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02200114"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "7703613ED1870S",
+      "officialAreaM2": 121,
+      "point": {
+        "lat": 39.5700779,
+        "lon": 3.2047218
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "7703607ED1870S",
+          "7703612ED1870S",
+          "7703613ED1870S",
+          "7703614ED1870S"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_NA",
+        "CODIAJ": "RE-NA",
+        "NOM": "Nucli antic RE-NA",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292430,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292430",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292430",
+        "articleRefsOnParameters": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": true,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 3,
+        "maxHeight_m": null,
+        "maxFAR": 2.4,
+        "maxCoverage": 0.8
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "8964001ED2786S",
+      "officialAreaM2": 670,
+      "point": {
+        "lat": 39.534845,
+        "lon": 3.3346533
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8964001ED2786S"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EP_1",
+        "CODIAJ": "RE-EP-1",
+        "NOM": "Extensiva plurifamiliar RE-EP-1",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292436,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292436",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292436",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 10,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": false,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 3,
+        "maxHeight_m": null,
+        "maxFAR": 0.67,
+        "maxCoverage": 0.3
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-EP-1 (RE_EP_1) · fitxa identitat=292436 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "25700A1ED2627S",
+      "officialAreaM2": 2985,
+      "point": {
+        "lat": 39.4427803,
+        "lon": 3.2769287
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "25700A1ED2627S"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EP_4",
+        "CODIAJ": "RE-EP-4",
+        "NOM": "Extensiva plurifamiliar RE-EP-4",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292439,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292439",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292439",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 10,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": false,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 2,
+        "maxHeight_m": null,
+        "maxFAR": 0.33,
+        "maxCoverage": 0.2
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A01800028",
+      "officialAreaM2": 4194,
+      "point": {
+        "lat": 39.5419227,
+        "lon": 3.2876102
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A01800028"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02300306",
+      "officialAreaM2": 69201,
+      "point": {
+        "lat": 39.5178903,
+        "lon": 3.2059612
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02300306"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "8775201ED2787N",
+      "officialAreaM2": 142,
+      "point": {
+        "lat": 39.5449696,
+        "lon": 3.3330505
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8775201ED2787N",
+          "8775213ED2787N"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_3",
+        "CODIAJ": "RE-IP-3",
+        "NOM": "Intensiva plurifamiliar RE-IP-3",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292443,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292443",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292443",
+        "articleRefsOnParameters": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 56.3.j",
+          "Article 74"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": true,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 3,
+        "maxHeight_m": null,
+        "maxFAR": 1.8,
+        "maxCoverage": 0.6
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "8400015ED1880S",
+      "officialAreaM2": 7,
+      "point": {
+        "lat": 39.5675335,
+        "lon": 3.2129432
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8400013ED1880S",
+          "8400015ED1880S"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_NA",
+        "CODIAJ": "RE-NA",
+        "NOM": "Nucli antic RE-NA",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292430,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292430",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292430",
+        "articleRefsOnParameters": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": true,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 3,
+        "maxHeight_m": null,
+        "maxFAR": 2.4,
+        "maxCoverage": 0.8
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-NA (RE_NA) · fitxa identitat=292430 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02300204",
+      "officialAreaM2": 5163,
+      "point": {
+        "lat": 39.5161531,
+        "lon": 3.1901882
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02300204"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "7301402ED1870S",
+      "officialAreaM2": 111,
+      "point": {
+        "lat": 39.568479,
+        "lon": 3.2003957
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "7301401ED1870S",
+          "7301402ED1870S"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "no-drawable-parameters",
+        "detail": "FAR alone — fixes floor area, fixes neither footprint nor height",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_1",
+        "CODIAJ": "RE-IP-1",
+        "NOM": "Intensiva Manacor RE-IP-1",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292441,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292441",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292441",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 74"
+        ],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 6,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "f1-gap"
+      },
+      "why": "no-drawable-parameters → no-rule-pack (legallyGrounded=false): Intensiva Manacor RE-IP-1 (RE_IP_1) (MANACOR) — This zone's fitxa publishes no combination of parameters an envelope can be drawn from."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "38870C6ED2638N",
+      "officialAreaM2": 1071,
+      "point": {
+        "lat": 39.463682,
+        "lon": 3.2753088
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "38870C6ED2638N"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EU_11",
+        "CODIAJ": "RE-EU-11",
+        "NOM": "Extensiva unifamiliar RE-EU-11",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292455,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292455",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292455",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 10,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": false,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 2,
+        "maxHeight_m": null,
+        "maxFAR": 0.5,
+        "maxCoverage": 0.25
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-EU-11 (RE_EU_11) · fitxa identitat=292455 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02509372",
+      "officialAreaM2": 584,
+      "point": {
+        "lat": 39.547025,
+        "lon": 3.1809812
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02500422",
+          "07033A02500494",
+          "07033A02509372"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "8768102ED2786N",
+      "officialAreaM2": 574,
+      "point": {
+        "lat": 39.5388868,
+        "lon": 3.3330468
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8768102ED2786N"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_3",
+        "CODIAJ": "RE-IP-3",
+        "NOM": "Intensiva plurifamiliar RE-IP-3",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292443,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292443",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292443",
+        "articleRefsOnParameters": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 56.3.j",
+          "Article 74"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": true,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 3,
+        "maxHeight_m": null,
+        "maxFAR": 1.8,
+        "maxCoverage": 0.6
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "2570043ED2627S",
+      "officialAreaM2": 1761,
+      "point": {
+        "lat": 39.4477229,
+        "lon": 3.2677841
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "2570043ED2627S"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EP_4",
+        "CODIAJ": "RE-EP-4",
+        "NOM": "Extensiva plurifamiliar RE-EP-4",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292439,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292439",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292439",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 10,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": false,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 2,
+        "maxHeight_m": null,
+        "maxFAR": 0.33,
+        "maxCoverage": 0.2
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-EP-4 (RE_EP_4) · fitxa identitat=292439 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02300137",
+      "officialAreaM2": 3972,
+      "point": {
+        "lat": 39.5084579,
+        "lon": 3.1801921
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02300137"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02300486",
+      "officialAreaM2": 14895,
+      "point": {
+        "lat": 39.5029767,
+        "lon": 3.1953915
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02300486"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02300578",
+      "officialAreaM2": 3470,
+      "point": {
+        "lat": 39.5044938,
+        "lon": 3.1769411
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02300578"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A00600244",
+      "officialAreaM2": 3418,
+      "point": {
+        "lat": 39.5812083,
+        "lon": 3.2394383
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A00600244"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "9126707ED1892N",
+      "officialAreaM2": 2085,
+      "point": {
+        "lat": 39.5916009,
+        "lon": 3.2227809
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "9126707ED1892N"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EU_3",
+        "CODIAJ": "RE-EU-3",
+        "NOM": "Extensiva unifamiliar RE-EU-3",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292447,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292447",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292447",
+        "articleRefsOnParameters": [
+          "Article 66"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 10,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": false,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 2,
+        "maxHeight_m": null,
+        "maxFAR": 0.1,
+        "maxCoverage": 0.1
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-EU-3 (RE_EU_3) · fitxa identitat=292447 · drawability COMPLETE · articles on parameters [Article 66] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A02200294",
+      "officialAreaM2": 6916,
+      "point": {
+        "lat": 39.4758209,
+        "lon": 3.247949
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A02200294"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "07033A03400864",
+      "officialAreaM2": 26857,
+      "point": {
+        "lat": 39.518182,
+        "lon": 3.2135583
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07033A03400864"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "not-buildable-class",
+        "detail": "land class SR — a zone fitxa does not govern this regime",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": null,
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "not-buildable-class → derived-plan (legallyGrounded=true): Zone SR (MANACOR) — This land is not urban or urbanisable soil, so a zone fitxa does not govern it."
+    },
+    {
+      "municipality": "manacor",
+      "ine": "07033",
+      "refcat": "9374207ED2797S",
+      "officialAreaM2": 118,
+      "point": {
+        "lat": 39.5441379,
+        "lon": 3.3399639
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "9374206ED2797S",
+          "9374207ED2797S",
+          "9374208ED2797S"
+        ]
+      },
+      "muib": {
+        "outcome": "ok",
+        "reason": null,
+        "detail": null,
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_3",
+        "CODIAJ": "RE-IP-3",
+        "NOM": "Intensiva plurifamiliar RE-IP-3",
+        "CODIPLA": "2021_PG_MANACOR_033",
+        "CODICLAS": "SU",
+        "MUNICIPI": "MANACOR",
+        "IDENTITAT": 292443,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=292443",
+        "OBS": null,
+        "DINIVIGEN": "22/12/2021"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": true,
+        "identitatPrinted": "292443",
+        "articleRefsOnParameters": [
+          "Article 66",
+          "Article 56.3.j"
+        ],
+        "articleRefsAnywhere": [
+          "Article 66",
+          "Article 56.3.j",
+          "Article 74"
+        ],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": true,
+        "status": "ok",
+        "confidence": "estimated-ruleset",
+        "footprintIsUpperBound": true,
+        "slots": [
+          "maxFloors",
+          "maxFAR",
+          "maxCoverage"
+        ],
+        "maxFloors": 3,
+        "maxHeight_m": null,
+        "maxFAR": 1.8,
+        "maxCoverage": 0.6
+      },
+      "cls": {
+        "determination": "f1-gap",
+        "indicative": "resolved"
+      },
+      "why": "ok · zone RE-IP-3 (RE_IP_3) · fitxa identitat=292443 · drawability COMPLETE · articles on parameters [Article 66, Article 56.3.j] · env status ok · gate SHUT · posture open-top-indicative"
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "9829511DD6892H",
+      "officialAreaM2": 353,
+      "point": {
+        "lat": 39.5934378,
+        "lon": 2.6483284
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "9829511DD6892H"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B3x",
+        "CODIAJ": "B3x",
+        "NOM": "Plurifamiliar amb alineació façana b3x",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48470,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48470",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48470",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "6102419DD7860C",
+      "officialAreaM2": 255,
+      "point": {
+        "lat": 39.569854,
+        "lon": 2.7210309
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "6102418DD7860C",
+          "6102419DD7860C"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B2a",
+        "CODIAJ": "B2a",
+        "NOM": "Plurifamiliar amb alineació façana b2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48468,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48468",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48468",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "9014210DD6891C",
+      "officialAreaM2": 239,
+      "point": {
+        "lat": 39.5806024,
+        "lon": 2.6383134
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "9014207DD6891C",
+          "9014209DD6891C",
+          "9014210DD6891C",
+          "9014211DD6891C"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B3x",
+        "CODIAJ": "B3x",
+        "NOM": "Plurifamiliar amb alineació façana b3x",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48470,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48470",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48470",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "5610812DD7851B",
+      "officialAreaM2": 233,
+      "point": {
+        "lat": 39.5769522,
+        "lon": 2.7149946
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "5610812DD7851B"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_D2a",
+        "CODIAJ": "D2a",
+        "NOM": "Plurifamiliar amb Alineació Façana - Reculada (3 mts) D2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48491,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48491",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48491",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "PARTIAL_DRAWABLE",
+        "codeCellsSeen": 8,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D2a (RE_IP_D2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "9914518DD6891D",
+      "officialAreaM2": 259,
+      "point": {
+        "lat": 39.5804584,
+        "lon": 2.6484613
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "9914518DD6891D"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_A6a",
+        "CODIAJ": "A6a",
+        "NOM": "Plurifamiliar amb Alineació Façana A6a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48444,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48444",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48444",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 8,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A6a (RE_IP_A6a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "7860929DD6876B",
+      "officialAreaM2": 5267,
+      "point": {
+        "lat": 39.6222864,
+        "lon": 2.6241866
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "7860929DD6876B"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_ARE_42_01",
+        "CODIAJ": "ARE 42-01",
+        "NOM": "Establiments",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 87269,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=87269",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "87269",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Establiments (RE_IP_ARE_42_01) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "2191513DD7729A",
+      "officialAreaM2": 111,
+      "point": {
+        "lat": 39.5593758,
+        "lon": 2.6754022
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "2191512DD7729A",
+          "2191513DD7729A"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B2a",
+        "CODIAJ": "B2a",
+        "NOM": "Plurifamiliar amb alineació façana b2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48468,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48468",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48468",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "07040A00200070",
+      "officialAreaM2": 833,
+      "point": {
+        "lat": 39.5610375,
+        "lon": 2.6007402
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07040A00200070"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "2304502DD7820C",
+      "officialAreaM2": 627,
+      "point": {
+        "lat": 39.5713745,
+        "lon": 2.6779468
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "2304502DD7820C"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "IN_L2a",
+        "CODIAJ": "L2a",
+        "NOM": "Secundàri Minipoligons L2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48638,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48638",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48638",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 9,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Secundàri Minipoligons L2a (IN_L2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "7948516DD7774H",
+      "officialAreaM2": 387,
+      "point": {
+        "lat": 39.5216532,
+        "lon": 2.74254
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "7948516DD7774H"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EU_I2a",
+        "CODIAJ": "I2a",
+        "NOM": "Viviendas unifamiliares aisladas, subzona a",
+        "CODIPLA": "PLA_REC_PLATJA_PALMA_7040_2015",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 289098,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=289098",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/04/2015"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "289098",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 10,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Viviendas unifamiliares aisladas, subzona a (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "1418517DD7811G",
+      "officialAreaM2": 164,
+      "point": {
+        "lat": 39.5843341,
+        "lon": 2.6667167
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "1418503DD7811G",
+          "1418504DD7811G",
+          "1418516DD7811G",
+          "1418517DD7811G"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B3a",
+        "CODIAJ": "B3a",
+        "NOM": "Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48469,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48469",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48469",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "8732519DD7783D",
+      "officialAreaM2": 128,
+      "point": {
+        "lat": 39.5072191,
+        "lon": 2.7518284
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8732502DD7783D",
+          "8732516DD7783D",
+          "8732517DD7783D",
+          "8732519DD7783D"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_D3ap_fp",
+        "CODIAJ": "D(3+a)p",
+        "NOM": "Edificación residencial entre medianeras: 3 alturas más ático y porche; fuera de profundidad edificable",
+        "CODIPLA": "PLA_REC_PLATJA_PALMA_7040_2015",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 289034,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=289034",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/04/2015"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "289034",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "PARTIAL_DRAWABLE",
+        "codeCellsSeen": 8,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Edificación residencial entre medianeras: 3 alturas más ático y porche; fuera de profundidad edificable (RE_IP_D3ap_fp) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "0707510DD7800F",
+      "officialAreaM2": 407,
+      "point": {
+        "lat": 39.5739494,
+        "lon": 2.6583259
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "0707510DD7800F"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_A7a",
+        "CODIAJ": "A7a",
+        "NOM": "Plurifamiliar amb Alineació Façana A7a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48445,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48445",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48445",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 8,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana A7a (RE_IP_A7a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "3333508DD7833C",
+      "officialAreaM2": 115,
+      "point": {
+        "lat": 39.5974978,
+        "lon": 2.6882841
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "3333507DD7833C",
+          "3333508DD7833C",
+          "3333509DD7833C"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IU_J2b",
+        "CODIAJ": "J2b",
+        "NOM": "Unifamiliar Suburbana J2b",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48635,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48635",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48635",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "5032450DD6853A",
+      "officialAreaM2": 1829,
+      "point": {
+        "lat": 39.597321,
+        "lon": 2.5889673
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "5032450DD6853A"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EU_I2d",
+        "CODIAJ": "I2d",
+        "NOM": "Unifamiliar Aillada I2d",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48633,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48633",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48633",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Aillada I2d (RE_EU_I2d) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "1910804DD7811B",
+      "officialAreaM2": 279,
+      "point": {
+        "lat": 39.5777084,
+        "lon": 2.6714797
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "1910804DD7811B"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_ARE_SUC",
+        "CODIAJ": "ARE-SUC",
+        "NOM": "Sòl urbà consolidat",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 87266,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=87266",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "87266",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Sòl urbà consolidat (RE_IP_ARE_SUC) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "9616108DD6891F",
+      "officialAreaM2": 829,
+      "point": {
+        "lat": 39.5818692,
+        "lon": 2.6450441
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "9616108DD6891F"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_F0a",
+        "CODIAJ": "F0a",
+        "NOM": "Plurifamiliar Volumetría Específica F0a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48752,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48752",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48752",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 4,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Volumetría Específica F0a (RE_IP_F0a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "7628703DD6872H",
+      "officialAreaM2": 492,
+      "point": {
+        "lat": 39.5927397,
+        "lon": 2.6215039
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "7628703DD6872H"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IU_J2b",
+        "CODIAJ": "J2b",
+        "NOM": "Unifamiliar Suburbana J2b",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48635,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48635",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48635",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "9829713DD6892H",
+      "officialAreaM2": 353,
+      "point": {
+        "lat": 39.5940995,
+        "lon": 2.6470799
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "9829712DD6892H",
+          "9829713DD6892H"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B3x",
+        "CODIAJ": "B3x",
+        "NOM": "Plurifamiliar amb alineació façana b3x",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48470,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48470",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48470",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "7956611DD6875F",
+      "officialAreaM2": 1177,
+      "point": {
+        "lat": 39.6174371,
+        "lon": 2.6262701
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "7956611DD6875F"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EU_I2a",
+        "CODIAJ": "I2a",
+        "NOM": "Unifamiliar",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48630,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48630",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48630",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar (RE_EU_I2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "8408803DD6880G",
+      "officialAreaM2": 220,
+      "point": {
+        "lat": 39.5752643,
+        "lon": 2.6317121
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8408803DD6880G"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B2a",
+        "CODIAJ": "B2a",
+        "NOM": "Plurifamiliar amb alineació façana b2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48468,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48468",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48468",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "2092601DD7729A",
+      "officialAreaM2": 84,
+      "point": {
+        "lat": 39.5611649,
+        "lon": 2.6716407
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "2092601DD7729A",
+          "2092602DD7729A"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B2a",
+        "CODIAJ": "B2a",
+        "NOM": "Plurifamiliar amb alineació façana b2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48468,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48468",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48468",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "1706515DD7810F",
+      "officialAreaM2": 76,
+      "point": {
+        "lat": 39.5729301,
+        "lon": 2.6700657
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "1706513DD7810F",
+          "1706515DD7810F",
+          "1706516DD7810F"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B3x",
+        "CODIAJ": "B3x",
+        "NOM": "Plurifamiliar amb alineació façana b3x",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48470,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48470",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48470",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "0859526DD7805H",
+      "officialAreaM2": 219,
+      "point": {
+        "lat": 39.6210973,
+        "lon": 2.6583317
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "0859526DD7805H"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EU_J2a",
+        "CODIAJ": "J2a",
+        "NOM": "Unifamiliar Suburbana J2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48634,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48634",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48634",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2a (RE_EU_J2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "2205521DD7820E",
+      "officialAreaM2": 389,
+      "point": {
+        "lat": 39.5723202,
+        "lon": 2.676183
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "2205521DD7820E"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B3a",
+        "CODIAJ": "B3a",
+        "NOM": "Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48469,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48469",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48469",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Residencial plurifamiliar amb planta baixa dedicaca a comercial i serveis (RE_IP_B3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "1288915DD8718G",
+      "officialAreaM2": 24,
+      "point": {
+        "lat": 39.5576068,
+        "lon": 2.7800692
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "1288901DD8718G",
+          "1288914DD8718G",
+          "1288915DD8718G"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B2a",
+        "CODIAJ": "B2a",
+        "NOM": "Plurifamiliar amb alineació façana b2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48468,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48468",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48468",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "7626247DD6872F",
+      "officialAreaM2": 403,
+      "point": {
+        "lat": 39.5920731,
+        "lon": 2.6210609
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "7626247DD6872F"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IU_J2b",
+        "CODIAJ": "J2b",
+        "NOM": "Unifamiliar Suburbana J2b",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48635,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48635",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48635",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Unifamiliar Suburbana J2b (RE_IU_J2b) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "3682502DD7738B",
+      "officialAreaM2": 151,
+      "point": {
+        "lat": 39.5514744,
+        "lon": 2.6923704
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "3682501DD7738B",
+          "3682502DD7738B",
+          "3682503DD7738B",
+          "3682516DD7738B"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_D3a",
+        "CODIAJ": "D3a",
+        "NOM": "Plurifamiliar amb Alineació Façana - Reculada (3 mts) D3a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48493,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48493",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48493",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "PARTIAL_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb Alineació Façana - Reculada (3 mts) D3a (RE_IP_D3a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "07040A00200095",
+      "officialAreaM2": 3357,
+      "point": {
+        "lat": 39.5598466,
+        "lon": 2.6027777
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07040A00200095"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "0471101DD8707A",
+      "officialAreaM2": 251,
+      "point": {
+        "lat": 39.5423622,
+        "lon": 2.7709599
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "0471101DD8707A",
+          "0471102DD8707A"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B2a",
+        "CODIAJ": "B2a",
+        "NOM": "Plurifamiliar amb alineació façana b2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48468,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48468",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48468",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "07040A01100288",
+      "officialAreaM2": 12290,
+      "point": {
+        "lat": 39.6151569,
+        "lon": 2.6347667
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07040A01100288"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "8116805DD6881E",
+      "officialAreaM2": 2588,
+      "point": {
+        "lat": 39.5823882,
+        "lon": 2.6281492
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8116805DD6881E"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EP_E5a",
+        "CODIAJ": "E5a",
+        "NOM": "Plurifamiliar Aillada E5a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48530,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48530",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48530",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar Aillada E5a (RE_EP_E5a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "07040A00900366",
+      "officialAreaM2": 102165,
+      "point": {
+        "lat": 39.6403522,
+        "lon": 2.6037846
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "07040A00900366"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "SR",
+        "CODIAJ": null,
+        "NOM": null,
+        "CODIPLA": null,
+        "CODICLAS": "SR",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": null,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "//"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": null,
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 0,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Zone SR (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "8837024DD7783F",
+      "officialAreaM2": 5329,
+      "point": {
+        "lat": 39.5107473,
+        "lon": 2.7547248
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8837024DD7783F"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "EQ_DO_EQ-AP04_DO",
+        "CODIAJ": "EQ-AP04 DO",
+        "NOM": "Equipamientos y dotaciones: Docente",
+        "CODIPLA": "PLA_REC_PLATJA_PALMA_7040_2015",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 289147,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=289147",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/04/2015"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "289147",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 3,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Equipamientos y dotaciones: Docente (EQ_DO_EQ-AP04_DO) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "2823515DD7822D",
+      "officialAreaM2": 386,
+      "point": {
+        "lat": 39.5881068,
+        "lon": 2.6828765
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "2823513DD7822D",
+          "2823515DD7822D"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B2a",
+        "CODIAJ": "B2a",
+        "NOM": "Plurifamiliar amb alineació façana b2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48468,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48468",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48468",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "1099607DD7719G",
+      "officialAreaM2": 227,
+      "point": {
+        "lat": 39.5665666,
+        "lon": 2.6626075
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "1099607DD7719G"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B3x",
+        "CODIAJ": "B3x",
+        "NOM": "Plurifamiliar amb alineació façana b3x",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48470,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48470",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48470",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "8312401DD6881C",
+      "officialAreaM2": 28,
+      "point": {
+        "lat": 39.5788134,
+        "lon": 2.6304113
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "8312401DD6881C",
+          "8312402DD6881C",
+          "8312403DD6881C"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EP_E4a",
+        "CODIAJ": "E4a",
+        "NOM": "Plurifamiliar aillada",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48522,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48522",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48522",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "5582503DD6758D",
+      "officialAreaM2": 1094,
+      "point": {
+        "lat": 39.5514126,
+        "lon": 2.5977303
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "5582503DD6758D"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_EP_E4a",
+        "CODIAJ": "E4a",
+        "NOM": "Plurifamiliar aillada",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48522,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48522",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48522",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "COMPLETE",
+        "codeCellsSeen": 11,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar aillada (RE_EP_E4a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "2392020DD7729A",
+      "officialAreaM2": 208,
+      "point": {
+        "lat": 39.5604465,
+        "lon": 2.6764737
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "2392001DD7729A",
+          "2392002DD7729A",
+          "2392019DD7729A",
+          "2392020DD7729A"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B3x",
+        "CODIAJ": "B3x",
+        "NOM": "Plurifamiliar amb alineació façana b3x",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48470,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48470",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48470",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b3x (RE_IP_B3x) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    },
+    {
+      "municipality": "palma",
+      "ine": "07040",
+      "refcat": "2723512DD7822D",
+      "officialAreaM2": 182,
+      "point": {
+        "lat": 39.5881586,
+        "lon": 2.6814251
+      },
+      "pointSource": "atom-centroid",
+      "oracle": {
+        "atCentroid": "hit",
+        "final": "hit",
+        "refsAtPoint": [
+          "2723511DD7822D",
+          "2723512DD7822D",
+          "2723513DD7822D"
+        ]
+      },
+      "muib": {
+        "outcome": "refused",
+        "reason": "plan-not-current",
+        "detail": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "featuresAtPoint": 1,
+        "CODIMUIB": "RE_IP_B2a",
+        "CODIAJ": "B2a",
+        "NOM": "Plurifamiliar amb alineació façana b2a",
+        "CODIPLA": "REV_DEL_PLAN_GENERAL_DE_ORDENACION_URBANA_1998",
+        "CODICLAS": "SU",
+        "MUNICIPI": "PALMA",
+        "IDENTITAT": 48468,
+        "URL": "http://muib.caib.es/mapurbibfront/normativa.jsp?identitat=48468",
+        "OBS": "Palma NO està actualitzat al MUIB segons el darrer planejament aprovat i actualment el MUIB no mostra l'actual classificació del sòl. Consultau la informació proporcionada per l'Ajuntament",
+        "DINIVIGEN": "24/01/2000"
+      },
+      "fitxa": {
+        "fetchedByProxy": true,
+        "readByResolver": false,
+        "identitatPrinted": "48468",
+        "articleRefsOnParameters": [],
+        "articleRefsAnywhere": [],
+        "drawability": "NOT_DRAWABLE",
+        "codeCellsSeen": 7,
+        "codeCellsUnparsed": 0
+      },
+      "envelope": {
+        "computed": false,
+        "status": null,
+        "confidence": null,
+        "footprintIsUpperBound": null,
+        "slots": [],
+        "maxFloors": null,
+        "maxHeight_m": null,
+        "maxFAR": null,
+        "maxCoverage": null
+      },
+      "cls": {
+        "determination": "f2-correct-null",
+        "indicative": "f2-correct-null"
+      },
+      "why": "plan-not-current → derived-plan (legallyGrounded=true): Plurifamiliar amb alineació façana b2a (RE_IP_B2a) (PALMA) — The municipality itself states that MUIB does NOT show its current planning for this land."
+    }
+  ]
+}
