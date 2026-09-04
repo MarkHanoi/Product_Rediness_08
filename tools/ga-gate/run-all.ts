@@ -151,7 +151,18 @@ const GATES: Gate[] = [
   // NSW vertical overlay layers — so it is split per L-716 into arms A/B/D (hard-0) and C (a
   // shrink-only ratchet on the uncited count). First reading: RC=0 — 6 parcels · 11 controls ·
   // teeth T-A/T-B/T-D all fired · ARM C 4/4.
+  // ⚠ Round 4 corrected ARM C's predicate from `state === 'absent'` to `!nswMayPublish(state)`.
+  // The old test scored an UNSIGNED registry draft as closing the ledger, so the ratchet could be
+  // driven to zero by the same lane that wrote the drafts. Count unchanged at 4/4; a tooth (T-C)
+  // now asserts the predicate rather than the outcome.
   { name: 'nsw-citation-arms (NSW §1.2/§13, L-716)',  script: 'check-nsw-citation-arms.ts' },
+  // The government's own determinations as a check on our resolved controls: 1,841 City of Sydney
+  // DAs determined in 2025, joined at their served X/Y to the DCP storey polygon. ⛔ Storeys are
+  // compared to storeys ONLY — the DA feed carries no metric height and converting is a
+  // floor-to-floor assumption (ARM A guards the code against acquiring one). First reading: RC=0 —
+  // 356 joined · 100 exceed, of which 88 are exactly +1 and 88 are alterations to an existing
+  // building, because a DCP is a GUIDELINE and not a development standard · ARM C 4/4 unreconciled.
+  { name: 'nsw-da-crossref (approvals vs resolved)',  script: 'check-nsw-da-crossref.ts' },
   { name: 'height-fidelity (L-646/L-647)',            script: 'check-height-fidelity.ts' },
   { name: 'write-route-auth (C08§1.2/L-406)',         script: 'check-write-route-auth.ts' },
   { name: 'command-naming (L-796)',                   script: 'check-command-naming.ts' },

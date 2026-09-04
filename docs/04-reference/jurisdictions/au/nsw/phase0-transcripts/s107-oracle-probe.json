@@ -1,0 +1,176 @@
+{
+ "probedAt": "2026-09-04",
+ "armA": {
+  "5//DP240402": {
+   "state": {
+    "label": "5//DP240402",
+    "lot": "5//DP240402",
+    "lon": 151.19913072882292,
+    "lat": -33.8984423075379,
+    "stateHob": "12 m cl 4.3"
+   },
+   "attempts": [
+    {
+     "name": "fetchGeometry(lot)",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/FetchGeometry?id=5%2F%2FDP240402&Type=lot",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    },
+    {
+     "name": "address(lot)",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/Address?a=5%2F%2FDP240402&noOfRecords=5",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    },
+    {
+     "name": "fetchEPILayers(point)",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/FetchEPILayers?id=151.19913072882292,-33.8984423075379",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    },
+    {
+     "name": "fetchLandusePermissibility",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/FetchLandusePermissibility?id=5%2F%2FDP240402",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    },
+    {
+     "name": "principalPlanningLayers",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/GetPrincipalPlanningLayers?id=5%2F%2FDP240402",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    }
+   ]
+  },
+  "54//DP1259000": {
+   "state": {
+    "label": "54//DP1259000",
+    "lot": "54//DP1259000",
+    "lon": 151.21091413732495,
+    "lat": -33.86284388257842,
+    "stateHob": "110 m cl 4.3"
+   },
+   "attempts": [
+    {
+     "name": "fetchGeometry(lot)",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/FetchGeometry?id=54%2F%2FDP1259000&Type=lot",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    },
+    {
+     "name": "address(lot)",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/Address?a=54%2F%2FDP1259000&noOfRecords=5",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    },
+    {
+     "name": "fetchEPILayers(point)",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/FetchEPILayers?id=151.21091413732495,-33.86284388257842",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    },
+    {
+     "name": "fetchLandusePermissibility",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/FetchLandusePermissibility?id=54%2F%2FDP1259000",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    },
+    {
+     "name": "principalPlanningLayers",
+     "url": "https://api.apps1.nsw.gov.au/eplanning/data/v0/GetPrincipalPlanningLayers?id=54%2F%2FDP1259000",
+     "status": 404,
+     "len": 54,
+     "topKeys": [
+      "statusCode",
+      "message"
+     ],
+     "body": "{\"statusCode\":404,\"message\":\"Resource not found\"}",
+     "raw": null,
+     "err": null
+    }
+   ]
+  }
+ },
+ "armB": {
+  "City of Sydney — planning certificate page": {
+   "url": "https://www.cityofsydney.nsw.gov.au/development-applications/planning-certificates",
+   "status": 404,
+   "len": 27882,
+   "isJson": false,
+   "head": "<!DOCTYPE html>\r\n<html lang=\"en\">\r\n  <head>\r\n    <meta charset=\"UTF-8\" />\r\n    <link\r\n      rel=\"apple-touch-icon\"\r\n      sizes=\"180x180\"\r\n      href=\"https://brand.cityofsydney.nsw.gov.au/cos/favicons/apple-touch-icon.png\"\r\n    />\r\n    <link\r\n      rel=\"shortcut icon\"\r\n      type=\"image/x-icon\"\r\n      href=\"https://brand.cityofsydney.nsw.gov.au/cos/favicons/favicon-32x32.png\"\r\n    />\r\n    <title>Server Error - City of Sydney</title>\r\n    <style>\r\n      html {\r\n        line-height: 1.15;\r\n      ",
+   "err": null
+  },
+  "NSW Planning Portal — planning certificate info": {
+   "url": "https://www.planningportal.nsw.gov.au/opendata/dataset",
+   "status": 200,
+   "len": 91662,
+   "isJson": false,
+   "head": "<!DOCTYPE html>\n<!--[if IE 9]> <html lang=\"en\" class=\"ie9\"> <![endif]-->\n<!--[if gt IE 8]><!--> <html lang=\"en\"  > <!--<![endif]-->\n  <head>\n    <meta charset=\"utf-8\" />\n      <meta name=\"csrf_field_name\" content=\"_csrf_token\" />\n      <meta name=\"_csrf_token\" content=\"ImYxODg3NzgxZWU1NzBmNmVmNmRlYzE1Y2Q3ZjU1NjllYmUwYjhkOTMi.aprZMA.dGgx6uWu0VD1uBcZVm3xBa9Zp04\" />\n\n      <meta name=\"generator\" content=\"ckan 2.11.5\" />\n      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  ",
+   "err": null
+  }
+ },
+ "verdict": null
+}

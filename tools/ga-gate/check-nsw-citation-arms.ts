@@ -72,7 +72,15 @@ import {
     type NswVerticalResolution,
 } from '../../packages/site-parcel-data/src/rulepacks/au/nswVerticalPrecedence.js';
 import { NSW_LAYER } from '../../packages/site-parcel-data/src/rulepacks/au/nswPortalLayers.js';
-import { nswMayContributeValue } from '../../packages/site-parcel-data/src/rulepacks/au/nswCitationState.js';
+import {
+    nswMayContributeValue,
+    nswMayPublish,
+} from '../../packages/site-parcel-data/src/rulepacks/au/nswCitationState.js';
+import {
+    isNswRulingSigned,
+    nswSigningQueue,
+    NSW_CONTROL_RULINGS,
+} from '../../packages/site-parcel-data/src/rulepacks/au/nswClauseRegistry.js';
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────
 // ⛔ ARM C — THE RATCHET. SHRINK-ONLY.
@@ -218,9 +226,27 @@ function main(): number {
         resolutions.set(parcel, res);
         controlsRead += res.allControls.length;
         for (const c of res.allControls) {
-            if (c.citation.state === 'absent') {
+            // ⛔ ARM C COUNTS `!nswMayPublish`, NOT `state === 'absent'` — CORRECTED ROUND 4.
+            //
+            // ⭐ THE OLD TEST WAS SATISFIABLE BY THE THING THIS RATCHET EXISTS TO DEMAND. A lane
+            // agent writing an UNSIGNED registry row moves a control from `absent` to
+            // `registry-unsigned`, which the old predicate scored as CLOSED. That let the ledger be
+            // driven to zero by prose — by the author of the prose — with no human having read the
+            // instrument. A ratchet a writer can close by writing is a ratchet measuring its own
+            // author (§CONFIDENT-REGISTER-ROWS-ARE-THE-WRONG-ONES), and closing it that way is the
+            // §RATCHET-EXCEEDED-IS-NEVER-DEBT violation in its most deniable form.
+            //
+            // ⚠ THE TWO PREDICATES ARE DELIBERATELY DIFFERENT AND BOTH ARE RIGHT.
+            //   `nswMayContributeValue` (ARM B) admits `registry-unsigned` — an unsigned draft may
+            //      drive the ENGINE, so the computation can be reviewed at all.
+            //   `nswMayPublish`         (ARM C) does not — an unsigned draft may not close the
+            //      LEDGER, so the outstanding legal work stays visible.
+            // Confusing them in either direction destroys one of the two properties.
+            if (!nswMayPublish(c.citation.state)) {
                 uncited++;
-                uncitedRows.push(`${parcel} · ${c.layerName} (layer ${c.layerId})`);
+                uncitedRows.push(
+                    `${parcel} · ${c.layerName} (layer ${c.layerId}) — citation.state='${c.citation.state}'`,
+                );
             }
         }
         findings.push(...audit(parcel, res));
@@ -280,6 +306,30 @@ function main(): number {
         teeth.push('T-D: an unapplied cap with envelopeIsUpperBound cleared was NOT flagged — ARM D is blind.');
     }
 
+    // T-C — ⭐ THE ROUND-4 TOOTH. Can an UNSIGNED draft close the ledger?
+    //
+    // The registry is walked for real: every row is checked, and if ANY row both lacks a signer and
+    // supplies a clause, then a control matching it would score `registry-unsigned` — a state Arm C
+    // must still count. This tooth asserts the PREDICATE rather than a fixture outcome, because a
+    // fixture that happens to carry no unsigned-with-clause control would make the tooth vacuous
+    // exactly when the registry starts growing drafts.
+    if (nswMayPublish('registry-unsigned')) {
+        teeth.push(
+            'T-C: `registry-unsigned` is treated as PUBLISHABLE, so an unsigned draft closes Arm C. ' +
+                'The ratchet is then satisfiable by writing prose rather than by reading law.',
+        );
+    }
+    const draftsWithClause = NSW_CONTROL_RULINGS.filter(
+        (r) => !isNswRulingSigned(r) && !!r.clause && r.clause.trim().length > 0,
+    );
+    if (draftsWithClause.length === 0) {
+        teeth.push(
+            'T-C: the registry holds NO unsigned row that supplies a clause, so the ' +
+                '`registry-unsigned` state is unreachable and this tooth proves nothing about it. ' +
+                'That is a fact about the registry, not a pass.',
+        );
+    }
+
     if (teeth.length > 0) {
         console.error('[nsw-citation] UNPROVEN — the gate cannot see the defects it polices:');
         for (const t of teeth) console.error(`  ${t}`);
@@ -289,8 +339,29 @@ function main(): number {
     // ── Verdict ───────────────────────────────────────────────────────────────────────────────
     console.log(
         `[nsw-citation] walked ${parcels.length} parcels · ${controlsRead} vertical controls · ` +
-            `teeth T-A/T-B/T-D all fired.`,
+            `teeth T-A/T-B/T-C/T-D all fired.`,
     );
+
+    // ── THE SIGNING QUEUE — the founder's actual work list, printed on every run ───────────────
+    // ⚠ NOT A GATE ARM. It cannot fail; it makes the outstanding legal reading visible so that
+    // "Arm C is at 4" is accompanied by "and here is exactly what closes it".
+    const queue = nswSigningQueue();
+    const ready = queue.filter((q) => q.readiness.ready);
+    const notReady = queue.filter((q) => !q.readiness.ready);
+    console.log(
+        `[nsw-citation] SIGNING QUEUE: ${queue.length} unsigned registry row(s) — ${ready.length} ` +
+            `ready for a signer, ${notReady.length} incomplete. 0 signed rows means status A is ` +
+            'unreachable for every NSW parcel whose control depends on the registry (§1.4).',
+    );
+    for (const q of ready) {
+        console.log(`  READY   ${q.ruling.instrument} · layer ${q.ruling.layerId} · ${q.ruling.clause}`);
+    }
+    for (const q of notReady) {
+        console.log(
+            `  PENDING ${q.ruling.instrument} · layer ${q.ruling.layerId} — missing: ` +
+                q.readiness.missing.join('; '),
+        );
+    }
 
     if (findings.length > 0) {
         console.error(`[nsw-citation] FAIL: ${findings.length} finding(s) on the hard-0 arms.`);

@@ -78,16 +78,29 @@ import {
     isNumericHeight,
     nswAbsoluteLevelFromLayClass,
     parseNswHeight,
+    NSW_RELATIVE_DATUM,
     type NswHeightValue,
 } from './nswHeightValue.js';
 import { nswNumber, nswText, type NswAttributeBag } from './nswPortalAttributes.js';
 import {
     describeNswAxisExclusion,
+    isNswDatumSubstitution,
     isNswUnevaluatedTopConstraint,
     nswPrincipalHobSemantics,
     nswQuantitySemantics,
     type NswQuantitySemantics,
 } from './nswLayName.js';
+import {
+    nswInstrumentClass,
+    nswResolveInstrumentContest,
+    type NswInstrumentClass,
+} from './nswInstrumentPrecedence.js';
+import {
+    isNswSeppReplica,
+    nswBandedValue,
+    nswReducedLevelConflict,
+    nswSeppLayer,
+} from './nswSeppLayers.js';
 import {
     nswMayContributeValue,
     nswMayPublish,
@@ -138,6 +151,29 @@ export interface NswVerticalControl {
      */
     readonly schemaSurprise: string | null;
     readonly ruling: NswControlRuling | null;
+    /**
+     * Which SERVICE the layer id belongs to. `null` = the Principal / Local Provisions family.
+     * ⛔ SEPP layer numbering is independent; without this the registry can apply a SEPP clause to
+     * a Local Provisions layer that happens to share an integer.
+     */
+    readonly service: 'SEPP' | null;
+    /**
+     * ⭐ `EPI_TYPE`, read. THE FIELD THAT MAKES THE SEPP ACCEPTANCE CRITERION SATISFIABLE.
+     * Principal/14 carries 743 SEPP-drawn polygons alongside 40,221 LEP ones; before this field
+     * was read, a SEPP height and an LEP height were indistinguishable rows of one layer.
+     */
+    readonly instrumentClass: NswInstrumentClass;
+    /**
+     * `true` when this control SUBSTITUTES the datum the base height is measured from
+     * (Byron LEP 2014 cl 4.3A). ⛔ Neither a cap nor an uplift; see `nswLayName.ts`.
+     */
+    readonly substitutesDatum: boolean;
+    /**
+     * ⚠ `true` when this SEPP-service control was MEASURED to duplicate what Principal/14 already
+     * serves at the same point. Carried rather than filtered at the door, so a caller that fetched
+     * it anyway is told WHY it is being ignored instead of watching it vanish.
+     */
+    readonly seppReplica: boolean;
 }
 
 /** An uplift that MIGHT apply. Reported with its condition and NEVER folded into `baseHeight`. */
@@ -204,6 +240,17 @@ export interface NswVerticalResolution {
      * signer). `false` means development-only: correct to compute, not yet correct to ship.
      */
     readonly publishable: boolean;
+    /**
+     * ⭐ Controls that SUBSTITUTE the measurement datum, reported separately because they are
+     * neither caps nor uplifts and belong in neither list. Non-empty means the base height's
+     * ORIGIN is in question — see `nswLayName.ts`'s round-4 correction box.
+     */
+    readonly datumControls: readonly NswVerticalControl[];
+    /**
+     * The instrument-precedence decision, when two competing base controls had to be ranked.
+     * `null` when there was no contest. Carries the verbatim clause that decided it.
+     */
+    readonly instrumentContest: string | null;
     /** Human-readable trace of the decision, for the explain-why panel. */
     readonly explanation: readonly string[];
 }
@@ -212,6 +259,16 @@ export interface NswVerticalResolution {
 export interface NswRawControlHit {
     readonly layerId: number;
     readonly attributes: NswAttributeBag;
+    /**
+     * Which ePlanning service this layer id came from. Omit (or `null`) for the Principal and
+     * Local Provisions services, whose ids share one namespace. Pass `'SEPP'` for a hit from
+     * `Planning_Portal_SEPP`.
+     *
+     * ⛔ NOT OPTIONAL BECAUSE IT IS UNIMPORTANT — optional because omitting it is the correct
+     * answer for the two services that have always been read here, and adding a third namespace
+     * must not silently reinterpret the existing two.
+     */
+    readonly service?: 'SEPP' | null;
 }
 
 /** Optional context that changes what can be decided. */
@@ -290,10 +347,12 @@ function ref(control: NswVerticalControl | null): RuleSourceRef {
 /** Type + classify ONE raw hit. Pure; never throws. */
 export function nswReadControl(hit: NswRawControlHit): NswVerticalControl {
     const a = hit.attributes;
+    const service = hit.service ?? null;
     const instrument = nswText(a, 'EPI_NAME');
     const lga = nswText(a, 'LGA_NAME');
     const layClass = nswText(a, 'LAY_CLASS');
     const servedClause = nswText(a, 'LEGIS_REF_CLAUSE');
+    const instrumentClass = nswInstrumentClass(nswText(a, 'EPI_TYPE'));
 
     // ── Height typing, driven by the SERVED semantics rather than by the layer id. ────────────
     // ⛔ The old shape of this block assumed `'m'` for every overlay and consulted a hand-written
@@ -304,19 +363,52 @@ export function nswReadControl(hit: NswRawControlHit): NswVerticalControl {
     // NOT on Principal/14, whose semantics come from its own `UNITS` domain instead. Asking the
     // wrong service for the wrong field returns `undefined` and classifies the state's principal
     // height control as off-axis — silently, and in the safe-looking direction. See nswLayName.ts.
+    // ⚠ THE PRINCIPAL SCHEMA IS KEYED ON THE LAYER ID **AND THE SERVICE**. `SEPP/14` is not the
+    // Height of Buildings Map; it is whatever the SEPP service numbers 14. Before `service` existed
+    // this test was `hit.layerId === 14` alone, which is correct for two services and wrong for the
+    // third — the exact shape of the alias defect this pack has already paid for twice.
+    const isPrincipalHob = service === null && hit.layerId === NSW_LAYER.HEIGHT_OF_BUILDINGS;
+    // The SEPP service's LEGACY-schema layers carry MAX_B_H + UNITS and no LAY_NAME at all
+    // (measured: null on 100% of features across layers 44/118/134/614/631/648/684). Reading them
+    // through the LAY_NAME vocabulary returns UNKNOWN and refuses a control the service states
+    // plainly, so they take the UNITS path instead.
+    const seppFacts = service === 'SEPP' ? nswSeppLayer(hit.layerId) : null;
+    const isSeppLegacyHob = seppFacts?.schema === 'legacy-maxbh';
     const quantity =
-        hit.layerId === NSW_LAYER.HEIGHT_OF_BUILDINGS
+        isPrincipalHob || isSeppLegacyHob
             ? nswPrincipalHobSemantics(nswText(a, 'UNITS'))
             : nswQuantitySemantics(nswText(a, 'LAY_NAME'));
+
+    // ⛔ THE REDUCED-LEVEL DATUM CONFLICT, CHECKED BEFORE ANY NUMBER IS READ. SEPP/718's own
+    // attributes disagree about whether its value is metres above ground or an AHD level, and a
+    // reader that picks one has discarded the warning rather than resolved it.
+    const rdlConflict = nswReducedLevelConflict(
+        nswText(a, 'MAP_TYPE'),
+        nswText(a, 'MAP_NAME'),
+        nswText(a, 'LAY_NAME'),
+        nswText(a, 'UNITS'),
+    );
+
     let height: NswHeightValue;
-    if (hit.layerId === NSW_LAYER.HEIGHT_OF_BUILDINGS) {
+    if (rdlConflict) {
+        height = { kind: 'uninterpretable', rawValue: nswNumber(a, 'LAY_CLASS'), rawUnits: nswText(a, 'UNITS'), reason: rdlConflict };
+    } else if (isPrincipalHob || isSeppLegacyHob) {
         // Principal/14 carries its own UNITS domain (m | m(RL) | NA) plus the split
         // MAX_B_H_M / MAX_B_H_RL columns; `parseNswHeight` refuses anything outside it.
         height = parseNswHeight(nswNumber(a, 'MAX_B_H'), nswText(a, 'UNITS'));
     } else if (quantity.datum === 'AHD') {
         height = nswAbsoluteLevelFromLayClass(nswNumber(a, 'LAY_CLASS'));
     } else if (quantity.datum === 'existing_ground_level') {
-        height = parseNswHeight(nswNumber(a, 'LAY_CLASS'), 'm');
+        // ⭐ THE MODERN SEPP SCHEMA KEEPS A SYMBOLOGY BAND IN LAY_CLASS, NOT A VALUE. `nswNumber`
+        // already rejects "80-99.9" — safe, and a 16-metre loss when LABEL says 96. `nswBandedValue`
+        // recovers the label ONLY when the band corroborates it, and refuses when they disagree.
+        const banded = nswBandedValue(layClass, nswText(a, 'LABEL'));
+        height =
+            banded.kind === 'exact'
+                ? parseNswHeight(banded.value, 'm')
+                : banded.kind === 'band-only'
+                  ? { kind: 'uninterpretable', rawValue: null, rawUnits: 'm', reason: banded.reason }
+                  : parseNswHeight(nswNumber(a, 'LAY_CLASS'), 'm');
     } else {
         // Applicability-only or an unrecognised LAY_NAME. ⛔ NOT assumed to be metres — the whole
         // point of the closed vocabulary is that an unlisted string refuses instead of defaulting.
@@ -333,11 +425,15 @@ export function nswReadControl(hit: NswRawControlHit): NswVerticalControl {
         hit.layerId !== NSW_LAYER.HEIGHT_OF_BUILDINGS &&
         isNswAbsoluteLevelLayer(hit.layerId) !== (quantity.datum === 'AHD');
 
-    const ruling = nswLookupRuling(instrument, hit.layerId, layClass);
+    const ruling = nswLookupRuling(instrument, hit.layerId, layClass, service);
     const citation = nswResolveCitation(servedClause, ruling, hit.layerId);
     return {
         layerId: hit.layerId,
-        layerName: nswLayerName(hit.layerId),
+        layerName: seppFacts?.name ?? nswLayerName(hit.layerId),
+        service,
+        instrumentClass,
+        substitutesDatum: isNswDatumSubstitution(quantity),
+        seppReplica: service === 'SEPP' && isNswSeppReplica(hit.layerId),
         instrument,
         lga,
         layClass,
@@ -387,6 +483,8 @@ export function resolveNswVerticalPrecedence(
                 conditionalUplifts: [],
                 hardCaps: [],
                 allControls: [],
+                datumControls: [],
+                instrumentContest: null,
                 verticallyUnplaced: false,
                 uncitedConstraints: [],
                 envelopeIsUpperBound: false,
@@ -415,6 +513,8 @@ export function resolveNswVerticalPrecedence(
             conditionalUplifts: [],
             hardCaps: [],
             allControls: [],
+            datumControls: [],
+            instrumentContest: null,
             verticallyUnplaced: false,
             uncitedConstraints: [],
             envelopeIsUpperBound: false,
@@ -453,9 +553,41 @@ export function resolveNswVerticalPrecedence(
     //                  airport buffer, a Building Height Plane class). ⛔ Ignoring one of these
     //                  DOES overstate — L-616 — so it drives `envelopeIsUpperBound` below.
     //   onAxis       — bounds the top and serves a number. Only these enter the role partition.
-    const offAxis = controls.filter((c) => !c.quantity.bearsOnEnvelopeTop);
-    const unevaluated = controls.filter((c) => isNswUnevaluatedTopConstraint(c.quantity));
-    const onAxis = controls.filter((c) => c.quantity.constrainsEnvelopeTop);
+    //
+    // ⭐ ROUND-4: A FOURTH BUCKET, AND IT IS THE ONE ROUND THREE PUT IN THE WRONG PLACE.
+    //   datumControls — SUBSTITUTE the origin the base height is measured from (Byron LEP 2014
+    //                   cl 4.3A). Round 3 filed layer 429 under `offAxis`, and `offAxis` means
+    //                   "ignoring this overstates NOTHING". That is false for a datum: ignoring it
+    //                   leaves the base height on the wrong origin, wrong by
+    //                   (datum level - existing ground level) in whichever direction the site
+    //                   slopes. Handled below, after the base is established.
+    //
+    // ⚠ AND FIRST, THE DE-DUPLICATION GUARD. A SEPP-service layer measured to REPLICATE what
+    // Principal/14 already serves at the same point must not be counted twice: two identical BASE
+    // controls is a status-D precedence conflict, i.e. a REFUSAL on a parcel that has one answer —
+    // a regression that arrives disguised as coverage. Reported, never silently dropped.
+    const replicas = controls.filter((c) => c.seppReplica);
+    for (const c of replicas) {
+        const facts = c.service === 'SEPP' ? nswSeppLayer(c.layerId) : null;
+        explanation.push(
+            `NOT COUNTED TWICE — SEPP service layer ${c.layerId} (${c.layerName}) was measured to ` +
+                'serve the same control the principal planning layer already serves at this point. ' +
+                `${facts?.replicaEvidence ?? ''} It is read and set aside; counting it again would ` +
+                'manufacture a second base control and refuse a parcel that has one answer.',
+        );
+    }
+    const live = controls.filter((c) => !c.seppReplica);
+
+    const datumControls = live.filter((c) => c.substitutesDatum);
+    const offAxis = live.filter((c) => !c.quantity.bearsOnEnvelopeTop && !c.substitutesDatum);
+    const unevaluated = live.filter((c) => isNswUnevaluatedTopConstraint(c.quantity));
+    const onAxis = live.filter((c) => c.quantity.constrainsEnvelopeTop);
+    for (const c of datumControls) {
+        explanation.push(
+            `MEASUREMENT DATUM, NOT A LIMIT — ${c.layerName} (${c.layClass ?? 'no class'}): ` +
+                describeNswAxisExclusion(c.quantity),
+        );
+    }
     for (const c of offAxis) {
         explanation.push(
             `EXCLUDED FROM HEIGHT PRECEDENCE — ${c.layerName} (${c.layClass ?? 'no class'}): ` +
@@ -474,6 +606,7 @@ export function resolveNswVerticalPrecedence(
     }
 
     // ── 1b. Partition by legal role, over the on-axis controls only. ──────────────────────────
+    let instrumentContest: string | null = null;
     const additive = onAxis.filter((c) => c.additive);
     const nonAdditive = onAxis.filter((c) => !c.additive);
 
@@ -502,13 +635,42 @@ export function resolveNswVerticalPrecedence(
                 (baseControl.clause ? ` (${baseControl.clause}).` : ' — no clause served.'),
         );
     } else if (bases.length > 1) {
-        // ⛔ Build prompt §5.6: two BASE controls the clauses do not resolve → status D. NOT min().
-        conflict = true;
-        explanation.push(
-            `${bases.length} BASE controls intersect this parcel and no clause ranks them: ` +
-                bases.map((b) => `${b.layerName} ${describeNswHeight(b.height)}`).join(' vs ') +
-                '. Choosing between them is a legal act, not an arithmetic one.',
+        // ⭐ ROUND-4 — ASK THE INSTRUMENTS BEFORE REFUSING. Measured: Principal/14 returns TWO rows
+        // on a State Significant Precinct parcel, one LEP-drawn and one SEPP-drawn (fixtures
+        // `parramatta-north-ssp-stack`, `hornsby-ehc-stack`). The SEPPs answer the question in their
+        // own words — "this Chapter prevails to the extent of the inconsistency" — and refusing
+        // when the instrument answers is the mirror image of guessing when it does not.
+        //
+        // ⛔ `nswResolveInstrumentContest` IS HANDED NO VALUES, ONLY INSTRUMENT IDENTITIES. Hornsby
+        // is the proof: LEP 8.5 m against SEPP 9.5 m, where the correct answer is the LARGER number.
+        // Any "conservative" tie-break gets that parcel wrong by a metre and Parramatta
+        // (LEP 20 m vs SEPP 6) wrong by fourteen.
+        const contest = nswResolveInstrumentContest(
+            bases.map((b) => ({ instrument: b.instrument, epiType: b.instrumentClass })),
         );
+        instrumentContest = contest.explanation;
+        explanation.push(contest.explanation);
+        if (contest.winnerIndex !== null) {
+            baseControl = bases[contest.winnerIndex]!;
+            for (const b of bases) {
+                if (b === baseControl) continue;
+                explanation.push(
+                    `DISPLACED — ${b.layerName} (${b.instrument ?? 'unnamed instrument'}) ` +
+                        `${describeNswHeight(b.height)} is set aside by the prevailing instrument ` +
+                        'above. ⚠ Set aside, not deleted: the clause resolves an INCONSISTENCY, so ' +
+                        'where the two instruments agree the displaced one still stands.',
+                );
+            }
+        } else {
+            // ⛔ Build prompt §5.6: two BASE controls the clauses do not resolve → status D. NOT min().
+            conflict = true;
+            explanation.push(
+                `${bases.length} BASE controls intersect this parcel and nothing read so far ranks ` +
+                    'them: ' +
+                    bases.map((b) => `${b.layerName} ${describeNswHeight(b.height)}`).join(' vs ') +
+                    '. Choosing between them is a legal act, not an arithmetic one.',
+            );
+        }
     }
 
     if (conflict) {
@@ -518,8 +680,10 @@ export function resolveNswVerticalPrecedence(
             conditionalUplifts: [],
             hardCaps: [],
             allControls: controls,
+            datumControls,
+            instrumentContest,
             verticallyUnplaced: false,
-            uncitedConstraints: controls.filter((c) => !nswMayContributeValue(c.citation.state)),
+            uncitedConstraints: live.filter((c) => !nswMayContributeValue(c.citation.state)),
             envelopeIsUpperBound: false,
             publishable: false,
             explanation,
@@ -650,7 +814,7 @@ export function resolveNswVerticalPrecedence(
     // on purpose: an unapplied uplift makes the answer CONSERVATIVE, and a conservative answer is
     // not an overstatement. Only an unapplied CAP inflates the envelope, and only that inflation
     // is what L-616 forbids leaving unlabelled.
-    const uncitedConstraints = controls.filter((c) => !nswMayContributeValue(c.citation.state));
+    const uncitedConstraints = live.filter((c) => !nswMayContributeValue(c.citation.state));
 
     // ⛔ THE L-616 LEDGER. Every control that could only ever REDUCE this envelope and did not get
     // applied. Four ways in, and each one was a separate near-miss:
@@ -699,6 +863,8 @@ export function resolveNswVerticalPrecedence(
             conditionalUplifts: uplifts,
             hardCaps,
             allControls: controls,
+            datumControls,
+            instrumentContest,
             verticallyUnplaced,
             uncitedConstraints,
             envelopeIsUpperBound,
@@ -729,6 +895,8 @@ export function resolveNswVerticalPrecedence(
             conditionalUplifts: uplifts,
             hardCaps,
             allControls: controls,
+            datumControls,
+            instrumentContest,
             verticallyUnplaced,
             uncitedConstraints,
             envelopeIsUpperBound,
@@ -757,6 +925,8 @@ export function resolveNswVerticalPrecedence(
             conditionalUplifts: uplifts,
             hardCaps,
             allControls: controls,
+            datumControls,
+            instrumentContest,
             verticallyUnplaced,
             uncitedConstraints,
             envelopeIsUpperBound,
@@ -791,6 +961,8 @@ export function resolveNswVerticalPrecedence(
             conditionalUplifts: uplifts,
             hardCaps,
             allControls: controls,
+            datumControls,
+            instrumentContest,
             verticallyUnplaced,
             uncitedConstraints,
             envelopeIsUpperBound,
@@ -815,29 +987,130 @@ export function resolveNswVerticalPrecedence(
         };
     }
 
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐ 4c. THE MEASUREMENT DATUM. Byron LEP 2014 cl 4.3A, and the round-4 correction in code.
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // A DATUM control does not cap and does not uplift: it moves the ORIGIN the base height is
+    // measured from. Where one applies, "8.5 m" does not mean 8.5 m above existing ground level —
+    // it means 8.5 m above the stated AHD level, i.e. an ABSOLUTE top.
+    //
+    // ⛔ AND WHERE THE DATUM CONTROL IS UNCITED THE BASE HEIGHT IS NOT A NUMBER WE MAY REPORT.
+    // This is the case the previous two rounds both got wrong in opposite directions. Round 3's
+    // answer — report 8.5 m above existing ground level and flag nothing — is not conservative:
+    // the error runs BOTH ways depending on whether the site sits above or below the stated level,
+    // so it is not covered by `envelopeIsUpperBound` (which asserts "could only be lower"). The
+    // honest state is `verticallyUnplaced`: we know the magnitude and not the origin.
+    let effective: NswHeightValue = h;
+    if (datumControls.length > 0) {
+        if (datumControls.length > 1) {
+            explanation.push(
+                `${datumControls.length} measurement-datum controls apply to this parcel and nothing ` +
+                    'read so far says which supplies the origin. Two origins is not an average.',
+            );
+            verticallyUnplaced = true;
+        } else {
+            const d = datumControls[0]!;
+            const usable = nswMayContributeValue(d.citation.state) && d.height.kind === 'absolute_level';
+            if (!usable) {
+                verticallyUnplaced = true;
+                explanation.push(
+                    `VERTICALLY UNPLACED — ${d.layerName} substitutes the datum this height is ` +
+                        'measured from, and it could not be used: ' +
+                        (d.height.kind !== 'absolute_level'
+                            ? describeNswHeight(d.height)
+                            : (d.citation.absenceReason ?? 'no clause citation could be resolved for it')) +
+                        `. The base control states ${describeNswHeight(h)}, but on this land that ` +
+                        'magnitude is measured from a level we cannot establish, so the envelope has ' +
+                        'a height and no position. ⛔ Reporting it as metres above existing ground ' +
+                        'level would be wrong by (datum level − ground level) in whichever direction ' +
+                        'the site slopes — an error that runs BOTH ways and is therefore not an ' +
+                        'upper bound. One signed registry row for this instrument closes it.',
+                );
+                return {
+                    baseHeight: h,
+                    baseControl,
+                    conditionalUplifts: uplifts,
+                    hardCaps,
+                    allControls: controls,
+                    datumControls,
+                    instrumentContest,
+                    verticallyUnplaced: true,
+                    uncitedConstraints,
+                    envelopeIsUpperBound,
+                    publishable: false,
+                    explanation,
+                    state: {
+                        rule: RULE_C2,
+                        status: 'unrecovered',
+                        partial: null,
+                        reachability: 'extractable',
+                        failure: 'semantic',
+                        mechanism: 'present',
+                        stoppedAt:
+                            `${describeNswHeight(h)} was read from ${baseControl.layerName}, and ` +
+                            `${d.layerName} substitutes the datum it is measured from without a ` +
+                            'usable value or citation. A magnitude on an unknown origin is not a height.',
+                        ref: ref(baseControl),
+                    },
+                };
+            }
+            if (h.kind === 'height_above_ground') {
+                effective = {
+                    kind: 'absolute_level',
+                    value_m_AHD: d.height.value_m_AHD + h.value_m,
+                    frame: 'AHD',
+                };
+                explanation.push(
+                    `DATUM SUBSTITUTED — ${d.clause ?? d.layerName}: the maximum height is measured ` +
+                        `from RL ${d.height.value_m_AHD} m AHD, not from existing ground level, so ` +
+                        `${h.value_m} m places the envelope top at RL ${d.height.value_m_AHD + h.value_m} ` +
+                        'm AHD. ⛔ This is an ADDITION because the clause moves the origin — it is not ' +
+                        'an additive height bonus, and it is not a competing maximum to minimise against.',
+                );
+            } else {
+                explanation.push(
+                    `${d.layerName} substitutes the measurement datum, and the base control is ` +
+                        `already absolute (${describeNswHeight(h)}). Applying a datum to a value that ` +
+                        'is already in that datum would double-count the ground. Reported, not applied.',
+                );
+            }
+        }
+    }
+
     return {
-        baseHeight: h,
+        baseHeight: effective,
         baseControl,
         conditionalUplifts: uplifts,
         hardCaps,
         allControls: controls,
+        datumControls,
+        instrumentContest,
         verticallyUnplaced,
         uncitedConstraints,
         envelopeIsUpperBound,
         // Build prompt §1.4: a named signer is the condition for publication. `registry-unsigned`
-        // computes correctly and ships to nobody.
-        publishable: nswMayPublish(baseControl.citation.state) && !envelopeIsUpperBound,
+        // computes correctly and ships to nobody. ⚠ A relocated datum inherits the DATUM control's
+        // publishability too: an answer standing on an unsigned reading of where the tape measure
+        // starts is not more publishable than that reading.
+        publishable:
+            nswMayPublish(baseControl.citation.state) &&
+            !envelopeIsUpperBound &&
+            !verticallyUnplaced &&
+            datumControls.every((d) => nswMayPublish(d.citation.state)),
         explanation,
         state: {
             rule: RULE_C2,
             status: 'resolved',
             reachability: 'source-complete',
-            value: h.kind === 'absolute_level' ? h.value_m_AHD : h.value_m,
-            unit: h.kind === 'absolute_level' ? 'm AHD' : 'm',
+            value: effective.kind === 'absolute_level' ? effective.value_m_AHD : (effective as { value_m: number }).value_m,
+            unit: effective.kind === 'absolute_level' ? 'm AHD' : 'm',
             // ⛔ NEVER OMITTED. `RuleState.resolved` treats an unresolved datum as `unrecovered`
             // for the same reason `nswHeightValue.ts` exists: a number on an unknown plane cannot
             // be multiplied into a volume, and 'm' vs 'm AHD' differ by the site's elevation.
-            datum: h.kind === 'absolute_level' ? 'AHD' : h.datum,
+            datum:
+                effective.kind === 'absolute_level'
+                    ? 'AHD'
+                    : (effective as { datum: typeof NSW_RELATIVE_DATUM }).datum,
             // The government published this number as a polygon attribute. That is what
             // `published-structured` means, and it is true whether or not a human has signed the
             // ROLE ruling — the signature governs publication (`publishable` above), not where the

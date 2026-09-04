@@ -46,10 +46,16 @@ import { NSW_LAYER } from './nswPortalLayers.js';
  *  - `OVERRIDE`    — REPLACES the base where it applies (typically a SEPP over an LEP).
  *  - `CAP`         — applies ON TOP of whatever governs, by intersection: airport surfaces,
  *                    meteorological station limits, sun-access planes. Never raises anything.
+ *  - `DATUM`       — ⭐ ROUND-4 ADDITION. The control does not limit anything; it **substitutes the
+ *                    origin** from which the base height is measured (Byron LEP 2014 cl 4.3A).
+ *                    None of the four roles above can express that, and forcing it into `CAP` is
+ *                    how a measurement datum spent two rounds being read as a limit. It is a
+ *                    separate role because it composes differently: a cap intersects, an uplift is
+ *                    withheld, a datum RELOCATES the answer without changing its magnitude.
  *  - `UNRESOLVED`  — **we have not established the legal role.** Not a guess, not a default, and
  *                    not a synonym for "ignore": the control is reported, uncited-role, unapplied.
  */
-export type NswLegalRole = 'BASE' | 'CONDITIONAL' | 'OVERRIDE' | 'CAP' | 'UNRESOLVED';
+export type NswLegalRole = 'BASE' | 'CONDITIONAL' | 'OVERRIDE' | 'CAP' | 'DATUM' | 'UNRESOLVED';
 
 /**
  * Parameters for an inclined-plane control (Building Height Plane, Sun Plane Protection).
@@ -79,6 +85,14 @@ export interface NswControlRuling {
     /** ePlanning Portal layer id. */
     readonly layerId: number;
     /**
+     * ⚠ WHICH SERVICE THE LAYER ID BELONGS TO. `null` = "the Principal / Local Provisions family",
+     * whose ids do not collide. `'SEPP'` scopes the row to the SEPP service, whose numbering is
+     * INDEPENDENT — SEPP/799 is the Growth Centres Incentive HOB map and shares its id with
+     * nothing in particular. A registry keyed on a bare integer across three services is one
+     * collision away from applying the wrong clause to the right-looking layer.
+     */
+    readonly service?: 'SEPP' | null;
+    /**
      * `LAY_CLASS` this ruling is scoped to, or `null` for "every class on this layer".
      * Building Height Plane needs per-class rows (A–E differ); Alternative HOB does not.
      */
@@ -94,6 +108,16 @@ export interface NswControlRuling {
     readonly clause: string | null;
     /** Where the ruling was read from — a URL, an XML export id, or a served attribute. */
     readonly source: string;
+    /**
+     * ⭐ THE SENTENCE, VERBATIM, when one was actually read. Carried into refusals and
+     * explanations so a reader checks the LAW rather than this file's paraphrase of it — the
+     * difference between a citation and an assertion (C58 §1.3).
+     *
+     * `null` when the row records only served-attribute semantics and no clause text was read.
+     * ⛔ A row with `clause` populated and `verbatim` null is a claim about which clause binds
+     * without the words that say so; permitted, but weaker, and the gate can tell them apart.
+     */
+    readonly verbatim?: string | null;
     /** Inclined-plane parameters, when the control is a plane. */
     readonly plane: NswPlaneParameters | null;
     /**
@@ -163,15 +187,36 @@ export const NSW_CONTROL_RULINGS: readonly NswControlRuling[] = Object.freeze([
             layClass: cls,
             role: 'CAP',
             condition: null,
-            clause: null,
+            // ⭐ ROUND 4: the clause IS resolvable, and the round-3 note said it was not. This row
+            // read `clause: null` with the comment "the current Burwood LEP 2012 XML export carries
+            // no 'building height plane' clause text (searched, 0 hits)". That search was over the
+            // XML export; the CONSOLIDATED HTML was fetched successfully on 2026-09-04 and the
+            // clause is cl 4.3A. ⚠ §GREP-SILENCE-HAS-THREE-CAUSES: the silence was the CHANNEL,
+            // not the law, and a "0 hits" from one channel was read as a fact about the instrument.
+            clause: 'Burwood Local Environmental Plan 2012 cl 4.3A (Exceptions to height of buildings)',
+            verbatim:
+                'Despite clause 4.3, the height of a building on land marked "Area A" on the Height ' +
+                'of Buildings Map is not to exceed the building height plane for that land. ... ' +
+                'building height plane or BHP means a plane- (a) commencing at a building height ' +
+                'plane line shown on the Building Height Plane Map and referred to in Column 1 of ' +
+                'the Table to this clause and at the height above ground level (existing) as shown ' +
+                'opposite in Column 2 of that Table, and (b) projected at the angle measured above ' +
+                'the horizontal as shown opposite in Column 3 of that Table, and (c) having the ' +
+                'general orientation ...',
             source:
-                'ePlanning Portal Local_Provisions/430 CLASS_DESCRIPTION (served attribute), ' +
-                'read 2026-09-03; PCO_REF_KEY 2012-550',
+                'Parameters: ePlanning Portal Local_Provisions/430 CLASS_DESCRIPTION (served ' +
+                'attribute), read 2026-09-03. Clause: legislation.nsw.gov.au epi-2012-0550 ' +
+                '(consolidated, fetched 2026-09-04, 742,292 bytes), transcript ' +
+                'phase0-transcripts/lep-text-probe2.json. PCO_REF_KEY 2012-550.',
             plane: { lineHeight_m, angleDeg, orientation },
             signedBy: null,
             note:
-                'Parameters served as data, not extracted from prose. A building height plane is a ' +
-                'CAP: it trims the volume and never raises the base height.',
+                'Parameters served as data, not extracted from prose — and the clause independently ' +
+                'confirms their SHAPE (line height above ground level (existing), angle above the ' +
+                'horizontal, general orientation), which is a second reading of the same fact. ' +
+                'A building height plane is a CAP: "is not to exceed" — it trims the volume and ' +
+                'never raises the base height. ⚠ The clause applies only to land marked "Area A" on ' +
+                'the Height of Buildings Map, an applicability condition this pack does not fetch.',
         }),
     ),
 
@@ -194,13 +239,40 @@ export const NSW_CONTROL_RULINGS: readonly NswControlRuling[] = Object.freeze([
         layClass: null,
         role: 'CAP',
         condition: null,
-        clause: null,
-        source: 'ePlanning Portal Local_Provisions/573 LAY_CLASS (served attribute), read 2026-09-03',
+        // ⭐ ROUND 4 — THE ANGLE IS NOT SOLAR-DERIVED, IT IS STATED. The round-3 note (kept at the
+        // end of this row) said the plane angle was "derivable from solar geometry at the site
+        // latitude". The clause states the control numerically instead. That is a better position
+        // and a different one, and it matters: a solar derivation would have produced a plausible
+        // number that the instrument does not use.
+        clause: 'Wollongong Local Environmental Plan 2009 cl 8.3 (Sun plane protection)',
+        verbatim:
+            '(1) The objective of this clause is to protect specified public open space from ' +
+            'excessive overshadowing by restricting the height of buildings. (2) This clause applies ' +
+            'to land coloured yellow on the Sun Plane Protection Map. (3) Development on land to ' +
+            'which this clause applies is prohibited if the development results in any part of a ' +
+            'building projecting above a sun access control set out in this clause. (4) MacCabe Park ' +
+            'The sun access control for any point on land shown coloured yellow on the Sun Plane ' +
+            'Protection Map and marked "MacCabe Park-Burelli Street" is- (a) 32 metres above the ' +
+            'point, or (b) if the point is within 26.4 metres of the boundary of Burelli Street- ' +
+            '[FORMULA NOT CAPTURED] metres above the point, where D is the shortest distance in ' +
+            'metres between the point and the boundary of Burelli Street.',
+        source:
+            'legislation.nsw.gov.au epi-2010-0076 (consolidated, fetched 2026-09-04, 1,198,687 ' +
+            'bytes), transcript phase0-transcripts/lep-text-probe2.json; geometry and time window ' +
+            'from ePlanning Portal Local_Provisions/573 LAY_CLASS, read 2026-09-03',
         plane: null,
         signedBy: null,
         note:
-            'Time window served in LAY_CLASS (e.g. "12-2pm, 21 June"); plane angle is derivable from ' +
-            'solar geometry at the site latitude, origin line is not yet resolved. Reported, not applied.',
+            '⛔ STILL NOT APPLIED, AND THE REASON CHANGED. The control is a per-point height ABOVE ' +
+            'THE POINT — 32 m beyond 26.4 m from Burelli Street, and a function of D within it. ' +
+            'That is not the line-anchored plane `inclinedTop.ts` takes; it is a distance-decay ' +
+            'surface, so even a complete capture would need the origin line to be the STREET ' +
+            'BOUNDARY rather than a served polygon edge. ⚠ AND THE FORMULA IS MISSING FROM THE ' +
+            'CAPTURE: it is a MathML element the HTML-to-text strip dropped, so the transcript ' +
+            'reads "- metres above the point" with the expression gone. That is a KNOWN HOLE IN ' +
+            'THE CHANNEL, not in the law, and it is named rather than approximated — a plane fitted ' +
+            'to "32 m, less nearer the street" is a guess with a citation attached. Re-fetch ' +
+            'preserving MathML to close it.',
     },
 
     // ──────────────────────────────────────────────────────────────────────────────────────────
@@ -218,8 +290,22 @@ export const NSW_CONTROL_RULINGS: readonly NswControlRuling[] = Object.freeze([
         layClass: null,
         role: 'CAP',
         condition: null,
-        clause: null,
-        source: 'ePlanning Portal Local_Provisions/469 LAY_NAME + LAY_CLASS (served), read 2026-09-04',
+        // ⭐ ROUND 4 — THE ONE ROUND-3 VERDICT THE CLAUSE CONFIRMS RATHER THAN OVERTURNS. Layer 469
+        // really is a minimum FINISHED FLOOR level, and it is a different control from layer 429
+        // despite both LAY_NAMEs beginning "Minimum". The clause is what establishes that; the
+        // similarity of the strings is what nearly hid it.
+        clause: 'Singleton Local Environmental Plan 2013 cl 7.1 (Earthworks / flood planning)',
+        verbatim:
+            'if the building is located on land identified on the Floor Height Restriction Map-the ' +
+            'finished floor height of any habitable room in that building will not be less than the ' +
+            'minimum height shown for the land on that map ... if the building is located on land ' +
+            'identified on the Floor Height Restriction Map-the finished floor height of the first ' +
+            'floor of the building will not be less than the height shown for the land on that map ' +
+            'and will not exceed 4 metres above natural ground level',
+        source:
+            'legislation.nsw.gov.au epi-2013-0524 (consolidated, fetched 2026-09-04, 739,180 bytes), ' +
+            'transcript phase0-transcripts/lep-text-probe2.json; values from ePlanning Portal ' +
+            'Local_Provisions/469 LAY_NAME + LAY_CLASS (served), read 2026-09-04',
         plane: null,
         signedBy: null,
         note:
@@ -247,22 +333,215 @@ export const NSW_CONTROL_RULINGS: readonly NswControlRuling[] = Object.freeze([
     // travels to the next parcel and the answer does not.
     // ──────────────────────────────────────────────────────────────────────────────────────────
     {
+        instrument: 'Byron Local Environmental Plan 2014',
+        layerId: NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE,
+        layClass: null,
+        role: 'DATUM',
+        condition: null,
+        clause: 'Byron Local Environmental Plan 2014 cl 4.3A (Measurement of height of buildings)',
+        verbatim:
+            '(1) ... to provide for a consistent point of reference for the measurement of building ' +
+            'heights in flood prone areas. (2) This clause applies to land identified as "Minimum ' +
+            'Level Australian Height Datum (AHD)" on the Building Height Allowance Map. (3) The ' +
+            'maximum height of a building on land to which this clause applies is to be measured ' +
+            'from the minimum level AHD permitted for that land on the Building Height Allowance Map.',
+        source:
+            'legislation.nsw.gov.au epi-2014-0297 (consolidated, fetched 2026-09-04), transcript ' +
+            'phase0-transcripts/lep-text-probe2.json; values from ePlanning Portal ' +
+            'Local_Provisions/429 LAY_NAME + LAY_CLASS (served), read 2026-09-04',
+        plane: null,
+        signedBy: null,
+        note:
+            '⭐ THE ROUND-4 CORRECTION, AND THE THIRD READING OF THIS LAYER. It is neither an ' +
+            'additive bonus (round 1-2) nor a minimum floor level (round 3): it is the ORIGIN the ' +
+            'maximum height is measured from. On this land an 8.5 m LEP height means RL 2.1 + 8.5 = ' +
+            '10.6 m AHD, and reporting "8.5 m above existing ground level" is wrong by ' +
+            '(2.1 - existing ground level) metres in whichever direction the site slopes.',
+    },
+    {
+        // ⛔ BALLINA IS THE OTHER HALF OF THOSE 203 ROWS AND ITS CLAUSE HAS NOT BEEN READ.
+        // The wildcard row supplies the ROLE (the semantics come from a LAY_NAME identical on all
+        // 203 features) and deliberately supplies NO CLAUSE, so Ballina's controls stay in citation
+        // state `absent` and are reported, not applied.
+        //
+        // ⚠ THE TEMPTATION HERE IS THE WHOLE FAILURE MODE OF THIS LANE. Byron's cl 4.3A reads so
+        // cleanly, and the served attributes are byte-identical across both LGAs, that copying the
+        // citation across would feel like tidying. It would be a claim about Ballina's instrument
+        // made from Byron's — §CONFIDENT-REGISTER-ROWS-ARE-THE-WRONG-ONES, committed knowingly.
+        // One row, one instrument, one reading.
         instrument: '*',
         layerId: NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE,
         layClass: null,
-        role: 'CAP',
+        role: 'DATUM',
         condition: null,
-        // ⚠ STILL null, and Arm C still counts this control as UNCITED — deliberately. Knowing
-        // what the number MEANS is not knowing which clause makes it BIND. Recording the semantics
-        // here must not be allowed to look like a citation; only a real clause reference closes it.
         clause: null,
+        verbatim: null,
         source: 'ePlanning Portal Local_Provisions/429 LAY_NAME (served attribute), read 2026-09-04',
         plane: null,
         signedBy: null,
         note:
-            'Minimum habitable floor level in AHD, on the FLOOR axis — despite the layer being ' +
-            'titled "Building Height Allowance Map". Measured 203/203 rows, BALLINA + BYRON. ' +
-            'Never additive, never a maximum, never comparable to a height above existing ground.',
+            'Measurement-datum semantics from a LAY_NAME populated on 203/203 rows (BALLINA + ' +
+            'BYRON). The CLAUSE is read for Byron only. Knowing what a number means is not knowing ' +
+            'which clause makes it bind, and only the second one closes Arm C.',
+    },
+
+    // ──────────────────────────────────────────────────────────────────────────────────────────
+    // WOLLONGONG LEP 2009 — Overshadowing Map (layer 763). ⛔ THE POLYGONS ARE THE EXEMPTIONS.
+    //
+    // ⭐ THE NEAR-MISS WORTH RECORDING. `LAY_CLASS` reads "C1 Brick Chimney Stack - 29m", and 29 m
+    // looks exactly like a height limit encoded in a label. It is not. cl 7.20(4) lists the C1
+    // North Stack, the C1 Brick Chimney Stack and the C1 Fine Coal Bin as structures whose
+    // overshadowing is EXCUSED from the prohibition. The 29 is the existing chimney's height,
+    // recorded so the chimney is not held to breach the clause. Parsing it as a cap would have
+    // imposed a 29 m limit sourced from an exemption for someone else's chimney.
+    // ──────────────────────────────────────────────────────────────────────────────────────────
+    {
+        instrument: 'Wollongong Local Environmental Plan 2009',
+        layerId: NSW_LAYER.OVERSHADOWING,
+        layClass: null,
+        role: 'CAP',
+        condition: null,
+        clause:
+            'Wollongong Local Environmental Plan 2009 cl 7.20 (Overshadowing of Heritage Plaza, ' +
+            'Central Park and Southern Park)',
+        verbatim:
+            'consent must not be granted for development on land to which this clause applies if ' +
+            'the development will result in overshadowing of the land identified as "Heritage ' +
+            'Plaza", "Central Park" and "Southern Park" on the Overshadowing Map between 11am and ' +
+            '2pm on 21 June. (4) Subclause (3) does not apply to overshadowing caused by the ' +
+            'following structures shown on the Overshadowing Map- (a) C1 North Stack, (b) C1 Brick ' +
+            'Chimney Stack, (c) C1 Fine Coal Bin.',
+        source:
+            'legislation.nsw.gov.au epi-2010-0076 (consolidated, fetched 2026-09-04, 1,198,687 ' +
+            'bytes), transcript phase0-transcripts/lep-text-probe2.json',
+        plane: null,
+        signedBy: null,
+        note:
+            'A CAP in effect (it can only reduce a building) but NOT a numeric one: the control is ' +
+            '"no overshadowing of three named parks between 11am and 2pm on 21 June", which is a ' +
+            'shadow computation against a time window, not a height. The layer serves no usable ' +
+            'number and the one it appears to serve belongs to an EXEMPT EXISTING STRUCTURE. ' +
+            'Reported, not applied — and it makes the envelope an upper bound (L-616).',
+    },
+
+    // ──────────────────────────────────────────────────────────────────────────────────────────
+    // SEPP SERVICE ROWS. ⚠ `service: SEPP` because SEPP layer numbering is INDEPENDENT of the
+    // Principal / Local Provisions numbering; a bare integer key would apply these to whatever
+    // Local Provisions layer happens to share the id.
+    // ──────────────────────────────────────────────────────────────────────────────────────────
+    {
+        instrument: 'State Environmental Planning Policy (Sydney Region Growth Centres) 2006',
+        layerId: 799, // SEPP/799 Incentive Height of Buildings Map
+        service: 'SEPP',
+        layClass: null,
+        role: 'CONDITIONAL',
+        condition:
+            'The development is INCENTIVISED DEVELOPMENT within the meaning of the Division — it is ' +
+            'not a property of the land, and it is not established by the polygon. Until the ' +
+            'incentive is granted, the base height on Principal/14 is what applies.',
+        clause:
+            'State Environmental Planning Policy (Precincts-Western Parkland City) 2021 s 6.16(3) ' +
+            '(Incentivised development)',
+        verbatim:
+            'Despite section 4.3, the maximum height of a building resulting from incentivised ' +
+            'development on land to which this division applies is the height shown for the land on ' +
+            'the Incentive Height of Buildings Map. (4) Despite section 4.4, the maximum floor space ' +
+            'ratio of buildings resulting from incentivised development on land to which this ' +
+            'division applies is the floor space ratio shown for the land on the Incentive Floor ' +
+            'Space Ratio Map.',
+        source:
+            'legislation.nsw.gov.au epi-2021-0728 (consolidated, fetched 2026-09-04, 2,718,235 ' +
+            'bytes), transcript phase0-transcripts/lep-text-probe2.json',
+        plane: null,
+        signedBy: null,
+        note:
+            '⭐ THE MEASURED NON-REPLICA. sepp-overlap2 Q1 sampled 4 polygons: Principal/14 returned ' +
+            '30 m or 24 m at every one while this layer said "80-99.9" — same value on 0 of 4. ' +
+            'A conditional uplift of roughly 3x the base, and "a conditional uplift presented as an ' +
+            'entitlement is the worst output this engine can produce".',
+    },
+    {
+        instrument: 'State Environmental Planning Policy (Sydney Region Growth Centres) 2006',
+        layerId: 800, // SEPP/800 Incentive Floor Space Ratio Map
+        service: 'SEPP',
+        layClass: null,
+        role: 'CONDITIONAL',
+        condition:
+            'The development is INCENTIVISED DEVELOPMENT within the meaning of the Division. Same ' +
+            'condition as the height twin (layer 799) and the same clause.',
+        clause:
+            'State Environmental Planning Policy (Precincts-Western Parkland City) 2021 s 6.16(4) ' +
+            '(Incentivised development)',
+        verbatim:
+            'Despite section 4.4, the maximum floor space ratio of buildings resulting from ' +
+            'incentivised development on land to which this division applies is the floor space ' +
+            'ratio shown for the land on the Incentive Floor Space Ratio Map.',
+        source:
+            'legislation.nsw.gov.au epi-2021-0728 (consolidated, fetched 2026-09-04), transcript ' +
+            'phase0-transcripts/lep-text-probe2.json',
+        plane: null,
+        signedBy: null,
+        note: 'The floor-space half of s 6.16. Recorded so the FSR lane inherits the same condition.',
+    },
+    {
+        instrument: 'State Environmental Planning Policy (Western Sydney Aerotropolis) 2020',
+        layerId: 278, // SEPP/278 Obstacle Limitation Surface
+        service: 'SEPP',
+        layClass: null,
+        role: 'CAP',
+        condition: null,
+        clause:
+            'State Environmental Planning Policy (Precincts-Western Parkland City) 2021 s 4.22 ' +
+            '(Airspace operations)',
+        verbatim:
+            '(1) This section applies to development that is- (a) on land shown on the Obstacle ' +
+            'Limitation Surface Map, and (b) a controlled activity within the meaning of the ' +
+            'Airports Act 1996 of the Commonwealth, Part 12, Division 4. (2) Development consent ' +
+            'must not be granted to development to which this section applies unless the consent ' +
+            'authority is satisfied the development will not- (a) compromise ...',
+        source:
+            'legislation.nsw.gov.au epi-2021-0728 (consolidated, fetched 2026-09-04), transcript ' +
+            'phase0-transcripts/lep-text-probe2.json; attributes from ePlanning Portal SEPP/278, ' +
+            'read 2026-09-04',
+        plane: null,
+        signedBy: null,
+        note:
+            '⛔ THE CLAUSE STATES NO HEIGHT. It is a discretionary prohibition ("must not be granted ' +
+            '... unless the consent authority is satisfied"), and its trigger is a CONTROLLED ' +
+            'ACTIVITY under Commonwealth aviation law, not a property of the parcel. The served ' +
+            'MINIMUM_HEIGHT / MAXIMUM_HEIGHT (150-230.5, COMMENTS "Horizontal" / "Conical") are the ' +
+            'elevations of the obstacle limitation surface itself, in a datum the layer does not ' +
+            'name. Aviation OLS are conventionally AHD; ⛔ "conventionally" is not a served datum, ' +
+            'so this is reported and NOT applied.',
+    },
+    {
+        instrument: 'State Environmental Planning Policy (Precincts-Central River City) 2021',
+        layerId: 718, // SEPP/718 Sydney Olympic Park Reduced Level Map
+        service: 'SEPP',
+        layClass: null,
+        role: 'UNRESOLVED',
+        condition: null,
+        // ⛔ NO CLAUSE, DELIBERATELY, EVEN THOUGH ONE WAS READ. s 18 names this map, but it does not
+        // settle the DATUM, and a citation attached to a number on an unknown datum is worse than
+        // no citation: it lends authority to the ambiguity. See `nswReducedLevelConflict`.
+        clause: null,
+        verbatim:
+            'The height of a building on any land within the Sydney Olympic Park site is not to ' +
+            'exceed the maximum height shown for the land on the Height of Buildings Map or the ' +
+            'Reduced Level Map, whichever is applicable.',
+        source:
+            'legislation.nsw.gov.au epi-2021-0725 Appendix (Sydney Olympic Park) s 18 (consolidated, ' +
+            'fetched 2026-09-04), transcript phase0-transcripts/lep-text-probe2.json',
+        plane: null,
+        signedBy: null,
+        note:
+            '⭐ THE ONLY MEASURED SEPP HEIGHT CONTROL PRINCIPAL/14 DOES NOT CARRY (5 of 5 interior ' +
+            'points return no Principal/14 polygon), and its DATUM IS CONTESTED BY ITS OWN ' +
+            'ATTRIBUTES: LAY_NAME "Maximum Building Height (m)" and UNITS "m" against MAP_TYPE ' +
+            '"RDL" and MAP_NAME "... Reduced Level Map". The clause names the two maps separately, ' +
+            'which supports AHD without settling it. Three readings say AHD and two say metres; a ' +
+            '3-2 vote is not a determination. At Sydney Olympic Park (ground roughly RL 5-10 AHD) ' +
+            'the difference is the whole ground elevation.',
     },
 ]);
 
@@ -285,12 +564,17 @@ export function nswLookupRuling(
     instrument: string | null,
     layerId: number,
     layClass: string | null,
+    service: 'SEPP' | null = null,
 ): NswControlRuling | null {
     const inst = instrument?.trim() ?? '';
     const cls = layClass?.trim() ?? null;
 
     const candidates = NSW_CONTROL_RULINGS.filter((r) => {
         if (r.layerId !== layerId) return false;
+        // ⛔ SERVICE MUST MATCH EXACTLY. A row scoped to the SEPP service must never satisfy a
+        // Local Provisions hit that happens to share the integer, and vice versa. Layer ids are
+        // per-service and this is the only place that fact is enforced.
+        if ((r.service ?? null) !== service) return false;
         if (r.instrument !== '*' && r.instrument !== inst) return false;
         if (r.layClass !== null && r.layClass !== cls) return false;
         return true;
@@ -310,4 +594,65 @@ export function nswLookupRuling(
 /** Is this ruling publishable? Build prompt §1.4 — status A requires a named signer. */
 export function isNswRulingSigned(r: NswControlRuling | null): boolean {
     return r !== null && typeof r.signedBy === 'string' && r.signedBy.trim().length > 0;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §NSW-SIGNING-WORKFLOW — what makes a draft row shippable, as a checkable predicate.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The registry has two populations and they must not be confused:
+//
+//   DRAFT  (`signedBy: null`) — a lane agent read a government source and wrote down what it said.
+//          Computes correctly. **Ships to nobody.** Every row in this file is currently a draft.
+//   SIGNED (`signedBy: "Name"`) — a NAMED HUMAN read the consolidated instrument and accepts
+//          responsibility for the reading. Only these reach a published envelope (§1.4).
+//
+// ⭐ THE PROPERTY THAT MAKES THE DISTINCTION WORTH HAVING: **Arm C of the citation gate must not
+// fall when a draft is added.** A ratchet that a lane agent can drive to zero by writing rows is
+// a ratchet measuring its own author. `nswRulingIsPublishableEvidence` is what Arm C counts.
+
+/** The completeness a row needs before a human can sensibly be asked to sign it. */
+export interface NswSigningReadiness {
+    readonly ready: boolean;
+    /** What is missing, named. Empty when `ready`. */
+    readonly missing: readonly string[];
+}
+
+/**
+ * Is this DRAFT complete enough to put in front of a signer?
+ *
+ * ⚠ This is not a quality judgement on the reading; it is a checklist. A row with no `verbatim`
+ * asks a human to sign a paraphrase, and a row whose `source` cannot be re-fetched asks them to
+ * sign something they cannot check. Both are refused here rather than discovered at signing time.
+ */
+export function nswSigningReadiness(r: NswControlRuling): NswSigningReadiness {
+    const missing: string[] = [];
+    if (!r.clause || r.clause.trim() === '') missing.push('clause (no reference to sign)');
+    if (!r.verbatim || r.verbatim.trim() === '')
+        missing.push('verbatim (a signer would be endorsing this file\'s paraphrase, not the law)');
+    if (!r.source || r.source.trim() === '') missing.push('source (the reading cannot be re-checked)');
+    if (r.role === 'CONDITIONAL' && (!r.condition || r.condition.trim() === ''))
+        missing.push('condition (a conditional uplift with no stated condition cannot be shown to a user)');
+    return { ready: missing.length === 0, missing };
+}
+
+/**
+ * ⛔ WHAT ARM C COUNTS AS CLOSED. A ruling closes the uncited count only when a NAMED HUMAN signed
+ * it — never merely because a draft supplies a clause string.
+ *
+ * ⚠ THIS IS DELIBERATELY STRICTER THAN `nswMayContributeValue`. An unsigned draft may drive the
+ * ENGINE (so the computation can be tested and reviewed) and may not move the LEDGER (so the
+ * outstanding legal work stays visible). Conflating the two would let this lane close its own
+ * ratchet by writing prose, which is the failure mode §CONFIDENT-REGISTER-ROWS-ARE-THE-WRONG-ONES
+ * describes and §RATCHET-EXCEEDED-IS-NEVER-DEBT forbids paying for with anything but the work.
+ */
+export function nswRulingIsPublishableEvidence(r: NswControlRuling | null): boolean {
+    return isNswRulingSigned(r) && !!r!.clause && r!.clause.trim().length > 0;
+}
+
+/** Every draft row that is ready for a signer, in registry order. The founder's work queue. */
+export function nswSigningQueue(): readonly { readonly ruling: NswControlRuling; readonly readiness: NswSigningReadiness }[] {
+    return NSW_CONTROL_RULINGS.filter((r) => !isNswRulingSigned(r)).map((ruling) => ({
+        ruling,
+        readiness: nswSigningReadiness(ruling),
+    }));
 }

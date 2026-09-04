@@ -2719,6 +2719,44 @@ export {
     type NlAchtererfLine,
     type NlBijbehorendHeightRegime,
 } from './rulepacks/nlBebouwingsgebied.js';
+// §NL-TIJDELIJK-DEEL (round four) — the founder's `not-verified` question, CLOSED: the tijdelijk deel is
+// SPLIT (bruidsschat in Ozon/Presenteren v8, the old bestemmingsplannen on ruimtelijkeplannen.nl), but one
+// credential and ONE discovery call (Ontsluiten v2 /documenten/_zoek) reach both. Routing, the documented
+// aliasing trap, and a `conditie` classifier whose pattern table is deliberately EMPTY.
+export {
+    NL_DSO_INTEGRATION,
+    NL_CONDITIE_PATTERNS,
+    routeNlDocument,
+    checkNlDocumentAliasing,
+    classifyNlConditie,
+    nlTijdelijkDeelCoverage,
+    nlTijdelijkDeelToRuleState,
+    type NlDsoDocumentRecord,
+    type NlDocumentHalf,
+    type NlDocumentRoute,
+    type NlDocumentAliasing,
+    type NlConditieClass,
+    type NlConditiePattern,
+    type NlConditieClassification,
+    type NlTijdelijkDeelRead,
+    type NlTijdelijkDeelCoverage,
+} from './rulepacks/nlTijdelijkDeel.js';
+// §NL-APPLICABILITY (round four) — deep audit Gap 1: `parcel intersects rule geometry → rule applies` is
+// WRONG. Seven axes (location, activity, subject, rule-scope, authority, effective-date, exceptions); there
+// is NO path from a subset to `applies`, and an intersection alone reports `intersectionOnly`.
+export {
+    NL_APPLICABILITY_AXES,
+    NL_APPLICABILITY_SOURCES,
+    resolveNlApplicability,
+    nlApplicabilityBinds,
+    nlApplicabilityToRuleState,
+    type NlApplicabilityAxis,
+    type NlAxisVerdict,
+    type NlAxisFinding,
+    type NlApplicabilityVerdict,
+    type NlApplicabilityInputs,
+    type NlApplicabilityResolution,
+} from './rulepacks/nlApplicability.js';
 // §NL-PEIL-CATALOGUE (round three) — the 18 distinct peil definitions of the seed-20260903 sample QUOTED
 // as a closed set, the begripsbepaling extractor (lowercase-heading trim), and the Stelselcatalogus
 // reference: `peil` has no national concept, `straatpeil` does and is the normalisation anchor.
@@ -2849,6 +2887,30 @@ export {
     type FrPauDerivation,
 } from './rulepacks/frPau.js';
 
+// §FR-RESOLUTION (lane ENVELOPE-FR, 2026-09-04) — the ONE entry point that composes the seven FR
+// packs above into a `RuleState[]`, routed by REGIME.
+//
+// ⭐ IT EXISTS BECAUSE THE PACKS WERE UNREACHABLE. Measured before writing it: every one of
+// `frCnigPrescriptionTree` / `frRnuNationalPack` / `frFrontage` / `frPau` / `frPlanningRegime` /
+// `frImplantationRule` / `frHeightDatum` had ZERO consumers outside its own test and this barrel.
+// Seven pure, tested packs on no path a parcel resolution walks — §AUTHORED-BUT-UNWIRED in its
+// purest form. Exporting a pack makes it importable; only a COMPOSER makes it reachable, and only a
+// caller makes it run (§COMMITTED-IS-NOT-REACHABLE).
+//
+// The composition rule is one parameter, one pack, decided by the regime verdict — RNU/POS-caduc go
+// to the national articles, PLU/PLUi/PSMV/CC to the CNIG prescriptions, and a publisher CONFLICT to
+// neither. Frontage and PAU are INPUTS to those packs (the derived road width IS R.111-16's `A4`),
+// never rivals emitting a second state for the same rule. Pure; no I/O.
+export {
+    FR_RESOLUTION_ORDER,
+    frEnvelopeRuleStates,
+    frMissingSourceReclassification,
+    type FrParcelGeometry,
+    type FrResolutionInput,
+    type FrResolution,
+    type FrMissingSourceVerdict,
+} from './rulepacks/frResolution.js';
+
 // §NSW-ENVELOPE (lane ENVELOPE-NSW, 2026-09-04) — the NSW vertical-precedence surface.
 //
 // ⚠ EXPORTED, NOT YET ROUTED. This is a pure resolver over already-fetched ePlanning features; it
@@ -2888,12 +2950,66 @@ export {
     nswPrincipalHobSemantics,
     isNswQuantityUnknown,
     isNswUnevaluatedTopConstraint,
+    isNswDatumSubstitution,
     describeNswAxisExclusion,
     NSW_LAY_NAME_SEMANTICS,
     type NswQuantitySemantics,
     type NswQuantityAxis,
     type NswQuantityDatum,
 } from './rulepacks/au/nswLayName.js';
+
+// ── ROUND 4 (2026-09-04) — beyond the LEP: SEPP, instrument precedence, and the DCP's storeys ──
+//
+// ⭐ THE ACCEPTANCE CRITERION *"a SEPP-covered parcel is never resolved LEP-alone"* is met by
+// reading `EPI_TYPE` on the layer already being read, NOT by adding a service. Measured: 743 of
+// Principal/14's 40,964 Height-of-Buildings polygons are SEPP-drawn, and eight of the ten
+// SEPP-service HOB layers were measured to REPLICATE what Principal/14 already serves at the same
+// point. Fetching them all would manufacture a second base control and refuse ~1.8% of NSW
+// parcels that have one answer — a regression disguised as coverage.
+export {
+    nswSeppLayer,
+    isNswSeppReplica,
+    nswParseBand,
+    nswBandedValue,
+    nswReducedLevelConflict,
+    NSW_SEPP_LAYER_FACTS,
+    NSW_SEPP_NON_REPLICA_LAYERS,
+    type NswSeppLayerClass,
+    type NswSeppLayerFacts,
+    type NswSeppSchema,
+    type NswValueBand,
+    type NswBandedValue,
+} from './rulepacks/au/nswSeppLayers.js';
+export {
+    nswInstrumentClass,
+    nswLookupPrecedence,
+    isNswPrecedenceSigned,
+    nswResolveInstrumentContest,
+    NSW_PRECEDENCE_RULINGS,
+    type NswInstrumentClass,
+    type NswPrecedenceEffect,
+    type NswPrecedenceRuling,
+    type NswInstrumentContest,
+} from './rulepacks/au/nswInstrumentPrecedence.js';
+// ⛔ THE DCP BINDS IN STOREYS WHILE THE LEP BINDS IN METRES, BOTH APPLY, AND THEY ARE NOT
+// INTER-CONVERTIBLE. There is deliberately no function here that converts between them; a
+// floor-to-floor constant invents a storey on a generous section and deletes one on a tight one.
+// Lane PT reports the identical structure from RGEU art. 65 — two jurisdictions makes this a
+// platform concern, and this module is shaped so promotion to the shared envelope model costs a
+// move rather than a rewrite.
+export {
+    nswReadStoreys,
+    describeNswStoreyLimit,
+    nswDualVerticalConstraint,
+    nswReadSetbackType,
+    NSW_SYDNEY_DCP_SETBACK_VOCABULARY,
+    NSW_SYDNEY_DCP_STOREY_VOCABULARY,
+    type NswStoreyLimit,
+    type NswStoreyCoverage,
+    type NswDualVerticalConstraint,
+    type NswSetbackKind,
+    type NswSetbackControl,
+} from './rulepacks/au/nswDcpStoreys.js';
 export {
     parseNswHeight,
     nswAbsoluteLevelFromLayClass,
@@ -2925,8 +3041,16 @@ export {
 export {
     nswLookupRuling,
     isNswRulingSigned,
+    // ⛔ `nswRulingIsPublishableEvidence` is STRICTER than `nswMayContributeValue` and the
+    // difference is load-bearing: an UNSIGNED draft may drive the engine (so the computation can be
+    // reviewed) and may not close the uncited ledger (so the outstanding legal reading stays
+    // visible). Conflating them lets a lane close its own ratchet by writing prose.
+    nswRulingIsPublishableEvidence,
+    nswSigningReadiness,
+    nswSigningQueue,
     NSW_CONTROL_RULINGS,
     type NswControlRuling,
     type NswLegalRole,
     type NswPlaneParameters,
+    type NswSigningReadiness,
 } from './rulepacks/au/nswClauseRegistry.js';

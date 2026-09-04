@@ -84,35 +84,113 @@ describe('§13 — same parcel, same vintage → byte-identical output', () => {
     });
 });
 
-describe('§1.3 / §5 — NEVER take the minimum. The 152//DP877246 trap.', () => {
+describe('§1.3 / §5 — NEVER take the minimum. The 152//DP877246 trap, THIRD READING.', () => {
     // HOB 8.5 m and a layer-429 value of 2.1. `min()` returns 2.1 — a garage.
+    //
+    // ⛔⛔ THIS BLOCK HAS NOW BEEN WRONG TWICE AND THE SECOND TIME IT WAS THE CORRECTION.
+    //   round 1-2  "additive allowance"      → 8.5 + 2.1. Right arithmetic, wrong mechanism.
+    //   round 3    "minimum floor level, off-axis, ignoring it overstates nothing"
+    //              → asserted `axis === 'floor-level'` and `status === 'resolved'` at 8.5 m
+    //                ABOVE EXISTING GROUND LEVEL, with three confident expectations behind it.
+    //   round 4    the CLAUSE was read (Byron LEP 2014 cl 4.3A, legislation.nsw.gov.au
+    //              epi-2014-0297, 2026-09-04): "The maximum height of a building on land to which
+    //              this clause applies is to be measured FROM the minimum level AHD permitted for
+    //              that land on the Building Height Allowance Map."
+    //
+    // ⭐ SO IT IS A MEASUREMENT DATUM. And the parcel is BALLINA, whose instrument has NOT been
+    // read — so the engine can no longer report a placed height here at all. The test that used to
+    // assert `resolved / 8.5 / m` now asserts a refusal, and that is a coverage LOSS and a truth
+    // GAIN: 8.5 m above existing ground level was never established on this land.
     const res = resolveNswVerticalPrecedence(verticalHits('152//DP877246'));
 
-    it('resolves the base to 8.5 m and never to 2.1', () => {
-        expect(res.state.status).toBe('resolved');
-        expect(res.state.status === 'resolved' && res.state.value).toBe(8.5);
-        expect(res.state.status === 'resolved' && res.state.unit).toBe('m');
+    it('refuses rather than reporting 8.5 m on a datum it cannot establish', () => {
+        expect(res.state.status).toBe('unrecovered');
+        expect(res.verticallyUnplaced).toBe(true);
+        expect(res.publishable).toBe(false);
+        // ⛔ AND STILL NEVER 2.1. The minimum trap is closed by a different mechanism than before,
+        // and the property that matters survived the correction.
+        expect(JSON.stringify(res.state)).not.toMatch(/"value":\s*2\.1/);
+        expect(res.state.status === 'unrecovered' && res.state.stoppedAt).toMatch(
+            /substitutes the datum/,
+        );
     });
 
-    it('excludes the layer-429 value for the MEASURED reason: it is a minimum AHD level', () => {
+    it('classifies the layer-429 value as a MEASUREMENT DATUM, not a floor level', () => {
         const bha = res.allControls.find((c) => c.layerId === NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE)!;
-        // ⭐ The correction. LAY_NAME on 203/203 rows is "Minimum Level Australian Height Datum
-        // (AHD)" — a minimum floor level in Ballina, a coastal flood LGA. Not an additive bonus.
         expect(bha.quantity.layName).toBe('Minimum Level Australian Height Datum (AHD)');
         expect(bha.quantity.direction).toBe('minimum');
         expect(bha.quantity.datum).toBe('AHD');
-        expect(bha.quantity.axis).toBe('floor-level');
+        expect(bha.quantity.axis).toBe('measurement-datum');
+        expect(bha.quantity.substitutesDatum).toBe(true);
         expect(bha.quantity.constrainsEnvelopeTop).toBe(false);
-        // ⛔ It is NOT excluded as an "additive allowance" — that classification was measured wrong.
+        // ⛔ Neither of the two earlier classifications. Both are asserted absent so a future
+        // regression to either one fails loudly rather than passing a weaker test.
         expect(bha.additive).toBe(false);
+        expect(bha.quantity.axis).not.toBe('floor-level');
     });
 
-    it('reports the excluded control rather than dropping it — a real constraint, wrong axis', () => {
-        const reported = res.conditionalUplifts.find(
-            (u) => u.control.layerId === NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE,
+    it('keeps layer 469 on the FLOOR axis — the two "Minimum" strings are different controls', () => {
+        // Singleton LEP 2013 cl 7.1 really does bind the finished floor level, and round 3 mapped
+        // BOTH strings to that one constant. The clause distinguishes them; the strings differ by
+        // more than the layer id, which is why a closed vocabulary can tell them apart.
+        const floorLevel = nswQuantitySemantics(
+            'Minimum Floor Height Restriction Heights shown on map in AHD (m)',
         );
-        expect(reported).toBeDefined();
-        expect(reported!.notAppliedBecause).toMatch(/MINIMUM level in the Australian Height Datum/);
+        expect(floorLevel.axis).toBe('floor-level');
+        expect(floorLevel.substitutesDatum).toBe(false);
+        const datum = nswQuantitySemantics('Minimum Level Australian Height Datum (AHD)');
+        expect(datum.axis).toBe('measurement-datum');
+        expect(datum.substitutesDatum).toBe(true);
+    });
+
+    it('reports the datum control in its own bucket, not among the uplifts', () => {
+        // ⚠ `conditionalUplifts` means "could only RAISE the answer, and we withheld it" — which is
+        // conservative and safe. A datum control is neither, so filing it there was the round-3
+        // error in miniature: it made an unsafe omission look like a safe one.
+        expect(res.datumControls).toHaveLength(1);
+        expect(res.datumControls[0]!.layerId).toBe(NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE);
+        expect(
+            res.conditionalUplifts.some(
+                (u) => u.control.layerId === NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE,
+            ),
+        ).toBe(false);
+        expect(res.explanation.join(' ')).toMatch(/MEASUREMENT DATUM, NOT A LIMIT/);
+    });
+
+    it('resolves to an ABSOLUTE top where the datum control IS cited (the Byron branch)', () => {
+        // ⭐ §REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH (L-942). A refusal whose "yes" branch is
+        // unreachable is a regression with a citation attached. Byron's clause IS read, so the same
+        // shape of parcel resolves — and it resolves to 2.1 + 8.5 = 10.6 m AHD, which is neither
+        // min(), nor max(), nor 8.5 above ground.
+        const byron = resolveNswVerticalPrecedence([
+            {
+                layerId: NSW_LAYER.HEIGHT_OF_BUILDINGS,
+                attributes: {
+                    'EPI Name': 'Byron Local Environmental Plan 2014',
+                    'Maximum Building Height': '8.5',
+                    Units: 'm',
+                    'Legislative Clause': 'Clause 4.3',
+                    'EPI Type': 'Local Environment Plan',
+                },
+            },
+            {
+                layerId: NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE,
+                attributes: {
+                    EPI_NAME: 'Byron Local Environmental Plan 2014',
+                    LAY_NAME: 'Minimum Level Australian Height Datum (AHD)',
+                    LAY_CLASS: '2.1',
+                    EPI_TYPE: 'Local Environment Plan',
+                },
+            },
+        ]);
+        expect(byron.state.status).toBe('resolved');
+        expect(byron.state.status === 'resolved' && byron.state.value).toBeCloseTo(10.6, 6);
+        expect(byron.state.status === 'resolved' && byron.state.unit).toBe('m AHD');
+        expect(byron.state.status === 'resolved' && byron.state.datum).toBe('AHD');
+        // ⛔ Unsigned ruling ⇒ computes correctly, ships to nobody.
+        expect(byron.publishable).toBe(false);
+        expect(byron.explanation.join(' ')).toMatch(/DATUM SUBSTITUTED/);
+        expect(byron.explanation.join(' ')).toMatch(/cl 4\.3A/);
     });
 
     it('has no Math.min over competing controls anywhere in the resolver source', async () => {

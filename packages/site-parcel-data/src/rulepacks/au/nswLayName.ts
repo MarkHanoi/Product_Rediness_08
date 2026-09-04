@@ -13,14 +13,25 @@
 // different answers, and treating "uncited" as "unreadable" gave away a 100%-populated field.
 //
 //   "Maximum Building Height (m)" ................ a cap, metres above existing ground level
-//   "Minimum Level Australian Height Datum (AHD)"  a MINIMUM, absolute, on the FLOOR axis
+//   "Minimum Level Australian Height Datum (AHD)"  ⛔ CORRECTED ROUND 4 — see the box below. This
+//                                                  line read "a MINIMUM, absolute, on the FLOOR
+//                                                  axis" and that is wrong: Byron LEP 2014 cl 4.3A
+//                                                  makes it the DATUM the maximum height is
+//                                                  measured FROM.
 //   "Minimum Floor Height Restriction Heights
-//    shown on map in AHD (m)" .................... likewise — the service names its own datum
+//    shown on map in AHD (m)" .................... a minimum FINISHED FLOOR level — a genuinely
+//                                                  different control, on a different layer, under
+//                                                  Singleton LEP 2013 cl 7.1. Not "likewise".
 //   "Building Height Plane" ...................... an inclined plane, parameters elsewhere
 //   "Protected Areas" / "Specified Sites" / … .... applicability only; no number here
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // ⛔ THE ERROR THIS FILE CORRECTS, WHICH WAS ALREADY IN THE REPO WITH A CONFIDENT COMMENT ON IT
+// ⚠⚠ SUPERSEDED 2026-09-04 (ROUND 4) — KEPT AS THE RECORD OF THE OSCILLATION, NOT AS A READING.
+//    The paragraph below is itself a confident-and-wrong register row, which is what makes it
+//    worth keeping: it correctly refuted "additive allowance" and then asserted "FLOOR axis" with
+//    the same fluency and the same absence of a clause. The clause is now read. See the ROUND-4
+//    box that follows. ⛔ Do not quote the words "FLOOR axis" out of this box.
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // `PHASE0-REPORT.md` §M3.4 and the first cut of `nswPortalLayers.ts` both classified layer 429
 // (Building Height Allowance) as an **ADDITIVE ALLOWANCE**, reading parcel `152//DP877246`'s
@@ -45,11 +56,53 @@
 // P5-adjacent purity: pure data + pure total functions. No I/O, no clock, no RNG.
 // Contracts: C58 §1.2/§1.4, C62, C74 §0, C75. ADR-0377 (height datum).
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⛔⛔ ROUND-4 CORRECTION — THE THIRD READING OF LAYER 429, AND THE FIRST ONE WITH THE CLAUSE
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// Everything above about layer 429 is HALF right, and the wrong half is the operative one. The
+// clause was read live on 2026-09-04 (`phase0-transcripts/lep-text-probe2.json`, Byron LEP 2014,
+// legislation.nsw.gov.au epi-2014-0297, 200 OK):
+//
+//   **cl 4.3A  Measurement of height of buildings**
+//   "(1) … to provide for a consistent point of reference for the measurement of building heights
+//    in flood prone areas. (2) This clause applies to land identified as “Minimum Level Australian
+//    Height Datum (AHD)” on the Building Height Allowance Map. **(3) The maximum height of a
+//    building on land to which this clause applies is to be measured FROM the minimum level AHD
+//    permitted for that land on the Building Height Allowance Map.**"
+//
+// ⭐ IT IS NOT A FLOOR-LEVEL CONSTRAINT. It is a **MEASUREMENT DATUM SUBSTITUTION**: on this land
+// the LEP's 8.5 m is measured from **RL 2.1 AHD**, not from existing ground level. The envelope
+// top is `2.1 + 8.5 = 10.6 m AHD`.
+//
+// ⛔ SO ALL THREE PRIOR READINGS OF PARCEL `152//DP877246` WERE WRONG, INCLUDING THE ONE WRITTEN
+// TO CORRECT THE OTHER TWO:
+//   1. `min(8.5, 2.1) = 2.1` — a garage where a house is permitted. Catastrophic.
+//   2. "additive allowance" — right ARITHMETIC (8.5 + 2.1), wrong mechanism. It is not a bonus
+//      granted under condition; it is where the tape measure starts, unconditionally.
+//   3. "minimum floor level, off-axis, excluded from height precedence" (the round-3 fix) —
+//      reports **8.5 m above EXISTING GROUND LEVEL**, and that is wrong by `2.1 − EGL` metres in
+//      whichever direction the site slopes. On Byron Bay's floodplain, where existing ground runs
+//      roughly RL 1–3, that is an overstatement on the high ground and an understatement on the
+//      low. Round 3 said of round 2: *"a guard aimed at the wrong property protects nothing."*
+//      The same sentence applies to round 3, and the property it needed was in the clause.
+//
+// ⚠ AND IT IS NOT THE SAME CONTROL AS LAYER 469, WHICH THE OLD CODE MAPPED TO THE SAME CONSTANT.
+// Singleton LEP 2013's Floor Height Restriction Map really IS a floor-level control — cl 7.1:
+// *"the finished floor height of any habitable room in that building will not be less than the
+// minimum height shown for the land on that map"*. Two "Minimum Level … AHD" strings, two layers,
+// two clauses, two axes. They differ by the LAY_NAME string, which is why the closed vocabulary
+// can tell them apart and a `.includes('Minimum')` never could.
+
 /**
  * WHICH AXIS a control's number constrains. ⛔ `envelope-top` is the ONLY one that may enter
  * height precedence — mixing axes is how a 2.1 m minimum floor level becomes a 2.1 m building.
+ *
+ * ⭐ `measurement-datum` is the round-4 addition and it is a FIFTH thing, not a variant of the
+ * others: the number is neither a cap nor a floor, it is **the origin the cap is measured from**.
+ * It never enters the height comparison and it is never ignored either — ignoring it leaves the
+ * base height floating on the wrong datum, which is a wrong answer that looks like a right one.
  */
-export type NswQuantityAxis = 'envelope-top' | 'floor-level' | 'plane' | 'none';
+export type NswQuantityAxis = 'envelope-top' | 'floor-level' | 'plane' | 'measurement-datum' | 'none';
 
 /** The vertical frame the number is expressed in. `null` when the control carries no number. */
 export type NswQuantityDatum = 'existing_ground_level' | 'AHD' | null;
@@ -91,6 +144,16 @@ export interface NswQuantitySemantics {
      * elsewhere (a clause, a separate map, an embedded label). Reported as a named constraint.
      */
     readonly applicabilityOnly: boolean;
+    /**
+     * ⭐ `true` when this control SUBSTITUTES THE DATUM the envelope-top height is measured from
+     * (Byron LEP 2014 cl 4.3A). The number is an absolute AHD level and the base height must be
+     * added to it, not compared against it.
+     *
+     * ⛔ A control with this flag may NOT be quietly excluded as "off-axis". It does not bound the
+     * top itself, but leaving it out leaves the base height on the WRONG ORIGIN — which is why it
+     * is a separate flag from `bearsOnEnvelopeTop` rather than a value of it.
+     */
+    readonly substitutesDatum: boolean;
 }
 
 /** Not in the measured vocabulary. ⛔ REFUSE — never fall back to "probably a maximum height". */
@@ -106,6 +169,7 @@ export const NSW_UNKNOWN_QUANTITY: NswQuantitySemantics = Object.freeze({
     servesNumber: false,
     constrainsEnvelopeTop: false,
     applicabilityOnly: false,
+    substitutesDatum: false,
 });
 
 const MAX_HEIGHT_AGL: Omit<NswQuantitySemantics, 'layName'> = {
@@ -116,6 +180,27 @@ const MAX_HEIGHT_AGL: Omit<NswQuantitySemantics, 'layName'> = {
     servesNumber: true,
     constrainsEnvelopeTop: true,
     applicabilityOnly: false,
+    substitutesDatum: false,
+};
+
+/**
+ * ⭐ THE ROUND-4 CONSTANT — Byron LEP 2014 cl 4.3A. The number is the ORIGIN the maximum height is
+ * measured from, in AHD. See the correction box at the head of this file.
+ *
+ * ⛔ `bearsOnEnvelopeTop: false` because it does not itself cap anything, AND
+ * `substitutesDatum: true` because omitting it leaves the cap on the wrong origin. Both flags are
+ * required: the first keeps it out of the height COMPARISON, the second keeps it out of the
+ * silent-exclusion bucket where round 3 put it.
+ */
+const MEASUREMENT_DATUM_AHD: Omit<NswQuantitySemantics, 'layName'> = {
+    axis: 'measurement-datum',
+    direction: 'minimum',
+    datum: 'AHD',
+    bearsOnEnvelopeTop: false,
+    servesNumber: true,
+    constrainsEnvelopeTop: false,
+    applicabilityOnly: false,
+    substitutesDatum: true,
 };
 const MIN_LEVEL_AHD: Omit<NswQuantitySemantics, 'layName'> = {
     axis: 'floor-level',
@@ -129,6 +214,7 @@ const MIN_LEVEL_AHD: Omit<NswQuantitySemantics, 'layName'> = {
     servesNumber: true,
     constrainsEnvelopeTop: false,
     applicabilityOnly: false,
+    substitutesDatum: false,
 };
 const PLANE: Omit<NswQuantitySemantics, 'layName'> = {
     axis: 'plane',
@@ -141,6 +227,7 @@ const PLANE: Omit<NswQuantitySemantics, 'layName'> = {
     servesNumber: false,
     constrainsEnvelopeTop: false,
     applicabilityOnly: false,
+    substitutesDatum: false,
 };
 /**
  * The polygon says a vertical control REACHES here and serves no number.
@@ -158,6 +245,7 @@ const APPLICABILITY: Omit<NswQuantitySemantics, 'layName'> = {
     servesNumber: false,
     constrainsEnvelopeTop: false,
     applicabilityOnly: true,
+    substitutesDatum: false,
 };
 
 /**
@@ -177,9 +265,22 @@ export const NSW_LAY_NAME_SEMANTICS: Readonly<Record<string, Omit<NswQuantitySem
         'Maximum Building Height': MAX_HEIGHT_AGL,
         'Alternative Maximum Building Height (m)': MAX_HEIGHT_AGL,
 
-        // ── Minimum ABSOLUTE level. ⛔ NOT a height, NOT a maximum, NOT on the envelope axis. ──
-        'Minimum Level Australian Height Datum (AHD)': MIN_LEVEL_AHD, // layer 429, 203 features
-        'Minimum Floor Height Restriction Heights shown on map in AHD (m)': MIN_LEVEL_AHD, // 469
+        // ── ⭐ MEASUREMENT DATUM (layer 429, 203 features, BALLINA + BYRON). ────────────────────
+        // Byron LEP 2014 cl 4.3A: the maximum height "is to be MEASURED FROM the minimum level AHD
+        // permitted for that land on the Building Height Allowance Map". The number is the origin,
+        // not a limit. ⚠ ONLY BYRON'S CLAUSE HAS BEEN READ. Ballina draws the other portion of the
+        // 203 rows and its instrument has not been fetched, so the SEMANTICS here are shared while
+        // the CITATION is per-instrument — see nswClauseRegistry.ts, which registers Byron and
+        // leaves Ballina UNRESOLVED. Same string, same layer, two instruments, one read clause.
+        'Minimum Level Australian Height Datum (AHD)': MEASUREMENT_DATUM_AHD,
+
+        // ── Minimum FINISHED FLOOR level (layer 469, 14 features, SINGLETON). ─────────────────
+        // A genuinely different control despite the similar words. Singleton LEP 2013 cl 7.1:
+        // "the finished floor height of any habitable room in that building will not be less than
+        // the minimum height shown for the land on that map" — and, on the first floor, "will not
+        // exceed 4 metres above natural ground level". Flood planning levels on the Hunter
+        // floodplain. ⛔ These two strings were mapped to ONE constant until round 4.
+        'Minimum Floor Height Restriction Heights shown on map in AHD (m)': MIN_LEVEL_AHD,
 
         // ── Inclined plane. Parameters in CLASS_DESCRIPTION / the clause. ─────────────────────
         'Building Height Plane': PLANE,
@@ -228,9 +329,22 @@ export function isNswQuantityUnknown(q: NswQuantitySemantics): boolean {
  * height is an UPPER BOUND: a constraint that can only reduce the envelope was seen and not
  * applied. ⚠ An off-axis control (a minimum floor level) is NOT one of these; it genuinely does
  * not bound the top, so ignoring it for height purposes overstates nothing.
+ *
+ * ⚠ AND A `measurement-datum` CONTROL IS NOT ONE OF THESE EITHER, for a DIFFERENT reason: it does
+ * not bound the top, but ignoring it is not safe — it moves the origin. `isNswDatumSubstitution`
+ * is its own predicate precisely so the two absences cannot be folded together again.
  */
 export function isNswUnevaluatedTopConstraint(q: NswQuantitySemantics): boolean {
     return q.bearsOnEnvelopeTop && !q.servesNumber;
+}
+
+/**
+ * ⭐ THE ROUND-4 PREDICATE. `true` for a control that substitutes the datum the envelope-top height
+ * is measured from. Such a control is on NO axis the height comparison uses and yet it changes the
+ * answer, which is exactly why it needed its own name rather than a flag on an existing one.
+ */
+export function isNswDatumSubstitution(q: NswQuantitySemantics): boolean {
+    return q.substitutesDatum;
 }
 
 /** A reader-facing sentence for a control excluded from height precedence, naming the axis. */
@@ -248,11 +362,23 @@ export function describeNswAxisExclusion(q: NswQuantitySemantics): string {
             'in the instrument. Reported as a named constraint, not applied.'
         );
     }
+    if (q.axis === 'measurement-datum') {
+        return (
+            `${q.layName} is the DATUM the maximum height is measured FROM, not a limit — Byron LEP ` +
+            '2014 cl 4.3A: "The maximum height of a building on land to which this clause applies is ' +
+            'to be measured from the minimum level AHD permitted for that land on the Building ' +
+            'Height Allowance Map." ⛔ It is neither a cap to minimise against nor a floor level to ' +
+            'set aside: the base height is measured from this level, so the envelope top is ' +
+            'THIS LEVEL PLUS the base height, in AHD. Ignoring it leaves the base on the wrong origin.'
+        );
+    }
     if (q.axis === 'floor-level') {
         return (
-            `${q.layName} is a MINIMUM level in the Australian Height Datum — it constrains where the ` +
-            'lowest floor may sit, not how high the building may go, and it is in a different datum ' +
-            'from an above-ground height. It does not enter height precedence. ' +
+            `${q.layName} is a MINIMUM FINISHED FLOOR level in the Australian Height Datum — Singleton ` +
+            'LEP 2013 cl 7.1: "the finished floor height of any habitable room in that building will ' +
+            'not be less than the minimum height shown for the land on that map". It constrains where ' +
+            'the lowest floor may sit, not how high the building may go, and it is in a different ' +
+            'datum from an above-ground height. It does not enter height precedence. ' +
             'Comparing it against a maximum building height is arithmetic on two different axes.'
         );
     }
@@ -305,6 +431,7 @@ export function nswPrincipalHobSemantics(units: string | null | undefined): NswQ
             servesNumber: true,
             constrainsEnvelopeTop: true,
             applicabilityOnly: false,
+            substitutesDatum: false,
         };
     if (u === 'NA')
         return {
@@ -318,6 +445,7 @@ export function nswPrincipalHobSemantics(units: string | null | undefined): NswQ
             servesNumber: true,
             constrainsEnvelopeTop: true,
             applicabilityOnly: false,
+            substitutesDatum: false,
         };
     return { ...NSW_UNKNOWN_QUANTITY, layName };
 }

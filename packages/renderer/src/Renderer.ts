@@ -19,6 +19,14 @@
 // see only the `Renderer` API surface.
 
 import * as THREE from '@pryzm/renderer-three/three';
+// §PERF-DRAWCALLS-ARE-CUMULATIVE (L-2502) — the ONE owner of "how many draw
+// calls was that frame?". Imported by SUBPATH, not through the barrel: this
+// module imports nothing at all, so the subpath adds no dependency edge, no
+// lockfile churn (the `exports` map is not part of the dependency graph) and no
+// barrel-cycle risk ([[scc-no-barrel-access-at-module-load]]). Never re-derive
+// the rule here — a second implementation of it is free to disagree with the
+// one that matters, which is exactly the defect L-2502 recorded.
+import { readFrameDrawCalls } from '@pryzm/renderer-three/frame-stats';
 import type { FrameScheduler } from '@pryzm/frame-scheduler';
 import { withSpan, withSpanSync } from './otel.js';
 import { Pipeline } from './passes/Pipeline.js';
@@ -123,8 +131,41 @@ export class Renderer {
       (span) => {
         this.pipeline.render(this.renderContext(), 0, this.frameIndex);
         const info = this.threeRenderer.info;
+        // §PERF-DRAWCALLS-ARE-CUMULATIVE (L-2502), second reader closed.
+        //
+        // This line WAS `'pryzm.renderer.draw_calls': info.render.calls`. That is
+        // correct on a classic THREE.WebGLRenderer, whose `WebGLInfo.reset()`
+        // zeroes `calls` every frame under autoReset — and it is WRONG on the
+        // WebGPU family, where `Info.reset()` deliberately does NOT zero `calls`
+        // and only `dispose()` ever does. `mode` here is `'webgpu' | 'webgl2'`
+        // and `threeRenderer` is only STRUCTURALLY typed as a WebGLRenderer, so
+        // in WebGPU mode this span carried a monotonically-rising since-boot
+        // odometer under a per-frame attribute name.
+        //
+        // ⚠ THAT MATTERS MORE HERE THAN IT DID IN THE CONSOLE. A console row is
+        // read once by one person who can re-run it; a span attribute is written
+        // to the telemetry backend on EVERY frame and is what any later
+        // regression analysis would be conducted against. A dashboard built on
+        // this field would show draw calls climbing without bound forever and
+        // read as a scene that never stops growing.
+        //
+        // ⛔ REACHABILITY, STATED HONESTLY AND NOT OVERSOLD. `@pryzm/renderer`'s
+        // `Renderer` is the PRYZM-3 skeleton (S06-T1, ADR-0007); the shipping
+        // editor draws through `renderer-three`'s `RendererHandleFactory`, and
+        // this class is reached only via the lazily-imported
+        // `bootstrap.render.everything` chunk. So this is a CORRECTNESS fix to a
+        // telemetry field on a non-default path — it buys ZERO frame time and is
+        // not offered as a performance win.
+        const dc = readFrameDrawCalls(info);
         span.setAttributes({
-          'pryzm.renderer.draw_calls': info.render.calls,
+          // `null` when no field on this renderer carries per-frame meaning.
+          // Recorded as -1 rather than 0: a span attribute cannot be absent-typed
+          // here, and 0 would be the false exoneration — an unreadable renderer
+          // must never look like a renderer that drew nothing.
+          'pryzm.renderer.draw_calls': dc.perFrame ?? -1,
+          // The field the number came from, so no downstream reader can inherit
+          // the ambiguity this fix removes.
+          'pryzm.renderer.draw_calls.provenance': dc.provenance,
           'pryzm.renderer.triangles': info.render.triangles,
         });
       },
