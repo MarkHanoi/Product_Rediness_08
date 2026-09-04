@@ -56,10 +56,17 @@ import { resolveConceptDictionaryVersion, typeCheckPtToken, type PtConceptDictio
 import { evaluatePtCondicionantes, type PtCondicionantesInput } from './ptCondicionantes.js';
 import { classifyPtCrusClasse, type PtCrusZone } from './ptCrusZone.js';
 import { joinPtEtiqueta, PT_ETIQUETA_WATCH, type PtRegulamentoEntry, type PtRegulamentoIndex, type PtRegulamentoNumber } from './ptEtiquetaJoin.js';
-import { ptJointHeightStoreys, ptTopCapAboveSoleira, PT_RGEU_STATUS_WATCH, type PtDatum } from './ptHeightQuantities.js';
+import { ptFacadeDatums, ptJointHeightStoreys, ptTopCapAboveSoleira, PT_RGEU_STATUS_WATCH, type PtDatum, type PtFacadeDatum } from './ptHeightQuantities.js';
 import { buildPtPoligonoImplantacao, inferPtC1Family, type PtC1Family } from './ptImplantacao.js';
 import { resolvePtParcelGeometrySource, PT_BUPI_WATCH, type PtA1Input } from './ptParcelSource.js';
-import { ptPlanInterventionOverride, type PtPdmObjectEvidence } from './ptPdmObjectGates.js';
+import {
+    ptAugiRefusal,
+    ptDerivedPlanFlags,
+    ptDoubleClassificationDefect,
+    ptPlanInterventionOverride,
+    type PtClassificationClaim,
+    type PtPdmObjectEvidence,
+} from './ptPdmObjectGates.js';
 import { ptAssumed, ptCollectAssumptions, ptResolved, type PtInstrumentRef, type PtProvenancedValue } from './ptProvenance.js';
 import { solvePtRgeuArt59, type PtArt59Input } from './ptRgeuArt59.js';
 import { evaluatePtRgeuArt60, type PtArt60Edge } from './ptRgeuArt60.js';
@@ -84,6 +91,15 @@ export interface PtDeriveInput {
     readonly edgeClassifications: ReadonlyArray<ParcelEdgeClassification>;
     /** Step 2 — the CRUS zone identity at the point (B2), or null when CRUS served nothing. */
     readonly zone: PtCrusZone | null;
+    /**
+     * Step 2 — doctrine §8: EVERY classification/qualification polygon that CONTAINS the point.
+     * Two or more is a municipal DATA DEFECT and refuses (never silently resolved). Omit or pass
+     * a single-element array when the resolver already picked exactly one.
+     * ⚠ `resolvePtCrusZoneAtPoint` currently collapses double containment to `absent`, so a caller
+     * on that path has ONE claim by construction — the seat exists for the municipal planta feed,
+     * which serves the overlap rather than hiding it. Named in the scorecard.
+     */
+    readonly classificationClaims?: readonly PtClassificationClaim[];
     /** Step 5 — B3: the municipal planta de ordenamento's ETIQUETA for the polygon, when in hand. */
     readonly etiqueta: string | null;
     /** Step 3 — the DL 82/2021 art. 61 facts (only consulted on solo rústico). */
@@ -171,6 +187,13 @@ export interface PtVolumeBlock {
     readonly footprintSource: 'drawn' | 'derived-from-recuo-afastamentos' | 'rustico-outer-bound';
     readonly footprintAreaM2: number;
     readonly topAboveS_m: PtProvenancedValue<number> | null;
+    /**
+     * Doctrine §4 — *"your datum field must hold MORE THAN ONE VALUE"*. Hf1 from the main entrance's
+     * cota de soleira; Hf2 only where an auxiliary S2 was arbitrated for a second façade at a very
+     * different level. Empty when S itself is not in hand (the datum is then unresolved, and any
+     * Alt cap has already refused at step 10).
+     */
+    readonly facadeDatums: readonly PtFacadeDatum[];
     readonly governingHeight: string;
     readonly effectiveMaxFloors: PtProvenancedValue<number> | null;
     readonly volumeM3: PtProvenancedValue<number>;
@@ -353,6 +376,21 @@ function run(input: PtDeriveInput): PtDerivation {
     if (classe === 'unrecognised') {
         return refuse(2, `CRUS classe_2021 «${input.zone.classe2021}» is neither Solo Urbano nor Solo Rústico — B2 unresolved (report the record, never guess)`, 'DR 15/2015 — classificação do solo', false, 'regime-undetermined', 'Portugal — the soil classification is unrecognised.');
     }
+    // ── STEP 2b — doctrine §8: the topology invariant. A double classification is a MUNICIPAL DATA
+    // DEFECT and is REPORTED, never resolved silently by picking one of the two.
+    const overlap = ptDoubleClassificationDefect(input.zone, input.classificationClaims ?? []);
+    if (overlap !== null) {
+        return {
+            kind: 'refused',
+            stepReached: 2,
+            refusals: [{ step: 2, reason: overlap.detail, instrument: overlap.ordinanceRef ?? 'Norma Técnica PDM (Aviso 9282/2021)', legallyGrounded: overlap.legallyGrounded }],
+            refusal: overlap,
+            regulatoryIdentity: identity,
+            parcel,
+            assumptions,
+            watchFlags: [...watch],
+        };
+    }
 
     // ── STEP 3 — solo rústico: DL 82/2021 art. 61. ───────────────────────────────────────────
     let footprintOuterBound: ReadonlyArray<Pt> = a1.ring;
@@ -396,7 +434,27 @@ function run(input: PtDeriveInput): PtDerivation {
                 watchFlags: [...watch],
             };
         }
-        supletivo = input.b5.pdmObjects.value.some((o) => o.codigo === 20);
+        // Doctrine §7's OTHER four rows — 20 (UOPG supletivo) · 135 (AUGI) · 136 (ARU) · 138 (UE).
+        // ⛔ AUGI first: it is a C1 family this pipeline cannot express, so it refuses rather than
+        // being inferred into one of the three it holds (§12.8's well-formed nonsense).
+        const flags = ptDerivedPlanFlags(input.b5.pdmObjects.value);
+        if (flags.augi.length > 0) {
+            const augi = ptAugiRefusal(input.zone, flags.augi);
+            return {
+                kind: 'refused',
+                stepReached: 4,
+                refusals: [{ step: 4, reason: augi.detail, instrument: augi.ordinanceRef ?? 'Anexo I-PO código 135 (AUGI)', legallyGrounded: augi.legallyGrounded }],
+                refusal: augi,
+                regulatoryIdentity: identity,
+                parcel,
+                assumptions,
+                watchFlags: [...watch],
+            };
+        }
+        for (const a of flags.assumptions) assumptions.push(a);
+        for (const h of flags.aru) constraints.push({ code: 'B5-ARU-136', article: 'RJRU (DL 307/2009) — D3 increments NOT held', effect: `ARU «${h.etiqueta ?? h.especifica ?? h.codigo}» — the derivation may UNDERSTATE (increments unheld)` });
+        for (const h of flags.unidadeExecucao) constraints.push({ code: 'B5-UE-138', article: 'Norma Técnica PDM Anexo I-PO código 138', effect: `Unidade de Execução «${h.etiqueta ?? h.especifica ?? h.codigo}» — flagged; doctrine §7 states no consequence` });
+        supletivo = flags.supletivo;
     } else if (input.b5.pdmObjects.status === 'absent') {
         // the layer answered: no object here — the durable clean case
     } else {
@@ -539,6 +597,17 @@ function run(input: PtDeriveInput): PtDerivation {
         for (const a of top.topAboveS.assumptions) assumptions.push(a);
         constraints.push({ code: 'C2-H/Alt', article: [entry.H_m?.article, entry.Alt_m?.article].filter(Boolean).join(' · '), effect: `top above S = ${top.topAboveS.value.toFixed(2)} m, governing ${top.governing}${top.governing === 'Alt' ? ' (ABSOLUTE cap binds — stricter than H)' : ''}` });
     }
+    // ── Doctrine §4 — the MULTI-FRONTAGE datum. Hf1 from S; Hf2 only where S2 was arbitrated. The
+    // field holds MORE THAN ONE VALUE by construction; `ptFacadeDatums` refuses when S is unknown,
+    // which here degrades to an empty list + an assumption (an Alt cap without S already refused
+    // above, so reaching here with S null means no absolute cap was stated).
+    const fd = ptFacadeDatums(input.datum);
+    const facadeDatums: readonly PtFacadeDatum[] = fd.ok ? fd.datums : [];
+    if (!fd.ok) {
+        assumptions.push(`Multi-frontage datum (doctrine §4): ${fd.refusalReason}. No façade height is fixed; the cap above is measured from an UNKNOWN S, so it cannot be stated as an altitude.`);
+    } else if (facadeDatums.length > 1) {
+        constraints.push({ code: 'C2-datum-§4', article: 'DR 5/2019 — cota de soleira / altura da fachada', effect: `two façade datums fixed: ${facadeDatums.map((d) => `${d.id} at S=${d.S_m} m (${d.basis})`).join(' · ')}` });
+    }
     // art. 65 — metres and storeys JOINTLY binding.
     const joint = ptJointHeightStoreys({ capAboveS_m: topAboveS?.value ?? null, maxFloors: pisos, use: input.use, slabThickness_m: input.slabThickness_m });
     if (joint.effectiveMaxFloors) for (const a of joint.effectiveMaxFloors.assumptions) assumptions.push(a);
@@ -646,6 +715,7 @@ function run(input: PtDeriveInput): PtDerivation {
             footprintSource: footprintSource === 'rustico-outer-bound' ? 'rustico-outer-bound' : poly.source,
             footprintAreaM2: footprintArea,
             topAboveS_m: topAboveS,
+            facadeDatums,
             governingHeight: governing,
             effectiveMaxFloors: joint.effectiveMaxFloors,
             volumeM3: vol,

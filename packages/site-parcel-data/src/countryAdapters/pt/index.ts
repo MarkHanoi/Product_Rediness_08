@@ -342,3 +342,191 @@ export {
     type PtPdmObjectEvidence,
     type PtSrupServCitation,
 } from './ptPdmObjectGates.js';
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// LANE ENVELOPE-IBERIA round 4 (§PT-DOCTRINE-REACH) — THE DERIVATION, MADE REACHABLE.
+//
+// ⛔ THE DEFECT THIS CLOSES, AND IT IS A RECURRENCE. Round 2 (`9c14009f`) shipped the seven
+// doctrine modules and round 3's scorecard found them exported from NO barrel and imported by
+// NOTHING. Round 3 (`e9593136`) composed them into `derivePtEnvelope` — and shipped THAT the same
+// way: `grep -rn 'derivePtEnvelope'` over the repo returned **one file, its own definition**. The
+// pipeline was `export`ed from its module and re-exported by nobody, so no consumer outside
+// `countryAdapters/pt/` could reach it and no test ran it. §committed-is-not-reachable, twice, one
+// level apart. The list below is the fix; `ptDerivePtEnvelope.test.ts` is the proof it runs.
+//
+// ⚠ REACHABLE ≠ WIRED, and this block does NOT wire anything. `ptCountryAdapter.rules` stays
+// `zone-identity-refusal`, `registry.ts` still registers no Portuguese jurisdiction, and the
+// §PORTO-SIGN-OFF signature authorises the coverage statement + the moda evaluation, NOT an
+// envelope-drawing pack. What changes is that a caller — a test, a probe, a future chain leg — can
+// now IMPORT the derivation instead of re-implementing the step order. See
+// `docs/04-reference/jurisdictions/pt/PT-DOCTRINE-SCORECARD.md` for what is still missing (the
+// feed: no município has a `PtRegulamentoIndex`, no B4 condicionante read, no S from the DGT MDT).
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+export {
+    derivePtEnvelope,
+    ptDerivedJurisdictionId,
+    ptResolvedPack,
+    type PtConstraintApplied,
+    type PtDeriveInput,
+    type PtDerivation,
+    type PtParcelBlock,
+    type PtRefusalEntry,
+    type PtRegulatoryIdentity,
+    type PtResolvedPackInput,
+    type PtVolumeBlock,
+} from './derivePtEnvelope.js';
+// The provenance vocabulary every emitted PT value carries (doctrine §0.1).
+export {
+    ptAssumed,
+    ptBlockingReasons,
+    ptCollectAssumptions,
+    ptResolved,
+    ptUnresolved,
+    type PtDerivationMethod,
+    type PtInstrumentRef,
+    type PtProvenancedValue,
+    type PtValueConfidence,
+} from './ptProvenance.js';
+// §2.6 — the concept dictionary, and the version boundary that decides which one governs.
+export {
+    normalisePtTerm,
+    ptConceptsWithoutC58Seat,
+    resolveConceptDictionaryVersion,
+    typeCheckPtToken,
+    PT_CERCEA_LOCAL_DEFINITION_CONFLICT,
+    PT_CONCEPTS,
+    PT_DICTIONARY_BOUNDARY_DATE,
+    PT_LEXICON_SCOPE,
+    PT_TERM_ALIASES,
+    type PtConcept,
+    type PtConceptDictionaryVersion,
+    type PtConceptUnit,
+    type PtDictionaryResolution,
+    type PtTermAlias,
+    type PtTokenCheck,
+} from './ptConceptLexicon.js';
+// §11 A1 — the parcel-geometry precedence ladder.
+export {
+    resolvePtParcelGeometrySource,
+    PT_A1_PRECEDENCE,
+    PT_BUPI_WATCH,
+    type PtA1Input,
+    type PtA1Outcome,
+    type PtParcelSourceRung,
+} from './ptParcelSource.js';
+// §5 / §12.3 — DL 82/2021 art. 61, the rústico fuel-management strip.
+export {
+    evaluatePtRusticoFuelStrip,
+    PT_DL82_ART61_CITATION,
+    PT_DL82_ART61_REVIEW_WATCH,
+    PT_DL82_ART61_STRIP_M,
+    type PtRusticoFuelStripInput,
+    type PtRusticoFuelStripOutcome,
+    type PtTristate,
+} from './ptRusticoFuelStrip.js';
+// §6 / §12.5 — ETIQUETA is the join key, BEFORE any text similarity.
+export {
+    joinPtEtiqueta,
+    PT_ETIQUETA_WATCH,
+    type PtEtiquetaJoin,
+    type PtRegulamentoEntry,
+    type PtRegulamentoIndex,
+    type PtRegulamentoNumber,
+} from './ptEtiquetaJoin.js';
+// §2.4 / §4 / §3 art. 65 — the five height quantities, never collapsed, and the multi-value datum.
+export {
+    ptFacadeDatums,
+    ptJointHeightStoreys,
+    ptTopCapAboveSoleira,
+    ptUnresolvedHeight,
+    PT_RGEU_ART65,
+    PT_RGEU_ART65_MIN_PE_DIREITO_M,
+    PT_RGEU_STATUS_WATCH,
+    type PtBindingSide,
+    type PtDatum,
+    type PtFacadeDatum,
+    type PtGoverningHeightQuantity,
+    type PtHeightLimits,
+    type PtJointHeightStoreys,
+    type PtTopCapOutcome,
+} from './ptHeightQuantities.js';
+// §2.5 / §12.8–9 — C1 (always inferred) and the polígono de implantação from Re/Af.
+export {
+    buildPtPoligonoImplantacao,
+    inferPtC1Family,
+    ptRecuoAfastamentoValue,
+    PT_C1_INSTRUMENT,
+    PT_C1_VOCABULARY,
+    type PtC1Family,
+    type PtC1Inference,
+    type PtC1VocabularyEntry,
+    type PtImplantacaoInput,
+    type PtImplantacaoOutcome,
+} from './ptImplantacao.js';
+// §11 B4 — condicionantes, with the RAN/REN EXCLUSION layers (69/82) and the APA licence gate.
+export {
+    evaluatePtCondicionantes,
+    PT_APA_LICENCE_GATE,
+    PT_CONDICIONANTE_RAN,
+    PT_CONDICIONANTE_RAN_EXCLUSAO,
+    PT_CONDICIONANTE_REN,
+    PT_CONDICIONANTE_REN_EXCLUSAO,
+    PT_RJRAN_INSTRUMENT,
+    PT_RJREN_INSTRUMENT,
+    type PtAppliedCondicionante,
+    type PtCondicionanteEffect,
+    type PtCondicionantesInput,
+    type PtCondicionantesVerdict,
+    type PtLayerHit,
+    type PtRenSource,
+} from './ptCondicionantes.js';
+// §3 — RGEU art. 59 (the inclined plane) and art. 60 (10 m between façades with openings).
+export {
+    buildPtRgeuArt59Planes,
+    solvePtRgeuArt59,
+    PT_RGEU_ART59,
+    PT_RGEU_ART59_CORNER_RUN_M,
+    PT_RGEU_ART59_DOWNHILL_TOLERANCE_M,
+    PT_RGEU_ART59_SLOPE_PER_M,
+    type PtArt59Band,
+    type PtArt59Corner,
+    type PtArt59Frontage,
+    type PtArt59Input,
+    type PtArt59Planes,
+    type PtArt59Solve,
+} from './ptRgeuArt59.js';
+export {
+    evaluatePtRgeuArt60,
+    PT_RGEU_ART60,
+    PT_RGEU_ART60_MIN_M,
+    type PtArt60Edge,
+    type PtArt60EdgeOutcome,
+    type PtArt60Verdict,
+} from './ptRgeuArt60.js';
+// §2.2 / §12.11–12 — the national Ac counting rule, the Iu trim, and the disaggregated yield.
+export {
+    ptCountAc,
+    ptEmitAcYield,
+    ptIndices,
+    ptTrimToIu,
+    PT_AC_USES,
+    PT_DR5_2019_INDICES,
+    type PtAcCount,
+    type PtAcCountOutcome,
+    type PtAcUse,
+    type PtAcYield,
+    type PtFloorInput,
+    type PtIndices,
+    type PtIndicesInput,
+    type PtIuTrim,
+} from './ptAcCounting.js';
+// §7 / §8 — the other derived-plan flags (20/135/136/138) and the topology invariant.
+export {
+    ptAugiRefusal,
+    ptDerivedPlanFlags,
+    ptDoubleClassificationDefect,
+    PT_DERIVED_PLAN_FLAG_CODES,
+    PT_RJRU_INSTRUMENT,
+    type PtClassificationClaim,
+    type PtDerivedPlanFlags,
+} from './ptPdmObjectGates.js';
