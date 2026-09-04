@@ -1,0 +1,740 @@
+{
+ "generatedAt": "2026-09-04T06:33:43.607Z",
+ "lane": "ENVELOPE-NLDK",
+ "spec": "DK-ENVELOPE-MASTER-PROMPT.md — D1..D6 (see dk-phase0-parcels.mjs header)",
+ "scopeCaveat": "Adopted Plandata themes + DAWA Matriklen mirror ONLY, both keyless. No BBR, no DHM, no environmental/heritage/road overlay, no Datafordeler — all credential-gated (see dk-phase0-gates.json: 401 MAT, 401 GeoDanmark, 403 BBR, 404 DHM). Nothing here is a statement about Danish data coverage in general.",
+ "samples": [
+  {
+   "label": "land",
+   "source": {
+    "file": "dk-phase0-sample-land.json",
+    "sampled": 500,
+    "skipped": 0,
+    "skipReasons": {},
+    "seed": 20260903,
+    "stratum": "all-cadastred-land"
+   },
+   "D1_ladderCoverage": {
+    "parcels": 500,
+    "featurePresentPerRung": {
+     "byggefelt": "10/500 = 2.0%",
+     "lokalplandelomraade": "34/500 = 6.8%",
+     "lokalplan": "54/500 = 10.8%",
+     "kommuneplanramme": "92/500 = 18.4%"
+    },
+    "strongestRungReached": {
+     "NONE": 406,
+     "lokalplandelomraade": 28,
+     "kommuneplanramme": 40,
+     "lokalplan": 16,
+     "byggefelt": 10
+    },
+    "anyPlanningInstrument": "94/500 = 18.8%"
+   },
+   "D2_structuredFieldFill": {
+    "byggefelt": {
+     "featuresSeen": 15,
+     "maxbygnhjd": "1/15 = 6.7%",
+     "maxetager": "3/15 = 20.0%",
+     "bebygpct": "0/15 = 0.0%",
+     "eareal": "0/15 = 0.0%",
+     "m3_m2": "0/15 = 0.0%",
+     "boligenhed": "0/15 = 0.0%"
+    },
+    "lokalplandelomraade": {
+     "featuresSeen": 42,
+     "maxbygnhjd": "19/42 = 45.2%",
+     "maxetager": "16/42 = 38.1%",
+     "bebygpct": "19/42 = 45.2%",
+     "eareal": "4/42 = 9.5%",
+     "m3_m2": "4/42 = 9.5%",
+     "boligenhed": "0/42 = 0.0%"
+    },
+    "lokalplan": {
+     "featuresSeen": 67,
+     "maxbygnhjd": "10/67 = 14.9%",
+     "maxetager": "14/67 = 20.9%",
+     "bebygpct": "13/67 = 19.4%",
+     "eareal": "2/67 = 3.0%",
+     "m3_m2": "1/67 = 1.5%",
+     "boligenhed": "0/67 = 0.0%"
+    },
+    "kommuneplanramme": {
+     "featuresSeen": 112,
+     "maxbygnhjd": "68/112 = 60.7%",
+     "maxetager": "69/112 = 61.6%",
+     "bebygpct": "67/112 = 59.8%",
+     "eareal": "2/112 = 1.8%",
+     "m3_m2": "2/112 = 1.8%",
+     "boligenhed": "0/112 = 0.0%"
+    }
+   },
+   "D3_bebygpctafDenominator": {
+    "byRung": {
+     "byggefelt": {
+      "featuresWithABebygpct": 0,
+      "denominatorClass": {},
+      "parcelScopedAndThereforeComputable": "n/a"
+     },
+     "lokalplandelomraade": {
+      "featuresWithABebygpct": 19,
+      "denominatorClass": {
+       "1=Omraadet som helhed [planningArea]": 9,
+       "3=Den enkelte grund [parcel]": 3,
+       "2=Den enkelte ejendom [property]": 7
+      },
+      "parcelScopedAndThereforeComputable": "3/19 = 15.8%"
+     },
+     "lokalplan": {
+      "featuresWithABebygpct": 13,
+      "denominatorClass": {
+       "2=Den enkelte ejendom [property]": 5,
+       "1=Omraadet som helhed [planningArea]": 5,
+       "3=Den enkelte grund [parcel]": 3
+      },
+      "parcelScopedAndThereforeComputable": "3/13 = 23.1%"
+     },
+     "kommuneplanramme": {
+      "featuresWithABebygpct": 67,
+      "denominatorClass": {
+       "2=Den enkelte ejendom [property]": 29,
+       "1=Omraadet som helhed [planningArea]": 18,
+       "4=Det enkelte jordstykke [parcel]": 11,
+       "3=Den enkelte grund [parcel]": 9
+      },
+      "parcelScopedAndThereforeComputable": "20/67 = 29.9%"
+     }
+    },
+    "rawValues": {
+     "1": 32,
+     "2": 41,
+     "3": 15,
+     "4": 11
+    }
+   },
+   "D4_honestyFlags": {
+    "byggefelt": {
+     "featuresSeen": 15,
+     "iomfangreg": {
+      "true": 11,
+      "false": 4,
+      "unknown": 0,
+      "truePct": "11/15 = 73.3%"
+     },
+     "ianvreg": {
+      "true": 13,
+      "false": 2,
+      "unknown": 0,
+      "truePct": "13/15 = 86.7%"
+     },
+     "izonereg": {
+      "true": 15,
+      "false": 0,
+      "unknown": 0,
+      "truePct": "15/15 = 100.0%"
+     },
+     "iudstykreg": {
+      "true": 15,
+      "false": 0,
+      "unknown": 0,
+      "truePct": "15/15 = 100.0%"
+     },
+     "kompleks": {
+      "true": 0,
+      "false": 15,
+      "unknown": 0,
+      "truePct": "0/15 = 0.0%"
+     },
+     "bygvejledende": {
+      "true": 11,
+      "false": 4,
+      "unknown": 0,
+      "truePct": "11/15 = 73.3%"
+     },
+     "bygkunifelt": {
+      "true": 2,
+      "false": 13,
+      "unknown": 0,
+      "truePct": "2/15 = 13.3%"
+     },
+     "bygtillagtosh": {
+      "true": 0,
+      "false": 15,
+      "unknown": 0,
+      "truePct": "0/15 = 0.0%"
+     }
+    },
+    "lokalplandelomraade": {
+     "featuresSeen": 42,
+     "iomfangreg": {
+      "true": 8,
+      "false": 34,
+      "unknown": 0,
+      "truePct": "8/42 = 19.0%"
+     },
+     "ianvreg": {
+      "true": 1,
+      "false": 41,
+      "unknown": 0,
+      "truePct": "1/42 = 2.4%"
+     },
+     "izonereg": {
+      "true": 35,
+      "false": 7,
+      "unknown": 0,
+      "truePct": "35/42 = 83.3%"
+     },
+     "iudstykreg": {
+      "true": 30,
+      "false": 12,
+      "unknown": 0,
+      "truePct": "30/42 = 71.4%"
+     },
+     "kompleks": {
+      "true": 0,
+      "false": 42,
+      "unknown": 0,
+      "truePct": "0/42 = 0.0%"
+     }
+    },
+    "lokalplan": {
+     "featuresSeen": 67,
+     "iomfangreg": {
+      "true": 41,
+      "false": 26,
+      "unknown": 0,
+      "truePct": "41/67 = 61.2%"
+     },
+     "ianvreg": {
+      "true": 5,
+      "false": 62,
+      "unknown": 0,
+      "truePct": "5/67 = 7.5%"
+     },
+     "izonereg": {
+      "true": 30,
+      "false": 37,
+      "unknown": 0,
+      "truePct": "30/67 = 44.8%"
+     },
+     "iudstykreg": {
+      "true": 52,
+      "false": 15,
+      "unknown": 0,
+      "truePct": "52/67 = 77.6%"
+     },
+     "kompleks": {
+      "true": 0,
+      "false": 50,
+      "unknown": 17,
+      "truePct": "0/67 = 0.0%"
+     }
+    },
+    "kommuneplanramme": {
+     "featuresSeen": 112,
+     "iomfangreg": {
+      "true": 22,
+      "false": 88,
+      "unknown": 2,
+      "truePct": "22/112 = 19.6%"
+     },
+     "iudstykreg": {
+      "true": 95,
+      "false": 17,
+      "unknown": 0,
+      "truePct": "95/112 = 84.8%"
+     }
+    }
+   },
+   "D4b_numbersContradictedByTheirOwnFlag": {
+    "byggefelt": {
+     "featuresPublishingAMaxHeight": 1,
+     "ofWhichIomfangregTrue": "0/1 = 0.0%",
+     "ofWhichKompleksTrue": "0/1 = 0.0%"
+    },
+    "lokalplandelomraade": {
+     "featuresPublishingAMaxHeight": 19,
+     "ofWhichIomfangregTrue": "0/19 = 0.0%",
+     "ofWhichKompleksTrue": "0/19 = 0.0%"
+    },
+    "lokalplan": {
+     "featuresPublishingAMaxHeight": 10,
+     "ofWhichIomfangregTrue": "0/10 = 0.0%",
+     "ofWhichKompleksTrue": "0/10 = 0.0%"
+    },
+    "kommuneplanramme": {
+     "featuresPublishingAMaxHeight": 68,
+     "ofWhichIomfangregTrue": "0/68 = 0.0%",
+     "ofWhichKompleksTrue": "0/68 = 0.0%"
+    }
+   },
+   "D4c_iomfangregPredictsEmptyFields": {
+    "byggefelt": {
+     "iomfangregTrue": {
+      "n": 11,
+      "maxbygnhjd": "0/11 = 0.0%",
+      "bebygpct": "0/11 = 0.0%",
+      "maxetager": "0/11 = 0.0%"
+     },
+     "iomfangregFalse": {
+      "n": 4,
+      "maxbygnhjd": "1/4 = 25.0%",
+      "bebygpct": "0/4 = 0.0%",
+      "maxetager": "3/4 = 75.0%"
+     }
+    },
+    "lokalplandelomraade": {
+     "iomfangregTrue": {
+      "n": 8,
+      "maxbygnhjd": "0/8 = 0.0%",
+      "bebygpct": "0/8 = 0.0%",
+      "maxetager": "0/8 = 0.0%"
+     },
+     "iomfangregFalse": {
+      "n": 34,
+      "maxbygnhjd": "19/34 = 55.9%",
+      "bebygpct": "19/34 = 55.9%",
+      "maxetager": "16/34 = 47.1%"
+     }
+    },
+    "lokalplan": {
+     "iomfangregTrue": {
+      "n": 41,
+      "maxbygnhjd": "0/41 = 0.0%",
+      "bebygpct": "0/41 = 0.0%",
+      "maxetager": "0/41 = 0.0%"
+     },
+     "iomfangregFalse": {
+      "n": 26,
+      "maxbygnhjd": "10/26 = 38.5%",
+      "bebygpct": "13/26 = 50.0%",
+      "maxetager": "14/26 = 53.8%"
+     }
+    },
+    "kommuneplanramme": {
+     "iomfangregTrue": {
+      "n": 22,
+      "maxbygnhjd": "0/22 = 0.0%",
+      "bebygpct": "0/22 = 0.0%",
+      "maxetager": "0/22 = 0.0%"
+     },
+     "iomfangregFalse": {
+      "n": 88,
+      "maxbygnhjd": "66/88 = 75.0%",
+      "bebygpct": "65/88 = 73.9%",
+      "maxetager": "67/88 = 76.1%"
+     }
+    }
+   },
+   "D5_zone": {
+    "byParcel": {
+     "(no zone published at the point)": 463,
+     "1 = Byzone": 30,
+     "3 = Sommerhusområde": 5,
+     "2 = Landzone": 1,
+     "7 = Byzone, landzone og sommerhusområde": 1
+    },
+    "codeToLabelPairsObserved": {
+     "1 = Byzone": 51,
+     "3 = Sommerhusområde": 6,
+     "2 = Landzone": 1,
+     "7 = Byzone, landzone og sommerhusområde": 1
+    }
+   },
+   "D6_partition": {
+    "classes": {
+     "F2_or_F1_NO_PLAN_AT_POINT": 406,
+     "UNRESOLVED_plan_present_no_usable_number": 52,
+     "PARTIAL_height_only": 15,
+     "DETERMINISTIC_height_and_parcel_scoped_pct": 10,
+     "PARTIAL_height_only_pct_denominator_unusable": 16,
+     "PARTIAL_pct_only": 1
+    },
+    "byRung": {
+     "lokalplandelomraade :: UNRESOLVED_plan_present_no_usable_number": 12,
+     "kommuneplanramme :: UNRESOLVED_plan_present_no_usable_number": 20,
+     "lokalplan :: UNRESOLVED_plan_present_no_usable_number": 11,
+     "lokalplandelomraade :: PARTIAL_height_only": 6,
+     "byggefelt :: UNRESOLVED_plan_present_no_usable_number": 9,
+     "kommuneplanramme :: PARTIAL_height_only": 6,
+     "lokalplan :: PARTIAL_height_only": 2,
+     "lokalplandelomraade :: DETERMINISTIC_height_and_parcel_scoped_pct": 3,
+     "lokalplan :: PARTIAL_height_only_pct_denominator_unusable": 2,
+     "kommuneplanramme :: DETERMINISTIC_height_and_parcel_scoped_pct": 7,
+     "byggefelt :: PARTIAL_height_only": 1,
+     "lokalplan :: PARTIAL_pct_only": 1,
+     "lokalplandelomraade :: PARTIAL_height_only_pct_denominator_unusable": 7,
+     "kommuneplanramme :: PARTIAL_height_only_pct_denominator_unusable": 7
+    }
+   }
+  },
+  {
+   "label": "urban",
+   "source": {
+    "file": "dk-phase0-sample-urban.json",
+    "sampled": 154,
+    "skipped": 96,
+    "skipReasons": {
+     "no-dense-tile-after-40-tries": 96
+    },
+    "seed": 20260904,
+    "stratum": "dense-urban"
+   },
+   "D1_ladderCoverage": {
+    "parcels": 154,
+    "featurePresentPerRung": {
+     "byggefelt": "12/154 = 7.8%",
+     "lokalplandelomraade": "51/154 = 33.1%",
+     "lokalplan": "67/154 = 43.5%",
+     "kommuneplanramme": "119/154 = 77.3%"
+    },
+    "strongestRungReached": {
+     "kommuneplanramme": 54,
+     "byggefelt": 12,
+     "lokalplandelomraade": 41,
+     "lokalplan": 14,
+     "NONE": 33
+    },
+    "anyPlanningInstrument": "121/154 = 78.6%"
+   },
+   "D2_structuredFieldFill": {
+    "byggefelt": {
+     "featuresSeen": 16,
+     "maxbygnhjd": "1/16 = 6.3%",
+     "maxetager": "2/16 = 12.5%",
+     "bebygpct": "0/16 = 0.0%",
+     "eareal": "0/16 = 0.0%",
+     "m3_m2": "0/16 = 0.0%",
+     "boligenhed": "0/16 = 0.0%"
+    },
+    "lokalplandelomraade": {
+     "featuresSeen": 67,
+     "maxbygnhjd": "30/67 = 44.8%",
+     "maxetager": "36/67 = 53.7%",
+     "bebygpct": "30/67 = 44.8%",
+     "eareal": "2/67 = 3.0%",
+     "m3_m2": "1/67 = 1.5%",
+     "boligenhed": "0/67 = 0.0%"
+    },
+    "lokalplan": {
+     "featuresSeen": 81,
+     "maxbygnhjd": "11/81 = 13.6%",
+     "maxetager": "9/81 = 11.1%",
+     "bebygpct": "11/81 = 13.6%",
+     "eareal": "1/81 = 1.2%",
+     "m3_m2": "2/81 = 2.5%",
+     "boligenhed": "0/81 = 0.0%"
+    },
+    "kommuneplanramme": {
+     "featuresSeen": 135,
+     "maxbygnhjd": "100/135 = 74.1%",
+     "maxetager": "97/135 = 71.9%",
+     "bebygpct": "82/135 = 60.7%",
+     "eareal": "2/135 = 1.5%",
+     "m3_m2": "1/135 = 0.7%",
+     "boligenhed": "0/135 = 0.0%"
+    }
+   },
+   "D3_bebygpctafDenominator": {
+    "byRung": {
+     "byggefelt": {
+      "featuresWithABebygpct": 0,
+      "denominatorClass": {},
+      "parcelScopedAndThereforeComputable": "n/a"
+     },
+     "lokalplandelomraade": {
+      "featuresWithABebygpct": 30,
+      "denominatorClass": {
+       "2=Den enkelte ejendom [property]": 20,
+       "1=Omraadet som helhed [planningArea]": 8,
+       "4=Det enkelte jordstykke [parcel]": 1,
+       "3=Den enkelte grund [parcel]": 1
+      },
+      "parcelScopedAndThereforeComputable": "2/30 = 6.7%"
+     },
+     "lokalplan": {
+      "featuresWithABebygpct": 11,
+      "denominatorClass": {
+       "1=Omraadet som helhed [planningArea]": 1,
+       "ABSENT(no denominator served)": 1,
+       "2=Den enkelte ejendom [property]": 6,
+       "4=Det enkelte jordstykke [parcel]": 2,
+       "3=Den enkelte grund [parcel]": 1
+      },
+      "parcelScopedAndThereforeComputable": "3/11 = 27.3%"
+     },
+     "kommuneplanramme": {
+      "featuresWithABebygpct": 82,
+      "denominatorClass": {
+       "2=Den enkelte ejendom [property]": 45,
+       "4=Det enkelte jordstykke [parcel]": 14,
+       "3=Den enkelte grund [parcel]": 11,
+       "1=Omraadet som helhed [planningArea]": 12
+      },
+      "parcelScopedAndThereforeComputable": "25/82 = 30.5%"
+     }
+    },
+    "rawValues": {
+     "1": 21,
+     "2": 71,
+     "3": 13,
+     "4": 17
+    }
+   },
+   "D4_honestyFlags": {
+    "byggefelt": {
+     "featuresSeen": 16,
+     "iomfangreg": {
+      "true": 14,
+      "false": 2,
+      "unknown": 0,
+      "truePct": "14/16 = 87.5%"
+     },
+     "ianvreg": {
+      "true": 15,
+      "false": 1,
+      "unknown": 0,
+      "truePct": "15/16 = 93.8%"
+     },
+     "izonereg": {
+      "true": 16,
+      "false": 0,
+      "unknown": 0,
+      "truePct": "16/16 = 100.0%"
+     },
+     "iudstykreg": {
+      "true": 16,
+      "false": 0,
+      "unknown": 0,
+      "truePct": "16/16 = 100.0%"
+     },
+     "kompleks": {
+      "true": 0,
+      "false": 16,
+      "unknown": 0,
+      "truePct": "0/16 = 0.0%"
+     },
+     "bygvejledende": {
+      "true": 10,
+      "false": 6,
+      "unknown": 0,
+      "truePct": "10/16 = 62.5%"
+     },
+     "bygkunifelt": {
+      "true": 3,
+      "false": 13,
+      "unknown": 0,
+      "truePct": "3/16 = 18.8%"
+     },
+     "bygtillagtosh": {
+      "true": 0,
+      "false": 16,
+      "unknown": 0,
+      "truePct": "0/16 = 0.0%"
+     }
+    },
+    "lokalplandelomraade": {
+     "featuresSeen": 67,
+     "iomfangreg": {
+      "true": 16,
+      "false": 51,
+      "unknown": 0,
+      "truePct": "16/67 = 23.9%"
+     },
+     "ianvreg": {
+      "true": 3,
+      "false": 63,
+      "unknown": 1,
+      "truePct": "3/67 = 4.5%"
+     },
+     "izonereg": {
+      "true": 51,
+      "false": 16,
+      "unknown": 0,
+      "truePct": "51/67 = 76.1%"
+     },
+     "iudstykreg": {
+      "true": 43,
+      "false": 24,
+      "unknown": 0,
+      "truePct": "43/67 = 64.2%"
+     },
+     "kompleks": {
+      "true": 0,
+      "false": 65,
+      "unknown": 2,
+      "truePct": "0/67 = 0.0%"
+     }
+    },
+    "lokalplan": {
+     "featuresSeen": 81,
+     "iomfangreg": {
+      "true": 61,
+      "false": 18,
+      "unknown": 2,
+      "truePct": "61/81 = 75.3%"
+     },
+     "ianvreg": {
+      "true": 10,
+      "false": 69,
+      "unknown": 2,
+      "truePct": "10/81 = 12.3%"
+     },
+     "izonereg": {
+      "true": 38,
+      "false": 43,
+      "unknown": 0,
+      "truePct": "38/81 = 46.9%"
+     },
+     "iudstykreg": {
+      "true": 74,
+      "false": 6,
+      "unknown": 1,
+      "truePct": "74/81 = 91.4%"
+     },
+     "kompleks": {
+      "true": 0,
+      "false": 64,
+      "unknown": 17,
+      "truePct": "0/81 = 0.0%"
+     }
+    },
+    "kommuneplanramme": {
+     "featuresSeen": 135,
+     "iomfangreg": {
+      "true": 10,
+      "false": 125,
+      "unknown": 0,
+      "truePct": "10/135 = 7.4%"
+     },
+     "iudstykreg": {
+      "true": 105,
+      "false": 30,
+      "unknown": 0,
+      "truePct": "105/135 = 77.8%"
+     }
+    }
+   },
+   "D4b_numbersContradictedByTheirOwnFlag": {
+    "byggefelt": {
+     "featuresPublishingAMaxHeight": 1,
+     "ofWhichIomfangregTrue": "0/1 = 0.0%",
+     "ofWhichKompleksTrue": "0/1 = 0.0%"
+    },
+    "lokalplandelomraade": {
+     "featuresPublishingAMaxHeight": 30,
+     "ofWhichIomfangregTrue": "0/30 = 0.0%",
+     "ofWhichKompleksTrue": "0/30 = 0.0%"
+    },
+    "lokalplan": {
+     "featuresPublishingAMaxHeight": 11,
+     "ofWhichIomfangregTrue": "0/11 = 0.0%",
+     "ofWhichKompleksTrue": "0/11 = 0.0%"
+    },
+    "kommuneplanramme": {
+     "featuresPublishingAMaxHeight": 100,
+     "ofWhichIomfangregTrue": "0/100 = 0.0%",
+     "ofWhichKompleksTrue": "0/100 = 0.0%"
+    }
+   },
+   "D4c_iomfangregPredictsEmptyFields": {
+    "byggefelt": {
+     "iomfangregTrue": {
+      "n": 14,
+      "maxbygnhjd": "0/14 = 0.0%",
+      "bebygpct": "0/14 = 0.0%",
+      "maxetager": "0/14 = 0.0%"
+     },
+     "iomfangregFalse": {
+      "n": 2,
+      "maxbygnhjd": "1/2 = 50.0%",
+      "bebygpct": "0/2 = 0.0%",
+      "maxetager": "2/2 = 100.0%"
+     }
+    },
+    "lokalplandelomraade": {
+     "iomfangregTrue": {
+      "n": 16,
+      "maxbygnhjd": "0/16 = 0.0%",
+      "bebygpct": "0/16 = 0.0%",
+      "maxetager": "0/16 = 0.0%"
+     },
+     "iomfangregFalse": {
+      "n": 51,
+      "maxbygnhjd": "30/51 = 58.8%",
+      "bebygpct": "30/51 = 58.8%",
+      "maxetager": "36/51 = 70.6%"
+     }
+    },
+    "lokalplan": {
+     "iomfangregTrue": {
+      "n": 61,
+      "maxbygnhjd": "0/61 = 0.0%",
+      "bebygpct": "0/61 = 0.0%",
+      "maxetager": "0/61 = 0.0%"
+     },
+     "iomfangregFalse": {
+      "n": 18,
+      "maxbygnhjd": "10/18 = 55.6%",
+      "bebygpct": "11/18 = 61.1%",
+      "maxetager": "8/18 = 44.4%"
+     }
+    },
+    "kommuneplanramme": {
+     "iomfangregTrue": {
+      "n": 10,
+      "maxbygnhjd": "0/10 = 0.0%",
+      "bebygpct": "0/10 = 0.0%",
+      "maxetager": "0/10 = 0.0%"
+     },
+     "iomfangregFalse": {
+      "n": 125,
+      "maxbygnhjd": "100/125 = 80.0%",
+      "bebygpct": "82/125 = 65.6%",
+      "maxetager": "97/125 = 77.6%"
+     }
+    }
+   },
+   "D5_zone": {
+    "byParcel": {
+     "(no zone published at the point)": 102,
+     "1 = Byzone": 43,
+     "3 = Sommerhusområde": 7,
+     "2 = Landzone": 2
+    },
+    "codeToLabelPairsObserved": {
+     "1 = Byzone": 62,
+     "3 = Sommerhusområde": 9,
+     "4 = Byzone og landzone": 2,
+     "2 = Landzone": 3
+    }
+   },
+   "D6_partition": {
+    "classes": {
+     "UNRESOLVED_plan_present_no_usable_number": 56,
+     "PARTIAL_height_only_pct_denominator_unusable": 35,
+     "PARTIAL_height_only": 20,
+     "DETERMINISTIC_height_and_parcel_scoped_pct": 9,
+     "F2_or_F1_NO_PLAN_AT_POINT": 33,
+     "PARTIAL_pct_only": 1
+    },
+    "byRung": {
+     "kommuneplanramme :: UNRESOLVED_plan_present_no_usable_number": 14,
+     "byggefelt :: UNRESOLVED_plan_present_no_usable_number": 12,
+     "kommuneplanramme :: PARTIAL_height_only_pct_denominator_unusable": 21,
+     "lokalplandelomraade :: UNRESOLVED_plan_present_no_usable_number": 21,
+     "lokalplandelomraade :: PARTIAL_height_only": 7,
+     "lokalplan :: UNRESOLVED_plan_present_no_usable_number": 9,
+     "kommuneplanramme :: DETERMINISTIC_height_and_parcel_scoped_pct": 7,
+     "lokalplan :: PARTIAL_height_only_pct_denominator_unusable": 2,
+     "lokalplandelomraade :: PARTIAL_height_only_pct_denominator_unusable": 12,
+     "kommuneplanramme :: PARTIAL_height_only": 11,
+     "lokalplan :: PARTIAL_height_only": 2,
+     "lokalplan :: DETERMINISTIC_height_and_parcel_scoped_pct": 1,
+     "lokalplandelomraade :: DETERMINISTIC_height_and_parcel_scoped_pct": 1,
+     "kommuneplanramme :: PARTIAL_pct_only": 1
+    }
+   }
+  }
+ ]
+}
