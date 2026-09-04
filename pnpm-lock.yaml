@@ -1001,6 +1001,9 @@ importers:
       '@pryzm/geometry-slab':
         specifier: workspace:*
         version: link:../../packages/geometry-slab
+      '@pryzm/geometry-space-envelope':
+        specifier: workspace:*
+        version: link:../../packages/geometry-space-envelope
       '@pryzm/geospatial':
         specifier: workspace:*
         version: link:../../packages/geospatial

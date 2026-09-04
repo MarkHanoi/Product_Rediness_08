@@ -43,6 +43,7 @@
     "@pryzm/geometry-kernel": "workspace:*",
     "@pryzm/geometry-lift": "workspace:*",
     "@pryzm/geometry-slab": "workspace:*",
+    "@pryzm/geometry-space-envelope": "workspace:*",
     "@pryzm/geospatial": "workspace:*",
     "@pryzm/keyboard-registry": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",

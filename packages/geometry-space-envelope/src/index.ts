@@ -15,7 +15,10 @@
 //      `footprintAreaM2` / `volumeM3` (C114 §2b).
 //   2. THE FACE-MOVE PLANNER — move one face along its own normal; the connected
 //      faces adapt; a move that would invert the solid REFUSES by name with both
-//      numbers.
+//      numbers. ⭐ AND ITS DRAG HALF (`SpaceEnvelopeFaceDrag`): the projection of a
+//      world-space pointer movement onto ONE face's own outward axis. The same
+//      function feeds the live preview and the committed edit, which is what stops a
+//      preview promising a move the commit then refuses.
 //   3. THE AWARENESS RELATIONS — containment, adjacency, stacking, boundary
 //      distance — computed ON DEMAND and never stored.
 //   4. THE SOLAR JOIN — per-face exposure through `@pryzm/solar-analysis`.
@@ -73,6 +76,16 @@ export {
     type SpaceEnvelopeFaceMoveEntry,
     type SpaceEnvelopeFaceMoveRequest,
 } from './SpaceEnvelopeFaceMove.js';
+
+export {
+    closestPointOnFaceAxis,
+    prismOfSpaceEnvelopeRecord,
+    readSpaceEnvelopeFaceDrag,
+    spaceEnvelopeFaceAxis,
+    spaceEnvelopeFaceCentre,
+    type DragVec3,
+    type SpaceEnvelopeFaceDragReading,
+} from './SpaceEnvelopeFaceDrag.js';
 
 export {
     adjacency,

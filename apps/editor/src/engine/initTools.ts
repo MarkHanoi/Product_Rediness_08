@@ -122,6 +122,12 @@ import { BoundaryLineMeshBuilder } from './BoundaryLineMeshBuilder';
 // §POOL95 / §FT-WATER — the swimming pool's water body. Same single-authority
 // shape as the boundary line above: one store, no legacy twin, straight to a mesh.
 import { WaterMeshBuilder } from './WaterMeshBuilder';
+// §FEAT-SPACE-ENVELOPE (L-12900) · C114 §10 — the store→mesh subscriber and the
+// per-face drag, wired as ONE call so this 2000-line file gains one block, not four.
+import {
+    attachSpaceEnvelopeRender,
+    type DirtySpaceEnvelopeStore,
+} from './attachSpaceEnvelopeRender';
 // §POOL95 (L-11350) — the undo path reaches the SAME builder through this sink,
 // because `performUndoRedo` emits no bus events.
 import { registerWaterRenderSink } from './undo/poolUndoAdapter';
@@ -2020,6 +2026,79 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             }
         });
         console.log('[initTools] §FT-WATER: water.created bus→mesh bridge registered.');
+
+        // ⭐⭐ §FEAT-SPACE-ENVELOPE (L-12900) · C114 §10 — THE AUTHORED VOLUME BECOMES
+        // VISIBLE, AND ITS FACES BECOME DRAGGABLE.
+        //
+        // ⛔ IT SUBSCRIBES THE STORE, NOT A BUS EVENT, AND THAT IS THE DESIGN — see
+        // `attachSpaceEnvelopeRender.ts` for the argument in full. `water` above needed
+        // THREE things (a typed RuntimeEvents member, this subscriber, and a
+        // `registerWaterRenderSink` for the undo path) because `performUndoRedo` emits
+        // no bus events at all; miss the sink and the water reverts in the model and
+        // stays on screen. `Store.applyPatch` notifies `subscribeDirty` on execute, undo
+        // AND redo alike, so ONE subscription serves all three and no rival render
+        // channel exists to disagree with it (C84 EI-9).
+        //
+        // ⚠ The `stores` cast is the pre-existing `StoresSlot` disagreement the
+        // boundary-line and balcony bridges above already document — not a new one.
+        {
+            const slot = runtime.stores as unknown as Record<string, unknown> | undefined;
+            const spaceEnvelopeStore = slot?.['spaceEnvelope'] as DirtySpaceEnvelopeStore | undefined;
+            if (!spaceEnvelopeStore || typeof spaceEnvelopeStore.subscribeDirty !== 'function') {
+                // ⛔ LOUD, NEVER SILENT (C84 EI-6). UNREACHABLE and EMPTY are different
+                // facts: without this store the family is authored, undoable, saved and
+                // INVISIBLE — which is the state `CommandEventBridge` printed about the
+                // water on every pool anybody created, for weeks.
+                console.warn(
+                    '[initTools] §FEAT-SPACE-ENVELOPE: runtime.stores.spaceEnvelope is not reachable — '
+                    + 'authored space envelopes will not be drawn. The records are still created, '
+                    + 'undoable and saved; only the 3-D leg is absent.',
+                );
+            } else {
+                attachSpaceEnvelopeRender({
+                    store: spaceEnvelopeStore,
+                    scene: world.scene.three,
+                    domElement: world.renderer.three.domElement,
+                    camera: () => world.camera.three,
+                    // P6 — the ONLY mutation path. ⭐ ONE dispatch per gesture, minted on
+                    // pointer-up by the controller, so one face drag costs one Ctrl+Z.
+                    dispatchFaceMove: (payload) => {
+                        // ⚠ `Promise.resolve(...)` IS NOT CEREMONY. `RuntimeSlot.bus
+                        // .executeCommand` is declared to return `unknown` on the
+                        // composed handle (unlike the raw `CommandBus`), so calling
+                        // `.catch` on it directly is `TS2571: Object is of type
+                        // 'unknown'` — and dropping the `.catch` to satisfy the compiler
+                        // would turn a refused move into an UNHANDLED REJECTION the user
+                        // never hears about, which is the §FIX-OP-SILENT-NOOP defect.
+                        void Promise.resolve(runtime.bus.executeCommand('spaceEnvelope.moveFace', payload))
+                            .catch((e: unknown) => {
+                                // The planner already refused DURING the drag with both
+                                // numbers, so reaching here means the store moved under
+                                // the gesture. The user still hears about it.
+                                console.error('[initTools] §FEAT-SPACE-ENVELOPE moveFace failed:', e);
+                                runtime.events?.emit('pryzm:toast', {
+                                    message: `Couldn't move that face — ${e instanceof Error ? e.message : String(e)}`,
+                                    severity: 'error',
+                                });
+                            });
+                    },
+                    onRefusal: (message: string) => {
+                        // ⭐ THE REFUSAL IS THE PRODUCT (C83 §1.2 / CA-DOCTRINE-A). It
+                        // carries BOTH numbers, read from the geometry by the planner and
+                        // forwarded verbatim — a paraphrase here would be the second copy
+                        // C84 EI-8a rules out.
+                        runtime.events?.emit('pryzm:toast', { message, severity: 'warning' });
+                    },
+                    registerElement: (id: string, levelId: string) => {
+                        try { viewDependencyTracker.registerElement(id, levelId); }
+                        catch (err) { console.warn('[initTools] §FEAT-SPACE-ENVELOPE VDT.registerElement failed (non-fatal):', err); }
+                        try { bimManager.registerElement(id, levelId); }
+                        catch { /* non-fatal — may already be registered */ }
+                    },
+                });
+                console.log('[initTools] §FEAT-SPACE-ENVELOPE: store→mesh subscriber and face drag installed.');
+            }
+        }
 
         // ⭐ §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN (L-10502) — THE PLAN HALF, INSTALLED HERE.
         //
