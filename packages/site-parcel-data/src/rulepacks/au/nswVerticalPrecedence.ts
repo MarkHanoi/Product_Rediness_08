@@ -423,6 +423,7 @@ export function resolveNswVerticalPrecedence(
             state: {
                 rule: RULE_C2,
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'source-complete',
                 failure: 'missing-source',
                 mechanism: 'absent',
@@ -706,6 +707,7 @@ export function resolveNswVerticalPrecedence(
             state: {
                 rule: RULE_C2,
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'extractable',
                 failure: 'semantic',
                 mechanism: 'present',
@@ -763,6 +765,7 @@ export function resolveNswVerticalPrecedence(
             state: {
                 rule: RULE_C2,
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'source-complete',
                 failure: 'semantic',
                 mechanism: 'present',
@@ -800,6 +803,7 @@ export function resolveNswVerticalPrecedence(
             state: {
                 rule: RULE_C2,
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'source-complete',
                 failure: 'semantic',
                 mechanism: 'present',

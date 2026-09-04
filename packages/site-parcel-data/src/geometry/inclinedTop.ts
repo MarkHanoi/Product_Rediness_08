@@ -72,6 +72,29 @@ export interface InclinedPlaneSpec {
     readonly anchorB: Pt;
     readonly baseHeight_m: number;
     readonly slopePerMeter: number;
+    /**
+     * §GOVERNS-EXTENT (lane ENVELOPE-IBERIA, 2026-09-04 — the ONE shared-solver change the PT
+     * consumer needs; made minimally, and every existing caller is unchanged because the field is
+     * optional and `undefined`/`null` means "governs everywhere", which is exactly the prior
+     * behaviour).
+     *
+     * The CONVEX region within which this plane GOVERNS. Outside it the plane does not enter the
+     * min at all — it is ABSENT there, not "infinitely high". Two Portuguese rules cannot be
+     * stated without this (RGEU art. 59, `countryAdapters/pt/ptRgeuArt59.ts`):
+     *   • art. 59 §1 — the 45° line may start **1,50 m above ground on the DOWNHILL side** of
+     *     sloping ground. A frontage that slopes along part of its run needs TWO plane segments
+     *     (base 0 and base 1,50), each governing ONLY its along-line band. Without extents the
+     *     tolerance is either applied to the whole frontage (OVERSTATES on the uphill part) or
+     *     dropped (silently ignored — round one's finding).
+     *   • art. 59 §2 — the corner rule: the narrower street's plane does NOT govern the first
+     *     15 m from the corner, where the wider street's permitted height applies.
+     * Expressed as a convex polygon (≥3 non-collinear vertices, any winding). Refused as
+     * `invalid-plane` when non-convex, degenerate or non-finite — never repaired. Where the
+     * footprint has a region covered by NO plane's extent and there is no flat cap, the solve
+     * refuses `no-vertical-limit` naming the uncovered area (fabricating a top is the forbidden
+     * direction, C58 §1.4).
+     */
+    readonly governsExtent?: ReadonlyArray<Pt> | null;
 }
 
 export interface InclinedTopSpec {
@@ -85,9 +108,13 @@ export type InclinedTopRefusal =
     | 'degenerate-footprint'
     /** Footprint is self-intersecting / non-finite — named, never repaired (`ringValidation.ts`). */
     | 'invalid-footprint-geometry'
-    /** A plane has non-finite numbers or a degenerate (point) origin line. */
+    /** A plane has non-finite numbers, a degenerate (point) origin line, or a non-convex/degenerate `governsExtent`. */
     | 'invalid-plane'
-    /** No planes AND no flat cap — nothing bounds the top; refusing beats fabricating (C58 §1.4). */
+    /**
+     * No planes AND no flat cap — nothing bounds the top; refusing beats fabricating (C58 §1.4).
+     * ALSO raised when every plane carries a `governsExtent`, there is no flat cap, and part of the
+     * footprint lies outside all of them: the field is unbounded THERE, and the detail names the m².
+     */
     | 'no-vertical-limit';
 
 export type InclinedTopSolve =
@@ -107,12 +134,64 @@ export type InclinedTopSolve =
 // Internal: affine forms + polygon integrals + half-plane clip
 // ──────────────────────────────────────────────────────────────────────────────────────────────
 
+/** A half-plane {a·x + b·z + c ≥ 0}. A `governsExtent` is the intersection of these. */
+interface HalfPlane {
+    readonly a: number;
+    readonly b: number;
+    readonly c: number;
+}
+
 /** h(x, z) = c0 + cx·x + cz·z. The flat cap is the affine form with cx = cz = 0. */
 interface Affine {
     readonly id: string;
     readonly c0: number;
     readonly cx: number;
     readonly cz: number;
+    /** §GOVERNS-EXTENT — the region this candidate is PRESENT in, as half-planes; null = everywhere. */
+    readonly extent: ReadonlyArray<HalfPlane> | null;
+}
+
+/**
+ * §GOVERNS-EXTENT — validate an extent polygon and express it as half-planes (interior ≥ 0).
+ * Returns null when it is not a proper CONVEX polygon: non-finite, fewer than 3 distinct vertices,
+ * ~zero area, or a reflex vertex. The caller refuses `invalid-plane`; nothing is repaired — a
+ * "fixed" extent would govern land the ordinance never named.
+ */
+function extentToHalfPlanes(extent: ReadonlyArray<Pt>): HalfPlane[] | null {
+    for (const p of extent) {
+        if (!Number.isFinite(p.x) || !Number.isFinite(p.z)) return null;
+    }
+    const ring = normaliseRing(extent);
+    if (ring.length < 3) return null;
+    const [area] = areaAndMoments(ring);
+    if (Math.abs(area) <= EPSILON_ZERO) return null;
+    const ccw = area > 0 ? ring : ring.slice().reverse();
+    const n = ccw.length;
+    const out: HalfPlane[] = [];
+    for (let i = 0; i < n; i++) {
+        const p = ccw[i]!;
+        const q = ccw[(i + 1) % n]!;
+        const r = ccw[(i + 2) % n]!;
+        // CONVEXITY: on a CCW ring every consecutive turn is a left turn; a right turn is a reflex
+        // vertex, and a reflex extent is not one convex region — refused, never split silently.
+        const turn = (q.x - p.x) * (r.z - q.z) - (q.z - p.z) * (r.x - q.x);
+        if (turn < -EPSILON_ZERO) return null;
+        // Interior (left of p→q) is {a·x + b·z + c ≥ 0} with (a, b) = (−(q.z−p.z), q.x−p.x).
+        const a = -(q.z - p.z);
+        const b = q.x - p.x;
+        out.push({ a, b, c: -(a * p.x + b * p.z) });
+    }
+    return out;
+}
+
+/** Is `p` inside every half-plane (boundary inclusive, metric tolerance)? */
+function halfPlanesContain(hs: ReadonlyArray<HalfPlane>, p: Pt): boolean {
+    for (const h of hs) {
+        const norm = Math.hypot(h.a, h.b);
+        if (isNumericallyZero(norm)) continue;
+        if ((h.a * p.x + h.b * p.z + h.c) / norm < -EPSILON_ZERO) return false;
+    }
+    return true;
 }
 
 function planeToAffine(p: InclinedPlaneSpec): Affine | null {
@@ -125,11 +204,16 @@ function planeToAffine(p: InclinedPlaneSpec): Affine | null {
     ) {
         return null;
     }
+    let extent: HalfPlane[] | null = null;
+    if (p.governsExtent !== undefined && p.governsExtent !== null) {
+        extent = extentToHalfPlanes(p.governsExtent);
+        if (extent === null) return null; // non-convex / degenerate extent — the caller refuses by name
+    }
     // signedDist(q) = cross(dir, q − A) / |dir|  (positive = left of A→B in the x/z convention)
     const cx = (-p.slopePerMeter * dz) / len;
     const cz = (p.slopePerMeter * dx) / len;
     const c0 = p.baseHeight_m - cx * p.anchorA.x - cz * p.anchorA.z;
-    return { id: p.id, c0, cx, cz };
+    return { id: p.id, c0, cx, cz, extent };
 }
 
 const affineAt = (f: Affine, x: number, z: number): number => f.c0 + f.cx * x + f.cz * z;
@@ -181,6 +265,56 @@ function clipHalfPlane(ring: ReadonlyArray<Pt>, a: number, b: number, c: number)
     return out;
 }
 
+/** Clip a ring to a whole extent (successive half-plane clips). Empty when nothing survives. */
+function clipToExtent(ring: ReadonlyArray<Pt>, extent: ReadonlyArray<HalfPlane>): Pt[] {
+    let cur: Pt[] = ring.slice();
+    for (const h of extent) {
+        if (cur.length < 3) return [];
+        cur = clipHalfPlane(cur, h.a, h.b, h.c);
+    }
+    return cur.length >= 3 ? cur : [];
+}
+
+/**
+ * §GOVERNS-EXTENT — the one construction the extent machinery rests on.
+ *
+ * Apply to every piece the constraint *"candidate `rival` must not undercut me here"*: keep
+ * `piece ∩ {keep ≥ 0}` (where I am ≤ the rival, or where the rival's constraint holds), PLUS —
+ * when the rival governs only inside `rivalExtent` — the part of `piece ∩ {keep < 0}` that lies
+ * OUTSIDE the rival's extent, because the rival is simply ABSENT there. The complement of a convex
+ * extent is a union of half-planes; it is emitted as the DISJOINT chain
+ * `piece ∩ H̄₀`, `piece ∩ H₀ ∩ H̄₁`, `piece ∩ H₀ ∩ H₁ ∩ H̄₂`, … so the returned pieces overlap only on
+ * measure-zero boundaries and their integrals SUM EXACTLY. With every extent null this reduces to
+ * the single clip the pre-extent solver performed — the prior behaviour, bit for bit.
+ */
+function splitByRival(
+    pieces: ReadonlyArray<ReadonlyArray<Pt>>,
+    keep: HalfPlane,
+    rivalExtent: ReadonlyArray<HalfPlane> | null,
+): Pt[][] {
+    const out: Pt[][] = [];
+    for (const piece of pieces) {
+        const inside = clipHalfPlane(piece, keep.a, keep.b, keep.c);
+        if (inside.length >= 3) out.push(inside);
+        if (rivalExtent === null) continue;
+        let cur = clipHalfPlane(piece, -keep.a, -keep.b, -keep.c);
+        for (const h of rivalExtent) {
+            if (cur.length < 3) break;
+            const outsideH = clipHalfPlane(cur, -h.a, -h.b, -h.c);
+            if (outsideH.length >= 3) out.push(outsideH);
+            cur = clipHalfPlane(cur, h.a, h.b, h.c);
+        }
+    }
+    return out;
+}
+
+/** Total unsigned area of a set of pieces. */
+function piecesArea(pieces: ReadonlyArray<ReadonlyArray<Pt>>): number {
+    let s = 0;
+    for (const p of pieces) s += Math.abs(areaAndMoments(p)[0]);
+    return s;
+}
+
 // ──────────────────────────────────────────────────────────────────────────────────────────────
 // 1 — THE HEIGHT FIELD (pointwise)
 // ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -196,6 +330,8 @@ export function inclinedTopHeightAt(p: Pt, spec: InclinedTopSpec): number {
     for (const plane of spec.planes) {
         const f = planeToAffine(plane);
         if (f === null) return Number.NaN; // invalid plane — solve() refuses this properly
+        // §GOVERNS-EXTENT — a plane absent at p does not enter the min (it is not "infinite").
+        if (f.extent !== null && !halfPlanesContain(f.extent, p)) continue;
         h = Math.min(h, affineAt(f, p.x, p.z));
     }
     if (!Number.isFinite(h)) return Number.NaN; // no vertical limit — solve() refuses
@@ -242,24 +378,64 @@ function prepareCandidates(
     for (const p of spec.planes) {
         const f = planeToAffine(p);
         if (f === null) {
-            return { reason: 'invalid-plane', detail: `plane '${p.id}' has a degenerate origin line or non-finite numbers` };
+            return {
+                reason: 'invalid-plane',
+                detail:
+                    `plane '${p.id}' has a degenerate origin line, non-finite numbers, or a ` +
+                    'governsExtent that is not a proper convex polygon',
+            };
         }
         candidates.push(f);
     }
     if (spec.flatCap_m !== null) {
-        candidates.push({ id: '§flat-cap', c0: spec.flatCap_m, cx: 0, cz: 0 });
+        candidates.push({ id: '§flat-cap', c0: spec.flatCap_m, cx: 0, cz: 0, extent: null });
     }
     // Dedupe parallel-identical-gradient candidates: the lower constant governs everywhere; the
     // higher one can never be the min and only degrades the cell arithmetic.
+    // §GOVERNS-EXTENT — ONLY between two GLOBAL candidates: a plane present in part of the footprint
+    // and a parallel global one are both live (the lower governs inside the extent, the global one
+    // outside), so deduping either would drop a real constraint.
     const kept: Affine[] = [];
     for (const f of candidates) {
-        const rival = kept.findIndex(
-            (g) => Math.abs(g.cx - f.cx) <= EPSILON_ZERO && Math.abs(g.cz - f.cz) <= EPSILON_ZERO,
-        );
+        const rival =
+            f.extent === null
+                ? kept.findIndex(
+                      (g) =>
+                          g.extent === null &&
+                          Math.abs(g.cx - f.cx) <= EPSILON_ZERO &&
+                          Math.abs(g.cz - f.cz) <= EPSILON_ZERO,
+                  )
+                : -1;
         if (rival === -1) kept.push(f);
         else if (f.c0 < kept[rival]!.c0) kept[rival] = f;
     }
     return kept;
+}
+
+/**
+ * §GOVERNS-EXTENT — the part of the footprint bounded by NO candidate. Empty whenever any candidate
+ * is global (a flat cap or an extent-less plane). Where it is non-empty the field is unbounded
+ * there and the solve refuses `no-vertical-limit`: an inclined top that quietly grants infinite
+ * height beside the last governed strip is the C58 §1.4 forbidden direction.
+ */
+function uncoveredPieces(ring: ReadonlyArray<Pt>, candidates: ReadonlyArray<Affine>): Pt[][] {
+    if (candidates.some((c) => c.extent === null)) return [];
+    let uncovered: Pt[][] = [ring.slice()];
+    for (const c of candidates) {
+        const next: Pt[][] = [];
+        for (const piece of uncovered) {
+            let cur: Pt[] = piece;
+            for (const h of c.extent!) {
+                if (cur.length < 3) break;
+                const outside = clipHalfPlane(cur, -h.a, -h.b, -h.c);
+                if (outside.length >= 3) next.push(outside);
+                cur = clipHalfPlane(cur, h.a, h.b, h.c);
+            }
+        }
+        uncovered = next;
+        if (uncovered.length === 0) break;
+    }
+    return uncovered;
 }
 
 /**
@@ -277,26 +453,47 @@ export function solveInclinedTop(footprint: ReadonlyArray<Pt>, spec: InclinedTop
 
     const [footArea] = areaAndMoments(ring);
 
+    // §GOVERNS-EXTENT — refuse before integrating if any part of the footprint is unbounded.
+    const uncovered = uncoveredPieces(ring, candidates);
+    const uncoveredArea = piecesArea(uncovered);
+    if (uncoveredArea > EPSILON_ZERO) {
+        return {
+            ok: false,
+            reason: 'no-vertical-limit',
+            detail:
+                `${uncoveredArea.toFixed(2)} m² of the footprint lies outside every plane's ` +
+                'governsExtent and there is no flat cap — the top is unbounded there, and fabricating ' +
+                'one is the forbidden direction',
+        };
+    }
+
     let volume = 0;
     let peak = 0;
     let governedCells = 0;
     for (let i = 0; i < candidates.length; i++) {
         const f = candidates[i]!;
-        let cell: Pt[] = ring;
-        for (let j = 0; j < candidates.length && cell.length >= 3; j++) {
+        // The candidate's own presence region first (§GOVERNS-EXTENT), then the lower-envelope
+        // condition against every rival — as DISJOINT pieces, because a rival that is absent over
+        // part of the footprint cannot undercut there (see `splitByRival`).
+        let pieces: Pt[][] = f.extent === null ? [ring.slice()] : (() => { const c = clipToExtent(ring, f.extent); return c.length >= 3 ? [c] : []; })();
+        for (let j = 0; j < candidates.length && pieces.length > 0; j++) {
             if (j === i) continue;
             const g = candidates[j]!;
             // {h_i ≤ h_j} ⇔ {(c0j−c0i) + (cxj−cxi)·x + (czj−czi)·z ≥ 0}
-            cell = clipHalfPlane(cell, g.cx - f.cx, g.cz - f.cz, g.c0 - f.c0);
+            pieces = splitByRival(pieces, { a: g.cx - f.cx, b: g.cz - f.cz, c: g.c0 - f.c0 }, g.extent);
         }
-        // {h_i ≥ 0} — the ground clamp: a governing plane below ground contributes nothing.
-        if (cell.length >= 3) cell = clipHalfPlane(cell, f.cx, f.cz, f.c0);
-        if (cell.length < 3) continue;
-        const [a, mx, mz] = areaAndMoments(cell);
-        if (a <= EPSILON_ZERO) continue;
-        volume += f.c0 * a + f.cx * mx + f.cz * mz;
-        governedCells += 1;
-        for (const v of cell) peak = Math.max(peak, affineAt(f, v.x, v.z));
+        let governedHere = false;
+        for (const piece of pieces) {
+            // {h_i ≥ 0} — the ground clamp: a governing plane below ground contributes nothing.
+            const cell = clipHalfPlane(piece, f.cx, f.cz, f.c0);
+            if (cell.length < 3) continue;
+            const [a, mx, mz] = areaAndMoments(cell);
+            if (a <= EPSILON_ZERO) continue;
+            volume += f.c0 * a + f.cx * mx + f.cz * mz;
+            governedHere = true;
+            for (const v of cell) peak = Math.max(peak, affineAt(f, v.x, v.z));
+        }
+        if (governedHere) governedCells += 1;
     }
 
     return {
@@ -357,28 +554,34 @@ export function inclinedTopToTiers(
     for (let k = 0; k < slices; k++) {
         const lo = (top * k) / slices;
         const hi = (top * (k + 1)) / slices;
-        // {h(p) ≥ hi} = ⋂ candidates {h_i(p) ≥ hi} — each an affine half-plane (the flat cap is
-        // the constant one: empty when cap < hi, everything otherwise — clipHalfPlane's
-        // degenerate branch handles it).
-        let region: Pt[] = ring;
+        // {h(p) ≥ hi} = ⋂ candidates ({h_i(p) ≥ hi} ∪ ¬extent_i) — each an affine half-plane where
+        // the candidate is present (the flat cap is the constant one: empty when cap < hi,
+        // everything otherwise — clipHalfPlane's degenerate branch handles it). §GOVERNS-EXTENT:
+        // where a plane is absent it imposes nothing, so the slice region may come back as SEVERAL
+        // disjoint pieces; each is emitted as its own inscribed prism (`-k` for the first, `-k-m`
+        // for the rest — with no extents there is exactly one piece and the ids are unchanged).
+        let pieces: Pt[][] = [ring.slice()];
         for (const f of candidates) {
-            if (region.length < 3) break;
-            region = clipHalfPlane(region, f.cx, f.cz, f.c0 - hi);
+            if (pieces.length === 0) break;
+            pieces = splitByRival(pieces, { a: f.cx, b: f.cz, c: f.c0 - hi }, f.extent);
         }
-        if (region.length < 3) continue;
-        const [a] = areaAndMoments(region);
-        const area = Math.abs(a);
-        if (area <= EPSILON_ZERO) continue;
-        tiers.push({
-            id: `${idPrefix}-${k}`,
-            label: `${labelPrefix} ${lo.toFixed(2)}–${hi.toFixed(2)} m (inscribed — understates the inclined top)`,
-            polygon: region,
-            areaM2: area,
-            baseHeight_m: lo,
-            maxHeight_m: hi,
-            maxFloors: null,
-            ordinanceRef,
-        });
+        let m = 0;
+        for (const region of pieces) {
+            const [a] = areaAndMoments(region);
+            const area = Math.abs(a);
+            if (area <= EPSILON_ZERO) continue;
+            tiers.push({
+                id: m === 0 ? `${idPrefix}-${k}` : `${idPrefix}-${k}-${m}`,
+                label: `${labelPrefix} ${lo.toFixed(2)}–${hi.toFixed(2)} m (inscribed — understates the inclined top)`,
+                polygon: region,
+                areaM2: area,
+                baseHeight_m: lo,
+                maxHeight_m: hi,
+                maxFloors: null,
+                ordinanceRef,
+            });
+            m += 1;
+        }
     }
     return tiers;
 }

@@ -2550,6 +2550,140 @@ export {
     type DkOmfangVerdict,
 } from './rulepacks/dkOmfangRegulation.js';
 
+// ── LANE ENVELOPE-NLDK, ROUND TWO (2026-09-04) — the founder's 8-move NL sequence + the DK legs. ──
+//
+// §NL-REGELING-IDENTITY — "as at the tijdelijk deel, overrides not checked" as a VALUE. Since
+// 2024-01-01 the regeling is the PRODUCT of the tijdelijk deel and all wijzigingsbesluiten (LVBB);
+// we read the first, the overrides live in the second (key-gated: Presenteren v8 → 401). Every
+// legally-grounded NL answer is stamped with its precedence state; B1 is one AKN regeling, not N
+// plan ids. Also carries the documented answer to the founder's not-verified question: the
+// tijdelijk deel is NOT served through Ozon (IPLO), so moves 1 and 2 do not collapse.
+export {
+    parseNlAknIdentifier,
+    stampNlPrecedence,
+    nlPrecedenceRiskCount,
+    nlRegelingToRuleState,
+    NL_TIJDELIJK_DEEL_SERVING,
+    NL_OVERRIDES_NOT_CHECKED_CAVEAT,
+    type NlAknIdentifier,
+    type NlPrecedenceCheck,
+    type NlRegelingRef,
+    type NlRuleStateWithPrecedence,
+} from './rulepacks/nlRegelingIdentity.js';
+// §NL-BEBPCT-DENOMINATOR — the denominator (bouwvlak / bouwperceel / bestemmingsvlak) is a
+// REQUIRED field with NO DEFAULT; a percentage without a resolved denominator is `unrecovered`,
+// never applied. Probe 2026-09-04: of 6 verbatim definitions, 2 name BOTH bouwvlak and bouwperceel.
+export {
+    classifyNlBebouwingspercentageDenominator,
+    resolveNlDenominatorFromDefinition,
+    resolveNlBebouwingspercentage,
+    nlBebouwingspercentageToRuleState,
+    NL_BEBPCT_DENOMINATORS,
+    type NlBebouwingspercentageDenominator,
+    type NlBebouwingspercentageDenominatorClass,
+    type NlDenominatorResolution,
+    type NlDenominatorAreasM2,
+    type NlBebouwingspercentageInputs,
+    type NlBebouwingspercentageResolution,
+} from './rulepacks/nlBebouwingspercentage.js';
+// §NL-INHOUD — the cubic-metre cap. The "0 of 556" was the STRUCTURED zero: the targeted probe
+// found a cubic-metre inhoud rule in plan TEXT on 24.3 % of buitengebied plans vs 8.3 % control
+// (modal 750 m³). Label corrected from `missing-source` to `pdf` / mechanism present. A hit needs a
+// MAXIMUM quantifier and a SUBJECT before it is a cap (minimums and sloop bonuses are not).
+export {
+    extractNlInhoudRules,
+    resolveNlInhoud,
+    nlInhoudToRuleState,
+    NL_INHOUD_PARAMETER_KEY_DEBT,
+    type NlInhoudQuantifier,
+    type NlInhoudRuleHit,
+    type NlInhoudResolution,
+} from './rulepacks/nlInhoud.js';
+// §NL-ROOF-UNDERDETERMINED (round two) — the bound TYPE is an explicit field: prism-upper-bound ·
+// eaves-plane-no-top · roof-zone-slab · section-closed-by-pitch · closed-by-ridge · determined · none.
+export { describeNlRoofBoundType, type NlRoofBoundType } from './rulepacks/nlRoofDeterminacy.js';
+// §NL-F1-GUARD — F1 (`mechanism: 'absent'`) may not pass until the tijdelijk deel, the bruidsschat
+// AND the wijzigingsbesluiten were read; otherwise it is downgraded to `unknown`, layers named.
+export {
+    nlGuardF1,
+    nlGuardF1All,
+    nlUncheckedLayers,
+    nlF1Verdict,
+    NL_BRUIDSSCHAT_BUILDING_RULE_ARTICLES,
+    type NlF1LayerChecks,
+    type NlF1LayerName,
+    type NlF1Verdict,
+} from './rulepacks/nlF1Guard.js';
+// §NL-VERGUNNINGVRIJ — re-scoped from the REPEALED Bijlage II Bor to the knip: Bbl 2.29 floor +
+// 2.30 heritage exclusion (a functieaanduiding in IMOW) + bruidsschat + per-omgevingsplan municipal
+// overlay for bijbehorende bouwwerken. A typed skeleton; emits no dimension.
+export {
+    resolveNlVergunningvrijOpa,
+    nlVergunningvrijToRuleState,
+    NL_VERGUNNINGVRIJ_REGIME,
+    type NlVergunningvrijTrack,
+    type NlOpaActivity,
+    type NlMonumentStatus,
+    type NlHeritageStatus,
+    type NlMunicipalOverlay,
+    type NlVergunningvrijOpaInputs,
+    type NlVergunningvrijOpaOutcome,
+} from './rulepacks/nlVergunningvrij.js';
+// §DK-ZONESTATUS — composite zone codes 4/5/6/7 DECOMPOSED (RULE 8), never flattened to byzone;
+// codelist live from `pdk:theme_pdk_codelist_zonestatus_v` (7 rows, 2026-09-04); the parcel-level
+// zone resolves through the zonekort or stays `alternative`.
+export {
+    DK_ZONESTATUS_CODELIST,
+    DK_FREMTIDIG_ZONESTATUS_CODELIST,
+    DK_LANDZONE_R8_NOTE,
+    dkZonestatusRow,
+    decomposeDkZoneStatus,
+    isCompositeDkZoneStatus,
+    readDkZonekortZone,
+    resolveDkParcelZone,
+    dkZoneToRuleState,
+    type DkZone,
+    type DkZonestatusRow,
+    type DkParcelZoneResolution,
+} from './rulepacks/dkZoneStatus.js';
+// §DK-EJENDOM-JOIN — the BFE → ejendom join over KEYLESS DAWA jordstykker (`?bfenummer=`), which
+// round one had marked credential-gated. Single-parcel ejendom ⇒ per-parcel GFA; multi-parcel ⇒ a
+// shared budget whose unit says so. BR18's net-area rule deliberately NOT encoded (named).
+export {
+    joinDkEjendom,
+    resolveDkEjendomScopedBebygpct,
+    dkEjendomBebygpctToRuleState,
+    DK_DAWA_JORDSTYKKER_SOURCE,
+    type DkJordstykke,
+    type DkEjendomJoin,
+    type DkEjendomBebygpctResolution,
+} from './rulepacks/dkEjendomJoin.js';
+// §DK-OVERLAY-CLASS — EXCLUSION / CONDITIONAL / SCREENING / INFORMATIONAL / UNCLASSIFIED. No kind
+// defaults to EXCLUSION (every Danish protection is dispensable — R8); EXCLUSION only via the
+// instrument's own cited words; unknown kinds are surfaced, never dropped, never NO_BUILD.
+export {
+    DK_OVERLAY_REGISTRY,
+    dkOverlayRule,
+    classifyDkOverlay,
+    dkOverlaysPermitNoBuild,
+    dkOverlayToRuleState,
+    type DkOverlayLegalEffect,
+    type DkOverlayKind,
+    type DkOverlayAffects,
+    type DkOverlayRule,
+    type DkExplicitProhibition,
+    type DkOverlayClassification,
+} from './rulepacks/dkOverlayClassification.js';
+// §DK-GRAPHIC-LEG — for `iomfangreg=true` (61.2 % of lokalplan features): byggefelt geometry >
+// delområde extent > document kortbilag, with a transient byggefelt fetch left UNRESOLVED rather
+// than silently falling through to the PDF.
+export {
+    resolveDkGraphicLeg,
+    type DkGraphicRoute,
+    type DkGraphicLegInputs,
+    type DkGraphicLegResolution,
+} from './rulepacks/dkGraphicLeg.js';
+
 // ── FRANCE — the CNIG PLU 2025 prescription code table as a DETERMINISTIC DECISION TREE. ──────────
 // `parcel → intersect prescriptions → 39.02? ⇒ max height · 15.01? ⇒ road setback · 38.02? ⇒ max
 // emprise · 40.02? ⇒ volumetry` — the founder's §2 finding ("much better than searching a 200-page
