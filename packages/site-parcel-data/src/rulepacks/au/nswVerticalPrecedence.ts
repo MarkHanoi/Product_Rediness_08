@@ -82,6 +82,13 @@ import {
 } from './nswHeightValue.js';
 import { nswNumber, nswText, type NswAttributeBag } from './nswPortalAttributes.js';
 import {
+    describeNswAxisExclusion,
+    isNswUnevaluatedTopConstraint,
+    nswPrincipalHobSemantics,
+    nswQuantitySemantics,
+    type NswQuantitySemantics,
+} from './nswLayName.js';
+import {
     nswMayContributeValue,
     nswMayPublish,
     nswResolveCitation,
@@ -98,6 +105,12 @@ export interface NswVerticalControl {
     readonly lga: string | null;
     /** `LAY_CLASS` — where NSW actually keeps the control value. */
     readonly layClass: string | null;
+    /**
+     * ⭐ WHAT the number measures, read from the 100%-populated `LAY_NAME` (`nswLayName.ts`).
+     * ⛔ `quantity.constrainsEnvelopeTop === false` means the control never enters height
+     * precedence — not as a base, not as a cap, not as an uplift. It is on a different axis.
+     */
+    readonly quantity: NswQuantitySemantics;
     /** The typed height. Never a bare number — see `nswHeightValue.ts`. */
     readonly height: NswHeightValue;
     readonly role: NswLegalRole;
@@ -115,6 +128,15 @@ export interface NswVerticalControl {
     readonly additive: boolean;
     /** `true` when the control is an inclined plane, not a flat cap. */
     readonly inclinedPlane: boolean;
+    /**
+     * A named disagreement between two independent readings of the same fact — today, the
+     * per-feature `LAY_NAME` datum against the retained layer-id list. `null` when they agree.
+     *
+     * ⚠ SURFACED, NEVER SILENTLY RESOLVED. Two sources disagreeing about whether a number is
+     * absolute or above-ground is the fifty-metre error announcing itself in advance; picking a
+     * winner in code would discard the warning. §PROBE-CAN-BE-WRONG-THREE-WAYS.
+     */
+    readonly schemaSurprise: string | null;
     readonly ruling: NswControlRuling | null;
 }
 
@@ -210,6 +232,43 @@ export interface NswPrecedenceContext {
 
 const RULE_C2 = 'C2' as const; // EnvelopeParameterKey: maximum height.
 
+/** The scalar of a numeric height, whichever datum it is in. ⛔ Only ever compared LIKE-FOR-LIKE. */
+function heightMagnitude(h: NswHeightValue): number {
+    return h.kind === 'absolute_level' ? h.value_m_AHD : h.kind === 'height_above_ground' ? h.value_m : Number.NaN;
+}
+
+/** Stable de-duplication by identity, preserving first-seen order so output stays deterministic. */
+function dedupeControls(list: readonly NswVerticalControl[]): NswVerticalControl[] {
+    const out: NswVerticalControl[] = [];
+    for (const c of list) if (!out.includes(c)) out.push(c);
+    return out;
+}
+
+/**
+ * ⭐ THE EXACT L-616 QUESTION, AND IT IS NARROWER THAN "WAS SOMETHING LEFT UNAPPLIED".
+ *
+ * Could this unapplied control, **under any legal role still available to it**, produce a LOWER
+ * answer than the one being reported? Only then is the reported height an upper bound rather than
+ * a determination.
+ *
+ * ⚠ THE DISTINCTION IS WORTH THE FUNCTION, because the two obvious rules are both wrong:
+ *   - "flag nothing unapplied" hides real caps — the L-616 overstatement;
+ *   - "flag everything unapplied" marks parcel `5//DP240402` as underdetermined on the strength of
+ *     an Alternative HOB of **25 m against a base of 12 m**. Whatever role that control turns out
+ *     to have — override, alternative, even a cap — no reading of it yields less than 12. Calling
+ *     that envelope unsettled is a false alarm, and a flag that cries wolf on the common case
+ *     stops being read on the rare one.
+ *
+ * So: not comparable (different datums, no number, unknown meaning) ⇒ **could lower** — we cannot
+ * rule it out and must not pretend to. Comparable and strictly below the base ⇒ could lower.
+ * Comparable and at or above the base ⇒ cannot lower, whatever its role.
+ */
+function couldLowerTheAnswer(c: NswVerticalControl, base: NswVerticalControl | null): boolean {
+    if (base === null) return true;
+    if (!areHeightsComparable(base.height, c.height)) return true;
+    return heightMagnitude(c.height) < heightMagnitude(base.height);
+}
+
 /**
  * The E1a legal address for an emitted state — `nswCitationState.ts` ARM A.
  *
@@ -236,17 +295,43 @@ export function nswReadControl(hit: NswRawControlHit): NswVerticalControl {
     const layClass = nswText(a, 'LAY_CLASS');
     const servedClause = nswText(a, 'LEGIS_REF_CLAUSE');
 
-    // Height typing. The Principal HOB layer carries MAX_B_H + UNITS; overlays carry LAY_CLASS.
+    // ── Height typing, driven by the SERVED semantics rather than by the layer id. ────────────
+    // ⛔ The old shape of this block assumed `'m'` for every overlay and consulted a hand-written
+    // layer-id list for the exceptions. That is exactly how layer 429's minimum AHD levels were
+    // read as heights above ground: the list was wrong, and the default swallowed the difference.
+    // `LAY_NAME` is 100% populated on 996/996 vertical overlay features and states the datum.
+    // ⚠ The two services do not share a schema: `LAY_NAME` exists on Local Provisions / SEPP and
+    // NOT on Principal/14, whose semantics come from its own `UNITS` domain instead. Asking the
+    // wrong service for the wrong field returns `undefined` and classifies the state's principal
+    // height control as off-axis — silently, and in the safe-looking direction. See nswLayName.ts.
+    const quantity =
+        hit.layerId === NSW_LAYER.HEIGHT_OF_BUILDINGS
+            ? nswPrincipalHobSemantics(nswText(a, 'UNITS'))
+            : nswQuantitySemantics(nswText(a, 'LAY_NAME'));
     let height: NswHeightValue;
     if (hit.layerId === NSW_LAYER.HEIGHT_OF_BUILDINGS) {
+        // Principal/14 carries its own UNITS domain (m | m(RL) | NA) plus the split
+        // MAX_B_H_M / MAX_B_H_RL columns; `parseNswHeight` refuses anything outside it.
         height = parseNswHeight(nswNumber(a, 'MAX_B_H'), nswText(a, 'UNITS'));
-    } else if (isNswAbsoluteLevelLayer(hit.layerId)) {
+    } else if (quantity.datum === 'AHD') {
         height = nswAbsoluteLevelFromLayClass(nswNumber(a, 'LAY_CLASS'));
-    } else {
-        // Overlay layers state metres above existing ground level in LAY_CLASS. A non-numeric
-        // LAY_CLASS (a class letter, a phrase) yields `uninterpretable`, not a zero.
+    } else if (quantity.datum === 'existing_ground_level') {
         height = parseNswHeight(nswNumber(a, 'LAY_CLASS'), 'm');
+    } else {
+        // Applicability-only or an unrecognised LAY_NAME. ⛔ NOT assumed to be metres — the whole
+        // point of the closed vocabulary is that an unlisted string refuses instead of defaulting.
+        height = {
+            kind: 'uninterpretable',
+            rawValue: nswNumber(a, 'LAY_CLASS'),
+            rawUnits: null,
+            reason: describeNswAxisExclusion(quantity),
+        };
     }
+    // Cross-check against the retained layer-id list. A disagreement is a schema surprise, and it
+    // is surfaced in the explanation rather than silently resolved in favour of either side.
+    const datumDisagreement =
+        hit.layerId !== NSW_LAYER.HEIGHT_OF_BUILDINGS &&
+        isNswAbsoluteLevelLayer(hit.layerId) !== (quantity.datum === 'AHD');
 
     const ruling = nswLookupRuling(instrument, hit.layerId, layClass);
     const citation = nswResolveCitation(servedClause, ruling, hit.layerId);
@@ -256,6 +341,7 @@ export function nswReadControl(hit: NswRawControlHit): NswVerticalControl {
         instrument,
         lga,
         layClass,
+        quantity,
         height,
         role: ruling?.role ?? 'UNRESOLVED',
         condition: ruling?.condition ?? null,
@@ -263,6 +349,12 @@ export function nswReadControl(hit: NswRawControlHit): NswVerticalControl {
         citation,
         additive: isNswAdditiveAllowance(hit.layerId),
         inclinedPlane: isNswInclinedPlaneLayer(hit.layerId),
+        schemaSurprise: datumDisagreement
+            ? `Datum disagreement on ${nswLayerName(hit.layerId)}: LAY_NAME ` +
+              `${JSON.stringify(quantity.layName)} implies ` +
+              `${quantity.datum === 'AHD' ? 'an absolute AHD level' : 'a height above ground'}, ` +
+              "while the pack's layer classification implies the other. Reported, not resolved."
+            : null,
         ruling,
     };
 }
@@ -340,11 +432,49 @@ export function resolveNswVerticalPrecedence(
         };
     }
 
-    // ── 1. Partition by legal role. ────────────────────────────────────────────────────────────
-    // ⚠ Additive allowances are removed from base candidacy FIRST. This is the 152//DP877246
-    // guard: a 2.1 m allowance is not a candidate maximum and must never be compared against 8.5.
-    const additive = controls.filter((c) => c.additive);
-    const nonAdditive = controls.filter((c) => !c.additive);
+    // ── 1a. AXIS FIRST, ROLE SECOND. ⛔ THE 152//DP877246 GUARD, IN ITS CORRECTED FORM. ────────
+    //
+    // A control is excluded from the height question before its legal role is even considered,
+    // whenever `LAY_NAME` says its number is not on the envelope-top axis. Measured parcel
+    // `152//DP877246` carries HOB 8.5 m and a layer-429 value of 2.1 whose `LAY_NAME` is
+    // "Minimum Level Australian Height Datum (AHD)" — a minimum habitable floor level in Ballina,
+    // a coastal flood LGA. `min(8.5, 2.1) = 2.1` is a garage where an 8.5 m house is permitted.
+    //
+    // ⚠ THE EARLIER GUARD FOR THIS PARCEL EXCLUDED IT AS AN "ADDITIVE ALLOWANCE" AND WAS WRONG
+    // ABOUT WHY (see `nswPortalLayers.ts` NSW_ADDITIVE_ALLOWANCE_LAYERS). It got the right answer
+    // on this parcel from a false premise, which is worse than failing: the premise generalises.
+    // Axis exclusion is the true property, and it is read from a field populated on 996/996
+    // features rather than from a hand-written layer list.
+    // THREE buckets, not two, and the third is the one that used to hide inside the second:
+    //   offAxis      — does not bound the top at all (a minimum floor level). Ignoring it for
+    //                  height purposes overstates NOTHING.
+    //   unevaluated  — DOES bound the top and serves no usable number (a sun access plane, an
+    //                  airport buffer, a Building Height Plane class). ⛔ Ignoring one of these
+    //                  DOES overstate — L-616 — so it drives `envelopeIsUpperBound` below.
+    //   onAxis       — bounds the top and serves a number. Only these enter the role partition.
+    const offAxis = controls.filter((c) => !c.quantity.bearsOnEnvelopeTop);
+    const unevaluated = controls.filter((c) => isNswUnevaluatedTopConstraint(c.quantity));
+    const onAxis = controls.filter((c) => c.quantity.constrainsEnvelopeTop);
+    for (const c of offAxis) {
+        explanation.push(
+            `EXCLUDED FROM HEIGHT PRECEDENCE — ${c.layerName} (${c.layClass ?? 'no class'}): ` +
+                describeNswAxisExclusion(c.quantity),
+        );
+    }
+    for (const c of unevaluated) {
+        explanation.push(
+            `BOUNDS THE ENVELOPE AND COULD NOT BE EVALUATED — ${c.layerName} ` +
+                `(${c.layClass ?? 'no class'}): ` +
+                describeNswAxisExclusion(c.quantity),
+        );
+    }
+    for (const c of controls) {
+        if (c.schemaSurprise) explanation.push(`⚠ ${c.schemaSurprise}`);
+    }
+
+    // ── 1b. Partition by legal role, over the on-axis controls only. ──────────────────────────
+    const additive = onAxis.filter((c) => c.additive);
+    const nonAdditive = onAxis.filter((c) => !c.additive);
 
     const bases = nonAdditive.filter((c) => c.role === 'BASE');
     const overrides = nonAdditive.filter((c) => c.role === 'OVERRIDE');
@@ -433,6 +563,16 @@ export function resolveNswVerticalPrecedence(
                     'so whether it replaces, supplements or caps the base is unknown. Reported, not applied.',
             }),
         ),
+        // Off-axis controls are REPORTED here rather than dropped. They are real constraints on
+        // this land — a minimum floor level genuinely binds — they simply do not answer the
+        // height question, and a reader who never sees them cannot tell that we read them.
+        ...[...offAxis, ...unevaluated].map(
+            (c): NswConditionalUplift => ({
+                control: c,
+                condition: null,
+                notAppliedBecause: describeNswAxisExclusion(c.quantity),
+            }),
+        ),
     ];
     for (const u of uplifts) {
         explanation.push(
@@ -510,15 +650,40 @@ export function resolveNswVerticalPrecedence(
     // not an overstatement. Only an unapplied CAP inflates the envelope, and only that inflation
     // is what L-616 forbids leaving unlabelled.
     const uncitedConstraints = controls.filter((c) => !nswMayContributeValue(c.citation.state));
-    const uncitedCaps = hardCaps.filter(
-        (h) => !h.applied && !nswMayContributeValue(h.control.citation.state),
-    );
-    const envelopeIsUpperBound = uncitedCaps.length > 0;
+
+    // ⛔ THE L-616 LEDGER. Every control that could only ever REDUCE this envelope and did not get
+    // applied. Four ways in, and each one was a separate near-miss:
+    //   1. bears on the top, serves no number (sun access, airport buffer, an unresolvable
+    //      Building Height Plane class) — status C, the build prompt's own §8 case;
+    //   2. serves a number on the top axis but its LEGAL ROLE is unresolved, so we cannot rule out
+    //      that it is a CAP. ⚠ Filing these with the conditional uplifts — which is where they
+    //      went — quietly assumes they can only RAISE the answer. Nothing establishes that;
+    //   3. a cap the engine declined to apply (uncited, or a datum mismatch needing terrain);
+    //   4. a conditional whose value is comparable and STRICTLY BELOW the base, where ignoring it
+    //      is not the conservative choice it is for an uplift.
+    const unappliedCapControls = hardCaps.filter((h) => !h.applied).map((h) => h.control);
+    const unappliedTopConstraints = dedupeControls([
+        // 1. Bears on the top and serves no number — nothing to compare, so it could lower.
+        ...unevaluated,
+        // 2 + 4. A number on the top axis that was not applied because its legal role is unknown,
+        //        or because its condition is not established. Flagged only if it could LOWER.
+        ...[...onAxis.filter((c) => c.role === 'UNRESOLVED'), ...conditionals].filter((c) =>
+            couldLowerTheAnswer(c, baseControl),
+        ),
+        // 3. A cap the engine declined to apply — uncited, or a datum mismatch needing terrain.
+        //    ⚠ A cap is always flagged: a cap that could not be evaluated is the L-616 case in
+        //    its purest form, and `couldLowerTheAnswer` would wave through a cap sitting above the
+        //    base only by assuming the cap means what its number says, which is what was in doubt.
+        ...unappliedCapControls,
+    ]);
+    const envelopeIsUpperBound = unappliedTopConstraints.length > 0;
     if (envelopeIsUpperBound) {
         explanation.push(
-            `UPPER BOUND, NOT A DETERMINATION — ${uncitedCaps.length} constraint(s) that can only ` +
-                'reduce this envelope were found and could not be cited, so they were not applied. ' +
-                'The height below is the most this site could be, not the most it may be (status C).',
+            `UPPER BOUND, NOT A DETERMINATION — ${unappliedTopConstraints.length} constraint(s) ` +
+                'that could reduce this envelope were found and not applied: ' +
+                unappliedTopConstraints.map((c) => c.layerName).join('; ') +
+                '. The height below is the most this site could be, not the most it may be ' +
+                '(build prompt §11 status C, not status A).',
         );
     }
 

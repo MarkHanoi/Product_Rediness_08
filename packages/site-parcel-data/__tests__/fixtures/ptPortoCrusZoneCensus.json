@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "what": "The COMPLETE distinct-zone census of Porto (DTCC 1312) as the DGT CRUS OGC API actually serves it. Built by the REAL service, never hand-typed — the strings carry the service's own en-dashes (U+2013) and doubled spaces verbatim, which is what a pack must key on.",
+  "source": "https://ogcapi.dgterritorio.gov.pt/collections/crus/items?dtcc=1312&limit=5000&f=json&skipGeometry=true",
+  "fetchedAt": "2026-09-03T21:09:13.529Z",
+  "numberMatched": 800,
+  "numberReturned": 800,
+  "registoOuDeposito": "01.13.12/PDM/03/2021/93",
+  "situacaoPdm": "Vigente",
+  "distinctZones": 15,
+  "rows": [
+    {
+      "zone": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
+      "features": 205,
+      "codigo": null,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço de Uso Especial Equipamentos e Infraestruturas"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+      "features": 132,
+      "codigo": 2,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Central"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+      "features": 105,
+      "codigo": 2,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Central"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de fruição coletiva",
+      "features": 104,
+      "codigo": 7,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Verde"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+      "features": 62,
+      "codigo": 2,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Central"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de proteção e enquadramento",
+      "features": 61,
+      "codigo": 7,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Verde"
+    },
+    {
+      "zone": "Solo Urbano –  Espaços de uso especial de infraestruturas – Área de infraestruturas",
+      "features": 31,
+      "codigo": null,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço de Uso Especial Equipamentos e Infraestruturas"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde associada a equipamento",
+      "features": 21,
+      "codigo": 7,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Verde"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área de frente atlântica e ribeirinha",
+      "features": 20,
+      "codigo": 7,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Verde"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+      "features": 18,
+      "codigo": 2,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Central"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços de atividades económicas – Área de atividades económicas tipo I",
+      "features": 13,
+      "codigo": 5,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço de Atividades Económicas"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços de atividades económicas – Área de atividades económicas tipo II",
+      "features": 9,
+      "codigo": 5,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço de Atividades Económicas"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços centrais  –  Área histórica",
+      "features": 9,
+      "codigo": 2,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Central"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde lúdico-produtiva",
+      "features": 5,
+      "codigo": 7,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Verde"
+    },
+    {
+      "zone": "Solo Urbano  – Espaços urbanos de baixa densidade",
+      "features": 5,
+      "codigo": 4,
+      "classe_2021": "Solo Urbano",
+      "categoria_2021": "Espaço Urbano de Baixa Densidade"
+    }
+  ]
+}

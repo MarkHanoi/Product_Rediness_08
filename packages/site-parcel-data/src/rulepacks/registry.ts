@@ -115,6 +115,15 @@
 // a synthetic Belgian claim so the closing move is pinned rather than described.
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
+// §PT-NATIONAL-REGISTRATION (lane ENVELOPE-IBERIA, 2026-09-04) — Portugal's national row: the
+// §L-663 fabrication guard had no Portuguese claimant at all. See `ptNationalRegistration.ts`.
+import {
+    PT_PDM_JURISDICTION_ID,
+    PT_NATIONAL_EXTENT,
+    PT_NATIONAL_ANSWER_SUMMARY,
+    isInPortugalByBoundary,
+    ptNationalNoRulePackRefusal,
+} from './ptNationalRegistration.js';
 import type { JurisdictionZoningContract, EnvelopeRefusal } from '@pryzm/schemas';
 import { ES_BARCELONA_ENSANCHE_PACK, BCN_ENSANCHE_ZONE_CODES } from './esBarcelonaEnsanche.js';
 import {
@@ -2048,6 +2057,48 @@ const REGISTRATIONS: readonly JurisdictionRegistration[] = [
         refusalFor: () => null,
         noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
             balearsRegistryRefusal(zoneCode ?? null, zoneLabel ?? null, knownFacts ?? []),
+    },
+    // ── §PT-NATIONAL-REGISTRATION (lane ENVELOPE-IBERIA, 2026-09-04) — PORTUGAL. ─────────────────
+    //
+    // ⚠ THE DEFECT IT CLOSES IS THE BALEARS ONE ABOVE, MEASURED: before this entry NO row of this
+    // table claimed any Portuguese point, so §L-663's chokepoint read
+    // `resolveRegisteredJurisdictionAt → 'none'` and `applyEstimatedZoning` PUBLISHED the generic
+    // triple — 3,0/1,5/3,0 m, FAR 2,00, coverage 50 % — over the whole of Portugal.
+    // `tools/envelope-slot-coverage/measurePt.ts` measured it at 120 / 120 probed points.
+    //
+    // ⭐ THE FIRST REGISTRATION WHOSE `contains` IS A REAL NATIONAL POLYGON, NOT ITS BBOX. The
+    // header's §EXTENT-SPILLS-A-BORDER paragraph says a rectangle cannot follow a border and that
+    // "PRYZM holds no national boundary geometry". That is STALE: lane BOUNDARY-WAVE landed
+    // `jurisdiction/data/nationalBoundaries.json` (26 countries, PRT = 17 rings, sha256-pinned) and
+    // `resolveNationalJurisdiction()` is pure and REFUSES inside its measured 1500 m tolerance rather
+    // than guessing a side. `isInPortugalByBoundary` is the conjunction, so PORTUGAL_BBOX's claim over
+    // Ourense, Salamanca, Cáceres, Badajoz and Huelva is closed by DATA — which matters more than
+    // tidiness here, because this guard runs BEFORE §ES-SIU-GUARD and a Portuguese claim over
+    // Extremadura would have SUPPRESSED Spain's own land-class guard. See `ptNationalRegistration.ts`.
+    //
+    // ⚠ `packsByZone` EMPTY BY CONSTRUCTION AND ALWAYS WILL BE — the Catalonia argument, in
+    // Portuguese: each of 308 municípios sets its own numeric parameters in its own PDM regulamento
+    // (a PDF), CRUS carries no numeric column, and no national instrument states an envelope. What
+    // this registration delivers is ANSWER CORRECTNESS, not envelope coverage. A município pack gets
+    // its OWN registration at `'municipal'`, which out-ranks this one automatically.
+    {
+        jurisdictionId: PT_PDM_JURISDICTION_ID, // 'pt-pdm'
+        displayName: 'Portugal (Plano Diretor Municipal)',
+        countryCode: 'PT',
+        countryName: 'Portugal',
+        // ⚠ THE SAME OBJECT the PT parcel/zone paths route on — imported, not restated.
+        extent: PT_NATIONAL_EXTENT,
+        // ⭐ NOT the bbox predicate. See the block above.
+        contains: isInPortugalByBoundary,
+        extentResolution: 'national',
+        answerSummary: PT_NATIONAL_ANSWER_SUMMARY,
+        // EMPTY BY CONSTRUCTION — there is no national Portuguese envelope instrument to pack.
+        packsByZone: packMap(),
+        // No per-zone legal refusal TABLE: the legal classification is a function of the LIVE CRUS
+        // record (`countryAdapters/pt/ptCrusZone.ts`), which this pure registry path does not hold.
+        refusalFor: () => null,
+        noRulePackRefusal: (zoneCode, zoneLabel, knownFacts) =>
+            ptNationalNoRulePackRefusal(zoneCode, zoneLabel ?? null, knownFacts ?? []),
     },
 ];
 

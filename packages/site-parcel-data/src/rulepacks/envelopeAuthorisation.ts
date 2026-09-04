@@ -95,6 +95,7 @@
 // Strategic context — C58 §1.4/§1.13, C60 §2, L-449 (the human-verification gate), L-665.
 
 import { trace } from '@opentelemetry/api';
+import { PT_PDM_JURISDICTION_ID } from './ptNationalRegistration.js';
 import { BADALONA_ENVELOPE_VERIFIED, BADALONA_JURISDICTION_ID } from './esBadalona.js';
 import { CATALUNYA_ENVELOPE_VERIFIED, CATALUNYA_JURISDICTION_ID } from './esCatalunya.js';
 import { CANARIAS_ENVELOPE_VERIFIED, TELDE_JURISDICTION_ID } from './esCanariasSipu.js';
@@ -480,6 +481,17 @@ export const UNGATED_AUTHORISED_JURISDICTIONS: ReadonlyMap<string, string> = new
         SA_RIYADH_JURISDICTION_ID,
         'Riyadh is an explicit DEMO jurisdiction (saRiyadhDemo.ts), not a determination surface. It is listed ' +
             'so it cannot reach the unknown-jurisdiction refusal by accident, and it must never be cited as coverage.',
+    ],
+    [
+        PT_PDM_JURISDICTION_ID,
+        // §PT-NATIONAL-REGISTRATION (lane ENVELOPE-IBERIA, 2026-09-04) — the CORDOBA_MUNICIPAL
+        // precedent, verbatim in its reasoning. This row is here so the national Portuguese
+        // registration cannot reach `unknown-jurisdiction`; it is NOT a signature and NOT coverage.
+        'The national Portuguese registration publishes REFUSALS ONLY — `packsByZone` is empty by ' +
+            'construction (each of 308 municipios sets its own numeric parameters in its own PDM ' +
+            'regulamento; no national instrument states an envelope), so there is no numeric envelope ' +
+            'to authorise. A municipal Portuguese pack owes its OWN gate at its OWN registration and ' +
+            'inherits nothing from this row.',
     ],
 ]);
 

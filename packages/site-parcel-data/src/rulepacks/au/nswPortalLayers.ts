@@ -104,26 +104,48 @@ export const NSW_FLOOR_SPACE_LAYERS: readonly number[] = Object.freeze([
 
 /**
  * ⚠ Layers whose value is an ABSOLUTE AHD level rather than a height above ground. Terrain must
- * never be added to a value read from these. Measured: Floor Height Restriction carries flood
- * planning levels (40.9–64.1, Singleton). Principal HOB is per-FEATURE absolute — signalled by
- * `UNITS='m(RL)'` — and is therefore NOT in this list; see `parseNswHeight`.
+ * never be added to a value read from these.
+ *
+ * ⛔ SECONDARY, AND DELIBERATELY SO. **The authority is the per-feature `LAY_NAME`**
+ * (`nswLayName.ts`) — 100% populated across all 996 vertical overlay features, on 19 distinct
+ * strings, and it names the datum outright ("…shown on map in AHD (m)"). A layer-id list is a
+ * guess about a whole layer; `LAY_NAME` is what the government said about this feature. This list
+ * is retained only as a CROSS-CHECK, because a layer that disagrees with its own `LAY_NAME` is a
+ * schema surprise worth surfacing rather than absorbing.
+ *
+ * Measured: Floor Height Restriction (469, Singleton) carries minimum floor levels 40.6–78.1 in
+ * AHD; Building Height Allowance (429, Ballina + Byron) carries minimum levels 1.8–2.1 in AHD.
+ * Principal HOB is per-FEATURE absolute — signalled by `UNITS='m(RL)'` and by a populated
+ * `MAX_B_H_RL` column — and is therefore NOT in this list; see `parseNswHeight`.
  */
 export const NSW_ABSOLUTE_LEVEL_LAYERS: readonly number[] = Object.freeze([
     NSW_LAYER.FLOOR_HEIGHT_RESTRICTION,
+    NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE,
 ]);
 
 /**
- * ⚠ Layers whose value is an ADDITIVE ALLOWANCE, not a competing maximum.
+ * ⛔⛔ EMPTY, AND THE EMPTINESS IS A MEASURED CORRECTION — DO NOT REFILL IT FROM THE OLD COMMENT.
  *
- * **This list is the single most important guard in the pack.** Measured parcel `152//DP877246`
- * carries HOB 8.5 m plus Building Height Allowance 2.1. `min()` over those two returns **2.1 m** —
- * a garage where an 8.5 m house is permitted. The 2.1 is not a height at all; it is an increment
- * granted under condition. Any resolver that treats every vertical layer as a candidate maximum
- * produces that answer confidently.
+ * This list previously held `BUILDING_HEIGHT_ALLOWANCE` (429) and was described as *"the single
+ * most important guard in the pack"*, on the reading that parcel `152//DP877246`'s "HOB 8.5 m +
+ * 2.1" was a height BONUS granted under condition. **Measured live 2026-09-04, that reading is
+ * wrong on 203 of 203 rows:** layer 429's `LAY_NAME` is
+ * `"Minimum Level Australian Height Datum (AHD)"`, in BALLINA and BYRON — coastal flood LGAs. The
+ * 2.1 is a minimum habitable FLOOR level in AHD. It is a minimum, it is absolute, and it is on a
+ * different axis. It was never additive.
+ *
+ * `min(8.5, 2.1) = 2.1` is still a garage where an 8.5 m house is permitted. But the guard was
+ * aimed at the wrong property, and a guard aimed at the wrong property protects nothing — the
+ * §CONFIDENT-REGISTER-ROWS-ARE-THE-WRONG-ONES failure mode, where the prose reads fluently and the
+ * verdict is wrong. The real exclusion is axis-based and lives in `nswLayName.ts`:
+ * `constrainsEnvelopeTop === false` keeps a minimum-floor-level control out of height precedence
+ * entirely, which is both true and checkable from a 100%-populated field.
+ *
+ * ⚠ The seam is kept rather than deleted because an additive NSW height allowance may genuinely
+ * exist somewhere unmeasured. If one is found, it goes here — **with the `LAY_NAME` that proves
+ * it**, never on the strength of a layer's title.
  */
-export const NSW_ADDITIVE_ALLOWANCE_LAYERS: readonly number[] = Object.freeze([
-    NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE,
-]);
+export const NSW_ADDITIVE_ALLOWANCE_LAYERS: readonly number[] = Object.freeze([]);
 
 /**
  * ⚠ Layers that are inclined-plane operators: the polygon says WHERE, and parameters say the angle
