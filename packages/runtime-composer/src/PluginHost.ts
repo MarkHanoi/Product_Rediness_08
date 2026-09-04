@@ -104,6 +104,7 @@ const PLUGIN_CATALOG: readonly PluginDescriptor[] = Object.freeze([
   // `'element'`, not `'overlay'`: an overlay is drawn ON a view, and this is a
   // record that persists, schedules and hosts other elements.
   desc('boundary-line',     'Boundary Line',          'element'),
+  desc('space-envelope',    'Space Envelope',         'element'),
   desc('ceiling',           'Ceiling',                'element'),
   desc('column',            'Column',                 'element'),
   desc('curtain-wall',      'Curtain Wall',           'element'),

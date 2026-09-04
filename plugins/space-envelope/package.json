@@ -1,0 +1,31 @@
+{
+  "name": "@pryzm/plugin-space-envelope",
+  "version": "0.1.0",
+  "description": "PRYZM — SPACE ENVELOPE plugin (§FEAT-SPACE-ENVELOPE / C114 / ADR-0380). The AUTHORED spatial volume an architect places BEFORE any wall exists — the founder's 'living entity aware of its surroundings'. Two authored roles (level, room); the legal ceiling is DECLARED and REFUSED. Geometry math lives in @pryzm/geometry-space-envelope (pure).",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./errors": "./src/errors.ts",
+    "./handlers": "./src/handlers/index.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/geometry-space-envelope": "workspace:*",
+    "@pryzm/plugin-sdk": "workspace:*",
+    "immer": "^10.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  }
+}

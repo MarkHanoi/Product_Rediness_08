@@ -1786,6 +1786,15 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // global anywhere for this instance to diverge from (C84 EI-1 — the plugin DTO
     // store is the ONE authority, declared in `plugins/component/src/store.ts`).
     const componentStore: PluginDtoStoreHandle | undefined = inner.stores?.['component'];
+    // ── §FEAT-SPACE-ENVELOPE (L-12900) · C114 §2/§3 · ADR-0380 — THE EIGHTH, ADOPTED
+    //    ON THE FAMILY'S FIRST COMMIT, for the same reason `component` was.
+    // ⭐ The no-geometry-twin test is passed BY CONSTRUCTION here rather than by a
+    // measurement taken afterwards: C114 §2a declines this family a plugin DTO twin
+    // and a `roomStore` mirror outright, so no `window.spaceEnvelopeStore` exists for
+    // this instance to fork against. Without this key the family would be registered
+    // and undispatchable at the composed runtime — the trap that hid pool (L-5200),
+    // lift (L-5700), lighting, section (L-9922) and bathroomPod (§BATH102).
+    const spaceEnvelopeStore: PluginDtoStoreHandle | undefined = inner.stores?.['spaceEnvelope'];
     if (inner.stores !== undefined) {
       for (const [key, value] of [
         ['bathroomPod', bathroomPodStore],
@@ -1795,6 +1804,7 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         ['water', waterStore],
         ['balcony', balconyStore],
         ['component', componentStore],
+        ['spaceEnvelope', spaceEnvelopeStore],
       ] as const) {
         if (value === undefined) {
           // The data half ran and still did not contribute the key — that is a
@@ -1838,6 +1848,9 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // coverage row still saying `persisted`. That is L-11530 verbatim, and the
       // whole reason this key lands in the same commit as the family.
       component: componentStore,
+      // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §3 — the space envelope's read channel,
+      // landing in the SAME commit as the family so the L-11530 shape cannot recur.
+      spaceEnvelope: spaceEnvelopeStore,
       registerHydrator(fn: (snapshot: unknown) => void | Promise<void>): void {
         _hydratorFn = fn;
       },

@@ -610,6 +610,19 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
     structural: composedStoreUndoAdapter('structural', resolveComposedStoreFromWindow),
     dimension:  composedStoreUndoAdapter('dimension',  resolveComposedStoreFromWindow),
     section:    composedStoreUndoAdapter('section',    resolveComposedStoreFromWindow),
+    // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §7 — the generic adapter is CORRECT for
+    // this family, and the reason is structural rather than convenient: a space
+    // envelope writes exactly ONE store (C114 §2a declines a plugin DTO twin and a
+    // room mirror outright), so reverting the authoritative record IS the whole
+    // undo. There is no render seam driven by bus EVENTS to re-drive, which is the
+    // only thing that forces a bespoke adapter (cf. `boundaryLine`).
+    //
+    // ⚠ WHEN A RENDERER LANDS, RE-READ THIS ROW. If the prism comes to be drawn off
+    // `spaceEnvelope.*` bus events, an undo is NOT a command and `CommandEventBridge`
+    // never sees it — the seam would then need the bespoke shape, and leaving this
+    // line in place would leave Ctrl+Z reverting the record while the viewport kept
+    // the old solid on screen.
+    spaceEnvelope: composedStoreUndoAdapter('spaceEnvelope', resolveComposedStoreFromWindow),
   };
 }
 

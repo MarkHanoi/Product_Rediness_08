@@ -126,6 +126,7 @@ import { BoundaryLineStore, buildBoundaryLineHandlerSet } from '@pryzm/plugin-bo
 // difference between a plugin that describes itself and a plugin this file
 // describes on its behalf.
 import { sectionViewPluginRegistration } from '@pryzm/plugin-section-view';
+import { spaceEnvelopePluginRegistration } from '@pryzm/plugin-space-envelope';
 
 // ---- Wave 18: 2 non-element plugins with zero-dep handler factories ----
 import { buildSelectionHandlerSet } from '@pryzm/plugin-selection';
@@ -888,6 +889,10 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
   // match what the handlers read. §FIX-DIMENSION-STOREKEY-SINGULAR (L-138) is
   // the same divergence in the other direction.
   sectionViewPluginRegistration,
+  // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §4 — the AUTHORED spatial volume between the
+  // zoning envelope and the walls. Self-describing descriptor (§PLUGIN-DESCRIPTOR-AT-L5),
+  // so this is a bare reference and `engineLauncher` needs no imperative door.
+  spaceEnvelopePluginRegistration,
 ] as const;
 
 /** Convenience — the element-family ids in registration order.  Pre-
@@ -920,6 +925,12 @@ export const ELEMENT_PLUGIN_IDS = [
   // a handler set, so it belongs in the list the storeKey assertion iterates and needs
   // no STORE_ONLY_PLUGIN_IDS exemption.
   'boundary-line',
+  // §FEAT-SPACE-ENVELOPE (L-12900) — contributes a non-empty storeKey AND a handler
+  // set, so it belongs in the list the storeKey assertion iterates and needs no
+  // STORE_ONLY_PLUGIN_IDS exemption. C114 §4: a handler registered without a store
+  // descriptor is registered-and-undispatchable, which is the trap that hid pool,
+  // lift, lighting, section and bathroomPod.
+  'space-envelope',
   'door',
   'window',
   'roof',

@@ -3233,6 +3233,24 @@ export interface StoresSlot {
   readonly balcony?: PluginDtoStoreHandle | undefined;
 
   /**
+   * §FEAT-SPACE-ENVELOPE (L-12900) · **C114 §2 / §3** · ADR-0380 · C84 EI-1 — the
+   * AUTHORED spatial volume between the zoning envelope and the walls.
+   *
+   * ⭐ DECLARED ON THE FAMILY'S FIRST COMMIT, for the reason the `component` field
+   * below states and `balcony` above proves: a family with a store, a writer and a
+   * snapshot key but NO `StoresSlot` key saves nothing and is destroyed on every
+   * reload — while the coverage row still reads `persisted` (L-11530, four days of
+   * silent balcony loss). The read channel is part of the authority, not a
+   * consequence of it.
+   *
+   * ⭐ THE NO-GEOMETRY-TWIN TEST IS PASSED BY CONSTRUCTION, not by measurement
+   * after the fact: C114 §2a forbids this family a plugin DTO twin AND a `roomStore`
+   * mirror outright, so there is no `window.spaceEnvelopeStore` and nothing for this
+   * instance to diverge from. ADOPTED, NEVER CONSTRUCTED.
+   */
+  readonly spaceEnvelope?: PluginDtoStoreHandle | undefined;
+
+  /**
    * §COMPONENT-PLACE (audit §12 Phase 4C) · **ADR-0376 D9** · C84 EI-1 — ⭐⭐ THE
    * JOIN's read channel: the store holding PLACED OCCURRENCES of component
    * definitions.

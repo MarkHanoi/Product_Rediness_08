@@ -3753,6 +3753,18 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // shape this repository keeps finding; a named refusal with the route back to success
   // is the honest answer while (b) is open. Each sentence tells the user what to do
   // instead, which is the whole point of this map (C16 CA-18).
+  // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §6 · C68 §5b — DEFERRED, not classified.
+  // ⭐ The refusals below name what is MISSING rather than saying "unsupported": an
+  // envelope is a volume with a footprint, and a footprint is a set of points a
+  // sentence does not carry. When the RAC can resolve a boundary or a room outline
+  // into points, these become real capabilities — the verbs are already dispatchable.
+  ['spaceEnvelope.batch.create', 'Placing a space envelope needs the footprint you want it over, which I cannot infer from a sentence — draw it with the Space Envelope tool, and I can then set its height, name and programme for you.'],
+  ['spaceEnvelope.delete', 'Select the envelope you want removed and press Delete — I cannot yet tell which one you mean from a description alone.'],
+  ['spaceEnvelope.move', 'Moving an envelope needs the envelope and the distance; select it and drag, or tell me a named envelope once envelopes carry names you have set.'],
+  ['spaceEnvelope.moveFace', 'Dragging one face of an envelope is a direct-manipulation gesture — select the envelope in 3D and drag the face handle. A face move that would turn the volume inside out is refused with both numbers.'],
+  ['spaceEnvelope.setFootprint', 'Reshaping an envelope footprint is done in the profile editor with the envelope selected.'],
+  ['spaceEnvelope.setParameter', 'Envelope properties (height, base offset, name, programme, colour) are edited in the Properties panel with the envelope selected.'],
+  ['spaceEnvelope.setWithin', 'Declaring which level envelope a room envelope belongs to is done in the Properties panel. Note PRYZM reports — and never refuses — a room envelope that sticks out of its level envelope.'],
   ['boundaryLine.create', 'Drawing a setting-out line needs the points you want it through, which I cannot infer from a sentence — use the Boundary Line tool under Architecture (Alt+Shift+N).'],
   ['boundaryLine.move', 'Moving a boundary line from chat needs a target position I cannot infer — drag its vertices in plan. Everything attached to it moves with it.'],
   ['boundaryLine.attach', 'Attaching an element to a boundary line needs both of them picked — select the element and the line in plan.'],

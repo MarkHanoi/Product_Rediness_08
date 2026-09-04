@@ -15,16 +15,16 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1401 (floor 900) |
-| **Verbs** | **364** (floor 250) |
-| LIVE | 153 |
+| Handler files read | 1412 (floor 900) |
+| **Verbs** | **371** (floor 250) |
+| LIVE | 160 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 0 |
 | UNKNOWN | 174 |
 | — of the LIVE, credited by the §L-946 mirror channel | 12 of 12 level-change verb(s) |
 | authoritative store NONE or UNKNOWN | 211 |
-| sync UNDECLARED (property verbs) | 3 |
-| chat UNDECLARED | 1 |
+| sync UNDECLARED (property verbs) | 8 |
+| chat UNDECLARED | 8 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
 (C64 §2.13) — cite this file.
@@ -315,6 +315,13 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `slab.updateLayers` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | synced via 'slabId' (disclose) | classified B |
 | `slab.updatePolygon` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | synced via 'slabId' (disclose) | classified B |
 | `slab.updateSystemTypeBatch` | plugins/slab | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-slab-type |
+| `spaceEnvelope.batch.create` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
+| `spaceEnvelope.delete` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
+| `spaceEnvelope.move` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
+| `spaceEnvelope.moveFace` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
+| `spaceEnvelope.setFootprint` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
+| `spaceEnvelope.setParameter` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
+| `spaceEnvelope.setWithin` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
 | `stair.batch.create` | plugins/stair | UNKNOWN | UNKNOWN | patch-pair → stair | not-synced (reason declared) | classified C |
 | `stair.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified B |
 | `stair.createRailing` | plugins/stair | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
