@@ -45,6 +45,9 @@ import {
     isInSwitzerland,
     isInDenmark,
     isInSaudiArabia,
+    isInCzechia,
+    isInIreland,
+    isInAustria,
     SPAIN_BBOX,
     FRANCE_BBOX,
     NETHERLANDS_BBOX,
@@ -54,6 +57,9 @@ import {
     SWITZERLAND_BBOX,
     DENMARK_BBOX,
     SAUDI_ARABIA_BBOX,
+    CZECHIA_BBOX,
+    IRELAND_BBOX,
+    AUSTRIA_BBOX,
 } from './countryBbox.js';
 // L-650 Phase-4 batch — the new cadastral predicates live in their own provider modules (each
 // provider owns its bbox + WFS/CRS knowledge, so the predicate ships beside the parser it gates).
@@ -578,6 +584,56 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         contains: isInWallonia,
         note: "Wallonia's DOCUMENTED cadastral endpoint DOES NOT EXIST — PROBED 2026-07-31 and this is the finding, not a timeout: geoservices.wallonie.be/geoserver/wfs answers a valid HTTP 200 GetCapabilities (104 KB) that advertises exactly 18 layers, ALL of them in the `Orthos` workspace (orthophoto mosaics) — there is NO cadastral/parcel layer, so the provider's documented typeName `CP:CadastralParcel` cannot resolve and would have returned silently empty forever. Workspace sweep cp / inspire_cp / cadastre / CADMAP all 404 (inspire_lu exists but is land-USE, not parcels); the ArcGIS REST tree (geoservices.wallonie.be/arcgis/rest/services) lists 26 folders and neither DONNEES_BASE nor LIMITES carries a cadastral MapServer. The FEDERAL CADMAP fallback is identity-gated (see the Belgium block comment above). STATUS = access-deferred: the SPW cadastral redistribution is either not public or lives on a surface not yet identified; needs a sourcing pass against the Géoportail de Wallonie catalogue, not a code change. Registered as a footprint so a Walloon click is honestly labelled, never silently attributed to a cadastre that does not answer.",
     },
+    // ⚠ PLACED HERE DELIBERATELY, AND THE POSITION IS LOAD-BEARING — read before moving.
+    // `resolveParcelCandidates` is order-independent (it sorts by specificity, and CZ 17.9 deg2 /
+    // IE 21.7 / AT 21.6 all beat DE 73.5 and GB-ENG 51.2 on their own points). But its sibling
+    // `resolveParcelJurisdiction` — the one COVERAGE and LABELLING callers use — walks
+    // PARCEL_JURISDICTIONS in REGISTRATION ORDER and returns the FIRST `contains` match, with no
+    // specificity step at all. Registered after DE/GB-ENG (measured 2026-09-04) these three rows
+    // sorted first in the candidate list yet STILL reported `Praha → DE` and `Dublin → GB-ENG`,
+    // i.e. the click resolved correctly while the label kept naming the wrong sovereign register.
+    // ⛔ The file header's "ROW ORDER IS NO LONGER LOAD-BEARING (L-650 fix)" is true of
+    // `resolveParcelCandidates` ONLY. Do not generalise it to this array.
+    // ── LANE PARCEL-REACH (2026-09-04) — CZ · IE · AT: three countries with NO ROW AT ALL ───────
+    // MEASURED DEFECT these close (resolveParcelCandidates, real city points, 2026-09-04):
+    //   Praha  → `DE:footprint-fallback` — a Czech click was LABELLED GERMANY and served an OSM
+    //            building outline, because GERMANY_BBOX reaches 15.1°E and nothing more specific
+    //            existed. Not a footprint honestly labelled: a footprint under a WRONG NATIONALITY.
+    //   Brno, Ostrava, Wien → NO CANDIDATE AT ALL (the resolver returned an empty list).
+    //   Dublin → `GB-ENG:cadastral` — an Irish click routed to HM LAND REGISTRY ENGLAND, whose leg
+    //            correctly returns zero features in Ireland, so the user got a footprint under a
+    //            "cadastral" verdict naming the wrong sovereign register.
+    // All three are now live and were probed COLD end-to-end through the production resolver.
+    {
+        regionCode: 'CZ',
+        countryName: 'Czechia',
+        providerId: 'cz-cuzk-inspire-cp',
+        label: 'Parcela katastru nemovitostí (Czechia · ČÚZK INSPIRE)',
+        proxyPath: '/api/parcel/cz',
+        kind: 'cadastral',
+        contains: isInCzechia,
+        note: 'Czechia: ČÚZK (Český úřad zeměměřický a katastrální) INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 (services.cuzk.cz/wfs/inspire-cp-wfs.asp, Marushka 4.2.22.8; GetCapabilities advertises cp:CadastralParcel + cp:CadastralBoundary + cp:CadastralZoning), LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through resolveEuParcelOutcome): Praha Staré Město (50.0875,14.4213) → nationalCadastralReference 727024-1090, official areaValue 15869 m², "Staré Město, Praha", 296-vertex WGS84 ring; Brno (49.1951,16.6068) → 610003-534, 255 m²; Ostrava (49.8355,18.2925) → 713520-3589/33, 8561 m². TECHNICAL: SRSNAME=urn:ogc:def:crs:EPSG::4326 IS honoured (response geometry carries srsName="urn:ogc:def:crs:EPSG::4326") and the posList is LAT-FIRST ("50.086623 14.420771"), so the proxy parses it with axis:"latlon" — the DE-NRW/IT idiom, no new parser. GML ONLY; no JSON output format is advertised. ⭐ The service SERVES AN OFFICIAL AREA (<cp:areaValue uom="m2">), preferred over the shoelace estimate with the uom ASSERTED not assumed. ⚠ The municipality and cadastral-district NAMES live in xlink:title ATTRIBUTES on self-closing <cp:administrativeUnit>/<cp:zoning> elements, where a text read returns null — the proxy uses gmlAttr for them. COVERAGE, stated by the service\'s own Abstract: parcels exist for the territory carrying a DIGITAL cadastral map, "to the 2026-08-31 it is 99.50% of the Czech territory, i.e. 78 475.62km2"; the residual is an honest empty → footprint. ⚠ ROUTING IS THE BBOX, NOT claimsNation: CZE is in nationalBoundaries.json as a REFUSAL-ONLY NEIGHBOUR, not a claimable country, so claimsNation("CZ") is false at every Czech point and a claimsNation row would never route. Overlap with DE/PL/SK is safe because those ARE claimable — resolveParcelCandidates filters the pool to the claimed country and drops this row before it is tried. Promoting CZE to claimable is a boundary-set change (BOUNDARY-WAVE), not a parcel change. Rules are DOCUMENTS-ONLY (územní plány = municipal PDFs; no national machine-readable zoning register).',
+    },
+    {
+        regionCode: 'IE',
+        countryName: 'Ireland',
+        providerId: 'ie-tailte-eireann-freehold',
+        label: 'Cadastral parcel (Ireland · Tailte Éireann, registered title)',
+        proxyPath: '/api/parcel/ie',
+        kind: 'cadastral',
+        contains: isInIreland,
+        note: 'Ireland: Tailte Éireann (the merged Ordnance Survey Ireland / Property Registration Authority / Valuation Office) Cadastral Parcels — a KEYLESS ArcGIS Online FeatureServer (services-eu1.arcgis.com/FH5XCsx8rYXqnjF5/.../Cadastral_Parcels_Freehold/FeatureServer/12, 3,086,691 features, maxRecordCount 2000), LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, end-to-end): Dublin (53.3503,-6.2610) → SP_ID 2577972, COUNTY_NAM Dublin, 221 m², 11-vertex ring; Cork (51.8990,-8.4767) → SP_ID 2254707; Galway (53.2720,-9.0510) → SP_ID 4457889. ⚠ LAYER 12, NOT 0 — /FeatureServer/0/query answers {"error":{"code":400,…,"The requested layer (layerId: 0) was not found."}}; LEASEHOLD is a SEPARATE SERVICE at layer 13 and is NOT yet queried by this row (a leasehold-only parcel therefore reads empty → footprint; wiring the second service is the named next step). outSR=4326 → standard GeoJSON [lon,lat] at full precision (14 dp), so the existing parser applies unchanged. ⚠ COVERAGE IS TITLE-BASED, NOT AN EXHAUSTIVE TESSELLATION — unlike ES/CZ/AT, streets, commonage and unregistered land carry NO polygon, so features:[] on a road is the NORMAL and TRUE answer (measured: O\'Connell St and Cork city centre both return zero while parcels metres away are dense). That empty must stay an honest "no registered title here" → footprint, never an outage. ⚠ NORTHERN IRELAND falls inside IRELAND_BBOX and is NOT served — Land & Property Services NI is a separate, non-keyless register — so a Belfast click is an honest empty → footprint; no GB-NIR claim may be derived from this row. ⚠ The proxy cites SP_ID (the stable spatial-parcel id), NEVER OBJECTID: OBJECTID is the ArcGIS row id and citing it would attribute a surrogate key to the national registry. NO FOLIO NUMBER is exposed by the layer (fields are OBJECTID, SP_ID, COUNTY_NAM, Shape__Area, Shape__Length only), so the parcel card carries the county and no title reference. Shape__Area is NOT asserted to be m² in the layer metadata, so area is geometry-derived.',
+    },
+    {
+        regionCode: 'AT',
+        countryName: 'Austria',
+        providerId: 'at-bev-inspire-cp',
+        label: 'Grundstück (Austria · BEV INSPIRE Kataster)',
+        proxyPath: '/api/parcel/at',
+        kind: 'cadastral',
+        contains: isInAustria,
+        note: 'Austria: BEV (Bundesamt für Eich- und Vermessungswesen) INSPIRE Cadastral Parcels — reachable ONLY through the GeoServer WMS GetFeatureInfo with INFO_FORMAT=application/json (data.bev.gv.at/geoserver/INSdataCP/wms, layer CP_CadastralParcel), LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, end-to-end, rings verified WGS84 AND containing the click): Wien Stephansplatz (48.2084,16.3731) → AT.0002.I.6.CP.01004817, ring lat[48.20809,48.20890] lon[16.37243,16.37391] containsClick=true; Salzburg (47.7982,13.0465) → AT.0002.I.6.CP.565373695, containsClick=true; Innsbruck (47.2654,11.3927) → AT.0002.I.6.CP.81113B492. ⛔ ALL THREE BEV WFS ROUTES ARE DEAD — recorded so nobody re-walks them (all measured 2026-09-04): (1) data.bev.gv.at/geoserver/BEVdataKAT/wfs answers ows:ExceptionReport "ServiceUnavailable: Service GeoServer Enterprise WFS is disabled" — WFS is switched off org-wide on that GeoServer; (2) apps.bev.gv.at/bev.webservice/inspire answers 200 but its OperationsMetadata advertises only GetCapabilities/GetWSDL/GetProducts — NO FeatureTypeList and NO GetFeature — it is an INSPIRE pre-defined-DATASET DOWNLOAD service (bulk) declaring AccessConstraints "restricted, copyright, licence"; (3) kataster.bev.gv.at/ortho/ows IS a real WFS 2.0 but its FeatureTypeList holds only elevation and historic-map types (inspireEL_ALS_DSM/DTM, urmappe:*) — no cadastral parcel type. kataster.bev.gv.at/api → 404, /tiles → 403, inspire.bev.gv.at → does not resolve. ⛔ THE REQUEST MUST BE EPSG:3857, NEVER 4326, and this is the single most important fact on this row: that GeoServer\'s numDecimals is 3, so a 4326 answer is rounded to THREE DECIMAL DEGREES (~110 m) and the ring degenerates into repeated identical points (measured at Stephansplatz: [16.373,48.208],[16.373,48.208],[16.373,48.208]…). In EPSG:3857 the same three decimals are MILLIMETRES, so the ring is exact and the proxy\'s webMercatorToWgs84 inverse is loss-free at BIM scale. A degenerate ring is the worst failure mode available here — it LOOKS like a parcel and is not one. The proxy therefore queries a ±50 m Web-Mercator box and the CENTRE PIXEL of a 101×101 image (a point-intersect in all but name) and reprojects BEFORE point-in-polygon. ⚠ inspireId is the ONLY attribute the layer exposes — no Katastralgemeinde number, no Grundstücksnummer, confirmed against INFO_FORMAT=text/html on the same layer — so the parcel card carries no address rather than an invented one. ⚠ ROUTING IS THE BBOX, NOT claimsNation: AUT is a REFUSAL-ONLY NEIGHBOUR in nationalBoundaries.json, so claimsNation("AT") is false at every Austrian point and such a row would never route.',
+    },
     {
         // GB-England BEFORE FR: England's south coast (Brighton/Portsmouth/Plymouth) sits inside
         // FRANCE_BBOX, so this must win first. Calais (inside ENGLAND_BBOX) is the reverse casualty.
@@ -1051,6 +1107,14 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     CH: SWITZERLAND_BBOX,
     DK: DENMARK_BBOX,
     SA: SAUDI_ARABIA_BBOX,
+    // LANE PARCEL-REACH (2026-09-04). These three rows route on their RECTANGLE (CZE/AUT are
+    // refusal-only neighbours, so claimsNation would never fire), which makes specificity a
+    // REAL order here: CZECHIA_BBOX ~17.9 deg2 beats GERMANY_BBOX ~72.4 deg2 at Praha, and
+    // IRELAND_BBOX ~21.7 deg2 beats ENGLAND_BBOX ~51.2 deg2 at Dublin. That is exactly how the
+    // two measured mislabels (Praha->DE, Dublin->GB-ENG) are corrected without touching order.
+    CZ: CZECHIA_BBOX,
+    IE: IRELAND_BBOX,
+    AT: AUSTRIA_BBOX,
     IT: ITALY_BBOX,
     'BE-VLG': FLANDERS_BBOX,
     'GB-ENG': ENGLAND_BBOX,
@@ -1204,21 +1268,35 @@ export function resolveParcelCandidates(lat: number, lon: number): readonly Parc
 }
 
 /**
- * Route a WGS84 click-point to a SINGLE primary parcel jurisdiction (legacy first-match by row
- * order), or the universal OSM footprint when nothing matches. NEVER throws and ALWAYS returns a
- * verdict, so a click is never dead (C58 §1.4). Kept for coverage/inspection callers.
+ * Route a WGS84 click-point to a SINGLE primary parcel jurisdiction, or the universal OSM footprint
+ * when nothing matches. NEVER throws and ALWAYS returns a verdict, so a click is never dead
+ * (C58 §1.4). This is the COVERAGE / LABELLING verdict — what the UI names as the register a click
+ * belongs to.
  *
- * ⚠ This is a COARSE single verdict — with overlapping boxes it cannot know which provider actually
- * ANSWERS (a Barcelona click is inside FRANCE_BBOX too, but only Catastro serves it). Callers doing
- * the real fetch MUST use `resolveParcelWithFallback`, which walks EVERY enclosing box most-specific
- * first and falls THROUGH on a miss — that is the path that fixes the border regressions.
+ * ⭐ IT IS NOW THE HEAD OF `resolveParcelCandidates`, NOT A SECOND ALGORITHM (lane PARCEL-REACH,
+ * 2026-09-04). It used to walk PARCEL_JURISDICTIONS in REGISTRATION ORDER and return the first
+ * `contains` match — consulting NEITHER specificity NOR the national verdict. So it could, and did,
+ * disagree with the path that actually fetches the parcel: the click resolved from one register
+ * while the LABEL named another. Measured before this change (2026-09-04):
+ *   • Köln  → `FR`  — Köln (50.94, 6.96) sits inside FRANCE_BBOX, and the FR row is registered
+ *                     before DE-NW, so a German click has been labelled FRANCE. Pre-existing.
+ *   • München → `AT` — surfaced the moment AUSTRIA_BBOX was added: München is inside it, while the
+ *                     national verdict claims DEU and the candidate list correctly held only DE.
+ *   • Praha → `DE`, Dublin → `GB-ENG` — the two this lane set out to fix, which stayed wrong even
+ *                     after the CZ/IE rows sorted FIRST as candidates.
+ * Deriving it from the candidate list makes label and click agree BY CONSTRUCTION: the candidate
+ * head is nationally filtered and specificity-ordered, so it is the register that will actually be
+ * tried first. A verdict that can contradict the fetch is worse than a coarse one — it is a
+ * confident falsehood about which sovereign register answers for the user's land (C58 §1.4).
+ *
+ * ⚠ Still a SINGLE verdict, and overlapping boxes remain coarse where the national resolver
+ * REFUSES (border bands, and any country modelled only as a refusal-only neighbour). Callers doing
+ * the real fetch MUST use `resolveParcelWithFallback`, which walks every candidate and falls
+ * THROUGH on a miss.
  */
 export function resolveParcelJurisdiction(lat: number, lon: number): ParcelJurisdiction {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return UNIVERSAL_FOOTPRINT_JURISDICTION;
-    for (const j of PARCEL_JURISDICTIONS) {
-        if (j.contains(lat, lon)) return j;
-    }
-    return UNIVERSAL_FOOTPRINT_JURISDICTION;
+    return resolveParcelCandidates(lat, lon)[0] ?? UNIVERSAL_FOOTPRINT_JURISDICTION;
 }
 
 /** A successful priority-fallback resolution: the parcel and the jurisdiction whose provider yielded it. */

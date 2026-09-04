@@ -86,13 +86,18 @@ describe('resolveParcelJurisdiction — universal footprint + never-throws', () 
         // 8.5417°E is east of France's eastern edge, so FR does not swallow it — CH wins.
         expect(resolveParcelJurisdiction(47.3769, 8.5417).providerId).toBe('swisstopo-av');
     });
-    it('Geneva: the legacy single verdict stays FR (first-match), but the real dispatch offers CH alone', () => {
-        // 6.14°E, 46.20°N is inside BOTH FRANCE_BBOX and SWITZERLAND_BBOX. The legacy single-verdict
-        // `resolveParcelJurisdiction` keeps first-match (FR precedes CH in row order) → 'ign-fr'.
-        // ⚠ UPDATED 2026-09-02 (L-12871 wave): the priority resolver used to offer
-        // ['swisstopo-av', 'ign-fr'] by box area; the national claim filter now removes the
-        // wrong-country candidate — the resolver claims CHE, so only swisstopo AV is offered.
-        expect(resolveParcelJurisdiction(46.2044, 6.1432).providerId).toBe('ign-fr');
+    it('Geneva: the single verdict now AGREES with the dispatch — both say Switzerland', () => {
+        // 6.14°E, 46.20°N is inside BOTH FRANCE_BBOX and SWITZERLAND_BBOX.
+        // ⚠ UPDATED 2026-09-04 (lane PARCEL-REACH) — this test previously asserted 'ign-fr' and
+        // NAMED THE BUG IT WAS PINNING: "the legacy single verdict stays FR (first-match)". A click
+        // in Geneva fetched from the SWISS cadastre (the candidate list held swisstopo-av alone)
+        // while the coverage/labelling verdict said FRANCE. `resolveParcelJurisdiction` is now the
+        // HEAD of `resolveParcelCandidates` instead of a second, order-only algorithm, so label and
+        // fetch agree by construction and Geneva reads Swiss on both. The same change corrected
+        // Köln (labelled FR since FRANCE_BBOX reaches 8.3°E) and München (labelled AT once
+        // AUSTRIA_BBOX existed). A verdict that can contradict the fetch is not a coarse answer,
+        // it is a confident falsehood about which sovereign register owns the user's land.
+        expect(resolveParcelJurisdiction(46.2044, 6.1432).providerId).toBe('swisstopo-av');
         expect(resolveParcelCandidates(46.2044, 6.1432).map((j) => j.providerId)).toEqual([
             'swisstopo-av',
         ]);
@@ -205,5 +210,66 @@ describe('resolveParcelWithFallback — falls THROUGH a null provider to the enc
     });
     it('never throws on garbage → null', async () => {
         await expect(resolveParcelWithFallback(NaN, NaN, () => ({ id: 'x' }))).resolves.toBeNull();
+    });
+});
+
+// ── LANE PARCEL-REACH (2026-09-04) — CZ · IE · AT reachability ──────────────────────────────────
+// These three had NO REGISTRY ROW AT ALL, which is worse than an unwired row: the resolver either
+// returned nothing or handed the point to a NEIGHBOUR's rectangle. This block is the standing guard
+// that a proxy leg is actually REACHABLE — `committed !== reachable`, and a registry row is not a
+// working click.
+describe('CZ · IE · AT are routable, and the wrong-country labels stay fixed', () => {
+    const cases: ReadonlyArray<readonly [string, number, number, string, string]> = [
+        // name, lat, lon, expected regionCode, expected proxyPath
+        ['Praha',      50.0875,  14.4213, 'CZ',     '/api/parcel/cz'],
+        ['Brno',       49.1951,  16.6068, 'CZ',     '/api/parcel/cz'],
+        ['Ostrava',    49.8355,  18.2925, 'CZ',     '/api/parcel/cz'],
+        ['Dublin',     53.3503,  -6.2610, 'IE',     '/api/parcel/ie'],
+        ['Cork',       51.8990,  -8.4767, 'IE',     '/api/parcel/ie'],
+        ['Wien',       48.2084,  16.3731, 'AT',     '/api/parcel/at'],
+        ['Salzburg',   47.7982,  13.0465, 'AT',     '/api/parcel/at'],
+        ['Innsbruck',  47.2654,  11.3927, 'AT',     '/api/parcel/at'],
+    ];
+    for (const [name, lat, lon, region, proxy] of cases) {
+        it(`${name} routes to ${region} (${proxy}), not a neighbour`, () => {
+            const j = resolveParcelJurisdiction(lat, lon);
+            expect(j.regionCode).toBe(region);
+            expect(j.proxyPath).toBe(proxy);
+            expect(j.kind).toBe('cadastral');
+        });
+    }
+
+    it('the four measured wrong-country labels are all corrected', () => {
+        // ⛔ Every one of these was MEASURED WRONG on 2026-09-04 before this lane. They are kept as
+        // one test so the whole class regresses together if `resolveParcelJurisdiction` is ever
+        // reverted to an order-only walk.
+        //   Praha  → DE     (GERMANY_BBOX reaches 15.1°E and nothing more specific existed)
+        //   Dublin → GB-ENG (ENGLAND_BBOX reaches −6.5°W; HMLR serves no Irish parcel)
+        //   Köln   → FR     (FRANCE_BBOX reaches 8.3°E and the FR row precedes DE-NW) — PRE-EXISTING
+        //   München→ AT     (inside AUSTRIA_BBOX; surfaced the moment that box was added)
+        expect(resolveParcelJurisdiction(50.0875, 14.4213).regionCode).toBe('CZ');
+        expect(resolveParcelJurisdiction(53.3503, -6.2610).regionCode).toBe('IE');
+        expect(resolveParcelJurisdiction(50.9413, 6.9583).regionCode).toBe('DE-NW');
+        expect(resolveParcelJurisdiction(48.1374, 11.5755).regionCode).toBe('DE');
+    });
+
+    it('the wired neighbours are UNCHANGED — the new boxes steal nothing', () => {
+        for (const [lat, lon, want] of [
+            [52.2297, 21.0122, 'PL'], [48.1436, 17.1077, 'SK'], [46.0514, 14.5060, 'SI'],
+            [51.5034, -0.1276, 'GB-ENG'], [47.3728, 8.5387, 'CH'], [45.4640, 9.1900, 'IT'],
+            [48.8649, 2.3697, 'FR'], [41.3917, 2.1650, 'ES'], [51.2213, 4.3997, 'BE-VLG'],
+        ] as ReadonlyArray<readonly [number, number, string]>) {
+            expect(resolveParcelJurisdiction(lat, lon).regionCode).toBe(want);
+        }
+    });
+
+    it('Belfast is a KNOWN coarse-router tradeoff, recorded rather than hidden', () => {
+        // Northern Ireland is contiguous with the Republic, so NO rectangle can separate them: any
+        // box that excludes Belfast also excludes Donegal. Belfast therefore labels IE, and the
+        // Tailte Éireann leg answers ZERO features there (LPS Northern Ireland is a separate,
+        // non-keyless register), so the click self-corrects to the OSM footprint. This is the same
+        // documented class as Corsica→footprint, and it is asserted so it stays a KNOWN tradeoff
+        // rather than a silent surprise. ⚠ The honest fix is a polygon gate, not a tighter box.
+        expect(resolveParcelJurisdiction(54.5973, -5.9301).regionCode).toBe('IE');
     });
 });
