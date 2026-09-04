@@ -319,6 +319,19 @@ export default [
     ignores: [
       'node_modules/**',
       'dist/**',
+      // ⚠ `'dist/**'` above matches the ROOT `dist/` ONLY — it does not match a
+      // per-package `dist/`, which is where every workspace's `tsc` output lands.
+      // `.gitignore:2` says `dist/`, and GITIGNORE semantics match that name at ANY
+      // depth, so `packages/*/dist/` is untracked build output the estate already
+      // treats as ignorable — while ESLint was linting it. That gap alone accounted
+      // for 7 of the 23 remaining lint ERRORS (all in `packages/file-format/dist/`:
+      // `no-unused-vars` on the bundler's own `_`/`_e` catch bindings, a
+      // `no-fallthrough` in EMITTED JS, and `Definition for rule ... was not found`
+      // for directives `tsc` copied out of the `.ts` sources). Every one of them is
+      // the SAME non-finding the two entries below are already ignored for, and
+      // every one of them has a real counterpart in the `.ts` that produced it —
+      // which is the file lint should be reading.
+      '**/dist/**',
       // `dist-server-deps/` is the `build:server-deps` bundle output and is
       // GITIGNORED (.gitignore:11). It was missed here, so ESLint was linting a
       // rollup bundle: the only two errors it raised were `Definition for rule
@@ -577,6 +590,37 @@ export default [
     rules: {
       'boundaries/element-types': 'off',
       'no-restricted-imports': 'off',
+    },
+  },
+
+  // ── §RAF-GATE-SPEC-BLIND, MIRRORED INTO LINT ────────────────────────────────
+  // `pryzm/no-raf` and the P3 AUTHORITY disagreed about `tools/perf/**/*.spec.ts`,
+  // and lint was the wrong one. `tools/ga-gate/check-raf-count.ts` — the gate
+  // CLAUDE.md names as hard-fail-at-the-invariant for P3 — excludes every
+  // `.spec`/`.test` file (`tools/ga-gate/lib/rafOwners.ts:73`, predicate
+  // `/\.(spec|test)\.tsx?$/`), and its own comment at :66 names THIS FILE,
+  // `tools/perf/outer/outer-baseline.spec.ts`, as the one that tripped it on
+  // 2026-09-03. Its stated reason: "A spec file is not a build artifact and cannot
+  // start a production" rAF pump.
+  //
+  // The rAF sites here are stronger than that general argument, and both shapes
+  // appear in these two files:
+  //   · `page.evaluate(() => … requestAnimationFrame …)` — an arrow SERIALISED BY
+  //     PLAYWRIGHT and run inside the driven Chromium page. It is not in the build
+  //     graph; it is the "the main thread yielded" probe the measurement exists FOR.
+  //   · a `const SAMPLER_SRC = \`…\`` template literal — a STRING shipped to the
+  //     page, which `render-profile.spec.ts:157-165` already documents as a P3
+  //     non-owner in as many words.
+  //
+  // ⛔ Scoped to `tools/**` DELIBERATELY, and narrower than the gate it mirrors: the
+  // gate's predicate is repo-wide, this is not. A product `.spec.ts` under `apps/` or
+  // `packages/` keeps the rule at 'error'. ⛔ This relaxes NOTHING about P3 — the
+  // invariant is owned by the gate, which still reads exactly 1 owner
+  // (`packages/frame-scheduler/src/RafAdapter.ts`). Verify by running the gate.
+  {
+    files: ['tools/**/*.spec.{ts,tsx}', 'tools/**/*.test.{ts,tsx}'],
+    rules: {
+      'pryzm/no-raf': 'off',
     },
   },
 
