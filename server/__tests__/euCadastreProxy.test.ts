@@ -363,13 +363,63 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk)', () => {
+    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + us-nyc/us-ma/us-fl/us-wa-king/us-tx-harris)', () => {
         expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual([
             'au-act', 'au-nsw', 'au-qld', 'au-sa', 'au-tas', 'au-vic',
-            'ch', 'de-nrw', 'ee', 'fr', 'gr', 'hr', 'lt', 'lu', 'lv',
-            'nl', 'no', 'pl', 'pt', 'qa', 'si', 'sk', 'tr', 'us-chi', 'us-sf',
+            'be-vlg', 'bg', 'ch', 'de-nrw', 'ee', 'fr', 'gb', 'gr', 'hr', 'it',
+            'lt', 'lu', 'lv', 'nl', 'no', 'pl', 'pt', 'qa', 'si', 'sk', 'tr',
+            'us-chi', 'us-fl', 'us-ma', 'us-nyc', 'us-sf', 'us-tx-harris', 'us-wa-king',
         ]);
     });
+
+    // LANE PARCEL-REACH (2026-09-03) — the five US rows below were registered `kind:'cadastral'`
+    // with a proxyPath in registry.ts but had NO key here, so `/api/parcel/us-ma` answered
+    // HTTP 404 "Unknown cadastre" in production and every Boston/Miami/Seattle/Houston/NYC click
+    // fell silently to the OSM footprint while the registry verdict still read "cadastral".
+    // This test is the standing guard against that whole class: a registry row that PROMISES a
+    // cadastre must have a route that can DELIVER one. It is keyed on the registry, not on a
+    // hand-copied list, so a future row cannot be added without either a leg or an explicit,
+    // reasoned exemption below.
+    //
+    // ⭐ `/api/parcel/gb` WAS on the RING_LESS list and has been REMOVED (lane PARCEL-REACH,
+    // 2026-09-04). Its stated reason — "HMLR INSPIRE is a per-LPA bulk download, no keyless
+    // point query" — is true of HMLR's OWN endpoints and FALSE of the route the `gb` leg
+    // actually uses: MHCLG's Planning Data platform re-publishes the same polygons under OGL v3
+    // behind a working keyless point query — live-probed 2026-09-04 at 10 Downing Street,
+    // HTTP 200 application/json, reference 48203540, 5-vertex WGS84 ring. Leaving a DELIVERED
+    // row exempt would let this guard pass while blind to it: an exemption is honest only for as
+    // long as its reason holds, so it is deleted the moment the leg lands.
+    // ⚠ EXPLICIT 60 s TIMEOUT, and it is not padding. This test dynamically imports registry.ts;
+    // on a COLD vitest transform cache that ONE import measured 21.9 s (vitest's own
+    // `transform 32.82s, import 21.91s`) against the 10 s default, so the test PASSED on a warm
+    // cache and FAILED on a clean checkout — green for a reason unrelated to what it asserts.
+    // It performs NO network I/O; the whole budget is transform cost.
+    it('every registry row promising a cadastre has a proxy leg that can deliver it', async () => {
+        const { listParcelJurisdictions } = await import(
+            '../../packages/site-parcel-data/src/parcelProviders/registry.js'
+        );
+        // Routes served by their OWN handler rather than the /api/parcel/:cc table.
+        const OWN_HANDLER = new Set(['/api/catastro/parcel', '/api/parcel/dk']);
+        // Reasoned exemptions — each is a row whose upstream cannot yet serve a RING. They keep a
+        // proxyPath so the intent is recorded, and the 404 self-corrects to the footprint, which is
+        // the honest answer. ⛔ Do NOT add a row here to silence this test: the bar is "the upstream
+        // cannot serve a boundary", not "we have not got round to it".
+        const RING_LESS = new Set([
+            '/api/parcel/il', // govmap identify serves centroid + extent only — see the IL test above
+            '/api/parcel/fi', // MML OGC API is key-gated; no key is carried in this environment
+        ]);
+        const promised = listParcelJurisdictions()
+            .filter((j: { kind: string; proxyPath: string | null }) => j.kind === 'cadastral' && j.proxyPath)
+            .map((j: { regionCode: string; proxyPath: string }) => j);
+        const undelivered = promised
+            .filter((j: { proxyPath: string }) => !OWN_HANDLER.has(j.proxyPath) && !RING_LESS.has(j.proxyPath))
+            .filter((j: { proxyPath: string }) => {
+                const cc = j.proxyPath.replace('/api/parcel/', '');
+                return EU_CADASTRE_SOURCES[cc] === undefined;
+            })
+            .map((j: { regionCode: string; proxyPath: string }) => `${j.regionCode} → ${j.proxyPath}`);
+        expect(undelivered).toEqual([]);
+    }, 60_000);
 
     // LANE PROXY-LEGS — IL is deliberately NOT a key: govmap's identify serves NO parcel ring
     // (centroid + extent only, measured — ilParcelProvider.ts header). Serving the extent

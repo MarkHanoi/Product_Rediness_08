@@ -588,6 +588,134 @@ function arcgisPointUrl(base, outFields) {
     };
 }
 
+// ── LANE PARCEL-REACH (2026-09-03) — URL builders for IT / BG / BE-VLG / GB-ENG ─────────────────
+//
+// All four registry rows promised `kind:'cadastral'` and 404'd. Each is now live-probed; three of
+// the four required CORRECTING a constant the repo already carried, which is why "the adapter
+// exists" was never the same claim as "a click resolves".
+
+/**
+ * ITALY — Agenzia delle Entrate INSPIRE Cartografia Catastale, `CP:CadastralParcel`.
+ * ⚠ TWO MEASURED CORRECTIONS to what the repo carried (both verified 2026-09-03):
+ *   1. The host is **wfs.**, not **wms.** — `wms.cartografia…` answers HTTP 500 with a SOAP
+ *      `<faultstring>Internal Error (from client)</faultstring>` on EVERY request, including a bare
+ *      GET. `agenziaEntrateParcelProvider.ts` carried the wms. spelling with its own open
+ *      "⚠ LIVE-PROBE BEFORE PROD: the host subdomain (wms. vs wfs.)" warning. The warning was right.
+ *   2. There is NO GeoJSON. `outputFormat=application/json` is refused with
+ *      `<ServiceException code="InvalidFormat">Richiesta non valida`; GetCapabilities advertises
+ *      only GML. So OUTPUTFORMAT is OMITTED and the response is GML 3.2 — parsed by the existing
+ *      `parseGmlCandidates` with `axis:'latlon'`, exactly as DE-NRW already is. No new parser.
+ * CRS is EPSG:6706 (RDN2008/ETRS89 geographic) — the layer advertises no 4326 and needs none:
+ * ETRS89 and WGS84 differ by centimetres, far below BIM scale. Coordinates are DEGREES, lat first
+ * (`<gml:lowerCorner>41.901858 12.495305</gml:lowerCorner>`, measured @ Roma).
+ * AP Trento + Bolzano are excluded by the source itself (their own Catasto tavolare / Libro
+ * Fondiario) — a Bolzano click returns 0 members, an honest `empty` → footprint.
+ */
+const IT_URN_6706 = 'urn:ogc:def:crs:EPSG::6706';
+function itUrl(lat, lon) {
+    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},${IT_URN_6706}`;
+    return 'https://wfs.cartografia.agenziaentrate.gov.it/inspire/wfs/owfs01.php' +
+        '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=CP:CadastralParcel' +
+        `&SRSNAME=${encodeURIComponent(IT_URN_6706)}&COUNT=20&BBOX=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * BULGARIA — GCCA/AGKK INSPIRE Cadastral Parcels, a keyless ArcGIS MapServer. Server-side
+ * point-intersect, so no bbox and no reliance on client-side PIP. Stored EPSG:4258, `outSR=4326`
+ * honoured → `[lon,lat]` degrees (measured @ Sofia). ⭐ Unlike most legs this source SERVES a real
+ * area (`areavalue`, integer m², with `areavalue_uom:"m2"`), so the official figure is used rather
+ * than a geometry estimate.
+ */
+const BG_PROXY_OUT_FIELDS =
+    'nationalcadastralref,id_localid,id_namespace,areavalue,areavalue_uom,label,admunit';
+const bgUrl = arcgisPointUrl(
+    'https://inspire.cadastre.bg/arcgis/rest/services/Cadastral_Parcel/MapServer/0/query',
+    BG_PROXY_OUT_FIELDS,
+);
+
+/**
+ * FLANDERS (BE-VLG) — GRB `ADP` administratieve percelen.
+ * ⚠ TWO MEASURED CORRECTIONS (2026-09-03), both of which were open PROBE notes in
+ * `flandersGrbParcelProvider.ts` rather than settled facts:
+ *   1. `geoservices.informatievlaanderen.be` NO LONGER RESOLVES (DNS ENOTFOUND). The live host is
+ *      `geo.api.vlaanderen.be/GRB/wfs`.
+ *   2. The typeName is `GRB:ADP` — UPPERCASE. `GRB:Adp` is not a published feature type.
+ * The server DOES honour `srsName=EPSG:4326` (native is 31370), returning standard GeoJSON
+ * `[lon,lat]` degrees, so the existing `parseGeoJsonCandidates` applies unchanged.
+ * FLANDERS ONLY: Brussels (CoBAT/UrbIS) and Wallonia (CoDT/PICC) are different systems and return
+ * `features: []` here — the coarse-bbox self-correction to the footprint, measured working.
+ */
+function beVlgUrl(lat, lon) {
+    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+    return 'https://geo.api.vlaanderen.be/GRB/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature' +
+        '&TYPENAMES=GRB:ADP&SRSNAME=urn:ogc:def:crs:EPSG::4326' +
+        `&COUNT=20&OUTPUTFORMAT=${encodeURIComponent('application/json')}&BBOX=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * ENGLAND (GB-ENG) — HM Land Registry INSPIRE Index Polygons, served as a keyless WGS84 POINT
+ * QUERY by MHCLG's Planning Data platform.
+ * ⛔ HMLR's OWN endpoints CANNOT serve this and must not be resurrected (all measured 2026-09-03):
+ * `use-land-property.service.gov.uk` (the host `gbOsInspireParcelProvider.ts` names) does not
+ * resolve — DNS ENOTFOUND; the correctly-spelled `use-land-property-data…` is a Cloudflare-
+ * challenged, cookie-gated per-LPA bulk DOWNLOAD page, not a query service; and
+ * `inspire.landregistry.gov.uk/inspire/ows` answers `Service WFS is disabled` while its WMS layer
+ * is `queryable="0"` so every GetFeatureInfo returns `LayerNotQueryable`. The platform below
+ * re-publishes the SAME polygons under OGL v3 with a working point query.
+ * ⚠ THESE ARE OWNERSHIP EXTENTS WITH GENERAL BOUNDARIES (s.60 LRA 2002) — an INDEX of registered
+ * title, NOT a survey cadastre. Confidence stays capped MEDIUM (`generalBoundary: true`); this leg
+ * changes the CHANNEL, never that honesty cap.
+ * ⚠ ENGLAND ONLY — measured, not assumed: Cardiff and Swansea return ZERO features while Oxford
+ * (4954), Manchester (3617) and Leeds (2191) are dense. So a Welsh/Scottish/NI click is an honest
+ * `empty` → footprint, and no GB-WLS claim may be derived from this row.
+ * Unregistered land (roads, public realm) genuinely has no polygon — a frequent, honest `empty`.
+ * ATTRIBUTION (required, OGL v3): "This information is subject to Crown copyright and database
+ * rights 2026 and is reproduced with the permission of HM Land Registry. The polygons … are
+ * subject to Crown copyright and database rights 2026 Ordnance Survey 100026316."
+ */
+function gbUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        dataset: 'title-boundary',
+        longitude: String(lon),
+        latitude: String(lat),
+        limit: '10',
+    });
+    return `https://www.planning.data.gov.uk/entity.geojson?${qs.toString()}`;
+}
+
+// ── LANE PARCEL-REACH (2026-09-03) — URL builders for the five missing US legs ───────────────────
+//
+// Every one is a keyless ArcGIS point-intersect, so `arcgisPointUrl` is reused verbatim. Each
+// `outFields` list is explicit and was confirmed field-by-field against the layer's own metadata
+// before use — an outField that does not exist on the layer fails the WHOLE query, which is how
+// MA's non-existent `TOWN_NAME` would have silently broken Massachusetts.
+
+/** NYC — DCP MapPLUTO tax lots. Layer 0, native 3857, `outSR=4326` → real degrees (measured). */
+const usNycUrl = arcgisPointUrl(
+    'https://services5.arcgis.com/GfwWNkhOj9bNBqoJ/arcgis/rest/services/MAPPLUTO/FeatureServer/0/query',
+    'BBL,Borough,Block,Lot,Address,ZoneDist1,ZoneDist2,LandUse,LotArea,BldgArea,NumFloors,YearBuilt,BuiltFAR,ResidFAR,CommFAR,FacilFAR,Version',
+);
+/** MASSACHUSETTS — MassGIS L3 statewide. ⚠ LAYER 1 (layer 0 is Devens only). Already EPSG:4326. */
+const usMaUrl = arcgisPointUrl(
+    'https://arcgisserver.digital.mass.gov/arcgisserver/rest/services/AGOL/L3_Parcels_FeatureService_4326/FeatureServer/1/query',
+    'LOC_ID,MAP_PAR_ID,SITE_ADDR,CITY,ZIP,USE_CODE,ZONING,LOT_SIZE,LOT_UNITS,FY,TOWN_ID',
+);
+/** FLORIDA — FDOR statewide cadastral (10.8 M parcels). Native 3086; `outSR=4326` → degrees. */
+const usFlUrl = arcgisPointUrl(
+    'https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0/query',
+    'PARCEL_ID,CO_NO,PHY_ADDR1,PHY_CITY,ASMNT_YR,DOR_UC,LND_SQFOOT,OWN_NAME',
+);
+/** KING COUNTY, WA — parcels layer. Geometry + PIN only; ROW/easements deliberately excluded. */
+const usWaKingUrl = arcgisPointUrl(
+    'https://gismaps.kingcounty.gov/arcgis/rest/services/Property/KingCo_Parcels/MapServer/0/query',
+    'PIN,MAJOR,MINOR',
+);
+/** HARRIS COUNTY, TX — HCAD parcels. Native EPSG:2278 (State-Plane feet); `outSR=4326` → degrees. */
+const usTxHarrisUrl = arcgisPointUrl(
+    'https://www.gis.hctx.net/arcgis/rest/services/HCAD/Parcels/MapServer/0/query',
+    'HCAD_NUM,acct_num,site_str_num,site_str_name,site_str_sfx,site_city,site_zip,tax_year,land_use,state_class,land_sqft',
+);
+
 /**
  * AUSTRALIA — six state cadastres (lane AU-OPEN, live-probed 2026-09-03; descriptors mirrored from
  * countryAdapters/au/auStateCadastre.ts AU_STATE_DESCRIPTORS — endpoints, id fields, quirks).
@@ -760,12 +888,15 @@ function jsonProp(props, ...keys) {
  *   source:string,
  *   headers?:Record<string,string>,
  *   semantic404?:boolean,
+ *   timeoutMs?:number,
  *   select?:(candidates:any[])=>any[],
  *   normalise:(c:any)=>{refcat:string,areaM2:number,address:string|null}
  * }} SourceCfg
  *
  * `headers` — extra request headers the upstream requires (AU-SA's public Referer). `semantic404` —
  * this upstream's HTTP 404 means "no parcel here" (TR), classified `empty`, never `unreachable`.
+ * `timeoutMs` — a per-source upstream deadline for a register measured slower than the shared
+ * 15 s ceiling (BE-VLG). Raising it is a statement about THAT host, never a global loosening.
  * `select` — candidate pre-filter/ordering applied BEFORE pickCandidate (AU-QLD unlinked twins,
  * AU-ACT RETIRED lifecycle) so point-in-polygon can only choose an assertable parcel.
  */
@@ -922,6 +1053,220 @@ export const EU_CADASTRE_SOURCES = {
             return { refcat, areaM2: ringAreaM2(c.ring), address: muni ? String(muni) : null };
         },
     },
+    // ── LANE PARCEL-REACH (2026-09-03): IT / BG / BE-VLG / GB-ENG ───────────────────────────────
+    // Same measured defect as the US block below: registered `cadastral` in registry.ts, absent
+    // here, therefore HTTP 404 → OSM footprint under a "cadastral" verdict. Italy is the largest
+    // single gain in this lane — a whole G7 country that was resolving building outlines.
+    it: {
+        // Mainland + islands; AP Trento/Bolzano excluded BY THE SOURCE (they run their own Catasto
+        // tavolare), which reads here as an honest `empty`, never a fabricated ring.
+        guard: (lat, lon) => lat >= 35.4 && lat <= 47.1 && lon >= 6.6 && lon <= 18.6,
+        url: itUrl,
+        format: 'gml',
+        axis: 'latlon', // EPSG:6706 GML posList is lat-first — the DE-NRW idiom
+        source: 'agenzia-entrate',
+        // ⚠ MEASURED 2026-09-04 (lane PARCEL-REACH) — Agenzia delle Entrate is the SECOND source
+        // after BE-VLG to need its own deadline, and it was missed when this leg landed because the
+        // FIRST probe (Roma) was warm. COLD end-to-end `resolveEuParcelOutcome` timings, one fresh
+        // bbox each, no warming fetch: Torino 14.1 s · Palermo 14.2 s · Roma 20.1 s · Napoli 22.1 s ·
+        // Bologna 30.0 s — and Bologna is the proof, because it logged
+        // `[eu-cadastre] fetch failed (attempt 1): This operation was aborted` and only produced a
+        // parcel on the RETRY. So under the shared 15 s ceiling Italy was surviving by accident:
+        // every slow comune paid double latency, and a comune slower than 15 s on BOTH attempts
+        // reported `unreachable` — a healthy G7 cadastre described as down, the same false statement
+        // the BE-VLG override exists to prevent. 25 s clears the measured p100 (22.1 s) on the FIRST
+        // attempt while still leaving the retry inside a tolerable worst case.
+        // ⛔ This is a statement about THIS host, never a global loosening: UPSTREAM_TIMEOUT_MS stays
+        // 15 s, and the refcat cache absorbs the cost for repeat clicks on the same parcel.
+        timeoutMs: 25_000,
+        normalise: (c) => {
+            // ⛔ GML candidates carry `block` (raw XML), NEVER `props` — reading `c.props` here
+            // yields undefined for every field, so `refcat` comes out empty and the resolver
+            // classifies a REAL Roman parcel as an authoritative `empty`. That is precisely the
+            // failure-as-empty collapse this proxy exists to prevent, and it is invisible from the
+            // outside: the upstream returns 200 with 2 members and the user still sees a footprint.
+            // Use `gmlText(block, TAG)`, exactly as the DE-NRW row above does.
+            const b = c.block || '';
+            // The INSPIRE national cadastral reference (H501A048600.D @ Roma Pantheon, measured):
+            // comune Belfiore code + foglio + particella.
+            const refcat = (gmlText(b, 'NATIONALCADASTRALREFERENCE') ?? gmlText(b, 'INSPIREID_LOCALID') ?? '').trim();
+            // ADMINISTRATIVEUNIT is the comune's Belfiore code (H501 = Roma, F205 = Milano).
+            const comune = gmlText(b, 'ADMINISTRATIVEUNIT');
+            // The service publishes no area attribute → geometry-derived.
+            return { refcat, areaM2: ringAreaM2(c.ring), address: comune ?? null };
+        },
+    },
+    bg: {
+        guard: (lat, lon) => lat >= 41.2 && lat <= 44.3 && lon >= 22.3 && lon <= 28.7,
+        url: bgUrl,
+        format: 'arcgis',
+        source: 'bg-gcca-inspire-cadastral-parcel',
+        normalise: (c) => {
+            const p = c.props || {};
+            // поземлен имот id (68134.405.115 @ Sofia, measured) — EKATTE + kadastralen rayon + imot.
+            const refcat = String(jsonProp(p, 'nationalcadastralref', 'id_localid') ?? '').trim();
+            // ⭐ BG is one of the few sources that SERVES an official area in m² (`areavalue_uom`
+            // is "m2"), so the official figure is preferred over the geometry estimate. The
+            // uom is asserted, not assumed: anything other than m² falls back to the ring.
+            const uom = String(jsonProp(p, 'areavalue_uom') ?? '').toLowerCase();
+            const served = Number(jsonProp(p, 'areavalue'));
+            const areaM2 = uom === 'm2' && Number.isFinite(served) && served > 0 ? served : ringAreaM2(c.ring);
+            const label = jsonProp(p, 'label');
+            return { refcat, areaM2, address: label ? String(label) : null };
+        },
+    },
+    'be-vlg': {
+        guard: (lat, lon) => lat >= 50.67 && lat <= 51.51 && lon >= 2.53 && lon <= 5.92,
+        url: beVlgUrl,
+        format: 'geojson',
+        source: 'flanders-grb',
+        // ⚠ MEASURED 2026-09-03: this host answers in ~20 s and the latency is FIXED per request,
+        // not payload-bound — ±11 m/1 feature and ±38 m/14 features both took ~20 s across repeated
+        // calls, so shrinking the bbox or COUNT does not help. Under the shared 15 s ceiling every
+        // Flemish click aborted and reported `unreachable`, i.e. a healthy national cadastre was
+        // being described as down. The deadline is raised FOR THIS SOURCE ONLY; the refcat cache
+        // then absorbs the cost for repeat clicks on the same parcel.
+        timeoutMs: 28_000,
+        normalise: (c) => {
+            const p = c.props || {};
+            // CAPAKEY is the Belgian cadastral parcel key (11803C2116/00_000 @ Antwerpen, measured).
+            const refcat = String(jsonProp(p, 'CAPAKEY') ?? '').trim();
+            const nis = jsonProp(p, 'NISCODE');
+            // ADP carries no area attribute → geometry-derived.
+            return { refcat, areaM2: ringAreaM2(c.ring), address: nis ? `NIS ${nis}` : null };
+        },
+    },
+    gb: {
+        // England's box. Wales/Scotland/NI fall inside it at the edges and return ZERO features
+        // (measured: Cardiff 0, Swansea 0), so they self-correct to the footprint.
+        guard: (lat, lon) => lat >= 49.8 && lat <= 55.9 && lon >= -6.5 && lon <= 1.9,
+        url: gbUrl,
+        format: 'geojson',
+        source: 'gb-os-inspire',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `reference` is the HMLR INSPIRE polygon id (48204480 @ London, measured). ⛔ NOT
+            // `entity`, which is the Planning Data platform's own surrogate key and is not an
+            // HMLR identifier — citing it would attribute a made-up id to the Land Registry.
+            const refcat = String(jsonProp(p, 'reference') ?? '').trim();
+            return { refcat, areaM2: ringAreaM2(c.ring), address: null };
+        },
+    },
+    // ── LANE PARCEL-REACH (2026-09-03): the FIVE MISSING US LEGS ────────────────────────────────
+    // MEASURED DEFECT that these close: `us-nyc` / `us-ma` / `us-fl` / `us-wa-king` /
+    // `us-tx-harris` were all registered `kind:'cadastral'` with a `proxyPath` in registry.ts, but
+    // had NO key in this table — so `GET /api/parcel/us-ma?...` answered
+    // `HTTP 404 {"error":"Unknown cadastre 'us-ma'."}` (measured live against pryzm.fly.dev before
+    // this change), the client's WfsParcelProvider logged the non-OK and returned null, and every
+    // Boston / Miami / Seattle / Houston / New York click silently fell to the OSM footprint. The
+    // registry VERDICT said "cadastral" while the user got a building outline: authored-but-unwired,
+    // the C58 §1.4 credibility failure this file exists to prevent.
+    //
+    // All five are keyless ArcGIS point-intersect services, so they reuse `arcgisPointUrl` +
+    // `format:'arcgis'` verbatim and need no new parser. Each `outFields` list is EXPLICIT (never
+    // `*`) so a widened upstream column is a deliberate change, and each was LIVE-PROBED
+    // 2026-09-03 with the ring confirmed to arrive in WGS84 DEGREES (|x|<180 at the city's real
+    // longitude) rather than a silent Web-Mercator leak. Guards mirror the authored bboxes in
+    // countryAdapters/us/usJurisdiction.ts + parcelProviders/nycPlutoParcelProvider.ts — the
+    // registry decides WHICH row is tried; a guard only fences its own source's territory.
+    //
+    // ⚠ AREA IS ALWAYS GEOMETRY-DERIVED for every US leg. The served area fields are assessment
+    // attributes in mixed units (FL `LND_SQFOOT` square feet, MA `LOT_SIZE` with a separate
+    // `LOT_UNITS` discriminator that is ACRES for some towns and square feet for others, NYC
+    // `LotArea` square feet) — passing any of them through as m² would be a unit error wearing a
+    // number's confidence, so `ringAreaM2` is used throughout, as AU and CH already do.
+    // ⛔ NO US NATIONAL PARCEL SERVICE EXISTS to fall back to (verified 2026-09-03: the federal
+    // NGDA "Cadastre" theme is the BLM PLSS survey grid — township/section, zero private lots; the
+    // national commercial layers are tiles-only or token-gated). US parcels are county-assessed in
+    // law, so per-jurisdiction legs are the only correct architecture, not a stopgap.
+    'us-nyc': {
+        guard: (lat, lon) => lat >= 40.47 && lat <= 40.93 && lon >= -74.28 && lon <= -73.68,
+        url: usNycUrl,
+        format: 'arcgis',
+        source: 'nyc-pluto',
+        normalise: (c) => {
+            const p = c.props || {};
+            // BBL (Borough-Block-Lot) is NYC's tax-lot id and arrives NUMERIC on the wire —
+            // 1008350041 @ the Empire State Building, measured — so it is coerced to a string.
+            const refcat = String(jsonProp(p, 'BBL') ?? '').trim();
+            const addr = jsonProp(p, 'Address');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: addr ? String(addr) : null };
+        },
+    },
+    'us-ma': {
+        // ⚠ LAYER 1, NOT 0 — layer 0 of this FeatureServer is the Devens district only; layer 1 is
+        // the statewide L3 fabric (measured). ⚠ `TOWN_NAME` does NOT exist on this layer, so it is
+        // absent from outFields — requesting it would fail the whole query.
+        guard: (lat, lon) => lat >= 41.14 && lat <= 42.90 && lon >= -73.55 && lon <= -69.85,
+        url: usMaUrl,
+        format: 'arcgis',
+        source: 'us-ma-massgis-l3',
+        normalise: (c) => {
+            const p = c.props || {};
+            // LOC_ID is the STATEWIDE-unique standardized parcel id (F_775267_2956644 @ Boston
+            // City Hall, measured); MAP_PAR_ID is only unique within its town, hence the ordering.
+            const refcat = String(jsonProp(p, 'LOC_ID', 'MAP_PAR_ID') ?? '').trim();
+            const parts = [jsonProp(p, 'SITE_ADDR'), jsonProp(p, 'CITY')].filter(Boolean);
+            return { refcat, areaM2: ringAreaM2(c.ring), address: parts.length ? parts.join(', ') : null };
+        },
+    },
+    'us-fl': {
+        // ⛔ Do NOT add `resultRecordCount` to this service's query — it answers HTTP 400
+        // "Invalid query parameters" (measured), as do `returnExtentOnly` and a string `where=`.
+        // `esriSpatialRelContains` returns 0 features here; Intersects is the working predicate,
+        // which is what `arcgisPointUrl` emits.
+        guard: (lat, lon) => lat >= 24.40 && lat <= 31.05 && lon >= -87.65 && lon <= -79.95,
+        url: usFlUrl,
+        format: 'arcgis',
+        source: 'us-fl-fdor-cadastral',
+        normalise: (c) => {
+            const p = c.props || {};
+            // PARCEL_ID is the DOR parcel id (1829244ZI000035000010A @ Tampa, measured).
+            const refcat = String(jsonProp(p, 'PARCEL_ID') ?? '').trim();
+            const parts = [jsonProp(p, 'PHY_ADDR1'), jsonProp(p, 'PHY_CITY')].filter(Boolean);
+            return { refcat, areaM2: ringAreaM2(c.ring), address: parts.length ? parts.join(', ') : null };
+        },
+    },
+    'us-wa-king': {
+        // ONE COUNTY (Seattle metro), never statewide — a Spokane click is out-of-area here and
+        // falls to the footprint. The layer is geometry + PIN only; it carries NO address and
+        // explicitly EXCLUDES road right-of-way, so a street click is a truthful `empty`.
+        guard: (lat, lon) => lat >= 47.07 && lat <= 47.80 && lon >= -122.55 && lon <= -121.05,
+        url: usWaKingUrl,
+        format: 'arcgis',
+        source: 'us-wa-king-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // PIN = MAJOR + MINOR concatenated (6003501205 @ Capitol Hill, measured).
+            const refcat = String(jsonProp(p, 'PIN', 'MAJOR') ?? '').trim();
+            return { refcat, areaM2: ringAreaM2(c.ring), address: null };
+        },
+    },
+    'us-tx-harris': {
+        // ONE COUNTY (Houston metro). Texas has no usable statewide open parcel service (StratMap
+        // returned nothing at Austin/Dallas; the City-of-Austin layer is city-OWNED land only).
+        guard: (lat, lon) => lat >= 29.48 && lat <= 30.18 && lon >= -95.97 && lon <= -94.88,
+        url: usTxHarrisUrl,
+        format: 'arcgis',
+        source: 'us-tx-harris-hcad',
+        normalise: (c) => {
+            const p = c.props || {};
+            // HCAD_NUM is the appraisal account id (1222280010001 @ 3815 Montrose Blvd, measured).
+            const refcat = String(jsonProp(p, 'HCAD_NUM', 'acct_num') ?? '').trim();
+            // ⛔ `mail_addr_1` is the OWNER'S MAILING address, NOT the site address — at the Museum
+            // District point it reads "PO BOX 711, DALLAS" for a Houston parcel (measured). Showing
+            // it on the parcel info card would state a falsehood about where the land is, so the
+            // SITE address is composed from the site_str_* fields and mail_* is never used here.
+            const site = [
+                jsonProp(p, 'site_str_num'),
+                jsonProp(p, 'site_str_name'),
+                jsonProp(p, 'site_str_sfx'),
+            ].filter(Boolean).join(' ').trim();
+            const city = jsonProp(p, 'site_city');
+            const address = site ? (city ? `${site}, ${city}` : site) : null;
+            return { refcat, areaM2: ringAreaM2(c.ring), address };
+        },
+    },
     // ── Lane PROXY-EE-LT-PL (2026-09-02): the E9 registration wave's named residual. The three
     // registry rows routed correctly and their adapters were LIVE-PROVEN, but a production click
     // resolved null HERE and fell to the OSM footprint. `source` values are the registry rows'
@@ -1075,7 +1420,15 @@ export const EU_CADASTRE_SOURCES = {
         normalise: (c) => {
             const p = c.props || {};
             // PID is theLIST's parcel id (3321248 @ Hobart); fall back to the title reference.
-            const pid = jsonProp(p, 'PID');
+            // ⚠ MEASURED 2026-09-03 (lane PARCEL-REACH) @ Launceston (−41.4332,147.1441): theLIST
+            // serves `{"PID":0,"VOLUME":null,"FOLIO":null,"TENURE_TY":"Crown Land"}` — a REAL
+            // polygon with a PLACEHOLDER id. `jsonProp` accepts numeric 0 (String(0).length === 1),
+            // so the leg asserted `refcat: "0"`: an uncitable parcel presented as identified, the
+            // §CONTEXT-DATA-HONESTY family. A cadastral id is NEVER 0, so 0 is normalised to absent
+            // here and the resolver's "no usable identifier" guard then classifies the point
+            // `empty` → OSM footprint, which is the true statement for unallocated Crown Land.
+            const pidRaw = jsonProp(p, 'PID');
+            const pid = pidRaw !== null && String(pidRaw).trim() !== '0' ? pidRaw : null;
             const vol = jsonProp(p, 'VOLUME');
             const folio = jsonProp(p, 'FOLIO');
             const refcat = pid !== null ? String(pid).trim()
@@ -1244,7 +1597,11 @@ const SEMANTIC_404 = Symbol('eu-cadastre-semantic-404');
 
 async function fetchTextOnce(url, deps = {}, opts = {}) {
     const fetchImpl = deps.fetchImpl || fetch;
-    const timeoutMs = deps.timeoutMs || UPSTREAM_TIMEOUT_MS;
+    // `opts.timeoutMs` is a PER-SOURCE override for an upstream measured to be slower than the
+    // shared ceiling (today: BE-VLG's GRB WFS at ~20 s). `deps.timeoutMs` still wins so tests can
+    // pin it. Without the override a slow-but-HEALTHY cadastre aborts and reports `unreachable`,
+    // which is a true statement about our patience and a false one about the register.
+    const timeoutMs = deps.timeoutMs || opts.timeoutMs || UPSTREAM_TIMEOUT_MS;
     for (let attempt = 0; attempt < 2; attempt++) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -1328,6 +1685,7 @@ async function resolveEuParcelOutcomeInner(cc, lon, lat, deps = {}) {
     const text = await fetchTextOnce(cfg.url(lat, lon), deps, {
         headers: cfg.headers,
         semantic404: cfg.semantic404 === true,
+        timeoutMs: cfg.timeoutMs,
     });
     // A SEMANTIC 404 (TR: TKGM's "Parsel Bulunamadı") is the upstream ANSWERING "no parcel here" —
     // a durable absence, classified before the null check so it can never read as an outage.
