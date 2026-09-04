@@ -552,8 +552,10 @@ function cmdMerge() {
 
   // 4 · No-loss gate against the LIVE tileset-manifest.json (what the map currently serves).
   const liveManifestPath = opt('--live-manifest');
+  let liveManifest = null;
   if (liveManifestPath && existsSync(liveManifestPath)) {
     const live = JSON.parse(readFileSync(liveManifestPath, 'utf8'));
+    liveManifest = live;
     const liveRegions = Object.keys(live.regions ?? {});
     const allowRemoval = new Set(csv(opt('--allow-region-removal')));
     const lost = liveRegions.filter((r) => !regionToSet.has(r) && !allowRemoval.has(r));
@@ -671,13 +673,66 @@ function cmdMerge() {
       heightJoin: (s.manifest.heightJoinRegions ?? []).includes(r) ? (tables.allRegions.find((x) => x.name === r)?.heightJoin ?? null) : null,
     };
   }
+  // §MANIFEST-LAYER-CARRY-FORWARD (lane CONTEXT-R2, 2026-09-04) — a LAYER-SCOPED merge must not
+  // erase the record of the layers it did not merge.
+  //
+  // THE DEFECT THIS CLOSES. `layers: layerResults` recorded ONLY the merged layers, but the R2
+  // publish is `aws s3 sync` WITHOUT `--delete` (deliberately — context-merge-publish.yml:315
+  // "a layer-scoped publish must not" remove its siblings). So after a `--layer roads` publish the
+  // OTHER layers' .pmtiles were still live and still served, while the manifest published beside
+  // them claimed the tileset contained roads and nothing else. The workflow header PRESCRIBES the
+  // per-layer dispatch as the disk-budget escape — so following the documented procedure for the
+  // seven layers ended with a manifest naming one of them, and the no-loss gate is REGION-scoped,
+  // so nothing refused. That is precisely the blindness this manifest exists to cure, reintroduced
+  // one axis over: the old design could not see what regions were live, this one could not see
+  // what LAYERS were.
+  //
+  // WHY CARRY-FORWARD IS SOUND, stated. The manifest is written only by a run that then publishes,
+  // and the publish never deletes. So a layer named by the LIVE manifest is still on R2 with those
+  // bytes unless a later run overwrote it — and a later run that overwrote it re-merged it, which
+  // puts it in `layerResults` and takes this branch out of play. The carried entry is therefore a
+  // true statement about the live object; what it is NOT is a statement this run verified, so it
+  // is marked `carriedForward` with the run that DID produce it (§CONTEXT-DATA-HONESTY: a fact and
+  // the evidence for it are different fields). Never strip that mark to make the shapes uniform.
+  const layersOut = { ...layerResults };
+  const carried = [];
+  for (const [name, rec] of Object.entries(liveManifest?.layers ?? {})) {
+    if (layersOut[name]) continue;
+    layersOut[name] = {
+      ...rec,
+      carriedForward: true,
+      // Provenance of the BYTES, not of this run. Preserved verbatim through repeated
+      // carry-forwards so the seventh per-layer publish still names the run that built buildings.
+      producedBy: rec.producedBy ?? {
+        mergeRunId: liveManifest.mergeRunId ?? null,
+        mergedAt: liveManifest.mergedAt ?? null,
+        mergeGitSha: liveManifest.mergeGitSha ?? null,
+      },
+    };
+    carried.push(name);
+  }
+  if (carried.length > 0) {
+    console.log(`▶ layer carry-forward: ${carried.length} live layer(s) not merged this run kept in the manifest [${carried.join(', ')}] — the publish has no --delete, so their bytes are still live. Each is marked carriedForward with the run that produced it.`);
+    // Cross-layer region skew is real and worth SAYING: `regions` is tileset-wide, but a carried
+    // layer was built from ITS sources, which may be a different set than this run merged.
+    const shipped = new Set(shippedRegions);
+    for (const name of carried) {
+      const src = layersOut[name].sources ?? [];
+      const gap = [...shipped].filter((r) => !src.includes(r));
+      if (gap.length > 0) {
+        console.warn(`  ⚠ layer '${name}' was built from ${src.length} source set(s) and does NOT cover [${gap.slice(0, 8).join(', ')}${gap.length > 8 ? `, +${gap.length - 8} more` : ''}] — the regions block is tileset-wide, per-layer coverage is the layer's own 'sources'.`);
+      }
+    }
+  }
+
   const tilesetManifest = {
     schema: 'pryzm-context-tileset-manifest@1',
     mergedAt: new Date().toISOString(),
     mergeRunId: process.env.GITHUB_RUN_ID ?? null,
     mergeGitSha: process.env.GITHUB_SHA ?? null,
     engine,
-    layers: layerResults,
+    mergedLayers: targetLayers,
+    layers: layersOut,
     regions: regionsOut,
   };
   const manifestPath = join(outDir, 'tileset-manifest.json');

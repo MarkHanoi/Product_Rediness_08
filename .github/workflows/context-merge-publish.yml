@@ -362,19 +362,45 @@ jobs:
               PUBLIC_BASE='https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/'
               ;;
           esac
-          URL="${PUBLIC_BASE%/}/buildings.pmtiles?v=$VER"
-          echo "probing $URL"
-          code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 -H 'Range: bytes=0-127' "$URL")"
-          echo "HTTP $code (expected 206)"
-          if [ "$code" = "206" ]; then
-            echo "✓ tiles are public and range-servable."
-          elif [ "$code" = "200" ]; then
-            echo "::error::$URL served 200, not 206 — the host is ignoring Range requests."
-            exit 1
-          else
-            echo "::error::$URL returned $code — objects uploaded but not publicly served."
+          # §VERIFY-PROBES-WHAT-IT-PUBLISHED (lane CONTEXT-R2, 2026-09-04) — this probed the
+          # LITERAL `buildings.pmtiles` whatever the run merged. The workflow header PRESCRIBES a
+          # per-layer dispatch as the disk-budget escape, so under the documented procedure six of
+          # the seven publishes verified a file they did not write — and `buildings` is the one
+          # layer that was already live, so the probe returned a confident 206 sourced entirely
+          # from a PREVIOUS run's bytes. A green check that cannot fail for the subject under test
+          # is worse than no check (§probe-can-be-wrong-three-ways: right runtime, WRONG SUBJECT).
+          # Probe every layer this run actually merged, and read the MAGIC, not just the status:
+          # a 206 proves the host range-serves, the magic proves the bytes are a PMTiles archive.
+          fail=0
+          probed=0
+          for f in "$GITHUB_WORKSPACE"/tools/context-bake/out/merged/*.pmtiles; do
+            layer="$(basename "$f" .pmtiles)"
+            URL="${PUBLIC_BASE%/}/${layer}.pmtiles?v=$VER"
+            echo "── probing $URL"
+            probed=$((probed+1))
+            code="$(curl -s -o /tmp/probe.bin -w '%{http_code}' -L --max-time 120 -H 'Range: bytes=0-127' "$URL")"
+            if [ "$code" = "206" ]; then
+              magic="$(head -c 7 /tmp/probe.bin)"
+              if [ "$magic" = "PMTiles" ]; then
+                echo "   ✓ HTTP 206 · PMTiles magic present — $layer is public and range-servable."
+              else
+                echo "::error::$URL served 206 but the first bytes are not the PMTiles magic."
+                fail=1
+              fi
+            elif [ "$code" = "200" ]; then
+              echo "::error::$URL served 200, not 206 — the host is ignoring Range requests."
+              fail=1
+            else
+              echo "::error::$URL returned $code — objects uploaded but not publicly served."
+              fail=1
+            fi
+          done
+          if [ "$probed" -eq 0 ]; then
+            echo "::error::No merged .pmtiles to verify — the publish step had nothing to sync."
             exit 1
           fi
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ all $probed published layer(s) verified public + range-servable."
 
       - name: What to do next
         if: ${{ success() && inputs.publish }}

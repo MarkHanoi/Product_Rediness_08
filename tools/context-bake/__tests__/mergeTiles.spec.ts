@@ -317,6 +317,47 @@ describe('merge-tiles.mjs merge — the refusal arms', () => {
         expect(allowed.stdout).toContain('deliberate removals: denmark');
     });
 
+    // §MANIFEST-LAYER-CARRY-FORWARD (lane CONTEXT-R2, 2026-09-04). The workflow header PRESCRIBES
+    // a per-layer dispatch as the disk-budget escape, and the R2 publish is a sync WITHOUT --delete.
+    // So a `--layer roads` run leaves buildings.pmtiles live and served; a manifest listing only
+    // `roads` would be a FALSE statement about the bucket, and the no-loss gate is REGION-scoped so
+    // nothing would refuse. This locks the carried entry AND its honesty mark: a carried layer is a
+    // fact about the live object, not something this run verified.
+    it('layer carry-forward: keeps live layers this run did not merge, marked carriedForward', () => {
+        const staging = join(DIR, 'carry', 'staging');
+        const outDir = join(DIR, 'carry', 'merged');
+        stageSet(staging, 'luxembourg', ['luxembourg'], 'buildings', LU_TILES);
+        const live = join(DIR, 'carry', 'live-tileset-manifest.json');
+        writeFileSync(live, JSON.stringify({
+            schema: 'pryzm-context-tileset-manifest@1',
+            mergeRunId: '33795775939',
+            mergedAt: '2026-09-03T20:56:05.737Z',
+            mergeGitSha: 'f75659e7',
+            regions: { luxembourg: { stagedSet: 'luxembourg' } },
+            layers: {
+                buildings: { file: 'buildings.pmtiles', bytes: 999, sha256: 'stale', sources: ['luxembourg'] },
+                roads: { file: 'roads.pmtiles', bytes: 2007237155, sha256: 'abc123', sources: ['luxembourg'] },
+            },
+        }));
+        const r = cli(['merge', '--staging', staging, '--out', outDir,
+            '--expect', 'luxembourg', '--layer', 'buildings', '--engine', 'js', '--live-manifest', live]);
+        expect(r.stderr).toBe('');
+        expect(r.status).toBe(0);
+        const m = JSON.parse(readFileSync(join(outDir, 'tileset-manifest.json'), 'utf8'));
+
+        // The merged layer is FRESH: real bytes, real sha, and NOT marked as carried.
+        expect(m.mergedLayers).toEqual(['buildings']);
+        expect(m.layers.buildings.carriedForward).toBeUndefined();
+        expect(m.layers.buildings.sha256).toBe(sha256(join(outDir, 'buildings.pmtiles')));
+        expect(m.layers.buildings.sha256).not.toBe('stale');
+
+        // The unmerged layer SURVIVES with its live bytes, and says whose run produced them.
+        expect(m.layers.roads.carriedForward).toBe(true);
+        expect(m.layers.roads.bytes).toBe(2007237155);
+        expect(m.layers.roads.producedBy.mergeRunId).toBe('33795775939');
+        expect(r.stdout).toContain('layer carry-forward');
+    });
+
     it('stage-manifest fail-louds on a region name not in bake.mjs ALL_REGIONS (typo guard)', () => {
         const dir = join(DIR, 'typo');
         mkdirSync(dir, { recursive: true });
