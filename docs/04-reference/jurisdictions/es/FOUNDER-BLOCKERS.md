@@ -12,6 +12,36 @@
 | 2 | Legislation QA / provenance | verification | 🔴 open | For every value: confirm the **article + paragraph citation** resolves and the unit is right; resolve any conflicting/ambiguous provision. "**Article-cited or it doesn't ship.**" | Verified, traceable pack | prevents wrong buildability numbers |
 | 3 | Cloudflare R2 write credential | credential | 🟡 open | Provide a **write-scoped** R2 token (bucket · endpoint · Access Key ID · Secret) so the MDS metro-heights re-bake can upload PMTiles/buildings. *(A) already own R2 → scoped token; (B) I guide you from zero, ~10 min; (C) temp S3/Backblaze/MinIO.)* **Prefer write-only, one bucket, no-delete.** | Working R2 destination | HEIGHTS/LOD → 6 metro capitals estimated→measured |
 
+## ⛔ TWO THINGS NO SIGNATURE CAN FIX (added 2026-09-04, lane ENVELOPE-IBERIA)
+
+Recorded here so founder time is not spent on them, and so nobody re-opens them as sign-off items.
+
+1. **CANARIAS — which plan is IN FORCE is not derivable, for 43 of 88 municipalities.** Now
+   **PROVEN**, not asserted (`tools/canarias-catalogue-probe`, 11 sum checks passing): **zero CKAN
+   relationships across all 174 packages**, no `replaces`/`replacedBy`, **no `vigente` flag**, and
+   **93,4 % of ALL 1 169 SIPU share the single phase *Aprobación Definitiva*** — so approval phase
+   cannot break the tie either. Vintage cannot substitute: **90,4 % of dates are BOC PUBLICATION
+   dates and only 6,6 % approval dates**, so an `ORDER BY date` supersession resolver is wrong nine
+   records in ten. **11 municipalities have ZERO non-modification base instrument.** The refusal code
+   is `regime-undetermined` — *the question is which LAW applies*, not whether PRYZM read it
+   correctly. **Only the Gobierno de Canarias can close this by publishing a vigencia field.**
+2. **EUSKADI is blocked at the PARCEL layer, before any planning question.** Measured: a ripgrep for
+   `euskadi|udalplan|bizkaia|gipuzkoa|es-pv` across `packages/` returns **no files** — no rulepack,
+   no provider, no bbox, no registration, no fixture. Bilbao’s own `ENVELOPE.md` states it: **S1
+   parcel provider ⚠ foral-blocked (Basque/Navarra own cadastre)**. Euskadi and Navarra are the two
+   places the national Catastro path PRYZM relies on everywhere else does not reach. A legislation
+   sign-off would have nothing to attach to.
+
+## ⭐ The cheapest open test of the founder’s "biggest shortcut" (code-only, ~1 day)
+
+The founder rates the **FIP/SIPU → canonical compiler** the biggest available shortcut. The SIPU half
+has a **103 125-row parsed corpus** behind it. **The FIP half has a catalogue entry and nothing
+else**: the repo has **counted 526 FIP archives, verified their URLs resolve, and opened NONE** —
+`FIP` returns zero matches across `packages/`. ⚠ And its key is already proven unreliable
+(`fip-code-unreliable`: **two municipalities carry a corrupted PROVINCE digit** — Puerto de la Cruz
+`280282` = Madrid, Valverde `370488` = Salamanca). **Opening one FIP archive settles the claim.**
+Full evidence: [`ES-SIPU-PARAMETER-CROSSMAP.md`](./ES-SIPU-PARAMETER-CROSSMAP.md).
+
 ## Deliverable templates
 **A · Madrid legislation (per zone/grade):** `Zone · official designation · FAR · max height · max floors · coverage · front/rear/side setback · fondo edificable · Ordinance · Article · Paragraph · Confidence`. Every numeric value traceable to the ordinance.
 **B · R2 credential:** `Bucket · Endpoint · Access Key ID · Secret Access Key` (or scoped API token).

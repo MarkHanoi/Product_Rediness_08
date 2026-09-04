@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "country": "pt",
-  "measuredAt": "2026-09-03T20:47:15.752Z",
+  "measuredAt": "2026-09-04T07:39:08.195Z",
   "args": {
     "frame": "both",
     "n": 120,
@@ -1098,8 +1098,17 @@
       "frame": "points drawn by the proven two-stage sampler in `tools/city-completion/parcelSampleProbe.mjs` (equal-probability tile draw × footprint-area-proportional point draw ⇒ unbiased FOR AREA) over OSM NON-PUBLIC building footprints in Lisboa + Porto. An INDEPENDENT, conservative proxy for private buildable land — NOT the legal denominator (L-656).",
       "points": [
         {
-          "lat": 38.71034559438758,
-          "lon": -9.152369721848112,
+          "lat": 38.715987747147885,
+          "lon": -9.155122980024672,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.712128717422075,
+          "lon": -9.150982570795112,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
           "area": "1106 LISBOA",
@@ -1107,17 +1116,8 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.711838712725196,
-          "lon": -9.150893148018152,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.750150501795844,
-          "lon": -9.223945180919959,
+          "lat": 38.749899339519075,
+          "lon": -9.224881972660926,
           "cls": "f1-gap",
           "zoneLabel": "Espaço urbano",
           "area": "1115 AMADORA",
@@ -1125,67 +1125,31 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.7027480290884,
-          "lon": -9.17887784497714,
+          "lat": 38.76692661779198,
+          "lon": -9.190806980442261,
           "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
           "area": "1106 LISBOA",
           "slots": [],
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.713008929546454,
-          "lon": -9.143517224356197,
+          "lat": 38.78812460368894,
+          "lon": -9.16648595640509,
           "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
+          "zoneLabel": "Espaços Centrais - Nivel1",
+          "area": "1116 ODIVELAS",
           "slots": [],
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.71471695296134,
-          "lon": -9.14156681274489,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 38.71069048585817,
-          "lon": -9.151187767241913,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.77417513021111,
-          "lon": -9.180033439147058,
+          "lat": 38.70228284721515,
+          "lon": -9.176455785186365,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaço Central e Habitacional a Consolidar",
           "area": "1106 LISBOA",
           "slots": [],
           "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.764382129537054,
-          "lon": -9.184239628121468,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.776366451178326,
-          "lon": -9.187898191992758,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Espaços Florestais com Funções Predominantes de Recreio e Valorização da Paisagem Grande Lisboa",
-          "area": "1116 ODIVELAS",
-          "slots": [],
-          "why": "protected-soil: "
         },
         {
           "lat": 38.77186740733014,
@@ -1197,350 +1161,8 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.71111008679499,
-          "lon": -9.150118659056778,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.710245347183104,
-          "lon": -9.151115057943233,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.71062942831563,
-          "lon": -9.14989471463054,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.71385252439625,
-          "lon": -9.141909792449448,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 38.77551899823139,
-          "lon": -9.100902807806483,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano-Espaços Residenciais-Habitacionais a Reestruturar",
-          "area": "1107 LOURES",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.71479495443083,
-          "lon": -9.142588955328634,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 38.73335082392811,
-          "lon": -9.128236371827438,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.73434592441187,
-          "lon": -9.128429949792578,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.697154947504096,
-          "lon": -9.212152310713234,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano D Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.74657871157341,
-          "lon": -9.139651404591737,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.71815513698756,
-          "lon": -9.15254030121127,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 38.772896411346046,
-          "lon": -9.09943672402647,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.74678436064634,
-          "lon": -9.138982017329488,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.749319651137306,
-          "lon": -9.22614188202493,
-          "cls": "f1-gap",
-          "zoneLabel": "Espaço urbano",
-          "area": "1115 AMADORA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.77440594386233,
-          "lon": -9.190126428065982,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Espaços Florestais com Funções Predominantes de Recreio e Valorização da Paisagem Grande Lisboa",
-          "area": "1116 ODIVELAS",
-          "slots": [],
-          "why": "protected-soil: "
-        },
-        {
-          "lat": 38.71435626876174,
-          "lon": -9.141907560051942,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 38.71579766664424,
-          "lon": -9.142365049651225,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.749704135953074,
-          "lon": -9.224585668464284,
-          "cls": "f1-gap",
-          "zoneLabel": "Espaço urbano",
-          "area": "1115 AMADORA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.7494095314065,
-          "lon": -9.225777459846778,
-          "cls": "f1-gap",
-          "zoneLabel": "Espaço urbano",
-          "area": "1115 AMADORA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.71236067505203,
-          "lon": -9.151006801665751,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.74677715212782,
-          "lon": -9.136805917553925,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.71056840841386,
-          "lon": -9.150027536604561,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.733084387688976,
-          "lon": -9.126394410907933,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional a Consolidar",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.74865080794809,
-          "lon": -9.13830004989201,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.748189446220785,
-          "lon": -9.138890262896204,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.71012180276189,
-          "lon": -9.149731133967737,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.747741085234736,
-          "lon": -9.138439329038095,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.696900160254316,
-          "lon": -9.209150733224304,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 38.750471816643,
-          "lon": -9.22160513890739,
-          "cls": "f1-gap",
-          "zoneLabel": "Espaço industrial/serviço - existente",
-          "area": "1115 AMADORA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.69461841136288,
-          "lon": -9.209953124341183,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.7746249601662,
-          "lon": -9.101637876814248,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 38.773209618601335,
-          "lon": -9.101563965802061,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.715419070134914,
-          "lon": -9.142133164015,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.712171744242255,
-          "lon": -9.152070666263809,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.77319497791616,
-          "lon": -9.101560376604848,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.75039012902081,
-          "lon": -9.223929629909893,
-          "cls": "f1-gap",
-          "zoneLabel": "Espaço urbano",
-          "area": "1115 AMADORA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.73381321316982,
-          "lon": -9.127472300597312,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.74629881933244,
-          "lon": -9.137809923890535,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
-          "area": "1106 LISBOA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 38.77232641806067,
-          "lon": -9.181179459971267,
+          "lat": 38.764530048235656,
+          "lon": -9.184273832619839,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
           "area": "1106 LISBOA",
@@ -1548,8 +1170,125 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.71729827194606,
-          "lon": -9.155266457942819,
+          "lat": 38.77294776033934,
+          "lon": -9.101658314375522,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.715178666879986,
+          "lon": -9.142610903211333,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.750047931457736,
+          "lon": -9.223830395905265,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbano",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.75063078932399,
+          "lon": -9.1525109039645,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.773154746562966,
+          "lon": -9.179137220395228,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.73285263975748,
+          "lon": -9.127238010973189,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77461376852318,
+          "lon": -9.101633188546142,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.74617796511495,
+          "lon": -9.139177751412726,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.749307691848,
+          "lon": -9.151893054825527,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.77273920313063,
+          "lon": -9.180195064089629,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.70153860497429,
+          "lon": -9.176822112469225,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional a Consolidar",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.778458563660394,
+          "lon": -9.224885265356969,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbanizável",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.765117599935145,
+          "lon": -9.183587469226529,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71775951509456,
+          "lon": -9.155420620422321,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
           "area": "1106 LISBOA",
@@ -1557,8 +1296,125 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.74640455828003,
-          "lon": -9.137778121724565,
+          "lat": 38.70073248200036,
+          "lon": -9.168294238339284,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.71735097855463,
+          "lon": -9.153412682568199,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71384327046068,
+          "lon": -9.143084265863703,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.73385259811975,
+          "lon": -9.129113625461114,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74626654095733,
+          "lon": -9.163285069132838,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74746985886827,
+          "lon": -9.138968842105855,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.76720436892603,
+          "lon": -9.190615333800036,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.70018851893504,
+          "lon": -9.177482374259741,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço Verde Ribeirinho Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "public-open-space: "
+        },
+        {
+          "lat": 38.71156415807076,
+          "lon": -9.15255450725619,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.750165366119546,
+          "lon": -9.22389739835906,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbano",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.75011852312114,
+          "lon": -9.22565654497952,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbano",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77183972847885,
+          "lon": -9.178818663900817,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71273880023982,
+          "lon": -9.14297540985299,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.73451488429191,
+          "lon": -9.128544477684079,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
           "area": "1106 LISBOA",
@@ -1575,11 +1431,11 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.697481481128754,
-          "lon": -9.21214376574416,
+          "lat": 38.78845174388284,
+          "lon": -9.16793403852614,
           "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano D Consolidado",
-          "area": "1106 LISBOA",
+          "zoneLabel": "Espaços Centrais - Nivel1",
+          "area": "1116 ODIVELAS",
           "slots": [],
           "why": "no-rule-pack: "
         },
@@ -1593,26 +1449,26 @@
           "why": "facility-plan: "
         },
         {
-          "lat": 38.73280743927268,
-          "lon": -9.128036735002778,
+          "lat": 38.73308282513238,
+          "lon": -9.126419426494772,
           "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional a Consolidar",
           "area": "1106 LISBOA",
           "slots": [],
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.77631052619281,
-          "lon": -9.187545254609654,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Espaços Florestais com Funções Predominantes de Recreio e Valorização da Paisagem Grande Lisboa",
-          "area": "1116 ODIVELAS",
+          "lat": 38.70171414018362,
+          "lon": -9.177039887806783,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional a Consolidar",
+          "area": "1106 LISBOA",
           "slots": [],
-          "why": "protected-soil: "
+          "why": "no-rule-pack: "
         },
         {
-          "lat": 38.71724197513801,
-          "lon": -9.155319537189,
+          "lat": 38.7178089259731,
+          "lon": -9.155663619388104,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
           "area": "1106 LISBOA",
@@ -1620,17 +1476,152 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.77623447927879,
-          "lon": -9.18993384961582,
-          "cls": "f1-gap",
-          "zoneLabel": "Espaço Habitacional a Reconverter",
+          "lat": 38.77532351732028,
+          "lon": -9.188767343041333,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaços Florestais com Funções Predominantes de Recreio e Valorização da Paisagem Grande Lisboa",
           "area": "1116 ODIVELAS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.7495509949414,
+          "lon": -9.151271668331624,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
           "slots": [],
           "why": "no-rule-pack: "
         },
         {
-          "lat": 38.7714328059967,
-          "lon": -9.179571927608444,
+          "lat": 38.732481109681736,
+          "lon": -9.128234415814758,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.73414168392182,
+          "lon": -9.128262920080326,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.702601550448044,
+          "lon": -9.178834582528081,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.71003554116992,
+          "lon": -9.151589114306253,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77770570007565,
+          "lon": -9.224559918114124,
+          "cls": "f1-gap",
+          "zoneLabel": "Espaço urbanizável",
+          "area": "1115 AMADORA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.74851715348438,
+          "lon": -9.16113437742095,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.71513915229455,
+          "lon": -9.141833578943345,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.77634388292818,
+          "lon": -9.187871543963933,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Espaços Florestais com Funções Predominantes de Recreio e Valorização da Paisagem Grande Lisboa",
+          "area": "1116 ODIVELAS",
+          "slots": [],
+          "why": "protected-soil: "
+        },
+        {
+          "lat": 38.747130314411976,
+          "lon": -9.138602258182482,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.7631661621716,
+          "lon": -9.185277846012948,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.74822544942935,
+          "lon": -9.139869773362376,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 38.70083576737923,
+          "lon": -9.167084423151099,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos de Infraestruturas Estruturantes Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.748508490268506,
+          "lon": -9.151847237649422,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.7472366742054,
+          "lon": -9.161914009894573,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano - Espaço de Uso Especial de Equipamentos Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "facility-plan: "
+        },
+        {
+          "lat": 38.771279941452526,
+          "lon": -9.178953359158701,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaço de Actividades Económicas Consolidado",
           "area": "1106 LISBOA",
@@ -1638,8 +1629,278 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.164279688124786,
-          "lon": -8.560176983137817,
+          "lat": 38.69540032320132,
+          "lon": -9.212311607990014,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado",
+          "area": "1106 LISBOA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16584626296825,
+          "lon": -8.66872248831026,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.151738395984644,
+          "lon": -8.66425938450451,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18753934911071,
+          "lon": -8.60312035281614,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.163636189324485,
+          "lon": -8.623368355438568,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.13104787165695,
+          "lon": -8.604992088015443,
+          "cls": "f1-gap",
+          "zoneLabel": "Área Urbanizadas em Transformação de Tipologia de Mista",
+          "area": "1317 VILA NOVA DE GAIA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.165764860323236,
+          "lon": -8.576004510805223,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.181889396076116,
+          "lon": -8.628804998133852,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.184293731131625,
+          "lon": -8.627036826398937,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18916347235999,
+          "lon": -8.664847790708805,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.148164324458534,
+          "lon": -8.608070998239794,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.168277802201345,
+          "lon": -8.556936708302501,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16857646144702,
+          "lon": -8.556206406433315,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
+          "area": "1304 GONDOMAR",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18776957329048,
+          "lon": -8.664283549953135,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.150808366545014,
+          "lon": -8.648909185336251,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.165848604700464,
+          "lon": -8.666885117775136,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.153540352754085,
+          "lon": -8.588786805839517,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.136338970544436,
+          "lon": -8.595538880848446,
+          "cls": "f1-gap",
+          "zoneLabel": "Área para Equipamentos Gerais Prevista",
+          "area": "1317 VILA NOVA DE GAIA",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.164708072472,
+          "lon": -8.577662617521817,
+          "cls": "f2-correct-null",
+          "zoneLabel": "Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de fruição coletiva",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "public-open-space: "
+        },
+        {
+          "lat": 41.18470303038568,
+          "lon": -8.629386618395598,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.14650213584467,
+          "lon": -8.607939925358279,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18257052964909,
+          "lon": -8.629391414263548,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.163305731101616,
+          "lon": -8.62230358800254,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18323608547421,
+          "lon": -8.629447334505883,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16262308499361,
+          "lon": -8.6226758180007,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.175548607209144,
+          "lon": -8.655026286025876,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços de atividades económicas – Área de atividades económicas tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18208729987212,
+          "lon": -8.65944271762546,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18586951880932,
+          "lon": -8.60223247337804,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18804999673967,
+          "lon": -8.663413338299321,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.14645579169834,
+          "lon": -8.607115060548047,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16570130528508,
+          "lon": -8.554842077837954,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo II",
           "area": "1304 GONDOMAR",
@@ -1647,17 +1908,8 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.138463934382976,
-          "lon": -8.623723310650018,
-          "cls": "f1-gap",
-          "zoneLabel": "Área Urbanizada Centro histórico - Área de Uso Misto - tipo II",
-          "area": "1317 VILA NOVA DE GAIA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.17474324937234,
-          "lon": -8.589252635271398,
+          "lat": 41.16566254019842,
+          "lon": -8.62328612829669,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
           "area": "1312 PORTO",
@@ -1665,98 +1917,8 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.1836870855162,
-          "lon": -8.600816017200955,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.16357349394768,
-          "lon": -8.626983169321893,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.16346223742632,
-          "lon": -8.629807200648706,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.15018716248315,
-          "lon": -8.60978378784229,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.160913473189446,
-          "lon": -8.635289734333345,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.15018757762532,
-          "lon": -8.620786218937058,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.15978778336877,
-          "lon": -8.63515143888053,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.16596179445105,
-          "lon": -8.63032980962777,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.132899559107244,
-          "lon": -8.657868457210444,
-          "cls": "f1-gap",
-          "zoneLabel": "Área Urbanizada Consolidada de Tipologia de Moradia",
-          "area": "1317 VILA NOVA DE GAIA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.14238216692542,
-          "lon": -8.564152912243808,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
-          "area": "1304 GONDOMAR",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.18813417904972,
-          "lon": -8.663879953932996,
+          "lat": 41.18250915611373,
+          "lon": -8.659901167403687,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaços Centrais",
           "area": "1308 MATOSINHOS",
@@ -1764,17 +1926,35 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.151159923366464,
-          "lon": -8.611385924037751,
+          "lat": 41.17408131223894,
+          "lon": -8.65748751008671,
           "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
           "area": "1312 PORTO",
           "slots": [],
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.18286019637157,
-          "lon": -8.63789491492472,
+          "lat": 41.16357728444963,
+          "lon": -8.578569528939482,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços de atividades económicas – Área de atividades económicas tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15936443863104,
+          "lon": -8.619269647737982,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17534163004747,
+          "lon": -8.680455049605602,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaços Centrais",
           "area": "1308 MATOSINHOS",
@@ -1782,8 +1962,35 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.149797855400934,
-          "lon": -8.611823464735242,
+          "lat": 41.18304761489297,
+          "lon": -8.626720007238267,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.17581647433917,
+          "lon": -8.656491859369456,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15520066573631,
+          "lon": -8.590216804679718,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.148238693348084,
+          "lon": -8.607249241393498,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
           "area": "1312 PORTO",
@@ -1791,17 +1998,80 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.180685524026416,
-          "lon": -8.641671266504495,
+          "lat": 41.15575867896546,
+          "lon": -8.57505240760551,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18246648239512,
+          "lon": -8.659192950894528,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.151339853623675,
+          "lon": -8.649446892541413,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.14768774174077,
+          "lon": -8.60805751019344,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.15867143608751,
+          "lon": -8.6631469304305,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18412655907101,
+          "lon": -8.627347322971826,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.187792180994045,
+          "lon": -8.60505804285965,
           "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
-          "area": "1312 PORTO",
+          "zoneLabel": "Solo Rústico - Espaços Agrícolas",
+          "area": "1308 MATOSINHOS",
           "slots": [],
-          "why": "facility-plan: "
+          "why": "protected-soil: "
         },
         {
-          "lat": 41.1700590196727,
-          "lon": -8.555340476040616,
+          "lat": 41.14969535647659,
+          "lon": -8.64892948249259,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16572114793671,
+          "lon": -8.556917632166625,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo II",
           "area": "1304 GONDOMAR",
@@ -1809,188 +2079,8 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.16503709682484,
-          "lon": -8.628375092970355,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.18033259174384,
-          "lon": -8.642071959291192,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 41.15196818545967,
-          "lon": -8.612384095513153,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.16593694773723,
-          "lon": -8.629910792153805,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.16204651383049,
-          "lon": -8.63547342762726,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.151380340091066,
-          "lon": -8.611879823159157,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.176912863450866,
-          "lon": -8.623738699355727,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.13207033722545,
-          "lon": -8.655615861721175,
-          "cls": "f1-gap",
-          "zoneLabel": "Área Urbanizada Consolidada de Tipologia de Moradia",
-          "area": "1317 VILA NOVA DE GAIA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.18424399968536,
-          "lon": -8.603517961672608,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.17671908269686,
-          "lon": -8.660839367863856,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.176150154961164,
-          "lon": -8.659750195401587,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.182082122389915,
-          "lon": -8.632391519036727,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaços Centrais",
-          "area": "1308 MATOSINHOS",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.1805297765755,
-          "lon": -8.631028845944302,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaços Centrais",
-          "area": "1308 MATOSINHOS",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.160441401142954,
-          "lon": -8.637117145032356,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.15154603386282,
-          "lon": -8.609942789932166,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 41.154813570947375,
-          "lon": -8.604860887340509,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.18011711469258,
-          "lon": -8.631040540101937,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaços Centrais",
-          "area": "1308 MATOSINHOS",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.18373615311315,
-          "lon": -8.638738284246497,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Espaços Centrais",
-          "area": "1308 MATOSINHOS",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.17240624669489,
-          "lon": -8.555164748454304,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Centrais ",
-          "area": "1304 GONDOMAR",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.14419701746851,
-          "lon": -8.58577402944393,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.14048914788014,
-          "lon": -8.564073832763798,
+          "lat": 41.16851261535413,
+          "lon": -8.555778366227534,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
           "area": "1304 GONDOMAR",
@@ -1998,71 +2088,8 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.165421070204346,
-          "lon": -8.628996255607499,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.17673060878773,
-          "lon": -8.589834677642065,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.16597768981717,
-          "lon": -8.629818058524204,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.163198916973606,
-          "lon": -8.628728249695929,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.177380054320274,
-          "lon": -8.625169275880845,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.17035139466205,
-          "lon": -8.55576393434921,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços de Equipamentos Estruturantes",
-          "area": "1304 GONDOMAR",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 41.16493405270363,
-          "lon": -8.561187713253801,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo II",
-          "area": "1304 GONDOMAR",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.15081664749744,
-          "lon": -8.622054202830192,
+          "lat": 41.14875713441397,
+          "lon": -8.606490007362526,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
           "area": "1312 PORTO",
@@ -2070,44 +2097,17 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.17720456247047,
-          "lon": -8.624617997070501,
+          "lat": 41.14962003299,
+          "lon": -8.650428851153185,
           "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
+          "zoneLabel": "Solo Urbano  – Espaços centrais  –  Área histórica",
           "area": "1312 PORTO",
           "slots": [],
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.14090928810077,
-          "lon": -8.565367055967455,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
-          "area": "1304 GONDOMAR",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.18333566465569,
-          "lon": -8.602377164688065,
-          "cls": "f2-correct-null",
-          "zoneLabel": "Solo Urbano – Espaços de uso especial de equipamentos – Área de equipamentos",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "facility-plan: "
-        },
-        {
-          "lat": 41.131565349783486,
-          "lon": -8.658000345268945,
-          "cls": "f1-gap",
-          "zoneLabel": "Área Urbanizada Consolidada de Tipologia de Moradia",
-          "area": "1317 VILA NOVA DE GAIA",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.18265693503653,
-          "lon": -8.637450514618095,
+          "lat": 41.17813725636253,
+          "lon": -8.66267702344805,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano - Espaços Centrais",
           "area": "1308 MATOSINHOS",
@@ -2115,8 +2115,44 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.178224074822275,
-          "lon": -8.624963540553763,
+          "lat": 41.15179287315077,
+          "lon": -8.649330518575722,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18801643035135,
+          "lon": -8.602855872388306,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.16107394663268,
+          "lon": -8.619392761083922,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+          "area": "1312 PORTO",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.18114049611286,
+          "lon": -8.668163836291878,
+          "cls": "f1-gap",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
+          "slots": [],
+          "why": "no-rule-pack: "
+        },
+        {
+          "lat": 41.176190535016545,
+          "lon": -8.663818507213964,
           "cls": "f1-gap",
           "zoneLabel": "Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre",
           "area": "1312 PORTO",
@@ -2124,55 +2160,19 @@
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.17418616328017,
-          "lon": -8.589184016433773,
+          "lat": 41.18779076770274,
+          "lon": -8.6645572235205,
           "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
+          "zoneLabel": "Solo Urbano - Espaços Centrais",
+          "area": "1308 MATOSINHOS",
           "slots": [],
           "why": "no-rule-pack: "
         },
         {
-          "lat": 41.15969993578554,
-          "lon": -8.636777233336735,
+          "lat": 41.17379657356515,
+          "lon": -8.655881834753089,
           "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.18488377763849,
-          "lon": -8.602760802342981,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
-          "area": "1312 PORTO",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.14018190068128,
-          "lon": -8.564845703054884,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I",
-          "area": "1304 GONDOMAR",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.17058273023775,
-          "lon": -8.554504672068727,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano - Solo Urbanizado - Espaços Centrais ",
-          "area": "1304 GONDOMAR",
-          "slots": [],
-          "why": "no-rule-pack: "
-        },
-        {
-          "lat": 41.15460046107693,
-          "lon": -8.606706565548299,
-          "cls": "f1-gap",
-          "zoneLabel": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+          "zoneLabel": "Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia",
           "area": "1312 PORTO",
           "slots": [],
           "why": "no-rule-pack: "

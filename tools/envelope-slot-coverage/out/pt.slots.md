@@ -1,4 +1,4 @@
-# Portugal — envelope slot coverage, MEASURED 2026-09-03
+# Portugal — envelope slot coverage, MEASURED 2026-09-04
 
 > Command: `npx tsx tools/envelope-slot-coverage/measurePt.ts --frame both --n 120 --seed 20260903`  · slots: setback.front, setback.side, setback.rear, maxHeight, maxFloors, maxFAR, maxCoverage, permittedUse
 
@@ -12,12 +12,13 @@
 | `no-plan-served` (source answered, nothing here) | 64 | 53.3 % |
 | **F2** correct-null — the ordinance answers "no envelope" | 53 | 44.2 % |
 | **F1** gap — governed + buildable, PRYZM serves no mechanism | 3 | 2.5 % |
+| `shape-rule-unmeasured` — the pack answers with a SHAPE, not scalars (EXCLUDED from the slot denominator) | 0 | 0.0 % |
 | `resolved` — at least one envelope slot resolved | 0 | 0.0 % |
 | probed | 120 | |
 
 **⭐ ENVELOPE SLOT COVERAGE = 0.0 %** — 0 slots resolved ÷ (8 × 3 answerable points).
 
-Answerable = F1 + resolved. **F2 is excluded from this denominator by construction.**
+Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from this denominator by construction** — the first has no subject, the second has no scalar to fill.
 
 | slot | resolved on n of 3 answerable |
 |---|---:|
@@ -46,16 +47,17 @@ Answerable = F1 + resolved. **F2 is excluded from this denominator by constructi
 |---|---:|---:|
 | `service-failure` (EXCLUDED from every denominator) | 0 | — |
 | `no-plan-served` (source answered, nothing here) | 0 | 0.0 % |
-| **F2** correct-null — the ordinance answers "no envelope" | 16 | 13.3 % |
-| **F1** gap — governed + buildable, PRYZM serves no mechanism | 104 | 86.7 % |
+| **F2** correct-null — the ordinance answers "no envelope" | 18 | 15.0 % |
+| **F1** gap — governed + buildable, PRYZM serves no mechanism | 102 | 85.0 % |
+| `shape-rule-unmeasured` — the pack answers with a SHAPE, not scalars (EXCLUDED from the slot denominator) | 0 | 0.0 % |
 | `resolved` — at least one envelope slot resolved | 0 | 0.0 % |
 | probed | 120 | |
 
-**⭐ ENVELOPE SLOT COVERAGE = 0.0 %** — 0 slots resolved ÷ (8 × 104 answerable points).
+**⭐ ENVELOPE SLOT COVERAGE = 0.0 %** — 0 slots resolved ÷ (8 × 102 answerable points).
 
-Answerable = F1 + resolved. **F2 is excluded from this denominator by construction.**
+Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from this denominator by construction** — the first has no subject, the second has no scalar to fill.
 
-| slot | resolved on n of 104 answerable |
+| slot | resolved on n of 102 answerable |
 |---|---:|
 | `setback.front` | 0 |
 | `setback.side` | 0 |
@@ -70,19 +72,19 @@ Answerable = F1 + resolved. **F2 is excluded from this denominator by constructi
 
 | zone (verbatim from the source) | n |
 |---|---:|
-| Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado | 16 |
-| Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II | 15 |
-| Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado | 12 |
-| Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I | 8 |
-| Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia | 7 |
-| Solo Urbano - Espaços Centrais | 7 |
-| Espaço urbano | 5 |
-| Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado | 5 |
-| Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre | 5 |
-| Solo Urbano - Espaço de Actividades Económicas Consolidado | 4 |
-| Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I | 4 |
-| Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo II | 3 |
-| Área Urbanizada Consolidada de Tipologia de Moradia | 3 |
-| Solo Urbano - Espaço Central e Habitacional a Consolidar | 2 |
-| Solo Urbano - Espaço Central e Habitacional - Traçado Urbano D Consolidado | 2 |
+| Solo Urbano - Espaços Centrais | 20 |
+| Solo Urbano - Espaço Central e Habitacional - Traçado Urbano B Consolidado | 10 |
+| Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II | 9 |
+| Solo Urbano - Espaço Central e Habitacional - Traçado Urbano A Consolidado | 8 |
+| Solo Urbano - Espaço Central e Habitacional - Traçado Urbano C Consolidado | 7 |
+| Solo Urbano - Espaço de Actividades Económicas Consolidado | 7 |
+| Solo Urbano  – Espaços centrais – Área de blocos isolados de implantação livre | 7 |
+| Solo Urbano  – Espaços centrais – Área de edifícios de tipo moradia | 6 |
+| Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I | 6 |
+| Espaço urbano | 4 |
+| Solo Urbano - Espaço Central e Habitacional a Consolidar | 4 |
+| Solo Urbano - Solo Urbanizado - Espaços Residenciais - Tipo I | 3 |
+| Espaços Centrais - Nivel1 | 2 |
+| Espaço urbanizável | 2 |
+| Solo Urbano  – Espaços de atividades económicas – Área de atividades económicas tipo I | 2 |
 

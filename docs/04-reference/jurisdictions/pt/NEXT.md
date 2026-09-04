@@ -3,11 +3,108 @@
 > **What this file is.** The single place recording where we stopped on Portugal, exactly why, and
 > precisely what to do to go further the moment it becomes possible — so a source or technique found
 > while working on ANY other jurisdiction can be brought straight back here.
-> **Last updated:** 2026-07-31 (live-probe pass) · **Maintainer:** UNASSIGNED
-> **Status:** RESEARCH COMPLETE + **LIVE-PROBED**. Legal structure characterised; **zoning geometry
-> and cadastre endpoints now VERIFIED**; Porto's numeric rules primary-sourced; no rule pack implemented.
+> **Last updated:** **2026-09-04** (lane ENVELOPE-IBERIA — see §0.0, which SUPERSEDES parts of §0.1) · previously 2026-07-31 (live-probe pass) · **Maintainer:** UNASSIGNED
+> **Status:** RESEARCH COMPLETE + **LIVE-PROBED** + **NATIONALLY REGISTERED** (2026-09-04). Legal
+> structure characterised; zoning geometry and cadastre endpoints VERIFIED; **Porto AND LISBOA**
+> numeric rules primary-sourced; **no envelope-drawing rule pack implemented — and for Porto, none
+> CAN be (§0.0 item 2).** The national registration stops the fabricated triple everywhere.
 
 ---
+
+---
+
+## 0.0 — ⭐ LANE ENVELOPE-IBERIA, 2026-09-04 — READ THIS BEFORE §0.1
+
+Three things changed today, and one of them REVERSES a plan §0.1 below still describes.
+
+### ⭐ 1 — Portugal was FABRICATING an envelope on every parcel. Fixed.
+
+**MEASURED, not feared.** Portugal appeared in **no row** of `rulepacks/registry.ts`
+`REGISTRATIONS`, so the §L-663 chokepoint in `applyEstimatedZoning` read
+`resolveRegisteredJurisdictionAt → 'none'` — *"genuinely uncovered land, the estimate is honest
+here"* — and **published the generic estimated triple (3,0 / 1,5 / 3,0 m, FAR 2,00, coverage 50 %)
+on land PRYZM has read no article about**, across the whole Continente.
+
+```
+npx tsx tools/envelope-slot-coverage/measurePt.ts --frame both --n 120 --seed 20260903
+```
+**BEFORE:** `'none'` on **120 / 120** probed points, including **120 / 120** drawn over REAL
+Lisboa + Porto building fabric by the proven two-stage sampler.
+**AFTER (`§PT-NATIONAL-REGISTRATION`, `rulepacks/ptNationalRegistration.ts`):** **120 / 120** fabric
+points resolve to `pt-pdm` and receive a CITED coverage refusal naming the PDM regime.
+
+⭐ **It is the first registration whose `contains` is a REAL NATIONAL POLYGON, not its bbox** —
+`PORTUGAL_BBOX` claims Badajoz, Mérida, Cáceres, Huelva, Ciudad Rodrigo, Verín and Puebla de
+Sanabria, and the §L-663 guard runs BEFORE §ES-SIU-GUARD, so a bbox registration would have
+SUPPRESSED Spain's own land-class guard over Extremadura. `resolveNationalJurisdiction()`
+(lane BOUNDARY-WAVE, 26 countries, PRT = 17 rings, sha256-pinned) closes it by DATA.
+⚠ Two limitations pinned in `ptNationalRegistration.test.ts` rather than papered over: the ~1,5 km
+border tolerance band still reaches the estimate (unchanged behaviour, a strip traded for a
+country), and `extent` is NOT `PORTUGAL_BBOX` — §EXTENT-CLAIM-TOTALITY forbids advertising more
+land than you claim, so the declared box is the largest rectangle found INSIDE the polygon and the
+globe under-draws (it misses Lisboa and Porto, which `contains` still claims).
+
+### ⛔ 2 — PORTO IS CATEGORY C, NOT CATEGORY A. Do not plan an envelope-drawing Porto pack.
+
+§0.1 step 5 and the §PORTO-SIGN-OFF record left the impression that Porto needed only a schema
+amendment and a signature. **A whole-document read of the Regulamento (164 articles indexed,
+dual-engine, sha256-pinned) says otherwise:**
+
+> **For NO Porto subcategory does the Regulamento supply footprint + height + intensity with
+> nothing missing and nothing inferred.** `afastamento` occurs **once** in 100 pages;
+> `cércea máxima` **once**; `índice de ocupação` **never**; `pé-direito` **once and with no value**,
+> and its external referent is never named (`RGEU` = **0 occurrences**) — so **"3 pisos" cannot be
+> converted to metres from this document**. Art. 164.º sends omissions to OTHER legislation.
+
+⇒ Under the founder's 2026-08-03 publication authorization, whose disqualifiers name *"missing
+height rule"* explicitly, **Porto is a LEGAL-DATA blocker (category C). No signature opens it.**
+Full evidence, with the four articles §A.0.3 did not carry: [`sources/SOURCES.md` §A.0.3b](./sources/SOURCES.md).
+
+### ⭐ 3 — §0.1 step 3 is CLOSED: Lisboa's numeric tables are extracted.
+
+[`sources/LISBOA-RPDML-PARAMETERS.md`](./sources/LISBOA-RPDML-PARAMETERS.md) — the RPDML
+*republicação integral* (Decl. Retif. 703/2020), every parameter with its artigo, verbatim sentence
+and PDF page, plus CML's own 18-row zone→article map.
+
+**The finding is that there is largely NO índice or cércea TO source.** Traçados A and B state no
+índice at all and their height is a **TRIMMED MEAN of the neighbours' façade heights** (Art. 4.º d):
+same side of the street, between two transversais, tallest and shortest discarded. Traçado C SPLITS
+BY TYPOLOGY (25 m scalar for isolated buildings; fabric-derived for *banda*). Only Traçado D is
+scalar (Ie 1,0 / 0,7 area-stepped). **Lisboa is not representable as scalars.**
+
+⭐ **And the ArcGIS token wall was about the ANONYMOUS ROOT, not the service** (§bulk-vs-query
+again): layer 18's schema — `NOME · COD_SIG · INFOPDM · ART_RPDM`, **not one numeric field** — now
+proves FROM THE SCHEMA what the repo had only inferred. ⚠ Also: **`WebFetch` gets 403 from
+`lisboa.pt` and `dre.pt` where `curl` gets 200 — a UA filter, not an auth wall.** Earlier passes
+that recorded those sources as dead were reading a UA block.
+
+### What this lane BUILT (code, all green)
+
+| Artefact | What it is |
+|---|---|
+| `packages/site-parcel-data/src/rulepacks/ptNationalRegistration.ts` | The national registration + its cited coverage refusal (`legallyGrounded: false`). |
+| `packages/site-parcel-data/src/countryAdapters/pt/ptConceptLexicon.ts` | ⭐ **The doctrine's §12 step 7** — the DR 5/2019 dictionary as a TYPE-CHECKER, the §2.6 version boundary that REFUSES on an absent procedural start date, and the §9 traps (`COS` ≠ Spanish coverage; `cércea` = `H` not `Hf`; `Iimp` ≠ coverage; `Pm` ≠ `maxFloors`; `Alt` never collapsed into `H`). |
+| `tools/envelope-slot-coverage/` | The F1/F2 slot-coverage harness (repaired — the ES arm was left unparseable by a dead lane). |
+
+### The next five steps, REPLACING the ones below where they conflict
+
+1. **Do NOT build a Porto envelope pack.** See item 2. If Porto is to be answered, the missing
+   numbers must come from an instrument the Regulamento defers to (Art. 164.º) — that is a NEW
+   sourcing question, not a signature.
+2. **Lisboa needs `ContextAggregateRule.aggregate: 'trimmed-mean'` and a same-side street-segment
+   contextSet scope.** ADR-0379 shipped `mode` over the block frontage for Porto; Lisboa is a
+   different aggregate over a different member set. **That is a `packages/schemas/**` change and
+   belongs to whichever lane owns `GeometricRule`.**
+3. **Resolve the PDMP's PROCEDURAL START DATE** (SSAIGT/SNIT *dinâmica* feed). It decides
+   `concept_dictionary_version` and it is the ONLY thing that settles
+   `PT_CERCEA_LOCAL_DEFINITION_CONFLICT` — Porto's Art. 3.º g) defines *cércea* as a FAÇADE-TOP
+   measurement (`Hf`-shaped) where the national dictionary makes it `H`.
+4. **The six remaining Lisboa sub-gaps** — `LISBOA-RPDML-PARAMETERS.md` §6 (Svp quadro cells,
+   Anexos I–XII, the `QUALIFICACAO.mpk` 7z unpack, DRE alterações 2020→2026, `INFOPDM` contents,
+   zone 7's município).
+5. **Email `snit.web@dgterritorio.pt`** — unchanged from step 1 below, and now doubly useful: the
+   same message can ask for the `IDDEPOSITO` history for DICOFRE 1106 **and** the PDMP procedural
+   start date for 1312.
 
 ## 0 — ⚠ READ FIRST: this file's §3 blockers were written before any endpoint was probed
 
@@ -29,7 +126,7 @@ The 2026-07-31 live pass **invalidated several resume steps below.** Corrections
 2. **Sweep municipal portals for a vector PDM with NUMERIC attributes.** Porto's ArcGIS is open but
    categorical; if *any* município publishes numerics, it reorders every target. Do not assume none
    does — only 2 municipalities were checked in depth.
-3. **Retrieve the Lisboa RPDML regulamento** and extract it (Porto's equivalent extracted cleanly —
+3. ~~**Retrieve the Lisboa RPDML regulamento**~~ **✅ CLOSED 2026-09-04 — see §0.0 item 3.** (was: extract it —
    text PDF, 319,459 chars). Lisboa's numeric tables are entirely UNKNOWN.
 4. **Scope Loulé** (63,834 parcels — the best cadastre sampled): pull its PDM regulamento and CRUS.
 5. **Write the C58 amendments** — `fabricDerivedHeight` (Porto's *moda da cércea*) and
