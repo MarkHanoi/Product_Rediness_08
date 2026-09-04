@@ -421,32 +421,35 @@ export function openComponentTypeCatalog(
         return null;
     }
 
-    /* ── EDIT (rename + value set) — re-validated document transform (OWED op) ── */
+    /* ── EDIT (rename + value set) — the dedicated set-type-values op ── */
 
     async function submitEditType(typeId: string, fields: EditTypeFields): Promise<string | null> {
         const newName = fields.newName.trim();
         const map = overridesToMap(fields.overrides, paramById());
-        const res = await applyDraft('edit-type', () => {
-            const target = draft.document.types.find((t) => t.id === typeId);
-            if (!target) throw new Error(`Type ${typeId} is not carried by this definition.`);
-            // ⚠ EDIT has NO dedicated migrator (OWED §Owed O-2). The transform is
-            // IMMUTABLE and follows U3's ops discipline: build a new `types` array and a
-            // new document, re-validated by `FamilyDocumentSchema`. The per-type
-            // `checksum` is carried UNCHANGED — no op recomputes it and the loader does
-            // not verify it (U3 O-4), so recomputing here would be a rival writer; OWED.
-            const clash = draft.document.types.find(
-                (t) => t.id !== typeId && t.name.trim().toLowerCase() === newName.toLowerCase(),
-            );
-            if (clash) {
-                throw new Error(
-                    `A type named "${newName}" already exists in this Component definition ` +
-                    `(${clash.id}). Type names must be unique — the draft is unchanged.`,
-                );
-            }
-            const nextTypes = draft.document.types.map((t) =>
-                t.id === typeId ? { ...t, name: newName, values: map } : t);
-            return { ...rawInput(), document: { ...draft.document, types: nextTypes } };
-        });
+        const v = draft.document.formatVersion;
+        const res = await applyDraft('edit-type', (ff) =>
+            // ⭐⭐ §UCE-TYPE-CHECKSUM-IS-COMPUTED — this used to be a RAW
+            //    `document.types` transform with its own name-uniqueness guard, and
+            //    §Owed O-2 recorded why: *"EDIT has NO dedicated migrator … the
+            //    per-type `checksum` is carried UNCHANGED — no op recomputes it …
+            //    so recomputing here would be a rival writer."* The op now exists,
+            //    so BOTH halves are fixed at once and neither by this file:
+            //
+            //    • the edit is an op like every other mutation (no rival mutation
+            //      path beside the gateway — C84 EI-9);
+            //    • the checksum is RECOMPUTED from the values actually stored. It
+            //      was stale after every previous edit, permanently, because
+            //      `family-pack.ts` never recomputed it either (measured: 0 hits) —
+            //      the claim that it did was a comment in `split-type.ts`, corrected
+            //      in the same change that added the op.
+            //
+            //    ⛔ Name-uniqueness moved INTO the op with it: it is a DOCUMENT
+            //    invariant that `FamilyTypeSchema` does not express, so the one
+            //    voice belongs where the document is written, not in one of the
+            //    surfaces that happens to write it. The op's own sentence is
+            //    rendered against the row, exactly as every other refusal here is.
+            ff.makeSetTypeValuesMigrator(v, v, { typeId, values: map, name: newName })
+                .apply(rawInput()));
         if (!res.ok) { renderTypeRefusal(typeId, res.refusal); return res.refusal; }
         setStatus(`Type renamed to '${newName}' and its overrides updated in the draft (not yet saved).`);
         return null;

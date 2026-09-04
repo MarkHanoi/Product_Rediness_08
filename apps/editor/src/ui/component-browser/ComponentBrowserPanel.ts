@@ -253,6 +253,50 @@ export class ComponentBrowserPanel {
         this.statusEl = status;
     }
 
+    /**
+     * §UCE-DEFINITION-ESCAPE-HATCH — hand the author the definition as a file.
+     *
+     * ⛔ REFUSES BY NAME rather than downloading nothing. "The definition is not
+     *    loaded" and "the download failed" are different facts, and a button that
+     *    silently does neither is the defect this panel's siblings already refuse
+     *    (C16 CA-18).
+     */
+    private _export(definitionId: string): void {
+        const bytes = this.catalog.exportBytes(definitionId);
+        const fileName = this.catalog.exportFileName(definitionId);
+        if (bytes === undefined || fileName === undefined) {
+            this._status(
+                `Component ${definitionId} is not loaded in this session, so there are no ` +
+                `bytes to export — nothing was downloaded. ` +
+                `${this.catalog.size()} definition(s) are loaded.`,
+            );
+            return;
+        }
+        try {
+            // ⚠ `Blob` over a COPY of the bytes: `exportBytes` already returned one,
+            //   and the Blob takes its own snapshot, so nothing the catalogue holds
+            //   is reachable from the download.
+            const blob = new Blob([bytes as BlobPart], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.setAttribute('data-component-browser-export-anchor', definitionId);
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            // Revoked on the next macrotask — revoking synchronously can beat the
+            // browser's own read of the URL in some engines.
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+            this._status('');
+        } catch (e) {
+            this._status(
+                `Export of ${definitionId} failed: ${e instanceof Error ? e.message : String(e)}. ` +
+                'The definition is still loaded in this session.',
+            );
+        }
+    }
+
     private _renderList(): void {
         const list = this.listEl;
         if (!list) return;
@@ -419,7 +463,33 @@ export class ComponentBrowserPanel {
             this._status('');
         });
 
-        head.append(name, semver, edit, types, chip);
+        // ⭐⭐ §UCE-DEFINITION-ESCAPE-HATCH — the ONLY way an authored definition
+        //    survives this tab. `componentCatalog` is a `Map` with PROCESS lifetime
+        //    (its own header: *"where do a project's definitions persist? — OPEN"*),
+        //    so `New Component` → author → Save definition → refresh loses the
+        //    definition while the placed occurrences that reference it are faithfully
+        //    restored and can then resolve nothing. There is a `Load Component…` leg
+        //    and there was no way to produce a file for it to load. This is that way.
+        //
+        // ⛔ IT EXPORTS THE VALIDATED BYTES, NEVER A RE-PACK. The format is
+        //    content-addressed (C111 §4.3-b) — a re-pack carries a different
+        //    `schemaHash`, i.e. a different definition as far as every placed
+        //    instance is concerned.
+        const exportBtn = document.createElement('button');
+        exportBtn.type = 'button';
+        exportBtn.setAttribute('data-component-browser-export', view.definitionId);
+        exportBtn.textContent = 'Export…';
+        exportBtn.title =
+            'Download this Component as a .pryzm-family file. Definitions live only in ' +
+            'this browser tab — export to keep one, and “Load Component…” to bring it back.';
+        exportBtn.style.cssText = [
+            'background:#fff', 'color:#6600FF', 'border:1px solid rgba(102,0,255,0.4)',
+            'padding:3px 10px', 'border-radius:6px',
+            'font-weight:600', 'cursor:pointer', 'font-size:11px',
+        ].join(';');
+        exportBtn.addEventListener('click', () => this._export(view.definitionId));
+
+        head.append(name, semver, edit, types, exportBtn, chip);
         body.appendChild(head);
 
         for (const t of view.types) {

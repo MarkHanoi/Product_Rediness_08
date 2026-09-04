@@ -38,7 +38,7 @@ import { composeRuntime } from '@pryzm/runtime-composer';
 import { packFamily, type FamilyDocument, type FamilyManifest } from '@pryzm/file-format';
 import { bootstrapWithEverything } from '../src/bootstrap.everything.js';
 // ⭐ The SAME singleton PluginRegistry injects into the handlers (lane U0).
-import { componentCatalog } from '../src/services/componentCatalog/index.js';
+import { ComponentCatalog, componentCatalog } from '../src/services/componentCatalog/index.js';
 // ⭐ Lane U1's REAL browser — the workspace's production entry (UIUX-PLAN §U3).
 import { ComponentBrowserPanel } from '../src/ui/component-browser/ComponentBrowserPanel.js';
 // ⭐ Lane U3's workspace (the same opener the browser button calls).
@@ -554,5 +554,81 @@ describe('§U3-DEFINITION-WORKSPACE — the founder\'s §64 demo, end to end thr
         expect(sourceOf(res.root, PARAM_GLASS)).toBe('expression');
         expect(valueOf(res.root, PARAM_GLASS)).toBe('1050');
         res.close();
+    }, BUDGET);
+
+    it('ARM 11 — ⭐⭐ THE ESCAPE HATCH: Export… hands back the VALIDATED bytes, and loading them into a FRESH catalogue (a new session) reproduces the authored definition with the SAME schemaHash', async () => {
+        // ⛔ WHAT THIS ARM EXISTS FOR. `componentCatalog` is a `Map` with PROCESS
+        //    lifetime — its own header says so — so everything the arms above authored
+        //    (FrameWidth, the §64 formula, the moved profile vertex) dies with the tab,
+        //    while the placed occurrence from ARM 8 is faithfully restored from the
+        //    project snapshot and then resolves NOTHING. Project-scoped definition
+        //    persistence is still an unruled question (C111 §4.3-a fixes the split, not
+        //    the storage), so the honest close is a deliberate author action — export
+        //    a file, load it back — not persistence pretended on their behalf.
+
+        const live = componentCatalog.entry(DEF_ID)!;
+        const exported = componentCatalog.exportBytes(DEF_ID);
+        expect(exported, 'a loaded definition exports').toBeInstanceOf(Uint8Array);
+        expect(exported!.byteLength).toBeGreaterThan(0);
+
+        const fileName = componentCatalog.exportFileName(DEF_ID)!;
+        expect(fileName, 'the FROZEN wire extension, not a Component-vocabulary rename (D5)')
+            .toMatch(/\.pryzm-family$/);
+        expect(fileName).toContain('U3-Window');
+
+        // ⭐ A FRESH catalogue is the honest stand-in for a new session: a different
+        //   `Map`, nothing carried over but the bytes the author saved to disk.
+        const nextSession = new ComponentCatalog();
+        expect(nextSession.size(), 'a new session starts empty — that IS the defect this closes')
+            .toBe(0);
+        const reopened = await nextSession.loadFromBytes(exported!, { provenance: 'project' });
+        expect(reopened.ok, 'the exported file loads through the ONE loader').toBe(true);
+        if (!reopened.ok) return;
+
+        // ⭐⭐ CONTENT-ADDRESSED IDENTITY SURVIVES (C111 §4.3-b): the reopened
+        //    definition is the SAME definition, not a look-alike re-pack — which is
+        //    what makes it resolve for an occurrence placed against it.
+        expect(reopened.definitionId).toBe(DEF_ID);
+        expect(reopened.entry.family.schemaHash).toBe(live.family.schemaHash);
+
+        // And every authored fact is in it — read out of the RELOADED document.
+        const doc = reopened.entry.family.document;
+        expect(doc.parameters.find((p) => p.name === 'FrameWidth')?.defaultValue).toBe(75);
+        const glass = doc.parameters.find((p) => p.id === PARAM_GLASS)!;
+        expect(glass.expression).toBe('Width - 2*FrameWidth');
+        expect(glass.supersededDefault).toBe(1000);
+        const profile = doc.profiles.find((pr) => pr.id === PROFILE_ID)!;
+        expect(profile.entities.map((e) => e.id)).toEqual([bare(20), bare(21), bare(22), bare(23)]);
+        expect(profile.entities[2]!.data['x'], 'ARM 9\'s dragged vertex is in the exported file')
+            .toBe(live.family.document.profiles.find((pr) => pr.id === PROFILE_ID)!.entities[2]!.data['x']);
+
+        // ── THE USER LEG — the button, not the accessor ───────────────────
+        const g = globalThis as unknown as { URL: { createObjectURL?: unknown; revokeObjectURL?: unknown } };
+        const hadCreate = typeof g.URL.createObjectURL === 'function';
+        if (!hadCreate) {
+            g.URL.createObjectURL = (): string => 'blob:component-export-test';
+            g.URL.revokeObjectURL = (): void => undefined;
+        }
+        const downloads: string[] = [];
+        const realClick = HTMLAnchorElement.prototype.click;
+        HTMLAnchorElement.prototype.click = function patched(this: HTMLAnchorElement): void {
+            if (this.hasAttribute('data-component-browser-export-anchor')) downloads.push(this.download);
+        };
+        try {
+            const browser = new ComponentBrowserPanel();
+            browser.open();
+            const btn = document.querySelector(
+                `[data-component-browser-export="${DEF_ID}"]`) as HTMLElement | null;
+            expect(btn, 'the browser card carries an Export affordance').not.toBeNull();
+            btn!.click();
+            expect(downloads, 'the click produced a real download of the .pryzm-family file')
+                .toEqual([fileName]);
+            expect(document.querySelector('[data-component-browser-export-anchor]'),
+                'and cleaned the anchor up after itself').toBeNull();
+            browser.close();
+        } finally {
+            HTMLAnchorElement.prototype.click = realClick;
+            if (!hadCreate) { delete g.URL.createObjectURL; delete g.URL.revokeObjectURL; }
+        }
     }, BUDGET);
 });

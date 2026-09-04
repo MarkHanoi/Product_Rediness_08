@@ -48,8 +48,8 @@
     "@pryzm/persistence-client": "workspace:*",
     "@pryzm/plugin-annotations": "workspace:*",
     "@pryzm/plugin-balcony": "workspace:*",
-    "@pryzm/plugin-boundary-line": "workspace:*",
     "@pryzm/plugin-beam": "workspace:*",
+    "@pryzm/plugin-boundary-line": "workspace:*",
     "@pryzm/plugin-ceiling": "workspace:*",
     "@pryzm/plugin-column": "workspace:*",
     "@pryzm/plugin-component": "workspace:*",
@@ -60,6 +60,7 @@
     "@pryzm/plugin-grid": "workspace:*",
     "@pryzm/plugin-handrail": "workspace:*",
     "@pryzm/plugin-ifc-inspector": "workspace:*",
+    "@pryzm/plugin-lift": "workspace:*",
     "@pryzm/plugin-plumbing": "workspace:*",
     "@pryzm/plugin-pool": "workspace:*",
     "@pryzm/plugin-roof": "workspace:*",
@@ -67,6 +68,7 @@
     "@pryzm/plugin-selection": "workspace:*",
     "@pryzm/plugin-sheets": "workspace:*",
     "@pryzm/plugin-slab": "workspace:*",
+    "@pryzm/plugin-space-envelope": "workspace:*",
     "@pryzm/plugin-stair": "workspace:*",
     "@pryzm/plugin-structural": "workspace:*",
     "@pryzm/plugin-view": "workspace:*",
@@ -86,8 +88,7 @@
     "@pryzm/view-state": "workspace:*",
     "maplibre-gl": "^5.6.0",
     "pbf": "^5.1.2",
-    "pmtiles": "^4.4.1",
-    "@pryzm/plugin-lift": "workspace:*"
+    "pmtiles": "^4.4.1"
   },
   "devDependencies": {
     "@pryzm/runtime-composer": "workspace:*",

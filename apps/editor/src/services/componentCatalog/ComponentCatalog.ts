@@ -74,6 +74,19 @@ export interface ComponentCatalogEntry {
   readonly family: LoadedFamily;
   readonly provenance: ComponentDefinitionProvenance;
   readonly loadedAt: string;
+  /**
+   * ⭐ §UCE-DEFINITION-ESCAPE-HATCH — the EXACT `.pryzm-family` bytes the loader
+   * validated to produce `family`. Retained, not re-derivable: the format is
+   * CONTENT-ADDRESSED (C111 §4.3-b — a definition reference is
+   * `(familyId, schemaHash)`), so a re-pack is a DIFFERENT artefact with a
+   * different `schemaHash`, and exporting one would hand the author a file that
+   * no placed instance references. These are the bytes, verbatim.
+   *
+   * ⚠ Copied at load (`.slice()`), because the caller owns the buffer it passed
+   * and may reuse it — a retained view would let a later write mutate what this
+   * catalogue believes it validated.
+   */
+  readonly bytes: Uint8Array;
 }
 
 /** Load outcome. Refusal reasons are the LOADER's own, plus the two this
@@ -184,6 +197,53 @@ export class ComponentCatalog implements ComponentDefinitionResolver {
     return this.entries.size;
   }
 
+  /**
+   * ⭐⭐ §UCE-DEFINITION-ESCAPE-HATCH — the bytes for a loaded definition, exactly
+   * as this catalogue validated them, or `undefined` when it holds no such
+   * definition.
+   *
+   * ⛔ THIS IS NOT A CONVENIENCE. It is the ONLY way a definition an author
+   *    created in this application survives the tab being closed. The header's
+   *    OPEN question — *"where do a project's definitions persist?"* — is still
+   *    open, and until it is ruled this catalogue is a `Map` with process
+   *    lifetime: `New Component` → author → **Save definition** → refresh, and
+   *    the definition is GONE, while the placed occurrences that reference it are
+   *    faithfully restored from the project snapshot and can then resolve
+   *    nothing. Naming that in a comment and shipping no way out is exactly the
+   *    defect [[refusing-half-needs-its-escape-hatch]] describes; this accessor,
+   *    and the browser's "Export…" button over it, are the escape.
+   *
+   * ⚠ IT DOES NOT MAKE THE CATALOGUE PERSISTENT, and must not be described as
+   *   if it did. Project-scoped definition persistence remains a founder/ADR
+   *   ruling (C111 §4.3-a fixes only the SPLIT — definitions in the envelope,
+   *   instances in the snapshot — not where a project keeps its envelope set).
+   *   What this closes is the loop `author → save → export → load`, which is a
+   *   deliberate act by the author, not persistence happening on their behalf.
+   */
+  exportBytes(definitionId: string): Uint8Array | undefined {
+    const entry = this.entries.get(definitionId);
+    if (entry === undefined) return undefined;
+    // Copied on the way out for the same reason it was copied on the way in:
+    // a consumer that writes into the returned buffer must not be able to
+    // corrupt what the catalogue holds.
+    return entry.bytes.slice();
+  }
+
+  /** The filename an export should carry — the definition's own name, made
+   *  filesystem-safe, with the FROZEN wire extension (D5: `.pryzm-family` is a
+   *  legacy wire name and is not renamed to match the `Component` vocabulary). */
+  exportFileName(definitionId: string): string | undefined {
+    const entry = this.entries.get(definitionId);
+    if (entry === undefined) return undefined;
+    const safe = entry.family.manifest.name
+      .trim()
+      .replace(/[^A-Za-z0-9._ -]+/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const stem = safe.length > 0 ? safe : definitionId;
+    return `${stem}-v${entry.family.manifest.semver}.pryzm-family`;
+  }
+
   /** Notified after every register / remove / clear — U1's browser refreshes on
    *  this rather than polling. Returns the unsubscribe function. */
   subscribe(listener: () => void): () => void {
@@ -225,6 +285,10 @@ export class ComponentCatalog implements ComponentDefinitionResolver {
       family: res.family,
       provenance: opts.provenance,
       loadedAt: new Date().toISOString(),
+      // ⭐ §UCE-DEFINITION-ESCAPE-HATCH — taken HERE, at the ONE registration
+      //   point every load leg funnels through, so no leg can register an entry
+      //   whose bytes are missing. Copied: see the field's own doc.
+      bytes: bytes.slice(),
     };
     this.entries.set(id, entry);
     this._notify();
