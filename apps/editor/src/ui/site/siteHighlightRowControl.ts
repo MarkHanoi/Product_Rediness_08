@@ -1,0 +1,149 @@
+// §RESI-ORCH-HIGHLIGHT-DOM (lane RESI-ORCH, 2026-09-04) — the DOM half of "click a NUMBER, light
+// the GEOMETRY" (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §3).
+//
+// ── WHY THIS IS ITS OWN MODULE, AND NOT FORTY LINES INSIDE `GISAreaLayout.ts` ────────────────
+// The vocabulary (`siteGeometryHighlight.ts`) is pure and pinned by 30 tests. The scene half
+// (`ParcelBoundarySceneRenderer.ts`) subscribes and draws. Between them sat the only part a USER
+// actually touches — the label that becomes a button, and the click that writes the store — and
+// it lived as two closures inside a 6,000-line layout file where no test could reach it. That is
+// the [[committed-is-not-reachable]] shape at the exact hop the founder experiences: a store that
+// toggles perfectly in a unit test and a button nobody has ever proven flips it.
+//
+// So this module owns the label markup and the wire, GISAreaLayout only CALLS them, and
+// `siteHighlightRowControl.spec.ts` mounts the real markup in happy-dom, calls the real wire, and
+// CLICKS. The store reading it asserts is the same one the scene subscribes to.
+//
+// ── THE THREE VISUAL STATES, NEVER TWO ──────────────────────────────────────────────────────
+// ⛔ A row whose geometry EXISTS renders as a real, focusable `<button>`. A row whose geometry
+// does NOT exist renders as ordinary text with a dimmed ◎ carrying the REASON in its title —
+// never as a control that swallows a click. A dead click is indistinguishable from a broken
+// product AND from "we looked and found nothing": that is the §CONTEXT-DATA-HONESTY conflation
+// wearing an affordance, and `describeSiteHighlightAvailability` exists so this file never has to
+// decide availability itself. It only renders the decision it is handed.
+//
+// ── THE PRESSED STATE IS REPAINTED IN PLACE, NOT BY RE-RENDERING THE CARD ───────────────────
+// Every read-out row lives inside the default-collapsed `<details data-testid=
+// "envelope-section-site-data">` fold. Rebuilding `panel.innerHTML` re-emits that `<details>`
+// WITHOUT `open`, so the fold would snap shut on every click — closing the very section holding
+// the row the user just clicked, which reads as the click having destroyed the panel. Repainting
+// a handful of attributes leaves the user's disclosure state exactly where they put it.
+//
+// P4 — no globals. P6 — writes ONE session store, dispatches nothing, touches no scene.
+// C08 §3.1 — every interpolated runtime string routes through the local `escHtml`.
+
+import { trace } from '@opentelemetry/api';
+import {
+    getSiteHighlight,
+    toggleSiteHighlight,
+    SITE_HIGHLIGHT_ATTR,
+    type SiteHighlightAvailability,
+    type SiteHighlightSubject,
+} from './siteGeometryHighlight';
+
+const _tracer = trace.getTracer('pryzm.site.siteHighlightRowControl');
+
+/** Local HTML escaper — the guard this file declares for itself (C08 §3.1). */
+function escHtml(value: unknown): string {
+    return String(value ?? '').replace(/[&<>"']/g, (c) => (
+        c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;'
+    ));
+}
+
+/** The attribute an UNAVAILABLE row carries, so a test can prove it is text and not a control. */
+export const SITE_HIGHLIGHT_UNAVAILABLE_ATTR = 'data-site-highlight-unavailable';
+
+const ON_BG = '#f3eeff';
+const ON_INK = '#6600FF';
+const OFF_INK = '#6b6480';
+const OFF_RULE = '#c3bdd6';
+
+/**
+ * The label cell of one read-out row.
+ *
+ * @param label      the row's user-facing label ("Max footprint")
+ * @param subject    which of the six §3 subjects this row points at
+ * @param avail      the availability DECISION for that subject — computed once per render by
+ *                   `describeSiteHighlightAvailability`, never re-derived here
+ * @param isOn       whether this subject is the one currently emphasised
+ */
+export function buildSiteHighlightLabelHtml(
+    label: string,
+    subject: SiteHighlightSubject,
+    avail: SiteHighlightAvailability,
+    isOn: boolean,
+): string {
+    if (avail.available) {
+        return `<button type="button" ${SITE_HIGHLIGHT_ATTR}="${escHtml(subject)}"
+                   aria-pressed="${isOn ? 'true' : 'false'}"
+                   title="${escHtml(avail.reason)} Click again to clear."
+                   style="appearance:none;background:${isOn ? ON_BG : 'transparent'};border:none;
+                          border-bottom:1px dotted ${isOn ? ON_INK : OFF_RULE};padding:0 2px;margin:0;
+                          cursor:pointer;font:inherit;color:${isOn ? ON_INK : OFF_INK};
+                          font-weight:${isOn ? '700' : 'inherit'};border-radius:3px;">${escHtml(label)}<span data-hl-glyph="1">${isOn ? ' ◉' : ' ◎'}</span></button>`;
+    }
+    // The honest unreachable arm: text, a dimmed glyph, and the REASON where a hover finds it.
+    return `<span style="color:${OFF_INK};">${escHtml(label)}<span
+             ${SITE_HIGHLIGHT_UNAVAILABLE_ATTR}="${escHtml(subject)}"
+             title="${escHtml(avail.reason)}" style="color:#ddd8ea;cursor:help;"> ◎</span></span>`;
+}
+
+/**
+ * Repaint every highlight button under `root` from the store — pressed state, colours, glyph.
+ * Idempotent; safe to call when no buttons exist.
+ */
+export function paintSiteHighlightRows(root: ParentNode): void {
+    const on = getSiteHighlight();
+    root.querySelectorAll<HTMLButtonElement>(`[${SITE_HIGHLIGHT_ATTR}]`).forEach((b) => {
+        const s = b.getAttribute(SITE_HIGHLIGHT_ATTR);
+        const isOn = s !== null && s === on;
+        b.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        b.style.background = isOn ? ON_BG : 'transparent';
+        b.style.borderBottom = `1px dotted ${isOn ? ON_INK : OFF_RULE}`;
+        b.style.color = isOn ? ON_INK : OFF_INK;
+        b.style.fontWeight = isOn ? '700' : '';
+        const glyph = b.querySelector<HTMLElement>('[data-hl-glyph]');
+        if (glyph) glyph.textContent = isOn ? ' ◉' : ' ◎';
+    });
+}
+
+/**
+ * Attach the click handlers to every highlight button under `root`.
+ *
+ * Each button WRITES the subject and does nothing else: it does not reach into a scene, does not
+ * know which renderers exist, and does not re-render the card. The store notifies its
+ * subscribers (`ParcelBoundarySceneRenderer` draws; this card repaints its own pressed state so
+ * the ◉ glyph agrees with what is on screen) — the push-not-poll contract `envelopeVisibility.ts`
+ * already enforces, and the reason "the panel changed the flag but the scene never heard" cannot
+ * happen here.
+ *
+ * `stopPropagation` + `preventDefault` because the rows sit inside a `<details>` whose summary
+ * toggles on click, and the whole card header is a drag handle.
+ *
+ * ⚠ ONLY AVAILABLE ROWS ARE BUTTONS AT ALL — the unavailable ones are text with their reason in a
+ * `title`, so there is nothing here to guard against. A disabled control that still looks like a
+ * control is the dead click by another name.
+ *
+ * @returns the number of buttons wired — so a caller (or a test) can tell "wired nothing" from
+ *          "wired six" instead of inferring it from silence.
+ */
+export function wireSiteHighlightRows(root: ParentNode): number {
+    const span = _tracer.startSpan('pryzm.site.wireSiteHighlightRows');
+    try {
+        let wired = 0;
+        root.querySelectorAll<HTMLButtonElement>(`[${SITE_HIGHLIGHT_ATTR}]`).forEach((btn) => {
+            const subject = btn.getAttribute(SITE_HIGHLIGHT_ATTR) as SiteHighlightSubject | null;
+            if (!subject) return;
+            btn.onclick = (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                toggleSiteHighlight(subject);
+                paintSiteHighlightRows(root);
+            };
+            wired++;
+        });
+        span.setAttribute('pryzm.siteHighlight.wiredButtons', wired);
+        return wired;
+    } finally {
+        span.end();
+    }
+}

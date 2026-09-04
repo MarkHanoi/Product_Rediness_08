@@ -296,10 +296,12 @@ import { currentCostJurisdiction } from '../dataworkbench/buckets/resolveCostJur
 import {
     describeSiteHighlightAvailability,
     getSiteHighlight,
-    toggleSiteHighlight,
-    SITE_HIGHLIGHT_ATTR,
     type SiteHighlightSubject,
 } from '../site/siteGeometryHighlight';
+// §RESI-ORCH-HIGHLIGHT-DOM — the label markup and the click wire live in ONE module so a test can
+// mount the REAL button and click it (`siteHighlightRowControl.spec.ts`). This file only calls
+// them; it keeps no private copy of either. See that module's header for why.
+import { buildSiteHighlightLabelHtml, wireSiteHighlightRows } from '../site/siteHighlightRowControl';
 // §RESI-ORCH-TARGET-AREA (STR §5, lane RESI-ORCH 2026-09-04) — *"I want ~120 m² on the ground
 // floor."* The solver is pure and lives next door; this file owns only the control, the wire and
 // the statement it renders. See `targetFootprintAreaSolver.ts` for why this is a PROPOSAL inside a
@@ -2679,57 +2681,6 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
-     * §RESI-ORCH-HIGHLIGHT (STR §3) — the click handlers for the clickable read-out rows.
-     *
-     * Each button WRITES the subject and does nothing else: it does not reach into a scene, does
-     * not know which renderers exist, and does not re-render this card by itself. The store
-     * notifies its subscribers (`ParcelBoundarySceneRenderer` draws; this card repaints so the
-     * pressed state and the ◉ glyph agree with what is on screen), which is the same
-     * push-not-poll contract `envelopeVisibility.ts` already enforces — and the reason
-     * "the panel changed the flag but the scene never heard" cannot happen here.
-     *
-     * `stopPropagation` because the whole card header is a drag handle and these rows sit inside
-     * a `<details>` whose summary toggles on click.
-     *
-     * ⚠ ONLY AVAILABLE ROWS ARE BUTTONS AT ALL — the unavailable ones render as text with their
-     * reason in a `title`, so there is nothing here to guard against. That is deliberate: a
-     * disabled control that still looks like a control is the dead click by another name.
-     */
-    const wireSiteHighlightRows = (panel: HTMLDivElement): void => {
-        // ⛔ THE PRESSED STATE IS REPAINTED IN PLACE, NOT BY RE-RENDERING THE CARD, and that is
-        // a correctness decision rather than an optimisation. Every read-out row lives inside the
-        // default-collapsed `<details data-testid="envelope-section-site-data">` fold. Rebuilding
-        // `panel.innerHTML` re-emits that `<details>` WITHOUT `open`, so the fold would snap shut
-        // on every click — closing the very section holding the row the user just clicked, which
-        // reads as the click having destroyed the panel. Repainting three attributes leaves the
-        // user's disclosure state exactly where they put it.
-        const paint = (): void => {
-            const on = getSiteHighlight();
-            panel.querySelectorAll<HTMLButtonElement>(`[${SITE_HIGHLIGHT_ATTR}]`).forEach((b) => {
-                const s = b.getAttribute(SITE_HIGHLIGHT_ATTR);
-                const isOn = s !== null && s === on;
-                b.setAttribute('aria-pressed', isOn ? 'true' : 'false');
-                b.style.background = isOn ? '#f3eeff' : 'transparent';
-                b.style.borderBottom = `1px dotted ${isOn ? '#6600FF' : '#c3bdd6'}`;
-                b.style.color = isOn ? '#6600FF' : '#6b6480';
-                b.style.fontWeight = isOn ? '700' : '';
-                const glyph = b.querySelector<HTMLElement>('[data-hl-glyph]');
-                if (glyph) glyph.textContent = isOn ? ' ◉' : ' ◎';
-            });
-        };
-        panel.querySelectorAll<HTMLButtonElement>(`[${SITE_HIGHLIGHT_ATTR}]`).forEach((btn) => {
-            const subject = btn.getAttribute(SITE_HIGHLIGHT_ATTR) as SiteHighlightSubject | null;
-            if (!subject) return;
-            btn.onclick = (ev) => {
-                ev.stopPropagation();
-                ev.preventDefault();
-                toggleSiteHighlight(subject);
-                paint();
-            };
-        });
-    };
-
-    /**
      * §RESI-ORCH-TARGET-AREA (STR §5) — the LAST ANSWER, so a re-render does not blank the user's
      * entry or, worse, drop a refusal they have not read yet.
      *
@@ -3200,19 +3151,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         ): string => {
             const avail = highlight ? highlightAvail[highlight] : null;
             const isOn = highlight !== undefined && activeHighlight === highlight;
-            const labelHtml = highlight && avail?.available
-                ? `<button type="button" ${SITE_HIGHLIGHT_ATTR}="${escHtml(highlight)}"
-                           aria-pressed="${isOn ? 'true' : 'false'}"
-                           title="${escHtml(avail.reason)} Click again to clear."
-                           style="appearance:none;background:${isOn ? '#f3eeff' : 'transparent'};border:none;
-                                  border-bottom:1px dotted ${isOn ? '#6600FF' : '#c3bdd6'};padding:0 2px;margin:0;
-                                  cursor:pointer;font:inherit;color:${isOn ? '#6600FF' : '#6b6480'};
-                                  font-weight:${isOn ? '700' : 'inherit'};border-radius:3px;">${escHtml(label)}<span data-hl-glyph="1">${isOn ? ' ◉' : ' ◎'}</span></button>`
-                : highlight && avail
-                    ? `<span style="color:#6b6480;">${escHtml(label)}<span
-                         data-site-highlight-unavailable="${escHtml(highlight)}"
-                         title="${escHtml(avail.reason)}" style="color:#ddd8ea;cursor:help;"> ◎</span></span>`
-                    : `<span style="color:#6b6480;">${escHtml(label)}</span>`;
+            // The label is a button, or text-with-reason, or plain text — and the first two are
+            // rendered by the module the spec clicks, never by a copy kept here.
+            const labelHtml = highlight && avail
+                ? buildSiteHighlightLabelHtml(label, highlight, avail, isOn)
+                : `<span style="color:#6b6480;">${escHtml(label)}</span>`;
             return `<div style="display:flex;justify-content:space-between;gap:10px;padding:2.5px 0;">
                <span>${labelHtml}${hint ? `<span title="${escHtml(hint)}" style="color:#c3bdd6;cursor:help;"> ⓘ</span>` : ''}</span>
                <span style="font-weight:600;text-align:right;">${value}</span>
