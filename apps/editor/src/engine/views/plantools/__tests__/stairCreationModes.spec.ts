@@ -7,6 +7,7 @@ import {
     DEFAULT_STAIR_DRAW_MODE,
 } from '@pryzm/geometry-stair';
 import { DrawingModeBar } from '@app/ui/DrawingModeBar';
+import { setAppPhase } from '@app/ui/layout/panelDefaults';
 import {
     creationModes,
     creationModeIds,
@@ -55,6 +56,16 @@ import {
 beforeAll(() => {
     (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext =
         () => new Proxy({}, { get: () => () => undefined });
+    // §AUTHORING-CONTEXT-GATE (L-5103) — `DrawingModeBar.show()` asks
+    // `refuseElementAuthoring()` FIRST and returns without building the strip while
+    // the phase is `'onboarding-globe'`, which is what a fresh module scope defaults
+    // to (`panelDefaults.ts` currentPhase). Every `pill(...)` below then resolved to
+    // `null`. This is the fixture catching up with a gate that shipped after it, not
+    // a behaviour change: loosening the gate to make the suite pass would re-open the
+    // founder's L-5100 report ("'WA' drew a wall on the parcel map"). A stair mode
+    // strip is only ever asked for from the BIM canvas, so `'canvas'` is the honest
+    // context to declare.
+    setAppPhase('canvas');
 });
 
 interface CapturedStair {
@@ -70,6 +81,20 @@ interface CapturedStair {
  * the bar's `onSelect` from `ToolsAreaLayout.activateStairPathTool`, and the
  * controller's `drawingModeProvider` from `StairPathPlanToolHandler._activate`.
  */
+/**
+ * Every controller `mountStairTool` builds, so `afterEach` can deactivate it even
+ * when the test that owns it threw before reaching its own `ctrl.deactivate()`.
+ *
+ * ⛔ WITHOUT THIS, ONE FAILURE BECOMES FOUR. `activate()` registers the tick
+ * listener id `'stair-path-tool-loop'` with the FrameScheduler, and the scheduler
+ * THROWS on a duplicate id. So the first test to fail before its teardown left the
+ * id claimed, and every later `mountStairTool` died at `activate()` with
+ * `[FrameScheduler] addTickListener: duplicate id` — a cascade that hid the one real
+ * cause behind three fabricated ones. Teardown belongs in `afterEach`, not at the
+ * end of the happy path.
+ */
+const mounted: Array<{ deactivate: () => void }> = [];
+
 function mountStairTool(bar: DrawingModeBar, shape: 'I' | 'L') {
     const dispatched: CapturedStair[] = [];
     const refusals: string[] = [];
@@ -101,6 +126,7 @@ function mountStairTool(bar: DrawingModeBar, shape: 'I' | 'L') {
         drawingModeProvider: () => resolveActiveStairDrawMode(),
         onInvalid: (m: string) => refusals.push(m),
     });
+    mounted.push(ctrl);
     ctrl.activate();
     return { ctrl, dispatched, refusals };
 }
@@ -119,7 +145,12 @@ describe('FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis', ()
         resetStairToolConfig();
         bar = new DrawingModeBar();
     });
-    afterEach(() => bar.dismiss());
+    afterEach(() => {
+        bar.dismiss();
+        // `deactivate()` is idempotent (it early-returns when already idle), so the
+        // tests that reach their own teardown are unaffected.
+        while (mounted.length) mounted.pop()!.deactivate();
+    });
 
     describe('THE TWO AXES ARE SEPARATE -- the trap this whole change exists to avoid', () => {
         it('MODE is linear/ortho and SHAPE is I/L/U/C -- and they never share a control', () => {

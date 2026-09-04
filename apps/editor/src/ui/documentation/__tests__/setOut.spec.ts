@@ -27,7 +27,20 @@ vi.mock('@pryzm/core-app-model', async (orig) => {
     windowSystemTypeStore: { getById: () => ({ name: 'Timber Casement' }) },
   };
 });
-vi.mock('@pryzm/geometry-wall', () => ({
+// ⛔ SPREAD FROM THE ORIGINAL, never a bare factory. This mock replaced the WHOLE
+// module with a single store, so the day `@pryzm/geometry-door` started importing
+// `DEFAULT_OPENING_PROFILE` from here (`DoorToolConfigStore.ts:48`), the door package
+// — which this file's import graph pulls in transitively — resolved it to `undefined`
+// and vitest failed the ENTIRE FILE at collection: "No \"DEFAULT_OPENING_PROFILE\"
+// export is defined on the \"@pryzm/geometry-wall\" mock". Zero tests ran, and a suite
+// that does not run and a suite that passes print the same value (§L-851).
+//
+// A whole-module factory asserts, silently, that this file knows every export the
+// graph beneath it will ever need. It does not, and it cannot. Overriding the ONE
+// store this suite fakes — over the real module — is the same shape the
+// `@pryzm/geometry-door` mock below already uses, and it cannot rot the same way.
+vi.mock('@pryzm/geometry-wall', async (orig) => ({
+  ...await orig<typeof import('@pryzm/geometry-wall')>(),
   wallSystemTypeStore: { getById: () => ({ name: 'WallA' }) },
 }));
 

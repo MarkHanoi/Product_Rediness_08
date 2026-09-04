@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { StairPathToolController } from '@pryzm/geometry-stair';
 import { DrawingModeBar } from '@app/ui/DrawingModeBar';
+import { setAppPhase } from '@app/ui/layout/panelDefaults';
 import { creationModes } from '../elementCreationMatrix';
 import {
     planStairByWalls,
@@ -39,6 +40,15 @@ import {
 beforeAll(() => {
     (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext =
         () => new Proxy({}, { get: () => () => undefined });
+    // §AUTHORING-CONTEXT-GATE (L-5103) — `DrawingModeBar.show()` asks
+    // `refuseElementAuthoring()` and returns WITHOUT building the strip while the
+    // phase is `'onboarding-globe'`, which is what a fresh module scope defaults to
+    // (`panelDefaults.ts` currentPhase). The pill census below then read an EMPTY
+    // document and failed. Declaring the phase is the fixture catching up with the
+    // gate — loosening the gate to make this pass would re-open the founder's
+    // L-5100 report ("'WA' drew a wall on the parcel map"). The stair strip is only
+    // ever asked for from the BIM canvas, so `'canvas'` is the honest context.
+    setAppPhase('canvas');
 });
 
 const wall = (
