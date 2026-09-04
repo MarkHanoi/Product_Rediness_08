@@ -54,7 +54,44 @@ import {
     type RuleState,
 } from '@pryzm/schemas';
 
+import { extractFrHeightDatum, frDatumForRuleState, FR_DATUM_DECISION } from './frHeightDatum.js';
+
 /* ────────────────────────────── the code table ─────────────────────────────── */
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §TRIPLE-KEY — the CNIG composite key is `TYPEPSC-STYPEPSC-NATURE`, not the pair
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// Founder blocker review 2026-09-04 §1 item 2: *"`frCnigPrescriptionTree.ts` appears keyed on
+// `TYPEPSC.STYPEPSC`. The standard's composite key is `TYPEPSC-STYPEPSC-NATURE` — its own worked
+// examples are `TYPEPSC=15, STYPEPSC=01, NATURE=retrait_par_rapport_voies` and `TYPEPSC=07,
+// STYPEPSC=02, NATURE=Cones_de_vue`. SRU niveau 1 uses exactly that form as its `idPrescription`."*
+//
+// So two ids travel on every classification, and they answer different questions:
+//   • `code`           — `39.02`, the dotted PAIR. It decides the SEMANTIC (maximum / qualitative /
+//                        alternative / implantation / drawn-volume) because the CNIG subtype grammar
+//                        is what carries meaning; NATURE is a document-level refinement and is
+//                        not a closed list, so it must never be what the semantic switch reads.
+//   • `idPrescription` — `39-02-hauteur_maximale`, the TRIPLE. It is the JOIN KEY: the SRU
+//                        niveau 1 title record names the prescription it governs by exactly this
+//                        string, so a PDF-leg (move 7) output keyed on it lands on the same row
+//                        this tree emitted. It is also what `RuleSourceRef.object_id` carries.
+//
+// ⚠ VINTAGE (founder review §11): documents published under CNIG v2022-10 / v2024-01 (2.1.0)
+// carry NATURE; v2017c/d do not. Where NATURE is absent the triple degrades to the pair — the id
+// then says so by its shape (`39-02`, no third segment) rather than by inventing a NATURE, and a
+// later SRU join must supply the NATURE from the title record. A pair-shaped id is therefore
+// itself a vintage signal, and the audit can stratify on it.
+
+/** Build the CNIG composite id `TYPEPSC-STYPEPSC[-NATURE]` (SRU niveau 1 `idPrescription`). */
+export function frCnigIdPrescription(
+    typepsc: string,
+    stypepsc: string | null,
+    nature: string | null | undefined,
+): string {
+    const s = stypepsc ?? '00';
+    const n = typeof nature === 'string' ? nature.trim() : '';
+    return n === '' ? `${typepsc}-${s}` : `${typepsc}-${s}-${n}`;
+}
 
 /**
  * What KIND of statement a CNIG subtype makes about its parameter. This is the axis the shipped FR
@@ -83,8 +120,16 @@ export interface FrCnigClassification {
     readonly semantic: FrCnigSemantic;
     /** The founder's transmission wording for this code, kept so the mapping is auditable. */
     readonly label: string;
-    /** `'39.02'` — the canonical dotted spelling used in reports and citations. */
+    /** `'39.02'` — the canonical dotted PAIR spelling used in reports and citations. */
     readonly code: string;
+    /**
+     * `'39-02-hauteur_maximale'` — the CNIG composite TRIPLE `TYPEPSC-STYPEPSC-NATURE`, i.e. the
+     * SRU niveau 1 `idPrescription` (§TRIPLE-KEY). Pair-shaped (`'39-02'`) when the document
+     * published no NATURE — a v2017-vintage signal, never a guessed NATURE.
+     */
+    readonly idPrescription: string;
+    /** NATURE verbatim as published, or null. Free text per document — never switched on. */
+    readonly nature: string | null;
 }
 
 /**
@@ -130,6 +175,7 @@ function normaliseTypepsc(raw: string | null | undefined): string | null {
 export function classifyFrCnigCode(
     typepscRaw: string | null | undefined,
     stypepscRaw: string | null | undefined,
+    natureRaw?: string | null,
 ): FrCnigClassification | null {
     const typepsc = normaliseTypepsc(typepscRaw);
     if (typepsc === null) return null;
@@ -138,9 +184,13 @@ export function classifyFrCnigCode(
 
     const stypepsc = normaliseStypepsc(stypepscRaw);
     const code = stypepsc === null ? typepsc : `${typepsc}.${stypepsc}`;
+    const natureTrim = typeof natureRaw === 'string' ? natureRaw.trim() : '';
+    const nature = natureTrim === '' ? null : natureTrim;
+    const idPrescription = frCnigIdPrescription(typepsc, stypepsc, nature);
+    const keys = { code, idPrescription, nature };
 
     if (typepsc === '14') {
-        return { parameter: fam.parameter, semantic: 'drawn-volume', label: fam.label, code };
+        return { parameter: fam.parameter, semantic: 'drawn-volume', label: fam.label, ...keys };
     }
     if (typepsc === '15') {
         const sub = stypepsc === null ? null : FR_CNIG_IMPLANTATION[stypepsc];
@@ -148,20 +198,21 @@ export function classifyFrCnigCode(
             parameter: fam.parameter,
             semantic: 'implantation',
             label: sub ?? fam.label,
-            code,
+            ...keys,
         };
     }
     // The 38 / 39 / 40 families share one subtype grammar — which is exactly why the `.97` / `.98`
-    // rungs are worth typing once rather than three times.
+    // rungs are worth typing once rather than three times. ⚠ The switch reads the SUBTYPE, never
+    // the NATURE (§TRIPLE-KEY): NATURE is document-authored free text.
     switch (stypepsc) {
         case '02':
-            return { parameter: fam.parameter, semantic: 'maximum', label: `${fam.label} maximale`, code };
+            return { parameter: fam.parameter, semantic: 'maximum', label: `${fam.label} maximale`, ...keys };
         case '97':
-            return { parameter: fam.parameter, semantic: 'qualitative', label: `${fam.label} qualitative`, code };
+            return { parameter: fam.parameter, semantic: 'qualitative', label: `${fam.label} qualitative`, ...keys };
         case '98':
-            return { parameter: fam.parameter, semantic: 'alternative', label: `${fam.label} alternative`, code };
+            return { parameter: fam.parameter, semantic: 'alternative', label: `${fam.label} alternative`, ...keys };
         default:
-            return { parameter: fam.parameter, semantic: 'unspecified', label: fam.label, code };
+            return { parameter: fam.parameter, semantic: 'unspecified', label: fam.label, ...keys };
     }
 }
 
@@ -213,6 +264,8 @@ export function recoverFrNumberFromText(
 export interface FrPrescriptionRow {
     readonly typepsc: string | null;
     readonly stypepsc: string | null;
+    /** NATURE verbatim (CNIG 2.1.0 / v2022-10+; absent on v2017 documents). The third key segment. */
+    readonly nature?: string | null;
     readonly libelle: string | null;
     readonly txt: string | null;
     readonly nomfic: string | null;
@@ -247,7 +300,7 @@ export const FR_CNIG_TREE_ORDER: readonly EnvelopeParameterKey[] = ['C2', 'C4', 
 export function frCnigRuleStates(input: FrCnigTreeInput): readonly RuleState[] {
     const byParameter = new Map<EnvelopeParameterKey, { row: FrPrescriptionRow; cls: FrCnigClassification }[]>();
     for (const row of input.prescriptions) {
-        const cls = classifyFrCnigCode(row.typepsc, row.stypepsc);
+        const cls = classifyFrCnigCode(row.typepsc, row.stypepsc, row.nature);
         if (cls === null || cls.parameter === null) continue;
         const list = byParameter.get(cls.parameter) ?? [];
         list.push({ row, cls });
@@ -271,10 +324,13 @@ export function frCnigRuleStates(input: FrCnigTreeInput): readonly RuleState[] {
         const maximum = hits.find((h) => h.cls.semantic === 'maximum');
         const chosen = drawn ?? qualitative ?? alternative ?? maximum ?? implantation ?? hits[0]!;
 
+        // `object_id` carries the TRIPLE — the SRU niveau 1 `idPrescription` — so a later PDF-leg
+        // output joins on this exact string (§TRIPLE-KEY). The dotted pair stays in `stoppedAt`
+        // prose for readers.
         const ref: RuleSourceRef = {
             ...input.ref,
             dataset: 'prescription',
-            object_id: `TYPEPSC=${chosen.cls.code}`,
+            object_id: chosen.cls.idPrescription,
             document: chosen.row.nomfic ?? input.ref.document,
             plan_id: chosen.row.idurba ?? input.ref.plan_id,
         };
@@ -349,16 +405,40 @@ export function frCnigRuleStates(input: FrCnigTreeInput): readonly RuleState[] {
             case 'unspecified': {
                 const n = recoverFrNumberFromText(chosen.row.libelle, chosen.row.txt);
                 if (n !== null) {
+                    // §DATUM-DECISION (founder review §9; `frHeightDatum.ts` header). A METRIC HEIGHT
+                    // is a recovery only when the plane it is measured FROM was co-extracted from
+                    // the same text. Round one emitted `resolved` with `datum: null` for nine such
+                    // heights and thereby violated the vocabulary it consumed. Now: FROM-datum
+                    // unknown ⇒ `unrecovered / semantic`, number carried in `partial` — visible,
+                    // reviewable, never in a numerator. Storey counts (`niveaux` / `étages`) and
+                    // percentages have no FROM-plane and pass straight through.
+                    const isMetricHeight = parameter === 'C2' && /^m(?:[eè]tres?)?$/i.test(n.unit);
+                    const datum = isMetricHeight ? extractFrHeightDatum(chosen.row.libelle, chosen.row.txt) : null;
+                    if (datum !== null && datum.from === 'unknown') {
+                        out.push({
+                            rule: parameter,
+                            status: 'unrecovered',
+                            reachability: 'extractable',
+                            failure: 'semantic',
+                            mechanism: 'present',
+                            stoppedAt:
+                                `CNIG ${chosen.cls.code}: ${n.value} ${n.unit} read from the feature, but the plane it is ` +
+                                `measured FROM (terrain naturel / après travaux / niveau de la voie) is not in the libelle/txt` +
+                                `${datum.ambiguousFrom ? ' — two planes named, neither chosen' : ''}. ${FR_DATUM_DECISION}`,
+                            partial: { value: n.value, unit: n.unit, verbatim: n.verbatim },
+                            ref,
+                        });
+                        break;
+                    }
                     out.push({
                         rule: parameter,
                         status: 'resolved',
                         reachability: 'source-complete',
                         value: n.value,
                         unit: n.unit,
-                        // ⚠ THE DATUM IS NOT IN THE FEATURE. A height number on an unresolved plane
-                        // cannot be multiplied into a volume (ADR-0377; `RuleState.resolved.datum`
-                        // null means "no datum resolved", and a consumer must not bind it as a cap).
-                        datum: null,
+                        // The ADR-0377 member where one is seated, else the `fr:`-prefixed plane
+                        // (`frDatumForRuleState`). Null only for parameters that have no datum.
+                        datum: datum === null ? null : frDatumForRuleState(datum.from),
                         provenance: 'published-structured',
                         ref,
                     });
