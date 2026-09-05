@@ -16,10 +16,11 @@
 // from merge-tiles.mjs in a child process, the mergeTiles.spec.ts precedent).
 //
 // LAYERING: a build/inspection tool test — no OTel span (P8 applies to exported package functions).
-import { describe, it, expect } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { afterAll, describe, it, expect } from 'vitest';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -140,4 +141,76 @@ describe('§PENDING-REGION — merge-tiles.mjs expectedRegions (the REAL functio
         expect(merge).toMatch(/expectedRegions\(tables\.allRegions,\s*expectArg,/);
         expect(merge).toMatch(/§PENDING-REGION[^\n]*pendingUnstaged\.join/);
     });
+});
+
+// ── §PENDING-REGION — the REAL `merge` command, not the pure function (lane NZ-FINISH, 2026-09-05).
+// The block above proves `expectedRegions`; the buildings publish running today rides the CLI path
+// AROUND it — bakeTables() → expectedRegions → the MISSING-REGION refusal → the tileset manifest. A
+// pure-function pin cannot see a wiring slip between those (e.g. the refusal reading `allRegions`
+// directly). So: every live row staged as ONE fixture set (stage-manifest accepts a csv), newzealand
+// NOT staged, `merge --expect all` — exit 0, newzealand named on stdout as pending-unstaged, absent
+// from the manifest. Then the contrast (a live row missing ⇒ refusal names THAT row, never NZ), and
+// the flip side (NZ staged ⇒ merges in with no special expect= value). Fixture helpers mirror
+// mergeTiles.spec.ts's `stageSet` deliberately — the CLI is the contract, not the helper.
+describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand pending and NOT staged', () => {
+    const DIR = mkdtempSync(join(tmpdir(), 'pryzm-nz-pending-'));
+    afterAll(() => rmSync(DIR, { recursive: true, force: true }));
+
+    const tables = regionsJson();
+    const everyone = tables.allRegions.map((r) => r.name);
+    const live = tables.allRegions.filter((r) => r.pending !== true).map((r) => r.name);
+
+    /** One staged set (a real pmtiles fixture + a real staging manifest) claiming `regions`. */
+    function stageSet(staging: string, slug: string, regions: readonly string[], tiles: Array<{ z: number; x: number; y: number; payloadText: string }>): void {
+        const dir = join(staging, slug);
+        mkdirSync(dir, { recursive: true });
+        const spec = join(dir, 'buildings.fixture.json');
+        writeFileSync(spec, JSON.stringify({ tileCompression: 'gzip', tileType: 'mvt', layerName: 'buildings', tiles }));
+        execFileSync(NODE, [MERGE, 'write-fixture', '--out', join(dir, 'buildings.pmtiles'), '--spec', spec], { encoding: 'utf8' });
+        rmSync(spec);
+        execFileSync(NODE, [MERGE, 'stage-manifest', '--dir', dir, '--regions', regions.join(','), '--layers', 'buildings', '--slug', slug], { encoding: 'utf8' });
+    }
+    function mergeAll(staging: string, out: string): { status: number | null; stdout: string; stderr: string } {
+        const r = spawnSync(NODE, [MERGE, 'merge', '--staging', staging, '--out', out, '--expect', 'all', '--layer', 'buildings', '--engine', 'js'], { encoding: 'utf8', timeout: 120_000 });
+        return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+    }
+    const LIVE_TILES = [{ z: 2, x: 2, y: 1, payloadText: 'live-A' }, { z: 3, x: 4, y: 2, payloadText: 'live-B' }];
+    const NZ_TILES = [{ z: 2, x: 3, y: 3, payloadText: 'nz-A' }];
+
+    it('does NOT refuse: exit 0, newzealand named as pending-unstaged on stdout, absent from the tileset manifest', () => {
+        const staging = join(DIR, 'ok', 'staging');
+        const out = join(DIR, 'ok', 'merged');
+        stageSet(staging, 'everything-live', live, LIVE_TILES);
+        const r = mergeAll(staging, out);
+        expect(r.status, r.stderr).toBe(0);
+        expect(r.stderr).not.toContain('MISSING');
+        expect(r.stdout).toMatch(/§PENDING-REGION — 1 bake\.mjs row\(s\) flagged pending and NOT staged: \[newzealand\]/);
+        expect(r.stdout).toContain(`${live.length} region(s) in the bytes (${live.length} expected)`);
+        const manifest = JSON.parse(readFileSync(join(out, 'tileset-manifest.json'), 'utf8')) as { regions: Record<string, unknown> };
+        expect(Object.keys(manifest.regions).sort()).toEqual([...live].sort());
+        expect(manifest.regions).not.toHaveProperty('newzealand');
+    }, 120_000);
+
+    it('still refuses BY NAME when a LIVE row is missing — the refusal names that row and never newzealand', () => {
+        const staging = join(DIR, 'miss', 'staging');
+        stageSet(staging, 'minus-latvia', live.filter((n) => n !== 'latvia'), LIVE_TILES);
+        const r = mergeAll(staging, join(DIR, 'miss', 'merged'));
+        expect(r.status).toBe(1);
+        expect(r.stderr).toMatch(/MISSING REGION\(S\) — 1 expected region\(s\) have NO staged bake: \[latvia\]/);
+        expect(r.stderr).not.toContain('newzealand');
+        expect(r.stdout).toContain('[newzealand] — not expected by this merge');
+    }, 120_000);
+
+    it('merges newzealand IN once it is staged, with no special expect= value and no pending line', () => {
+        const staging = join(DIR, 'staged', 'staging');
+        const out = join(DIR, 'staged', 'merged');
+        stageSet(staging, 'everything-live', live, LIVE_TILES);
+        stageSet(staging, 'newzealand', ['newzealand'], NZ_TILES);
+        const r = mergeAll(staging, out);
+        expect(r.status, r.stderr).toBe(0);
+        expect(r.stdout).not.toContain('§PENDING-REGION');
+        expect(r.stdout).toContain(`${everyone.length} region(s) in the bytes (${everyone.length} expected)`);
+        const manifest = JSON.parse(readFileSync(join(out, 'tileset-manifest.json'), 'utf8')) as { regions: Record<string, unknown> };
+        expect(Object.keys(manifest.regions).sort()).toEqual([...everyone].sort());
+    }, 120_000);
 });
