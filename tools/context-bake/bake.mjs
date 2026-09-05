@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 // defaults while its measured-height channel sat one import away (the L-12883 shape, second country).
 // §SWISS-OSM-JOIN (L-12883, wired 2026-09-05) — the swisstopo nDSM stamp had the SAME shape one day later:
 // `stampSwissHeightsOnGeojsonseq` + `SWISS_CITY_BBOXES` built 2026-09-04, imported by nothing until here.
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES } from './heightSources.mjs';
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -307,10 +307,15 @@ const ALL_REGIONS = [
   // range-GET-verified 2026-09-03, sizes in au-sweep §9.1 — 0.96 GB pbf for the whole continent, ~1/5
   // of Germany, so the §5 R2-budget concern is far smaller here). buildings = OSM everywhere: ACT ships
   // OPEN footprints (64,674 probed) and Melbourne serves REAL extrusions — both ride the OSM/derive
-  // path; MS GlobalML stays EXCLUDED. NO row declares a heightJoin — no wired stamp exists; the owed
-  // height build is the ELVIS national LiDAR nDSM (CC BY 4.0) mirroring the mds/dhm stamps
-  // (heightSources REGION_SOURCE `elvis_au`), so every row bakes honest OSM `assumed` defaults, the
-  // netherlands precedent. Datum: AHD (EPSG:5711; AHD-TAS on Tasmania), lifted PER-CAPITAL from
+  // path; MS GlobalML stays EXCLUDED. ⭐ §AU-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-AU): the
+  // `victoria` row is the FIRST AU row to declare a heightJoin — 'au_open' stamps City of Melbourne's
+  // open LoD1 footprint heights (CC BY 4.0, keyless, uncapped /exports/geojson per 0.01° cell) onto the
+  // OSM footprints inside AU_OPEN_CITY_BBOXES (heights/auOpenHeights.mjs: melbourne only); the rest of
+  // Victoria streams through unstamped. Every OTHER row still declares NO heightJoin, on evidence
+  // re-probed the same day (AU_OPEN_HEIGHTS_ASSESSED): ACT's 64,674 footprints carry no height field,
+  // NSW/GA/Vicmap-statewide serve none, and ELVIS is a bulk portal with no keyless raster — so the owed
+  // nDSM build stays owed (heightSources REGION_SOURCE `elvis_au`) and those rows bake honest OSM
+  // `assumed` defaults, the netherlands precedent. Datum: AHD (EPSG:5711; AHD-TAS on Tasmania), lifted PER-CAPITAL from
   // AUSGeoid2020 — the separation swings tens of metres W↔E so a single national geoidSepM is impossible
   // (au-sweep §9.2); terrain via --dtm-source mapterhorn (planet-wide, ADOPTED). ⚠ NT context bakes fine
   // (OSM) though its PARCELS are viewer/Cloudflare-gated — the Saudi precedent: geo-fenced parcels are
@@ -318,7 +323,7 @@ const ALL_REGIONS = [
   // data" defect). Whole-state bboxes fully CONTAIN each state; the per-state pbf holds only that state,
   // so a generous bbox clips to the whole state and nothing foreign.
   { name: 'newsouthwales',    pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/new-south-wales-latest.osm.pbf',    pbf: resolve(OUT, 'au-new-south-wales-latest.osm.pbf'),    bbox: '141.00,-37.60,153.70,-28.10', clipped: resolve(OUT, 'clip-newsouthwales.osm.pbf') },
-  { name: 'victoria',         pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/victoria-latest.osm.pbf',          pbf: resolve(OUT, 'au-victoria-latest.osm.pbf'),          bbox: '140.90,-39.20,150.05,-33.90', clipped: resolve(OUT, 'clip-victoria.osm.pbf') },
+  { name: 'victoria',         pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/victoria-latest.osm.pbf',          pbf: resolve(OUT, 'au-victoria-latest.osm.pbf'),          bbox: '140.90,-39.20,150.05,-33.90', clipped: resolve(OUT, 'clip-victoria.osm.pbf'), heightJoin: 'au_open' },
   { name: 'queensland',       pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/queensland-latest.osm.pbf',        pbf: resolve(OUT, 'au-queensland-latest.osm.pbf'),        bbox: '138.00,-29.20,153.60,-9.00',  clipped: resolve(OUT, 'clip-queensland.osm.pbf') },
   { name: 'westernaustralia', pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/western-australia-latest.osm.pbf', pbf: resolve(OUT, 'au-western-australia-latest.osm.pbf'), bbox: '112.90,-35.20,129.00,-13.50', clipped: resolve(OUT, 'clip-westernaustralia.osm.pbf') },
   { name: 'southaustralia',   pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/south-australia-latest.osm.pbf',   pbf: resolve(OUT, 'au-south-australia-latest.osm.pbf'),   bbox: '129.00,-38.10,141.05,-25.90', clipped: resolve(OUT, 'clip-southaustralia.osm.pbf') },
@@ -573,6 +578,7 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'dhm') return DHM_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
   if (r.heightJoin === 'swiss') return SWISS_CITY_BBOXES.map((c) => c.bbox);   // §SWISS-OSM-JOIN (L-12883) — whole `switzerland`
+  if (r.heightJoin === 'au_open') return AU_OPEN_CITY_BBOXES.map((c) => c.bbox); // §AU-OPEN-HEIGHTS-OSM-JOIN — whole `victoria`, Melbourne LGA only
   return null;
 }
 const bboxDeg2 = (bbox) => {
@@ -711,7 +717,9 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
   // (baseGeo). The stamped file has the SAME footprints with `height` added → a REPLACE input (no
   // double-draw). Anything other than a measured `ok` keeps baseGeo at the honest OSM default — never
   // a fabricated height.
-  if (r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw' || r.heightJoin === 'mnh_fr' || r.heightJoin === 'swiss') {
+  // §AU-OPEN-HEIGHTS-OSM-JOIN — `au_open` is listed FIRST, not last: mnhFr.spec.ts pins `'mds' || 'dhm' || 'lod2nrw' || 'mnh_fr'`
+  // and swissWiring.spec.ts pins `'mnh_fr' || 'swiss')` as contiguous text, so the only insertion point that breaks neither is the front.
+  if (r.heightJoin === 'au_open' || r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw' || r.heightJoin === 'mnh_fr' || r.heightJoin === 'swiss') {
     const stamped = resolve(OUT, `${r.name}-buildings-stamped.geojsonseq`);
     const wsen = r.bbox.split(',').map(Number);
     // §MDS = whole `spain` (many populated raster tiles); §DHM = whole `denmark`. Give the national bbox
@@ -744,6 +752,10 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
       // §SWISS-OSM-JOIN (L-12883) — the stamp takes no priority list: its retained working set IS the city list,
       // so every held footprint is stamped uncapped (the same guarantee mds/mnh_fr get from priorityBboxes).
       else if (r.heightJoin === 'swiss') res = await stampSwissHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
+      // §AU-OPEN-HEIGHTS-OSM-JOIN — vectors, not a raster: per populated 0.01° cell, one UNCAPPED export of City of
+      // Melbourne's LoD1 components, collapsed to one metre per OSM footprint. Retained working set = AU_OPEN_CITY_BBOXES,
+      // so every held footprint is visited (no priority list needed, as swiss).
+      else if (r.heightJoin === 'au_open') res = await stampAuOpenHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
       else res = await stampLod2NrwHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
     } catch (e) {
       res = { status: 'error', reason: e.message };
