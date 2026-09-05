@@ -492,3 +492,69 @@ lanes). Files written:
      cost fold, with an arm per refusal state.
    - `apps/editor/src/ui/site/__tests__/envelopeCostSection.spec.ts` — the arms, pinned.
    - `apps/editor/src/ui/layout/GISAreaLayout.ts` — the fold mounted and its typology select wired.
+
+---
+
+## §8 — Re-measure 2026-09-05 (after the founder's second transmission, STR §24)
+
+**Read this before §0 — §0 is the 2026-09-03 reading and is now stale in the direction of
+under-reporting.** Measured against `git log` and the deployed build `832dc937` (built
+2026-09-05T07:31Z, the build the founder's screenshots came from).
+
+### §8.1 — Shipped between the two transmissions
+
+| Stage (§4) | What landed | Commit | Reachable in the card host? |
+|---|---|---|---|
+| A — design-stage machine | `designStageModel.ts` reducer, `designStagePanel.ts`, the strip (`designStageStripControl.ts`), every unavailable arm carries its reason | `28df89be` | yes — `GISAreaLayout.ts` imports `wireDesignStageStrip` |
+| B — cost at the envelope stage | (already in §7) | `2ddfb560` | yes |
+| C — number → geometry highlight | `siteHighlightRowControl.ts` (rows carry the constraint id; the control lifts emphasis on the named solid) | `28df89be` | yes — `wireSiteHighlightRows` |
+| D — target ground-floor area → proposed plate | `targetFootprintAreaSolver.ts` (bisection over uniform setback, refuses with both numbers), `targetFootprintAreaState.ts`, per-level channel | `2197a2de` | yes — the "Fit this on the ground floor" control is on the founder's screenshot |
+| G (first third) — the envelope as an element | **C114 minted**; `@pryzm/plugin-space-envelope` (create / mutate / batch, undo through the generic adapter), L0 record, `intendedAreaChannel.ts` (INTENDED beside BUILT, never summed), `adoptProposalAsEnvelope.ts` (Stage D's plate becomes a `level` envelope) | `56647dcf` · `28df89be` | plugin registered (`PluginRegistry.ts`), store keyed `spaceEnvelope` in `composeRuntime` — **but see L-12916** |
+| G (render) — the prism drawn, faces draggable | `SpaceEnvelopeMeshBuilder.ts` (n+2 pickable faces), `spaceEnvelopeFaceDragController.ts` (each face along its own perpendicular), `attachSpaceEnvelopeRender.ts` off `Store.subscribeDirty` so execute/undo/redo share one channel | `678e744f` | wired in `initTools.ts` behind a LOUD reachability guard; **no plan symbol yet** (the file says so) |
+| E — massing options | `massingOptionModel.ts` — **deliberately narrowed**: four coverage fractions of the permitted plate, each with storeys / GFA / limitations. The I / L / U / non-90° families are **NOT solved** and `MASSING_FAMILIES_NOT_YET_SOLVED` says so in product words | `28df89be` | yes — "Massing options" fold |
+
+So of §0's "one theme, not eleven": item 2 (no room ENVELOPE) is **half closed** — the level
+envelope exists as an element with a render and a face gizmo; the room envelope, the containment
+constraint (room ⊂ level ⊂ permitted) and the profile-edit subject are still owed. Items 1
+(massing families) and 3 (envelope → BIM) are unchanged.
+
+### §8.2 — The two defects the founder's screenshots expose
+
+- **L-12915 — the Parcel Law tab does not exist.** `ANALYSIS_TABS` (`ui/analysis/AnalysisTypes.ts`)
+  has four tabs — overview · quantities · relationships · areas — and **no widget in
+  `widgetCatalogue.ts` reads the site, the parcel or the envelope**. The whole §2/§5/§14 panel is
+  reachable only from the left rail and the GIS layout. §21's "LEFT 3D / RIGHT panel" was read as
+  EXISTS-AND-WIRED in §1 because the GIS layout has that shape; the founder has now said WHICH
+  surface he means, and it is the Analysis surface. Its left pane is the BIM 3D view only; the
+  plan · 3D · 3D Site · 3D Globe switcher (`activeSegment`, `GISAreaLayout.ts`) is not available
+  there.
+- **L-12916 — the envelope does not render (two causes, both measured in source, neither yet
+  in a browser).** (a) The card's INTENDED-area fold reads
+  `runtime?.stores?.spaceEnvelope` from the `runtime` prop, which is **null by design on the live
+  boot path** (`createMainLayout(props, null)`, recorded at `GISAreaLayout.ts:697`); the commit
+  path three screens up resolves `runtime ?? window.runtime` and this read did not — so the fold
+  prints its `unreadable` arm, "Intended area — unavailable", on every live session, which is
+  exactly the founder's screenshot. (b) The permitted envelope in Dubai is ESTIMATED with an
+  upper-bound footprint, and `envelopeToMassing` draws upper-bound / open-top solids at
+  `UPPER_BOUND_FILL_ALPHA = 0.06` against `SOLID_FILL_ALPHA = 0.34` — the near-wireframe prism in
+  the screenshot IS the envelope. Honest, and illegible.
+
+### §8.3 — The stage this adds
+
+**Stage J — the PARCEL LAW tab · closes STR §24.1 items 1–3 · medium.**
+- **Wires** (nothing re-derived — C19 §5.6 clause 1 is binding): `mountParcelSection` (the
+  cadastral half, a mount-per-host builder), `window.pryzmMountEnvelopeCard(host)` (the envelope
+  half — a **re-homed singleton**, so the tab claims it only while it is the active tab and
+  never releases it on dispose, C19 §5.7), `wireDesignStageStrip`, and the four-view switcher
+  lifted out of `GISAreaLayout` into a shared control the Analysis surface can host.
+- **Needs**: a fifth `AnalysisTabId` (`'parcel-law'`) with its lede; a widget-less tab body
+  that hosts the three producers; the left-pane view switcher; and the legibility rule for
+  provisional / upper-bound envelopes (a fill the eye can see, the badge and hue unchanged).
+- **Order**: after L-12916 (a) — a tab that hosts a fold reading `null` would ship the same
+  "unavailable" one surface to the right.
+
+### §8.4 — Not measured here
+
+Whether `attachSpaceEnvelopeRender` actually mounts on the deployed build (its guard logs
+`runtime.stores.spaceEnvelope is not reachable` when it does not) — a browser console reading is
+owed; and whether the tab reads well at 6 s while the envelope is RESOLVING (C19 §5.8).

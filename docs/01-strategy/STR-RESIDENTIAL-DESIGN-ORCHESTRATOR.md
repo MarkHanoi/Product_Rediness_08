@@ -553,3 +553,55 @@ continuous residential-design workflow.**
 | §11, §12 | `C11` (element creation pipeline), `C16` (command authoring) | Editing must go through the command bus (P6), not direct store writes. |
 | §16, §17 | `C11`, `C15` (hosted elements), `C84`+`C85–C99` (element integrity) | Envelope→BIM emits element families; C84 is **mandatory** for that work. |
 | §22 | `C16`, RAC capability-parity architecture (ADR-0314) | "smallest useful change" + one-undo is the existing `runBatch` discipline. |
+
+---
+
+## §24 — Founder transmission 2026-09-05: WHERE the parcel data lives, and the envelope must RENDER
+
+> **Provenance.** Captured verbatim the same turn (2026-09-05, session product-rediness-08-47),
+> per the standing capture rule. The founder re-sent the §1–§23 specification in full (its text
+> matches the 2026-09-03 capture above — no section changed) with two additions and two
+> screenshots of the deployed app (Dubai, First Al Khail Street; the PARCEL rail panel open
+> beside the BIM 3D view, then beside the Analysis "Relationships" tab).
+
+Verbatim, the two additions:
+
+> *"the data under parcel should be in the form the analysis panel - the user could interact with
+> the 2d/3d/3d site and 3d globe with the envelope as proposed"*
+
+> *"also this is mostly started but it should be in another panel like analyses panel - and the
+> envelope data should render - which doesn't atm - check for completion"*
+
+And, from the re-sent body, the sentence that fixes §21's home (emphasis original):
+
+> *"WE NEED A NEW MODAL PANEL – COULD BE THE EXISTING "PARCEL" PANEL ON THE LEFT HAND SIDE RAIL
+> PANEL. … I THINK WE SHOULD USE THE EXISTING "ANALYSIS" TOP TAB VIEW OPTION. BASICALLY WE NEED
+> TO HAVE A PARCEL LAW / OR SIMILAR NAME TAB WITH: ALL THE Parcel data. + to be intention. On the
+> right (as analysis works) and the 3d view on the left (with option to switch to 3d site or 3d
+> globe or plan view)."*
+
+### §24.1 — What this changes in the target (and what it does not)
+
+1. **§21 acquires a concrete home.** The right-hand "dynamic analysis + design panel" is a **tab
+   of the existing Analysis surface** — working name **PARCEL LAW** — not (only) the left-rail
+   PARCEL panel. The rail panel keeps its route (C19 §5.6 clause 4: a route is added, never
+   removed); the Analysis tab is where the stage-driven controls live.
+2. **The left pane of that workspace must switch between four views** — plan · BIM 3D · 3D Site
+   (Forma) · 3D Globe — while the tab stays open. Today the three-segment switcher (`'2D' ·
+   '3D' · 'forma'`) belongs to the GIS layout, and the Analysis surface's left pane is the BIM 3D
+   view only.
+3. **The envelope must be visibly rendered in every one of those views** — the permitted
+   (zoning) envelope, the proposed level envelope, and later the room envelopes — with a
+   legend. "Renders at 6 % fill because its footprint is an upper bound" is an honesty signal
+   the founder does not read as rendered. The honesty must survive (C58 §1.2 / L-619 badge and
+   hue), the invisibility must not.
+4. Everything else in the re-sent body is already §1–§23. No new engine is asked for here; the
+   ask is placement, reachability and legibility.
+
+### §24.2 — Where the measured state lives
+
+The per-section EXISTS / PARTIAL / ABSENT inventory stays in
+[`RESI-ORCHESTRATOR-PLAN.md`](../03-execution/plans/RESI-ORCHESTRATOR-PLAN.md) — see its **§8
+(re-measure 2026-09-05)** for what shipped between the two transmissions, the two defects the
+screenshots exposed (**L-12915** the missing Parcel Law tab; **L-12916** the envelope that does
+not render), and the stage that now closes §24.1 items 1–3.

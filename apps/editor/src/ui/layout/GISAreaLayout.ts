@@ -417,6 +417,18 @@ export interface GISCallbacks {
 }
 
 export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISCallbacks {
+    // §L-12916 (2026-09-05) — THE LIVE RUNTIME, RESOLVED ONE WAY. On the live boot path this
+    // function is handed `runtime = null` BY DESIGN (`createMainLayout(props, null)`, see the note
+    // at §L-1580 below) and the composed runtime lives at `window.runtime`. The commit path already
+    // resolves `runtime ?? window.runtime`; two reads on the envelope card did not — the intended-
+    // area fold read `runtime?.stores?.spaceEnvelope` (→ its `no-store` arm, "Intended area —
+    // unavailable", on EVERY production session) and the adopt-as-envelope dispatch read
+    // `runtime?.bus` (→ "This surface has no command bus", so the level envelope was NEVER created
+    // and there was nothing for the 3-D leg to draw). One resolver, so a third read cannot fork.
+    const liveRuntime = (): PryzmRuntime | null =>
+        runtime ?? ((typeof window !== 'undefined')
+            ? (window.runtime as unknown as PryzmRuntime | undefined) ?? null
+            : null);
     let cesiumViewport: any = null;
     let bridge: CesiumThreeBridge | null = null;
     let isGisInitialized = false;
@@ -2868,7 +2880,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 refreshEnvelopePanel();
                 return;
             }
-            const bus = runtime?.bus;
+            const bus = liveRuntime()?.bus;   // §L-12916 — never the null prop alone
             if (!bus || typeof bus.executeCommand !== 'function') {
                 // An admission about PRYZM's wiring, never a statement about the user's project.
                 adoptStatement =
@@ -3696,7 +3708,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const safeIntendedSection = ((): string => {
             try {
                 return buildIntendedAreaFold(collectIntendedAreas(
-                    runtime?.stores?.spaceEnvelope ?? null,
+                    liveRuntime()?.stores?.spaceEnvelope ?? null,   // §L-12916
                     readLevelCandidates(levelRecords).map((l) => ({
                         id: l.id, name: l.name, elevation: l.elevation,
                     })),
