@@ -432,6 +432,16 @@ export const SOURCES = {
     note: 'ASSESS SI: the stand-out register-attribute channel. Owed: a WFS-join stamp AND a fill ' +
       'probe FIRST (GEOM present 1 of 2 sampled — E5 §C); never declare the join before the fill probe.',
   },
+  adsdi_ndsm_ae: {
+    country: 'ae', name: 'Abu Dhabi SDI 50 cm DSM − DTM nDSM (DGE, catalogued Open Data sid 2012; photogrammetric, NOT LiDAR)', impl: 'documented',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (nDSM derive, P90 over the eroded Overture footprint)', lodNext: 'none open (the I3S city model is licence-refused)',
+    endpoint: 'arcgis.sdi.abudhabi.ae/agsimage ImageService/IMGSER_AUH_DSM3_50CM + IMGSER_AUH_DTM_50CM ImageServer exportImage — keyless F32 GeoTIFF in EPSG:4326 (live-probed 2026-09-05)',
+    heightField: 'DSM3 − DTM per pixel (heights/abudhabiNdsm.mjs reuses czHeights ndsmDifference)',
+    coverage: 'Abu Dhabi metro mosaic (DSM part 3 ∩ DTM: lon 54.26–56.06, lat 23.90–24.99) — the whole bake abudhabi row',
+    note: 'this source is the bake STAMP stampAdNdsmHeightsOnGeojsonseq (heights/abudhabiNdsmStamp.mjs), dispatched only when the region declares ' +
+      "heightJoin:'ad_ndsm' in bake.mjs (NATIONAL_STAMP_TABLE, stampBboxesFor → AD_CITY_BBOXES). Attribution: Abu Dhabi SDI Data Catalog " +
+      '(Department of Government Enablement). Not a footprint fetcher — resolveHeights keeps Overture defaults for any other region.',
+  },
   geoland_at: {
     country: 'at', name: 'geoland.at nationwide 1 m DTM+DSM nDSM', impl: 'documented',
     provenance: 'tagged', lodNow: 'LoD1-real-height (nDSM derive)', lodNext: 'LoD2 (none national)',
@@ -678,23 +688,31 @@ export const REGION_SOURCE = {
   northernterritory: 'elvis_au',
   // NZ — §BAKE-NEWZEALAND (2026-09-05, lane NZ-EVERYWHERE). Object form because the reason IS the finding: LINZ 101290 "NZ Building Outlines" has no height field, and the LiDAR DSM−DEM derive that could give one sits behind the LINZ API key (every service 401 keyless) — so no stamp is wired and the row bakes honest OSM `assumed`.
   newzealand: { source: null, status: 'no-source', reason: 'LINZ Data Service layer 101290 "NZ Building Outlines" (3,236,141 features, CC BY 4.0, EPSG:2193; API record probed 2026-09-05) carries NO height field — its fields are building_id, name, use, suburb_locality, town_city, territorial_authority, capture_method, capture_source_group/id/name/from/to, last_modified, shape. LINZ publishes a national LiDAR 1 m DEM (121859) + DSM (122082), so a DSM−DEM nDSM stamp over OSM footprints is the owed build (the ELVIS/AU shape) — but every LINZ WFS/WMTS service is API-key gated (GetCapabilities keyless → HTTP 401 Jetty; layer 122082 lists 7 services, all under /services;key=), so there is NO keyless raster to sample and nothing is fabricated: honest OSM assumed heights (ASSESS NZ)' },
-  // AE metros — Overture footprints, honest assumed heights (Overture height ~0% in the Gulf, like
-  // Saudi). me-sweep §2/§3. RE-PROBED 2026-09-05 (lane ME-TERRAIN-PARCELS, curl -m 15) — the two
-  // emirates now DIFFER and the rows below say so:
-  //   • Dubai: gis.dubai.gov.ae NXDOMAIN; www.dubaipulse.gov.ae (root + CKAN package_search?q=building)
-  //     and geodubai.dm.gov.ae → TCP timeout 15 s; gis.dm.gov.ae → 302 to the corporate site. Still no
-  //     open height channel.
-  //   • Abu Dhabi: sdi.abudhabi.ae → sdi.gov.abudhabi → arcgis.sdi.abudhabi.ae/agshost (ArcGIS 10.9.1,
-  //     keyless folder listing). Hosted/abu_dhabi_3d_city_model/SceneServer (I3S 1.6 3DObject, wkid
-  //     4326 / vcs 5703, Query capability) is KEYLESS: layers/0 → 200 with fields MinHeight / MaxHeight
-  //     / BoxZSize / OriginMSL / BelowGnd; nodes/1/attributes/f_12/0 (MaxHeight) → 200, 11 722 B gzip
-  //     → 1 552 float64 (first: 9.99, 13.12, 5.38, 9.62 m); nodes/1/features/0 → 200, 526 917 B (3 106
-  //     ids, positions). The FeatureServer sibling (/FeatureServer/0 and /query) → 499 Token Required.
-  //     So an OPEN per-building height channel EXISTS for Abu Dhabi — as an I3S attribute store, not a
-  //     query API. A stamp (I3S node walk → feature position + MaxHeight → footprint join) is NOT
-  //     built; licence UNREAD. Until it is, the row stays no-source and NOTHING is fabricated.
-  dubai: { source: null, status: 'no-source', reason: 'AE emirate data hosts vantage-blocked (TCP timeout on all Dubai Pulse / DM GIS hosts, me-sweep §2; RE-PROBED 2026-09-05, unchanged); no open building-height channel — Overture footprints, honest assumed heights (ASSESS AE-Dubai)' },
-  abudhabi: { source: null, status: 'no-source', reason: 'AD open-data API WAF-fenced ("Request Rejected", still 2026-09-05), legacy SDI hosts NXDOMAIN (me-sweep §3) — BUT arcgis.sdi.abudhabi.ae/agshost Hosted/abu_dhabi_3d_city_model (I3S, keyless, per-building MaxHeight; PROBED 2026-09-05) is an open height channel with NO stamp built yet and licence UNREAD; until wired: Overture footprints, honest assumed heights (ASSESS AE-AbuDhabi; build the I3S stamp)' },
+  // AE metros — Overture footprints (Overture height ~0% in the Gulf, like Saudi). me-sweep §2/§3. RE-PROBED
+  // 2026-09-05 (lane ME-TERRAIN-PARCELS, curl -m 15; then lane ME-ABUDHABI-I3S, curl -m 20) — the two emirates DIFFER:
+  //   • Dubai: gis.dubai.gov.ae / geoportal.dm.gov.ae / opendata.dm.gov.ae / 3d.dm.gov.ae NXDOMAIN; www.dubaipulse.gov.ae
+  //     (root, CKAN package_search?q=3d|building|DSM, /data/dm-3d), geodubai.dm.gov.ae, makani.ae → TCP timeout 20 s;
+  //     gis.dm.gov.ae → 302 to the corporate site; gis.dubailand.gov.ae/arcgis → 404. arcgis.com search `Dubai
+  //     type:"Scene Service" access:public` → 106 items, but every DM-adjacent one (aziad_smartdubai / ralouta_smartdubai
+  //     Buildings_3D_Core / _Context on tiles.arcgis.com/2lzWODtLAfYXzk2g, item 1a0b2aaa… modified 2018-09) answers
+  //     `layers/0` → 499 Token Required with licenseInfo null; the rest are vendor (globolive3d) or hobby uploads with no
+  //     licence. Still NO open, licensed height channel for Dubai.
+  //   • Abu Dhabi — LICENCE READ 2026-09-05 (lane ME-ABUDHABI-I3S; the full record is the heights/abudhabiNdsm.mjs
+  //     header + the verbatim fixtures ae-adsdi-*-2026-09-05.json). The keyless I3S Hosted/abu_dhabi_3d_city_model
+  //     (per-building MaxHeight, found by ME-TERRAIN-PARCELS) is an UNCATALOGUED portal item (licenseInfo null,
+  //     accessInformation null, listed:false; absent from both SDI Data Catalogue lists, 670 / 704 entries). The SDI
+  //     Terms and Conditions confer no licence by implication (§8.2) and forbid copying/downloading without DGE's written
+  //     consent (§8.3); their reuse permission is SCOPED to catalogue-classified "Open Data" (download, use, integrate;
+  //     credit the SDI Data Catalog). ⛔ The I3S stamp is therefore REFUSED and nothing is read from it. BUT the same
+  //     catalogue classifies sid 2012 `50CM_AD_DSM_DTM` (DGE, "Satellite Imagery") as Open Data, and its rasters are
+  //     served keylessly as F32 ImageServers (IMGSER_AUH_DSM3_50CM + IMGSER_AUH_DTM_50CM, 3857, 0.5 m, exportImage
+  //     → 4326 GeoTIFF). That channel IS wired: heights/abudhabiNdsmStamp.mjs, NATIONAL_STAMP_TABLE `ad_ndsm`, working
+  //     set AD_CITY_BBOXES (island core; ≈ 55 s per populated cell, measured). Local proof, gate cell 54.37–54.38 ×
+  //     24.45–24.46 on the catalogued Open Data BUILDING footprints: 1,118/1,118 measured, median 12.0 m, max 74.2 m,
+  //     57 s; floors 1/2/3/4 → 4.9/9.9/12.4/17.4 m (an independent cross-check). Photogrammetric (satellite stereo),
+  //     NOT LiDAR — named in heightSource; the repo's single measured marker is written because the metre is measured.
+  dubai: { source: null, status: 'no-source', reason: 'AE emirate data hosts vantage-blocked (TCP timeout on all Dubai Pulse / DM GIS hosts, me-sweep §2; RE-PROBED 2026-09-05 twice, unchanged; the smartdubai ArcGIS Online scene layers are 499 Token Required with no licence) — no open building-height channel — Overture footprints, honest assumed heights (ASSESS AE-Dubai)' },
+  abudhabi: 'adsdi_ndsm_ae', // ⭐ WIRED 2026-09-05 (lane ME-ABUDHABI-I3S, §ADSDI-NDSM-OVERTURE-JOIN): the bake `abudhabi` row declares heightJoin:'ad_ndsm' → NATIONAL_STAMP_TABLE → stampAdNdsmHeightsOnGeojsonseq (heights/abudhabiNdsmStamp.mjs; DGE 50 cm DSM3 − DTM, keyless, catalogued Open Data sid 2012), working set AD_CITY_BBOXES. Local proof gate cell 1,118/1,118 measured, median 12.0 m. The I3S abu_dhabi_3d_city_model stamp the brief named was REFUSED on the SDI Terms (uncatalogued item; §8.2/§8.3) — see the block above.
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -34,6 +34,11 @@ import { fileURLToPath } from 'node:url';
 import { stampAtHeightsOnGeojsonseq, AT_CITY_BBOXES } from './heights/atHeightsStamp.mjs';
 import { stampCzHeightsOnGeojsonseq, CZ_CITY_BBOXES } from './heights/czHeightsStamp.mjs';
 import { stampSiHeightsOnGeojsonseq, SI_CITY_BBOXES } from './heights/siHeightsStamp.mjs';
+// §ADSDI-NDSM-OVERTURE-JOIN (2026-09-05, lane ME-ABUDHABI-I3S) — Abu Dhabi's keyless 50 cm DSM3 − DTM stamp (catalogued
+// Open Data, DGE; the I3S city model the brief named was REFUSED on the SDI Terms — heights/abudhabiNdsm.mjs header)
+// lives in its OWN module and is imported here DIRECTLY, in the same commit that declares the `abudhabi` row's
+// heightJoin — never "built, imported by nothing" (L-12883 / L-12910). It stamps the row's OVERTURE footprints.
+import { stampAdNdsmHeightsOnGeojsonseq, AD_CITY_BBOXES } from './heights/abudhabiNdsmStamp.mjs';
 // §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
 // free on import (its CLI is behind an isMain guard); `resolveHeights` never throws.
 // §HEIGHTS-FR-SOLID (L-12910, 2026-09-05) — `stampMnhFrHeightsOnGeojsonseq` + `MNH_FR_CITY_BBOXES` were
@@ -478,7 +483,7 @@ const ALL_REGIONS = [
   // me-sweep §13 names the UAE local vertical datum as UNVERIFIED-DOC — verify on first load; terrain
   // via --dtm-source mapterhorn.
   { name: 'dubai',      pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '54.95,24.85,55.45,25.35',  clipped: resolve(OUT, 'clip-dubai.osm.pbf'), buildingsSource: 'overture' },
-  { name: 'abudhabi',   pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '54.28,24.33,54.75,24.62',  clipped: resolve(OUT, 'clip-abudhabi.osm.pbf'), buildingsSource: 'overture' },
+  { name: 'abudhabi',   pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '54.28,24.33,54.75,24.62',  clipped: resolve(OUT, 'clip-abudhabi.osm.pbf'), buildingsSource: 'overture', heightJoin: 'ad_ndsm' },
 ];
 
 // §BAKE-OVERTURE — the Overture buildings source. Overture publishes ONE global GeoParquet dataset
@@ -693,6 +698,7 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'bev_at') return AT_CITY_BBOXES.map((c) => c.bbox);    // §BEV-ALS-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `austria`, five cities
   if (r.heightJoin === 'cuzk_cz') return CZ_CITY_BBOXES.map((c) => c.bbox);   // §CUZK-NDSM-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `czechia`, five cities
   if (r.heightJoin === 'gurs_si') return SI_CITY_BBOXES.map((c) => c.bbox);   // §GURS-KN-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `slovenia`, five cities
+  if (r.heightJoin === 'ad_ndsm') return AD_CITY_BBOXES.map((c) => c.bbox);   // §ADSDI-NDSM-OVERTURE-JOIN (ME-ABUDHABI-I3S) — `abudhabi` row, island core only (≈ 55 s per populated cell)
   if (r.heightJoin === 'mds') return MDS_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'dhm') return DHM_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
@@ -730,6 +736,9 @@ const NATIONAL_STAMP_TABLE = {
   cuzk_cz: { stamp: stampCzHeightsOnGeojsonseq, bboxes: CZ_CITY_BBOXES },
   // §GURS-KN-OSM-JOIN — whole `slovenia`: GURS KN STAVBE H2 − H3 register heights, keyless WFS (heights/siHeightsStamp.mjs).
   gurs_si: { stamp: stampSiHeightsOnGeojsonseq, bboxes: SI_CITY_BBOXES },
+  // §ADSDI-NDSM-OVERTURE-JOIN — the `abudhabi` row: DGE 50 cm DSM3 − DTM exportImage, keyless, catalogued Open Data
+  // (heights/abudhabiNdsmStamp.mjs). Photogrammetric, not LiDAR — named in heightSource. The I3S city model is NOT read.
+  ad_ndsm: { stamp: stampAdNdsmHeightsOnGeojsonseq, bboxes: AD_CITY_BBOXES },
   // §NDH-NO-OSM-JOIN — whole `norway`: Kartverket NHM DOM − DTM, keyless (heights/noHeightsStamp.mjs).
   ndh_no: { stamp: stampNoNdhHeightsOnGeojsonseq, bboxes: NO_NDH_CITY_BBOXES },
   // §EE-ETAK-OSM-JOIN — whole `estonia`: ETAK e_401_hoone_ka korgus_m per OSM footprint, keyless WFS (heights/eeHeightsStamp.mjs).
