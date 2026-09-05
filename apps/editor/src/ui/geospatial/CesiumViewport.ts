@@ -189,6 +189,12 @@ import { realModelStaysVisible } from "./formaBuildingFidelity";
 // §TERRAIN-RENDER (Phase 3) — resolve a site's lon/lat to a baked-terrain city + its R2
 // quantized-mesh tileset URL, so we can attach a CesiumTerrainProvider where terrain exists.
 import { decideBakedTerrainAttach, terrainTilesetUrl } from "./terrainCoverage";
+// §TERRAIN-RELOCATION-DETACH (L-12913) — the pure attach/detach/keep transition table, so a bounded
+// tileset attached at one city can never stay attached at a site it does not cover.
+import {
+  resolveTerrainTransition, attachOutcomeStillHolds, describeTerrainTransition,
+  type TerrainAttachOutcome, type TerrainProviderState,
+} from "./terrainProviderTransition";
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
@@ -1240,8 +1246,18 @@ export class CesiumViewport {
    *  callers `await` the SAME attach so none samples the flat ellipsoid before the provider is live (the
    *  seat-at-0-under-700 m-terrain sink bug). A resolved entry (attached OR 404-no-op) also stops re-hammering
    *  the network on repeat pans — it replaces the old fire-once `formaTerrainProbedCities` Set. Cleared on
-   *  dispose (project switch) and on a terrain toggle-ON re-probe. */
-  private formaTerrainAttach = new Map<string, Promise<void>>();
+   *  dispose (project switch) and on a terrain toggle-ON re-probe.
+   *  §TERRAIN-RELOCATION-DETACH (L-12913) — keyed by the PRIMARY slug asked for; resolves to the chain's
+   *  OUTCOME (attached <slug> / unavailable / dropped), and a memo is trusted only while
+   *  `attachOutcomeStillHolds` against the LIVE provider — a "portugal → unavailable" memo taken on flat
+   *  ground must not short-circuit a later Porto call made while Barcelona's tileset is attached. */
+  private formaTerrainAttach = new Map<string, Promise<TerrainAttachOutcome>>();
+  /** §TERRAIN-RELOCATION-DETACH (L-12913) — the NEWEST tileset the viewport wants attached (`null` =
+   *  flat ground wanted). An attach chain that resolves after the site moved on compares against this
+   *  and DROPS its provider instead of landing it under a site it does not cover (the same newest-wins
+   *  rule `formaTerrainToken` gives the clamp). `detachBakedTerrain` resets it, so a toggle-OFF during
+   *  an in-flight attach also wins. */
+  private formaTerrainTarget: string | null = null;
   /** §TERRAIN-TOGGLE (founder 2026-07-27) — the user TERRAIN ON/OFF escape hatch for the 3D Site.
    *  Default TRUE — terrain is mandatory for ALL cities (founder). The terrain-ON seat/camera bug on
    *  high-ground cities (Madrid/Zürich/Amsterdam) is being FIXED, not worked around by defaulting off.
@@ -3614,6 +3630,9 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][terrain] detach failed:', e);
     }
     this.formaTerrainCity = null;
+    // §TERRAIN-RELOCATION-DETACH (L-12913) — flat is now the wanted state; an attach still in flight
+    // for the previous target must drop its provider rather than re-attach over this reset.
+    this.formaTerrainTarget = null;
     this.formaTerrainSampledAt = null;
     // §STARTUP-TERRAIN-SAMPLE-REUSE — relief heights die with the relief: `sampleGround` reads
     // this cache BEFORE it checks the provider, so stale entries would seat the flat study at
@@ -7598,6 +7617,13 @@ export class CesiumViewport {
     return !!provider && this.terrainProviderHasElevationData(provider);
   }
 
+  /** §TERRAIN-RELOCATION-DETACH (L-12913) — what the viewer HOLDS right now, read from the live
+   *  provider (never from the tracked slug alone: the project-switch reset nulls `formaTerrainCity`
+   *  while leaving the provider attached, and that inconsistency must still read as "attached"). */
+  private terrainProviderState(): TerrainProviderState {
+    return { attachedCity: this.formaTerrainCity, reliefAttached: this.groundReliefAttached() };
+  }
+
   /**
    * §TERRAIN-RENDER (Phase 3, North Star §6.3 / terrain.mjs §9) — attach the BAKED
    * quantized-mesh terrain tileset for the site's city so real ground renders under the
@@ -7607,13 +7633,23 @@ export class CesiumViewport {
    * WGS-84 ELLIPSOIDAL (terrain.mjs bakes the `napToEllipsoidal` geoid lift in), so the sample
    * agrees with the building/envelope datum — nothing floats or buries (the datum-share, C12 §1.4).
    *
-   * GUARD — NO REGRESSION FOR UN-BAKED CITIES:
-   *   • no tiles base configured (local/dev Overpass path) → return, keep flat.
-   *   • lon/lat outside every baked-terrain city bbox → return, keep flat.
-   *   • already attached for this city → return (idempotent; called on every context load/pan).
-   *   • `CesiumTerrainProvider.fromUrl` throws (layer.json 404 — city listed but not yet baked
-   *     in R2, or the same-origin proxy doesn't serve `terrain/`) → keep the default
-   *     EllipsoidTerrainProvider (flat base 0). The city is remembered so we don't re-attempt.
+   * GUARD — NO REGRESSION FOR UN-BAKED CITIES, AND NO STALE TILESET FOR RELOCATED ONES
+   * (§TERRAIN-RELOCATION-DETACH, L-12913 — every branch below goes through the pure
+   * `resolveTerrainTransition` table, `terrainProviderTransition.ts`):
+   *   • no tiles base configured (local/dev Overpass path) → flat.
+   *   • lon/lat outside every baked-terrain bbox (city AND region) → flat.
+   *   • a tileset serving this site already attached → keep (idempotent; called on every context load/pan).
+   *   • `CesiumTerrainProvider.fromUrl` throws for EVERY candidate (layer.json 404 — listed but not
+   *     yet baked in R2, or the same-origin proxy doesn't serve `terrain/`) → flat. The primary slug's
+   *     outcome is memoised so we don't re-attempt on every pan (§TERRAIN-SEAT-RACE).
+   *   ⛔ "flat" MEANS `detachBakedTerrain()` WHENEVER A BOUNDED PROVIDER IS ATTACHED. Until 2026-09-05
+   *     these branches `return`ed and left the PREVIOUS city's tileset on the viewer — a bounded
+   *     quantized-mesh provider has no availability outside its layer.json bounds, so relocating from
+   *     Barcelona to Porto rendered ZERO terrain tiles and the page background was the ground (the
+   *     founder's all-white 3D Site; L-639 / ADR-0278 were the same symptom with a different root).
+   *     The log line said "→ flat ground" while relief was ON; it now cannot (`describeTerrainTransition`).
+   *   • a listed city whose layer.json 404s falls through to its REGION tileset (`decision.candidates`,
+   *     most-detailed-first — the caller behaviour terrainCoverage.ts documents).
    * Self-correcting: a city lights up with NO code change the moment CI publishes its tileset.
    */
   private async maybeAttachTerrainProvider(lat: number, lon: number): Promise<void> {
@@ -7636,40 +7672,96 @@ export class CesiumViewport {
       formaMode: this.formaMode,
       lon, lat,
     });
-    if (!decision.attach) {
-      console.log(`[CesiumViewport][terrain] skip: ${decision.reason} (lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → flat ground)`);
-      return;
+    // §TERRAIN-RELOCATION-DETACH (L-12913) — the resolver's verdict × what the viewer HOLDS → one of
+    // keep-flat / keep-attached / detach / attach. Read the live provider, never the tracked slug alone.
+    const transition = resolveTerrainTransition(decision, this.terrainProviderState());
+    switch (transition.action) {
+      case 'keep-flat':
+        // Flat is the NEWEST wanted state: an attach still in flight for a previous site (its
+        // `fromUrl` unresolved, so nothing is attached yet and the verdict reads keep-flat) must
+        // drop its provider when it lands, not seat it under this site.
+        this.formaTerrainTarget = null;
+        console.log(describeTerrainTransition(transition, lat, lon));
+        return;
+      case 'keep-attached':
+        // Likewise the attached tileset is the newest wanted one; a slower chain for another slug
+        // that resolves later would otherwise replace a provider that serves this site.
+        this.formaTerrainTarget = transition.city;
+        console.log(describeTerrainTransition(transition, lat, lon));
+        return;
+      case 'detach':
+        // LOUD (C84 EI-6): a tileset that covers somewhere else is not "flat ground" — say which one goes.
+        console.warn(describeTerrainTransition(transition, lat, lon));
+        this.detachBakedTerrain();                        // also nulls `formaTerrainTarget` → in-flight attaches drop.
+        return;
+      case 'attach':
+        console.log(describeTerrainTransition(transition, lat, lon));
+        break;
     }
-    const city = decision.city;
-    console.log(`[CesiumViewport][terrain] evaluate lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} → city=${city}`);
-    if (city === this.formaTerrainCity) { console.log(`[CesiumViewport][terrain] skip: '${city}' already attached`); return; }
+    const city = transition.city;                         // the PRIMARY slug (city first, then region)
+    const candidates = transition.candidates;
+    this.formaTerrainTarget = city;
     // §TERRAIN-SEAT-RACE (L-635) — SHARED, AWAITABLE, IDEMPOTENT attach. The old `formaTerrainProbedCities`
     // Set was `.add(city)`-ed BEFORE the `fromUrl` await, so a concurrent caller saw `has(city)` and
     // returned WITHOUT awaiting the in-flight attach — leaving `ensureGroundBaseForContext` to sample the
     // still-flat ellipsoid → context seated at base 0, ~700 m UNDER Madrid's mesh (the sink bug). Now every
     // concurrent caller awaits the SAME attach Promise, so none proceeds against the ellipsoid.
     const existing = this.formaTerrainAttach.get(city);
-    if (existing) { await existing; return; }
-    const url = terrainTilesetUrl(city);
-    console.log(`[CesiumViewport][terrain] '${city}' → tileset url=${url ?? 'NULL (no tiles base configured)'}`);
-    if (!url) return;                                  // no tiles base configured → flat (unchanged)
-    const attach = (async (): Promise<void> => {
-      let provider: Cesium.CesiumTerrainProvider;
-      try {
-        // fromUrl fetches `${url}/layer.json`; a 404 means "not baked yet" → rejects → we stay flat.
-        // §TERRAIN-NORMALS (L-636) — request the baked Oct-Encoded Per-Vertex Normals so the globe can
-        // slope-shade relief under enableLighting. Without normals every slope paints the flat baseColor →
-        // high-relief cities (Madrid/Zürich) render as a featureless white mask while flat cities look fine.
-        provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: true });
-      } catch {
-        console.log(`[CesiumViewport][terrain] no baked terrain for '${city}' (${url}) — keeping flat ground.`);
-        return;                                          // resolved no-op → future calls await this, no re-hammer
+    if (existing) {
+      const outcome = await existing;
+      // The memo is a fact about the provider state it produced; if that state is gone (another city
+      // attached since, a detach, or the chain was dropped) it must not short-circuit — re-run.
+      if (attachOutcomeStillHolds(outcome, this.terrainProviderState())) return;
+      if (this.formaTerrainAttach.get(city) !== existing) {  // a sibling caller already re-ran it while we awaited.
+        const again = this.formaTerrainAttach.get(city);
+        if (again) { await again; return; }
       }
-      // Superseded / disposed during the await → drop it (a newer site owns the viewer now).
-      if (!this.isViewerLive() || this.viewer !== viewer) return;
-      if (this.formaTerrainCity === city) return;        // a concurrent call for the SAME city already attached.
+      this.formaTerrainAttach.delete(city);
+      console.log(`[CesiumViewport][terrain] memo for '${city}' (${outcome.kind}) no longer matches the live provider — re-probing.`);
+    }
+    const attach = (async (): Promise<TerrainAttachOutcome> => {
+      let provider: Cesium.CesiumTerrainProvider | null = null;
+      let attachedSlug: string | null = null;
+      let attachedUrl = '';
+      // Most-detailed-first: the city tileset, then its region (§TERRAIN-EVERYWHERE). The first whose
+      // layer.json loads wins; a listed-but-unpublished city no longer strands the site flat.
+      for (const slug of candidates) {
+        const url = terrainTilesetUrl(slug);
+        if (!url) { console.log(`[CesiumViewport][terrain] '${slug}' → tileset url=NULL (no tiles base configured)`); continue; }
+        try {
+          // fromUrl fetches `${url}/layer.json`; a 404 means "not baked yet" → rejects → next candidate.
+          // §TERRAIN-NORMALS (L-636) — request the baked Oct-Encoded Per-Vertex Normals so the globe can
+          // slope-shade relief under enableLighting. Without normals every slope paints the flat baseColor →
+          // high-relief cities (Madrid/Zürich) render as a featureless white mask while flat cities look fine.
+          provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: true });
+          attachedSlug = slug;
+          attachedUrl = url;
+          break;
+        } catch {
+          console.log(`[CesiumViewport][terrain] no baked terrain for '${slug}' (${url}).`);
+        }
+      }
+      // Superseded / disposed during the await(s) → drop it (a newer site owns the viewer now). NOT a
+      // verdict about the tileset: the memo reads `dropped` and the next call re-probes.
+      if (!this.isViewerLive() || this.viewer !== viewer) return { kind: 'dropped' };
+      if (this.formaTerrainTarget !== city) {
+        console.log(`[CesiumViewport][terrain] attach for '${city}' superseded (site now wants ${this.formaTerrainTarget ?? 'flat ground'}) — dropping its provider.`);
+        return { kind: 'dropped' };
+      }
+      if (!provider || !attachedSlug) {
+        // EVERY candidate failed. The site has no tileset — and "no tileset" means FLAT, which is a
+        // detach whenever a bounded provider (some other city's) is still attached (L-12913).
+        const after = resolveTerrainTransition({ attach: false, reason: 'tileset-unavailable' }, this.terrainProviderState());
+        if (after.action === 'detach') { console.warn(describeTerrainTransition(after, lat, lon)); this.detachBakedTerrain(); }
+        else console.log(describeTerrainTransition(after, lat, lon));
+        return { kind: 'unavailable' };                  // memoised → future calls await this, no re-hammer
+      }
+      const url = attachedUrl;
+      if (this.formaTerrainCity === attachedSlug && this.groundReliefAttached()) {
+        return { kind: 'attached', slug: attachedSlug }; // a concurrent call for the SAME tileset already attached.
+      }
       viewer.terrainProvider = provider;
-      this.formaTerrainCity = city;
+      this.formaTerrainCity = attachedSlug;
       // §TERRAIN-NORMALS (L-636) — with baked relief + per-vertex normals attached, LIGHT the globe so the
       // terrain slope-shades (form reads as light/shadow) instead of flat-lighting every slope the same
       // near-white baseColor (the "white mask"). Flat/un-baked cities keep enableLighting=false (§2 look);
@@ -7686,7 +7778,7 @@ export class CesiumViewport {
         const surf = (globeR as unknown as { _surface?: { invalidateAllTiles?: () => void; tileProvider?: unknown } })._surface;
         surf?.invalidateAllTiles?.();
       } catch { /* ignore */ }
-      console.log(`[CesiumViewport][terrain] attached baked terrain for '${city}' (${url}) — normals ON, globe lit + shown, tiles invalidated, re-clamping ground.`);
+      console.log(`[CesiumViewport][terrain] attached baked terrain for '${attachedSlug}'${attachedSlug !== city ? ` (fallback for '${city}')` : ''} (${url}) — normals ON, globe lit + shown, tiles invalidated, re-clamping ground.`);
       viewer.scene.requestRender();
       // §CAMERA-UNDERGROUND-FIX (L-639) — THE interior-city white-terrain root. `frameSiteLocationOnResolvedGround`
       // races this attach: on a high city it resolves groundBase=0 (terrain not yet attached) and parks the
@@ -7708,6 +7800,7 @@ export class CesiumViewport {
       this.formaTerrainSampledAt = null;
       const input = this.formaLastMassingInput;
       if (input) void this.clampTerrainThenReplace(input);
+      return { kind: 'attached', slug: attachedSlug };
     })();
     this.formaTerrainAttach.set(city, attach);
     await attach;
@@ -14014,8 +14107,11 @@ export class CesiumViewport {
       this.formaTerrainSampledAt = null;
       this.formaTerrainToken++;
       // §TERRAIN-RENDER — forget the attached city + the per-session 404 memory so the
-      // new site re-resolves + re-attaches.
+      // new site re-resolves + re-attaches. (The PROVIDER itself stays on the live viewer here;
+      // §TERRAIN-RELOCATION-DETACH reads it live, so the new site's first attach call detaches or
+      // replaces it — the nulled slug alone can no longer hide a bounded tileset, L-12913.)
       this.formaTerrainCity = null;
+      this.formaTerrainTarget = null;
       this.formaTerrainAttach.clear();
       // §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF (L-259) — the ground datum was measured at
       // the PREVIOUS site and means nothing at the new one. Never let a stale "resolved"
