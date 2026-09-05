@@ -49,7 +49,14 @@ import { MNH_FR, MNH_FR_CITY_BBOXES, classifyDalleCoverage, maskNodata, mnhFrDal
 // §SWISS-NDSM (2026-09-04) — the PURE half of the Swiss national stamp (STAC URL, LV95 tile keying, COG
 // asset selection, the city working set) — same split, same reason.
 import { SWISS_NDSM, SWISS_CITY_BBOXES, lv95TileKey, lv95TileBbox, parseStacCollection, pickCogAsset, swissStacItemsUrl } from './heights/swissNdsm.mjs';
-export { MNH_FR, MNH_FR_CITY_BBOXES, SWISS_NDSM, SWISS_CITY_BBOXES };
+// §AU-OPEN-HEIGHTS (2026-09-05, lane HEIGHTS-AU) — the PURE half of the Australian per-jurisdiction
+// open-footprint-heights stamp (adapter table, export URL, component parser, the height rule, the
+// working set); this file keeps the network/stream half (`stampAuOpenHeightsOnGeojsonseq`).
+import { AU_OPEN_HEIGHTS, AU_OPEN_CITY_BBOXES, AU_OPEN_HEIGHTS_ASSESSED, auOpenExportUrl, auOpenHeightForFootprint, auOpenJurisdictionForPoint, odsComponents, parseOdsGeojson } from './heights/auOpenHeights.mjs';
+export { MNH_FR, MNH_FR_CITY_BBOXES, SWISS_NDSM, SWISS_CITY_BBOXES, AU_OPEN_HEIGHTS, AU_OPEN_CITY_BBOXES, AU_OPEN_HEIGHTS_ASSESSED };
+// §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — the Dutch stamp lives in heights/nl3dbagStamp.mjs (imported by bake.mjs
+// directly, not through this file) and reuses the shared join helpers below via this ONE export line.
+export { footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, httpGetSafe, statsOf, areaWeightedP90, dominantRoof, clampHeight };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
@@ -395,7 +402,30 @@ export const SOURCES = {
       'ships 64,674 open footprints and Melbourne serves real LoD1 extrusions (earlier metro joins); ' +
       'Geoscape (national footprints+heights) is a commercial sales-agreement gate (site 403 to probe), ' +
       'AURIN offers it under an academic gate; MS GlobalML EXCLUDED. Per-capital LiDAR coverage fraction ' +
-      'is UNKNOWN (owed ELVIS index probe). Until the stamp lands every AU state is mass-only.',
+      'is UNKNOWN (owed ELVIS index probe). Until the stamp lands every AU state is mass-only. ' +
+      '⚠ RE-PROBED 2026-09-05 (lane HEIGHTS-AU, heights/auOpenHeights.mjs AU_OPEN_HEIGHTS_ASSESSED carries each verbatim): ' +
+      'ELVIS is an HTML bulk portal (HTTP 200 text/html, 13,250 B) with NO keyless raster endpoint — nothing to sample, so ' +
+      'no DSM−DTM derive is attempted; ACTGOV_BUILDING_FOOTPRINTS has NO height field (fields listed there) and the ACT org ' +
+      'serves only lidar_extent_2016; NSW portal = DEM theme + an elevation INDEX; Vicmap statewide building layers carry no ' +
+      'height; services.ga.gov.au → HTTP 403. The ONE real channel found is City of Melbourne\'s LoD1 footprints → ' +
+      '`au_open_lod1` (victoria row). Every other AU state stays here, mass-only, on evidence.',
+  },
+  au_open_lod1: {
+    country: 'au', name: 'City of Melbourne 2023 Building Footprints — LoD1 roof-component stack (Opendatasoft, CC BY 4.0)', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (per-component AHD elevations, photogrammetric 3D model)', lodNext: 'LoD2 (City of Melbourne 2018 3D textured mesh, CC BY — bulk)',
+    endpoint: 'https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets/2023-building-footprints/exports/geojson?where=in_bbox(geo_point_2d,lat1,lon1,lat2,lon2)',
+    heightField: 'max(footprint_max_elevation) − min(structure_min_elevation) over the components whose centroid the OSM footprint contains ' +
+      '(= max structure_extrusion; Eureka 815210 → 297.5 m), fallback: the component containing the OSM centroid',
+    coverage: 'partial', // the City of Melbourne LGA only (144.898–144.991 E, −37.851–−37.776 S); the rest of Victoria is mass-only
+    keyless: true, // anonymous Explore API — NO api key, NO repo secret; X-RateLimit-Limit 10000/day per IP (probed).
+    note: 'LIVE-PROBED 2026-09-05 (lane HEIGHTS-AU): dataset meta license "CC BY" (4.0 legalcode URL); 41,701 records ' +
+      '(40,951 Structure — the rest are bridges/jetties/tram stops/platforms, excluded). /records pages ≤100 and refuses ' +
+      'offset+limit > 10,000 (HTTP 400, verbatim in heights/auOpenHeights.mjs) — a whole-city page-through is IMPOSSIBLE there ' +
+      '(§BDTOPO-CAP-TRUNCATE); /exports/geojson is UNCAPPED (a 0.01° CBD cell → 2,059 features, 1.66 MB, 3.4 s), so the ' +
+      'stamp `stampAuOpenHeightsOnGeojsonseq` cell-splits per populated 0.01° cell. It is a bake STAMP over bake\'s own ' +
+      'OSM footprints, NOT a footprint fetcher — the `victoria` row must declare heightJoin:\'au_open\' (bake.mjs dispatch + ' +
+      'stampBboxesFor → AU_OPEN_CITY_BBOXES) to receive it. ⚠ in_bbox is LAT,LON (ODSQL); the swapped order returns an ' +
+      'EMPTY collection, not an error — pinned by auOpenHeights.spec.ts.',
   },
 };
 
@@ -503,7 +533,11 @@ export const REGION_SOURCE = {
   // note), the §BAKED-FLAG-IS-NOT-EVIDENCE anti-pattern — object form is reserved for blocked/no-source,
   // where the reason IS surfaced.
   newsouthwales: 'elvis_au',
-  victoria: 'elvis_au',
+  // ⭐ LIVE 2026-09-05 (lane HEIGHTS-AU) — victoria is the FIRST AU state with a REAL measured-height channel:
+  // City of Melbourne's LoD1 footprints (heights/auOpenHeights.mjs, `melbourne_cc`), a bake STAMP
+  // (stampAuOpenHeightsOnGeojsonseq) the `victoria` row declares via heightJoin:'au_open'. LGA-scoped:
+  // every Victorian footprint outside AU_OPEN_CITY_BBOXES streams through with its honest OSM tags.
+  victoria: 'au_open_lod1',
   queensland: 'elvis_au',
   westernaustralia: 'elvis_au',
   southaustralia: 'elvis_au',
@@ -2397,6 +2431,128 @@ export async function stampMnhFrHeightsOnGeojsonseq(inPath, outPath, bbox, {
   };
 }
 
+// ── AU per-jurisdiction join — stamp OPEN LoD1 footprint heights onto bake's OWN OSM footprints. ──
+// §AU-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-AU) — the Australian analogue of the joins above,
+// and the FIRST measured-height channel in any AU state. Like NRW (vectors, not a raster) the height is
+// TRANSCRIBED, not computed from pixels: City of Melbourne publishes every building as a stack of
+// roof-level components with AHD elevations, and the join collapses the components an OSM footprint
+// contains to ONE metre (heights/auOpenHeights.mjs `auOpenHeightForFootprint` — Eureka's 11 components
+// → 297.5 m). Why a STAMP and not a replace: same as every join here — one footprint set, coherent
+// with the roads/water/landuse baked from the same OSM clip, plus the one thing the council has that
+// OSM lacks.
+//
+// WHY CELL-SPLIT (§BDTOPO-CAP-TRUNCATE, measured before designing): the portal's /records API pages
+// at ≤ 100 rows and REFUSES offset + limit > 10,000 (HTTP 400) — 41,701 records cannot be paged; the
+// /exports/geojson endpoint has NO row cap but the stamp still asks per populated 0.01° cell (a CBD
+// cell = 2,059 components / 1.66 MB / 3.4 s) so each response is bounded and a mid-sweep failure loses
+// one cell, not the city. Cells are padded by `padDeg` so a component whose centroid sits just across
+// the edge is still seen by this cell's footprints.
+//
+// §CONTEXT-DATA-HONESTY — the values this join keeps DIFFERENT:
+//   • export refused / timed out / undecodable  → `tileErrors++` — a FAILURE (the portal, or us).
+//   • export decodes to ZERO components          → `voidTiles++` — an honest EMPTY (parkland, river);
+//                                                   footprints keep their OSM tags. Not an error.
+//   • footprint matches no component             → keeps its ORIGINAL OSM tags. Never a neighbour's height.
+//   • footprint outside AU_OPEN_CITY_BBOXES      → streamed through untouched (§JOIN-BOUNDED-WORKING-SET).
+// KEYLESS (anonymous Explore API, X-RateLimit-Limit 10,000/day per IP — the LGA is ≤ ~100 cells).
+// Licence CC BY 4.0, attribution "© City of Melbourne".
+export async function stampAuOpenHeightsOnGeojsonseq(inPath, outPath, bbox, {
+  timeoutMs = 60_000, tileSpanDeg = 0.01, padDeg = 0.0005, maxTiles = 2000, retainBboxes = null,
+} = {}) {
+  if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `AU open-heights join: input footprints not found (${inPath})` };
+  if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'AU open-heights join: no bbox supplied' };
+  const [w, s, e, n] = bbox;
+  const stampAreas = stampAreasFor(retainBboxes, bbox);
+  mkdirSync(dirname(outPath), { recursive: true });
+  // §JOIN-BOUNDED-WORKING-SET — hold only footprints inside a stamp bbox AND inside a jurisdiction
+  // that serves heights (a footprint in a stamp bbox with no adapter row cannot be stamped: pass it through).
+  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
+    const fp = footprintFromFeature(feat);
+    if (!fp) return null;
+    if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
+    const j = auOpenJurisdictionForPoint(fp.clon, fp.clat);
+    if (!j) return null;
+    return { feat, ...fp, jurisdiction: j.jurisdiction };
+  }, 'AU open-heights join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
+  const records = load.retained;
+  const read = load.read;
+
+  const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
+  const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
+  const cellIx = (lon) => Math.min(nx - 1, Math.max(0, Math.floor((lon - w) / tileSpanDeg)));
+  const cellIy = (lat) => Math.min(ny - 1, Math.max(0, Math.floor((lat - s) / tileSpanDeg)));
+  const buckets = bucketRecords(records, (r) => [cellIx(r.clon), cellIy(r.clat)]);
+  let processedTiles = 0, tileErrors = 0, voidTiles = 0, tileCapHit = false, requests = 0;
+  let componentsFetched = 0, bytesFetched = 0;
+  const rules = new Map();
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose (see the MDS join's catch).
+  let sweepAborted = false, sweepAbortReason = null;
+  const heights = [];
+  const t0 = Date.now();
+  try {
+    // Visit ONLY populated cells (sorted → deterministic under the cap).
+    for (const key of [...buckets.keys()].sort()) {
+      const inTile = buckets.get(key);
+      if (!inTile || inTile.length === 0) continue;
+      if (processedTiles >= maxTiles) { tileCapHit = true; break; }
+      const [ix, iy] = key.split(',').map(Number);
+      const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
+      const cell = [tw, ts, Math.min(tw + tileSpanDeg, e), Math.min(ts + tileSpanDeg, n)];
+      // A cell may straddle two jurisdictions' working sets; each gets its own export.
+      const byJ = new Map();
+      for (const r of inTile) { const b = byJ.get(r.jurisdiction); if (b) b.push(r); else byJ.set(r.jurisdiction, [r]); }
+      let cellOk = false;
+      for (const [jid, recs] of byJ) {
+        const j = AU_OPEN_HEIGHTS[jid];
+        if (!j) continue;
+        requests++;
+        const rr = await httpGetSafe(auOpenExportUrl(j, cell, { padDeg }), { timeoutMs, headers: { Accept: 'application/json' } });
+        if (!rr.ok) { tileErrors++; continue; }            // refused / timed out — a FAILURE, never "nothing here"
+        const fc = parseOdsGeojson(rr.body);
+        if (!fc) { tileErrors++; continue; }               // undecodable — a FAILURE
+        cellOk = true;
+        bytesFetched += rr.body.length;
+        const comps = odsComponents(fc, j);
+        componentsFetched += comps.length;
+        if (comps.length === 0) { voidTiles++; continue; } // an honest EMPTY: the export answered, nothing built here
+        for (const r of recs) {
+          const h = auOpenHeightForFootprint(r.ext, r.interiors, r.clon, r.clat, comps, j);
+          if (!h) continue;
+          r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: h.height, heightSource: j.heightSourceTag, [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
+          heights.push(h.height);
+          rules.set(h.rule, (rules.get(h.rule) ?? 0) + 1);
+        }
+      }
+      if (cellOk) processedTiles++;
+    }
+  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
+
+  // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  const measured = heights.length;
+  heights.sort((a, b) => a - b);
+  const emptyTiles = Math.max(0, nx * ny - buckets.size);
+  return {
+    status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
+    coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
+    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    tilesProcessed: processedTiles, tileErrors, voidTiles, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
+    requests, componentsFetched, bytesFetchedMB: Number((bytesFetched / 1e6).toFixed(1)),
+    matchRules: Object.fromEntries(rules), elapsedS: Number(((Date.now() - t0) / 1000).toFixed(1)),
+    retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
+    stampAreas: stampAreas.length, populatedCells: buckets.size,
+    peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
+    note: `AU open LoD1 footprint heights (component stack → one metre per footprint) stamped onto OSM footprints → ${measured}/${records.length} ` +
+      `RETAINED footprint(s) got a MEASURED height (tagged); ${read.passedThrough} outside the ${stampAreas.length} stamp bbox(es) / jurisdiction(s) passed ` +
+      `through with their original OSM tags; ${processedTiles} cell(s) read (${requests} export(s), ${componentsFetched} components, ` +
+      `${(bytesFetched / 1e6).toFixed(0)} MB), ${voidTiles} empty cell(s), ${tileErrors} export error(s)` +
+      `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
+      `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} cell(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
+      `; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
+  };
+}
+
 // ── DE/NRW WHOLE-CITY join — stamp LoD2-DE·NRW `measuredHeight` onto bake's OWN OSM footprints. ──
 // §LOD2-NRW-OSM-JOIN (2026-07-31) — the DE analogue of the ES MDS / DK DHM / CH swisstopo joins above,
 // and the Köln ("the German Barcelona") real-height path. It differs from those three in ONE structural
@@ -2872,6 +3028,15 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
         'its footprints keep their OSM tags until that row edit lands.',
     };
   }
+  else if (source === 'au_open_lod1') {
+    // §AU-OPEN-HEIGHTS — live, but (like mnh_fr / swiss) a bake STAMP over bake's own footprints, not a footprint fetcher.
+    return {
+      status: 'documented', region, source, provenance: src.provenance,
+      reason: `${src.name}: this source is the bake STAMP stampAuOpenHeightsOnGeojsonseq, dispatched only when the region ` +
+        `declares heightJoin:'au_open' in bake.mjs (with stampBboxesFor → AU_OPEN_CITY_BBOXES). Region "${region}" does not, so ` +
+        'its footprints keep their OSM tags until that row edit lands.',
+    };
+  }
   else return { status: 'documented', reason: `${src.name} fetcher not implemented`, region, source };
 
   // A never-throwing fetcher may itself report a real gate (blocked/documented) — surface it honestly.
@@ -2916,6 +3081,7 @@ const PROBE_BBOX = {
   geodanmark: [12.56, 55.67, 12.58, 55.69],    // Copenhagen centre (auth-gated → blocked probe)
   mnh_fr: [2.346, 48.852, 2.352, 48.856],      // Paris, Île de la Cité — the 2026-09-04 live-verification bbox
   swissbuildings3d: [8.540, 47.370, 8.548, 47.376], // Zürich, inside LV95 km² tile 2683-1247 (Hauptbahnhof) — the 2026-09-04 COG probe tile
+  au_open_lod1: [144.9638, -37.8222, 144.9654, -37.8210], // Melbourne, Eureka Tower block — the 2026-09-05 export probe (25 features, 815210 = 297.5 m)
 };
 
 export async function probeSource(id) {
@@ -3075,6 +3241,40 @@ export async function probeSource(id) {
       dtm: dtm ? { ifd: dtm.ifd, width: dtm.width, height: dtm.height, nodataPixels: dtm.masked } : null,
       ndsmStats: nd, assertRealHeight: !!nd && nd.p90 > 2.5 && nd.max < 400,
       provenance: 'tagged', mode: "stamp (bake.mjs heightJoin:'swiss' → stampSwissHeightsOnGeojsonseq)", reason: err,
+    };
+  }
+  if (id === 'au_open_lod1') {
+    // §AU-OPEN-HEIGHTS — asserts the THREE things the stamp depends on: (1) the uncapped export answers JSON,
+    // (2) it decodes to building components with numeric elevations, (3) the component stack collapses to a
+    // plausible metre — the Eureka block must read ~297.5 m, or the height rule is wrong, not the data.
+    const j = AU_OPEN_HEIGHTS.melbourne_cc;
+    const rr = await httpGetSafe(auOpenExportUrl(j, bbox), { timeoutMs: 30_000, headers: { Accept: 'application/json' } });
+    const fc = rr.ok ? parseOdsGeojson(rr.body) : null;
+    const comps = fc ? odsComponents(fc, j) : [];
+    const ext = comps.map((c) => c.structureExtrusion).filter(Number.isFinite).sort((a, b) => a - b);
+    const stats = ext.length ? { n: ext.length, min: ext[0], p50: _percentile(ext, 50), p90: _percentile(ext, 90), max: ext[ext.length - 1] } : null;
+    // Collapse the tallest structure's components exactly as the join would for a footprint containing them.
+    let tallest = null;
+    if (comps.length) {
+      const byId = new Map();
+      for (const c of comps) { const b = byId.get(c.structureId); if (b) b.push(c); else byId.set(c.structureId, [c]); }
+      for (const [structureId, cs] of byId) {
+        const ring = cs.reduce((a, c) => (c.ring.length > a.ring.length ? c : a), cs[0]).ring;
+        const cx = cs.reduce((a, c) => a + c.cx, 0) / cs.length, cy = cs.reduce((a, c) => a + c.cy, 0) / cs.length;
+        // a synthetic footprint = the union hull proxy: the bbox of all component rings (contains every centroid)
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const c of cs) for (const [x, y] of c.ring) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+        const h = auOpenHeightForFootprint([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], [], cx, cy, cs, j);
+        if (h && (!tallest || h.height > tallest.height)) tallest = { structureId, components: cs.length, ...h, ringVertices: ring.length };
+      }
+    }
+    return {
+      id, endpoint: j.dataset, status: fc && comps.length ? 'ok' : 'error', httpStatus: rr.status, contentType: rr.contentType,
+      assertContentType: /json/i.test(rr.contentType ?? ''), assertDecodes: !!fc, features: fc?.features?.length ?? null,
+      components: comps.length, structureExtrusionStats: stats, tallestStructure: tallest,
+      assertRealHeight: !!stats && stats.p90 > 2.5 && stats.max < 400,
+      licence: j.licence, provenance: 'tagged', mode: "stamp (bake.mjs heightJoin:'au_open' → stampAuOpenHeightsOnGeojsonseq)",
+      reason: rr.reason ?? (fc ? null : 'export did not decode as a FeatureCollection'),
     };
   }
   return { id, status: 'error', reason: `no live probe for "${id}"` };
