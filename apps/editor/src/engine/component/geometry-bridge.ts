@@ -22,6 +22,11 @@
 //   is a `packages/plugin-sdk` change this lane does not own. Logged as the
 //   §COMPONENT-RENDER-BRIDGE-DUP finding rather than silently repeated.
 //
+//   2026-09-05 (§L7-COMMITTER-HOME, see `ComponentCommitter.ts`): this copy now
+//   lives at L7, where importing the L4 `@pryzm/scene-committer` directly is
+//   legal — so when the ONE bridge is promoted, THIS file is the one that can
+//   delete itself first. The dedupe itself is still the follow-up, not done here.
+//
 // ⛔ NO CREASE WELDING. `descriptorToBufferGeometry` runs `toCreasedNormals` at
 //    30° because the wall CSG boolean emits per-triangle soup whose coplanar
 //    normals differ by float noise (§96-CSG-SEAM-FIX). `produceExtrude` emits
@@ -30,7 +35,7 @@
 //    count lane 4D asserts on.
 
 import * as THREE from '@pryzm/renderer-three/three';
-import type { BufferGeometryDescriptor } from '@pryzm/plugin-sdk';
+import type { BufferGeometryDescriptor } from '@pryzm/geometry-kernel';
 
 /**
  * Build a `THREE.BufferGeometry` from a kernel descriptor.

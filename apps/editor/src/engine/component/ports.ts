@@ -16,6 +16,13 @@
 // SIGNATURE change in 4D's bake, because TypeScript checks the injected function
 // at the WIRING site, where the real `bakeFamilyInstance` and this port meet.
 //
+// 2026-09-05 (§L7-COMMITTER-HOME): the file moved from the plugin to
+// `apps/editor/src/engine/component/` with the committer. At L7 the dependency
+// argument above no longer BINDS (the editor already depends on everything below
+// it) — the structural shape is KEPT anyway, because the wiring-site check is
+// still where the real bake and this port meet, and a narrow port is what lets
+// the plugin's `ComponentDefinitionResolver.has()` satisfy it unchanged.
+//
 // ⛔ NEITHER PORT HAS A DEFAULT. There is no `?? kernelGeometryAdapter`, no
 //    `?? emptyDefinitionRegistry`, no built-in stub. A committer that could
 //    manufacture its own definition source would be able to render something for
@@ -23,7 +30,7 @@
 //    spec §75 forbids, and it is how [[fake-more-capable-than-real]] happens: a
 //    fake built from the header cannot falsify the header.
 
-import type { BufferGeometryDescriptor } from '@pryzm/plugin-sdk';
+import type { BufferGeometryDescriptor } from '@pryzm/geometry-kernel';
 
 /** One solid the bake produced — structural mirror of 4D's `BakedSolid`. */
 export interface BakedSolidLike {

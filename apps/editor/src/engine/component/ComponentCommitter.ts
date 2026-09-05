@@ -1,6 +1,23 @@
 // ComponentCommitter — `PrimitiveCommitter<ComponentData, THREE.Group>`.
 // §COMPONENT-RENDER (audit §12 Phase 4E) · ADR-0376 D10 · C84 §6 · spec §66 / §75.
 //
+// ─── §L7-COMMITTER-HOME (2026-09-05) — WHY THIS LIVES IN apps/editor, NOT THE PLUGIN ─
+// This file, its two bridges and its ports were authored at
+// `plugins/component/src/committer/` and moved here unchanged in behaviour.
+// A plugin (L6) may not import `@pryzm/renderer-three`: that is the l7-boundary
+// rule, and `tools/ga-gate/check-l7-boundary.ts` ratchets it per plugin against
+// `.ga-gate/baselines/l7-boundary-violations.json`. `component` is a NEW plugin, so
+// its baseline is 0, and three `import * as THREE` lines read as a +3 regression —
+// exit 3, which §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7 / L-836) forbids absorbing by
+// raising the ceiling. The nineteen older plugins that keep a THREE-bearing
+// `committer/` do so on a BASELINED count that only shrinks; a new family does not
+// get to join them. L7 may import anything below it, and the house pattern for
+// new store→scene code is exactly this directory (`WaterMeshBuilder.ts`,
+// `BoundaryLineMeshBuilder.ts`, `SpaceEnvelopeMeshBuilder.ts`), so the render
+// seam of the component family sits beside them. `@pryzm/plugin-component` is now
+// THREE-free end to end; the record/verbs stay there (ADR-0376 D9), the pixels
+// are wired here (D10).
+//
 // ═══════════════════════════════════════════════════════════════════════════════
 // ⭐ THE FIRST COMMITTER WRITTEN FOR A FAMILY WHOSE GEOMETRY IS *REGENERATED*
 //    RATHER THAN STORED.
@@ -56,12 +73,12 @@ import type {
   MaterialHandle,
   MaterialPool,
   PrimitiveCommitter,
-} from '@pryzm/plugin-sdk';
+} from '@pryzm/scene-committer';
+import type { ComponentData } from '@pryzm/plugin-component';
 
-import type { ComponentData } from '../store.js';
-import { buildComponentBufferGeometry, disposeComponentGeometry } from './geometry-bridge.js';
-import { makeComponentMaterialFactory } from './material-bridge.js';
-import type { BakeComponentInstance, ComponentDefinitionSource } from './ports.js';
+import { buildComponentBufferGeometry, disposeComponentGeometry } from './geometry-bridge';
+import { makeComponentMaterialFactory } from './material-bridge';
+import type { BakeComponentInstance, ComponentDefinitionSource } from './ports';
 
 export interface ComponentCommitterDeps {
   readonly materialPool: MaterialPool;
@@ -238,9 +255,8 @@ export class ComponentCommitter implements PrimitiveCommitter<ComponentData, THR
       entry.group.userData['pryzmUnresolvedDefinition'] = dto.definitionId;
       console.warn(
         `[ComponentCommitter] ${id} names definitionId "${dto.definitionId}" which this wiring ` +
-          `cannot resolve — rendering NOTHING for it. There is no project-level ` +
-          `component-definition registry at this commit (audit §12 Phase 4C); a placeholder ` +
-          `here would be spec §75's demo-only geometry.`,
+          `cannot resolve — rendering NOTHING for it. A placeholder here would be ` +
+          `spec §75's demo-only geometry.`,
       );
       this.onGeometryReady?.(id, 0);
       return;

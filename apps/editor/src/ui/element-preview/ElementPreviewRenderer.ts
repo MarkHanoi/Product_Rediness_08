@@ -426,7 +426,7 @@ function buildContent(r: Rig, subject: PreviewSubject): void {
  * §COMPONENT-PREVIEW (lane U5) — wrap a {@link PreviewMeshPart}'s baked buffers
  * into a `BufferGeometry`. The typed arrays become the geometry's storage
  * directly (no copy) — the same contract `buildComponentBufferGeometry` states
- * in `plugins/component/src/committer/geometry-bridge.ts`. No crease welding,
+ * in `apps/editor/src/engine/component/geometry-bridge.ts`. No crease welding,
  * no normal recompute: `produceExtrude` already emitted clean per-face normals,
  * and recomputing here would give the preview a SECOND answer to a question the
  * placed mesh has already answered.

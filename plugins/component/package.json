@@ -10,8 +10,7 @@
     ".": "./src/index.ts",
     "./store": "./src/store.ts",
     "./errors": "./src/errors.ts",
-    "./handlers": "./src/handlers/index.ts",
-    "./committer": "./src/committer/index.ts"
+    "./handlers": "./src/handlers/index.ts"
   },
   "files": [
     "src"

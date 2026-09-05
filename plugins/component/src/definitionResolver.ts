@@ -19,7 +19,7 @@
 // ─── ⭐ STRUCTURAL, LIKE THE COMMITTER'S PORTS, AND FOR THE SAME REASON ────────
 // The definition document lives in `@pryzm/file-format` and is loaded by
 // `@pryzm/family-loader`. Declaring either as a dependency of this plugin would
-// put a document-format edge on the command surface; `committer/ports.ts` already
+// put a document-format edge on the command surface; the committer's `ports.ts` (`apps/editor/src/engine/component/ports.ts`, L7 since §L7-COMMITTER-HOME) already
 // refused that trade for the render seam (*"kept structurally typed so this
 // package does not depend on the loader"*) and the same choice is made here.
 // TypeScript checks the real catalogue against this shape at the WIRING site
@@ -33,7 +33,7 @@
 // instance-kind and value-shape. What is FORBIDDEN is a default: a resolver this
 // package manufactured could answer "yes" for ids that name nothing, which is
 // [[fake-more-capable-than-real]] at the placement seam — the exact shape
-// `committer/ports.ts` outlaws with "⛔ NEITHER PORT HAS A DEFAULT".
+// the committer's `ports.ts` (`apps/editor/src/engine/component/ports.ts`, L7 since §L7-COMMITTER-HOME) outlaws with "⛔ NEITHER PORT HAS A DEFAULT".
 //
 // ⛔ NO RIVAL VOCABULARY (audit R1): this file mints no schema, no loader and no
 // refusal channel — the refusal text still flows through `canExecute`'s `reason`
@@ -78,7 +78,7 @@ export interface ComponentDefinitionView {
 /**
  * ⭐ THE ONE RESOLVER (UIUX-PLAN §U0's "one-resolver-shared-with-4E" rule).
  *
- * `has()` is deliberately the SAME signature as `committer/ports.ts`'s
+ * `has()` is deliberately the SAME signature as the committer's `ports.ts` (`apps/editor/src/engine/component/ports.ts`, L7 since §L7-COMMITTER-HOME)'s
  * `ComponentDefinitionSource.has` — one object satisfies both ports, so the
  * command surface and the render seam consult the SAME catalogue and cannot
  * disagree about whether a definition exists.

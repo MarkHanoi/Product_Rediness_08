@@ -44,7 +44,9 @@ export default defineConfig({
       // apps/editor/node_modules (lane 4C declared it there), not the root, so the
       // two subpaths this harness imports are pointed at their source. Harness-only
       // wiring: nothing in the product resolves this way.
-      '@pryzm/plugin-component/committer': resolve('./plugins/component/src/committer/index.ts'),
+      // 2026-09-05 §L7-COMMITTER-HOME: the committer moved to L7; the harness keeps
+      // its import specifier and follows the file.
+      '@pryzm/plugin-component/committer': resolve('./apps/editor/src/engine/component/index.ts'),
       '@pryzm/plugin-component': resolve('./plugins/component/src/index.ts'),
       '@app/ui': resolve('./apps/editor/src/ui'),
       '@app/engine': resolve('./apps/editor/src/engine'),

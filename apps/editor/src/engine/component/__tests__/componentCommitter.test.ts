@@ -24,14 +24,18 @@
 //    control, it controls the RESOLUTION ORDER of the real bake and nothing else —
 //    a fake that manufactured its own descriptor could not falsify a committer
 //    that mishandles a real one ([[fake-more-capable-than-real]]).
+//
+// Location: moved with its subject from `plugins/component/__tests__/` on
+// 2026-09-05 (§L7-COMMITTER-HOME). Claimed by `apps/editor/vitest.config.ts`
+// (`src/**/*.test.ts`, node env — the same environment it ran in before).
 
 import { describe, expect, it } from 'vitest';
 import { bakeFamilyInstance } from '@pryzm/family-instance';
-import { MaterialPool } from '@pryzm/plugin-sdk';
+import { MaterialPool } from '@pryzm/scene-committer';
 import * as THREE from '@pryzm/renderer-three/three';
+import type { ComponentData } from '@pryzm/plugin-component';
 
-import { ComponentCommitter } from '../src/committer/index.js';
-import type { ComponentData } from '../src/store.js';
+import { ComponentCommitter } from '../ComponentCommitter';
 
 /* ── ids: real prefixed ULIDs (the handlers enforce the shape) ────────────── */
 const ULID_STEM = '01ARZ3NDEKTSV4RRFFQ69G5F';
