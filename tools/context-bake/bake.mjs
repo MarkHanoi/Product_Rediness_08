@@ -35,6 +35,11 @@ import { fileURLToPath } from 'node:url';
 // §SWISS-OSM-JOIN (L-12883, wired 2026-09-05) — the swisstopo nDSM stamp had the SAME shape one day later:
 // `stampSwissHeightsOnGeojsonseq` + `SWISS_CITY_BBOXES` built 2026-09-04, imported by nothing until here.
 import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
+// §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — the Dutch stamp had the same shape one more time: REGION_SOURCE
+// `netherlands` named the join as "the named follow-up" since 2026-07-26. Its network half lives in its OWN module
+// (heights/nl3dbagStamp.mjs — the shared-file rule) and its working set in the pure half, so both are imported directly.
+import { stampNl3dbagHeightsOnGeojsonseq } from './heights/nl3dbagStamp.mjs';
+import { NL_3DBAG_CITY_BBOXES } from './heights/nl3dbag.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -155,10 +160,16 @@ const ALL_REGIONS = [
   // region. Geofabrik's Netherlands extract is one ~1.6 GB pbf; tiled whole it is well under R2's
   // 10 GB free storage, and ONE country fits a single CI run. This national bbox covers EVERY NL
   // jurisdiction — Amsterdam, Rotterdam, Utrecht, Groningen, and any rural site — so an NL site never
-  // shows "no surrounding building data". (Replaces the Amsterdam-only clip.) 3DBAG real heights are
-  // stamped per-CITY bbox — see heightSources.mjs REGION_SOURCE `netherlands` (the whole-country
-  // 3DBAG bbox is refused per-tile → keeps OSM; the OSM-footprint-join is the named follow-up).
-  { name: 'netherlands', pbfUrl: 'https://download.geofabrik.de/europe/netherlands-latest.osm.pbf',                   pbf: resolve(OUT, 'netherlands-latest.osm.pbf'),            bbox: '3.30,50.75,7.30,53.70',    clipped: resolve(OUT, 'clip-netherlands.osm.pbf') },
+  // shows "no surrounding building data". (Replaces the Amsterdam-only clip.)
+  // §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — `heightJoin:'3dbag'` stamps 3D BAG (BAG × AHN LiDAR,
+  // CC BY 4.0, keyless WFS BAG3D:lod12) measured heights onto the OSM footprints inside NL_3DBAG_CITY_BBOXES
+  // (amsterdam · rotterdam · utrecht · thehague · eindhoven · groningen — the six "ready per-city bboxes" the
+  // REGION_SOURCE note carried as free text); the rest of the country streams through with honest OSM tags.
+  // Vectors, not a raster: height = (b3_h_70p ?? b3_h_50p) − b3_h_maaiveld per pand, area-weighted P90 over
+  // the parts a footprint owns (heights/nl3dbag.mjs, live-pinned by nl3dbag.spec.ts). No NL city row exists
+  // (the Amsterdam-only clip was folded into this row on 2026-07-26), so — unlike france's paris/lyon —
+  // nothing double-bakes. Local proof 2026-09-05: 40/41 footprints measured in the Centraal cell, 0 errors.
+  { name: 'netherlands', pbfUrl: 'https://download.geofabrik.de/europe/netherlands-latest.osm.pbf',                   pbf: resolve(OUT, 'netherlands-latest.osm.pbf'),            bbox: '3.30,50.75,7.30,53.70',    clipped: resolve(OUT, 'clip-netherlands.osm.pbf'), heightJoin: '3dbag' },
   // ─────────────────────────────────────────────────────────────────────────
   // §BAKE-EUROPE-NATIONAL (2026-09-02, lane REGIONS) — 25 whole-country rows, the founder's
   // "NOT ONLY BIG CITIES — EVERYWHERE POSSIBLE" directive executed at the row layer. Every row
@@ -579,6 +590,7 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
   if (r.heightJoin === 'swiss') return SWISS_CITY_BBOXES.map((c) => c.bbox);   // §SWISS-OSM-JOIN (L-12883) — whole `switzerland`
   if (r.heightJoin === 'au_open') return AU_OPEN_CITY_BBOXES.map((c) => c.bbox); // §AU-OPEN-HEIGHTS-OSM-JOIN — whole `victoria`, Melbourne LGA only
+  if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
   return null;
 }
 const bboxDeg2 = (bbox) => {
@@ -719,7 +731,7 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
   // a fabricated height.
   // §AU-OPEN-HEIGHTS-OSM-JOIN — `au_open` is listed FIRST, not last: mnhFr.spec.ts pins `'mds' || 'dhm' || 'lod2nrw' || 'mnh_fr'`
   // and swissWiring.spec.ts pins `'mnh_fr' || 'swiss')` as contiguous text, so the only insertion point that breaks neither is the front.
-  if (r.heightJoin === 'au_open' || r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw' || r.heightJoin === 'mnh_fr' || r.heightJoin === 'swiss') {
+  if (r.heightJoin === '3dbag' || r.heightJoin === 'au_open' || r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw' || r.heightJoin === 'mnh_fr' || r.heightJoin === 'swiss') {
     const stamped = resolve(OUT, `${r.name}-buildings-stamped.geojsonseq`);
     const wsen = r.bbox.split(',').map(Number);
     // §MDS = whole `spain` (many populated raster tiles); §DHM = whole `denmark`. Give the national bbox
@@ -736,7 +748,8 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     // joins pass none.
     const priorityBboxes = r.heightJoin === 'mds' ? MDS_CITY_BBOXES.map((c) => c.bbox)
       : r.heightJoin === 'mnh_fr' ? MNH_FR_CITY_BBOXES.map((c) => c.bbox)
-        : [];
+        : r.heightJoin === '3dbag' ? NL_3DBAG_CITY_BBOXES.map((c) => c.bbox)
+          : [];
     // §HEIGHT-STAMP-BUDGET (L-659) — the bboxes the join may HOLD footprints for. `null` keeps the
     // whole region (city-sized regions: unchanged). A whole-country region gets its city list, so the
     // join's heap tracks the cities, not the nation — the fix for run 30693132326's OOM. Footprints
@@ -756,6 +769,10 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
       // Melbourne's LoD1 components, collapsed to one metre per OSM footprint. Retained working set = AU_OPEN_CITY_BBOXES,
       // so every held footprint is visited (no priority list needed, as swiss).
       else if (r.heightJoin === 'au_open') res = await stampAuOpenHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
+      // §NL-3DBAG-OSM-JOIN — vectors, not a raster: one keyless WFS GetFeature per populated 0.01° cell (a 2,443-pand
+      // Amsterdam cell answers whole, 1.9 MB / 0.6 s), joined to bake's footprints by majority-inside / centroid-in-part.
+      // Same option shape as mds / mnh_fr: priority = retained = NL_3DBAG_CITY_BBOXES, so every held footprint is stamped uncapped.
+      else if (r.heightJoin === '3dbag') res = await stampNl3dbagHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes, retainBboxes });
       else res = await stampLod2NrwHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
     } catch (e) {
       res = { status: 'error', reason: e.message };
