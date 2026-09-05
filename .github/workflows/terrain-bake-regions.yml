@@ -194,11 +194,22 @@ jobs:
           SRC="tools/context-bake/out/terrain/$REGION"
           # Additive sync (no --delete): each shard owns a disjoint slice of terrain/<slug>/; a re-bake
           # overwrites in place and the client's ?v= stamp (TERRAIN_TILESET_VERSION) busts caches.
-          aws s3 sync "$SRC" "s3://pryzm-assets/tiles/terrain/$REGION" \
+          # §R2-PUBLISH-RETRY (2026-09-05) — four Norway shards syncing the SAME prefix at once tripped
+          # R2's per-object concurrency limit on ListObjectsV2 ("ServiceUnavailable … Reduce your
+          # concurrent request rate for the same object", run 33964610420 shard 0/4) after a SUCCESSFUL
+          # bake. The sync is idempotent, so retry with backoff instead of failing the shard.
+          attempt=0
+          until aws s3 sync "$SRC" "s3://pryzm-assets/tiles/terrain/$REGION" \
             --endpoint-url "$ENDPOINT" --no-progress \
             --exclude '*' --include '*.terrain' \
             --content-type 'application/vnd.quantized-mesh' \
-            --cache-control 'public, max-age=86400'
+            --cache-control 'public, max-age=86400'; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 5 ]; then echo "::error::$REGION shard $SHARD: s3 sync failed 5 times"; exit 1; fi
+            wait_s=$((20 * attempt * attempt))
+            echo "::warning::$REGION shard $SHARD: s3 sync failed (attempt $attempt) — R2 rate limit or transient; retrying in ${wait_s}s"
+            sleep "$wait_s"
+          done
           if [ -f "$SRC/layer.json" ]; then
             aws s3 cp "$SRC/layer.json" "s3://pryzm-assets/tiles/terrain/$REGION/layer.json" \
               --endpoint-url "$ENDPOINT" --no-progress \
