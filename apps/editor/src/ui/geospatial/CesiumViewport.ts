@@ -197,6 +197,7 @@ import {
   resolveTerrainTransition, attachOutcomeStillHolds, describeTerrainTransition,
   type TerrainAttachOutcome, type TerrainProviderState,
 } from "./terrainProviderTransition";
+import { terrainTilesetCoversSite } from './terrainTilesetCoverage';
 // §FORMA-FALLBACK-KEY-IS-LOCAL (L-12920) — the night-time study key, expressed in the site's ENU
 // frame (pure), so the ground is lit at every longitude, not only near Europe.
 import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
@@ -7788,6 +7789,17 @@ export class CesiumViewport {
           // §TERRAIN-NORMALS (L-636) — request the baked Oct-Encoded Per-Vertex Normals so the globe can
           // slope-shade relief under enableLighting. Without normals every slope paints the flat baseColor →
           // high-relief cities (Madrid/Zürich) render as a featureless white mask while flat cities look fine.
+          // §TERRAIN-TILESET-BOUNDS-CHECK (L-12923) — a candidate whose OWN layer.json bounds do not contain
+          // the site is skipped BY NAME before it is attached. The Dutch city tilesets are ~250 m AHN patches:
+          // amsterdam's bounds are [4.8864, 52.3689, 4.8902, 52.3712]; a canal 1 km away is inside the
+          // resolver's city bbox, so the patch 'succeeded' and Cesium had only the coarse placeholder plate
+          // at ~44.5 m there — water seated at base + 0.03 = 43.63 m vanished under it. The complete national
+          // tileset was never tried. A layer.json without bounds cannot refuse (older bakes).
+          const coverage = await terrainTilesetCoversSite(url, lon, lat);
+          if (!coverage.covers) {
+            console.warn(`[CesiumViewport][terrain] §TERRAIN-TILESET-BOUNDS-CHECK (L-12923) '${slug}' declares bounds [${coverage.bounds.map((n) => n.toFixed(4)).join(', ')}] which do NOT cover lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} — skipping by name, trying the next candidate.`);
+            continue;
+          }
           provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: true });
           attachedSlug = slug;
           attachedUrl = url;
