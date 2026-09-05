@@ -249,14 +249,18 @@ function shoelaceArea(poly: ReadonlyArray<readonly [number, number]>): number {
 
 /**
  * Split a [lon,lat] ring into axis-aligned grid cells of ~`pieceM` edge (grown until the count
- * fits `GROUND_DRAPE_MAX_PIECES_PER_FEATURE`), each returned as a CLOSED [lon,lat] ring with its
- * own seat point. Cells with < 1 m² of the polygon are dropped (clip slivers). A ring that fits in
+ * fits `GROUND_DRAPE_MAX_PIECES_PER_FEATURE`), each returned as a CLOSED [lon,lat] ring under
+ * `coords` — the SAME field name `splitCorridorIntoSegments` returns, because the viewport consumes
+ * both through one `piece.coords` path. It returned `ring` until the lane typecheck caught it: the
+ * consumer read `p.coords`, got `undefined`, and every SPLIT polygon threw inside the per-piece
+ * try/catch and vanished — i.e. the grey landuse would have DISAPPEARED on exactly the Lisbon slope
+ * this lane exists to fix. Two names for one field is a defect factory; there is now one name. Cells with < 1 m² of the polygon are dropped (clip slivers). A ring that fits in
  * one cell comes back as itself — the caller then has nothing to split.
  */
 export function splitRingIntoGridCells(
     ring: ReadonlyArray<LonLat>,
     pieceM: number = GROUND_DRAPE_SPLIT_PIECE_M,
-): Array<{ ring: LonLat[]; seat: LatLon }> {
+): Array<{ coords: LonLat[]; seat: LatLon }> {
     const origin = polygonSeatPoint(ring);
     if (!origin) return [];
     const open = ring.length > 1 && ring[0]![0] === ring[ring.length - 1]![0] && ring[0]![1] === ring[ring.length - 1]![1]
@@ -275,7 +279,7 @@ export function splitRingIntoGridCells(
     }
     const x0 = Math.floor(minX / cell) * cell;
     const y0 = Math.floor(minY / cell) * cell;
-    const out: Array<{ ring: LonLat[]; seat: LatLon }> = [];
+    const out: Array<{ coords: LonLat[]; seat: LatLon }> = [];
     for (let gx = x0; gx < maxX; gx += cell) {
         for (let gy = y0; gy < maxY; gy += cell) {
             const clipped = clipPolygonToRect(local, gx, gy, gx + cell, gy + cell);
@@ -284,7 +288,7 @@ export function splitRingIntoGridCells(
             lonlat.push(lonlat[0]!);
             const seat = polygonSeatPoint(lonlat);
             if (!seat) continue;
-            out.push({ ring: lonlat, seat });
+            out.push({ coords: lonlat, seat });
         }
     }
     return out;

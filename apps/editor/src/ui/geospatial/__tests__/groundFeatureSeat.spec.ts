@@ -188,11 +188,11 @@ describe('splitting a feature into per-seat pieces', () => {
             for (let i = 0; i < l.length - 1; i++) a += l[i]![0] * l[i + 1]![1] - l[i + 1]![0] * l[i]![1];
             return Math.abs(a) / 2;
         };
-        const total = cells.reduce((s, c) => s + area(c.ring), 0);
+        const total = cells.reduce((s, c) => s + area(c.coords), 0);
         expect(total).toBeCloseTo(area(ring), -1);   // within ~5 m² of 90 000 m²
         const seats = new Set(cells.map((c) => `${c.seat.lat.toFixed(7)},${c.seat.lon.toFixed(7)}`));
         expect(seats.size).toBe(cells.length);
-        for (const c of cells) expect(c.ring[0]).toEqual(c.ring[c.ring.length - 1]);   // closed
+        for (const c of cells) expect(c.coords[0]).toEqual(c.coords[c.coords.length - 1]);   // closed
     });
 
     it('a city-wide polygon is BOUNDED: the cell grows until the count fits the cap', () => {
@@ -219,5 +219,22 @@ describe('splitting a feature into per-seat pieces', () => {
         const short: LonLat[] = [[-9.14, 38.71], [-9.1399, 38.71]];
         expect(splitCorridorIntoSegments(short, 60).length).toBe(1);
         expect(splitCorridorIntoSegments([[1, 1]], 60)).toEqual([]);
+    });
+    it('BOTH splitters return their geometry under the SAME field name (`coords`)', () => {
+        // Regression, caught by the lane typecheck: `splitRingIntoGridCells` returned `ring` while
+        // `splitCorridorIntoSegments` returned `coords`, and `resolveGroundDrapePieces` consumes both
+        // through one `piece.coords`. A split polygon therefore reached the loader with
+        // `coords: undefined`, threw inside the per-piece try/catch and was DROPPED — the founder's
+        // grey landuse would have vanished on the hill instead of lying on it.
+        const dLon = 300 / (111320 * Math.cos((38.71 * Math.PI) / 180));
+        const dLat = 300 / 110574;
+        const ring: LonLat[] = [[-9.14, 38.71], [-9.14 + dLon, 38.71], [-9.14 + dLon, 38.71 + dLat], [-9.14, 38.71 + dLat], [-9.14, 38.71]];
+        const cell = splitRingIntoGridCells(ring, 60)[0]!;
+        const seg = splitCorridorIntoSegments([[-9.14, 38.71], [-9.14 + dLon, 38.71]], 60)[0]!;
+        for (const piece of [cell, seg]) {
+            expect(Array.isArray(piece.coords)).toBe(true);
+            expect(piece.coords.length).toBeGreaterThanOrEqual(2);
+            expect(piece).not.toHaveProperty('ring');
+        }
     });
 });
