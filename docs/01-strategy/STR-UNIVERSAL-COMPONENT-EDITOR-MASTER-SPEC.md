@@ -329,3 +329,36 @@ architecture · 10. code API/DSL recommendation · 11. risks and unresolved arch
 
 > *"The biggest risk here isn't that the editor won't be powerful enough; it's that you accidentally
 > create a beautiful editor whose internal model is too weak to become the PRYZM World Model."*
+
+## §82 THE FOUNDER'S DEFINITION OF DONE — captured 2026-09-05, verbatim first, then made testable
+
+> *"The edit component / creation is NOT finished — we need to be able to create reference lines,
+> planes, geometry shapes, dimensions, both in 2D and 3D, etc. It is like a Revit family editor /
+> creator for the new BIM 3.0 world / world-models-ready."* — founder, 2026-09-05, after the
+> 2026-09-04 fleet reported the lane closed.
+
+**Baseline the day this was written** (`docs/03-execution/plans/UCE-REACHABILITY-AUDIT.md`, measured):
+the MODEL layer works end to end through the ordinary pipeline; a PLACED component draws NOTHING
+(`ComponentCommitter` unmounted); an authored DEFINITION dies on reload; ONE solid kind bakes
+(`extrude` along +Y, plus `box`) while `sweep`/`loft`/`revolve`/`boolean` refuse honestly; five real
+constraint creators and a 2-D sketcher (`apps/component-editor/src/sketch/`, coincident · distance ·
+fixed · parallel · perpendicular) exist **on an application no user can open** — no server route, absent
+from the production bundle; code authoring (§46–56) absent. **So "not finished" is measured, not felt.**
+
+**Done means all of the following are REACHABLE by a user in the product, not authored in a package:**
+
+| # | Capability the founder named | Spec home | Acceptance (a test a user could perform) |
+|---|---|---|---|
+| 82.1 | **Reference planes** — named, on any work plane, carrying parameters | §14–15, §57–62 | Create a reference plane in a 2-D view; it is visible in the 3-D view; rename it; dimension to it. |
+| 82.2 | **Reference lines** — sketched, angle-parametrisable | §14–15 | Sketch a reference line; constrain a form edge to it; change its angle parameter; the form follows. |
+| 82.3 | **Dimensions that DRIVE** — a dimension between two references is labelled with a parameter; the parameter regenerates geometry (§12 parametric after placement) | §9–12, §14 | Dimension two reference planes, label it `W`; set `W=1200`; the extrusion between them is 1200 mm in 3-D. |
+| 82.4 | **Geometry forms** — extrusion on ANY work plane (not +Y only), revolve, sweep, blend/loft, and a VOID cut; sketch-based | §16–20 | Each form kind bakes to a mesh the viewport draws; `boolean` void subtracts; a refused kind still refuses honestly (§75) but there is no kind left refusing. |
+| 82.5 | **2-D AND 3-D** of the SAME definition — plan / elevation / section views plus the 3-D view, inside PRYZM (not a separate app) | §21–22, §57 | Switch views of one family; a reference plane edited in elevation moves in plan and 3-D. |
+| 82.6 | **A placed instance renders** with true parametric geometry | §21, ADR-0376 D10 | Place; it draws; change a type parameter; it regenerates in place; undo works (C03). |
+| 82.7 | **The definition persists** across reload and travels with the project | §34–38 | Author, reload, the family is still in the catalogue and its instances still resolve. |
+| 82.8 | **SYSTEM families** — layered/typed systems (wall types, curtain systems) authored in the same editor | §23–25 | Author a layered wall type; place a wall of that type; the layers are real geometry (C84 EI). |
+
+**Ordering rule.** 82.6 and 82.7 unblock everything a user can SEE, so they come first; 82.1–82.4 are one
+program (the sketch + constraint + form pipeline the unreachable app already half-holds); 82.5 rides on
+the view system the editor already has; 82.8 is last because it needs C84's per-family contracts.
+**§75 still binds: a form kind that cannot bake refuses with the kind named; no capability is faked.**
