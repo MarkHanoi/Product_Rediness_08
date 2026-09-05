@@ -18,7 +18,9 @@
  *      so it appears in the AnnotationRenderLayer at the left end of the datum line.
  *
  * Contract compliance:
- *   §01 §5  — pure service; no direct store mutations; uses CreateAnnotationCommand.
+ *   §01 §5 / C03 §P6 — pure service; no direct store mutations. The label is written
+ *              through the typed bus verb `annotation.create` (via `persistAnnotation`),
+ *              never through the legacy CommandManager.
  *   §02 §1.4 — level elevation always from bimManager.getLevels(); never cached.
  *   §05     — no DOM, no BIM-UI components.
  *
@@ -32,7 +34,7 @@ import * as OBC from '@thatopen/components';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef } from '../subsystem/AnnotationReference';
-import { CreateAnnotationCommand } from '../commands/CreateAnnotationCommand';
+import { persistAnnotation } from './persistAnnotation';
 
 /** ISO 13567 DXF layer for level datum lines and annotations. */
 const LEVEL_LAYER = 'A-ANNO-LEVL';
@@ -72,7 +74,6 @@ export class LevelDatumLineBuilder {
         // Determine the horizontal span direction in world space.
         const spanDir = this._computeSpanDirection(viewDef);
 
-        const commandManager = window.commandManager; // TODO(TASK-06)
         let injectedCount = 0;
 
         for (const level of levels) {
@@ -109,7 +110,7 @@ export class LevelDatumLineBuilder {
             // Dispatch CreateAnnotationCommand for the elevation label.
             // Reference point is the world-space left end of the datum line.
             // AnnotationRenderLayer projects this to screen and renders the label text.
-            if (commandManager && typeof commandManager.execute === 'function') {
+            {
                 const labelText = this._formatElevation(worldY);
                 const refPoint = makePointRef(new THREE.Vector3(p0.x, worldY, p0.z));
                 refPoint.cachedPosition = { x: p0.x, y: worldY, z: p0.z };
@@ -125,14 +126,9 @@ export class LevelDatumLineBuilder {
                         elevationLabel: labelText,
                     },
                 );
-                try {
-                    // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-                    // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-                    commandManager.execute(new CreateAnnotationCommand(ann));
-                } catch (err) {
-                    // Non-fatal — datum lines in TechnicalDrawing are already injected.
-                    console.warn('[LevelDatumLineBuilder] CreateAnnotationCommand failed:', err);
-                }
+                // C03 §P6 — the typed bus verb is the write path. Non-fatal when the
+                // bus is not up yet: the datum linework is already in the TechnicalDrawing.
+                persistAnnotation(ann);
             }
 
             injectedCount++;

@@ -7,8 +7,32 @@
  */
 
 import { AnnotationElement } from './subsystem/AnnotationTypes';
-import { UpdateAnnotationCommand } from './commands/UpdateAnnotationCommand';
-import { DeleteAnnotationCommand } from './commands/DeleteAnnotationCommand';
+
+/**
+ * C03 §P6 — dispatch one typed bus verb and report a refusal.
+ *
+ * ⚠ THIS PANEL USED TO DOUBLE-DISPATCH, and the two halves disagreed. `_delete()`
+ * fired `annotation.delete` with `{ id }` — a key `DeleteAnnotationHandler.canExecute`
+ * does not read, so that dispatch was ALWAYS refused — and then ran the legacy
+ * `DeleteAnnotationCommand`, which is what actually deleted. The bus leg looked wired
+ * and did nothing. One verb, the correct payload key, and the refusal is surfaced.
+ */
+function dispatch(type: string, payload: Record<string, unknown>): boolean {
+    const bus = typeof window !== 'undefined' ? window.runtime?.bus : undefined;
+    if (!bus || typeof bus.executeCommand !== 'function') {
+        console.warn(`[DimensionPropertiesPanel] command bus unavailable — ${type} not dispatched`);
+        return false;
+    }
+    try {
+        void Promise.resolve(bus.executeCommand(type, payload)).catch(
+            (err: unknown) => console.error(`[DimensionPropertiesPanel] ${type} refused:`, err),
+        );
+        return true;
+    } catch (err) {
+        console.error(`[DimensionPropertiesPanel] ${type} dispatch failed:`, err);
+        return false;
+    }
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
     const e = document.createElement(tag);
@@ -20,7 +44,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 export class DimensionPropertiesPanel {
     readonly element: HTMLDivElement;
     private _ann: AnnotationElement | null = null;
-    private _commandManager: any = null;
     private _distanceDisplay!: HTMLDivElement;
     private _unitSelect!:      HTMLSelectElement;
     private _textSizeInput!:   HTMLInputElement;
@@ -41,7 +64,12 @@ export class DimensionPropertiesPanel {
         this._build();
     }
 
-    setCommandManager(cmdMgr: any): void { this._commandManager = cmdMgr; }
+    /**
+     * @deprecated C03 §P6 — retained for call-site compatibility only. The panel
+     * resolves the runtime command bus at dispatch time; a legacy CommandManager
+     * handed here is ignored, never stored, and never called.
+     */
+    setCommandManager(_cmdMgr: unknown): void { /* no-op — see @deprecated above */ }
 
     show(ann: AnnotationElement): void { this._ann = ann; this._populate(ann); this.element.style.display = 'flex'; }
     hide(): void { this._ann = null; this.element.style.display = 'none'; }
@@ -149,22 +177,22 @@ export class DimensionPropertiesPanel {
     }
 
     private _apply(): void {
-        if (!this._ann || !this._commandManager) return;
-        const patch: Partial<AnnotationElement> = {
+        if (!this._ann) return;
+        // `annotation.update` MERGES both maps onto the canonical element, and the
+        // panel already builds each one merged over the element it is showing — so
+        // the resulting record is what the legacy UpdateAnnotationCommand produced.
+        dispatch('annotation.update', {
+            annotationId: this._ann.id,
             parameters: { ...this._ann.parameters, unit: this._unitSelect.value, prefix: this._prefixInput.value || undefined, suffix: this._suffixInput.value || undefined, override: this._overrideInput.value || undefined, isLocked: this._lockedCheck.checked, constraintType: this._constraintSelect.value },
             style: { ...this._ann.style, textSizeMm: parseFloat(this._textSizeInput.value) || 2.5, arrowStyle: this._arrowSelect.value as any, lineColor: this._lineColorInput.value, textColor: this._textColorInput.value },
-        };
-        const cmd = new UpdateAnnotationCommand(this._ann.id, patch);
-        this._commandManager.execute(cmd);
+        });
         console.log('[DimensionPropertiesPanel] Applied changes to dimension:', this._ann.id);
     }
 
     private _delete(): void {
-        if (!this._ann || !this._commandManager) return;
+        if (!this._ann) return;
         const annId = this._ann.id;
-        const cmd = new DeleteAnnotationCommand(annId);
-        if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.delete', { id: annId }).catch(() => {}); }
-        this._commandManager.execute(cmd);
+        dispatch('annotation.delete', { annotationId: annId });
         console.log('[DimensionPropertiesPanel] Deleted dimension:', annId);
         this.hide();
     }

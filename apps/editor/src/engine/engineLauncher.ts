@@ -555,10 +555,12 @@ export async function bootstrap(
 
     // ── Post-tools wiring ─────────────────────────────────────────────────────
     try {
-        const eps = window.edgeProjectorService, cmdMgr = commandManagerRef.current;
-        if (eps && roofStore && cmdMgr && bimManager) {
+        // C14 §3 — RoofSlopeSymbolBuilder no longer takes a CommandManager: it writes
+        // through the `annotation.create` bus verb it was already dispatching.
+        const eps = window.edgeProjectorService;
+        if (eps && roofStore && bimManager) {
             const { RoofSlopeSymbolBuilder } = await import('@pryzm/geometry-roof');
-            eps.setRoofSlopeSymbolBuilder(new RoofSlopeSymbolBuilder(roofStore, bimManager, cmdMgr));
+            eps.setRoofSlopeSymbolBuilder(new RoofSlopeSymbolBuilder(roofStore, bimManager));
             console.log('[EngineBootstrap] §ROOF-AUDIT §5.4: RoofSlopeSymbolBuilder wired.');
         }
     } catch (err) { console.error('[EngineBootstrap] RoofSlopeSymbolBuilder wiring failed:', err); }

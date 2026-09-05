@@ -21,7 +21,8 @@
  *
  * CONTRACT COMPLIANCE:
  *   §05 §7.8 — No bim-* / @thatopen/ui elements anywhere
- *   §01 §2   — ID generation here (not inside execute()); CommandManager.execute() is the only write path
+ *   §01 §2 / C03 §P6 — ID generation here (not inside the handler); the typed bus verb
+ *              `annotation.create` (via `persistAnnotation`) is the only write path
  *   §01 §5   — No direct store writes; WallFaceDetector read is pure (no mutations)
  *   §03      — WallData is read-only via wallStore.getById(); no writes to WallStore
  *
@@ -41,7 +42,7 @@ import {
     StableReference,
 } from '../subsystem/AnnotationReference';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
-import { CreateAnnotationCommand } from '../commands/CreateAnnotationCommand';
+import { persistAnnotation } from './persistAnnotation';
 import { detectWallFace, WallFaceHit, WallFaceType } from '../plantools/WallFaceDetector';
 import { formatDimension, DimensionUnit } from '../subsystem/DimensionFormatter';
 import { LinearDimOptionsBar } from '../plantools/LinearDimOptionsBar';
@@ -102,7 +103,6 @@ const SEMANTIC_TYPES = [
 // LinearDimensionAnnotationTool — Phase III
 // ─────────────────────────────────────────────────────────────────────────────
 
-type CommandManager = { execute(cmd: unknown): void };
 
 export class LinearDimensionAnnotationTool {
     public isActive = false;
@@ -181,7 +181,6 @@ export class LinearDimensionAnnotationTool {
 
     constructor(
         private _components: OBC.Components,
-        private _commandManager: CommandManager,
         _store: AnnotationStore,
         private _resolverStores: ResolverStores
     ) { void _store; }
@@ -826,10 +825,10 @@ export class LinearDimensionAnnotationTool {
             }
         );
 
-        const cmd = new CreateAnnotationCommand(element);
-        // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-        // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-        this._commandManager.execute(cmd);
+        // C03 §P6 — the typed bus verb `annotation.create` carries the FULL element
+        // (§ANN-ONE-STORE rich-payload passthrough), so nothing is lost versus the
+        // legacy CreateAnnotationCommand this replaced.
+        persistAnnotation(element);
         console.log('[LinearDimAnnotationTool] Created dimension', id, 'in view', this._activeViewId);
     }
 
@@ -904,10 +903,8 @@ export class LinearDimensionAnnotationTool {
             }
         );
 
-        const cmd = new CreateAnnotationCommand(element);
-        // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-        // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-        this._commandManager.execute(cmd);
+        // C03 §P6 — see `_createDimension`; the string dimension takes the same path.
+        persistAnnotation(element);
         console.log(
             '[LinearDimAnnotationTool] Created string dimension', id,
             'with', chain.length, 'refs,', chain.length - 1, 'segments'

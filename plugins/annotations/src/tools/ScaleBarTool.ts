@@ -10,7 +10,10 @@
  *
  * Contract compliance:
  *   §05 §7.8 — No bim-* / @thatopen/ui elements
- *   §01 §2   — CreateAnnotationCommand dispatched through CommandManager
+ *   C03 §P6  — the annotation is written through the typed bus verb
+ *              `annotation.create` (via `persistAnnotation`), never through the
+ *              legacy CommandManager. §ANN-ONE-STORE's rich-payload passthrough
+ *              stores the full AnnotationElement verbatim in the canonical store.
  *   §01 §3.3 — AnnotationElement contains only plain serialisable primitives
  */
 
@@ -18,10 +21,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef } from '../subsystem/AnnotationReference';
-import { CreateAnnotationCommand } from '../commands/CreateAnnotationCommand';
+import { persistAnnotation } from './persistAnnotation';
 import { BIM_LAYER } from '@pryzm/plugin-sdk';   // FIX-SDK-BYPASS-BIM-LAYER (2026-08-30) - reach the platform through the L5 facade
-
-type CommandManager = { execute(cmd: unknown): { success: boolean; error?: unknown } };
 
 export interface ScaleBarToolOptions {
     scale?: number;
@@ -45,7 +46,6 @@ export class ScaleBarTool {
 
     constructor(
         private _components: OBC.Components,
-        private _commandManager: CommandManager,
     ) {}
 
     setActiveViewId(viewId: string | null): void { this._activeViewId = viewId; }
@@ -126,11 +126,10 @@ export class ScaleBarTool {
             },
         );
 
-        const result = this._commandManager.execute(new CreateAnnotationCommand(ann));
-        if (result.success) {
+        if (persistAnnotation(ann)) {
             console.log('[ScaleBarTool] Scale bar placed at', pt);
         } else {
-            console.error('[ScaleBarTool] CreateAnnotationCommand failed:', result.error);
+            console.error('[ScaleBarTool] annotation.create not dispatched — command bus unavailable');
         }
 
         this.deactivate();

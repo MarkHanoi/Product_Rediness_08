@@ -282,7 +282,6 @@ export class AnnotationManager {
         // Wire tools — Phase I–III
         this.linearDimTool = new LinearDimensionAnnotationTool(
             this._components,
-            this._commandManager,
             this.store,
             this._resolverStores
         );

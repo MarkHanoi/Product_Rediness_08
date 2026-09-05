@@ -24,8 +24,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { makeAnnotationElement } from '@pryzm/core-app-model';
 import { makePointRef } from '@pryzm/core-app-model';
-import { DeleteAnnotationCommand } from '@pryzm/command-registry';
-import { UpdateAnnotationCommand } from '@pryzm/command-registry';
 // §ROOMTAG-ONE-COMMAND (L-1396) — the composite that already existed. See `populate`.
 // Imported from `@pryzm/command-registry` (a DECLARED dependency of this package)
 // via the re-export shim, not from the plugin directly.
@@ -38,6 +36,40 @@ import { roomTagNeedsRefresh, desiredRoomLabel } from './roomTagIdempotency';
 
 type IAnnotationStoreLite = { getByView: (viewId: string) => any[] };
 type ICommandManagerLite  = { execute: (cmd: any) => any };
+
+/**
+ * §P6-BUS-IS-THE-PATH (C14 §3, 2026-09-04) — the DELETE and REFRESH legs of the tag
+ * lifecycle now dispatch typed bus verbs instead of the legacy command manager.
+ *
+ * ⚠ THE GATE'S OWN HEADER SAID THIS WAS BLOCKED, AND IT NO LONGER IS.
+ * `scripts/check/ci-check-no-commandmanager.mjs` recorded these sites as
+ * "REAL, UNFIXED production regressions … BLOCKED on unifying those two annotation
+ * stores", because `annotation.*` wrote an anchor-keyed `AnnotationsState` that
+ * nothing renders or persists. §ANN-ONE-STORE unified them: every `annotation.*`
+ * handler now projects through `canonicalAnnotationSink` into the SAME subsystem
+ * `annotationStore` these commands wrote, and `annotation.update` merges
+ * `parameters` exactly as the legacy `UpdateAnnotationCommand` replaced them here
+ * (the caller already spreads the existing map). The blocker is gone; the sites go.
+ *
+ * ⛔ THE CREATE LEG STAYS ON `CreateManyAnnotationsCommand` — deliberately.
+ * §ROOMTAG-ONE-COMMAND (L-1396) makes N room tags ONE dispatch and ONE undo entry.
+ * There is no `annotation.createMany` bus verb, and N × `annotation.create` would
+ * restore the defect that ticket removed: twenty-four Ctrl+Z presses to undo one
+ * automatic tag pass. A gate number is not worth re-opening it.
+ */
+function dispatchAnnotationVerb(type: string, payload: Record<string, unknown>): boolean {
+    const bus = typeof window !== 'undefined' ? (window as any).runtime?.bus : undefined;
+    if (!bus || typeof bus.executeCommand !== 'function') return false;
+    try {
+        void Promise.resolve(bus.executeCommand(type, payload)).catch(
+            (err: unknown) => console.warn(`[RoomTagAutoPopulator] ${type} refused:`, err),
+        );
+        return true;
+    } catch (err) {
+        console.warn(`[RoomTagAutoPopulator] ${type} dispatch failed:`, err);
+        return false;
+    }
+}
 
 export interface RoomTagAutoPopulatorDeps {
     roomStore?:        RoomStore;
@@ -87,16 +119,17 @@ export class RoomTagAutoPopulator {
                 roomTagNeedsRefresh((params ?? {}) as any, target.room),
         });
 
+        // The bus verb runs its own `canExecute` (which asks the CANONICAL store, not
+        // the derived ledger — see DeleteAnnotationHandler), so the pre-flight
+        // `cmd.canExecute({})` this loop used to do is now the handler's job.
         let removedOrphans = 0;
         for (const id of plan.orphanTagIds) {
-            const cmd = new DeleteAnnotationCommand(id);
-            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); removedOrphans++; }
+            if (dispatchAnnotationVerb('annotation.delete', { annotationId: id })) removedOrphans++;
         }
 
         let removedDuplicates = 0;
         for (const id of plan.duplicateTagIds) {
-            const cmd = new DeleteAnnotationCommand(id);
-            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); removedDuplicates++; }
+            if (dispatchAnnotationVerb('annotation.delete', { annotationId: id })) removedDuplicates++;
         }
 
         // §A.21.D25 — IDEMPOTENT REFRESH. Only tags whose room's label/area actually
@@ -118,17 +151,15 @@ export class RoomTagAutoPopulator {
             const desiredArea  = liveRoom.computed?.area;
             const existingTag  = tagsById.get(tagId);
             const p = existingTag?.parameters ?? {};
-            const cmd = new UpdateAnnotationCommand(tagId, {
-                parameters: {
-                    ...p,
-                    roomName:    liveRoom.name,
-                    roomNumber:  liveRoom.roomNumber,
-                    ...(typeof desiredArea === 'number' ? { area: desiredArea } : {}),
-                    cachedLabel: desiredLabel,
-                    ...(typeof desiredArea === 'number' ? { areaLabel: `${desiredArea.toFixed(1)} m²` } : {}),
-                },
-            } as any);
-            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); refreshed++; }
+            const refreshedParams = {
+                ...p,
+                roomName:    liveRoom.name,
+                roomNumber:  liveRoom.roomNumber,
+                ...(typeof desiredArea === 'number' ? { area: desiredArea } : {}),
+                cachedLabel: desiredLabel,
+                ...(typeof desiredArea === 'number' ? { areaLabel: `${desiredArea.toFixed(1)} m²` } : {}),
+            };
+            if (dispatchAnnotationVerb('annotation.update', { annotationId: tagId, parameters: refreshedParams })) refreshed++;
         }
 
         if (rooms.length === 0) {

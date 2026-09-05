@@ -5,30 +5,38 @@
  * `annotation.create` with a lossy `{ id, viewId, kind }` payload,
  * but only `LinearDimensionAnnotationTool` ALSO dispatched the legacy
  * `CreateAnnotationCommand` through `commandManager`. The bus handler
- * (`CreateAnnotationHandler`) writes an ANCHOR-KEYED Zustand `AnnotationsState`
- * store that carries only { id, viewId, kind } — NOT the subsystem
+ * (`CreateAnnotationHandler`) wrote an ANCHOR-KEYED Zustand `AnnotationsState`
+ * store that carried only { id, viewId, kind } — NOT the subsystem
  * `annotationStore` that `AnnotationRenderLayer` reads and `ProjectSerializer`
  * persists. As a result every non-linear annotation (angular/slope/radius/
  * diameter dims, text notes, all tags, spot elevations, keynotes, revision
  * clouds, grid bubbles) was computed, logged, then silently dropped — it never
  * rendered and never survived save/load.
  *
- * This helper writes the FULL AnnotationElement (with modelPoints, refs and
- * parameters) to the subsystem store via the authoritative command path.
+ * ⭐ §P6-BUS-IS-THE-PATH (2026-09-04) — THIS HELPER NOW DISPATCHES THE BUS VERB.
+ *
+ * The paragraph above is the reason it did NOT, and that reason is GONE:
+ * §ANN-ONE-STORE gave `annotation.create` a RICH-PAYLOAD PASSTHROUGH
+ * (`isFullElementPayload` → `sinkCreate`), so a full subsystem `AnnotationElement`
+ * handed to the bus verb is stored VERBATIM in the canonical `annotationStore` —
+ * the same store `CreateAnnotationCommand` wrote, with geometry2D / references /
+ * parameters / style intact. The lossy flat-schema flattening that made the bus
+ * verb unusable for tools no longer happens for this shape. `GridPlanToolHandler`
+ * and `TextNoteTool` already dispatch exactly this way.
+ *
+ * ⚠ THE RETURN VALUE MEANS "DISPATCHED", NOT "LANDED", and it always did — the
+ * legacy path returned true whenever `execute()` did not throw. `executeCommand`
+ * is async, so a REFUSAL now arrives as a rejected promise and is logged here
+ * rather than thrown at the caller. All thirteen production callers discard the
+ * boolean; it exists so a tool can tell "the command system is not up yet" from
+ * "the write was attempted".
  *
  * Contract compliance:
- *   §01 §2  — CommandManager.execute() is the only write path (P6: commands are
- *             the only mutation path). This gives the annotation an undo/redo
- *             entry, exactly like the linear-dimension tool.
- *   §01 §5  — No direct store writes here; the command owns the mutation.
- *
- * The command is resolved lazily off `window.commandManager` so tools that were
- * never given a CommandManager reference in their constructor need no signature
- * change. `window.commandManager` is the same instance passed to
- * AnnotationManager / LinearDimensionAnnotationTool (initTools.ts).
+ *   C03 §P6 — the typed bus verb is the mutation path; no store write here.
+ *   C16     — `<family>.<verb>` dispatch with a data payload.
+ *   C14 §3  — removes one of the last legacy-manager reads on the tool path.
  */
 
-import { CreateAnnotationCommand } from '../commands/CreateAnnotationCommand';
 import type { AnnotationElement } from '../subsystem/AnnotationTypes';
 
 /**
@@ -42,19 +50,27 @@ import type { AnnotationElement } from '../subsystem/AnnotationTypes';
  * @returns true when the command was dispatched, false otherwise.
  */
 export function persistAnnotation(element: AnnotationElement): boolean {
-    const cm = typeof window !== 'undefined' ? window.commandManager : undefined;
-    if (!cm || typeof cm.execute !== 'function') {
+    const bus = typeof window !== 'undefined' ? window.runtime?.bus : undefined;
+    if (!bus || typeof bus.executeCommand !== 'function') {
         console.warn(
-            '[persistAnnotation] §G9-PERSIST: window.commandManager unavailable — ' +
+            '[persistAnnotation] §G9-PERSIST: runtime command bus unavailable — ' +
             `annotation ${element.id} (${element.type}) not persisted`,
         );
         return false;
     }
     try {
-        cm.execute(new CreateAnnotationCommand(element));
+        // The canonical store write happens on THIS stack (the handler runs before
+        // `executeCommand` first awaits); the promise carries the event record, the
+        // undo entry and any refusal. A refusal is logged, never swallowed.
+        void Promise.resolve(bus.executeCommand('annotation.create', element)).catch(
+            (err: unknown) => console.error(
+                '[persistAnnotation] §G9-PERSIST: annotation.create refused for ' +
+                `${element.id} (${element.type}):`, err,
+            ),
+        );
         return true;
     } catch (err) {
-        console.error('[persistAnnotation] §G9-PERSIST: CreateAnnotationCommand failed:', err);
+        console.error('[persistAnnotation] §G9-PERSIST: annotation.create dispatch failed:', err);
         return false;
     }
 }

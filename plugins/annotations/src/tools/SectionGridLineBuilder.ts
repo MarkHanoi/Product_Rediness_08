@@ -23,7 +23,9 @@
  *   When a grid's plane is parallel to the section normal it is not visible → skip.
  *
  * Contract compliance:
- *   §01 §5  — pure service; no direct store mutations; uses CreateAnnotationCommand.
+ *   §01 §5 / C03 §P6 — pure service; no direct store mutations. The bubble label is
+ *              written through the typed bus verb `annotation.create` (via
+ *              `persistAnnotation`), never through the legacy CommandManager.
  *   §02 §1.4 — grids always from bimManager.getGrids(); never cached here.
  *   §05     — no DOM, no BIM-UI components.
  *
@@ -38,7 +40,7 @@ import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { Grid } from '@pryzm/core-app-model';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef } from '../subsystem/AnnotationReference';
-import { CreateAnnotationCommand } from '../commands/CreateAnnotationCommand';
+import { persistAnnotation } from './persistAnnotation';
 
 /** ISO 13567 DXF layer for structural grid lines in section/elevation. */
 const GRID_LAYER = 'S-GRID';
@@ -81,7 +83,6 @@ export class SectionGridLineBuilder {
         const nz = rawNormal[2];
         const constant = sp?.constant ?? 0;
 
-        const commandManager = window.commandManager; // TODO(TASK-06)
         let injectedCount = 0;
 
         for (const grid of grids) {
@@ -107,7 +108,7 @@ export class SectionGridLineBuilder {
             drawing.addProjectionLines(projected, GRID_LAYER);
 
             // Dispatch CreateAnnotationCommand for the bubble label at the top of the grid line.
-            if (commandManager && typeof commandManager.execute === 'function') {
+            {
                 // Reference point is the world-space top of the vertical line.
                 const topPoint = new THREE.Vector3(cx, HALF_HEIGHT, cz);
                 const refPoint = makePointRef(topPoint);
@@ -124,14 +125,9 @@ export class SectionGridLineBuilder {
                         gridLabel: grid.name,
                     },
                 );
-                try {
-                    // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-                    // P13 (A36): typed payload so AnnotationsState receives the correct id/viewId/kind.
-                    commandManager.execute(new CreateAnnotationCommand(ann));
-                } catch (err) {
-                    // Non-fatal — grid linework in TechnicalDrawing is already injected.
-                    console.warn('[SectionGridLineBuilder] CreateAnnotationCommand failed:', err);
-                }
+                // C03 §P6 — the typed bus verb is the write path. Non-fatal when the
+                // bus is not up yet: the grid linework is already in the TechnicalDrawing.
+                persistAnnotation(ann);
             }
 
             injectedCount++;

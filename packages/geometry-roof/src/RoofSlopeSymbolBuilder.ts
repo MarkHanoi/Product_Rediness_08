@@ -17,11 +17,12 @@
  *      b. Arrow direction = normalize(edgeMidpoint – centroid) [outward = downslope].
  *      c. Build shaft (centroid → 70% of distance toward midpoint) + arrowhead V.
  *      d. Inject LineSegments on A-ROOF layer.
- *   4. Dispatch CreateAnnotationCommand('roof-slope-arrow') once per roof at centroid
+ *   4. Dispatch `annotation.create` ('roof-slope-arrow') once per roof at centroid
  *      so the AnnotationRenderLayer renders the slope ratio label.
  *
  * Contract compliance:
- *   §01 §5  — pure service; no direct store mutations; uses CreateAnnotationCommand.
+ *   §01 §5 / C03 §P6 — pure service; no direct store mutations; the write is the
+ *             typed bus verb `annotation.create`.
  *   §02 §1.4 — level elevation from bimManager.getLevelById(); never cached.
  *   §05     — no DOM, no BIM-UI components.
  *   §07 R-9 — §ROOF-SYSTEM-AUDIT-2026 §5.4: all dependencies (roofStore,
@@ -39,7 +40,6 @@ import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { RoofData } from './RoofTypes.js';
 import { makeAnnotationElement } from '@pryzm/core-app-model';
 import { makePointRef } from '@pryzm/core-app-model';
-import { CreateAnnotationCommand } from '@pryzm/command-registry';
 
 /** ISO 13567 DXF layer for roof slope annotations. */
 const ROOF_LAYER = 'A-ROOF';
@@ -69,21 +69,21 @@ interface BimManagerLike {
     getLevelById(id: string): { elevation: number } | undefined;
 }
 
-/** Minimal CommandManager surface this builder requires. */
-interface CommandManagerLike {
-    execute(command: unknown): unknown;
-}
-
 export class RoofSlopeSymbolBuilder {
     /**
-     * @param roofStore       PRYZM roof data store — read-only.
-     * @param bimManager      Spatial authority for level elevations (§02 §1.4).
-     * @param commandManager  Command bus for dispatching CreateAnnotationCommand.
+     * @param roofStore   PRYZM roof data store — read-only.
+     * @param bimManager  Spatial authority for level elevations (§02 §1.4).
+     *
+     * ⚠ The third `commandManager` parameter is GONE (C14 §3, 2026-09-04). This class
+     * dispatched the slope label TWICE — once through `annotation.create` on the bus
+     * and once through the legacy `CreateAnnotationCommand` — for the SAME element id.
+     * `sinkCreate` is idempotent by id (§ANN-ONE-STORE), so the legacy leg was already
+     * a no-op on the second write; removing it changes nothing the user can observe
+     * and removes one legacy-manager call site.
      */
     constructor(
         private readonly roofStore:      RoofStoreLike,
         private readonly bimManager:     BimManagerLike,
-        private readonly commandManager: CommandManagerLike,
     ) {}
 
     /**
@@ -184,7 +184,7 @@ export class RoofSlopeSymbolBuilder {
                 drawing.addProjectionLines(projected, ROOF_LAYER);
             }
 
-            // Dispatch ONE CreateAnnotationCommand per roof for the slope label at the centroid.
+            // Dispatch ONE `annotation.create` per roof for the slope label at the centroid.
             const label = this._formatSlope(slope);
             const refPoint = makePointRef(new THREE.Vector3(cx, worldY, cz));
             refPoint.cachedPosition = { x: cx, y: worldY, z: cz };
@@ -202,11 +202,16 @@ export class RoofSlopeSymbolBuilder {
                 },
             );
             try {
-                // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-                if (window.runtime?.bus) { window.runtime.bus.executeCommand('annotation.create', ann).catch(() => {}); }
-                this.commandManager.execute(new CreateAnnotationCommand(ann));
+                // C03 §P6 — the bus verb carries the FULL AnnotationElement (§ANN-ONE-STORE
+                // rich-payload passthrough), so it lands verbatim in the canonical store.
+                if (window.runtime?.bus) {
+                    window.runtime.bus.executeCommand('annotation.create', ann)
+                        .catch((err: unknown) => console.warn('[RoofSlopeSymbolBuilder] annotation.create refused:', err));
+                } else {
+                    console.warn('[RoofSlopeSymbolBuilder] command bus unavailable — slope label not persisted');
+                }
             } catch (err) {
-                console.warn('[RoofSlopeSymbolBuilder] CreateAnnotationCommand failed:', err);
+                console.warn('[RoofSlopeSymbolBuilder] annotation.create dispatch failed:', err);
             }
 
             injectedCount++;

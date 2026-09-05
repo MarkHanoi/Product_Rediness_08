@@ -16,8 +16,7 @@ import * as OBC from '@thatopen/components';
 // import — that would grow the sdk-bypass ratchet).
 import { obcAnnotationIdMap } from '@pryzm/plugin-sdk';
 import { makeAnnotationElement } from './subsystem/AnnotationTypes';
-import { CreateAnnotationCommand } from './commands/CreateAnnotationCommand';
-import { DeleteAnnotationCommand } from './commands/DeleteAnnotationCommand';
+import { persistAnnotation } from './tools/persistAnnotation';
 
 export class OBCAnnotationAdapter {
     private _currentDrawing: OBC.TechnicalDrawing | null = null;
@@ -179,22 +178,33 @@ export class OBCAnnotationAdapter {
         }
     }
 
+    // C03 §P6 — deletes go through the typed bus verb `annotation.delete`, whose
+    // handler projects into the CANONICAL annotation store via §ANN-ONE-STORE's sink.
+    // ⚠ The payload key is `annotationId`, not `id` — `DeleteAnnotationHandler.canExecute`
+    // reads that field and refuses anything else.
     private _handleDelete(uuids: string[]): void {
-        const cm = window.commandManager; // TODO(TASK-06)
-        if (!cm) { console.warn('[OBCAnnotationAdapter] commandManager not available for delete'); return; }
+        const bus = window.runtime?.bus;
+        if (!bus) { console.warn('[OBCAnnotationAdapter] command bus not available for delete'); return; }
         for (const uuid of uuids) {
             const annotationId = obcAnnotationIdMap.get(uuid);
             if (!annotationId) continue;
-            try { cm.execute(new DeleteAnnotationCommand(annotationId)); obcAnnotationIdMap.delete(uuid); }
+            try {
+                void Promise.resolve(bus.executeCommand('annotation.delete', { annotationId })).catch(
+                    (err: unknown) => console.error(`[OBCAnnotationAdapter] annotation.delete refused for uuid=${uuid}:`, err),
+                );
+                obcAnnotationIdMap.delete(uuid);
+            }
             catch (err) { console.error(`[OBCAnnotationAdapter] Delete dispatch failed for uuid=${uuid}:`, err); }
         }
     }
 
     private _dispatchCreate(dto: ReturnType<typeof makeAnnotationElement>): void {
-        const cm = window.commandManager; // TODO(TASK-06)
-        if (!cm) { console.warn('[OBCAnnotationAdapter] commandManager not available — annotation not committed'); return; }
-        try { cm.execute(new CreateAnnotationCommand(dto)); console.log(`[OBCAnnotationAdapter] DOC-2.1: dispatched CreateAnnotationCommand type=${dto.type} id=${dto.id}`); }
-        catch (err) { console.error('[OBCAnnotationAdapter] CreateAnnotationCommand dispatch failed:', err); }
+        // C03 §P6 — `persistAnnotation` is the plugin's single bus edge for creates.
+        if (persistAnnotation(dto)) {
+            console.log(`[OBCAnnotationAdapter] DOC-2.1: dispatched annotation.create type=${dto.type} id=${dto.id}`);
+        } else {
+            console.warn('[OBCAnnotationAdapter] command bus not available — annotation not committed');
+        }
     }
 
     dispose(): void {
