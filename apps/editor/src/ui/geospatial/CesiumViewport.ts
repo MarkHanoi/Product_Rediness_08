@@ -197,6 +197,9 @@ import {
   resolveTerrainTransition, attachOutcomeStillHolds, describeTerrainTransition,
   type TerrainAttachOutcome, type TerrainProviderState,
 } from "./terrainProviderTransition";
+// §FORMA-FALLBACK-KEY-IS-LOCAL (L-12920) — the night-time study key, expressed in the site's ENU
+// frame (pure), so the ground is lit at every longitude, not only near Europe.
+import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
@@ -3950,14 +3953,14 @@ export class CesiumViewport {
           warm = altDeg < 25;
         } else {
           // Sun below horizon — keep a soft fixed key so the massing stays visible.
-          direction = this.formaFallbackSunDirection();
+          direction = this.formaFallbackSunDirection(latLon);
         }
       } catch (e) {
         console.warn('[CesiumViewport][forma] solarSample failed — fixed key:', e);
-        direction = this.formaFallbackSunDirection();
+        direction = this.formaFallbackSunDirection(latLon);
       }
     } else {
-      direction = this.formaFallbackSunDirection();
+      direction = this.formaFallbackSunDirection(latLon);
     }
 
     scene.light = new Cesium.DirectionalLight({
@@ -3979,13 +3982,15 @@ export class CesiumViewport {
     }
   }
 
-  /** Fixed warm ~10:00 NE→SW key direction (ECEF-agnostic local approximation),
-   *  used when no site location is known or the sun is below the horizon. */
-  private formaFallbackSunDirection(): Cesium.Cartesian3 {
-    return Cesium.Cartesian3.normalize(
-      new Cesium.Cartesian3(-0.55, -0.7, -0.45),
-      new Cesium.Cartesian3(),
-    );
+  /** Warm ~10:00 NE→SW key, used when the sun is below the horizon or no site is known.
+   *  §FORMA-FALLBACK-KEY-IS-LOCAL (L-12920) — the key is a LOCAL direction expressed in the
+   *  site's ENU frame and rotated into ECEF (pure helper), exactly as the real sun is. The old
+   *  fixed ECEF vector lit the hemisphere centred near lon 52° E / lat 27° N only: Sète and
+   *  Barcelona read fine, Sydney and Melbourne at night rendered a black ground with "no terrain"
+   *  (founder 2026-09-05). With no site known the legacy vector is kept. */
+  private formaFallbackSunDirection(site: { lat: number; lon: number } | null): Cesium.Cartesian3 {
+    const [x, y, z] = formaFallbackKeyDirectionEcef(site);
+    return Cesium.Cartesian3.normalize(new Cesium.Cartesian3(x, y, z), new Cesium.Cartesian3());
   }
 
   /**

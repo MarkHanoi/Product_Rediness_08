@@ -3181,6 +3181,16 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
         `(NATIONAL_STAMP_TABLE, stampBboxesFor → the city working set). Region "${region}" is served by that row, not by a footprint fetch here.`,
     };
   }
+  else if (source === 'eesti3d_ee' || source === 'grb_be') {
+    // §EE-ETAK-OSM-JOIN / §BE-DHMV-OSM-JOIN — live, but (like ndh_no / us_open_heights) a bake STAMP over bake's own footprints, not a footprint fetcher.
+    const stamp = source === 'eesti3d_ee' ? 'stampEeEtakHeightsOnGeojsonseq (heights/eeHeightsStamp.mjs)' : 'stampBeDhmvHeightsOnGeojsonseq (heights/beHeightsStamp.mjs)';
+    const key = source === 'eesti3d_ee' ? 'ee_etak' : 'be_dhmv';
+    return {
+      status: 'documented', region, source, provenance: src.provenance,
+      reason: `${src.name}: this source is the bake STAMP ${stamp}, dispatched only when the region declares heightJoin:'${key}' in bake.mjs ` +
+        `(NATIONAL_STAMP_TABLE, stampBboxesFor → the city working set). Region "${region}" is served by that row, not by a footprint fetch here.`,
+    };
+  }
   else return { status: 'documented', reason: `${src.name} fetcher not implemented`, region, source };
 
   // A never-throwing fetcher may itself report a real gate (blocked/documented) — surface it honestly.
