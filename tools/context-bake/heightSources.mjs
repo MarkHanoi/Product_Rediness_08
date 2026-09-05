@@ -359,14 +359,24 @@ export const SOURCES = {
       'access-gated (not the context channel). Until the stamp lands, `austria` is mass-only.',
   },
   ealidar_gb: {
-    country: 'gb', name: 'EA LiDAR Composite DTM/DSM 1 m (OGL v3) — ENGLAND ONLY', impl: 'documented',
+    country: 'gb', name: 'EA LiDAR Composite First-Return DSM 1 m − DTM 1 m nDSM (OGL v3, keyless) — ENGLAND ONLY', impl: 'live',
     provenance: 'tagged', lodNow: 'LoD1-real-height (England only)', lodNext: 'none open (OS Building Heights = premium, X3-refused)',
-    endpoint: 'environment.data.gov.uk EA LiDAR Composite (keyless, OGL v3)',
-    heightField: 'DSM−DTM nDSM per footprint — England only; Scotland/Wales/NI are separate portals',
+    endpoint: 'https://environment.data.gov.uk/spatialdata/lidar-composite-digital-surface-model-first-return-dsm-1m/wcs (DSM, CoverageId ' +
+      'df4e3ec3-…__Lidar_Composite_Elevation_FZ_DSM_1m) + …/lidar-composite-digital-terrain-model-dtm-1m/wcs (DTM, the coverage terrain.mjs drapes) → WCS 2.0.1 GetCoverage per OS 1 km square, EPSG:27700, Float32 uncompressed',
+    heightField: 'nDSM = P90(DSM − DTM) over the eroded footprint interior (ndsmHeightForBuilding, native BNG metres) — the DIFFERENCING IS OURS: ' +
+      'the EA publishes no nDSM (unlike IGN\'s MNH). England only; Scotland/Wales are NOT served (see note).',
     coverage: 'partial',
-    note: 'ASSESS GB (probe-verified): the keyless OS Downloads catalogue (26 products) has NO ' +
-      'building-height product — the GB national verdict rests on OSM/ODbL, and OS licensing stays ' +
-      'X3-refused. The owed build is the England nDSM stamp; `greatbritain` stays mass-only until then.',
+    keyless: true, // OGL v3 — commercial use allowed, attribution required (terrain.mjs TERRAIN_SOURCES.gb). No repo secret.
+    note: 'LIVE + WIRED 2026-09-05 (lane HEIGHTS-GB-IE): the stamp stampEaLidarGbHeightsOnGeojsonseq lives in heights/ealidarGbStamp.mjs ' +
+      '(pure half heights/ealidarGb.mjs carries every probed number; fixture __tests__/fixtures/gb-ealidar-london-stmartin-2026-09-05.json) and the ' +
+      'bake `greatbritain` row declares heightJoin:\'ealidar_gb\' (NATIONAL_STAMP_TABLE row → stampBboxesFor → EA_LIDAR_GB_CITY_BBOXES: london / ' +
+      'manchester / birmingham / leeds / bristol). Local proof: Trafalgar Square 594/606 OSM footprints measured (St Martin-in-the-Fields 17.8 m, ' +
+      'South Africa House 28.9 m), 2 squares, 4 GetCoverage, 17 MB, 4.6 s. Probed 2026-09-05: 1 km square = 4,194,755 B / 2.25 s; no area cap ' +
+      'hit at 4 km (67 MB / 13.5 s). ⚠ Scotland: outside the served envelope (Edinburgh → HTTP 500 internal_error); the Scottish Remote Sensing ' +
+      'Portal catalogue host srsp-catalog.jncc.gov.uk timed out twice — no reachable WCS. ⚠ Wales: INSIDE the envelope but answered as ZERO-FILL ' +
+      '(HTTP 200, every cell 0.0 on both coverages at Cardiff) — the stamp counts such squares as VOID (eaRasterVerdict "void-zero"), never ground; ' +
+      'DataMapWales GeoServer WCS lists 18 coverages, none LiDAR, its WMS timed out and its CKAN API 404s. The keyless OS Downloads catalogue still ' +
+      'has NO building-height product; OS Building Heights stays X3-refused and is NOT used.',
   },
   buildings3d_fi: {
     country: 'fi', name: 'FI Buildings 3D national LoD2 (CC BY 4.0)', impl: 'documented',
@@ -534,8 +544,8 @@ export const REGION_SOURCE = {
   germany: 'lod2de',   // per-Land router owed; NRW measured heights stay live via the koln city row (heightJoin:'lod2nrw')
   france: 'mnh_fr',    // ⭐ LIVE 2026-09-04 — national MNH stamp BUILT (stampMnhFrHeightsOnGeojsonseq, working set MNH_FR_CITY_BBOXES). ⭐ WIRED 2026-09-05 (L-12910): the bake `france` row declares heightJoin:'mnh_fr'; local proof Marseille 6,578/7,887 · Paris 4,717/5,043 · Lyon 4,442/4,883 measured. The paris/lyon city rows still fold into `france` once a publish passes allow_region_removal (orchestrator).
   italy: { source: 'piedmont_it', status: 'no-source', reason: 'Piedmont-only regional layer — NO national height product; EUBUCCO/GBA ML heights excluded as authoritative (E5 §A.5) (ASSESS IT)' },
-  greatbritain: 'ealidar_gb',
-  ireland: { source: null, status: 'no-source', reason: 'no cadastre by design; OSi Prime2 commercial → X3-refused; OPW LiDAR partial (ASSESS IE)' },
+  greatbritain: 'ealidar_gb', // ⭐ WIRED 2026-09-05 (lane HEIGHTS-GB-IE): the bake `greatbritain` row declares heightJoin:'ealidar_gb' → heights/ealidarGbStamp.mjs (EA First-Return DSM − DTM, differenced by PRYZM, England working set EA_LIDAR_GB_CITY_BBOXES). Local proof Trafalgar Square 594/606 footprints measured, 2 squares, 4.6 s.
+  ireland: { source: null, status: 'no-source', reason: 'no cadastre by design; OSi Prime2 commercial → X3-refused. PROBED 2026-09-05 (lane HEIGHTS-GB-IE): data.gov.ie "Open Topographic Lidar Data" (GSI) exposes 9 ArcGIS ImageServers at gsi.geodata.gov.ie/imagehost/rest/services/Lidar — EVERY one is a hillshade (pixelType U8 0–255, identify → "38", "This data shows the hillshade of the DSM/DTM"), not elevation; the elevation GeoTIFFs are only behind the dcenr.maps.arcgis.com webappviewer bulk download (no bbox-addressable WCS/REST). No other DSM/DTM/elevation dataset on data.gov.ie (7 hits, all OPW flood-depth GeoTIFFs or marine bathymetry). NO open measured-height channel → no join wired.' },
   switzerland: 'swissbuildings3d', // ⭐ LIVE 2026-09-04 — national STAC→COG stamp BUILT (stampSwissHeightsOnGeojsonseq, working set SWISS_CITY_BBOXES). ⭐ WIRED 2026-09-05: the bake `switzerland` row declares heightJoin:'swiss' (§SWISS-OSM-JOIN). L-12883.
   austria: 'geoland_at',
   czechia: 'ruian_cz',
