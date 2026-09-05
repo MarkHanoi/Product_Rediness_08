@@ -73,11 +73,25 @@
 //   • nw  Nordrhein-Westfalen — LIVE since 2026-07-31 via heightSources.mjs (opengeodata.nrw.de index.json,
 //         35,022 × `LoD2_32_<E>_<N>_1_NW.gml`, DL-DE Zero 2.0). Routed here too so the `germany` row's
 //         stamp covers Köln by the same door; the koln city row stays until the orchestrator folds it.
-//   • ni  Niedersachsen — BLOCKED 2026-09-05: the LGLN index single-datasets.opengeodata.lgln.niedersachsen.de/
-//         pro-download-indices/lod2/lgln-opengeodata-lod2.geojson (14.3 MB, 11,707 tiles, props 3DShape/
-//         CityGML/tile_id, dl-de/by-2-0) points at lod2.opengeodata.lgln.niedersachsen.de/<tile>/<date>/
-//         LOD2_<tile>_2_<date>.gml — HTTP 404 NoSuchKey for Hannover 25505802 AND the first tile 23425822
-//         (.gml and .zip both; the bucket root answers 200/0 B). Index-without-objects: not "no data".
+//   • ni  Niedersachsen — WIRED 2026-09-05 (second pass; the first pass read it BLOCKED, and the reason was
+//         the INDEX, not the data). The LGLN index single-datasets.opengeodata.lgln.niedersachsen.de/
+//         pro-download-indices/lod2/lgln-opengeodata-lod2.geojson (14,303,041 B, 11,707 × 2 km, props 3DShape/
+//         CityGML/tile_id) points at lod2.opengeodata.lgln.niedersachsen.de/<tile>/<date>/LOD2_<tile>_2_<date>.gml
+//         — its OWN hrefs, verbatim, answer HTTP 404 `<Code>NoSuchKey</Code>` (Hannover 25505802 and first tile
+//         23425822, .gml and .zip). But the bucket is S3-LISTABLE: `?list-type=2&max-keys=10` → 200
+//         ListBucketResult, and the real objects sit FLAT at the root under a DIFFERENT scheme —
+//         `LoD2_32_<E>_<N>_1_ni.gml` (1 km, EPSG:25832, PLAIN gml) + a `.json` sidecar per tile. Hannover
+//         LoD2_32_550_5802_1_ni.gml → HEAD 200, 49,838,412 B, Accept-Ranges: bytes, Last-Modified 2024-09-03;
+//         Range 0-300000 → 206; CityGML 1.0 AdV, srs ETRS89_UTM32*DE_DHHN2016_NH, measuredHeight/GroundSurface/
+//         BuildingPart/roofType all present (34/34/58/34 in the first 300 KB). Sidecar: {"Standard AdV": 2.5,
+//         "LetzteAenderung": "2024-06-12", bbox 9.7337,52.3658,9.7494,52.3751}. Prefix `LoD2_32_55` → 1,000
+//         keys, IsTruncated. The "index" is therefore ONE ListObjectsV2 per candidate tile (prefix = exact key
+//         → KeyCount 1 | 0): present LoD2_32_550_5802_1_ni.gml → KeyCount 1 (524 B); North Sea
+//         LoD2_32_400_5990_1_ni.gml → KeyCount 0 (299 B) — an honest EMPTY, distinct from a listing failure.
+//         Licence (verbatim, portal SPA main.js 1,198,837 B): "… können unter den Bedingungen der Lizenz
+//         „Datenlizenz Deutschland – Namensnennung – Version 2.0“ (https://www.govdata.de/dl-de/by-2-0) kostenfrei
+//         intern und extern genutzt werden"; the same bundle states LoD2 is "niedersachsenweit … seit 2019
+//         abgeschlossen … flächendeckend". The index and bucket themselves carry NO licence field.
 //   • by  Bayern — PROBED OPEN 2026-09-05: geodaten.bayern.de/odd/a/lod2/citygml/meta/metalink/09162000.meta4
 //         (München) → HTTP 200 metalink4, 327 × https://download1.bayernwolke.de/a/lod2/citygml/<E>_<N>.gml
 //         (2 km, EPSG:25832, PLAIN gml, Range honoured: 690_5334.gml → 206, 16 Buildings/17 measuredHeight);
@@ -199,7 +213,16 @@ export const DE_LOD2_LAENDER = {
     attribution: '© GeoBasis-DE/LVermGeo LSA',
     probe: '2026-09-05 GetFeature BBOX=52.122,11.632,52.127,11.637,urn:ogc:def:crs:EPSG::4258 → 200 GEOJSON, hits 31, HEIGHTABOVEGROUND "1.56"',
   },
-  ni: { land: 'Niedersachsen', status: 'blocked', reason: 'LGLN index (11,707 tiles, dl-de/by-2-0) hrefs answer HTTP 404 NoSuchKey on lod2.opengeodata.lgln.niedersachsen.de for Hannover 25505802 and first tile 23425822 (.gml and .zip); bucket root 200/0 B — an index without objects (probed 2026-09-05)' },
+  ni: {
+    land: 'Niedersachsen', status: 'wired', zone: 32, tileM: 1000, kind: 'gml',
+    // NOT the LGLN geojson index (its hrefs are stale → NoSuchKey): the bucket itself, listed per tile.
+    indexKind: 's3-prefix', indexUrl: 'https://lod2.opengeodata.lgln.niedersachsen.de/',
+    tileName: ({ e, n }) => `LoD2_32_${e}_${n}_1_ni.gml`,
+    tileUrl: ({ e, n }) => `https://lod2.opengeodata.lgln.niedersachsen.de/LoD2_32_${e}_${n}_1_ni.gml`,
+    licence: 'Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0; verbatim from opengeodata.lgln.niedersachsen.de/main.js, 2026-09-05)',
+    attribution: '© GeoBasis-DE/LGLN 2024',
+    probe: '2026-09-05 LoD2_32_550_5802_1_ni.gml HEAD 200 49,838,412 B Accept-Ranges; Range 0-300000 → 206; 34 measuredHeight/58 BuildingPart in 300 KB; ListObjectsV2 prefix probe KeyCount 1 (present) / 0 (North Sea 400_5990)',
+  },
   by: { land: 'Bayern', status: 'probed-open-unarmed', zone: 32, tileM: 2000, kind: 'gml', tileName: ({ e, n }) => `${e}_${n}.gml`, tileUrl: ({ e, n }) => `https://download1.bayernwolke.de/a/lod2/citygml/${e}_${n}.gml`, licence: 'CC BY 4.0 (geodaten.bayern.de Nutzungsbedingungen, probed 2026-09-05)', reason: 'keyless 2 km gml verified 2026-09-05 (690_5334.gml → HTTP 206, 16 Buildings); lane brief keeps munich blocked — arming is a founder decision, the REGION_SOURCE munich reason is stale' },
   sn: { land: 'Sachsen', status: 'blocked', reason: 'geodienste.sachsen.de downloadlinks MapServer/3 resolves Dresden → geocloud.landesvermessung.sachsen.de/public.php/dav/files/GVzwbSyp7Yl7mBD/lod2_33410_5654_2_sn_citygml.zip → HTTP 503 Sabre\\DAV ServiceUnavailable (HEAD and GET, probed 2026-09-05)' },
   bw: { land: 'Baden-Württemberg', status: 'unprobed', reason: 'opengeodata.lgl-bw.de config: urlPath /data/lod2/, pattern LoD2_\\d+_(\\d+_\\d+)_\\d+_bw\\.zip on layer zwei_km_gitter; /data/lod2/ HTTP 403, six Stuttgart candidates 404 — grid keying unresolved (2026-09-05)' },
@@ -275,6 +298,19 @@ export function parseShIndex(text) {
   const out = new Set();
   for (const m of String(text ?? '').matchAll(/file=(LoD2_32_\d+_\d+_1_SH\.xml)/g)) out.add(m[1]);
   return out;
+}
+/** NI — the LGLN bucket is S3-listable: ONE ListObjectsV2 with the exact key as `prefix` answers KeyCount 1 | 0.
+ *  (The published geojson index is NOT used: its dated 2 km hrefs answer NoSuchKey — see the header.) */
+export function s3PrefixProbeUrl(adapter, name) {
+  return `${adapter.indexUrl}?list-type=2&prefix=${encodeURIComponent(name)}&max-keys=1`;
+}
+/** ListBucketResult XML → KeyCount. 0 is an honest EMPTY (no such tile); a body that is not a
+ *  ListBucketResult (an error page, a truncated read, an S3 <Error>) is null = UNKNOWN, never 0. */
+export function parseS3KeyCount(xml) {
+  const s = String(xml ?? '');
+  if (!/<ListBucketResult\b/.test(s)) return null;
+  const m = s.match(/<KeyCount>(\d+)<\/KeyCount>/);
+  return m ? Number(m[1]) : null;
 }
 
 // ── ZIP walking (pure Buffer maths; the network half streams the bytes) ─────────────────────────
@@ -464,7 +500,7 @@ export const DE_LOD2_CITIES = [
   { city: 'schwerin',    land: 'mv', bbox: [11.38, 53.60, 11.45, 53.65] },  // ~3×3 × 2 km
   { city: 'magdeburg',   land: 'st', bbox: [11.60, 52.10, 11.66, 52.15] },  // ~5×6 × 1 km WFS cells
   { city: 'koln',        land: 'nw', bbox: [6.85, 50.88, 7.02, 50.99] },    // = bake.mjs koln row (182 Kacheln live-measured)
-  { city: 'hannover',    land: 'ni', bbox: [9.70, 52.35, 9.78, 52.40] },    // BLOCKED — index hrefs 404
+  { city: 'hannover',    land: 'ni', bbox: [9.70, 52.35, 9.78, 52.40] },    // ~6×6 × 1 km plain gml (Hannover tile 49.8 MB — streamed), S3 prefix-probed
   { city: 'munich',      land: 'by', bbox: [11.54, 48.12, 11.61, 48.16] },  // probed open, UNARMED by brief
   { city: 'dresden',     land: 'sn', bbox: [13.70, 51.03, 13.78, 51.07] },  // BLOCKED — geocloud 503
   { city: 'stuttgart',   land: 'bw', bbox: [9.15, 48.76, 9.22, 48.80] },    // UNPROBED — grid keying

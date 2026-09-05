@@ -45,6 +45,7 @@ import {
 import {
   DE_LOD2_LAENDER, DE_LOD2_CITY_BBOXES, cityForPoint, wgs84ToUtm, tileKeyFor, tileBboxNative,
   stGetFeatureUrl, stPartsFromGeojson, parseHtmlListing, parseAtomTileNames, parseNrwIndex, parseShIndex,
+  s3PrefixProbeUrl, parseS3KeyCount,
   zipLocalHeader, zipCentralDirectory, zipEocd, createBuildingSlicer, routerSummary,
 } from './deLod2Laender.mjs';
 
@@ -173,6 +174,30 @@ async function loadIndex(cc, adapter, { timeoutMs }) {
   if (_indexCache.has(cc)) return _indexCache.get(cc);
   let out;
   if (adapter.indexKind === 'none') out = { ok: true, has: () => true, size: null };
+  else if (adapter.indexKind === 's3-prefix') {
+    // NI: the LGLN geojson index's hrefs are STALE (dated 2 km zips → NoSuchKey) while the bucket itself is
+    // listable, so the "index" is ONE ListObjectsV2 per candidate tile (prefix = the exact key → KeyCount 1|0),
+    // cached per name. ONE probe of a never-existing key proves the bucket answers (Land blocked otherwise);
+    // a probe that fails LATER is null → the caller counts a tileError, never "not in index" (§CONTEXT-DATA-HONESTY).
+    const probe = await fetchText(s3PrefixProbeUrl(adapter, adapter.tileName({ e: 0, n: 0 })), { timeoutMs });
+    const kc = probe.ok ? parseS3KeyCount(probe.body) : null;
+    if (kc === null) out = { ok: false, reason: `bucket listing ${adapter.indexUrl} → ${probe.ok ? `not a ListBucketResult (${probe.body.length} B, ${probe.contentType})` : probe.reason}` };
+    else {
+      const cache = new Map();
+      out = {
+        ok: true, size: null, lastReason: null,
+        has: async (name) => {
+          if (cache.has(name)) return cache.get(name);
+          const r = await fetchText(s3PrefixProbeUrl(adapter, name), { timeoutMs });
+          const k = r.ok ? parseS3KeyCount(r.body) : null;
+          if (k === null) { out.lastReason = r.ok ? `not a ListBucketResult (${r.body.length} B)` : r.reason; return null; }
+          const present = k > 0;
+          cache.set(name, present);
+          return present;
+        },
+      };
+    }
+  }
   else if (adapter.indexKind === 'zip-central-directory') {
     const head = await fetchSafe(adapter.indexUrl, { timeoutMs });
     const total = head.ok ? Number(head.res.headers.get('content-length')) : NaN;
@@ -332,7 +357,10 @@ export async function stampDeLod2LaenderHeightsOnGeojsonseq(inPath, outPath, bbo
         const inTile = buckets.get(ck).filter((r) => !r._done);
         if (inTile.length === 0) continue;
         const name = ad.tileName(key);
-        if (!index.has(name)) { tilesNotInIndex++; pl.notInIndex++; if (notInIndexSample.length < 8) notInIndexSample.push(`${cc}:${name}`); continue; }
+        // `has` is sync for a parsed index and async for the per-tile S3 probe (NI); null = the probe itself failed.
+        const present = await index.has(name);
+        if (present === null) { tileErrors++; pl.tileErrors++; if (errorTiles.length < 10) errorTiles.push(`${cc}:${name}: existence probe failed (${index.lastReason ?? 'listing unreachable'})`); continue; }
+        if (!present) { tilesNotInIndex++; pl.notInIndex++; if (notInIndexSample.length < 8) notInIndexSample.push(`${cc}:${name}`); continue; }
         if (processedTiles >= maxTiles) { tileCapHit = true; break outer; }
         const res = await fetchTileParts(cc, ad, key, index, { timeoutMs });
         if (!res.ok) { tileErrors++; pl.tileErrors++; if (errorTiles.length < 10) errorTiles.push(`${cc}:${name}: ${res.reason}`); continue; }

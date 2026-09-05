@@ -339,6 +339,7 @@ jobs:
           schwerin germany 53.6288,11.4148 500
           magdeburg germany 52.1277,11.6292 500
           koln-de germany 50.9375,6.9603 500
+          hannover germany 52.3759,9.7320 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights. The tileset would render a fabricated 9 m carpet. NOT publishing."

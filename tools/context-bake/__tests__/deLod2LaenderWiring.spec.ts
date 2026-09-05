@@ -25,6 +25,7 @@ const GATE_ROWS: Array<[string, string, number, number]> = [
   ['berlin', 'be', 52.5200, 13.4050], ['hamburg', 'hh', 53.5503, 9.9937], ['potsdam', 'bb', 52.3990, 13.0590],
   ['kiel', 'sh', 54.3233, 10.1394], ['erfurt', 'th', 50.9787, 11.0328], ['mainz', 'rp', 50.0010, 8.2711],
   ['schwerin', 'mv', 53.6288, 11.4148], ['magdeburg', 'st', 52.1277, 11.6292], ['koln-de', 'nw', 50.9375, 6.9603],
+  ['hannover', 'ni', 52.3759, 9.7320], // second pass — the LGLN bucket, not its stale index, is the door
 ];
 
 describe('§DE-LOD2-LAENDER-OSM-JOIN — bake.mjs wires the lod2de router for the `germany` row', () => {

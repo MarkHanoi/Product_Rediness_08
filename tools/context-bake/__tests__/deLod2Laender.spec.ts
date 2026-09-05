@@ -16,7 +16,7 @@ import { deflateRawSync } from 'node:zlib';
 import {
   DE_LOD2_LAENDER, DE_LOD2_CITIES, DE_LOD2_CITY_BBOXES, DE_LOD2_STATUSES, DE_ROOF,
   wgs84ToUtm, tileKeyFor, tileBboxNative, stGetFeatureUrl, cityForPoint, routerSummary,
-  parseHtmlListing, parseAtomTileNames, parseNrwIndex, parseShIndex,
+  parseHtmlListing, parseAtomTileNames, parseNrwIndex, parseShIndex, s3PrefixProbeUrl, parseS3KeyCount,
   zipLocalHeader, zipCentralDirectory, zipEocd,
   partFromBlock, partsFromBuildingBlock, createBuildingSlicer, stPartsFromGeojson, ringAreaCentroid,
 } from '../heights/deLod2Laender.mjs';
@@ -48,16 +48,16 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
       }
     }
   });
-  it('the wired set is exactly the nine Länder the 2026-09-05 probes verified; Bayern is open-but-unarmed; NI/SN/HE blocked; BW/HB/SL unprobed', () => {
+  it('the wired set is exactly the TEN Länder the 2026-09-05 probes verified (NI joined on the second pass); Bayern is open-but-unarmed; SN/HE blocked; BW/HB/SL unprobed', () => {
     const by = (s: string) => Object.entries(DE_LOD2_LAENDER).filter(([, a]) => a.status === s).map(([cc]) => cc).sort();
-    expect(by('wired')).toEqual(['bb', 'be', 'hh', 'mv', 'nw', 'rp', 'sh', 'st', 'th']);
+    expect(by('wired')).toEqual(['bb', 'be', 'hh', 'mv', 'ni', 'nw', 'rp', 'sh', 'st', 'th']);
     expect(by('probed-open-unarmed')).toEqual(['by']);
-    expect(by('blocked')).toEqual(['he', 'ni', 'sn']);
+    expect(by('blocked')).toEqual(['he', 'sn']);
     expect(by('unprobed')).toEqual(['bw', 'hb', 'sl']);
   });
   it('DE_LOD2_CITY_BBOXES is the WIRED subset of DE_LOD2_CITIES, one city per Land, koln byte-identical to the bake row', () => {
     expect(DE_LOD2_CITIES.length).toBe(16);
-    expect(DE_LOD2_CITY_BBOXES.map((c) => c.city).sort()).toEqual(['berlin', 'erfurt', 'hamburg', 'kiel', 'koln', 'magdeburg', 'mainz', 'potsdam', 'schwerin']);
+    expect(DE_LOD2_CITY_BBOXES.map((c) => c.city).sort()).toEqual(['berlin', 'erfurt', 'hamburg', 'hannover', 'kiel', 'koln', 'magdeburg', 'mainz', 'potsdam', 'schwerin']);
     for (const c of DE_LOD2_CITY_BBOXES) expect(DE_LOD2_LAENDER[c.land].status).toBe('wired');
     expect(new Set(DE_LOD2_CITY_BBOXES.map((c) => c.land)).size).toBe(DE_LOD2_CITY_BBOXES.length);
     expect(DE_LOD2_CITIES.find((c) => c.city === 'koln')!.bbox).toEqual([6.85, 50.88, 7.02, 50.99]);
@@ -67,7 +67,8 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
     const s = routerSummary();
     expect(s).toContain('bb=wired(zip/utm33/1km)');
     expect(s).toContain('st=wired(wfs/utm32/1km)');
-    expect(s).toContain('ni=blocked');
+    expect(s).toContain('ni=wired(gml/utm32/1km)');
+    expect(s).toContain('sn=blocked');
     expect(s).toContain('by=probed-open-unarmed');
   });
 });
@@ -285,5 +286,56 @@ describe('§DE-LOD2-LAENDER Sachsen-Anhalt WFS GeoJSON → parts (verbatim 2026-
     expect(stPartsFromGeojson('{"type":"FeatureCollection"}')).toBeNull();
     const r = stPartsFromGeojson('{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[11.63,52.12],[11.631,52.12],[11.631,52.121],[11.63,52.12]]]},"properties":{"HEIGHTABOVEGROUND":""}}]}')!;
     expect(r.parts).toHaveLength(0); expect(r.skippedNoHeight).toBe(1); expect(r.count).toBe(1);
+  });
+});
+
+describe('§DE-LOD2-LAENDER Niedersachsen — the BUCKET, not the LGLN index, is the door (verbatim 2026-09-05 listings + Hannover tile head)', () => {
+  const NI = DE_LOD2_LAENDER.ni;
+  const PRESENT = fx('de-lod2-ni-s3-list-present-550-5802-2026-09-05.xml');
+  const ABSENT = fx('de-lod2-ni-s3-list-absent-400-5990-2026-09-05.xml');
+  const NI_GML = fx('de-lod2-ni-hannover-550-5802-2026-09-05.gml');
+  it('Hannover (9.74 E, 52.37 N — inside the tile sidecar bbox) → LoD2_32_550_5802_1_ni.gml, the object that answered HEAD 200 / 49,838,412 B', () => {
+    const [E, N] = wgs84ToUtm(52.37, 9.74, 32);
+    const key = tileKeyFor(NI, E, N);
+    expect(key).toEqual({ e: 550, n: 5802 });
+    expect(NI.tileName(key)).toBe('LoD2_32_550_5802_1_ni.gml');
+    expect(NI.tileUrl(key)).toBe('https://lod2.opengeodata.lgln.niedersachsen.de/LoD2_32_550_5802_1_ni.gml');
+    expect(s3PrefixProbeUrl(NI, NI.tileName(key))).toBe('https://lod2.opengeodata.lgln.niedersachsen.de/?list-type=2&prefix=LoD2_32_550_5802_1_ni.gml&max-keys=1');
+    expect(NI.indexKind).toBe('s3-prefix');
+    expect(NI.licence).toContain('dl-de/by-2-0');
+  });
+  it('parseS3KeyCount: present → 1, North Sea → 0 (an honest EMPTY), an S3 <Error> / html / empty body → null (UNKNOWN, never 0)', () => {
+    expect(parseS3KeyCount(PRESENT)).toBe(1);
+    expect(PRESENT).toContain('<Key>LoD2_32_550_5802_1_ni.gml</Key>');
+    expect(PRESENT).toContain('<Size>49838412</Size>');
+    expect(parseS3KeyCount(ABSENT)).toBe(0);
+    expect(ABSENT).toContain('<Prefix>LoD2_32_400_5990_1_ni.gml</Prefix>');
+    expect(parseS3KeyCount('<?xml version="1.0"?><Error><Code>NoSuchKey</Code><Message>The specified key does not exist.</Message></Error>')).toBeNull();
+    expect(parseS3KeyCount('<html><body>503 Service Unavailable</body></html>')).toBeNull();
+    expect(parseS3KeyCount('')).toBeNull();
+    expect(parseS3KeyCount(undefined)).toBeNull();
+  });
+  it('the Hannover tile head is AdV CityGML 1.0 in ETRS89/UTM32; 3 Buildings (2 with BuildingParts) → exactly 4 parts with their own heights', () => {
+    expect(NI_GML).toContain('urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH');
+    expect(NI_GML).toContain('<gml:name>LoD2_32_550_5802_1_NI</gml:name>');
+    const s = createBuildingSlicer();
+    const parts = [...s.push(NI_GML), ...s.flush()];
+    expect(parts.map((p) => p.h)).toEqual([12.753, 23.446, 16.508, 10.526]);
+    expect(parts.map((p) => p.roof)).toEqual(['flat', 'flat', 'gabled', 'flat']);
+    for (const p of parts) {
+      expect(p.E).toBeGreaterThan(550_000); expect(p.E).toBeLessThan(551_000);
+      expect(p.N).toBeGreaterThan(5_802_000); expect(p.N).toBeLessThan(5_803_001);
+      expect(p.areaM2).toBeGreaterThan(0);
+    }
+    // chunking never changes the answer (the slicer contract), on THIS Land's bytes too
+    const s2 = createBuildingSlicer(); const chunked: number[] = [];
+    for (let i = 0; i < NI_GML.length; i += 999) for (const p of s2.push(NI_GML.slice(i, i + 999))) chunked.push(p.h);
+    for (const p of s2.flush()) chunked.push(p.h);
+    expect(chunked).toEqual([12.753, 23.446, 16.508, 10.526]);
+  });
+  it('cityForPoint routes Hannover Hbf and the CITIES gate row point → hannover/ni; the working set now holds ten cities', () => {
+    expect(cityForPoint(9.7411, 52.3767)?.city).toBe('hannover');
+    expect(cityForPoint(9.7320, 52.3759)?.land).toBe('ni');
+    expect(DE_LOD2_CITY_BBOXES.length).toBe(10);
   });
 });

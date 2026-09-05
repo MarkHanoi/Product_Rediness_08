@@ -262,11 +262,12 @@ const ALL_REGIONS = [
   // ⭐ §DE-LOD2-LAENDER-OSM-JOIN (2026-09-05, lane HEIGHTS-DE-LAENDER): `heightJoin:'lod2de'` dispatches the
   // per-Land LoD2-DE ROUTER (NATIONAL_STAMP_TABLE → heights/deLod2LaenderStamp.mjs). Working set =
   // DE_LOD2_CITY_BBOXES, ONE city per WIRED Land: berlin (BE, dl-de-zero) · hamburg (HH) · potsdam (BB) ·
-  // kiel (SH) · erfurt (TH) · mainz (RP) · schwerin (MV) · magdeburg (ST, WFS) · koln (NW). Every door is
+  // kiel (SH) · erfurt (TH) · mainz (RP) · schwerin (MV) · magdeburg (ST, WFS) · koln (NW) · hannover (NI,
+  // S3 prefix-probed — the LGLN index's own hrefs are stale → NoSuchKey, the bucket is listable). Every door is
   // KEYLESS and was probed the same day (heights/deLod2Laender.mjs header carries URL/HTTP/bytes/licence per
-  // Land); NI (index → NoSuchKey), SN (geocloud 503), HE (login-gated) are BLOCKED, BW/HB/SL UNPROBED, BY
-  // probed OPEN but UNARMED (munich stays blocked per REGION_SOURCE — a founder decision). Local proof on
-  // real OSM footprints: potsdam 1,832/2,012 · hamburg 636/729 · berlin 376/424 measured.
+  // Land); SN (geocloud 503), HE (login-gated) are BLOCKED, BW/HB/SL UNPROBED, BY probed OPEN but UNARMED
+  // (munich stays blocked per REGION_SOURCE — a founder decision). Local proof on real OSM footprints:
+  // potsdam 1,832/2,012 · hamburg 636/729 · berlin 376/424 · hannover 658/722 (R2 buildings.pmtiles footprints).
   // ⚠ koln stays a separate city row (kept-exception above) → its bbox double-bakes (now with the SAME
   // NRW door twice) until the orchestrator folds it into `germany` via allow_region_removal.
   { name: 'germany',    pbfUrl: 'https://download.geofabrik.de/europe/germany-latest.osm.pbf',                        pbf: resolve(OUT, 'germany-latest.osm.pbf'),                bbox: '5.85,47.25,15.05,55.10',   clipped: resolve(OUT, 'clip-germany.osm.pbf'), heightJoin: 'lod2de' },
@@ -737,9 +738,9 @@ const NATIONAL_STAMP_TABLE = {
   // (heights/ealidarGbStamp.mjs). Scotland squares are refused before any request (outside the served envelope);
   // Wales answers zero-fill and is counted as VOID, never ground.
   ealidar_gb: { stamp: stampEaLidarGbHeightsOnGeojsonseq, bboxes: EA_LIDAR_GB_CITY_BBOXES },
-  // §DE-LOD2-LAENDER-OSM-JOIN — whole `germany`: the per-Land LoD2-DE router (nine keyless doors — 1 km / 2 km
-  // CityGML tiles in UTM32/33 as plain gml, zips, range-read entries of Hamburg's one archive, and Sachsen-
-  // Anhalt's WFS) behind ONE NRW-shaped stamp; a Land whose index is down is named as BLOCKED for the run while
+  // §DE-LOD2-LAENDER-OSM-JOIN — whole `germany`: the per-Land LoD2-DE router (ten keyless doors — 1 km / 2 km
+  // CityGML tiles in UTM32/33 as plain gml, zips, range-read entries of Hamburg's one archive, Sachsen-Anhalt's
+  // WFS, and Niedersachsen's S3-listed bucket) behind ONE NRW-shaped stamp; a Land whose index is down is named as BLOCKED for the run while
   // the others still stamp (heights/deLod2LaenderStamp.mjs). Working set DE_LOD2_CITY_BBOXES = wired Länder only.
   lod2de: { stamp: stampDeLod2LaenderHeightsOnGeojsonseq, bboxes: DE_LOD2_CITY_BBOXES },
 };
