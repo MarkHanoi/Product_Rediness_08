@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WCS_Capabilities xmlns="http://www.opengis.net/wcs" xmlns:gml="http://www.opengis.net/gml" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wcs http://schemas.opengis.net/wcs/1.0.0/wcsCapabilities.xsd" version="1.0.0">
+  <Service>
+    <description>NHM_DOM_25833</description>
+    <name>NHM_DOM_25833</name>
+    <label>NHM_DOM_25833</label>
+    <metadataLink about="hoydedata.no" />
+    <responsibleParty>
+      <organisationName>Kartverket</organisationName>
+      <positionName>hoydedata.no</positionName>
+      <contactInfo>
+        <phone>
+          <voice>+ 47 32 11 81 41</voice>
+          <facsimile>+4732118101</facsimile>
+        </phone>
+        <address>
+          <deliveryPoint>Postboks 600 Sentrum</deliveryPoint>
+          <city>Hønefoss</city>
+          <postalCode>3507</postalCode>
+          <country>Norway</country>
+          <electronicMailAddress>hoydedata@kartverket.no</electronicMailAddress>
+        </address>
+        <onlineResource xlink:href="https://rin-ap2260.statkart.no/arcgis/services/NHM_DOM_25833/ImageServer/WCSServer" />
+      </contactInfo>
+    </responsibleParty>
+    <fees>free</fees>
+    <accessConstraints>None</accessConstraints>
+  </Service>
+  <Capability>
+    <Request>
+      <GetCapabilities>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="http://wcs.geonorge.no/skwms1/wcs.hoyde-dom-nhm-25833?" />
+            </Get>
+          </HTTP>
+        </DCPType>
+        <DCPType>
+          <HTTP>
+            <Post>
+              <OnlineResource xlink:type="simple" xlink:href="http://wcs.geonorge.no/skwms1/wcs.hoyde-dom-nhm-25833?" />
+            </Post>
+          </HTTP>
+        </DCPType>
+      </GetCapabilities>
+      <DescribeCoverage>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="http://wcs.geonorge.no/skwms1/wcs.hoyde-dom-nhm-25833?" />
+            </Get>
+          </HTTP>
+        </DCPType>
+        <DCPType>
+          <HTTP>
+            <Post>
+              <OnlineResource xlink:type="simple" xlink:href="http://wcs.geonorge.no/skwms1/wcs.hoyde-dom-nhm-25833?" />
+            </Post>
+          </HTTP>
+        </DCPType>
+      </DescribeCoverage>
+      <GetCoverage>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="http://wcs.geonorge.no/skwms1/wcs.hoyde-dom-nhm-25833?" />
+            </Get>
+          </HTTP>
+        </DCPType>
+        <DCPType>
+          <HTTP>
+            <Post>
+              <OnlineResource xlink:type="simple" xlink:href="http://wcs.geonorge.no/skwms1/wcs.hoyde-dom-nhm-25833?" />
+            </Post>
+          </HTTP>
+        </DCPType>
+      </GetCoverage>
+    </Request>
+    <Exception>
+      <Format>application/vnd.ogc.se_xml</Format>
+    </Exception>
+  </Capability>
+  <ContentMetadata>
+    <CoverageOfferingBrief>
+      <metadataLink about="hoydedata.no" />
+      <description>nhm_dom_topo_25833</description>
+      <name>nhm_dom_topo_25833</name>
+      <label>nhm_dom_topo_25833</label>
+      <lonLatEnvelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">
+        <gml:pos dimension="2">-2.00756171816757245 57.2738836442695103</gml:pos>
+        <gml:pos dimension="2">33.3365910058243742 72.1016879476356962</gml:pos>
+      </lonLatEnvelope>
+    </CoverageOfferingBrief>
+    <CoverageOfferingBrief>
+      <metadataLink about="hoydedata.no" />
+      <description>skyggerelieff</description>
+      <name>nhm_dom_topo_25833_skyggerelieff</name>
+      <label>nhm_dom_topo_25833_skyggerelieff</label>
+      <lonLatEnvelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">
+        <gml:pos dimension="2">-2.00756171816757245 57.2738836442695103</gml:pos>
+        <gml:pos dimension="2">33.3365910058243742 72.1016879476356962</gml:pos>
+      </lonLatEnvelope>
+    </CoverageOfferingBrief>
+  </ContentMetadata>
+</WCS_Capabilities>
