@@ -27,6 +27,16 @@
 //         paris 268 · lyon 149 · nantes 100 · marseille 116 · toulouse 120 · strasbourg 94 ·
 //         montpellier 120 · bordeaux 114 · nice 64 · rennes 122 · grenoble 81 ·
 //         rural Touraine 70 · rural Provence 84   — and —   lille 0 · rural Creuse 0 · rural Bretagne 0
+//     Re-measured 2026-09-05 (lane HEIGHTS-FR-SOLID, 44 areas, hits query per area): every listed city
+//     unchanged, and OUTSIDE the list — sète 64 · toulon 63 · perpignan 81 · nîmes 74 · avignon 56 ·
+//     aix 59 · reims 56 · le havre 61 · rouen 50 · brest 59 · clermont 56 · tours 51 · orléans 56 ·
+//     metz 54 · nancy 55 · caen 53 · angers 58 · saint-étienne 56 · le mans 54 · amiens 56 · limoges 63 ·
+//     besançon 52 · mulhouse 56 · ajaccio 38 · bastia 24 · biarritz 47 · la rochelle 50 (ALL covered)
+//     — and — dijon 0 (a second zero-dalle metro beside lille). ⭐ So the binding limit on SOLID French
+//     context is THIS FILE'S CITY LIST (the §HEIGHT-STAMP-BUDGET working set), not IGN's publication:
+//     a covered city absent from MNH_FR_CITY_BBOXES streams through the join unstamped and renders as
+//     an honest ghost. Widening coverage = adding rows here (each ≈ its populated 0.01° cells × ~4.6 MB
+//     × ~4 s of GetMap — the Marseille proof measured 6 cells / 28 MB / 29 s).
 //     Cross-checked against the raster itself (coarse GetMap, nodata fraction): 0.000 everywhere
 //     the index has dalles (Marseille 0.153 / Nice 0.050 = SEA inside the bbox), 1.000 where it
 //     has none. Two independent sources, one verdict: where LiDAR HD is published it is complete;
@@ -163,5 +173,10 @@ export const MNH_FR_CITY_BBOXES = [
   { city: 'bordeaux',    bbox: [-0.65, 44.80, -0.52, 44.88] },
   { city: 'rennes',      bbox: [-1.75, 48.07, -1.60, 48.15] },
   { city: 'grenoble',    bbox: [5.68, 45.15, 5.78, 45.22] },
-  { city: 'lille',       bbox: [2.98, 50.58, 3.14, 50.68] },   // 0 dalles on 2026-09-04 — pre-check skips it until IGN publishes
+  // §HEIGHTS-FR-SOLID (L-12910, 2026-09-05) — the founder's second French test site (with Marseille).
+  // 64 dalles; the local stamp proof read 4,422 of 5,443 centre footprints measured (81 % solid, from
+  // 0.1 %). Not a metro — listed because it is where the product was judged, and a covered town
+  // absent from this list can never be stamped (see the header: the list is the binding limit).
+  { city: 'sete',        bbox: [3.64, 43.37, 3.74, 43.44] },
+  { city: 'lille',       bbox: [2.98, 50.58, 3.14, 50.68] },   // 0 dalles on 2026-09-04, still 0 on 2026-09-05 — pre-check skips it until IGN publishes
 ];

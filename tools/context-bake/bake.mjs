@@ -29,7 +29,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
 // free on import (its CLI is behind an isMain guard); `resolveHeights` never throws.
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES } from './heightSources.mjs';
+// §HEIGHTS-FR-SOLID (L-12910, 2026-09-05) — `stampMnhFrHeightsOnGeojsonseq` + `MNH_FR_CITY_BBOXES` were
+// AUTHORED on 2026-09-04 (a75be0fb) and imported by NOTHING until this line: France baked honest OSM
+// defaults while its measured-height channel sat one import away (the L-12883 shape, second country).
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES } from './heightSources.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -203,12 +206,21 @@ const ALL_REGIONS = [
   // router lands.
   { name: 'germany',    pbfUrl: 'https://download.geofabrik.de/europe/germany-latest.osm.pbf',                        pbf: resolve(OUT, 'germany-latest.osm.pbf'),                bbox: '5.85,47.25,15.05,55.10',   clipped: resolve(OUT, 'clip-germany.osm.pbf') },
   // ASSESS FR — NATIONAL-NOW; the national height channel is the MNH LiDAR-HD PRE-COMPUTED nDSM
-  // (⛔ never rebuild the differencing — E5 §G.1 A8): a national stamp mirroring `mds` is the owed
-  // build. 5.07 GB pbf (measured — largest in scope; §5 budget decision binds). Metropolitan
-  // France + Corsica only — overseas départements fall outside this bbox (mirrors the Canarias
-  // note on `spain`). ⚠ paris/lyon stay separate city rows (kept-exception above — live BD TOPO
-  // heights) → those two bboxes double-bake until the MNH stamp lands.
-  { name: 'france',     pbfUrl: 'https://download.geofabrik.de/europe/france-latest.osm.pbf',                         pbf: resolve(OUT, 'france-latest.osm.pbf'),                 bbox: '-5.15,41.30,9.60,51.10',   clipped: resolve(OUT, 'clip-france.osm.pbf') },
+  // (⛔ never rebuild the differencing — E5 §G.1 A8). 5.07 GB pbf (measured — largest in scope; §5
+  // budget decision binds). Metropolitan France + Corsica only — overseas départements fall outside
+  // this bbox (mirrors the Canarias note on `spain`).
+  // §MNH-FR-OSM-JOIN (L-12910, 2026-09-05) — `heightJoin:'mnh_fr'` stamps IGN LiDAR HD MNH heights
+  // onto these OSM footprints exactly as `spain` does with MDS: working set + priority areas =
+  // MNH_FR_CITY_BBOXES (heights/mnhFr.mjs; §HEIGHT-STAMP-BUDGET), everything outside them streams
+  // through with its honest OSM tags. The stamp pre-checks IGN's dalle index per area and SKIPS an
+  // unpublished one by name (lille = 0 dalles on 2026-09-05) — a missing dalle is ABSENT, never 0 m.
+  // Founder 2026-09-05: French context rendered as translucent ghosts because the render rule
+  // (§CTX-HEIGHT-FIDELITY-RENDER) is honest and the DATA was missing — this join is the data.
+  // ⚠ paris/lyon stay separate city rows (kept-exception above): folding them in deletes two LIVE
+  // regions from tileset-manifest.json, which the merge's no-loss gate refuses unless the publish
+  // passes `allow_region_removal: paris,lyon` — an orchestrator decision, not a lane's. Until then
+  // those two bboxes double-bake (identical type_ids; client near-cap thins twins).
+  { name: 'france',     pbfUrl: 'https://download.geofabrik.de/europe/france-latest.osm.pbf',                         pbf: resolve(OUT, 'france-latest.osm.pbf'),                 bbox: '-5.15,41.30,9.60,51.10',   clipped: resolve(OUT, 'clip-france.osm.pbf'), heightJoin: 'mnh_fr' },
   // ASSESS IT — NATIONAL-NOW (mass-only): no national open building-height product exists
   // (Piedmont-only regional layer; EUBUCCO/GBA excluded as authoritative per the E5 verdicts).
   // Replaces the rome+milan city rows (Copenhagen dedup). Incl. Sicily + Sardinia.
@@ -552,6 +564,7 @@ function stampBboxesFor(r) {
   if (Array.isArray(r.heightStampBboxes)) return r.heightStampBboxes;
   if (r.heightJoin === 'mds') return MDS_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'dhm') return DHM_CITY_BBOXES.map((c) => c.bbox);
+  if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
   return null;
 }
 const bboxDeg2 = (bbox) => {
@@ -681,14 +694,16 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     return;
   }
 
-  // §MDS-OSM-JOIN / §DHM-OSM-JOIN / §LOD2-NRW-OSM-JOIN — regions whose authoritative height source
-  // can't be enumerated per-tile as FOOTPRINTS (spain/denmark: the national register refuses a
-  // whole-country query; koln: LoD2-DE is per-Land CityGML, and replacing the OSM clip would desync
-  // the buildings from the roads/water/landuse baked from that SAME clip). All three therefore STAMP
-  // real heights onto bake's OWN OSM footprints (baseGeo). The stamped file has the SAME footprints
-  // with `height` added → a REPLACE input (no double-draw). Anything other than a measured `ok` keeps
-  // baseGeo at the honest OSM default — never a fabricated height.
-  if (r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw') {
+  // §MDS-OSM-JOIN / §DHM-OSM-JOIN / §LOD2-NRW-OSM-JOIN / §MNH-FR-OSM-JOIN — regions whose authoritative
+  // height source can't be enumerated per-tile as FOOTPRINTS (spain/denmark: the national register
+  // refuses a whole-country query; koln: LoD2-DE is per-Land CityGML, and replacing the OSM clip would
+  // desync the buildings from the roads/water/landuse baked from that SAME clip; france: BD TOPO's WFS
+  // caps at 5,000 rows against ~30 M buildings — §BDTOPO-CAP-TRUNCATE — while the MNH raster is one
+  // GetMap per populated cell). All four therefore STAMP real heights onto bake's OWN OSM footprints
+  // (baseGeo). The stamped file has the SAME footprints with `height` added → a REPLACE input (no
+  // double-draw). Anything other than a measured `ok` keeps baseGeo at the honest OSM default — never
+  // a fabricated height.
+  if (r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw' || r.heightJoin === 'mnh_fr') {
     const stamped = resolve(OUT, `${r.name}-buildings-stamped.geojsonseq`);
     const wsen = r.bbox.split(',').map(Number);
     // §MDS = whole `spain` (many populated raster tiles); §DHM = whole `denmark`. Give the national bbox
@@ -699,9 +714,13 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     const maxTiles = r.heightJoin === 'lod2nrw' ? 400 : 20000;
     // §PHASE-4 (es/RATE-IMPLEMENTATION-PLAN §Phase A) — stamp the MDS-capable metro capitals FIRST so
     // each is GUARANTEED measured heights (`pryzm:height_src=measured-lidar`) on re-bake, exactly like
-    // Barcelona, even if the national maxTiles cap is reached mid-sweep. Only the whole-`spain` mds join
-    // has capitals; the DK dhm + DE lod2nrw joins pass none.
-    const priorityBboxes = r.heightJoin === 'mds' ? MDS_CITY_BBOXES.map((c) => c.bbox) : [];
+    // Barcelona, even if the national maxTiles cap is reached mid-sweep. The whole-`spain` mds join has
+    // capitals, and so does the whole-`france` mnh_fr join (§MNH-FR-CITY-BBOXES — the SAME list is its
+    // retained working set, so every held footprint is stamped uncapped); the DK dhm + DE lod2nrw
+    // joins pass none.
+    const priorityBboxes = r.heightJoin === 'mds' ? MDS_CITY_BBOXES.map((c) => c.bbox)
+      : r.heightJoin === 'mnh_fr' ? MNH_FR_CITY_BBOXES.map((c) => c.bbox)
+        : [];
     // §HEIGHT-STAMP-BUDGET (L-659) — the bboxes the join may HOLD footprints for. `null` keeps the
     // whole region (city-sized regions: unchanged). A whole-country region gets its city list, so the
     // join's heap tracks the cities, not the nation — the fix for run 30693132326's OOM. Footprints
@@ -711,6 +730,9 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     try {
       if (r.heightJoin === 'mds') res = await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes, retainBboxes });
       else if (r.heightJoin === 'dhm') res = await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
+      // §MNH-FR-OSM-JOIN (L-12910) — keyless IGN Géoplateforme; the pixel IS the height above ground
+      // (never MNS−MNT here — E5 §G.1 A8). Same option shape as mds: priority = retained = city list.
+      else if (r.heightJoin === 'mnh_fr') res = await stampMnhFrHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes, retainBboxes });
       else res = await stampLod2NrwHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
     } catch (e) {
       res = { status: 'error', reason: e.message };

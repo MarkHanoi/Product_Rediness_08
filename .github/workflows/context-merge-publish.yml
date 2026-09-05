@@ -287,6 +287,7 @@ jobs:
           done <<'CITIES'
           barcelona spain 41.3888,2.1590 500
           koln koln 50.9375,6.9603 500
+          marseille france 43.2965,5.3698 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights in the MERGED tileset. NOT publishing."

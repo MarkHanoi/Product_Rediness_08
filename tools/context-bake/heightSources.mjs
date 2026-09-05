@@ -473,7 +473,7 @@ export const REGION_SOURCE = {
   finland: 'buildings3d_fi',
   norway: 'ndh_no',
   germany: 'lod2de',   // per-Land router owed; NRW measured heights stay live via the koln city row (heightJoin:'lod2nrw')
-  france: 'mnh_fr',    // ⭐ LIVE 2026-09-04 — national MNH stamp BUILT (stampMnhFrHeightsOnGeojsonseq, working set MNH_FR_CITY_BBOXES). The bake row must declare heightJoin:'mnh_fr' (orchestrator); the paris/lyon city rows fold into `france` once it lands, exactly like Copenhagen.
+  france: 'mnh_fr',    // ⭐ LIVE 2026-09-04 — national MNH stamp BUILT (stampMnhFrHeightsOnGeojsonseq, working set MNH_FR_CITY_BBOXES). ⭐ WIRED 2026-09-05 (L-12910): the bake `france` row declares heightJoin:'mnh_fr'; local proof Marseille 6,578/7,887 · Paris 4,717/5,043 · Lyon 4,442/4,883 measured. The paris/lyon city rows still fold into `france` once a publish passes allow_region_removal (orchestrator).
   italy: { source: 'piedmont_it', status: 'no-source', reason: 'Piedmont-only regional layer — NO national height product; EUBUCCO/GBA ML heights excluded as authoritative (E5 §A.5) (ASSESS IT)' },
   greatbritain: 'ealidar_gb',
   ireland: { source: null, status: 'no-source', reason: 'no cadastre by design; OSi Prime2 commercial → X3-refused; OPW LiDAR partial (ASSESS IE)' },

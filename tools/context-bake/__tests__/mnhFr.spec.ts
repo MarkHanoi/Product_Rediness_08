@@ -182,4 +182,44 @@ describe('§MNH-FR-CITY-BBOXES — the france row working set', () => {
             expect(row.bbox).toEqual(bake.get(name));
         }
     });
+
+    it('lists the founder\'s French test sites — marseille AND sète (L-12910)', () => {
+        // Sète is where the ghosts were reported beside Marseille. A covered town absent from this list
+        // streams through the join unstamped, so its absence would be a permanent silent hole.
+        for (const city of ['marseille', 'sete']) expect(rows.find((r) => r.city === city), city).toBeDefined();
+    });
+});
+
+// §HEIGHTS-FR-SOLID (L-12910, 2026-09-05) — the WIRING, pinned. The stamp was authored on 2026-09-04
+// and imported by nothing; France baked honest 9 m defaults while its measured-height channel sat one
+// import away (the L-12883 shape). bake.mjs cannot be imported (it runs main()), so — like
+// mdsBboxCoversTerrainRegion.spec.ts — the wiring is asserted on the TEXT. Each assertion is one of the
+// four places `mds` is wired, because "exactly like mds" is the design rule (bake.mjs §MDS-OSM-JOIN).
+describe('§HEIGHTS-FR-SOLID — bake.mjs wires the mnh_fr stamp for the `france` row', () => {
+    const bake = readFileSync(resolve(HERE, '../bake.mjs'), 'utf8');
+
+    it('imports the stamp AND its working set from heightSources.mjs', () => {
+        const imp = bake.match(/^import\s*\{([^}]*)\}\s*from\s*'\.\/heightSources\.mjs';/m);
+        expect(imp, 'heightSources.mjs import statement').not.toBeNull();
+        expect(imp![1]).toContain('stampMnhFrHeightsOnGeojsonseq');
+        expect(imp![1]).toContain('MNH_FR_CITY_BBOXES');
+    });
+
+    it('the `france` region row declares heightJoin:\'mnh_fr\' (the key heightSources.mjs REGION_SOURCE names)', () => {
+        const row = bake.match(/\{\s*name:\s*'france'\s*,[^\n]*\}/);
+        expect(row, 'france row').not.toBeNull();
+        expect(row![0]).toMatch(/heightJoin:\s*'mnh_fr'/);
+    });
+
+    it('stampBboxesFor bounds the national join to MNH_FR_CITY_BBOXES (§HEIGHT-STAMP-BUDGET preflight)', () => {
+        const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
+        expect(fn, 'stampBboxesFor').not.toBeNull();
+        expect(fn![1]).toMatch(/r\.heightJoin === 'mnh_fr'\)\s*return MNH_FR_CITY_BBOXES\.map/);
+    });
+
+    it('dispatches mnh_fr to stampMnhFrHeightsOnGeojsonseq with priority = retained = the city list', () => {
+        expect(bake).toMatch(/r\.heightJoin === 'mds' \|\| r\.heightJoin === 'dhm' \|\| r\.heightJoin === 'lod2nrw' \|\| r\.heightJoin === 'mnh_fr'/);
+        expect(bake).toMatch(/r\.heightJoin === 'mnh_fr' \? MNH_FR_CITY_BBOXES\.map\(\(c\) => c\.bbox\)/);
+        expect(bake).toMatch(/if \(r\.heightJoin === 'mnh_fr'\) res = await stampMnhFrHeightsOnGeojsonseq\(baseGeo, stamped, wsen, \{ maxTiles, priorityBboxes, retainBboxes \}\)/);
+    });
 });
