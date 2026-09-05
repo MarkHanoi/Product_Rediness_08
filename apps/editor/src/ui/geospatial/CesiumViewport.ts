@@ -7222,6 +7222,15 @@ export class CesiumViewport {
       // relief instead of sitting ~700 m under it. Cheap (bounded count), no re-fetch — same in-place
       // principle as the near-ring re-seat above.
       this.rebuildContextFarTierForBase();
+      // §CTX-TREES-RESEAT (L-12918, founder 2026-09-05: "we don't have trees in Spain but we do have
+      // them everywhere else") — the canopies are a Primitive whose per-tree ground is BAKED INTO THE
+      // POSITIONS at load time, sampled BEFORE the terrain settled (flat 0). Everything in this block
+      // re-seats onto the risen base except them, so on every city with baked relief the trees sat
+      // hundreds of metres UNDER the ground: Spain had relief, the rest of Europe did not — until
+      // today's national terrain rollout, which would have spread the symptom. C12 §12.3: a feature
+      // that carries its height in its positions is not re-seatable — so it is REBUILT (the far-tier
+      // precedent above), from the tile cache, on the settled base.
+      this.rebuildContextTreesForBase();
       // §CTX-EARTH-SLAB (L-645) — RETIRED: no globe-clip / skirt to rebuild on the risen base (the slab
       // could never clip the flat entity ground layers; see clearContextEarthSlab). Nothing to do here.
     }
@@ -7242,6 +7251,31 @@ export class CesiumViewport {
    * and the buildings at that wrong height. Waterways are `corridor` ground ribbons now and are
    * re-seated with everything else; the exemption is gone, not merely re-justified.
    */
+  /**
+   * §CTX-TREES-RESEAT (L-12918) — rebuild the instanced canopies on the settled terrain base. The
+   * tree Primitive bakes each tree's ground into its instance matrix (`sampleGround` at load time),
+   * so unlike the entity layers it cannot be lifted by rewriting a scalar; it is re-loaded, with
+   * `force`, at the site the context was loaded for. The tile read is served from the PMTiles cache
+   * (no new network on a warm site) and `loadContextTrees` aborts any in-flight load itself, so this
+   * cannot race the initial load: whichever finishes last seats on the base that is settled by then.
+   * Flat / keyless sites are a no-op — their load-time seat was already exact. Never throws.
+   */
+  private rebuildContextTreesForBase(): void {
+    if (!this.viewer) return;
+    if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
+    const at = this.contextBuildingsAt;
+    if (!at || !this.contextTreesPrimitive) return;        // nothing placed yet — the initial load will seat.
+    try {
+      void this.loadContextTrees(at.lat, at.lon, true);
+      console.log(
+        `[CTX-DIAG] trees re-seat: rebuilding canopies at ${at.lat.toFixed(5)},${at.lon.toFixed(5)} on settled ` +
+          `ground (base ${this.formaTerrainBaseHeight.toFixed(1)} m) — the primitive bakes ground into positions.`,
+      );
+    } catch (e) {
+      console.warn('[CesiumViewport][trees] re-seat rebuild threw (non-fatal):', e);
+    }
+  }
+
   private reseatContextGroundFeaturesForBase(): void {
     const viewer = this.viewer;
     if (!viewer) return;
