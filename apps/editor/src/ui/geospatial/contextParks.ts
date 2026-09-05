@@ -7,6 +7,14 @@
 // lawns), making the 3D view read as the same recognisable neighbourhood. Reuses the
 // SAME Overpass mirror list, timeout, cache + the never-throw contract. Visual-only —
 // never touches the BIM model or the layout engine.
+//
+// §VEG-CANOPY-FROM-WOODS (L-12934, founder 2026-09-05) — each area now carries its `kind`. The OSM
+// tags DO reach the client: `osmium export` keeps them, tippecanoe stores them as feature attributes
+// (no `-x`/`-y` in bake.mjs), and `contextTiles.toTags` stringifies them onto `ContextTileFeature.tags`
+// — this reader simply never looked. `classifyParkKind` reads `natural` / `landuse` / `leisure` so the
+// tree renderer can seed synthesised canopies inside `wood` / `forest` rings ONLY (contextCanopySynth.ts)
+// and never inside a lawn. ⚠ What the reader still does NOT carry: HOLES — `contextTiles.ringsFor`
+// keeps outer rings only, so a wood with a clearing is filled edge to edge until the reader keeps inner rings.
 
 import {
     OVERPASS_ENDPOINTS, OVERPASS_TIMEOUT_MS,
@@ -16,10 +24,33 @@ import {
 } from './contextBuildings';
 import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
 
+/**
+ * §VEG-CANOPY-FROM-WOODS (L-12934) — the green-area class, read off the OSM tag that defines it.
+ * `wood` / `forest` are CANOPY areas (contextCanopySynth fills them); `park` / `grass` are lawns;
+ * `other` is everything else the bake's parks filter admits (recreation_ground, grassland, scrub…).
+ */
+export type ContextParkKind = 'wood' | 'forest' | 'park' | 'grass' | 'other';
+
+/**
+ * Classify a green area from its OSM tags. Precedence: `natural=wood` → `landuse=forest` →
+ * `leisure=park` → `landuse=grass` → `other`. A wood that is ALSO tagged as a park (common for
+ * urban woods) is a wood — the canopy fill is the more honest render of it.
+ */
+export function classifyParkKind(tags: Readonly<Record<string, string>> | undefined): ContextParkKind {
+    if (!tags) return 'other';
+    if (tags['natural'] === 'wood') return 'wood';
+    if (tags['landuse'] === 'forest') return 'forest';
+    if (tags['leisure'] === 'park') return 'park';
+    if (tags['landuse'] === 'grass') return 'grass';
+    return 'other';
+}
+
 export interface ContextParkArea {
     /** Closed ring as [lon,lat] pairs (a park / grass / wood polygon). */
     readonly ring: ReadonlyArray<readonly [number, number]>;
     readonly osmId: number;
+    /** §VEG-CANOPY-FROM-WOODS (L-12934) — see `ContextParkKind`. */
+    readonly kind: ContextParkKind;
 }
 export interface ContextParkCollection {
     readonly type: 'ContextParkCollection';
@@ -59,12 +90,13 @@ export function emptyParkCollection(): ContextParkCollection {
 function parksFromElements(elements: OverpassEl[]): ContextParkCollection {
     const areas: ContextParkArea[] = [];
     for (const el of elements) {
+        const kind = classifyParkKind(el.tags);
         if (el.type === 'way') {
-            pushRing(areas, el.geometry, el.id);
+            pushRing(areas, el.geometry, el.id, kind);
         } else if (el.type === 'relation' && el.members) {
             // Multipolygon park (e.g. Central Park) → draw each outer ring.
             for (const m of el.members) {
-                if (m.role === 'outer') pushRing(areas, m.geometry, el.id);
+                if (m.role === 'outer') pushRing(areas, m.geometry, el.id, kind);
             }
         }
     }
@@ -79,9 +111,10 @@ function pushRing(
     areas: ContextParkArea[],
     geom: Array<{ lat: number; lon: number }> | undefined,
     osmId: number,
+    kind: ContextParkKind,
 ): void {
     if (!geom || geom.length < 4) return;
-    areas.push({ ring: geom.map((p) => [p.lon, p.lat] as const), osmId });
+    areas.push({ ring: geom.map((p) => [p.lon, p.lat] as const), osmId, kind });
 }
 
 /**
@@ -90,14 +123,17 @@ function pushRing(
  * (LAYER_IS_AREAL.parks = true), so the reader already keeps ONLY polygon outer rings and drops the
  * bake's duplicate linestrings; each ring ≥4 points becomes one filled `ContextParkArea`. `osmId`
  * derives from the tile's stable synthetic id (spaced by 16 so multi-ring features never collide).
+ * §VEG-CANOPY-FROM-WOODS (L-12934) — `kind` is classified from the feature's OSM tags (they ride
+ * the tile; see the header). Exported as a PURE test seam; `fetchContextParks` is the production caller.
  */
-function parksFromTileFeatures(features: ContextTileFeature[]): ContextParkCollection {
+export function parksFromTileFeatures(features: ContextTileFeature[]): ContextParkCollection {
     const areas: ContextParkArea[] = [];
     for (const f of features) {
+        const kind = classifyParkKind(f.tags);
         for (let ri = 0; ri < f.rings.length; ri++) {
             const ring = f.rings[ri]!;
             if (ring.length < 4) continue;
-            areas.push({ ring: ring.map((p) => [p[0]!, p[1]!] as const), osmId: f.syntheticId * 16 + ri });
+            areas.push({ ring: ring.map((p) => [p[0]!, p[1]!] as const), osmId: f.syntheticId * 16 + ri, kind });
         }
     }
     return { type: 'ContextParkCollection', areas };

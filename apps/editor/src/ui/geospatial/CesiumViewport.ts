@@ -127,7 +127,7 @@ import { fetchContextParks, type ContextParkCollection } from "./contextParks";
 import { fetchContextLanduse, type ContextLanduseCollection } from "./contextLanduse";
 // §FORMA-CTX-RAIL / §FORMA-CTX-TREES (L-642 Phase C) — the two new baked-only T1 context layers.
 import { fetchContextRail, type ContextRailCollection } from "./contextRail";
-import { fetchContextTrees, type ContextTreeCollection } from "./contextTrees";
+import { fetchContextCanopySet, type ContextCanopySet } from "./contextTrees";  // §VEG-CANOPY-FROM-WOODS (L-12934) — mapped trees + canopies synthesised inside real wood/forest rings, ONE set.
 // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline
 // (party/blind-wall detection in resolveBlindFacades). Editor-side store, no engine dep.
 import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
@@ -765,6 +765,14 @@ const CONTEXT_FAR_TIER_MAX_INSTANCES = 4000;
  * 1500 low-poly blobs in one draw call is comfortably inside the budget beside the building tiers.
  */
 const CONTEXT_TREES_MAX_INSTANCES = 1500;
+/**
+ * §VEG-CANOPY-FROM-WOODS (L-12934) — hard cap on the SYNTHESISED canopies that fill the real
+ * `natural=wood` / `landuse=forest` rings (contextCanopySynth.ts). Separate from the mapped cap
+ * above because the two are different claims: a mapped tree is OSM's, a synthesised position is
+ * ours, and they are counted apart in the log. Both share the ONE primitive, so the budget that
+ * matters is the sum — 7500 instances of one geometry with one material is still one draw call.
+ */
+const CONTEXT_CANOPIES_MAX_SYNTHESISED = 6000;
 /** §FORMA-CTX-TREES — radial cull for tree canopies: the T1 near disc (SPEC §2 lists trees under "what
  *  T1 needs"). Beyond it a canopy blob is a sub-pixel speck, so cull rather than spend an instance. */
 const CONTEXT_TREES_RENDER_RADIUS_M = CONTEXT_NEAR_RENDER_RADIUS_M;
@@ -10593,29 +10601,23 @@ export class CesiumViewport {
     this.contextTreesAbort = new AbortController();
     const signal = this.contextTreesAbort.signal;
 
-    let collection: ContextTreeCollection;
-    try { collection = await fetchContextTrees(lat, lon, signal); }
-    catch { return; }
+    // §VEG-CANOPY-FROM-WOODS (L-12934) — ONE call returns mapped trees AND the canopies synthesised
+    // inside the real wood/forest rings, already radially culled, capped and sorted NEAREST-FIRST by
+    // the pure module (contextCanopySynth.ts). The radial cull + nearest-first cap that used to live
+    // here in Cesium ENU are that module's `buildCanopySet` now — same rule, testable without a viewer.
+    let collection: ContextCanopySet;
+    try {
+      collection = await fetchContextCanopySet(lat, lon, {
+        maxRadiusM: CONTEXT_TREES_RENDER_RADIUS_M,
+        maxMapped: CONTEXT_TREES_MAX_INSTANCES,
+        maxSynthetic: CONTEXT_CANOPIES_MAX_SYNTHESISED,
+      }, signal);
+    } catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     this.clearContextTrees();
-    if (collection.trees.length === 0) { viewer.scene.requestRender(); return; } // honest no-op.
-
-    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
-      Cesium.Cartesian3.fromDegrees(lon, lat, 0),
-    );
-    const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
-
-    // RADIAL (circle) cull + NEAREST-FIRST count cap → bounded by construction, like the far tier.
-    const withDist = collection.trees.map((t) => {
-      const off = Cesium.Matrix4.multiplyByPoint(
-        invEnu, Cesium.Cartesian3.fromDegrees(t.lon, t.lat, 0), new Cesium.Cartesian3());
-      return { t, distM: Math.hypot(off.x, off.y) };
-    }).filter((d) => d.distM <= CONTEXT_TREES_RENDER_RADIUS_M)
-      .sort((a, b) => a.distM - b.distM);
-    const bounded = withDist.length > CONTEXT_TREES_MAX_INSTANCES
-      ? withDist.slice(0, CONTEXT_TREES_MAX_INSTANCES) : withDist;
-    if (bounded.length === 0) { viewer.scene.requestRender(); return; }
+    const bounded = collection.instances;
+    if (bounded.length === 0) { viewer.scene.requestRender(); return; } // honest no-op.
 
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — the same safe base the building tiers use: a footprint
     // under still-streaming relief falls back to the settled ground, never a depth-culling ~0.
@@ -10632,12 +10634,17 @@ export class CesiumViewport {
     const CANOPY_CENTRE_M = 3.6; // canopy centre above ground → blob spans ~0.4–6.8 m.
 
     const instances: Cesium.GeometryInstance[] = [];
-    for (const { t } of bounded) {
+    for (const t of bounded) {
       try {
         const ground = this.sampleGround(t.lat, t.lon, contextSafeBase);
+        // §VEG-CANOPY-FROM-WOODS (L-12934) — the crown scale rides the INSTANCE MATRIX, so the one
+        // shared geometry still yields one draw call while a synthesised stand reads as individuals.
+        // The centre lifts with the height scale, so the blob's underside stays just above ground.
         const modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(
-          Cesium.Cartesian3.fromDegrees(t.lon, t.lat, ground + CANOPY_CENTRE_M),
+          Cesium.Cartesian3.fromDegrees(t.lon, t.lat, ground + CANOPY_CENTRE_M * t.heightScale),
         );
+        Cesium.Matrix4.multiplyByScale(
+          modelMatrix, new Cesium.Cartesian3(t.radiusScale, t.radiusScale, t.heightScale), modelMatrix);
         instances.push(new Cesium.GeometryInstance({
           geometry: canopyGeom,
           modelMatrix,
@@ -10660,10 +10667,19 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] §FORMA-CTX-TREES primitive build failed:', e);
     }
     viewer.scene.requestRender();
+    // §VEG-CANOPY-FROM-WOODS (L-12934) × C57 §1.5/§1.9 — the SYNTHESISED half is counted SEPARATELY and
+    // named synthetic in the same breath as the real polygons it was seeded from. Never one total.
+    console.log(
+      `[CesiumViewport][forma] §VEG-CANOPY-FROM-WOODS (L-12934): ${collection.mappedCount} mapped tree(s) ` +
+        `+ ${collection.syntheticCount} synthesised canopies inside ${collection.polygonCount} wood/forest polygon(s) ` +
+        '— positions SYNTHETIC, polygons real (OSM natural=wood / landuse=forest).',
+    );
     console.log(
       `[CesiumViewport][forma] §FORMA-CTX-TREES (L-642) instanced canopies: ${instances.length} ` +
         `low-poly blob(s) in ONE shadowless shared-material primitive (radial ≤${Math.round(CONTEXT_TREES_RENDER_RADIUS_M)} m, ` +
-        `cap ${CONTEXT_TREES_MAX_INSTANCES}, of ${collection.trees.length} baked tree(s)).`,
+        `mapped cap ${CONTEXT_TREES_MAX_INSTANCES} of ${collection.bakedTreeCount} baked tree(s), ` +
+        `synthetic cap ${CONTEXT_CANOPIES_MAX_SYNTHESISED}${collection.syntheticCappedAway > 0 ? ` (${collection.syntheticCappedAway} cut)` : ''}, ` +
+        `${collection.excludedNearMappedTree} skipped as duplicates of a mapped tree).`,
     );
   }
 

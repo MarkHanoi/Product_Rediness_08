@@ -87,3 +87,72 @@ export async function fetchContextTrees(
     }
     return emptyTreeCollection();
 }
+
+// ── §VEG-CANOPY-FROM-WOODS (L-12934) ─────────────────────────────────────────
+//
+// Founder 2026-09-05, Córdoba Av. Gran Vía and Jouy-en-Josas beside Versailles: "missing a lot of
+// vegetation — a lot of real trees". The console read `191 tree(s) from 30 baked tile(s)` →
+// `75 low-poly blob(s)` beside `87 green area(s)`, because THIS layer is `natural=tree` NODES only
+// while the canopy AREAS ride `parks` as flat polygons — so a forest rendered as a green carpet.
+//
+// The fix joins the two READERS (no bake change): the real `wood`/`forest` polygons from
+// contextParks seed SYNTHESISED canopy positions (contextCanopySynth), which are merged with the
+// mapped trees into ONE instanced set. Both reads are bbox-cached and the site's parks are already
+// fetched for §FORMA-CTX-PARKS, so on a warm site this costs no network at all.
+//
+// ⚠ HONESTY (C57 §1.5/§1.9, C58 §1.2). The polygons are REAL OSM; the synthesised POSITIONS are not.
+// Every synthesised instance carries `synthetic: true` and a negative id, and the renderer's log line
+// counts the two apart. The real per-tree source is the companion lane VEG-REAL-CANOPY-BAKE
+// (Copernicus HRL Tree Cover Density). Never throws: a failed parks read degrades to mapped trees only.
+
+import { fetchContextParks } from './contextParks';
+import {
+    buildCanopySet, MAX_MAPPED_TREES, MAX_SYNTHESISED_CANOPIES,
+    type CanopySet, type CanopySourcePolygon,
+} from './contextCanopySynth';
+
+export interface ContextCanopySet extends CanopySet {
+    /** Mapped trees the baked `trees` layer returned for the bbox, BEFORE the radial cull + cap. */
+    readonly bakedTreeCount: number;
+    /** Green areas the `parks` reader returned, of every kind — the synthesis uses the wood/forest subset. */
+    readonly greenAreaCount: number;
+}
+
+/**
+ * The ONE instance set the §FORMA-CTX-TREES primitive draws: mapped `natural=tree` nodes PLUS
+ * canopies synthesised inside the real `natural=wood` / `landuse=forest` rings.
+ *
+ * Reads BOTH baked layers (each cached per bbox, each honest-empty on absence) and folds them with
+ * the pure `buildCanopySet`. Pure logic lives in contextCanopySynth.ts; this is only the join.
+ * Never throws — a parks failure degrades to mapped trees only, never to fabricated polygons.
+ */
+export async function fetchContextCanopySet(
+    lat: number,
+    lon: number,
+    opts: { readonly maxRadiusM: number; readonly maxMapped?: number; readonly maxSynthetic?: number },
+    signal?: AbortSignal,
+): Promise<ContextCanopySet> {
+    const empty: ContextCanopySet = {
+        instances: [], mappedCount: 0, syntheticCount: 0, mappedAvailable: 0, polygonCount: 0,
+        excludedNearMappedTree: 0, syntheticCappedAway: 0, bakedTreeCount: 0, greenAreaCount: 0,
+    };
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return empty;
+
+    const [trees, parks] = await Promise.all([
+        fetchContextTrees(lat, lon, signal).catch(() => emptyTreeCollection()),
+        fetchContextParks(lat, lon, signal).catch(() => ({ type: 'ContextParkCollection' as const, areas: [] })),
+    ]);
+    if (signal?.aborted) return empty;
+
+    const set = buildCanopySet(
+        trees.trees,
+        parks.areas as ReadonlyArray<CanopySourcePolygon>,
+        {
+            site: { lat, lon },
+            maxRadiusM: opts.maxRadiusM,
+            maxMapped: opts.maxMapped ?? MAX_MAPPED_TREES,
+            maxSynthetic: opts.maxSynthetic ?? MAX_SYNTHESISED_CANOPIES,
+        },
+    );
+    return { ...set, bakedTreeCount: trees.trees.length, greenAreaCount: parks.areas.length };
+}
