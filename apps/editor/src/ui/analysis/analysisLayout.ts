@@ -233,7 +233,7 @@ export interface LayoutReconciliation {
  */
 export function reconcileLayout(stored: AnalysisLayout): LayoutReconciliation {
   const catalogue = catalogueIds();
-  const placed = new Set(ANALYSIS_TABS.flatMap((t) => stored.tabs[t.id]));
+  const placed = new Set(ANALYSIS_TABS.flatMap((t) => tabList(stored, t.id)));
 
   // ⚠ The LEGACY discriminator is the PRESENCE of the field, never a version
   // number. A number would be a second way of saying the same thing, and two
@@ -256,7 +256,12 @@ export function reconcileLayout(stored: AnalysisLayout): LayoutReconciliation {
   // Each new widget lands on ITS OWN catalogue tab — the same placement rule a
   // fresh default arrangement uses — appended, so nothing the user ordered moves.
   const tabs = {} as Record<AnalysisTabId, readonly string[]>;
-  for (const t of ANALYSIS_TABS) tabs[t.id] = [...stored.tabs[t.id]];
+  // §PARCEL-LAW-TAB (L-12915) — a tab this BUILD added is absent from an
+  // arrangement stored by the previous build. `loadLayout` already answers that
+  // with the tab's default ("undefined = never stored = takes the default");
+  // this path used to spread `undefined` and throw, which was invisible until
+  // the first tab was actually added. Same rule, applied here too.
+  for (const t of ANALYSIS_TABS) tabs[t.id] = [...(stored.tabs[t.id] ?? DEFAULT_TAB_LAYOUT[t.id])];
   for (const id of newSinceStored) {
     const tab = widgetById(id)?.tab ?? 'overview';
     tabs[tab] = [...tabs[tab], id];
@@ -268,6 +273,17 @@ export function reconcileLayout(stored: AnalysisLayout): LayoutReconciliation {
     unreconciled: [],
     legacy: false,
   };
+}
+
+/**
+ * The widget ids on one tab of a layout, tolerating a tab the layout predates.
+ * ⛔ Returns `[]` for an ABSENT tab, never the default: this is a READ of what the
+ * user placed, and "never stored" places nothing. `reconcileLayout` above is the
+ * one place an absent tab takes the default, because it is BUILDING the next
+ * arrangement rather than reading the last one.
+ */
+function tabList(layout: AnalysisLayout, id: AnalysisTabId): readonly string[] {
+  return layout.tabs[id] ?? [];
 }
 
 /**
@@ -519,7 +535,7 @@ export function saveLayout(layout: AnalysisLayout, projectId: string | null = cu
     'pryzm.analysis.layout.save',
     {
       'pryzm.surface': 'analysis',
-      'pryzm.analysis.widgets': ANALYSIS_TABS.reduce((n, t) => n + layout.tabs[t.id].length, 0),
+      'pryzm.analysis.widgets': ANALYSIS_TABS.reduce((n, t) => n + tabList(layout, t.id).length, 0),
       'pryzm.analysis.active_tab': layout.activeTab,
     },
     () => {
@@ -611,5 +627,5 @@ export function hydrate(data: unknown, projectId: string | null = currentProject
  * placeholders — never removed, because a dropped widget is a lost decision.
  */
 export function unknownWidgetIds(layout: AnalysisLayout): readonly string[] {
-  return ANALYSIS_TABS.flatMap((t) => layout.tabs[t.id]).filter((id) => widgetById(id) === undefined);
+  return ANALYSIS_TABS.flatMap((t) => tabList(layout, t.id)).filter((id) => widgetById(id) === undefined);
 }

@@ -32,6 +32,7 @@ import {
   type AnalysisLayout,
 } from '../analysisLayout';
 import { DEFAULT_TAB_LAYOUT, WIDGET_CATALOGUE } from '../widgetCatalogue';
+import { ANALYSIS_TABS } from '../AnalysisTypes';
 
 const PROJ = 'test-project';
 const KEY = `pryzm.analysis.layout.${PROJ}`;
@@ -43,11 +44,12 @@ function layoutOf(
   partial: Partial<Record<string, readonly string[]>>,
   known?: readonly string[],
 ): AnalysisLayout {
+  // §PARCEL-LAW-TAB (L-12915) — DERIVED from ANALYSIS_TABS. This used to hand-list
+  // the four tabs behind an `as` cast, so the first added tab left every layout
+  // built here missing a key that the type said was present — the census-that-rots
+  // shape, inside the spec that guards arrangement survival.
   const tabs = {
-    overview: [...DEFAULT_TAB_LAYOUT.overview],
-    quantities: [...DEFAULT_TAB_LAYOUT.quantities],
-    relationships: [...DEFAULT_TAB_LAYOUT.relationships],
-    areas: [...DEFAULT_TAB_LAYOUT.areas],
+    ...Object.fromEntries(ANALYSIS_TABS.map((t) => [t.id, [...DEFAULT_TAB_LAYOUT[t.id]]])),
     ...partial,
   } as AnalysisLayout['tabs'];
   return known === undefined
