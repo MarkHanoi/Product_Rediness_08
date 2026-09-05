@@ -1438,6 +1438,21 @@ export function tmsTileRangeForBbox(cityWsen, z) {
 /** Finest zoom to emit: the deepest level whose tile side is still ≥ the city's larger span, so the
  *  bbox lands in a small (≤2×2) block at the finest level — real per-post resolution AND full coverage,
  *  without the straddle-fragility of demanding one centre-tile contain the whole bbox. */
+/**
+ * §NL-CITY-DEPTH (L-12943) — the deepest TMS level whose POST SPACING still resolves a source of
+ * `metresPerPx`, so a tileset carries the detail its raster actually holds and no more. A geodetic
+ * tile at level z spans 180/2^z degrees and is sampled `gridSize` across, so its post spacing is
+ * (180/2^z)/(gridSize-1) degrees ≈ that × 111320 m. Solving for z and flooring never invents detail:
+ * the emitted posts are at worst as fine as the source, never finer.
+ * Amsterdam, measured: 4.68 m/px → z14 (≈4.3 m posts) instead of the bbox rule's z10 (≈47 m).
+ */
+export function tmsZoomForPostSpacing(metresPerPx, gridSize = 257, cap = 16) {
+  if (!(metresPerPx > 0)) return 0;
+  const degPerPost = metresPerPx / 111320;
+  const z = Math.floor(Math.log2(180 / (degPerPost * (gridSize - 1))));
+  return Math.max(0, Math.min(cap, z));
+}
+
 export function tmsMaxZoomForBbox(cityWsen, cap = 18) {
   const [w, s, e, n] = cityWsen;
   const spanDeg = Math.max(e - w, n - s) || 1e-4;
@@ -1471,8 +1486,13 @@ export function layerJson(cityWsen, available) {
  * the site's border height, honest real data, never a fabricated datum). Each tile is ENCODED over its
  * OWN rectangle, so Cesium's linear (u,v)↔lon/lat is exact and every tile lands where the site is.
  */
-export function emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini, baseErrM = 0.5 }) {
-  const maxZoom = tmsMaxZoomForBbox(cityWsen);
+export function emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini, baseErrM = 0.5, maxZoom: maxZoomOpt = null }) {
+  // §NL-CITY-DEPTH (L-12943) — `tmsMaxZoomForBbox` answers "the deepest level at which this bbox still
+  // fits ONE tile", which is a chain SHAPE rule, not a resolution rule. It is right for a small proof
+  // square and wrong for a city: Amsterdam's 0.14° box stops at z10 (≈47 m posts) and throws away a
+  // 4.7 m source, so the city tileset carried no more detail than the national one. Callers that know
+  // their source resolution pass `maxZoom` (see tmsZoomForPostSpacing); everyone else is unchanged.
+  const maxZoom = maxZoomOpt ?? tmsMaxZoomForBbox(cityWsen);
   mkdirSync(outDir, { recursive: true });
   const available = [];
   const tiles = [];
@@ -1957,7 +1977,7 @@ export function compileWarpToTileset({ raster, nativeCrs, geoidSepM, outDir, gri
 // verified Amsterdam path, left byte-for-byte unchanged. EVERY other country routes through the
 // §8c shared warp (reproject.mjs proj4 + resampleToGeographicGrid) — no per-country projection code.
 // ═════════════════════════════════════════════════════════════════════════════
-export async function compileTifToTileset(tifPath, country, outDir, gridSize, geotiffMod, Martini) {
+export async function compileTifToTileset(tifPath, country, outDir, gridSize, geotiffMod, Martini, { maxZoom = null } = {}) {
   const src = TERRAIN_SOURCES[country];
   const raster = await readDtmGeoTIFF(tifPath, geotiffMod);
   if (country !== 'nl') {
@@ -1993,7 +2013,7 @@ export async function compileTifToTileset(tifPath, country, outDir, gridSize, ge
     }
     return out;
   };
-  return emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini });
+  return emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini, maxZoom });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2725,7 +2745,11 @@ async function main() {
         + `\n  ${url}`);
       const fr = await fetchToFile(url, tifPath);
       console.log(`  ✔ ${fr.bytes} B ${fr.ct} TIFF magic ${fr.magic}`);
-      await compileTifToTileset(tifPath, region.source, outDir, gridSize, geotiffMod, Martini);
+      // §NL-CITY-DEPTH (L-12943) — bake to the depth the fetched raster supports, not to the level at
+      // which the bbox happens to fit one tile. --bbox-rd (the 0.5 m proof square) keeps the old rule.
+      const depth = rdOverride ? null : tmsZoomForPostSpacing(req.metresPerPx, gridSize);
+      if (depth !== null) console.log(`  depth: z0..z${depth} (source ${req.metresPerPx} m/px, grid ${gridSize})`);
+      await compileTifToTileset(tifPath, region.source, outDir, gridSize, geotiffMod, Martini, { maxZoom: depth });
       console.log(`✓ ${name} → ${outDir}`);
       return;
     }
