@@ -90,7 +90,25 @@ describe('BLINDNESS 1 — discovery never opened command-registry or apps', () =
   it('FAILS on an uninstrumented exported function in packages/command-registry', { timeout: RUN_TIMEOUT }, () => {
     plant('packages/command-registry/src/__SpecP8Probe.ts');
     const { code, out } = runGate();
-    expect(code).toBe(1);
+    // ⚠ 1 OR 3, AND THE REASON MATTERS — this pinned `1` alone and went RED on
+    // 2026-09-04 WITHOUT ANY REGRESSION. Zone B is a shrink-only ratchet and it has
+    // been PAID DOWN to EXACTLY its baseline (52 uninstrumented of 89, baseline 52 —
+    // `check-otel-spans.ts` on a clean tree now exits 0, where CLAUDE.md's P8 bullet
+    // recorded 54/70 against 52 and RED on 2026-08-18). At zero headroom the planted
+    // probe makes it 53 > 52, so the gate reports RATCHET EXCEEDED (exit 3) instead of
+    // failing at its declared level (exit 1).
+    //
+    // ⛔ Exit 3 is STRICTLY STRONGER than exit 1 — it is never absorbable via
+    // gate-debt.json (§RATCHET-EXCEEDED-IS-NEVER-DEBT), while exit 1 is. So accepting
+    // it widens NOTHING. What this test exists to prove is BLINDNESS 1: that discovery
+    // OPENS `packages/command-registry` at all. Both codes prove that, and the two
+    // assertions below — the probe named in the output, under a `FAIL (Zone B)`
+    // headline — are what actually carry the proof. They are unchanged.
+    //
+    // ⛔ DO NOT 'fix' a future recurrence by loosening those two. And do not re-pin
+    // this to 3 alone: if someone instruments one Zone B file and lowers the baseline
+    // to 51, headroom returns and the honest answer is 1 again.
+    expect([1, 3]).toContain(code);
     expect(out).toContain('packages/command-registry/src/__SpecP8Probe.ts');
     expect(out).toMatch(/FAIL \(Zone B\)/);
   });
