@@ -66,6 +66,34 @@ function installRuntimeBus(): { emit: (e: string, p: unknown) => void } {
 
 let bus: { emit: (e: string, p: unknown) => void };
 
+/**
+ * §PARCEL-LAW-TAB (2026-09-05) — wait for a CONDITION, or 4 s, whichever comes first.
+ *
+ * ⛔ NEVER a sleep, and it asserts NOTHING. It returns the moment the predicate holds,
+ * and it returns quietly when it never does — so the caller's own assertion is what
+ * fails, saying exactly what it always said. A helper that threw here would replace a
+ * specific failure ("the surface built no cards") with a generic one ("timeout"), which
+ * is how a real defect gets misfiled as flake.
+ *
+ * The race it removes: `AnalysisSurface.refresh()` awaits `_ensureChartjs()`, whose
+ * `await import('chart.js')` is a COLD dynamic import under vitest — Vite transforms the
+ * module before that promise resolves, which on a loaded machine is seconds. Every wait
+ * in this file was `await tick(); await tick();`, two macrotasks, which loses that race
+ * and reads an empty grid.
+ */
+async function until(pred: () => boolean, timeoutMs = 4000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (pred()) return;
+    if (Date.now() >= deadline) return;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
+/** The common condition: the grid has rendered at least one card. */
+const settleCards = (timeoutMs = 4000): Promise<void> =>
+  until(() => (document.getElementById('anl-surface')?.querySelectorAll('.anl-card').length ?? 0) > 0, timeoutMs);
+
 beforeAll(() => {
   bus = installRuntimeBus();
   // Two stores populated, sixteen absent — so the surface must report an
@@ -109,9 +137,19 @@ describe('§ANALYSIS-MOUNT — the panel is in the document', () => {
 describe('§ANALYSIS-MOUNT — the workspace-mode event drives it', () => {
   it('⭐ emitting mode=analysis makes it visible and BUILDS CARDS', async () => {
     bus.emit('pryzm-workspace-mode', { mode: 'analysis' });
-    // refresh() is async (it awaits the lazy chart import). Let it settle.
-    await new Promise((r) => setTimeout(r, 0));
-    await new Promise((r) => setTimeout(r, 0));
+    // ⚠ AMENDED 2026-09-05 (lane PARCEL-LAW-TAB). This waited TWO macrotasks and
+    // called that "let it settle". `refresh()` awaits `_ensureChartjs()`, whose
+    // `await import('chart.js')` is a COLD dynamic import here — Vite has to
+    // transform the module before the promise resolves, which on a loaded machine
+    // is seconds, not two ticks. So the wait raced the import and lost: the assert
+    // read an empty grid and reported "the surface is visible but built no cards",
+    // i.e. it printed the §committed-is-not-reachable failure it exists to catch
+    // while the surface was merely still working. MEASURED: the next test in this
+    // block passed at 2008 ms on the same run — the cards DO arrive.
+    // The fix is a bounded POLL on the condition, not a longer sleep: the
+    // assertion below is unchanged, so a surface that genuinely renders nothing
+    // still fails — it just fails after 4 s instead of after 2 ticks.
+    await settleCards();
 
     const el = document.getElementById('anl-surface')!;
     expect(el.classList.contains('anl-surface--visible')).toBe(true);
@@ -271,7 +309,9 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
 
   it('the tab strip has FIVE tabs and the fifth carries no count chip', async () => {
     bus.emit('pryzm-workspace-mode', { mode: 'analysis' });
-    await tick(); await tick();
+    // Condition, not a sleep - see `until` above: the first activation in a cold
+    // worker awaits `import('chart.js')` before the grid is built.
+    await until(() => el().classList.contains('anl-surface--visible'));
     const tabs = [...el().querySelectorAll('.anl-tab')].map((b) => (b as HTMLElement).dataset.tab);
     expect(tabs).toEqual(['overview', 'quantities', 'relationships', 'areas', 'parcel-law']);
     expect(tab('parcel-law').querySelector('.anl-tab-count'), 'a host tab must not advertise "0 widgets"').toBeNull();
@@ -281,7 +321,7 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
 
   it('⭐ opening it mounts the body IN PLACE OF cards, hosts the real cadastral card, and CLAIMS the envelope card', async () => {
     tab('parcel-law').click();
-    await tick(); await tick();
+    await until(() => el().querySelector('[data-testid="analysis-parcel-law"]') !== null);
     const body = el().querySelector('[data-testid="analysis-parcel-law"]');
     expect(body, 'the Parcel Law body did not mount').not.toBeNull();
     expect(el().querySelectorAll('.anl-card')).toHaveLength(0);
@@ -339,7 +379,7 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
   it('⭐ leaving the tab tears the body down and hands the card back ONLY because it still held it', async () => {
     const before = seamCalls.length;
     tab('overview').click();
-    await tick(); await tick();
+    await settleCards();
     expect(el().querySelector('[data-testid="analysis-parcel-law"]')).toBeNull();
     // Exactly one hand-back — the null call — and the card is back in the viewport, not
     // stranded inside the hidden surface.
@@ -352,7 +392,7 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
 
   it('⛔ NEVER evicts another host that claimed the card since — no null call on tab change then', async () => {
     tab('parcel-law').click();
-    await tick(); await tick();
+    await until(() => el().querySelector('[data-testid="analysis-parcel-law"]')?.contains(card) === true);
     expect(el().querySelector('[data-testid="analysis-parcel-law"]')!.contains(card)).toBe(true);
     // The rail PARCEL panel (say) claims it while the tab is open.
     const other = document.createElement('div');
@@ -360,7 +400,7 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
     window.pryzmMountEnvelopeCard!(other);
     const before = seamCalls.length;
     tab('overview').click();
-    await tick(); await tick();
+    await settleCards();
     expect(seamCalls.length, 'the tab reached into another host\'s claim').toBe(before);
     expect(card.parentElement).toBe(other);
     other.remove();
@@ -369,7 +409,7 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
 
   it('hiding the surface while the tab is open tears the body down too (no claim by an invisible host)', async () => {
     tab('parcel-law').click();
-    await tick(); await tick();
+    await until(() => el().contains(card));
     expect(el().contains(card)).toBe(true);
     bus.emit('pryzm-workspace-mode', { mode: 'author' });
     await tick();
@@ -378,9 +418,9 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
     expect(card.parentElement).toBe(viewport);
     // ⚠ RESTORE — the active tab is persisted; leave the file where it found it.
     bus.emit('pryzm-workspace-mode', { mode: 'analysis' });
-    await tick(); await tick();
+    await until(() => el().classList.contains('anl-surface--visible'));
     tab('overview').click();
-    await tick();
+    await settleCards();
     bus.emit('pryzm-workspace-mode', { mode: 'author' });
     await tick();
   });
