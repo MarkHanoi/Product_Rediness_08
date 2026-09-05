@@ -421,6 +421,69 @@ INTENDED-vs-BUILT presentation) lives under `apps/editor/src/ui/site/**` and bel
 RESI-ORCH; delta item 13 (`WallMoveReweld` type parameter) is larger than this lane; §12b (the
 C74 §2 ENFORCEMENT row) must land with the `moveFace` handler.
 
+### 2026-09-05 · lane RESI-STAGE-G — rooms become a first-class part of the family
+
+Appended per §14's own rule (*living record — appended, never rewritten*). Every row below
+names its commit and its measurement; **anything not listed here is NOT shipped.**
+
+| Delta item | State | Commit | Proof |
+|---|---|---|---|
+| 6 — `moveFace` neighbours adapt · containment refuses | ✅ **SHIPPED** | `4ad339c1` | `packages/geometry-space-envelope` 64/64 · `plugins/space-envelope` 34/34 |
+| 10 — containment findings, both numbers | ✅ **SHIPPED, and NO LONGER ADVISORY for `room ⊂ level`** — see §14c | `4ad339c1` | the refusal carries the excursion asked and the permitted delta, the latter BISECTED against the real planner |
+| 12 — the INTENDED-area channel | ✅ **EXTENDED** — rooms listed by name under their level, never summed | `8dd10fce` | `designStageWire.spec.ts` 38/38, incl. `intendedAreaM2 === 180` with 46 m² of rooms present |
+| 3 (render) — per-room colour + label, translucent level | ✅ **SHIPPED (resolver measured, meshes NOT)** | `9f4140c0` | `spaceEnvelopeAppearance.spec.ts` 12/12 |
+| 7 (plan) — §3's *zero consumers* row is now WRONG for plan | ✅ **SHIPPED (geometry measured, injection NOT)** | `d2c3748f` | `spaceEnvelopePlanGeometry.spec.ts` 9/9 |
+| 7 (profile edit via `_profileEditToolFor`) | ⛔ **NOT SHIPPED** | — | no `spaceEnvelopeTool`, no double-click, no resolver row |
+| 11 (IFC) · 13 (`WallMoveReweld` type parameter) · §12b (the C74 §2 ENFORCEMENT row) | ⛔ **STILL OWED** | — | — |
+
+#### §14c — ⚠ THE `room ⊂ level` ROW OF §12 IS SUPERSEDED. THE DECISIVE ROW IS NOT.
+
+§12 lists *"a room envelope outside its level envelope"* as **INADVISABLE / ADVISORY —
+reported, never refused**, and the L0 schema says the same on `withinId`. The founder's
+`STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §12` rules that a room *"stays constrained within the
+level envelope"*, so **that one row is now ENFORCEMENT**: six verbs (`batch.create`,
+`move`, `moveFace`, `setFootprint`, `setParameter`, `setWithin`) refuse through one gate,
+with both numbers, and **never clamp**. Ground `INCUMBENT`, not `IMPOSSIBLE` — grow the
+level and the same request is legal.
+
+⛔ **The decisive row — a LEVEL envelope outside the permitted STUDY — is UNCHANGED and
+stays ADVISORY.** That volume is a study and not a permit (C58/C74/C75); no code in this
+lane reads a `BuildableEnvelope`. §12b's C74 §2 contract edit is still owed and is
+**not** discharged by this entry.
+
+#### §14d — WHAT IS **NOT** TRUE TODAY, STATED SO A GREEN SUITE IS NOT MISREAD (§0.2)
+
+- ⛔ **NOTHING IN THIS LANE IS BROWSER-VERIFIED.** No prism, colour, label, plan stroke,
+  refusal toast or adapted neighbour has been seen on screen. Every claim above rests on
+  unit tests over pure modules and handler seams.
+- ⛔ **The plan INJECTION path is unmeasured.** `spaceEnvelopePlanGeometry` is pinned;
+  `EdgeProjectorService` → `TechnicalDrawing` → `PlanViewCanvas` is not driven by any test.
+- ⚠ **`penCategoryForLayerTag` has no `A-AREA` arm**, so plan linework takes the generic
+  fallback pen. The ISO row exists (`ISO_LAYER_TO_VG_CATEGORY` → `spaceEnvelope`); the pen
+  does not.
+- ⚠ **The per-room colour does not reach plan.** The pen table is the one style authority
+  for a drawing (Contract 23 §7.1), so *"fills"* in plan are a HATCH, not a colour wash.
+- ⚠ **The plan reader resolves `baseElevation: null`** (harmless top-down; a future
+  SECTION producer must not inherit it) because `initTools` owns the elevation lookup and
+  another lane held that file.
+- ⚠ **The mesh and sprite half of the render commit has no test** — only the appearance
+  resolver does. No WebGL context was stood up.
+- ⚠ **Neighbour adaptation is ROOM subject + SIDE face only.** A level face refuses on
+  orphaning and adapts nothing; top/bottom faces have no shared-face path. A neighbour
+  that could not follow is reported on the span and in `console.warn` — **there is no
+  user-facing surface for `undetermined`.**
+- ⚠ **Envelope labels cannot be switched off** — no toggle, no per-level filter, unlike
+  `RoomLabelRenderer`.
+
+⭐ **THE MEASUREMENT THAT CORRECTED ITSELF, RECORDED RATHER THAN TIDIED.** Two containment
+assertions were authored reading `94.00 m` / `96.00 m` — hand-derived per-axis overhangs —
+and FAILED. The excursion is `checkEnvelopeContainment(...).worstExcursionM`, a **Euclidean
+distance to the ring** (94·√2 = 132.94 m; 100·√2 = 141.42 m), because C84 EI-9.2 forbids a
+second containment test. **The assertions were corrected to the measured number; the
+geometry was not tuned to the expectation** ([[tolerance-from-measured-error-not-the-test]]).
+
+---
+
 ---
 
 ## §15 — NOT MEASURED
