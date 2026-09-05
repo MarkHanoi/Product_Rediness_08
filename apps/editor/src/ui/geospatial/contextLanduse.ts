@@ -31,15 +31,23 @@ export interface ContextLanduseCollection {
 
 // The `landuse` tag → colour class. Anything not listed is dropped (parks/water have their own layers;
 // an unclassified land-use should not paint a colour we cannot justify — §CONTEXT-DATA-HONESTY).
+// §L-12909 (Marseille Vieux-Port / Joliette, 2026-09-05) — `port` and `harbour` are NOT land. In OSM a
+// harbour `landuse` polygon routinely covers the BASIN WATER as well as the quays, and painting it as
+// urban ground drew the sea tan under the founder's 3D Site. A basin PRYZM cannot separate from its
+// quays is dropped, not guessed (§CONTEXT-DATA-HONESTY); the water it contains is the water layer's
+// to draw (§SEA-LEFT-HAND-WALK closes a complete harbour coastline as water). The bake still emits
+// them; the client simply refuses to colour them.
 const URBAN = new Set([
     'residential', 'commercial', 'industrial', 'retail', 'garages', 'construction', 'brownfield',
-    'railway', 'port', 'harbour', 'quarry',
+    'railway', 'quarry',
 ]);
+/** §L-12909 — landuse values that describe WATER-BEARING areas and must never paint as ground. */
+export const LANDUSE_NOT_GROUND: ReadonlySet<string> = new Set(['port', 'harbour']);
 const RURAL = new Set([
     'farmland', 'meadow', 'orchard', 'vineyard', 'farmyard', 'allotments',
     'greenhouse_horticulture', 'plant_nursery', 'animal_keeping',
 ]);
-function classifyLanduse(v: string | undefined): LanduseKind | null {
+export function classifyLanduse(v: string | undefined): LanduseKind | null {
     if (!v) return null;
     if (URBAN.has(v)) return 'urban';
     if (RURAL.has(v)) return 'rural';
