@@ -68,7 +68,7 @@ on:
         type: string
         default: 'all'
       layer:
-        description: 'Merge only these layers (csv). Blank = all 7. Use for disk-bounded per-layer publishes of very large sets.'
+        description: 'Merge only these layers (csv). Blank = all 8 (bake.mjs allLayers). Use for disk-bounded per-layer publishes of very large sets. §SEA-BAKE-POLYGONS: "sea" is OPTIONAL — a region with no staged sea set is NAMED and skipped, never refused; stage it per region (layer=sea) or for every region in one run (region blank, layer=sea, stage=true → slug all--sea).'
         type: string
         default: ''
       engine:
@@ -272,6 +272,14 @@ jobs:
           # bytes actually contain), not from a workflow input.
           REGION_SCOPE="$(node -e 'const m=require("./tools/context-bake/out/merged/tileset-manifest.json");process.stdout.write(Object.keys(m.regions).join(","))')"
           echo "merged regions: $REGION_SCOPE"
+          # §PENDING-HEIGHTS (L-12937, 2026-09-05) — the marseille/france and ljubljana/slovenia rows are
+          # PARKED, not deleted: France's staged bake 33958357491 exited 4 (mnhFr stamped too few) and
+          # Slovenia's 33968022479 stamped 0, so their LATEST staged sets carry no measured heights and this
+          # gate refused the WHOLE merge (run 33967535630), stranding twelve regions' measured heights in
+          # staging. Those two regions ship exactly what is live today (no heights, same bytes); re-add
+          #   marseille france 43.2965,5.3698 500
+          #   ljubljana slovenia 46.0511,14.5051 500
+          # to the CITIES rows below the moment their context-bake gate passes.
           fail=0
           checked=0
           while read -r name region at min; do
@@ -287,7 +295,6 @@ jobs:
           done <<'CITIES'
           barcelona spain 41.3888,2.1590 500
           koln koln 50.9375,6.9603 500
-          marseille france 43.2965,5.3698 500
           zurich switzerland 47.3769,8.5417 500
           london greatbritain 51.5074,-0.1278 500
           amsterdam netherlands 52.3730,4.8924 500
@@ -300,7 +307,6 @@ jobs:
           antwerp belgium 51.2213,4.3997 500
           vienna austria 48.2086,16.3725 500
           prague czechia 50.0875,14.4213 500
-          ljubljana slovenia 46.0511,14.5051 500
           berlin germany 52.5200,13.4050 500
           hamburg germany 53.5503,9.9937 500
           potsdam germany 52.3990,13.0590 500
@@ -311,6 +317,7 @@ jobs:
           magdeburg germany 52.1277,11.6292 500
           koln-de germany 50.9375,6.9603 500
           hannover germany 52.3759,9.7320 500
+          abudhabi abudhabi 24.4539,54.3773 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights in the MERGED tileset. NOT publishing."
