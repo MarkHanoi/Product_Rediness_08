@@ -115,6 +115,13 @@ export const ISO_LAYER_TO_VG_CATEGORY: Readonly<Record<string, string>> = {
     // this row a boundary line's linework is UNCLASSIFIED, so the VG governance panel
     // has no toggle for it and the founder cannot hide his own setting-out lines.
     'A-CONS': 'boundary-line',
+    // §RESI-STAGE-G (2026-09-05) — the AUTHORED space envelope's ISO layer (C114 §10).
+    // `grep -rn "'A-AREA'" packages apps` → 0 hits before this row, so the name was free.
+    // Without it the envelope's plan linework is UNCLASSIFIED and the VG governance panel
+    // has no toggle for it — the half of §FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN that is easy
+    // to forget once the lines are on the page. ⚠ `penCategoryForLayerTag` has NO arm for
+    // this tag yet, so the strokes take the generic fallback pen; recorded in C114 §14.
+    'A-AREA': 'spaceEnvelope',
     // Structural discipline (ISO 13567) — see the note above.
     'S-COLS': 'column',
     'S-BEAM': 'beam',

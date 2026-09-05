@@ -29,11 +29,17 @@
  * "improve" this into a bus-event subscriber without changing that row in the same
  * commit.
  *
- * ⚠ WHAT THIS FILE DOES NOT ESTABLISH. That the prism appears in PLAN or in SECTION.
- * There is no plan-symbol producer for this family; registering the id with the view
- * dependency tracker and `BimManager` (below) makes the element and its storey KNOWN to
- * that pipeline — it is not what draws it. Stated here rather than discovered from a
- * screenshot, and the identical caveat `initTools` records for `water`.
+ * ⚠ WHAT THIS FILE DOES NOT ESTABLISH — CORRECTED 2026-09-05 (§RESI-STAGE-G). This
+ * paragraph read *"That the prism appears in PLAN or in SECTION. There is no plan-symbol
+ * producer for this family"*. **The PLAN half is now false and the SECTION half is still
+ * true.** `SpaceEnvelopePlanSymbolBuilder` exists, `EdgeProjectorService` injects it on
+ * the plan-family view types, and this function installs its reader below — so a level
+ * envelope draws as an outline and a room as an outline plus a hatch. There is still NO
+ * elevation/section producer, and the plan symbol is LINEWORK: the per-room colour of the
+ * 3-D view does not cross into the drawing, because the pen table is the one style
+ * authority there (Contract 23 §7.1). Registering the id with the view dependency tracker
+ * and `BimManager` (below) makes the element and its storey KNOWN to the pipeline; it is
+ * still not what draws it.
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
@@ -43,6 +49,15 @@ import {
     installSpaceEnvelopeFaceDrag,
     type DraggableSpaceEnvelope,
 } from './spaceEnvelopeFaceDragController';
+// §RESI-STAGE-G — the PLAN leg. Installed here rather than in `initTools` because the
+// reader needs exactly what this function already holds (the store) and nothing else; a
+// second wiring site would be a second place for the plan and the 3-D view to disagree
+// about which records exist.
+import {
+    installSpaceEnvelopePlanSymbolBuilder,
+    uninstallSpaceEnvelopePlanSymbolBuilder,
+    type SpaceEnvelopePlanEntry,
+} from './SpaceEnvelopePlanSymbolBuilder';
 
 /** The store shape `subscribeDirty` lives on. Structural, so no import edge is owed. */
 export interface DirtySpaceEnvelopeStore {
@@ -112,6 +127,37 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
         catch (err) { console.warn('[spaceEnvelope] registerElement failed (non-fatal):', err); }
     };
 
+    // ⭐ §RESI-STAGE-G — THE PLAN READER, INSTALLED BEFORE THE FIRST DRAW. It reads the
+    // SAME store the prisms are built from, per projection and lazily, so a plan drawn
+    // after a face drag shows the dragged ring rather than a snapshot: the two views
+    // cannot disagree about the model because there is only one model between them.
+    //
+    // ⚠ `baseElevation: null` IS DELIBERATE AND IS NOT A `?? 0`. This function is not
+    // given a storey-elevation resolver (`initTools` owns the one `bimManager` lookup),
+    // and inventing 0 here would be the §DIAG-WALL-LEVEL defect. A plan projection is
+    // top-down, so the value moves no stroke; the builder says so once, out loud.
+    installSpaceEnvelopePlanSymbolBuilder((levelId: string): readonly SpaceEnvelopePlanEntry[] => {
+        const out: SpaceEnvelopePlanEntry[] = [];
+        for (const raw of deps.store.getState().values()) {
+            const r = raw as {
+                id?: string; role?: string; levelId?: string;
+                footprint?: readonly { x: number; z: number }[];
+                baseOffset?: number;
+            };
+            if (!r || typeof r.id !== 'string' || r.id.length === 0) continue;
+            if ((r.levelId ?? '') !== levelId) continue;
+            if (!Array.isArray(r.footprint) || r.footprint.length < 3) continue;
+            out.push({
+                id: r.id,
+                role: r.role ?? 'room',
+                footprint: r.footprint,
+                baseOffset: typeof r.baseOffset === 'number' && Number.isFinite(r.baseOffset) ? r.baseOffset : 0,
+                baseElevation: null,
+            });
+        }
+        return out;
+    });
+
     // ── The initial draw. ⭐ NOT OPTIONAL, AND NOT A CONVENIENCE. A subscriber alone
     // draws only what changes AFTER it is installed, so every envelope restored by
     // `restoreCompoundFamilies` — which runs on project open, before this — would be in
@@ -152,6 +198,10 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
     return () => {
         try { unsubscribe(); } catch { /* non-fatal */ }
         try { disposeDrag?.(); } catch { /* non-fatal */ }
+        // ⛔ The plan reader closes over THIS store. Leaving it installed would let the
+        // next project's plan be drawn from the previous project's envelopes — the exact
+        // shape of the double-subscription this disposer already exists to prevent.
+        try { uninstallSpaceEnvelopePlanSymbolBuilder(); } catch { /* non-fatal */ }
         for (const id of builder.drawnIds()) builder.removeSpaceEnvelope(id);
     };
 }

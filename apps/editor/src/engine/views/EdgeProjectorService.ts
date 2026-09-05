@@ -110,6 +110,10 @@ import { wallLayerPlanSymbolBuilder } from '@pryzm/geometry-wall';
 // linework for it, NOT that a camera layer was wrong (the plan pane is Canvas2D and has no
 // camera). See that builder's header for the refuted hypothesis and the measurement.
 import { boundaryLinePlanSymbolBuilder } from '../BoundaryLinePlanSymbolBuilder';
+// §RESI-STAGE-G (2026-09-05) — the space envelope's plan leg. Same singleton idiom as the
+// boundary line above: this module is imported at load, the real reader is installed by
+// `attachSpaceEnvelopeRender` once the runtime has a store, and until then the stub warns.
+import { spaceEnvelopePlanSymbolBuilder } from '../SpaceEnvelopePlanSymbolBuilder';
 // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) / C09 §4.6.4a — the wall's ISO 13567 / Revit
 // FUNCTION (envelope vs. partition). geometry-wall owns the wall semantics; core-app-model owns
 // the pen. This service is the ONE place the fact crosses from the model into the drawing.
@@ -4057,6 +4061,26 @@ export class EdgeProjectorService {
             viewDef.viewType === 'structural-plan'
         ) {
             if (_symbolGate('boundary-line')) boundaryLinePlanSymbolBuilder.inject(drawing, viewDef);
+        }
+
+        // §RESI-STAGE-G (2026-09-05) — THE SPACE ENVELOPE IN PLAN. C114 §3 recorded ZERO
+        // consumers for this family and `attachSpaceEnvelopeRender`'s header admitted in as
+        // many words that nothing produced a plan representation; this is the call that
+        // closes it, so the founder's *"plan view and 3D talk to each other"* holds for the
+        // authored volumes as well as for the built fabric.
+        //
+        // ⭐ Gated on `'spaceEnvelope'` — the kind's OWN spelling (C114 §1 holds the count of
+        // spellings at exactly one). `makeSymbolInjectionGate` FAILS OPEN, so a family with
+        // no intent rules yet injects; a rule added later governs it with no change here.
+        //
+        // Same plan-family triple as every injector above. A prism seen edge-on in an
+        // elevation is a rectangle that says nothing, and no elevation producer exists.
+        if (
+            viewDef.viewType === 'plan' ||
+            viewDef.viewType === 'detail' ||
+            viewDef.viewType === 'structural-plan'
+        ) {
+            if (_symbolGate('spaceEnvelope')) spaceEnvelopePlanSymbolBuilder.inject(drawing, viewDef);
         }
 
         // §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS (L-221 P3) — elevation symbol injection.
