@@ -47,10 +47,22 @@ describe('§NL-3DBAG-OSM-JOIN — bake.mjs wires the 3dbag stamp for the `nether
         expect(fn![1]).toMatch(/r\.heightJoin === '3dbag'\)\s*return NL_3DBAG_CITY_BBOXES\.map/);
     });
 
-    it('dispatches 3dbag to stampNl3dbagHeightsOnGeojsonseq with priority = retained = the city list', () => {
-        expect(bake).toMatch(/if \(r\.heightJoin === '3dbag' \|\| r\.heightJoin === 'au_open' \|\| r\.heightJoin === 'mds'/);
-        expect(bake).toMatch(/r\.heightJoin === '3dbag' \? NL_3DBAG_CITY_BBOXES\.map\(\(c\) => c\.bbox\)/);
-        expect(bake).toMatch(/if \(r\.heightJoin === '3dbag'\) res = await stampNl3dbagHeightsOnGeojsonseq\(baseGeo, stamped, wsen, \{ maxTiles, priorityBboxes, retainBboxes \}\)/);
+    it('dispatches 3dbag as a NATIONAL_STAMP_TABLE row (stamp + working set), through the SHARED outcome recorder', () => {
+        // §CI-GREEN 2026-09-05 — 04b0330b prepended `'3dbag' ||` to the pinned dispatch chain, which broke
+        // auOpenHeightsWiring.spec.ts's front pin (`'au_open' || 'mds' || 'dhm'`) and left CI red. The key is a
+        // table row now, as ndh_no / us_open / ealidar_gb are: the retained working set IS the city list, so every
+        // held footprint is stamped uncapped (~10² populated cells against maxTiles 20000) without a priority list.
+        const table = bake.match(/const NATIONAL_STAMP_TABLE = \{([\s\S]*?)\n\};/);
+        expect(table, 'NATIONAL_STAMP_TABLE').not.toBeNull();
+        expect(table![1]).toMatch(/'3dbag':\s*\{\s*stamp:\s*stampNl3dbagHeightsOnGeojsonseq,\s*bboxes:\s*NL_3DBAG_CITY_BBOXES\s*\}/);
+        // The table path must reach the SAME gate bookkeeping as the chain, bounded by stampBboxesFor.
+        expect(bake).toMatch(/const tableStamp = NATIONAL_STAMP_TABLE\[r\.heightJoin\];/);
+        expect(bake).toMatch(/const retainBboxes = stampBboxesFor\(r\);[^\n]*\n[^\n]*\n[^\n]*tableStamp\.stamp\(baseGeo, stamped, wsen, \{ maxTiles: 20000, retainBboxes \}\)/);
+        expect(bake).toMatch(/recordNationalStampOutcome\(r, res, stamped, baseGeo, geos\);/);
+        // And the chain must NOT carry it (that is what broke the AU pin) — sibling pins stay contiguous.
+        expect(bake).not.toMatch(/r\.heightJoin === '3dbag' \|\|/);
+        expect(bake).not.toMatch(/r\.heightJoin === '3dbag'\) res = await/);
+        expect(bake).toMatch(/if \(r\.heightJoin === 'au_open' \|\| r\.heightJoin === 'mds' \|\| r\.heightJoin === 'dhm'/);
     });
 
     it('the stamp module exports the stamp, imports the pure half, and marks provenance exactly as the other stamps do', () => {
