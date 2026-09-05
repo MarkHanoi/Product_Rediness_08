@@ -571,6 +571,13 @@ export const INTENDED_AREA_SECTION_TESTID = 'envelope-section-intended-area';
  *                        summed (a room sits within a level, C114 §9a `withinId`), so the honest
  *                        answer is "no level area declared, and here is why you may have expected
  *                        one" rather than a number built from the wrong records.
+ *
+ * ⭐ §RESI-STAGE-G (2026-09-05) — THE `declared` ARM NOW LISTS THE ROOMS UNDER EACH STOREY,
+ * by name, with each room's own footprint area, and a subtotal line reading *"of which named
+ * rooms — listed, not added"*. The level figure printed on the storey row is unchanged and still
+ * comes from `IntendedLevelArea.intendedAreaM2`, which `collectIntendedAreas` builds from LEVEL
+ * envelopes only. ⛔ The `rooms-only` arm is deliberately NOT given room areas: with no level row
+ * to sit under, printing them would be the sum this whole channel exists to refuse.
  */
 export function buildIntendedAreaFold(snapshot: IntendedAreaSnapshot): string {
     const span = _tracer.startSpan('pryzm.site.buildIntendedAreaFold');
@@ -628,9 +635,37 @@ export function buildIntendedAreaFold(snapshot: IntendedAreaSnapshot): string {
                 const count = r.levelEnvelopeCount > 1
                     ? `<span style="color:#c3bdd6;"> · ${escHtml(String(r.levelEnvelopeCount))} envelopes</span>`
                     : '';
+                // ⭐ §RESI-STAGE-G — THE ROOMS, LISTED **UNDER** THEIR LEVEL AND NEVER ADDED TO IT.
+                // RESI-ORCHESTRATOR-PLAN §4 Stage G. Indented under the storey row, each with its
+                // own footprint area, and the subtotal is rendered as a SEPARATE line that says
+                // "of which" — the one phrasing that cannot be misread as an addend. A room whose
+                // `withinId` does not name a level envelope on this storey is marked, because
+                // "seated here" and "declared within this level" are different facts (C114 §9a).
+                const roomRows = r.rooms.length === 0
+                    ? ''
+                    : `<div data-rooms-for-level="${escHtml(r.levelId)}" style="margin:1px 0 4px 10px;padding-left:8px;border-left:2px solid #efecf7;">`
+                      + r.rooms.map((room) => {
+                          const nm = room.name !== null
+                              ? escHtml(room.name)
+                              : `<span data-unnamed-room="${escHtml(room.id)}" style="color:#8a5a00;">Unnamed room envelope</span>`;
+                          const occ = room.occupancy !== null
+                              ? `<span style="color:#c3bdd6;"> · ${escHtml(room.occupancy)}</span>`
+                              : '';
+                          const undeclared = room.declaredWithinLevelEnvelope
+                              ? ''
+                              : `<span data-room-membership="undeclared" title="This room is seated on this storey but does not declare a level envelope it sits within." style="color:#8a5a00;"> · membership not declared</span>`;
+                          return `<div style="display:flex;justify-content:space-between;gap:10px;padding:1px 0;font-size:10px;">`
+                              + `<span style="color:#8a83a0;">${nm}${occ}${undeclared}</span>`
+                              + `<span style="color:#6b6480;text-align:right;">${escHtml(room.netAreaM2.toFixed(0))} m²</span></div>`;
+                      }).join('')
+                      + `<div data-rooms-subtotal="${escHtml(r.levelId)}" style="display:flex;justify-content:space-between;gap:10px;padding:2px 0 0 0;font-size:9px;color:#8a83a0;">`
+                      + `<span>of which named rooms (${escHtml(String(r.rooms.length))}) — listed, not added</span>`
+                      + `<span>${escHtml(r.roomsSubtotalM2.toFixed(0))} m²</span></div>`
+                      + `</div>`;
                 return `<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0;">`
                     + `<span style="color:#6b6480;">${label}${count}</span>`
-                    + `<span style="font-weight:600;text-align:right;">${escHtml(r.intendedAreaM2.toFixed(0))} m²</span></div>`;
+                    + `<span style="font-weight:600;text-align:right;">${escHtml(r.intendedAreaM2.toFixed(0))} m²</span></div>`
+                    + roomRows;
             })
             .join('');
         const total = snapshot.totalIntendedM2;
@@ -643,7 +678,12 @@ export function buildIntendedAreaFold(snapshot: IntendedAreaSnapshot): string {
             + `add them together.`
             + (snapshot.roomEnvelopeCount > 0
                 ? ` ${escHtml(String(snapshot.roomEnvelopeCount))} room envelope(s) sit within these levels and `
-                  + `are deliberately not added on top.`
+                  + `are deliberately not added on top — they are listed under the storey they are seated on.`
+                : '')
+            + (snapshot.roomsOnStoreysWithoutLevel > 0
+                ? ` ${escHtml(String(snapshot.roomsOnStoreysWithoutLevel))} room envelope(s) sit on a storey with `
+                  + `no level envelope, so there is no storey figure for them to be listed under; they are `
+                  + `counted here rather than given an area of their own.`
                 : '')
             + (snapshot.skippedCount > 0
                 ? ` ${escHtml(String(snapshot.skippedCount))} record(s) could not be read as a level or room `

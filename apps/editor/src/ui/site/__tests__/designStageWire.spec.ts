@@ -382,6 +382,104 @@ describe('buildIntendedAreaFold', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §RESI-STAGE-G — ROOMS LISTED UNDER THEIR LEVEL, NEVER SUMMED INTO IT
+// RESI-ORCHESTRATOR-PLAN §4 Stage G · C114 §3a · ADR-0380 D5.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('§RESI-STAGE-G — the intended fold lists rooms under their level', () => {
+    const LEVEL_GROUND = 'env-level-ground';
+    const storeWith = (records: readonly Record<string, unknown>[]) => ({
+        getState: () => new Map<string, unknown>(records.map((r) => [String(r.id), r])),
+    });
+
+    const groundWithTwoRooms = () => storeWith([
+        { id: LEVEL_GROUND, role: 'level', levelId: 'L1', name: 'Ground envelope', footprintAreaM2: 180 },
+        {
+            id: 'env-kitchen', role: 'room', levelId: 'L1', name: 'Kitchen',
+            footprintAreaM2: 14, occupancy: 'kitchen', withinId: LEVEL_GROUND,
+        },
+        {
+            id: 'env-living', role: 'room', levelId: 'L1', name: 'Living',
+            footprintAreaM2: 32, withinId: LEVEL_GROUND,
+        },
+    ]);
+
+    it('⭐ names each room and prints its OWN area under the storey row', () => {
+        const snap = collectIntendedAreas(groundWithTwoRooms(), [{ id: 'L1', name: 'Ground', elevation: 0 }]);
+        expect(snap.readable).toBe(true);
+        if (!snap.readable) return;
+        expect(snap.byLevel).toHaveLength(1);
+        const row = snap.byLevel[0]!;
+        // Largest first — Living (32) before Kitchen (14).
+        expect(row.rooms.map((r) => r.name)).toEqual(['Living', 'Kitchen']);
+        expect(row.rooms.map((r) => r.netAreaM2)).toEqual([32, 14]);
+
+        document.body.innerHTML = buildIntendedAreaFold(snap);
+        const nest = document.querySelector('[data-rooms-for-level="L1"]');
+        expect(nest).not.toBeNull();
+        const text = nest!.textContent ?? '';
+        expect(text).toContain('Kitchen');
+        expect(text).toContain('Living');
+        expect(text).toContain('14 m²');
+        expect(text).toContain('32 m²');
+    });
+
+    it('⛔ THE ROOM AREAS ARE NOT ADDED — the level figure and the total are the LEVEL envelopes only', () => {
+        const snap = collectIntendedAreas(groundWithTwoRooms(), [{ id: 'L1', name: 'Ground', elevation: 0 }]);
+        if (!snap.readable) throw new Error('expected a readable snapshot');
+        const row = snap.byLevel[0]!;
+        // 180, NOT 180 + 32 + 14 = 226. This is the whole rule of the module (ADR-0380 D5).
+        expect(row.intendedAreaM2).toBe(180);
+        expect(snap.totalIntendedM2).toBe(180);
+        // The subtotal EXISTS as its own number, so the fold can show it beside — never inside.
+        expect(row.roomsSubtotalM2).toBe(46);
+
+        document.body.innerHTML = buildIntendedAreaFold(snap);
+        const text = document.body.textContent ?? '';
+        expect(text).toContain('180 m²');
+        expect(text).not.toContain('226 m²');
+        expect(text).toContain('listed, not added');
+    });
+
+    it('a room whose withinId names no level envelope on this storey is MARKED, not normalised', () => {
+        const snap = collectIntendedAreas(storeWith([
+            { id: LEVEL_GROUND, role: 'level', levelId: 'L1', name: 'Ground envelope', footprintAreaM2: 100 },
+            { id: 'env-loose', role: 'room', levelId: 'L1', name: 'Study', footprintAreaM2: 9, withinId: null },
+        ]), []);
+        if (!snap.readable) throw new Error('expected a readable snapshot');
+        expect(snap.byLevel[0]!.rooms[0]!.declaredWithinLevelEnvelope).toBe(false);
+        document.body.innerHTML = buildIntendedAreaFold(snap);
+        expect(document.querySelector('[data-room-membership="undeclared"]')).not.toBeNull();
+    });
+
+    it('⛔ a room on a storey with NO level envelope is COUNTED, never given an area', () => {
+        const snap = collectIntendedAreas(storeWith([
+            { id: LEVEL_GROUND, role: 'level', levelId: 'L1', name: 'Ground envelope', footprintAreaM2: 100 },
+            { id: 'env-attic', role: 'room', levelId: 'L9', name: 'Attic', footprintAreaM2: 77 },
+        ]), []);
+        if (!snap.readable) throw new Error('expected a readable snapshot');
+        expect(snap.roomsOnStoreysWithoutLevel).toBe(1);
+        expect(snap.byLevel).toHaveLength(1);
+        expect(snap.byLevel[0]!.rooms).toHaveLength(0);
+        document.body.innerHTML = buildIntendedAreaFold(snap);
+        const text = document.body.textContent ?? '';
+        expect(text).not.toContain('77 m²');
+        expect(text).toContain('no level envelope');
+    });
+
+    it('an UNNAMED room envelope says so — the name is never invented from the role', () => {
+        const snap = collectIntendedAreas(storeWith([
+            { id: LEVEL_GROUND, role: 'level', levelId: 'L1', footprintAreaM2: 50 },
+            { id: 'env-anon', role: 'room', levelId: 'L1', footprintAreaM2: 8, withinId: LEVEL_GROUND },
+        ]), []);
+        if (!snap.readable) throw new Error('expected a readable snapshot');
+        expect(snap.byLevel[0]!.rooms[0]!.name).toBeNull();
+        document.body.innerHTML = buildIntendedAreaFold(snap);
+        expect(document.querySelector('[data-unnamed-room="env-anon"]')).not.toBeNull();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // THE SOURCE PINS — the card must CALL these, or every test above certifies a shelf
 // ─────────────────────────────────────────────────────────────────────────────
 
