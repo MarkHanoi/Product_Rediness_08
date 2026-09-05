@@ -124,7 +124,8 @@ import {
 // building footprint"); §1.9 requires the ATTRIBUTION of the provider that actually
 // answered, and the jurisdiction row is where that string and its region code live. Pure
 // routing — no network, no side effect.
-import { resolveParcelProvider } from '../site/parcel/parcelRegistry.js';
+import { resolveParcelAttribution } from '../site/parcel/parcelRegistry.js';
+import { assessParcelSize, type ParcelSizeStatus } from '../site/parcel/parcelSizeReview.js';
 import type { ParcelProvenance } from '@pryzm/schemas';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
@@ -1025,27 +1026,41 @@ export function mountSiteBoundaryMap2D(
      * mounts. The map contributes only its two ACTIONS, because those are genuinely
      * map-specific (they drive this modal's commit and its draw mode); the FACTS are not.
      */
-    function showParcelCard(parcel: ParcelFeature): void {
+    function showParcelCard(parcel: ParcelFeature): ParcelSizeStatus {
         parcelCard.replaceChildren();
-        parcelCard.appendChild(buildParcelCard(
-            parcelFeatureToCardModel(parcel, parcelProvider?.label ?? null),
-            {
-                actions: [
-                    {
-                        label: 'Use this parcel  →',
-                        testId: 'parcel-use-btn',
-                        variant: 'primary',
-                        onClick: () => useSelectedParcel(),
-                    },
-                    {
-                        label: 'Draw instead',
-                        variant: 'secondary',
-                        onClick: () => setInteractionMode('draw'),
-                    },
-                ],
-            },
-        ));
+        // §L-12912 — the label is the cadastre that ACTUALLY answered (resolved from the parcel's
+        // own `source`), not this host's generic registry label "Cadastral parcel / building
+        // footprint" — which is what the Belverde card printed. Same resolver as the commit.
+        const model = parcelFeatureToCardModel(
+            parcel,
+            resolveParcelAttribution(parcel, parcelProvider?.label ?? null).label,
+        );
+        // §L-12912 — a fetched ring above the review ceiling (a 766 ha prédio under a house) is a
+        // CANDIDATE, not "your parcel": Draw becomes the primary action and the commit is demoted
+        // to a deliberate secondary one that names the size. It is never disabled — an honest
+        // rural cadastre stays one click away with both numbers in view (C83 §1.2).
+        const size = assessParcelSize(model);
+        const use = {
+            label: size.status === 'oversize' ? 'Use this large parcel anyway' : 'Use this parcel  →',
+            testId: 'parcel-use-btn',
+            variant: size.status === 'oversize' ? 'secondary' as const : 'primary' as const,
+            title: size.status === 'oversize' && size.areaM2 !== null
+                ? `Commits the whole ${Math.round(size.areaM2 / 10_000)} ha parcel as your site. `
+                  + 'If you clicked a house, its lot is not in the published cadastre — draw it instead.'
+                : undefined,
+            onClick: () => useSelectedParcel(),
+        };
+        const draw = {
+            label: size.status === 'oversize' ? 'Draw my lot instead  →' : 'Draw instead',
+            testId: 'parcel-draw-btn',
+            variant: size.status === 'oversize' ? 'primary' as const : 'secondary' as const,
+            onClick: () => setInteractionMode('draw'),
+        };
+        parcelCard.appendChild(buildParcelCard(model, {
+            actions: size.status === 'oversize' ? [draw, use] : [use, draw],
+        }));
         parcelCard.style.display = 'block';
+        return size.status;
     }
 
     /**
@@ -1162,8 +1177,10 @@ export function mountSiteBoundaryMap2D(
             }
             selectedParcel = parcel;
             refreshParcelHighlight();
-            showParcelCard(parcel);
-            chip.textContent = 'Review the parcel, then “Use this parcel” · Esc to cancel';
+            const size = showParcelCard(parcel);
+            chip.textContent = size === 'oversize'
+                ? 'This parcel is very large — probably not your lot. Draw your lot, or use it deliberately · Esc to cancel'
+                : 'Review the parcel, then “Use this parcel” · Esc to cancel';
         }).catch((err) => {
             parcelFetchInFlight = false;
             console.warn('[gis] parcel fetch failed (non-fatal):', err);
@@ -1183,33 +1200,16 @@ export function mountSiteBoundaryMap2D(
         if (ring.length < 3) { toast('Selected parcel has no usable boundary.', 'error'); return; }
         // §L-1580 — capture the attribution BEFORE `selectedParcel` is dropped two lines below.
         //
-        // The per-jurisdiction row is resolved at the parcel's OWN first vertex, not at the
-        // map centre: a click near a national border routes by point, and attributing the
-        // parcel to the country the viewport happens to be centred on would be a wrong
-        // attribution that still looks well-formed.
-        let jurisdictionLabel: string | null = parcelProvider?.label ?? null;
-        let jurisdictionId: string | null = null;
-        try {
-            const first = ring[0]!;
-            const routed = resolveParcelProvider(first.lat, first.lon);
-            jurisdictionId = routed.jurisdiction.regionCode;
-            // Prefer the row's label ONLY when a cadastre actually answered. A footprint
-            // fallback must not inherit a national cadastre's attribution string — that is
-            // the false-provenance the card's footprint banner exists to deny.
-            if (!/^footprint\b/i.test(selectedParcel.source ?? '')) {
-                jurisdictionLabel = routed.jurisdiction.label || jurisdictionLabel;
-            } else {
-                jurisdictionLabel = 'OpenStreetMap contributors — building footprint, not a cadastral parcel';
-            }
-        } catch (e) {
-            // Routing is pure, but a throw here must not block a commit the user asked for.
-            // The provenance then carries the generic registry label, which is honest if less
-            // specific — never a guessed national authority.
-            console.warn('[gis] §L-1580 — jurisdiction routing failed; recording the generic provider label:', e);
-        }
+        // The per-jurisdiction row is resolved at the parcel's OWN first vertex and its OWN
+        // `source`, not at the map centre: a click near a national border routes by point, and
+        // attributing the parcel to the country the viewport happens to be centred on would be a
+        // wrong attribution that still looks well-formed. §L-12912: the SAME resolver the card
+        // used before the commit (`resolveParcelAttribution`), so what was shown and what is
+        // stored cannot differ; a footprint fallback never inherits a cadastre's label.
+        const attribution = resolveParcelAttribution(selectedParcel, parcelProvider?.label ?? null);
         pendingParcelProvenance = parcelFeatureToProvenance(selectedParcel, {
-            providerLabel: jurisdictionLabel,
-            jurisdictionId,
+            providerLabel: attribution.label,
+            jurisdictionId: attribution.regionCode,
         });
         vertices.length = 0;
         for (const p of ring) vertices.push({ lat: p.lat, lon: p.lon });

@@ -56,6 +56,7 @@
 
 import type { ParcelProvenance, ParcelSourceKind } from '@pryzm/schemas';
 import type { ParcelFeature } from './ParcelProvider.js';
+import { assessParcelSize, parcelSizeReviewText, PARCEL_SIZE_REVIEW_TESTID } from './parcelSizeReview.js';
 
 /** The `data-testid` on the card root, whichever surface hosts it. */
 export const PARCEL_CARD_TESTID = 'parcel-info-card';
@@ -341,6 +342,19 @@ export function buildParcelCard(
         root.appendChild(note);
     }
 
+    // ── §L-12912 — the SIZE review, above the numbers it qualifies (Belverde: a 766 ha prédio
+    //    presented as "your parcel"). A separate categorical flag beside the match tier — never
+    //    inside it (C57 §2.4) — carrying both numbers and the source (C83 §1.2). It changes what
+    //    the banner says and which action the host makes primary; it never hides the parcel.
+    const size = assessParcelSize(model);
+    root.setAttribute('data-parcel-size-review', size.status);
+    const sizeText = parcelSizeReviewText(size, model);
+    if (sizeText) {
+        const warn = el('div', 'pryzm-parcel-card-warn', sizeText);
+        warn.setAttribute('data-testid', PARCEL_SIZE_REVIEW_TESTID);
+        root.appendChild(warn);
+    }
+
     // ── Identifier. LABELLED BY KIND: a footprint's id is an OSM way id, and calling it
     //    "Ref" in the same typography a referencia catastral uses is the false-provenance
     //    the banner above just denied.
@@ -381,7 +395,14 @@ export function buildParcelCard(
     }
 
     // ── C57 §1.9 — ATTRIBUTION IS MANDATORY wherever the provider's data is displayed.
-    const attribution = el('div', 'pryzm-parcel-card-source', `Source: ${model.label}`);
+    //    §L-12912: the per-parcel provenance id (`ParcelFeature.source`, e.g. `dgt-cadastro-predial`)
+    //    is rendered beside the human label whenever the two differ. The Belverde card read
+    //    "Cadastral parcel / building footprint" — the ROUTING REGISTRY's generic label — and
+    //    nothing on it said which cadastre had answered.
+    const attributionText = model.source && model.source !== model.label
+        ? `Source: ${model.label} · ${model.source}`
+        : `Source: ${model.label}`;
+    const attribution = el('div', 'pryzm-parcel-card-source', attributionText);
     attribution.setAttribute('data-testid', 'parcel-source-attribution');
     root.appendChild(attribution);
     if (model.license) {

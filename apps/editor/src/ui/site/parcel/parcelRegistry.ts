@@ -64,6 +64,45 @@ export function resolveParcelProvider(lat: number, lon: number): {
     return { jurisdiction, cadastral: cadastralProviderFor(jurisdiction), footprint: footprintParcelProvider };
 }
 
+/** §L-12912 — the one attribution string for an OSM-footprint fallback (C57 §1.5 / §1.9). */
+export const PARCEL_FOOTPRINT_ATTRIBUTION =
+    'OpenStreetMap contributors — building footprint, not a cadastral parcel';
+
+/**
+ * §L-12912 — THE ONE attribution for a fetched parcel: the human label and region of the cadastre
+ * that ACTUALLY answered, used by the map card BEFORE commit and by the provenance record AT
+ * commit, so the two cannot disagree (C06 §13.3 one-producer).
+ *
+ * Resolution is by the parcel's own `source` (the provider id every leg stamps) against the
+ * candidate rows enclosing the ring's first vertex — not by "the most specific row at this point".
+ * The L-650 priority fallback means the most specific row can MISS and an enclosing one answer
+ * (Eindhoven BE→NL, Kirkenes FI→NO); attributing by point alone would then name a cadastre that
+ * never served the ring. The most-specific row is the fallback only when no row carries the
+ * source. A footprint fallback never inherits a national cadastre's label. `fallbackLabel` (the
+ * host's generic provider label) is returned only when nothing better is known — never a guess.
+ */
+export function resolveParcelAttribution(
+    parcel: ParcelFeature,
+    fallbackLabel: string | null,
+): { readonly label: string | null; readonly regionCode: string | null } {
+    if (/^footprint\b/i.test(parcel.source ?? '')) {
+        return { label: PARCEL_FOOTPRINT_ATTRIBUTION, regionCode: null };
+    }
+    const first = parcel.ring[0];
+    if (!first) return { label: fallbackLabel, regionCode: null };
+    try {
+        const candidates = resolveParcelCandidates(first.lat, first.lon);
+        const bySource = candidates.find((c) => c.providerId === parcel.source);
+        const row = bySource ?? resolveParcelJurisdiction(first.lat, first.lon);
+        return { label: row.label || fallbackLabel, regionCode: row.regionCode ?? null };
+    } catch (e) {
+        // Routing is pure, but a throw here must never block a card or a commit the user asked
+        // for. The generic label is honest if less specific — never a guessed national authority.
+        console.warn('[gis] §L-12912 — parcel attribution routing failed; using the generic label:', e);
+        return { label: fallbackLabel, regionCode: null };
+    }
+}
+
 /**
  * THE provider the map uses. Dispatches every `fetchParcelAtPoint(lon, lat)` through the routing
  * registry: real cadastre where one is reachable, honest OSM footprint everywhere else. Never

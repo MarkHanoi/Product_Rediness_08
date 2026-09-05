@@ -176,7 +176,8 @@ describe('L-651 — newly wired sources (PT / US-SF / US-CHI)', () => {
         expect(p).not.toBeNull();
         expect(p!.refcat).toBe('AAA001318684');
         expect(p!.areaM2).toBe(30568); // registry-declared, not derived
-        expect(p!.address).toBe('051102');
+        // §L-12912 — `administrativeunit` is a DICOFRE code, labelled so it cannot read as an address.
+        expect(p!.address).toBe('DICOFRE 051102');
         // Real WGS84 degrees, NOT projected EPSG:3763 metres (which would be ~10^5).
         expect(Math.abs(p!.ring[0]!.lat)).toBeLessThanOrEqual(90);
         expect(Math.abs(p!.ring[0]!.lon)).toBeLessThanOrEqual(180);
@@ -248,6 +249,74 @@ describe('L-651 — newly wired sources (PT / US-SF / US-CHI)', () => {
 // became "this country has no parcels" and the client dropped to the OSM footprint without ever
 // learning the authoritative source had failed.
 // ══════════════════════════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §L-12912 — BELVERDE (Seixal, PT), founder screenshot 2026-09-05. Attributes copied VERBATIM from
+// the live SNIC GetFeature of 2026-09-05 (docs/04-reference/jurisdictions/pt/findings/
+// belverde-parcel-probe.mjs): the register serves ONE 766 ha prédio under the whole urbanisation,
+// with `areavalue` 7 662 344 m² PUBLISHED. The ring is trimmed to a ~2.77 km square of the same
+// order so the shoelace is close to, but NOT equal to, the registry figure.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+const PT_BELVERDE_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    numberMatched: 1,
+    numberReturned: 1,
+    features: [{
+        type: 'Feature',
+        id: 'cadastralparcel.1174096819',
+        geometry: { type: 'MultiPolygon', coordinates: [[[[-9.166, 38.5725], [-9.134, 38.5725], [-9.134, 38.5975], [-9.166, 38.5975], [-9.166, 38.5725]]]] },
+        properties: {
+            inspireid: 'PT.DGT.CP.AAA000091722',
+            label: 'AAA 000 091 722',
+            nationalcadastralreference: 'AAA000091722',
+            areavalue: 7662344,
+            validfrom: null,
+            validto: null,
+            beginlifespanversion: '2023-11-21T00:00:00Z',
+            endlifespanversion: null,
+            administrativeunit: '151002',
+        },
+    }],
+});
+
+describe('§L-12912 — the two areas leave the proxy as two fields (C57 §2.4 / KV-3 on the EU legs)', () => {
+    it('PT / Belverde: the served areavalue is `areaOfficialM2`, the shoelace is `areaSigM2`, and they differ', async () => {
+        const r = await resolveEuParcelOutcome('pt', -9.15, 38.585, { fetchImpl: fakeFetch(PT_BELVERDE_GEOJSON) });
+        // The SERVER does not refuse: this ring IS the register's answer. The size review belongs to
+        // the card (apps/editor …/parcelSizeReview.ts), which needs the true figures to say so.
+        expect(r.outcome).toBe('ok');
+        const p = r.parcel!;
+        expect(p.refcat).toBe('AAA000091722');
+        expect(p.areaOfficialM2).toBe(7662344);
+        expect(p.areaM2).toBe(7662344);
+        expect(p.areaSigM2).toBeGreaterThan(7_000_000);
+        expect(p.areaSigM2).toBeLessThan(8_500_000);
+        expect(p.areaSigM2).not.toBe(p.areaOfficialM2);
+        expect(p.address).toBe('DICOFRE 151002');
+    });
+
+    it('PT without an areavalue: `areaOfficialM2` is null and `areaM2` IS the shoelace — never a zero, never invented', async () => {
+        const noArea = JSON.parse(PT_BELVERDE_GEOJSON);
+        delete noArea.features[0].properties.areavalue;
+        const p = await fetchEuParcelAtPoint('pt', -9.15, 38.585, { fetchImpl: fakeFetch(JSON.stringify(noArea)) });
+        expect(p!.areaOfficialM2).toBeNull();
+        expect(p!.areaSigM2).toBeGreaterThan(0);
+        expect(p!.areaM2).toBe(p!.areaSigM2);
+    });
+
+    it('a leg that reads a served area without saying so explicitly (FR contenance) still forwards it as registry-declared', async () => {
+        const p = await fetchEuParcelAtPoint('fr', 2.3522, 48.8566, { fetchImpl: fakeFetch(FR_GEOJSON) });
+        expect(p!.areaOfficialM2).toBe(15168);
+        expect(p!.areaSigM2).toBeGreaterThan(0);
+        expect(p!.areaSigM2).not.toBe(15168);
+    });
+
+    it('a geometry-only leg (NO) forwards NO registry area — `areaOfficialM2` null, `areaM2` equals the shoelace', async () => {
+        const p = await fetchEuParcelAtPoint('no', 10.7522, 59.9139, { fetchImpl: fakeFetch(NO_GML) });
+        expect(p!.areaOfficialM2).toBeNull();
+        expect(p!.areaM2).toBe(p!.areaSigM2);
+    });
+});
 
 describe('§CONTEXT-DATA-HONESTY — outage and empty never collapse', () => {
     it('an upstream that ANSWERS with zero features is `empty` (authoritative no-parcel)', async () => {

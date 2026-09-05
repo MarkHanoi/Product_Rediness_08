@@ -1,0 +1,25 @@
+
+[ARM U] SNIC @ Belverde (brief point) (38.572,-9.144) → HTTP 200 45549 B 1414 ms · numberMatched=1
+         {"id":"cadastralparcel.1174093039","typename":"cadastralparcel","geometryType":"MultiPolygon","parts":1,"outerVertices":1467,"holes":2,"shoelaceNetM2":34739689,"properties":{"inspireid":"PT.DGT.CP.AAA000087942","referencepoint":[-9.12938914,38.5458412],"label":"AAA 000 087 942","nationalcadastralreference":"AAA000087942","areavalue":34707890,"validfrom":null,"validto":null,"beginlifespanversion":"2023-11-21T00:00:00Z","endlifespanversion":null,"administrativeunit":"151101","id":1174093039}}
+[ARM P] prod https://pryzm.fly.dev/api/parcel/pt?lat=38.572&lon=-9.144 → HTTP 200 791 ms · {"refcat":"AAA000087942","areaM2":34707890,"address":"151101","source":"dgt-cadastro-predial","ringVertices":1467}
+
+[ARM U] SNIC @ Belverde NE (38.5735,-9.1425) → HTTP 200 45549 B 48 ms · numberMatched=1
+         {"id":"cadastralparcel.1174093039","typename":"cadastralparcel","geometryType":"MultiPolygon","parts":1,"outerVertices":1467,"holes":2,"shoelaceNetM2":34739689,"properties":{"inspireid":"PT.DGT.CP.AAA000087942","referencepoint":[-9.12938914,38.5458412],"label":"AAA 000 087 942","nationalcadastralreference":"AAA000087942","areavalue":34707890,"validfrom":null,"validto":null,"beginlifespanversion":"2023-11-21T00:00:00Z","endlifespanversion":null,"administrativeunit":"151101","id":1174093039}}
+[ARM P] prod https://pryzm.fly.dev/api/parcel/pt?lat=38.5735&lon=-9.1425 → HTTP 200 180 ms · {"refcat":"AAA000087942","areaM2":34707890,"address":"151101","source":"dgt-cadastro-predial","ringVertices":1467}
+
+[ARM U] SNIC @ Belverde SW (38.5705,-9.146) → HTTP 200 45549 B 51 ms · numberMatched=1
+         {"id":"cadastralparcel.1174093039","typename":"cadastralparcel","geometryType":"MultiPolygon","parts":1,"outerVertices":1467,"holes":2,"shoelaceNetM2":34739689,"properties":{"inspireid":"PT.DGT.CP.AAA000087942","referencepoint":[-9.12938914,38.5458412],"label":"AAA 000 087 942","nationalcadastralreference":"AAA000087942","areavalue":34707890,"validfrom":null,"validto":null,"beginlifespanversion":"2023-11-21T00:00:00Z","endlifespanversion":null,"administrativeunit":"151101","id":1174093039}}
+[ARM P] prod https://pryzm.fly.dev/api/parcel/pt?lat=38.5705&lon=-9.146 → HTTP 200 194 ms · {"refcat":"AAA000087942","areaM2":34707890,"address":"151101","source":"dgt-cadastro-predial","ringVertices":1467}
+
+[ARM C] census {"s":38.565,"w":-9.165,"n":38.592,"e":-9.13} → HTTP 200 73 ms · numberMatched=114 · 114 parcels · 107 under 2 ha · 6 over 20 ha
+         {"ref":"AAA000087942","areavalue":34707890,"shoelaceNetM2":34739689,"outerVertices":1467,"dicofre":"151101","referencepoint":[-9.12938914,38.5458412]}
+         {"ref":"AAA000091722","areavalue":7662344,"shoelaceNetM2":7670659,"outerVertices":500,"dicofre":"151002","referencepoint":[-9.13242914,38.59209171]}
+         {"ref":"AAA000060701","areavalue":2269159,"shoelaceNetM2":2272317,"outerVertices":224,"dicofre":"150314","referencepoint":[-9.17233793,38.57258248]}
+         {"ref":"AAA000060806","areavalue":1119150,"shoelaceNetM2":1120716,"outerVertices":139,"dicofre":"150314","referencepoint":[-9.17530068,38.57827789]}
+         {"ref":"AAA000090006","areavalue":457642,"shoelaceNetM2":458227,"outerVertices":94,"dicofre":"151005","referencepoint":[-9.16378487,38.59239324]}
+         {"ref":"AAA000089708","areavalue":289179,"shoelaceNetM2":289542,"outerVertices":64,"dicofre":"151005","referencepoint":[-9.15763591,38.5862113]}
+         {"ref":"AAA000089759","areavalue":87345,"shoelaceNetM2":87462,"outerVertices":13,"dicofre":"151005","referencepoint":[-9.15413854,38.59372221]}
+         {"ref":"AAA000060823","areavalue":17208,"shoelaceNetM2":17230,"outerVertices":11,"dicofre":"150314","referencepoint":[-9.16425139,38.58522851]}
+         … 106 more (all in the JSON)
+
+wrote C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\docs\04-reference\jurisdictions\pt\findings\belverde-parcel-probe.json

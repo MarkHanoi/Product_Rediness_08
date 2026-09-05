@@ -1292,10 +1292,19 @@ export const EU_CADASTRE_SOURCES = {
             const refcat = String(
                 jsonProp(p, 'nationalcadastralreference', 'inspireid', 'label') ?? '',
             ).trim();
-            // `areavalue` is the registry-declared area in m²; fall back to the ring shoelace.
-            const areaM2 = Number(jsonProp(p, 'areavalue')) || ringAreaM2(c.ring);
+            // `areavalue` is the registry-declared area in m². §L-12912 (Belverde, 2026-09-05):
+            // it is forwarded SEPARATELY as `areaOfficialM2` — collapsing it into `areaM2` made
+            // the client card print "the source publishes no registry area" over a parcel whose
+            // areavalue (7 662 344 m²) WAS served, and mis-tiered the match. The shoelace is the
+            // `areaM2` fallback only when the register published nothing.
+            const served = Number(jsonProp(p, 'areavalue'));
+            const areaOfficialM2 = Number.isFinite(served) && served > 0 ? served : null;
+            const areaM2 = areaOfficialM2 ?? ringAreaM2(c.ring);
+            // `administrativeunit` is a DICOFRE code — distrito·concelho·freguesia, e.g. 151002 =
+            // Setúbal · Seixal · Amora — NOT a street address. Labelled so the card cannot read it
+            // as one (it rendered as "Addr 151002" before L-12912).
             const admin = jsonProp(p, 'administrativeunit');
-            return { refcat, areaM2, address: admin ? String(admin) : null };
+            return { refcat, areaM2, areaOfficialM2, address: admin ? `DICOFRE ${admin}` : null };
         },
     },
     'us-sf': {
@@ -2235,10 +2244,29 @@ async function resolveEuParcelOutcomeInner(cc, lon, lat, deps = {}) {
     // A feature with geometry but no usable identifier is not a parcel we can cite — treat it as an
     // authoritative empty rather than an outage (the source DID answer).
     if (!meta.refcat) return { outcome: 'empty', parcel: null };
+    // §L-12912 — the two areas are DIFFERENT FACTS (C57 §2.4 / KV-3) and leave this proxy as two
+    // fields, exactly as the Spain proxy has since §L-640. `areaSigM2` is always the shoelace over
+    // the ring served. `areaOfficialM2` is the register's own figure when one was published, else
+    // null. A normaliser may state it explicitly (PT does); otherwise it is read off the ONE fact
+    // every normaliser in this table shares — its only NON-served area is `ringAreaM2(c.ring)` over
+    // this same ring object, so an `areaM2` that is not that exact value was served by the
+    // register. ⚠ A normaliser that ever computes an area any OTHER way must set `areaOfficialM2`
+    // explicitly, or its derived figure will be mis-read as registry-declared. Before this, every
+    // one of the ~25 legs that read a served area (FR contenance, NL kadastraleGrootteWaarde, DE
+    // flaeche/afl/areaValue, EE pindala, LU/LV area, LT skl_plotas, PT areavalue, …) reached the
+    // client as a bare `areaM2`, and the card said "the source publishes no registry area" over
+    // every one of them.
+    const areaSigM2 = ringAreaM2(chosen.ring);
+    const servedArea = Number.isFinite(meta.areaM2) && meta.areaM2 > 0 ? meta.areaM2 : null;
+    const areaOfficialM2 = meta.areaOfficialM2 !== undefined
+        ? (Number.isFinite(meta.areaOfficialM2) && meta.areaOfficialM2 > 0 ? meta.areaOfficialM2 : null)
+        : (servedArea !== null && servedArea !== areaSigM2 ? servedArea : null);
     const result = {
         ring: chosen.ring,
         refcat: meta.refcat,
-        areaM2: Number.isFinite(meta.areaM2) && meta.areaM2 > 0 ? meta.areaM2 : ringAreaM2(chosen.ring),
+        areaM2: servedArea ?? areaSigM2,
+        areaOfficialM2,
+        areaSigM2,
         address: meta.address,
     };
     cacheSet(`${cc}:${meta.refcat}`, result);
@@ -2257,8 +2285,10 @@ export const EU_PARCEL_PATH = '/api/parcel';
 /**
  * Express handler for GET /api/parcel/:cc?lon=&lat=. Serves a cached-by-refcat parcel, else
  * resolves it once via the country's WFS, normalises → a WGS84 ring, caches, and returns
- * `{ parcel: { ring, refcat, areaM2, address, source } }`. Unknown cc → 404 JSON; bad coords →
- * 400; no parcel / upstream failure → 200 `{ parcel: null }`. `deps` injectable for tests.
+ * `{ parcel: { ring, refcat, areaM2, areaOfficialM2, areaSigM2, address, source } }` (the two
+ * area fields since §L-12912 — `areaOfficialM2` null when the register published none). Unknown
+ * cc → 404 JSON; bad coords → 400; no parcel / upstream failure → 200 `{ parcel: null }`. `deps`
+ * injectable for tests.
  */
 export function makeEuParcelHandler(deps = {}) {
     return async function euParcelHandler(req, res) {

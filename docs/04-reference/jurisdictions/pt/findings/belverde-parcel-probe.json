@@ -1,0 +1,1459 @@
+{
+ "probedAt": "2026-09-05T08:09:34.923Z",
+ "points": [
+  [
+   "Belverde (brief point)",
+   38.572,
+   -9.144
+  ],
+  [
+   "Belverde NE",
+   38.5735,
+   -9.1425
+  ],
+  [
+   "Belverde SW",
+   38.5705,
+   -9.146
+  ]
+ ],
+ "armU": [
+  {
+   "point": "Belverde (brief point)",
+   "lat": 38.572,
+   "lon": -9.144,
+   "http": 200,
+   "contentType": "application/json;charset=UTF-8",
+   "bytes": 45549,
+   "ms": 1414,
+   "numberMatched": 1,
+   "features": [
+    {
+     "id": "cadastralparcel.1174093039",
+     "typename": "cadastralparcel",
+     "geometryType": "MultiPolygon",
+     "parts": 1,
+     "outerVertices": 1467,
+     "holes": 2,
+     "shoelaceNetM2": 34739689,
+     "properties": {
+      "inspireid": "PT.DGT.CP.AAA000087942",
+      "referencepoint": {
+       "type": "Point",
+       "coordinates": [
+        -9.12938914,
+        38.5458412
+       ]
+      },
+      "label": "AAA 000 087 942",
+      "nationalcadastralreference": "AAA000087942",
+      "areavalue": 34707890,
+      "validfrom": null,
+      "validto": null,
+      "beginlifespanversion": "2023-11-21T00:00:00Z",
+      "endlifespanversion": null,
+      "administrativeunit": "151101",
+      "id": 1174093039
+     }
+    }
+   ]
+  },
+  {
+   "point": "Belverde NE",
+   "lat": 38.5735,
+   "lon": -9.1425,
+   "http": 200,
+   "contentType": "application/json;charset=UTF-8",
+   "bytes": 45549,
+   "ms": 48,
+   "numberMatched": 1,
+   "features": [
+    {
+     "id": "cadastralparcel.1174093039",
+     "typename": "cadastralparcel",
+     "geometryType": "MultiPolygon",
+     "parts": 1,
+     "outerVertices": 1467,
+     "holes": 2,
+     "shoelaceNetM2": 34739689,
+     "properties": {
+      "inspireid": "PT.DGT.CP.AAA000087942",
+      "referencepoint": {
+       "type": "Point",
+       "coordinates": [
+        -9.12938914,
+        38.5458412
+       ]
+      },
+      "label": "AAA 000 087 942",
+      "nationalcadastralreference": "AAA000087942",
+      "areavalue": 34707890,
+      "validfrom": null,
+      "validto": null,
+      "beginlifespanversion": "2023-11-21T00:00:00Z",
+      "endlifespanversion": null,
+      "administrativeunit": "151101",
+      "id": 1174093039
+     }
+    }
+   ]
+  },
+  {
+   "point": "Belverde SW",
+   "lat": 38.5705,
+   "lon": -9.146,
+   "http": 200,
+   "contentType": "application/json;charset=UTF-8",
+   "bytes": 45549,
+   "ms": 51,
+   "numberMatched": 1,
+   "features": [
+    {
+     "id": "cadastralparcel.1174093039",
+     "typename": "cadastralparcel",
+     "geometryType": "MultiPolygon",
+     "parts": 1,
+     "outerVertices": 1467,
+     "holes": 2,
+     "shoelaceNetM2": 34739689,
+     "properties": {
+      "inspireid": "PT.DGT.CP.AAA000087942",
+      "referencepoint": {
+       "type": "Point",
+       "coordinates": [
+        -9.12938914,
+        38.5458412
+       ]
+      },
+      "label": "AAA 000 087 942",
+      "nationalcadastralreference": "AAA000087942",
+      "areavalue": 34707890,
+      "validfrom": null,
+      "validto": null,
+      "beginlifespanversion": "2023-11-21T00:00:00Z",
+      "endlifespanversion": null,
+      "administrativeunit": "151101",
+      "id": 1174093039
+     }
+    }
+   ]
+  }
+ ],
+ "armP": [
+  {
+   "point": "Belverde (brief point)",
+   "lat": 38.572,
+   "lon": -9.144,
+   "http": 200,
+   "ms": 791,
+   "outcome": "ok",
+   "parcel": {
+    "refcat": "AAA000087942",
+    "areaM2": 34707890,
+    "address": "151101",
+    "source": "dgt-cadastro-predial",
+    "ringVertices": 1467
+   }
+  },
+  {
+   "point": "Belverde NE",
+   "lat": 38.5735,
+   "lon": -9.1425,
+   "http": 200,
+   "ms": 180,
+   "outcome": "ok",
+   "parcel": {
+    "refcat": "AAA000087942",
+    "areaM2": 34707890,
+    "address": "151101",
+    "source": "dgt-cadastro-predial",
+    "ringVertices": 1467
+   }
+  },
+  {
+   "point": "Belverde SW",
+   "lat": 38.5705,
+   "lon": -9.146,
+   "http": 200,
+   "ms": 194,
+   "outcome": "ok",
+   "parcel": {
+    "refcat": "AAA000087942",
+    "areaM2": 34707890,
+    "address": "151101",
+    "source": "dgt-cadastro-predial",
+    "ringVertices": 1467
+   }
+  }
+ ],
+ "armC": {
+  "bbox": {
+   "s": 38.565,
+   "w": -9.165,
+   "n": 38.592,
+   "e": -9.13
+  },
+  "http": 200,
+  "ms": 73,
+  "numberMatched": 114,
+  "parcels": 114,
+  "under2ha": 107,
+  "over20ha": 6,
+  "rows": [
+   {
+    "ref": "AAA000087942",
+    "areavalue": 34707890,
+    "shoelaceNetM2": 34739689,
+    "outerVertices": 1467,
+    "dicofre": "151101",
+    "referencepoint": [
+     -9.12938914,
+     38.5458412
+    ]
+   },
+   {
+    "ref": "AAA000091722",
+    "areavalue": 7662344,
+    "shoelaceNetM2": 7670659,
+    "outerVertices": 500,
+    "dicofre": "151002",
+    "referencepoint": [
+     -9.13242914,
+     38.59209171
+    ]
+   },
+   {
+    "ref": "AAA000060701",
+    "areavalue": 2269159,
+    "shoelaceNetM2": 2272317,
+    "outerVertices": 224,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.17233793,
+     38.57258248
+    ]
+   },
+   {
+    "ref": "AAA000060806",
+    "areavalue": 1119150,
+    "shoelaceNetM2": 1120716,
+    "outerVertices": 139,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.17530068,
+     38.57827789
+    ]
+   },
+   {
+    "ref": "AAA000090006",
+    "areavalue": 457642,
+    "shoelaceNetM2": 458227,
+    "outerVertices": 94,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16378487,
+     38.59239324
+    ]
+   },
+   {
+    "ref": "AAA000089708",
+    "areavalue": 289179,
+    "shoelaceNetM2": 289542,
+    "outerVertices": 64,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15763591,
+     38.5862113
+    ]
+   },
+   {
+    "ref": "AAA000089759",
+    "areavalue": 87345,
+    "shoelaceNetM2": 87462,
+    "outerVertices": 13,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15413854,
+     38.59372221
+    ]
+   },
+   {
+    "ref": "AAA000060823",
+    "areavalue": 17208,
+    "shoelaceNetM2": 17230,
+    "outerVertices": 11,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16425139,
+     38.58522851
+    ]
+   },
+   {
+    "ref": "AAA000060867",
+    "areavalue": 7905,
+    "shoelaceNetM2": 7915,
+    "outerVertices": 13,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16512721,
+     38.58832876
+    ]
+   },
+   {
+    "ref": "AAA000089752",
+    "areavalue": 7583,
+    "shoelaceNetM2": 7593,
+    "outerVertices": 7,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15092588,
+     38.59258019
+    ]
+   },
+   {
+    "ref": "AAA000060855",
+    "areavalue": 7319,
+    "shoelaceNetM2": 7329,
+    "outerVertices": 8,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16448495,
+     38.58724163
+    ]
+   },
+   {
+    "ref": "AAA000060840",
+    "areavalue": 6717,
+    "shoelaceNetM2": 6726,
+    "outerVertices": 17,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16421172,
+     38.58629656
+    ]
+   },
+   {
+    "ref": "AAA000060852",
+    "areavalue": 5902,
+    "shoelaceNetM2": 5910,
+    "outerVertices": 9,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16503023,
+     38.58700776
+    ]
+   },
+   {
+    "ref": "AAA000060864",
+    "areavalue": 5891,
+    "shoelaceNetM2": 5899,
+    "outerVertices": 9,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16573175,
+     38.58808882
+    ]
+   },
+   {
+    "ref": "AAA000060827",
+    "areavalue": 5830,
+    "shoelaceNetM2": 5838,
+    "outerVertices": 15,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16565645,
+     38.58565087
+    ]
+   },
+   {
+    "ref": "AAA000060849",
+    "areavalue": 5820,
+    "shoelaceNetM2": 5827,
+    "outerVertices": 11,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16568585,
+     38.58702729
+    ]
+   },
+   {
+    "ref": "AAA000060832",
+    "areavalue": 5664,
+    "shoelaceNetM2": 5672,
+    "outerVertices": 11,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16493218,
+     38.58593484
+    ]
+   },
+   {
+    "ref": "AAA000089672",
+    "areavalue": 5588,
+    "shoelaceNetM2": 5595,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16316976,
+     38.58667885
+    ]
+   },
+   {
+    "ref": "AAA000089704",
+    "areavalue": 5414,
+    "shoelaceNetM2": 5421,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15918188,
+     38.58936672
+    ]
+   },
+   {
+    "ref": "AAA000089684",
+    "areavalue": 5404,
+    "shoelaceNetM2": 5411,
+    "outerVertices": 7,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16321877,
+     38.58766446
+    ]
+   },
+   {
+    "ref": "AAA000089696",
+    "areavalue": 5366,
+    "shoelaceNetM2": 5373,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16012246,
+     38.58901797
+    ]
+   },
+   {
+    "ref": "AAA000089729",
+    "areavalue": 5359,
+    "shoelaceNetM2": 5366,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15107699,
+     38.59041249
+    ]
+   },
+   {
+    "ref": "AAA000089739",
+    "areavalue": 5290,
+    "shoelaceNetM2": 5297,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15463597,
+     38.59117738
+    ]
+   },
+   {
+    "ref": "AAA000089679",
+    "areavalue": 5287,
+    "shoelaceNetM2": 5294,
+    "outerVertices": 6,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16123023,
+     38.58744348
+    ]
+   },
+   {
+    "ref": "AAA000089722",
+    "areavalue": 5268,
+    "shoelaceNetM2": 5275,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15409261,
+     38.59025882
+    ]
+   },
+   {
+    "ref": "AAA000089732",
+    "areavalue": 5264,
+    "shoelaceNetM2": 5271,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.1559805,
+     38.59064835
+    ]
+   },
+   {
+    "ref": "AAA000089693",
+    "areavalue": 5257,
+    "shoelaceNetM2": 5264,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16059175,
+     38.58882436
+    ]
+   },
+   {
+    "ref": "AAA000089728",
+    "areavalue": 5239,
+    "shoelaceNetM2": 5246,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15643112,
+     38.59045178
+    ]
+   },
+   {
+    "ref": "AAA000060866",
+    "areavalue": 5203,
+    "shoelaceNetM2": 5210,
+    "outerVertices": 6,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16570327,
+     38.58925987
+    ]
+   },
+   {
+    "ref": "AAA000060808",
+    "areavalue": 5181,
+    "shoelaceNetM2": 5188,
+    "outerVertices": 8,
+    "dicofre": "150314",
+    "referencepoint": [
+     -9.16549789,
+     38.58492364
+    ]
+   },
+   {
+    "ref": "AAA000089734",
+    "areavalue": 5179,
+    "shoelaceNetM2": 5186,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15552524,
+     38.5908265
+    ]
+   },
+   {
+    "ref": "AAA000089706",
+    "areavalue": 5177,
+    "shoelaceNetM2": 5183,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15703161,
+     38.59138852
+    ]
+   },
+   {
+    "ref": "AAA000089705",
+    "areavalue": 5173,
+    "shoelaceNetM2": 5180,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15417673,
+     38.59135619
+    ]
+   },
+   {
+    "ref": "AAA000089711",
+    "areavalue": 5166,
+    "shoelaceNetM2": 5173,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15310785,
+     38.58965691
+    ]
+   },
+   {
+    "ref": "AAA000089642",
+    "areavalue": 5159,
+    "shoelaceNetM2": 5166,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15568568,
+     38.58864597
+    ]
+   },
+   {
+    "ref": "AAA000089699",
+    "areavalue": 5153,
+    "shoelaceNetM2": 5159,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15965478,
+     38.58919349
+    ]
+   },
+   {
+    "ref": "AAA000089725",
+    "areavalue": 5140,
+    "shoelaceNetM2": 5146,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15687892,
+     38.59027004
+    ]
+   },
+   {
+    "ref": "AAA000089677",
+    "areavalue": 5120,
+    "shoelaceNetM2": 5127,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16189051,
+     38.58719946
+    ]
+   },
+   {
+    "ref": "AAA000089666",
+    "areavalue": 5115,
+    "shoelaceNetM2": 5122,
+    "outerVertices": 6,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15628324,
+     38.5885554
+    ]
+   },
+   {
+    "ref": "AAA000089694",
+    "areavalue": 5105,
+    "shoelaceNetM2": 5112,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15466772,
+     38.58905454
+    ]
+   },
+   {
+    "ref": "AAA000089746",
+    "areavalue": 5102,
+    "shoelaceNetM2": 5109,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15240561,
+     38.59204881
+    ]
+   },
+   {
+    "ref": "AAA000089687",
+    "areavalue": 5100,
+    "shoelaceNetM2": 5107,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15931424,
+     38.58817562
+    ]
+   },
+   {
+    "ref": "AAA000089742",
+    "areavalue": 5090,
+    "shoelaceNetM2": 5096,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15328628,
+     38.59171068
+    ]
+   },
+   {
+    "ref": "AAA000089665",
+    "areavalue": 5089,
+    "shoelaceNetM2": 5096,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15865616,
+     38.58843654
+    ]
+   },
+   {
+    "ref": "AAA000089713",
+    "areavalue": 5087,
+    "shoelaceNetM2": 5094,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15833391,
+     38.5897038
+    ]
+   },
+   {
+    "ref": "AAA000089743",
+    "areavalue": 5082,
+    "shoelaceNetM2": 5089,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15612463,
+     38.59176096
+    ]
+   },
+   {
+    "ref": "AAA000089747",
+    "areavalue": 5076,
+    "shoelaceNetM2": 5082,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15523642,
+     38.59209837
+    ]
+   },
+   {
+    "ref": "AAA000089688",
+    "areavalue": 5076,
+    "shoelaceNetM2": 5083,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15681263,
+     38.58818359
+    ]
+   },
+   {
+    "ref": "AAA000089718",
+    "areavalue": 5066,
+    "shoelaceNetM2": 5072,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15789391,
+     38.58987953
+    ]
+   },
+   {
+    "ref": "AAA000089737",
+    "areavalue": 5063,
+    "shoelaceNetM2": 5070,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15793306,
+     38.59102436
+    ]
+   },
+   {
+    "ref": "AAA000089740",
+    "areavalue": 5055,
+    "shoelaceNetM2": 5061,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15372946,
+     38.59153201
+    ]
+   },
+   {
+    "ref": "AAA000089668",
+    "areavalue": 5051,
+    "shoelaceNetM2": 5057,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16384406,
+     38.58864364
+    ]
+   },
+   {
+    "ref": "AAA000089714",
+    "areavalue": 5043,
+    "shoelaceNetM2": 5050,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16119818,
+     38.58971896
+    ]
+   },
+   {
+    "ref": "AAA000089741",
+    "areavalue": 5037,
+    "shoelaceNetM2": 5043,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15657599,
+     38.59157257
+    ]
+   },
+   {
+    "ref": "AAA000089723",
+    "areavalue": 5028,
+    "shoelaceNetM2": 5035,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15158876,
+     38.59025567
+    ]
+   },
+   {
+    "ref": "AAA000089663",
+    "areavalue": 5018,
+    "shoelaceNetM2": 5025,
+    "outerVertices": 7,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16252013,
+     38.58605606
+    ]
+   },
+   {
+    "ref": "AAA000089721",
+    "areavalue": 5014,
+    "shoelaceNetM2": 5021,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15732113,
+     38.590092
+    ]
+   },
+   {
+    "ref": "AAA000089674",
+    "areavalue": 5011,
+    "shoelaceNetM2": 5017,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16252734,
+     38.58693902
+    ]
+   },
+   {
+    "ref": "AAA000089643",
+    "areavalue": 5010,
+    "shoelaceNetM2": 5016,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16104594,
+     38.5886426
+    ]
+   },
+   {
+    "ref": "AAA000089735",
+    "areavalue": 5002,
+    "shoelaceNetM2": 5008,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15218573,
+     38.5910164
+    ]
+   },
+   {
+    "ref": "AAA000089682",
+    "areavalue": 5000,
+    "shoelaceNetM2": 5006,
+    "outerVertices": 6,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16057882,
+     38.58768832
+    ]
+   },
+   {
+    "ref": "AAA000089749",
+    "areavalue": 4992,
+    "shoelaceNetM2": 4998,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15147772,
+     38.5924127
+    ]
+   },
+   {
+    "ref": "AAA000089733",
+    "areavalue": 4991,
+    "shoelaceNetM2": 4997,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15848547,
+     38.5908072
+    ]
+   },
+   {
+    "ref": "AAA000089583",
+    "areavalue": 4986,
+    "shoelaceNetM2": 4993,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15748648,
+     38.59120676
+    ]
+   },
+   {
+    "ref": "AAA000089667",
+    "areavalue": 4967,
+    "shoelaceNetM2": 4974,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16149721,
+     38.58846974
+    ]
+   },
+   {
+    "ref": "AAA000089680",
+    "areavalue": 4958,
+    "shoelaceNetM2": 4964,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15834488,
+     38.58757993
+    ]
+   },
+   {
+    "ref": "AAA000089731",
+    "areavalue": 4944,
+    "shoelaceNetM2": 4950,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15893802,
+     38.59062249
+    ]
+   },
+   {
+    "ref": "AAA000089720",
+    "areavalue": 4927,
+    "shoelaceNetM2": 4933,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16028195,
+     38.59007274
+    ]
+   },
+   {
+    "ref": "AAA000089724",
+    "areavalue": 4922,
+    "shoelaceNetM2": 4928,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.1598278,
+     38.59026512
+    ]
+   },
+   {
+    "ref": "AAA000089675",
+    "areavalue": 4920,
+    "shoelaceNetM2": 4926,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15988116,
+     38.586969
+    ]
+   },
+   {
+    "ref": "AAA000089673",
+    "areavalue": 4907,
+    "shoelaceNetM2": 4914,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16039702,
+     38.58675441
+    ]
+   },
+   {
+    "ref": "AAA000089736",
+    "areavalue": 4895,
+    "shoelaceNetM2": 4901,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15508226,
+     38.59100292
+    ]
+   },
+   {
+    "ref": "AAA000089750",
+    "areavalue": 4895,
+    "shoelaceNetM2": 4902,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.154322,
+     38.59244419
+    ]
+   },
+   {
+    "ref": "AAA000089685",
+    "areavalue": 4880,
+    "shoelaceNetM2": 4886,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15995011,
+     38.58793777
+    ]
+   },
+   {
+    "ref": "AAA000089701",
+    "areavalue": 4865,
+    "shoelaceNetM2": 4872,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.1536357,
+     38.58945152
+    ]
+   },
+   {
+    "ref": "AAA000089683",
+    "areavalue": 4863,
+    "shoelaceNetM2": 4870,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15782544,
+     38.58777531
+    ]
+   },
+   {
+    "ref": "AAA000089712",
+    "areavalue": 4862,
+    "shoelaceNetM2": 4868,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15537579,
+     38.58974384
+    ]
+   },
+   {
+    "ref": "AAA000089678",
+    "areavalue": 4854,
+    "shoelaceNetM2": 4860,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15886043,
+     38.58736917
+    ]
+   },
+   {
+    "ref": "AAA000089480",
+    "areavalue": 4848,
+    "shoelaceNetM2": 4854,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15731201,
+     38.58796884
+    ]
+   },
+   {
+    "ref": "AAA000089726",
+    "areavalue": 4843,
+    "shoelaceNetM2": 4850,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15343815,
+     38.59052054
+    ]
+   },
+   {
+    "ref": "AAA000089716",
+    "areavalue": 4840,
+    "shoelaceNetM2": 4846,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.1547419,
+     38.58999827
+    ]
+   },
+   {
+    "ref": "AAA000089748",
+    "areavalue": 4836,
+    "shoelaceNetM2": 4843,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15477482,
+     38.59227431
+    ]
+   },
+   {
+    "ref": "AAA000089686",
+    "areavalue": 4824,
+    "shoelaceNetM2": 4830,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16281129,
+     38.58793973
+    ]
+   },
+   {
+    "ref": "AAA000089690",
+    "areavalue": 4811,
+    "shoelaceNetM2": 4818,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15517962,
+     38.58885325
+    ]
+   },
+   {
+    "ref": "AAA000089664",
+    "areavalue": 4807,
+    "shoelaceNetM2": 4814,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16193844,
+     38.58829097
+    ]
+   },
+   {
+    "ref": "AAA000089698",
+    "areavalue": 4787,
+    "shoelaceNetM2": 4794,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15414217,
+     38.58925442
+    ]
+   },
+   {
+    "ref": "AAA000089689",
+    "areavalue": 4780,
+    "shoelaceNetM2": 4786,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16237577,
+     38.58811525
+    ]
+   },
+   {
+    "ref": "AAA000089719",
+    "areavalue": 4773,
+    "shoelaceNetM2": 4779,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15209058,
+     38.59005101
+    ]
+   },
+   {
+    "ref": "AAA000089744",
+    "areavalue": 4773,
+    "shoelaceNetM2": 4780,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15284727,
+     38.59187547
+    ]
+   },
+   {
+    "ref": "AAA000089670",
+    "areavalue": 4762,
+    "shoelaceNetM2": 4768,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16142429,
+     38.58635984
+    ]
+   },
+   {
+    "ref": "AAA000089727",
+    "areavalue": 4759,
+    "shoelaceNetM2": 4766,
+    "outerVertices": 6,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15937639,
+     38.59043231
+    ]
+   },
+   {
+    "ref": "AAA000089695",
+    "areavalue": 4752,
+    "shoelaceNetM2": 4758,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16294702,
+     38.58900524
+    ]
+   },
+   {
+    "ref": "AAA000089715",
+    "areavalue": 4744,
+    "shoelaceNetM2": 4750,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15259415,
+     38.58986515
+    ]
+   },
+   {
+    "ref": "AAA000089676",
+    "areavalue": 4742,
+    "shoelaceNetM2": 4748,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.1593632,
+     38.58716325
+    ]
+   },
+   {
+    "ref": "AAA000089751",
+    "areavalue": 4734,
+    "shoelaceNetM2": 4741,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15388298,
+     38.59262332
+    ]
+   },
+   {
+    "ref": "AAA000089671",
+    "areavalue": 4698,
+    "shoelaceNetM2": 4704,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16091311,
+     38.58656287
+    ]
+   },
+   {
+    "ref": "AAA000089691",
+    "areavalue": 4691,
+    "shoelaceNetM2": 4697,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15739873,
+     38.58894169
+    ]
+   },
+   {
+    "ref": "AAA000089717",
+    "areavalue": 4684,
+    "shoelaceNetM2": 4690,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16073975,
+     38.58990464
+    ]
+   },
+   {
+    "ref": "AAA000089702",
+    "areavalue": 4680,
+    "shoelaceNetM2": 4686,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.1560179,
+     38.58949934
+    ]
+   },
+   {
+    "ref": "AAA000089681",
+    "areavalue": 4676,
+    "shoelaceNetM2": 4682,
+    "outerVertices": 7,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16378365,
+     38.58764917
+    ]
+   },
+   {
+    "ref": "AAA000089669",
+    "areavalue": 4670,
+    "shoelaceNetM2": 4676,
+    "outerVertices": 6,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16189758,
+     38.58610494
+    ]
+   },
+   {
+    "ref": "AAA000089703",
+    "areavalue": 4650,
+    "shoelaceNetM2": 4657,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16207676,
+     38.58935731
+    ]
+   },
+   {
+    "ref": "AAA000089738",
+    "areavalue": 4631,
+    "shoelaceNetM2": 4637,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15154007,
+     38.59128136
+    ]
+   },
+   {
+    "ref": "AAA000089692",
+    "areavalue": 4622,
+    "shoelaceNetM2": 4628,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16338809,
+     38.58883151
+    ]
+   },
+   {
+    "ref": "AAA000089700",
+    "areavalue": 4617,
+    "shoelaceNetM2": 4623,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16251193,
+     38.58918454
+    ]
+   },
+   {
+    "ref": "AAA000089640",
+    "areavalue": 4612,
+    "shoelaceNetM2": 4618,
+    "outerVertices": 10,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.1643352,
+     38.5885228
+    ]
+   },
+   {
+    "ref": "AAA000089745",
+    "areavalue": 4603,
+    "shoelaceNetM2": 4609,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15567788,
+     38.59192124
+    ]
+   },
+   {
+    "ref": "AAA000089641",
+    "areavalue": 4595,
+    "shoelaceNetM2": 4601,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15802525,
+     38.58870164
+    ]
+   },
+   {
+    "ref": "AAA000089730",
+    "areavalue": 4585,
+    "shoelaceNetM2": 4591,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15281183,
+     38.59076354
+    ]
+   },
+   {
+    "ref": "AAA000089697",
+    "areavalue": 4579,
+    "shoelaceNetM2": 4585,
+    "outerVertices": 6,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15664238,
+     38.58925545
+    ]
+   },
+   {
+    "ref": "AAA000089709",
+    "areavalue": 4547,
+    "shoelaceNetM2": 4553,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16164952,
+     38.58953947
+    ]
+   },
+   {
+    "ref": "AAA000089707",
+    "areavalue": 4476,
+    "shoelaceNetM2": 4482,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15096003,
+     38.59147134
+    ]
+   },
+   {
+    "ref": "AAA000089710",
+    "areavalue": 4466,
+    "shoelaceNetM2": 4471,
+    "outerVertices": 5,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.15875133,
+     38.58953494
+    ]
+   },
+   {
+    "ref": "AAA000089662",
+    "areavalue": 3880,
+    "shoelaceNetM2": 3885,
+    "outerVertices": 7,
+    "dicofre": "151005",
+    "referencepoint": [
+     -9.16286792,
+     38.58566614
+    ]
+   }
+  ]
+ }
+}

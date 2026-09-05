@@ -37,6 +37,30 @@ describe('parseWfsProxyResponse — per-country proxy rows', () => {
         expect(f?.source).toBe('ign-fr');
     });
 
+    // §L-12912 — the EU proxy now forwards the two areas as two fields (C57 §2.4 / KV-3). The
+    // client tier must read them: registry-declared + click-unavailable ⇒ `high`; absent ⇒
+    // derived-from-ring ⇒ `medium`. Before this, every EU-proxy parcel read "derived" on the card.
+    it('reads `areaOfficialM2` from the proxy row → registry-declared area and a `high` tier', () => {
+        const f = parseWfsProxyResponse(
+            { parcel: { ring: [{ lat: 38.5725, lon: -9.166 }, { lat: 38.5725, lon: -9.134 }, { lat: 38.5975, lon: -9.134 }, { lat: 38.5975, lon: -9.166 }], refcat: 'AAA000091722', areaM2: 7662344, areaOfficialM2: 7662344, areaSigM2: 7670659, source: 'dgt-cadastro-predial' } },
+            'unused',
+        );
+        expect(f!.confidence?.areaSource).toBe('registry-declared');
+        expect(f!.confidence?.areaOfficialM2).toBe(7662344);
+        expect(f!.confidence?.match).toBe('high');
+        expect(f!.confidence?.areaSigM2).toBeGreaterThan(7_000_000);
+    });
+
+    it('a proxy row WITHOUT `areaOfficialM2` stays derived-from-ring / `medium` — the absence is not upgraded', () => {
+        const f = parseWfsProxyResponse(
+            { parcel: { ring: [{ lat: 38.5725, lon: -9.166 }, { lat: 38.5725, lon: -9.134 }, { lat: 38.5975, lon: -9.134 }], refcat: 'X', areaM2: 100, source: 's' } },
+            'unused',
+        );
+        expect(f!.confidence?.areaSource).toBe('derived-from-ring');
+        expect(f!.confidence?.areaOfficialM2).toBeNull();
+        expect(f!.confidence?.match).toBe('medium');
+    });
+
     it('returns null on a miss / malformed / < 3 pts / no refcat — never throws', () => {
         expect(parseWfsProxyResponse({ parcel: null }, 's')).toBeNull();
         expect(parseWfsProxyResponse({}, 's')).toBeNull();

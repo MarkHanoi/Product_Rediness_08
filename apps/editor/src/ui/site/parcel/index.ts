@@ -38,8 +38,21 @@ export { footprintParcelProvider, pickFootprintAtPoint } from './FootprintParcel
 export {
     registryParcelProvider,
     resolveParcelProvider,
+    resolveParcelAttribution,
     cadastralProviderFor,
+    PARCEL_FOOTPRINT_ATTRIBUTION,
 } from './parcelRegistry.js';
+// §L-12912 — the data-justified size review beside the match tier (Belverde 766 ha prédio).
+export {
+    assessParcelSize,
+    parcelSizeReviewText,
+    URBAN_PARCEL_AREA_CEILING_M2,
+    PARCEL_SIZE_CORPUS,
+    PARCEL_SIZE_CORPUS_AREAS_M2,
+    PARCEL_SIZE_REVIEW_TESTID,
+    type ParcelSizeReview,
+    type ParcelSizeStatus,
+} from './parcelSizeReview.js';
 
 import type { ParcelProvider } from './ParcelProvider.js';
 import { registryParcelProvider } from './parcelRegistry.js';
