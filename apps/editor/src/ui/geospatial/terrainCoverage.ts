@@ -695,6 +695,10 @@ export const TERRAIN_REGION_BBOXES: ReadonlyArray<{ readonly region: string; rea
     { region: 'tasmania', bbox: [143.80, -43.75, 148.55, -39.40] },
     { region: 'act', bbox: [148.70, -35.95, 149.40, -35.10] },
     { region: 'northernterritory', bbox: [128.90, -26.10, 138.10, -10.90] },
+    // Oceania — New Zealand, whole country (§BAKE-NEWZEALAND 2026-09-05). LINZ's national LiDAR DEM is
+    // API-key gated, so the drape is Mapterhorn (z10 10/1009/624 under Auckland → HTTP 200, PROBED);
+    // bbox == terrain.mjs NATIONAL_REGIONS == bake.mjs, west of the antimeridian. VISUAL only (L-584 unwired).
+    { region: 'newzealand', bbox: [166.0, -47.5, 178.7, -34.3] },
     // Middle East — metro rows (SA/AE national DTMs are gov-gated; VISUAL drape only, legal status unchanged)
     { region: 'riyadh', bbox: [46.60, 24.58, 46.83, 24.80] },
     { region: 'jeddah', bbox: [39.10, 21.45, 39.28, 21.62] },

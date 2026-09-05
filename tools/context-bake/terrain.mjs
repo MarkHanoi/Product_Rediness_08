@@ -2145,8 +2145,18 @@ export const NATIONAL_REGIONS = [
   { name: 'dubai',        group: 'middleeast', bbox: [54.95, 24.85, 55.45, 25.35], geoidSepM: -34.13, probeCity: 'Dubai', probe: [55.27, 25.2] },
   { name: 'abudhabi',     group: 'middleeast', bbox: [54.28, 24.33, 54.75, 24.62], geoidSepM: -33.20, probeCity: 'Abu Dhabi', probe: [54.37, 24.47] },
   { name: 'doha',         group: 'middleeast', bbox: [51.35, 25.15, 51.65, 25.45], geoidSepM: -29.84, probeCity: 'Doha', probe: [51.53, 25.29] }, // GeoidEval EGM2008 = −29.8375 m @ 25.29N 51.53E (PROBED 2026-09-05)
+  // ── Oceania (1 whole-country row — §BAKE-NEWZEALAND, lane NZ-EVERYWHERE 2026-09-05). The national
+  // 1 m LiDAR DEM exists (LINZ layer 121859) but every LINZ service is API-key gated (keyless
+  // GetCapabilities → HTTP 401), so — like the AU states — the VISUAL drape is Mapterhorn. Land check
+  // PROBED 2026-09-05: https://tiles.mapterhorn.com/10/1009/624.webp (under Auckland 174.7645,−36.8485)
+  // → HTTP 200 image/webp 111,632 B (neighbours 10/1008/624 → 361,884 B, 10/1009/625 → 346,304 B).
+  // geoidSepM = GeoidEval EGM2008 at Auckland = 34.1099 m (EGM96 33.7368, EGM84 33.7803), PROBED
+  // 2026-09-05 — used only under `--geoid constant`; the default bake reads N(lon,lat) per post.
+  // Datum: NZVD2016 (legal heights; the L-584 legal sampling stays UNWIRED — this row is drape-only).
+  // bbox == bake.mjs `newzealand` 1:1 (west of the antimeridian; the Chathams are outside). ──
+  { name: 'newzealand',   group: 'oceania',    bbox: [166.0, -47.5, 178.7, -34.3],  geoidSepM: 34.11, probeCity: 'Auckland', probe: [174.76, -36.85] },
 ];
-export const NATIONAL_GROUPS = ['europe', 'usa', 'australia', 'middleeast'];
+export const NATIONAL_GROUPS = ['europe', 'usa', 'australia', 'middleeast', 'oceania'];
 
 /** Bake defaults for a whole region. maxZoom 10 = the finest level a Spanish city has today (see §11
  *  header); baseErrM is the MARTINI vertical error at the finest level (coarser levels double per step,

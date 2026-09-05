@@ -16,7 +16,7 @@
 # 129,340 tiles across 46 regions; a finest tile is ~640 KB in hilly Luxembourg, far less over sea
 # and plains. The plan table is the number the founder sees before a national publish — this
 # workflow is MANUAL ONLY and runs ONE group at a time, in the founder's order: europe → usa →
-# australia → middleeast.
+# australia → middleeast (→ oceania: the single `newzealand` row, §BAKE-NEWZEALAND 2026-09-05).
 #
 # SHARDING: `terrain.mjs --matrix` emits one job per region and splits a region whose finest level
 # exceeds `tiles_per_shard` into N shards (shard 0 writes layer.json + every coarse level; the finest
@@ -40,7 +40,7 @@ on:
       group:
         description: 'Region group to bake (terrain.mjs NATIONAL_GROUPS).'
         type: choice
-        options: [europe, usa, australia, middleeast, all]
+        options: [europe, usa, australia, middleeast, oceania, all]
         default: europe
       regions:
         description: 'Explicit region slugs (space-separated) — overrides group when set. e.g. "luxembourg denmark".'
