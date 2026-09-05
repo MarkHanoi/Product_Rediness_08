@@ -98,17 +98,56 @@
 //         Nutzungsbedingungen page lists "Creative Commons Namensnennung 4.0 International (CC BY 4.0)".
 //         ⚠ UNARMED: the lane brief keeps Munich `blocked` (REGION_SOURCE munich) — this row records that
 //         the block reason ("ZSHH INSPIRE-restricted") no longer matches the probe; arming is a decision.
-//   • sn  Sachsen — BLOCKED (today): geodienste.sachsen.de …/rest_geosn_downloadlinks/MapServer/3 (LoD2 layer,
-//         EPSG:25833, fields Kachel/Download_CityGML) resolves Dresden 411800,5655700 → Kachel 4105654 →
+//   • bw  Baden-Württemberg — WIRED 2026-09-05 (SECOND pass, §DE-LOD2-LAENDER-BW). The first pass called this
+//         Land "unprobed — grid keying unresolved": it had the right directory (/data/lod2/) and the right
+//         filename pattern (`LoD2_\d+_(\d+_\d+)_\d+_bw\.zip`, from assets/config/local/odp-products.json) and
+//         still 404'd on six Stuttgart candidates, because it snapped the key to an EVEN easting the way every
+//         other 2 km Land does. ⭐ BW's 2 km download grid is anchored on ODD eastings and EVEN northings.
+//         WHERE THAT CAME FROM — not a guess: the portal's own grid layer is an MVT tileset,
+//         core-layerconfig.json → `zwei_km_gitter` → https://opengeodata.lgl-bw.de/tiles/vts/2x2Gitter/{z}/{x}/{y}.pbf.
+//         Tile 13/4304/2821 (Stuttgart) → HTTP 200, 13,547 B decoded, layer "2x2Gitter", 9 features, each
+//         carrying a `metadata` JSON string with the DOWNLOAD URL per product, verbatim:
+//           {"name": "513-5402", "products": [… {"name": "LoD2", "types": [{"type": "LoD2",
+//            "fileName": "LoD2_32_513_5402_2_bw.zip", "downloadURL": "/data/lod2/LoD2_32_513_5402_2_bw.zip"}]} …]}
+//         and its neighbours are 511-5402 / 513-5400 / 511-5400 — step 2 km, easting phase 1.
+//         MEASURED 2026-09-05: all NINE tiles over the Stuttgart working-set bbox HEAD 200
+//         (511/513/515 × 5400/5402/5404; 3,007,541 – 20,275,566 B, Accept-Ranges: bytes), while the even-easting
+//         name the first pass tried, LoD2_32_512_5402_2_bw.zip, is 404 and an off-Land key
+//         LoD2_32_301_5300_2_bw.zip is 404 — so a 404 here is an honest ABSENT, not a dead host.
+//         ⚠ The `Kachel` column of the in-zip INFO_OpenData_LoD2_2026.txt lists EVEN eastings (470-5494,
+//         502-5482 …). Those are 1 km ALKIS Kachel ids, NOT download tiles: LoD2_32_502_5482_2_bw.zip → 404,
+//         LoD2_32_503_5482_2_bw.zip → 200. Do not re-derive the grid from that column.
+//         DOOR SHAPE — the only Land whose zip is NOT "first entry is the CityGML": LoD2_32_513_5402_2_bw.zip
+//         (18,031,959 B) holds 8 entries — a DIRECTORY entry first, a licence PDF, two txt, and FOUR 1 km GMLs
+//         (513_5402, 513_5403, 514_5402, 514_5403 — the 2 km tile is its four 1 km quarters). Hence kind
+//         `zip-multi`: read the central directory, Range-read every .gml entry. Entry LoD2_32_513_5402_1_BW.gml
+//         (lho 379076, csize 5,014,391 → 45,141,138 chars inflated) → 1,525 Buildings · 853 BuildingParts ·
+//         2,125 measuredHeight · 4,244 GroundSurface · srsName "urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH" ·
+//         srsDimension 3 · roofType codes 1000/2100/3100/3200/3500/4000/5000/9999 · max height 49.20 m.
+//         Licence: the zip ships GOVDATA-Datenlizenz_Deutschland.pdf; INFO_OpenData_LoD2_2026.txt (verbatim)
+//         states "Land: BW · Anzahl der 3D-Gebäude: 6 483 003 · Anzahl der gelieferten Kacheln: 9077 volle und
+//         277 leere Kacheln (insgesamt 9354) · Koordinatenreferenzsysteme: ETRS89_UTM<32>DE_DHHN<2016 ·
+//         Auslesedatum: 2026-02-04 - 2026-02-06 · Aktualität: ALKIS LoD2: 2025-04-01".
+//   • sn  Sachsen — BLOCKED, RE-PROBED 2026-09-05 (second pass) and now blocked HARDER, not softer:
+//         geodienste.sachsen.de …/rest_geosn_downloadlinks/MapServer/3 (LoD2 layer, EPSG:25833, fields
+//         Kachel/Download_CityGML) resolved Dresden 411800,5655700 → Kachel 4105654 →
 //         https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/GVzwbSyp7Yl7mBD/lod2_33410_5654_2_sn_citygml.zip
-//         → HTTP 503 Sabre\DAV ServiceUnavailable on HEAD and GET. Channel known, object store down.
-//   • bw  Baden-Württemberg — UNPROBED: opengeodata.lgl-bw.de products config names urlPath /data/lod2/ and
-//         pattern `LoD2_\d+_(\d+_\d+)_\d+_bw\.zip` over a `zwei_km_gitter` layer, but /data/lod2/ is 403
-//         and six candidate names for Stuttgart (512/5402 ± neighbours) all 404 — the grid keying is unresolved.
+//         → HTTP 503 Sabre\DAV ServiceUnavailable on HEAD and GET. Re-probe: that WebDAV path is STILL 503,
+//         the Nextcloud share page /index.php/s/GVzwbSyp7Yl7mBD is now 404 (the share token has gone), and
+//         SIX service names under geodienste.sachsen.de (wfs_geosn_lod2, wfs_geosn_lod2-downloadlinks,
+//         wms_geosn_lod2, wms_geosn_lod2-downloadlinks, wfs_geosn_downloadlinks_lod2,
+//         wfs_geosn_3d-gebaeudemodelle) answer HTTP 403 to GetCapabilities — with AND without a browser
+//         User-Agent — while …/guest on the one that does resolve returns the Sachsenatlas
+//         "Fehlende Berechtigung" page. Channel known, every door shut. NOT "no data": UNREACHABLE.
 //   • he  Hessen — BLOCKED: gds.hessen.de Intershop Downloadcenter (ViewRegistration / login) — account-gated.
-//   • hb  Bremen — UNPROBED: geo.bremen.de states LoD1+LoD2 are OPEN DATA since 2024-06-09 "über das GeoPortal
-//         Bremen und MetaVer", but gdi2.geo.bremen.de/inspire/download/ is 403 and /3D/, /LoD2/ 404; the six
-//         MetaVer records linked from the open-data page are all ATKIS products. Door not located.
+//   • hb  Bremen — UNPROBED, re-probed 2026-09-05 (second pass) and still not located: geo.bremen.de states
+//         LoD1+LoD2 are OPEN DATA since 2024-06-09 "über das GeoPortal Bremen und MetaVer", but
+//         gdi2.geo.bremen.de/inspire/download/ is 403 and /3D/, /LoD2/ 404; second pass adds
+//         gdi2.geo.bremen.de/geoserver/web/ → 404 and .../geoserver/ows?…GetCapabilities → 404, and the hosts
+//         gdi.geo.bremen.de and opendata.bremen.de do not resolve (DNS). The MetaVer catalogue itself is up
+//         (metaver.de/csw?request=GetCapabilities → HTTP 200, 13,319 B) but GetRecords is 403 with and without
+//         a browser User-Agent, so the catalogue could not be searched for the LoD2 record from here.
+//         Door not located — which is UNPROBED, not "Bremen has no LoD2".
 //   • sl  Saarland — UNPROBED: saarland.de/lvgl is behind a bot shield (HTTP 403 bunny-shield challenge);
 //         geoportal.saarland.de search endpoints 404. Door not located.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -223,11 +262,29 @@ export const DE_LOD2_LAENDER = {
     attribution: '© GeoBasis-DE/LGLN 2024',
     probe: '2026-09-05 LoD2_32_550_5802_1_ni.gml HEAD 200 49,838,412 B Accept-Ranges; Range 0-300000 → 206; 34 measuredHeight/58 BuildingPart in 300 KB; ListObjectsV2 prefix probe KeyCount 1 (present) / 0 (North Sea 400_5990)',
   },
+  bw: {
+    land: 'Baden-Württemberg', status: 'wired', zone: 32, tileM: 2000, kind: 'zip-multi',
+    // ⭐ THE ONE FIELD THAT UNBLOCKED THIS LAND. Every other 2 km Land snaps to an EVEN key; BW's download
+    // grid is phase-shifted one kilometre east (511, 513, 515 …) with EVEN northings. `eAnchorKm` is the
+    // phase, not a fudge — it reproduces the names the portal's own 2x2Gitter MVT publishes (header).
+    eAnchorKm: 1,
+    // No listing and no index file: /data/lod2/ is 403 (directory listing off) while the objects under it are
+    // public. The index is therefore ONE HEAD per candidate tile, gated by TWO controls that must BOTH hold
+    // before a 404 is allowed to mean "absent" (§CONTEXT-DATA-HONESTY — failure ≠ empty).
+    indexKind: 'head-probe',
+    controlPresentTile: 'LoD2_32_513_5402_2_bw.zip',   // measured 2026-09-05: HEAD 200, 18,031,959 B
+    controlAbsentTile: 'LoD2_32_512_5402_2_bw.zip',    // measured 2026-09-05: HEAD 404 (the even-key name)
+    baseUrl: 'https://opengeodata.lgl-bw.de/data/lod2/',
+    tileName: ({ e, n }) => `LoD2_32_${e}_${n}_2_bw.zip`,
+    tileUrl: ({ e, n }) => `https://opengeodata.lgl-bw.de/data/lod2/LoD2_32_${e}_${n}_2_bw.zip`,
+    licence: 'Datenlizenz Deutschland (GOVDATA-Datenlizenz_Deutschland.pdf ships INSIDE every tile zip; the LGL Open-Data portal publishes the product keyless)',
+    attribution: '© LGL, www.lgl-bw.de',
+    probe: '2026-09-05 LoD2_32_513_5402_2_bw.zip HEAD 200 18,031,959 B Accept-Ranges; 8 entries, 4 × 1 km gml; entry LoD2_32_513_5402_1_BW.gml 45.1 MB → 1,525 Buildings/853 BuildingParts/2,125 measuredHeight; 9/9 Stuttgart tiles 200, even-key 512 and off-Land 301_5300 both 404; grid names read from tiles/vts/2x2Gitter/13/4304/2821.pbf',
+  },
   by: { land: 'Bayern', status: 'probed-open-unarmed', zone: 32, tileM: 2000, kind: 'gml', tileName: ({ e, n }) => `${e}_${n}.gml`, tileUrl: ({ e, n }) => `https://download1.bayernwolke.de/a/lod2/citygml/${e}_${n}.gml`, licence: 'CC BY 4.0 (geodaten.bayern.de Nutzungsbedingungen, probed 2026-09-05)', reason: 'keyless 2 km gml verified 2026-09-05 (690_5334.gml → HTTP 206, 16 Buildings); lane brief keeps munich blocked — arming is a founder decision, the REGION_SOURCE munich reason is stale' },
-  sn: { land: 'Sachsen', status: 'blocked', reason: 'geodienste.sachsen.de downloadlinks MapServer/3 resolves Dresden → geocloud.landesvermessung.sachsen.de/public.php/dav/files/GVzwbSyp7Yl7mBD/lod2_33410_5654_2_sn_citygml.zip → HTTP 503 Sabre\\DAV ServiceUnavailable (HEAD and GET, probed 2026-09-05)' },
-  bw: { land: 'Baden-Württemberg', status: 'unprobed', reason: 'opengeodata.lgl-bw.de config: urlPath /data/lod2/, pattern LoD2_\\d+_(\\d+_\\d+)_\\d+_bw\\.zip on layer zwei_km_gitter; /data/lod2/ HTTP 403, six Stuttgart candidates 404 — grid keying unresolved (2026-09-05)' },
+  sn: { land: 'Sachsen', status: 'blocked', reason: 'geodienste.sachsen.de downloadlinks MapServer/3 resolves Dresden → geocloud.landesvermessung.sachsen.de/public.php/dav/files/GVzwbSyp7Yl7mBD/lod2_33410_5654_2_sn_citygml.zip → HTTP 503 Sabre\\DAV ServiceUnavailable (HEAD and GET); RE-PROBED 2026-09-05 second pass: that WebDAV path still 503, the share page /index.php/s/GVzwbSyp7Yl7mBD now 404 (token gone), and six geodienste.sachsen.de service names answer 403 to GetCapabilities with and without a browser UA. UNREACHABLE, not empty' },
   he: { land: 'Hessen', status: 'blocked', reason: 'gds.hessen.de Intershop Downloadcenter requires registration/login (ViewRegistration); no keyless tile URL (2026-09-05)' },
-  hb: { land: 'Bremen', status: 'unprobed', reason: 'geo.bremen.de: LoD1+LoD2 OPEN DATA since 2024-06-09 via GeoPortal Bremen + MetaVer; gdi2.geo.bremen.de/inspire/download/ 403, /3D/ and /LoD2/ 404; linked MetaVer records are ATKIS only (2026-09-05)' },
+  hb: { land: 'Bremen', status: 'unprobed', reason: 'geo.bremen.de: LoD1+LoD2 OPEN DATA since 2024-06-09 via GeoPortal Bremen + MetaVer; gdi2.geo.bremen.de/inspire/download/ 403, /3D/ and /LoD2/ 404, /geoserver/web/ and /geoserver/ows 404; gdi.geo.bremen.de and opendata.bremen.de do not resolve (DNS); metaver.de CSW GetCapabilities 200 (13,319 B) but GetRecords 403 with and without a browser UA (2026-09-05, two passes)' },
   sl: { land: 'Saarland', status: 'unprobed', reason: 'saarland.de/lvgl HTTP 403 bunny-shield bot challenge; geoportal.saarland.de mapbender search/feed endpoints 404 (2026-09-05)' },
 };
 
@@ -254,10 +311,18 @@ export function wgs84ToUtm(lat, lon, zone) {
   return [easting, northing];
 }
 
-/** Native (E, N) metres → the adapter's tile key { e, n } in km, snapped to its grid (2 km Länder → even). */
+/** Native (E, N) metres → the adapter's tile key { e, n } in km, snapped to its grid.
+ *  A publisher's grid has a STEP (`tileM`) and a PHASE. Every Land but one has phase 0, so a 2 km Land
+ *  snaps to EVEN keys; Baden-Württemberg's download grid is phase-shifted one kilometre east
+ *  (`eAnchorKm: 1` → 511, 513, 515 …), which is exactly what made its first-pass probes 404. `nAnchorKm`
+ *  is provided for symmetry; no wired Land needs it today. Absent both, this is the old expression. */
 export function tileKeyFor(adapter, E, N) {
   const stepKm = adapter.tileM / 1000;
-  return { e: Math.floor(E / adapter.tileM) * stepKm, n: Math.floor(N / adapter.tileM) * stepKm };
+  const aE = adapter.eAnchorKm ?? 0, aN = adapter.nAnchorKm ?? 0;
+  return {
+    e: Math.floor((E - aE * 1000) / adapter.tileM) * stepKm + aE,
+    n: Math.floor((N - aN * 1000) / adapter.tileM) * stepKm + aN,
+  };
 }
 
 /** Native [minE, minN, maxE, maxN] of a tile key. */
@@ -346,6 +411,33 @@ export function zipEocd(tail, total) {
       return { entries, cdSize, cdOffset, total };
     }
   }
+  return null;
+}
+
+/**
+ * The CityGML entries of a parsed central directory, in name order.
+ * BW is the only Land whose per-tile zip is NOT "first entry is the CityGML": it holds a DIRECTORY entry,
+ * a licence PDF, two txt files and FOUR 1 km GMLs (the 2 km tile's quarters). Directory entries end in `/`
+ * and carry usize 0; anything that is not .gml/.xml is skipped by name. Sorted so a run is deterministic.
+ * @param {Map<string, {method:number,csize:number,usize:number,lho:number}>} map
+ * @returns {Array<[string, object]>}
+ */
+export function zipGmlEntries(map) {
+  return [...map.entries()]
+    .filter(([name]) => !name.endsWith('/') && /\.(gml|xml)$/i.test(name))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/**
+ * HEAD status → tile presence, for the `head-probe` index kind (BW: no listing, public objects).
+ * 200/206 → true (present) · 404/410 → false (an honest ABSENT) · ANYTHING ELSE → null (UNKNOWN).
+ * A 403, a 5xx or a network error is NOT "no tile here" — the caller must count those as tile ERRORS,
+ * never as empty (§CONTEXT-DATA-HONESTY: failure ≠ empty). Callers must additionally hold the adapter's
+ * two controls (a known-present and a known-absent name) before trusting any `false` from this.
+ */
+export function headProbePresence(status) {
+  if (status === 200 || status === 206) return true;
+  if (status === 404 || status === 410) return false;
   return null;
 }
 
@@ -503,7 +595,7 @@ export const DE_LOD2_CITIES = [
   { city: 'hannover',    land: 'ni', bbox: [9.70, 52.35, 9.78, 52.40] },    // ~6×6 × 1 km plain gml (Hannover tile 49.8 MB — streamed), S3 prefix-probed
   { city: 'munich',      land: 'by', bbox: [11.54, 48.12, 11.61, 48.16] },  // probed open, UNARMED by brief
   { city: 'dresden',     land: 'sn', bbox: [13.70, 51.03, 13.78, 51.07] },  // BLOCKED — geocloud 503
-  { city: 'stuttgart',   land: 'bw', bbox: [9.15, 48.76, 9.22, 48.80] },    // UNPROBED — grid keying
+  { city: 'stuttgart',   land: 'bw', bbox: [9.15, 48.76, 9.22, 48.80] },    // ~3×3 × 2 km zip-multi (9/9 tiles HEAD 200; odd-easting grid)
   { city: 'frankfurt',   land: 'he', bbox: [8.65, 50.10, 8.72, 50.13] },    // BLOCKED — account-gated
   { city: 'bremen',      land: 'hb', bbox: [8.78, 53.06, 8.85, 53.10] },    // UNPROBED — door not located
   { city: 'saarbruecken', land: 'sl', bbox: [6.96, 49.22, 7.02, 49.25] },   // UNPROBED — bot shield

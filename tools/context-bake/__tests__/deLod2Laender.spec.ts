@@ -17,7 +17,7 @@ import {
   DE_LOD2_LAENDER, DE_LOD2_CITIES, DE_LOD2_CITY_BBOXES, DE_LOD2_STATUSES, DE_ROOF,
   wgs84ToUtm, tileKeyFor, tileBboxNative, stGetFeatureUrl, cityForPoint, routerSummary,
   parseHtmlListing, parseAtomTileNames, parseNrwIndex, parseShIndex, s3PrefixProbeUrl, parseS3KeyCount,
-  zipLocalHeader, zipCentralDirectory, zipEocd,
+  zipLocalHeader, zipCentralDirectory, zipEocd, zipGmlEntries, headProbePresence,
   partFromBlock, partsFromBuildingBlock, createBuildingSlicer, stPartsFromGeojson, ringAreaCentroid,
 } from '../heights/deLod2Laender.mjs';
 
@@ -36,7 +36,7 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
   it('a wired Land has a door (kind, zone, tileM, tileName, tileUrl, licence, probe); a non-wired Land names its reason', () => {
     for (const [cc, a] of Object.entries(DE_LOD2_LAENDER)) {
       if (a.status === 'wired') {
-        expect(['gml', 'zip', 'zip-entry', 'wfs'], `${cc}.kind`).toContain(a.kind);
+        expect(['gml', 'zip', 'zip-multi', 'zip-entry', 'wfs'], `${cc}.kind`).toContain(a.kind);
         expect([32, 33], `${cc}.zone`).toContain(a.zone);
         expect([1000, 2000], `${cc}.tileM`).toContain(a.tileM);
         expect(typeof a.tileName, `${cc}.tileName`).toBe('function');
@@ -48,16 +48,16 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
       }
     }
   });
-  it('the wired set is exactly the TEN Länder the 2026-09-05 probes verified (NI joined on the second pass); Bayern is open-but-unarmed; SN/HE blocked; BW/HB/SL unprobed', () => {
+  it('the wired set is exactly the ELEVEN Länder the 2026-09-05 probes verified (NI then BW joined on later passes); Bayern is open-but-unarmed; SN/HE blocked; HB/SL unprobed', () => {
     const by = (s: string) => Object.entries(DE_LOD2_LAENDER).filter(([, a]) => a.status === s).map(([cc]) => cc).sort();
-    expect(by('wired')).toEqual(['bb', 'be', 'hh', 'mv', 'ni', 'nw', 'rp', 'sh', 'st', 'th']);
+    expect(by('wired')).toEqual(['bb', 'be', 'bw', 'hh', 'mv', 'ni', 'nw', 'rp', 'sh', 'st', 'th']);
     expect(by('probed-open-unarmed')).toEqual(['by']);
     expect(by('blocked')).toEqual(['he', 'sn']);
-    expect(by('unprobed')).toEqual(['bw', 'hb', 'sl']);
+    expect(by('unprobed')).toEqual(['hb', 'sl']);
   });
   it('DE_LOD2_CITY_BBOXES is the WIRED subset of DE_LOD2_CITIES, one city per Land, koln byte-identical to the bake row', () => {
     expect(DE_LOD2_CITIES.length).toBe(16);
-    expect(DE_LOD2_CITY_BBOXES.map((c) => c.city).sort()).toEqual(['berlin', 'erfurt', 'hamburg', 'hannover', 'kiel', 'koln', 'magdeburg', 'mainz', 'potsdam', 'schwerin']);
+    expect(DE_LOD2_CITY_BBOXES.map((c) => c.city).sort()).toEqual(['berlin', 'erfurt', 'hamburg', 'hannover', 'kiel', 'koln', 'magdeburg', 'mainz', 'potsdam', 'schwerin', 'stuttgart']);
     for (const c of DE_LOD2_CITY_BBOXES) expect(DE_LOD2_LAENDER[c.land].status).toBe('wired');
     expect(new Set(DE_LOD2_CITY_BBOXES.map((c) => c.land)).size).toBe(DE_LOD2_CITY_BBOXES.length);
     expect(DE_LOD2_CITIES.find((c) => c.city === 'koln')!.bbox).toEqual([6.85, 50.88, 7.02, 50.99]);
@@ -68,6 +68,7 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
     expect(s).toContain('bb=wired(zip/utm33/1km)');
     expect(s).toContain('st=wired(wfs/utm32/1km)');
     expect(s).toContain('ni=wired(gml/utm32/1km)');
+    expect(s).toContain('bw=wired(zip-multi/utm32/2km)');
     expect(s).toContain('sn=blocked');
     expect(s).toContain('by=probed-open-unarmed');
   });
@@ -336,6 +337,135 @@ describe('§DE-LOD2-LAENDER Niedersachsen — the BUCKET, not the LGLN index, is
   it('cityForPoint routes Hannover Hbf and the CITIES gate row point → hannover/ni; the working set now holds ten cities', () => {
     expect(cityForPoint(9.7411, 52.3767)?.city).toBe('hannover');
     expect(cityForPoint(9.7320, 52.3759)?.land).toBe('ni');
-    expect(DE_LOD2_CITY_BBOXES.length).toBe(10);
+    expect(DE_LOD2_CITY_BBOXES.length).toBe(11);
+  });
+});
+
+describe('§DE-LOD2-LAENDER-BW Baden-Württemberg — the ODD-easting 2 km grid and the folder-shaped zip (verbatim 2026-09-05)', () => {
+  // The first pass called BW "unprobed — grid keying unresolved" with the RIGHT directory and the RIGHT
+  // filename pattern, because it snapped the key to an EVEN easting the way every other 2 km Land does.
+  // These fixtures are the two artefacts that settled it: the portal's OWN grid layer (an MVT tileset,
+  // core-layerconfig.json → zwei_km_gitter → tiles/vts/2x2Gitter/{z}/{x}/{y}.pbf), whose features each carry
+  // the download URL per product; and the central directory of the tile that URL names.
+  const GRID = JSON.parse(fx('de-lod2-bw-2x2gitter-stuttgart-13-4304-2821-2026-09-05.json'));
+  const CD = JSON.parse(fx('de-lod2-bw-zip-central-directory-513-5402-2026-09-05.json'));
+  const BW_GML = fx('de-lod2-bw-stuttgart-513-5402-2026-09-05.gml');
+  const bw = DE_LOD2_LAENDER.bw;
+
+  it('the portal grid publishes ODD eastings and EVEN northings — the router reproduces its LoD2 downloadURL exactly', () => {
+    const names: string[] = GRID.features.map((f: { name: string }) => f.name).sort();
+    expect(names).toContain('513-5402');
+    // ⭐ the whole defect in one assertion: every easting the publisher itself emits is ODD.
+    for (const n of names) {
+      const [e, no] = n.split('-').map(Number);
+      expect(e % 2, `${n} easting parity`).toBe(1);
+      expect(no % 2, `${n} northing parity`).toBe(0);
+    }
+    // and the router's name/URL for a point inside 513-5402 is byte-identical to the portal's own.
+    const [E, N] = wgs84ToUtm(48.7758, 9.1829, 32);       // Stuttgart Hauptbahnhof
+    const key = tileKeyFor(bw, E, N);
+    expect(key).toEqual({ e: 513, n: 5402 });
+    const lod2 = GRID.features.find((f: { name: string }) => f.name === '513-5402')
+      .products.find((p: { name: string }) => p.name === 'LoD2').types[0];
+    expect(lod2.fileName).toBe('LoD2_32_513_5402_2_bw.zip');
+    expect(bw.tileName(key)).toBe(lod2.fileName);
+    expect(bw.tileUrl(key)).toBe(`https://opengeodata.lgl-bw.de${lod2.downloadURL}`);
+  });
+
+  it('eAnchorKm is the PHASE, not a fudge: without it the key is 512 — the name that answered 404', () => {
+    const [E, N] = wgs84ToUtm(48.7758, 9.1829, 32);
+    const unphased = tileKeyFor({ ...bw, eAnchorKm: 0 }, E, N);
+    expect(unphased.e).toBe(512);                          // measured 2026-09-05: LoD2_32_512_5402_2_bw.zip → HTTP 404
+    expect(tileKeyFor(bw, E, N).e).toBe(513);              // measured 2026-09-05: …513… → HTTP 200, 18,031,959 B
+    // every OTHER Land is phase 0, so the shared expression is unchanged for them.
+    for (const [cc, a] of Object.entries(DE_LOD2_LAENDER)) {
+      if (cc === 'bw') continue;
+      expect((a as { eAnchorKm?: number }).eAnchorKm ?? 0, cc).toBe(0);
+    }
+    // a 2 km tile still spans its own edge from the key, odd or not.
+    expect(tileBboxNative(bw, { e: 513, n: 5402 })).toEqual([513000, 5402000, 515000, 5404000]);
+  });
+
+  it('the nine tiles over the Stuttgart working-set bbox are all ODD-easting keys (the nine that HEAD 200)', () => {
+    const [w, s, e, n] = DE_LOD2_CITIES.find((c) => c.city === 'stuttgart')!.bbox;
+    const [E0, N0] = wgs84ToUtm(s, w, 32), [E1, N1] = wgs84ToUtm(n, e, 32);
+    const k0 = tileKeyFor(bw, E0, N0), k1 = tileKeyFor(bw, E1, N1);
+    const names: string[] = [];
+    for (let ke = k0.e; ke <= k1.e; ke += 2) for (let kn = k0.n; kn <= k1.n; kn += 2) names.push(bw.tileName({ e: ke, n: kn }));
+    expect(names.sort()).toEqual([
+      'LoD2_32_511_5400_2_bw.zip', 'LoD2_32_511_5402_2_bw.zip', 'LoD2_32_511_5404_2_bw.zip',
+      'LoD2_32_513_5400_2_bw.zip', 'LoD2_32_513_5402_2_bw.zip', 'LoD2_32_513_5404_2_bw.zip',
+      'LoD2_32_515_5400_2_bw.zip', 'LoD2_32_515_5402_2_bw.zip', 'LoD2_32_515_5404_2_bw.zip',
+    ]);
+  });
+
+  it('zipGmlEntries: the BW zip is a FOLDER — the directory entry, the licence PDF and the two txt are skipped, the four 1 km quarters kept in name order', () => {
+    const map = new Map(Object.entries(CD.entries)) as Map<string, { lho: number; csize: number }>;
+    expect(map.size).toBe(8);
+    expect(zipGmlEntries(map).map(([n]) => n)).toEqual([
+      'LoD2_32_513_5402_2_bw/LoD2_32_513_5402_1_BW.gml',
+      'LoD2_32_513_5402_2_bw/LoD2_32_513_5403_1_BW.gml',
+      'LoD2_32_513_5402_2_bw/LoD2_32_514_5402_1_BW.gml',
+      'LoD2_32_513_5402_2_bw/LoD2_32_514_5403_1_BW.gml',
+    ]);
+    // the 2 km tile IS its four 1 km quarters — key and key+1 in both axes.
+    expect(zipGmlEntries(map).map(([n]) => n.split('/')[1])).toEqual(
+      [[513, 5402], [513, 5403], [514, 5402], [514, 5403]].map(([e, n]) => `LoD2_32_${e}_${n}_1_BW.gml`),
+    );
+    expect(zipGmlEntries(map)[0][1].lho).toBe(379076);
+    // a zip with no CityGML at all yields [] — the caller must call that a FAILURE, never a void tile.
+    expect(zipGmlEntries(new Map([['a/', { lho: 0, csize: 0 }], ['a/readme.pdf', { lho: 1, csize: 2 }]]))).toEqual([]);
+  });
+
+  it('headProbePresence keeps ABSENT and UNKNOWN apart — 404 is an honest empty, 403/5xx is not', () => {
+    expect(headProbePresence(200)).toBe(true);
+    expect(headProbePresence(206)).toBe(true);
+    expect(headProbePresence(404)).toBe(false);            // measured: the even-key and the off-Land names
+    expect(headProbePresence(410)).toBe(false);
+    for (const s of [301, 403, 429, 500, 503, 0]) expect(headProbePresence(s), `HTTP ${s}`).toBeNull();
+  });
+
+  it('BW declares BOTH head-probe controls, and they are the names that were actually measured', () => {
+    expect(bw.indexKind).toBe('head-probe');
+    expect(bw.controlPresentTile).toBe('LoD2_32_513_5402_2_bw.zip');   // HEAD 200, 18,031,959 B
+    expect(bw.controlAbsentTile).toBe('LoD2_32_512_5402_2_bw.zip');    // HEAD 404
+    expect(`${bw.baseUrl}${bw.controlPresentTile}`).toBe(bw.tileUrl({ e: 513, n: 5402 }));
+    // the absent control must be a name the router can NEVER emit — otherwise it would veto a real tile.
+    expect(Number(bw.controlAbsentTile.split('_')[2]) % 2).toBe(0);
+  });
+
+  it('the BW CityGML is the same AdV schema as every other Land, in UTM32 inside the Stuttgart tile', () => {
+    expect(BW_GML).toContain('urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH');
+    expect(BW_GML).toContain('srsDimension="3"');
+    expect(BW_GML).toContain('<bldg:measuredHeight uom="urn:adv:uom:m">');
+    const slicer = createBuildingSlicer();
+    const parts = [...slicer.push(BW_GML), ...slicer.flush()];
+    // 2 plain Buildings → 1 part each; 1 Building consisting of 2 BuildingParts → 2 parts.
+    expect(parts.length).toBe(4);
+    expect(parts.map((p) => p.h)).toEqual([3.168, 13.953, 14.719, 12.513]);
+    expect(parts[0].roof).toBe('flat');                    // roofType 1000
+    expect(parts[1].roof).toBe('gabled');                  // roofType 3100
+    for (const p of parts) {
+      expect(p.E).toBeGreaterThan(513000); expect(p.E).toBeLessThan(515000);
+      expect(p.N).toBeGreaterThan(5402000); expect(p.N).toBeLessThan(5404000);
+      expect(p.ring.length).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it('cityForPoint routes Stuttgart Hbf and the CITIES gate row point → stuttgart/bw', () => {
+    expect(cityForPoint(9.1829, 48.7758)?.city).toBe('stuttgart');
+    expect(cityForPoint(9.1829, 48.7758)?.land).toBe('bw');
+  });
+
+  it('Sachsen, Hessen, Bremen and Saarland stay REFUSED with a named barrier — a Land with no door is never silently "no data"', () => {
+    for (const cc of ['sn', 'he', 'hb', 'sl']) {
+      const a = DE_LOD2_LAENDER[cc] as { status: string; reason: string; tileUrl?: unknown };
+      expect(['blocked', 'unprobed'], cc).toContain(a.status);
+      expect(a.reason, cc).toMatch(/\d{3}|DNS|login|bot shield|not located|Berechtigung/);
+      expect(a.tileUrl, `${cc} must carry NO door`).toBeUndefined();
+    }
+    // and the re-probe evidence is recorded, not overwritten by a bare "blocked".
+    expect((DE_LOD2_LAENDER.sn as { reason: string }).reason).toContain('403');
+    expect((DE_LOD2_LAENDER.hb as { reason: string }).reason).toContain('DNS');
   });
 });

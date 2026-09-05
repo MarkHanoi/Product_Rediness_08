@@ -26,6 +26,7 @@ const GATE_ROWS: Array<[string, string, number, number]> = [
   ['kiel', 'sh', 54.3233, 10.1394], ['erfurt', 'th', 50.9787, 11.0328], ['mainz', 'rp', 50.0010, 8.2711],
   ['schwerin', 'mv', 53.6288, 11.4148], ['magdeburg', 'st', 52.1277, 11.6292], ['koln-de', 'nw', 50.9375, 6.9603],
   ['hannover', 'ni', 52.3759, 9.7320], // second pass — the LGLN bucket, not its stale index, is the door
+  ['stuttgart', 'bw', 48.7758, 9.1829], // third pass — the ODD-easting 2 km grid (§DE-LOD2-LAENDER-BW)
 ];
 
 describe('§DE-LOD2-LAENDER-OSM-JOIN — bake.mjs wires the lod2de router for the `germany` row', () => {
@@ -56,14 +57,31 @@ describe('§DE-LOD2-LAENDER-OSM-JOIN — bake.mjs wires the lod2de router for th
     // and lod2de is NOT also spliced into the pinned dispatch chain (one door, one bookkeeping path).
     expect(bake).not.toMatch(/r\.heightJoin === 'lod2de' \|\|/);
   });
-  it('both CI gates refuse a German bake that ships no measured heights at ANY wired working-set city', () => {
-    for (const wf of ['context-bake.yml', 'context-merge-publish.yml']) {
-      const text = readFileSync(resolve(HERE, '../../../.github/workflows', wf), 'utf8');
-      for (const [name, , lat, lon] of GATE_ROWS) {
-        expect(text, `${wf}: ${name}`).toMatch(new RegExp(`^\\s*${name} germany ${lat.toFixed(4)},${lon.toFixed(4)} 500$`, 'm'));
-      }
-      expect(text, `${wf}: koln row kept`).toMatch(/^\s*koln koln 50\.9375,6\.9603 500$/m);
+  it('the BAKE gate refuses a German bake that ships no measured heights at ANY wired working-set city', () => {
+    const text = readFileSync(resolve(HERE, '../../../.github/workflows/context-bake.yml'), 'utf8');
+    for (const [name, , lat, lon] of GATE_ROWS) {
+      expect(text, `context-bake.yml: ${name}`).toMatch(new RegExp(`^\\s*${name} germany ${lat.toFixed(4)},${lon.toFixed(4)} 500$`, 'm'));
     }
+    expect(text, 'context-bake.yml: koln row kept').toMatch(/^\s*koln koln 50\.9375,6\.9603 500$/m);
+  });
+  // ⚠ CORRECTED 2026-09-05 (third pass) — and the correction is the point, so read it before "fixing" it
+  // back. This assertion used to demand the SAME LIVE row in BOTH workflows. It went RED the moment the
+  // orchestrator PARKED the German rows in the merge gate under §PENDING-HEIGHTS round 2 — because
+  // `germany` had not yet baked WITH the stamp, so a live row there made the merge gate refuse the whole
+  // publish over regions whose staged bytes legitimately carry no measured heights (run 33980124792).
+  // The parking was right and the spec was wrong to forbid it. What must never happen is a row
+  // DISAPPEARING: a deleted row silently drops the guarantee, a parked row keeps it in view with its
+  // reason attached. So the merge gate is asserted as "live OR parked under §PENDING-HEIGHTS", never absent.
+  it('the MERGE gate carries every German row either LIVE or PARKED under §PENDING-HEIGHTS — never absent', () => {
+    const text = readFileSync(resolve(HERE, '../../../.github/workflows/context-merge-publish.yml'), 'utf8');
+    expect(text, 'the parking notice itself must be present to justify a commented row').toContain('§PENDING-HEIGHTS');
+    for (const [name, , lat, lon] of GATE_ROWS) {
+      const row = `${name} germany ${lat.toFixed(4)},${lon.toFixed(4)} 500`;
+      const live = new RegExp(`^\\s*${row}$`, 'm').test(text);
+      const parked = new RegExp(`^\\s*#\\s*${row}$`, 'm').test(text);
+      expect(live || parked, `context-merge-publish.yml: ${name} is neither live nor parked — a dropped row drops the guarantee`).toBe(true);
+    }
+    expect(text, 'context-merge-publish.yml: koln row kept LIVE (NRW has already baked with heights)').toMatch(/^\s*koln koln 50\.9375,6\.9603 500$/m);
   });
   it('every gate row is a point INSIDE its Land\'s working-set bbox, and every WIRED Land has a gate row', () => {
     const lands = new Set<string>();

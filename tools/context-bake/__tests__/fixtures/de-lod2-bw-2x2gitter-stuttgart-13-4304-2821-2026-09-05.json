@@ -1,0 +1,907 @@
+{
+ "_source": "https://opengeodata.lgl-bw.de/tiles/vts/2x2Gitter/13/4304/2821.pbf",
+ "_fetched": "2026-09-05",
+ "_note": "the `metadata` property of each of the 9 features, JSON.parse-d verbatim; layer 2x2Gitter",
+ "features": [
+  {
+   "name": "513-5402",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_513_5402_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_513_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_513_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_513_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_513_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_513_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_513_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_513_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_513_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_513_5402_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_513_5402_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "511-5402",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_511_5402_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_511_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_511_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_511_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_511_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_511_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_511_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_511_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_511_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_511_5402_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_511_5402_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "513-5400",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_513_5400_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_513_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_513_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_513_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_513_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_513_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_513_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_513_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_513_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_513_5400_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_513_5400_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "511-5400",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_511_5400_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_511_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_511_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_511_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_511_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_511_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_511_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_511_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_511_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_511_5400_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_511_5400_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "513-5398",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_513_5398_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_513_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_513_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_513_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_513_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_513_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_513_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_513_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_513_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_513_5398_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_513_5398_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "509-5402",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_509_5402_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_509_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_509_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_509_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_509_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_509_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_509_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_509_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_509_5402_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_509_5402_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_509_5402_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "509-5400",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_509_5400_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_509_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_509_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_509_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_509_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_509_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_509_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_509_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_509_5400_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_509_5400_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_509_5400_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "509-5398",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_509_5398_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_509_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_509_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_509_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_509_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_509_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_509_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_509_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_509_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_509_5398_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_509_5398_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "511-5398",
+   "products": [
+    {
+     "name": "DOP",
+     "types": [
+      {
+       "type": "DOP20_RGB",
+       "fileName": "dop20rgb_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgb_32_511_5398_2_bw.zip"
+      },
+      {
+       "type": "DOP20_RGBI",
+       "fileName": "dop20rgbi_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/dop20/dop20rgbi_32_511_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM",
+     "types": [
+      {
+       "type": "DGM1",
+       "fileName": "dgm1_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/dgm/dgm1_32_511_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM",
+     "types": [
+      {
+       "type": "DOM5",
+       "fileName": "dom5_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/dom/dom5_32_511_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "3DM",
+     "types": [
+      {
+       "type": "3DM",
+       "fileName": "3dm_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/3dm/3dm_32_511_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD2",
+     "types": [
+      {
+       "type": "LoD2",
+       "fileName": "LoD2_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/lod2/LoD2_32_511_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "LoD1",
+     "types": [
+      {
+       "type": "LoD1",
+       "fileName": "LoD1_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/lod1/LoD1_32_511_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DOM1",
+     "types": [
+      {
+       "type": "DOM1",
+       "fileName": "dom1_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/dom1/dom1_32_511_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "DGM025",
+     "types": [
+      {
+       "type": "DGM025",
+       "fileName": "dgm025_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/dgm025/dgm025_32_511_5398_2_bw.zip"
+      }
+     ]
+    },
+    {
+     "name": "nDOM",
+     "types": [
+      {
+       "type": "nDOM1",
+       "fileName": "ndom1_32_511_5398_2_bw.zip",
+       "downloadURL": "/data/ndom1/ndom1_32_511_5398_2_bw.zip"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

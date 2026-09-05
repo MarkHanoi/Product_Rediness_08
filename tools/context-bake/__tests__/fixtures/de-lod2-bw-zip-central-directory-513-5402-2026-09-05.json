@@ -1,0 +1,56 @@
+{
+ "_source": "https://opengeodata.lgl-bw.de/data/lod2/LoD2_32_513_5402_2_bw.zip",
+ "_fetched": "2026-09-05",
+ "_totalBytes": 18031959,
+ "_note": "zipCentralDirectory() output for the Stuttgart 2 km tile — a DIRECTORY entry first, then a licence PDF, two txt and FOUR 1 km CityGML quarters.",
+ "entries": {
+  "LoD2_32_513_5402_2_bw/": {
+   "method": 0,
+   "csize": 0,
+   "usize": 0,
+   "lho": 0
+  },
+  "LoD2_32_513_5402_2_bw/GOVDATA-Datenlizenz_Deutschland.pdf": {
+   "method": 8,
+   "csize": 377629,
+   "usize": 396832,
+   "lho": 52
+  },
+  "LoD2_32_513_5402_2_bw/INFO_OpenData_LoD2_2026.txt": {
+   "method": 8,
+   "csize": 1229,
+   "usize": 2854,
+   "lho": 377768
+  },
+  "LoD2_32_513_5402_2_bw/LoD2_32_513_5402_1_BW.gml": {
+   "method": 8,
+   "csize": 5014391,
+   "usize": 45142620,
+   "lho": 379076
+  },
+  "LoD2_32_513_5402_2_bw/LoD2_32_513_5403_1_BW.gml": {
+   "method": 8,
+   "csize": 2061160,
+   "usize": 17637326,
+   "lho": 5393544
+  },
+  "LoD2_32_513_5402_2_bw/LoD2_32_514_5402_1_BW.gml": {
+   "method": 8,
+   "csize": 5352280,
+   "usize": 49957932,
+   "lho": 7454781
+  },
+  "LoD2_32_513_5402_2_bw/LoD2_32_514_5403_1_BW.gml": {
+   "method": 8,
+   "csize": 5223366,
+   "usize": 48335368,
+   "lho": 12807138
+  },
+  "LoD2_32_513_5402_2_bw/Meta-3D-Gebaeudemodell-LoD2.txt": {
+   "method": 8,
+   "csize": 126,
+   "usize": 155,
+   "lho": 18030581
+  }
+ }
+}

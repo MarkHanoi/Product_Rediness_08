@@ -55,10 +55,15 @@ import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispa
 // surface publishes cannot drift from the θ the ring is de-rotated by. See commit() below.
 import { deriveProjectNorthAngleFromParcel } from '../site/overlay/projectTrueNorth.js';
 import {
-    buildFormaMap2DStyle,
+    // §MAP2D-PASTEL (L-12938 · STR-2D-SITE-MAP-CARTOGRAPHY §4 Stage M1) — this surface now
+    // renders the PASTEL masterplan style. `buildFormaMap2DStyle` (v1) and `FORMA_PALETTE`
+    // stay exported for their other callers and their existing pins; only the call moves.
+    buildFormaMap2DStyleV2,
+    PASTEL_SOURCES,
     buildSatelliteStyle,
     HEKTAR_PALETTE,
     FORMA_PALETTE,
+    FORMA_PALETTE_V2,
     FORMA_BOUNDARY_DASH,
     FORMA_BOUNDARY_WIDTH,
     CONTEXT_BUILDINGS_SOURCE,
@@ -66,6 +71,12 @@ import {
 } from './siteMap2DStyle.js';
 // MAP-DATA-OVERTURE — keyless OSM/Overture context-building loader.
 import { fetchContextBuildings } from './contextBuildings.js';
+// §MAP2D-PASTEL (L-12938) — the OTHER baked context collections (roads, water areas +
+// waterways, parks, landuse, rail, mapped trees + synthesised canopies) converted to the
+// GeoJSON the pastel style's sources expect. It reads the SAME per-bbox memoised caches
+// `contextLayerWarm.warmAllContextLayers()` fills for the 3D Site, so the 2D map adds NO
+// network reads: one read, two renderers.
+import { loadPastelContextGeoJson } from './pastelContextGeoJson.js';
 // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline.
 import { setNeighbourFootprints } from '../site/neighbourFootprintStore.js';
 // A.21.D60 — pure relative-right-angle (orthogonal-to-previous-edge) draw aid.
@@ -330,8 +341,9 @@ export function mountSiteBoundaryMap2D(
         // §DRAW-MAP-ABOVE-CESIUM (2026-06-03): 20 → 40 so the draw surface is
         // unambiguously above the Cesium globe canvas during the draw step.
         zIndex: '40',
-        // FORMA.1 — off-white land matches the Forma basemap behind/during load.
-        background: FORMA_PALETTE.land,
+        // §MAP2D-PASTEL (L-12938) — the v2 warm-paper land, so the chrome behind and
+        // during load matches the pastel basemap rather than v1's cooler off-white.
+        background: FORMA_PALETTE_V2.land,
     } satisfies Partial<CSSStyleDeclaration>);
 
     const mapEl = document.createElement('div');
@@ -821,6 +833,13 @@ export function mountSiteBoundaryMap2D(
     let ctxDebounce: ReturnType<typeof setTimeout> | null = null;
     let ctxLastKey = '';
 
+    // §MAP2D-PASTEL (L-12938) — the pastel context push (roads / water / parks / landuse /
+    // rail / trees). Its own abort + debounce + key, deliberately NOT shared with the
+    // buildings fetch above: one cancelling the other would silently blank whole layers.
+    let pastelAbort: AbortController | null = null;
+    let pastelDebounce: ReturnType<typeof setTimeout> | null = null;
+    let pastelLastKey = '';
+
     function toast(message: string, severity: 'info' | 'success' | 'error'): void {
         runtime?.events?.emit('pryzm:toast', { message, severity });
     }
@@ -829,7 +848,7 @@ export function mountSiteBoundaryMap2D(
     // FORMA.1 — DEFAULT to the Autodesk-Forma minimal-vector basemap (off-white
     // land, light-grey roads, pale blue-grey water, abstract building fills). The
     // satellite raster style stays available via the corner toggle.
-    const style = buildFormaMap2DStyle({
+    const style = buildFormaMap2DStyleV2({
         extrude: opts.extrude ?? false,
     }) as unknown as StyleSpecification;
 
@@ -1351,6 +1370,58 @@ export function mountSiteBoundaryMap2D(
         if (immediate) { run(); return; }
         if (ctxDebounce) clearTimeout(ctxDebounce);
         ctxDebounce = setTimeout(run, 350);
+    }
+
+    // ── §MAP2D-PASTEL (L-12938) — fill the pastel style's baked-context sources. ──
+    // STR-2D-SITE-MAP-CARTOGRAPHY §4 Stage M1. The style declares seven EMPTY GeoJSON
+    // sources; this fills them from the same memoised readers the 3D Site uses. Debounced
+    // and centre-keyed exactly like `loadContextBuildings`, and a no-op on the satellite
+    // raster style (which declares none of these sources).
+    //
+    // ⛔ PRESENTATION ONLY. It adds no map handler, mutates no `vertices`, and touches
+    // neither the parcel click path nor the boundary-draw/commit path. A failure leaves
+    // every source at its empty resting state and the OpenFreeMap base layers alone carry
+    // the map — the picture degrades to today's, never to a hole.
+    function loadPastelContext(immediate = false): void {
+        if (disposed) return;
+        const run = (): void => {
+            if (disposed) return;
+            if (!map.getSource(PASTEL_SOURCES.roads)) return; // satellite style — skip.
+            const c = map.getCenter();
+            // Same ~0.005° centre key as the buildings fetch: same area ⇒ no re-push.
+            const key = `${c.lat.toFixed(3)},${c.lng.toFixed(3)}`;
+            if (key === pastelLastKey) return;
+            pastelLastKey = key;
+            pastelAbort?.abort();
+            pastelAbort = new AbortController();
+            const signal = pastelAbort.signal;
+            void loadPastelContextGeoJson(c.lat, c.lng, signal)
+                .then((push) => {
+                    if (disposed || signal.aborted) return;
+                    let pushed = 0;
+                    for (const [sourceId, fc] of Object.entries(push.bySource)) {
+                        const src = map.getSource(sourceId) as GeoJSONSource | undefined;
+                        if (!src) continue;
+                        src.setData(fc);
+                        pushed++;
+                    }
+                    // C57 §1.5 — the summary separates MAPPED trees from SYNTHESISED canopies
+                    // and names a failed read as a failure, never as an empty neighbourhood.
+                    console.log(
+                        `[gis] map2d §MAP2D-PASTEL: ${pushed}/7 baked context source(s) pushed — ${push.summary}`,
+                    );
+                })
+                .catch((e) => {
+                    console.warn(
+                        '[gis] map2d §MAP2D-PASTEL: context push FAILED (non-fatal) — the sources stay ' +
+                            'empty because the read failed, not because the area is empty:',
+                        e,
+                    );
+                });
+        };
+        if (immediate) { run(); return; }
+        if (pastelDebounce) clearTimeout(pastelDebounce);
+        pastelDebounce = setTimeout(run, 350);
     }
 
     /** Push the current snap target (or nothing) into the indicator source. */
@@ -1918,7 +1989,7 @@ export function mountSiteBoundaryMap2D(
         const style =
             next === 'satellite'
                 ? (buildSatelliteStyle() as unknown as StyleSpecification)
-                : (buildFormaMap2DStyle({ extrude: opts.extrude ?? false }) as unknown as StyleSpecification);
+                : (buildFormaMap2DStyleV2({ extrude: opts.extrude ?? false }) as unknown as StyleSpecification);
         // diff:false forces a full reload so the new source set replaces cleanly.
         map.setStyle(style, { diff: false });
         // Re-add the boundary draw + restore the camera once the new style loads.
@@ -1929,7 +2000,11 @@ export function mountSiteBoundaryMap2D(
             // MAP-DATA-OVERTURE — the swap recreates an EMPTY context source (map
             // style) or none (satellite). Force a refetch so the footprints come
             // back after switching back to the Forma vector basemap.
-            if (next === 'map') { ctxLastKey = ''; loadContextBuildings(true); }
+            if (next === 'map') {
+                ctxLastKey = ''; loadContextBuildings(true);
+                // §MAP2D-PASTEL (L-12938) — the swap recreated empty pastel sources too.
+                pastelLastKey = ''; loadPastelContext(true);
+            }
             console.log(`[gis] map2d: basemap → ${next}; boundary draw re-added (${vertices.length} vertices)`);
         });
     }
@@ -2416,6 +2491,9 @@ export function mountSiteBoundaryMap2D(
         // MAP-DATA-OVERTURE — cancel any in-flight context fetch + pending debounce.
         try { ctxAbort?.abort(); } catch { /* ignore */ }
         if (ctxDebounce) { clearTimeout(ctxDebounce); ctxDebounce = null; }
+        // §MAP2D-PASTEL (L-12938) — cancel the pastel push + its pending debounce.
+        try { pastelAbort?.abort(); } catch { /* ignore */ }
+        if (pastelDebounce) { clearTimeout(pastelDebounce); pastelDebounce = null; }
         // §SITE-PLAN-OVERLAY — tear down the overlay panel + raster (persistence kept).
         try { overlayController?.dispose(); } catch { /* ignore */ }
         overlayController = null;
@@ -2483,6 +2561,9 @@ export function mountSiteBoundaryMap2D(
         // MAP-DATA-OVERTURE — populate context footprints now + on every pan/zoom.
         loadContextBuildings(true);
         map.on('moveend', () => loadContextBuildings(false));
+        // §MAP2D-PASTEL (L-12938) — the baked context layers on the same cadence.
+        loadPastelContext(true);
+        map.on('moveend', () => loadPastelContext(false));
 
         // §SITE-PLAN-OVERLAY — mount the client-plan overlay controller now the map is
         // ready. It renders the calibrated raster UNDER the violet draw layers and owns

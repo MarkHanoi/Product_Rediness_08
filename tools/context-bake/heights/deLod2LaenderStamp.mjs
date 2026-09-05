@@ -18,7 +18,7 @@
 //     `measured-lidar` exactly as for Köln;
 //   • one Kachel is fetched at most once, and ONLY if it holds retained footprints (cost = O(populated area));
 //   • `edgePadM` seam handling — a footprint on a tile edge is offered to both neighbours.
-// WHAT IS DIFFERENT: the door per Land (gml / zip / zip-entry / wfs), the UTM zone (32 or 33), the tile
+// WHAT IS DIFFERENT: the door per Land (gml / zip / zip-multi / zip-entry / wfs), the UTM zone (32 or 33), the tile
 // edge (1 or 2 km), and the honest per-Land accounting — a Land whose index is unreachable is reported
 // as BLOCKED for this run by name while the other Länder still stamp.
 //
@@ -45,7 +45,7 @@ import {
 import {
   DE_LOD2_LAENDER, DE_LOD2_CITY_BBOXES, cityForPoint, wgs84ToUtm, tileKeyFor, tileBboxNative,
   stGetFeatureUrl, stPartsFromGeojson, parseHtmlListing, parseAtomTileNames, parseNrwIndex, parseShIndex,
-  s3PrefixProbeUrl, parseS3KeyCount,
+  s3PrefixProbeUrl, parseS3KeyCount, zipGmlEntries, headProbePresence,
   zipLocalHeader, zipCentralDirectory, zipEocd, createBuildingSlicer, routerSummary,
 } from './deLod2Laender.mjs';
 
@@ -86,6 +86,34 @@ async function fetchBuffer(url, opts) {
   try { const buf = Buffer.from(await r.res.arrayBuffer()); return { ok: true, status: r.status, buf, headers: r.res.headers }; }
   catch (err) { return { ok: false, status: r.status, reason: String(err?.message ?? err) }; }
   finally { r.done(); }
+}
+
+/** HEAD status only (BW `head-probe`): {ok:true,status} for ANY HTTP answer, {ok:false,reason} for a
+ *  network/timeout failure. Note this is deliberately NOT fetchSafe's `ok` — a 404 IS an answer here. */
+async function headStatus(url, { timeoutMs = 60_000 } = {}) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: ctl.signal });
+    return { ok: true, status: res.status, length: Number(res.headers.get('content-length')) };
+  } catch (err) {
+    return { ok: false, reason: String(err?.message ?? err) };
+  } finally { clearTimeout(t); }
+}
+
+/** A remote zip's central directory by Range (HH's national archive; BW's per-tile archives). */
+async function readZipCentralDirectory(url, { timeoutMs }) {
+  const head = await fetchSafe(url, { timeoutMs });
+  const total = head.ok ? Number(head.res.headers.get('content-length')) : NaN;
+  if (head.ok) { try { await head.res.body?.cancel(); } catch { /* ignore */ } }
+  head.done();
+  if (!head.ok || !Number.isFinite(total)) return { ok: false, reason: `archive HEAD/GET failed (${head.reason ?? `HTTP ${head.status}`})` };
+  const tail = await fetchBuffer(url, { timeoutMs, headers: { Range: `bytes=${Math.max(0, total - 65536)}-${total - 1}` } });
+  const eocd = tail.ok ? zipEocd(tail.buf, total) : null;
+  if (!eocd || eocd.zip64) return { ok: false, reason: tail.ok ? (eocd?.zip64 ? 'zip64 archive (unsupported)' : 'no EOCD in the archive tail') : `archive tail range: ${tail.reason}` };
+  const cd = await fetchBuffer(url, { timeoutMs, headers: { Range: `bytes=${eocd.cdOffset}-${eocd.cdOffset + eocd.cdSize - 1}` } });
+  if (!cd.ok) return { ok: false, reason: `central directory range: ${cd.reason}` };
+  return { ok: true, map: zipCentralDirectory(cd.buf), total };
 }
 
 // ── streaming decoders: a body → parts, peak memory one building block ───────────────────────────
@@ -199,20 +227,37 @@ async function loadIndex(cc, adapter, { timeoutMs }) {
     }
   }
   else if (adapter.indexKind === 'zip-central-directory') {
-    const head = await fetchSafe(adapter.indexUrl, { timeoutMs });
-    const total = head.ok ? Number(head.res.headers.get('content-length')) : NaN;
-    if (head.ok) { try { await head.res.body?.cancel(); } catch { /* ignore */ } }
-    head.done();
-    if (!head.ok || !Number.isFinite(total)) out = { ok: false, reason: `archive HEAD/GET failed (${head.reason ?? `HTTP ${head.status}`})` };
-    else {
-      const tail = await fetchBuffer(adapter.indexUrl, { timeoutMs, headers: { Range: `bytes=${Math.max(0, total - 65536)}-${total - 1}` } });
-      const eocd = tail.ok ? zipEocd(tail.buf, total) : null;
-      if (!eocd || eocd.zip64) out = { ok: false, reason: tail.ok ? (eocd?.zip64 ? 'zip64 archive (unsupported)' : 'no EOCD in the archive tail') : `archive tail range: ${tail.reason}` };
-      else {
-        const cd = await fetchBuffer(adapter.indexUrl, { timeoutMs, headers: { Range: `bytes=${eocd.cdOffset}-${eocd.cdOffset + eocd.cdSize - 1}` } });
-        if (!cd.ok) out = { ok: false, reason: `central directory range: ${cd.reason}` };
-        else { const map = zipCentralDirectory(cd.buf); out = { ok: true, has: (n) => map.has(n), get: (n) => map.get(n), size: map.size }; }
-      }
+    const dir = await readZipCentralDirectory(adapter.indexUrl, { timeoutMs });
+    if (!dir.ok) out = { ok: false, reason: dir.reason };
+    else out = { ok: true, has: (n) => dir.map.has(n), get: (n) => dir.map.get(n), size: dir.map.size };
+  }
+  else if (adapter.indexKind === 'head-probe') {
+    // BW: no listing (the directory is 403) and no index file, but the objects under it are public. The
+    // "index" is ONE HEAD per candidate tile. A 404 may ONLY be read as "absent" once BOTH controls hold —
+    // a known-PRESENT name that must answer 200 and a known-ABSENT name that must answer 404. Without the
+    // pair, a host that 404s everything (product moved, path renamed) would be silently reported as
+    // "no data in Baden-Württemberg", which is exactly the failure≠empty conflation this file refuses.
+    const okName = adapter.controlPresentTile, missName = adapter.controlAbsentTile;
+    const a = okName ? await headStatus(`${adapter.baseUrl}${okName}`, { timeoutMs }) : { ok: false, reason: 'no controlPresentTile declared' };
+    const b = missName ? await headStatus(`${adapter.baseUrl}${missName}`, { timeoutMs }) : { ok: true, status: 404 };
+    if (!a.ok || headProbePresence(a.status) !== true) {
+      out = { ok: false, reason: `head-probe control: known-present ${okName} → ${a.ok ? `HTTP ${a.status}` : a.reason} (expected 200) — cannot tell "no tile" from "product moved"` };
+    } else if (!b.ok || headProbePresence(b.status) !== false) {
+      out = { ok: false, reason: `head-probe control: known-absent ${missName} → ${b.ok ? `HTTP ${b.status}` : b.reason} (expected 404) — this host does not distinguish absent from present` };
+    } else {
+      const cache = new Map();
+      out = {
+        ok: true, size: null, lastReason: null,
+        has: async (name) => {
+          if (cache.has(name)) return cache.get(name);
+          const r = await headStatus(`${adapter.baseUrl}${name}`, { timeoutMs });
+          if (!r.ok) { out.lastReason = r.reason; return null; }
+          const v = headProbePresence(r.status);
+          if (v === null) { out.lastReason = `HTTP ${r.status} is neither present nor absent`; return null; }
+          cache.set(name, v);
+          return v;
+        },
+      };
     }
   } else {
     const r = await fetchText(adapter.indexUrl, { timeoutMs });
@@ -237,6 +282,23 @@ export function resetDeLod2IndexCache() { _indexCache.clear(); }
 async function fetchTileParts(cc, adapter, key, index, { timeoutMs }) {
   if (adapter.kind === 'gml') return streamGmlParts(adapter.tileUrl(key), { timeoutMs });
   if (adapter.kind === 'zip') return streamZipParts(adapter.tileUrl(key), { timeoutMs });
+  if (adapter.kind === 'zip-multi') {
+    // BW: the 2 km download zip is a FOLDER — a directory entry, a licence PDF, two txt files and the
+    // tile's FOUR 1 km CityGML quarters. Read its central directory, then Range-read every .gml entry.
+    // A zip that parses but holds NO gml is a real failure (the container changed shape), not an empty
+    // tile: `voidTiles` is for a gml that decodes to zero parts, and the two must not be conflated.
+    const dir = await readZipCentralDirectory(adapter.tileUrl(key), { timeoutMs });
+    if (!dir.ok) return { ok: false, reason: dir.reason };
+    const entries = zipGmlEntries(dir.map);
+    if (entries.length === 0) return { ok: false, reason: `zip holds no .gml/.xml entry (${dir.map.size} entries: ${[...dir.map.keys()].slice(0, 6).join(', ')})` };
+    const parts = [];
+    for (const [name, entry] of entries) {
+      const r = await streamZipEntryParts(adapter.tileUrl(key), entry, { timeoutMs });
+      if (!r.ok) return { ok: false, reason: `entry ${name}: ${r.reason}` };
+      parts.push(...r.parts);
+    }
+    return { ok: true, parts, entry: entries.map(([n]) => n).join('+') };
+  }
   if (adapter.kind === 'zip-entry') {
     const entry = index.get?.(adapter.tileName(key));
     if (!entry) return { ok: false, reason: 'entry vanished from the central directory' };
