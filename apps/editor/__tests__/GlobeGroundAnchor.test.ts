@@ -39,6 +39,9 @@ import {
     resolveGroundSample,
     ringCentroidLatLon,
     type GlobeGroundAnchorInput,
+    classifyTileGroundPicks,
+    SLOPE_RAMP_MIN_SPAN_M,
+    ROOF_GAP_M,
 } from '../src/ui/geospatial/globeGroundAnchor';
 
 /** Menorca (the founder's site): ground ≈ 5 m above mean sea level, geoid separation ≈ +49 m,
@@ -440,5 +443,41 @@ describe('§SITEFRAME-GROUND — ringCentroidLatLon (the footprint seat point)',
         const c = ringCentroidLatLon([null, [2.5, 41.5], [Number.NaN, Number.NaN]]);
         expect(c!.lon).toBeCloseTo(2.5, 6);
         expect(c!.lat).toBeCloseTo(41.5, 6);
+    });
+});
+
+describe('§GLOBE-SLOPE-SEAT (L-12919) — a hillside seats at the ring MEDIAN, a flat city at the low quantile', () => {
+    // The founder's Sète ring, 2026-09-05: 64 picks, 132 → 206 m, median 177.5, and the seat came out at
+    // 154.84 m — the 10th percentile = the downhill street corner. Modelled as the continuous ramp it was.
+    const ramp = Array.from({ length: 64 }, (_, i) => 132 + (74 * i) / 63);
+    it('THE BUG: the Sète ramp no longer seats at the downhill corner', () => {
+        const cls = classifyTileGroundPicks(ramp);
+        expect(cls.arm).toBe('slope');
+        expect(cls.spanM).toBeGreaterThan(SLOPE_RAMP_MIN_SPAN_M);
+        expect(cls.maxGapM).toBeLessThan(ROOF_GAP_M);
+        const seat = reduceTileGroundHeight(ramp, null, 0, { rejectEllipsoidPicks: true })!;
+        expect(seat).toBeCloseTo(cls.medianM!, 6);
+        // The old rule seated at the 10th percentile (the downhill corner). On this ramp that is
+        // ~139 m; the median is ~30 m higher — the uphill half of the plot is no longer buried.
+        expect(seat - cls.lowM!).toBeGreaterThan(20);
+    });
+    it('a flat city with roofs in the ring keeps the low quantile (the L-479 plateau rule is untouched)', () => {
+        const flat = [...Array.from({ length: 40 }, (_, i) => 50.9 + (i % 5) * 0.1), ...Array.from({ length: 8 }, (_, i) => 62 + i)];
+        const cls = classifyTileGroundPicks([...flat].sort((a, b) => a - b));
+        expect(cls.arm).toBe('plateau');
+        expect(reduceTileGroundHeight(flat, null, 0, { rejectEllipsoidPicks: true })!).toBeCloseTo(50.9, 1);
+    });
+    it('a roof-heavy ring (more roofs than street) is BIMODAL and still seats on the street, never on a roof', () => {
+        const dense = [...Array.from({ length: 20 }, (_, i) => 50 + (i % 4) * 0.2), ...Array.from({ length: 28 }, (_, i) => 65 + (i % 7) * 1.5)];
+        const sorted = [...dense].sort((a, b) => a - b);
+        const cls = classifyTileGroundPicks(sorted);
+        expect(cls.arm).toBe('roof-gap');
+        expect(cls.maxGapM).toBeGreaterThan(ROOF_GAP_M);
+        expect(reduceTileGroundHeight(dense, null, 0, { rejectEllipsoidPicks: true })!).toBeLessThan(51);
+    });
+    it('below the robust sample threshold nothing changes (the exact min rule)', () => {
+        const few = [150, 160, 170, 180];
+        expect(classifyTileGroundPicks(few).arm).toBe('few');
+        expect(reduceTileGroundHeight(few, null, 0)).toBe(150);
     });
 });

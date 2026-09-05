@@ -159,6 +159,62 @@ export const GROUND_LOW_QUANTILE = 0.1;
  *  path is the normal one and this is the degenerate-input guard. */
 export const OUTLIER_ROBUST_MIN_SAMPLES = 12;
 
+/** §GLOBE-SLOPE-SEAT (L-12919) — a low-end span (median − low quantile) at or below this is a
+ *  PLATEAU: the picks are ground with roofs above, and the low quantile IS the ground. Above it
+ *  the picks are either a slope or a roof-heavy ring, and the gap test below decides which. 6 m
+ *  is two storeys: a real street plateau with roofs in the ring never spreads its low half that
+ *  far, while a 74 m Sète hillside does at once. */
+export const SLOPE_RAMP_MIN_SPAN_M = 6;
+
+/** §GLOBE-SLOPE-SEAT (L-12919) — the largest step between two CONSECUTIVE sorted picks in the
+ *  low half above which the distribution is BIMODAL (ground cluster, then roofs): a roof is a
+ *  jump of a storey or more, a hillside is a ramp of ~1 m per pick over a 64-pick ring. */
+export const ROOF_GAP_M = 4;
+
+export interface TileGroundPickClass {
+    /** `few` = under the robust threshold (min rule) · `plateau` = flat ground, low quantile ·
+     *  `roof-gap` = roofs in the ring, low quantile · `slope` = continuous ramp, MEDIAN. */
+    readonly arm: 'few' | 'plateau' | 'roof-gap' | 'slope';
+    readonly lowM: number | null;
+    readonly medianM: number | null;
+    /** median − low quantile, metres. */
+    readonly spanM: number;
+    /** largest consecutive step between the low quantile and the median, metres. */
+    readonly maxGapM: number;
+}
+
+/**
+ * §GLOBE-SLOPE-SEAT (L-12919, founder 2026-09-05 at Sète, 43.3994 3.6851) — classify the sorted
+ * credible picks so the reduction can tell a HILLSIDE from a FLAT CITY WITH ROOFS. THE EVIDENCE:
+ * 64 street-ring picks spanning 132 → 206 m (p25 161.7 · median 177.5 · p75 187.0) and the seat
+ * resolved to 154.84 m — the 10th percentile, i.e. the downhill street corner — so the overlay,
+ * the void cap and the building all sat ~20 m UNDER the visible tiles on the uphill half of the
+ * plot. The low-quantile rule exists for flat cities where the ring's high picks are neighbours'
+ * ROOFS (§GLOBE-GROUND-STREET-RING): there the low half of the distribution is a tight plateau
+ * and the picks above it jump by a storey. On a hillside the picks form a continuous RAMP with no
+ * such jump, and the ground under the parcel centre is the MEDIAN of the ring around it, not its
+ * lowest corner. Pure; the caller logs the arm beside the spread.
+ */
+export function classifyTileGroundPicks(sortedCredible: readonly number[]): TileGroundPickClass {
+    const n = sortedCredible.length;
+    if (n < OUTLIER_ROBUST_MIN_SAMPLES) {
+        return { arm: 'few', lowM: n > 0 ? sortedCredible[0]! : null, medianM: null, spanM: 0, maxGapM: 0 };
+    }
+    const lowIdx = Math.min(Math.floor(GROUND_LOW_QUANTILE * n), n - 1);
+    const midIdx = Math.min(Math.floor(0.5 * n), n - 1);
+    const lowM = sortedCredible[lowIdx]!;
+    const medianM = sortedCredible[midIdx]!;
+    const spanM = medianM - lowM;
+    let maxGapM = 0;
+    for (let i = lowIdx + 1; i <= midIdx; i++) {
+        const gap = sortedCredible[i]! - sortedCredible[i - 1]!;
+        if (gap > maxGapM) maxGapM = gap;
+    }
+    if (spanM <= SLOPE_RAMP_MIN_SPAN_M) return { arm: 'plateau', lowM, medianM, spanM, maxGapM };
+    if (maxGapM > ROOF_GAP_M) return { arm: 'roof-gap', lowM, medianM, spanM, maxGapM };
+    return { arm: 'slope', lowM, medianM, spanM, maxGapM };
+}
+
 /**
  * §FIX-GLOBE-CLAMP-TO-PHOTOREAL-TILES (L-179) — the PURE reduction of the tile-surface
  * height picks to a base height. A building roof is always ABOVE the ground it stands on,
@@ -217,6 +273,10 @@ export function reduceTileGroundHeight(
         return Math.min(...credible) - seatEpsilonM;
     } else {
         const sorted = [...credible].sort((a, b) => a - b);
+        // §GLOBE-SLOPE-SEAT (L-12919, Sète 2026-09-05) — the low quantile is the DOWNHILL CORNER on a
+        // hillside, not the ground under the parcel. See `classifyTileGroundPicks`.
+        const cls = classifyTileGroundPicks(sorted);
+        if (cls.arm === 'slope' && cls.medianM !== null) return cls.medianM - seatEpsilonM;
         const idx = Math.floor(GROUND_LOW_QUANTILE * sorted.length);
         return sorted[Math.min(idx, sorted.length - 1)] - seatEpsilonM;
     }

@@ -181,6 +181,8 @@ import {
   // §TERRAIN-BASE-PROVENANCE (C12 §1.4) — the baked-terrain path's provenance reduction,
   // so a FAILED centroid sample is no longer the same value as a real 0 m ground.
   type TerrainBaseSource,
+  classifyTileGroundPicks,   // §GLOBE-SLOPE-SEAT (L-12919)
+  GROUND_LOW_QUANTILE,
   resolveTerrainClampBase,
 } from "./globeGroundAnchor";
 // FORMA.6 — pure building-fidelity helpers (no THREE/Cesium/DOM): the floor-filter
@@ -6700,6 +6702,17 @@ export class CesiumViewport {
             `spread ${(sorted[sorted.length - 1] - sorted[0]).toFixed(2)} m. ` +
             `A tight cluster = a real tile surface; a low tail far below the median = rays ` +
             `falling through un-streamed tiles or the §PLOT-CLEAR-PHOTOREAL void (L-479).`,
+        );
+        // §GLOBE-SLOPE-SEAT (L-12919) — say WHICH arm the reduction takes, beside the numbers it
+        // takes it from: a hillside seats at the ring MEDIAN, a flat city at the low quantile.
+        const cls = classifyTileGroundPicks(sorted);
+        console.log(
+          `[CesiumViewport][globe] §GLOBE-SLOPE-SEAT arm=${cls.arm} · low(p${Math.round(GROUND_LOW_QUANTILE * 100)}) ` +
+            `${cls.lowM === null ? 'n/a' : cls.lowM.toFixed(2)} m · median ${cls.medianM === null ? 'n/a' : cls.medianM.toFixed(2)} m · ` +
+            `low-half span ${cls.spanM.toFixed(2)} m · largest step ${cls.maxGapM.toFixed(2)} m → ` +
+            (cls.arm === 'slope'
+              ? 'continuous ramp: seating at the ring MEDIAN (the low quantile would be the downhill corner, burying the uphill half).'
+              : 'seating at the low quantile (flat ground; picks above it are roofs).'),
         );
       }
     }
