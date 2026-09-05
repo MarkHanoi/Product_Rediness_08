@@ -20,15 +20,24 @@
 // drape follows the hill as a staircase of flat pieces instead of one tilted-in-space plane.
 //
 // WHY NOT `CLAMP_TO_GROUND` (a Cesium GroundPrimitive). L-635 recorded "clampToGround renders
-// nothing on baked terrain" and attributed it to `depthTestAgainstTerrain=false`. Re-read against
-// cesium 1.143 `Scene.executeCommands` (see the lane record in ISSUE-LOG L-12924): the globe depth
-// is COPIED (`globeDepth.executeCopyDepth`) and the TERRAIN_CLASSIFICATION pass runs BEFORE the
-// `clearGlobeDepth` clear that `depthTestAgainstTerrain=false` triggers — so the depth flag does
-// not starve classification; a HIDDEN globe does (`globe.show=false`, which Forma held when L-635
-// was measured). With the globe now shown under relief (§TERRAIN-NORMALS) clamping is plausible by
-// code path, but one field observation (L-11840, heatmap invisible with the globe shown) is not
-// explained by that reading and nothing here is browser-verified — so this lane ships the
-// per-feature scalar + split, and does NOT wire clamping (evaluated, recorded, not shipped).
+// nothing on baked terrain" and attributed it to `depthTestAgainstTerrain=false`. That attribution
+// is REFUTED BY THE SHIPPED CESIUM SOURCE, and the two lines are quoted so the next reader re-reads
+// them rather than this sentence (`node_modules/cesium/Build/CesiumUnminified/Cesium.js`, 1.143.0,
+// MEASURED 2026-09-05):
+//   · **248276** `const clearGlobeDepth = ... = defined(globe) && globe.show && (!globe.depthTestAgainstTerrain || mode === SCENE2D);`
+//     — the depth CLEAR that flag triggers is itself gated on `globe.show`, so with the globe hidden
+//     it never runs at all.
+//   · **247764–247781** `globeDepth.executeCopyDepth(...)` → `performPass(frustumCommands, Pass.TERRAIN_CLASSIFICATION)`
+//     → `if (clearGlobeDepth) { clearDepth.execute(...) }` — the classification pass runs BEFORE that
+//     clear and is guarded only by `!renderTranslucentDepthForPick`.
+// So `depthTestAgainstTerrain=false` does not starve classification. What starves it is a HIDDEN
+// globe: with `globe.show=false` the GLOBE pass contributes no depth for the classification pass to
+// paint into — and `globe.show=false` is exactly what Forma held when L-635 was measured (it is also
+// why `globe.getHeight` returned garbage there, §CTX-PERFOOTPRINT-SAMPLE). With the globe now shown
+// under relief (§TERRAIN-NORMALS) clamping is plausible BY CODE PATH — but one field observation
+// (L-11840, heatmap invisible with the globe shown) is not explained by that reading, and NOTHING
+// here is browser-verified. So this lane ships the per-feature scalar + split and does NOT wire
+// clamping: evaluated, cited, not shipped. Wiring it needs a browser session, not another re-read.
 //
 // Pure: no Cesium, no DOM. The viewport executes these verdicts; the tests pin them.
 import { ringCentroidLatLon } from './globeGroundAnchor';
@@ -58,10 +67,41 @@ export const GROUND_LAYER_OFFSET_M: Readonly<Record<GroundLayer, number>> = Obje
 /** A feature whose own extent spans MORE relief than this is split into pieces; below it, one
  *  seat at the representative point is within the tolerance a person reads as "on the ground". */
 export const GROUND_DRAPE_RELIEF_SPLIT_M = 3;
-/** Target edge of a polygon grid cell / corridor segment when a feature is split. 60 m at a
- *  Lisbon-grade 10 % slope is ~6 m of relief per piece — still a visible step, but a step on the
- *  ground rather than a plane through the neighbourhood. */
+/** CEILING on the edge of a polygon grid cell / corridor segment when a feature is split — the
+ *  piece length used when the feature's relief is not measurable. `drapePieceLengthM` shortens it
+ *  on a steep feature; see there for why a FIXED 60 m is not good enough. */
 export const GROUND_DRAPE_SPLIT_PIECE_M = 60;
+/** FLOOR on the piece edge. Below this the entity count buys nothing a viewer can see, and a road
+ *  ribbon becomes more joins than road. */
+export const GROUND_DRAPE_MIN_PIECE_M = 15;
+
+/**
+ * The piece edge for a feature that IS being split, chosen so each piece's OWN residual relief
+ * lands near `GROUND_DRAPE_RELIEF_SPLIT_M` — the same 3 m this module already calls "close enough
+ * to read as on the ground".
+ *
+ * ⭐ WHY THIS EXISTS. A FIXED 60 m piece is internally inconsistent with the split threshold it
+ * serves: we declare 3 m the tolerance, then cut a Lisbon-grade 10 % slope into 60 m pieces whose
+ * own residual is ~6 m — twice the tolerance we just declared. The founder's complaint is VISUAL,
+ * and a staircase with 6 m risers under a road ribbon is a new visual defect, not a fix. So the
+ * piece length scales with the MEASURED slope: `span × (tolerance / relief)`, clamped to
+ * [`GROUND_DRAPE_MIN_PIECE_M`, `GROUND_DRAPE_SPLIT_PIECE_M`]. A gentle feature keeps long pieces
+ * (few entities); a cliff gets short ones. The splitters still enforce
+ * `GROUND_DRAPE_MAX_PIECES_PER_FEATURE` on top, so this can never explode the entity count — it
+ * only ever asks for pieces the cap may then coarsen.
+ *
+ * `spanM` is the feature's characteristic length (corridor length / polygon bbox diagonal).
+ * Unmeasured relief (null) or a degenerate span returns the ceiling: we do not multiply entities
+ * on a guess (§CONTEXT-DATA-HONESTY — UNKNOWN is not ZERO, and it is not "steep" either).
+ */
+export function drapePieceLengthM(spanM: number, reliefRangeM: number | null): number {
+    if (typeof reliefRangeM !== 'number' || !Number.isFinite(reliefRangeM) || reliefRangeM <= GROUND_DRAPE_RELIEF_SPLIT_M) {
+        return GROUND_DRAPE_SPLIT_PIECE_M;
+    }
+    if (!Number.isFinite(spanM) || spanM <= 0) return GROUND_DRAPE_SPLIT_PIECE_M;
+    const wanted = spanM * (GROUND_DRAPE_RELIEF_SPLIT_M / reliefRangeM);
+    return Math.min(GROUND_DRAPE_SPLIT_PIECE_M, Math.max(GROUND_DRAPE_MIN_PIECE_M, wanted));
+}
 /** Hard cap on pieces per feature — a city-wide landuse polygon must not become 10 000 entities.
  *  The cell edge is grown until the count fits. */
 export const GROUND_DRAPE_MAX_PIECES_PER_FEATURE = 400;
@@ -85,6 +125,25 @@ export function localToLonLat(xy: readonly [number, number], origin: LatLon): Lo
  *  read the same ground. Null when the ring has no finite vertex. */
 export function polygonSeatPoint(ring: ReadonlyArray<LonLat>): LatLon | null {
     return ringCentroidLatLon(ring);
+}
+
+/** The feature's characteristic length in metres — corridor total length, or a ring's bounding-box
+ *  diagonal — the `spanM` `drapePieceLengthM` divides by. 0 for a degenerate feature. */
+export function featureSpanM(coords: ReadonlyArray<LonLat>, kind: 'polygon' | 'corridor'): number {
+    const pts = coords.filter((p) => Number.isFinite(p?.[0]) && Number.isFinite(p?.[1]));
+    if (pts.length < 2) return 0;
+    const origin = { lat: pts[0]![1], lon: pts[0]![0] };
+    if (kind === 'corridor') {
+        const cum = cumulativeLengthsM(pts, origin);
+        return cum[cum.length - 1]!;
+    }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) {
+        const [x, y] = lonLatToLocalM(p, origin);
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    return Math.hypot(maxX - minX, maxY - minY);
 }
 
 /** Cumulative length (metres) along a corridor's vertices. */

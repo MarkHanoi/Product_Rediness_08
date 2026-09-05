@@ -10,6 +10,10 @@ import {
     GROUND_LAYER_OFFSET_M,
     GROUND_DRAPE_RELIEF_SPLIT_M,
     GROUND_DRAPE_MAX_PIECES_PER_FEATURE,
+    GROUND_DRAPE_SPLIT_PIECE_M,
+    GROUND_DRAPE_MIN_PIECE_M,
+    drapePieceLengthM,
+    featureSpanM,
     decideGroundFeatureSeat,
     decideDrapeStrategy,
     reliefRangeM,
@@ -236,5 +240,49 @@ describe('splitting a feature into per-seat pieces', () => {
             expect(piece.coords.length).toBeGreaterThanOrEqual(2);
             expect(piece).not.toHaveProperty('ring');
         }
+    });
+    it('the piece length targets the SAME 3 m the split threshold declares — a fixed 60 m does not', () => {
+        // The inconsistency this closes: `decideDrapeStrategy` calls >3 m of relief "too much to
+        // hide", and a FIXED 60 m piece on a Lisbon-grade 10 % slope leaves ~6 m per piece — twice
+        // the tolerance just declared. A 6 m riser under a road ribbon is a NEW visual defect.
+        // 500 m of span over 50 m of relief (10 %): 3 m of step wants 30 m pieces.
+        expect(drapePieceLengthM(500, 50)).toBeCloseTo(30, 6);
+        // And the residual per piece is then the tolerance itself, by construction.
+        expect((50 / 500) * drapePieceLengthM(500, 50)).toBeCloseTo(3, 6);
+
+        // Gentle: never LONGER than the ceiling (few entities where few are needed).
+        expect(drapePieceLengthM(500, 4)).toBe(GROUND_DRAPE_SPLIT_PIECE_M);
+        expect(drapePieceLengthM(2000, 3.0001)).toBe(GROUND_DRAPE_SPLIT_PIECE_M);
+        // At or below the split threshold the feature is not split at all — the ceiling, unused.
+        expect(drapePieceLengthM(500, GROUND_DRAPE_RELIEF_SPLIT_M)).toBe(GROUND_DRAPE_SPLIT_PIECE_M);
+
+        // A cliff: clamped at the floor, never an unbounded entity count.
+        expect(drapePieceLengthM(100, 400)).toBe(GROUND_DRAPE_MIN_PIECE_M);
+        // UNKNOWN relief is not "steep" (§CONTEXT-DATA-HONESTY): the ceiling, no extra entities.
+        expect(drapePieceLengthM(500, null)).toBe(GROUND_DRAPE_SPLIT_PIECE_M);
+        expect(drapePieceLengthM(0, 50)).toBe(GROUND_DRAPE_SPLIT_PIECE_M);
+    });
+
+    it('featureSpanM is the corridor length / the ring bbox diagonal', () => {
+        const dLon = 300 / (111320 * Math.cos((38.71 * Math.PI) / 180));
+        const dLat = 300 / 110574;
+        const line: LonLat[] = [[-9.14, 38.71], [-9.14 + dLon, 38.71]];
+        expect(featureSpanM(line, 'corridor')).toBeCloseTo(300, 0);
+        const ring: LonLat[] = [[-9.14, 38.71], [-9.14 + dLon, 38.71], [-9.14 + dLon, 38.71 + dLat], [-9.14, 38.71 + dLat], [-9.14, 38.71]];
+        expect(featureSpanM(ring, 'polygon')).toBeCloseTo(Math.hypot(300, 300), 0);
+        expect(featureSpanM([[1, 1]], 'polygon')).toBe(0);          // degenerate → 0, never NaN
+    });
+
+    it('a steeper feature is cut into MORE, SHORTER pieces than a gentle one of the same size', () => {
+        const dLon = 600 / (111320 * Math.cos((38.71 * Math.PI) / 180));
+        const line: LonLat[] = [[-9.14, 38.71], [-9.14 + dLon, 38.71]];
+        const span = featureSpanM(line, 'corridor');
+        const gentle = splitCorridorIntoSegments(line, drapePieceLengthM(span, 5));
+        const steep = splitCorridorIntoSegments(line, drapePieceLengthM(span, 60));
+        expect(steep.length).toBeGreaterThan(gentle.length);
+        // Each piece of the steep one carries ~3 m of relief, not ~6 m.
+        expect((60 / span) * (span / steep.length)).toBeLessThanOrEqual(GROUND_DRAPE_RELIEF_SPLIT_M + 0.01);
+        // Still bounded.
+        expect(steep.length).toBeLessThanOrEqual(GROUND_DRAPE_MAX_PIECES_PER_FEATURE);
     });
 });
