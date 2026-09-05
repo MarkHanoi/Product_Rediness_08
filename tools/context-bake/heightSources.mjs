@@ -460,7 +460,8 @@ export const REGION_SOURCE = {
   //   amsterdam '4.83,52.34,4.97,52.42'   rotterdam '4.42,51.88,4.55,51.96'
   //   utrecht   '5.06,52.06,5.16,52.12'   thehague  '4.25,52.04,4.35,52.10'
   //   eindhoven '5.42,51.40,5.52,51.48'   groningen '6.52,53.20,6.60,53.25'
-  netherlands: '3dbag',
+  // ⭐ Those six are now CONFIG (heights/nl3dbag.mjs NL_3DBAG_CITY_BBOXES, pinned byte-equal to terrain.mjs's nl rows).
+  netherlands: '3dbag', // ⭐ WIRED 2026-09-05 (lane HEIGHTS-NL): the bake `netherlands` row declares heightJoin:'3dbag' → heights/nl3dbagStamp.mjs stampNl3dbagHeightsOnGeojsonseq (keyless WFS BAG3D:lod12, (70p ?? 50p) − maaiveld, CC BY 4.0), working set NL_3DBAG_CITY_BBOXES; local proof 40/41 measured in the Centraal cell, 0 errors. The `items` fetcher below stays the CITY path for resolveHeights; the national row no longer depends on it.
   amsterdam: '3dbag',
   // FR
   paris: 'bdtopo', lyon: 'bdtopo',
