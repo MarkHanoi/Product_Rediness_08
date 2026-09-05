@@ -477,7 +477,7 @@ export const REGION_SOURCE = {
   italy: { source: 'piedmont_it', status: 'no-source', reason: 'Piedmont-only regional layer — NO national height product; EUBUCCO/GBA ML heights excluded as authoritative (E5 §A.5) (ASSESS IT)' },
   greatbritain: 'ealidar_gb',
   ireland: { source: null, status: 'no-source', reason: 'no cadastre by design; OSi Prime2 commercial → X3-refused; OPW LiDAR partial (ASSESS IE)' },
-  switzerland: 'swissbuildings3d', // ⭐ LIVE 2026-09-04 — national STAC→COG stamp BUILT (stampSwissHeightsOnGeojsonseq, working set SWISS_CITY_BBOXES). The bake row must declare heightJoin:'swiss' (orchestrator). L-12883.
+  switzerland: 'swissbuildings3d', // ⭐ LIVE 2026-09-04 — national STAC→COG stamp BUILT (stampSwissHeightsOnGeojsonseq, working set SWISS_CITY_BBOXES). ⭐ WIRED 2026-09-05: the bake `switzerland` row declares heightJoin:'swiss' (§SWISS-OSM-JOIN). L-12883.
   austria: 'geoland_at',
   czechia: 'ruian_cz',
   portugal: 'dgt_pt',

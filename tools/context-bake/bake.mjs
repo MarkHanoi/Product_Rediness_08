@@ -32,7 +32,9 @@ import { fileURLToPath } from 'node:url';
 // §HEIGHTS-FR-SOLID (L-12910, 2026-09-05) — `stampMnhFrHeightsOnGeojsonseq` + `MNH_FR_CITY_BBOXES` were
 // AUTHORED on 2026-09-04 (a75be0fb) and imported by NOTHING until this line: France baked honest OSM
 // defaults while its measured-height channel sat one import away (the L-12883 shape, second country).
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES } from './heightSources.mjs';
+// §SWISS-OSM-JOIN (L-12883, wired 2026-09-05) — the swisstopo nDSM stamp had the SAME shape one day later:
+// `stampSwissHeightsOnGeojsonseq` + `SWISS_CITY_BBOXES` built 2026-09-04, imported by nothing until here.
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES } from './heightSources.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -242,7 +244,12 @@ const ALL_REGIONS = [
   // honest OSM defaults and declares NO join (a declared join that produces nothing is a non-zero
   // exit). Replaces the zurich/geneva/bern city rows (Copenhagen dedup; lossless — their
   // REGION_SOURCE mapping is impl:'documented', no live height was fetched for them).
-  { name: 'switzerland', pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                   pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '5.90,45.80,10.50,47.85',   clipped: resolve(OUT, 'clip-switzerland.osm.pbf') },
+  // §SWISS-OSM-JOIN (L-12883, 2026-09-05) — `heightJoin:'swiss'` stamps swisstopo swissSURFACE3D nDSM heights
+  // (STAC → LV95 COG, the pixel is height above ground) onto these OSM footprints exactly as `spain` does
+  // with MDS and `france` with MNH: working set = SWISS_CITY_BBOXES (heights/swissNdsm.mjs — zurich / geneva /
+  // bern, EQUAL to the terrain.mjs `ch` rows), everything outside streams through with its honest OSM tags.
+  // No city rows exist for CH, so nothing double-bakes. Anything but a measured `ok` keeps the OSM default.
+  { name: 'switzerland', pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                   pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '5.90,45.80,10.50,47.85',   clipped: resolve(OUT, 'clip-switzerland.osm.pbf'), heightJoin: 'swiss' },
   // ASSESS AT — NATIONAL-NOW (mass-only until the geoland.at 1 m DTM+DSM nDSM stamp, CC BY 4.0).
   { name: 'austria',    pbfUrl: 'https://download.geofabrik.de/europe/austria-latest.osm.pbf',                        pbf: resolve(OUT, 'austria-latest.osm.pbf'),                bbox: '9.50,46.30,17.20,49.05',   clipped: resolve(OUT, 'clip-austria.osm.pbf') },
   // ASSESS CZ — NATIONAL-DERIVED-HEIGHTS: RUIAN `pocet podlazi` floors (× 3.2 m, DERIVED) — gated
@@ -565,6 +572,7 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'mds') return MDS_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'dhm') return DHM_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
+  if (r.heightJoin === 'swiss') return SWISS_CITY_BBOXES.map((c) => c.bbox);   // §SWISS-OSM-JOIN (L-12883) — whole `switzerland`
   return null;
 }
 const bboxDeg2 = (bbox) => {
@@ -703,7 +711,7 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
   // (baseGeo). The stamped file has the SAME footprints with `height` added → a REPLACE input (no
   // double-draw). Anything other than a measured `ok` keeps baseGeo at the honest OSM default — never
   // a fabricated height.
-  if (r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw' || r.heightJoin === 'mnh_fr') {
+  if (r.heightJoin === 'mds' || r.heightJoin === 'dhm' || r.heightJoin === 'lod2nrw' || r.heightJoin === 'mnh_fr' || r.heightJoin === 'swiss') {
     const stamped = resolve(OUT, `${r.name}-buildings-stamped.geojsonseq`);
     const wsen = r.bbox.split(',').map(Number);
     // §MDS = whole `spain` (many populated raster tiles); §DHM = whole `denmark`. Give the national bbox
@@ -733,6 +741,9 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
       // §MNH-FR-OSM-JOIN (L-12910) — keyless IGN Géoplateforme; the pixel IS the height above ground
       // (never MNS−MNT here — E5 §G.1 A8). Same option shape as mds: priority = retained = city list.
       else if (r.heightJoin === 'mnh_fr') res = await stampMnhFrHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes, retainBboxes });
+      // §SWISS-OSM-JOIN (L-12883) — the stamp takes no priority list: its retained working set IS the city list,
+      // so every held footprint is stamped uncapped (the same guarantee mds/mnh_fr get from priorityBboxes).
+      else if (r.heightJoin === 'swiss') res = await stampSwissHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
       else res = await stampLod2NrwHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles });
     } catch (e) {
       res = { status: 'error', reason: e.message };
