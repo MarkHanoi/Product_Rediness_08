@@ -80,7 +80,17 @@ const LAUNCHER = resolve(REPO_ROOT, 'apps/editor/src/engine/engineLauncher.ts');
  * the cure is to strip comments, never to stop writing them.
  */
 function codeOnly(text: string): string {
+    // ⛔ CRLF FIRST, and this line is load-bearing. `/\/\/.*$/` without the `m` flag
+    // anchors `$` at END OF STRING, and `.` never matches a carriage return - so on a working tree
+    // where the file happens to be checked out CRLF (`.gitattributes` says `eol=lf`,
+    // but a local editor can and does rewrite it) EVERY `//` comment survived the
+    // strip and this scanner counted its own documentation. That is the same
+    // comment-blindness §RAF-GATE-COMMENT-BLIND records, arriving through a line
+    // ending instead of a missing flag, and it made a passing engineLauncher read RED
+    // on one machine and GREEN on CI — the worst failure direction, because whichever
+    // reading you trust the other one is invisible.
     return text
+        .replace(/\r\n/g, '\n')
         .replace(/\/\*[\s\S]*?\*\//g, ' ')
         .split('\n')
         .map((line) => line.replace(/\/\/.*$/, ''))
@@ -96,6 +106,7 @@ const REGISTRY_TYPE_KEY: Record<(typeof SHARED_STORE_KEYS)[number], string> = {
     stairStore:       'stair',
     beamStore:        'beam',
     curtainWallStore: 'curtainwall',
+    curtainPanelStore: 'curtain-panel',   // initStores.ts: r('curtain-panel', …)
     roofStore:        'roof',
     plumbingStore:    'plumbing',
     furnitureStore:   'furniture',
@@ -117,6 +128,17 @@ interface Sentinel {
     readonly label: string;
     getAll(): unknown[];
     getLevels(): unknown[];
+    /**
+     * ⚠ NOT EVERY CONSUMER READS THROUGH `getAll()`, and assuming they do is how a
+     * vacuous pass gets minted. `ProjectSerializer` reaches the curtain-PANEL store
+     * through `curtainPanelStore.getByCurtainWallId(cw.id)` — inside a loop over the
+     * curtain WALLS — and never calls `getAll()` on it at all. A sentinel that only
+     * instruments `getAll` would therefore report the panel store as UNREAD, and
+     * ARM A's own vacuity guard (correctly) refuses to assert identity for a kind it
+     * cannot observe being read. Instrumenting the method the product actually calls
+     * is the fix; excusing the kind from the guard would not be.
+     */
+    getByCurtainWallId(_id: string): unknown[];
     isBuiltIn(_id: string): boolean;
     size(): number;
     serialize(): unknown;
@@ -130,6 +152,7 @@ function makeSentinel(label: string): Sentinel {
         label,
         getAll() { seenBy.set(label, self); return []; },
         getLevels() { seenBy.set(label, self); return []; },
+        getByCurtainWallId() { seenBy.set(label, self); return []; },
         isBuiltIn() { return true; },
         size() { return 0; },
         serialize() { return {}; },
@@ -144,11 +167,29 @@ function makeRecord(): Record<string, Sentinel> & AuthoritativeStores {
         'slabSystemTypeStore', 'wallSystemTypeStore',
         'ceilingSystemTypeStore', 'floorSystemTypeStore',
         'stairLandingStore', 'stairRailingStore', 'stairTypeStore',
-        'liftStore', 'liftTypeStore', 'curtainPanelStore',
+        'liftStore', 'liftTypeStore',
         'doorStore', 'windowStore', 'lightingStore', 'annotationStore',
     ];
     const rec: Record<string, Sentinel> = {};
     for (const k of keys) rec[k] = makeSentinel(k);
+
+    // ⭐ ONE probe curtain wall, and it is load-bearing. The serializer's panel-override
+    // branch is `for (const cw of curtainWallStore.getAll()) { curtainPanelStore
+    // .getByCurtainWallId(cw.id) … }` — so with an EMPTY curtain-wall store the loop
+    // body never runs and the panel store is never touched, which would leave ARM A's
+    // identity assertion vacuous for `curtainPanelStore` while looking green. The probe
+    // wall makes the read really happen; `getByCurtainWallId` returns `[]`, so the
+    // serializer `continue`s immediately and no grid/override machinery is exercised,
+    // and `serializeCurtainWall` is defensive about every field (`stripBaseline` falls
+    // back to two zero points), so the minimal shape below is enough.
+    const cwSentinel = rec.curtainWallStore;
+    rec.curtainWallStore = {
+        ...cwSentinel,
+        getAll() {
+            seenBy.set('curtainWallStore', rec.curtainWallStore);
+            return [{ id: 'cw-probe', type: 'curtainwall', levelId: 'L0', properties: {} }];
+        },
+    };
     return rec as Record<string, Sentinel> & AuthoritativeStores;
 }
 

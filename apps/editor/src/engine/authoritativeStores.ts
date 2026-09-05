@@ -92,6 +92,15 @@ export const SHARED_STORE_KEYS = [
     'stairStore',
     'beamStore',
     'curtainWallStore',
+    // §L-1057 / C87 §13.1 CW-P — added in lock-step with the SERIALIZER half, not
+    // after it. `8b3ec6e8` put `curtainPanelStore` into `toSerializerBundle` (it was
+    // already in `toRegistryBundle`), which made it a kind BOTH consumers receive —
+    // and a kind both receive is exactly what this list exists to assert identity
+    // for. Leaving it off meant ARM A of mt05StoreIdentityHeap asserted identity for
+    // fourteen kinds and silently not for the fifteenth; ARM C is the completeness
+    // arm that caught it, and its message says the fix is to WIDEN this list, never
+    // to narrow the bundles.
+    'curtainPanelStore',
     'roofStore',
     'plumbingStore',
     'furnitureStore',

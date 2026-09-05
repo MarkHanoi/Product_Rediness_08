@@ -145,7 +145,18 @@ describe('§L-1109 — DeleteElementHandler returns a typed refusal, not an empt
     it('no longer discards the CommandResult it gets back', () => {
         // The defect verbatim: `cm.execute(...)` called for effect, result assigned to
         // nothing, then `{ forward: [], inverse: [] }` returned regardless.
-        expect(DELETE_HANDLER_SRC).toMatch(/res\s*=\s*cm\.execute\(/);
+        //
+        // ⚠ THE TYPE ANNOTATION IS PART OF THE SUBJECT NOW. This pin read
+        // `/res\s*=\s*cm\.execute\(/`, which requires `res` to be IMMEDIATELY followed by
+        // `=`. The handler since declares the result's type inline —
+        // `const res: { success?: boolean; info?: string[]; error?: string } | undefined =`
+        // — so `res` is followed by a COLON, and the pin failed against a source that
+        // satisfies its intent MORE strictly than the one it was written against, not
+        // less. Widened to admit the annotation and the line break the annotation forces;
+        // the load-bearing half is untouched (the call's result must be BOUND, never
+        // called for effect), and the `res.success === false` pin directly below is what
+        // proves the bound value is then READ.
+        expect(DELETE_HANDLER_SRC).toMatch(/const\s+res\b(?::[^=]{0,200})?=\s*\n?\s*cm\.execute\(/);
         expect(DELETE_HANDLER_SRC).toMatch(/res\.success\s*===\s*false/);
     });
 

@@ -153,6 +153,16 @@ describe('§MT-05 window-store same-instance guard', () => {
         // P4 "52% prose" defect — the cure is to read code, not to stop writing
         // the prose.
         const text = readFileSync(LAUNCHER, 'utf8')
+        // ⛔ CRLF FIRST, and this line is load-bearing. `/\/\/.*$/` without the `m` flag
+        // anchors `$` at END OF STRING, and `.` never matches a carriage return - so on a working tree
+        // where the file happens to be checked out CRLF (`.gitattributes` says `eol=lf`,
+        // but a local editor can and does rewrite it) EVERY `//` comment survived the
+        // strip and this scanner counted its own documentation. That is the same
+        // comment-blindness §RAF-GATE-COMMENT-BLIND records, arriving through a line
+        // ending instead of a missing flag, and it made a passing engineLauncher read RED
+        // on one machine and GREEN on CI — the worst failure direction, because whichever
+        // reading you trust the other one is invisible.
+            .replace(/\r\n/g, '\n')
             .replace(/\/\*[\s\S]*?\*\//g, ' ')
             .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n')
             .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
