@@ -258,7 +258,18 @@
       "Bash(node -e \"const j=require\\('C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/tools/rac-conformance/certification/results/certify.json'\\);console.log\\(JSON.stringify\\(j.gates,null,1\\),j.exitCode\\)\")",
       "Bash(NODE_OPTIONS=--max-old-space-size=6144 npx tsc --noEmit -p \"C:/Users/LENOVO/AppData/Local/Temp/claude/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/bf4118a7-5245-409d-969b-4a3bfc99ac02/scratchpad/tsconfig.furniture-owner.json\")",
       "Bash(ls packages/schemas/src/site/zoning/)",
-      "Bash(ls packages/schemas/src/site/)"
+      "Bash(ls packages/schemas/src/site/)",
+      "Bash(sed -n 1,80p packages/ai-host/src/workflows/Generate3Options.ts)",
+      "Bash(grep -n \"^export\" packages/ai-host/src/workflows/Generate3Options.ts packages/ai-host/src/workflows/Generate3OptionsTypes.ts)",
+      "Bash(cat plugins/ai-generative/src/descriptor.ts)",
+      "Bash(sed -n 40,140p packages/site-parcel-data/__tests__/esCanariasTelde.test.ts)",
+      "Bash(sed -n 130,175p packages/site-parcel-data/src/rulepacks/esTeldePgo2003.ts)",
+      "Bash(grep -n \"code: '\" packages/site-parcel-data/src/rulepacks/esTeldePgo2003.ts)",
+      "Bash(head -30 docs/04-reference/jurisdictions/es/es-ib/BALEARS-MUIB-ASSESSMENT.md)",
+      "Bash(sed -n 1,30p docs/04-reference/jurisdictions/es/ES-ALL-REGIONS-STATUS.md)",
+      "Bash(sed -n 80,95p docs/04-reference/jurisdictions/es/ES-ALL-REGIONS-STATUS.md)",
+      "Bash(grep -n \"export function pointInRingsEvenOdd\" -A 5 packages/site-parcel-data/src/providers/resolveElSauzalZone.ts)",
+      "Bash(cat packages/site-parcel-data/vitest.config.ts)"
     ],
     "deny": [
       "Bash(rm -rf *)",
