@@ -40,6 +40,12 @@ import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonse
 // (heights/nl3dbagStamp.mjs — the shared-file rule) and its working set in the pure half, so both are imported directly.
 import { stampNl3dbagHeightsOnGeojsonseq } from './heights/nl3dbagStamp.mjs';
 import { NL_3DBAG_CITY_BBOXES } from './heights/nl3dbag.mjs';
+// §EA-LIDAR-GB-OSM-JOIN (2026-09-05, lane HEIGHTS-GB-IE) — England's Environment Agency First-Return DSM − DTM
+// stamp (the differencing is OURS — the EA publishes no nDSM) lives in its OWN module and is imported here
+// DIRECTLY, in the same commit that declares the `greatbritain` row's heightJoin. heightSources.mjs had said
+// "documented … the owed build is the England nDSM stamp" since the whole-country rows landed (5faa71ba).
+import { stampEaLidarGbHeightsOnGeojsonseq } from './heights/ealidarGbStamp.mjs';
+import { EA_LIDAR_GB_CITY_BBOXES } from './heights/ealidarGb.mjs';
 // §NDH-NO-OSM-JOIN (lane HEIGHTS-NORDICS, 2026-09-05) — Norway's keyless Kartverket NHM DOM − DTM stamp lives in its
 // OWN module (the heights/nl3dbagStamp.mjs precedent: heightSources.mjs is a many-lane file) and is imported here
 // DIRECTLY, in the same commit that declares the `norway` row's heightJoin — never "built, imported by nothing".
@@ -254,7 +260,12 @@ const ALL_REGIONS = [
   // ENGLAND-ONLY heights when it lands. Replaces the london city row. ⚠ this extract carries NO
   // Northern Ireland data — the island of Ireland (incl. NI) rides the `ireland` row below, so the
   // bbox overlap bakes nothing twice.
-  { name: 'greatbritain', pbfUrl: 'https://download.geofabrik.de/europe/great-britain-latest.osm.pbf',                pbf: resolve(OUT, 'great-britain-latest.osm.pbf'),          bbox: '-8.20,49.90,1.80,60.90',   clipped: resolve(OUT, 'clip-greatbritain.osm.pbf') },
+  // ⭐ §EA-LIDAR-GB-OSM-JOIN (2026-09-05, lane HEIGHTS-GB-IE): `heightJoin:'ealidar_gb'` stamps EA LiDAR nDSM
+  // (First-Return DSM 1 m − DTM 1 m, OGL v3, keyless — differenced by PRYZM) onto the OSM footprints inside
+  // EA_LIDAR_GB_CITY_BBOXES (heights/ealidarGb.mjs: london / manchester / birmingham / leeds / bristol — ENGLAND
+  // only; Edinburgh and Cardiff are EA_LIDAR_GB_ASSESSED no-source with the probe). Everything else streams through
+  // with its OSM tags. Local proof (Trafalgar Square, 652 real OSM footprints): 594/606 retained measured, 4.6 s.
+  { name: 'greatbritain', pbfUrl: 'https://download.geofabrik.de/europe/great-britain-latest.osm.pbf',                pbf: resolve(OUT, 'great-britain-latest.osm.pbf'),          bbox: '-8.20,49.90,1.80,60.90',   clipped: resolve(OUT, 'clip-greatbritain.osm.pbf'), heightJoin: 'ealidar_gb' },
   // ASSESS IE — NATIONAL-NOW (mass-only, honest-low OSM density): no cadastre by design; OSi
   // Prime2 commercial → X3-refused. The extract covers the WHOLE island incl. NI (see GB note).
   { name: 'ireland',    pbfUrl: 'https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf',   pbf: resolve(OUT, 'ireland-and-northern-ireland-latest.osm.pbf'), bbox: '-10.70,51.30,-5.30,55.50', clipped: resolve(OUT, 'clip-ireland.osm.pbf') },
@@ -600,6 +611,7 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
   if (r.heightJoin === 'swiss') return SWISS_CITY_BBOXES.map((c) => c.bbox);   // §SWISS-OSM-JOIN (L-12883) — whole `switzerland`
   if (r.heightJoin === 'au_open') return AU_OPEN_CITY_BBOXES.map((c) => c.bbox); // §AU-OPEN-HEIGHTS-OSM-JOIN — whole `victoria`, Melbourne LGA only
+  if (r.heightJoin === 'ealidar_gb') return EA_LIDAR_GB_CITY_BBOXES.map((c) => c.bbox); // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`, England working set
   if (r.heightJoin === 'ndh_no') return NO_NDH_CITY_BBOXES.map((c) => c.bbox);   // §NDH-NO-OSM-JOIN (HEIGHTS-NORDICS) — whole `norway`
   if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
   return null;
@@ -617,6 +629,10 @@ function stampBboxesFor(r) {
 const NATIONAL_STAMP_TABLE = {
   // §NDH-NO-OSM-JOIN — whole `norway`: Kartverket NHM DOM − DTM, keyless (heights/noHeightsStamp.mjs).
   ndh_no: { stamp: stampNoNdhHeightsOnGeojsonseq, bboxes: NO_NDH_CITY_BBOXES },
+  // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`: EA First-Return DSM − DTM per OS 1 km square, England working set
+  // (heights/ealidarGbStamp.mjs). Scotland squares are refused before any request (outside the served envelope);
+  // Wales answers zero-fill and is counted as VOID, never ground.
+  ealidar_gb: { stamp: stampEaLidarGbHeightsOnGeojsonseq, bboxes: EA_LIDAR_GB_CITY_BBOXES },
 };
 
 /**
