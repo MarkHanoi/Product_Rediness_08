@@ -196,7 +196,9 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
         stageSet(staging, 'minus-latvia', live.filter((n) => n !== 'latvia'), LIVE_TILES);
         const r = mergeAll(staging, join(DIR, 'miss', 'merged'));
         expect(r.status).toBe(1);
-        expect(r.stderr).toMatch(/MISSING REGION\(S\) — 1 expected region\(s\) have NO staged bake: \[latvia\]/);
+        // The SENTENCE is another lane's (§SEA-BAKE-POLYGONS made the refusal layer-scoped: "… for layer 'buildings' …
+        // NO staged 'buildings' bake"); the CONTRACT is exit 1 + the missing row named + NZ not named.
+        expect(r.stderr).toMatch(/MISSING REGION\(S\)[^\n]*— 1 expected region\(s\) have NO staged (?:'buildings' )?bake: \[latvia\]/);
         expect(r.stderr).not.toContain('newzealand');
         expect(r.stdout).toContain('[newzealand] — not expected by this merge');
     }, 120_000);
