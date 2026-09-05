@@ -79,6 +79,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # §TERRAIN-REGIONS-PLAN-DEPS (2026-09-05) — the FIRST EVER run of this workflow (33958471571)
+      # died here in 40 s: `terrain.mjs --matrix` imports reproject.mjs, which imports `proj4` at
+      # module scope, and this job never installed it (only the bake job did). Same temp-dir escape
+      # as the bake job below — a repo-root `workspace:*` kills a subdir `npm i`.
+      - name: Install terrain compiler deps (in a TEMP dir OUTSIDE the repo)
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp -d)"
+          cd "$TMP"
+          printf '{ "name": "pryzm-context-bake-standalone", "private": true, "version": "0.0.0" }
+' > package.json
+          npm install --no-audit --no-fund geotiff@2 @mapbox/martini@0.2 @here/quantized-mesh-decoder@1 proj4@2 sharp@0.33
+          rm -rf "$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+          mv node_modules "$GITHUB_WORKSPACE/tools/context-bake/node_modules"
       - id: set
         env:
           GROUP: ${{ inputs.group }}
