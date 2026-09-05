@@ -35,6 +35,11 @@ import { fileURLToPath } from 'node:url';
 // §SWISS-OSM-JOIN (L-12883, wired 2026-09-05) — the swisstopo nDSM stamp had the SAME shape one day later:
 // `stampSwissHeightsOnGeojsonseq` + `SWISS_CITY_BBOXES` built 2026-09-04, imported by nothing until here.
 import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
+// §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US) — the US per-metro stamp lives in its OWN module
+// (not heightSources.mjs — §SHARED-FILE-COLLISION) and is imported here DIRECTLY, so it cannot sit built-and-
+// orphaned the way the FR/CH/AU stamps each did for a day. Its pure half carries the working set.
+import { stampUsOpenHeightsOnGeojsonseq } from './heights/usOpenHeightsStamp.mjs';
+import { US_OPEN_CITY_BBOXES } from './heights/usOpenHeights.mjs';
 // §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — the Dutch stamp had the same shape one more time: REGION_SOURCE
 // `netherlands` named the join as "the named follow-up" since 2026-07-26. Its network half lives in its OWN module
 // (heights/nl3dbagStamp.mjs — the shared-file rule) and its working set in the pure half, so both are imported directly.
@@ -318,19 +323,26 @@ const ALL_REGIONS = [
   // These metros bake OSM by default because major-US-metro OSM carries dense government footprint
   // imports (NYC/SF/Chicago/Boston); a per-metro OSM-vs-Overture count probe (the Riyadh rule) is the
   // owed calibration before any `--buildings-source overture` flip — no probe forces one today.
-  // HEIGHTS: honest OSM `assumed` until the USGS 3DEP nDSM stamp lands (heightSources REGION_SOURCE
-  // `overture_us` — documented, no wired join, so no heightJoin here). The per-metro OPEN channels the
-  // owed stamp draws on, from the registry the sweeps cite: NYC = open building heights (DOB/PLUTO),
-  // Chicago = open building footprints, Boston = MassGIS open. Austin+Houston share the texas extract
+  // HEIGHTS — ⭐ §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US): newyork / sanfrancisco / boston
+  // declare heightJoin:'us_open' and get REAL per-building heights stamped onto their OSM footprints from
+  // each city's own open channel (heights/usOpenHeights.mjs, every URL and number live-probed): NYC
+  // height_roof (FEET, as-built/photogrammetric — NOT LiDAR, per the city's metadata), SF hgt_maxcm
+  // (LiDAR zonal max, cm), Boston BPDA BLDG_HGT_2010 (FEET, 2010 photogrammetric roof-break parts).
+  // The working set is each row's OWN bbox (US_OPEN_CITY_BBOXES, byte-identical); footprints inside the
+  // clip but outside the dataset (Jersey City, Cambridge) keep honest OSM tags. chicago / austin / houston
+  // declare NO heightJoin, on evidence: Chicago's syp8-uezg has `stories` only (no height, last updated
+  // 2015), MassGIS STRUCTURES_POLY has no height field, and no open channel is named for Texas — those
+  // rows stay honest OSM `assumed` (heightSources REGION_SOURCE `overture_us`, documented) until the USGS
+  // 3DEP nDSM stamp lands. Austin+Houston share the texas extract
   // (ONE download, two clips — grouped by `pbf` path). Add a metro by appending a row: state pbf + a
   // metro bbox. Datum: NAVD88/GEOID18 (terrain.mjs `us`, geoidSepM NEGATIVE in CONUS); terrain via
   // --dtm-source mapterhorn.
-  { name: 'newyork',    pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-74.03,40.70,-73.91,40.82', clipped: resolve(OUT, 'clip-newyork.osm.pbf') },
-  { name: 'sanfrancisco', pbfUrl: 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf',         pbf: resolve(OUT, 'us-california-latest.osm.pbf'),          bbox: '-122.52,37.70,-122.36,37.83', clipped: resolve(OUT, 'clip-sanfrancisco.osm.pbf') },
+  { name: 'newyork',    pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-74.03,40.70,-73.91,40.82', clipped: resolve(OUT, 'clip-newyork.osm.pbf'), heightJoin: 'us_open' },
+  { name: 'sanfrancisco', pbfUrl: 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf',         pbf: resolve(OUT, 'us-california-latest.osm.pbf'),          bbox: '-122.52,37.70,-122.36,37.83', clipped: resolve(OUT, 'clip-sanfrancisco.osm.pbf'), heightJoin: 'us_open' },
   { name: 'chicago',    pbfUrl: 'https://download.geofabrik.de/north-america/us/illinois-latest.osm.pbf',            pbf: resolve(OUT, 'us-illinois-latest.osm.pbf'),            bbox: '-87.94,41.64,-87.52,42.05',  clipped: resolve(OUT, 'clip-chicago.osm.pbf') },
   { name: 'austin',     pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',               pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-97.95,30.10,-97.56,30.52',  clipped: resolve(OUT, 'clip-austin.osm.pbf') },
   { name: 'houston',    pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',               pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-95.80,29.52,-95.06,30.14',  clipped: resolve(OUT, 'clip-houston.osm.pbf') },
-  { name: 'boston',     pbfUrl: 'https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf',       pbf: resolve(OUT, 'us-massachusetts-latest.osm.pbf'),       bbox: '-71.20,42.22,-70.98,42.40',  clipped: resolve(OUT, 'clip-boston.osm.pbf') },
+  { name: 'boston',     pbfUrl: 'https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf',       pbf: resolve(OUT, 'us-massachusetts-latest.osm.pbf'),       bbox: '-71.20,42.22,-70.98,42.40',  clipped: resolve(OUT, 'clip-boston.osm.pbf'), heightJoin: 'us_open' },
   // ─────────────────────────────────────────────────────────────────────────
   // §BAKE-AU-STATES (2026-09-03, lane CONTEXT-INTL) — 8 whole-state rows, the AU analogue of
   // §BAKE-EUROPE-NATIONAL. Cadastre + planning are STATE competencies in Australia (no national scheme),
@@ -614,6 +626,7 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'ealidar_gb') return EA_LIDAR_GB_CITY_BBOXES.map((c) => c.bbox); // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`, England working set
   if (r.heightJoin === 'ndh_no') return NO_NDH_CITY_BBOXES.map((c) => c.bbox);   // §NDH-NO-OSM-JOIN (HEIGHTS-NORDICS) — whole `norway`
   if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
+  if (r.heightJoin === 'us_open') return US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name).map((c) => c.bbox); // §US-OPEN-HEIGHTS-OSM-JOIN — the metro's OWN row bbox
   return null;
 }
 
@@ -629,6 +642,10 @@ function stampBboxesFor(r) {
 const NATIONAL_STAMP_TABLE = {
   // §NDH-NO-OSM-JOIN — whole `norway`: Kartverket NHM DOM − DTM, keyless (heights/noHeightsStamp.mjs).
   ndh_no: { stamp: stampNoNdhHeightsOnGeojsonseq, bboxes: NO_NDH_CITY_BBOXES },
+  // §US-OPEN-HEIGHTS-OSM-JOIN — newyork / sanfrancisco / boston metro rows: NYC height_roof (ft) · SF LiDAR hgt_maxcm
+  // (cm) · Boston BPDA BLDG_HGT_2010 (ft), vectors from each city's own open portal, one metre per OSM footprint
+  // (tallest contained part). stampBboxesFor filters US_OPEN_CITY_BBOXES to the row's OWN bbox (heights/usOpenHeightsStamp.mjs).
+  us_open: { stamp: stampUsOpenHeightsOnGeojsonseq, bboxes: US_OPEN_CITY_BBOXES },
   // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`: EA First-Return DSM − DTM per OS 1 km square, England working set
   // (heights/ealidarGbStamp.mjs). Scotland squares are refused before any request (outside the served envelope);
   // Wales answers zero-fill and is counted as VOID, never ground.
