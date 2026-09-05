@@ -198,6 +198,26 @@ import {
   type TerrainAttachOutcome, type TerrainProviderState,
 } from "./terrainProviderTransition";
 import { terrainTilesetCoversSite } from './terrainTilesetCoverage';
+// §GROUND-DRAPE-ON-RELIEF (L-12924) — the pure seat decision for every C12 §12 ground-context
+// layer: each feature on ITS OWN sampled ground + the §12.4 ladder, split when its extent spans
+// more relief than the ladder can hide; the flat / keyless path byte-identical to before.
+import {
+  GROUND_LAYER_OFFSET_M,
+  decideGroundFeatureSeat,
+  decideDrapeStrategy,
+  reliefRangeM,
+  polygonSeatPoint,
+  corridorSeatPoint,
+  featureReliefProbePoints,
+  splitRingIntoGridCells,
+  splitCorridorIntoSegments,
+  drapePieceLengthM,
+  featureSpanM,
+  GROUND_DRAPE_RELIEF_SPLIT_M,
+  type GroundLayer,
+  type LatLon as GroundLatLon,
+  type LonLat as GroundLonLat,
+} from "./groundFeatureSeat";
 // §FORMA-FALLBACK-KEY-IS-LOCAL (L-12920) — the night-time study key, expressed in the site's ENU
 // frame (pure), so the ground is lit at every longitude, not only near Europe.
 import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
@@ -1619,6 +1639,12 @@ export class CesiumViewport {
    *  the roads in the ground stack. Mirrors contextRoadEntities' lifecycle exactly. */
   private contextRailEntities: Cesium.Entity[] = [];
   private contextRailAbort: AbortController | null = null;
+  /** §GROUND-DRAPE-ON-RELIEF (L-12924) — every ground-context entity's OWN seat point (polygon
+   *  centroid / corridor midpoint / the sea ring's lowest probe), recorded at load so the settled-
+   *  base re-seat can lift EACH entity onto ITS OWN ground rather than all of them onto one scalar.
+   *  Weak: an entity removed by a `clearContext*` takes its record with it. `point: null` = a
+   *  feature that could not be located (falls back to the safe base, as at load). */
+  private contextGroundSeatPoints = new WeakMap<Cesium.Entity, { layer: GroundLayer; point: GroundLatLon | null }>();
   /** §FORMA-CTX-TREES (L-642 Phase C) — ALL context tree canopies batched into ONE instanced,
    *  shadowless, single-material Primitive (nearest-first capped — ADR-0094 budget + the instancing
    *  memory), NOT one entity per tree. Its own clear + abort give it a lifecycle independent of the
@@ -7311,42 +7337,110 @@ export class CesiumViewport {
     if (!viewer) return;
     if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
     const base = this.formaTerrainBaseHeight;              // the just-settled city ground (~700 m Madrid).
-    let n = 0;
-    // Preserve the original ground-stack layering (parks below roads below water) via small offsets, and
-    // keep every feature just ABOVE the terrain so it reads (depthTestAgainstTerrain=false draws it over).
-    const lift = (entities: readonly Cesium.Entity[], kind: 'polygon' | 'corridor', offset: number): void => {
-      for (const ent of entities) {
-        try {
-          const g = kind === 'polygon' ? ent.polygon : ent.corridor;
-          // Skip an entity that does not carry THIS geometry kind (the water list holds both
-          // polygons and corridors), or one whose height was never seated as a scalar.
-          if (!g || !g.height) continue;
-          g.height = new Cesium.ConstantProperty(base + offset);
-          n++;
-        } catch { /* skip one entity; the re-seat must never break the pass. */ }
-      }
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — PER ENTITY, never one base for all. This pass used to
+    // write `base + offset` into every entity: on Lisbon's hill that is a grey plane 60 m above
+    // Baixa and 20 m under Chiado ("the grey layer … is CUTTING the buildings"). Each entity now
+    // lifts onto the ground sampled at ITS OWN recorded seat point (`contextGroundSeatPoints`) —
+    // the building re-seat's exact rule (`sampleGround` → cache → streamed tile → safe base) —
+    // in TWO passes: pass 1 is synchronous (cache / streamed tile / safe base — the feature is
+    // on-screen at once, never left ~700 m under a risen city); pass 2 batch-samples the seat
+    // points the cache does not hold yet and re-applies. No re-fetch, no clear, no abort: a
+    // feature seated on the safe base in pass 1 is corrected in place by pass 2.
+    //
+    // The lift itself, shared by both passes. The ladder literals in the `lift(...)` calls below
+    // are the C12 §12.4 owner; `groundFeatureSeat.spec.ts` asserts `GROUND_LAYER_OFFSET_M` agrees
+    // with them, so the load-time seat and the re-seat cannot drift. An entity with no recorded
+    // seat point (none is expected) gets the pre-L-12924 `base + offset`.
+    const applyAll = (baseM: number): { n: number; perFeature: number; fallback: number; min: number; max: number } => {
+      let n = 0;
+      let perFeature = 0;
+      let fallback = 0;
+      let min = Infinity;
+      let max = -Infinity;
+      // Preserve the original ground-stack layering (parks below roads below water) via small offsets, and
+      // keep every feature just ABOVE ITS ground so it reads (depthTestAgainstTerrain=false draws it over).
+      const lift = (entities: readonly Cesium.Entity[], kind: 'polygon' | 'corridor', offset: number): void => {
+        for (const ent of entities) {
+          try {
+            const g = kind === 'polygon' ? ent.polygon : ent.corridor;
+            // Skip an entity that does not carry THIS geometry kind (the water list holds both
+            // polygons and corridors), or one whose height was never seated as a scalar.
+            if (!g || !g.height) continue;
+            const rec = this.contextGroundSeatPoints.get(ent);
+            const ground = rec?.point ? this.sampleGround(rec.point.lat, rec.point.lon, baseM) : null;
+            const own = typeof ground === 'number' && Number.isFinite(ground);
+            const h = (own ? ground : baseM) + offset;
+            if (own) perFeature++; else fallback++;
+            if (h < min) min = h;
+            if (h > max) max = h;
+            g.height = new Cesium.ConstantProperty(h);
+            n++;
+          } catch { /* skip one entity; the re-seat must never break the pass. */ }
+        }
+      };
+      lift(this.contextLanduseEntities, 'polygon', 0.005);
+      lift(this.contextParkEntities, 'polygon', 0.01);
+      lift(this.contextRoadEntities, 'corridor', 0.02);
+      // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea is a ground feature too; lift it onto
+      // the settled base with the same +0.02 seat renderContextSeaRings uses, so the coast tracks the
+      // risen terrain (Madrid ~700 m) instead of staying ~700 m under it.
+      lift(this.contextSeaEntities, 'polygon', 0.02);
+      // §GROUND-DRAPE-ON-RELIEF (L-12924) — rail was NEVER in this pass: on a risen city the tracks
+      // stayed at the load-time base. It takes its §12.4 place explicitly (a hair above roads).
+      lift(this.contextRailEntities, 'corridor', 0.022);
+      lift(this.contextWaterEntities, 'polygon', 0.03);
+      // §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — waterway centre-lines are now `corridor`
+      // ground ribbons, so they finally HAVE the scalar height this pass rewrites. They were the one
+      // ground feature this function skipped (see the doc above: "Waterway POLYLINES carry their
+      // height in the positions (no scalar) — left as-is"), which is why on a city whose terrain
+      // settles upward they stayed hundreds of metres under the ground — and, being drawn with
+      // `depthFailMaterial`, were painted through it. SAME list, SAME +0.03 seat: the two geometry
+      // kinds coexist in `contextWaterEntities` and each lift skips what it does not own.
+      lift(this.contextWaterEntities, 'corridor', 0.03);
+      return { n, perFeature, fallback, min, max };
     };
-    lift(this.contextLanduseEntities, 'polygon', 0.005);
-    lift(this.contextParkEntities, 'polygon', 0.01);
-    lift(this.contextRoadEntities, 'corridor', 0.02);
-    // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea is a ground feature too; lift it onto
-    // the settled base with the same +0.02 seat renderContextSeaRings uses, so the coast tracks the
-    // risen terrain (Madrid ~700 m) instead of staying ~700 m under it.
-    lift(this.contextSeaEntities, 'polygon', 0.02);
-    lift(this.contextWaterEntities, 'polygon', 0.03);
-    // §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — waterway centre-lines are now `corridor`
-    // ground ribbons, so they finally HAVE the scalar height this pass rewrites. They were the one
-    // ground feature this function skipped (see the doc above: "Waterway POLYLINES carry their
-    // height in the positions (no scalar) — left as-is"), which is why on a city whose terrain
-    // settles upward they stayed hundreds of metres under the ground — and, being drawn with
-    // `depthFailMaterial`, were painted through it. SAME list, SAME +0.03 seat: the two geometry
-    // kinds coexist in `contextWaterEntities` and each lift skips what it does not own.
-    lift(this.contextWaterEntities, 'corridor', 0.03);
-    if (n > 0) viewer.scene.requestRender();
+    const pass1 = applyAll(base);
+    const pending = this.unsampledContextGroundSeatPoints();
+    if (pending.length > 0) {
+      void this.sampleContextGroundsBatch(pending).then(() => {
+        if (!this.viewer || this.viewer !== viewer || !this.groundReliefAttached()) return;
+        const pass2 = applyAll(this.formaTerrainBaseHeight);
+        if (pass2.n > 0) viewer.scene.requestRender();
+        console.log(
+          `[CTX-DIAG] ground-features re-seat (pass 2): ${pass2.n} entity(ies) re-applied after sampling ` +
+            `${pending.length} seat point(s) — ${pass2.perFeature} per-feature, ${pass2.fallback} on the safe base.`,
+        );
+      }).catch(() => { /* superseded or the sample failed — pass 1 stands on the safe base. */ });
+    }
+    if (pass1.n > 0) viewer.scene.requestRender();
     console.log(
-      `[CTX-DIAG] ground-features re-seat: ${n} road/park/water entity(ies) lifted onto settled ` +
-        `ground (base ${base.toFixed(1)} m) — no re-fetch, no race.`,
+      `[CTX-DIAG] ground-features re-seat: ${pass1.n} road/park/water entity(ies) lifted onto settled ` +
+        `ground (base ${base.toFixed(1)} m) — PER ENTITY on its own ground: ${pass1.perFeature} per-feature ` +
+        `(${Number.isFinite(pass1.min) ? `${pass1.min.toFixed(1)}–${pass1.max.toFixed(1)} m` : 'n/a'}), ` +
+        `${pass1.fallback} on the safe base; ${pending.length} seat point(s) queued for pass 2 — no re-fetch, no race.`,
     );
+  }
+
+  /** §GROUND-DRAPE-ON-RELIEF — the recorded seat points the terrain cache does not hold yet (one
+   *  entry per distinct point), so pass 2 samples exactly what pass 1 had to fall back on. */
+  private unsampledContextGroundSeatPoints(): GroundLatLon[] {
+    const out: GroundLatLon[] = [];
+    const seen = new Set<string>();
+    const lists = [
+      this.contextLanduseEntities, this.contextParkEntities, this.contextRoadEntities,
+      this.contextSeaEntities, this.contextRailEntities, this.contextWaterEntities,
+    ];
+    for (const list of lists) {
+      for (const ent of list) {
+        const p = this.contextGroundSeatPoints.get(ent)?.point;
+        if (!p) continue;
+        const key = `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
+        if (seen.has(key) || this.contextGroundCache.has(key)) continue;
+        seen.add(key);
+        out.push(p);
+      }
+    }
+    return out;
   }
 
   /**
@@ -7643,6 +7737,139 @@ export class CesiumViewport {
     } catch (e) {
       console.warn('[CTX-DIAG] per-footprint terrain batch-sample failed — falling back to centroid base:', e);
     }
+  }
+
+  /**
+   * §GROUND-DRAPE-ON-RELIEF (L-12924, founder Lisbon Baixa 2026-09-05: "the grey layer (urban
+   * landuse) and probably others is CUTTING the buildings — not set on the correct height") —
+   * resolve WHERE each ground-context feature of one C12 §12 layer seats, BEFORE it is drawn.
+   *
+   * THE DEFECT. Every §12 loader seated its whole layer at ONE scalar (`formaTerrainBaseHeight +
+   * ladder`) and the re-seat rewrote that ONE number into 1413 entities ("base 71.0 m"), while the
+   * buildings beside them seat PER FOOTPRINT ("resolved 6349/6349 real ground heights"). On a
+   * hillside the drape therefore floats above the ground downhill (a grey plane through Baixa's
+   * buildings) and sinks under it uphill (Chiado). C12 §12.3's "absolute scalar, re-seatable" holds;
+   * its honest extension on relief is a PER-FEATURE scalar, which this method computes:
+   *
+   *   1. Seat point per feature — polygon centroid (the SAME `ringCentroidLatLon` rule the
+   *      buildings sample at) / corridor half-length point. Plus 3–5 relief PROBES per feature.
+   *   2. ONE `sampleTerrainMostDetailed` batch for the whole layer (the building path's sampler +
+   *      cache — `sampleContextGroundsBatch`), so a re-seat later is served from cache.
+   *   3. A feature whose probes MEASURE more than `GROUND_DRAPE_RELIEF_SPLIT_M` of relief is SPLIT
+   *      (grid cells / length-bounded segments), each piece on its own seat — one MORE batch for
+   *      the piece seats, only when at least one feature split. Two round-trips is the ceiling.
+   *      The piece LENGTH comes from that feature's own measured slope (`drapePieceLengthM`), so a
+   *      steep feature is cut finer than a gentle one and every piece's residual relief lands near
+   *      the same 3 m tolerance — a fixed piece length would leave ~6 m risers on a Lisbon slope.
+   *   4. Each piece's height = its own ground + the §12.4 ladder offset (`decideGroundFeatureSeat`);
+   *      an unmeasured point falls back to the SAFE base (never a stray 0, the L-259 rule).
+   *
+   * FLAT / KEYLESS (no relief attached): NO sampling, ONE scalar `base + ladder` for every feature
+   * — byte-identical to the pre-L-12924 seat, pinned by `groundFeatureSeat.spec.ts`.
+   *
+   * ⛔ NOT `CLAMP_TO_GROUND`. L-635 recorded "clampToGround renders nothing on baked terrain" and
+   * blamed `depthTestAgainstTerrain=false`. Re-read against cesium 1.143 `Scene.executeCommands`:
+   * the globe depth is COPIED and the TERRAIN_CLASSIFICATION pass runs BEFORE the `clearGlobeDepth`
+   * clear that the depth flag triggers — so the flag does not starve classification; a HIDDEN
+   * globe does (`globe.show=false`, which Forma held when L-635 was measured; §TERRAIN-NORMALS now
+   * shows it under relief). Plausible by code path, but L-11840 (heatmap invisible with the globe
+   * shown) is not explained by that reading and nothing here is browser-verified, so clamping is
+   * NOT wired here (evaluated, not shipped) and the answer is the per-feature scalar + split.
+   *
+   * `opts.seatRule: 'min-probe'` (the sea) seats on the LOWEST probe — sea level is the lowest
+   * ground a coastal ring touches, and its bbox-clipped corners may sit on a hill. Never throws.
+   */
+  private async resolveGroundDrapePieces(
+    layer: GroundLayer,
+    features: ReadonlyArray<{ readonly coords: ReadonlyArray<GroundLonLat>; readonly kind: 'polygon' | 'corridor' }>,
+    siteLat: number,
+    siteLon: number,
+    opts: { readonly seatRule?: 'point' | 'min-probe'; readonly split?: boolean } = {},
+  ): Promise<{
+    pieces: Array<Array<{ coords: ReadonlyArray<GroundLonLat>; seat: GroundLatLon | null; heightM: number }>>;
+    summary: string;
+  }> {
+    const offset = GROUND_LAYER_OFFSET_M[layer];
+    const relief = this.groundReliefAttached();
+    if (!relief || features.length === 0) {
+      // FLAT / KEYLESS — the pre-L-12924 seat, unchanged: one scalar for the layer, nothing sampled.
+      const h = decideGroundFeatureSeat({ reliefAttached: false, baseM: this.formaTerrainBaseHeight, layer, groundAtPointM: null }).heightM;
+      return {
+        pieces: features.map((f) => [{ coords: f.coords, seat: null, heightM: h }]),
+        summary: `flat seat base ${this.formaTerrainBaseHeight.toFixed(1)} m + ${offset} (no relief attached; one scalar)`,
+      };
+    }
+    const now = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const t0 = now();
+    const seats = features.map((f) => (f.kind === 'polygon' ? polygonSeatPoint(f.coords) : corridorSeatPoint(f.coords)));
+    const probes = features.map((f, i) => featureReliefProbePoints(f.coords, seats[i] ?? null));
+    const batch: GroundLatLon[] = [];
+    for (const list of probes) for (const p of list) batch.push(p);   // the seat is probe[0]
+    try { await this.sampleContextGroundsBatch(batch); } catch { /* never throws, belt and braces */ }
+    if (!this.viewer) return { pieces: [], summary: 'viewer disposed during the terrain sample' };
+    const cached = (p: GroundLatLon): number | undefined =>
+      this.contextGroundCache.get(`${p.lat.toFixed(6)},${p.lon.toFixed(6)}`);
+    let measured = 0;
+    let split = 0;
+    const secondBatch: GroundLatLon[] = [];
+    const plan = features.map((f, i) => {
+      const probeHeights = (probes[i] ?? []).map(cached);
+      const range = reliefRangeM(probeHeights);
+      if (range !== null) measured++;
+      const strategy = opts.split === false ? 'single' : decideDrapeStrategy({ reliefAttached: true, reliefRangeM: range });
+      if (strategy === 'split') {
+        // §GROUND-DRAPE-ON-RELIEF — the piece length is chosen from THIS feature's measured slope so
+        // each piece's own residual relief lands near the 3 m the split threshold declares
+        // (`drapePieceLengthM`). A fixed 60 m piece leaves ~6 m per piece on a Lisbon-grade 10 %
+        // slope — twice the tolerance we just asserted, i.e. a staircase with 6 m risers under a
+        // road ribbon. The splitters still cap the piece COUNT, so this can only ever be coarsened.
+        const pieceM = drapePieceLengthM(featureSpanM(f.coords, f.kind), range);
+        const parts = f.kind === 'polygon' ? splitRingIntoGridCells(f.coords, pieceM) : splitCorridorIntoSegments(f.coords, pieceM);
+        if (parts.length > 1) {
+          split++;
+          for (const p of parts) secondBatch.push(p.seat);
+          return parts.map((p) => ({ coords: p.coords as ReadonlyArray<GroundLonLat>, seat: p.seat as GroundLatLon | null }));
+        }
+      }
+      return [{ coords: f.coords, seat: seats[i] ?? null }];
+    });
+    if (secondBatch.length > 0) {
+      try { await this.sampleContextGroundsBatch(secondBatch); } catch { /* as above */ }
+      if (!this.viewer) return { pieces: [], summary: 'viewer disposed during the piece sample' };
+    }
+    const safeBase = this.resolveContextSafeBase(siteLat, siteLon);
+    let pieceCount = 0;
+    let perFeature = 0;
+    let lo = Infinity;
+    let hi = -Infinity;
+    const pieces = plan.map((parts, i) => parts.map((part) => {
+      let ground: number | null = null;
+      let seat = part.seat;
+      if (opts.seatRule === 'min-probe') {
+        // The sea: the LOWEST measured probe is the water; remember WHICH point so the re-seat
+        // reproduces it from the same cache (`contextGroundSeatPoints` holds the argmin).
+        for (const p of probes[i] ?? []) {
+          const h = cached(p);
+          if (typeof h === 'number' && Number.isFinite(h) && (ground === null || h < ground)) { ground = h; seat = p; }
+        }
+      } else if (seat) {
+        ground = this.sampleGround(seat.lat, seat.lon, safeBase);
+      }
+      const decided = decideGroundFeatureSeat({ reliefAttached: true, baseM: safeBase, layer, groundAtPointM: ground });
+      if (decided.source === 'per-feature') perFeature++;
+      if (decided.heightM < lo) lo = decided.heightM;
+      if (decided.heightM > hi) hi = decided.heightM;
+      pieceCount++;
+      return { coords: part.coords, seat, heightM: decided.heightM };
+    }));
+    const ms = now() - t0;
+    const summary =
+      `${features.length} feature(s) seated PER FEATURE on relief: ${perFeature}/${pieceCount} piece(s) on their own ` +
+      `sampled ground (${Number.isFinite(lo) ? `${lo.toFixed(1)}–${hi.toFixed(1)} m` : 'n/a'}), the rest on the safe base ` +
+      `${safeBase.toFixed(1)} m; ${measured} relief-measured, ${split} split (>${GROUND_DRAPE_RELIEF_SPLIT_M} m relief, piece length from each feature’s own slope) into ` +
+      `${pieceCount - (features.length - split)} piece(s); ${batch.length + secondBatch.length} terrain point(s) in ` +
+      `${secondBatch.length > 0 ? 2 : 1} batch round-trip(s), ${ms.toFixed(0)} ms (cache-served on a re-seat)`;
+    return { pieces, summary };
   }
 
   /**
@@ -9850,6 +10077,15 @@ export class CesiumViewport {
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — resolve each way's OWN seat (and split the ones that run
+    // down a hill) BEFORE clearing the previous ribbons, so the old grid stays up until the new one
+    // is ready. Flat / keyless: no sampling, the pre-L-12924 single scalar.
+    const roadWays = collection.ways.filter((w) => w.kind === 'road'); // slice 1 = roads only
+    const drape = await this.resolveGroundDrapePieces(
+      'roads', roadWays.map((w) => ({ coords: w.coords, kind: 'corridor' as const })), lat, lon,
+    );
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
     this.clearContextRoads();
     if (collection.ways.length === 0) return;
 
@@ -9868,7 +10104,8 @@ export class CesiumViewport {
     // buildings' visible base, so the streets lie flat on the surface UNDER the buildings —
     // matching the 2D basemap's street grid — instead of slicing through them. The corridor
     // is a ground-hugging polygon (no `extrudedHeight`), so it can never rise into a building.
-    const base = this.formaTerrainBaseHeight + 0.02; // hair above the ground plane; below buildings
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — the seat is PER PIECE now (`piece.heightM` = the way's
+    // own sampled ground + the §12.4 road offset); on flat ground it is the old `base + 0.02`.
     const roadColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.road).withAlpha(0.9);
 
     // §FORMA-CTX-ROAD-RIBBON — metric ribbon width by OSM highway class (a real street
@@ -9887,37 +10124,43 @@ export class CesiumViewport {
     };
 
     let placed = 0;
-    for (const way of collection.ways) {
-      if (way.kind !== 'road') continue; // slice 1 = roads only
-      try {
-        const positions = way.coords.map(([flon, flat]) => {
-          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-          return this.enuToCartesian(enu, off.x, off.y, base);
-        });
-        if (positions.length < 2) continue;
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-road',
-          corridor: {
-            positions,
-            width: roadWidthM(way.highway),
-            // §CTX-ABS-SEAT (L-635) — seat at the ABSOLUTE settled ground height, NOT CLAMP_TO_GROUND.
-            // Forma sets globe.depthTestAgainstTerrain=false, so the GroundPrimitive classification pass
-            // clampToGround relies on has no terrain stencil to paint into → clamped features render
-            // NOTHING on baked terrain (Madrid/Amsterdam). An absolute height draws in the standard opaque
-            // pass, depth-flag-independent, so it renders on any provider. `base` = the settled city ground.
-            height: base,
-            cornerType: Cesium.CornerType.ROUNDED,
-            material: roadColor,
-            outline: false,
-          },
-        });
-        this.contextRoadEntities.push(ent);
-        placed++;
-      } catch { /* skip one malformed way */ }
+    for (let wi = 0; wi < roadWays.length; wi++) {
+      const way = roadWays[wi]!;
+      for (const piece of drape.pieces[wi] ?? []) {
+        try {
+          const positions = piece.coords.map(([flon, flat]) => {
+            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
+          });
+          if (positions.length < 2) continue;
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-context-road',
+            corridor: {
+              positions,
+              width: roadWidthM(way.highway),
+              // §CTX-ABS-SEAT (L-635) — seat at an ABSOLUTE ground height, NOT CLAMP_TO_GROUND (see
+              // resolveGroundDrapePieces for the re-read of that measurement). §GROUND-DRAPE-ON-RELIEF
+              // (L-12924): the height is THIS piece's own sampled ground + the §12.4 road offset, so a
+              // street down Lisbon's hill is a staircase of ribbons on the ground, not one plane
+              // through Baixa's buildings. Flat ground: the settled base + 0.02, as before.
+              height: piece.heightM,
+              cornerType: Cesium.CornerType.ROUNDED,
+              material: roadColor,
+              outline: false,
+            },
+          });
+          this.contextGroundSeatPoints.set(ent, { layer: 'roads', point: piece.seat });
+          this.contextRoadEntities.push(ent);
+          placed++;
+        } catch { /* skip one malformed way */ }
+      }
     }
     viewer.scene.requestRender();
-    console.log(`[CesiumViewport][forma] §FORMA-CTX-ROAD-RIBBON flat ground road ribbon(s) rendered: ${placed} way(s) (was floating centre-lines).`);
+    console.log(
+      `[CesiumViewport][forma] §FORMA-CTX-ROAD-RIBBON flat ground road ribbon(s) rendered: ${placed} piece(s) of ` +
+        `${roadWays.length} way(s) (was floating centre-lines). §GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
+    );
   }
 
   /** FORMA-CTX §22.2 — remove all road polylines (idempotent). */
@@ -9954,6 +10197,12 @@ export class CesiumViewport {
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — per-track seat (split down a hill), resolved before the clear.
+    const drape = await this.resolveGroundDrapePieces(
+      'rail', collection.ways.map((w) => ({ coords: w.coords, kind: 'corridor' as const })), lat, lon,
+    );
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
     this.clearContextRail();
     if (collection.ways.length === 0) return; // honest no-op when the layer is un-baked/empty.
 
@@ -9964,7 +10213,7 @@ export class CesiumViewport {
     // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround (Forma sets
     // depthTestAgainstTerrain=false, so clamped features render nothing on baked terrain). A hair
     // above the road ribbons (roads sit at base + 0.02) so the tracks read over the street grid.
-    const base = this.formaTerrainBaseHeight + 0.022;
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — the seat is PER PIECE (`piece.heightM`); flat: base + 0.022.
     const railColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.rail).withAlpha(0.95);
 
     // Metric ribbon width by rail class — trams/light rail are narrower than heavy rail corridors.
@@ -9978,31 +10227,38 @@ export class CesiumViewport {
     };
 
     let placed = 0;
-    for (const way of collection.ways) {
-      try {
-        const positions = way.coords.map(([flon, flat]) => {
-          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-          return this.enuToCartesian(enu, off.x, off.y, base);
-        });
-        if (positions.length < 2) continue;
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-rail',
-          corridor: {
-            positions,
-            width: railWidthM(way.railway),
-            height: base, // §CTX-ABS-SEAT — absolute settled ground (renders on any provider).
-            cornerType: Cesium.CornerType.ROUNDED,
-            material: railColor,
-            outline: false,
-          },
-        });
-        this.contextRailEntities.push(ent);
-        placed++;
-      } catch { /* skip one malformed track */ }
+    for (let wi = 0; wi < collection.ways.length; wi++) {
+      const way = collection.ways[wi]!;
+      for (const piece of drape.pieces[wi] ?? []) {
+        try {
+          const positions = piece.coords.map(([flon, flat]) => {
+            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
+          });
+          if (positions.length < 2) continue;
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-context-rail',
+            corridor: {
+              positions,
+              width: railWidthM(way.railway),
+              height: piece.heightM, // §CTX-ABS-SEAT — absolute; §GROUND-DRAPE-ON-RELIEF — this piece's OWN ground + 0.022.
+              cornerType: Cesium.CornerType.ROUNDED,
+              material: railColor,
+              outline: false,
+            },
+          });
+          this.contextGroundSeatPoints.set(ent, { layer: 'rail', point: piece.seat });
+          this.contextRailEntities.push(ent);
+          placed++;
+        } catch { /* skip one malformed track */ }
+      }
     }
     viewer.scene.requestRender();
-    console.log(`[CesiumViewport][forma] §FORMA-CTX-RAIL flat ground rail ribbon(s) rendered: ${placed} track(s).`);
+    console.log(
+      `[CesiumViewport][forma] §FORMA-CTX-RAIL flat ground rail ribbon(s) rendered: ${placed} piece(s) of ` +
+        `${collection.ways.length} track(s). §GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
+    );
   }
 
   /** §FORMA-CTX-RAIL — remove all rail ribbons (idempotent). */
@@ -10037,6 +10293,17 @@ export class CesiumViewport {
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — per-feature seat for the lakes (polygons) and the drawn
+    // centre-lines (corridors), resolved BEFORE the clear so the old water stays up meanwhile. The
+    // §12.5 duplicate test moves up here so a dropped centre-line is never sampled.
+    const drawnWays = collection.ways.filter((w) => !waterwayDuplicatesArea(w, collection.areas));
+    const waysDroppedAsDuplicate = collection.ways.length - drawnWays.length;
+    const drape = await this.resolveGroundDrapePieces('water', [
+      ...collection.areas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })),
+      ...drawnWays.map((w) => ({ coords: w.coords, kind: 'corridor' as const })),
+    ], lat, lon);
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
     this.clearContextWater();
     // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the SEA is now a STANDING, always-on layer with its
     // OWN lifecycle (loadContextSea, promoted to load with the terrain/location like T0 terrain), so
@@ -10056,33 +10323,38 @@ export class CesiumViewport {
     // stood here claimed the opposite, "just BELOW the road hair-line", while the number has always
     // been ABOVE roads; corrected rather than left to mislead the next reader. §FIX-FORMA-WATERWAY-
     // GROUND-RIBBON L-10160. The offset itself is UNCHANGED — this is not a z-order change.)
-    const base = this.formaTerrainBaseHeight + 0.03;
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — the seat is PER PIECE (`piece.heightM`); flat: base + 0.03.
     const waterFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.85);
 
     let placed = 0;
     let areasPlaced = 0;
     let waysPlaced = 0;
     // Filled lake/pond/reservoir polygons.
-    for (const area of collection.areas) {
-      try {
-        const positions = area.ring.map(([flon, flat]) => {
-          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-          return this.enuToCartesian(enu, off.x, off.y, base);
-        });
-        if (positions.length < 4) continue;
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-water',
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: base, // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround (renders nothing on baked terrain: depthTestAgainstTerrain=false).
-            material: waterFill,
-            outline: false,
-          },
-        });
-        this.contextWaterEntities.push(ent);
-        placed++; areasPlaced++;
-      } catch { /* skip one malformed area */ }
+    for (let ai = 0; ai < collection.areas.length; ai++) {
+      for (const piece of drape.pieces[ai] ?? []) {
+        try {
+          const positions = piece.coords.map(([flon, flat]) => {
+            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
+          });
+          if (positions.length < 4) continue;
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-context-water',
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              // §CTX-ABS-SEAT (L-635) — absolute, NOT clampToGround; §GROUND-DRAPE-ON-RELIEF (L-12924) —
+              // THIS piece's own sampled ground + 0.03.
+              height: piece.heightM,
+              material: waterFill,
+              outline: false,
+            },
+          });
+          this.contextGroundSeatPoints.set(ent, { layer: 'water', point: piece.seat });
+          this.contextWaterEntities.push(ent);
+          placed++; areasPlaced++;
+        } catch { /* skip one malformed area */ }
+      }
     }
     // ── River/stream/canal centre-lines → FLAT GROUND RIBBONS ────────────────────────────────
     //
@@ -10126,36 +10398,40 @@ export class CesiumViewport {
         default: return 6;
       }
     };
-    let waysDroppedAsDuplicate = 0;
-    for (const way of collection.ways) {
-      try {
-        // Prefer the mapped water SURFACE over a nominal ribbon laid on top of it.
-        if (waterwayDuplicatesArea(way, collection.areas)) { waysDroppedAsDuplicate++; continue; }
-        const positions = way.coords.map(([flon, flat]) => {
-          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-          return this.enuToCartesian(enu, off.x, off.y, base);
-        });
-        if (positions.length < 2) continue;
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-waterway',
-          corridor: {
-            positions,
-            width: waterwayWidthM(way.kind),
-            // §CTX-ABS-SEAT (L-635) — an ABSOLUTE scalar height, not CLAMP_TO_GROUND (Forma sets
-            // globe.depthTestAgainstTerrain=false, so a clamped ground primitive has no terrain
-            // stencil to paint into and renders NOTHING on baked terrain). Identical to the road
-            // ribbon's seat — and, being a SCALAR, it is now visible to the L-635 re-seat, which
-            // could not touch the old polyline's baked-in per-position heights.
-            height: base,
-            cornerType: Cesium.CornerType.ROUNDED,
-            material: waterFill,
-            outline: false,
-          },
-        });
-        this.contextWaterEntities.push(ent);
-        placed++; waysPlaced++;
-      } catch { /* skip one malformed waterway */ }
+    // (The §12.5 duplicate test — prefer the mapped water SURFACE over a nominal ribbon laid on top
+    // of it — ran above, before the seat sample; `drawnWays` are the survivors.)
+    for (let wi = 0; wi < drawnWays.length; wi++) {
+      const way = drawnWays[wi]!;
+      for (const piece of drape.pieces[collection.areas.length + wi] ?? []) {
+        try {
+          const positions = piece.coords.map(([flon, flat]) => {
+            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
+          });
+          if (positions.length < 2) continue;
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-context-waterway',
+            corridor: {
+              positions,
+              width: waterwayWidthM(way.kind),
+              // §CTX-ABS-SEAT (L-635) — an ABSOLUTE scalar height, not CLAMP_TO_GROUND (see
+              // resolveGroundDrapePieces for the re-read of that measurement). Identical to the road
+              // ribbon's seat — and, being a SCALAR, it is visible to the L-635 re-seat, which could
+              // not touch the old polyline's baked-in per-position heights. §GROUND-DRAPE-ON-RELIEF
+              // (L-12924): THIS piece's own sampled ground + 0.03 — a stream down a hill is a
+              // staircase of ribbons on the ground, not one plane.
+              height: piece.heightM,
+              cornerType: Cesium.CornerType.ROUNDED,
+              material: waterFill,
+              outline: false,
+            },
+          });
+          this.contextGroundSeatPoints.set(ent, { layer: 'water', point: piece.seat });
+          this.contextWaterEntities.push(ent);
+          placed++; waysPlaced++;
+        } catch { /* skip one malformed waterway */ }
+      }
     }
     viewer.scene.requestRender();
     console.log(
@@ -10244,14 +10520,23 @@ export class CesiumViewport {
     }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — the sea seats on the LOWEST of its probes (sea level is
+    // the lowest ground a coastal ring touches; a bbox-clipped corner may sit on a hill) — never
+    // split (a level sheet has nothing to follow). Resolved before the clear. On Lisbon the old
+    // single scalar hung the Tagus 60 m above the water-front.
+    const seaRings = [...collection.sea.map((a) => a.ring), ...supplementalSea];
+    const seaDrape = await this.resolveGroundDrapePieces(
+      'sea', seaRings.map((ring) => ({ coords: ring, kind: 'polygon' as const })), lat, lon,
+      { seatRule: 'min-probe', split: false },
+    );
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
     this.clearContextSea();
     this.contextSeaAt = { lat, lon };
     // §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — remember the sea rings so the land-use drape can skip any
     // polygon over the sea (grey must not bleed past the coast, the founder's port observation).
     this.contextSeaRingsLonLat = [...collection.sea.map((a) => a.ring), ...supplementalSea];
-    const seaPlaced = this.renderContextSeaRings(
-      lat, lon, collection.sea.map((a) => a.ring), supplementalSea, viewer,
-    );
+    const seaPlaced = this.renderContextSeaRings(lat, lon, seaRings, seaDrape.pieces, viewer);
     viewer.scene.requestRender();
     console.log(
       `[CesiumViewport][forma] §FEAT-FORMA-SEA-CONTEXT standing sea: ${seaPlaced} surface(s) ` +
@@ -10270,38 +10555,44 @@ export class CesiumViewport {
    */
   private renderContextSeaRings(
     lat: number, lon: number,
-    bakedRings: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
-    supplementalRings: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
+    rings: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
+    drape: ReadonlyArray<ReadonlyArray<{ coords: ReadonlyArray<GroundLonLat>; seat: GroundLatLon | null; heightM: number }>>,
     viewer: Cesium.Viewer,
   ): number {
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
     const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
-    // A hair BELOW the lakes/rivers (base + 0.03) so those + road ribbons read cleanly on top, and a
+    // A hair BELOW the lakes/rivers (+0.03) so those + road ribbons read cleanly on top, and a
     // slightly deeper blue so the sea reads as water rather than the neutral Forma ground.
-    const seaBase = this.formaTerrainBaseHeight + 0.02;
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — the seat is PER RING (`resolveGroundDrapePieces`, lowest
+    // probe + 0.02); flat ground: the settled base + 0.02, as before.
     const seaFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.water).withAlpha(0.9);
     let placed = 0;
-    const addSeaRing = (ring: ReadonlyArray<readonly [number, number]>): void => {
+    const addSeaRing = (ring: ReadonlyArray<readonly [number, number]>, seatHeightM: number, seat: GroundLatLon | null): void => {
       const positions = ring.map(([flon, flat]) => {
         const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
         const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-        return this.enuToCartesian(enu, off.x, off.y, seaBase);
+        return this.enuToCartesian(enu, off.x, off.y, seatHeightM);
       });
       if (positions.length < 4) return;
       const ent = viewer.entities.add({
         name: 'pryzm-forma-context-sea',
         polygon: {
           hierarchy: new Cesium.PolygonHierarchy(positions),
-          height: seaBase, // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround.
+          height: seatHeightM, // §CTX-ABS-SEAT (L-635) — absolute, NOT clampToGround; per ring (L-12924).
           material: seaFill,
           outline: false,
         },
       });
+      this.contextGroundSeatPoints.set(ent, { layer: 'sea', point: seat });
       this.contextSeaEntities.push(ent);
       placed++;
     };
-    for (const ring of bakedRings) { try { addSeaRing(ring); } catch { /* skip one malformed sea ring */ } }
-    for (const ring of supplementalRings) { try { addSeaRing(ring); } catch { /* skip one malformed sea ring */ } }
+    const fallbackH = this.formaTerrainBaseHeight + 0.02;
+    for (let ri = 0; ri < rings.length; ri++) {
+      const piece = drape[ri]?.[0];
+      try { addSeaRing(rings[ri]!, piece?.heightM ?? fallbackH, piece?.seat ?? null); }
+      catch { /* skip one malformed sea ring */ }
+    }
     return placed;
   }
 
@@ -10394,6 +10685,12 @@ export class CesiumViewport {
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — per-park seat (grid-split on a hillside), resolved before the clear.
+    const drape = await this.resolveGroundDrapePieces(
+      'parks', collection.areas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })), lat, lon,
+    );
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
     this.clearContextParks();
     if (collection.areas.length === 0) return;
 
@@ -10404,36 +10701,46 @@ export class CesiumViewport {
     // Parks sit at the very bottom of the ground stack — just ABOVE the flat ground
     // plane but BELOW water (base + 0.03) + roads (base + 0.02) so the street grid +
     // water read on top of the green, and the buildings extrude up from the same ground.
-    const base = this.formaTerrainBaseHeight + 0.01;
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — the seat is PER PIECE (`piece.heightM`); flat: base + 0.01.
     const parkFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.park).withAlpha(0.85);
     const parkEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.parkEdge).withAlpha(0.6);
 
     let placed = 0;
-    for (const area of collection.areas) {
-      try {
-        const positions = area.ring.map(([flon, flat]) => {
-          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-          return this.enuToCartesian(enu, off.x, off.y, base);
-        });
-        if (positions.length < 4) continue;
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-park',
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: base, // §CTX-ABS-SEAT (L-635) — absolute settled ground, NOT clampToGround (renders nothing on baked terrain: depthTestAgainstTerrain=false).
-            material: parkFill,
-            outline: true,
-            outlineColor: parkEdge,
-            outlineWidth: 1,
-          },
-        });
-        this.contextParkEntities.push(ent);
-        placed++;
-      } catch { /* skip one malformed park */ }
+    for (let ai = 0; ai < collection.areas.length; ai++) {
+      const pieces = drape.pieces[ai] ?? [];
+      for (const piece of pieces) {
+        try {
+          const positions = piece.coords.map(([flon, flat]) => {
+            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
+          });
+          if (positions.length < 4) continue;
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-context-park',
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              // §CTX-ABS-SEAT (L-635) — absolute, NOT clampToGround; §GROUND-DRAPE-ON-RELIEF (L-12924) —
+              // THIS piece's own sampled ground + 0.01 (a hillside park is a grid of cells, each on its ground).
+              height: piece.heightM,
+              material: parkFill,
+              // A split park draws no per-cell edge — the grid seams are not park boundaries.
+              outline: pieces.length === 1,
+              outlineColor: parkEdge,
+              outlineWidth: 1,
+            },
+          });
+          this.contextGroundSeatPoints.set(ent, { layer: 'parks', point: piece.seat });
+          this.contextParkEntities.push(ent);
+          placed++;
+        } catch { /* skip one malformed park */ }
+      }
     }
     viewer.scene.requestRender();
-    console.log(`[CesiumViewport][forma] §FORMA-CTX-PARKS rendered: ${placed} green area(s).`);
+    console.log(
+      `[CesiumViewport][forma] §FORMA-CTX-PARKS rendered: ${placed} piece(s) of ${collection.areas.length} green area(s). ` +
+        `§GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
+    );
   }
 
   /** §FORMA-CTX-PARKS — remove all park polygons (idempotent). */
@@ -10473,6 +10780,29 @@ export class CesiumViewport {
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    // §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — skip a land-use polygon that sits over the sea, so the
+    // grey never bleeds past the coastline (the founder's port observation). Centroid-in-sea is
+    // the cheap robust test: a polygon whose centre is water is a reclaimed/port/mislabelled area
+    // that should read as sea, not urban. Runs BEFORE the seat sample so a clipped area is never sampled.
+    let clippedBySea = 0;
+    const keptAreas = collection.areas.filter((area) => {
+      if (this.contextSeaRingsLonLat.length > 0 && area.ring.length >= 3) {
+        let cx = 0, cy = 0;
+        for (const p of area.ring) { cx += p[0]; cy += p[1]; }
+        cx /= area.ring.length; cy /= area.ring.length;
+        if (this.isLonLatInSea(cx, cy)) { clippedBySea++; return false; }
+      }
+      return true;
+    });
+    // §GROUND-DRAPE-ON-RELIEF (L-12924) — THE founder's layer: "the grey layer (urban landuse) …
+    // is CUTTING the buildings". Each polygon seats on ITS OWN sampled ground; one spanning more
+    // than 3 m of relief (Baixa→Chiado is ~80 m) becomes a grid of cells, each on its own ground.
+    // Resolved before the clear so the previous drape stays up meanwhile.
+    const drape = await this.resolveGroundDrapePieces(
+      'landuse', keptAreas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })), lat, lon,
+    );
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+
     this.clearContextLanduse();
     if (collection.areas.length === 0) return;
 
@@ -10480,48 +10810,48 @@ export class CesiumViewport {
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
     );
     const invEnu = Cesium.Matrix4.inverse(enu, new Cesium.Matrix4());
-    // Bottom of the ground stack — just above the flat ground, below parks (base + 0.01).
-    const base = this.formaTerrainBaseHeight + 0.005;
+    // Bottom of the ground stack — just above ITS ground, below parks (+0.01). §GROUND-DRAPE-ON-RELIEF
+    // (L-12924) — the seat is PER PIECE (`piece.heightM`); flat: base + 0.005.
     const urbanFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.urban).withAlpha(0.9);
     const urbanEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.urbanEdge).withAlpha(0.5);
     const ruralFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.rural).withAlpha(0.9);
     const ruralEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.ruralEdge).withAlpha(0.5);
 
     let placed = 0;
-    let clippedBySea = 0;
-    for (const area of collection.areas) {
-      try {
-        // §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — skip a land-use polygon that sits over the sea, so the
-        // grey never bleeds past the coastline (the founder's port observation). Centroid-in-sea is
-        // the cheap robust test: a polygon whose centre is water is a reclaimed/port/mislabelled area
-        // that should read as sea, not urban.
-        if (this.contextSeaRingsLonLat.length > 0 && area.ring.length >= 3) {
-          let cx = 0, cy = 0;
-          for (const p of area.ring) { cx += p[0]; cy += p[1]; }
-          cx /= area.ring.length; cy /= area.ring.length;
-          if (this.isLonLatInSea(cx, cy)) { clippedBySea++; continue; }
-        }
-        const positions = area.ring.map(([flon, flat]) => {
-          const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-          const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-          return this.enuToCartesian(enu, off.x, off.y, base);
-        });
-        if (positions.length < 4) continue;
-        const isUrban = area.kind === 'urban';
-        const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-landuse',
-          polygon: {
-            hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: base, // §CTX-ABS-SEAT (L-635) — absolute settled ground, not clampToGround.
-            material: isUrban ? urbanFill : ruralFill,
-            outline: true,
-            outlineColor: isUrban ? urbanEdge : ruralEdge,
-            outlineWidth: 1,
-          },
-        });
-        this.contextLanduseEntities.push(ent);
-        placed++;
-      } catch { /* skip one malformed land-use polygon */ }
+    let urbanPlaced = 0;
+    for (let ai = 0; ai < keptAreas.length; ai++) {
+      const area = keptAreas[ai]!;
+      const pieces = drape.pieces[ai] ?? [];
+      for (const piece of pieces) {
+        try {
+          const positions = piece.coords.map(([flon, flat]) => {
+            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
+          });
+          if (positions.length < 4) continue;
+          const isUrban = area.kind === 'urban';
+          const ent = viewer.entities.add({
+            name: 'pryzm-forma-context-landuse',
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              // §CTX-ABS-SEAT (L-635) — absolute, not clampToGround; §GROUND-DRAPE-ON-RELIEF (L-12924) —
+              // THIS piece's own sampled ground + 0.005, so the grey lies ON Baixa and ON Chiado, not
+              // on one plane between them.
+              height: piece.heightM,
+              material: isUrban ? urbanFill : ruralFill,
+              // A split area draws no per-cell edge — the grid seams are not land-use boundaries.
+              outline: pieces.length === 1,
+              outlineColor: isUrban ? urbanEdge : ruralEdge,
+              outlineWidth: 1,
+            },
+          });
+          this.contextGroundSeatPoints.set(ent, { layer: 'landuse', point: piece.seat });
+          this.contextLanduseEntities.push(ent);
+          placed++;
+          if (isUrban) urbanPlaced++;
+        } catch { /* skip one malformed land-use polygon */ }
+      }
     }
     // §FORMA-GROUND-URBAN-WHITE (L-12922) — the terrain BASE under a city or village reads off-white,
     // open country keeps the 2026-07-29 light brown. Decided from the landuse just loaded (inside or
@@ -10541,8 +10871,11 @@ export class CesiumViewport {
       }
     }
     viewer.scene.requestRender();
-    const urban = collection.areas.filter((a) => a.kind === 'urban').length;
-    console.log(`[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} area(s) (${urban} urban-grey, ${placed - urban} rural-brown)${clippedBySea > 0 ? `, ${clippedBySea} clipped off the sea` : ''}.`);
+    console.log(
+      `[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} piece(s) of ${keptAreas.length} area(s) ` +
+        `(${urbanPlaced} urban-grey, ${placed - urbanPlaced} rural-brown)${clippedBySea > 0 ? `, ${clippedBySea} clipped off the sea` : ''}. ` +
+        `§GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
+    );
   }
 
   /** §FORMA-CTX-LANDUSE-SEA-CLIP (L-642) — even-odd test: is [lon,lat] inside ANY current sea ring?

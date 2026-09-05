@@ -85,7 +85,9 @@ describe('§FIX-FORMA-WATERWAY-GROUND-RIBBON ARM A — no depth bypass, and the 
             'corridor: {',
             'cornerType: Cesium.CornerType.ROUNDED,',
             'outline: false,',
-            'height: base,',
+            // §GROUND-DRAPE-ON-RELIEF (L-12924): the absolute scalar is PER PIECE now — the way's own
+            // sampled ground + the §12.4 offset (`resolveGroundDrapePieces`) — was `height: base,`.
+            'height: piece.heightM,',
         ]) {
             expect(roads, `road ribbon must still use ${shared}`).toContain(shared);
             expect(water, `water ribbon must use the same ${shared}`).toContain(shared);
