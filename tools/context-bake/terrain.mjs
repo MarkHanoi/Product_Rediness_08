@@ -2131,11 +2131,20 @@ export const NATIONAL_REGIONS = [
   { name: 'tasmania',         group: 'australia', bbox: [143.80, -43.75, 148.55, -39.40], geoidSepM: -3.81, probeCity: 'Hobart', probe: [147.33, -42.88] },
   { name: 'act',              group: 'australia', bbox: [148.70, -35.95, 149.40, -35.10], geoidSepM: 19.23, probeCity: 'Canberra', probe: [149.13, -35.28] },
   { name: 'northernterritory', group: 'australia', bbox: [128.90, -26.10, 138.10, -10.90], geoidSepM: 51.06, probeCity: 'Darwin', probe: [130.84, -12.46] },
-  // ── Middle East (4 metro rows; SA/AE national DTMs are gov-gated — Mapterhorn = GLO-30 here) ──
+  // ── Middle East (5 metro rows; SA/AE national DTMs are gov-gated — Mapterhorn = GLO-30 here) ──
+  // §ME-TERRAIN-ROWS (2026-09-05, lane ME-TERRAIN-PARCELS): riyadh/jeddah/dubai/abudhabi bboxes ARE the
+  // bake.mjs context rows 1:1 (pinned by __tests__/middleEastTerrainRows.spec.ts). Mapterhorn PROBED
+  // 2026-09-05 at z10 over every row's probe point: dubai 10/669/437 → HTTP 200 image/webp 145 392 B ·
+  // abudhabi 10/666/440 → 200 110 942 B · doha 10/658/437 → 200 156 092 B · riyadh 10/644/439 → 200
+  // 296 262 B · jeddah 10/623/449 → 200 181 958 B (curl -m 15, 0.1–0.9 s each). Relief is served, not
+  // a sparse-pyramid 404, so a bake here reads real posts. `doha` is the ONE terrain row WITHOUT a
+  // bake.mjs context row yet (QA is the only Gulf state with a keyless cadastre — the qa parcel leg —
+  // so a Doha site is reachable today and deserves a drape; its gcc-states context clip is NOT done).
   { name: 'riyadh',       group: 'middleeast', bbox: [46.60, 24.58, 46.83, 24.80], geoidSepM: -7.35, probeCity: 'Riyadh', probe: [46.72, 24.69] },
   { name: 'jeddah',       group: 'middleeast', bbox: [39.10, 21.45, 39.28, 21.62], geoidSepM: 4.73,  probeCity: 'Jeddah', probe: [39.19, 21.54] },
   { name: 'dubai',        group: 'middleeast', bbox: [54.95, 24.85, 55.45, 25.35], geoidSepM: -34.13, probeCity: 'Dubai', probe: [55.27, 25.2] },
   { name: 'abudhabi',     group: 'middleeast', bbox: [54.28, 24.33, 54.75, 24.62], geoidSepM: -33.20, probeCity: 'Abu Dhabi', probe: [54.37, 24.47] },
+  { name: 'doha',         group: 'middleeast', bbox: [51.35, 25.15, 51.65, 25.45], geoidSepM: -29.84, probeCity: 'Doha', probe: [51.53, 25.29] }, // GeoidEval EGM2008 = −29.8375 m @ 25.29N 51.53E (PROBED 2026-09-05)
 ];
 export const NATIONAL_GROUPS = ['europe', 'usa', 'australia', 'middleeast'];
 

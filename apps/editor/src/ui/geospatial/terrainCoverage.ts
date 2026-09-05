@@ -700,6 +700,9 @@ export const TERRAIN_REGION_BBOXES: ReadonlyArray<{ readonly region: string; rea
     { region: 'jeddah', bbox: [39.10, 21.45, 39.28, 21.62] },
     { region: 'dubai', bbox: [54.95, 24.85, 55.45, 25.35] },
     { region: 'abudhabi', bbox: [54.28, 24.33, 54.75, 24.62] },
+    // doha (QA) — the one Gulf state with a keyless cadastre (parcel leg `qa`); terrain row added 2026-09-05
+    // (§ME-TERRAIN-ROWS). Mapterhorn z10 10/658/437 → HTTP 200 (PROBED); no context bake row yet.
+    { region: 'doha', bbox: [51.35, 25.15, 51.65, 25.45] },
 ];
 
 /** True when `lon,lat` falls inside `bbox` (inclusive). */
