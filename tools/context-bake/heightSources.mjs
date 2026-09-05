@@ -234,7 +234,27 @@ export const SOURCES = {
     endpoint: 'Overture GeoParquet (S3) + tnmaccess.nationalmap.gov 3DEP 1 m LiDAR',
     heightField: 'Overture height/num_floors (~20M, growing) + 3DEP DSM−DTM nDSM (>60% of US)',
     note: 'Coordinate with the Overture agent — Overture is the global footprint+height base; the ' +
-      '3DEP nDSM is the national-accuracy top-up (US analogue of FR LiDAR HD). No national parcel.',
+      '3DEP nDSM is the national-accuracy top-up (US analogue of FR LiDAR HD). No national parcel. ' +
+      '⚠ RE-PROBED 2026-09-05 (lane HEIGHTS-US, heights/usOpenHeights.mjs carries every URL and number): the per-metro ' +
+      'OPEN channels this note used to name were half wrong — NYC 5zhs-2jue and SF ynuv-fyni serve real per-building ' +
+      'heights (→ `us_open_heights`, newyork/sanfrancisco/boston rows), Boston\'s is the BPDA FeatureServer (NOT MassGIS: ' +
+      'GISDATA.STRUCTURES_POLY has no height field, verbatim schema in the module), and Chicago syp8-uezg has `stories` ' +
+      'only (820,606 rows, last updated 2015-08-15) — chicago/austin/houston stay here, mass-only, on evidence.',
+  },
+  us_open_heights: {
+    country: 'us', name: 'US per-metro open building heights — NYC height_roof · SF LiDAR hgt_maxcm · Boston BPDA BLDG_HGT_2010', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (per-metro authority attribute)', lodNext: 'LoD2-mesh (NYC 3D model / Boston 3D scene layer)',
+    endpoint: 'data.cityofnewyork.us/resource/5zhs-2jue.json · data.sfgov.org/resource/ynuv-fyni.json · gis.bostonplans.org/hosting/rest/services/Boston_Buildings/FeatureServer/9',
+    heightField: 'newyork: height_roof (FEET, as-built/photogrammetric — NOT LiDAR, per NYC metadata) · sanfrancisco: hgt_maxcm (LiDAR zonal max, cm) · ' +
+      'boston: BLDG_HGT_2010 (FEET, 2010 photogrammetric model, tallest roof-break part). Tallest part whose centroid the OSM footprint contains; contains-centroid fallback',
+    coverage: 'partial', // NYC five boroughs · SF city · Boston city — footprints in the metro clip but outside (Jersey City, Cambridge) keep OSM tags
+    keyless: true, // anonymous SODA (NYC, SF) + anonymous ArcGIS FeatureServer (Boston) — NO api key, NO app token, NO repo secret.
+    note: 'LIVE-PROBED 2026-09-05 (lane HEIGHTS-US): NYC 1,083,026 rows (736 NULL/0 heights), $limit=60000 honoured, Midtown cell 732 rows / 516 KB / 2.7 s; ' +
+      'SF 177,023 rows (PDDL), every numeric column TEXT (cast!), Financial District cell 485 rows / 369 KB / 1.2 s; Boston 128,608 features ' +
+      '(PDDL, maxRecordCount 2000 + pagination, 23,487 NULL/≤0), Back Bay cell 1,225 features / 1.0 MB / 7.6 s. It is a bake STAMP over bake\'s own ' +
+      'OSM footprints (heights/usOpenHeightsStamp.mjs stampUsOpenHeightsOnGeojsonseq), NOT a footprint fetcher — a metro row must declare ' +
+      'heightJoin:\'us_open\' (bake.mjs dispatch + stampBboxesFor → US_OPEN_CITY_BBOXES) to receive it. ⚠ Socrata within_box is (N,W,S,E) lat-first; ' +
+      'ArcGIS envelope is (W,S,E,N) — both pinned by usOpenHeights.spec.ts.',
   },
   ndh_no: {
     country: 'no', name: 'Kartverket NHM nDSM (DOM − DTM, keyless WCS) on OSM footprints', impl: 'live',
@@ -511,7 +531,11 @@ export const REGION_SOURCE = {
   // DK
   copenhagen: 'geodanmark',
   // US
-  newyork: 'overture_us', sanfrancisco: 'overture_us',
+  // ⭐ WIRED 2026-09-05 (lane HEIGHTS-US) — newyork / sanfrancisco (and boston, below) are the FIRST US rows with a
+  // REAL measured-height channel: NYC height_roof (feet, as-built/photogrammetric) and SF LiDAR hgt_maxcm, a bake
+  // STAMP (heights/usOpenHeightsStamp.mjs) each row declares via heightJoin:'us_open'. Footprints in the metro
+  // clip but outside the dataset (Jersey City) stream through with their honest OSM tags.
+  newyork: 'us_open_heights', sanfrancisco: 'us_open_heights',
   // NO / SE / PT
   oslo: 'ndh_no', stockholm: 'lidar_se', lisbon: 'dgt_pt', porto: 'dgt_pt',
   // IT — Turin has a source; Rome/Milan do not.
@@ -565,7 +589,10 @@ export const REGION_SOURCE = {
   // defaults — never a fabricated height, never an armed join without a wired stamp.
   // US metros — Overture height + USGS 3DEP nDSM (overture_us, documented); the per-metro OPEN channels
   // the owed 3DEP stamp draws on: NYC open building heights, Chicago open footprints, Boston MassGIS.
-  chicago: 'overture_us', austin: 'overture_us', houston: 'overture_us', boston: 'overture_us',
+  // ⭐ boston WIRED 2026-09-05 (lane HEIGHTS-US) → BPDA "Boston Buildings with Roof Breaks" BLDG_HGT_2010 (feet), NOT
+  // MassGIS (STRUCTURES_POLY has no height field — probed). chicago stays overture_us on evidence: syp8-uezg carries
+  // `stories` only (a derived-levels rung, not a measured height); austin/houston have no open channel named.
+  chicago: 'overture_us', austin: 'overture_us', houston: 'overture_us', boston: 'us_open_heights',
   // AU states — ELVIS nDSM derive is the owed height build (elvis_au note carries the per-state nuance:
   // ACT's 64,674 open footprints, au-sweep §7.3; Melbourne's real LoD1 extrusions, §2.3). All plain
   // strings: a `documented` custom reason would be DEAD (resolveHeights re-derives it from the SOURCES
@@ -3088,6 +3115,15 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
       status: 'documented', region, source, provenance: src.provenance,
       reason: `${src.name}: this source is the bake STAMP stampAuOpenHeightsOnGeojsonseq, dispatched only when the region ` +
         `declares heightJoin:'au_open' in bake.mjs (with stampBboxesFor → AU_OPEN_CITY_BBOXES). Region "${region}" does not, so ` +
+        'its footprints keep their OSM tags until that row edit lands.',
+    };
+  }
+  else if (source === 'us_open_heights') {
+    // §US-OPEN-HEIGHTS — live, but (like au_open_lod1) a bake STAMP over bake's own footprints, not a footprint fetcher.
+    return {
+      status: 'documented', region, source, provenance: src.provenance,
+      reason: `${src.name}: this source is the bake STAMP stampUsOpenHeightsOnGeojsonseq (heights/usOpenHeightsStamp.mjs), dispatched only when the region ` +
+        `declares heightJoin:'us_open' in bake.mjs (with stampBboxesFor → US_OPEN_CITY_BBOXES). Region "${region}" does not, so ` +
         'its footprints keep their OSM tags until that row edit lands.',
     };
   }
