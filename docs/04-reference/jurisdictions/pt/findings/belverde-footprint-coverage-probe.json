@@ -1,0 +1,231 @@
+{
+  "probedAt": "2026-09-05T20:38:44.338Z",
+  "tileset": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L662a",
+  "version": "L662a",
+  "zoom": 16,
+  "boxes": [
+    {
+      "name": "belverde-core (the founder's urbanisation)",
+      "box": {
+        "name": "belverde-core (the founder's urbanisation)",
+        "xmin": -9.156,
+        "ymin": 38.579,
+        "xmax": -9.144,
+        "ymax": 38.589
+      },
+      "seixalQuery": "https://sig.cm-seixal.pt/arcgis/rest/services/INFORMACAO_BASE_2/MapServer/998/query?geometry=-9.156,38.579,-9.144,38.589&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=EDIFICADO_ID&returnGeometry=true&outSR=4326&resultRecordCount=2000&f=json",
+      "seixalHttp": 200,
+      "seixalBytes": 258694,
+      "seixalBuildings": 480,
+      "exceededTransferLimit": false,
+      "tested": 453,
+      "osmHit": 91,
+      "osmMiss": 362,
+      "hitRatePct": 20.1,
+      "missedAreaM2": {
+        "min": 58,
+        "max": 66502,
+        "median": 224
+      },
+      "samples": [
+        {
+          "edificadoId": 762,
+          "lon": -9.149805,
+          "lat": 38.583393,
+          "areaM2": 201,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 771,
+          "lon": -9.155593,
+          "lat": 38.583301,
+          "areaM2": 286,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 774,
+          "lon": -9.15537,
+          "lat": 38.583354,
+          "areaM2": 223,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 8455,
+          "lon": -9.15194,
+          "lat": 38.585057,
+          "areaM2": 254,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 8265,
+          "lon": -9.155412,
+          "lat": 38.583831,
+          "areaM2": 157,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 8269,
+          "lon": -9.154548,
+          "lat": 38.583863,
+          "areaM2": 142,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 8270,
+          "lon": -9.151894,
+          "lat": 38.583878,
+          "areaM2": 192,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 8273,
+          "lon": -9.150146,
+          "lat": 38.583936,
+          "areaM2": 149,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 8946,
+          "lon": -9.154651,
+          "lat": 38.589033,
+          "areaM2": 208,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 8671,
+          "lon": -9.151641,
+          "lat": 38.586998,
+          "areaM2": 543,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 817,
+          "lon": -9.151743,
+          "lat": 38.584608,
+          "areaM2": 299,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 826,
+          "lon": -9.150924,
+          "lat": 38.584655,
+          "areaM2": 242,
+          "osmFootprint": false
+        }
+      ]
+    },
+    {
+      "name": "control: Seixal centre",
+      "box": {
+        "name": "control: Seixal centre",
+        "xmin": -9.106,
+        "ymin": 38.636,
+        "xmax": -9.098,
+        "ymax": 38.642
+      },
+      "seixalQuery": "https://sig.cm-seixal.pt/arcgis/rest/services/INFORMACAO_BASE_2/MapServer/998/query?geometry=-9.106,38.636,-9.098,38.642&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=EDIFICADO_ID&returnGeometry=true&outSR=4326&resultRecordCount=2000&f=json",
+      "seixalHttp": 200,
+      "seixalBytes": 140923,
+      "seixalBuildings": 313,
+      "exceededTransferLimit": false,
+      "tested": 246,
+      "osmHit": 215,
+      "osmMiss": 31,
+      "hitRatePct": 87.4,
+      "missedAreaM2": {
+        "min": 68,
+        "max": 113594,
+        "median": 266
+      },
+      "samples": [
+        {
+          "edificadoId": 29114,
+          "lon": -9.103663,
+          "lat": 38.641458,
+          "areaM2": 113594,
+          "osmFootprint": false
+        },
+        {
+          "edificadoId": 27042,
+          "lon": -9.097892,
+          "lat": 38.640324,
+          "areaM2": 375,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27045,
+          "lon": -9.098574,
+          "lat": 38.64038,
+          "areaM2": 67,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27050,
+          "lon": -9.104665,
+          "lat": 38.640358,
+          "areaM2": 141,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27051,
+          "lon": -9.098786,
+          "lat": 38.640415,
+          "areaM2": 132,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27052,
+          "lon": -9.098451,
+          "lat": 38.640462,
+          "areaM2": 71,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27053,
+          "lon": -9.099076,
+          "lat": 38.640393,
+          "areaM2": 285,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27057,
+          "lon": -9.103631,
+          "lat": 38.640313,
+          "areaM2": 638,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27115,
+          "lon": -9.103737,
+          "lat": 38.640792,
+          "areaM2": 157,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27120,
+          "lon": -9.103296,
+          "lat": 38.640719,
+          "areaM2": 440,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27124,
+          "lon": -9.105308,
+          "lat": 38.640797,
+          "areaM2": 222,
+          "osmFootprint": true
+        },
+        {
+          "edificadoId": 27125,
+          "lon": -9.098678,
+          "lat": 38.64085,
+          "areaM2": 94,
+          "osmFootprint": true
+        }
+      ]
+    }
+  ],
+  "rangeRequests": 15,
+  "rangeBytes": 60505,
+  "tilesRead": 12
+}

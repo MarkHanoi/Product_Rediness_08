@@ -1,0 +1,79 @@
+{
+  "probedAt": "2026-09-05T20:36:57.617Z",
+  "url": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L662a",
+  "version": "L662a",
+  "layer": "buildings",
+  "zoom": 16,
+  "header": {
+    "minZoom": 12,
+    "maxZoom": 16,
+    "tileType": 1,
+    "numAddressedTiles": 14822228,
+    "numTileEntries": 14822228,
+    "minLon": -122.51995,
+    "minLat": -43.657029,
+    "maxLon": 153.636675,
+    "maxLat": 71.17004
+  },
+  "points": [
+    {
+      "name": "belverde-lot (Seixal · lote 797 · nº 36)",
+      "lon": -9.15011,
+      "lat": 38.5837,
+      "z": 16,
+      "x": 31102,
+      "y": 25143,
+      "http": "tile present",
+      "tileBytes": 1108,
+      "layerNames": [
+        "buildings"
+      ],
+      "features": 28,
+      "containing": [],
+      "nearestM": 56.5
+    },
+    {
+      "name": "brief-point (as written in the lane brief — Sesimbra, NOT Belverde)",
+      "lon": -9.144,
+      "lat": 38.572,
+      "z": 16,
+      "x": 31103,
+      "y": 25146,
+      "http": "tile present",
+      "tileBytes": 87,
+      "layerNames": [
+        "buildings"
+      ],
+      "features": 1,
+      "containing": [],
+      "nearestM": 294.7
+    },
+    {
+      "name": "control: Barcelona Eixample",
+      "lon": 2.16,
+      "lat": 41.39,
+      "z": 16,
+      "x": 33161,
+      "y": 24476,
+      "http": "tile present",
+      "tileBytes": 19924,
+      "layerNames": [
+        "buildings"
+      ],
+      "features": 328,
+      "containing": [
+        {
+          "osmId": null,
+          "building": "apartments",
+          "height": 26,
+          "levels": null,
+          "vertices": 5,
+          "areaM2": 230
+        }
+      ],
+      "nearestM": 6.2
+    }
+  ],
+  "rangeRequests": 6,
+  "rangeBytes": 45259
+}

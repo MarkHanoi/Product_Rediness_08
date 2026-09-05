@@ -128,6 +128,14 @@ outline there (row 3.2). The product path does not depend on this probe: when no
 under the click, `chooseParcelCandidate` falls back to Draw-primary (the §L-12912 behaviour) —
 tested in `parcelCandidateChoice.spec.ts`.
 
+> ⛔ **SUPERSEDED 2026-09-05 by §9 — and Overpass was the WRONG SUBJECT.** This section probed
+> Overpass. **Production does not read Overpass**: `footprintParcelProvider` →
+> `fetchContextBuildings` → `readContextTileFeatures` reads the BAKED `buildings.pmtiles` on R2
+> (§CTX-PMTILES-READER, L-513b), so an Overpass answer — had one arrived — would have proved
+> nothing about the branch that ships. §9 probes the archive the product actually reads. Its answer
+> at this exact point is **0 outlines contain the click**, and across the urbanisation the branch
+> fires for **20.1%** of the município's own buildings. Read §9, not this section.
+
 ## 8. What this decides
 
 1. **No new server leg.** Nothing answered with lot polygons, so nothing is wired; wiring Seixal's
@@ -148,3 +156,52 @@ tested in `parcelCandidateChoice.spec.ts`.
 4. **Coverage doc rows to move:** PT row of `PARCEL-SELECT-COVERAGE.md` may cite this file for
    "Setúbal lots: municipal source probed, no polygons"; the ISSUE-LOG row is returned by the lane,
    not written by it.
+
+## 9. Is deliverable B REACHABLE at Belverde? The measurement §7 could not make (2026-09-05, §L-12942)
+
+§8.2 shipped the honest ring: oversize cadastral answer + an OSM footprint under the click → the
+footprint leads. **That "+" is a premise, and it had never been measured at Belverde.** §7 probed
+Overpass and timed out; but production never reads Overpass — `footprintParcelProvider` →
+`fetchContextBuildings` → `readContextTileFeatures` reads the **baked `buildings.pmtiles` on R2**
+(§CTX-PMTILES-READER, L-513b). So the branch's real hit-rate is a property of a PMTiles archive,
+and it is directly measurable over HTTP Range without a browser.
+
+Two probes, both re-runnable, both keyless, both committed beside this file:
+`belverde-footprint-tile-probe.mjs` (the point) and `belverde-footprint-coverage-probe.mjs` (the
+rate). Their raw output is the `.json` beside each.
+
+| # | Probe | Result |
+|---|---|---|
+| 9.1 | `buildings.pmtiles` header · `https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L662a` (the R2 origin `contextTilesProxy.js` forwards to; `v` = `CONTEXT_TILESET_VERSION`) | HTTP 206 on Range · **z12–16 · 14 822 228 addressed tiles** · bounds −122.51995,−43.657029 → 153.636675,71.17004 |
+| 9.2 | The tile under the **lot point** (−9.15011, 38.58370 — lote 797, nº 36), read at z16 (`LAYER_ZOOM.buildings`) | z16/**31102/25143** · tile present · **1 108 B** · layers `[buildings]` · **28 features** · **CONTAINING the click: 0** · nearest building vertex **56.5 m** |
+| 9.3 | Same, at the **brief's** point (38.572, −9.144 — Sesimbra, not Belverde; see §0) | z16/31103/25146 · **87 B** · **1 feature** · containing **0** · nearest vertex **294.7 m** |
+| 9.4 | Control: Barcelona Eixample (2.16, 41.39) | z16/33161/24476 · **19 924 B** · **328 features** · **containing 1** (230 m², 5 pts) · nearest vertex **6.2 m** — **the reader, the projection and the point-in-ring test are sound**; the Belverde zeros are coverage, not a decoding fault |
+| 9.5 | **Hit-rate over the urbanisation.** Ground truth = Seixal `Edificado` (row 3.2/3.8 — the município's own cartography). Every polygon centroid that lies inside its own outline is a point where a building provably stands; ask the baked tiles whether an OSM footprint contains it. Box `-9.1560,38.5790 → -9.1440,38.5890`. | Seixal: HTTP 200 · 258 694 B · **480 buildings**; **453 tested** · OSM footprint present **91** · absent **362** · **HIT RATE 20.1%**. Missed-building areas min/median/max **58 / 224 / 66 502 m²** — the misses are ordinary houses, not slivers |
+| 9.6 | Same method, control box `-9.1060,38.6360 → -9.0980,38.6420` (Seixal centre) | 313 buildings · **246 tested** · present **215** · absent **31** · **HIT RATE 87.4%** — 12 tiles, 15 range requests, 60 505 B for both boxes |
+| 9.7 | SNIC re-verification of the holding, same query shape as row 1.4, re-run for this section | HTTP 200 · 13 602 B · numberMatched **1** · **AAA000091722** · areavalue **7 662 344** · admin **151002** · **500** vertices — unchanged |
+| 9.8 | Licence of the município's `Edificado` layer (the only source that would close the 80%) | `…/INFORMACAO_BASE_2/MapServer?f=json` HTTP 200 · 5 019 B and `…/998?f=json` HTTP 200 · 4 781 B — **`copyrightText: ""`, `serviceDescription: ""`, `description: ""`** on both; `capabilities: "Map,Query,Data"`, `maxRecordCount 1000`. `https://dados.gov.pt/api/1/datasets/?q=seixal` → HTTP 200 · 9 104 B · total **2**: *Rede ciclável do Seixal* (**cc-zero**, Município do Seixal) and *Carta do Regime de Uso do Solo — Seixal* (cc-by, DGT). **The município does publish openly — but not this layer, and it declares no terms on it.** |
+
+### 9.9 What the measurement changes
+
+1. **Deliverable B is correct and it is mostly INACTIVE here.** At Belverde the cadastral answer is
+   oversize on every click, so the card is decided entirely by the footprint premise — and that
+   premise holds for **one click in five** (20.1%). Four times in five the founder gets the
+   §L-12912 Draw-primary card, which is honest and is not his lot. **Nothing about this is a bug in
+   the helper**: `chooseParcelCandidate` is doing exactly what it says, on data that is not there.
+   The 87.4% control says this is Belverde's OSM coverage, not the product.
+2. **The 80% has a known filler, and it is licence-blocked, not technically blocked.** Seixal's
+   `Edificado` **is** the ground truth used above: it answers keylessly, by point, with the
+   building outline, at 100% by construction. Wiring it as a second footprint source — under the
+   SAME honest title deliverable B already ships (*a building outline, never a cadastral parcel*),
+   with its own C57 §1.9 attribution row — would take the branch from 20.1% to the município's own
+   inventory. **It is NOT wired by this lane, and must not be, until the terms are confirmed**:
+   row 9.8 shows the service declares none. This is a founder/legal decision with a measured
+   payoff attached, not an engineering question. §8.1's *"wiring Seixal's building outline as a
+   'parcel' would be class (a) of L-12897 again"* remains right about calling it a parcel and is
+   **beside the point** for calling it what it is — the product already offers exactly this object
+   from OSM.
+3. **A coverage number is not a promise.** 20.1% is the rate for the município's building
+   inventory in one box on one day against tileset `L662a`. Re-run
+   `belverde-footprint-coverage-probe.mjs` after any re-bake; the version is in its output.
+4. **NOT browser-verified.** Every number in §9 was read from the R2 archive and the Seixal service
+   by Node/curl. No one has clicked Belverde in a deployed browser and watched which card appears.
