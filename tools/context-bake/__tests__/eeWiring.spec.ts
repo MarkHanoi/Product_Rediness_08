@@ -1,0 +1,73 @@
+// §EE-ETAK-OSM-JOIN (2026-09-05, lane HEIGHTS-EE-PL-PT-BE) — the WIRING of the Estonian national height stamp, pinned.
+//
+// France (L-12910), Switzerland (L-12883), the Netherlands and Norway all showed the same shape: a stamp BUILT and
+// imported by nothing for a day. This spec exists so the EE stamp cannot sit in that state — it is asserted on the
+// TEXT of bake.mjs (which runs main() on import and cannot be loaded by vitest), one assertion per place the join
+// is wired: the import, the row, the working-set bound, the NATIONAL_STAMP_TABLE entry, the REGION_SOURCE note and
+// the two CI gate rows.
+//
+// LAYERING: a build/inspection tool test — no OTel span (P8 applies to exported package functions).
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const bake = readFileSync(resolve(HERE, '../bake.mjs'), 'utf8');
+const heightSources = readFileSync(resolve(HERE, '../heightSources.mjs'), 'utf8');
+const stamp = readFileSync(resolve(HERE, '../heights/eeHeightsStamp.mjs'), 'utf8');
+
+describe('§EE-ETAK-OSM-JOIN — bake.mjs wires the ETAK stamp for the `estonia` row', () => {
+    it('imports the stamp AND its working set DIRECTLY from heights/eeHeightsStamp.mjs', () => {
+        expect(bake).toMatch(/^import \{ stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES \} from '\.\/heights\/eeHeightsStamp\.mjs';/m);
+    });
+
+    it("the `estonia` region row declares heightJoin:'ee_etak'", () => {
+        const row = bake.match(/\{\s*name:\s*'estonia'\s*,[^\n]*\}/);
+        expect(row, 'estonia row').not.toBeNull();
+        expect(row![0]).toMatch(/heightJoin:\s*'ee_etak'/);
+    });
+
+    it('no EE city row exists, so the national join cannot double-bake a city', () => {
+        for (const city of ['tallinn', 'tartu', 'parnu', 'narva']) {
+            expect(bake, `${city} must not be a bake region row`).not.toMatch(new RegExp(`\\{\\s*name:\\s*'${city}'`));
+        }
+    });
+
+    it('stampBboxesFor bounds the national join to EE_CITY_BBOXES (§HEIGHT-STAMP-BUDGET preflight)', () => {
+        const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
+        expect(fn, 'stampBboxesFor').not.toBeNull();
+        expect(fn![1]).toMatch(/r\.heightJoin === 'ee_etak'\)\s*return EE_CITY_BBOXES\.map/);
+    });
+
+    it('dispatches ee_etak through NATIONAL_STAMP_TABLE (the pinned chain admits no new key)', () => {
+        const table = bake.match(/const NATIONAL_STAMP_TABLE = \{([\s\S]*?)\n\};/);
+        expect(table, 'NATIONAL_STAMP_TABLE').not.toBeNull();
+        expect(table![1]).toMatch(/ee_etak:\s*\{\s*stamp:\s*stampEeEtakHeightsOnGeojsonseq,\s*bboxes:\s*EE_CITY_BBOXES\s*\}/);
+        expect(bake).toMatch(/const tableStamp = NATIONAL_STAMP_TABLE\[r\.heightJoin\];/);
+    });
+
+    it('the stamp module exports the function, imports the pure half, and stamps the measured marker', () => {
+        expect(stamp).toMatch(/^export async function stampEeEtakHeightsOnGeojsonseq\(/m);
+        expect(stamp).toMatch(/from '\.\/eeHeights\.mjs';/);
+        expect(stamp).toMatch(/heightSource: EE_ETAK\.heightSourceTag/);
+        expect(stamp).toMatch(/\[MEASURED_HEIGHT_SRC_TAG\]: MEASURED_HEIGHT_SRC_VALUE/);
+        // failure ≠ empty ≠ truncated, each counted by name
+        expect(stamp).toMatch(/tileErrors\+\+/);
+        expect(stamp).toMatch(/voidTiles\+\+/);
+        expect(stamp).toMatch(/truncated at the server's \$\{EE_ETAK\.serverCap\}-object cap/);
+    });
+
+    it('heightSources.mjs REGION_SOURCE reads WIRED for estonia and eesti3d_ee is impl live', () => {
+        expect(heightSources).toMatch(/^\s*estonia:\s*'eesti3d_ee',\s*\/\/.*WIRED 2026-09-05/m);
+        expect(heightSources).toMatch(/eesti3d_ee:\s*\{\s*\n?\s*country:\s*'ee'[^\n]*impl:\s*'live'/);
+        expect(heightSources).toMatch(/source === 'eesti3d_ee'/);
+    });
+
+    it('both CI gates refuse an Estonian bake that ships no measured heights at Tallinn', () => {
+        for (const wf of ['context-bake.yml', 'context-merge-publish.yml']) {
+            const text = readFileSync(resolve(HERE, '../../../.github/workflows', wf), 'utf8');
+            expect(text, wf).toMatch(/^\s*tallinn estonia 59\.4370,24\.7536 500$/m);
+        }
+    });
+});
