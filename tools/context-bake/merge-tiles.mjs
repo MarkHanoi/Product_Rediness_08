@@ -454,6 +454,38 @@ function bakeTables(regionCsv = null) {
   return JSON.parse(out);
 }
 
+/**
+ * §PENDING-REGION (2026-09-05, lane NZ-EVERYWHERE) — the expected-region set of a merge, PURE.
+ *
+ * `expect=all` used to be "every bake.mjs row". That made adding a row a PUBLISH-BLOCKING act: the
+ * moment `newzealand` entered ALL_REGIONS, the next expect=all publish (france+switzerland, staged
+ * hours later) would have REFUSED BY NAME because the new row had no staged bake — the gate doing its
+ * job against a region that had never been live and so could not be lost. A row may now carry
+ * `pending: true` (emitted by `bake.mjs --regions-json`): under `all` it is EXPECTED ONLY WHEN
+ * STAGED. A staged pending row merges in (so the first NZ publish needs no special expect= value);
+ * an unstaged one is listed by name as "pending, not expected" and never refuses. `staged` and an
+ * explicit csv are unchanged — naming a pending region in the csv expects it, flag or no flag.
+ *
+ * ⚠ The flag is for rows that have NEVER been live. A live region flagged pending could be dropped
+ * by a later publish without a refusal — which is why the no-loss gate (§4, the LIVE manifest) sits
+ * downstream of this and is NOT flag-aware: a region in the live manifest is protected regardless.
+ *
+ * @param {Array<{name:string, pending?:boolean}>} allRegions  bake.mjs --regions-json `allRegions`
+ * @param {string} expectArg  'all' | 'staged' | '<csv>'
+ * @param {string[]} stagedNames  the regions found in the staging manifests
+ * @returns {{ expected: string[], pendingUnstaged: string[] }}
+ */
+export function expectedRegions(allRegions, expectArg, stagedNames) {
+  const staged = new Set(stagedNames);
+  if (expectArg === 'all') {
+    const expected = allRegions.filter((r) => r.pending !== true || staged.has(r.name)).map((r) => r.name);
+    const pendingUnstaged = allRegions.filter((r) => r.pending === true && !staged.has(r.name)).map((r) => r.name);
+    return { expected, pendingUnstaged };
+  }
+  if (expectArg === 'staged') return { expected: [...staged], pendingUnstaged: [] };
+  return { expected: csv(expectArg), pendingUnstaged: [] };
+}
+
 // ── subcommand: stage-manifest ───────────────────────────────────────────────
 function cmdStageManifest() {
   const dir = opt('--dir') ?? OUT;
@@ -537,9 +569,10 @@ function cmdMerge() {
   // 3 · Expected coverage — THE gate. A publish missing an expected region REFUSES BY NAME:
   // the live sync REPLACES the tileset, so an absent region is a deleted region.
   const expectArg = opt('--expect', 'all');
-  const expected = expectArg === 'all' ? tables.allRegions.map((r) => r.name)
-    : expectArg === 'staged' ? [...regionToSet.keys()]
-      : csv(expectArg);
+  const { expected, pendingUnstaged } = expectedRegions(tables.allRegions, expectArg, [...regionToSet.keys()]);
+  if (pendingUnstaged.length > 0) {
+    console.log(`▶ §PENDING-REGION — ${pendingUnstaged.length} bake.mjs row(s) flagged pending and NOT staged: [${pendingUnstaged.join(', ')}] — not expected by this merge (stage them with context-bake.yml region=<name> stage=true, then they merge in; drop the flag once live).`);
+  }
   const missing = expected.filter((r) => !regionToSet.has(r));
   if (missing.length > 0) {
     console.error(`✖ MISSING REGION(S) — ${missing.length} expected region(s) have NO staged bake: [${missing.join(', ')}].`);

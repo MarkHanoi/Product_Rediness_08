@@ -391,6 +391,29 @@ const ALL_REGIONS = [
   { name: 'tasmania',         pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/tasmania-latest.osm.pbf',          pbf: resolve(OUT, 'au-tasmania-latest.osm.pbf'),          bbox: '143.80,-43.75,148.55,-39.40', clipped: resolve(OUT, 'clip-tasmania.osm.pbf') },
   { name: 'act',              pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/act-latest.osm.pbf',               pbf: resolve(OUT, 'au-act-latest.osm.pbf'),               bbox: '148.70,-35.95,149.40,-35.10', clipped: resolve(OUT, 'clip-act.osm.pbf') },
   { name: 'northernterritory', pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/northern-territory-latest.osm.pbf', pbf: resolve(OUT, 'au-northern-territory-latest.osm.pbf'), bbox: '128.90,-26.10,138.10,-10.90', clipped: resolve(OUT, 'clip-northernterritory.osm.pbf') },
+  // ─────────────────────────────────────────────────────────────────────────
+  // §BAKE-NEWZEALAND (2026-09-05, lane NZ-EVERYWHERE) — WHOLE NEW ZEALAND (national), the AU-states
+  // pattern one country east. Geofabrik's australia-oceania/new-zealand-latest.osm.pbf is one national
+  // extract; the bbox (166.0–178.7 E, 47.5–34.3 S) contains both main islands + Stewart Island and
+  // stays WEST of the antimeridian (the Chathams at ~176.5 W are outside — a `chathams` row from the
+  // same extract if a demo ever needs them). buildings = OSM. NO heightJoin, on evidence probed
+  // 2026-09-05: LINZ Data Service layer 101290 "NZ Building Outlines" (3,236,141 features, CC BY 4.0,
+  // EPSG:2193) carries NO height field — its 14 fields are enumerated in heightSources.mjs
+  // REGION_SOURCE `newzealand`. LINZ DOES publish a national LiDAR 1 m DEM (121859) + DSM (122082),
+  // so a DSM−DEM nDSM derive is the owed build — but EVERY LINZ service is API-key gated (WFS/WMTS
+  // GetCapabilities keyless → HTTP 401), so there is no keyless raster to sample and this row bakes
+  // honest OSM `assumed` defaults, the netherlands/AU precedent. Datum: NZVD2016, EGM2008 N = 34.11 m
+  // at Auckland (terrain.mjs `newzealand`, GeoidEval-probed); terrain via --dtm-source mapterhorn
+  // (z10 1009/624 over Auckland → HTTP 200 image/webp, 111,632 B, probed 2026-09-05).
+  // ⚠ `pending: true` — §PENDING-REGION. This row is NOT yet staged, and `expect=all` in
+  // merge-tiles.mjs derives the expected set from THIS table: without the flag, the next
+  // expect=all publish (france+switzerland, hours away) would REFUSE BY NAME because newzealand has
+  // no staged bake. A pending row is EXPECTED ONLY WHEN STAGED (merge-tiles.mjs `expectedRegions`):
+  // bake it with region=newzealand stage=true, and the following expect=all merges it in; until
+  // then it is listed as "pending, not expected" on every merge. Remove the flag once the region is
+  // live — a flag left on a live region would let a later publish DROP it silently, the exact loss
+  // the gate exists to refuse (newzealandContext.spec.ts pins the flag's presence AND its semantics).
+  { name: 'newzealand',       pbfUrl: 'https://download.geofabrik.de/australia-oceania/new-zealand-latest.osm.pbf',                  pbf: resolve(OUT, 'new-zealand-latest.osm.pbf'),         bbox: '166.0,-47.5,178.7,-34.3',     clipped: resolve(OUT, 'clip-newzealand.osm.pbf'), pending: true },
   // Saudi — Geofabrik bundles it in the GCC-states extract (no standalone SA file). OSM/Geofabrik
   // is global + free, so context tiles bake fine here even though the LIVE gov parcel data is
   // geo-fenced (that gate is unrelated to OSM footprints).
@@ -1008,7 +1031,9 @@ async function main() {
   if (REGIONS_JSON) {
     process.stdout.write(JSON.stringify({
       schema: 'pryzm-context-bake-regions@1',
-      allRegions: ALL_REGIONS.map((r) => ({ name: r.name, bbox: r.bbox, heightJoin: r.heightJoin ?? null })),
+      // §PENDING-REGION — `pending` rides out so merge-tiles.mjs can keep an unstaged new row OUT of
+      // the expect=all set (see the `newzealand` row). Always a boolean: absent ⇒ false.
+      allRegions: ALL_REGIONS.map((r) => ({ name: r.name, bbox: r.bbox, heightJoin: r.heightJoin ?? null, pending: r.pending === true })),
       regions: REGIONS.map((r) => r.name),          // this invocation's scope (--region applied)
       allLayers: LAYERS.map((l) => l.id),
       layers: layers.map((l) => l.id),              // this invocation's scope (--layer applied)
