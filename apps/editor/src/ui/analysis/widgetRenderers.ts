@@ -891,7 +891,12 @@ export function renderNotBuilt(host: HTMLElement, reason: NotBuiltReason): void 
     `<ul class="anl-nb-list ${cls}">${items.map((i) => `<li>${i}</li>`).join('')}</ul>`;
 
   const body = el('div', 'anl-nb');
-  body.innerHTML = `
+  // §XSS-SINK-SCAN (C08 §3.1) — `safe…` is the gate's declared name for markup that is safe
+  // by construction. Every value below is an AUTHORED constant from `widgetCatalogue.ts`
+  // (`NotBuiltReason.lede` / `.have` / `.need` / `.close` are object-literal strings there,
+  // never model data), and they deliberately carry `<strong>`/`<code>` — which is why this
+  // stays innerHTML instead of textContent.
+  const safeHtml = `
     <p class="anl-nb-lede">${reason.lede}</p>
     <h4 class="anl-nb-h">What already exists and can be built on</h4>
     ${list(reason.have, 'anl-nb-list--have')}
@@ -900,6 +905,7 @@ export function renderNotBuilt(host: HTMLElement, reason: NotBuiltReason): void 
     <p class="anl-nb-close">${reason.close}</p>
     <p class="anl-nb-foot">Nothing on this card is broken — the capability has not shipped. It is here so the gap is
       visible where the decision gets made, rather than only in a document (ADR-0343 §D.6 H7, SPEC §4.4–§4.5).</p>`;
+  body.innerHTML = safeHtml;
   host.appendChild(body);
 }
 

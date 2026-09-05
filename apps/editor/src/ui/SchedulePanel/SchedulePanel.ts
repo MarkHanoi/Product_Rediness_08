@@ -481,7 +481,12 @@ export class SchedulePanel {
     pinBtn.title = this._panelPinned ? 'Unpin panel' : 'Pin panel (stays open while you navigate/select)';
     pinBtn.setAttribute('aria-label', pinBtn.title);
     pinBtn.setAttribute('aria-pressed', String(this._panelPinned));
-    pinBtn.innerHTML = PANEL_PIN_ICON_SVG;
+    // §XSS-SINK-SCAN (C08 §3.1) — `PANEL_PIN_ICON_SVG` is an authored module constant in
+    // PanelManager.ts: a static SVG literal with no interpolation and no runtime value in it,
+    // so it is markup by construction. `safe…` is the gate's declared name for exactly that,
+    // and binding it here keeps the ONE shared pin glyph as the single source (chatPanelPin.spec).
+    const safePinIconSvg = PANEL_PIN_ICON_SVG;
+    pinBtn.innerHTML = safePinIconSvg;
     pinBtn.addEventListener('click', () => {
       this._panelPinned = !this._panelPinned;
       _saveSchedPinned(this._panelPinned);

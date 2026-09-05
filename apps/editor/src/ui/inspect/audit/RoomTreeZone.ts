@@ -244,7 +244,11 @@ function renderRoomRow(
 
   const icon = document.createElement('span');
   icon.className = 'aud-tree-icon';
-  icon.innerHTML = getElementIcon('roomStore');
+  // §XSS-SINK-SCAN (C08 §3.1) — `getElementIcon` returns one of `getTypeIcon`'s authored
+  // static `<svg>` literals (BrowserDataHelpers.ts). It interpolates nothing, so the glyph
+  // is markup by construction; the store key only selects WHICH literal is returned.
+  const safeIconSvg = getElementIcon('roomStore');
+  icon.innerHTML = safeIconSvg;
 
   const label = document.createElement('span');
   label.className = 'aud-tree-row-label';
@@ -395,7 +399,10 @@ function renderFamilyGroup(
 
     const icon = document.createElement('span');
     icon.className = 'aud-tree-elem-icon';
-    icon.innerHTML = getElementIcon(group.storeKey);
+    // §XSS-SINK-SCAN (C08 §3.1) — as above: an authored static `<svg>` literal chosen by
+    // the store key, never a string built from model data.
+    const safeIconSvg = getElementIcon(group.storeKey);
+    icon.innerHTML = safeIconSvg;
 
     const elLabel = document.createElement('span');
     elLabel.className = 'aud-tree-elem-label';

@@ -477,11 +477,21 @@ export function mountToolsArea(
         // interfere with scene clicks).
         const overlay = document.createElement('div');
         overlay.className = 'bsp-overlay';
-        overlay.innerHTML = `
-            <span class="bsp-icon">&#9699;</span>
-            <span class="bsp-msg">${message}</span>
-            <span class="bsp-esc">ESC to cancel</span>
-        `;
+        // C08 §3.1 (§XSS-SINK-SCAN) — BUILT, not templated. `message` is a caller-supplied
+        // string, so it goes in as `textContent`; the three spans are created here rather
+        // than parsed from markup, which is the same rule the progress update below already
+        // followed. `.bsp-overlay` is `display:flex`, so the whitespace text nodes the old
+        // template carried between the spans were never rendered — the DOM is unchanged.
+        const _bspIcon = document.createElement('span');
+        _bspIcon.className = 'bsp-icon';
+        _bspIcon.textContent = '◣';           // &#9699; BLACK LOWER LEFT TRIANGLE
+        const _bspMsg = document.createElement('span');
+        _bspMsg.className = 'bsp-msg';
+        _bspMsg.textContent = message;
+        const _bspEsc = document.createElement('span');
+        _bspEsc.className = 'bsp-esc';
+        _bspEsc.textContent = 'ESC to cancel';
+        overlay.append(_bspIcon, _bspMsg, _bspEsc);
         document.body.appendChild(overlay);
 
         let _done = false;

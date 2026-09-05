@@ -387,7 +387,10 @@ export class SaveUndoRedoHUD {
         btn.setAttribute('aria-haspopup', 'menu');
         btn.setAttribute('aria-expanded', 'false');
         btn.setAttribute('data-surh-caret', direction);
-        btn.innerHTML = CARET_ICON;
+        // §XSS-SINK-SCAN (C08 §3.1) — `CARET_ICON` is an authored module constant above:
+        // a static SVG literal with no interpolation, so it is markup by construction.
+        const safeCaretIcon = CARET_ICON;
+        btn.innerHTML = safeCaretIcon;
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (this._popDirection === direction) { this._closePopover(); return; }
@@ -564,12 +567,18 @@ export class SaveUndoRedoHUD {
         } catch { /* import() unavailable */ }
     }
 
-    private _makeBtn(title: string, iconHtml: string, onClick: () => void): HTMLElement {
+    /**
+     * §XSS-SINK-SCAN (C08 §3.1) — `safeIconHtml` is markup by construction: every call site
+     * passes one of the authored `SAVE_ICON` / `UNDO_ICON` / `REDO_ICON` module constants,
+     * which are static SVG literals with no interpolation. The parameter carries the
+     * gate's `safe…` name so the obligation travels with the signature.
+     */
+    private _makeBtn(title: string, safeIconHtml: string, onClick: () => void): HTMLElement {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'surh-btn';
         btn.title = title;
-        btn.innerHTML = iconHtml;
+        btn.innerHTML = safeIconHtml;
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             onClick();

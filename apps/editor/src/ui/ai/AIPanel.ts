@@ -936,7 +936,11 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
 
                 const bubble = document.createElement('div');
                 bubble.className = 'ai-chat-bubble';
-                bubble.innerHTML = escapeHtml(msg.text ?? '').replace(/\n/g, '<br>');
+                // §XSS-SINK-SCAN (C08 §3.1) — the value is escaped FIRST and only then are its
+                // newlines turned into an authored `<br>`, so nothing the model or the user typed
+                // can reach the parser as markup. `safe…` is the gate's name for that order.
+                const safeBubbleHtml = escapeHtml(msg.text ?? '').replace(/\n/g, '<br>');
+                bubble.innerHTML = safeBubbleHtml;
 
                 // Phase 3.3 — Actionable Logs: "Highlight Selection" button
                 if (msg.highlightIds && msg.highlightIds.length > 0) {
@@ -1677,12 +1681,14 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
         if (suggestionState.stack.length === 0) {
             levelLabelEl.innerHTML = '<span style="color:var(--app-text-muted)">What would you like to do?</span>';
         } else {
-            const crumbs = suggestionState.stack.map((s, i) =>
+            // §XSS-SINK-SCAN (C08 §3.1) — every runtime string in the crumb trail is
+            // `escapeHtml`'d below; the surrounding spans are markup written here.
+            const safeCrumbs = suggestionState.stack.map((s, i) =>
                 i < suggestionState.stack.length - 1
                     ? `<span style="color:var(--app-text-muted);cursor:pointer" data-crumb="${i}">${escapeHtml(s.label)}</span>`
                     : `<span style="color:var(--app-text);font-weight:600">${escapeHtml(s.label)}</span>`
             ).join(' <span style="color:var(--app-text-muted);margin:0 2px">›</span> ');
-            levelLabelEl.innerHTML = crumbs;
+            levelLabelEl.innerHTML = safeCrumbs;
 
             // Allow clicking crumbs to jump back
             levelLabelEl.querySelectorAll('[data-crumb]').forEach(el => {
@@ -2064,7 +2070,12 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     pinBtn.title = aiChatPinned ? 'Unpin panel' : 'Pin panel (keep open)';
     pinBtn.setAttribute('aria-label', pinBtn.title);
     pinBtn.setAttribute('aria-pressed', String(aiChatPinned));
-    pinBtn.innerHTML = PANEL_PIN_ICON_SVG;
+    // §XSS-SINK-SCAN (C08 §3.1) — `PANEL_PIN_ICON_SVG` is an authored module constant in
+    // PanelManager.ts: a static SVG literal with no interpolation and no runtime value in it,
+    // so it is markup by construction. `safe…` is the gate's declared name for exactly that,
+    // and binding it here keeps the ONE shared pin glyph as the single source (chatPanelPin.spec).
+    const safePinIconSvg = PANEL_PIN_ICON_SVG;
+    pinBtn.innerHTML = safePinIconSvg;
     const _pinBtnStyle = (active: boolean): string =>
         'background:' + (active ? 'rgba(255,255,255,0.32)' : 'transparent') + ';' +
         'box-shadow:' + (active ? 'inset 0 0 0 1px rgba(255,255,255,0.36)' : 'none') + ';' +

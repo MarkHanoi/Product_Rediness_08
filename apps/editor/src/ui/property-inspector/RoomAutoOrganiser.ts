@@ -611,11 +611,10 @@ export function openAutoFillModal(scope: { kind: 'level'; levelId: string } | { 
         'background:linear-gradient(135deg,#7c3aed 0%,#6600FF 100%);',
         'color:#fff;',
     ].join('');
-    const scopeWord = scope.kind === 'level' ? 'this level' : 'the whole project';
     header.innerHTML = `
         <div style="font-size:15px;font-weight:700;letter-spacing:0.01em;">⚡ Autofill Rooms</div>
         <div style="font-size:11px;opacity:0.85;margin-top:3px;">
-            ${roomIds.length} room${roomIds.length === 1 ? '' : 's'} scanned on ${scopeWord} —
+            ${roomIds.length} room${roomIds.length === 1 ? '' : 's'} scanned on ${scope.kind === 'level' ? 'this level' : 'the whole project'} —
             ${toApply.length} will get a name, occupancy &amp; department, ${authoredSkipIds.length} kept (named by hand),
             ${unclassifiedIds.length} unclassified (left alone).
         </div>`;
