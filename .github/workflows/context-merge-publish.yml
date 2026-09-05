@@ -293,6 +293,9 @@ jobs:
           amsterdam netherlands 52.3730,4.8924 500
           melbourne victoria -37.8136,144.9631 500
           oslo norway 59.9139,10.7522 500
+          manhattan newyork 40.7580,-73.9855 500
+          sanfrancisco sanfrancisco 37.7900,-122.4000 500
+          boston boston 42.3510,-71.0750 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights in the MERGED tileset. NOT publishing."
