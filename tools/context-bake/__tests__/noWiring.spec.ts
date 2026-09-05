@@ -81,7 +81,9 @@ describe('§NDH-NO-OSM-JOIN — bake.mjs wires the ndh_no stamp for the `norway`
 
     it('heightSources.mjs REGION_SOURCE `norway` reads WIRED and the source is impl:live + keyless', () => {
         expect(heightSources).toMatch(/^\s*norway:\s*'ndh_no',\s*\/\/.*WIRED 2026-09-05/m);
-        const src = heightSources.match(/\n  ndh_no: \{([\s\S]*?)\n  \},/);
+        // `{2}` not two literal spaces: eslint `no-regex-spaces` is an ERROR and the lint CI job
+        // is hard-fail. Identical match, counted rather than eyeballed (lane CI-GREEN, 2026-09-05).
+        const src = heightSources.match(/\n {2}ndh_no: \{([\s\S]*?)\n {2}\},/);
         expect(src, 'SOURCES.ndh_no').not.toBeNull();
         expect(src![1]).toMatch(/impl: 'live'/);
         expect(src![1]).toMatch(/keyless: true/);

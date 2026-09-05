@@ -139,7 +139,10 @@ export function parseBevDatasetFeed(xml) {
  * is the window's OWN georeference, so the shared sampler reads it like any other raster.
  */
 export function laeaWindow(bboxNative, [minX, minY, maxX, maxY], { width, height, resM = BEV_ALS.resM } = {}) {
-  const [rx0, ry0, rx1, ry1] = bboxNative;
+  // §LINT-UNUSED (lane CI-GREEN) — only the LEFT and TOP edges are read (x grows east, y grows
+  // north, so the window is measured from rx0 and ry1). The other two are named with a leading
+  // underscore rather than elided, so the destructuring still documents the bbox's own order.
+  const [rx0, _ry0, _rx1, ry1] = bboxNative;
   const x0 = Math.max(0, Math.floor((minX - rx0) / resM)), x1 = Math.min(width, Math.ceil((maxX - rx0) / resM));
   const y0 = Math.max(0, Math.floor((ry1 - maxY) / resM)), y1 = Math.min(height, Math.ceil((ry1 - minY) / resM));
   if (x1 <= x0 || y1 <= y0) return null;
