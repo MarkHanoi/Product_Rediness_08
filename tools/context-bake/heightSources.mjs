@@ -39,6 +39,28 @@
 //   node heightSources.mjs --resolve paris   # fetch one region's heights → out/<region>-buildings-national.geojsonseq
 // ─────────────────────────────────────────────────────────────────────────────
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+
+// §SEQ-WRITE-STREAMED (L-12937, 2026-09-05) — France's mnh_fr join died 4 h in with `RangeError: Invalid
+// string length`: the stamped set (every OSM footprint in 144.6 deg², ~20 M features) was serialised as
+// ONE string — `feats.map(JSON.stringify).join('\n')` — and V8 caps a string at ~512 MiB. The join then
+// reported "0 measured heights" and the gate refused, which read as a data problem. It was a writer
+// problem. Every whole-set write now goes through this chunked writer: features are serialised in
+// bounded chunks (≤ 8 MiB of text) and appended, so the largest string ever built is one chunk.
+// Exported for its spec; the per-batch `records.map(...).join` writes elsewhere in this file are
+// already bounded by their batch size and are left alone.
+export const SEQ_WRITE_CHUNK_CHARS = 8 * 1024 * 1024;
+export function writeFeaturesSeq(path, feats) {
+  writeFileSync(path, '');
+  let buf = '';
+  let n = 0;
+  for (const f of feats) {
+    buf += JSON.stringify(f) + '\n';
+    n++;
+    if (buf.length >= SEQ_WRITE_CHUNK_CHARS) { appendFileSync(path, buf); buf = ''; }
+  }
+  if (buf.length) appendFileSync(path, buf);
+  return n;
+}
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -3032,7 +3054,7 @@ export async function stampLod2NrwHeightsOnGeojsonseq(inPath, outPath, bbox, {
   }
 
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, feats.map((f) => JSON.stringify(f)).join('\n') + '\n');
+  writeFeaturesSeq(outPath, feats);                      // §SEQ-WRITE-STREAMED — never one giant string
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   // §CONTEXT-DATA-HONESTY value 2 — every candidate Kachel was absent from the NRW index and nothing was
@@ -3199,7 +3221,7 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
   }
   mkdirSync(outDir, { recursive: true });
   const path = resolve(outDir, `${region}-buildings-national.geojsonseq`);
-  writeFileSync(path, writeable.map((f) => JSON.stringify(f)).join('\n') + '\n');
+  writeFeaturesSeq(path, writeable);                     // §SEQ-WRITE-STREAMED — never one giant string
   // §PHASE1-DEDUP — `mode` tells bake.mjs whether to REPLACE the OSM clip (full national source) or
   // APPEND (partial top-up). A TRUNCATED full-source fetch is downgraded to append: replacing the OSM
   // clip with a partial national set would DELETE the real buildings we didn't fetch — worse than a
