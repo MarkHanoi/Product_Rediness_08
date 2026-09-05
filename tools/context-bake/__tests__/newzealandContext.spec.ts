@@ -106,6 +106,10 @@ describe('§PENDING-REGION — `bake.mjs --regions-json` emits the flag, and ONL
     });
 });
 
+// Every case here spawns TWO node children per `expectedFor` (the ESM shim, and bake.mjs inside it),
+// so vitest's 10 s DEFAULT testTimeout is load-fragile — under full fleet load the csv case timed out
+// at 10 000 ms while doing nothing wrong. Each carries an explicit 60 s. (c7d1ebe6 recorded the same
+// fragility in mergeTiles.spec.ts's hooks; this is that, fixed here rather than described again.)
 describe('§PENDING-REGION — merge-tiles.mjs expectedRegions (the REAL function on the REAL table)', () => {
     const tables = regionsJson();
     const everyone = tables.allRegions.map((r) => r.name);
@@ -116,25 +120,25 @@ describe('§PENDING-REGION — merge-tiles.mjs expectedRegions (the REAL functio
         expect(r.expected).toEqual(live);
         expect(r.expected).not.toContain('newzealand');
         expect(r.pendingUnstaged).toEqual(['newzealand']);
-    });
+    }, 60_000);
 
     it('expect=all with NOTHING staged still leaves newzealand out — the missing set is exactly the live rows, never the pending one', () => {
         const r = expectedFor('all', []);
         expect(r.expected).toEqual(live);
         expect(r.pendingUnstaged).toEqual(['newzealand']);
-    });
+    }, 60_000);
 
     it('expect=all with newzealand STAGED expects it (the first NZ publish needs no special expect= value)', () => {
         const r = expectedFor('all', everyone);
         expect(r.expected).toEqual(everyone);
         expect(r.expected).toContain('newzealand');
         expect(r.pendingUnstaged).toEqual([]);
-    });
+    }, 60_000);
 
     it('expect=staged and an explicit csv are unchanged by the flag — naming newzealand expects it', () => {
         expect(expectedFor('staged', ['newzealand', 'france'])).toEqual({ expected: ['newzealand', 'france'], pendingUnstaged: [] });
         expect(expectedFor('newzealand,france', [])).toEqual({ expected: ['newzealand', 'france'], pendingUnstaged: [] });
-    });
+    }, 60_000);
 
     it('the merge command logs the pending set by NAME (an unexplained absence would be the next silent loss)', () => {
         const merge = readFileSync(MERGE, 'utf8');
@@ -214,5 +218,29 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
         expect(r.stdout).toContain(`${everyone.length} region(s) in the bytes (${everyone.length} expected)`);
         const manifest = JSON.parse(readFileSync(join(out, 'tileset-manifest.json'), 'utf8')) as { regions: Record<string, unknown> };
         expect(Object.keys(manifest.regions).sort()).toEqual([...everyone].sort());
+    }, 120_000);
+
+    // ⭐ THE FAIL-SAFE, and the reason the flag is not a foot-gun. c7d1ebe6 states that the no-loss
+    // gate is deliberately NOT flag-aware: once NZ is LIVE, forgetting to drop `pending: true` must
+    // REFUSE, not silently delete it. That is an assertion about a SECOND, independent gate (step 4,
+    // against the live tileset-manifest.json) and nothing exercised it. Here the manifest written by
+    // the 50-region merge above is fed back in as the LIVE one, newzealand is left unstaged, and the
+    // flag is still set — the run must die naming newzealand.
+    it('a pending row that is ALREADY LIVE is still protected: unstaged ⇒ REGION LOSS, never a silent delete', () => {
+        const liveManifest = join(DIR, 'staged', 'merged', 'tileset-manifest.json');
+        const liveJson = JSON.parse(readFileSync(liveManifest, 'utf8')) as { regions: Record<string, unknown> };
+        expect(liveJson.regions).toHaveProperty('newzealand');
+        const staging = join(DIR, 'relapse', 'staging');
+        stageSet(staging, 'everything-live', live, LIVE_TILES);
+        const r = spawnSync(NODE, [MERGE, 'merge', '--staging', staging, '--out', join(DIR, 'relapse', 'merged'),
+            '--expect', 'all', '--layer', 'buildings', '--engine', 'js', '--live-manifest', liveManifest],
+            { encoding: 'utf8', timeout: 120_000 });
+        expect(r.status).toBe(1);
+        // HEAD prints "the LIVE tileset contains [newzealand]"; lane SEA-BAKE's in-flight rewrite prints
+        // "the LIVE tileset's 'buildings' layer contains [newzealand]". The CONTRACT is exit 1 + REGION
+        // LOSS + the row named — not either lane's sentence.
+        expect(r.stderr ?? '').toMatch(/REGION LOSS[^\n]*\[newzealand\]/);
+        // …and the pending line still explains why it was not expected, so the operator sees BOTH halves.
+        expect(r.stdout ?? '').toContain('[newzealand] — not expected by this merge');
     }, 120_000);
 });

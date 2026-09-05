@@ -144,6 +144,117 @@ blocked jurisdiction, with an accepted keyless global fallback (Copernicus GLO-3
 
 ---
 
+<!-- BEGIN §FOOTPRINT-REGISTERS (lane FOOTPRINT-REGISTER-SURVEY, L-12941, 2026-09-05) -->
+
+## 6 — §FOOTPRINT-REGISTERS — the THIRD axis this doc did not carry
+
+> **Added 2026-09-05 by lane FOOTPRINT-REGISTER-SURVEY (ISSUE-LOG L-12941).** Founder, 2026-09-05
+> close: *"official footprints by floor (Catastro/BD TOPO) … this probably is the case also in
+> France etc — I want this level of detail"* — everywhere.
+
+This document's §1 table has two axes — **terrain** and **building height**. It has never had a
+third: **the building OUTLINE itself**. That axis has its own file,
+[`OFFICIAL-FOOTPRINT-SOURCES.md`](OFFICIAL-FOOTPRINT-SOURCES.md), which surveys **all 50 rows of
+`tools/context-bake/bake.mjs` `ALL_REGIONS`** with verdicts ADOPT / KEY-GATED / OSM-STAYS / NONE,
+36 live probes, and a ranked build order. **This section is the pointer plus the three findings
+that CORRECT rows in §1 above.** When the two disagree on a footprint fact, the footprint file
+wins; on terrain and height, this file still wins.
+
+**The one-line state of play:** every bake region except the four Gulf rows draws its footprints
+from **OSM**; every `heightJoin` in `bake.mjs` is a **stamp onto OSM geometry**, never a footprint
+source. Where the state publishes a better outline, we are not using it.
+
+**Build order (proposal — the gain column is an unmeasured prior; see that file §6):**
+**🇫🇷 France BD TOPO → 🇪🇸 Spain Catastro → 🇳🇿 NZ LINZ → 🇵🇱 Poland BDOT10k.**
+
+### 6.1 — ⛔ Correction to §1: Finland's building footprints are NOT keyless
+
+§1's Finland row states the national footprints come from
+`inspire-wfs.maanmittauslaitos.fi/inspire-wfs/bu_mtk_polygon` as *"ANONYMOUS/keyless"*, **OK —
+VERIFIED live 2026-07-25**, and §2 row 2 repeats *"national building footprints via INSPIRE WFS are
+ANONYMOUS (no key at all)"*. **Re-probed 2026-09-05:**
+
+```
+GET .../inspire-wfs/bu_mtk_polygon/wfs?service=WFS&version=2.0.0&request=GetCapabilities
+  → HTTP 404 · 472 B · application/xml
+    <ows:Exception exceptionCode="NotFound"><ows:ExceptionText>
+      No service with identifier 'bu_mtk_polygon/wfs' available.</ows:ExceptionText>
+GET .../inspire-wfs/bu/wfs?…            → curl (56) Recv failure: Connection was reset
+GET .../inspire-wfs/                    → curl (56) Recv failure: Connection was reset
+GET https://avoin-paikkatieto.maanmittauslaitos.fi/maastotiedot/features/v1/collections?f=json
+                                        → HTTP 401 · 0 B
+```
+
+The host is alive and naming the identifier it does **not** have. It also refuses a bare service
+listing, so the current identifier could not be discovered from here. **Finland's footprints are
+today neither keyless nor locatable** — the claim above is stale in the *optimistic* direction,
+which is the dangerous one. The current identifier is an **open question** (footprint file §8 Q3).
+
+### 6.2 — ⚠ Correction to §1/§4: Denmark has a SECOND wall, and it is not the key
+
+§1's Denmark row and §4's reconciliation both frame DK as *"blocked only on a repo-admin action"* —
+add `DATAFORDELER_API_KEY` as a repository secret. `heightSources.mjs` `geodanmark` records
+`wfs.datafordeler.dk → HTTP 401 without a key`. **Probed 2026-09-05:**
+
+```
+GET https://services.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_NOHIST_GML3/1.0.0/WFS?…
+  → HTTP 503 · 74 B · text/plain
+    "This service has been deliberately (and temporarily) taken out of service."
+GET https://services.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_GML3/1.0.0/WFS?…  → HTTP 404 · 0 B
+GET https://services.datafordeler.dk/BBR/BBRPublic/1/rest/bygning?format=json&id=1
+  → HTTP 403 · 25 B · "(403) Unauthorized access"
+GET https://api.dataforsyningen.dk/geodanmark_ows?service=WFS&request=GetCapabilities
+  → HTTP 404 · 604 B (Dataforsyningen API Gateway index — that route does not exist)
+```
+
+**A deliberate withdrawal is not an auth failure.** Which host the key actually targets is now an
+open question — do not report "DK just needs the repo secret" until that probe is re-run against
+the host in question. The BBR public REST is a plain credential wall (403).
+
+### 6.3 — ⭐ Addition to §3: Norway's FKB restriction, verbatim — and it is unbuyable
+
+§3 says *"do NOT license FKB"* without stating why. From Geonorge's own metadata
+(`kartkatalog.geonorge.no/api/getdata/8b4304ea-4fb0-479c-a24d-fa225e2c6e97`, HTTP 200, probed
+2026-09-05):
+
+```
+AccessConstraints       "Norge digitalt begrenset"
+UseLimitations          "Nedlasting av data begrenset til Norge digitalt avtaleparter."
+OtherConstraintsAccess  …/LimitationsOnPublicAccess/INSPIRE_Directive_Article13_1d
+```
+
+It is a **membership** gate (Norge digitalt agreement party), not a purchasable licence — so **no
+budget unblocks it**, which is a materially stronger statement than "do not license it". The open
+Norwegian alternative, **N50 Kartdata**, is `AccessConstraints "Åpne data"` / **CC BY 4.0** /
+`noLimitations` (probed) but is a **1:50 000 generalised** product — coarser than OSM in any
+Norwegian town, so it is not a footprint register. **Norway: derive heights as §3 already says;
+OSM keeps the outlines.**
+
+### 6.4 — ⭐ Addition to §5: the two derivation families have a footprint sibling
+
+§5 splits height sourcing into *ready-made product* vs *DSM−DTM derive*. The footprint axis has its
+own split, and it is the one the founder's ask turns on:
+
+1. **Register with a MASSING STACK** — Spain's Catastro `buildingpart.gml` is footprints **by
+   floor**: 1,782 BuildingParts over 704 Buildings in one small town, **1,782/1,782 with
+   `numberOfFloorsAboveGround` populated** (measured). France's BD TOPO carries `hauteur` **in
+   metres** plus `nombre_d_etages`, `altitude_minimale_sol/toit` and — uniquely —
+   `methode_d_acquisition_altimetrique` + `precision_altimetrique`, i.e. **the register hands us
+   the provenance C58 §1.4 demands** instead of making us assert it. These are the two rows that
+   justify a footprint adapter on the *vertical* axis alone.
+2. **Register with FOOTPRINTS ONLY** — NZ LINZ (3,236,141 polygons, CC BY 4.0, 14 fields, **zero**
+   vertical), NL BAG `pand`, CZ ČÚZK (`heightAboveGround` NIL), Vicmap `building_polygon` (14
+   fields, zero vertical), DK GeoDanmark. These are **coverage** wins, never height wins — the
+   height still comes from this document's §1 table.
+
+⚠ **Tripwire, measured:** Catastro's `numberOfFloorsAboveGround` exists at **both** the `Building`
+and `BuildingPart` level, and at the `Building` level it is `nilReason="other:unpopulated"` — 704
+of 704 in the probed municipality. An adapter reading the Building level gets nothing, silently.
+
+<!-- END §FOOTPRINT-REGISTERS -->
+
+---
+
 *Created 2026-07-25 (founder-verified sourcing). Maintainer: UNASSIGNED. This doc is the sourcing
 authority; pipeline status lives in the two coverage docs, decisions in ADR-0277, and the aspirational
 architecture in the terrain North Star. Amend this file in place — do not fork a `*-AUDIT.md` derivative

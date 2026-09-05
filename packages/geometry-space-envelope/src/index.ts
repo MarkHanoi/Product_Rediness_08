@@ -88,6 +88,20 @@ export {
 } from './SpaceEnvelopeFaceDrag.js';
 
 export {
+    SPACE_ENVELOPE_COINCIDENT_M,
+    findSharedFaces,
+    levelOrphanRefusal,
+    planSpaceEnvelopeFaceMoveInContext,
+    roomContainmentRefusal,
+    type SpaceEnvelopeContextEntry,
+    type SpaceEnvelopeContextPlan,
+    type SpaceEnvelopeContextRequest,
+    type SpaceEnvelopeNeighbourUndetermined,
+    type SpaceEnvelopeNeighbourUndeterminedReason,
+    type SpaceEnvelopeSharedFace,
+} from './SpaceEnvelopeContext.js';
+
+export {
     adjacency,
     assessSpaceEnvelopeContainment,
     boundaryDistance,

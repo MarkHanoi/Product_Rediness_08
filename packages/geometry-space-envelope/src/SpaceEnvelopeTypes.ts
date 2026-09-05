@@ -53,6 +53,15 @@ export const SPACE_ENVELOPE_REFUSAL_CODES = [
     'footprint-too-few-vertices',
     'footprint-not-on-level-plane',
     'role-not-authorable',
+    // §RESI-STAGE-G (2026-09-05) — the CONTAINMENT pair. STR-RESIDENTIAL-DESIGN-ORCHESTRATOR
+    // §12: *"editing a ROOM envelope → it stays constrained within the level envelope"*.
+    // Both are INCUMBENT, never IMPOSSIBLE: the level's bound is the incumbent for a room,
+    // and the room is the incumbent for a level — grow (or move) the incumbent and the same
+    // request becomes legal. ⚠ This SUPERSEDES the advisory row of C114 §12 for the
+    // room ⊂ level relation ONLY; the level-vs-permitted-study row stays ADVISORY (it is a
+    // study, not a permit — C58/C74/C75). Recorded in C114 §14.
+    'room-leaves-level',
+    'level-orphans-room',
 ] as const;
 
 export type SpaceEnvelopeRefusalCode = (typeof SPACE_ENVELOPE_REFUSAL_CODES)[number];
@@ -101,6 +110,13 @@ export const SPACE_ENVELOPE_REFUSAL_SENTENCE: Record<SpaceEnvelopeRefusalCode, s
         + 'an envelope lives in baseOffset and height, and there is no second place for it to hide.',
     'role-not-authorable':
         'The maximum buildable volume is SOLVED from the zoning rules, not drawn.',
+    'room-leaves-level':
+        'That would put the room envelope outside the level envelope it is declared within. '
+        + 'A room stays constrained inside its level (STR §12); grow the level envelope first, '
+        + 'or clear the room’s membership, and the same edit becomes legal.',
+    'level-orphans-room':
+        'That would leave a room envelope declared within this level sticking out of it. '
+        + 'Move or shrink the room first, or clear its membership, and the same edit becomes legal.',
 };
 
 /** A refusal, carrying its ground, its sentence and — always — its measured numbers. */

@@ -140,6 +140,10 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
             // from a footprint the store no longer holds and commit a delta measured
             // against it.
             getRecord: (id: string) => deps.store.getState().get(id) as DraggableSpaceEnvelope | undefined,
+            // §RESI-STAGE-G — the WHOLE store, per pointer move, so the preview is judged
+            // by the contextual planner (containment + the neighbour that shares the face)
+            // exactly as the commit will be. Lazy for the same reason `getRecord` is.
+            getWorld: () => [...deps.store.getState().values()] as DraggableSpaceEnvelope[],
             dispatch: deps.dispatchFaceMove,
             ...(deps.onRefusal ? { onRefusal: deps.onRefusal } : {}),
         });

@@ -2,9 +2,11 @@
 // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §6 / §8 / §12 · ADR-0380 D4.
 //
 // Grouped in ONE file because they share the same store, the same record shape and the
-// same metric-recompute rule — and because six near-identical files would make the one
-// asymmetry that matters (only `moveFace` can REFUSE on geometry) harder to see, not
-// easier. Each class is still its own handler with its own verb.
+// same metric-recompute rule. Each class is still its own handler with its own verb.
+//
+// §RESI-STAGE-G (2026-09-05) — every GEOMETRY verb here can now refuse on containment
+// (room ⊂ level, STR §12) through ONE gate, `containmentGate.ts`; `moveFace` additionally
+// carries the neighbour whose shared face moves with it (STR §11) in the same patch pair.
 
 import {
     withHandlerSpan,
@@ -16,12 +18,15 @@ import {
 } from '@pryzm/plugin-sdk';
 import { SpaceEnvelope } from '@pryzm/plugin-sdk';
 import {
-    planSpaceEnvelopeFaceMove,
+    planSpaceEnvelopeFaceMoveInContext,
     recomputeSpaceEnvelopeMetrics,
+    type SpaceEnvelopeContextPlan,
     type SpaceEnvelopeFaceRef,
+    type SpaceEnvelopeRefusal,
 } from '@pryzm/geometry-space-envelope';
 import type { SpaceEnvelopeData, SpaceEnvelopesState } from '../store.js';
 import { SpaceEnvelopeGeometryError } from '../errors.js';
+import { containmentRefusalFor, contextEntryOf, contextWorldOf } from './containmentGate.js';
 
 type Stores = Readonly<{ spaceEnvelope: SpaceEnvelopesState } & Record<string, unknown>>;
 
@@ -113,29 +118,43 @@ implements CommandHandler<MoveSpaceEnvelopePayload, Stores> {
     readonly affectedStores = ['spaceEnvelope'] as const;
 
     canExecute(ctx: HandlerContext<Stores>, cmd: MoveSpaceEnvelopePayload): ValidationResult {
-        if (!ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]) {
+        const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId];
+        if (!current) {
             return { valid: false, reason: `no such space envelope: ${cmd.spaceEnvelopeId}` };
         }
         if (!Number.isFinite(cmd.delta?.x) || !Number.isFinite(cmd.delta?.z)) {
             return { valid: false, reason: 'delta.x and delta.z must be finite numbers' };
         }
+        // §RESI-STAGE-G — the SAME candidate `execute` writes, judged against the world.
+        // A room may not be translated out of its level, and a level may not be
+        // translated off its rooms (STR §12). Refused with both numbers, never clamped.
+        const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, this._moved(current, cmd));
+        if (refusal) return { valid: false, reason: refusal };
         return { valid: true };
+    }
+
+    /**
+     * The record after the translation. ⚠ The vertical component goes to `baseOffset`,
+     * NOT into the ring. The ring lives on the level plane (`y === 0`, schema-enforced),
+     * and the vertical extent has exactly one home. Adding dy to the vertices would be
+     * the silent-narrowing landmine C84 EI-2.d names.
+     */
+    private _moved(current: SpaceEnvelopeData, cmd: MoveSpaceEnvelopePayload): SpaceEnvelopeData {
+        return validated(withMetrics({
+            ...current,
+            footprint: current.footprint.map((p) => ({
+                x: p.x + cmd.delta.x, y: 0, z: p.z + cmd.delta.z,
+            })),
+            baseOffset: current.baseOffset + (cmd.delta.y ?? 0),
+        }));
     }
 
     execute(ctx: HandlerContext<Stores>, cmd: MoveSpaceEnvelopePayload): HandlerResult {
         return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
             const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]!;
-            // ⚠ The vertical component goes to `baseOffset`, NOT into the ring. The ring
-            // lives on the level plane (`y === 0`, schema-enforced), and the vertical
-            // extent has exactly one home. Adding dy to the vertices would be the
-            // silent-narrowing landmine C84 EI-2.d names.
-            const moved = validated(withMetrics({
-                ...current,
-                footprint: current.footprint.map((p) => ({
-                    x: p.x + cmd.delta.x, y: 0, z: p.z + cmd.delta.z,
-                })),
-                baseOffset: current.baseOffset + (cmd.delta.y ?? 0),
-            }));
+            const moved = this._moved(current, cmd);
+            const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, moved);
+            if (refusal) throw new SpaceEnvelopeGeometryError(refusal);
             const [next, forward, inverse] = produceCommand<SpaceEnvelopesState>(
                 ctx.stores.spaceEnvelope,
                 (draft) => { (draft as Record<string, unknown>)[moved.id] = moved; },
@@ -172,20 +191,30 @@ implements CommandHandler<MoveSpaceEnvelopeFacePayload, Stores> {
     readonly type = 'spaceEnvelope.moveFace';
     readonly affectedStores = ['spaceEnvelope'] as const;
 
+    /**
+     * §RESI-STAGE-G — the CONTEXTUAL planner. It wraps `planSpaceEnvelopeFaceMove` (the
+     * solidity verdict) with the two verdicts the OTHER envelopes impose — a room stays
+     * within its level, a level may not strand a room (STR §12) — and with the neighbour
+     * whose shared face moves too (STR §11). Same call for the drag preview and here.
+     */
+    private _plan(
+        ctx: HandlerContext<Stores>,
+        cmd: MoveSpaceEnvelopeFacePayload,
+    ): { readonly plan: SpaceEnvelopeContextPlan } | { readonly refusal: SpaceEnvelopeRefusal } {
+        const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]!;
+        return planSpaceEnvelopeFaceMoveInContext({
+            subject: contextEntryOf(current),
+            face: cmd.face,
+            deltaM: cmd.deltaM,
+            world: contextWorldOf(ctx.stores.spaceEnvelope),
+        });
+    }
+
     canExecute(ctx: HandlerContext<Stores>, cmd: MoveSpaceEnvelopeFacePayload): ValidationResult {
         const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId];
         if (!current) return { valid: false, reason: `no such space envelope: ${cmd.spaceEnvelopeId}` };
         if (!Number.isFinite(cmd.deltaM)) return { valid: false, reason: 'deltaM must be finite' };
-        const plan = planSpaceEnvelopeFaceMove({
-            prism: {
-                id: current.id,
-                footprint: current.footprint,
-                baseOffset: current.baseOffset,
-                height: current.height,
-            },
-            face: cmd.face,
-            deltaM: cmd.deltaM,
-        });
+        const plan = this._plan(ctx, cmd);
         // ⭐ The refusal's own message carries BOTH numbers (C114 §12a), read from the
         // geometry by the planner. It is forwarded verbatim — a handler that
         // paraphrased it would be the second copy C84 EI-8a rules out.
@@ -194,28 +223,46 @@ implements CommandHandler<MoveSpaceEnvelopeFacePayload, Stores> {
     }
 
     execute(ctx: HandlerContext<Stores>, cmd: MoveSpaceEnvelopeFacePayload): HandlerResult {
-        return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
+        return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, (span) => {
             const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]!;
-            const plan = planSpaceEnvelopeFaceMove({
-                prism: {
-                    id: current.id,
-                    footprint: current.footprint,
-                    baseOffset: current.baseOffset,
-                    height: current.height,
-                },
-                face: cmd.face,
-                deltaM: cmd.deltaM,
-            });
-            if ('refusal' in plan) throw new SpaceEnvelopeGeometryError(plan.refusal.message);
+            const planned = this._plan(ctx, cmd);
+            if ('refusal' in planned) throw new SpaceEnvelopeGeometryError(planned.refusal.message);
+            const { plan } = planned;
             const moved = validated(withMetrics({
                 ...current,
                 footprint: plan.entry.footprint.map((p) => ({ x: p.x, y: 0, z: p.z })),
                 baseOffset: plan.entry.baseOffset,
                 height: plan.entry.height,
             }));
+            // ⭐ THE NEIGHBOURS THAT ADAPTED — written in the SAME patch pair, so however
+            // many rooms followed the face, it is ONE ring entry and ONE Ctrl+Z (C16 §8.6
+            // B-6). A neighbour that could not follow is in `plan.undetermined` with a
+            // typed C78 §8 reason; it is reported on the span and left where it was
+            // (overlapping study volumes are FINE, C114 §12).
+            const adapted = plan.adapted.map((e) => {
+                const rec = ctx.stores.spaceEnvelope[e.envelopeId]!;
+                return validated(withMetrics({
+                    ...rec,
+                    footprint: e.footprint.map((p) => ({ x: p.x, y: 0, z: p.z })),
+                    baseOffset: e.baseOffset,
+                    height: e.height,
+                }));
+            });
+            span.setAttribute('pryzm.spaceEnvelope.adapted', adapted.length);
+            span.setAttribute('pryzm.spaceEnvelope.undetermined', plan.undetermined.length);
+            for (const u of plan.undetermined) {
+                console.warn(
+                    `[spaceEnvelope.moveFace] neighbour '${u.envelopeId}' did NOT adapt — `
+                    + `${u.reason}: ${u.detail}`,
+                );
+            }
             const [next, forward, inverse] = produceCommand<SpaceEnvelopesState>(
                 ctx.stores.spaceEnvelope,
-                (draft) => { (draft as Record<string, unknown>)[moved.id] = moved; },
+                (draft) => {
+                    const d = draft as Record<string, unknown>;
+                    d[moved.id] = moved;
+                    for (const r of adapted) d[r.id] = r;
+                },
             );
             return { forward, inverse, nextStates: { spaceEnvelope: next } };
         });
@@ -242,22 +289,37 @@ implements CommandHandler<SetSpaceEnvelopeFootprintPayload, Stores> {
     readonly affectedStores = ['spaceEnvelope'] as const;
 
     canExecute(ctx: HandlerContext<Stores>, cmd: SetSpaceEnvelopeFootprintPayload): ValidationResult {
-        if (!ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]) {
+        const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId];
+        if (!current) {
             return { valid: false, reason: `no such space envelope: ${cmd.spaceEnvelopeId}` };
         }
         if (!Array.isArray(cmd.footprint) || cmd.footprint.length < 3) {
             return { valid: false, reason: 'a footprint needs at least three vertices' };
         }
+        // §RESI-STAGE-G — the profile editor's commit path re-checks containment: a room
+        // ring may not leave its level, and a level ring may not strand a room (STR §12,
+        // "rooms re-check containment after a level edit"). Both numbers, never clamped.
+        let candidate: SpaceEnvelopeData;
+        try { candidate = this._updated(current, cmd); }
+        catch (e) { return { valid: false, reason: e instanceof Error ? e.message : String(e) }; }
+        const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, candidate);
+        if (refusal) return { valid: false, reason: refusal };
         return { valid: true };
+    }
+
+    private _updated(current: SpaceEnvelopeData, cmd: SetSpaceEnvelopeFootprintPayload): SpaceEnvelopeData {
+        return validated(withMetrics({
+            ...current,
+            footprint: cmd.footprint.map((p) => ({ x: p.x, y: 0, z: p.z })),
+        }));
     }
 
     execute(ctx: HandlerContext<Stores>, cmd: SetSpaceEnvelopeFootprintPayload): HandlerResult {
         return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
             const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]!;
-            const updated = validated(withMetrics({
-                ...current,
-                footprint: cmd.footprint.map((p) => ({ x: p.x, y: 0, z: p.z })),
-            }));
+            const updated = this._updated(current, cmd);
+            const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, updated);
+            if (refusal) throw new SpaceEnvelopeGeometryError(refusal);
             const [next, forward, inverse] = produceCommand<SpaceEnvelopesState>(
                 ctx.stores.spaceEnvelope,
                 (draft) => { (draft as Record<string, unknown>)[updated.id] = updated; },
@@ -323,20 +385,33 @@ implements CommandHandler<SetSpaceEnvelopeParameterPayload, Stores> {
         // ⛔ A no-op still mints a ring-buffer entry and spends the user's next Ctrl+Z
         // on an edit that never happened — C113 §6.4's rule, adopted.
         if (!touched) return { valid: false, reason: 'no parameter supplied — nothing to change' };
+        // §RESI-STAGE-G — `height` / `baseOffset` are geometry: a room may not rise out of
+        // its level, and a level may not drop below its rooms. Same gate, both numbers.
+        if (cmd.height !== undefined || cmd.baseOffset !== undefined) {
+            const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]!;
+            const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, this._updated(current, cmd));
+            if (refusal) return { valid: false, reason: refusal };
+        }
         return { valid: true };
+    }
+
+    private _updated(current: SpaceEnvelopeData, cmd: SetSpaceEnvelopeParameterPayload): SpaceEnvelopeData {
+        return validated(withMetrics({
+            ...current,
+            ...(cmd.height !== undefined ? { height: cmd.height } : {}),
+            ...(cmd.baseOffset !== undefined ? { baseOffset: cmd.baseOffset } : {}),
+            ...(cmd.name !== undefined ? { name: cmd.name } : {}),
+            ...(cmd.occupancy !== undefined ? { occupancy: cmd.occupancy } : {}),
+            ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
+        }));
     }
 
     execute(ctx: HandlerContext<Stores>, cmd: SetSpaceEnvelopeParameterPayload): HandlerResult {
         return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
             const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]!;
-            const updated = validated(withMetrics({
-                ...current,
-                ...(cmd.height !== undefined ? { height: cmd.height } : {}),
-                ...(cmd.baseOffset !== undefined ? { baseOffset: cmd.baseOffset } : {}),
-                ...(cmd.name !== undefined ? { name: cmd.name } : {}),
-                ...(cmd.occupancy !== undefined ? { occupancy: cmd.occupancy } : {}),
-                ...(cmd.materialColor !== undefined ? { materialColor: cmd.materialColor } : {}),
-            }));
+            const updated = this._updated(current, cmd);
+            const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, updated);
+            if (refusal) throw new SpaceEnvelopeGeometryError(refusal);
             const [next, forward, inverse] = produceCommand<SpaceEnvelopesState>(
                 ctx.stores.spaceEnvelope,
                 (draft) => { (draft as Record<string, unknown>)[updated.id] = updated; },
@@ -352,11 +427,15 @@ export interface SetSpaceEnvelopeWithinPayload {
 }
 
 /**
- * Declare (or clear) membership. ⛔ CONTAINMENT IS NOT ENFORCED HERE — a room envelope
- * may be declared within a level envelope and stick out of it. That is an ADVISORY
- * finding, never a refusal (ADR-0380 D4): it usually means the level envelope needs
- * to grow, which is a design act rather than an error, and refusing would make the
- * containment field a cage instead of a relationship.
+ * Declare (or clear) membership.
+ *
+ * §RESI-STAGE-G (2026-09-05) — ⚠ THIS PARAGRAPH REVERSES THE ONE IT REPLACES. It used
+ * to read *"containment is not enforced here … an ADVISORY finding, never a refusal
+ * (ADR-0380 D4)"*. The founder's STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §12 rules that a
+ * room *"stays constrained within the level envelope"*, so declaring a room within a
+ * level it sticks out of is now REFUSED with the measured excursion — the record would
+ * otherwise be born in violation of the rule every geometry verb enforces. C114 §14
+ * records the supersession; the level-vs-permitted-STUDY row stays advisory.
  */
 export class SetSpaceEnvelopeWithinHandler
 implements CommandHandler<SetSpaceEnvelopeWithinPayload, Stores> {
@@ -380,6 +459,10 @@ implements CommandHandler<SetSpaceEnvelopeWithinPayload, Stores> {
                         + 'permitted study is a citation, not containment (ADR-0380 D2)',
                 };
             }
+            const refusal = containmentRefusalFor(
+                ctx.stores.spaceEnvelope, { ...current, withinId: cmd.withinId },
+            );
+            if (refusal) return { valid: false, reason: refusal };
         }
         return { valid: true };
     }
@@ -388,6 +471,8 @@ implements CommandHandler<SetSpaceEnvelopeWithinPayload, Stores> {
         return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
             const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]!;
             const updated = validated({ ...current, withinId: cmd.withinId });
+            const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, updated);
+            if (refusal) throw new SpaceEnvelopeGeometryError(refusal);
             const [next, forward, inverse] = produceCommand<SpaceEnvelopesState>(
                 ctx.stores.spaceEnvelope,
                 (draft) => { (draft as Record<string, unknown>)[updated.id] = updated; },

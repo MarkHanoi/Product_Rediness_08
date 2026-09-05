@@ -31,6 +31,7 @@ import {
 import { recomputeSpaceEnvelopeMetrics } from '@pryzm/geometry-space-envelope';
 import type { SpaceEnvelopeData, SpaceEnvelopesState } from '../store.js';
 import { MaximumBuildableNotAuthorableError, SpaceEnvelopeGeometryError } from '../errors.js';
+import { containmentRefusalFor } from './containmentGate.js';
 
 interface Pt {
     readonly x: number;
@@ -72,6 +73,7 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
             return { valid: false, reason: 'envelopes must be a non-empty array' };
         }
         const seen = new Set<string>();
+        const parsedRecords: SpaceEnvelopeData[] = [];
         for (const spec of cmd.envelopes) {
             if (typeof spec.spaceEnvelopeId !== 'string' || spec.spaceEnvelopeId.length === 0) {
                 return { valid: false, reason: 'spaceEnvelopeId must be a non-empty string' };
@@ -105,6 +107,16 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
                     reason: parsed.error.issues[0]?.message ?? 'invalid space envelope',
                 };
             }
+            parsedRecords.push(parsed.data as SpaceEnvelopeData);
+        }
+        // §RESI-STAGE-G — a room born outside the level it names is REFUSED with the
+        // measured excursion (STR §12), never accepted-and-flagged. The level may be in
+        // the store OR minted earlier in this same batch, which is why the gate is asked
+        // after the whole batch has parsed rather than per spec.
+        const levelsInBatch = parsedRecords.filter((r) => r.role === 'level');
+        for (const rec of parsedRecords) {
+            const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, rec, levelsInBatch);
+            if (refusal) return { valid: false, reason: refusal };
         }
         return { valid: true };
     }
@@ -126,6 +138,11 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
                         );
                     }
                     fresh.push(parsed.data as SpaceEnvelopeData);
+                }
+                const levelsInBatch = fresh.filter((r) => r.role === 'level');
+                for (const rec of fresh) {
+                    const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, rec, levelsInBatch);
+                    if (refusal) throw new SpaceEnvelopeGeometryError(refusal);
                 }
 
                 // ⭐ ONE `produceCommand` FOR THE WHOLE SET — one Immer patch pair, one

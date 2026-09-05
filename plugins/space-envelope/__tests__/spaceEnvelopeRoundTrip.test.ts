@@ -233,7 +233,7 @@ describe('delete — a reference, not ownership (C114 §8)', () => {
         await env.bus.executeCommand('spaceEnvelope.batch.create', {
             envelopes: [
                 { ...squareSpec(ULID_A, 0, 0), role: 'level' },
-                { ...squareSpec(ULID_B, 1, 1), role: 'room', withinId: ULID_A },
+                { ...squareSpec(ULID_B, 0, 0), role: 'room', withinId: ULID_A },
             ],
         });
         await env.bus.executeCommand('spaceEnvelope.delete', { spaceEnvelopeId: ULID_A });
@@ -249,7 +249,7 @@ describe('delete — a reference, not ownership (C114 §8)', () => {
         await env.bus.executeCommand('spaceEnvelope.batch.create', {
             envelopes: [
                 { ...squareSpec(ULID_A, 0, 0), role: 'level' },
-                { ...squareSpec(ULID_B, 1, 1), role: 'room', withinId: ULID_A },
+                { ...squareSpec(ULID_B, 0, 0), role: 'room', withinId: ULID_A },
             ],
         });
         const ev = await env.bus.executeCommand('spaceEnvelope.delete', { spaceEnvelopeId: ULID_A });
@@ -275,7 +275,7 @@ describe('setWithin', () => {
         ).rejects.toThrow(/LEVEL envelope has no containing envelope/);
     });
 
-    it('⭐ ACCEPTS a room declared within a level it sticks out of — ADVISORY, not refused', async () => {
+    it('⛔ REFUSES to declare a room within a level it sticks out of — §RESI-STAGE-G reverses the old ADVISORY row', async () => {
         const env = buildEnv();
         await env.bus.executeCommand('spaceEnvelope.batch.create', {
             envelopes: [
@@ -284,11 +284,18 @@ describe('setWithin', () => {
                 { ...squareSpec(ULID_B, 100, 100), role: 'room' },
             ],
         });
-        await env.bus.executeCommand('spaceEnvelope.setWithin', {
-            spaceEnvelopeId: ULID_B, withinId: ULID_A,
-        });
-        // The whole product decision: containment is REPORTED, never enforced here.
-        expect(env.spaceEnvelope.get(ULID_B)!.withinId).toBe(ULID_A);
+        // STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §12: a room "stays constrained within the
+        // level envelope". This case used to be ACCEPTED as advisory (C114 §12); it is now
+        // refused with the measured excursion, and C114 §14 records the supersession.
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.setWithin', {
+                spaceEnvelopeId: ULID_B, withinId: ULID_A,
+            }),
+        // 141.42 m = 100·√2, the Euclidean distance from the room's worst vertex
+        // (104, 104) to the 4 m level ring's corner (4, 4). MEASURED from the shared
+        // `checkEnvelopeContainment` authority (C84 EI-9.2), not a per-axis overhang.
+        ).rejects.toThrow(/outside .* asks for 141\.42 m; the limit is 0\.00 m/);
+        expect(env.spaceEnvelope.get(ULID_B)!.withinId).toBeNull();
     });
 });
 

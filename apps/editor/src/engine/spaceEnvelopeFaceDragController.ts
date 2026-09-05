@@ -51,10 +51,11 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import {
     closestPointOnFaceAxis,
-    planSpaceEnvelopeFaceMove,
+    planSpaceEnvelopeFaceMoveInContext,
     prismOfSpaceEnvelopeRecord,
     readSpaceEnvelopeFaceDrag,
     spaceEnvelopeFaceAxis,
+    type SpaceEnvelopeContextEntry,
     type SpaceEnvelopeFaceRef,
 } from '@pryzm/geometry-space-envelope';
 import type { SpaceEnvelopeMeshBuilder, SpaceEnvelopeRenderInput } from './SpaceEnvelopeMeshBuilder';
@@ -64,6 +65,24 @@ export interface DraggableSpaceEnvelope extends SpaceEnvelopeRenderInput {
     readonly footprint: ReadonlyArray<{ readonly x: number; readonly z: number }>;
     readonly baseOffset: number;
     readonly height: number;
+    /** §RESI-STAGE-G — the membership the CONTEXTUAL planner judges containment against. */
+    readonly withinId?: string | null;
+    readonly name?: string;
+}
+
+/**
+ * §RESI-STAGE-G — one record as the contextual planner sees it. The SAME shape the
+ * handler builds (`containmentGate.contextEntryOf`), spelled here because the engine may
+ * not import the plugin's internals; both are structural over the L0 record.
+ */
+export function contextEntryOfDraggable(r: DraggableSpaceEnvelope): SpaceEnvelopeContextEntry {
+    return {
+        prism: prismOfSpaceEnvelopeRecord(r),
+        role: r.role ?? 'room',
+        levelId: r.levelId ?? '',
+        withinId: r.withinId ?? null,
+        ...(r.name !== undefined ? { name: r.name } : {}),
+    };
 }
 
 export interface SpaceEnvelopeFaceDragDeps {
@@ -90,6 +109,15 @@ export interface SpaceEnvelopeFaceDragDeps {
     readonly onRefusal?: (message: string) => void;
     /** Live readout while dragging — "+1.35 m". Optional. */
     readonly onPreview?: (deltaM: number, faceLabel: string) => void;
+    /**
+     * §RESI-STAGE-G — EVERY envelope in the store, read lazily per pointer move, so the
+     * preview is judged by the SAME contextual planner the commit uses: a room face that
+     * would leave its level is refused DURING the drag with both numbers, and the
+     * neighbour that shares the face is previewed moving with it (STR §11 / §12).
+     * Omit and the preview judges the subject alone — which is exactly the state where
+     * the preview can promise a move the commit then refuses, so `initTools` never omits it.
+     */
+    readonly getWorld?: () => readonly DraggableSpaceEnvelope[];
 }
 
 /** Below this a drag is a click, not an edit. Not a dimension — a gesture threshold. */
@@ -102,6 +130,8 @@ interface ActiveDrag {
     readonly grabWorld: { x: number; y: number; z: number };
     readonly startRecord: DraggableSpaceEnvelope;
     lastDeltaM: number;
+    /** Neighbours the preview has REDRAWN — restored from the store on release / click. */
+    previewedNeighbourIds: Set<string>;
 }
 
 /**
@@ -170,6 +200,7 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
             grabWorld: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
             startRecord: record,
             lastDeltaM: 0,
+            previewedNeighbourIds: new Set<string>(),
         };
         // ⚠ Capture the pointer so a drag that leaves the canvas still ends HERE. Without
         // it, releasing over a panel leaves `active` set and the next click continues a
@@ -196,13 +227,22 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
         const reading = readSpaceEnvelopeFaceDrag(prism, active.face, active.grabWorld, onAxis);
         if (reading === null) return;
 
-        // ⭐ THE SAME PLANNER THE COMMIT USES. A refused drag shows the refusal NOW,
-        // with both numbers, and leaves the last valid preview on screen.
-        const plan = planSpaceEnvelopeFaceMove({ prism, face: active.face, deltaM: reading.deltaM });
-        if ('refusal' in plan) {
-            deps.onRefusal?.(plan.refusal.message);
+        // ⭐ THE SAME PLANNER THE COMMIT USES — the CONTEXTUAL one (§RESI-STAGE-G). A
+        // drag that would leave the level, or strand a room, is refused NOW with both
+        // numbers, and leaves the last valid preview on screen.
+        const world = (deps.getWorld?.() ?? [active.startRecord]).map(contextEntryOfDraggable);
+        const subject = contextEntryOfDraggable(active.startRecord);
+        const planned = planSpaceEnvelopeFaceMoveInContext({
+            subject: { ...subject, prism },
+            face: active.face,
+            deltaM: reading.deltaM,
+            world: world.some((w) => w.prism.id === subject.prism.id) ? world : [...world, subject],
+        });
+        if ('refusal' in planned) {
+            deps.onRefusal?.(planned.refusal.message);
             return;
         }
+        const { plan } = planned;
         active.lastDeltaM = reading.deltaM;
         deps.onPreview?.(reading.deltaM, reading.faceLabel);
         // PREVIEW ONLY — the store is untouched until release (P6).
@@ -212,6 +252,28 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
             baseOffset: plan.entry.baseOffset,
             height: plan.entry.height,
         });
+        // ⭐ THE NEIGHBOUR FOLLOWS IN THE PREVIEW TOO — what the commit will write, drawn
+        // before it is written. A neighbour that adapted on an earlier frame and not on
+        // this one is put back from the store, so the preview never leaves a phantom.
+        const adaptedNow = new Set<string>();
+        for (const e of plan.adapted) {
+            const rec = deps.getRecord(e.envelopeId);
+            if (!rec) continue;
+            adaptedNow.add(e.envelopeId);
+            active.previewedNeighbourIds.add(e.envelopeId);
+            deps.builder.updateSpaceEnvelope({
+                ...rec,
+                footprint: e.footprint.map((p) => ({ x: p.x, z: p.z })),
+                baseOffset: e.baseOffset,
+                height: e.height,
+            });
+        }
+        for (const id of active.previewedNeighbourIds) {
+            if (adaptedNow.has(id)) continue;
+            const rec = deps.getRecord(id);
+            if (rec) deps.builder.updateSpaceEnvelope(rec);
+            active.previewedNeighbourIds.delete(id);
+        }
     };
 
     const finish = (ev: PointerEvent): void => {
@@ -225,6 +287,10 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
             // cannot leave a phantom behind, and dispatch nothing (C113 §6.4).
             const live = deps.getRecord(drag.id);
             if (live) deps.builder.updateSpaceEnvelope(live);
+            for (const id of drag.previewedNeighbourIds) {
+                const n = deps.getRecord(id);
+                if (n) deps.builder.updateSpaceEnvelope(n);
+            }
             return;
         }
         // ⭐ EXACTLY ONE DISPATCH FOR THE WHOLE GESTURE. The redraw that follows is the
