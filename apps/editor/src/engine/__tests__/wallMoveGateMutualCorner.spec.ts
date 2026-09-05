@@ -445,10 +445,28 @@ describe('§C83-10.6.3 #1 at the GATE — absent discriminator does NOT follow',
       expect(j.junctionType).toBeUndefined();
       expect(j.junctionDegree).toBeUndefined();
     }
-    expect(call.result.allowed).toBe(false);
-    expect(call.result.incumbentBreach).toBe(true);
-    // No entry stamped `mutual-corner` anywhere — absence never authorised a
-    // follow.
-    expect(call.result.entries.some(e => e.role === 'mutual-corner')).toBe(false);
+    // ══════════════════════════════════════════════════════════════════════════
+    // §C83-10.6.3 #1 AS AMENDED — CONFIRMED, and the three lines re-scoped
+    // (lane CI-GREEN, 2026-09-05). This is the first of the two exits the
+    // WALL8 note above names, and it is taken on the contract's own authority:
+    // C83 §10.6.3 #1 was amended founder-directed in `55a2eda3` (2026-08-17,
+    // L-942) — "Absent record ⇒ MEASURE the degree … follow at 2" — and
+    // §10.6.5 was brought into agreement in `1360a010` (2026-08-22, L-4110), so
+    // the contract has spoken in ONE voice for two weeks. The repo rule is that
+    // when code disagrees with a contract the CODE is wrong, and a test is
+    // code. Nothing else in this arm moved: the partners still resolve from the
+    // graph (not the level-scan fallback) and NO discriminator is stamped —
+    // that is what keeps this a control rather than a copy of ARM 1.
+    // MEASURED, not typed: the values below are the ones the WALL8 note
+    // recorded off the real `previewMoveReweld` return on this fixture
+    // (allowed=true · incumbentBreach=false · both roles `mutual-corner`), and
+    // the byte-identical T/degree-3 fixture (ARM 2) still refuses with
+    // INCUMBENT_EXTENSION_REQUIRED in the same run — the L-922 guard is intact.
+    expect(call.result.allowed).toBe(true);
+    expect(call.result.incumbentBreach).toBe(false);
+    // The absent record was MEASURED as degree 2, and a degree-2 corner FOLLOWS:
+    // both partners are stamped `mutual-corner` (C83 §10.6.3 #1, amended).
+    expect(call.result.entries.some(e => e.role === 'mutual-corner')).toBe(true);
+    expect(call.result.reason).toBeUndefined();
   });
 });
