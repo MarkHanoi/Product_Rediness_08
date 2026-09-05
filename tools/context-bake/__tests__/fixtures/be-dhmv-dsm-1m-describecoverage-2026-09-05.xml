@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wcs:CoverageDescriptions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xmlns="http://www.opengis.net/gml/3.2"
+ xmlns:wcs="http://www.opengis.net/wcs/2.0"
+ xmlns:ows="http://www.opengis.net/ows/2.0"
+ xmlns:gml="http://www.opengis.net/gml/3.2"
+ xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0"
+ xmlns:swe="http://www.opengis.net/swe/2.0"
+ xmlns:crs="http://www.opengis.net/wcs/service-extension/crs/1.0"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xsi:schemaLocation="http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsDescribeCoverage.xsd http://www.opengis.net/swe/2.0 http://schemas.opengis.net/sweCommon/2.0/swe.xsd">
+  <wcs:CoverageDescription>     <gml:boundedBy>
+      <gml:Envelope srsName="http://www.opengis.net/def/crs/EPSG/0/31370" axisLabels="x y" uomLabels="Meter Meter" srsDimension="2">
+        <gml:lowerCorner>17000 148000</gml:lowerCorner>
+        <gml:upperCorner>264000 250000</gml:upperCorner>
+      </gml:Envelope>
+   </gml:boundedBy>
+    <wcs:CoverageId>DHMVII_DSM_1m</wcs:CoverageId>
+    <gml:domainSet>
+      <gml:RectifiedGrid gml:id="grid_DHMVII_DSM_1m" dimension="2">
+        <gml:limits>
+          <gml:GridEnvelope>
+            <gml:low>0 0</gml:low>
+            <gml:high>246999 101999</gml:high>
+          </gml:GridEnvelope>
+        </gml:limits>
+        <gml:axisLabels>x y</gml:axisLabels>
+        <gml:origin>
+          <gml:Point gml:id="grid_origin_DHMVII_DSM_1m" srsName="http://www.opengis.net/def/crs/EPSG/0/31370">
+            <gml:pos>17000.5 249999.5</gml:pos>
+          </gml:Point>
+        </gml:origin>
+          <gml:offsetVector srsName="EPSG:31370" srsDimension="2">1 0</gml:offsetVector>
+          <gml:offsetVector srsName="EPSG:31370" srsDimension="2">0 -1</gml:offsetVector>
+      </gml:RectifiedGrid>
+    </gml:domainSet>
+    <gmlcov:rangeType>
+      <swe:DataRecord>
+        <swe:field name="Band_1">
+          <swe:Quantity>
+            <swe:description>Band_1</swe:description>
+            <swe:uom code="unknown"/>
+            <swe:nilValues>
+              <swe:NilValues>
+                <swe:nilValue reason="http://www.opengis.net/def/nil/OGC/0/inapplicable">-9999</swe:nilValue>
+              </swe:NilValues>
+            </swe:nilValues>
+          </swe:Quantity>
+        </swe:field>
+      </swe:DataRecord>
+    </gmlcov:rangeType>
+    <wcs:ServiceParameters>
+      <wcs:CoverageSubtype>RectifiedGridCoverage</wcs:CoverageSubtype>
+      <wcs:nativeFormat>image/tiff</wcs:nativeFormat>
+    </wcs:ServiceParameters>
+  </wcs:CoverageDescription>
+</wcs:CoverageDescriptions>
