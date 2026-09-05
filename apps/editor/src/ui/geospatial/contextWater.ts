@@ -211,49 +211,103 @@ function waterFromTileFeatures(features: ContextTileFeature[], bbox: Bbox): Cont
 // §FEAT-FORMA-SEA-CONTEXT (L-185, founder) — coastline → closed SEA surface
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Open ocean/bay is mapped in OSM as `natural=coastline` LINE work (with LAND on the LEFT
-// of the way direction, WATER on the RIGHT), never as a closed `natural=water` polygon. So
-// a waterfront site (Sydney / Rose Bay) showed context buildings + parks + roads but the
-// bay rendered as neutral ground. FIX (pure + testable, never-throw): stitch the coastline
-// ways into polylines, CLIP them to the site bbox, and close each crossing strand back
-// along the bbox boundary on the WATER (right-hand) side — yielding a closed sea polygon
-// the Forma study fills as blue water at ground level. Convex/simple coasts (the common
-// waterfront case) resolve cleanly; a strand we cannot close is skipped (non-fatal).
+// Open ocean/bay is mapped in OSM as `natural=coastline` LINE work — LAND on the LEFT of the way
+// direction, WATER on the RIGHT — never as a closed `natural=water` polygon. So a waterfront site
+// (Sydney / Rose Bay) showed context buildings + parks + roads but the bay rendered as neutral
+// ground. The build is PURE + testable + never-throw: stitch the ways into chains (orientation
+// preserved), clip them to the site bbox, and close the WATER side along the bbox perimeter.
+//
+// ── §SEA-LEFT-HAND-WALK (L-12911, 2026-09-05) — the water side is decided by OSM's orientation
+//    rule, JOINTLY over every strand in the bbox; never per strand by a bbox heuristic. ──
+//
+// HISTORY, because three generations of this function each "fixed" the sea and each then drew it
+// over a town somewhere:
+//   • L-185: per strand, close along the perimeter on the side a test point just RIGHT of the
+//     strand's mid-segment falls. Correct for one simple coast.
+//   • L-642 (§SEA-WATER-SIDE-ROBUST + §SEA-DOMINANT-COAST): "sea = the side WITHOUT the bbox
+//     centre", keep only the longest chain, plus a hard "sea must not contain the centre" guard.
+//     Correct while the bbox holds ONE coastline and the site is inland of it.
+//   • L-807 (§FIX-SEA-TILE-FRAGMENTATION): keep every chain ≥ 15 % of the longest, because the
+//     baked tiles deliver one coast as many fragments.
+//   • L-12911 — Sète: the Mediterranean AND the Étang de Thau are both `natural=coastline`, with
+//     the town on the spit between them. Closed PER STRAND against the bbox centre, a lagoon-shore
+//     strand's "side without the centre" is whichever side the click happens to fall on. Measured
+//     on the shipped L662a tiles with the pre-fix code: click (43.41, 3.70) → a 74.8 %-of-bbox ring
+//     containing the town centre, Mont St-Clair, the lagoon AND the sea; click (43.398, 3.70) → a
+//     25.9 % ring over the town and lagoon but NOT the sea — the flooded side flips with the click.
+//     The centre guard passed both times because the CLICK was not inside the ring; the TOWN was.
+//
+// THE RULE NOW. Every coastline strand crossing the bbox enters at a HEAD and leaves at a TAIL,
+// both on the perimeter. Water is on the right of every strand, so the water polygon a strand
+// bounds is traversed CLOCKWISE: strand head→tail, then along the perimeter CW (decreasing
+// perimeter parameter) to the next strand's HEAD, follow that strand, … until back at the start.
+// Walking CCW along the perimeter, heads (land→water) and tails (water→land) therefore ALTERNATE
+// for any consistently-oriented coastline set — which is what makes several coastlines (Sète),
+// harbours and islands crossing the edge fall out of ONE walk with no special case, and what makes
+// the result independent of where the bbox happens to sit.
+//
+// WHAT IS REFUSED, LOUDLY (§CONTEXT-DATA-HONESTY — no sea is honest, sea-over-the-city is not):
+//   • `incomplete-coastline` — a chain END lies strictly INSIDE the bbox. The coastline is a closed
+//     network in OSM, so a free end inside the box means a piece is MISSING (a tile-clipped
+//     fragment, a way tippecanoe dropped). The walk cannot know which side of a missing piece is
+//     water, so NOTHING is drawn. Measured on the shipped L662a water tiles: Sète 98 pieces →
+//     59 chains, 74 free ends inside the bbox against 2 on the perimeter; Marseille 390 → 210, 152
+//     inside. Baked coastline arrives as fragments; the client's §FIX-SEA-COVERAGE-GATE then
+//     supplements from the live coastline, whose ways are complete. The bake-side answer (pre-closed
+//     water polygons at bake time) is recorded in L-12911.
+//   • `orientation-conflict` — walking CW from a tail meets another TAIL: two strands disagree about
+//     which side is water (a reversed way in the data). Nothing is drawn.
+//   • `land-centre` — a finished ring contains the bbox centre, i.e. the site. That ring is dropped
+//     and named; the others stand. It is a guard, not the decision.
 
 /** Round a coord to ~1e-7 deg (~1 cm) so shared way endpoints match for stitching. */
 function nodeKey(p: readonly [number, number]): string {
     return `${p[0].toFixed(7)},${p[1].toFixed(7)}`;
 }
 
-/** Stitch coastline ways that share endpoints into longer polylines (OSM splits a coast
- *  into many ways). Greedy endpoint-matching in either orientation. PURE + exported for tests. */
+/**
+ * Stitch coastline ways that share endpoints into longer chains (OSM splits a coast into many
+ * ways). ⚠ ORIENTATION-PRESERVING: a way's TAIL is joined only to another way's HEAD. OSM
+ * coastline direction is DATA (land left / water right — the whole water-side decision in
+ * §SEA-LEFT-HAND-WALK rests on it), so a tail↔tail or head↔head match is a broken coastline, not a
+ * puzzle to solve by reversing one side: reversing would hand the walk a 50 % chance of painting
+ * the land blue with no trace of why. Such ways stay separate chains and their free ends are
+ * refused downstream as `incomplete-coastline`. (Until L-12911 this reversed to match — the header
+ * history records what that cost.)
+ *
+ * Chains start at ways whose head is nobody's tail (true chain starts), so one coastline never
+ * splits in two because the scan happened to begin mid-way; whatever remains is closed loops.
+ * PURE + exported for tests.
+ */
 export function stitchCoastlineWays(
     ways: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
 ): Array<Array<readonly [number, number]>> {
     const segs = ways
         .filter((w) => w.length >= 2)
         .map((w) => w.slice() as Array<readonly [number, number]>);
+    const byHead = new Map<string, number[]>();
+    const tailKeys = new Set<string>();
+    segs.forEach((s, i) => {
+        const hk = nodeKey(s[0]!);
+        const list = byHead.get(hk);
+        if (list) list.push(i); else byHead.set(hk, [i]);
+        tailKeys.add(nodeKey(s[s.length - 1]!));
+    });
+    const isStart = (i: number): boolean => !tailKeys.has(nodeKey(segs[i]![0]!));
+    const order = segs.map((_, i) => i).sort((a, b) => Number(isStart(b)) - Number(isStart(a)));
     const used = new Array<boolean>(segs.length).fill(false);
     const out: Array<Array<readonly [number, number]>> = [];
-    for (let i = 0; i < segs.length; i++) {
+    for (const i of order) {
         if (used[i]) continue;
         used[i] = true;
         const chain = segs[i]!.slice();
-        // Extend forwards + backwards by matching endpoints against unused segments.
-        let extended = true;
-        while (extended) {
-            extended = false;
-            const tail = chain[chain.length - 1]!;
-            const head = chain[0]!;
-            for (let j = 0; j < segs.length; j++) {
-                if (used[j]) continue;
-                const s = segs[j]!;
-                const sHead = s[0]!, sTail = s[s.length - 1]!;
-                if (nodeKey(tail) === nodeKey(sHead)) { chain.push(...s.slice(1)); used[j] = true; extended = true; break; }
-                if (nodeKey(tail) === nodeKey(sTail)) { chain.push(...s.slice(0, -1).reverse()); used[j] = true; extended = true; break; }
-                if (nodeKey(head) === nodeKey(sTail)) { chain.unshift(...s.slice(0, -1)); used[j] = true; extended = true; break; }
-                if (nodeKey(head) === nodeKey(sHead)) { chain.unshift(...s.slice(1).reverse()); used[j] = true; extended = true; break; }
-            }
+        let guard = segs.length;
+        while (guard-- > 0) {
+            const next = (byHead.get(nodeKey(chain[chain.length - 1]!)) ?? []).find((j) => !used[j]);
+            if (next === undefined) break;
+            used[next] = true;
+            chain.push(...segs[next]!.slice(1));
+            if (nodeKey(chain[0]!) === nodeKey(chain[chain.length - 1]!)) break; // closed loop
         }
         out.push(chain);
     }
@@ -374,17 +428,9 @@ function boundaryWalk(from: number, to: number, dir: 1 | -1, b: Bbox): Array<[nu
     return pts;
 }
 
-/** Total length (in lon/lat units) of a polyline — used to pick the DOMINANT coastline
- *  (§SEA-DOMINANT-COAST) so short port/jetty/river fragments do not each spawn a sea ring. */
-function polylineLength(line: ReadonlyArray<readonly [number, number]>): number {
-    let d = 0;
-    for (let i = 1; i < line.length; i++) d += Math.hypot(line[i]![0] - line[i - 1]![0], line[i]![1] - line[i - 1]![1]);
-    return d;
-}
-
-/** Euclidean distance (in lon/lat units) from point p to segment a→b. Used only for the
- *  §SEA-WATER-SIDE-ROBUST "is the site ~on the coast?" guard, where the small anisotropy of
- *  lon vs lat is immaterial (the threshold is a few metres). */
+/** Euclidean distance (in lon/lat units) from point p to segment a→b — sign-free, used only for
+ *  the "is the site ON the shoreline?" exemption of the land-centre guard, where the small
+ *  anisotropy of lon vs lat is immaterial (the threshold is a few metres). */
 function distPointToSegment(
     p: readonly [number, number], a: readonly [number, number], b: readonly [number, number],
 ): number {
@@ -398,6 +444,15 @@ function distPointToSegment(
     return Math.hypot(p[0] - (a[0] + t * vx), p[1] - (a[1] + t * vy));
 }
 
+/** Distance from `p` to the nearest edge of a closed loop (last→first edge included). */
+function distPointToRing(p: readonly [number, number], ring: ReadonlyArray<readonly [number, number]>): number {
+    let d = Infinity;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        d = Math.min(d, distPointToSegment(p, ring[j]!, ring[i]!));
+    }
+    return d;
+}
+
 /** Even-odd point-in-polygon (ring = [lon,lat] loop).
  *  §C73-PIP-CANONICAL — delegates to THE kernel ray cast with `[lon,lat]` tuple
  *  accessors; the private `|| 1e-12` denominator guard is gone as dead code (the
@@ -406,118 +461,191 @@ function pointInRing(pt: readonly [number, number], ring: ReadonlyArray<readonly
     return pointInRingEvenOdd(pt[0], pt[1], ring.length, (i) => ring[i]![0], (i) => ring[i]![1]);
 }
 
+/** §SEA-LEFT-HAND-WALK — why a ring, or the whole build, was refused. Named so a test can assert
+ *  the REASON and a console line can carry it: a refusal and an empty result are different values. */
+export interface SeaMaskRefusal {
+    readonly reason: 'incomplete-coastline' | 'orientation-conflict' | 'walk-failed' | 'land-centre';
+    readonly detail: string;
+}
+
+export interface SeaMaskResult {
+    /** [lon,lat] loops on the WATER side (not explicitly re-closed; consumers treat them as loops). */
+    readonly rings: Array<Array<readonly [number, number]>>;
+    readonly refused: SeaMaskRefusal[];
+    /** Diagnostics for the console line. */
+    readonly chains: number;
+    readonly strands: number;
+    /** Closed coastline loops entirely inside the bbox that enclose LAND (CCW) — islands, not drawn. */
+    readonly islands: number;
+}
+
+/** Signed shoelace area of a lon/lat loop: > 0 ⇔ counter-clockwise (x east, y north). */
+function signedArea(ring: ReadonlyArray<readonly [number, number]>): number {
+    let a = 0;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        a += ring[j]![0] * ring[i]![1] - ring[i]![0] * ring[j]![1];
+    }
+    return a / 2;
+}
+
+/** Is `p` on the bbox perimeter, within the tolerance `perimeterParam` itself snaps with? */
+function onPerimeter(p: readonly [number, number], b: Bbox): boolean {
+    const [w, s, e, n] = b;
+    const eps = 1e-7 * Math.max(e - w, n - s) + 1e-9;
+    return Math.abs(p[0] - w) <= eps || Math.abs(p[0] - e) <= eps
+        || Math.abs(p[1] - s) <= eps || Math.abs(p[1] - n) <= eps;
+}
+
 /**
- * §FEAT-FORMA-SEA-CONTEXT — build closed SEA rings from coastline ways clipped to `bbox`.
- * OSM convention: walking a coastline way in its stored direction, LAND is on the LEFT and
- * WATER on the RIGHT. For each strand crossing the bbox we close it back along the boundary
- * on the water (right) side, using a test point just off the strand's right to pick the
- * boundary-walk direction. PURE + exported for tests. Never throws; unclosable strands are
- * dropped.
+ * §SEA-LEFT-HAND-WALK (L-12911) — build the WATER rings for `bbox` from coastline ways, deciding
+ * the water side from OSM way orientation alone (see the section header). PURE, silent, never
+ * throws; refusals are RETURNED, not logged — `buildSeaMaskFromCoastline` is the logging wrapper.
+ */
+export function buildSeaMask(
+    ways: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
+    bbox: Bbox,
+): SeaMaskResult {
+    if (ways.length === 0) return { rings: [], refused: [], chains: 0, strands: 0, islands: 0 };
+    const [w, s, e, n] = bbox;
+    if (!(e > w) || !(n > s)) return { rings: [], refused: [], chains: 0, strands: 0, islands: 0 };
+
+    const chains = stitchCoastlineWays(ways);
+    const rings: Array<Array<readonly [number, number]>> = [];
+    const refused: SeaMaskRefusal[] = [];
+    let islands = 0;
+
+    // 1. Split every chain into perimeter-to-perimeter STRANDS. A closed loop that never touches the
+    //    perimeter is decided by its winding alone; one that crosses is rotated to start OUTSIDE, so
+    //    the clip yields real strands rather than a fake free end at its arbitrary first vertex.
+    interface Strand { pts: Array<readonly [number, number]>; head: number; tail: number }
+    const strands: Strand[] = [];
+    const freeEnds: Array<readonly [number, number]> = [];
+    for (const chain of chains) {
+        if (chain.length < 2) continue;
+        let line: ReadonlyArray<readonly [number, number]> = chain;
+        const closed = chain.length >= 4 && nodeKey(chain[0]!) === nodeKey(chain[chain.length - 1]!);
+        if (closed) {
+            const loop = chain.slice(0, -1);
+            const outIdx = loop.findIndex((p) => !inBbox(p, bbox));
+            if (outIdx < 0) {
+                // Entirely inside: CW (water on the right = inside) is an enclosed water body; CCW is an island.
+                if (signedArea(loop) < 0) rings.push(loop.slice()); else islands++;
+                continue;
+            }
+            line = [...loop.slice(outIdx), ...loop.slice(0, outIdx), loop[outIdx]!];
+        }
+        for (const strand of clipPolylineToBbox(line, bbox)) {
+            if (strand.length < 2) continue;
+            const head = strand[0]!, tail = strand[strand.length - 1]!;
+            if (!onPerimeter(head, bbox)) freeEnds.push(head);
+            if (!onPerimeter(tail, bbox)) freeEnds.push(tail);
+            strands.push({ pts: strand, head: perimeterParam(head, bbox), tail: perimeterParam(tail, bbox) });
+        }
+    }
+    if (freeEnds.length > 0) {
+        const ex = freeEnds[0]!;
+        refused.push({
+            reason: 'incomplete-coastline',
+            detail: `${freeEnds.length} coastline end(s) lie strictly inside the bbox (first at ` +
+                `${ex[1].toFixed(5)}, ${ex[0].toFixed(5)}) across ${chains.length} chain(s) — the coastline ` +
+                'here is fragments, not a closed network; the water side of a missing piece is unknowable.',
+        });
+        return { rings: [], refused, chains: chains.length, strands: strands.length, islands };
+    }
+    if (strands.length === 0) return { rings, refused, chains: chains.length, strands: 0, islands };
+
+    // 2. Every strand end on the perimeter, in CCW order. Heads (land→water) and tails (water→land)
+    //    must alternate; the walk below reports a violation as `orientation-conflict`.
+    interface End { param: number; kind: 'head' | 'tail'; strand: Strand }
+    const ends: End[] = [];
+    for (const st of strands) {
+        ends.push({ param: st.head, kind: 'head', strand: st });
+        ends.push({ param: st.tail, kind: 'tail', strand: st });
+    }
+    ends.sort((a, b) => a.param - b.param);
+    const tailIndex = new Map<Strand, number>();
+    ends.forEach((en, i) => { if (en.kind === 'tail') tailIndex.set(en.strand, i); });
+
+    // 3. The walk: head→tail along the strand, CW along the perimeter to the next HEAD, repeat.
+    const used = new Set<Strand>();
+    for (const start of strands) {
+        if (used.has(start)) continue;
+        const ring: Array<readonly [number, number]> = [];
+        let cur = start;
+        let closedRing = false;
+        let guard = strands.length + 1;
+        while (guard-- > 0) {
+            used.add(cur);
+            ring.push(...cur.pts);
+            const ti = tailIndex.get(cur)!;
+            const next = ends[(ti - 1 + ends.length) % ends.length]!;
+            if (next.kind !== 'head') {
+                refused.push({
+                    reason: 'orientation-conflict',
+                    detail: `walking the perimeter clockwise from a coastline exit at perimeter ${cur.tail.toFixed(3)} ` +
+                        `meets another EXIT at ${next.param.toFixed(3)} — two strands disagree about which side is water.`,
+                });
+                return { rings: [], refused, chains: chains.length, strands: strands.length, islands };
+            }
+            // A tail and the next head at the SAME perimeter point (coast touching the edge) add no corners;
+            // `boundaryWalk` would otherwise read from === to as a full lap.
+            if (Math.abs(next.param - cur.tail) > 1e-12) ring.push(...boundaryWalk(cur.tail, next.param, -1, bbox));
+            if (next.strand === start) { closedRing = true; break; }
+            if (used.has(next.strand)) break; // would re-enter a finished ring — malformed
+            cur = next.strand;
+        }
+        if (!closedRing) {
+            refused.push({
+                reason: 'walk-failed',
+                detail: `a perimeter walk starting at perimeter ${start.head.toFixed(3)} did not return to its start.`,
+            });
+            return { rings: [], refused, chains: chains.length, strands: strands.length, islands };
+        }
+        if (ring.length >= 3) rings.push(ring);
+    }
+
+    // 4. HARD GUARD — the bbox centre is the site; a water ring containing it is refused BY NAME.
+    //    A centre ON the shoreline (within `eps` of a ring edge) is not "in the water": the ring is
+    //    bounded by the coast at the site, and even-odd on a boundary point is arbitrary — so the
+    //    guard is skipped there, exactly as the pre-L-12911 `dCentre > eps` arm did.
+    const centre: readonly [number, number] = [(w + e) / 2, (s + n) / 2];
+    const eps = 1e-4 * Math.min(e - w, n - s);
+    const kept = rings.filter((ring) => {
+        if (!pointInRing(centre, ring)) return true;
+        if (distPointToRing(centre, ring) <= eps) return true;
+        refused.push({
+            reason: 'land-centre',
+            detail: `a ${ring.length}-vertex water ring contains the bbox centre (the site, ` +
+                `${centre[1].toFixed(5)}, ${centre[0].toFixed(5)}) — dropped, not drawn.`,
+        });
+        return false;
+    });
+    return { rings: kept, refused, chains: chains.length, strands: strands.length, islands };
+}
+
+/**
+ * §FEAT-FORMA-SEA-CONTEXT — the production entry: `buildSeaMask` plus ONE console line per refusal
+ * reason, so a refused sea shows in the founder's console AS a refusal — never as a silent empty
+ * (§CONTEXT-DATA-HONESTY). Returns the kept rings. Never throws.
  */
 export function buildSeaMaskFromCoastline(
     ways: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
     bbox: Bbox,
 ): Array<Array<readonly [number, number]>> {
-    if (ways.length === 0) return [];
-    const [w, s, e, n] = bbox;
-    if (!(e > w) || !(n > s)) return [];
-    const spanX = e - w, spanY = n - s;
-    const eps = 1e-4 * Math.min(spanX, spanY);
-    const rings: Array<Array<readonly [number, number]>> = [];
-
-    // §SEA-DOMINANT-COAST (L-642) — close ONLY the LONGEST stitched coastline into a sea surface.
-    // A large sea bbox captures many SHORT coastline fragments (port breakwaters, jetties, marina
-    // walls, river mouths); each fragment, closed independently along the bbox perimeter, yields a
-    // spurious ring, and their union tiles the whole box blue — the founder's "huge square blue …
-    // it should follow the coastline, which it doesn't". The real shoreline is ONE long line, so
-    // using only it gives a single clean seaward polygon that hugs the coast. Dropped fragments are
-    // simply not drawn (§CONTEXT-DATA-HONESTY: never a fabricated plane).
-    // ── §FIX-SEA-TILE-FRAGMENTATION (L-807, 2026-08-09) ────────────────────
-    //
-    // "Only the longest" was correct against LIVE Overpass input, where the real
-    // shoreline genuinely arrives as one long way and everything else is a jetty.
-    // It is WRONG against BAKED PMTiles input, and that is what now feeds this:
-    // `readContextTileFeatures` reads tiles INDEPENDENTLY and never stitches across
-    // tile boundaries, while tippecanoe clips and quantises per tile — so one
-    // continuous coast arrives as many non-coincident fragments.
-    //
-    // Measured at Poblenou against the real production water.pmtiles: the baked
-    // path yields 19 clipped linestrings → 3 chains, longest just 40 verts, sitting
-    // at the Llobregat delta ~13 km SW of the site, producing a sea ring covering
-    // 0.02 % of the bbox. The live path on the same bbox yields 6 chains, longest
-    // 1719 verts, main ring 43.7 % of the bbox — the actual Mediterranean.
-    // "Longest fragment" is therefore an arbitrary pick, and the founder sees no sea.
-    //
-    // Fix: keep EVERY stitched chain that is a meaningful fraction of the longest,
-    // not just the single longest. That preserves the original intent — a marina
-    // wall or river mouth is orders of magnitude shorter than a coastline and still
-    // gets dropped — while surviving a coast delivered in pieces. Each surviving
-    // chain is still independently required to enter AND exit the bbox below, so a
-    // fragment that cannot bound a sea area contributes nothing.
-    const DOMINANT_FRACTION = 0.15;
-    const stitched = stitchCoastlineWays(ways);
-    let dominantLen = -1;
-    for (const l of stitched) { const len = polylineLength(l); if (len > dominantLen) dominantLen = len; }
-    const coastChains = dominantLen > 0
-        ? stitched.filter((l) => polylineLength(l) >= dominantLen * DOMINANT_FRACTION)
-        : [];
-    const centre: readonly [number, number] = [(w + e) / 2, (s + n) / 2];
-    for (const line of coastChains) {
-        for (const strand of clipPolylineToBbox(line, bbox)) {
-            if (strand.length < 2) continue;
-            const start = strand[0]!, end = strand[strand.length - 1]!;
-            // Only strands that both enter AND exit on the boundary can be closed to a sea area.
-            const startP = perimeterParam(start, bbox);
-            const endP = perimeterParam(end, bbox);
-            if (!Number.isFinite(startP) || !Number.isFinite(endP)) continue;
-
-            // Water-side test point: just off the RIGHT of a mid strand segment. Right of a
-            // direction (dx,dy) is (dy,-dx). Normalise in metric-ish (scale lat by cos not
-            // needed here — sign is all that matters).
-            const mi = Math.max(1, Math.floor(strand.length / 2));
-            const a = strand[mi - 1]!, c = strand[mi]!;
-            const dx = c[0] - a[0], dy = c[1] - a[1];
-            const rlen = Math.hypot(dx, dy) || 1e-12;
-            const rx = (dy / rlen) * eps, ry = (-dx / rlen) * eps;
-            const test: [number, number] = [(a[0] + c[0]) / 2 + rx, (a[1] + c[1]) / 2 + ry];
-
-            // Two candidate closings: walk the boundary from end→start CCW (+1) or CW (−1).
-            const build = (dir: 1 | -1): Array<readonly [number, number]> => {
-                const ring = strand.slice();
-                for (const cp of boundaryWalk(endP, startP, dir, bbox)) ring.push(cp);
-                return ring;
-            };
-            const ringA = build(1), ringB = build(-1);
-            // §SEA-WATER-SIDE-ROBUST (L-642) — the two closings PARTITION the bbox (they share the
-            // coastline strand + the two complementary arcs of the perimeter), so exactly ONE of them
-            // contains the bbox CENTRE. The centre is the site origin, which — WHEN it is inland of the
-            // coast — is a known LAND point (the user's parcel is never out at sea), so the SEA ring is
-            // the one that does NOT contain it. This is robust where the OSM way-direction right-hand
-            // test (`test`) is not: a wide or complex coast (port breakwaters, river mouths) can invert
-            // the stored orientation through stitching and paint the LAND side blue (the founder's
-            // "blue everywhere — square, not only the seaside"). BUT if the site sits ~on the shoreline
-            // the centre is on the strand and the side-test is ambiguous (two identical coasts of
-            // opposite orientation must yield opposite seas — only the way-direction can tell them
-            // apart), so there we defer to the right-hand test.
-            let dCentre = Infinity;
-            for (let k = 1; k < strand.length; k++) {
-                dCentre = Math.min(dCentre, distPointToSegment(centre, strand[k - 1]!, strand[k]!));
-            }
-            let pick: Array<readonly [number, number]> | null;
-            if (dCentre > eps) {
-                pick = pointInRing(centre, ringA) ? ringB : ringA;   // sea = the side WITHOUT the land centre
-            } else {
-                pick = pointInRing(test, ringA) ? ringA : (pointInRing(test, ringB) ? ringB : null);
-            }
-            if (!pick || pick.length < 4) continue;
-            // HARD GUARD — the sea must NEVER contain the land centre. If the chosen ring still does
-            // (a mis-closure on a pathological strand), drop it: no sea is honest, sea-over-the-city
-            // is not.
-            if (dCentre > eps && pointInRing(centre, pick)) continue;
-            rings.push(pick);
+    const result = buildSeaMask(ways, bbox);
+    if (result.refused.length > 0) {
+        const seen = new Set<string>();
+        for (const r of result.refused) {
+            if (seen.has(r.reason)) continue;
+            seen.add(r.reason);
+            const count = result.refused.filter((x) => x.reason === r.reason).length;
+            console.warn(
+                `[gis] §SEA-LEFT-HAND-WALK (L-12911) sea mask REFUSED (${r.reason}${count > 1 ? ` ×${count}` : ''}): ` +
+                    `${r.detail} chains=${result.chains} strands=${result.strands} kept=${result.rings.length}.`,
+            );
         }
     }
-    return rings;
+    return result.rings;
 }
 
 /** Is this way a closed ring (first point ≈ last point)? Lakes are closed; a
