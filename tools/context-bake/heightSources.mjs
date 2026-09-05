@@ -296,10 +296,20 @@ export const SOURCES = {
   dgt_pt: {
     country: 'pt', name: 'DGT national LiDAR nDSM', impl: 'documented',
     provenance: 'tagged', lodNow: 'LoD1-real-height', lodNext: 'LoD2/3 (Lisbon CML model)',
-    endpoint: 'DGT CDD LiDAR (2024–25, 10 pts/m², open) + Overture/OSM footprints',
+    endpoint: 'DGT CDD LiDAR (2024–25, 10 pts/m², open) + Overture/OSM footprints — NO reachable service door (probed 2026-09-05, below)',
     heightField: 'DSM−DTM nDSM 90th-pctile per footprint',
     note: 'Good height (~75%) but NO national footprint layer (use Overture/OSM) and weak parcels ' +
-      '(Carta Cadastral ~134 munis, NOT Lisbon/Porto cores). Shares the nDSM module.',
+      '(Carta Cadastral ~134 munis, NOT Lisbon/Porto cores). Shares the nDSM module. ' +
+      '⛔ NO-SOURCE 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE, curl -m 20): DGT geo2.dgterritorio.gov.pt/geoserver WCS → HTTP 200 ' +
+      'ows:ExceptionReport "Service WCS is disabled"; its WMS lists 159 layers, the only elevation ones altimetria:Cota_altimetrica / ' +
+      'Curva_de_nivel / MDT50m:MDT50m (a 50 m TERRAIN model — no DSM, no building layer); cdd.dgterritorio.gov.pt → 404; ' +
+      'ows.dgterritorio.gov.pt → TCP timeout. Lisbon CML (services.arcgis.com/1dSrzEWVQn5kHHyK, 118 services): Edificado_e_Vias/0 ' +
+      '"Edificado" (EPSG:3763, maxRecordCount 2000) carries OBJECTID · COD_SIG · IDTIPO · NPRINCIP · MORADA · Shape__Area · ' +
+      'Shape__Length — NO height, NO storeys; Cartografia_Base has no building layer; the hub search for altura / 3D / lidar / ' +
+      'altimetria / modelo digital returns nothing; dados.cm-lisboa.pt/api → Cloudflare 403. Porto (opendata.porto.digital CKAN): ' +
+      'edificios / 3D / altimetria / MDS / lidar → 0 relevant datasets (only Domus Social housing tables). So Portugal has NO ' +
+      'reachable measured-height product — national, Lisbon or Porto — and NO join is wired; `portugal` stays mass-only (honest ' +
+      'OSM defaults, never a fabricated height). The DGT 2024–25 LiDAR exists as a programme, not as a service anyone can sample.',
   },
   piedmont_it: {
     country: 'it', name: 'ARPA Piemonte Edifici 3D (Turin only)', impl: 'documented',
@@ -310,12 +320,23 @@ export const SOURCES = {
       'Turin has a real layer; Rome/Milan = no-source (OSM 9 m). Structural gap, not a currency lag.',
   },
   grb_be: {
-    country: 'be', name: '3D GRB LoD1 DHMV (Flanders only)', impl: 'documented',
-    provenance: 'tagged', lodNow: 'LoD1-real-height (Flanders only)', lodNext: 'none (no LoD2 anywhere in BE)',
-    endpoint: 'CADMAP federal footprints + Flanders 3D GRB Gebouw LoD1 DHMV II',
-    heightField: 'GRB block-model ridge height (DHMV II LiDAR)',
-    note: 'Height structured ONLY in Flanders. Brussels (UrbIS) / Wallonia (PICC) height UNKNOWN → ' +
-      'blocked-until-probed. Three separate schemas, no shared model.',
+    country: 'be', name: 'DHMV II nDSM (DSM 1 m − DTM 1 m, keyless WCS) on OSM footprints — Flanders + Brussels', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (1 m regional nDSM)', lodNext: 'none (no LoD2 anywhere in BE; 3D GRB LoD1 is WMS-only)',
+    endpoint: 'https://geo.api.vlaanderen.be/DHMV/wcs (WCS 2.0.1: DHMVII_DSM_1m − DHMVII_DTM_1m, EPSG:31370, multipart/related, FORMAT=image/tiff)',
+    heightField: 'P90 of (DSM − DTM) over the eroded OSM footprint interior (ndsmHeightForBuilding, native metres); nodata −9999',
+    coverage: 'partial', // Flanders + the Brussels-Capital Region (probed at Grand-Place); Wallonia is outside DHMV II
+    keyless: true, // Vlaanderen: <Fees>Het gebruik van de service is kosteloos.</Fees> (probed 2026-09-05); gebruiksrecht geografische webdiensten
+    note: '⭐ WIRED 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE, §BE-DHMV-OSM-JOIN): the national STAMP stampBeDhmvHeightsOnGeojsonseq ' +
+      '(heights/beHeightsStamp.mjs; pure half + working set BE_CITY_BBOXES in heights/beHeights.mjs) is dispatched by the bake ' +
+      '`belgium` row (heightJoin:\'be_dhmv\' → NATIONAL_STAMP_TABLE). LIVE-PROBED 2026-09-05: GetCapabilities HTTP 200 20,128 B; ' +
+      'GetCoverage answers multipart/related boundary="wcs" (GML part + a Float32 GeoTIFF part, nodata −9999) for every FORMAT ' +
+      'spelling; 200 m → 266,250 B / 0.54 s, 1 km → 4,198,890 B / 0.94 s. Antwerp Grote Markt DSM − DTM p50 10.8 · p90 18.2 · max ' +
+      '54.0 m (68.7 % of cells > 3 m); Ghent nDSM p90 17.2 m; ⭐ Brussels Grand-Place DSM p90 46.6 m over DTM 21.4 m, 0 nodata — ' +
+      'the August note\'s "Flanders only" was true of the 3D GRB block MODEL, not of the DHMV raster, which covers Brussels-Capital. ' +
+      'Local proof on 1,000 real GRB:GBG footprints: 800/819 retained stamped (97.7 %), median 15.1 m, 0 tile errors. ' +
+      'NOT a height source: 3D GRB LoD1 (WMS-only, /3DGRB/wfs → 302), UrbisAdm:Bu (GEOM · BU_INSPIRE_ID · BU_CAPAKEY · BU_STATUS · ' +
+      'BU_CATEGORY · BU_ID — no height), /Urbis3D and /UrbisTopo (404). Wallonia (Liège, Charleroi, Namur) stays unstamped — ' +
+      'DHMV II ends at the regional border and the Walloon MNT/MNS was not probed by this lane; an honest gap, said by name.',
   },
   ml_sa: {
     country: 'sa', name: 'Microsoft ML footprints + GLO-30 DEM', impl: 'blocked',
@@ -332,14 +353,24 @@ export const SOURCES = {
   // or a bake stamp yet, so resolveHeights() reports the honest channel + owed build and the region
   // keeps OSM defaults; NO region declares a heightJoin on any of these (§MEASURED-HEIGHT-GATE).
   eesti3d_ee: {
-    country: 'ee', name: 'Eesti 3D national LoD2 + EHR register', impl: 'documented',
-    provenance: 'tagged', lodNow: 'LoD2 (national CityGML)', lodNext: 'LoD2-mesh (native)',
-    endpoint: 'Maa-amet Eesti 3D CityGML (national LoD2, pre-linked to EHR building ids) + EHR daily CSV (floors)',
-    heightField: 'CityGML measuredHeight; EHR floors (daily CSV) as the derived-levels fallback',
+    country: 'ee', name: 'ETAK e_401_hoone_ka korgus_m (Maa-amet national topographic DB, keyless WFS) on OSM footprints', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (surveyed metre per building, EHR-linked)', lodNext: 'LoD2-mesh (Eesti 3D CityGML — bulk order form, not a bbox service)',
+    endpoint: 'https://gsavalik.envir.ee/geoserver/etak/ows (WFS 2.0.0 etak:e_401_hoone_ka, GeoJSON, EPSG:4326 lon,lat BBOX, 5,000-object cap per request)',
+    heightField: 'korgus_m (xsd:short, integer metres; ETAK_juhend2016 §3.5.3: height model or stereo roof-edge — measured) + korgusallika_id (source document); tyyp 40 ruins skipped',
     coverage: 'full',
-    note: 'ASSESS EE: 856,360 LoD2 + 917,882 LoD1 buildings, state-conflated with the register. The owed ' +
-      'build is an EE CityGML stamp mirroring stampLod2NrwHeightsOnGeojsonseq; until it lands the ' +
-      '`estonia` region bakes honest OSM defaults. Never declare the join before the stamp exists.',
+    keyless: true, // <Fees>puudub</Fees> <AccessConstraints>puudub</AccessConstraints> (probed 2026-09-05); Maa-amet open-data licence, attribution "Maa- ja Ruumiamet"
+    note: '⭐ WIRED 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE, §EE-ETAK-OSM-JOIN): the national STAMP stampEeEtakHeightsOnGeojsonseq ' +
+      '(heights/eeHeightsStamp.mjs; pure half + working set EE_CITY_BBOXES in heights/eeHeights.mjs) is dispatched by the bake ' +
+      '`estonia` row (heightJoin:\'ee_etak\' → NATIONAL_STAMP_TABLE). LIVE-PROBED 2026-09-05: Maa-amet\'s own doors are dead ' +
+      '(kaart.maaamet.ee/wfs/etak 404 · /wcs/korgusmudel 404 · inspire.maaamet.ee/geoserver/bu/wfs 302 · 3d.maaamet.ee 302); the ' +
+      'Environment Agency mirror answers: GetCapabilities HTTP 200 147,052 B / 0.78 s, 44 etak:* layers. Tallinn Old-Town cell ' +
+      '[24.74,59.43,24.75,59.44]: 646/646 buildings, 435,748 B / 0.69 s, korgus_m NULL 9 (1.4 %), p10 10 · p50 18 · p90 25 · max 86 m; ' +
+      'tartu 594 · pärnu 374 · narva 217 · rural 0 per cell. ⚠ The 5,000 cap applies to hits too (a 0.04°×0.03° box: hits 5000, ' +
+      'GetFeature numberReturned 5000 / numberMatched 0) — the stamp quarters a truncated cell, never trusts a round 5,000. ' +
+      'Local proof: 594/607 Tallinn footprints stamped, 594/594 equal to their own korgus_m. The August note\'s "856,360 LoD2" ' +
+      'Eesti 3D CityGML is a bulk download behind the geoportaal order form, not a bake channel; the register-linked (ehr_gid) ' +
+      'korgus_m is the same survey\'s per-building height reachable by bbox. Open question, by name: the korgusallika_id code table ' +
+      '(225 ×547 · 229 ×42 · 224 ×26 · 999 ×15 in the Tallinn cell) was not resolvable from public docs.',
   },
   bdot10k_pl: {
     country: 'pl', name: 'BDOT10k OT_BUBD_A storeys (national GeoParquet)', impl: 'documented',
@@ -349,7 +380,17 @@ export const SOURCES = {
     coverage: 'full',
     note: 'ASSESS PL: NATIONAL-DERIVED-HEIGHTS, gated on ONE owed DuckDB fill read over the parquet ' +
       '(storey-attr fill is UNMEASURED — control 9: UNKNOWN stays UNKNOWN). Until that probe lands, ' +
-      'the `poland` region is mass-only and its row says so.',
+      'the `poland` region is mass-only and its row says so. ' +
+      '⛔ MEASURED channel PROBED 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE, curl -m 20) — NO-SOURCE for an nDSM: GUGiK NMT (DTM) WCS ' +
+      'mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WCS/DigitalTerrainModelFormatTIFF IS keyless and real (2.0.1 + 1.0.0 caps ' +
+      'HTTP 200, Fees none, DTM_PL-KRON86-NH_TIFF, EPSG:2180 axisLabels "y x", 1 m; GetCoverage 200 m → 160,575 B Float32 / 1.6 s, ' +
+      '1 km → 4,003,455 B / 7.8 s, Warsaw PKiN p50 116.2 m) — but the NMPT (DSM) half is not usable: the documented ' +
+      '…/NMPT/GRID1/WCS/DigitalSurfaceModelFormatTIFF → 404; …/NMPT/WCS/… and …/NMPT/GRID1/WMS/… → 401 Unauthorized; the one ' +
+      'answering door …/NMPT/GRID1/WCS/DigitalSurfaceModel (caps 200, coverages DSM_PL-KRON86-NH 0.5 m + DSM_PL-EVRF2007-NH) timed ' +
+      'out at 20 s on EVERY KRON86 GetCoverage tried (Warsaw 200 m ×2, 100 m, SCALEFACTOR 0.5, WCS 1.0.0, Kraków 200 m), and the ' +
+      'one EVRF2007 answer that arrived (200 m, 17.6 s, 480,869 B) decoded as a 400×400 **8-bit RGB** image (SampleFormat 1/1/1, ' +
+      'values 111–255) — a shaded picture, not elevation. A DTM without a DSM is no nDSM, so NO join is wired and `poland` stays ' +
+      'mass-only (honest OSM defaults, never a fabricated height). Re-probe the NMPT door before assuming this is permanent.',
   },
   ruian_cz: {
     country: 'cz', name: 'RUIAN pocet podlazi (floors) via VFR', impl: 'documented',
@@ -542,7 +583,10 @@ export const REGION_SOURCE = {
   milan: { source: 'piedmont_it', status: 'no-source', reason: 'Lombardy building-height layer unconfirmed — no source for Milan' },
   rome: { source: 'piedmont_it', status: 'no-source', reason: 'Lazio building-height layer unconfirmed — no source for Rome' },
   // BE — Brussels is UrbIS, height unknown.
-  brussels: { source: 'grb_be', status: 'blocked', reason: 'Brussels UrbIS height attribute unprobed; GRB height is Flanders-only' },
+  // ⭐ RE-PROBED 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE): UrbisAdm:Bu carries NO height (probed) — but the DHMV II RASTER covers
+  // Brussels-Capital (Grand-Place DSM p90 46.6 m over DTM 21.4 m, 0 nodata), so Brussels is a BE_CITY_BBOXES working-set city of
+  // the `belgium` row's be_dhmv stamp. This city key is informational only — the brussels bake row folded into `belgium` on 2026-09-02.
+  brussels: 'grb_be',
   // SA — geo-fenced. RE-PROBED 2026-09-05 (lane ME-TERRAIN-PARCELS, curl -m 15): umaps.momah.gov.sa
   // /server/rest/services?f=json → 200 (folders Hosted/umaps/Utilities, services []); /umaps and
   // /umaps/Buildings/MapServer → {"error":{"code":499,"message":"Token Required"}}; every GASGI host
@@ -557,10 +601,10 @@ export const REGION_SOURCE = {
   // (§BAKE-EUROPE-NATIONAL), citing context-everywhere-assessment.md §2. NONE of these is
   // impl:'live', so resolveHeights() logs the honest channel/gap and the region keeps OSM
   // `assumed` defaults — never a fabricated height, never an armed join without a wired stamp.
-  estonia: 'eesti3d_ee',
+  estonia: 'eesti3d_ee',    // ⭐ WIRED 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE, §EE-ETAK-OSM-JOIN): the bake `estonia` row declares heightJoin:'ee_etak' → heights/eeHeightsStamp.mjs (ETAK korgus_m, keyless). Local proof Tallinn 594/607.
   lithuania: { source: null, status: 'no-source', reason: 'per-object floors is a PRICED RC product (X3-refused); LiDAR agreement-gated — mass-only (ASSESS LT)' },
   latvia: { source: null, status: 'no-source', reason: 'VZD footprints open but floor/height attr presence UNVERIFIED (one attr probe owed) — UNKNOWN stays UNKNOWN (ASSESS LV)' },
-  poland: 'bdot10k_pl',
+  poland: 'bdot10k_pl',     // ⛔ NO measured join 2026-09-05: GUGiK NMT DTM WCS is live, the NMPT DSM WCS times out / serves 8-bit RGB (see bdot10k_pl note) — mass-only on evidence.
   luxembourg: { source: null, status: 'no-source', reason: 'ACT PCN footprints CC0; national LiDAR 2019 reported NOT verified — no height channel today (ASSESS LU)' },
   sweden: 'lidar_se',
   finland: 'buildings3d_fi',
@@ -573,8 +617,8 @@ export const REGION_SOURCE = {
   switzerland: 'swissbuildings3d', // ⭐ LIVE 2026-09-04 — national STAC→COG stamp BUILT (stampSwissHeightsOnGeojsonseq, working set SWISS_CITY_BBOXES). ⭐ WIRED 2026-09-05: the bake `switzerland` row declares heightJoin:'swiss' (§SWISS-OSM-JOIN). L-12883.
   austria: 'geoland_at',
   czechia: 'ruian_cz',
-  portugal: 'dgt_pt',
-  belgium: 'grb_be',
+  portugal: 'dgt_pt',       // ⛔ NO-SOURCE 2026-09-05: DGT WCS disabled, Lisbon Edificado has no height field, Porto CKAN has nothing (see dgt_pt note) — mass-only on evidence.
+  belgium: 'grb_be',        // ⭐ WIRED 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE, §BE-DHMV-OSM-JOIN): the bake `belgium` row declares heightJoin:'be_dhmv' → heights/beHeightsStamp.mjs (DHMV II DSM − DTM, keyless). Local proof Antwerp 800/819.
   croatia: { source: null, status: 'no-source', reason: 'no national open height product; LiDAR partial (L5 HR / ASSESS HR)' },
   slovenia: 'gurs_si',
   greece: { source: null, status: 'no-source', reason: 'no national footprint+height product confirmed (L5 GR / ASSESS GR)' },
@@ -3125,6 +3169,16 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
       reason: `${src.name}: this source is the bake STAMP stampUsOpenHeightsOnGeojsonseq (heights/usOpenHeightsStamp.mjs), dispatched only when the region ` +
         `declares heightJoin:'us_open' in bake.mjs (with stampBboxesFor → US_OPEN_CITY_BBOXES). Region "${region}" does not, so ` +
         'its footprints keep their OSM tags until that row edit lands.',
+    };
+  }
+  else if (source === 'eesti3d_ee' || source === 'grb_be') {
+    // §EE-ETAK-OSM-JOIN / §BE-DHMV-OSM-JOIN — live, but (like ndh_no / us_open_heights) a bake STAMP over bake's own footprints, not a footprint fetcher.
+    const stamp = source === 'eesti3d_ee' ? 'stampEeEtakHeightsOnGeojsonseq (heights/eeHeightsStamp.mjs)' : 'stampBeDhmvHeightsOnGeojsonseq (heights/beHeightsStamp.mjs)';
+    const key = source === 'eesti3d_ee' ? 'ee_etak' : 'be_dhmv';
+    return {
+      status: 'documented', region, source, provenance: src.provenance,
+      reason: `${src.name}: this source is the bake STAMP ${stamp}, dispatched only when the region declares heightJoin:'${key}' in bake.mjs ` +
+        `(NATIONAL_STAMP_TABLE, stampBboxesFor → the city working set). Region "${region}" is served by that row, not by a footprint fetch here.`,
     };
   }
   else return { status: 'documented', reason: `${src.name} fetcher not implemented`, region, source };

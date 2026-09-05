@@ -298,6 +298,9 @@ jobs:
           boston boston 42.3510,-71.0750 500
           tallinn estonia 59.4370,24.7536 500
           antwerp belgium 51.2213,4.3997 500
+          vienna austria 48.2086,16.3725 500
+          prague czechia 50.0875,14.4213 500
+          ljubljana slovenia 46.0511,14.5051 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights in the MERGED tileset. NOT publishing."
