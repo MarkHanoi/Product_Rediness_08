@@ -88,11 +88,6 @@ import {
   renderUnknownWidget,
 } from './widgetRenderers';
 import { GRAPH_VIEW_EVENT, graphExpanded } from './graphViewState';
-// §PARCEL-LAW-TAB (L-12915) — the one tab that is a HOST of producers, not a
-// widget grid. Mounted in place of cards when it is the active tab of a VISIBLE
-// surface; torn down on every tab change and on hide, so the singleton
-// envelope card is only ever claimed by a host the reader can see.
-import { mountParcelLawTab, type ParcelLawTabHandle } from './parcelLawTab';
 
 type ChartJS = typeof import('chart.js');
 
@@ -137,9 +132,6 @@ export class AnalysisSurface {
    *  recreated: `_show()` re-reads the flag on a project switch the same way
    *  it re-reads `this._layout`. */
   private _presentBtn!: HTMLButtonElement;
-  /** §PARCEL-LAW-TAB (L-12915) — the live host body, or null when the Parcel
-   *  Law tab is not the one on screen. Exactly one at a time; see `refresh()`. */
-  private _parcelLaw: ParcelLawTabHandle | null = null;
 
   constructor() {
     this._layout = loadLayout();
@@ -495,21 +487,6 @@ export class AnalysisSurface {
     // the life of the tab — and a pinned context still counts against the browser's
     // cap, whose eviction victim is the main viewport.
     disposeGraphViewport();
-
-    // §PARCEL-LAW-TAB (L-12915). ⛔ TEAR THE HOST BODY DOWN ON HIDE. `#anl-surface`
-    // is hidden by class, never detached, so a claimed envelope card left in
-    // this body would still count as "in the document" to the seam's
-    // `document.contains` fallback — stranded in an invisible host. The body's
-    // own dispose hands the card back to the viewport ONLY if it still holds it.
-    this._disposeParcelLaw();
-  }
-
-  /** §PARCEL-LAW-TAB — drop the host body, if any. Idempotent. */
-  private _disposeParcelLaw(): void {
-    if (!this._parcelLaw) return;
-    const h = this._parcelLaw;
-    this._parcelLaw = null;
-    try { h.dispose(); } catch { /* §SWALLOW-TEARDOWN — the body is being discarded */ }
   }
 
   // ── Rendering ───────────────────────────────────────────────────────────────
@@ -531,59 +508,9 @@ export class AnalysisSurface {
   /** Recompute and redraw every widget in the layout. */
   async refresh(): Promise<void> {
     if (!this._visible) return;
-
-    // §PARCEL-LAW-TAB (L-12915). ⭐ ALREADY HOSTED → REPAINT, NEVER REMOUNT. Every
-    // model commit lands here through the 350 ms debounce (`model-updated`,
-    // `wall:walls-changed`, `level-changed`…). A remount would hand the singleton
-    // envelope card back to the viewport and re-claim it a microtask later, and
-    // re-mount the parcel section with a fresh subscription — a visible bounce of
-    // a legally-loaded card on every wall move, for a tab whose figures no BIM
-    // commit changes. The card and the parcel section keep themselves live on the
-    // SITE store; the tab only re-derives its switcher highlight and re-wires the
-    // strip. Keyed on `parentElement === this._grid`, not on the handle alone:
-    // a handle whose body has left the grid is a stale handle, and stale means
-    // rebuild.
-    if (
-      this._layout.activeTab === 'parcel-law'
-      && this._parcelLaw
-      && this._parcelLaw.element.parentElement === this._grid
-    ) {
-      const t0 = Date.now();
-      this._parcelLaw.repaint();
-      this._setHostStatus(Date.now() - t0, 'repainted');
-      this._renderFacetBar();
-      return;
-    }
-
     await this._ensureChartjs();
     this._destroyCharts();
-    // §PARCEL-LAW-TAB (L-12915) — BEFORE the grid is cleared, so the body's
-    // conditional hand-back of the singleton card sees it while still attached.
-    this._disposeParcelLaw();
     this._grid.replaceChildren();
-
-    // §PARCEL-LAW-TAB (L-12915). ⭐ THE ONE TAB THAT IS A HOST, NOT A GRID. It
-    // renders in place of cards: no widget loop, no "no widgets" sentence (an
-    // empty arrangement is its DESIGN, not the reader's choice), and a status
-    // line that says the figures are HOSTED — because `_setStatus`'s "every
-    // declared source read" would be a claim this surface did not compute.
-    if (this._layout.activeTab === 'parcel-law') {
-      const t0 = Date.now();
-      withHandlerSpan(
-        'pryzm.analysis.surface.render',
-        {
-          'pryzm.surface': 'analysis',
-          'pryzm.analysis.widgets': 0,
-          'pryzm.analysis.active_tab': this._layout.activeTab,
-        },
-        () => {
-          this._parcelLaw = mountParcelLawTab(this._grid);
-        },
-      );
-      this._setHostStatus(Date.now() - t0, 'mounted');
-      this._renderFacetBar();
-      return;
-    }
 
     // §ANALYSIS-STORED-ARRANGEMENT-VS-GROWN-CATALOGUE (L-9002) — FIRST in the
     // grid, above the cards, because it is about what is MISSING from them.
@@ -970,27 +897,19 @@ export class AnalysisSurface {
     h.textContent = 'Add a widget';
     picker.appendChild(h);
 
-    // §PARCEL-LAW-TAB (L-12915) — the host tab takes no widgets. Every row is
-    // disabled and the note says why, rather than a live row that adds to a list
-    // this tab never renders (a dead click wearing a working button).
-    const hostTab = this._layout.activeTab === 'parcel-law';
     const note = document.createElement('p');
     note.className = 'anl-picker-note';
-    note.textContent = hostTab
-      ? 'The “Parcel law” tab hosts the parcel producers and takes no widgets — its content is the cadastral ' +
-        'card, the buildable envelope and the design-stage strip, not a dashboard arrangement. Switch to ' +
-        'another tab to add a widget there.'
-      : `Adds to the “${ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab)?.label ?? ''}” tab. ` +
-        'Widgets marked NOT BUILT are in this list on purpose: they name the model PRYZM does not have yet, ' +
-        'so the gap is visible here rather than only in a document.';
+    note.textContent =
+      `Adds to the “${ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab)?.label ?? ''}” tab. ` +
+      'Widgets marked NOT BUILT are in this list on purpose: they name the model PRYZM does not have yet, ' +
+      'so the gap is visible here rather than only in a document.';
     picker.appendChild(note);
 
     for (const w of WIDGET_CATALOGUE) {
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'anl-picker-row';
-      row.disabled = hostTab || this._allPlacedIds().includes(w.id);
-      if (hostTab) row.title = 'Not on the Parcel law tab — it hosts producers, not widgets.';
+      row.disabled = this._allPlacedIds().includes(w.id);
 
       const label = document.createElement('span');
       label.className = 'anl-picker-label';
@@ -1071,15 +990,6 @@ export class AnalysisSurface {
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', String(t.id === this._layout.activeTab));
       b.append(document.createTextNode(t.label));
-
-      // §PARCEL-LAW-TAB (L-12915) — a host tab has no arrangement, so a "0"
-      // chip would read as "empty" when it is the fullest tab on the surface.
-      // No count, no NOT BUILT chip: what it hosts says its own state.
-      if (t.id === 'parcel-law') {
-        b.addEventListener('click', () => this._setActiveTab(t.id));
-        this._tabBar.appendChild(b);
-        continue;
-      }
 
       // The count is the ARRANGEMENT's, not the catalogue's — it must track what
       // the user actually put on the tab, including zero.
@@ -1232,34 +1142,6 @@ export class AnalysisSurface {
     layoutNote.className = 'anl-status-note';
     layoutNote.textContent = 'Arrangement saved in this browser (L-3007)';
     this._status.appendChild(layoutNote);
-  }
-
-  /**
-   * §PARCEL-LAW-TAB (L-12915) — the status line for the HOST tab.
-   *
-   * `_setStatus` says "every declared source read on <tab>" / "totals are LOWER
-   * BOUNDS" — both are claims about a census THIS surface ran. On the Parcel
-   * Law tab it ran none: the cadastral card carries its own C57 §1.9
-   * attribution, the envelope card its own confidence badge and citations.
-   * Saying so, rather than borrowing the census sentence, is C19 §5.6 clause 1
-   * at the status line.
-   */
-  private _setHostStatus(ms: number, how: 'mounted' | 'repainted'): void {
-    this._status.replaceChildren();
-    this._status.className = 'anl-status';
-    const present = presentationMode();
-    if (this._tabLedeText) {
-      const lede = document.createElement('span');
-      lede.className = 'anl-status-lede';
-      lede.textContent = present ? this._tabLedeText : `${this._tabLedeText}  ·  `;
-      this._status.appendChild(lede);
-    }
-    if (present) return;
-    const text = document.createElement('span');
-    text.textContent =
-      `${how === 'mounted' ? 'Mounted' : 'Repainted'} in ${ms} ms — nothing on this tab is computed here. ` +
-      'Each card states its own source, confidence and citations on its face; read those, not this line.';
-    this._status.appendChild(text);
   }
 
   private _destroyCharts(): void {

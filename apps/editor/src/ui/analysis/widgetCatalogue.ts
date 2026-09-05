@@ -458,10 +458,6 @@ export const DEFAULT_TAB_LAYOUT: Readonly<Record<AnalysisTabId, readonly string[
   // ledger sits directly under the figure it qualifies — the same rule that
   // keeps `takeoff-coverage` on the Quantities tab rather than a tab of its own.
   areas: Object.freeze(['area-by-level', 'area-standard', 'gfa-nia', 'sia-416', 'unit-mix', 'tenure', 'change-table']),
-  // §PARCEL-LAW-TAB (L-12915). ⛔ ALWAYS EMPTY, BY DESIGN. This tab hosts
-  // producers (`parcelLawTab.ts`), not widgets; no catalogue widget declares
-  // `tab: 'parcel-law'` and the picker refuses to add one there, saying why.
-  'parcel-law': Object.freeze([]),
 });
 
 /** Flat order across every tab. DERIVED — do not hand-maintain. */
