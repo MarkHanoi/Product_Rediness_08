@@ -64,14 +64,21 @@ import { PbfReader } from 'pbf';
 /** A lon/lat bounding box `[west, south, east, north]` — same shape as `contextBuildings.Bbox`. */
 export type TileBbox = readonly [number, number, number, number];
 
-/** The layers baked by `tools/context-bake/` — the tile file is `<layer>.pmtiles`. */
-export type ContextTileLayer = 'buildings' | 'roads' | 'water' | 'parks' | 'landuse' | 'rail' | 'trees';
+/** The layers baked by `tools/context-bake/` — the tile file is `<layer>.pmtiles`.
+ *  §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — `sea`: closed sea POLYGONS from the osmdata
+ *  water-polygons product (bake.mjs LAYERS `sea`, OPTIONAL — a landlocked region has no tiles). Read
+ *  by contextWater.ts INSTEAD of walking the water layer's tile-fragmented `natural=coastline` lines. */
+export type ContextTileLayer = 'buildings' | 'roads' | 'water' | 'parks' | 'landuse' | 'rail' | 'trees' | 'sea';
 
 /** One decoded tile feature: GeoJSON-ish rings in lon/lat plus the OSM tags that rode along. */
 export interface ContextTileFeature {
     /** Outer rings in lon/lat. Polygons contribute their outer ring; multipolygons contribute one
-     *  entry per part. Holes are dropped — cosmetic at context-massing scale. */
+     *  entry per part. Holes are dropped — cosmetic at context-massing scale — EXCEPT for a layer in
+     *  `LAYER_KEEPS_HOLES` (sea: a hole is an ISLAND, and painting it blue is not cosmetic). */
     readonly rings: number[][][];
+    /** §SEA-BAKE-POLYGONS — per-ring holes, index-aligned with `rings` (`holes[i]` are the interior
+     *  rings of `rings[i]`, each closed, lon/lat). Present ONLY for `LAYER_KEEPS_HOLES` layers. */
+    readonly holes?: ReadonlyArray<number[][][]>;
     /** OSM tags, stringified (MVT values may be number/boolean). */
     readonly tags: Record<string, string>;
     /** ⚠ SYNTHETIC — stable per (tile, feature index). NOT an OSM id. See the header note. */
@@ -122,6 +129,7 @@ const LAYER_ZOOM: Record<ContextTileLayer, number> = {
     landuse: 16,
     rail: 16,
     trees: 16,
+    sea: 14, // §SEA-BAKE-POLYGONS — baked z8–z14 (the sea is read over 0.10°, ≤ 64 tiles; z16 would only multiply empty ocean tiles).
 };
 
 /**
@@ -136,6 +144,7 @@ const LAYER_DEFINING_TAGS: Record<ContextTileLayer, readonly string[]> = {
     landuse: ['landuse'],
     rail: ['railway'],
     trees: ['natural'], // trees.pmtiles is baked from `natural=tree` NODES only — no collision with parks.
+    sea: ['sea'], // §SEA-BAKE-POLYGONS — every baked sea polygon carries `sea=1` (+ `source=osmdata-water-polygons`).
 };
 
 /** Whether the layer's payload is areal (polygons) or linear (ways). */
@@ -147,6 +156,23 @@ const LAYER_IS_AREAL: Record<ContextTileLayer, boolean> = {
     landuse: true,
     rail: false, // linestring track ways — like roads.
     trees: false,
+    sea: true,
+};
+
+/**
+ * §SEA-BAKE-POLYGONS — whether the reader KEEPS polygon holes for the layer (as `holes`, index-aligned
+ * with `rings`). Every other areal layer drops holes as cosmetic; for the sea a hole is an island —
+ * Cockatoo Island, Södermalm, the Île d'If — and a sea polygon drawn without it paints land blue.
+ */
+const LAYER_KEEPS_HOLES: Record<ContextTileLayer, boolean> = {
+    buildings: false,
+    roads: false,
+    water: false,
+    parks: false,
+    landuse: false,
+    rail: false,
+    trees: false,
+    sea: true,
 };
 
 /**
@@ -166,6 +192,7 @@ const LAYER_IS_POINT: Record<ContextTileLayer, boolean> = {
     landuse: false,
     rail: false,
     trees: true,
+    sea: false,
 };
 
 /**
@@ -981,6 +1008,35 @@ function ringsFor(
     }
 }
 
+/**
+ * §SEA-BAKE-POLYGONS — the hole-preserving twin of `ringsFor`, for `LAYER_KEEPS_HOLES` layers only:
+ * one `{ outer, holes }` per polygon part. Non-polygon geometry yields nothing (the sea layer is baked
+ * as polygons; a stray LineString is not sea). Exported for the unit test; production calls it only
+ * through `loadTile`.
+ */
+export function polygonPartsFor(
+    geometry: { type: string; coordinates: unknown },
+): Array<{ outer: number[][]; holes: number[][][] }> {
+    const part = (poly: number[][][]): { outer: number[][]; holes: number[][][] } | null => {
+        const outer = closeRing(poly[0] ?? []);
+        if (outer.length < 4) return null;
+        const holes = poly.slice(1).map(closeRing).filter((h) => h.length >= 4);
+        return { outer, holes };
+    };
+    switch (geometry.type) {
+        case 'Polygon': {
+            const p = part(geometry.coordinates as number[][][]);
+            return p ? [p] : [];
+        }
+        case 'MultiPolygon':
+            return (geometry.coordinates as number[][][][])
+                .map(part)
+                .filter((p): p is { outer: number[][]; holes: number[][][] } => p !== null);
+        default:
+            return [];
+    }
+}
+
 /** Does this feature actually belong to the layer, or is it an incidental referenced object? */
 function belongsToLayer(tags: Record<string, string>, layer: ContextTileLayer): boolean {
     return LAYER_DEFINING_TAGS[layer].some((t) => t in tags);
@@ -1139,9 +1195,13 @@ export async function readContextTileFeatures(
         // §CTX-TILE-DECODE-CACHE — the bbox crop happens HERE, per read, never in the cache. Two
         // bboxes sharing a tile legitimately want different subsets of it.
         for (const f of tileFeatures) {
-            const rings = f.rings.filter((ring) => ring.length >= minVerts && ringIntersectsBbox(ring, bbox));
-            if (rings.length === 0) continue;
-            features.push(rings.length === f.rings.length ? f : { ...f, rings });
+            const keep = f.rings.map((ring) => ring.length >= minVerts && ringIntersectsBbox(ring, bbox));
+            if (!keep.some(Boolean)) continue;
+            if (keep.every(Boolean)) { features.push(f); continue; }
+            const rings = f.rings.filter((_, i) => keep[i]);
+            // §SEA-BAKE-POLYGONS — the crop must keep `holes` index-aligned with the rings it keeps.
+            const holes = f.holes ? f.holes.filter((_, i) => keep[i]) : undefined;
+            features.push(holes ? { ...f, rings, holes } : { ...f, rings });
         }
     }
 
@@ -1197,10 +1257,21 @@ async function loadTile(
             const tags = toTags(f.properties);
             if (!belongsToLayer(tags, layer)) continue;
             const geometry = f.toGeoJSON(x, y, z).geometry as { type: string; coordinates: unknown };
-            const rings = ringsFor(geometry, layer);
+            // §SEA-BAKE-POLYGONS — a hole-keeping layer takes its parts WITH holes (index-aligned);
+            // every other layer keeps the byte-for-byte unchanged `ringsFor` path.
+            let rings: number[][][];
+            let holes: number[][][][] | undefined;
+            if (LAYER_KEEPS_HOLES[layer]) {
+                const parts = polygonPartsFor(geometry);
+                rings = parts.map((p) => p.outer);
+                holes = parts.map((p) => p.holes);
+            } else {
+                rings = ringsFor(geometry, layer);
+            }
             if (rings.length === 0) continue;
             out.push({
                 rings,
+                ...(holes ? { holes } : {}),
                 tags,
                 // Stable + unique per emitted piece. `i` is the tile-local feature index, so the
                 // triple (x, y, i) identifies it; the mix keeps ids apart across tiles.

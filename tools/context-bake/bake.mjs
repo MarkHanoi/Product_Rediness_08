@@ -78,6 +78,12 @@ import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeig
 // that arms the `germany` row — the koln-only lod2nrw join above stays as the NRW reference implementation.
 import { stampDeLod2LaenderHeightsOnGeojsonseq } from './heights/deLod2LaenderStamp.mjs';
 import { DE_LOD2_CITY_BBOXES } from './heights/deLod2Laender.mjs';
+// §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — the sea as closed POLYGONS from the osmdata water-polygons
+// product (osmcoastline output of the planet coastline, ODbL), clipped per region in ONE streaming pass.
+// seaPolygons.mjs's header carries the why: coastline LINES in the water layer reach the client as tile-clipped
+// fragments the §SEA-LEFT-HAND-WALK must refuse (L-12921 Sydney · L-12909 Marseille · L-807 Barcelona · Dubai),
+// so the sea was ALWAYS the live Overpass supplement on a baked coastal city. Polygons survive clipping closed.
+import { SEA_SOURCE, parseBboxCsv, extractSeaShapefile, clipWaterPolygonsToRegions } from './seaPolygons.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -582,6 +588,25 @@ const LAYERS = [
   // caps nearest-first, so a dropped far tree is never visible). Point geometry: the tile reader
   // (contextTiles.ts, LAYER_IS_POINT) carries single-vertex features for this layer only.
   { id: 'trees',     filter: ['n/natural=tree'],                                  geom: 'point',              minz: 14, maxz: 16, extra: ['--drop-densest-as-needed'] },
+  // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — the SEA as closed POLYGONS, its own layer + archive.
+  // `source` (not `filter`): this layer is NOT cut from the Geofabrik pbf. It is the osmdata
+  // "water-polygons-split-4326" product (osmcoastline's closed planet coastline, split on a grid, WGS 84,
+  // ODbL, ~904 MB zip — SEA_SOURCE in seaPolygons.mjs carries the probe), downloaded ONCE per run, clipped
+  // to every region's bbox in ONE streaming pass by clipWaterPolygonsToRegions, and tippecanoe'd as
+  // polygons. The client (contextWater.ts) reads `sea` polygons DIRECTLY when the layer exists — no
+  // coastline walk, no live Overpass supplement — and keeps the walk + supplement only as the fallback
+  // when the layer is absent. `w/natural=coastline` stays in the water layer for that fallback.
+  //   • z8–z14: the client reads the sea over CONTEXT_SEA_HALF_DEG (0.10°, ~11 km) at ≤ 64 tiles, so z14
+  //     is the finest it ever asks for; z16 would only multiply near-empty ocean tiles.
+  //   • --buffer=0: the reader draws every per-tile piece as its own polygon; a zero buffer makes the
+  //     pieces abut exactly instead of overlapping by the default 5/4096 of a tile (a same-height,
+  //     same-colour overlap strip z-fights). --no-tiny-polygon-reduction: never replace a small sea
+  //     sliver with a dot. --drop-densest-as-needed: the §WATER-TILE-CAP class — a z8 fjord tile must
+  //     degrade, not kill the run.
+  //   • optional: true — a landlocked region (switzerland, austria, czechia, …) yields ZERO polygons
+  //     and NO sea.pmtiles; stage-manifest records it under `optionalLayersNotProduced` and merge-tiles
+  //     names it and skips it instead of refusing. "No sea here" is an absence, never an empty artefact.
+  { id: 'sea',       source: 'osmdata-water-polygons',                            geom: 'polygon',            minz: 8,  maxz: 14, optional: true, extra: ['--drop-densest-as-needed', '--no-tiny-polygon-reduction', '--buffer=0'] },
 ];
 
 // ── args ─────────────────────────────────────────────────────────────────────
@@ -803,6 +828,18 @@ const bboxDeg2 = (bbox) => {
  * Runs inside `--check`, so CI's cheap "Plan" step is the thing that catches it.
  */
 function assertHeightStampBudget() {
+  // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — the national height stamp runs in exactly ONE
+  // place: the `buildings` layer's push (`pushBuildingsWithNationalHeights`, "if (l.id ===
+  // 'buildings')"). A run scoped AWAY from buildings — `--layer sea`, `--layer roads`, … — never
+  // reaches it, so its heap floor cannot apply. It did anyway: `--layer sea --region france` exited 5
+  // with "Node heap limit is 2349 MB … needs at least 6000 MB", refusing a run that allocates nothing
+  // per footprint. A preflight that refuses a bake it is not describing is not a safety net, it is a
+  // false refusal — and it would have blocked the FIRST sea dispatch. Scope it, by name.
+  if (!layers.some((l) => l.id === 'buildings')) {
+    console.log(`\n  height-stamp budget: SKIPPED — [${layers.map((l) => l.id).join(', ')}] does not include 'buildings',`
+      + ' and the national height stamp runs only on that layer. No footprints are retained by this run.');
+    return;
+  }
   const joins = REGIONS.filter((r) => r.heightJoin);
   if (joins.length === 0) return;
   const heapLimitMB = Math.round(getHeapStatistics().heap_size_limit / 1e6);
@@ -1011,6 +1048,49 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
   console.log(`\n▶ national heights · ${r.name}: ${nat.status}${nat.reason ? ' — ' + nat.reason : ''} (keeps OSM/Overture, honest ${'assumed'} default)`);
 }
 
+// ── §SEA-BAKE-POLYGONS — the `sea` layer: osmdata water polygons → per-region GeoJSONSeq ──────────
+/**
+ * Download the osmdata zip once (skipped when the .shp is already extracted), extract the shapefile
+ * (CRS asserted WGS 84 from its .prj), clip it to EVERY region in one streaming pass, and return the
+ * GeoJSONSeq paths of the regions that yielded ≥ 1 polygon. A region with none gets NO file and is
+ * named as such — landlocked, or no OSM coastline inside its bbox; the layer is OPTIONAL downstream
+ * (stage-manifest + merge-tiles both know). In --dry-run only the plan is printed, nothing is fetched.
+ */
+async function bakeSeaLayer(l, regions) {
+  const zip = resolve(OUT, SEA_SOURCE.zipName);
+  const shp = resolve(OUT, SEA_SOURCE.shpName);
+  const plan = regions.map((r) => ({ name: r.name, bbox: parseBboxCsv(r.bbox), out: resolve(OUT, `${r.name}-${l.id}.geojsonseq`) }));
+  console.log(`\n▶ sea polygons · ${SEA_SOURCE.product} (${SEA_SOURCE.licence}) → ${plan.length} region(s) in one pass`);
+  if (existsSync(shp)) {
+    console.log(`  ${SEA_SOURCE.shpName} already extracted (${(statSync(shp).size / 1e6).toFixed(0)} MB) — skipping the download`);
+  } else {
+    await download(SEA_SOURCE.url, zip);
+    if (DRY) {
+      console.log(`  extract ${SEA_SOURCE.shpName} (+ .prj, WGS 84 asserted) from ${zip}`);
+    } else {
+      const ex = await extractSeaShapefile(zip, OUT);
+      console.log(`  extracted ${ex.entry} → ${ex.shp} (${(ex.bytes / 1e6).toFixed(0)} MB; .prj: ${ex.wkt.slice(0, 40)}…)`);
+      if (!args.includes('--keep-pbf')) {
+        const { unlinkSync } = await import('node:fs');
+        unlinkSync(zip);
+        console.log(`  ↳ reclaimed ${SEA_SOURCE.zipName} to save disk (pass --keep-pbf to retain)`);
+      }
+    }
+  }
+  if (DRY) {
+    for (const p of plan) console.log(`  clip sea · ${p.name} (${p.bbox.join(',')}) → ${p.out}`);
+    return plan.map((p) => p.out);
+  }
+  const t0 = Date.now();
+  const { regions: res, stats } = clipWaterPolygonsToRegions(shp, plan);
+  console.log(`  walked ${stats.records} record(s) · ${stats.touched} touching a region · ${stats.outers} outer ring(s) (${stats.outersCw} clockwise = ESRI convention) · ${stats.holesDropped} unhosted hole(s) dropped · ${stats.features} feature(s) written in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  for (const r of res) {
+    if (r.polygons > 0) console.log(`  ✔ sea · ${r.name.padEnd(16)} ${r.polygons} polygon(s), ${r.holes} hole(s), ${r.vertices} vertices → ${r.out}`);
+    else console.log(`  · sea · ${r.name.padEnd(16)} 0 polygons — landlocked, or no OSM coastline inside its bbox (no file; the layer is optional)`);
+  }
+  return res.filter((r) => r.polygons > 0).map((r) => r.out);
+}
+
 // ── download (Node, no toolchain needed) ─────────────────────────────────────
 async function download(url, dest) {
   if (existsSync(dest)) {
@@ -1067,6 +1147,9 @@ function printPlan() {
   const overtureRegions = REGIONS.filter((r) => buildingsSourceFor(r) === 'overture');
   console.log(`  out dir     : ${OUT}`);
   console.log(`  layers      : ${layers.map((l) => l.id).join(', ')} (each merged across ALL regions → one .pmtiles)`);
+  if (layers.some((l) => l.source === 'osmdata-water-polygons')) {
+    console.log(`  sea         : ${SEA_SOURCE.url} (${SEA_SOURCE.licence.split(' — ')[0]}; no Geofabrik extract needed; clipped per region in one pass)`);
+  }
   console.log(`  buildings   : ${overtureRegions.length} region(s) via Overture ${OVERTURE_RELEASE}${overtureRegions.length ? ` — ${overtureRegions.map((r) => r.name).join(', ')}` : ''}; the rest via OSM`);
   console.log('  toolchain   :');
   console.log(`    osmium     ${LOCAL.osmium ? 'LOCAL' : 'missing'}`);
@@ -1093,6 +1176,9 @@ async function main() {
       allRegions: ALL_REGIONS.map((r) => ({ name: r.name, bbox: r.bbox, heightJoin: r.heightJoin ?? null, pending: r.pending === true })),
       regions: REGIONS.map((r) => r.name),          // this invocation's scope (--region applied)
       allLayers: LAYERS.map((l) => l.id),
+      // §SEA-BAKE-POLYGONS — layers a region may legitimately NOT produce (today: `sea`). merge-tiles.mjs
+      // reads this so a staged set lacking one is NAMED and skipped, never refused as a layer gap.
+      optionalLayers: LAYERS.filter((l) => l.optional === true).map((l) => l.id),
       layers: layers.map((l) => l.id),              // this invocation's scope (--layer applied)
     }) + '\n');
     return;
@@ -1128,7 +1214,11 @@ async function main() {
   // reruns (a dev iterating locally would rather re-clip than re-download gigabytes).
   const KEEP_PBF = args.includes('--keep-pbf');
   const groups = new Map();
-  for (const r of REGIONS) {
+  // §SEA-BAKE-POLYGONS — a run scoped to source-backed layers only (`--layer sea`) needs NO Geofabrik
+  // extract: the sea comes from the osmdata product, not from the OSM pbf. Skip the download + clip
+  // (a ~5 GB country pbf for nothing) and treat every region as ready.
+  const needsOsmExtract = layers.some((l) => !l.source);
+  for (const r of needsOsmExtract ? REGIONS : []) {
     if (!groups.has(r.pbf)) groups.set(r.pbf, { url: r.pbfUrl, regions: [] });
     groups.get(r.pbf).regions.push(r);
   }
@@ -1181,6 +1271,10 @@ async function main() {
       console.log(`  ↳ reclaimed ${pbfPath.split(/[\\/]/).pop()} to save disk (pass --keep-pbf to retain)`);
     }
   }
+  if (!needsOsmExtract) {
+    okRegions.push(...REGIONS);
+    console.log(`\n▶ no OSM extract needed for [${layers.map((l) => l.id).join(', ')}] — ${REGIONS.length} region(s) ready without a Geofabrik download`);
+  }
   console.log(`\n▶ regions ready: ${okRegions.length}/${REGIONS.length}` +
     (failedRegions.length ? ` — SKIPPED: ${failedRegions.join(', ')}` : ' — all clipped'));
   if (!DRY && okRegions.length === 0) {
@@ -1192,6 +1286,24 @@ async function main() {
     // Per region: filter + export this layer to its OWN GeoJSONSeq. Then ONE tippecanoe call takes
     // ALL regions' GeoJSONSeq as inputs and merges them into a SINGLE `<layer>.pmtiles` — the output
     // name is unchanged, so R2 + the client reader are untouched (the whole point of L-607's fix).
+    if (l.source === 'osmdata-water-polygons') {
+      // §SEA-BAKE-POLYGONS — one streaming pass over the osmdata shapefile writes every region's
+      // GeoJSONSeq; only regions with ≥ 1 polygon feed tippecanoe. Zero everywhere ⇒ no archive at all
+      // (an OPTIONAL layer's honest absence — tippecanoe would refuse an empty input anyway).
+      const seaGeos = await bakeSeaLayer(l, okRegions);
+      if (seaGeos.length === 0) {
+        console.warn(`  ⚠ ${l.id}: 0 polygon(s) across ${okRegions.length} region(s) — no ${l.id}.pmtiles written (optional layer; landlocked scope, or no OSM coastline in these bboxes)`);
+        continue;
+      }
+      const seaPmt = resolve(OUT, `${l.id}.pmtiles`);
+      run(`tile ${l.id} → PMTiles (sea polygons from ${seaGeos.length} region(s))`,
+        tool('tippecanoe', ['-o', seaPmt, '-l', l.id, '-Z', String(l.minz), '-z', String(l.maxz),
+          '-P', '--force', ...l.extra, ...seaGeos]));
+      if (!DRY && existsSync(seaPmt)) {
+        console.log(`  ✔ ${l.id}.pmtiles — ${(statSync(seaPmt).size / 1e6).toFixed(1)} MB (${seaGeos.length} region(s) with sea)`);
+      }
+      continue;
+    }
     const geos = [];
     for (const r of okRegions) {  // §BAKE-RESILIENT (L-607b) — only tile regions that clipped OK; a SKIPPED region (e.g. London 0-byte pbf) has no clip file, so tiling it would crash the whole run.
       const geo = resolve(OUT, `${r.name}-${l.id}.geojsonseq`);

@@ -500,9 +500,22 @@ function cmdStageManifest() {
   const badLayers = layerIds.filter((l) => !tables.allLayers.includes(l));
   if (badLayers.length > 0) die(2, `stage-manifest: unknown layer(s) [${badLayers.join(', ')}]`);
   const layers = {};
+  // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — an OPTIONAL layer (bake.mjs `optional: true`, today
+  // `sea`) is legitimately absent for a landlocked region: the bake writes no archive rather than an
+  // empty one. The manifest RECORDS the absence under `optionalLayersNotProduced` (schema stays @1 —
+  // additive) so the merge can name it; it never claims the layer, and never refuses the set for it.
+  const optionalLayers = new Set(tables.optionalLayers ?? []);
+  const optionalLayersNotProduced = [];
   for (const l of layerIds) {
     const f = join(dir, `${l}.pmtiles`);
-    if (!existsSync(f)) die(1, `stage-manifest: ${f} does not exist — refusing to write a manifest claiming a layer the bake did not produce.`);
+    if (!existsSync(f)) {
+      if (optionalLayers.has(l)) {
+        optionalLayersNotProduced.push(l);
+        console.log(`  · ${l}.pmtiles not produced — optional layer, recorded as NOT PRODUCED (landlocked scope, or nothing to bake); not claimed, not refused.`);
+        continue;
+      }
+      die(1, `stage-manifest: ${f} does not exist — refusing to write a manifest claiming a layer the bake did not produce.`);
+    }
     const bytes = statSync(f).size;
     console.log(`  hashing ${l}.pmtiles (${(bytes / 1e6).toFixed(1)} MB)…`);
     layers[l] = { file: `${l}.pmtiles`, bytes, sha256: sha256File(f) };
@@ -514,13 +527,14 @@ function cmdStageManifest() {
     regions,
     heightJoinRegions: regions.filter((r) => joinByName.get(r)),
     layers,
+    optionalLayersNotProduced,
     bakedAt: new Date().toISOString(),
     bakeRunId: opt('--run-id', process.env.GITHUB_RUN_ID ?? null),
     gitSha: opt('--git-sha', process.env.GITHUB_SHA ?? null),
   };
   const outFile = join(dir, 'staging-manifest.json');
   writeFileSync(outFile, JSON.stringify(manifest, null, 2) + '\n');
-  console.log(`✔ staging manifest → ${outFile} (${regions.length} region(s), ${layerIds.length} layer(s))`);
+  console.log(`✔ staging manifest → ${outFile} (${regions.length} region(s), ${Object.keys(layers).length} layer(s)${optionalLayersNotProduced.length ? `; optional not produced: ${optionalLayersNotProduced.join(', ')}` : ''})`);
 }
 
 // ── subcommand: merge ────────────────────────────────────────────────────────
@@ -547,43 +561,110 @@ function cmdMerge() {
   if (sets.length === 0) die(1, `merge: no staged sets found under ${stagingDir} (each set = <slug>/staging-manifest.json + <layer>.pmtiles).`);
   console.log(`▶ staged sets: ${sets.map((s) => `${s.slug}[${s.manifest.regions.join(',')}]`).join(' · ')}`);
 
-  // 2 · Region → set map. A region staged in TWO sets is ambiguous: each set's pmtiles is a merged
-  // artifact of ITS region list, so the duplicate cannot be subtracted — merging both double-bakes it.
-  const regionToSet = new Map();
+  // 2 · Target layers FIRST (every gate below is scoped by them), then the (region, layer) → set map.
+  const layerArg = opt('--layer');
+  const targetLayers = layerArg ? csv(layerArg) : tables.allLayers;
+  const badLayers = targetLayers.filter((l) => !tables.allLayers.includes(l));
+  if (badLayers.length > 0) die(2, `merge: unknown layer(s) [${badLayers.join(', ')}]`);
+  const optionalLayers = new Set(tables.optionalLayers ?? []);
+
+  // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — carriers are resolved PER (region, layer), not per
+  // region. The old map was region → ONE set, so a region staged by two sets was ambiguous whatever
+  // layers they held. That made every layer-scoped stage a trap: `region=spain layer=sea stage=true`
+  // either OVERWROTE spain's 7-layer set (--delete on the slug prefix — six layers' staged bytes gone,
+  // and the next `--layer roads` merge refused spain by name) or, under a new slug, tripped the
+  // ambiguity refusal; and an optional layer baked for all regions in ONE run (slug `all--sea`,
+  // regions = every row) collided with every base set at once. Per (region, layer), sets holding
+  // DIFFERENT layers for the same region simply compose.
+  //
+  // Still refused by name: the same (region, layer) carried by two sets — EXCEPT when exactly one of
+  // them is a SINGLE-layer set for that layer. A deliberate layer-scoped re-stage (context-bake.yml
+  // stages `layer=X` under `<region>--X`) then SUPERSEDES the base set's copy of that layer, and the
+  // merge prints the supersession (stdout, by name). Two single-layer sets for one (region, layer)
+  // are still ambiguous: the operator must delete one.
+  const allStagedRegions = new Set();
+  for (const s of sets) for (const r of s.manifest.regions) allStagedRegions.add(r);
+  const carrierOf = new Map(); // `${layer}\u0000${region}` → set
   const dupes = [];
-  for (const s of sets) {
-    for (const r of s.manifest.regions) {
-      if (regionToSet.has(r)) dupes.push({ region: r, a: regionToSet.get(r).slug, b: s.slug });
-      else regionToSet.set(r, s);
+  const superseded = [];
+  for (const l of targetLayers) {
+    const byRegion = new Map();
+    for (const s of sets) {
+      if (!s.manifest.layers?.[l]) continue;
+      for (const r of s.manifest.regions) {
+        if (!byRegion.has(r)) byRegion.set(r, []);
+        byRegion.get(r).push(s);
+      }
+    }
+    for (const [r, cands] of byRegion) {
+      let pick = cands[0];
+      if (cands.length > 1) {
+        const scoped = cands.filter((x) => Object.keys(x.manifest.layers ?? {}).length === 1);
+        if (scoped.length === 1) {
+          pick = scoped[0];
+          superseded.push({ region: r, layer: l, winner: pick.slug, losers: cands.filter((x) => x !== pick).map((x) => x.slug) });
+        } else {
+          dupes.push({ region: r, layer: l, slugs: cands.map((x) => x.slug) });
+          continue;
+        }
+      }
+      carrierOf.set(`${l}\u0000${r}`, pick);
     }
   }
   if (dupes.length > 0) {
-    for (const d of dupes) console.error(`✖ region '${d.region}' is staged by BOTH '${d.a}' and '${d.b}' — merging both would double-bake it. Delete one staged set (aws s3 rm --recursive s3://pryzm-assets/tiles-staging/<slug>/) and re-run.`);
+    for (const d of dupes) console.error(`✖ region '${d.region}' layer '${d.layer}' is staged by BOTH '${d.slugs[0]}' and '${d.slugs[1]}'${d.slugs.length > 2 ? ` (+${d.slugs.length - 2} more)` : ''} — merging both would double-bake it. Delete one staged set (aws s3 rm --recursive s3://pryzm-assets/tiles-staging/<slug>/) and re-run.`);
     process.exit(1);
   }
-  const unknownStaged = [...regionToSet.keys()].filter((r) => !known.has(r));
+  for (const x of superseded) {
+    console.log(`▶ supersede: region '${x.region}' layer '${x.layer}' — the layer-scoped set '${x.winner}' supersedes [${x.losers.join(', ')}] (a deliberate re-stage of ONE layer wins over the base set's copy; the base set's other layers are untouched).`);
+  }
+  const carrier = (l, r) => carrierOf.get(`${l}\u0000${r}`);
+  const unknownStaged = [...allStagedRegions].filter((r) => !known.has(r));
   if (unknownStaged.length > 0 && !flag('--allow-unknown-regions')) {
     die(1, `merge: staged region(s) [${unknownStaged.join(', ')}] are not in bake.mjs ALL_REGIONS — a renamed/deleted row or a typo. Pass --allow-unknown-regions only if this is deliberate.`);
   }
 
-  // 3 · Expected coverage — THE gate. A publish missing an expected region REFUSES BY NAME:
-  // the live sync REPLACES the tileset, so an absent region is a deleted region.
+  // 3 · Expected coverage — THE gate, per layer. A publish missing an expected region REFUSES BY NAME:
+  // the live sync REPLACES that layer's archive, so an absent region is a deleted region. An OPTIONAL
+  // layer is the one exception: a region with no staged copy is NAMED and skipped (landlocked, or not
+  // yet baked — the client falls back to its coastline walk there), never refused.
   const expectArg = opt('--expect', 'all');
-  const { expected, pendingUnstaged } = expectedRegions(tables.allRegions, expectArg, [...regionToSet.keys()]);
+  const { expected, pendingUnstaged } = expectedRegions(tables.allRegions, expectArg, [...allStagedRegions]);
   if (pendingUnstaged.length > 0) {
     console.log(`▶ §PENDING-REGION — ${pendingUnstaged.length} bake.mjs row(s) flagged pending and NOT staged: [${pendingUnstaged.join(', ')}] — not expected by this merge (stage them with context-bake.yml region=<name> stage=true, then they merge in; drop the flag once live).`);
   }
-  const missing = expected.filter((r) => !regionToSet.has(r));
-  if (missing.length > 0) {
-    console.error(`✖ MISSING REGION(S) — ${missing.length} expected region(s) have NO staged bake: [${missing.join(', ')}].`);
+  const missingByLayer = [];
+  const optionalGaps = [];
+  for (const l of targetLayers) {
+    const missing = expected.filter((r) => !carrier(l, r));
+    if (missing.length === 0) continue;
+    (optionalLayers.has(l) ? optionalGaps : missingByLayer).push({ layer: l, regions: missing });
+  }
+  if (missingByLayer.length > 0) {
+    for (const m of missingByLayer) {
+      console.error(`✖ MISSING REGION(S) for layer '${m.layer}' — ${m.regions.length} expected region(s) have NO staged '${m.layer}' bake: [${m.regions.join(', ')}].`);
+    }
     console.error('  Refusing to merge: publishing this tileset would DELETE the missing region(s) from the live map');
     console.error('  (the R2 publish is a sync that REPLACES the tileset — §BAKE-BY-REGION). Stage a bake for each');
     console.error('  named region (context-bake.yml with region=<name>, stage=true), or pass --expect staged /');
     console.error('  --expect <csv> for a DELIBERATE subset.');
     process.exit(1);
   }
+  for (const g of optionalGaps) {
+    console.log(`▶ optional layer '${g.layer}': ${g.regions.length} expected region(s) have NO staged '${g.layer}' bake — [${g.regions.slice(0, 12).join(', ')}${g.regions.length > 12 ? `, +${g.regions.length - 12} more` : ''}] — named and SKIPPED, not refused (an optional layer is absent where a region has none to give: landlocked, or not yet baked; the client keeps its fallback there).`);
+  }
+  // Layers that actually merge: an optional layer nobody staged for any expected region is skipped by name.
+  const mergeLayers = targetLayers.filter((l) => expected.some((r) => carrier(l, r)));
+  for (const l of targetLayers) {
+    if (!mergeLayers.includes(l)) console.log(`▶ optional layer '${l}': no expected region has a staged '${l}' bake — nothing to merge for it this run.`);
+  }
+  if (mergeLayers.length === 0) die(1, `merge: none of [${targetLayers.join(', ')}] has a staged bake for any expected region — nothing to merge.`);
+  const setsFor = (l) => [...new Set(expected.map((r) => carrier(l, r)).filter(Boolean))];
 
-  // 4 · No-loss gate against the LIVE tileset-manifest.json (what the map currently serves).
+  // 4 · No-loss gate against the LIVE tileset-manifest.json (what the map currently serves), per
+  // merged layer. A layer's own `regions` record (written by this merge since §SEA-BAKE-POLYGONS) is
+  // the precise protected set; older manifests without it fall back to the tileset-wide region list.
+  // An optional layer the live manifest does not list has nothing to lose yet (its first publish).
   const liveManifestPath = opt('--live-manifest');
   let liveManifest = null;
   if (liveManifestPath && existsSync(liveManifestPath)) {
@@ -591,40 +672,38 @@ function cmdMerge() {
     liveManifest = live;
     const liveRegions = Object.keys(live.regions ?? {});
     const allowRemoval = new Set(csv(opt('--allow-region-removal')));
-    const lost = liveRegions.filter((r) => !regionToSet.has(r) && !allowRemoval.has(r));
+    const lost = [];
+    for (const l of mergeLayers) {
+      const liveLayer = live.layers?.[l];
+      let protectedRegions;
+      if (Array.isArray(liveLayer?.regions)) protectedRegions = liveLayer.regions;
+      else if (optionalLayers.has(l)) protectedRegions = liveLayer ? liveRegions : [];
+      else protectedRegions = liveRegions;
+      for (const r of protectedRegions) if (!carrier(l, r) && !allowRemoval.has(r)) lost.push({ layer: l, region: r });
+    }
     if (lost.length > 0) {
-      console.error(`✖ REGION LOSS — the LIVE tileset contains [${lost.join(', ')}] but the merged set does not.`);
+      const byLayer = new Map();
+      for (const x of lost) { if (!byLayer.has(x.layer)) byLayer.set(x.layer, []); byLayer.get(x.layer).push(x.region); }
+      for (const [l, rs] of byLayer) console.error(`✖ REGION LOSS — the LIVE tileset's '${l}' layer contains [${rs.join(', ')}] but the merged set does not.`);
       console.error('  Publishing would remove them from the map. Stage them, or name each in --allow-region-removal');
       console.error('  to remove them DELIBERATELY.');
       process.exit(1);
     }
-    console.log(`▶ no-loss gate: all ${liveRegions.length} live region(s) covered${allowRemoval.size ? ` (deliberate removals: ${[...allowRemoval].join(', ')})` : ''}`);
+    console.log(`▶ no-loss gate: every live region covered for [${mergeLayers.join(', ')}]${allowRemoval.size ? ` (deliberate removals: ${[...allowRemoval].join(', ')})` : ''}`);
   } else if (liveManifestPath) {
     console.log(`▶ no-loss gate: live manifest ${liveManifestPath} not found — BOOTSTRAP publish (no manifest is live yet). The gate arms itself on the first publish that ships one.`);
   }
 
-  // 5 · Which sets participate + per-layer coverage. Only sets carrying expected regions merge in.
-  const activeSets = [...new Set(expected.map((r) => regionToSet.get(r)))];
-  const layerArg = opt('--layer');
-  const targetLayers = layerArg ? csv(layerArg) : tables.allLayers;
-  const badLayers = targetLayers.filter((l) => !tables.allLayers.includes(l));
-  if (badLayers.length > 0) die(2, `merge: unknown layer(s) [${badLayers.join(', ')}]`);
-  const layerGaps = [];
-  for (const l of targetLayers) {
-    for (const s of activeSets) {
-      if (!s.manifest.layers?.[l]) layerGaps.push({ layer: l, slug: s.slug, regions: s.manifest.regions });
-    }
-  }
-  if (layerGaps.length > 0) {
-    for (const g of layerGaps) console.error(`✖ staged set '${g.slug}' (regions ${g.regions.join(',')}) has NO '${g.layer}' layer — it was baked with a --layer scope. Re-stage it with all layers, or merge with --layer <the layers it has>.`);
-    process.exit(1);
-  }
+  // 5 · Participating sets, per layer. (The old per-set layer-gap refusal is subsumed by step 3: a
+  // non-optional layer missing for an expected region is a MISSING REGION for that layer.)
+  const participating = [...new Set(mergeLayers.flatMap((l) => setsFor(l)))];
 
   // 6 · Integrity: staged bytes must match the manifest the bake wrote (a truncated R2 download or
   // a half-overwritten set must not merge silently).
   if (VERIFY && !DRY) {
-    for (const s of activeSets) {
-      for (const l of targetLayers) {
+    let checked = 0;
+    for (const l of mergeLayers) {
+      for (const s of setsFor(l)) {
         const rec = s.manifest.layers[l];
         const f = join(s.dir, rec.file);
         if (!existsSync(f)) die(1, `merge: ${f} is named by ${s.slug}'s manifest but does not exist on disk.`);
@@ -632,9 +711,10 @@ function cmdMerge() {
         if (bytes !== rec.bytes) die(1, `merge: ${s.slug}/${rec.file} is ${bytes} B but the manifest says ${rec.bytes} B — truncated or stale download.`);
         const sha = sha256File(f);
         if (sha !== rec.sha256) die(1, `merge: ${s.slug}/${rec.file} sha256 ${sha.slice(0, 12)}… ≠ manifest ${rec.sha256.slice(0, 12)}… — corrupt or stale download.`);
+        checked++;
       }
     }
-    console.log(`▶ integrity: ${activeSets.length} set(s) × ${targetLayers.length} layer(s) sha256-verified against their staging manifests`);
+    console.log(`▶ integrity: ${checked} (set × layer) archive(s) sha256-verified against their staging manifests`);
   }
 
   // 7 · Engine selection.
@@ -642,11 +722,11 @@ function cmdMerge() {
   let engine = engineArg;
   if (engineArg === 'auto') engine = (has('tile-join') || has('docker')) ? 'tile-join' : 'js';
   if (engine === 'tile-join' && !has('tile-join') && !has('docker')) die(3, 'merge: --engine tile-join but neither tile-join nor docker is available.');
-  console.log(`▶ engine: ${engine}${engineArg === 'auto' ? ' (auto)' : ''} · layers: ${targetLayers.join(', ')} · sets: ${activeSets.map((s) => s.slug).join(', ')}`);
+  console.log(`▶ engine: ${engine}${engineArg === 'auto' ? ' (auto)' : ''} · layers: ${mergeLayers.join(', ')} · sets: ${participating.map((s) => s.slug).join(', ')}`);
 
   if (DRY) {
-    for (const l of targetLayers) {
-      const inputs = activeSets.map((s) => join(s.dir, s.manifest.layers[l].file));
+    for (const l of mergeLayers) {
+      const inputs = setsFor(l).map((s) => join(s.dir, s.manifest.layers[l].file));
       const cmd = engine === 'tile-join' ? tileJoinCmd(inputs, join(outDir, `${l}.pmtiles`)) : null;
       console.log(`  · ${l}: ${inputs.length} input(s) → ${join(outDir, `${l}.pmtiles`)}${cmd ? `\n      ${cmd.cmd} ${cmd.argv.join(' ')}` : ' (js engine)'}`);
     }
@@ -657,8 +737,9 @@ function cmdMerge() {
   // 8 · Merge per layer.
   mkdirSync(outDir, { recursive: true });
   const layerResults = {};
-  for (const l of targetLayers) {
-    const inputs = activeSets.map((s) => join(s.dir, s.manifest.layers[l].file));
+  for (const l of mergeLayers) {
+    const layerSets = setsFor(l);
+    const inputs = layerSets.map((s) => join(s.dir, s.manifest.layers[l].file));
     const outPath = join(outDir, `${l}.pmtiles`);
     console.log(`\n▶ merge ${l} — ${inputs.length} input(s)`);
     if (engine === 'tile-join') {
@@ -686,18 +767,30 @@ function cmdMerge() {
     }
     const bytes = statSync(outPath).size;
     console.log(`  ✔ ${l}.pmtiles — ${(bytes / 1e6).toFixed(1)} MB · ${h.numAddressedTiles} addressed tiles (inputs sum ${sumIn}) · z${h.minZoom}–${h.maxZoom}`);
-    layerResults[l] = { file: `${l}.pmtiles`, bytes, sha256: sha256File(outPath), numAddressedTiles: h.numAddressedTiles, sources: activeSets.map((s) => s.slug) };
+    // `regions` = what the BYTES cover for this layer (the union of its carrier sets' region lists) —
+    // the per-layer record the next run's no-loss gate protects. `sources` = the carrier slugs.
+    layerResults[l] = {
+      file: `${l}.pmtiles`, bytes, sha256: sha256File(outPath), numAddressedTiles: h.numAddressedTiles,
+      sources: layerSets.map((s) => s.slug),
+      regions: [...new Set(layerSets.flatMap((s) => s.manifest.regions))].sort(),
+    };
   }
 
   // 9 · The tileset manifest — published BESIDE the tiles so the next run KNOWS what is live.
   // Iterated over the PARTICIPATING SETS' full region lists, not the expected list: a set staged
   // as {lu,ee} merged under --expect luxembourg still ships Estonia's bytes, and a manifest that
   // omitted estonia would make the next run's no-loss gate blind to it — the exact blindness this
-  // manifest exists to cure. The manifest describes the BYTES, not the intent.
+  // manifest exists to cure. The manifest describes the BYTES, not the intent. A region's row names
+  // the set that carried it for the first merged NON-optional layer (else its first carrier at all).
   const regionsOut = {};
-  const shippedRegions = [...new Set(activeSets.flatMap((s) => s.manifest.regions))];
+  const shippedRegions = [...new Set(participating.flatMap((s) => s.manifest.regions))];
+  const layerOrder = [...mergeLayers.filter((l) => !optionalLayers.has(l)), ...mergeLayers.filter((l) => optionalLayers.has(l))];
+  const setForRegion = (r) => {
+    for (const l of layerOrder) { const c = carrier(l, r); if (c) return c; }
+    return participating.find((x) => x.manifest.regions.includes(r));
+  };
   for (const r of shippedRegions) {
-    const s = regionToSet.get(r);
+    const s = setForRegion(r);
     regionsOut[r] = {
       stagedSet: s.slug,
       bakedAt: s.manifest.bakedAt ?? null,
@@ -764,13 +857,13 @@ function cmdMerge() {
     mergeRunId: process.env.GITHUB_RUN_ID ?? null,
     mergeGitSha: process.env.GITHUB_SHA ?? null,
     engine,
-    mergedLayers: targetLayers,
+    mergedLayers: mergeLayers,
     layers: layersOut,
     regions: regionsOut,
   };
   const manifestPath = join(outDir, 'tileset-manifest.json');
   writeFileSync(manifestPath, JSON.stringify(tilesetManifest, null, 2) + '\n');
-  console.log(`\n✔ merge complete — ${targetLayers.length} layer(s), ${shippedRegions.length} region(s) in the bytes (${expected.length} expected) → ${outDir}`);
+  console.log(`\n✔ merge complete — ${mergeLayers.length} layer(s), ${shippedRegions.length} region(s) in the bytes (${expected.length} expected) → ${outDir}`);
   console.log(`  tileset manifest → ${manifestPath} (publish it BESIDE the tiles; the no-loss gate reads it next run)`);
 }
 

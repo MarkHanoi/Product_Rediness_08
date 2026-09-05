@@ -20,7 +20,14 @@ export interface ContextWaterArea {
     /** Closed ring as [lon,lat] pairs (a lake / pond / reservoir polygon). */
     readonly ring: ReadonlyArray<readonly [number, number]>;
     readonly osmId: number;
+    /** §SEA-BAKE-POLYGONS — interior rings (ISLANDS) of a baked sea polygon, closed [lon,lat] loops.
+     *  Absent on lakes/reservoirs and on walk-built sea rings (which never carry holes). */
+    readonly holes?: ReadonlyArray<ReadonlyArray<readonly [number, number]>>;
 }
+
+/** §SEA-BAKE-POLYGONS — where `ContextWaterCollection.sea` came from, so a console line and a test can
+ *  tell "baked polygons, no walk" from "the walk over coastline lines" from "nothing" BY VALUE. */
+export type SeaProvenance = 'baked-polygons' | 'coastline-walk' | 'none';
 /** §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — the OSM `waterway=*` class of a centre-line.
  *  It exists ONLY to pick a NOMINAL ribbon width; it is never a surveyed channel width. */
 export type ContextWaterwayKind = 'river' | 'canal' | 'stream' | 'drain' | 'ditch' | 'waterway';
@@ -44,8 +51,15 @@ export interface ContextWaterCollection {
     /** §FEAT-FORMA-SEA-CONTEXT (L-185) — OPEN-WATER surfaces derived by clipping the site
      *  bbox against `natural=coastline` ways (open ocean/bay is NOT a closed `natural=water`
      *  polygon, so it was previously invisible even on a waterfront site like Rose Bay).
-     *  Each ring is a closed [lon,lat] loop on the SEA side of the coastline within the bbox. */
+     *  Each ring is a closed [lon,lat] loop on the SEA side of the coastline within the bbox.
+     *  §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — when the baked `sea` layer holds polygons for
+     *  this bbox they are used DIRECTLY (with island holes) and no coastline walk runs; the walk over
+     *  the water layer's `natural=coastline` lines is the FALLBACK for a bbox the sea layer does not
+     *  cover (not yet baked, landlocked, or the layer absent), and CesiumViewport's
+     *  §FIX-SEA-COVERAGE-GATE live supplement stays as the safety net below that. */
     readonly sea: ContextWaterArea[];
+    /** §SEA-BAKE-POLYGONS — provenance of `sea`, carried BY VALUE (never only in a console line). */
+    readonly seaProvenance?: SeaProvenance;
 }
 
 const cache = new Map<string, ContextWaterCollection>();
@@ -81,7 +95,7 @@ interface OverpassWay {
 }
 
 export function emptyWaterCollection(): ContextWaterCollection {
-    return { type: 'ContextWaterCollection', areas: [], ways: [], sea: [] };
+    return { type: 'ContextWaterCollection', areas: [], ways: [], sea: [], seaProvenance: 'none' };
 }
 
 /** §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — narrow an OSM `waterway` tag to the classes we
@@ -158,7 +172,7 @@ function waterFromElements(elements: OverpassWay[], bbox: Bbox): ContextWaterCol
     const sea = buildSeaMaskFromCoastline(coastlines, bbox).map(
         (ring, i): ContextWaterArea => ({ ring, osmId: -1 - i }),
     );
-    return { type: 'ContextWaterCollection', areas, ways, sea };
+    return { type: 'ContextWaterCollection', areas, ways, sea, seaProvenance: 'coastline-walk' };
 }
 
 /** Is a lon/lat ring closed (first point ≈ last)? Ring-shaped twin of `isClosed` below, used to
@@ -177,8 +191,15 @@ function isClosedRing(ring: number[][]): boolean {
  * or a geometrically closed ring → `areas`, everything else linear → `waterways`. Any baked
  * `natural=coastline` linework feeds the SAME §FEAT-FORMA-SEA-CONTEXT sea-mask builder (L-185); when
  * no coastline is baked, `sea` is legitimately empty. `osmId` derives from the stable synthetic id.
+ *
+ * §SEA-BAKE-POLYGONS — when `seaPolygons` (features of the baked `sea` layer) is non-empty, the sea
+ * comes from THEM and the coastline walk does not run at all: the polygons are closed by construction
+ * (osmcoastline, bake-side) and survive tile clipping closed, which the coastline lines never did
+ * (L-12921 / L-12909 / L-807 — every baked coastal city fell through to the live supplement).
  */
-function waterFromTileFeatures(features: ContextTileFeature[], bbox: Bbox): ContextWaterCollection {
+function waterFromTileFeatures(
+    features: ContextTileFeature[], bbox: Bbox, seaPolygons?: ContextTileFeature[] | null,
+): ContextWaterCollection {
     const areas: ContextWaterArea[] = [];
     const ways: ContextWaterway[] = [];
     const coastlines: Array<Array<readonly [number, number]>> = [];
@@ -201,10 +222,53 @@ function waterFromTileFeatures(features: ContextTileFeature[], bbox: Bbox): Cont
             }
         }
     }
+    if (seaPolygons && seaPolygons.length > 0) {
+        const { sea, refused } = seaFromTilePolygons(seaPolygons, bbox);
+        for (const r of refused) console.warn(`[gis] §SEA-BAKE-POLYGONS baked sea polygon REFUSED (${r.reason}): ${r.detail}`);
+        return { type: 'ContextWaterCollection', areas, ways, sea, seaProvenance: 'baked-polygons' };
+    }
     const sea = buildSeaMaskFromCoastline(coastlines, bbox).map(
         (ring, i): ContextWaterArea => ({ ring, osmId: -1 - i }),
     );
-    return { type: 'ContextWaterCollection', areas, ways, sea };
+    return { type: 'ContextWaterCollection', areas, ways, sea, seaProvenance: 'coastline-walk' };
+}
+
+/**
+ * §SEA-BAKE-POLYGONS — baked `sea` tile features → sea areas, PURE. Each outer ring becomes one
+ * `ContextWaterArea` carrying its island holes. The one refusal, kept from the walk (§CONTEXT-DATA-
+ * HONESTY — sea over the city is not honest): a polygon that contains the bbox CENTRE (and not inside
+ * one of its own holes) would put the site in the water; it is refused BY NAME as `land-centre` and
+ * not drawn. Every other piece is kept — the sea is many per-tile pieces, and one refused piece must
+ * not empty the bay.
+ */
+export function seaFromTilePolygons(
+    features: ContextTileFeature[], bbox: Bbox,
+): { sea: ContextWaterArea[]; refused: SeaMaskRefusal[] } {
+    const centre: readonly [number, number] = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+    const sea: ContextWaterArea[] = [];
+    const refused: SeaMaskRefusal[] = [];
+    for (const f of features) {
+        for (let ri = 0; ri < f.rings.length; ri++) {
+            const ring = f.rings[ri]!;
+            if (ring.length < 4) continue;
+            const outer = ring.map((p) => [p[0]!, p[1]!] as const);
+            const holes = (f.holes?.[ri] ?? [])
+                .filter((h) => h.length >= 4)
+                .map((h) => h.map((p) => [p[0]!, p[1]!] as const));
+            if (pointInRing(centre, outer) && !holes.some((h) => pointInRing(centre, h))) {
+                refused.push({
+                    reason: 'land-centre',
+                    detail: `a baked sea polygon (${outer.length} vertices, ${holes.length} island hole(s)) contains the bbox centre `
+                        + `${centre[1].toFixed(5)}, ${centre[0].toFixed(5)} — the site would sit in the water; this piece is not drawn.`,
+                });
+                continue;
+            }
+            sea.push(holes.length > 0
+                ? { ring: outer, osmId: f.syntheticId * 16 + ri, holes }
+                : { ring: outer, osmId: f.syntheticId * 16 + ri });
+        }
+    }
+    return { sea, refused };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -692,13 +756,27 @@ async function fetchWaterForBbox(
     // back to Overpass ONLY on `unavailable` (a real read failure); an honest empty `ok` is an ANSWER
     // (§CONTEXT-DATA-HONESTY). `aborted` = caller cancelled → render nothing (§L-579); `disabled`
     // falls through to the Overpass path below unchanged.
-    const tiled = await readContextTileFeatures('water', bbox, signal);
+    // §SEA-BAKE-POLYGONS — the baked `sea` layer is read BESIDE the water layer (both cached per tile;
+    // an unpublished sea archive costs one 404 per session — §CTX-KNOWN-MISSING). Polygons present ⇒
+    // the sea is theirs, no walk. Empty / disabled / unavailable ⇒ the walk over the coastline lines,
+    // exactly as before, so a region without a baked sea degrades to yesterday's path, not to nothing.
+    const [tiled, seaTiled] = await Promise.all([
+        readContextTileFeatures('water', bbox, signal),
+        readContextTileFeatures('sea', bbox, signal),
+    ]);
     if (tiled.status === 'ok') {
-        const collection = waterFromTileFeatures(tiled.features, bbox);
+        if (seaTiled.status === 'aborted') return emptyWaterCollection(); // §L-579 — never cache a cancelled read.
+        const seaPolygons = seaTiled.status === 'ok' && seaTiled.features.length > 0 ? seaTiled.features : null;
+        const collection = waterFromTileFeatures(tiled.features, bbox, seaPolygons);
         cache.set(key, collection);
+        const seaWhy = seaPolygons
+            ? `${seaPolygons.length} baked sea polygon(s) from ${seaTiled.tilesRead} sea tile(s) — no coastline walk`
+            : seaTiled.status === 'ok'
+                ? 'sea layer read OK but EMPTY here (not baked for this region, or inland) → coastline walk'
+                : `sea layer ${seaTiled.status}${seaTiled.status === 'unavailable' ? ` (${seaTiled.reason})` : ''} → coastline walk`;
         console.log(
             `[gis] §CTX-PMTILES-READER water: ${collection.areas.length} area(s) + ` +
-                `${collection.ways.length} waterway(s) + ${collection.sea.length} sea surface(s) from ` +
+                `${collection.ways.length} waterway(s) + ${collection.sea.length} sea surface(s) [${seaWhy}] from ` +
                 `${tiled.tilesRead} baked tile(s) in ${tiled.ms} ms — no Overpass call.`,
         );
         return collection;

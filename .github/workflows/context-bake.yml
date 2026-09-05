@@ -38,7 +38,7 @@ on:
   workflow_dispatch:
     inputs:
       layer:
-        description: 'Bake a single layer only (buildings | roads | water | parks | landuse). Blank = all.'
+        description: 'Bake a single layer only (buildings | roads | water | parks | landuse | rail | trees | sea). Blank = all. §SEA-BAKE-POLYGONS: "sea" needs NO Geofabrik extract (it clips the osmdata water-polygons product per region in one pass) and is OPTIONAL — a landlocked scope produces no sea.pmtiles and stages an honest "not produced" record.'
         type: string
         default: ''
       region:
@@ -206,6 +206,19 @@ jobs:
         run: |
           set -euo pipefail
           cd tools/context-bake/out
+          # §SEA-BAKE-POLYGONS — an OPTIONAL-layer scope (layer=sea over a landlocked region) legitimately
+          # produces NO archive at all: bake.mjs names it ("0 polygon(s) … no sea.pmtiles written") and
+          # stage-manifest records it as not produced. That is an absence, not a broken bake.
+          shopt -s nullglob
+          files=(*.pmtiles)
+          if [ "${#files[@]}" -eq 0 ]; then
+            if [ "${{ inputs.layer }}" = "sea" ]; then
+              echo "::warning::no sea.pmtiles — the scoped region(s) yielded 0 sea polygons (landlocked / no OSM coastline); optional layer, honest absence."
+              exit 0
+            fi
+            echo "::error::no .pmtiles produced at all — the bake wrote nothing."
+            exit 1
+          fi
           ls -lh *.pmtiles
           # A zero-byte or few-KB .pmtiles means tippecanoe produced an empty tileset
           # (bad filter, bad bbox, truncated download). It would upload happily and
@@ -222,7 +235,7 @@ jobs:
               # (the same failure≠empty confusion as the context-data-honesty family).
               # buildings/roads keep the hard floor: a region without those IS a broken bake.
               case "$f" in
-                trees.pmtiles|parks.pmtiles|water.pmtiles|rail.pmtiles)
+                trees.pmtiles|parks.pmtiles|water.pmtiles|rail.pmtiles|sea.pmtiles)
                   echo "::warning::$f is only $sz bytes — accepted as an honestly sparse layer (magic still checked below)." ;;
                 *)
                   echo "::error::$f is only $sz bytes — the bake produced an effectively empty tileset."
@@ -380,6 +393,12 @@ jobs:
           if [ -n "${REGION// /}" ]; then ARGS+=(--region "${REGION// /}"); fi
           REGION_CSV="$(node tools/context-bake/bake.mjs "${ARGS[@]}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).regions.join(",")))')"
           SLUG="${REGION// /}"; SLUG="${SLUG//,/-}"; SLUG="${SLUG:-all}"
+          # §SEA-BAKE-POLYGONS — a LAYER-scoped stage lands under its OWN slug (<regions>--<layer>) so the
+          # --delete sync below cannot erase the region's other staged layers (the trap: a layer=sea
+          # re-stage under the bare region slug wiped that region's 7-layer set, and the next per-layer
+          # merge refused the region by name). merge-tiles.mjs resolves carriers per (region, layer): a
+          # single-layer set SUPERSEDES the base set's copy of that layer, and composes with the rest.
+          if [ -n "${LAYER// /}" ]; then LAYER_SLUG="${LAYER// /}"; SLUG="${SLUG}--${LAYER_SLUG//,/-}"; fi
           echo "SLUG=$SLUG" >> "$GITHUB_ENV"
           node tools/context-bake/merge-tiles.mjs stage-manifest \
             --dir tools/context-bake/out \

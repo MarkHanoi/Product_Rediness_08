@@ -17,13 +17,24 @@ import { resolve } from 'node:path';
 // §SEA-MARSEILLE-BASIN — the baked-tile reader is mocked so `fetchContextWater` can be driven with the
 // Marseille fixture AS IF it were baked coastline: the test below pins what VALUE the viewport receives
 // when the bake is fragmented. Hoisted, because `vi.mock` factories run above the imports.
-const tileMock = vi.hoisted(() => ({ features: [] as Array<{ rings: number[][][]; tags: Record<string, string>; syntheticId: number }>, reads: 0 }));
+const tileMock = vi.hoisted(() => ({ features: [] as Array<{ rings: number[][][]; tags: Record<string, string>; syntheticId: number }>, reads: 0, seaReads: 0 }));
 vi.mock('../src/ui/geospatial/contextTiles', async (importOriginal) => {
     const real = await importOriginal<typeof import('../src/ui/geospatial/contextTiles')>();
     return {
         ...real,
         contextTilesEnabled: () => true,
-        readContextTileFeatures: vi.fn(async () => {
+        // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — `fetchContextWater` now reads TWO layers per
+        // bbox: `water` (this fixture's `natural=coastline` line work) and the baked `sea` polygon layer.
+        // The Marseille cases below pin the FALLBACK, so `sea` answers `ok` with ZERO features — "the
+        // layer read fine and holds nothing here", which is exactly the value that drives the coastline
+        // walk. `tileMock.reads` stays the count of WATER reads, so every assertion below keeps its
+        // meaning; `seaReads` proves the second read HAPPENED (a silently skipped sea read would leave
+        // the walk in place and this test green for the wrong reason).
+        readContextTileFeatures: vi.fn(async (layer: string) => {
+            if (layer === 'sea') {
+                tileMock.seaReads++;
+                return { status: 'ok' as const, features: [], tilesRead: 0, tilesFailed: 0, ms: 0 };
+            }
             tileMock.reads++;
             return { status: 'ok' as const, features: tileMock.features, tilesRead: 1, tilesFailed: 0, ms: 1 };
         }),
@@ -332,6 +343,9 @@ describe('§SEA-MARSEILLE-BASIN (L-12909 cause 2) — Vieux-Port on the real OSM
         tileMock.features = asTile(MARSEILLE.ways.filter((w) => w.id !== 517022456).map((w) => w.coords));
         const fragmented = await fetchContextWater(HDV.lat, HDV.lon, undefined, HDV_HALF_DEG);
         expect(tileMock.reads).toBe(1);
+        // §SEA-BAKE-POLYGONS — the baked sea layer WAS asked, and answered ok+empty here, so the walk ran.
+        expect(tileMock.seaReads).toBe(1);
+        expect(fragmented.seaProvenance).toBe('coastline-walk');
         expect(fragmented.sea).toEqual([]);
         expect(warn).toHaveBeenCalledTimes(1);
         expect(String(warn.mock.calls[0]![0])).toMatch(/sea mask REFUSED \(incomplete-coastline\): 2 coastline end\(s\)/);
