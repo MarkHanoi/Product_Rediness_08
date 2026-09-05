@@ -2467,7 +2467,11 @@ async function main() {
   const flag = (n) => args.includes(n);
   const val = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : null);
 
-  if (flag('--regions')) { printRegions(); return; }
+  // §TERRAIN-REGIONS-FLAG-PRECEDENCE (2026-09-05) — `--regions` is BOTH the bare listing command and the
+  // VALUE flag of --matrix / --national-regions / --bake-region. Run 33959050059 (US+AU) called
+  // `--matrix --regions "newyork …"`, hit this line first, printed the city registry and the workflow
+  // read "PRYZM terr…" as JSON. The listing is only the command when no other command flag is present.
+  if (flag('--regions') && !flag('--matrix') && !flag('--national-regions') && !flag('--bake-region') && !flag('--check-client-coverage')) { printRegions(); return; }
 
   // ── §11 TERRAIN-EVERYWHERE CLI ────────────────────────────────────────────────────────────────
   const groupFilter = (rows) => {

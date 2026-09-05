@@ -138,7 +138,7 @@ jobs:
             fi
             # At least one quantized-mesh LOD, non-trivial size (an empty encode is a few bytes).
             n="$(find "$d" -name '*.terrain' 2>/dev/null | wc -l)"
-            sz="$(find "$d" -name '*.terrain' -printf '%s\n' 2>/dev/null | sort -rn | head -1)"; sz="${sz:-0}"
+            sz="$(find "$d" -name '*.terrain' -printf '%s\n' 2>/dev/null | sort -n | tail -1)"; sz="${sz:-0}"
             echo "$city — $n .terrain LODs, largest $sz bytes, layer.json OK"
             if [ "$n" -lt 1 ] || [ "$sz" -lt 128 ]; then
               echo "::error::$city produced no real quantized-mesh tiles."

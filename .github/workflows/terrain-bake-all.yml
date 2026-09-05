@@ -113,7 +113,7 @@ jobs:
             city="$(basename "$d")"
             if [ ! -f "$d/layer.json" ]; then echo "::error::$city has no layer.json."; fail=1; continue; fi
             n="$(find "$d" -name '*.terrain' 2>/dev/null | wc -l)"
-            sz="$(find "$d" -name '*.terrain' -printf '%s\n' 2>/dev/null | sort -rn | head -1)"; sz="${sz:-0}"
+            sz="$(find "$d" -name '*.terrain' -printf '%s\n' 2>/dev/null | sort -n | tail -1)"; sz="${sz:-0}"
             echo "$city — $n .terrain LODs, largest $sz bytes"
             if [ "$n" -lt 1 ] || [ "$sz" -lt 128 ]; then echo "::error::$city produced no real tiles."; fail=1; fi
           done

@@ -163,7 +163,7 @@ jobs:
           cd tools/context-bake
           d="out/terrain/$REGION"
           n="$(find "$d" -name '*.terrain' | wc -l)"
-          sz="$(find "$d" -name '*.terrain' -printf '%s\n' | sort -rn | head -1)"; sz="${sz:-0}"
+          sz="$(find "$d" -name '*.terrain' -printf '%s\n' | sort -n | tail -1)"; sz="${sz:-0}"
           echo "$REGION shard $SHARD — $n .terrain tiles, largest $sz bytes, $(du -sh "$d" | cut -f1) total"
           [ "$n" -ge 1 ] && [ "$sz" -ge 128 ] || { echo "::error::$REGION produced no real tiles"; exit 1; }
           if [ "$SHARD" = "0" ]; then
