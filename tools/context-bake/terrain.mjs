@@ -1503,12 +1503,49 @@ export function emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini
 // ═════════════════════════════════════════════════════════════════════════════
 /** Build the live-verified keyless AHN WCS 2.0.1 GetCoverage URL for an RD-New bbox → GeoTIFF.
  *  bboxRD = [minX,minY,maxX,maxY] in EPSG:28992. LIVE-VERIFIED 2026-07-25 (HTTP 200 image/tiff). */
-export function dtmWcsUrl(bboxRD, { coverageId = 'dtm_05m' } = {}) {
+export function dtmWcsUrl(bboxRD, { coverageId = 'dtm_05m', scaleSize = null } = {}) {
   const [minX, minY, maxX, maxY] = bboxRD;
+  // §NL-CITY-BBOX — `scaleSize` is OMITTED unless asked for, so the founder-verified 256 m proof
+  // request stays byte-identical. A city-sized subset MUST carry it: measured 2026-09-05, a
+  // native-resolution city request is refused (HTTP 400 ows:ExceptionReport).
   return `${TERRAIN_SOURCES.nl.endpoint}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage`
     + `&COVERAGEID=${coverageId}&FORMAT=image/tiff`
     + `&SUBSET=x(${minX},${maxX})&SUBSET=y(${minY},${maxY})`
-    + `&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/28992`;
+    + `&SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/28992`
+    + (scaleSize ? `&SCALESIZE=x(${scaleSize[0]}),y(${scaleSize[1]})` : '');
+}
+
+// §NL-CITY-BBOX (L-12942, 2026-09-05) — THE DEFECT THIS RETIRES. The NL bake branch defaulted its
+// RD box to the literal '120900,486900,121156,487156' — the 256 m square in central Amsterdam that
+// was the original one-city proof. Every Dutch city baked WITHOUT --bbox-rd therefore fetched the
+// SAME Amsterdam patch and published it under its own slug: measured on R2 2026-09-05, amsterdam,
+// rotterdam, utrecht and thehague all served layer.json bounds [4.8864, 52.3689, 4.8902, 52.3712].
+// Rotterdam is 60 km from that square. Outside it Cesium has only coarse placeholder plates, which
+// is why a canal 1 km from the centre stood under flat ground (L-12933, the founder's Amsterdam
+// report). The city bbox in BAKEABLE_REGIONS was never consulted.
+//
+// THE REQUEST CEILING IS MEASURED, NOT ASSUMED (PDOK AHN WCS, 2026-09-05, amsterdam bbox
+// 9593 x 8837 m): native 0.5 m → HTTP 400 · SCALESIZE 1024 → 200, 3.0 MB · 2048 → 200, 10.3 MB in
+// 7.9 s (4.68 m/px) · 4096 → HTTP 400 · 8192 → HTTP 400. So 2048 on the LONG axis is the finest the
+// service will serve for a whole city, and the short axis is scaled to keep pixels square.
+export const NL_WCS_MAX_PX = 2048;
+
+/** Derive the AHN GetCoverage request for a city's own WGS-84 bbox: RD-New subset + the scale the
+ *  service will actually honour. Pure (proj4 via the shared reproject.mjs projector). */
+export function nlCityWcsRequest(bboxWgs84, { maxPx = NL_WCS_MAX_PX } = {}) {
+  const [w, s, e, n] = bboxWgs84;
+  const proj = getProjector('EPSG:28992');
+  const [ax, ay] = proj.forward(w, s);
+  const [bx, by] = proj.forward(e, n);
+  const minX = Math.round(Math.min(ax, bx)), maxX = Math.round(Math.max(ax, bx));
+  const minY = Math.round(Math.min(ay, by)), maxY = Math.round(Math.max(ay, by));
+  const spanX = maxX - minX, spanY = maxY - minY;
+  const longSpan = Math.max(spanX, spanY);
+  const scaleSize = [
+    Math.max(1, Math.round(maxPx * (spanX / longSpan))),
+    Math.max(1, Math.round(maxPx * (spanY / longSpan))),
+  ];
+  return { bboxRD: [minX, minY, maxX, maxY], scaleSize, metresPerPx: +(spanX / scaleSize[0]).toFixed(2) };
 }
 
 async function fetchToFile(url, dest, timeoutMs = 60000) {
@@ -2672,9 +2709,20 @@ async function main() {
       // Shipped, founder-verified Amsterdam path — unchanged (dependency-free RD-New closed form).
       mkdirSync(outDir, { recursive: true });
       const tifPath = resolve(outDir, `${name}_dtm.tif`);
-      const bboxRD = (val('--bbox-rd') || '120900,486900,121156,487156').split(',').map(Number);
-      const url = dtmWcsUrl(bboxRD);
-      console.log(`bake ${name}: fetch keyless AHN DTM → ${tifPath}\n  ${url}`);
+      // §NL-CITY-BBOX (L-12942) — DERIVE the subset from THIS city's bbox. The old default was the
+      // hardcoded Amsterdam proof square, which is why four Dutch cities shipped identical tilesets.
+      // --bbox-rd still forces an explicit box and keeps the native-resolution proof request exactly
+      // as it was (no SCALESIZE), so `--bake-city amsterdam --bbox-rd 120900,486900,121156,487156`
+      // reproduces the founder-verified bytes.
+      const rdOverride = val('--bbox-rd');
+      const req = rdOverride
+        ? { bboxRD: rdOverride.split(',').map(Number), scaleSize: null, metresPerPx: 0.5 }
+        : nlCityWcsRequest(region.bbox);
+      const bboxRD = req.bboxRD;
+      const url = dtmWcsUrl(bboxRD, req.scaleSize ? { scaleSize: req.scaleSize } : {});
+      console.log(`bake ${name}: fetch keyless AHN DTM → ${tifPath}`
+        + `\n  subset RD [${bboxRD.join(', ')}] ${rdOverride ? '(--bbox-rd override, native 0.5 m)' : `→ ${req.scaleSize[0]}x${req.scaleSize[1]} px @ ${req.metresPerPx} m/px`}`
+        + `\n  ${url}`);
       const fr = await fetchToFile(url, tifPath);
       console.log(`  ✔ ${fr.bytes} B ${fr.ct} TIFF magic ${fr.magic}`);
       await compileTifToTileset(tifPath, region.source, outDir, gridSize, geotiffMod, Martini);
