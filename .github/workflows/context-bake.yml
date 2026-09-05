@@ -164,7 +164,7 @@ jobs:
           printf '{"name":"pryzm-geotiff-host","private":true}\n' > "$HOSTDIR/package.json"
           # §SWISS-OSM-JOIN (2026-09-05) — proj4 is REQUIRED by the swiss stamp (LV95 EPSG:2056 reprojection via
           # reproject.mjs); without it run 33958358456 stamped 0 heights and the measured-height gate refused (exit 4).
-          ( cd "$HOSTDIR" && npm install --no-package-lock geotiff@2.1.3 ) proj4@2
+          ( cd "$HOSTDIR" && npm install --no-package-lock geotiff@2.1.3 proj4@2 )
           DEST="$GITHUB_WORKSPACE/tools/context-bake/node_modules"
           mkdir -p "$DEST"
           cp -R "$HOSTDIR/node_modules/." "$DEST/"
