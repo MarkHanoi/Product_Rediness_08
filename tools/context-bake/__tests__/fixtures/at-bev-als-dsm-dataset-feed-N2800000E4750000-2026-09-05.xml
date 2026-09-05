@@ -1,0 +1,25 @@
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.w3.org/2005/Atom http://inspire-geoportal.ec.europa.eu/schemas/inspire/atom/1.0/atom.xsd" xml:lang="en">
+  <title>INSPIRE Dataset ATOM feed: ALS DSM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2025</title>
+  <subtitle>INSPIRE Dataset ATOM feed: Das Digitale Oberflächenmodell (DOM, engl.: DSM) beschreibt die Erdoberfläche samt allen darauf befindlichen Objekten in Form von Punktmengen, die in einem regelmäßigen Gitter angeordnet und in Lage und Höhe georeferenziert sind. Im Unterschied zum digitalen Geländemodell (DGM) wird somit die Vegetations- und Bebauungsoberfläche dargestellt. Die hochauflösenden ALS-DGM Daten wurden mittels Airborne Laser Scanning - Technologien erfasst und sind ein Kooperationsprodukt der österreichischen behördlichen Geodatenprovider des Bundes und der Länder. Eignung/Nutzung • Planungsgrundlage • Umweltschutz • Nachrichtentechnik • Geologie • Hydrologie • Landwirtschaft • Forstwirtschaft • Kartographie Dies ist eine von insgesamt 55 Kacheln, welche zusammen das Gebiet Österreich abdecken. Stichtag = Erstellungsdatum: Die Daten sind zu diesem Tag der aktuellste Datenbestand des BEV. Dies ist nicht ident mit dem Aufnahme- bzw. Vermessungsdatum. Die Aktualität finden Sie in der zugehörigen Serie unter „Downloads, Ansichten und Links“ in der Aktualitätsübersicht.</subtitle>
+  <link rel="describedby" type="application/xml" href="https://data.bev.gv.at/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;outputschema=http://www.isotc211.org/2005/gmd&amp;elementSetName=full&amp;id=8a18093f-07a2-408c-8f59-aa1cc1e87935" />
+  <link type="application/atom+xml" rel="self" hreflang="de" title="INSPIRE Dataset ATOM feed: ALS DSM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2025" href="https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/8a18093f-07a2-408c-8f59-aa1cc1e87935&amp;language=de" />
+  <link rel="up" title="The parent service feed" type="application/atom+xml" hreflang="de" href="https://data.bev.gv.at/geonetwork/srv/atom/describe/service?uuid=208cff7a-c8aa-42fe-bf4f-2b8156e37528&amp;language=de" />
+  <id>https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/8a18093f-07a2-408c-8f59-aa1cc1e87935&amp;language=de</id>
+  <rights>Der öffentliche Zugang zu diesem Produkt unterliegt keinen Einschränkungen.</rights>
+  <updated>2026-05-19T14:28:52.503408ZZ</updated>
+  <author>
+    <name>Bundesamt für Eich- und Vermessungswesen</name>
+    <email>kundenservice@bev.gv.at</email>
+  </author>
+  <category term="http://www.opengis.net/def/crs/EPSG/0/3035" label="ETRS89 / LAEA Europe" />
+  <entry>
+    <inspire_dls:spatial_dataset_identifier_code xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0">https://doi.org/10.48677/8a18093f-07a2-408c-8f59-aa1cc1e87935</inspire_dls:spatial_dataset_identifier_code>
+    <inspire_dls:spatial_dataset_identifier_namespace xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" />
+    <category term="http://www.opengis.net/def/crs/EPSG/0/3035" label="ETRS89 / LAEA Europe" />
+    <id>https://data.bev.gv.at/download/ALS/DSM/20250915/ALS_DSM_CRS3035RES50000mN2800000E4750000.tif</id>
+    <link title="ALS DSM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2025 in ETRS89 / LAEA Europe - TIFF/GeoTIFF files" rel="alternate" type="image/tiff" href="https://data.bev.gv.at/download/ALS/DSM/20250915/ALS_DSM_CRS3035RES50000mN2800000E4750000.tif" hreflang="de" />
+    <title>ALS DSM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2025 in ETRS89 / LAEA Europe - TIFF/GeoTIFF files</title>
+    <updated>2026-05-19T14:28:52.503408ZZ</updated>
+    <georss:polygon xmlns:georss="http://www.georss.org/georss">48.16260 15.10022 48.64428 15.10022 48.64428 15.82250 48.16260 15.82250 48.16260 15.10022</georss:polygon>
+  </entry>
+</feed>

@@ -1,0 +1,82 @@
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.w3.org/2005/Atom http://inspire-geoportal.ec.europa.eu/schemas/inspire/atom/1.0/atom.xsd" xml:lang="en">
+  <title>AT.BEV ATOM Downloaddienst ALS EL Höhendaten</title>
+  <subtitle>Der ATOM Downloaddienst liefert unentgeltliche INSPIRE Höhendaten (Stichtag).</subtitle>
+  <link rel="describedby" type="application/xml" href="https://data.bev.gv.at/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;outputschema=http://www.isotc211.org/2005/gmd&amp;elementSetName=full&amp;id=208cff7a-c8aa-42fe-bf4f-2b8156e37528" />
+  <link type="application/atom+xml" rel="self" hreflang="de" title="INSPIRE Download Service ATOM feed: AT.BEV ATOM Downloaddienst ALS EL Höhendaten" href="https://data.bev.gv.at/geonetwork/srv/atom/describe/service?uuid=208cff7a-c8aa-42fe-bf4f-2b8156e37528&amp;language=de" />
+  <link rel="search" type="application/opensearchdescription+xml" title="OpenSearch Description: AT.BEV ATOM Downloaddienst ALS EL Höhendaten" href="https://data.bev.gv.at/geonetwork/srv/opensearch/OpenSearchDescription.xml?uuid=208cff7a-c8aa-42fe-bf4f-2b8156e37528" />
+  <id>https://data.bev.gv.at/geonetwork/srv/atom/describe/service?uuid=208cff7a-c8aa-42fe-bf4f-2b8156e37528&amp;language=de</id>
+  <rights>Der öffentliche Zugang zu diesem Produkt unterliegt keinen Einschränkungen.</rights>
+  <updated>2026-05-20T13:09:38.471196ZZ</updated>
+  <author>
+    <name>Bundesamt für Eich- und Vermessungswesen</name>
+    <email>kundenservice@bev.gv.at</email>
+  </author>
+  <entry>
+    <inspire_dls:spatial_dataset_identifier_code xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0">https://doi.org/10.48677/3cd11c99-163b-4fb5-b34e-a72aec524fee</inspire_dls:spatial_dataset_identifier_code>
+    <inspire_dls:spatial_dataset_identifier_namespace xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" />
+    <category term="http://www.opengis.net/def/crs/EPSG/0/3035" label="ETRS89 / LAEA Europe" />
+    <author>
+      <name>Bundesamt für Eich- und Vermessungswesen</name>
+      <email>kundenservice@bev.gv.at</email>
+    </author>
+    <id>https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/3cd11c99-163b-4fb5-b34e-a72aec524fee&amp;language=de</id>
+    <link rel="describedby" type="application/xml" href="https://data.bev.gv.at/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;outputschema=http://www.isotc211.org/2005/gmd&amp;elementSetName=full&amp;id=3cd11c99-163b-4fb5-b34e-a72aec524fee" />
+    <link type="application/atom+xml" rel="alternate" hreflang="de" title="INSPIRE Dataset ATOM feed: ALS DSM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2019" href="https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/3cd11c99-163b-4fb5-b34e-a72aec524fee&amp;language=de" />
+    <rights>Der öffentliche Zugang zu diesem Produkt unterliegt keinen Einschränkungen.</rights>
+    <summary>Das Digitale Oberflächenmodell (DOM, engl.: DSM) beschreibt die Erdoberfläche samt allen darauf befindlichen Objekten in Form von Punktmengen, die in einem regelmäßigen Gitter angeordnet und in Lage und Höhe georeferenziert sind. Im Unterschied zum digitalen Geländemodell (DGM) wird somit die Vegetations- und Bebauungsoberfläche dargestellt. Die hochauflösenden ALS-DGM Daten wurden mittels Airborne Laser Scanning - Technologien erfasst und sind ein Kooperationsprodukt der österreichischen behördlichen Geodatenprovider des Bundes und der Länder. Eignung/Nutzung • Planungsgrundlage • Umweltschutz • Nachrichtentechnik • Geologie • Hydrologie • Landwirtschaft • Forstwirtschaft • Kartographie Dies ist eine von insgesamt 55 Kacheln, welche zusammen das Gebiet Österreich abdecken. Stichtag = Erstellungsdatum: Die Daten sind zu diesem Tag der aktuellste Datenbestand des BEV. Dies ist nicht ident mit dem Aufnahme- bzw. Vermessungsdatum. Die Aktualität finden Sie in der zugehörigen Serie unter „Downloads, Ansichten und Links“ in der Aktualitätsübersicht.</summary>
+    <title>ALS DSM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2019</title>
+    <updated>2025-03-28T14:20:59.289ZZ</updated>
+    <georss:polygon xmlns:georss="http://www.georss.org/georss">48.12544 15.77078 48.61085 15.77078 48.61085 16.49814 48.12544 16.49814 48.12544 15.77078</georss:polygon>
+  </entry>
+  <entry>
+    <inspire_dls:spatial_dataset_identifier_code xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0">https://doi.org/10.48677/3f34f94b-d483-4644-935b-af02ad034e1b</inspire_dls:spatial_dataset_identifier_code>
+    <inspire_dls:spatial_dataset_identifier_namespace xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" />
+    <category term="http://www.opengis.net/def/crs/EPSG/0/3035" label="ETRS89 / LAEA Europe" />
+    <author>
+      <name>Bundesamt für Eich- und Vermessungswesen</name>
+      <email>kundenservice@bev.gv.at</email>
+    </author>
+    <id>https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/3f34f94b-d483-4644-935b-af02ad034e1b&amp;language=de</id>
+    <link rel="describedby" type="application/xml" href="https://data.bev.gv.at/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;outputschema=http://www.isotc211.org/2005/gmd&amp;elementSetName=full&amp;id=3f34f94b-d483-4644-935b-af02ad034e1b" />
+    <link type="application/atom+xml" rel="alternate" hreflang="de" title="INSPIRE Dataset ATOM feed: ALS DTM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2019" href="https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/3f34f94b-d483-4644-935b-af02ad034e1b&amp;language=de" />
+    <rights>Der öffentliche Zugang zu diesem Produkt unterliegt keinen Einschränkungen.</rights>
+    <summary>Das digitale Geländehöhenmodell (DGM, engl.: DTM) beschreibt die Erdoberfläche (natürlicher Boden, ohne Bewuchs) in Form von Punktmengen, die in einem regelmäßigen Gitter angeordnet und in Lage und Höhe georeferenziert sind. Die hochauflösenden ALS-DGM Daten wurden mittels Airborne Laser Scanning - Technologien erfasst und sind ein Kooperationsprodukt der österreichischen behördlichen Geodatenprovider des Bundes und der Länder. Eignung/Nutzung • Grundlage für Orthophotoberechnung • Planungsgrundlage • Umweltschutz • Nachrichtentechnik • Geologie • Hydrologie • Landwirtschaft • Kartographie Dies ist eine von insgesamt 55 Kacheln, welche zusammen das Gebiet Österreich abdecken. Stichtag = Erstellungsdatum: Die Daten sind zu diesem Tag der aktuellste Datenbestand des BEV. Dies ist nicht ident mit dem Aufnahme- bzw. Vermessungsdatum. Die Aktualität finden Sie in der zugehörigen Serie unter „Downloads, Ansichten und Links“ in der Aktualitätsübersicht.</summary>
+    <title>ALS DTM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2019</title>
+    <updated>2025-09-30T09:20:33.871ZZ</updated>
+    <georss:polygon xmlns:georss="http://www.georss.org/georss">48.12544 15.77078 48.61085 15.77078 48.61085 16.49814 48.12544 16.49814 48.12544 15.77078</georss:polygon>
+  </entry>
+  <entry>
+    <inspire_dls:spatial_dataset_identifier_code xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0">https://doi.org/10.48677/8a18093f-07a2-408c-8f59-aa1cc1e87935</inspire_dls:spatial_dataset_identifier_code>
+    <inspire_dls:spatial_dataset_identifier_namespace xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" />
+    <category term="http://www.opengis.net/def/crs/EPSG/0/3035" label="ETRS89 / LAEA Europe" />
+    <author>
+      <name>Bundesamt für Eich- und Vermessungswesen</name>
+      <email>kundenservice@bev.gv.at</email>
+    </author>
+    <id>https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/8a18093f-07a2-408c-8f59-aa1cc1e87935&amp;language=de</id>
+    <link rel="describedby" type="application/xml" href="https://data.bev.gv.at/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;outputschema=http://www.isotc211.org/2005/gmd&amp;elementSetName=full&amp;id=8a18093f-07a2-408c-8f59-aa1cc1e87935" />
+    <link type="application/atom+xml" rel="alternate" hreflang="de" title="INSPIRE Dataset ATOM feed: ALS DSM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2025" href="https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/8a18093f-07a2-408c-8f59-aa1cc1e87935&amp;language=de" />
+    <rights>Der öffentliche Zugang zu diesem Produkt unterliegt keinen Einschränkungen.</rights>
+    <summary>Das Digitale Oberflächenmodell (DOM, engl.: DSM) beschreibt die Erdoberfläche samt allen darauf befindlichen Objekten in Form von Punktmengen, die in einem regelmäßigen Gitter angeordnet und in Lage und Höhe georeferenziert sind. Im Unterschied zum digitalen Geländemodell (DGM) wird somit die Vegetations- und Bebauungsoberfläche dargestellt. Die hochauflösenden ALS-DGM Daten wurden mittels Airborne Laser Scanning - Technologien erfasst und sind ein Kooperationsprodukt der österreichischen behördlichen Geodatenprovider des Bundes und der Länder. Eignung/Nutzung • Planungsgrundlage • Umweltschutz • Nachrichtentechnik • Geologie • Hydrologie • Landwirtschaft • Forstwirtschaft • Kartographie Dies ist eine von insgesamt 55 Kacheln, welche zusammen das Gebiet Österreich abdecken. Stichtag = Erstellungsdatum: Die Daten sind zu diesem Tag der aktuellste Datenbestand des BEV. Dies ist nicht ident mit dem Aufnahme- bzw. Vermessungsdatum. Die Aktualität finden Sie in der zugehörigen Serie unter „Downloads, Ansichten und Links“ in der Aktualitätsübersicht.</summary>
+    <title>ALS DSM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2025</title>
+    <updated>2026-05-19T14:28:52.503408ZZ</updated>
+    <georss:polygon xmlns:georss="http://www.georss.org/georss">48.16260 15.10022 48.64428 15.10022 48.64428 15.82250 48.16260 15.82250 48.16260 15.10022</georss:polygon>
+  </entry>
+  <entry>
+    <inspire_dls:spatial_dataset_identifier_code xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0">https://doi.org/10.48677/17e0f9fe-86d9-43b1-aaa6-5cf9538f8cf0</inspire_dls:spatial_dataset_identifier_code>
+    <inspire_dls:spatial_dataset_identifier_namespace xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" />
+    <category term="http://www.opengis.net/def/crs/EPSG/0/3035" label="ETRS89 / LAEA Europe" />
+    <author>
+      <name>Bundesamt für Eich- und Vermessungswesen</name>
+      <email>kundenservice@bev.gv.at</email>
+    </author>
+    <id>https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/17e0f9fe-86d9-43b1-aaa6-5cf9538f8cf0&amp;language=de</id>
+    <link rel="describedby" type="application/xml" href="https://data.bev.gv.at/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;outputschema=http://www.isotc211.org/2005/gmd&amp;elementSetName=full&amp;id=17e0f9fe-86d9-43b1-aaa6-5cf9538f8cf0" />
+    <link type="application/atom+xml" rel="alternate" hreflang="de" title="INSPIRE Dataset ATOM feed: ALS DTM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2025" href="https://data.bev.gv.at/geonetwork/srv/atom/describe/dataset?spatial_dataset_identifier_code=https://doi.org/10.48677/17e0f9fe-86d9-43b1-aaa6-5cf9538f8cf0&amp;language=de" />
+    <rights>Der öffentliche Zugang zu diesem Produkt unterliegt keinen Einschränkungen.</rights>
+    <summary>Das digitale Geländehöhenmodell (DGM, engl.: DTM) beschreibt die Erdoberfläche (natürlicher Boden, ohne Bewuchs) in Form von Punktmengen, die in einem regelmäßigen Gitter angeordnet und in Lage und Höhe georeferenziert sind. Die hochauflösenden ALS-DGM Daten wurden mittels Airborne Laser Scanning - Technologien erfasst und sind ein Kooperationsprodukt der österreichischen behördlichen Geodatenprovider des Bundes und der Länder. Eignung/Nutzung • Grundlage für Orthophotoberechnung • Planungsgrundlage • Umweltschutz • Nachrichtentechnik • Geologie • Hydrologie • Landwirtschaft • Kartographie Dies ist eine von insgesamt 55 Kacheln, welche zusammen das Gebiet Österreich abdecken. Stichtag = Erstellungsdatum: Die Daten sind zu diesem Tag der aktuellste Datenbestand des BEV. Dies ist nicht ident mit dem Aufnahme- bzw. Vermessungsdatum. Die Aktualität finden Sie in der zugehörigen Serie unter „Downloads, Ansichten und Links“ in der Aktualitätsübersicht.</summary>
+    <title>ALS DTM CRS3035RES50000mN2800000E4750000 Höhenraster 1m Stichtag 15.09.2025</title>
+    <updated>2026-05-20T12:43:04.781352ZZ</updated>
+    <georss:polygon xmlns:georss="http://www.georss.org/georss">48.12544 15.77078 48.61085 15.77078 48.61085 16.49814 48.12544 16.49814 48.12544 15.77078</georss:polygon>
+  </entry>
+</feed>

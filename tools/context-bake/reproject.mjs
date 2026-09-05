@@ -37,6 +37,8 @@ export const PROJ_DEFS = {
   'EPSG:2154': '+proj=lcc +lat_0=46.5 +lon_0=3 +lat_1=49 +lat_2=44 +x_0=700000 +y_0=6600000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
   // CH LV95 (oblique Mercator on Bessel + Helmert to WGS84).
   'EPSG:2056': '+proj=somerc +lat_0=46.9524055555556 +lon_0=7.43958333333333 +k_0=1 +x_0=2600000 +y_0=1200000 +ellps=bessel +towgs84=674.374,15.056,405.346,0,0,0,0 +units=m +no_defs',
+  // AT BEV ALS DSM/DTM 50 km COG tiles (ETRS89-LAEA Europe) — heights/atHeightsStamp.mjs (§BEV-ALS-NDSM, 2026-09-05).
+  'EPSG:3035': '+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
   // IT TINITALY national mosaic (UTM32N / WGS84 — extends E of the zone).
   'EPSG:32632': '+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs',
   'EPSG:32633': '+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs',
