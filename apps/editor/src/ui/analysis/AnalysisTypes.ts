@@ -265,7 +265,7 @@ export type AnalysisRefresh = 'manual' | 'on-commit' | 'on-selection';
  * ⛔ Not an open string: the OTel attribute set is bounded by this union, the
  * same cardinality argument the widget-kind union carries above.
  */
-export type AnalysisTabId = 'overview' | 'quantities' | 'relationships' | 'areas';
+export type AnalysisTabId = 'overview' | 'quantities' | 'relationships' | 'areas' | 'parcel-law';
 
 export interface AnalysisTabDef {
   readonly id: AnalysisTabId;
@@ -284,6 +284,14 @@ export const ANALYSIS_TABS: readonly AnalysisTabDef[] = Object.freeze([
   // caption that refutes the card beneath it — the same self-refuting shape
   // L-3303 fixed on the status strip.
   { id: 'areas',         label: 'Areas & change', lede: 'How much floor, under a NAMED standard — plus the unit mix and version diff that are still NOT BUILT, each saying why.' },
+  // §PARCEL-LAW-TAB (L-12915 · STR §21 / §24.1 · RESI-ORCHESTRATOR-PLAN §8.3 Stage J).
+  // ⛔ NOT A WIDGET GRID. This tab is a HOST of three producers (the cadastral
+  // card, the singleton buildable-envelope card, the design-stage strip) plus
+  // the four-view switcher for the left pane — see `parcelLawTab.ts`. Its
+  // arrangement list is always empty and the surface renders the host body in
+  // place of cards. C19 §5.6 clause 1: the panel is a host, the producers are
+  // the authorities; nothing here is re-derived.
+  { id: 'parcel-law',    label: 'Parcel law',     lede: 'What may be built on this plot — the cadastral facts, the buildable envelope with its citations, designed vs permitted, and the design stage you are at — beside a 3D view you can switch.' },
 ]);
 
 export function analysisTabById(id: string): AnalysisTabDef | undefined {

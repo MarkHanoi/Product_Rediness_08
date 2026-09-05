@@ -60,6 +60,8 @@ import { ProjectSnapshot } from './ProjectSerializer';
 // `if (useImportCommandPath) … else …` join, so both load paths get it. See that call
 // site for why duplicating a restore into two paths is the defect, not the pattern.
 import { restoreCompoundFamilies } from './restoreCompoundFamilies';
+// §82.7-DEFINITIONS-TRAVEL-WITH-PROJECT — the component definition set's load leg.
+import { restoreComponentDefinitions } from './restoreComponentDefinitions';
 // L-334 / L-360 — verify the content-integrity checksum at LOAD. A mismatch is a
 // NON-BLOCKING warning (load best-effort); an absent checksum (legacy snapshot)
 // verifies clean. NEVER a hard refuse on the checksum alone.
@@ -1924,6 +1926,33 @@ export class ProjectLoader {
             // double them — a lift back with eight shaft walls instead of four. See
             // `restoreCompoundFamilies.ts` for the full argument and for why the render
             // half reuses the undo/redo adapters rather than minting a rival channel.
+            // ⭐ §82.7-DEFINITIONS-TRAVEL-WITH-PROJECT · STR-UCE-MASTER-SPEC §82.7 · C111
+            // §4.3-a/b — THE DEFINITIONS FIRST, THEN THE OCCURRENCES. The catalogue is
+            // replaced with the file's definition set (project scope) through the ONE
+            // loader wrap, so `restoreCompoundFamilies()` below restores `components`
+            // whose `definitionId` the verbs' resolver and the render seam can answer.
+            // Awaited — the loader unzips and Zod-validates — and in the COMMON TAIL for
+            // the same reason the compounds are (L-11528). A refused row is reported on
+            // the LoadResult by name; its occurrences stay in the model and draw nothing.
+            try {
+                const __defs = await restoreComponentDefinitions(snapshot);
+                if (__defs.total > 0) {
+                    console.log(
+                        `[ProjectLoader] §82.7 restored ${__defs.restored.length}/${__defs.total} component definition(s)` +
+                        (__defs.restored.length ? `: ${__defs.restored.join(' ')}` : ''),
+                    );
+                }
+                for (const err of __defs.errors) {
+                    console.error(err);
+                    result.errors.push(err);
+                    result.failed++;
+                }
+            } catch (e) {
+                const msg = `[ProjectLoader] §82.7 component-definition restore threw — placed components will have no definition to draw from: ${String(e)}`;
+                console.error(msg);
+                result.errors.push(msg);
+            }
+
             try {
                 const __compound = restoreCompoundFamilies(snapshot);
                 if (__compound.total > 0) {

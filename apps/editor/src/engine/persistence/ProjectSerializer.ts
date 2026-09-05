@@ -135,6 +135,8 @@ import {
 // so a NEW family cannot be added without somebody stating the answer in writing.
 // Pure data, zero imports — importing it costs nothing and drags in no module graph.
 import { UNPERSISTED_FAMILY_KEYS } from './snapshotFamilyCoverage';
+// §82.7-DEFINITIONS-TRAVEL-WITH-PROJECT — the component DEFINITION set's save leg.
+import { serializeComponentDefinitions } from './restoreComponentDefinitions';
 
 export const SNAPSHOT_SCHEMA_VERSION = 5;
 
@@ -271,6 +273,18 @@ export interface ProjectSnapshot {
      * pre-Phase-4C one — no `SNAPSHOT_SCHEMA_VERSION` bump, no migration step.
      */
     components?: any[];
+    /**
+     * §82.7-DEFINITIONS-TRAVEL-WITH-PROJECT · STR-UCE-MASTER-SPEC §82.7 · C111 §4.3-a/b —
+     * ⭐ THE COMPONENT DEFINITIONS THE OCCURRENCES ABOVE RESOLVE AGAINST. Each row is
+     * the `.pryzm-family` ENVELOPE's exact bytes (base64, opaque — never a parsed
+     * document, so the snapshot holds no second definition schema) keyed by
+     * `(definitionId, schemaHash)`. Without this key a project that reopens has its
+     * `components` and no definition to bake them from: the audit's rank-2 gap, "an
+     * authored component dies on F5". See `restoreComponentDefinitions.ts`.
+     *
+     * ⚠ Additive-optional and omitted when the catalogue is empty (C47).
+     */
+    componentDefinitions?: any[];
     /**
      * §PERSIST-BATHROOM-POD (L-11527 / L-11405) · C109 §8 — the LOD-300 BATHROOM POD
      * compound parent.
@@ -1596,6 +1610,17 @@ export class ProjectSerializer {
         // hand-copied block. See `StoresSlot.component` for why the key on the
         // composed runtime is what makes this read resolve at all (R11 / L-11530).
         const components = readPluginStore('component');
+        // §82.7-DEFINITIONS-TRAVEL-WITH-PROJECT — the definitions those occurrences
+        // resolve against, read from the ONE catalogue (never from a store: a
+        // definition is not an element, C111 §4.3-a). `[]` → omitted below (C47).
+        let componentDefinitions: unknown[] = [];
+        try {
+            componentDefinitions = serializeComponentDefinitions();
+        } catch (e) {
+            // ⛔ LOUD: a save that silently dropped the definitions would reopen as
+            // the exact defect §82.7 closes.
+            console.error('[ProjectSerializer] §82.7 could not serialise the component definitions — the file will carry the occurrences WITHOUT their definitions:', e);
+        }
         // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §9 — the authored massing volume,
         // through the SAME lazy resolver as the seven above rather than an eighth
         // hand-copied block. `StoresSlot.spaceEnvelope` is declared in
@@ -1761,6 +1786,8 @@ export class ProjectSerializer {
             // omit-when-absent rule (C47): a project with no placed components writes
             // a snapshot byte-identical to a pre-Phase-4C one.
             components: components?.length ? components : undefined,
+            // §82.7-DEFINITIONS-TRAVEL-WITH-PROJECT — same omit-when-absent rule (C47).
+            componentDefinitions: componentDefinitions.length ? componentDefinitions : undefined,
             // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §9 — same omit-when-absent rule
             // (C47). `undefined` (no such store on the runtime) and `[]` (store
             // present, empty) collapse to the same omission here, deliberately: for a
