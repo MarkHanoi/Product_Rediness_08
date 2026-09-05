@@ -148,21 +148,6 @@ export interface ParcelCardOptions {
      * the two are distinct facts and the card refuses to conflate them.
      */
     readonly absentText?: string;
-    /**
-     * §L-12912 (lane PT-BELVERDE-LOTS) — host-supplied notes rendered ABOVE the fact rows, after
-     * the kind banner. The map uses them when the ring on the card is a footprint offered IN
-     * PLACE OF an oversize cadastral holding: the note names both rings and both numbers, and the
-     * displaced holding's own size-review banner is carried here so it stays in view (C83 §1.2).
-     * Additive — the rail panel passes none and renders exactly as before.
-     */
-    readonly leadNotes?: readonly ParcelCardLeadNote[];
-}
-
-/** A host note placed above the fact rows. `tone` picks the warn vs note class. */
-export interface ParcelCardLeadNote {
-    readonly text: string;
-    readonly testId?: string;
-    readonly tone?: 'warn' | 'note';
 }
 
 /**
@@ -354,16 +339,6 @@ export function buildParcelCard(
     } else if (model.kind === 'user-drawn') {
         const note = el('div', 'pryzm-parcel-card-note', PARCEL_USER_DRAWN_NOTE);
         note.setAttribute('data-testid', 'parcel-user-drawn-note');
-        root.appendChild(note);
-    }
-
-    // ── §L-12912 (PT-BELVERDE-LOTS) — the host's lead notes: "why THIS ring" when a footprint
-    //    stands in for an oversize holding, plus the displaced holding's size banner. Rendered
-    //    before the size review of the ring actually on the card, which for a footprint is
-    //    `within` and says nothing — the warning about the holding must not vanish with it.
-    for (const n of opts.leadNotes ?? []) {
-        const note = el('div', n.tone === 'note' ? 'pryzm-parcel-card-note' : 'pryzm-parcel-card-warn', n.text);
-        if (n.testId) note.setAttribute('data-testid', n.testId);
         root.appendChild(note);
     }
 

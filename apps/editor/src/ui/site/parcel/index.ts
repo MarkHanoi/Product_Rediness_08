@@ -23,19 +23,7 @@ export {
     type ParcelCardModel,
     type ParcelCardAction,
     type ParcelCardOptions,
-    type ParcelCardLeadNote,
 } from './parcelCard.js';
-// §L-12912 (lane PT-BELVERDE-LOTS) — when the cadastre's answer is a holding and an OSM footprint
-// exists under the click, the footprint is the primary candidate; the holding stays one click away.
-export {
-    chooseParcelCandidate,
-    isFootprintCandidate,
-    PARCEL_FOOTPRINT_CANDIDATE_TITLE,
-    PARCEL_CANDIDATE_WHY_TESTID,
-    PARCEL_USE_HOLDING_TESTID,
-    type ParcelCandidateChoice,
-    type ParcelPrimaryCandidate,
-} from './parcelCandidateChoice.js';
 // §L-1582 — the GIS rail-panel host for that card.
 export {
     mountParcelSection,

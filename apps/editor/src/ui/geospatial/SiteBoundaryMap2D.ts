@@ -125,22 +125,7 @@ import {
 // answered, and the jurisdiction row is where that string and its region code live. Pure
 // routing — no network, no side effect.
 import { resolveParcelAttribution } from '../site/parcel/parcelRegistry.js';
-import {
-    assessParcelSize,
-    parcelSizeReviewText,
-    PARCEL_SIZE_REVIEW_TESTID,
-} from '../site/parcel/parcelSizeReview.js';
-// §L-12912 (lane PT-BELVERDE-LOTS) — when the cadastre's answer is a HOLDING (Belverde: a 766 ha
-// prédio under a house) and an OSM footprint exists under the click, the footprint is the primary
-// candidate and the holding stays one deliberate click away. Pure decision + the footprint
-// provider the registry already falls back to; nothing is substituted silently.
-import {
-    chooseParcelCandidate,
-    PARCEL_CANDIDATE_WHY_TESTID,
-    PARCEL_USE_HOLDING_TESTID,
-    type ParcelCandidateChoice,
-} from '../site/parcel/parcelCandidateChoice.js';
-import { footprintParcelProvider } from '../site/parcel/FootprintParcelProvider.js';
+import { assessParcelSize, type ParcelSizeStatus } from '../site/parcel/parcelSizeReview.js';
 import type { ParcelProvenance } from '@pryzm/schemas';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
@@ -772,14 +757,6 @@ export function mountSiteBoundaryMap2D(
     // The currently highlighted parcel (null = none selected). Committed via "Use this parcel".
     let selectedParcel: ParcelFeature | null = null;
     /**
-     * §L-12912 (PT-BELVERDE-LOTS) — the OVERSIZE cadastral answer displaced from `selectedParcel`
-     * by a footprint candidate (Belverde: the 766 ha prédio, while the house outline is what the
-     * card leads with). Kept so "Use the 766 ha holding anyway" can still commit it through the
-     * one commit path. Cleared wherever `selectedParcel` is — a later click or a drawn boundary
-     * can never inherit a previous click's holding.
-     */
-    let oversizeHolding: ParcelFeature | null = null;
-    /**
      * §L-1580 (C57 §1.4) — the provenance of the parcel being committed, captured at the
      * moment "Use this parcel" is pressed.
      *
@@ -1049,87 +1026,41 @@ export function mountSiteBoundaryMap2D(
      * mounts. The map contributes only its two ACTIONS, because those are genuinely
      * map-specific (they drive this modal's commit and its draw mode); the FACTS are not.
      */
-    function showParcelCard(parcel: ParcelFeature, footprint: ParcelFeature | null = null): ParcelCandidateChoice {
+    function showParcelCard(parcel: ParcelFeature): ParcelSizeStatus {
         parcelCard.replaceChildren();
         // §L-12912 — the label is the cadastre that ACTUALLY answered (resolved from the parcel's
         // own `source`), not this host's generic registry label "Cadastral parcel / building
         // footprint" — which is what the Belverde card printed. Same resolver as the commit.
-        const labelOf = (f: ParcelFeature): string | null =>
-            resolveParcelAttribution(f, parcelProvider?.label ?? null).label;
-        const cadastralModel = parcelFeatureToCardModel(parcel, labelOf(parcel));
+        const model = parcelFeatureToCardModel(
+            parcel,
+            resolveParcelAttribution(parcel, parcelProvider?.label ?? null).label,
+        );
         // §L-12912 — a fetched ring above the review ceiling (a 766 ha prédio under a house) is a
-        // CANDIDATE, not "your parcel". Lane PT-BELVERDE-LOTS: when an OSM footprint exists under
-        // the click, THAT is the primary candidate (titled as a house outline, never as a parcel —
-        // C57 §1.5 / §1.9); otherwise Draw is primary. Either way the holding stays one deliberate
-        // click away with both numbers in view (C83 §1.2) — it is never disabled and never hidden.
-        const size = assessParcelSize(cadastralModel);
-        const choice = chooseParcelCandidate({ cadastral: parcel, size, footprint });
-        selectedParcel = choice.shown;
-        oversizeHolding = choice.holding;
-        try { refreshParcelHighlight(); } catch { /* style may be swapping */ }
-
-        const shownModel = choice.shown === parcel ? cadastralModel : parcelFeatureToCardModel(choice.shown, labelOf(choice.shown));
+        // CANDIDATE, not "your parcel": Draw becomes the primary action and the commit is demoted
+        // to a deliberate secondary one that names the size. It is never disabled — an honest
+        // rural cadastre stays one click away with both numbers in view (C83 §1.2).
+        const size = assessParcelSize(model);
+        const use = {
+            label: size.status === 'oversize' ? 'Use this large parcel anyway' : 'Use this parcel  →',
+            testId: 'parcel-use-btn',
+            variant: size.status === 'oversize' ? 'secondary' as const : 'primary' as const,
+            title: size.status === 'oversize' && size.areaM2 !== null
+                ? `Commits the whole ${Math.round(size.areaM2 / 10_000)} ha parcel as your site. `
+                  + 'If you clicked a house, its lot is not in the published cadastre — draw it instead.'
+                : undefined,
+            onClick: () => useSelectedParcel(),
+        };
         const draw = {
-            label: choice.primary === 'cadastral' ? 'Draw instead' : 'Draw my lot instead  →',
+            label: size.status === 'oversize' ? 'Draw my lot instead  →' : 'Draw instead',
             testId: 'parcel-draw-btn',
-            variant: choice.primary === 'draw' ? 'primary' as const : 'secondary' as const,
+            variant: size.status === 'oversize' ? 'primary' as const : 'secondary' as const,
             onClick: () => setInteractionMode('draw'),
         };
-        const holdingHa = size.areaM2 !== null ? Math.round(size.areaM2 / 10_000) : null;
-        const holdingTitle = holdingHa !== null
-            ? `Commits the whole ${holdingHa} ha parcel as your site. `
-              + 'If you clicked a house, its lot is not in the published cadastre — draw it instead.'
-            : undefined;
-
-        if (choice.primary === 'footprint') {
-            // The house outline leads; the holding is a NAMED secondary commit through the same path.
-            const useFootprint = {
-                label: 'Use my house outline  →',
-                testId: 'parcel-use-btn',
-                variant: 'primary' as const,
-                title: 'Commits the OSM building outline as a STARTING boundary. It is the building, '
-                    + 'not the land: adjust it or draw your lot for the legal line.',
-                onClick: () => useSelectedParcel(),
-            };
-            const useHolding = {
-                label: choice.useHoldingLabel ?? 'Use the holding anyway',
-                testId: PARCEL_USE_HOLDING_TESTID,
-                variant: 'secondary' as const,
-                title: holdingTitle,
-                onClick: () => {
-                    if (!oversizeHolding) return;
-                    selectedParcel = oversizeHolding;
-                    useSelectedParcel();
-                },
-            };
-            const holdingBanner = parcelSizeReviewText(size, cadastralModel);
-            parcelCard.appendChild(buildParcelCard(shownModel, {
-                title: choice.cardTitle ?? undefined,
-                leadNotes: [
-                    ...(choice.why ? [{ text: choice.why, testId: PARCEL_CANDIDATE_WHY_TESTID }] : []),
-                    // Keep the displaced holding's own size-review banner in view: the footprint on
-                    // the card is `within`, and the warning must not vanish with the ring it judged.
-                    ...(holdingBanner ? [{ text: holdingBanner, testId: PARCEL_SIZE_REVIEW_TESTID }] : []),
-                ],
-                actions: [useFootprint, useHolding, draw],
-            }));
-        } else {
-            const use = {
-                label: choice.primary === 'draw'
-                    ? (choice.useHoldingLabel ?? 'Use this large parcel anyway')
-                    : 'Use this parcel  →',
-                testId: 'parcel-use-btn',
-                variant: choice.primary === 'draw' ? 'secondary' as const : 'primary' as const,
-                title: choice.primary === 'draw' ? holdingTitle : undefined,
-                onClick: () => useSelectedParcel(),
-            };
-            parcelCard.appendChild(buildParcelCard(shownModel, {
-                leadNotes: choice.why ? [{ text: choice.why, testId: PARCEL_CANDIDATE_WHY_TESTID, tone: 'note' }] : [],
-                actions: choice.primary === 'draw' ? [draw, use] : [use, draw],
-            }));
-        }
+        parcelCard.appendChild(buildParcelCard(model, {
+            actions: size.status === 'oversize' ? [draw, use] : [use, draw],
+        }));
         parcelCard.style.display = 'block';
-        return choice;
+        return size.status;
     }
 
     /**
@@ -1203,9 +1134,8 @@ export function mountSiteBoundaryMap2D(
             modeBar.style.display = 'none';
             chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
         } else {
-            // Back to DRAW — drop the parcel highlight + card (+ any displaced holding, §L-12912).
+            // Back to DRAW — drop the parcel highlight + card.
             selectedParcel = null;
-            oversizeHolding = null;
             try { refreshParcelHighlight(); } catch { /* ignore */ }
             hideParcelCard();
             if (!opts.overlayOnly) modeBar.style.display = '';
@@ -1234,43 +1164,23 @@ export function mountSiteBoundaryMap2D(
         chip.textContent = 'Fetching parcel…';
         try { map.getCanvas().style.cursor = 'progress'; } catch { /* ignore */ }
         void parcelProvider.fetchParcelAtPoint(lng, lat).then((parcel) => {
-            // §L-12912 — the in-flight guard is released in the FINAL `.then` below, after the
-            // optional footprint lookup, so a second click cannot race a half-rendered card.
-            if (disposed || committed || interactionMode !== 'select') { parcelFetchInFlight = false; return; }
+            parcelFetchInFlight = false;
+            if (disposed || committed || interactionMode !== 'select') return;
             try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* ignore */ }
             if (!parcel) {
-                parcelFetchInFlight = false;
                 selectedParcel = null;
-                oversizeHolding = null;
                 refreshParcelHighlight();
                 hideParcelCard();
                 chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
                 toast('No parcel found here — try again or draw manually.', 'info');
                 return;
             }
-            // §L-12912 (PT-BELVERDE-LOTS) — an OVERSIZE cadastral answer earns one more lookup: the
-            // OSM footprint under the same click, so the card can lead with the house outline
-            // instead of a village-sized holding. `within` answers render immediately as before;
-            // the footprint provider never throws and a null is the honest "nothing smaller here".
-            const preview = assessParcelSize(parcelFeatureToCardModel(parcel));
-            const footprintP: Promise<ParcelFeature | null> = preview.status === 'oversize'
-                ? footprintParcelProvider.fetchParcelAtPoint(lng, lat).catch((err: unknown) => {
-                    console.warn('[gis] §L-12912 footprint lookup for an oversize holding failed (non-fatal):', err);
-                    return null;
-                })
-                : Promise.resolve(null);
-            if (preview.status === 'oversize') chip.textContent = 'Large holding — looking for the building outline under your click…';
-            return footprintP.then((footprint) => {
-                parcelFetchInFlight = false;
-                if (disposed || committed || interactionMode !== 'select') return;
-                const choice = showParcelCard(parcel, footprint);
-                chip.textContent = choice.chip;
-                console.log(
-                    `[gis] §L-12912 parcel candidate: primary=${choice.primary}` +
-                    (choice.holding ? ` holding=${choice.holding.refcat} (${Math.round(choice.holding.areaM2)} m²)` : '') +
-                    (choice.primary === 'footprint' ? ` footprint=${choice.shown.refcat}` : ''),
-                );
-            });
+            selectedParcel = parcel;
+            refreshParcelHighlight();
+            const size = showParcelCard(parcel);
+            chip.textContent = size === 'oversize'
+                ? 'This parcel is very large — probably not your lot. Draw your lot, or use it deliberately · Esc to cancel'
+                : 'Review the parcel, then “Use this parcel” · Esc to cancel';
         }).catch((err) => {
             parcelFetchInFlight = false;
             console.warn('[gis] parcel fetch failed (non-fatal):', err);
@@ -1306,7 +1216,6 @@ export function mountSiteBoundaryMap2D(
         // Drop the violet parcel highlight — the committed boundary now renders through
         // the normal green ring path, identical to a drawn boundary.
         selectedParcel = null;
-        oversizeHolding = null; // §L-12912 — a later draw never inherits this click's holding
         try { refreshParcelHighlight(); } catch { /* ignore */ }
         hideParcelCard();
         refreshRing();
