@@ -40,6 +40,10 @@ import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonse
 // (heights/nl3dbagStamp.mjs — the shared-file rule) and its working set in the pure half, so both are imported directly.
 import { stampNl3dbagHeightsOnGeojsonseq } from './heights/nl3dbagStamp.mjs';
 import { NL_3DBAG_CITY_BBOXES } from './heights/nl3dbag.mjs';
+// §NDH-NO-OSM-JOIN (lane HEIGHTS-NORDICS, 2026-09-05) — Norway's keyless Kartverket NHM DOM − DTM stamp lives in its
+// OWN module (the heights/nl3dbagStamp.mjs precedent: heightSources.mjs is a many-lane file) and is imported here
+// DIRECTLY, in the same commit that declares the `norway` row's heightJoin — never "built, imported by nothing".
+import { stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES } from './heights/noHeightsStamp.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -207,11 +211,17 @@ const ALL_REGIONS = [
   // Nordics — ASSESS SE (mass-only; measured heights = a FREE Lantmäteriet download credential +
   // an nDSM stamp build — the context gate is the DK DATAFORDELER shape, NOT the NGP plan gate);
   // ASSESS FI (mass-only; FI Buildings-3D LoD2 is PARTIAL — status-map read owed before any join);
-  // ASSESS NO (mass-only until the keyless NDH nDSM stamp; FKB surveyed height stays X3-refused;
-  // Svalbard is outside this bbox on purpose).
+  // ASSESS NO → ⭐ WIRED 2026-09-05 (lane HEIGHTS-NORDICS, §NDH-NO-OSM-JOIN): `heightJoin:'ndh_no'` stamps
+  // the KEYLESS Kartverket NHM nDSM (DOM − DTM, both 1 m WCS 1.0.0 on wcs.geonorge.no — the DTM one IS the
+  // terrain.mjs `no` adapter) onto these OSM footprints inside NO_NDH_CITY_BBOXES (oslo = the terrain.mjs
+  // row, bergen, trondheim); dispatched via NATIONAL_STAMP_TABLE. Probed 2026-09-05: DOM − DTM p90 24.2 m
+  // Oslo · 21.2 m Bergen · 18.5 m Trondheim, 0 nodata cells. FKB surveyed height stays X3-refused;
+  // Svalbard is outside this bbox on purpose. SE/FI stay mass-only — probed 2026-09-05 (heightSources.mjs
+  // lidar_se / buildings3d_fi): SE's only DSM is a laz/copc point cloud behind a 401 host; FI NLS is 401
+  // everywhere without MML_API_KEY and Helsinki's open register carries floors only (derived, not measured).
   { name: 'sweden',     pbfUrl: 'https://download.geofabrik.de/europe/sweden-latest.osm.pbf',                         pbf: resolve(OUT, 'sweden-latest.osm.pbf'),                 bbox: '10.90,55.20,24.20,69.10',  clipped: resolve(OUT, 'clip-sweden.osm.pbf') },
   { name: 'finland',    pbfUrl: 'https://download.geofabrik.de/europe/finland-latest.osm.pbf',                        pbf: resolve(OUT, 'finland-latest.osm.pbf'),                bbox: '19.00,59.70,31.60,70.10',  clipped: resolve(OUT, 'clip-finland.osm.pbf') },
-  { name: 'norway',     pbfUrl: 'https://download.geofabrik.de/europe/norway-latest.osm.pbf',                         pbf: resolve(OUT, 'norway-latest.osm.pbf'),                 bbox: '4.50,57.90,31.20,71.20',   clipped: resolve(OUT, 'clip-norway.osm.pbf') },
+  { name: 'norway',     pbfUrl: 'https://download.geofabrik.de/europe/norway-latest.osm.pbf',                         pbf: resolve(OUT, 'norway-latest.osm.pbf'),                 bbox: '4.50,57.90,31.20,71.20',   clipped: resolve(OUT, 'clip-norway.osm.pbf'), heightJoin: 'ndh_no' },
   // ASSESS DE — NATIONAL-NOW; heights staged per-Land (LoD2 free in 15 Länder; the per-Land
   // endpoint router over the live lod2nrw stamp is the owed build). ⚠ 4.83 GB pbf (measured) —
   // Germany alone ≈ the whole R2 free tier; the §5 budget decision binds before its publish.
@@ -590,8 +600,54 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
   if (r.heightJoin === 'swiss') return SWISS_CITY_BBOXES.map((c) => c.bbox);   // §SWISS-OSM-JOIN (L-12883) — whole `switzerland`
   if (r.heightJoin === 'au_open') return AU_OPEN_CITY_BBOXES.map((c) => c.bbox); // §AU-OPEN-HEIGHTS-OSM-JOIN — whole `victoria`, Melbourne LGA only
+  if (r.heightJoin === 'ndh_no') return NO_NDH_CITY_BBOXES.map((c) => c.bbox);   // §NDH-NO-OSM-JOIN (HEIGHTS-NORDICS) — whole `norway`
   if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
   return null;
+}
+
+// §NATIONAL-STAMP-TABLE (2026-09-05, lane HEIGHTS-NORDICS) — joins wired AFTER the dispatch chain in
+// pushBuildingsWithNationalHeights froze. That chain has NO free insertion point any more:
+// auOpenHeightsWiring.spec.ts pins its front (`if (r.heightJoin === 'au_open' || 'mds' || 'dhm'`),
+// mnhFr.spec.ts its middle, swissWiring.spec.ts its `'swiss')` end, and nl3dbagWiring.spec.ts the slot
+// after that — a seventh key breaks one pin whichever side it goes on. Newer joins are therefore rows
+// here (stamp function + the city working set stampBboxesFor returns for the key) and dispatch BEFORE
+// the chain through the SAME outcome bookkeeping (recordNationalStampOutcome), so the
+// §MEASURED-HEIGHT-GATE sees them exactly as it sees mds/dhm/swiss. Retained working set = the city
+// list, uncapped (the swiss/au_open guarantee), so no priority list is needed.
+const NATIONAL_STAMP_TABLE = {
+  // §NDH-NO-OSM-JOIN — whole `norway`: Kartverket NHM DOM − DTM, keyless (heights/noHeightsStamp.mjs).
+  ndh_no: { stamp: stampNoNdhHeightsOnGeojsonseq, bboxes: NO_NDH_CITY_BBOXES },
+};
+
+/**
+ * §MEASURED-HEIGHT-GATE — record a national stamp's outcome BEFORE degrading, so a silent fallback still
+ * fails; then push either the stamped file (REPLACE) or the plain OSM clip (honest default). Shared by
+ * the pinned dispatch chain and NATIONAL_STAMP_TABLE so both paths feed the gate identically.
+ */
+function recordNationalStampOutcome(r, res, stamped, baseGeo, geos) {
+  heightJoinOutcomes.push({
+    region: r.name, join: r.heightJoin, status: res.status,
+    measuredCount: res.measuredCount ?? 0, footprintCount: res.footprintCount ?? 0, reason: res.reason ?? null,
+    // §SOURCE-OUTAGE-VS-PIPELINE-DEFECT (L-659) — the gate below needs these to tell "the remote
+    // raster service refused every request" from "our join is broken". They are different failures
+    // with different owners, and collapsing them is the §CONTEXT-DATA-HONESTY mistake one level up.
+    tilesProcessed: res.tilesProcessed ?? 0, tileErrors: res.tileErrors ?? 0,
+    // §ABORT-IS-NOT-A-CAP — a join that THREW mid-sweep still returns `ok` with whatever it
+    // stamped, so without this the gate below sees `measuredCount > 0` and passes it green. That
+    // is how Spain shipped 16 tiles of heights while reporting a benign 20,000-tile cap.
+    sweepAborted: res.sweepAborted === true, sweepAbortReason: res.sweepAbortReason ?? null,
+    retainedFootprints: res.retainedFootprints ?? null, passedThroughFootprints: res.passedThroughFootprints ?? null,
+    peakHeapUsedMB: res.peakHeapUsedMB ?? null,
+  });
+  if (res.status === 'ok' && res.measuredCount > 0) {
+    geos.push(stamped); // REPLACE the plain OSM clip with the height-stamped SAME footprints.
+    console.log(`\n▶ national heights · ${r.name}: ${r.heightJoin.toUpperCase()} join — ${res.measuredCount}/${res.footprintCount} ` +
+      `OSM footprint(s) stamped (tagged), ${res.tilesProcessed} tile(s) → REPLACE. ${res.note}`);
+  } else {
+    geos.push(baseGeo);
+    console.log(`\n▶ national heights · ${r.name}: ${r.heightJoin.toUpperCase()} join ${res.status}` +
+      `${res.reason ? ' — ' + res.reason : ''} (keeps OSM, honest assumed default)`);
+  }
 }
 const bboxDeg2 = (bbox) => {
   const [w, s, e, n] = bbox.split(',').map(Number);
@@ -720,6 +776,20 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     return;
   }
 
+  // §NATIONAL-STAMP-TABLE (HEIGHTS-NORDICS) — table-dispatched joins go FIRST (see the table beside
+  // stampBboxesFor for why the chain below admits no new key). Same stamped path, same bookkeeping.
+  const tableStamp = NATIONAL_STAMP_TABLE[r.heightJoin];
+  if (tableStamp) {
+    const stamped = resolve(OUT, `${r.name}-buildings-stamped.geojsonseq`);
+    const wsen = r.bbox.split(',').map(Number);
+    const retainBboxes = stampBboxesFor(r); // §HEIGHT-STAMP-BUDGET — the table's city list, never the nation
+    let res;
+    try { res = await tableStamp.stamp(baseGeo, stamped, wsen, { maxTiles: 20000, retainBboxes }); }
+    catch (e) { res = { status: 'error', reason: e.message }; }
+    recordNationalStampOutcome(r, res, stamped, baseGeo, geos);
+    return;
+  }
+
   // §MDS-OSM-JOIN / §DHM-OSM-JOIN / §LOD2-NRW-OSM-JOIN / §MNH-FR-OSM-JOIN — regions whose authoritative
   // height source can't be enumerated per-tile as FOOTPRINTS (spain/denmark: the national register
   // refuses a whole-country query; koln: LoD2-DE is per-Land CityGML, and replacing the OSM clip would
@@ -777,30 +847,9 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     } catch (e) {
       res = { status: 'error', reason: e.message };
     }
-    // §MEASURED-HEIGHT-GATE — record the outcome BEFORE degrading, so a silent fallback still fails.
-    heightJoinOutcomes.push({
-      region: r.name, join: r.heightJoin, status: res.status,
-      measuredCount: res.measuredCount ?? 0, footprintCount: res.footprintCount ?? 0, reason: res.reason ?? null,
-      // §SOURCE-OUTAGE-VS-PIPELINE-DEFECT (L-659) — the gate below needs these to tell "the remote
-      // raster service refused every request" from "our join is broken". They are different failures
-      // with different owners, and collapsing them is the §CONTEXT-DATA-HONESTY mistake one level up.
-      tilesProcessed: res.tilesProcessed ?? 0, tileErrors: res.tileErrors ?? 0,
-      // §ABORT-IS-NOT-A-CAP — a join that THREW mid-sweep still returns `ok` with whatever it
-      // stamped, so without this the gate below sees `measuredCount > 0` and passes it green. That
-      // is how Spain shipped 16 tiles of heights while reporting a benign 20,000-tile cap.
-      sweepAborted: res.sweepAborted === true, sweepAbortReason: res.sweepAbortReason ?? null,
-      retainedFootprints: res.retainedFootprints ?? null, passedThroughFootprints: res.passedThroughFootprints ?? null,
-      peakHeapUsedMB: res.peakHeapUsedMB ?? null,
-    });
-    if (res.status === 'ok' && res.measuredCount > 0) {
-      geos.push(stamped); // REPLACE the plain OSM clip with the height-stamped SAME footprints.
-      console.log(`\n▶ national heights · ${r.name}: ${r.heightJoin.toUpperCase()} join — ${res.measuredCount}/${res.footprintCount} ` +
-        `OSM footprint(s) stamped (tagged), ${res.tilesProcessed} tile(s) → REPLACE. ${res.note}`);
-    } else {
-      geos.push(baseGeo);
-      console.log(`\n▶ national heights · ${r.name}: ${r.heightJoin.toUpperCase()} join ${res.status}` +
-        `${res.reason ? ' — ' + res.reason : ''} (keeps OSM, honest assumed default)`);
-    }
+    // §MEASURED-HEIGHT-GATE — record the outcome BEFORE degrading (recordNationalStampOutcome, shared
+    // with NATIONAL_STAMP_TABLE), so a silent fallback still fails.
+    recordNationalStampOutcome(r, res, stamped, baseGeo, geos);
     return;
   }
 
