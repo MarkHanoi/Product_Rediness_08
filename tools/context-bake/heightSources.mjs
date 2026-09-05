@@ -237,12 +237,23 @@ export const SOURCES = {
       '3DEP nDSM is the national-accuracy top-up (US analogue of FR LiDAR HD). No national parcel.',
   },
   ndh_no: {
-    country: 'no', name: 'Matrikkelen point + NDH nDSM (free path)', impl: 'documented',
-    provenance: 'tagged', lodNow: 'LoD1-real-height (coarse)', lodNext: 'LoD2-mesh (self-reconstruct)',
-    endpoint: 'Geonorge WFS (Matrikkelen) + hoydedata.no NDH LiDAR',
-    heightField: 'NDH DSM−DTM nDSM per footprint (FKB top-height is licence-gated commercial)',
-    note: 'FKB-Bygning surveyed height is commercial-licensed → the FREE path is the coarser NDH nDSM. ' +
-      'No national LoD2. Shares the nDSM module with ES/PT/SE.',
+    country: 'no', name: 'Kartverket NHM nDSM (DOM − DTM, keyless WCS) on OSM footprints', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (1 m national nDSM)', lodNext: 'LoD2-mesh (self-reconstruct)',
+    endpoint: 'https://wcs.geonorge.no/skwms1/wcs.hoyde-dom-nhm-25833 (nhm_dom_topo_25833) − ' +
+      'https://wcs.geonorge.no/skwms1/wcs.hoyde-dtm-nhm-25833 (nhm_dtm_topo_25833), WCS 1.0.0, EPSG:25833, FORMAT=GeoTIFF',
+    heightField: 'P90 of (DOM − DTM) over the eroded OSM footprint interior (ndsmHeightForBuilding, native metres) — ' +
+      'FKB-Bygning surveyed top-height stays Norge digitalt-licensed and is NOT used',
+    coverage: 'partial',
+    keyless: true, // Geonorge WCS: <fees>free</fees> <accessConstraints>None</accessConstraints> (probed 2026-09-05); CC BY 4.0 © Kartverket
+    note: '⭐ WIRED 2026-09-05 (lane HEIGHTS-NORDICS, §NDH-NO-OSM-JOIN): the national STAMP stampNoNdhHeightsOnGeojsonseq ' +
+      '(heights/noHeightsStamp.mjs; pure half + working set NO_NDH_CITY_BBOXES in heights/noHeights.mjs) is dispatched by the ' +
+      'bake `norway` row (heightJoin:\'ndh_no\' → NATIONAL_STAMP_TABLE). LIVE-PROBED 2026-09-05: GetCapabilities HTTP 200 ' +
+      'text/xml on BOTH services; GetCoverage 500 m @ 1 m → HTTP 200 image/tiff 1,049,839 B Float32 in 0.8–1.8 s (1,080 px → ' +
+      '5.3 MB / 1.8 s); NO GDAL_NODATA tag (ArcGIS ±3.4e38 sentinel masked). DOM − DTM over the three working-set centres: ' +
+      'Oslo p90 24.2 m (49 % of cells > 3 m) · Bergen p90 21.2 m · Trondheim p90 18.5 m, ZERO nodata cells. It is a bake ' +
+      'STAMP over bake\'s own OSM footprints, NOT a bbox footprint fetcher (resolveHeights degrades to `documented`). ' +
+      'The August note (Matrikkelen WFS + hoydedata.no) named the right raster and the wrong door: the keyless door is the ' +
+      'Geonorge WCS the terrain adapter already uses.',
   },
   lidar_se: {
     country: 'se', name: 'Lantmäteriet CC0 footprints + national LiDAR nDSM', impl: 'documented',
@@ -254,7 +265,13 @@ export const SOURCES = {
       'assessment §3): the national 1 m höjdmodell STAC metadata (api.lantmateriet.se/stac-hojd/v1) ' +
       'answers HTTP 200 KEYLESS with per-tile COG hrefs, but the asset host 401s — the gate is a FREE ' +
       'Lantmäteriet download credential (the DK DATAFORDELER shape), NOT the NGP parcels/plans ' +
-      'org-onboarding gate. Do not inherit the NGP gate onto context.',
+      'org-onboarding gate. Do not inherit the NGP gate onto context. ⛔ RE-PROBED 2026-09-05 (lane HEIGHTS-NORDICS) — ' +
+      'NO-SOURCE for a MEASURED height, key or no key: /stac-hojd/v1/collections → HTTP 200, 78 collections, ALL of them ' +
+      'Markhöjdmodell (DTM, `hojdmodelltyp: markhöjdmodell`, 1 m COG, CC BY 4.0) or Laserdata; the ONLY surface product is ' +
+      '`dsm-skoglig-copc` = "Ytmodell som punktmoln i formatet laz/copc" (a point cloud, licence `other`), so there is NO ' +
+      'DSM raster to difference even with a credential. The DTM asset host confirms the gate: ' +
+      'dl1.lantmateriet.se/hojd/data/grid1m/…/65800_6750_25.tif → HTTP 401 "Authorization Required" (nginx) on both a ' +
+      'range GET and a plain GET. No join is wired; `sweden` stays mass-only (honest OSM defaults).',
   },
   dgt_pt: {
     country: 'pt', name: 'DGT national LiDAR nDSM', impl: 'documented',
@@ -358,7 +375,14 @@ export const SOURCES = {
     heightField: 'CityGML measuredHeight where covered; coverage is PARTIAL (product page 2022-01-27)',
     coverage: 'partial',
     note: 'ASSESS FI: current coverage NOT CONFIRMED — read the status map FIRST (owed probe), then ' +
-      'the stamp build. Until then `finland` is mass-only.',
+      'the stamp build. Until then `finland` is mass-only. ⛔ PROBED 2026-09-05 (lane HEIGHTS-NORDICS) — NO KEYLESS ' +
+      'MEASURED-HEIGHT SOURCE: every NLS door is HTTP 401 without MML_API_KEY (avoin-paikkatieto.maanmittauslaitos.fi/' +
+      'buildings/features/v1/collections → 401 · /geographic-names/… → 401 · avoin-karttakuva…/wcs/v2 GetCapabilities → 401), ' +
+      'the same gate terrain.mjs APIKEY_SOURCES.fi records; the key was NOT present in this lane\'s env, so the keyed path ' +
+      'was not measured and is NOT wired (never a fake height). Helsinki\'s keyless open WFS (kartta.hel.fi/ws/geoserver/' +
+      'avoindata/wfs, HTTP 200, 305 KB capabilities) layer avoindata:Rakennukset_alue_rekisteritiedot carries `i_kerrlkm` ' +
+      '(floor count) and NO height attribute (DescribeFeatureType, 49 fields; a 0.007° bbox → 537 features, i_kerrlkm ' +
+      'often null) — a DERIVED-LEVELS channel at best, capital-only, and not a `measured-lidar` stamp. No join is wired.',
   },
   mnh_fr: {
     country: 'fr', name: 'IGN LiDAR HD MNH (Modèle Numérique de Hauteur) — national pre-computed nDSM', impl: 'live',
@@ -506,7 +530,7 @@ export const REGION_SOURCE = {
   luxembourg: { source: null, status: 'no-source', reason: 'ACT PCN footprints CC0; national LiDAR 2019 reported NOT verified — no height channel today (ASSESS LU)' },
   sweden: 'lidar_se',
   finland: 'buildings3d_fi',
-  norway: 'ndh_no',
+  norway: 'ndh_no',    // ⭐ WIRED 2026-09-05 (lane HEIGHTS-NORDICS, §NDH-NO-OSM-JOIN): the bake `norway` row declares heightJoin:'ndh_no' → NATIONAL_STAMP_TABLE → stampNoNdhHeightsOnGeojsonseq (heights/noHeightsStamp.mjs), working set NO_NDH_CITY_BBOXES (oslo/bergen/trondheim). Keyless Kartverket NHM DOM − DTM.
   germany: 'lod2de',   // per-Land router owed; NRW measured heights stay live via the koln city row (heightJoin:'lod2nrw')
   france: 'mnh_fr',    // ⭐ LIVE 2026-09-04 — national MNH stamp BUILT (stampMnhFrHeightsOnGeojsonseq, working set MNH_FR_CITY_BBOXES). ⭐ WIRED 2026-09-05 (L-12910): the bake `france` row declares heightJoin:'mnh_fr'; local proof Marseille 6,578/7,887 · Paris 4,717/5,043 · Lyon 4,442/4,883 measured. The paris/lyon city rows still fold into `france` once a publish passes allow_region_removal (orchestrator).
   italy: { source: 'piedmont_it', status: 'no-source', reason: 'Piedmont-only regional layer — NO national height product; EUBUCCO/GBA ML heights excluded as authoritative (E5 §A.5) (ASSESS IT)' },
