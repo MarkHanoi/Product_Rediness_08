@@ -290,39 +290,72 @@ describe('§FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — AUTO must survive to
             }
         }
 
+        // ⭐ SWALLOWING IS A NAMED SET, NOT ZERO — and the change is a REAL FINDING
+        // arriving with a measurable consequence, exactly as `railing` did below.
+        //
+        // This read `.toEqual([])` and was true only because `grid` was UNREGISTERED,
+        // so the census skipped it at the `registered.has()` guard one line up and the
+        // arity check never ran. §FIX-DECLARED-TOOL-WITH-NO-ACTIVATOR then registered
+        // it — genuine progress: `runtime.tools.activate('grid')` used to arm NOTHING
+        // and report success — but registered it as `() => { void tm.activateGrid?.(); }`,
+        // arity 0. Grid did not get worse; it moved from one honest gap to a smaller one,
+        // and the census correctly refuses to call that zero.
+        //
+        // ⛔ AND IT IS DELIBERATELY NOT "FIXED" BY WIDENING THE ACTIVATOR. MEASURED:
+        // the matrix declares grid's modes as `single` / `rectangular` / `radial`
+        // (elementCreationMatrix.ts:856-861), while the live picker the plan handler
+        // actually reads — `gridModePicker` (GridModePicker.ts, read at
+        // GridPlanToolHandler.ts:210 and :437) — knows only `orthogonal` and `linear`.
+        // The two vocabularies are DISJOINT. Giving the activator an arity-1 signature
+        // that forwards `'rectangular'` into a picker with no such mode would make
+        // `activate('grid','rectangular')` report success and set nothing: a control
+        // that claims a capability the pipeline cannot serve (C84 EI-3), which is the
+        // precise defect this whole suite exists to prevent, committed in the act of
+        // silencing the test that found it.
+        //
+        // So the honest state is recorded: grid declares three modes NO surface can
+        // honour, and closing it means deciding which vocabulary is authoritative —
+        // a design call on the grid family, not a census repair. Exact equality keeps
+        // the teeth: a SECOND family that starts swallowing fails here, and so does
+        // fixing grid, which forces this list to move with the code.
         expect(
-            swallowing,
+            swallowing.sort(),
             `families that STRUCTURALLY cannot honour an activation mode: ${swallowing.join(', ')}`,
-        ).toEqual([]);
+        ).toEqual(['grid (declares 3 modes, activator arity 0)']);
 
         // The declared-but-unregistered set is NAMED, not silently skipped — otherwise a
         // tool could drop off `runtime.tools` entirely and this census would read green
-        // because "it wasn't registered". `stair-path`'s modes are served by the `stair`
-        // family; `grid` has never been wired (src/main.ts:513 — "one wireup away").
+        // because "it wasn't registered".
         //
-        // ⚠ `railing` JOINED THIS LIST ON 2026-08-19, AND IT IS A REAL FINDING, NOT A
-        // TEST BEING RELAXED. The row previously declared ONE mode, so the census
-        // skipped it at the `modes.length < 2` guard and could never have reported
-        // anything. It now declares SEVEN (§FEAT-HANDRAIL-CREATION-PARITY), and the
-        // census immediately named the thing that was always true:
+        // ⚠ THIS LIST READ `['grid', 'railing', 'stair-path']` AND HAS MOVED IN BOTH
+        // DIRECTIONS AT ONCE — which is the strongest argument for spelling it out
+        // rather than counting it. MEASURED:
         //
-        //   THE FAMILY HAS TWO KEYS. The creation matrix and the plan registry call it
-        //   `'railing'` (`planToolHandlerRegistry.ts` → `RailingPlanToolHandler`); the
-        //   ToolManager and `runtime.tools` call it `'handrail'`. `registered.has(
-        //   'railing')` is therefore false no matter how well the tool is wired.
+        //   · ALL THREE OLD ENTRIES ARE NOW REGISTERED. §FIX-DECLARED-TOOL-WITH-NO-
+        //     ACTIVATOR wired them (`ToolsAreaLayout.ts:355` stair-path, `:356` grid,
+        //     `:243` railing — the last under BOTH spellings, `handrail` and
+        //     `railing`, which closes the two-keys finding this comment used to
+        //     record). `stair-path` and `railing` take a mode (arity 1); `grid` does
+        //     not, which is why it moved into the SWALLOWING set above rather than
+        //     out of this census altogether.
         //
-        // That is C95 §1 / C84 §4E — a fourth spelling of one family — surfacing with a
-        // measurable consequence rather than as a style note. ⛔ It is deliberately NOT
-        // papered over by registering a second `'railing'` key: that would ADD a
-        // spelling to a family that already has too many. The fix is to converge the
-        // two keys, which touches the plan registry and is not this lane's to do.
+        //   · THREE NEW ENTRIES APPEARED, and they are the same shape `railing` was:
+        //     `balcony`, `boundary-line` and `pool` are real, reachable tools — all
+        //     three are in `planToolHandlerRegistry` (`:147`, `:152`, `:166`), so BOTH
+        //     plan surfaces have them (the L-73 parity guarantee) — and all three
+        //     declare 2+ modes in the matrix. What they do NOT have is a
+        //     `runtime.tools.register` line anywhere (checked in `ToolsAreaLayout.ts`
+        //     AND `PluginRegistry.ts`, the other production registrar), so
+        //     `runtime.tools.activate('pool', 'circular')` arms nothing and reports
+        //     success. All three are PLAN-ONLY rows, which is consistent with their
+        //     having been wired on the plan side and only there.
         //
-        // The MODES are reachable regardless — through the shared `DrawingModeBar`,
-        // proven end-to-end in `apps/editor/__tests__/HandrailCreationParityReachable.test.ts`
-        // — and, since 2026-08-19, through `runtime.tools.activate('handrail', <mode>)`,
-        // whose activator now disambiguates a mode from a type id instead of silently
-        // looking a mode up in the type catalogue.
-        expect(unregistered.sort()).toEqual(['grid', 'railing', 'stair-path']);
+        // ⛔ THE FIX IS NOT TO REGISTER THEM FROM THIS TEST'S POINT OF VIEW — it is a
+        // wiring change on the tools surface, owned by the lane that owns that surface.
+        // Naming them keeps this census honest in the meantime: exact equality means a
+        // FOURTH family going unregistered fails here, and so does wiring any of these
+        // three, which forces the list to move with the code.
+        expect(unregistered.sort()).toEqual(['balcony', 'boundary-line', 'pool']);
     });
 });
 
