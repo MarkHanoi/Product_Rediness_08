@@ -603,6 +603,53 @@ gain near zero everywhere and prove nothing.
 
 ---
 
+## 6.5 — §CONCURRENT-LANES — rows 1 and 2 of the build order are ALREADY IN FLIGHT
+
+⭐ **Discovered on disk 2026-09-05, after this survey was written, and it corroborates it.** Two
+sibling lanes were building the top two adapters **while this file was being drafted**, from a
+completely different starting point — the founder's own house:
+
+| Lane | Row | On disk |
+|---|---|---|
+| **ES-CATASTRO-FOOTPRINTS** (L-12939) | build-order **#2** | `tools/context-bake/footprints/esCatastro.mjs` · `officialFootprints.mjs` · `footprintMerge.mjs` · `__tests__/esCatastro.spec.ts` + GML fixtures |
+| **FR-BDTOPO-FOOTPRINTS** (L-12940) | build-order **#1** | `tools/context-bake/footprints/frBdtopo.mjs` · `__tests__/frBdtopo.spec.ts` + a WFS page fixture |
+| *(client side)* | — | `apps/editor/src/ui/geospatial/officialFootprint.ts` |
+
+**Their triggering defect is sharper than this survey's framing and should be quoted instead of
+it:** *CL Isla Lanzarote 4, Arroyo del Moro, Córdoba — refcat `1950501UG4915S`, "Residencial ·
+320 m² · 2020" on the Sede Electrónica — is **ABSENT** from PRYZM's 2D map and 3D context.* Not
+mis-sized. Absent, because every `buildings` tile PRYZM ships is OSM and OSM has not mapped that
+2020 estate. That is the post-2015 gap this file's §6 measurement was designed to quantify, found
+in the wild first.
+
+**Three consequences for this document:**
+
+1. **§8 Q4 (AUGMENT or REPLACE) is ANSWERED by their code, not by this file.**
+   `footprintMerge.mjs` runs at the top of `pushBuildingsWithNationalHeights` and emits ONE merged
+   `baseGeo` under an **official-wins merge** predicate — so the existing `heightJoin` chain stamps
+   Catastro/BD TOPO geometry exactly as it stamped an OSM clip, unchanged. That is per-feature
+   REPLACE inside an AUGMENT envelope, and it is a better answer than either of §4.1's two modes.
+   **Read `officialFootprints.mjs`, not §4.1, before building adapters 3–12.**
+2. **The §5 correction-4 tripwire is INDEPENDENTLY CONFIRMED at scale.** This survey measured
+   `Building.numberOfFloorsAboveGround` nil in 704/704 features of a 338 KB Albacete municipality.
+   `officialFootprints.mjs` records the same nil across **Córdoba's 184 MB** `building.gml`, and
+   derives the Building floor count as `max` over its parts, labelled `floorsKind:'max-of-parts'`.
+   Two lanes, two municipalities, two access paths, one finding — which is the standard
+   [[probe-can-be-wrong-three-ways]] asks for.
+3. **They found a defect this survey did not, and it invalidates a naive id join.** BuildingPart
+   **local ids are not stable across access paths**: for refcat `1950501UG4915S` the ATOM ZIP and
+   the WFS `GetBuildingPartByParcel` stored query agree (4 parts: 26.7 m²/0 · 10.2 m²/2 ·
+   44.8 m²/3 · 62.4 m²/2), but the WFS **bbox** form returns the same four geometries with parts 1
+   and 2 **swapped** and the 26.7 m² part carrying floors **1** instead of **0** — same service,
+   same day, same refcat. ⛔ **Never key a part on `_partN`, and never diff two access paths and
+   call the difference a change.** Also: **`floors 0` is a real value** (an uncovered patio), not a
+   missing one — it must be emitted and must not be extruded.
+
+**So the orchestrator's next footprint work is rows 3 and 4 — 🇳🇿 NZ LINZ and 🇵🇱 BDOT10k — not
+rows 1 and 2.** Everything below stands, with #1 and #2 re-read as *in progress*.
+
+---
+
 ## 7 — Build order, ranked by (post-2015 gain × parcels served)
 
 **Scoring — stated so it can be disagreed with.**
