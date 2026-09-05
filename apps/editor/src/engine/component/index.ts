@@ -14,6 +14,17 @@ export {
   type ComponentCommitterStats,
 } from './ComponentCommitter';
 
+// §82.6-COMPONENT-RENDER-MOUNT — the production mount of the committer (store
+// `subscribeDirty` → committer → scene), the shape `attachSpaceEnvelopeRender`
+// documents. `initTools` is its one production caller.
+export {
+  attachComponentRender,
+  type ComponentRenderDeps,
+  type ComponentRenderHandle,
+  type ComponentDefinitionCatalogLike,
+  type DirtyComponentStore,
+} from './attachComponentRender';
+
 export {
   buildComponentBufferGeometry,
   disposeComponentGeometry,

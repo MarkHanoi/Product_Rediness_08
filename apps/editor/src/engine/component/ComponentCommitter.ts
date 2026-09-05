@@ -92,6 +92,17 @@ export interface ComponentCommitterDeps {
    * scene graph has settled without polling.
    */
   readonly onGeometryReady?: (id: ElementId, solidCount: number) => void;
+  /**
+   * §82.6-LEVEL-Y — the storey's elevation, in metres, for a `levelId`.
+   *
+   * `component.place` commits `origin.y = 0` and lets the storey ride `levelId`
+   * (the same convention `furniture.create` uses from the plan surface), so an
+   * occurrence on Level 02 carries no elevation of its own. Without this port the
+   * group sits at y=0 on every storey — drawn, and drawn on the wrong floor.
+   * Optional so the unit suite and a wiring with no level authority stay at 0;
+   * the wiring that HAS one (`initTools` → `bimManager.getLevelById`) passes it.
+   */
+  readonly levelY?: (levelId: string) => number;
 }
 
 /** Every number this committer will answer "did it work?" with. Counters, not
@@ -119,6 +130,8 @@ interface Entry {
   geometryKey: string;
   /** Monotonic per-element; see §COMPONENT-RENDER-GENERATION-GUARD. */
   generation: number;
+  /** The record the host last handed over — what `invalidateDefinition` re-bakes from. */
+  lastDto?: ComponentData;
 }
 
 /**
@@ -141,9 +154,18 @@ function geometryKeyOf(dto: ComponentData): string {
   return `${dto.definitionId}|${dto.typeId}|${sorted}`;
 }
 
-function applyTransform(obj: THREE.Object3D, dto: ComponentData): void {
+function applyTransform(
+  obj: THREE.Object3D,
+  dto: ComponentData,
+  levelY?: (levelId: string) => number,
+): void {
   const o = dto.origin;
-  obj.position.set(o.x, o.y, o.z);
+  let y = o.y;
+  if (levelY !== undefined) {
+    const lift = levelY(dto.levelId);
+    if (Number.isFinite(lift)) y += lift;
+  }
+  obj.position.set(o.x, y, o.z);
   obj.rotation.set(0, dto.rotation, 0);
 }
 
@@ -168,6 +190,7 @@ export class ComponentCommitter implements PrimitiveCommitter<ComponentData, THR
   private readonly bake: BakeComponentInstance;
   private readonly definitions: ComponentDefinitionSource;
   private readonly onGeometryReady?: (id: ElementId, solidCount: number) => void;
+  private readonly levelY?: (levelId: string) => number;
   private disposed = false;
 
   constructor(deps: ComponentCommitterDeps) {
@@ -178,6 +201,7 @@ export class ComponentCommitter implements PrimitiveCommitter<ComponentData, THR
     this.bake = deps.bake;
     this.definitions = deps.definitions;
     this.onGeometryReady = deps.onGeometryReady;
+    this.levelY = deps.levelY;
   }
 
   onAdd(id: ElementId, dto: ComponentData): THREE.Group {
@@ -187,9 +211,9 @@ export class ComponentCommitter implements PrimitiveCommitter<ComponentData, THR
     group.userData['primitiveType'] = 'component';
     group.userData['definitionId'] = dto.definitionId;
     group.userData['typeId'] = dto.typeId;
-    applyTransform(group, dto);
+    applyTransform(group, dto, this.levelY);
 
-    const entry: Entry = { group, handles: [], geometryKey: geometryKeyOf(dto), generation: 0 };
+    const entry: Entry = { group, handles: [], geometryKey: geometryKeyOf(dto), generation: 0, lastDto: dto };
     this.entries.set(id, entry);
     void this.rebuild(id, dto, entry);
     return group;
@@ -202,14 +226,15 @@ export class ComponentCommitter implements PrimitiveCommitter<ComponentData, THR
       // registry; reaching here means the registry and this map disagree. Adopt
       // the object rather than throw — killing the commit batch would take the
       // whole scene's tick down for one element's bookkeeping.
-      const adopted: Entry = { group: obj, handles: [], geometryKey: geometryKeyOf(dto), generation: 0 };
+      const adopted: Entry = { group: obj, handles: [], geometryKey: geometryKeyOf(dto), generation: 0, lastDto: dto };
       this.entries.set(id, adopted);
-      applyTransform(obj, dto);
+      applyTransform(obj, dto, this.levelY);
       void this.rebuild(id, dto, adopted);
       return;
     }
 
-    applyTransform(obj, dto);
+    applyTransform(obj, dto, this.levelY);
+    entry.lastDto = dto;
     obj.userData['definitionId'] = dto.definitionId;
     obj.userData['typeId'] = dto.typeId;
 
@@ -231,6 +256,40 @@ export class ComponentCommitter implements PrimitiveCommitter<ComponentData, THR
     this.clearSolids(entry);
     obj.removeFromParent();
     this.entries.delete(id);
+  }
+
+  /**
+   * §82.6-DEFINITION-INVALIDATION — re-bake every occurrence of one definition
+   * (or of every definition, when no id is given) from the RECORDS the host last
+   * handed this committer.
+   *
+   * ⭐ WHY THIS EXISTS. `geometryKeyOf` is the identity of the OCCURRENCE's
+   *    geometry inputs — definitionId, typeId, overrides — and a definition being
+   *    (re)loaded into the catalogue changes none of them. So the store never
+   *    emits a dirty diff for it, `onUpdate` would read "same key, transform
+   *    only", and two real cases would render stale or empty: (1) a project
+   *    restored before its definitions finished loading — the occurrence is
+   *    added, `definitions.has()` says no, the group stays EMPTY, and nothing
+   *    ever asks again; (2) an author saving an edited definition — twenty
+   *    placed instances keep the old shape until something else touches them.
+   *    The wiring subscribes the catalogue and calls this; the committer keeps
+   *    owning the generation guard, so an invalidation that lands while a bake
+   *    is in flight still lets exactly one result attach.
+   *
+   * ⚠ It re-bakes from the DTO the host last passed — the committer holds no copy
+   *   of the record it did not receive, so the wiring must call this AFTER the
+   *   store is current, which a catalogue notification always is.
+   */
+  invalidateDefinition(definitionId?: string): number {
+    let issued = 0;
+    for (const [id, entry] of this.entries) {
+      const dto = entry.lastDto;
+      if (dto === undefined) continue;
+      if (definitionId !== undefined && dto.definitionId !== definitionId) continue;
+      void this.rebuild(id, dto, entry);
+      issued += 1;
+    }
+    return issued;
   }
 
   onDispose(): void {

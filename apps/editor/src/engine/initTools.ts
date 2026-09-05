@@ -128,6 +128,10 @@ import {
     attachSpaceEnvelopeRender,
     type DirtySpaceEnvelopeStore,
 } from './attachSpaceEnvelopeRender';
+// §82.6-COMPONENT-RENDER-MOUNT — the placed-component 3-D leg (ADR-0376 D10).
+import { attachComponentRender, type DirtyComponentStore } from './component/index';
+import { componentCatalog } from '../services/componentCatalog/index';
+import { getFrameScheduler } from '@pryzm/frame-scheduler';
 // §POOL95 (L-11350) — the undo path reaches the SAME builder through this sink,
 // because `performUndoRedo` emits no bus events.
 import { registerWaterRenderSink } from './undo/poolUndoAdapter';
@@ -2097,6 +2101,66 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     },
                 });
                 console.log('[initTools] §FEAT-SPACE-ENVELOPE: store→mesh subscriber and face drag installed.');
+            }
+        }
+
+        // ⭐⭐ §82.6-COMPONENT-RENDER-MOUNT · STR-UCE-MASTER-SPEC §82.6 · ADR-0376 D10 ·
+        // C113 §10 — A PLACED COMPONENT DRAWS. `ComponentCommitter` was "committed but
+        // not registered on the production render path" (UCE-REACHABILITY-AUDIT R1,
+        // rank 1); this is the registration, on the SAME store-subscription road the
+        // space-envelope block above documents, so execute / undo / redo / project
+        // restore all draw through the one subscription (C84 EI-9).
+        //
+        // ⭐ THE CATALOGUE IS THE ONE `PluginRegistry` INJECTED INTO THE VERBS —
+        // `runtime.auxiliaries.componentCatalog` when the composed handle carries it,
+        // else the process default it was built from (they are the same object; the
+        // fallback exists for a runtime composed without auxiliaries, and it is the
+        // same instance either way, so the committer and the verbs cannot disagree
+        // about whether a definition exists — the one-resolver rule, UIUX-PLAN §U0).
+        {
+            const slot = runtime.stores as unknown as Record<string, unknown> | undefined;
+            const componentStore = slot?.['component'] as DirtyComponentStore | undefined;
+            const aux = (runtime as unknown as { auxiliaries?: Record<string, unknown> }).auxiliaries;
+            const catalog = (aux?.['componentCatalog'] as typeof componentCatalog | undefined) ?? componentCatalog;
+            if (!componentStore || typeof componentStore.subscribeDirty !== 'function') {
+                // ⛔ LOUD, NEVER SILENT (C84 EI-6). UNREACHABLE and EMPTY are different facts.
+                console.warn(
+                    '[initTools] §82.6-COMPONENT-RENDER-MOUNT: runtime.stores.component is not reachable — '
+                    + 'placed components will not be drawn. The records are still created, undoable '
+                    + 'and saved; only the 3-D leg is absent.',
+                );
+            } else {
+                const handle = attachComponentRender({
+                    store: componentStore,
+                    scene: world.scene.three,
+                    catalog,
+                    // The storey's elevation — `component.place` commits `origin.y = 0` and
+                    // lets the level carry the height, as `furniture.create` does.
+                    levelY: (levelId: string): number => {
+                        const lvl = bimManager?.getLevelById?.(levelId) as { elevation?: number } | null | undefined;
+                        const e = lvl?.elevation;
+                        return typeof e === 'number' && Number.isFinite(e) ? e : 0;
+                    },
+                    onGeometryReady: (id: string, solidCount: number) => {
+                        // The frame is dirty either way — a cleared group is a change too.
+                        try { getFrameScheduler().markDirty('component-geometry-ready'); } catch { /* non-fatal */ }
+                        if (solidCount === 0) {
+                            // The committer already logged WHY (unresolved / refused). Repeating the
+                            // count here keeps "drawn nothing" from being silent at the wiring layer.
+                            console.warn(`[initTools] §82.6 component '${id}' drew ZERO solids — see the committer's reason above.`);
+                        }
+                    },
+                    registerElement: (id: string, levelId: string) => {
+                        try { viewDependencyTracker.registerElement(id, levelId); }
+                        catch (err) { console.warn('[initTools] §82.6 VDT.registerElement failed (non-fatal):', err); }
+                        try { bimManager.registerElement(id, levelId); }
+                        catch { /* non-fatal — may already be registered */ }
+                    },
+                });
+                // Exposed for the same reason the committer keeps `stats`: "did it draw?" is a
+                // number, and a diagnosing lane reads it here rather than from a screenshot.
+                (window as unknown as { __pryzmComponentRender?: unknown }).__pryzmComponentRender = handle;
+                console.log('[initTools] §82.6-COMPONENT-RENDER-MOUNT: component store→committer subscriber installed.');
             }
         }
 

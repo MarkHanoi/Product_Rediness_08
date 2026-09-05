@@ -747,13 +747,15 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         // The definition/type pair comes from the Components browser via
         // `activeComponentPlacement.ts` (shared store — the L-239-family lesson).
         //
-        // PLAN ONLY, DELIBERATELY, while lane 4E's production viewport leg is
-        // descoped (ADR-0376 D10): a placed component has no 3-D mesh in the main
-        // viewport yet (`ComponentCommitter` is not mounted at this reading), so a
-        // 3-D placement arm would place elements the view cannot show — the
-        // founder's "reports activation, activates nothing" defect with extra
-        // steps. When 4E's mount lands, the 3-D arm needs a `ToolManager`
-        // activator + key, declared here as the gap.
+        // PLAN ONLY — STILL, but the REASON CHANGED on 2026-09-05 (§82.6-COMPONENT-
+        // RENDER-MOUNT). It used to be that a placed component had no 3-D mesh
+        // (`ComponentCommitter` unmounted, ADR-0376 D10), so a 3-D arm would place
+        // invisible elements. The committer is now mounted in `initTools`
+        // (`attachComponentRender`) and a placed component DRAWS — measured in
+        // `apps/editor/__tests__/componentRendersThroughComposedRuntime.test.ts`.
+        // What remains is only the 3-D arm itself: a `ToolManager` key + 3-D
+        // click activator that reads the storey from the 3-D pick rather than from
+        // a plan view's `spatial.levelId`. That is declared, not done — see `gap`.
         tool: 'component', label: 'Component', views: ['plan'],
         // No mode strip: a component is a single-click insertion; HOW it sketches
         // is not a variable of this tool (the definition owns its geometry). The
@@ -764,12 +766,14 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
         // derives placements from context. "Not applicable", not "not implemented".
         autoIn: [],
         modeSource: 'n/a',
-        gap: 'OPEN (UIUX-PLAN §U1/D10): 3-D placement waits for lane 4E\'s viewport '
-           + 'mount — `ComponentCommitter` is committed but not registered on the '
-           + 'production render path, so a 3-D arm would place invisible elements. '
-           + 'When it mounts, add the ToolManager key + 3-D tool and move this row '
-           + 'to both views. Hosted placement (`hostId`) stays OFF separately: the '
-           + 'payload field is INERT while ADR-0376 D11 is open (refusal register R-d).',
+        gap: 'OPEN (UIUX-PLAN §U1): 3-D placement arm not built. The blocker it '
+           + 'waited on is GONE — `ComponentCommitter` IS mounted on the production '
+           + 'render path since 2026-09-05 (§82.6, `initTools` → `attachComponentRender`), '
+           + 'so a placed component draws in 3-D. What is still owed is the ToolManager '
+           + 'key + a 3-D click activator (storey from the pick, not from a plan view); '
+           + 'add it and move this row to both views. Hosted placement (`hostId`) stays '
+           + 'OFF separately: the payload field is INERT while ADR-0376 D11 is open '
+           + '(refusal register R-d).',
     },
     { tool: 'plumbing',  label: 'Plumbing fixture', views: ['plan', '3d'],
       modes: [
