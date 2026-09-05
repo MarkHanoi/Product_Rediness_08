@@ -286,10 +286,45 @@ type ArrayParse =
   | { kind: 'literal'; pats: string[] }
   | { kind: 'unproven'; reason: string };
 
-function parseStringArray(src: string, key: string): ArrayParse {
+/**
+ * §CONST-PATH-BINDINGS (lane CI-GREEN, 2026-09-05). A config written as
+ *   const EDITOR = resolve(__dirname, '../../../../apps/editor');
+ *   const PROBE  = resolve(__dirname, 'b1Dispatch.probe.test.ts').split(BACKSLASH).join('/');
+ *   export default defineConfig({ root: EDITOR, test: { include: [PROBE] } });
+ * is fully determinable STATICALLY — every operand is `__dirname` or a string literal —
+ * yet the scanner refused BOTH the `root` and the `include`, reported the config
+ * UNPROVEN, and therefore could not see that the files it selects are selectable at
+ * all. That is the instrument blind, not the tree dark; it is the same class as the
+ * §DARK-CENSUS-ONE-LEVEL-DOWN blind spot below.
+ *
+ * ONLY this one idiom is resolved: an identifier bound to `resolve|join(__dirname,
+ * '<literal>'…)`, optionally with the Windows-separator `.split(X).join('/')`
+ * normalisation chained on. Everything else is still refused — `packages/d`'s
+ * `include: [...EXTRA]` executed control proves the refusal still fires, because a
+ * spread is not a bare identifier and is never substituted.
+ */
+function constPathBindings(src: string, dir: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const RE = /\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*(?:resolve|join)\s*\(\s*__dirname\s*((?:,\s*(?:'[^']*'|"[^"]*"))*)\s*\)\s*(?:\.split\([^)]*\)\s*\.join\(\s*['"]\/['"]\s*\))?\s*;/g;
+  for (const m of src.matchAll(RE)) {
+    const parts = [...m[2]!.matchAll(/['"]([^'"]*)['"]/g)].map((x) => x[1]!);
+    out.set(m[1]!, resolve(dir, ...parts).split(sep).join('/'));
+  }
+  return out;
+}
+
+function parseStringArray(src: string, key: string, consts?: ReadonlyMap<string, string>): ArrayParse {
   const m = src.match(new RegExp(`\\b${key}\\s*:\\s*\\[([\\s\\S]*?)\\]`));
   if (!m) return { kind: 'absent' };
-  const body = m[1]!;
+  let body = m[1]!;
+  if (consts && consts.size > 0) {
+    // A BARE identifier only. `...EXTRA` (the packages/d control) has `.` in front of
+    // it, which this pattern does not admit, so a spread stays UNPROVEN as before.
+    body = body.replace(
+      /(^|[[,\s])([A-Za-z_$][\w$]*)(?=\s*(?:,|\]|$))/g,
+      (whole, lead: string, id: string) => (consts.has(id) ? `${lead}'${consts.get(id)!}'` : whole),
+    );
+  }
   const pats = [...body.matchAll(/['"`]([^'"`]+)['"`]/g)].map((x) => x[1]!);
   const residue = body.replace(/['"`][^'"`]*['"`]/g, '').replace(/[\s,]/g, '');
   if (residue.length > 0) {
@@ -332,26 +367,53 @@ function pushVitestConfig(
     return;
   }
 
+  const consts = constPathBindings(src, dir);
+
   // Root resolution — stated in the header, not guessed at here.
   let base: string;
   const rootM = flat.match(/\broot\s*:\s*([^,\n]+)/) ?? src.match(/^\s*root\s*:\s*([^,\n]+)/m);
   if (rootM) {
     const v = rootM[1]!.trim().replace(/[;,]$/, '');
     if (v === '__dirname' || /^['"`]\.['"`]$/.test(v)) base = dir;
+    else if (consts.has(v)) base = consts.get(v)!;   // §CONST-PATH-BINDINGS
     else { unproven.push({ subject: name, reason: `unresolvable \`root\` expression: ${v}`, base: dir }); return; }
   } else {
     base = existsSync(join(dir, 'package.json')) ? dir : root;
   }
 
-  const inc = parseStringArray(flat, 'include');
+  const inc = parseStringArray(flat, 'include', consts);
   if (inc.kind === 'unproven') { unproven.push({ subject: name, reason: inc.reason, base }); return; }
-  const exc = parseStringArray(flat, 'exclude');
+  const exc = parseStringArray(flat, 'exclude', consts);
   if (exc.kind === 'unproven') { unproven.push({ subject: name, reason: exc.reason, base }); return; }
+
+  let include = inc.kind === 'absent' ? [VITEST_DEFAULT_INCLUDE] : inc.pats;
+
+  // §ABS-INCLUDE — the `resolve(__dirname, …)` idiom yields an ABSOLUTE include, and
+  // the matcher compares one base against every pattern, so a config whose `root` is
+  // `apps/editor` cannot otherwise express a spec that lives in `audit/`. Re-base the
+  // whole runner on the repo root instead. ALL-OR-NOTHING: a mix of absolute and
+  // relative patterns, an absolute path outside the root, or a hand-written `exclude`
+  // (which is relative to the OLD base and would silently change meaning) is REFUSED
+  // as UNPROVEN rather than guessed at.
+  const isAbsPat = (p: string): boolean => /^([A-Za-z]:)?\//.test(p);
+  const absCount = include.filter(isAbsPat).length;
+  if (absCount > 0) {
+    if (absCount !== include.length) { unproven.push({ subject: name, reason: '`include` mixes absolute and relative patterns', base }); return; }
+    if (exc.kind !== 'absent') { unproven.push({ subject: name, reason: 'absolute `include` alongside a hand-written `exclude` (which is relative to the config root)', base }); return; }
+    const rebased: string[] = [];
+    for (const p of include) {
+      const rp = relPath(root, p);
+      if (rp.startsWith('..')) { unproven.push({ subject: name, reason: `absolute \`include\` outside the repo root: ${p}`, base }); return; }
+      rebased.push(rp);
+    }
+    include = rebased;
+    base = root;
+  }
 
   runners.push({
     name: inc.kind === 'absent' ? `${name} [vitest DEFAULT include]` : name,
     base,
-    include: inc.kind === 'absent' ? [VITEST_DEFAULT_INCLUDE] : inc.pats,
+    include,
     exclude: exc.kind === 'absent' ? DEFAULT_EXCLUDE : exc.pats,
   });
 }
@@ -369,9 +431,14 @@ function pushPlaywrightConfig(cfgAbs: string, root: string, runners: Runner[]): 
   });
 }
 
-const VITEST_CFG_RE = /^vitest(\.[a-z0-9-]+)?\.config\.[cm]?[jt]s$/;
-const VITE_CFG_RE = /^vite(\.[a-z0-9-]+)?\.config\.[cm]?[jt]s$/;
-const PW_CFG_RE = /^playwright(\.[a-z0-9-]+)?\.config\.[cm]?[jt]s$/;
+// §CFG-NAME-IS-CASE-SENSITIVE (lane CI-GREEN, 2026-09-05). The middle segment used to be
+// `[a-z0-9-]+`, so `vitest.w4iPlan.config.ts` and `vitest.w4iR.config.ts` were not
+// recognised as configs AT ALL while `vitest.w4i.config.ts` beside them was — and their two
+// probe specs were reported `no-runner` purely because of the capital letter in the runner's
+// FILENAME. `vitest --config <path>` reads any name; the census must too.
+const VITEST_CFG_RE = /^vitest(\.[A-Za-z0-9-]+)?\.config\.[cm]?[jt]s$/;
+const VITE_CFG_RE = /^vite(\.[A-Za-z0-9-]+)?\.config\.[cm]?[jt]s$/;
+const PW_CFG_RE = /^playwright(\.[A-Za-z0-9-]+)?\.config\.[cm]?[jt]s$/;
 
 function discoverRunners(root: string): { runners: Runner[]; unproven: Unproven[] } {
   const runners: Runner[] = [];
@@ -429,12 +496,39 @@ function discoverRunners(root: string): { runners: Runner[]; unproven: Unproven[
     }
   }
 
+  const scannedSubDirs: string[] = [];
   for (const dir of [...new Set(dirs)]) {
     let entries: string[] = [];
     try { entries = readdirSync(dir); } catch { continue; }
     for (const f of entries) {
       if (VITEST_CFG_RE.test(f) || VITE_CFG_RE.test(f)) pushVitestConfig(join(dir, f), root, runners, unproven);
       if (PW_CFG_RE.test(f)) pushPlaywrightConfig(join(dir, f), root, runners);
+    }
+    // §DARK-CENSUS-ONE-LEVEL-DOWN (lane CI-GREEN, 2026-09-05). A package.json-less
+    // sibling under a workspace glob (the "standalone tools/* probes" the comment
+    // above names) is not one package — it is a FOLDER of independent harnesses,
+    // each keeping its runner beside its spec one level down:
+    //   tools/perf/outer/playwright.outer.config.ts   → outer-baseline.spec.ts
+    //   tools/perf/render/playwright.render.config.ts → render-profile.spec.ts
+    // Both are invoked by name (run-outer-local.mjs / run-render-local.mjs), so
+    // the files are NOT dark — the census simply stopped at the top level and
+    // reported 2 no-runner findings that were a blind spot of the instrument,
+    // not of the tree. Scanned only for dirs WITHOUT a package.json: a real
+    // package's nested configs are that package's own runner-selection problem,
+    // and widening there would invent runners a `pnpm --filter` never invokes.
+    if (!existsSync(join(dir, 'package.json'))) {
+      for (const sub of entries) {
+        const subDir = join(dir, sub);
+        if (sub === 'node_modules' || sub === 'dist') continue;
+        try { if (!statSync(subDir).isDirectory()) continue; } catch { continue; }
+        let subEntries: string[] = [];
+        try { subEntries = readdirSync(subDir); } catch { continue; }
+        scannedSubDirs.push(subDir);
+        for (const f of subEntries) {
+          if (VITEST_CFG_RE.test(f) || VITE_CFG_RE.test(f)) pushVitestConfig(join(subDir, f), root, runners, unproven);
+          if (PW_CFG_RE.test(f)) pushPlaywrightConfig(join(subDir, f), root, runners);
+        }
+      }
     }
     // A workspace that runs `vitest` with NO vitest config of its own gets
     // vitest's DEFAULT include, rooted at the package dir. (It may still have a
@@ -453,6 +547,32 @@ function discoverRunners(root: string): { runners: Runner[]; unproven: Unproven[
         });
       }
     }
+  }
+
+  // 4 — §CENSUS-SEES-EVERY-CONFIG (lane CI-GREEN, 2026-09-05). Steps 1–3 look for
+  //     runners ONLY at the repo root and inside a pnpm workspace (plus, since
+  //     §DARK-CENSUS-ONE-LEVEL-DOWN, one level under a package.json-less workspace
+  //     sibling). A runner that lives anywhere else was invisible — and the repo's
+  //     OWN L-849 protocol, quoted in dark-test-files-ledger.json, tells auditors to
+  //     do exactly that: "run it under a THROWAWAY config". Eight probe specs under
+  //     audit/element-creation/2026-08-29/probe/ each ship their own
+  //     vitest.<name>.config.ts BESIDE the spec and were nonetheless reported
+  //     `no-runner`, i.e. "nothing can select this file", while
+  //     `npx vitest run --config <that file>` selects exactly it.
+  //
+  //     This is a DISCOVERY widening, never a tolerance widening: it adds runners the
+  //     tree really has, and every file it un-darkens is one a config genuinely
+  //     selects. It does NOT touch the ledger, which stays shrink-only. Dirs already
+  //     visited above are skipped so a config is never read — or reported UNPROVEN —
+  //     twice. SCOPE is unchanged and still stated: glob reachability, not CI
+  //     invocation. `check-test-ci-coverage.mjs` remains the axis that asks whether
+  //     any CI job invokes it.
+  const scanned = new Set<string>([root, ...dirs, ...scannedSubDirs]);
+  for (const p of walk(root)) {
+    if (scanned.has(dirname(p))) continue;
+    const f = p.slice(dirname(p).length + 1);
+    if (VITEST_CFG_RE.test(f) || VITE_CFG_RE.test(f)) pushVitestConfig(p, root, runners, unproven);
+    else if (PW_CFG_RE.test(f)) pushPlaywrightConfig(p, root, runners);
   }
 
   return { runners, unproven };
