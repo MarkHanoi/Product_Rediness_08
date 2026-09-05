@@ -27,6 +27,13 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// §BEV-ALS-OSM-JOIN + §CUZK-NDSM-OSM-JOIN + §GURS-KN-OSM-JOIN (2026-09-05, lane HEIGHTS-AT-CZ-SI) — the Austrian (BEV ALS
+// DSM − DTM 1 m COG windows), Czech (ČÚZK DMP 1G − DMR 5G exportImage) and Slovenian (GURS KN STAVBE register) stamps live
+// in their OWN modules (the nl3dbagStamp precedent — heightSources.mjs is a many-lane file) and are imported here DIRECTLY,
+// in the commit that declares the `austria` / `czechia` / `slovenia` rows' heightJoin — never "built, imported by nothing".
+import { stampAtHeightsOnGeojsonseq, AT_CITY_BBOXES } from './heights/atHeightsStamp.mjs';
+import { stampCzHeightsOnGeojsonseq, CZ_CITY_BBOXES } from './heights/czHeightsStamp.mjs';
+import { stampSiHeightsOnGeojsonseq, SI_CITY_BBOXES } from './heights/siHeightsStamp.mjs';
 // §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
 // free on import (its CLI is behind an isMain guard); `resolveHeights` never throws.
 // §HEIGHTS-FR-SOLID (L-12910, 2026-09-05) — `stampMnhFrHeightsOnGeojsonseq` + `MNH_FR_CITY_BBOXES` were
@@ -298,11 +305,18 @@ const ALL_REGIONS = [
   // bern, EQUAL to the terrain.mjs `ch` rows), everything outside streams through with its honest OSM tags.
   // No city rows exist for CH, so nothing double-bakes. Anything but a measured `ok` keeps the OSM default.
   { name: 'switzerland', pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                   pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '5.90,45.80,10.50,47.85',   clipped: resolve(OUT, 'clip-switzerland.osm.pbf'), heightJoin: 'swiss' },
-  // ASSESS AT — NATIONAL-NOW (mass-only until the geoland.at 1 m DTM+DSM nDSM stamp, CC BY 4.0).
-  { name: 'austria',    pbfUrl: 'https://download.geofabrik.de/europe/austria-latest.osm.pbf',                        pbf: resolve(OUT, 'austria-latest.osm.pbf'),                bbox: '9.50,46.30,17.20,49.05',   clipped: resolve(OUT, 'clip-austria.osm.pbf') },
+  // ASSESS AT → ⭐ WIRED 2026-09-05 (lane HEIGHTS-AT-CZ-SI, §BEV-ALS-OSM-JOIN): `heightJoin:'bev_at'` stamps the KEYLESS
+  // BEV ALS DSM − ALS DTM 1 m nDSM (CC BY 4.0; 55 COG BigTIFF tiles behind one INSPIRE ATOM feed, read by HTTP range —
+  // heights/atHeightsStamp.mjs) onto the OSM footprints inside AT_CITY_BBOXES (vienna/graz/linz/salzburg/innsbruck);
+  // NATIONAL_STAMP_TABLE dispatch. Local proof Stephansplatz: max 99.8 m (P90 massing) vs the 136.1 m tower kote.
+  { name: 'austria',    pbfUrl: 'https://download.geofabrik.de/europe/austria-latest.osm.pbf',                        pbf: resolve(OUT, 'austria-latest.osm.pbf'),                bbox: '9.50,46.30,17.20,49.05',   clipped: resolve(OUT, 'clip-austria.osm.pbf'), heightJoin: 'bev_at' },
   // ASSESS CZ — NATIONAL-DERIVED-HEIGHTS: RUIAN `pocet podlazi` floors (× 3.2 m, DERIVED) — gated
   // on ONE owed VFR parse; until then mass-only.
-  { name: 'czechia',    pbfUrl: 'https://download.geofabrik.de/europe/czech-republic-latest.osm.pbf',                 pbf: resolve(OUT, 'czech-republic-latest.osm.pbf'),         bbox: '12.05,48.50,18.90,51.10',  clipped: resolve(OUT, 'clip-czechia.osm.pbf') },
+  // → ⭐ WIRED 2026-09-05 (lane HEIGHTS-AT-CZ-SI, §CUZK-NDSM-OSM-JOIN): `heightJoin:'cuzk_cz'` stamps the KEYLESS ČÚZK
+  // DMP 1G − DMR 5G nDSM (ImageServer exportImage, F32 GeoTIFF in EPSG:4326 — heights/czHeightsStamp.mjs) onto the OSM
+  // footprints inside CZ_CITY_BBOXES (prague/brno/ostrava/plzen/olomouc); NATIONAL_STAMP_TABLE dispatch. RÚIAN floors stay
+  // derived-levels and are NOT stamped. Local proof Prague Old Town: 316/321 real OSM footprints measured, 7.1 s.
+  { name: 'czechia',    pbfUrl: 'https://download.geofabrik.de/europe/czech-republic-latest.osm.pbf',                 pbf: resolve(OUT, 'czech-republic-latest.osm.pbf'),         bbox: '12.05,48.50,18.90,51.10',  clipped: resolve(OUT, 'clip-czechia.osm.pbf'), heightJoin: 'cuzk_cz' },
   // ASSESS PT — NATIONAL-NOW (mass-only): replaces the lisbon+porto city rows (same pbf path —
   // one download, Copenhagen dedup). DGT LiDAR 2024–25 endpoint still uncaptured → heights owed.
   // ⭐ First country where the Mapterhorn switch (terrain.mjs --dtm-source mapterhorn, E3A)
@@ -325,7 +339,11 @@ const ALL_REGIONS = [
   // OSM context; RO registration is nationally INCOMPLETE (queryable ≠ complete — context rides
   // OSM regardless).
   { name: 'croatia',    pbfUrl: 'https://download.geofabrik.de/europe/croatia-latest.osm.pbf',                        pbf: resolve(OUT, 'croatia-latest.osm.pbf'),                bbox: '13.40,42.30,19.50,46.60',  clipped: resolve(OUT, 'clip-croatia.osm.pbf') },
-  { name: 'slovenia',   pbfUrl: 'https://download.geofabrik.de/europe/slovenia-latest.osm.pbf',                       pbf: resolve(OUT, 'slovenia-latest.osm.pbf'),               bbox: '13.30,45.40,16.60,46.90',  clipped: resolve(OUT, 'clip-slovenia.osm.pbf') },
+  // ⭐ WIRED 2026-09-05 (lane HEIGHTS-AT-CZ-SI, §GURS-KN-OSM-JOIN): `heightJoin:'gurs_si'` stamps GURS KN STAVBE register
+  // heights (H2 − H3, KEYLESS WFS on ipi.eprostor.gov.si, CC BY 4.0 — heights/siHeightsStamp.mjs) onto the OSM footprints
+  // inside SI_CITY_BBOXES (ljubljana/maribor/celje/kranj/koper); NATIONAL_STAMP_TABLE dispatch. Written as `tagged`, NOT
+  // measured-lidar (the register's own accuracy code is "unknown method" for 96 %). Local proof Ljubljana: 348/532 matched.
+  { name: 'slovenia',   pbfUrl: 'https://download.geofabrik.de/europe/slovenia-latest.osm.pbf',                       pbf: resolve(OUT, 'slovenia-latest.osm.pbf'),               bbox: '13.30,45.40,16.60,46.90',  clipped: resolve(OUT, 'clip-slovenia.osm.pbf'), heightJoin: 'gurs_si' },
   { name: 'greece',     pbfUrl: 'https://download.geofabrik.de/europe/greece-latest.osm.pbf',                         pbf: resolve(OUT, 'greece-latest.osm.pbf'),                 bbox: '19.30,34.70,29.70,41.80',  clipped: resolve(OUT, 'clip-greece.osm.pbf') },
   { name: 'hungary',    pbfUrl: 'https://download.geofabrik.de/europe/hungary-latest.osm.pbf',                        pbf: resolve(OUT, 'hungary-latest.osm.pbf'),                bbox: '16.10,45.70,22.95,48.60',  clipped: resolve(OUT, 'clip-hungary.osm.pbf') },
   { name: 'romania',    pbfUrl: 'https://download.geofabrik.de/europe/romania-latest.osm.pbf',                        pbf: resolve(OUT, 'romania-latest.osm.pbf'),                bbox: '20.20,43.60,29.80,48.30',  clipped: resolve(OUT, 'clip-romania.osm.pbf') },
@@ -658,6 +676,9 @@ const HEAP_FLOOR_MB_NATIONAL = 6000;     // headroom for the retained metro set 
  */
 function stampBboxesFor(r) {
   if (Array.isArray(r.heightStampBboxes)) return r.heightStampBboxes;
+  if (r.heightJoin === 'bev_at') return AT_CITY_BBOXES.map((c) => c.bbox);    // §BEV-ALS-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `austria`, five cities
+  if (r.heightJoin === 'cuzk_cz') return CZ_CITY_BBOXES.map((c) => c.bbox);   // §CUZK-NDSM-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `czechia`, five cities
+  if (r.heightJoin === 'gurs_si') return SI_CITY_BBOXES.map((c) => c.bbox);   // §GURS-KN-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `slovenia`, five cities
   if (r.heightJoin === 'mds') return MDS_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'dhm') return DHM_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
@@ -682,6 +703,12 @@ function stampBboxesFor(r) {
 // §MEASURED-HEIGHT-GATE sees them exactly as it sees mds/dhm/swiss. Retained working set = the city
 // list, uncapped (the swiss/au_open guarantee), so no priority list is needed.
 const NATIONAL_STAMP_TABLE = {
+  // §BEV-ALS-OSM-JOIN — whole `austria`: BEV ALS DSM − DTM 1 m COG windows, keyless (heights/atHeightsStamp.mjs).
+  bev_at: { stamp: stampAtHeightsOnGeojsonseq, bboxes: AT_CITY_BBOXES },
+  // §CUZK-NDSM-OSM-JOIN — whole `czechia`: ČÚZK DMP 1G − DMR 5G exportImage, keyless (heights/czHeightsStamp.mjs).
+  cuzk_cz: { stamp: stampCzHeightsOnGeojsonseq, bboxes: CZ_CITY_BBOXES },
+  // §GURS-KN-OSM-JOIN — whole `slovenia`: GURS KN STAVBE H2 − H3 register heights, keyless WFS (heights/siHeightsStamp.mjs).
+  gurs_si: { stamp: stampSiHeightsOnGeojsonseq, bboxes: SI_CITY_BBOXES },
   // §NDH-NO-OSM-JOIN — whole `norway`: Kartverket NHM DOM − DTM, keyless (heights/noHeightsStamp.mjs).
   ndh_no: { stamp: stampNoNdhHeightsOnGeojsonseq, bboxes: NO_NDH_CITY_BBOXES },
   // §EE-ETAK-OSM-JOIN — whole `estonia`: ETAK e_401_hoone_ka korgus_m per OSM footprint, keyless WFS (heights/eeHeightsStamp.mjs).
