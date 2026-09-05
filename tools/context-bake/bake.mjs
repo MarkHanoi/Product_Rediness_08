@@ -67,6 +67,12 @@ import { stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES } from './heights/noH
 // DIRECTLY, in the commit that declares the `estonia` / `belgium` rows' heightJoin — never "built, imported by nothing".
 import { stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES } from './heights/eeHeightsStamp.mjs';
 import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeightsStamp.mjs';
+// §DE-LOD2-LAENDER-OSM-JOIN (2026-09-05, lane HEIGHTS-DE-LAENDER) — the per-Land LoD2-DE ROUTER + stamp: nine
+// Länder doors (NW BB HH SH TH RP MV BE ST) behind ONE stamp, in its OWN module (heights/deLod2LaenderStamp.mjs;
+// router table + working set in the pure heights/deLod2Laender.mjs), imported here DIRECTLY in the same commit
+// that arms the `germany` row — the koln-only lod2nrw join above stays as the NRW reference implementation.
+import { stampDeLod2LaenderHeightsOnGeojsonseq } from './heights/deLod2LaenderStamp.mjs';
+import { DE_LOD2_CITY_BBOXES } from './heights/deLod2Laender.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -251,12 +257,19 @@ const ALL_REGIONS = [
   { name: 'sweden',     pbfUrl: 'https://download.geofabrik.de/europe/sweden-latest.osm.pbf',                         pbf: resolve(OUT, 'sweden-latest.osm.pbf'),                 bbox: '10.90,55.20,24.20,69.10',  clipped: resolve(OUT, 'clip-sweden.osm.pbf') },
   { name: 'finland',    pbfUrl: 'https://download.geofabrik.de/europe/finland-latest.osm.pbf',                        pbf: resolve(OUT, 'finland-latest.osm.pbf'),                bbox: '19.00,59.70,31.60,70.10',  clipped: resolve(OUT, 'clip-finland.osm.pbf') },
   { name: 'norway',     pbfUrl: 'https://download.geofabrik.de/europe/norway-latest.osm.pbf',                         pbf: resolve(OUT, 'norway-latest.osm.pbf'),                 bbox: '4.50,57.90,31.20,71.20',   clipped: resolve(OUT, 'clip-norway.osm.pbf'), heightJoin: 'ndh_no' },
-  // ASSESS DE — NATIONAL-NOW; heights staged per-Land (LoD2 free in 15 Länder; the per-Land
-  // endpoint router over the live lod2nrw stamp is the owed build). ⚠ 4.83 GB pbf (measured) —
+  // ASSESS DE — NATIONAL-NOW; heights staged per-Land. ⚠ 4.83 GB pbf (measured) —
   // Germany alone ≈ the whole R2 free tier; the §5 budget decision binds before its publish.
-  // ⚠ koln stays a separate city row (kept-exception above) → its bbox double-bakes until the
-  // router lands.
-  { name: 'germany',    pbfUrl: 'https://download.geofabrik.de/europe/germany-latest.osm.pbf',                        pbf: resolve(OUT, 'germany-latest.osm.pbf'),                bbox: '5.85,47.25,15.05,55.10',   clipped: resolve(OUT, 'clip-germany.osm.pbf') },
+  // ⭐ §DE-LOD2-LAENDER-OSM-JOIN (2026-09-05, lane HEIGHTS-DE-LAENDER): `heightJoin:'lod2de'` dispatches the
+  // per-Land LoD2-DE ROUTER (NATIONAL_STAMP_TABLE → heights/deLod2LaenderStamp.mjs). Working set =
+  // DE_LOD2_CITY_BBOXES, ONE city per WIRED Land: berlin (BE, dl-de-zero) · hamburg (HH) · potsdam (BB) ·
+  // kiel (SH) · erfurt (TH) · mainz (RP) · schwerin (MV) · magdeburg (ST, WFS) · koln (NW). Every door is
+  // KEYLESS and was probed the same day (heights/deLod2Laender.mjs header carries URL/HTTP/bytes/licence per
+  // Land); NI (index → NoSuchKey), SN (geocloud 503), HE (login-gated) are BLOCKED, BW/HB/SL UNPROBED, BY
+  // probed OPEN but UNARMED (munich stays blocked per REGION_SOURCE — a founder decision). Local proof on
+  // real OSM footprints: potsdam 1,832/2,012 · hamburg 636/729 · berlin 376/424 measured.
+  // ⚠ koln stays a separate city row (kept-exception above) → its bbox double-bakes (now with the SAME
+  // NRW door twice) until the orchestrator folds it into `germany` via allow_region_removal.
+  { name: 'germany',    pbfUrl: 'https://download.geofabrik.de/europe/germany-latest.osm.pbf',                        pbf: resolve(OUT, 'germany-latest.osm.pbf'),                bbox: '5.85,47.25,15.05,55.10',   clipped: resolve(OUT, 'clip-germany.osm.pbf'), heightJoin: 'lod2de' },
   // ASSESS FR — NATIONAL-NOW; the national height channel is the MNH LiDAR-HD PRE-COMPUTED nDSM
   // (⛔ never rebuild the differencing — E5 §G.1 A8). 5.07 GB pbf (measured — largest in scope; §5
   // budget decision binds). Metropolitan France + Corsica only — overseas départements fall outside
@@ -690,6 +703,7 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'be_dhmv') return BE_CITY_BBOXES.map((c) => c.bbox);      // §BE-DHMV-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `belgium`, five cities
   if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
   if (r.heightJoin === 'us_open') return US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name).map((c) => c.bbox); // §US-OPEN-HEIGHTS-OSM-JOIN — the metro's OWN row bbox
+  if (r.heightJoin === 'lod2de') return DE_LOD2_CITY_BBOXES.map((c) => c.bbox);   // §DE-LOD2-LAENDER-OSM-JOIN — whole `germany`, one city per WIRED Land
   return null;
 }
 
@@ -723,6 +737,11 @@ const NATIONAL_STAMP_TABLE = {
   // (heights/ealidarGbStamp.mjs). Scotland squares are refused before any request (outside the served envelope);
   // Wales answers zero-fill and is counted as VOID, never ground.
   ealidar_gb: { stamp: stampEaLidarGbHeightsOnGeojsonseq, bboxes: EA_LIDAR_GB_CITY_BBOXES },
+  // §DE-LOD2-LAENDER-OSM-JOIN — whole `germany`: the per-Land LoD2-DE router (nine keyless doors — 1 km / 2 km
+  // CityGML tiles in UTM32/33 as plain gml, zips, range-read entries of Hamburg's one archive, and Sachsen-
+  // Anhalt's WFS) behind ONE NRW-shaped stamp; a Land whose index is down is named as BLOCKED for the run while
+  // the others still stamp (heights/deLod2LaenderStamp.mjs). Working set DE_LOD2_CITY_BBOXES = wired Länder only.
+  lod2de: { stamp: stampDeLod2LaenderHeightsOnGeojsonseq, bboxes: DE_LOD2_CITY_BBOXES },
 };
 
 /**

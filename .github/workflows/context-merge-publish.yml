@@ -301,6 +301,15 @@ jobs:
           vienna austria 48.2086,16.3725 500
           prague czechia 50.0875,14.4213 500
           ljubljana slovenia 46.0511,14.5051 500
+          berlin germany 52.5200,13.4050 500
+          hamburg germany 53.5503,9.9937 500
+          potsdam germany 52.3990,13.0590 500
+          kiel germany 54.3233,10.1394 500
+          erfurt germany 50.9787,11.0328 500
+          mainz germany 50.0010,8.2711 500
+          schwerin germany 53.6288,11.4148 500
+          magdeburg germany 52.1277,11.6292 500
+          koln-de germany 50.9375,6.9603 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights in the MERGED tileset. NOT publishing."
