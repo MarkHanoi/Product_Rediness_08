@@ -442,7 +442,9 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
             'de-bb', 'de-be', 'de-bw', 'de-hb', 'de-he', 'de-hh', 'de-mv', 'de-ni', 'de-nrw',
             'de-rp', 'de-sh', 'de-sl', 'de-sn', 'de-st', 'de-th',
             'ee', 'fr', 'gb', 'gr', 'hr', 'ie', 'it',
-            'lt', 'lu', 'lv', 'nl', 'no', 'pl', 'pt', 'qa', 'si', 'sk', 'tr',
+            // 'nz' — LANE NZ-EVERYWHERE 2026-09-05: the first KEYED leg (LINZ_API_KEY, C57 §1.2);
+            // without the key it answers `unconfigured`, never a parcel — see nzLinzParcelLeg.test.ts.
+            'lt', 'lu', 'lv', 'nl', 'no', 'nz', 'pl', 'pt', 'qa', 'si', 'sk', 'tr',
             'us-chi', 'us-fl', 'us-ma', 'us-nyc', 'us-sf', 'us-tx-harris', 'us-wa-king',
         ]);
     });

@@ -170,6 +170,12 @@ import { isInQatar, QATAR_BBOX } from '../countryAdapters/qa/qaJurisdiction.js';
 // bboxes are imported here — never their isIn* predicates (a national row must not match on a
 // rectangle; that is the L-12871 defect). See countryAdapters/gulf/.
 import { UAE_BBOX, KUWAIT_BBOX, BAHRAIN_BBOX, OMAN_BBOX } from '../countryAdapters/gulf/gulfJurisdiction.js';
+// LANE NZ-EVERYWHERE (2026-09-05) — NEW ZEALAND, the TR/AU idiom: a bbox `contains` predicate (NZ
+// has no polygon in the national boundary set, so `claimsNation('NZ')` would be dead code; the
+// resolver REFUSES every NZ point and the bbox row survives). The cadastre is LINZ layer 50772 "NZ
+// Primary Parcels" (CC BY 4.0), API-key gated → the key lives ONLY on the BFF (C57 §1.2), the
+// browser hits the same-origin `/api/parcel/nz`. Both predicate and bbox are imported.
+import { isInNewZealand, NEW_ZEALAND_BBOX } from '../countryAdapters/nz/nzJurisdiction.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
 
@@ -1142,6 +1148,24 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     // probed (adapter parsers built + tested), the proxy seat is the named remaining wiring
     // (same honest state as US-NY-NYC / IT). Licences are UNREAD → YELLOW (see each qaSources/
     // ilSources/trSources row); keyless ≠ licensed.
+    // LANE NZ-EVERYWHERE (2026-09-05) — NEW ZEALAND. Registered `kind:'cadastral'` because the server
+    // leg EXISTS (`/api/parcel/nz` → LINZ WFS layer 50772) and answers a DISTINCT outcome without its
+    // key — not because a parcel has been served yet. ⚠ WIRED-KEY-PENDING: LINZ_API_KEY is not set on
+    // Fly, so today the leg answers HTTP 503 `outcome:'unconfigured'` (uncached, never `empty`), the
+    // WfsParcelProvider reads the non-OK as null, and the registry falls through to the honest OSM
+    // footprint. The row is kept `cadastral` so the coverage panel says "keyed, key pending" rather
+    // than misfiling NZ under "no cadastre" (Defect D2 in PARCEL-SELECT-COVERAGE is the OPPOSITE
+    // failure — a cadastral row with NO leg; this row has the leg, the test, and the key gate).
+    {
+        regionCode: 'NZ',
+        countryName: 'New Zealand',
+        providerId: 'nz-linz-primary-parcels',
+        label: 'Primary Parcel (New Zealand · LINZ · appellation + titles)',
+        proxyPath: '/api/parcel/nz',
+        kind: 'cadastral',
+        contains: isInNewZealand,
+        note: 'LINZ Data Service WFS 2.0, layer 50772 "NZ Primary Parcels" — API record probed 2026-09-05 (services/api/v1/layers/50772/ → HTTP 200): 2,796,502 features, CC BY 4.0, native EPSG:4167 (NZGD2000 ≈ WGS84), fields id/appellation/affected_surveys/parcel_intent/topology_type/statutory_actions/land_district/titles/survey_area/calc_area/shape. EVERY LINZ service is API-key gated: WFS+WMTS GetCapabilities keyless → HTTP 401 (Jetty); a GetFeature with a BOGUS key → HTTP 400 ows:ExceptionReport "Feature type data.linz.govt.nz:layer-50772 unknown" (the layer list is key-scoped, so a bad key reads as an unknown layer, never as a parcel absence — the leg classifies both non-OK answers `unreachable`). The key is free (self-service at data.linz.govt.nz/my/api/), lives ONLY in LINZ_API_KEY on the BFF (C57 §1.2; SECRETS-REGISTER row), and without it the leg answers 503 `unconfigured` — the C57 §1.5 amendment: a failure carries a distinct status, never 200 {parcel:null}. No live parcel has been served through this leg yet (no key held); the server fixture is field-verbatim from the API record, its ring is synthetic. Licence: CC BY 4.0 (attribution "Sourced from the LINZ Data Service and licensed for reuse under CC BY 4.0"). No modelled box overlaps NZ; the national resolver returns no-national-candidate.',
+    },
     {
         regionCode: 'TR',
         countryName: 'Turkey',
@@ -1368,6 +1392,10 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     TR: TURKEY_BBOX,
     IL: ISRAEL_BBOX,
     QA: QATAR_BBOX,
+    // LANE NZ-EVERYWHERE (2026-09-05) — `contains` IS the rectangle (TR/AU idiom). NEW_ZEALAND_BBOX
+    // (≈168 deg²) overlaps NO registered box — the nearest is AU-NSW/AU-QLD at 153.7 E, ~12° of
+    // Tasman Sea west of it — so this entry only guarantees a finite specificity rank.
+    NZ: NEW_ZEALAND_BBOX,
     // LANE ME-GULF (2026-09-02). These are the rows' SPECIFICITY metric only — the rows' `contains`
     // is `claimsNation`, never the rectangle. Since the national filter keeps at most one country on
     // a claim, area orders only within a claim / on the refusal-fall-through path. Each still needs a

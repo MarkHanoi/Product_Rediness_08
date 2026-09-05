@@ -2482,6 +2482,9 @@ export * from './countryAdapters/sk/index.js';
 export * from './countryAdapters/tr/index.js';
 export * from './countryAdapters/il/index.js';
 export * from './countryAdapters/qa/index.js';
+// LANE NZ-EVERYWHERE (2026-09-05) — NEW ZEALAND routing skeleton (isInNewZealand, NEW_ZEALAND_BBOX);
+// the LINZ parcel leg is server-side only (`/api/parcel/nz`, LINZ_API_KEY on the BFF — C57 §1.2).
+export * from './countryAdapters/nz/index.js';
 // LANE ME-GULF (2026-09-02) — MIDDLE EAST Gulf (GCC): AE · KW · BH · OM, four DECLARED-DEFERRAL
 // parcel jurisdictions (every Gulf parcel channel probed 2026-09-02 / re-probed 2026-09-03 is
 // gated or vantage-blocked; SA's note is updated in registry.ts for the L-606 token/SSO delta).

@@ -1040,6 +1040,48 @@ function auVicUrl(lat, lon) {
 }
 
 /**
+ * NEW ZEALAND — LINZ Data Service WFS 2.0, layer 50772 "NZ Primary Parcels" (lane NZ-EVERYWHERE,
+ * 2026-09-05). ⚠ THE ONLY KEYED LEG IN THIS TABLE: every LINZ service is API-key gated, and the
+ * key rides in the PATH (`/services;key=<key>/wfs`, the documented LDS form) — so `key` is a third
+ * argument the resolver supplies from LINZ_API_KEY (`requiresEnv`), and the URL MUST be redacted
+ * before it reaches any log line (`redactUrlForLog`). Measured 2026-09-05 without a valid key:
+ *   • GetCapabilities keyless / bogus key → HTTP 401 (Jetty "Unauthorized", text/html).
+ *   • GetFeature with a BOGUS key → HTTP 400 ows:ExceptionReport `Feature type
+ *     data.linz.govt.nz:layer-50772 unknown` — the layer list is key-scoped, so a bad key reads as
+ *     an UNKNOWN LAYER, not as "no parcel here". Both are non-OK → fetchTextOnce null → `unreachable`.
+ * Layer record (services/api/v1/layers/50772/ → HTTP 200): 2,796,502 features, CC BY 4.0, native
+ * EPSG:4167 (NZGD2000 ≈ WGS84 at metre level); `srsName=EPSG:4326` asks GeoServer for GeoJSON
+ * lon,lat. Geometry column is `shape` (from the field list); CQL INTERSECTS takes the WFS 2.0
+ * srsName axis order for EPSG:4326 on GeoServer = lat,lon — pinned as LAT LON here, the AU-VIC
+ * precedent (⚠ UNVERIFIED LIVE: no key is held; the first keyed probe must confirm the axis, and a
+ * silent 0-feature answer is the symptom of the swap).
+ */
+function nzLinzUrl(lat, lon, key) {
+    const qs = new URLSearchParams({
+        service: 'WFS',
+        version: '2.0.0',
+        request: 'GetFeature',
+        typeNames: 'data.linz.govt.nz:layer-50772',
+        outputFormat: 'application/json',
+        srsName: 'EPSG:4326',
+        count: '10',
+        cql_filter: `INTERSECTS(shape,POINT(${lat} ${lon}))`, // ⚠ LAT LON — GeoServer WFS 2.0 axis order (AU-VIC precedent); unverified live
+    });
+    return `https://data.linz.govt.nz/services;key=${encodeURIComponent(key)}/wfs?${qs.toString()}`;
+}
+
+/**
+ * Strip a credential out of a URL before it is logged. Covers the two shapes a key takes on the
+ * wire here — the LDS path segment `;key=…` and a `?key=` / `&apikey=` query param. A log line is
+ * a response body one grep away (C57 §1.2: the key never appears in a response body OR a log).
+ */
+function redactUrlForLog(url) {
+    return String(url)
+        .replace(/;key=[^/?#]+/gi, ';key=REDACTED')
+        .replace(/([?&](?:api_?key|key)=)[^&#]+/gi, '$1REDACTED');
+}
+
+/**
  * TURKEY — TKGM megsiswebapi.v3, the keyless national point→parcel endpoint (lane ME-OPEN,
  * live-probed 2026-09-02: Kadıköy → ada 3106 / parsel 258). Path params are **LAT then LON**
  * (measured, trTkgmClient.ts fact 1). Returns a BARE GeoJSON Feature in WGS84 (fact 2 — handled
@@ -1869,6 +1911,40 @@ export const EU_CADASTRE_SOURCES = {
             return { refcat, areaM2: ringAreaM2(c.ring), address: null };
         },
     },
+    // LANE NZ-EVERYWHERE (2026-09-05) — NEW ZEALAND, the FIRST keyed leg in this table. `requiresEnv`
+    // names the server-side secret (C57 §1.2); the resolver refuses with a DISTINCT `unconfigured`
+    // outcome (503, uncached) when it is unset, so an unkeyed deploy can never read as "no parcel
+    // here" (C57 §1.5 amendment 3). See nzLinzUrl for the measured 401/400 shapes.
+    nz: {
+        guard: (lat, lon) => lat >= -47.5 && lat <= -34.3 && lon >= 166.0 && lon <= 178.7,
+        requiresEnv: 'LINZ_API_KEY',
+        // The LITERAL production read, so the C77 secrets scanner (tools/ga-gate/check-secrets-register.ts,
+        // which matches `process.env.NAME` and is blind to dynamic `env[name]`) records THIS line as the
+        // read site. `deps.env` is the test seam; it never reaches production.
+        readKey: (deps) => (deps && deps.env ? deps.env.LINZ_API_KEY : process.env.LINZ_API_KEY),
+        url: nzLinzUrl,
+        format: 'geojson',
+        source: 'nz-linz-primary-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `appellation` is the legal parcel description ("Lot 1 DP 12345", "Section 3 Block IV
+            // Waitemata SD") — THE citable id in NZ; `id` (the LINZ parcel id) is the fallback.
+            const app = jsonProp(p, 'appellation');
+            const pid = jsonProp(p, 'id');
+            const refcat = app ? String(app).replace(/\s+/g, ' ').trim() : pid !== null ? String(pid).trim() : '';
+            // Two served areas (C57 §2.4 / KV-3): `survey_area` is the SURVEYED figure (may be null on
+            // older parcels), `calc_area` is LINZ's own computation. Prefer surveyed; either one is a
+            // register-published figure and rides as areaOfficialM2 via the shared served≠sig rule.
+            const surveyed = jsonProp(p, 'survey_area');
+            const calc = jsonProp(p, 'calc_area');
+            const served = Number.isFinite(Number(surveyed)) && Number(surveyed) > 0 ? Number(surveyed)
+                : Number.isFinite(Number(calc)) && Number(calc) > 0 ? Number(calc) : null;
+            // `titles` (comma-separated CT references, e.g. "NA1234/56") rides as the info-card address
+            // line, the AU-SA/AU-TAS title precedent; parcels carry no street address.
+            const titles = jsonProp(p, 'titles');
+            return { refcat, areaM2: served ?? ringAreaM2(c.ring), address: titles ? String(titles) : null };
+        },
+    },
     'au-qld': {
         guard: (lat, lon) => lat >= -29.2 && lat <= -9.09 && lon >= 137.99 && lon <= 153.56,
         url: auQldUrl,
@@ -2117,7 +2193,8 @@ async function fetchTextOnce(url, deps = {}, opts = {}) {
             });
             if (res.status === 429 || res.status === 503 || res.status === 504) continue;
             if (res.status === 404 && opts.semantic404) return SEMANTIC_404;
-            if (!res.ok) { console.warn(`[eu-cadastre] HTTP ${res.status} for ${url}`); return null; }
+            // §KEYED-LEG — the URL may carry a server-side key in its path (LINZ); never log it raw.
+            if (!res.ok) { console.warn(`[eu-cadastre] HTTP ${res.status} for ${redactUrlForLog(url)}`); return null; }
             const text = await res.text();
             return text && text.length > 0 ? text : null;
         } catch (err) {
@@ -2161,7 +2238,11 @@ export async function fetchEuParcelAtPoint(cc, lon, lat, deps = {}) {
  * cadastre). The note rides ONLY on `empty` — an `ok`/`unreachable`/`out-of-area` answer needs no
  * coverage apology and must not carry one.
  *
- * @returns {Promise<{ outcome:'ok'|'empty'|'unreachable'|'unknown-source'|'bad-input'|'out-of-area', parcel: object|null, coverageNote?: string }>}
+ * `unconfigured` (§KEYED-LEG) — the leg names a server-side secret (`requiresEnv`) that is unset, so
+ * the upstream was never asked: distinct from `unreachable` (asked, no answer) and `empty` (answered:
+ * nothing here). The handler maps it to HTTP 503 + no-store.
+ *
+ * @returns {Promise<{ outcome:'ok'|'empty'|'unreachable'|'unconfigured'|'unknown-source'|'bad-input'|'out-of-area', parcel: object|null, coverageNote?: string }>}
  */
 export async function resolveEuParcelOutcome(cc, lon, lat, deps = {}) {
     const r = await resolveEuParcelOutcomeInner(cc, lon, lat, deps);
@@ -2180,7 +2261,21 @@ async function resolveEuParcelOutcomeInner(cc, lon, lat, deps = {}) {
     // Outside the source's own territory: an authoritative "not covered", NOT a failure.
     if (!cfg.guard(lat, lon)) return { outcome: 'out-of-area', parcel: null };
 
-    const text = await fetchTextOnce(cfg.url(lat, lon), deps, {
+    // §KEYED-LEG (lane NZ-EVERYWHERE) — a leg that names `requiresEnv` needs a server-side secret to
+    // build its URL. Missing ⇒ `unconfigured`: a DISTINCT outcome from `unreachable` (the upstream was
+    // never asked) and from `empty` (nothing was answered) — C57 §1.5 amendment 3. `deps.env` lets a
+    // test pin the environment; production reads process.env. The key is passed to `url` as a third
+    // argument and NEVER stored on the returned parcel or echoed in an outcome.
+    let key;
+    if (typeof cfg.requiresEnv === 'string' && cfg.requiresEnv) {
+        // `readKey` is the leg's own LITERAL `process.env.<NAME>` read (greppable by the C77 scanner);
+        // `requiresEnv` is the same name as a string, for the 503 reason and the register row.
+        const raw = typeof cfg.readKey === 'function' ? cfg.readKey(deps) : undefined;
+        key = typeof raw === 'string' ? raw.trim() : '';
+        if (!key) return { outcome: 'unconfigured', parcel: null };
+    }
+
+    const text = await fetchTextOnce(cfg.url(lat, lon, key), deps, {
         headers: cfg.headers,
         semantic404: cfg.semantic404 === true,
         timeoutMs: cfg.timeoutMs,
@@ -2322,6 +2417,19 @@ export function makeEuParcelHandler(deps = {}) {
             // there is nothing here". An unreachable answer is NOT cached and is not revalidated as
             // though it were a real empty.
             if (outcome === 'unreachable') res.setHeader('Cache-Control', 'no-store');
+            // §KEYED-LEG — the server holds no key for this leg. NOT a 200: C57 §1.5 amendment 3 says
+            // a failure carries a distinct status, and this one is a DEPLOYMENT fact (set the secret),
+            // not a coverage fact. 503 + no-store, so no cache or client can ever read it as "empty".
+            if (outcome === 'unconfigured') {
+                res.setHeader('Cache-Control', 'no-store');
+                res.setHeader('X-Cadastre-Cache', 'MISS-UNCONFIGURED');
+                res.setHeader('X-Cadastre-Outcome', 'unconfigured');
+                return res.status(503).json({
+                    parcel: null,
+                    outcome: 'unconfigured',
+                    reason: `${cfg.requiresEnv} is not configured on the server — this cadastre needs a server-side API key (C57 §1.2).`,
+                });
+            }
             res.setHeader('X-Cadastre-Cache', 'MISS-EMPTY');
             res.setHeader('X-Cadastre-Outcome', outcome);
             // LANE PT-PARCEL-ACCURACY — a source with declared-incomplete coverage (PT) says so on
