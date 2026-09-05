@@ -484,7 +484,11 @@ export const REGION_SOURCE = {
   rome: { source: 'piedmont_it', status: 'no-source', reason: 'Lazio building-height layer unconfirmed — no source for Rome' },
   // BE — Brussels is UrbIS, height unknown.
   brussels: { source: 'grb_be', status: 'blocked', reason: 'Brussels UrbIS height attribute unprobed; GRB height is Flanders-only' },
-  // SA — geo-fenced.
+  // SA — geo-fenced. RE-PROBED 2026-09-05 (lane ME-TERRAIN-PARCELS, curl -m 15): umaps.momah.gov.sa
+  // /server/rest/services?f=json → 200 (folders Hosted/umaps/Utilities, services []); /umaps and
+  // /umaps/Buildings/MapServer → {"error":{"code":499,"message":"Token Required"}}; every GASGI host
+  // (www./geoportal./portal./ngp./nsdi.gasgi.gov.sa, saudinsdi.gov.sa) NXDOMAIN; open.data.gov.sa
+  // TCP timeout. Still NO open building-height channel — the row keeps honest assumed heights.
   riyadh: 'ml_sa', jeddah: 'ml_sa',
   // GB / FI — not in LOD-RATE-MASTER (no national open height source wired).
   london: { source: null, status: 'no-source', reason: 'OS Building Heights is licensed; GB not in LOD-RATE-MASTER' },
@@ -544,10 +548,25 @@ export const REGION_SOURCE = {
   tasmania: 'elvis_au',
   act: 'elvis_au',
   northernterritory: 'elvis_au',
-  // AE metros — no open height channel (emirate data hosts vantage/WAF-blocked); Overture footprints,
-  // honest assumed heights (Overture height ~0% in the Gulf, like Saudi). me-sweep §2/§3.
-  dubai: { source: null, status: 'no-source', reason: 'AE emirate data hosts vantage-blocked (TCP timeout on all Dubai Pulse / DM GIS hosts, me-sweep §2); no open building-height channel — Overture footprints, honest assumed heights (ASSESS AE-Dubai)' },
-  abudhabi: { source: null, status: 'no-source', reason: 'AD open-data API WAF-fenced ("Request Rejected"), legacy SDI hosts NXDOMAIN (me-sweep §3); no open height channel — Overture footprints, honest assumed heights (ASSESS AE-AbuDhabi)' },
+  // NZ — §BAKE-NEWZEALAND (2026-09-05, lane NZ-EVERYWHERE). Object form because the reason IS the finding: LINZ 101290 "NZ Building Outlines" has no height field, and the LiDAR DSM−DEM derive that could give one sits behind the LINZ API key (every service 401 keyless) — so no stamp is wired and the row bakes honest OSM `assumed`.
+  newzealand: { source: null, status: 'no-source', reason: 'LINZ Data Service layer 101290 "NZ Building Outlines" (3,236,141 features, CC BY 4.0, EPSG:2193; API record probed 2026-09-05) carries NO height field — its fields are building_id, name, use, suburb_locality, town_city, territorial_authority, capture_method, capture_source_group/id/name/from/to, last_modified, shape. LINZ publishes a national LiDAR 1 m DEM (121859) + DSM (122082), so a DSM−DEM nDSM stamp over OSM footprints is the owed build (the ELVIS/AU shape) — but every LINZ WFS/WMTS service is API-key gated (GetCapabilities keyless → HTTP 401 Jetty; layer 122082 lists 7 services, all under /services;key=), so there is NO keyless raster to sample and nothing is fabricated: honest OSM assumed heights (ASSESS NZ)' },
+  // AE metros — Overture footprints, honest assumed heights (Overture height ~0% in the Gulf, like
+  // Saudi). me-sweep §2/§3. RE-PROBED 2026-09-05 (lane ME-TERRAIN-PARCELS, curl -m 15) — the two
+  // emirates now DIFFER and the rows below say so:
+  //   • Dubai: gis.dubai.gov.ae NXDOMAIN; www.dubaipulse.gov.ae (root + CKAN package_search?q=building)
+  //     and geodubai.dm.gov.ae → TCP timeout 15 s; gis.dm.gov.ae → 302 to the corporate site. Still no
+  //     open height channel.
+  //   • Abu Dhabi: sdi.abudhabi.ae → sdi.gov.abudhabi → arcgis.sdi.abudhabi.ae/agshost (ArcGIS 10.9.1,
+  //     keyless folder listing). Hosted/abu_dhabi_3d_city_model/SceneServer (I3S 1.6 3DObject, wkid
+  //     4326 / vcs 5703, Query capability) is KEYLESS: layers/0 → 200 with fields MinHeight / MaxHeight
+  //     / BoxZSize / OriginMSL / BelowGnd; nodes/1/attributes/f_12/0 (MaxHeight) → 200, 11 722 B gzip
+  //     → 1 552 float64 (first: 9.99, 13.12, 5.38, 9.62 m); nodes/1/features/0 → 200, 526 917 B (3 106
+  //     ids, positions). The FeatureServer sibling (/FeatureServer/0 and /query) → 499 Token Required.
+  //     So an OPEN per-building height channel EXISTS for Abu Dhabi — as an I3S attribute store, not a
+  //     query API. A stamp (I3S node walk → feature position + MaxHeight → footprint join) is NOT
+  //     built; licence UNREAD. Until it is, the row stays no-source and NOTHING is fabricated.
+  dubai: { source: null, status: 'no-source', reason: 'AE emirate data hosts vantage-blocked (TCP timeout on all Dubai Pulse / DM GIS hosts, me-sweep §2; RE-PROBED 2026-09-05, unchanged); no open building-height channel — Overture footprints, honest assumed heights (ASSESS AE-Dubai)' },
+  abudhabi: { source: null, status: 'no-source', reason: 'AD open-data API WAF-fenced ("Request Rejected", still 2026-09-05), legacy SDI hosts NXDOMAIN (me-sweep §3) — BUT arcgis.sdi.abudhabi.ae/agshost Hosted/abu_dhabi_3d_city_model (I3S, keyless, per-building MaxHeight; PROBED 2026-09-05) is an open height channel with NO stamp built yet and licence UNREAD; until wired: Overture footprints, honest assumed heights (ASSESS AE-AbuDhabi; build the I3S stamp)' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
