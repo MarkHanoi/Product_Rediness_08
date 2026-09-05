@@ -63,7 +63,7 @@
  * ============================================================================
  */
 
-import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync, cpSync, readdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, statSync, existsSync, cpSync, readdirSync, rmSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { dirname, resolve, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -924,6 +924,18 @@ const publicApexDir = [
 ].find(existsSync);
 if (publicApexDir) {
   const destDir = resolve(outDir, 'apex');
+  // §APEX-ASSET-PRUNE (2026-09-04) — cpSync only ADDS; it never removes. Without
+  // this rm the destination is a UNION of every asset that has ever been in
+  // public/apex/, so deleting a source asset does not delete the shipped one: it
+  // keeps being copied forward from the warm build dir, keeps being charged to
+  // the §6.1.3 first-paint budget, and keeps being published to the edge. That
+  // also breaks this script's own idempotency claim (header, "Idempotency"),
+  // which is only true for FILES IT WRITES, not for the tree it leaves behind.
+  // Measured: `hero-site-3d.webp` — orphaned 2026-08-10 when the founder removed
+  // the showcase section — still sat in a locally-built dist-apex/apex/ today.
+  // A clean CI checkout has no dist-apex/, so this defect is invisible in CI and
+  // makes a local reading of the size gate disagree with the CI one. Prune first.
+  rmSync(destDir, { recursive: true, force: true });
   cpSync(publicApexDir, destDir, { recursive: true });
   for (const name of readdirSync(destDir)) {
     const size = statSync(resolve(destDir, name)).size;
