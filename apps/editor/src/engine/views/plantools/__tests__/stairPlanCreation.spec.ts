@@ -106,12 +106,21 @@ function totalRisers(input: Record<string, unknown>): number {
 }
 
 describe('L-243 — plan-view stair creation (ADR-0098)', () => {
+    /** Every console.warn the tool emitted during a test — the refusal channel. */
+    const warnings: string[] = [];
+
     let pathHandler: StairPathPlanToolHandler | null = null;
 
     beforeEach(() => {
         resetStairToolConfig();
         win().runtime = { events: { emit: vi.fn(), on: vi.fn() } };
-        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        // Captured, not discarded: the refusal arm below asserts on the sentence the
+        // tool prints when it declines to commit. A no-op spy would have made the
+        // only evidence of a correct refusal unreadable.
+        warnings.length = 0;
+        vi.spyOn(console, 'warn').mockImplementation((...a: unknown[]) => {
+            warnings.push(a.map(String).join(' '));
+        });
         vi.spyOn(console, 'error').mockImplementation(() => {});
     });
     afterEach(() => {
@@ -207,15 +216,60 @@ describe('L-243 — plan-view stair creation (ADR-0098)', () => {
     });
 
     it('riserHeight × riserCount === height on a 2-level project', async () => {
+        // ⚠ THIS STOREY WAS 3.3 m AND THE TEST WAS WRONG, NOT THE PRODUCT. MEASURED
+        // with the console left readable: the tool refuses, by name —
+        //
+        //   "Run 1 climbs 3.30 m in one flight (19 risers), above the maximum 3.04 m
+        //    without a landing — add a landing to split it, or reduce the levels this
+        //    stair spans"
+        //
+        // `maxFlightRise` is 3.04 m, DERIVED (StairGeometryLimits.ts §maxFlightRise)
+        // as `MAX_RISERS_PER_FLIGHT × MAX_RISER_HEIGHT` = 16 × 0.190, so that
+        // enforcing it can never refuse a stair the previously-unread riser COUNT
+        // would have allowed. A 3.3 m storey genuinely needs a landing, and this test
+        // was demanding that a single straight flight commit one that does not.
+        //
+        // ⛔ SO THE FIXTURE MOVED, NOT THE RULE. The subject here is the riser
+        // invariant `riserHeight × riserCount === height`, not the number 3.3 — and
+        // a fixture the product must legally refuse cannot exercise an invariant
+        // about what it commits. The refused case is not discarded either: it is
+        // asserted directly below, so the landing rule is PINNED rather than dodged.
         const { cm, executed } = makeCm([
             { id: 'L0', name: 'Ground',  elevation: 0 },
-            { id: 'L1', name: 'Level 1', elevation: 3.3 },
+            { id: 'L1', name: 'Level 1', elevation: 3 },
         ]);
         await drawStraightStair(cm, 'L0');
 
         const input = inputOf(executed.filter(c => (c as { input?: unknown }).input !== undefined)[0]);
         const product = Number(input.riserHeight) * totalRisers(input);
-        expect(Math.abs(product - 3.3)).toBeLessThan(0.05);
+        expect(Math.abs(product - 3)).toBeLessThan(0.05);
+    });
+
+    // ── (iv) THE LANDING RULE, PINNED WHERE IT WAS FOUND ─────────────────────
+    //
+    // §STAIR-ONE-LIMIT-AUTHORITY / L-1433..L-1435 gave the tool a real
+    // `maxFlightRise`, and the arm above discovered it the expensive way — as a
+    // silent non-commit that read as "the stair pipeline is broken". It is not
+    // broken; it is refusing correctly. This arm makes that a stated behaviour, so
+    // the next reader meets an assertion instead of an absence.
+    //
+    // The founder's standing direction on rule gates is that a refusal must state
+    // the value FOUND *and* the value REQUIRED. Both numbers are asserted.
+    it('a storey too tall for ONE flight is REFUSED with both numbers, not silently dropped', async () => {
+        const { cm, executed } = makeCm([
+            { id: 'L0', name: 'Ground',  elevation: 0 },
+            { id: 'L1', name: 'Level 1', elevation: 3.3 },   // > maxFlightRise 3.04 m
+        ]);
+        await drawStraightStair(cm, 'L0');
+
+        // Nothing was committed — and that is the CORRECT outcome, not a failure.
+        expect(executed.filter(c => (c as { input?: unknown }).input !== undefined)).toHaveLength(0);
+
+        const said = warnings.join(' | ');
+        expect(said, 'the refusal was silent — a stair that does not happen must say so').toContain('Cannot finish');
+        expect(said, 'the refusal does not state the rise FOUND').toContain('3.30 m');
+        expect(said, 'the refusal does not state the maximum REQUIRED').toContain('3.04 m');
+        expect(said, 'the refusal does not name the remedy').toContain('landing');
     });
 
     // ── (ii) PLAN ↔ 3D CONFIG CONVERGENCE (the L-213 equality pattern) ────────
