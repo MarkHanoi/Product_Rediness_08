@@ -58,7 +58,9 @@ type ICommandManagerLite  = { execute: (cmd: any) => any };
  * automatic tag pass. A gate number is not worth re-opening it.
  */
 function dispatchAnnotationVerb(type: string, payload: Record<string, unknown>): boolean {
-    const bus = typeof window !== 'undefined' ? (window as any).runtime?.bus : undefined;
+    // P4 — the narrow `Window.runtime` slot is DECLARED (apps/editor/src/types/globals.d.ts
+    // under the root tsc; core-app-model's augment under this package's own), so no cast.
+    const bus = typeof window !== 'undefined' ? window.runtime?.bus : undefined;
     if (!bus || typeof bus.executeCommand !== 'function') return false;
     try {
         void Promise.resolve(bus.executeCommand(type, payload)).catch(

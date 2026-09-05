@@ -55,6 +55,11 @@ import { EA_LIDAR_GB_CITY_BBOXES } from './heights/ealidarGb.mjs';
 // OWN module (the heights/nl3dbagStamp.mjs precedent: heightSources.mjs is a many-lane file) and is imported here
 // DIRECTLY, in the same commit that declares the `norway` row's heightJoin — never "built, imported by nothing".
 import { stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES } from './heights/noHeightsStamp.mjs';
+// §EE-ETAK-OSM-JOIN + §BE-DHMV-OSM-JOIN (2026-09-05, lane HEIGHTS-EE-PL-PT-BE) — Estonia's ETAK korgus_m vector stamp and
+// Belgium's DHMV II DSM − DTM raster stamp live in their OWN modules (the same many-lane-file rule) and are imported here
+// DIRECTLY, in the commit that declares the `estonia` / `belgium` rows' heightJoin — never "built, imported by nothing".
+import { stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES } from './heights/eeHeightsStamp.mjs';
+import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeightsStamp.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -205,11 +210,17 @@ const ALL_REGIONS = [
   //     spain note above cites — the budget decision + the per-region-bake/incremental-sync
   //     workflow switch (assessment §5) are PREREQUISITES for baking/publishing the full set.
   //     ⛔ Do NOT dispatch an UNSCOPED bake of this table: sequence `--region` runs per country.
-  // Baltics — ASSESS EE (NATIONAL-NOW; Eesti 3D national LoD2 pre-linked to EHR ids = the height
-  // build, a CityGML stamp mirroring lod2nrw — until it lands this row bakes honest OSM defaults);
+  // Baltics — ASSESS EE → ⭐ WIRED 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE, §EE-ETAK-OSM-JOIN): `heightJoin:'ee_etak'`
+  // stamps the KEYLESS ETAK e_401_hoone_ka `korgus_m` (integer metres, ETAK_juhend2016 §3.5.3: height model or
+  // stereo roof-edge — measured, never storeys × 3) onto these OSM footprints inside EE_CITY_BBOXES (tallinn =
+  // the terrain.mjs row, tartu, pärnu, narva); dispatched via NATIONAL_STAMP_TABLE. The door is the Environment
+  // Agency mirror gsavalik.envir.ee/geoserver/etak/ows (Maa-amet's own WFS/WCS hosts 404/302 — probed); it caps
+  // EVERY request at 5,000 objects, so the stamp quarters a truncated cell. Local proof 2026-09-05: Tallinn Old
+  // Town 594/607 footprints stamped, 594/594 equal to the building's own korgus_m. The Eesti 3D LoD2 CityGML the
+  // August note named is a bulk order form, not a bbox service — ETAK is the same survey's per-building height.
   // ASSESS LT (mass-only: per-object floors is a PRICED RC product → X3-refused);
   // ASSESS LV (mass-only: VZD footprint attrs UNVERIFIED — UNKNOWN stays UNKNOWN, not zero).
-  { name: 'estonia',    pbfUrl: 'https://download.geofabrik.de/europe/estonia-latest.osm.pbf',                        pbf: resolve(OUT, 'estonia-latest.osm.pbf'),                bbox: '21.60,57.50,28.30,59.80',  clipped: resolve(OUT, 'clip-estonia.osm.pbf') },
+  { name: 'estonia',    pbfUrl: 'https://download.geofabrik.de/europe/estonia-latest.osm.pbf',                        pbf: resolve(OUT, 'estonia-latest.osm.pbf'),                bbox: '21.60,57.50,28.30,59.80',  clipped: resolve(OUT, 'clip-estonia.osm.pbf'), heightJoin: 'ee_etak' },
   { name: 'lithuania',  pbfUrl: 'https://download.geofabrik.de/europe/lithuania-latest.osm.pbf',                      pbf: resolve(OUT, 'lithuania-latest.osm.pbf'),              bbox: '20.85,53.85,26.90,56.50',  clipped: resolve(OUT, 'clip-lithuania.osm.pbf') },
   { name: 'latvia',     pbfUrl: 'https://download.geofabrik.de/europe/latvia-latest.osm.pbf',                         pbf: resolve(OUT, 'latvia-latest.osm.pbf'),                 bbox: '20.90,55.60,28.30,58.10',  clipped: resolve(OUT, 'clip-latvia.osm.pbf') },
   // ASSESS PL — NATIONAL-DERIVED-HEIGHTS: BDOT10k OT_BUBD_A storey attribute (floors × 3.2 m,
@@ -298,10 +309,16 @@ const ALL_REGIONS = [
   // removes a real terrain BLOCKER (lisbon/porto were terrain-BLOCKED on "no open national DTM").
   // Mainland only — Azores/Madeira fall outside this bbox (mirrors the Canarias note on `spain`).
   { name: 'portugal',   pbfUrl: 'https://download.geofabrik.de/europe/portugal-latest.osm.pbf',                       pbf: resolve(OUT, 'portugal-latest.osm.pbf'),               bbox: '-9.60,36.90,-6.10,42.20',  clipped: resolve(OUT, 'clip-portugal.osm.pbf') },
-  // ASSESS BE — NATIONAL-NOW (mass-only): replaces the brussels city row (same pbf path). Height
-  // channel is a regional trisection (Wallonia MNH pre-computed / Flanders 3D GRB LoD1 / Brussels
-  // UrbIS CC0) = 3 owed stamps. Mapterhorn likewise unblocks the Brussels terrain row (E3A).
-  { name: 'belgium',    pbfUrl: 'https://download.geofabrik.de/europe/belgium-latest.osm.pbf',                        pbf: resolve(OUT, 'belgium-latest.osm.pbf'),                bbox: '2.50,49.50,6.40,51.60',    clipped: resolve(OUT, 'clip-belgium.osm.pbf') },
+  // ASSESS BE — NATIONAL-NOW: replaces the brussels city row (same pbf path). Mapterhorn likewise unblocks the
+  // Brussels terrain row (E3A). ⭐ HEIGHTS WIRED 2026-09-05 (lane HEIGHTS-EE-PL-PT-BE, §BE-DHMV-OSM-JOIN):
+  // `heightJoin:'be_dhmv'` stamps the KEYLESS Digitaal Vlaanderen DHMV II nDSM (DHMVII_DSM_1m − DHMVII_DTM_1m,
+  // WCS 2.0.1 multipart, EPSG:31370) onto these OSM footprints inside BE_CITY_BBOXES (antwerp, ghent, brussels =
+  // the terrain.mjs row, leuven, bruges); dispatched via NATIONAL_STAMP_TABLE. The "regional trisection" the
+  // August note assumed is wrong for the RASTER: DHMV II answers real data at Brussels Grand-Place (DSM p90 46.6 m
+  // over DTM 21.4 m, 0 nodata — probed), so Brussels is stamped from the same model; Wallonia stays unstamped
+  // (DHMV II ends at the regional border; the Walloon MNT/MNS was not probed). Local proof 2026-09-05: 800/819
+  // GRB footprints at Antwerp Grote Markt measured, median 15.1 m, 0 tile errors.
+  { name: 'belgium',    pbfUrl: 'https://download.geofabrik.de/europe/belgium-latest.osm.pbf',                        pbf: resolve(OUT, 'belgium-latest.osm.pbf'),                bbox: '2.50,49.50,6.40,51.60',    clipped: resolve(OUT, 'clip-belgium.osm.pbf'), heightJoin: 'be_dhmv' },
   // South-east — ASSESS HR / SI / GR / HU / RO / SK / BG. All NATIONAL-NOW mass-only; SI is the
   // stand-out upgrade path (GURS STAVBE register carries REAL METRES — a WFS-join stamp + a fill
   // probe are owed before any join is declared); HU/BG cadastre fee gates bind the CADASTRE, not
@@ -625,6 +642,8 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'au_open') return AU_OPEN_CITY_BBOXES.map((c) => c.bbox); // §AU-OPEN-HEIGHTS-OSM-JOIN — whole `victoria`, Melbourne LGA only
   if (r.heightJoin === 'ealidar_gb') return EA_LIDAR_GB_CITY_BBOXES.map((c) => c.bbox); // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`, England working set
   if (r.heightJoin === 'ndh_no') return NO_NDH_CITY_BBOXES.map((c) => c.bbox);   // §NDH-NO-OSM-JOIN (HEIGHTS-NORDICS) — whole `norway`
+  if (r.heightJoin === 'ee_etak') return EE_CITY_BBOXES.map((c) => c.bbox);      // §EE-ETAK-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `estonia`, four cities
+  if (r.heightJoin === 'be_dhmv') return BE_CITY_BBOXES.map((c) => c.bbox);      // §BE-DHMV-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `belgium`, five cities
   if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
   if (r.heightJoin === 'us_open') return US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name).map((c) => c.bbox); // §US-OPEN-HEIGHTS-OSM-JOIN — the metro's OWN row bbox
   return null;
@@ -642,6 +661,10 @@ function stampBboxesFor(r) {
 const NATIONAL_STAMP_TABLE = {
   // §NDH-NO-OSM-JOIN — whole `norway`: Kartverket NHM DOM − DTM, keyless (heights/noHeightsStamp.mjs).
   ndh_no: { stamp: stampNoNdhHeightsOnGeojsonseq, bboxes: NO_NDH_CITY_BBOXES },
+  // §EE-ETAK-OSM-JOIN — whole `estonia`: ETAK e_401_hoone_ka korgus_m per OSM footprint, keyless WFS (heights/eeHeightsStamp.mjs).
+  ee_etak: { stamp: stampEeEtakHeightsOnGeojsonseq, bboxes: EE_CITY_BBOXES },
+  // §BE-DHMV-OSM-JOIN — whole `belgium`: DHMV II DSM 1 m − DTM 1 m per 500 m Lambert-72 tile, keyless WCS (heights/beHeightsStamp.mjs).
+  be_dhmv: { stamp: stampBeDhmvHeightsOnGeojsonseq, bboxes: BE_CITY_BBOXES },
   // §US-OPEN-HEIGHTS-OSM-JOIN — newyork / sanfrancisco / boston metro rows: NYC height_roof (ft) · SF LiDAR hgt_maxcm
   // (cm) · Boston BPDA BLDG_HGT_2010 (ft), vectors from each city's own open portal, one metre per OSM footprint
   // (tallest contained part). stampBboxesFor filters US_OPEN_CITY_BBOXES to the row's OWN bbox (heights/usOpenHeightsStamp.mjs).

@@ -325,6 +325,8 @@ jobs:
           manhattan newyork 40.7580,-73.9855 500
           sanfrancisco sanfrancisco 37.7900,-122.4000 500
           boston boston 42.3510,-71.0750 500
+          tallinn estonia 59.4370,24.7536 500
+          antwerp belgium 51.2213,4.3997 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights. The tileset would render a fabricated 9 m carpet. NOT publishing."
