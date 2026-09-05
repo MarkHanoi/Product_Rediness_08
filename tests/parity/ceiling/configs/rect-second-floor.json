@@ -36,7 +36,7 @@
     ],
     "ceilingHeight": 2.4,
     "thickness": 0.012,
-    "materialId": "plaster.painted",
+    "materialId": "paint-matte-white",
     "materialColor": "#f5f5f5"
   },
   "worldY": 5.4

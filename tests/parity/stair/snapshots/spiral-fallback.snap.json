@@ -9237,8 +9237,8 @@
     }
   ],
   "materialKeys": [
-    "stair|default|tread",
-    "stair|default|riser"
+    "stair|default|#b58a5e|tread",
+    "stair|default|#9a7a52|riser"
   ],
   "hash": "f5ee5efc"
 }

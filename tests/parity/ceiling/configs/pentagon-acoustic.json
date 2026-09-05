@@ -41,7 +41,7 @@
     ],
     "ceilingHeight": 2.7,
     "thickness": 0.02,
-    "materialId": "acoustic.tile",
+    "materialId": "gypsum-acoustic",
     "materialColor": "#e2e2dd"
   },
   "worldY": 0

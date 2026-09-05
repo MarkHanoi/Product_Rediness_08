@@ -46,7 +46,7 @@
     ],
     "ceilingHeight": 2.7,
     "thickness": 0.015,
-    "materialId": "gypsum.standard",
+    "materialId": "gypsum-plasterboard",
     "materialColor": "#ebebe8"
   },
   "worldY": 0
