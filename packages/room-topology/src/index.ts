@@ -85,7 +85,11 @@ export { LightingRoomResolver } from './LightingRoomResolver';
 
 export { RoomColourSystem } from './RoomColourSystem';
 export type { RoomVisualisationMode } from './RoomColourSystem';
-export { OCCUPANCY_PALETTE, SYNC_STATE_COLOURS, ROOM_CSS_TOKENS } from './RoomColourSystem';
+// §RESI-STAGE-G (2026-09-05) — `UNCLASSIFIED_FILL` joins the barrel so the space-envelope
+// renderer can ask for the SAME grey `RoomColourSystem` gives an untagged room, instead of
+// re-typing `#E0E0E0` in apps/editor (C84 EI-8a: the cheapest way to have no second copy is
+// to have no second string). Additive; no existing export changes.
+export { OCCUPANCY_PALETTE, SYNC_STATE_COLOURS, ROOM_CSS_TOKENS, UNCLASSIFIED_FILL } from './RoomColourSystem';
 
 // §DEPT153 — occupancy → department (a PURE function of the already-resolved
 // occupancy; see RoomDepartment.ts's header for why this is not a rival

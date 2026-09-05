@@ -44,6 +44,13 @@ import {
     spaceEnvelopeFaces,
     type SpaceEnvelopeFaceRef,
 } from '@pryzm/geometry-space-envelope';
+// §RESI-STAGE-G — colour, alpha and label text are decided by ONE pure resolver, so the
+// decision is testable without a renderer and the level/room distinction cannot be made
+// twice with two different answers (C84 EI-9).
+import {
+    resolveSpaceEnvelopeAppearance,
+    type SpaceEnvelopeAppearance,
+} from './spaceEnvelopeAppearance';
 
 /** The envelope record as this builder needs to read it — the narrowest useful shape. */
 export interface SpaceEnvelopeRenderInput {
@@ -57,6 +64,11 @@ export interface SpaceEnvelopeRenderInput {
     /** Metres of vertical extent. Strictly positive in a parsed record. */
     readonly height?: number;
     readonly materialColor?: string;
+    /** §RESI-STAGE-G — the label's first line, and the palette key for a room. */
+    readonly name?: string;
+    readonly occupancy?: string;
+    /** §RESI-STAGE-G — the label's second line. Cached in lockstep with `footprint` (C114 §2b). */
+    readonly footprintAreaM2?: number;
 }
 
 /**
@@ -89,6 +101,37 @@ const MIN_HEIGHT_M = 1e-4;
  * at the draw site silently outranks nothing and shadows the authored override).
  */
 const DEFAULT_ENVELOPE_COLOR = '#6600FF';
+
+/**
+ * §RESI-STAGE-G — the floating label's canvas geometry. These are `RoomLabelRenderer`'s
+ * own numbers (2× supersample, 256×80 logical, `0.006 / DPR` world scale), reused so an
+ * envelope label and a room label are the same size and weight on screen — the founder
+ * reads them side by side, and two labelling idioms in one view is the defect.
+ */
+const LABEL_DPR = 2;
+const LABEL_W = 256 * LABEL_DPR;
+const LABEL_H = 80 * LABEL_DPR;
+const LABEL_SCALE = 0.006 / LABEL_DPR;
+/** How far above the prism's base the label floats, capped at half its height. */
+const LABEL_Y_OFFSET_M = 0.9;
+
+/** `RoomLabelRenderer._roundRect`, as a free function — same path, no class to inherit. */
+function roundRectPath(
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, w: number, h: number, r: number,
+): void {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
 
 export class SpaceEnvelopeMeshBuilder {
     private readonly _scene: THREE.Object3D;
@@ -162,7 +205,11 @@ export class SpaceEnvelopeMeshBuilder {
         group.userData['levelId'] = record.levelId ?? '';
         if (record.role) group.userData['spaceEnvelopeRole'] = record.role;
 
-        const material = this._material(record);
+        // ⭐ §RESI-STAGE-G — ONE resolver decides colour, alpha and label together, so a
+        // room drawn in the kitchen colour and a label reading "Kitchen" cannot disagree.
+        const appearance = resolveSpaceEnvelopeAppearance(record);
+        const material = this._material(appearance);
+        group.userData['spaceEnvelopeColourSource'] = appearance.colourSource;
         const faces = spaceEnvelopeFaces(prism);
         for (const face of faces) {
             const geometry = this._faceGeometry(prism, face);
@@ -192,6 +239,15 @@ export class SpaceEnvelopeMeshBuilder {
             group.add(mesh);
         }
 
+        // ⭐ THE LABEL LAST, so `group.children.length === 0` below still means "no face
+        // drew" — a group holding only a sprite would otherwise report a volume that has
+        // no volume, which is the exact misreport this builder's outcome type exists to
+        // prevent.
+        if (group.children.length > 0) {
+            const label = this._label(appearance, prism, record.id);
+            if (label) group.add(label);
+        }
+
         if (group.children.length === 0) {
             // Every face was degenerate — a ring with three collinear points, say. The
             // ring passed the count check and still bounds no area, and an empty group
@@ -215,11 +271,26 @@ export class SpaceEnvelopeMeshBuilder {
         group.traverse((obj: THREE.Object3D) => {
             const mesh = obj as THREE.Mesh;
             if ((mesh as { isMesh?: boolean }).isMesh) mesh.geometry?.dispose?.();
+            // §RESI-STAGE-G — the label sprite owns its OWN material and a canvas texture,
+            // neither of which is the shared face material disposed below. A redraw runs
+            // on every face drag, so a leaked texture per frame is a real GPU leak, not a
+            // theoretical one.
+            const sprite = obj as unknown as { isSprite?: boolean; material?: { map?: { dispose?: () => void }; dispose?: () => void } };
+            if (sprite.isSprite) {
+                sprite.material?.map?.dispose?.();
+                sprite.material?.dispose?.();
+            }
         });
         // ⚠ The material is SHARED across the faces of one envelope and is disposed
         // once, here, rather than once per face — disposing it inside the traverse
         // would call `dispose()` `n + 2` times on one object.
-        const first = group.children[0] as THREE.Mesh | undefined;
+        // ⚠ THE FIRST MESH, NOT THE FIRST CHILD. Since §RESI-STAGE-G the group may also
+        // hold a label sprite, and disposing the SPRITE's material here (already disposed
+        // in the traverse above) while leaking the faces' shared material would be a
+        // silent double-fault.
+        const first = group.children.find(
+            (c) => (c as unknown as { isMesh?: boolean }).isMesh,
+        ) as THREE.Mesh | undefined;
         (first?.material as THREE.Material | undefined)?.dispose?.();
         group.removeFromParent();
         this._groups.delete(id);
@@ -249,16 +320,109 @@ export class SpaceEnvelopeMeshBuilder {
      * can see would not be raycast-hittable from the inside, so the drag handle would
      * simply not respond.
      */
-    private _material(record: SpaceEnvelopeRenderInput): THREE.MeshStandardMaterial {
+    private _material(appearance: SpaceEnvelopeAppearance): THREE.MeshStandardMaterial {
         return new THREE.MeshStandardMaterial({
-            color: new THREE.Color(record.materialColor ?? DEFAULT_ENVELOPE_COLOR),
-            opacity: 0.28,
+            // ⚠ `DEFAULT_ENVELOPE_COLOR` IS NO LONGER READ HERE — the resolver owns the
+            // fallback (and returns the same PRYZM purple for a level). The constant is
+            // kept below as the ONE place that value is written, and the resolver's
+            // `SPACE_ENVELOPE_LEVEL_COLOUR` is pinned to it by a test.
+            color: new THREE.Color(appearance.colour),
+            // §RESI-STAGE-G — the LEVEL prism is markedly more transparent than the rooms
+            // inside it. Without that the container hides its contents, and the
+            // room-within-level relationship this family now ENFORCES would be invisible
+            // in the one view that shows it.
+            opacity: appearance.opacity,
             transparent: true,
             depthWrite: false,
             side: THREE.DoubleSide,
             roughness: 0.9,
             metalness: 0.0,
         });
+    }
+
+    /**
+     * §RESI-STAGE-G — THE FLOATING LABEL, `RoomLabelRenderer`'s pattern applied to an
+     * envelope: a canvas texture on a `THREE.Sprite`, brand purple hairline, name on the
+     * first line and `occupancy · area` on the second.
+     *
+     * ⭐ IT IS ADDED TO THE ENVELOPE'S OWN GROUP, NOT TO THE SCENE. `RoomLabelRenderer`
+     * keeps a second `Map<string, Sprite>` and therefore a second lifecycle to keep in
+     * step with the geometry — a sprite whose room is gone is a phantom nobody reaps.
+     * Parenting the sprite to the group this builder already disposes idempotently by id
+     * means the label cannot outlive the prism, cannot be drawn twice, and follows the
+     * volume through every face drag for free.
+     *
+     * ⚠ RETURNS `null` OUTSIDE A DOM. The texture needs a 2-D canvas; a headless caller
+     * (a test, a bake worker) gets a prism with no label rather than a thrown error that
+     * would take the whole draw down for a decoration.
+     */
+    private _label(
+        appearance: SpaceEnvelopeAppearance,
+        prism: { readonly footprint: readonly { readonly x: number; readonly z: number }[]; readonly baseOffset: number; readonly height: number },
+        id: string,
+    ): THREE.Sprite | null {
+        if (!appearance.labelled) return null;
+        if (typeof document === 'undefined' || typeof document.createElement !== 'function') return null;
+        let canvas: HTMLCanvasElement;
+        let ctx: CanvasRenderingContext2D | null;
+        try {
+            canvas = document.createElement('canvas');
+            canvas.width = LABEL_W;
+            canvas.height = LABEL_H;
+            ctx = canvas.getContext('2d');
+        } catch { return null; }
+        if (!ctx) return null;
+
+        ctx.scale(LABEL_DPR, LABEL_DPR);
+        const W = LABEL_W / LABEL_DPR;
+        const H = LABEL_H / LABEL_DPR;
+        ctx.clearRect(0, 0, W, H);
+
+        // The hairline is drawn in the ENVELOPE's colour rather than always in purple, so
+        // a glance at a crowded storey ties each label to the volume it names.
+        ctx.strokeStyle = appearance.colour;
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 1.25;
+        roundRectPath(ctx, 5, 5, W - 10, H - 10, 12);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        const left = 5 + 14;
+        // ⛔ AN UNNAMED ENVELOPE SAYS SO. The schema's `name` comment forbids generating
+        // one from the role, and "Room" printed over a volume the user never named is
+        // indistinguishable from a volume they DID name "Room".
+        const title = appearance.labelTitle ?? 'Unnamed envelope';
+        ctx.fillStyle = appearance.labelTitle === null ? '#8A5A00' : DEFAULT_ENVELOPE_COLOR;
+        ctx.font = '600 23px system-ui, -apple-system, "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(title.length > 20 ? title.slice(0, 19) + '…' : title, left, H * 0.46);
+
+        ctx.fillStyle = '#8A7BA8';
+        ctx.font = '500 15px system-ui, -apple-system, "Segoe UI", sans-serif';
+        ctx.fillText(appearance.labelSubtitle, left, H * 0.72);
+
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: new THREE.CanvasTexture(canvas),
+            transparent: true,
+            depthWrite: false,
+            sizeAttenuation: true,
+        }));
+        sprite.scale.set(LABEL_W * LABEL_SCALE, LABEL_H * LABEL_SCALE, 1);
+        // Centroid of the ring, at the height the volume reads from — clamped so a very
+        // short prism does not put its label above its own top face.
+        const ring = prism.footprint;
+        let cx = 0; let cz = 0;
+        for (const pnt of ring) { cx += pnt.x; cz += pnt.z; }
+        cx /= ring.length; cz /= ring.length;
+        sprite.position.set(cx, prism.baseOffset + Math.min(LABEL_Y_OFFSET_M, prism.height * 0.5), cz);
+        sprite.renderOrder = 11;
+        sprite.name = `spaceEnvelope-label:${id}`;
+        sprite.userData['id'] = id;
+        sprite.userData['role'] = 'label';
+        // ⛔ NOT PICKABLE. A label that answered a raycast would swallow the face drag.
+        sprite.userData['selectable'] = false;
+        return sprite;
     }
 
     /**
