@@ -13,6 +13,7 @@ import {
 import { annotationStore } from '../src/subsystem/AnnotationStore.js';
 import { seedDemoAnnotations } from '../src/subsystem/seedDemoAnnotations.js';
 import { BUILT_IN_ANNOTATION_TYPES } from '../src/subsystem/AnnotationSystemTypeStore.js';
+import { CreateAnnotationHandler } from '../src/handlers/CreateAnnotation.js';
 
 describe('§ANN-TAG-DEFAULT — a tag has a default, it does not ask', () => {
   it('a WALL tag defaults to its ID (the founder rule)', () => {
@@ -70,19 +71,39 @@ describe('§ANN-TAG-DEFAULT — a tag has a default, it does not ask', () => {
 });
 
 describe('§ANN-SEED — five demo annotations when a project has none', () => {
-  const executed: unknown[] = [];
+  // ⭐ THE PATH MOVED (C14 §3, 2026-09-04) AND THE ASSERTIONS DID NOT WEAKEN.
+  // The double used to be a `window.commandManager` that ran the legacy
+  // CreateAnnotationCommand. It is now a `window.runtime.bus` that runs the REAL
+  // `CreateAnnotationHandler` — the same store, the same five records — and it
+  // REFUSES every verb other than `annotation.create`, so a seed that dispatched
+  // the wrong thing fails here instead of quietly passing.
+  const executed: { type: string; payload: unknown }[] = [];
   beforeEach(() => {
     annotationStore.clear();
     executed.length = 0;
-    (window as unknown as { commandManager?: unknown }).commandManager = {
-      execute: (cmd: { execute?: (ctx: unknown) => unknown }) => {
-        executed.push(cmd);
-        // Drive the real CreateAnnotationCommand against the real store.
-        return cmd.execute?.({ stores: { annotationStore } });
+    const handler = new CreateAnnotationHandler();
+    const ledger: Record<string, unknown> = {};
+    (window as unknown as { runtime?: unknown }).runtime = {
+      bus: {
+        executeCommand(type: string, payload: unknown): Promise<unknown> {
+          executed.push({ type, payload });
+          if (type !== 'annotation.create') {
+            return Promise.reject(new Error('no handler registered for: ' + type));
+          }
+          const ctx = { stores: { annotation: ledger } } as never;
+          const v = handler.canExecute(ctx, payload as never);
+          if (!v.valid) return Promise.reject(new Error(v.reason));
+          handler.execute(ctx, payload as never);
+          return Promise.resolve({ type, payload });
+        },
       },
     };
   });
-  afterEach(() => { annotationStore.clear(); vi.restoreAllMocks(); });
+  afterEach(() => {
+    annotationStore.clear();
+    (window as unknown as { runtime?: unknown }).runtime = undefined;
+    vi.restoreAllMocks();
+  });
 
   it('creates exactly 5, at 5 different text sizes and 5 different colours', () => {
     const outcome = seedDemoAnnotations('view-1');
@@ -103,11 +124,18 @@ describe('§ANN-SEED — five demo annotations when a project has none', () => {
       .toEqual(new Set(BUILT_IN_ANNOTATION_TYPES.map(t => t.id)));
   });
 
-  it('every seeded annotation went through a COMMAND (P6) — so it is undoable', () => {
+  it('every seeded annotation went through the annotation.create VERB (P6)', () => {
     seedDemoAnnotations('view-1');
     expect(executed).toHaveLength(5);
-    for (const cmd of executed as { undo?: unknown }[]) {
-      expect(typeof cmd.undo, 'a seeded annotation has no undo').toBe('function');
+    // One verb, five times — not a direct store write, and not some other verb.
+    expect(new Set(executed.map(e => e.type))).toEqual(new Set(['annotation.create']));
+    // Each payload is the FULL element, which is what makes it renderable and
+    // undoable rather than a lossy {id, viewId, kind} stub (§ANN-ONE-STORE).
+    for (const { payload } of executed) {
+      const p = payload as { id?: string; geometry2D?: unknown; style?: unknown };
+      expect(typeof p.id).toBe('string');
+      expect(p.geometry2D, 'a seeded annotation lost its geometry').toBeTruthy();
+      expect(p.style, 'a seeded annotation lost its style').toBeTruthy();
     }
   });
 
@@ -121,7 +149,7 @@ describe('§ANN-SEED — five demo annotations when a project has none', () => {
 
   it('ADR-0299 — a skipped seed says WHY instead of reporting a silent success', () => {
     expect(seedDemoAnnotations('').reason).toMatch(/no owning view/);
-    (window as unknown as { commandManager?: unknown }).commandManager = undefined;
+    (window as unknown as { runtime?: unknown }).runtime = undefined;
     const outcome = seedDemoAnnotations('view-1');
     expect(outcome.created).toBe(0);
     expect(outcome.reason).toMatch(/command system not ready/);

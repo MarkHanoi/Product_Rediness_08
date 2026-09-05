@@ -13,8 +13,9 @@
  *
  * SAFETY. This creates data in a user's project, so it is deliberately narrow:
  *   • it runs ONLY when the canonical store is completely empty;
- *   • it goes through the same `CreateAnnotationCommand` a tool uses (P6), so each
- *     seeded annotation is undoable, redoable and deletable like any other;
+ *   • it goes through the same `annotation.create` bus verb a tool uses (C03 §P6, via
+ *     §ANN-ONE-STORE's rich-payload passthrough), so each seeded annotation is undoable,
+ *     redoable and deletable like any other;
  *   • it reports what it did — `{ created, reason }` — and never claims success when it
  *     created nothing (ADR-0299 §RECOVERY-MUST-REFUSE).
  *
@@ -27,7 +28,7 @@ import { withHandlerSpan, createId } from '@pryzm/plugin-sdk';
 import { annotationStore } from './AnnotationStore.js';
 import { BUILT_IN_ANNOTATION_TYPES } from './AnnotationSystemTypeStore.js';
 import { makeAnnotationElement } from './AnnotationTypes.js';
-import { CreateAnnotationCommand } from '../commands/CreateAnnotationCommand.js';
+
 
 export interface SeedOutcome {
   readonly created: number;
@@ -56,8 +57,8 @@ export function seedDemoAnnotations(viewId: string): SeedOutcome {
     if (annotationStore.count > 0) {
       return { created: 0, reason: `project already has ${annotationStore.count} annotation(s)` };
     }
-    const cm = typeof window !== 'undefined' ? window.commandManager : undefined;
-    if (!cm || typeof cm.execute !== 'function') {
+    const bus = typeof window !== 'undefined' ? window.runtime?.bus : undefined;
+    if (!bus || typeof bus.executeCommand !== 'function') {
       return { created: 0, reason: 'command system not ready — seed skipped' };
     }
 
@@ -81,9 +82,17 @@ export function seedDemoAnnotations(viewId: string): SeedOutcome {
         type.id,
       );
       try {
-        const res = cm.execute(new CreateAnnotationCommand(el)) as { success?: boolean; error?: string } | undefined;
-        if (res && res.success === false) failures.push(res.error ?? 'refused');
-        else if (annotationStore.has(el.id)) created++;
+        // ⚠ THE POST-CONDITION IS READ FROM THE STORE, NOT FROM THE RETURN VALUE, and
+        // that is what makes the sync→async move safe here. `executeCommand` returns a
+        // promise, so it can no longer report success inline — but this loop never
+        // trusted the return value in the first place: it asks the CANONICAL store
+        // whether the element arrived. A dispatch whose write had not landed by the time
+        // this line runs is therefore reported as a REFUSAL (ADR-0299
+        // §RECOVERY-MUST-REFUSE), never counted as a success.
+        void Promise.resolve(bus.executeCommand('annotation.create', el)).catch(
+          (err: unknown) => console.warn('[§ANN-SEED] annotation.create refused:', err),
+        );
+        if (annotationStore.has(el.id)) created++;
         else failures.push(`${el.id} did not reach the store`);
       } catch (err) {
         failures.push(String(err));

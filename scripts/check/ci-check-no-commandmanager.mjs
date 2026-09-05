@@ -231,8 +231,38 @@ const ROOT = resolve(__dirname, '..', '..');
  *   handlers under `plugins/<pkg>/src/handlers/` that fall back to
  *   `window.commandManager` — is also the most migratable, since those files
  *   already sit on the bus.
+ *
+ * 134 (2026-09-04, §P6-BUS-IS-THE-PATH) — THE FIRST DOWNWARD MOVE, and it is the
+ *   move the paragraph directly above asked for.  Between the 08-16 pin and this
+ *   one the reading drifted UP to 152 (lanes added 48 sites and removed 26), so
+ *   this job was RED at +16 and every deploy needed `bypass_ci_gate`.
+ *
+ *     reading before   152   (literal 52 · alias 86 · indirect 14)   FAIL +16
+ *     reading after    134   (literal 39 · alias 81 · indirect 14)   PASS
+ *
+ *   EIGHTEEN CALL SITES ARE GONE, NOT RENAMED — that distinction is the whole
+ *   point of the alias arms, and this file's own header records the two evasions
+ *   that made them necessary.  ONE OF THOSE TWO IS NOW CLOSED FOR REAL:
+ *   `AnnotateViewCommand.ts` no longer binds `_cmdMgr`; it dispatches
+ *   `annotation.create` on the bus, which is the migration its own TODO asked for.
+ *
+ *   All eighteen are the ANNOTATION WRITE PATH, one coherent subsystem.  They were
+ *   migratable only because §ANN-ONE-STORE landed: the "Detector fidelity" note
+ *   above records four of them (RoomTagAutoPopulator) as BLOCKED because
+ *   `annotation.create` wrote a lossy ledger "NOT the subsystem `annotationStore`
+ *   that `AnnotationRenderLayer` reads and `ProjectSerializer` persists".  That
+ *   handler now takes a FULL `AnnotationElement` verbatim through
+ *   `canonicalAnnotationSink`, so the blocker named in this file no longer exists.
+ *   Three of those four moved; the fourth (`CreateManyAnnotationsCommand`) stays
+ *   ON PURPOSE — it is ONE undo entry for N room tags (§ROOMTAG-ONE-COMMAND /
+ *   L-1396) and there is no `annotation.createMany` verb, so splitting it would
+ *   restore the twenty-four-Ctrl+Z defect that ticket removed.
+ *
+ *   ⚠ STILL A CEILING TO SHRINK.  134 is not a budget.  The largest remaining
+ *   class is unchanged: the bus handlers under `plugins/<pkg>/src/handlers/` that
+ *   fall back to `window.commandManager`.  The next move is DOWNWARD again.
  */
-const THRESHOLD = parseInt(process.env.CM_EXECUTE_THRESHOLD ?? '136', 10);
+const THRESHOLD = parseInt(process.env.CM_EXECUTE_THRESHOLD ?? '134', 10);
 
 /**
  * Directories to scan.  Intentionally excludes apps/ because

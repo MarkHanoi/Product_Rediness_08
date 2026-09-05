@@ -3,21 +3,21 @@
  *
  * Reads the active view's visible elements, sends a structured prompt to the
  * AI proxy (/api/anthropic/v1/messages), receives a list of AnnotationElement
- * specs, and emits a batch of CreateAnnotationCommands.
+ * specs, and emits a batch of `annotation.create` bus dispatches.
  *
  * This is a macro-command: it is NOT itself stored in the undo stack — each
- * CreateAnnotationCommand it fires is individually undoable.
+ * `annotation.create` it fires is individually undoable.
  *
  * Contract compliance:
  *   §04 §3   — All AI modifications go through the command pipeline
- *   §01 §2.1 — Individual child CreateAnnotationCommands are undoable
+ *   C03 §P6  — the typed bus verb is the mutation path (see §P6-BUS-IS-THE-PATH below)
+ *   §01 §2.1 — Individual child `annotation.create` dispatches are undoable
  *   §05 §7.8 — No bim-* / @thatopen/ui elements
  */
 
 import { apiFetch } from '@pryzm/persistence-client';
 import { makeAnnotationElement, AnnotationSemantics, AnnotationType } from '@pryzm/core-app-model';
 import { makePointRef, makeRef } from '@pryzm/core-app-model';
-import { CreateAnnotationCommand } from './CreateAnnotationCommand';
 import * as THREE from '@pryzm/renderer-three/three';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,21 +196,31 @@ export class AnnotateViewCommand {
         // ── ANNOTATION-SYSTEM-AUDIT-2026 A1 — resolve via ctx, fall back to window ──
         const resolverStores = ctx?.resolverStores
             ?? (typeof window !== 'undefined' ? window.resolverStores : null);
-        // Renamed from `commandManager` → `_cmdMgr` to satisfy CI gate (P3 / C14 §3 ratchet):
-        // this file is in packages/ and the literal "commandManager.execute" is counted by the
-        // Phase 3 exit gate.  Using an alias preserves identical runtime behaviour while
-        // keeping the ratchet count at threshold.  TODO(TASK-06): replace with runtime.bus.
-        const _cmdMgr = ctx?.commandManager
+        // ⭐ §P6-BUS-IS-THE-PATH (C14 §3, 2026-09-04) — THE EVASION IS GONE, NOT RENAMED.
+        //
+        // What stood here was the alias `_cmdMgr`, with a comment stating gate-dodging as
+        // its own rationale: "Renamed from `commandManager` → `_cmdMgr` to satisfy CI gate
+        // (P3 / C14 §3 ratchet) … Using an alias preserves identical runtime behaviour
+        // while keeping the ratchet count at threshold." `ci-check-no-commandmanager.mjs`
+        // quotes that comment verbatim in its own header as the defect the alias arm was
+        // built to catch. The fix is the MIGRATION the TODO asked for, not a second rename:
+        // the AI-authored annotations are now dispatched through the `annotation.create`
+        // bus verb, which §ANN-ONE-STORE taught to store a full AnnotationElement verbatim
+        // in the canonical store — so the line below it ("no annotation.create bus handler
+        // yet") is no longer true either, and its dead `element.legacyBridge` telemetry
+        // stub goes with it.
+        const _bus = ctx?.bus
             // `typeof window !== undefined` (unquoted) was ALWAYS true — `typeof` yields a
             // string, so the guard never guarded and `window.commandManager` threw a
-            // ReferenceError in any non-DOM runtime (node tests, workers, SSR).
-            ?? (typeof window !== 'undefined' ? window.commandManager : null); // TODO(TASK-06)
+            // ReferenceError in any non-DOM runtime (node tests, workers, SSR). Kept, in
+            // its FIXED form, for the same reason on the bus.
+            ?? (typeof window !== 'undefined' ? window.runtime?.bus : null);
         const annotationStore = ctx?.stores?.annotationStore
             ?? ctx?.annotationStore
             ?? (typeof window !== 'undefined' ? window.annotationStore : null); // TODO(TASK-08)
 
-        if (!_cmdMgr || !annotationStore) {
-            const msg = '[AnnotateViewCommand] commandManager or annotationStore not initialised';
+        if (!_bus || !annotationStore) {
+            const msg = '[AnnotateViewCommand] command bus or annotationStore not initialised';
             console.error(msg);
             onError?.(msg);
             return { count: 0, summary: 'System not ready.' };
@@ -283,11 +293,10 @@ export class AnnotateViewCommand {
                 const ann = AnnotateViewCommand._specToAnnotation(spec, ownerViewId, stores);
                 if (!ann) continue;
 
-                const cmd = new CreateAnnotationCommand(ann);
-                // [E.5.x] Bus telemetry — fire-and-forget (element.legacyBridge requires commandType field).
-                // _cmdMgr.execute() is the authoritative mutation path; no annotation.create bus handler yet.
-                if (window.runtime?.bus) { window.runtime.bus.executeCommand('element.legacyBridge', { commandType: 'CreateAnnotationCommand', source: 'AnnotateViewCommand' }).catch(() => {}); }
-                _cmdMgr.execute(cmd);
+                // C03 §P6 — awaited, inside the existing try/catch, so a REFUSAL is caught
+                // and `created` is not incremented for an annotation that never landed.
+                // The old synchronous call counted every dispatch as a success.
+                await _bus.executeCommand('annotation.create', ann);
                 created++;
             } catch (e) {
                 console.warn('[AnnotateViewCommand] Skipped invalid spec:', spec, e);
