@@ -200,6 +200,9 @@ import {
 // §FORMA-FALLBACK-KEY-IS-LOCAL (L-12920) — the night-time study key, expressed in the site's ENU
 // frame (pure), so the ground is lit at every longitude, not only near Europe.
 import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
+// §FORMA-GROUND-URBAN-WHITE (L-12922) — off-white ground base in and beside urban land, light brown
+// in open country; decided from the loaded landuse (pure).
+import { formaGroundBaseColour } from "./formaGroundColour";
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
@@ -10499,6 +10502,23 @@ export class CesiumViewport {
         this.contextLanduseEntities.push(ent);
         placed++;
       } catch { /* skip one malformed land-use polygon */ }
+    }
+    // §FORMA-GROUND-URBAN-WHITE (L-12922) — the terrain BASE under a city or village reads off-white,
+    // open country keeps the 2026-07-29 light brown. Decided from the landuse just loaded (inside or
+    // within 300 m of an urban polygon); the drape does not cover streets, squares or the gaps between
+    // polygons, so the base is what the founder sees between them. Forma only — the photoreal globe
+    // is its own ground. Pure decision in formaGroundColour.ts.
+    if (this.formaMode && !this.photorealTilesActive) {
+      try {
+        const verdict = formaGroundBaseColour(collection.areas, lat, lon);
+        viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString(verdict.colour);
+        console.log(
+          `[CesiumViewport][forma] §FORMA-GROUND-URBAN-WHITE ground base ${verdict.colour} (${verdict.arm}` +
+            `${Number.isFinite(verdict.nearestUrbanM) ? `, nearest urban landuse ${verdict.nearestUrbanM.toFixed(0)} m` : ''}).`,
+        );
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] ground base colour decision threw (non-fatal, base unchanged):', e);
+      }
     }
     viewer.scene.requestRender();
     const urban = collection.areas.filter((a) => a.kind === 'urban').length;
