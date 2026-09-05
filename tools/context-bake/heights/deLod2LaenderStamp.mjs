@@ -222,12 +222,20 @@ async function fetchTileParts(cc, adapter, key, index, { timeoutMs }) {
     const pad = 30;
     const c = [utmNToWgs84(x0 - pad, y0 - pad, adapter.zone), utmNToWgs84(x1 + pad, y0 - pad, adapter.zone), utmNToWgs84(x0 - pad, y1 + pad, adapter.zone), utmNToWgs84(x1 + pad, y1 + pad, adapter.zone)];
     const lons = c.map((p) => p.lon), lats = c.map((p) => p.lat);
-    const url = stGetFeatureUrl(adapter, [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)]);
-    const r = await fetchText(url, { timeoutMs });
-    if (!r.ok) return { ok: false, reason: r.reason };
-    const parsed = stPartsFromGeojson(r.body, adapter);
-    if (!parsed) return { ok: false, reason: `GetFeature body is not a FeatureCollection (${r.body.length} B, ${r.contentType})` };
-    return { ok: true, parts: parsed.parts, truncated: parsed.count >= (adapter.count ?? 5000), skippedNoHeight: parsed.skippedNoHeight };
+    const box = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+    // BOTH typenames (Building + BuildingPart) — the parts carry most of the geometry (adapter.typeNames note).
+    const parts = [];
+    let truncated = false, skippedNoHeight = 0;
+    for (const typeName of adapter.typeNames ?? ['ALKIS_LOD2_BU:BU.Building']) {
+      const r = await fetchText(stGetFeatureUrl(adapter, box, { typeName }), { timeoutMs });
+      if (!r.ok) return { ok: false, reason: `${typeName}: ${r.reason}` };
+      const parsed = stPartsFromGeojson(r.body, adapter);
+      if (!parsed) return { ok: false, reason: `${typeName}: GetFeature body is not a FeatureCollection (${r.body.length} B, ${r.contentType})` };
+      parts.push(...parsed.parts);
+      if (parsed.count >= (adapter.count ?? 5000)) truncated = true;
+      skippedNoHeight += parsed.skippedNoHeight;
+    }
+    return { ok: true, parts, truncated, skippedNoHeight };
   }
   return { ok: false, reason: `unknown door kind ${adapter.kind}` };
 }

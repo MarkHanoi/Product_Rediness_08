@@ -109,6 +109,9 @@ describe('§DE-LOD2-LAENDER projection + tile keys reproduce the tiles that answ
     expect(u).toContain('BBOX=52.122000,11.632000,52.127000,11.637000,urn:ogc:def:crs:EPSG::4258');
     expect(u).toContain('TYPENAMES=ALKIS_LOD2_BU:BU.Building');
     expect(u).toContain('OUTPUTFORMAT=GEOJSON');
+    // the parts carry the geometry in Sachsen-Anhalt (3,599 BuildingPart vs 325 Building over the Magdeburg box) — both are queried
+    expect(DE_LOD2_LAENDER.st.typeNames).toEqual(['ALKIS_LOD2_BU:BU.Building', 'ALKIS_LOD2_BU:BU.BuildingPart']);
+    expect(stGetFeatureUrl(DE_LOD2_LAENDER.st, [11.632, 52.122, 11.637, 52.127], { typeName: 'ALKIS_LOD2_BU:BU.BuildingPart' })).toContain('TYPENAMES=ALKIS_LOD2_BU:BU.BuildingPart&');
   });
   it('cityForPoint routes Alexanderplatz → berlin/be, Potsdam → bb, an unwired city (Munich) → null', () => {
     expect(cityForPoint(13.4133, 52.5219)?.land).toBe('be');

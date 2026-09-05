@@ -67,7 +67,8 @@
 //         ImplementsResultPaging). ⚠ BBOX must be lat,lon in urn:ogc:def:crs:EPSG::4258 — the same box in
 //         25832 returned 0 features silently. Magdeburg Dom 52.122,11.632,52.127,11.637 → hits 31; features
 //         carry HEIGHTABOVEGROUND (STRING, e.g. "1.56"), ELEVATION, LOCALID, MultiPolygon in EPSG:4326
-//         lon,lat. No roofType. Licence: the LVermGeo "Open Data" page names the download as kostenfrei;
+//         lon,lat. No roofType. ⚠ The PARTS carry the geometry: Magdeburg box 52.120,11.625,52.135,11.645 →
+//         BU.Building 325 features / BU.BuildingPart 3,599 (HEIGHTABOVEGROUND + BUILDINGREF) — query BOTH. Licence: the LVermGeo "Open Data" page names the download as kostenfrei;
 //         the dl-de URI was NOT captured verbatim in this lane — recorded as such.
 //   • nw  Nordrhein-Westfalen — LIVE since 2026-07-31 via heightSources.mjs (opengeodata.nrw.de index.json,
 //         35,022 × `LoD2_32_<E>_<N>_1_NW.gml`, DL-DE Zero 2.0). Routed here too so the `germany` row's
@@ -190,6 +191,10 @@ export const DE_LOD2_LAENDER = {
     tileName: ({ e, n }) => `ST_WFS_32_${e}_${n}`,
     tileUrl: () => 'https://geodatenportal.sachsen-anhalt.de/ows_ST_LVermGeo_LoD2_WFS',
     heightField: 'HEIGHTABOVEGROUND', count: 5000,
+    // BOTH typenames, on evidence: over the Magdeburg proof box (52.120,11.625,52.135,11.645) BU.Building answered
+    // 325 features but BU.BuildingPart 3,599 — the height-bearing geometry is mostly in the PARTS (2,621 part
+    // centroids fall inside OSM footprints vs 220 building centroids). Buildings-only stamped 133/626; parts are the door.
+    typeNames: ['ALKIS_LOD2_BU:BU.Building', 'ALKIS_LOD2_BU:BU.BuildingPart'],
     licence: 'LVermGeo LSA Open Data (kostenfrei) — dl-de URI not captured verbatim this lane',
     attribution: '© GeoBasis-DE/LVermGeo LSA',
     probe: '2026-09-05 GetFeature BBOX=52.122,11.632,52.127,11.637,urn:ogc:def:crs:EPSG::4258 → 200 GEOJSON, hits 31, HEIGHTABOVEGROUND "1.56"',
@@ -238,9 +243,9 @@ export function tileBboxNative(adapter, { e, n }) {
 }
 
 /** Sachsen-Anhalt GetFeature URL for a WGS84 box — BBOX is LAT,LON in EPSG:4258 (the probe's lesson). */
-export function stGetFeatureUrl(adapter, [w, s, e, n], { count = adapter.count ?? 5000 } = {}) {
+export function stGetFeatureUrl(adapter, [w, s, e, n], { count = adapter.count ?? 5000, typeName = 'ALKIS_LOD2_BU:BU.Building' } = {}) {
   const f = (x) => x.toFixed(6);
-  return `${adapter.tileUrl()}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ALKIS_LOD2_BU:BU.Building` +
+  return `${adapter.tileUrl()}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=${typeName}` +
     `&BBOX=${f(s)},${f(w)},${f(n)},${f(e)},urn:ogc:def:crs:EPSG::4258&COUNT=${count}&OUTPUTFORMAT=GEOJSON`;
 }
 
