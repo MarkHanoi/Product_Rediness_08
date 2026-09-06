@@ -11,12 +11,12 @@
 
 **This page answers one question: _what does PRYZM actually serve HERE?_**
 
-Generated: 2026-09-06T10:22:37.567Z
+Generated: 2026-09-06T13:21:37.763Z
 
 ## §0 · Probe record (C57 §1.5 — the exact answer, never a claim)
 
 ```
-GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 927 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
+GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 230 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
 ```
 
 - manifest `mergedAt`: `2026-09-06T07:58:43.604Z` · `mergeRunId`: `34015784612` · `mergeGitSha`: `ad038f5a0337097f9af7fda873383bbfdf193b36`
@@ -41,12 +41,12 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | — **baked in code but NOT on R2** (a region a user cannot see) | **91** |
 | Context layers baked per region | **9** default (`buildings roads water parks landuse rail trees furniture sea`) + **1** opt-in (`canopy`) |
 | Regions declaring a `heightJoin` | **71** of 131 |
-| — whose working set is WHOLE-COUNTRY | **50** |
+| — whose working set is WHOLE-COUNTRY | **53** |
 | Terrain national regions (`NATIONAL_REGIONS`) | **122** |
 | Terrain city regions (`REGIONS`) | **592** (7 blocked) |
 | Client terrain rows (`terrainCoverage.ts`) | **581** cities + **122** regions |
-| Parcel jurisdictions registered | **79** (63 cadastral · 16 footprint-fallback) |
-| — cadastral rows with a WIRED server leg | **63** |
+| Parcel jurisdictions registered | **84** (68 cadastral · 16 footprint-fallback) |
+| — cadastral rows with a WIRED server leg | **68** |
 
 **Verdict rule** (applied mechanically, printed so it can be argued with):
 
@@ -120,7 +120,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | **Ukraine** (UA) | 1 region(s): `ukraine` | 0/1 — **missing `ukraine`** | national `ukraine` | **none — assumed default** | OSM | — | 🟡 PARTIAL |
 | **United Arab Emirates** (AE) | 1 region(s): `gccstates` | 0/1 — **missing `gccstates`** | **1× metro box** `gccstates` | `ad_ndsm` **city list (1)** | Overture | 1 footprint-fallback | 🟡 PARTIAL |
 | **United Kingdom** (GB) | 1 region(s): `greatbritain` | all 1 | national `greatbritain` + 1 city | `ealidar_gb` **city list (5)** | OSM | 1/1 cadastral wired (+1 fallback) | 🟡 PARTIAL |
-| **United States** (US) | 54 region(s): `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming` | 1/54 — **missing `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming`** | **54× metro box** `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming` + 2 city | `usas` **WHOLE-COUNTRY**; `us_open` **city list (3)** | OSM | 16/16 cadastral wired | 🟡 PARTIAL |
+| **United States** (US) | 54 region(s): `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming` | 1/54 — **missing `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming`** | **54× metro box** `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming` + 2 city | `usas` **WHOLE-COUNTRY** | OSM | 21/21 cadastral wired | 🟡 PARTIAL |
 
 ### Named gaps, per country
 
@@ -184,7 +184,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 - **Ukraine (UA)** — context baked but NOT in the live tileset: ukraine · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **United Arab Emirates (AE)** — context baked but NOT in the live tileset: gccstates · terrain is 1 × metro box (`gccstates`), NOT the country · measured heights only inside 1 box(es) [abudhabi-core] — everywhere else ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **United Kingdom (GB)** — measured heights only inside 5 box(es) [london manchester birmingham leeds bristol] — everywhere else ships the assumed default
-- **United States (US)** — context baked but NOT in the live tileset: alabama, alaska, alaskaaleutians, arizona, arkansas, california, colorado, connecticut, delaware, districtofcolumbia, florida, georgia, hawaii, idaho, illinois, indiana, iowa, kansas, kentucky, louisiana, maine, maryland, massachusetts, michigan, minnesota, mississippi, missouri, montana, nebraska, nevada, newhampshire, newjersey, newmexico, northcarolina, northdakota, ohio, oklahoma, oregon, pennsylvania, puertoricousa, rhodeisland, southcarolina, southdakota, tennessee, texas, usvirginislands, utah, vermont, virginia, washington, westvirginia, wisconsin, wyoming · LIVE TILES PREDATE THE CODE — `newyork` baked 2026-09-05 (sha c7d1ebe6) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour · terrain is 54 × metro box (`alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming`), NOT the country · measured heights only inside 3 box(es) [newyork sanfrancisco boston] — everywhere else ships the assumed default
+- **United States (US)** — context baked but NOT in the live tileset: alabama, alaska, alaskaaleutians, arizona, arkansas, california, colorado, connecticut, delaware, districtofcolumbia, florida, georgia, hawaii, idaho, illinois, indiana, iowa, kansas, kentucky, louisiana, maine, maryland, massachusetts, michigan, minnesota, mississippi, missouri, montana, nebraska, nevada, newhampshire, newjersey, newmexico, northcarolina, northdakota, ohio, oklahoma, oregon, pennsylvania, puertoricousa, rhodeisland, southcarolina, southdakota, tennessee, texas, usvirginislands, utah, vermont, virginia, washington, westvirginia, wisconsin, wyoming · HEIGHT JOIN NOT IN THE LIVE TILES — `newyork` declares `usas` but the published tiles carry `us_open` — the code says measured, the map still shows the assumed default · LIVE TILES PREDATE THE CODE — `newyork` baked 2026-09-05 (sha c7d1ebe6) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour · terrain is 54 × metro box (`alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming`), NOT the country
 
 ## §3 · Context bake regions (`bake.mjs` ALL_REGIONS)
 
@@ -243,7 +243,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `alaskaaleutians` | US | `171.76,51.11,180.00,54.20` | osm | — | — | — | no |
 | `arizona` | US | `-114.83,31.32,-109.04,37.01` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `arkansas` | US | `-94.63,33.00,-89.63,36.52` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
-| `california` | US | `-125.90,32.48,-114.12,42.02` | osm | `us_open` | **3 cities** (`US_OPEN_CITY_BBOXES`): newyork sanfrancisco boston | — | no |
+| `california` | US | `-125.90,32.48,-114.12,42.02` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `colorado` | US | `-109.07,36.98,-102.03,41.01` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `connecticut` | US | `-73.73,40.96,-71.78,42.06` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `delaware` | US | `-75.79,38.45,-74.98,39.85` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
@@ -260,7 +260,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `louisiana` | US | `-94.05,28.14,-88.66,33.03` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `maine` | US | `-71.09,42.85,-66.87,47.47` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `maryland` | US | `-79.49,37.88,-74.95,39.73` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
-| `massachusetts` | US | `-73.52,40.88,-68.73,42.89` | osm | `us_open` | **3 cities** (`US_OPEN_CITY_BBOXES`): newyork sanfrancisco boston | — | no |
+| `massachusetts` | US | `-73.52,40.88,-68.73,42.89` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `michigan` | US | `-90.42,41.69,-82.06,48.36` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `minnesota` | US | `-97.25,43.49,-89.48,49.41` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `mississippi` | US | `-91.66,30.04,-88.09,35.01` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
@@ -271,7 +271,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `newhampshire` | US | `-72.56,42.69,-70.48,45.32` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `newjersey` | US | `-75.58,38.75,-73.67,41.36` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `newmexico` | US | `-109.06,31.33,-102.99,37.01` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
-| `newyork` | US | `-79.77,40.43,-71.66,45.02` | osm | `us_open` | **3 cities** (`US_OPEN_CITY_BBOXES`): newyork sanfrancisco boston | — | yes |
+| `newyork` | US | `-79.77,40.43,-71.66,45.02` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | yes |
 | `northcarolina` | US | `-84.33,33.12,-73.73,36.59` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `northdakota` | US | `-104.06,45.93,-96.55,49.02` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
 | `ohio` | US | `-84.83,38.40,-80.50,42.34` | osm | `usas` | **WHOLE-COUNTRY** (`US_NATIONAL_BBOXES`) | — | no |
@@ -381,60 +381,60 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `liechtenstein` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `channelislands` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `isleofman` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
-| `alabama` | — | — | — | `usas` | 2026-09-06T10:21:55.000Z | ⛔ **NOT PUBLISHED** |
-| `alaska` | — | — | — | `usas` | 2026-09-06T10:21:56.000Z | ⛔ **NOT PUBLISHED** |
+| `alabama` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `alaska` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
 | `alaskaaleutians` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
-| `arizona` | — | — | — | `usas` | 2026-09-06T10:21:57.000Z | ⛔ **NOT PUBLISHED** |
-| `arkansas` | — | — | — | `usas` | 2026-09-06T10:21:57.000Z | ⛔ **NOT PUBLISHED** |
-| `california` | — | — | — | `us_open` | 2026-09-06T10:21:57.000Z | ⛔ **NOT PUBLISHED** |
-| `colorado` | — | — | — | `usas` | 2026-09-06T10:21:58.000Z | ⛔ **NOT PUBLISHED** |
-| `connecticut` | — | — | — | `usas` | 2026-09-06T10:21:58.000Z | ⛔ **NOT PUBLISHED** |
-| `delaware` | — | — | — | `usas` | 2026-09-06T10:21:58.000Z | ⛔ **NOT PUBLISHED** |
-| `districtofcolumbia` | — | — | — | `usas` | 2026-09-06T10:21:59.000Z | ⛔ **NOT PUBLISHED** |
-| `florida` | — | — | — | `usas` | 2026-09-06T10:21:59.000Z | ⛔ **NOT PUBLISHED** |
-| `georgia` | — | — | — | `usas` | 2026-09-06T10:21:59.000Z | ⛔ **NOT PUBLISHED** |
-| `hawaii` | — | — | — | `usas` | 2026-09-06T10:21:59.000Z | ⛔ **NOT PUBLISHED** |
-| `idaho` | — | — | — | `usas` | 2026-09-06T10:22:00.000Z | ⛔ **NOT PUBLISHED** |
-| `illinois` | — | — | — | `usas` | 2026-09-06T10:22:00.000Z | ⛔ **NOT PUBLISHED** |
-| `indiana` | — | — | — | `usas` | 2026-09-06T10:22:00.000Z | ⛔ **NOT PUBLISHED** |
-| `iowa` | — | — | — | `usas` | 2026-09-06T10:22:00.000Z | ⛔ **NOT PUBLISHED** |
-| `kansas` | — | — | — | `usas` | 2026-09-06T10:22:01.000Z | ⛔ **NOT PUBLISHED** |
-| `kentucky` | — | — | — | `usas` | 2026-09-06T10:22:01.000Z | ⛔ **NOT PUBLISHED** |
-| `louisiana` | — | — | — | `usas` | 2026-09-06T10:22:01.000Z | ⛔ **NOT PUBLISHED** |
-| `maine` | — | — | — | `usas` | 2026-09-06T10:22:02.000Z | ⛔ **NOT PUBLISHED** |
-| `maryland` | — | — | — | `usas` | 2026-09-06T10:22:02.000Z | ⛔ **NOT PUBLISHED** |
-| `massachusetts` | — | — | — | `us_open` | 2026-09-06T10:22:03.000Z | ⛔ **NOT PUBLISHED** |
-| `michigan` | — | — | — | `usas` | 2026-09-06T10:22:03.000Z | ⛔ **NOT PUBLISHED** |
-| `minnesota` | — | — | — | `usas` | 2026-09-06T10:22:03.000Z | ⛔ **NOT PUBLISHED** |
-| `mississippi` | — | — | — | `usas` | 2026-09-06T10:22:04.000Z | ⛔ **NOT PUBLISHED** |
-| `missouri` | — | — | — | `usas` | 2026-09-06T10:22:04.000Z | ⛔ **NOT PUBLISHED** |
-| `montana` | — | — | — | `usas` | 2026-09-06T10:22:04.000Z | ⛔ **NOT PUBLISHED** |
-| `nebraska` | — | — | — | `usas` | 2026-09-06T10:22:04.000Z | ⛔ **NOT PUBLISHED** |
-| `nevada` | — | — | — | `usas` | 2026-09-06T10:22:05.000Z | ⛔ **NOT PUBLISHED** |
-| `newhampshire` | — | — | — | `usas` | 2026-09-06T10:22:05.000Z | ⛔ **NOT PUBLISHED** |
-| `newjersey` | — | — | — | `usas` | 2026-09-06T10:22:06.000Z | ⛔ **NOT PUBLISHED** |
-| `newmexico` | — | — | — | `usas` | 2026-09-06T10:22:06.000Z | ⛔ **NOT PUBLISHED** |
-| `newyork` | 2026-09-05T13:19:26.254Z | `c7d1ebe6` | `us_open` | `us_open` | 2026-09-06T10:22:06.000Z | ⚠ **STALE — re-bake needed** |
-| `northcarolina` | — | — | — | `usas` | 2026-09-06T10:22:06.000Z | ⛔ **NOT PUBLISHED** |
-| `northdakota` | — | — | — | `usas` | 2026-09-06T10:22:07.000Z | ⛔ **NOT PUBLISHED** |
-| `ohio` | — | — | — | `usas` | 2026-09-06T10:22:07.000Z | ⛔ **NOT PUBLISHED** |
-| `oklahoma` | — | — | — | `usas` | 2026-09-06T10:22:07.000Z | ⛔ **NOT PUBLISHED** |
-| `oregon` | — | — | — | `usas` | 2026-09-06T10:22:07.000Z | ⛔ **NOT PUBLISHED** |
-| `pennsylvania` | — | — | — | `usas` | 2026-09-06T10:22:08.000Z | ⛔ **NOT PUBLISHED** |
-| `puertoricousa` | — | — | — | `usas` | 2026-09-06T10:22:08.000Z | ⛔ **NOT PUBLISHED** |
-| `rhodeisland` | — | — | — | `usas` | 2026-09-06T10:22:08.000Z | ⛔ **NOT PUBLISHED** |
-| `southcarolina` | — | — | — | `usas` | 2026-09-06T10:22:09.000Z | ⛔ **NOT PUBLISHED** |
-| `southdakota` | — | — | — | `usas` | 2026-09-06T10:22:09.000Z | ⛔ **NOT PUBLISHED** |
-| `tennessee` | — | — | — | `usas` | 2026-09-06T10:22:10.000Z | ⛔ **NOT PUBLISHED** |
-| `texas` | — | — | — | `usas` | 2026-09-06T10:22:10.000Z | ⛔ **NOT PUBLISHED** |
+| `arizona` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `arkansas` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `california` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `colorado` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `connecticut` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `delaware` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `districtofcolumbia` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `florida` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `georgia` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `hawaii` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `idaho` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `illinois` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `indiana` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `iowa` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `kansas` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `kentucky` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `louisiana` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `maine` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `maryland` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `massachusetts` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `michigan` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `minnesota` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `mississippi` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `missouri` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `montana` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `nebraska` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `nevada` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `newhampshire` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `newjersey` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `newmexico` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `newyork` | 2026-09-05T13:19:26.254Z | `c7d1ebe6` | `us_open` | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **JOIN DRIFT** — live tiles carry a different join |
+| `northcarolina` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `northdakota` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `ohio` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `oklahoma` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `oregon` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `pennsylvania` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `puertoricousa` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `rhodeisland` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `southcarolina` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `southdakota` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `tennessee` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `texas` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
 | `usvirginislands` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
-| `utah` | — | — | — | `usas` | 2026-09-06T10:22:10.000Z | ⛔ **NOT PUBLISHED** |
-| `vermont` | — | — | — | `usas` | 2026-09-06T10:22:11.000Z | ⛔ **NOT PUBLISHED** |
-| `virginia` | — | — | — | `usas` | 2026-09-06T10:22:11.000Z | ⛔ **NOT PUBLISHED** |
-| `washington` | — | — | — | `usas` | 2026-09-06T10:22:11.000Z | ⛔ **NOT PUBLISHED** |
-| `westvirginia` | — | — | — | `usas` | 2026-09-06T10:22:12.000Z | ⛔ **NOT PUBLISHED** |
-| `wisconsin` | — | — | — | `usas` | 2026-09-06T10:22:12.000Z | ⛔ **NOT PUBLISHED** |
-| `wyoming` | — | — | — | `usas` | 2026-09-06T10:22:13.000Z | ⛔ **NOT PUBLISHED** |
+| `utah` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `vermont` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `virginia` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `washington` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `westvirginia` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `wisconsin` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
+| `wyoming` | — | — | — | `usas` | 2026-09-06T12:07:56.000Z | ⛔ **NOT PUBLISHED** |
 | `mexico` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `ontario` | — | — | — | `ca_open` | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `quebec` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
@@ -463,7 +463,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `israel` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `jordan` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `lebanon` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
-| `japan` | — | — | — | `plateau_jp` | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
+| `japan` | — | — | — | `plateau_jp` | 2026-09-06T11:32:31.000Z | ⛔ **NOT PUBLISHED** |
 
 ## §3c · Orphans — regions on R2 that the code no longer has
 
@@ -501,7 +501,6 @@ quietly stop existing. Named here so the disappearance is a decision, not a surp
 | `be_dhmv` | `BE_CITY_BBOXES` | **CITY LIST (5)** | antwerp ghent brussels leuven bruges | `grb_be` | live | tagged |
 | `gurs_si` | `SI_CITY_BBOXES` | **CITY LIST (5)** | ljubljana maribor celje kranj koper | `gurs_si` | documented | tagged |
 | `usas` | `US_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | conus alaska hawaii puertoricousa | `usas_national` | live | tagged |
-| `us_open` | `US_OPEN_CITY_BBOXES` | **CITY LIST (3)** | newyork sanfrancisco boston | — | — | — |
 | `ca_open` | `CA_OPEN_CITY_BBOXES` | **CITY LIST (2)** | vancouver toronto | `ca_open_elem` | live | tagged |
 | `au_open` | `AU_OPEN_CITY_BBOXES` | **CITY LIST (1)** | melbourne | `au_open_lod1` | live | tagged |
 | `ad_ndsm` | `AD_CITY_BBOXES` | **CITY LIST (1)** | abudhabi-core | `adsdi_ndsm_ae` | documented | tagged |
@@ -592,6 +591,11 @@ row that is declared-but-unrouted cannot read as covered.
 | `US-VA` | United States (Virginia · 94 counties + 38 cities) | `us-va-vgin-parcels` | **cadastral** | `/api/parcel/us-va` | ✅ yes |
 | `US-CA-LA` | United States (Los Angeles County, CA) | `us-ca-la-county-parcels` | **cadastral** | `/api/parcel/us-ca-la` | ✅ yes |
 | `US-AZ-MARICOPA` | United States (Maricopa County, AZ · Phoenix metro) | `us-az-maricopa-parcels` | **cadastral** | `/api/parcel/us-az-maricopa` | ✅ yes |
+| `US-NJ` | United States (New Jersey · statewide) | `us-nj-njgin-modiv-composite` | **cadastral** | `/api/parcel/us-nj` | ✅ yes |
+| `US-VT` | United States (Vermont · statewide) | `us-vt-vcgi-standardized-parcels` | **cadastral** | `/api/parcel/us-vt` | ✅ yes |
+| `US-CT` | United States (Connecticut · statewide) | `us-ct-ctgis-cama-parcels` | **cadastral** | `/api/parcel/us-ct` | ✅ yes |
+| `US-IN` | United States (Indiana · statewide) | `us-in-indianamap-parcels` | **cadastral** | `/api/parcel/us-in` | ✅ yes |
+| `US-MD` | United States (Maryland · statewide) | `us-md-sdat-parcel-boundaries` | **cadastral** | `/api/parcel/us-md` | ✅ yes |
 | `AU-ACT` | Australia (Australian Capital Territory) | `au-act-actmapi-blocks` | **cadastral** | `/api/parcel/au-act` | ✅ yes |
 | `AU-TAS` | Australia (Tasmania) | `au-tas-thelist-cadastre` | **cadastral** | `/api/parcel/au-tas` | ✅ yes |
 | `AU-VIC` | Australia (Victoria) | `au-vic-vicmap-cadastre` | **cadastral** | `/api/parcel/au-vic` | ✅ yes |
