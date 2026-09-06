@@ -78,6 +78,15 @@ import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeig
 // that arms the `germany` row — the koln-only lod2nrw join above stays as the NRW reference implementation.
 import { stampDeLod2LaenderHeightsOnGeojsonseq } from './heights/deLod2LaenderStamp.mjs';
 import { DE_LOD2_CITY_BBOXES } from './heights/deLod2Laender.mjs';
+// §FR-BDTOPO-FOOTPRINTS (L-12940) — the FOOTPRINT half of the French national context. It is a
+// DIFFERENT KIND of source from every import above: those stamp a real height onto bake's OWN OSM
+// footprints, this one REPLACES the footprints. The founder's two French complaints split exactly
+// along that line — Sete "not true height" is a stamp problem (mnh_fr, already wired), and
+// Jouy-en-Josas "not true size / not true shape" is a GEOMETRY problem no stamp can reach (that
+// parcel is, additionally, inside no MNH stamp bbox at all). Probes, the WFS-vs-GeoParquet split and
+// the LiDAR cross-check of `hauteur` live in the module header; __tests__/frBdtopo.spec.ts pins the
+// decisions and __tests__/frBdtopoWiring.spec.ts pins this wiring.
+import { FR_BDTOPO, FR_BDTOPO_CITY_BBOXES, footprintsModeFromArgv, mergeReplaceInBbox, writeBdtopoWorkingSet } from './footprints/frBdtopo.mjs';
 // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — the sea as closed POLYGONS from the osmdata water-polygons
 // product (osmcoastline output of the planet coastline, ODbL), clipped per region in ONE streaming pass.
 // seaPolygons.mjs's header carries the why: coastline LINES in the water layer reach the client as tile-clipped
@@ -302,7 +311,17 @@ const ALL_REGIONS = [
   // regions from tileset-manifest.json, which the merge's no-loss gate refuses unless the publish
   // passes `allow_region_removal: paris,lyon` — an orchestrator decision, not a lane's. Until then
   // those two bboxes double-bake (identical type_ids; client near-cap thins twins).
-  { name: 'france',     pbfUrl: 'https://download.geofabrik.de/europe/france-latest.osm.pbf',                         pbf: resolve(OUT, 'france-latest.osm.pbf'),                 bbox: '-5.15,41.30,9.60,51.10',   clipped: resolve(OUT, 'clip-france.osm.pbf'), heightJoin: 'mnh_fr' },
+  { name: 'france',     pbfUrl: 'https://download.geofabrik.de/europe/france-latest.osm.pbf',                         pbf: resolve(OUT, 'france-latest.osm.pbf'),                 bbox: '-5.15,41.30,9.60,51.10',   clipped: resolve(OUT, 'clip-france.osm.pbf'), heightJoin: 'mnh_fr',
+    // §FR-BDTOPO-FOOTPRINTS (L-12940) — under `--footprints official`, IGN BD TOPO's own
+    // photogrammetric outlines replace the OSM ones inside the working set below, carrying IGN's
+    // measured `hauteur` with them. Absent that flag this row bakes EXACTLY as it did before.
+    footprintSource: 'fr_bdtopo',
+    footprintMerge: 'replace-in-bbox',
+    // §FOOTPRINT-BUDGET — declared on the ROW, not derived, because a whole-France pull is 49.9 M
+    // buildings / ~9,990 WFS pages / ~73 GB and cannot finish in a 180-minute job. This list is the
+    // 13 MNH_FR_CITY_BBOXES cities (so footprints and heights cover the SAME ground) PLUS
+    // jouy-en-josas, the founder's site, which is in no height working set at all.
+    footprintBboxes: FR_BDTOPO_CITY_BBOXES.map((c) => c.bbox) },
   // ASSESS IT — NATIONAL-NOW (mass-only): no national open building-height product exists
   // (Piedmont-only regional layer; EUBUCCO/GBA excluded as authoritative per the E5 verdicts).
   // Replaces the rome+milan city rows (Copenhagen dedup). Incl. Sicily + Sardinia.
@@ -997,6 +1016,101 @@ function overtureBuildingsCmd(region, geoAbs) {
 // §3), a FULL national source REPLACES the OSM clip (no double-draw at 9 m + real height); a PARTIAL
 // source APPENDS. Anything other than an `ok` national result keeps the OSM/Overture footprints at the
 // honest `assumed` default — never a fabricated height. Never throws; a source failure degrades to OSM.
+// ─────────────────────────────────────────────────────────────────────────────
+// §FOOTPRINT-SOURCE (L-12940) — the shared driver for a region row's `footprintSource`.
+//
+// A national FOOTPRINT source is not a national HEIGHT source and this file must not treat them as
+// one. `heightJoin` keeps bake's OSM geometry and adds a measured `height` to it; `footprintSource`
+// REPLACES the geometry with the national mapping agency's own. Only the second can answer "the
+// buildings are not true size / not true shape" (L-12940, Jouy-en-Josas; L-12939, Cordoba).
+//
+// ONE DRIVER, ONE TABLE. footprints/footprintMerge.mjs documents the return shape both countries'
+// writers produce, precisely so ES and FR cannot drift into private branches. Adding a country is
+// adding a row here; it is never adding a code path.
+//
+// ⚠ `footprintMerge` HAS TO BE `replace-in-bbox`, and the two simpler modes are both WRONG:
+//   • `replace`  — swaps the whole-country OSM clip for the covered cities and DELETES the rest of
+//                  the country. The §BDTOPO-CAP-TRUNCATE lesson: completeness loss beats a missing
+//                  attribute every time. (For Spain it would also delete the Basque Country and
+//                  Navarra outright, which Catastro does not publish at all.)
+//   • `append`   — draws every covered building TWICE, the register's true outline z-fighting with
+//                  OSM's approximate one. That is the reported defect made worse, not better.
+//
+// ORDER: this runs AFTER pushBuildingsWithNationalHeights, on whatever file that pushed. The height
+// join keeps working exactly as it does today, and inside the covered bboxes BD TOPO's own `hauteur`
+// — cross-checked against the LiDAR MNH raster to a median |delta| of 0.73 m over the founder's two
+// parcels — takes over, carrying `pryzm:height_src=measured-lidar` so the §MEASURED-HEIGHT-GATE
+// still counts it.
+//
+// A FAILURE HERE IS NEVER SILENT AND NEVER FABRICATES: any status other than a real write leaves the
+// height-joined file exactly as it was and says so BY NAME (§CONTEXT-DATA-HONESTY — an empty result
+// and a refused endpoint are different values).
+// ─────────────────────────────────────────────────────────────────────────────
+// §OFFICIAL-FOOTPRINTS — resolved by frBdtopo.mjs so this lane adds no second `--footprints` parser.
+// Default 'osm' = the path every run has always taken, byte-identical: the table is never entered.
+const FR_FOOTPRINTS_MODE = footprintsModeFromArgv(args);
+
+const FOOTPRINT_SOURCES = {
+  fr_bdtopo: {
+    label: 'IGN BD TOPO® batiment (Licence Ouverte)',
+    defaultBboxes: () => FR_BDTOPO_CITY_BBOXES.map((c) => c.bbox),
+    attribution: FR_BDTOPO.attribution,
+    write: (outPath, bboxes, onArea) => writeBdtopoWorkingSet(outPath, bboxes, { onArea }),
+  },
+};
+const footprintOutcomes = [];
+
+async function applyNationalFootprints(r, geos) {
+  if (FR_FOOTPRINTS_MODE !== 'official') return;
+  const spec = FOOTPRINT_SOURCES[r.footprintSource];
+  if (!spec) return;
+  if (r.footprintMerge !== 'replace-in-bbox') {
+    console.warn(`\n▶ national footprints · ${r.name}: unsupported footprintMerge "${r.footprintMerge}" — skipped (keeps the height-joined file)`);
+    return;
+  }
+  const bboxes = Array.isArray(r.footprintBboxes) && r.footprintBboxes.length ? r.footprintBboxes : spec.defaultBboxes();
+  const baseGeo = geos[geos.length - 1];
+  if (DRY) {
+    console.log(`\n▶ national footprints · ${r.name}: ${spec.label} would REPLACE OSM footprints inside ${bboxes.length} bbox(es) (skipped in --dry-run)`);
+    return;
+  }
+  const fpSeq = resolve(OUT, `${r.name}-buildings-${r.footprintSource}.geojsonseq`);
+  const merged = resolve(OUT, `${r.name}-buildings-footprints.geojsonseq`);
+  let res;
+  try {
+    res = await spec.write(fpSeq, bboxes, (name, area) => {
+      console.log(`  · ${r.footprintSource} · ${name}: ${area.status} — ${area.kept} kept `
+        + `(${area.measured} measured / ${area.floorsDerived} floors×3.0 / ${area.unknown} unknown), `
+        + `${area.dropped ?? 0} dropped, ${area.cellsFailed}/${area.cells} cell(s) failed`);
+    });
+  } catch (e) {
+    res = { status: 'error', reason: String(e?.message ?? e) };
+  }
+  if (res.status === 'error' || !res.written) {
+    footprintOutcomes.push({ region: r.name, source: r.footprintSource, status: 'error', reason: res.reason ?? 'no footprints written' });
+    console.warn(`\n▶ national footprints · ${r.name}: ${spec.label} FAILED — ${res.reason ?? 'no footprints written'} (keeps the height-joined footprints)`);
+    return;
+  }
+  const mres = mergeReplaceInBbox(baseGeo, merged, bboxes, null, { seqPath: fpSeq });
+  if (mres.status !== 'ok') {
+    footprintOutcomes.push({ region: r.name, source: r.footprintSource, status: 'error', reason: mres.reason });
+    console.warn(`\n▶ national footprints · ${r.name}: merge FAILED — ${mres.reason} (keeps the height-joined footprints)`);
+    return;
+  }
+  footprintOutcomes.push({
+    region: r.name, source: r.footprintSource, status: res.status,
+    written: res.written, measured: res.measured, floorsDerived: res.floorsDerived, unknown: res.unknown,
+    osmDropped: mres.osmDropped, osmKept: mres.osmKept, cellsFailed: res.cellsFailed,
+    areas: (res.areas ?? []).map((a) => `${a.area}:${a.kept}`).join(' '),
+  });
+  geos[geos.length - 1] = merged;
+  console.log(`\n▶ national footprints · ${r.name}: ${spec.label} — ${mres.bdtopoWritten} footprint(s) `
+    + `(${res.measured} measured / ${res.floorsDerived} floors×3.0 / ${res.unknown} unknown) REPLACED `
+    + `${mres.osmDropped} OSM footprint(s) inside ${bboxes.length} bbox(es); ${mres.osmKept} OSM footprint(s) outside kept. `
+    + `${res.status === 'partial' ? `⚠ ${res.cellsFailed} cell(s) failed — those areas are HOLES, not empty. ` : ''}`
+    + `Attribution: ${spec.attribution}`);
+}
+
 async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
   if (DRY) {
     const how = r.heightJoin ? `stamp ${r.heightJoin.toUpperCase()} heights onto OSM footprints` : `resolveHeights(${r.name})`;
@@ -1399,6 +1513,9 @@ async function main() {
       // dedup policy); every other layer (roads/water/parks) is pushed unchanged.
       if (l.id === 'buildings') {
         await pushBuildingsWithNationalHeights(r, geo, geos);
+        // §FOOTPRINT-SOURCE (L-12940) — under `--footprints official`, replace OSM geometry with the
+        // national register's own inside the covered bboxes. No-op for every other region and run.
+        await applyNationalFootprints(r, geos);
       } else {
         geos.push(geo);
       }

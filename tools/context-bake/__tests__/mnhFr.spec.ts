@@ -206,9 +206,22 @@ describe('§HEIGHTS-FR-SOLID — bake.mjs wires the mnh_fr stamp for the `france
     });
 
     it('the `france` region row declares heightJoin:\'mnh_fr\' (the key heightSources.mjs REGION_SOURCE names)', () => {
-        const row = bake.match(/\{\s*name:\s*'france'\s*,[^\n]*\}/);
-        expect(row, 'france row').not.toBeNull();
-        expect(row![0]).toMatch(/heightJoin:\s*'mnh_fr'/);
+        // ⚠ BRACE-MATCHED, not `/\{\s*name:\s*'france'\s*,[^\n]*\}/` — that one-line regex was here
+        // until 2026-09-06 and went RED the moment §FR-BDTOPO-FOOTPRINTS (L-12940) added a
+        // `footprintSource` to this row and made it multi-line. It failed with "expected null not to
+        // be null", which reads as "france has no heightJoin" — the WRONG alarm, about a fact that
+        // had not changed. A row-shape assumption in a test that has nothing to do with row shape is
+        // a tripwire pointed at its own foot; depth counting is indifferent to formatting.
+        const start = bake.indexOf("{ name: 'france',");
+        expect(start, 'france row').toBeGreaterThan(-1);
+        let depth = 0;
+        let row = '';
+        for (let i = start; i < bake.length; i++) {
+            if (bake[i] === '{') depth++;
+            else if (bake[i] === '}' && --depth === 0) { row = bake.slice(start, i + 1); break; }
+        }
+        expect(row, 'france row is brace-balanced').not.toBe('');
+        expect(row).toMatch(/heightJoin:\s*'mnh_fr'/);
     });
 
     it('stampBboxesFor bounds the national join to MNH_FR_CITY_BBOXES (§HEIGHT-STAMP-BUDGET preflight)', () => {
