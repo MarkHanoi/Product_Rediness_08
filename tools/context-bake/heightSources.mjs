@@ -38,7 +38,10 @@
 //   node heightSources.mjs --probe 3dbag     # probe one source
 //   node heightSources.mjs --resolve paris   # fetch one region's heights → out/<region>-buildings-national.geojsonseq
 // ─────────────────────────────────────────────────────────────────────────────
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+// §MDS-NATIONAL-SWEEP (L-12946) — `openSync/readSync/writeSync/closeSync/unlinkSync` are the
+// swathe driver's file plumbing: the leftover pass-through file is concatenated into the output in
+// 8 MB chunks (never through a JS string), and the two alternating scratch files are removed.
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 
 // §SEQ-WRITE-STREAMED (L-12937, 2026-09-05) — France's mnh_fr join died 4 h in with `RangeError: Invalid
 // string length`: the stamped set (every OSM footprint in 144.6 deg², ~20 M features) was serialised as
@@ -75,6 +78,19 @@ import { SWISS_NDSM, SWISS_CITY_BBOXES, lv95TileKey, lv95TileBbox, parseStacColl
 // open-footprint-heights stamp (adapter table, export URL, component parser, the height rule, the
 // working set); this file keeps the network/stream half (`stampAuOpenHeightsOnGeojsonseq`).
 import { AU_OPEN_HEIGHTS, AU_OPEN_CITY_BBOXES, AU_OPEN_HEIGHTS_ASSESSED, auOpenExportUrl, auOpenHeightForFootprint, auOpenJurisdictionForPoint, odsComponents, parseOdsGeojson } from './heights/auOpenHeights.mjs';
+// §MDS-NATIONAL-TILING (L-12946, 2026-09-06, lane ES-WHOLE-COUNTRY-HEIGHTS) — the PURE half of the
+// WHOLE-COUNTRY Spanish height sweep: the measured WCS ceiling (MAXSIZE=4096, probed at three
+// latitudes), the rectangular tile it implies, the bounded-heap swathe plan, the deterministic sweep
+// order and the resume cursor. Same split, same reason: vitest can import THAT file, not this one.
+import {
+  MDS_NATIONAL_BBOX, MDS_NATIONAL_BBOXES, MDS_TILE_LAT_DEG, MDS_TILE_LON_DEG, MDS_SWATHE_ROWS,
+  MDS_SWEEP_CONCURRENCY, MDS_MAX_SPAN_LAT_DEG, MDS_MAX_SPAN_LON_DEG,
+  mdsTileGrid, mdsCellBbox, mdsCellKm2, mdsNationalSwathes, sweepOrder, sweepBatches, formatSweepSummary,
+} from './heights/mdsNational.mjs';
+export {
+  MDS_NATIONAL_BBOX, MDS_NATIONAL_BBOXES, MDS_TILE_LAT_DEG, MDS_TILE_LON_DEG, MDS_SWATHE_ROWS,
+  MDS_SWEEP_CONCURRENCY, MDS_MAX_SPAN_LAT_DEG, MDS_MAX_SPAN_LON_DEG,
+};
 export { MNH_FR, MNH_FR_CITY_BBOXES, SWISS_NDSM, SWISS_CITY_BBOXES, AU_OPEN_HEIGHTS, AU_OPEN_CITY_BBOXES, AU_OPEN_HEIGHTS_ASSESSED };
 // §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — the Dutch stamp lives in heights/nl3dbagStamp.mjs (imported by bake.mjs
 // directly, not through this file) and reuses the shared join helpers below via this ONE export line.
@@ -187,8 +203,12 @@ export const SOURCES = {
       '~17 m — locally distinct, low-rise Córdoba correctly lower. Footprints with no clean MDS sample keep ' +
       'Catastro floors (derived-levels) or the OSM assumed default — never a fabricated height. ⚠ The ' +
       'whole-country `spain` bbox is refused per-tile (Catastro has no single whole-country query) → ' +
-      '`documented` (keeps OSM); a CITY bbox resolves exactly. Whole-country in one pass needs the OSM-' +
-      'footprint join in bake.mjs (stamp MDS onto bake\'s own OSM clip) or the INSPIRE ATOM bulk — named follow-up.',
+      '`documented` (keeps OSM); a CITY bbox resolves exactly. ⭐ WHOLE-COUNTRY IS BUILT (L-12946, ' +
+      '2026-09-06): the OSM-footprint join stampMdsHeightsOnGeojsonseq now retains the WHOLE `spain` ' +
+      'bbox (MDS_NATIONAL_BBOXES) and bounds its heap with swathe passes, so any Spanish town OSM has ' +
+      'mapped is reachable — MDS_CITY_BBOXES is a PRIORITY ORDER only. Measured service ceiling: ' +
+      'MAXSIZE=4096 px/axis, 0.095° served / 0.100° refused at 36.0 N, 39.0 N and 43.5 N alike ' +
+      '(heights/mdsNational.mjs records every exact HTTP answer).',
     coverage: 'full',
   },
   swissbuildings3d: {
@@ -790,16 +810,63 @@ export const MDS_CITY_BBOXES = [
   { city: 'zaragoza',  refcat: '50297', bbox: [-0.9591, 41.5888, -0.80, 41.7088], baked: false },  // was w=-0.95, s=41.60, n=41.70
   { city: 'bilbao',    refcat: '48020', bbox: [-3.005, 43.203, -2.865, 43.323],   baked: false },  // was short on ALL FOUR sides
   // §MURCIA-HEIGHT-STAMP-GAP — Murcia was MISSING from this list while being one of the five Spanish
-  // cities under active close-out, and the omission was SILENT: this list is BOTH the `priorityBboxes`
-  // (stamped first) AND the `retainBboxes` working set (bake.mjs stampBboxesFor → §HEIGHT-STAMP-BUDGET,
-  // L-659). A city absent from it is not merely de-prioritised — its footprints stream straight through
-  // the join with their ORIGINAL OSM tags and can NEVER be stamped, so Murcia would have measured
+  // cities under active close-out, and the omission was SILENT: this list USED TO BE both the
+  // `priorityBboxes` (stamped first) AND the `retainBboxes` working set (bake.mjs stampBboxesFor →
+  // §HEIGHT-STAMP-BUDGET, L-659). ⚠ The second half of that is NO LONGER TRUE — see
+  // §MDS-LIST-IS-PRIORITY-ONLY below; the retain set is now the whole country (L-12946). At the time,
+  // a city absent from it was not merely de-prioritised — its footprints streamed straight through
+  // the join with their ORIGINAL OSM tags and could NEVER be stamped, so Murcia would have measured
   // ZERO heights after a re-bake while the bake reported a green §MEASURED-HEIGHT-GATE for `spain`.
   // Its own dossier named the gap ("confirm/add the per-city MDS join" — es-mc/30030-murcia/HEIGHT.md).
   // bbox = the canonical `terrain.mjs` REGIONS `murcia` row, NOT re-invented (0.14°×0.12°, well under
   // the 0.7° whole-country refusal guard in fetchSpainBuildingHeights).
   { city: 'murcia',    refcat: '30030', bbox: [-1.2007, 37.9322, -1.0607, 38.0522], baked: false }, // PHASE-4
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §MDS-LIST-IS-PRIORITY-ONLY (L-12946, 2026-09-06, lane ES-WHOLE-COUNTRY-HEIGHTS)
+//
+// ⚠ READ THIS BEFORE TRUSTING THE PARAGRAPHS ABOVE. `MDS_CITY_BBOXES` is no longer the height join's
+// RETAIN SET. It was, and that was the defect: the list was simultaneously the priority order and
+// the only ground in Spain that could ever be measured, so Ciudad Real, Toledo, Alicante, Granada,
+// Valladolid, Vigo, Gijón, A Coruña, Pamplona, Santander, Salamanca and every town and village were
+// STRUCTURALLY unreachable — silently, because an unstamped footprint reports an honest `assumed`
+// 9 m that is indistinguishable on the map from "the source has no data here". Founder, 2026-09-06,
+// at Ciudad Real: "still a big Spanish city, but the buildings don't have real baked heights."
+//
+// `bake.mjs stampBboxesFor('mds')` now returns MDS_NATIONAL_BBOXES — the whole `spain` bbox — and
+// the join bounds its HEAP with swathe passes instead of with a city list (heights/mdsNational.mjs
+// §MDS-SWATHE). This list survives for TWO jobs, both real, neither of them "where heights exist":
+//
+//   1. PRIORITY ORDER for the height sweep. These nine are stamped FIRST and UNCAPPED, so a run
+//      truncated by the wall-clock budget still helps the most users. Order is load-bearing.
+//   2. The OFFICIAL-FOOTPRINT working set. `bake.mjs FOOTPRINT_SOURCES.es_catastro.defaultBboxes`
+//      reads THIS list, and its cost is completely different in kind: Córdoba's municipality ZIP
+//      alone inflates to 597 MB of GML and parses in ~250 s (§FOOTPRINT-BUDGET, L-12939). A row
+//      added here therefore adds a Catastro municipality pull to every `--footprints official` run.
+//
+// That is why the two founder-named gate cities are in MDS_PRIORITY_EXTRA below and NOT in the list
+// above: they must be stamped first (a CI gate now requires it), and they must NOT silently add
+// ~8 minutes of Catastro GML parsing to the official-footprint path. Heights and footprints no
+// longer have to cover the same ground, and they no longer do — but ONLY in the safe direction:
+// the height sweep now reaches everywhere OSM has a footprint, which is a superset of the Catastro
+// working set, never a subset. (§MDS-BBOX-MUST-COVER-THE-REGION is preserved and strengthened —
+// mdsNational.spec.ts pins that the national retain bbox contains every row above.)
+export const MDS_PRIORITY_EXTRA = [
+  // §L-12946 — the founder's 2026-09-06 test city, and the second gate city beside it. Not metros;
+  // listed because they are where the product was judged and where the CI gate now measures
+  // (.github/workflows/context-bake.yml CITIES: `ciudadreal spain 38.9861,-3.9271` /
+  // `toledo spain 39.8628,-4.0273`). The same reasoning as `sete` in MNH_FR_CITY_BBOXES.
+  // bbox = a tight metro-core extent centred on the municipality centroid, ≈0.11°×0.09°, i.e. ONE
+  // national tile each — the priority guarantee costs ~2 raster fetches, not a budget line.
+  { city: 'ciudadreal', refcat: '13034', bbox: [-3.98, 38.94, -3.87, 39.03] },
+  { city: 'toledo',     refcat: '45168', bbox: [-4.08, 39.82, -3.97, 39.91] },
+];
+
+/** The height sweep's PRIORITY ORDER: the nine metros first (unchanged order — a truncated run must
+ *  still help the most users), then the founder-named gate cities. NOT a retain set, NOT the
+ *  Catastro footprint working set. */
+export const MDS_PRIORITY_BBOXES = [...MDS_CITY_BBOXES, ...MDS_PRIORITY_EXTRA];
 
 // §JOIN-BOUNDED-WORKING-SET (L-659) — the DK analogue of MDS_CITY_BBOXES, and NOT optional.
 //
@@ -1995,36 +2062,205 @@ function bucketRecords(records, cellOf) {
   return buckets;
 }
 
+/** Append `src`'s bytes to the file at `destPath` in 8 MB chunks — never through a JS string, so a
+ *  multi-GB leftover file costs a fixed 8 MB of buffer instead of the heap the whole point of the
+ *  swathe passes was to avoid. */
+function appendFileInto(srcPath, destPath) {
+  if (!existsSync(srcPath)) return 0;
+  const fdIn = openSync(srcPath, 'r');
+  const fdOut = openSync(destPath, 'a');
+  const buf = Buffer.allocUnsafe(8 << 20);
+  let total = 0;
+  try {
+    for (;;) {
+      const n = readSync(fdIn, buf, 0, buf.length, null);
+      if (n <= 0) break;
+      writeSync(fdOut, buf, 0, n);
+      total += n;
+    }
+  } finally {
+    try { closeSync(fdIn); } catch { /* already closed */ }
+    try { closeSync(fdOut); } catch { /* already closed */ }
+  }
+  return total;
+}
+
+/** Append retained (stamped or not) features in bounded chunks. `records.map(...).join('\n')` builds
+ *  ONE string as large as the whole band — a second copy of the working set at the exact moment the
+ *  band is at peak heap. Chunking keeps the spike at ~25k features. */
+function appendRetained(destPath, records, chunk = 25_000) {
+  for (let i = 0; i < records.length; i += chunk) {
+    appendFileSync(destPath, records.slice(i, i + chunk).map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  }
+}
+
+/**
+ * ONE bounded-heap pass of the MDS join.
+ *
+ * Streams `inPath`; HOLDS only the footprints whose centroid falls in `areas`; stamps the cells the
+ * shared `budget` allows; appends EVERY held footprint (stamped or not) to `retainedOutPath`; and
+ * writes every other record straight to `passThroughPath` as raw bytes, untouched. Peak heap tracks
+ * `areas`, never the region.
+ *
+ * §CONTEXT-DATA-HONESTY — a held-but-unstamped footprint and a passed-through footprint end in the
+ * SAME honest state: their ORIGINAL OSM tags. Nothing is fabricated, nothing is dropped, and every
+ * input record leaves in exactly one of the two files.
+ */
+async function mdsStampPass({
+  inPath, passThroughPath, retainedOutPath, grid, areas, priorityBboxes = [], budget, gt,
+  timeoutMs, padDeg, erodeM, percentile, minSamples, sampleStepM, heights, concurrency, label,
+}) {
+  mkdirSync(dirname(passThroughPath), { recursive: true });
+  const load = loadJoinFootprintsBounded(inPath, passThroughPath, (feat) => {
+    const fp = footprintFromFeature(feat);
+    if (!fp) return null;
+    if (!inAnyArea(fp.clon, fp.clat, areas)) return null;
+    return { feat, ...fp };
+  }, label);
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
+  const records = load.retained;
+  const read = load.read;
+  const buckets = bucketRecords(records, (r) => [grid.cellIx(r.clon), grid.cellIy(r.clat)]);
+  const out = {
+    status: 'ok', read, retained: records.length, passedThrough: read.passedThrough,
+    populatedCells: buckets.size, cellsStamped: 0, cellsFailed: 0, cellsSkipped: 0,
+    km2Stamped: 0, km2Failed: 0, km2Skipped: 0,
+    tilesProcessed: 0, priorityTiles: 0, tileErrors: 0, measured: 0,
+    sweepAborted: false, sweepAbortReason: null,
+    peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
+  };
+  const doneCells = new Set();
+
+  /** Fetch ONE cell's raster and stamp its footprints. Never throws for a source failure — a raster
+   *  error leaves that cell's footprints at their honest OSM default and is COUNTED, not hidden. */
+  const stampCell = async (ix, iy) => {
+    const key = `${ix},${iy}`;
+    if (doneCells.has(key)) return;
+    const inTile = buckets.get(key);
+    if (!inTile || inTile.length === 0) return;
+    doneCells.add(key);
+    const [tw, ts, te, tn] = mdsCellBbox(grid, ix, iy);
+    const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
+    const rr = await httpGetBuffer(mdsCoverageUrl(rbox), { timeoutMs });
+    if (!rr.ok || !/tiff/i.test(rr.ct)) { out.tileErrors++; out.cellsFailed++; out.km2Failed += mdsCellKm2(grid, ix, iy); return; }
+    let mds;
+    try { mds = await readDhmRaster(rr.ab, gt); }
+    catch { out.tileErrors++; out.cellsFailed++; out.km2Failed += mdsCellKm2(grid, ix, iy); return; }
+    for (const r of inTile) {
+      const h = mdsHeightForBuilding(r.ext, r.interiors, mds, { erodeM, percentile, minSamples, sampleStepM });
+      if (h) {
+        r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'mds_edificacion', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
+        heights.push(h.height);
+        out.measured++;
+      }
+    }
+    out.tilesProcessed++;
+    budget.tilesUsed++;
+    out.cellsStamped++;
+    out.km2Stamped += mdsCellKm2(grid, ix, iy);
+  };
+
+  try {
+    // §PHASE-4 / §PRIORITY-FIRST — the priority bboxes are stamped FIRST and are NOT subject to
+    // `maxTiles`, so the metros (and the two founder-named gate cities) are GUARANTEED measured
+    // heights on every run, however early the national sweep is truncated. They DO respect the wall
+    // -clock deadline, because a job that dies at 330 minutes publishes nothing at all — and a
+    // deadline reached inside the priority phase is reported under its own loud name.
+    for (const pb of priorityBboxes) {
+      if (!Array.isArray(pb) || pb.length !== 4) continue;
+      const [pw, ps, pe, pn] = pb;
+      const before = out.tilesProcessed;
+      const cells = [];
+      for (let iy = grid.cellIy(ps); iy <= grid.cellIy(pn); iy++) {
+        for (let ix = grid.cellIx(pw); ix <= grid.cellIx(pe); ix++) cells.push({ ix, iy });
+      }
+      for (const batch of sweepBatches(cells, concurrency)) {
+        if (Date.now() > budget.deadlineAt) { budget.stopReason ??= 'time-budget-in-priority'; break; }
+        await Promise.all(batch.map((c) => stampCell(c.ix, c.iy)));
+      }
+      out.priorityTiles += out.tilesProcessed - before;
+      if (budget.stopReason) break;
+    }
+
+    // §NATIONAL-SWEEP — only POPULATED cells, in a DETERMINISTIC numeric order (row-major
+    // south→north), resumable from `budget.nextCursor`. Issued in ordered batches so a truncation
+    // point is an exact cell ord, not "somewhere in a set of concurrent requests".
+    const rest = sweepOrder([...buckets.keys()].filter((k) => !doneCells.has(k)), grid, budget.nextCursor);
+    for (const batch of sweepBatches(rest, concurrency)) {
+      if (budget.tilesUsed >= budget.maxTiles) budget.stopReason ??= 'tile-cap';
+      else if (Date.now() > budget.deadlineAt) budget.stopReason ??= 'time-budget';
+      if (budget.stopReason) { budget.nextCursor = batch[0].ord; break; }
+      await Promise.all(batch.map((c) => stampCell(c.ix, c.iy)));
+      budget.nextCursor = batch[batch.length - 1].ord + 1;
+      if (out.tilesProcessed % 50 < concurrency) {
+        const mins = ((Date.now() - budget.startedAt) / 60000).toFixed(1);
+        console.log(`    · MDS sweep ${label}: ${budget.tilesUsed} cell(s) / ${Math.round(out.km2Stamped)} km² stamped, ` +
+          `${out.tileErrors} raster error(s), ${mins} min elapsed, cursor ${budget.nextCursor}`);
+      }
+    }
+    // Populated cells this pass never reached — the HONEST skipped area, counted, not implied.
+    for (const c of rest) {
+      if (doneCells.has(c.key)) continue;
+      out.cellsSkipped++;
+      out.km2Skipped += mdsCellKm2(grid, c.ix, c.iy);
+    }
+  } catch (err) {
+    // §ABORT-IS-NOT-A-CAP (2026-08-01) — an ABORTED sweep is a FAILURE and must never be reported as
+    // a budget being respected. Run 30706761446 stamped 21,457/431,256 footprints off 16 tiles while
+    // announcing a 20,000-tile cap; the join had THROWN and the cap flag buried it.
+    out.sweepAborted = true;
+    out.sweepAbortReason = String(err?.message ?? err);
+    budget.stopReason ??= 'sweep-aborted';
+  }
+
+  appendRetained(retainedOutPath, records);
+  records.length = 0;
+  buckets.clear();
+  return out;
+}
+
 /**
  * Stamp REAL MDS Edificación (mdsn_e025) heights onto an EXISTING OSM buildings GeoJSONSeq (bake's own
- * clip). Reads `inPath`, tiles the region bbox, fetches the keyless MDS raster per POPULATED tile, and
- * sets `height` = P90 of the raster over each eroded footprint (tagged). Writes the stamped features to
- * `outPath` (same footprints, heights added — a REPLACE input, no double-draw). Never throws; a source
- * failure leaves footprints at the OSM default. Mirrors the DK/ES tile-grid raster fetch.
+ * clip). Sets `height` = P90 of the raster over each eroded footprint interior (`tagged`) — the SAME
+ * per-footprint statistic as before, unchanged. Writes the stamped features to `outPath` (same
+ * footprints, heights added — a REPLACE input, no double-draw). Never throws; a source failure leaves
+ * footprints at the OSM default.
+ *
+ * ── §MDS-NATIONAL-SWEEP (L-12946, 2026-09-06, lane ES-WHOLE-COUNTRY-HEIGHTS) — WHAT CHANGED ───────
+ * The working set used to BE `MDS_CITY_BBOXES`: nine metros, and nothing else in Spain could ever be
+ * stamped. Ciudad Real, Toledo, Alicante, Granada, Valladolid, Vigo, Gijón, A Coruña, Pamplona,
+ * Santander, Salamanca and every town and village were STRUCTURALLY unreachable, and silently so —
+ * an unstamped footprint reports an honest `assumed` 9 m, which on the map is indistinguishable from
+ * "the source has no data here". Founder, 2026-09-06, at Ciudad Real. The raster was never the
+ * limit: `mdsn_e025` is ONE national EPSG:3042 grid, and this join samples it against bake's OWN OSM
+ * clip, so nothing about Catastro's per-tile refusal applies here.
+ *
+ * Now:
+ *   • `retainBboxes` for `spain` is the WHOLE COUNTRY (bake.mjs → MDS_NATIONAL_BBOXES);
+ *   • `priorityBboxes` keeps MDS_CITY_BBOXES as a PRIORITY ORDER ONLY — the metros are stamped
+ *     first and UNCAPPED, so a truncated run still helps the most users;
+ *   • `swatheRows` bounds the HEAP: the country is retained one band of whole tile rows at a time,
+ *     each pass reading the previous pass's (strictly smaller) pass-through file. This is not
+ *     optional — the measured 1,256 B of heap per parsed footprint is what killed run 30693132326
+ *     at 4.04 GB, and it is why "just widen the bbox" would have reproduced that abort exactly;
+ *   • `tileSpanLatDeg`/`tileSpanLonDeg` come from the MEASURED service ceiling (heights/mdsNational.mjs
+ *     header: MAXSIZE=4096, 0.095° served, 0.100° refused, at three latitudes) — never a guess;
+ *   • `budgetMs` + `startCursor` make truncation LOUD and ORDERED instead of silent, with the km²
+ *     stamped vs skipped and an exact resume cursor printed.
+ *
+ * ⚠ HONESTY LIMIT, stated rather than implied: successive runs do NOT accumulate into one tileset
+ * today. Each bake regenerates `<region>-buildings-stamped.geojsonseq` from the OSM clip, so a
+ * second dispatch with `MDS_SWEEP_CURSOR` stamps a DIFFERENT slice of Spain in a DIFFERENT tileset.
+ * Accumulating slices needs a per-region incremental merge that does not exist. Named, not built.
+ *
  * @param bbox [w,s,e,n] WGS84.
  */
-// §PHASE-4 — `priorityBboxes` (e.g. MDS_CITY_BBOXES.map((c) => c.bbox)) are stamped FIRST and UNCAPPED,
-// so each metro capital is GUARANTEED measured heights even if the national `maxTiles` cap is reached
-// mid national sweep. Default [] → behaviour is byte-identical to before (the priority loop is empty).
-//
-// §JOIN-BOUNDED-WORKING-SET (L-659) — `retainBboxes` is THE fix for the whole-Spain OOM. Only the
-// footprints inside these bboxes are PARSED AND HELD; every other footprint in the clip streams
-// straight to `outPath` with its ORIGINAL OSM tags, never occupying heap. Peak memory therefore
-// tracks the STAMP AREA (the metro capitals), not the nation — measured ~1.26 kB of heap per held
-// footprint, so whole-Spain's >10 GB working set collapses to the low hundreds of MB.
-//   • DEFAULT (`null`/`[]`) → the whole region bbox is retained, i.e. BYTE-IDENTICAL to the previous
-//     behaviour. Every city-sized region keeps working exactly as before with no config.
-//   • A whole-country region MUST declare it (bake.mjs does, from MDS_CITY_BBOXES) or the heap
-//     watchdog in `partitionGeojsonseq` trips and the bake fails LOUDLY with a named diagnosis
-//     instead of a bare V8 abort.
-// ⚠ This does not fabricate or discard a single height. A retained-but-unstamped footprint and a
-// passed-through footprint end up in the SAME honest state: their original OSM tags (§CONTEXT-DATA-
-// HONESTY). What it removes is only the pretence that a national sweep was ever going to complete —
-// 181,120 tiles at one raster fetch each was never inside the 180-minute job budget.
 export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   timeoutMs = 120_000,
-  tileSpanDeg = 0.025, maxTiles = 4000, padDeg = 0.0015,
+  tileSpanDeg = 0.025, tileSpanLonDeg = null, tileSpanLatDeg = null,
+  maxTiles = 4000, padDeg = 0.0015,
   priorityBboxes = [], retainBboxes = null,
+  swatheRows = 0, budgetMs = 0, startCursor = 0, concurrency = 1,
   erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 2.5,
 } = {}) {
   if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `MDS join: input footprints not found (${inPath})` };
@@ -2033,123 +2269,126 @@ export async function stampMdsHeightsOnGeojsonseq(inPath, outPath, bbox, {
   if (!gt) {
     return { status: 'documented', reason: 'MDS join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
   }
-  const [w, s, e, n] = bbox;
+  const grid = mdsTileGrid(bbox, { lonDeg: tileSpanLonDeg ?? tileSpanDeg, latDeg: tileSpanLatDeg ?? tileSpanDeg });
   const stampAreas = stampAreasFor(retainBboxes, bbox);
-
-  // §JOIN-BOUNDED-WORKING-SET — stream the clip; HOLD only footprints whose centroid lands in a stamp
-  // area, PASS THROUGH the rest straight to outPath as raw bytes. Also drops non-polygon records into
-  // the pass-through untouched (they were never stampable), so nothing is lost.
-  mkdirSync(dirname(outPath), { recursive: true });
-  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
-    const fp = footprintFromFeature(feat);
-    if (!fp) return null;
-    if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
-    return { feat, ...fp };
-  }, 'MDS join');
-  if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
-  const records = load.retained;
-  const read = load.read;
-
-  const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
-  const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
-  // §JOIN-BOUNDED-WORKING-SET — index once (O(records)) instead of re-filtering per tile (O(tiles ×
-  // records)). Cells are addressed on the REGION grid so a priority bbox and the national sweep speak
-  // the same coordinates and cannot double-process a cell.
-  const cellIx = (lon) => Math.min(nx - 1, Math.max(0, Math.floor((lon - w) / tileSpanDeg)));
-  const cellIy = (lat) => Math.min(ny - 1, Math.max(0, Math.floor((lat - s) / tileSpanDeg)));
-  const buckets = bucketRecords(records, (r) => [cellIx(r.clon), cellIy(r.clat)]);
-  const doneCells = new Set();
-  let processedTiles = 0, tileErrors = 0, tileCapHit = false, priorityTiles = 0;
-  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose. See the catch below.
-  let sweepAborted = false, sweepAbortReason = null;
-  const heights = [];
-  // Fetch the MDS raster for ONE populated cell and stamp its footprints. `respectCap` (national
-  // sweep) → returns true when the cap is hit so the caller breaks; priority cells pass false.
-  const processCell = async (ix, iy, respectCap) => {
-    const key = `${ix},${iy}`;
-    if (doneCells.has(key)) return false;
-    const inTile = buckets.get(key);
-    if (!inTile || inTile.length === 0) return false;
-    if (respectCap && processedTiles >= maxTiles) { tileCapHit = true; return true; }
-    doneCells.add(key);
-    const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
-    const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
-    const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
-    const rr = await httpGetBuffer(mdsCoverageUrl(rbox), { timeoutMs });
-    if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; return false; }
-    let mds;
-    try { mds = await readDhmRaster(rr.ab, gt); }
-    catch { tileErrors++; return false; }
-    for (const r of inTile) {
-      const h = mdsHeightForBuilding(r.ext, r.interiors, mds, { erodeM, percentile, minSamples, sampleStepM });
-      if (h) {
-        r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'mds_edificacion', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
-        heights.push(h.height);
-      }
-    }
-    processedTiles++;
-    return false;
+  const budget = {
+    maxTiles, tilesUsed: 0, startedAt: Date.now(),
+    deadlineAt: budgetMs > 0 ? Date.now() + budgetMs : Infinity,
+    stopReason: null, nextCursor: Number(startCursor) > 0 ? Number(startCursor) : 0,
   };
-  try {
-    // §PHASE-4 — capitals first (UNCAPPED): guarantee each metro city's footprints are stamped before
-    // the national sweep can exhaust `maxTiles`. A priority bbox outside the region bbox stamps nothing
-    // (its cells hold no footprints) — harmless.
-    for (const pb of priorityBboxes) {
-      if (!Array.isArray(pb) || pb.length !== 4) continue;
-      const [pw, ps, pe, pn] = pb;
-      const before = processedTiles;
-      for (let iy = cellIy(ps); iy <= cellIy(pn); iy++) {
-        for (let ix = cellIx(pw); ix <= cellIx(pe); ix++) await processCell(ix, iy, false);
-      }
-      priorityTiles += processedTiles - before;
-    }
-    // Sweep — ONLY the populated cells (a nation is >99.9 % empty cells; visiting them all was the
-    // O(tiles × records) trap). Sorted so a capped run is deterministic and re-runnable.
-    const rest = [...buckets.keys()].filter((k) => !doneCells.has(k)).sort();
-    for (const k of rest) {
-      const [ix, iy] = k.split(',').map(Number);
-      if (await processCell(ix, iy, true)) break;
-    }
-  } catch (err) {
-    // Network cut mid-grid — write whatever we stamped so far (honest partial), never abort the bake.
-    //
-    // §ABORT-IS-NOT-A-CAP (2026-08-01). This used to set `tileCapHit = true`, so an ABORTED sweep
-    // reported itself as "maxTiles N cap hit — rest keep OSM". Measured in run 30706761446: the
-    // Spain MDS join stamped 21,457/431,256 footprints off **16 tiles** while announcing a
-    // **20,000**-tile cap — arithmetically impossible, because `tileCapHit` is otherwise only set
-    // when `processedTiles >= maxTiles`. The join had THROWN after 16 tiles and this line buried it;
-    // Denmark (149 tiles) and Köln (168) stamped ~80 % in the same run, so Spain's 5 % read as a
-    // scope decision rather than the failure it was.
-    //
-    // A CAP is a budget being respected. An ABORT is an error. Reporting the second as the first is
-    // §CONTEXT-DATA-HONESTY collapse (failure and empty are the SAME VALUE — the L-422/457/467/469
-    // family) turned on our own telemetry, and it hid a real defect for an entire 4-hour run.
-    sweepAborted = true;
-    sweepAbortReason = String(err?.message ?? err);
+  const heights = [];
+  const passArgs = { grid, budget, gt, timeoutMs, padDeg, erodeM, percentile, minSamples, sampleStepM, heights, concurrency: Math.max(1, concurrency) };
+  const agg = {
+    retained: 0, passedThrough: 0, populatedCells: 0, cellsStamped: 0, cellsFailed: 0, cellsSkipped: 0,
+    km2Stamped: 0, km2Failed: 0, km2Skipped: 0, tilesProcessed: 0, priorityTiles: 0, tileErrors: 0,
+    measured: 0, sweepAborted: false, sweepAbortReason: null, peakHeapUsedMB: 0, heapLimitMB: 0, parsed: 0,
+  };
+  const accumulate = (p) => {
+    agg.retained += p.retained; agg.passedThrough = p.passedThrough; agg.populatedCells += p.populatedCells;
+    agg.cellsStamped += p.cellsStamped; agg.cellsFailed += p.cellsFailed; agg.cellsSkipped += p.cellsSkipped;
+    agg.km2Stamped += p.km2Stamped; agg.km2Failed += p.km2Failed; agg.km2Skipped += p.km2Skipped;
+    agg.tilesProcessed += p.tilesProcessed; agg.priorityTiles += p.priorityTiles; agg.tileErrors += p.tileErrors;
+    agg.measured += p.measured;
+    if (p.sweepAborted) { agg.sweepAborted = true; agg.sweepAbortReason = p.sweepAbortReason; }
+    agg.peakHeapUsedMB = Math.max(agg.peakHeapUsedMB, p.peakHeapUsedMB ?? 0);
+    agg.heapLimitMB = p.heapLimitMB ?? agg.heapLimitMB;
+    // The FIRST pass parses every record in the clip; later passes re-parse only what is left, so
+    // summing would over-report the input count several-fold. Take the first pass's number.
+    if (agg.parsed === 0) agg.parsed = p.read?.parsed ?? 0;
+  };
+
+  mkdirSync(dirname(outPath), { recursive: true });
+
+  // ── SINGLE PASS (default) — a city-sized region, or any caller that declares no swathes. Byte-
+  //    identical in effect to the pre-2026-09-06 join: one partition, priority cells, then the sweep.
+  if (!swatheRows || swatheRows <= 0) {
+    const p = await mdsStampPass({ ...passArgs, inPath, passThroughPath: outPath, retainedOutPath: outPath, areas: stampAreas, priorityBboxes, label: 'MDS join' });
+    if (p.status !== 'ok') return { status: p.status, reason: p.reason, read: p.read };
+    accumulate(p);
+    return mdsResult({ outPath, agg, heights, budget, grid, stampAreas, priorityBboxes, swathesTotal: 1, swathesScanned: 1, national: false });
   }
 
-  // The pass-through footprints are ALREADY in outPath (written during the read). Append the retained
-  // ones — stamped or not — so the file holds EVERY footprint exactly once. REPLACE input for the
-  // region: same footprints, real heights where MDS answered, untouched OSM tags everywhere else.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
-  const measured = heights.length;
+  // ── NATIONAL MULTI-PASS — bounded heap, whole-country retain set. ────────────────────────────────
+  writeFileSync(outPath, '');
+  const swathes = mdsNationalSwathes(grid, { swatheRows });
+  const tmp = [`${outPath}.mds-swathe-a`, `${outPath}.mds-swathe-b`];
+  let cur = inPath, alt = 0, swathesScanned = 0;
+  console.log(`\n  MDS national sweep · grid ${grid.nx}×${grid.ny} cells of ${grid.lonDeg}°×${grid.latDeg}° ` +
+    `(measured ceiling MAXSIZE=4096 ⇒ ≤0.125° lon / ≤0.097° lat) · ${swathes.length} bounded-heap swathe(s) of ` +
+    `${swatheRows} row(s) · ${priorityBboxes.length} priority bbox(es) first, uncapped · ` +
+    `budget ${budgetMs > 0 ? `${Math.round(budgetMs / 60000)} min` : 'none'} / ${maxTiles} cells · cursor ${budget.nextCursor}`);
+
+  // PASS 0 — the priority cities, held ALONE so the metro guarantee costs one small band of heap.
+  if (priorityBboxes.length) {
+    const pt = tmp[alt++ % 2];
+    const p = await mdsStampPass({ ...passArgs, inPath: cur, passThroughPath: pt, retainedOutPath: outPath, areas: priorityBboxes, priorityBboxes, label: 'MDS priority' });
+    // §EMPTY-IS-NOT-A-FAILURE (found by the live Ciudad Real proof, 2026-09-06). A pass returns
+    // `documented` when its INPUT holds no records — which is the NORMAL end state here, because
+    // each pass hands the next one only what it did not retain. The first draft returned that
+    // status straight out of the join, so a run in which the priority bboxes retained EVERYTHING
+    // reported `documented` and threw away a completed, correct 2,400-footprint stamp. Only
+    // `error` is a failure; `documented` means there is nothing left to do.
+    if (p.status === 'error') return { status: 'error', reason: p.reason, read: p.read };
+    if (p.status === 'ok') { accumulate(p); cur = pt; }
+    console.log(`    · MDS priority pass: ${p.measured ?? 0}/${p.retained ?? 0} footprint(s) measured over ${p.cellsStamped ?? 0} cell(s).`);
+  }
+
+  for (const sw of swathes) {
+    if (budget.stopReason) break;
+    if (sw.ordTo <= budget.nextCursor) continue; // resumed run — this band is behind the cursor
+    const pt = tmp[alt++ % 2];
+    const p = await mdsStampPass({ ...passArgs, inPath: cur, passThroughPath: pt, retainedOutPath: outPath, areas: [sw.bbox], priorityBboxes: [], label: `MDS swathe ${sw.index + 1}/${swathes.length}` });
+    if (p.status === 'error') return { status: 'error', reason: p.reason, read: p.read };
+    if (p.status !== 'ok') break; // nothing left in the stream — every record is already written out
+    accumulate(p);
+    swathesScanned++;
+    cur = pt;
+    console.log(`    · MDS swathe ${sw.index + 1}/${swathes.length} (lat ${sw.bbox[1].toFixed(2)}–${sw.bbox[3].toFixed(2)}): ` +
+      `${p.measured}/${p.retained} measured over ${p.cellsStamped} cell(s), ${Math.round(p.km2Stamped)} km², peak heap ${p.peakHeapUsedMB} MB.`);
+  }
+  if (!budget.stopReason) budget.stopReason = 'complete';
+
+  // Everything still unretained — bands never opened, and anything outside the region grid — is
+  // written through UNCHANGED. Original OSM tags, honest `assumed`; never fabricated, never dropped.
+  appendFileInto(cur, outPath);
+  for (const t of tmp) { try { if (existsSync(t)) unlinkSync(t); } catch { /* best effort */ } }
+
+  return mdsResult({ outPath, agg, heights, budget, grid, stampAreas, priorityBboxes, swathesTotal: swathes.length, swathesScanned, national: true });
+}
+
+/** Assemble the join's result + the §MEASURED-HEIGHT-GATE counters + the loud truncation sentence. */
+function mdsResult({ outPath, agg, heights, budget, grid, stampAreas, priorityBboxes, swathesTotal, swathesScanned, national }) {
+  const measured = agg.measured;
   heights.sort((a, b) => a - b);
-  const emptyTiles = Math.max(0, nx * ny - buckets.size);
+  const stop = budget.stopReason ?? (agg.cellsSkipped > 0 ? 'tile-cap' : 'complete');
+  const sweep = {
+    stopReason: stop, swathesTotal, swathesScanned,
+    cellsStamped: agg.cellsStamped, cellsFailed: agg.cellsFailed, cellsSkipped: agg.cellsSkipped,
+    km2Stamped: agg.km2Stamped, km2Failed: agg.km2Failed, km2Skipped: agg.km2Skipped,
+    nextCursor: budget.nextCursor,
+    nextCursorLon: grid.w + grid.ixOf(budget.nextCursor) * grid.lonDeg,
+    nextCursorLat: grid.s + grid.iyOf(budget.nextCursor) * grid.latDeg,
+  };
+  const summary = formatSweepSummary(sweep);
   return {
-    status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
-    coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
+    status: 'ok', outPath, count: agg.parsed, footprintCount: agg.retained, measuredCount: measured,
+    coverage: agg.retained ? Number((measured / agg.retained).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
-    tilesProcessed: processedTiles, priorityTiles, tileErrors, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
+    tilesProcessed: agg.tilesProcessed, priorityTiles: agg.priorityTiles, tileErrors: agg.tileErrors,
+    emptyTiles: Math.max(0, grid.nx * grid.ny - agg.populatedCells),
+    tileCapHit: stop === 'tile-cap', sweepAborted: agg.sweepAborted, sweepAbortReason: agg.sweepAbortReason,
+    tileGrid: `${grid.nx}×${grid.ny}`, nationalSweep: sweep,
     // §JOIN-BOUNDED-WORKING-SET counters — the P8-equivalent observability for a plain Node script.
-    retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
-    stampAreas: stampAreas.length, populatedCells: buckets.size,
-    peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
-    note: `MDS Edificación stamped onto OSM footprints → ${measured}/${records.length} RETAINED footprint(s) got a MEASURED ` +
-      `height (tagged); ${read.passedThrough} footprint(s) outside the ${stampAreas.length} stamp bbox(es) passed through with ` +
-      `their original OSM tags; ${processedTiles} tile(s)${priorityTiles ? ` (${priorityTiles} in ${priorityBboxes.length} priority capital bbox(es) first)` : ''}, ` +
-      `${tileErrors} raster error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
-      `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (this is a FAILURE, not a cap)` : ''}; ` +
-      `peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
+    retainedFootprints: agg.retained, passedThroughFootprints: agg.passedThrough,
+    stampAreas: stampAreas.length, populatedCells: agg.populatedCells,
+    peakHeapUsedMB: agg.peakHeapUsedMB, heapLimitMB: agg.heapLimitMB,
+    note: `MDS Edificación stamped onto OSM footprints → ${measured}/${agg.retained} RETAINED footprint(s) got a MEASURED ` +
+      `height (tagged); ${agg.passedThrough} footprint(s) outside the ${stampAreas.length} stamp bbox(es) passed through with ` +
+      `their original OSM tags; ${agg.tilesProcessed} tile(s)${agg.priorityTiles ? ` (${agg.priorityTiles} in ${priorityBboxes.length} priority bbox(es) first)` : ''}, ` +
+      `${agg.tileErrors} raster error(s) over ${agg.cellsFailed} cell(s) / ${Math.round(agg.km2Failed)} km²` +
+      `${agg.sweepAborted ? ` ⚠ SWEEP ABORTED — ${agg.sweepAbortReason}; the rest keep OSM (this is a FAILURE, not a cap)` : ''}; ` +
+      `peak heap ${agg.peakHeapUsedMB} MB of ${agg.heapLimitMB} MB.` +
+      (national ? ` ${summary}` : ''),
   };
 }
 

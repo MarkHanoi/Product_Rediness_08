@@ -53,6 +53,11 @@ on:
         description: '§SYNC-SWITCH — upload this run''s tileset + staging-manifest.json to s3://pryzm-assets/tiles-staging/<slug>/ instead of the LIVE tiles/ prefix. The per-region path: stage each region-scoped bake, then dispatch context-merge-publish.yml to merge every staged set and publish once — it REFUSES BY NAME if any expected region is missing, so a scoped run can never silently delete the rest of the map. Default false = today''s behaviour, unchanged.'
         type: boolean
         default: false
+      footprints:
+        description: '§OFFICIAL-FOOTPRINTS (L-12939) — where the buildings layer''s FOOTPRINTS come from. "osm" (default) is every run to date, byte-identical. "official" swaps in the national register''s own footprints for each region that declares a footprintSource — today `spain` → DG del Catastro INSPIRE Buildings, which carries one BuildingPart per volume WITH ITS OWN storey count, so a 2-floor wing beside a 3-floor block reads as two volumes and a 2020 house OSM never mapped exists at all. OSM footprints covered by an official outline are dropped; the rest are KEPT (Catastro publishes nothing for the Basque foral cadastres or Navarra, and a register''s silence must never delete Bilbao from the map). Heights are unaffected — Catastro publishes storey COUNTS, so the CNIG MDS measured-height stamp still runs, now on the official footprints.'
+        type: choice
+        options: ['osm', 'official']
+        default: 'osm'
 
 concurrency:
   # Per-region lane: distinct regions bake in PARALLEL — a 34-group staging sweep no longer
@@ -178,12 +183,20 @@ jobs:
       # height join also declares a BOUNDED set of stamp bboxes, and (b) NODE_OPTIONS gives the heap
       # those bboxes need. Both were false on run 30693132326, which found out 23 minutes later via a
       # V8 abort that named no region. Exit 5 = budget failure; read the step log, it says which.
+      # §FOOTPRINT-BUDGET (L-12939) — the same preflight now also refuses a `footprintSource` that is
+      # declared but unimplemented, or one without a bounded working set. MEASURED 2026-09-05: the
+      # Córdoba municipality ZIP inflates to 597 MB of GML and parses in ~250 s, and the whole Spanish
+      # feed is 5.66 GB of ZIP across 7,597 municipalities — ~17 h, against this job's 330-minute
+      # ceiling. A whole-country footprint pull cannot finish, so the working set is a GATE, not advice.
       - name: Plan + height-stamp budget preflight (fails fast, before any download)
-        run: node tools/context-bake/bake.mjs --check
+        run: node tools/context-bake/bake.mjs --check --footprints "${{ inputs.footprints || 'osm' }}"
 
       - name: Bake
         env:
           LAYER: ${{ inputs.layer }}
+          # §OFFICIAL-FOOTPRINTS (L-12939) — 'osm' (default) is byte-identical to every run to date:
+          # bake.mjs's footprintMergeMode returns 'osm' and the merge module is never entered.
+          FOOTPRINTS: ${{ inputs.footprints }}
           # §BAKE-BY-REGION — scope the run to a subset of REGIONS. Added after run 30706761446 was
           # CANCELLED at the 180-minute timeout with tippecanoe at 99.9 % on the national tiling:
           # every step after `Bake` was SKIPPED, so ~4 hours published nothing — including height
@@ -199,6 +212,9 @@ jobs:
           ARGS=()
           if [ -n "$LAYER" ];  then ARGS+=(--layer "$LAYER");   fi
           if [ -n "$REGION" ]; then ARGS+=(--region "$REGION"); fi
+          # §OFFICIAL-FOOTPRINTS — passed only when explicitly 'official', so the default bake's
+          # argv is unchanged as well as its behaviour (bake.mjs defaults to 'osm' with no flag).
+          if [ "${FOOTPRINTS:-osm}" = "official" ]; then ARGS+=(--footprints official); fi
           echo "▶ bake args: ${ARGS[*]:-<none — full bake>}"
           node tools/context-bake/bake.mjs "${ARGS[@]}"
 
@@ -314,6 +330,17 @@ jobs:
           # marseille (france · §MNH-FR-OSM-JOIN · L-12910): Vieux-Port, inside the
           # MNH_FR_CITY_BBOXES `marseille` stamp area. The 2026-09-05 local proof read
           # 6,578 of 7,887 footprints measured there (from 0), so 500 is a floor, not a target.
+          # §MDS-NATIONAL-SWEEP (L-12946, 2026-09-06) — ciudadreal + toledo are the two NON-PRIORITY
+          # Spanish cities on this list, and they are here to make the old defect UNSHIPPABLE. Until
+          # today the MDS height join could only ever stamp the nine metros in MDS_CITY_BBOXES, so a
+          # Spanish bake that measured Barcelona and NOTHING ELSE passed this gate green while the
+          # founder stood in Ciudad Real looking at a fabricated 9 m carpet. With these rows a
+          # Spanish bake that stamps only the nine capitals FAILS, and says which city is empty.
+          # 200, not 500: these are ~75k/85k-population cities, not metros. The probe reads the
+          # client's own ±0.008° NEAR ring (~2.6 km²) — dense historic centres in both cases, so 200
+          # is a floor comfortably clear of noise, chosen NOT to be a number a real re-survey could
+          # trip. Both are in MDS_PRIORITY_EXTRA, i.e. stamped FIRST and UNCAPPED, so this gate does
+          # not depend on the national sweep's wall-clock budget reaching them.
           while read -r name region at min; do
             [ -z "$name" ] && continue
             if [ -n "$REGION_SCOPE" ]; then
@@ -328,6 +355,8 @@ jobs:
               --pmtiles "$TILES" --at "$at" --name "$name" --require-measured "$min" || fail=1
           done <<'CITIES'
           barcelona spain 41.3888,2.1590 500
+          ciudadreal spain 38.9861,-3.9271 200
+          toledo spain 39.8628,-4.0273 200
           koln koln 50.9375,6.9603 500
           marseille france 43.2965,5.3698 500
           zurich switzerland 47.3769,8.5417 500
@@ -367,6 +396,51 @@ jobs:
             echo "already ran for them during the Bake step (a declared join that produced nothing would"
             echo "have failed THERE). The spot-check is vacuous for this scope, and says so rather than failing."
           fi
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # §OFFICIAL-FOOTPRINTS GATE (L-12939, 2026-09-05) — assert the SPECIFIC BUILDING.
+      #
+      # WHY A SECOND GATE, AND WHY IT ASKS A DIFFERENT QUESTION. The measured-height
+      # gate above asks "are there ≥ 500 measured footprints near this coordinate".
+      # That is the right question for a raster height stamp and the WRONG one for a
+      # FOOTPRINT swap: `spain` can ship half a million OSM footprints, satisfy every
+      # count above, and still not contain the building the founder is standing in.
+      # That is not hypothetical — it is the defect this whole lane exists to close.
+      # On 2026-09-05 the founder pointed at CL Isla Lanzarote 4, Arroyo del Moro,
+      # Córdoba — cadastral reference 1950501UG4915S, "Residencial · 320 m² · 2020"
+      # on the Sede Electrónica del Catastro — and it was ABSENT from PRYZM's 2D map
+      # and 3D context, because our footprints are OSM and OSM has not mapped that
+      # 2020 estate. A count-based gate cannot see that. A named building can.
+      #
+      # The register's own values, read from the live feed on 2026-09-05 and pinned
+      # in tools/context-bake/__tests__/fixtures/esCatastro-*.gml: four BuildingParts
+      # at 0 (a patio), 2, 3 and 2 storeys ⇒ a derived building floor count of 3.
+      # The gate requires ≥ 2, so it survives a future re-survey that reorganises the
+      # parts (the WFS bbox path already reports that patio as 1 storey rather than 0
+      # — see officialFootprints.mjs header fact 2) without going quiet about a real
+      # regression to a flat, floorless footprint.
+      #
+      # Runs ONLY when footprints=official — with footprints=osm the building is
+      # legitimately absent and failing would be measuring scope, not honesty
+      # (§MEASURED-SPOTCHECK-RESPECTS-REGION, same lesson).
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Assert the OFFICIAL footprints landed (the named building, not a count)
+        if: ${{ inputs.footprints == 'official' && (inputs.layer == '' || inputs.layer == 'buildings') }}
+        run: |
+          set -euo pipefail
+          REGION_SCOPE="${{ inputs.region }}"
+          REGION_SCOPE="${REGION_SCOPE// /}"
+          if [ -n "$REGION_SCOPE" ]; then
+            case ",$REGION_SCOPE," in
+              *",spain,"*) ;;
+              *) echo "── cordoba SKIPPED — region 'spain' is not in this run's scope '$REGION_SCOPE'"; exit 0 ;;
+            esac
+          fi
+          # The probe's tile decoders were provisioned by the measured-height step above.
+          node tools/context-height-probe/probe.mjs \
+            --pmtiles "$GITHUB_WORKSPACE/tools/context-bake/out/buildings.pmtiles" \
+            --at 37.8878,-4.7976 --name cordoba-arroyo-del-moro --half-deg 0.004 \
+            --require-ref 1950501UG4915S --require-floors 2
 
       # ─────────────────────────────────────────────────────────────────────────
       # §FR-BDTOPO-FOOTPRINTS GATE (L-12940, 2026-09-06) — the FRENCH named building.

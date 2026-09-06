@@ -46,7 +46,21 @@ import { stampAdNdsmHeightsOnGeojsonseq, AD_CITY_BBOXES } from './heights/abudha
 // defaults while its measured-height channel sat one import away (the L-12883 shape, second country).
 // §SWISS-OSM-JOIN (L-12883, wired 2026-09-05) — the swisstopo nDSM stamp had the SAME shape one day later:
 // `stampSwissHeightsOnGeojsonseq` + `SWISS_CITY_BBOXES` built 2026-09-04, imported by nothing until here.
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
+// §OFFICIAL-FOOTPRINTS (L-12939, 2026-09-05, lane ES-CATASTRO-FOOTPRINTS) — a region may declare
+// `footprintSource`, replacing the OSM footprints under the national register's own (ES Catastro
+// today; FR BD TOPO next). WIRED HERE DIRECTLY, in the same commit that declares the `spain` row's
+// footprintSource — never "built, imported by nothing" (the L-12883 / L-12910 rule).
+import { assertFootprintConfig, ES_CATASTRO_FOOTPRINTS } from './footprints/footprintMerge.mjs';
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampMnhFrHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, MDS_PRIORITY_BBOXES, MDS_NATIONAL_BBOXES, MDS_TILE_LAT_DEG, MDS_TILE_LON_DEG, MDS_SWATHE_ROWS, MDS_SWEEP_CONCURRENCY, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
+// §NDH-NO-OSM-JOIN (lane HEIGHTS-NORDICS, 2026-09-05) — Norway's keyless Kartverket NHM DOM − DTM stamp lives in its
+// OWN module (the heights/nl3dbagStamp.mjs precedent: heightSources.mjs is a many-lane file) and is imported here
+// DIRECTLY, in the same commit that declares the `norway` row's heightJoin — never "built, imported by nothing".
+import { stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES } from './heights/noHeightsStamp.mjs';
+// §EE-ETAK-OSM-JOIN + §BE-DHMV-OSM-JOIN (2026-09-05, lane HEIGHTS-EE-PL-PT-BE) — Estonia's ETAK korgus_m vector stamp and
+// Belgium's DHMV II DSM − DTM raster stamp live in their OWN modules (the same many-lane-file rule) and are imported here
+// DIRECTLY, in the commit that declares the `estonia` / `belgium` rows' heightJoin — never "built, imported by nothing".
+import { stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES } from './heights/eeHeightsStamp.mjs';
+import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeightsStamp.mjs';
 // §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US) — the US per-metro stamp lives in its OWN module
 // (not heightSources.mjs — §SHARED-FILE-COLLISION) and is imported here DIRECTLY, so it cannot sit built-and-
 // orphaned the way the FR/CH/AU stamps each did for a day. Its pure half carries the working set.
@@ -63,15 +77,6 @@ import { NL_3DBAG_CITY_BBOXES } from './heights/nl3dbag.mjs';
 // "documented … the owed build is the England nDSM stamp" since the whole-country rows landed (5faa71ba).
 import { stampEaLidarGbHeightsOnGeojsonseq } from './heights/ealidarGbStamp.mjs';
 import { EA_LIDAR_GB_CITY_BBOXES } from './heights/ealidarGb.mjs';
-// §NDH-NO-OSM-JOIN (lane HEIGHTS-NORDICS, 2026-09-05) — Norway's keyless Kartverket NHM DOM − DTM stamp lives in its
-// OWN module (the heights/nl3dbagStamp.mjs precedent: heightSources.mjs is a many-lane file) and is imported here
-// DIRECTLY, in the same commit that declares the `norway` row's heightJoin — never "built, imported by nothing".
-import { stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES } from './heights/noHeightsStamp.mjs';
-// §EE-ETAK-OSM-JOIN + §BE-DHMV-OSM-JOIN (2026-09-05, lane HEIGHTS-EE-PL-PT-BE) — Estonia's ETAK korgus_m vector stamp and
-// Belgium's DHMV II DSM − DTM raster stamp live in their OWN modules (the same many-lane-file rule) and are imported here
-// DIRECTLY, in the commit that declares the `estonia` / `belgium` rows' heightJoin — never "built, imported by nothing".
-import { stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES } from './heights/eeHeightsStamp.mjs';
-import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeightsStamp.mjs';
 // §DE-LOD2-LAENDER-OSM-JOIN (2026-09-05, lane HEIGHTS-DE-LAENDER) — the per-Land LoD2-DE ROUTER + stamp: nine
 // Länder doors (NW BB HH SH TH RP MV BE ST) behind ONE stamp, in its OWN module (heights/deLod2LaenderStamp.mjs;
 // router table + working set in the pure heights/deLod2Laender.mjs), imported here DIRECTLY in the same commit
@@ -145,6 +150,28 @@ const ALL_REGIONS = [
     // Instead stamp the keyless CNIG MDS Edificación raster (mdsn_e025) onto bake's OWN OSM footprints
     // (no Catastro, no double-draw, tiles only where footprints exist). See stampMdsHeightsOnGeojsonseq.
     heightJoin: 'mds',
+    // §ES-CATASTRO-FOOTPRINTS (L-12939, 2026-09-05) — the FOOTPRINTS themselves now come from the
+    // Dirección General del Catastro's INSPIRE Buildings feed when the run passes `--footprints
+    // official`. The comment two lines up says "no Catastro" — that was true of the HEIGHT join and
+    // still is: Catastro publishes storey COUNTS, not metres, so the MDS raster keeps supplying
+    // Spain's measured heights. The two compose. The merge runs FIRST, so the MDS stamp lands on
+    // CATASTRO footprints, and a 2020 house OSM never mapped can finally receive a measured height.
+    // Working set = FOOTPRINT_SOURCES.es_catastro.defaultBboxes() = MDS_CITY_BBOXES.
+    // ⚠ CORRECTED 2026-09-06 (L-12946): this used to add "so footprints and heights cover the SAME
+    // ground". They no longer do, DELIBERATELY and in the SAFE direction — the MDS height sweep now
+    // retains the WHOLE country (MDS_NATIONAL_BBOXES) while the Catastro footprint pull stays on the
+    // nine metros, because a Catastro municipality costs ~250 s of GML parsing (§FOOTPRINT-BUDGET,
+    // L-12939) and the whole feed is ~17 h. So heights are a SUPERSET of the official footprints,
+    // never a subset: no city can get Catastro footprints with no measured heights.
+    // (§MDS-BBOX-MUST-COVER-THE-REGION still holds and is pinned.) Absent `--footprints official`, this row bakes
+    // EXACTLY as it did before — byte-identical, pinned by esCatastro.spec.ts.
+    footprintSource: 'es_catastro',
+    // §FOOTPRINT-SOURCE (L-12940) — the ONLY honest merge for a partial national set, and the same
+    // one `france` uses: inside the covered bboxes Catastro wins outright and the OSM footprints
+    // are dropped; outside them the OSM clip passes through byte for byte. A plain `replace` would
+    // delete every Spanish municipality outside the working set — including all of the Basque
+    // Country and Navarra, which Catastro does not publish AT ALL.
+    footprintMerge: 'replace-in-bbox',
   },
   // §BAKE-DENMARK (L-6xx, 2026-07-26) — WHOLE DENMARK (national), mirrors `spain`. Geofabrik's Denmark
   // extract is one national pbf; the national bbox (incl. Bornholm at ~lon 15.2) covers EVERY Danish
@@ -688,6 +715,20 @@ const DRY = args.includes('--dry-run');
 // (the CLAUDE.md count/range lesson, applied to regions). Composes with `--region` (the resolved
 // subset is reported in `regions`) and with `--layer`.
 const REGIONS_JSON = args.includes('--regions-json');
+// §OFFICIAL-FOOTPRINTS (L-12939) — `--footprints official` swaps the buildings layer's FOOTPRINTS
+// for the national register's, for every region that declares a `footprintSource`. The default
+// 'osm' is the path every run has always taken and is byte-identical: `footprintMergeMode` returns
+// 'osm' and the merge module is never entered. Mirrors the workflow's `footprints` input.
+const FOOTPRINTS = (() => {
+  const i = args.indexOf('--footprints');
+  if (i < 0) return 'osm';
+  const raw = args[i + 1];
+  if (raw !== 'osm' && raw !== 'official') {
+    console.error(`✖ --footprints must be 'osm' or 'official' (got ${raw ?? 'nothing'})`);
+    process.exit(2);
+  }
+  return raw;
+})();
 const ONE = args.includes('--layer') ? args[args.indexOf('--layer') + 1] : null;
 // §VEG-REAL-CANOPY-BAKE — an `optIn` layer (today: `canopy`) is EXCLUDED from the default bake and
 // reachable only by naming it in `--layer`. The default run is therefore unchanged by its existence.
@@ -780,6 +821,15 @@ const heightJoinOutcomes = [];
 // A whole-country region MUST therefore declare a stamp list. `assertHeightStampBudget()` below
 // checks that in ~2 ms, in the `--check` step, BEFORE a single byte is downloaded.
 const WHOLE_COUNTRY_DEG2 = 4.0;          // a region bigger than ~2°×2° is national scale, not a city.
+// §MDS-NATIONAL-SWEEP (L-12946) — the declared wall-clock slice of the 330-minute job the Spanish
+// national height sweep may spend. Override with MDS_SWEEP_BUDGET_MIN on the dispatch. It is a
+// BUDGET, not an estimate: when it runs out the sweep stops in ORDER and says exactly where, in km²
+// and in a resume cursor. Measured per-cell cost 2026-09-06: one 0.115°×0.09° GetCoverage is
+// ~28 MB and 1.8–7.8 s from a domestic link (17.6 MB / 1.8–7.8 s at 0.08° square), decoded in
+// 0.2–3.1 s — so 4-way concurrency buys ~4× and Spain's ~5–7k populated cells still do not fit a
+// serial run. Do NOT raise this past what leaves tippecanoe its share; a job that dies at 330 min
+// publishes nothing at all.
+const MDS_SWEEP_BUDGET_MIN = Number(process.env.MDS_SWEEP_BUDGET_MIN ?? 120) || 120;
 const HEAP_BYTES_PER_FOOTPRINT = 1256;   // MEASURED — geojsonseqRead.spec.ts §heap-budget.
 const HEAP_FLOOR_MB_NATIONAL = 6000;     // headroom for the retained metro set + tippecanoe's host.
 
@@ -794,20 +844,41 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'cuzk_cz') return CZ_CITY_BBOXES.map((c) => c.bbox);   // §CUZK-NDSM-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `czechia`, five cities
   if (r.heightJoin === 'gurs_si') return SI_CITY_BBOXES.map((c) => c.bbox);   // §GURS-KN-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `slovenia`, five cities
   if (r.heightJoin === 'ad_ndsm') return AD_CITY_BBOXES.map((c) => c.bbox);   // §ADSDI-NDSM-OVERTURE-JOIN (ME-ABUDHABI-I3S) — `abudhabi` row, island core only (≈ 55 s per populated cell)
-  if (r.heightJoin === 'mds') return MDS_CITY_BBOXES.map((c) => c.bbox);
+  // §MDS-NATIONAL-SWEEP (L-12946, 2026-09-06) — `spain` retains the WHOLE COUNTRY, not a city list.
+  // This row used to read `MDS_CITY_BBOXES.map(...)`, and that WAS the defect the founder hit at
+  // Ciudad Real: the nine metros were the only ground in Spain that could ever be measured, and a
+  // footprint outside them shipped an honest `assumed` 9 m that is indistinguishable on the map from
+  // "no data here". The heap is bounded now by SWATHE PASSES inside the join (one band of tile rows
+  // held at a time — heights/mdsNational.mjs §MDS-SWATHE), not by narrowing where we are allowed to
+  // measure. `MDS_PRIORITY_BBOXES` keeps the metros stamped FIRST and UNCAPPED.
+  if (r.heightJoin === 'mds') return MDS_NATIONAL_BBOXES;
   if (r.heightJoin === 'dhm') return DHM_CITY_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'mnh_fr') return MNH_FR_CITY_BBOXES.map((c) => c.bbox); // §MNH-FR (L-12910) — whole `france`
   if (r.heightJoin === 'swiss') return SWISS_CITY_BBOXES.map((c) => c.bbox);   // §SWISS-OSM-JOIN (L-12883) — whole `switzerland`
   if (r.heightJoin === 'au_open') return AU_OPEN_CITY_BBOXES.map((c) => c.bbox); // §AU-OPEN-HEIGHTS-OSM-JOIN — whole `victoria`, Melbourne LGA only
   if (r.heightJoin === 'ealidar_gb') return EA_LIDAR_GB_CITY_BBOXES.map((c) => c.bbox); // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`, England working set
+  if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
   if (r.heightJoin === 'ndh_no') return NO_NDH_CITY_BBOXES.map((c) => c.bbox);   // §NDH-NO-OSM-JOIN (HEIGHTS-NORDICS) — whole `norway`
   if (r.heightJoin === 'ee_etak') return EE_CITY_BBOXES.map((c) => c.bbox);      // §EE-ETAK-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `estonia`, four cities
   if (r.heightJoin === 'be_dhmv') return BE_CITY_BBOXES.map((c) => c.bbox);      // §BE-DHMV-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `belgium`, five cities
-  if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
   if (r.heightJoin === 'us_open') return US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name).map((c) => c.bbox); // §US-OPEN-HEIGHTS-OSM-JOIN — the metro's OWN row bbox
   if (r.heightJoin === 'lod2de') return DE_LOD2_CITY_BBOXES.map((c) => c.bbox);   // §DE-LOD2-LAENDER-OSM-JOIN — whole `germany`, one city per WIRED Land
   return null;
 }
+
+// §FOOTPRINT-BUDGET (L-12939) — the working set a region's OFFICIAL FOOTPRINT pull covers lives on
+// the FOOTPRINT_SOURCES row (`defaultBboxes`), NOT in a resolver here. It was briefly both: a
+// `footprintBboxesFor(r)` twin sat here, called by nothing, while the preflight and the pull each
+// read the table — two rival answers to "which bboxes", one of them dead, exactly the split this
+// lane's own header warns about. Deleted 2026-09-06; the table is the single source.
+//
+// The reason a bounded set exists at all is unchanged, and is the §HEIGHT-STAMP-BUDGET lesson:
+// Córdoba's municipality ZIP alone inflates to 597 MB of GML and parses in ~250 s, and the whole
+// Spanish feed is 5.66 GB of ZIP across 7,597 municipalities (HEAD-swept 2026-09-05) — ~17 h
+// against this workflow's 330-minute ceiling. An unbounded whole-country pull is not a cost to
+// discover at hour four of a bake. ⚠ SPAIN DELIBERATELY REUSES MDS_CITY_BBOXES rather than
+// declaring a second list: if the footprint set and the measured-height set could drift apart, a
+// city would get Catastro footprints with no MDS heights (or the reverse) and nothing would say so.
 
 // §NATIONAL-STAMP-TABLE (2026-09-05, lane HEIGHTS-NORDICS) — joins wired AFTER the dispatch chain in
 // pushBuildingsWithNationalHeights froze. That chain has NO free insertion point any more:
@@ -918,7 +989,15 @@ function assertHeightStampBudget() {
   for (const r of joins) {
     const areas = stampBboxesFor(r);
     const national = bboxDeg2(r.bbox) > WHOLE_COUNTRY_DEG2;
-    const scope = areas ? `${areas.length} stamp bbox(es)` : 'WHOLE REGION bbox';
+    // §MDS-SWATHE-IS-THE-BOUND (L-12946) — one region now declares a stamp area as large as itself
+    // (`spain` retains the whole country) and bounds its heap with SWATHE PASSES inside the join
+    // instead. Printing "1 stamp bbox(es)" for that would read like a tight working set and be the
+    // §SIZE-IS-NOT-PROVENANCE mistake in reverse, so the line says which bound is actually holding.
+    const areaDeg2 = (areas ?? []).reduce((a, b) => a + Math.abs((b[2] - b[0]) * (b[3] - b[1])), 0);
+    const wholeCountryRetain = areas !== null && areaDeg2 >= bboxDeg2(r.bbox) * 0.95;
+    const scope = !areas ? 'WHOLE REGION bbox'
+      : wholeCountryRetain ? `WHOLE-COUNTRY retain (${areaDeg2.toFixed(1)} deg²) — heap bounded by swathe passes, not by bbox`
+        : `${areas.length} stamp bbox(es)`;
     console.log(`    · ${r.name.padEnd(11)} join:${String(r.heightJoin).padEnd(8)} ${bboxDeg2(r.bbox).toFixed(1)} deg²  → ${scope}`);
     if (national && !areas) {
       problems.push(`${r.name}: whole-country region (${bboxDeg2(r.bbox).toFixed(1)} deg²) declares heightJoin '${r.heightJoin}' `
@@ -1057,6 +1136,19 @@ const FOOTPRINT_SOURCES = {
     attribution: FR_BDTOPO.attribution,
     write: (outPath, bboxes, onArea) => writeBdtopoWorkingSet(outPath, bboxes, { onArea }),
   },
+  // §ES-CATASTRO-FOOTPRINTS (L-12939) — Spain's row. ⚠ RESTORED 2026-09-06: this table and the
+  // `spain` region row were written by two lanes an hour apart, and the ES row was MISSING from the
+  // table while `ES_CATASTRO_FOOTPRINTS` sat imported-by-nothing at the top of this file — the
+  // "authored-but-unwired" shape, but worse, because the §FOOTPRINT-BUDGET preflight below reads
+  // this table and so refused `spain` for an EMPTY working set. The bake never got the chance to
+  // ship OSM-with-a-hole; it refused to start at all, on the DEFAULT path, which would have failed
+  // the Plan step of every context bake. esCatastroWiring.spec.ts now pins the row and runs the
+  // preflight for real, because a table a human has to remember to update is the thing that failed.
+  // The working set is MDS_CITY_BBOXES so footprints and measured heights cover the SAME ground.
+  es_catastro: {
+    ...ES_CATASTRO_FOOTPRINTS,
+    defaultBboxes: () => MDS_CITY_BBOXES.map((c) => c.bbox),
+  },
 };
 const footprintOutcomes = [];
 
@@ -1159,7 +1251,10 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     // capitals, and so does the whole-`france` mnh_fr join (§MNH-FR-CITY-BBOXES — the SAME list is its
     // retained working set, so every held footprint is stamped uncapped); the DK dhm + DE lod2nrw
     // joins pass none.
-    const priorityBboxes = r.heightJoin === 'mds' ? MDS_CITY_BBOXES.map((c) => c.bbox)
+    // §MDS-LIST-IS-PRIORITY-ONLY (L-12946) — for `mds` this is now the ONLY job MDS_CITY_BBOXES has
+    // in the height sweep: an ORDER, not a boundary. MDS_PRIORITY_BBOXES = the nine metros (same
+    // order) + the two founder-named gate cities the CI rows measure (ciudadreal, toledo).
+    const priorityBboxes = r.heightJoin === 'mds' ? MDS_PRIORITY_BBOXES.map((c) => c.bbox)
       : r.heightJoin === 'mnh_fr' ? MNH_FR_CITY_BBOXES.map((c) => c.bbox)
         : [];
     // §HEIGHT-STAMP-BUDGET (L-659) — the bboxes the join may HOLD footprints for. `null` keeps the
@@ -1169,7 +1264,26 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     const retainBboxes = stampBboxesFor(r);
     let res;
     try {
-      if (r.heightJoin === 'mds') res = await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes, retainBboxes });
+      // §MDS-NATIONAL-SWEEP (L-12946) — the whole-country options. Every one of them is a MEASURED
+      // number or an explicit budget, never a preference:
+      //   tileSpanLon/LatDeg — the service's own MAXSIZE=4096 ceiling, probed 2026-09-06 at 36.0 N,
+      //     39.0 N and 43.5 N (0.095° served, 0.100° refused, identical bytes ⇒ a fixed °/px grid).
+      //     Rectangular on purpose: latitude binds at 0.0973°, longitude has 29 % more headroom.
+      //   swatheRows — the HEAP bound. Whole-Spain retained in one pass is the 4.04 GB abort of run
+      //     30693132326 (~1,256 B/footprint × millions); one band of 6 tile rows at a time is not.
+      //   budgetMs — the wall clock. The job ceiling is 330 min for EVERY region plus tippecanoe, so
+      //     the Spanish sweep gets a declared slice of it and TRUNCATES LOUDLY (ordered, with the
+      //     km² stamped vs skipped and a resume cursor) rather than taking the job down.
+      //   startCursor — MDS_SWEEP_CURSOR resumes the ordered sweep at a cell ord. ⚠ Successive runs
+      //     do NOT accumulate into one tileset today (each bake regenerates the stamped file); the
+      //     cursor stamps a DIFFERENT slice. Named in the join's header, not pretended away.
+      if (r.heightJoin === 'mds') res = await stampMdsHeightsOnGeojsonseq(baseGeo, stamped, wsen, {
+        maxTiles, priorityBboxes, retainBboxes,
+        tileSpanLonDeg: MDS_TILE_LON_DEG, tileSpanLatDeg: MDS_TILE_LAT_DEG,
+        swatheRows: MDS_SWATHE_ROWS, concurrency: MDS_SWEEP_CONCURRENCY,
+        budgetMs: MDS_SWEEP_BUDGET_MIN * 60_000,
+        startCursor: Number(process.env.MDS_SWEEP_CURSOR ?? 0) || 0,
+      });
       else if (r.heightJoin === 'dhm') res = await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
       // §MNH-FR-OSM-JOIN (L-12910) — keyless IGN Géoplateforme; the pixel IS the height above ground
       // (never MNS−MNT here — E5 §G.1 A8). Same option shape as mds: priority = retained = city list.
@@ -1353,6 +1467,34 @@ async function main() {
   // §HEIGHT-STAMP-BUDGET (L-659) — refuse a bake that cannot finish, in ~2 ms, before any download.
   // Deliberately BEFORE the `--check` early return so CI's cheap Plan step is the one that fails.
   assertHeightStampBudget();
+  // §FOOTPRINT-BUDGET (L-12939) — same ~2 ms static refusal, same step: a footprintSource that is
+  // declared but unimplemented, or unbounded, fails the cheap Plan step rather than hour four.
+  {
+    // The working set comes from the SOURCE TABLE, never from a per-region field: that is where
+    // both countries actually declare theirs (ES via footprintBboxesFor -> MDS_CITY_BBOXES, FR via
+    // FR_BDTOPO_CITY_BBOXES), so the check reads the same list the run will use rather than a
+    // second copy that can be right for one country and empty for the other.
+    // ⚠ `defaultBboxes`, not `bboxes` — this read said `?.bboxes?.()` until 2026-09-06, and since
+    // NEITHER row defines that name, `?? []` made the working set look EMPTY for every country and
+    // the preflight refused `spain` AND `france` on the default path. An optional-chained read of a
+    // misspelt key cannot throw; it just answers "nothing", which is why this is pinned by a spec
+    // that runs the preflight for real rather than by a second pair of eyes.
+    const problems = assertFootprintConfig(REGIONS.map((r) => ({
+      ...r,
+      footprintBboxes: Array.isArray(r.footprintBboxes) && r.footprintBboxes.length
+        ? r.footprintBboxes
+        : FOOTPRINT_SOURCES[r.footprintSource]?.defaultBboxes?.() ?? [],
+    })));
+    if (FOOTPRINTS === 'official') {
+      const official = REGIONS.filter((r) => r.footprintSource);
+      console.log(`\n  official footprints: ${official.length ? official.map((r) => `${r.name}→${r.footprintSource}`).join(', ') : 'none in scope'}`);
+    }
+    if (problems.length) {
+      console.error('\n✖ footprint config:');
+      for (const p of problems) console.error(`    · ${p}`);
+      process.exit(2);
+    }
+  }
   if (CHECK) return;
   if (!USE_LOCAL && !DOCKER && !DRY) {
     console.error('\n✖ no toolchain — see the note above. Aborting (nothing to run).');

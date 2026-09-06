@@ -2,7 +2,20 @@
 //
 // WHY THIS TEST EXISTS
 // --------------------
-// `MDS_CITY_BBOXES` is BOTH the height join's `priorityBboxes` (stamped first) AND its
+// ⚠ CORRECTED 2026-09-06 (L-12946, lane ES-WHOLE-COUNTRY-HEIGHTS) — the paragraph below describes
+// the world as it was until this date, and its SECOND HALF IS NO LONGER TRUE. `MDS_CITY_BBOXES` is
+// now the height join's PRIORITY ORDER ONLY; the `retainBboxes` working set is the WHOLE COUNTRY
+// (bake.mjs `stampBboxesFor('mds')` → `MDS_NATIONAL_BBOXES`), and the heap is bounded by swathe
+// passes instead. That change exists because the very defect described below — "a footprint outside
+// every stamp bbox … can NEVER be stamped" — was not a Murcia-shaped omission but a national one:
+// Ciudad Real, Toledo, Alicante, Granada, Vigo, Gijón and every Spanish town were unreachable by
+// construction. The rest of the paragraph, and every assertion in this file, still stands: a stamp
+// bbox smaller than the region it claims is a silent permanent hole, and the metro rows still have
+// to cover their terrain regions because they are still where the sweep starts.
+// ⇒ `mdsNational.spec.ts` is the authority on the retain set, the tiling and the priority order.
+//    Do not re-assert those here from a copy — read that file.
+//
+// `MDS_CITY_BBOXES` WAS BOTH the height join's `priorityBboxes` (stamped first) AND its
 // `retainBboxes` working set (L-659, §HEIGHT-STAMP-BUDGET). A footprint outside every stamp bbox is
 // not merely de-prioritised: it streams through the join untouched and ships with its original OSM
 // tags, i.e. an `assumed` 9 m default. On the map that is INDISTINGUISHABLE from "the national
@@ -100,5 +113,14 @@ describe('§MDS-BBOX-MUST-COVER-THE-REGION', () => {
         for (const c of ['barcelona', 'madrid', 'cordoba', 'murcia', 'valencia']) {
             expect(cities.has(c), `${c} is missing from MDS_CITY_BBOXES`).toBe(true);
         }
+    });
+
+    it('this list is NO LONGER the retain set — bake.mjs retains the whole country (L-12946)', () => {
+        // The single assertion that stops this file's own opening paragraph from being re-enacted.
+        // Everything else about the national sweep is pinned in mdsNational.spec.ts; this row exists
+        // so a revert of the fix fails HERE too, in the file that documents the old model.
+        const bake = readFileSync(resolve(HERE, '../bake.mjs'), 'utf8');
+        expect(bake).toMatch(/if \(r\.heightJoin === 'mds'\) return MDS_NATIONAL_BBOXES;/);
+        expect(bake).not.toMatch(/if \(r\.heightJoin === 'mds'\) return MDS_CITY_BBOXES\.map/);
     });
 });
