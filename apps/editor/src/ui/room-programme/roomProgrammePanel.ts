@@ -55,7 +55,7 @@
  * every live session).
  */
 
-import { createId } from '@pryzm/schemas';
+import { createId, type ElementType } from '@pryzm/schemas';
 // ⭐ REUSE, and the SHALLOWEST import that gets it. `forceLayout` (the 2-D wrapper) lives
 // in `nodeLinkSvg.ts`, which pulls `AnalysisTypes`, `seriesFocus` and `hopEmphasis` in with
 // it — three modules the left rail has no other reason to load. `layoutND` is the actual
@@ -179,7 +179,12 @@ export function defaultRoomProgrammePanelDeps(
     readActiveLevelId: () => {
       try { return resolveActiveLevelId() ?? null; } catch { return null; }
     },
-    mintId: (kind: string) => createId(kind),
+    // ⚠ The cast is at the SEAM, not inside the dep. `createId` is generic over
+    // `ElementType`; the two call sites pass `'spaceEnvelope'` (a real element type)
+    // and `'room'` (a programme-local key that never reaches a store). Widening the
+    // dep's own signature to `string` is what made the ROOT `tsc` fail while the
+    // package check passed, so the narrowing happens here, once.
+    mintId: (kind: string) => createId(kind as ElementType),
   };
 }
 
