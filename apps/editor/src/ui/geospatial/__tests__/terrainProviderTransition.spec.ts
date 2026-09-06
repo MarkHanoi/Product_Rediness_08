@@ -33,13 +33,17 @@ const HOLDING_BARCELONA: TerrainProviderState = { attachedCity: 'barcelona', rel
 describe('§TERRAIN-RELOCATION-DETACH — resolveTerrainTransition', () => {
     it('sanity: the resolver routes the founder sites the way HEAD does today', () => {
         expect(terrainSlugForLonLat(BARCELONA.lon, BARCELONA.lat)).toBe('barcelona');
-        // FINDING (2026-09-05, lane GLOBE-WHITE): the REGION table is first-match and the `spain` row
-        // `[-9.55, 35.90, 4.60, 43.90]` contains all of Portugal, so every Portuguese site resolves to
-        // `spain` and the `portugal` row is unreachable. Both tilesets are unpublished today (R2 404),
-        // so the founder-visible outcome is identical; pinned here so the shadowing is a measured fact,
-        // not a surprise, when the region bakes land. Not this lane's fix — logged in L-12913.
-        expect(terrainSlugForLonLat(PORTO.lon, PORTO.lat)).toBe('spain');
-        expect(terrainSlugForLonLat(SAO_MARTINHO.lon, SAO_MARTINHO.lat)).toBe('spain');
+        // ⭐ THE SHADOWING THIS LINE USED TO PIN IS FIXED, AND THE PIN MOVED WITH IT (lane CI-GREEN,
+        // 2026-09-06). It read `.toBe('spain')` for both Portuguese sites and recorded the FINDING that
+        // the REGION table was first-match, so the `spain` row `[-9.55, 35.90, 4.60, 43.90]` — which
+        // contains all of Portugal — made the `portugal` row unreachable (L-12913, deferred by that
+        // lane). `8ba65253` (§MOST-INTERIOR-BBOX-WINS, L-12944) replaced first-match with
+        // most-interior-wins to stop Sete and Montpellier being served the Spanish tileset, and the
+        // same change reaches Portugal: MEASURED at HEAD, Porto and São Martinho both resolve to
+        // `portugal`. ⚠ This is a PRODUCT FIX landing, not a tolerance being widened — the assertion
+        // now pins the CORRECT routing, and re-pinning it to `spain` would restore the wrong answer.
+        expect(terrainSlugForLonLat(PORTO.lon, PORTO.lat)).toBe('portugal');
+        expect(terrainSlugForLonLat(SAO_MARTINHO.lon, SAO_MARTINHO.lat)).toBe('portugal');
         expect(terrainSlugForLonLat(GERMAN_VILLAGE.lon, GERMAN_VILLAGE.lat)).toBe('germany');
         expect(terrainSlugForLonLat(CASABLANCA.lon, CASABLANCA.lat)).toBeNull();
     });
@@ -74,7 +78,7 @@ describe('§TERRAIN-RELOCATION-DETACH — resolveTerrainTransition', () => {
 
     it('relocating to a DIFFERENT covered site → attach, naming the tileset it replaces', () => {
         const t = resolveTerrainTransition(decide(PORTO.lat, PORTO.lon), HOLDING_BARCELONA);
-        const slug = terrainSlugForLonLat(PORTO.lon, PORTO.lat)!;         // 'spain' today (see the sanity test)
+        const slug = terrainSlugForLonLat(PORTO.lon, PORTO.lat)!;         // 'portugal' today (see the sanity test)
         expect(t).toEqual({ action: 'attach', city: slug, candidates: [slug], replaces: 'barcelona' });
     });
 
