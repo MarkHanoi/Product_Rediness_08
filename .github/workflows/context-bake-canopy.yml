@@ -141,12 +141,28 @@ jobs:
           ( cd "$GITHUB_WORKSPACE/tools/context-bake" \
             && node --input-type=module -e "const m=await import('geotiff'); if(typeof m.fromArrayBuffer!=='function'||typeof m.fromUrl!=='function'){console.error('geotiff.fromArrayBuffer/fromUrl missing');process.exit(1)} console.log('✓ geotiff resolvable from the bake host process (fromArrayBuffer + fromUrl ok)')" )
 
+      # §CANOPY-GUARD-NEEDS-PNPM (L-12974) — the guard below runs vitest, and vitest is a WORKSPACE
+      # dependency: it is not on the runner unless something installs it. `npx vitest` did not install
+      # it, it FETCHED A DIFFERENT ONE, which then could not resolve the `vitest` import inside the
+      # repo's own vitest.config.ts:
+      #     Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vitest' imported from
+      #     .../vitest.config.ts.timestamp-….mjs
+      # so both canopy bakes died at the guard, before a single tile — the founder's Mont St Clair
+      # vegetation among them. Use PNPM, not npm: the geotiff note above rules out npm INSIDE the repo
+      # (the root package.json declares npm-style workspaces, so npm walks up and chokes on pnpm's
+      # `workspace:*`), and that objection does not apply to pnpm — ci.yml's `test-root` job installs
+      # exactly this way.
+      - uses: pnpm/action-setup@v4
+
+      - name: Install workspace deps (vitest lives here)
+        run: pnpm install --frozen-lockfile
+
       - name: Pin the canopy maths before any network call
         # The pure half (source resolution, the globally-anchored 12 m cell grid, the chunk-seam
         # invariant, the three separate counters, the scope refusal) is unit-tested and runs in
         # seconds. A seam regression here would duplicate or drop canopies invisibly, so it is
         # cheaper to find it now than in a 30-region tileset.
-        run: npx vitest run tools/context-bake/__tests__/canopy.spec.ts
+        run: pnpm exec vitest run tools/context-bake/__tests__/canopy.spec.ts
 
       - name: Show the scope this run will bake (and what it will REFUSE)
         env:
