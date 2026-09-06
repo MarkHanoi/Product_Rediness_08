@@ -203,6 +203,12 @@ import {
   type TerrainAttachOutcome, type TerrainProviderState,
 } from "./terrainProviderTransition";
 import { terrainTilesetCoversSite } from './terrainTilesetCoverage';
+// §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — the ONE authority for an authored envelope's colour,
+// opacity and label. Pure (no THREE, no DOM), which is why the THREE mesh builder and this Cesium
+// rasteriser can share it verbatim instead of each owning a palette that would drift. See
+// `toBeBuiltEnvelopeStyle.ts` for why a LEVEL envelope is deliberately NOT confident violet.
+import { resolveSpaceEnvelopeAppearance } from '../../engine/spaceEnvelopeAppearance';
+import type { DirtySpaceEnvelopeStore } from '../../engine/attachSpaceEnvelopeRender';
 // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the pure table of every SHARED-VIEWER write that
 // differs between the two framings of the ONE viewer (§L-412 / C60 §6.5). Read its header before
 // touching any `scene.globe.*` / imagery / sky assignment in this file: the whole point is that the
@@ -573,6 +579,31 @@ export interface TileLoadProgress {
    * "nobody is drawing the scene". Optional/undefined on a viewer that cannot report it.
    */
   readonly frameNumber?: number;
+}
+
+/**
+ * §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — the fields this rasteriser reads off one authored
+ * `spaceEnvelope` record.
+ *
+ * ⚠ STRUCTURAL, NOT AN IMPORT OF THE L0 TYPE, and that is the same discipline
+ * `SpaceEnvelopeRenderInput` (the THREE mesh builder's input) already uses. The store hands back
+ * `ReadonlyMap<string, unknown>` — `PluginDtoStoreHandle` declares nothing narrower — so the
+ * honest shape is the subset actually read, with every field optional because a row that came
+ * back from persistence may be missing any of them. ⛔ NOT `any` (P4): each field is typed, and
+ * the renderer refuses (and COUNTS) a row whose geometry does not parse rather than guessing one.
+ */
+interface CesiumSpaceEnvelopeRecord {
+  readonly role?: string;
+  readonly name?: string;
+  readonly occupancy?: string;
+  readonly materialColor?: string;
+  readonly footprintAreaM2?: number;
+  /** The footprint ring on the level's XZ plane, OPEN loop, metres (`y` is pinned 0 in L0). */
+  readonly footprint?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+  /** Metres above the owning level's datum at which the prism starts. */
+  readonly baseOffset?: number;
+  /** Metres of vertical extent. Strictly positive in a parsed record. */
+  readonly height?: number;
 }
 
 /**
@@ -1264,6 +1295,19 @@ export class CesiumViewport {
    * `setGlobeBuildingShown` skips everything in here.
    */
   private formaSiteOverlayEntities = new Set<Cesium.Entity>();
+
+  /**
+   * §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — the AUTHORED space-envelope prisms.
+   *
+   * ⭐ A SEPARATE LIST, DELIBERATELY, and it is not tidiness. `formaMassingEntities` is cleared at
+   * the head of every `renderFormaMassing`; these are driven by the SPACE-ENVELOPE STORE, which
+   * changes on its own schedule (a face drag, a profile Apply, a Ctrl+Z) with no massing pass in
+   * sight. Sharing the massing list would tie an authored volume's lifetime to an unrelated
+   * re-render — the class of coupling §SITE-OVERLAY-NOT-BUILDING (L-464/L-468) exists to undo.
+   */
+  private spaceEnvelopeEntities: Cesium.Entity[] = [];
+  /** §SPACE-ENVELOPE-IN-CESIUM — the store's dirty-channel unsubscribe, or null while unsubscribed. */
+  private spaceEnvelopeSub: (() => void) | null = null;
   /** The last-known site lat/lon (= ENU anchor) + the boundary centroid (in ENU
    *  metres) + plot area the massing was placed against — used by the
    *  "Zoom to Site" / "Reset View" affordance to repeat the NW oblique flyTo. */
@@ -1865,6 +1909,13 @@ export class CesiumViewport {
         'PROJECT space on a TRUE-north globe).',
       );
     }
+    // §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — the store only becomes reachable WITH the runtime,
+    // and §L-446's whole finding is that the runtime frequently arrives late. Subscribing here as
+    // well as at the massing tail closes the window in which a user authors an envelope before any
+    // massing pass has run: without it the first authored volume would wait for an unrelated
+    // re-render to appear, which is [[null-at-mount-runtime-event-race]] with a new subject.
+    this.ensureSpaceEnvelopeSubscription();
+    this.renderSpaceEnvelopes();
   }
 
   constructor(private parent: HTMLElement, runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
@@ -6516,6 +6567,214 @@ export class CesiumViewport {
       this.reseatRealModelOnForma();
       this.clearFormaMassingEntitiesOnly();
     }
+
+    // §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — the AUTHORED design-intent prisms ride the same
+    // origin, θ and terrain base this pass just settled, so they are (re)drawn at its tail rather
+    // than on a timer. Their own store subscription handles the case where the user authors one
+    // while nothing else re-renders. Cheap and idempotent: it clears and rebuilds its own list.
+    this.ensureSpaceEnvelopeSubscription();
+    this.renderSpaceEnvelopes();
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // §SPACE-ENVELOPE-IN-CESIUM (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §26.4, founder 2026-09-06)
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // ⭐ THE FOUNDER'S SENTENCE, AND THE THING IT IS ACTUALLY ABOUT:
+  //     *"the envelope renders great on pryzm view — but on 3d site vie not on 2d map view — i
+  //      would like the user to be able to create the envelope in 3d site if this is possible as
+  //      we can do on pryzm view."*
+  //
+  // ⛔ THE RECONCILIATION THAT HAD TO HAPPEN FIRST, because this file's own console CONTRADICTS
+  // him: it logs `§ENVELOPE-VIA-MASSING (§1.14 rasteriser) drew 2/2 solid(s)` and `envelope
+  // entities added=2` in the very trace where he says there is no envelope. Both statements are
+  // true, because THEY ARE ABOUT DIFFERENT OBJECTS, and the L0 schema says so in its own header
+  // (`packages/schemas/src/elements/SpaceEnvelope.ts`): *"⛔ IT IS NOT `BuildableEnvelope`. That
+  // is the SOLVED legal ceiling … produced by the zoning engine and never authored."*
+  //
+  //   · `§ENVELOPE-VIA-MASSING` draws the BUILDABLE envelope — the SOLVED legal study, with an
+  //     `EnvelopeConfidence`, a derivation trace and a refusal vocabulary. It is not authored and
+  //     `role: 'maximumBuildable'` is refused at the create verb precisely so a user can never
+  //     drag the thing the product calls the law (ADR-0380 D2).
+  //   · What the founder AUTHORS — and what "as we can do on pryzm view" refers to — is the
+  //     SPACE ENVELOPE (§FEAT-SPACE-ENVELOPE L-12900 · C114 · ADR-0380): `role: 'level'` prisms
+  //     minted by `spaceEnvelope.batch.create`, dragged by the face
+  //     (`spaceEnvelopeFaceDragController`) and re-profiled by `spaceEnvelopeProfileEditTool`.
+  //     It has `standing: 'design-intent'` and, until this method, it had exactly ONE renderer in
+  //     the whole app: `SpaceEnvelopeMeshBuilder`, in the THREE/WebGPU BIM scene. A grep for
+  //     `spaceEnvelope` under `ui/geospatial/` returned NOTHING. That is the defect — not an
+  //     invisible entity, an ABSENT renderer.
+  //
+  // ⭐ ONE MODEL, TWO RASTERISERS — the shape §CESIUMENV167 already established for the study
+  // massing, and the one `attachSpaceEnvelopeRender.ts` argues for in its own header: the road is
+  // `Store.subscribeDirty()`, which `applyPatch()` notifies on EXECUTE, UNDO and REDO alike. So
+  // this arm needs no bus subscriber and no second render channel to disagree with the first, and
+  // `performUndoRedo.ts`'s generic `spaceEnvelope` row stays honest. ⛔ Do not "improve" either
+  // arm into a bus-event subscriber without changing that row in the same commit.
+  //
+  // ⛔ AND IT MINTS NO SECOND PALETTE. `resolveSpaceEnvelopeAppearance` is pure and already the
+  // one authority for the colour, the opacity and the label — including the §TOBE-ENVELOPE
+  // (L-12965-era) ruling that moved the level envelope OFF `#6600FF` so an intent volume stops
+  // wearing the confident-violet CONFIDENCE BADGE that C58 §1.2 reserves for a determination.
+  // Re-deriving a hue here would put the two surfaces one commit away from disagreeing about what
+  // a colour means.
+
+  /**
+   * §SPACE-ENVELOPE-IN-CESIUM — subscribe ONCE to the space-envelope store's dirty channel.
+   *
+   * Idempotent, and safe to call from any render tail: the runtime is late-injected
+   * (`setRuntime`, §L-446), so the first few calls legitimately find no store.
+   */
+  private ensureSpaceEnvelopeSubscription(): void {
+    if (this.spaceEnvelopeSub) return;
+    const store = this.runtime?.stores?.spaceEnvelope as DirtySpaceEnvelopeStore | undefined;
+    // The same narrowing `initTools` performs, and for the same reason: `PluginDtoStoreHandle`
+    // declares only `getState()`, while the live store also carries `subscribeDirty`. A structural
+    // check is the honest way to say "this handle is richer than its declared type" — never a cast
+    // through `any` (P4), and never an assumption.
+    if (!store || typeof store.subscribeDirty !== 'function') return;
+    this.spaceEnvelopeSub = store.subscribeDirty(() => {
+      // The store changed — including on Ctrl+Z, which emits no bus event at all. Redraw from the
+      // store, never from the diff: a partial redraw would need its own entity index and would be
+      // a second answer to "what is on screen" (C84 EI-9).
+      this.renderSpaceEnvelopes();
+    });
+    console.log(
+      '[CesiumViewport][space-envelope] §SPACE-ENVELOPE-IN-CESIUM subscribed to the ONE space-envelope ' +
+        'store (subscribeDirty — execute, undo and redo alike). STR §26.4.',
+    );
+  }
+
+  /** §SPACE-ENVELOPE-IN-CESIUM — drop every authored-envelope entity. Idempotent, never throws. */
+  private clearSpaceEnvelopes(): void {
+    const viewer = this.viewer;
+    for (const ent of this.spaceEnvelopeEntities) {
+      try { viewer?.entities.remove(ent); } catch { /* already gone */ }
+    }
+    this.spaceEnvelopeEntities = [];
+  }
+
+  /**
+   * §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — draw every AUTHORED space envelope as a prism on the
+   * 3D Site, in the SAME ENU frame, at the SAME terrain base and under the SAME θ as the massing.
+   *
+   * ⚠ WHAT IT REFUSES TO GUESS (C57 §1.5 — a failure must never be dressed as an empty). The
+   * prisms are authored in SCENE-XZ metres about the site frame origin. With no origin there is
+   * no way to place them on the Earth, so this says WHY in one line and draws nothing — it does
+   * NOT fall back to the address, the map centre or 0,0. A prism at a guessed origin is a
+   * confidently wrong answer about where someone intends to build.
+   *
+   * ⚠ THE DATUM, STATED RATHER THAN IMPLIED. `baseOffset` is measured from the owning LEVEL's
+   * datum and the record carries no terrain relationship at all — the L0 schema is explicit that
+   * this omission is deliberate (L-584: the ordinance measures the rasante AT THE FAÇADE while
+   * PRYZM samples ONE point at the centroid). This rasteriser therefore seats them on
+   * `formaTerrainBaseHeight` exactly as `SpaceEnvelopeMeshBuilder` seats them on scene-Y 0 — the
+   * same convention the buildable-envelope solids already use — and claims nothing more.
+   */
+  private renderSpaceEnvelopes(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    this.clearSpaceEnvelopes();
+
+    const store = this.runtime?.stores?.spaceEnvelope;
+    if (!store || typeof store.getState !== 'function') return;   // nothing authored yet, quietly.
+    let records: ReadonlyMap<string, unknown>;
+    try { records = store.getState(); } catch { return; }
+    if (records.size === 0) return;
+
+    const origin = this.formaMassingOrigin;
+    if (!origin) {
+      // LOUD, and it names the missing input rather than the symptom (C84 EI-6).
+      console.warn(
+        `[CesiumViewport][space-envelope] §SPACE-ENVELOPE-IN-CESIUM ${records.size} authored ` +
+          'envelope(s) exist but NO site frame origin is seated yet, and they are authored in ' +
+          'scene-XZ metres ABOUT that origin. Drawing nothing rather than placing design intent ' +
+          'at a guessed point on the Earth (C57 §1.5). They appear as soon as the site renders.',
+      );
+      return;
+    }
+
+    // The SAME frame construction `renderFormaMassing` uses, read once per pass so a mid-pass
+    // store change cannot rotate half the set (§L-430 slice 2b).
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
+      Cesium.Cartesian3.fromDegrees(origin.lon, origin.lat, 0),
+    );
+    const thetaRad = this.readProjectNorthRad();
+    const baseHeight = this.formaTerrainBaseHeight;
+    const toCartesian = (x: number, z: number, up: number): Cesium.Cartesian3 => {
+      const { east, north } = sceneXZToEnu(x, z, thetaRad);
+      return Cesium.Matrix4.multiplyByPoint(
+        enu, new Cesium.Cartesian3(east, north, up), new Cesium.Cartesian3(),
+      );
+    };
+
+    let drawn = 0;
+    let skipped = 0;
+    const roles: string[] = [];
+    for (const [id, raw] of records) {
+      const rec = raw as CesiumSpaceEnvelopeRecord | null | undefined;
+      const ring = rec?.footprint;
+      const height = rec?.height;
+      const baseOffset = rec?.baseOffset;
+      // A malformed row is SKIPPED and COUNTED, never guessed at and never fatal — one bad record
+      // must not take the scene down (the same totality `resolveSpaceEnvelopeAppearance` promises).
+      if (!Array.isArray(ring) || ring.length < 3
+        || typeof height !== 'number' || !Number.isFinite(height) || height <= 0
+        || typeof baseOffset !== 'number' || !Number.isFinite(baseOffset)) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        const appearance = resolveSpaceEnvelopeAppearance({
+          id,
+          role: rec?.role,
+          name: rec?.name,
+          occupancy: rec?.occupancy,
+          materialColor: rec?.materialColor,
+          footprintAreaM2: rec?.footprintAreaM2,
+          height,
+        });
+        const bottom = baseHeight + baseOffset;
+        const top = bottom + height;
+        const positions = ring.map((p) => toCartesian(p.x, p.z, bottom));
+        const colour = Cesium.Color.fromCssColorString(appearance.colour);
+        const ent = viewer.entities.add({
+          name: appearance.labelTitle ?? id,
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: bottom,
+            extrudedHeight: top,
+            material: colour.withAlpha(appearance.opacity),
+            outline: true,
+            // The outline is the second channel, and on a LEVEL envelope at 0.12 fill it is the
+            // channel that actually carries the volume — the same reason the buildable-envelope
+            // solids outline at full alpha over a translucent fill.
+            outlineColor: colour.withAlpha(1.0),
+            outlineWidth: 2,
+            // A design-intent study volume must not cast a building's shadow: it is not a building.
+            shadows: Cesium.ShadowMode.DISABLED,
+            perPositionHeight: false,
+            closeTop: true,
+            closeBottom: true,
+          },
+        });
+        this.spaceEnvelopeEntities.push(ent);
+        drawn += 1;
+        roles.push(`${rec?.role ?? 'room'}@${height.toFixed(1)}m`);
+      } catch (e) {
+        skipped += 1;
+        console.warn(`[CesiumViewport][space-envelope] envelope "${id}" failed — skipped:`, e);
+      }
+    }
+
+    console.log(
+      `[CesiumViewport][space-envelope] §SPACE-ENVELOPE-IN-CESIUM drew ${drawn}/${records.size} ` +
+        `authored envelope(s) [${roles.join(', ')}]` +
+        (skipped > 0 ? ` · ${skipped} skipped as unreadable` : '') +
+        ` · standing='design-intent' (NOT the permitted study — that is §ENVELOPE-VIA-MASSING)` +
+        ` · base=${baseHeight.toFixed(2)} m, θ=${(thetaRad * 180 / Math.PI).toFixed(2)}°.`,
+    );
+    viewer.scene.requestRender();
   }
 
   /**
@@ -13076,6 +13335,25 @@ export class CesiumViewport {
     this.facadeSuppressingMassing = !visible;
     // Massing polygon blocks.
     for (const ent of this.formaMassingEntities) {
+      // §SITE-OVERLAY-NOT-BUILDING (L-464, completed by L-468) — ⛔ THE THIRD SITE IN THIS FAMILY,
+      // AND IT WAS THE ONE STILL MISSING THE SKIP. `setGlobeBuildingShown` and
+      // `clearFormaMassingEntitiesOnly` both honour this survival set; this method did not, and it
+      // is the ONLY remaining post-render writer of `.show = false` over `formaMassingEntities`.
+      // So turning the façade sun-hours study ON hid the BUILDABLE ENVELOPE and the PARCEL
+      // BOUNDARY along with the building's own materials.
+      //
+      // ⚠ WHY THAT IS A CORRECTNESS BUG AND NOT A COSMETIC ONE — the exact argument L-464 makes,
+      // and the reason it keeps being worth re-stating: an envelope that vanishes reads as "there
+      // is no constraint here", which is the silent false negative C58 §1.4 forbids. The façade
+      // study is a study OF a design; the planning constraint the design must sit inside does not
+      // stop applying while you look at its sun hours. The parcel boundary is the same class.
+      //
+      // ⭐ AND IT PRESENTED AS AN INTERMITTENT "the log says it drew, I cannot see it": the next
+      // full `renderFormaMassing` mints fresh entities that default to `show: true`, so the
+      // envelope came back on its own and the console kept reporting `envelope entities added=2`
+      // with nothing on screen. [[committed-is-not-reachable]] — the draw diag proves the ADD, not
+      // the VISIBILITY, and this is exactly the gap between them.
+      if (this.formaSiteOverlayEntities.has(ent)) continue;
       try { ent.show = visible; } catch { /* gone */ }
     }
     // Real full-fidelity GLB model. On restore, defer to the floor-filter's own show
@@ -15628,6 +15906,20 @@ export class CesiumViewport {
       }
       this.locationSub = null;
     }
+
+    // §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — same rule, same reason: the space-envelope store
+    // outlives this viewport, so a live `subscribeDirty` listener would hold a strong reference to
+    // a disposed viewer and redraw into it on the next face drag. A re-mount re-subscribes from
+    // its own first massing pass.
+    if (this.spaceEnvelopeSub) {
+      try {
+        this.spaceEnvelopeSub();
+      } catch (e) {
+        console.warn('[CesiumViewport] space-envelope subscription dispose failed:', e);
+      }
+      this.spaceEnvelopeSub = null;
+    }
+    try { this.clearSpaceEnvelopes(); } catch { /* viewer already gone */ }
 
     // §ENVELOPE-ONE-VISIBILITY (L-1170) — a destroyed viewport must not stay subscribed:
     // the authority would keep a strong reference and the repaint would run against a dead
