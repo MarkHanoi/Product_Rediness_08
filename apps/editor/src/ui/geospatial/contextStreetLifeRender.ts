@@ -72,6 +72,22 @@ export const PEDESTRIAN_PALETTE: readonly string[] = [
 export interface StreetLifeHost {
     /** Absolute ground height in metres at lat/lon, on the settled relief (the trees' `sampleGround`). */
     groundAt(lat: number, lon: number): number;
+    /**
+     * §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964) — give the host the chance to resolve the DETAILED
+     * terrain ground for these exact points BEFORE `groundAt` is asked for any of them.
+     *
+     * `groundAt` is synchronous, and the host's implementation falls back to the currently
+     * TESSELLATED globe mesh when it has no detailed sample for a point — at start-up that is two
+     * coarse level-2 tiles seen from 600 m up, ~7 m off the real surface at Córdoba (founder,
+     * 2026-09-06: lamps and people "sits under the visual plane … after the user selects the parcel
+     * they are nicely visually again"). Lamps and pedestrians BAKE that ground into their instance
+     * matrices, so a coarse answer is permanent until a full rebuild. The layer chooses its own
+     * points, so only the layer can say WHICH points need sampling — hence this hook.
+     *
+     * Optional so a caller that has no terrain (tests, the flat/keyless path) can omit it; never
+     * throws, and a rejection only means the seats fall back to exactly the pre-L-12964 behaviour.
+     */
+    prepareGrounds?(points: ReadonlyArray<{ lat: number; lon: number }>): Promise<void>;
 }
 
 export interface StreetLifeCounts {
@@ -175,6 +191,19 @@ export class StreetLifeLayer {
             .filter((l) => l.distM <= STREET_LIFE_RENDER_RADIUS_M)
             .slice(0, STREET_LIFE_MAX_LAMPS);
         const people = peopleResult.people.slice(0, STREET_LIFE_MAX_PEOPLE);
+
+        // §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964) — resolve the DETAILED ground for exactly the
+        // points about to be baked, BEFORE `groundAt` is asked for any of them. See `StreetLifeHost`.
+        if (host.prepareGrounds) {
+            try {
+                await host.prepareGrounds([
+                    ...lamps.map((l) => ({ lat: l.lat, lon: l.lon })),
+                    ...people.map((p) => ({ lat: p.lat, lon: p.lon })),
+                ]);
+            } catch { /* seats fall back to the pre-L-12964 sample; never fatal */ }
+            if (signal.aborted || !this.viewerStillCurrent(viewer)) return;
+            if (!this.enabled) { this.clear(viewer); return; }
+        }
 
         const lampInstances = this.buildLamps(viewer, host, lamps);
         const peopleInstances = this.buildPeople(viewer, host, people);

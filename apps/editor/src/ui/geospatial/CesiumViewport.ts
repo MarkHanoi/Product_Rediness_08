@@ -1639,6 +1639,14 @@ export class CesiumViewport {
    *  parallel with the other layers, LONG before the buildings are fetched, so `contextBuildingsAt`
    *  is still null when the terrain settles and the re-seat runs. See rebuildContextTreesForBase. */
   private contextTreesAt: { lat: number; lon: number } | null = null;
+  /**
+   * §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — how far a layer's REMEMBERED load anchor may sit
+   * from the site the viewport is on RIGHT NOW before a settled-base rebuild treats it as ANOTHER
+   * SITE'S anchor and refuses to bake it. 250 m is well inside one context bbox (the loaders' own
+   * "same site" tolerance is 1e-6°, and every in-site caller passes the identical origin), and two
+   * orders of magnitude under the founder's measured 1.8 km stale rebuild.
+   */
+  private static readonly RESEAT_ANCHOR_TOLERANCE_M = 250;
   /** §PLOT-CLEAR-ENVELOPE (L-402c) — the committed working-plot (parcel) boundary
    *  projected to [lon,lat], captured on the last renderFormaMassing. loadContextBuildings
    *  removes any OSM footprint sitting ON this plot (the building the user is replacing)
@@ -7370,6 +7378,56 @@ export class CesiumViewport {
    * re-seated with everything else; the exemption is gone, not merely re-justified.
    */
   /**
+   * §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — THE site the viewport is on RIGHT NOW, and the only
+   * thing a settled-base rebuild is allowed to bake against. `formaMassingOrigin` first (the plot the
+   * user committed — set synchronously inside `renderFormaMassing` BEFORE the terrain clamp that runs
+   * the rebuilds), else the LTP-ENU / address site location. Both move with the site by construction;
+   * neither is a per-layer memo that a site change can leave behind.
+   */
+  private currentContextSite(): { lat: number; lon: number } | null {
+    const o = this.formaMassingOrigin;
+    if (o && Number.isFinite(o.lat) && Number.isFinite(o.lon) && (o.lat !== 0 || o.lon !== 0)) {
+      return { lat: o.lat, lon: o.lon };
+    }
+    return this.readSiteLocation();
+  }
+
+  /**
+   * §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — resolve the anchor a settled-base rebuild of a
+   * BAKED-POSITION layer (canopies, street life — anything whose ground lives in its instance
+   * matrices) must use, and make a rebuild at a FOREIGN anchor unreachable.
+   *
+   * THE RULE: the anchor is ALWAYS the current site. `loadedAt` — the layer's own memo of where it
+   * was last built — is used for exactly one thing: deciding whether this layer is still ON that
+   * site. When it is not, the primitive on screen belongs to somewhere else, a load for the current
+   * site is already in flight or imminent (every site change fires one), and the honest action is to
+   * REFUSE and let that load seat it. Force-loading the remembered anchor — what the L-12949 fix
+   * did — re-fetches the OLD city and races the correct load; the founder measured both halves of
+   * that (canopies rebuilt 1.8 km away, count flip-flopping 57 ↔ 1006).
+   *
+   * @returns the current-site anchor to rebuild at, or null to refuse. Never throws.
+   */
+  private reseatAnchorForCurrentSite(
+    layer: string,
+    loadedAt: { lat: number; lon: number } | null,
+  ): { lat: number; lon: number } | null {
+    const site = this.currentContextSite();
+    // No current site at all → there is nothing to be "the same site as"; refuse rather than guess.
+    if (!site) return null;
+    if (!loadedAt) return site;                             // built by a load we have no memo for → the site is the truth.
+    const sepM = originSeparationMeters(site, loadedAt);
+    if (sepM <= CesiumViewport.RESEAT_ANCHOR_TOLERANCE_M) return site;
+    console.warn(
+      `[CTX-DIAG] §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — REFUSING to rebuild the ${layer} layer: it was ` +
+        `built at ${loadedAt.lat.toFixed(5)},${loadedAt.lon.toFixed(5)}, which is ${sepM.toFixed(0)} m from the ` +
+        `current site ${site.lat.toFixed(5)},${site.lon.toFixed(5)} (tolerance ` +
+        `${CesiumViewport.RESEAT_ANCHOR_TOLERANCE_M} m). That primitive belongs to the PREVIOUS site; the load ` +
+        'for this one seats it. Rebuilding here would re-fetch the old city and race that load.',
+    );
+    return null;
+  }
+
+  /**
    * §CTX-TREES-RESEAT (L-12918) — rebuild the instanced canopies on the settled terrain base. The
    * tree Primitive bakes each tree's ground into its instance matrix (`sampleGround` at load time),
    * so unlike the entity layers it cannot be lifted by rewriting a scalar; it is re-loaded, with
@@ -7389,9 +7447,21 @@ export class CesiumViewport {
     // later, with no trees re-seat between them. So `at` was null, this returned "nothing placed yet",
     // and the canopies — whose ground is baked into their instance matrices at load time — stayed at
     // base 0, i.e. ~700 m under Madrid. Selecting a parcel re-ran the block with the buildings present,
-    // which is exactly why the trees snapped into place then. Prefer the site the TREES were loaded for.
-    const at = this.contextTreesAt ?? this.contextBuildingsAt;
-    if (!at || !this.contextTreesPrimitive) return;        // nothing placed yet — the initial load will seat.
+    // which is exactly why the trees snapped into place then.
+    //
+    // ⛔ §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — that fix read `contextTreesAt ?? contextBuildingsAt`
+    // and SHIPPED A REGRESSION WITH IT: a REMEMBERED field is not a site. Founder, Córdoba 2026-09-06 —
+    // "[CTX-DIAG] trees re-seat: rebuilding canopies at 37.88507,-4.77718" while the committed parcel was
+    // at 37.88779,-4.79761, ~1.8 km away, with the canopy count flipping 57 ↔ 1006 between the two sites.
+    // `contextTreesAt` is written by `loadContextTrees` and cleared by nobody, so on the second site the
+    // terrain settle re-ran this block, read the PREVIOUS site's anchor, and FORCE-LOADED the previous
+    // city's canopies — racing the correct in-flight load for the new one (each aborts the other, hence
+    // the flip-flopping count). No amount of "remember to null the field on a site change" fixes that
+    // class; the anchor must be DERIVED from the current site instead, which `reseatAnchorForCurrentSite`
+    // does, so a rebuild at a foreign anchor is unreachable rather than merely unlikely.
+    if (!this.contextTreesPrimitive) return;               // nothing placed yet — the initial load will seat.
+    const at = this.reseatAnchorForCurrentSite('trees', this.contextTreesAt);
+    if (!at) return;
     try {
       void this.loadContextTrees(at.lat, at.lon, true);
       console.log(
@@ -7824,17 +7894,28 @@ export class CesiumViewport {
           return typeof h === 'number' && Number.isFinite(h) ? h : null;
         });
       },
-      onFlush: ({ sampled, resolved, ms }) => {
+      onFlush: ({ sampled, resolved, ms, tiles, tileLevel }) => {
         const s = this.groundSampleBatcherInstance?.stats;
         console.log(
           `[CTX-DIAG] §STARTUP-GROUND-SAMPLE-COALESCE — ONE shared sampleTerrainMostDetailed ` +
             `round-trip resolved ${resolved}/${sampled} real ground height(s) in ${ms.toFixed(0)} ms. ` +
+            // §GROUND-SAMPLE-TILE-ATTRIBUTION (L-12952) — the number the founder's run made
+            // unreadable: parks asked 493 points and roads 3555 and BOTH took 14.1 s, because
+            // `doSampling` issues ONE `requestTileGeometry` per DISTINCT TILE and interpolates
+            // every point inside it for free (Cesium 1.143 :208004/:207963). Printing the tile
+            // count says what the round-trip actually bought, and it is the number that must go
+            // down — dropping drape DENSITY would move `sampled` and not move this at all.
+            `Tiles: ${tiles} distinct terrain tile(s) at level ${tileLevel} for those ${sampled} ` +
+            `point(s) — the DOWNLOADS are the cost, the points inside a tile are free. ` +
             (s
               ? `Session: ${s.roundTrips} round-trip(s) for ${s.requests} caller(s) asking ` +
                 `${s.pointsRequested} point(s) — ${s.pointsSampled} sampled, ${s.pointsFromCache} ` +
-                `served from cache, ${s.pointsJoinedInFlight} joined a trip already in flight. ` +
-                `BEFORE this lane every caller paid its OWN round-trip (founder Córdoba: parks 493 pts ` +
-                `and roads 3555 pts BOTH 14.1 s — the duplicate download, not the points).`
+                `served from cache, ${s.pointsJoinedInFlight} joined a trip already in flight, ` +
+                `${s.pointsResolvedByAnEarlierFlight} answered by the flight ahead of them; ` +
+                `${s.deferredFlushes} flush(es) waited their turn, max concurrent flights ` +
+                `${s.maxConcurrentFlights} (MUST be 1 — two calls in the air re-download the same ` +
+                `tiles). BEFORE this lane every caller paid its OWN round-trip (founder Córdoba: ` +
+                `parks 493 pts and roads 3555 pts BOTH 14.1 s — the duplicate download, not the points).`
               : ''),
         );
       },
@@ -8766,8 +8847,26 @@ export class CesiumViewport {
    *   3. Already sampled for this exact centroid (clampTerrainThenReplace may have run) → reuse it.
    *   4. Otherwise `sampleTerrainMostDetailed` at the centroid → set `formaTerrainBaseHeight`.
    * Returns the resolved base (0 on the flat path). Never throws.
+   *
+   * §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964) — CALLED BY MORE THAN THE BUILDINGS NOW, so identical
+   * concurrent calls are COALESCED onto one promise. `renderFormaMassing` fires seven loaders in
+   * parallel at the same origin; without this, each awaiting loader would open its own
+   * `sampleTerrainMostDetailed` round-trip for the SAME centroid (the §STARTUP-CTX-COALESCE lesson,
+   * one level down). One in-flight entry, keyed by the centroid, cleared when it settles.
    */
-  private async ensureGroundBaseForContext(lat: number, lon: number): Promise<number> {
+  private groundBaseInFlight: { lat: number; lon: number; p: Promise<number> } | null = null;
+
+  private ensureGroundBaseForContext(lat: number, lon: number): Promise<number> {
+    const running = this.groundBaseInFlight;
+    if (running && Math.abs(running.lat - lat) < 1e-6 && Math.abs(running.lon - lon) < 1e-6) return running.p;
+    const p = this.ensureGroundBaseForContextInner(lat, lon).finally(() => {
+      if (this.groundBaseInFlight?.p === p) this.groundBaseInFlight = null;
+    });
+    this.groundBaseInFlight = { lat, lon, p };
+    return p;
+  }
+
+  private async ensureGroundBaseForContextInner(lat: number, lon: number): Promise<number> {
     try {
       await this.maybeAttachTerrainProvider(lat, lon);   // idempotent; attaches baked terrain if any.
     } catch { /* attach failure → stay on whatever ground we have */ }
@@ -9338,6 +9437,47 @@ export class CesiumViewport {
         const globe = viewer.scene.globe;
         const now = Cesium.JulianDate.now();
         const centroidSurface = globe.getHeight(Cesium.Cartographic.fromDegrees(lon, lat));
+        // §COARSE-VS-DETAILED (L-12964) — THE PROBE THAT DECIDES WHY A SEAT IS WRONG, shipped
+        // because the founder's Córdoba paste could NOT decide it and a fix that guesses is worse
+        // than no fix. Two readings of THE SAME GROUND exist in this class and they are not
+        // interchangeable:
+        //   • `globe.getHeight` — the CURRENTLY TESSELLATED mesh. At t+8s that is
+        //     `renderedTerrainTiles=2` seen from `camH=600m`, i.e. two coarse level-2 tiles.
+        //     `sampleGround` falls back to it on a cache miss, so it is what the BAKED-POSITION
+        //     layers (canopies, street life) were seated on before §CTX-SEAT-FIRST-FOR-BAKED-LAYERS.
+        //   • `contextGroundCache` — `sampleTerrainMostDetailed`, the provider's finest tile,
+        //     independent of the camera. The buildings and every §12 ground layer use only this.
+        // The founder reported `centroidTerrainSurface=161.6m seatBase=161.6m` at start-up and
+        // `seat-first: terrain ground sampled 168.5 m` after committing a parcel — but seatBase is
+        // ALREADY a detailed sample, so at that instant, at that point, the two sources AGREED. The
+        // 6.9 m therefore may be relief between two DIFFERENT points, or the detailed answer itself
+        // changing as the provider's tiles arrive — the paste cannot tell them apart, and neither
+        // can this lane. ⛔ So nothing here assumes it: this line MEASURES the disagreement instead,
+        // at the same instant over real cached points, and prints the point the base was measured at
+        // so the next paste is decisive. Pure logging, capped at 200 points, never throws.
+        let coarseVsDetailed = '';
+        try {
+          let n = 0;
+          let sumAbs = 0;
+          let worst = 0;
+          for (const [k, detailed] of this.contextGroundCache) {
+            if (n >= 200) break;
+            const comma = k.indexOf(',');
+            const pLat = Number(k.slice(0, comma));
+            const pLon = Number(k.slice(comma + 1));
+            if (!Number.isFinite(pLat) || !Number.isFinite(pLon)) continue;
+            const coarse = globe.getHeight(Cesium.Cartographic.fromDegrees(pLon, pLat));
+            if (typeof coarse !== 'number' || !Number.isFinite(coarse)) continue;
+            const d = detailed - coarse;                 // > 0 ⇒ the coarse mesh is BELOW the real ground
+            n++;
+            sumAbs += Math.abs(d);
+            if (Math.abs(d) > Math.abs(worst)) worst = d;
+          }
+          coarseVsDetailed = n > 0
+            ? ` | §COARSE-VS-DETAILED over ${n} cached point(s): mean|Δ|=${(sumAbs / n).toFixed(2)}m worst=${worst.toFixed(2)}m `
+              + '(detailed − coarse; >0 = the tessellated mesh sits UNDER the sampled ground, which is what buries a baked layer)'
+            : ' | §COARSE-VS-DETAILED: 0 cached points — UNMEASURED, not “they agree”';
+        } catch (e) { coarseVsDetailed = ` | §COARSE-VS-DETAILED err:${(e as Error).message}`; }
         let checked = 0;
         let below = 0;
         let worstGapM = 0;      // most-negative (base − surface); < 0 means base under the terrain
@@ -9428,11 +9568,17 @@ export class CesiumViewport {
         } catch (e) { cullDump = ` | §CULL-PROBE err:${(e as Error).message}`; }
         console.log(
           `[CTX-TERRAIN-GAP] ${tag} terrainOn=${this.formaTerrainEnabled} relief=${this.groundReliefAttached() ? 'ON' : 'off'} ` +
+            // §COARSE-VS-DETAILED (L-12964) — the POINT and the PROVENANCE, without which
+            // `centroidTerrainSurface` and `seatBase` cannot be compared: they are only the same
+            // ground when they name the same lat/lon and the base was actually measured there.
+            `at LAT ${lat.toFixed(5)} LON ${lon.toFixed(5)} ` +
             `centroidTerrainSurface=${typeof centroidSurface === 'number' ? centroidSurface.toFixed(1) + 'm' : 'undefined(not streamed)'} ` +
-            `seatBase=${this.formaTerrainBaseHeight.toFixed(1)}m | of ${checked} sampled footprints: ` +
+            `seatBase=${this.formaTerrainBaseHeight.toFixed(1)}m(${this.formaTerrainBaseSource}${this.formaTerrainBaseMeasured ? '' : ',UNMEASURED'}` +
+            `${this.formaTerrainSampledAt ? ` @${this.formaTerrainSampledAt.lat.toFixed(5)},${this.formaTerrainSampledAt.lon.toFixed(5)}` : ' @never-sampled'}) ` +
+            `| of ${checked} sampled footprints: ` +
             `${below} BELOW terrain (avgGap=${avgGap.toFixed(1)}m, worst=${worstGapM.toFixed(1)}m under). ` +
             `${below > 0 ? '⚠ BUILDINGS UNDER MESH — this is the sink bug.' : '✓ buildings on/above surface.'} ` +
-            `| §GLOBE-RENDER globeShow=${gAny.show} tilesLoaded=${gAny.tilesLoaded} provider=${provAny?.constructor?.name} normals=${provAny?.hasVertexNormals} renderedTerrainTiles=${renderedTiles} camH=${viewer.camera.positionCartographic.height.toFixed(0)}m | L0-TILES[${lz.length}]: ${lzDump}${cullDump}`,
+            `| §GLOBE-RENDER globeShow=${gAny.show} tilesLoaded=${gAny.tilesLoaded} provider=${provAny?.constructor?.name} normals=${provAny?.hasVertexNormals} renderedTerrainTiles=${renderedTiles} camH=${viewer.camera.positionCartographic.height.toFixed(0)}m${coarseVsDetailed} | L0-TILES[${lz.length}]: ${lzDump}${cullDump}`,
         );
       } catch (e) {
         console.warn('[CTX-TERRAIN-GAP] sample failed:', e);
@@ -10051,6 +10197,12 @@ export class CesiumViewport {
     const viewer = this.viewer;
     if (!st || !viewer) return;
     if (!this.groundReliefAttached()) return;
+    // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — the far tier is SAFER than the canopies (it holds
+    // its own features beside its own lat/lon, so it can only ever redraw what it already shows, and it
+    // re-fetches nothing), but it is still a baked-position primitive: rebuilding a PREVIOUS site's
+    // footprints re-asserts them on screen after a site change instead of letting the new site's load
+    // replace them. Same rule, and the refusal costs nothing — the pending load rebuilds it correctly.
+    if (!this.reseatAnchorForCurrentSite('far-tier', { lat: st.lat, lon: st.lon })) return;
     this.buildContextFarTierPrimitive(st.features, st.lat, st.lon, viewer);
   }
 
@@ -11102,9 +11254,12 @@ export class CesiumViewport {
     const viewer = this.viewer;
     if (!viewer) return;
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
-    if (!force && this.contextTreesPrimitive && this.contextBuildingsAt &&
-        Math.abs(this.contextBuildingsAt.lat - lat) < 1e-6 &&
-        Math.abs(this.contextBuildingsAt.lon - lon) < 1e-6) return;
+    // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — the "already here" early-out reads THIS layer's
+    // own anchor. It read `contextBuildingsAt`, so a canopy load for a NEW site was skipped as soon as
+    // the buildings had reached it first — leaving the PREVIOUS site's canopies on screen for good.
+    if (!force && this.contextTreesPrimitive && this.contextTreesAt &&
+        Math.abs(this.contextTreesAt.lat - lat) < 1e-6 &&
+        Math.abs(this.contextTreesAt.lon - lon) < 1e-6) return;
     // §CTX-TREES-RESEAT-SITE (L-12949) — remember OUR OWN site, so the settled-base rebuild does not
     // depend on the buildings having been fetched first (at startup they have not been).
     this.contextTreesAt = { lat, lon };
@@ -11119,17 +11274,66 @@ export class CesiumViewport {
     // here in Cesium ENU are that module's `buildCanopySet` now — same rule, testable without a viewer.
     let collection: ContextCanopySet;
     try {
-      collection = await fetchContextCanopySet(lat, lon, {
-        maxRadiusM: CONTEXT_TREES_RENDER_RADIUS_M,
-        maxMapped: CONTEXT_TREES_MAX_INSTANCES,
-        maxSynthetic: CONTEXT_CANOPIES_MAX_SYNTHESISED,
-      }, signal);
+      // §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964) — resolve the terrain ground base IN PARALLEL with
+      // the canopy read, exactly as `loadContextBuildings` does. Until now ONLY the buildings took the
+      // seat-first path: the six sibling loaders `renderFormaMassing` fires beside them raced ahead and
+      // read `formaTerrainBaseHeight` while it was still 0 / a previous site's value. Costs no
+      // wall-clock (it overlaps the PMTiles read) and is coalesced with every sibling's call.
+      [collection] = await Promise.all([
+        fetchContextCanopySet(lat, lon, {
+          maxRadiusM: CONTEXT_TREES_RENDER_RADIUS_M,
+          maxMapped: CONTEXT_TREES_MAX_INSTANCES,
+          maxSynthetic: CONTEXT_CANOPIES_MAX_SYNTHESISED,
+        }, signal),
+        this.ensureGroundBaseForContext(lat, lon),
+      ]);
     } catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     this.clearContextTrees();
     const bounded = collection.instances;
     if (bounded.length === 0) { viewer.scene.requestRender(); return; } // honest no-op.
+
+    // §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964, founder Córdoba 2026-09-06: "the trees and maybe other
+    // assets sits under the visual plane on the 3d view originally — after the user selects the parcel
+    // they are nicely visually again") — SAMPLE THE CANOPY POINTS WITH THE DETAILED SAMPLER BEFORE
+    // BAKING THEM.
+    //
+    // THE MECHANISM, established by CODE READING and stated separately from the founder's numbers,
+    // because the two do not prove the same thing and conflating them is how a fix ends up aimed at
+    // the wrong target. `sampleGround` consults `contextGroundCache` (filled by
+    // `sampleTerrainMostDetailed`) and, ON A MISS, falls back to `globe.getHeight` — the CURRENTLY
+    // TESSELLATED mesh, which at start-up is `renderedTerrainTiles=2` seen from `camH=600m`. The
+    // buildings never take that fallback (`sampleContextGroundsBatch` over their centroids runs
+    // first) and neither do the §12 ground layers (`resolveGroundDrapePieces` batches every seat
+    // point AND its relief probes). THE CANOPIES AND THE STREET LIFE WERE THE ONLY LAYERS BAKING A
+    // PER-POINT GROUND WITH NOTHING PRE-SAMPLED — verifiable by reading the four call sites, and it
+    // is exactly the two layers the founder can see sitting under the plane. They bake that ground
+    // into their instance matrices, so a coarse answer is permanent until a full rebuild.
+    //
+    // ⚠ WHAT THE FOUNDER'S NUMBERS DO **NOT** ESTABLISH — recorded so nobody re-derives a false
+    // certainty from them (C57 §1.5). The report is `centroidTerrainSurface=161.6m seatBase=161.6m`
+    // at start-up and `seat-first: terrain ground sampled 168.5 m` after a parcel commit. `seatBase`
+    // is ALREADY a `sampleTerrainMostDetailed` reading, so at t+8s, at that point, the coarse mesh
+    // and the detailed sampler AGREED — which is evidence AGAINST, not for, "the detailed sampler
+    // would have said 168.5 there". The 6.9 m may be relief between two different points (the site
+    // centroid vs the committed parcel), or the detailed answer itself moving as the provider's
+    // tiles arrive. This lane could not tell those apart from the paste, so it did not guess: the
+    // §COARSE-VS-DETAILED probe added to `logTerrainGapDiagnostic` now measures the disagreement
+    // directly, at one instant over real cached points, and `[CTX-TERRAIN-GAP]` prints the lat/lon
+    // and provenance the comparison needs. The NEXT paste decides it.
+    //
+    // ⛔ NOT a constant lift, under either reading. Nothing is nudged by 6.9 m — that is a number
+    // measured at one place on one day, and its size AND SIGN differ at the next point. The fix is
+    // to ask the same question the parcel path asks (the detailed terrain provider), and — for the
+    // half that is about TIME rather than source — to let the settled-base rebuild re-run, which is
+    // what §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE above restores: DEFECT A WAS BLOCKING DEFECT B'S CURE.
+    // The cache is retained across loads (§STARTUP-TERRAIN-SAMPLE-REUSE), so that rebuild costs zero
+    // further round-trips.
+    try {
+      await this.sampleContextGroundsBatch(bounded.map((t) => ({ lat: t.lat, lon: t.lon })));
+    } catch { /* never throws; a miss falls back exactly as before */ }
+    if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — the same safe base the building tiers use: a footprint
     // under still-streaming relief falls back to the settled ground, never a depth-culling ~0.
@@ -11225,10 +11429,24 @@ export class CesiumViewport {
   /** §STREET-LIFE — build/refresh the instanced lamps + pedestrians at `lat/lon`. Never throws. */
   public loadStreetLife(lat: number, lon: number, force = false): Promise<void> {
     if (!this.viewer) return Promise.resolve();
-    const safeBase = this.resolveContextSafeBase(lat, lon);
+    // §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964) — the safe base is resolved LAZILY, on the first
+    // `groundAt`, not here. `load` awaits its own reads (and `prepareGrounds`) before it seats
+    // anything, so a base captured at call time is the PRE-settle one — the very value the canopy
+    // defect was made of. `buildLamps` is the first caller, and by then the base has settled.
+    let safeBase: number | null = null;
+    const seatBase = (): number => (safeBase ??= this.resolveContextSafeBase(lat, lon));
     return this.streetLife.load(
       this.viewer,
-      { groundAt: (la: number, lo: number) => this.sampleGround(la, lo, safeBase) },
+      {
+        groundAt: (la: number, lo: number) => this.sampleGround(la, lo, seatBase()),
+        // The DETAILED sampler the parcel path uses, over exactly the lamp/pedestrian points — the
+        // canopy fix, for the other baked-position layer. Also resolves the centroid base first, so
+        // `seatBase()` above reads a settled value rather than a still-0 one.
+        prepareGrounds: async (points: ReadonlyArray<{ lat: number; lon: number }>): Promise<void> => {
+          await this.ensureGroundBaseForContext(lat, lon);
+          await this.sampleContextGroundsBatch(points);
+        },
+      },
       lat, lon, force,
     ).catch((e: unknown) => {
       console.warn('[CesiumViewport][forma] §STREET-LIFE load failed (non-fatal, scenery only):', e);
@@ -11244,19 +11462,29 @@ export class CesiumViewport {
       try { this.viewer?.scene.requestRender(); } catch { /* viewer gone */ }
       return;
     }
-    const at = this.contextBuildingsAt;
+    // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — the toggle builds at the CURRENT site, never at
+    // whatever site the footprints happen to have been fetched for (which lags a site change).
+    const at = this.currentContextSite();
     if (at) void this.loadStreetLife(at.lat, at.lon, true);
   }
 
   /** @returns whether the §STREET-LIFE scenery layer is currently ON (default true). */
   public isStreetLifeEnabled(): boolean { return this.streetLife.enabled; }
 
-  /** §STREET-LIFE — rebuild the lamps/people on the settled terrain base (see the call site). */
+  /**
+   * §STREET-LIFE — rebuild the lamps/people on the settled terrain base (see the call site).
+   *
+   * §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — lamps and pedestrians BAKE their per-point ground
+   * into their instance matrices exactly like the canopies, and this read the same shape of stale memo
+   * (`streetLife.builtAt ?? contextBuildingsAt`), so it carried the same defect: on a site change the
+   * settled-base pass force-rebuilt the PREVIOUS site's street furniture. Same rule, same helper.
+   */
   private rebuildStreetLifeForBase(): void {
     if (!this.viewer) return;
     if (!this.groundReliefAttached()) return;            // flat/keyless already seated exactly.
-    const at = this.streetLife.builtAt ?? this.contextBuildingsAt;
-    if (!at || !this.streetLife.hasContent) return;      // nothing placed yet — the initial load seats it.
+    if (!this.streetLife.hasContent) return;             // nothing placed yet — the initial load seats it.
+    const at = this.reseatAnchorForCurrentSite('street-life', this.streetLife.builtAt);
+    if (!at) return;
     void this.loadStreetLife(at.lat, at.lon, true);
   }
 
@@ -14731,6 +14959,19 @@ export class CesiumViewport {
         this.clearContextBuildings();
         this.contextBuildingsAt = null;
         this.contextLastLoadAtMs = 0;
+        // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — the two BAKED-POSITION scenery layers are
+        // per-site exactly like the footprints, and `clearContextBuildings()` above does NOT touch
+        // them: their primitives and their `…At` memos survived a project switch, so the incoming
+        // project inherited the outgoing one's canopies and street furniture, baked on the outgoing
+        // one's ground. Drop both with their anchors; the new project's own load places them.
+        this.contextTreesAbort?.abort();
+        this.contextTreesAbort = null;
+        this.clearContextTrees();
+        this.contextTreesAt = null;
+        this.streetLife.clear(this.viewer);
+        // §STARTUP-GROUND-BASE-COALESCE (L-12964) — an in-flight centroid ground sample belongs to the
+        // OUTGOING project; a loader in the incoming one must not join it and adopt that city's base.
+        this.groundBaseInFlight = null;
         // §STARTUP-LOCATION-IDEMPOTENT / §STARTUP-CTX-COALESCE / §STARTUP-TERRAIN-SAMPLE-REUSE —
         // per-project memos: a new project at the same address must handle its location fresh,
         // must not join the old project's in-flight load, and must not inherit a prior city's

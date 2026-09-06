@@ -24,29 +24,48 @@ vi.mock('cesium', () => ({
 
 import { CesiumViewport } from '../src/ui/geospatial/CesiumViewport';
 
+type LatLon = { lat: number; lon: number };
+
 type Stub = {
     viewer: { scene: { requestRender: () => void } } | null;
     groundReliefAttached: () => boolean;
-    contextBuildingsAt: { lat: number; lon: number } | null;
+    // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — the CURRENT site, which is what the rebuild
+    // anchors on now. The two `…At` memos below are demoted to a staleness check.
+    formaMassingOrigin: (LatLon & { centroidEast: number; centroidNorth: number; areaM2: number }) | null;
+    readSiteLocation: () => LatLon | null;
+    contextBuildingsAt: LatLon | null;
+    contextTreesAt: LatLon | null;
     contextTreesPrimitive: object | null;
     formaTerrainBaseHeight: number;
     loadContextTrees: ReturnType<typeof vi.fn>;
+    currentContextSite: () => LatLon | null;
+    reseatAnchorForCurrentSite: (layer: string, loadedAt: LatLon | null) => LatLon | null;
     rebuildContextTreesForBase: () => void;
 };
+
+/** Madrid, Retiro — ~650 m of relief. */
+const MADRID: LatLon = { lat: 40.4150, lon: -3.6830 };
 
 function makeStub(over: Partial<Stub> = {}): Stub {
     const proto = CesiumViewport.prototype as unknown as Record<string, (...a: unknown[]) => unknown>;
     const s: Stub = {
         viewer: { scene: { requestRender: () => {} } },
         groundReliefAttached: () => true,
-        contextBuildingsAt: { lat: 40.4150, lon: -3.6830 },   // Madrid, Retiro — ~650 m of relief.
+        formaMassingOrigin: { ...MADRID, centroidEast: 0, centroidNorth: 0, areaM2: 400 },
+        readSiteLocation: () => null,
+        contextBuildingsAt: { ...MADRID },
+        contextTreesAt: { ...MADRID },
         contextTreesPrimitive: {},
         formaTerrainBaseHeight: 651.2,
         loadContextTrees: vi.fn(async () => {}),
+        currentContextSite: () => null,
+        reseatAnchorForCurrentSite: () => null,
         rebuildContextTreesForBase: () => {},
         ...over,
     };
-    s.rebuildContextTreesForBase = (proto['rebuildContextTreesForBase'] as () => void).bind(s);
+    for (const m of ['currentContextSite', 'reseatAnchorForCurrentSite', 'rebuildContextTreesForBase'] as const) {
+        (s as unknown as Record<string, unknown>)[m] = (proto[m] as (...a: unknown[]) => unknown).bind(s);
+    }
     return s;
 }
 
@@ -69,8 +88,8 @@ describe('§CTX-TREES-RESEAT (L-12918) — canopies are rebuilt on the settled t
         const s = makeStub({ contextTreesPrimitive: null });
         s.rebuildContextTreesForBase();
         expect(s.loadContextTrees).not.toHaveBeenCalled();
-        // Neither site known — genuinely nothing to rebuild.
-        const t = makeStub({ contextBuildingsAt: null, contextTreesAt: null });
+        // No site known AT ALL — genuinely nothing to rebuild (L-12964: a guess is not an anchor).
+        const t = makeStub({ formaMassingOrigin: null, readSiteLocation: () => null, contextBuildingsAt: null, contextTreesAt: null });
         t.rebuildContextTreesForBase();
         expect(t.loadContextTrees).not.toHaveBeenCalled();
     });
@@ -82,17 +101,31 @@ describe('§CTX-TREES-RESEAT (L-12918) — canopies are rebuilt on the settled t
         // AFTER it ("ground-features re-seat: 2648" then "footprints fetched" on the next line). So
         // contextBuildingsAt is still null when this runs, and reading it meant the canopies were left
         // at base 0 — ~700 m under a city at 700 m — until a parcel click re-ran the block.
-        const s = makeStub({ contextBuildingsAt: null, contextTreesAt: { lat: 40.4168, lon: -3.7035 } });
+        const at = { lat: 40.4168, lon: -3.7035 };
+        const s = makeStub({
+            formaMassingOrigin: null, readSiteLocation: () => ({ ...at }),
+            contextBuildingsAt: null, contextTreesAt: { ...at },
+        });
         vi.spyOn(console, 'log').mockImplementation(() => {});
         s.rebuildContextTreesForBase();
-        expect(s.loadContextTrees).toHaveBeenCalledWith(40.4168, -3.7035, true);
+        expect(s.loadContextTrees).toHaveBeenCalledWith(at.lat, at.lon, true);
     });
 
-    it('prefers the site the TREES were loaded for when the two disagree', () => {
+    // ⚠ REWRITTEN 2026-09-06 (§CTX-RESEAT-ANCHOR-IS-CURRENT-SITE, L-12964). This case used to read
+    // *"prefers the site the TREES were loaded for when the two disagree"* and asserted
+    // `loadContextTrees(2, 2, true)` — i.e. it PINNED the regression. `contextTreesAt` is a memo that
+    // nothing clears on a site change, so "prefer the memo" is exactly how the founder's Córdoba
+    // console came to read "rebuilding canopies at 37.88507,-4.77718" while the committed parcel was
+    // 1.8 km away at 37.88779,-4.79761. Neither memo may win: the CURRENT SITE does.
+    // Full coverage lives in CesiumViewportReseatAnchorCurrentSite.test.ts.
+    it('neither memo wins when they disagree with the current site — the current site does', () => {
         const s = makeStub({ contextBuildingsAt: { lat: 1, lon: 1 }, contextTreesAt: { lat: 2, lon: 2 } });
         vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
         s.rebuildContextTreesForBase();
-        expect(s.loadContextTrees).toHaveBeenCalledWith(2, 2, true);
+        // Both memos are hundreds of km from Madrid, so this is a stale layer → refuse, and let the
+        // in-flight load for the current site seat it.
+        expect(s.loadContextTrees).not.toHaveBeenCalled();
     });
 
     it('never throws into the re-seat pass when the reload itself throws', () => {
