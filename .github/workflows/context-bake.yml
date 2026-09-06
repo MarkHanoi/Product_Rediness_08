@@ -58,6 +58,18 @@ on:
         type: choice
         options: ['osm', 'official']
         default: 'osm'
+      catastro_national:
+        description: '§CATASTRO-NATIONAL-SWEEP (L-12952) — sweep the WHOLE Spanish bbox instead of the nine metros. Only meaningful with footprints=official. OFF is every run to date. ⚠ The measured national parse is 24–32 h against a 330-minute job ceiling, so ONE run CANNOT finish the country: the sweep is ordered (priority metros first and uncapped, then INE code ascending), stops BEFORE the municipality that would overrun the budget (a half-parsed municipality is corrupt, not partial), and prints a truncation sentence naming the cursor to resume from. Converging across runs is the design, not a failure.'
+        type: boolean
+        default: false
+      sweep_cursor:
+        description: '§CATASTRO-NATIONAL-SWEEP resume point — the INE code printed by the previous run''s truncation sentence (e.g. 15078). Blank starts from the beginning. Ignored unless catastro_national is ticked.'
+        type: string
+        default: ''
+      budget_seconds:
+        description: '§CATASTRO-NATIONAL-SWEEP parse budget in seconds. The sweep stops before the municipality that would exceed it. Default 9000 (2.5 h) leaves the rest of the 330-minute job for tippecanoe and the publish. Ignored unless catastro_national is ticked.'
+        type: string
+        default: '9000'
 
 concurrency:
   # Per-region lane: distinct regions bake in PARALLEL — a 34-group staging sweep no longer
@@ -197,6 +209,14 @@ jobs:
           # §OFFICIAL-FOOTPRINTS (L-12939) — 'osm' (default) is byte-identical to every run to date:
           # bake.mjs's footprintMergeMode returns 'osm' and the merge module is never entered.
           FOOTPRINTS: ${{ inputs.footprints }}
+          # §CATASTRO-NATIONAL-SWEEP (L-12952) — footprintMerge.mjs reads these three. The sweep was
+          # landed OFF BY DEFAULT and had NO WAY TO BE TURNED ON from a dispatch, so the whole-country
+          # path was unreachable: exactly the "authored but unwired" shape this repo keeps hitting.
+          # Unticked, CATASTRO_NATIONAL is the empty string, which is neither '1' nor 'true', so the
+          # pull stays the nine-metro one every run to date has performed.
+          CATASTRO_NATIONAL: ${{ inputs.catastro_national && '1' || '' }}
+          CATASTRO_SWEEP_CURSOR: ${{ inputs.sweep_cursor }}
+          CATASTRO_BUDGET_SECONDS: ${{ inputs.budget_seconds }}
           # §BAKE-BY-REGION — scope the run to a subset of REGIONS. Added after run 30706761446 was
           # CANCELLED at the 180-minute timeout with tippecanoe at 99.9 % on the national tiling:
           # every step after `Bake` was SKIPPED, so ~4 hours published nothing — including height
@@ -367,6 +387,25 @@ jobs:
           # Nagoya/Osaka/Sapporo rows belong here the moment someone runs the same proof there; adding
           # them on the assumption that PLATEAU behaves identically would be a confident register row
           # of exactly the kind C84 §9 warns about.
+          # §USAS-NATIONAL-HEIGHTS (2026-09-06, lane USA-HEIGHTS-NATIONAL) — `oakpark` and `pasadenatx`
+          # are here to make "the big cities are stamped" INSUFFICIENT. Every other US row in this list
+          # (manhattan / sanfrancisco / boston) is served by a CITY channel — NYC's own height_roof,
+          # DataSF's LiDAR zonal max, the BPDA model — so a bake that wired only those three would pass
+          # this gate while every other American town shipped a fabricated 9 m carpet. That is precisely
+          # the Ciudad Real shape (L-12946/L-12947) with a bigger denominator, and it is why the two
+          # rows below are SUBURBS with no open portal of their own: Oak Park, Illinois and Pasadena,
+          # Texas can ONLY be stamped by the national FEMA/ORNL "USA Structures" join (heightJoin:'usas'),
+          # so if that join is missing, unwired or empty, these two FAIL and the bake stops.
+          # Both were live-probed 2026-09-06 before being written here — never a gate row we did not
+          # measure: a 0.01° cell at Oak Park (-87.789,41.880,-87.779,41.890) → HTTP 200, 59,433 B,
+          # 1.37 s, 810 structures of which 760 carry a HEIGHT (94 %, p50 7.5 m, max 37.2 m); the same
+          # cell at Pasadena TX (-95.214,29.686,-95.204,29.696) → HTTP 200, 51,291 B, 0.90 s, 698 of
+          # which 653 (94 %, p50 3.5 m, max 22.5 m). The probe's own ±0.008° NEAR ring is ~2.5× that
+          # area, so 200 is a floor with large headroom — the same floor ciudadreal/toledo use.
+          # ⛔ DO NOT "improve" these by moving them to Austin or Houston downtown. Austin-north
+          # (-97.720,30.400) and Houston-west (-95.560,29.780) were probed the same day and answered
+          # HTTP 200 with 106 and 267 structures and ZERO heights — ORNL-sourced ground the national
+          # layer measures nowhere. A gate row must be a place the source actually serves.
           while read -r name region at min; do
             [ -z "$name" ] && continue
             if [ -n "$REGION_SCOPE" ]; then
@@ -393,6 +432,8 @@ jobs:
           manhattan newyork 40.7580,-73.9855 500
           sanfrancisco california 37.7900,-122.4000 500
           boston massachusetts 42.3510,-71.0750 500
+          oakpark illinois 41.8850,-87.7840 200
+          pasadenatx texas 29.6910,-95.2090 200
           tallinn estonia 59.4370,24.7536 500
           antwerp belgium 51.2213,4.3997 500
           vienna austria 48.2086,16.3725 500
