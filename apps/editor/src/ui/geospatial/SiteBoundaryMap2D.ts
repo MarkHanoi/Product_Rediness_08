@@ -1139,9 +1139,18 @@ export function mountSiteBoundaryMap2D(
             paint: { 'line-color': VIOLET, 'line-width': 2.5 },
         });
         // §MAP2D-ENVELOPE (STR §26.4) — the C58 buildable-envelope footprint. ⭐ REGISTERED HERE
-        // ON PURPOSE: `swapBasemap` calls `map.setStyle(style, {diff:false})`, which WIPES every
+        // ON PURPOSE: the basemap swap re-styles this map with `diff:false`, which WIPES every
         // added source and layer, and this function is what the `style.load` handler re-runs. A
         // layer added anywhere else silently vanishes the first time the user presses Satellite.
+        //
+        // ⚠ THE SWAP CALL ITSELF IS NAMED ONLY IN `swapBasemap`, AND MUST STAY THE ONLY ONE —
+        // §L-412's "ONE MapLibre map, re-targeted" depends on nothing else re-styling it. Do NOT
+        // write that call's literal form in a comment anywhere in this file:
+        // `siteViewQuickToggle.spec.ts` counts it with a raw regex over the whole source and does
+        // not strip comments (though its own `codeOnly()` helper, applied to GISAreaLayout one
+        // line below, would), so a prose mention reads as a second call site — the
+        // §RAF-GATE-COMMENT-BLIND (P3, 2026-08-10) shape, where a gate counted three doc comments
+        // asserting compliance as three violations.
         installEnvelopeLayers();
         refreshParcelHighlight();
     }
