@@ -15,14 +15,24 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * ⭐ WHAT MAKES THE GRAPH AN INPUT RATHER THAN A DECORATION
  * ─────────────────────────────────────────────────────────────────────────────
- * The layout is produced in two steps, and the graph decides the FIRST:
+ * The layout is produced in two steps, and the graph decides BOTH of them:
  *
- *   1. SERIATION — the rooms are put in an order in which graph neighbours are near
- *      each other (`seriateByGraph`). Plugging a relationship changes that order.
- *   2. RECURSIVE AREA BISECTION — the level footprint is cut in two along its longer
- *      axis at the coordinate where the areas match the two halves of the ordered
- *      list, then each half recurses. Contiguous runs of the SEQUENCE therefore
- *      occupy contiguous REGIONS of the plate.
+ *   1. SERIATION — the rooms are put in a level-order (Cuthill–McKee) sequence in which
+ *      a room's own graph neighbours are contiguous with it (`seriateByGraph`).
+ *      Plugging a relationship changes that order.
+ *   2. RECURSIVE AREA BISECTION — the level footprint is cut in two at the coordinate
+ *      where the areas match the two halves of the ordered list, then each half
+ *      recurses. Contiguous runs of the SEQUENCE therefore occupy contiguous REGIONS.
+ *      The CUT AXIS is not fixed: three cutting disciplines (`CutPolicy`) are each run
+ *      in full and the one that honours the most PLUGGED RELATIONSHIPS is kept.
+ *
+ * ⚠ STEP 2 USED TO BE GRAPH-BLIND, AND THAT WAS A REAL DEFECT, NOT A SIMPLIFICATION.
+ * The axis was always the longer side, which makes the plate a 1-D strip in which only
+ * sequence-NEIGHBOURS can touch. A three-room chain `a–b–c–d` therefore came out with
+ * one of its three relationships honoured out of three: no seriation exists that puts
+ * every pair of a chain adjacent in a strip. Letting the geometry step answer with a
+ * snake instead of a strip honours all three. The graph reaching only the ORDER is the
+ * shape of "the graph is decorative" that §25.5 exists to forbid.
  *
  * So an edge added or removed changes the geometry — which is the §25.5 requirement
  * stated as a mechanism rather than as an intention. And because step 2 is a heuristic
@@ -161,19 +171,31 @@ export type ProgrammeLayoutResult = ProgrammeLayout | ProgrammeLayoutRefusal;
 /**
  * Order the rooms so that graph neighbours land near each other in the sequence.
  *
- * Greedy, and DETERMINISTIC by construction — every tie is broken by a stated rule, so
- * the same programme always produces the same plan and a re-render never reshuffles a
- * layout the user was reading:
+ * A LEVEL-ORDER (breadth-first) Cuthill–McKee walk, and DETERMINISTIC by construction —
+ * every tie is broken by a stated rule, so the same programme always produces the same
+ * plan and a re-render never reshuffles a layout the user was reading:
  *
  *   · seed: the highest-degree room; ties → the earliest in the programme;
- *   · step: of the rooms not yet placed, the one with the most links to rooms ALREADY
- *     placed; ties → higher total degree; ties → earliest in the programme;
+ *   · step: pop the frontier in insertion order and append ALL of that room's unplaced
+ *     neighbours before moving on; siblings are ordered by ascending degree, then by
+ *     position in the programme;
  *   · a disconnected remainder starts again from its own highest-degree room, so an
  *     unlinked room is appended rather than dropped.
  *
- * This is a Cuthill–McKee-shaped ordering: it minimises how far apart, in the sequence,
- * the two ends of an edge sit — which is exactly the quantity the area bisection then
- * turns into spatial distance.
+ * ⚠ IT WAS NOT ALWAYS BREADTH-FIRST, AND THE DIFFERENCE IS THE WHOLE POINT. The first
+ * cut of this function grew the order by repeatedly taking whichever unplaced room had
+ * the most links to rooms ALREADY placed — a best-first walk that dives down one branch
+ * and leaves a hub's other neighbours stranded far later in the sequence. On the
+ * founder's own worked shape (a hall linked to living and to a bedroom, living linked
+ * to a kitchen) it emitted `hall · living · kitchen · bedroom`, putting the kitchen —
+ * which the hall is NOT linked to — between the hall and the bedroom it IS linked to.
+ * Level order emits `hall · bedroom · living · kitchen`: a room's own neighbours are
+ * contiguous with it. That is the property the area bisection below converts into
+ * shared walls, so the walk order is not a detail of taste.
+ *
+ * This is the classic Cuthill–McKee ordering: it minimises how far apart, in the
+ * sequence, the two ends of an edge sit — which is exactly the quantity the area
+ * bisection then turns into spatial distance.
  */
 export function seriateByGraph(
   entries: readonly RoomProgrammeEntry[],
@@ -189,45 +211,38 @@ export function seriateByGraph(
   }
   const degree = (id: string): number => neighbours.get(id)?.size ?? 0;
 
+  const at = (id: string): number => index.get(id) ?? 0;
+
   const placed: string[] = [];
   const done = new Set<string>();
 
-  const better = (a: string, b: string, tiesA: number, tiesB: number): boolean => {
-    if (tiesA !== tiesB) return tiesA > tiesB;
-    const da = degree(a);
-    const db = degree(b);
-    if (da !== db) return da > db;
-    return (index.get(a) ?? 0) < (index.get(b) ?? 0);
-  };
-
   while (done.size < entries.length) {
-    // Seed this component: the highest-degree unplaced room, earliest on a tie.
+    // Seed this component: the highest-degree unplaced room, earliest on a tie. The
+    // loop runs in programme order, so `>` (never `>=`) IS the "earliest wins" rule.
     let seed: string | null = null;
     for (const e of entries) {
       if (done.has(e.id)) continue;
-      if (seed === null || better(e.id, seed, degree(e.id), degree(seed))) seed = e.id;
+      if (seed === null || degree(e.id) > degree(seed)) seed = e.id;
     }
     if (seed === null) break;
+
+    // Level order from the seed. `frontier` is a queue read by index, so every room's
+    // whole neighbourhood is emitted before the next level begins.
+    const frontier: string[] = [seed];
     placed.push(seed);
     done.add(seed);
-
-    // Grow it.
-    for (;;) {
-      let best: string | null = null;
-      let bestTies = -1;
-      for (const e of entries) {
-        if (done.has(e.id)) continue;
-        let ties = 0;
-        for (const n of neighbours.get(e.id) ?? []) if (done.has(n)) ties += 1;
-        if (ties === 0) continue; // not in this component yet
-        if (best === null || better(e.id, best, ties, bestTies)) {
-          best = e.id;
-          bestTies = ties;
-        }
+    for (let head = 0; head < frontier.length; head += 1) {
+      const cur = frontier[head]!;
+      const kids = [...(neighbours.get(cur) ?? [])]
+        .filter((n) => !done.has(n))
+        // Ascending degree first (Cuthill–McKee's own rule: the least-connected child
+        // is cheapest to place next to its parent), then programme order.
+        .sort((a, b) => (degree(a) - degree(b)) || (at(a) - at(b)));
+      for (const k of kids) {
+        done.add(k);
+        placed.push(k);
+        frontier.push(k);
       }
-      if (best === null) break;
-      placed.push(best);
-      done.add(best);
     }
   }
   return placed;
@@ -237,7 +252,14 @@ export function seriateByGraph(
 // GEOMETRY — every clip goes through the kernel's ONE boolean
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Pt2 = readonly [number, number];
+/**
+ * ⚠ MUTABLE ON PURPOSE — it is the KERNEL's spelling, not ours. `polygonOffset.ts:72`
+ * declares `export type Pt2 = [number, number]`, and `intersectPolygons2D` takes
+ * `ReadonlyArray<Pt2>`; a `readonly [number, number]` is NOT assignable to that
+ * element type, so declaring our own readonly variant failed the ROOT `tsc` (which
+ * `npm run build` runs before vite) while every local package check passed.
+ */
+type Pt2 = [number, number];
 
 function toPt2(ring: readonly EnvelopePoint[]): Pt2[] {
   return ring.map((p) => [p.x, p.z] as Pt2);
@@ -341,6 +363,40 @@ function findAreaSplit(
 interface Slot { readonly key: string; readonly areaM2: number }
 
 /**
+ * How a cut chooses its axis. The SEQUENCE the graph produced is the same for all three;
+ * what differs is the shape of the regions that sequence lands in, and therefore WHICH
+ * of the requested relationships end up sharing a wall.
+ *
+ *   · `longer`      — cut across the longer side. The most compact rooms, and a pure
+ *                     1-D strip: only sequence-NEIGHBOURS ever touch.
+ *   · `alternate-x` — x, then z, then x … A slice-and-dice snake: a room can touch the
+ *                     room two places away in the sequence as well as its neighbours.
+ *   · `alternate-z` — the same snake, turned ninety degrees.
+ *
+ * ⭐ THIS LIST IS WHY THE GRAPH REACHES THE GEOMETRY AND NOT ONLY THE ORDER. Before it,
+ * the cut axis was always `longer`, so the graph's ONLY influence was the sequence, and
+ * a hub-shaped brief (`a–b`, `b–c`, `c–d` on one plate) came out with a broken chain:
+ * `b` and `c` are linked, but a strip layout puts them at opposite ends. Nothing about
+ * the seriation can fix that; the geometry step has to be allowed to answer differently.
+ *
+ * ⛔ IT IS STILL NOT AN OPTIMISER (STR §25.0). Three fixed candidates are tried in a
+ * fixed order and the best-measured one is kept — there is no search, no objective
+ * function over architecture, and no claim that the winner is good. It is the first
+ * arrangement a human then edits.
+ */
+type CutPolicy = 'longer' | 'alternate-x' | 'alternate-z';
+
+/** Tried in THIS order; ties keep the earliest, so a brief with no relationships gets `longer`. */
+const CUT_POLICIES: readonly CutPolicy[] = ['longer', 'alternate-x', 'alternate-z'];
+
+function axisFor(policy: CutPolicy, depth: number, b: Bounds): 'x' | 'z' {
+  if (policy === 'alternate-x') return depth % 2 === 0 ? 'x' : 'z';
+  if (policy === 'alternate-z') return depth % 2 === 0 ? 'z' : 'x';
+  // Cut across the LONGER side so both halves stay as square as the plate allows.
+  return (b.x1 - b.x0) >= (b.z1 - b.z0) ? 'x' : 'z';
+}
+
+/**
  * Recursively cut `ring` into one region per slot, in slot order, each with its own
  * area. Returns `null` on the first cut this heuristic cannot make — the caller turns
  * that into a NAMED refusal rather than a partial plan.
@@ -349,6 +405,8 @@ function subdivideByArea(
   ring: readonly EnvelopePoint[],
   slots: readonly Slot[],
   out: Map<string, readonly EnvelopePoint[]>,
+  policy: CutPolicy,
+  depth: number,
 ): ProgrammeLayoutRefusalCode | null {
   if (slots.length === 0) return null;
   if (slots.length === 1) {
@@ -375,8 +433,7 @@ function subdivideByArea(
   const headArea = head.reduce((s, x) => s + x.areaM2, 0);
 
   const b = boundsOf(ring);
-  // Cut across the LONGER side so both halves stay as square as the plate allows.
-  const axis: 'x' | 'z' = (b.x1 - b.x0) >= (b.z1 - b.z0) ? 'x' : 'z';
+  const axis = axisFor(policy, depth, b);
   const ringArea = footprintAreaM2(ring);
   if (!(ringArea > 0)) return 'degenerate-split';
   // Scale the head's share to the ring's ACTUAL area, so accumulated clipping error
@@ -391,7 +448,8 @@ function subdivideByArea(
   }
   const loRing = (lo as { ring: readonly EnvelopePoint[] }).ring;
   const hiRing = (hi as { ring: readonly EnvelopePoint[] }).ring;
-  return subdivideByArea(loRing, head, out) ?? subdivideByArea(hiRing, tail, out);
+  return subdivideByArea(loRing, head, out, policy, depth + 1)
+    ?? subdivideByArea(hiRing, tail, out, policy, depth + 1);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -483,9 +541,64 @@ export function solveProgrammeLayout(input: ProgrammeLayoutInput): ProgrammeLayo
   const drawResidual = residualAreaM2 >= RESIDUAL_FLOOR_M2;
   if (drawResidual) slots.push({ key: RESIDUAL_KEY, areaM2: residualAreaM2 });
 
-  const rings = new Map<string, readonly EnvelopePoint[]>();
-  const failure = subdivideByArea(levelRing, slots, rings);
-  if (failure) {
+  // ── THE SECOND PLACE THE GRAPH IS AN INPUT ────────────────────────────────
+  // Each candidate cutting discipline is run in full, then MEASURED against the
+  // relationships the user actually plugged in, and the best-measured one is kept.
+  // Selection is by (relationships honoured ↓, total shared wall ↓, candidate order ↑)
+  // — so a brief with NO relationships is decided entirely by the last of those and
+  // keeps the compact `longer` layout, unchanged from before this arm existed.
+  interface Candidate {
+    readonly cells: readonly RoomEnvelopeCell[];
+    readonly adjacency: readonly AdjacencyVerdict[];
+    readonly satisfied: number;
+    readonly sharedM: number;
+    readonly residualRing: readonly EnvelopePoint[] | null;
+  }
+  let best: Candidate | null = null;
+  let firstFailure: ProgrammeLayoutRefusalCode | null = null;
+
+  for (const policy of CUT_POLICIES) {
+    const rings = new Map<string, readonly EnvelopePoint[]>();
+    const failure = subdivideByArea(levelRing, slots, rings, policy, 0);
+    if (failure) {
+      if (firstFailure === null) firstFailure = failure;
+      continue;
+    }
+    const cells: RoomEnvelopeCell[] = [];
+    for (const id of order) {
+      const e = byId.get(id);
+      const ring = rings.get(id);
+      if (!e || !ring) continue;
+      cells.push({
+        roomId: e.id,
+        kind: e.kind,
+        name: e.name,
+        occupancy: occupancyTagFor(e.kind),
+        ring,
+        areaM2: round6(footprintAreaM2(ring)),
+        targetAreaM2: e.targetAreaM2,
+      });
+    }
+    const adjacency = measureAdjacency(cells, programme.links);
+    const satisfied = adjacency.filter((a) => a.satisfied).length;
+    const sharedM = adjacency.reduce((s, a) => s + a.sharedEdgeM, 0);
+    const wins =
+      best === null
+      || satisfied > best.satisfied
+      || (satisfied === best.satisfied && sharedM > best.sharedM + 1e-9);
+    if (wins) {
+      best = {
+        cells,
+        adjacency,
+        satisfied,
+        sharedM,
+        residualRing: drawResidual ? (rings.get(RESIDUAL_KEY) ?? null) : null,
+      };
+    }
+  }
+
+  if (best === null) {
+    const failure = firstFailure ?? 'degenerate-split';
     return {
       ok: false,
       code: failure,
@@ -501,34 +614,15 @@ export function solveProgrammeLayout(input: ProgrammeLayoutInput): ProgrammeLayo
     };
   }
 
-  const cells: RoomEnvelopeCell[] = [];
-  for (const id of order) {
-    const e = byId.get(id);
-    const ring = rings.get(id);
-    if (!e || !ring) continue;
-    cells.push({
-      roomId: e.id,
-      kind: e.kind,
-      name: e.name,
-      occupancy: occupancyTagFor(e.kind),
-      ring,
-      areaM2: round6(footprintAreaM2(ring)),
-      targetAreaM2: e.targetAreaM2,
-    });
-  }
-
-  const adjacency = measureAdjacency(cells, programme.links);
-  const satisfiedCount = adjacency.filter((a) => a.satisfied).length;
-
   return {
     ok: true,
-    cells,
+    cells: best.cells,
     residualAreaM2: round6(residualAreaM2),
-    residualRing: drawResidual ? (rings.get(RESIDUAL_KEY) ?? null) : null,
+    residualRing: best.residualRing,
     order,
-    adjacency,
-    satisfiedCount,
-    requestedCount: adjacency.length,
+    adjacency: best.adjacency,
+    satisfiedCount: best.satisfied,
+    requestedCount: best.adjacency.length,
     levelAreaM2: round6(levelAreaM2),
     programmeAreaM2: round6(programmeAreaM2),
   };
