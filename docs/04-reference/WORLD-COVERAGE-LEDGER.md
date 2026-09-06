@@ -11,12 +11,12 @@
 
 **This page answers one question: _what does PRYZM actually serve HERE?_**
 
-Generated: 2026-09-06T17:59:41.961Z
+Generated: 2026-09-06T18:02:58.224Z
 
 ## §0 · Probe record (C57 §1.5 — the exact answer, never a claim)
 
 ```
-GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 4714 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
+GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 414 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
 ```
 
 - manifest `mergedAt`: `2026-09-06T07:58:43.604Z` · `mergeRunId`: `34015784612` · `mergeGitSha`: `ad038f5a0337097f9af7fda873383bbfdf193b36`

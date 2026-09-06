@@ -67,8 +67,31 @@ on:
         description: 'Regions the publish MUST contain: "all" (every bake.mjs region — default), "staged" (whatever is staged, for a deliberate subset), or a comma-separated list. Missing regions are a NAMED refusal, never a silent loss.'
         type: string
         default: 'all'
+      # ⛔ §SEA-IS-NOT-ONE-WORLD-RUN (lane LAYERS-FURNITURE-SEA, 2026-09-06) — this input's
+      # description USED TO RECOMMEND "region blank, layer=sea, stage=true → slug all--sea".
+      # That recommendation is wrong TWICE, and both halves are measured, not argued.
+      #   1 COST. seaPolygons.clipWaterPolygonsToRegions reads the WHOLE 1,275,373,628 B shapefile
+      #     on every run, so the parse is a FIXED cost and the marginal cost is the TOUCHED records.
+      #     Measured on one machine, one archive (sha256 9ddbe246…c32f45, Last-Modified Sun 06 Sep
+      #     2026 03:40:56 GMT): TEN EU regions touch 293 of 53,328 records and clip in 412 s, peak
+      #     RSS 141 MB, 51.1 MB of GeoJSONSeq, 7 of 10 producing sea (paris/lyon/koln correctly
+      #     none). ALL 131 region bboxes together ran PAST 100 MINUTES on the same machine and the
+      #     same archive without finishing. Tranches of ~10 named regions; never blank.
+      #   2 REFUSAL. An `all--sea` set DECLARES every bake.mjs region in its staging manifest, and
+      #     `expectedRegions` widens on the staged names under BOTH expect=all and expect=staged —
+      #     measured 40 → 132 expected — so the NEXT merge refuses by name on the 92 regions with
+      #     no base staged set for the non-optional layers. Scope every furniture/sea stage to
+      #     regions that ALREADY have a base staged set. A region that does not have one gets both
+      #     layers FREE from its own full bake: neither is `optIn`, so both are in the DEFAULT
+      #     layer set (measured: buildings roads water parks landuse rail trees furniture sea).
+      #
+      # §STREET-LIFE — `furniture` is optional for the same reason and, VERIFIED 2026-09-06 against
+      # the staging manifests' own `layers` LIST rather than their existence (L-12982), NO region has
+      # ever staged one: all 40 staged sets carry the same seven layers, none carries the
+      # `optionalLayersNotProduced` field at all, and all 393 <region>--{furniture,sea,canopy} slugs
+      # are HTTP 404. Unlike sea it DOES need a Geofabrik extract, so group it by extract BYTES.
       layer:
-        description: 'Merge only these layers (csv). Blank = ALL of them, resolved from bake.mjs allLayers at run time — never a hand-copied count (buildings, roads, water, parks, landuse, rail, trees, furniture, sea). Use for disk-bounded per-layer publishes of very large sets. §SEA-BAKE-POLYGONS: "sea" is OPTIONAL — a region with no staged sea set is NAMED and skipped, never refused; stage it per region (layer=sea) or for every region in one run (region blank, layer=sea, stage=true → slug all--sea). §STREET-LIFE (L-12936): "furniture" is OPTIONAL for the same reason and is NEW — no region has staged one yet, so until a region is re-baked its gap is NAMED and SKIPPED, never a refusal.'
+        description: 'Merge only these layers (csv). Blank = ALL of them, resolved from bake.mjs allLayers at run time — never a hand-copied count (buildings, roads, water, parks, landuse, rail, trees, furniture, sea). Use for disk-bounded per-layer publishes of very large sets. `sea` and `furniture` are OPTIONAL: a region with no staged set for one is NAMED and skipped, never refused. ⛔ Stage them in TRANCHES of named regions that ALREADY have a base staged set — never region=blank (see §SEA-IS-NOT-ONE-WORLD-RUN above: it is both slower than the ceiling allows and widens the next merge into a by-name refusal).'
         type: string
         default: ''
       engine:

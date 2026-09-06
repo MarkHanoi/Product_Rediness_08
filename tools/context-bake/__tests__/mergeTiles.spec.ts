@@ -30,11 +30,22 @@ import { gunzipSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const __dirnameish = dirname(fileURLToPath(import.meta.url));
 const MERGE = join(__dirnameish, '..', 'merge-tiles.mjs');
 const NODE = process.execPath;
+
+// ⚠ EVERY TEST BELOW THAT SPAWNS merge-tiles.mjs PAYS FOR bake.mjs's MODULE GRAPH FIRST.
+// `merge-tiles.mjs` resolves its region table by running `node bake.mjs --regions-json` as a child
+// process (bakeTables(), merge-tiles.mjs:450 — it MUST be a child, importing bake.mjs starts a bake).
+// That spawn alone is **6,691 / 6,894 / 7,341 ms** measured 2026-09-06 on a developer machine, against
+// vitest's 10 s default: the refusal-arm tests were failing NON-DETERMINISTICALLY (6, then 1, then 4
+// failures across three runs of identical code, every one "Test timed out in 10000ms", zero assertion
+// failures). The cost grows every time a lane adds an import to bake.mjs or heightSources.mjs, which is
+// most days, so the default was going to keep eroding. Nothing here is slow because it is thorough —
+// it is slow because of a fixed 7-second tax, and the timeout should say so rather than flake.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const DIR = mkdtempSync(join(tmpdir(), 'pryzm-mergetiles-'));
 afterAll(() => rmSync(DIR, { recursive: true, force: true }));

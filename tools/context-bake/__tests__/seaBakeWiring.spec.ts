@@ -205,3 +205,59 @@ describe('the proxy allowlist and the client layer union do not drift', () => {
         }
     });
 });
+
+// §SEA-IS-NOT-ONE-WORLD-RUN (lane LAYERS-FURNITURE-SEA, 2026-09-06) — a dispatch RECOMMENDATION is
+// a thing a person will follow, so a wrong one is a defect with a UI. context-merge-publish.yml's
+// `layer` input told the operator to stage the sea for every region in one run ("region blank,
+// layer=sea, stage=true → slug all--sea"). Both halves of that were measured false:
+//   · COST — the clipper reads the WHOLE 1,275,373,628 B shapefile per run, so the parse is FIXED
+//     and the marginal cost is the TOUCHED records. Ten EU regions touch 293 of 53,328 and clip in
+//     412 s; all 131 region bboxes ran PAST 100 MINUTES on the same machine and archive without
+//     finishing, against a 330-minute job ceiling that also has to hold a download and a tippecanoe.
+//   · REFUSAL — an `all--sea` set DECLARES every bake.mjs region, and `expectedRegions` widens on
+//     the staged names under BOTH expect=all and expect=staged (measured 40 → 132), so the NEXT
+//     merge refuses by name on every region with no base staged set for the non-optional layers.
+// Pinned as TEXT because the recommendation IS text — there is no other artefact to assert on.
+describe('§SEA-IS-NOT-ONE-WORLD-RUN — the merge workflow must not recommend a blank-region sea stage', () => {
+    const mergeYml = (): string =>
+        readFileSync(join(HERE, '..', '..', '..', '.github', 'workflows', 'context-merge-publish.yml'), 'utf8');
+
+    it('no longer tells the operator to stage the sea for every region in one run', () => {
+        // The retired recommendation is QUOTED in the correction (recorded, not deleted), so the
+        // assertion is not "the words are absent" — it is "every occurrence is on the line that
+        // retires it". A blunt not.toContain here would forbid the record of the mistake.
+        const lines = mergeYml().split(/?
+/);
+        const hits = lines.filter((l) => l.includes('region blank, layer=sea'));
+        expect(hits.length, 'the all--sea recommendation vanished entirely — keep the record').toBeGreaterThan(0);
+        for (const l of hits) {
+            expect(l, `an all--sea recommendation that is not marked as retired: ${l.trim()}`)
+                .toMatch(/USED TO RECOMMEND/);
+        }
+        // and the operator-facing `description:` values must carry none of it.
+        for (const l of lines.filter((x) => x.trimStart().startsWith('description:'))) {
+            expect(l).not.toContain('region blank, layer=sea');
+            expect(l).not.toContain('for every region in one run');
+        }
+    });
+
+    it('carries the measured reason, so the next reader can check it rather than trust it', () => {
+        const y = mergeYml();
+        expect(y).toContain('§SEA-IS-NOT-ONE-WORLD-RUN');
+        expect(y).toContain('1,275,373,628');          // the shapefile the parse cost is paid on
+        expect(y).toContain('293 of 53,328');          // touched records for a 10-region tranche
+        expect(y).toContain('412 s');                  // that tranche's measured clip
+        expect(y).toMatch(/expectedRegions/);          // the widening, named by the function that does it
+    });
+
+    it('still tells the operator that both layers are OPTIONAL and both ride the DEFAULT bake', () => {
+        const y = mergeYml();
+        expect(y).toMatch(/`sea` and\s+`?furniture`? are OPTIONAL|are OPTIONAL/);
+        // The reason no separate dispatch is needed for an un-staged region: neither layer is optIn.
+        const tables = JSON.parse(
+            spawnSync(NODE, [BAKE, '--regions-json'], { encoding: 'utf8', timeout: SLOW }).stdout,
+        ) as { layers: string[]; optionalLayers: string[] };
+        expect(tables.layers).toEqual(expect.arrayContaining(['sea', 'furniture']));
+        expect(tables.optionalLayers).toEqual(expect.arrayContaining(['sea', 'furniture']));
+    }, SLOW);
+});
