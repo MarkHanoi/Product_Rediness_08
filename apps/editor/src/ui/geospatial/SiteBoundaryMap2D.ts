@@ -74,6 +74,54 @@ import {
 // place authored scene coordinates cross into the world frame; see `sceneEnuFrame.ts`'s header for
 // why writing `east = x, north = -z` inline is the bug it exists to prevent.
 import { sceneXZToEnu } from './sceneEnuFrame.js';
+// ⭐ §PARCEL-VISIBLE-EVERYWHERE (L-13016, founder 2026-09-06) — THE SECOND SUBSCRIBER.
+//
+// Founder: *"When a parcel is selected, the parcel should be HIGHLIGHTED no matter the view
+// selected … I went into a single view — 2D site view — and the parcel was NOT highlighted,
+// although the data was on the right hand side."* Measured 2026-09-06, `siteGeometryHighlight`
+// had exactly ONE subscriber repo-wide (`ParcelBoundarySceneRenderer`, registering as `'BIM 3D'`)
+// and `grep -c siteGeometryHighlight` in THIS file returned 0 — so on the surface he was looking
+// at, a click on "Area" repainted the row's ◉ and changed nothing. This is that subscription.
+//
+// ⛔ THE EMPHASIS RULE LIVES IN THAT MODULE, NOT HERE, and it is one-directional: everything that
+// is NOT the subject RECEDES; the subject is never brightened and its hue never changes. Boosting
+// a provisional envelope to "highlight" it would make an estimate read as a determination — §L-616
+// re-introduced by a UI affordance. `SITE_HIGHLIGHT_RECEDE_FACTOR` is a MULTIPLIER on the AUTHORED
+// alpha for exactly that reason, so a near-wireframe upper-bound shell can never come out denser
+// while receding than it was authored.
+import {
+    getSiteHighlight,
+    subscribeSiteHighlight,
+    registerSiteHighlightSurface,
+    siteHighlightCue,
+    siteHighlightEmphasis,
+    SITE_HIGHLIGHT_RECEDE_FACTOR,
+    type SiteHighlightRole,
+} from '../site/siteGeometryHighlight.js';
+// §PARCEL-VISIBLE-EVERYWHERE — the ONE scene-XZ → WGS84 read for the committed C19 ring, shared
+// with `GISAreaLayout.getMapInitial` so the picture and the camera cannot be built about different
+// origins. Three arms: a ring, an honest `absent`, or a REFUSAL that says why (never an empty).
+import { readCommittedParcelRing } from '../site/committedParcelRing.js';
+// §PARCEL-VISIBLE-EVERYWHERE (b) — "zoom in relatively on it". The ONE site extent both panes
+// frame; its FIRST preference is the committed boundary, which is precisely what `getMapInitial`
+// was never passing (it framed the ±250 m default about the site anchor — a 500 m box around a
+// 107.9 × 44.1 m plot).
+import { resolveSiteFramingExtent } from '../site/siteFramingExtent.js';
+// §PARCEL-VISIBLE-EVERYWHERE — the frontage cue reads the SAME three-arm determination the card's
+// frontage clause and the highlight-availability rule read. Re-deriving "which edges are front"
+// here would be a second answer to a question that already has an owner, and the copy that DRAWS
+// would win silently.
+import {
+    determineParcelEdgeClassifications,
+    FRONT_EDGE,
+} from '../site/parcelEdgeClassificationDetermination.js';
+import { getLastBuildableEnvelope } from '../site/siteDispatch.js';
+// §SPACE-ENVELOPE-ON-2D-MAP (L-13017) — the ONE appearance authority for an AUTHORED envelope
+// (colour · opacity · label), shared with the Cesium and THREE rasterisers. ⛔ Never re-derive a
+// hue here: the §TOBE-ENVELOPE ruling deliberately moved the level envelope OFF the confident
+// violet C58 §1.2 reserves for a determination, and a second copy would drift from that.
+import { resolveSpaceEnvelopeAppearance } from '../../engine/spaceEnvelopeAppearance.js';
+import type { DirtySpaceEnvelopeStore } from '../../engine/attachSpaceEnvelopeRender.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth, dispatchClearParcelBoundary, canCommitParcelBoundary } from '../site/siteDispatch.js';
 // §L-536-THETA-RESET — the SAME pure derivation `dispatchParcelBoundary` uses, so the θ this
 // surface publishes cannot drift from the θ the ring is de-rotated by. See commit() below.
@@ -236,6 +284,52 @@ const PARCEL_SELECT_LINE_LAYER = 'pryzm-parcel-select-line';
 const ENVELOPE_SOURCE = 'pryzm-buildable-envelope';
 const ENVELOPE_FILL_LAYER = 'pryzm-buildable-envelope-fill';
 const ENVELOPE_LINE_LAYER = 'pryzm-buildable-envelope-line';
+
+// ── §PARCEL-VISIBLE-EVERYWHERE (L-13016) — the COMMITTED parcel + the highlight cue ──────────
+//
+// ⚠ THESE ARE NOT `PARCEL_SELECT_*`, AND THE DISTINCTION IS THE BUG. `pryzm-parcel-select` holds
+// the parcel the user has clicked but NOT yet committed: `useSelectedParcel()` sets
+// `selectedParcel = null` on its way to `commit()`, so the moment the founder's plot becomes his
+// SITE that source goes empty by design. From then on the only thing painting his plot was this
+// map's own `vertices` array — which is populated ONLY on the mount that performed the commit.
+// Open the 2D site view later, or in another pane, and `syncCommittedFromStore()` correctly
+// FREEZES the draw surface from the C19 store while nothing at all PAINTS from it. Hence a
+// separate source fed from the store: the committed parcel is a fact about the project, not a
+// memory of this map instance's session.
+//
+// Registered in `installSiteHighlightLayers()` (called from the same two places
+// `installRingLayers` is) so it survives the Map|Satellite `setStyle` wipe exactly as the
+// envelope and the selection highlight do.
+const COMMITTED_PARCEL_SOURCE = 'pryzm-committed-parcel';
+const COMMITTED_PARCEL_FILL_LAYER = 'pryzm-committed-parcel-fill';
+const COMMITTED_PARCEL_LINE_LAYER = 'pryzm-committed-parcel-line';
+/** The AUTHORED weights. The emphasis pass may only ever multiply these DOWN. */
+const COMMITTED_PARCEL_FILL_ALPHA = 0.10;
+const COMMITTED_PARCEL_LINE_ALPHA = 1.0;
+const COMMITTED_PARCEL_LINE_WIDTH = 2.5;
+/**
+ * The CUE — geometry that exists ONLY to answer a highlight (`siteHighlightCue`): the classified
+ * front edges, or the buildable inset ring. Drawn on its own source so clearing the highlight
+ * leaves no residue, and so it can never be mistaken for the parcel itself.
+ *
+ * ⛔ NO `limit-plane` ARM, DELIBERATELY. This map is pitch-locked, so a horizontal plane at the
+ * maximum height projects to EXACTLY the buildable footprint — indistinguishable from the
+ * `inset-ring` cue. `siteGeometryHighlight` states the rule for that case: *"A renderer that
+ * cannot build the named cue MUST leave the row's click inert rather than falling back to
+ * lighting something else — pointing at the wrong geometry is worse than pointing at none,
+ * because the user cannot tell."* `buildHighlightCueFC` returns the honest empty and logs why.
+ */
+const HIGHLIGHT_CUE_SOURCE = 'pryzm-site-highlight-cue';
+const HIGHLIGHT_CUE_LINE_LAYER = 'pryzm-site-highlight-cue-line';
+
+// ── §SPACE-ENVELOPE-ON-2D-MAP (L-13017) — the AUTHORED prism, not the permitted study ────────
+// ⛔ `pryzm-buildable-envelope` above is the SOLVED legal ceiling; this is what the user AUTHORS
+// (`spaceEnvelope.batch.create`, `standing: 'design-intent'`). Two different objects, two
+// different sources, two different palettes — see the block comment on
+// `spaceEnvelopeFeatureCollection` before merging them.
+const SPACE_ENVELOPE_SOURCE = 'pryzm-space-envelope';
+const SPACE_ENVELOPE_FILL_LAYER = 'pryzm-space-envelope-fill';
+const SPACE_ENVELOPE_LINE_LAYER = 'pryzm-space-envelope-line';
 /** Snap activation radius in screen pixels (founder: "snap in corners"). */
 const SNAP_PX = 12;
 /** Half-size (px) of the queryRenderedFeatures box around the cursor — cheap. */
@@ -1349,6 +1443,440 @@ export function mountSiteBoundaryMap2D(
         refreshEnvelope();
     }
 
+
+    // ── §PARCEL-VISIBLE-EVERYWHERE (L-13016 · STR §26.4 · C19 §2.3) — THE COMMITTED PARCEL ─────
+    //
+    // Founder: *"When a parcel is selected, the parcel should be HIGHLIGHTED no matter the view
+    // selected … the parcel was NOT highlighted, although the data was on the right hand side."*
+    //
+    // ⭐ NOTHING IS RE-DERIVED HERE. The ring comes from the C19 store through the ONE
+    // scene-XZ → WGS84 read (`readCommittedParcelRing`) that `GISAreaLayout.getMapInitial` also
+    // uses, so the picture and the camera cannot be built about different origins — and a
+    // hand-rolled projection here would be right at θ = 0 and MIRRORED at Barcelona's θ ≈ 45°
+    // (§PARCEL-SHADE-NOT-MIRRORED, L-10740).
+    //
+    // ⚠ A REFUSAL IS LOGGED AS A REFUSAL. `absent` (no parcel committed — the resting state) and
+    // `refused` (a real ring PRYZM cannot honestly place) both draw nothing, and they must not
+    // print the same sentence: the first is a fact about the project, the second is a gap in
+    // PRYZM. Collapsing them is the §CONTEXT-DATA-HONESTY defect this repo treats as first-class.
+
+    /** The committed C19 ring in WGS84, or null — asked through the ONE reader. */
+    function committedParcelLatLonRing(): readonly LatLon[] | null {
+        const store = resolveSiteContext(runtime ?? null)?.store ?? null;
+        const res = readCommittedParcelRing(store, getOrigin());
+        if (res.kind === 'ring') return res.ring;
+        if (res.kind === 'refused') {
+            console.warn(`[gis] map2d §PARCEL-VISIBLE-EVERYWHERE — parcel NOT drawn: ${res.reason}`);
+        }
+        return null;
+    }
+
+    /** Push the committed parcel outline (or the honest empty) into its own source. */
+    function refreshCommittedParcel(): void {
+        const src = map.getSource(COMMITTED_PARCEL_SOURCE) as GeoJSONSource | undefined;
+        if (!src) return; // style is mid-swap; `installSiteHighlightLayers` re-adds + repaints.
+        const ring = committedParcelLatLonRing();
+        if (!ring) { src.setData(emptyFC()); return; }
+        const coords = ring.map((p) => [p.lon, p.lat] as [number, number]);
+        src.setData({
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
+                properties: { role: 'committed-parcel' },
+            }],
+        });
+    }
+
+    /**
+     * §PARCEL-VISIBLE-EVERYWHERE — the CUE for the active highlight subject, or the honest empty.
+     *
+     * ⛔ RETURNING AN EMPTY IS AN HONEST ANSWER AND MUST STAY ONE. A cue that cannot be built
+     * draws NOTHING — it never falls back to lighting the parcel instead. Which cue a subject
+     * needs is decided by `siteHighlightCue`, never here.
+     */
+    function buildHighlightCueFC(): GeoJSON.FeatureCollection {
+        const subject = getSiteHighlight();
+        if (subject === null) return emptyFC();
+        const cue = siteHighlightCue(subject);
+        if (cue === null) return emptyFC(); // parcel / boundary / GFA are already on screen.
+
+        if (cue === 'limit-plane') {
+            // See HIGHLIGHT_CUE_SOURCE: on a pitch-locked plan a height plane IS the footprint.
+            console.log(
+                '[gis] map2d §PARCEL-VISIBLE-EVERYWHERE — "Max height" has no honest cue on a '
+                + 'pitch-locked plan: a horizontal plane at the limit projects to exactly the '
+                + 'buildable footprint, so drawing it would point at the wrong geometry. The 3D '
+                + 'views draw this one; nothing is drawn here.',
+            );
+            return emptyFC();
+        }
+
+        const origin = getOrigin();
+        const store = resolveSiteContext(runtime ?? null)?.store ?? null;
+        const site = store?.getSite() ?? null;
+        const thetaRad = Number.isFinite(site?.location?.trueNorth) ? site!.location!.trueNorth : null;
+        if (!origin || thetaRad === null) {
+            console.warn(
+                '[gis] map2d §PARCEL-VISIBLE-EVERYWHERE — REFUSING to draw the highlight cue: the '
+                + 'site frame ORIGIN or θ could not be read. ⚠ Assuming θ = 0 would draw the right '
+                + 'shape at the wrong bearing (§L-446). Nothing is drawn.',
+            );
+            return emptyFC();
+        }
+        const toLonLat = (p: { x: number; z: number }): [number, number] => {
+            const { east, north } = sceneXZToEnu(p.x, p.z, thetaRad);
+            const ll = sceneXZToLatLon({ x: east, z: -north }, origin.lat, origin.lon);
+            return [ll.lon, ll.lat];
+        };
+
+        if (cue === 'inset-ring') {
+            // ⚠ ONE RING, THE PRINCIPAL TIER'S — exactly what the card's footprint number is
+            // measured inside (`permittedStudyFigures`), so outline and number cannot disagree.
+            // Empty whenever the envelope is not `ok`: a refusal has no buildable ring.
+            const inset = getLastBuildableEnvelope()?.insetPolygon ?? [];
+            if (inset.length < 3) return emptyFC();
+            const coords = inset.map(toLonLat);
+            return {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: { type: 'LineString', coordinates: [...coords, coords[0]!] },
+                    properties: { cue },
+                }],
+            };
+        }
+
+        // 'front-edges' — the THREE-ARM determination is NOT re-derived here. "nobody classified
+        // these edges" (undetermined) and "classified, none faces a street" (landlocked) both
+        // yield nothing, for DIFFERENT reasons the card has already printed in words. A `?? []`
+        // here would silently assert the landlocked finding about an unmeasured plot.
+        const boundary = store?.getParcelBoundary?.() ?? null;
+        const polygon = (boundary?.polygon ?? []) as ReadonlyArray<{ x: number; z: number }>;
+        if (polygon.length < 3) return emptyFC();
+        const determination = determineParcelEdgeClassifications(
+            boundary?.edgeClassifications,
+            'parcel edge classifications',
+            polygon.length,
+        );
+        if (determination.kind !== 'determined') return emptyFC();
+        const labels = determination.elements;
+        const features: GeoJSON.Feature[] = [];
+        for (let i = 0; i < polygon.length; i++) {
+            if (labels[i] !== FRONT_EDGE) continue;
+            // Each front edge is its OWN feature, so a ring with two non-adjacent frontages never
+            // draws a false connecting segment between them.
+            features.push({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: [toLonLat(polygon[i]!), toLonLat(polygon[(i + 1) % polygon.length]!)],
+                },
+                properties: { cue },
+            });
+        }
+        return { type: 'FeatureCollection', features };
+    }
+
+    /** Push the cue (or the honest empty) into its source. */
+    function refreshHighlightCue(): void {
+        const src = map.getSource(HIGHLIGHT_CUE_SOURCE) as GeoJSONSource | undefined;
+        if (!src) return;
+        src.setData(buildHighlightCueFC());
+    }
+
+    /**
+     * §PARCEL-VISIBLE-EVERYWHERE — THE EMPHASIS PASS.
+     *
+     * ⛔ EMPHASIS MAY NEVER STRENGTHEN A CLAIM. `siteHighlightEmphasis` decides which of this
+     * map's four painted roles is the SUBJECT of the clicked number; everything else RECEDES by
+     * `SITE_HIGHLIGHT_RECEDE_FACTOR`. The subject is left at EXACTLY its authored weight — its
+     * alpha is not raised and its hue is not touched — because the envelope's hue and fill alpha
+     * ARE its honesty signal (`envelopeRenderStyle.ts`), and boosting a provisional solid to
+     * "highlight" it would make an estimate read as a determination (§L-616).
+     *
+     * ⚠ THE ENVELOPE'S FILL IS A DATA EXPRESSION, so its recede is `['*', ['get','fillAlpha'], k]`
+     * rather than a constant: each solid keeps its OWN authored alpha, multiplied. Writing a flat
+     * number here would let a near-wireframe upper-bound shell come out DENSER while receding
+     * than it was authored — the honesty regression the multiplier exists to make impossible.
+     *
+     * Never throws — a highlight is a reading aid, and the map must survive its failure.
+     */
+    function applySiteHighlightEmphasis(): void {
+        const subject = getSiteHighlight();
+        const set = (layer: string, prop: string, value: unknown): void => {
+            if (!map.getLayer(layer)) return;
+            map.setPaintProperty(layer, prop, value as never);
+        };
+        try {
+            // The resting state — every layer exactly as authored. This is what makes "clear the
+            // highlight" fully reversible without remembering anything.
+            const k = (role: SiteHighlightRole): number =>
+                subject === null || siteHighlightEmphasis(subject, role) === 'subject'
+                    ? 1
+                    : SITE_HIGHLIGHT_RECEDE_FACTOR;
+
+            const parcelFill = k('parcel-fill');
+            const parcelLine = k('parcel-line');
+            const volume = k('envelope-volume');
+
+            set(COMMITTED_PARCEL_FILL_LAYER, 'fill-opacity', COMMITTED_PARCEL_FILL_ALPHA * parcelFill);
+            set(COMMITTED_PARCEL_LINE_LAYER, 'line-opacity', COMMITTED_PARCEL_LINE_ALPHA * parcelLine);
+            // The in-flight SELECTION highlight shares the parcel's roles — it is the same plot,
+            // one gesture earlier — so it recedes with it rather than staying bright behind a
+            // receded committed outline.
+            set(PARCEL_SELECT_FILL_LAYER, 'fill-opacity', 0.10 * parcelFill);
+            set(PARCEL_SELECT_LINE_LAYER, 'line-opacity', parcelLine);
+            // The DRAWN boundary ring is the same line the committed outline is, mid-authoring.
+            set(LINE_LAYER, 'line-opacity', parcelLine);
+            set(FILL_LAYER, 'fill-opacity', parcelFill);
+            set(ENVELOPE_FILL_LAYER, 'fill-opacity',
+                volume === 1 ? ['get', 'fillAlpha'] : ['*', ['get', 'fillAlpha'], volume]);
+            set(ENVELOPE_LINE_LAYER, 'line-opacity', volume);
+        } catch (e) {
+            console.warn('[gis] map2d §PARCEL-VISIBLE-EVERYWHERE emphasis failed (non-fatal):', e);
+        }
+    }
+
+    /**
+     * Register the committed-parcel + cue sources and their layers. Called from the SAME two
+     * places `installRingLayers` is (`map.on('load')` and the post-`setStyle` `style.load`), for
+     * the same reason: `setStyle(…, { diff:false })` wipes every added source and layer, so a
+     * layer added anywhere else silently vanishes the first time the user presses Satellite.
+     * Idempotent.
+     *
+     * ⚠ `beforeId: FILL_LAYER` — the committed parcel is the ground the drawn boundary and its
+     * violet vertex handles are read against, so it is inserted BELOW them and above every
+     * basemap layer. The CUE goes on top of everything: it exists only to be looked at.
+     */
+    function installSiteHighlightLayers(): void {
+        if (!map.getSource(COMMITTED_PARCEL_SOURCE)) {
+            map.addSource(COMMITTED_PARCEL_SOURCE, { type: 'geojson', data: emptyFC() });
+            map.addLayer({
+                id: COMMITTED_PARCEL_FILL_LAYER,
+                type: 'fill',
+                source: COMMITTED_PARCEL_SOURCE,
+                paint: { 'fill-color': VIOLET, 'fill-opacity': COMMITTED_PARCEL_FILL_ALPHA },
+            }, map.getLayer(FILL_LAYER) ? FILL_LAYER : undefined);
+            map.addLayer({
+                id: COMMITTED_PARCEL_LINE_LAYER,
+                type: 'line',
+                source: COMMITTED_PARCEL_SOURCE,
+                paint: {
+                    'line-color': VIOLET,
+                    'line-width': COMMITTED_PARCEL_LINE_WIDTH,
+                    'line-opacity': COMMITTED_PARCEL_LINE_ALPHA,
+                },
+            }, map.getLayer(FILL_LAYER) ? FILL_LAYER : undefined);
+        }
+        // §SPACE-ENVELOPE-ON-2D-MAP (L-13017) — the AUTHORED prisms, as ground footprints. Above
+        // the permitted study (design intent is read AGAINST the legal ceiling, so it must be
+        // legible on top of it) and still below the boundary line + its vertex handles.
+        if (!map.getSource(SPACE_ENVELOPE_SOURCE)) {
+            map.addSource(SPACE_ENVELOPE_SOURCE, { type: 'geojson', data: emptyFC() });
+            map.addLayer({
+                id: SPACE_ENVELOPE_FILL_LAYER,
+                type: 'fill',
+                source: SPACE_ENVELOPE_SOURCE,
+                paint: { 'fill-color': ['get', 'hue'], 'fill-opacity': ['get', 'fillAlpha'] },
+            }, map.getLayer(FILL_LAYER) ? FILL_LAYER : undefined);
+            map.addLayer({
+                id: SPACE_ENVELOPE_LINE_LAYER,
+                type: 'line',
+                source: SPACE_ENVELOPE_SOURCE,
+                paint: { 'line-color': ['get', 'hue'], 'line-width': 2 },
+            }, map.getLayer(FILL_LAYER) ? FILL_LAYER : undefined);
+        }
+        if (!map.getSource(HIGHLIGHT_CUE_SOURCE)) {
+            map.addSource(HIGHLIGHT_CUE_SOURCE, { type: 'geojson', data: emptyFC() });
+            map.addLayer({
+                id: HIGHLIGHT_CUE_LINE_LAYER,
+                type: 'line',
+                source: HIGHLIGHT_CUE_SOURCE,
+                paint: { 'line-color': VIOLET, 'line-width': 4, 'line-opacity': 0.95 },
+            });
+        }
+        refreshCommittedParcel();
+        refreshSpaceEnvelopes();
+        refreshHighlightCue();
+        applySiteHighlightEmphasis();
+    }
+
+    /**
+     * §PARCEL-VISIBLE-EVERYWHERE (b) — *"and ZOOM IN relatively on it"*.
+     *
+     * ⛔ THE PARCEL'S OWN BOUNDS, NOT A CONSTANT. `getMapInitial` framed the SITE — a FIXED
+     * ±250 m box about the site anchor (`source=default`), i.e. a 500 m square around a
+     * 107.9 × 44.1 m plot, which is why the founder could not pick his parcel out. This asks the
+     * ONE extent authority (`resolveSiteFramingExtent`), whose FIRST preference is the committed
+     * boundary, and whose floor/ceiling (`SITE_FRAMING_MIN/MAX_HALF_M`) keep a tiny plot legible
+     * and a large holding on screen.
+     *
+     * ⚠ NO COMMITTED PARCEL ⇒ NO RE-FRAME. The ±250 m site framing is still the right answer with
+     * nothing committed, and this must not yank a camera the user is panning during a draw.
+     */
+    function frameCommittedParcel(cause: string): void {
+        if (disposed) return;
+        const ring = committedParcelLatLonRing();
+        if (!ring) return;
+        try {
+            const anchor = getOrigin() ?? { lat: ring[0]!.lat, lon: ring[0]!.lon };
+            const extent = resolveSiteFramingExtent({ anchor, boundary: ring });
+            const [w, s, e, n] = extent.bbox;
+            map.fitBounds([[w, s], [e, n]], { padding: 60, maxZoom: 19, duration: 350 });
+            console.log(
+                `[gis] map2d §PARCEL-VISIBLE-EVERYWHERE frame → the committed PARCEL `
+                + `(cause="${cause}", source=${extent.source}, ±${Math.round(extent.halfSpanM)} m, `
+                + `${ring.length} corners).`,
+            );
+        } catch (err) {
+            console.warn('[gis] map2d §PARCEL-VISIBLE-EVERYWHERE frame failed (non-fatal):', err);
+        }
+    }
+
+
+    // ── §SPACE-ENVELOPE-ON-2D-MAP (L-13017 · STR §26.4 · C114 / ADR-0380) — THE AUTHORED PRISM ──
+    //
+    // Founder, from the live build: *"I can see now the envelope on the 3D SITE view although NOT
+    // on the 2D SITE VIEW."*
+    //
+    // ⛔ THIS IS A DIFFERENT OBJECT FROM `§MAP2D-ENVELOPE` ABOVE, AND CONFLATING THE TWO HAS
+    // ALREADY COST ONE WRONG DIAGNOSIS. The L0 schema says so in its own header
+    // (`packages/schemas/src/elements/SpaceEnvelope.ts`): *"⛔ IT IS NOT `BuildableEnvelope`. That
+    // is the SOLVED legal ceiling … produced by the zoning engine and never authored."*
+    //   · `§MAP2D-ENVELOPE` (above) draws the PERMITTED STUDY — the solved legal ceiling, with a
+    //     confidence, a derivation trace and a refusal vocabulary. This map already drew it, which
+    //     is exactly why the founder's console could log `drawing N envelope footprint(s)` in the
+    //     same session he reports seeing no envelope.
+    //   · THIS block draws what he AUTHORS: `role: 'level'` prisms minted by
+    //     `spaceEnvelope.batch.create`, `standing: 'design-intent'`.
+    //
+    // ⭐ ONE MODEL, THREE RASTERISERS — the shape `§SPACE-ENVELOPE-IN-CESIUM` established. The road
+    // is `Store.subscribeDirty()`, which `applyPatch()` notifies on EXECUTE, UNDO and REDO alike,
+    // so this needs no bus subscriber and no second render channel to disagree with the first.
+    // ⛔ Do not "improve" it into a bus-event subscriber without changing `performUndoRedo.ts`'s
+    // generic `spaceEnvelope` row in the same commit.
+    //
+    // ⛔ AND IT MINTS NO SECOND PALETTE. `resolveSpaceEnvelopeAppearance` is the one authority for
+    // the colour and the opacity — including the §TOBE-ENVELOPE ruling that moved the level
+    // envelope OFF `#6600FF` so an intent volume stops wearing the confident-violet CONFIDENCE
+    // BADGE that C58 §1.2 reserves for a determination. Re-deriving a hue here would put the
+    // surfaces one commit away from disagreeing about what a colour means.
+    //
+    // ⚠ A FOOTPRINT, NOT A FAKE BOX — the same argument `§MAP2D-ENVELOPE` makes for the study
+    // solid: this map is pitch-locked, so a `fill-extrusion` reads as a flat fill with a
+    // misleading offset. The honest 2D representation of a prism is the ground polygon it stands
+    // on. The HEIGHT is not dropped silently — the 3D Site and the PRYZM view draw it.
+
+    /** The one shape this map reads off a space-envelope record. Structural, never a cast. */
+    interface Map2DSpaceEnvelopeRecord {
+        readonly role?: string;
+        readonly name?: string;
+        readonly occupancy?: string;
+        readonly materialColor?: string;
+        readonly footprintAreaM2?: number;
+        readonly footprint?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+        readonly baseOffset?: number;
+        readonly height?: number;
+    }
+
+    /**
+     * Project every AUTHORED space envelope into map-frame GeoJSON — or into an HONEST EMPTY.
+     *
+     * ⚠ C57 §1.5 — A FAILURE IS NEVER DRESSED AS AN EMPTY. Four different reasons yield no
+     * features and each says which it is: nothing authored (the resting state); the store is
+     * unreachable; the projection ORIGIN is unavailable (a prism at a guessed origin is a
+     * confidently wrong answer about where someone intends to build); θ could not be READ, which
+     * is NOT θ = 0 (§L-446 — the right shape at the wrong bearing on any rotated site).
+     */
+    function spaceEnvelopeFeatureCollection(): GeoJSON.FeatureCollection {
+        const store = runtime?.stores?.spaceEnvelope as
+            { getState?: () => ReadonlyMap<string, unknown> } | undefined;
+        if (!store || typeof store.getState !== 'function') return emptyFC();
+        let records: ReadonlyMap<string, unknown>;
+        try { records = store.getState(); } catch { return emptyFC(); }
+        if (records.size === 0) return emptyFC();
+
+        const origin = getOrigin();
+        if (!origin) {
+            console.warn(
+                `[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP — ${records.size} authored envelope(s) exist `
+                + 'but NO site frame ORIGIN is resolvable, and they are authored in scene-XZ metres '
+                + 'ABOUT that origin. Drawing nothing rather than placing design intent at a guessed '
+                + 'point on the Earth (C57 §1.5). They appear as soon as the site frame seats.',
+            );
+            return emptyFC();
+        }
+        const site = resolveSiteContext(runtime ?? null)?.store?.getSite() ?? null;
+        const location = site?.location ?? null;
+        if (!location) {
+            console.warn(
+                '[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP — REFUSING to draw the authored envelope(s): '
+                + 'the site store is unreachable, so θ (SiteLocation.trueNorth) could not be READ. '
+                + '⚠ This is NOT the same as θ = 0 — assuming 0 draws a correctly-shaped footprint at '
+                + `the wrong BEARING on any rotated site. ${records.size} withheld.`,
+            );
+            return emptyFC();
+        }
+        const thetaRad = Number.isFinite(location.trueNorth) ? location.trueNorth : 0;
+
+        const features: GeoJSON.Feature[] = [];
+        let skipped = 0;
+        for (const [id, raw] of records) {
+            const rec = raw as Map2DSpaceEnvelopeRecord | null | undefined;
+            const ring = rec?.footprint;
+            // A malformed row is SKIPPED and COUNTED, never guessed at and never fatal — one bad
+            // record must not take the map down.
+            if (!Array.isArray(ring) || ring.length < 3) { skipped += 1; continue; }
+            try {
+                const appearance = resolveSpaceEnvelopeAppearance({
+                    id,
+                    role: rec?.role,
+                    name: rec?.name,
+                    occupancy: rec?.occupancy,
+                    materialColor: rec?.materialColor,
+                    footprintAreaM2: rec?.footprintAreaM2,
+                    height: rec?.height,
+                });
+                const coords = ring.map((p) => {
+                    const { east, north } = sceneXZToEnu(p.x, p.z, thetaRad);
+                    const ll = sceneXZToLatLon({ x: east, z: -north }, origin.lat, origin.lon);
+                    return [ll.lon, ll.lat] as [number, number];
+                });
+                features.push({
+                    type: 'Feature',
+                    geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
+                    properties: {
+                        id,
+                        role: rec?.role ?? 'room',
+                        // ⭐ The colour travels ON THE FEATURE, straight off the one appearance
+                        // authority, so the paint below is a dumb `['get', …]` and this file holds
+                        // no space-envelope knowledge.
+                        hue: appearance.colour,
+                        fillAlpha: appearance.opacity,
+                    },
+                });
+            } catch (e) {
+                skipped += 1;
+                console.warn(`[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP envelope "${id}" failed — skipped:`, e);
+            }
+        }
+        console.log(
+            `[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP — drew ${features.length}/${records.size} AUTHORED `
+            + `envelope footprint(s)${skipped > 0 ? ` · ${skipped} skipped as unreadable` : ''} · `
+            + `standing='design-intent' (NOT the permitted study — that is §MAP2D-ENVELOPE) · `
+            + `θ=${(thetaRad * 180 / Math.PI).toFixed(2)}°.`,
+        );
+        return { type: 'FeatureCollection', features };
+    }
+
+    /** Push the authored envelope footprint(s) — or the honest empty — into the map source. */
+    function refreshSpaceEnvelopes(): void {
+        const src = map.getSource(SPACE_ENVELOPE_SOURCE) as GeoJSONSource | undefined;
+        if (!src) return; // style is mid-swap; `installSiteHighlightLayers` re-adds + repaints.
+        src.setData(spaceEnvelopeFeatureCollection());
+    }
+
     /** Hide + empty the parcel info card. */
     function hideParcelCard(): void {
         parcelCard.style.display = 'none';
@@ -2309,6 +2837,10 @@ export function mountSiteBoundaryMap2D(
         map.once('style.load', () => {
             if (disposed) return;
             installRingLayers();
+            // §PARCEL-VISIBLE-EVERYWHERE (L-13016) — the swap wiped the committed-parcel + cue
+            // sources with everything else. Re-added HERE (and in `map.on('load')`) rather than
+            // inside `installRingLayers` so the pinned parcel/boundary path stays byte-identical.
+            installSiteHighlightLayers();
             map.jumpTo({ center, zoom, bearing, pitch });
             // MAP-DATA-OVERTURE — the swap recreates an EMPTY context source (map
             // style) or none (satellite). Force a refetch so the footprints come
@@ -2798,6 +3330,17 @@ export function mountSiteBoundaryMap2D(
         // hold this whole closure (and its dead map) alive and repaint into a removed source.
         try { envelopeVisibilitySub?.(); } catch { /* ignore */ }
         envelopeVisibilitySub = null;
+        // §PARCEL-VISIBLE-EVERYWHERE (L-13016) — drop the highlight subscription AND the surface
+        // registration together. A registration that outlived its subscription would name a view
+        // that no longer repaints, which is exactly the claim the registry exists to prevent.
+        try { siteHighlightSub?.(); } catch { /* ignore */ }
+        siteHighlightSub = null;
+        try { siteHighlightSurfaceReg?.(); } catch { /* ignore */ }
+        siteHighlightSurfaceReg = null;
+        // §SPACE-ENVELOPE-ON-2D-MAP — drop the store's dirty listener. One left behind would hold
+        // this whole closure (and its dead map) alive and repaint into a removed source.
+        try { spaceEnvelopeSub?.(); } catch { /* ignore */ }
+        spaceEnvelopeSub = null;
         // §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — a disposed map is not a drawable surface.
         try { delete (window as unknown as { pryzmBoundaryDrawSurfaceReadyAt?: number }).pryzmBoundaryDrawSurfaceReadyAt; } catch { /* ignore */ }
         // A.21.D9 — remove all pooled dimension-label markers.
@@ -2835,7 +3378,15 @@ export function mountSiteBoundaryMap2D(
     try {
         boundarySub = (runtime ?? null)?.events?.on(
             'site.parcel-boundary-set',
-            () => syncCommittedFromStore('external-commit-event'),
+            () => {
+                syncCommittedFromStore('external-commit-event');
+                // §PARCEL-VISIBLE-EVERYWHERE (L-13016) — PAINT it, and FRAME it. `syncCommitted-
+                // FromStore` freezes the draw surface from the store but has never drawn from it;
+                // that asymmetry is why a 2D site view opened after a commit showed nothing.
+                try { refreshCommittedParcel(); } catch { /* style may be swapping */ }
+                try { applySiteHighlightEmphasis(); } catch { /* ignore */ }
+                frameCommittedParcel('parcel-committed');
+            },
         ) ?? null;
     } catch (e) {
         console.warn('[gis] map2d §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC: could not subscribe (non-fatal):', e);
@@ -2859,8 +3410,67 @@ export function mountSiteBoundaryMap2D(
         console.warn('[gis][c58] map2d §MAP2D-ENVELOPE: could not subscribe to the envelope visibility authority (non-fatal):', e);
     }
 
+    // ⭐ §PARCEL-VISIBLE-EVERYWHERE (L-13016) — THE SUBSCRIPTION, AND THE DECLARATION.
+    //
+    // Same PUSH-not-poll contract as the two subscriptions above: the envelope card's row handler
+    // writes ONE store and pokes no renderer, and every surface repaints itself from this
+    // notification. Until this commit `siteGeometryHighlight` had exactly one subscriber
+    // (`ParcelBoundarySceneRenderer`, `'BIM 3D'`), so on three of the Parcel Law tab's four views
+    // a click on a number repainted the row's ◉ and changed nothing on screen.
+    //
+    // §SITE-HIGHLIGHT-REACH — and DECLARE that this surface draws it, in the founder's own word
+    // for the view (matching the view switcher's label). The row's tooltip derives *"where will
+    // this show?"* from who registered, so the sentence can never out-run the wiring. Registered
+    // BESIDE the subscription and disposed WITH it.
+    let siteHighlightSub: (() => void) | null = null;
+    let siteHighlightSurfaceReg: (() => void) | null = null;
+    try {
+        siteHighlightSub = subscribeSiteHighlight(() => {
+            if (disposed) return;
+            try { refreshHighlightCue(); } catch { /* style may be mid-swap */ }
+            try { applySiteHighlightEmphasis(); } catch { /* ignore */ }
+        });
+        siteHighlightSurfaceReg = registerSiteHighlightSurface('siteBoundaryMap2d', '2D Site Map');
+    } catch (e) {
+        console.warn('[gis] map2d §PARCEL-VISIBLE-EVERYWHERE: could not subscribe to the site-highlight store (non-fatal):', e);
+    }
+
+    // ⭐ §SPACE-ENVELOPE-ON-2D-MAP (L-13017) — SUBSCRIBE TO THE STORE'S DIRTY CHANNEL, not to a bus
+    // event. `applyPatch()` notifies `subscribeDirty` on EXECUTE, UNDO and REDO alike, which is why
+    // the Cesium arm needs no bus subscriber either — and why `performUndoRedo.ts`'s generic
+    // `spaceEnvelope` row stays honest. The listener redraws from the STORE, never from the diff:
+    // a partial redraw would need its own feature index and would become a second answer to "what
+    // is on screen" (C84 EI-9).
+    //
+    // ⚠ The runtime is late-injected on the live boot path (`createMainLayout(props, null)`), so a
+    // null store here is the ordinary early case, not a failure — the mount-time
+    // `installSiteHighlightLayers()` paint covers a map opened over an already-authored project.
+    let spaceEnvelopeSub: (() => void) | null = null;
+    try {
+        const seStore = runtime?.stores?.spaceEnvelope as DirtySpaceEnvelopeStore | undefined;
+        // The same STRUCTURAL narrowing `initTools` and `CesiumViewport` perform, and for the same
+        // reason: `PluginDtoStoreHandle` declares only `getState()` while the live store also
+        // carries `subscribeDirty`. Never a cast through `any` (P4), and never an assumption.
+        if (seStore && typeof seStore.subscribeDirty === 'function') {
+            spaceEnvelopeSub = seStore.subscribeDirty(() => {
+                if (disposed) return;
+                try { refreshSpaceEnvelopes(); } catch { /* style may be mid-swap */ }
+            });
+            console.log(
+                '[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP subscribed to the ONE space-envelope store '
+                + '(subscribeDirty — execute, undo and redo alike). STR §26.4.',
+            );
+        }
+    } catch (e) {
+        console.warn('[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP: could not subscribe to the space-envelope store (non-fatal):', e);
+    }
+
     map.on('load', () => {
         installRingLayers();
+        // §PARCEL-VISIBLE-EVERYWHERE (L-13016) — the committed parcel + the highlight cue. Added
+        // here rather than inside `installRingLayers` so the pinned parcel/boundary path stays
+        // byte-identical (`siteMap2DStyleV2.spec.ts` ARM 2).
+        installSiteHighlightLayers();
         // Defect 1 — land on THEIR plot, not the world. Prefer the geocode bbox
         // (frames the whole feature); fall back to a centred zoom on the point.
         const bbox = opts.initial?.bbox;
@@ -2877,6 +3487,11 @@ export function mountSiteBoundaryMap2D(
             map.jumpTo({ center: [opts.initial.lon, opts.initial.lat], zoom: opts.initial.zoom ?? 16 });
             console.log('[gis] map2d: centred on point', opts.initial.lat, opts.initial.lon);
         }
+        // §PARCEL-VISIBLE-EVERYWHERE (b) (L-13016) — *"we should have the parcel highlighted and
+        // ZOOM IN relatively on it"*. LAST, so it overrides the opening frame when — and only
+        // when — a parcel is actually committed. With nothing committed this is a no-op and the
+        // geocode/site framing above stands, which is still the right answer there.
+        frameCommittedParcel('mount');
         // §FIX-ONBOARDING-OVERLAY-SINGLE-PANEL-NO-BOUNDARY-SPLIT3D (L-194) — OVERLAY-ONLY mode:
         // do NOT attach ANY boundary-draw interaction. The map exists solely to place + calibrate
         // the site-plan overlay (whose controller binds its OWN map 'click' handler for the
@@ -2984,6 +3599,13 @@ export function mountSiteBoundaryMap2D(
                 );
             }
             try { map.resize(); } catch { /* torn down mid-move */ }
+            // §PARCEL-VISIBLE-EVERYWHERE (b) (L-13016) — THE FOUNDER'S EXACT GESTURE. He was in
+            // split view (2D satellite + 3D), then switched to a single 2D site view; §L-12992
+            // RE-TARGETS this one map rather than re-mounting it, so nothing re-ran the opening
+            // frame and the camera stayed wherever the split had left it. Re-frame the committed
+            // parcel on every re-target, so *"no matter the view selected"* holds across a view
+            // switch and not only across a fresh mount. No-op when nothing is committed.
+            frameCommittedParcel('reparent');
         },
         isPlacedIn: (host: HTMLElement): boolean => !disposed && overlay.parentElement === host,
         resize: (): void => { if (!disposed) { try { map.resize(); } catch { /* torn down */ } } },

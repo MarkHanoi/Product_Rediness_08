@@ -156,6 +156,9 @@ import {
 } from '../site/complianceCitationSlots';
 import { resolveSiteFrameOrigin } from '../site/boundaryProjection';
 import { resolveSiteFramingExtent } from '../site/siteFramingExtent';
+// §PARCEL-VISIBLE-EVERYWHERE (L-13016) — the ONE scene-XZ → WGS84 read for the committed C19 ring,
+// shared with `SiteBoundaryMap2D` so the CAMERA and the PICTURE are built about the same origin.
+import { readCommittedParcelRing } from '../site/committedParcelRing';
 // §PARCEL-SELECT (L-380 P1 → L-613) — the real cadastral parcel data source for the map's
 // "Select parcel" mode. `defaultParcelProvider` is now the PER-JURISDICTION REGISTRY
 // (`parcelRegistry.ts`): a click routes to the right OPEN national cadastre — Catastro (ES),
@@ -587,10 +590,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // both, and always yields a usable extent. The 3D camera derives from the same value via
         // `altitudeForHalfSpan`, so the panes cannot drift apart again without the extent itself
         // being wrong — one thing to reason about instead of two.
+        //
+        // ⭐ §PARCEL-VISIBLE-EVERYWHERE (L-13016, founder 2026-09-06) — *"We should have the parcel
+        // highlighted and ZOOM IN relatively on it."* This call passed NO `boundary`, so the
+        // extent's FIRST and best preference — the user's own committed ring — was never available
+        // to it and every framing fell through to `source=default`: a FIXED ±250 m box about the
+        // site anchor, i.e. a 500 m square around his 107.9 × 44.1 m plot. That is why he could not
+        // pick his parcel out. `resolveSiteFramingExtent` already ranks a committed boundary above
+        // both other sources and clamps the result between `SITE_FRAMING_MIN/MAX_HALF_M`, so this
+        // needed no new arithmetic — only the input it was never handed.
+        //
+        // ⛔ THE RING IS ASKED FOR, NOT RE-DERIVED. `readCommittedParcelRing` is the ONE scene-XZ →
+        // WGS84 read (`SiteBoundaryMap2D` paints from the same one), projected about the SAME
+        // `getSiteOrigin()` authority the ring was committed about — so the camera and the picture
+        // cannot be built about different origins, which is the §SEAM-2 (L-604) residual shift.
+        // `absent` (nothing committed) leaves the geocode/site framing below untouched, which is
+        // still the correct answer there.
         const anchor = lastGeocodeFrame ?? getSiteOrigin();
         if (!anchor) return undefined;
+        const committed = readCommittedParcelRing(runtime?.siteModelStore ?? null, getSiteOrigin());
+        if (committed.kind === 'refused') {
+            console.warn(`[gis] §PARCEL-VISIBLE-EVERYWHERE getMapInitial — framing WITHOUT the parcel: ${committed.reason}`);
+        }
         const extent = resolveSiteFramingExtent({
             anchor: { lat: anchor.lat, lon: anchor.lon },
+            boundary: committed.kind === 'ring' ? committed.ring : null,
             geocodeBbox: lastGeocodeFrame?.bbox ?? null,
         });
         console.log(

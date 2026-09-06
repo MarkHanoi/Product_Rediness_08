@@ -141,7 +141,36 @@ import { setNeighbourFootprints } from "../site/neighbourFootprintStore";
 // This is the SAME pure algorithm the ClimatePanel sun-path uses; FORMA.5 reads
 // it to drive the Cesium directional light (read-only consumer — SPEC §6).
 import { solarSample } from "@pryzm/climate-host";
-import { getCurrentSiteOrigin, resolveActiveProjectId } from "../site/siteDispatch";
+import { getCurrentSiteOrigin, resolveActiveProjectId, getLastBuildableEnvelope } from "../site/siteDispatch";
+// ⭐ §PARCEL-VISIBLE-EVERYWHERE (L-13016, founder 2026-09-06) — THE THIRD SUBSCRIBER.
+//
+// Founder: *"When a parcel is selected, the parcel should be HIGHLIGHTED no matter the view
+// selected."* Measured 2026-09-06, `siteGeometryHighlight` had exactly ONE subscriber repo-wide
+// (`ParcelBoundarySceneRenderer`, `'BIM 3D'`) and `grep -c siteGeometryHighlight` in THIS file
+// returned 0 — so on the 3D Site a click on a number on the envelope card repainted the row's ◉
+// and changed nothing on screen.
+//
+// ⛔ THE EMPHASIS RULE LIVES IN THAT MODULE, NOT HERE: everything that is NOT the subject RECEDES;
+// the subject is never brightened and its hue never changes. Boosting a provisional solid to
+// "highlight" it would make an estimate read as a determination — §L-616 re-introduced by a UI
+// affordance. The factor is a MULTIPLIER on the AUTHORED alpha for exactly that reason.
+import {
+  getSiteHighlight,
+  subscribeSiteHighlight,
+  registerSiteHighlightSurface,
+  siteHighlightCue,
+  siteHighlightEmphasis,
+  SITE_HIGHLIGHT_RECEDE_FACTOR,
+  type SiteHighlightRole,
+  type SiteHighlightSubject,
+} from "../site/siteGeometryHighlight";
+// §PARCEL-VISIBLE-EVERYWHERE — the frontage cue reads the SAME three-arm determination the card's
+// frontage clause and the availability rule read (unrecorded / landlocked / n > 0). Re-deriving
+// "which edges are front" here would be a second answer to a question that already has an owner.
+import {
+  determineParcelEdgeClassifications,
+  FRONT_EDGE,
+} from "../site/parcelEdgeClassificationDetermination";
 // §L-676 (C13 §3.10 / C19 §1.11) — the project-isolation ownership surfaces. The viewport
 // registers itself as a NAMED OWNER of per-project state so `ClearProjectCommand` tears it
 // down on every load and `ProjectIsolationAudit` can SEE a GIS leak. See the constructor.
@@ -1194,6 +1223,12 @@ export class CesiumViewport {
    *  saved (or replaced by a re-typed height, or cleared by a project switch) repaints this globe
    *  without anything else having to remember to poke it. */
   private contextStudySub: (() => void) | null = null;
+  /** §PARCEL-VISIBLE-EVERYWHERE (L-13016) — this viewport's subscription to the site-highlight
+   *  store, and its §SITE-HIGHLIGHT-REACH surface registration. Held as a PAIR and disposed
+   *  together: a registration that outlived its subscription would name a view that no longer
+   *  repaints, which is the one claim the registry exists to prevent. */
+  private siteHighlightSub: (() => void) | null = null;
+  private siteHighlightSurfaceReg: (() => void) | null = null;
   /** When true, the NEXT `site.location-changed` does not re-fly the camera — set
    *  by a caller (GISAreaLayout's geocode `onFlyTo`) that has ALREADY framed the
    *  exact plot bbox, so the event-driven point-flyTo doesn't override the better
@@ -1988,6 +2023,35 @@ export class CesiumViewport {
       });
     } catch (e) {
       console.warn('[CesiumViewport][forma] §CESIUMENV167 study subscribe failed (non-fatal):', e);
+    }
+
+    // ⭐ §PARCEL-VISIBLE-EVERYWHERE (L-13016) — repaint when the user clicks a NUMBER on the
+    // envelope card, and DECLARE that this view draws the emphasis.
+    //
+    // A full replay rather than an in-place material poke, deliberately: the CUE geometry (the
+    // front edges, the inset ring, the limit plane) exists ONLY while its subject is active, so a
+    // rebuild is what makes "clear the highlight" leave no residue. Exactly the discipline the two
+    // subscriptions above already use, and with the same `frameCentroid:false` +
+    // `_skipTerrainClamp:true` guard so a reading aid never re-flies the camera or re-samples
+    // terrain.
+    //
+    // §SITE-HIGHLIGHT-REACH — registered BESIDE the subscription and disposed WITH it, in the
+    // founder's own word for the view ('3D Site', matching the view switcher's label). The card's
+    // row tooltip derives *"where will this show?"* from who registered, so its sentence can never
+    // out-run the wiring.
+    try {
+      this.siteHighlightSub = subscribeSiteHighlight(() => {
+        const input = this.formaLastMassingInput;
+        if (!input) return; // nothing placed on this globe — nothing to repaint.
+        try {
+          this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+        } catch (e) {
+          console.warn('[CesiumViewport][forma] §PARCEL-VISIBLE-EVERYWHERE repaint failed (non-fatal):', e);
+        }
+      });
+      this.siteHighlightSurfaceReg = registerSiteHighlightSurface('cesiumSiteViewport', '3D Site');
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §PARCEL-VISIBLE-EVERYWHERE subscribe failed (non-fatal):', e);
     }
 
     // This is the LAST statement of the constructor: a viewport that threw part-way
@@ -5999,6 +6063,23 @@ export class CesiumViewport {
       );
     }
 
+    // ── §PARCEL-VISIBLE-EVERYWHERE (L-13016) — THE EMPHASIS, read ONCE per pass ───────────────
+    //
+    // ⛔ EMPHASIS MAY NEVER STRENGTHEN A CLAIM. `siteHighlightEmphasis` decides which of this
+    // view's painted ROLES is the subject of the clicked number; everything else RECEDES by
+    // `SITE_HIGHLIGHT_RECEDE_FACTOR`. The subject keeps EXACTLY its authored alpha and its authored
+    // hue — the envelope's hue and fill alpha ARE its honesty signal (`envelopeRenderStyle.ts`:
+    // confident violet · provisional grey · suggested amber · near-wireframe for an upper bound),
+    // so brightening a provisional solid to "highlight" it would publish an estimate as a
+    // determination (§L-616). A MULTIPLIER, never a target: multiplying can only ever lower it.
+    //
+    // Read once, not per entity, so a mid-pass store write cannot emphasise half the scene.
+    const highlightSubject = getSiteHighlight();
+    const emphasisAlpha = (role: SiteHighlightRole, authored: number): number =>
+      highlightSubject === null || siteHighlightEmphasis(highlightSubject, role) === 'subject'
+        ? authored
+        : authored * SITE_HIGHLIGHT_RECEDE_FACTOR;
+
     // ── Parcel boundary — faint-green dashed overlay (§2 / §3) ────────────────
     let centroidEast = 0;
     let centroidNorth = 0;
@@ -6018,7 +6099,10 @@ export class CesiumViewport {
             name: 'pryzm-forma-parcel-boundary',
             polygon: {
               hierarchy: new Cesium.PolygonHierarchy(positions),
-              material: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine).withAlpha(0.08),
+              // §PARCEL-VISIBLE-EVERYWHERE — the AUTHORED 0.08, multiplied down when this fill is
+              // not the subject. Never up.
+              material: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine)
+                .withAlpha(emphasisAlpha('parcel-fill', 0.08)),
               height: baseHeight + 0.05,
               outline: false,
             },
@@ -6036,7 +6120,10 @@ export class CesiumViewport {
             width: 2,
             clampToGround: false,
             material: new Cesium.PolylineDashMaterialProperty({
-              color: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine),
+              // §PARCEL-VISIBLE-EVERYWHERE — the ring is the subject of BOTH "Area" (with its
+              // fill) and "Perimeter" (alone); `siteHighlightEmphasis` owns that table.
+              color: Cesium.Color.fromCssColorString(FORMA_PALETTE.boundaryLine)
+                .withAlpha(emphasisAlpha('parcel-line', 1.0)),
               dashLength: 16,
             }),
           },
@@ -6148,9 +6235,15 @@ export class CesiumViewport {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: bottom,
             extrudedHeight: top,
-            material: Cesium.Color.fromCssColorString(cssHex).withAlpha(solid.style.fillAlpha),
+            // §PARCEL-VISIBLE-EVERYWHERE — each solid keeps its OWN authored alpha, multiplied.
+            // ⛔ NOT a flat receded value: a near-wireframe upper-bound shell
+            // (`style.footprintUpperBound`) would otherwise come out DENSER while receding than it
+            // was authored, which is the honesty regression the multiplier exists to prevent.
+            material: Cesium.Color.fromCssColorString(cssHex)
+              .withAlpha(emphasisAlpha('envelope-volume', solid.style.fillAlpha)),
             outline: true,
-            outlineColor: Cesium.Color.fromCssColorString(cssHex).withAlpha(1.0),
+            outlineColor: Cesium.Color.fromCssColorString(cssHex)
+              .withAlpha(emphasisAlpha('envelope-volume', 1.0)),
             outlineWidth: 2,
             shadows: Cesium.ShadowMode.DISABLED,
             perPositionHeight: false,
@@ -6197,6 +6290,31 @@ export class CesiumViewport {
         `envelope entities added=${envelopeEntitiesAdded}, total massing entities=${this.formaMassingEntities.length}, ` +
         `viewer=${this.instanceId}, container=${this.container?.id ?? 'n/a'}.`,
     );
+
+    // ── §PARCEL-VISIBLE-EVERYWHERE (L-13016) — THE CUE: geometry that exists only to be pointed at ──
+    //
+    // Three of the six card subjects have NO geometry in this scene until a click asks for one, and
+    // `siteGeometryHighlight` states why that is the substance of the binding rather than an
+    // oversight: the classified front edges are a LABEL on the ring, never drawn; the inset ring is
+    // only ever seen as the hidden BASE of a solid; and a height limit is a NUMBER whose physical
+    // meaning has to be CONSTRUCTED to be shown.
+    //
+    // ⛔ A CUE THAT CANNOT BE BUILT DRAWS NOTHING. It never falls back to lighting the parcel
+    // instead — pointing at the wrong geometry is worse than pointing at none, because the reader
+    // cannot tell. WHICH cue a subject needs is decided by `siteHighlightCue`, never here.
+    //
+    // Built LAST so it draws over the surfaces that have just receded, and pushed into
+    // `formaMassingEntities` + `formaSiteOverlayEntities` like every other site overlay, so the
+    // next `clearFormaMassing()` takes it away and a cleared highlight leaves no residue.
+    if (highlightSubject !== null) {
+      try {
+        this.buildSiteHighlightCue(
+          highlightSubject, viewer, boundary ?? null, thetaRad, baseHeight, toCartesian,
+        );
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] §PARCEL-VISIBLE-EVERYWHERE cue failed (non-fatal):', e);
+      }
+    }
 
     // ── §CESIUMENV167 (L-12760) — INDICATIVE STUDY MASSING, the Cesium arm of §ENV3D164 ──────────
     //
@@ -6268,8 +6386,16 @@ export class CesiumViewport {
                   hierarchy: new Cesium.PolygonHierarchy(studyPositions),
                   height: studyBottom,
                   extrudedHeight: studyTop,
+                  // §PARCEL-VISIBLE-EVERYWHERE (L-13016) — the study volume is what "Max GFA"
+                  // points at when no plan-backed envelope exists (`siteHighlightEmphasis` maps
+                  // BOTH `envelope-volume` and `study-volume` onto `gfa`; they are mutually
+                  // exclusive by construction). The authored alpha, multiplied down when it is
+                  // not the subject — never up.
                   material: Cesium.Color.fromCssColorString(STUDY_MASSING_TEAL_CSS).withAlpha(
-                    studyGroundShade ? STUDY_GROUND_SHADE_FILL_ALPHA : STUDY_MASSING_FILL_ALPHA,
+                    emphasisAlpha(
+                      'study-volume',
+                      studyGroundShade ? STUDY_GROUND_SHADE_FILL_ALPHA : STUDY_MASSING_FILL_ALPHA,
+                    ),
                   ),
                   // §L-616 — NO SOLID OUTLINE on the fill itself: Cesium's `PolygonGraphics.
                   // outlineColor` accepts only a flat `Color`, never a dash material, so a solid
@@ -6309,7 +6435,10 @@ export class CesiumViewport {
                   width: 2,
                   clampToGround: false,
                   material: new Cesium.PolylineDashMaterialProperty({
-                    color: Cesium.Color.fromCssColorString(STUDY_MASSING_TEAL_CSS),
+                    // §PARCEL-VISIBLE-EVERYWHERE — the rim recedes WITH the fill it outlines, or
+                    // a receded solid would keep a full-strength edge and read as emphasised.
+                    color: Cesium.Color.fromCssColorString(STUDY_MASSING_TEAL_CSS)
+                      .withAlpha(emphasisAlpha('study-volume', 1.0)),
                     // §CESIUMENV167 DIVERGENCE (named, not silent) — THREE's dashed rim tunes
                     // `dashSize`/`gapSize` in WORLD METRES (`ParcelBoundarySceneRenderer.ts`'s own
                     // `STUDY_DASH_SIZE_M`/`STUDY_DASH_GAP_M`). Cesium's `PolylineDashMaterialProperty.
@@ -6638,6 +6767,166 @@ export class CesiumViewport {
   // wearing the confident-violet CONFIDENCE BADGE that C58 §1.2 reserves for a determination.
   // Re-deriving a hue here would put the two surfaces one commit away from disagreeing about what
   // a colour means.
+
+  /**
+   * §PARCEL-VISIBLE-EVERYWHERE (L-13016 · STR §3) — build the geometry the ACTIVE highlight
+   * subject needs before it can be pointed at, or draw nothing when it cannot be built.
+   *
+   * ⛔ DRAWING NOTHING IS AN HONEST ANSWER AND MUST STAY ONE. A cue builder that cannot find its
+   * geometry never falls back to lighting the parcel instead: pointing at the wrong geometry is
+   * worse than pointing at none, because the reader cannot tell the difference. The card has
+   * already refused to make an unbuildable row clickable (`describeSiteHighlightAvailability`), so
+   * reaching a null here means the store moved between render and draw, not that a user clicked
+   * something dead.
+   *
+   * ⛔ AND IT NEVER RE-DERIVES A NUMBER. The inset ring and the height come from the SAME cached
+   * `BuildableEnvelope` the card's own footprint / height figures are read from, and the front
+   * edges come from the SAME three-arm determination (`unrecorded` / `landlocked` / `n > 0`) the
+   * card's frontage clause reads. A `?? []` on the classifications would silently assert the
+   * landlocked FINDING about an unmeasured plot — the §CONTEXT-DATA-HONESTY defect in geometry.
+   *
+   * Total; never throws (the caller also guards). Every entity joins `formaMassingEntities` and
+   * the §SITE-OVERLAY-NOT-BUILDING survival set, so the next `clearFormaMassing()` takes it away
+   * and clearing the highlight leaves no residue.
+   */
+  private buildSiteHighlightCue(
+    subject: SiteHighlightSubject,
+    viewer: Cesium.Viewer,
+    boundary: ReadonlyArray<{ x: number; z: number }> | null,
+    _thetaRad: number,
+    baseHeight: number,
+    toCartesian: (x: number, z: number, up: number) => Cesium.Cartesian3,
+  ): void {
+    const cue = siteHighlightCue(subject);
+    if (cue === null) return; // Area / Perimeter / GFA are already on screen; emphasis answers them.
+    // Drawn just clear of the ground plane so it is never z-fighting the parcel fill it sits over.
+    const CUE_LIFT_M = 0.35;
+    const CUE_CSS = CONFIDENT_VIOLET_CSS;
+
+    if (cue === 'front-edges') {
+      const ring = boundary ?? [];
+      if (ring.length < 3) return;
+      const store = this.runtime?.siteModelStore as
+        { getParcelBoundary?: () => { edgeClassifications?: unknown } | null } | undefined;
+      const determination = determineParcelEdgeClassifications(
+        store?.getParcelBoundary?.()?.edgeClassifications,
+        'parcel edge classifications',
+        ring.length,
+      );
+      // `undetermined` — nobody classified these edges. NOT the landlocked finding, and the card
+      // has already said so in words. Nothing drawn, and nothing invented.
+      if (determination.kind !== 'determined') return;
+      const labels = determination.elements;
+      let drawn = 0;
+      for (let i = 0; i < ring.length; i++) {
+        if (labels[i] !== FRONT_EDGE) continue;
+        const a = ring[i]!;
+        const b = ring[(i + 1) % ring.length]!;
+        // Each front edge is its OWN polyline, so a ring with two non-adjacent frontages never
+        // draws a false connecting segment between them.
+        const ent = viewer.entities.add({
+          name: 'pryzm-site-highlight-front-edges',
+          polyline: {
+            positions: [
+              toCartesian(a.x, a.z, baseHeight + CUE_LIFT_M),
+              toCartesian(b.x, b.z, baseHeight + CUE_LIFT_M),
+            ],
+            width: 6,
+            clampToGround: false,
+            material: Cesium.Color.fromCssColorString(CUE_CSS).withAlpha(0.95),
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        this.formaSiteOverlayEntities.add(ent);
+        drawn += 1;
+      }
+      // Determined AND zero front edges — a real finding about a landlocked plot, already stated
+      // on the card. Nothing to draw.
+      console.log(
+        `[CesiumViewport][forma] §PARCEL-VISIBLE-EVERYWHERE cue 'front-edges' → ${drawn} edge(s) `
+        + `of ${ring.length} classified as street frontage.`,
+      );
+      return;
+    }
+
+    // Both remaining cues are read off the ONE cached envelope: `insetPolygon` is exactly what the
+    // card's footprint area is measured inside, and `maxHeight_m` is exactly the number its height
+    // row prints — so the outline and the number cannot disagree.
+    //
+    // ⚠ ONE RING, THE PRINCIPAL TIER'S. A tiered envelope's upper tiers are NOT drawn: they are
+    // not what that number describes, and adding them would make the row point at more than it
+    // claims. Empty whenever the envelope is not `ok` — a refusal has no buildable ring, and this
+    // is where that stays true in geometry.
+    const env = getLastBuildableEnvelope();
+    const inset = (env?.insetPolygon ?? []) as ReadonlyArray<{ x: number; z: number }>;
+    if (inset.length < 3) return;
+
+    if (cue === 'inset-ring') {
+      const positions = inset.map((p) => toCartesian(p.x, p.z, baseHeight + CUE_LIFT_M));
+      const ent = viewer.entities.add({
+        name: 'pryzm-site-highlight-inset-ring',
+        polyline: {
+          positions: [...positions, positions[0]!],
+          width: 5,
+          clampToGround: false,
+          material: Cesium.Color.fromCssColorString(CUE_CSS).withAlpha(0.95),
+        },
+      });
+      this.formaMassingEntities.push(ent);
+      this.formaSiteOverlayEntities.add(ent);
+      return;
+    }
+
+    // 'limit-plane' — "Max height → the vertical limit", drawn as a plane at that height over the
+    // buildable footprint.
+    //
+    // ⛔ NO `height ÷ 3 m` FALLBACK, AND THERE MUST NOT BE ONE. A plane drawn at an invented
+    // height would look IDENTICAL to one drawn at a published limit — the §ENVELOPE-SITE-DATA
+    // rule ("never synthesise a missing value") escaping into geometry, where it is worse: a
+    // number the reader can at least see is a number becomes a SOLID they believe. The card has
+    // already refused to make this row clickable when no height was derived; this is the same
+    // refusal, held one layer down so it cannot be routed around.
+    const maxH = env?.maxHeight_m ?? null;
+    if (maxH === null || !Number.isFinite(maxH) || maxH <= 0) {
+      console.log(
+        '[CesiumViewport][forma] §PARCEL-VISIBLE-EVERYWHERE cue \'limit-plane\' → NOT drawn: the '
+        + 'rule pack derived no maximum height for this zone. PRYZM will not draw a limit plane at '
+        + 'a guessed height — it would look exactly like a published one.',
+      );
+      return;
+    }
+    const planePositions = inset.map((p) => toCartesian(p.x, p.z, baseHeight + maxH));
+    const plane = viewer.entities.add({
+      name: 'pryzm-site-highlight-limit-plane',
+      polygon: {
+        hierarchy: new Cesium.PolygonHierarchy(planePositions),
+        height: baseHeight + maxH,
+        // A PLANE, not a volume: the row says "max height", and extruding it would answer a
+        // question about a LIMIT with a picture of a MASS.
+        material: Cesium.Color.fromCssColorString(CUE_CSS).withAlpha(0.22),
+        outline: false,
+        shadows: Cesium.ShadowMode.DISABLED,
+        perPositionHeight: false,
+      },
+    });
+    this.formaMassingEntities.push(plane);
+    this.formaSiteOverlayEntities.add(plane);
+    const rim = viewer.entities.add({
+      name: 'pryzm-site-highlight-limit-plane-rim',
+      polyline: {
+        positions: [...planePositions, planePositions[0]!],
+        width: 4,
+        clampToGround: false,
+        material: Cesium.Color.fromCssColorString(CUE_CSS).withAlpha(0.95),
+      },
+    });
+    this.formaMassingEntities.push(rim);
+    this.formaSiteOverlayEntities.add(rim);
+    console.log(
+      `[CesiumViewport][forma] §PARCEL-VISIBLE-EVERYWHERE cue 'limit-plane' → drawn at `
+      + `${maxH.toFixed(2)} m over the ${inset.length}-corner buildable footprint.`,
+    );
+  }
 
   /**
    * §SPACE-ENVELOPE-IN-CESIUM — subscribe ONCE to the space-envelope store's dirty channel.
@@ -15963,6 +16252,26 @@ export class CesiumViewport {
         console.warn('[CesiumViewport] context-study subscription dispose failed:', e);
       }
       this.contextStudySub = null;
+    }
+
+    // §PARCEL-VISIBLE-EVERYWHERE (L-13016) — same reasoning, plus one more: the surface
+    // REGISTRATION goes with the subscription. A registration left behind would make the envelope
+    // card's row promise *"Shown in the … 3D Site view"* about a viewport that no longer exists.
+    if (this.siteHighlightSub) {
+      try {
+        this.siteHighlightSub();
+      } catch (e) {
+        console.warn('[CesiumViewport] site-highlight subscription dispose failed:', e);
+      }
+      this.siteHighlightSub = null;
+    }
+    if (this.siteHighlightSurfaceReg) {
+      try {
+        this.siteHighlightSurfaceReg();
+      } catch (e) {
+        console.warn('[CesiumViewport] site-highlight surface registration dispose failed:', e);
+      }
+      this.siteHighlightSurfaceReg = null;
     }
 
     if (this.handler) {
