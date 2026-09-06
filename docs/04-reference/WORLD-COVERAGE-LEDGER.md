@@ -11,12 +11,12 @@
 
 **This page answers one question: _what does PRYZM actually serve HERE?_**
 
-Generated: 2026-09-06T17:42:31.453Z
+Generated: 2026-09-06T17:46:34.890Z
 
 ## §0 · Probe record (C57 §1.5 — the exact answer, never a claim)
 
 ```
-GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 1590 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
+NOT PROBED (--offline) — using the committed snapshot /tools/coverage-ledger/manifest-snapshot.json
 ```
 
 - manifest `mergedAt`: `2026-09-06T07:58:43.604Z` · `mergeRunId`: `34015784612` · `mergeGitSha`: `ad038f5a0337097f9af7fda873383bbfdf193b36`
@@ -467,7 +467,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `jordan` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `lebanon` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `japan` | — | — | — | `plateau_jp` | 2026-09-06T11:32:31.000Z | ⛔ **NOT PUBLISHED** |
-| `southkorea` | — | — | — | — | 2026-09-06T17:42:30.000Z | ⛔ **NOT PUBLISHED** |
+| `southkorea` | — | — | — | — | 2026-09-06T17:43:17.000Z | ⛔ **NOT PUBLISHED** |
 
 ## §3c · Orphans — regions on R2 that the code no longer has
 
@@ -655,6 +655,1132 @@ Canada". Reported whatever their state, so the answer is never inferred from sil
 - **Japan (JP)** — **PARTIAL** · context baked but NOT in the live tileset: japan · measured heights only inside 10 box(es) [tokyo yokohama osaka nagoya sapporo fukuoka kyoto kobe sendai hiroshima] — everywhere else ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Mexico (MX)** — **PARTIAL** · context baked but NOT in the live tileset: mexico · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Canada (CA)** — **PARTIAL** · context baked but NOT in the live tileset: ontario, quebec, britishcolumbia, alberta, saskatchewan, manitoba, newbrunswick, novascotia, princeedwardisland, newfoundland, yukon, northwestterritories, nunavut · terrain is 13 × province/territory (`ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia princeedwardisland newfoundland yukon northwestterritories nunavut`), NOT the country · measured heights only inside 2 box(es) [vancouver toronto] — everywhere else ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
+
+## §8 · The founder's matrix — his countries × his layers
+
+> **The ask, 2026-09-06:** _"make sure that ALL European countries, Middle East,
+> Australia, New Zealand, Japan, SOUTH KOREA, USA, Canada and Mexico are completed —
+> parcels, 3d context buildings, terrain, roads, pedestrians, trees, water, green
+> areas and cadastral data. IN ALL 💯"_
+
+⛔ **A cell reads ✅ only when a PROBE returned bytes a browser can read for a slug
+inside that country.** A `bake.mjs` row is not coverage, a green test suite is not a
+user capability, and an HTTP 200 on a manifest is not proof a layer is in it
+(L-12976, L-12982). The probe record is §8a.
+
+### §8a · The probe record (C57 §1.5)
+
+```
+NOT PROBED (--offline) — using the committed snapshot tools/coverage-ledger/r2-probe-snapshot.json, probed 2026-09-06T16:44:36.524Z
+```
+
+| Layer archive | HTTP | object bytes | content-type | leading magic | Last-Modified | verdict |
+|---|---|---|---|---|---|---|
+| `buildings.pmtiles` | 206 | 23,759,887,551 | application/vnd.pmtiles | `504d5469` | Sat, 05 Sep 2026 21:51:14 GMT | ✅ served (206 + PMTiles magic) |
+| `roads.pmtiles` | 206 | 25,221,310,111 | application/vnd.pmtiles | `504d5469` | Fri, 04 Sep 2026 09:09:33 GMT | ✅ served (206 + PMTiles magic) |
+| `water.pmtiles` | 206 | 11,684,305,420 | application/vnd.pmtiles | `504d5469` | Fri, 04 Sep 2026 12:24:36 GMT | ✅ served (206 + PMTiles magic) |
+| `parks.pmtiles` | 206 | 12,805,960,086 | application/vnd.pmtiles | `504d5469` | Sun, 06 Sep 2026 08:00:52 GMT | ✅ served (206 + PMTiles magic) |
+| `landuse.pmtiles` | 206 | 12,133,841,837 | application/vnd.pmtiles | `504d5469` | Fri, 04 Sep 2026 15:33:12 GMT | ✅ served (206 + PMTiles magic) |
+| `rail.pmtiles` | 206 | 1,270,389,204 | application/vnd.pmtiles | `504d5469` | Sun, 06 Sep 2026 07:58:58 GMT | ✅ served (206 + PMTiles magic) |
+| `trees.pmtiles` | 206 | 417,947,129 | application/vnd.pmtiles | `504d5469` | Sun, 06 Sep 2026 08:00:50 GMT | ✅ served (206 + PMTiles magic) |
+| `furniture.pmtiles` | 404 | 27,150 | text/html | `3c21646f` | — | ⛔ **NOT SERVED** — `3c21646f` is not `504d5469` |
+| `sea.pmtiles` | 404 | 27,150 | text/html | `3c21646f` | — | ⛔ **NOT SERVED** — `3c21646f` is not `504d5469` |
+| `canopy.pmtiles` | 404 | 27,150 | text/html | `3c21646f` | — | ⛔ **NOT SERVED** — `3c21646f` is not `504d5469` |
+
+**Terrain tilesets:** `terrain/<slug>/layer.json` probed for all **123** `NATIONAL_REGIONS` slugs — **38 answered HTTP 200, 85 answered 404.** Every one of the 404s is listed in the client's `TERRAIN_REGION_BBOXES`, so a site there attaches nothing and sits on flat ellipsoid ground.
+
+> ⚠ **NOT PROBED:** the **592 per-city** DTM tilesets (`terrain.mjs` `REGIONS`), and any
+> tile BELOW `layer.json`. A 200 on `layer.json` proves the tileset was published, not
+> that every tile in it renders. Said rather than implied.
+
+### §8b · His words → the pipeline's artefacts
+
+The founder does not speak in layer ids, and translating in a lane's head is how
+"pedestrians" quietly became "we synthesise some". The mapping is declared in
+`FOUNDER_LAYER_MAP` and every verdict below is computed from it.
+
+| His word | The pipeline's reality |
+|---|---|
+| **parcels** | a `registry.ts` PARCEL_JURISDICTIONS row with a server leg that exists — a click returns a real boundary (cadastral OR footprint-fallback) |
+| **3D context buildings** | the `buildings` PMTiles archive **and** a `heightJoin` whose working set covers the country — without the join every footprint extrudes at the assumed default |
+| **terrain** | a quantized-mesh tileset answering at `terrain/<slug>/layer.json` — a declared slug whose layer.json 404s is flat ellipsoid ground (L-12973) |
+| **roads** | the `roads` PMTiles archive (`w/highway`) |
+| **pedestrians** | the `furniture` archive (street_lamp · bench · bus_stop · bicycle_parking NODES). ⛔ §STREET-LIFE SYNTHESISES lamps and people from the road network when this layer is absent — that is SCENERY, not mapped data, and it is never counted here |
+| **trees** | `trees` (OSM `natural=tree` nodes) **plus** `canopy` (measured tree-cover raster, opt-in bake) |
+| **water** | `water` (lakes/rivers/coastline ways) **plus** `sea` (the osmdata water-polygons product — the open sea itself) |
+| **green areas** | `parks` (leisure=park · forest · wood · grass) **plus** `landuse` (the urban-grey / rural-brown ground drape) |
+| **cadastral data** | TWO separate things — (a) a `kind: cadastral` jurisdiction whose server proxy leg is WIRED, and (b) official building FOOTPRINTS (`footprintSource`) replacing OSM geometry |
+
+A multi-artefact cell takes the **WEAKEST** of its parts. That is why no country can
+read ✅ on `water` while `sea.pmtiles` 404s, or on `trees` while `canopy.pmtiles` does.
+
+### §8c · The matrix
+
+**73 countries** in the founder's set · legend: ✅ SHIPPED (bytes probed) · 🟡 PARTIAL · 🟠 WIRED, NOT PUBLISHED · ⛔ ABSENT (no row anywhere) · ❔ not probed
+
+| Country | parcels | 3D context buildings | terrain | roads | pedestrians | trees | water | green areas | cadastral data | ✅ |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **EUROPE** (50) |   |   |   |   |   |   |   |   |   | |
+| Austria (`AT`) | ✅ | ✅ | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 5/9 |
+| Czechia (`CZ`) | ✅ | ✅ | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 5/9 |
+| Denmark (`DK`) | ✅ | ✅ | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 5/9 |
+| Estonia (`EE`) | ✅ | ✅ | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 5/9 |
+| Netherlands (`NL`) | ✅ | ✅ | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟡 | 5/9 |
+| Norway (`NO`) | ✅ | ✅ | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 5/9 |
+| Spain (`ES`) | ✅ | ✅ | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟡 | 5/9 |
+| Switzerland (`CH`) | ✅ | ✅ | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 5/9 |
+| Belgium (`BE`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟡 | 4/9 |
+| Bulgaria (`BG`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Croatia (`HR`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Finland (`FI`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | ⛔ | 4/9 |
+| France (`FR`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟡 | 4/9 |
+| Germany (`DE`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Greece (`GR`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Hungary (`HU`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | ⛔ | 4/9 |
+| Ireland (`IE`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟡 | 4/9 |
+| Italy (`IT`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Latvia (`LV`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Lithuania (`LT`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Luxembourg (`LU`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Poland (`PL`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Portugal (`PT`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Romania (`RO`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | ⛔ | 4/9 |
+| Slovakia (`SK`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Slovenia (`SI`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Sweden (`SE`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | ⛔ | 4/9 |
+| United Kingdom (`GB`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| Albania (`AL`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Andorra (`AD`) | ⛔ | 🟠 | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Belarus (`BY`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Bosnia and Herzegovina (`BA`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Channel Islands (Guernsey/Jersey) (`JE`) | ⛔ | 🟠 | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Cyprus (`CY`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Faroe Islands (`FO`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Gibraltar (`GI`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| Iceland (`IS`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Isle of Man (`IM`) | ⛔ | 🟠 | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Kosovo (`XK`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Liechtenstein (`LI`) | ⛔ | 🟠 | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Malta (`MT`) | ⛔ | 🟠 | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Moldova (`MD`) | ⛔ | 🟠 | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Monaco (`MC`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| Montenegro (`ME`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| North Macedonia (`MK`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Russia (`RU`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| San Marino (`SM`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| Serbia (`RS`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Ukraine (`UA`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Vatican City (Holy See) (`VA`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| **MIDDLE EAST** (16) |   |   |   |   |   |   |   |   |   | |
+| Bahrain (`BH`) | ✅ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 1/9 |
+| Israel (`IL`) | ✅ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 1/9 |
+| Kuwait (`KW`) | ✅ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 1/9 |
+| Oman (`OM`) | ✅ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 1/9 |
+| Qatar (`QA`) | ✅ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 1/9 |
+| Saudi Arabia (`SA`) | ✅ | 🟡 | 🟠 | 🟡 | 🟠 | 🟡 | 🟡 | 🟡 | ⛔ | 1/9 |
+| Türkiye (`TR`) | ✅ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 1/9 |
+| United Arab Emirates (`AE`) | ✅ | 🟡 | 🟠 | 🟡 | 🟠 | 🟡 | 🟡 | 🟡 | ⛔ | 1/9 |
+| Egypt (`EG`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| Iran (`IR`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| Iraq (`IQ`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| Jordan (`JO`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Lebanon (`LB`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Palestine (`PS`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| Syria (`SY`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| Yemen (`YE`) | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | ⛔ | 0/9 |
+| **NAMED INDIVIDUALLY** (7) |   |   |   |   |   |   |   |   |   | |
+| Australia (`AU`) | ✅ | 🟡 | ✅ | ✅ | 🟠 | 🟡 | 🟡 | ✅ | 🟠 | 4/9 |
+| New Zealand (`NZ`) | ✅ | 🟠 | ✅ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 2/9 |
+| United States (`US`) | ✅ | 🟡 | 🟡 | 🟡 | 🟠 | 🟡 | 🟡 | 🟡 | 🟠 | 1/9 |
+| Canada (`CA`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Japan (`JP`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| Mexico (`MX`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+| South Korea (`KR`) | ⛔ | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | 🟠 | ⛔ | 0/9 |
+
+| Column total (of 73) | parcels | 3D context buildings | terrain | roads | pedestrians | trees | water | green areas | cadastral data |
+|---|---|---|---|---|---|---|---|---|---|
+| ✅ SHIPPED | 39 | 8 | 30 | 29 | 0 | 0 | 0 | 29 | 0 |
+| 🟡 PARTIAL | 0 | 24 | 1 | 3 | 0 | 32 | 32 | 3 | 5 |
+| 🟠 WIRED | 0 | 30 | 25 | 30 | 62 | 30 | 30 | 30 | 24 |
+| ⛔ ABSENT | 34 | 11 | 17 | 11 | 11 | 11 | 11 | 11 | 44 |
+
+**Countries complete on ALL 9 layers: 0** — **none**.
+
+### §8d · The evidence behind every non-✅ cell
+
+One line per country per gap, naming the artefact and the HTTP answer. This is the
+part that cannot be a hand-typed table: it is regenerated from the probes each run.
+
+<details><summary><b>Albania (AL)</b> — 0/9 shipped · bake rows: <code>albania</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`albania`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`albania`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`albania`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`albania`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`albania`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`albania`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Andorra (AD)</b> — 0/9 shipped · bake rows: <code>andorra</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`andorra`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`andorra`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`andorra`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`andorra`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`andorra`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`andorra`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Austria (AT)</b> — 5/9 shipped · bake rows: <code>austria</code></summary>
+
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`AT`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Belarus (BY)</b> — 0/9 shipped · bake rows: <code>belarus</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`belarus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`belarus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`belarus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`belarus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`belarus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`belarus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Belgium (BE)</b> — 4/9 shipped · bake rows: <code>belgium</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: measured heights only inside 5 box(es) (`be_dhmv`) — everywhere else in the country ships the assumed default
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **cadastral data** — register legs 1/1 wired (`BE-VLG`) · official footprints `be_registers` DECLARED — but the manifest records no footprint mode, so R2 cannot confirm the live tiles used it
+
+</details>
+
+<details><summary><b>Bosnia and Herzegovina (BA)</b> — 0/9 shipped · bake rows: <code>bosniaherzegovina</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`bosniaherzegovina`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`bosniaherzegovina`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`bosniaherzegovina`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`bosniaherzegovina`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`bosniaherzegovina`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`bosniaherzegovina`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Bulgaria (BG)</b> — 4/9 shipped · bake rows: <code>bulgaria</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`BG`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Croatia (HR)</b> — 4/9 shipped · bake rows: <code>croatia</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`HR`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Cyprus (CY)</b> — 0/9 shipped · bake rows: <code>cyprus</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`cyprus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`cyprus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`cyprus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`cyprus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`cyprus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`cyprus`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Czechia (CZ)</b> — 5/9 shipped · bake rows: <code>czechia</code></summary>
+
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`CZ`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Denmark (DK)</b> — 5/9 shipped · bake rows: <code>denmark</code></summary>
+
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`DK`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Estonia (EE)</b> — 5/9 shipped · bake rows: <code>estonia</code></summary>
+
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`EE`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Finland (FI)</b> — 4/9 shipped · bake rows: <code>finland</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>France (FR)</b> — 4/9 shipped · bake rows: <code>paris lyon france</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 3 region(s) in `buildings.sources` · HEIGHTS: the LIVE tiles carry a different join than the code declares for 1 region(s) — the code says measured, the map still shows the assumed default
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 3 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 3 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **cadastral data** — register legs 1/1 wired (`FR`) · official footprints `fr_bdtopo` DECLARED — but the manifest records no footprint mode, so R2 cannot confirm the live tiles used it
+
+</details>
+
+<details><summary><b>Germany (DE)</b> — 4/9 shipped · bake rows: <code>koln germany</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 2 region(s) in `buildings.sources` · HEIGHTS: the LIVE tiles carry a different join than the code declares for 1 region(s) — the code says measured, the map still shows the assumed default
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 2 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 2 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 15/15 wired (`DE-BW DE-HE DE-NI DE-SN DE-SH DE-BB DE-ST DE-MV DE-SL DE-HH DE-RP DE-TH DE-HB DE-BE DE-NW`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Greece (GR)</b> — 4/9 shipped · bake rows: <code>greece</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`GR`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Hungary (HU)</b> — 4/9 shipped · bake rows: <code>hungary</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Iceland (IS)</b> — 0/9 shipped · bake rows: <code>iceland</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`iceland`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`iceland`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`iceland`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`iceland`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`iceland`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`iceland`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Ireland (IE)</b> — 4/9 shipped · bake rows: <code>ireland</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **cadastral data** — register legs 1/1 wired (`IE`) · official footprints `ie_tailte` DECLARED — but the manifest records no footprint mode, so R2 cannot confirm the live tiles used it
+
+</details>
+
+<details><summary><b>Italy (IT)</b> — 4/9 shipped · bake rows: <code>italy</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`IT`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Kosovo (XK)</b> — 0/9 shipped · bake rows: <code>kosovo</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`kosovo`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`kosovo`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`kosovo`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`kosovo`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`kosovo`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`kosovo`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Latvia (LV)</b> — 4/9 shipped · bake rows: <code>latvia</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`LV`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Liechtenstein (LI)</b> — 0/9 shipped · bake rows: <code>liechtenstein</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`liechtenstein`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`liechtenstein`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`liechtenstein`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`liechtenstein`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`liechtenstein`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`liechtenstein`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Lithuania (LT)</b> — 4/9 shipped · bake rows: <code>lithuania</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`LT`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Luxembourg (LU)</b> — 4/9 shipped · bake rows: <code>luxembourg</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`LU`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Malta (MT)</b> — 0/9 shipped · bake rows: <code>malta</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`malta`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`malta`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`malta`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`malta`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`malta`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`malta`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Moldova (MD)</b> — 0/9 shipped · bake rows: <code>moldova</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`moldova`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`moldova`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`moldova`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`moldova`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`moldova`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`moldova`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Monaco (MC)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Montenegro (ME)</b> — 0/9 shipped · bake rows: <code>montenegro</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`montenegro`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`montenegro`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`montenegro`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`montenegro`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`montenegro`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`montenegro`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Netherlands (NL)</b> — 5/9 shipped · bake rows: <code>netherlands</code></summary>
+
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **cadastral data** — register legs 1/1 wired (`NL`) · official footprints `nl_bag` DECLARED — but the manifest records no footprint mode, so R2 cannot confirm the live tiles used it
+
+</details>
+
+<details><summary><b>North Macedonia (MK)</b> — 0/9 shipped · bake rows: <code>northmacedonia</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`northmacedonia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`northmacedonia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`northmacedonia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`northmacedonia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`northmacedonia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`northmacedonia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Norway (NO)</b> — 5/9 shipped · bake rows: <code>norway</code></summary>
+
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`NO`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Poland (PL)</b> — 4/9 shipped · bake rows: <code>poland</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`PL`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Portugal (PT)</b> — 4/9 shipped · bake rows: <code>portugal</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`PT`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Romania (RO)</b> — 4/9 shipped · bake rows: <code>romania</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Russia (RU)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>San Marino (SM)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Serbia (RS)</b> — 0/9 shipped · bake rows: <code>serbia</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`serbia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`serbia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`serbia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`serbia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`serbia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`serbia`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Slovakia (SK)</b> — 4/9 shipped · bake rows: <code>slovakia</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`SK`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Slovenia (SI)</b> — 4/9 shipped · bake rows: <code>slovenia</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: the LIVE tiles carry a different join than the code declares for 1 region(s) — the code says measured, the map still shows the assumed default
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`SI`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Spain (ES)</b> — 5/9 shipped · bake rows: <code>spain</code></summary>
+
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **cadastral data** — register legs 1/1 wired (`ES`) · official footprints `es_catastro` DECLARED — but the manifest records no footprint mode, so R2 cannot confirm the live tiles used it
+
+</details>
+
+<details><summary><b>Sweden (SE)</b> — 4/9 shipped · bake rows: <code>sweden</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Switzerland (CH)</b> — 5/9 shipped · bake rows: <code>switzerland</code></summary>
+
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`CH`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Ukraine (UA)</b> — 0/9 shipped · bake rows: <code>ukraine</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`ukraine`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`ukraine`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`ukraine`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`ukraine`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`ukraine`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`ukraine`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>United Kingdom (GB)</b> — 4/9 shipped · bake rows: <code>greatbritain</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 1 region(s) in `buildings.sources` · HEIGHTS: measured heights only inside 5 box(es) (`ealidar_gb`) — everywhere else in the country ships the assumed default
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 1 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 1 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 1/1 wired (`GB-ENG`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Vatican City (Holy See) (VA)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Faroe Islands (FO)</b> — 0/9 shipped · bake rows: <code>faroeislands</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`faroeislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`faroeislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`faroeislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`faroeislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`faroeislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`faroeislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Gibraltar (GI)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Channel Islands (Guernsey/Jersey) (JE)</b> — 0/9 shipped · bake rows: <code>channelislands</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`channelislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`channelislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`channelislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`channelislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`channelislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`channelislands`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Isle of Man (IM)</b> — 0/9 shipped · bake rows: <code>isleofman</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`isleofman`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`isleofman`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`isleofman`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`isleofman`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`isleofman`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`isleofman`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Bahrain (BH)</b> — 1/9 shipped · bake rows: <code>gccstates</code></summary>
+
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: measured heights only inside 1 box(es) (`ad_ndsm`) — everywhere else in the country ships the assumed default
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Egypt (EG)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Iran (IR)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Iraq (IQ)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Israel (IL)</b> — 1/9 shipped · bake rows: <code>israel</code></summary>
+
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`israel`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`israel`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`israel`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`israel`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`israel`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`israel`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Jordan (JO)</b> — 0/9 shipped · bake rows: <code>jordan</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`jordan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`jordan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`jordan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`jordan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`jordan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`jordan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Kuwait (KW)</b> — 1/9 shipped · bake rows: <code>gccstates</code></summary>
+
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: measured heights only inside 1 box(es) (`ad_ndsm`) — everywhere else in the country ships the assumed default
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Lebanon (LB)</b> — 0/9 shipped · bake rows: <code>lebanon</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`lebanon`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`lebanon`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`lebanon`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`lebanon`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`lebanon`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`lebanon`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Oman (OM)</b> — 1/9 shipped · bake rows: <code>gccstates</code></summary>
+
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: measured heights only inside 1 box(es) (`ad_ndsm`) — everywhere else in the country ships the assumed default
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Palestine (PS)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Qatar (QA)</b> — 1/9 shipped · bake rows: <code>gccstates</code></summary>
+
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: measured heights only inside 1 box(es) (`ad_ndsm`) — everywhere else in the country ships the assumed default
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`gccstates`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **cadastral data** — register legs 1/1 wired (`QA`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Saudi Arabia (SA)</b> — 1/9 shipped · bake rows: <code>gccstates</code> · <b>live only via ORPHAN slug(s)</b>: <code>riyadh jeddah</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: 2 of 1 slug(s) in `buildings.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `riyadh jeddah`, which the code no longer has and the next merge drops) · HEIGHTS: measured heights only inside 1 box(es) (`ad_ndsm`) — everywhere else in the country ships the assumed default
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟡 **roads** — `roads`: 2 of 1 slug(s) in `roads.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `riyadh jeddah`, which the code no longer has and the next merge drops)
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: 2 of 1 slug(s) in `trees.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `riyadh jeddah`, which the code no longer has and the next merge drops) · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: 2 of 1 slug(s) in `water.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `riyadh jeddah`, which the code no longer has and the next merge drops) · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **green areas** — `parks`: 2 of 1 slug(s) in `parks.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `riyadh jeddah`, which the code no longer has and the next merge drops) · `landuse`: 2 of 1 slug(s) in `landuse.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `riyadh jeddah`, which the code no longer has and the next merge drops)
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Syria (SY)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Türkiye (TR)</b> — 1/9 shipped · bake rows: <code>turkey</code></summary>
+
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`turkey`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`turkey`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`turkey`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`turkey`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`turkey`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`turkey`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **cadastral data** — register legs 1/1 wired (`TR`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>United Arab Emirates (AE)</b> — 1/9 shipped · bake rows: <code>gccstates</code> · <b>live only via ORPHAN slug(s)</b>: <code>dubai abudhabi</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: 2 of 1 slug(s) in `buildings.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `dubai abudhabi`, which the code no longer has and the next merge drops) · HEIGHTS: measured heights only inside 1 box(es) (`ad_ndsm`) — everywhere else in the country ships the assumed default
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟡 **roads** — `roads`: 2 of 1 slug(s) in `roads.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `dubai abudhabi`, which the code no longer has and the next merge drops)
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: 2 of 1 slug(s) in `trees.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `dubai abudhabi`, which the code no longer has and the next merge drops) · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: 2 of 1 slug(s) in `water.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `dubai abudhabi`, which the code no longer has and the next merge drops) · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **green areas** — `parks`: 2 of 1 slug(s) in `parks.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `dubai abudhabi`, which the code no longer has and the next merge drops) · `landuse`: 2 of 1 slug(s) in `landuse.sources` — missing `gccstates` (live only via the ORPHAN slug(s) `dubai abudhabi`, which the code no longer has and the next merge drops)
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Yemen (YE)</b> — 0/9 shipped · <b>NO ROW IN ANY TABLE</b></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- ⛔ **3D context buildings** — `buildings`: no `buildings` row: the country has no bake region at all · HEIGHTS: no bake region
+- ⛔ **terrain** — no `terrain.mjs` row of any kind
+- ⛔ **roads** — `roads`: no `roads` row: the country has no bake region at all
+- ⛔ **pedestrians** — `furniture`: no `furniture` row: the country has no bake region at all
+- ⛔ **trees** — `trees`: no `trees` row: the country has no bake region at all · `canopy`: no `canopy` row: the country has no bake region at all
+- ⛔ **water** — `water`: no `water` row: the country has no bake region at all · `sea`: no `sea` row: the country has no bake region at all
+- ⛔ **green areas** — `parks`: no `parks` row: the country has no bake region at all · `landuse`: no `landuse` row: the country has no bake region at all
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Australia (AU)</b> — 4/9 shipped · bake rows: <code>newsouthwales victoria queensland westernaustralia southaustralia tasmania act northernterritory</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: all 8 region(s) in `buildings.sources` · HEIGHTS: measured heights only inside 1 box(es) (`au_open`) — everywhere else in the country ships the assumed default
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: all 8 region(s) in `trees.sources` · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: all 8 region(s) in `water.sources` · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **cadastral data** — register legs 6/6 wired (`AU-ACT AU-TAS AU-VIC AU-NSW AU-SA AU-QLD`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>New Zealand (NZ)</b> — 2/9 shipped · bake rows: <code>newzealand</code></summary>
+
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`newzealand`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`newzealand`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`newzealand`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`newzealand`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`newzealand`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`newzealand`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **cadastral data** — register legs 1/1 wired (`NZ`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Japan (JP)</b> — 0/9 shipped · bake rows: <code>japan</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`japan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: measured heights only inside 10 box(es) (`plateau_jp`) — everywhere else in the country ships the assumed default
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`japan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`japan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`japan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`japan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`japan`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>South Korea (KR)</b> — 0/9 shipped · bake rows: <code>southkorea</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`southkorea`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`southkorea`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`southkorea`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`southkorea`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`southkorea`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`southkorea`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>United States (US)</b> — 1/9 shipped · bake rows: <code>alabama alaska alaskaaleutians arizona arkansas california colorado connecticut +46</code> · <b>live only via ORPHAN slug(s)</b>: <code>sanfrancisco chicago austin houston boston</code></summary>
+
+- 🟡 **3D context buildings** — `buildings`: 6 of 54 slug(s) in `buildings.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops) · HEIGHTS: the LIVE tiles carry a different join than the code declares for 1 region(s) — the code says measured, the map still shows the assumed default
+- 🟡 **terrain** — 1/54 live — MISSING `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut +45` (HTTP 404)
+- 🟡 **roads** — `roads`: 6 of 54 slug(s) in `roads.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops)
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **trees** — `trees`: 6 of 54 slug(s) in `trees.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops) · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **water** — `water`: 6 of 54 slug(s) in `water.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops) · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟡 **green areas** — `parks`: 6 of 54 slug(s) in `parks.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops) · `landuse`: 6 of 54 slug(s) in `landuse.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops)
+- 🟠 **cadastral data** — register legs 21/21 wired (`US-NY-NYC US-CA-SF US-IL-CHI US-MA US-FL US-WA-KING US-TX-HARRIS US-NC US-NY US-OH US-WI US-MT US-UT US-VA US-CA-LA US-AZ-MARICOPA US-NJ US-VT US-CT US-IN US-MD`) · official footprints NONE — the tiles carry OSM geometry
+
+</details>
+
+<details><summary><b>Canada (CA)</b> — 0/9 shipped · bake rows: <code>ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia +5</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia princeedwardisland newfoundland yukon northwestterritories nunavut`) are in its `sources` — and 13 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: measured heights only inside 2 box(es) (`ca_open`) — everywhere else in the country ships the assumed default
+- 🟠 **terrain** — all 13 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia princeedwardisland newfoundland yukon northwestterritories nunavut`) are in its `sources` — and 13 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia princeedwardisland newfoundland yukon northwestterritories nunavut`) are in its `sources` — and 13 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia princeedwardisland newfoundland yukon northwestterritories nunavut`) are in its `sources` — and 13 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia princeedwardisland newfoundland yukon northwestterritories nunavut`) are in its `sources` — and 13 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia princeedwardisland newfoundland yukon northwestterritories nunavut`) are in its `sources` — and 13 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+<details><summary><b>Mexico (MX)</b> — 0/9 shipped · bake rows: <code>mexico</code></summary>
+
+- ⛔ **parcels** — no `registry.ts` jurisdiction row — a click falls back to the OSM footprint
+- 🟠 **3D context buildings** — `buildings`: `buildings.pmtiles` is live (23759887551 B) but NONE of this country's region(s) (`mexico`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · HEIGHTS: NO measured height join anywhere in the country — the footprints are real, every one of them extrudes at the ASSUMED DEFAULT
+- 🟠 **terrain** — all 1 declared tileset(s) answered HTTP 404 at `terrain/<slug>/layer.json` — the client lists them, R2 does not have them, so the site sits on flat ellipsoid ground
+- 🟠 **roads** — `roads`: `roads.pmtiles` is live (25221310111 B) but NONE of this country's region(s) (`mexico`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- 🟠 **pedestrians** — `furniture`: `furniture.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **trees** — `trees`: `trees.pmtiles` is live (417947129 B) but NONE of this country's region(s) (`mexico`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **water** — `water`: `water.pmtiles` is live (11684305420 B) but NONE of this country's region(s) (`mexico`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
+- 🟠 **green areas** — `parks`: `parks.pmtiles` is live (12805960086 B) but NONE of this country's region(s) (`mexico`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged" · `landuse`: `landuse.pmtiles` is live (12133841837 B) but NONE of this country's region(s) (`mexico`) are in its `sources` — and 1 of them carry `pending: true`, bake.mjs's own marker for "declared, never staged"
+- ⛔ **cadastral data** — no cadastral jurisdiction and no official footprint source
+
+</details>
+
+## §9 · The shortest path — most cells green per hour of runner time
+
+Derived from §8c, so it cannot propose work that is already done. The ORDER is
+DEPENDENCY-FIRST, not rate-first: a per-layer bake runs over STAGED regions, so step 1
+unblocks steps 2-3 and no ordering by cells/hour would have found that.
+
+⚠ **The hour figures are ESTIMATES and are labelled as such; the CELL counts are
+measured.** Two ceilings bind every
+step: the **330-minute** GitHub Actions job limit (dispatch per region/shard, never
+one job) and the merge's **disk cliff** — a run has already refused with "MERGE
+CANNOT FIT", and `context-merge-publish.yml`'s `layer` input (per-layer publishes)
+is the escape.
+
+### 1. Stage + merge the 92 bake regions that have NEVER been published
+
+**180 country-cell(s)** · ~40 runner-hour(s) *(estimate)* · **4.5 cells/hour**
+
+`bake.mjs` ALL_REGIONS has **132** rows; the live manifest's `layers.buildings.sources` has **49**. 92 regions are invisible to every user — and TWO INDEPENDENT READINGS AGREE ON WHICH: the R2 probe says 92 are absent from `buildings.sources`, and `bake.mjs` itself marks **92** rows `pending: true` (its own "declared, never staged" flag) — **the same set, exactly**:
+
+    iceland faroeislands malta cyprus serbia bosniaherzegovina montenegro northmacedonia albania kosovo ukraine belarus moldova andorra liechtenstein channelislands isleofman alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming mexico ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia princeedwardisland newfoundland yukon northwestterritories nunavut newzealand gccstates turkey israel jordan lebanon japan southkorea
+
+**This is FIRST despite the worst cells/hour, because every other tile step depends on it.** A per-layer bake runs over STAGED regions — `layer=sea` does nothing for Japan until Japan is staged.
+
+    context-bake.yml   region=<slug>  stage=true      (one dispatch PER REGION, in parallel —
+                                                       a serial chain is brittle and 330 min is the job ceiling)
+    context-merge-publish.yml  expect=staged  layer=<one layer>  publish=true
+                                                      (ONE publish PER LAYER — the "MERGE CANNOT FIT" escape)
+
+⚠ `allow_unknown_regions=true` is required while the 9 orphan staged set(s) remain (`sanfrancisco chicago austin houston boston riyadh jeddah dubai abudhabi`) — they are renamed rows whose staged sets nothing prunes, and the merge refuses every run by name until it is told to tolerate them.
+
+### 2. Bake + publish the `sea` layer for the 49 regions already staged
+
+**32 country-cell(s)** · ~3 runner-hour(s) *(estimate)* · **10.7 cells/hour**
+
+`sea.pmtiles` answered **HTTP 404 text/html · 27,150 B** — an R2 miss, not an archive. The layer is declared in `bake.mjs` LAYERS **and** offered by `context-bake.yml`'s `layer` input, and has never once been published. It needs no new source, no new table and no new country — which makes it the cheapest real win on this page.
+
+    context-bake.yml           layer=sea  region=<slug>  stage=true     (per region, parallel)
+    context-merge-publish.yml  layer=sea  expect=staged  publish=true   (ONE per-layer publish)
+
+⛔ Until this lands the client keeps fetching the coastline LIVE from Overpass to draw the sea — the exact third-party dependency the whole bake exists to remove.
+
+### 3. Bake + publish the `furniture` layer for the 49 regions already staged
+
+**32 country-cell(s)** · ~4 runner-hour(s) *(estimate)* · **8.0 cells/hour**
+
+`furniture.pmtiles` answered **HTTP 404 text/html · 27,150 B** — an R2 miss, not an archive. The layer is declared in `bake.mjs` LAYERS **and** offered by `context-bake.yml`'s `layer` input, and has never once been published. It needs no new source, no new table and no new country — which makes it the cheapest real win on this page.
+
+    context-bake.yml           layer=furniture  region=<slug>  stage=true     (per region, parallel)
+    context-merge-publish.yml  layer=furniture  expect=staged  publish=true   (ONE per-layer publish)
+
+⛔ Until this lands §STREET-LIFE SYNTHESISES lamps and pedestrians from the road network. That is scenery. It is honest in the UI and it is **not** coverage, and it is never scored as such above.
+
+### 4. Publish terrain for the 85 declared-but-404 tilesets
+
+**26 country-cell(s)** · ~20 runner-hour(s) *(estimate)* · **1.3 cells/hour**
+
+85 of the 123 `terrain.mjs` NATIONAL_REGIONS slugs answered **HTTP 404** at `terrain/<slug>/layer.json`. `terrainCoverage.ts` lists every one of them, so a site in any of them attaches NOTHING and sits on flat ellipsoid ground (§TERRAIN-ABSENT-IS-NOT-UNREADABLE, L-12973) — the founder sees a flat plate, not missing detail. By `terrain-bake-regions.yml` group, with the shard counts that workflow's own header measured at its default `tiles_per_shard=3000`:
+
+    group=usa         53 region(s): alabama alaska alaskaaleutians arizona arkansas california colorado connecticut +45
+    group=canada      13 region(s): ontario quebec britishcolumbia alberta saskatchewan manitoba newbrunswick novascotia +5
+    group=europe      11 region(s): iceland faroeislands cyprus serbia bosniaherzegovina montenegro northmacedonia albania +3
+    group=middleeast   5 region(s): gccstates turkey israel jordan lebanon
+    group=asia         2 region(s): japan southkorea
+    group=mexico       1 region(s): mexico
+
+⛔ `usa` is 73 shards and `canada` 56 — the two largest waves this workflow has ever run. Dispatch them ALONE, one group per dispatch, never folded together.
+
+### 5. Write rows for the 11 founder-named countries that have NO row in ANY table
+
+**99 country-cell(s)** · ~24 runner-hour(s) *(estimate)* · **4.1 cells/hour**
+
+**Monaco (MC)** · **Russia (RU)** · **San Marino (SM)** · **Vatican City (Holy See) (VA)** · **Gibraltar (GI)** · **Egypt (EG)** · **Iran (IR)** · **Iraq (IQ)** · **Palestine (PS)** · **Syria (SY)** · **Yemen (YE)** appear in NO table: not `bake.mjs` ALL_REGIONS, not `terrain.mjs`, not the parcel registry. All 99 of their cells are ⛔ and **no bake and no publish can move one of them** — the rows have to be written first, which is why this is ranked by cells rather than by runner time.
+
+⚠ Several of these are a DECISION, not a bake: Russia, Syria, Iran, Iraq, Yemen and Palestine each need a sourcing and a sanctions answer before a row is written, and Monaco/San Marino/Vatican/Gibraltar have no Geofabrik extract of their own (they fall inside france/italy/spain and would be clipped boxes, not countries). Name the decision; do not quietly leave them off the page.
+
+### 6. Decide the `canopy` scope — it CANNOT be dispatched nationally
+
+**32 country-cell(s)** · ~6 runner-hour(s) *(estimate)* · **5.3 cells/hour**
+
+`canopy.pmtiles` answered **HTTP 404**. It is `optIn: true` — excluded from every default bake — and `canopy.mjs` **REFUSES a region over 2,500 km² by name** rather than baking a fraction of it. So "canopy for Germany" is not a thing anyone can dispatch, and **no ordering of runs makes the `trees` column ✅ country-wide.** Either bake it per metro (`context-bake-canopy.yml`) and say on the page that trees are OSM points everywhere else, or drop `canopy` from what "trees" means. This is a SCOPE decision for the founder, not a runner-time problem — which is exactly why it is listed rather than estimated away.
+
+> ⛔ **This lane dispatched nothing.** Fleet rule: a lane returns an ordered dispatch
+> list, it does not run workflows or deploy.
 
 ---
 
