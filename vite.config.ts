@@ -53,6 +53,50 @@ function stubNodeBuiltinsForBrowserPlugin(): Plugin {
   };
 }
 
+/**
+ * §L-12976 — keep Cesium out of the HTML entries that have no globe.
+ *
+ * `vite-plugin-cesium`'s `transformIndexHtml` hook is not entry-aware: it
+ * injects `<script src="/cesium/Cesium.js">` and the Widgets stylesheet into
+ * EVERY html input. That is right for `index.html` (the editor mounts a
+ * Cesium globe) and wrong for anything else. `dist/cesium/Cesium.js` measures
+ * **5,909,848 bytes** in this tree, and it is a classic blocking `<script>`,
+ * not a module — the browser fetches and executes it before the page's own
+ * entry runs.
+ *
+ * `component-editor.html` is a 2D sketch surface. It imports no Cesium, no
+ * THREE and no renderer at all (ADR-0316 §3.1 is the whole reason that app
+ * exists as a separate surface with a 180 KB first-paint budget). Shipping it
+ * 5.9 MB of globe would have made "reachable" true and "usable" false, which
+ * is L-12976's own lesson wearing different clothes.
+ *
+ * Scoped by an OPT-OUT SET, not an opt-in one: a new page that genuinely
+ * needs the globe keeps working with no edit here, and the failure mode of
+ * forgetting to update this list is a page that is too heavy — visible and
+ * measurable — rather than a page whose globe silently never loads.
+ *
+ * `enforce: 'post'` + `order: 'post'` so this runs AFTER cesium() has done the
+ * injecting; stripping before it injects would be a no-op.
+ */
+function stripCesiumFromNonGlobePagesPlugin(): Plugin {
+  /** HTML entries that must NOT receive the Cesium bundle. */
+  const NO_GLOBE = new Set(['component-editor.html']);
+  return {
+    name: 'strip-cesium-from-non-globe-pages',
+    enforce: 'post',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html: string, ctx: { path?: string; filename?: string }) {
+        const page = (ctx.path ?? ctx.filename ?? '').split(/[\\/]/).pop() ?? '';
+        if (!NO_GLOBE.has(page)) return html;
+        return html
+          .replace(/^[ \t]*<script[^>]*src=["'][^"']*\/?cesium\/Cesium\.js["'][^>]*>\s*<\/script>\r?\n?/gim, '')
+          .replace(/^[ \t]*<link[^>]*href=["'][^"']*\/?cesium\/Widgets\/widgets\.css["'][^>]*>\r?\n?/gim, '');
+      },
+    },
+  };
+}
+
 function stubCoreJsForEsnextPlugin(): Plugin {
   const STUB_ID = '\0core-js-stub';
   return {
@@ -372,6 +416,7 @@ export default defineConfig({
     itemCatalogPlugin(),
     stubNodeBuiltinsForBrowserPlugin(),
     stubCoreJsForEsnextPlugin(),
+    stripCesiumFromNonGlobePagesPlugin(),
   ],
   esbuild: {
     jsx: 'automatic',
@@ -425,6 +470,26 @@ export default defineConfig({
       input: {
         main: 'index.html',
         browser: 'browser.html',
+        // §L-12976 — Surface A (`apps/component-editor`) had NO bundle entry.
+        // Its sketch tools, constraint command family, work-plane switcher and
+        // dimension overlay were authored, tested (418 passing) and type-clean,
+        // and shipped to nobody: this map read `{ main, browser }` and the
+        // deployed image therefore contained not one byte of that app.
+        //
+        // It is a THIRD ENTRY, not a route inside `main`, because ADR-0316 §5.4
+        // names in-process embedding inside `apps/editor` as one of the six
+        // events that RETIRE the ADR (two command buses + two undo stacks in one
+        // window ⇒ ambiguous Ctrl-Z), and the ADR describes the blessed shape as
+        // "a standalone SPA reached by deep link". A separate rollup entry graph
+        // is that shape: `createFamilyEditorRuntime` stays the single BASELINED
+        // rival root (check-single-compose.ts MAX_RIVALS = 1), and none of this
+        // app is statically reachable from `main`, so the editor's first-paint
+        // chunk is unchanged.
+        //
+        // Emits `dist/component-editor.html`, served by the `express.static`
+        // mount at server.js:5981 ahead of the SPA catch-all at server.js:5990 —
+        // exactly how `browser.html` is reached. No server route was required.
+        componentEditor: 'component-editor.html',
       },
       output: {
         // Split heavy 3rd-party vendors into their own long-lived chunks so:

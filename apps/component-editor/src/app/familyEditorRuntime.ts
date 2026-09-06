@@ -26,7 +26,34 @@
 // a persistence client, a sync client or a renderer, ADR-0316 no longer
 // applies — go delegate.
 
-import { MockSolver, loadSolver, type SolverPorter } from '@pryzm/constraint-solver';
+// ⚠ THE SUBPATH IS LOAD-BEARING — do NOT "tidy" this back to the barrel.
+//
+// This read `from '@pryzm/constraint-solver'` (the barrel) until 2026-09-06,
+// and it was the single edge that made this app's shipped page 12.3 MB.
+// MEASURED, not reasoned: with the barrel, the root build's
+// `component-editor.html` eagerly loaded `domain-engine` (4.49 MB),
+// `vendor-three` (1.87 MB), `vendor-web-ifc` (3.56 MB), `vendor-thatopen`
+// (2.29 MB) and `vendor-three-bvh` (68 KB) — for a page that renders a 2D
+// sketch canvas and imports no THREE at all.
+//
+// WHY THE BARREL COSTS THAT: `packages/constraint-solver/src/index.ts`
+// re-exports `ConstraintEngine.ts` (→ `@pryzm/core-app-model`) and
+// `LevelTraversalPolicy.ts` (→ `@pryzm/geometry-wall`). Both land in the root
+// config's `domain-engine` manualChunks group, and that chunk imports THREE.
+// One re-export, five vendor chunks. `engine.ts` by contrast has exactly ONE
+// import statement and it is an `import type` — zero runtime dependencies —
+// and it declares BOTH symbols used here (`MockSolver` :93, `loadSolver` :482).
+//
+// This was invisible while the app had no bundle entry (L-12976): its own
+// `vite build` tree-shook the unused re-exports, so the 180 KB budget gate
+// stayed green and nothing else ever built this graph. A second consumer is
+// what turned a latent barrel into a measured cost.
+//
+// The five OTHER `@pryzm/constraint-solver` imports in this app are all
+// `import type` and are erased before Rollup sees them, so they may keep
+// naming the barrel. This one is the only value import, and therefore the
+// only one that can drag a module graph behind it.
+import { MockSolver, loadSolver, type SolverPorter } from '@pryzm/constraint-solver/engine';
 
 // NOTE: planegcs (real WASM solver) loads asynchronously; the runtime
 // starts with a deterministic `MockSolver` so the editor renders

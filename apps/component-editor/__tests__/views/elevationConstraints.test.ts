@@ -20,13 +20,28 @@
 //    refusal existed to avoid.
 //
 // ⚠ WHAT THIS DOES NOT ESTABLISH — stated because a green suite is not a user
-//   capability. `apps/component-editor` is Surface A and the root build emits
-//   NO bundle for it: `vite.config.ts`'s `rollupOptions.input` is
-//   `{ main: 'index.html', browser: 'browser.html' }` and neither resolves
-//   here, so nothing in this app reaches a browser through the deployed image
-//   (ISSUE-LOG L-12976). This suite drives the REAL runtime and the REAL panel,
-//   so it establishes the capability and its wiring — not that a user can click
-//   it today.
+//   capability. This suite drives the REAL runtime and the REAL panel, so it
+//   establishes the capability and its wiring; it does not establish that the
+//   app reaches a browser. That is a BUILD fact, and it is checked elsewhere.
+//
+//   ⭐ CORRECTED 2026-09-06 (lane COMPONENT-EDITOR-REACHABLE). This paragraph
+//   read: *"the root build emits NO bundle for it: `vite.config.ts`'s
+//   `rollupOptions.input` is `{ main: 'index.html', browser: 'browser.html' }`
+//   and neither resolves here, so nothing in this app reaches a browser through
+//   the deployed image (ISSUE-LOG L-12976)."* That was true when written and is
+//   no longer true. `vite.config.ts` now declares a THIRD input,
+//   `componentEditor: 'component-editor.html'`, whose module script is
+//   `/apps/component-editor/src/index.ts` — this app's own entry. The root
+//   build emits `dist/component-editor.html`, `express.static(dist)`
+//   (server.js:5981) serves it ahead of the SPA catch-all (server.js:5989), and
+//   the page is reachable at `/component-editor.html`.
+//
+//   ⛔ What is STILL not established, and must not be read into the above: the
+//   sketch never becomes a `FamilyDocument` (L-12976 finding (b) — nothing here
+//   builds one, `publishFamily` has no caller outside its own spec, and the
+//   deep link is parsed then only `console.info`'d), and the constraint solver
+//   is still `MockSolver` (finding (c)). REACHABLE is not PERSISTED and it is
+//   not SOLVED. Do not let a corrected build fact launder those two.
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mountSketchViewPanel, type SketchViewPanelMount } from '../../src/views/SketchViewPanel.js';

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PRYZM Family Creator</title>
+    <meta
+      name="description"
+      content="PRYZM Family Creator — author parametric component families (.pryzm-family) for the PRYZM cloud BIM platform."
+    />
+    <!--
+      §L-12976 — THE BUNDLE ENTRY THAT DID NOT EXIST.
+
+      `apps/component-editor` (Surface A: the sketch tools, the constraint
+      commands, the work-plane switcher, the dimension overlay) was authored,
+      tested and type-clean, and reachable by NOBODY: the root
+      `vite.config.ts` declared `rollupOptions.input` as
+      `{ main: 'index.html', browser: 'browser.html' }` and nothing else, so
+      the deployed image contained not one byte of it. This file is that
+      missing third input.
+
+      WHY A SEPARATE HTML PAGE AND NOT A ROUTE INSIDE apps/editor:
+      ADR-0316 §5.4 names "the editor embeds the Family Creator in-process"
+      as one of the six events that RETIRE the ADR — two live command buses
+      and two undo stacks in one window make a user's Ctrl-Z ambiguous, and
+      the invariants test
+      (`apps/component-editor/__tests__/app/secondCompositionRoot.invariants.test.ts`)
+      enforces that by forbidding `@pryzm/editor` and `@pryzm/command-bus`
+      imports outright. ADR-0316 §5.4 describes the blessed shape in its own
+      words: "Today it is a standalone SPA reached by deep link." A second
+      Vite entry IS that shape. It keeps `createFamilyEditorRuntime` the one
+      baselined rival root (`MAX_RIVALS = 1`), and because rollup treats this
+      as its own entry graph, nothing here is statically pulled into the main
+      editor's first-paint chunk.
+
+      SERVED AT: /component-editor.html — `server.js`'s
+      `express.static(join(__dirname, 'dist'))` (server.js:5981) resolves it
+      out of `dist/` before the SPA catch-all at server.js:5990 can answer
+      with the main editor's index.html. Same mechanism that makes
+      `browser.html` reachable; no server route was needed.
+
+      The shell paints its own chrome from `mountAppShell()` (inline styles,
+      no external stylesheet), so this document carries only the mount point.
+    -->
+  </head>
+  <body>
+    <main id="app" aria-label="PRYZM Family Creator"></main>
+    <script type="module" src="/apps/component-editor/src/index.ts"></script>
+  </body>
+</html>
