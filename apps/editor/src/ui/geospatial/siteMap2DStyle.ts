@@ -37,6 +37,10 @@
 // that origin). Added to server/securityHeaders.js buildConnectSrc. The sprite
 // is an https image, already covered by `img-src https:`.
 
+// §PALETTE-PARITY-2D-3D (L-12965) — the live v2 palette is DEFINED in `./formaPaletteV2` (pure, no
+// maplibre, no DOM) so the 3D Forma context layers can read the SAME object. Re-exported below.
+import { FORMA_PALETTE_V2 } from './formaPaletteV2';
+
 /** Hektar palette — single source of truth for the cream/shadow look. */
 export const HEKTAR_PALETTE = {
     /** Cream page background behind/around everything (shows at edges + load). */
@@ -670,52 +674,15 @@ export function buildSatelliteStyle(): Map2DStyleSpec {
 // PURE. No maplibre import, no DOM, no clock. Every builder returns plain JSON.
 
 /**
- * MAP2D-PASTEL palette (STR-2D-SITE-MAP-CARTOGRAPHY §2). Low saturation throughout;
- * the ONLY saturated colour on the page stays the PRYZM purple used for the parcel
- * highlight and the draw handles, so selection never competes with cartography.
+ * §PALETTE-PARITY-2D-3D (L-12965) — MAP2D-PASTEL palette, MOVED to `./formaPaletteV2`.
+ *
+ * The founder asked for exactly the same colours in the 2D plan view and the 3D site view. The 3D
+ * Forma context layers now read this palette too, so it had to stop living inside a 59 KB MapLibre
+ * STYLE BUILDER — `CesiumViewport` must not import one to learn a hex. It is re-exported here
+ * VERBATIM so every existing 2D consumer and spec keeps its import path unchanged; the definition,
+ * the 3D alias table (`FORMA_CONTEXT_3D`) and the reasoning all live in `formaPaletteV2.ts`.
  */
-export const FORMA_PALETTE_V2 = {
-    /** Warm paper land / page background behind everything. */
-    land: '#F5F2EA',
-    /** Park / grass / recreation sage. */
-    parks: '#DDEBD4',
-    /** Wood + forest — a deeper sage than `parks`, so canopy reads as canopy. */
-    woodland: '#C9DDBF',
-    /** Powder blue-green water (lakes, basins, sea, rivers). */
-    water: '#D9E9E8',
-    /** Warm-white building mass. */
-    buildingFill: '#E8E1D4',
-    /** Hairline building outline. */
-    buildingStroke: '#D6CFC2',
-    /** Translucent duplicate-fill shadow, offset south-east under each footprint. */
-    buildingShadow: 'rgba(126, 116, 100, 0.16)',
-    /** Major-road fill (motorway…tertiary). */
-    roadMajor: '#D2CEC5',
-    /** Major-road casing — one step darker, drawn wider underneath the fill. */
-    roadMajorCasing: '#C8C3B9',
-    /** Minor-road fill (residential / service / unclassified). */
-    roadMinor: '#E6E2DA',
-    /** Footway / path / steps — drawn DASHED so pedestrian circulation reads without labels. */
-    footway: '#CFCAC0',
-    /** Cycleway — a faint green accent, distinguishable from a footway at a glance. */
-    cycleway: '#C6D3C4',
-    /** Rail hairline. */
-    rail: '#C9C4BA',
-    /** Industrial land-use tint (very faint). */
-    landuseIndustrial: '#ECE9E3',
-    /** Commercial / retail land-use tint (very faint). */
-    landuseCommercial: '#EEEAE2',
-    /** Muted label text. */
-    label: '#77766F',
-    /** Label halo against the warm paper land. */
-    labelHalo: 'rgba(245, 242, 234, 0.9)',
-    /** Tree / canopy symbol fill. */
-    treeFill: '#B9CDA8',
-    /** Tree / canopy symbol stroke. */
-    treeStroke: '#9DB58C',
-    /** Parcel + selection accent — the unified PRYZM purple, unchanged from today. */
-    parcelAccent: '#6600FF',
-} as const;
+export { FORMA_PALETTE_V2 };
 
 /**
  * ⛔ RESIDENTIAL LAND-USE IS DELIBERATELY UNTINTED (STR §2 "residential none").

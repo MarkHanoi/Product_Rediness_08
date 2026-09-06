@@ -16,9 +16,29 @@
 // residential polygon around its houses, so villages qualify; a farmhouse in open fields does not.
 // Pure: no Cesium, no DOM — testable.
 
+import { FORMA_CONTEXT_3D } from './formaPaletteV2';
+
+/**
+ * The base under UNDRAPED open country / mountains (§FORMA-CTX-LANDUSE-BASE, founder 2026-07-29:
+ * "rustic - mountain - light brown").
+ *
+ * ⛔ 3D-ONLY, AND THAT IS AN HONEST GAP, NOT AN OVERSIGHT (§PALETTE-PARITY-2D-3D, L-12965). The 2D
+ * map paints NO rural tint at all — `PASTEL_LANDUSE_UNTINTED` leaves farmland as bare page — so
+ * there is no 2D value for this to equal. Giving it one would mean INVENTING a 2D colour that does
+ * not exist, which is the opposite of the parity work.
+ */
 export const FORMA_GROUND_RURAL = '#D6C7A6';
-/** The 2-D site map's own off-white land (siteMap2DStyle FORMA_PALETTE.land), so 2-D and 3-D agree. */
-export const FORMA_GROUND_URBAN = '#F0EDE8';
+/**
+ * The base under urban land.
+ *
+ * §PALETTE-PARITY-2D-3D (L-12965) — this comment used to read "the 2-D site map's own off-white
+ * land (siteMap2DStyle FORMA_PALETTE.land), so 2-D and 3-D agree", and the INTENT was right while
+ * the VALUE had gone stale: it was pinned to the SUPERSEDED v1 `FORMA_PALETTE.land` (#F0EDE8), but
+ * the 2D map has rendered `buildFormaMap2DStyleV2` — and therefore `FORMA_PALETTE_V2.land`
+ * (#F5F2EA) — since the v2 cartography landed. Two literals authored to agree, drifted. It is now a
+ * REFERENCE, so the two cannot disagree again.
+ */
+export const FORMA_GROUND_URBAN = FORMA_CONTEXT_3D.groundUrban;
 /** A site this close to an urban landuse polygon is "in the village". */
 export const URBAN_NEAR_M = 300;
 

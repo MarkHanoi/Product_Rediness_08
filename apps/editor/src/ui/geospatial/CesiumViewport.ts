@@ -231,7 +231,11 @@ import { GroundSampleBatcher, groundSampleKey } from "./groundSampleBatcher";
 import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
 // §FORMA-GROUND-URBAN-WHITE (L-12922) — off-white ground base in and beside urban land, light brown
 // in open country; decided from the loaded landuse (pure).
-import { formaGroundBaseColour, shouldPaintFormaGroundBase } from "./formaGroundColour";
+import { formaGroundBaseColour, shouldPaintFormaGroundBase, FORMA_GROUND_RURAL } from "./formaGroundColour";
+// §PALETTE-PARITY-2D-3D (L-12965) — the 2D map's palette is the SINGLE SOURCE for the 3D context
+// layers (buildings / streets / green / water / landuse / rail / trees). `FORMA_CONTEXT_3D` is a pure
+// ALIAS TABLE over `FORMA_PALETTE_V2`; no 3D context colour has its own hex any more.
+import { FORMA_CONTEXT_3D, formaContextRoadColour } from './formaPaletteV2';
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
@@ -561,6 +565,26 @@ export interface TileLoadProgress {
  *  loading map, not a blank/error frame. */
 const GLOBE_LOADING_COLOUR = '#EDECF5';
 
+/**
+ * §PALETTE-PARITY-2D-3D (L-12965, founder 2026-09-06, Córdoba): "I would like exactly the same
+ * colours in 2d plan view and 3d site view — buildings, streets, green — everything, for all the
+ * countries and all the assets."
+ *
+ * EVERY CONTEXT ENTRY BELOW IS NOW A REFERENCE INTO THE 2D MAP'S PALETTE (`FORMA_CONTEXT_3D` →
+ * `FORMA_PALETTE_V2`), NOT A HEX. The seven layers the founder named — buildings, streets, green,
+ * water, landuse, rail, trees — plus the urban ground base had a SECOND definition here that had
+ * drifted from the 2D one (parks #A9C77E vs #DDEBD4 and water #AEC9DB vs #D9E9E8 were the loudest).
+ * A colour now has ONE value; `__tests__/formaPaletteParity.spec.ts` fails if a literal comes back.
+ *
+ * ⚠ SAME ALBEDO, NOT PIXEL-IDENTICAL — say this to the founder rather than let him find it. This
+ * view is DIRECTIONALLY LIT with shadows and the 2D map is flat-lit, so an identical hex still
+ * renders darker on a shaded face and under a building's shadow. Same BASE colour is what is
+ * achievable and what ships; no hex is quietly re-tuned to fake the rest.
+ *
+ * STILL 3D-ONLY, DELIBERATELY: `ground`/`rural` (2D paints no rural tint at all — nothing to equal),
+ * `contextUncertainHeight`/`contextEstimatedHeight` (height-provenance signals, not context colour),
+ * and every PROPOSED-massing / brand entry (`proposedFill`, `silhouette`, the #6600FF accent).
+ */
 const FORMA_PALETTE = {
   /** Base terrain ground = the colour of UNDRAPED land (mountains / rustic / open
    *  country outside the city). §FORMA-CTX-LANDUSE-BASE (founder 2026-07-29):
@@ -571,7 +595,7 @@ const FORMA_PALETTE = {
    *  "mountain rural is the same colour than the city urban areas" defect. Kept soft
    *  and light (a hair warmer/lighter than `rural`) so the white massing + shadows
    *  still read cleanly against it. */
-  ground: '#D6C7A6',
+  ground: FORMA_GROUND_RURAL,
   /** Scene background — soft neutral (§2 Sky / background). §FORMA-SCENE-QUALITY:
    *  this is now the FALLBACK flat fill; the visible backdrop is the soft vertical
    *  sky GRADIENT painted on the container (buildFormaSkyGradientCss) showing
@@ -591,9 +615,9 @@ const FORMA_PALETTE = {
   /** Context-building fill (§2). §FORMA-SCENE-QUALITY — a touch cooler/greyer than
    *  the warm beige it was, so context massing recedes as neutral grey behind the
    *  brighter proposed mass (the reference's "context = quiet grey" read). */
-  contextFill: '#D9D8D3',
+  contextFill: FORMA_CONTEXT_3D.buildingFill,
   /** Subtle graphite outline for context massing (lighter than proposed). */
-  contextOutline: '#9A958C',
+  contextOutline: FORMA_CONTEXT_3D.buildingEdge,
   /** §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder) — accent for context buildings whose HEIGHT is
    *  NOT accurate (heightProvenance ≠ 'tagged': derived-levels / assumed / unknown). These render as
    *  a see-through WIREFRAME in this amber so the SOLID white buildings read as the trustworthy
@@ -601,10 +625,14 @@ const FORMA_PALETTE = {
    *  Amber = a caution/provisional tone, distinct from white context / purple massing / green / blue. */
   contextUncertainHeight: '#E8973A',
   /** §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder 2026-07-30) — the ESTIMATED-height treatment: a
-   *  NEUTRAL grey a touch DARKER than the solid `contextFill` (#D9D8D3), rendered as a TRANSLUCENT
+   *  NEUTRAL grey a touch DARKER than the solid `contextFill`, rendered as a TRANSLUCENT
    *  massing (not a wireframe, not amber). Estimated buildings read as soft, slightly-darker ghost
    *  blocks — the honest "height not surveyed" signal, in the Forma palette, replacing the founder-
-   *  rejected orange wireframe. Solid/measured buildings keep the opaque `contextFill`. */
+   *  rejected orange wireframe. Solid/measured buildings keep the opaque `contextFill`.
+   *  §PALETTE-PARITY-2D-3D (L-12965) — this parenthetically quoted `contextFill` as #D9D8D3; it is now
+   *  the 2D map's warm #E8E1D4, so this grey reads a touch COOLER as well as darker. It stays a 3D-ONLY
+   *  hex on purpose: it is a height-PROVENANCE signal (C57 honesty), not a context colour the founder
+   *  asked to match, and the 2D map draws no such distinction to be equal to. */
   contextEstimatedHeight: '#B8B6B0',
   /** Soft shadow tint (§2 Shadows) — rgba(20,20,20,0.30). */
   shadowTint: 'rgba(20,20,20,0.30)',
@@ -630,35 +658,43 @@ const FORMA_PALETTE = {
    *  §FORMA-CTX-ROAD-RIBBON (founder 2026-07-01) — now used as flat GROUND ribbons
    *  (not floating lines); a LIGHT warm-grey street tone matching the 2D basemap so
    *  the street grid reads as pale streets on the neutral ground, under the buildings. */
-  road: '#C9C7C2',
+  road: FORMA_CONTEXT_3D.roadMajor,
+  /** §PALETTE-PARITY-2D-3D (L-12965) — the MINOR street tone. The ribbon WIDTH already split
+   *  by OSM highway class while the COLOUR did not, so every street rendered in one tone against a
+   *  2D map that draws two. Resolved per class by `formaContextRoadColour`. */
+  roadMinor: FORMA_CONTEXT_3D.roadMinor,
   /** §FORMA-CTX-ROAD-RIBBON — subtle casing outline for the street ribbons. */
-  roadEdge: '#B4B1AB',
+  roadEdge: FORMA_CONTEXT_3D.roadEdge,
   /** FORMA-CTX-WATER (founder 2026-06-19) — soft blue lakes/rivers, matching the
    *  2D map's water tone so the site reads with its real water context. */
-  water: '#AEC9DB',
+  water: FORMA_CONTEXT_3D.water,
   /** §FORMA-CTX-PARKS (founder 2026-07-01) — natural park green for leisure=park /
    *  landuse=grass|forest / natural=wood|grassland areas, matching the 2D basemap's
    *  green space (e.g. Central Park) so the 3D site reads as the same neighbourhood. */
-  park: '#A9C77E',
+  park: FORMA_CONTEXT_3D.park,
   /** §FORMA-CTX-PARKS — subtle green edge for the park areas. */
-  parkEdge: '#8FB86B',
+  parkEdge: FORMA_CONTEXT_3D.parkEdge,
   /** §FORMA-CTX-LANDUSE (founder 2026-07-29) — URBAN land-use (residential/commercial/industrial…)
    *  painted a soft neutral grey so built-up ground reads distinctly from the neutral base + rural. */
-  urban: '#C4C1BB',
-  urbanEdge: '#AEABA4',
+  urban: FORMA_CONTEXT_3D.landuseUrban,
+  urbanEdge: FORMA_CONTEXT_3D.landuseUrbanEdge,
   /** §FORMA-CTX-LANDUSE — RURAL land-use (farmland/meadow/orchard/vineyard…) a warm earthy brown/tan
    *  so agricultural ground reads brown, matching the founder's "brown in rural areas". */
   rural: '#CDB98C',
   ruralEdge: '#B8A374',
   /** §FORMA-CTX-RAIL (L-642 Phase C) — rail/tram track ribbons, a DISTINCT DARK cool-grey so the
-   *  transport lines read as railways over/among the pale road grid (road = #C9C7C2), not as another
-   *  street. Dark but not pure black (matches the graphite silhouette family). */
-  rail: '#6E6E76',
-  railEdge: '#54545C',
+   *  transport lines read as railways over/among the pale road grid, not as another street.
+   *  ⚠ §PALETTE-PARITY-2D-3D (L-12965) SUPERSEDES THE 'DISTINCT DARK' HALF, and the consequence is
+   *  stated rather than hidden: the founder asked for the same colours in both views, and 2D draws rail
+   *  as a #C9C4BA HAIRLINE. Rail therefore now reads QUIETER in 3D than it did (it was #6E6E76, a dark
+   *  cool-grey). That is the founder's ruling applied, not a regression — but it IS a visible change to
+   *  a colour chosen for a different reason, so it is recorded here rather than discovered. */
+  rail: FORMA_CONTEXT_3D.rail,
+  railEdge: FORMA_CONTEXT_3D.railEdge,
   /** §FORMA-CTX-TREES (L-642 Phase C) — canopy green for the instanced low-poly tree blobs. A touch
-   *  DEEPER/cooler than the park fill (#A9C77E) so individual street trees read as foliage volumes
+   *  DEEPER/cooler than the park fill so individual street trees read as foliage volumes
    *  sitting on the ground rather than dissolving into the flat park green. */
-  tree: '#7FA25C',
+  tree: FORMA_CONTEXT_3D.tree,
 } as const;
 
 /**
@@ -10199,7 +10235,16 @@ export class CesiumViewport {
     // is a ground-hugging polygon (no `extrudedHeight`), so it can never rise into a building.
     // §GROUND-DRAPE-ON-RELIEF (L-12924) — the seat is PER PIECE now (`piece.heightM` = the way's
     // own sampled ground + the §12.4 road offset); on flat ground it is the old `base + 0.02`.
-    const roadColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.road).withAlpha(0.9);
+    // §PALETTE-PARITY-2D-3D (L-12965) — the ribbon WIDTH already split by OSM highway class; the
+    // COLOUR did not, so every street rendered in ONE tone against a 2D map that draws two (major
+    // #D2CEC5 over its casing, minor #E6E2DA). Both tones are now FORMA_PALETTE_V2 entries and the
+    // class split is `formaContextRoadColour`, over the SAME class set `PASTEL_ROAD_CLASSES.ctxMajor`
+    // uses — asserted equal by formaPaletteParity.spec.ts, so the two cannot drift. The two Colors
+    // are built ONCE and picked per way: no per-entity colour allocation.
+    const roadColorMajor = Cesium.Color.fromCssColorString(FORMA_PALETTE.road).withAlpha(0.9);
+    const roadColorMinor = Cesium.Color.fromCssColorString(FORMA_PALETTE.roadMinor).withAlpha(0.9);
+    const roadColorFor = (highway: string) =>
+      formaContextRoadColour(highway) === FORMA_PALETTE.road ? roadColorMajor : roadColorMinor;
 
     // §FORMA-CTX-ROAD-RIBBON — metric ribbon width by OSM highway class (a real street
     // map reads major roads wider than side streets). Conservative widths so the grid
@@ -10239,7 +10284,7 @@ export class CesiumViewport {
               // through Baixa's buildings. Flat ground: the settled base + 0.02, as before.
               height: piece.heightM,
               cornerType: Cesium.CornerType.ROUNDED,
-              material: roadColor,
+              material: roadColorFor(way.highway),
               outline: false,
             },
           });
