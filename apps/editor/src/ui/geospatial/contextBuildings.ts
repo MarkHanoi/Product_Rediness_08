@@ -60,6 +60,9 @@ import { applyContextHeightAdoptions } from './contextHeightAdoptions';
 // prefix. Never throws. A small per-bbox in-memory cache avoids refetching as the
 // user pans within the same tile.
 
+// §OFFICIAL-FOOTPRINTS (L-12939) — the pure reader for national-register footprint tags.
+import { readOfficialFootprint, type OfficialFootprintFacts } from './officialFootprint';
+
 /** A building footprint ready for 2D fill + 3D extrusion. */
 export interface ContextBuildingFeature {
     readonly type: 'Feature';
@@ -86,6 +89,18 @@ export interface ContextBuildingFeature {
         /** OSM `building:levels` (floor count) when tagged — feeds the population
          *  density proxy with a truthful GFA. Omitted when no levels tag exists. */
         readonly floors?: number;
+        /**
+         * §OFFICIAL-FOOTPRINTS (L-12939) — the national-register facts, when this footprint came
+         * from one (a `footprints=official` bake) rather than from OSM. Present ⇒ the geometry is
+         * the register's, `ref` is its own identifier, and `part` says whether this is ONE VOLUME
+         * of a building or the whole-building outline — the distinction the 3D massing and the 2D
+         * plan need in opposite directions (see officialFootprint.ts).
+         *
+         * ⚠ ABSENT IS THE NORMAL CASE and means OSM, not "unknown provenance". It is also the
+         * correct, honest value for the Basque foral cadastres and Navarra, which publish no
+         * ES.SDGC feed — a register's silence is never "there is nothing here".
+         */
+        readonly official?: OfficialFootprintFacts;
         /** OSM id (debug / dedupe). */
         readonly osmId: number;
         /**
@@ -838,6 +853,12 @@ export function tilesToCollection(tileFeatures: readonly ContextTileFeature[]): 
         const floors = resolveFloors(tf.tags);
         const h = resolveHeightWithProvenance(tf.tags);
         const useTag = resolveUseTag(tf.tags);
+        // §OFFICIAL-FOOTPRINTS (L-12939) — pass the register facts through. The HEIGHT ladder is
+        // untouched on purpose: the bake writes the register's storey count to the standard
+        // `building:levels` tag and NEVER to `height`, so an official part resolves through the
+        // existing `derived-levels` rung with the one METRES_PER_LEVEL constant. Nothing here
+        // resolves a metre value from `official` — that would be a second storey constant.
+        const official = readOfficialFootprint(tf.tags);
         // A multipolygon contributes one feature per part — the consumers extrude a single outer
         // ring each, exactly as the Overpass path emits one feature per `outer` member.
         for (let part = 0; part < tf.rings.length; part++) {
@@ -863,6 +884,7 @@ export function tilesToCollection(tileFeatures: readonly ContextTileFeature[]): 
                     ...(useTag !== undefined ? { useTag } : {}),
                     ...(tf.tags['name'] ? { name: tf.tags['name'] } : {}),
                     ...(floors !== undefined ? { floors } : {}),
+                    ...(official ? { official } : {}),
                 },
             });
         }
