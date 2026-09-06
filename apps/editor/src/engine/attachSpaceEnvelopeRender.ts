@@ -91,6 +91,13 @@ export interface SpaceEnvelopeRenderDeps {
     readonly onRefusal?: (message: string) => void;
     /** Make the element and its storey known to the plan pipeline. Best effort. */
     readonly registerElement?: (id: string, levelId: string) => void;
+    /**
+     * §RESI-STAGE-G (2026-09-06) — double-click a prism face to edit its FOOTPRINT
+     * (C114 §11 item 7). Threaded straight to the face-drag controller, which owns the only
+     * raycast that can resolve an envelope under the pointer. Omit it and the gesture is
+     * absent — the ContextualEditBar's "Edit Profile" button is the other way in.
+     */
+    readonly onProfileEdit?: (spaceEnvelopeId: string) => void;
 }
 
 /**
@@ -192,6 +199,10 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
             getWorld: () => [...deps.store.getState().values()] as DraggableSpaceEnvelope[],
             dispatch: deps.dispatchFaceMove,
             ...(deps.onRefusal ? { onRefusal: deps.onRefusal } : {}),
+            // §RESI-STAGE-G — the double-click seam. Passed through rather than installed
+            // here: the controller already holds the pick, and a second listener on the same
+            // canvas would race it for the same event.
+            ...(deps.onProfileEdit ? { onProfileEdit: deps.onProfileEdit } : {}),
         });
     }
 

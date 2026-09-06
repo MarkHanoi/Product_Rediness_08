@@ -118,6 +118,19 @@ export interface SpaceEnvelopeFaceDragDeps {
      * the preview can promise a move the commit then refuses, so `initTools` never omits it.
      */
     readonly getWorld?: () => readonly DraggableSpaceEnvelope[];
+    /**
+     * ⭐ §RESI-STAGE-G (2026-09-06) — DOUBLE-CLICK OPENS THE FOOTPRINT EDITOR (C114 §11
+     * item 7). Installed HERE rather than in a second controller because this file already
+     * owns the only raycast that can answer *"which envelope is under the pointer?"*, and a
+     * rival picker would be a second answer to that question (C84 EI-9) that could resolve a
+     * different envelope than the one the drag is about to move.
+     *
+     * ⛔ IT IS NOT A COMMAND AND IT WRITES NOTHING. The handler is the L7 tool's
+     * `enterProfileEditMode`; the mutation is the `spaceEnvelope.setFootprint` that tool
+     * dispatches on Apply (P6). Omit it and the double-click does nothing at all — there is
+     * no fallback gesture, and the ContextualEditBar button stays the other way in.
+     */
+    readonly onProfileEdit?: (spaceEnvelopeId: string) => void;
 }
 
 /** Below this a drag is a click, not an edit. Not a dimension — a gesture threshold. */
@@ -143,7 +156,10 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
     const ndc = new THREE.Vector2();
     let active: ActiveDrag | null = null;
 
-    const rayFor = (ev: PointerEvent): { origin: THREE.Vector3; direction: THREE.Vector3 } => {
+    // ⚠ Widened from `PointerEvent` to the two fields it reads, because a `dblclick` is a
+    // MouseEvent. The narrower type would have forced either a cast or a second copy of this
+    // arithmetic — and a second screen→ray map is a second answer to one question.
+    const rayFor = (ev: { clientX: number; clientY: number }): { origin: THREE.Vector3; direction: THREE.Vector3 } => {
         const rect = deps.domElement.getBoundingClientRect();
         ndc.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
         ndc.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
@@ -151,20 +167,31 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
         return { origin: raycaster.ray.origin, direction: raycaster.ray.direction };
     };
 
-    const onPointerDown = (ev: PointerEvent): void => {
-        if (ev.button !== 0) return;
+    /**
+     * ⭐ THE ONE PICK. Both the drag and the double-click ask "which envelope face is under
+     * the pointer?" — asking twice, two ways, is how a double-click comes to open an editor
+     * on a different envelope than the one the drag would have moved (C84 EI-9).
+     */
+    const pickFace = (ev: { clientX: number; clientY: number }): { id: string; face: SpaceEnvelopeFaceRef; point: THREE.Vector3 } | null => {
         const groups = deps.builder.drawnIds()
             .map((id) => deps.builder.groupOf(id))
             .filter((g): g is THREE.Group => g !== undefined);
-        if (groups.length === 0) return;
+        if (groups.length === 0) return null;
         rayFor(ev);
         const hits = raycaster.intersectObjects(groups, true);
         const hit = hits.find((h) => h.object.userData?.['spaceEnvelopeFace'] !== undefined);
-        if (!hit) return;
-
+        if (!hit) return null;
         const id = String(hit.object.userData?.['parentId'] ?? hit.object.userData?.['id'] ?? '');
         const face = hit.object.userData?.['spaceEnvelopeFace'] as SpaceEnvelopeFaceRef | undefined;
-        if (!id || !face) return;
+        if (!id || !face) return null;
+        return { id, face, point: hit.point };
+    };
+
+    const onPointerDown = (ev: PointerEvent): void => {
+        if (ev.button !== 0) return;
+        const picked = pickFace(ev);
+        if (!picked) return;
+        const { id, face } = picked;
 
         const record = deps.getRecord(id);
         if (!record) {
@@ -197,7 +224,7 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
             id,
             face,
             axis,
-            grabWorld: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
+            grabWorld: { x: picked.point.x, y: picked.point.y, z: picked.point.z },
             startRecord: record,
             lastDeltaM: 0,
             previewedNeighbourIds: new Set<string>(),
@@ -299,16 +326,39 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
         deps.dispatch({ spaceEnvelopeId: drag.id, face: drag.face, deltaM: drag.lastDeltaM });
     };
 
+    /**
+     * §RESI-STAGE-G — double-click a face, edit the FOOTPRINT (C114 §11 item 7).
+     *
+     * ⚠ It resolves through `pickFace`, the same raycast the drag uses, and hands the id to
+     * the tool WITHOUT judging it: whether this envelope can be edited is
+     * `SpaceEnvelopeProfileEditTool.profileEditAvailability`'s answer, and asking here too
+     * would be a second verdict that could disagree with the button's (C84 EI-9.2).
+     *
+     * ⛔ A double-click on empty space, or on anything that is not an envelope face, is left
+     * ALONE — `stopPropagation` is called only on a hit, so the existing double-click paths
+     * (slab profile edit, SelectionManager) are untouched by this listener's presence.
+     */
+    const onDoubleClick = (ev: MouseEvent): void => {
+        if (!deps.onProfileEdit) return;
+        const picked = pickFace(ev);
+        if (!picked) return;
+        ev.stopPropagation();
+        ev.preventDefault();
+        deps.onProfileEdit(picked.id);
+    };
+
     deps.domElement.addEventListener('pointerdown', onPointerDown);
     deps.domElement.addEventListener('pointermove', onPointerMove);
     deps.domElement.addEventListener('pointerup', finish);
     deps.domElement.addEventListener('pointercancel', finish);
+    deps.domElement.addEventListener('dblclick', onDoubleClick);
 
     return () => {
         deps.domElement.removeEventListener('pointerdown', onPointerDown);
         deps.domElement.removeEventListener('pointermove', onPointerMove);
         deps.domElement.removeEventListener('pointerup', finish);
         deps.domElement.removeEventListener('pointercancel', finish);
+        deps.domElement.removeEventListener('dblclick', onDoubleClick);
         active = null;
     };
 }

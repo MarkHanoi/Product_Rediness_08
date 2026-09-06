@@ -1516,16 +1516,26 @@ export class ContextualEditBar {
     ): ProfileEditCapableTool | null {
         if (!type) return null;
         const w = window as unknown as {
-            slabTool?:    ProfileEditCapableTool;
-            floorTool?:   ProfileEditCapableTool;
-            ceilingTool?: ProfileEditCapableTool;
-            wallTool?:    ProfileEditCapableTool;
+            slabTool?:           ProfileEditCapableTool;
+            floorTool?:          ProfileEditCapableTool;
+            ceilingTool?:        ProfileEditCapableTool;
+            wallTool?:           ProfileEditCapableTool;
+            spaceEnvelopeTool?:  ProfileEditCapableTool;
         };
         const candidates: Record<string, ProfileEditCapableTool | undefined> = {
             slab:    w.slabTool,
             floor:   w.floorTool,
             ceiling: w.ceilingTool,
             wall:    w.wallTool,
+            // ⭐ §RESI-STAGE-G (2026-09-06) — THE ROW C114 §10b ASKS FOR, and the whole of
+            // what that section permits: *"The envelope adds a row to that resolver. ⛔ A new
+            // outline surface is forbidden."* `SpaceEnvelopeProfileEditTool` implements BOTH
+            // methods, so the button is shown, and is enabled or disabled per element by its
+            // `profileEditAvailability` — a degenerate footprint or a `maximumBuildable`
+            // study disables it with the reason as the tooltip rather than opening nothing.
+            // The `typeof … === 'function'` guard below still enforces the rule regardless of
+            // this map, so a wrong entry hides the button rather than resurrecting a dead one.
+            spaceEnvelope: w.spaceEnvelopeTool,
         };
         const tool = candidates[type];
         return tool && typeof tool.enterProfileEditMode === 'function' ? tool : null;

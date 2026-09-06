@@ -128,6 +128,12 @@ import {
     attachSpaceEnvelopeRender,
     type DirtySpaceEnvelopeStore,
 } from './attachSpaceEnvelopeRender';
+// §RESI-STAGE-G (2026-09-06) · C114 §10b / §11 item 7 — the footprint profile editor's
+// TOOL. It builds no surface: it opens the wall modal's port on the envelope's own ring.
+import {
+    SpaceEnvelopeProfileEditTool,
+    type ProfileEditableSpaceEnvelope,
+} from './spaceEnvelopeProfileEditTool';
 // §82.6-COMPONENT-RENDER-MOUNT — the placed-component 3-D leg (ADR-0376 D10).
 import { attachComponentRender, type DirtyComponentStore } from './component/index';
 import { componentCatalog } from '../services/componentCatalog/index';
@@ -2059,6 +2065,39 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     + 'undoable and saved; only the 3-D leg is absent.',
                 );
             } else {
+                // ⭐⭐ §RESI-STAGE-G (2026-09-06) · C114 §10b / §11 item 7 — THE FOOTPRINT
+                // BECOMES EDITABLE, in the outline editor this app already builds for walls.
+                //
+                // ⛔ THE FACTORY IS THE LOAD-BEARING ARGUMENT, exactly as it is for
+                // `WallTool.createProfileEditor` above (`:898`). `WallProfileEditorPort` is an
+                // L2 interface with no implementation at L2; without this line the tool is
+                // registered, its button is offered, and pressing it opens NOTHING — the
+                // "port with no implementation" state `WallProfileEditor.ts` names in its own
+                // header. The tool refuses OUT LOUD when the factory is absent rather than
+                // returning quietly, and `spaceEnvelopeProfileEditWire.spec.ts` asserts THIS
+                // FILE passes it, because a static link nobody tests still breaks the chain.
+                const spaceEnvelopeProfileEditTool = new SpaceEnvelopeProfileEditTool({
+                    // LAZY, every time — the same rule the face drag states: a record
+                    // captured at install time is one the store may no longer hold.
+                    getRecord: (id: string) =>
+                        spaceEnvelopeStore.getState().get(id) as ProfileEditableSpaceEnvelope | undefined,
+                    createProfileEditor: () => new WallProfileEditor(),
+                    // P6 — the ONLY mutation path. ONE Apply = ONE command = ONE Ctrl+Z.
+                    // ⚠ The promise is RETURNED, not swallowed: the tool awaits it to decide
+                    // whether to close the dialog or hold it open showing the containment
+                    // gate's refusal. A `.catch` here would eat the sentence and close on a
+                    // refusal, which is the §FIX-OP-SILENT-NOOP defect wearing a fix's clothes.
+                    dispatchSetFootprint: (payload) =>
+                        Promise.resolve(runtime.bus.executeCommand('spaceEnvelope.setFootprint', payload)),
+                    onRefusal: (message: string) => {
+                        runtime.events?.emit('pryzm:toast', { message, severity: 'warning' });
+                    },
+                });
+                // The ONE registration. Read by `ContextualEditBar._profileEditToolFor`
+                // (the button) and by nothing else; the double-click goes through the
+                // controller below, which holds the reference directly.
+                window.spaceEnvelopeTool = spaceEnvelopeProfileEditTool;
+
                 attachSpaceEnvelopeRender({
                     store: spaceEnvelopeStore,
                     scene: world.scene.three,
@@ -2098,6 +2137,12 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         catch (err) { console.warn('[initTools] §FEAT-SPACE-ENVELOPE VDT.registerElement failed (non-fatal):', err); }
                         try { bimManager.registerElement(id, levelId); }
                         catch { /* non-fatal — may already be registered */ }
+                    },
+                    // §RESI-STAGE-G — DOUBLE-CLICK A FACE, EDIT THE FOOTPRINT. The gesture is
+                    // resolved by the controller's own raycast (the only one that can say
+                    // which envelope is under the pointer) and handed here as an id.
+                    onProfileEdit: (spaceEnvelopeId: string) => {
+                        spaceEnvelopeProfileEditTool.enterProfileEditMode(spaceEnvelopeId);
                     },
                 });
                 console.log('[initTools] §FEAT-SPACE-ENVELOPE: store→mesh subscriber and face drag installed.');

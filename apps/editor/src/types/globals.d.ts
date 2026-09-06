@@ -147,6 +147,23 @@ declare global {
                 requested: 'outline' | 'dimensions',
             ) => { ok: boolean; reason?: string };
         } | undefined;
+        /**
+         * ⭐ §RESI-STAGE-G (2026-09-06) · C114 §10b / §11 item 7 — the SPACE ENVELOPE's
+         * footprint editor. Registered by `initTools` and read by exactly two callers:
+         * `ContextualEditBar._profileEditToolFor` (the "Edit Profile" button) and the
+         * double-click seam in `spaceEnvelopeFaceDragController`.
+         *
+         * ⚠ TYPED, NOT `unknown`, deliberately. The resolver decides the button's visibility
+         * from `typeof tool.enterProfileEditMode === 'function'`; declaring the shape here
+         * means renaming either method breaks the BUILD rather than silently hiding a button
+         * that used to work — the §FIX-DEAD-EDIT-PROFILE-BUTTON failure, inverted.
+         */
+        spaceEnvelopeTool:
+            | {
+                enterProfileEditMode: (spaceEnvelopeId: string) => void;
+                profileEditAvailability: (spaceEnvelopeId: string) => { ok: boolean; reason?: string };
+            }
+            | undefined;
         ceilingTool:        unknown;
         floorTool:          unknown;
         roofTool:           unknown;
