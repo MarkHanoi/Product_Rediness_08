@@ -335,7 +335,9 @@ implements CommandHandler<SetSpaceEnvelopeFootprintPayload, Stores> {
             // writer of those fields and a stale area is a number the panel would show.
             const adaptedRooms = outcome.adapted.map((a) => validated(withMetrics({
                 ...ctx.stores.spaceEnvelope[a.id]!,
-                footprint: a.footprint,
+                // §READONLY-FOOTPRINT-COPY — the adapter hands back a readonly ring; the stored record
+                // owns a mutable one, so copy rather than alias (also stops a later in-place edit reaching back).
+                footprint: [...a.footprint],
                 baseOffset: a.baseOffset,
                 height: a.height,
             })));

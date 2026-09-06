@@ -512,6 +512,14 @@ function resolvePlaneOffsetM(
   //   would newly break documents this change is not about.
   if (!plane || plane.offsetExpression === undefined) return { ok: true, offsetM: 0 };
 
+  // §DIRECTION-IS-EXTRUDE-ONLY — `SolidFeature` is a discriminated union and only the `'extrude'`
+  // arm carries `direction` (§82.4-DIRECTED-EXTRUDE added it there). A revolve/loft/sweep has no
+  // sweep axis to compare the plane normal against, so it takes the SAME answer as a missing plane:
+  // the pre-§82.1 path, `offsetM: 0`, which `produceExtrude` reads as `worldY ?? 0` and bakes
+  // byte-identically. Refusing here would newly break documents this change is not about — the same
+  // reasoning the missing-plane branch above states.
+  if (solid.kind !== 'extrude') return { ok: true, offsetM: 0 };
+
   const n = plane.normal;
   const nLen = Math.hypot(n.x, n.y, n.z);
   const d = solid.direction;

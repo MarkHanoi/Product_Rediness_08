@@ -147,7 +147,9 @@ export interface MassingShapeNote {
         /** The wing depth is a study assumption this engine states rather than a rule it read. */
         | 'wing-depth-assumed'
         /** The solved wings are thinner than a habitable room depth. */
-        | 'wings-thin';
+        | 'wings-thin'
+        /** §WING-DEPTH-LADDER — below MIN_WING_M the wing is a sliver, not accommodation. */
+        | 'wings-sliver';
     readonly severity: 'error' | 'warning';
     readonly text: string;
 }
@@ -1311,8 +1313,20 @@ function buildCandidate(args: {
             + `count is an upper bound on a real layout.`,
     });
 
-    const thin = wingDepth < THIN_WING_M;
-    if (thin) {
+    // §WING-DEPTH-LADDER — two rungs, and the second one was DECLARED BUT NEVER WIRED. MIN_WING_M
+    // carried the comment "below this the shape is a sliver and the family is refused outright" and
+    // was then read by nothing, which `tsc` caught as TS6133 (declared but never read) — a promise in
+    // a doc comment that the code did not keep. Deleting the constant would have silenced the compiler
+    // by dropping the rule; wiring it keeps the rule and satisfies the compiler for the right reason.
+    if (wingDepth < MIN_WING_M) {
+        notes.push({
+            code: 'wings-sliver',
+            severity: 'error',
+            text:
+                `A ${wingDepth.toFixed(1)} m wing is below the ${MIN_WING_M} m minimum — this is a sliver, `
+                + `not a buildable wing. The shape reaches the area asked for only on paper.`,
+        });
+    } else if (wingDepth < THIN_WING_M) {
         notes.push({
             code: 'wings-thin',
             severity: 'warning',

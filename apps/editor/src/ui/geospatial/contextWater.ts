@@ -769,7 +769,11 @@ async function fetchWaterForBbox(
         const seaPolygons = seaTiled.status === 'ok' && seaTiled.features.length > 0 ? seaTiled.features : null;
         const collection = waterFromTileFeatures(tiled.features, bbox, seaPolygons);
         cache.set(key, collection);
-        const seaWhy = seaPolygons
+        // §SEA-WHY-NARROWS-THE-UNION — `seaPolygons` is only non-null when `seaTiled.status === 'ok'`,
+        // but that is a fact about the line above, not one TypeScript can carry into this ternary: the
+        // read result is a discriminated union and only its 'ok' arm has `tilesRead`. Narrow on the
+        // discriminant so the count comes from the arm that actually has it.
+        const seaWhy = seaPolygons && seaTiled.status === 'ok'
             ? `${seaPolygons.length} baked sea polygon(s) from ${seaTiled.tilesRead} sea tile(s) — no coastline walk`
             : seaTiled.status === 'ok'
                 ? 'sea layer read OK but EMPTY here (not baked for this region, or inland) → coastline walk'

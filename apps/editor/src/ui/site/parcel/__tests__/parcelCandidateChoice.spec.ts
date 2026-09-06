@@ -60,7 +60,9 @@ const HOLDING: ParcelFeature = {
 /** An OSM building outline containing the lot point, produced by the REAL footprint picker. */
 const OSM_HOUSE: ContextBuildingFeature = {
     type: 'Feature',
-    properties: { osmId: 123456789, height: 6, levels: 2 } as ContextBuildingFeature['properties'],
+    // The picker's property bag is wider than this fixture needs; the double assertion is deliberate
+    // and narrow — a direct cast is refused because the two shapes do not overlap structurally.
+    properties: { osmId: 123456789, height: 6, levels: 2 } as unknown as ContextBuildingFeature['properties'],
     geometry: {
         type: 'Polygon',
         coordinates: [[
