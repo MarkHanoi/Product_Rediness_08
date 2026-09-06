@@ -481,9 +481,10 @@ export const USA_PARCEL_REFUSALS: readonly UsParcelRefusal[] = [
     {
         regionCode: 'US-TN',
         endpoint: 'https://tnmap.tn.gov/arcgis/rest/services/BASEMAPS/Parcels/MapServer?f=json',
-        answer: 'HTTP 000 — no response within the 25 s probe timeout (no status line, 0 bytes).',
+        answer:
+            'HTTP 000 — no response within the 25 s probe timeout (no status line, 0 bytes). ⭐ RE-PROBED 2026-09-06 and THE ANSWER SHARPENED: curl now fails at DNS — "curl: (6) Could not resolve host: tnmap.tn.gov", 0 bytes, immediately rather than after a timeout.',
         verdict:
-            'NOT WIRED — host did not answer. Distinguish this from a 404: the endpoint may be correct and merely unreachable from this vantage. NEXT STEP: re-probe from the production egress before concluding anything about Tennessee.',
+            'NOT WIRED — and the 2026-09-06 re-probe UPGRADES this from an ambiguous silence to a specific one. A DNS failure is not "unreachable from this vantage": the hostname does not resolve at all, so tnmap.tn.gov has been retired or renamed, exactly as feature.tnris.org was for Texas. ⛔ The old NEXT STEP ("re-probe from the production egress") is therefore WASTED EFFORT and is withdrawn — a different egress will not invent a DNS record. NEXT STEP: find the CURRENT Tennessee publisher (the TN GIS Services / tn.gov open-data org, or the Tennessee Comptroller property assessment portal), the same way the NJ and MD corrections in this file were found. Note the pattern this file has now hit three times — Texas, NJ, Maryland — a dead hostname is evidence about the NAME, never about the state.',
     },
     {
         regionCode: 'US-MD',
@@ -508,5 +509,24 @@ export const USA_PARCEL_REFUSALS: readonly UsParcelRefusal[] = [
         answer: 'HTTP 000 — connection failed, 0 bytes (unchanged from the 2026-07-31 finding).',
         verdict:
             'NO CHANGE NEEDED. The Cook County ArcGIS host is still dead, and the existing US-IL-CHI row already routes around it through Socrata — RE-CONFIRMED LIVE this lane: GET https://datacatalog.cookcountyil.gov/resource/77tz-riq7.json?$limit=1 → HTTP 200, 3388 bytes, application/json, [{"pin10":"0101100119","municipality":"Barrington",…}]. Recorded so the next lane does not re-probe a host that has been down for five weeks.',
+    },
+    // ── WAVE 2 ADDITIONS (2026-09-06) ────────────────────────────────────────────────────────────
+    {
+        regionCode: 'US-MN',
+        endpoint:
+            'https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_mngeo/plan_parcels_open/FeatureServer/1/query',
+        answer:
+            'The layer EXISTS and is correctly shaped — GET …/FeatureServer?f=json → HTTP 200 lists "0: Plan Parcels Open Metadata | 1: Plan Parcels Open"; layer 1 metadata is HTTP 200, native EPSG:26915, with a real parcel schema (state_pin, county_pin, co_name, ctu_name, owner_name, st_name…). ⛔ BUT IT CANNOT SERVE A CLICK. A single point-intersect at Minneapolis (44.9778,-93.2650) → HTTP 200 but took 50.6 SECONDS and returned {"features":[]}. A second, simpler attribute query (where co_name=Hennepin, resultRecordCount=1) → HTTP 200, 118 bytes, after 60.8 SECONDS, body {"error":{"code":503,"message":"Error handling service request :Wait timeout for the request exceeded.","details":[]}}. Layer 0 is NOT parcels — it is a per-county METADATA index carrying `data_url` / `viewer_url` / `gac_open_approval`, i.e. a directory of DOWNLOADS.',
+        verdict:
+            'NOT WIRED — and the reason is LATENCY, not licence, coverage or geometry, which makes it a different refusal from every other row here. Minnesota publishes genuinely open opt-in county parcels, but the hosted query service answers in 50–60 s and then times out at 503, so wiring it would hang a parcel click for a minute and still fall to the footprint. ⚠ Layer 0 also names the honest coverage caveat in the product itself: MnGeo aggregates OPT-IN counties, so this was never a full 87/87 statewide fabric. NEXT STEP: MnGeo publishes the same data as per-county bulk files (`data_url` on layer 0) — the route for Minnesota is a BAKED extract, not a live point query, which is the same shape as the Oregon taxlot answer above. Do not re-probe this endpoint for speed; two independent attempts a minute apart both exceeded 50 s.',
+    },
+    {
+        regionCode: 'US-PA / US-GA / US-MI / US-CO',
+        endpoint:
+            'https://www.arcgis.com/sharing/rest/search?q=parcels+<state>+statewide&sortField=numviews (ArcGIS Online org search, 2026-09-06)',
+        answer:
+            'HTTP 200 for all four. NOT ONE returns a state-published statewide parcel service: PA 25 results (top hits are NJ boundaries and a Chester County publisher), GA 13 (municipal boundaries, TNC and DOT layers), MI 11 (university fire-history layers), CO 33 (a state basemap web map and consultant layers). The searches return real results — they are simply not parcel fabrics.',
+        verdict:
+            'NOT WIRED, and recorded as a MEASURED ABSENCE so the next lane does not spend four probes rediscovering it. These four are county-assessor states with no open statewide aggregation, which is the ordinary US pattern rather than an outage — Pennsylvania, Georgia, Michigan and Colorado each devolve the parcel fabric to 67 / 159 / 83 / 64 counties respectively. ⚠ THIS IS A WEAKER CLAIM THAN THE ROWS ABOVE and is deliberately phrased as such: an AGOL org search finding nothing proves the layer is not INDEXED there, not that no state host serves one. It is a lead-exhaustion note, NOT a probe of a named endpoint — the NJ and MD corrections in this very file are what a confident absence is worth. NEXT STEP for any of the four: the state GIS office host directly, or wire county-first for the large metros (Philadelphia, Atlanta/Fulton, Wayne/Detroit, Denver) exactly as AZ-Maricopa and TX-Harris are.',
     },
 ];
