@@ -294,7 +294,7 @@ jobs:
           #   hannover germany 52.3759,9.7320 500
           #   stuttgart germany 48.7758,9.1829 500
           #   dresden germany 51.0500,13.7400 500
-          #   abudhabi abudhabi 24.4539,54.3773 500
+          #   abudhabi gccstates 24.4539,54.3773 500
           fail=0
           checked=0
           while read -r name region at min; do
@@ -316,8 +316,8 @@ jobs:
           melbourne victoria -37.8136,144.9631 500
           oslo norway 59.9139,10.7522 500
           manhattan newyork 40.7580,-73.9855 500
-          sanfrancisco sanfrancisco 37.7900,-122.4000 500
-          boston boston 42.3510,-71.0750 500
+          sanfrancisco california 37.7900,-122.4000 500
+          boston massachusetts 42.3510,-71.0750 500
           tallinn estonia 59.4370,24.7536 500
           antwerp belgium 51.2213,4.3997 500
           vienna austria 48.2086,16.3725 500

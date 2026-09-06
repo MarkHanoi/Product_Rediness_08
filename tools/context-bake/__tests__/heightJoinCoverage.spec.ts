@@ -147,7 +147,7 @@ const IN_REGION_UNREACHABLE: Record<string, ReadonlyArray<readonly [string, numb
     // Victoria — the whole STATE is baked; the working set is one municipality's own open-data portal.
     victoria: [['Geelong', 144.360, -38.149], ['Ballarat', 143.850, -37.562], ['Dandenong', 145.215, -37.981]],
     // Abu Dhabi — the mosaic covers the emirate (lon 54.23–56.06); the stamp box is the island core only.
-    abudhabi: [['Khalifa City', 54.580, 24.420], ['Yas Island', 54.607, 24.499], ['Musaffah', 54.500, 24.350]],
+    gccstates: [['Khalifa City', 54.580, 24.420], ['Yas Island', 54.607, 24.499], ['Musaffah', 54.500, 24.350]],
 };
 
 const inBox = (lon: number, lat: number, [w, s, e, n]: Bbox) => lon >= w && lon <= e && lat >= s && lat <= n;

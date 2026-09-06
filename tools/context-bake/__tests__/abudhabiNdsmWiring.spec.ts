@@ -3,10 +3,11 @@
 //
 // The stamp was BUILT in heights/abudhabiNdsm{,Stamp}.mjs and would sit imported by nothing — the L-12883 / L-12910
 // shape (a measured-height channel one import away while the row baked honest 9 m defaults and rendered as ghosts)
-// — unless bake.mjs imports it, the `abudhabi` row declares the join key, stampBboxesFor bounds the join to the
+// — unless bake.mjs imports it, the `gccstates` row declares the join key (it was `abudhabi` until §ME-NATIONAL,
+// 2026-09-06; the working set AD_CITY_BBOXES is unchanged), stampBboxesFor bounds the join to the
 // city list, NATIONAL_STAMP_TABLE dispatches it, and both CI gates refuse a bake that stamps nothing at
 // Al Markaziyah. bake.mjs runs main() on import and cannot be loaded by vitest, so each wiring point is asserted on
-// the TEXT, one assertion per place. The `abudhabi` row is OVERTURE-sourced (buildingsSource:'overture') — the
+// the TEXT, one assertion per place. The `gccstates` row is OVERTURE-sourced (buildingsSource:'overture') — the
 // stamp runs on that GeoJSONSeq exactly as it would on an OSM clip; the row must KEEP that source (the Gulf is an
 // OSM building desert), which is pinned too.
 //
@@ -15,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AD_CITY_BBOXES } from '../heights/abudhabiNdsm.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const bake = readFileSync(resolve(HERE, '../bake.mjs'), 'utf8');
@@ -22,11 +24,11 @@ const heightSources = readFileSync(resolve(HERE, '../heightSources.mjs'), 'utf8'
 const workflows = ['context-bake.yml', 'context-merge-publish.yml'].map((wf) => [wf, readFileSync(resolve(HERE, '../../../.github/workflows', wf), 'utf8')] as const);
 
 const C = {
-    region: 'abudhabi', key: 'ad_ndsm', stamp: 'stampAdNdsmHeightsOnGeojsonseq', bboxes: 'AD_CITY_BBOXES',
+    region: 'gccstates', key: 'ad_ndsm', stamp: 'stampAdNdsmHeightsOnGeojsonseq', bboxes: 'AD_CITY_BBOXES',
     module: './heights/abudhabiNdsmStamp.mjs', city: 'abudhabi',
-    gate: /^\s*abudhabi abudhabi 24\.4539,54\.3773 500$/m,
-    gateParked: /^\s*#\s*abudhabi abudhabi 24\.4539,54\.3773 500$/m,
-    source: /^\s*abudhabi:\s*'adsdi_ndsm_ae',.*WIRED 2026-09-05/m,
+    gate: /^\s*abudhabi gccstates 24\.4539,54\.3773 500$/m,
+    gateParked: /^\s*#\s*abudhabi gccstates 24\.4539,54\.3773 500$/m,
+    source: /^\s*gccstates:\s*'adsdi_ndsm_ae',.*WIRED 2026-09-05/m,
 };
 
 describe(`§${C.key.toUpperCase()} — bake.mjs wires the ${C.region} stamp`, () => {
@@ -45,9 +47,18 @@ describe(`§${C.key.toUpperCase()} — bake.mjs wires the ${C.region} stamp`, ()
         expect(row![0]).toMatch(/buildingsSource:\s*'overture'/);
     });
 
-    it('the row bbox is the one the stamp working set was measured against (54.28,24.33,54.75,24.62)', () => {
+    // §ME-NATIONAL (2026-09-06) — the row this join rides MOVED (abudhabi -> gccstates: the six GCC states are ONE
+    // Geofabrik extract, and six country rectangles cut from it cannot be disjoint). The assertion that MATTERS is
+    // unchanged and is now stated directly instead of as a literal metro bbox: the row must CONTAIN the working set
+    // the stamp was measured against, or the declared join runs nowhere.
+    it('the row bbox contains every AD_CITY_BBOXES cell the stamp was measured against', () => {
         const row = bake.match(new RegExp(`\\{\\s*name:\\s*'${C.region}'\\s*,[^\\n]*\\}`))![0];
-        expect(row).toContain("bbox: '54.28,24.33,54.75,24.62'");
+        const m = row.match(/bbox: '(-?[\d.]+),(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)'/)!;
+        const [w, s, e, n] = m.slice(1).map(Number);
+        for (const cell of AD_CITY_BBOXES) {
+            const [cw, cs, ce, cn] = cell.bbox;
+            expect(w <= cw && s <= cs && e >= ce && n >= cn, `${cell.city} outside the ${C.region} row`).toBe(true);
+        }
     });
 
     it(`stampBboxesFor bounds the join to ${C.bboxes} (§HEIGHT-STAMP-BUDGET preflight)`, () => {
@@ -64,10 +75,10 @@ describe(`§${C.key.toUpperCase()} — bake.mjs wires the ${C.region} stamp`, ()
 
     // §PENDING-HEIGHTS round 2 (b153332d, 2026-09-05) — the TWO gates are in DIFFERENT states on purpose, and this
     // spec pins the difference rather than asserting the tidier thing that is not true:
-    //   • context-bake.yml's gate runs INSIDE the bake that produces the heights, so an ACTIVE `abudhabi` row is
+    //   • context-bake.yml's gate runs INSIDE the bake that produces the heights, so an ACTIVE `gccstates` row is
     //     exactly right: a declared join that stamps nothing at Al Markaziyah must fail THERE.
     //   • context-merge-publish.yml's gate runs over the MERGED set, which today still carries the pre-stamp
-    //     `abudhabi` bytes. An active row there refused the WHOLE merge and stranded twelve other regions'
+    //     `abudhabi`/`gccstates` bytes. An active row there refused the WHOLE merge and stranded twelve other regions'
     //     measured heights (run 33980124792), so the orchestrator PARKED it. It is parked, not deleted, with the
     //     un-park condition written beside it — un-parking must stay a deliberate edit, and deleting the parked
     //     line must break this spec.

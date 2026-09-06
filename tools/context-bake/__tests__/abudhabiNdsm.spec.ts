@@ -204,18 +204,18 @@ describe('§ADSDI-NDSM — DSM − DTM differencing is the CZ solver, reused', (
     });
 });
 
-describe('§AD-CITY-BBOXES — the abudhabi row working set', () => {
+describe('§AD-CITY-BBOXES — the gccstates row working set (was abudhabi until §ME-NATIONAL 2026-09-06)', () => {
     const bake = readFileSync(resolve(HERE, '../bake.mjs'), 'utf8');
-    const row = bake.match(/\{\s*name:\s*'abudhabi'\s*,[^\n]*bbox:\s*'(-?[\d.]+),(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)'/);
+    const row = bake.match(/\{\s*name:\s*'gccstates'\s*,[^\n]*bbox:\s*'(-?[\d.]+),(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)'/);
     const region: Bbox = [Number(row![1]), Number(row![2]), Number(row![3]), Number(row![4])];
-    it('has unique cities and city-sized bboxes inside the bake.mjs abudhabi row AND inside both mosaics', () => {
+    it('has unique cities and city-sized bboxes inside the bake.mjs gccstates row AND inside both mosaics', () => {
         const names = AD_CITY_BBOXES.map((c) => c.city);
         expect(new Set(names).size).toBe(names.length);
         for (const { city, bbox } of AD_CITY_BBOXES) {
             const [w, s, e, n] = bbox;
             expect(e - w, `${city} lon span`).toBeGreaterThan(0.03); expect(e - w, `${city} lon span`).toBeLessThan(0.3);
             expect(n - s, `${city} lat span`).toBeGreaterThan(0.03); expect(n - s, `${city} lat span`).toBeLessThan(0.2);
-            expect(w >= region[0] && s >= region[1] && e <= region[2] && n <= region[3], `${city} inside abudhabi row`).toBe(true);
+            expect(w >= region[0] && s >= region[1] && e <= region[2] && n <= region[3], `${city} inside gccstates row`).toBe(true);
             expect(cellInsideMosaics([w, s, w + 0.01, s + 0.01]), `${city} SW cell in mosaics`).toBe(true);
             expect(cellInsideMosaics([e - 0.01, n - 0.01, e, n]), `${city} NE cell in mosaics`).toBe(true);
         }
