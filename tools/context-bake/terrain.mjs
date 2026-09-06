@@ -17,7 +17,30 @@
 //   WGS-84 **ellipsoidal** metres (what Cesium's placement APIs consume). National DTMs are
 //   published **orthometric** (height above a national tide-gauge geoid: NAP / DVR90 / LN02 /
 //   NGF-IGN69 / EVRF2007…). This compiler lifts orthometric → ellipsoidal by adding the local
-//   geoid separation (a per-tile constant to cm accuracy over a 256 m tile — see geoidSepM).
+//   geoid separation N.
+//
+//   ⛔ CORRECTED 2026-09-06 (§GEOID-PER-TILE-DATUM / L-12975). These lines read "a per-tile constant
+//   to cm accuracy over a 256 m tile — see geoidSepM", and that sentence was the defect. It was TRUE
+//   of the 256 m city tile it was written for and FALSE of everything since: `geoidSepM` is ONE
+//   constant per COUNTRY/REGION pinned at the PRINCIPAL CITY, and it was being applied across whole
+//   nations. MEASURED 2026-09-06, EGM2008 read from the same NGA grid the bake reads
+//   (cdn.proj.org/us_nga_egm08_25.tif) — the constant's error AT A REAL CITY, not a worst corner:
+//       Dubai      −34.14 m true vs `gccstates` −7.62 (Riyadh)  →  26.52 m
+//       Abu Dhabi  −33.19 m                                     →  25.57 m
+//       Doha       −29.80 m                                     →  22.18 m
+//       Las Palmas  43.58 m true vs `es` 51.0 (Madrid)          →   7.42 m
+//       Milan       43.51 m true vs `it` 48.0 ("Rome/Milan")    →   4.49 m
+//       Barcelona   49.79 m                                     →   1.21 m  (the "~49 m" admitted inline)
+//   That is the founder's own diagnosis — "a terrain location issue in z axis", Dubai now and Spain
+//   originally — and it is 26.5 m, about eight storeys, in the Gulf.
+//   THE FIX, both halves now wired: national/regional bakes lift EVERY POST by N(lon,lat)
+//   (`bakeNationalRegion`, default `--geoid egm08`, shipped 2026-09-04) and CITY bakes now do too
+//   (`bakeCity` → `resolveGeoidEvaluator` → `compileWarpToTileset({ geoidAt })`, default `--geoid
+//   egm08`). `--geoid constant` reproduces the old per-country lift byte-for-byte and is EXPLICIT
+//   ONLY — it is never a silent fallback, because a wrong N is invisible in the tile and catastrophic
+//   in the view. NL is the one documented exception (§GEOID-NL-STAYS-NAP: NAP ≠ EGM2008, and the
+//   residual there is 0.22 m at Amsterdam).
+//
 //   The SAME lifted DTM is sampled for the site origin and the envelope rasant, so nothing
 //   floats or buries. This is the fix for L-584's single-point-at-block-centroid sampling:
 //   `fitFootprintGroundPlane()` samples the DTM around the footprint perimeter and fits a
@@ -43,13 +66,18 @@
 //        --out out/terrain/barcelona                 #   (ES/FR/CH/NO/DE/IT/GB wired; NL closed-form)
 //   node terrain.mjs --bake-city barcelona \         # §E3A: SAME compile, ALTERNATIVE visual-DTM
 //        --dtm-source mapterhorn --out out/mh        #   source (switch, DEFAULT OFF — omit = national)
+//   node terrain.mjs --bake-city milan \           # §GEOID-PER-TILE-DATUM: the datum lift. DEFAULT
+//        [--geoid egm08|constant] [--geoid-tif f]  #   egm08 = per-post N from the NGA EGM2008 grid;
+//                                                  #   `constant` = the old per-COUNTRY geoidSepM,
+//                                                  #   EXPLICIT only. --geoid-tif reads a LOCAL copy of
+//                                                  #   that grid (offline bake; identical artefact).
 //   node terrain.mjs --fetch-nl amsterdam.tif        # keyless AHN WCS GetCoverage → a DTM GeoTIFF
 //   node terrain.mjs --tif <file> --country <cc> \   # compile ONE local GeoTIFF → quantized-mesh
 //        --out out/terrain/<city>
 //   ── §11 TERRAIN-EVERYWHERE (whole regions, Mapterhorn-sourced, per-post EGM2008 lift) ──
 //   node terrain.mjs --national-regions [--max-zoom 10] [--avg-kb 640]   # the founder's cost table
 //   node terrain.mjs --bake-region spain --out out/terrain/spain \       # bake ONE whole region
-//        [--max-zoom 10] [--base-err 1.0] [--geoid egm08|constant] [--shard 0/3] [--concurrency 4]
+//        [--max-zoom 10] [--base-err 1.0] [--geoid egm08|constant] [--geoid-tif <local egm08.tif>] [--shard 0/3] [--concurrency 4]
 //   node terrain.mjs --matrix --group europe [--tiles-per-shard 4000]    # CI matrix JSON (terrain-bake-regions.yml)
 //   node terrain.mjs --list-regions [--group usa]                        # region slugs (space-separated)
 //   node terrain.mjs --check-client-coverage                             # terrainCoverage.ts slug-set == bake slug-set
@@ -70,9 +98,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // Every row's `probe.url` was LIVE-PROBED (node fetch) 2026-07-24 AND re-probed 2026-07-25 from
 // this machine. `verdict` ∈ 'keyless' (HTTP 200 + real coverage/data), 'token' (auth required),
 // 'unverified' (host up but exact coverage route not yet pinned). `geoidSepM` is the orthometric→
-// ellipsoidal lift at the country's principal city (used by the datum fix; a per-tile EGM2008
-// lookup should replace the constant when a geoid grid is wired — the constant is cm-accurate over
-// one 256 m tile). NEVER silently use a licence-gated or non-commercial DTM: `license` +
+// ellipsoidal lift at the country's PRINCIPAL CITY — and, since §GEOID-PER-TILE-DATUM (L-12975,
+// 2026-09-06), it is DOCUMENTATION plus the explicit `--geoid constant` fallback, no longer what a
+// default bake lifts by. This line used to say "a per-tile EGM2008 lookup SHOULD replace the constant
+// when a geoid grid is wired — the constant is cm-accurate over one 256 m tile". The grid IS wired
+// (EGM08_COG_URL, §11) and both bake paths read it per post; and the "cm-accurate" clause was only
+// ever true tile-by-tile, never country-by-country: measured against EGM2008, `es` 51.0 is 7.42 m out
+// at Las Palmas and `it` 48.0 is 4.49 m out at Milan, both inside their own country.
+// ⛔ `geoidSepM: null` (`sa`) is a REFUSAL, not a zero: no open DEM establishes that datum, so
+// `resolveGeoidEvaluator` throws under `--geoid constant` rather than lifting by a fabricated 0.
+// NEVER silently use a licence-gated or non-commercial DTM: `license` +
 // `commercialOk` are carried so a caller can refuse. FABDEM (global bare-earth fallback) is
 // CC-BY-NC — flagged commercialOk:false.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -94,7 +129,10 @@ export const TERRAIN_SOURCES = {
     protocol: 'STAC → GeoTIFF assets', coverageId: 'ch.swisstopo.swissalti3d',
     endpoint: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d',
     resolutionM: 0.5, horizCrs: 'EPSG:2056 (LV95)', vertDatum: 'LN02 (EPSG:5728)',
-    compoundCrs: 'EPSG:9518', geoidSepM: 49.5, // LN02→ellipsoidal at Zurich
+    // MEASURED EGM2008 at Zurich (2026-09-06) = 47.76 m, i.e. this constant is 1.74 m high there; the CH
+    // bbox spans 46.71..54.89 m. LN02 is a national datum so EGM2008 is an approximation of it, but not a
+    // 1.7 m one — see §GEOID-PER-TILE-DATUM (L-12975). Documentation + `--geoid constant` only.
+    compoundCrs: 'EPSG:9518', geoidSepM: 49.5, // LN02→ellipsoidal at Zurich (EGM2008 reads 47.76)
     license: 'swisstopo open (BGDI)', commercialOk: true, auth: 'none',
     probe: { url: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d', verdict: 'keyless',
       evidence: 'HTTP 200 application/json, STAC collection live, "surface … without vegetation and dev[elopment]" (bare-earth), GeoTIFF asset tiles at public data.geo.admin.ch URLs (per-tile STAC items)' },
@@ -114,7 +152,11 @@ export const TERRAIN_SOURCES = {
     protocol: 'INSPIRE Elevation WMS / CNIG download', coverageId: 'EL.ElevationGridCoverage',
     endpoint: 'https://servicios.idee.es/wms-inspire/mdt',
     resolutionM: 5.0, horizCrs: 'ETRS89 UTM (EPSG:258xx)', vertDatum: 'EVRF2007 / REDNAP',
-    compoundCrs: 'EPSG:7423', geoidSepM: 51.0, // Madrid; ~49 m Barcelona
+    // MEASURED EGM2008 (2026-09-06): Madrid 51.68 · Barcelona 49.79 · Palma 49.53 · Las Palmas 43.58 ·
+    // Sta Cruz de Tenerife 44.38 · Tarifa 42.21. So this ONE constant is 7.42 m out over Gran Canaria and
+    // 9.23 m out at Tarifa — 563 `es` city rows share it, 403 of them >1 m out (§GEOID-PER-TILE-DATUM,
+    // L-12975). Documentation + `--geoid constant` only; the default bake lifts per post.
+    compoundCrs: 'EPSG:7423', geoidSepM: 51.0, // Madrid (51.68 measured) — NOT Spain
     license: 'CC-BY 4.0 (PNOA-LiDAR)', commercialOk: true, auth: 'none',
     probe: { url: 'https://servicios.idee.es/wms-inspire/mdt?SERVICE=WMS&REQUEST=GetCapabilities', verdict: 'keyless',
       evidence: 'HTTP 200 text/xml WMS_Capabilities MDT (national INSPIRE elevation). ICGC contextmaps host up (200) but the ICGC elevation WCS route needs pinning — national IGN PNOA already covers Catalonia. Reuses the Spain height (nDSM) DTM per CONTEXT-DATA-TERRAIN.md' },
@@ -176,7 +218,11 @@ export const TERRAIN_SOURCES = {
     protocol: 'WMS GetMap → GeoTIFF (GeoServer)', coverageId: 'tinitaly_dem',
     endpoint: 'http://tinitaly.pi.ingv.it/TINItaly_1_1/wms',
     resolutionM: 10.0, horizCrs: 'ETRS89 UTM32/33 (EPSG:258xx)', vertDatum: 'orthometric (Italian geoid)',
-    compoundCrs: 'read from GeoTIFF', geoidSepM: 48.0, // Rome/Milan (~46–49 m over Italy)
+    // ⛔ THIS COMMENT SAID "Rome/Milan (~46-49 m over Italy)" AND IT WAS WRONG ABOUT MILAN. MEASURED
+    // EGM2008 (2026-09-06): Rome 48.41, Milan 43.51 — the constant is 4.49 m out at Milan, which is a
+    // BAKED city tileset, and Italy's true range over its own bbox is 26.64..55.06 m, not 46-49
+    // (§GEOID-PER-TILE-DATUM, L-12975). Documentation + `--geoid constant` only.
+    compoundCrs: 'read from GeoTIFF', geoidSepM: 48.0, // Rome (48.41 measured) — NOT Milan, NOT Italy
     license: 'CC-BY 4.0 (cite Tarquini et al. / INGV)', commercialOk: true, auth: 'none',
     probe: { url: 'http://tinitaly.pi.ingv.it/TINItaly_1_1/wms?service=WMS&request=GetCapabilities', verdict: 'keyless',
       evidence: 'LIVE 2026-07-25: HTTP 200 text/xml WMS_Capabilities (214 KB), layer <Name>tinitaly_dem</Name> '
@@ -258,7 +304,19 @@ export const TERRAIN_SOURCES = {
     protocol: 'n/a', coverageId: null,
     endpoint: 'https://www.dgterritorio.gov.pt/ (DGT)',
     resolutionM: null, horizCrs: 'ETRS89 / PT-TM06 (EPSG:3763)', vertDatum: 'Cascais 1938',
-    compoundCrs: null, geoidSepM: 53.0, // Lisbon (for when a source is found)
+    // §GEOID-PORTUGAL-ONE-ANSWER (L-12975): this row read `geoidSepM: 53.0 // Lisbon (for when a source
+    // is found)` while the §11 `portugal` region row read 53.77 — ONE COUNTRY, TWO CONSTANTS, differing
+    // by 0.77 m. RECONCILED to the measured value, 53.85. SOURCE: EGM2008 N at Lisbon (−9.1393, 38.7223)
+    // read bilinearly from the NGA 2.5′ grid the bake reads, cdn.proj.org/us_nga_egm08_25.tif, probed
+    // 2026-09-06 → 53.854 m. So 53.77 was very nearly right (0.08 m) and 53.0 was 0.85 m low.
+    // ⚠ NEITHER CONSTANT REACHED A TILE, and that is why the disagreement survived: `pt` is BLOCKED
+    // (no open national bare-earth DTM), `DTM_FETCH` has no `pt` adapter, so `bakeCity` returns
+    // 'skip-unwired' for lisbon/porto and this field is never read by a compile. The §11 `portugal`
+    // row IS baked, but from Mapterhorn under the default `--geoid egm08` per-post lift, so its 53.77
+    // is likewise only documentation. Portugal's Z on the globe today comes from neither number.
+    // ⛔ A per-country constant is the wrong shape for Portugal anyway: measured across its own bbox
+    // N ∈ [47.38, 58.69] m — 11.32 m of swing, 1.71 m of it between Lisbon and Porto alone.
+    compoundCrs: null, geoidSepM: 53.85, // Lisbon — EGM2008 (PROBED 2026-09-06); documentation only, see above
     license: 'BLOCKED — no open commercial DTM located', commercialOk: null, auth: 'none',
     probe: { url: 'https://cartografia.dgterritorio.gov.pt/wcs/ELEVATION?service=WCS&request=GetCapabilities', verdict: 'blocked',
       evidence: 'LIVE 2026-07-25: HTTP 404 text/html on the guessed DGT elevation WCS; DGT publishes cartography '
@@ -1922,14 +1980,29 @@ async function fetchTerrariumZxy(cfg, bbox) {
 // geographic national DTM produces a correct WGS-84-ellipsoidal quantized-mesh tileset. Same LOD
 // pyramid + layer.json + datum lift as the NL path — the ONLY new machinery is the reproject warp.
 // ═════════════════════════════════════════════════════════════════════════════
-export function compileWarpToTileset({ raster, nativeCrs, geoidSepM, outDir, gridSize = 257, Martini, tileWsen }) {
+export function compileWarpToTileset({ raster, nativeCrs, geoidSepM, geoidAt = null, outDir, gridSize = 257, Martini, tileWsen }) {
   const proj = getProjector(nativeCrs);
   const cityWsen = tileWsen ?? inscribedWgs84Extent(raster, proj);
   const rasterFilled = { ...raster, values: fillNodata(raster.values, raster.width, raster.height) };
-  // Per-tile warp: resample the native DTM onto THIS TMS tile's rectangle, then lift ortho→ellipsoidal.
-  const gridForRect = (rectDeg) =>
-    Float32Array.from(resampleToGeographicGrid(rasterFilled, proj.forward, rectDeg, gridSize),
-      (h) => napToEllipsoidal(h, geoidSepM));
+  // §GEOID-PER-TILE-DATUM (L-12975): `geoidAt(lon,lat)` lifts EVERY POST by its own separation; the
+  // scalar `geoidSepM` is the legacy per-COUNTRY constant and stays the default so a caller that passes
+  // no evaluator produces byte-identical tiles. A country constant is honest across a 0.15° city bbox
+  // (EGM2008 swings ≤0.2 m over most of one) but NOT across the country it is keyed to — `es` 51.0 is
+  // Madrid's N and is 7.4 m wrong over Las Palmas, `it` 48.0 is 4.5 m wrong over Milan.
+  if (geoidAt == null && geoidSepM == null) throw new Error('compileWarpToTileset: neither geoidAt nor geoidSepM — refusing to compile a tileset with no vertical datum (a fabricated 0 lift buries the ground by the local N).');
+  const gridForRect = (rectDeg) => {
+    const vals = resampleToGeographicGrid(rasterFilled, proj.forward, rectDeg, gridSize);
+    if (!geoidAt) return Float32Array.from(vals, (h) => napToEllipsoidal(h, geoidSepM));
+    const [rw, rs, re, rn] = rectDeg, out = new Float32Array(gridSize * gridSize);
+    for (let gy = 0; gy < gridSize; gy++) {
+      const lat = rn - (rn - rs) * (gy / (gridSize - 1));
+      for (let gx = 0; gx < gridSize; gx++) {
+        const lon = rw + (re - rw) * (gx / (gridSize - 1));
+        out[gy * gridSize + gx] = napToEllipsoidal(vals[gy * gridSize + gx], geoidAt(lon, lat));
+      }
+    }
+    return out;
+  };
   const res = emitTileChain({ cityWsen, gridForRect, gridSize, outDir, Martini });
   return { tileWsen: cityWsen, ...res };
 }
@@ -2021,7 +2094,8 @@ export async function compileTifToTileset(tifPath, country, outDir, gridSize, ge
 // The honest core of the multi-city bake: resolve city → source → fetch real DTM → warp → tileset.
 // Skips (never fakes) for apikey-gated sources without a key and for BLOCKED cities.
 // ═════════════════════════════════════════════════════════════════════════════
-export async function bakeCity(region, { outDir, gridSize = 257, geotiffMod, Martini, env = process.env, bboxOverride, dtmSource } = {}) {
+export async function bakeCity(region, { outDir, gridSize = 257, geotiffMod, Martini, env = process.env, bboxOverride, dtmSource,
+  geoidMode = 'egm08', geoidTif = null, log = console.log } = {}) {
   const src = TERRAIN_SOURCES[region.source];
   const bbox = bboxOverride ?? region.bbox;
   if (region.source === 'nl') {
@@ -2043,8 +2117,20 @@ export async function bakeCity(region, { outDir, gridSize = 257, geotiffMod, Mar
   }
   const { raster, nativeCrs, url, tiles } = await fetchDtmRaster(fetchKey, bbox, { geotiffMod, env });
   console.log(`  fetched DTM: ${raster.width}x${raster.height}px native ${nativeCrs}${tiles ? ` (${tiles} source tiles)` : ''}\n  via ${url}`);
-  const res = compileWarpToTileset({ raster, nativeCrs, geoidSepM: src.geoidSepM, outDir, gridSize, Martini });
-  return { status: 'ok', ...res, nativeCrs, url };
+  // §GEOID-PER-TILE-DATUM (L-12975) — lift PER POST from the NGA EGM2008 grid, not by the per-COUNTRY
+  // constant. `src.geoidSepM` is keyed to the country's PRINCIPAL CITY, so it is right at that city and
+  // wrong everywhere the country is wide: MEASURED 2026-09-06 against cdn.proj.org/us_nga_egm08_25.tif,
+  // `es` 51.0 (Madrid) is 7.42 m out at Las Palmas and 9.23 m out at Tarifa; `it` 48.0 is 4.49 m out at
+  // Milan. `--geoid constant` reproduces the old lift byte-for-byte and stays available.
+  const geoid = await resolveGeoidEvaluator(bbox, { mode: geoidMode, constantM: src.geoidSepM ?? null, geotiffMod, tifPath: geoidTif });
+  if (geoid.mode === 'egm08') {
+    log(`  geoid: EGM2008 per post over ${bbox.join(',')} · N ∈ [${geoid.minN.toFixed(2)}, ${geoid.maxN.toFixed(2)}] m (swing ${geoid.swingM.toFixed(2)} m)`
+      + (geoid.deltaAtCentre == null ? ' · no country constant to compare' : ` · country constant ${src.geoidSepM} m is ${geoid.deltaAtCentre >= 0 ? '+' : ''}${(-geoid.deltaAtCentre).toFixed(2)} m off at this city — Z MOVES BY THAT MUCH vs a --geoid constant bake`));
+  } else {
+    log(`  geoid: CONSTANT ${src.geoidSepM} m (explicit --geoid constant; ${src.country}'s principal city — NOT this city's N)`);
+  }
+  const res = compileWarpToTileset({ raster, nativeCrs, geoidSepM: src.geoidSepM, geoidAt: geoid.mode === 'egm08' ? geoid.at : null, outDir, gridSize, Martini });
+  return { status: 'ok', ...res, nativeCrs, url, geoid: { mode: geoid.mode, minN: geoid.minN, maxN: geoid.maxN, swingM: geoid.swingM, deltaAtCentre: geoid.deltaAtCentre } };
 }
 
 /** Fetch a coarse DTM for a city and print elevations at named control points — the placement +
@@ -2165,7 +2251,10 @@ export const NATIONAL_REGIONS = [
   { name: 'switzerland',  group: 'europe', bbox: [5.90, 45.80, 10.50, 47.85],   geoidSepM: 49.37, probeCity: 'Bern', probe: [7.45, 46.95] },
   { name: 'austria',      group: 'europe', bbox: [9.50, 46.30, 17.20, 49.05],   geoidSepM: 44.73, probeCity: 'Vienna', probe: [16.37, 48.21] },
   { name: 'czechia',      group: 'europe', bbox: [12.05, 48.50, 18.90, 51.10],  geoidSepM: 44.92, probeCity: 'Prague', probe: [14.42, 50.09] },
-  { name: 'portugal',     group: 'europe', bbox: [-9.60, 36.90, -6.10, 42.20],  geoidSepM: 53.77, probeCity: 'Lisbon', probe: [-9.14, 38.72] },
+  // §GEOID-PORTUGAL-ONE-ANSWER (L-12975) — 53.77 → 53.85, the value MEASURED at Lisbon on the same NGA
+  // EGM2008 grid the bake reads (2026-09-06); TERRAIN_SOURCES.pt carried a rival 53.0 and now carries
+  // this same number. One country, one answer. Full reconciliation at TERRAIN_SOURCES.pt.
+  { name: 'portugal',     group: 'europe', bbox: [-9.60, 36.90, -6.10, 42.20],  geoidSepM: 53.85, probeCity: 'Lisbon', probe: [-9.14, 38.72] },
   { name: 'belgium',      group: 'europe', bbox: [2.50, 49.50, 6.40, 51.60],    geoidSepM: 45.40, probeCity: 'Brussels', probe: [4.35, 50.85] },
   { name: 'croatia',      group: 'europe', bbox: [13.40, 42.30, 19.50, 46.60],  geoidSepM: 46.06, probeCity: 'Zagreb', probe: [15.98, 45.81] },
   { name: 'slovenia',     group: 'europe', bbox: [13.30, 45.40, 16.60, 46.90],  geoidSepM: 46.90, probeCity: 'Ljubljana', probe: [14.51, 46.05] },
@@ -2481,9 +2570,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * requests → { sample(lon,lat) → N metres (bilinear, edge-clamped), width, height, resDeg, stats }.
  * N is what lifts a terrarium/GLO-30 orthometric height to the WGS-84 ellipsoidal height Cesium places.
  */
-export async function loadGeoidGrid(bboxWsen, { geotiffMod, url = EGM08_COG_URL, padDeg = 1.0 } = {}) {
+export async function loadGeoidGrid(bboxWsen, { geotiffMod, url = EGM08_COG_URL, padDeg = 1.0, tifPath = null } = {}) {
   const t0 = Date.now();
-  const tiff = await geotiffMod.fromUrl(url, { allowFullFile: false });
+  // §GEOID-OFFLINE-GRID (L-12975): `tifPath` reads a LOCAL copy of the SAME NGA grid instead of range-
+  // reading the CDN, so a bake box with no egress — or a CDN outage — is a pre-fetch away from correct
+  // rather than a hard stop. It is the identical artefact (same 8640×4321 posts), never a substitute
+  // model: EGM96 or a coarsened grid would shift every tile by decimetres with no visible signal.
+  const tiff = tifPath ? await geotiffMod.fromFile(tifPath) : await geotiffMod.fromUrl(url, { allowFullFile: false });
   const im = await tiff.getImage(0);
   const bb = im.getBoundingBox();               // [west, south, east, north] in degrees (−180..180)
   const [rx, ryRaw] = im.getResolution(); const ry = Math.abs(ryRaw);
@@ -2500,7 +2593,37 @@ export async function loadGeoidGrid(bboxWsen, { geotiffMod, url = EGM08_COG_URL,
   let mn = Infinity, mx = -Infinity; for (const v of values) { if (v < mn) mn = v; if (v > mx) mx = v; }
   // pixel-centre convention: value (i,j) sits at west + (i+0.5)·rx, north − (j+0.5)·ry
   const sample = (lon, lat) => sampleGrid(values, width, height, (lon - west) / rx - 0.5, (north - lat) / ry - 0.5);
-  return { sample, width, height, resDeg: rx, west, north, minN: mn, maxN: mx, bytes: values.byteLength, ms: Date.now() - t0, url };
+  return { sample, width, height, resDeg: rx, west, north, minN: mn, maxN: mx, bytes: values.byteLength, ms: Date.now() - t0, url: tifPath ?? url };
+}
+
+/**
+ * §GEOID-PER-TILE-DATUM (L-12975) — the geoid evaluator a compile lifts posts with.
+ * `mode: 'egm08'` returns a per-post N(lon,lat) sampler over `bbox` from the SAME NGA EGM2008 2.5′ grid
+ * the national bake reads; `mode: 'constant'` returns the caller's single N. It NEVER falls back from
+ * egm08 to the constant on error — a wrong N is invisible in the tile and catastrophic in the view, so
+ * an unreachable grid THROWS. `constantM: null` under 'constant' throws too: `sa` carries a null
+ * separation because no open DEM establishes its datum, and a refusal must not decay into a zero.
+ * `deltaAtCentre` is the measured constant-vs-truth error at the bbox centre — what a caller PRINTS so
+ * a Z shift under an existing tileset is never silent.
+ */
+export async function resolveGeoidEvaluator(bbox, { mode = 'egm08', constantM = null, geotiffMod, tifPath = null, url = EGM08_COG_URL, padDeg = 0.5 } = {}) {
+  if (mode === 'constant') {
+    if (constantM == null) throw new Error('resolveGeoidEvaluator: mode=constant with no geoidSepM — this row\'s vertical datum is UNESTABLISHED (e.g. `sa`); refusing rather than lifting by a fabricated 0. Use --geoid egm08 or source a datum.');
+    return { at: () => constantM, mode: 'constant', constantM, minN: constantM, maxN: constantM, swingM: 0, deltaAtCentre: 0 };
+  }
+  if (mode !== 'egm08') throw new Error(`resolveGeoidEvaluator: unknown geoid mode '${mode}' (expected 'egm08' or 'constant')`);
+  const g = await loadGeoidGrid(bbox, { geotiffMod, tifPath, url, padDeg });
+  const [w, s, e, n] = bbox;
+  // min/max over the CALLER'S bbox, not the padded window — the padding exists for interpolation only.
+  let mn = Infinity, mx = -Infinity;
+  const steps = 32;
+  for (let j = 0; j <= steps; j++) for (let i = 0; i <= steps; i++) {
+    const v = g.sample(w + (e - w) * (i / steps), s + (n - s) * (j / steps));
+    if (v < mn) mn = v; if (v > mx) mx = v;
+  }
+  const centreN = g.sample((w + e) / 2, (s + n) / 2);
+  return { at: g.sample, mode: 'egm08', url: g.url, window: `${g.width}x${g.height}`, resDeg: g.resDeg, bytes: g.bytes, ms: g.ms,
+    minN: mn, maxN: mx, swingM: mx - mn, centreN, constantM, deltaAtCentre: constantM == null ? null : centreN - constantM };
 }
 
 /**
@@ -2679,7 +2802,7 @@ export async function emitTileChainAsync({ regionWsen, gridForRect, gridSize, ou
  * 'constant' (the row's probe-computed `geoidSepM`; explicit only).
  */
 export async function bakeNationalRegion(region, { outDir, gridSize = NATIONAL_BAKE_DEFAULTS.gridSize, maxZoom, baseErrM, Martini, geotiffMod,
-  shard = null, concurrency = NATIONAL_BAKE_DEFAULTS.concurrency, geoidMode = 'egm08', bboxOverride, log = console.log } = {}) {
+  shard = null, concurrency = NATIONAL_BAKE_DEFAULTS.concurrency, geoidMode = 'egm08', geoidTif = null, bboxOverride, log = console.log } = {}) {
   const cfg = DTM_FETCH.mapterhorn;
   let sharp;
   try { sharp = (await import('sharp')).default; }
@@ -2693,7 +2816,7 @@ export async function bakeNationalRegion(region, { outDir, gridSize = NATIONAL_B
     geoidAt = () => region.geoidSepM; geoid = { mode: 'constant', N: region.geoidSepM };
     log(`  geoid: CONSTANT ${region.geoidSepM} m (explicit --geoid constant; EGM2008 at ${region.probeCity ?? 'principal city'})`);
   } else {
-    const g = await loadGeoidGrid(bbox, { geotiffMod });
+    const g = await loadGeoidGrid(bbox, { geotiffMod, tifPath: geoidTif });
     geoidAt = g.sample; geoid = { mode: 'egm08', url: g.url, window: `${g.width}x${g.height}`, resDeg: g.resDeg, minN: g.minN, maxN: g.maxN };
     log(`  geoid: EGM2008 window ${g.width}x${g.height} @ ${(g.resDeg * 60).toFixed(1)}′ (${(g.bytes / 1024).toFixed(0)} KB, ${g.ms} ms) · N ∈ [${g.minN.toFixed(1)}, ${g.maxN.toFixed(1)}] m over the region (a constant would be off by up to ${((g.maxN - g.minN) / 2).toFixed(1)} m)`);
   }
@@ -2877,7 +3000,7 @@ async function main() {
     const opts = { outDir, Martini, geotiffMod, shard,
       maxZoom: val('--max-zoom') ? Number(val('--max-zoom')) : undefined, baseErrM: val('--base-err') ? Number(val('--base-err')) : undefined,
       gridSize: Number(val('--grid') || NATIONAL_BAKE_DEFAULTS.gridSize), concurrency: Number(val('--concurrency') || NATIONAL_BAKE_DEFAULTS.concurrency),
-      geoidMode: val('--geoid') || 'egm08', bboxOverride: val('--bbox') ? val('--bbox').split(',').map(Number) : undefined };
+      geoidMode: val('--geoid') || 'egm08', geoidTif: val('--geoid-tif') || null, bboxOverride: val('--bbox') ? val('--bbox').split(',').map(Number) : undefined };
     console.log(`bake region ${name} (${region.group}; ${region.bbox.join(',')}; mapterhorn → z0..${opts.maxZoom ?? NATIONAL_BAKE_DEFAULTS.maxZoom}, base err ${opts.baseErrM ?? NATIONAL_BAKE_DEFAULTS.baseErrM} m, geoid ${opts.geoidMode}${shard ? `, shard ${shard.i}/${shard.n}` : ''})`);
     const res = await bakeNationalRegion(region, opts);
     const fine = res.levels[res.levels.length - 1];
@@ -2969,7 +3092,18 @@ async function main() {
 
     if (region.source === 'nl') {
       if (dtmSource) console.log(`::warning::--dtm-source ${dtmSource} IGNORED for NL — the shipped closed-form AHN path is not switchable (E3a scope: non-NL §8c warp only).`);
+      if (val('--geoid')) console.log(`::warning::--geoid ${val('--geoid')} IGNORED for NL — see §GEOID-NL-STAYS-NAP below.`);
       // Shipped, founder-verified Amsterdam path — unchanged (dependency-free RD-New closed form).
+      // §GEOID-NL-STAYS-NAP (L-12975) — NL is the ONE city source deliberately EXCLUDED from the per-post
+      // EGM2008 lift, for two independent reasons, neither of which is "we did not get to it":
+      //  (1) AHN heights are NAP, and NAP is not EGM2008. The correct NL lift is the NAP→ellipsoid
+      //      separation (RDNAPTRANS), NOT a global gravimetric geoid; substituting EGM2008 would replace
+      //      a datum-exact constant with a model approximation of it.
+      //  (2) The error a per-post lift would remove here is BELOW the model's own noise. MEASURED
+      //      2026-09-06 over all five NL city bboxes: EGM2008 N ∈ [43.07, 44.19] m against the shipped
+      //      constant 43.0 — worst 1.19 m (eindhoven), amsterdam 0.22 m, and the swing INSIDE the
+      //      amsterdam bbox is 0.16 m. Compare `es`, where one constant is 9.23 m out (tarifa).
+      // So NL keeps `napToEllipsoidal(h, 43.0)` and stays byte-identical; nlAmsterdamDatum.spec.ts pins it.
       mkdirSync(outDir, { recursive: true });
       const tifPath = resolve(outDir, `${name}_dtm.tif`);
       // §NL-CITY-BBOX (L-12942) — DERIVE the subset from THIS city's bbox. The old default was the
@@ -3000,7 +3134,8 @@ async function main() {
     const bboxOverride = val('--bbox') ? val('--bbox').split(',').map(Number) : undefined;
     const effSrc = dtmSource ?? region.source;
     console.log(`bake ${name} (${effSrc.toUpperCase()}${dtmSource ? ` — --dtm-source override; datum lift stays ${region.source.toUpperCase()}'s` : ''}): ${DTM_FETCH[effSrc]?.note ?? ''}`);
-    const res = await bakeCity(region, { outDir, gridSize, geotiffMod, Martini, bboxOverride, dtmSource });
+    const res = await bakeCity(region, { outDir, gridSize, geotiffMod, Martini, bboxOverride, dtmSource,
+      geoidMode: val('--geoid') || 'egm08', geoidTif: val('--geoid-tif') || null });
     if (res.status !== 'ok') {
       // apikey-gated / unwired sources SKIP LOUDLY (::warning:: → visible CI annotation) but exit 0 so
       // the multi-city bake carries on (never a fake tile). Copenhagen lands here without the key.
