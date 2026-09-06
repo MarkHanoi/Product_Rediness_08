@@ -293,6 +293,7 @@ jobs:
           #   magdeburg germany 52.1277,11.6292 500
           #   hannover germany 52.3759,9.7320 500
           #   stuttgart germany 48.7758,9.1829 500
+          #   dresden germany 51.0500,13.7400 500
           #   abudhabi abudhabi 24.4539,54.3773 500
           fail=0
           checked=0
