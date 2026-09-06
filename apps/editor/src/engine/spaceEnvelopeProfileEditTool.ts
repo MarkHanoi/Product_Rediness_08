@@ -201,6 +201,17 @@ export class SpaceEnvelopeProfileEditTool {
                 `Edit ${record.role === 'level' ? 'Level' : 'Room'} Footprint`
                 + `${label ? ` - ${label}` : ''}`
                 + ` - ${frame.length.toFixed(3)} m across X, ${frame.height.toFixed(3)} m deep in Z`,
+            // ⭐ §PL-ENVELOPE-AUTHORING (2026-09-06) — the founder's *"the user can define the
+            // perimeter using CURVED LINES, STRAIGHT LINES, OR ORTHOGONALS"* for the space
+            // envelope. `ElevationOutlineSurface` has had all three since §OUTLINE81; the wall
+            // modal never left `'select'` mode, so for THIS subject they existed and were
+            // unreachable. Asking for them is one flag — ⛔ not a second outline surface, which
+            // C114 §10b forbids and which nothing in this lane wrote.
+            //
+            // ⛔ IT GRANTS NOTHING. An arc-authored ring is still judged by
+            // `spaceEnvelope.setFootprint` and its containment gate, which refuses with both
+            // numbers exactly as before. Headroom is not permission (C114 §14).
+            drawModes: true,
         };
 
         const cbs: WallProfileEditorCallbacks = {

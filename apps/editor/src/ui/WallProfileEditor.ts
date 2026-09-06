@@ -142,6 +142,13 @@ export class WallProfileEditor implements WallProfileEditorPort {
     get rootElement(): HTMLElement | null { return this._root; }
     /** Exactly what the status line is telling the author right now. */
     get statusText(): string { return this._status?.textContent ?? ''; }
+    /**
+     * §PL-ENVELOPE-AUTHORING — which authoring mode the surface is in (`'select'` for every
+     * subject that did not ask for `drawModes`). A READ, forwarded, exactly like `ring` above.
+     */
+    get mode(): 'select' | 'polyline' | 'arc' { return this._surface?.mode ?? 'select'; }
+    /** §PL-ENVELOPE-AUTHORING — whether ABSOLUTE ortho is armed. A READ, forwarded. */
+    get orthoOn(): boolean { return this._surface?.orthoOn ?? false; }
     /** Model (metres) → SVG pixels. */
     toPx(p: WallProfileVertex): { x: number; y: number } {
         return this._surface!.toPx(p);
@@ -256,6 +263,54 @@ export class WallProfileEditor implements WallProfileEditorPort {
             ?? `Edit Wall Profile - ${s.length.toFixed(3)} m long, ${s.height.toFixed(3)} m high`;
         root.appendChild(title);
 
+        // ⭐ §PL-ENVELOPE-AUTHORING (2026-09-06) — THE DRAWING MODES, FOR SUBJECTS THAT ASK.
+        //
+        // ⛔ BUILT ONLY WHEN `subject.drawModes` IS TRUE, and that guard is the whole reason this
+        // is additive rather than a rewrite: a wall subject omits the flag, this block does not
+        // run, and the panel is byte-identical (`wallProfileEditorChrome.test.ts` measures its
+        // exact box and its exact title). The same discipline as `subject.title` above.
+        //
+        // ⛔ AND IT IS NOT A NEW SURFACE. `ElevationOutlineSurface` already implements click-to-
+        // place polylines, 3-click arcs and ABSOLUTE ortho (§OUTLINE81, C86 §10.6 rule 2); the
+        // wall modal simply never left `'select'`. `WindowOutlineEditorDialog` is the proven
+        // caller of exactly these three controls and this row mirrors its vocabulary, so a user
+        // who has drawn a window outline already knows this bar. C114 §10b: JOINED, NOT REBUILT.
+        if (s.drawModes === true) {
+            const modeBar = document.createElement('div');
+            modeBar.className = 'wpe-mode-bar';
+            modeBar.style.cssText =
+                'flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;';
+            const modeBtn = (label: string, onClick: () => void): HTMLButtonElement => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.setAttribute('data-wpe-mode', label);
+                b.style.cssText =
+                    'padding:5px 10px;border:1px solid #d8d8e0;border-radius:6px;background:#fff;'
+                    + 'color:#1a1a1a;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;';
+                b.textContent = label;
+                b.addEventListener('click', (e) => { e.preventDefault(); onClick(); });
+                return b;
+            };
+            modeBar.appendChild(modeBtn('Move points', () => this._surface?.setMode('select')));
+            modeBar.appendChild(modeBtn('Straight', () => this._surface?.setMode('polyline')));
+            modeBar.appendChild(modeBtn('Curved', () => this._surface?.setMode('arc')));
+            const orthoWrap = document.createElement('label');
+            orthoWrap.style.cssText =
+                'display:flex;gap:5px;align-items:center;font-size:11.5px;cursor:pointer;';
+            const orthoBox = document.createElement('input');
+            orthoBox.type = 'checkbox';
+            orthoBox.className = 'wpe-ortho';
+            orthoBox.style.accentColor = '#6600FF';
+            // ⛔ ABSOLUTE while on — the founder's 2026-08-24 ruling, enforced in the L2 helper,
+            // not here. This checkbox only carries the intent.
+            orthoBox.addEventListener('change', () => {
+                if (this._surface) this._surface.orthoOn = orthoBox.checked;
+            });
+            orthoWrap.append(orthoBox, document.createTextNode('Orthogonal'));
+            modeBar.appendChild(orthoWrap);
+            root.appendChild(modeBar);
+        }
+
         const wrap = document.createElement('div');
         wrap.className = 'wpe-canvas-wrap';
         // `min-height:0` is load-bearing: without it a flex child refuses to shrink below its
@@ -288,8 +343,16 @@ export class WallProfileEditor implements WallProfileEditorPort {
         const hint = document.createElement('div');
         hint.className = 'wpe-hint';
         hint.style.cssText = 'flex:0 0 auto;margin:2px 2px 10px;color:#8a8a96;font-size:12px;';
-        hint.textContent =
-            'Drag a vertex to reshape. Click a hollow midpoint to insert a vertex. ' +
+        // ⛔ The wall sentence is UNCHANGED for a subject with no `drawModes` — a hint that
+        // described modes the panel does not offer would be the naming-vs-behaviour defect.
+        hint.textContent = s.drawModes === true
+            ? 'Move points, or draw a new perimeter: Straight places corners, Curved takes three '
+              + 'clicks (start, through, end), Orthogonal locks each segment to an axis. '
+              + 'Click a hollow midpoint to insert a vertex. Double-click a vertex to delete it. '
+              + `Shift = free (no ${Math.round(WALL_PROFILE_SNAP_M * 1000)} mm grid). `
+              + 'While drawing: Enter closes the outline, Esc abandons it. Otherwise Esc = cancel, '
+              + 'Enter = apply.'
+            : 'Drag a vertex to reshape. Click a hollow midpoint to insert a vertex. ' +
             'Double-click a vertex to delete it. Shift = free ' +
             `(no ${Math.round(WALL_PROFILE_SNAP_M * 1000)} mm grid). ` +
             'Esc = cancel, Enter = apply.';
@@ -363,8 +426,28 @@ export class WallProfileEditor implements WallProfileEditorPort {
         window.addEventListener('resize', this._onWinResize);
 
         this._onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') { e.stopPropagation(); this._cbs?.onCancel(); }
-            else if (e.key === 'Enter') { e.stopPropagation(); this._commit(); }
+            // ⭐ §PL-ENVELOPE-AUTHORING — mid-GESTURE, the two keys are about the DRAFT, not the
+            // dialog. Closing the panel on Esc while a user is halfway through an outline would
+            // throw away the whole edit to cancel one click. `WindowOutlineEditorDialog` decided
+            // this the same way; the branch exists only for subjects that can be in a draft.
+            const drawing = s.drawModes === true && this._surface !== null
+                && this._surface.mode !== 'select';
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                if (drawing) { this._surface!.cancelDraft(); this._surface!.setMode('select'); }
+                else this._cbs?.onCancel();
+            } else if (e.key === 'Enter') {
+                e.stopPropagation();
+                if (drawing) {
+                    if (!this._surface!.closeDraft()) {
+                        this._setStatus(
+                            `An outline needs at least ${PROFILE_MIN_VERTICES} placed points before it can close.`,
+                        );
+                    }
+                    return;
+                }
+                this._commit();
+            }
         };
         window.addEventListener('keydown', this._onKeyDown, true);
     }
@@ -399,6 +482,17 @@ export class WallProfileEditor implements WallProfileEditorPort {
      * consults, and is NOT re-implemented here (C84 EI-9: one answer per question).
      */
     private _commit(): void {
+        // ⭐ §PL-ENVELOPE-AUTHORING — Apply mid-GESTURE closes the DRAFT, exactly as Enter does.
+        // Committing an open polyline would silently drop the points the user has placed since
+        // the last closed ring, which is a well-formed wrong answer with no symptom.
+        if (this._subject?.drawModes === true && this._surface !== null && this._surface.mode !== 'select') {
+            if (!this._surface.closeDraft()) {
+                this._setStatus(
+                    `An outline needs at least ${PROFILE_MIN_VERTICES} placed points before it can close.`,
+                );
+            }
+            return;
+        }
         if (this.ring.length < PROFILE_MIN_VERTICES) {
             this._setStatus(`A profile needs at least ${PROFILE_MIN_VERTICES} vertices.`);
             return;

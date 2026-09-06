@@ -134,6 +134,16 @@ describe('enterProfileEditMode — the subject handed to the SHARED port', () =>
         expect(port.subject!.title?.toLowerCase()).not.toContain('wall');
     });
 
+    it('⭐ §PL-ENVELOPE-AUTHORING — asks the shared panel for the DRAWING modes', () => {
+        // The founder: *"the user can define the perimeter using CURVED LINES, STRAIGHT LINES, OR
+        // ORTHOGONALS"*. `ElevationOutlineSurface` has had all three since §OUTLINE81, but the
+        // wall modal never leaves `'select'`, so for THIS subject they were unreachable. The flag
+        // is the whole of the ask — ⛔ no second outline surface exists (C114 §10b).
+        const { tool, port } = build();
+        tool.enterProfileEditMode(LEVEL.id);
+        expect(port.subject!.drawModes).toBe(true);
+    });
+
     it('says ROOM for a room envelope', () => {
         const room = { ...LEVEL, id: 'spaceEnvelope_R', role: 'room', name: 'Kitchen' };
         const { tool, port } = build({ records: [room] });

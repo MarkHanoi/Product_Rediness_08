@@ -68,6 +68,27 @@ export interface WallProfileEditorSubject {
      * The CALLER owns the wording (C16 CA-18) — this L2 type only carries it.
      */
     readonly title?: string;
+    /**
+     * ⭐ §PL-ENVELOPE-AUTHORING (2026-09-06) — offer the DRAWING modes, not only vertex dragging.
+     *
+     * The founder's ask for the space envelope is *"the user can define the perimeter using CURVED
+     * LINES, STRAIGHT LINES, OR ORTHOGONALS"*. `ElevationOutlineSurface` has had all three since
+     * §OUTLINE81 (`'polyline'` · `'arc'` · absolute `orthoOn`) — but the wall modal *"simply never
+     * leaves `select` mode, which is how it keeps byte-identical behaviour"*, so a space envelope
+     * opened in that modal could MOVE its existing vertices and nothing else. The modes existed and
+     * were unreachable for this subject: [[committed-is-not-reachable]] at the level of a mode flag.
+     *
+     * ⛔ OPTIONAL, AND ABSENT MEANS THE WALL MODAL BYTE FOR BYTE — exactly the `title` precedent
+     * directly above. A wall subject omits it, no mode bar is built, no key branch is added, and
+     * `wallProfileEditorChrome.test.ts` still measures the same panel. ⛔ It is NOT a second outline
+     * surface (C114 §10b forbids one); it is the existing surface's own `setMode` reached by a
+     * subject that needs it.
+     *
+     * ⚠ IT GRANTS NO PERMISSION. A ring authored with an arc is still judged by the command the
+     * tool dispatches — for a space envelope, `spaceEnvelope.setFootprint` and its containment
+     * gate, which refuses with both numbers exactly as before.
+     */
+    readonly drawModes?: boolean;
 }
 
 export interface WallProfileEditorCallbacks {
