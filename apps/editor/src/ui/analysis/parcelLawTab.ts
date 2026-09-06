@@ -191,6 +191,15 @@ import {
   defaultParcelLawChatDeps,
   type ParcelLawChatHandle,
 } from './parcelLawChat';
+// §PL-ROOM-PROGRAMME (L-13024 clause 3, STR §25.5) — the ROOM PROGRAMME panel, RE-HOSTED into
+// question 3. ⛔ THE SAME MODULE THE RAIL USED TO MOUNT, not a copy of it: the rail's PROGRAMME
+// section was removed in the same commit, so there is exactly one live mount of this surface.
+import {
+  mountRoomProgrammePanel,
+  defaultRoomProgrammePanelDeps,
+  type RoomProgrammePanelHandle,
+  type RoomProgrammeHostRuntime,
+} from '../room-programme/roomProgrammePanel';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
@@ -237,6 +246,8 @@ export const PARCEL_LAW_QUANTITIES_HOST_TESTID = 'analysis-parcel-law-quantities
 export const PARCEL_LAW_CREATE_HOUSE_HOST_TESTID = 'analysis-parcel-law-create-house-slot';
 /** `data-testid` on the slot the STR §25.4 chat surface is mounted into. */
 export const PARCEL_LAW_CHAT_HOST_TESTID = 'analysis-parcel-law-chat-slot';
+/** §PL-ROOM-PROGRAMME — `data-testid` on the slot the ROOM PROGRAMME panel is re-hosted into. */
+export const PARCEL_LAW_ROOM_PROGRAMME_HOST_TESTID = 'analysis-parcel-law-room-programme-slot';
 /** §PL-IA-Q — `data-testid` on the ladder that holds the six question groups, in order. */
 export const PARCEL_LAW_LADDER_TESTID = 'analysis-parcel-law-ladder';
 /** §PL-IA-Q — `data-testid` on the slot question 1 renders the plot half of the model into. */
@@ -393,6 +404,27 @@ export interface ParcelLawTabDeps {
    * at — the rail PARCEL panel holds the same card when it, not this tab, claimed it last.
    */
   readonly mountChat?: (host: HTMLElement, scope: () => ParentNode | null) => ParcelLawChatHandle;
+  /**
+   * §PL-ROOM-PROGRAMME (L-13024 clause 3, STR §25.5) — the ROOM PROGRAMME panel, RE-HOSTED
+   * into question 3.
+   *
+   * Founder: *"the ROOM PROGRAMME is the one I want to bring into the Parcel Law panel"*,
+   * and *"when we click Create at the end, we might want to use the ROOM GENERATOR
+   * beforehand — to add rooms beforehand"*. Question 3 is *"What do I want to build?"* and
+   * question 6 is *"Take me into BIM."* — so mounting it here puts the programme in front
+   * of Create house, in the reader's own sequence, which is the whole of that ask.
+   *
+   * ⛔ RE-HOSTED, NOT DUPLICATED. `mountRoomProgrammePanel` is the ONE panel; the rail's
+   * PROGRAMME section no longer mounts a second copy of it (see `ProjectBrowserPanel.ts`).
+   * A second programme surface would be the rival this session has already refused for the
+   * Cesium viewer, the MapLibre map, the basemap and the view switcher.
+   *
+   * ⚠ OPTIONAL for the same reason as its five siblings: spec literals written before this
+   * seam existed are complete and must keep compiling. Omitting it yields the production
+   * mount, which resolves the live runtime itself and renders its own honest sentences on a
+   * runtime with no stores rather than throwing.
+   */
+  readonly mountRoomProgramme?: (host: HTMLElement) => RoomProgrammePanelHandle;
 }
 
 /** The production wiring. Resolved when CALLED, so a runtime composed after boot is seen. */
@@ -414,6 +446,11 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
       mountParcelLawEnvelopeAuthoring(h, defaultParcelLawEnvelopeAuthoringDeps(), { lawCheckHost }),
     mountCreateHouse: (h) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()),
     mountChat: (h, scope) => mountParcelLawChat(h, defaultParcelLawChatDeps(scope)),
+    // §PL-ROOM-PROGRAMME — the panel resolves the LIVE runtime itself (`runtime ??
+    // window.runtime`), so the null-by-design boot prop cannot make it print "unavailable"
+    // (§L-12916). `w.runtime` is handed in as the PREFERRED source, never the only one.
+    mountRoomProgramme: (h) => mountRoomProgrammePanel(
+      h, defaultRoomProgrammePanelDeps(w.runtime as unknown as RoomProgrammeHostRuntime | null)),
   };
 }
 
@@ -451,6 +488,8 @@ export function mountParcelLawTab(
   let quantities: ParcelLawQuantitiesHandle | null = null;
   let createHouse: ParcelLawCreateHouseHandle | null = null;
   let chat: ParcelLawChatHandle | null = null;
+  /** §PL-ROOM-PROGRAMME — the re-hosted ROOM PROGRAMME panel's handle. */
+  let roomProgramme: RoomProgrammePanelHandle | null = null;
   let unsub: (() => void) | null = null;
   let disposed = false;
   /** §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — question 1's pointer, shown only when the
@@ -738,6 +777,28 @@ export function mountParcelLawTab(
     authoringSlot.setAttribute('data-testid', PARCEL_LAW_AUTHORING_HOST_TESTID);
     bodyOf('intent').appendChild(authoringSlot);
 
+    // §PL-ROOM-PROGRAMME (L-13024 clause 3, STR §25.5) — the ROOM PROGRAMME, re-hosted.
+    //
+    // ⭐ IN QUESTION 3, AND THAT PLACEMENT IS THE ASK. Q3 is *"What do I want to build?"*
+    // and Q6 is *"Take me into BIM."*; the founder asked for the programme to be usable
+    // *"beforehand — to add rooms beforehand"* rather than generating a house and then
+    // correcting it. Putting it here means the reader declares rooms, sees them solved into
+    // envelopes, and only then reaches Create house — the §25.5 contract that *"the graph
+    // drives the initial layout generation"*, in the ladder's own order.
+    //
+    // ⛔ IT IS THE ONE INSTANCE, MOVED. The rail's PROGRAMME section used to mount it and no
+    // longer does. Two live mounts would share one session model and still be two rival
+    // surfaces for one job — the rule this session has already applied to the Cesium viewer,
+    // the MapLibre map, the basemap and the view switcher.
+    //
+    // ⭐ AND IT IS THE HONEST ANSWER TO L-13023. A programme the USER declared cannot be
+    // inflated by an enricher: §BRIEF-IS-AUTHORITATIVE stops the generator inventing rooms,
+    // and this puts the user's own declaration in front of the generator in the first place.
+    const roomProgrammeSlot = document.createElement('div');
+    roomProgrammeSlot.className = 'anl-parcel-law-room-programme-host';
+    roomProgrammeSlot.setAttribute('data-testid', PARCEL_LAW_ROOM_PROGRAMME_HOST_TESTID);
+    bodyOf('intent').appendChild(roomProgrammeSlot);
+
     // ── Q4 · "How much of my allowance have I used?" ───────────────────────────
     //
     // ⭐ THE LEDGER LEAVES THE AUTHORING SECTION AND BECOMES ITS OWN ANSWER.
@@ -836,6 +897,15 @@ export function mountParcelLawTab(
     } catch (e) {
       console.warn('[analysis][parcel-law] create-house mount failed (non-fatal):', e);
     }
+    try {
+      const mountRP = deps.mountRoomProgramme
+        ?? ((h: HTMLElement) => mountRoomProgrammePanel(
+          h, defaultRoomProgrammePanelDeps(
+            (deps.runtime ?? null) as unknown as RoomProgrammeHostRuntime | null)));
+      roomProgramme = mountRP(roomProgrammeSlot);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] room-programme mount failed (non-fatal):', e);
+    }
     // ⭐ MOUNTED LAST, and scoped to `root`. Last because the controls it drives must already be in
     // the DOM when a turn runs; scoped to this body because pressing a button is a real gesture and
     // a document-wide scope could press one on a surface the reader is not looking at.
@@ -895,6 +965,9 @@ export function mountParcelLawTab(
       try { authoring?.repaint(); } catch { /* same */ }
       try { quantities?.repaint(); } catch { /* same — a section that cannot repaint keeps its last honest render */ }
       try { createHouse?.repaint(); } catch { /* same */ }
+      // §PL-ROOM-PROGRAMME — the panel re-reads the project's rooms and the envelope store
+      // on refresh, so a house generated while this tab was open shows up on the next repaint.
+      try { roomProgramme?.refresh(); } catch { /* same */ }
       wireStrip();
       refreshDigests();
     },
@@ -915,6 +988,11 @@ export function mountParcelLawTab(
       chat = null;
       try { createHouse?.dispose(); } catch { /* teardown is best-effort */ }
       createHouse = null;
+      // §PL-ROOM-PROGRAMME — the panel holds a programme subscription and an envelope-store
+      // subscription; leaving either connected to a detached body is a listener that outlives
+      // the surface that put it up.
+      try { roomProgramme?.dispose(); } catch { /* teardown is best-effort */ }
+      roomProgramme = null;
       try { panel?.dispose(); } catch { /* teardown is best-effort */ }
       panel = null;
       // The on-view bar owns the switcher handle, so disposing it disposes both — and it
