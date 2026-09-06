@@ -98,7 +98,17 @@ async function main() {
     };
   });
 
-  const notLive = rows.filter((r) => r.liveStatus !== null && r.liveStatus !== 200);
+  // §429-IS-NOT-ABSENT (C57 §1.9) — this block USED to be one `liveStatus !== 200` filter printed
+  // as "NOT live on R2", which folded a RATE LIMIT into an ABSENCE. That is the exact defect this
+  // file's own header forbids ("a 429 is a RATE LIMIT, not an absence … it is never folded into
+  // `missing`"), and it shipped a wrong answer: the 2026-09-06 run printed `riyadh:404 jeddah:404`-
+  // shaped output as `riyadh:429 jeddah:429` under "NOT live", while an independent probe minutes
+  // later read BOTH at HTTP 200 with a real layer.json (last-modified Sat, 05 Sep 2026 13:19:20 /
+  // 13:20:04 GMT) and `terrain.verify.mjs --remote` decoded a complete z0..10 chain for each. The
+  // two answers now have two names, because only one of them licenses a conclusion.
+  const ABSENT_CODES = new Set([403, 404, 410]);
+  const absent = rows.filter((r) => r.liveStatus !== null && ABSENT_CODES.has(r.liveStatus));
+  const unknown = rows.filter((r) => r.liveStatus !== null && r.liveStatus !== 200 && !ABSENT_CODES.has(r.liveStatus));
   const orphan = rows.filter((r) => r.liveStatus === 200 && r.constant == null);
   const nl = rows.filter((r) => r.liveStatus === 200 && r.source === 'nl');
   const pop = rows.filter((r) => r.liveStatus === 200 && r.source !== 'nl' && r.constant != null);
@@ -106,7 +116,8 @@ async function main() {
   console.log(`# §GEOID-REBAKE-RANK — swing measured ${swing.generatedAt} from ${swing.grid}`);
   console.log(`# R2 liveness probed ${new Date().toISOString()} against ${R2_BASE}\n`);
   console.log(`rows in table              ${rows.length}`);
-  console.log(`  NOT live on R2           ${notLive.length}  (${notLive.map((r) => `${r.name}:${r.liveStatus}`).join(' ') || '—'})`);
+  console.log(`  ABSENT on R2 (403/404/410) ${absent.length}  (${absent.map((r) => `${r.name}:${r.liveStatus}`).join(' ') || '—'}) — a real answer meaning "no tileset here"`);
+  console.log(`  UNKNOWN (429/5xx/network) ${unknown.length}  (${unknown.map((r) => `${r.name}:${r.liveStatus}`).join(' ') || '—'}) — NOT a verdict; re-run before concluding anything about these`);
   console.log(`  live but NO datum        ${orphan.length}  (${orphan.map((r) => r.name).join(' ') || '—'}) — orphan tilesets; no current path re-bakes them`);
   console.log(`  live, NL carve-out       ${nl.length}  (${nl.map((r) => r.name).join(' ') || '—'}) — §GEOID-NL-STAYS-NAP, NAP ≠ EGM2008`);
   console.log(`  ⇒ RE-BAKE POPULATION     ${pop.length}\n`);
@@ -139,7 +150,7 @@ async function main() {
   console.log(`\n## LEAVE ALONE (|ΔZ| < ${threshold} m) — ${leave.length} cities, worst ${Math.max(...leave.map((r) => r.worstErrM)).toFixed(2)} m anywhere in any of their bboxes`);
   console.log(leave.map((r) => r.name).sort().join(' '));
 
-  if (has('--json')) console.log('\n' + JSON.stringify({ threshold, generatedAt: new Date().toISOString(), swingGeneratedAt: swing.generatedAt, need, leave, notLive, orphan, nl }, null, 1));
+  if (has('--json')) console.log('\n' + JSON.stringify({ threshold, generatedAt: new Date().toISOString(), swingGeneratedAt: swing.generatedAt, need, leave, absent, unknown, orphan, nl }, null, 1));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
