@@ -37,11 +37,11 @@
 | **P1** | Pure, net-new, zero-orchestration pieces (pack + lift schema) | Slice 0 (pack), Slice 2 (lift, L0+registration) | LOW | **WIP** |
 | **P2** | Lift element end-to-end (geometry + plugin + command + IFC) | Slice 2 (rest) | MED | **WIP** (geometry-lift + create command DONE; plugin/CREATE-panel/IFC TODO) |
 | **P3** | Building orchestrator skeleton: levels + centred core + slabs + roof | Slice 1 | MED | **WIP** (pure orchestrator skeleton DONE: levels + centred core + ground-no-apts + upper-apts via packer→partition + P7 seam; P3.1 stairPosition `'centre'` param + P3.3 editor executor TODO) |
-| **P4** | Lift in the core + per-level lift void | Slice 3 | MED | TODO |
+| **P4** | Lift in the core + per-level lift void | Slice 3 | MED | **P4.1 DONE** (shipped as §RESI-CORE-REWORK) · **P4.2 BLOCKED** (rival lift subsystems — see §P4-LIFT-RIVALS) |
 | **P5** | Ground-floor commercial shell + entrance corridor | Slice 4 | MED | TODO |
 | **P6** | Per-level apartment packing (count + typology mix) | Slice 5 | MED | **WIP** (P6.1 packer DONE + P6.2 plate-partition DONE; corridor-spine P8 still gated) |
 | **P7** | Run D-TGL per apartment cell (rooms + windows + doors) | Slice 7 | MED | **DONE** (per-cell `runApartmentCellLayout` wraps the FROZEN engine; blind party-wall window suppression; orchestrator wires it per placed cell; soft-fail per cell; 48 resi tests green) |
-| **P8** | **THE CORRIDOR SPINE** (reach every apartment door) — ISOLATED, GATED | Slice 6 | **HIGH** | TODO |
+| **P8** | **THE CORRIDOR SPINE** (reach every apartment door) — ISOLATED, GATED | Slice 6 | **HIGH** | **GATED-OFF** (P8.1 landed `70f61e45` + `d4a6ebfa`; 18 tests; gate default-OFF, awaiting browser-validate → P10.2) |
 | **P9** | Post-gen finish + IFC round-trip + preview modal | Slices 8 + 11 | MED | TODO |
 | **P10** | SPEC + parity hardening + risk closeout | Slice 9 | LOW | TODO |
 
@@ -180,12 +180,44 @@
 
 ---
 
-## PHASE 4 — Lift in the core + per-level lift void — plan Slice 3  ·  TODO
+## PHASE 4 — Lift in the core + per-level lift void — plan Slice 3  ·  **P4.1 DONE · P4.2 BLOCKED**
 
 | id | title | status | files | accept | §DIAG | contract / ADR | gate |
 |---|---|---|---|---|---|---|---|
-| P4.1 | Lift as SECOND keep-out beside stair | TODO | `buildingOrchestrator.ts`; `runDeterministicLayout.ts:88` `keepOutRectsWorld` | core = stair AABB ∪ lift AABB; centroid centred | `§DIAG-CORE` | ADR-0063 H3 | flag |
-| P4.2 | Per-level lift void (EVERY slab incl. ground) | TODO | executor; `SlabVoid` `types.ts:182` | lift void punched on every level (full-height shaft) | `§DIAG-CORE` | plan §3.4/§4.3 | flag |
+| P4.1 | Lift as SECOND keep-out beside stair | **DONE** — already shipped as §RESI-CORE-REWORK (founder 2026-06-26); AUDITED 2026-09-06, not re-built | `residentialBuilding/coreSizing.ts` `deriveCoreSizing` (`LIFT_SHAFT_WIDTH_M`/`_DEPTH_M` + `STAIR_LIFT_GAP_M` + `APPROACH_CLEAR_M` in front of BOTH the stair and the lift door); the orchestrator floors the core at that minimum; the executor `_liftLocalCx` seats the cab | core = stair AABB ∪ lift AABB; centroid centred — `coreWidth = wallT + railClear + 2·flightW + gap + liftShaftW + wallT` | `§DIAG-CORE` | ADR-0063 H3 | shipped |
+| P4.2 | Per-level lift void (EVERY slab incl. ground) | **BLOCKED** — needs a founder/ADR decision, not code (see §P4-LIFT-RIVALS) | executor; `SlabVoid` `types.ts:182` | lift void punched on every level (full-height shaft) | `§DIAG-CORE` | plan §3.4/§4.3 | flag |
+
+> **§P4-LIFT-RIVALS — P4.2 is blocked on a DECISION, and the mechanism it asks for already exists
+> next door (measured 2026-09-06, lane RESI-CORRIDOR-SPINE).**
+> There are **two lift subsystems in this repo**, and the residential executor is wired to the one
+> that cannot satisfy this row:
+>
+> | | the resi path | the plan-tool path |
+> |---|---|---|
+> | command | `CREATE_VERTICAL_CIRCULATION` (`command-registry/src/verticalCirculation/`, tracker P1.B/P2, minted 2026-06-22) | `lift.create` (bus; `LiftPlanToolHandler.ts:265`) |
+> | geometry | `LiftMeshBuilder` — a translucent shaft box + a solid car (the P2.1 row itself calls it a *placeholder*) | `@pryzm/geometry-lift` `buildLiftAssembly` — enclosure, landing doors, cabin, frame, guide rails |
+> | **slab voids** | **none.** 329 lines, and `grep -c 'slab\|holes\|void\|Opening'` → **1**, which is the landing-door doc comment on line 55 | **`LiftAssembly.ts:339` — one void per served slab, cut from the shaft footprint**, mirrored to the store by `CommandEventBridge.ts:2530-2548` as `element.updated{changedFields:['holes']}` |
+> | consumed by | `ResidentialBuildingExecutor` §RESI-LIFT-EVERY-FLOOR (one cab per level pair) | the CREATE-panel Lift tool |
+>
+> So P4.2 cannot be delivered as literally written without minting a **third** rival — re-implementing
+> slab-void punching on `CreateVerticalCirculationCommand` — which the standing "no parallel rival
+> subsystem" rule forbids. **Proposed amendment: P4.2 becomes "migrate the resi core lift onto
+> `lift.create` / `buildLiftAssembly`", and the voids then arrive for free** (`LiftAssembly` §1: *"the
+> shaft footprint IS the void — one polygon, one source of truth, so the enclosure and every hole it
+> passes through cannot drift apart"*). That is a founder-visible change to the live generate path
+> (real shaft walls, landing doors and a real cabin replacing the placeholder box), so it needs its own
+> ADR plus browser validation and was NOT taken blind here.
+>
+> ⚠ **Also for whoever takes it:** the row's "EVERY slab **incl. ground**" is architecturally wrong at
+> the bottom of the stack — the ground slab is where the cab lands (the pit is below it), so a void
+> there opens onto nothing. `LiftAssembly` already does the right thing by keying voids to
+> `servedLevels[].slabId`. Amend the acceptance to "every slab the shaft PASSES THROUGH" rather than
+> quietly implementing something the row does not say.
+>
+> ⚠ **A second-order consequence, UNPROVEN:** on upper levels the public finish is the residual
+> `interior − cells − core` (`computeCorridorResidualRings`), so the core lobby gets **no floor finish
+> at all** today and the missing lift void is invisible there. It starts to matter the moment the core
+> lobby is finished. Nobody has looked at the core lobby in the browser for this.
 
 ---
 
@@ -246,7 +278,7 @@
 
 ---
 
-## PHASE 8 — THE CORRIDOR SPINE (HIGH-RISK, ISOLATED) — plan Slice 6  ·  TODO
+## PHASE 8 — THE CORRIDOR SPINE (HIGH-RISK, ISOLATED) — plan Slice 6  ·  **GATED-OFF**
 
 > **The single most-reverted code class in the engine.** The house's L-spanning carve was reverted 4×
 > (see memory `house-stair-whitespace-rootcause`, `house-doors-stair-fragmentation-root`). Build this
@@ -254,7 +286,51 @@
 
 | id | title | status | files | accept | §DIAG | contract / ADR | gate |
 |---|---|---|---|---|---|---|---|
-| P8.1 | Public corridor as a Steiner spine (reach every apt door) | TODO | reuse `deriveCorridorSpine.ts` generalised to a tree; pattern by §20.1 playbook (`§SINGLE-LOAD-PERIPHERAL`/`§UPPER-RING-CORRIDOR`/`§SPINE-TREE`) | every apt main door opens onto corridor; corridor reaches core | `§DIAG-CORRIDOR-QUALITY apartmentsReached=N/N servedThrough=0` | ADR-0067/0068 (intent/circulation-first); §18/§19/§20 doctrine | **HARD GATE, default-OFF** |
+| P8.1 | Public corridor as a Steiner spine (reach every apt door) | **GATED-OFF** (`70f61e45`, `d4a6ebfa`) | NEW `packages/ai-host/src/workflows/residentialBuilding/residentialCorridorQuality.ts` (PURE L2 gate) + `__tests__/residentialCorridorQuality.test.ts` (18); `platePartition.ts` §RESI-ABSORBED-DOOR-EDGE + 2 helpers exported; `residentialBuildingOrchestrator.ts` gated emission; `index.ts` barrel. **The spine was NOT rebuilt** — see §P8-SPINE-ALREADY-SHIPPED | every apt main door opens onto corridor; corridor reaches core — **MEASURED 0/15 red plates, 291/291 core-reachable** (was 3/15 red, 15 orphaned) | `§DIAG-CORRIDOR-QUALITY apartmentsReached=N/N servedThrough=0` | ADR-0067/0068 (intent/circulation-first); §18/§19/§20 doctrine; C50 §1.7 soft-fail | **HARD GATE, default-OFF** (`__pryzmResidentialCorridorGate`) |
+
+> **§P8-SPINE-ALREADY-SHIPPED — why P8.1 is a GATE and not a solver (2026-09-06, lane RESI-CORRIDOR-SPINE).**
+> The row as written says "reuse `deriveCorridorSpine.ts` generalised to a tree". Grepping first (the
+> standing rule) found the spine had ALREADY shipped for this typology and that a second one would be
+> a defect, not a delivery: `platePartition.ts` plans the corridor grid and anchors every packed cell
+> on its corridor edge; `clipCorridorBandsToCore` butts each corridor wall to a core face
+> (§RESI-CORRIDOR-TO-CORE); `coreConnectedBandSet` is the BFS from the core; `repairCoreCirculation`
+> bridges a marooned band back with minimal spurs; `tagCoreReachability` stamps the cell;
+> `singleCoreLanding.ts` is the ADR-0372 small-plate landing. What did **not** exist was the
+> MEASUREMENT — nothing rolled the invariant up across a building or said `§DIAG-CORRIDOR-QUALITY`,
+> and `residentialCirculationGraph.ts` still carries a literal `void coreReachableCount;`.
+>
+> ⭐ **That gap was hiding a live breach, which is the argument for measuring before building.**
+> `absorbResidual` stamped `doorEdge: 'z0'` on EVERY absorbed cell — a hard-coded literal written
+> after the function had already *proved* the region fronts a corridor and then discarded which edge
+> did it. On a narrow plate the spine runs along Z, so the fronting edge is `x0`/`x1` and never `z0`;
+> every downstream consumer (`cellDoorOnConnectedCorridor`, `repairCoreCirculation`'s `servesCell`,
+> `computeCoreDoorPlacement`, the D-TGL entry seam) was pointed at an EXTERIOR FAÇADE. **Measured on
+> a fixed 15-plate corpus × 3 upper levels: BEFORE 3/15 red — 22×14 0/6, 16×12 0/6, 15×15 0/3
+> orphaned, all three returning `status:'ok'`; AFTER 0/15, 291/291 core-reachable, servedThrough 0,
+> tagDisagreements 0.** The gate was re-run against the pre-fix partition to prove it is a real
+> falsifier — `Tests  2 failed | 13 passed (15)`. A gate never shown going red has not been shown to
+> work.
+>
+> ⭐ **R2 is re-derived from geometry, never read off `cell.coreReachable`** — a gate that asks its
+> subject to grade itself cannot falsify the subject. The stored tag is *compared* against the
+> re-derivation and any drift is reported as `tagDisagreements`.
+>
+> **Executed artefacts (2026-09-06):** gate suite `Test Files  1 passed (1)` / `Tests  18 passed (18)` ·
+> whole residentialBuilding suite `Test Files  13 passed (13)` / `Tests  193 passed (193)` · wider
+> ai-host resi suites `Test Files  7 passed (7)` / `Tests  49 passed (49)`. tsc: zero errors in
+> `residentialBuilding/*` sources bar the pre-existing `platePartition.ts` TS2379 (HEAD:1936 ==
+> working:1986, byte-identical, not this change).
+>
+> **Reachability is EXECUTED, not asserted** (`d4a6ebfa`): the founder path is
+> `ResidentialBuildingController.ts:374` -> `orchestrateResidentialBuilding`, and two tests drive that
+> real orchestrator — flag ON prints exactly one `§DIAG-CORRIDOR-QUALITY` line, flag OFF prints none.
+> Browser validation is therefore just `globalThis.__pryzmResidentialCorridorGate = true` before a
+> generate; the line appears in the console.
+>
+> ⚠ **The §RESI-ABSORBED-DOOR-EDGE FIX is NOT behind the flag** — only the diagnostic is. The fix
+> replaces a wrong literal with a measurement and is a no-op wherever `'z0'` was already the fronting
+> edge, so "production byte-identical" holds for every plate that was not already broken. Deliberate:
+> gating a correctness fix behind an off-by-default flag ships the breach.
 
 ---
 
@@ -361,3 +437,4 @@ node <MAIN>/node_modules/typescript/bin/tsc -p <WT>/tsconfig.worktree.pack.json
 | 2026-06-22 | P6.1 (packer) | PURE `packApartments` (`apartmentPacker.ts`) — net area + {min,max,typologies} → `{typology,targetAreaM2,program}[]`; T1→1bed…T4→4bed (`typologyBedrooms`); effective-band = user∩typology; deterministic finite enumeration (largest-N first); `§DIAG-APARTMENT-PACK`; C50 soft-fail | 13 tests pass | resi tsconfig green |
 | 2026-06-22 | P3.2 (orchestrator skeleton) | PURE `orchestrateResidentialBuilding` (`residentialBuildingOrchestrator.ts`) — storey loop (ground + 1..20 upper); CENTRED core (R-CENTRE) identical XZ every level; ground = commercial stub NO apts; upper = packer→partition; per-cell D-TGL P7 seam (`cell` present, `rooms` absent); `§DIAG-RESI-ORCHESTRATE`; C50 soft-fail. Divergence from house worst-aspect-corner documented in-file (P3.1 wires `'centre'` into `chooseStairCorePosition` later). | 10 tests pass (36 resi total) | resi tsconfig green |
 | 2026-06-23 | P7 (D-TGL per cell) | NEW PURE `runApartmentCellLayout` (`runApartmentCellLayout.ts`) — builds `ShellAnalysis` from the cell rect (`shellFromCell`) → calls the FROZEN `generateDeterministicLayouts` (residential default constraints/weights, no keep-out, optional solar) → keeps best option #0; `suppressBlindWindows` filters windows off blind (non-façade) cell edges. Orchestrator wires it per placed cell (`facadeEdgesFor` = footprint-boundary edge AND not the corridor doorEdge), fills `PlacedApartment.layout`/`status`/`facadeEdges`/`blindEdges`, emits `§DIAG-RESI-APARTMENT`; per-cell C50 soft-fail (never throws/fails the whole building). tgl/* NOT modified (P7 only calls the engine). Widened `tsconfig.worktree.resi.json` include (tsc follows the import graph). | 48 resi tests pass (12 new: 8 cell-layout + 4 orchestrator P7) | resi sources type-check CLEAN; 9 PRE-EXISTING `tgl/wallsAndDoors.ts` engine errors (house commits 78675729/c7cfcc64, NOT P7) surface now the full engine is compiled — documented in the tsconfig, file is frozen |
+| 2026-09-06 | **P8.1** (corridor gate) + P4 audit | `70f61e45` NEW PURE `residentialCorridorQuality.ts` — the `§DIAG-CORRIDOR-QUALITY` GATE (R1 reached / R2 core-reachable / R3 servedThrough=0 / R4 orphaned=0), R2 RE-DERIVED with the partition’s own `coreConnectedBandSet` BFS rather than read off `cell.coreReachable`; the spine itself was NOT rebuilt (§P8-SPINE-ALREADY-SHIPPED). Measuring it immediately found a LIVE breach: `absorbResidual` stamped a hard-coded `doorEdge:'z0'` on every absorbed cell, pointing narrow-plate front doors at an EXTERIOR FAÇADE — fixed as §RESI-ABSORBED-DOOR-EDGE (measure the fronting edge). `d4a6ebfa` two REACHABILITY tests driving the real orchestrator the editor calls. P4 audited, not built: P4.1 was already shipped as §RESI-CORE-REWORK; P4.2 BLOCKED on two rival lift subsystems (§P4-LIFT-RIVALS). | gate suite **18 pass**; residentialBuilding **193 pass** (13 files); wider ai-host resi **49 pass** (7 files); gate re-run against the PRE-fix partition = **2 failed | 13 passed**, so it is a real falsifier. Corpus 15 plates × 3 levels: **3/15 red → 0/15, 291/291 core-reachable** | `residentialBuilding/*` sources CLEAN; 1 PRE-EXISTING `platePartition.ts` TS2379 (HEAD:1936 == working:1986, untouched) |
