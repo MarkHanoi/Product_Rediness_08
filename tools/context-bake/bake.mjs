@@ -84,6 +84,11 @@ import { DE_LOD2_CITY_BBOXES } from './heights/deLod2Laender.mjs';
 // fragments the §SEA-LEFT-HAND-WALK must refuse (L-12921 Sydney · L-12909 Marseille · L-807 Barcelona · Dubai),
 // so the sea was ALWAYS the live Overpass supplement on a baked coastal city. Polygons survive clipping closed.
 import { SEA_SOURCE, parseBboxCsv, extractSeaShapefile, clipWaterPolygonsToRegions } from './seaPolygons.mjs';
+// §VEG-REAL-CANOPY-BAKE (L-12935, lane VEG-REAL-CANOPY-BAKE, 2026-09-05) — REAL canopy from MEASURED
+// tree-cover rasters (Copernicus HRL TCD 2018 in Europe, NLCD TCC in the USA, Hansen GFC everywhere
+// else). OPT-IN: `--layer canopy` only, so the default bake is byte-for-byte unchanged. canopy.mjs's
+// header carries the probes, the honesty rules and the scope refusal.
+import { bakeCanopyLayerForRegions, CANOPY_THRESHOLD_PCT, CANOPY_CELL_M } from './canopy.mjs';
 import { getHeapStatistics } from 'node:v8';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -607,6 +612,22 @@ const LAYERS = [
   //     and NO sea.pmtiles; stage-manifest records it under `optionalLayersNotProduced` and merge-tiles
   //     names it and skips it instead of refusing. "No sea here" is an absence, never an empty artefact.
   { id: 'sea',       source: 'osmdata-water-polygons',                            geom: 'polygon',            minz: 8,  maxz: 14, optional: true, extra: ['--drop-densest-as-needed', '--no-tiny-polygon-reduction', '--buffer=0'] },
+  // §VEG-REAL-CANOPY-BAKE (L-12935, founder 2026-09-05: "real vegetation everywhere in Europe + USA +
+  // Australia + NZ + Middle East, not only OSM-mapped trees"). One POINT per ~12 m cell where a
+  // MEASURED tree-cover raster reads ≥ 30 % crown cover — Copernicus HRL Tree Cover Density 2018
+  // (10 m, EEA39), NLCD Tree Canopy Cover 2021 (30 m, USA), Hansen/UMD Global Forest Change 2023
+  // treecover2000 (30 m, everywhere else). `source` (not `filter`): nothing here is cut from the
+  // Geofabrik pbf, so a `--layer canopy` run needs NO country extract at all.
+  //
+  // ⚠ `optIn: true` — this layer is NEVER in the default bake. It is a THIRD vegetation source
+  // alongside `trees` (mapped OSM nodes) and contextCanopySynth's woods fill, its per-region cost is
+  // large, and its scope is bounded (canopy.mjs refuses a region over 2,500 km² by name rather than
+  // baking a fraction). Ask for it explicitly: `--layer canopy --region paris`.
+  //
+  // z13–16, not z14: canopy reads at the same distance as parks, one zoom wider than `trees`, and a
+  // sampled point set degrades gracefully. `--drop-densest-as-needed` is mandatory here, not
+  // precautionary — a closed-canopy tile is ~60 points/ha by construction.
+  { id: 'canopy',    source: 'canopy-raster',                                     geom: 'point',              minz: 13, maxz: 16, optional: true, optIn: true, extra: ['--drop-densest-as-needed'] },
 ];
 
 // ── args ─────────────────────────────────────────────────────────────────────
@@ -621,7 +642,9 @@ const DRY = args.includes('--dry-run');
 // subset is reported in `regions`) and with `--layer`.
 const REGIONS_JSON = args.includes('--regions-json');
 const ONE = args.includes('--layer') ? args[args.indexOf('--layer') + 1] : null;
-const layers = ONE ? LAYERS.filter((l) => l.id === ONE) : LAYERS;
+// §VEG-REAL-CANOPY-BAKE — an `optIn` layer (today: `canopy`) is EXCLUDED from the default bake and
+// reachable only by naming it in `--layer`. The default run is therefore unchanged by its existence.
+const layers = ONE ? LAYERS.filter((l) => l.id === ONE) : LAYERS.filter((l) => !l.optIn);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §BAKE-BY-REGION (2026-08-01) — `--region <a,b,c>`: bake a SUBSET of REGIONS.
@@ -1286,6 +1309,27 @@ async function main() {
     // Per region: filter + export this layer to its OWN GeoJSONSeq. Then ONE tippecanoe call takes
     // ALL regions' GeoJSONSeq as inputs and merges them into a SINGLE `<layer>.pmtiles` — the output
     // name is unchanged, so R2 + the client reader are untouched (the whole point of L-607's fix).
+    // §VEG-REAL-CANOPY-BAKE — the `canopy` layer: measured tree-cover rasters → one sampled point per
+    // ~12 m cell, per region, streamed to GeoJSONSeq. Same shape as the `sea` branch below: no OSM
+    // extract, an OPTIONAL layer whose honest absence writes no archive at all.
+    if (l.source === 'canopy-raster') {
+      const { geos: canopyGeos } = await bakeCanopyLayerForRegions(okRegions, OUT, {
+        dryRun: DRY,
+        maxAreaKm2: args.includes('--canopy-max-km2') ? Number(args[args.indexOf('--canopy-max-km2') + 1]) : undefined,
+      });
+      if (canopyGeos.length === 0) {
+        console.warn(`  ⚠ ${l.id}: 0 sampled point(s) across ${okRegions.length} region(s) — no ${l.id}.pmtiles written (optional layer; see the per-region lines above for WHICH of refused / outage / honestly-empty each was).`);
+        continue;
+      }
+      const canopyPmt = resolve(OUT, `${l.id}.pmtiles`);
+      run(`tile ${l.id} → PMTiles (canopy points from ${canopyGeos.length} region(s), ≥${CANOPY_THRESHOLD_PCT}% cover, ${CANOPY_CELL_M} m cells)`,
+        tool('tippecanoe', ['-o', canopyPmt, '-l', l.id, '-Z', String(l.minz), '-z', String(l.maxz),
+          '-P', '--force', ...l.extra, ...canopyGeos]));
+      if (!DRY && existsSync(canopyPmt)) {
+        console.log(`  ✔ ${l.id}.pmtiles — ${(statSync(canopyPmt).size / 1e6).toFixed(1)} MB (${canopyGeos.length} region(s) with measured canopy)`);
+      }
+      continue;
+    }
     if (l.source === 'osmdata-water-polygons') {
       // §SEA-BAKE-POLYGONS — one streaming pass over the osmdata shapefile writes every region's
       // GeoJSONSeq; only regions with ≥ 1 polygon feed tippecanoe. Zero everywhere ⇒ no archive at all

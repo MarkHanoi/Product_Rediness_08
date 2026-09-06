@@ -1,0 +1,338 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# context-bake-canopy.yml — §VEG-REAL-CANOPY-BAKE (L-12935)
+#
+# WHAT THIS BAKES, AND WHY IT IS A SEPARATE WORKFLOW FROM context-bake.yml.
+# The founder, 2026-09-05: "real vegetation everywhere in Europe + USA + Australia
+# + NZ + Middle East, not only OSM-mapped trees." The 3D Site's two existing
+# vegetation sources are `trees.pmtiles` (OSM `natural=tree` NODES — real, but only
+# where a mapper walked; Jouy-en-Josas read 191 across 30 tiles) and the woods-fill
+# synthesis (§VEG-CANOPY-FROM-WOODS / L-12934 — real polygons, SYNTHETIC positions).
+# Neither measures where trees actually are.
+#
+# The `canopy` layer does: one point per ~12 m cell where a MEASURED national or
+# global tree-cover-density raster reads ≥ 30 % crown cover. See
+# tools/context-bake/canopy.mjs for the source table, the exact HTTP probe answers,
+# and the honesty rules (`sampled: true`, never `synthetic`).
+#
+# IT IS A SEPARATE WORKFLOW BECAUSE IT SHARES ALMOST NOTHING WITH THE MAIN BAKE:
+#   • no Geofabrik .osm.pbf download, no osmium, no clip — `canopy` is a
+#     `source:`-backed layer, so bake.mjs skips the extract entirely;
+#   • no DuckDB/Overture, and no §MEASURED-HEIGHT-GATE (no buildings are produced);
+#   • it needs `geotiff` on the HOST node process, which the main bake also
+#     provisions but for a different reason (the national height joins).
+# Folding it into context-bake.yml would put ~200 lines of irrelevant steps on
+# either side of every run. The ONE thing it does share — tippecanoe — comes from
+# the same tools/context-bake/Dockerfile, so there is no second, drifting toolchain.
+#
+# ⚠ SCOPE IS BOUNDED AND THE BAKE REFUSES RATHER THAN TRUNCATING. A whole-country
+# canopy at 12 m spacing is order 1e9 points — infeasible, not merely slow. So
+# canopy.mjs bakes a region only when its bbox is within CANOPY_MAX_AREA_KM2
+# (2,500 km²) and otherwise REFUSES IT BY NAME, printing both numbers and both
+# escape hatches. Most REGIONS rows are city-scale and pass; the ~20 national rows
+# refuse until someone declares `canopyBboxes` on them. A run scoped to national
+# rows only will therefore produce NOTHING and say exactly why — that is the
+# designed answer, not a broken bake (§CONTEXT-DATA-HONESTY: a named refusal beats
+# a silently partial layer, which at the client is indistinguishable from "this
+# city has few trees").
+#
+# MANUAL ONLY, LIKE ITS SIBLING. And `publish` defaults to FALSE: `canopy` is an
+# OPT-IN layer and a live publish REPLACES the whole tiles/ prefix contents it
+# syncs, so the staged path (stage=true → context-merge-publish.yml) is the
+# intended route. Read context-bake.yml's §SYNC-SWITCH note before ticking publish.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Bake canopy tiles → R2 (L-12935)
+
+run-name: "context-bake-canopy ${{ inputs.region || 'ALL (most rows will refuse)' }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: 'Comma-separated regions, e.g. paris or paris,lyon,manhattan. Blank = every region in bake.mjs REGIONS — allowed, but the ~20 national rows (france, spain, germany…) will each REFUSE BY NAME for being over the 2,500 km² canopy budget, so a blank run bakes only the city-scale rows. Name the cities you want.'
+        type: string
+        default: ''
+      stage:
+        description: '§SYNC-SWITCH — upload to s3://pryzm-assets/tiles-staging/<regions>--canopy/ with a staging-manifest.json, instead of the LIVE tiles/ prefix. This is the intended route: merge-tiles.mjs resolves carriers per (region, layer), so a layer-scoped set SUPERSEDES a base set''s copy of that layer and composes with the rest. Then dispatch context-merge-publish.yml.'
+        type: boolean
+        default: true
+      publish:
+        description: 'Upload straight to the LIVE s3://pryzm-assets/tiles/ prefix. Default FALSE and it should usually stay false — ignored entirely when stage=true. Only for a deliberate single-layer replacement.'
+        type: boolean
+        default: false
+      canopy_max_km2:
+        description: 'Override the per-region area budget (km²). Blank = 2500. Raising it does NOT make a national bake feasible — it makes it slow and enormous. Prefer declaring canopyBboxes on the region row.'
+        type: string
+        default: ''
+
+concurrency:
+  # Same lane discipline as context-bake.yml: distinct regions bake in parallel, two runs of the
+  # same region serialise so they cannot race the same tiles-staging/ prefix. The `-canopy` suffix
+  # keeps this off the main bake's lanes entirely — a canopy run must never queue behind a 5-hour
+  # buildings run, and must never cancel one.
+  group: context-bake-canopy-${{ inputs.region || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  bake:
+    name: tree-cover rasters → sampled points → tippecanoe → PMTiles → R2
+    runs-on: ubuntu-latest
+    # Network-bound, not CPU-bound: the cost is HTTP raster chunks (Lyon's 120 km² was one 10 m
+    # chunk in ~40 s locally). A ten-city run is minutes, not hours — but Hansen tiles are 374 MB
+    # 40000x40000 GeoTIFFs read by HTTP range, and a slow day on one of the three services must not
+    # kill a run that has already sampled nine cities. 300 leaves room without approaching GitHub's
+    # 360-minute hosted ceiling.
+    timeout-minutes: 300
+    env:
+      # Far below the main bake's 12 GB: §CANOPY-STREAM-PER-CHUNK sends each raster chunk's points
+      # straight to GeoJSONSeq via a sink, so the process never holds a region's point set. (The bug
+      # that taught us: `push(...features)` blew the stack on Ku-ring-gai Chase NP's ~154 k points in
+      # ONE chunk, while Jouy's 34 k had fitted — invisible until the data got dense.) 8 GB is
+      # headroom for geotiff's decode buffers, not for an accumulating array.
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Free disk space
+        run: |
+          # A dense metro's GeoJSONSeq is the large intermediate here (Lyon: 150,677 points → 31 MB;
+          # a closed-canopy region runs ~60 points/ha by construction). The hosted image ships
+          # several GB of toolchains this job never uses.
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          df -h /
+
+      - name: Build the bake toolchain image (tippecanoe)
+        # The SAME image the main bake uses — tools/context-bake/Dockerfile bundles osmium-tool + the
+        # felt tippecanoe fork, and bake.mjs auto-detects that the local binaries are absent and
+        # shells out to it. This job only needs tippecanoe (a `source:`-backed layer never calls
+        # osmium), but building the one shared image keeps CI and a developer's laptop on the same
+        # toolchain instead of minting a second recipe that drifts.
+        run: docker build -t pryzm-context-bake tools/context-bake
+
+      - name: Provision the raster dependency (geotiff)
+        # canopy.mjs decodes GeoTIFF in the HOST node process via a lazy `import('geotiff')` — the
+        # same host-process constraint, and the same isolated-install workaround, as the main bake's
+        # height joins. Read that step's note in context-bake.yml before changing anything here: npm
+        # cannot run ANYWHERE inside the repo (the root package.json declares npm-style workspaces, so
+        # npm walks up and chokes on pnpm's `workspace:*` protocol), and a package.json under
+        # tools/context-bake would become a real pnpm workspace member and drift pnpm-lock.yaml,
+        # breaking every other job's --frozen-lockfile. So: isolated scratch project OUTSIDE the repo,
+        # then copy the resolved tree into tools/context-bake/node_modules, where Node ESM resolves a
+        # bare specifier by walking node_modules up from the importing module.
+        #
+        # geotiff@2.1.3 is the version all three canopy sources were live-probed against on
+        # 2026-09-05 (EEA exportImage, MRLC WCS, and a Hansen 200x200 windowed range read).
+        run: |
+          set -euo pipefail
+          HOSTDIR="${RUNNER_TEMP:-/tmp}/geotiff-host"
+          rm -rf "$HOSTDIR"; mkdir -p "$HOSTDIR"
+          printf '{"name":"pryzm-geotiff-host","private":true}\n' > "$HOSTDIR/package.json"
+          ( cd "$HOSTDIR" && npm install --no-package-lock geotiff@2.1.3 )
+          DEST="$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+          mkdir -p "$DEST"
+          cp -R "$HOSTDIR/node_modules/." "$DEST/"
+          # Fail LOUD here, not silently forty minutes in as "0 canopy points" — which would read as
+          # a treeless continent rather than a missing decoder.
+          ( cd "$GITHUB_WORKSPACE/tools/context-bake" \
+            && node --input-type=module -e "const m=await import('geotiff'); if(typeof m.fromArrayBuffer!=='function'||typeof m.fromUrl!=='function'){console.error('geotiff.fromArrayBuffer/fromUrl missing');process.exit(1)} console.log('✓ geotiff resolvable from the bake host process (fromArrayBuffer + fromUrl ok)')" )
+
+      - name: Pin the canopy maths before any network call
+        # The pure half (source resolution, the globally-anchored 12 m cell grid, the chunk-seam
+        # invariant, the three separate counters, the scope refusal) is unit-tested and runs in
+        # seconds. A seam regression here would duplicate or drop canopies invisibly, so it is
+        # cheaper to find it now than in a 30-region tileset.
+        run: npx vitest run tools/context-bake/__tests__/canopy.spec.ts
+
+      - name: Show the scope this run will bake (and what it will REFUSE)
+        env:
+          REGION: ${{ inputs.region }}
+          MAXKM2: ${{ inputs.canopy_max_km2 }}
+        run: |
+          set -euo pipefail
+          ARGS=(--layer canopy --dry-run)
+          if [ -n "${REGION// /}" ]; then ARGS+=(--region "${REGION// /}"); fi
+          if [ -n "${MAXKM2// /}" ]; then ARGS+=(--canopy-max-km2 "${MAXKM2// /}"); fi
+          node tools/context-bake/bake.mjs "${ARGS[@]}"
+
+      - name: Bake the canopy layer
+        env:
+          REGION: ${{ inputs.region }}
+          MAXKM2: ${{ inputs.canopy_max_km2 }}
+        run: |
+          set -euo pipefail
+          ARGS=(--layer canopy)
+          if [ -n "${REGION// /}" ]; then ARGS+=(--region "${REGION// /}"); fi
+          if [ -n "${MAXKM2// /}" ]; then ARGS+=(--canopy-max-km2 "${MAXKM2// /}"); fi
+          echo "▶ bake args: ${ARGS[*]}"
+          node tools/context-bake/bake.mjs "${ARGS[@]}"
+
+      - name: Assert the canopy tiles are real
+        run: |
+          set -euo pipefail
+          cd tools/context-bake/out
+          if [ ! -f canopy.pmtiles ]; then
+            # §CONTEXT-DATA-HONESTY — three DIFFERENT reasons produce no archive, and the Bake step
+            # above printed which one per region: every region REFUSED (over the area budget), the
+            # sources refused every chunk (an outage), or the rasters honestly measure no cover ≥ 30 %
+            # there. `canopy` is an OPTIONAL layer, so none of the three is a broken bake — but they
+            # are not the same thing, and this step must not flatten them into "empty".
+            echo "::warning::no canopy.pmtiles — read the per-region lines in the Bake step: each region was REFUSED (over budget), an outage (source refused every chunk), or honestly empty. Nothing to stage."
+            echo "NO_TILES=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          ls -lh canopy.pmtiles
+          sz=$(stat -c %s canopy.pmtiles)
+          echo "canopy.pmtiles — $sz bytes"
+          # §DESERT-LAYER-HONESTY — a small canopy archive is the HONEST bake for arid fabric (Riyadh,
+          # Jeddah, Abu Dhabi genuinely measure almost no crown cover). Sparse is not broken; only a
+          # missing PMTiles magic header is.
+          if [ "$sz" -lt 51200 ]; then
+            echo "::warning::canopy.pmtiles is only $sz bytes — accepted as an honestly sparse layer (arid or lightly-wooded scope). Magic header still checked."
+          fi
+          if [ "$(head -c 7 canopy.pmtiles)" != "PMTiles" ]; then
+            echo "::error::canopy.pmtiles does not carry the PMTiles magic header."
+            exit 1
+          fi
+
+      - name: Write the staging manifest (§SYNC-SWITCH)
+        if: ${{ inputs.stage && env.NO_TILES != '1' }}
+        env:
+          REGION: ${{ inputs.region }}
+        run: |
+          set -euo pipefail
+          # Resolve the run's ACTUAL region set from bake.mjs's own table — never a hand-copied list
+          # (the CLAUDE.md count/range-rot lesson).
+          ARGS=(--regions-json)
+          if [ -n "${REGION// /}" ]; then ARGS+=(--region "${REGION// /}"); fi
+          REGION_CSV="$(node tools/context-bake/bake.mjs "${ARGS[@]}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).regions.join(",")))')"
+          SLUG="${REGION// /}"; SLUG="${SLUG//,/-}"; SLUG="${SLUG:-all}"
+          # The `--canopy` suffix is NOT cosmetic. merge-tiles.mjs resolves a carrier per
+          # (region, layer) and a SINGLE-LAYER staged set SUPERSEDES a base set's copy of that layer
+          # while composing with its others. Staging under the bare region slug would instead make
+          # the `--delete` sync below erase that region's other seven staged layers, and the next
+          # per-layer merge would refuse the region BY NAME. context-bake.yml learned this the same way.
+          SLUG="${SLUG}--canopy"
+          echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          node tools/context-bake/merge-tiles.mjs stage-manifest \
+            --dir tools/context-bake/out \
+            --regions "$REGION_CSV" \
+            --layers canopy \
+            --slug "$SLUG"
+
+      - name: Upload to R2 STAGING (never the live prefix)
+        if: ${{ inputs.stage && env.NO_TILES != '1' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "::error::R2_* repo secrets are not set — cannot stage."
+            exit 1
+          fi
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 sync tools/context-bake/out "s3://pryzm-assets/tiles-staging/${SLUG}" \
+            --endpoint-url "$ENDPOINT" \
+            --no-progress --delete \
+            --exclude '*' --include '*.pmtiles' \
+            --content-type 'application/vnd.pmtiles'
+          aws s3 cp tools/context-bake/out/staging-manifest.json \
+            "s3://pryzm-assets/tiles-staging/${SLUG}/staging-manifest.json" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type 'application/json'
+          echo "── staged prefix after upload ──"
+          aws s3 ls "s3://pryzm-assets/tiles-staging/${SLUG}/" --endpoint-url "$ENDPOINT" --human-readable
+          {
+            echo "### Canopy set \`${SLUG}\` staged ✅ (tiles-staging/, live tileset untouched)"
+            echo ""
+            echo "Next: dispatch **context-merge-publish.yml** to merge every staged set and publish once."
+            echo "Then bump \`CONTEXT_TILESET_VERSION\` in \`apps/editor/src/ui/geospatial/contextTiles.ts\`"
+            echo "— the tiles are served \`immutable, max-age=31536000\`, so a client that read the previous"
+            echo "tileset only ever sees this one because \`?v=\` changed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the tiles as a run artifact
+        if: ${{ !inputs.stage && env.NO_TILES != '1' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: context-canopy-pmtiles
+          path: tools/context-bake/out/canopy.pmtiles
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Publish to R2 (LIVE — off by default)
+        if: ${{ inputs.publish && !inputs.stage && env.NO_TILES != '1' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "::error::R2_* repo secrets are not set — cannot publish. (The artifact above is still valid.)"
+            exit 1
+          fi
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # `--include 'canopy.pmtiles'` ONLY. No --delete, and no other layer named: this workflow
+          # must never be able to touch buildings/roads/water/parks/landuse/rail/trees/sea in the live
+          # prefix, whatever else happens to be sitting in out/.
+          aws s3 sync tools/context-bake/out "s3://pryzm-assets/tiles" \
+            --endpoint-url "$ENDPOINT" \
+            --no-progress \
+            --exclude '*' --include 'canopy.pmtiles' \
+            --content-type 'application/vnd.pmtiles' \
+            --cache-control 'public, max-age=31536000, immutable'
+          echo "── bucket after publish ──"
+          aws s3 ls "s3://pryzm-assets/tiles/" --endpoint-url "$ENDPOINT" --human-readable
+
+      - name: Verify the canopy tileset is publicly readable AND range-servable
+        if: ${{ inputs.publish && !inputs.stage && env.NO_TILES != '1' }}
+        env:
+          PUBLIC_BASE: ${{ vars.VITE_CONTEXT_TILES_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/' }}
+        run: |
+          set -euo pipefail
+          # §CONTEXT-CACHE-BUST — probe the EXACT URL the browser will request, stamp included; and
+          # §VERIFY-PROBED-A-PATH-NOT-A-URL — `vars.VITE_CONTEXT_TILES_URL` is legitimately the
+          # SAME-ORIGIN PROXY path `/api/context-tiles/`, which is correct for a browser and useless
+          # to curl on a runner. A relative base must fall back to R2's public host, or this step
+          # condemns a publish that in fact succeeded (run 33795775939 did exactly that).
+          VER="$(sed -n "s/^export const CONTEXT_TILESET_VERSION = '\([^']*\)';/\1/p" \
+                 "$GITHUB_WORKSPACE/apps/editor/src/ui/geospatial/contextTiles.ts" | head -1)"
+          if [ -z "$VER" ]; then
+            echo "::error::Could not read CONTEXT_TILESET_VERSION from contextTiles.ts."
+            exit 1
+          fi
+          echo "client cache-bust stamp: v=$VER"
+          case "$PUBLIC_BASE" in
+            http://*|https://*) ;;
+            *)
+              echo "PUBLIC_BASE '$PUBLIC_BASE' is relative (the same-origin proxy) — probing R2's public host instead."
+              PUBLIC_BASE='https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/'
+              ;;
+          esac
+          URL="${PUBLIC_BASE%/}/canopy.pmtiles?v=$VER"
+          echo "probing $URL"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 -H 'Range: bytes=0-127' "$URL")"
+          echo "HTTP $code (expected 206)"
+          if [ "$code" = "206" ]; then
+            echo "✓ canopy tiles are public and range-servable."
+            echo "### Canopy tileset \`v=$VER\` published ✅" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$code" = "200" ]; then
+            echo "::error::$URL served 200, not 206 — the host is ignoring Range requests. PMTiles needs 206."
+            exit 1
+          else
+            echo "::error::$URL returned $code — objects uploaded but not publicly served."
+            exit 1
+          fi

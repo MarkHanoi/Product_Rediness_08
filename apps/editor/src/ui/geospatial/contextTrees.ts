@@ -110,12 +110,30 @@ import {
     buildCanopySet, MAX_MAPPED_TREES, MAX_SYNTHESISED_CANOPIES,
     type CanopySet, type CanopySourcePolygon,
 } from './contextCanopySynth';
+// §VEG-REAL-CANOPY-BAKE (L-12935) — the MEASURED source: one cell per ~12 m where a national/global
+// tree-cover-density raster reads ≥ 30 % crown cover. Its own header carries the probes + the rules.
+import {
+    buildSampledCanopyInstances, emptyBakedCanopy, fetchContextBakedCanopy,
+    MAX_SAMPLED_CANOPIES, supersedesSynthesis,
+} from './contextCanopyBaked';
 
 export interface ContextCanopySet extends CanopySet {
     /** Mapped trees the baked `trees` layer returned for the bbox, BEFORE the radial cull + cap. */
     readonly bakedTreeCount: number;
     /** Green areas the `parks` reader returned, of every kind — the synthesis uses the wood/forest subset. */
     readonly greenAreaCount: number;
+    /** §VEG-REAL-CANOPY-BAKE (L-12935) — how many of `instances` are SAMPLED from a measured
+     *  tree-cover raster (`sampled: true`). Counted apart from `mappedCount` and `syntheticCount`
+     *  because the three make DIFFERENT claims (C57 §1.5/§1.9): surveyed / measured-cover-sampled-
+     *  position / invented-position. Never summed into one "trees" number. */
+    readonly sampledCount: number;
+    /** Distinct raster ids behind `sampledCount` — e.g. `eea-hrl-tcd-2018`. Empty when none. */
+    readonly sampledSources: string[];
+    /** True when the measured canopy SUPERSEDED the woods-fill synthesis for this site (see
+     *  contextCanopyBaked.supersedesSynthesis). When true, `syntheticCount` is 0 BY DESIGN — the two
+     *  grids cover the same forest, so keeping both would double the density and stack an invention
+     *  on a measurement. */
+    readonly sampledSupersededSynthesis: boolean;
 }
 
 /**
@@ -129,20 +147,41 @@ export interface ContextCanopySet extends CanopySet {
 export async function fetchContextCanopySet(
     lat: number,
     lon: number,
-    opts: { readonly maxRadiusM: number; readonly maxMapped?: number; readonly maxSynthetic?: number },
+    opts: {
+        readonly maxRadiusM: number; readonly maxMapped?: number; readonly maxSynthetic?: number;
+        /** §VEG-REAL-CANOPY-BAKE — cap on MEASURED cells. Default `MAX_SAMPLED_CANOPIES`. */
+        readonly maxSampled?: number;
+    },
     signal?: AbortSignal,
 ): Promise<ContextCanopySet> {
     const empty: ContextCanopySet = {
         instances: [], mappedCount: 0, syntheticCount: 0, mappedAvailable: 0, polygonCount: 0,
         excludedNearMappedTree: 0, syntheticCappedAway: 0, bakedTreeCount: 0, greenAreaCount: 0,
+        sampledCount: 0, sampledSources: [], sampledSupersededSynthesis: false,
     };
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return empty;
 
-    const [trees, parks] = await Promise.all([
+    const [trees, parks, baked] = await Promise.all([
         fetchContextTrees(lat, lon, signal).catch(() => emptyTreeCollection()),
         fetchContextParks(lat, lon, signal).catch(() => ({ type: 'ContextParkCollection' as const, areas: [] })),
+        // §VEG-REAL-CANOPY-BAKE (L-12935) — the MEASURED third source, read in the same parallel batch
+        // (each layer is bbox-cached, so on a warm site this costs no network at all).
+        fetchContextBakedCanopy(lat, lon, signal).catch(() => emptyBakedCanopy()),
     ]);
     if (signal?.aborted) return empty;
+
+    // §VEG-REAL-CANOPY-BAKE — the measured cells, radially culled + capped nearest-first, kept clear
+    // of the mapped trees so a surveyed tree is never double-drawn under a sampled crown.
+    const sampled = buildSampledCanopyInstances(baked.points, {
+        site: { lat, lon },
+        maxRadiusM: opts.maxRadiusM,
+        maxCount: opts.maxSampled ?? MAX_SAMPLED_CANOPIES,
+        mappedTrees: trees.trees,
+    });
+    // ⚠ SUPERSESSION, not addition. Both grids cover the same forest; drawing both would DOUBLE the
+    // crown density and stack an invented position on top of a measured one — which would read as
+    // more evidence, not less. Where the measurement has real coverage here, the synthesis stands down.
+    const superseded = supersedesSynthesis(sampled.canopies.length);
 
     const set = buildCanopySet(
         trees.trees,
@@ -151,8 +190,16 @@ export async function fetchContextCanopySet(
             site: { lat, lon },
             maxRadiusM: opts.maxRadiusM,
             maxMapped: opts.maxMapped ?? MAX_MAPPED_TREES,
-            maxSynthetic: opts.maxSynthetic ?? MAX_SYNTHESISED_CANOPIES,
+            maxSynthetic: superseded ? 0 : (opts.maxSynthetic ?? MAX_SYNTHESISED_CANOPIES),
         },
     );
-    return { ...set, bakedTreeCount: trees.trees.length, greenAreaCount: parks.areas.length };
+    return {
+        ...set,
+        instances: [...set.instances, ...sampled.canopies],
+        bakedTreeCount: trees.trees.length,
+        greenAreaCount: parks.areas.length,
+        sampledCount: sampled.canopies.length,
+        sampledSources: baked.sources,
+        sampledSupersededSynthesis: superseded,
+    };
 }

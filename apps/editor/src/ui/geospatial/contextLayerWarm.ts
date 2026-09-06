@@ -28,6 +28,7 @@ import { fetchContextParks } from './contextParks';
 import { fetchContextLanduse } from './contextLanduse';
 import { fetchContextRail } from './contextRail';
 import { fetchContextTrees } from './contextTrees';
+import { fetchContextBakedCanopy } from './contextCanopyBaked';
 import { CONTEXT_WIDE_HALF_DEG, CONTEXT_SEA_HALF_DEG } from './contextExtents';
 
 const _tracer = trace.getTracer('pryzm.gis.context-layer-warm');
@@ -52,6 +53,11 @@ export function warmAllContextLayers(lat: number, lon: number): void {
             ['landuse', fetchContextLanduse(lat, lon, undefined, CONTEXT_WIDE_HALF_DEG)],
             ['rail', fetchContextRail(lat, lon)],
             ['trees', fetchContextTrees(lat, lon)],
+            // §VEG-REAL-CANOPY-BAKE (L-12935) — the MEASURED canopy cells the tree primitive merges
+            // with the mapped trees. Warmed on the same key `fetchContextCanopySet` later reads, so a
+            // baked site pays no cold read; an un-baked archive is memoised absent by
+            // §CTX-KNOWN-MISSING on this one probe and the woods-fill synthesis carries the site.
+            ['canopy', fetchContextBakedCanopy(lat, lon)],
         ];
         for (const [name, p] of layers) {
             void p.then(() => {
