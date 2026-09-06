@@ -89,7 +89,7 @@ describe('§BAKE-NEWZEALAND — the bake row', () => {
     });
 });
 
-describe('§PENDING-REGION — `bake.mjs --regions-json` emits the flag, and ONLY for newzealand today', () => {
+describe('§PENDING-REGION — `bake.mjs --regions-json` emits the flag on every row that has never been baked', () => {
     const tables = regionsJson();
 
     it('every row carries a boolean `pending` (absent on the row ⇒ false — never undefined on the wire)', () => {
@@ -97,12 +97,24 @@ describe('§PENDING-REGION — `bake.mjs --regions-json` emits the flag, and ONL
         for (const r of tables.allRegions) expect(typeof r.pending, `${r.name}.pending`).toBe('boolean');
     });
 
-    it('newzealand is pending; no other row is (a live region must never carry the flag)', () => {
+    it('newzealand is pending, and no LIVE region is (a live region must never carry the flag)', () => {
         const nz = tables.allRegions.find((r) => r.name === 'newzealand');
         expect(nz).toBeDefined();
         expect(nz!.pending).toBe(true);
         expect(nz!.heightJoin).toBeNull();
-        expect(tables.allRegions.filter((r) => r.pending).map((r) => r.name)).toEqual(['newzealand']);
+        // ⚠ RE-STATED 2026-09-06 (lane EU-EVERY-COUNTRY). This read `toEqual(['newzealand'])`, which
+        // was right on the day and is a LITERAL of a set that grows every time a new country lands
+        // before its first bake — §EU-EVERY-COUNTRY added seventeen. The INVARIANT this case exists to
+        // protect is not "exactly one row is pending"; it is "a region that is already LIVE in R2 must
+        // never carry the flag", because a flag on a live region lets a later publish drop it silently.
+        // So: newzealand is pending, and every long-live region is not. Add to LIVE, never to a literal.
+        const pending = new Set(tables.allRegions.filter((r) => r.pending).map((r) => r.name));
+        expect(pending.has('newzealand')).toBe(true);
+        const LIVE = ['spain', 'denmark', 'netherlands', 'france', 'germany', 'italy', 'portugal',
+            'belgium', 'switzerland', 'austria', 'czechia', 'poland', 'greatbritain', 'ireland',
+            'sweden', 'norway', 'finland', 'estonia', 'latvia', 'lithuania', 'luxembourg', 'greece',
+            'croatia', 'slovenia', 'hungary', 'romania', 'slovakia', 'bulgaria', 'paris', 'lyon', 'koln'];
+        expect([...pending].filter((n) => LIVE.includes(n))).toEqual([]);
     });
 });
 
@@ -113,22 +125,29 @@ describe('§PENDING-REGION — `bake.mjs --regions-json` emits the flag, and ONL
 describe('§PENDING-REGION — merge-tiles.mjs expectedRegions (the REAL function on the REAL table)', () => {
     const tables = regionsJson();
     const everyone = tables.allRegions.map((r) => r.name);
-    const live = everyone.filter((n) => n !== 'newzealand');
+    // ⚠ RE-DERIVED 2026-09-06 (lane EU-EVERY-COUNTRY). These read `everyone.filter(n => n !== 'newzealand')`
+    // and `toEqual(['newzealand'])` — literals of the pending SET, which grows every time a country
+    // lands before its first bake (§EU-EVERY-COUNTRY added seventeen at once). The behaviour under test
+    // is unchanged and is the same sentence as before: expect=all expects exactly the NON-pending rows,
+    // and names every pending row that is not staged instead of refusing for it.
+    const pendingNames = tables.allRegions.filter((r) => r.pending === true).map((r) => r.name);
+    const live = tables.allRegions.filter((r) => r.pending !== true).map((r) => r.name);
 
-    it('expect=all with newzealand UNSTAGED expects every non-pending row and lists newzealand as pending-unstaged (no refusal)', () => {
+    it('expect=all with the pending rows UNSTAGED expects every non-pending row and lists them as pending-unstaged (no refusal)', () => {
         const r = expectedFor('all', live);
         expect(r.expected).toEqual(live);
         expect(r.expected).not.toContain('newzealand');
-        expect(r.pendingUnstaged).toEqual(['newzealand']);
+        expect(r.pendingUnstaged).toEqual(pendingNames);
+        expect(r.pendingUnstaged).toContain('newzealand');
     }, 60_000);
 
-    it('expect=all with NOTHING staged still leaves newzealand out — the missing set is exactly the live rows, never the pending one', () => {
+    it('expect=all with NOTHING staged still leaves the pending rows out — the missing set is exactly the live rows, never a pending one', () => {
         const r = expectedFor('all', []);
         expect(r.expected).toEqual(live);
-        expect(r.pendingUnstaged).toEqual(['newzealand']);
+        expect(r.pendingUnstaged).toEqual(pendingNames);
     }, 60_000);
 
-    it('expect=all with newzealand STAGED expects it (the first NZ publish needs no special expect= value)', () => {
+    it('expect=all with every pending row STAGED expects them all (the first publish needs no special expect= value)', () => {
         const r = expectedFor('all', everyone);
         expect(r.expected).toEqual(everyone);
         expect(r.expected).toContain('newzealand');
@@ -161,8 +180,13 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
     afterAll(() => rmSync(DIR, { recursive: true, force: true }));
 
     const tables = regionsJson();
-    const everyone = tables.allRegions.map((r) => r.name);
+    // (`everyone` was removed here 2026-09-06 — the manifest assertion below names `live` + newzealand,
+    //  which is exactly what this case stages; a whole-table literal is racy while siblings edit bake.mjs.)
     const live = tables.allRegions.filter((r) => r.pending !== true).map((r) => r.name);
+    // ⚠ NO `pendingNames` LITERAL HERE (lane EU-EVERY-COUNTRY, 2026-09-06). The CLI cases below read
+    // bake.mjs in a CHILD PROCESS seconds after this file read it, so any assertion spelling out the
+    // whole pending set races a sibling lane's edit (measured: `puertorico` → `puertoricousa` mid-run).
+    // They assert the SHAPE of the pending line plus newzealand by name instead — same contract, no race.
 
     /** One staged set (a real pmtiles fixture + a real staging manifest) claiming `regions`. */
     function stageSet(staging: string, slug: string, regions: readonly string[], tiles: Array<{ z: number; x: number; y: number; payloadText: string }>): void {
@@ -188,7 +212,14 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
         const r = mergeAll(staging, out);
         expect(r.status, r.stderr).toBe(0);
         expect(r.stderr).not.toContain('MISSING');
-        expect(r.stdout).toMatch(/§PENDING-REGION — 1 bake\.mjs row\(s\) flagged pending and NOT staged: \[newzealand\]/);
+        // ⚠ STRUCTURE, NOT THE WHOLE LIST (lane EU-EVERY-COUNTRY, 2026-09-06). This asserted the exact
+        // sentence including every pending name. That is racy by construction under a fleet: the
+        // pending set is read from bake.mjs TWICE — once here at collection time, once by the merge
+        // child process seconds later — and a sibling lane renaming a row in between turns a correct
+        // gate into a red test (measured: `puertorico` → `puertoricousa` mid-run). The CONTRACT is
+        // that the merge NAMES its pending-unstaged rows and counts them; that is what is asserted.
+        expect(r.stdout).toMatch(/§PENDING-REGION — \d+ bake\.mjs row\(s\) flagged pending and NOT staged: \[[^\]]*\] — not expected by this merge/);
+        expect(r.stdout).toContain('newzealand');   // …and newzealand is one of them, by name
         expect(r.stdout).toContain(`${live.length} region(s) in the bytes (${live.length} expected)`);
         const manifest = JSON.parse(readFileSync(join(out, 'tileset-manifest.json'), 'utf8')) as { regions: Record<string, unknown> };
         expect(Object.keys(manifest.regions).sort()).toEqual([...live].sort());
@@ -204,7 +235,8 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
         // NO staged 'buildings' bake"); the CONTRACT is exit 1 + the missing row named + NZ not named.
         expect(r.stderr).toMatch(/MISSING REGION\(S\)[^\n]*— 1 expected region\(s\) have NO staged (?:'buildings' )?bake: \[latvia\]/);
         expect(r.stderr).not.toContain('newzealand');
-        expect(r.stdout).toContain('[newzealand] — not expected by this merge');
+        expect(r.stdout).toContain('— not expected by this merge');
+        expect(r.stdout).toContain('newzealand');   // still named among the pending set, not swallowed
     }, 120_000);
 
     it('merges newzealand IN once it is staged, with no special expect= value and no pending line', () => {
@@ -214,10 +246,16 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
         stageSet(staging, 'newzealand', ['newzealand'], NZ_TILES);
         const r = mergeAll(staging, out);
         expect(r.status, r.stderr).toBe(0);
-        expect(r.stdout).not.toContain('§PENDING-REGION');
-        expect(r.stdout).toContain(`${everyone.length} region(s) in the bytes (${everyone.length} expected)`);
+        // ⚠ SCOPED TO NEWZEALAND (lane EU-EVERY-COUNTRY, 2026-09-06). This read
+        // `not.toContain('§PENDING-REGION')`, which was true only while newzealand was the sole pending
+        // row: this case stages `live` + newzealand, so every OTHER pending row is legitimately unstaged
+        // and legitimately named. The sentence under test is "staging NZ removes NZ from the pending
+        // line", not "no row anywhere is pending".
+        const pendingLine = (r.stdout.match(/§PENDING-REGION[^\n]*/) ?? [''])[0];
+        expect(pendingLine).not.toContain('newzealand');
         const manifest = JSON.parse(readFileSync(join(out, 'tileset-manifest.json'), 'utf8')) as { regions: Record<string, unknown> };
-        expect(Object.keys(manifest.regions).sort()).toEqual([...everyone].sort());
+        expect(Object.keys(manifest.regions).sort()).toEqual([...live, 'newzealand'].sort());
+        expect(manifest.regions).toHaveProperty('newzealand');
     }, 120_000);
 
     // ⭐ THE FAIL-SAFE, and the reason the flag is not a foot-gun. c7d1ebe6 states that the no-loss
@@ -241,7 +279,8 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
         // LOSS + the row named — not either lane's sentence.
         expect(r.stderr ?? '').toMatch(/REGION LOSS[^\n]*\[newzealand\]/);
         // …and the pending line still explains why it was not expected, so the operator sees BOTH halves.
-        expect(r.stdout ?? '').toContain('[newzealand] — not expected by this merge');
+        expect(r.stdout ?? '').toContain('— not expected by this merge');
+        expect(r.stdout ?? '').toContain('newzealand');   // still named among the pending set, not swallowed
     }, 120_000);
 
     // ⭐ THE PRODUCTION SHAPE, and the ONE configuration the three cases above do not cover (lane
@@ -274,7 +313,8 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
         // The no-loss gate RAN (it is not silently skipped) and covered every live region…
         expect(r.stdout ?? '').toMatch(/no-loss gate: every live region covered/);
         // …while the pending row is still named, so the operator sees WHY newzealand is not there.
-        expect(r.stdout ?? '').toContain('[newzealand] — not expected by this merge');
+        expect(r.stdout ?? '').toContain('— not expected by this merge');
+        expect(r.stdout ?? '').toContain('newzealand');   // still named among the pending set, not swallowed
         const merged = JSON.parse(readFileSync(join(DIR, 'steady', 'merged', 'tileset-manifest.json'), 'utf8')) as { regions: Record<string, unknown> };
         expect(Object.keys(merged.regions).sort()).toEqual([...live].sort());
     }, 120_000);

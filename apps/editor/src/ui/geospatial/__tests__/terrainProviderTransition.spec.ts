@@ -79,7 +79,12 @@ describe('§TERRAIN-RELOCATION-DETACH — resolveTerrainTransition', () => {
     it('relocating to a DIFFERENT covered site → attach, naming the tileset it replaces', () => {
         const t = resolveTerrainTransition(decide(PORTO.lat, PORTO.lon), HOLDING_BARCELONA);
         const slug = terrainSlugForLonLat(PORTO.lon, PORTO.lat)!;         // 'portugal' today (see the sanity test)
-        expect(t).toEqual({ action: 'attach', city: slug, candidates: [slug], replaces: 'barcelona' });
+        // §PENDING-REGION-FALLS-THROUGH (2026-09-06, lane EU-EVERY-COUNTRY) — `candidates` is now
+        // EVERY containing region, most-interior first, so a region that is listed but not yet
+        // published falls THROUGH to a published neighbour instead of dropping the site to flat
+        // ground. Porto sits inside `portugal` (margin 0.719) AND inside Spain's coarse rectangle
+        // (0.681), so the tail is non-empty and pinned here rather than left as `[slug]`.
+        expect(t).toEqual({ action: 'attach', city: slug, candidates: [slug, 'spain'], replaces: 'barcelona' });
     });
 
     it('first attach on a flat viewer names no replacement', () => {
