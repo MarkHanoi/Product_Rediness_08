@@ -589,20 +589,30 @@ const GLOBE_LOADING_COLOUR = '#EDECF5';
  * renders darker on a shaded face and under a building's shadow. Same BASE colour is what is
  * achievable and what ships; no hex is quietly re-tuned to fake the rest.
  *
- * STILL 3D-ONLY, DELIBERATELY: `ground`/`rural` (2D paints no rural tint at all — nothing to equal),
- * `contextUncertainHeight`/`contextEstimatedHeight` (height-provenance signals, not context colour),
- * and every PROPOSED-massing / brand entry (`proposedFill`, `silhouette`, the #6600FF accent).
+ * ⚠ `ground`/`rural`/`ruralEdge` WERE ON THIS 3D-ONLY LIST AND ARE NOT ANY MORE — §RURAL-MATCHES-2D-PAGE
+ * (L-12987, founder 2026-09-06: "3d site view needs to match ALL COLOURS to 2d maps view. DO IT!").
+ * The line read "2D paints no rural tint at all — nothing to equal", and that premise was FALSE: 2D
+ * filters `kind === 'urban'` in its land-use layer, so rural land there shows the PAGE, and the page
+ * is `FORMA_PALETTE_V2.land`. All three are now references. The SUPERSEDED 2026-07-29 ruling and its
+ * consequence are recorded in full in `formaPaletteV2.ts`.
+ *
+ * STILL 3D-ONLY, DELIBERATELY: `contextUncertainHeight`/`contextEstimatedHeight` (height-provenance
+ * signals, not context colour), and every PROPOSED-massing / brand entry (`proposedFill`,
+ * `silhouette`, the #6600FF accent).
  */
 const FORMA_PALETTE = {
-  /** Base terrain ground = the colour of UNDRAPED land (mountains / rustic / open
-   *  country outside the city). §FORMA-CTX-LANDUSE-BASE (founder 2026-07-29):
-   *  "rustic - mountain - light brown" — the base is now a soft LIGHT BROWN so bare
-   *  relief and rural land read earthy, while URBAN ground is over-draped light grey
-   *  by the landuse layer (`urban` below). Before this the base was a light grey
-   *  (#DDDCD9), which made mountains read the SAME grey as the city — the founder's
-   *  "mountain rural is the same colour than the city urban areas" defect. Kept soft
-   *  and light (a hair warmer/lighter than `rural`) so the white massing + shadows
-   *  still read cleanly against it. */
+  /** Base terrain ground = the colour of UNDRAPED land (mountains / rustic / open country outside
+   *  the city). §RURAL-MATCHES-2D-PAGE (L-12987) — this reference is unchanged; its VALUE moved from
+   *  #D6C7A6 to the 2D page (`FORMA_PALETTE_V2.land`) in `formaGroundColour.ts`.
+   *  ⚠ SUPERSEDED, KEPT AS THE RECORD OF THE REVERSAL — this comment used to read: "§FORMA-CTX-LANDUSE-BASE
+   *  (founder 2026-07-29): 'rustic - mountain - light brown' — the base is now a soft LIGHT BROWN so
+   *  bare relief and rural land read earthy … Before this the base was a light grey (#DDDCD9), which
+   *  made mountains read the SAME grey as the city — the founder's 'mountain rural is the same colour
+   *  than the city urban areas' defect."
+   *  ⭐ THE FOUNDER REVERSED IT 2026-09-06 ("3d site view needs to match ALL COLOURS to 2d maps view.
+   *  DO IT!"), which re-opens that defect BY CONSTRUCTION, because the 2D map does not distinguish
+   *  farmland from a city block either. Both sentences and the smallest in-palette way back are in
+   *  `formaPaletteV2.ts`'s SUPERSEDED block. Do not re-mint a brown here to "fix" it. */
   ground: FORMA_GROUND_RURAL,
   /** Scene background — soft neutral (§2 Sky / background). §FORMA-SCENE-QUALITY:
    *  this is now the FALLBACK flat fill; the visible backdrop is the soft vertical
@@ -686,10 +696,15 @@ const FORMA_PALETTE = {
    *  painted a soft neutral grey so built-up ground reads distinctly from the neutral base + rural. */
   urban: FORMA_CONTEXT_3D.landuseUrban,
   urbanEdge: FORMA_CONTEXT_3D.landuseUrbanEdge,
-  /** §FORMA-CTX-LANDUSE — RURAL land-use (farmland/meadow/orchard/vineyard…) a warm earthy brown/tan
-   *  so agricultural ground reads brown, matching the founder's "brown in rural areas". */
-  rural: '#CDB98C',
-  ruralEdge: '#B8A374',
+  /** §RURAL-MATCHES-2D-PAGE (L-12987) — RURAL land-use (farmland/meadow/orchard/vineyard/farmyard/
+   *  allotments/greenhouse_horticulture/plant_nursery/animal_keeping) now takes the 2D PAGE, because
+   *  2D's land-use layer filters `kind === 'urban'` and paints rural with nothing.
+   *  ⚠ SUPERSEDED, KEPT: this read "a warm earthy brown/tan so agricultural ground reads brown,
+   *  matching the founder's 'brown in rural areas'" (#CDB98C / edge #B8A374). It is what the founder
+   *  saw as the dark brown between the buildings at Córdoba: the parity work lightened the urban
+   *  drape from #C4C1BB to #ECE9E3 (ΔL* to rural 2.0 → 14.9) and left this hex where it was. */
+  rural: FORMA_CONTEXT_3D.landuseRural,
+  ruralEdge: FORMA_CONTEXT_3D.landuseRuralEdge,
   /** §FORMA-CTX-RAIL (L-642 Phase C) — rail/tram track ribbons, a DISTINCT DARK cool-grey so the
    *  transport lines read as railways over/among the pale road grid, not as another street.
    *  ⚠ §PALETTE-PARITY-2D-3D (L-12965) SUPERSEDES THE 'DISTINCT DARK' HALF, and the consequence is

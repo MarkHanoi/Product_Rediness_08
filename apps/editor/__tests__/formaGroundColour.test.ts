@@ -1,5 +1,10 @@
 // §FORMA-GROUND-URBAN-WHITE (L-12922) — the terrain base is off-white in and beside urban land
-// (every city and village), light brown in open country (the founder's 2026-07-29 mountain rule).
+// (every city and village).
+// ⚠ AMENDED §RURAL-MATCHES-2D-PAGE (L-12987, 2026-09-06) — this header used to end "light brown in
+// open country (the founder's 2026-07-29 mountain rule)". The founder REVERSED that rule in favour
+// of matching the 2D map, where rural land is painted by nothing and shows the page. Open country is
+// now the SAME off-white; the urban/rural ARM survives as a reported classification, the COLOUR
+// difference does not. Both of his sentences are quoted in formaPaletteV2.ts's SUPERSEDED block.
 import { describe, it, expect } from 'vitest';
 import {
     formaGroundBaseColour, shouldPaintFormaGroundBase, FORMA_GROUND_RURAL, FORMA_GROUND_URBAN, URBAN_NEAR_M,
@@ -28,11 +33,20 @@ describe('§FORMA-GROUND-URBAN-WHITE (L-12922)', () => {
         expect(v.colour).toBe(FORMA_GROUND_URBAN);
     });
 
-    it('open country far from any urban polygon keeps the light-brown base (the 2026-07-29 mountain rule)', () => {
+    // ⚠ §RURAL-MATCHES-2D-PAGE (L-12987, founder 2026-09-06: "3d site view needs to match ALL COLOURS
+    // to 2d maps view. DO IT!") — this test's NAME used to end "keeps the light-brown base (the
+    // 2026-07-29 mountain rule)". That ruling is SUPERSEDED and #D6C7A6 is gone; 2D paints rural land
+    // with nothing, so its colour is the page. The ARM is still 'rural' and still reported — the
+    // classification is a fact we keep asserting — but the two arms no longer differ in COLOUR,
+    // exactly as the 2D map does not differ. Do not delete the arm to "simplify".
+    it('open country far from any urban polygon reports arm=rural — now in the 2D PAGE colour, not brown', () => {
         const v = formaGroundBaseColour([FARMLAND, VILLAGE], 43.45, 3.65);   // ~5 km from the village
         expect(v.arm).toBe('rural');
         expect(v.colour).toBe(FORMA_GROUND_RURAL);
         expect(v.nearestUrbanM).toBeGreaterThan(URBAN_NEAR_M);
+        // The supersession, asserted where a reader of THIS file will meet it.
+        expect(FORMA_GROUND_RURAL).toBe(FORMA_GROUND_URBAN);
+        expect(FORMA_GROUND_RURAL).not.toBe('#D6C7A6');
     });
 
     it('no landuse at all is an ADMISSION, not a finding: the rural default, arm no-landuse', () => {

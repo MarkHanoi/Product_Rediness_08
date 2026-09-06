@@ -21,6 +21,17 @@
 // DIRECTIONALLY LIT with shadows and the 2D map is flat-lit, so an identical albedo still renders
 // darker on a shaded face. Same BASE colour is the claim; "pixel-identical" is not, and pretending
 // otherwise by re-tuning a hex would recreate the drift this file exists to prevent.
+//
+// ⚠⚠ AMENDED 2026-09-06 — §RURAL-MATCHES-2D-PAGE (L-12987). The FIRST version of this spec carved
+// RURAL out as an "honest gap" (ARM E) on the premise that 2D paints no rural tint, so there was
+// nothing for #D6C7A6 / #CDB98C to equal. The premise was FALSE — 2D's context land-use layer
+// filters kind === 'urban', so rural land in 2D shows the PAGE, and the page is a palette value.
+// The carve-out is why the founder's next screenshot (Cordoba, 2D|3D split) showed dark brown
+// between the buildings: §PALETTE-PARITY-2D-3D lightened the urban drape #C4C1BB → #ECE9E3 and the
+// ground base #F0EDE8 → #F5F2EA while the two rural hexes stood still, so the composited step from
+// urban drape to rural drape went from ΔL* 2.0 (invisible) to ΔL* 14.9 (a loud brown patch).
+// "before the colour between buildings was matching the 2d view" is an accurate report of exactly
+// that. ARM E is now the SUPERSESSION record + a ratchet against the three browns coming back.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -45,6 +56,7 @@ import {
     buildPastelBackgroundLayer,
 } from '../siteMap2DStyle';
 import { FORMA_GROUND_URBAN, FORMA_GROUND_RURAL } from '../formaGroundColour';
+import { FORMA_QUALITY } from '../formaSceneQuality';
 
 const paintOf = (layer: Record<string, unknown>): Record<string, unknown> =>
     layer['paint'] as Record<string, unknown>;
@@ -80,6 +92,19 @@ describe('§PALETTE-PARITY-2D-3D — ARM A: every 3D context colour equals its 2
     it('landuse — urban drape takes the 2D urban tint, and its edge equals its fill (2D draws none)', () => {
         expect(FORMA_CONTEXT_3D.landuseUrban).toBe(FORMA_PALETTE_V2.landuseIndustrial);
         expect(FORMA_CONTEXT_3D.landuseUrbanEdge).toBe(FORMA_CONTEXT_3D.landuseUrban);
+    });
+
+    // §RURAL-MATCHES-2D-PAGE (L-12987, founder 2026-09-06 at Cordoba, 2D|3D split screenshot):
+    // "colours needs to match — before the colour between buildings was matching the 2d view — 3d
+    // site view needs to match ALL COLOURS to 2d maps view. DO IT!"
+    it('landuse RURAL — drape + edge + ground base all take the 2D PAGE (were #CDB98C / #B8A374 / #D6C7A6)', () => {
+        // NOT an invented colour: buildPastelLanduseLayers filters ['==',['get','kind'],'urban'], so a
+        // rural polygon in 2D is painted by nothing and what shows is the background = land. Arm B
+        // below proves that filter is really what the 2D style ships.
+        expect(FORMA_CONTEXT_3D.landuseRural).toBe(FORMA_PALETTE_V2.land);
+        expect(FORMA_CONTEXT_3D.landuseRuralEdge).toBe(FORMA_CONTEXT_3D.landuseRural);
+        expect(FORMA_CONTEXT_3D.groundRural).toBe(FORMA_PALETTE_V2.land);
+        expect(FORMA_GROUND_RURAL).toBe(FORMA_PALETTE_V2.land);
     });
 
     it('rail — takes the 2D hairline tone, and its edge equals its fill (2D draws no casing)', () => {
@@ -151,6 +176,15 @@ describe('§PALETTE-PARITY-2D-3D — ARM B: the 2D map RENDERS those same values
         expect(lu['fill-color']).toBe(FORMA_CONTEXT_3D.landuseUrban);
         expect(paintOf(buildPastelBackgroundLayer())['background-color']).toBe(FORMA_CONTEXT_3D.groundUrban);
     });
+
+    it('RURAL landuse is painted by NOTHING in 2D — which is why its 2D value is the page', () => {
+        // §RURAL-MATCHES-2D-PAGE (L-12987). The claim "rural's 2D colour is land" rests ENTIRELY on
+        // this filter. If the 2D style ever starts painting rural, this fails and the 3D alias gets
+        // re-decided deliberately instead of silently keeping a value 2D no longer implies.
+        const ctx = byId(buildPastelLanduseLayers(), PASTEL_LAYERS.landuseCtx);
+        expect(ctx['filter']).toEqual(['==', ['get', 'kind'], 'urban']);
+        expect(paintOf(buildPastelBackgroundLayer())['background-color']).toBe(FORMA_CONTEXT_3D.landuseRural);
+    });
 });
 
 describe('§PALETTE-PARITY-2D-3D — ARM C: no context colour may be re-typed as a literal', () => {
@@ -184,6 +218,10 @@ describe('§PALETTE-PARITY-2D-3D — ARM C: no context colour may be re-typed as
             'road', 'roadMinor', 'roadEdge',
             'water', 'park', 'parkEdge',
             'urban', 'urbanEdge', 'rail', 'railEdge', 'tree',
+            // §RURAL-MATCHES-2D-PAGE (L-12987) — the two keys that were EXEMPT from this arm and were
+            // therefore the only ground-plane hexes left free to drift. They are references now, so
+            // the literal that produced the founder's dark-brown Cordoba fails a test, not ships.
+            'rural', 'ruralEdge',
         ] as const;
         for (const key of CONTEXT_KEYS) {
             expect(block).toMatch(new RegExp(`^\\s*${key}: FORMA_CONTEXT_3D\\.\\w+,\\s*$`, 'm'));
@@ -222,15 +260,57 @@ describe('§PALETTE-PARITY-2D-3D — ARM D: the road class split is ONE class se
     });
 });
 
-describe('§PALETTE-PARITY-2D-3D — ARM E: the honest gaps stay NAMED, not quietly papered over', () => {
-    it('RURAL ground is 3D-only because the 2D map paints NO rural tint to equal', () => {
-        // C57 §1.5: an absent 2D value is not a licence to invent one. `PASTEL_LANDUSE_UNTINTED`
-        // leaves farmland as bare page, so there is nothing for #D6C7A6 to be equal to. This asserts
-        // the gap is REAL — if a rural tint ever lands in the 2D palette, this test fails and the
-        // parity question gets asked deliberately instead of being missed.
+describe('§PALETTE-PARITY-2D-3D — ARM E: the gaps stay NAMED, and a SUPERSEDED gap stays readable', () => {
+    // ⚠⚠ THIS TEST IS THE REVERSAL OF ITS OWN PREDECESSOR, AND IS STRICTLY STRONGER THAN IT WAS.
+    // It used to read: "RURAL ground is 3D-only because the 2D map paints NO rural tint to equal …
+    // expect(known.has(FORMA_GROUND_RURAL)).toBe(false); expect(FORMA_GROUND_RURAL).toBe('#D6C7A6')".
+    // That test PASSED while shipping the thing the founder photographed, because its premise was
+    // wrong: 2D DOES have a value for rural — the page. Superseded 2026-09-06 (§RURAL-MATCHES-2D-PAGE,
+    // L-12987) by his "3d site view needs to match ALL COLOURS to 2d maps view. DO IT!", which
+    // outranks the 2026-07-29 "rustic - mountain - light brown" ruling that minted #D6C7A6.
+    it('SUPERSEDED GAP: rural ground is now IN the 2D palette, and the old brown is gone for good', () => {
         const known = new Set<string>(Object.values(FORMA_PALETTE_V2));
-        expect(known.has(FORMA_GROUND_RURAL)).toBe(false);
-        expect(FORMA_GROUND_RURAL).toBe('#D6C7A6');
+        expect(known.has(FORMA_GROUND_RURAL)).toBe(true);          // was .toBe(false)
+        expect(FORMA_GROUND_RURAL).toBe(FORMA_PALETTE_V2.land);    // was .toBe('#D6C7A6')
+        expect(FORMA_GROUND_RURAL).not.toBe('#D6C7A6');
+    });
+
+    it('THE RATCHET: no off-palette brown survives anywhere in the 3D ground-plane path', () => {
+        // The three hexes the 2026-07-29 ruling minted. A future lane that "restores the rustic
+        // brown" must reverse the SUPERSESSION deliberately (and move this test) rather than paste
+        // a hex back — which is exactly how #CDB98C survived §PALETTE-PARITY-2D-3D and then became
+        // the founder's dark brown once every colour around it got ~15 L* lighter.
+        const OLD_BROWNS = ['#D6C7A6', '#CDB98C', '#B8A374'];
+        const stripComments = (t: string): string =>
+            t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+        const palette = stripComments(readFileSync(resolve(__dirname, '..', 'formaPaletteV2.ts'), 'utf8'));
+        const ground = stripComments(readFileSync(resolve(__dirname, '..', 'formaGroundColour.ts'), 'utf8'));
+        const viewportSrc = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        const from = viewportSrc.indexOf('const FORMA_PALETTE = {');
+        const block = stripComments(viewportSrc.slice(from, viewportSrc.indexOf('} as const;', from)));
+        for (const brown of OLD_BROWNS) {
+            expect(palette).not.toContain(brown);
+            expect(ground).not.toContain(brown);
+            expect(block).not.toContain(brown);
+        }
+    });
+
+    it('THE LIGHTING TERM IS NOT A PALETTE TERM — pinned here so nobody fixes it with a hex', () => {
+        // The founder's screenshot ALSO shows dark bands north of the buildings, and NO colour change
+        // touches those. Measured: the draped context entities (land-use, parks, water, roads, rail)
+        // never set `shadows`, and Cesium's PolygonGraphics default is ShadowMode.DISABLED — so every
+        // draped layer is FLAT-LIT and renders its 2D hex exactly, like the 2D map. The GLOBE is
+        // ShadowMode.RECEIVE_ONLY by default, so terrain in a building's shadow renders at
+        // `shadowDarkness` of its lit value: #F5F2EA (L* 95.5) becomes L* 34.9 at 0.34. That is a
+        // LIGHTING deliverable (shadow strength / AO / ambient), not a colour one.
+        expect(FORMA_QUALITY.shadowDarkness).toBe(0.34);
+        expect(Object.values(FORMA_PALETTE_V2)).not.toContain('0.34');
+        const viewportSrc = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        expect(viewportSrc).toContain('sm.darkness = FORMA_QUALITY.shadowDarkness;');
+        // The drape polygons must stay shadow-free, or their albedo stops equalling the 2D hex.
+        expect(viewportSrc).toContain("name: 'pryzm-forma-context-landuse',");
+        const luFrom = viewportSrc.indexOf("name: 'pryzm-forma-context-landuse',");
+        expect(viewportSrc.slice(luFrom, luFrom + 900)).not.toContain('shadows:');
     });
 
     it('the PRYZM purple selection accent is untouched by the parity work', () => {

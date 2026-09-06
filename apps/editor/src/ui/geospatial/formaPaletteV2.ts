@@ -112,14 +112,45 @@ export const FORMA_PALETTE_V2 = {
  *     what this casing is for. (Currently unreferenced by the ribbon renderer; aliased anyway so
  *     it cannot come back as a stray literal.)
  *
- * ⛔ NOT INCLUDED, DELIBERATELY, AND THIS IS AN HONEST GAP RATHER THAN AN OVERSIGHT:
- *   • RURAL ground + rural landuse (`FORMA_GROUND_RURAL` #D6C7A6, `FORMA_PALETTE.rural` #CDB98C).
- *     The 2D map paints NO rural tint — `PASTEL_LANDUSE_UNTINTED` leaves farmland as bare page —
- *     so there is no 2D value for these to equal. They stay 3D-only under the founder's standing
- *     §FORMA-CTX-LANDUSE-BASE ruling ("rustic - mountain - light brown"). Claiming parity for them
- *     would mean inventing a 2D colour that does not exist.
- *   • The PRYZM purple parcel/selection accent and the proposed-massing fill: brand + semantic, not
- *     context. Untouched.
+ * ⚠⚠ SUPERSEDED 2026-09-06 — §RURAL-MATCHES-2D-PAGE (L-12987). THIS BLOCK USED TO EXCLUDE RURAL AS
+ * AN HONEST GAP. THE EXCLUSION IS REVERSED BY A LATER FOUNDER INSTRUCTION. Both of his sentences are
+ * kept here in full so the reversal is DELIBERATE AND REVERSIBLE rather than lost:
+ *
+ *   • THE EARLIER RULING — founder 2026-07-29, §FORMA-CTX-LANDUSE-BASE: "rustic - mountain - light
+ *     brown". Raised against the defect he named in the same breath, recorded at CesiumViewport's
+ *     `FORMA_PALETTE.ground`: "mountain rural is the same colour than the city urban areas". That
+ *     ruling minted `FORMA_GROUND_RURAL` #D6C7A6 and `FORMA_PALETTE.rural` #CDB98C, and this block
+ *     excluded both from parity.
+ *   • THE LATER INSTRUCTION — founder 2026-09-06, Córdoba, with a 2D|3D split screenshot showing the
+ *     3D pane dark brown between the buildings while the 2D pane is warm cream: "colours needs to
+ *     match — before the colour between buildings was matching the 2d view — 3d site view needs to
+ *     match ALL COLOURS to 2d maps view. DO IT!"
+ *
+ * ⭐ THE LATER INSTRUCTION WINS — and the exclusion's PREMISE was wrong anyway. This block asserted
+ * "there is no 2D value for these to equal". There IS one, and it is measurable rather than a matter
+ * of taste: `buildPastelLanduseLayers()` filters its context land-use layer with
+ * `['==', ['get','kind'], 'urban']`, so a RURAL polygon in the 2D map is painted by NOTHING and what
+ * shows through is the page — `FORMA_PALETTE_V2.land`. Rural's 2D value IS `land`. Aliasing rural to
+ * `land` is therefore parity BY MEASUREMENT, not an invented colour, and it stays a reference like
+ * every other field here.
+ *
+ * ⚠ WHY IT LOOKED LIKE A REGRESSION TO HIM, MEASURED (CIE L* over the composited ground plane, rural
+ * drape at its α 0.9 over the urban base): BEFORE §PALETTE-PARITY-2D-3D the urban drape was #C4C1BB
+ * and the rural drape #CDB98C — ΔL* 79.6 vs 77.6 = **2.0**, invisible. AFTER it, the urban drape is
+ * #ECE9E3 over a #F5F2EA base — ΔL* 92.8 vs 77.9 = **14.9**. The rural hex never moved; everything
+ * around it got ~15 L* lighter, which is what turned a hidden classification into a loud brown patch.
+ * "Before … was matching" is an accurate report of exactly that.
+ *
+ * ⚠ THE CONSEQUENCE, STATED RATHER THAN DISCOVERED: matching 2D RE-OPENS the 2026-07-29 defect by
+ * construction — the 2D map itself does not distinguish farmland from a city block (ΔL* land 95.5 vs
+ * urban tint 92.4 ≈ 3), so a 3D view that matches it cannot either. If the founder wants them
+ * distinguishable again, the smallest move that stays INSIDE the 2D palette's own values is to give
+ * rural `landuseCommercial` (#EEEAE2, the nearest unused neutral; `parks`/`woodland` would read
+ * farmland as parkland, which the 2D map does not claim) — NOT a re-introduced off-palette brown,
+ * which is the exact drift this module exists to remove.
+ *
+ * ⛔ STILL NOT INCLUDED, DELIBERATELY: the PRYZM purple parcel/selection accent and the
+ * proposed-massing fill — brand + semantic, not context. Untouched.
  */
 export const FORMA_CONTEXT_3D = {
     /** Context-building mass — was #D9D8D3. */
@@ -152,6 +183,18 @@ export const FORMA_CONTEXT_3D = {
     treeEdge: FORMA_PALETTE_V2.treeStroke,
     /** Terrain base under urban land — was #F0EDE8 (the SUPERSEDED v1 `FORMA_PALETTE.land`). */
     groundUrban: FORMA_PALETTE_V2.land,
+    /** §RURAL-MATCHES-2D-PAGE (L-12987) — terrain base under open country / mountains; was #D6C7A6.
+     *  The 2D map paints rural with nothing, so the page IS its 2D value. Equal to `groundUrban` by
+     *  construction now, which is what 2D does; see the SUPERSEDED block above for the consequence. */
+    groundRural: FORMA_PALETTE_V2.land,
+    /** §RURAL-MATCHES-2D-PAGE (L-12987) — rural land-use drape (farmland/meadow/orchard/vineyard/
+     *  farmyard/allotments/greenhouse_horticulture/plant_nursery/animal_keeping); was #CDB98C. 2D
+     *  filters `kind === 'rural'` OUT of its land-use layer, so the drape's 2D value is the page it
+     *  would otherwise have covered. */
+    landuseRural: FORMA_PALETTE_V2.land,
+    /** §RURAL-MATCHES-2D-PAGE (L-12987) — rural land-use edge; was #B8A374. 2D draws no rural polygon
+     *  at all, so there is no edge to equal and this takes the fill, as `landuseUrbanEdge` does. */
+    landuseRuralEdge: FORMA_PALETTE_V2.land,
 } as const;
 
 /**

@@ -19,15 +19,25 @@
 import { FORMA_CONTEXT_3D } from './formaPaletteV2';
 
 /**
- * The base under UNDRAPED open country / mountains (§FORMA-CTX-LANDUSE-BASE, founder 2026-07-29:
- * "rustic - mountain - light brown").
+ * The base under UNDRAPED open country / mountains.
  *
- * ⛔ 3D-ONLY, AND THAT IS AN HONEST GAP, NOT AN OVERSIGHT (§PALETTE-PARITY-2D-3D, L-12965). The 2D
- * map paints NO rural tint at all — `PASTEL_LANDUSE_UNTINTED` leaves farmland as bare page — so
- * there is no 2D value for this to equal. Giving it one would mean INVENTING a 2D colour that does
- * not exist, which is the opposite of the parity work.
+ * ⚠⚠ §RURAL-MATCHES-2D-PAGE (L-12987, founder 2026-09-06) — THIS CONSTANT WAS #D6C7A6 AND IS NOW A
+ * REFERENCE INTO THE 2D PALETTE. The earlier ruling it carried is SUPERSEDED, not deleted; both
+ * founder sentences are quoted in full at `formaPaletteV2.FORMA_CONTEXT_3D`'s SUPERSEDED block.
+ *   • was: §FORMA-CTX-LANDUSE-BASE, founder 2026-07-29 — "rustic - mountain - light brown",
+ *     against "mountain rural is the same colour than the city urban areas".
+ *   • now: founder 2026-09-06 — "3d site view needs to match ALL COLOURS to 2d maps view. DO IT!"
+ *
+ * The comment this replaces claimed "there is no 2D value for this to equal". THAT WAS FALSE and is
+ * why the gap looked honest: 2D's context land-use layer filters `kind === 'urban'`, so rural land
+ * in the 2D map is painted by nothing and shows `FORMA_PALETTE_V2.land`. That IS its 2D value.
+ *
+ * ⚠ It now EQUALS `FORMA_GROUND_URBAN`. The urban/rural DECISION below is deliberately kept — its
+ * `arm` is a reported fact (and `pointInRing` is reused by §STREET-LIFE) — but the two arms no
+ * longer differ in COLOUR, exactly as the 2D map does not differ. Do not delete the decision to
+ * "simplify"; deleting it is what would make the reversal irreversible.
  */
-export const FORMA_GROUND_RURAL = '#D6C7A6';
+export const FORMA_GROUND_RURAL = FORMA_CONTEXT_3D.groundRural;
 /**
  * The base under urban land.
  *
