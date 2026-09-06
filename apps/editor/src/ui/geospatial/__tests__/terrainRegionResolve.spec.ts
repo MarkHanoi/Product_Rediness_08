@@ -238,7 +238,12 @@ describe('§PENDING-REGION-FALLS-THROUGH — candidates carry EVERY containing r
 // and that the day any region's bake stops being planet-wide (a national DTM adapter, the way `spain`
 // produced the ~50 m Languedoc plateau at the top of this file) the ground goes wrong too. That claim
 // is tested below rather than asserted.
-import { terrainSlugCandidates } from '../terrainCoverage';
+//
+// ⚠ NO IMPORT HERE. A mid-file `import { terrainSlugCandidates } from '../terrainCoverage'` stood at
+// this line and re-declared a binding the top-of-file import already provides. esbuild deduped it, so
+// vitest was green; `tsc` (the stricter root pass the build runs, and the one that hard-fails the Fly
+// deploy) reports TS2300 "Duplicate identifier". A test file that passes its own runner and breaks the
+// build is the worst place to leave one, because nothing in this suite would ever tell you.
 
 const US_RIGHT: ReadonlyArray<readonly [string, number, number, string]> = [
     // The brief's four border cases — the half the rule gets right.
