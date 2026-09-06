@@ -666,13 +666,19 @@ export async function writeBdtopoWorkingSet(outPath, bboxes = FR_BDTOPO_CITY_BBO
         out.written += appendFeaturesSeq(outPath, records.map((rec) => footprintFeature(rec, { keepZ })));
       },
     });
-    out.areas.push({ area: name, status: res.status, kept: res.kept, measured: res.measured, floorsDerived: res.floorsDerived, unknown: res.unknown, cellsFailed: res.cellsFailed, failures: res.failures });
+    // ⚠ `cells` travels on BOTH the area record and the roll-up. It was omitted from the area
+    // record until a live smoke printed the bake's own progress line as `0/undefined cell(s)
+    // failed` — an operator reading that at hour three cannot tell a clean area from a broken
+    // counter, and 'undefined' is exactly the shape of a number nobody computed. The DENOMINATOR
+    // is the point: `0/1` and `0/64` are different statements about how much was actually asked.
+    out.areas.push({ area: name, status: res.status, kept: res.kept, measured: res.measured, floorsDerived: res.floorsDerived, unknown: res.unknown, cells: res.cells, cellsFailed: res.cellsFailed, dropped: res.dropped, failures: res.failures });
     out.measured += res.measured;
     out.floorsDerived += res.floorsDerived;
     out.unknown += res.unknown;
     out.dropped += res.dropped;
     out.duplicates += res.duplicates;
     out.pages += res.pages;
+    out.cells += res.cells;
     out.cellsFailed += res.cellsFailed;
     if (onArea) onArea(name, res, out);
   }
