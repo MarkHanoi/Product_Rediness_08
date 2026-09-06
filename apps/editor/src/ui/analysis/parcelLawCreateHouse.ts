@@ -32,6 +32,10 @@ import { storeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { resolveActiveLevelId } from '../apartment-layout/activeLevel';
 import {
+    armLandInBimOnNextHouse,
+    defaultLandInBimDeps,
+} from '../house-layout/landInBimAfterCreateHouse';
+import {
     planCreateHouse,
     readLevelEnvelopes,
     type CreateHouseOutcome,
@@ -96,6 +100,15 @@ export interface ParcelLawCreateHouseDeps {
             readonly roofKind: 'flat' | 'gable' | 'hip';
         },
     ) => Promise<HouseBuildResult>;
+    /**
+     * §CREATE-SHOULD-TAKE-HIM-WHERE-THE-RESULT-LIVES (L-13013 / L-13014) — arm the post-build
+     * landing layout (Author mode · LEFT 3D PRYZM · RIGHT 2D PRYZM) for the NEXT house that
+     * finishes building. Production: `armLandInBimOnNextHouse(defaultLandInBimDeps(runtime))`.
+     *
+     * OPTIONAL so every existing spec's `deps` object still satisfies this interface — a suite
+     * that does not pass it simply does not arm, which is the honest no-op.
+     */
+    readonly armLandingLayout?: () => void;
 }
 
 function resolveStore(rt: PryzmRuntime | null | undefined): CreateHouseStore | null {
@@ -148,6 +161,12 @@ export function defaultParcelLawCreateHouseDeps(): ParcelLawCreateHouseDeps {
         // is how a gate ends up guarding a different storey from the one that gets the shell.
         activeLevelId: () => resolveActiveLevelId() ?? null,
         authoredWallCount: countAuthoredWallsOnLevel,
+        armLandingLayout: () => {
+            const rt = w.runtime ?? null;
+            // The disposer is intentionally dropped: the arm is ONE-SHOT and self-disarms on
+            // fire or on its own timeout, so there is nothing for this control to own or leak.
+            void armLandInBimOnNextHouse(defaultLandInBimDeps(rt));
+        },
         buildHouse: async (rt, storeyCount, opts) => {
             const mod = await import('../house-layout/houseFromBoundary.js');
             // ⛔ `autoBuild` is NOT passed — its default `false` is the modal path, which is what
@@ -241,6 +260,16 @@ export function mountParcelLawCreateHouse(
             }
             building = true;
             btn.disabled = true;
+            // §CREATE-SHOULD-TAKE-HIM-WHERE-THE-RESULT-LIVES (L-13013 / L-13014) — arm the
+            // landing layout for the house this click is about to produce.
+            // ⛔ ARMED HERE, APPLIED ON `house.layout-executed`, and the two are NOT the same
+            // moment: `buildHouse` resolves when the layout CHOOSER OPENS, so navigating in the
+            // `.then()` below would move the camera while the user is still choosing. The arm
+            // fires only when a house has actually landed — which is also why it can never fire
+            // on a FAILED run, and never on "Keep this as a level envelope" (a different verb).
+            try { deps.armLandingLayout?.(); } catch (e) {
+                console.warn('[analysis][create-house] arming the landing layout failed (non-fatal):', e);
+            }
             setStatus(`Drawing a ${current.plan.footprint.length}-edge shell and generating `
                 + `${current.plan.storeyCount} storey${current.plan.storeyCount === 1 ? '' : 's'}… `
                 + 'a layout chooser will open when the variants are ready.');
