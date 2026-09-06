@@ -720,12 +720,51 @@ function inBbox(lon: number, lat: number, bbox: TerrainBbox): boolean {
  * Resolve a site's `lon,lat` to a baked-terrain city slug, or `null` when the point is outside
  * every listed city (→ the viewport keeps flat ground). PURE + testable.
  */
+/**
+ * §MOST-INTERIOR-BBOX-WINS (L-12944, 2026-09-06) — HOW A POINT INSIDE TWO BOXES IS RESOLVED.
+ *
+ * THE DEFECT THIS RETIRES. Both resolvers returned the FIRST bbox containing the point. These are
+ * coarse national rectangles that necessarily overlap — measured 2026-09-06, 69 of the 48 region
+ * rows overlap at least one sibling (spain x france, netherlands x germany, denmark x sweden,
+ * poland x czechia, ...). Spain's box runs east to lon 4.6 and north to lat 43.9, which swallows
+ * Languedoc, and `spain` is listed before `france`. So Sete (3.696, 43.402) and Montpellier
+ * (3.876, 43.611) were served the SPANISH terrain tileset: the founder's console reads
+ * "attached baked terrain for 'spain'" at both, ground 56.8 m at Sete (real ~3 m) and 96.9 m at
+ * Montpellier (real ~40 m). A ~50 m false plateau puts the sea surface UNDER the land — the
+ * founder's "the sea goes beneath buildings land" — and every seat, envelope and shadow inherits it.
+ *
+ * THE RULE. Among ALL boxes containing the point, take the one where the point sits FURTHEST FROM
+ * THE BOX EDGE (longitude weighted by cos(lat), so the margin is a real distance, not a degree
+ * count). A point deep inside France and 0.5 deg from Spain's arbitrary eastern edge resolves to
+ * france; a point deep inside Spain and just over France's southern edge resolves to spain. Ties
+ * keep the table order, so a single-match point is byte-identical to the old behaviour.
+ *
+ * Verified against the real border cases in the spec: Sete + Montpellier + Toulouse + Perpignan to
+ * france, Barcelona + Girona to spain.
+ */
+function interiorMarginDeg(lon: number, lat: number, bbox: TerrainBbox): number {
+    const [w, s, e, n] = bbox;
+    const cosLat = Math.cos((lat * Math.PI) / 180) || 1e-6;
+    return Math.min((lon - w) * cosLat, (e - lon) * cosLat, lat - s, n - lat);
+}
+
+/** The most-interior match, or null. Shared by the city and region resolvers. */
+function mostInterior<T>(lon: number, lat: number, rows: ReadonlyArray<T>, bboxOf: (row: T) => TerrainBbox): T | null {
+    let best: T | null = null;
+    let bestMargin = -Infinity;
+    for (const row of rows) {
+        const bbox = bboxOf(row);
+        if (!inBbox(lon, lat, bbox)) continue;
+        const margin = interiorMarginDeg(lon, lat, bbox);
+        if (margin > bestMargin) { bestMargin = margin; best = row; }
+    }
+    return best;
+}
+
 export function cityForLonLat(lon: number, lat: number): string | null {
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
-    for (const { city, bbox } of TERRAIN_CITY_BBOXES) {
-        if (inBbox(lon, lat, bbox)) return city;
-    }
-    return null;
+    // §MOST-INTERIOR-BBOX-WINS (L-12944) — city boxes overlap too (a metro row beside its state row).
+    return mostInterior(lon, lat, TERRAIN_CITY_BBOXES, (r) => r.bbox)?.city ?? null;
 }
 
 /**
@@ -734,10 +773,9 @@ export function cityForLonLat(lon: number, lat: number): string | null {
  */
 export function regionForLonLat(lon: number, lat: number): string | null {
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
-    for (const { region, bbox } of TERRAIN_REGION_BBOXES) {
-        if (inBbox(lon, lat, bbox)) return region;
-    }
-    return null;
+    // §MOST-INTERIOR-BBOX-WINS (L-12944) — NOT the first match: Spain's box swallows Languedoc, and
+    // taking the first row served Sete and Montpellier a Spanish tileset (~50 m of false ground).
+    return mostInterior(lon, lat, TERRAIN_REGION_BBOXES, (r) => r.bbox)?.region ?? null;
 }
 
 /**
