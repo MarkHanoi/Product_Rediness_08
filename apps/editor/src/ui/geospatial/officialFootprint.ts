@@ -176,6 +176,49 @@ export function refsWithParts(items: readonly OfficialTagged[]): Set<string> {
 }
 
 /**
+ * §OFFICIAL-FOOTPRINTS-ALL-TIERS (L-12953) — the massing predicate for a WHOLE SCENE, built once.
+ *
+ * THE DEFECT THIS RETIRES, and it is not the one `shouldExtrudeInMassing` already answers. That
+ * function is correct; the way the 3D viewport CALLED it was not, in two independent ways, and both
+ * are properties of the CALLER's bookkeeping rather than of the rule:
+ *
+ *   1. **The ref set was built from ONE render tier.** CesiumViewport splits the near ring into a
+ *      shadow-casting tier and a demoted tier (`selectNearRingRenderTiers`, nearest-first with a
+ *      count cap), and derived `refsWithParts` from the shadow tier alone. A building's outline and
+ *      its parts sit at almost the same distance, so they straddle that cap: an outline in the
+ *      shadow tier whose parts fell into the demoted tier answered `hasParts === false` and was
+ *      extruded as one solid max(parts)-tall block ON TOP of its own parts.
+ *   2. **Two of the three tiers applied no filter at all.** The demoted near tier and both far
+ *      tiers extruded every official OUTLINE unconditionally. That is the majority of the scene —
+ *      the shadow ring is a small radius and the fetch is far wider — so the register's per-volume
+ *      articulation was buried under a prism everywhere except a thin disc around the site.
+ *
+ * Both are fixed by deriving the ref set from EVERY feature the scene holds and filtering EVERY
+ * tier through the one predicate. That rule lives here, tested, rather than as a comment beside a
+ * call site in a 13,000-line viewport where the next tier added would miss it again.
+ *
+ * `facts` is an accessor because the viewport carries the register facts at `f.properties.official`
+ * while the plan surface carries them one level up — the rule must not care.
+ *
+ * @param all   EVERY footprint the scene holds, across all render tiers — not one tier's slice.
+ * @param facts how to read the register facts off one feature.
+ */
+export function massingExtrudeFilter<T>(
+    all: readonly T[],
+    facts: (f: T) => OfficialFootprintFacts | undefined,
+): (f: T) => boolean {
+    const refs = new Set<string>();
+    for (const it of all) {
+        const f = facts(it);
+        if (f?.part && f.ref) refs.add(f.ref);
+    }
+    return (f: T) => {
+        const o = facts(f);
+        return shouldExtrudeInMassing(o, o?.ref ? refs.has(o.ref) : false);
+    };
+}
+
+/**
  * The one-line summary the founder reads to know the register actually landed. Counts are
  * SEPARATED BY SOURCE (C57 §1.9) — "N official part(s) of M building(s) + K OSM-only" — because a
  * single total cannot distinguish "the swap worked" from "we are still drawing OSM".

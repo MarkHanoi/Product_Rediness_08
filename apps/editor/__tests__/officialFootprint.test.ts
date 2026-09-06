@@ -29,6 +29,7 @@ import { describe, it, expect } from 'vitest';
 import {
     OFFICIAL_TAGS,
     readOfficialFootprint,
+    massingExtrudeFilter,
     refsWithParts,
     shouldDrawInPlan,
     shouldExtrudeInMassing,
@@ -171,5 +172,95 @@ describe('officialFootprint · the founder-readable summary', () => {
     it('names no source when nothing official is in view', () => {
         const s = summariseOfficialFootprints([{}, {}]);
         expect(s.line).toBe('0 official part(s) of 0 building(s) + 2 OSM-only');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §OFFICIAL-FOOTPRINTS-ALL-TIERS (L-12953, 2026-09-06, lane CADASTRAL-FOOTPRINTS-ES-FR)
+//
+// The double-draw guard above is correct. The VIEWPORT'S USE of it was not, and the defect was
+// invisible to every test in this file because it lived in the caller's bookkeeping.
+//
+// CesiumViewport draws context buildings in THREE tiers: a shadow-casting near tier, a demoted near
+// tier, and a batched far tier (`selectNearRingRenderTiers` splits the first two nearest-first with
+// a count cap; `far.features` is the third). It derived `refsWithParts` from the shadow tier ALONE
+// and applied `shouldExtrudeInMassing` to that tier ALONE. Two independent consequences, both of
+// which put a solid max(parts)-tall prism on top of the very articulation the register was fetched
+// for — the founder's own house is 0 + 2 + 3 + 2 storeys under one 320 m² outline:
+//
+//   1. The demoted and far tiers extruded EVERY official outline, unfiltered. That is most of the
+//      scene: the shadow ring is a small radius and the fetch is far wider.
+//   2. A building whose outline landed in the shadow tier while its parts fell past the cap into
+//      the demoted tier answered `hasParts === false` — so even the ONE filtered tier drew it.
+//
+// `massingExtrudeFilter` is the fix, and it is tested here rather than asserted in a comment beside
+// a call site in a 13,000-line file, because the next tier someone adds will miss the comment.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('officialFootprint · §OFFICIAL-FOOTPRINTS-ALL-TIERS — one decision, every tier', () => {
+    /** A feature shaped as the viewport carries it: register facts under `properties.official`. */
+    const feat = (part: boolean, ref: string, floors: number) => ({
+        properties: {
+            official: readOfficialFootprint(bakedTags({
+                source: 'es_catastro', ref, part, floors, floorsBelow: 0,
+                floorsKind: part ? 'register' : 'max-of-parts', use: 'residential', built: 2020, condition: 'functional',
+            })),
+        },
+    });
+    const osm = () => ({ properties: {} as { official?: undefined } });
+    const facts = (f: { properties: { official?: ReturnType<typeof readOfficialFootprint> } }) => f.properties.official;
+
+    /** The founder's house: four parts at 0/2/3/2 storeys under one outline derived at max = 3. */
+    const PARTS = [feat(true, REFCAT, 0), feat(true, REFCAT, 2), feat(true, REFCAT, 3), feat(true, REFCAT, 2)];
+    const OUTLINE = feat(false, REFCAT, 3);
+
+    it('extrudes the four PARTS and skips the outline when both are in the scene', () => {
+        const all = [...PARTS, OUTLINE];
+        const keep = massingExtrudeFilter(all, facts);
+        expect(PARTS.every(keep)).toBe(true);
+        expect(keep(OUTLINE)).toBe(false);
+    });
+
+    it('DEFECT 2 — an outline in one tier still sees parts that landed in ANOTHER tier', () => {
+        // This is the exact split the nearest-first cap produces: outline in the shadow tier, its
+        // parts demoted past the cap. Deriving the ref set from the shadow tier alone answered
+        // "no parts" and extruded a 3-storey block straight through the 0/2/3/2 volumes.
+        const shadowTier = [OUTLINE];
+        const demotedTier = PARTS;
+        const wrong = massingExtrudeFilter(shadowTier, facts);   // the OLD, one-tier derivation
+        expect(wrong(OUTLINE)).toBe(true);                        // ← the bug, pinned
+        const right = massingExtrudeFilter([...shadowTier, ...demotedTier], facts);
+        expect(right(OUTLINE)).toBe(false);                       // ← the fix
+    });
+
+    it('DEFECT 1 — the SAME predicate answers for the far tier, not a second unfiltered path', () => {
+        // One filter object is built from the whole scene and applied to every tier, so a far-tier
+        // outline is skipped for exactly the reason a near-tier one is.
+        const keep = massingExtrudeFilter([...PARTS, OUTLINE, osm()], facts);
+        expect([OUTLINE].filter(keep)).toEqual([]);
+        expect(PARTS.filter(keep)).toHaveLength(4);
+    });
+
+    it('STILL extrudes an official outline that genuinely has NO parts', () => {
+        // The non-cosmetic exception: a missing neighbour deletes a shadow, a party wall and a view
+        // obstruction from a study. Drawing it coarse beats not drawing it.
+        const lonely = feat(false, 'OTHERREF00000X', 4);
+        const keep = massingExtrudeFilter([...PARTS, OUTLINE, lonely], facts);
+        expect(keep(lonely)).toBe(true);
+    });
+
+    it('is a NO-OP on an all-OSM scene — every bake to date takes the `osm` path', () => {
+        const scene = [osm(), osm(), osm()];
+        const keep = massingExtrudeFilter(scene, facts);
+        expect(scene.filter(keep)).toHaveLength(3);
+    });
+
+    it('agrees with shouldExtrudeInMassing feature by feature — it is a caller, not a rival rule', () => {
+        const all = [...PARTS, OUTLINE, osm()];
+        const refs = refsWithParts(all.map((f) => ({ official: facts(f) })));
+        const keep = massingExtrudeFilter(all, facts);
+        for (const f of all) {
+            const o = facts(f);
+            expect(keep(f)).toBe(shouldExtrudeInMassing(o, o?.ref ? refs.has(o.ref) : false));
+        }
     });
 });
