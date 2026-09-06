@@ -160,6 +160,13 @@ describe('§WORLD-COVERAGE-LEDGER — the page cannot drift from the code', () =
         const page = ledger();
         expect(page).not.toContain('⛔UNMAPPED');
         expect(page).not.toContain('UNMAPPED SLUGS');
+        // A coverage page that prints `undefined` at a reader looks like a bug in the
+        // page rather than a fact about the data, so the reader discounts the whole
+        // thing. It happened for real: sibling lanes added the `canada`/`mexico`/`asia`
+        // terrain groups and the country table rendered "**13× undefined**".
+        expect(page).not.toContain('undefined');
+        expect(page).not.toContain('[object Object]');
+        expect(page).not.toContain('NaN');
         // The builder always stamps a probe record; its absence means the page was hand-written.
         expect(page).toContain('## §0 · Probe record');
         expect(page).toContain('GENERATED FILE — DO NOT HAND-EDIT');

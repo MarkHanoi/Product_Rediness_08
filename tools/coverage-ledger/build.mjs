@@ -335,13 +335,28 @@ function legIsWired(proxyPath, server) {
  * "the Middle East is five city boxes" is exactly this distinction, and a table
  * that prints `national riyadh jeddah` without it reads as national coverage.
  */
-const GROUP_MEANS = {
+const GROUP_MEANS_TABLE = {
   europe: 'whole country',
   oceania: 'whole country',
+  mexico: 'whole country',
+  asia: 'whole country',
   usa: 'metro box',
   middleeast: 'metro box',
   australia: 'state/territory',
+  canada: 'province/territory',
 };
+
+/**
+ * ⚠ NEVER a bare lookup. This WAS `GROUP_MEANS[group]`, and the moment sibling lanes
+ * added the `canada` / `mexico` / `asia` groups the country table rendered
+ * "**13× undefined**" — a coverage page printing `undefined` at a user is worse than
+ * one printing nothing, because it looks like a bug in the page rather than a fact
+ * about the data. An unknown group now prints ITS OWN NAME and is treated as NOT
+ * whole-country, which is the safe direction: it under-claims until someone classifies it.
+ */
+const GROUP_MEANS = new Proxy(GROUP_MEANS_TABLE, {
+  get: (t, k) => (typeof k === 'string' ? t[k] ?? `\`${k}\`-group row` : undefined),
+});
 
 /**
  * The last commit that touched THESE LINES — used to answer the question this
