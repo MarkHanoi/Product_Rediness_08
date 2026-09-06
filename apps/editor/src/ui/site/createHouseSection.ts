@@ -71,7 +71,16 @@ export function buildCreateHouseSection(outcome: CreateHouseOutcome): string {
                 + `<button type="button" disabled data-testid="${CREATE_HOUSE_BTN_TESTID}" `
                 + `style="margin-top:6px;width:100%;appearance:none;border:1px solid #d8d3e6;cursor:not-allowed;`
                 + `padding:7px 10px;border-radius:8px;font:700 11px system-ui;background:#f5f4f8;color:#a09aae;">`
-                + `${escHtml(CREATE_HOUSE_LABEL)}</button></div>`;
+                + `${escHtml(CREATE_HOUSE_LABEL)}</button>`
+                // ⛔ THE STATUS SLOT EXISTS ON THE REFUSAL ARM TOO (L-13011 defect 3). It used to
+                // exist ONLY on the `ok` arm, and that is how the founder's crash became SILENT:
+                // the host writes the pipeline's failure into this slot and then immediately
+                // re-renders, the re-render landed on a refusal arm (the failed run's own debris
+                // had tripped C80), the slot no longer existed, `querySelector` returned null and
+                // the sentence was dropped — leaving only a refusal blaming him for walls he
+                // never drew. A message the host can write must never depend on which arm is up.
+                + `<div data-testid="${CREATE_HOUSE_STATUS_TESTID}" style="min-height:13px;margin-top:4px;`
+                + `font-size:9.5px;color:#8a83a0;line-height:1.45;"></div></div>`;
         }
 
         const p = outcome.plan;

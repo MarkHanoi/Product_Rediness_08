@@ -129,6 +129,15 @@ export default defineConfig({
       'apps/editor/src/ui/facade/__tests__/**/*.spec.ts',
       // §L-11130 — the generator's pure helpers (shell arcs) live beside the executor.
       'apps/editor/src/ui/residential-building/__tests__/**/*.spec.ts',
+      // ⭐ §HOUSE-SHELL-IS-ATOMIC (L-13011 / L-13014) — the "Create house from this envelope"
+      // shell draw. It pins the three defects of the founder's crash: the WELD that reconciles
+      // `insetPolygonPerEdge`'s 1e-6 m coincidence band with `Wall`'s 0.05 m baseline floor
+      // (measured on real Catastro geometry: sub-50 mm edges at EVERY inset from 0.1 m to 3 m),
+      // the shell being ONE `wall.batch.create` so a rejection creates ZERO walls instead of a
+      // partial shell, and the rollback that removes a committed shell when a later stage fails.
+      // ⚠ ADDED IN THE SAME COMMIT AS THE FILES — this list is an ALLOWLIST (§L-851): a spec
+      // outside it is never discovered, and "never ran" and "passed" print the same value.
+      'apps/editor/src/ui/house-layout/__tests__/**/*.spec.ts',
       // ⭐ §COMPONENT-AUTHORING-UI (Phase 4F · ADR-0376 D2 · C86 §10.1 PR-9) — the component
       // authoring surface: the profile-on-a-reference-plane adapter, the constraint-glyph
       // honesty table (C74 §4.6.3) and the parameter table (C110 §2.2). ⚠ ADDED IN THE SAME
