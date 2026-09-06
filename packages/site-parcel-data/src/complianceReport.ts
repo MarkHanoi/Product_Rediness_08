@@ -36,7 +36,89 @@ export interface ComplianceReportRow {
     readonly ordinanceRef: string | null;
     /** True when this row is an ESTIMATE (not published/ordinance-backed). */
     readonly isEstimate: boolean;
+    /**
+     * §PARCEL-LAW-UNRESOLVED -- FALSE when the entry exists but resolved to NO VALUE (`valueText`
+     * is the em-dash). The source WAS consulted and states nothing, which is a different fact from
+     * both "2.00 from Plandata §4.3" and "nothing in our pack addressed this". Without it the
+     * renderer prints a bare em-dash under a green PUB pill, which reads as "published: nothing".
+     */
+    readonly hasStatedValue: boolean;
 }
+
+// -- §PARCEL-LAW-UNRESOLVED (STR §25.1 block B · C58 §1.3/§1.4 · L-616) ----------------------
+//
+// THE DEFECT THIS CLOSES. `buildComplianceReport` used to `continue` past any constraint the
+// derivation did not carry, so a constraint the CARD PRINTS A ROW FOR -- block B renders Max
+// height / Storeys / Max FAR / Max site coverage on EVERY parcel -- vanished entirely from the
+// "Why these numbers?" fold beneath it. The reader was then unable to separate two facts that
+// carry opposite consequences on real land:
+//
+//   * "we did not look up FAR for this zone"  <- a hole in OUR data
+//   * "this zone states no FAR limit"          <- a finding about the ORDINANCE
+//
+// L-616 names the cost: an UNKNOWN constraint that reads as absent is an OVERSTATEMENT on real
+// land, because the reader completes it as "unbounded". STR §25.1 requires the citation to be held
+// PER ROW; a row whose citation slot silently disappears is the same conflation wearing a fold.
+//
+// AND IT MINTS NO VALUE. An unresolved row carries a LABEL and a REASON and never a number -- it
+// is the honest blank, not a synthesised figure (§CONFIDENT-REGISTER-ROWS: the prose-justified
+// verdicts were the wrong ones; the honest blanks were the safe ones).
+//
+// IT IS DELIBERATELY NOT "every constraint in CONSTRAINT_ORDER". Minting "Upper-floor band ratio
+// -- not derived" on a Danish parcel would be an overstatement in the OPPOSITE direction: a claim
+// that Art. 350.2 was something we should have looked up there. Only the constraints the card
+// ASSERTS A ROW FOR unconditionally earn an unresolved slot, because only those were promised to
+// the reader. Setbacks are excluded for the same reason: on an alignment zone they are null BY
+// DESIGN (§L-518c), so an unresolved setback row would report a correct determination as a gap.
+//
+// `rows` IS UNCHANGED. A derivation entry whose VALUE is null still produces an ordinary row (it
+// has a real zone/source/citation -- we consulted a source and it stated nothing, which is a
+// stronger fact than silence). `hasStatedValue` lets the renderer say so instead of printing a
+// bare em-dash under a green PUB pill. Membership of `rows`, `estimatedRowCount` and the
+// `resolveHeadlineProvenance` ladder are all untouched, so no confidence reading moves.
+
+/**
+ * A slot the card promised and the derivation trace does not fill. It has no value of its own and
+ * never invents one; it exists so the citation slot survives the absence.
+ */
+export interface ComplianceUnresolvedRow {
+    /**
+     * Stable id. Equals the `DerivationConstraint` for the three constraint-backed rows;
+     * `maxFloors` for the storey count, which is an envelope FIELD with no constraint key.
+     * Deliberately a plain string rather than a widened L0 enum -- adding a literal to
+     * `DerivationConstraintSchema` to satisfy a UI fold would push a presentation need into a
+     * pure schema (P5).
+     */
+    readonly id: string;
+    /** Human label -- the SAME wording block B's own row uses, so the two read as one fact. */
+    readonly label: string;
+    /**
+     * `no-value` -- the card row reads "not derived" and there is nothing to cite. The honest
+     * sentence is "a missing lookup, NOT a finding that the zone is unlimited" (L-616).
+     *
+     * `value-without-citation` -- the envelope carries a NUMBER for this field and the derivation
+     * carries no entry explaining it, so block B PRINTS A FIGURE the fold cannot source. C58 §1.3
+     * requires every numeric constraint to carry a `DerivationEntry`; this is that breach, and it
+     * is the worse of the two because a number on screen with no provenance reads as authoritative.
+     */
+    readonly reason: 'no-value' | 'value-without-citation';
+}
+
+/**
+ * The constraints block B of the Parcel Law card (STR §25.1) prints on EVERY parcel. Exported so a
+ * test can pin the SET rather than a count -- this repo's own recurring lesson is that a count can
+ * be right while the range is wrong.
+ */
+export const CARD_ASSERTED_CONSTRAINTS: readonly DerivationConstraint[] = [
+    'maxHeight',
+    'maxFAR',
+    'maxCoverage',
+];
+
+/** Label for the storey row, which is an envelope field and has no `DerivationConstraint`. */
+const MAX_FLOORS_LABEL = 'Storeys';
+/** Stable id for that same row. */
+export const MAX_FLOORS_ROW_ID = 'maxFloors';
 
 /** The full report model the UI renders. */
 export interface ComplianceReport {
@@ -58,6 +140,15 @@ export interface ComplianceReport {
     readonly estimatedRowCount: number;
     /** True when ANY row is an estimate — the report must not read as authoritative. */
     readonly hasAnyEstimate: boolean;
+    /**
+     * §PARCEL-LAW-UNRESOLVED — the slots block B of the Parcel Law card promised and the
+     * derivation does not fill. NEVER folded into `rows`: `rows.length` is the denominator of the
+     * "N of M value(s) are ESTIMATED" sentence, and quietly growing it would restate an existing
+     * honest sentence as a different quantity (the L-526 failure class).
+     */
+    readonly unresolvedRows: readonly ComplianceUnresolvedRow[];
+    /** How many promised slots are unfilled (drives the fold's own caveat). */
+    readonly unresolvedRowCount: number;
 }
 
 /** Stable presentation order — how an architect reads a zoning determination. */
@@ -161,14 +252,21 @@ const DEPTH_BINDING_TEXT: Record<string, string> = {
     'min-floor': 'The ordinance depth floor (11 m) — the free-space rule alone would give less',
 };
 
+/**
+ * The single spelling of "this constraint resolved to nothing". §PARCEL-LAW-UNRESOLVED reads
+ * `hasStatedValue` off a comparison against THIS constant rather than re-deciding emptiness with a
+ * second predicate beside the formatter that already decided it.
+ */
+export const EMPTY_VALUE_TEXT = '—';
+
 /** Format a derivation value with the unit its constraint implies. */
 export function formatConstraintValue(
     constraint: DerivationConstraint,
     value: number | string | readonly string[] | null,
 ): string {
-    if (value === null || value === undefined) return '—';
+    if (value === null || value === undefined) return EMPTY_VALUE_TEXT;
     if (typeof value === 'string') {
-        if (value.trim() === '') return '—';
+        if (value.trim() === '') return EMPTY_VALUE_TEXT;
         // ADR-0270 P4 — expand the sideTreatment enum into words. Rendering `party-wall` raw
         // would show an internal token where a legal concept belongs.
         if (constraint === 'alignment.sideTreatment') return SIDE_TREATMENT_TEXT[value] ?? value;
@@ -195,7 +293,7 @@ export function formatConstraintValue(
         return `${value.toFixed(1)} m`;
     }
     // Remaining case: a list of permitted uses (readonly string[]).
-    return value.length > 0 ? value.join(', ') : '—';
+    return value.length > 0 ? value.join(', ') : EMPTY_VALUE_TEXT;
 }
 
 /**
@@ -217,17 +315,56 @@ export function buildComplianceReport(envelope: BuildableEnvelope | null): Compl
     for (const constraint of CONSTRAINT_ORDER) {
         const e = byConstraint.get(constraint);
         if (!e) continue;
+        const valueText = formatConstraintValue(constraint, e.value);
         rows.push({
             constraint,
             label: LABELS[constraint],
-            valueText: formatConstraintValue(constraint, e.value),
+            valueText,
             zoneCode: e.zoneCode,
             source: e.source,
             provenance: e.fieldProvenance,
             ordinanceRef: e.ordinanceRef ?? null,
             isEstimate: e.fieldProvenance === 'estimated',
+            // §PARCEL-LAW-UNRESOLVED — the formatter is the ONE authority on "did this resolve to
+            // anything": it already collapses null, '' and [] to the em-dash, and re-deciding that
+            // here with a second predicate is how a card comes to disagree with its own fold.
+            hasStatedValue: valueText !== EMPTY_VALUE_TEXT,
         });
     }
+
+    // ── §PARCEL-LAW-UNRESOLVED — the promised-but-unfilled slots (C58 §1.3/§1.4, L-616). ──
+    // Read off the ENVELOPE's own scalars, because the two arms are only distinguishable there:
+    // a field carrying a number with no derivation entry is a §1.3 breach (an uncited figure is
+    // on screen); a field carrying null with no entry is an honest hole. `rows` is not consulted
+    // and not modified.
+    const numberOrNull = (v: unknown): number | null =>
+        typeof v === 'number' && Number.isFinite(v) ? v : null;
+    const envelopeScalarFor = (id: string): number | null => {
+        switch (id) {
+            case 'maxHeight': return numberOrNull(envelope.maxHeight_m);
+            case 'maxFAR': return numberOrNull(envelope.maxFAR);
+            case 'maxCoverage': return numberOrNull(envelope.maxCoverage);
+            case MAX_FLOORS_ROW_ID: return numberOrNull(envelope.maxFloors);
+            default: return null;
+        }
+    };
+    const unresolvedRows: ComplianceUnresolvedRow[] = [];
+    for (const constraint of CARD_ASSERTED_CONSTRAINTS) {
+        if (byConstraint.has(constraint)) continue;
+        unresolvedRows.push({
+            id: constraint,
+            label: LABELS[constraint],
+            reason: envelopeScalarFor(constraint) !== null ? 'value-without-citation' : 'no-value',
+        });
+    }
+    // Storeys last, mirroring block B's own reading order. It has NO constraint key at all, so it
+    // is always unresolved-or-uncited by construction — which is itself the honest statement: the
+    // card prints a storey count that the explain-why trace has never been able to source.
+    unresolvedRows.push({
+        id: MAX_FLOORS_ROW_ID,
+        label: MAX_FLOORS_LABEL,
+        reason: envelopeScalarFor(MAX_FLOORS_ROW_ID) !== null ? 'value-without-citation' : 'no-value',
+    });
 
     const estimatedRowCount = rows.reduce((n, r) => n + (r.isEstimate ? 1 : 0), 0);
     const footprint = Number.isFinite(envelope.insetAreaM2) ? envelope.insetAreaM2 : 0;
@@ -248,6 +385,8 @@ export function buildComplianceReport(envelope: BuildableEnvelope | null): Compl
         maxGrossFloorAreaM2: far !== null ? footprint * far : null,
         estimatedRowCount,
         hasAnyEstimate: estimatedRowCount > 0,
+        unresolvedRows,
+        unresolvedRowCount: unresolvedRows.length,
     };
 }
 

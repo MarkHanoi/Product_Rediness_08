@@ -175,8 +175,13 @@ export {
     buildComplianceReport,
     formatConstraintValue,
     resolveHeadlineProvenance,
+    // §PARCEL-LAW-UNRESOLVED (STR §25.1 block B) — the promised-but-unfilled citation slots.
+    CARD_ASSERTED_CONSTRAINTS,
+    EMPTY_VALUE_TEXT,
+    MAX_FLOORS_ROW_ID,
     type ComplianceReport,
     type ComplianceReportRow,
+    type ComplianceUnresolvedRow,
     type HeadlineProvenance,
 } from './complianceReport.js';
 
