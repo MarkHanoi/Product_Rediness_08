@@ -127,6 +127,15 @@ import {
   mountParcelLawQuantities,
   type ParcelLawQuantitiesHandle,
 } from './parcelLawQuantities';
+// §PL-CREATE-HOUSE (STR §25.8) — the explicit step out of the envelope stage into BIM. It is a
+// JOIN over the PROVEN house pipeline (`generateHouseFromBoundary` → `HouseLayoutExecutor`, one
+// `runBatch` so undo removes the whole house in one step), plus C80's "may this pass replace
+// this?" asked with numbers before every run. No generator lives in this tab.
+import {
+  mountParcelLawCreateHouse,
+  defaultParcelLawCreateHouseDeps,
+  type ParcelLawCreateHouseHandle,
+} from './parcelLawCreateHouse';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
@@ -142,6 +151,8 @@ export const PARCEL_LAW_NOTE_TESTID = 'analysis-parcel-law-note';
 export const PARCEL_LAW_FACTS_SLOT_TESTID = 'analysis-parcel-law-facts-slot';
 /** `data-testid` on the slot the live-quantities + indicative-cost section is mounted into. */
 export const PARCEL_LAW_QUANTITIES_HOST_TESTID = 'analysis-parcel-law-quantities-slot';
+/** `data-testid` on the slot the "Create house" section is mounted into. */
+export const PARCEL_LAW_CREATE_HOUSE_HOST_TESTID = 'analysis-parcel-law-create-house-slot';
 /** The `data-testid` the singleton card carries (GISAreaLayout `ensureEnvelopePanel`). */
 export const ENVELOPE_CARD_TESTID = 'buildable-envelope-card';
 /** Carries how many stage pills were wired on the last pass — read by the spec. */
@@ -200,6 +211,14 @@ export interface ParcelLawTabDeps {
    * rather than throwing — so an old spec keeps passing and keeps meaning what it meant.
    */
   readonly mountQuantities?: (host: HTMLElement) => ParcelLawQuantitiesHandle;
+  /**
+   * Production: `mountParcelLawCreateHouse` with its production deps — STR §25.8.
+   *
+   * ⚠ OPTIONAL for the same reason as the three above: older spec literals are complete and
+   * must keep compiling. Omitting it yields the production control, which on a runtime with no
+   * space-envelope store renders a DISABLED button and the reason — never a dead click.
+   */
+  readonly mountCreateHouse?: (host: HTMLElement) => ParcelLawCreateHouseHandle;
 }
 
 /** The production wiring. Resolved when CALLED, so a runtime composed after boot is seen. */
@@ -215,6 +234,7 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     readParcelLawModel: resolveParcelLawModel,
     renderParcelLawFacts: buildParcelLawFacts,
     mountQuantities: (h) => mountParcelLawQuantities(h),
+    mountCreateHouse: (h) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()),
   };
 }
 
@@ -248,6 +268,7 @@ export function mountParcelLawTab(
   let switcher: ViewSegmentSwitcherHandle | null = null;
   let panel: ParcelRailPanelHandle | null = null;
   let quantities: ParcelLawQuantitiesHandle | null = null;
+  let createHouse: ParcelLawCreateHouseHandle | null = null;
   let unsub: (() => void) | null = null;
   let disposed = false;
 
@@ -349,6 +370,24 @@ export function mountParcelLawTab(
       console.warn('[analysis][parcel-law] live-quantities mount failed (non-fatal):', e);
     }
 
+    // ── 4c. §PL-CREATE-HOUSE (STR §25.8) — THE EXPLICIT STEP INTO BIM. ─────────────────────
+    //
+    // LAST on the tab, and that ordering is the stage ladder: a user reads the parcel, then the
+    // law, then what they intend and what it costs, and only then decides to build it. The
+    // control refuses — visibly, with numbers — whenever the level it would build on already
+    // carries authored walls (C80: a generator may not destroy what it cannot account for).
+    const createHouseSlot = document.createElement('div');
+    createHouseSlot.className = 'anl-parcel-law-create-house-host';
+    createHouseSlot.setAttribute('data-testid', PARCEL_LAW_CREATE_HOUSE_HOST_TESTID);
+    root.appendChild(createHouseSlot);
+    try {
+      const mountCH = deps.mountCreateHouse
+        ?? ((h: HTMLElement) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()));
+      createHouse = mountCH(createHouseSlot);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] create-house mount failed (non-fatal):', e);
+    }
+
     // ── 5. The design-stage strip — after the claim lands (it is scheduled on a microtask). ──
     queueMicrotask(wireStrip);
     // …and again whenever the site store moves, because the rail panel rebuilds the card's
@@ -391,6 +430,7 @@ export function mountParcelLawTab(
       try { switcher?.repaint(); } catch { /* a repaint that throws is a repaint we do not have */ }
       renderFacts();
       try { quantities?.repaint(); } catch { /* same — a section that cannot repaint keeps its last honest render */ }
+      try { createHouse?.repaint(); } catch { /* same */ }
       wireStrip();
     },
     holdsEnvelopeCard,
@@ -404,6 +444,8 @@ export function mountParcelLawTab(
       // still attached — a listener that fires against a detached root is harmless but noisy.
       try { quantities?.dispose(); } catch { /* teardown is best-effort */ }
       quantities = null;
+      try { createHouse?.dispose(); } catch { /* teardown is best-effort */ }
+      createHouse = null;
       try { panel?.dispose(); } catch { /* teardown is best-effort */ }
       panel = null;
       try { switcher?.dispose(); } catch { /* teardown is best-effort */ }
