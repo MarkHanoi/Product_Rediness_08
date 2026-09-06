@@ -22,6 +22,29 @@ export const FORMA_GROUND_URBAN = '#F0EDE8';
 /** A site this close to an urban landuse polygon is "in the village". */
 export const URBAN_NEAR_M = 300;
 
+/**
+ * §FORMA-GROUND-PAINT-GATE (L-12948, founder 2026-09-06, third report of the same thing: "this dark
+ * terrain colour in urban areas should not be the pattern").
+ *
+ * WHY THE URBAN OFF-WHITE NEVER APPEARED. The viewport gated the base-colour write on
+ * `formaMode && !photorealTilesActive`. But `photorealTilesActive` is set the moment the photoreal
+ * tileset finishes its first load — the founder's console logs "§STARTUP-GLOBE-COMPLETE-FIRST —
+ * photoreal initial tiles loaded" on every session — and CesiumViewport says so in its own words at
+ * the §A.21.D-GLOBE3 note: it "is not reset on Forma re-entry". So the flag is true for the rest of
+ * the session and the write NEVER RAN: no §FORMA-GROUND-URBAN-WHITE line appears in any log the
+ * founder has sent, and the ground stayed #D6C7A6 in Córdoba, Sevilla and Madrid.
+ *
+ * THE RULE, taken from the path that already had it right. `decideBakedTerrainAttach`
+ * (terrainCoverage.ts) refuses only when `photorealActive && !formaMode`: in FORMA the photoreal
+ * tileset is show=false and the globe IS the ground, so ground styling applies; on the true
+ * photoreal path Google's tiles carry the ground and we must not paint it. Same question, same
+ * answer — expressed once, here, so the two cannot drift again.
+ */
+export function shouldPaintFormaGroundBase(input: { readonly formaMode: boolean; readonly photorealActive: boolean }): boolean {
+    if (!input.formaMode) return false;          // not our ground to paint
+    return true;                                  // in Forma the globe is the ground, photoreal hidden
+}
+
 export interface LanduseAreaLike {
     readonly kind: 'urban' | 'rural';
     /** Closed ring as [lon, lat]. */

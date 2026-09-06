@@ -38,7 +38,7 @@ on:
   workflow_dispatch:
     inputs:
       layer:
-        description: 'Bake a single layer only (buildings | roads | water | parks | landuse | rail | trees | sea). Blank = all. §SEA-BAKE-POLYGONS: "sea" needs NO Geofabrik extract (it clips the osmdata water-polygons product per region in one pass) and is OPTIONAL — a landlocked scope produces no sea.pmtiles and stages an honest "not produced" record.'
+        description: 'Bake a single layer only (buildings | roads | water | parks | landuse | rail | trees | furniture | sea). Blank = all. §SEA-BAKE-POLYGONS: "sea" needs NO Geofabrik extract (it clips the osmdata water-polygons product per region in one pass) and is OPTIONAL — a landlocked scope produces no sea.pmtiles and stages an honest "not produced" record. §STREET-LIFE (L-12936): "furniture" is street_lamp/bench/bus_stop/bicycle_parking NODES at z15–16 — cheap, and the client synthesises lighting only where this layer maps none.'
         type: string
         default: ''
       region:
@@ -354,7 +354,6 @@ jobs:
           koln-de germany 50.9375,6.9603 500
           hannover germany 52.3759,9.7320 500
           stuttgart germany 48.7758,9.1829 500
-          dresden germany 51.0500,13.7400 500
           abudhabi abudhabi 24.4539,54.3773 500
           CITIES
           if [ "$fail" -ne 0 ]; then

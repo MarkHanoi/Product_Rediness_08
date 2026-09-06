@@ -68,7 +68,7 @@ on:
         type: string
         default: 'all'
       layer:
-        description: 'Merge only these layers (csv). Blank = all 8 (bake.mjs allLayers). Use for disk-bounded per-layer publishes of very large sets. §SEA-BAKE-POLYGONS: "sea" is OPTIONAL — a region with no staged sea set is NAMED and skipped, never refused; stage it per region (layer=sea) or for every region in one run (region blank, layer=sea, stage=true → slug all--sea).'
+        description: 'Merge only these layers (csv). Blank = ALL of them, resolved from bake.mjs allLayers at run time — never a hand-copied count (buildings, roads, water, parks, landuse, rail, trees, furniture, sea). Use for disk-bounded per-layer publishes of very large sets. §SEA-BAKE-POLYGONS: "sea" is OPTIONAL — a region with no staged sea set is NAMED and skipped, never refused; stage it per region (layer=sea) or for every region in one run (region blank, layer=sea, stage=true → slug all--sea). §STREET-LIFE (L-12936): "furniture" is OPTIONAL for the same reason and is NEW — no region has staged one yet, so until a region is re-baked its gap is NAMED and SKIPPED, never a refusal.'
         type: string
         default: ''
       engine:
@@ -293,7 +293,6 @@ jobs:
           #   magdeburg germany 52.1277,11.6292 500
           #   hannover germany 52.3759,9.7320 500
           #   stuttgart germany 48.7758,9.1829 500
-          #   dresden germany 51.0500,13.7400 500
           #   abudhabi abudhabi 24.4539,54.3773 500
           fail=0
           checked=0
