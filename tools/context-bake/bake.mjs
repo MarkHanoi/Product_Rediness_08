@@ -113,6 +113,14 @@ import { JP_CITY_BBOXES } from './heights/jpPlateau.mjs';
 // the LiDAR cross-check of `hauteur` live in the module header; __tests__/frBdtopo.spec.ts pins the
 // decisions and __tests__/frBdtopoWiring.spec.ts pins this wiring.
 import { FR_BDTOPO, FR_BDTOPO_CITY_BBOXES, footprintsModeFromArgv, mergeReplaceInBbox, writeBdtopoWorkingSet } from './footprints/frBdtopo.mjs';
+// §EU-REGISTERS (lane EU-REG-WEST 2026-09-06; WIRED by lane EU-REGISTERS-WIRE the same day) — the
+// Dutch, Belgian and Irish national building registers, as three more `footprintSource` rows. The
+// module landed with its own commit message saying, in as many words, that it was "imported by
+// NOTHING" — the L-12976 shape. This import and the three FOOTPRINT_SOURCES rows below are the
+// close: euRegisters.mjs → FOOTPRINT_SOURCES → the `netherlands`/`belgium`/`ireland` region rows →
+// applyNationalFootprints → mergeReplaceInBbox → the geojsonseq tippecanoe tiles. Pinned end to end
+// by __tests__/euRegistersWiring.spec.ts, which SPAWNS the preflight rather than reading the text.
+import { EU_FOOTPRINT_SOURCE_KEYS, IE_TAILTE_PRIORITY_BBOXES, euRegisterFootprintSource } from './footprints/euRegisters.mjs';
 // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — the sea as closed POLYGONS from the osmdata water-polygons
 // product (osmcoastline output of the planet coastline, ODbL), clipped per region in ONE streaming pass.
 // seaPolygons.mjs's header carries the why: coastline LINES in the water layer reach the client as tile-clipped
@@ -275,7 +283,13 @@ const ALL_REGIONS = [
   // the parts a footprint owns (heights/nl3dbag.mjs, live-pinned by nl3dbag.spec.ts). No NL city row exists
   // (the Amsterdam-only clip was folded into this row on 2026-07-26), so — unlike france's paris/lyon —
   // nothing double-bakes. Local proof 2026-09-05: 40/41 footprints measured in the Centraal cell, 0 errors.
-  { name: 'netherlands', pbfUrl: 'https://download.geofabrik.de/europe/netherlands-latest.osm.pbf',                   pbf: resolve(OUT, 'netherlands-latest.osm.pbf'),            bbox: '3.30,50.75,7.30,53.70',    clipped: resolve(OUT, 'clip-netherlands.osm.pbf'), heightJoin: '3dbag' },
+  // §EU-REGISTERS — under `--footprints official` the Kadaster's own BAG `pand` outlines replace the
+  // OSM ones (PDOK WFS 2.0, CC0 1.0, national `hits` 11,429,771 measured 2026-09-06). BAG publishes
+  // NO height and NO storeys — the fields are identificatie/bouwjaar/status/gebruiksdoel/oppervlakte
+  // — so the 3DBAG measured-height join above is UNCHANGED and still supplies every Dutch metre; the
+  // two compose exactly as Catastro composes with the CNIG MDS raster. Absent the flag this row bakes
+  // byte-identically. The village Bourtange returns 249 panden, which is the whole point.
+  { name: 'netherlands', pbfUrl: 'https://download.geofabrik.de/europe/netherlands-latest.osm.pbf',                   pbf: resolve(OUT, 'netherlands-latest.osm.pbf'),            bbox: '3.30,50.75,7.30,53.70',    clipped: resolve(OUT, 'clip-netherlands.osm.pbf'), heightJoin: '3dbag', footprintSource: 'nl_bag', footprintMerge: 'replace-in-bbox' },
   // ─────────────────────────────────────────────────────────────────────────
   // §BAKE-EUROPE-NATIONAL (2026-09-02, lane REGIONS) — 25 whole-country rows, the founder's
   // "NOT ONLY BIG CITIES — EVERYWHERE POSSIBLE" directive executed at the row layer. Every row
@@ -388,7 +402,16 @@ const ALL_REGIONS = [
   { name: 'greatbritain', pbfUrl: 'https://download.geofabrik.de/europe/great-britain-latest.osm.pbf',                pbf: resolve(OUT, 'great-britain-latest.osm.pbf'),          bbox: '-8.20,49.90,1.80,60.90',   clipped: resolve(OUT, 'clip-greatbritain.osm.pbf'), heightJoin: 'ealidar_gb' },
   // ASSESS IE — NATIONAL-NOW (mass-only, honest-low OSM density): no cadastre by design; OSi
   // Prime2 commercial → X3-refused. The extract covers the WHOLE island incl. NI (see GB note).
-  { name: 'ireland',    pbfUrl: 'https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf',   pbf: resolve(OUT, 'ireland-and-northern-ireland-latest.osm.pbf'), bbox: '-10.70,51.30,-5.30,55.50', clipped: resolve(OUT, 'clip-ireland.osm.pbf') },
+  // §EU-REGISTERS — the ASSESS IE verdict above says "no cadastre by design; OSi Prime2 commercial →
+  // X3-refused", and that is now HALF WRONG and corrected here rather than left to rot: Tailte
+  // Éireann publishes the Prime2 Buildings layer as a PUBLIC ArcGIS Feature Service under CC BY 4.0
+  // (item cd14d445bb6d4af586f4edcfa01da895, `access:"public"`, `where=1=1&returnCountOnly=true` →
+  // 3,785,414, measured 2026-09-06). It is FOOTPRINTS ONLY — the field list is GUID · OBJECTID ·
+  // Shape__Area · Shape__Length, no height and no storeys — so this row still declares NO heightJoin
+  // and its buildings ride the honest `assumed` default. Shape first: that is the founder's
+  // complaint. ⚠ The extract covers the WHOLE island; the layer holds the Republic only, so every
+  // Northern Irish cell answers 200-with-zero and KEEPS its OSM (§COVERED-IS-PARSED).
+  { name: 'ireland',    pbfUrl: 'https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf',   pbf: resolve(OUT, 'ireland-and-northern-ireland-latest.osm.pbf'), bbox: '-10.70,51.30,-5.30,55.50', clipped: resolve(OUT, 'clip-ireland.osm.pbf'), footprintSource: 'ie_tailte', footprintMerge: 'replace-in-bbox' },
   // ASSESS CH — NATIONAL-NOW, the cheapest measured-height national add in Europe (wire-not-build):
   // `stampSwissHeightsOnGeojsonseq` (heightSources.mjs, keyless swissSURFACE3D−swissALTI3D nDSM) is
   // ALREADY AUTHORED but NOT imported by this file — wiring it (import + dispatch branch + CH city
@@ -429,7 +452,18 @@ const ALL_REGIONS = [
   // over DTM 21.4 m, 0 nodata — probed), so Brussels is stamped from the same model; Wallonia stays unstamped
   // (DHMV II ends at the regional border; the Walloon MNT/MNS was not probed). Local proof 2026-09-05: 800/819
   // GRB footprints at Antwerp Grote Markt measured, median 15.1 m, 0 tile errors.
-  { name: 'belgium',    pbfUrl: 'https://download.geofabrik.de/europe/belgium-latest.osm.pbf',                        pbf: resolve(OUT, 'belgium-latest.osm.pbf'),                bbox: '2.50,49.50,6.40,51.60',    clipped: resolve(OUT, 'clip-belgium.osm.pbf'), heightJoin: 'be_dhmv' },
+  // §EU-REGISTERS — ONE footprint source, TWO doors, because Belgium's registers are REGIONAL and
+  // this bake row is not: `be_registers` sweeps Digitaal Vlaanderen GRB `GRB:GBG` over Flanders and
+  // SPW PICC layer 11 over Wallonia (both keyless, both measured 2026-09-06). Neither publishes a
+  // height or storeys — PICC's `returnZ` rings carry ONE constant Z per object, which is a datum and
+  // not a building height, so the adapter requests returnZ=false and emits none — and the DHMV II
+  // measured-height join above is therefore unchanged.
+  // ⛔ BRUSSELS HAS NO DOOR. UrbIS's GeoServer exposes exactly one type (`UrbisAdm:Pz`) and no
+  // buildings, so every cell over the 19 communes answers 200 with zero features. Those cells produce
+  // no footprints, are therefore ABSENT from the covered set, and their OSM footprints SURVIVE
+  // (§COVERED-IS-PARSED — the rule that stopped Galicia being emptied, L-12952). A `belgium` bake
+  // with official footprints must not blank the capital, and euRegisters.spec.ts proves it does not.
+  { name: 'belgium',    pbfUrl: 'https://download.geofabrik.de/europe/belgium-latest.osm.pbf',                        pbf: resolve(OUT, 'belgium-latest.osm.pbf'),                bbox: '2.50,49.50,6.40,51.60',    clipped: resolve(OUT, 'clip-belgium.osm.pbf'), heightJoin: 'be_dhmv', footprintSource: 'be_registers', footprintMerge: 'replace-in-bbox' },
   // South-east — ASSESS HR / SI / GR / HU / RO / SK / BG. All NATIONAL-NOW mass-only; SI is the
   // stand-out upgrade path (GURS STAVBE register carries REAL METRES — a WFS-join stamp + a fill
   // probe are owed before any join is declared); HU/BG cadastre fee gates bind the CADASTRE, not
@@ -1722,6 +1756,20 @@ const FOOTPRINT_SOURCES = {
     ...ES_CATASTRO_FOOTPRINTS,
     defaultBboxes: () => MDS_CITY_BBOXES.map((c) => c.bbox),
   },
+  // §EU-REGISTERS — the three Western-European register rows, built by ONE factory over a door
+  // table rather than three adapters, and reaching this table in the SAME commit that declares
+  // their region rows (the rule the ES row's note above was written to enforce).
+  //
+  // ⭐ WHAT THE `priorityBboxes` ARGUMENT IS AND IS NOT. Under the national default these sweeps
+  // cover the WHOLE country — NL 11,429,771 buildings, IE 3,785,414, Wallonia 3,887,403, Flanders
+  // UNKNOWN because its server saturates `hits` at the literal 10000 (all measured 2026-09-06).
+  // The list below is an ORDERING: what a budget-truncated run reaches first. NL and BE reuse the
+  // working sets their measured-height joins already use, so official footprints and measured
+  // metres land on the same ground first and neither list is copied. Ireland has no height join at
+  // all, so its list is new (and is the only one this lane invented).
+  nl_bag: euRegisterFootprintSource('nl_bag', { priorityBboxes: NL_3DBAG_CITY_BBOXES.map((c) => c.bbox) }),
+  be_registers: euRegisterFootprintSource('be_registers', { priorityBboxes: BE_CITY_BBOXES.map((c) => c.bbox) }),
+  ie_tailte: euRegisterFootprintSource('ie_tailte', { priorityBboxes: IE_TAILTE_PRIORITY_BBOXES.map((c) => c.bbox) }),
 };
 const footprintOutcomes = [];
 
