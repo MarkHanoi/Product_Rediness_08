@@ -772,3 +772,35 @@ specificity to §2, §5, §7, §9, §10, §11, §12, §14, §15, §16 and §17 �
 it does not reorder the ladder. The founder's own estimate stands and should be tested rather
 than assumed: *"I believe most of the engine already exists – just needs to be put things
 together."* Where that turns out to be false for a given row, say so by name.
+
+### §25.11 — The rail panel's data MIGRATES and EXTENDS into the tab
+
+Founder, same session, 2026-09-06:
+
+> *"UNDER THE PARCEL PANEL ON THE LEFT HAND SIDE RAIL PANEL YOU HAVE ALREADY A LOT OF THE DATA FOR
+> THE 'GENERATIVE ENGINE RESI' — THIS SHOULD MIGRATE AND EXTEND TO THE NEW PARCEL LAW TAB."*
+
+**Measured 2026-09-06 — the assets this names already exist and are committed:**
+
+| Artefact | Committed | Carries |
+|---|---|---|
+| `apps/editor/src/ui/analysis/parcelLawTab.ts` | `01bb1937` 2026-09-05 — *"the fifth Analysis tab is a HOST"* | the tab host itself |
+| `apps/editor/src/ui/site/parcel/parcelRailPanel.ts` | `d12608fb` 2026-08-22 — §PARCEL-ALL-INFO + §ENVELOPE-AXES-CONTROL (L-6900..L-6916) | the rail panel and its sections |
+| `apps/editor/src/ui/site/parcel/parcelCard.ts` | maintained through 2026-09-05 | the fact rows — Ref/refcat, Addr, Area, Zone pack, Source CRS, Match tier, provenance label |
+| `apps/editor/src/ui/site/envelopeCardSections.ts` | `8dd10fce` §RESI-STAGE-G | the envelope card sections, incl. the intended-area fold listing rooms by name |
+
+So §25.1's card is substantially **an assembly job over shipped parts**, which matches the
+founder's standing estimate. Build accordingly: reuse these, do not re-author them.
+
+**How "MIGRATE" reconciles with §24.1 clause 1 (the rail panel keeps its route).** These are not in
+conflict, and the resolution is binding:
+
+1. **The DATA MODEL migrates** — it is extracted to ONE shared source of truth that both surfaces
+   render from. ⛔ Two independently-computed parcel models is the defect this clause exists to
+   prevent; a copy-paste of the rail panel's rows into the tab is a FAILURE even if it looks right.
+2. **The TAB becomes the primary surface** — it is where the stage-driven controls, the to-be
+   envelope and the design decisions live (§25.2–§25.8). It EXTENDS the rail panel's content; it is
+   not a re-skin of it.
+3. **The rail panel keeps working**, rendering from that same shared model, per C19 §5.6 clause 4
+   (a route is added, never removed). If the founder later wants the rail panel retired, that is a
+   deliberate separate removal with its own decision — not a side effect of this work.
