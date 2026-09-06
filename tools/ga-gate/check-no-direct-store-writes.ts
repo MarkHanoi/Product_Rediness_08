@@ -126,6 +126,31 @@ const LABEL = 'no-direct-store-writes';
  *   • ui/ai + ui/geospatial files (AIPanel ×4, Step6CommitView ×2,
  *     AICreatePanel ×1, FormaSiteAnalysisControls ×1) were owned by other live
  *     agents during this pass and left untouched.
+ *
+ * 37 → 37, COMPOSITION CHANGED (2026-09-06, lane P6-RATCHET-BACK-TO-GREEN):
+ *   • −1  `scheduleStore.seedDefaultSchedules()` left AuditBucket. It moved to
+ *         the LOAD path (`ProjectLoader`, both copies, unconditionally after the
+ *         restore) — the "move out of UI" this file's own triage named. It was
+ *         not only a P6 breach: `ScheduleStore.deserialize()` clears the map, so
+ *         the built-in definitions of a newly-added discipline came back ONLY
+ *         when somebody opened the AUDIT › Quantities tab. The store's contents
+ *         depended on which tabs the user had visited.
+ *   • +1  `sketchViewStore.setActive` in `apps/component-editor/src/views/
+ *         SketchViewPanel.ts` (commit 2cb2fa5d). ⚠ EPHEMERAL VIEW STATE, the
+ *         same category as `ifcProjectionStore.setForView ×2` above, and it is
+ *         DELIBERATELY command-free: `apps/component-editor/__tests__/app/
+ *         secondCompositionRoot.invariants.test.ts` clause 4 pins the decision
+ *         in writing — *"which work plane the author is looking at is ephemeral
+ *         view selection, not document content. Putting a camera change on the
+ *         undo stack is the P6 over-application that makes Ctrl-Z unusable. If a
+ *         view ever gains PERSISTED state, it earns a command family."* The
+ *         family editor's bus has no undo-neutral dispatch, so a `view.setActive`
+ *         verb would put every work-plane click on the undo stack.
+ *   ⭐ THE NET IS ZERO ON PURPOSE. A new tolerated site was paid for by
+ *      retiring an old one; the ceiling did not move and no category was
+ *      exempted. Exempting the ephemeral class in the classifier instead would
+ *      have been raising the threshold wearing a different hat — the deduction
+ *      would have had to come off the baseline too, leaving the same arithmetic.
  */
 const MAX_VIOLATIONS = Number(process.env.PRYZM_P6_MAX_WRITES ?? 37);
 

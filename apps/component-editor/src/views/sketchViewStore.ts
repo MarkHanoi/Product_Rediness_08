@@ -57,8 +57,21 @@ export interface SketchViewStore {
   setActive(next: SketchViewKind): void;
   /** Remember a view's camera. Idempotent when nothing moved. */
   setCamera(kind: SketchViewKind, camera: ViewCamera): void;
-  /** Read one view's remembered camera. */
-  cameraOf(kind: SketchViewKind): ViewCamera;
+  /**
+   * Read one view's remembered camera.
+   *
+   * ⚠ NAMED `getCamera`, NOT `cameraOf`, AND THE NAME IS LOAD-BEARING.
+   * `tools/ga-gate/check-no-direct-store-writes.ts` (P6) classifies every
+   * method call on a `*Store` receiver by a FAIL-CLOSED allowlist of read
+   * PREFIXES — the name must START with `get`/`has`/`is`/`read`/… .
+   * `cameraOf` puts the read verb in the SUFFIX, matched nothing, and this
+   * pure read was therefore counted as a direct store write from UI, which
+   * broke the ratchet. The fix is to speak the vocabulary the repo already
+   * uses, never to teach the gate an `…Of` suffix: a suffix rule would
+   * silently exempt a future `mutateOf`/`applyOf`, which is exactly the
+   * fail-open hole the prefix allowlist exists to prevent.
+   */
+  getCamera(kind: SketchViewKind): ViewCamera;
 }
 
 function freezeCameras(
@@ -135,9 +148,9 @@ export function createSketchViewStore(initial: SketchViewKind = 'plan'): SketchV
       cameras[kind] = next;
       publish(snap.active);
     },
-    cameraOf(kind) {
+    getCamera(kind) {
       if (!isSketchViewKind(kind)) {
-        throw new Error(`sketchViewStore.cameraOf: invalid view "${String(kind)}".`);
+        throw new Error(`sketchViewStore.getCamera: invalid view "${String(kind)}".`);
       }
       return cameras[kind];
     },

@@ -98,7 +98,7 @@ export function mountDimensionOverlay(
     const rect = canvas.getBoundingClientRect();
     const w = Math.max(1, Math.floor(rect.width || FALLBACK_W));
     const h = Math.max(1, Math.floor(rect.height || FALLBACK_H));
-    const cam = opts.viewStore.cameraOf(view);
+    const cam = opts.viewStore.getCamera(view);
     return {
       ...defaultView(w, h),
       zoom: cam.zoom,

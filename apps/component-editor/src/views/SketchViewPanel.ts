@@ -61,6 +61,29 @@ export function mountSketchViewPanel(
   root.dataset.role = 'sketch-view-panel';
   root.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0';
 
+  // ⚠ THIS DIRECT STORE WRITE IS DELIBERATE, AND IT IS THE ONE IN THIS FILE.
+  //
+  // P6 says the UI dispatches a command and the handler mutates. It does not
+  // apply here, and the decision is PINNED, not improvised:
+  // `__tests__/app/secondCompositionRoot.invariants.test.ts` clause 4 lists the
+  // stores that must have a command family and states why this one is absent —
+  // *"which work plane the author is looking at is ephemeral view selection,
+  // not document content. Putting a camera change on the undo stack is the P6
+  // over-application that makes Ctrl-Z unusable. If a view ever gains PERSISTED
+  // state, it earns a command family."*
+  //
+  // Concretely: `app/commandBus.ts` pushes an undo entry on EVERY `execute()`
+  // and has no undo-neutral dispatch, so a `view.setActive` verb would put
+  // every work-plane click on the undo stack and a user pressing Ctrl-Z after
+  // drawing would get view switches instead of their geometry back. Nothing in
+  // `sketchViewStore` is serialised into a `.pryzm-family`.
+  //
+  // `tools/ga-gate/check-no-direct-store-writes.ts` counts this site — it is
+  // syntactic and cannot see any of the above — and it is carried in that
+  // gate's baseline in the same EPHEMERAL VIEW STATE category as
+  // `ifcProjectionStore.setForView`. ⛔ If you are here to make the gate
+  // greener, the answer is NOT to exempt the category and NOT to raise the
+  // threshold; it is to retire a real unbacked write somewhere else.
   const viewBar: ViewBarMount = mountViewBar({
     initialActive: deps.sketchViewStore.get().active,
     initialCounts: deps.sketchViews.entityCounts(),
@@ -120,35 +143,31 @@ export function mountSketchViewPanel(
     teardown(): void;
   } {
     const doc = deps.sketchViews.docFor(kind);
-    // ⛔ THE CONSTRAINT TOOLBAR IS PLAN-ONLY, AND THIS IS A REFUSAL WITH A
-    //    REASON, NOT AN OVERSIGHT.
+    // ⭐ THE CONSTRAINT TOOLBAR NOW MOUNTS ON EVERY WORK PLANE, ELEVATIONS
+    //    INCLUDED — §CONSTRAINT-IS-VIEW-SCOPED.
     //
-    //    `constraint.*` is registered ONCE against the runtime's constraint
-    //    store — which `viewSketchSet` adopts as the PLAN store. Entity ids
-    //    are minted per document, so an elevation's `pt-0` is also the plan's
-    //    `pt-0`: authoring a constraint while standing on an elevation would
-    //    write a constraint that the PLAN's solver considers valid, and the
-    //    author's floor outline would deform. Offering the button and
-    //    corrupting the plan is strictly worse than not offering it.
+    //    ⚠ It was PLAN-ONLY here, and the refusal was CORRECT while it stood:
+    //    `constraint.*` was registered once against ONE ambient store, entity
+    //    ids are minted per document (every document's first point is `pt-0`),
+    //    so an elevation constraint was "valid against" the plan document too
+    //    and the plan's solver would have enforced a storey height on the
+    //    author's floor outline. The stand-in that stood in the toolbar's place
+    //    told the user so: *"Constraints are plan-only for now."*
     //
-    //    NAMED REMAINDER: making `constraint.*` view-aware is one change —
-    //    `ConstraintCommandDeps` taking a `constraintStoreFor(view)` resolver,
-    //    exactly as `commands/dimension/index.ts` now does. It is left to lane
-    //    CE-PARAMS-AND-PLANES, which owns constraint/parameter binding, so two
-    //    lanes do not edit that command family in the same tree.
-    //
-    //    Dimensions are NOT affected: `dimension.place` already routes through
-    //    `constraintStoreFor(args.view)`, so a DRIVING dimension works on an
-    //    elevation and is solved by that elevation's own runner.
-    const constraintToolbar = viewBasis(kind).isVertical
-      ? null
-      : mountConstraintToolbar({
-        commandBus: deps.commandBus,
-        selectionStore: deps.selectionStore,
-        docStore: doc,
-      });
-    if (constraintToolbar) canvasHost.appendChild(constraintToolbar.element);
-    else canvasHost.appendChild(elevationConstraintNote());
+    //    It is closed by the change this file NAMED as its remainder —
+    //    `ConstraintCommandContext` resolving `constraintStoreFor(view)`,
+    //    exactly as `commands/dimension/index.ts` does — so the toolbar's
+    //    dispatches carry `view`, land in THIS plane's own store, and are
+    //    solved by THIS plane's own `SolverRunner` (both minted by
+    //    `viewSketchSet`). The isolation is structural: a constraint can no
+    //    longer reach a foreign document's store at all.
+    const constraintToolbar = mountConstraintToolbar({
+      commandBus: deps.commandBus,
+      selectionStore: deps.selectionStore,
+      docStore: doc,
+      view: kind,
+    });
+    canvasHost.appendChild(constraintToolbar.element);
     const canvas = mountSketchCanvas(canvasHost, {
       store: doc,
       selectionStore: deps.selectionStore,
@@ -180,7 +199,7 @@ export function mountSketchViewPanel(
       teardown() {
         overlay.unmount();
         canvas.unmount();
-        constraintToolbar?.destroy();
+        constraintToolbar.destroy();
       },
     };
   }
@@ -218,25 +237,6 @@ export function mountSketchViewPanel(
       root.remove();
     },
   };
-}
-
-/** The honest stand-in where the constraint toolbar would be on an elevation.
- *  It states WHY the tool is absent rather than leaving a blank strip that
- *  reads as a rendering bug. */
-function elevationConstraintNote(): HTMLElement {
-  const note = document.createElement('div');
-  note.dataset.role = 'elevation-constraint-note';
-  note.setAttribute('role', 'note');
-  note.textContent =
-    'Constraints are plan-only for now. Dimensions work here and drive this elevation.';
-  note.style.cssText = [
-    'padding:4px 12px',
-    'color:#7878a0',
-    'font:11px/1.4 system-ui',
-    'background:rgba(0,0,0,0.12)',
-    'border-bottom:1px solid rgba(255,255,255,0.06)',
-  ].join(';');
-  return note;
 }
 
 function dimButtonStyle(active: boolean): string {

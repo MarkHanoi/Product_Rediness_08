@@ -61,8 +61,8 @@ describe('sketchViewStore — the active work plane', () => {
 describe('sketchViewStore — the per-view camera', () => {
   it('starts every view at the default camera', () => {
     const s = createSketchViewStore();
-    expect(s.cameraOf('plan')).toEqual(DEFAULT_VIEW_CAMERA);
-    expect(s.cameraOf('elevation-front')).toEqual(DEFAULT_VIEW_CAMERA);
+    expect(s.getCamera('plan')).toEqual(DEFAULT_VIEW_CAMERA);
+    expect(s.getCamera('elevation-front')).toEqual(DEFAULT_VIEW_CAMERA);
   });
 
   // THE PRESERVATION ASSERTION: each view remembers its OWN pan/zoom, and
@@ -75,10 +75,10 @@ describe('sketchViewStore — the per-view camera', () => {
 
     // Leave and come back — the plan camera is exactly where it was left.
     s.setActive('plan');
-    expect(s.cameraOf('plan')).toEqual({ zoom: 2, panX: 100, panZ: 200 });
-    expect(s.cameraOf('elevation-front')).toEqual({ zoom: 0.5, panX: -50, panZ: 0 });
+    expect(s.getCamera('plan')).toEqual({ zoom: 2, panX: 100, panZ: 200 });
+    expect(s.getCamera('elevation-front')).toEqual({ zoom: 0.5, panX: -50, panZ: 0 });
     // …and the untouched view is still at the default.
-    expect(s.cameraOf('elevation-side')).toEqual(DEFAULT_VIEW_CAMERA);
+    expect(s.getCamera('elevation-side')).toEqual(DEFAULT_VIEW_CAMERA);
   });
 
   it('bumps the version on a camera change so a repaint is scheduled', () => {
@@ -99,7 +99,7 @@ describe('sketchViewStore — the per-view camera', () => {
     expect(() => s.setCamera('plan', { zoom: -1, panX: 0, panZ: 0 })).toThrow(/zoom must be > 0/);
     expect(() => s.setCamera('plan', { zoom: 1, panX: Number.NaN, panZ: 0 }))
       .toThrow(/pan must be finite/);
-    expect(() => s.cameraOf('nope' as SketchViewKind)).toThrow(/invalid view/i);
+    expect(() => s.getCamera('nope' as SketchViewKind)).toThrow(/invalid view/i);
   });
 
   it('does not change the active view when only a camera moves', () => {

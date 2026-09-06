@@ -49,7 +49,22 @@ export function mountQuantitySchedules(
     panel: HTMLElement,
     onNavigate?: (tabId: string) => void,
 ): void {
-    scheduleStore.seedDefaultSchedules();
+    // §P6-SCHEDULE-SEED-IS-NOT-A-PANEL-JOB — this line used to be
+    // `scheduleStore.seedDefaultSchedules()`.
+    //
+    // Two things were wrong with it. It was a DIRECT STORE WRITE FROM UI (P6:
+    // the UI dispatches, it does not mutate — `tools/ga-gate/
+    // check-no-direct-store-writes.ts` counted it, and its own triage note named
+    // "a move out of UI" as the fix). And it made the contents of a domain store
+    // depend on WHICH TABS THE USER HAD VISITED: `ScheduleStore.deserialize()`
+    // clears the map before loading, so a project whose snapshot predates a
+    // newly-added discipline was missing that discipline's built-in definition
+    // until somebody happened to open THIS panel.
+    //
+    // Seeding now happens on the load path instead — `ProjectLoader` re-seeds on
+    // every restore (it is per-id idempotent, so it never overwrites restored
+    // data), and `initUI.runDeferredDocSubsystems()` seeds at boot. This panel
+    // only READS.
     const schedules = scheduleStore.getAll();
     const templates = viewTemplateStore.getAll();
 

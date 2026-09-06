@@ -1199,10 +1199,21 @@ export class ProjectLoader {
             if ((snapshot as any).schedules) {
                 scheduleStore.deserialize((snapshot as any).schedules);
                 console.log('[ProjectLoader] Schedule store restored from snapshot');
-            } else {
-                // Seed default schedules if none were in the snapshot
-                scheduleStore.seedDefaultSchedules();
             }
+            // §P6-SCHEDULE-SEED-IS-NOT-A-PANEL-JOB — seed the built-in schedule
+            // definitions on EVERY restore, not only when the snapshot carried
+            // none.
+            //
+            // `ScheduleStore.deserialize()` CLEARS the map before loading, so a
+            // project whose snapshot predates a newly-added discipline lost that
+            // discipline's built-in definition on open. The only thing that put
+            // it back was `AuditBucket.mountQuantitySchedules()` calling
+            // `seedDefaultSchedules()` at panel MOUNT — a direct store write from
+            // UI (P6) that also made the store's contents depend on which tabs
+            // the user had visited. `seedDefaultSchedules()` is per-id idempotent
+            // (it creates only the ids that are MISSING), so calling it after a
+            // restore can never overwrite restored data.
+            scheduleStore.seedDefaultSchedules();
 
             // Data Platform — Phase 4 (schema v2)
             // Restore hierarchy nodes, template definitions/assignments, and element codes.
