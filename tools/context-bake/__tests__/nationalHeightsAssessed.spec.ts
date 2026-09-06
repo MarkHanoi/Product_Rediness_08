@@ -24,10 +24,20 @@ const LANE_REGIONS = [
     'switzerland', 'luxembourg', 'ireland', 'greatbritain', 'italy', 'portugal',
 ];
 
+/**
+ * The regions lane HEIGHTS-LAST-NINE was asked about (2026-09-06) — the nine joins that still had a
+ * CITY-LIST working set. Two of the nine are covered by rows above (`switzerland` — promoted out of
+ * 'not-done-shape' by that lane — and `germany` / `greatbritain` / `belgium`, whose refusals were
+ * re-measured and STAND), so only the regions with no row yet are listed here. ⚠ The point of a second
+ * constant rather than a longer first one: a region can then only be dropped by deleting a NAMED entry.
+ */
+const LANE_REGIONS_LAST_NINE = ['denmark', 'switzerland', 'japan', 'ontario', 'victoria', 'gccstates'];
+
 describe('§NATIONAL-HEIGHTS-ASSESSED — no country in the lane is silently missing', () => {
     it('every region the lane was asked about has a row', () => {
         const seen = new Set(NATIONAL_HEIGHTS_ASSESSED.map((r) => r.region));
         for (const region of LANE_REGIONS) expect(seen.has(region), `${region} has no assessed row`).toBe(true);
+        for (const region of LANE_REGIONS_LAST_NINE) expect(seen.has(region), `${region} has no assessed row`).toBe(true);
     });
 
     it('every row names a bake region that actually exists', () => {
@@ -38,7 +48,11 @@ describe('§NATIONAL-HEIGHTS-ASSESSED — no country in the lane is silently mis
     });
 
     it('every row carries a probe date and a status the reader can act on', () => {
-        const OK = new Set(['wired-national', 'wired-partial', 'refused-rendered', 'refused-coarse', 'refused-bulk', 'unreachable', 'not-done-shape']);
+        // ⭐ 'wired-national-gated' added 2026-09-06 (lane HEIGHTS-LAST-NINE) for Denmark: the retain set IS
+        // the country, but the SOURCE needs a credential, so nothing is measured until the secret exists.
+        // Folding it into 'wired-national' would have let a reader conclude Danish buildings carry
+        // measured heights today. They do not — the join returns `blocked`.
+        const OK = new Set(['wired-national', 'wired-national-gated', 'wired-partial', 'refused-rendered', 'refused-coarse', 'refused-bulk', 'unreachable', 'not-done-shape']);
         for (const r of NATIONAL_HEIGHTS_ASSESSED) {
             expect(OK.has(r.status), `${r.region} status ${r.status}`).toBe(true);
             expect(r.probedAt, `${r.region} probedAt`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -72,7 +86,7 @@ describe('§NATIONAL-HEIGHTS-ASSESSED — no country in the lane is silently mis
     it('a wired-national row matches the wiring in bake.mjs — the table cannot claim more than the code does', () => {
         // The table is a REPORT, not a second source of truth. If someone edits a row to
         // 'wired-national' without wiring the join, this fails.
-        for (const r of NATIONAL_HEIGHTS_ASSESSED.filter((x) => x.status === 'wired-national')) {
+        for (const r of NATIONAL_HEIGHTS_ASSESSED.filter((x) => x.status === 'wired-national' || x.status === 'wired-national-gated')) {
             const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
             expect(fn, 'stampBboxesFor').not.toBeNull();
             const m = fn![1].match(new RegExp(`r\\.heightJoin === '${r.join}'\\)\\s*return ([A-Z0-9_]+)`));

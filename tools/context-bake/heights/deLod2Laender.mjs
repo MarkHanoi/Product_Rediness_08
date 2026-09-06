@@ -92,12 +92,42 @@
 //         „Datenlizenz Deutschland – Namensnennung – Version 2.0“ (https://www.govdata.de/dl-de/by-2-0) kostenfrei
 //         intern und extern genutzt werden"; the same bundle states LoD2 is "niedersachsenweit … seit 2019
 //         abgeschlossen … flächendeckend". The index and bucket themselves carry NO licence field.
-//   • by  Bayern — PROBED OPEN 2026-09-05: geodaten.bayern.de/odd/a/lod2/citygml/meta/metalink/09162000.meta4
-//         (München) → HTTP 200 metalink4, 327 × https://download1.bayernwolke.de/a/lod2/citygml/<E>_<N>.gml
-//         (2 km, EPSG:25832, PLAIN gml, Range honoured: 690_5334.gml → 206, 16 Buildings/17 measuredHeight);
+//   • by  Bayern — ⭐ WIRED 2026-09-06 (§DE-LOD2-LAENDER-BY, lane DE-HEIGHTS-BEYOND-SIXTEEN-BBOXES), and
+//         this Land is why the founder saw flat grey extrusions in Nürnberg: it was `probed-open-unarmed`,
+//         so `DE_LOD2_CITY_BBOXES` (the WIRED subset) dropped every Bavarian footprint before the join ran.
+//         PROVENANCE OF THE URL SHAPE (2026-09-05): geodaten.bayern.de/odd/a/lod2/citygml/meta/metalink/
+//         09162000.meta4 (München) → HTTP 200 metalink4, 327 × download1.bayernwolke.de/a/lod2/citygml/
+//         <E>_<N>.gml (2 km, EPSG:25832, PLAIN gml). The metalink is keyed by Gemeinde AGS, NOT by tile,
+//         so it can supply the URL SHAPE and can NEVER answer "does tile e,n exist" — which is why the
+//         adapter's index is `head-probe` (BW's kind) and not `atom`.
+//         RE-PROBED BEFORE ARMING 2026-09-06 — a door open yesterday can be shut, and arming a dead door
+//         is worse than leaving it unarmed. It is open, and wider than one bbox:
+//           • ALL 69 candidate tiles over the five working-set cities → HEAD 200. nürnberg 20/20 ·
+//             münchen 12/12 · augsburg 16/16 · würzburg 9/9 · regensburg 12/12. 334,607 – 161,627,079 B
+//             each, 5.29 GB in total, every one Accept-Ranges: bytes.
+//           • CONTROLS — off-Land 300_5300.gml and 400_5990.gml BOTH HEAD 404. Two distinguishable
+//             answers, which is what makes an honest ABSENT possible here at all (§CONTEXT-DATA-HONESTY).
+//           • SHAPE, read with this file's own createBuildingSlicer over a real 8 MB range of three CITY
+//             tiles (not München alone): 650_5478 Nürnberg → 353 Buildings / 353 measuredHeight / 353
+//             GroundSurface / 353 roofType → 352 parts, h 1.331–39.7 m, p50 17.242; 564_5514 Würzburg →
+//             436 parts; 726_5434 Regensburg → 266 parts. srsName urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH,
+//             srsDimension 3, roof codes mapping to flat/gabled/hipped/half-hipped/mansard/pyramidal/
+//             conical/skillion. NO bldg:BuildingPart anywhere — Bavaria puts the height on the Building.
+//             This is the AdV shape `partFromBlock` already parses: arming BY added no parser code.
+//           • §HEIGHT-STAMP-BUDGET / L-659 — the bound is the reason this Land is served by CITY BBOXES and
+//             not by "all of Bavaria". Bavaria is ~17,600 tiles at this density (≈ 2.8 TB); the five-city
+//             working set is 69. MEASURED end-to-end on the largest Nürnberg tile: 650_5478, 154.1 MB
+//             streamed in 16.8 s (9.2 MB/s) → 6,759 parts at PEAK heapUsed 24 MB, slicer overflow false.
+//             Heap tracks ONE building block, never the tile and never the Land — so the 69 tiles cost
+//             ≈ 10 minutes of transfer at flat memory, which is the whole argument for widening by CITY.
+//           • LIVE JOIN, the founder's own ground (Nürnberg Altstadt 11.070,49.450,11.085,49.458): the REAL
+//             stamp measured 1,257 of 1,347 retained OSM footprints from 19,552 parts over 3 tiles, 0 tile
+//             errors, peak heap 19 MB, 39 s — Heilig-Geist-Haus 42.4 m, Neutorturm 40.3 m, Sinwellturm
+//             36.2 m. The 141 that matched nothing kept their ORIGINAL OSM tags: 0 fabricated heights.
 //         Nutzungsbedingungen page lists "Creative Commons Namensnennung 4.0 International (CC BY 4.0)".
-//         ⚠ UNARMED: the lane brief keeps Munich `blocked` (REGION_SOURCE munich) — this row records that
-//         the block reason ("ZSHH INSPIRE-restricted") no longer matches the probe; arming is a decision.
+//         ⚠ The 2026-09-06 `nationalHeightsAssessed` note read this door as "HTTP 403". That 403 is the
+//         DIRECTORY LISTING refusing, measured at /a/lod2/, not a tile. Every tile under it is 200. A
+//         listing refusal is not an absence, and it was never evidence about the data.
 //   • bw  Baden-Württemberg — WIRED 2026-09-05 (SECOND pass, §DE-LOD2-LAENDER-BW). The first pass called this
 //         Land "unprobed — grid keying unresolved": it had the right directory (/data/lod2/) and the right
 //         filename pattern (`LoD2_\d+_(\d+_\d+)_\d+_bw\.zip`, from assets/config/local/odp-products.json) and
@@ -341,7 +371,29 @@ export const DE_LOD2_LAENDER = {
     attribution: '© LGL, www.lgl-bw.de',
     probe: '2026-09-05 LoD2_32_513_5402_2_bw.zip HEAD 200 18,031,959 B Accept-Ranges; 8 entries, 4 × 1 km gml; entry LoD2_32_513_5402_1_BW.gml 45.1 MB → 1,525 Buildings/853 BuildingParts/2,125 measuredHeight; 9/9 Stuttgart tiles 200, even-key 512 and off-Land 301_5300 both 404; grid names read from tiles/vts/2x2Gitter/13/4304/2821.pbf',
   },
-  by: { land: 'Bayern', status: 'probed-open-unarmed', zone: 32, tileM: 2000, kind: 'gml', tileName: ({ e, n }) => `${e}_${n}.gml`, tileUrl: ({ e, n }) => `https://download1.bayernwolke.de/a/lod2/citygml/${e}_${n}.gml`, licence: 'CC BY 4.0 (geodaten.bayern.de Nutzungsbedingungen, probed 2026-09-05)', reason: 'keyless 2 km gml verified 2026-09-05 (690_5334.gml → HTTP 206, 16 Buildings); lane brief keeps munich blocked — arming is a founder decision, the REGION_SOURCE munich reason is stale' },
+  by: {
+    land: 'Bayern', status: 'wired', zone: 32, tileM: 2000, kind: 'gml',
+    // ⭐ ARMED 2026-09-06 (§DE-LOD2-LAENDER-BY). The door was recorded `probed-open-unarmed` on
+    // 2026-09-05 and was RE-PROBED BEFORE ARMING, because a door open yesterday can be shut and arming
+    // a dead door is worse than leaving it unarmed. It is open — see `probe` below.
+    // The index is `head-probe`, the SAME kind Baden-Württemberg uses and for the same reason: the
+    // directory itself is 403 (listing off) while every object under it is public, so the only honest
+    // index is one HEAD per candidate tile GATED BY TWO CONTROLS. Without the pair, a host that starts
+    // 404ing everything (product moved, path renamed) would be reported as "no data in Bavaria" —
+    // exactly the failure≠empty conflation this file exists to refuse (§CONTEXT-DATA-HONESTY).
+    // ⚠ The metalink feed (geodaten.bayern.de/odd/a/lod2/citygml/meta/metalink/<AGS>.meta4) is NOT the
+    // index: it is keyed by Gemeinde AGS, not by tile, so it can never answer "does tile e,n exist". It
+    // stays in the header as the provenance of the URL SHAPE, which is all it ever established.
+    indexKind: 'head-probe',
+    baseUrl: 'https://download1.bayernwolke.de/a/lod2/citygml/',
+    controlPresentTile: '690_5334.gml',   // measured 2026-09-06: HEAD 200, 161,627,079 B, Accept-Ranges
+    controlAbsentTile: '300_5300.gml',    // measured 2026-09-06: HEAD 404 (off-Land; 400_5990.gml also 404)
+    tileName: ({ e, n }) => `${e}_${n}.gml`,
+    tileUrl: ({ e, n }) => `https://download1.bayernwolke.de/a/lod2/citygml/${e}_${n}.gml`,
+    licence: 'CC BY 4.0 (geodaten.bayern.de Nutzungsbedingungen)',
+    attribution: '© Bayerische Vermessungsverwaltung',
+    probe: '2026-09-06 RE-PROBED BEFORE ARMING: all 69 candidate tiles over the five Bavarian working-set cities HEAD 200 (nürnberg 20/20, münchen 12/12, augsburg 16/16, würzburg 9/9, regensburg 12/12; 334,607 – 161,627,079 B, 5.29 GB total, Accept-Ranges: bytes), off-Land controls 300_5300.gml and 400_5990.gml both HEAD 404 — so a 404 here is an honest ABSENT, not a dead host. Shape verified with the createBuildingSlicer THIS file exports, on three city tiles: 650_5478 (Nürnberg) 353 Buildings/353 measuredHeight/353 GroundSurface/353 roofType → 352 parts, h 1.331–39.7 m; 564_5514 (Würzburg) 436 parts; 726_5434 (Regensburg) 266 parts; srsName urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH, srsDimension 3, roofs flat/gabled/hipped/half-hipped/mansard/pyramidal/conical/skillion — the AdV shape partFromBlock already parses, no BuildingPart. FULL-TILE STREAM 650_5478: 154.1 MB in 16.8 s (9.2 MB/s), 6,759 parts, PEAK heapUsed 24 MB, slicer overflow false — the bounded-heap evidence for §HEIGHT-STAMP-BUDGET / L-659. LIVE JOIN over the Nürnberg Altstadt (11.070,49.450,11.085,49.458): 1,257 of 1,347 retained OSM footprints measured from 19,552 parts across 3 tiles, 0 tile errors, peak heap 19 MB, heights 2.5–79.4 m (Heilig-Geist-Haus 42.4, Neutorturm 40.3, Sinwellturm 36.2), and the 141 unmatched kept their ORIGINAL OSM tags with 0 fabricated heights.',
+  },
   sn: {
     land: 'Sachsen', status: 'wired', zone: 33, tileM: 2000, kind: 'zip',
     // ⭐ THE TOKEN IS NOT PINNED. `share_id` is a Nextcloud public-share token that ROTATES — the one two
@@ -734,14 +786,34 @@ export function stPartsFromGeojson(text, adapter = DE_LOD2_LAENDER.st) {
 // §DE-LOD2-CITY-BBOXES — the `germany` national row's stamp working set (the DE analogue of
 // MDS_CITY_BBOXES / MNH_FR_CITY_BBOXES / SWISS_CITY_BBOXES, mandatory for the same reason: §HEIGHT-STAMP-
 // BUDGET / L-659 — a whole-country join with no bounded area holds every German footprint in the V8
-// heap). ONE city per Land, the brief's list. Footprints outside these bboxes stream through with
-// their original OSM tags — never a fabricated height. The `land` key is the ROUTE: a footprint inside
-// a city bbox is fetched through that Land's door and no other (a Land's tile grid never crosses a
-// Land border in the working set, and a city bbox is far smaller than its Land).
+// heap). Footprints outside these bboxes stream through with their original OSM tags — never a
+// fabricated height. The `land` key is the ROUTE: a footprint inside a city bbox is fetched through
+// that Land's door and no other (a Land's tile grid never crosses a Land border in the working set,
+// and a city bbox is far smaller than its Land).
 //
-// `DE_LOD2_CITIES` lists EVERY city the brief named, wired or not, so the router table is legible in
-// one place; `DE_LOD2_CITY_BBOXES` (what bake.mjs retains) is the WIRED subset only — a retained
-// footprint that no door can serve would be heap for nothing.
+// ⚠ IT IS NO LONGER ONE CITY PER LAND — corrected 2026-09-06 (lane DE-HEIGHTS-BEYOND-SIXTEEN-BBOXES).
+// This list was 16 rows, exactly one per Land, and the founder found the hole from the outside:
+// *"Nuremberg buildings are not true height buildings — germany should be complete."* He was right, and
+// TWO independent facts had to both be false for Nürnberg to work. Bayern was `probed-open-unarmed`, so
+// `DE_LOD2_CITY_BBOXES` dropped every Bavarian footprint before the join ran; and even armed, Bavaria's
+// ONE bbox was München [11.54, 48.12, 11.61, 48.16] — Nürnberg is at 11.078, 49.455, about 150 km away.
+// Arming the Land alone would have fixed NEITHER. Bayern now carries FIVE cities.
+//
+// ⛔ THE CONSTRAINT THAT SURVIVES, AND WHY THE ANSWER IS CITIES AND NOT "ALL OF GERMANY".
+// §HEIGHT-STAMP-BUDGET / L-659 chose a bounded working set because a whole-country join holds every
+// German footprint in the V8 heap. That is still true and this lane did NOT delete the bound — it spent
+// it where the founder was looking. The per-tile cost is MEASURED, not assumed: streaming the largest
+// Nürnberg tile (650_5478, 154.1 MB) end-to-end through createBuildingSlicer yields 6,759 parts at PEAK
+// heapUsed 24 MB, and the live Nürnberg join peaked at 19 MB. Heap tracks ONE building block, so tiles
+// are nearly free; what a city costs is TRANSFER (Bavaria's five ≈ 5.29 GB ≈ 10 min at the measured
+// 9.2 MB/s) and RETAINED FOOTPRINTS, which is exactly what the bbox bounds. Widening a Land therefore
+// means adding CITY ROWS — never dropping the bbox filter.
+// The remaining ceiling is unchanged and honest: eleven wired Länder are still ONE city each, so
+// `germany` is a working set of 17 cities, not a country. See nationalHeightsAssessed.mjs `germany`.
+//
+// `DE_LOD2_CITIES` lists EVERY city, wired or not, so the router table is legible in one place;
+// `DE_LOD2_CITY_BBOXES` (what bake.mjs retains) is the WIRED subset only — a retained footprint that no
+// door can serve would be heap for nothing.
 // koln is BYTE-IDENTICAL to the bake.mjs koln row / terrain.mjs koln row (6.85,50.88,7.02,50.99).
 // ─────────────────────────────────────────────────────────────────────────────
 export const DE_LOD2_CITIES = [
@@ -756,7 +828,13 @@ export const DE_LOD2_CITIES = [
   { city: 'magdeburg',   land: 'st', bbox: [11.60, 52.10, 11.66, 52.15] },  // ~5×6 × 1 km WFS cells
   { city: 'koln',        land: 'nw', bbox: [6.85, 50.88, 7.02, 50.99] },    // = bake.mjs koln row (182 Kacheln live-measured)
   { city: 'hannover',    land: 'ni', bbox: [9.70, 52.35, 9.78, 52.40] },    // ~6×6 × 1 km plain gml (Hannover tile 49.8 MB — streamed), S3 prefix-probed
-  { city: 'munich',      land: 'by', bbox: [11.54, 48.12, 11.61, 48.16] },  // probed open, UNARMED by brief
+  // ⭐ BAYERN — FIVE cities, not one (2026-09-06). Every tile key below was HEAD-probed 200 on the day it
+  // was written; the counts are the candidate 2 km tiles over each bbox, and their bytes are the run cost.
+  { city: 'munich',      land: 'by', bbox: [11.54, 48.12, 11.61, 48.16] },  // 12 tiles, 1.28 GB · unchanged bbox, now ARMED
+  { city: 'nuernberg',   land: 'by', bbox: [11.03, 49.42, 11.13, 49.48] },  // 20 tiles, 1.64 GB · ⭐ the founder's report: Altstadt–Hbf–Burg–Gostenhof–Wöhrd
+  { city: 'augsburg',    land: 'by', bbox: [10.86, 48.34, 10.93, 48.39] },  // 16 tiles, 1.11 GB
+  { city: 'wuerzburg',   land: 'by', bbox: [9.90, 49.77, 9.96, 49.81] },    //  9 tiles, 0.55 GB
+  { city: 'regensburg',  land: 'by', bbox: [12.06, 48.99, 12.14, 49.03] },  // 12 tiles, 0.71 GB
   { city: 'dresden',     land: 'sn', bbox: [13.70, 51.03, 13.78, 51.07] },  // ~3×3 × 2 km zip (3 tiles GET 200; the share token is READ per run, never pinned)
   { city: 'stuttgart',   land: 'bw', bbox: [9.15, 48.76, 9.22, 48.80] },    // ~3×3 × 2 km zip-multi (9/9 tiles HEAD 200; odd-easting grid)
   { city: 'frankfurt',   land: 'he', bbox: [8.65, 50.10, 8.72, 50.13] },    // BLOCKED — account-gated
@@ -764,6 +842,9 @@ export const DE_LOD2_CITIES = [
   { city: 'saarbruecken', land: 'sl', bbox: [6.96, 49.22, 7.02, 49.25] },   // UNPROBED — bot shield
 ];
 
+// A Land may appear MORE THAN ONCE here (Bayern does, five times). `cityForPoint` scans rows, not Lands,
+// and the stamp buckets by (Land, tile key), so two cities in one Land share that Land's index and door
+// and simply contribute different tiles — no per-Land uniqueness is required or assumed downstream.
 export const DE_LOD2_CITY_BBOXES = DE_LOD2_CITIES
   .filter((c) => DE_LOD2_LAENDER[c.land]?.status === 'wired')
   .map((c) => ({ city: c.city, land: c.land, bbox: c.bbox }));

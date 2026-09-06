@@ -28,6 +28,13 @@ const GATE_ROWS: Array<[string, string, number, number]> = [
   ['hannover', 'ni', 52.3759, 9.7320], // second pass — the LGLN bucket, not its stale index, is the door
   ['stuttgart', 'bw', 48.7758, 9.1829], // third pass — the ODD-easting 2 km grid (§DE-LOD2-LAENDER-BW)
   ['dresden', 'sn', 51.0500, 13.7400],   // third pass — the share token is READ per run (§DE-LOD2-LAENDER-SN)
+  // ⭐ THE FOUNDER'S OWN POINT (2026-09-06, §DE-LOD2-LAENDER-BY): Nürnberg Hauptmarkt. Chosen over München
+  // deliberately — München was already the Land's bbox and would have gone green while Nürnberg stayed grey,
+  // which is the exact failure this gate now has to catch. LIVE-PROVEN 2026-09-06: over the Altstadt box
+  // 11.070,49.450,11.085,49.458 the real stamp measured 1,257 of 1,347 retained footprints from 19,552 LoD2
+  // parts across 3 tiles, 0 tile errors, peak heap 19 MB — Heilig-Geist-Haus 42.4 m, Neutorturm 40.3 m,
+  // Sinwellturm 36.2 m, and the 141 unstamped kept their ORIGINAL OSM tags with 0 fabricated heights.
+  ['nuernberg', 'by', 49.4539, 11.0775],
 ];
 
 describe('§DE-LOD2-LAENDER-OSM-JOIN — bake.mjs wires the lod2de router for the `germany` row', () => {
@@ -94,16 +101,24 @@ describe('§DE-LOD2-LAENDER-OSM-JOIN — bake.mjs wires the lod2de router for th
     }
     const wired = Object.entries(DE_LOD2_LAENDER).filter(([, a]) => a.status === 'wired').map(([cc]) => cc).sort();
     expect([...lands].sort()).toEqual(wired);
-    expect(DE_LOD2_CITY_BBOXES.map((c) => c.land).sort()).toEqual(wired);
+    // ⛔ SET, not array (corrected 2026-09-06): a Land may now hold SEVERAL working-set cities — Bayern holds
+    // five — so `by` appears five times in this map. The invariant that matters is unchanged and is asserted
+    // here: every wired Land is represented, and no city is retained for a Land that cannot serve it.
+    expect([...new Set(DE_LOD2_CITY_BBOXES.map((c) => c.land))].sort()).toEqual(wired);
   });
 });
 
 describe('§DE-LOD2-LAENDER — heightSources.mjs records the wiring; the stamp module imports the shared helpers, not copies', () => {
-  it("REGION_SOURCE germany → 'lod2de' with a WIRED 2026-09-05 note naming the table and the module; berlin → 'lod2de'; munich still blocked (recorded as stale, not silently flipped)", () => {
+  it("REGION_SOURCE germany → 'lod2de' with a WIRED 2026-09-05 note naming the table and the module; berlin → 'lod2de'; munich UNBLOCKED 2026-09-06 now that Bayern is armed", () => {
     expect(hs).toMatch(/^\s*germany:\s*'lod2de',\s*\/\/ ⭐ WIRED 2026-09-05[^\n]*NATIONAL_STAMP_TABLE[^\n]*deLod2LaenderStamp\.mjs/m);
     expect(hs).toMatch(/^\s*berlin:\s*'lod2de',/m);
-    expect(hs).toMatch(/^\s*munich:\s*\{\s*source:\s*'lod2de',\s*status:\s*'blocked'/m);
-    expect(hs).toMatch(/munich's `blocked` reason below is stale/);
+    // ⭐ FLIPPED 2026-09-06. The old assertion pinned munich as `blocked` and pinned the note that said its
+    // reason was STALE — both correct at the time and both now wrong: the reason ("Bavaria LoD2 licence TBD
+    // (ZSHH INSPIRE-restricted)") is measurably false on BOTH halves (CC BY 4.0, and 69/69 tiles HEAD 200).
+    // A stale-blocked row is not harmless: it is what kept Nürnberg grey.
+    expect(hs).toMatch(/^\s*munich:\s*\{\s*source:\s*'lod2de',\s*status:\s*'wired'/m);
+    expect(hs).toMatch(/UNBLOCKED 2026-09-06/);
+    expect(hs).toMatch(/THIRTEEN keyless Land doors WIRED/);
   });
   it('the koln→lod2de_nrw mapping and the NRW stamp survive untouched (the router reuses the NRW door, it does not replace it)', () => {
     expect(hs).toMatch(/^\s*koln:\s*'lod2de_nrw',/m);

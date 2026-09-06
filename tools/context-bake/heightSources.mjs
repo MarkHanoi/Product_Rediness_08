@@ -120,9 +120,20 @@ export { MNH_FR, MNH_FR_CITY_BBOXES, SWISS_NDSM, SWISS_CITY_BBOXES, AU_OPEN_HEIG
 // byte-for-byte by two live specs); the duplication is NAMED in heights/nationalSweep.mjs, not hidden.
 import {
   MNH_FR_NATIONAL_BBOX, MNH_FR_NATIONAL_BBOXES,
-  makeSweepBudget, nationalTileGrid, sweepPopulatedCells,
+  SWISS_NATIONAL_BBOX, SWISS_NATIONAL_BBOXES, SWISS_LV95_NATIVE_BOX, SWISS_LV95_NATIVE_BOXES,
+  DHM_NATIONAL_BBOX, DHM_NATIONAL_BBOXES, DHM_UTM32_NATIVE_BOX, DHM_UTM32_NATIVE_BOXES,
+  makeSweepBudget, nationalTileGrid, nativeTileGrid, sweepPopulatedCells,
 } from './heights/nationalSweep.mjs';
 export { MNH_FR_NATIONAL_BBOX, MNH_FR_NATIONAL_BBOXES };
+// §NATIVE-RETAIN-SETS (2026-09-06, lane HEIGHTS-LAST-NINE) — CH and DK are the two joins whose publisher
+// tiles in PROJECTED METRES, so each carries a WGS84 declaration (what `stampBboxesFor` returns and what
+// the coverage ledger reads) AND the same ground in the publisher's own CRS (what the sweep bands, ords
+// and resume cursor live in). They are re-exported here because bake.mjs imports its bbox constants from
+// this file, not from the kernel.
+export {
+  SWISS_NATIONAL_BBOX, SWISS_NATIONAL_BBOXES, SWISS_LV95_NATIVE_BOX, SWISS_LV95_NATIVE_BOXES,
+  DHM_NATIONAL_BBOX, DHM_NATIONAL_BBOXES, DHM_UTM32_NATIVE_BOX, DHM_UTM32_NATIVE_BOXES,
+};
 // §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — the Dutch stamp lives in heights/nl3dbagStamp.mjs (imported by bake.mjs
 // directly, not through this file) and reuses the shared join helpers below via this ONE export line.
 // ⭐ `appendFileInto` joined this line 2026-09-06 (lane USA-HEIGHTS-NATIONAL, §USAS-SWATHE). It is the
@@ -737,7 +748,7 @@ export const REGION_SOURCE = {
   // Länder with different endpoints — mapping them to NRW would be a lie, so they stay as they were.
   koln: 'lod2de_nrw',
   berlin: 'lod2de',
-  munich: { source: 'lod2de', status: 'blocked', reason: 'Bavaria LoD2 licence TBD (ZSHH INSPIRE-restricted)' },
+  munich: { source: 'lod2de', status: 'wired', reason: '⭐ UNBLOCKED 2026-09-06 (lane DE-HEIGHTS-BEYOND-SIXTEEN-BBOXES). The old reason — "Bavaria LoD2 licence TBD (ZSHH INSPIRE-restricted)" — was already recorded as stale on 2026-09-05 and is now measured WRONG on BOTH halves: the licence is published CC BY 4.0 (geodaten.bayern.de Nutzungsbedingungen) and the data is keyless (69/69 candidate 2 km tiles over the five Bavarian working-set cities HEAD 200, off-Land controls 300_5300.gml + 400_5990.gml both 404). Bayern is `wired` in DE_LOD2_LAENDER and munich is one of FIVE Bavarian rows in DE_LOD2_CITY_BBOXES, so this region is served by the `germany` row join. ⛔ A stale `blocked` row is not harmless: this one is why Nürnberg reached the founder as flat grey.' },
   // DK
   copenhagen: 'geodanmark',
   // US
@@ -785,7 +796,7 @@ export const REGION_SOURCE = {
   sweden: 'lidar_se',
   finland: 'buildings3d_fi',
   norway: 'ndh_no',    // ⭐ WIRED 2026-09-05 (lane HEIGHTS-NORDICS, §NDH-NO-OSM-JOIN): the bake `norway` row declares heightJoin:'ndh_no' → NATIONAL_STAMP_TABLE → stampNoNdhHeightsOnGeojsonseq (heights/noHeightsStamp.mjs), working set NO_NDH_CITY_BBOXES (oslo/bergen/trondheim). Keyless Kartverket NHM DOM − DTM.
-  germany: 'lod2de',   // ⭐ WIRED 2026-09-05 (lane HEIGHTS-DE-LAENDER, §DE-LOD2-LAENDER-OSM-JOIN): the bake `germany` row declares heightJoin:'lod2de' → NATIONAL_STAMP_TABLE → stampDeLod2LaenderHeightsOnGeojsonseq (heights/deLod2LaenderStamp.mjs; router table + working set DE_LOD2_CITY_BBOXES in heights/deLod2Laender.mjs). Twelve keyless Land doors WIRED (nw bb hh sh th rp mv be st ni bw sn — one city each: koln berlin hamburg potsdam kiel erfurt mainz schwerin magdeburg hannover stuttgart dresden; NI via the S3-listed LGLN bucket, its geojson index's hrefs being stale → NoSuchKey; BW via an ODD-easting 2 km grid read off the portal's own 2x2Gitter MVT, kind zip-multi — its zip is a FOLDER of four 1 km quarters; ⭐ SN joined on a THIRD pass — the two earlier passes read its 503 as an outage when it is what that Nextcloud answers for a ROTATED share token, so the token is now READ per run off geodaten.sachsen.de/batch-download-4719.html, never pinned); he BLOCKED (gds.hessen.de Downloadcenter is registration-gated and the keyless gds-srv free WMS carries none of LoD2/3D across its 46 layers), sl UNPROBED (its catalogue search is client-side and never ran — UNKNOWN, not empty), hb PROBED-OPEN-UNSUPPORTED (⭐ Bremen IS open and keyless and its b3dm batch table carries measuredHeight/roofType per building — it is 3D Tiles, not CityGML, so wiring it is a new door KIND, not a table row), by probed OPEN (CC BY 4.0) but UNARMED — munich's `blocked` reason below is stale. Local proof potsdam 1,832/2,012 · hamburg 636/729 · berlin 376/424 · hannover 658/722 · stuttgart 28,734/35,180 over 12 tiles · dresden 9,175/10,800 from 58,032 parts over 16 tiles, 0 tile errors (footprints read from the LIVE published buildings.pmtiles). The koln city row (heightJoin:'lod2nrw') stays until the orchestrator folds it.
+  germany: 'lod2de',   // ⭐ WIRED 2026-09-05 (lane HEIGHTS-DE-LAENDER, §DE-LOD2-LAENDER-OSM-JOIN): the bake `germany` row declares heightJoin:'lod2de' → NATIONAL_STAMP_TABLE → stampDeLod2LaenderHeightsOnGeojsonseq (heights/deLod2LaenderStamp.mjs; router table + working set DE_LOD2_CITY_BBOXES in heights/deLod2Laender.mjs). ⭐ THIRTEEN keyless Land doors WIRED as of 2026-09-06 — `by` ARMED (lane DE-HEIGHTS-BEYOND-SIXTEEN-BBOXES, §DE-LOD2-LAENDER-BY), and Bayern is the FIRST Land served by MORE THAN ONE CITY, so the working set is 17 CITIES over 13 Länder and "one city per Land" is no longer true of this row. (nw bb hh sh th rp mv be st ni bw sn by — koln berlin hamburg potsdam kiel erfurt mainz schwerin magdeburg hannover stuttgart dresden, plus BAYERN with five: munich nuernberg augsburg wuerzburg regensburg; NI via the S3-listed LGLN bucket, its geojson index's hrefs being stale → NoSuchKey; BW via an ODD-easting 2 km grid read off the portal's own 2x2Gitter MVT, kind zip-multi — its zip is a FOLDER of four 1 km quarters; ⭐ SN joined on a THIRD pass — the two earlier passes read its 503 as an outage when it is what that Nextcloud answers for a ROTATED share token, so the token is now READ per run off geodaten.sachsen.de/batch-download-4719.html, never pinned); he BLOCKED (gds.hessen.de Downloadcenter is registration-gated and the keyless gds-srv free WMS carries none of LoD2/3D across its 46 layers), sl UNPROBED (its catalogue search is client-side and never ran — UNKNOWN, not empty), hb PROBED-OPEN-UNSUPPORTED (⭐ Bremen IS open and keyless and its b3dm batch table carries measuredHeight/roofType per building — it is 3D Tiles, not CityGML, so wiring it is a new door KIND, not a table row), ⭐ by ARMED 2026-09-06 after a RE-PROBE (a door open yesterday can be shut, and arming a dead door is worse than leaving it unarmed): all 69 candidate 2 km tiles over its five cities HEAD 200 (5.29 GB, Accept-Ranges), off-Land controls 300_5300.gml + 400_5990.gml both 404, shape read with the router own slicer on Nürnberg/Würzburg/Regensburg tiles (measuredHeight + GroundSurface + roofType, no BuildingPart) — index kind `head-probe`, the same as BW, because /a/lod2/ answers 403 to a LISTING while every tile under it is 200, and a listing refusal is not an absence. THIS IS THE FOUNDER NÜRNBERG REPORT: BY unarmed dropped every Bavarian footprint before the join ran, AND München lone bbox is ~150 km from Nürnberg, so arming the Land alone would have fixed nothing. LIVE-PROVEN over the Nürnberg Altstadt 2026-09-06: 1,257/1,347 retained footprints measured from 19,552 parts across 3 tiles, 0 tile errors, peak heap 19 MB, 0 fabricated heights. Local proof potsdam 1,832/2,012 · hamburg 636/729 · berlin 376/424 · hannover 658/722 · stuttgart 28,734/35,180 over 12 tiles · dresden 9,175/10,800 from 58,032 parts over 16 tiles, 0 tile errors (footprints read from the LIVE published buildings.pmtiles). The koln city row (heightJoin:'lod2nrw') stays until the orchestrator folds it.
   france: 'mnh_fr',    // ⭐ LIVE 2026-09-04 — national MNH stamp BUILT (stampMnhFrHeightsOnGeojsonseq, working set MNH_FR_CITY_BBOXES). ⭐ WIRED 2026-09-05 (L-12910): the bake `france` row declares heightJoin:'mnh_fr'; local proof Marseille 6,578/7,887 · Paris 4,717/5,043 · Lyon 4,442/4,883 measured. The paris/lyon city rows still fold into `france` once a publish passes allow_region_removal (orchestrator).
   italy: { source: 'piedmont_it', status: 'no-source', reason: 'Piedmont-only regional layer — NO national height product; EUBUCCO/GBA ML heights excluded as authoritative (E5 §A.5) (ASSESS IT)' },
   greatbritain: 'ealidar_gb', // ⭐ WIRED 2026-09-05 (lane HEIGHTS-GB-IE): the bake `greatbritain` row declares heightJoin:'ealidar_gb' → heights/ealidarGbStamp.mjs (EA First-Return DSM − DTM, differenced by PRYZM, England working set EA_LIDAR_GB_CITY_BBOXES). Local proof Trafalgar Square 594/606 footprints measured, 2 squares, 4.6 s.
@@ -2651,6 +2662,19 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   resM = 2.0, maxTilePx = 1000, tileSpanDeg = 0.02, maxTiles = 4000, padM = 40,
   retainBboxes = null,
   erodeM = 1.0, percentile = 90, minSamples = 4, sampleStep = 1.0,
+  // §DHM-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — the band-pass options, identical in shape
+  // to the CH/FR/CZ/AT/NL conversions. A caller that passes NONE of them (a city-sized row, a unit test)
+  // takes the identical path it took before: one pass, a local budget, everything into `outPath`.
+  passThroughPath = null, retainedOutPath = null, sweepBudget = null, sweepGrid = null,
+  priorityBboxes = [],
+  // ⛔ WHICH CRS `retainBboxes` / `priorityBboxes` ARE IN — see the Swiss join's identical note. In the
+  // national sweep they are EPSG:25832 metres (the DHM WCS's own CRS), because the bands, the cell ords
+  // and the resume cursor must all live in ONE space. Every pre-existing caller passes WGS84.
+  areaCrs = 'wgs84', priorityCrs = null,
+  // The native tile edge, metres. 2,000 m at `resM` 2.0 is exactly `maxTilePx` 1000 px per axis — the
+  // service's own ceiling reached with NO resampling loss, where the old 0.02° span (2,226.4 m) asked
+  // for 1,113 px, hit the cap and silently sampled at 2.23 m instead. Only the national path uses it.
+  tileSpanM: tileSpanMOpt = null,
 } = {}) {
   const apikey = env.DATAFORDELER_API_KEY;
   if (!apikey) return { status: 'blocked', reason: GEODANMARK_BLOCKED_REASON };
@@ -2659,89 +2683,159 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const gt = await loadGeoTiff();
   if (!gt) return { status: 'documented', reason: 'DHM join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
 
-  const stampAreas = stampAreasFor(retainBboxes, bbox);
+  const native = areaCrs === 'utm32' || areaCrs === 'native';
+  // Native EPSG:25832 extent covering the REGION bbox. ⛔ Sampled along the PERIMETER, not at the four
+  // corners: a parallel is a curve in a transverse Mercator, so a corner-only envelope of a 7.6°-wide
+  // box misses ground the box contains — the §MDS-BBOX-MUST-COVER-THE-REGION hole in a different unit.
+  const regionNative = utm32EnvelopeOfWgs84Bbox(bbox);
+  const stampAreas = stampAreasFor(retainBboxes, native ? regionNative : bbox);
   // §JOIN-BOUNDED-WORKING-SET — stream; hold only the footprints inside a stamp bbox (projected to
   // EPSG:25832 for DHM's own grid), pass everything else through with its ORIGINAL OSM tags.
   mkdirSync(dirname(outPath), { recursive: true });
-  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
+  if (passThroughPath) mkdirSync(dirname(passThroughPath), { recursive: true });
+  const load = loadJoinFootprintsBounded(inPath, passThroughPath ?? outPath, (feat) => {
     const fp = footprintFromFeature(feat);
     if (!fp) return null;
-    if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
+    if (!native && !inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
     const extNative = fp.ext.map(([lon, lat]) => wgs84ToUtm32(lat, lon));
     const interiorsNative = fp.interiors.map((r) => r.map(([lon, lat]) => wgs84ToUtm32(lat, lon)));
     let cx = 0, cy = 0;
     for (const [X, Y] of extNative) { cx += X; cy += Y; }
     cx /= extNative.length; cy /= extNative.length;
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+    // The NATIVE retain test happens HERE, after projection — the only place the footprint's UTM32
+    // position exists. Same rule, different unit: outside ⇒ stream through untouched.
+    if (native && !inAnyArea(cx, cy, stampAreas)) return null;
     return { feat, extNative, interiorsNative, cx, cy };
   }, 'DHM join');
   if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
   const records = load.retained;
   const read = load.read;
 
-  // Native EPSG:25832 extent covering the bbox (cover all four corners for grid convergence).
-  const c = [wgs84ToUtm32(bbox[1], bbox[0]), wgs84ToUtm32(bbox[1], bbox[2]), wgs84ToUtm32(bbox[3], bbox[0]), wgs84ToUtm32(bbox[3], bbox[2])];
-  const xs = c.map((p) => p[0]), ys = c.map((p) => p[1]);
-  const minE = Math.min(...xs), maxE = Math.max(...xs), minN = Math.min(...ys), maxN = Math.max(...ys);
-  const tileSpanM = tileSpanDeg * 111320; // ~metres for the chosen degree span (DK latitudes)
-  const nx = Math.max(1, Math.ceil((maxE - minE) / tileSpanM));
-  const ny = Math.max(1, Math.ceil((maxN - minN) / tileSpanM));
-  const cellIx = (X) => Math.min(nx - 1, Math.max(0, Math.floor((X - minE) / tileSpanM)));
-  const cellIy = (Y) => Math.min(ny - 1, Math.max(0, Math.floor((Y - minN) / tileSpanM)));
-  const buckets = bucketRecords(records, (r) => [cellIx(r.cx), cellIy(r.cy)]);
-  let processedTiles = 0, tileErrors = 0, tileCapHit = false;
-  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose. See the catch below.
+  // §DHM-UTM32-ORDINAL — the sweep grid is DHM's OWN CRS, in whole metres, given an ordinal so the shared
+  // kernel's deterministic order and resume cursor apply (heights/nationalSweep.mjs §NATIVE-TILE-GRID).
+  // Derived from the REGION box, never from a band, so a cell `ord` means the same thing in every pass.
+  const tileSpanM = Number(tileSpanMOpt) > 0 ? Number(tileSpanMOpt) : tileSpanDeg * 111320;
+  const grid = sweepGrid ?? nativeTileGrid(regionNative, tileSpanM);
+  const nx = grid.nx, ny = grid.ny;
+  const buckets = bucketRecords(records, (r) => [grid.cellIx(r.cx), grid.cellIy(r.cy)]);
+  // One shared budget across bands when the runner supplies one; a local, single-pass one otherwise.
+  const budget = sweepBudget ?? makeSweepBudget({ maxTiles });
+  const doneCells = new Set();
+  let processedTiles = 0, tileErrors = 0, priorityTiles = 0;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from the cap on purpose. See the catch below.
   let sweepAborted = false, sweepAbortReason = null;
-  const heights = [];
+  // The heights array is the BUDGET's, so the aggregate statistics belong to the whole sweep and not to
+  // whichever band ran last. `measuredAtStart` keeps THIS pass's own count honest for the fold.
+  const heights = budget.heights;
+  const measuredAtStart = heights.length;
+
+  /** Read ONE native tile. Returns TRUE when the cell was actually opened, so a source failure counts as
+   *  an opened-but-failed cell and never as stamped ground. */
+  const processCell = async (ix, iy) => {
+    const key = `${ix},${iy}`;
+    const inTile = buckets.get(key);
+    if (!inTile || inTile.length === 0) return false;
+    doneCells.add(key);
+    const tx0 = grid.w + ix * grid.tileM, ty0 = grid.s + iy * grid.tileM;
+    const tx1 = Math.min(tx0 + grid.tileM, grid.e), ty1 = Math.min(ty0 + grid.tileM, grid.n);
+    const box = [tx0 - padM, ty0 - padM, tx1 + padM, ty1 + padM];
+    const dim = Math.max(2, Math.min(maxTilePx, Math.round(Math.max(box[2] - box[0], box[3] - box[1]) / resM)));
+    const dsmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dsm, box, dim, apikey), { timeoutMs });
+    const dtmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dtm, box, dim, apikey), { timeoutMs });
+    if (!dsmR.ok || !dtmR.ok || !/tiff/i.test(dsmR.ct) || !/tiff/i.test(dtmR.ct)) { tileErrors++; return false; }
+    let dsm, dtm;
+    try { dsm = await readDhmRaster(dsmR.ab, gt); dtm = await readDhmRaster(dtmR.ab, gt); }
+    catch { tileErrors++; return false; }
+    for (const r of inTile) {
+      const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
+      if (h) {
+        r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'geodanmark-dhm', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
+        heights.push(h.height);
+      }
+    }
+    processedTiles++;
+    return true;
+  };
+
   try {
-    // Visit ONLY populated cells (sorted → deterministic under the cap).
-    for (const key of [...buckets.keys()].sort()) {
-      const inTile = buckets.get(key);
-      if (!inTile || inTile.length === 0) continue;
-      if (processedTiles >= maxTiles) { tileCapHit = true; break; }
-      const [ix, iy] = key.split(',').map(Number);
-      const tx0 = minE + ix * tileSpanM, ty0 = minN + iy * tileSpanM;
-      const tx1 = Math.min(tx0 + tileSpanM, maxE), ty1 = Math.min(ty0 + tileSpanM, maxN);
-      const box = [tx0 - padM, ty0 - padM, tx1 + padM, ty1 + padM];
-      const dim = Math.max(2, Math.min(maxTilePx, Math.round(Math.max(box[2] - box[0], box[3] - box[1]) / resM)));
-      const dsmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dsm, box, dim, apikey), { timeoutMs });
-      const dtmR = await httpGetBuffer(dhmCoverageUrl(DHM_WCS.dtm, box, dim, apikey), { timeoutMs });
-      if (!dsmR.ok || !dtmR.ok || !/tiff/i.test(dsmR.ct) || !/tiff/i.test(dtmR.ct)) { tileErrors++; continue; }
-      let dsm, dtm;
-      try { dsm = await readDhmRaster(dsmR.ab, gt); dtm = await readDhmRaster(dtmR.ab, gt); }
-      catch { tileErrors++; continue; }
-      for (const r of inTile) {
-        const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
-        if (h) {
-          r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: 'geodanmark-dhm', [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
-          heights.push(h.height);
+    // Priority areas first (UNCAPPED) — each listed city is guaranteed its heights before the sweep can
+    // exhaust `maxTiles`. They DO respect the wall-clock deadline: a job that dies at the ceiling
+    // publishes nothing.
+    for (const pb of priorityBboxes) {
+      if (!Array.isArray(pb) || pb.length !== 4) continue;
+      const pNative = (priorityCrs ?? areaCrs) === 'utm32' || (priorityCrs ?? areaCrs) === 'native';
+      const box = pNative ? pb : utm32EnvelopeOfWgs84Bbox(pb);
+      if (!box) continue;
+      const before = processedTiles;
+      for (let iy = grid.cellIy(box[1]); iy <= grid.cellIy(box[3]) && !budget.stopReason; iy++) {
+        for (let ix = grid.cellIx(box[0]); ix <= grid.cellIx(box[2]); ix++) {
+          if (doneCells.has(`${ix},${iy}`)) continue;
+          if (Date.now() > budget.deadlineAt) { budget.stopReason ??= 'time-budget-in-priority'; break; }
+          await processCell(ix, iy);
         }
       }
-      processedTiles++;
+      priorityTiles += processedTiles - before;
     }
-  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
+    // §NATIONAL-SWEEP — only POPULATED cells, in a DETERMINISTIC NUMERIC order (row-major south→north on
+    // the UTM32 grid), resumable from the shared cursor. Never lexicographic: the old `[...buckets.keys()]
+    // .sort()` here sorted "10,3" before "2,3", which is exactly the un-resumable order mdsNational was
+    // scarred by — replacing it is part of the fix, not a tidy-up.
+    await sweepPopulatedCells({
+      buckets, grid, budget, done: doneCells, onCell: (c) => processCell(c.ix, c.iy),
+    });
+  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); budget.stopReason ??= 'sweep-aborted'; } // §ABORT-IS-NOT-A-CAP
 
-  // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  // §SEQ-APPEND-STREAMED (L-12978) — `records` here is the WHOLE-COUNTRY retained set for a
-  // national sweep, NOT a batch: one .join() past V8's ~512 MiB cap is what killed run 34030652876.
-  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
-  const measured = heights.length;
-  heights.sort((a, b) => a - b);
+  // Pass-through footprints went to `passThroughPath` (the next band's input) or straight to `outPath`;
+  // append the retained (stamped or not) ones in bounded chunks.
+  // §SEQ-APPEND-STREAMED (L-12978) — `records` here is a whole BAND of a national sweep, not a batch:
+  // one .join() past V8's ~512 MiB cap is what killed run 34030652876.
+  appendRetained(retainedOutPath ?? outPath, records);
+  const tileCapHit = String(budget.stopReason ?? '').startsWith('maxTiles');
+  const measured = heights.length - measuredAtStart;   // THIS pass's own — the fold sums bands
+  const sorted = [...heights].sort((a, b) => a - b);   // a copy: the budget array is shared across bands
   const emptyTiles = Math.max(0, nx * ny - buckets.size);
   return {
     status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
-    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
-    tilesProcessed: processedTiles, tileErrors, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
+    heightStats: statsOf(sorted), heightSamples: sorted.slice(0, 8),
+    tilesProcessed: processedTiles, priorityTiles, tileErrors, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason,
+    tileGrid: `${nx}×${ny}`, tileSpanM,
     retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
     stampAreas: stampAreas.length, populatedCells: buckets.size,
     peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
     note: `DHM nDSM (P90 of dhm_overflade−dhm_terraen) stamped onto OSM footprints → ${measured}/${records.length} ` +
       `RETAINED footprint(s) got a MEASURED height (tagged); ${read.passedThrough} outside the ${stampAreas.length} stamp ` +
-      `bbox(es) passed through untouched; ${processedTiles} tile(s), ${tileErrors} raster error(s)` +
+      `bbox(es) passed through untouched; ${processedTiles} tile(s) of ${tileSpanM} m` +
+      `${priorityTiles ? ` (${priorityTiles} in ${priorityBboxes.length} priority bbox(es) first)` : ''}, ${tileErrors} raster error(s)` +
       `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit)` : ''}` +
       `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
       `; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
   };
+}
+
+/**
+ * The ETRS89 / UTM 32N (EPSG:25832) OUTER envelope of a WGS84 `[w,s,e,n]` box, by sampling each edge at
+ * `steps` points. The DK twin of `lv95EnvelopeOfWgs84Bbox`, on this file's OWN closed-form
+ * `wgs84ToUtm32` — the DHM join has never needed proj4 and still does not.
+ *
+ * ⛔ NOT the four corners: see the Swiss twin. Rounds OUTWARD so the native box CONTAINS the region.
+ */
+export function utm32EnvelopeOfWgs84Bbox([w, s, e, n], { steps = 41 } = {}) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    for (const [lon, lat] of [[w + (e - w) * t, s], [w + (e - w) * t, n], [w, s + (n - s) * t], [e, s + (n - s) * t]]) {
+      const [X, Y] = wgs84ToUtm32(lat, lon);
+      if (!Number.isFinite(X) || !Number.isFinite(Y)) continue;
+      if (X < minX) minX = X;
+      if (X > maxX) maxX = X;
+      if (Y < minY) minY = Y;
+      if (Y > maxY) maxY = Y;
+    }
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) return null;
+  return [Math.floor(minX), Math.floor(minY), Math.ceil(maxX), Math.ceil(maxY)];
 }
 
 // ── CH WHOLE-COUNTRY join — stamp swisstopo nDSM (swissSURFACE3D − swissALTI3D) onto bake's OWN OSM footprints. ─
@@ -2815,6 +2909,23 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
   timeoutMs = 120_000, maxTiles = 4000, retainBboxes = null,
   dsmOverviewLevel = SWISS_NDSM.dsmOverviewLevel,
   erodeM = 1.0, percentile = 90, minSamples = 4, sampleStep = 1.0,
+  // §SWISS-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — the band-pass options, identical in
+  // shape to the FR/CZ/AT/NL conversions. A caller that passes NONE of them (a city-sized row, a unit
+  // test) takes the identical path it took before: one pass, a local budget, everything into `outPath`.
+  passThroughPath = null, retainedOutPath = null, sweepBudget = null, sweepGrid = null,
+  priorityBboxes = [],
+  // ⛔ WHICH CRS `retainBboxes` / `priorityBboxes` ARE IN, and it is NOT inferable. In the national
+  // sweep they are LV95 metres, because the bands, the cell ords and the resume cursor must all live in
+  // ONE space (heights/nationalSweep.mjs §NATIVE-TILE-GRID: a WGS84 band over a native ord space is not
+  // monotone across CH's longitude span, and a non-monotone band order lets the cursor silently step
+  // over real cells). Every pre-existing caller passes WGS84 and keeps the default.
+  areaCrs = 'wgs84',
+  // ⭐ SEPARATE from `areaCrs` on purpose. The national wrapper must not import reproject.mjs — proj4 is
+  // a STANDALONE dep of tools/context-bake and does NOT resolve from the repo root, so a static import
+  // there would stop the wrapper's own spec from LOADING, silently (the trap dcef4524 records). So the
+  // wrapper hands the nine cities over in WGS84 and this function, which already has the projector,
+  // converts them. Default: whatever `areaCrs` says, i.e. unchanged for every pre-existing caller.
+  priorityCrs = null,
 } = {}) {
   if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `Swiss nDSM join: input footprints not found (${inPath})` };
   if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'Swiss nDSM join: no bbox supplied' };
@@ -2823,96 +2934,175 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const proj = await loadLv95Projector();
   if (!proj) return { status: 'documented', reason: 'Swiss nDSM join: proj4 / reproject.mjs unavailable (LV95 EPSG:2056 is not a UTM zone) — install proj4 in the bake image; footprints keep OSM default.' };
 
-  const stampAreas = stampAreasFor(retainBboxes, bbox);
+  const native = areaCrs === 'lv95' || areaCrs === 'native';
+  const regionNative = lv95EnvelopeOfWgs84Bbox(bbox, proj);
+  if (native && !regionNative) return { status: 'error', reason: 'Swiss nDSM join: the region bbox does not project into LV95 (proj4 returned non-finite) — refusing rather than sweeping a fabricated grid.' };
+  const stampAreas = stampAreasFor(retainBboxes, native ? regionNative : bbox);
   mkdirSync(dirname(outPath), { recursive: true });
+  if (passThroughPath) mkdirSync(dirname(passThroughPath), { recursive: true });
   // §JOIN-BOUNDED-WORKING-SET — stream; hold only footprints inside a stamp bbox, projected to LV95.
-  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
+  // In a banded run the pass-through goes to the NEXT band's input, not to the output, so each pass's
+  // input is strictly smaller than the last and peak heap tracks one band instead of the nation.
+  const load = loadJoinFootprintsBounded(inPath, passThroughPath ?? outPath, (feat) => {
     const fp = footprintFromFeature(feat);
     if (!fp) return null;
-    if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
+    if (!native && !inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
     const extNative = fp.ext.map(([lon, lat]) => proj.forward(lon, lat));
     const interiorsNative = fp.interiors.map((r) => r.map(([lon, lat]) => proj.forward(lon, lat)));
     let cx = 0, cy = 0;
     for (const [X, Y] of extNative) { cx += X; cy += Y; }
     cx /= extNative.length; cy /= extNative.length;
     if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+    // The NATIVE retain test happens HERE, after projection, because that is the only place the
+    // footprint's LV95 position exists. Same rule, different unit: outside ⇒ stream through untouched.
+    if (native && !inAnyArea(cx, cy, stampAreas)) return null;
     return { feat, extNative, interiorsNative, cx, cy };
   }, 'Swiss nDSM join');
   if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
   const records = load.retained;
   const read = load.read;
 
-  const buckets = bucketRecords(records, (r) => { const k = lv95TileKey(r.cx, r.cy); return [k.e, k.n]; });
-  let processedTiles = 0, tileErrors = 0, voidTiles = 0, tileCapHit = false, stacRequests = 0;
-  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose (see the MDS join's catch).
+  // §SWISS-LV95-ORDINAL — the sweep grid is swisstopo's OWN 1 km LV95 grid, given an ordinal so the
+  // shared kernel's deterministic order and resume cursor apply. This is exactly the piece
+  // heights/nationalHeightsAssessed.mjs recorded as MISSING under status 'not-done-shape'. It is
+  // derived from the REGION box, never from a band, so a cell `ord` means the same thing in every pass.
+  const grid = sweepGrid ?? (regionNative ? nativeTileGrid(regionNative, SWISS_NDSM.tileM) : null);
+  if (!grid) return { status: 'error', reason: 'Swiss nDSM join: could not build the LV95 tile grid for this bbox.' };
+  const buckets = bucketRecords(records, (r) => [grid.cellIx(r.cx), grid.cellIy(r.cy)]);
+  // One shared budget across bands when the runner supplies one; a local, single-pass one otherwise.
+  const budget = sweepBudget ?? makeSweepBudget({ maxTiles });
+  const doneCells = new Set();
+  let processedTiles = 0, tileErrors = 0, voidTiles = 0, stacRequests = 0, priorityTiles = 0;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from the cap on purpose (see the MDS join's catch).
   let sweepAborted = false, sweepAbortReason = null;
-  const heights = [];
+  // The heights array is the BUDGET's, so the aggregate statistics belong to the whole sweep and not to
+  // whichever band ran last. `measuredAtStart` keeps THIS pass's own count honest for the fold.
+  const heights = budget.heights;
+  const measuredAtStart = heights.length;
   const t0 = Date.now();
-  try {
-    // Visit ONLY populated tiles (sorted → deterministic under the cap).
-    for (const key of [...buckets.keys()].sort()) {
-      const inTile = buckets.get(key);
-      if (!inTile || inTile.length === 0) continue;
-      if (processedTiles >= maxTiles) { tileCapHit = true; break; }
-      const [e, n] = key.split(',').map(Number);
-      const tk = { e, n };
-      // STAC lookup on a 100 m box at the tile CENTRE → the item(s) covering it; the href is then matched
-      // on the tile token + resolution token (pickCogAsset), never constructed from the key.
-      const [X0, Y0, X1, Y1] = lv95TileBbox(tk);
-      const cx = (X0 + X1) / 2, cy = (Y0 + Y1) / 2;
-      const [lonA, latA] = proj.inverse(cx - 50, cy - 50), [lonB, latB] = proj.inverse(cx + 50, cy + 50);
-      const q = [Math.min(lonA, lonB), Math.min(latA, latB), Math.max(lonA, lonB), Math.max(latA, latB)];
-      const lookup = async (collection, resToken) => {
-        stacRequests++;
-        const r = await httpGetSafe(swissStacItemsUrl(collection, q), { timeoutMs: Math.min(timeoutMs, 30_000), headers: { Accept: 'application/json' } });
-        if (!r.ok) return { ok: false, href: null };
-        const c = parseStacCollection(r.body);
-        if (!c) return { ok: false, href: null };
-        return { ok: true, href: pickCogAsset(c, tk, resToken) };
-      };
-      const dsmQ = await lookup(SWISS_NDSM.stacDsm, SWISS_NDSM.dsmResToken);
-      const dtmQ = await lookup(SWISS_NDSM.stacDtm, SWISS_NDSM.dtmResToken);
-      if (!dsmQ.ok || !dtmQ.ok) { tileErrors++; continue; }   // the index refused us — a FAILURE, never "no tile here"
-      if (!dsmQ.href || !dtmQ.href) { voidTiles++; continue; } // the index answered: nothing published here (lake / abroad)
-      let dsm, dtm;
-      try {
-        dsm = await withTimeout(readCogLevel(dsmQ.href, dsmOverviewLevel, gt), timeoutMs, 'swissSURFACE3D COG');
-        dtm = await withTimeout(readCogLevel(dtmQ.href, 0, gt), timeoutMs, 'swissALTI3D COG');
-      } catch { tileErrors++; continue; }
-      processedTiles++;
-      if (dsm.masked === dsm.values.length || dtm.masked === dtm.values.length) { voidTiles++; continue; }
-      for (const r of inTile) {
-        const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
-        if (h) {
-          r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: SWISS_NDSM.heightSourceTag, [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
-          heights.push(h.height);
-        }
+
+  /** Read ONE 1 km LV95 tile. Returns TRUE when the cell was actually OPENED (read, or answered "void"),
+   *  so a source failure counts as an opened-but-failed cell and never as stamped ground. */
+  const processCell = async (ix, iy) => {
+    const key = `${ix},${iy}`;
+    const inTile = buckets.get(key);
+    if (!inTile || inTile.length === 0) return false;
+    doneCells.add(key);
+    const k = grid.keyOf(ix, iy);
+    const tk = { e: k.x, n: k.y };
+    // STAC lookup on a 100 m box at the tile CENTRE → the item(s) covering it; the href is then matched
+    // on the tile token + resolution token (pickCogAsset), never constructed from the key.
+    const [X0, Y0, X1, Y1] = lv95TileBbox(tk);
+    const cx = (X0 + X1) / 2, cy = (Y0 + Y1) / 2;
+    const [lonA, latA] = proj.inverse(cx - 50, cy - 50), [lonB, latB] = proj.inverse(cx + 50, cy + 50);
+    const q = [Math.min(lonA, lonB), Math.min(latA, latB), Math.max(lonA, lonB), Math.max(latA, latB)];
+    const lookup = async (collection, resToken) => {
+      stacRequests++;
+      const r = await httpGetSafe(swissStacItemsUrl(collection, q), { timeoutMs: Math.min(timeoutMs, 30_000), headers: { Accept: 'application/json' } });
+      if (!r.ok) return { ok: false, href: null };
+      const c = parseStacCollection(r.body);
+      if (!c) return { ok: false, href: null };
+      return { ok: true, href: pickCogAsset(c, tk, resToken) };
+    };
+    const dsmQ = await lookup(SWISS_NDSM.stacDsm, SWISS_NDSM.dsmResToken);
+    const dtmQ = await lookup(SWISS_NDSM.stacDtm, SWISS_NDSM.dtmResToken);
+    if (!dsmQ.ok || !dtmQ.ok) { tileErrors++; return false; }   // the index refused us — a FAILURE, never "no tile here"
+    if (!dsmQ.href || !dtmQ.href) { voidTiles++; return true; } // the index answered: nothing published here (lake / abroad)
+    let dsm, dtm;
+    try {
+      dsm = await withTimeout(readCogLevel(dsmQ.href, dsmOverviewLevel, gt), timeoutMs, 'swissSURFACE3D COG');
+      dtm = await withTimeout(readCogLevel(dtmQ.href, 0, gt), timeoutMs, 'swissALTI3D COG');
+    } catch { tileErrors++; return false; }
+    processedTiles++;
+    if (dsm.masked === dsm.values.length || dtm.masked === dtm.values.length) { voidTiles++; return true; }
+    for (const r of inTile) {
+      const h = ndsmHeightForBuilding({ extNative: r.extNative, interiorsNative: r.interiorsNative }, dsm, dtm, { erodeM, percentile, minSamples, sampleStep });
+      if (h) {
+        r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: SWISS_NDSM.heightSourceTag, [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
+        heights.push(h.height);
       }
     }
-  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
+    return true;
+  };
 
-  // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  // §SEQ-APPEND-STREAMED (L-12978) — `records` here is the WHOLE-COUNTRY retained set for a
-  // national sweep, NOT a batch: one .join() past V8's ~512 MiB cap is what killed run 34030652876.
-  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
-  const measured = heights.length;
-  heights.sort((a, b) => a - b);
+  try {
+    // Priority areas first (UNCAPPED) — each listed city is guaranteed its heights before the sweep can
+    // exhaust `maxTiles`. They DO respect the wall-clock deadline: a job that dies at the ceiling
+    // publishes nothing. ⚠ In the national run these boxes are LV95 metres, like `retainBboxes`.
+    for (const pb of priorityBboxes) {
+      if (!Array.isArray(pb) || pb.length !== 4) continue;
+      const pNative = (priorityCrs ?? areaCrs) === 'lv95' || (priorityCrs ?? areaCrs) === 'native';
+      const box = pNative ? pb : lv95EnvelopeOfWgs84Bbox(pb, proj);
+      if (!box) continue;
+      const before = processedTiles;
+      for (let iy = grid.cellIy(box[1]); iy <= grid.cellIy(box[3]) && !budget.stopReason; iy++) {
+        for (let ix = grid.cellIx(box[0]); ix <= grid.cellIx(box[2]); ix++) {
+          if (doneCells.has(`${ix},${iy}`)) continue;
+          if (Date.now() > budget.deadlineAt) { budget.stopReason ??= 'time-budget-in-priority'; break; }
+          await processCell(ix, iy);
+        }
+      }
+      priorityTiles += processedTiles - before;
+    }
+    // §NATIONAL-SWEEP — only POPULATED tiles, in a DETERMINISTIC NUMERIC order (row-major south→north on
+    // the LV95 grid), resumable from the shared cursor. Never lexicographic: "10,3" sorts before "2,3"
+    // and makes a capped run un-resumable (mdsNational's scar).
+    await sweepPopulatedCells({
+      buckets, grid, budget, done: doneCells, onCell: (c) => processCell(c.ix, c.iy),
+    });
+  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); budget.stopReason ??= 'sweep-aborted'; } // §ABORT-IS-NOT-A-CAP
+
+  // Pass-through footprints went to `passThroughPath` (the next band's input) or straight to `outPath`;
+  // append the retained (stamped or not) ones in bounded chunks.
+  // §SEQ-APPEND-STREAMED (L-12978) — `records` here is a whole BAND of a national sweep, not a batch:
+  // one .join() past V8's ~512 MiB cap is what killed run 34030652876.
+  appendRetained(retainedOutPath ?? outPath, records);
+  const tileCapHit = String(budget.stopReason ?? '').startsWith('maxTiles');
+  const measured = heights.length - measuredAtStart;   // THIS pass's own — the fold sums bands
+  const sorted = [...heights].sort((a, b) => a - b);   // a copy: the budget array is shared across bands
   return {
     status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
-    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
-    tilesProcessed: processedTiles, tileErrors, voidTiles, emptyTiles: 0, tileCapHit, sweepAborted, sweepAbortReason,
-    tileGrid: `${buckets.size} populated LV95 km² tile(s)`, stacRequests, elapsedS: Number(((Date.now() - t0) / 1000).toFixed(1)),
+    heightStats: statsOf(sorted), heightSamples: sorted.slice(0, 8),
+    tilesProcessed: processedTiles, priorityTiles, tileErrors, voidTiles, emptyTiles: 0, tileCapHit, sweepAborted, sweepAbortReason,
+    tileGrid: `${buckets.size} populated LV95 km² tile(s) of ${grid.nx}×${grid.ny}`, stacRequests, elapsedS: Number(((Date.now() - t0) / 1000).toFixed(1)),
     retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
     stampAreas: stampAreas.length, populatedCells: buckets.size,
     peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
     note: `swisstopo nDSM (P90 of swissSURFACE3D − swissALTI3D over the eroded footprint) stamped onto OSM footprints → ${measured}/${records.length} ` +
       `RETAINED footprint(s) got a MEASURED height (tagged); ${read.passedThrough} outside the ${stampAreas.length} stamp bbox(es) passed through ` +
-      `with their original OSM tags; ${processedTiles} km² tile(s) read (${stacRequests} STAC lookups), ${voidTiles} void (unpublished / lake) tile(s), ` +
+      `with their original OSM tags; ${processedTiles} km² tile(s) read (${stacRequests} STAC lookups)` +
+      `${priorityTiles ? `, ${priorityTiles} of them in ${priorityBboxes.length} priority bbox(es) first` : ''}, ${voidTiles} void (unpublished / lake) tile(s), ` +
       `${tileErrors} tile error(s)${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
       `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
       `; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
   };
+}
+
+/**
+ * The LV95 (or any projected) OUTER envelope of a WGS84 `[w,s,e,n]` box, by sampling each edge at
+ * `steps` points and taking the extremes. Returns **null** when the projector cannot place the box.
+ *
+ * ⛔ NOT the four corners. LV95 is an oblique Mercator: a parallel is a CURVE in it, so the corner-only
+ *    envelope of a 4.6°-wide box misses ground the box contains — a retain set SMALLER than the region,
+ *    which is the permanent, silent hole §MDS-BBOX-MUST-COVER-THE-REGION exists to forbid, expressed in
+ *    a different unit. Sampling the perimeter and rounding OUTWARD keeps the containment direction.
+ */
+export function lv95EnvelopeOfWgs84Bbox([w, s, e, n], proj, { steps = 21 } = {}) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    for (const [lon, lat] of [[w + (e - w) * t, s], [w + (e - w) * t, n], [w, s + (n - s) * t], [e, s + (n - s) * t]]) {
+      const [X, Y] = proj.forward(lon, lat);
+      if (!Number.isFinite(X) || !Number.isFinite(Y)) continue;
+      if (X < minX) minX = X;
+      if (X > maxX) maxX = X;
+      if (Y < minY) minY = Y;
+      if (Y > maxY) maxY = Y;
+    }
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) return null;
+  return [Math.floor(minX), Math.floor(minY), Math.ceil(maxX), Math.ceil(maxY)];
 }
 
 // ── FR WHOLE-COUNTRY join — stamp IGN LiDAR HD MNH heights onto bake's OWN OSM footprints. ─────

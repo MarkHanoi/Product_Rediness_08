@@ -58,6 +58,7 @@ import { JP_CITY_BBOXES } from '../heights/jpPlateau.mjs';
 import { AU_OPEN_CITY_BBOXES } from '../heights/auOpenHeights.mjs';
 import { MNH_FR_CITY_BBOXES } from '../heights/mnhFr.mjs';
 import { SWISS_CITY_BBOXES } from '../heights/swissNdsm.mjs';
+import { DHM_NATIONAL_BBOXES, SWISS_NATIONAL_BBOXES } from '../heights/nationalSweep.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -99,9 +100,15 @@ function bakeHeightJoinRegions(): Array<{ name: string; bbox: Bbox; join: string
  *  added there without a row here fails this spec instead of silently escaping the audit. */
 const WORKING_SET: Record<string, CityRow[] | null> = {
     mds: bboxListFromHeightSources('MDS_CITY_BBOXES'),
-    dhm: bboxListFromHeightSources('DHM_CITY_BBOXES'),
+    // ⭐ 2026-09-06, lane HEIGHTS-LAST-NINE (§DHM-NATIONAL-SWEEP / §SWISS-NATIONAL-SWEEP). `dhm` and
+    // `swiss` are PROMOTED: `stampBboxesFor` now returns DHM_NATIONAL_BBOXES / SWISS_NATIONAL_BBOXES,
+    // so the rows below read the NATIONAL constants and both joins are named in NATIONAL_RETAIN. Their
+    // city lists are NOT deleted — they are still the UNCAPPED PRIORITY pass inside each wrapper — but
+    // pointing this register at them would make it measure a working set the bake no longer uses, which
+    // is precisely the STALE ROW the `mds` note below names.
+    dhm: (DHM_NATIONAL_BBOXES as Bbox[]).map((b) => ({ city: 'denmark', bbox: b })),
     mnh_fr: MNH_FR_CITY_BBOXES as CityRow[],
-    swiss: SWISS_CITY_BBOXES as CityRow[],
+    swiss: (SWISS_NATIONAL_BBOXES as Bbox[]).map((b) => ({ city: 'switzerland', bbox: b })),
     au_open: AU_OPEN_CITY_BBOXES as CityRow[],
     bev_at: AT_CITY_BBOXES as CityRow[],
     cuzk_cz: CZ_CITY_BBOXES as CityRow[],
@@ -134,6 +141,13 @@ const WORKING_SET: Record<string, CityRow[] | null> = {
  * decimal place. Three per region is the brief's ask; where a source has a MEASURED coverage record
  * the towns are drawn from it (France: IGN's own dalle index counts, heights/mnhFr.mjs header).
  */
+// ⭐ TWO REGIONS LEFT THIS TABLE ON 2026-09-06 (lane HEIGHTS-LAST-NINE), and that is the ONLY correct
+// way out of it: `switzerland` (Sion · Chur · Neuchâtel) and `denmark` (Esbjerg · Randers · Kolding)
+// are gone because their joins now retain the WHOLE COUNTRY, so those six towns are REACHABLE by the
+// sweep instead of permanently unmeasurable. The audit doc's rows moved in the same commit, as the
+// "THE HOLE" arm below demands. ⚠ Reachable is not measured: a run still takes a bounded slice and
+// truncates loudly with a cursor, and DK stays `blocked` until DATAFORDELER_API_KEY exists. Deleting a
+// row here is a claim about the RETAIN SET, never about a shipped tileset.
 const IN_REGION_UNREACHABLE: Record<string, ReadonlyArray<readonly [string, number, number]>> = {
     // Spain — the founder's report. The MDS raster is national; only the nine-box list stops these.
     spain: [['Ciudad Real', -3.927, 38.986], ['Valladolid', -4.724, 41.652], ['Vigo', -8.720, 42.240]],
@@ -149,12 +163,10 @@ const IN_REGION_UNREACHABLE: Record<string, ReadonlyArray<readonly [string, numb
     netherlands: [['Tilburg', 5.091, 51.560], ['Breda', 4.776, 51.586], ['Nijmegen', 5.853, 51.842]],
     // Belgium — Flanders, i.e. INSIDE DHMV II's own envelope. (Wallonia is a source gap; see beHeights.mjs.)
     belgium: [['Hasselt', 5.338, 50.930], ['Mechelen', 4.478, 51.028], ['Kortrijk', 3.265, 50.828]],
-    switzerland: [['Sion', 7.360, 46.233], ['Chur', 9.532, 46.851], ['Neuchatel', 6.931, 46.992]],
     austria: [['Klagenfurt', 14.308, 46.624], ['Wels', 14.024, 48.163], ['St. Poelten', 15.625, 48.204]],
     czechia: [['Liberec', 15.056, 50.767], ['Ceske Budejovice', 14.474, 48.975], ['Hradec Kralove', 15.833, 50.209]],
     slovenia: [['Novo Mesto', 15.168, 45.803], ['Velenje', 15.111, 46.359], ['Nova Gorica', 13.649, 45.955]],
     estonia: [['Viljandi', 25.590, 58.363], ['Rakvere', 26.356, 59.346], ['Kuressaare', 22.489, 58.253]],
-    denmark: [['Esbjerg', 8.452, 55.467], ['Randers', 10.036, 56.461], ['Kolding', 9.472, 55.491]],
     norway: [['Stavanger', 5.733, 58.970], ['Kristiansand', 7.995, 58.147], ['Tromso', 18.956, 69.649]],
     // Victoria — the whole STATE is baked; the working set is one municipality's own open-data portal.
     victoria: [['Geelong', 144.360, -38.149], ['Ballarat', 143.850, -37.562], ['Dandenong', 145.215, -37.981]],
@@ -184,7 +196,15 @@ describe('§HEIGHT-JOIN-COVERAGE (L-12947)', () => {
         expect(regions.find((r) => r.name === 'spain')?.join).toBe('mds');
         expect(WORKING_SET['mds']!.map((c) => c.city)).toContain('barcelona');
         expect(WORKING_SET['mds']!.length).toBeGreaterThanOrEqual(9);
-        expect(WORKING_SET['dhm']!.map((c) => c.city)).toContain('copenhagen');
+        // ⚠ WAS `toContain('copenhagen')` until 2026-09-06: `dhm` is PROMOTED, so its working set is the
+        // country, not four city rows. The guard still has to prove the map is not vacuous, so it names
+        // the value it now holds AND checks the CITY LIST is still real (it survives as the priority
+        // pass) — a promotion must not be able to hide a parser that stopped matching.
+        expect(WORKING_SET['dhm']!.map((c) => c.city)).toContain('denmark');
+        expect(WORKING_SET['dhm']![0]!.bbox).toEqual([7.70, 54.40, 15.30, 57.90]);
+        expect(bboxListFromHeightSources('DHM_CITY_BBOXES').map((c) => c.city)).toContain('copenhagen');
+        expect(WORKING_SET['swiss']![0]!.bbox).toEqual([5.90, 45.80, 10.50, 47.85]);
+        expect((SWISS_CITY_BBOXES as CityRow[]).map((c) => c.city)).toContain('zurich');
         for (const r of regions) expect(WORKING_SET).toHaveProperty(r.join);
     });
 
@@ -203,7 +223,15 @@ describe('§HEIGHT-JOIN-COVERAGE (L-12947)', () => {
         // flips the "THE HOLE" arm below (Ciudad Real becomes reachable), which the header requires to be
         // done in the same commit as a move in HEIGHT-JOIN-COVERAGE-AUDIT.md. That belongs to the MDS
         // lane, not to this one, and doing it silently from here would be the worse defect.
-        const NATIONAL_RETAIN = new Set(['usas']);
+        //
+        // ⭐ 2026-09-06, lane HEIGHTS-LAST-NINE: `swiss` and `dhm` join `usas`. CH was the previous
+        // lane's OWN named debt (`nationalHeightsAssessed.mjs`, status 'not-done-shape': "NOT REFUSED —
+        // NOT DONE … the blocker is shape, not data — a tile-key ordinal"), and DK's publisher declares
+        // both halves of its difference national in a KEYLESS capabilities document
+        // (api.dataforsyningen.dk/dhm_wcs_DAF → HTTP 200, 2,170 B, dhm_terraen + dhm_overflade over
+        // 8.0083–15.5979 E / 54.4355–57.7691 N). Both are named here rather than `continue`d, so a
+        // narrowing regression fails on the ≥ 95 % side instead of passing quietly.
+        const NATIONAL_RETAIN = new Set(['usas', 'swiss', 'dhm']);
         const deg2 = (b: Bbox) => Math.abs((b[2] - b[0]) * (b[3] - b[1]));
         const national = regions.filter((r) => deg2(r.bbox) > 4.0);   // bake.mjs WHOLE_COUNTRY_DEG2
         expect(national.length).toBeGreaterThanOrEqual(13);
@@ -251,11 +279,13 @@ describe('§HEIGHT-JOIN-COVERAGE (L-12947)', () => {
         // docs/04-reference/jurisdictions/HEIGHT-JOIN-COVERAGE-AUDIT.md in the SAME commit, then
         // replace the town here with one that is still unreachable, or delete the region's entry.
         expect(stamped, 'a listed town became reachable — update the audit doc in this commit').toEqual([]);
-        // 16 = the whole-country heightJoin regions MINUS `koln` (city-sized, so the whole region IS
-        // its own working set) and the US metro rows (region bbox == working set, no hole inside the
-        // region). ⚠ IT WAS 15 UNTIL 2026-09-06, when lane JAPAN-FULL added `japan` — the row and the
-        // count move together, which is the whole reason this number is asserted rather than derived.
-        expect(Object.keys(IN_REGION_UNREACHABLE)).toHaveLength(16);
+        // 14 = the whole-country heightJoin regions MINUS `koln` (city-sized, so the whole region IS
+        // its own working set), the US metro rows (region bbox == working set, no hole inside the
+        // region), and the regions PROMOTED out of the finding. ⚠ IT WAS 15 UNTIL 2026-09-06, when lane
+        // JAPAN-FULL added `japan` (→ 16), then 14 the same day when lane HEIGHTS-LAST-NINE took
+        // `switzerland` and `denmark` whole-country. The row and the count move together, which is the
+        // whole reason this number is asserted rather than derived.
+        expect(Object.keys(IN_REGION_UNREACHABLE)).toHaveLength(14);
     });
 
     // THE STANDARD, recorded as a documented shortfall rather than a red build (see the header).

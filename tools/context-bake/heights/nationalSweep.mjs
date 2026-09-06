@@ -85,6 +85,72 @@ export function nationalCellKm2(grid, ix, iy) {
 }
 
 /**
+ * Ground area of one cell, PREFERRING the grid's own answer when it has one.
+ *
+ * ⭐ A grid built by `nativeTileGrid` measures in PROJECTED METRES, not degrees, so
+ * `nationalCellKm2`'s cos(lat) formula would read its eastings as longitudes and report a cell
+ * ~10^10 times too large. That is not a cosmetic error: km² stamped vs skipped IS the
+ * §LOUD-AND-ORDERED-TRUNCATION sentence — the number a reader uses to decide how much of a country
+ * is still shipping the labelled `assumed` default. A wrong one is worse than none.
+ *
+ * The hook is a `?? fallback`, never a mode flag, so every degree grid that existed before this
+ * function takes the identical path it took before (nativeTileSweep.spec.ts pins that equality).
+ */
+export function cellKm2Of(grid, ix, iy) {
+  return typeof grid?.cellKm2 === 'function' ? grid.cellKm2(ix, iy) : nationalCellKm2(grid, ix, iy);
+}
+
+/**
+ * §NATIVE-TILE-GRID (2026-09-06, lane HEIGHTS-LAST-NINE) — the sweep grid for a join whose PUBLISHER
+ * tiles in projected metres rather than in degrees.
+ *
+ * WHY THIS EXISTS, AND WHY IT IS NOT "the degree grid with different numbers". Two of the nine joins
+ * this lane inherited (CH swisstopo, DK DHM) fetch on their own national metric grid: swisstopo
+ * publishes swissSURFACE3D / swissALTI3D as 1 km × 1 km LV95 tiles and the join MATCHES an asset href
+ * on the tile token (`_2683-1248_`), never constructs one. `nationalHeightsAssessed.mjs` recorded CH
+ * as `not-done-shape` for exactly this reason: *"the blocker is shape, not data — this join sweeps by
+ * swisstopo's OWN 1 km LV95 tile key rather than by a degree grid, so the shared kernel's cell `ord`
+ * (and therefore its resume cursor) does not apply unmodified."* This IS that ordinal.
+ *
+ * ⛔ THE ALTERNATIVE WAS TRIED ON PAPER AND REJECTED, so nobody re-derives it: laying a DEGREE grid
+ *    over a 1 km-tiled publisher makes every cell straddle 2–4 publisher tiles, so a tile shared by
+ *    two cells is fetched twice (≈ 4/L overhead for an L-km cell — 57 % at L = 7 km) and, worse, the
+ *    cursor's ord space stops agreeing with the band order.
+ *
+ * ⭐ AND THE BANDS MUST BE IN THE SAME SPACE AS THE ORD. `nationalSwathes` bands by ROW INDEX and
+ *    `intersectAreas` is a pure numeric box intersection — neither reads a unit — so a caller that
+ *    hands the runner a native grid AND a native retain set gets bands whose `ordFrom`/`ordTo` are
+ *    strictly increasing in the same ord space the cursor is written in. That monotonicity is the
+ *    whole reason the resume cursor is safe across bands; a WGS84 band over a native ord space is
+ *    NOT monotone (LV95 northing at a fixed parallel varies by kilometres across CH's longitude
+ *    span) and would let the cursor silently step over real cells.
+ *
+ * @param bboxNative [minX, minY, maxX, maxY] in the publisher's CRS, metres
+ * @param tileM      the publisher's own tile edge in metres (CH 1000; DK the join's own span)
+ */
+export function nativeTileGrid([minX, minY, maxX, maxY], tileM, { originX = null, originY = null } = {}) {
+  const t = Number(tileM) > 0 ? Number(tileM) : 1000;
+  const w = originX === null ? Math.floor(minX / t) * t : originX;
+  const s = originY === null ? Math.floor(minY / t) * t : originY;
+  const nx = Math.max(1, Math.ceil((maxX - w) / t));
+  const ny = Math.max(1, Math.ceil((maxY - s) / t));
+  const km2 = (t * t) / 1e6;
+  return {
+    native: true, tileM: t,
+    w, s, e: w + nx * t, n: s + ny * t, nx, ny, lonDeg: t, latDeg: t,
+    cellIx: (X) => Math.min(nx - 1, Math.max(0, Math.floor((X - w) / t))),
+    cellIy: (Y) => Math.min(ny - 1, Math.max(0, Math.floor((Y - s) / t))),
+    ordOf: (ix, iy) => iy * nx + ix,
+    ixOf: (ord) => ord % nx,
+    iyOf: (ord) => Math.floor(ord / nx),
+    /** Exact, not approximated: a projected grid's cells are all the same size by construction. */
+    cellKm2: () => km2,
+    /** The publisher's own key for a cell, in whole tiles — what a swisstopo href carries. */
+    keyOf: (ix, iy) => ({ x: Math.round(w / t) + ix, y: Math.round(s / t) + iy }),
+  };
+}
+
+/**
  * §SWATHE — the bounded-heap passes: contiguous bands of whole tile ROWS, SOUTH→NORTH.
  *
  * WHY THIS EXISTS. "Make the retain set the whole country" and "hold the retained footprints in the
@@ -237,7 +303,7 @@ export async function sweepPopulatedCells({ buckets, grid, budget, done = new Se
     done.add(c.key);
     budget.tilesUsed++;
     const read = await onCell(c, buckets.get(c.key) ?? []);
-    if (read) { budget.cellsStamped++; budget.km2Stamped += nationalCellKm2(grid, c.ix, c.iy); }
+    if (read) { budget.cellsStamped++; budget.km2Stamped += cellKm2Of(grid, c.ix, c.iy); }
     budget.nextCursor = c.ord + 1;
   }
   // What did this pass NOT open? Everything from the first cell that did not run onward. Cells the
@@ -246,7 +312,7 @@ export async function sweepPopulatedCells({ buckets, grid, budget, done = new Se
     budget.nextCursor = cells[i].ord;
     for (let j = i; j < cells.length; j++) {
       budget.cellsSkipped++;
-      budget.km2Skipped += nationalCellKm2(grid, cells[j].ix, cells[j].iy);
+      budget.km2Skipped += cellKm2Of(grid, cells[j].ix, cells[j].iy);
     }
   }
   return { visited: i, total: cells.length };
@@ -307,3 +373,54 @@ export const AT_BEV_NATIONAL_BBOXES = [AT_BEV_NATIONAL_BBOX];
 /** bake.mjs `france` row — `bbox: '-5.15,41.30,9.60,51.10'`. */
 export const MNH_FR_NATIONAL_BBOX = [-5.15, 41.30, 9.60, 51.10];
 export const MNH_FR_NATIONAL_BBOXES = [MNH_FR_NATIONAL_BBOX];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §NATIVE-RETAIN-SETS (2026-09-06, lane HEIGHTS-LAST-NINE) — the two countries whose publisher tiles
+// in PROJECTED METRES. Each carries TWO constants and they are not interchangeable:
+//
+//   • `*_NATIONAL_BBOX(ES)`  — WGS84, BYTE-IDENTICAL to the bake.mjs region row, exactly like the four
+//     rows above. This is what `stampBboxesFor` returns and what the coverage ledger reads; it is the
+//     DECLARATION that the retain set is the country.
+//   • `*_NATIVE_BOX`         — the same ground in the publisher's own CRS, used as the runner's retain
+//     set so that the swathe bands, the cell ords and the resume cursor all live in ONE space
+//     (§NATIVE-TILE-GRID explains why mixing them silently steps the cursor over real cells).
+//
+// ⛔ THE NATIVE BOX IS AN OUTER ENVELOPE OF THE WGS84 BOX, NOT A RE-TYPED APPROXIMATION OF THE COUNTRY.
+//    It is the bounding box of the region bbox's PERIMETER sampled at 21/41 points and rounded
+//    OUTWARD, so it CONTAINS the region — the §MDS-BBOX-MUST-COVER-THE-REGION invariant, in the other
+//    CRS. A native box smaller than the region is the same permanent, silent hole in a different unit.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** bake.mjs `switzerland` row — `bbox: '5.90,45.80,10.50,47.85'`. */
+export const SWISS_NATIONAL_BBOX = [5.90, 45.80, 10.50, 47.85];
+export const SWISS_NATIONAL_BBOXES = [SWISS_NATIONAL_BBOX];
+/**
+ * SWISS_NATIONAL_BBOX in LV95 (EPSG:2056), metres — COMPUTED 2026-09-06 with the repo's own
+ * `reproject.mjs` projector (proj4, `+proj=somerc … +towgs84=674.374,15.056,405.346`), by sampling
+ * each edge of the WGS84 box at 21 points and taking the outward-rounded envelope:
+ *   minX 2480365 · minY 1072037 · maxX 2837984 · maxY 1304416
+ * Control point, same run: Zürich HB (8.5402 E, 47.3782 N) → 2683189, 1248069 — i.e. swisstopo tile
+ * key 2683-1248, one row north of the 2683-1247 the module header names for the station forecourt.
+ * On swisstopo's 1 km grid that is 358 × 233 = 83,414 cells; only POPULATED ones are ever opened, and
+ * Switzerland's land area is 41,285 km², so the sweep's real ceiling is well under half the grid.
+ */
+export const SWISS_LV95_NATIVE_BOX = [2480000, 1072000, 2838000, 1305000];
+export const SWISS_LV95_NATIVE_BOXES = [SWISS_LV95_NATIVE_BOX];
+
+/** bake.mjs `denmark` row — `bbox: '7.70,54.40,15.30,57.90'`. */
+export const DHM_NATIONAL_BBOX = [7.70, 54.40, 15.30, 57.90];
+export const DHM_NATIONAL_BBOXES = [DHM_NATIONAL_BBOX];
+/**
+ * DHM_NATIONAL_BBOX in ETRS89 / UTM 32N (EPSG:25832), metres — the DHM WCS's own CRS. COMPUTED
+ * 2026-09-06 with heightSources.mjs's OWN closed-form `wgs84ToUtm32` (no proj4 — the DK join has
+ * never needed it), sampling each edge at 41 points:
+ *   minX 415606 · minY 6028027 · maxX 908727 · maxY 6434981
+ * Control point, same run: Copenhagen City Hall (55.6759 N, 12.5655 E) → 724177, 6175773.
+ * ⭐ The service's OWN declared reach is what makes a national retain set legitimate at all:
+ * `api.dataforsyningen.dk/dhm_wcs_DAF?REQUEST=GetCapabilities` (HTTP 200 text/xml, 2,170 B, 0.28 s,
+ * KEYLESS, `<fees>NONE</fees>`) declares BOTH `dhm_terraen` and `dhm_overflade` over lonLatEnvelope
+ * 8.00830949937517 54.4354651516217 → 15.5979112056959 57.7690657013977 — the whole of Denmark,
+ * Bornholm included. Probed 2026-09-06; see heights/dhmNationalStamp.mjs §DHM-NATIONAL-SWEEP.
+ */
+export const DHM_UTM32_NATIVE_BOX = [414000, 6028000, 910000, 6436000];
+export const DHM_UTM32_NATIVE_BOXES = [DHM_UTM32_NATIVE_BOX];

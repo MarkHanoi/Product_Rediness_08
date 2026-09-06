@@ -7,6 +7,39 @@ attributed to the source note that measured it, by file and date.
 
 ---
 
+## 0.0 · ⭐ PROMOTIONS — which joins have LEFT this finding, re-measured 2026-09-06
+
+> **⚠ This section is a MEASUREMENT, not a hand-maintained list, and the command is here so it can be
+> re-run instead of trusted.** The rest of this doc was written at HEAD `e8ba3a7b` and its per-region
+> rows below are STALE for every join named here — they still describe a city list that `bake.mjs` no
+> longer uses. That staleness is named rather than silently patched: correcting a row means moving its
+> `§2.x` heading AND its line in `§1`, and the lane that promotes a join is the lane that owes both.
+
+```bash
+node -e "const s=require('fs').readFileSync('tools/context-bake/bake.mjs','utf8');
+const f=s.slice(s.indexOf('function stampBboxesFor(r)'));
+for(const m of f.slice(0,f.indexOf('\n}\n')).matchAll(/heightJoin === '([a-z0-9_]+)'\)\s*return\s+([A-Z0-9_]+)/g))
+  console.log((/NATIONAL/.test(m[2])?'WHOLE-COUNTRY':'CITY-LIST    '), m[1].padEnd(12), '->', m[2]);"
+```
+
+Reading on **2026-09-06**, after lane HEIGHTS-LAST-NINE:
+
+| join | retain set | state |
+|---|---|---|
+| `mds` · `3dbag` · `cuzk_cz` · `bev_at` · `mnh_fr` · `gurs_si` · `ndh_no` · `ee_etak` · `usas` | `*_NATIONAL_BBOXES` | **WHOLE-COUNTRY** (lanes MDS / WHOLE-COUNTRY-A / -B / USA-HEIGHTS-NATIONAL) |
+| **`swiss`** | `SWISS_NATIONAL_BBOXES` | **WHOLE-COUNTRY** — §2.7 below is stale; see §2.7-NEW |
+| **`dhm`** | `DHM_NATIONAL_BBOXES` | **WHOLE-COUNTRY, KEY-GATED** — §2.12 below is stale; see §2.12-NEW |
+| `lod2de` · `ealidar_gb` · `be_dhmv` · `au_open` · `ca_open` · `ad_ndsm` · `plateau_jp` | a city list | **still the finding** — each carries a measured row in `tools/context-bake/heights/nationalHeightsAssessed.mjs` |
+
+**Eleven of eighteen joins are out. Seven are not**, and none of the seven is out for lack of a
+source: `plateau_jp` and `ca_open` each have a **live national door that has been measured and not
+wired** (Japan: 306 municipalities publish LoD1 building models against 38 reached; Canada: NRCan
+HRDEM 1 m publishes paired DSM/DTM COGs on public S3, five for five outside the two wired cities).
+The exact answers, with byte counts, are in `nationalHeightsAssessed.mjs` — read the rows, not this
+paragraph.
+
+---
+
 ## 0 · The question, and why it is not the question the other docs answer
 
 The founder dropped a site on **Ciudad Real** and got the fabricated 9 m carpet. Spain is not missing a
@@ -51,11 +84,11 @@ ground the tileset actually ships. Computed from the real exported constants (se
 | `spain` | `mds` | `heightSources.mjs` (pinned chain) | 113.20 | 9 | 0.1932 | **0.171 %** |
 | `czechia` | `cuzk_cz` | `heights/czHeightsStamp.mjs` | 17.81 | 5 | 0.0399 | **0.224 %** |
 | `estonia` | `ee_etak` | `heights/eeHeightsStamp.mjs` | 15.41 | 4 | 0.0444 | **0.288 %** |
-| `denmark` | `dhm` | `heightSources.mjs` (pinned chain) | 26.60 | 4 | 0.0870 | **0.327 %** |
+| ~~`denmark`~~ | `dhm` | `heights/dhmNationalStamp.mjs` | 26.60 | **1 (the country)** | 26.60 | **100 %** ⭐ *promoted 2026-09-06; key-gated, see §2.12-NEW* |
 | `belgium` | `be_dhmv` | `heights/beHeightsStamp.mjs` | 8.19 | 5 | 0.0288 | **0.352 %** |
 | `netherlands` | `3dbag` | `heights/nl3dbagStamp.mjs` | 11.80 | 6 | 0.0456 | **0.386 %** |
 | `slovenia` | `gurs_si` | `heights/siHeightsStamp.mjs` | 4.95 | 5 | 0.0195 | **0.394 %** |
-| `switzerland` | `swiss` | `heightSources.mjs` (pinned chain) | 9.43 | 9 | 0.0506 | **0.537 %** |
+| ~~`switzerland`~~ | `swiss` | `heights/swissNationalStamp.mjs` | 9.43 | **1 (the country)** | 9.43 | **100 %** ⭐ *promoted 2026-09-06, see §2.7-NEW* |
 | `abudhabi` | `ad_ndsm` | `heights/abudhabiNdsmStamp.mjs` | 0.14 | 1 | 0.0063 | **4.622 %** |
 | `newyork` | `us_open` | `heights/usOpenHeightsStamp.mjs` | 0.0144 | 1 | 0.0144 | **100 %** |
 | `sanfrancisco` | `us_open` | `heights/usOpenHeightsStamp.mjs` | 0.0208 | 1 | 0.0208 | **100 %** |
@@ -213,7 +246,33 @@ uncoverable, **(d)** silent or loud, **(e)** verdict + fix.
   never a wider bbox on this one. Add a `BE_DHMV_ASSESSED` array in the `EA_LIDAR_GB_ASSESSED` shape so
   the Walloon refusal is a value rather than a sentence.
 
-### 2.7 `switzerland` — `swiss` — **NEEDS TILING**
+### 2.7-NEW `switzerland` — `swiss` — ⭐ **WHOLE-COUNTRY (2026-09-06, lane HEIGHTS-LAST-NINE)**
+
+This doc predicted it: *"the second cheapest true whole-country sweep after NL."* It is done, and the
+blocker was the one the previous lane named — `nationalHeightsAssessed.mjs` filed CH as
+`'not-done-shape'`: *"NOT REFUSED — NOT DONE. The blocker is shape, not data: this join sweeps by
+swisstopo's OWN 1 km LV95 tile key rather than by a degree grid, so the shared kernel's cell `ord`
+(and therefore its resume cursor) does not apply unmodified."*
+
+- **The ordinal** is `nativeTileGrid` (`heights/nationalSweep.mjs` §NATIVE-TILE-GRID): a grid in
+  projected metres whose cell `(0,0)` is a real swisstopo tile, so `ix = E_km − E0_km`. Control:
+  LV95 `2683189, 1248069` (Zürich HB) → cell `(203,176)` → key **`2683-1248`**, which is the token
+  `pickCogAsset` matches inside an asset href. Grid **358 × 233**.
+- **The reach was re-measured, not assumed** — a collection extent is a claim about a bounding box,
+  not about published tiles. Five 0.02° boxes in NONE of the nine cities, both products, four
+  acquisition years: DSM Chur `HTTP 200, 22,856 B, 0.596 s, 10 items` · Sion `13,856 B, 6` ·
+  Bellinzona `13,863 B, 6` · Davos `22,866 B, 10` · Appenzell `22,874 B, 10`; DTM Chur
+  `HTTP 200, 29,886 B, 10 items / 10 _2_2056_*.tif assets` · Davos `29,896 B, 10`.
+- **The nine cities are not deleted** — they are the UNCAPPED PRIORITY pass, so a truncated run still
+  helps the most users. Heap is bounded by 40 km LV95 northing bands, not by narrowing the retain set.
+- **⚠ What this does NOT claim.** One bake does not measure Switzerland. It claims the retain set is
+  the country, so Chur is REACHABLE instead of permanently unmeasurable. A run takes a declared slice
+  and truncates LOUDLY with `SWISS_SWEEP_CURSOR=<ord>` and a resume TILE KEY. Successive runs do not
+  accumulate into one tileset (Spain's named §MDS-NATIONAL-SWEEP "HONESTY LIMIT", inherited).
+
+<details><summary>The superseded 2026-09-06 row, kept so the promotion is auditable</summary>
+
+### 2.7 `switzerland` — `swiss` — **NEEDS TILING** *(SUPERSEDED — see §2.7-NEW)*
 
 - **(a)** Pinned dispatch chain → `stampSwissHeightsOnGeojsonseq`; swisstopo swissSURFACE3D nDSM, two
   STAC lookups per populated LV95 km² tile.
@@ -225,6 +284,8 @@ uncoverable, **(d)** silent or loud, **(e)** verdict + fix.
 - **(e) Fix.** Switzerland is **9.4 deg²** and the source is national and keyless. This is the second
   cheapest true whole-country sweep after NL — the STAC lookup per tile is the only per-tile overhead and
   it is cacheable per collection. Widen to the 30 largest communes now; K-band whole-country next.
+
+</details>
 
 ### 2.8 `austria` — `bev_at` — **NEEDS TILING**
 
@@ -275,7 +336,33 @@ uncoverable, **(d)** silent or loud, **(e)** verdict + fix.
 - **(d)** Silent at the pixel. **(e) Fix.** Same as Slovenia: 15.4 deg², 1.4 M people, a national
   register over a keyless WFS. Delete the list; the whole country is affordable in one sweep.
 
-### 2.12 `denmark` — `dhm` — **KEY-GATED + NEEDS TILING**
+### 2.12-NEW `denmark` — `dhm` — ⭐ **WHOLE-COUNTRY, STILL KEY-GATED (2026-09-06, lane HEIGHTS-LAST-NINE)**
+
+- **The tiling half is done.** `stampBboxesFor` returns `DHM_NATIONAL_BBOXES`; the sweep runs on an
+  EPSG:25832 native grid (`heights/dhmNationalStamp.mjs`), 2,000 m cells — which at the join's
+  `resM: 2.0` is exactly the 1,000 px request ceiling, where the old 0.02° span asked for 1,113 px,
+  hit the cap and silently sampled at 2.23 m. Four cities kept as the UNCAPPED priority pass;
+  40 km northing bands bound the heap; `DHM_SWEEP_CURSOR` resumes.
+- **The reach is the PUBLISHER'S OWN statement, obtained WITHOUT the key** — which matters, because
+  the wired endpoint answers `HTTP 401, 0 B` to a keyless probe and "Denmark's model is national"
+  would otherwise have been an assertion. `api.dataforsyningen.dk/dhm_wcs_DAF?REQUEST=GetCapabilities`
+  → `HTTP 200 · text/xml;charset=utf-8 · 2,170 B · 0.28 s`, `<fees>NONE</fees>`, offering **both**
+  `dhm_terraen` and `dhm_overflade` over lonLatEnvelope `8.00830949937517 54.4354651516217` →
+  `15.5979112056959 57.7690657013977` — the whole country, Bornholm included. Those two names are
+  byte-identical to `DHM_WCS.dtm` / `.dsm`.
+- **⛔ And the discriminating test was run.** Keyless `GetCoverage` at Copenhagen (25832
+  `725000,6176000` +200 m) and at **Esbjerg** (`467000,6153000` — in none of the four wired cities)
+  → `HTTP 403 · text/plain;charset=utf-8 · 40 B · "User not authorized"`, for both coverages.
+  Identical inside and outside the city list: **the gate is the ACCOUNT, not the geography.**
+- **⚠ SO THIS PUTS NO HEIGHTS ON DANISH BUILDINGS TODAY.** Without `DATAFORDELER_API_KEY` the join
+  returns `blocked` and every footprint keeps its honest OSM default — before this change and after
+  it. What was removed is the ceiling that would still be there on the day the secret lands. That is
+  why the row's status in `nationalHeightsAssessed.mjs` is the new value `wired-national-gated`
+  rather than `wired-national`.
+
+<details><summary>The superseded 2026-09-06 row, kept so the promotion is auditable</summary>
+
+### 2.12 `denmark` — `dhm` — **KEY-GATED + NEEDS TILING** *(SUPERSEDED — see §2.12-NEW)*
 
 - **(a)** Pinned dispatch chain → `stampDhmHeightsOnGeojsonseq`. **`DATAFORDELER_API_KEY` gated** — no
   key → `status: 'blocked'`, loud, footprints keep the honest OSM default. The key **is** wired into
@@ -293,6 +380,8 @@ uncoverable, **(d)** silent or loud, **(e)** verdict + fix.
   **DHM raster is national and per-tile fine**; the bound is the V8 heap, stated as such in the module.
   So: widen to Denmark's ~15 urban areas now, K-band whole-country next. 26.6 deg², one key already
   provisioned.
+
+</details>
 
 ### 2.13 `norway` — `ndh_no` — **NEEDS TILING**
 
@@ -384,10 +473,10 @@ already says *"The koln city row stays until the orchestrator folds it."* No cov
 | 4 | **spain** | ~40 M | B (0.5) | **20** | NEEDS TILING | ⭐ **founder-reported** — widen to the ~60 municipalities >50 k, Ciudad Real first |
 | 5 | **netherlands** | ~15 M | A (1.0) | **15** | NEEDS TILING | **do the whole country** — the WFS is national and answers a dense cell in 0.6 s |
 | 6 | **czechia** | ~8.7 M | A (1.0) | **8.7** | NEEDS TILING | populated-cell sweep; `exportImage` needs no index |
-| 7 | **switzerland** | ~7.5 M | A (0.8) | **6.0** | NEEDS TILING | 9.4 deg², keyless — widen to 30 communes, then whole-country |
+| ~~7~~ | **switzerland** | ~7.5 M | A (0.8) | **6.0** | ✅ **WHOLE-COUNTRY 2026-09-06** | done — LV95 tile-key ordinal, §2.7-NEW |
 | 8 | **belgium** (Flanders) | ~6.0 M | A (1.0) | **6.0** | NEEDS TILING | Hasselt/Mechelen/Kortrijk/Aalst/Ostend — inside DHMV's own envelope |
 | 9 | **austria** | ~6.4 M | A (0.9) | **5.8** | NEEDS TILING | the source is **55 national COG tiles** — index them instead of listing cities |
-| 10 | **denmark** | ~4.0 M | C (0.7) | **2.8** | KEY-GATED + NEEDS TILING | key is already in the workflow; widen to ~15 urban areas |
+| ~~10~~ | **denmark** | ~4.0 M | C (0.7) | **2.8** | ✅ **WHOLE-COUNTRY 2026-09-06, still key-gated** | tiling done (§2.12-NEW); the remaining blocker is the SECRET, not the bbox |
 | 11 | **norway** | ~4.4 M | B (0.6) | **2.6** | NEEDS TILING | Stavanger + Kristiansand + Tromsø now; populated-cell sweep next |
 | 12 | **slovenia** | ~1.6 M | A (1.0) | **1.6** | NEEDS TILING | **delete the list** — register WFS, 4.95 deg². The smallest possible proof |
 | 13 | **greatbritain** (Sc + Wa) | ~8.6 M | D (0.1) | **0.86** | NONE | own adapter; SRSP + DataMapWales negatives already recorded |

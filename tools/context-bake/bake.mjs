@@ -55,7 +55,17 @@ import { assertFootprintConfig, ES_CATASTRO_FOOTPRINTS } from './footprints/foot
 // its OWN module (the nl3dbagStamp precedent: heightSources.mjs is a many-lane file). The band pass it drives,
 // stampMnhFrHeightsOnGeojsonseq, stays in heightSources.mjs and is imported by the wrapper, not by bake.mjs.
 import { stampMnhFrNationalHeightsOnGeojsonseq, MNH_FR_NATIONAL_BBOXES } from './heights/mnhFrNationalStamp.mjs';
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, MDS_PRIORITY_BBOXES, MDS_NATIONAL_BBOXES, MDS_TILE_LAT_DEG, MDS_TILE_LON_DEG, MDS_SWATHE_ROWS, MDS_SWEEP_CONCURRENCY, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, MDS_PRIORITY_BBOXES, MDS_NATIONAL_BBOXES, MDS_TILE_LAT_DEG, MDS_TILE_LON_DEG, MDS_SWATHE_ROWS, MDS_SWEEP_CONCURRENCY, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES, SWISS_NATIONAL_BBOXES, DHM_NATIONAL_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
+// §SWISS-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — the CH national wrapper lives in its OWN
+// module for the mnhFrNationalStamp / nl3dbagStamp reason (heightSources.mjs is edited by many lanes at
+// once and a whole-function insertion there collides). It DRIVES `stampSwissHeightsOnGeojsonseq`, which
+// stays where it is and is still imported above — the band pass is the same function it always was.
+import { stampSwissNationalHeightsOnGeojsonseq } from './heights/swissNationalStamp.mjs';
+// §DHM-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — the DK national wrapper, same shape and
+// same reason. ⚠ It does NOT put heights on Danish buildings today: the join is apikey-GATED and
+// returns `blocked` without DATAFORDELER_API_KEY, before this change and after it. What it removes is
+// the CEILING that would otherwise still be there on the day the secret exists.
+import { stampDhmNationalHeightsOnGeojsonseq } from './heights/dhmNationalStamp.mjs';
 // §NDH-NO-OSM-JOIN (lane HEIGHTS-NORDICS, 2026-09-05) — Norway's keyless Kartverket NHM DOM − DTM stamp lives in its
 // OWN module (the heights/nl3dbagStamp.mjs precedent: heightSources.mjs is a many-lane file) and is imported here
 // DIRECTLY, in the same commit that declares the `norway` row's heightJoin — never "built, imported by nothing".
@@ -1376,7 +1386,16 @@ function stampBboxesFor(r) {
   // held at a time — heights/mdsNational.mjs §MDS-SWATHE), not by narrowing where we are allowed to
   // measure. `MDS_PRIORITY_BBOXES` keeps the metros stamped FIRST and UNCAPPED.
   if (r.heightJoin === 'mds') return MDS_NATIONAL_BBOXES;
-  if (r.heightJoin === 'dhm') return DHM_CITY_BBOXES.map((c) => c.bbox);
+  // §DHM-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — `denmark` retains the WHOLE COUNTRY, not
+  // four city boxes (~0.14 deg² of a 26.6 deg² region). The publisher declares BOTH halves of the
+  // difference national and it was probed WITHOUT the key: `api.dataforsyningen.dk/dhm_wcs_DAF?REQUEST=
+  // GetCapabilities` → HTTP 200 text/xml 2,170 B, `<fees>NONE</fees>`, with `dhm_terraen` AND
+  // `dhm_overflade` over lonLatEnvelope 8.0083–15.5979 E / 54.4355–57.7691 N — Bornholm included. The
+  // discriminating GetCoverage test refuses IDENTICALLY inside and outside the four cities (HTTP 403,
+  // 40 B, `User not authorized`), so the gate is the ACCOUNT, not the geography
+  // (heights/dhmNationalStamp.mjs carries every byte count). DHM_CITY_BBOXES keeps its second job: the
+  // PRIORITY order, stamped first and uncapped.
+  if (r.heightJoin === 'dhm') return DHM_NATIONAL_BBOXES;
   // §MNH-FR-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — `france` retains the WHOLE
   // COUNTRY, not thirteen metro boxes (~200 km² of 551,695). The previous lane's own header already
   // said the binding limit was THIS LIST and not IGN's publication; it then measured 27 more covered
@@ -1386,7 +1405,19 @@ function stampBboxesFor(r) {
   // which is why the sweep prechecks each cell three-valued (heights/mnhFrNationalStamp.mjs).
   // MNH_FR_CITY_BBOXES keeps its second job: the PRIORITY ORDER, stamped first and uncapped.
   if (r.heightJoin === 'mnh_fr') return MNH_FR_NATIONAL_BBOXES;
-  if (r.heightJoin === 'swiss') return SWISS_CITY_BBOXES.map((c) => c.bbox);   // §SWISS-OSM-JOIN (L-12883) — whole `switzerland`
+  // §SWISS-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — `switzerland` retains the WHOLE
+  // COUNTRY, not nine city boxes. The previous lane's own assessment already said the data was not the
+  // blocker: `heights/nationalHeightsAssessed.mjs` filed CH as `'not-done-shape'` — *"swissSURFACE3D −
+  // swissALTI3D IS national (STAC → LV95 COG) … ⚠ NOT REFUSED — NOT DONE. The blocker is shape, not
+  // data: this join sweeps by swisstopo's OWN 1 km LV95 tile key rather than by a degree grid, so the
+  // shared kernel's cell `ord` (and therefore its resume cursor) does not apply unmodified."* That
+  // ordinal now exists (heights/nationalSweep.mjs §NATIVE-TILE-GRID), and the reach was re-measured
+  // 2026-09-06: five 0.02° boxes in NONE of the nine cities — Chur, Sion, Bellinzona, Davos, Appenzell —
+  // all answered HTTP 200 with real STAC items on BOTH products (heights/swissNationalStamp.mjs carries
+  // the byte counts). The heap is bounded by LV95 SWATHE PASSES inside the join, not by narrowing where
+  // we may measure. SWISS_CITY_BBOXES keeps its second job: the PRIORITY order, stamped first and
+  // uncapped, so a truncated run still helps the most users.
+  if (r.heightJoin === 'swiss') return SWISS_NATIONAL_BBOXES;
   if (r.heightJoin === 'au_open') return AU_OPEN_CITY_BBOXES.map((c) => c.bbox); // §AU-OPEN-HEIGHTS-OSM-JOIN — whole `victoria`, Melbourne LGA only
   if (r.heightJoin === 'ealidar_gb') return EA_LIDAR_GB_CITY_BBOXES.map((c) => c.bbox); // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`, England working set
   // §NL-3DBAG-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — `netherlands` retains the
@@ -1909,7 +1940,10 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
         budgetMs: MDS_SWEEP_BUDGET_MIN * 60_000,
         startCursor: Number(process.env.MDS_SWEEP_CURSOR ?? 0) || 0,
       });
-      else if (r.heightJoin === 'dhm') res = await stampDhmHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
+      // §DHM-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — the NATIONAL wrapper, exactly as
+      // `mnh_fr` and `swiss`. `stampDhmHeightsOnGeojsonseq` is what each bounded-heap band runs, and it
+      // stays imported above so mnhFr.spec.ts's `'mds' || 'dhm' || …` chain pin is untouched.
+      else if (r.heightJoin === 'dhm') res = await stampDhmNationalHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
       // §MNH-FR-OSM-JOIN (L-12910) — keyless IGN Géoplateforme; the pixel IS the height above ground
       // (never MNS−MNT here — E5 §G.1 A8). Same option shape as mds: priority = retained = city list.
       // ⭐ §MNH-FR-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — the chain now calls the
@@ -1920,7 +1954,12 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
       else if (r.heightJoin === 'mnh_fr') res = await stampMnhFrNationalHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, priorityBboxes, retainBboxes });
       // §SWISS-OSM-JOIN (L-12883) — the stamp takes no priority list: its retained working set IS the city list,
       // so every held footprint is stamped uncapped (the same guarantee mds/mnh_fr get from priorityBboxes).
-      else if (r.heightJoin === 'swiss') res = await stampSwissHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
+      // §SWISS-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — the chain now calls the NATIONAL
+      // wrapper, exactly as `mnh_fr` does. It stays IN THE CHAIN rather than moving to
+      // NATIONAL_STAMP_TABLE because mnhFr.spec.ts pins `'mds' || 'dhm' || 'lod2nrw' || 'mnh_fr'` and
+      // swissWiring.spec.ts pins `'mnh_fr' || 'swiss')` as CONTIGUOUS TEXT. The nine cities are handed
+      // over as the UNCAPPED priority pass by the wrapper's own default, not dropped.
+      else if (r.heightJoin === 'swiss') res = await stampSwissNationalHeightsOnGeojsonseq(baseGeo, stamped, wsen, { maxTiles, retainBboxes });
       // §AU-OPEN-HEIGHTS-OSM-JOIN — vectors, not a raster: per populated 0.01° cell, one UNCAPPED export of City of
       // Melbourne's LoD1 components, collapsed to one metre per OSM footprint. Retained working set = AU_OPEN_CITY_BBOXES,
       // so every held footprint is visited (no priority list needed, as swiss).

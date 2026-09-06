@@ -86,9 +86,16 @@ export async function runSwathedNationalStamp({
   budget.swathesTotal = swathes.length;
   const tmp = [`${outPath}.sweep-a`, `${outPath}.sweep-b`];
   let cur = inPath, alt = 0;
+  // ⚠ A NATIVE grid (§NATIVE-TILE-GRID) measures in projected METRES. Printing its `latDeg` with a °
+  // sign would report a 1 km swisstopo tile as a 1000-degree cell — a log line that is not merely ugly
+  // but WRONG, and this file's whole job is that the truncation numbers can be trusted.
+  const cellUnit = grid.native ? `${grid.tileM} m × ${grid.tileM} m (projected)` : `${grid.lonDeg}°×${grid.latDeg}°`;
+  const bandSpan = grid.native
+    ? `${((swatheRows * grid.tileM) / 1000).toFixed(0)} km of northing each`
+    : `${(swatheRows * grid.latDeg).toFixed(2)}° of latitude each`;
   console.log(`\n  ${label} national sweep · grid ${grid.nx}×${grid.ny} cells of ` +
-    `${grid.lonDeg}°×${grid.latDeg}° · ${swathes.length} bounded-heap swathe(s) of ${swatheRows} row(s) ` +
-    `(${(swatheRows * grid.latDeg).toFixed(2)}° of latitude each) · budget ` +
+    `${cellUnit} · ${swathes.length} bounded-heap swathe(s) of ${swatheRows} row(s) ` +
+    `(${bandSpan}) · budget ` +
     `${budget.budgetMs > 0 ? `${Math.round(budget.budgetMs / 60000)} min` : 'none'} / ${budget.maxTiles} cells · ` +
     `cursor ${budget.startCursor}`);
 
@@ -117,8 +124,11 @@ export async function runSwathedNationalStamp({
       cur = pt;
       if (onBand) onBand(sw, res, budget);
       else {
+        const where = grid.native
+          ? `N ${Math.round(sw.bbox[1])}–${Math.round(sw.bbox[3])} m`
+          : `lat ${sw.bbox[1].toFixed(2)}–${sw.bbox[3].toFixed(2)}`;
         console.log(`    · ${label} swathe ${sw.index + 1}/${swathes.length} ` +
-          `(lat ${sw.bbox[1].toFixed(2)}–${sw.bbox[3].toFixed(2)}): ${budget.heights.length} measured so far over ` +
+          `(${where}): ${budget.heights.length} measured so far over ` +
           `${budget.cellsStamped} cell(s), ${Math.round(budget.km2Stamped)} km², cursor ${budget.nextCursor}.`);
       }
     }

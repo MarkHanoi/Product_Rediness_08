@@ -36,15 +36,44 @@ describe('§SWISS-OSM-JOIN — bake.mjs wires the swiss stamp for the `switzerla
         }
     });
 
-    it('stampBboxesFor bounds the national join to SWISS_CITY_BBOXES (§HEIGHT-STAMP-BUDGET preflight)', () => {
+    // ⭐ REWRITTEN 2026-09-06 (lane HEIGHTS-LAST-NINE, §SWISS-NATIONAL-SWEEP). These two arms used to
+    // pin `return SWISS_CITY_BBOXES.map` and a direct `stampSwissHeightsOnGeojsonseq` dispatch — i.e.
+    // they pinned the NINE-CITY retain set as the correct state. It is no longer: `switzerland` retains
+    // the WHOLE COUNTRY, on the previous lane's own assessment (`nationalHeightsAssessed.mjs` filed CH
+    // as `'not-done-shape'` — "NOT REFUSED — NOT DONE … the blocker is shape, not data") plus a fresh
+    // five-for-five reach probe outside the nine cities. The arms are REPLACED rather than deleted, so
+    // a regression back to a city list still fails here by name.
+    it('stampBboxesFor gives the swiss join the WHOLE COUNTRY, not the nine cities', () => {
         const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
         expect(fn, 'stampBboxesFor').not.toBeNull();
-        expect(fn![1]).toMatch(/r\.heightJoin === 'swiss'\)\s*return SWISS_CITY_BBOXES\.map/);
+        expect(fn![1]).toMatch(/r\.heightJoin === 'swiss'\)\s*return SWISS_NATIONAL_BBOXES/);
+        // ⛔ and NOT the old city-list form — a silent revert is what this line refuses.
+        expect(fn![1]).not.toMatch(/r\.heightJoin === 'swiss'\)\s*return SWISS_CITY_BBOXES/);
     });
 
-    it('dispatches swiss to stampSwissHeightsOnGeojsonseq with the retained working set', () => {
+    it('dispatches swiss to the NATIONAL wrapper, which still drives the same band stamp', () => {
         expect(bake).toMatch(/r\.heightJoin === 'mnh_fr' \|\| r\.heightJoin === 'swiss'\)/);
-        expect(bake).toMatch(/if \(r\.heightJoin === 'swiss'\) res = await stampSwissHeightsOnGeojsonseq\(baseGeo, stamped, wsen, \{ maxTiles, retainBboxes \}\)/);
+        expect(bake).toMatch(/if \(r\.heightJoin === 'swiss'\) res = await stampSwissNationalHeightsOnGeojsonseq\(baseGeo, stamped, wsen, \{ maxTiles, retainBboxes \}\)/);
+        expect(bake).toMatch(/import \{ stampSwissNationalHeightsOnGeojsonseq \} from '\.\/heights\/swissNationalStamp\.mjs';/);
+    });
+
+    it('the nine cities survive as the UNCAPPED PRIORITY pass — a national retain set must not cost them what they had', () => {
+        const wrapper = readFileSync(resolve(HERE, '../heights/swissNationalStamp.mjs'), 'utf8');
+        expect(wrapper).toMatch(/priorityBboxes = SWISS_CITY_BBOXES\.map\(\(c\) => c\.bbox\)/);
+        // The stamp must be told the priority boxes are WGS84 while the retain set is LV95 — conflating
+        // the two would silently point the nine cities at a patch of ground near LV95 (6.6, 46.9) m.
+        expect(wrapper).toMatch(/areaCrs: 'lv95', priorityCrs: 'wgs84'/);
+    });
+
+    it('the wrapper imports NO projector — proj4 does not resolve from the repo root', () => {
+        // The trap dcef4524 records: a static import of a tools-local dep makes the module's own spec
+        // stop LOADING, silently. The LV95 box is a pinned constant instead.
+        // ⚠ Matched at LINE START on a real `import` statement, never anywhere in the text: the module's
+        // own header NAMES `'../reproject.mjs'` in the prose that explains why it must not import it, and
+        // a loose regex would fail on the explanation rather than on the defect.
+        const wrapper = readFileSync(resolve(HERE, '../heights/swissNationalStamp.mjs'), 'utf8');
+        expect(wrapper).not.toMatch(/^import[^\n]*from '\.\.\/reproject\.mjs'/m);
+        expect(wrapper).not.toMatch(/^import[^\n]*from 'proj4'/m);
     });
 
     it('both CI gates refuse a Swiss bake that ships no measured heights at Zürich', () => {

@@ -49,21 +49,37 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
       }
     }
   });
-  it('the wired set is exactly the TWELVE Länder the 2026-09-05 probes verified (NI, BW then SN joined on later passes); Bayern is open-but-unarmed; HE blocked; HB/SL unprobed', () => {
+  it('the wired set is the THIRTEEN Länder probed open (NI, BW, SN then BY joined on later passes); no Land is left open-but-unarmed; HE blocked; HB unsupported; SL unprobed', () => {
     const by = (s: string) => Object.entries(DE_LOD2_LAENDER).filter(([, a]) => a.status === s).map(([cc]) => cc).sort();
-    expect(by('wired')).toEqual(['bb', 'be', 'bw', 'hh', 'mv', 'ni', 'nw', 'rp', 'sh', 'sn', 'st', 'th']);
-    expect(by('probed-open-unarmed')).toEqual(['by']);
+    // ⭐ `by` JOINED 2026-09-06 (lane DE-HEIGHTS-BEYOND-SIXTEEN-BBOXES). It sat `probed-open-unarmed` for a day,
+    // which is precisely how Nürnberg reached the founder as flat grey: an unarmed Land is filtered OUT of
+    // DE_LOD2_CITY_BBOXES, so its footprints never reach the join at all.
+    expect(by('wired')).toEqual(['bb', 'be', 'bw', 'by', 'hh', 'mv', 'ni', 'nw', 'rp', 'sh', 'sn', 'st', 'th']);
+    // ⛔ The STATUS stays in the closed set even with no holder: the next Land probed open but not yet armed
+    // needs somewhere honest to sit. An empty list here is the assertion, not a missing assertion.
+    expect(by('probed-open-unarmed')).toEqual([]);
     expect(by('blocked')).toEqual(['he']);
     expect(by('unprobed')).toEqual(['sl']);
     // ⭐ Bremen is its OWN verdict: open, keyless, measuredHeight present — in a container with no reader.
     expect(by('probed-open-unsupported')).toEqual(['hb']);
   });
-  it('DE_LOD2_CITY_BBOXES is the WIRED subset of DE_LOD2_CITIES, one city per Land, koln byte-identical to the bake row', () => {
-    expect(DE_LOD2_CITIES.length).toBe(16);
-    expect(DE_LOD2_CITY_BBOXES.map((c) => c.city).sort()).toEqual(['berlin', 'dresden', 'erfurt', 'hamburg', 'hannover', 'kiel', 'koln', 'magdeburg', 'mainz', 'potsdam', 'schwerin', 'stuttgart']);
+  it('DE_LOD2_CITY_BBOXES is the WIRED subset of DE_LOD2_CITIES — a Land MAY hold several cities (Bayern holds five), koln byte-identical to the bake row', () => {
+    expect(DE_LOD2_CITIES.length).toBe(20);
+    expect(DE_LOD2_CITY_BBOXES.map((c) => c.city).sort()).toEqual([
+      'augsburg', 'berlin', 'dresden', 'erfurt', 'hamburg', 'hannover', 'kiel', 'koln', 'magdeburg', 'mainz',
+      'munich', 'nuernberg', 'potsdam', 'regensburg', 'schwerin', 'stuttgart', 'wuerzburg',
+    ]);
     for (const c of DE_LOD2_CITY_BBOXES) expect(DE_LOD2_LAENDER[c.land].status).toBe('wired');
-    expect(new Set(DE_LOD2_CITY_BBOXES.map((c) => c.land)).size).toBe(DE_LOD2_CITY_BBOXES.length);
+    // ⛔ THE OLD ASSERTION HERE WAS `new Set(lands).size === length`, i.e. ONE CITY PER LAND. That invariant is
+    // DELETED ON PURPOSE (2026-09-06), because it was the shape of the bug: it made "widen a Land" untestable
+    // and left Nürnberg 150 km outside München's lone bbox. What replaces it is the property that actually
+    // has to hold — city NAMES are unique (two rows must never collide) while LANDS may repeat.
+    expect(new Set(DE_LOD2_CITY_BBOXES.map((c) => c.city)).size).toBe(DE_LOD2_CITY_BBOXES.length);
+    expect(DE_LOD2_CITY_BBOXES.filter((c) => c.land === 'by').map((c) => c.city).sort())
+      .toEqual(['augsburg', 'munich', 'nuernberg', 'regensburg', 'wuerzburg']);
     expect(DE_LOD2_CITIES.find((c) => c.city === 'koln')!.bbox).toEqual([6.85, 50.88, 7.02, 50.99]);
+    // §HEIGHT-STAMP-BUDGET / L-659 — the per-city bound SURVIVES the widening. Adding cities is allowed;
+    // letting any ONE city grow toward a Land-sized box is not, because that is what the heap bound buys.
     for (const c of DE_LOD2_CITIES) { const [w, s, e, n] = c.bbox; expect(e - w, c.city).toBeLessThan(0.2); expect(n - s, c.city).toBeLessThan(0.12); }
   });
   it('the summary line names every Land with its status', () => {
@@ -73,7 +89,7 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
     expect(s).toContain('ni=wired(gml/utm32/1km)');
     expect(s).toContain('bw=wired(zip-multi/utm32/2km)');
     expect(s).toContain('sn=wired(zip/utm33/2km)');
-    expect(s).toContain('by=probed-open-unarmed');
+    expect(s).toContain('by=wired(gml/utm32/2km)');
     expect(s).toContain('hb=probed-open-unsupported');
   });
 });
@@ -338,10 +354,98 @@ describe('§DE-LOD2-LAENDER Niedersachsen — the BUCKET, not the LGLN index, is
     for (const p of s2.flush()) chunked.push(p.h);
     expect(chunked).toEqual([12.753, 23.446, 16.508, 10.526]);
   });
-  it('cityForPoint routes Hannover Hbf and the CITIES gate row point → hannover/ni; the working set now holds twelve cities', () => {
+  it('cityForPoint routes Hannover Hbf and the CITIES gate row point → hannover/ni; the working set now holds SEVENTEEN cities', () => {
     expect(cityForPoint(9.7411, 52.3767)?.city).toBe('hannover');
     expect(cityForPoint(9.7320, 52.3759)?.land).toBe('ni');
-    expect(DE_LOD2_CITY_BBOXES.length).toBe(12);
+    expect(DE_LOD2_CITY_BBOXES.length).toBe(17);
+  });
+});
+
+describe('§DE-LOD2-LAENDER-BY Bayern — the founder's Nürnberg report, pinned as a test (verbatim 2026-09-06)', () => {
+  // ⭐ WHY THIS BLOCK EXISTS. The founder reported: "Nuremberg buildings are not true height buildings —
+  // germany should be complete." He was right, and TWO independent facts had to be false at once:
+  //   1. `by` was `probed-open-unarmed`, so DE_LOD2_CITY_BBOXES (the WIRED subset) dropped every Bavarian
+  //      footprint BEFORE the join ran — a filter, not a fetch failure, which is why nothing errored; and
+  //   2. Bayern's ONE bbox was München, and Nürnberg (11.078, 49.455) is ~150 km from it.
+  // Arming the Land alone would have fixed NEITHER symptom. Both halves are asserted below, because a
+  // future edit that quietly reverts either one reproduces exactly the screen the founder photographed.
+  const by = DE_LOD2_LAENDER.by as {
+    status: string; kind: string; zone: number; tileM: number; indexKind: string; baseUrl: string;
+    controlPresentTile: string; controlAbsentTile: string; licence: string; probe: string;
+    tileName: (k: { e: number; n: number }) => string; tileUrl: (k: { e: number; n: number }) => string;
+  };
+
+  it('HALF 1 — the Land is ARMED, so its footprints survive the DE_LOD2_CITY_BBOXES filter at all', () => {
+    expect(by.status).toBe('wired');
+    expect(DE_LOD2_CITY_BBOXES.some((c) => c.land === 'by')).toBe(true);
+  });
+
+  it('HALF 2 — Nürnberg has its OWN bbox: three real landmarks route to nuernberg/by, and München does NOT serve them', () => {
+    // Hauptmarkt, Hauptbahnhof, Kaiserburg — the three corners of the area in the founder's screenshot.
+    for (const [lon, lat, what] of [[11.0775, 49.4539, 'Hauptmarkt'], [11.0824, 49.4463, 'Hbf'], [11.0757, 49.4577, 'Burg']] as const) {
+      const c = cityForPoint(lon, lat);
+      expect(c?.city, what).toBe('nuernberg');
+      expect(c?.land, what).toBe('by');
+    }
+    // ⛔ THE REGRESSION GUARD. If someone deletes the nuernberg row and leaves BY armed, the Land is still
+    // `wired` and every assertion in HALF 1 still passes — and Nürnberg is grey again. So assert the
+    // DISTANCE: München's bbox cannot reach the Hauptmarkt, and must never be relied on to.
+    const [mw, ms, me, mn] = DE_LOD2_CITIES.find((c) => c.city === 'munich')!.bbox;
+    const insideMunich = 11.0775 >= mw && 11.0775 <= me && 49.4539 >= ms && 49.4539 <= mn;
+    expect(insideMunich, 'Nürnberg must NOT be inside the München bbox').toBe(false);
+    expect(ms - 49.4539).toBeLessThan(-1.2);   // > 1.2° of latitude ≈ 150 km apart
+  });
+
+  it('the five Bavarian cities are the ones the 2026-09-06 sweep HEAD-probed 200, each still inside the heap bound', () => {
+    const cities = DE_LOD2_CITY_BBOXES.filter((c) => c.land === 'by');
+    expect(cities.map((c) => c.city).sort()).toEqual(['augsburg', 'munich', 'nuernberg', 'regensburg', 'wuerzburg']);
+    for (const c of cities) {
+      const [w, s2, e, n] = c.bbox;
+      expect(e - w, `${c.city} lon span`).toBeGreaterThan(0);
+      expect(e - w, `${c.city} lon span`).toBeLessThan(0.2);
+      expect(n - s2, `${c.city} lat span`).toBeLessThan(0.12);
+    }
+  });
+
+  it('the door is a keyless 2 km plain-gml grid on UTM32, indexed by head-probe with BOTH honesty controls', () => {
+    expect(by.kind).toBe('gml');
+    expect(by.zone).toBe(32);
+    expect(by.tileM).toBe(2000);
+    // ⛔ head-probe, NOT atom: the metalink feed is keyed by Gemeinde AGS and can never answer "does tile
+    // e,n exist". And a 404 may only be read as ABSENT once BOTH controls hold — without the known-absent
+    // one, a host that starts 404ing everything would be reported as "no data in Bavaria", which is the
+    // failure≠empty conflation this router exists to refuse (§CONTEXT-DATA-HONESTY).
+    expect(by.indexKind).toBe('head-probe');
+    expect(by.baseUrl).toBe('https://download1.bayernwolke.de/a/lod2/citygml/');
+    expect(by.controlPresentTile).toBe('690_5334.gml');
+    expect(by.controlAbsentTile).toBe('300_5300.gml');
+    expect(by.controlPresentTile).not.toBe(by.controlAbsentTile);
+    expect(by.licence).toMatch(/CC BY 4\.0/);
+    expect(by.probe).toMatch(/2026-09-06/);
+  });
+
+  it('the tile key for the Nürnberg Hauptmarkt is the tile that was measured 200, and the URL is byte-exact', () => {
+    const [E, N] = wgs84ToUtm(49.4539, 11.0775, 32);
+    const k = tileKeyFor(by, E, N);
+    expect(k).toEqual({ e: 650, n: 5478 });                       // measured 2026-09-06: HEAD 200, 154,062,525 B
+    expect(by.tileName(k)).toBe('650_5478.gml');
+    expect(by.tileUrl(k)).toBe('https://download1.bayernwolke.de/a/lod2/citygml/650_5478.gml');
+    expect(`${by.baseUrl}${by.tileName(k)}`).toBe(by.tileUrl(k));  // head-probe builds its URL this way
+  });
+
+  it('the twenty Nürnberg candidate tiles are EVEN-keyed on both axes — Bayern is NOT phase-shifted like BW', () => {
+    const [w, s2, e, n] = DE_LOD2_CITIES.find((c) => c.city === 'nuernberg')!.bbox;
+    const [E0, N0] = wgs84ToUtm(s2, w, 32), [E1, N1] = wgs84ToUtm(n, e, 32);
+    const k0 = tileKeyFor(by, E0, N0), k1 = tileKeyFor(by, E1, N1);
+    const names: string[] = [];
+    for (let ke = k0.e; ke <= k1.e; ke += 2) for (let kn = k0.n; kn <= k1.n; kn += 2) names.push(by.tileName({ e: ke, n: kn }));
+    expect(names.length).toBe(20);                                 // all 20 measured HEAD 200 on 2026-09-06
+    expect(names).toContain('650_5478.gml');
+    for (const nm of names) {
+      const [ke, kn] = nm.replace('.gml', '').split('_').map(Number);
+      expect(ke % 2, nm).toBe(0);
+      expect(kn % 2, nm).toBe(0);
+    }
   });
 });
 
