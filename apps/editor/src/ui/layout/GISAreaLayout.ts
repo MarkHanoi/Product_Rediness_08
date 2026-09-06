@@ -159,6 +159,10 @@ import { resolveSiteFramingExtent } from '../site/siteFramingExtent';
 // §PARCEL-VISIBLE-EVERYWHERE (L-13016) — the ONE scene-XZ → WGS84 read for the committed C19 ring,
 // shared with `SiteBoundaryMap2D` so the CAMERA and the PICTURE are built about the same origin.
 import { readCommittedParcelRing } from '../site/committedParcelRing';
+// §ENVELOPE-TOOL-ON-THE-SITE-VIEWS (L-13017 · C58 §1.19) — the TOOL, hosted on the GIS area so it
+// reaches both site views. It carries no creation logic: it opens the same panel the Parcel Law
+// tab mounts, which dispatches the same `spaceEnvelope.batch.create` (P6).
+import { toggleSiteEnvelopeTool } from '../site/siteEnvelopeTool';
 // §PARCEL-SELECT (L-380 P1 → L-613) — the real cadastral parcel data source for the map's
 // "Select parcel" mode. `defaultParcelProvider` is now the PER-JURISDICTION REGISTRY
 // (`parcelRegistry.ts`): a click routes to the right OPEN national cadastre — Catastro (ES),
@@ -5828,6 +5832,39 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     window.pryzmToggleSiteAnalysis = () => {
         if (!formaAnalysis) { applyFormaView('plan'); }
         else { formaAnalysis.toggle(); }
+    };
+
+    /**
+     * ⭐ §ENVELOPE-TOOL-ON-THE-SITE-VIEWS (L-13017 · C58 §1.19 clause 2) — open the envelope
+     * authoring panel over WHICHEVER site view is showing.
+     *
+     * Founder: *"I am not able yet to create the envelope on the 2D site view / 3D site — it
+     * should OPEN A PANEL LIKE WHEN YOU CREATE A WALL OR SLAB WITH THE TOOLS."*
+     *
+     * ⛔ ONE COMMAND PATH (P6). This opens the SAME panel the Parcel Law tab mounts, which builds
+     * the SAME `buildEnvelopeAuthoringPlan` and dispatches the SAME `spaceEnvelope.batch.create`.
+     * There is no second creation path here, and there must never be one: two authoring
+     * implementations WILL drift, and the 2D plan draws the AUTHORING frame de-rotated by θ from
+     * the 2D map BY DESIGN (ADR-0115), so the second would carry a frame bug as well.
+     *
+     * ⚠ HOSTED ON THE GIS AREA, NOT ON ONE VIEW'S SURFACE, so it covers BOTH site views — the 2D
+     * MapLibre overlay and the Cesium 3D Site both render inside this container. The 2D map also
+     * carries the button in its own strip; both routes drive the same singleton, which RE-TARGETS
+     * rather than opening a second panel.
+     *
+     * ⚠ NOT GATED ON AN ENVELOPE EXISTING (C58 §1.20 clause 1) — the panel is exactly where a user
+     * with no solved envelope is told what is missing and what would supply it.
+     */
+    window.pryzmOpenSiteEnvelopeTool = () => {
+        const host = document.getElementById('container') ?? document.body;
+        // The panel is absolutely positioned; a static host would place it against the page rather
+        // than against the view. Set here rather than assumed — `#container` is shared chrome.
+        try {
+            if (host instanceof HTMLElement && getComputedStyle(host).position === 'static') {
+                host.style.position = 'relative';
+            }
+        } catch { /* non-DOM environment — the toggle below still no-ops safely */ }
+        toggleSiteEnvelopeTool(host as HTMLElement);
     };
 
     /** §GIS-ACTION-REGISTRY — show / hide the buildable-envelope facts card. Same

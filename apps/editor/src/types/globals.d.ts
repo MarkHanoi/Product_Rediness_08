@@ -427,6 +427,14 @@ declare global {
          *  facts card. Same not-built-yet branch as the launcher pill. Registered by
          *  GISAreaLayout. */
         pryzmToggleEnvelopeCard?: () => void;
+        /** §ENVELOPE-TOOL-ON-THE-SITE-VIEWS (L-13017 · C58 §1.19) — open the envelope AUTHORING
+         *  panel over whichever site view is showing.
+         *  ⛔ NOT `pryzmToggleEnvelopeCard` above: that shows the SOLVED legal ceiling, this
+         *  authors the user's OWN level envelope (`confidence: 'authored'`, no ordinanceRef, no
+         *  DerivationTrace, never overwriting the solved one — C58 §1.19 clause 3/4). One command
+         *  path: it opens the SAME panel the Parcel Law tab mounts, which dispatches the SAME
+         *  `spaceEnvelope.batch.create` (P6). Registered by GISAreaLayout. */
+        pryzmOpenSiteEnvelopeTool?: () => void;
         /** L-1587 - re-derive the buildability determination for the COMMITTED parcel and
          *  re-render the facts card. Returns TRUE only if a card is on screen afterwards.
          *

@@ -102,6 +102,10 @@ import {
 // with `GISAreaLayout.getMapInitial` so the picture and the camera cannot be built about different
 // origins. Three arms: a ring, an honest `absent`, or a REFUSAL that says why (never an empty).
 import { readCommittedParcelRing } from '../site/committedParcelRing.js';
+// §ENVELOPE-TOOL-ON-THE-SITE-VIEWS (L-13017 · C58 §1.19) — the tool BUTTON only. The panel it
+// opens holds the creation logic, and that panel is the SAME one the Parcel Law tab mounts, so
+// this file carries no command string, no id minting and no second authoring path (P6).
+import { buildSiteEnvelopeToolButton, closeSiteEnvelopeTool } from '../site/siteEnvelopeTool.js';
 // §PARCEL-VISIBLE-EVERYWHERE (b) — "zoom in relatively on it". The ONE site extent both panes
 // frame; its FIRST preference is the committed boundary, which is precisely what `getMapInitial`
 // was never passing (it framed the ±250 m default about the site anchor — a 500 m box around a
@@ -699,6 +703,37 @@ export function mountSiteBoundaryMap2D(
     // Not applicable in overlay-only mode (no boundary/parcel there).
     if (opts.overlayOnly) interToggle.style.display = 'none';
     overlay.appendChild(interToggle);
+
+    // ⭐ §ENVELOPE-TOOL-ON-THE-SITE-VIEWS (L-13017 · C58 §1.19) — THE MISSING ENTRY POINT.
+    //
+    // Founder: *"I am not able yet to create the envelope on the 2D site view / 3D site — it should
+    // OPEN A PANEL LIKE WHEN YOU CREATE A WALL OR SLAB WITH THE TOOLS."* The command
+    // (`spaceEnvelope.batch.create`) has never been view-gated and the panel that dispatches it
+    // reads the runtime itself — it was simply only ever mounted inside the Parcel Law TAB. So this
+    // is a ROUTE being added, not a pipeline: the button opens the SAME panel, which builds the
+    // SAME plan and dispatches the SAME command (P6 — one command path, two input surfaces).
+    //
+    // ⛔ NOT A SECOND FLOATING BAR. The founder photographed three view switchers over one pane the
+    // same day (L-13015); this is one button inside the strip that already exists, and the panel it
+    // opens is a singleton that re-targets rather than stacking.
+    //
+    // ⚠ NOT gated on `committed`, and not gated on an envelope existing (C58 §1.20 clause 1): the
+    // panel it opens is precisely where a user with no solved envelope is told what is missing and
+    // what would supply it. Hidden only in overlay-only mode, which authors nothing at all.
+    const envelopeToolBar = document.createElement('div');
+    Object.assign(envelopeToolBar.style, {
+        position: 'absolute',
+        // Directly above the select/draw strip, sharing its right edge — one column of chrome, not
+        // a second cluster to collide with `ManualAdminZonePanel` (right:16px, bottom:16px).
+        bottom: '380px',
+        right: '16px',
+        zIndex: '22',
+        display: 'flex',
+        gap: '6px',
+    } satisfies Partial<CSSStyleDeclaration>);
+    envelopeToolBar.appendChild(buildSiteEnvelopeToolButton(() => overlay));
+    if (opts.overlayOnly) envelopeToolBar.style.display = 'none';
+    overlay.appendChild(envelopeToolBar);
 
     // ── §PARCEL-SELECT — the parcel info card (ref / address / area + actions) ────
     // Hidden until a parcel is selected. Brand white + #6600FF. Shows the factual
@@ -3341,6 +3376,10 @@ export function mountSiteBoundaryMap2D(
         // this whole closure (and its dead map) alive and repaint into a removed source.
         try { spaceEnvelopeSub?.(); } catch { /* ignore */ }
         spaceEnvelopeSub = null;
+        // §ENVELOPE-TOOL-ON-THE-SITE-VIEWS — the panel lives INSIDE this overlay, so a dispose that
+        // left it open would take its DOM away while the singleton still believed it was mounted,
+        // and the next open would re-target a detached node instead of building a fresh panel.
+        try { closeSiteEnvelopeTool(); } catch { /* ignore */ }
         // §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — a disposed map is not a drawable surface.
         try { delete (window as unknown as { pryzmBoundaryDrawSurfaceReadyAt?: number }).pryzmBoundaryDrawSurfaceReadyAt; } catch { /* ignore */ }
         // A.21.D9 — remove all pooled dimension-label markers.

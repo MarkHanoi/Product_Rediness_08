@@ -47,6 +47,18 @@
 
 /** The host object that carries the live GIS entry points (production: `window`). */
 export interface GisCapabilityHost {
+    /**
+     * §ENVELOPE-TOOL-ON-THE-SITE-VIEWS (L-13017 · C58 §1.19) — open the envelope authoring panel
+     * over whichever site view is showing.
+     *
+     * ⭐ DECLARED because the CAPABILITY ALREADY EXISTED and was reachable from exactly one place:
+     * the Parcel Law TAB. `spaceEnvelope.batch.create` has never been view-gated, so "I cannot
+     * create the envelope on the 2D site view / 3D site" was a REACHABILITY gap, not a missing
+     * command. This entry point forwards to the ONE panel; nothing about creation is
+     * re-implemented, and the Parcel Law tab's own section still works (C19 §5.6 clause 4 — a
+     * route is added, never removed).
+     */
+    pryzmOpenSiteEnvelopeTool?: () => void;
     /** §FEAT-SITE-VIEW-ALWAYS-ON (L-40, ADR-0114) — enter the Cesium site surface. */
     pryzmEnterSiteView?: (initial?: 'map2d' | 'plan' | '3d') => void;
     /** O.7.2 — the top-level result view: '2D' = BIM 3D+plan dual pane, '3D' = photoreal globe. */
@@ -463,6 +475,27 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         // registered entry point that both of them, and this panel, can call.
         absorbs: ['Analysis (Forma sub-bar)', 'Site Analysis (floating launcher pill)'],
         dispatch: (h) => { h.pryzmToggleSiteAnalysis?.(); },
+    },
+    {
+        // ⭐ §ENVELOPE-TOOL-ON-THE-SITE-VIEWS (L-13017 · C58 §1.19 clause 2) — CREATE, not display.
+        //
+        // ⚠ DELIBERATELY DISTINCT FROM `site.buildable-envelope` BELOW, AND THE DISTINCTION IS THE
+        // WHOLE POINT (C58 §1.19 clause 3). That action shows the SOLVED legal ceiling — what the
+        // rule pack determined, with its provenance. THIS one authors the user's OWN level
+        // envelope: design intent, no `ordinanceRef`, no `DerivationTrace`, and it never overwrites
+        // the solved one. Merging them into a single "Envelope" entry would be exactly the L-373
+        // credibility failure the contract names — an envelope the user drew, wearing the badge of
+        // one PRYZM derived from a cited ordinance.
+        id: 'site.create-envelope',
+        label: 'Create Envelope',
+        icon: '⬒',
+        title:
+            'Open the envelope tool — author a LEVEL envelope on this site view. Your own design '
+            + 'intent, committed through the same command the Parcel Law tab uses.',
+        group: 'display',
+        entryPoints: ['pryzmOpenSiteEnvelopeTool'],
+        absorbs: [],
+        dispatch: (h) => { h.pryzmOpenSiteEnvelopeTool?.(); },
     },
     {
         id: 'site.buildable-envelope',
