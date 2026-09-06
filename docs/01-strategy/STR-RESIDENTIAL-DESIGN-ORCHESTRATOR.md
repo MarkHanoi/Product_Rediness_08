@@ -844,6 +844,49 @@ He gave the flow as a walkthrough. It is binding as written:
 > not separate work**: a nested, user-assignable pane tree cannot be built on a surface where one of
 > the two view types cannot move between panes.
 
+
+### §26.1.1 — FOUNDER RULING, 2026-09-06: the two Cesium views are MUTUALLY EXCLUSIVE
+
+I put the §L-412 tension to the founder directly — that §26.1's *"in every pane the user picks from
+2D map / 2D satellite / 3D site / 3D globe"* permits **3D site LEFT and 3D globe RIGHT at the same
+time**, that both are Cesium-backed, that there is exactly ONE Cesium container by design, and that
+honouring it literally would mean minting a second viewer.
+
+**His ruling, verbatim:**
+
+> *"if this is really expensive to build or architecturally not cheap - then keep it so if one of the
+> cesium bview is open the other can not - but both of them could if only one is meant to be active"*
+
+**This is DECIDED. Build to it; do not re-open it, and do not spend a lane re-deriving the
+trade-off.**
+
+What it means, stated so an implementer cannot get it wrong:
+
+1. **Both 3D Site and 3D Globe remain OFFERED in every pane's picker.** Neither is removed from the
+   six-option set, and neither is second-class. §26.1's "the user decides which view renders in each
+   pane" survives intact for all four view kinds.
+2. **At most ONE Cesium-backed view is ACTIVE at any moment**, across the whole pane tree. §L-412
+   stands unchanged: ONE Cesium container, re-targeted — never a second viewer, never a second
+   MapLibre map.
+3. **Choosing a Cesium view in pane B while one is live in pane A is a legal, expected action** —
+   not an error state. It must therefore have a defined, non-destructive outcome.
+4. **The other pane must not be left blank.** L-12992 is the standing lesson here: a pane whose only
+   surface was disposed is the black rectangle the founder photographed. Whatever happens to pane A
+   when pane B claims Cesium, pane A must end holding *something* it can state — a 2D view, or an
+   honest placeholder that says why it is not showing 3D and what to press to get it back.
+
+> ⛔ **The refusal must SPEAK, and it must be recoverable.** A silently greyed-out segment is the
+> wrong implementation of this ruling — it tells the user nothing and reads as a bug, which is
+> exactly how the founder has read three defects this session. If PRYZM declines to run two Cesium
+> views, it says so in one sentence naming the reason, and offers the action that resolves it
+> (swap the panes, or move 3D here and put 2D there). See [[refusing-half-needs-its-escape-hatch]]:
+> a gate whose "yes" branch is unreachable is a regression with a citation attached.
+
+⭐ **Why this ruling is good, recorded so it is not "fixed" later by someone who thinks they are
+helping:** two simultaneous Cesium viewers would mean two terrain streams, two tile caches and two
+GPU contexts on a page that already runs a WebGPU BIM renderer beside it. The founder chose the
+cheap, honest constraint over the expensive, fragile capability. A future lane that "restores" the
+second viewer is undoing a deliberate decision, not fixing a limitation.
 ### §26.2 — "Properly displayed" — the presentation standard
 
 His words: *"then on the analysis it needs to be more intuitive and way easier better displayed —
