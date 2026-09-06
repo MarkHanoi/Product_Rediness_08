@@ -245,8 +245,15 @@ export class WallProfileEditor implements WallProfileEditorPort {
         title.style.cssText =
             'flex:0 0 auto;font-weight:600;margin-bottom:8px;cursor:move;' +
             'user-select:none;-webkit-user-select:none;touch-action:none;';
-        title.textContent =
-            `Edit Wall Profile - ${s.length.toFixed(3)} m long, ${s.height.toFixed(3)} m high`;
+        // §RESI-STAGE-G (2026-09-06) — the SUBJECT names itself when it is not a wall.
+        // ⛔ The fallback is the wall sentence VERBATIM, and it is what every existing
+        // caller still produces: `wallProfileEditorChrome.test.ts:285` asserts this exact
+        // string, and a subject with no `title` must not change one byte of it. The space
+        // envelope supplies its own because a footprint is wide and deep, not long and
+        // high — a dialog that calls a storey outline a wall is the naming-vs-behaviour
+        // defect C114 §0.2 forbids (see `WallProfileEditorSubject.title`).
+        title.textContent = s.title
+            ?? `Edit Wall Profile - ${s.length.toFixed(3)} m long, ${s.height.toFixed(3)} m high`;
         root.appendChild(title);
 
         const wrap = document.createElement('div');

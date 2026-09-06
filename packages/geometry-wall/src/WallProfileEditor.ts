@@ -53,6 +53,21 @@ export interface WallProfileEditorSubject {
     readonly height: number;
     /** The wall's current ring, or `null` for the implicit rectangle. */
     readonly ring: ReadonlyArray<WallProfileVertex> | null;
+    /**
+     * ⭐ §RESI-STAGE-G (2026-09-06) — the panel's title bar, when the subject is NOT a wall.
+     *
+     * ⛔ OPTIONAL, AND ABSENT MEANS THE WALL SENTENCE, BYTE FOR BYTE. C114 §10b joins the
+     * space envelope to THIS editor rather than building a second one — but the panel's
+     * title is hard-coded `Edit Wall Profile - <length> m long, <height> m high`, and a
+     * footprint is neither long nor high: it is wide and deep. Shipping a dialog that calls
+     * a storey outline a wall is the naming-vs-behaviour defect C114 §0.2 exists to forbid,
+     * one layer out.
+     *
+     * The field is optional so the wall path is untouched: `wallProfileEditorChrome.test.ts`
+     * pins that exact sentence (`:285`), and a subject that omits `title` still produces it.
+     * The CALLER owns the wording (C16 CA-18) — this L2 type only carries it.
+     */
+    readonly title?: string;
 }
 
 export interface WallProfileEditorCallbacks {
