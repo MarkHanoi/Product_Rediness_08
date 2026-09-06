@@ -93,6 +93,17 @@ import { GRAPH_VIEW_EVENT, graphExpanded } from './graphViewState';
 // surface; torn down on every tab change and on hide, so the singleton
 // envelope card is only ever claimed by a host the reader can see.
 import { mountParcelLawTab, type ParcelLawTabHandle } from './parcelLawTab';
+// §SHELL-SPLIT-DRAG (L-12980, founder 2026-09-06: *"the user shall be able to DRAG THE
+// WIDTH of the view left/right on demand — we can do that on split view already — do it
+// sound — the same"*). The 50/50 edge between `#container` and this surface is TWO inline
+// widths on two elements; the resizer writes both from one fraction, sharing the split
+// view's own clamp (`shellSplitRatio.ts`). Mounted while VISIBLE only, so the handle can
+// never sit over a canvas this surface has left.
+import {
+  mountHalfCanvasResizer,
+  type HalfCanvasResizerHandle,
+} from '../layout/halfCanvasResizer';
+import { publishShellCanvasRegion } from '../layout/shellCanvasBudget';
 
 type ChartJS = typeof import('chart.js');
 
@@ -140,6 +151,8 @@ export class AnalysisSurface {
   /** §PARCEL-LAW-TAB (L-12915) — the live host body, or null when the Parcel
    *  Law tab is not the one on screen. Exactly one at a time; see `refresh()`. */
   private _parcelLaw: ParcelLawTabHandle | null = null;
+  /** §SHELL-SPLIT-DRAG (L-12980) — the view/panel drag handle. Live only while visible. */
+  private _resizer: HalfCanvasResizerHandle | null = null;
 
   constructor() {
     this._layout = loadLayout();
@@ -471,7 +484,45 @@ export class AnalysisSurface {
     this._paintPresentButton(); // §DEMO141 — same reason: a different project may hold a different choice
     this._buildTabs();
     this._renderFacetBar();
+    // §SHELL-SPLIT-DRAG (L-12980) — the view/panel edge becomes draggable while this
+    // surface is on screen. Mounted HERE rather than in the constructor because
+    // `#anl-surface` is appended to `document.body` at module load and only HIDDEN by
+    // class: a handle mounted once would keep claiming a 13 px strip of the viewport in
+    // Author and Data, where there is no panel edge for it to move.
+    //
+    // ⚠ RE-MOUNTED, not merely re-shown, and it costs nothing: the fraction the founder
+    // last dragged to is remembered by `halfCanvasResizer`'s module map (keyed on
+    // `#anl-surface`), so leaving Analysis and coming back restores HIS width, not 50/50.
+    this._mountResizer();
     void this.refresh();
+  }
+
+  /** §SHELL-SPLIT-DRAG — mount the drag handle. Idempotent; never throws into `_show`. */
+  private _mountResizer(): void {
+    if (this._resizer) { this._resizer.reapply(); return; }
+    try {
+      this._resizer = mountHalfCanvasResizer({
+        surface: this._el,
+        // Republish the canvas region once per drag so every canvas-anchored bar
+        // (`--shell-canvas-cx`) re-centres on the region the founder just chose. The
+        // `ResizeObserver` on `#container` does this too; both are idempotent writes of
+        // two custom properties, and calling it here makes the commit deterministic
+        // rather than dependent on an observer that a test DOM does not run.
+        onCommit: publishShellCanvasRegion,
+      });
+    } catch (e) {
+      // A shell that cannot be resized is still a shell. C06 §14.2 — degrade, never unmount.
+      console.warn('[AnalysisSurface] §SHELL-SPLIT-DRAG resizer mount failed (non-fatal):', e);
+      this._resizer = null;
+    }
+  }
+
+  /** §SHELL-SPLIT-DRAG — drop the handle and restore the widths it found. Idempotent. */
+  private _disposeResizer(): void {
+    if (!this._resizer) return;
+    const r = this._resizer;
+    this._resizer = null;
+    try { r.dispose(); } catch { /* §SWALLOW-TEARDOWN — the handle is being discarded */ }
   }
 
   private _hide(): void {
@@ -502,6 +553,19 @@ export class AnalysisSurface {
     // `document.contains` fallback — stranded in an invisible host. The body's
     // own dispose hands the card back to the viewport ONLY if it still holds it.
     this._disposeParcelLaw();
+
+    // §SHELL-SPLIT-DRAG (L-12980). ⛔ DROP THE HANDLE AND ITS MARKS ON HIDE.
+    //
+    // ⚠ ORDER IS LOAD-BEARING AND IT IS NOT THE ORDER YOU WOULD GUESS.
+    // `WorkspaceController.setMode` calls `_applyLayout()` BEFORE it emits
+    // `pryzm-workspace-mode`, so by the time this runs the NEXT mode's canvas width is
+    // already on `#container` — and its full-canvas branch clears `width` while saying
+    // nothing about `max-width`. A `max-width` left here would therefore survive the
+    // switch and pin the Author viewport at the dragged fraction with no panel beside it.
+    // `dispose()` clears ONLY the strings this handle itself last wrote (see
+    // `halfCanvasResizer.ts`), so a split pane that reopened one line earlier keeps its own
+    // 60 % and the mode keeps its own width.
+    this._disposeResizer();
   }
 
   /** §PARCEL-LAW-TAB — drop the host body, if any. Idempotent. */
