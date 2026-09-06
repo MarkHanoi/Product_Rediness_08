@@ -2403,8 +2403,13 @@ export class OnboardingStepController {
         if (!overlay) return;
         const gap = COMPACT_PILL_GAP_PX * UI_SCALE;
         const gutter = COMPACT_PILL_GUTTER_PX * UI_SCALE;
+        // §VIEW-PANEL-PER-PANE (2026-09-06) — PREFIX match, not an exact one. The view panel
+        // used to be ONE bar on `document.body` with exactly this testid; it is now one panel
+        // PER PANE (`…-left` / `…-right`), so an exact match would find nothing and this pill
+        // would silently fall back to canvas-centred placement ON TOP of the panels. Matching
+        // the prefix keeps the pill measuring the real bar it must sit beside.
         const findBar = (): HTMLElement | null =>
-            document.querySelector<HTMLElement>(`[data-testid="${SITE_VIEW_QUICK_TOGGLE_TESTID}"]`);
+            document.querySelector<HTMLElement>(`[data-testid^="${SITE_VIEW_QUICK_TOGGLE_TESTID}"]`);
 
         const apply = (): void => {
             if (this.disposed || !row.isConnected) return;
@@ -2458,8 +2463,9 @@ export class OnboardingStepController {
                 let barTouched = false;
                 for (const r of records) {
                     for (const n of [...Array.from(r.addedNodes), ...Array.from(r.removedNodes)]) {
+                        // §VIEW-PANEL-PER-PANE — prefix, for the same reason as `findBar`.
                         if (n instanceof HTMLElement
-                            && n.getAttribute('data-testid') === SITE_VIEW_QUICK_TOGGLE_TESTID) {
+                            && (n.getAttribute('data-testid') ?? '').startsWith(SITE_VIEW_QUICK_TOGGLE_TESTID)) {
                             barTouched = true;
                         }
                     }

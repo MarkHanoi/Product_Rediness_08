@@ -23,9 +23,11 @@ import { mountPaneViewPicker, type PaneViewPickerHandle } from './PaneViewPicker
 // store as the pickers below — there is no second write path.
 import {
     mountSiteViewQuickToggle,
+    type SiteViewBasemapPorts,
     type SiteViewCameraPorts,
     type SiteViewQuickToggleHandle,
 } from './SiteViewQuickToggle';
+import type { SiteViewGlobeFraming } from './siteViewQuickToggleModel';
 // §GLOBE-QUICK-TOGGLE (L-6800..L-6807, C60 §6.5) — the DECLARED world framing. Imported here,
 // in the COMPOSITION layer, and not by the bar's own model: C60 depends on C59 (C60 §7), so a
 // C59 chrome module reaching into C60 for a lat/lon would invert that edge. The bar names the
@@ -72,6 +74,12 @@ export interface SiteAuthoringPaneShellOptions {
      * globals). Tests pass recorders.
      */
     camera?: SiteViewCameraPorts;
+    /**
+     * §VIEW-PANEL-PER-PANE (founder 2026-09-06) — the basemap port the `2D Site Map` /
+     * `2D Satellite` rows dispatch into. Defaults to `defaultSiteViewBasemapPorts()` (the
+     * declared typed globals). Tests pass recorders.
+     */
+    basemap?: SiteViewBasemapPorts;
 }
 
 /**
@@ -112,6 +120,30 @@ export function defaultSiteViewCameraPorts(): SiteViewCameraPorts {
             window.pryzmZoomToSite?.();
         },
         canFrameSite: () => typeof window.pryzmZoomToSite === 'function',
+    };
+}
+
+/**
+ * §VIEW-PANEL-PER-PANE (founder 2026-09-06) — resolve the basemap port from the DECLARED
+ * typed globals `GISAreaLayout` registers. This is the whole production wiring.
+ *
+ * ⭐ NO NEW MACHINERY, and that is checkable rather than claimed: `pryzmSetSiteBasemap`
+ * forwards to `SiteBoundaryMap2D`'s own `swapBasemap` — the A.8.c.f.4 function the map's
+ * corner `Map | Satellite` chip has driven since 2026-06-03, and the only basemap
+ * implementation in this app. The founder's *"the 2d map satellite and non-satellite option
+ * is MASKED FOR ANOTHER PANEL"* was about REACH, not about a missing feature, so the fix is
+ * a second route to one implementation — never a second implementation.
+ *
+ * ⚠ `getBasemap` returns `null` when the reading is unavailable, and the panel then says so
+ * rather than lighting `2D Site Map`. `canSetBasemap` reports whether the swap exists at all
+ * — the `entryPoints: []` doctrine from `gisActionRegistry`: *"a dead button that looked
+ * alive is its own bug"*.
+ */
+export function defaultSiteViewBasemapPorts(): SiteViewBasemapPorts {
+    return {
+        setBasemap: (next) => { window.pryzmSetSiteBasemap?.(next); },
+        getBasemap: () => window.pryzmGetSiteBasemap?.() ?? null,
+        canSetBasemap: () => typeof window.pryzmSetSiteBasemap === 'function',
     };
 }
 
@@ -324,30 +356,67 @@ export function mountSiteAuthoringPaneShell(
         );
     }
 
-    // ── §SITE-VIEW-QUICK-TOGGLE (L-5110..L-5117) — the top-centre shortcut ──────
+    // ── §VIEW-PANEL-PER-PANE (founder 2026-09-06) — ONE VIEW PANEL PER PANE ────────
     //
-    // Founder: "we don't really need this 3D Site button on the top-right corner
-    // (almost hidden) … a button 3D globe / 3D site in the middle top would be
-    // beneficial."
+    // Founder, with screenshots: *"WHEN BEING IN A SINGLE VIEW … WE KEEP THE PANEL WITH ALL
+    // MAIN OPTIONS TO THE TOP: 2D SITE MAP / 2D SATELLITE / 3D SITE / 3D GLOBE / 3D PRYZM /
+    // 2D PRYZM … WHEN BEING IN SPLIT VIEW — WE SHALL HAVE TWO PANELS LIKE THAT — AND THE
+    // USER CAN DECIDE WHAT TO ADD IN EACH OF THE SPLIT VIEWS (LEFT OR RIGHT)."*
     //
-    // ⛔ It is mounted IN ADDITION to the pickers above, never instead of them. Four
-    // of the pane menu's six entries are disabled WITH REASONS (C59 Phase 2's
-    // disable-or-explain rule) and those refusals are real information about Phase 3
-    // work; a shortcut bar is not a licence to delete them.
+    // ⭐ ONE MECHANISM SERVES BOTH SENTENCES, which is why this is a change of HOST rather
+    // than a new control. The panel is mounted INSIDE each pane element, and `applyFraction`
+    // already collapses the vacated pane in a solo layout — so the split shows two panels,
+    // and a single view shows the surviving pane's one panel at its top. Nothing switches
+    // between two behaviours; there is only ever "a panel per visible pane".
     //
-    // It reads and writes the SAME `store`, so a change made from either surface
-    // repaints the other — the two cannot disagree about which view is where.
+    // ⛔ WHAT THIS REPLACED, AND WHY IT IS NOT A LOST ROUTE. Until today this mounted ONE
+    // bar on `document.body`, centred on the canvas region, that SOLOed whatever you pressed
+    // — so in the founder's own default split there was no way to say "satellite on the
+    // left, 3D site on the right", which is precisely what he asked for. Every row that bar
+    // carried (2D Site Map · 3D Site · 3D Globe · ◧ Split) is on BOTH panels here, plus the
+    // three he added, so C19 §5.6 clause 4 holds: routes were added, none removed.
     //
-    // Gated on the same `viewPicker` flag: a test asking for bare geometry wants no
-    // chrome at all, and splitting the flag would let one arrive without the other.
-    const quickToggle: SiteViewQuickToggleHandle | null =
-        opts.viewPicker !== false
-            ? mountSiteViewQuickToggle({
-                store,
-                mountableKinds: () => controller.registeredKinds?.() ?? null,
-                camera: opts.camera ?? defaultSiteViewCameraPorts(),
-            })
-            : null;
+    // ⛔ Mounted IN ADDITION to the pickers above, never instead of them. Four of the pane
+    // menu's six entries are disabled WITH REASONS (C59 Phase 2's disable-or-explain rule)
+    // and those refusals are real information about Phase 3 work — and elevations and
+    // sections live ONLY there, which is the founder's own *"if the user wants to open more
+    // they can do it in the browser."*
+    //
+    // Both panels read and write the SAME `store`, so a change made from either one — or
+    // from a pane menu — repaints the other. There is still exactly one layout owner.
+    //
+    // ⚠ THE GLOBE FRAMING IS SHARED, HELD HERE. Two panels drive ONE Cesium camera; a memory
+    // private to each panel would let the left one report "you are on the globe" while the
+    // right one reports you are not — two copies of one fact, drifting, which is the defect
+    // `gisActionRegistry` exists to remove. This shell owns the value and hands both panels
+    // the same getter and the same setter.
+    //
+    // Gated on the same `viewPicker` flag: a test asking for bare geometry wants no chrome
+    // at all, and splitting the flag would let one arrive without the other.
+    let globeFraming: SiteViewGlobeFraming = 'site';
+    const quickToggles: SiteViewQuickToggleHandle[] = [];
+    if (opts.viewPicker !== false) {
+        const camera = opts.camera ?? defaultSiteViewCameraPorts();
+        const basemap = opts.basemap ?? defaultSiteViewBasemapPorts();
+        for (const [pane, el] of [[LEFT_PANE, leftPaneEl], [RIGHT_PANE, rightPaneEl]] as const) {
+            quickToggles.push(
+                mountSiteViewQuickToggle({
+                    store,
+                    parent: el,
+                    paneId: pane,
+                    mountableKinds: () => controller.registeredKinds?.() ?? null,
+                    camera,
+                    basemap,
+                    getFraming: () => globeFraming,
+                    onFramingChanged: (next) => {
+                        globeFraming = next;
+                        // The OTHER panel is now stale about the one camera. Repaint it.
+                        for (const t of quickToggles) t.refresh();
+                    },
+                }),
+            );
+        }
+    }
 
     let disposed = false;
     const dispose = (): void => {
@@ -361,7 +430,9 @@ export function mountSiteAuthoringPaneShell(
         for (const p of pickers) {
             try { p.dispose(); } catch { /* chrome already gone */ }
         }
-        try { quickToggle?.dispose(); } catch { /* chrome already gone */ }
+        for (const t of quickToggles) {
+            try { t.dispose(); } catch { /* chrome already gone */ }
+        }
         // Detach both hosted renderers before removing the DOM (the mounters re-home
         // their singleton — e.g. Cesium back to #container — on unmount).
         leftHost.unmount();

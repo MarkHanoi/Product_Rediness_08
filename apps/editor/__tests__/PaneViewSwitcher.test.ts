@@ -67,10 +67,17 @@ describe('§C59 Phase 2 — disable-or-EXPLAIN (never a bare greyed option)', ()
     });
 
     it('marks elevation/section unavailable and points at where they DO render', () => {
+        // ⚠ UPDATED 2026-09-06 (§VIEW-PANEL-PER-PANE). The plan view is spelled "2D PRYZM"
+        // now — the founder's own word for it — so this arm names the DESTINATION by the
+        // registry's live label rather than by a hard-coded "Plan pane". Pinning the phrase
+        // instead of the label is what let the two drift in the first place (C84 EI-8).
+        const planLabel = VIEW_TYPE_REGISTRY['bim-plan-2d'].label;
+        expect(planLabel).toBe('2D PRYZM');
         for (const vt of ['bim-elevation-2d', 'bim-section-2d']) {
             const o = optionFor(EMPTY, RIGHT_PANE, vt);
             expect(o.enabled).toBe(false);
-            expect(o.reason).toMatch(/Plan pane/i);
+            expect(o.reason, `${vt} no longer says where it renders`).toContain(planLabel);
+            expect(o.reason).toMatch(/pane/i);
         }
     });
 

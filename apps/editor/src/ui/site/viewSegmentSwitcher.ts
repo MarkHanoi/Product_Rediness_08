@@ -1,5 +1,13 @@
 // §PARCEL-LAW-TAB (lane PARCEL-LAW-TAB, 2026-09-05 · STR §21 / §24.1 item 2 · L-12915) — the
-// FOUR-VIEW switcher, as a control any host can mount.
+// view switcher, as a control any host can mount.
+//
+// ⭐ UPDATED 2026-09-06 (§VIEW-PANEL-PER-PANE, founder request with screenshots). The table
+// is no longer four hand-written rows: it is DERIVED from `viewPanelOptions()`, the ONE
+// panel definition, which the founder specified as SIX — *"2D SITE MAP / 2D SATELLITE / 3D
+// SITE / 3D GLOBE / 3D PRYZM / 2D PRYZM"*. This file is the WHOLE-SCREEN host of that
+// definition (it dispatches `GIS_ACTIONS`); `SiteViewQuickToggle` is the PER-PANE host of
+// the same definition (it dispatches `view.pane.*` into `PaneLayoutStore`). Two hosts, ONE
+// definition, two authorities — the §GIS-ACTION-REGISTRY rule, not a second switcher.
 //
 // Founder 2026-09-05: *"the 3d view on the left (with option to switch to 3d site or 3d globe or
 // plan view)"* — from the PARCEL LAW tab of the Analysis surface, not only from the GIS layout.
@@ -13,43 +21,56 @@
 // 6,400-line file that several lanes edit concurrently is the wrong trade. What CAN be shared
 // without inventing anything is the thing the registry already declares: `GIS_ACTIONS` names each
 // view as an action with its registered entry point, and `pryzmGetSiteViewState` is the ONE
-// snapshot of which view is current. So this control is a HOST of four declared actions —
+// snapshot of which view is current. So this control is a HOST of declared actions —
 // exactly the §GIS-ACTION-REGISTRY rule (L-1187): *"A panel is a HOST; the action is the
 // AUTHORITY."* It contributes no handler and no state of its own.
 //
 // The dispatches are the SAME registered functions the GIS bar's own buttons drive:
-//   · `site.plan-oblique`  → `pryzmEnterSiteView('plan')`      (the bar's ◉ 3D Site → sub-bar Plan)
-//   · `site.bim-3d`        → `pryzmActivateBimView('3D')`      (the BIM model, filling the canvas)
-//   · `site.earth`         → `pryzmEnterSiteView('3d')`        (the bar's ◉ 3D Site)
-//   · `site.globe`         → `pryzmShowSiteResultView('3D')`   (the bar's ◉ 3D globe)
+//   · `site.map-2d`       → `pryzmEnterSiteView('map2d')` + `pryzmSetSiteBasemap('map')`
+//   · `site.satellite-2d` → `pryzmEnterSiteView('map2d')` + `pryzmSetSiteBasemap('satellite')`
+//   · `site.earth`        → `pryzmEnterSiteView('3d')`        (the bar's ◉ 3D Site)
+//   · `site.globe`        → `pryzmShowSiteResultView('3D')`   (the bar's ◉ 3D globe)
+//   · `site.bim-3d`       → `pryzmActivateBimView('3D')`      (the model, filling the canvas)
+//   · `site.bim-plan`     → `pryzmActivateBimView('Top')`     (the model in plan)
 // `showSiteResultView` calls `applyResultView`, and `pryzmEnterSiteView` calls
 // `mountFormaViewToggle` — the very closures behind the bar's segments — so the two controls
 // cannot disagree about what a click DOES. They can only disagree about what they PAINT, and
 // both derive that from the same snapshot.
 //
-// ── THE FOUNDER'S FOUR WORDS, MAPPED TO DECLARED ACTIONS — stated, not implied ──────────────
-// "plan"     = `site.plan-oblique`, the near-top-down shadowed massing over the real plot. It is
-//              the plan view in which the envelope is DRAWN (STR §24.1 item 3); `site.plan-gis`
-//              (plan over aerial, project north) is UNDER REPAIR (L-1197) and is not offered here.
-// "BIM 3D"   = `site.bim-3d`, the BIM model filling the canvas half. ⭐ CORRECTED 2026-09-06
-//              (§PARCEL-LAW-BIM3D). This segment used to point at `site.bim-split`, the BIM DUAL
-//              PANE — and from THIS host that was a click the reader could not see the result of.
-//              Measured: `.svp-pane` is `position: fixed; right: 0; width: 40%; z-index: 1`
-//              (styles/panels/splitView.ts) and `#anl-surface`, the Analysis surface this control
-//              is mounted on, is `position: fixed; right: 0; width: 50%; z-index: 50`
-//              (styles/panels/analysisSurface.ts). The pane opened ENTIRELY BEHIND the panel; and
-//              `SplitViewManager._buildDOM` also wrote `#container.style.width = '60%'` over the
-//              50% `WorkspaceController` had set, sliding the right tenth of the 3-D viewport under
-//              the panel. So "BIM 3D" read as a dead click that also broke the canvas.
-//              The previous header said the fix was "a registry row, not a handler in this file".
-//              That is exactly what was done: `site.bim-3d` is now DECLARED
-//              (`gisActionRegistry.ts`), dispatching the `pryzmActivateBimView` entry point that
-//              was already registered and that no action named. This file still contributes no
-//              handler. `site.bim-split` is NOT removed — C19 §5.6 clause 4, a route is added,
-//              never removed — it stays on the GIS bar and in the GIS panel, where a full-width
-//              canvas makes its right-hand pane visible.
-// "3D Site"  = `site.earth`  (PRYZM Earth — the Forma massing surface, landing on its 3D preset).
-// "3D Globe" = `site.globe`  (the photoreal tiles view).
+// ── THE FOUNDER'S SIX WORDS, MAPPED TO DECLARED ACTIONS — stated, not implied ───────────────
+// "2D Site Map"  = `site.map-2d`, the pastel vector draw map, basemap forced to `map`.
+// "2D Satellite" = `site.satellite-2d`. ⭐ THE SAME MAP under ESRI imagery — NOT a second map
+//                  and NOT a second view type. Satellite is a MapLibre STYLE
+//                  (`SiteBoundaryMap2D.swapBasemap`, A.8.c.f.4, shipped 2026-06-03), reached
+//                  until today only from a 32-px chip drawn inside the map itself. The
+//                  founder called that *"MASKED FOR ANOTHER PANEL"*; this is the promotion,
+//                  and the chip still works (C19 §5.6 clause 4). See `viewPanelOptions.ts`
+//                  for why a rival `site-satellite-2d` view type is ruled out by measurement.
+// "3D Site"      = `site.earth`  (PRYZM Earth — the Forma massing surface, on its 3D preset).
+// "3D Globe"     = `site.globe`  (the photoreal tiles view).
+// "3D PRYZM"     = `site.bim-3d`, the model filling the canvas. ⭐ CORRECTED 2026-09-06
+//                  (§PARCEL-LAW-BIM3D). This segment used to point at `site.bim-split`, the
+//                  DUAL PANE — and from THIS host that was a click the reader could not see
+//                  the result of. Measured: `.svp-pane` is `position: fixed; right: 0;
+//                  width: 40%; z-index: 1` (styles/panels/splitView.ts) and `#anl-surface`,
+//                  the Analysis surface this control is mounted on, is `position: fixed;
+//                  right: 0; width: 50%; z-index: 50` (styles/panels/analysisSurface.ts). The
+//                  pane opened ENTIRELY BEHIND the panel; and `SplitViewManager._buildDOM`
+//                  also wrote `#container.style.width = '60%'` over the 50%
+//                  `WorkspaceController` had set, sliding the right tenth of the 3-D viewport
+//                  under the panel. `site.bim-split` is NOT removed — it stays on the GIS bar
+//                  and in the GIS panel, where a full-width canvas makes its pane visible.
+// "2D PRYZM"     = `site.bim-plan`, the model in plan (top view), filling the canvas. Its
+//                  entry point was ALREADY live and already defaulted to this
+//                  (`pryzmActivateBimView` is registered as `activateView(mode ?? 'Top')`);
+//                  no action named it, so no surface could offer it.
+//
+// ⚠ NOT OFFERED HERE, AND NOT REMOVED: `site.plan-oblique` (the near-top-down shadowed
+// massing over the real plot, STR §24.1 item 3) is not one of the founder's six. It stays
+// DECLARED, stays on the Forma sub-bar, and stays in the Project Browser's GIS panel —
+// `renderGisActions` renders every declared action and refuses a caller-supplied id list, so
+// the route cannot be lost by omission here. That is the founder's own escape hatch:
+// *"if the user wants to open more they can do it in the browser."*
 //
 // ── HONEST UNAVAILABILITY ───────────────────────────────────────────────────────────────────
 // A segment whose action does not resolve (`resolveGisAction` → null: the GIS layout has not
@@ -59,9 +80,10 @@
 // return.
 //
 // ── UNREPORTED ≠ NOT CURRENT ──────────────────────────────────────────────
-// `GisSiteViewState` has three fields — `segment`, `formaMode`, `buildingFidelity` — and NONE of
-// them says which BIM view ViewController activated. So `site.bim-3d` declares no `activeWhen`,
-// and this control can never highlight it. That is a gap in the AUTHORITY, not a judgement that
+// `GisSiteViewState` has four fields — `segment`, `formaMode`, `buildingFidelity` and (new
+// 2026-09-06) `basemap` — and NONE of them says which model view ViewController activated. So
+// `site.bim-3d` and `site.bim-plan` declare no `activeWhen`, and this control can never
+// highlight them. That is a gap in the AUTHORITY, not a judgement that
 // the view is off, and the two must not print the same thing (C84 EI-1b — failure and emptiness
 // becoming one value is this repo's most expensive recurring defect).
 //
@@ -89,11 +111,12 @@ import {
     type GisCapabilityHost,
     type GisSiteViewState,
 } from '../gis/gisActionRegistry';
+import { viewPanelOptions, type ViewPanelOptionId } from '../../engine/views/viewPanelOptions';
 
 const _tracer = trace.getTracer('pryzm.site.viewSegmentSwitcher');
 
-/** The founder's four views, in his order (STR §24.1 item 2). */
-export type ViewSegmentId = 'plan' | 'bim-3d' | 'site-3d' | 'globe';
+/** The founder's panel rows (`viewPanelOptions.ts` — the ONE definition). */
+export type ViewSegmentId = ViewPanelOptionId;
 
 export interface ViewSegmentDef {
     readonly id: ViewSegmentId;
@@ -104,16 +127,27 @@ export interface ViewSegmentDef {
 }
 
 /**
- * ⛔ Four rows, each pointing at a registry id. Nothing here is a handler: the spec asserts every
- * `actionId` resolves to a declared action, so a renamed or deleted registry row fails the build
- * here instead of silently rendering a dead segment.
+ * ⭐ §VIEW-PANEL-PER-PANE (founder 2026-09-06) — DERIVED from `viewPanelOptions()`, the ONE
+ * panel definition, rather than hand-listed here. Its six rows are the founder's own:
+ * *"2D SITE MAP / 2D SATELLITE / 3D SITE / 3D GLOBE / 3D PRYZM / 2D PRYZM"*.
+ *
+ * ⛔ The guarantee this table has always carried is UNCHANGED and is why the derivation is
+ * safe: nothing here is a handler, and the spec asserts every `actionId` resolves to a
+ * declared action WITH a registered entry point — so a renamed or deleted registry row fails
+ * the build here instead of silently rendering a dead segment.
+ *
+ * ⚠ WHAT LEFT, AND WHERE IT STILL LIVES. The previous four rows were
+ * `Plan · BIM 3D · 3D Site · 3D Globe`. `site.plan-oblique` ("Plan") is not one of the
+ * founder's six and is no longer offered FROM THIS HOST — but the ROUTE is not removed
+ * (C19 §5.6 clause 4): `renderGisActions` renders EVERY declared action and refuses to
+ * accept a caller-supplied id list, so `site.plan-oblique` is still one click away in the
+ * GIS panel of the Project Browser, and the Forma sub-bar (`mountFormaViewToggle`) still
+ * carries it. That is precisely the founder's *"if the user wants to open more they can do
+ * it in the browser."* "BIM 3D" is the same view under his own spelling, `3D PRYZM`.
  */
-export const VIEW_SEGMENTS: readonly ViewSegmentDef[] = Object.freeze([
-    { id: 'plan',    label: 'Plan',     actionId: 'site.plan-oblique' },
-    { id: 'bim-3d',  label: 'BIM 3D',   actionId: 'site.bim-3d' },
-    { id: 'site-3d', label: '3D Site',  actionId: 'site.earth' },
-    { id: 'globe',   label: '3D Globe', actionId: 'site.globe' },
-]);
+export const VIEW_SEGMENTS: readonly ViewSegmentDef[] = Object.freeze(
+    viewPanelOptions().map((o) => Object.freeze({ id: o.id, label: o.label, actionId: o.actionId })),
+);
 
 /** `data-testid` on the control root. */
 export const VIEW_SEGMENT_SWITCHER_TESTID = 'view-segment-switcher';
@@ -169,7 +203,7 @@ function isActive(decl: GisActionDecl, state: GisSiteViewState | null): boolean 
 }
 
 /**
- * Mount the four-view switcher. Returns a handle; the caller owns placement.
+ * Mount the view switcher. Returns a handle; the caller owns placement.
  *
  * Styling reuses the `.pb-gis-action*` rules `renderGisActions` paints with (tokens only — C84
  * EI-8, no colour literal in this file), under a `.view-segment-switcher` row so the four read
@@ -182,7 +216,7 @@ export function mountViewSegmentSwitcher(host: GisCapabilityHost): ViewSegmentSw
         root.className = 'view-segment-switcher';
         root.setAttribute('data-testid', VIEW_SEGMENT_SWITCHER_TESTID);
         root.setAttribute('role', 'group');
-        root.setAttribute('aria-label', 'Left-pane view');
+        root.setAttribute('aria-label', 'View');
 
         const row = document.createElement('div');
         row.className = 'view-segment-switcher-row';
@@ -308,7 +342,7 @@ This segment works. Whether it is the CURRENT view is not `
                     + `segment "${snapshot.segment}", site mode "${snapshot.formaMode}"; press a segment to switch.`;
             } else {
                 status.textContent =
-                    `The left pane is not on one of these four views (segment "${snapshot.segment}", site mode "${snapshot.formaMode}") — `
+                    `The view is not one of these (segment "${snapshot.segment}", site mode "${snapshot.formaMode}", basemap "${snapshot.basemap ?? 'not reported'}") — `
                     + 'read as a snapshot; press a segment to switch.';
             }
         };

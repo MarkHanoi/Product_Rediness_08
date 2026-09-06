@@ -330,7 +330,19 @@ describe('§L-1582 — absence is a sentence, never zeros and never a blank', ()
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('§L-1585 — the section carries a labelled button in EVERY state', () => {
-    const liveHost = { pryzmEnterSiteView: () => { /* recorded below */ } };
+    // ⚠ UPDATED 2026-09-06 (§VIEW-PANEL-PER-PANE). `site.map-2d` now declares TWO entry
+    // points — it opens the 2D map AND forces the pastel vector basemap — because the
+    // founder's view panel offers `2D Site Map` and `2D Satellite` as siblings, and a
+    // "2D Site Map" press from satellite that only re-entered a view the user is already in
+    // would change nothing on screen. `resolveGisAction` refuses an action with ANY missing
+    // entry point, so a host fake built from the OLD shape now renders this button disabled.
+    // The fake is the ENVIRONMENT, not the subject: production registers both hooks in the
+    // same `mountGISArea` pass, and `gisActionRegistry.test.ts` asserts every declared entry
+    // point has an assignment in production source.
+    const liveHost = {
+        pryzmEnterSiteView: () => { /* recorded below */ },
+        pryzmSetSiteBasemap: () => { /* recorded below */ },
+    };
 
     it('renders the button when there is no boundary at all', () => {
         const body = buildParcelSectionBody(null, [buildOpenMapAction(liveHost)]);
@@ -354,13 +366,19 @@ describe('§L-1585 — the section carries a labelled button in EVERY state', ()
 
     it('dispatches the DECLARED site.map-2d action, not a hand-written handler', () => {
         const calls: string[] = [];
-        const host = { pryzmEnterSiteView: (v?: string) => { calls.push(`enter(${v})`); } };
+        const host = {
+            pryzmEnterSiteView: (v?: string) => { calls.push(`enter(${v})`); },
+            pryzmSetSiteBasemap: (v?: string) => { calls.push(`basemap(${v})`); },
+        };
         const action = buildOpenMapAction(host);
         action.onClick();
         // The declared action's own dispatch is what runs — asserted against the registry.
         const decl = GIS_ACTIONS.find((a) => a.id === 'site.map-2d');
         expect(decl, 'site.map-2d is no longer declared — the button lost its authority').toBeDefined();
-        expect(calls).toEqual(['enter(map2d)']);
+        // ⭐ BOTH declared halves run. The basemap half is what makes "open the 2D map" mean
+        // the pastel vector map rather than "whatever style was last left up" (§VIEW-PANEL-PER-PANE).
+        expect(calls).toEqual(['enter(map2d)', 'basemap(map)']);
+        expect(decl!.entryPoints).toEqual(['pryzmEnterSiteView', 'pryzmSetSiteBasemap']);
     });
 
     it('mountParcelSection puts the card AND the button into a real host element', () => {

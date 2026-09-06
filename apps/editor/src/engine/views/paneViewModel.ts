@@ -78,34 +78,62 @@ export interface ViewTypeDescriptor {
     readonly unavailableReason?: string;
     /** Short one-glyph mark for compact picker chrome (brand-neutral, no colour). */
     readonly glyph?: string;
+    /**
+     * §VIEW-PANEL-PER-PANE (founder 2026-09-06) — is this view a ROW on the always-on view
+     * panel, as opposed to something you reach through the pane menu?
+     *
+     * The founder named the panel's contents exactly: *"WE KEEP THE PANEL WITH ALL MAIN
+     * OPTIONS TO THE TOP: 2D SITE MAP / 2D SATELLITE / 3D SITE / 3D GLOBE / 3D PRYZM / 2D
+     * PRYZM — if the user wants to open more they can do it in the browser."* That is FOUR
+     * views (two of them offered under two variants each), not six, and the two he left out
+     * — elevation and section — are the two whose own `unavailableReason` already says they
+     * are chosen INSIDE the plan pane rather than assigned to a pane. So "promoted" is a
+     * registry fact about the view, declared once here.
+     *
+     * ⛔ THE PANEL DERIVES ITS SET FROM THIS FLAG — it does not carry a second census.
+     * `viewPanelOptions.ts` asserts both directions: a promoted view with no panel row
+     * fails, and a panel row for a view that is not promoted fails. Promote a view here and
+     * it appears; that is the whole edit.
+     *
+     * `false`/absent does NOT mean hidden — every registry view is still listed, with its
+     * reason, in the per-pane picker (`describePaneViewOptions`).
+     */
+    readonly panelPromoted?: boolean;
 }
 
 /** The canonical view-type registry. The live PaneHost consults this to pick a mounter. */
 export const VIEW_TYPE_REGISTRY: Readonly<Record<ViewType, ViewTypeDescriptor>> = {
+    // ⚠ DECLARATION ORDER IS THE PANEL'S ORDER (`listPaneViewTypes` returns the keys in
+    // this order, and `viewPanelOptions()` walks it). It is the founder's own order,
+    // 2026-09-06: 2D SITE MAP · 2D SATELLITE · 3D SITE · 3D GLOBE · 3D PRYZM · 2D PRYZM —
+    // which is why `bim-3d` now precedes `bim-plan-2d`.
     'site-map-2d': {
         viewType: 'site-map-2d', rendererKind: 'maplibre', singleton: false,
-        label: '2D Site Map', glyph: '▦', paneHostable: true,
+        label: '2D Site Map', glyph: '▦', paneHostable: true, panelPromoted: true,
     },
     'site-3d': {
         viewType: 'site-3d', rendererKind: 'cesium', singleton: true,
-        label: '3D Site', glyph: '◉', paneHostable: true,
-    },
-    'bim-plan-2d': {
-        viewType: 'bim-plan-2d', rendererKind: 'canvas2d', singleton: false,
-        label: 'Plan', glyph: '▤', paneHostable: true,
+        label: '3D Site', glyph: '◉', paneHostable: true, panelPromoted: true,
     },
     'bim-3d': {
         viewType: 'bim-3d', rendererKind: 'webgpu-three', singleton: true,
-        label: '3D Model', glyph: '◧', paneHostable: false,
+        // §VIEW-PANEL-PER-PANE — the founder's word ("3D PRYZM"), replacing "3D Model".
+        label: '3D PRYZM', glyph: '◧', paneHostable: false, panelPromoted: true,
         unavailableReason:
-            'The BIM 3D renderer still owns the whole viewport (#container) and cannot be ' +
-            're-targeted into a pane yet — that is C59 Phase 3.',
+            'The PRYZM 3D renderer still owns the whole viewport (#container) and cannot be ' +
+            're-targeted into a pane yet — that is C59 Phase 3. It opens FULL SCREEN instead ' +
+            '(the panel offers that route), which leaves this split.',
+    },
+    'bim-plan-2d': {
+        viewType: 'bim-plan-2d', rendererKind: 'canvas2d', singleton: false,
+        // §VIEW-PANEL-PER-PANE — the founder's word ("2D PRYZM"), replacing "Plan".
+        label: '2D PRYZM', glyph: '▤', paneHostable: true, panelPromoted: true,
     },
     'bim-elevation-2d': {
         viewType: 'bim-elevation-2d', rendererKind: 'canvas2d', singleton: false,
         label: 'Elevation', glyph: '◪', paneHostable: false,
         unavailableReason:
-            'Elevations render in the Plan pane — pick "Plan", then choose the elevation in ' +
+            'Elevations render in the 2D PRYZM (plan) pane — pick "2D PRYZM", then choose the elevation in ' +
             'that pane\'s own view selector. A directly assignable elevation pane needs ' +
             'per-pane view state (C59 Phase 3).',
     },
@@ -113,7 +141,7 @@ export const VIEW_TYPE_REGISTRY: Readonly<Record<ViewType, ViewTypeDescriptor>> 
         viewType: 'bim-section-2d', rendererKind: 'canvas2d', singleton: false,
         label: 'Section', glyph: '◫', paneHostable: false,
         unavailableReason:
-            'Sections render in the Plan pane — pick "Plan", then choose the section in that ' +
+            'Sections render in the 2D PRYZM (plan) pane — pick "2D PRYZM", then choose the section in that ' +
             'pane\'s own view selector. A directly assignable section pane needs per-pane ' +
             'view state (C59 Phase 3).',
     },

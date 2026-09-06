@@ -331,9 +331,30 @@ export interface SiteBoundaryMap2DOptions {
  * "Generate with AI?" confirm step appears over a live plan map. Call `dispose()`
  * (or `window.pryzmCloseBoundaryMap2D`) at generate-time to tear it down.
  */
+/**
+ * §VIEW-PANEL-PER-PANE (founder 2026-09-06) — the map's handle, NAMED so the basemap
+ * swap can leave this file without being re-implemented.
+ *
+ * ⭐ `setBasemap` is NOT a new capability. It is `swapBasemap`, the A.8.c.f.4 function the
+ * corner `Map | Satellite` chip has driven since 2026-06-03, exposed on the handle. The
+ * founder's *"the 2d map satellite and non-satellite option is MASKED FOR ANOTHER PANEL"*
+ * is a REACHABILITY complaint, not a missing feature: the capability existed and only the
+ * chip inside the map could reach it. The corner chip is UNCHANGED and still works — a
+ * route is added here, never removed (C19 §5.6 clause 4).
+ */
+export interface SiteBoundaryMap2DHandle {
+    readonly element: HTMLElement;
+    dispose(): void;
+    rearm(): void;
+    /** Swap the MapLibre style (cream vector ⇄ ESRI satellite raster). Idempotent. */
+    setBasemap(next: 'map' | 'satellite'): void;
+    /** Which basemap is live right now — a READING off this map, not a remembered command. */
+    getBasemap(): 'map' | 'satellite';
+}
+
 export function mountSiteBoundaryMap2D(
     opts: SiteBoundaryMap2DOptions,
-): { dispose: () => void; rearm: () => void; readonly element: HTMLElement } {
+): SiteBoundaryMap2DHandle {
     const { parent, runtime, getOrigin, onClose, onCommit } = opts;
     // §PARCEL-SELECT (L-380 P1 / L-384) — the parcel data source for the "Select parcel"
     // mode. NULL = data not wired for this deployment → the select UI is fully built but
@@ -2655,7 +2676,16 @@ export function mountSiteBoundaryMap2D(
         console.log('[gis] map2d: ready — Forma minimal-vector boundary-draw map mounted');
     });
 
-    return { element: overlay, dispose, rearm: rearmDraw };
+    // §VIEW-PANEL-PER-PANE — the SAME `swapBasemap` the corner chip calls (it is the click
+    // handler two lines below its definition), handed out rather than copied. There is one
+    // basemap implementation in this app and this is it.
+    return {
+        element: overlay,
+        dispose,
+        rearm: rearmDraw,
+        setBasemap: (next) => swapBasemap(next),
+        getBasemap: () => basemap,
+    };
 }
 
 /** Absolute shoelace area of an XZ ring (m²) — for the commit toast. */

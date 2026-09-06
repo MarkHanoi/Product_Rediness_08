@@ -168,6 +168,9 @@ import {
 } from '../site/parcelEdgeClassificationDetermination';
 import { makeDraggable } from '../makeDraggable';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
+// §VIEW-PANEL-PER-PANE — TYPE ONLY. The module itself stays lazy-imported below (it pulls
+// the MapLibre chunk); a `import type` is erased at build time and adds nothing to the bundle.
+import type { SiteBoundaryMap2DHandle } from '../geospatial/SiteBoundaryMap2D';
 import { buildingGeometrySignature } from '../geospatial/formaBuildingFidelity';
 // §MASSING-FOLLOWS-THE-ARC (L-11172) — the pure wall-record → massing-wall mapper (curve-aware).
 import { formaWallFromRecord, type FormaMassingWall, type FormaWallRecordLike } from '../geospatial/formaWallCurve';
@@ -501,7 +504,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // the Cesium-3D draw surface for the DRAW step (Cesium stays for 3D render):
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
     // retained for the console fallback (pryzmStartBoundaryDraw3D) only.
-    let map2dHandle: { dispose: () => void; rearm: () => void } | null = null;
+    let map2dHandle: SiteBoundaryMap2DHandle | null = null;
+    // §VIEW-PANEL-PER-PANE (founder 2026-09-06) — the basemap the user has ASKED for.
+    //
+    // ⚠ It is a REQUEST, not a reading, and the two are different facts. The map is
+    // lazy-imported, so `pryzmSetSiteBasemap('satellite')` can arrive before any map
+    // exists; dropping it there is the silent-no-op defect (L-1187) — the founder presses
+    // "2D Satellite", the map opens, and it is cream. So the request is REMEMBERED here and
+    // applied at mount. `pryzmGetSiteBasemap` prefers the LIVE map's own reading and falls
+    // back to this only when there is no map to read.
+    let requestedBasemap: 'map' | 'satellite' = 'map';
     // §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — the live site-authoring
     // split (2D map LEFT · 3D Site RIGHT). Non-null while the paned layout is active;
     // consulted by the Forma live-update gate (a paned 3D Site is NOT `map2d`) and by
@@ -617,6 +629,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     console.log('[gis] map2d: boundary committed — keeping cream plan map alive (teardown deferred to generate).');
                 },
             });
+            // §VIEW-PANEL-PER-PANE — apply the basemap the user already asked for. Without
+            // this, pressing "2D Satellite" from the view panel BEFORE the map exists opens
+            // the cream map and silently loses the request.
+            if (requestedBasemap !== 'map') map2dHandle.setBasemap(requestedBasemap);
             console.log('[gis] map2d: Hektar 2D boundary-draw map opened');
         }).catch((err: unknown) => {
             console.error('[gis] map2d: failed to open', err);
@@ -5796,6 +5812,25 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         return present;
     };
 
+    // §VIEW-PANEL-PER-PANE (founder 2026-09-06: *"the 2d map satellite and non-satellite
+    // option is MASKED FOR ANOTHER PANEL — add those options to the main panel"*).
+    //
+    // ⭐ RE-HOSTED, NOT RE-IMPLEMENTED. This forwards to `SiteBoundaryMap2D`'s own
+    // `swapBasemap` — the A.8.c.f.4 function the corner `Map | Satellite` chip has always
+    // driven. There is exactly one basemap implementation and this is not a second one.
+    // With no map mounted the request is REMEMBERED (see `requestedBasemap`) rather than
+    // dropped, so the panel's button is never a silent no-op.
+    window.pryzmSetSiteBasemap = (next: 'map' | 'satellite') => {
+        requestedBasemap = next;
+        map2dHandle?.setBasemap(next);
+    };
+    // ⚠ THE LIVE MAP WINS. The corner chip writes the map's own `basemap` and knows nothing
+    // about `requestedBasemap`, so reading our own memory while a map is on screen would
+    // report a swap the user made from the chip as not having happened — failure and
+    // emptiness collapsing into one value (C84 EI-1b). Ask the map; fall back only when
+    // there is no map to ask.
+    window.pryzmGetSiteBasemap = () => map2dHandle?.getBasemap() ?? requestedBasemap;
+
     /** §GIS-ACTION-REGISTRY (L-1361, C06 §13) — report which site view / fidelity is CURRENT.
      *
      *  The GIS panel needs to paint an active state, and there are exactly two ways to get
@@ -5810,6 +5845,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     window.pryzmGetSiteViewState = () => ({
         segment: activeSegment,
         formaMode: formaViewMode,
+        // §VIEW-PANEL-PER-PANE — WHICH 2D basemap, so a panel can tell "2D Site Map" from
+        // "2D Satellite" instead of lighting both or neither. Read off the live map.
+        basemap: map2dHandle?.getBasemap() ?? requestedBasemap,
         // FORMA.6 vs §GLOBE-FIDELITY — two variables, and which one the user is actually
         // looking at depends on the active segment. Reporting the one that governs the
         // visible surface is the same de-duplication `pryzmZoomToSite` makes: the user has

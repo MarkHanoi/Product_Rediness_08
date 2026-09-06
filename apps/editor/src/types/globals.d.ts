@@ -434,7 +434,22 @@ declare global {
             segment: '2D' | '3D' | 'forma';
             formaMode: 'map2d' | 'plan' | '3d';
             buildingFidelity: 'massing' | 'real';
+            /** §VIEW-PANEL-PER-PANE — which 2D basemap the site map is drawing. Optional:
+             *  a host registered before this field existed reports `undefined`, which a
+             *  reader must treat as "not reported", never as "cream". */
+            basemap?: 'map' | 'satellite';
         };
+        /** §VIEW-PANEL-PER-PANE (founder 2026-09-06) — swap the 2D site map between the
+         *  cream Hektar vector basemap and the ESRI satellite raster.
+         *
+         *  ⭐ It forwards to `SiteBoundaryMap2D`'s own `swapBasemap` (A.8.c.f.4) — the exact
+         *  function the map's corner `Map | Satellite` chip drives. Registered by
+         *  GISAreaLayout, which REMEMBERS the request when no map is mounted yet and applies
+         *  it when one opens, so the panel button is never a silent no-op. */
+        pryzmSetSiteBasemap?: (next: 'map' | 'satellite') => void;
+        /** §VIEW-PANEL-PER-PANE — the LIVE basemap reading (the map's own state when one is
+         *  mounted, otherwise the last request). Registered by GISAreaLayout. */
+        pryzmGetSiteBasemap?: () => 'map' | 'satellite';
         /** §GIS-ENVELOPE-REHOST (L-1362, C06 §13.3) — claim the buildability read-out (the
          *  C58 buildable-envelope card) for a host element; `null` releases it back to the
          *  viewport. Returns whether a card is present afterwards.

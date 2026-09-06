@@ -63,6 +63,17 @@ export interface GisCapabilityHost {
     pryzmActivateBimView?: (mode?: 'Top' | '3D' | 'Front' | 'Back' | 'Left' | 'Right') => Promise<void> | void;
     /** §FEAT-PLAN-VIEW-GIS (L-104, ADR-0115) — plan view over the real-world aerial. */
     pryzmEnterPlanViewGis?: () => void | Promise<void>;
+    /**
+     * §VIEW-PANEL-PER-PANE (founder 2026-09-06) — swap the 2D site map's basemap between
+     * the cream Hektar vector style and the ESRI satellite raster.
+     *
+     * ⭐ DECLARED 2026-09-06 because the capability was ALREADY BUILT and only reachable
+     * from a 32-px chip inside the map itself (`SiteBoundaryMap2D` A.8.c.f.4, shipped
+     * 2026-06-03) — the founder's *"MASKED FOR ANOTHER PANEL"*. This entry point forwards
+     * to that same `swapBasemap`; nothing about the basemap is re-implemented, and the
+     * corner chip still works (C19 §5.6 clause 4 — a route is added, never removed).
+     */
+    pryzmSetSiteBasemap?: (next: 'map' | 'satellite') => void;
     /** FORMA.6 — building fidelity on the "3D Site" (Forma) surface. */
     pryzmSetFormaBuildingFidelity?: (fidelity: 'massing' | 'real') => void;
     /** §GLOBE-FIDELITY — building fidelity on the photoreal globe surface. */
@@ -97,6 +108,16 @@ export interface GisSiteViewState {
     readonly segment: '2D' | '3D' | 'forma';
     readonly formaMode: 'map2d' | 'plan' | '3d';
     readonly buildingFidelity: 'massing' | 'real';
+    /**
+     * §VIEW-PANEL-PER-PANE — WHICH basemap the 2D site map is drawing.
+     *
+     * ⚠ OPTIONAL, and `undefined` means NOT REPORTED, never "cream". A host registered
+     * before this field existed (or a test fake built from the old shape) returns a
+     * snapshot without it; a reader that defaulted it to `'map'` would light "2D Site Map"
+     * while the user is looking at satellite imagery — failure and emptiness collapsing
+     * into one value, which is C84 EI-1b and this repo's most expensive recurring defect.
+     */
+    readonly basemap?: 'map' | 'satellite';
 }
 
 export type GisEntryPointName = keyof GisCapabilityHost;
@@ -167,9 +188,20 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
     // ── Site views ──────────────────────────────────────────────────────────────
     {
         id: 'site.earth',
-        label: 'PRYZM Earth',
+        // §VIEW-PANEL-PER-PANE — RENAMED 2026-09-06, back to the founder's own word.
+        //
+        // ⚠ THIS IS A REVERSAL OF A PRD RENAME, STATED SO IT IS NOT UNDONE BY ACCIDENT.
+        // PRYZM-EARTH-ONBOARDING §10 renamed this entry "3D Site" → "PRYZM Earth", but only
+        // on the floating pill; three other surfaces kept the old spelling, which is how the
+        // founder ended up seeing "3D Site" twice — the defect this registry was built for.
+        // `VIEW_TYPE_REGISTRY['site-3d'].label` never moved off "3D Site" either, so the two
+        // registries have been disagreeing about one view ever since. On 2026-09-06 the
+        // founder named the panel row himself: *"3D SITE"*. That settles the vocabulary at
+        // "3D Site" (C84 EI-8, one spelling per action). "PRYZM Earth" remains the PRODUCT
+        // name for the globe surface — it is retired only as a CONTROL LABEL.
+        label: '3D Site',
         icon: '◉',
-        title: 'Open PRYZM Earth — the 3D site view on the real-world plot (true north + geolocation). Works from any view.',
+        title: 'Open the 3D site view on the real-world plot (PRYZM Earth — true north + geolocation). Works from any view.',
         group: 'siteViews',
         activeWhen: (s) => s.segment === 'forma' && s.formaMode === '3d',
         entryPoints: ['pryzmEnterSiteView'],
@@ -181,6 +213,8 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
             '3D Site (GIS rail panel button — surface deleted)',
             '3D Site (Forma sub-bar context label)',
             '3D (Forma sub-bar)',
+            // §VIEW-PANEL-PER-PANE — the PRD spelling, retired as a control label 2026-09-06.
+            'PRYZM Earth (floating launcher pill)',
         ],
         dispatch: (h) => { h.pryzmEnterSiteView?.('3d'); },
     },
@@ -196,19 +230,63 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         dispatch: (h) => { h.pryzmEnterSiteView?.('plan'); },
     },
     {
+        // §VIEW-PANEL-PER-PANE — the founder's "2D SITE MAP". Renamed from "2D Map" so the
+        // ONE spelling matches `VIEW_TYPE_REGISTRY['site-map-2d'].label`, which the pane
+        // picker and the view panel already print (C84 EI-8: one label per action — two
+        // registries spelling one view two ways is how "3D Site" came to mean two things).
         id: 'site.map-2d',
-        label: '2D Map',
+        label: '2D Site Map',
         icon: '▦',
-        title: 'Drop to the 2D draw map to draw or edit the site boundary.',
+        title: 'Drop to the 2D draw map (the pastel vector basemap) to draw or edit the site boundary.',
         group: 'siteViews',
-        activeWhen: (s) => s.segment === 'forma' && s.formaMode === 'map2d',
-        entryPoints: ['pryzmEnterSiteView'],
-        absorbs: ['2D Map (Forma sub-bar)'],
-        dispatch: (h) => { h.pryzmEnterSiteView?.('map2d'); },
+        // ⚠ THE BASEMAP IS PART OF THE ANSWER. `site.satellite-2d` below shows the SAME map
+        // under ESRI imagery, so "am I on the 2D site map?" is only half the question — a
+        // predicate that ignored the basemap would light both rows at once. An UNREPORTED
+        // basemap (an older host: see `GisSiteViewState.basemap`) is not "cream", so this
+        // reports false rather than guessing, and the panel says the reading is missing.
+        activeWhen: (s) => s.segment === 'forma' && s.formaMode === 'map2d' && s.basemap === 'map',
+        entryPoints: ['pryzmEnterSiteView', 'pryzmSetSiteBasemap'],
+        absorbs: ['2D Map (Forma sub-bar)', '2D Map (GIS panel row)'],
+        // Both halves, or the button is a dead click for anyone already on satellite: without
+        // the basemap call, "2D Site Map" pressed from satellite would re-enter a view the
+        // user is already in and change nothing visible.
+        dispatch: (h) => { h.pryzmEnterSiteView?.('map2d'); h.pryzmSetSiteBasemap?.('map'); },
+    },
+    {
+        // ⭐ §VIEW-PANEL-PER-PANE (founder 2026-09-06: *"the 2d map satellite and
+        // non-satellite option is MASKED FOR ANOTHER PANEL — add those options to the main
+        // panel"*). The capability shipped 2026-06-03 (A.8.c.f.4) and could only ever be
+        // reached from a 32-px chip drawn INSIDE the map. This is the promotion, and it is a
+        // RE-HOST: `pryzmSetSiteBasemap` forwards to the map's own `swapBasemap`.
+        //
+        // ⛔ IT IS NOT A SECOND VIEW, and that distinction is the same one C60 §6.5 makes
+        // for the globe. Satellite is a STATE of the 2D site map (a MapLibre style), exactly
+        // as the globe is a state of the 3D site (a camera altitude). Minting a rival
+        // `site-satellite-2d` view would mean a SECOND MapLibre map — the second-satellite-
+        // path this lane was explicitly forbidden to build.
+        id: 'site.satellite-2d',
+        label: '2D Satellite',
+        icon: '◎',
+        title: 'The same 2D site map under real satellite imagery (ESRI World Imagery). '
+            + 'The boundary you have drawn stays on it — the swap preserves the draw.',
+        group: 'siteViews',
+        activeWhen: (s) => s.segment === 'forma' && s.formaMode === 'map2d' && s.basemap === 'satellite',
+        entryPoints: ['pryzmEnterSiteView', 'pryzmSetSiteBasemap'],
+        // ⛔ EMPTY ON PURPOSE — the map's corner `Satellite` chip is NOT retired and is NOT
+        // absorbed. It still exists and still works; this action is a SECOND route to the
+        // same capability, and recording a live control as retired would make this ledger
+        // lie about what is on screen.
+        absorbs: [],
+        dispatch: (h) => { h.pryzmEnterSiteView?.('map2d'); h.pryzmSetSiteBasemap?.('satellite'); },
     },
     {
         id: 'site.globe',
-        label: '3D globe (photoreal)',
+        // §VIEW-PANEL-PER-PANE — the founder's own word, 2026-09-06: *"3D GLOBE"*. The
+        // parenthetical "(photoreal)" was a disambiguator against `site.earth`, which was
+        // spelled "PRYZM Earth" at the time; now that `site.earth` reads "3D Site" the pair
+        // is the founder's own contrast and the qualifier is noise on a button. It survives
+        // where it belongs — in `title`, the hover copy.
+        label: '3D Globe',
         icon: '\u{1F310}',
         title: 'The photoreal globe — real imagery and 3D tiles with your building placed on them.',
         group: 'siteViews',
@@ -218,7 +296,7 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         // "PRYZM Earth" opens the Forma / massing site surface; THIS opens the
         // photoreal-tiles result view. The names are inverted, not duplicated.
         entryPoints: ['pryzmShowSiteResultView'],
-        absorbs: ['3D globe (view-mode switch segment)'],
+        absorbs: ['3D globe (view-mode switch segment)', '3D globe (photoreal) (GIS panel row)'],
         dispatch: (h) => { h.pryzmShowSiteResultView?.('3D'); },
     },
     {
@@ -264,14 +342,43 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         // `viewSegmentSwitcher`'s unreported-state arm. The fix is a field on the snapshot,
         // owned by GISAreaLayout; it is named in this lane's report as a seam.
         id: 'site.bim-3d',
-        label: 'BIM 3D',
+        // §VIEW-PANEL-PER-PANE — the founder's own word for this view, 2026-09-06:
+        // *"3D PRYZM / 2D PRYZM"*. "BIM 3D" was this lane's spelling, never his.
+        label: '3D PRYZM',
         icon: '▣',
-        title: 'The BIM model in 3D, filling the canvas — no secondary plan pane. '
-            + 'Leaves the site/globe surfaces and returns to the PRYZM model view.',
+        title: 'The PRYZM model in 3D, filling the canvas — no secondary plan pane. '
+            + 'Leaves the site/globe surfaces and returns to the model view.',
+        group: 'siteViews',
+        entryPoints: ['pryzmActivateBimView'],
+        absorbs: ['BIM 3D (Parcel Law view switcher)'],
+        dispatch: (h) => { void h.pryzmActivateBimView?.('3D'); },
+    },
+    {
+        // §VIEW-PANEL-PER-PANE (founder 2026-09-06) — "2D PRYZM": the model's PLAN, filling
+        // the canvas.
+        //
+        // ⭐ THE ENTRY POINT WAS ALREADY LIVE AND ALREADY DEFAULTED TO THIS. `activateView`
+        // is registered as `pryzmActivateBimView` with `(mode ?? 'Top')` — 'Top' IS the plan
+        // view, and §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) has called it with 'Top' since the
+        // site-plan import path shipped. No action named it, so no surface could offer it:
+        // exactly the `site.bim-3d` finding one row up, for the other projection.
+        //
+        // ⛔ NOT `site.bim-split`. That opens the SplitViewManager dual pane at the right
+        // edge, which is a different thing (and is drawn behind any half-canvas surface —
+        // §HALF-CANVAS-OWNS-THE-RIGHT-EDGE). It stays declared and stays on the GIS bar.
+        //
+        // ⚠ NO `activeWhen`, for the same measured reason `site.bim-3d` has none:
+        // `GisSiteViewState` carries no field for which view ViewController activated. A
+        // surface must SAY it cannot report this, never paint "off" (C84 EI-1b).
+        id: 'site.bim-plan',
+        label: '2D PRYZM',
+        icon: '▤',
+        title: 'The PRYZM model in plan (top view), filling the canvas. '
+            + 'Leaves the site/globe surfaces and returns to the model view.',
         group: 'siteViews',
         entryPoints: ['pryzmActivateBimView'],
         absorbs: [],
-        dispatch: (h) => { void h.pryzmActivateBimView?.('3D'); },
+        dispatch: (h) => { void h.pryzmActivateBimView?.('Top'); },
     },
     {
         id: 'site.plan-gis',

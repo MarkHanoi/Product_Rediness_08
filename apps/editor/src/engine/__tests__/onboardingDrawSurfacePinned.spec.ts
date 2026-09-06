@@ -169,18 +169,26 @@ describe('§ONBOARDING-STEP-PINS-ITS-SURFACE — the controls DISABLE-AND-EXPLAI
         expect(segmentClickIntents(site3d!, store.getLayout())).toHaveLength(0);
     });
 
-    it('the `3D Globe` action INHERITS the same refusal — it solos the same pane', () => {
-        // `globeClickIntents` is `segmentClickIntents(carrier) + camera`, so flying to world
-        // altitude from the split ALSO evicts the map. Inheriting the refusal is correct;
-        // a globe button that stayed live would reopen the dead end by a second route.
+    it('the `3D Globe` ROW gets the same refusal — it solos the same pane', () => {
+        // §VIEW-PANEL-PER-PANE (2026-09-06) — the globe used to be `model.globe`, an action
+        // beside the segments whose refusal was INHERITED from the 3D Site segment. It is now
+        // a ROW of the founder's six (`site-3d` at the world framing), so it computes the
+        // refusal from the same pin rule the other rows do. The property that matters is
+        // unchanged and is why this arm exists: flying to world altitude from the split ALSO
+        // evicts the pinned map, so a globe button that stayed live would reopen the founder's
+        // dead end by a second route.
         const store = pinnedStore();
         const model = describeSiteViewQuickToggle({
             layout: store.getLayout(),
             canRestoreSplit: store.canRestoreSplit(),
             pinnedViews: store.pinnedViews(),
         });
-        expect(model.globe.enabled).toBe(false);
-        expect(model.globe.reason).toBe(REASON);
+        const globe = model.segments.find((s) => s.optionId === 'site-globe')!;
+        expect(globe, 'the 3D Globe row vanished from the panel').toBeDefined();
+        expect(globe.viewType).toBe(SITE3D);   // ⛔ still no globe ViewType (C60 §6.10)
+        expect(globe.enabled).toBe(false);
+        expect(globe.reason).toBe(REASON);
+        expect(segmentClickIntents(globe, store.getLayout())).toHaveLength(0);
     });
 
     it('the 2D map’s OWN segment is untouched — the pin never disables its subject', () => {
@@ -215,7 +223,17 @@ describe('§ONBOARDING-STEP-PINS-ITS-SURFACE — the controls DISABLE-AND-EXPLAI
             canRestoreSplit: store.canRestoreSplit(),
             pinnedViews: store.pinnedViews(),
         });
-        expect(model.segments.every((s) => s.enabled)).toBe(true);
+        // ⚠ NOT "every row is enabled" — corrected 2026-09-06 (§VIEW-PANEL-PER-PANE). The
+        // panel now carries the founder's six, and `3D PRYZM` is disabled for a REGISTRY
+        // reason (`paneHostable: false`, C59 Phase 3), which has nothing to do with pinning.
+        // Asserting "all enabled" would make this arm fail on an unrelated, correct refusal
+        // and would have to be relaxed again next time the panel grows. What it MEANS is:
+        // no row is refused BY A PIN.
+        for (const s of model.segments) {
+            expect(s.reason, `${s.optionId} refused by a pin with nothing pinned`).not.toBe(REASON);
+        }
+        expect(model.segments.filter((s) => s.enabled).map((s) => s.optionId))
+            .toEqual(['site-map', 'site-satellite', 'site-3d', 'site-globe', 'pryzm-2d']);
         expect(store.dispatch({ type: 'view.pane.solo', paneId: RIGHT_PANE }).ok).toBe(true);
     });
 });

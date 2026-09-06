@@ -121,11 +121,16 @@ export const SITE_VIEW_QUICK_TOGGLE_STYLES = `
 
     /* SITE-VIEW-QUICK-TOGGLE / GLOBE (L-6800..L-6807) — the '3D Globe' action.
 
-       It is NOT a segment and must not read as one (C60 6.10 forbids it ever being a
-       view type), so it gets the ACTION treatment: a filled purple pill, separated
-       from the segment group by a hairline rule. It is never '--active' or '--solo',
-       because those two words describe a view being HOSTED, and this action hosts
-       nothing - it moves a camera.
+       It is NOT a view type (C60 6.10 forbids it ever being one - it is 'site-3d' at world
+       altitude), so it keeps the ACTION treatment: a filled purple pill, separated from the
+       rest by a hairline rule.
+
+       CORRECTED 2026-09-06 (VIEW-PANEL-PER-PANE). This note used to end "It is never
+       '--active' or '--solo', because those two words describe a view being HOSTED, and
+       this action hosts nothing". Half of that is still true and half is not: the globe is
+       now a ROW of the founder's six, so it CAN be active - active meaning "the 3D Site is
+       hosted AND the camera is at the world framing". What it still never asserts is that it
+       hosts a view of its own.
 
        Purple on white, per the brand: no black anywhere. */
     .svq-btn--globe {
@@ -145,16 +150,41 @@ export const SITE_VIEW_QUICK_TOGGLE_STYLES = `
         color: #ffffff;
     }
 
-    /* The RETURN state. A different word needs a different weight, or the user cannot
-       tell at a glance which way the one button currently points. */
-    .svq-btn--globe-return {
-        color: var(--app-text-muted, #6b6880);
-        font-weight: 500;
+    /* VIEW-PANEL-PER-PANE (founder 2026-09-06) - the PER-PANE panel.
+
+       Founder: "WHEN BEING IN SPLIT VIEW - WE SHALL HAVE TWO PANELS LIKE THAT - AND THE
+       USER CAN DECIDE WHAT TO ADD IN EACH OF THE SPLIT VIEWS (LEFT OR RIGHT)."
+
+       NOT IN THE SHELL FLOAT BUDGET, and that is correct rather than an omission.
+       '--shell-canvas-cx' measures '#container'; a pane is a fraction of it, so centring
+       two pane panels on the canvas centre would stack them on top of each other in the
+       middle of the screen. This is PANE chrome (C06 7): 'position: absolute' inside its
+       own pane element, so it can never overlay its sibling. 'shellFloatBudget.spec.ts'
+       ARM D only classifies 'position: fixed' rules, so nothing here leaves that budget.
+
+       'top: 52px' clears the pane's OWN corner view picker ('PaneViewPicker' mounts at
+       'top: 10px' with a ~30px trigger). The panel is the promoted six; the picker beside
+       it is the founder's "if the user wants to open more they can do it in the browser". */
+    .svq-bar--pane {
+        position: absolute;
+        top: 52px;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: calc(100% - 24px);
+        flex-wrap: wrap;
+        justify-content: center;
+        /* Above this pane's renderer surface (the Cesium container carries z 15, the
+           MapLibre overlay is 'inset: 0'), and BELOW the picker's own 40 so the two never
+           fight for the same click. Still inside the pane box, so never over the sibling. */
+        z-index: 38;
     }
 
-    .svq-btn--globe-return:hover:not(:disabled) {
-        background: var(--app-hover-bg, rgba(102, 0, 255, 0.06));
-        border-color: var(--app-border);
-        color: var(--app-accent, #6600FF);
+    /* UNREPORTED is not OFF (C84 EI-1b). The row works; whether it is what you are looking
+       at cannot be read in this session, so it must not paint as either state. A dotted
+       underline says "there is a state here I cannot show you" without borrowing the
+       active treatment. 'aria-pressed="mixed"' carries the same fact non-visually (C43). */
+    .svq-btn[data-variant-unreported='true'] .svq-lbl {
+        text-decoration: underline dotted;
+        text-underline-offset: 3px;
     }
 `;
