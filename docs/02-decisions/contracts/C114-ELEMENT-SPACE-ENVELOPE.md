@@ -482,6 +482,75 @@ distance to the ring** (94·√2 = 132.94 m; 100·√2 = 141.42 m), because C84 
 second containment test. **The assertions were corrected to the measured number; the
 geometry was not tuned to the expectation** ([[tolerance-from-measured-error-not-the-test]]).
 
+### 2026-09-06 · lane RESI-STAGE-G — **item 7 (profile edit) closes; §11 is now 7 of 13**
+
+Appended per §14's own rule (*living record — appended, never rewritten*). The
+2026-09-05 entry above recorded item 7 as ⛔ **NOT SHIPPED** with the reason *"no
+`spaceEnvelopeTool`, no double-click, no resolver row"*. **All three now exist.** Every
+row below names its commit and its measurement; **anything not listed here is NOT
+shipped**, and §14a's reporting rule applies to this entry in full.
+
+| Delta item | State | Commit | Proof |
+|---|---|---|---|
+| 7 — the footprint ↔ authoring-frame map | ✅ **SHIPPED** | `c0649f6c` | `pnpm --filter @pryzm/geometry-space-envelope test` → **5 files, 77 passed** (64 before; 13 new) |
+| 7 — `SpaceEnvelopeProfileEditTool` + the `setFootprint` write-back | ✅ **SHIPPED** | `bcf8a9a6` | `spaceEnvelopeProfileEditTool.spec.ts` **17/17**; `pnpm --filter @pryzm/plugin-space-envelope test` → **3 files, 39 passed** (34 before; 5 new) |
+| 7 — REACHABILITY: resolver row · `window.spaceEnvelopeTool` · double-click | ✅ **SHIPPED** | `e6395f8b` | `spaceEnvelopeProfileEditWire.spec.ts` **9/9**, asserting each static link from source |
+
+**What the three commits actually did, stated so the claim can be checked rather than
+believed.** §10b's rule — *"THE PROFILE EDITOR IS JOINED, NOT REBUILT … ⛔ A new outline
+surface is forbidden"* — was honoured: **no surface, no dialog and no drawing code was
+written.** `ElevationOutlineSurface` and `WallProfileEditor` are reached through the
+existing `WallProfileEditorPort`, and the whole of the new drawing-side code is an affine
+map between a world X/Z footprint and the surface's clamped `u`/`v` box, plus a tool that
+opens the port and dispatches one command. The commit path is
+**`spaceEnvelope.setFootprint`**, which already re-asks `containmentGate` — so *"rooms
+re-check containment after a level edit"* is discharged by the handler that existed, not
+by a second test here (C84 EI-9.2).
+
+**⭐ TWO DEFECTS WERE DESIGNED OUT THAT WOULD HAVE BEEN IN-BOUNDS AND SILENT**, and they
+are recorded because both are the shape this contract keeps logging:
+- **The `v` axis is FLIPPED against world Z.** The surface paints `v` upward; a plan reads
+  with +Z down the page. Without the flip every vertex is still inside the box and the
+  author edits a **mirrored** footprint — a well-formed wrong answer with no symptom.
+- **The drawing box is the bbox GROWN by a headroom rule**, because the surface *clamps*
+  every dragged vertex to the extents. A box fitted to the bbox makes the editor
+  **shrink-only** with nothing anywhere saying why. ⛔ **Headroom is not permission:** the
+  command still refuses a ring that leaves its level, with both numbers.
+
+#### §14e — ⛔ WHAT IS **NOT** TRUE OF ITEM 7 TODAY
+
+- ⛔ **NOTHING IN THIS LANE IS BROWSER-VERIFIED, AND THAT IS UNCHANGED FROM §14d.** No
+  dialog has been opened on screen, no face has been double-clicked, no refusal has been
+  seen in a toast or a status line. The port is a **fake** in the tool spec, and the wire
+  spec reads **source**, not behaviour. A green suite here is evidence that the pieces
+  agree with each other, not that a user can do this.
+- ⚠ **The "Edit Profile" BUTTON path is only half measured.** The resolver row and the
+  window handle are asserted; whether a selected envelope reaches `ContextualEditBar` with
+  `elementType === 'spaceEnvelope'` is **NOT MEASURED**. `SpaceEnvelopeMeshBuilder` stamps
+  `elementType: 'spaceEnvelope'` and `selectable: true` on the group and `selectable:
+  false` on the faces, so it is *plausible* — and plausible is what §15 is for. **The
+  double-click is the path that does not depend on it.**
+- ⚠ **"Reset to rectangle" GROWS the outline.** The modal's button fills the drawing box,
+  which for a footprint is the bbox **plus the headroom**. The result is legal and is still
+  judged by containment, but it does not restore anything. Recorded rather than hidden.
+- ⚠ **`WallProfileEditorSubject.wallId` still carries a space-envelope id**, and the panel
+  still stamps `data-wall-id`. The port is generic in every way that matters except that
+  NAME. Renaming it touches L2, `WallTool`, the modal and its byte-pinned chrome test —
+  **the same shape as §10c's owed `WallMoveReweld` type parameter**, and larger than this
+  lane. ⛔ Do not read the name as evidence a wall is involved; ⛔ do not add a second port.
+- ⚠ **`title` was added to `WallProfileEditorSubject` (optional, L2).** Absent means the
+  wall sentence **byte for byte** — `wallProfileEditorChrome.test.ts` still reads
+  **30/30**, including its exact-string assertion at `:285`. The envelope supplies its own
+  because a footprint is *wide and deep*, not *long and high*, and a dialog that calls a
+  storey outline a wall is the §0.2 naming defect one layer out.
+- ⛔ **There is no plan-view or elevation entry to the editor, and no keyboard shortcut.**
+  The two ways in are the 3-D double-click and the toolbar button.
+
+⭐ **§11 IS NOW 7 OF 13, NOT DONE.** Items **8** (living-graph projection), **9** (per-face
+solar), **11** (IFC disposition), **12** (the INTENDED-vs-BUILT *presentation* — the
+channel shipped, the presentation did not) and **13** (`WallMoveReweld` type parameter)
+remain, and §12b's C74 §2 ENFORCEMENT row is **still owed**.
+
 ---
 
 ---
