@@ -25,6 +25,14 @@ import { resolve } from 'node:path';
 
 import { HEIGHT_KIND_FLOORS } from './officialFootprints.mjs';
 import { ES_CATASTRO, downloadMunicipalityZip, parseMunicipalityZip, resolveMunicipalities } from './esCatastro.mjs';
+import { writeCoveredManifest } from './frBdtopo.mjs';
+import {
+  CATASTRO_NATIONAL_BBOXES,
+  catastroBudgetPlan,
+  catastroCoveredBboxes,
+  catastroSweepOrder,
+  formatCatastroSweepSummary,
+} from './esCatastroNational.mjs';
 
 /** The `footprintSource` values with a wired adapter. A row not here is a CONFIG error. */
 export const FOOTPRINT_SOURCE_KEYS = Object.freeze(['es_catastro', 'fr_bdtopo']);
@@ -71,37 +79,81 @@ export function assertFootprintConfig(regions) {
  * a floors derivation as `measured` would rank it above a real OSM survey — the honesty inversion
  * C57 §1.9 bans, and the one `frBdtopo.mjs` guards with the same three-way split.
  */
-export async function writeCatastroWorkingSet(outPath, bboxes, { onArea = () => {}, outDir = null, maxMunicipalities = 400 } = {}) {
+export async function writeCatastroWorkingSet(outPath, bboxes, {
+  onArea = () => {}, outDir = null, maxMunicipalities = 400,
+  // §CATASTRO-NATIONAL-SWEEP (L-12952) — the whole-country path. OFF by default, so every existing
+  // run is byte-identical: `national:false` resolves exactly the bboxes it is handed, exactly as
+  // before. ON, the working set becomes the `spain` region bbox and the run sweeps it in a
+  // deterministic, RESUMABLE order under a wall-clock budget, because ~13–18 h of GML parsing
+  // (esCatastroNational.mjs header C) cannot fit in a 330-minute job and never will.
+  national = false,
+  priorityBboxes = [],
+  cursor = null,
+  budgetSeconds = 4 * 3600,
+} = {}) {
   const dir = outDir ?? resolve(outPath, '..');
   writeFileSync(outPath, '');
 
   // ── 1. resolve municipalities across every working bbox, from the ATOM feeds ──
+  const resolveBoxes = national ? CATASTRO_NATIONAL_BBOXES : bboxes;
   const seen = new Map();
   const areas = [];
-  for (const raw of bboxes) {
+  const refused = [];
+  for (const raw of resolveBoxes) {
     const box = typeof raw === 'string' ? raw.split(',').map(Number) : raw;
     let res;
     try { res = await resolveMunicipalities(box, {}); }
     catch (e) { res = { status: 'error', reason: e.message }; }
     if (res.status !== 'ok') {
+      // ⚠ NO `bbox` FIELD ON THIS ROW, DELIBERATELY. `catastroCoveredBboxes` keys the deletion set
+      // on a bbox + a positive `kept`, so a resolve failure contributes nothing and its ground
+      // keeps every OSM footprint it has (§COVERED-IS-PARSED).
       areas.push({ area: box.join(','), status: 'error', reason: res.reason, kept: 0 });
       continue;
     }
     for (const m of res.municipalities) if (!seen.has(m.code)) seen.set(m.code, { ...m, area: box.join(',') });
   }
-  const munis = [...seen.values()];
+  let munis = [...seen.values()];
+  const resolvedTotal = munis.length;
+
+  // ── 1b. NATIONAL: order (priority metros first, then INE code), resume, and budget ──
+  // The order is the whole reason successive runs CONVERGE rather than each covering the same nine
+  // cities. `sweep` carries what the summary must be able to say; nothing here is allowed to stop
+  // quietly (§LOUD-AND-ORDERED-TRUNCATION).
+  let sweep = null;
+  if (national) {
+    const ordered = catastroSweepOrder(munis, { priorityBboxes, cursor });
+    const plan = catastroBudgetPlan(ordered, { budgetSeconds });
+    munis = plan.planned;
+    sweep = {
+      total: resolvedTotal,
+      skipped: plan.skipped.length,
+      nextCursor: plan.nextCursor,
+      stopReason: plan.skipped.length ? 'budget' : 'complete',
+      plannedSeconds: plan.seconds,
+    };
+  }
   if (munis.length === 0) {
-    // §CONTEXT-DATA-HONESTY — a REAL answer, not a failure: Catastro's territorial scope excludes
-    // the Basque provinces and Navarra, which run foral cadastres and publish no ES.SDGC feed.
-    // The bbox keeps its OSM footprints, and the run says why.
+    // §CONTEXT-DATA-HONESTY — a REAL answer, not a failure. Measured live 2026-09-06: Araba/Álava,
+    // Gipuzkoa and Navarra publish ZERO municipalities in ES.SDGC (their root entries even carry a
+    // NULL georss polygon). ⚠ This used to say "the Basque provinces", which is wrong by one:
+    // BIZKAIA PUBLISHES 112, in EPSG:4258. The empty covered set below is what keeps all of their
+    // ground on its OSM footprints — the register's silence must never delete Bilbao OR Pamplona.
+    writeCoveredManifest(outPath, []);
     return {
       status: 'error', written: 0, measured: 0, floorsDerived: 0, unknown: 0, cells: 0, cellsFailed: 0, areas,
+      coveredBboxes: [],
       reason: 'no Catastro municipality meets the working set (foral cadastre, or outside national coverage) — OSM footprints kept',
     };
   }
-  if (munis.length > maxMunicipalities) {
+  // §FOOTPRINT-BUDGET — the cap is a REFUSAL for the bbox path, where a working set is hand-declared
+  // and an over-large one means a mis-declared row. The national sweep does not hit it: its size is
+  // governed by `catastroBudgetPlan` and a cursor, which is the whole point of having a sweep.
+  if (!national && munis.length > maxMunicipalities) {
+    writeCoveredManifest(outPath, []);
     return {
       status: 'error', written: 0, measured: 0, floorsDerived: 0, unknown: 0, cells: munis.length, cellsFailed: 0, areas,
+      coveredBboxes: [],
       reason: `${munis.length} municipalities exceed the ${maxMunicipalities} cap — narrow the working set rather than raising it`,
     };
   }
@@ -128,11 +180,20 @@ export async function writeCatastroWorkingSet(outPath, bboxes, { onArea = () => 
         else unknown++;
       }, {});
     } catch (e) {
+      // ⚠ A REFUSAL IS NOT A SKIP AND MUST NOT READ AS ONE. The commonest one at national scale is
+      // an unregistered UTM zone (992 municipalities declare EPSG:25829), and `parseMunicipalityZip`
+      // is RIGHT to refuse — a guessed zone puts a building 400 km away. What must never follow is
+      // deleting that municipality's OSM footprints, which is why the row below carries `kept: 0`
+      // and therefore contributes no bbox to the deletion set.
       status = 'error'; reason = e.message; failed++;
+      refused.push({ code: m.code, reason: e.message });
     }
     flush();
     areas.push({
       area: `${m.code}-${m.name}`, status, reason,
+      // §COVERED-IS-PARSED — the municipality's OWN georss bbox travels with its outcome, so the
+      // covered set can be derived from what was WRITTEN rather than from what was REQUESTED.
+      bbox: m.bbox ?? null,
       kept: written - before.written,
       measured: 0,
       floorsDerived: floorsDerived - before.floorsDerived,
@@ -143,19 +204,31 @@ export async function writeCatastroWorkingSet(outPath, bboxes, { onArea = () => 
   }
   flush();
 
+  // §COVERED-IS-PARSED — derive the deletion licence from the municipalities that actually produced
+  // footprints, and hand it to the merge through the manifest beside the file it describes.
+  const coveredBboxes = catastroCoveredBboxes(areas);
+  writeCoveredManifest(outPath, coveredBboxes);
+  const sweepLine = sweep
+    ? formatCatastroSweepSummary({ ...sweep, covered: coveredBboxes.length, refused })
+    : null;
+  if (sweepLine) console.log(`  ${sweepLine}`);
+
   if (written === 0) {
     return {
       status: 'error', written: 0, measured: 0, floorsDerived: 0, unknown: 0,
-      cells: munis.length, cellsFailed: failed, areas,
+      cells: munis.length, cellsFailed: failed, areas, coveredBboxes, sweep: sweepLine, refused,
       reason: `parsed ${munis.length} municipalit(ies) but produced ZERO footprints`,
     };
   }
   return {
     // §CONTEXT-DATA-HONESTY — a municipality that failed leaves a HOLE, not an empty area, and the
     // status says so by name. `partial` is what `applyNationalFootprints` prints the warning for.
+    // ⚠ Since §COVERED-IS-PARSED the hole is no longer a DELETION: a failed municipality is absent
+    // from `coveredBboxes`, so its OSM footprints survive and the area reads as OSM, not as empty.
     status: failed > 0 ? 'partial' : 'ok',
     written, measured: 0, floorsDerived, unknown,
     cells: munis.length, cellsFailed: failed, areas, zipBytes,
+    coveredBboxes, sweep: sweepLine, refused,
     bytes: existsSync(outPath) ? statSync(outPath).size : 0,
   };
 }
@@ -180,5 +253,38 @@ export const ES_CATASTRO_FOOTPRINTS = Object.freeze({
   attribution: ES_CATASTRO.attribution,
   /** ⚠ See the file header: the Catastro bulk pull is ~40–70 min and may not run unasked. */
   optIn: 'footprints',
-  write: (outPath, bboxes, onArea) => writeCatastroWorkingSet(outPath, bboxes, { onArea }),
+  write: (outPath, bboxes, onArea) => writeCatastroWorkingSet(outPath, bboxes, {
+    onArea,
+    ...catastroSweepEnv(),
+    // The nine metros stay the PRIORITY ORDER of the national sweep — the same guarantee
+    // MDS_PRIORITY_BBOXES gives the height sweep. bake.mjs supplies them as `bboxes`, so a
+    // truncated national run still covers Barcelona/Madrid/Córdoba before any village.
+    priorityBboxes: bboxes,
+  }),
 });
+
+/**
+ * §CATASTRO-NATIONAL-SWEEP — the national switch and its resume cursor, read from the environment.
+ *
+ * WHY THE ENVIRONMENT AND NOT AN ARGV FLAG. `heights/mdsNational.mjs` already established
+ * `MDS_SWEEP_CURSOR` for exactly this shape, so an operator resuming either sweep types the same
+ * kind of thing. It also keeps the switch out of `bake.mjs`'s argv parser, which is held by other
+ * lanes most of the time and is the file a second `const FOOTPRINTS = …` would collide in.
+ *
+ *   CATASTRO_NATIONAL=1              sweep the whole `spain` bbox instead of the nine metros
+ *   CATASTRO_SWEEP_CURSOR=<INE code> resume AT that municipality (from the previous run's summary)
+ *   CATASTRO_BUDGET_SECONDS=<n>      wall-clock the pull may spend (default 4 h of a 5.5 h job)
+ *
+ * ⚠ DEFAULTS ARE THE EXISTING BEHAVIOUR, EXACTLY. With none of these set the sweep is off and the
+ * pull is the nine-metro one every run to date has performed — that is what makes this safe to land
+ * before a national bake has ever been dispatched.
+ */
+export function catastroSweepEnv(env = process.env) {
+  const national = env.CATASTRO_NATIONAL === '1' || env.CATASTRO_NATIONAL === 'true';
+  const budget = Number(env.CATASTRO_BUDGET_SECONDS);
+  return {
+    national,
+    cursor: env.CATASTRO_SWEEP_CURSOR || null,
+    ...(Number.isFinite(budget) && budget > 0 ? { budgetSeconds: budget } : {}),
+  };
+}

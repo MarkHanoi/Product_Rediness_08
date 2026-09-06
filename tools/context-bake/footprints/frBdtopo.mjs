@@ -161,7 +161,7 @@
 // "IGN – BD TOPO®". Same licence family as the LiDAR HD MNH stamp already shipping.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { appendFileSync, closeSync, openSync, readSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, openSync, readFileSync, readSync, writeFileSync } from 'node:fs';
 
 import { partitionGeojsonseq } from '../geojsonseqRead.mjs';
 // §OFFICIAL-FOOTPRINT-TAG-CONTRACT — IMPORTED, never re-declared. Four things must agree on these
@@ -671,7 +671,11 @@ export async function writeBdtopoWorkingSet(outPath, bboxes = FR_BDTOPO_CITY_BBO
     // failed` — an operator reading that at hour three cannot tell a clean area from a broken
     // counter, and 'undefined' is exactly the shape of a number nobody computed. The DENOMINATOR
     // is the point: `0/1` and `0/64` are different statements about how much was actually asked.
-    out.areas.push({ area: name, status: res.status, kept: res.kept, measured: res.measured, floorsDerived: res.floorsDerived, unknown: res.unknown, cells: res.cells, cellsFailed: res.cellsFailed, dropped: res.dropped, failures: res.failures });
+    // §COVERED-IS-PARSED (L-12952) — `bbox` travels with the outcome so the deletion licence can be
+    // derived from areas that actually produced footprints. France's failure mode is the WFS
+    // refusing or capping a cell, and the consequence is identical to Spain's: an area we asked for
+    // and did not receive must keep its OSM footprints, not lose them to a hole.
+    out.areas.push({ area: name, bbox, status: res.status, kept: res.kept, measured: res.measured, floorsDerived: res.floorsDerived, unknown: res.unknown, cells: res.cells, cellsFailed: res.cellsFailed, dropped: res.dropped, failures: res.failures });
     out.measured += res.measured;
     out.floorsDerived += res.floorsDerived;
     out.unknown += res.unknown;
@@ -684,6 +688,10 @@ export async function writeBdtopoWorkingSet(outPath, bboxes = FR_BDTOPO_CITY_BBO
   }
   if (out.written === 0) out.status = 'error';
   else if (out.cellsFailed > 0) out.status = 'partial';
+  // §COVERED-IS-PARSED — the deletion licence, written beside the file it describes. An area that
+  // produced zero footprints is ABSENT from it, so its OSM survives (see `writeCoveredManifest`).
+  out.coveredBboxes = out.areas.filter((a) => Array.isArray(a.bbox) && a.kept > 0).map((a) => a.bbox);
+  writeCoveredManifest(outPath, out.coveredBboxes);
   return out;
 }
 
@@ -742,10 +750,17 @@ export function appendSeqFileBytes(outPath, seqPath, { chunkBytes = 8 << 20 } = 
  * very mechanism meant to respect it).
  */
 export function mergeReplaceInBbox(baseGeo, outPath, coveredBboxes, records, { keepZ = false, seqPath = null } = {}) {
+  // §COVERED-IS-PARSED (L-12952) — the covered set is a LICENCE TO DELETE, so it must describe what
+  // the writer actually WROTE, never what the run REQUESTED. When the writer left a coverage
+  // manifest beside its seq file, that manifest wins. See `writeCoveredManifest` for the whole
+  // argument; the short version is that a requested-but-unwritten area deletes real buildings and
+  // puts nothing back, and at national scale that silently empties whole provinces.
+  const manifest = readCoveredManifest(seqPath);
+  const effectiveCovered = manifest ?? coveredBboxes;
   const part = partitionGeojsonseq(baseGeo, outPath, (feat) => {
     const p = firstLonLat(feat?.geometry);
     if (!p) return null;
-    return inAnyBbox(p[0], p[1], coveredBboxes) ? 1 : null;
+    return inAnyBbox(p[0], p[1], effectiveCovered) ? 1 : null;
   });
   if (part.status !== 'ok') return { status: 'error', reason: part.reason, part };
   // `seqPath` is the streamed form: the footprints already live in a geojsonseq file (written cell
@@ -764,7 +779,69 @@ export function mergeReplaceInBbox(baseGeo, outPath, coveredBboxes, records, { k
     bdtopoWritten: written,
     malformed: part.malformed,
     peakHeapUsedMB: part.peakHeapUsedMB,
+    // §COVERED-IS-PARSED — say WHICH set licensed the deletions, and how many requested areas were
+    // withheld from it. `coveredWithheld > 0` is the honest, readable form of "an area we asked for
+    // produced nothing, so its OSM footprints were KEPT rather than deleted into a hole".
+    coveredFrom: manifest ? 'writer-manifest' : 'request',
+    coveredCount: effectiveCovered.length,
+    coveredWithheld: manifest ? Math.max(0, (coveredBboxes?.length ?? 0) - manifest.length) : 0,
   };
+}
+
+/** Where a working-set seq file's coverage manifest lives. One artefact pair, one naming rule. */
+export function coveredManifestPath(seqPath) {
+  return `${seqPath}.covered.json`;
+}
+
+/**
+ * §COVERED-IS-PARSED — the writer records the ground it ACTUALLY WROTE, beside the file it wrote.
+ *
+ * ⛔ THE DEFECT THIS EXISTS TO REMOVE, stated plainly because it deletes real buildings from a real
+ * map. `mergeReplaceInBbox`'s `coveredBboxes` is not a hint — every OSM footprint inside one is
+ * DROPPED. Its only caller passes the bboxes the run REQUESTED. So any area that was requested and
+ * did not produce footprints — a 404 on a municipality ZIP, a refused projection, a province the
+ * register does not publish, a sweep that ran out of budget before reaching it — has its OSM
+ * footprints deleted with nothing put back. The bake already prints "those areas are HOLES, not
+ * empty", which names the outcome without preventing it.
+ *
+ * At the nine-metro working set that costs one city. Measured live 2026-09-06, at national scale it
+ * costs: Araba/Álava, Gipuzkoa and Navarra (which publish ZERO municipalities — Bizkaia's 112 are
+ * the exception, so this is not "the Basque Country") plus the 992 municipalities declaring
+ * EPSG:25829. A national bake that trusted the request would have answered the founder's "my house
+ * is missing" by emptying Galicia.
+ *
+ * So the writer states its coverage and the merge believes the writer. Withholding is the DEFAULT
+ * DIRECTION of every failure here: an area is covered only by having produced a footprint, so a new
+ * failure mode nobody has thought of yet withholds automatically instead of needing a new guard.
+ *
+ * @param {string} seqPath  the working-set geojsonseq this manifest describes
+ * @param {number[][]} bboxes  ONLY the areas that produced ≥ 1 footprint
+ */
+export function writeCoveredManifest(seqPath, bboxes) {
+  const clean = (bboxes ?? []).filter((b) => Array.isArray(b) && b.length >= 4 && b.every(Number.isFinite));
+  writeFileSync(coveredManifestPath(seqPath), JSON.stringify({ version: 1, bboxes: clean }));
+  return clean.length;
+}
+
+/**
+ * Read a coverage manifest, or `null` when the writer left none.
+ *
+ * ⚠ `null` (no manifest — a writer that predates this mechanism) and `[]` (a manifest saying NOTHING
+ * was covered) are DIFFERENT ANSWERS and must not collapse: `null` falls back to the requested set,
+ * while `[]` correctly deletes nothing at all. That is the failure-vs-empty rule (C57 §1.5) applied
+ * to the one value in this pipeline that authorises a deletion.
+ */
+export function readCoveredManifest(seqPath) {
+  if (!seqPath) return null;
+  const p = coveredManifestPath(seqPath);
+  if (!existsSync(p)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(p, 'utf8'));
+    return Array.isArray(parsed?.bboxes) ? parsed.bboxes : null;
+  } catch {
+    // A corrupt manifest must NOT silently promote the requested set to a deletion licence.
+    return [];
+  }
 }
 
 /**

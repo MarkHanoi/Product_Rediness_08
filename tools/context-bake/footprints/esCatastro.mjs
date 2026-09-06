@@ -97,11 +97,14 @@ import { createInflateRaw } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { resolve } from 'node:path';
 
-import { getProjector } from '../reproject.mjs';
+import proj4 from 'proj4';
+
+import { getProjector, PROJ_DEFS } from '../reproject.mjs';
 import {
   officialFootprintFeature,
   OFFICIAL_METRES_PER_FLOOR,
 } from './officialFootprints.mjs';
+import { registerCatastroProjections } from './esCatastroNational.mjs';
 
 export const ES_CATASTRO = Object.freeze({
   source: 'es_catastro',
@@ -465,6 +468,11 @@ export async function downloadMunicipalityZip(muni, dir, { log = () => {} } = {}
  * @returns {{parts:number, buildings:number, partsSkipped:number, buildingsSkipped:number}}
  */
 export async function parseMunicipalityZip(zipPath, epsg, emit, { bbox = null, log = () => {} } = {}) {
+  // §CATASTRO-PROJ-DEFS (L-12952) — the feed declares FIVE CRSs across its 7,723 municipalities and
+  // `reproject.mjs` shipped THREE of them. All nine metros are EPSG:25830/25831, so the gap fires on
+  // zero municipalities today and on 992 — all of Galicia and much of the west — the moment the
+  // sweep goes national. Idempotent; a no-op once the defs land in PROJ_DEFS upstream.
+  registerCatastroProjections(PROJ_DEFS, proj4);
   const proj = getProjector(epsg); // throws for an unregistered zone — refuse, never guess
   const entries = readZipCentralDirectory(zipPath);
   const partEntry = entries.find((e) => /\.buildingpart\.gml$/i.test(e.name));
