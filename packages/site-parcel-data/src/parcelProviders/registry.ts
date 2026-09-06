@@ -117,6 +117,32 @@ import {
     US_TX_HARRIS_BBOX,
     isInHarrisCountyTx,
 } from '../countryAdapters/us/usJurisdiction.js';
+// LANE USA-PARCELS (2026-09-06) — NINE more US jurisdictions on the identical shape: SEVEN whole
+// STATES (NC · NY · OH · WI · MT · UT · VA) and TWO large COUNTIES (LA County CA · Maricopa AZ). Same
+// rules as the US-EXPAND block above — bbox predicate for `contains`, bbox for the specificity metric,
+// no claimsNation (the US is absent from the national resolver by design).
+// ⚠ UNLIKE US-EXPAND, TWO OF THESE BOXES DO OVERLAP OTHER US ROWS, and that is real geography, not an
+// oversight — see the row comments at the registration site for both bands and why each self-corrects.
+import {
+    US_NC_BBOX,
+    isInNorthCarolina,
+    US_NY_BBOX,
+    isInNewYorkState,
+    US_OH_BBOX,
+    isInOhio,
+    US_WI_BBOX,
+    isInWisconsin,
+    US_MT_BBOX,
+    isInMontana,
+    US_UT_BBOX,
+    isInUtah,
+    US_VA_BBOX,
+    isInVirginia,
+    US_CA_LA_BBOX,
+    isInLosAngelesCounty,
+    US_AZ_MARICOPA_BBOX,
+    isInMaricopaCountyAz,
+} from '../countryAdapters/us/usStatewideParcels.js';
 // LANE RO (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Romania row (contains is
 // claimsNation('RO'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
 import { ROMANIA_BBOX } from '../countryAdapters/ro/roJurisdiction.js';
@@ -782,6 +808,126 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         note: 'Harris County / HCAD parcels — VERIFIED-LIVE 2026-09-03: keyless ArcGIS MapServer (www.gis.hctx.net/.../HCAD/Parcels/MapServer/0, native EPSG:2278), an intersects point query with outSR=4326 returned the real parcel under the click (HCAD_NUM 0261520000043, 3217 MONTROSE BLVD, HOUSTON, tax_year 2025) with a WGS84 ring. ONE COUNTY (Houston metro), not statewide — TX has no usable statewide open parcel service (StratMap statewide returned nothing at Austin/Dallas; City-of-Austin layer is city-OWNED only) and the Travis County host did not resolve keylessly. HCAD_NUM is the account id; area is geometry-derived. Houston has no zoning; bulk is deed/ordinance, NEVER inferred here.',
     },
     // ══════════════════════════════════════════════════════════════════════════════════════
+    // LANE USA-PARCELS (2026-09-06) — HOW FAR A US PARCEL CLICK ACTUALLY REACHES: +7 STATES, +2 COUNTIES.
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // Nine more rows on the SAME shape as the US-EXPAND block above (bbox `contains` + a same-origin
+    // proxy + the shared ArcGIS client). Every one was LIVE-PROBED 2026-09-06 with a REAL parcel id and
+    // a WGS84 ring at TWO separate localities, and every "statewide" claim was checked against the
+    // service's OWN county denominator with `returnDistinctValues` rather than taken from its title —
+    // which is how the two rows that are NOT statewide (US-NY 38/62, US-VA 94/95 counties) were caught
+    // and are named as such in `countryName`, `label` AND `note` rather than rounded up (C58 §1.4).
+    // The states this lane reached and could NOT wire — Texas statewide, NJ, KY, TN, MD, OR — are
+    // enumerated as DATA with their verbatim HTTP answers in `USA_PARCEL_REFUSALS`
+    // (countryAdapters/us/usStatewideParcels.ts), not omitted.
+    {
+        // US-NC — NC OneMap, 100 of 100 counties (measured). Overlaps US-VA in the 36.54–36.59°N
+        // border strip only; VA's box is fractionally smaller so it is tried first there and
+        // answers `empty` for a Carolina point, which is the documented self-correction.
+        regionCode: 'US-NC',
+        countryName: 'United States (North Carolina · statewide)',
+        providerId: 'us-nc-onemap-parcels',
+        label: 'NC OneMap Parcels (North Carolina · statewide)',
+        proxyPath: '/api/parcel/us-nc',
+        kind: 'cadastral',
+        contains: isInNorthCarolina,
+        note: 'NC OneMap statewide parcels — VERIFIED-LIVE 2026-09-06: keyless ArcGIS MapServer (services.nconemap.gov/secure/rest/services/NC1Map_Parcels/MapServer, LAYER 1 "Parcels (polys)" — layer 0 is the parcel POINT layer, native EPSG:2264 NC State Plane feet, 5,938,900 features). Point-intersect @ Charlotte (35.226987,-80.844178) → HTTP 200, 2463 bytes, application/json;charset=UTF-8: parno 07301103A, ownname "FIRST-CITIZENS BANK & TR CO", siteadd "128 S TRYON ST CHARLOTTE NC", cntyname Mecklenburg, 7-vertex WGS84 ring. Second locality @ Asheville (35.596416,-82.550408) → parno 964940785500000, "10 SPRUCE ST", cntyname Buncombe. COVERAGE MEASURED, NOT ASSUMED: returnDistinctValues on `cntyname` = 100 DISTINCT COUNTIES — all 100 of North Carolina. ⚠ outFields must be EXACT: `city`, `county` and `sitezip` do NOT exist on this layer and a query naming them fails WHOLESALE with HTTP 200 + {"error":{"code":400,"message":"Failed to execute query."}}; the real names are `scity`, `cntyname`, `szip`. Zoning/FAR are municipal, NEVER inferred here.',
+    },
+    {
+        // US-NY — ⚠ NOT statewide: the SERVICE'S OWN layer-0 footprint lists 38 of New York's 62
+        // counties, and the note names them. Still `cadastral` (those 38 hold most of the
+        // population, incl. all five NYC boroughs); the other 24 are an honest `empty` → footprint.
+        // Encloses US-NY-NYC, which keeps the city on specificity — deliberate, MapPLUTO is richer.
+        regionCode: 'US-NY',
+        countryName: 'United States (New York State · 38 of 62 counties)',
+        providerId: 'us-ny-nysgis-taxparcels',
+        label: 'NYS Tax Parcels Public (New York State · 38 counties)',
+        proxyPath: '/api/parcel/us-ny',
+        kind: 'cadastral',
+        contains: isInNewYorkState,
+        note: 'NYS Tax Parcels Public — VERIFIED-LIVE 2026-09-06: keyless ArcGIS MapServer (gisservices.its.ny.gov/.../NYS_Tax_Parcels_Public/MapServer, LAYER 1 — layer 0 is the county coverage FOOTPRINT, native EPSG:3857, 3,827,530 parcels, service description "Publication Date: May 2026. Updated annually."). Point-intersect @ Albany (42.6523009,-73.7568442) → HTTP 200, 2383 bytes: PRINT_KEY 76.7-1-1, SBL 07600700010010000000, PARCEL_ADDR "Eagle St", COUNTY_NAME/MUNI_NAME Albany, PROP_CLASS 652, CALC_ACRES 10.17558228, ROLL_YR 2025, 29-vertex WGS84 ring. ⛔ COVERAGE IS 38 OF NEW YORK\'S 62 COUNTIES, MEASURED FROM THE SERVICE\'S OWN LAYER 0 FOOTPRINT (Albany, Bronx, Broome, Cayuga, Chautauqua, Cortland, Erie, Genesee, Greene, Hamilton, Kings, Lewis, Livingston, Montgomery, New York, Oneida, Onondaga, Ontario, Orange, Oswego, Otsego, Putnam, Queens, Rensselaer, Richmond, Rockland, Schuyler, St Lawrence, Steuben, Suffolk, Sullivan, Tioga, Tompkins, Ulster, Warren, Wayne, Westchester, Wyoming). A click in Monroe / Nassau / Dutchess / Saratoga / Schenectady / Niagara or any other of the 24 absent counties returns zero features — an honest `empty` → OSM footprint, NEVER a wrong parcel. NYC is inside this box but US-NY-NYC (MapPLUTO) has a far smaller box and outranks it by specificity, which is right: MapPLUTO carries ZoneDist1/ResidFAR that this layer does not. PRINT_KEY is the county tax-map key and is unique only WITHIN its SWIS district, so SBL rides as the secondary id. Zoning/FAR are municipal, NEVER inferred here.',
+    },
+    {
+        // US-OH — 88 of 88 counties (measured). Overlaps US-VA over WEST VIRGINIA, where NEITHER
+        // service has data: both answer `empty` and the click falls to the footprint, correctly.
+        regionCode: 'US-OH',
+        countryName: 'United States (Ohio · statewide)',
+        providerId: 'us-oh-odnr-statewide-parcels',
+        label: 'Ohio Statewide Parcels (ODNR / OGRIP · statewide)',
+        proxyPath: '/api/parcel/us-oh',
+        kind: 'cadastral',
+        contains: isInOhio,
+        note: 'Ohio statewide parcels — VERIFIED-LIVE 2026-09-06: keyless ArcGIS MapServer (gis.ohiodnr.gov/.../OIT_Services/odnr_landbase/MapServer, LAYER 4 "Statewide Parcels", native EPSG:3857). Point-intersect @ Columbus (39.960019,-82.999580) → HTTP 200, 2133 bytes: PIN 010-000602, STATEWIDE_PIN 39049-010-000602, COUNTY Franklin, OWNER1 "VS STATE STREET LLC", ASSR_ACRES 0.19227437, 16-vertex WGS84 ring. Second locality @ Cleveland (41.500372,-81.695567) → PIN 10107004, STATEWIDE_PIN 39035-10107004, COUNTY Cuyahoga. COVERAGE MEASURED: returnDistinctValues on `COUNTY` = 88 DISTINCT COUNTIES — all 88 of Ohio. ⚠ FRESHNESS IS PER-COUNTY AND MUST NOT BE STATED AS ONE DATE: the layer serves its own `CurrentTo` export date per row and it read 1709269200000 (2024-03-01) for Franklin but 1686628800000 (2023-06-13) for Cuyahoga in the same session. STATEWIDE_PIN (county FIPS + auditor PIN) is the statewide-unique key; the bare PIN is unique only within its county, hence the ordering. The layer carries NO site address (`AUD_LINK` is a per-county auditor deep link). Zoning/FAR are municipal, NEVER inferred here.',
+    },
+    {
+        // US-WI — 72 of 72 counties (measured). No overlap with any other registered box.
+        regionCode: 'US-WI',
+        countryName: 'United States (Wisconsin · statewide)',
+        providerId: 'us-wi-doa-statewide-parcels',
+        label: 'Wisconsin Statewide Parcels V12 (DOA / WLIP · statewide)',
+        proxyPath: '/api/parcel/us-wi',
+        kind: 'cadastral',
+        contains: isInWisconsin,
+        note: 'Wisconsin Statewide Parcels V12 — VERIFIED-LIVE 2026-09-06: keyless ArcGIS Online FeatureServer (services3.arcgis.com/n6uYoouQZW75n5WI/.../Wisconsin_Statewide_Parcels_DB/FeatureServer/0, layer "V1200_WisconsinParcels_2026", native EPSG:3857). Point-intersect @ Madison (43.072297,-89.400247) → HTTP 200, 9091 bytes: STATEID 025070923208015, PARCELID 070923208015, SITEADRESS "821 UNIVERSITY AVE", PLACENAME "CITY OF MADISON", TAXROLLYEAR 2025, 25-vertex WGS84 ring. Second locality @ Green Bay (44.512734,-88.012291) → STATEID 00911-259, "434 E WALNUT ST", CONAME BROWN, LOADDATE "2/05/2026". COVERAGE MEASURED: returnDistinctValues on `CONAME` = 73 values covering all 72 Wisconsin counties (the 73rd, "MENOMONIE", is an upstream spelling artefact of Menominee/the City of Menomonie, not a 73rd county). ⚠ THE SERVICE NAME CARRIES A `_DB` SUFFIX: `…/Wisconsin_Statewide_Parcels/FeatureServer` answers HTTP 200 with {"error":{"code":400,"message":"Invalid URL"}} — the live one is `Wisconsin_Statewide_Parcels_DB`. ⚠ `CNTY_NAME` does not exist (the county field is `CONAME`) and naming it fails the whole query with "\'outFields\' parameter is invalid". STATEID is the statewide-unique (county-FIPS-prefixed) parcel id; PARCELID is unique only within its county. Zoning/FAR are municipal, NEVER inferred here.',
+    },
+    {
+        // US-MT — 56 of 56 counties (measured). No overlap with any other registered box.
+        regionCode: 'US-MT',
+        countryName: 'United States (Montana · statewide)',
+        providerId: 'us-mt-msl-cadastral',
+        label: 'Montana Cadastral Framework (MSL / Dept. of Revenue · statewide)',
+        proxyPath: '/api/parcel/us-mt',
+        kind: 'cadastral',
+        contains: isInMontana,
+        note: 'Montana Cadastral Framework — VERIFIED-LIVE 2026-09-06: keyless ArcGIS MapServer (gisservice.mt.gov/.../msdi_cadastral_map_v1/MapServer, LAYER 1 "Montana Parcels", copyrightText "Montana State Library, Department of Revenue", native EPSG:6514 MT State Plane metres). Point-intersect @ Helena (46.589655,-112.038221) → HTTP 200, 6755 bytes: PARCELID 05188830321090000, CountyName "Lewis and Clark", AddressLine1 "330 N LAST CHANCE GULCH", CityStateZip "HELENA, MT 59601", TaxYear 2026, PropType "Improved Property", LegalDescriptionShort "HELENA TOWNSITE 1869, S30, T10 N, R03 W, BLOCK 411, Lot 4, PT 4,5", 10-vertex WGS84 ring. Second locality @ Billings (45.782413,-108.499330) → PARCELID 03092703134050000, CountyName Yellowstone, "2408 MINNESOTA AVE". COVERAGE MEASURED: returnDistinctValues on `CountyName` = 56 DISTINCT COUNTIES — all 56 of Montana. ⛔ THE HOST MOVED AND THE OLD ONE STILL ANSWERS: gisservicemt.gov/arcgis/rest/services now returns HTTP 200 with 4387 bytes of text/html (a portal page, not the REST catalogue) — a probe that only checked the status code would have read that as healthy. The live REST host is gisservice.mt.gov. Note the source\'s own scope caveat, "taxable and tax-exempt parcels for MOST of Montana" — tribal trust land in particular is not a DOR-assessed parcel, so an on-reservation click can be a truthful `empty` → footprint. Zoning is municipal/county, NEVER inferred here.',
+    },
+    {
+        // US-UT — 29 of 29 counties (measured). No overlap with any other registered box.
+        regionCode: 'US-UT',
+        countryName: 'United States (Utah · statewide)',
+        providerId: 'us-ut-ugrc-parcels',
+        label: 'Utah Statewide Parcels (UGRC · statewide)',
+        proxyPath: '/api/parcel/us-ut',
+        kind: 'cadastral',
+        contains: isInUtah,
+        note: 'Utah Statewide Parcels — VERIFIED-LIVE 2026-09-06: keyless ArcGIS Online FeatureServer (services1.arcgis.com/99lidPhWCzftIe9K/.../UtahStatewideParcels/FeatureServer/0, layer "StateWideParcels", native EPSG:3857, 1,596,196 parcels). Point-intersect @ Salt Lake City (40.761939,-111.891571) → HTTP 200, 2973 bytes: PARCEL_ID 15014300180000, PARCEL_ADD "18 W MARKET ST", PARCEL_CITY "Salt Lake City", County SaltLake, OWN_TYPE Private, ParcelsCur 1786492800000 (2026-08-11), 5-vertex WGS84 ring. Second locality @ Cedar City (37.678167,-113.062919) → PARCEL_ID B-0717-0002-0718, "95 W HARDING AVE", County Iron. COVERAGE MEASURED: returnDistinctValues on `County` = 29 DISTINCT COUNTIES — all 29 of Utah. ⚠ PARCEL_ID FORMAT IS PER-COUNTY, NOT STATEWIDE-NORMALISED (Salt Lake serves a 14-digit number, Iron serves "B-0717-0002-0718"), so it keys the parcel but must never be parsed as a uniform schema; `County` disambiguates. The layer serves its own `ParcelsCur` currency epoch per row, which is the honest freshness field. Zoning/FAR are municipal, NEVER inferred here.',
+    },
+    {
+        // US-VA — 94 of 95 counties (Rappahannock absent, measured) + all 38 independent cities.
+        // Overlaps US-NC (border strip) and US-OH (over West Virginia); see REGION_BBOX above.
+        regionCode: 'US-VA',
+        countryName: 'United States (Virginia · 94 counties + 38 cities)',
+        providerId: 'us-va-vgin-parcels',
+        label: 'Virginia Parcels (VGIN · 94 counties + 38 cities)',
+        proxyPath: '/api/parcel/us-va',
+        kind: 'cadastral',
+        contains: isInVirginia,
+        note: 'VGIN Virginia Parcels — VERIFIED-LIVE 2026-09-06: keyless ArcGIS MapServer (vginmaps.vdem.virginia.gov/.../VA_Base_Layers/VA_Parcels/MapServer/0, copyrightText "Virginia Geographic Information Network (VGIN)", native EPSG:3857). Point-intersect @ Richmond (37.538326,-77.431270) → HTTP 200, 3970 bytes: VGIN_QPID 5176000025467, PARCELID 517466, LOCALITY "Richmond City", FIPS 51760, LASTUPDATE 1775433600000 (2026-04-06), 64-vertex WGS84 ring. Second locality @ Pittsylvania County (36.654887,-79.391766) → VGIN_QPID 5114300000997, PARCELID 2329-19-0015, LASTUPDATE 1778112000000 (2026-05-07). ⛔ COVERAGE IS 94 OF VIRGINIA\'S 95 COUNTIES — MEASURED, NOT ROUNDED UP: returnDistinctValues on `LOCALITY` = 136 values = 94 counties + all 38 independent cities + 4 town rows (Bedford, Colonial Beach, Culpeper, Farmville); RAPPAHANNOCK COUNTY IS ABSENT, so a Washington-VA click is an honest `empty` → OSM footprint. ⚠ VGIN_QPID arrives as a JSON FLOAT (5176000025467.0) and is stringified, not parsed as a schema; PARCELID is the local jurisdiction\'s own id and is unique only within its LOCALITY. The source\'s own description states the boundaries are "for cartographic use and spatial analysis only, and not for use as legal descriptions or property surveys" and are NOT edge-matched across municipal boundaries — so this is an assessment fabric, never a survey. Zoning/FAR are municipal, NEVER inferred here.',
+    },
+    {
+        // US-CA-LA — ONE COUNTY (the largest in the US by population). California has no open
+        // statewide parcel service, so CA is wired county-first. Far south of US-CA-SF; no overlap.
+        regionCode: 'US-CA-LA',
+        countryName: 'United States (Los Angeles County, CA)',
+        providerId: 'us-ca-la-county-parcels',
+        label: 'LA County Assessor Parcels (California · Los Angeles County)',
+        proxyPath: '/api/parcel/us-ca-la',
+        kind: 'cadastral',
+        contains: isInLosAngelesCounty,
+        note: 'LA County Assessor parcels — VERIFIED-LIVE 2026-09-06: keyless ArcGIS MapServer (public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0, copyrightText "Los Angeles County Office of the Assessor", native EPSG:3857). Point-intersect @ downtown LA (34.054737,-118.241866) → HTTP 200, 2630 bytes: AIN 5161005902, APN 5161-005-902, SitusAddress "312 N SPRING ST", SitusCity "LOS ANGELES CA", SitusZIP 90012-4701, UseType Government, 32-vertex WGS84 ring. ⚠ THE FOLDER MATTERS: public.gis.lacounty.gov/public/rest/services/LACounty_Dynamic/Parcel/MapServer answers HTTP 200 with {"error":{"code":404,"message":"Service LACounty_Dynamic/Parcel/MapServer not found "}} — the live layer is in the LACounty_Cache folder, not LACounty_Dynamic. ONE COUNTY, not statewide: the bbox is the county (plus Catalina and San Clemente Island), and an Orange-County / Ventura / San Bernardino click inside the rectangle returns zero features — a truthful `empty` → footprint, never a mis-attributed parcel. AIN is the 10-digit Assessor Identification Number (the routing key); APN is the same value dash-formatted. California has NO open statewide parcel service, which is why CA is wired county-first. LA\'s zoning is City/County ordinance and is NEVER inferred here.',
+    },
+    {
+        // US-AZ-MARICOPA — ONE COUNTY (Phoenix metro). Arizona's State Land Department publishes
+        // TRUST land, not private lots, so AZ is wired county-first. No overlap with US-UT.
+        regionCode: 'US-AZ-MARICOPA',
+        countryName: 'United States (Maricopa County, AZ · Phoenix metro)',
+        providerId: 'us-az-maricopa-parcels',
+        label: 'Maricopa County Assessor Parcels (Arizona · Phoenix metro)',
+        proxyPath: '/api/parcel/us-az-maricopa',
+        kind: 'cadastral',
+        contains: isInMaricopaCountyAz,
+        note: 'Maricopa County (AZ) Assessor parcels — VERIFIED-LIVE 2026-09-06: keyless ArcGIS MapServer (gis.mcassessor.maricopa.gov/arcgis/rest/services/Parcels/MapServer/0, copyrightText "Maricopa County Assessor\'s Office", serviceDescription "Dynamic parcel boundaries", native EPSG:3857). Point-intersect @ Phoenix (33.449177,-112.074098) → HTTP 200, 1372 bytes: APN 11221001, APN_DASH 112-21-001, PHYSICAL_ADDRESS "50 N CENTRAL AVE   PHOENIX  85004", PHYSICAL_CITY PHOENIX, OWNER_NAME "PHOENIX CITY OF (LEASED OUT)", 7-vertex WGS84 ring. ONE COUNTY (Phoenix metro), not statewide — Arizona has no open statewide parcel service (the State Land Department publishes TRUST land, not private lots), so AZ is wired county-first and a Tucson / Flagstaff click falls to the OSM footprint rather than a mis-attributed cadastre. APN is the 8-digit book-map-item id; APN_DASH is the same value formatted. Zoning is municipal ordinance, NEVER inferred here.',
+    },
+    // ══════════════════════════════════════════════════════════════════════════════════════
     // LANE AU-OPEN (2026-09-03) — AUSTRALIA, the six OPEN states + two DECLARED DEFERRALS.
     // ══════════════════════════════════════════════════════════════════════════════════════
     // Sub-national codes AU-<STATE> (ISO 3166-2:AU), the proven US-<STATE> idiom extended — a bbox
@@ -1333,6 +1479,26 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     'US-FL': US_FL_BBOX,
     'US-WA-KING': US_WA_KING_BBOX,
     'US-TX-HARRIS': US_TX_HARRIS_BBOX,
+    // LANE USA-PARCELS (2026-09-06) — seven states + two counties. `contains` IS the rectangle for
+    // all nine. TWO overlaps exist and both are ordered correctly BY AREA, which is why every one of
+    // these needs its entry here (a missing row scores +Infinity and sorts LAST):
+    //   • US-VA (≈25.0 deg²) vs US-NC (≈25.4 deg²) in the 36.54–36.59°N border strip — VA is
+    //     fractionally smaller so it is tried first there; the NC parcels layer answers `empty` for a
+    //     Virginia point and vice versa, so the fall-through self-corrects.
+    //   • US-OH (≈17.0 deg²) vs US-VA in the lat 38.39–39.47 × lon -83.68–-80.51 band, which is
+    //     entirely WEST VIRGINIA and eastern Kentucky — neither service covers it, both answer
+    //     `empty`, and the click falls to the OSM footprint, which is the correct answer there.
+    // US-NY also encloses US-NY-NYC (≈0.16 deg²), so MapPLUTO keeps New York City on specificity —
+    // deliberate: MapPLUTO carries ZoneDist1/ResidFAR that the statewide tax-parcel layer does not.
+    'US-NC': US_NC_BBOX,
+    'US-NY': US_NY_BBOX,
+    'US-OH': US_OH_BBOX,
+    'US-WI': US_WI_BBOX,
+    'US-MT': US_MT_BBOX,
+    'US-UT': US_UT_BBOX,
+    'US-VA': US_VA_BBOX,
+    'US-CA-LA': US_CA_LA_BBOX,
+    'US-AZ-MARICOPA': US_AZ_MARICOPA_BBOX,
     // L-12871 batch (2026-09-02). ⚠ These bboxes are the rows' SPECIFICITY metric only — the
     // rows' `contains` is `claimsNation`, never the rectangle. Since the national filter in
     // `resolveParcelCandidates` keeps at most one country on a claim, specificity now orders

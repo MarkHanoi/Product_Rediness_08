@@ -2497,6 +2497,12 @@ export * from './countryAdapters/gulf/index.js';
 // Exports are Us*/US_*/isIn*-named (isInMassachusetts/isInFlorida/isInKingCountyWa/isInHarrisCountyTx,
 // US_MA_PARCELS…, usMaParcelProvider…) plus the shared helpers toFiniteNum/parseRing/ringAreaM2/
 // isInUsBbox — none of which any other barreled module exports (checked), so no wildcard collision.
+// LANE USA-PARCELS (2026-09-06) — the SAME barrel now also re-exports usStatewideParcels.ts: SEVEN
+// more STATES (US-NC · US-NY · US-OH · US-WI · US-MT · US-UT · US-VA) and TWO more COUNTIES
+// (US-CA-LA · US-AZ-MARICOPA), plus `USA_PARCEL_REFUSALS` — the US parcel channels that lane
+// REACHED and could not wire (Texas statewide · NJ · KY · TN · MD · OR), each carrying its verbatim
+// HTTP answer as DATA rather than as prose in a doc that rots. Every added name is isIn*/US_*/USA_*
+// -prefixed and was checked for wildcard collision across the barrel (21 names, all unique).
 export * from './countryAdapters/us/index.js';
 
 // ⚠ ONE ambiguity between the adapter wildcards, resolved explicitly rather than silently:

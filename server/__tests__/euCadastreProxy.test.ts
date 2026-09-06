@@ -432,7 +432,7 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at + 14 de-*)', () => {
+    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at + 14 de-*; USA-PARCELS + 9 us)', () => {
         expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual([
             'at', 'au-act', 'au-nsw', 'au-qld', 'au-sa', 'au-tas', 'au-vic',
             'be-vlg', 'bg', 'ch', 'cz',
@@ -445,7 +445,16 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
             // 'nz' — LANE NZ-EVERYWHERE 2026-09-05: the first KEYED leg (LINZ_API_KEY, C57 §1.2);
             // without the key it answers `unconfigured`, never a parcel — see nzLinzParcelLeg.test.ts.
             'lt', 'lu', 'lv', 'nl', 'no', 'nz', 'pl', 'pt', 'qa', 'si', 'sk', 'tr',
-            'us-chi', 'us-fl', 'us-ma', 'us-nyc', 'us-sf', 'us-tx-harris', 'us-wa-king',
+            // LANE USA-PARCELS (2026-09-06) — +7 STATES (nc/ny/oh/wi/mt/ut/va) and +2 COUNTIES
+            // (ca-la/az-maricopa). ⛔ 'us-tx' is ABSENT ON PURPOSE: the Texas StratMap statewide
+            // aggregate IS live at feature.geographic.texas.gov, but its REST query capability —
+            // ADVERTISED as `capabilities: "Query,Map"` — answers HTTP 200 with
+            // {"error":{"code":400,"extendedCode":-2147220222,"message":"Requested operation is not
+            // supported by this service."}} for every query, and its WMS GetFeatureInfo returns real
+            // attributes with `"geometry": null`. Identity without a ring; a key here would
+            // advertise Texas as wired. See USA_PARCEL_REFUSALS for the verbatim transcript.
+            'us-az-maricopa', 'us-ca-la', 'us-chi', 'us-fl', 'us-ma', 'us-mt', 'us-nc', 'us-ny',
+            'us-nyc', 'us-oh', 'us-sf', 'us-tx-harris', 'us-ut', 'us-va', 'us-wa-king', 'us-wi',
         ]);
     });
 

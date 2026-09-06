@@ -14,3 +14,8 @@
 
 export * from './usArcgisParcelClient.js';
 export * from './usJurisdiction.js';
+// LANE USA-PARCELS (2026-09-06) — SEVEN more STATES (NC · NY · OH · WI · MT · UT · VA) and TWO more
+// COUNTIES (LA County CA · Maricopa AZ), all on the SAME shared client, plus `USA_PARCEL_REFUSALS`:
+// the states this lane REACHED and could not wire, each carrying its verbatim HTTP answer. A refusal
+// that is not enumerated is indistinguishable from a state nobody looked at.
+export * from './usStatewideParcels.js';

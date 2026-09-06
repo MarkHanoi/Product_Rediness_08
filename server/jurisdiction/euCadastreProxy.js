@@ -991,6 +991,62 @@ const usTxHarrisUrl = arcgisPointUrl(
     'HCAD_NUM,acct_num,site_str_num,site_str_name,site_str_sfx,site_city,site_zip,tax_year,land_use,state_class,land_sqft',
 );
 
+// -- LANE USA-PARCELS (2026-09-06) -- URL builders for the +7 STATE / +2 COUNTY wave ------------
+//
+// Every one is a keyless ArcGIS point-intersect, so `arcgisPointUrl` is reused verbatim. Each
+// `outFields` list was confirmed FIELD BY FIELD against the layer's own metadata before use, because
+// on ArcGIS an outField that does not exist fails the WHOLE query rather than dropping the column --
+// this lane hit that twice for real (NC `city`/`county`/`sitezip` -> HTTP 200 + {"error":{"code":400,
+// "message":"Failed to execute query."}}; WI `CNTY_NAME` -> "'outFields' parameter is invalid").
+// Coverage per source is MEASURED (returnDistinctValues on the county field), never assumed from the
+// service title, and the two that are NOT statewide say so: NY 38/62 counties, VA 94/95 counties.
+
+/** NORTH CAROLINA -- NC OneMap. LAYER 1 (layer 0 is the parcel POINT layer). Native 2264 (ft). */
+const usNcUrl = arcgisPointUrl(
+    'https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/MapServer/1/query',
+    'parno,altparno,ownname,siteadd,scity,szip,cntyname,parusedesc,gisacres',
+);
+/** NEW YORK STATE -- NYS ITS tax parcels. LAYER 1 (layer 0 is the COUNTY COVERAGE footprint). */
+const usNyUrl = arcgisPointUrl(
+    'https://gisservices.its.ny.gov/arcgis/rest/services/NYS_Tax_Parcels_Public/MapServer/1/query',
+    'PRINT_KEY,SBL,PARCEL_ADDR,COUNTY_NAME,MUNI_NAME,PROP_CLASS,CALC_ACRES,ROLL_YR',
+);
+/** OHIO -- ODNR statewide parcels, LAYER 4 of odnr_landbase. `CurrentTo` is a PER-COUNTY export date. */
+const usOhUrl = arcgisPointUrl(
+    'https://gis.ohiodnr.gov/arcgis/rest/services/OIT_Services/odnr_landbase/MapServer/4/query',
+    'PIN,STATEWIDE_PIN,COUNTY,OWNER1,ASSR_ACRES,CALC_ACRES,CurrentTo',
+);
+/** WISCONSIN -- DOA/WLIP V12. The service name carries a `_DB` suffix; without it: 400 Invalid URL. */
+const usWiUrl = arcgisPointUrl(
+    'https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels_DB/FeatureServer/0/query',
+    'STATEID,PARCELID,TAXPARCELID,SITEADRESS,PLACENAME,CONAME,TAXROLLYEAR,LOADDATE,GISACRES',
+);
+/** MONTANA -- MSL/DOR cadastral, LAYER 1. Host is gisservice.mt.gov; gisservicemt.gov serves HTML. */
+const usMtUrl = arcgisPointUrl(
+    'https://gisservice.mt.gov/arcgis/rest/services/msdi_cadastral_map_v1/MapServer/1/query',
+    'PARCELID,CountyName,AssessmentCode,PropertyID,AddressLine1,CityStateZip,TaxYear,PropType,GISAcres,LegalDescriptionShort',
+);
+/** UTAH -- UGRC statewide parcels. `ParcelsCur` is the source's own per-row currency epoch. */
+const usUtUrl = arcgisPointUrl(
+    'https://services1.arcgis.com/99lidPhWCzftIe9K/arcgis/rest/services/UtahStatewideParcels/FeatureServer/0/query',
+    'PARCEL_ID,ACCOUNT_NUM,PARCEL_ADD,PARCEL_CITY,PARCEL_ZIP,County,OWN_TYPE,ParcelsCur',
+);
+/** VIRGINIA -- VGIN. VGIN_QPID arrives as a JSON FLOAT; the normaliser stringifies it, never parses. */
+const usVaUrl = arcgisPointUrl(
+    'https://vginmaps.vdem.virginia.gov/arcgis/rest/services/VA_Base_Layers/VA_Parcels/MapServer/0/query',
+    'VGIN_QPID,PARCELID,LOCALITY,FIPS,LASTUPDATE',
+);
+/** LOS ANGELES COUNTY, CA -- folder LACounty_Cache; LACounty_Dynamic/Parcel is a 404. */
+const usCaLaUrl = arcgisPointUrl(
+    'https://public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0/query',
+    'AIN,APN,SitusAddress,SitusCity,SitusZIP,UseType,UseDescription,TaxRateCity',
+);
+/** MARICOPA COUNTY, AZ -- Assessor parcel fabric (Phoenix metro). */
+const usAzMaricopaUrl = arcgisPointUrl(
+    'https://gis.mcassessor.maricopa.gov/arcgis/rest/services/Parcels/MapServer/0/query',
+    'APN,APN_DASH,PHYSICAL_ADDRESS,PHYSICAL_CITY,PHYSICAL_ZIP,OWNER_NAME',
+);
+
 /**
  * AUSTRALIA — six state cadastres (lane AU-OPEN, live-probed 2026-09-03; descriptors mirrored from
  * countryAdapters/au/auStateCadastre.ts AU_STATE_DESCRIPTORS — endpoints, id fields, quirks).
@@ -1804,6 +1860,178 @@ export const EU_CADASTRE_SOURCES = {
             ].filter(Boolean).join(' ').trim();
             const city = jsonProp(p, 'site_city');
             const address = site ? (city ? `${site}, ${city}` : site) : null;
+            return { refcat, areaM2: ringAreaM2(c.ring), address };
+        },
+    },
+    // -- LANE USA-PARCELS (2026-09-06): +7 STATES (NC / NY / OH / WI / MT / UT / VA) and +2 COUNTIES
+    // (LA County CA / Maricopa AZ). `source` values are the registry rows' providerIds (one spelling
+    // per source, C84 EI-9). Each `guard` mirrors the routing bbox authored in
+    // countryAdapters/us/usStatewideParcels.ts -- the REGISTRY decides which row is tried; a guard only
+    // fences its own source's territory, so an out-of-state point inside a rectangle is `out-of-area`
+    // and an in-state point the source does not carry is `empty`. Those are DIFFERENT answers and both
+    // fall to the OSM footprint without ever naming a parcel that is not there.
+    // AREA IS GEOMETRY-DERIVED FOR ALL NINE. Served area fields are acres (NC `gisacres`, MT
+    // `GISAcres`, WI `GISACRES`, OH `ASSR_ACRES`) or projected units (VA `SHAPE.STArea()`), so passing
+    // any of them through as m2 would be a unit error wearing a number's confidence.
+    // STILL NO US NATIONAL PARCEL SERVICE (re-verified 2026-09-06). Texas HAS a live statewide
+    // aggregate at feature.geographic.texas.gov -- but its REST Query capability, though ADVERTISED,
+    // is refused at runtime, and its WMS GetFeatureInfo returns attributes with `"geometry": null`.
+    // Identity without a ring is not a wireable parcel leg; see USA_PARCEL_REFUSALS for the transcript.
+    'us-nc': {
+        // outFields must be EXACT -- `city`/`county`/`sitezip` do NOT exist on this layer and naming
+        // any of them fails the WHOLE query (HTTP 200 + error 400 "Failed to execute query."). 100 of
+        // North Carolina's 100 counties are present (measured via returnDistinctValues on cntyname).
+        guard: (lat, lon) => lat >= 33.75 && lat <= 36.59 && lon >= -84.33 && lon <= -75.40,
+        url: usNcUrl,
+        format: 'arcgis',
+        source: 'us-nc-onemap-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `parno` is the county parcel number (07301103A @ 128 S Tryon St, Charlotte, measured);
+            // `altparno` is the county's alternate id.
+            const refcat = String(jsonProp(p, 'parno', 'altparno') ?? '').trim();
+            // `siteadd` already carries the city on many rows ("128 S TRYON ST CHARLOTTE NC"), so the
+            // county is NOT appended -- it is not part of a street address.
+            const addr = jsonProp(p, 'siteadd');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: addr ? String(addr) : null };
+        },
+    },
+    'us-ny': {
+        // 38 OF NEW YORK'S 62 COUNTIES, and the SERVICE ITSELF publishes that footprint as layer 0.
+        // The guard is the whole state on purpose: a click in one of the 24 absent counties must reach
+        // the service and come back `empty` (an authoritative "not published here"), which is a
+        // different and more useful answer than `out-of-area`.
+        guard: (lat, lon) => lat >= 40.47 && lat <= 45.02 && lon >= -79.77 && lon <= -71.85,
+        url: usNyUrl,
+        format: 'arcgis',
+        source: 'us-ny-nysgis-taxparcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // PRINT_KEY is the county tax-map key (76.7-1-1 @ Albany, measured) -- unique only WITHIN
+            // its SWIS district, so the 20-char SBL is the fallback rather than a co-equal.
+            const refcat = String(jsonProp(p, 'PRINT_KEY', 'SBL') ?? '').trim();
+            const parts = [jsonProp(p, 'PARCEL_ADDR'), jsonProp(p, 'MUNI_NAME')].filter(Boolean);
+            return { refcat, areaM2: ringAreaM2(c.ring), address: parts.length ? parts.join(', ') : null };
+        },
+    },
+    'us-oh': {
+        // 88 of Ohio's 88 counties (measured). The layer carries NO site address -- `AUD_LINK` is a
+        // per-county auditor deep link, not an address, and is deliberately not requested.
+        guard: (lat, lon) => lat >= 38.39 && lat <= 42.33 && lon >= -84.83 && lon <= -80.51,
+        url: usOhUrl,
+        format: 'arcgis',
+        source: 'us-oh-odnr-statewide-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // STATEWIDE_PIN = county FIPS + auditor PIN (39049-010-000602 @ Columbus, measured) and is
+            // the statewide-unique key; the bare PIN is unique only within its county.
+            const refcat = String(jsonProp(p, 'STATEWIDE_PIN', 'PIN') ?? '').trim();
+            return { refcat, areaM2: ringAreaM2(c.ring), address: null };
+        },
+    },
+    'us-wi': {
+        // 72 of Wisconsin's 72 counties (measured; the 73rd distinct CONAME value is an upstream
+        // spelling artefact). The service name needs the `_DB` suffix -- without it the host answers
+        // HTTP 200 + {"error":{"code":400,"message":"Invalid URL"}}.
+        guard: (lat, lon) => lat >= 42.47 && lat <= 47.31 && lon >= -92.90 && lon <= -86.24,
+        url: usWiUrl,
+        format: 'arcgis',
+        source: 'us-wi-doa-statewide-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // STATEID is the county-FIPS-prefixed statewide-unique id (025070923208015 @ Madison,
+            // measured); PARCELID is unique only within its county.
+            const refcat = String(jsonProp(p, 'STATEID', 'PARCELID') ?? '').trim();
+            const parts = [jsonProp(p, 'SITEADRESS'), jsonProp(p, 'PLACENAME')].filter(Boolean);
+            return { refcat, areaM2: ringAreaM2(c.ring), address: parts.length ? parts.join(', ') : null };
+        },
+    },
+    'us-mt': {
+        // 56 of Montana's 56 counties (measured). The source's own scope is "taxable and tax-exempt
+        // parcels for MOST of Montana" -- tribal trust land is not DOR-assessed, so an on-reservation
+        // click can be a truthful `empty`.
+        guard: (lat, lon) => lat >= 44.35 && lat <= 49.01 && lon >= -116.06 && lon <= -104.03,
+        url: usMtUrl,
+        format: 'arcgis',
+        source: 'us-mt-msl-cadastral',
+        normalise: (c) => {
+            const p = c.props || {};
+            // PARCELID is the DOR geocode (05188830321090000 @ Helena, measured).
+            const refcat = String(jsonProp(p, 'PARCELID', 'AssessmentCode') ?? '').trim();
+            const parts = [jsonProp(p, 'AddressLine1'), jsonProp(p, 'CityStateZip')]
+                .filter(Boolean)
+                .map((v) => String(v).trim())
+                .filter((v) => v !== '');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: parts.length ? parts.join(', ') : null };
+        },
+    },
+    'us-ut': {
+        // 29 of Utah's 29 counties (measured). PARCEL_ID FORMAT IS PER-COUNTY, not normalised
+        // (15014300180000 in Salt Lake, "B-0717-0002-0718" in Iron) -- it keys the parcel, it is never
+        // a schema to parse.
+        guard: (lat, lon) => lat >= 36.99 && lat <= 42.01 && lon >= -114.06 && lon <= -108.99,
+        url: usUtUrl,
+        format: 'arcgis',
+        source: 'us-ut-ugrc-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            const refcat = String(jsonProp(p, 'PARCEL_ID', 'ACCOUNT_NUM') ?? '').trim();
+            const parts = [jsonProp(p, 'PARCEL_ADD'), jsonProp(p, 'PARCEL_CITY')].filter(Boolean);
+            return { refcat, areaM2: ringAreaM2(c.ring), address: parts.length ? parts.join(', ') : null };
+        },
+    },
+    'us-va': {
+        // 94 of Virginia's 95 counties -- RAPPAHANNOCK COUNTY IS ABSENT (measured) -- plus all 38
+        // independent cities. VGIN's own description says the boundaries are "for cartographic use
+        // and spatial analysis only, and not for use as legal descriptions or property surveys".
+        guard: (lat, lon) => lat >= 36.54 && lat <= 39.47 && lon >= -83.68 && lon <= -75.16,
+        url: usVaUrl,
+        format: 'arcgis',
+        source: 'us-va-vgin-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // VGIN_QPID is served as a JSON FLOAT (5176000025467 @ Richmond, measured) -- String()
+            // renders the integer; it is NEVER parsed as a structured code. PARCELID is the local
+            // jurisdiction's own id and is unique only within its LOCALITY, hence the ordering.
+            const refcat = String(jsonProp(p, 'VGIN_QPID', 'PARCELID') ?? '').trim();
+            // The layer carries NO street address; LOCALITY is the only place name it serves.
+            const loc = jsonProp(p, 'LOCALITY');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: loc ? String(loc) : null };
+        },
+    },
+    'us-ca-la': {
+        // ONE COUNTY (plus Catalina and San Clemente Island). California has no open statewide parcel
+        // service, so CA is wired county-first. An Orange/Ventura/San Bernardino point inside this
+        // rectangle returns 0 features -- a truthful `empty`, never a mis-attributed parcel.
+        guard: (lat, lon) => lat >= 32.75 && lat <= 34.83 && lon >= -118.96 && lon <= -117.64,
+        url: usCaLaUrl,
+        format: 'arcgis',
+        source: 'us-ca-la-county-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // AIN is the 10-digit Assessor Identification Number (5161005902 @ 312 N Spring St,
+            // measured); APN is the same value dash-formatted, so it is the fallback, not a rival id.
+            const refcat = String(jsonProp(p, 'AIN', 'APN') ?? '').trim();
+            const parts = [jsonProp(p, 'SitusAddress'), jsonProp(p, 'SitusCity')].filter(Boolean);
+            return { refcat, areaM2: ringAreaM2(c.ring), address: parts.length ? parts.join(', ') : null };
+        },
+    },
+    'us-az-maricopa': {
+        // ONE COUNTY (Phoenix metro). Arizona's State Land Department publishes TRUST land, not
+        // private lots, so AZ is wired county-first; a Tucson click falls to the footprint.
+        guard: (lat, lon) => lat >= 32.50 && lat <= 34.05 && lon >= -113.34 && lon <= -111.04,
+        url: usAzMaricopaUrl,
+        format: 'arcgis',
+        source: 'us-az-maricopa-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // APN is the 8-digit book-map-item id (11221001 @ 50 N Central Ave, measured); APN_DASH is
+            // the same value formatted.
+            const refcat = String(jsonProp(p, 'APN', 'APN_DASH') ?? '').trim();
+            // PHYSICAL_ADDRESS already embeds the city and ZIP with padded spacing -- collapsed here so
+            // the parcel card does not show a run of blanks.
+            const raw = jsonProp(p, 'PHYSICAL_ADDRESS');
+            const address = raw ? String(raw).replace(/\s+/g, ' ').trim() || null : null;
             return { refcat, areaM2: ringAreaM2(c.ring), address };
         },
     },
