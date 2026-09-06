@@ -1,42 +1,53 @@
 // sketchDocStore — the active sketch document (S52 D1).
 //
-// Holds the entity collection (points + lines), generates fresh ids,
-// exposes frozen snapshots, and notifies subscribers on every
-// mutation.  Pure: no THREE, no DOM, no rAF, no `(window as any)`
-// (rules P2/P3/P6 enforced by a source-text test).
+// Holds the entity collection, generates fresh ids, exposes frozen snapshots,
+// and notifies subscribers on every mutation.  Pure: no THREE, no DOM, no rAF,
+// no `(window as any)` (rules P2/P3/P6 enforced by a source-text test).
 //
-// Action surface (S52 D1):
-//   • addPoint(x, z)                     → new point id
-//   • addLineByPoints(p1, p2)            → new line id (reuses existing points)
-//   • addLineByCoords(x1, z1, x2, z2)    → new line id (creates two points)
-//   • removeEntity(id)                   → cascades: removing a point
-//                                          also removes any lines that
-//                                          reference it
-//   • clear()                            → wipes everything, version bump
+// The snapshot SHAPE, the projection and the cascading-delete rule live in
+// `sketchDocSnapshot.ts` — split out under the §13 300-LoC cap when the
+// `spline` kind landed.  This file owns MUTATION and the id counters.
 //
-// The constraint-solver wiring (S52 D2/D3) reads `entities` and emits
-// a `ConstraintSet` whose variables follow the
-// `${pointId}-x` / `${pointId}-y` convention the solver defaults to.
+// Action surface:
+//   • addPoint / addLineByPoints / addLineByCoords
+//   • addCircle / addCircleByCoords / addArc
+//   • addSpline(controlPointIds)        — a cubic Bezier CHAIN, 3k+1 handles
+//   • addSplineThroughPoints(pts)       — the authoring path: the points the
+//                                         curve must PASS THROUGH, converted
+//                                         to the one persisted form
+//   • removeEntity(id)                  → cascades (see `withoutEntity`)
+//   • movePoints(updates)               → the solver's write-back sink
+//   • clear()
+//
+// The constraint-solver wiring (S52 D2/D3) reads `entities` and emits a
+// `ConstraintSet` whose variables follow the `${pointId}-x` / `${pointId}-y`
+// convention the solver defaults to — spline control points are ordinary
+// `SketchPoint`s and are therefore inside that variable space automatically.
 
+import {
+  catmullRomToCubicBezierChainXZ,
+  isCubicBezierChainLength,
+  type Pt2,
+} from '@pryzm/geometry-kernel';
 import {
   makeEntityId,
   type EntityId,
   type SketchArc,
   type SketchCircle,
-  type SketchEntity,
   type SketchLine,
   type SketchPoint,
+  type SketchSpline,
 } from '../sketch/entities.js';
+import {
+  buildSnapshot,
+  collectionOf,
+  EMPTY_SNAPSHOT,
+  withoutEntity,
+  type EntityCollection,
+  type SketchDocSnapshot,
+} from './sketchDocSnapshot.js';
 
-export interface SketchDocSnapshot {
-  readonly entities: readonly SketchEntity[];
-  readonly pointById: Readonly<Record<EntityId, SketchPoint>>;
-  readonly lineById: Readonly<Record<EntityId, SketchLine>>;
-  readonly circleById: Readonly<Record<EntityId, SketchCircle>>;
-  readonly arcById: Readonly<Record<EntityId, SketchArc>>;
-  /** Monotonic counter — every mutation increments it. */
-  readonly version: number;
-}
+export type { SketchDocSnapshot } from './sketchDocSnapshot.js';
 
 export type SketchDocSubscriber = (snap: SketchDocSnapshot) => void;
 
@@ -52,97 +63,60 @@ export interface SketchDocStore {
   addCircleByCoords(cx: number, cz: number, radius: number): EntityId;
   /** Add an arc with explicit centre id, radius, and angles (radians, CCW). */
   addArc(centerId: EntityId, radius: number, startAngle: number, endAngle: number): EntityId;
+  /**
+   * Add a cubic Bezier chain over EXISTING points. `controlPointIds` must be
+   * `3k+1` ids of known `SketchPoint`s — a chain of any other length is not a
+   * shorter curve, it is not a curve, so this REFUSES rather than trimming.
+   */
+  addSpline(controlPointIds: readonly EntityId[]): EntityId;
+  /**
+   * The authoring path: the points the curve must PASS THROUGH (mm). Creates
+   * every control point the chain needs and returns the spline id.
+   *
+   * ⛔ The Catmull-Rom conversion is `@pryzm/geometry-kernel`'s — this store
+   *    computes no curve of its own. Nothing downstream ever sees a
+   *    Catmull-Rom: what is stored is the ONE persisted form (C111 §9.6).
+   */
+  addSplineThroughPoints(through: ReadonlyArray<{ x: number; z: number }>): EntityId;
   removeEntity(id: EntityId): void;
   clear(): void;
   /**
-   * Apply a batch of point coordinate updates atomically (one
-   * snapshot, one notification). Used by the solver runner to write
-   * solved values back into the document. Unknown ids are ignored.
+   * Apply a batch of point coordinate updates atomically (one snapshot, one
+   * notification). Used by the solver runner to write solved values back into
+   * the document. Unknown ids are ignored.
    */
   movePoints(updates: ReadonlyArray<{ pointId: EntityId | string; x: number; z: number }>): void;
-}
-
-const EMPTY_SNAPSHOT: SketchDocSnapshot = Object.freeze({
-  entities: Object.freeze([]) as readonly SketchEntity[],
-  pointById: Object.freeze({}) as Readonly<Record<EntityId, SketchPoint>>,
-  lineById: Object.freeze({}) as Readonly<Record<EntityId, SketchLine>>,
-  circleById: Object.freeze({}) as Readonly<Record<EntityId, SketchCircle>>,
-  arcById: Object.freeze({}) as Readonly<Record<EntityId, SketchArc>>,
-  version: 0,
-});
-
-interface RebuildInput {
-  readonly points: ReadonlyArray<SketchPoint>;
-  readonly lines: ReadonlyArray<SketchLine>;
-  readonly circles: ReadonlyArray<SketchCircle>;
-  readonly arcs: ReadonlyArray<SketchArc>;
 }
 
 export function createSketchDocStore(): SketchDocStore {
   let snap: SketchDocSnapshot = EMPTY_SNAPSHOT;
   const subscribers = new Set<SketchDocSubscriber>();
-  let pointCounter = 0;
-  let lineCounter = 0;
-  let circleCounter = 0;
-  let arcCounter = 0;
+  const counters = { pt: 0, ln: 0, cir: 0, arc: 0, spl: 0 };
 
   function notify(): void {
     for (const fn of subscribers) fn(snap);
   }
 
-  function rebuildSnapshot(input: RebuildInput): void {
-    const pointById: Record<EntityId, SketchPoint> = {};
-    const lineById: Record<EntityId, SketchLine> = {};
-    const circleById: Record<EntityId, SketchCircle> = {};
-    const arcById: Record<EntityId, SketchArc> = {};
-    const entities: SketchEntity[] = [];
-    for (const p of input.points) {
-      pointById[p.id] = p;
-      entities.push(p);
-    }
-    for (const l of input.lines) {
-      lineById[l.id] = l;
-      entities.push(l);
-    }
-    for (const c of input.circles) {
-      circleById[c.id] = c;
-      entities.push(c);
-    }
-    for (const a of input.arcs) {
-      arcById[a.id] = a;
-      entities.push(a);
-    }
-    snap = Object.freeze({
-      entities: Object.freeze(entities),
-      pointById: Object.freeze(pointById),
-      lineById: Object.freeze(lineById),
-      circleById: Object.freeze(circleById),
-      arcById: Object.freeze(arcById),
-      version: snap.version + 1,
-    });
+  /** Commit a working set as the next snapshot and notify. */
+  function commit(next: EntityCollection): void {
+    snap = buildSnapshot(next, snap.version + 1);
+    notify();
   }
 
-  function currentPoints(): SketchPoint[] {
-    return Object.values(snap.pointById);
+  function withOverrides(overrides: Partial<EntityCollection>): EntityCollection {
+    return { ...collectionOf(snap), ...overrides };
   }
-  function currentLines(): SketchLine[] {
-    return Object.values(snap.lineById);
+
+  function newPoint(x: number, z: number): SketchPoint {
+    return Object.freeze({ id: makeEntityId('pt', counters.pt++), kind: 'point', x, z });
   }
-  function currentCircles(): SketchCircle[] {
-    return Object.values(snap.circleById);
-  }
-  function currentArcs(): SketchArc[] {
-    return Object.values(snap.arcById);
-  }
-  function rebuildAll(
-    overrides: Partial<RebuildInput>,
-  ): void {
-    rebuildSnapshot({
-      points: overrides.points ?? currentPoints(),
-      lines: overrides.lines ?? currentLines(),
-      circles: overrides.circles ?? currentCircles(),
-      arcs: overrides.arcs ?? currentArcs(),
-    });
+
+  function requireFinite(where: string, ...values: number[]): void {
+    for (const v of values) {
+      if (!Number.isFinite(v)) {
+        throw new Error(`sketchDocStore.${where}: non-finite value (${v}).`);
+      }
+    }
   }
 
   return {
@@ -156,14 +130,10 @@ export function createSketchDocStore(): SketchDocStore {
       };
     },
     addPoint(x, z) {
-      if (!Number.isFinite(x) || !Number.isFinite(z)) {
-        throw new Error(`sketchDocStore.addPoint: non-finite coords (x=${x}, z=${z}).`);
-      }
-      const id = makeEntityId('pt', pointCounter++);
-      const point: SketchPoint = Object.freeze({ id, kind: 'point', x, z });
-      rebuildAll({ points: [...currentPoints(), point] });
-      notify();
-      return id;
+      requireFinite('addPoint', x, z);
+      const point = newPoint(x, z);
+      commit(withOverrides({ points: [...collectionOf(snap).points, point] }));
+      return point.id;
     },
     addLineByPoints(p1, p2) {
       if (!snap.pointById[p1] || !snap.pointById[p2]) {
@@ -172,25 +142,20 @@ export function createSketchDocStore(): SketchDocStore {
       if (p1 === p2) {
         throw new Error('sketchDocStore.addLineByPoints: line endpoints must differ.');
       }
-      const id = makeEntityId('ln', lineCounter++);
+      const id = makeEntityId('ln', counters.ln++);
       const line: SketchLine = Object.freeze({ id, kind: 'line', p1, p2 });
-      rebuildAll({ lines: [...currentLines(), line] });
-      notify();
+      commit(withOverrides({ lines: [...collectionOf(snap).lines, line] }));
       return id;
     },
     addLineByCoords(x1, z1, x2, z2) {
-      const id1 = makeEntityId('pt', pointCounter++);
-      const id2 = makeEntityId('pt', pointCounter++);
-      const p1: SketchPoint = Object.freeze({ id: id1, kind: 'point', x: x1, z: z1 });
-      const p2: SketchPoint = Object.freeze({ id: id2, kind: 'point', x: x2, z: z2 });
-      const lineId = makeEntityId('ln', lineCounter++);
-      const line: SketchLine = Object.freeze({ id: lineId, kind: 'line', p1: id1, p2: id2 });
-      rebuildAll({
-        points: [...currentPoints(), p1, p2],
-        lines: [...currentLines(), line],
-      });
-      notify();
-      return lineId;
+      requireFinite('addLineByCoords', x1, z1, x2, z2);
+      const p1 = newPoint(x1, z1);
+      const p2 = newPoint(x2, z2);
+      const id = makeEntityId('ln', counters.ln++);
+      const line: SketchLine = Object.freeze({ id, kind: 'line', p1: p1.id, p2: p2.id });
+      const cur = collectionOf(snap);
+      commit(withOverrides({ points: [...cur.points, p1, p2], lines: [...cur.lines, line] }));
+      return id;
     },
     addCircle(centerId, radius) {
       if (!snap.pointById[centerId]) {
@@ -199,31 +164,22 @@ export function createSketchDocStore(): SketchDocStore {
       if (!Number.isFinite(radius) || radius <= 0) {
         throw new Error(`sketchDocStore.addCircle: radius must be > 0 (got ${radius}).`);
       }
-      const id = makeEntityId('cir', circleCounter++);
+      const id = makeEntityId('cir', counters.cir++);
       const circle: SketchCircle = Object.freeze({ id, kind: 'circle', center: centerId, radius });
-      rebuildAll({ circles: [...currentCircles(), circle] });
-      notify();
+      commit(withOverrides({ circles: [...collectionOf(snap).circles, circle] }));
       return id;
     },
     addCircleByCoords(cx, cz, radius) {
-      if (!Number.isFinite(cx) || !Number.isFinite(cz)) {
-        throw new Error(`sketchDocStore.addCircleByCoords: non-finite centre (cx=${cx}, cz=${cz}).`);
-      }
+      requireFinite('addCircleByCoords', cx, cz);
       if (!Number.isFinite(radius) || radius <= 0) {
         throw new Error(`sketchDocStore.addCircleByCoords: radius must be > 0 (got ${radius}).`);
       }
-      const ptId = makeEntityId('pt', pointCounter++);
-      const point: SketchPoint = Object.freeze({ id: ptId, kind: 'point', x: cx, z: cz });
-      const circleId = makeEntityId('cir', circleCounter++);
-      const circle: SketchCircle = Object.freeze({
-        id: circleId, kind: 'circle', center: ptId, radius,
-      });
-      rebuildAll({
-        points: [...currentPoints(), point],
-        circles: [...currentCircles(), circle],
-      });
-      notify();
-      return circleId;
+      const centre = newPoint(cx, cz);
+      const id = makeEntityId('cir', counters.cir++);
+      const circle: SketchCircle = Object.freeze({ id, kind: 'circle', center: centre.id, radius });
+      const cur = collectionOf(snap);
+      commit(withOverrides({ points: [...cur.points, centre], circles: [...cur.circles, circle] }));
+      return id;
     },
     addArc(centerId, radius, startAngle, endAngle) {
       if (!snap.pointById[centerId]) {
@@ -232,42 +188,61 @@ export function createSketchDocStore(): SketchDocStore {
       if (!Number.isFinite(radius) || radius <= 0) {
         throw new Error(`sketchDocStore.addArc: radius must be > 0 (got ${radius}).`);
       }
-      if (!Number.isFinite(startAngle) || !Number.isFinite(endAngle)) {
-        throw new Error('sketchDocStore.addArc: angles must be finite.');
-      }
-      const id = makeEntityId('arc', arcCounter++);
+      requireFinite('addArc', startAngle, endAngle);
+      const id = makeEntityId('arc', counters.arc++);
       const arc: SketchArc = Object.freeze({
         id, kind: 'arc', center: centerId, radius, startAngle, endAngle,
       });
-      rebuildAll({ arcs: [...currentArcs(), arc] });
-      notify();
+      commit(withOverrides({ arcs: [...collectionOf(snap).arcs, arc] }));
+      return id;
+    },
+    addSpline(controlPointIds) {
+      if (!isCubicBezierChainLength(controlPointIds.length)) {
+        throw new Error(
+          `sketchDocStore.addSpline: a cubic Bezier chain needs 3k+1 control points (4, 7, 10, …); got ${controlPointIds.length}.`,
+        );
+      }
+      for (const id of controlPointIds) {
+        if (!snap.pointById[id]) {
+          throw new Error(`sketchDocStore.addSpline: unknown control point "${id}".`);
+        }
+      }
+      const id = makeEntityId('spl', counters.spl++);
+      const spline: SketchSpline = Object.freeze({
+        id, kind: 'spline', degree: 3, controlPoints: Object.freeze([...controlPointIds]),
+      });
+      commit(withOverrides({ splines: [...collectionOf(snap).splines, spline] }));
+      return id;
+    },
+    addSplineThroughPoints(through) {
+      if (through.length < 2) {
+        throw new Error(
+          `sketchDocStore.addSplineThroughPoints: need at least 2 through-points; got ${through.length}.`,
+        );
+      }
+      for (const p of through) requireFinite('addSplineThroughPoints', p.x, p.z);
+      const chain: Pt2[] = catmullRomToCubicBezierChainXZ(
+        through.map((p): Pt2 => [p.x, p.z]),
+      );
+      const created = chain.map((c) => newPoint(c[0], c[1]));
+      const id = makeEntityId('spl', counters.spl++);
+      const spline: SketchSpline = Object.freeze({
+        id, kind: 'spline', degree: 3,
+        controlPoints: Object.freeze(created.map((p) => p.id)),
+      });
+      const cur = collectionOf(snap);
+      commit(withOverrides({
+        points: [...cur.points, ...created],
+        splines: [...cur.splines, spline],
+      }));
       return id;
     },
     removeEntity(id) {
       if (
-        !snap.pointById[id] &&
-        !snap.lineById[id] &&
-        !snap.circleById[id] &&
-        !snap.arcById[id]
+        !snap.pointById[id] && !snap.lineById[id] && !snap.circleById[id] &&
+        !snap.arcById[id] && !snap.splineById[id]
       ) return;
-      const remainingPoints = currentPoints().filter((p) => p.id !== id);
-      // Cascading delete: drop lines, circles, arcs referencing the removed point too.
-      const remainingLines = currentLines().filter(
-        (l) => l.id !== id && l.p1 !== id && l.p2 !== id,
-      );
-      const remainingCircles = currentCircles().filter(
-        (c) => c.id !== id && c.center !== id,
-      );
-      const remainingArcs = currentArcs().filter(
-        (a) => a.id !== id && a.center !== id,
-      );
-      rebuildSnapshot({
-        points: remainingPoints,
-        lines: remainingLines,
-        circles: remainingCircles,
-        arcs: remainingArcs,
-      });
-      notify();
+      commit(withoutEntity(collectionOf(snap), id));
     },
     clear() {
       if (snap.entities.length === 0) return;
@@ -285,14 +260,13 @@ export function createSketchDocStore(): SketchDocStore {
         touched++;
       }
       if (touched === 0) return;
-      const nextPoints: SketchPoint[] = currentPoints().map((p) => {
+      const nextPoints: SketchPoint[] = collectionOf(snap).points.map((p) => {
         const upd = byId[p.id as string];
         if (!upd) return p;
         if (Math.abs(upd.x - p.x) < 1e-9 && Math.abs(upd.z - p.z) < 1e-9) return p;
         return Object.freeze({ id: p.id, kind: 'point', x: upd.x, z: upd.z });
       });
-      rebuildAll({ points: nextPoints });
-      notify();
+      commit(withOverrides({ points: nextPoints }));
     },
   };
 }

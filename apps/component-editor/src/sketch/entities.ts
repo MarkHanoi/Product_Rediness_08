@@ -55,12 +55,46 @@ export interface SketchArc {
   readonly endAngle: number;
 }
 
-export type SketchEntity = SketchPoint | SketchLine | SketchCircle | SketchArc;
+/**
+ * FREE-FORM CURVE — a cubic Bezier CHAIN (C111 §9.6).
+ *
+ * `controlPoints` holds `3k+1` ids of sibling `SketchPoint`s, in curve order,
+ * for `k >= 1` spans. The first and last are ON the curve (a cubic Bezier
+ * interpolates its endpoints), which is what lets a spline close a profile
+ * against the line or arc next to it at an AUTHORED point rather than near one.
+ *
+ * ⭐ **Control points are POINT ENTITIES, not inline coordinates, and that is
+ *    the load-bearing decision.** Every `SketchPoint` already owns the solver
+ *    variable pair `${id}-x` / `${id}-y` (see `buildConstraintSet.ts`), so a
+ *    control point is inside the constraint system the moment it exists — a
+ *    `fixed` pin on a spline handle is a REAL constraint, not a decoy. Inline
+ *    coordinates would have needed a second variable-naming convention, which
+ *    is how this repo grows rival subsystems.
+ *
+ * ⛔ **`degree` is declared and is always 3.** It is stored rather than assumed
+ *    so a document that asks for another degree is REFUSED by name instead of
+ *    being silently sampled as a cubic. Rational/weighted NURBS are a declared
+ *    gap — see `packages/geometry-kernel/src/math/cubicBezier.ts`.
+ */
+export interface SketchSpline {
+  readonly id: EntityId;
+  readonly kind: 'spline';
+  readonly degree: 3;
+  /** `3k+1` ids of sibling `SketchPoint`s, in curve order. */
+  readonly controlPoints: readonly EntityId[];
+}
+
+export type SketchEntity =
+  | SketchPoint
+  | SketchLine
+  | SketchCircle
+  | SketchArc
+  | SketchSpline;
 export type EntityKind = SketchEntity['kind'];
 
 /** Build a typed entity-id.  Internal — the store owns the counter. */
 export function makeEntityId(
-  prefix: 'pt' | 'ln' | 'cir' | 'arc',
+  prefix: 'pt' | 'ln' | 'cir' | 'arc' | 'spl',
   counter: number,
 ): EntityId {
   return `${prefix}-${counter.toString(36)}` as EntityId;

@@ -1,5 +1,5 @@
-// ConstraintToolbar — UI bar that dispatches the five S52 constraint
-// commands against the current `selectionStore` (S52 D2).
+// ConstraintToolbar — UI bar that dispatches the S52 constraint commands
+// against the current `selectionStore` (S52 D2).
 //
 // One row of buttons:
 //   • Coincident (needs 2 points)
@@ -7,6 +7,37 @@
 //   • Fixed      (needs 1 point — pins to its current x/z)
 //   • Parallel   (needs 2 lines)
 //   • Perpend.   (needs 2 lines)
+//   • Tangent    (needs 1 spline + 1 line) — §CURVE-TANGENT-LEG, below
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// §CURVE-TANGENT-LEG — the button that makes a spline CONSTRAINABLE
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚠ **THIS BUTTON CLOSES A LIVE `authored-but-unwired` GAP, and the gap is the
+//   reason it exists.** `buildConstraintSet` registers two tangent LEGS per
+//   spline in the solver's `lineEndpoints` table, and the solver executes them
+//   correctly — but `splineTangentLegId` had **zero callers outside its own
+//   module**, and `pickLines` below filters the selection through
+//   `doc.lineById`, which a synthetic leg id is deliberately not in. So the
+//   leg was reachable by the solver and reachable by NOTHING ELSE: a spline
+//   that no constraint could touch, which is the decoy this lane exists to
+//   remove. The command layer never needed changing — `constraint.addParallel`
+//   takes opaque `EntityId`s and validates only `l1 !== l2`.
+//
+// ⭐ **Tangency is dispatched as `parallel`, NOT as a new `tangent` kind.**
+//    `B′(0) = 3·(P1 − P0)`, so a cubic's tangent at an endpoint IS its first
+//    control leg. C74 §4.1's MUST NOT ("no solver may be built because the
+//    product category implies one") is therefore never approached: this is the
+//    existing (b) ENFORCEMENT kind, closed-form, one line fixed.
+//
+// ⭐ **ARGUMENT ORDER IS LOAD-BEARING.** `engine.ts` rotates **`l2`** about its
+//    START point, preserving its length. The leg is passed as `l2` and
+//    oriented on-curve-endpoint FIRST, so the free HANDLE swings and the point
+//    the curve actually passes through does not move. Passing the line as `l2`
+//    would silently rotate the user's line instead of the curve.
+//
+// ⛔ **P6** — every button dispatches through the `CommandBus`. No button
+//    writes a store directly, the Tangent button included.
 //
 // Each button reads the current selection ids + entity kinds, validates
 // arity, and dispatches the verb through the supplied `CommandBus`.
@@ -23,6 +54,8 @@ import {
   ADD_PERPENDICULAR_VERB,
 } from '../commands/constraint/index.js';
 import type { EntityId } from './entities.js';
+import { splineTangentLegId } from './buildConstraintSet.js';
+import { pointToSegmentDistance } from './hitTest.js';
 import type { SelectionStore } from '../stores/selectionStore.js';
 import type { SketchDocStore } from '../stores/sketchDocStore.js';
 
@@ -114,6 +147,15 @@ export function mountConstraintToolbar(opts: ConstraintToolbarOptions): Constrai
       await opts.commandBus.execute(ADD_PERPENDICULAR_VERB, { l1: lns[0]!, l2: lns[1]! });
       setStatus(status, `Perpendicular: ${lns[0]} ⟂ ${lns[1]}`, false);
     }),
+    makeButton('Tangent', async () => {
+      const t = pickSplineAndLine(opts);
+      // The LEG is `l2` so the handle swings and the on-curve point holds.
+      await opts.commandBus.execute(ADD_PARALLEL_VERB, {
+        l1: t.lineId,
+        l2: splineTangentLegId(t.splineId, t.which) as EntityId,
+      });
+      setStatus(status, `Tangent: ${t.splineId} (${t.which}) ∥ ${t.lineId}`, false);
+    }),
     status,
   );
 
@@ -126,14 +168,86 @@ export function mountConstraintToolbar(opts: ConstraintToolbarOptions): Constrai
   };
 }
 
+/**
+ * §CURVE-NO-POINT-ON-CURVE — the refusal C111 §9.3-a REQUIRES, at the exact
+ * gesture that asks for it.
+ *
+ * ⛔ **C111 §9.3-a: "the editor MUST REFUSE TO AUTHOR A CONSTRAINT IT CANNOT
+ *    EVALUATE, AND MUST NOT PERSIST ONE."** §9.3-b: the refusal "names both
+ *    sides — the kind requested, and the classification it lacks."
+ *
+ * Selecting a point and a spline and pressing Coincident is how a person asks
+ * for **point-on-curve**. Without this, the arity check below answers *"Select
+ * 2 points (1 selected)"* — an arithmetic complaint that hides the real reason
+ * and invites the user to try again forever. That is the
+ * `[[context-data-honesty-family]]` shape: a refusal indistinguishable from a
+ * miscount.
+ *
+ * `point-on-curve` is in NEITHER vocabulary — not one of `ConstraintKind`'s 5
+ * members, not one of `ProfileConstraintSchema.kind`'s 12 — so there is
+ * nothing to spell it with and nothing to evaluate it. It is genuinely
+ * simultaneous (the curve parameter `t` is a second unknown that moves with
+ * the point), which makes it a C74 §4.2 **(c) SOLVING** question, and (c) is
+ * unauthorised until §4.2's record is written for it.
+ */
+function refusePointOnCurve(splineId: string): never {
+  throw new Error(
+    `Cannot constrain a point onto spline ${splineId}: "point-on-curve" is not an ` +
+      'authorable kind — it is absent from ConstraintKind (5 members: distance-pp, ' +
+      'parallel, perpendicular, coincident-pp, fixed) AND from ' +
+      'ProfileConstraintSchema.kind (12 members), and it classifies as C74 §4.2 (c) ' +
+      'SOLVING, which is unauthorised. Live alternatives: pin a control point with ' +
+      'Fixed, or constrain an endpoint direction with Tangent.',
+  );
+}
+
 function pickPoints(opts: ConstraintToolbarOptions, n: number): EntityId[] {
   const sel = opts.selectionStore.get().ids;
   const doc = opts.docStore.get();
   const pts = sel.filter((id) => Boolean(doc.pointById[id]));
   if (pts.length < n) {
+    // Name the real reason BEFORE the arity complaint (C111 §9.3-b).
+    const spline = sel.find((id) => Boolean(doc.splineById[id]));
+    if (spline !== undefined && pts.length > 0) refusePointOnCurve(spline);
     throw new Error(`Select ${n} point${n === 1 ? '' : 's'} (${pts.length} selected).`);
   }
   return pts.slice(0, n) as EntityId[];
+}
+
+/**
+ * §CURVE-TANGENT-LEG — resolve "this spline leaves tangent to that line" from
+ * a selection of one spline + one line.
+ *
+ * WHICH END: the endpoint whose ON-CURVE control point is nearest the selected
+ * SEGMENT, measured with the sketcher's existing `pointToSegmentDistance` —
+ * not a second distance routine written here. A tie resolves to `'start'`
+ * deterministically, so the same selection always yields the same constraint.
+ */
+function pickSplineAndLine(
+  opts: ConstraintToolbarOptions,
+): { splineId: EntityId; lineId: EntityId; which: 'start' | 'end' } {
+  const sel = opts.selectionStore.get().ids;
+  const doc = opts.docStore.get();
+  const splineId = sel.find((id) => Boolean(doc.splineById[id]));
+  const lineId = sel.find((id) => Boolean(doc.lineById[id]));
+  if (splineId === undefined || lineId === undefined) {
+    throw new Error(
+      `Select 1 spline and 1 line (spline: ${splineId ? 'yes' : 'no'}, line: ${lineId ? 'yes' : 'no'}).`,
+    );
+  }
+  const spline = doc.splineById[splineId]!;
+  const cps = spline.controlPoints;
+  const first = doc.pointById[cps[0]!];
+  const last = doc.pointById[cps[cps.length - 1]!];
+  if (!first || !last) {
+    throw new Error(`Spline ${splineId} has no resolvable endpoints.`);
+  }
+  const line = doc.lineById[lineId]!;
+  const a = doc.pointById[line.p1]!;
+  const b = doc.pointById[line.p2]!;
+  const dStart = pointToSegmentDistance(first.x, first.z, a.x, a.z, b.x, b.z);
+  const dEnd = pointToSegmentDistance(last.x, last.z, a.x, a.z, b.x, b.z);
+  return { splineId, lineId, which: dEnd < dStart ? 'end' : 'start' };
 }
 
 function pickLines(opts: ConstraintToolbarOptions, n: number): EntityId[] {

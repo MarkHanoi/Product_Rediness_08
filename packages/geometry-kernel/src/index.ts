@@ -44,6 +44,27 @@ export {
   type OrthoPointXZ,
 } from './math/orthoConstraint.js';
 
+// §CURVE-ONE-CUBIC-OWNER — THE cubic Bézier of this repository, at degree 3.
+// The three existing samplers (`_internal/WallPath.ts:arcToPoints`,
+// `geometry-slab:tessellateArcSegment`, `formaWallCurve:sampleQuadraticBezierXZ`)
+// are all QUADRATIC and all serve curved wall PATHS; degree 3 is a capability
+// the repo did not have, not a rival spelling of one it did. Consumed by the
+// component-editor sketch surface AND `family-instance/profileToPolygon`, which
+// is why it lives here rather than in either of them.
+export {
+  CUBIC_BEZIER_DEGREE,
+  MIN_BEZIER_SEGMENTS,
+  MAX_BEZIER_SEGMENTS,
+  isCubicBezierChainLength,
+  cubicBezierSpanCount,
+  cubicBezierPointXZ,
+  cubicBezierTangentXZ,
+  segmentsForCubicBezier,
+  sampleCubicBezierXZ,
+  sampleCubicBezierChainXZ,
+  catmullRomToCubicBezierChainXZ,
+} from './math/cubicBezier.js';
+
 export { produceWall, type WallProducer } from './producers/wall.js';
 export { composeWallGeometryHash, WALL_HASH_SCHEMA_VERSION } from './producers/_internal/composeWallGeometryHash.js';
 export { computeOpeningWorldPos } from './producers/_internal/computeOpeningWorldPos.js';

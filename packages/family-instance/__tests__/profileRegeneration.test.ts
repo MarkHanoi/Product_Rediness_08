@@ -541,7 +541,18 @@ describe('§4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a
     expect(res.unsupported[0]!.message).toContain('under-determined');
   });
 
-  it('a spline refuses honestly rather than being approximated (spec §75)', async () => {
+  // ⚠ **THE BLANKET SPLINE REFUSAL WAS RETIRED (C111 §9.6, §CURVE-SPLINE-SPELLING).**
+  //   This assertion used to read `.toContain('not determined by the document')`,
+  //   which was correct while NO spline spelling existed anywhere in the repo.
+  //   The refusal was retired by DEFINING the spelling — `degree` + `count` +
+  //   `cp0…cpN` — not by loosening the evaluator, so an UNDER-DETERMINED spline
+  //   is still refused, and this fixture (`data: {}`) is still one. What
+  //   changed is that the refusal now names the SPECIFIC missing thing rather
+  //   than the whole kind. ⛔ Do not "fix" a future failure here by dropping
+  //   the assertion: a spline that bakes from an empty payload would be
+  //   invented geometry (spec §75). A well-formed spline's success is covered
+  //   by `profileSpline.test.ts` and `profileMixedRoundTrip.test.ts`.
+  it('an UNDER-DETERMINED spline still refuses honestly rather than being approximated (spec §75)', async () => {
     const spliney = {
       id: 'prof_01HZ00000000000000000SPL01', name: 'Spline', planeId: PLANE,
       entities: [
@@ -553,8 +564,11 @@ describe('§4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a
     } as unknown as Profile;
     const res = await bakeOne([spliney], [extrudeSolid('sol_01HZ00000000000000000SPS01', 'prof_01HZ00000000000000000SPL01')]);
     expect(res.ok).toBe(false);
+    expect(res.unsupported[0]!.reason).toBe('unsupported-feature');
     expect(res.unsupported[0]!.message).toContain('spline');
-    expect(res.unsupported[0]!.message).toContain('not determined by the document');
+    // Names WHICH field is missing, and what the evaluable set is.
+    expect(res.unsupported[0]!.message).toContain('degree undefined');
+    expect(res.unsupported[0]!.message).toContain('only degree 3');
   });
 
   it('a STRING coordinate with no resolvable parameter refuses instead of defaulting to zero', async () => {

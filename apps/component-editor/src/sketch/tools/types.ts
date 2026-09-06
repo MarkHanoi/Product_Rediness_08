@@ -10,7 +10,8 @@ export type ToolName =
   | 'arc'
   | 'circle'
   | 'fillet'
-  | 'trim';
+  | 'trim'
+  | 'spline';
 
 export interface ToolEvent {
   readonly kind: 'pointer-move' | 'pointer-down' | 'cancel';
@@ -55,6 +56,12 @@ export const EMPTY_PREVIEW: ToolPreview = Object.freeze({
   previewLines: Object.freeze([]) as readonly PreviewLine[],
 });
 
+/** A point the user wants a free-form curve to PASS THROUGH (mm). */
+export interface PreviewPoint {
+  readonly x: number;
+  readonly z: number;
+}
+
 /** Identifier for a committed line — opaque string, supplied by the store. */
 export type CommittedId = string;
 
@@ -73,6 +80,16 @@ export interface ToolDeps {
   readonly trimLine?: (id: CommittedId, keep: 'start' | 'end', cutX: number, cutZ: number) => void;
   /** Remove an entity by id (Fillet may delete the original corner segment). */
   readonly removeEntity?: (id: CommittedId) => void;
+  /**
+   * Commit a free-form curve THROUGH the given points (C111 §9.6). Returns the
+   * new spline id.
+   *
+   * ⭐ The tool hands over the points the curve must PASS THROUGH, not control
+   *    points: the conversion to the one persisted form (a cubic Bezier chain)
+   *    is `@pryzm/geometry-kernel`'s, reached through the store. A tool that
+   *    computed its own control points would be a second curve authority.
+   */
+  readonly commitSpline?: (through: readonly PreviewPoint[]) => CommittedId;
 }
 
 export interface SketchTool {

@@ -3,7 +3,9 @@
 // Orchestrates: store ↔ tool ↔ pointer events ↔ paint cycle. Pure
 // rendering helpers live in `sketchRender.ts`; the toolbar lives in
 // `SketchToolbar.ts`. This file owns the DOM scaffold + event wiring
-// so the §13 300-LoC cap holds even with seven tools registered.
+// so the §13 300-LoC cap holds even with eight tools registered.  The HUD
+// line and the fillet-radius prompt live in `sketchHud.ts` — split out when
+// the Spline tool landed and this file was at 298/300.
 //
 // Rules enforced here:
 //  - No `(window as any)` (rule P6).
@@ -46,12 +48,14 @@ import {
   drawSnapIndicator,
 } from './sketchRender.js';
 import { mountSketchToolbar, type SketchToolbarMount } from './SketchToolbar.js';
+import { paintHud, promptRadius } from './sketchHud.js';
 import { createArcTool } from './tools/ArcTool.js';
 import { createCircleTool } from './tools/CircleTool.js';
 import { createFilletTool } from './tools/FilletTool.js';
 import { createLineTool } from './tools/LineTool.js';
 import { createRectangleTool } from './tools/RectangleTool.js';
 import { createSelectTool } from './tools/SelectTool.js';
+import { createSplineTool } from './tools/SplineTool.js';
 import { createTrimTool } from './tools/TrimTool.js';
 import {
   EMPTY_PREVIEW,
@@ -140,6 +144,10 @@ export function mountSketchCanvas(
       docStore.removeEntity(replaceEndpoint);
     },
     removeEntity: (id) => docStore.removeEntity(id as EntityId),
+    // §CURVE-SPLINE-SPELLING — the tool hands over the points the curve must
+    // PASS THROUGH; the store performs the ONE conversion to the persisted
+    // cubic Bezier chain (`@pryzm/geometry-kernel`).
+    commitSpline: (through) => docStore.addSplineThroughPoints(through) as string,
   };
 
   const toolFactory: Readonly<Record<ToolName, () => SketchTool>> = Object.freeze({
@@ -157,6 +165,7 @@ export function mountSketchCanvas(
     rectangle: () => createRectangleTool(sharedDeps),
     circle: () => createCircleTool(sharedDeps),
     arc: () => createArcTool(sharedDeps),
+    spline: () => createSplineTool(sharedDeps),
     fillet: () => createFilletTool({
       ...sharedDeps,
       entitiesNow: () => docStore.get().entities,
@@ -274,25 +283,4 @@ export function mountSketchCanvas(
       host.removeChild(root);
     },
   };
-}
-
-function promptRadius(): number {
-  const raw = typeof prompt === 'function' ? prompt('Fillet radius (mm)', '10') : '10';
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) throw new Error('Invalid fillet radius.');
-  return n;
-}
-
-function paintHud(
-  hud: HTMLElement,
-  cursor: { x: number; z: number } | null,
-  snap: SnapHit | null,
-  preview: ToolPreview,
-  tool: ToolName,
-): void {
-  const lines: string[] = [`Tool: ${tool}`];
-  if (cursor) lines.push(`X: ${cursor.x.toFixed(1)}   Z: ${cursor.z.toFixed(1)} mm`);
-  if (snap && snap.kind !== 'none') lines.push(`Snap: ${snap.kind}`);
-  if (preview.hint) lines.push(preview.hint);
-  hud.textContent = lines.join('\n');
 }

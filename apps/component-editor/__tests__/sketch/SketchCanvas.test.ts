@@ -22,15 +22,18 @@ describe('SketchCanvas — S52 D1 mount', () => {
     mount.unmount();
   });
 
-  it('renders the S53 tool buttons (select/line/rect/circle/arc/fillet/trim) with select active', () => {
+  it('renders the tool buttons (select/line/rect/circle/arc/spline/fillet/trim) with select active', () => {
     const mount = mountSketchCanvas(host);
     const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>('button[data-tool]'));
+    // `spline` sits after `arc` and before `fillet`: it is a DRAWING tool, and
+    // `fillet`/`trim` are the MODIFY pair that must stay last (C111 §9.6).
     expect(buttons.map((b) => b.dataset.tool)).toEqual([
       'select',
       'line',
       'rectangle',
       'circle',
       'arc',
+      'spline',
       'fillet',
       'trim',
     ]);

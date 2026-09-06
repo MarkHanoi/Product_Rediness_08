@@ -70,7 +70,53 @@
 //    | `line`   | `p1`, `p2`                               | ids of two sibling `point` entities         |
 //    | `circle` | `center`, `radius`                       | `center` = id of a sibling `point`          |
 //    | `arc`    | `center`, `radius`, `startAngle`, `endAngle` | angles RADIANS, CCW from +X            |
-//    | `spline` | —                                        | ⛔ REFUSED: no determined spelling exists    |
+//    | `spline` | `degree`, `count`, `cp0`…`cp{count−1}`   | cubic Bézier chain — see §CURVE-SPLINE-SPELLING |
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// §CURVE-SPLINE-SPELLING — the free-form curve, and why THIS spelling
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚠ **THIS BLOCK REPLACES A REFUSAL THAT WAS CORRECT WHEN IT WAS WRITTEN.**
+//   Until now this evaluator threw on `spline` with the reason *"no spline
+//   control-point spelling is defined by ProfileEntitySchema or by the sketch
+//   surface, so the curve is not determined by the document"*. That was true:
+//   the enum member existed, the payload did not, and the sketch surface had
+//   no spline entity either. The refusal is retired by DEFINING the spelling
+//   (contract `C111 §9.6`), not by loosening the evaluator — a polyline
+//   through "whatever points happen to be in `data`" is still forbidden.
+//
+//   | key            | type    | meaning                                          |
+//   |----------------|---------|--------------------------------------------------|
+//   | `degree`       | number  | ⛔ MUST be 3. Any other value is REFUSED.         |
+//   | `count`        | number  | control-point count; MUST be `3k+1`, `k ≥ 1`     |
+//   | `cp0`…`cpN`    | string  | ids of sibling `point` entities, IN CURVE ORDER  |
+//
+// ⭐ **`degree` and `count` are COUNTS and are NOT expression-valued.** Every
+//    other numeric key here admits a string expression, deliberately — that is
+//    what makes a profile regenerate from parameters. These two do not, because
+//    a parameter-dependent control-point COUNT would make the entity's topology
+//    (and therefore its identity, and the meaning of every constraint attached
+//    to it) change under a parameter edit. Refusing is the honest answer; the
+//    coordinates stay fully parametric.
+//
+// ⭐ **Control points are sibling `point` entities, not inline coordinates.**
+//    That is not a stylistic choice: it is what puts every control point into
+//    the constraint solver's variable space for free (`${id}-x` / `${id}-y`),
+//    so a `fixed` pin on a control point is a real constraint on the curve
+//    rather than a decoy. It also makes `§4D-CONSTRUCTION-BY-REFERENCE` apply
+//    to them automatically — a referenced point emits no boundary vertex of
+//    its own.
+//
+// ⛔ **RATIONAL curves (weighted NURBS) are NOT expressible.** Declared in
+//    `packages/geometry-kernel/src/math/cubicBezier.ts` and repeated here so a
+//    reader of either file learns it: an exact circle is the `arc` kind's job,
+//    not a cubic's. See C111 §9.6-d.
+//
+// ⛔ The refusal CODE stays `'profile-needs-solver'` for a malformed or
+//    unsupported-degree spline. It is a value on the wire (C69 §1.1) and
+//    `bakeFamilyInstance` maps exactly that code to the bake reason
+//    `'unsupported-feature'`, which is the truthful reason for `degree: 5`.
+//    Minting a new code would silently re-route it to `'profile-eval-failed'`.
 //
 //    Every LENGTH-valued key (`x`, `z`, `radius`) and every ANGLE-valued key
 //    (`startAngle`, `endAngle`) may be either a NUMBER (already in document
@@ -103,7 +149,17 @@ import { evaluate, ExpressionEvalError, type EvalScope } from '@pryzm/family-run
 // predicate are CONSUMED from the kernel's declared module.  This file
 // declares no tolerance of its own; `check-epsilon-policy`'s E2/E5 ratchets
 // are RED at HEAD and a new literal here would make them worse.
-import { COINCIDENT_M, arePointsCoincident2D } from '@pryzm/geometry-kernel';
+import {
+  COINCIDENT_M,
+  arePointsCoincident2D,
+  // §CURVE-ONE-CUBIC-OWNER — the free-form curve primitive is CONSUMED from the
+  // kernel, never re-implemented here. This file and the component-editor
+  // sketch surface are its two consumers, which is why it lives in neither.
+  CUBIC_BEZIER_DEGREE,
+  isCubicBezierChainLength,
+  sampleCubicBezierChainXZ,
+  type Pt2,
+} from '@pryzm/geometry-kernel';
 
 import { runtimeLengthToMetres } from './units.js';
 
@@ -138,6 +194,17 @@ const MAX_CURVE_SEGMENTS = 512;
 
 /** The keys whose value is an id of a SIBLING entity rather than a number. */
 const REFERENCE_KEYS = ['p1', 'p2', 'center'] as const;
+
+/** §CURVE-SPLINE-SPELLING — a spline's control-point keys are INDEXED
+ *  (`cp0`, `cp1`, …) because `ProfileEntitySchema.data` is a flat record of
+ *  scalars and cannot hold an array. This predicate is the one place that
+ *  shape is recognised; it matches nothing on any other entity kind, so
+ *  adding it to the reference sweep cannot change how a v1 document reads. */
+const CONTROL_POINT_KEY = /^cp(0|[1-9][0-9]*)$/;
+
+function isReferenceKey(key: string): boolean {
+  return (REFERENCE_KEYS as readonly string[]).includes(key) || CONTROL_POINT_KEY.test(key);
+}
 
 /**
  * Segments needed to hold a circular sweep inside the declared model-space
@@ -203,8 +270,8 @@ export function profileToPolygon(profile: Profile, scope: EvalScope = {}): Polyg
   // emit a vertex of its own.
   const referenced = new Set<string>();
   for (const e of profile.entities) {
-    for (const key of REFERENCE_KEYS) {
-      const v = e.data[key];
+    for (const [key, v] of Object.entries(e.data)) {
+      if (!isReferenceKey(key)) continue;
       if (typeof v === 'string' && byId.has(v)) referenced.add(v);
     }
   }
@@ -281,17 +348,18 @@ export function profileToPolygon(profile: Profile, scope: EvalScope = {}): Polyg
         break;
       }
       case 'spline': {
-        // ⛔ HONEST REFUSAL, and it is the code's TRUE meaning here: no
-        // spelling for a spline's control points exists anywhere in this
-        // repository (the sketch surface has no spline entity either), so the
-        // curve is not determined by the document.  A closed form cannot be
-        // applied to information that is absent.  ⛔ Do NOT "fix" this by
-        // substituting a polyline through whatever points happen to be in
-        // `data` — spec §75.
-        throw new ProfileEvalError(
-          'profile-needs-solver',
-          `[profileToPolygon] profile ${profile.id} entity ${e.id} is a 'spline'; no spline control-point spelling is defined by ProfileEntitySchema or by the sketch surface, so the curve is not determined by the document.`,
-        );
+        // §CURVE-SPLINE-SPELLING (C111 §9.6). The REFUSAL that stood here
+        // until the spelling existed is retired above, in the header, with
+        // its reason — not deleted silently.
+        const controls = readSplineControlPoints(profile, e, byId, scope);
+        // The chain's own endpoints are AUTHORED points and are emitted as
+        // such; the interior vertices are computed. `push`'s tolerance-based
+        // merge (which applies only where a curve is involved) then joins the
+        // span to the line or arc that meets it.
+        for (const c of sampleCubicBezierChainXZ(controls)) {
+          push({ x: c[0], z: c[1], sourceId: e.id, onCurve: true });
+        }
+        break;
       }
     }
   }
@@ -335,7 +403,7 @@ export function profileToPolygon(profile: Profile, scope: EvalScope = {}): Polyg
 function resolveReference(
   profile: Profile,
   entity: ProfileEntity,
-  key: 'p1' | 'p2' | 'center',
+  key: string,
   byId: ReadonlyMap<string, ProfileEntity>,
 ): ProfileEntity {
   const raw = entity.data[key];
@@ -359,6 +427,48 @@ function resolveReference(
     );
   }
   return target;
+}
+
+/**
+ * §CURVE-SPLINE-SPELLING — resolve `degree` + `count` + `cp0…cpN` into the
+ * control polygon, refusing at every step where the document does not
+ * determine the curve.
+ *
+ * ⛔ Every refusal here carries `'profile-needs-solver'` and NAMES what is
+ *    missing or unsupported. None of them substitutes a default: a spline with
+ *    no `count` is under-determined, and inventing one would be inventing
+ *    geometry the author did not draw (spec §75).
+ */
+function readSplineControlPoints(
+  profile: Profile,
+  entity: ProfileEntity,
+  byId: ReadonlyMap<string, ProfileEntity>,
+  scope: EvalScope,
+): Pt2[] {
+  const degree = entity.data['degree'];
+  if (degree !== CUBIC_BEZIER_DEGREE) {
+    throw new ProfileEvalError(
+      'profile-needs-solver',
+      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') declares degree ${JSON.stringify(degree)}; only degree ${CUBIC_BEZIER_DEGREE} (cubic Bézier chain) is evaluable. Rational/weighted curves are a declared gap — see C111 §9.6-d.`,
+    );
+  }
+  const count = entity.data['count'];
+  if (typeof count !== 'number' || !isCubicBezierChainLength(count)) {
+    throw new ProfileEvalError(
+      'profile-needs-solver',
+      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') has count ${JSON.stringify(count)}; a cubic Bézier chain needs a literal 3k+1 control-point count (4, 7, 10, …). 'count' is a COUNT and is deliberately not expression-valued — see §CURVE-SPLINE-SPELLING.`,
+    );
+  }
+  const controls: Pt2[] = [];
+  for (let i = 0; i < count; i++) {
+    // ⭐ The SAME reference resolver every other kind uses (`p1` / `p2` /
+    //    `center`) — so a dangling or non-`point` control point refuses with
+    //    the one message this file already emits, not a second dialect of it.
+    const target = resolveReference(profile, entity, `cp${i}`, byId);
+    const { x, z } = readPointCoords(profile, target, scope);
+    controls.push([x, z]);
+  }
+  return controls;
 }
 
 function readPointCoords(

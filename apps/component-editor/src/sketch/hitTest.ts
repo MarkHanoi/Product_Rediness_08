@@ -9,7 +9,9 @@ import type {
   SketchEntity,
   SketchLine,
   SketchPoint,
+  SketchSpline,
 } from './entities.js';
+import { pointLookup, sampleSketchSpline } from './splineGeometry.js';
 
 export interface HitOptions {
   /** World cursor position (mm). */
@@ -26,7 +28,7 @@ export interface HitResult {
   /** The hit entity id, or `null` for a miss. */
   readonly id: EntityId | null;
   /** Discriminator for downstream selection styling. */
-  readonly kind: 'point' | 'line' | null;
+  readonly kind: 'point' | 'line' | 'spline' | null;
   /** Distance in mm from the cursor to the hit feature. */
   readonly distance: number;
 }
@@ -60,6 +62,28 @@ export function hitTest(opts: HitOptions): HitResult {
     const d = pointToSegmentDistance(opts.x, opts.z, a.x, a.z, b.x, b.z);
     if (d <= opts.tolMm && d < best.distance) {
       best = { id: ln.id, kind: 'line', distance: d };
+    }
+  }
+
+  // ⭐ Splines are picked against the SAME sampled polyline the renderer draws
+  //    (`splineGeometry.ts`), not against their control polygon. Picking the
+  //    control polygon would mean clicking a curve that is visibly there and
+  //    hitting nothing — an unselectable entity is a decoy, however correct its
+  //    geometry.
+  const byId = pointLookup(opts.entities);
+  for (const e of opts.entities) {
+    if (e.kind !== 'spline') continue;
+    const poly = sampleSketchSpline(e as SketchSpline, byId);
+    if (!poly) continue;
+    for (let i = 1; i < poly.length; i++) {
+      const d = pointToSegmentDistance(
+        opts.x, opts.z,
+        poly[i - 1]![0], poly[i - 1]![1],
+        poly[i]![0], poly[i]![1],
+      );
+      if (d <= opts.tolMm && d < best.distance) {
+        best = { id: e.id, kind: 'spline', distance: d };
+      }
     }
   }
 

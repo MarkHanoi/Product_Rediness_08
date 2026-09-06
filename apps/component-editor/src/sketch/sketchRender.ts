@@ -6,6 +6,7 @@
 // state.  No THREE, no DOM beyond the 2D context, no rAF.
 
 import type { SketchDocSnapshot } from '../stores/sketchDocStore.js';
+import { sampleSketchSpline } from './splineGeometry.js';
 import type { SnapHit } from './snap.js';
 import type { ToolPreview } from './tools/types.js';
 import { canvasToWorld, worldToCanvas, type ViewState } from './transform.js';
@@ -110,6 +111,39 @@ export function drawEntities(
     ctx.arc(cc.px, cc.py, rPx, a.startAngle, a.endAngle, false);
     ctx.stroke();
   }
+  for (const sp of Object.values(snap.splineById)) {
+    const poly = sampleSketchSpline(sp, snap.pointById);
+    // ⛔ A spline whose control points are not all present is NOT drawn as a
+    //    shorter curve — it is not drawn at all. Guessing the missing handle
+    //    would put a shape on screen the bake would refuse.
+    if (!poly || poly.length < 2) continue;
+    const selected = selectedIds.has(sp.id);
+    ctx.strokeStyle = selected ? SELECTION_COLOR : ENTITY_LINE_COLOR;
+    ctx.beginPath();
+    const first = worldToCanvas({ x: poly[0]![0], z: poly[0]![1] }, view);
+    ctx.moveTo(first.px, first.py);
+    for (let i = 1; i < poly.length; i++) {
+      const c = worldToCanvas({ x: poly[i]![0], z: poly[i]![1] }, view);
+      ctx.lineTo(c.px, c.py);
+    }
+    ctx.stroke();
+    // The control polygon is the affordance that makes a Bezier editable — it
+    // is shown only on selection so an unselected sketch stays readable.
+    if (!selected) continue;
+    ctx.save();
+    ctx.strokeStyle = CONTROL_POLYGON_COLOR;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    sp.controlPoints.forEach((id, i) => {
+      const p = snap.pointById[id];
+      if (!p) return;
+      const c = worldToCanvas({ x: p.x, z: p.z }, view);
+      if (i === 0) ctx.moveTo(c.px, c.py);
+      else ctx.lineTo(c.px, c.py);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
   for (const p of Object.values(snap.pointById)) {
     const c = worldToCanvas({ x: p.x, z: p.z }, view);
     ctx.fillStyle = selectedIds.has(p.id) ? SELECTION_COLOR : ENTITY_POINT_COLOR;
@@ -152,6 +186,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, preview: ToolPreview,
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 const SELECTION_COLOR = '#00aaff';
+const CONTROL_POLYGON_COLOR = '#6600ff';
 
 export function drawSnapIndicator(ctx: CanvasRenderingContext2D, snap: SnapHit, view: ViewState): void {
   if (snap.kind === 'none') return;

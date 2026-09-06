@@ -28,6 +28,7 @@ export const DEFAULT_TOOL_LIST: ReadonlyArray<{ readonly id: ToolName; readonly 
     Object.freeze({ id: 'rectangle' as ToolName, label: 'Rectangle' }),
     Object.freeze({ id: 'circle' as ToolName, label: 'Circle' }),
     Object.freeze({ id: 'arc' as ToolName, label: 'Arc' }),
+    Object.freeze({ id: 'spline' as ToolName, label: 'Spline' }),
     Object.freeze({ id: 'fillet' as ToolName, label: 'Fillet' }),
     Object.freeze({ id: 'trim' as ToolName, label: 'Trim' }),
   ]);
