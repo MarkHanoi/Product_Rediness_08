@@ -155,6 +155,16 @@ export {
   type AddReferencePlaneParams,
   makeDeleteSolidMigrator,
   type DeleteSolidParams,
+  /* --- lane UCE-ACCEPTANCES (§82.4-DIRECTED-EXTRUDE) --- the op that puts a
+   * shape ON a work plane. ⛔ IT MUST BE LISTED HERE, and its absence is the
+   * defect the gesture-reach probe caught: `family-migrations/index.ts` is an
+   * `export *`-free EXPLICIT barrel and THIS file re-exports an EXPLICIT SUBSET
+   * of it, so an op can be exported one level down, unit-tested green, and still
+   * be `undefined` at the only call site that matters — `applyOp()` resolves ops
+   * off `@pryzm/file-format`, i.e. off this list. A subset barrel is a silent
+   * unwiring device ([[grep-silence-has-three-causes]]). */
+  makeSetExtrudeWorkPlaneMigrator,
+  type SetExtrudeWorkPlaneParams,
   /* --- lane UCE-FAMILY --- profile write-back + the introduce-expression pair --- */
   makeUpdateProfileMigrator,
   type UpdateProfileParams,

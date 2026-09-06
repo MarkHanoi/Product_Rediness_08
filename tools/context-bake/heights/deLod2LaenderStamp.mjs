@@ -45,7 +45,8 @@ import {
 import {
   DE_LOD2_LAENDER, DE_LOD2_CITY_BBOXES, cityForPoint, wgs84ToUtm, tileKeyFor, tileBboxNative,
   stGetFeatureUrl, stPartsFromGeojson, parseHtmlListing, parseAtomTileNames, parseNrwIndex, parseShIndex,
-  s3PrefixProbeUrl, parseS3KeyCount, zipGmlEntries, headProbePresence,
+  s3PrefixProbeUrl, parseS3KeyCount, zipGmlEntries, headProbePresence, rangeProbePresence,
+  parseSnBatchConfig, snTileNameFromTemplate, snGeoCloudUrl,
   zipLocalHeader, zipCentralDirectory, zipEocd, createBuildingSlicer, routerSummary,
 } from './deLod2Laender.mjs';
 
@@ -96,6 +97,25 @@ async function headStatus(url, { timeoutMs = 60_000 } = {}) {
   try {
     const res = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: ctl.signal });
     return { ok: true, status: res.status, length: Number(res.headers.get('content-length')) };
+  } catch (err) {
+    return { ok: false, reason: String(err?.message ?? err) };
+  } finally { clearTimeout(t); }
+}
+
+/**
+ * Two-byte RANGE GET status only (SN `range-get`): the presence probe for a host that answers HEAD 401 on
+ * every object, present or absent. Measured 2026-09-05 on geocloud.landesvermessung.sachsen.de —
+ * present → 206, absent → 404, ROTATED SHARE TOKEN → 503. Like headStatus, `ok:true` means "the host
+ * answered at all"; the status is then classified by rangeProbePresence, which maps 503 to UNKNOWN
+ * rather than to absent, because a rotated token is a failure and failure ≠ empty.
+ */
+async function rangeStatus(url, { timeoutMs = 60_000 } = {}) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { redirect: 'follow', signal: ctl.signal, headers: { Range: 'bytes=0-1' } });
+    try { await res.body?.cancel(); } catch { /* ignore */ }
+    return { ok: true, status: res.status };
   } catch (err) {
     return { ok: false, reason: String(err?.message ?? err) };
   } finally { clearTimeout(t); }
@@ -226,6 +246,52 @@ async function loadIndex(cc, adapter, { timeoutMs }) {
       };
     }
   }
+  else if (adapter.indexKind === 'sn-batch-config') {
+    // SN: the index is the portal's own batch-download PAGE. One GET yields the CURRENT Nextcloud share
+    // token, the filename template and the publisher's list of grid cells that do not exist. Nothing about
+    // Sachsen is pinned but the page URL and the product key — because the token rotates, and a pinned one
+    // is exactly what made two earlier passes record this Land as `blocked` on a 503 that meant "expired".
+    const page = await fetchText(adapter.indexUrl, { timeoutMs });
+    const cfg = page.ok ? parseSnBatchConfig(page.body, adapter.productKey) : null;
+    if (!cfg) {
+      out = { ok: false, reason: `batch page ${adapter.indexUrl} → ${page.ok ? `no parseable batchConfig.products.${adapter.productKey} (${page.body.length} B, ${page.contentType})` : page.reason}` };
+    } else {
+      // The template must still produce the names this router builds, or the two halves have silently
+      // diverged; say so rather than probe a name the portal no longer publishes.
+      const probeKey = { e: 410, n: 5656 };
+      const fromTemplate = snTileNameFromTemplate(cfg.filename, probeKey);
+      const fromRouter = adapter.tileName(probeKey);
+      if (fromTemplate !== fromRouter) {
+        out = { ok: false, reason: `batch page filename template changed: "${cfg.filename}" builds ${fromTemplate}, this router builds ${fromRouter}` };
+      } else {
+        // BOTH controls, on the token THIS run read — a known-present name that must answer 200/206 and a
+        // known-absent one that must answer 404. Without the pair a rotated token (503 on everything) or a
+        // moved product would be reported as "no data in Sachsen".
+        const url = (name) => snGeoCloudUrl(cfg.shareId, name, adapter.geocloudBase);
+        const a = await rangeStatus(url(adapter.controlPresentTile), { timeoutMs });
+        const b = await rangeStatus(url(adapter.controlAbsentTile), { timeoutMs });
+        if (!a.ok || rangeProbePresence(a.status) !== true) {
+          out = { ok: false, reason: `range-get control: known-present ${adapter.controlPresentTile} → ${a.ok ? `HTTP ${a.status}${a.status === 503 ? ' (this host answers 503 for a ROTATED share token — the page gave ' + cfg.shareId + ')' : ''}` : a.reason} (expected 200/206)` };
+        } else if (!b.ok || rangeProbePresence(b.status) !== false) {
+          out = { ok: false, reason: `range-get control: known-absent ${adapter.controlAbsentTile} → ${b.ok ? `HTTP ${b.status}` : b.reason} (expected 404) — this host does not distinguish absent from present` };
+        } else {
+          const cache = new Map();
+          out = {
+            ok: true, size: null, lastReason: null, shareId: cfg.shareId, notExisting: cfg.notExisting.length,
+            has: async (name) => {
+              if (cache.has(name)) return cache.get(name);
+              const r = await rangeStatus(url(name), { timeoutMs });
+              if (!r.ok) { out.lastReason = r.reason; return null; }
+              const v = rangeProbePresence(r.status);
+              if (v === null) { out.lastReason = `HTTP ${r.status} is neither present nor absent`; return null; }
+              cache.set(name, v);
+              return v;
+            },
+          };
+        }
+      }
+    }
+  }
   else if (adapter.indexKind === 'zip-central-directory') {
     const dir = await readZipCentralDirectory(adapter.indexUrl, { timeoutMs });
     if (!dir.ok) out = { ok: false, reason: dir.reason };
@@ -279,21 +345,24 @@ async function loadIndex(cc, adapter, { timeoutMs }) {
 export function resetDeLod2IndexCache() { _indexCache.clear(); }
 
 // ── one tile → parts, by door kind ───────────────────────────────────────────────────────────────
+/** `adapter.tileUrl(key, index)` — the SECOND argument is this run's resolved index, and only Sachsen
+ *  reads it (its Nextcloud share token is read per run, never pinned). Every other Land's `tileUrl`
+ *  ignores it, so threading it changes no other URL by a byte. */
 async function fetchTileParts(cc, adapter, key, index, { timeoutMs }) {
-  if (adapter.kind === 'gml') return streamGmlParts(adapter.tileUrl(key), { timeoutMs });
-  if (adapter.kind === 'zip') return streamZipParts(adapter.tileUrl(key), { timeoutMs });
+  if (adapter.kind === 'gml') return streamGmlParts(adapter.tileUrl(key, index), { timeoutMs });
+  if (adapter.kind === 'zip') return streamZipParts(adapter.tileUrl(key, index), { timeoutMs });
   if (adapter.kind === 'zip-multi') {
     // BW: the 2 km download zip is a FOLDER — a directory entry, a licence PDF, two txt files and the
     // tile's FOUR 1 km CityGML quarters. Read its central directory, then Range-read every .gml entry.
     // A zip that parses but holds NO gml is a real failure (the container changed shape), not an empty
     // tile: `voidTiles` is for a gml that decodes to zero parts, and the two must not be conflated.
-    const dir = await readZipCentralDirectory(adapter.tileUrl(key), { timeoutMs });
+    const dir = await readZipCentralDirectory(adapter.tileUrl(key, index), { timeoutMs });
     if (!dir.ok) return { ok: false, reason: dir.reason };
     const entries = zipGmlEntries(dir.map);
     if (entries.length === 0) return { ok: false, reason: `zip holds no .gml/.xml entry (${dir.map.size} entries: ${[...dir.map.keys()].slice(0, 6).join(', ')})` };
     const parts = [];
     for (const [name, entry] of entries) {
-      const r = await streamZipEntryParts(adapter.tileUrl(key), entry, { timeoutMs });
+      const r = await streamZipEntryParts(adapter.tileUrl(key, index), entry, { timeoutMs });
       if (!r.ok) return { ok: false, reason: `entry ${name}: ${r.reason}` };
       parts.push(...r.parts);
     }
@@ -302,7 +371,7 @@ async function fetchTileParts(cc, adapter, key, index, { timeoutMs }) {
   if (adapter.kind === 'zip-entry') {
     const entry = index.get?.(adapter.tileName(key));
     if (!entry) return { ok: false, reason: 'entry vanished from the central directory' };
-    return streamZipEntryParts(adapter.tileUrl(key), entry, { timeoutMs });
+    return streamZipEntryParts(adapter.tileUrl(key, index), entry, { timeoutMs });
   }
   if (adapter.kind === 'wfs') {
     const [x0, y0, x1, y1] = tileBboxNative(adapter, key);

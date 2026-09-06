@@ -127,6 +127,13 @@ export interface FormaSunViewport {
     // without terrain; ON re-attaches. Default ON. Optional so older builds / test stubs degrade.
     setFormaTerrainEnabled?(on: boolean): void;
     isFormaTerrainEnabled?(): boolean;
+    // §STREET-LIFE (L-12936, founder 2026-09-05: "pedestrians but also street lighting") — the
+    // street lamps + pedestrians layer. DEFAULT ON. ⚠ It is SCENERY, not data: mapped OSM lamps are
+    // drawn where the baked `furniture` layer has them and the rest is synthesised off the road
+    // network, which is why it gets a user switch at all — a study that must show only surveyed
+    // objects turns it OFF. Optional so older builds / test stubs degrade to a disabled chip.
+    setStreetLifeEnabled?(on: boolean): void;
+    isStreetLifeEnabled?(): boolean;
 }
 
 /** Season presets → a representative day (UTC midnight) of the current year. */
@@ -948,11 +955,23 @@ export class FormaSiteAnalysisControls {
             false,
             this.viewport.isFormaTerrainEnabled?.() ?? true,
         );
+        // §STREET-LIFE (L-12936, founder 2026-09-05) — street lamps + pedestrians ON/OFF. ON by
+        // default (the same shape as Terrain), and honoured on the settled-base rebuild. OFF clears
+        // both instanced primitives immediately; ON rebuilds them in place, no reload.
+        // ⚠ The note below says these objects are SCENERY in the UI itself, not only in the console
+        // (§CONTEXT-DATA-HONESTY, C57 §1.5/§1.9): mapped lamps come from the baked `furniture`
+        // layer, everything else is generated off the road network and must never be read as survey.
+        mkToggle(
+            '🚶 Street life',
+            this.viewport.setStreetLifeEnabled?.bind(this.viewport),
+            false,
+            this.viewport.isStreetLifeEnabled?.() ?? true,
+        );
 
         block.appendChild(row);
         block.appendChild(this.smallNote(
             supported
-                ? 'Toggle 3D overlays onto the site. Sun-path needs no climate; wind/heat need climate data. Terrain is a 3D-Site layer — off = flat ground.'
+                ? 'Toggle 3D overlays onto the site. Sun-path needs no climate; wind/heat need climate data. Terrain is a 3D-Site layer — off = flat ground. Street life = lamps + people; mapped lamps are real, the rest is scenery.'
                 : 'Open the 3D / Plan Forma view to see 3D overlays.',
         ));
         return block;

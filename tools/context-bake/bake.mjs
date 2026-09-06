@@ -593,6 +593,34 @@ const LAYERS = [
   // caps nearest-first, so a dropped far tree is never visible). Point geometry: the tile reader
   // (contextTiles.ts, LAYER_IS_POINT) carries single-vertex features for this layer only.
   { id: 'trees',     filter: ['n/natural=tree'],                                  geom: 'point',              minz: 14, maxz: 16, extra: ['--drop-densest-as-needed'] },
+  // §STREET-LIFE (L-12936, founder 2026-09-05: "would it be possible to add everywhere pedestrians but
+  // also street lighting etc?") — STREET FURNITURE as POINTS. The 3D Site draws the street lamps as
+  // instanced 6 m posts; benches, bus stops and bicycle parking ride along because they come free from
+  // the same pass and are what a "street life" layer means next.
+  //
+  // WHY THE LAYER EXISTS AT ALL, given the client also SYNTHESISES lamps along the road ribbons: the
+  // synthesised ones are SCENERY and are labelled so (§CONTEXT-DATA-HONESTY, C57 §1.5/§1.9). Where OSM
+  // actually maps the lighting — and much of northern Europe does, node by node — the REAL positions
+  // must win, and `placeLamps` gives them the way: a road with a mapped lamp within 60 m gets no
+  // synthesis at all. Without this layer the client could only ever guess, everywhere, with no way to
+  // tell a guess from a fact.
+  //
+  // `n/` (NODES only) — street furniture is mapped as nodes; a `nwr/` filter would drag in the shelter
+  // WAYS around bus stops and the bicycle-parking areas, which `--geometry-types point` then discards
+  // after paying for them. z15–16 (finer than trees' z14): a 6 m post is only ever read at close zoom,
+  // and the tile bytes stay bounded. `--drop-densest-as-needed` caps a pathologically furnished tile at
+  // source; the client caps nearest-first as well.
+  //
+  // ⚠ optional: true — AND THIS IS LOAD-BEARING, not tidiness. `merge-tiles.mjs` step 3 refuses the
+  // WHOLE merge, by name, when any EXPECTED region has no staged set for a NON-optional layer, because
+  // the R2 publish is a sync that REPLACES the archive and an absent region is a deleted region. A new
+  // layer is absent for all 49 staged regions on the day it is added, so shipping `furniture` as
+  // non-optional would have refused every merge until a full re-bake landed — the §PENDING-HEIGHTS
+  // shape (L-12937), where two regions' missing rows stranded twelve regions' heights in staging.
+  // Optional makes the gap NAMED AND SKIPPED instead: regions bake it as they are re-baked, and the
+  // client's absent-layer path (contextFurniture `state: 'absent'`) is already an honest EMPTY that
+  // still synthesises lighting off the roads. Drop `optional` only once every region has staged it.
+  { id: 'furniture', filter: ['n/highway=street_lamp', 'n/amenity=bench', 'n/highway=bus_stop', 'n/amenity=bicycle_parking'], geom: 'point', minz: 15, maxz: 16, optional: true, extra: ['--drop-densest-as-needed'] },
   // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — the SEA as closed POLYGONS, its own layer + archive.
   // `source` (not `filter`): this layer is NOT cut from the Geofabrik pbf. It is the osmdata
   // "water-polygons-split-4326" product (osmcoastline's closed planet coastline, split on a grid, WGS 84,
@@ -1375,11 +1403,24 @@ async function main() {
         geos.push(geo);
       }
     }
+    // §STREET-LIFE (L-12936) — an OPTIONAL layer with NOTHING to tile writes no archive rather than an
+    // empty one: the sea path's rule, applied to the osmium path. tippecanoe refuses an input set that
+    // carries zero features, and that refusal would kill the WHOLE run for a scope that simply has no
+    // mapped street furniture. The absence is then recorded by `stage-manifest` under
+    // `optionalLayersNotProduced` and NAMED by the merge — an honest absence, never a silent empty layer.
+    // Non-optional layers are untouched: an empty roads/buildings set is a BUG and must still fail loudly.
+    const tileable = (l.optional === true && !DRY)
+      ? geos.filter((g) => existsSync(g) && statSync(g).size > 0)
+      : geos;
+    if (l.optional === true && !DRY && tileable.length === 0) {
+      console.warn(`  ⚠ ${l.id}: 0 feature(s) across ${okRegions.length} region(s) — no ${l.id}.pmtiles written (optional layer; nothing of this kind is mapped in these bboxes)`);
+      continue;
+    }
     const pmt = resolve(OUT, `${l.id}.pmtiles`);
     // tippecanoe accepts multiple inputs and unions them into the one named layer (`-l l.id`).
-    run(`tile ${l.id} → PMTiles (merged from ${geos.length} region(s))`,
+    run(`tile ${l.id} → PMTiles (merged from ${tileable.length} region(s))`,
       tool('tippecanoe', ['-o', pmt, '-l', l.id, '-Z', String(l.minz), '-z', String(l.maxz),
-        '-P', '--force', ...l.extra, ...geos]));
+        '-P', '--force', ...l.extra, ...tileable]));
     if (!DRY && existsSync(pmt)) {
       console.log(`  ✔ ${l.id}.pmtiles — ${(statSync(pmt).size / 1e6).toFixed(1)} MB (${geos.length} region(s))`);
     }

@@ -17,7 +17,8 @@ import {
   DE_LOD2_LAENDER, DE_LOD2_CITIES, DE_LOD2_CITY_BBOXES, DE_LOD2_STATUSES, DE_ROOF,
   wgs84ToUtm, tileKeyFor, tileBboxNative, stGetFeatureUrl, cityForPoint, routerSummary,
   parseHtmlListing, parseAtomTileNames, parseNrwIndex, parseShIndex, s3PrefixProbeUrl, parseS3KeyCount,
-  zipLocalHeader, zipCentralDirectory, zipEocd, zipGmlEntries, headProbePresence,
+  zipLocalHeader, zipCentralDirectory, zipEocd, zipGmlEntries, headProbePresence, rangeProbePresence,
+  parseSnBatchConfig, snTileNameFromTemplate, snGeoCloudUrl,
   partFromBlock, partsFromBuildingBlock, createBuildingSlicer, stPartsFromGeojson, ringAreaCentroid,
 } from '../heights/deLod2Laender.mjs';
 
@@ -48,16 +49,16 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
       }
     }
   });
-  it('the wired set is exactly the ELEVEN Länder the 2026-09-05 probes verified (NI then BW joined on later passes); Bayern is open-but-unarmed; SN/HE blocked; HB/SL unprobed', () => {
+  it('the wired set is exactly the TWELVE Länder the 2026-09-05 probes verified (NI, BW then SN joined on later passes); Bayern is open-but-unarmed; HE blocked; HB/SL unprobed', () => {
     const by = (s: string) => Object.entries(DE_LOD2_LAENDER).filter(([, a]) => a.status === s).map(([cc]) => cc).sort();
-    expect(by('wired')).toEqual(['bb', 'be', 'bw', 'hh', 'mv', 'ni', 'nw', 'rp', 'sh', 'st', 'th']);
+    expect(by('wired')).toEqual(['bb', 'be', 'bw', 'hh', 'mv', 'ni', 'nw', 'rp', 'sh', 'sn', 'st', 'th']);
     expect(by('probed-open-unarmed')).toEqual(['by']);
-    expect(by('blocked')).toEqual(['he', 'sn']);
+    expect(by('blocked')).toEqual(['he']);
     expect(by('unprobed')).toEqual(['hb', 'sl']);
   });
   it('DE_LOD2_CITY_BBOXES is the WIRED subset of DE_LOD2_CITIES, one city per Land, koln byte-identical to the bake row', () => {
     expect(DE_LOD2_CITIES.length).toBe(16);
-    expect(DE_LOD2_CITY_BBOXES.map((c) => c.city).sort()).toEqual(['berlin', 'erfurt', 'hamburg', 'hannover', 'kiel', 'koln', 'magdeburg', 'mainz', 'potsdam', 'schwerin', 'stuttgart']);
+    expect(DE_LOD2_CITY_BBOXES.map((c) => c.city).sort()).toEqual(['berlin', 'dresden', 'erfurt', 'hamburg', 'hannover', 'kiel', 'koln', 'magdeburg', 'mainz', 'potsdam', 'schwerin', 'stuttgart']);
     for (const c of DE_LOD2_CITY_BBOXES) expect(DE_LOD2_LAENDER[c.land].status).toBe('wired');
     expect(new Set(DE_LOD2_CITY_BBOXES.map((c) => c.land)).size).toBe(DE_LOD2_CITY_BBOXES.length);
     expect(DE_LOD2_CITIES.find((c) => c.city === 'koln')!.bbox).toEqual([6.85, 50.88, 7.02, 50.99]);
@@ -69,7 +70,7 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
     expect(s).toContain('st=wired(wfs/utm32/1km)');
     expect(s).toContain('ni=wired(gml/utm32/1km)');
     expect(s).toContain('bw=wired(zip-multi/utm32/2km)');
-    expect(s).toContain('sn=blocked');
+    expect(s).toContain('sn=wired(zip/utm33/2km)');
     expect(s).toContain('by=probed-open-unarmed');
   });
 });
@@ -334,10 +335,10 @@ describe('§DE-LOD2-LAENDER Niedersachsen — the BUCKET, not the LGLN index, is
     for (const p of s2.flush()) chunked.push(p.h);
     expect(chunked).toEqual([12.753, 23.446, 16.508, 10.526]);
   });
-  it('cityForPoint routes Hannover Hbf and the CITIES gate row point → hannover/ni; the working set now holds ten cities', () => {
+  it('cityForPoint routes Hannover Hbf and the CITIES gate row point → hannover/ni; the working set now holds twelve cities', () => {
     expect(cityForPoint(9.7411, 52.3767)?.city).toBe('hannover');
     expect(cityForPoint(9.7320, 52.3759)?.land).toBe('ni');
-    expect(DE_LOD2_CITY_BBOXES.length).toBe(11);
+    expect(DE_LOD2_CITY_BBOXES.length).toBe(12);
   });
 });
 
@@ -457,15 +458,103 @@ describe('§DE-LOD2-LAENDER-BW Baden-Württemberg — the ODD-easting 2 km grid 
     expect(cityForPoint(9.1829, 48.7758)?.land).toBe('bw');
   });
 
-  it('Sachsen, Hessen, Bremen and Saarland stay REFUSED with a named barrier — a Land with no door is never silently "no data"', () => {
-    for (const cc of ['sn', 'he', 'hb', 'sl']) {
+  it('Hessen, Bremen and Saarland stay REFUSED with a named barrier — a Land with no door is never silently "no data"', () => {
+    for (const cc of ['he', 'hb', 'sl']) {
       const a = DE_LOD2_LAENDER[cc] as { status: string; reason: string; tileUrl?: unknown };
       expect(['blocked', 'unprobed'], cc).toContain(a.status);
       expect(a.reason, cc).toMatch(/\d{3}|DNS|login|bot shield|not located|Berechtigung/);
       expect(a.tileUrl, `${cc} must carry NO door`).toBeUndefined();
     }
     // and the re-probe evidence is recorded, not overwritten by a bare "blocked".
-    expect((DE_LOD2_LAENDER.sn as { reason: string }).reason).toContain('403');
     expect((DE_LOD2_LAENDER.hb as { reason: string }).reason).toContain('DNS');
+  });
+});
+
+describe('§DE-LOD2-LAENDER-SN Sachsen — the share token is READ, not pinned, and 503 is a rotated token (verbatim 2026-09-05)', () => {
+  const SNCFG = fx('de-lod2-sn-batchconfig-2026-09-05.html');
+  const sn = DE_LOD2_LAENDER.sn as {
+    status: string; kind: string; zone: number; tileM: number; indexKind: string; indexUrl: string;
+    productKey: string; geocloudBase: string; presenceProbe: string;
+    controlPresentTile: string; controlAbsentTile: string;
+    tileName: (k: { e: number; n: number }) => string;
+    tileUrl: (k: { e: number; n: number }, index?: { shareId?: string }) => string;
+  };
+
+  it('parses the portal\'s own batchConfig.products out of the live page — 34 products, LoD2_CityGML\'s token, template and not-existing list', () => {
+    const cfg = parseSnBatchConfig(SNCFG)!;
+    expect(cfg).not.toBeNull();
+    expect(cfg.products).toBe(34);
+    expect(cfg.shareId).toBe('AyJqXpJAZJXomCb');
+    expect(cfg.filename).toBe('lod2_33$Rechtswert$_$Hochwert$_2_sn_citygml.zip');
+    expect(cfg.packagesize).toBe(2000);          // = the adapter's tileM, in metres
+    expect(cfg.packagesize).toBe(sn.tileM);
+    expect(cfg.notExisting.length).toBe(94);     // the publisher's OWN "these cells do not exist" list
+  });
+
+  it('a body with no parseable products object is NULL — UNKNOWN, never "Sachsen has no LoD2"', () => {
+    expect(parseSnBatchConfig('<html><body>Bitte melden Sie sich an</body></html>')).toBeNull();
+    expect(parseSnBatchConfig('')).toBeNull();
+    expect(parseSnBatchConfig(null as unknown as string)).toBeNull();
+    // truncated mid-object: brace matching never completes → null, not a half-parsed token
+    expect(parseSnBatchConfig(SNCFG.slice(0, SNCFG.indexOf('batchConfig.products=') + 400))).toBeNull();
+    // present page, ABSENT product key → null (a renamed product must not resolve to another's token)
+    expect(parseSnBatchConfig(SNCFG, 'LoD9_CityGML')).toBeNull();
+  });
+
+  it('the page\'s filename template and this router\'s tileName build the SAME name — the two halves cannot drift silently', () => {
+    const cfg = parseSnBatchConfig(SNCFG)!;
+    for (const key of [{ e: 410, n: 5656 }, { e: 408, n: 5652 }, { e: 414, n: 5658 }]) {
+      expect(snTileNameFromTemplate(cfg.filename, key)).toBe(sn.tileName(key));
+    }
+    expect(sn.tileName({ e: 410, n: 5656 })).toBe('lod2_33410_5656_2_sn_citygml.zip');
+  });
+
+  it('the tile URL is createGeoCloudURL(share_id, filename) — verbatim the page\'s own JS, and the URLs that answered HTTP 200', () => {
+    const cfg = parseSnBatchConfig(SNCFG)!;
+    const base = 'https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/AyJqXpJAZJXomCb/';
+    expect(snGeoCloudUrl(cfg.shareId, sn.tileName({ e: 410, n: 5656 }), sn.geocloudBase))
+      .toBe(`${base}lod2_33410_5656_2_sn_citygml.zip`);        // measured 200, 9,384,946 B
+    expect(sn.tileUrl({ e: 408, n: 5652 }, { shareId: cfg.shareId }))
+      .toBe(`${base}lod2_33408_5652_2_sn_citygml.zip`);        // measured 200, 12,594,244 B
+    expect(sn.tileUrl({ e: 414, n: 5658 }, { shareId: cfg.shareId }))
+      .toBe(`${base}lod2_33414_5658_2_sn_citygml.zip`);        // measured 200, 3,129,331 B
+    // the token from THIS run is what is used — a different token yields a different URL, no pin wins
+    expect(sn.tileUrl({ e: 410, n: 5656 }, { shareId: 'ROTATED' }))
+      .toContain('/files/ROTATED/');
+  });
+
+  it('rangeProbePresence: 206/200 present · 404/410 an honest ABSENT · 503 (rotated token) and 401 UNKNOWN — never absent', () => {
+    expect(rangeProbePresence(206)).toBe(true);
+    expect(rangeProbePresence(200)).toBe(true);
+    expect(rangeProbePresence(404)).toBe(false);
+    expect(rangeProbePresence(410)).toBe(false);
+    // ⭐ the whole reason this Land read `blocked` for two passes: a dead share token answers 503.
+    expect(rangeProbePresence(503)).toBeNull();
+    expect(rangeProbePresence(401)).toBeNull();   // this host HEADs 401 on present AND absent tiles
+    expect(rangeProbePresence(0)).toBeNull();
+  });
+
+  it('SN declares the range-get presence probe and BOTH controls — an absent tile is only believable with the pair', () => {
+    expect(sn.status).toBe('wired');
+    expect(sn.indexKind).toBe('sn-batch-config');
+    expect(sn.presenceProbe).toBe('range-get');
+    expect(sn.indexUrl).toBe('https://www.geodaten.sachsen.de/batch-download-4719.html');
+    expect(sn.productKey).toBe('LoD2_CityGML');
+    expect(sn.controlPresentTile).toBe('lod2_33410_5656_2_sn_citygml.zip');
+    expect(sn.controlAbsentTile).toBe('lod2_33300_5300_2_sn_citygml.zip');
+    expect(sn.controlPresentTile).not.toBe(sn.controlAbsentTile);
+    expect(sn.kind).toBe('zip');   // 2 entries, the CityGML first, then a _akt.csv
+    expect(sn.zone).toBe(33);
+  });
+
+  it('the Dresden working set snaps to the three 2 km keys that answered 200, and cityForPoint routes them to sn', () => {
+    const [w, s, e, n] = DE_LOD2_CITIES.find((c) => c.city === 'dresden')!.bbox;
+    for (const [lat, lon, ek, nk] of [[51.05, 13.74, 410, 5656], [51.03, 13.70, 408, 5652], [51.07, 13.78, 414, 5658]] as const) {
+      const [E, N] = wgs84ToUtm(lat, lon, sn.zone);
+      expect(tileKeyFor(sn, E, N)).toEqual({ e: ek, n: nk });
+      expect(lon >= w && lon <= e && lat >= s && lat <= n).toBe(true);
+    }
+    expect(cityForPoint(13.7400, 51.0500)?.city).toBe('dresden');
+    expect(cityForPoint(13.7400, 51.0500)?.land).toBe('sn');
   });
 });

@@ -1,6 +1,13 @@
 # UCE REACHABILITY AUDIT — is the Component Editor/Creator finished?
 
 **Status:** MEASURED · **Date:** 2026-09-04 · **Lane:** UCE-FAMILY round 4 · **HEAD:** `4c8a0d56`
+**Amended 2026-09-06 · lane UCE-ACCEPTANCES** — rows **A8**, **A9** and **§3 G1's extrude bullet**
+re-measured, and a new **[§7](#7--the-founders-eight-acceptances-82--verdict-per-row-2026-09-06)**
+answers the founder's §82 acceptances one row at a time. ⚠ **§0's summary table and rows A14 / J12 /
+R1 / E5 are STALE in the GOOD direction** — §82.6 (render mount, `588cece8`) and §82.7 (definition
+persistence, `01aa9593`) landed on 2026-09-05, after this file's measurement date. §7 says so; the
+rows themselves are left as the 09-04 reading rather than half-edited, because a table with two
+measurement dates in it is worse than one with a dated amendment on top.
 **Subject:** [`STR-UNIVERSAL-COMPONENT-EDITOR-MASTER-SPEC.md`](../../01-strategy/STR-UNIVERSAL-COMPONENT-EDITOR-MASTER-SPEC.md)
 · [`ADR-0376`](../../02-decisions/adrs/ADR-0376-universal-component-editor-founding-rulings.md)
 · [`C113`](../../02-decisions/contracts/C113-ELEMENT-PLACED-COMPONENT.md) · C84 §6.2 · C110 · C111
@@ -107,8 +114,8 @@ their own (C113 §13.1) — a suite that supplies the thing that can break canno
 | A5 | Marketplace install | **WIRED (transport)** | `ComponentCatalog.ts:310` — `GET /api/v1/families/:id/download` → bytes → the one loader. C111 §3.1's one LIVE transport row |
 | A6 | **Parameters** — add / rename / delete / retype (§9) | **WIRED** | "Edit definition…" `ComponentBrowserPanel.ts:436,442` → `openComponentDefinitionWorkspace` → `applyOp()` `ComponentDefinitionWorkspace.ts:463,605` → `makeAddParameter` / `Rename` / `Delete` / `ChangeParameterType` migrators |
 | A7 | **Formulas** — introduce / delete, live typed diagnostics (§11) | **WIRED** | `ComponentDefinitionWorkspace.ts:741,774` → `makeIntroduceExpressionMigrator` (both ops in ONE `applyOp` so the draft only commits if the whole apply re-validates) / `makeDeleteExpressionMigrator`. **ADR-0376 D4 is implemented**: the superseded default is carried as provenance, not silently kept |
-| A8 | **Reference planes** (§14) | **WIRED** | `ComponentDefinitionWorkspace.ts:788` → `makeAddReferencePlaneMigrator` |
-| A9 | **Solids** — add box, set dimensions, delete (§4.4) | **WIRED, NARROW** | `ComponentDefinitionWorkspace.ts:805,820` → `makeAddBoxSolidMigrator` / `makeSetBoxDimensionsMigrator` / `makeDeleteSolidMigrator`. **Box is the only solid a user can create.** See G1 |
+| A8 | **Reference planes** (§14) | **WIRED — and, as of §82.4, CONSEQUENTIAL** | ⭐ **This row was true and IDLE, which is the more interesting fact.** `makeAddReferencePlaneMigrator` was reachable, but the bake refused any direction but +Y, so a plane was *a datum nothing read* — an author had no reason to make a second one. Now: `[data-cdw-add-plane]` mints a named plane with a chosen normal, the list prints each normal, and a per-shape `[data-cdw-shape-plane]` select re-bases a solid onto a plane through `makeSetExtrudeWorkPlaneMigrator` (which writes the profile's `planeId` and the solid's `direction` in ONE act). Gesture chain measured end to end in `apps/editor/__tests__/componentWorkPlaneGestureReach.test.ts` — the live preview's own mesh goes from 0.6 × **2.4** × 0.4 m to **2.4** × 0.6 × 0.4 m. ⛔ Still absent from §82.1: **rename**, **reorient**, **delete**, and *dimension to a plane*; `ReferencePlane.origin` is **not applied** and the op refuses an offset plane rather than half-honouring it |
+| A9 | **Solids** — add box, set dimensions, delete (§4.4) | **WIRED, NARROW — one KIND, now any AXIS** | `ComponentDefinitionWorkspace.ts:805,820` → `makeAddBoxSolidMigrator` / `makeSetBoxDimensionsMigrator` / `makeDeleteSolidMigrator`. **Box is still the only solid a user can create** (see G1) — but `extrude` is no longer +Y-only: `ExtrudeOptions.direction` sweeps along any axis by the minimal rotation carrying +Y onto it, and the bake forwards the document's `direction` verbatim. The +Y path is bit-identical, hash included |
 | A10 | **Profile edit + write-back** (§4.4 sketches/profiles) | **WIRED** | Workspace canvas → `ComponentDefinitionWorkspace.ts:1011` → `makeUpdateProfileMigrator`. Also from a placed instance: property panel → `ComponentProfileEditorDialog` (`PropertyPanelBodyRenderer.ts:49,364,370`). **A dragged vertex round-trips.** |
 | A11 | **Types** — create/split, set per-type values (§24) | **WIRED** | "Types…" `ComponentBrowserPanel.ts:454,460` → `openComponentTypeCatalog` → `makeSplitTypeMigrator` / `makeSetTypeValuesMigrator` |
 | A12 | Material slots (§23) | **PARTIAL** | `MaterialSlotSchema` + `makeMergeMaterialSlotsMigrator` exist and are reachable as an op; **no material authoring UI, and no renderer projection** (there is no committer — see R1). Semantic material properties per §23 are ABSENT |
@@ -197,8 +204,16 @@ The document schema (`packages/file-format/src/family-schema.ts:387-494`) is **r
 
 **Narrowing 2 — the bake.** `packages/family-instance/src/bakeFamilyInstance.ts` (448 LoC):
 
-- `extrude` — **bakes**, and only along **+Y**. A document asking for a direction is **refused**, with
-  the reason named: closing it needs a direction/axis on `ExtrudeOptions` in `@pryzm/geometry-kernel`.
+- `extrude` — **bakes, along ANY axis** (§82.4-DIRECTED-EXTRUDE, 2026-09-06). ⚠ **This bullet used to
+  read *"and only along +Y … a document asking for a direction is refused … closing it needs a
+  direction/axis on `ExtrudeOptions`"*. That fix has landed**, so the refusal is retired rather than
+  left standing as the OPPOSITE lie — *"cannot"* said by code that can. What still refuses: a
+  **zero-length** direction, which is schema-valid (`Vec3` is three finite numbers) and names no sweep
+  axis, refused per-solid so one bad solid does not take the bake down.
+  ⛔ **Still missing and NOT hidden by this:** the **SPIN** about a plane normal. The rotation is the
+  MINIMAL one carrying +Y onto the axis, because `ReferencePlaneSchema` persists no in-plane basis;
+  two authors expecting different in-plane rotations for the same normal both get the minimal one.
+  And `ReferencePlane.origin` is still **not applied** — there is no per-solid transform in the schema.
 - `sweep` — refused: the adapter *provides* sweep, the **document cannot describe the path**
   (`produceSweep` wants `Point3D[]` in world 3-D).
 - `loft` — refused: `section.right` / `section.up` (the in-plane basis) are missing from the schema.
@@ -280,3 +295,37 @@ Recorded because the next reader will otherwise re-litigate settled decisions:
 ⚠ **Do not transcribe the numbers in this document.** Re-run the greps and the four suites in §1.
 This file records a *measurement*, and measurements rot — that is the standing lesson of the
 CLAUDE.md correction boxes, and it applies here.
+
+---
+
+## 7 · THE FOUNDER'S EIGHT ACCEPTANCES (§82) — verdict per row, 2026-09-06
+
+**Added by lane UCE-ACCEPTANCES.** §2–§6 above answer *"what exists and what is reachable"*. This
+section answers the different question the founder actually asked on 2026-09-05: **for each of the
+eight acceptances in `STR-UNIVERSAL-COMPONENT-EDITOR-MASTER-SPEC` §82, can a user perform it?**
+
+⛔ **A row is GREEN only when a DOM gesture chain reaches it and a suite drives that chain.** Existing
+code, a passing unit test and a bus verb are each necessary and none of them is sufficient — that is
+the [[committed-is-not-reachable]] rule, and A18/A19/A20 in §2.4 are the register of what it catches.
+
+| §82 | Acceptance | Verdict 2026-09-06 | The chain, or the gap |
+|---|---|---|---|
+| **82.6** | A placed instance renders with true parametric geometry | ⭐ **LANDED** (`588cece8`, lane §82.6-COMPONENT-RENDER-MOUNT) | `initTools.ts:2133` subscribes the component store's `subscribeDirty` to `attachComponentRender` → the committer, which now lives at `apps/editor/src/engine/component/` (moved by `f56d2d2c` — a plugin may not import `renderer-three`). ⚠ **R1 and J12 below are STALE**: they still say EXISTS-BUT-UNWIRED. **NOT BROWSER-VERIFIED** by this lane |
+| **82.7** | The definition persists across reload and travels with the project | ⭐ **LANDED** (`01aa9593`, §82.7-DEFINITIONS-TRAVEL-WITH-PROJECT) | The `.pryzm-family` ENVELOPE BYTES ride in the snapshot, keyed `(definitionId, schemaHash)`. ⚠ **A14 below is STALE** — it still calls this "the creator half's biggest hole". **NOT BROWSER-VERIFIED** by this lane |
+| **82.1** | Reference planes — named, on any work plane, carrying parameters | ⚠ **PARTIAL — the half that makes them MATTER is now reachable** | ✅ *create a named plane in the editor* and ✅ *the shape built on it changes direction in the 3-D view* (A8 above; `componentWorkPlaneGestureReach.test.ts`). ⛔ **NOT MET:** *rename it*, *dimension to it*, and reorient/delete. The acceptance's own words are "create … visible in the 3-D view; **rename it; dimension to it**", and two of those four have no op and no gesture |
+| **82.2** | Reference lines — sketched, angle-parametrisable | ⛔ **NOT MET** | There is no reference-LINE entity in `family-schema.ts` (`ReferencePlaneSchema` has no line sibling), no op, and no sketch surface on the canonical bus. The sketcher that could draw one is A19, stranded on the unreachable rival (R2) |
+| **82.3** | Dimensions that DRIVE — a dimension labelled with a parameter regenerates geometry | ⚠ **HALF, and the half that is missing is the DIMENSION** | ✅ The *driving* half is real and reachable: a box's width/depth/height bind to a parameter (`[data-cdw-dim-*-mode]` → `parameter`), and changing the parameter regenerates the mesh (the §64 suite measures it). ⛔ **NOT MET:** there is no dimension ANNOTATION between two references, so nothing can be *labelled* `W` and no dimension is a document object |
+| **82.4** | Geometry forms — extrusion on ANY work plane, revolve, sweep, blend/loft, and a VOID cut | ⚠ **THE FIRST CLAUSE IS MET; the other four are not** | ✅ *"extrusion on ANY work plane (not +Y only)"* — landed this round (§82.4-DIRECTED-EXTRUDE): the producer sweeps along any axis, the bake reads the persisted `direction`, one op keeps plane and axis in agreement, and the whole chain is gesture-driven. ⛔ `revolve` (no axis in the schema), `sweep` (no describable path), `loft` (no in-plane basis) and `boolean` (blocked on ADR-0376 **D7**) still refuse by name. **§82.4's own exit condition — *"there is no kind left refusing"* — is NOT satisfied** |
+| **82.5** | 2-D AND 3-D of the SAME definition, inside PRYZM | ⚠ **PARTIAL** | ✅ The workspace mounts a 2×2 grid — orbitable 3-D, plan, two elevations, ONE model (A16). ⛔ *"a reference plane edited in elevation moves in plan and 3-D"* is not met: nothing can be EDITED in those views, they are cameras over a shared bake |
+| **82.8** | SYSTEM families — layered/typed systems authored in the same editor | ⛔ **NOT MET** | Not started. §23's semantic materials are schema-only (A12) and the layered-wall path is a separate family entirely (C84) |
+
+**So the honest headline for §82 is: two of eight LANDED, four PARTIAL, two NOT MET** — and the two
+that landed are the two the ordering rule put first, which is the ordering working as intended.
+
+⭐ **The most useful thing this round found is not in the table.** The §82.4 op was committed,
+unit-tested green and **unreachable**, because `packages/file-format/src/index.ts` re-exports an
+EXPLICIT SUBSET of `family-migrations/index.ts` and the new op was not on that list. `applyOp()`
+resolves every op off the `@pryzm/file-format` barrel, so the workspace's call read `undefined` and
+refused. **A subset barrel is a silent unwiring device** ([[grep-silence-has-three-causes]]): the op's
+own suite could not see it, and only the DOM gesture probe could. Every future op lane must add the
+name in BOTH barrels, and the gesture probe is what proves it.

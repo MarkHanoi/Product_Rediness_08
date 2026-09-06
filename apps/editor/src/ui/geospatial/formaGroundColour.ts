@@ -35,7 +35,9 @@ export interface GroundColourVerdict {
     readonly nearestUrbanM: number;
 }
 
-function pointInRing(lon: number, lat: number, ring: ReadonlyArray<readonly [number, number]>): boolean {
+/** Ray-cast point-in-polygon on a lon/lat ring. Exported for §STREET-LIFE (contextStreetLife.ts),
+ *  which decides pedestrian density by the same urban-polygon rule this file colours the ground by. */
+export function pointInRing(lon: number, lat: number, ring: ReadonlyArray<readonly [number, number]>): boolean {
     let inside = false;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
         const [xi, yi] = ring[i]!, [xj, yj] = ring[j]!;

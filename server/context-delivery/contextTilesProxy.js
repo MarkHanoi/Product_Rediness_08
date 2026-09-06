@@ -64,12 +64,13 @@ export const CONTEXT_TILES_UPSTREAM =
 // `unavailable`, the console says "tiles configured but unreadable … rendering NO rail", and there
 // is NO retry and no timeout, so the two 404s cost ~0.2 s of the context load and nothing else.
 // The real fix for rail/trees is a bake that publishes them (`tools/context-bake/`), not this file.
+// §STREET-LIFE (L-12936) — `furniture` (street lamps / benches / bus stops / bicycle parking, points).
 // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — `sea` (closed sea polygons from the osmdata
 // water-polygons product; bake.mjs LAYERS `sea`, OPTIONAL). Added IN THE SAME COMMIT that teaches
 // contextWater.ts to read the layer: an allowlist that lags the client is the drift documented above,
 // and it fails in the one way this codebase treats as a defect — our own 404 is indistinguishable
 // from "never baked", so the client would blame the bake for a refusal WE made (§L-513b honesty).
-export const CONTEXT_TILE_LAYERS = ['buildings', 'roads', 'water', 'parks', 'landuse', 'rail', 'trees', 'sea'];
+export const CONTEXT_TILE_LAYERS = ['buildings', 'roads', 'water', 'parks', 'landuse', 'rail', 'trees', 'furniture', 'sea'];
 
 export const CONTEXT_TILES_UPSTREAM_TIMEOUT_MS = 15_000;
 

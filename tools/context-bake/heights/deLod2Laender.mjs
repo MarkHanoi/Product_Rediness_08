@@ -128,17 +128,43 @@
 //         states "Land: BW · Anzahl der 3D-Gebäude: 6 483 003 · Anzahl der gelieferten Kacheln: 9077 volle und
 //         277 leere Kacheln (insgesamt 9354) · Koordinatenreferenzsysteme: ETRS89_UTM<32>DE_DHHN<2016 ·
 //         Auslesedatum: 2026-02-04 - 2026-02-06 · Aktualität: ALKIS LoD2: 2025-04-01".
-//   • sn  Sachsen — BLOCKED, RE-PROBED 2026-09-05 (second pass) and now blocked HARDER, not softer:
-//         geodienste.sachsen.de …/rest_geosn_downloadlinks/MapServer/3 (LoD2 layer, EPSG:25833, fields
-//         Kachel/Download_CityGML) resolved Dresden 411800,5655700 → Kachel 4105654 →
-//         https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/GVzwbSyp7Yl7mBD/lod2_33410_5654_2_sn_citygml.zip
-//         → HTTP 503 Sabre\DAV ServiceUnavailable on HEAD and GET. Re-probe: that WebDAV path is STILL 503,
-//         the Nextcloud share page /index.php/s/GVzwbSyp7Yl7mBD is now 404 (the share token has gone), and
-//         SIX service names under geodienste.sachsen.de (wfs_geosn_lod2, wfs_geosn_lod2-downloadlinks,
-//         wms_geosn_lod2, wms_geosn_lod2-downloadlinks, wfs_geosn_downloadlinks_lod2,
-//         wfs_geosn_3d-gebaeudemodelle) answer HTTP 403 to GetCapabilities — with AND without a browser
-//         User-Agent — while …/guest on the one that does resolve returns the Sachsenatlas
-//         "Fehlende Berechtigung" page. Channel known, every door shut. NOT "no data": UNREACHABLE.
+//   • sn  Sachsen — WIRED 2026-09-05 (THIRD pass, §DE-LOD2-LAENDER-SN). The first two passes read this Land
+//         BLOCKED and the reason was a DEAD SHARE TOKEN, not a shut door. Both earlier probes resolved
+//         Dresden through geodienste.sachsen.de's downloadlinks MapServer to
+//         geocloud.landesvermessung.sachsen.de/public.php/dav/files/GVzwbSyp7Yl7mBD/… and read HTTP 503
+//         Sabre\DAV ServiceUnavailable as "the host is down". ⭐ MEASURED 2026-09-05: 503 on that path is
+//         what this Nextcloud answers for a ROTATED token — the same request against the CURRENT token is
+//         200. A 503 here means "your token expired", and reading it as an outage is exactly the
+//         failure≠empty conflation this file exists to refuse, one level up.
+//         WHERE THE CURRENT TOKEN COMES FROM — never pinned, always read: the portal's own batch-download
+//         page https://www.geodaten.sachsen.de/batch-download-4719.html (HTTP 200, 178,355 B) carries an
+//         inline `batchConfig.products={…}` with 34 products, each `{fullname, share_id, packagesize,
+//         filename, computed_not_existing}`, and a `createGeoCloudURL(share_id, filename)` that is literally
+//         'https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/' + share_id + '/' + filename.
+//         Verbatim for LoD2: {"fullname":"3D-Stadtmodell LoD2 CityGML","share_id":"AyJqXpJAZJXomCb",
+//         "packagesize":2000,"filename":"lod2_33$Rechtswert$_$Hochwert$_2_sn_citygml.zip"} — 94 grid cells
+//         listed as computed_not_existing. `$Rechtswert$` is the tile id's first 3 digits and `$Hochwert$`
+//         its next 4 (the page's own getSelectedGridCells), i.e. a 2 km key {e,n} → `lod2_33<e>_<n>_2_sn_citygml.zip`.
+//         Because the token ROTATES, the router resolves it per run (indexKind 'sn-batch-config'); a
+//         pinned token is how this Land was mis-read as dead for two passes.
+//         ⚠ HEAD IS 401 ON EVERY TILE, PRESENT OR ABSENT — Nextcloud public WebDAV refuses HEAD while
+//         serving GET. Presence is therefore a RANGE GET (`bytes=0-1`), measured 2026-09-05:
+//         present → 206 / 2 B · absent → 404 / 261 B · dead token → 503 / 232 B. Three distinguishable
+//         answers, which is what makes an honest ABSENT possible at all here.
+//         MEASURED TILES (Dresden working set, GET, 2026-09-05): lod2_33410_5656_2_sn_citygml.zip → 200,
+//         9,384,946 B, Last-Modified Wed 06 Aug 2025; 33408_5652 → 200, 12,594,244 B; 33414_5658 → 200,
+//         3,129,331 B; off-Land 33300_5300 → 404, 261 B (an honest ABSENT, not a dead host).
+//         GML SHAPE (33410_5656, walked with THIS file's own zipCentralDirectory/createBuildingSlicer):
+//         2 entries — `lod2_33410_5656_2_sn.gml` (deflate, csize 9,384,576 → 70,428,635 chars) and a
+//         `_akt.csv`; 1,523 bldg:Building · 1,713 BuildingPart · 5,702 measuredHeight · 8,108 GroundSurface
+//         · srsDimension 3 · roofType 1000/2100/3100/3200/3400/3500/3700/3900/4000/5000/9999 · slicer
+//         yields 2,851 parts, max height 60.92 m, median part area 91.9 m². ⚠ THE ONE DIVERGENCE: srsName
+//         is `urn:ogc:def:crs,crs:EPSG:6.12:25833,crs:EPSG:6.12:7837` and the bldg namespace is CityGML
+//         **1.0**, NOT the `urn:adv:crs:ETRS89_UTM3x*DE_DHHN2016_NH` string every other wired Land carries.
+//         The stamp does not read srsName — the ZONE comes from this table (33) — so this is recorded, not
+//         relied on; do not extend the header's "verified on every wired Land" claim to this string.
+//         Licence: geodaten.sachsen.de publishes the batch download keyless; the dl-de URI was NOT captured
+//         verbatim in this lane — recorded as such, exactly as Sachsen-Anhalt is.
 //   • he  Hessen — BLOCKED: gds.hessen.de Intershop Downloadcenter (ViewRegistration / login) — account-gated.
 //   • hb  Bremen — UNPROBED, re-probed 2026-09-05 (second pass) and still not located: geo.bremen.de states
 //         LoD1+LoD2 are OPEN DATA since 2024-06-09 "über das GeoPortal Bremen und MetaVer", but
@@ -282,8 +308,31 @@ export const DE_LOD2_LAENDER = {
     probe: '2026-09-05 LoD2_32_513_5402_2_bw.zip HEAD 200 18,031,959 B Accept-Ranges; 8 entries, 4 × 1 km gml; entry LoD2_32_513_5402_1_BW.gml 45.1 MB → 1,525 Buildings/853 BuildingParts/2,125 measuredHeight; 9/9 Stuttgart tiles 200, even-key 512 and off-Land 301_5300 both 404; grid names read from tiles/vts/2x2Gitter/13/4304/2821.pbf',
   },
   by: { land: 'Bayern', status: 'probed-open-unarmed', zone: 32, tileM: 2000, kind: 'gml', tileName: ({ e, n }) => `${e}_${n}.gml`, tileUrl: ({ e, n }) => `https://download1.bayernwolke.de/a/lod2/citygml/${e}_${n}.gml`, licence: 'CC BY 4.0 (geodaten.bayern.de Nutzungsbedingungen, probed 2026-09-05)', reason: 'keyless 2 km gml verified 2026-09-05 (690_5334.gml → HTTP 206, 16 Buildings); lane brief keeps munich blocked — arming is a founder decision, the REGION_SOURCE munich reason is stale' },
-  sn: { land: 'Sachsen', status: 'blocked', reason: 'geodienste.sachsen.de downloadlinks MapServer/3 resolves Dresden → geocloud.landesvermessung.sachsen.de/public.php/dav/files/GVzwbSyp7Yl7mBD/lod2_33410_5654_2_sn_citygml.zip → HTTP 503 Sabre\\DAV ServiceUnavailable (HEAD and GET); RE-PROBED 2026-09-05 second pass: that WebDAV path still 503, the share page /index.php/s/GVzwbSyp7Yl7mBD now 404 (token gone), and six geodienste.sachsen.de service names answer 403 to GetCapabilities with and without a browser UA. UNREACHABLE, not empty' },
-  he: { land: 'Hessen', status: 'blocked', reason: 'gds.hessen.de Intershop Downloadcenter requires registration/login (ViewRegistration); no keyless tile URL (2026-09-05)' },
+  sn: {
+    land: 'Sachsen', status: 'wired', zone: 33, tileM: 2000, kind: 'zip',
+    // ⭐ THE TOKEN IS NOT PINNED. `share_id` is a Nextcloud public-share token that ROTATES — the one two
+    // earlier passes hard-coded (GVzwbSyp7Yl7mBD) now answers 503, which is what this Nextcloud says for an
+    // EXPIRED token and NOT what it says for an outage. So the index is the portal's own batch-download page:
+    // one GET, parse `batchConfig.products.LoD2_CityGML` (parseSnBatchConfig below), and every tile URL is
+    // built from THAT run's token. If the page stops carrying it, the Land ERRORS by name — it never
+    // degrades to "Sachsen has no LoD2" (§CONTEXT-DATA-HONESTY).
+    indexKind: 'sn-batch-config',
+    indexUrl: 'https://www.geodaten.sachsen.de/batch-download-4719.html',
+    productKey: 'LoD2_CityGML',
+    geocloudBase: 'https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/',
+    // Presence is a RANGE GET, never a HEAD: this host answers 401 to HEAD on present AND absent tiles.
+    presenceProbe: 'range-get',
+    controlPresentTile: 'lod2_33410_5656_2_sn_citygml.zip',  // measured 2026-09-05: GET 200, 9,384,946 B
+    controlAbsentTile: 'lod2_33300_5300_2_sn_citygml.zip',   // measured 2026-09-05: GET 404, 261 B (off-Land)
+    tileName: ({ e, n }) => `lod2_33${e}_${n}_2_sn_citygml.zip`,
+    // Resolved per run: `index.shareId` is the token this run read off the batch page. The fallback token is
+    // the one MEASURED on 2026-09-05 and is used only so a URL can be formed in tests/logs — a run whose
+    // index failed never reaches here (loadIndex returns ok:false and the Land is skipped by name).
+    tileUrl: ({ e, n }, index) => `https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/${index?.shareId ?? 'AyJqXpJAZJXomCb'}/lod2_33${e}_${n}_2_sn_citygml.zip`,
+    licence: 'geodaten.sachsen.de batch download, keyless (no dl-de URI captured verbatim this lane)',
+    attribution: '© GeoSN',
+    probe: '2026-09-05 batch page 178,355 B → share_id AyJqXpJAZJXomCb; lod2_33410_5656_2_sn_citygml.zip GET 200 9,384,946 B (HEAD 401), 33408_5652 200 12,594,244 B, 33414_5658 200 3,129,331 B, off-Land 33300_5300 404 261 B, dead token 503 232 B; entry gml 70.4 M chars → 1,523 Buildings/1,713 BuildingParts/5,702 measuredHeight, 2,851 parts, max 60.92 m',
+  },  he: { land: 'Hessen', status: 'blocked', reason: 'gds.hessen.de Intershop Downloadcenter requires registration/login (ViewRegistration); no keyless tile URL (2026-09-05)' },
   hb: { land: 'Bremen', status: 'unprobed', reason: 'geo.bremen.de: LoD1+LoD2 OPEN DATA since 2024-06-09 via GeoPortal Bremen + MetaVer; gdi2.geo.bremen.de/inspire/download/ 403, /3D/ and /LoD2/ 404, /geoserver/web/ and /geoserver/ows 404; gdi.geo.bremen.de and opendata.bremen.de do not resolve (DNS); metaver.de CSW GetCapabilities 200 (13,319 B) but GetRecords 403 with and without a browser UA (2026-09-05, two passes)' },
   sl: { land: 'Saarland', status: 'unprobed', reason: 'saarland.de/lvgl HTTP 403 bunny-shield bot challenge; geoportal.saarland.de mapbender search/feed endpoints 404 (2026-09-05)' },
 };
@@ -376,6 +425,73 @@ export function parseS3KeyCount(xml) {
   if (!/<ListBucketResult\b/.test(s)) return null;
   const m = s.match(/<KeyCount>(\d+)<\/KeyCount>/);
   return m ? Number(m[1]) : null;
+}
+
+/**
+ * SN — the batch-download page's own `batchConfig.products={…}` object, brace-matched out of the HTML and
+ * JSON-parsed. This is Sachsen's INDEX: it carries the current Nextcloud share token, the filename
+ * template, and the publisher's own list of grid cells that do not exist.
+ *
+ * Returns null for ANY body that does not contain a parseable products object — a login page, a truncated
+ * read, a redesigned portal. Null is UNKNOWN, never "Sachsen has no LoD2": the caller must fail the Land
+ * by name rather than stamp nothing and call it empty.
+ * @param {string} html
+ * @param {string} productKey
+ * @returns {{shareId:string, filename:string, packagesize:number, notExisting:number[], products:number}|null}
+ */
+export function parseSnBatchConfig(html, productKey = 'LoD2_CityGML') {
+  const s = String(html ?? '');
+  const i = s.indexOf('batchConfig.products=');
+  if (i < 0) return null;
+  const start = s.indexOf('{', i);
+  if (start < 0) return null;
+  let depth = 0, end = -1, inStr = false, esc = false;
+  for (let k = start; k < s.length; k++) {
+    const c = s[k];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) { end = k + 1; break; } }
+  }
+  if (end < 0) return null;
+  let products;
+  try { products = JSON.parse(s.slice(start, end)); } catch { return null; }
+  const p = products?.[productKey];
+  if (!p || typeof p.share_id !== 'string' || !p.share_id || typeof p.filename !== 'string' || !p.filename) return null;
+  const ne = Array.isArray(p.computed_not_existing) ? p.computed_not_existing : [];
+  return { shareId: p.share_id, filename: p.filename, packagesize: Number(p.packagesize), notExisting: ne, products: Object.keys(products).length };
+}
+
+/** SN — `createGeoCloudURL(share_id, filename)`, verbatim from the batch page's own JS. */
+export function snGeoCloudUrl(shareId, filename, base = DE_LOD2_LAENDER.sn.geocloudBase) {
+  return `${base}${shareId}/${filename}`;
+}
+
+/**
+ * SN — the page's filename template → a tile name for a key. The portal builds the grid cell id as
+ * `${e}${n}` (3-digit easting km + 4-digit northing km) and then substitutes `$Rechtswert$` = its first
+ * three characters and `$Hochwert$` = the next four, which is the same thing said twice; this reproduces
+ * that literally so a template change is visible rather than silently absorbed.
+ */
+export function snTileNameFromTemplate(template, { e, n }) {
+  const cell = `${e}${n}`;
+  return String(template)
+    .replace('$Kachelnummer$', cell)
+    .replace('$Rechtswert$', cell.slice(0, 3))
+    .replace('$Hochwert$', cell.slice(3, 7));
+}
+
+/**
+ * Range-GET status → tile presence, for the `range-get` presence probe (SN: HEAD is 401 on every tile).
+ * 200/206 → true · 404/410 → false (an honest ABSENT) · ANYTHING ELSE → null (UNKNOWN).
+ * ⚠ 503 IS NOT AN OUTAGE HERE — it is what this Nextcloud answers for a ROTATED share token, and reading
+ * it as a dead host is precisely what kept Sachsen marked `blocked` for two passes. It maps to null, so a
+ * caller counts a tile ERROR and the Land reports a failure by name; it never becomes "no tile".
+ */
+export function rangeProbePresence(status) {
+  if (status === 200 || status === 206) return true;
+  if (status === 404 || status === 410) return false;
+  return null;
 }
 
 // ── ZIP walking (pure Buffer maths; the network half streams the bytes) ─────────────────────────
@@ -594,7 +710,7 @@ export const DE_LOD2_CITIES = [
   { city: 'koln',        land: 'nw', bbox: [6.85, 50.88, 7.02, 50.99] },    // = bake.mjs koln row (182 Kacheln live-measured)
   { city: 'hannover',    land: 'ni', bbox: [9.70, 52.35, 9.78, 52.40] },    // ~6×6 × 1 km plain gml (Hannover tile 49.8 MB — streamed), S3 prefix-probed
   { city: 'munich',      land: 'by', bbox: [11.54, 48.12, 11.61, 48.16] },  // probed open, UNARMED by brief
-  { city: 'dresden',     land: 'sn', bbox: [13.70, 51.03, 13.78, 51.07] },  // BLOCKED — geocloud 503
+  { city: 'dresden',     land: 'sn', bbox: [13.70, 51.03, 13.78, 51.07] },  // ~3×3 × 2 km zip (3 tiles GET 200; the share token is READ per run, never pinned)
   { city: 'stuttgart',   land: 'bw', bbox: [9.15, 48.76, 9.22, 48.80] },    // ~3×3 × 2 km zip-multi (9/9 tiles HEAD 200; odd-easting grid)
   { city: 'frankfurt',   land: 'he', bbox: [8.65, 50.10, 8.72, 50.13] },    // BLOCKED — account-gated
   { city: 'bremen',      land: 'hb', bbox: [8.78, 53.06, 8.85, 53.10] },    // UNPROBED — door not located
