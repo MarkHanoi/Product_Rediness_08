@@ -34,6 +34,14 @@ export function layerJsonUrl(tilesetUrl: string): string {
 export type TilesetCoverageVerdict =
     | { readonly covers: true; readonly bounds: readonly number[] }
     | { readonly covers: false; readonly reason: 'outside-bounds'; readonly bounds: readonly number[] }
+    /**
+     * §TERRAIN-ABSENT-IS-NOT-UNREADABLE (L-12973) — the tileset DOES NOT EXIST: its layer.json
+     * answered 404/403. This is a REFUSAL, because attaching it produces a provider whose every
+     * tile 404s, which Cesium reports as `relief=off` on flat ellipsoid ground rather than as an
+     * error — the founder's Dubai session, where `gccstates` was chosen, all 152 buildings fell
+     * back to seat 0 m, and `dubai` and `abudhabi` were sitting on R2 answering 200 the whole time.
+     */
+    | { readonly covers: false; readonly reason: 'tileset-absent'; readonly status: number }
     /** No usable `bounds` in the layer.json (older bakes) — cannot refuse, so the candidate stands. */
     | { readonly covers: true; readonly bounds: null; readonly reason: 'no-bounds-declared' };
 
@@ -50,20 +58,40 @@ export function tilesetBoundsCoverSite(layer: TerrainLayerJsonLike | null | unde
 }
 
 /**
- * Fetch a candidate tileset's layer.json and decide whether it covers the site. A fetch failure is
- * reported as `covers: true` with `no-bounds-declared`: this check exists to SKIP a tileset that
- * demonstrably does not cover the site, never to refuse one it could not read — Cesium's own
- * `fromUrl` is the authority on whether the tileset loads at all.
+ * Fetch a candidate tileset's layer.json and decide whether it covers the site.
+ *
+ * §TERRAIN-ABSENT-IS-NOT-UNREADABLE (L-12973). This used to collapse EVERY non-ok answer into
+ * `covers: true / no-bounds-declared` — "never refuse one I could not read". That conflated two
+ * different answers, which is the C57 §1.5 failure-vs-empty defect pointed at the one value here
+ * that authorises attaching a provider:
+ *
+ *   · 404 / 403 — the tileset IS NOT THERE. Attaching it is strictly worse than skipping it,
+ *     because Cesium's `fromUrl` resolves against a layer.json it cannot read and then 404s every
+ *     tile, which surfaces as `relief=off … seat[finite=0 fallback=N]` on flat ellipsoid ground —
+ *     not as an error. Measured 2026-09-06 at Dubai: candidate `gccstates` 404 (never baked),
+ *     152 buildings seated at 0 m, while `dubai` and `abudhabi` answered 200 on R2 the whole time.
+ *     So an ABSENT tileset must be REFUSED and the next candidate tried.
+ *   · 5xx / network error / malformed JSON — the tileset may well exist and we simply could not
+ *     read it this instant. Refusing on a transient would strip real terrain from a live site, so
+ *     these still stand down and let Cesium be the authority, exactly as before.
  */
 export async function terrainTilesetCoversSite(
     tilesetUrl: string,
     lon: number,
     lat: number,
-    fetchImpl: (url: string) => Promise<{ ok: boolean; json(): Promise<unknown> }> = (u) => fetch(u),
+    fetchImpl: (url: string) => Promise<{ ok: boolean; status?: number; json(): Promise<unknown> }> = (u) => fetch(u),
 ): Promise<TilesetCoverageVerdict> {
     try {
         const res = await fetchImpl(layerJsonUrl(tilesetUrl));
-        if (!res.ok) return { covers: true, bounds: null, reason: 'no-bounds-declared' };
+        if (!res.ok) {
+            const status = typeof res.status === 'number' ? res.status : 0;
+            // ABSENT (404/410 gone, 403 not-public) — a real answer meaning "no tileset here".
+            if (status === 404 || status === 410 || status === 403) {
+                return { covers: false, reason: 'tileset-absent', status };
+            }
+            // Anything else (5xx, 0, unknown) is UNREADABLE, not absent — do not refuse on it.
+            return { covers: true, bounds: null, reason: 'no-bounds-declared' };
+        }
         const layer = (await res.json()) as TerrainLayerJsonLike;
         return tilesetBoundsCoverSite(layer, lon, lat);
     } catch {

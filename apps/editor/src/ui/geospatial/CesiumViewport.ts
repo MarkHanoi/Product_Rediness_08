@@ -38,7 +38,7 @@ import {
 // §OFFICIAL-FOOTPRINTS (L-12939) — the PURE draw decider, shared with the 2D plan so the two
 // surfaces can never draw the same building twice: the massing takes the register's PARTS (a
 // 2-storey wing beside a 3-storey block reads as two volumes), the plan takes the OUTLINES.
-import { refsWithParts, shouldExtrudeInMassing, summariseOfficialFootprints } from "./officialFootprint";
+import { massingExtrudeFilter, refsWithParts, shouldExtrudeInMassing, summariseOfficialFootprints } from "./officialFootprint";
 // §CTX-USE-COLOUR (L-599) — pure "what is this building" classification + palette + legend.
 // ⭐ ACTUAL use only (OSM `building=*`); PERMITTED use (clau/MUC) is a DIFFERENT layer and is
 // deliberately not merged — their disagreement is the development signal.
@@ -7894,17 +7894,28 @@ export class CesiumViewport {
           return typeof h === 'number' && Number.isFinite(h) ? h : null;
         });
       },
-      onFlush: ({ sampled, resolved, ms }) => {
+      onFlush: ({ sampled, resolved, ms, tiles, tileLevel }) => {
         const s = this.groundSampleBatcherInstance?.stats;
         console.log(
           `[CTX-DIAG] §STARTUP-GROUND-SAMPLE-COALESCE — ONE shared sampleTerrainMostDetailed ` +
             `round-trip resolved ${resolved}/${sampled} real ground height(s) in ${ms.toFixed(0)} ms. ` +
+            // §GROUND-SAMPLE-TILE-ATTRIBUTION (L-12952) — the number the founder's run made
+            // unreadable: parks asked 493 points and roads 3555 and BOTH took 14.1 s, because
+            // `doSampling` issues ONE `requestTileGeometry` per DISTINCT TILE and interpolates
+            // every point inside it for free (Cesium 1.143 :208004/:207963). Printing the tile
+            // count says what the round-trip actually bought, and it is the number that must go
+            // down — dropping drape DENSITY would move `sampled` and not move this at all.
+            `Tiles: ${tiles} distinct terrain tile(s) at level ${tileLevel} for those ${sampled} ` +
+            `point(s) — the DOWNLOADS are the cost, the points inside a tile are free. ` +
             (s
               ? `Session: ${s.roundTrips} round-trip(s) for ${s.requests} caller(s) asking ` +
                 `${s.pointsRequested} point(s) — ${s.pointsSampled} sampled, ${s.pointsFromCache} ` +
-                `served from cache, ${s.pointsJoinedInFlight} joined a trip already in flight. ` +
-                `BEFORE this lane every caller paid its OWN round-trip (founder Córdoba: parks 493 pts ` +
-                `and roads 3555 pts BOTH 14.1 s — the duplicate download, not the points).`
+                `served from cache, ${s.pointsJoinedInFlight} joined a trip already in flight, ` +
+                `${s.pointsResolvedByAnEarlierFlight} answered by the flight ahead of them; ` +
+                `${s.deferredFlushes} flush(es) waited their turn, max concurrent flights ` +
+                `${s.maxConcurrentFlights} (MUST be 1 — two calls in the air re-download the same ` +
+                `tiles). BEFORE this lane every caller paid its OWN round-trip (founder Córdoba: ` +
+                `parks 493 pts and roads 3555 pts BOTH 14.1 s — the duplicate download, not the points).`
               : ''),
         );
       },
@@ -8205,7 +8216,16 @@ export class CesiumViewport {
           // tileset was never tried. A layer.json without bounds cannot refuse (older bakes).
           const coverage = await terrainTilesetCoversSite(url, lon, lat);
           if (!coverage.covers) {
-            console.warn(`[CesiumViewport][terrain] §TERRAIN-TILESET-BOUNDS-CHECK (L-12923) '${slug}' declares bounds [${coverage.bounds.map((n) => n.toFixed(4)).join(', ')}] which do NOT cover lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} — skipping by name, trying the next candidate.`);
+            if (coverage.reason === 'tileset-absent') {
+              // §TERRAIN-ABSENT-IS-NOT-UNREADABLE (L-12973) — the slug resolves in the client's own
+              // coverage tables but was never BAKED, so its layer.json 404s. Attaching it yields a
+              // provider that 404s every tile and reports `relief=off` on flat ground rather than an
+              // error, silently burying the site at seat 0 m. Skip by name so a candidate that IS
+              // published gets its turn.
+              console.warn(`[CesiumViewport][terrain] §TERRAIN-ABSENT-IS-NOT-UNREADABLE (L-12973) '${slug}' is NOT PUBLISHED — its layer.json answered HTTP ${coverage.status} at ${url}. This slug is declared in the client's coverage tables but has no tileset on R2; attaching it would 404 every tile and seat the whole site on flat ellipsoid ground. Skipping by name, trying the next candidate.`);
+            } else {
+              console.warn(`[CesiumViewport][terrain] §TERRAIN-TILESET-BOUNDS-CHECK (L-12923) '${slug}' declares bounds [${coverage.bounds.map((n) => n.toFixed(4)).join(', ')}] which do NOT cover lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} — skipping by name, trying the next candidate.`);
+            }
             continue;
           }
           provider = await Cesium.CesiumTerrainProvider.fromUrl(url, { requestVertexNormals: true });
@@ -9126,6 +9146,31 @@ export class CesiumViewport {
       );
     }
 
+    // §OFFICIAL-FOOTPRINTS-ALL-TIERS (L-12953) — the per-volume decision is made ONCE, over the
+    // WHOLE fetched set, and applied to EVERY render tier. It used to be made over
+    // `nearTiers.shadowed` alone and applied to that tier only, which is wrong in two independent
+    // ways as soon as a `--footprints official` bake ships parts:
+    //   1. the DEMOTED near tier and BOTH far tiers extruded official OUTLINES with no filter at
+    //      all, so each drew one max(parts)-tall prism straight through the parts it encloses —
+    //      precisely the z-fight and flattened articulation officialFootprint.ts exists to
+    //      prevent. It is not an edge case: the shadow ring is CONTEXT_NEAR_SHADOW_RADIUS_M wide
+    //      and the fetch is far wider, so MOST of the scene took the unfiltered path.
+    //   2. the ref set was built from ONE tier, so a building whose OUTLINE landed in `shadowed`
+    //      while its PARTS fell past the nearest-first cap into `demoted` answered "has no parts"
+    //      and was extruded as a solid block on top of its own parts.
+    // Both are answered by building the ref set from every feature we hold and filtering every
+    // tier through the ONE predicate. Non-official scenes are untouched — `shouldExtrudeInMassing`
+    // returns true for every footprint carrying no register facts, so this is a no-op on the `osm`
+    // path every bake to date has taken.
+    const allFetched = [...nearTiers.shadowed, ...nearTiers.demoted, ...far.features];
+    const officialPartRefs = refsWithParts(allFetched.map((f) => ({ official: f.properties.official })));
+    const officialSummary = summariseOfficialFootprints(allFetched.map((f) => ({ official: f.properties.official })));
+    const extrudableInMassing = massingExtrudeFilter(allFetched, (f) => f.properties.official);
+    // Filtered HERE, before the terrain batch below, so an outline we will never draw does not
+    // also buy a terrain sample — the founder's 2026-09-06 report is about load time as well.
+    const nearDemotedExtrudable = nearTiers.demoted.filter(extrudableInMassing);
+    const farExtrudable = far.features.filter(extrudableInMassing);
+
     // §CTX-PERFOOTPRINT-SAMPLE (L-635) — batch-sample the REAL terrain height under EVERY footprint about
     // to be placed (near shadowed + demoted + far), in ONE sampleTerrainMostDetailed round-trip, so each
     // building seats on its OWN relief. THE FIX for "buildings sit below the terrain": getHeight is
@@ -9141,9 +9186,9 @@ export class CesiumViewport {
     // per-point cache, §STARTUP-TERRAIN-SAMPLE-REUSE retention).
     const nearGroundCentroids: Array<{ lat: number; lon: number }> = [];
     for (const f of nearTiers.shadowed) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
-    for (const f of nearTiers.demoted) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
+    for (const f of nearDemotedExtrudable) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
     const farGroundCentroids: Array<{ lat: number; lon: number }> = [];
-    for (const f of far.features) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) farGroundCentroids.push(c); }
+    for (const f of farExtrudable) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) farGroundCentroids.push(c); }
     const farGroundSample = this.sampleContextGroundsBatch(farGroundCentroids); // starts immediately, in parallel
     await this.sampleContextGroundsBatch(nearGroundCentroids);
     if (signal.aborted || !this.viewer || this.viewer !== viewer) { void farGroundSample.catch(() => { /* superseded */ }); return; } // a newer load superseded us during the sample.
@@ -9167,8 +9212,9 @@ export class CesiumViewport {
     // with them. An outline with NO parts IS still extruded: a missing neighbour silently deletes a
     // shadow, a party wall and a view obstruction from a study, which is worse than drawing it
     // coarse. Non-official footprints are untouched — shouldExtrudeInMassing(undefined, …) is true.
-    const officialPartRefs = refsWithParts(nearTiers.shadowed.map((f) => ({ official: f.properties.official })));
-    const officialSummary = summariseOfficialFootprints(nearTiers.shadowed.map((f) => ({ official: f.properties.official })));
+    // ⚠ `officialPartRefs` / `officialSummary` are built ABOVE, over EVERY tier, not here over the
+    // shadow tier alone (§OFFICIAL-FOOTPRINTS-ALL-TIERS, L-12953) — a ref set drawn from one tier
+    // answers "this building has no parts" for a building whose parts merely landed in another.
     let officialSkipped = 0;
     for (const f of nearTiers.shadowed) {
       try {
@@ -9331,8 +9377,13 @@ export class CesiumViewport {
     // footprint is in view, so an OSM-only scene keeps its existing log unchanged.
     if (officialSummary.parts > 0 || officialSummary.buildings > 0) {
       console.log(
-        `[CTX-DIAG][official] ${officialSummary.line} · ${officialSkipped} outline(s) not extruded `
-        + '(their own parts are drawn instead)',
+        // §OFFICIAL-FOOTPRINTS-ALL-TIERS (L-12953) — the skip count is reported PER TIER, not as
+        // one total. A single number cannot distinguish "the near ring skipped 40" from "the near
+        // ring skipped 40 and the far ring silently drew 400 outlines over their own parts", and
+        // that second reading is the defect this line now has to be able to expose.
+        `[CTX-DIAG][official] ${officialSummary.line} · outline(s) not extruded — `
+        + `near ${officialSkipped} · demoted ${nearTiers.demoted.length - nearDemotedExtrudable.length} `
+        + `· far ${far.features.length - farExtrudable.length} (their own parts are drawn instead)`,
       );
     }
     // §CTX-LOADING-BADGE (L-524b) — first buildings are on screen, so the wait is over. If the
@@ -9358,7 +9409,7 @@ export class CesiumViewport {
     // as a disc, not a square. `distM` was stamped by selectNearRingRenderTiers — no re-measure.
     const demotedSolid: ContextBuildingFeature[] = [];
     const demotedToFar: ContextBuildingFeature[] = [];
-    for (const f of nearTiers.demoted) {
+    for (const f of nearDemotedExtrudable) {
       ((f.properties.distM ?? 0) <= CONTEXT_NEAR_RENDER_RADIUS_M ? demotedSolid : demotedToFar).push(f);
     }
     // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — the DEMOTED SOLID near-tier: cheap shading, but TRUE
@@ -9380,7 +9431,7 @@ export class CesiumViewport {
     // to the safe base on relief cities. The near tiers are already on screen at this point.
     await farGroundSample;
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return; // superseded during the far sample.
-    const farSplit = this.plotClearSplit(far.features, parcelLonLat);
+    const farSplit = this.plotClearSplit(farExtrudable, parcelLonLat);
     this.renderContextFarTierInstanced([...farSplit.kept, ...demotedToFar], lat, lon, viewer);
 
     // §CTX-EARTH-SLAB (L-645) — RETIRED. The globe-clip "cut slab" is defensively torn down on every

@@ -52,3 +52,56 @@ describe('§TERRAIN-TILESET-BOUNDS-CHECK (L-12923)', () => {
         expect(notOk.covers).toBe(true);
     });
 });
+
+// §TERRAIN-ABSENT-IS-NOT-UNREADABLE (L-12973) — a tileset that DOES NOT EXIST must be refused, so a
+// candidate that IS published gets its turn. The founder's Dubai session, 2026-09-06: the resolver
+// chose `gccstates`, whose layer.json 404s (never baked), and the old code read every non-ok answer
+// as "unreadable, do not refuse". Cesium then attached a provider that 404'd every tile and reported
+//   relief=off … seatBase=0.0m(ellipsoid-flat-ground) … seat[finite=0 fallback=152]
+// i.e. all 152 buildings on flat ground — while `dubai` and `abudhabi` answered 200 on R2 throughout.
+describe('§TERRAIN-ABSENT-IS-NOT-UNREADABLE (L-12973)', () => {
+    const res = (status: number, body?: unknown) => ({
+        ok: status >= 200 && status < 300,
+        status,
+        json: async () => body ?? {},
+    });
+
+    it('THE BUG: a 404 layer.json is REFUSED, not accepted as "no bounds declared"', async () => {
+        const v = await terrainTilesetCoversSite('https://x/terrain/gccstates', 55.26851, 25.1956, async () => res(404));
+        expect(v.covers).toBe(false);
+        expect((v as { reason: string }).reason).toBe('tileset-absent');
+        expect((v as { status: number }).status).toBe(404);
+    });
+
+    it('403 (uploaded but not public) and 410 are refusals too — both mean "no tileset here"', async () => {
+        for (const s of [403, 410]) {
+            const v = await terrainTilesetCoversSite('https://x/terrain/gccstates', 55.2, 25.1, async () => res(s));
+            expect(v.covers).toBe(false);
+            expect((v as { reason: string }).reason).toBe('tileset-absent');
+        }
+    });
+
+    // The other half of the honesty: a TRANSIENT is not an absence. Refusing on a 5xx or a network
+    // blip would strip real terrain from a live site, which is a worse failure than the one above.
+    it('a 5xx or a network error still stands down — unreadable is NOT absent', async () => {
+        for (const s of [500, 502, 503]) {
+            const v = await terrainTilesetCoversSite('https://x/terrain/spain', -3.7, 40.4, async () => res(s));
+            expect(v.covers).toBe(true);
+            expect((v as { reason: string }).reason).toBe('no-bounds-declared');
+        }
+        const thrown = await terrainTilesetCoversSite('https://x/terrain/spain', -3.7, 40.4, async () => {
+            throw new Error('network down');
+        });
+        expect(thrown.covers).toBe(true);
+    });
+
+    it('a published tileset is unaffected: 200 with bounds still decides on the bounds', async () => {
+        const inside = await terrainTilesetCoversSite('https://x/terrain/dubai', 55.2685, 25.1956, async () =>
+            res(200, { bounds: [54.8, 24.8, 55.6, 25.4] }));
+        expect(inside.covers).toBe(true);
+        const outside = await terrainTilesetCoversSite('https://x/terrain/dubai', -3.7, 40.4, async () =>
+            res(200, { bounds: [54.8, 24.8, 55.6, 25.4] }));
+        expect(outside.covers).toBe(false);
+        expect((outside as { reason: string }).reason).toBe('outside-bounds');
+    });
+});
