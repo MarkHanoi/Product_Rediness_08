@@ -443,9 +443,15 @@ describe('§PANE-PLACEMENT-AFTER-MODE-SWITCH — the shell settles ONCE per tran
 
     it('after a mode switch the surface’s parent AND its measured width agree with the pane the store owns it in', async () => {
         // ⭐ THE REGRESSION THE FOUNDER REPORTED, END TO END. The shell's box is re-written
-        // underneath it (a workspace mode switch rewrites `#container.style.width` — three
-        // writers, no protocol) and the surface is left in the wrong pane. One placement pass
-        // has to make the DOCUMENT agree with the STORE again, in both parent and size.
+        // underneath it (a workspace mode switch resizes the view region) and the surface is
+        // left in the wrong pane. One placement pass has to make the DOCUMENT agree with the
+        // STORE again, in both parent and size.
+        //
+        // ⭐ CORRECTED 2026-09-06 (L-13030): this read *"three writers, no protocol"*. It was
+        // SEVEN sites across FIVE modules, and it is now ONE — `ui/layout/viewRegionGeometry.ts`
+        // (C59 §2 invariant 10 / §2.10). The placement pass survives because a renderer can
+        // still be in the wrong PANE after an async mount; it is no longer compensating for
+        // rival writers of the region's box.
         const parent = document.createElement('div');
         document.body.appendChild(parent);
         const shell = mountSiteAuthoringPaneShell({ parent, viewPicker: false });

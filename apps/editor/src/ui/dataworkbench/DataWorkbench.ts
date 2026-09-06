@@ -3,6 +3,15 @@ import { triggerWindowResize } from '../../engine/triggerWindowResize'; // F.eve
 // §L-847 — deferral bridge for runtime-event subscriptions (see _bindEvents).
 // Concrete module import, not a barrel (§SCC-no-barrel-access-at-module-load).
 import { onRuntimeEvent } from '../../engine/runtimeEventBridge';
+// §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · L-13030) — this panel is a
+// CLAIMANT on the shell, not a writer of the view region's box. See `_applyMode`.
+import {
+    CLAIM_ALL,
+    CLAIM_NONE,
+    fractionClaim,
+    pxClaim,
+    setViewRegionClaim,
+} from '../layout/viewRegionGeometry';
 /**
  * ## DataWorkbench — BIM 3.0 Lifecycle Hub (Phase 1: Navigation Refactor)
  *
@@ -904,7 +913,6 @@ export class DataWorkbench implements IDataWorkbench {
     // ── Mode application ───────────────────────────────────────────────────────
 
     private _applyMode(): void {
-        const container = document.getElementById('container');
         this._el.classList.remove('dw--hidden', 'dw--split', 'dw--full');
         // §L-847 — 'panel' sets an INLINE width below; inline style outranks the
         // .dw--split/.dw--full class rules, so without clearing it here a
@@ -912,22 +920,40 @@ export class DataWorkbench implements IDataWorkbench {
         // now drives this to 'full' (WorkspaceController), making that real.
         this._el.style.width = '';
 
+        // ⭐ §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · L-13030) — THIS
+        // PANEL DECLARES ITS CLAIM ON THE SHELL AND WRITES NO VIEW GEOMETRY.
+        //
+        // ⛔ WHAT THIS REPLACED. Each of the four arms below used to also write
+        // `#container.style.width` — `''` · `calc(100% - 420px)` · **`'50%'`** · `'0'` —
+        // and the `'50%'` was one half of the oscillation the founder caught on tape
+        // (L-13030): `DataWorkbench` wrote 50 % for its split mode while
+        // `SplitViewManager._buildDOM` wrote 60 % plus four flex overrides on the SAME
+        // node, each write resizing the canvas and each resize running the settle pass
+        // that re-asserted the other's value.
+        //
+        // ⛔ AND IT IS REMOVED, NOT FLAGGED OFF. C59 §2.10.4: *"a migration that leaves
+        // `DataWorkbench` still writing `#container.style.width` behind a flag has not
+        // satisfied this section — it has added a fifth writer."*
+        //
+        // The panel's OWN width (`this._el`) is still the panel's to write: that is its
+        // own box, one level down from the region, and §2.10.3 item 5 says each level
+        // writes exactly that.
         switch (this._mode) {
             case 'hidden':
                 this._el.classList.add('dw--hidden');
-                if (container) container.style.width = '';
+                setViewRegionClaim('data-workbench', CLAIM_NONE);
                 break;
             case 'panel':
                 this._el.style.width = '420px';
-                if (container) container.style.width = 'calc(100% - 420px)';
+                setViewRegionClaim('data-workbench', pxClaim(420));
                 break;
             case 'split':
                 this._el.classList.add('dw--split');
-                if (container) container.style.width = '50%';
+                setViewRegionClaim('data-workbench', fractionClaim(0.5));
                 break;
             case 'full':
                 this._el.classList.add('dw--full');
-                if (container) container.style.width = '0';
+                setViewRegionClaim('data-workbench', CLAIM_ALL);
                 break;
         }
     }

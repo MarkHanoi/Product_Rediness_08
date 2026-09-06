@@ -144,7 +144,7 @@ export function mountDockingArea(
             triggerWindowResize(); // F.events.16
             // §SHELL-FLOAT-BUDGET (L-4030..L-4035) — re-publish the canvas region
             // on EVERY geometry change, not only on a mode switch. Split view
-            // (`.svp-active` → 60%) is toggled from three call sites in
+            // (the split's own division of the region) is applied from one owner in
             // SplitViewManager/svpPlanPaneMounter, and pinned docks resize this
             // element too. Observing the element is one measurement in place of
             // an enumeration of everything that can narrow it.

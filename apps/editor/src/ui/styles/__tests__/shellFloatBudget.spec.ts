@@ -299,7 +299,13 @@ describe('§SHELL-TOPBAR-BAND (L-4030..L-4035) — the VERTICAL half of the budg
     // canvas gives up — so the BUDGET keeps the shell row out of it, and that
     // only works because the region is measured rather than mode-derived.
     expect(ruleBody(SPLIT, '.svp-pane')).toMatch(/width:\s*40%/);
-    expect(ruleBody(SPLIT, '#container.svp-active')).toMatch(/width:\s*60%/);
+    // ⭐ `#container.svp-active { width: 60% }` WAS ASSERTED HERE AND IS DELETED
+    // (L-13030 · C59 §2 invariant 10 / §2.10). It was a STYLESHEET declaration of a
+    // geometry four modules were already writing inline, and its 60 % was a fraction of
+    // the WINDOW — so in a half-canvas mode it claimed pixels the Analysis panel owned.
+    // The region's box now has ONE owner, `layout/viewRegionGeometry.ts`, which writes it
+    // inline; the sheet must therefore contain NO rival width for it.
+    expect(ruleBody(SPLIT, '#container.svp-active')).toBe('');
   });
 
   it('⭐ no labelled control in that header can collapse to its own chevron', () => {

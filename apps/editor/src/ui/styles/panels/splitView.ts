@@ -13,21 +13,24 @@ export const SPLIT_VIEW_STYLES = `
 /* ── Split View: Container ─────────────────────────────────────────────────── */
 
 /*
- * When split-view is active, the primary OBC container shrinks to the left
- * portion. The secondary pane is positioned fixed to the remaining right area.
+ * STOP: the rule #container.svp-active (width 60%, max-width 60%, and the three flex
+ * properties as !important) WAS HERE AND IS DELETED - see VIEW-REGION-HAS-ONE-OWNER
+ * (C59 section 2 invariant 10 and section 2.10, L-13030). It was a STYLESHEET rival to
+ * the inline geometry four modules were already fighting over, and the worst-behaved of
+ * them: !important on the flex triple meant the region could never be RELEASED back to
+ * flex: 1 1 0 while the class was on the node, whatever the owner wrote inline. Its 60%
+ * was also a fraction of the WINDOW, which is the exact error STR section 26.1.2 rules
+ * out - the split divides the view REGION, so in Analysis the correct figure is 60% of
+ * the remaining half.
  *
- * IMPORTANT: #container uses flex:1 1 0 so setting only width is overridden
- * by flex-grow. We must use max-width to cap the container's rendered size and
- * flex-grow:0 to prevent it expanding back to fill the row.
+ * apps/editor/src/ui/layout/viewRegionGeometry.ts now writes the region's width,
+ * max-width and flex triple inline, from ONE state, and places .svp-pane and
+ * .svp-divider from the same derivation. The class is no longer applied.
+ *
+ * The TRANSITION stays: it is presentation, not geometry, and it is declared for every
+ * #container rather than for a state class, so a mode change animates identically to a
+ * split change.
  */
-#container.svp-active {
-    flex-grow: 0 !important;
-    flex-shrink: 0 !important;
-    flex-basis: auto !important;
-    width: 60%;
-    max-width: 60%;
-    transition: width 0.2s ease-in-out, max-width 0.2s ease-in-out;
-}
 #container {
     transition: width 0.2s ease-in-out, max-width 0.2s ease-in-out;
 }

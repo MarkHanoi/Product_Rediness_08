@@ -15,18 +15,20 @@
 // it does not modify it.
 //
 // WHAT IT MUST UNDO WHILE PANED (and why):
-//   • `SplitViewManager._buildDOM()` SHRINKS `#container` to (1 - splitRatio) and mounts
-//     its pane `position:fixed` at the screen's right edge. Inside a pane that geometry
-//     is wrong twice over: the shell lives INSIDE `#container` (so shrinking it shrinks
-//     the panes too, leaving dead space), and a fixed node ignores the pane box. The
-//     mounter therefore restores `#container`'s sizing and pins the pane node to
-//     `inset:0` within its host — with `!important`, since `.svp-pane`'s fixed geometry
-//     comes from a stylesheet rule that would otherwise win over inline styles.
+//   • `SplitViewManager.activate()` DIVIDES the view region and mounts its pane
+//     `position:fixed` at the region's right edge. Inside a pane that geometry is wrong
+//     twice over: the shell lives INSIDE `#container` (so dividing the region shrinks the
+//     panes too, leaving dead space), and a fixed node ignores the pane box. The mounter
+//     therefore tells the region owner the region is NOT divided
+//     (`setViewRegionSplit(null)` — §VIEW-REGION-HAS-ONE-OWNER, C59 §2.10; it does not
+//     write `#container` itself, and no longer may) and pins the pane node to `inset:0`
+//     within its host — with `!important`, since `.svp-pane`'s fixed geometry comes from a
+//     stylesheet rule that would otherwise win over inline styles.
 //   • Its own `#svp-divider` (a second, body-level divider) is hidden: the pane shell
 //     already owns the split geometry.
 // Both are reverted for free on unmount, because `deactivate()` → `_teardownDOM()`
-// removes the pane + divider nodes (from WHEREVER they were re-parented to) and clears
-// `#container`'s inline sizing. That is why unmount is a plain `deactivate()`.
+// removes the pane + divider nodes (from WHEREVER they were re-parented to) and declares
+// the region undivided. That is why unmount is a plain `deactivate()`.
 //
 // P3 (single rAF): no frame loop here — SplitViewManager already paints on the shared
 // scheduler's tick and reflows through its own `ResizeObserver` on the pane node, which
@@ -34,6 +36,8 @@
 // P4: no `window as any` — the caller injects a typed resolver.
 
 import type { PaneRendererMounter } from './PaneHost';
+// §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · L-13030) — see `mountInto`.
+import { setViewRegionSplit } from '@app/ui/layout/viewRegionGeometry';
 
 /** The minimal SplitViewManager surface this mounter drives (structural typing). */
 export interface SplitViewManagerLike {
@@ -95,16 +99,16 @@ export function createSvpPlanPaneMounter(
                 return;
             }
 
-            // Undo the legacy shrink of #container: the pane shell lives inside it.
-            const container = document.getElementById('container');
-            if (container) {
-                container.classList.remove('svp-active');
-                container.style.width = '';
-                container.style.maxWidth = '';
-                container.style.flexGrow = '';
-                container.style.flexShrink = '';
-                container.style.flexBasis = '';
-            }
+            // §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · L-13030) — the plan
+            // pane is INSIDE the pane shell now, so it is not dividing the view region. Say
+            // exactly that, once, to the owner.
+            //
+            // ⛔ FIVE INLINE CLEARS OF `#container` USED TO LIVE HERE, and they were the
+            // sixth write site of one property. Worse, they were a WRITE issued to undo
+            // ANOTHER MODULE'S WRITE — the shape C59 §2.10 forbids by name, because each
+            // undo is the next re-assert's trigger. `setViewRegionSplit(null)` is not an
+            // undo: it is this level telling the level above what is true.
+            setViewRegionSplit(null);
 
             // The legacy body-level divider is redundant — the shell owns the split.
             const legacyDivider = document.getElementById(SVP_DIVIDER_ID);
@@ -147,8 +151,8 @@ export function createSvpPlanPaneMounter(
 
         unmount: (): void => {
             // `deactivate()` → `_teardownDOM()` removes the pane + divider nodes wherever
-            // they now live and clears #container's inline sizing, so the legacy owner is
-            // left exactly as it was before the pane borrowed it. Nothing to restore here.
+            // they now live and declares the region undivided, so the legacy owner is left
+            // exactly as it was before the pane borrowed it. Nothing to restore here.
             try {
                 resolve()?.deactivate();
             } catch (e) {

@@ -407,8 +407,14 @@ export function mountSiteAuthoringPaneShell(
 
     // ── Window resize → settle both renderers ───────────────────────────────────
     // A window resize is exactly the transition in which the shell's own box is being
-    // re-written by somebody else (`#container.style.width` has three writers — see
-    // `halfCanvasResizer.ts`), so it asks for the placement check too.
+    // re-written underneath it, so it asks for the placement check too.
+    //
+    // ⭐ CORRECTED 2026-09-06 (L-13030 · C59 §2 invariant 10 / §2.10). This comment read
+    // *"`#container.style.width` has three writers"*. IT WAS SEVEN SITES ACROSS FIVE
+    // MODULES, and a comment that names a defect but gets its size wrong is how a known
+    // problem stays open — the number looked survivable. It now has exactly ONE writer,
+    // `ui/layout/viewRegionGeometry.ts`, and a second one is a contract violation rather
+    // than a fact to be defended against here.
     const onWindowResize = (): void => { requestSettle(true); };
     window.addEventListener('resize', onWindowResize);
 

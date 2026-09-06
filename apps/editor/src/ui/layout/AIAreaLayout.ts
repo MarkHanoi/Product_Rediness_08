@@ -105,7 +105,7 @@ function _aiSaveHeight(h: number): void {
  * restores exactly what the user left - and `bottom` is released to `auto` so
  * the height the user chose is the height that survives.
  */
-function _attachCornerResize(handle: HTMLElement, container: HTMLElement): void {
+function _attachCornerResize(handle: HTMLElement, panelEl: HTMLElement): void {
     let dragging = false;
     let startX = 0, startY = 0, startW = 0, startH = 0;
 
@@ -113,16 +113,16 @@ function _attachCornerResize(handle: HTMLElement, container: HTMLElement): void 
         if (!dragging) return;
         const w = Math.max(AI_MIN_W, Math.min(AI_MAX_W, startW + (e.clientX - startX)));
         const h = Math.max(AI_MIN_H, Math.min(_aiMaxHeight(), startH + (e.clientY - startY)));
-        container.style.width  = `${w}px`;
-        container.style.height = `${h}px`;
+        panelEl.style.width  = `${w}px`;
+        panelEl.style.height = `${h}px`;
     };
     const onMouseUp = (): void => {
         if (!dragging) return;
         dragging = false;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
-        _aiSaveWidth(container.offsetWidth);
-        _aiSaveHeight(container.offsetHeight);
+        _aiSaveWidth(panelEl.offsetWidth);
+        _aiSaveHeight(panelEl.offsetHeight);
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
     };
@@ -130,10 +130,10 @@ function _attachCornerResize(handle: HTMLElement, container: HTMLElement): void 
         if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();          // never start a drag-to-move at the same time
-        container.style.bottom = 'auto';
+        panelEl.style.bottom = 'auto';
         dragging = true;
         startX = e.clientX; startY = e.clientY;
-        startW = container.offsetWidth; startH = container.offsetHeight;
+        startW = panelEl.offsetWidth; startH = panelEl.offsetHeight;
         document.body.style.cursor = 'nwse-resize';
         document.body.style.userSelect = 'none';
         document.addEventListener('mousemove', onMouseMove);
@@ -171,7 +171,7 @@ function _getLeftRailDock(margin: number): { left: number; top: number } {
  *   - right edge stays anchored (left position adjusts in tandem)
  *   - final width persisted to localStorage on mouseup
  */
-function _attachWidthResize(handle: HTMLElement, container: HTMLElement): void {
+function _attachWidthResize(handle: HTMLElement, panelEl: HTMLElement): void {
     let dragging  = false;
     let startX    = 0;
     let startW    = 0;
@@ -184,8 +184,8 @@ function _attachWidthResize(handle: HTMLElement, container: HTMLElement): void {
         const newW   = Math.min(AI_MAX_W, Math.max(AI_MIN_W, startW + delta));
         // Keep right edge anchored — shift left position accordingly.
         const newLeft = Math.max(0, startLeft - (newW - startW));
-        container.style.width = `${newW}px`;
-        container.style.left  = `${newLeft}px`;
+        panelEl.style.width = `${newW}px`;
+        panelEl.style.left  = `${newLeft}px`;
     };
 
     const onMouseUp = (): void => {
@@ -193,17 +193,17 @@ function _attachWidthResize(handle: HTMLElement, container: HTMLElement): void {
         dragging = false;
         document.body.style.cursor     = '';
         document.body.style.userSelect = '';
-        _aiSaveWidth(container.offsetWidth);
+        _aiSaveWidth(panelEl.offsetWidth);
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup',   onMouseUp);
     };
 
     handle.addEventListener('mousedown', (e: MouseEvent) => {
         e.preventDefault();
-        const rect = container.getBoundingClientRect();
+        const rect = panelEl.getBoundingClientRect();
         dragging  = true;
         startX    = e.clientX;
-        startW    = container.offsetWidth;
+        startW    = panelEl.offsetWidth;
         startLeft = rect.left;
         document.body.style.cursor     = 'col-resize';
         document.body.style.userSelect = 'none';
@@ -532,12 +532,17 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // attaching the drag-to-move and left-edge drag-to-resize handles.
     if (_aiEnabled) {
         setTimeout(() => {
-            const container = document.getElementById(aiPanelId);
-            if (!container) return;
+            // ⚠ THIS IS THE AI PANEL, NOT `#container`. It was named `container` until
+            // 2026-09-06, and C59 §2.10.1's measured table of `#container.style.width`
+            // writers listed this file's three sites as a result — a grep for
+            // `container.style.width` cannot tell a variable name from an element id
+            // (L-13030). Renamed so the next census cannot repeat the mistake.
+            const panelEl = document.getElementById(aiPanelId);
+            if (!panelEl) return;
 
             // 1. Apply persisted (or default) width — 80% of the original 320px
             const w = _aiLoadWidth();
-            container.style.width = `${w}px`;
+            panelEl.style.width = `${w}px`;
 
             // 2. Set default position — founder request 2026-08-10 (first-line
             //    AI chat): dock LEFT, flush next to the left icon rail and
@@ -548,32 +553,32 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
             const dock   = _getLeftRailDock(margin);
             const initLeft = dock.left;
             const h = _aiLoadHeight();              // founder: HALF the viewport by default
-            container.style.left   = `${initLeft}px`;
-            container.style.top    = `${dock.top}px`;
+            panelEl.style.left   = `${initLeft}px`;
+            panelEl.style.top    = `${dock.top}px`;
             // Explicit height (not top+bottom anchoring): the panel is a freely
             // sizeable floating window, and only an explicit height survives a
             // move. `bottom: auto` releases the old full-column stretch.
-            container.style.bottom = 'auto';
-            container.style.height = `${h}px`;
-            container.style.maxHeight = 'none';     // the user's height is the height
+            panelEl.style.bottom = 'auto';
+            panelEl.style.height = `${h}px`;
+            panelEl.style.maxHeight = 'none';     // the user's height is the height
 
             // 3. Wire drag-to-move (header as handle)
-            const dragHandle = container.querySelector('.ai-chat-header') as HTMLElement | null;
-            if (dragHandle) makeDraggable(container, dragHandle);
+            const dragHandle = panelEl.querySelector('.ai-chat-header') as HTMLElement | null;
+            if (dragHandle) makeDraggable(panelEl, dragHandle);
 
             // 4. Add left-edge resize handle and wire width-resize
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'ai-resize-handle';
             resizeHandle.title     = 'Drag to resize width';
-            container.appendChild(resizeHandle);
-            _attachWidthResize(resizeHandle, container);
+            panelEl.appendChild(resizeHandle);
+            _attachWidthResize(resizeHandle, panelEl);
 
             // 5. Bottom-right CORNER handle - width + height in one gesture.
             const cornerHandle = document.createElement('div');
             cornerHandle.className = 'ai-resize-corner';
             cornerHandle.title     = 'Drag to resize';
-            container.appendChild(cornerHandle);
-            _attachCornerResize(cornerHandle, container);
+            panelEl.appendChild(cornerHandle);
+            _attachCornerResize(cornerHandle, panelEl);
 
             console.log('[AIAreaLayout] AI panel drag + resize wired. width=%dpx height=%dpx left=%dpx top=%dpx (left-docked, corner-resizable)', w, h, initLeft, dock.top);
         }, 800);

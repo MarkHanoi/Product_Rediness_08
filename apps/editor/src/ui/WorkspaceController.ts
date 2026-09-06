@@ -42,12 +42,30 @@ import {
   getWorkspaceMode, WORKSPACE_MODES,
   isWorkspaceMode,
   workspaceModeForShortcut,
+  type WorkspaceCanvasLayout,
   type WorkspaceMode,
 } from './platform/workspaceModes';
 // §SHELL-FLOAT-BUDGET (L-4010..L-4016) — the ONE writer of the canvas region.
 import { publishShellCanvasRegion } from './layout/shellCanvasBudget';
-// §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915) — the pure rule; this file performs it.
-import { decideSplitViewForCanvas } from './platform/halfCanvasSplitViewPolicy';
+// §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · STR §26.1.2 · L-13030) — the
+// mode SIZES the view region and does not write its box. This file DECLARES a claim; the
+// region owner derives `#container`'s width, the split pane's width AND its offset from it.
+//
+// ⛔ `decideSplitViewForCanvas` (`platform/halfCanvasSplitViewPolicy.ts`) WAS IMPORTED HERE
+// AND IS DELETED, not disabled. It closed the split pane on entering a half-canvas mode and
+// reopened it on leaving — the source of the unrequested `Split view activated` /
+// `Split view deactivated` pairs the founder caught on tape (L-13030), and a direct
+// contradiction of C59 §2.10.3 ("split state is orthogonal to workspace mode and survives a
+// mode change"). Its premise was that `.svp-pane` (z-index 1, `right: 0`) renders BEHIND
+// `#anl-surface` (z-index 50, `right: 0`); the region owner now places the pane at
+// `right: <the claim>`, beside the panel, so there is nothing left to close.
+import {
+  CLAIM_ALL,
+  CLAIM_NONE,
+  fractionClaim,
+  setViewRegionClaim,
+  type RegionClaim,
+} from './layout/viewRegionGeometry';
 // §ONBOARDING-IS-FULL-BLEED (L-13000) — the SAME phase predicate the launcher rail
 // already asks (`panelAbsent('launcher-rail')` → §UX1-PANEL-DEFAULTS D6). This file
 // asks it too rather than minting a second "are we in onboarding?" signal.
@@ -74,27 +92,22 @@ const ONBOARDING_GLOBE_MODE: WorkspaceMode = 'author';
 // F.events.6 — dispatch migrated to runtime.events; EVENT const retired.
 
 /**
- * §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915) — the THREE members of
- * `SplitViewManager` this file is allowed to know about. A structural type, not an
- * import: the manager lives in `engine/views/` and pulls THREE + the OBC world in
- * with it, and the shell must not acquire that dependency to close a pane. P4 — this
- * is why there is a type here rather than a `(window as any)` at the call site.
+ * §VIEW-REGION-HAS-ONE-OWNER (C59 §2.10.3 item 2) — the registry's canvas layout, as a
+ * CLAIM on the shell. This is the entirety of what a workspace mode may say about
+ * geometry: how much of the shell its panel takes. It says nothing about panes, nothing
+ * about the split, and it writes no style.
+ *
+ *   'full'   → nothing claimed; the region is the whole shell.
+ *   'half'   → the mode's right-hand surface (`#anl-surface` / `#aud-stack`, both
+ *              `position: fixed; right: 0; width: 50%`) takes half.
+ *   'hidden' → the whole shell; the region collapses and `#container` is `display:none`.
  */
-interface SplitViewPaneLike {
-    readonly isActive: boolean;
-    activate(): void;
-    deactivate(): void;
-}
-
-/**
- * The live pane, or `null` when the manager has not been constructed yet (it is
- * created in `initScene`, which can finish AFTER `restoreFromStorage()` runs).
- * A missing manager is a normal state, not an error — there is no pane to reconcile.
- */
-function resolveSplitViewPane(): SplitViewPaneLike | null {
-    const svm = window.splitViewManager as Partial<SplitViewPaneLike> | undefined;
-    if (!svm || typeof svm.activate !== 'function' || typeof svm.deactivate !== 'function') return null;
-    return svm as SplitViewPaneLike;
+function claimForCanvas(canvas: WorkspaceCanvasLayout): RegionClaim {
+    switch (canvas) {
+        case 'full': return CLAIM_NONE;
+        case 'half': return fractionClaim(0.5);
+        case 'hidden': return CLAIM_ALL;
+    }
 }
 
 type LevelExplodeMode = 'stacked' | 'exploded' | 'solo';
@@ -126,14 +139,14 @@ export class WorkspaceController {
   private _modeHeldForOnboarding: WorkspaceMode | null = null;
   /** Disposer for the phase subscription opened in the constructor. */
   private _unsubPhase: (() => void) | null = null;
-  /**
-   * §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915) — did THIS controller close the
-   * split-view pane? Only a pane the shell closed may be reopened by the shell.
-   * ⛔ Deliberately a private field rather than `SplitViewManager.suppressAutoOpen()`:
-   * that flag is a single boolean with two other claimants (GIS site panes,
-   * onboarding), and clearing it here would clear a suppression we never set.
+  /*
+   * ⛔ `_splitViewClosedByShell` WAS HERE AND IS GONE (L-13030 · C59 §2.10.3).
+   * It remembered that the shell had closed the split pane so a later full-canvas mode
+   * could reopen it. Under §2.10.3 the split is ORTHOGONAL to the workspace mode and
+   * survives a mode change untouched, so there is nothing to remember: this controller
+   * no longer opens or closes the split at all. The claim it now declares
+   * (`claimForCanvas`) is the ONLY thing a mode says about geometry.
    */
-  private _splitViewClosedByShell = false;
   private _activeLens: LensId = 'ghost';
   private _levelExplodeMode: LevelExplodeMode = 'stacked';
   private _soloLevelId: string | undefined;
@@ -199,12 +212,14 @@ export class WorkspaceController {
     // the right. His own words: *"pLEASE MAKE SURE AT THIS STAGE THE VIEW IS
     // ALWAYS IN 'AUTHOR' FULL VIEW WITH THE EARTH"*.
     //
-    // The half-canvas write is not the only consequence. `decideSplitViewForCanvas`
-    // then CLAIMS the split-view pane (`close`, `closedByShell: true`) and reopens
-    // it on the next full-canvas mode — which is the blank light-lavender rectangle
-    // of the SECOND screenshot (*"eVEN IN AUTHOR - THE RIGHT HAND SIDE IS
-    // CORRUPTED"*): an empty `.svp-pane` at `right: 0; width: 40%`, reopened by a
-    // claim that was only ever taken because a stale mode was restored.
+    // ⚠ THE SECOND CONSEQUENCE IS NOW STRUCTURALLY GONE, recorded because the FIX
+    // changed, not the history. `decideSplitViewForCanvas` used to CLAIM the split-view
+    // pane on the way in and reopen it on the next full-canvas mode — the blank
+    // light-lavender rectangle of the SECOND screenshot (*"eVEN IN AUTHOR - THE RIGHT
+    // HAND SIDE IS CORRUPTED"*): an empty `.svp-pane` reopened by a claim that was only
+    // ever taken because a stale mode was restored. That policy is DELETED under C59
+    // §2.10 (L-13030): a workspace mode no longer opens or closes the split at all. The
+    // hold below still matters for the FIRST consequence — the globe cut in half.
     //
     // ⭐ THE PREDICATE IS NOT NEW. `panelDefaults`' `AppPhase` already means exactly
     // "is there a BIM canvas yet, or is the user still in the guided globe flow",
@@ -401,58 +416,36 @@ export class WorkspaceController {
     // Enumerating the causes of a narrow canvas is a CENSUS, and this lane's
     // whole finding is that censuses rot. The region is measured instead.
     // The registry still DECIDES the width just below; the publisher READS it.
-    // §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915 · STR §24.1 item 2) — RECONCILE THE
-    // SECOND CLAIMANT OF `#container.style.width` BEFORE WRITING IT.
+    // ⭐ §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · L-13030) — THE MODE
+    // DECLARES ITS CLAIM AND WRITES NOTHING.
     //
-    // `#anl-surface` / `#aud-stack` (a half mode's right-hand surface) and `.svp-pane`
-    // are BOTH `position: fixed; right: 0`, and the surface's z-index is 50 against the
-    // pane's 1 — so in a half mode the pane renders entirely behind the panel. Worse,
-    // `SplitViewManager._buildDOM` writes `#container.style.width = '60%'` on the very
-    // node this switch is about to set to `'50%'`, and `_teardownDOM` writes `''` back.
-    // Two owners, one inline property, no protocol. See `halfCanvasSplitViewPolicy.ts`
-    // for the measurement and for why `suppressAutoOpen()` was the wrong seam.
+    // ⛔ WHAT THIS REPLACED, AND WHY IT WAS NOT A TIMING BUG. This block used to (a) ask
+    // `decideSplitViewForCanvas` whether to CLOSE or REOPEN the split pane and (b) write
+    // `canvas.style.width` itself — `''` for a full mode, `'50%'` for a half one. Both
+    // halves were defects under §2.10.3:
     //
-    // ⚠ ORDER IS LOAD-BEARING, IN BOTH DIRECTIONS.
-    //   · CLOSE happens BEFORE the switch: `_teardownDOM` clears `style.width`, so a
-    //     close afterwards would wipe the 50% we just set.
-    //   · REOPEN happens AFTER it: `_buildDOM` sets its own 60%, so a reopen before the
-    //     switch would be overwritten by the `''` of the full-canvas branch.
-    const pane = resolveSplitViewPane();
-    const splitDecision = decideSplitViewForCanvas({
-      canvas: def?.canvas ?? 'full',
-      splitViewActive: pane?.isActive === true,
-      closedByShell: this._splitViewClosedByShell,
-    });
-    this._splitViewClosedByShell = splitDecision.closedByShell;
-    if (splitDecision.action === 'close') {
-      // Total, like `publishShellCanvasRegion` below and for the same reason: a pane
-      // that throws on teardown must not be able to abort a mode switch.
-      try { pane?.deactivate(); } catch (e) {
-        console.warn('[WorkspaceController] §HALF-CANVAS-OWNS-THE-RIGHT-EDGE: split-view deactivate failed (non-fatal):', e);
-      }
-    }
+    //   · The close/reopen made the split a FUNCTION of the workspace mode. §2.10.3 says
+    //     the split is orthogonal to it and survives it, and the founder's console
+    //     (L-13030) caught the consequence: `Split view activated` / `deactivated` pairs
+    //     repeating SIX times for zero user input, each cycle resizing the Cesium canvas
+    //     836→501→836 and re-framing the camera.
+    //   · The width write made this the second of SEVEN writers of one property. And it
+    //     never even bound: `#container` is `flex: 1 1 0`, so a `width` with no
+    //     `max-width` and no `flex-grow: 0` is overridden by the flex line. The mode has
+    //     been *declaring* a half canvas and *rendering* a full one, with the panel simply
+    //     covering the right half of a full-width viewport.
+    //
+    // Now: one claim, one owner, one derivation. The owner writes `#container`'s box AND
+    // places the split pane at `right: <the claim>` — beside the panel rather than behind
+    // it, which is what dissolves the L-12915 occlusion the close/reopen existed to dodge.
+    setViewRegionClaim('workspace-mode', claimForCanvas(def?.canvas ?? 'full'));
 
-    if (canvas) {
-      switch (def?.canvas ?? 'full') {
-        case 'full':   canvas.style.display = 'block'; canvas.style.width = '';    break;
-        case 'half':   canvas.style.display = 'block'; canvas.style.width = '50%'; break;
-        case 'hidden': canvas.style.display = 'none';                              break;
-      }
-      // §SHELL-FLOAT-BUDGET — publish AFTER the width is set, synchronously, so
-      // the bars move in the same frame as the canvas rather than one
-      // ResizeObserver tick later. Same function DockingLayout's observer calls;
-      // neither site computes a value.
-      publishShellCanvasRegion();
-    }
-
-    if (splitDecision.action === 'reopen') {
-      try { pane?.activate(); } catch (e) {
-        console.warn('[WorkspaceController] §HALF-CANVAS-OWNS-THE-RIGHT-EDGE: split-view activate failed (non-fatal):', e);
-      }
-      // The pane just re-wrote `#container.style.width` to its own 60%, so the float
-      // budget every canvas-anchored bar reads is now stale by exactly that much.
-      publishShellCanvasRegion();
-    }
+    // §SHELL-FLOAT-BUDGET — `setViewRegionClaim` republishes the budget as part of its
+    // apply, so the bars move in the same frame as the region. This second call covers the
+    // no-`#container` case (a test DOM, a pre-mount frame), where the owner has nothing to
+    // write but the budget must still fall back to its declared defaults. Both are
+    // idempotent writes of two custom properties; neither computes a value.
+    if (canvas) publishShellCanvasRegion();
 
     // The WORKBENCH half stays a per-mode decision: it is not derivable from the
     // canvas layout, and §L-847 below is a founder ruling that must stay visible.

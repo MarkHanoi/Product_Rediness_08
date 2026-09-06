@@ -16,19 +16,28 @@
  * left, the panel on the right, and a hard 50/50 edge between them that nothing
  * could move.
  *
- * That edge is not one element. It is TWO independent claimants of the same
- * boundary, and both have to move together or the drag tears:
+ * That edge is not one element. It is TWO surfaces that have to move together or the
+ * drag tears:
  *
- *   · `#container` — the 3-D viewport. `WorkspaceController._applyLayout` writes
- *     `style.width = '50%'` for any mode whose registry row says `canvas: 'half'`.
+ *   · the VIEW REGION (`#container` today) — sized by `viewRegionGeometry`, the ONE
+ *     owner of its box (C59 §2 invariant 10 / §2.10, L-13030);
  *   · `#anl-surface` (Analysis) / `#aud-stack` (Inspect) — `position: fixed;
  *     right: 0; width: 50%` in their own sheets.
  *
- * So this control writes BOTH, from ONE fraction, in one pass — which is exactly
- * what `SplitViewManager._applyDragRatio` does for `.svp-pane` + `#container`.
- * The founder's "the same" is honoured by SHARING THE ARITHMETIC
- * (`shellSplitRatio.ts`), not by copying the loop: the clamp now has one owner
- * instead of the two spellings that were already in the tree.
+ * ⭐ SO THIS CONTROL DECLARES ONE FRACTION AND WRITES ONE BOX. It calls
+ * `setViewRegionPanelDrag(f)` — the panel's share of the shell — and the owner derives
+ * the region's width (and, if a split is open, both pane boxes inside it) from that.
+ * The surface's own width comes back from `viewRegionPanelWidth()`, so the two edges
+ * are two renderings of ONE number and cannot disagree.
+ *
+ * ⛔ IT USED TO WRITE `#container.style.width` + `maxWidth` DIRECTLY, and was the third
+ * of seven writers of that property. The bookkeeping that required — remembering the
+ * exact strings it last wrote so `dispose()` could clear only its own marks — is gone
+ * with the second owner; see `apply()`.
+ *
+ * The founder's "the same" is honoured by SHARING THE ARITHMETIC (`shellSplitRatio.ts`),
+ * not by copying the loop: the clamp has one owner instead of the two spellings that
+ * were already in the tree.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * ⭐ THE DRAG IS COALESCED THROUGH THE FRAME SCHEDULER, AND THAT IS NOT POLISH
@@ -43,13 +52,17 @@
  * primitive with its own reason string. P3 is respected: no `requestAnimationFrame`
  * here; the scheduler owns the only one.
  *
- * ⛔ NO STORE WRITES (P6), no THREE (P2), no `(window as any)` (P4) — the canvas
- * and the surface are both passed in or resolved by id, and every style this file
- * writes is RESTORED on dispose to the value it found, so a control that mounts
- * and unmounts with a tab can never leave the shell narrower than it started.
+ * ⛔ NO STORE WRITES (P6), no THREE (P2), no `(window as any)` (P4) — this file writes
+ * the SURFACE's own width and the handle's own position, and nothing else. The view
+ * region is `viewRegionGeometry`'s, and releasing the drag on dispose returns it to
+ * whatever the workspace mode claims, so a control that mounts and unmounts with a tab
+ * can never leave the shell narrower than it started.
  */
 
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
+// §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · L-13030) — this handle is a
+// CLAIMANT on the shell, not a writer of `#container`'s box. See `apply()` below.
+import { setViewRegionPanelDrag, viewRegionPanelWidth } from './viewRegionGeometry';
 import {
     SHELL_SPLIT_DEFAULT_RIGHT,
     SHELL_SPLIT_MAX_RIGHT,
@@ -92,8 +105,6 @@ export const RESIZER_Z_INDEX = 51;
 export interface HalfCanvasResizerOptions {
     /** The fixed right-hand surface being resized (`#anl-surface`, `#aud-stack`). */
     readonly surface: HTMLElement;
-    /** The canvas element id. Defaults to `'container'`. */
-    readonly canvasId?: string;
     /** Where the handle is appended. Defaults to `document.body` (it is shell chrome). */
     readonly parent?: HTMLElement;
     /** Narrowest / widest the surface may become, as a fraction of the viewport. */
@@ -171,41 +182,7 @@ export function mountHalfCanvasResizer(opts: HalfCanvasResizerOptions): HalfCanv
         max,
     );
 
-    const canvas = (): HTMLElement | null =>
-        document.getElementById(opts.canvasId ?? 'container');
-
     const priorSurfaceWidth = surface.style.width;
-
-    /**
-     * ⭐ WHAT THIS HANDLE LAST WROTE TO `#container`, SO DISPOSE CAN CLEAR ONLY ITS OWN
-     * MARKS. This is the crux of the file and it was got wrong once on the way here.
-     *
-     * `#container.style.width` has THREE writers and no protocol between them
-     * (`halfCanvasSplitViewPolicy.ts` documents two of them; this handle is the third):
-     *
-     *   1. `WorkspaceController._applyLayout` — `'50%'` for a half-canvas mode, `''` for a
-     *      full one. It runs BEFORE the `pryzm-workspace-mode` emit that hides this surface,
-     *      so by the time `dispose()` runs the NEXT mode's width is already on the node.
-     *   2. `SplitViewManager._buildDOM` — `'60%'` + a matching `max-width`, and
-     *      `_applyLayout` can REOPEN that pane after switching the width (the 'reopen' arm).
-     *   3. this handle.
-     *
-     * ⛔ SO "RESTORE WHAT I FOUND" IS WRONG, and specifically wrong in the direction that
-     * costs the founder his viewport: mounting in Analysis records `'50%'`, and restoring
-     * that on the way OUT would pin the Author-mode canvas at half width. Equally, blindly
-     * clearing would wipe the 60 % a split pane had set one line earlier.
-     *
-     * The rule that is correct in every one of those cases: clear a property ONLY while it
-     * still holds the exact string this handle last wrote. If anyone has written since, the
-     * value is theirs and this file does not touch it.
-     *
-     * ⚠ `max-width` is the half that actually bites. `_applyLayout`'s full-canvas branch
-     * clears `width` and says nothing about `max-width` — so a `max-width` left behind here
-     * survives the mode switch and pins the canvas at the dragged fraction with no panel
-     * beside it.
-     */
-    let wroteCanvasWidth: string | null = null;
-    let wroteCanvasMaxWidth: string | null = null;
 
     // ── The handle ──────────────────────────────────────────────────────────────
     const handle = document.createElement('div');
@@ -239,25 +216,30 @@ export function mountHalfCanvasResizer(opts: HalfCanvasResizerOptions): HalfCanv
     let pendingFraction: number | null = null;
     let dragDispose: (() => void) | null = null;
 
-    /** Write the ONE fraction to BOTH claimants of the boundary, plus the handle. */
+    /**
+     * ⭐ §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · L-13030) — THE DRAG
+     * DECLARES THE PANEL'S SHARE. IT DOES NOT WRITE THE VIEW REGION'S BOX.
+     *
+     * ⛔ WHAT THIS REPLACED, AND WHY THE OLD SHAPE WAS UNFIXABLE IN PLACE. This function
+     * used to write `#container.style.width` AND `maxWidth` itself, and `dispose()` had to
+     * clear them only while they still held the exact string this handle last wrote —
+     * because three other modules wrote the same two properties and "restore what I found"
+     * and "clear everything" were each wrong in a different state. That whole apparatus was
+     * a protocol substitute for an owner. With one owner there is no bookkeeping: the drag
+     * sets the claim, and whoever declares the next claim (a mode switch) overrides it by
+     * construction.
+     *
+     * The SURFACE's own width is still written here — that is the panel's own box, one
+     * level down from the region, and the owner hands back the matching expression so the
+     * two edges cannot disagree.
+     */
     const apply = (): void => {
         if (disposed) return;
-        const pct = percent(fraction);
-        handle.style.right = pct;
+        setViewRegionPanelDrag(fraction);
+        handle.style.right = percent(fraction);
         try {
-            surface.style.width = pct;
+            surface.style.width = viewRegionPanelWidth();
         } catch { /* a surface removed mid-drag is not a reason to fail a drag */ }
-        const c = canvas();
-        if (c) {
-            const canvasPct = percent(1 - fraction);
-            c.style.width = canvasPct;
-            // `#container` is `flex: 1 1 0` under the docking layout, so a width alone is
-            // not binding — this is the same pair `SplitViewManager._buildDOM` writes, and
-            // for the same measured reason.
-            c.style.maxWidth = canvasPct;
-            wroteCanvasWidth = canvasPct;
-            wroteCanvasMaxWidth = canvasPct;
-        }
     };
 
     const commit = (): void => {
@@ -365,17 +347,11 @@ export function mountHalfCanvasResizer(opts: HalfCanvasResizerOptions): HalfCanv
                 document.body.style.userSelect = '';
                 document.body.style.cursor = '';
             }
-            // Clear only this handle's OWN marks — see `wroteCanvasWidth` above for the
-            // three writers and for why "restore what I found" is the wrong rule here.
-            const c = canvas();
-            if (c) {
-                if (wroteCanvasWidth !== null && c.style.width === wroteCanvasWidth) {
-                    c.style.width = '';
-                }
-                if (wroteCanvasMaxWidth !== null && c.style.maxWidth === wroteCanvasMaxWidth) {
-                    c.style.maxWidth = '';
-                }
-            }
+            // §VIEW-REGION-HAS-ONE-OWNER — release the DRAG OVERRIDE and the region falls
+            // back to whatever the workspace mode currently claims. There is nothing to
+            // "restore": this handle never held the region's box, so it cannot leave a mark
+            // on it, which is the class of bug the old conditional-clear existed to survive.
+            setViewRegionPanelDrag(null);
             // The panel IS this handle's own surface, so its width is restored outright.
             surface.style.width = priorSurfaceWidth;
             handle.remove();

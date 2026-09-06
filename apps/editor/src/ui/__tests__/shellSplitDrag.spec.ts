@@ -7,20 +7,27 @@
  * do it sound — the same (check if there are any bugs)."*
  *
  * ⛔ WHAT THIS SUITE IS ACTUALLY GUARDING, and it is not "a number goes up". The boundary
- * is TWO inline widths on TWO elements owned by THREE writers with no protocol between them
- * (`WorkspaceController._applyLayout`, `SplitViewManager._buildDOM`, and this handle —
- * `halfCanvasSplitViewPolicy.ts` documents the first two fighting over the same property).
- * The failure modes that cost the founder his viewport are therefore:
+ * is TWO surfaces that must move as one: the VIEW REGION and the panel beside it.
  *
- *   1. the two halves of the boundary disagreeing (a gap, or the panel over the canvas);
- *   2. a `max-width` left on `#container` after the handle is gone — `_applyLayout`'s
- *      full-canvas branch clears `width` and says NOTHING about `max-width`, so a leftover
- *      pins the Author viewport at the dragged fraction with no panel beside it;
- *   3. the handle clearing a width that belonged to somebody else (a split pane reopened by
- *      the same `_applyLayout` pass, one line before the mode event this handle hears).
+ * ⭐ REWRITTEN 2026-09-06 (L-13030 · C59 §2 invariant 10 / §2.10). This suite used to
+ * assert the handle's own bookkeeping — that it wrote `#container.style.{width,maxWidth}`
+ * itself and that `dispose()` cleared those two properties ONLY while they still held the
+ * exact strings it last wrote. That rule existed because `#container`'s box had SEVEN
+ * writers across FIVE modules, so "restore what I found" and "clear everything" were each
+ * wrong in a different state. `viewRegionGeometry.ts` is now the ONE owner of that box; the
+ * handle declares a fraction (`setViewRegionPanelDrag`) and writes only the panel's own
+ * width. The two tests that pinned the bookkeeping are replaced by the two properties that
+ * now hold, and they are STRONGER, not weaker:
  *
- * Cases 2 and 3 pull in opposite directions, which is why "restore what I found" and "clear
- * everything" are both wrong and the rule is "clear only the exact string I last wrote".
+ *   1. the two halves of the boundary still sum to the shell (no gap, no overlap);
+ *   2. dispose leaves NOTHING on the region — not "nothing of ours", nothing at all, because
+ *      the handle never held the region's box and so cannot mark it. The `max-width` that
+ *      used to pin the Author viewport at the dragged fraction is now structurally
+ *      unreachable rather than conditionally cleared.
+ *
+ * ⚠ The percent format changed with the writer: the owner emits `50%`, not `50.00%`.
+ * `percent()` in `shellSplitRatio.ts` is unchanged and still two-decimal — it is the
+ * POINTER-side spelling (the handle's own `right`), and the pure half below still pins it.
  *
  * Runs under the ROOT vitest config (happy-dom), which already claims
  * `apps/editor/src/ui/__tests__/**\/*.spec.ts`. ⚠ Deliberately NOT placed in
@@ -38,6 +45,12 @@ import {
     percent,
     rightFractionFromPointerX,
 } from '../layout/shellSplitRatio';
+import {
+    CLAIM_NONE,
+    fractionClaim,
+    resetViewRegionState,
+    setViewRegionClaim,
+} from '../layout/viewRegionGeometry';
 import {
     HALF_CANVAS_RESIZER_TESTID,
     RESIZER_HALF_WIDTH_PX,
@@ -132,11 +145,15 @@ function drag(h: HalfCanvasResizerHandle, x: number): void {
 
 beforeEach(() => {
     resetRememberedHalfCanvasFractions();
+    // §VIEW-REGION-HAS-ONE-OWNER — the owner is module state (see its header for why), so
+    // each test starts from an unclaimed, undivided region.
+    resetViewRegionState();
 });
 
 afterEach(() => {
     handle?.dispose();
     handle = null;
+    resetViewRegionState();
     document.body.innerHTML = '';
 });
 
@@ -178,8 +195,8 @@ describe('§SHELL-SPLIT-DRAG — one fraction, BOTH halves of the boundary', () 
         const { surface, canvas } = setup();
         const h = mount(surface);
         expect(h.fraction()).toBe(0.5);
-        expect(surface.style.width).toBe('50.00%');
-        expect(canvas.style.width).toBe('50.00%');
+        expect(surface.style.width).toBe('50%');
+        expect(canvas.style.width).toBe('50%');
     });
 
     it('a drag moves the canvas and the panel to complementary widths', () => {
@@ -187,18 +204,24 @@ describe('§SHELL-SPLIT-DRAG — one fraction, BOTH halves of the boundary', () 
         const h = mount(surface);
         drag(h, 700); // pointer at 700/1000 ⇒ the panel takes the remaining 30%
         expect(h.fraction()).toBeCloseTo(0.30, 5);
-        expect(surface.style.width).toBe('30.00%');
-        expect(canvas.style.width).toBe('70.00%');
+        expect(surface.style.width).toBe('30%');
+        expect(canvas.style.width).toBe('70%');
         // The pair always sums to 100 — a gap or an overlap between the two halves is the
         // first failure mode this suite exists for.
         expect(parseFloat(surface.style.width) + parseFloat(canvas.style.width)).toBeCloseTo(100, 5);
     });
 
-    it('sets max-width alongside width — #container is flex: 1 1 0', () => {
+    it('sets max-width AND the flex triple alongside width — #container is flex: 1 1 0', () => {
         const { surface, canvas } = setup();
         const h = mount(surface);
         drag(h, 700);
-        expect(canvas.style.maxWidth).toBe('70.00%');
+        // A `width` alone is NOT binding on a `flex: 1 1 0` item — it grows straight past
+        // it. That is why `WorkspaceController`'s lone `width: '50%'` never halved anything,
+        // and why the owner writes all five properties or none.
+        expect(canvas.style.maxWidth).toBe('70%');
+        expect(canvas.style.flexGrow).toBe('0');
+        expect(canvas.style.flexShrink).toBe('0');
+        expect(canvas.style.flexBasis).toBe('auto');
     });
 
     it('refuses to drag past the shared clamp', () => {
@@ -236,7 +259,7 @@ describe('§SHELL-SPLIT-DRAG — one fraction, BOTH halves of the boundary', () 
         const { surface, canvas } = setup();
         mount(surface);
         window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 900 }));
-        expect(canvas.style.width).toBe('50.00%');
+        expect(canvas.style.width).toBe('50%');
     });
 });
 
@@ -251,37 +274,47 @@ describe('§SHELL-SPLIT-DRAG — the width the founder chose survives leaving th
 
         const again = mount(surface);
         expect(again.fraction()).toBeCloseTo(0.30, 5);
-        expect(surface.style.width).toBe('30.00%');
+        expect(surface.style.width).toBe('30%');
     });
 });
 
-describe('§SHELL-SPLIT-DRAG — dispose clears its OWN marks and nothing else', () => {
+describe('§SHELL-SPLIT-DRAG — dispose leaves NOTHING on the view region', () => {
     it('⛔ leaves no max-width behind — the one that pins the next mode\'s viewport', () => {
         const { surface, canvas } = setup();
         const h = mount(surface);
         drag(h, 700);
-        expect(canvas.style.maxWidth).toBe('70.00%');
+        expect(canvas.style.maxWidth).toBe('70%');
         h.dispose();
         handle = null;
-        // `_applyLayout`'s full-canvas branch clears `width` and never mentions `max-width`.
-        // A leftover here is invisible until the founder wonders why Author is 70 % wide.
+        // A leftover here used to be invisible until the founder wondered why Author was
+        // 70 % wide. The drag was an OVERRIDE of the claim, so releasing it returns the
+        // region to whatever the workspace mode claims — which, with no mode claim
+        // registered, is the whole shell, released back to `flex: 1 1 0`.
         expect(canvas.style.maxWidth).toBe('');
         expect(canvas.style.width).toBe('');
+        expect(canvas.style.flexGrow).toBe('');
     });
 
-    it('⛔ does NOT clear a width another owner wrote after it', () => {
-        // The exact production sequence: `_applyLayout` closes/opens the split pane and
-        // writes `#container` BEFORE emitting `pryzm-workspace-mode`, which is what tears
-        // this handle down. Whatever is on the node at dispose time may not be ours.
+    it('⭐ the region follows the MODE\'s claim after dispose, not a string left on the node', () => {
+        // ⛔ THE TEST THIS REPLACED asserted the opposite mechanism: that dispose must NOT
+        // clear a width "another owner wrote after it", because `_applyLayout` wrote
+        // `#container` one line before the mode event that tore this handle down. That rule
+        // only made sense while the box had several writers. It has one, so a foreign string
+        // on the node is not a state the shell can reach — and the property that matters is
+        // that the region ends up where the CLAIM says, not where the last writer said.
         const { surface, canvas } = setup();
         const h = mount(surface);
-        drag(h, 700);
-        canvas.style.width = '60.00%';      // SplitViewManager._buildDOM, one line later
-        canvas.style.maxWidth = '60.00%';
+        drag(h, 700);                       // the founder drags the panel to 30 %
+        expect(canvas.style.width).toBe('70%');
+
+        // The mode switch that disposes this handle: Analysis (half) → Author (full).
+        setViewRegionClaim('workspace-mode', fractionClaim(0.5));
         h.dispose();
         handle = null;
-        expect(canvas.style.width).toBe('60.00%');
-        expect(canvas.style.maxWidth).toBe('60.00%');
+        setViewRegionClaim('workspace-mode', CLAIM_NONE);
+
+        expect(canvas.style.width).toBe('');
+        expect(canvas.style.maxWidth).toBe('');
     });
 
     it('removes the handle and stops listening', () => {

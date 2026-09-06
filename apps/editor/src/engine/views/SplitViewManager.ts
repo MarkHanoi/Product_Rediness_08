@@ -31,6 +31,10 @@ import * as OBC from '@thatopen/components';
 import type { ISplitViewManager } from '@pryzm/views';
 import { unifiedFrameLoop } from '@pryzm/core-app-model';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
+// §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · STR §26.1.2 · L-13030) — the
+// split DECLARES its fraction of the view region; the owner derives every box from it.
+// ⛔ Nothing in this file may write `#container`'s box again. See `_buildDOM`.
+import { setViewRegionSplit } from '@app/ui/layout/viewRegionGeometry';
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { DEFAULT_PLAN_VIEW_ID } from '@pryzm/core-app-model';
@@ -567,24 +571,36 @@ export class SplitViewManager implements ISplitViewManager {
         divider.className = 'svp-divider';
         divider.id = 'svp-divider';
         this._divider = divider;
-        this._positionDivider();
+        // §VIEW-REGION-HAS-ONE-OWNER — the divider is positioned by the region owner
+        // (below, once both nodes are in the document), not by a private spelling here.
         document.body.appendChild(divider);
 
-        // ── Shrink primary container ──────────────────────────────────────────
-        // #container has flex:1 1 0 so we must disable flex-grow and set max-width
-        // to prevent the container filling the full row behind the fixed SVP pane.
+        // ── Divide the VIEW REGION ────────────────────────────────────────────
+        // ⭐ §VIEW-REGION-HAS-ONE-OWNER (C59 §2 invariant 10 / §2.10 · STR §26.1.2 ·
+        // L-13030) — THE SPLIT DECLARES A FRACTION. IT DOES NOT WRITE A BOX.
+        //
+        // ⛔ WHAT THIS REPLACED, AND WHY IT WAS THE OTHER HALF OF THE OSCILLATION. This
+        // block wrote `#container.style.{width,maxWidth,flexGrow,flexShrink,flexBasis}`
+        // to `(1 - ratio)` OF THE WINDOW, and added `.svp-active` whose stylesheet rule
+        // asserted the same 60 % a third time. `DataWorkbench._applyMode` wrote `'50%'`
+        // to the same property for its own split mode. Each write resized the canvas;
+        // each resize ran a settle pass that re-asserted the other's value — the founder's
+        // console showed the resulting cycle SIX times consecutively for zero user input.
+        //
+        // ⛔ AND `(1 - ratio)` OF THE WINDOW WAS WRONG EVEN ALONE. STR §26.1.2: *"SPLIT
+        // VIEW SHOULD ALWAYS SPLIT THE VIEW OF THE SECTION OF THE VIEWS ... in ANALYSE
+        // view, then split view will divide THE LEFT HAND SIDE VIEW in 2."* A fraction of
+        // the WINDOW makes the Analysis panel one half of the split, which is precisely
+        // what the founder called *"mixed up, not architecturally sound"*. The ratio is
+        // now a fraction OF THE REGION, and the owner — the only level that knows how big
+        // the region is — derives `#container`'s width, this pane's width, and this pane's
+        // `right` offset from it. That offset is what puts the pane BESIDE the Analysis
+        // panel instead of behind it (which is what `halfCanvasSplitViewPolicy`, now
+        // deleted, used to close the pane to avoid).
+        setViewRegionSplit(this._splitRatio);
+        // Notify the OBC world that the renderer viewport changed.
         const container = document.getElementById('container');
-        if (container) {
-            container.classList.add('svp-active');
-            const pct = `${(1 - this._splitRatio) * 100}%`;
-            container.style.width    = pct;
-            container.style.maxWidth = pct;
-            container.style.flexGrow   = '0';
-            container.style.flexShrink = '0';
-            container.style.flexBasis  = 'auto';
-            // Notify OBC world that the renderer viewport changed
-            setTimeout(() => this._notifyPrimaryResize(), 250);
-        }
+        if (container) setTimeout(() => this._notifyPrimaryResize(), 250);
 
         // ── Register input events ─────────────────────────────────────────────
         canvas.addEventListener('wheel', this._boundWheel, { passive: false });
@@ -632,16 +648,11 @@ export class SplitViewManager implements ISplitViewManager {
         this._divider        = null;
         this._levelSelectRef.el = null;
 
+        // §VIEW-REGION-HAS-ONE-OWNER — the region is no longer divided. Five inline
+        // clears used to live here; the owner releases the box back to `flex: 1 1 0`.
+        setViewRegionSplit(null);
         const container = document.getElementById('container');
-        if (container) {
-            container.classList.remove('svp-active');
-            container.style.width      = '';
-            container.style.maxWidth   = '';
-            container.style.flexGrow   = '';
-            container.style.flexShrink = '';
-            container.style.flexBasis  = '';
-            setTimeout(() => this._notifyPrimaryResize(), 250);
-        }
+        if (container) setTimeout(() => this._notifyPrimaryResize(), 250);
     }
 
     // ── Canvas2D context ──────────────────────────────────────────────────────
@@ -1756,19 +1767,13 @@ export class SplitViewManager implements ISplitViewManager {
      */
     private _applyDragRatio(ratio: number): void {
         this._splitRatio = ratio;
-        if (this._pane) {
-            this._pane.style.width = `${(ratio * 100).toFixed(2)}%`;
-        }
-        if (this._divider) {
-            this._divider.style.right = `${(ratio * 100).toFixed(2)}%`;
-            this._divider.style.left  = 'auto';
-        }
-        const container = document.getElementById('container');
-        if (container) {
-            const pct = `${((1 - ratio) * 100).toFixed(2)}%`;
-            container.style.width    = pct;
-            container.style.maxWidth = pct;
-        }
+        // §VIEW-REGION-HAS-ONE-OWNER — ONE call places all three boxes (`#container`,
+        // this pane and the divider) from ONE fraction. The three hand-written writes that
+        // used to live here could disagree during a drag, and did: the pane was sized as a
+        // fraction of the WINDOW while `#container` was sized as the complement of that,
+        // so in a half-canvas mode they overlapped by the panel's width. The divider's
+        // `left: 'auto'` is part of the same derivation.
+        setViewRegionSplit(ratio);
     }
 
     private _onDividerMouseUp(): void {
@@ -1813,19 +1818,19 @@ export class SplitViewManager implements ISplitViewManager {
         return { w: pane.clientWidth, h: pane.clientHeight - 36 }; // minus header height
     }
 
+    /**
+     * Announce the ratio. §VIEW-REGION-HAS-ONE-OWNER — the pane's WIDTH is no longer
+     * written here: it is a fraction OF THE REGION, and only `viewRegionGeometry` knows
+     * how big the region is. This method keeps its event, which is what consumers read.
+     *
+     * ⛔ `_positionDivider()` was removed for the same reason and is not coming back:
+     * it wrote `right: <ratio>%` of the WINDOW, which put the divider inside the Analysis
+     * panel whenever a panel was up.
+     */
     private _applySplitRatio(): void {
         if (!this._pane) return;
-        const pct = `${(this._splitRatio * 100).toFixed(1)}%`;
-        this._pane.style.width = pct;
         // F.events.7 — split-view family migrated to runtime.events typed bus.
         window.runtime?.events?.emit('split-view-layout-changed', { splitRatio: this._splitRatio });
-    }
-
-    private _positionDivider(): void {
-        if (!this._divider) return;
-        const rightPct = (this._splitRatio * 100).toFixed(1);
-        this._divider.style.right  = `${rightPct}%`;
-        this._divider.style.left   = 'auto';
     }
 
     // ── Scene Helpers ─────────────────────────────────────────────────────────

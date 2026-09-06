@@ -24,9 +24,10 @@
  * which is exactly the failure this whole lane exists to stop repeating.
  *
  * **Measured 2026-08-22**, from the founder's second screenshot. `#container`
- * also becomes `width: 60%` under `.svp-active` (`splitView.ts:23`, toggled from
- * THREE call sites in `SplitViewManager` and `svpPlanPaneMounter`), and the
- * remaining 40% is `.svp-pane` — a fixed panel with its own header bar. A
+ * also narrows when the split divides the view region (2026-09-06: ONE owner,
+ * `layout/viewRegionGeometry.ts` — the `.svp-active` stylesheet rule and the six
+ * rival inline writers it names are gone, L-13030 / C59 §2.10), and the rest of
+ * the region is `.svp-pane` — a fixed panel with its own header bar. A
  * mode-derived budget left the centred shell row at 50 % of the VIEWPORT, i.e.
  * inside the split pane, painting its opaque self over that pane's header. What
  * the founder photographed as *"an orphan chevron with no label"* is
