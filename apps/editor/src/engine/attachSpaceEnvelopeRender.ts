@@ -49,6 +49,10 @@ import {
     installSpaceEnvelopeFaceDrag,
     type DraggableSpaceEnvelope,
 } from './spaceEnvelopeFaceDragController';
+// §25.6 gesture 1 (2026-09-06) — the per-face arrow. Constructed HERE rather than in
+// `initTools` for the same reason the plan reader is: it needs exactly the scene this
+// function already holds, and a second construction site would be a second set of arrows.
+import { SpaceEnvelopeFaceGizmoBuilder } from './SpaceEnvelopeFaceGizmoBuilder';
 // §RESI-STAGE-G — the PLAN leg. Installed here rather than in `initTools` because the
 // reader needs exactly what this function already holds (the store) and nothing else; a
 // second wiring site would be a second place for the plan and the 3-D view to disagree
@@ -98,6 +102,13 @@ export interface SpaceEnvelopeRenderDeps {
      * absent — the ContextualEditBar's "Edit Profile" button is the other way in.
      */
     readonly onProfileEdit?: (spaceEnvelopeId: string) => void;
+    /**
+     * ⛔ §25.6 GESTURE 1 — TURN THE CAMERA ORBIT OFF WHILE A FACE IS DRAGGED. Omit it
+     * and the camera orbits under the drag, because `camera-controls` binds the SAME
+     * canvas and `stopPropagation` does not stop a same-element listener. Every other
+     * direct-manipulation drag in this app disables the controls; `initTools` passes it.
+     */
+    readonly setCameraControlsEnabled?: (enabled: boolean) => void;
 }
 
 /**
@@ -183,11 +194,20 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
     });
 
     let disposeDrag: (() => void) | null = null;
+    let gizmo: SpaceEnvelopeFaceGizmoBuilder | null = null;
     if (deps.domElement && deps.dispatchFaceMove && deps.camera) {
+        // ⭐ §25.6 GESTURE 1 — THE ARROWS. Created only on the interactive path: a
+        // read-only draw (a thumbnail, a bake) has no pointer, so handles on it would be
+        // scene weight nobody can grab.
+        gizmo = new SpaceEnvelopeFaceGizmoBuilder(deps.scene);
         disposeDrag = installSpaceEnvelopeFaceDrag({
             domElement: deps.domElement,
             camera: deps.camera,
             builder,
+            gizmo,
+            ...(deps.setCameraControlsEnabled
+                ? { setCameraControlsEnabled: deps.setCameraControlsEnabled }
+                : {}),
             // ⛔ LAZY, EVERY TIME. The drag reads the AUTHORITATIVE record at the moment
             // of the gesture; a snapshot captured at install time would let a drag start
             // from a footprint the store no longer holds and commit a delta measured
@@ -208,7 +228,11 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
 
     return () => {
         try { unsubscribe(); } catch { /* non-fatal */ }
+        // ⚠ THE DRAG DISPOSER RUNS BEFORE THE GIZMO IS DISPOSED, and the order matters:
+        // it is the one that hands the camera back if a drag was live, and it clears the
+        // arrows through the builder that is about to be torn down.
         try { disposeDrag?.(); } catch { /* non-fatal */ }
+        try { gizmo?.dispose(); } catch { /* non-fatal */ }
         // ⛔ The plan reader closes over THIS store. Leaving it installed would let the
         // next project's plan be drawn from the previous project's envelopes — the exact
         // shape of the double-subscription this disposer already exists to prevent.

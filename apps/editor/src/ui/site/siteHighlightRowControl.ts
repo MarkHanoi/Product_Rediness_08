@@ -33,6 +33,7 @@
 
 import { trace } from '@opentelemetry/api';
 import {
+    describeSiteHighlightReach,
     getSiteHighlight,
     toggleSiteHighlight,
     SITE_HIGHLIGHT_ATTR,
@@ -51,6 +52,37 @@ function escHtml(value: unknown): string {
 
 /** The attribute an UNAVAILABLE row carries, so a test can prove it is text and not a control. */
 export const SITE_HIGHLIGHT_UNAVAILABLE_ATTR = 'data-site-highlight-unavailable';
+
+// -- §SITE-HIGHLIGHT-REACH -- THE ROW SAYS WHERE THE ANSWER WILL APPEAR -------------------
+//
+// The Parcel Law tab offers FOUR views and exactly ONE of them subscribes to the highlight store
+// (see the §SITE-HIGHLIGHT-REACH block in `siteGeometryHighlight.ts` for the measurement). So a
+// founder in 3D Site clicks "Area", the button dutifully repaints its ◉, and nothing lights up.
+// The row ASSERTED that something happened, which is worse than an un-pressable row: it reads as
+// a broken product rather than as "not in this view".
+//
+// ⚠ THE ROW STAYS A BUTTON. The tempting fix is to render it un-clickable when nothing can draw
+// it -- symmetrical with the geometry rule above -- and it would be a REGRESSION: this card can
+// render before `initScene` constructs the scene renderer, so the registry is legitimately empty
+// for a moment, and a row demoted to text never recovers (nothing re-renders the card on
+// registration). Disabling a working control on a timing race is a worse failure than a tooltip
+// that under-informs, so reach is carried as INFORMATION -- in the title and in a queryable
+// attribute -- and never as a capability gate. `paintSiteHighlightRows` re-derives it, so a row
+// rendered before the scene existed corrects itself on the next paint.
+/** `n` surfaces can draw this row's emphasis; `0` means a click changes nothing on screen. */
+export const SITE_HIGHLIGHT_REACH_ATTR = 'data-site-highlight-reach';
+/**
+ * The row's availability REASON, parked on the element so `paintSiteHighlightRows` can recompose
+ * the whole title without being handed the availability model again. Without it a repaint could
+ * only fix the attribute, leaving a stale SENTENCE beside a corrected number — two halves of one
+ * fact disagreeing on the same element, which is the defect this section is closing.
+ */
+export const SITE_HIGHLIGHT_REASON_ATTR = 'data-site-highlight-reason';
+
+/** The one composer of a row's tooltip, so build and repaint cannot word it differently. */
+function composeRowTitle(reason: string, reachSentence: string): string {
+    return `${reason} ${reachSentence} Click again to clear.`;
+}
 
 const ON_BG = '#f3eeff';
 const ON_INK = '#6600FF';
@@ -73,9 +105,15 @@ export function buildSiteHighlightLabelHtml(
     isOn: boolean,
 ): string {
     if (avail.available) {
+        // §SITE-HIGHLIGHT-REACH — read here rather than passed in, so the call sites in the card
+        // need no signature change and cannot forget it. See the block above for why this informs
+        // rather than gates.
+        const reach = describeSiteHighlightReach();
         return `<button type="button" ${SITE_HIGHLIGHT_ATTR}="${escHtml(subject)}"
+                   ${SITE_HIGHLIGHT_REACH_ATTR}="${reach.surfaces.length}"
+                   ${SITE_HIGHLIGHT_REASON_ATTR}="${escHtml(avail.reason)}"
                    aria-pressed="${isOn ? 'true' : 'false'}"
-                   title="${escHtml(avail.reason)} Click again to clear."
+                   title="${escHtml(composeRowTitle(avail.reason, reach.sentence))}"
                    style="appearance:none;background:${isOn ? ON_BG : 'transparent'};border:none;
                           border-bottom:1px dotted ${isOn ? ON_INK : OFF_RULE};padding:0 2px;margin:0;
                           cursor:pointer;font:inherit;color:${isOn ? ON_INK : OFF_INK};
@@ -93,10 +131,18 @@ export function buildSiteHighlightLabelHtml(
  */
 export function paintSiteHighlightRows(root: ParentNode): void {
     const on = getSiteHighlight();
+    // §SITE-HIGHLIGHT-REACH — re-derived on every paint, ONCE for the whole root. A card rendered
+    // before `initScene` registered the scene carries `0` in its markup; this is what corrects it,
+    // and it is why the reach is information rather than a capability gate.
+    const reach = describeSiteHighlightReach();
     root.querySelectorAll<HTMLButtonElement>(`[${SITE_HIGHLIGHT_ATTR}]`).forEach((b) => {
         const s = b.getAttribute(SITE_HIGHLIGHT_ATTR);
         const isOn = s !== null && s === on;
         b.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        b.setAttribute(SITE_HIGHLIGHT_REACH_ATTR, String(reach.surfaces.length));
+        // Recompose the WHOLE title from the parked reason, never patch half of it.
+        const reason = b.getAttribute(SITE_HIGHLIGHT_REASON_ATTR);
+        if (reason !== null) b.setAttribute('title', composeRowTitle(reason, reach.sentence));
         b.style.background = isOn ? ON_BG : 'transparent';
         b.style.borderBottom = `1px dotted ${isOn ? ON_INK : OFF_RULE}`;
         b.style.color = isOn ? ON_INK : OFF_INK;

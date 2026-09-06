@@ -41,14 +41,33 @@
  */
 
 import { OCCUPANCY_PALETTE, UNCLASSIFIED_FILL } from '@pryzm/room-topology';
+// §TOBE-ENVELOPE (STR §25.2) — the ONE authority for the to-be-built envelope's colour, shared
+// with the pre-adoption plate (`ParcelBoundarySceneRenderer`) and the card legend. A pure leaf
+// with no imports of its own, so importing it here pulls no rendering stack across (P2).
+import { TO_BE_BUILT_ROSE_CSS } from '../ui/site/toBeBuiltEnvelopeStyle';
 
 /**
- * ⭐ PRYZM purple, the LEVEL envelope's colour and the fallback for any role without a
- * palette answer. `#6600FF` — `PreviewStyle.ts` and Contract §41 own the value; an
- * authored envelope is design INTENT rather than built fabric, so it reads in the same
- * idiom the preview does.
+ * ⭐ THE LEVEL ENVELOPE'S COLOUR — the TO-BE-BUILT rose, and the fallback for any role
+ * without a palette answer.
+ *
+ * ⛔ CORRECTED 2026-09-06 (§TOBE-ENVELOPE, STR §25.2). This was `#6600FF`, on the reasoning
+ * that *"an authored envelope is design INTENT rather than built fabric, so it reads in the
+ * same idiom the preview does"*. The reasoning was sound about the PREVIEW and wrong about
+ * the SITE SCENE, because `envelopeRenderStyle.CONFIDENT_VIOLET_HEX` is **the same
+ * `0x6600ff`** — so the volume PRYZM asserts as the ordinance's legal upper bound and the
+ * volume the USER invented were drawn in one colour, one inside the other, in one scene.
+ *
+ * Under C58 §1.2 the hue IS the confidence badge (L-608 exists because grey means "estimate"
+ * and violet means "determination"). An intent volume wearing violet therefore claims a
+ * confidence nobody gave it — the founder's own rider on §25.2: *"the to-be-built one is an
+ * INTENT, not a measurement, and must never inherit a confidence badge that implies it was
+ * derived from law."* Colour is that badge before any text is read.
+ *
+ * The value now comes from the ONE authority — `toBeBuiltEnvelopeStyle.ts` — which is also
+ * what the pre-adoption plate and the card legend read, so the same thing is the same colour
+ * before and after the user commits to it. See that module for why rose and not green/azure.
  */
-export const SPACE_ENVELOPE_LEVEL_COLOUR = '#6600FF';
+export const SPACE_ENVELOPE_LEVEL_COLOUR = TO_BE_BUILT_ROSE_CSS;
 
 /**
  * Alphas. ⛔ The INVARIANT is `LEVEL < ROOM` (a test asserts it), not the numbers: the

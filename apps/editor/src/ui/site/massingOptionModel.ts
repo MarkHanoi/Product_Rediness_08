@@ -24,6 +24,30 @@
 // plate — and `MASSING_FAMILIES_NOT_YET_SOLVED` states in the product's own words which shapes are
 // missing, so a reader is told about the gap rather than sold around it.
 //
+// ⭐ **AMENDED 2026-09-06 (lane PL-MASSING-OPTIONS, STR §25.3). EVERYTHING ABOVE STILL HOLDS FOR THE
+//    COVERAGE FAMILIES; ITS PREMISE ABOUT SHAPES NO LONGER HOLDS, AND THE PARAGRAPH IS CORRECTED IN
+//    PLACE RATHER THAN LEFT TO ROT.**
+// The header above justified naming no shape families on one measured fact — *"the polygon boolean
+// work that an L or a courtyard needs does not exist in this repo"*. **It exists now.**
+// `@pryzm/geometry-kernel` ships `intersectPolygons2D` (§C73-POLY-BOOLEAN / GE-05), oracle-pinned
+// concave∩concave, and an intersection is precisely the operator a shape family needs, because
+// `template ∩ buildableFootprint ⊆ buildableFootprint` **by construction** — so a shape produced
+// that way can never over-state what may be built. That containment is a property of the operator,
+// not of a check someone remembered to write.
+//
+// So this module now enumerates **TWO KINDS of option**, and they answer different questions:
+//   • **COVERAGE families** (below) — *how much of the permitted plate do you cover?* They need no
+//     input beyond the envelope, so they are always available.
+//   • **SHAPE families** (`massingShapeOptions.ts`) — *given a ground-floor area you have named,
+//     what BUILDINGS fit, and which one is better sited?* I · L · U · non-orthogonal L, each with
+//     sun, orientation, overlooking, outlook, street frontage and forecourt as COMPUTED numbers.
+//     They require a target area, and they say so instead of appearing empty.
+//
+// ⛔ THE OLD DISCIPLINE IS NOT RELAXED, IT IS EXTENDED. A non-orthogonal L is REFUSED BY NAME on a
+// plot whose own boundaries are orthogonal, because there would be no angle to derive it from —
+// see `MassingShapeRefusalReason.no-non-orthogonal-frame`. Inventing one would be the same defect
+// this header was written to prevent, wearing the founder's vocabulary instead of a rectangle's.
+//
 // ── ⛔ NO AGGREGATE SCORE, NO RECOMMENDED OPTION, AND THAT IS THE DESIGN ─────────────────────
 // The floor-plan layer's `ScoredHouseLayoutOption` ranks by a weighted sum because a layout has
 // measurable habitability constraints to rank against. A massing choice does not: whether a
@@ -55,8 +79,17 @@
 // hands back a real `TargetFootprintProposal` that the existing scene draws and the existing adopt
 // step can commit. No second geometry path, no second store, no second undo shape.
 //
-// PURE: no store, no DOM, no THREE, no I/O, no clock, no RNG. Deterministic — the same inputs
-// yield byte-identical options. Never throws.
+// ── PURITY, RESTATED HONESTLY 2026-09-06 ────────────────────────────────────────────────────
+// This header used to read *"PURE: no store, no DOM, no THREE, no I/O, no clock, no RNG."* Two of
+// those are now qualified and the line is corrected rather than left standing:
+//   • **NO DOM, NO THREE, NO I/O, NO CLOCK, NO RNG — still absolute.**
+//   • **STORE: exactly two module-level reads, and only when the caller OMITS the corresponding
+//     input.** `targetGroundFloorAreaM2` and `siting` are three-valued (value / `null` / omitted);
+//     omitted means *"read the live site"*, via `massingSitingContext.ts`, which is the ONE place
+//     those reads live. Pass both explicitly — as every test here does — and this function is as
+//     pure as it ever was, and byte-deterministic on its arguments alone.
+// A header that claims a purity the body does not have is the same defect class as a gate that
+// claims an enforcement it does not perform.
 
 import { trace } from '@opentelemetry/api';
 import type { Pt } from '@pryzm/schemas';
@@ -64,32 +97,56 @@ import {
     solveTargetFootprintArea,
     type TargetFootprintProposal,
 } from './targetFootprintAreaSolver';
+import {
+    enumerateMassingShapes,
+    MASSING_SHAPE_LABEL,
+    type MassingShapeFamily,
+    type MassingShapeAxisKey,
+    type MassingShapeNote,
+    type MassingShapeOutcome,
+    type MassingSitingContext,
+} from './massingShapeOptions';
+import {
+    resolveLiveMassingSitingContext,
+    resolveLiveTargetGroundFloorAreaM2,
+} from './massingSitingContext';
 
 const _tracer = trace.getTracer('pryzm.site.massingOptionModel');
 
 /**
- * The four coverage options. CLOSED: a fifth is added HERE with its fraction, its label and its
+ * The four COVERAGE options. CLOSED: a fifth is added HERE with its fraction, its label and its
  * meaning, and the type error at every table is the feature.
  */
-export type MassingOptionFamily =
+export type MassingCoverageFamily =
     | 'full-plate'
     | 'three-quarter-plate'
     | 'half-plate'
     | 'third-plate';
 
-export const MASSING_OPTION_FAMILIES: readonly MassingOptionFamily[] = Object.freeze([
+/**
+ * Every family an option may belong to — the coverage fractions above, plus the SHAPE families
+ * (`massingShapeOptions.ts`) added for STR §25.3.
+ */
+export type MassingOptionFamily = MassingCoverageFamily | MassingShapeFamily;
+
+/**
+ * ⚠ THE COVERAGE FAMILIES ONLY, and the name is kept for its callers. Shape families are
+ * `MASSING_SHAPE_FAMILIES`; they are enumerated on a different question and are not
+ * interchangeable with these.
+ */
+export const MASSING_OPTION_FAMILIES: readonly MassingCoverageFamily[] = Object.freeze([
     'full-plate', 'three-quarter-plate', 'half-plate', 'third-plate',
 ] as const);
 
-/** The fraction of the PERMITTED buildable footprint each family covers. */
-export const MASSING_FAMILY_COVERAGE: Readonly<Record<MassingOptionFamily, number>> = Object.freeze({
+/** The fraction of the PERMITTED buildable footprint each COVERAGE family covers. */
+export const MASSING_FAMILY_COVERAGE: Readonly<Record<MassingCoverageFamily, number>> = Object.freeze({
     'full-plate': 1,
     'three-quarter-plate': 0.75,
     'half-plate': 0.5,
     'third-plate': 1 / 3,
 });
 
-export const MASSING_FAMILY_LABEL: Readonly<Record<MassingOptionFamily, string>> = Object.freeze({
+export const MASSING_FAMILY_LABEL: Readonly<Record<MassingCoverageFamily, string>> = Object.freeze({
     'full-plate': 'Full plate',
     'three-quarter-plate': 'Three-quarter plate',
     'half-plate': 'Half plate',
@@ -97,7 +154,7 @@ export const MASSING_FAMILY_LABEL: Readonly<Record<MassingOptionFamily, string>>
 });
 
 /** What choosing this family MEANS on the ground — the trade the user is actually making. */
-export const MASSING_FAMILY_MEANING: Readonly<Record<MassingOptionFamily, string>> = Object.freeze({
+export const MASSING_FAMILY_MEANING: Readonly<Record<MassingCoverageFamily, string>> = Object.freeze({
     'full-plate':
         'Build across the whole permitted footprint. The fewest storeys for a given floor area, and '
         + 'the least open ground left on the plot.',
@@ -113,15 +170,29 @@ export const MASSING_FAMILY_MEANING: Readonly<Record<MassingOptionFamily, string
 });
 
 /**
- * ⛔ THE SHAPES PRYZM DOES NOT SOLVE, SAID OUT LOUD. STR §7 asks for these; the honest answer is
- * that this repo has no polygon boolean layer to produce them on a real parcel, and an "L" made by
- * eroding a rectangle is a rectangle with a label on it. Printed by the fold so a reader learns
- * about the gap from the product rather than from its absence.
+ * The fold's caveat — WHAT THE LIST ABOVE IS, and what it still is not.
+ *
+ * ⭐ REWRITTEN 2026-09-06. It used to read *"They do NOT yet include L-shaped, U-shaped, courtyard
+ * or non-orthogonal massings — PRYZM cannot solve those on a real parcel boundary today, and it
+ * will not draw a rectangle and call it an L."* Every clause of that was true when written and the
+ * last clause is still the governing rule — but the capability claim is now FALSE, and a product
+ * telling a user it cannot do the thing it just did is the same defect as the reverse, pointed the
+ * other way. What remains unsolved is named instead of the whole sentence being deleted.
  */
 export const MASSING_FAMILIES_NOT_YET_SOLVED =
-    'These options vary how much of the permitted footprint you cover. They do NOT yet include '
-    + 'L-shaped, U-shaped, courtyard or non-orthogonal massings — PRYZM cannot solve those on a real '
-    + 'parcel boundary today, and it will not draw a rectangle and call it an L.';
+    'The first options vary how much of the permitted footprint you cover; the shape options are '
+    + 'real I, L, U and non-orthogonal outlines fitted inside it. PRYZM still will not draw a '
+    + 'rectangle and call it an L: a non-orthogonal L is refused on a plot whose own boundaries are '
+    + 'square, and every shape is clipped to the permitted footprint rather than approximated onto '
+    + 'it. Not yet offered: courtyards enclosed on all four sides, and shapes that step in plan '
+    + 'between storeys.';
+
+/** The caveat shown when shape options were withheld for want of a target ground-floor area. */
+export const MASSING_SHAPES_NEED_A_TARGET_AREA =
+    'Shape options — I, L, U and non-orthogonal L, each scored for sun, orientation, overlooking, '
+    + 'outlook, street frontage and forecourt — are NOT shown because no target ground-floor area '
+    + 'has been set. Type one in "Propose a ground floor" above and generate again; a shape needs an '
+    + 'area to be a shape of.';
 
 /** A coded reason attached to one option. Mirrors `LayoutLimitation` in the floor-plan layer:
  *  a machine code the renderer keys on, a severity, and one plain sentence carrying BOTH numbers
@@ -147,14 +218,27 @@ export interface MassingLimitation {
         /** The erosion could not produce this coverage on this shape — a shape problem, not a legal one. */
         | 'plate-unreachable'
         /** The plate is a uniform erosion, not a shaping rule the ordinance made. */
-        | 'shape-approximated';
+        | 'shape-approximated'
+        /** ⭐ The SHAPE families' own caveats, carried through verbatim (§RESI-ORCH-MASSING-SHAPES). */
+        | MassingShapeNote['code']
+        /** A shape family could not be produced at all — the shape engine's typed refusal. */
+        | 'shape-family-refused';
     readonly severity: 'error' | 'warning';
     readonly text: string;
 }
 
 /** One comparable fact about an option. `normalised` drives a bar; `display` is the real figure. */
 export interface MassingScoreAxis {
-    readonly key: 'coverage' | 'open-ground' | 'storeys' | 'gfa-realised' | 'storey-headroom';
+    readonly key:
+        | 'coverage' | 'open-ground' | 'storeys' | 'gfa-realised' | 'storey-headroom'
+        /** ⭐ The SHAPE families' computed siting axes (§RESI-ORCH-MASSING-SHAPES). */
+        | MassingShapeAxisKey
+        /**
+         * ⭐ STR §25.2's arithmetic, on the option that names a ground-floor area: *"The maximum
+         * total buildable area BRUT is 320. We should let the user know that only in first floor he
+         * will be able to build 120 sqm."*
+         */
+        | 'upper-floors-remaining';
     readonly label: string;
     /**
      * 0..1 for a bar, or `null` when the axis is not derivable from what this parcel actually
@@ -213,6 +297,31 @@ export interface MassingOptionInputs {
     readonly maxHeightM: number | null;
     /** The committed parcel's area, for the open-ground axis. `null` when unknown. */
     readonly parcelAreaM2: number | null;
+    /**
+     * ⭐ THE TARGET GROUND-FLOOR AREA the SHAPE families are solved against — the founder's
+     * *"180 sqm brut in ground floor"*.
+     *
+     * ⚠ THREE-VALUED, AND THE THREE ARE DIFFERENT ANSWERS:
+     *   • a number     → solve the shapes against it;
+     *   • `null`       → there is no target; the shape families are withheld and the fold's caveat
+     *                    says so. Used by tests to keep the enumerator pure;
+     *   • **omitted**  → read the LIVE §5 target-area channel (`targetFootprintAreaState`, through
+     *                    its own staleness gate). This is the production path, and it is the ONE
+     *                    place this otherwise-pure module reads a store — declared here rather than
+     *                    hidden, because a hidden store read is how two surfaces come to disagree.
+     */
+    readonly targetGroundFloorAreaM2?: number | null;
+    /**
+     * The site facts the shape families are SCORED against — lat/lon for the real sun raycast, and
+     * the neighbouring buildings for overlooking and outlook.
+     *
+     * ⚠ SAME THREE-VALUED CONVENTION as `targetGroundFloorAreaM2`: a value is used verbatim, `null`
+     * means "no siting data, withhold those axes", and OMITTING it reads the live site
+     * (`resolveLiveMassingSitingContext`).
+     */
+    readonly siting?: MassingSitingContext | null;
+    /** Override the shape engine's assumed wing depth (metres). Omit for its stated default. */
+    readonly wingDepthM?: number;
 }
 
 export type MassingOptionSet =
@@ -270,12 +379,48 @@ export function enumerateMassingOptions(inputs: MassingOptionInputs): MassingOpt
             out.push(option);
         }
 
+        // ── ⭐ THE SHAPE FAMILIES (STR §25.3) ─────────────────────────────────────────────────
+        // Appended AFTER the coverage families, deliberately: the coverage list answers a question
+        // that needs no input, so it is what a user sees before they have decided anything. The
+        // shapes answer *"given the area I named, what buildings fit?"* and cannot exist before
+        // that area does.
+        const target = inputs.targetGroundFloorAreaM2 === undefined
+            ? resolveLiveTargetGroundFloorAreaM2(permitted)
+            : inputs.targetGroundFloorAreaM2;
+        const siting = inputs.siting === undefined
+            ? resolveLiveMassingSitingContext()
+            : inputs.siting;
+
+        let caveat = MASSING_FAMILIES_NOT_YET_SOLVED;
+        if (target === null || !(target > 0)) {
+            // ⛔ WITHHELD, AND SAID SO. Emitting four refused shape cards here would bury the ONE
+            // action that unblocks them under four repetitions of the same sentence; the caveat
+            // slot already renders on every computed fold and names the action instead.
+            caveat = MASSING_SHAPES_NEED_A_TARGET_AREA;
+            span.setAttribute('pryzm.massing.shapesWithheld', 'no-target-area');
+        } else {
+            const shapes = enumerateMassingShapes({
+                buildableRing: inputs.permittedRing,
+                buildableAreaM2: permitted,
+                targetAreaM2: target,
+                siting,
+                ...(inputs.wingDepthM !== undefined ? { wingDepthM: inputs.wingDepthM } : {}),
+            });
+            for (const outcome of shapes) {
+                // ⛔ A REFUSED SHAPE IS LISTED, NOT DROPPED — the same rule the coverage families
+                // follow. A user who asked for an L is entitled to know that PRYZM refused to
+                // invent a non-orthogonal one, and why.
+                out.push(buildShapeOption(outcome, inputs, permitted, target));
+            }
+            span.setAttribute('pryzm.massing.shapeCount', shapes.length);
+        }
+
         span.setAttribute('pryzm.massing.optionCount', out.length);
         span.setAttribute('pryzm.massing.refusedCount', out.filter((o) => o.refused).length);
         return Object.freeze({
             ok: true,
             options: Object.freeze(out),
-            caveat: MASSING_FAMILIES_NOT_YET_SOLVED,
+            caveat,
         });
     } finally {
         span.end();
@@ -284,7 +429,7 @@ export function enumerateMassingOptions(inputs: MassingOptionInputs): MassingOpt
 
 /** The `plate-unreachable` arm — the erosion could not make this coverage on this shape. */
 function buildUnreachableOption(
-    family: MassingOptionFamily,
+    family: MassingCoverageFamily,
     permitted: number,
     solverStatement: string,
 ): MassingOption {
@@ -315,7 +460,7 @@ function buildUnreachableOption(
 
 /** The normal arm. Every derived figure names what it was derived from. */
 function buildOption(
-    family: MassingOptionFamily,
+    family: MassingCoverageFamily,
     proposal: TargetFootprintProposal,
     inputs: MassingOptionInputs,
     permitted: number,
@@ -521,4 +666,197 @@ function buildScores(
             meaning: 'Permitted storeys this option does not use — room to grow, or to give away.',
         },
     ]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RESI-ORCH-MASSING-SHAPES — the SHAPE families, mapped onto the card's option shape.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Turn one shape-engine outcome into a `MassingOption` the shipped card already knows how to draw.
+ *
+ * ⛔ IT MINTS NO SECOND CHANNEL. A produced shape becomes a real `TargetFootprintProposal`, so
+ * picking it writes the SAME session slot a typed target writes, the SAME scene draws it, and the
+ * SAME adopt step commits it. That is why this adapter exists at all instead of the shape engine
+ * emitting cards of its own: two proposal channels is how a card and a scene come to disagree about
+ * which plate is on the ground.
+ */
+function buildShapeOption(
+    outcome: MassingShapeOutcome,
+    inputs: MassingOptionInputs,
+    permitted: number,
+    target: number,
+): MassingOption {
+    if (!outcome.ok) {
+        // ⭐ A REFUSED FAMILY IS AN OPTION CARD WITH NO PICK BUTTON, exactly like `plate-unreachable`.
+        // `severity: 'error'` ⇒ `refused: true` ⇒ the card renders it greyed with its reason and
+        // without a control that could only fail.
+        return Object.freeze({
+            id: `massing-shape-${outcome.family}`,
+            family: outcome.family,
+            label: MASSING_SHAPE_LABEL[outcome.family],
+            proposal: null,
+            footprintAreaM2: null,
+            coverageOfPermitted: null,
+            storeysToRealisePermittedGfa: null,
+            realisedGfaM2: null,
+            heightM: null,
+            limitations: Object.freeze([{
+                code: 'shape-family-refused' as const,
+                severity: 'error' as const,
+                // The shape engine's own sentence, verbatim — one wording for one fact (C84 EI-8a).
+                text: outcome.text,
+            }]),
+            scores: Object.freeze([]),
+            statement:
+                `PRYZM did not produce a ${MASSING_SHAPE_LABEL[outcome.family]} for a `
+                + `${target.toFixed(0)} m² ground floor on this outline. The family is shown refused rather `
+                + `than dropped, so the absence is a stated finding and not a gap in the list.`,
+            refused: true,
+        });
+    }
+
+    const c = outcome.candidate;
+    const area = c.areaM2;
+
+    // The plate, on the ONE proposal channel.
+    // ⚠ `insetM: 0` IS A FACT, NOT A PLACEHOLDER. That field means "the uniform erosion distance
+    // that produced this ring"; a shape is not an erosion, so the honest value is zero erosion, and
+    // no sentence built here claims otherwise. (The `shape-approximated` limitation, which DOES
+    // print an inset distance, belongs to the coverage families and is never attached to a shape.)
+    const proposal: TargetFootprintProposal = {
+        ok: true,
+        ring: c.ring.map((p) => ({ x: p.x, z: p.z })),
+        achievedAreaM2: area,
+        targetAreaM2: target,
+        permittedAreaM2: permitted,
+        insetM: 0,
+        statement: c.statement,
+    };
+
+    const limitations: MassingLimitation[] = c.notes.map((n) => ({
+        code: n.code,
+        severity: n.severity,
+        text: n.text,
+    }));
+
+    // ── STOREYS + GFA on THIS footprint, by the same arithmetic the coverage families use ──
+    const permittedGfa = inputs.permittedGfaM2;
+    let storeysNeeded: number | null = null;
+    let realisedGfa: number | null = null;
+    if (permittedGfa === null || !(permittedGfa > 0)) {
+        limitations.push({
+            code: 'gfa-not-derived',
+            severity: 'warning',
+            text:
+                'No maximum floor area was derived for this zone (the storey count is not known), so PRYZM '
+                + 'cannot say how many storeys this shape would need. The footprint is still real; the '
+                + 'storey figure is withheld rather than guessed.',
+        });
+    } else {
+        // The SAME margin rule the coverage arm documents: the ceil is taken against the plate's
+        // upper measurement bound so a sub-square-metre solve wobble cannot buy a whole storey.
+        const plateToleranceM2 = Math.max(0.25, area * 0.0025);
+        storeysNeeded = Math.ceil(permittedGfa / (area + plateToleranceM2));
+        const cap = inputs.maxFloors;
+        if (cap !== null && cap > 0 && storeysNeeded > cap) {
+            realisedGfa = area * cap;
+            limitations.push({
+                code: 'storeys-exceed-cap',
+                severity: 'warning',
+                text:
+                    `Reaching the permitted ${permittedGfa.toFixed(0)} m² of floor area on a `
+                    + `${area.toFixed(0)} m² footprint would take ${storeysNeeded} storeys. The ordinance `
+                    + `permits ${cap}. PRYZM does not shrink the answer to fit: at ${cap} storeys this shape `
+                    + `yields ${realisedGfa.toFixed(0)} m², which is `
+                    + `${(permittedGfa - realisedGfa).toFixed(0)} m² less than the parcel permits. Choosing `
+                    + `this shape means accepting that shortfall.`,
+            });
+        } else {
+            realisedGfa = area * storeysNeeded;
+        }
+    }
+
+    let heightM: number | null = null;
+    const effectiveStoreys = storeysNeeded === null
+        ? null
+        : inputs.maxFloors !== null && inputs.maxFloors > 0
+            ? Math.min(storeysNeeded, inputs.maxFloors)
+            : storeysNeeded;
+    if (inputs.maxHeightM !== null && inputs.maxHeightM > 0
+        && inputs.maxFloors !== null && inputs.maxFloors > 0
+        && effectiveStoreys !== null) {
+        heightM = effectiveStoreys * (inputs.maxHeightM / inputs.maxFloors);
+    } else {
+        limitations.push({
+            code: 'height-not-derived',
+            severity: 'warning',
+            text:
+                'The rule pack derived no maximum height (or no storey count) for this zone, so PRYZM will '
+                + 'not state a height for this shape. A height divided out of numbers PRYZM does not have '
+                + 'would look exactly like one it read from the ordinance.',
+        });
+    }
+
+    // ── ⭐ STR §25.2's arithmetic, on the very card where the ground floor was chosen ──
+    // *"The maximum total buildable area BRUT is 320. We should let the user know that only in first
+    // floor he will be able to build 120 sqm."*
+    const remainingAbove = permittedGfa === null || !(permittedGfa > 0)
+        ? null
+        : Math.max(0, permittedGfa - area);
+    const floorsAbove = remainingAbove === null || !(area > 0)
+        ? null
+        : remainingAbove / area;
+
+    const scores: MassingScoreAxis[] = [
+        ...c.reasons.map((r) => ({
+            key: r.key,
+            label: r.label,
+            normalised: r.normalised,
+            display: r.display,
+            meaning: r.meaning,
+        })),
+        {
+            key: 'upper-floors-remaining' as const,
+            label: 'Left for the floors above',
+            normalised: remainingAbove === null || permittedGfa === null || !(permittedGfa > 0)
+                ? null
+                : Math.min(1, remainingAbove / permittedGfa),
+            display: remainingAbove === null
+                ? null
+                : `${remainingAbove.toFixed(0)} m² of ${(inputs.permittedGfaM2 ?? 0).toFixed(0)} m² BRUT`
+                  + (floorsAbove === null ? '' : ` — about ${floorsAbove.toFixed(1)} more floors of this shape`),
+            meaning:
+                'Permitted floor area still unspent after this ground floor. This is the number to allocate '
+                + 'to the first floor and above; PRYZM does not spend it for you.',
+        },
+    ];
+
+    const statement =
+        `${c.statement}`
+        + (remainingAbove === null
+            ? ' PRYZM cannot say what is left for the floors above, because no maximum floor area was '
+              + 'derived for this zone.'
+            : ` Taking ${area.toFixed(0)} m² on the ground leaves ${remainingAbove.toFixed(0)} m² of the `
+              + `${(inputs.permittedGfaM2 ?? 0).toFixed(0)} m² total allowance for the floors above.`);
+
+    return Object.freeze({
+        id: `massing-shape-${c.family}`,
+        family: c.family,
+        label: c.label,
+        proposal,
+        footprintAreaM2: area,
+        coverageOfPermitted: permitted > 0 ? area / permitted : null,
+        storeysToRealisePermittedGfa: storeysNeeded,
+        realisedGfaM2: realisedGfa,
+        heightM,
+        limitations: Object.freeze(limitations),
+        scores: Object.freeze(scores),
+        statement,
+        // ⛔ A SHAPE THAT WAS PRODUCED IS NEVER REFUSED. Its notes are all `warning` by construction
+        // (the engine reserves `error` for a family it could not build, which takes the arm above),
+        // and a shortfall against the floor-area allowance is a trade the architect may take — the
+        // same false-refusal argument the coverage arm's header makes.
+        refused: false,
+    });
 }

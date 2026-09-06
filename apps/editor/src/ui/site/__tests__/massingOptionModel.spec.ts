@@ -12,7 +12,25 @@
  *      no L-shape PRYZM cannot solve, and no bar drawn at zero for an axis that is unknown.
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+
+// ⛔ THE LIVE-SITE READER IS MOCKED AWAY, AND THAT IS AN ASSERTION, NOT A CONVENIENCE.
+//
+// `enumerateMassingOptions` has exactly ONE impurity: when `targetGroundFloorAreaM2` or `siting`
+// is OMITTED it reads the live site through `massingSitingContext`. Every case below passes both
+// explicitly, so the real reader must never be consulted — and this factory PINS that, because a
+// future edit that reads the store unconditionally would start returning these stubs instead of a
+// real answer and the suite would notice.
+//
+// ⭐ IT IS ALSO WHY THIS SUITE STILL RUNS IN SECONDS. `massingSitingContext` statically imports
+// `siteDispatch`, whose module graph reaches the whole GIS/Cesium/command surface — measured
+// 2026-09-06 at ~270 s of transform for a one-assertion probe spec. A factory mock means Vitest
+// never loads the real module, so the honest-isolation choice and the fast choice are the same
+// choice. ⚠ Its own behaviour is pinned separately, in `massingSitingContext.spec.ts`.
+vi.mock('../massingSitingContext', () => ({
+    resolveLiveMassingSitingContext: () => null,
+    resolveLiveTargetGroundFloorAreaM2: () => null,
+}));
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -21,6 +39,8 @@ import {
     MASSING_OPTION_FAMILIES,
     MASSING_FAMILY_COVERAGE,
     MASSING_FAMILIES_NOT_YET_SOLVED,
+    MASSING_SHAPES_NEED_A_TARGET_AREA,
+    type MassingCoverageFamily,
     type MassingOptionInputs,
 } from '../massingOptionModel';
 import {
@@ -49,6 +69,13 @@ const BASE: MassingOptionInputs = {
     maxFloors: 3,
     maxHeightM: 10.5,
     parcelAreaM2: 1400,
+    // ⭐ BOTH SITING INPUTS ARE PASSED EXPLICITLY AS `null`, AND THAT IS DELIBERATE.
+    // OMITTING them means *"read the live site"* — the one impurity `enumerateMassingOptions`
+    // has — and a suite whose baseline depends on two module-level cells being empty is a suite
+    // that passes for a reason nobody wrote down. Explicit `null` keeps every assertion below
+    // byte-deterministic on its arguments alone; the shape-family tests override them.
+    targetGroundFloorAreaM2: null,
+    siting: null,
 };
 
 function ok(inputs: MassingOptionInputs) {
@@ -91,7 +118,7 @@ describe('enumerateMassingOptions — the four coverage options', () => {
 
     it('each eroded plate lands near its coverage fraction', () => {
         for (const o of ok(BASE).options.slice(1)) {
-            const want = MASSING_FAMILY_COVERAGE[o.family];
+            const want = MASSING_FAMILY_COVERAGE[o.family as MassingCoverageFamily];
             expect(Math.abs(o.coverageOfPermitted! - want), o.family).toBeLessThan(0.05);
         }
     });
@@ -205,10 +232,25 @@ describe('the axes are FACTS, never a ranking', () => {
         }
     });
 
-    it('the caveat names the shapes PRYZM does NOT solve', () => {
-        expect(ok(BASE).caveat).toBe(MASSING_FAMILIES_NOT_YET_SOLVED);
-        expect(MASSING_FAMILIES_NOT_YET_SOLVED).toContain('L-shaped');
+    // ⭐ REWRITTEN 2026-09-06 (lane PL-MASSING-OPTIONS). This test read
+    //   expect(caveat).toBe(MASSING_FAMILIES_NOT_YET_SOLVED);
+    //   expect(MASSING_FAMILIES_NOT_YET_SOLVED).toContain('L-shaped');
+    // and it PINNED A CAPABILITY CLAIM THAT IS NO LONGER TRUE — the constant said PRYZM could not
+    // solve an L, and §RESI-ORCH-MASSING-SHAPES now does. A test that pins a stale limitation is a
+    // ratchet holding the product back, so it is corrected rather than deleted: the RULE it existed
+    // to defend (never draw a rectangle and call it an L) is still asserted, on the new wording.
+    it('with NO target area the shape families are WITHHELD, and the caveat names the action', () => {
+        const set = ok(BASE); // BASE carries no targetGroundFloorAreaM2
+        expect(set.options.length).toBe(MASSING_OPTION_FAMILIES.length);
+        expect(set.caveat).toBe(MASSING_SHAPES_NEED_A_TARGET_AREA);
+        expect(set.caveat).toContain('a shape needs an area to be a shape of');
+    });
+
+    it('the caveat still states the rule, and names what is STILL not solved', () => {
+        const set = ok({ ...BASE, targetGroundFloorAreaM2: 180, siting: null });
+        expect(set.caveat).toBe(MASSING_FAMILIES_NOT_YET_SOLVED);
         expect(MASSING_FAMILIES_NOT_YET_SOLVED).toContain('will not draw a rectangle and call it an L');
+        expect(MASSING_FAMILIES_NOT_YET_SOLVED).toContain('Not yet offered');
     });
 });
 
@@ -300,5 +342,102 @@ describe('GISAreaLayout actually reaches the enumerator', () => {
 
     it('⛔ carries a staleness gate, so options never outlive the envelope they measured', () => {
         expect(card).toContain('massingOptionsForFootprintM2');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RESI-ORCH-MASSING-SHAPES (STR §25.3) — THE SHAPE FAMILIES ON THE CARD.
+//
+// The engine's own behaviour is pinned in `massingShapeOptions.spec.ts`. THIS block pins the join:
+// that a shape reaches the card as a first-class option, that picking it rides the ONE proposal
+// channel, and that §25.2's remainder arithmetic travels with it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WITH_TARGET: MassingOptionInputs = {
+    ...BASE,
+    // The founder's worked instruction, verbatim: *"180 sqm brut in ground floor"*.
+    targetGroundFloorAreaM2: 180,
+    siting: {
+        latDeg: 41.39,
+        lngDeg: 2.17,
+        neighbours: [],
+        neighbourSnapshotTaken: true,
+        originLabel: 'test',
+    },
+};
+
+describe('the shape families reach the card', () => {
+    it('appends I, L, U and the non-orthogonal L after the four coverage options', () => {
+        const set = ok(WITH_TARGET);
+        const families = set.options.map((o) => o.family);
+        expect(families.slice(0, 4)).toEqual([...MASSING_OPTION_FAMILIES]);
+        expect(families.slice(4)).toEqual(['bar-i', 'ell', 'ell-non-orthogonal', 'u-court']);
+        expect(set.caveat).toBe(MASSING_FAMILIES_NOT_YET_SOLVED);
+    });
+
+    it('⛔ picking a shape rides the ONE §5 proposal channel — no second geometry path', () => {
+        const ell = ok(WITH_TARGET).options.find((o) => o.family === 'ell')!;
+        expect(ell.proposal).not.toBeNull();
+        expect(ell.proposal!.ok).toBe(true);
+        expect(ell.proposal!.targetAreaM2).toBe(180);
+        expect(ell.proposal!.permittedAreaM2).toBe(1000);
+        expect(ell.proposal!.ring.length).toBeGreaterThanOrEqual(6); // an L, not a rectangle
+        expect(Math.abs(ell.proposal!.achievedAreaM2 - 180)).toBeLessThanOrEqual(1);
+    });
+
+    it('⭐ STR §25.2 — the card states what is LEFT for the floors above, with both numbers', () => {
+        const bar = ok(WITH_TARGET).options.find((o) => o.family === 'bar-i')!;
+        const axis = bar.scores.find((a) => a.key === 'upper-floors-remaining')!;
+        expect(axis.display).toContain('m² BRUT');
+        // 3,000 m² permitted BRUT − a ~180 m² ground floor ⇒ ~2,820 m² left.
+        expect(axis.display).toContain('2820');
+        expect(bar.statement).toContain('for the floors above');
+    });
+
+    it('the computed siting axes travel through to the option, keys intact', () => {
+        const bar = ok(WITH_TARGET).options.find((o) => o.family === 'bar-i')!;
+        const keys = bar.scores.map((a) => a.key);
+        expect(keys).toEqual([
+            'south-facade', 'sun-facade', 'overlooking', 'open-outlook',
+            'street-frontage', 'forecourt', 'upper-floors-remaining',
+        ]);
+        // ⭐ AND THE SUN NUMBER IS REAL — a lat/lon was supplied, so it was ray-traced, not withheld.
+        expect(bar.scores.find((a) => a.key === 'sun-facade')!.normalised).not.toBeNull();
+    });
+
+    it('⛔ a REFUSED family is LISTED, with its reason and WITHOUT a pick button', () => {
+        // The 40 × 25 m plate is orthogonal, so the non-orthogonal L has no angle to derive.
+        const nonOrtho = ok(WITH_TARGET).options.find((o) => o.family === 'ell-non-orthogonal')!;
+        expect(nonOrtho.refused).toBe(true);
+        expect(nonOrtho.proposal).toBeNull();
+        const l = nonOrtho.limitations.find((x) => x.code === 'shape-family-refused')!;
+        expect(l.severity).toBe('error');
+        expect(l.text).toContain('will not invent an angle');
+    });
+
+    it('a shape that reaches the target is NEVER marked refused, even when it cannot use the whole GFA', () => {
+        for (const o of ok(WITH_TARGET).options.filter((x) => x.family !== 'ell-non-orthogonal').slice(4)) {
+            expect(o.refused, o.family).toBe(false);
+            expect(o.proposal, o.family).not.toBeNull();
+        }
+    });
+
+    it('⛔ DETERMINISTIC with the shape families on — byte-identical across runs', () => {
+        expect(JSON.stringify(ok(WITH_TARGET).options)).toBe(JSON.stringify(ok(WITH_TARGET).options));
+    });
+
+    it('⭐ REACHABILITY — the shipped fold renders a card + a pick button for every solved shape', () => {
+        document.body.innerHTML = buildMassingOptionsFold({ kind: 'computed', set: ok(WITH_TARGET) });
+        // 4 coverage + 4 shape families = 8 cards; the refused non-orthogonal L has no button.
+        expect(document.querySelectorAll('[data-massing-option]').length).toBe(8);
+        expect(document.querySelector('[data-massing-option="massing-shape-ell"]')).not.toBeNull();
+        expect(document.querySelector(`[${MASSING_PICK_ATTR}="massing-shape-ell"]`)).not.toBeNull();
+        expect(document.querySelector(`[${MASSING_PICK_ATTR}="massing-shape-ell-non-orthogonal"]`)).toBeNull();
+        expect(document.querySelector('[data-massing-option="massing-shape-ell-non-orthogonal"]')
+            ?.getAttribute('data-refused')).toBe('1');
+        // The computed reasons are on the page, not just in the model.
+        expect(document.body.textContent ?? '').toContain('South-facing façade');
+        expect(document.body.textContent ?? '').toContain('Façade daylight (equinox)');
+        expect(document.body.textContent ?? '').toContain('Overlooked façade');
     });
 });

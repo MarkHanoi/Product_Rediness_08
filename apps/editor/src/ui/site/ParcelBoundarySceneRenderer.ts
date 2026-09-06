@@ -120,6 +120,8 @@ import {
 import {
     getSiteHighlight,
     subscribeSiteHighlight,
+    // §SITE-HIGHLIGHT-REACH — see the registration beside the subscription below.
+    registerSiteHighlightSurface,
     siteHighlightCue,
     siteHighlightEmphasis,
     SITE_HIGHLIGHT_RECEDE_FACTOR,
@@ -142,6 +144,15 @@ import {
     resolveLiveTargetFootprintProposal,
     subscribeTargetFootprintProposal,
 } from './targetFootprintAreaState';
+// §TOBE-ENVELOPE (STR §25.2, lane PL-TOBE-ENVELOPE 2026-09-06) — the TO-BE-BUILT envelope's ONE
+// colour, shared with `spaceEnvelopeAppearance` (the adopted C114 level prism) and the card legend.
+// The proposed plate and the element it becomes are THE SAME THING at two moments of its life, so
+// they must be the same colour; before this import the plate was study-teal and the adopted prism
+// was violet, and the user watched it change identity twice on one click.
+import {
+    TO_BE_BUILT_ROSE,
+    TO_BE_BUILT_GROUND_FILL_ALPHA,
+} from './toBeBuiltEnvelopeStyle';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
@@ -257,6 +268,14 @@ export class ParcelBoundarySceneRenderer {
         // active, so a rebuild is what makes "clear the highlight" leave no residue. Rebuilds are
         // already the norm here — every boundary commit and every visibility flip does one.
         this.disposers.push(subscribeSiteHighlight(() => this.refresh()));
+        // §SITE-HIGHLIGHT-REACH — and DECLARE that this scene draws it, in the founder's own word
+        // for the view. The card's row affordance derives "where will this show?" from who
+        // registered, so the sentence it prints can never out-run the wiring: a lane that later
+        // subscribes Cesium adds its row here and the affordance updates itself, while a session
+        // in which this scene never initialised makes the row say so instead of naming a view the
+        // user cannot reach. Registered BESIDE the subscription and disposed WITH it — a
+        // registration that outlived its subscription would name a view that no longer repaints.
+        this.disposers.push(registerSiteHighlightSurface('parcelBoundaryScene', 'BIM 3D'));
 
         // §RESI-ORCH-TARGET-AREA (STR §5) — repaint when the user proposes (or withdraws) a
         // ground-floor plate. Same PUSH discipline: the card writes the store and stops; it never
@@ -438,10 +457,23 @@ export class ParcelBoundarySceneRenderer {
      * refuses (§ENVELOPE-SITE-DATA: never synthesise a missing value), and worse in three dimensions
      * because a reader can see that a NUMBER is a number and cannot see that a SOLID is a guess.
      *
-     * ⛔ TEAL AND DASHED, i.e. the SKETCH vocabulary — never the plan-backed violet. This plate is
-     * compliant-by-construction on ONE axis only (it is an erosion of the permitted footprint, so
-     * its area cannot exceed it). PRYZM has checked it against nothing else — no setback shaping, no
-     * frontage rule, no party wall. Drawing it in the determination hue would claim all of that.
+     * ⛔ ROSE AND DASHED, i.e. the SKETCH vocabulary in the TO-BE-BUILT hue — never the plan-backed
+     * violet. This plate is compliant-by-construction on ONE axis only (it is an erosion of the
+     * permitted footprint, so its area cannot exceed it). PRYZM has checked it against nothing else
+     * — no setback shaping, no frontage rule, no party wall. Drawing it in the determination hue
+     * would claim all of that.
+     *
+     * ⭐ RE-HUED 2026-09-06 (§TOBE-ENVELOPE, STR §25.2). This drew in `STUDY_MASSING_TEAL`, which
+     * was a correct choice against violet and a wrong one against ITSELF: teal is the
+     * CONTEXT-DERIVED STUDY's colour (a median of neighbour heights, no user in it), and this plate
+     * is the opposite — the user's own stated intent, with no context in it. Worse, one click of
+     * "Keep this as a level envelope" turned the teal plate into a rose prism, so the same decision
+     * changed colour at the moment it became durable. Both now read `toBeBuiltEnvelopeStyle.ts`, so
+     * the founder's "ANOTHER COLOUR OF ENVELOPE" is one colour across the whole life of the thing.
+     *
+     * ⚠ AND IT IS NO LONGER NEAR-INVISIBLE. The fill was `STUDY_GROUND_SHADE_FILL_ALPHA` (0.12), a
+     * weight chosen for a volume PRYZM is UNSURE about. PRYZM is not unsure what the user asked for
+     * — §24.1 item 3: *"the honesty must survive, the invisibility must not."*
      *
      * ⚠ IT CAN NEVER COLLIDE WITH THE CONTEXT-STUDY MASSING, by construction rather than by luck:
      * a study massing is only ever surfaced where NO normative envelope resolves, and this plate
@@ -479,9 +511,9 @@ export class ParcelBoundarySceneRenderer {
                 const mesh = new THREE.Mesh(
                     geo,
                     new THREE.MeshBasicMaterial({
-                        color: STUDY_MASSING_TEAL,
+                        color: TO_BE_BUILT_ROSE,
                         transparent: true,
-                        opacity: STUDY_GROUND_SHADE_FILL_ALPHA,
+                        opacity: TO_BE_BUILT_GROUND_FILL_ALPHA,
                         depthWrite: false,
                         side: THREE.DoubleSide,
                     }),
@@ -498,7 +530,7 @@ export class ParcelBoundarySceneRenderer {
                 console.warn('[ParcelBoundarySceneRenderer] proposed-plate triangulation failed:', err);
             }
 
-            const rim = this.buildDashedRim(ring, y);
+            const rim = this.buildDashedRim(ring, y, TO_BE_BUILT_ROSE);
             if (rim) {
                 rim.name = 'pryzm-target-footprint-proposal-rim';
                 rim.userData.siteHighlightRole = 'proposal' satisfies SiteHighlightRole;
@@ -1121,8 +1153,19 @@ export class ParcelBoundarySceneRenderer {
      * `THREE.LineDashedMaterial` requires `computeLineDistances()` before it can dash correctly
      * (already the vetted pattern in this codebase — see `WallAlignmentGuide.ts`). Returns null on
      * any failure; the fill mesh alone is still a valid (if less legible) study indicator.
+     *
+     * ⚠ §TOBE-ENVELOPE (2026-09-06) — `colour` IS A PARAMETER, DEFAULTED TO THE STUDY TEAL. Two
+     * different things use this rim: the CONTEXT-DERIVED STUDY (teal) and the user's TO-BE-BUILT
+     * plate (rose). Until this parameter existed the second one drew a rose fill inside a teal
+     * outline, so the plate carried the study's colour on the one channel that survives a
+     * washed-out screenshot — the exact confusion the dashed rim exists to prevent. DASHED stays
+     * unconditional: both are sketches, and that is what dashed means here.
      */
-    private buildDashedRim(ring: ReadonlyArray<XZPoint>, y: number): THREE.Line | null {
+    private buildDashedRim(
+        ring: ReadonlyArray<XZPoint>,
+        y: number,
+        colour: number = STUDY_MASSING_TEAL,
+    ): THREE.Line | null {
         try {
             const ringLen = ring.length + 1;
             const positions = new Float32Array(ringLen * 3);
@@ -1139,7 +1182,7 @@ export class ParcelBoundarySceneRenderer {
             const geo = new THREE.BufferGeometry();
             geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             const mat = new THREE.LineDashedMaterial({
-                color: STUDY_MASSING_TEAL,
+                color: colour,
                 transparent: true,
                 opacity: 0.85,
                 dashSize: STUDY_DASH_SIZE_M,

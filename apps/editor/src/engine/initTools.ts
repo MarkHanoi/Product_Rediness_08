@@ -2144,6 +2144,18 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     onProfileEdit: (spaceEnvelopeId: string) => {
                         spaceEnvelopeProfileEditTool.enterProfileEditMode(spaceEnvelopeId);
                     },
+                    // ⭐⭐ §25.6 GESTURE 1 (2026-09-06) — THE ORBIT STOPS WHILE A FACE IS
+                    // DRAGGED. ⛔ Without this line the camera orbits AND the face slides at
+                    // the same time and the gesture is unusable: `camera-controls` binds THIS
+                    // canvas, and `ev.stopPropagation()` does not stop a listener on the SAME
+                    // element. It is the identical call every other direct-manipulation drag
+                    // in this app already makes — `registerTransformDragHandler:91`,
+                    // `StairPath3DToolHandler:254`, `ColumnTool:128`, `CurtainWallTool:360`,
+                    // `HandrailTool:140`, `LiftTool:132` — and the arrows shipped in the same
+                    // commit are what make the gesture findable in the first place.
+                    setCameraControlsEnabled: (enabled: boolean) => {
+                        if (world.camera?.controls) world.camera.controls.enabled = enabled;
+                    },
                 });
                 console.log('[initTools] §FEAT-SPACE-ENVELOPE: store→mesh subscriber and face drag installed.');
             }

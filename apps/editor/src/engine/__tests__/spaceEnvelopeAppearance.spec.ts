@@ -16,6 +16,10 @@ import {
     SPACE_ENVELOPE_LEVEL_OPACITY,
     SPACE_ENVELOPE_ROOM_OPACITY,
 } from '../spaceEnvelopeAppearance';
+// §TOBE-ENVELOPE — imported, never re-typed: the point of the arm below is that these two values
+// must DIFFER, and a hand-copied literal would keep passing after one of them moved.
+import { TO_BE_BUILT_ROSE_CSS } from '../../ui/site/toBeBuiltEnvelopeStyle';
+import { CONFIDENT_VIOLET_HEX } from '../../ui/site/envelopeRenderStyle';
 
 describe('§RESI-STAGE-G — colour', () => {
     it('⭐ a ROOM tagged with an occupancy takes that occupancy\'s colour from the ROOM palette', () => {
@@ -55,11 +59,29 @@ describe('§RESI-STAGE-G — colour', () => {
         expect(a.colourSource).toBe('occupancy');
     });
 
-    it('a LEVEL envelope is PRYZM purple and never takes an occupancy colour', () => {
+    it('a LEVEL envelope takes the TO-BE-BUILT colour and never an occupancy colour', () => {
         const a = resolveSpaceEnvelopeAppearance({ role: 'level', occupancy: 'kitchen' });
         expect(a.colour).toBe(SPACE_ENVELOPE_LEVEL_COLOUR);
-        expect(a.colour).toBe('#6600FF');
+        expect(a.colour).toBe(TO_BE_BUILT_ROSE_CSS);
         expect(a.colourSource).toBe('role-default');
+    });
+
+    /**
+     * ⛔ THE REGRESSION THIS ARM EXISTS FOR — §TOBE-ENVELOPE (STR §25.2), 2026-09-06.
+     *
+     * This assertion used to read `expect(a.colour).toBe('#6600FF')`, and `#6600FF` is ALSO
+     * `envelopeRenderStyle.CONFIDENT_VIOLET_HEX` — the hue C58 §1.2 reserves for a SOLVED legal
+     * determination. So the volume the user invented and the volume the ordinance dictated drew
+     * in one colour, nested inside one another, in one scene, and the suite pinned it that way.
+     *
+     * Colour is the confidence badge before any text is read (L-608), so this is a honesty
+     * defect, not a palette preference — and it is exactly the kind that returns the moment
+     * someone "unifies" a palette. Pinned against the constant, imported rather than re-typed.
+     */
+    it('⛔ a LEVEL envelope is NEVER the permitted envelope\'s confident violet (C58 §1.2)', () => {
+        const level = resolveSpaceEnvelopeAppearance({ role: 'level' });
+        const confidentViolet = `#${CONFIDENT_VIOLET_HEX.toString(16).padStart(6, '0')}`;
+        expect(level.colour.toLowerCase()).not.toBe(confidentViolet.toLowerCase());
     });
 });
 

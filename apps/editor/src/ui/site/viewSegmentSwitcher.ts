@@ -19,7 +19,7 @@
 //
 // The dispatches are the SAME registered functions the GIS bar's own buttons drive:
 //   · `site.plan-oblique`  → `pryzmEnterSiteView('plan')`      (the bar's ◉ 3D Site → sub-bar Plan)
-//   · `site.bim-split`     → `pryzmShowSiteResultView('2D')`   (the bar's ◧ 3D + plan)
+//   · `site.bim-3d`        → `pryzmActivateBimView('3D')`      (the BIM model, filling the canvas)
 //   · `site.earth`         → `pryzmEnterSiteView('3d')`        (the bar's ◉ 3D Site)
 //   · `site.globe`         → `pryzmShowSiteResultView('3D')`   (the bar's ◉ 3D globe)
 // `showSiteResultView` calls `applyResultView`, and `pryzmEnterSiteView` calls
@@ -31,11 +31,23 @@
 // "plan"     = `site.plan-oblique`, the near-top-down shadowed massing over the real plot. It is
 //              the plan view in which the envelope is DRAWN (STR §24.1 item 3); `site.plan-gis`
 //              (plan over aerial, project north) is UNDER REPAIR (L-1197) and is not offered here.
-// "BIM 3D"   = `site.bim-split`, the BIM dual pane (3D left · plan right). ⚠ The registry declares
-//              NO "BIM 3D only" action — `pryzmActivateBimView('3D')` exists as a window entry point
-//              but is not a declared GIS action, and this control does not invent one. If the
-//              founder wants the single BIM 3D pane here, the fix is a registry row, not a handler
-//              in this file.
+// "BIM 3D"   = `site.bim-3d`, the BIM model filling the canvas half. ⭐ CORRECTED 2026-09-06
+//              (§PARCEL-LAW-BIM3D). This segment used to point at `site.bim-split`, the BIM DUAL
+//              PANE — and from THIS host that was a click the reader could not see the result of.
+//              Measured: `.svp-pane` is `position: fixed; right: 0; width: 40%; z-index: 1`
+//              (styles/panels/splitView.ts) and `#anl-surface`, the Analysis surface this control
+//              is mounted on, is `position: fixed; right: 0; width: 50%; z-index: 50`
+//              (styles/panels/analysisSurface.ts). The pane opened ENTIRELY BEHIND the panel; and
+//              `SplitViewManager._buildDOM` also wrote `#container.style.width = '60%'` over the
+//              50% `WorkspaceController` had set, sliding the right tenth of the 3-D viewport under
+//              the panel. So "BIM 3D" read as a dead click that also broke the canvas.
+//              The previous header said the fix was "a registry row, not a handler in this file".
+//              That is exactly what was done: `site.bim-3d` is now DECLARED
+//              (`gisActionRegistry.ts`), dispatching the `pryzmActivateBimView` entry point that
+//              was already registered and that no action named. This file still contributes no
+//              handler. `site.bim-split` is NOT removed — C19 §5.6 clause 4, a route is added,
+//              never removed — it stays on the GIS bar and in the GIS panel, where a full-width
+//              canvas makes its right-hand pane visible.
 // "3D Site"  = `site.earth`  (PRYZM Earth — the Forma massing surface, landing on its 3D preset).
 // "3D Globe" = `site.globe`  (the photoreal tiles view).
 //
@@ -45,6 +57,19 @@
 // never as a live-looking button. No dead clicks: that is the rule the founder has already been
 // bitten by (L-1187), and it is why `unavailable` is a printed sentence rather than a silent
 // return.
+//
+// ── UNREPORTED ≠ NOT CURRENT ──────────────────────────────────────────────
+// `GisSiteViewState` has three fields — `segment`, `formaMode`, `buildingFidelity` — and NONE of
+// them says which BIM view ViewController activated. So `site.bim-3d` declares no `activeWhen`,
+// and this control can never highlight it. That is a gap in the AUTHORITY, not a judgement that
+// the view is off, and the two must not print the same thing (C84 EI-1b — failure and emptiness
+// becoming one value is this repo's most expensive recurring defect).
+//
+// A segment whose action declares no `activeWhen` is therefore marked
+// `data-view-segment-unreported`, its title says so, and the status line NAMES it. Nothing is
+// mirrored to paper over it: this control holds no state, and a control that remembered its own
+// last click would be asserting a view it cannot observe. The fix is a field on the snapshot,
+// owned by `GISAreaLayout` — reported as a seam, not silently worked around.
 //
 // ── ACTIVE STATE IS A SNAPSHOT — repainted, never subscribed ───────────────────────────────
 // `pryzmGetSiteViewState` says so on its own signature. This control repaints after its own
@@ -85,7 +110,7 @@ export interface ViewSegmentDef {
  */
 export const VIEW_SEGMENTS: readonly ViewSegmentDef[] = Object.freeze([
     { id: 'plan',    label: 'Plan',     actionId: 'site.plan-oblique' },
-    { id: 'bim-3d',  label: 'BIM 3D',   actionId: 'site.bim-split' },
+    { id: 'bim-3d',  label: 'BIM 3D',   actionId: 'site.bim-3d' },
     { id: 'site-3d', label: '3D Site',  actionId: 'site.earth' },
     { id: 'globe',   label: '3D Globe', actionId: 'site.globe' },
 ]);
@@ -98,6 +123,12 @@ export const VIEW_SEGMENT_ATTR = 'data-view-segment';
 export const VIEW_SEGMENT_UNAVAILABLE_ATTR = 'data-view-segment-unavailable';
 /** Marks the segment whose view the snapshot reports as current. */
 export const VIEW_SEGMENT_ACTIVE_ATTR = 'data-view-segment-active';
+/**
+ * Marks a LIVE segment whose action declares no `activeWhen` — the authority cannot report
+ * whether that view is current, so this control never highlights it. ⛔ Not the same as
+ * unavailable: the segment dispatches perfectly well. See the header's UNREPORTED section.
+ */
+export const VIEW_SEGMENT_UNREPORTED_ATTR = 'data-view-segment-unreported';
 /** `data-testid` on the one-line status under the buttons. */
 export const VIEW_SEGMENT_STATUS_TESTID = 'view-segment-switcher-status';
 
@@ -170,14 +201,21 @@ export function mountViewSegmentSwitcher(host: GisCapabilityHost): ViewSegmentSw
             const snapshot = readSnapshot(host);
             let live = 0;
             let activeLabel: string | null = null;
+            /** Live segments the AUTHORITY cannot report on — named in the status line. */
+            const unreported: string[] = [];
 
             for (const def of VIEW_SEGMENTS) {
                 const decl = viewSegmentAction(def);
                 const dispatch = decl ? resolveGisAction(decl, host) : null;
                 const isLive = dispatch !== null;
                 const active = isLive && decl !== null && isActive(decl, snapshot);
+                // ⚠ UNREPORTED ≠ NOT CURRENT. A live action with no `activeWhen` is one the
+                // snapshot has no field for; it can never be highlighted, and the reason is a
+                // gap in `GisSiteViewState`, not a reading that the view is off.
+                const isUnreported = isLive && decl !== null && !decl.activeWhen;
                 if (isLive) live++;
                 if (active) activeLabel = def.label;
+                if (isUnreported) unreported.push(def.label);
 
                 const btn = document.createElement('button');
                 btn.type = 'button';
@@ -195,6 +233,12 @@ export function mountViewSegmentSwitcher(host: GisCapabilityHost): ViewSegmentSw
                     btn.title = `${decl.title}\n\nNot available from here right now — `
                         + (decl.unavailableReason
                             ?? `its entry point (${decl.entryPoints.join(', ') || 'none declared'}) is not registered in this session. Open the site view once, then return.`);
+                } else if (isUnreported) {
+                    btn.title = `${decl.title}
+
+This segment works. Whether it is the CURRENT view is not `
+                        + 'reported by pryzmGetSiteViewState (the snapshot has no field for the BIM view), '
+                        + 'so it is never highlighted — that is a missing reading, not "off".';
                 } else {
                     btn.title = decl.title;
                 }
@@ -208,6 +252,11 @@ export function mountViewSegmentSwitcher(host: GisCapabilityHost): ViewSegmentSw
                     btn.setAttribute(VIEW_SEGMENT_ACTIVE_ATTR, 'true');
                     // C43 — the state is carried by more than colour.
                     btn.setAttribute('aria-pressed', 'true');
+                } else if (isUnreported) {
+                    btn.setAttribute(VIEW_SEGMENT_UNREPORTED_ATTR, 'true');
+                    // C43 — `aria-pressed="mixed"` is the ARIA spelling of "this control has a
+                    // pressed state and I cannot tell you which". `"false"` would ASSERT off.
+                    btn.setAttribute('aria-pressed', 'mixed');
                 } else if (isLive) {
                     btn.setAttribute('aria-pressed', 'false');
                 }
@@ -249,6 +298,14 @@ export function mountViewSegmentSwitcher(host: GisCapabilityHost): ViewSegmentSw
                 status.textContent = VIEW_SEGMENT_NO_SNAPSHOT_TEXT;
             } else if (activeLabel) {
                 status.textContent = `Current view: ${activeLabel} (read at ${new Date().toLocaleTimeString()} — a snapshot; press a segment or reopen the tab to re-read).`;
+            } else if (unreported.length > 0) {
+                // The honest sentence for the state this control is ACTUALLY in most of the time
+                // on the Parcel Law tab: the snapshot says "not one of these", but it has no field
+                // for `${unreported}`, so "not one of these" is not something it can establish.
+                status.textContent =
+                    `Current view is not reported for ${unreported.join(' · ')} — pryzmGetSiteViewState carries no `
+                    + `field for it, so no segment is highlighted rather than a guess. The other segments read `
+                    + `segment "${snapshot.segment}", site mode "${snapshot.formaMode}"; press a segment to switch.`;
             } else {
                 status.textContent =
                     `The left pane is not on one of these four views (segment "${snapshot.segment}", site mode "${snapshot.formaMode}") — `

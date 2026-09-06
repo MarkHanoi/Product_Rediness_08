@@ -64,6 +64,13 @@ import type { IntendedAreaSnapshot } from './intendedAreaChannel';
 // renders its answer and NEVER re-derives a figure from it.
 import type { MassingOption, MassingOptionSet } from './massingOptionModel';
 import type { UserSuppliedStudyHeightRecord } from './userSuppliedStudyHeightState';
+// §TOBE-ENVELOPE (STR §25.2, lane PL-TOBE-ENVELOPE) — the LEGEND's rows and the to-be-built hue
+// come from the ONE authority the SCENE reads. A legend that re-typed its own swatch colour would
+// be a legend that can disagree with the geometry it explains — which is worse than no legend.
+import { ENVELOPE_LEGEND, TO_BE_BUILT_ROSE_CSS } from './toBeBuiltEnvelopeStyle';
+// §TOBE-ALLOCATION (STR §25.2) — the arithmetic is decided next door, pure and tested. This file
+// renders the answer and NEVER re-derives a figure from it (the C06 §13.3 one-producer rule).
+import type { BrutAllocationModel } from './brutAreaAllocation';
 
 const _tracer = trace.getTracer('pryzm.site.envelopeCardSections');
 
@@ -1328,6 +1335,185 @@ export function buildStudyHeightEntryHtml(
 }
 
 
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// §TOBE-ENVELOPE (STR §25.2, lane PL-TOBE-ENVELOPE 2026-09-06) — THE THREE-ENVELOPE LEGEND.
+//
+// Founder: *"Three distinct envelopes now exist and must be visually distinguishable, WITH A
+// LEGEND"* — the PERMITTED zoning bound, the TO-BE-BUILT intent, and later the ROOM envelopes.
+//
+// ⛔ THE LEGEND IS NOT DECORATION, IT IS THE DISCLOSURE CHANNEL THAT SURVIVES COLOUR. Hue alone
+// fails a greyscale screenshot and a colour-vision-deficient reader, and the to-be-built envelope
+// is precisely the one whose meaning cannot be recovered from its shape (it sits inside the
+// permitted envelope and looks like a smaller version of it). So each row states, in words, what
+// its envelope IS — and the to-be-built row states that it is ORIENTATIVE.
+//
+// ⛔ IT PUBLISHES NO SWATCH FOR THE PERMITTED ENVELOPE, AND THAT IS DELIBERATE. That envelope's
+// colour IS its C58 §1.2 confidence — violet solved / grey estimated / amber unreviewed — so a
+// fixed swatch here would assert a confidence the legend cannot know. The model next door carries
+// `swatchCss: null` for exactly this, and this renderer simply renders what it is given.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+
+export const ENVELOPE_LEGEND_TESTID = 'envelope-three-envelope-legend';
+
+/**
+ * The three-envelope legend. Pure; takes nothing, because it says nothing project-specific — the
+ * vocabulary is the same on every parcel, and a legend that varied per parcel would be a finding
+ * rather than a key.
+ */
+export function buildEnvelopeLegendHtml(): string {
+    const span = _tracer.startSpan('pryzm.site.buildEnvelopeLegendHtml');
+    try {
+        const rows = ENVELOPE_LEGEND.map((entry) => {
+            // A row with no fixed colour gets a NEUTRAL outlined chip, never an invented fill —
+            // the visual form of "this one's colour is decided elsewhere".
+            const swatch = entry.swatchCss === null
+                ? `<span aria-hidden="true" style="flex:none;width:11px;height:11px;border-radius:3px;`
+                  + `border:1px dashed #b9b2cc;background:transparent;"></span>`
+                : `<span aria-hidden="true" style="flex:none;width:11px;height:11px;border-radius:3px;`
+                  + `background:${escHtml(entry.swatchCss)};border:1px solid rgba(0,0,0,0.18);"></span>`;
+            return `<div data-legend-kind="${escHtml(entry.kind)}" `
+                + `data-carries-confidence="${entry.carriesConfidenceBadge ? 'yes' : 'no'}" `
+                + `style="display:flex;gap:6px;align-items:flex-start;margin-top:5px;min-width:0;">`
+                + swatch
+                + `<div style="min-width:0;">`
+                + `<div style="font-weight:700;font-size:9.5px;color:#4b4460;">${escHtml(entry.label)}</div>`
+                + `<div style="font-size:9px;line-height:1.4;color:#8a83a0;">${escHtml(entry.meaning)}</div>`
+                + `</div></div>`;
+        }).join('');
+        span.setAttribute('pryzm.envelopeCard.legendRows', ENVELOPE_LEGEND.length);
+        return `<div data-testid="${ENVELOPE_LEGEND_TESTID}" style="${FOLD_STYLE}">`
+            + `<div style="font-weight:700;font-size:10.5px;color:#6600FF;">What the volumes in the view mean</div>`
+            + rows
+            + `</div>`;
+    } finally {
+        span.end();
+    }
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// §TOBE-ALLOCATION (STR §25.2) — BRUT vs NET: THE REMAINDER THE USER MUST BE TOLD.
+//
+// > "Imagine there is a plot of 1200 sqm. The maximum implantation area in ground is 200 sqm.
+// >  The maximum total buildable area BRUT is 320. We should let the user know that only in first
+// >  floor he will be able to build 120 sqm."
+//
+// ⛔ THE HEADLINE IS NOT FOLDED AWAY. Every other section on this card is a default-collapsed
+// `<details>`; this one prints its sentence in the open. The founder's ask is literally *"we should
+// LET THE USER KNOW"* — a remainder a user has to click to discover has not been disclosed, it has
+// been filed. The per-storey table below it folds; the sentence does not.
+//
+// ⛔ AND `null` REMAINING IS NOT `0` REMAINING. The model carries `remainingM2: number | null` for
+// exactly this, and the two arms render as visibly different things: a number in violet, versus a
+// stated absence in the muted "PRYZM does not know" voice. They demand opposite next actions from
+// the user, and rendering them alike is [[context-data-honesty-family]].
+// ════════════════════════════════════════════════════════════════════════════════════════════
+
+export const BRUT_ALLOCATION_TESTID = 'envelope-brut-allocation';
+export const BRUT_ALLOCATION_HEADLINE_TESTID = 'envelope-brut-allocation-headline';
+export const BRUT_ALLOCATION_ROWS_TESTID = 'envelope-brut-allocation-rows';
+/** The per-storey input a caller wires. `data-level-id` names the storey it allocates to. */
+export const BRUT_ALLOCATION_INPUT_ATTR = 'data-brut-allocation-input';
+
+/**
+ * The BRUT/NET allocation block: the total, what has been taken, what remains, and one row per
+ * storey with its own ceiling and its own refusal.
+ *
+ * @param model from `buildBrutAllocation` — the ONE producer of every figure here. This renderer
+ *              performs no arithmetic of its own; a second `total − allocated` in a DOM builder is
+ *              how a card comes to state a remainder the scene disagrees with.
+ * @param editable when true each storey row carries a number input the host can wire. Default
+ *              false: a control nobody has wired is a dead click, and offering one is worse than
+ *              offering none (§COMMITTED-IS-NOT-REACHABLE).
+ */
+export function buildBrutAllocationHtml(model: BrutAllocationModel, editable = false): string {
+    const span = _tracer.startSpan('pryzm.site.buildBrutAllocationHtml');
+    try {
+        const { allowance } = model;
+        const known = model.remainingM2 !== null;
+        const over = known && model.remainingM2! < 0;
+        const state = !known ? 'total-unknown' : over ? 'over-allocated' : 'known';
+        span.setAttribute('pryzm.envelopeCard.brutAllocationState', state);
+        span.setAttribute('pryzm.envelopeCard.brutAllocationRows', model.rows.length);
+
+        // ⭐ THE FOUNDER'S SENTENCE, in the open, in the colour that says whether it is a finding
+        // or an admission. Amber is this card's established "PRYZM said no / PRYZM cannot say"
+        // voice (the refusal arms above use the same pair), so an unknown total does not borrow
+        // the confident violet a real remainder gets.
+        const headlineColour = !known ? '#8a5a00' : over ? '#8a5a00' : '#4b4460';
+        const headlineBg = !known || over ? '#fdf8ee' : '#faf9fd';
+        const headlineBorder = !known || over ? '#c9973a' : '#6600FF';
+
+        const remainderChip = known
+            ? `<div style="font:800 15px system-ui;color:${over ? '#8a5a00' : TO_BE_BUILT_ROSE_CSS};">`
+              + `${escHtml(model.remainingM2!.toFixed(0))} m²</div>`
+              + `<div style="font-size:8.5px;color:#8a83a0;">${over ? 'over the limit' : 'left to allocate'}</div>`
+            : `<div style="font:800 12px system-ui;color:#8a5a00;">not known</div>`
+              + `<div style="font-size:8.5px;color:#8a83a0;">PRYZM will not guess</div>`;
+
+        const rowsHtml = model.rows.map((r) => {
+            const label = escHtml(r.name ?? (r.elevation !== null ? `${r.elevation.toFixed(2)} m` : r.levelId));
+            const refused = r.refusal !== null;
+            const value = r.allocatedM2 !== null
+                ? `${r.allocatedM2.toFixed(0)} m²`
+                : r.ceilingM2 !== null
+                    ? `up to ${r.ceilingM2.toFixed(0)} m²`
+                    : '—';
+            const input = editable
+                ? `<input type="number" min="1" step="1" ${BRUT_ALLOCATION_INPUT_ATTR} `
+                  + `data-level-id="${escHtml(r.levelId)}"`
+                  + (r.requestedM2 !== null ? ` value="${escHtml(r.requestedM2)}"` : '')
+                  + (r.ceilingM2 !== null ? ` placeholder="${escHtml(r.ceilingM2.toFixed(0))}"` : '')
+                  + ` style="width:64px;box-sizing:border-box;padding:3px 5px;border-radius:5px;`
+                  + `border:1px solid ${refused ? '#c9973a' : '#d8d3e6'};font:600 10px system-ui;" />`
+                : '';
+            return `<div data-brut-row="${escHtml(r.levelId)}" data-refusal="${escHtml(r.refusal ?? 'none')}" `
+                + `data-ceiling-source="${escHtml(r.ceilingSource)}" `
+                + `style="display:flex;gap:6px;align-items:center;margin-top:4px;min-width:0;">`
+                + `<div style="flex:1;min-width:0;font-size:10px;color:#4b4460;overflow-wrap:break-word;">${label}</div>`
+                + `<div style="flex:none;font:600 10px system-ui;color:${refused ? '#8a5a00' : '#6b6480'};">`
+                + `${escHtml(value)}</div>`
+                + input
+                + `</div>`
+                // The row's own sentence — the refusal with both its numbers, or the ceiling and
+                // WHY it is that number. Printed under the row rather than in a tooltip: a
+                // refusal a user must hover to read is a refusal most users never read.
+                + `<div style="font-size:9px;line-height:1.4;color:${refused ? '#8a5a00' : '#8a83a0'};`
+                + `margin:1px 0 0 0;">${escHtml(r.statement)}</div>`;
+        }).join('');
+
+        const unknownStorey = model.unknownStoreyRequests > 0
+            ? `<div style="margin-top:5px;font-size:9px;color:#8a5a00;">`
+              + `${escHtml(model.unknownStoreyRequests)} allocation(s) name a storey this project does not `
+              + `have. They were counted, not applied — PRYZM does not create a storey to hold a number.</div>`
+            : '';
+
+        return `<div data-testid="${BRUT_ALLOCATION_TESTID}" ${DESIGN_STAGE_CONTROL_ATTR}="massing" `
+            + `data-state="${state}" style="${FOLD_STYLE}">`
+            + `<div style="font-weight:700;font-size:10.5px;color:#6600FF;">How much of the allowance have you used?</div>`
+            + `<div data-testid="${BRUT_ALLOCATION_HEADLINE_TESTID}" data-state="${state}" `
+            + `style="display:flex;gap:8px;align-items:center;margin-top:5px;padding:5px 7px;`
+            + `background:${headlineBg};border-left:2px solid ${headlineBorder};border-radius:0 5px 5px 0;">`
+            + `<div style="flex:none;text-align:center;min-width:56px;">${remainderChip}</div>`
+            + `<div style="flex:1;min-width:0;font-size:9.5px;line-height:1.45;color:${headlineColour};">`
+            + `${escHtml(model.statement)}</div></div>`
+            // WHERE THE TOTAL CAME FROM — folded, because it is the answer to "why that number?"
+            // rather than the number itself, and §25.1 puts citations behind a "Why these numbers?"
+            // affordance rather than in the row.
+            + fold(
+                'envelope-brut-allocation-basis',
+                allowance.totalSource ?? allowance.totalAbsentReason ?? 'unknown',
+                'Where these allowances come from',
+                `<div style="font-size:9.5px;line-height:1.45;color:#6b6480;">${escHtml(allowance.statement)}</div>`,
+            )
+            + `<div data-testid="${BRUT_ALLOCATION_ROWS_TESTID}" style="margin-top:6px;">${rowsHtml}</div>`
+            + unknownStorey
+            + `</div>`;
+    } finally {
+        span.end();
+    }
+}
+
 // ════════════════════════════════════════════════════════════════════════════════════════════
 // §RESI-ORCH-TARGET-AREA (lane RESI-ORCH, 2026-09-04) — STR §5's target GROUND-FLOOR AREA entry.
 //
@@ -1381,9 +1567,21 @@ export function buildTargetAreaEntryHtml(
     refused: boolean,
     currentTargetM2: number | null,
     adopt: { readonly statement: string | null; readonly failed: boolean } | null = null,
+    allocation: BrutAllocationModel | null = null,
 ): string {
     const span = _tracer.startSpan('pryzm.site.buildTargetAreaEntryHtml');
     try {
+        // §TOBE-ENVELOPE — the legend rides WITH this entry rather than living in its own card
+        // section, and that is a deliberate placement, not a shortcut: this is the control that
+        // PUTS a second envelope in the view, so the key to telling the two apart belongs at the
+        // moment the user creates the ambiguity. It takes no arguments and renders on every arm,
+        // including `no-footprint` — the permitted envelope may still be on screen there.
+        const legend = buildEnvelopeLegendHtml();
+        // §TOBE-ALLOCATION — `null` means the HOST did not supply an allocation model, which is a
+        // fact about this surface's wiring and NOT a finding that nothing is allocated. So the
+        // block is omitted entirely rather than rendered with zeros: an empty allocation table
+        // reading "0 m² allocated · 0 m² remaining" would be indistinguishable from a real one.
+        const allocationHtml = allocation === null ? '' : buildBrutAllocationHtml(allocation);
         const hasFootprint = permittedAreaM2 !== null && permittedAreaM2 > 0;
         span.setAttribute('pryzm.envelopeCard.targetAreaHasFootprint', hasFootprint);
         const state = !hasFootprint
@@ -1400,9 +1598,11 @@ export function buildTargetAreaEntryHtml(
 
         if (!hasFootprint) {
             // The honest unreachable arm. Saying WHY beats offering a box that can only ever say no.
-            return head
+            return legend
+                + head
                 + `<div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;">PRYZM has not solved a buildable footprint for this parcel, so there is nothing to fit a target area inside. A target only means something measured against a permitted footprint.</div>
-                 </div>`;
+                 </div>`
+                + allocationHtml;
         }
 
         const valueAttr = currentTargetM2 !== null && Number.isFinite(currentTargetM2)
@@ -1440,7 +1640,8 @@ export function buildTargetAreaEntryHtml(
                     + `padding:4px 6px;border-radius:0 5px 5px 0;">${escHtml(adopt.statement)}</div>`)
               + `</div>`;
 
-        return head
+        return legend
+            + head
             + `<div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;">PRYZM will set a plate of that size inside the permitted footprint (${escHtml(permittedAreaM2.toFixed(0))} m²) and tell you what it actually achieved. A STUDY of what fits — not a permit.</div>
              <div style="display:flex;gap:6px;margin-top:6px;align-items:flex-end;">
                <div style="flex:1;min-width:0;">
@@ -1458,7 +1659,8 @@ export function buildTargetAreaEntryHtml(
              </div>
              ${statusHtml}
              ${adoptHtml}
-           </div>`;
+           </div>`
+            + allocationHtml;
     } finally {
         span.end();
     }

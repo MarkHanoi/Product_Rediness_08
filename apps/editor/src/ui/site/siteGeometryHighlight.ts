@@ -267,6 +267,146 @@ export function __resetSiteHighlightForTests(): void {
     listeners.clear();
 }
 
+// -----------------------------------------------------------------------------
+// §SITE-HIGHLIGHT-REACH (STR §25.1 · RESI-ORCHESTRATOR-PLAN Stage C) — WHERE the
+// emphasis actually lands, MEASURED rather than asserted
+// -----------------------------------------------------------------------------
+//
+// ⛔ THE DEFECT THIS CLOSES, AND IT IS THIS MODULE'S OWN RULE FAILING ONE LEVEL UP.
+// The header already forbids the dead click: "A ROW WITH NO GEOMETRY TO POINT AT MUST RENDER AS
+// UN-CLICKABLE, WITH ITS REASON". `describeSiteHighlightAvailability` enforces that for the
+// question *does the geometry exist?* — and answers nothing at all about the question the founder
+// actually hits: *can the view I am looking at DRAW it?*
+//
+// MEASURED 2026-09-06: exactly ONE surface subscribes. `subscribeSiteHighlight` has three
+// non-test callers' worth of reach and only `ParcelBoundarySceneRenderer` is a renderer; it is
+// constructed exactly once (`apps/editor/src/engine/initScene.ts:4736`) into `world.scene.three`
+// — the BIM scene. `CesiumViewport.ts` and `SiteBoundaryMap2D.ts` import this module ZERO times;
+// Cesium receives the envelope as a plain render input and holds no subscription. The Parcel Law
+// tab offers FOUR views (`viewSegmentSwitcher.ts`: Plan · BIM 3D · 3D Site · 3D Globe), so in
+// THREE of them a click on "Area" repaints the row's ◉ and changes nothing on screen.
+//
+// A pressed button whose effect is invisible is worse than an un-pressable one: the row asserts
+// that something happened. That is the same §CONTEXT-DATA-HONESTY conflation the header names,
+// one level up — "not drawn in this view" and "broken" rendering as one value.
+//
+// ⭐ WHY A REGISTRY AND NOT A CONSTANT. A hard-coded sentence naming "the BIM 3D view" would be
+// an ASSERTION, and it would rot the first time a lane wires Cesium — silently, because nothing
+// would fail. So each renderer DECLARES itself as it subscribes, and the sentence is derived from
+// who actually did. Wire a second surface and the affordance updates itself; wire none (the scene
+// never initialised in this session) and the row says THAT instead of naming a view the user
+// cannot reach. The claim can only ever be as true as the wiring.
+//
+// ⚠ AND AN EMPTY REGISTRY IS `unreported`, NEVER `none` — see `SiteHighlightReach.status`. A
+// renderer can subscribe WITHOUT registering (that is the world that existed before this
+// registry, and it is the state of any renderer a future lane has not yet declared), so an
+// absence of declarations is a gap in PRYZM's reporting and not a finding that the click is
+// dead. The two must not print the same sentence (C84 EI-1b).
+//
+// ⛔ THIS IS NOT A SECOND SUBSCRIBER LIST. `listeners` is the notification channel and stays
+// anonymous — a card that repaints its own pressed state subscribes too and is NOT a surface that
+// draws geometry. Counting `listeners` to answer "where will this show?" would report the panel
+// as a viewport, which is the [[fake-more-capable-than-real]] shape.
+
+/** Registered surfaces: opaque id -> the user's word for the view it draws into. */
+const drawSurfaces = new Map<string, string>();
+
+/**
+ * A renderer DECLARES that it subscribes AND draws the emphasis. Call it beside the
+ * `subscribeSiteHighlight` call it describes, and dispose the returned function with it — a
+ * registration that outlives its subscription would name a view that no longer repaints.
+ *
+ * @param id        stable, unique per renderer (last registration for an id wins, so a
+ *                  hot-reloaded renderer replaces its own row instead of duplicating it)
+ * @param viewLabel THE USER'S word for the view, matching the view switcher's own label. Not a
+ *                  class name: this string is shown to the founder.
+ */
+export function registerSiteHighlightSurface(id: string, viewLabel: string): () => void {
+    drawSurfaces.set(id, viewLabel);
+    return () => {
+        drawSurfaces.delete(id);
+    };
+}
+
+/** The view labels that can currently draw an emphasis, in registration order. */
+export function getSiteHighlightSurfaces(): readonly string[] {
+    return Object.freeze([...drawSurfaces.values()]);
+}
+
+/** Where a click will be visible, and the sentence that says so. */
+export interface SiteHighlightReach {
+    /** The user's word for each view that DECLARED it draws the emphasis. */
+    readonly surfaces: readonly string[];
+    /**
+     * ⛔ `unreported` IS NOT `none`, AND CONFLATING THEM WOULD BE THIS MODULE'S OWN DEFECT.
+     *
+     * An empty registry means no renderer has DECLARED itself in this session. It does NOT
+     * establish that nothing draws the emphasis — a renderer can subscribe without registering,
+     * which is precisely the world that existed before this registry, and the scene may simply not
+     * have initialised yet. Printing "nothing will happen" from an absence of reporting asserts a
+     * fact about the product that the registry cannot support, and it would be WRONG the moment it
+     * mattered most: on a card rendered a few frames before `initScene` runs.
+     *
+     * This is the rule `viewSegmentSwitcher.ts` already states for its own snapshot — *"UNREPORTED
+     * ≠ NOT CURRENT … a gap in the AUTHORITY, not a judgement that the view is off, and the two
+     * must not print the same thing (C84 EI-1b)"* — applied to the same class of question, and it
+     * is copied rather than re-derived.
+     */
+    readonly status: 'named' | 'unreported';
+    /**
+     * Always a full sentence, on BOTH arms — the same rule
+     * `SiteHighlightAvailability.reason` follows, for the same reason.
+     */
+    readonly sentence: string;
+}
+
+/**
+ * THE reach decision. Pure over the registry; total; never throws.
+ *
+ * ⚠ Neither arm blames the parcel. The `unreported` sentence says the gap is in PRYZM's own
+ * reporting; without that clause it reads as though the plot were the problem, which is the
+ * overstatement this whole card is written against (L-616).
+ */
+export function describeSiteHighlightReach(): SiteHighlightReach {
+    // P8 — the module's convention is a span on the DECISION functions (see
+    // `describeSiteHighlightAvailability`), not on the trivial store accessors beside them. This is
+    // a decision, and the attribute it records is the number the affordance prints.
+    const span = _tracer.startSpan('pryzm.site.describeSiteHighlightReach');
+    try {
+        const surfaces = getSiteHighlightSurfaces();
+        span.setAttribute('pryzm.siteHighlight.drawSurfaces', surfaces.length);
+        if (surfaces.length === 0) {
+            return Object.freeze({
+                surfaces,
+                status: 'unreported' as const,
+                sentence:
+                    'No view has declared that it draws this emphasis in this session, so PRYZM '
+                    + 'cannot tell you which one to look at. That is a gap in PRYZM’s own '
+                    + 'reporting — not a finding about this parcel — so if the click appears to do '
+                    + 'nothing, try another view.',
+            });
+        }
+        const named = surfaces.length === 1
+            ? surfaces[0]!
+            : `${surfaces.slice(0, -1).join(', ')} and ${surfaces[surfaces.length - 1]!}`;
+        return Object.freeze({
+            surfaces,
+            status: 'named' as const,
+            sentence:
+                `Shown in the ${named} view${surfaces.length > 1 ? 's' : ''}. The other site views do `
+                + 'not draw this emphasis yet, so switch views if nothing changes.',
+        });
+    } finally {
+        span.end();
+    }
+}
+
+/** Test-only reset for the surface registry. Separate from the subject reset on purpose:
+ *  a spec about WHERE an emphasis lands must not have to clear WHICH one is active. */
+export function __resetSiteHighlightSurfacesForTests(): void {
+    drawSurfaces.clear();
+}
+
 // ── §C13-CANDIDATE-OWNERS (ADR-0298 §3, lane CI-GREEN/ISO) — project-switch owner ──
 //
 // The header already says an emphasis is "a momentary act of reading, not a preference"

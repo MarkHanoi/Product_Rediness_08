@@ -26,6 +26,34 @@ export interface NeighbourFootprint {
     readonly ring: ReadonlyArray<readonly [number, number]>;
     /** OSM id (debug / dedupe), if known. */
     readonly osmId?: number;
+    /**
+     * §RESI-ORCH-MASSING-SHAPES (lane PL-MASSING-OPTIONS, 2026-09-06) — the neighbour's HEIGHT in
+     * metres, as `contextBuildings.ts` resolved it, or `undefined` when that collection carried
+     * none.
+     *
+     * ⭐ WHY IT IS ADDED HERE RATHER THAN RE-FETCHED. This store is handed the WHOLE
+     * `ContextBuildingCollection` — the same object that carries `properties.heightM` and its
+     * provenance — and was reading only the ring out of it. So every consumer downstream of this
+     * bridge (party-wall detection, and now the massing-option engine's SUN and OVERLOOKING axes)
+     * was structurally unable to see a height that had already been fetched, resolved and
+     * provenance-tagged upstream. That is the [[authored-but-unwired]] shape at a one-field scale:
+     * the data existed, the bridge dropped it, and the only visible symptom was a downstream
+     * feature that could not be built. ⛔ NO WRITER CHANGED — `setNeighbourFootprints` reads two
+     * more properties off the collection it was already given, so `CesiumViewport` and
+     * `SiteBoundaryMap2D` are untouched.
+     *
+     * ⛔ `undefined` MEANS UNKNOWN AND MUST NOT BE DEFAULTED. A consumer that substitutes 9 m makes
+     * an assumption indistinguishable from a measurement (L-616, and the exact 9 m fallback
+     * §L-8705 records). Exclude it and COUNT the exclusion instead.
+     */
+    readonly heightM?: number;
+    /**
+     * How that height was known — `contextBuildings.ContextHeightProvenance`, carried verbatim as a
+     * string so this store keeps NO type dependency on the GIS module (see `CollectionLike`).
+     * `'assumed'` is a real value there and consumers may want to drop it; that judgement belongs
+     * to the consumer, so it is passed through rather than filtered here.
+     */
+    readonly heightProvenance?: string;
 }
 
 /** The latest captured neighbour footprints + the lat/lon they were fetched around. */
@@ -49,7 +77,13 @@ let _snapshot: NeighbourFootprintSnapshot | null = null;
 interface CollectionLike {
     readonly features?: ReadonlyArray<{
         readonly geometry?: { readonly coordinates?: unknown };
-        readonly properties?: { readonly osmId?: unknown };
+        readonly properties?: {
+            readonly osmId?: unknown;
+            /** `ContextBuildingFeature.properties.heightM` — structural, no import (see below). */
+            readonly heightM?: unknown;
+            /** `ContextBuildingFeature.properties.heightProvenance` (`ContextHeightProvenance`). */
+            readonly heightProvenance?: unknown;
+        };
     }>;
 }
 
@@ -89,11 +123,20 @@ export function setNeighbourFootprints(
             }
             if (ring.length < 3) continue;
             const osmIdRaw = f?.properties?.osmId;
-            footprints.push(
-                typeof osmIdRaw === 'number'
-                    ? { ring, osmId: osmIdRaw }
-                    : { ring },
-            );
+            // §RESI-ORCH-MASSING-SHAPES — the height and its provenance, read off the collection
+            // this store was ALREADY handed. ⛔ A non-finite or non-positive height is OMITTED, not
+            // coerced: the field's absence is the honest "unknown", and a 0 would read downstream
+            // as a measured ground-level building.
+            const heightRaw = f?.properties?.heightM;
+            const provRaw = f?.properties?.heightProvenance;
+            footprints.push({
+                ring,
+                ...(typeof osmIdRaw === 'number' ? { osmId: osmIdRaw } : {}),
+                ...(typeof heightRaw === 'number' && Number.isFinite(heightRaw) && heightRaw > 0
+                    ? { heightM: heightRaw }
+                    : {}),
+                ...(typeof provRaw === 'string' && provRaw !== '' ? { heightProvenance: provRaw } : {}),
+            });
         }
         _snapshot = { fetchLat, fetchLon, footprints };
     } catch {

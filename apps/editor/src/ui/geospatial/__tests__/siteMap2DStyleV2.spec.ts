@@ -115,6 +115,15 @@ describe('§MAP2D-PASTEL — layer order (bottom → top)', () => {
     it('is exactly the documented stack', () => {
         expect(ids).toEqual([
             PASTEL_LAYERS.background,
+            // §MAP2D-WORLD-AT-LOW-ZOOM (L-12951) — the far-out tier, added AFTER this spec was
+            // written. Zooming out used to reach a flat colour once the detailed layers gated
+            // themselves off ("CANT ZOOM OUT AND SEE THE COUNTRIES FROM FAR … IT GOES GREY").
+            // These four sit directly on the background, BELOW everything detailed, each stopping
+            // at the zoom where its detailed counterpart begins so nothing double-draws.
+            'pastel-world-water',
+            'pastel-world-landuse',
+            'pastel-world-roads',
+            'pastel-world-places',
             PASTEL_LAYERS.landuseBase,
             PASTEL_LAYERS.landuseCtx,
             PASTEL_LAYERS.parksBase,
@@ -242,11 +251,24 @@ describe('§MAP2D-PASTEL — zoom gates (STR §4 M1)', () => {
         expect(byId(PASTEL_LAYERS.placeLabel)['minzoom']).toBe(PASTEL_ZOOM.labels);
     });
 
-    it('leaves NO layer but the background ungated — an ungated layer tiles at world zoom', () => {
+    it('leaves NO layer but the background and the WORLD tier ungated — an ungated detailed layer tiles at world zoom', () => {
+        // §MAP2D-WORLD-AT-LOW-ZOOM (L-12951). The original rule — "everything except the background
+        // carries a minzoom" — is what MADE the map go grey when the founder zoomed out: gate every
+        // layer and there is nothing left to draw at z0–4 but the background fill. The world tier is
+        // the deliberate exception and is ungated BY DESIGN; what bounds it is a MAXZOOM at the point
+        // its detailed counterpart takes over. So the invariant is not "no ungated layer", it is
+        // "every ungated layer is world-tier, and every world-tier layer is bounded above".
+        const WORLD_TIER = ['pastel-world-water', 'pastel-world-landuse', 'pastel-world-roads', 'pastel-world-places'];
         const ungated = layers
             .filter((l) => l['type'] !== 'background' && l['minzoom'] === undefined)
             .map((l) => String(l['id']));
-        expect(ungated).toEqual([]);
+        expect([...ungated].sort()).toEqual([...WORLD_TIER].sort());
+
+        // The other half of the bargain: an ungated layer with no ceiling WOULD double-draw under
+        // the detailed stack at city zoom, which is the defect this exception could otherwise cause.
+        for (const id of WORLD_TIER) {
+            expect(typeof byId(id)['maxzoom']).toBe('number');
+        }
     });
 });
 
