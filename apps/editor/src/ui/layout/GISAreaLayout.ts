@@ -6208,7 +6208,76 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  A no-op before any mount (and after an unmount) so the window hook is always safe. */
     let fadeInSiteAuthoringPanes: () => void = () => { /* nothing mounted */ };
 
+    /**
+     * §ONBOARDING-IS-FULL-BLEED (L-13000) — has the model COMMITTED a Site yet?
+     *
+     * ⭐ WHY SITE-EXISTS AND NOT "the location is a real lat/lon". Both onboarding
+     * paths that legitimately need the split commit a Site immediately before asking
+     * for it, and they commit DIFFERENT things:
+     *   · the §22 reveal → `dispatchSiteLocation()` — a real geocoded location;
+     *   · "Draw it on the map" with no location → `startDrawThenGenerate()` →
+     *     `ensureSite()`, which seeds `{0, 0}` on purpose (`siteDispatch.ts`: *"supply
+     *     a 0/0 location when the caller has none yet"*).
+     * A lat/lon test would have to either accept the 0/0 sentinel — in which case it
+     * is not testing a location at all — or refuse the second path and leave the user
+     * on the drawing step with no map, which is L-10721 all over again. The Site's
+     * EXISTENCE is the fact both paths share, and it is exactly what the location step
+     * has not yet produced: nothing in `renderLocationStep()` creates one.
+     *
+     * Reads `siteModelStore` directly rather than `getSiteOrigin()`, which also falls
+     * back to `lastGeocodeFrame` and to the frozen LTP origin — neither of which is a
+     * statement about the model.
+     */
+    const siteCommittedInModel = (): boolean => {
+        const store = runtime?.siteModelStore as
+            | { getSite?: () => { id?: string } | null }
+            | undefined;
+        return (store?.getSite?.() ?? null) !== null;
+    };
+
     const mountSiteAuthoringPanes = (preset: PaneLayoutPreset = 'site-authoring'): void => {
+        // ════════════════════════════════════════════════════════════════════
+        // §ONBOARDING-IS-FULL-BLEED (L-13000, founder 2026-09-06 with two screenshots)
+        // — THE SPLIT MAY NOT EXIST WHILE THE ONBOARDING GLOBE STILL OWNS THE SCREEN.
+        //
+        // THE DEFECT. His console, in order: `starting guided flow (location →
+        // draw-or-skip → generate)` → `location-step:open` → … → `§L-412
+        // site-authoring split mounted — LEFT 2D map · RIGHT live 3D Site` →
+        // `reparentContainerTo #pryzm-pane-right` → `resize — canvas 277x976`. The
+        // split reserved the right half for a 3D Site pane with nothing to paint,
+        // while the onboarding globe — a FULL-BLEED surface, not a pane — kept the
+        // left. One session's canvas walked `1019 → 557 → 277 → 280 → 346 → 374` and
+        // twice reached `canvas 0x0, container 0x0`.
+        //
+        // ⛔ WHY THIS IS A SKIP-MOUNT AND NOT A `display: none`. A mounted shell still
+        // re-targets the SINGLE Cesium container (§L-412 `reparentContainerTo`) and
+        // still drives the resize cascade, so a paint-only fix would leave every
+        // measurement above exactly where it was. The pane must not EXIST at this
+        // phase — the same strong form of absence `mountSiteViewLauncher()` already
+        // uses for the launcher rail (§UX1-PANEL-DEFAULTS D6).
+        //
+        // ⭐ THE PREDICATE IS THE EXISTING ONE, NARROWED BY THE FOUNDER'S OWN WORDING
+        // (*"the split mounts when the flow reaches the step that actually needs it —
+        // a committed location"*). `appPhase()` ALONE IS TOO COARSE HERE and would
+        // break the §22 zoom-then-split reveal, which mounts DURING the guided flow
+        // by design — the founder's own choreography (*"the full-screen globe owns the
+        // whole screen for the ENTIRE flight"*). The reveal cannot be caught by this
+        // gate, and not by luck: `runSiteRevealSequence`'s order is CONTRACTUAL and
+        // asserted — seed-frame → ANCHOR-SITE-LOCATION → arm-listener → mount-split —
+        // so the Site exists by step 4. Same for the draw step, whose `ensureSite()`
+        // runs before its mount. A caller reaching the mount BEFORE either (the
+        // location step itself, a stray view switch, a recover-draw-surface retry
+        // before the anchor) is refused, and says why.
+        // ════════════════════════════════════════════════════════════════════
+        if (appPhase() === 'onboarding-globe' && !siteCommittedInModel()) {
+            console.log(
+                '[gis][panes] §L-412 site-authoring split NOT mounted — the phase is the onboarding '
+                + 'globe and the model has no Site yet, so the globe keeps the FULL screen '
+                + '(§ONBOARDING-IS-FULL-BLEED, L-13000). The split mounts at the §22 reveal / the '
+                + 'draw step, both of which commit the Site first.',
+            );
+            return;
+        }
         if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
             // §PANE-DEFAULT-IS-PLAN-LEFT (L-12988) — already up. Do NOT re-mount (that would
             // tear down a live Cesium + map to rebuild the same two), and do NOT silently

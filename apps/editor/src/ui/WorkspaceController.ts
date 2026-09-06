@@ -48,10 +48,29 @@ import {
 import { publishShellCanvasRegion } from './layout/shellCanvasBudget';
 // §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915) — the pure rule; this file performs it.
 import { decideSplitViewForCanvas } from './platform/halfCanvasSplitViewPolicy';
+// §ONBOARDING-IS-FULL-BLEED (L-13000) — the SAME phase predicate the launcher rail
+// already asks (`panelAbsent('launcher-rail')` → §UX1-PANEL-DEFAULTS D6). This file
+// asks it too rather than minting a second "are we in onboarding?" signal.
+import { appPhase, onAppPhaseChanged, type AppPhase } from './layout/panelDefaults';
 
 export type { WorkspaceMode };
 
 const LS_KEY = 'pryzm-workspace-mode';
+
+/**
+ * §ONBOARDING-IS-FULL-BLEED (L-13000) — the mode the guided onboarding globe runs in.
+ *
+ * The globe is a FULL-BLEED surface parented into `#container`, so any mode whose
+ * `canvas` is `'half'` slices it in two and hands the other half to a dashboard about
+ * a project that has no parcel, no boundary and no elements. `'author'` is the one
+ * mode that declares `canvas: 'full'` AND keeps the authoring affordances the founder
+ * asked for by name (*"THE VIEW IS ALWAYS IN 'AUTHOR' FULL VIEW WITH THE EARTH"*).
+ *
+ * Named once, and `_mode` initialises FROM it, so the boot default and the onboarding
+ * default cannot drift apart — this replaces a literal rather than adding one
+ * (§WORKSPACE-MODE-REGISTRY's ⛔ above).
+ */
+const ONBOARDING_GLOBE_MODE: WorkspaceMode = 'author';
 // F.events.6 — dispatch migrated to runtime.events; EVENT const retired.
 
 /**
@@ -93,7 +112,20 @@ const LENS_DEFS = [
 type LensId = typeof LENS_DEFS[number]['id'];
 
 export class WorkspaceController {
-  private _mode: WorkspaceMode = 'author';
+  private _mode: WorkspaceMode = ONBOARDING_GLOBE_MODE;
+  /**
+   * §ONBOARDING-IS-FULL-BLEED (L-13000) — the persisted mode, HELD because the
+   * guided onboarding globe owns the screen. `null` when nothing is held.
+   *
+   * ⛔ HELD, NEVER DISCARDED. Removing mode persistence would be the wrong fix:
+   * restoring the last mode on a project that HAS content is correct and wanted.
+   * The defect is applying it to a project that is still being located — so the
+   * value waits here and is applied the moment the canvas phase is declared
+   * (`OnboardingStepController.dispose()` / `declarePhaseForProjectOpen()`).
+   */
+  private _modeHeldForOnboarding: WorkspaceMode | null = null;
+  /** Disposer for the phase subscription opened in the constructor. */
+  private _unsubPhase: (() => void) | null = null;
   /**
    * §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915) — did THIS controller close the
    * split-view pane? Only a pane the shell closed may be reopened by the shell.
@@ -115,6 +147,15 @@ export class WorkspaceController {
 
   constructor() {
     this._attachKeyboardShortcuts();
+    // §ONBOARDING-IS-FULL-BLEED (L-13000) — subscribe ONCE, at construction, because
+    // the phase can flip in either direction after `restoreFromStorage()` has run:
+    // `resetAppPhaseForNewProject()` re-arms the globe for a SECOND project created in
+    // the same session, and `dispose()`/`declarePhaseForProjectOpen()` declare the
+    // canvas. A controller that read the phase only at restore time would be correct
+    // only if it happened to be built after the phase settled — the null-at-mount race
+    // this codebase has already paid for (`panelDefaults.ts` → `onAppPhaseChanged`).
+    // `panelDefaults` is a leaf module with no imports, so this cannot cycle.
+    this._unsubPhase = onAppPhaseChanged((phase) => this._onAppPhaseChanged(phase));
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -145,18 +186,123 @@ export class WorkspaceController {
     // would otherwise put the shell into a mode nothing lays out.
     const raw = localStorage.getItem(LS_KEY);
     const saved = isWorkspaceMode(raw) ? raw : null;
-    if (saved && saved !== this._mode) {
-      this._mode = saved;
-      this._applyLayout();
-      window.runtime?.events?.emit('pryzm-workspace-mode', { mode: this._mode }); // F.events.6
-      console.log(`[WorkspaceController] Restored mode → ${this._mode}`);
+    if (!saved) return;
+    // ══════════════════════════════════════════════════════════════════════════
+    // §ONBOARDING-IS-FULL-BLEED (L-13000) — DO NOT RESTORE A MODE OVER THE
+    // ONBOARDING GLOBE.
+    //
+    // THE DEFECT (founder 2026-09-06, two screenshots): at "STEP 1 OF 4 ·
+    // LOCATION" this line logged `Restored mode → analysis` on a BRAND-NEW empty
+    // project and `_applyLayout()` set `#container.style.width = '50%'` — so the
+    // full-bleed onboarding globe was squeezed into the left half and an Analysis
+    // dashboard about a project with no parcel, no boundary and no elements took
+    // the right. His own words: *"pLEASE MAKE SURE AT THIS STAGE THE VIEW IS
+    // ALWAYS IN 'AUTHOR' FULL VIEW WITH THE EARTH"*.
+    //
+    // The half-canvas write is not the only consequence. `decideSplitViewForCanvas`
+    // then CLAIMS the split-view pane (`close`, `closedByShell: true`) and reopens
+    // it on the next full-canvas mode — which is the blank light-lavender rectangle
+    // of the SECOND screenshot (*"eVEN IN AUTHOR - THE RIGHT HAND SIDE IS
+    // CORRUPTED"*): an empty `.svp-pane` at `right: 0; width: 40%`, reopened by a
+    // claim that was only ever taken because a stale mode was restored.
+    //
+    // ⭐ THE PREDICATE IS NOT NEW. `panelDefaults`' `AppPhase` already means exactly
+    // "is there a BIM canvas yet, or is the user still in the guided globe flow",
+    // it is already declared by the flow's own brackets (`start()` →
+    // `resetAppPhaseForNewProject()`, `dispose()` → `setAppPhase('canvas')`), and
+    // it is what the launcher rail already asks before it declines to mount
+    // (§UX1-PANEL-DEFAULTS D6). This asks the SAME question rather than minting a
+    // second onboarding state, exactly as §ONBOARDING-STEP-PINS-ITS-SURFACE
+    // (L-10720) did for the pane layout.
+    //
+    // ⛔ HELD, NOT DROPPED. Persistence is correct and wanted for a project that
+    // has content; `_onAppPhaseChanged` applies the held value the moment the
+    // canvas is declared, so the feature survives intact.
+    // ══════════════════════════════════════════════════════════════════════════
+    if (appPhase() === 'onboarding-globe') {
+      this._modeHeldForOnboarding = saved;
+      console.log(
+        `[WorkspaceController] §ONBOARDING-IS-FULL-BLEED — mode "${saved}" HELD, not restored: `
+        + 'the phase is the onboarding globe, which owns the whole screen. It is applied when '
+        + 'the canvas phase is declared (L-13000).',
+      );
+      this._applyOnboardingFullBleed();
+      return;
     }
+    this._applyRestoredMode(saved);
+  }
+
+  /**
+   * Apply a mode that came from STORAGE (not from a user gesture), without
+   * re-persisting it. Shared by `restoreFromStorage()` and the held-mode release in
+   * `_onAppPhaseChanged()` so the two cannot drift.
+   */
+  private _applyRestoredMode(mode: WorkspaceMode): void {
+    if (mode === this._mode) return;
+    const previous = this._mode;
+    this._mode = mode;
+    if (previous === 'inspect') this._teardownInspectHUDs();
+    this._applyLayout();
+    window.runtime?.events?.emit('pryzm-workspace-mode', { mode: this._mode }); // F.events.6
+    console.log(`[WorkspaceController] Restored mode → ${this._mode}`);
+  }
+
+  /**
+   * §ONBOARDING-IS-FULL-BLEED (L-13000) — put the shell into the full-bleed author
+   * layout for the onboarding globe.
+   *
+   * ⛔ DELIBERATELY NOT `setMode()`: that writes `localStorage`, which would DESTROY
+   * the very preference this lane exists to preserve. The user's saved mode is only
+   * ever written by a user gesture.
+   */
+  private _applyOnboardingFullBleed(): void {
+    if (this._mode === ONBOARDING_GLOBE_MODE) return;
+    const previous = this._mode;
+    this._mode = ONBOARDING_GLOBE_MODE;
+    if (previous === 'inspect') this._teardownInspectHUDs();
+    this._applyLayout();
+    window.runtime?.events?.emit('pryzm-workspace-mode', { mode: this._mode }); // F.events.6
+    console.log(
+      `[WorkspaceController] §ONBOARDING-IS-FULL-BLEED — "${previous}" → "${this._mode}" for the `
+      + 'onboarding globe (full-bleed). The saved mode is untouched and returns with the canvas.',
+    );
+  }
+
+  /**
+   * §ONBOARDING-IS-FULL-BLEED (L-13000) — the phase is the driver, in BOTH directions.
+   *
+   *   · `'canvas'`          — the guided flow is over (or an existing project was
+   *                           opened): release whatever was held.
+   *   · `'onboarding-globe'`— a NEW guided setup started in a session that had already
+   *                           reached the canvas (`resetAppPhaseForNewProject()`).
+   *                           Without this arm the second project of a session would
+   *                           run its onboarding in whatever mode the first ended in —
+   *                           the identical defect, reached from the other side.
+   */
+  private _onAppPhaseChanged(phase: AppPhase): void {
+    if (phase === 'canvas') {
+      const held = this._modeHeldForOnboarding;
+      this._modeHeldForOnboarding = null;
+      if (!held) return;
+      console.log(`[WorkspaceController] canvas phase declared — releasing the held mode → ${held}.`);
+      this._applyRestoredMode(held);
+      return;
+    }
+    // Re-armed for a new guided setup. Hold the mode we are leaving (falling back to
+    // the persisted value) so the user's choice still comes back at `dispose()`.
+    const raw = localStorage.getItem(LS_KEY);
+    this._modeHeldForOnboarding = isWorkspaceMode(raw) ? raw : this._mode;
+    this._applyOnboardingFullBleed();
   }
 
   dispose(): void {
     if (this._keyListener) {
       document.removeEventListener('keydown', this._keyListener);
       this._keyListener = null;
+    }
+    if (this._unsubPhase) {
+      try { this._unsubPhase(); } catch { /* listener set already gone */ }
+      this._unsubPhase = null;
     }
     this._teardownInspectHUDs();
   }
