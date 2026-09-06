@@ -249,9 +249,15 @@ jobs:
           mkdir -p "$DEST"
           cp -R "$HOSTDIR/node_modules/." "$DEST/"
           # Fail LOUD here rather than inside the merge, where it would read as a coverage problem.
+          # ⛔ DO NOT `import('./bake.mjs')` TO CHECK THIS. bake.mjs calls `main()` UNCONDITIONALLY at
+          # module scope (bake.mjs:2384 — there is no `import.meta.url === process.argv[1]` guard), so
+          # importing it STARTS A BAKE. A first version of this step did exactly that and hung run
+          # 34037915741 for 49 minutes inside the publish job before it was cancelled.
+          # Import the LEAF the merge actually needs instead: proj4 is the package that was missing,
+          # and esCatastro.mjs is the module whose import of it broke the merge. Neither runs anything.
           ( cd "$GITHUB_WORKSPACE/tools/context-bake" \
-            && node --input-type=module -e "await import('./bake.mjs').then(()=>console.log('✓ bake.mjs module graph resolves from the merge host'))" ) \
-            || { echo "::error::bake.mjs still does not resolve — the merge would die before it could refuse-by-name."; exit 1; }
+            && node --input-type=module -e "const p=(await import('proj4')).default; const m=await import('./footprints/esCatastro.mjs'); if(typeof p!=='function'&&typeof p?.default!=='function') throw new Error('proj4 resolved but is not callable'); if(!m) throw new Error('esCatastro.mjs did not load'); console.log('✓ proj4 resolves and esCatastro.mjs loads from the merge host — the merge can reach bake.mjs tables')" ) \
+            || { echo "::error::proj4 / esCatastro.mjs still do not resolve — the merge would die before it could refuse-by-name."; exit 1; }
 
       - name: Merge (refuses BY NAME on any missing region / ambiguity / integrity gap)
         env:
