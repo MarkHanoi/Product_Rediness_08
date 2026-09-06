@@ -340,8 +340,10 @@ is already outside anything this repo has proven fits.**
 ⭐ **Do not dispatch a publish until the headroom is a reading.** `context-merge-publish.yml`'s
 disk-guard step now prints the surplus and `df -h / /mnt`, so one cheap run answers it.
 
-1. **`context-merge-publish.yml` · `layer=trees` · `expect=all` · `publish=false` ·
-   `allow_unknown_regions=true`** — ~10 min, 0.4 GiB downloaded, changes nothing on R2. **Read three
+1. **`context-merge-publish.yml` · `layer=trees` · `expect=all` · `engine=js` · `publish=false` ·
+   `allow_unknown_regions=true`** — 0.4 GiB downloaded, changes nothing on R2, and `engine=js` skips
+   the Docker toolchain build (`if: inputs.engine != 'js'`) that is the run's slowest step. The
+   disk-guard step runs BEFORE the merge, so it prints even though the merge then refuses. **Read three
    lines from the log:** the surplus, `/`'s free space, and whether **`/mnt`** exists and how big it
    is (GitHub-hosted Ubuntu carries a second volume there; moving staging + merged output onto it is
    the cheap ceiling raise, and it must be measured before it is coded). This run will also **refuse
