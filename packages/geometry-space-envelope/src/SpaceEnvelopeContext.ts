@@ -211,6 +211,229 @@ export function levelOrphanRefusal(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// THE OTHER HALF OF CONTAINMENT — §25.6: "editing the LEVEL makes the room
+// envelopes inside it ADAPT"
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ THIS DIRECTION WAS CODED AS ITS OPPOSITE, AND THAT IS WORTH STATING PLAINLY.
+// `levelOrphanRefusal` above turns *"this level move would strand a room"* into a
+// REFUSAL. The founder's §25.6 asks for the reverse: *"editing the LEVEL envelope
+// makes the room envelopes inside it ADAPT; a ROOM envelope is CONSTRAINED to the
+// level envelope."* Both sentences are about the same pair of prisms and they
+// prescribe opposite behaviours, so one of them had to be wrong for the level
+// SUBJECT — and it was the refusal.
+//
+// ⭐ THE REFUSAL IS NOT DELETED, IT IS DEMOTED TO THE FALLBACK. A room that CAN
+// follow the level follows it, inside the same gesture and the same undo entry; a
+// room that CANNOT (its face would collapse, or it has no face parallel to the one
+// that moved) still refuses by name with both numbers. Deleting the refusal outright
+// would let a level shrink through a room and leave the pair in the state C114 §12
+// exists to prevent — [[refusing-half-needs-its-escape-hatch]] read in the other
+// direction: the escape hatch is the adaptation, and the refusal is what remains when
+// the hatch does not open.
+//
+// ⚠ THE ASYMMETRY IS DELIBERATE AND IS NOT AN OMISSION: rooms follow a SHRINKING
+// level, and do NOT follow a growing one. The founder's own sentence says a room
+// *"may move freely inside"* its level, so a level that grows leaves its rooms where
+// the user put them. Auto-growing them would be PRYZM inventing an area the user
+// never asked for — the §25.2 arithmetic is the user's to allocate.
+
+/** Two unit vectors point the same way to within this. Numeric, not a dimension. */
+const PARALLEL_DOT_EPSILON = 1e-6;
+
+/**
+ * How far outside the new level plane a room face must sit before it is worth moving.
+ * ⚠ Read from the containment question's OWN band (`CONTAINMENT_TOLERANCE_M` = 0.01 in
+ * `@pryzm/site-parcel-data`, which `assessSpaceEnvelopeContainment` joins) divided by
+ * ten, so an adaptation is planned strictly BEFORE containment would complain. A larger
+ * value here would leave a room the gate then refuses — the preview promising what the
+ * commit declines, which is the one thing this file exists to prevent.
+ */
+const ADAPT_TRIGGER_M = 0.001;
+
+/** Signed distance of a point from the plane through `a` with unit outward normal `n`. */
+function signedDistanceToPlane(
+    p: EnvelopePoint,
+    a: EnvelopePoint,
+    n: { readonly x: number; readonly z: number },
+): number {
+    return (p.x - a.x) * n.x + (p.z - a.z) * n.z;
+}
+
+/**
+ * Bring ONE room back inside a level that has just moved — by moving the room's own
+ * faces, through the SAME planner every other move in this family goes through.
+ *
+ * The rule, stated once: **a room face adapts iff it is PARALLEL to the level face that
+ * moved and now sits outside it.** For a side move that is the room wall facing the same
+ * way as the storey wall that came in; for a cap move it is the room's own cap.
+ *
+ * ⛔ ONLY PARALLEL FACES ADAPT, AND THAT LIMIT IS DECLARED RATHER THAN HIDDEN. A level
+ * wall at 30° coming in through a room whose walls are all orthogonal has no face to
+ * push, so the room cannot follow and the move REFUSES naming it. Clipping the ring
+ * against the plane instead would author a vertex the user never drew and silently
+ * change the room's vertex count — a well-formed wrong answer of exactly the kind
+ * `SpaceEnvelopeMeshBuilder` refuses to produce for a concave cap.
+ *
+ * @returns the room's new geometry, or the typed C78 §8 reason it could not follow.
+ */
+export function adaptRoomToMovedLevel(
+    room: SpaceEnvelopePrism,
+    movedLevel: SpaceEnvelopePrism,
+    movedFace: SpaceEnvelopeFaceRef | null,
+    roomLabel?: string,
+): { readonly entry: SpaceEnvelopeFaceMoveEntry }
+    | { readonly reason: SpaceEnvelopeNeighbourUndeterminedReason; readonly detail: string } {
+    const label = roomLabel ?? `'${room.id}'`;
+    let current = room;
+    const adaptedFaces: SpaceEnvelopeFaceRef[] = [];
+    let lastDelta = 0;
+
+    // ── WHICH LEVEL EDGES PUSH? ───────────────────────────────────────────────
+    // ⭐ `null` MEANS "THE WHOLE RING MOVED", and it is not a convenience: the profile
+    // editor rewrites a level footprint wholesale, so there IS no single moved face to
+    // name. The two entry points therefore ask the same function one question — *"which
+    // of my walls now sits outside this storey?"* — and a `setFootprint` that adapted its
+    // rooms through a SECOND rule would be the rival answer C84 EI-9 rules out.
+    const lring = movedLevel.footprint;
+    const ln = lring.length;
+    const levelEdges: number[] = movedFace === null
+        ? lring.map((_, i) => i)
+        : movedFace.kind === 'side'
+            ? [movedFace.edgeIndex]
+            : [];
+
+    // ── HORIZONTAL: a level SIDE edge pushes a room wall parallel to it. ──────
+    for (const li of levelEdges) {
+        if (li < 0 || li >= ln) {
+            return { reason: 'GEOMETRY_UNPREDICTABLE', detail: `the level face index is out of range for ${label}.` };
+        }
+        const N = outwardNormal(lring, li);
+        const anchor = lring[li];
+        if (!N || !anchor) {
+            if (movedFace === null) continue; // a degenerate edge of a whole-ring edit is skipped, not fatal
+            return { reason: 'GEOMETRY_UNPREDICTABLE', detail: `the moved level face has no direction, so ${label} has nothing to follow.` };
+        }
+        // ⚠ The ring is walked against the CURRENT room, and each planned move is applied
+        // before the next is measured — the face-move planner re-intersects the two
+        // neighbouring lines, so a second face measured against a stale ring would be off
+        // by the first move's corner shift.
+        for (let j = 0; j < current.footprint.length; j += 1) {
+            const m = outwardNormal(current.footprint, j);
+            if (!m) continue;
+            if (m.x * N.x + m.z * N.z < 1 - PARALLEL_DOT_EPSILON) continue;
+            const c = current.footprint[j]!;
+            const d = current.footprint[(j + 1) % current.footprint.length]!;
+            const outside = Math.max(
+                signedDistanceToPlane(c, anchor, N),
+                signedDistanceToPlane(d, anchor, N),
+            );
+            if (outside <= ADAPT_TRIGGER_M) continue;
+            const face: SpaceEnvelopeFaceRef = { kind: 'side', edgeIndex: j };
+            const planned = planSpaceEnvelopeFaceMove({ prism: current, face, deltaM: -outside });
+            if ('refusal' in planned) {
+                return { reason: 'GEOMETRY_UNPREDICTABLE', detail: `${label} cannot follow: ${planned.refusal.message}` };
+            }
+            current = prismOf(planned.entry);
+            adaptedFaces.push(face);
+            lastDelta = -outside;
+        }
+    }
+
+    // ── VERTICAL: a cap move (or a side move on a prism that also overhangs). ──
+    const lv = prismVerticalExtent(movedLevel);
+    const above = prismVerticalExtent(current).topY - lv.topY;
+    if (above > ADAPT_TRIGGER_M) {
+        const planned = planSpaceEnvelopeFaceMove({ prism: current, face: { kind: 'top' }, deltaM: -above });
+        if ('refusal' in planned) {
+            return { reason: 'GEOMETRY_UNPREDICTABLE', detail: `${label} cannot follow the storey top: ${planned.refusal.message}` };
+        }
+        current = prismOf(planned.entry);
+        adaptedFaces.push({ kind: 'top' });
+        lastDelta = -above;
+    }
+    const below = lv.baseY - prismVerticalExtent(current).baseY;
+    if (below > ADAPT_TRIGGER_M) {
+        const planned = planSpaceEnvelopeFaceMove({ prism: current, face: { kind: 'bottom' }, deltaM: -below });
+        if ('refusal' in planned) {
+            return { reason: 'GEOMETRY_UNPREDICTABLE', detail: `${label} cannot follow the storey base: ${planned.refusal.message}` };
+        }
+        current = prismOf(planned.entry);
+        adaptedFaces.push({ kind: 'bottom' });
+        lastDelta = -below;
+    }
+
+    if (adaptedFaces.length === 0) {
+        // ⛔ NOT "it worked". The caller only asks for an adaptation when the room is
+        // ALREADY outside, so finding nothing to move means no face of this room is
+        // parallel to the one that came in — the declared limit above, reported by name
+        // rather than returning an unchanged prism that the containment check would then
+        // refuse with a less specific sentence.
+        return {
+            reason: 'RELATIONSHIP_NOT_RECORDED',
+            detail: `${label} has no face parallel to the `
+                + `${movedFace === null ? 'storey outline' : describeFaceRef(movedFace)} that moved, `
+                + 'so there is no single wall of it to push; move that room first, or edit its footprint.',
+        };
+    }
+
+    // ⭐ THE VERDICT IS THE CONTAINMENT QUESTION ITSELF, ASKED AGAIN — not a belief that
+    // the arithmetic above was sufficient (C84 EI-9.2: one containment test, and this
+    // planner does not get a private one).
+    const finding = assessSpaceEnvelopeContainment(current, movedLevel);
+    if (!finding.contained) {
+        return {
+            reason: 'GEOMETRY_UNPREDICTABLE',
+            detail: `${label} is still ${fmt(Math.max(finding.horizontalExcursionM, finding.verticalExcursionM))} `
+                + 'outside the storey after adapting every face of it that could follow.',
+        };
+    }
+
+    return {
+        entry: {
+            envelopeId: room.id,
+            face: adaptedFaces[0]!,
+            requestedDeltaM: lastDelta,
+            footprint: current.footprint,
+            baseOffset: current.baseOffset,
+            height: current.height,
+            adaptedFaces,
+        },
+    };
+}
+
+/**
+ * Every room of `rooms` that the moved level would strand, adapted — or the typed
+ * reason it could not be. `blocked` non-empty is what turns the level move back into
+ * `levelOrphanRefusal`'s territory.
+ */
+function adaptRoomsToMovedLevel(
+    movedLevel: SpaceEnvelopePrism,
+    movedFace: SpaceEnvelopeFaceRef,
+    rooms: readonly SpaceEnvelopeContextEntry[],
+): {
+        readonly adapted: readonly SpaceEnvelopeFaceMoveEntry[];
+        readonly blocked: readonly SpaceEnvelopeNeighbourUndetermined[];
+    } {
+    const adapted: SpaceEnvelopeFaceMoveEntry[] = [];
+    const blocked: SpaceEnvelopeNeighbourUndetermined[] = [];
+    for (const r of rooms) {
+        if (assessSpaceEnvelopeContainment(r.prism, movedLevel).contained) continue;
+        const out = adaptRoomToMovedLevel(r.prism, movedLevel, movedFace, labelOf(r, r.prism.id));
+        if ('entry' in out) adapted.push(out.entry);
+        else {
+            blocked.push({
+                envelopeId: r.prism.id,
+                face: movedFace,
+                reason: out.reason,
+                detail: out.detail,
+            });
+        }
+    }
+    return { adapted, blocked };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // THE CONTEXTUAL FACE-MOVE PLANNER
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -405,30 +628,60 @@ export function planSpaceEnvelopeFaceMoveInContext(
                 }
             }
 
-            // ── LEVEL: it may not strand a room declared within it. ─────────────
+            // ⭐ ONE `adapted` LIST FOR BOTH ADAPTATIONS — the rooms that followed a level
+            // and the sibling that shared a room's wall land in the same array, so the
+            // handler writes them in the SAME `produceCommand` and one gesture stays one
+            // Ctrl+Z however many prisms moved (C16 §8.6 B-6). A second list would be a
+            // second write and a second undo entry.
+            const adapted: SpaceEnvelopeFaceMoveEntry[] = [];
+            const undetermined: SpaceEnvelopeNeighbourUndetermined[] = [];
+
+            // ── LEVEL: its rooms ADAPT (§25.6); they refuse only when they cannot. ──
             if (subject.role === 'level') {
                 const rooms = world.filter((e) => e.withinId === subject.prism.id && e.role === 'room');
                 const orphan = firstOrphan(moved, rooms);
                 if (orphan) {
-                    const permitted = permittedDelta(
-                        subject.prism, face, deltaM,
-                        (m) => firstOrphan(m, rooms) === null,
-                    );
-                    span.setAttribute('spaceEnvelope.refused', 'level-orphans-room');
-                    return {
-                        refusal: refuse(
-                            'level-orphans-room', deltaM, permitted,
-                            `Moving ${describeFaceRef(face)} of ${labelOf(subject, subject.prism.id)} by `
-                            + `${fmt(deltaM)} would leave ${labelOf(orphan.room, orphan.room.prism.id)} `
-                            + `${fmt(orphan.excursionM)} outside it.`,
-                        ),
-                    };
+                    // ⭐ §25.6 — THE ROOMS FOLLOW FIRST, and the refusal is what is left
+                    // when one of them cannot. `adaptNeighbours: false` selects the strict
+                    // verdict instead: a caller that wants to know whether the level move
+                    // is legal ON ITS OWN — a pre-flight, an audit, the bisection below —
+                    // asks with adaptation off, and gets the same sentence it always did.
+                    const adaptation = (request.adaptNeighbours ?? true)
+                        ? adaptRoomsToMovedLevel(moved, face, rooms)
+                        : { adapted: [], blocked: [{
+                            envelopeId: orphan.room.prism.id, face,
+                            reason: 'UNSUPPORTED_ELEMENT_TYPE' as const,
+                            detail: 'adaptation was switched off by the caller',
+                        }] };
+                    if (adaptation.blocked.length > 0) {
+                        // ⚠ THE SECOND NUMBER IS BISECTED AGAINST THE ADAPTING PLANNER, not
+                        // against bare containment. Measuring the limit with adaptation OFF
+                        // would report a ceiling far tighter than the one the user actually
+                        // has, which is the "well-formed wrong answer" shape this family
+                        // keeps logging — the limit must be the limit of the behaviour that
+                        // is running ([[tolerance-from-measured-error-not-the-test]]).
+                        const permitted = permittedDelta(
+                            subject.prism, face, deltaM,
+                            (m) => (request.adaptNeighbours ?? true)
+                                ? adaptRoomsToMovedLevel(m, face, rooms).blocked.length === 0
+                                : firstOrphan(m, rooms) === null,
+                        );
+                        const first = adaptation.blocked[0]!;
+                        span.setAttribute('spaceEnvelope.refused', 'level-orphans-room');
+                        return {
+                            refusal: refuse(
+                                'level-orphans-room', deltaM, permitted,
+                                `Moving ${describeFaceRef(face)} of ${labelOf(subject, subject.prism.id)} by `
+                                + `${fmt(deltaM)} would leave ${labelOf(orphan.room, orphan.room.prism.id)} `
+                                + `${fmt(orphan.excursionM)} outside it, and it cannot follow — ${first.detail}`,
+                            ),
+                        };
+                    }
+                    adapted.push(...adaptation.adapted);
+                    span.setAttribute('spaceEnvelope.roomsAdapted', adaptation.adapted.length);
                 }
             }
-
             // ── NEIGHBOURS: the shared face moves with it (STR §11), or says why not (C78 §8). ──
-            const adapted: SpaceEnvelopeFaceMoveEntry[] = [];
-            const undetermined: SpaceEnvelopeNeighbourUndetermined[] = [];
             if ((request.adaptNeighbours ?? true) && subject.role === 'room' && face.kind === 'side') {
                 for (const shared of findSharedFaces(subject, face, world)) {
                     const other = byId.get(shared.envelopeId);

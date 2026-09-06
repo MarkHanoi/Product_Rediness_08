@@ -152,15 +152,39 @@ describe('the profile editor’s commit path — the ring the author drew is the
         expect(env.undoStack.size).toBe(1);
     });
 
-    it('⭐ a LEVEL footprint edit re-checks its rooms — the founder’s §12, at the editor’s commit', async () => {
+    it('⭐ §25.6 — a LEVEL footprint edit makes its rooms ADAPT, in the editor’s ONE commit', async () => {
+        // ⚠ THIS TEST ASSERTED A REFUSAL UNTIL 2026-09-06. The founder's §25.6 rules that
+        // *"editing the LEVEL envelope makes the room envelopes inside it ADAPT"*, and the
+        // level outline is edited by BOTH gestures — so the profile editor's commit owes
+        // the same behaviour as the face drag. The refusal is the FALLBACK, asserted below.
         const env = buildEnv();
         await seed(env);
         const frame = frameFor(env, LEVEL);
         // Pull the level's WEST edge (world x = 0) in to x = 3; the kitchen starts at x = 1.
         const edited = frame.ring.map((p, i) => (i === 0 || i === 3 ? { u: p.u + 3, v: p.v } : p));
+        await applyRing(env, LEVEL, frame, edited);
+        expect(env.spaceEnvelope.get(LEVEL)!.footprint[0]!.x).toBeCloseTo(3, 6);
+        // ⭐ THE KITCHEN FOLLOWED: its west wall moved 1 → 3, its east wall did not move.
+        const k = env.spaceEnvelope.get(ROOM)!;
+        expect(Math.min(...k.footprint.map((q) => q.x))).toBeCloseTo(3, 3);
+        expect(Math.max(...k.footprint.map((q) => q.x))).toBeCloseTo(5, 6);
+        expect(k.footprintAreaM2).toBeCloseTo(8, 3);   // 2 × 4, re-derived by the ONE writer
+        // ⭐ ONE gesture, ONE Ctrl+Z — the storey and the room in the same patch pair.
+        expect(env.undoStack.size).toBe(2);
+    });
+
+    it('⛔ … and still REFUSES when a room cannot follow, naming it and saying why', async () => {
+        const env = buildEnv();
+        await seed(env);
+        const frame = frameFor(env, LEVEL);
+        // Pull the WEST edge to x = 7, past the Kitchen's own east wall at x = 5: to follow,
+        // the room would have to invert, so it cannot, and the edit is declined.
+        const edited = frame.ring.map((p, i) => (i === 0 || i === 3 ? { u: p.u + 7, v: p.v } : p));
         await expect(applyRing(env, LEVEL, frame, edited))
-            .rejects.toThrow(/'Kitchen' would be left 2\.00 m outside 'Ground'/);
+            .rejects.toThrow(/'Kitchen'.*cannot follow/s);
+        // NEVER a partial write: neither the storey nor the room moved.
         expect(env.spaceEnvelope.get(LEVEL)!.footprint[0]!.x).toBeCloseTo(0, 12);
+        expect(env.spaceEnvelope.get(ROOM)!.footprintAreaM2).toBeCloseTo(16, 9);
         expect(env.undoStack.size).toBe(1);
     });
 

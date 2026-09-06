@@ -87,8 +87,26 @@ export {
     type SpaceEnvelopeFaceDragReading,
 } from './SpaceEnvelopeFaceDrag.js';
 
+// §25.6 gesture 1 (2026-09-06) — WHERE THE LITTLE ARROW SITS. Pure placement
+// arithmetic; the cones that realise it are L7 and are NOT imported here (P2).
+export {
+    GIZMO_HALF_LENGTH_FRACTION,
+    GIZMO_HEAD_FRACTION,
+    GIZMO_HEAD_RADIUS_FRACTION,
+    GIZMO_MAX_HALF_LENGTH_M,
+    GIZMO_MIN_HALF_LENGTH_M,
+    GIZMO_SHAFT_RADIUS_FRACTION,
+    GIZMO_STANDOFF_FACTOR,
+    spaceEnvelopeFaceExtentM,
+    spaceEnvelopeFaceHandle,
+    spaceEnvelopeFaceHandles,
+    type SpaceEnvelopeFaceHandle,
+    type SpaceEnvelopeFaceHandleOptions,
+} from './SpaceEnvelopeFaceGizmo.js';
+
 export {
     SPACE_ENVELOPE_COINCIDENT_M,
+    adaptRoomToMovedLevel,
     findSharedFaces,
     levelOrphanRefusal,
     planSpaceEnvelopeFaceMoveInContext,

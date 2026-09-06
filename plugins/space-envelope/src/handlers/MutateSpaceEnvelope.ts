@@ -26,7 +26,9 @@ import {
 } from '@pryzm/geometry-space-envelope';
 import type { SpaceEnvelopeData, SpaceEnvelopesState } from '../store.js';
 import { SpaceEnvelopeGeometryError } from '../errors.js';
-import { containmentRefusalFor, contextEntryOf, contextWorldOf } from './containmentGate.js';
+import {
+    containmentOutcomeFor, containmentRefusalFor, contextEntryOf, contextWorldOf,
+} from './containmentGate.js';
 
 type Stores = Readonly<{ spaceEnvelope: SpaceEnvelopesState } & Record<string, unknown>>;
 
@@ -302,8 +304,14 @@ implements CommandHandler<SetSpaceEnvelopeFootprintPayload, Stores> {
         let candidate: SpaceEnvelopeData;
         try { candidate = this._updated(current, cmd); }
         catch (e) { return { valid: false, reason: e instanceof Error ? e.message : String(e) }; }
-        const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, candidate);
-        if (refusal) return { valid: false, reason: refusal };
+        // ⭐ §25.6 (2026-09-06) — `containmentOutcomeFor`, NOT `containmentRefusalFor`.
+        // A ROOM ring is judged exactly as before; a LEVEL ring makes the rooms inside it
+        // ADAPT, and only refuses when one of them cannot follow. ⚠ The gate and the
+        // commit must ask the SAME question (C84 EI-9.2), so `execute` below calls the same
+        // function and writes what it returns — a `canExecute` that permitted an adaptation
+        // the commit did not perform would leave a room outside its storey in silence.
+        const outcome = containmentOutcomeFor(ctx.stores.spaceEnvelope, candidate);
+        if ('refusal' in outcome) return { valid: false, reason: outcome.refusal };
         return { valid: true };
     }
 
@@ -318,11 +326,26 @@ implements CommandHandler<SetSpaceEnvelopeFootprintPayload, Stores> {
         return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
             const current = ctx.stores.spaceEnvelope[cmd.spaceEnvelopeId]!;
             const updated = this._updated(current, cmd);
-            const refusal = containmentRefusalFor(ctx.stores.spaceEnvelope, updated);
-            if (refusal) throw new SpaceEnvelopeGeometryError(refusal);
+            const outcome = containmentOutcomeFor(ctx.stores.spaceEnvelope, updated);
+            if ('refusal' in outcome) throw new SpaceEnvelopeGeometryError(outcome.refusal);
+            // ⭐ §25.6 — THE ROOMS THAT FOLLOWED A LEVEL OUTLINE EDIT, written in the SAME
+            // patch pair as the level itself, so redrawing the storey and moving the four
+            // rooms inside it costs ONE Ctrl+Z (C16 §8.6 B-6). `withMetrics` re-derives each
+            // adapted room's cached area/volume, because C114 §2b makes this package the ONE
+            // writer of those fields and a stale area is a number the panel would show.
+            const adaptedRooms = outcome.adapted.map((a) => validated(withMetrics({
+                ...ctx.stores.spaceEnvelope[a.id]!,
+                footprint: a.footprint,
+                baseOffset: a.baseOffset,
+                height: a.height,
+            })));
             const [next, forward, inverse] = produceCommand<SpaceEnvelopesState>(
                 ctx.stores.spaceEnvelope,
-                (draft) => { (draft as Record<string, unknown>)[updated.id] = updated; },
+                (draft) => {
+                    const d = draft as Record<string, unknown>;
+                    d[updated.id] = updated;
+                    for (const r of adaptedRooms) d[r.id] = r;
+                },
             );
             return { forward, inverse, nextStates: { spaceEnvelope: next } };
         });

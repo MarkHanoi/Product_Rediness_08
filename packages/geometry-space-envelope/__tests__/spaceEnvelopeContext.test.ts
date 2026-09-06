@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     SPACE_ENVELOPE_COINCIDENT_M,
+    adaptRoomToMovedLevel,
     findSharedFaces,
     levelOrphanRefusal,
     planSpaceEnvelopeFaceMoveInContext,
@@ -115,14 +116,21 @@ describe('room ⊂ level — REFUSED, never clamped (STR §12)', () => {
     });
 });
 
-describe('level ⊇ rooms — a level face may not strand a room', () => {
+describe('level ⊇ rooms — ⭐ §25.6: THE ROOMS ADAPT; the refusal is the fallback', () => {
     const L = level('Ground', 0, 0, 10, 10);
     const R = room('Kitchen', 'Ground', 6, 0, 4, 4); // touches the level's x = 10 face
 
-    it('⛔ shrinking the level through the room refuses, naming the room, with both numbers', () => {
+    it('⛔ with adaptation OFF, shrinking the level through the room refuses, with both numbers', () => {
+        // ⚠ THIS ASSERTION IS THE PRE-§25.6 BEHAVIOUR, PRESERVED RATHER THAN DELETED.
+        // The founder's 2026-09-06 transmission asks for the rooms to ADAPT when the LEVEL
+        // is edited, which is the opposite verdict on the same pair of prisms — so the
+        // strict verdict moved behind `adaptNeighbours: false`, where a pre-flight or an
+        // audit can still ask for it. Every number below is the one this test measured
+        // before the change; nothing was re-derived to fit.
         // Level side face #1 is x = 10, outward +x; -3 pulls it to x = 7, through the Kitchen.
         const res = planSpaceEnvelopeFaceMoveInContext({
             subject: L, face: { kind: 'side', edgeIndex: 1 }, deltaM: -3, world: [L, R],
+            adaptNeighbours: false,
         });
         expect('refusal' in res).toBe(true);
         if (!('refusal' in res)) return;
@@ -138,11 +146,76 @@ describe('level ⊇ rooms — a level face may not strand a room', () => {
         expect(res.refusal.message).toMatch(/asks for -3\.00 m; the limit is/);
     });
 
+    it('⭐ §25.6 — THE SAME MOVE, adaptation ON: the Kitchen FOLLOWS the storey wall in', () => {
+        const res = planSpaceEnvelopeFaceMoveInContext({
+            subject: L, face: { kind: 'side', edgeIndex: 1 }, deltaM: -3, world: [L, R],
+        });
+        expect('plan' in res).toBe(true);
+        if (!('plan' in res)) return;
+        // The level is now x 0…7.
+        expect(Math.max(...res.plan.entry.footprint.map((p) => p.x))).toBeCloseTo(7, 6);
+        // ⭐ AND THE KITCHEN CAME WITH IT — one entry, in the SAME plan, so the handler
+        // writes both in one `produceCommand` and the gesture costs ONE Ctrl+Z.
+        expect(res.plan.adapted).toHaveLength(1);
+        const k = res.plan.adapted[0]!;
+        expect(k.envelopeId).toBe('Kitchen');
+        expect(Math.max(...k.footprint.map((p) => p.x))).toBeCloseTo(7, 3);
+        // ⚠ ONLY the face that had to move moved. The Kitchen's x = 6 wall is untouched,
+        // so the room was PUSHED, not scaled — scaling it would silently redistribute the
+        // area the user allocated (§25.2 is the user's arithmetic, not the solver's).
+        expect(Math.min(...k.footprint.map((p) => p.x))).toBeCloseTo(6, 6);
+        expect(k.adaptedFaces).toEqual([{ kind: 'side', edgeIndex: 1 }]);
+    });
+
+    it('⭐ §25.6 — a level TOP brought down pulls the room ceiling down with it', () => {
+        const tall = room('Loft', 'Ground', 1, 1, 3, 3); // 0…3 m, same as the level
+        const res = planSpaceEnvelopeFaceMoveInContext({
+            subject: L, face: { kind: 'top' }, deltaM: -0.6, world: [L, tall],
+        });
+        expect('plan' in res).toBe(true);
+        if (!('plan' in res)) return;
+        expect(res.plan.entry.height).toBeCloseTo(2.4, 6);
+        expect(res.plan.adapted).toHaveLength(1);
+        expect(res.plan.adapted[0]!.height).toBeCloseTo(2.4, 3);
+        expect(res.plan.adapted[0]!.adaptedFaces).toEqual([{ kind: 'top' }]);
+    });
+
+    it('⛔ THE REFUSAL SURVIVES where adaptation cannot save the room — both numbers, never clamped', () => {
+        // Pull the storey wall in past the room's FAR side: the Kitchen would have to
+        // collapse to nothing to follow, so it cannot, and the move refuses naming it.
+        const res = planSpaceEnvelopeFaceMoveInContext({
+            subject: L, face: { kind: 'side', edgeIndex: 1 }, deltaM: -5, world: [L, R],
+        });
+        expect('refusal' in res).toBe(true);
+        if (!('refusal' in res)) return;
+        expect(res.refusal.code).toBe('level-orphans-room');
+        expect(res.refusal.ground).toBe('INCUMBENT');
+        expect(res.refusal.requestedValue).toBe(-5);
+        expect(res.refusal.message).toMatch(/'Kitchen'/);
+        expect(res.refusal.message).toMatch(/cannot follow/);
+        // ⭐ THE SECOND NUMBER IS BISECTED AGAINST THE ADAPTING PLANNER, so it reports the
+        // limit of the behaviour that is actually running — far more headroom than the
+        // ≈0.01 m the strict verdict allows, and MEASURED rather than asserted.
+        expect(Math.abs(res.refusal.permittedValue)).toBeGreaterThan(3);
+        expect(Math.abs(res.refusal.permittedValue)).toBeLessThan(5);
+    });
+
     it('growing the level is always fine for its rooms', () => {
         const res = planSpaceEnvelopeFaceMoveInContext({
             subject: L, face: { kind: 'side', edgeIndex: 1 }, deltaM: 3, world: [L, R],
         });
         expect('plan' in res).toBe(true);
+    });
+
+    it('⚠ growing the level does NOT drag its rooms with it — a room "may move freely inside"', () => {
+        const res = planSpaceEnvelopeFaceMoveInContext({
+            subject: L, face: { kind: 'side', edgeIndex: 1 }, deltaM: 3, world: [L, R],
+        });
+        expect('plan' in res).toBe(true);
+        if (!('plan' in res)) return;
+        // ⛔ The asymmetry is DELIBERATE. Auto-growing the Kitchen would be PRYZM
+        // inventing floor area the user never allocated (§25.2).
+        expect(res.plan.adapted).toHaveLength(0);
     });
 
     it('levelOrphanRefusal reports the first stranded room', () => {
@@ -240,5 +313,69 @@ describe('neighbour adaptation — the shared face moves in the same plan (STR �
             subject: A, face: { kind: 'side', edgeIndex: 1 }, deltaM: 1, world: [L, A, B], adaptNeighbours: false,
         });
         expect('plan' in res && res.plan.adapted.length === 0).toBe(true);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// §25.6 — THE ADAPTATION ITSELF, asked directly rather than through the planner
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('adaptRoomToMovedLevel — which face of the room moves, and when none can', () => {
+    it('pushes ONLY the room wall parallel to the storey wall that came in', () => {
+        const shrunk = box('Ground', 0, 0, 7, 10);   // the level after its +x face moved to x = 7
+        const kitchen = box('Kitchen', 6, 0, 4, 4);  // x 6…10 — sticking 3 m out
+        const out = adaptRoomToMovedLevel(kitchen, shrunk, { kind: 'side', edgeIndex: 1 }, "'Kitchen'");
+        expect('entry' in out).toBe(true);
+        if (!('entry' in out)) return;
+        expect(out.entry.envelopeId).toBe('Kitchen');
+        expect(Math.max(...out.entry.footprint.map((p) => p.x))).toBeCloseTo(7, 3);
+        expect(Math.min(...out.entry.footprint.map((p) => p.x))).toBeCloseTo(6, 6);
+        // z is untouched: only the parallel face moved.
+        expect(Math.min(...out.entry.footprint.map((p) => p.z))).toBeCloseTo(0, 6);
+        expect(Math.max(...out.entry.footprint.map((p) => p.z))).toBeCloseTo(4, 6);
+    });
+
+    it('⛔ a room that would have to COLLAPSE to follow reports GEOMETRY_UNPREDICTABLE, by name', () => {
+        const shrunk = box('Ground', 0, 0, 5, 10);   // the wall came in past the room entirely
+        const kitchen = box('Kitchen', 6, 0, 4, 4);
+        const out = adaptRoomToMovedLevel(kitchen, shrunk, { kind: 'side', edgeIndex: 1 }, "'Kitchen'");
+        expect('reason' in out).toBe(true);
+        if (!('reason' in out)) return;
+        expect(out.reason).toBe('GEOMETRY_UNPREDICTABLE');
+        expect(out.detail).toMatch(/'Kitchen'/);
+    });
+
+    it('⛔ THE DECLARED LIMIT — no face parallel to the moved one means the room cannot be PUSHED', () => {
+        // A triangular room: none of its three walls faces +x, so there is no single wall
+        // to offset. Clipping the ring instead would author a vertex the user never drew.
+        const shrunk = box('Ground', 0, 0, 7, 10);
+        const tri = {
+            id: 'Nook',
+            footprint: [
+                { x: 5, y: 0, z: 0 },
+                { x: 9, y: 0, z: 3 },
+                { x: 5, y: 0, z: 6 },
+            ],
+            baseOffset: 0,
+            height: 3,
+        };
+        const out = adaptRoomToMovedLevel(tri, shrunk, { kind: 'side', edgeIndex: 1 }, "'Nook'");
+        expect('reason' in out).toBe(true);
+        if (!('reason' in out)) return;
+        expect(out.reason).toBe('RELATIONSHIP_NOT_RECORDED');
+        expect(out.detail).toMatch(/no face parallel to the side face #1/);
+    });
+
+    it('⭐ the verdict is the CONTAINMENT question re-asked, not a belief the arithmetic sufficed', () => {
+        // A room that overhangs in x AND rises above the storey: the x face and the top
+        // face both adapt, in one call, and the result is checked rather than assumed.
+        const shrunk = box('Ground', 0, 0, 7, 10, 2.5);
+        const loft = box('Loft', 6, 0, 4, 4, 3.2);
+        const out = adaptRoomToMovedLevel(loft, shrunk, { kind: 'side', edgeIndex: 1 }, "'Loft'");
+        expect('entry' in out).toBe(true);
+        if (!('entry' in out)) return;
+        expect(out.entry.adaptedFaces).toEqual([{ kind: 'side', edgeIndex: 1 }, { kind: 'top' }]);
+        expect(out.entry.height).toBeCloseTo(2.5, 3);
+        expect(Math.max(...out.entry.footprint.map((p) => p.x))).toBeCloseTo(7, 3);
     });
 });

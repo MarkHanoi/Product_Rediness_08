@@ -156,16 +156,44 @@ describe('moveFace — the founder’s face drag stays inside the level', () => 
         expect(env.spaceEnvelope.get(ROOM)!.footprintAreaM2).toBeCloseTo(40, 6);
     });
 
-    it('⛔ a LEVEL face pulled through a room refuses the same way, naming the room', async () => {
+    it('⭐ §25.6 — a LEVEL face pulled in makes the room inside it ADAPT, in ONE undo entry', async () => {
+        // ⚠ THIS TEST ASSERTED A REFUSAL UNTIL 2026-09-06 and now asserts an adaptation.
+        // The founder's §25.6 rules that editing the LEVEL makes its rooms follow, which is
+        // the opposite verdict on the same pair of prisms. The refusal is NOT gone — it is
+        // the fallback, asserted by the test below this one — and the strict verdict is
+        // still reachable through `adaptNeighbours: false` on the planner.
         const env = buildEnv();
         await seed(env);
-        // Level face #3 is x = 0 (edge (0,10)→(0,0)), outward -x; -2 pushes it to x = 2, through the Kitchen.
+        // Level face #3 is x = 0 (edge (0,10)→(0,0)), outward -x; -2 pushes it to x = 2,
+        // through the Kitchen — which follows rather than being orphaned.
+        await env.bus.executeCommand('spaceEnvelope.moveFace', {
+            spaceEnvelopeId: LEVEL, face: { kind: 'side', edgeIndex: 3 }, deltaM: -2,
+        });
+        // The storey is 8 × 10 now.
+        expect(env.spaceEnvelope.get(LEVEL)!.footprintAreaM2).toBeCloseTo(80, 6);
+        // ⭐ AND THE KITCHEN CAME WITH IT — x 2…4 instead of 0…4, so 2 × 4 = 8 m².
+        const k = env.spaceEnvelope.get(ROOM)!;
+        expect(Math.min(...k.footprint.map((p) => p.x))).toBeCloseTo(2, 3);
+        expect(Math.max(...k.footprint.map((p) => p.x))).toBeCloseTo(4, 6);
+        expect(k.footprintAreaM2).toBeCloseTo(8, 3);
+        // ⭐ ONE GESTURE, ONE Ctrl+Z — both records in the same `produceCommand` (C16 §8.6 B-6).
+        expect(env.undoStack.size).toBe(2);
+    });
+
+    it('⛔ THE REFUSAL SURVIVES — a level face pulled past the room it holds cannot be followed', async () => {
+        const env = buildEnv();
+        await seed(env);
+        // -9 puts the storey wall at x = 9, well past the Kitchen's far side at x = 4: to
+        // follow, the room would have to collapse to nothing, so the move refuses by name.
         await expect(
             env.bus.executeCommand('spaceEnvelope.moveFace', {
-                spaceEnvelopeId: LEVEL, face: { kind: 'side', edgeIndex: 3 }, deltaM: -2,
+                spaceEnvelopeId: LEVEL, face: { kind: 'side', edgeIndex: 3 }, deltaM: -9,
             }),
-        ).rejects.toThrow(/would leave 'Kitchen' 2\.00 m outside it.*asks for -2\.00 m; the limit is/);
+        ).rejects.toThrow(/'Kitchen'.*cannot follow.*asks for -9\.00 m; the limit is/s);
+        // A refusal is not a partial write — NEITHER record moved.
         expect(env.spaceEnvelope.get(LEVEL)!.footprintAreaM2).toBeCloseTo(100, 9);
+        expect(env.spaceEnvelope.get(ROOM)!.footprintAreaM2).toBeCloseTo(16, 9);
+        expect(env.undoStack.size).toBe(1);
     });
 
     it('⛔ the room’s top face may not rise above the level', async () => {
@@ -192,15 +220,54 @@ describe('setFootprint / setParameter / setWithin — the same gate', () => {
         expect(env.spaceEnvelope.get(ROOM)!.footprintAreaM2).toBeCloseTo(16, 9);
     });
 
-    it('⛔ setFootprint on the LEVEL re-checks every room within it', async () => {
+    it('⭐ §25.6 — setFootprint on the LEVEL makes the rooms inside it ADAPT, in one undo entry', async () => {
+        // ⚠ THIS TEST ASSERTED A REFUSAL UNTIL 2026-09-06. §25.6: *"editing the LEVEL
+        // envelope makes the room envelopes inside it ADAPT"* — and the level outline is
+        // edited by BOTH gestures, so the profile editor's commit owes the same behaviour
+        // as the face drag. The refusal is the fallback, asserted below.
+        const env = buildEnv();
+        await seed(env);
+        // The storey's west wall moves from x = 0 to x = 2, through the Kitchen (x 0…4).
+        await env.bus.executeCommand('spaceEnvelope.setFootprint', {
+            spaceEnvelopeId: LEVEL,
+            footprint: [{ x: 2, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 2, z: 10 }],
+        });
+        expect(env.spaceEnvelope.get(LEVEL)!.footprintAreaM2).toBeCloseTo(80, 6);
+        const k = env.spaceEnvelope.get(ROOM)!;
+        expect(Math.min(...k.footprint.map((p) => p.x))).toBeCloseTo(2, 3);
+        expect(Math.max(...k.footprint.map((p) => p.x))).toBeCloseTo(4, 6);
+        // ⭐ THE CACHED AREA IS RE-DERIVED, not left stale — C114 §2b makes the geometry
+        // package the ONE writer of this field, and a stale 16 m² is a number the live
+        // quantities panel (§25.7) would print.
+        expect(k.footprintAreaM2).toBeCloseTo(8, 3);
+        expect(env.undoStack.size).toBe(2);
+    });
+
+    it('⛔ setFootprint on the LEVEL still REFUSES when a room cannot follow, naming it', async () => {
         const env = buildEnv();
         await seed(env);
         await expect(
             env.bus.executeCommand('spaceEnvelope.setFootprint', {
                 spaceEnvelopeId: LEVEL,
-                footprint: [{ x: 2, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 2, z: 10 }],
+                // The west wall lands at x = 6, past the Kitchen's far side at x = 4.
+                footprint: [{ x: 6, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 6, z: 10 }],
             }),
-        ).rejects.toThrow(/'Kitchen' would be left 2\.00 m outside 'Ground'/);
+        ).rejects.toThrow(/'Kitchen'.*cannot follow/s);
+        expect(env.spaceEnvelope.get(LEVEL)!.footprintAreaM2).toBeCloseTo(100, 9);
+        expect(env.spaceEnvelope.get(ROOM)!.footprintAreaM2).toBeCloseTo(16, 9);
+    });
+
+    it('⛔ a ROOM ring is still judged strictly — the adaptation is for LEVELS only', async () => {
+        // The bidirectional rule is not symmetric: a room is CONSTRAINED, a level ADAPTS
+        // what it holds. Loosening the room half would let a room walk out of its storey.
+        const env = buildEnv();
+        await seed(env);
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.setFootprint', {
+                spaceEnvelopeId: ROOM,
+                footprint: [{ x: 0, z: 0 }, { x: 11, z: 0 }, { x: 11, z: 4 }, { x: 0, z: 4 }],
+            }),
+        ).rejects.toThrow(/'Kitchen' would sit 1\.00 m outside 'Ground'/);
     });
 
     it('⛔ setParameter height refuses a room taller than its level; name changes are not gated', async () => {

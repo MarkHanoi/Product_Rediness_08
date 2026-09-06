@@ -14,8 +14,10 @@
 // It is NOT a handler, and both gates provide THIS marker for exactly that case (four files
 // already carry it, e.g. `plugins/selection/src/handlers/selectionStoreAccess.ts`). MEASURED:
 //   grep -cE "readonly type|implements|CommandHandler|canExecute|execute\(" -> 0 hits
-// Its four exports are `contextEntryOf`, `prismOf`, `contextWorldOf` and `containmentRefusalFor`
-// — pure record→record helpers the bus cannot dispatch. ⚠ A SPAN HERE WOULD BE THE WRONG FIX:
+// Its exports are `contextEntryOf`, `prismOf`, `contextWorldOf`, `containmentRefusalFor` and
+// (§25.6, 2026-09-06) `containmentOutcomeFor` — pure record→record helpers the bus cannot
+// dispatch. ⚠ The count moved from FOUR to FIVE with `containmentOutcomeFor`; it is written as
+// a LIST rather than a number because a hand-copied count is the defect this repo logs most. ⚠ A SPAN HERE WOULD BE THE WRONG FIX:
 // P8's subject is the handler's own span, and the two REAL handlers that call this
 // (`CreateSpaceEnvelopeBatch`, `MutateSpaceEnvelope`) are both instrumented already, so a span
 // on the helper would nest inside theirs and instrument the same work twice.
@@ -35,6 +37,8 @@
 // well-formed wrong answer with no symptom.
 
 import {
+    adaptRoomToMovedLevel,
+    assessSpaceEnvelopeContainment,
     levelOrphanRefusal,
     roomContainmentRefusal,
     type SpaceEnvelopeContextEntry,
@@ -104,4 +108,79 @@ export function containmentRefusalFor(
         if (r) return r.message;
     }
     return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §25.6 — THE OTHER DIRECTION: A LEVEL EDIT MAKES ITS ROOMS ADAPT
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ WHY THIS IS A SECOND FUNCTION AND NOT A CHANGE TO `containmentRefusalFor`.
+// That function is called by SIX verbs, and only some of them WRITE the rooms they
+// would adapt. Loosening it centrally would make `setParameter`, `move` and
+// `batch.create` stop refusing a level that strands a room while still writing only the
+// level — leaving the room outside its storey with nothing anywhere saying so, which is
+// strictly worse than the refusal it replaced. So the strict gate keeps its callers, and
+// a verb that is prepared to WRITE the adaptation opts into this one.
+//
+// ⚠ TODAY EXACTLY ONE VERB OPTS IN: `spaceEnvelope.setFootprint`, the profile editor's
+// commit (§25.6 gesture 2 editing a LEVEL outline). `moveFace` gets the same behaviour
+// from the geometry package's own contextual planner, which returns the adapted rooms in
+// its plan. `setParameter` (height / baseOffset) and `move` still REFUSE — named in the
+// lane report rather than left to be discovered.
+
+/** One room's adapted geometry. Metrics are NOT recomputed here — the handler owns that. */
+export interface AdaptedRoomGeometry {
+    readonly id: string;
+    readonly footprint: readonly { readonly x: number; readonly y: number; readonly z: number }[];
+    readonly baseOffset: number;
+    readonly height: number;
+}
+
+/**
+ * The containment outcome for writing `candidate`, WITH the §25.6 adaptation when the
+ * candidate is a level.
+ *
+ * - A ROOM candidate is judged exactly as `containmentRefusalFor` judges it — refused,
+ *   never clamped, both numbers. A room is CONSTRAINED to its level (STR §12).
+ * - A LEVEL candidate makes the rooms inside it FOLLOW: each room that would be left
+ *   outside has the walls parallel to the storey walls that came in pushed in with them.
+ *   A room that cannot follow refuses, naming it and saying why.
+ *
+ * ⭐ THE ADAPTATION IS THE GEOMETRY PACKAGE'S `adaptRoomToMovedLevel`, THE SAME ONE THE
+ * DRAG PLANNER USES — passed `null` for the moved face because a profile edit rewrites
+ * the whole ring and there is no single face to name. One rule, two entry points; a
+ * second rule here would be the rival answer C84 EI-9 rules out.
+ */
+export function containmentOutcomeFor(
+    state: SpaceEnvelopesState,
+    candidate: SpaceEnvelopeData,
+): { readonly adapted: readonly AdaptedRoomGeometry[] } | { readonly refusal: string } {
+    if (candidate.role !== 'level') {
+        const refusal = containmentRefusalFor(state, candidate);
+        return refusal ? { refusal } : { adapted: [] };
+    }
+
+    const level = prismOf(candidate);
+    const levelLabel = label(candidate.name, candidate.id);
+    const adapted: AdaptedRoomGeometry[] = [];
+    for (const room of Object.values(state)) {
+        if (room.role !== 'room' || room.withinId !== candidate.id || room.id === candidate.id) continue;
+        if (assessSpaceEnvelopeContainment(prismOf(room), level).contained) continue;
+        const out = adaptRoomToMovedLevel(prismOf(room), level, null, label(room.name, room.id));
+        if ('reason' in out) {
+            // ⭐ THE ORPHAN REFUSAL, VERBATIM, PLUS THE REASON THE ROOM COULD NOT FOLLOW.
+            // The first half carries both numbers (C114 §12a); the second says what the
+            // user has to do about it, which is what turns a refusal into a next step
+            // ([[refusing-half-needs-its-escape-hatch]]).
+            const orphan = levelOrphanRefusal(level, [contextEntryOf(room)], levelLabel);
+            return { refusal: `${orphan?.message ?? `${levelLabel} would strand a room.`} ${out.detail}` };
+        }
+        adapted.push({
+            id: room.id,
+            footprint: out.entry.footprint.map((p) => ({ x: p.x, y: 0, z: p.z })),
+            baseOffset: out.entry.baseOffset,
+            height: out.entry.height,
+        });
+    }
+    return { adapted };
 }
