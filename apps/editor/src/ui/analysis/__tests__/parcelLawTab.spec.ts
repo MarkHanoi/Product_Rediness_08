@@ -28,7 +28,8 @@ import {
     type ParcelLawCapabilityHost,
 } from '../parcelLawTab';
 import { buildParcelRailPanel, PARCEL_RAIL_ENVELOPE_SLOT_TESTID } from '../../site/parcel/parcelRailPanel';
-import { VIEW_SEGMENT_SWITCHER_TESTID, VIEW_SEGMENT_ATTR } from '../../site/viewSegmentSwitcher';
+import { VIEW_SEGMENT_SWITCHER_TESTID, VIEW_SEGMENT_ATTR, VIEW_SEGMENTS } from '../../site/viewSegmentSwitcher';
+import { VIEW_SWITCHER_ON_VIEW_TESTID, VIEW_SWITCHER_SPLIT_TESTID } from '../../site/viewSwitcherOnView';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
@@ -129,7 +130,15 @@ describe('ARM A — the body calls each producer seam exactly as the contract sa
         // Synchronous: both producers were asked for, in order, with what they were owed.
         expect(seen).toEqual(['mountSwitcher(THE host)', 'buildParcelPanel(THE runtime)']);
         expect(hostEl.querySelector(`[data-testid="${PARCEL_LAW_TAB_TESTID}"]`)).toBe(h.element);
-        expect(h.element.querySelector(`[data-testid="${PARCEL_LAW_SWITCHER_SLOT_TESTID}"]`)!.textContent).toBe('FAKE SWITCHER');
+        // ⭐ §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — the switcher is BUILT by this body and
+        // PLACED on the view, not in the panel. Both halves are asserted, because the founder's
+        // instruction was a MOVE: a switcher that vanished would satisfy "not on the panel" and
+        // fail him completely.
+        expect(h.element.querySelector(`[data-testid="${PARCEL_LAW_SWITCHER_SLOT_TESTID}"]`)).toBeNull();
+        const bar = document.querySelector<HTMLElement>(`[data-testid="${VIEW_SWITCHER_ON_VIEW_TESTID}"]`);
+        expect(bar, 'the on-view bar was not mounted').not.toBeNull();
+        expect(bar!.textContent).toContain('FAKE SWITCHER');
+        expect(h.element.contains(bar!)).toBe(false);
         expect(h.element.querySelector(`[data-testid="${PARCEL_LAW_PANEL_SLOT_TESTID}"]`)!.textContent).toBe('FAKE PARCEL PANEL');
         expect(h.element.textContent).toContain(PARCEL_LAW_NOTE);
         // The strip is wired on a MICROTASK — after the rail panel's own microtask claim.
@@ -184,8 +193,16 @@ describe('ARM B — the REAL rail-panel builder inside the tab, over a faithful 
         expect(text).toContain('2026-08-21T09:14:00Z');
         expect(text).toContain('423');
         expect(text).toContain('424');
-        // The switcher is there with four segments.
-        expect(h.element.querySelectorAll(`[data-testid="${VIEW_SEGMENT_SWITCHER_TESTID}"] button[${VIEW_SEGMENT_ATTR}]`)).toHaveLength(4);
+        // The switcher is on the VIEW, carrying every row `viewPanelOptions()` declares —
+        // counted from the definition rather than hard-coded, so adding a row is one edit.
+        const onViewBar = document.querySelector<HTMLElement>(`[data-testid="${VIEW_SWITCHER_ON_VIEW_TESTID}"]`)!;
+        expect(onViewBar).not.toBeNull();
+        expect(
+            onViewBar.querySelectorAll(`[data-testid="${VIEW_SEGMENT_SWITCHER_TESTID}"] button[${VIEW_SEGMENT_ATTR}]`),
+        ).toHaveLength(VIEW_SEGMENTS.length);
+        // …plus the SPLIT choice, which is a layout and not a seventh view.
+        expect(onViewBar.querySelector(`[data-testid="${VIEW_SWITCHER_SPLIT_TESTID}"]`)).not.toBeNull();
+        expect(h.element.querySelector(`[data-testid="${VIEW_SEGMENT_SWITCHER_TESTID}"]`)).toBeNull();
         // The singleton was CLAIMED — into the rail panel's envelope slot, inside this body.
         expect(seam.calls.length).toBeGreaterThanOrEqual(1);
         expect(seam.calls[0]!.getAttribute('data-testid')).toBe(PARCEL_RAIL_ENVELOPE_SLOT_TESTID);
@@ -197,6 +214,9 @@ describe('ARM B — the REAL rail-panel builder inside the tab, over a faithful 
         expect(seam.calls[seam.calls.length - 1]).toBeNull();
         expect(seam.card.parentElement).toBe(seam.viewport);
         expect(hostEl.querySelector(`[data-testid="${PARCEL_LAW_TAB_TESTID}"]`)).toBeNull();
+        // ⛔ The on-view bar is BODY-LEVEL chrome. A tab that vanished while leaving its bar
+        // floating over the canvas is the stranded-chrome failure, so its removal is pinned.
+        expect(document.querySelector(`[data-testid="${VIEW_SWITCHER_ON_VIEW_TESTID}"]`)).toBeNull();
         hostEl.remove();
         seam.restore();
     });

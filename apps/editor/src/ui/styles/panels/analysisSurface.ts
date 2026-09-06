@@ -1812,4 +1812,100 @@ export const ANALYSIS_SURFACE_STYLES = `
   white-space: normal;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   §VIEW-SWITCHER-ON-THE-VIEW (L-12982, founder 2026-09-06)
+
+   *"we DON'T need the plan view / 3D view etc. on the panel -- that ... SHOULD
+   BE CENTRED ON THE VIEW"*, with a screenshot boxing the four stacked
+   full-width buttons INSIDE the right-hand panel.
+
+   ⛔ ENROLLED IN §SHELL-FLOAT-BUDGET, NOT FLOATED. 'left' is
+   'var(--shell-canvas-cx)' -- the ONE published horizontal accounting, written
+   by 'publishShellCanvasRegion()' and by nothing else -- never 'left: 50%'. In
+   a half-canvas mode the canvas centre is NOT the viewport centre, and a bar at
+   50% would sit half on the panel it was just moved off. 'top' clears the
+   shell's always-on band via '--shell-topbar-h' rather than a hand-picked
+   number (C06 §15.6: the band can grow). The one inline 'top' this control
+   writes is the measured offset UNDER '.svq-bar' when the split shell puts its
+   own bar in the same place -- a measurement, not a second budget.
+
+   Deliberately a SIBLING of '.svq-bar' (C06 §6.1 -- one chrome language): same
+   pill radius, same panel background token, same border token. It is not a
+   third bar style, and the two read as one family when both are up.
+
+   NO BACKTICKS in this block (it lives inside a template literal). Tokens only
+   -- C84 EI-8, no colour literal here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.vsw-onview {
+  position: fixed;
+  top: calc(6px + var(--shell-topbar-h, 36px) + 8px);
+  left: var(--shell-canvas-cx, 50%);
+  transform: translateX(-50%);
+  max-width: calc(var(--shell-canvas-w, 100vw) - 32px);
+  z-index: 8980;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  background: var(--app-panel-bg);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+  box-shadow: var(--app-shadow-panel);
+  pointer-events: all;
+  user-select: none;
+  font-family: var(--app-font);
+}
+
+/* The hosted switcher is the SAME component the panel used; only its placement
+   changed. On the view it reads as one pill row, so the column stacking and the
+   inner frame the panel version needs are dropped HERE, in the host's scope --
+   the control itself is untouched (it is owned by lane VIEW-PANEL-PER-PANE). */
+.vsw-onview .view-segment-switcher { gap: 0; }
+.vsw-onview .view-segment-switcher-row {
+  flex-wrap: nowrap;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+.vsw-onview .view-segment-btn { flex: 0 0 auto; white-space: nowrap; }
+
+/* ⛔ THE STATUS LINE STAYS. It is the control's honest answer to "which view am
+   I on" -- including the case it CANNOT answer (no snapshot field for the PRYZM
+   views), which is a missing reading and not "off". Making the bar tidy by
+   deleting it would delete the distinction. It is quiet, centred and bounded by
+   the canvas region instead. */
+.vsw-onview .view-segment-switcher-status {
+  max-width: calc(var(--shell-canvas-w, 100vw) - 64px);
+  text-align: center;
+  font-size: 10px;
+}
+
+/* SPLIT is a LAYOUT choice, not a seventh view -- so it is visibly a different
+   kind of control: separated by a rule, and pressed rather than selected. */
+.vsw-split {
+  align-self: stretch;
+  margin-top: 2px;
+  padding: 5px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 100px;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--app-font);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.vsw-split:hover:not(:disabled) { border-color: var(--app-accent); color: var(--app-accent); }
+.vsw-split:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+.vsw-split[data-split-open] {
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+  color: var(--app-on-accent);
+}
+/* A refused control stays READABLE and keeps its reason in the title (C06 §15.6
+   -- a dimmed control that keeps only its affordance is the defect, not the fix). */
+.vsw-split:disabled { opacity: 0.42; cursor: not-allowed; }
+
 `;

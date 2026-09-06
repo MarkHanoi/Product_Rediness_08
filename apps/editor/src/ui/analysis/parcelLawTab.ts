@@ -29,8 +29,14 @@
  *   3. the design-stage strip — markup inside that card, wired by
  *      `wireDesignStageStrip` (Stage A);
  *
- * plus the four-view switcher for the LEFT pane (`viewSegmentSwitcher.ts`),
- * which is itself a host of four DECLARED `GIS_ACTIONS`.
+ * plus the view switcher (`viewSegmentSwitcher.ts`), itself a host of DECLARED
+ * `GIS_ACTIONS`. ⭐ CORRECTED 2026-09-06 (§VIEW-SWITCHER-ON-THE-VIEW, L-12982):
+ * that switcher is NO LONGER INSIDE THIS BODY. The founder boxed the four stacked
+ * full-width buttons in blue and said *"we DON'T need the plan view / 3D view etc.
+ * on the panel — that … SHOULD BE CENTRED ON THE VIEW"*, so this tab now mounts
+ * `mountViewSwitcherOnView`, a body-level bar centred over the canvas region, and
+ * disposes it with the tab. The control, its six options and its dispatches are
+ * unchanged — only where it hangs.
  *
  * ⛔ NOTHING IS RE-DERIVED HERE — C19 §5.6 clause 1 is binding and it carries a
  * LEGAL consequence: these are setbacks, heights and FAR cited to ordinance
@@ -110,6 +116,17 @@ import {
   mountViewSegmentSwitcher,
   type ViewSegmentSwitcherHandle,
 } from '../site/viewSegmentSwitcher';
+// §VIEW-SWITCHER-ON-THE-VIEW (L-12982, founder 2026-09-06: *"we DON'T need the plan view /
+// 3D view etc. on the panel — that ... SHOULD BE CENTRED ON THE VIEW"*, with the four stacked
+// buttons boxed in blue on his screenshot). The switcher itself is UNCHANGED and still the
+// one host of `viewPanelOptions()`; only its PLACEMENT moved, and the split-layout choice —
+// which is not a view — was added beside it. See that module's header.
+import {
+  mountViewSwitcherOnView,
+  type ViewSwitcherOnViewHandle,
+  type ViewSwitcherOnViewHost,
+  type ViewSwitcherOnViewOptions,
+} from '../site/viewSwitcherOnView';
 import { wireDesignStageStrip } from '../site/designStageStripControl';
 // §PARCEL-LAW-MODEL (STR §25.11) — the ONE parcel/ordinance/massing model, and this tab's
 // rendering of it. NOT a second computation and NOT a copied renderer: `GISAreaLayout`'s card
@@ -141,7 +158,18 @@ const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
 /** `data-testid` on the tab body root. */
 export const PARCEL_LAW_TAB_TESTID = 'analysis-parcel-law';
-/** `data-testid` on the slot the four-view switcher is mounted into. */
+/**
+ * ⛔ RETIRED 2026-09-06 (§VIEW-SWITCHER-ON-THE-VIEW, L-12982) — NOTHING IN THIS BODY
+ * CARRIES THIS ID ANY MORE, and that is the founder's instruction, not an accident:
+ * *"we DON'T need the plan view / 3D view etc. on the panel — that … SHOULD BE CENTRED ON
+ * THE VIEW"*, with the four stacked full-width buttons boxed in blue on his screenshot.
+ *
+ * The constant is KEPT exported rather than deleted so an in-flight import in a sibling
+ * lane's working tree still compiles, and so the next reader finds the removal STATED
+ * instead of finding a testid that silently matches nothing. The switcher now lives on
+ * `mountViewSwitcherOnView`'s bar (`VIEW_SWITCHER_ON_VIEW_TESTID`), which is body-level
+ * shell chrome over the canvas region — not a descendant of this tab body.
+ */
 export const PARCEL_LAW_SWITCHER_SLOT_TESTID = 'analysis-parcel-law-switcher';
 /** `data-testid` on the slot the parcel panel (both halves) is mounted into. */
 export const PARCEL_LAW_PANEL_SLOT_TESTID = 'analysis-parcel-law-panel';
@@ -165,8 +193,9 @@ export const PARCEL_LAW_STRIP_WIRED_ATTR = 'data-parcel-law-strip-wired';
 export const PARCEL_LAW_NOTE =
   'Hosted, not computed: the cadastral card, the buildable envelope, the designed-vs-permitted '
   + 'comparison, massing options and the intended-area channel are the same elements the PARCEL '
-  + 'rail panel shows, placed here beside the 3D view. Switch the left pane above; nothing on this '
-  + 'tab is re-derived.';
+  + 'rail panel shows, placed here beside the view. Switch the view — or split it — from the bar '
+  + 'centred on the view itself; drag the edge between them to set how much room each gets. '
+  + 'Nothing on this tab is re-derived.';
 
 /** The minimal store surface this tab subscribes to for re-wiring the strip. Structural. */
 interface SiteStoreLike {
@@ -185,8 +214,26 @@ export interface ParcelLawTabDeps {
   readonly runtime: PryzmRuntime | null | undefined;
   /** Production: `buildParcelRailPanel` — the ONE host of both parcel halves. */
   readonly buildParcelPanel: (runtime: PryzmRuntime | null | undefined) => ParcelRailPanelHandle;
-  /** Production: `mountViewSegmentSwitcher`. */
+  /**
+   * Production: `mountViewSegmentSwitcher`.
+   *
+   * ⚠ STILL A DEP, AND STILL CALLED WITH THE SAME HOST — but its element is no longer
+   * appended into this body. It is handed to `mountOnViewSwitcher` below, which places it
+   * centred over the canvas (§VIEW-SWITCHER-ON-THE-VIEW, L-12982). Kept in this shape so
+   * every spec literal that already fakes this seam keeps compiling and keeps meaning what
+   * it meant: "the switcher is built once, with THE capability host".
+   */
   readonly mountSwitcher: (host: GisCapabilityHost) => ViewSegmentSwitcherHandle;
+  /**
+   * Production: `mountViewSwitcherOnView` — the centred-on-the-view host of the switcher
+   * plus the split-layout choice.
+   *
+   * ⚠ OPTIONAL, for the same reason the three below are: a spec written before this seam
+   * existed constructs `ParcelLawTabDeps` as a complete literal. Omitting it yields the
+   * production host, which mounts to `document.body` and refuses the split control with a
+   * printed reason when the entry points are not registered — never a dead click.
+   */
+  readonly mountOnViewSwitcher?: (opts: ViewSwitcherOnViewOptions) => ViewSwitcherOnViewHandle;
   /** Production: `wireDesignStageStrip`. Returns the number of pills wired. */
   readonly wireStrip: (root: ParentNode) => number;
   /**
@@ -230,6 +277,7 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     runtime: w.runtime ?? null,
     buildParcelPanel: buildParcelRailPanel,
     mountSwitcher: mountViewSegmentSwitcher,
+    mountOnViewSwitcher: mountViewSwitcherOnView,
     wireStrip: wireDesignStageStrip,
     readParcelLawModel: resolveParcelLawModel,
     renderParcelLawFacts: buildParcelLawFacts,
@@ -265,7 +313,8 @@ export function mountParcelLawTab(
   root.className = 'anl-parcel-law';
   root.setAttribute('data-testid', PARCEL_LAW_TAB_TESTID);
 
-  let switcher: ViewSegmentSwitcherHandle | null = null;
+  /** §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — the centred bar OVER the canvas, not in here. */
+  let onView: ViewSwitcherOnViewHandle | null = null;
   let panel: ParcelRailPanelHandle | null = null;
   let quantities: ParcelLawQuantitiesHandle | null = null;
   let createHouse: ParcelLawCreateHouseHandle | null = null;
@@ -306,13 +355,25 @@ export function mountParcelLawTab(
   };
 
   try {
-    // ── 1. The left-pane switcher — FIRST, because it is the control the founder named. ──
-    const switcherSlot = document.createElement('div');
-    switcherSlot.className = 'anl-parcel-law-switcher';
-    switcherSlot.setAttribute('data-testid', PARCEL_LAW_SWITCHER_SLOT_TESTID);
-    root.appendChild(switcherSlot);
-    switcher = deps.mountSwitcher(deps.capabilityHost);
-    switcherSlot.appendChild(switcher.element);
+    // ── 1. The view switcher — ON THE VIEW, CENTRED. Not in this panel. ───────────────
+    //
+    // Founder 2026-09-06, boxing the four stacked full-width buttons in blue:
+    // *"we DON'T need the plan view / 3D view etc. on the panel — that … SHOULD BE CENTRED
+    // ON THE VIEW — and the user can decide to have only the 2D Site Plan view, 2D
+    // Satellite, 3D Site, 3D PRYZM, or 3D Globe — OR SPLIT."*
+    //
+    // ⭐ SAME CONTROL, DIFFERENT PLACE. `deps.mountSwitcher` is still called ONCE with the
+    // SAME capability host; its element is handed to the on-view bar instead of being
+    // appended here. Nothing about the six options changed and nothing was re-implemented —
+    // they are `viewPanelOptions()`'s rows, owned by lane VIEW-PANEL-PER-PANE.
+    //
+    // ⚠ THE BAR IS BODY-LEVEL, NOT A DESCENDANT OF THIS BODY, and it has to be: the canvas
+    // it centres over is `#container`, which is not inside `#anl-surface`. The handle is
+    // disposed with this tab, so it can never outlive the surface that put it up.
+    onView = (deps.mountOnViewSwitcher ?? mountViewSwitcherOnView)({
+      host: deps.capabilityHost as ViewSwitcherOnViewHost,
+      mountSwitcher: deps.mountSwitcher,
+    });
 
     // ── 2. The note: what this tab is (a host) and is not (a calculator). ──────────────
     const note = document.createElement('p');
@@ -427,7 +488,7 @@ export function mountParcelLawTab(
     element: root,
     repaint(): void {
       if (disposed) return;
-      try { switcher?.repaint(); } catch { /* a repaint that throws is a repaint we do not have */ }
+      try { onView?.repaint(); } catch { /* a repaint that throws is a repaint we do not have */ }
       renderFacts();
       try { quantities?.repaint(); } catch { /* same — a section that cannot repaint keeps its last honest render */ }
       try { createHouse?.repaint(); } catch { /* same */ }
@@ -448,8 +509,11 @@ export function mountParcelLawTab(
       createHouse = null;
       try { panel?.dispose(); } catch { /* teardown is best-effort */ }
       panel = null;
-      try { switcher?.dispose(); } catch { /* teardown is best-effort */ }
-      switcher = null;
+      // The on-view bar owns the switcher handle, so disposing it disposes both — and it
+      // MUST happen here: the bar is body-level chrome, and a tab that vanished while leaving
+      // its bar over the canvas is the stranded-chrome failure this body's teardown exists for.
+      try { onView?.dispose(); } catch { /* teardown is best-effort */ }
+      onView = null;
       // See the header: hand the card back to the viewport ONLY if it is still in this body.
       // If another host has claimed it since, it is theirs and this tab does not reach into
       // their state (C19 §5.7 clause 2, by its reason).

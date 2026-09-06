@@ -36,6 +36,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 // applied by flushRuntimeEventListeners() below. That is the real production
 // path, deferred bridge and all, not a shortcut around it.
 import { flushRuntimeEventListeners } from '../../../engine/runtimeEventBridge';
+// §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — the ONE panel definition, read rather than
+// re-listed. See the assertions below for why this surface must not spell the rows out.
+import { VIEW_SEGMENTS } from '../../site/viewSegmentSwitcher';
 import '../AnalysisSurface';
 
 interface Rec { id: string; levelId?: string; systemTypeId?: string }
@@ -329,10 +332,31 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
     // The cadastral half — the ONE producer's output, with the two trust facts.
     expect(body!.textContent).toContain('Catastro (Spain)');
     expect(body!.textContent).toContain('2026-08-21T09:14:00Z');
-    // The switcher — four segments, live, none of them a dead click.
-    const segs = body!.querySelectorAll('[data-testid="view-segment-switcher"] button[data-view-segment]');
-    expect(segs).toHaveLength(4);
-    for (const s of segs) expect((s as HTMLButtonElement).disabled).toBe(false);
+    // ⭐ §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — THE SWITCHER IS NO LONGER IN THIS BODY.
+    // Founder 2026-09-06: *"we DON'T need the plan view / 3D view etc. on the panel — that …
+    // SHOULD BE CENTRED ON THE VIEW"*. Both halves of the MOVE are asserted: gone from the
+    // panel, present on the view. Asserting only the first would pass with the control deleted.
+    expect(body!.querySelector('[data-testid="view-segment-switcher"]')).toBeNull();
+    const onViewBar = document.querySelector<HTMLElement>('[data-testid="view-switcher-on-view"]');
+    expect(onViewBar, 'the on-view bar did not mount').not.toBeNull();
+    expect(onViewBar!.parentElement).toBe(document.body); // not a descendant of the panel
+    const segs = onViewBar!.querySelectorAll('[data-testid="view-segment-switcher"] button[data-view-segment]');
+    // Counted from the ONE panel definition (`viewPanelOptions()` via VIEW_SEGMENTS), never
+    // hard-coded here: this surface HOSTS that definition and must not become a second census.
+    expect(segs).toHaveLength(VIEW_SEGMENTS.length);
+    // ⛔ NO DEAD CLICKS (L-1187) — and the honest invariant is "live OR refused with a reason",
+    // not "all live". Two of the six rows now declare `pryzmSetSiteBasemap` as an entry point,
+    // which this fake host does not register, so they are correctly DISABLED and must SAY so.
+    for (const s of segs) {
+      const b = s as HTMLButtonElement;
+      if (b.disabled) {
+        expect(b.getAttribute('data-view-segment-unavailable')).toBe('true');
+        expect(b.title.length, `${b.getAttribute('data-view-segment')} refused without a reason`)
+          .toBeGreaterThan(0);
+      }
+    }
+    // …and the SPLIT choice, which is a layout and not a seventh view.
+    expect(onViewBar!.querySelector('[data-testid="view-switcher-split"]')).not.toBeNull();
     // The singleton was CLAIMED into this body.
     expect(seamCalls.length).toBeGreaterThanOrEqual(1);
     expect(body!.contains(card)).toBe(true);
@@ -343,10 +367,19 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
   });
 
   it('a segment click reaches the SAME registered entry point the GIS bar drives', () => {
-    const body = el().querySelector('[data-testid="analysis-parcel-law"]')!;
-    body.querySelector<HTMLButtonElement>('button[data-view-segment="globe"]')!.click();
-    body.querySelector<HTMLButtonElement>('button[data-view-segment="plan"]')!.click();
-    expect(viewCalls).toEqual(['pryzmShowSiteResultView(3D)', 'pryzmEnterSiteView(plan)']);
+    // ⛔ The segment IDS are not hard-coded here. They belong to `viewPanelOptions()`, owned
+    // by lane VIEW-PANEL-PER-PANE, and this surface only HOSTS them — pinning a spelling here
+    // would make this file a second authority for the panel definition. The two ACTIONS are
+    // what this test is about, so they are looked up by their registry id.
+    const bar = document.querySelector<HTMLElement>('[data-testid="view-switcher-on-view"]')!;
+    const seg = (actionId: string): HTMLButtonElement => {
+      const def = VIEW_SEGMENTS.find((s) => s.actionId === actionId);
+      expect(def, `no segment dispatches ${actionId}`).toBeDefined();
+      return bar.querySelector<HTMLButtonElement>(`button[data-view-segment="${def!.id}"]`)!;
+    };
+    seg('site.globe').click();
+    seg('site.earth').click();
+    expect(viewCalls).toEqual(['pryzmShowSiteResultView(3D)', 'pryzmEnterSiteView(3d)']);
   });
 
   it('the picker refuses to add a widget here, and says why', () => {
