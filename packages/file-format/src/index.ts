@@ -187,6 +187,12 @@ export {
   type ProfilePointUpdate,
   makeDeleteExpressionMigrator,
   type DeleteExpressionParams,
+  /* --- lane CE-MAKE-IT-REACHABLE (§PROFILE-RING-IS-AUTHORABLE) --- DRAW a
+   * profile: insert/delete vertices, not only move them. ⛔ LISTED HERE for the
+   * reason the block above gives: `applyOp()` resolves ops off THIS list. */
+  makeSetProfileRingMigrator,
+  type SetProfileRingParams,
+  type ProfileRingPoint,
   /* --- lane UCE-FAMILY --- the type EDIT op + the ONE per-type checksum --- */
   makeSetTypeValuesMigrator,
   typeValuesChecksum,

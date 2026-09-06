@@ -229,6 +229,14 @@ export interface ComponentDefinitionWorkspaceHandle {
     commitProfile(): boolean;
     /** The mounted profile panel's handle (surface, refusal, status), or null. */
     profilePanel(): ComponentProfilePanelHandle | null;
+    /* ── lane CE-MAKE-IT-REACHABLE (§PROFILE-RING-IS-AUTHORABLE) ──────────── */
+    /** Begin drawing a REPLACEMENT outline over the mounted profile. False when
+     *  nothing is mounted or the profile is read-only; the panel says which. */
+    beginDrawProfile(): boolean;
+    /** Close the open outline into the ring. False while it cannot bound an area. */
+    finishDrawProfile(): boolean;
+    /** Abandon the open outline; the committed ring is untouched. */
+    cancelDrawProfile(): void;
     /* ── lane U8 — GEOMETRY AUTHORING (§U8-AUTHORED-SHAPE) ────────────────── */
     /** Open the add-shape form (DOM). */
     beginAddShape(): void;
@@ -306,6 +314,12 @@ function coerceValues(
 function mintParameterId(): string {
     return `par_${mintUlid()}`;
 }
+
+/** §PROFILE-RING-IS-AUTHORABLE — how much room around the current shape the
+ *  drawing sheet gets, as a fraction of the shape's larger extent. Half again on
+ *  every side: enough to redraw a bigger outline, small enough that the shape the
+ *  author is editing still dominates the view. */
+const PROFILE_SHEET_MARGIN_FRACTION = 0.5;
 
 /** A BARE ULID — profile entity ids carry no prefix in `ProfileEntitySchema`. */
 function mintUlid(): string {
@@ -1035,6 +1049,18 @@ export function openComponentDefinitionWorkspace(
         }
         const panel = createComponentProfilePanel({
             profile, plane, scope, attrPrefix: 'dwp',
+            /* ── §PROFILE-RING-IS-AUTHORABLE (lane CE-MAKE-IT-REACHABLE · L-12976) ──
+             * ⭐ THE ID FACTORY IS SUPPLIED HERE, and that single argument is what
+             *   turns the mounted surface from a vertex-nudger into a DRAWING
+             *   surface. `mintUlid` is the workspace's existing bare-ULID minter
+             *   over `@pryzm/schemas`'s `createId` — the ONE id factory — so no
+             *   new id policy is invented at the panel or in the format package.
+             * ⚠ `marginFraction` pads the SHEET, never the geometry: without it
+             *   `outlinePlacePoint` clamps every click to the current shape's own
+             *   bounds, so an author aiming outside the seeded rectangle would be
+             *   silently snapped back onto its edge. */
+            mintEntityId: mintUlid,
+            marginFraction: PROFILE_SHEET_MARGIN_FRACTION,
             // ⭐ §UCE-PROFILE-WRITE-BACK — the panel hands back an UPDATED `Profile`
             //   and dispatches nothing (P6, its own header); THIS caller turns it into
             //   an op. The panel keeps its own refusal voice for the ring-level checks;
@@ -1074,10 +1100,12 @@ export function openComponentDefinitionWorkspace(
         commitBtn.addEventListener('click', () => { panel.commit(); });
         host.appendChild(commitBtn);
         host.appendChild(el('div', `margin-top:4px;font-size:11.5px;color:${MUTED};line-height:1.5;`,
-            'Drag a vertex, then commit — the move lands in the draft through the ' +
-            'update-profile op and is persisted by Save definition. Inserting or deleting a ' +
-            'vertex is refused: it would mint or delete the entity ids this profile’s ' +
-            'constraints reference.'));
+            'Drag a vertex, or click Draw outline to redraw the shape — double-click an edge ' +
+            'to insert a vertex, right-click one to delete it. Commit lands the result in the ' +
+            'draft (a move through the update-profile op, a redraw through set-profile-ring) ' +
+            'and Save definition writes it to the Component. ⛔ A redraw is refused on a ' +
+            'profile carrying constraints: the surface holds vertex indices, not entity ' +
+            'identity, so re-anchoring them would move a constraint without saying so.'));
         return true;
     }
 
@@ -1104,11 +1132,37 @@ export function openComponentDefinitionWorkspace(
             }
             points.push({ id: e.id, x, z });
         }
-        const res = await applyOp((ff) => ff.makeUpdateProfileMigrator(v, v, { profileId, points }));
+        /* ── ⭐ TWO OPS, ONE GESTURE, ROUTED BY THE ID-SET DELTA ───────────────
+         * A pure MOVE goes through `update-profile`, whose contract is the
+         * STRICTER of the two: it proves the id set intact in BOTH directions
+         * and cannot mint or delete an entity even by accident. A DRAWN ring —
+         * one that inserted or deleted a vertex — is exactly the case that op
+         * names as out of scope in its own refusal, and goes through
+         * `set-profile-ring`, which owns that case and refuses an id-set change
+         * on a constrained profile (C111 §1.3-b).
+         * ⛔ Neither op silently does the other's job. */
+        const before = (draft.document.profiles as readonly Profile[])
+            .find((pr) => pr.id === profileId);
+        const beforeIds = new Set((before?.entities ?? []).map((e) => e.id));
+        const idSetChanged =
+            points.length !== beforeIds.size || points.some((pt) => !beforeIds.has(pt.id));
+
+        const res = await applyOp((ff) => (idSetChanged
+            ? ff.makeSetProfileRingMigrator(v, v, { profileId, points })
+            : ff.makeUpdateProfileMigrator(v, v, { profileId, points })));
         if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
-        setStatus(
-            `Geometry committed to the draft (not yet saved): ${points.length} point(s) of ` +
-            `'${updated.name}' moved. Save definition writes it to the Component.`);
+        if (idSetChanged) {
+            const added = points.filter((pt) => !beforeIds.has(pt.id)).length;
+            const removed = beforeIds.size - (points.length - added);
+            setStatus(
+                `Outline committed to the draft (not yet saved): '${updated.name}' now has ` +
+                `${points.length} point(s) — ${added} added, ${removed} removed. ` +
+                'Save definition writes it to the Component.');
+        } else {
+            setStatus(
+                `Geometry committed to the draft (not yet saved): ${points.length} point(s) of ` +
+                `'${updated.name}' moved. Save definition writes it to the Component.`);
+        }
         return null;
     }
 
@@ -1117,6 +1171,15 @@ export function openComponentDefinitionWorkspace(
     function commitProfile(): boolean {
         return profilePanel?.commit() ?? false;
     }
+
+    /* ── §PROFILE-RING-IS-AUTHORABLE — the three drawing verbs, delegated ─────
+     * ⛔ The workspace re-implements NONE of the gesture. `ElevationOutlineSurface`
+     *    owns click-to-place, the midpoint insert and the vertex delete; the panel
+     *    owns the buttons and their refusals; this is the programmatic seam the
+     *    acceptance test drives, so the test exercises the SAME code the buttons do. */
+    function beginDrawProfile(): boolean { return profilePanel?.beginDraw() ?? false; }
+    function finishDrawProfile(): boolean { return profilePanel?.finishDraw() ?? false; }
+    function cancelDrawProfile(): void { profilePanel?.cancelDraw(); }
 
 
     /* ══════════════════════════════════════════════════════════════════════
@@ -2036,7 +2099,42 @@ export function openComponentDefinitionWorkspace(
             //   geometry is SEEN, which is the layer the user experiences.
             if (openProfileId !== null &&
                 (doc.profiles as readonly Profile[]).some((pr) => pr.id === openProfileId)) {
+                /* ══════════════════════════════════════════════════════════════
+                 * ⛔ §PROFILE-RING-IS-AUTHORABLE — CARRY THE UNCOMMITTED RING.
+                 *
+                 * ⭐ A MEASURED DEFECT, not a precaution. The re-mount below
+                 *   rebuilds the panel FROM THE DRAFT DOCUMENT, so a ring the
+                 *   author has drawn or dragged and not yet committed was
+                 *   silently rebuilt back to the document's shape. `render()`
+                 *   fires from fifteen call sites — including the LAZY
+                 *   `loadFileFormat().then(...)` warm-up one tick after the
+                 *   workspace opens, and every plane rename/cancel — so the
+                 *   window is not narrow. The acceptance test caught it as a
+                 *   five-vertex outline arriving at the commit as four points,
+                 *   with no message anywhere.
+                 *
+                 * ⚠ That is exactly the class this session is named for: a
+                 *   gesture the surface accepted, drew, and then discarded in
+                 *   silence. So the ring is carried across the re-mount AND the
+                 *   status line says it was — a silently restored ring and a
+                 *   silently discarded one look identical at the moment it
+                 *   matters; only the sentence distinguishes them.
+                 * ══════════════════════════════════════════════════════════════ */
+                const carried = profilePanel?.surface?.ring.map((v) => ({ u: v.u, v: v.v })) ?? null;
                 openProfile(openProfileId);
+                const remounted = profilePanel?.surface ?? null;
+                if (carried !== null && carried.length > 0 && remounted !== null) {
+                    const same =
+                        carried.length === remounted.ring.length &&
+                        carried.every((v, i) =>
+                            v.u === remounted.ring[i]!.u && v.v === remounted.ring[i]!.v);
+                    if (!same) {
+                        remounted.setRing(carried);
+                        setStatus(
+                            `Your uncommitted outline (${carried.length} vertices) was kept across a ` +
+                            'refresh — commit it to write it into the draft definition.');
+                    }
+                }
             } else {
                 openProfileId = null;
                 profilePanel = null;
@@ -2337,6 +2435,9 @@ export function openComponentDefinitionWorkspace(
         openProfile,
         commitProfile,
         profilePanel: () => profilePanel,
+        beginDrawProfile,
+        finishDrawProfile,
+        cancelDrawProfile,
         beginAddShape,
         submitAddShape,
         selectShape,

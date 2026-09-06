@@ -65,7 +65,8 @@ export interface ProfileSurfaceRefusal {
         | 'profile-eval-failed'
         | 'profile-degenerate-extent'
         | 'profile-not-a-ring-source'
-        | 'profile-vertex-count-changed';
+        | 'profile-vertex-count-changed'
+        | 'profile-constrained-ring-change';
     readonly reason: string;
     readonly alternative: string;
 }
@@ -94,10 +95,32 @@ export type ProfileToRingResult =
  * TRANSLATION to the profile's minimum corner, because the surface's dimensional contract
  * places the drawing at `pad + u * scale` and a negative `u` would draw outside the box.
  */
+export interface ProfileToRingOptions {
+    /**
+     * ⭐ **§PROFILE-RING-IS-AUTHORABLE — the DRAWING SHEET is bigger than the shape.**
+     * A fraction of the profile's own extent added on every side of the sheet
+     * the surface draws on, so an author redrawing the outline can place a
+     * vertex OUTSIDE the shape currently there.
+     *
+     * ⛔ Without it, drawing is silently clipped: `outlinePlacePoint` CLAMPS
+     *    every click to `[0, length] × [0, height]`, so a click past the seeded
+     *    rectangle lands on its edge and the author is given an affordance that
+     *    quietly does something other than what they aimed at.
+     *
+     * ⚠ It moves the sheet, never the geometry: `origin` shifts by exactly the
+     *   same margin, so `surfaceToPlane` still returns the authored plane
+     *   coordinate and a profile opened with a margin commits byte-identically
+     *   to one opened without. Defaults to 0 — every pre-existing caller is
+     *   unchanged.
+     */
+    readonly marginFraction?: number;
+}
+
 export function profileToSurfaceRing(
     profile: Profile,
     plane: ReferencePlane,
     scope: EvalScope = {},
+    opts: ProfileToRingOptions = {},
 ): ProfileToRingResult {
     let polygon;
     try {
@@ -147,12 +170,20 @@ export function profileToSurfaceRing(
         };
     }
 
+    // ⭐ The drawing SHEET, padded symmetrically. The margin is taken from the
+    //   LARGER extent so a long thin profile does not get a hairline of room on
+    //   its short axis, and `origin` absorbs it exactly — see the option's note.
+    const frac = Number.isFinite(opts.marginFraction) ? Math.max(0, opts.marginFraction ?? 0) : 0;
+    const margin = frac * Math.max(length, height);
+    const sheetMinU = minU - margin;
+    const sheetMinV = minV - margin;
+
     return {
         ok: true,
         value: {
-            ring: polygon.map((p) => ({ u: p.x - minU, v: p.z - minV })),
-            extents: { length, height },
-            origin: { u: minU, v: minV },
+            ring: polygon.map((p) => ({ u: p.x - sheetMinU, v: p.z - sheetMinV })),
+            extents: { length: length + 2 * margin, height: height + 2 * margin },
+            origin: { u: sheetMinU, v: sheetMinV },
             plane: { id: plane.id, name: plane.name, uLabel: 'u', vLabel: 'v' },
         },
     };
@@ -247,6 +278,10 @@ export function profileConstraintGlyphs(
     return { glyphs, unanchored };
 }
 
+/** ⛔ A profile needs three vertices to bound an area — `profileToPolygon`'s own
+ *  `MIN_POINTS`, and the floor the authoring surface refuses a delete at. */
+const MIN_RING_VERTICES = 3;
+
 /* ------------------------------------------------------------------ */
 /* §NO-SILENT-DEPARAMETRISATION — may an edited ring be written back?   */
 /* ------------------------------------------------------------------ */
@@ -310,40 +345,112 @@ export type ProfileCommitResult =
     | { readonly ok: true; readonly profile: Profile }
     | { readonly ok: false; readonly refusal: ProfileSurfaceRefusal };
 
+/** Options for {@link commitRingToProfile}. */
+export interface ProfileCommitOptions {
+    /**
+     * ⭐ **§PROFILE-RING-IS-AUTHORABLE (lane CE-MAKE-IT-REACHABLE · L-12976).**
+     * Supply a bare-ULID factory to admit a ring whose VERTEX COUNT changed —
+     * i.e. to let the author DRAW a shape rather than nudge the corners of the
+     * one already there. Omit it and the count-change refusal below stands
+     * exactly as it did, which is what every pre-existing caller relies on.
+     *
+     * ⛔ The factory is the CALLER's, deliberately. Id minting belongs to the
+     *    surface that owns the ONE id factory (`@pryzm/schemas`'s `createId`);
+     *    this adapter has no generator and mints nothing of its own. That is the
+     *    same split `makeAddBoxSolidMigrator` established by taking `entityIds`
+     *    from its caller, and it is why L-666 ("id minting is uncontracted") is
+     *    neither resolved here nor pretended away.
+     */
+    readonly mintEntityId?: () => string;
+}
+
 /**
  * Produce the updated `Profile` for an edited ring. Pure — it returns a new document object
  * and dispatches nothing (P6: the CALLER owns what a commit means, exactly as the wall modal
  * and the two opening callers already do).
  *
- * ⛔ A vertex INSERT or DELETE is refused, not absorbed: the ring would no longer correspond
- * one-to-one with the profile's points, and closing the gap means minting entity ids under an
- * uncontracted policy (L-666).
+ * ─── IDENTITY UNDER A COUNT CHANGE, STATED RATHER THAN ASSUMED ─────
+ * `ElevationOutlineSurface` carries VERTEX INDICES and no entity model
+ * (`OutlineConstraintGlyph.vertexIndices` says so in its own type), so when the
+ * count changes this function maps ring index → entity by POSITION: index `i`
+ * keeps `entities[i]`'s id while one exists, and the tail is minted. That is
+ * exact for an append or a truncation and is a RE-LABELLING for a mid-ring
+ * insert — vertex 3 inherits the id vertex 2 used to carry.
+ *
+ * ⛔ Which is precisely why a count change is refused outright on a profile that
+ *    carries CONSTRAINTS: re-labelling would move a constraint's anchor onto a
+ *    different vertex silently, and C111 §1.3-b is normative that a reference
+ *    which cannot be resolved FAILS CLOSED. `set-profile-ring` refuses the same
+ *    case again inside the document, because a UI guard that is the only voice
+ *    is one deleted line away from a silent loss (C84 EI-6).
+ *
+ * ⚠ With no `mintEntityId` the historic refusal is unchanged: a vertex INSERT or
+ *   DELETE is refused, not absorbed.
  */
 export function commitRingToProfile(
     profile: Profile,
     ring: readonly WallProfileVertex[],
     origin: { readonly u: number; readonly v: number },
+    opts: ProfileCommitOptions = {},
 ): ProfileCommitResult {
     const disposition = profileWriteBackDisposition(profile);
     if (!disposition.writable) return { ok: false, refusal: disposition.refusal };
     if (ring.length !== disposition.pointIds.length) {
-        return {
-            ok: false,
-            refusal: {
-                code: 'profile-vertex-count-changed',
-                reason:
-                    `the ring now has ${ring.length} vertices and profile '${profile.name}' has ` +
-                    `${disposition.pointIds.length} points; a commit would have to mint or delete entity ids, ` +
-                    'and id minting is uncontracted here (L-666, C11 §7.6 still "Proposed")',
-                alternative:
-                    'move vertices without inserting or deleting, or add the point through a command that ' +
-                    'owns id minting',
-            },
-        };
+        if (!opts.mintEntityId) {
+            return {
+                ok: false,
+                refusal: {
+                    code: 'profile-vertex-count-changed',
+                    reason:
+                        `the ring now has ${ring.length} vertices and profile '${profile.name}' has ` +
+                        `${disposition.pointIds.length} points; a commit would have to mint or delete entity ids, ` +
+                        'and id minting is uncontracted here (L-666, C11 §7.6 still "Proposed")',
+                    alternative:
+                        'move vertices without inserting or deleting, or add the point through a command that ' +
+                        'owns id minting',
+                },
+            };
+        }
+        if (ring.length < MIN_RING_VERTICES) {
+            return {
+                ok: false,
+                refusal: {
+                    code: 'profile-vertex-count-changed',
+                    reason:
+                        `the drawn ring has ${ring.length} vertices and a profile needs at least ` +
+                        `${MIN_RING_VERTICES} to bound an area`,
+                    alternative: 'place at least three vertices before finishing the outline',
+                },
+            };
+        }
+        if (profile.constraints.length > 0) {
+            return {
+                ok: false,
+                refusal: {
+                    code: 'profile-constrained-ring-change',
+                    reason:
+                        `profile '${profile.name}' carries ${profile.constraints.length} constraint(s) and the ` +
+                        `drawn ring has ${ring.length} vertices against its ${disposition.pointIds.length} ` +
+                        'points; the surface carries indices and not entity identity, so re-anchoring those ' +
+                        'constraints would move them onto different vertices without saying so',
+                    alternative:
+                        'move vertices without inserting or deleting, or remove the constraints before redrawing',
+                },
+            };
+        }
     }
-    const updated = profile.entities.map((e, i) => {
-        const p = surfaceToPlane(ring[i]!, origin);
-        return { ...e, data: { ...e.data, x: p.x, z: p.z } };
+    const updated = ring.map((v, i) => {
+        const p = surfaceToPlane(v, origin);
+        const existing = profile.entities[i];
+        if (!existing) {
+            // A vertex the profile did not have. Minted as the bare shape
+            // `profileToPolygon` reads with no scope — nothing invented beyond
+            // the two coordinates the author drew.
+            return { id: opts.mintEntityId!(), kind: 'point' as const, data: { x: p.x, z: p.z } };
+        }
+        // ⭐ Overlay, never replace: every other `data` key the document carries
+        //    survives because this function never rebuilds the entity.
+        return { ...existing, data: { ...existing.data, x: p.x, z: p.z } };
     });
     return { ok: true, profile: { ...profile, entities: updated } };
 }

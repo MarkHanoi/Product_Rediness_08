@@ -151,6 +151,20 @@ export {
   type DeleteExpressionParams,
 } from './ops/delete-expression.js';
 
+/* ── lane CE-MAKE-IT-REACHABLE (§PROFILE-RING-IS-AUTHORABLE) — the op that lets
+ * an author DRAW a profile rather than nudge the corners of a seeded box.
+ * `update-profile` moves the points a profile already has and names, in its own
+ * refusal, the op that does not exist ("add the point through an op that owns id
+ * minting"); this is that op. ⛔ It mints NO id itself — the caller supplies
+ * them, exactly as `add-box-solid` takes `entityIds` — and it refuses an id-set
+ * change on a profile carrying constraints, because a ring carries indices and
+ * not entity identity (C111 §1.3-b, fail closed). */
+export {
+  makeSetProfileRingMigrator,
+  type SetProfileRingParams,
+  type ProfileRingPoint,
+} from './ops/set-profile-ring.js';
+
 /* ── lane UCE-FAMILY — the EDIT half of the type system, and the ONE checksum ──
  * `ComponentTypeCatalog` could create a type (split-type) and delete one, but
  * EDITED one through a raw `document.types` transform that carried the per-type

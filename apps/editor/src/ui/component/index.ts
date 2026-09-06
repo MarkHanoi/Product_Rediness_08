@@ -26,10 +26,12 @@ export {
     profileToSurfaceRing,
     profileWriteBackDisposition,
     surfaceToPlane,
+    type ProfileCommitOptions,
     type ProfileCommitResult,
     type ProfileGlyphResult,
     type ProfileOnPlane,
     type ProfileSurfaceRefusal,
+    type ProfileToRingOptions,
     type ProfileToRingResult,
     type ProfileWriteBackDisposition,
 } from './profileSurfaceAdapter';

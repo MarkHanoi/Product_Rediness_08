@@ -17,6 +17,7 @@ export { makeDeleteSolidMigrator, type DeleteSolidParams, } from './ops/delete-s
 export { makeSetExtrudeWorkPlaneMigrator, type SetExtrudeWorkPlaneParams, } from './ops/set-extrude-work-plane.js';
 export { makeRenameReferencePlaneMigrator, type RenameReferencePlaneParams, } from './ops/rename-reference-plane.js';
 export { makeUpdateProfileMigrator, type UpdateProfileParams, type ProfilePointUpdate, } from './ops/update-profile.js';
+export { makeSetProfileRingMigrator, type SetProfileRingParams, type ProfileRingPoint, } from './ops/set-profile-ring.js';
 export { makeDeleteExpressionMigrator, type DeleteExpressionParams, } from './ops/delete-expression.js';
 export { makeSetTypeValuesMigrator, typeValuesChecksum, type SetTypeValuesParams, type TypeValueMap, } from './ops/type-values.js';
 export { makeSetPlaneOffsetMigrator, type SetPlaneOffsetParams, } from './ops/set-plane-offset.js';

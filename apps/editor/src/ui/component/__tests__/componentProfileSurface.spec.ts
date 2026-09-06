@@ -317,3 +317,159 @@ describe('§NO-SILENT-DEPARAMETRISATION · ARM D — a lossy commit is refused, 
         }
     });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════
+ * §PROFILE-RING-IS-AUTHORABLE (lane CE-MAKE-IT-REACHABLE · L-12976)
+ *
+ * The arm above — "INSERTING a vertex is refused" — is DELIBERATELY LEFT INTACT
+ * and is the backwards-compatibility proof for this block: without an id factory
+ * the panel and the adapter behave exactly as they shipped. Supplying one is what
+ * turns a vertex-nudger into a drawing surface.
+ * ══════════════════════════════════════════════════════════════════════════════ */
+describe('§PROFILE-RING-IS-AUTHORABLE — the panel can DRAW, and every refusal keeps its voice', () => {
+    /** A caller's bare-ULID factory, deterministic so an arm can name the id it mints. */
+    function minter(): () => string {
+        let n = 10;
+        return () => U(n++);
+    }
+
+    it('⭐ WITH an id factory, an INSERT commits — and the minted vertex is a bare `point`', () => {
+        const profile = rectangleProfile();
+        const res = commitRingToProfile(
+            profile,
+            [{ u: 0, v: 0 }, { u: 0.6, v: 0 }, { u: 1.2, v: 0 }, { u: 1.2, v: 1.5 }, { u: 0, v: 1.5 }],
+            { u: 0, v: 0 },
+            { mintEntityId: minter() },
+        );
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+        expect(res.profile.entities).toHaveLength(5);
+        // ⭐ The MINTED vertex is a bare point carrying only the drawn coordinates.
+        expect(res.profile.entities[4]).toEqual({ id: U(10), kind: 'point', data: { x: 0, z: 1.5 } });
+        // The four original ids survive in order — nothing the document anchored moved.
+        expect(res.profile.entities.slice(0, 4).map((e) => e.id)).toEqual([U(3), U(4), U(5), U(6)]);
+    });
+
+    it('⭐ a DELETE commits too, and drops exactly the tail id', () => {
+        const profile = rectangleProfile();
+        const res = commitRingToProfile(
+            profile,
+            [{ u: 0, v: 0 }, { u: 1.2, v: 0 }, { u: 1.2, v: 1.5 }],
+            { u: 0, v: 0 },
+            { mintEntityId: minter() },
+        );
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+        expect(res.profile.entities.map((e) => e.id)).toEqual([U(3), U(4), U(5)]);
+    });
+
+    it('⛔ fewer than three vertices is refused by NAME, even with a factory', () => {
+        const res = commitRingToProfile(
+            rectangleProfile(), [{ u: 0, v: 0 }, { u: 1.2, v: 0 }], { u: 0, v: 0 },
+            { mintEntityId: minter() },
+        );
+        expect(res.ok).toBe(false);
+        if (!res.ok) expect(res.refusal.reason).toContain('at least 3');
+    });
+
+    it('⛔ C111 §1.3-b — a CONSTRAINED profile refuses a count change, and still admits a MOVE', () => {
+        const constrained = rectangleProfile([
+            { id: U(9), kind: 'coincident', entityIds: [U(3), U(4)], parameterRef: null, value: null },
+        ]);
+        const grow = commitRingToProfile(
+            constrained,
+            [{ u: 0, v: 0 }, { u: 0.6, v: 0 }, { u: 1.2, v: 0 }, { u: 1.2, v: 1.5 }, { u: 0, v: 1.5 }],
+            { u: 0, v: 0 }, { mintEntityId: minter() },
+        );
+        expect(grow.ok).toBe(false);
+        if (!grow.ok) {
+            expect(grow.refusal.code).toBe('profile-constrained-ring-change');
+            expect(grow.refusal.alternative).toContain('remove the constraints');
+        }
+        const move = commitRingToProfile(
+            constrained,
+            [{ u: 0, v: 0 }, { u: 1.1, v: 0 }, { u: 1.1, v: 1.5 }, { u: 0, v: 1.5 }],
+            { u: 0, v: 0 }, { mintEntityId: minter() },
+        );
+        expect(move.ok, 'identity is unchanged, so nothing is re-anchored').toBe(true);
+    });
+
+    it('⭐ THE DOM: a writable profile with a factory gets a Draw/Finish/Cancel trio; without one it gets none', () => {
+        const withMint = createComponentProfilePanel({
+            profile: rectangleProfile(), plane: PLANE, mintEntityId: minter(), attrPrefix: 'dm',
+        });
+        expect(withMint.root.querySelector('[data-dm-draw]')).not.toBeNull();
+        expect(withMint.root.querySelector('[data-dm-finish]')).not.toBeNull();
+        expect(withMint.root.querySelector('[data-dm-cancel-draw]')).not.toBeNull();
+
+        const withoutMint = createComponentProfilePanel({
+            profile: rectangleProfile(), plane: PLANE, attrPrefix: 'nm',
+        });
+        expect(withoutMint.root.querySelector('[data-nm-draw]'),
+            'no factory, no affordance — a draw button whose commit must refuse is a button that lies').toBeNull();
+        expect(withoutMint.beginDraw()).toBe(false);
+        expect(withoutMint.statusText).toContain('no id factory');
+    });
+
+    it('⭐ THE GESTURE: Draw → three clicks → Finish replaces the ring, and the commit writes the drawn triangle', () => {
+        let committed: Profile | null = null;
+        const panel = createComponentProfilePanel({
+            profile: rectangleProfile(), plane: PLANE, mintEntityId: minter(),
+            marginFraction: 0.5, attrPrefix: 'dg',
+            onCommit: (p) => { committed = p; },
+        });
+        const surface = panel.surface!;
+        expect(surface.ring).toHaveLength(4);
+
+        (panel.root.querySelector('[data-dg-draw]') as HTMLElement).click();
+        expect(panel.mode).toBe('polyline');
+        for (const pt of [{ u: 0.4, v: 0.4 }, { u: 1.4, v: 0.4 }, { u: 0.9, v: 1.4 }]) {
+            const px = surface.toPx(pt);
+            surface.svg.dispatchEvent(new PointerEvent('pointerdown', {
+                bubbles: true, clientX: px.x, clientY: px.y, shiftKey: true,
+            }));
+        }
+        expect(surface.draft).toHaveLength(3);
+        expect(surface.ring, 'the committed ring is untouched until Finish').toHaveLength(4);
+
+        (panel.root.querySelector('[data-dg-finish]') as HTMLElement).click();
+        expect(panel.mode).toBe('select');
+        expect(surface.ring, 'the drawn triangle IS the ring').toHaveLength(3);
+
+        expect(panel.commit()).toBe(true);
+        expect(committed).not.toBeNull();
+        expect(committed!.entities).toHaveLength(3);
+    });
+
+    it('⛔ FINISH under the floor is NAMED and KEEPS the draft — the author\'s work is not thrown away', () => {
+        const panel = createComponentProfilePanel({
+            profile: rectangleProfile(), plane: PLANE, mintEntityId: minter(), attrPrefix: 'fl',
+        });
+        const surface = panel.surface!;
+        panel.beginDraw();
+        for (const pt of [{ u: 0.2, v: 0.2 }, { u: 0.8, v: 0.2 }]) {
+            const px = surface.toPx(pt);
+            surface.svg.dispatchEvent(new PointerEvent('pointerdown', {
+                bubbles: true, clientX: px.x, clientY: px.y, shiftKey: true,
+            }));
+        }
+        expect(panel.finishDraw()).toBe(false);
+        expect(panel.statusText).toContain('at least 3');
+        expect(surface.draft, 'the two placed vertices are still there').toHaveLength(2);
+        expect(surface.ring, 'and the original ring is untouched').toHaveLength(4);
+    });
+
+    it('⭐ marginFraction pads the SHEET and not the geometry: the same ring commits identically', () => {
+        const profile = rectangleProfile();
+        const flush = profileToSurfaceRing(profile, PLANE, {});
+        const padded = profileToSurfaceRing(profile, PLANE, {}, { marginFraction: 0.5 });
+        expect(flush.ok && padded.ok).toBe(true);
+        if (!flush.ok || !padded.ok) return;
+        expect(padded.value.extents.length).toBeGreaterThan(flush.value.extents.length);
+        const a = commitRingToProfile(profile, flush.value.ring, flush.value.origin);
+        const b = commitRingToProfile(profile, padded.value.ring, padded.value.origin);
+        expect(a.ok && b.ok).toBe(true);
+        if (!a.ok || !b.ok) return;
+        expect(b.profile.entities).toEqual(a.profile.entities);
+    });
+});

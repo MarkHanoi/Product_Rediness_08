@@ -63,4 +63,9 @@ export { makeSetPlaneOffsetMigrator, } from './ops/set-plane-offset.js';
  * VALUE without authoring a constant formula. Refuses a parameter carrying a
  * formula (ADR-0376 D4) and checks the value against the declared dataType. */
 export { makeSetParameterDefaultMigrator, } from './ops/set-parameter-default.js';
+/* ── lane CE-MAKE-IT-REACHABLE (§PROFILE-RING-IS-AUTHORABLE) — DRAW a profile:
+ * insert and delete vertices, not only move them. Mints no id itself (the caller
+ * supplies them, as `add-box-solid` does) and refuses an id-set change on a
+ * profile carrying constraints (C111 §1.3-b, fail closed). */
+export { makeSetProfileRingMigrator, } from './ops/set-profile-ring.js';
 //# sourceMappingURL=index.js.map

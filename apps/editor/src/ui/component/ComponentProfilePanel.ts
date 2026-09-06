@@ -16,6 +16,15 @@
  * render their own text into the status line, by name, with the live alternative (C16 CA-18).
  * A panel that swallowed them would reproduce §OPENING-PROFILE-PANEL-REACHABILITY's measured
  * defect one surface over: *"a control that appeared to do nothing"*.
+ *
+ * ⭐ **§PROFILE-RING-IS-AUTHORABLE (lane CE-MAKE-IT-REACHABLE · L-12976) — the panel can now
+ * DRAW.** `ElevationOutlineSurface` has had a `polyline` construction mode, a midpoint INSERT
+ * and a vertex DELETE since it was written; what it never had was a caller that offered them
+ * or a commit that could absorb the result. Pass `mintEntityId` and this panel mounts a
+ * `Draw outline` / `Finish` / `Cancel` trio over the surface's OWN gesture (it re-implements
+ * none of it — `setMode`, `closeDraft`, `cancelDraft`) and commits through the same
+ * `commitRingToProfile`, which then admits a changed vertex count. Omit `mintEntityId` and the
+ * panel is byte-for-byte what it was: move-only, with the count-change refusal intact.
  */
 
 import type { Profile, ReferencePlane } from '@pryzm/file-format';
@@ -29,6 +38,7 @@ import {
     profileWriteBackDisposition,
     type ProfileSurfaceRefusal,
 } from './profileSurfaceAdapter';
+import type { OutlineSurfaceMode } from '../ElevationOutlineSurface';
 import {
     authorableConstraintKinds,
     constraintAuthoringDisposition,
@@ -47,6 +57,20 @@ export interface ComponentProfilePanelOptions {
     readonly scope?: EvalScope;
     /** Called with the UPDATED profile when the author commits. The caller dispatches. */
     readonly onCommit?: (profile: Profile) => void;
+    /**
+     * ⭐ §PROFILE-RING-IS-AUTHORABLE — a bare-ULID factory. Supplying it turns on the
+     * DRAW affordances and lets a commit change the vertex count; omitting it leaves the
+     * panel move-only, exactly as it shipped. The factory is the CALLER's because id
+     * minting belongs to the surface owning `@pryzm/schemas`'s `createId` — this panel
+     * mints nothing.
+     */
+    readonly mintEntityId?: () => string;
+    /**
+     * Fraction of the profile's extent added around the drawing sheet, so an author can
+     * place a vertex outside the shape already there. 0 (the default) keeps the sheet
+     * exactly the profile's bounds — which silently CLAMPS a click aimed past them.
+     */
+    readonly marginFraction?: number;
     readonly attrPrefix?: string;
 }
 
@@ -58,6 +82,16 @@ export interface ComponentProfilePanelHandle {
     readonly refusal: ProfileSurfaceRefusal | null;
     /** Ask to author a constraint of `kind`. Returns true iff it was accepted. */
     requestConstraint(kind: string): boolean;
+    /** ⭐ Begin drawing a replacement outline. False when this panel cannot draw
+     *  (no `mintEntityId`, or the profile is read-only) — the status line says which. */
+    beginDraw(): boolean;
+    /** Close the open draft into the ring (the author's "Finish"). False when the draft
+     *  cannot bound an area yet; the status line carries the reason. */
+    finishDraw(): boolean;
+    /** Abandon the open draft and return to select mode. */
+    cancelDraw(): void;
+    /** The surface's current construction mode — what the author is doing right now. */
+    readonly mode: OutlineSurfaceMode;
     /** Commit the current ring back onto the profile. Returns true iff it was accepted. */
     commit(): boolean;
     /** The status line's current text — the layer a user reads. */
@@ -81,7 +115,8 @@ export function createComponentProfilePanel(
         status.setAttribute(`data-${prefix}-status-kind`, isRefusal ? 'refusal' : 'info');
     };
 
-    const evaluated = profileToSurfaceRing(opts.profile, opts.plane, opts.scope ?? {});
+    const evaluated = profileToSurfaceRing(opts.profile, opts.plane, opts.scope ?? {},
+        { marginFraction: opts.marginFraction ?? 0 });
     if (!evaluated.ok) {
         // ⛔ The panel does not open EMPTY over a profile it could not read. An empty drawing
         // surface and a profile that failed to evaluate are different facts, and rendering
@@ -92,6 +127,10 @@ export function createComponentProfilePanel(
         return {
             root, surface: null, refusal: evaluated.refusal,
             requestConstraint: () => false,
+            beginDraw: () => false,
+            finishDraw: () => false,
+            cancelDraw: () => { /* there is no surface to draw on */ },
+            mode: 'select',
             commit: () => false,
             get statusText(): string { return status.textContent ?? ''; },
         };
@@ -100,12 +139,21 @@ export function createComponentProfilePanel(
     const { ring, extents, origin, plane } = evaluated.value;
     const writeBack = profileWriteBackDisposition(opts.profile);
 
+    // ⚠ TDZ-SAFE BY CONSTRUCTION. `onChanged` fires from inside the surface (and from
+    //   `setRing`, below) BEFORE the draw toolbar exists, so the syncer is a mutable
+    //   binding seeded with a no-op and replaced once the buttons are on the DOM.
+    //   A `const` arrow declared further down would throw a ReferenceError on the
+    //   first change — a white panel where a profile should be.
+    let syncDrawButtons: () => void = () => { /* the toolbar is not mounted yet */ };
+
     const surface = new ElevationOutlineSurface({
         extents,
         plane,
         snap: wallProfileEditorSnap,
         minVertices: MIN_PROFILE_VERTICES,
         onChanged: () => {
+            // Keep the DRAW trio honest with every ring/draft change.
+            syncDrawButtons();
             if (surface.mode !== 'select') {
                 const n = surface.draft?.length ?? 0;
                 setStatus(`${surface.mode} — ${n} point${n === 1 ? '' : 's'} placed. Enter closes the ring, Esc abandons it.`);
@@ -143,6 +191,93 @@ export function createComponentProfilePanel(
     }
 
     root.appendChild(surface.svg);
+
+    /* ══════════════════════════════════════════════════════════════════════
+     * §PROFILE-RING-IS-AUTHORABLE — the DRAW trio.
+     *
+     * ⛔ Mounted ONLY when the caller supplied an id factory AND the profile is
+     *    write-back admissible. A read-only profile (an arc, a circle, an
+     *    expression-valued coordinate) gets NO draw button, for the same reason
+     *    it gets no commit button: an affordance whose commit is guaranteed to
+     *    refuse is an affordance that lies (spec §75).
+     * ══════════════════════════════════════════════════════════════════════ */
+    const canDraw = opts.mintEntityId !== undefined && writeBack.writable;
+    let drawBtn: HTMLButtonElement | null = null;
+    let finishBtn: HTMLButtonElement | null = null;
+    let cancelBtn: HTMLButtonElement | null = null;
+
+    syncDrawButtons = (): void => {
+        if (!drawBtn || !finishBtn || !cancelBtn) return;
+        const drawing = surface.mode !== 'select';
+        drawBtn.hidden = drawing;
+        finishBtn.hidden = !drawing;
+        cancelBtn.hidden = !drawing;
+        finishBtn.disabled = (surface.draft?.length ?? 0) < MIN_PROFILE_VERTICES;
+    };
+
+    function beginDraw(): boolean {
+        if (!canDraw) {
+            setStatus(
+                opts.mintEntityId === undefined
+                    ? 'This surface cannot draw a replacement outline: its caller supplied no id factory, ' +
+                      'so a new vertex would have no identity in the document.'
+                    : `Read-only geometry: ${writeBack.writable ? '' : writeBack.refusal.reason}.`,
+                true);
+            return false;
+        }
+        surface.setMode('polyline');
+        setStatus('Click to place each vertex of the new outline. Finish closes it; Cancel keeps the current shape.');
+        syncDrawButtons();
+        return true;
+    }
+
+    function finishDraw(): boolean {
+        const n = surface.draft?.length ?? 0;
+        if (!surface.closeDraft()) {
+            // ⛔ NAMED, never a dead button. `closeDraft` keeps the draft when it
+            //    cannot bound an area, so the author's work is not thrown away.
+            setStatus(
+                `The outline has ${n} vertex${n === 1 ? '' : 'es'} and needs at least ` +
+                `${MIN_PROFILE_VERTICES} to bound an area — keep placing points, or Cancel.`,
+                true);
+            syncDrawButtons();
+            return false;
+        }
+        setStatus(`Outline closed with ${surface.ring.length} vertices — commit to write it into the draft definition.`);
+        syncDrawButtons();
+        return true;
+    }
+
+    function cancelDraw(): void {
+        surface.cancelDraft();
+        surface.setMode('select');
+        setStatus(`${surface.ring.length} vertices on ${plane.name} — the drawn outline was abandoned.`);
+        syncDrawButtons();
+    }
+
+    if (canDraw) {
+        const bar = document.createElement('div');
+        bar.setAttribute(`data-${prefix}-drawbar`, '');
+        bar.style.cssText = 'display:flex;gap:6px;margin:6px 2px;flex-wrap:wrap;';
+        const mk = (attr: string, label: string, onClick: () => void): HTMLButtonElement => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.setAttribute(`data-${prefix}-${attr}`, '');
+            b.textContent = label;
+            b.style.cssText =
+                'background:#fff;color:#1a1a1a;border:1px solid #d6d6de;padding:3px 10px;' +
+                'border-radius:6px;font-size:12px;cursor:pointer;';
+            b.addEventListener('click', onClick);
+            bar.appendChild(b);
+            return b;
+        };
+        drawBtn = mk('draw', 'Draw outline', () => { beginDraw(); });
+        finishBtn = mk('finish', 'Finish outline', () => { finishDraw(); });
+        cancelBtn = mk('cancel-draw', 'Cancel', () => { cancelDraw(); });
+        root.appendChild(bar);
+        syncDrawButtons();
+    }
+
     root.appendChild(status);
     surface.redraw();
 
@@ -150,6 +285,10 @@ export function createComponentProfilePanel(
         root,
         surface,
         refusal: null,
+        beginDraw,
+        finishDraw,
+        cancelDraw,
+        get mode(): OutlineSurfaceMode { return surface.mode; },
         requestConstraint(kind: string): boolean {
             const d = constraintAuthoringDisposition(kind);
             if (!d.authorable) {
@@ -163,7 +302,8 @@ export function createComponentProfilePanel(
             return true;
         },
         commit(): boolean {
-            const res = commitRingToProfile(opts.profile, surface.ring, origin);
+            const res = commitRingToProfile(opts.profile, surface.ring, origin,
+                opts.mintEntityId ? { mintEntityId: opts.mintEntityId } : {});
             if (!res.ok) {
                 root.setAttribute(`data-${prefix}-commit-refused`, res.refusal.code);
                 setStatus(`Not committed: ${res.refusal.reason}. Try: ${res.refusal.alternative}.`, true);

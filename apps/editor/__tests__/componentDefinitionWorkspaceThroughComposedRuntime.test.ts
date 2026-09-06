@@ -457,13 +457,23 @@ describe('§U3-DEFINITION-WORKSPACE — the founder\'s §64 demo, end to end thr
         expect(ws.isDirty()).toBe(true);
 
         // The DRAFT document carries exactly what the surface drew — same ids, moved
-        // coordinates, nothing minted or dropped. (The profile's origin is (0,0) for
-        // this fixture, so surface coordinates and plane coordinates coincide.)
+        // coordinates, nothing minted or dropped.
+        //
+        // ⚠ ASSERTED AS A DELTA, not as an identity. This block used to read the
+        //   surface coordinate straight back out of the document, on the note *"the
+        //   profile's origin is (0,0) for this fixture, so surface coordinates and
+        //   plane coordinates coincide"*. That coincidence STOPPED HOLDING when
+        //   §PROFILE-RING-IS-AUTHORABLE gave the drawing sheet a margin (the sheet
+        //   now starts before the shape does, so `origin` is negative). The delta is
+        //   what the drag actually asserts and it is true under any sheet offset —
+        //   the earlier form was reading a property of the fixture, not of the edit.
+        const dU = dragged[2]!.u - before[2]!.u;
+        const dV = dragged[2]!.v - before[2]!.v;
         const draftProfile = ws.document.profiles.find((pr) => pr.id === PROFILE_ID)!;
         expect(draftProfile.entities.length, 'no entity minted or deleted').toBe(4);
         expect(draftProfile.entities.map((e) => e.id)).toEqual([bare(20), bare(21), bare(22), bare(23)]);
-        expect(draftProfile.entities[2]!.data['x'] as number).toBeCloseTo(dragged[2]!.u, 9);
-        expect(draftProfile.entities[2]!.data['z'] as number).toBeCloseTo(dragged[2]!.v, 9);
+        expect(draftProfile.entities[2]!.data['x'] as number).toBeCloseTo(1.2 + dU, 9);
+        expect(draftProfile.entities[2]!.data['z'] as number).toBeCloseTo(1.5 + dV, 9);
         expect(draftProfile.entities[0]!.data['x']).toBe(0);
 
         // ── THE ROUND TRIP — packFamily → the ONE catalogue loader → read it back ──
@@ -472,8 +482,8 @@ describe('§U3-DEFINITION-WORKSPACE — the founder\'s §64 demo, end to end thr
         const reloaded = componentCatalog.entry(DEF_ID)!.family.document.profiles
             .find((pr) => pr.id === PROFILE_ID)!;
         expect(reloaded.entities[2]!.data['x'] as number, 'the MOVED coordinate survived the round trip')
-            .toBeCloseTo(dragged[2]!.u, 9);
-        expect(reloaded.entities[2]!.data['z'] as number).toBeCloseTo(dragged[2]!.v, 9);
+            .toBeCloseTo(1.2 + dU, 9);
+        expect(reloaded.entities[2]!.data['z'] as number).toBeCloseTo(1.5 + dV, 9);
         expect(reloaded.entities.map((e) => e.id), 'ids intact — constraints still anchorable')
             .toEqual([bare(20), bare(21), bare(22), bare(23)]);
 
