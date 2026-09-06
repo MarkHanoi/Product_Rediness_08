@@ -95,7 +95,7 @@
 import { createReadStream, createWriteStream, existsSync, mkdirSync, openSync, readSync, closeSync, statSync } from 'node:fs';
 import { createInflateRaw } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
-import { resolve, dirname } from 'node:path';
+import { resolve } from 'node:path';
 
 import { getProjector } from '../reproject.mjs';
 import {
