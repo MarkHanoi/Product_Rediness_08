@@ -344,3 +344,40 @@ describe('P8.1 §DIAG-CORRIDOR-QUALITY — the 15-plate corpus', () => {
         expect(coreReachable).toBe(apartments);
     }, 300_000);
 });
+
+// ── D. REACHABILITY — the gate must fire at the layer the FOUNDER uses, not merely exist ─────────
+//
+// "Committed is not reachable" is a standing lesson here: four fixes once landed in one session and
+// ran nowhere. `assessCorridorQuality` being green in a unit test proves nothing about the browser.
+// The founder's path is `ResidentialBuildingController` -> `orchestrateResidentialBuilding`, so THIS
+// is the seam that has to be shown working: flip `__pryzmResidentialCorridorGate` and the diagnostic
+// must appear on the console of a real generate; leave it off and NOTHING may change.
+describe('P8.1 §DIAG-CORRIDOR-QUALITY — reachable from the orchestrator the editor calls', () => {
+    function captureLog(fn: () => void): string[] {
+        const lines: string[] = [];
+        const orig = console.log;
+        console.log = (...args: unknown[]) => { lines.push(args.map((a) => String(a)).join(' ')); };
+        try { fn(); } finally { console.log = orig; }
+        return lines;
+    }
+
+    it('flag ON — a real generate prints §DIAG-CORRIDOR-QUALITY through the orchestrator', () => {
+        const g = globalThis as unknown as { __pryzmResidentialCorridorGate?: boolean };
+        g.__pryzmResidentialCorridorGate = true;
+        let lines: string[] = [];
+        try { lines = captureLog(() => { orchestrateResidentialBuilding(buildingInput()); }); }
+        finally { delete g.__pryzmResidentialCorridorGate; }
+        const diag = lines.filter((l) => l.includes('§DIAG-CORRIDOR-QUALITY'));
+        expect(diag.length).toBe(1);
+        expect(diag[0]).toContain('apartmentsReached=');
+        expect(diag[0]).toContain('servedThrough=0');
+        expect(diag[0]).toContain('status=ok');
+    }, 60_000);
+
+    it('flag OFF — the SAME generate prints nothing (the gate column: production byte-identical)', () => {
+        const g = globalThis as unknown as { __pryzmResidentialCorridorGate?: boolean };
+        expect(g.__pryzmResidentialCorridorGate).toBeUndefined();
+        const lines = captureLog(() => { orchestrateResidentialBuilding(buildingInput()); });
+        expect(lines.filter((l) => l.includes('§DIAG-CORRIDOR-QUALITY'))).toEqual([]);
+    }, 60_000);
+});
