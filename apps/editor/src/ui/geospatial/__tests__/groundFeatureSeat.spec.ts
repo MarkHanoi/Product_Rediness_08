@@ -25,6 +25,13 @@ import {
     clipPolygonToRect,
     lonLatToLocalM,
     localToLonLat,
+    // §DRAPE-LAYER-BUDGET (L-12989)
+    GROUND_DRAPE_MAX_PIECES_PER_LAYER,
+    GROUND_DRAPE_MAX_PROBE_POINTS_PER_LAYER,
+    estimateSplitPieceCount,
+    groundDistanceM,
+    ringDrapeGrid,
+    spendDrapeBudgetNearestFirst,
     type LonLat,
 } from '../groundFeatureSeat';
 
@@ -373,5 +380,181 @@ describe('the Sète staircase — a speed lane must not be able to flatten the d
         const range = reliefRangeM(probes.map((p) => ground(p.lon)));
         expect(range).toBe(0);                                    // west of the ramp: clamped flat
         expect(decideDrapeStrategy({ reliefAttached: true, reliefRangeM: range })).toBe('single');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §DRAPE-LAYER-BUDGET (L-12989, founder Nürnberg 2026-09-06: "the time it takes to render 3d view
+// once the parcel is selected is massive").
+//
+// THE DEFECT THESE PIN. `GROUND_DRAPE_MAX_PIECES_PER_FEATURE` was the ONLY cap in the drape, and a
+// per-item cap with no total is a rate, not a budget. His console:
+//     §FORMA-CTX-LANDUSE rendered: 37923 piece(s) of 2599 area(s) … 688 split (>3 m relief) into
+//     36012 piece(s); 48942 terrain point(s) in 2 batch round-trip(s), 15700 ms
+// Every one of those 688 features was INSIDE its 400-piece cap. The sum was not.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+const NUREMBERG = { lat: 49.4521, lon: 11.0767 };
+
+/** A square ring of `sideM` metres, `offsetM` east/north of Nürnberg's centre. */
+function squareRingM(sideM: number, eastM: number, northM: number): LonLat[] {
+    const kx = 111_320 * Math.cos((NUREMBERG.lat * Math.PI) / 180);
+    const dLon = (x: number): number => NUREMBERG.lon + x / kx;
+    const dLat = (y: number): number => NUREMBERG.lat + y / 110_574;
+    const x0 = eastM;
+    const y0 = northM;
+    return [
+        [dLon(x0), dLat(y0)],
+        [dLon(x0 + sideM), dLat(y0)],
+        [dLon(x0 + sideM), dLat(y0 + sideM)],
+        [dLon(x0), dLat(y0 + sideM)],
+        [dLon(x0), dLat(y0)],
+    ];
+}
+
+describe('§DRAPE-LAYER-BUDGET — the splitter had a per-FEATURE cap and no LAYER cap', () => {
+    it('ringDrapeGrid describes exactly the lattice the splitter iterates, and bounds its output', () => {
+        const ring = squareRingM(300, 0, 0);
+        const grid = ringDrapeGrid(ring, 60)!;
+        expect(grid).not.toBeNull();
+        expect(grid.cell).toBe(60);
+        // The snapped origin can add one column/row over the raw bbox count — which is why the
+        // budget must count from x0/y0 and not from (maxX-minX)/cell. Under-counting overspends.
+        expect(grid.nx * grid.ny).toBeGreaterThanOrEqual(splitRingIntoGridCells(ring, 60).length);
+        // The lattice must be exactly reproducible: x0 + i*cell, never an accumulated sum.
+        expect(grid.x0 % grid.cell).toBeCloseTo(0, 9);
+        expect(grid.y0 % grid.cell).toBeCloseTo(0, 9);
+    });
+
+    it('estimateSplitPieceCount is an UPPER bound for polygons and exact for corridors', () => {
+        for (const side of [120, 300, 800, 5000]) {
+            const ring = squareRingM(side, 0, 0);
+            const est = estimateSplitPieceCount(ring, 'polygon', 60);
+            const real = splitRingIntoGridCells(ring, 60).length;
+            expect(est).toBeGreaterThanOrEqual(real);
+            expect(est).toBeLessThanOrEqual(GROUND_DRAPE_MAX_PIECES_PER_FEATURE * 4);
+        }
+        const kx = 111_320 * Math.cos((NUREMBERG.lat * Math.PI) / 180);
+        const line: LonLat[] = [
+            [NUREMBERG.lon, NUREMBERG.lat],
+            [NUREMBERG.lon + 500 / kx, NUREMBERG.lat],
+        ];
+        expect(estimateSplitPieceCount(line, 'corridor', 60)).toBe(splitCorridorIntoSegments(line, 60).length);
+        expect(estimateSplitPieceCount([], 'polygon', 60)).toBe(0);
+        expect(estimateSplitPieceCount([[1, 1]], 'corridor', 60)).toBe(0);
+    });
+
+    it('groundDistanceM measures in the same local metres the grid does; unmeasurable sorts LAST', () => {
+        expect(groundDistanceM(BAIXA, CHIADO)).toBeGreaterThan(350);
+        expect(groundDistanceM(BAIXA, CHIADO)).toBeLessThan(450);
+        expect(groundDistanceM(BAIXA, { lat: Number.NaN, lon: 0 })).toBe(Number.POSITIVE_INFINITY);
+    });
+
+    it('spends NEAREST FIRST, never overspends, and skips rather than stops', () => {
+        const v = spendDrapeBudgetNearestFirst([
+            { index: 0, distanceM: 900, cost: 30 },
+            { index: 1, distanceM: 100, cost: 40 },
+            { index: 2, distanceM: 200, cost: 80 },   // does not fit → SKIPPED, not a stop
+            { index: 3, distanceM: 300, cost: 20 },
+            { index: 4, distanceM: Number.NaN, cost: 5 },  // unplaceable → last in line
+        ], 100);
+        // Order: 1 (100 m, 40) → 2 (200 m, 80 — does NOT fit in the remaining 60, SKIPPED) →
+        // 3 (300 m, 20) → 0 (900 m, 30) → 4 (unplaceable, 5). Skipping index 2 is the whole point:
+        // one expensive near feature must not strand the 60 units behind it.
+        expect(Array.from(v.granted).sort()).toEqual([0, 1, 3, 4]);   // 40 + 20 + 30 + 5 = 95
+        expect(v.spent).toBe(95);
+        expect(v.denied).toBe(1);                                   // index 2 alone
+        expect(v.deniedCost).toBe(80);
+        expect(v.spent).toBeLessThanOrEqual(100);
+    });
+
+    it('a layer whose bids all fit grants EVERYTHING — the flat-city common case is untouched', () => {
+        const bids = Array.from({ length: 40 }, (_, i) => ({ index: i, distanceM: i * 10, cost: 20 }));
+        const v = spendDrapeBudgetNearestFirst(bids, GROUND_DRAPE_MAX_PIECES_PER_LAYER);
+        expect(v.granted.size).toBe(40);
+        expect(v.denied).toBe(0);
+        expect(v.deniedCost).toBe(0);
+    });
+
+    it('ties are broken by index and a zero/negative cost buys nothing (deterministic verdict)', () => {
+        const a = spendDrapeBudgetNearestFirst([
+            { index: 7, distanceM: 50, cost: 10 },
+            { index: 2, distanceM: 50, cost: 10 },
+            { index: 5, distanceM: 50, cost: 0 },
+            { index: 9, distanceM: 50, cost: -3 },
+        ], 10);
+        expect(Array.from(a.granted)).toEqual([2]);                 // lower index wins the tie
+        expect(a.denied).toBe(1);                                   // index 7 only; 5 and 9 bid nothing
+    });
+
+    it('THE FOUNDER\'S NÜRNBERG LAYER: 688 individually-legal features summed to ~36 000 pieces', () => {
+        // 688 land-use areas, each ~400 m across — every one of them inside the 400-piece per-feature
+        // cap, and all of them together the defect. Laid on a 2.4 km grid around the site so the
+        // nearest-first ordering has something real to order.
+        const features = Array.from({ length: 688 }, (_, i) => {
+            const col = i % 28;
+            const row = Math.floor(i / 28);
+            return squareRingM(400, (col - 14) * 420, (row - 12) * 420);
+        });
+        const bids = features.map((ring, i) => ({
+            index: i,
+            distanceM: groundDistanceM(NUREMBERG, polygonSeatPoint(ring)!),
+            cost: estimateSplitPieceCount(ring, 'polygon', 60),
+        }));
+
+        // BEFORE — no layer budget: every feature splits, and the sum is what the founder measured.
+        const before = features.reduce((n, r) => n + splitRingIntoGridCells(r, 60).length, 0);
+        expect(before).toBeGreaterThan(30_000);                     // his 36 012, to within the shape
+
+        // AFTER — the layer budget, spent nearest-first.
+        const verdict = spendDrapeBudgetNearestFirst(bids, GROUND_DRAPE_MAX_PIECES_PER_LAYER);
+        let after = 0;
+        let onOwnSeat = 0;
+        for (let i = 0; i < features.length; i++) {
+            const pieces = verdict.granted.has(i) ? splitRingIntoGridCells(features[i]!, 60) : [{ seat: polygonSeatPoint(features[i]!)! }];
+            after += pieces.length;
+            // ⛔ THE PROHIBITION. A feature that lost its bid is NOT dropped and NOT flattened onto
+            // one layer scalar — it keeps ONE piece seated at its OWN centroid, which is exactly the
+            // L-12924 seat. Coarser is allowed; fabricated and missing are not.
+            for (const p of pieces) if (p.seat) onOwnSeat++;
+        }
+        expect(after).toBeLessThanOrEqual(GROUND_DRAPE_MAX_PIECES_PER_LAYER + features.length);
+        expect(after).toBeLessThan(before / 4);                     // the latency this lane removes
+        expect(onOwnSeat).toBe(after);                              // every piece still has its own seat
+        expect(verdict.spent).toBeLessThanOrEqual(GROUND_DRAPE_MAX_PIECES_PER_LAYER);
+
+        // And what survives is what he is LOOKING AT. Every feature here costs the same, so the
+        // greedy scan never skips and the granted set is EXACTLY the nearest prefix: nothing that
+        // coarsened is closer to the site than anything that did not.
+        const grantedMax = Math.max(...Array.from(verdict.granted).map((i) => bids[i]!.distanceM));
+        const deniedMin = Math.min(...bids.filter((b) => !verdict.granted.has(b.index) && b.cost > 0).map((b) => b.distanceM));
+        expect(grantedMax).toBeGreaterThan(0);
+        expect(grantedMax).toBeLessThanOrEqual(deniedMin);
+        const nearest = bids.slice().sort((a, b) => a.distanceM - b.distanceM)[0]!;
+        expect(verdict.granted.has(nearest.index)).toBe(true);
+    });
+
+    it('the PROBE batch has its own ceiling, and losing it means UNKNOWN relief, not flat', () => {
+        // The other 12 930 of the founder's 48 942 points: 2 599 areas × ~5 probes, before a single
+        // piece is cut. A feature beyond the ceiling is probed at its SEAT ONLY — one point — so it
+        // still seats on its own ground; `reliefRangeM` of one sample is null = UNKNOWN, and
+        // `decideDrapeStrategy` already refuses to split on a guess.
+        const features = Array.from({ length: 2599 }, (_, i) => squareRingM(200, (i % 51) * 300, Math.floor(i / 51) * 300));
+        const probes = features.map((r) => featureReliefProbePoints(r, polygonSeatPoint(r)));
+        const wanted = probes.reduce((n, p) => n + p.length, 0);
+        expect(wanted).toBeGreaterThan(12_000);                     // his 12 930
+
+        const verdict = spendDrapeBudgetNearestFirst(
+            probes.map((p, i) => ({ index: i, distanceM: groundDistanceM(NUREMBERG, polygonSeatPoint(features[i]!)!), cost: p.length })),
+            GROUND_DRAPE_MAX_PROBE_POINTS_PER_LAYER,
+        );
+        const kept = probes.map((p, i) => (verdict.granted.has(i) ? p : p.slice(0, 1)));
+        const spent = kept.reduce((n, p) => n + p.length, 0);
+        expect(spent).toBeLessThan(wanted);
+        expect(verdict.spent).toBeLessThanOrEqual(GROUND_DRAPE_MAX_PROBE_POINTS_PER_LAYER);
+        // Every feature still has its seat point in the batch — nothing loses its own ground.
+        for (const p of kept) expect(p.length).toBeGreaterThanOrEqual(1);
+        // A seat-only feature measures UNKNOWN, and unknown does not split (it does not flatten either).
+        expect(reliefRangeM([100])).toBeNull();
+        expect(decideDrapeStrategy({ reliefAttached: true, reliefRangeM: null })).toBe('single');
     });
 });

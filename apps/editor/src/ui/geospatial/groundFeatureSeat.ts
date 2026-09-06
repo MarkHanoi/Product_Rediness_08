@@ -106,6 +106,110 @@ export function drapePieceLengthM(spanM: number, reliefRangeM: number | null): n
  *  The cell edge is grown until the count fits. */
 export const GROUND_DRAPE_MAX_PIECES_PER_FEATURE = 400;
 
+/**
+ * §DRAPE-LAYER-BUDGET (L-12989, founder Nürnberg 2026-09-06: "the time it takes to render 3d view
+ * once the parcel is selected is massive").
+ *
+ * ⭐ THE DEFECT THIS CLOSES, IN THE FOUNDER'S OWN NUMBERS. `GROUND_DRAPE_MAX_PIECES_PER_FEATURE`
+ * above is a PER-FEATURE cap and, until this constant existed, it was the ONLY cap anywhere in the
+ * drape. So 688 land-use polygons, EVERY ONE of them individually inside its 400-piece budget,
+ * summed to **36 012 pieces and 48 942 sampled terrain points** for one layer:
+ *     `§FORMA-CTX-LANDUSE rendered: 37923 piece(s) of 2599 area(s) … 688 split (>3 m relief) into
+ *      36012 piece(s); 48942 terrain point(s) in 2 batch round-trip(s), 15700 ms`
+ * A per-item budget with no total is not a budget — it is a rate, and a rate times a crowd is
+ * unbounded. Every other layer then queued behind that one in the shared sampler FIFO
+ * (§GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME): parks reported `15637 ms waiting for terrain, 10 ms own
+ * work`, rail `15656 ms waiting, 7 ms own work`.
+ *
+ * ⛔ WHAT THE BUDGET MAY NOT BUY. A feature beyond it falls back to its WHOLE-FEATURE per-feature
+ * seat — the L-12924 seat, still its own sampled ground, just not subdivided. It is NEVER dropped,
+ * NEVER decimated to a flat layer scalar, and the FLAT/KEYLESS path never reaches this code at all.
+ * Reverting relief seating to one scalar per layer is the buried-drape defect L-12924 exists to
+ * remove, and is the one fix this lane is forbidden (§CONTEXT-DATA-HONESTY: coarser is honest,
+ * fabricated is not).
+ *
+ * NEAREST-FIRST, because the budget has to be spent where the founder is looking. The pieces that
+ * survive are the ones nearest the site; the ones that coarsen are at the far edge of the
+ * `CONTEXT_WIDE_HALF_DEG` extent, where a 60 m cell subtends a pixel anyway.
+ */
+export const GROUND_DRAPE_MAX_PIECES_PER_LAYER = 6000;
+/**
+ * §DRAPE-LAYER-BUDGET — the companion ceiling on the RELIEF-PROBE batch (3–5 points per feature,
+ * `featureReliefProbePoints`), which is the OTHER half of the founder's 48 942: 2 599 areas × ~5
+ * probes = **12 930 points before a single piece is cut**. A feature beyond this ceiling is probed
+ * at its SEAT POINT ONLY (one point), so it still seats on its own measured ground; what it loses
+ * is the relief MEASUREMENT, which `reliefRangeM` then honestly reports as `null` = UNKNOWN, and
+ * `decideDrapeStrategy` already refuses to split on unknown relief ("we do not multiply entities on
+ * a guess"). So the degraded path is one that already existed and is already tested.
+ */
+export const GROUND_DRAPE_MAX_PROBE_POINTS_PER_LAYER = 9000;
+
+/** Straight-line ground distance in metres between two lat/lons, in the same local
+ *  equirectangular frame the cell grid uses. Non-finite input → `Infinity` (sorts LAST, i.e. a
+ *  feature we cannot place is the first to lose its budget, never the first to win it). */
+export function groundDistanceM(a: LatLon, b: LatLon): number {
+    if (!a || !b || !Number.isFinite(a.lat) || !Number.isFinite(a.lon) || !Number.isFinite(b.lat) || !Number.isFinite(b.lon)) {
+        return Number.POSITIVE_INFINITY;
+    }
+    const [x, y] = lonLatToLocalM([b.lon, b.lat], a);
+    return Math.hypot(x, y);
+}
+
+/** One feature bidding for a share of a layer-wide budget. `cost` is what granting it would spend
+ *  (pieces, or probe points); `distanceM` is how far its seat is from the site. */
+export interface DrapeBudgetCandidate {
+    readonly index: number;
+    readonly distanceM: number;
+    readonly cost: number;
+}
+
+export interface DrapeBudgetVerdict {
+    /** Feature indices granted their full cost. */
+    readonly granted: ReadonlySet<number>;
+    /** Total cost granted — never above `budget`. */
+    readonly spent: number;
+    /** Features that bid and lost. */
+    readonly denied: number;
+    /** What they would have cost — the number this budget actually removed. */
+    readonly deniedCost: number;
+}
+
+/**
+ * §DRAPE-LAYER-BUDGET — spend one layer-wide budget NEAREST FIRST.
+ *
+ * Greedy, sorted by distance ascending (ties by index, so the verdict is deterministic and a test
+ * can pin it). A bid that does not fit is SKIPPED, not a stop: the scan continues, so a single
+ * expensive near feature cannot strand the whole remaining budget, and the cheap near features
+ * behind it still get their pieces. A zero/negative/non-finite cost buys nothing and is not
+ * granted (there is nothing to grant).
+ *
+ * ⚠ It is a CEILING, not a target. A layer whose bids all fit spends less and grants everything —
+ * which is what a flat city does, and why this cannot slow the common case down.
+ */
+export function spendDrapeBudgetNearestFirst(
+    candidates: ReadonlyArray<DrapeBudgetCandidate>,
+    budget: number,
+): DrapeBudgetVerdict {
+    const order = candidates.slice().sort((a, b) => {
+        const da = Number.isFinite(a.distanceM) ? a.distanceM : Number.POSITIVE_INFINITY;
+        const db = Number.isFinite(b.distanceM) ? b.distanceM : Number.POSITIVE_INFINITY;
+        return da === db ? a.index - b.index : da - db;
+    });
+    const granted = new Set<number>();
+    let spent = 0;
+    let denied = 0;
+    let deniedCost = 0;
+    const cap = Number.isFinite(budget) && budget > 0 ? budget : 0;
+    for (const c of order) {
+        const cost = Number.isFinite(c.cost) && c.cost > 0 ? c.cost : 0;
+        if (cost === 0) continue;
+        if (spent + cost <= cap) { granted.add(c.index); spent += cost; continue; }
+        denied++;
+        deniedCost += cost;
+    }
+    return { granted, spent, denied, deniedCost };
+}
+
 const M_PER_DEG_LAT = 110_574;
 const M_PER_DEG_LON_EQUATOR = 111_320;
 
@@ -320,27 +424,21 @@ export function splitRingIntoGridCells(
     ring: ReadonlyArray<LonLat>,
     pieceM: number = GROUND_DRAPE_SPLIT_PIECE_M,
 ): Array<{ coords: LonLat[]; seat: LatLon }> {
-    const origin = polygonSeatPoint(ring);
-    if (!origin) return [];
+    const grid = ringDrapeGrid(ring, pieceM);
+    if (!grid) return [];
+    const { origin, x0, y0, cell, nx, ny } = grid;
     const open = ring.length > 1 && ring[0]![0] === ring[ring.length - 1]![0] && ring[0]![1] === ring[ring.length - 1]![1]
         ? ring.slice(0, -1) : ring.slice();
     const local = open.map((p) => lonLatToLocalM(p, origin));
-    if (local.length < 3) return [];
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const [x, y] of local) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
-    let cell = Math.max(1, pieceM);
-    // Grow the cell until the grid is bounded — a city-wide polygon must not explode the entity count.
-    for (;;) {
-        const nx = Math.ceil((maxX - minX) / cell) || 1;
-        const ny = Math.ceil((maxY - minY) / cell) || 1;
-        if (nx * ny <= GROUND_DRAPE_MAX_PIECES_PER_FEATURE) break;
-        cell *= 1.5;
-    }
-    const x0 = Math.floor(minX / cell) * cell;
-    const y0 = Math.floor(minY / cell) * cell;
     const out: Array<{ coords: LonLat[]; seat: LatLon }> = [];
-    for (let gx = x0; gx < maxX; gx += cell) {
-        for (let gy = y0; gy < maxY; gy += cell) {
+    for (let ix = 0; ix < nx; ix++) {
+        // ⚠ `x0 + ix * cell`, NOT an accumulating `gx += cell`. Two neighbouring cells must agree
+        // on their shared edge BIT FOR BIT — accumulation drifts in the last places, and both the
+        // budget's piece ESTIMATE (`ringDrapeGrid`) and anything keyed on a lattice coordinate
+        // have to reproduce exactly the edge this loop cut.
+        const gx = x0 + ix * cell;
+        for (let iy = 0; iy < ny; iy++) {
+            const gy = y0 + iy * cell;
             const clipped = clipPolygonToRect(local, gx, gy, gx + cell, gy + cell);
             if (clipped.length < 3 || shoelaceArea(clipped) < 1) continue;
             const lonlat = clipped.map((p) => localToLonLat(p, origin));
@@ -351,6 +449,83 @@ export function splitRingIntoGridCells(
         }
     }
     return out;
+}
+
+/**
+ * The axis-aligned metric lattice `splitRingIntoGridCells` cuts a ring on — extracted so the piece
+ * COUNT can be predicted (`estimateSplitPieceCount`) without paying for every Sutherland–Hodgman
+ * clip, which is what a layer-wide budget has to do before it decides whom to grant.
+ *
+ * `nx` / `ny` are the cell counts the splitter actually ITERATES, measured from the SNAPPED origin
+ * (`x0`/`y0`) rather than from the bbox — the snap can add one column and one row, and a budget
+ * that under-counted would be a budget that overspends.
+ *
+ * Null for a ring with no finite vertex or fewer than three distinct ones.
+ */
+export interface DrapeGrid {
+    readonly origin: LatLon;
+    readonly x0: number;
+    readonly y0: number;
+    readonly cell: number;
+    readonly nx: number;
+    readonly ny: number;
+}
+export function ringDrapeGrid(
+    ring: ReadonlyArray<LonLat>,
+    pieceM: number = GROUND_DRAPE_SPLIT_PIECE_M,
+): DrapeGrid | null {
+    const origin = polygonSeatPoint(ring);
+    if (!origin) return null;
+    const open = ring.length > 1 && ring[0]![0] === ring[ring.length - 1]![0] && ring[0]![1] === ring[ring.length - 1]![1]
+        ? ring.slice(0, -1) : ring.slice();
+    if (open.length < 3) return null;
+    const local = open.map((p) => lonLatToLocalM(p, origin));
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [x, y] of local) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) return null;
+    let cell = Math.max(1, pieceM);
+    // Grow the cell until the grid is bounded — a city-wide polygon must not explode the entity count.
+    for (;;) {
+        const nx = Math.ceil((maxX - minX) / cell) || 1;
+        const ny = Math.ceil((maxY - minY) / cell) || 1;
+        if (nx * ny <= GROUND_DRAPE_MAX_PIECES_PER_FEATURE) break;
+        cell *= 1.5;
+    }
+    const x0 = Math.floor(minX / cell) * cell;
+    const y0 = Math.floor(minY / cell) * cell;
+    return {
+        origin,
+        x0,
+        y0,
+        cell,
+        nx: Math.max(1, Math.ceil((maxX - x0) / cell)),
+        ny: Math.max(1, Math.ceil((maxY - y0) / cell)),
+    };
+}
+
+/**
+ * §DRAPE-LAYER-BUDGET — an UPPER BOUND on the pieces splitting this feature would produce, cheap
+ * enough to run on every feature of a 2 599-area layer before any of them is actually split.
+ *
+ * Polygons: the lattice cell count. It is an OVER-estimate, because the splitter drops cells that
+ * hold less than 1 m² of the polygon — deliberately so: a budget must never be able to overspend,
+ * and an L-shaped park bidding for its bounding box and using half of it leaves headroom rather
+ * than borrowing it. Corridors: exact (`splitCorridorIntoSegments`' own `nPieces`).
+ */
+export function estimateSplitPieceCount(
+    coords: ReadonlyArray<LonLat>,
+    kind: 'polygon' | 'corridor',
+    pieceM: number = GROUND_DRAPE_SPLIT_PIECE_M,
+): number {
+    if (kind === 'corridor') {
+        const pts = coords.filter((p) => Number.isFinite(p?.[0]) && Number.isFinite(p?.[1]));
+        if (pts.length < 2) return 0;
+        const total = cumulativeLengthsM(pts, { lat: pts[0]![1], lon: pts[0]![0] });
+        const len = total[total.length - 1]!;
+        return Math.max(1, Math.min(GROUND_DRAPE_MAX_PIECES_PER_FEATURE, Math.ceil(len / Math.max(1, pieceM))));
+    }
+    const grid = ringDrapeGrid(coords, pieceM);
+    return grid ? grid.nx * grid.ny : 0;
 }
 
 /**

@@ -219,6 +219,14 @@ import {
   drapePieceLengthM,
   featureSpanM,
   GROUND_DRAPE_RELIEF_SPLIT_M,
+  // §DRAPE-LAYER-BUDGET (L-12989) — the per-feature cap was the ONLY cap, so 688 individually
+  // legal features summed to 36 012 pieces and 48 942 terrain points on ONE layer.
+  GROUND_DRAPE_MAX_PIECES_PER_LAYER,
+  GROUND_DRAPE_MAX_PROBE_POINTS_PER_LAYER,
+  estimateSplitPieceCount,
+  groundDistanceM,
+  spendDrapeBudgetNearestFirst,
+  type DrapeBudgetCandidate,
   type GroundLayer,
   type LatLon as GroundLatLon,
   type LonLat as GroundLonLat,
@@ -8035,7 +8043,22 @@ export class CesiumViewport {
     // attribution for free instead of reconstructing it. (§CONTEXT-DATA-HONESTY: ship the probe.)
     let waitMs = 0;
     const seats = features.map((f) => (f.kind === 'polygon' ? polygonSeatPoint(f.coords) : corridorSeatPoint(f.coords)));
-    const probes = features.map((f, i) => featureReliefProbePoints(f.coords, seats[i] ?? null));
+    // §DRAPE-LAYER-BUDGET (L-12989) — how far each feature's seat is from the site being viewed.
+    // The budgets below are spent NEAREST FIRST, so what survives at full resolution is what the
+    // founder is looking at and what coarsens is the far edge of the wide extent.
+    const site: GroundLatLon = { lat: siteLat, lon: siteLon };
+    const distances = seats.map((s) => (s ? groundDistanceM(site, s) : Number.POSITIVE_INFINITY));
+    // ── BUDGET 1: the relief-PROBE batch. 2 599 areas × ~5 probes = 12 930 points before a single
+    // piece is cut (the founder's Nürnberg landuse). A feature beyond the ceiling is probed at its
+    // SEAT POINT ONLY: it still seats on its own measured ground (the L-12924 fix is intact), it
+    // just does not get a relief MEASUREMENT — which `reliefRangeM` reports as null = UNKNOWN, and
+    // `decideDrapeStrategy` already declines to split on unknown relief. Nothing is fabricated.
+    const probesWanted = features.map((f, i) => featureReliefProbePoints(f.coords, seats[i] ?? null));
+    const probeBudget = spendDrapeBudgetNearestFirst(
+      probesWanted.map((p, i): DrapeBudgetCandidate => ({ index: i, distanceM: distances[i]!, cost: p.length })),
+      GROUND_DRAPE_MAX_PROBE_POINTS_PER_LAYER,
+    );
+    const probes = probesWanted.map((p, i) => (probeBudget.granted.has(i) ? p : p.slice(0, 1)));
     const batch: GroundLatLon[] = [];
     for (const list of probes) for (const p of list) batch.push(p);   // the seat is probe[0]
     const w0 = now();
@@ -8047,18 +8070,34 @@ export class CesiumViewport {
     let measured = 0;
     let split = 0;
     const secondBatch: GroundLatLon[] = [];
-    const plan = features.map((f, i) => {
-      const probeHeights = (probes[i] ?? []).map(cached);
-      const range = reliefRangeM(probeHeights);
+    // ── BUDGET 2: the PIECES. Decide who WANTS to split and what it would cost, for the whole
+    // layer, BEFORE any of them is actually cut — `estimateSplitPieceCount` reads the lattice
+    // instead of running the Sutherland–Hodgman clips, so bidding is cheap even at 2 599 areas.
+    // §GROUND-DRAPE-ON-RELIEF — the piece length is chosen from THIS feature's measured slope so
+    // each piece's own residual relief lands near the 3 m the split threshold declares
+    // (`drapePieceLengthM`). A fixed 60 m piece leaves ~6 m per piece on a Lisbon-grade 10 %
+    // slope — twice the tolerance we just asserted, i.e. a staircase with 6 m risers under a
+    // road ribbon. The splitters still cap the piece COUNT PER FEATURE on top of that; what was
+    // missing, and what L-12989 is, is a cap on the LAYER.
+    const pieceMByIndex = new Map<number, number>();
+    const splitBids: DrapeBudgetCandidate[] = [];
+    for (let i = 0; i < features.length; i++) {
+      const f = features[i]!;
+      const range = reliefRangeM((probes[i] ?? []).map(cached));
       if (range !== null) measured++;
       const strategy = opts.split === false ? 'single' : decideDrapeStrategy({ reliefAttached: true, reliefRangeM: range });
-      if (strategy === 'split') {
-        // §GROUND-DRAPE-ON-RELIEF — the piece length is chosen from THIS feature's measured slope so
-        // each piece's own residual relief lands near the 3 m the split threshold declares
-        // (`drapePieceLengthM`). A fixed 60 m piece leaves ~6 m per piece on a Lisbon-grade 10 %
-        // slope — twice the tolerance we just asserted, i.e. a staircase with 6 m risers under a
-        // road ribbon. The splitters still cap the piece COUNT, so this can only ever be coarsened.
-        const pieceM = drapePieceLengthM(featureSpanM(f.coords, f.kind), range);
+      if (strategy !== 'split') continue;
+      const pieceM = drapePieceLengthM(featureSpanM(f.coords, f.kind), range);
+      pieceMByIndex.set(i, pieceM);
+      splitBids.push({ index: i, distanceM: distances[i]!, cost: estimateSplitPieceCount(f.coords, f.kind, pieceM) });
+    }
+    const pieceBudget = spendDrapeBudgetNearestFirst(splitBids, GROUND_DRAPE_MAX_PIECES_PER_LAYER);
+    const plan = features.map((f, i) => {
+      // ⛔ A feature that lost its bid is NOT dropped and NOT flattened — it falls through to the
+      // whole-feature per-feature seat below, which is the L-12924 seat, one sample on its own
+      // ground. Coarser, never fabricated (§CONTEXT-DATA-HONESTY / C57 §1.5).
+      if (pieceBudget.granted.has(i)) {
+        const pieceM = pieceMByIndex.get(i) ?? drapePieceLengthM(featureSpanM(f.coords, f.kind), null);
         const parts = f.kind === 'polygon' ? splitRingIntoGridCells(f.coords, pieceM) : splitCorridorIntoSegments(f.coords, pieceM);
         if (parts.length > 1) {
           split++;
@@ -8112,7 +8151,14 @@ export class CesiumViewport {
       // `waiting` dominates — it did at Sète, by ~50× — splitting less buys nothing and costs the
       // per-feature seating this whole mechanism exists for.
       `§DRAPE-COST-ATTRIBUTION: ${waitMs.toFixed(0)} ms waiting for terrain (shared FIFO), ` +
-      `${(ms - waitMs).toFixed(0)} ms own work (seat points, probes, split decision, grid clips)`;
+      `${(ms - waitMs).toFixed(0)} ms own work (seat points, probes, split decision, grid clips). ` +
+      // §DRAPE-LAYER-BUDGET (L-12989) — WHAT THE LAYER WAS NOT ALLOWED TO SPEND. Printed even when
+      // nothing was denied, because "0 denied" is the reading that says a city fits, and a budget
+      // that only speaks when it bites cannot be told apart from one that is not wired up.
+      `§DRAPE-LAYER-BUDGET: pieces ${pieceBudget.spent}/${GROUND_DRAPE_MAX_PIECES_PER_LAYER} granted nearest-first ` +
+      `(${pieceBudget.denied} feature(s) beyond it kept WHOLE on their own seat, ${pieceBudget.deniedCost} piece(s) ` +
+      `not cut); probes ${probeBudget.spent}/${GROUND_DRAPE_MAX_PROBE_POINTS_PER_LAYER} ` +
+      `(${probeBudget.denied} feature(s) seat-point only, relief UNKNOWN not flat)`;
     return { pieces, summary };
   }
 
@@ -15024,6 +15070,26 @@ export class CesiumViewport {
       );
     }
     this.reflowContainer();
+  }
+
+  /**
+   * §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — is the ONE Cesium container ACTUALLY
+   * inside `host` and painting right now?
+   *
+   * ⭐ A READING OFF THE DOCUMENT, NEVER A MEMORY OF THE LAST `reparentContainerTo` CALL.
+   * The whole defect this answers is that the two diverged: on a workspace mode switch the
+   * container ended up parented to `#pryzm-pane-right` while the picture was in the other
+   * half of the screen and the right pane was blank — a mount that resolved after the layout
+   * moved on. A predicate built from `this.parent` would have agreed with the stale call and
+   * reported everything fine, which is the C84 EI-1b failure in miniature.
+   *
+   * `display:none` counts as NOT placed on purpose: a container that is in the right pane but
+   * hidden is exactly the blank pane the founder photographed, and the caller's correction
+   * (re-mount / relocate) is the same either way.
+   */
+  public isContainerIn(host: HTMLElement): boolean {
+    if (!this.container) return false;
+    return this.container.parentElement === host && this.container.style.display !== 'none';
   }
 
   /**
