@@ -243,4 +243,39 @@ describe('§PENDING-REGION — the REAL `merge --expect all` CLI with newzealand
         // …and the pending line still explains why it was not expected, so the operator sees BOTH halves.
         expect(r.stdout ?? '').toContain('[newzealand] — not expected by this merge');
     }, 120_000);
+
+    // ⭐ THE PRODUCTION SHAPE, and the ONE configuration the three cases above do not cover (lane
+    // NZ-FINISH-VERIFY, 2026-09-06). Every case so far runs the merge with NO `--live-manifest`, or
+    // with one that CONTAINS newzealand. The real publish runs with a live manifest that does NOT —
+    // §4's no-loss gate armed, the pending row absent from what is live. Nothing exercised that, and
+    // it is the only combination in which BOTH gates see newzealand at once: step 3 must leave it out
+    // of `expected`, and step 4 must not invent a loss for a region that was never live. A flag-aware
+    // slip in EITHER direction (step 4 protecting a pending row it does not hold, step 3 expecting it)
+    // shows up here and nowhere else.
+    //
+    // MEASURED, and this is why the case is worth its 120 s: the buildings publish DID run in this
+    // exact shape and did NOT refuse — r2.dev/tiles/tileset-manifest.json (probed 2026-09-06, HTTP 200,
+    // 20,953 B) reads `mergedLayers: ["buildings"]`, `mergedAt: 2026-09-05T21:45:10.144Z`, 49 regions,
+    // `newzealand` ABSENT. c7d1ebe6 shipped the flag on the ASSUMPTION that publish would survive it;
+    // it did. This test is that fact made repeatable, so the next row to carry `pending` inherits a
+    // proof rather than the assumption.
+    it('the PRODUCTION shape: live manifest present WITHOUT newzealand ⇒ both gates pass, no REGION LOSS invented for a never-live row', () => {
+        const liveManifest = join(DIR, 'ok', 'merged', 'tileset-manifest.json');
+        const liveJson = JSON.parse(readFileSync(liveManifest, 'utf8')) as { regions: Record<string, unknown> };
+        expect(Object.keys(liveJson.regions)).not.toContain('newzealand'); // the live map today
+        const staging = join(DIR, 'steady', 'staging');
+        stageSet(staging, 'everything-live', live, LIVE_TILES);
+        const r = spawnSync(NODE, [MERGE, 'merge', '--staging', staging, '--out', join(DIR, 'steady', 'merged'),
+            '--expect', 'all', '--layer', 'buildings', '--engine', 'js', '--live-manifest', liveManifest],
+            { encoding: 'utf8', timeout: 120_000 });
+        expect(r.status, r.stderr ?? '').toBe(0);
+        expect(r.stderr ?? '').not.toContain('REGION LOSS');
+        expect(r.stderr ?? '').not.toContain('MISSING');
+        // The no-loss gate RAN (it is not silently skipped) and covered every live region…
+        expect(r.stdout ?? '').toMatch(/no-loss gate: every live region covered/);
+        // …while the pending row is still named, so the operator sees WHY newzealand is not there.
+        expect(r.stdout ?? '').toContain('[newzealand] — not expected by this merge');
+        const merged = JSON.parse(readFileSync(join(DIR, 'steady', 'merged', 'tileset-manifest.json'), 'utf8')) as { regions: Record<string, unknown> };
+        expect(Object.keys(merged.regions).sort()).toEqual([...live].sort());
+    }, 120_000);
 });
