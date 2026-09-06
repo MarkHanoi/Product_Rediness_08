@@ -574,6 +574,52 @@ export const SOURCES = {
       'stampBboxesFor → AU_OPEN_CITY_BBOXES) to receive it. ⚠ in_bbox is LAT,LON (ODSQL); the swapped order returns an ' +
       'EMPTY collection, not an error — pinned by auOpenHeights.spec.ts.',
   },
+  ca_open_elem: {
+    country: 'ca', name: 'City of Vancouver 2009 LiDAR footprints + City of Toronto Building Outline DERIVED_HEIGHT — open element stacks', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (per-element top/base; Vancouver LiDAR-derived, Toronto authority-measured)',
+    lodNext: 'Montréal 1 m MNS (CC BY 4.0) once a keyless raster door exists, and a province-wide nDSM anywhere in Canada',
+    endpoint: 'https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/building-footprints-2009/exports/geojson?where=in_bbox(geo_point_2d,lat1,lon1,lat2,lon2) '
+      + '· https://gis.toronto.ca/arcgis/rest/services/cot_geospatial3/MapServer/2/query?geometry={xmin,ymin,xmax,ymax}&f=geojson',
+    heightField: 'max(top) − min(base) over the ELEMENTS whose centroid the OSM footprint contains — Vancouver topelev_m/baseelev_m, '
+      + 'Toronto ELEVATION + DERIVED_HEIGHT; fallback the elements containing the OSM centroid. ⚠ The per-BUILDING aggregates '
+      + '(Vancouver maxht_m/minht_m/avght_m) are parsed and DELIBERATELY unused: bldgid 145738 has element hgt_agl 21.88 m under '
+      + 'maxht_m 143.12 m, so the aggregate would draw a 143 m podium.',
+    coverage: 'partial', // the City of Vancouver + a Toronto core working set; the rest of BC/Ontario and all other provinces are mass-only
+    keyless: true, // anonymous Opendatasoft export + the City of Toronto's own anonymous ArcGIS — NO key, NO repo secret.
+    note: 'LIVE-PROBED 2026-09-06 (lane MEXICO-CANADA): Vancouver dataset meta HTTP 200, 6,065 B — 124,181 records, licence '
+      + '"Open Government Licence - Vancouver"; export over a downtown cell HTTP 200, 28,342 B, 41 features, 0.57 s. Toronto layer meta '
+      + 'HTTP 200 — Feature Layer, maxRecordCount 2000, fields include ELEVATION:Single + DERIVED_HEIGHT:Single; query HTTP 200, 41,568 B, '
+      + '49 features, 0.67 s with real metres (112.36 / 173.41 / 116.9 / 15.26 m downtown). ⛔ Toronto TRUNCATES and says so: a 0.04° box '
+      + 'returned 2000 features + "exceededTransferLimit": true against returnCountOnly {"count":18358} — caOpenIsTruncated() makes that a '
+      + 'tile ERROR, never a partial success. It is a bake STAMP over the bake OSM footprints, NOT a footprint fetcher — the '
+      + '`britishcolumbia` / `ontario` rows must declare heightJoin ca_open (bake.mjs NATIONAL_STAMP_TABLE + stampBboxesFor → '
+      + 'CA_OPEN_CITY_BBOXES filtered to the province of that row) to receive it. Decisions pinned by caOpenHeights.spec.ts.',
+  },
+  plateau_jp: {
+    country: 'jp', name: 'MLIT Project PLATEAU 3D都市モデル — LoD1 building model, bldg:measuredHeight (G空間情報センター)', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (per-building LiDAR point-cloud median — uro:lod1HeightType 点群から取得_中央値)',
+    lodNext: 'LoD2 roof form — 206 municipalities publish a LoD2 tileset; nothing in the bake consumes roof geometry yet',
+    endpoint: 'https://www.geospatial.jp/ckan/dataset/eb3f1d15-e495-4f78-8eba-0da82c0d081f/resource/<per-year>/download/mlit_plateau_3d_<year>.json '
+      + '→ per-municipality https://assets.cms.plateau.reearth.io/assets/<id>/<city>_bldg_3dtiles_…_lod1/tileset.json → data/*.b3dm (RANGE GET of the attribute prefix)',
+    heightField: 'bldg:measuredHeight (metres) read from the b3dm BATCH TABLE; area-weighted P90 over the PLATEAU buildings whose _x/_y centroid the OSM footprint '
+      + 'contains, reverse fallback = the smallest _xmin.._ymax box containing the OSM centroid',
+    coverage: 'partial', // 439 distinct municipalities have PLATEAU data at all; the WIRED working set is JP_CITY_BBOXES (ten cities → 38 covering municipalities)
+    keyless: true, // no account, no subscription key, no repo secret. ⛔ The OTHER JP door IS gated: reinfolib ex-api keyless → HTTP 401 "missing subscription key".
+    note: 'LIVE-PROBED 2026-09-06 (lane JAPAN-FULL): CKAN package_search q=plateau → HTTP 200 application/json 212,606 B, count 495; all six per-year index JSONs '
+      + 'HTTP 200 (2020 497,273 B · 2021 13,641 B · 2022 478,854 B · 2023 1,019,901 B · 2024 757,358 B · 2025 1,049,768 B) = 474 municipality rows, 439 distinct '
+      + 'city codes, 305 with a textured LoD1 tileset. Chiyoda LoD1 tileset.json HTTP 200 14,778 B declares bldg:measuredHeight {minimum 0.8, maximum 209.5} AND '
+      + 'per-feature _x/_y/_xmin.._zmax, so a RANGE GET of each b3dm attribute prefix yields a measured height WITH a position and the 2.11 GB per-ward CityGML zip '
+      + '(real size read by range GET; the index sizeinbytes field disagrees at 2,254,857,830 — read the server) is never touched. ⚠ THE BATCH-TABLE ENCODING IS NOT '
+      + 'UNIFORM: data4.b3dm stores bldg:measuredHeight as a binary DOUBLE reference while leaf data0.b3dm stores the SAME key as a JSON array — both branches are '
+      + 'pinned by real bytes (jpPlateau.spec.ts), and a reader that assumes one ships zero heights on half the tiles while looking identical to "no data". '
+      + '⛔ 4.0 % of Chiyoda buildings carry uro:lod1HeightType 取得不可のため一律値（3m） ("could not acquire — uniform 3 m") with a NULL height: REFUSED BY NAME '
+      + 'and counted, never stamped. ⛔ 台東区 (13106) ships 3D Tiles 1.1 .glb (EXT_structural_metadata) — 571 of 3,142 leaf tiles in the working set — and that '
+      + 'reader is NOT built: a named refusal with a count, and the owed follow-up. It is a bake STAMP over the bake OSM footprints, NOT a footprint fetcher — the '
+      + '`japan` row must declare heightJoin plateau_jp (bake.mjs NATIONAL_STAMP_TABLE + stampBboxesFor → JP_CITY_BBOXES) to receive it. MEASURED end-to-end against '
+      + 'live Overpass footprints over Kanda/Akihabara: 1,711 of 4,178 footprints stamped (41.0 %), 93.8 % of PLATEAU rows landed inside an OSM polygon, median '
+      + '18.6 m, 46 MB in 26.9 s, 0 tile errors. Licence 公共データ利用規約 第1.0版 (PDL 1.0), stated verbatim by MLIT to be CC BY 4.0 COMPATIBLE; attribution '
+      + '出典：国土交通省 PLATEAU required, copyright in each city model rests with the LOCAL GOVERNMENT, and 測量法 constrains public-survey results.',
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -628,7 +674,7 @@ export const REGION_SOURCE = {
   // REAL measured-height channel: NYC height_roof (feet, as-built/photogrammetric) and SF LiDAR hgt_maxcm, a bake
   // STAMP (heights/usOpenHeightsStamp.mjs) each row declares via heightJoin:'us_open'. Footprints in the metro
   // clip but outside the dataset (Jersey City) stream through with their honest OSM tags.
-  newyork: 'us_open_heights', sanfrancisco: 'us_open_heights',
+  newyork: 'us_open_heights', california: 'us_open_heights',
   // NO / SE / PT
   oslo: 'ndh_no', stockholm: 'lidar_se', lisbon: 'dgt_pt', porto: 'dgt_pt',
   // IT — Turin has a source; Rome/Milan do not.
@@ -678,6 +724,34 @@ export const REGION_SOURCE = {
   romania: { source: null, status: 'no-source', reason: 'ANCPI Constructii is nationally INCOMPLETE (queryable ≠ complete) and carries no open height — mass-only (ASSESS RO)' },
   slovakia: { source: null, status: 'no-source', reason: 'ZBGIS buildings exist; DMR 5.0 LiDAR reported open — NOT verified this pass (ASSESS SK)' },
   bulgaria: { source: null, status: 'no-source', reason: 'KAIS cadastre bulk is PAID / no open bulk — context rides OSM (ASSESS BG)' },
+  // §EU-EVERY-COUNTRY (2026-09-06, lane EU-EVERY-COUNTRY) — the 17 new bake.mjs europe context rows.
+  // ⚠ EVERY ONE OF THESE IS `UNPROBED`, NOT `no open source`, AND THE DIFFERENCE IS THE WHOLE POINT.
+  // This lane's brief was context COVERAGE (extract + terrain + villages); it did not probe a single
+  // national height service for any of these countries, so writing "no open height product exists"
+  // here would be a claim nobody measured — the exact failure-vs-empty conflation L-422/L-457 and the
+  // Latvia row ("VZD footprint attrs UNVERIFIED — UNKNOWN stays UNKNOWN, not zero") exist to refuse.
+  // The bake behaviour is identical either way: no row below declares a heightJoin, so resolveHeights()
+  // logs the honest reason and every footprint keeps its OSM tags (`assumed` where OSM carries none) —
+  // the `netherlands`/`newzealand` precedent. What these rows buy is that the OWED WORK IS NAMED: a
+  // heights lane picking Europe up next reads "UNPROBED" and probes, instead of reading a fabricated
+  // refusal and skipping the country. Replace a row the moment a real probe lands, with its URL/HTTP/bytes.
+  iceland: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY (context-coverage scope). Landmælingar Íslands publishes an open national DEM (ÍslandsDEM) — whether any keyless DSM/nDSM or per-building height exists was NOT tested. UNKNOWN, not empty' },
+  faroeislands: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. Umhvørvisstovan/Kortal is the national geoportal; no keyless height channel tested. UNKNOWN, not empty' },
+  malta: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. The Planning Authority publishes LiDAR under EU-funded programmes; no keyless raster or per-building height tested. UNKNOWN, not empty' },
+  cyprus: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. DLS (Department of Lands and Surveys) INSPIRE services untested; note the bake bbox covers the WHOLE island incl. the north, where no single authority publishes. UNKNOWN, not empty' },
+  serbia: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. RGZ (Republički geodetski zavod) GeoSrbija runs an open portal; no keyless DSM/DTM or building-height attribute tested. UNKNOWN, not empty' },
+  bosniaherzegovina: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. Cadastre is ENTITY-level (FBiH / RS / Brčko), so any probe is at least three probes — none run. UNKNOWN, not empty' },
+  montenegro: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. Uprava za katastar i državnu imovinu; no keyless height channel tested. UNKNOWN, not empty' },
+  northmacedonia: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. AKN (Agencija za katastar na nedviznosti); no keyless height channel tested. UNKNOWN, not empty' },
+  albania: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. ASIG (Autoriteti Shtetëror për Informacionin Gjeohapësinor) runs the national SDI; no keyless height channel tested. UNKNOWN, not empty' },
+  kosovo: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. AKK (Agjencia Kadastrale e Kosovës) geoportal untested. UNKNOWN, not empty' },
+  ukraine: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. StateGeoCadastre + Diia open data; wartime availability of any service is itself unmeasured, so a "blocked" verdict would be as unfounded as an "open" one. UNKNOWN, not empty' },
+  belarus: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. Also carries a SANCTIONS question that belongs to the founder, not to a bake lane — recorded so it is not rediscovered as a surprise. UNKNOWN, not empty' },
+  moldova: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. Agenția Relații Funciare și Cadastru / geoportal.md untested. UNKNOWN, not empty' },
+  andorra: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. Govern d\'Andorra SIG untested. ⚠ Spain\'s MDS raster does NOT extend here — Andorra is a sovereign state outside the CNIG grid, so `mds_edificacion` must never be pointed at it' },
+  liechtenstein: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. LI publishes geodata.llv.li. ⚠ swissSURFACE3D (the `swiss` join) STOPS at the Swiss border — Vaduz measured OUTSIDE switzerland.poly — so the CH stamp must never be extended over this row without its own probe' },
+  channelislands: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. Jersey and Guernsey are separate Crown-dependency SDIs sharing ONE Geofabrik extract; ⚠ the EA LiDAR `ealidar_gb` join is ENGLAND-only and does not reach them' },
+  isleofman: { source: null, status: 'no-source', reason: 'UNPROBED by lane EU-EVERY-COUNTRY. ⚠ Same warning as channelislands: `ealidar_gb` is ENGLAND-only. The Isle of Man is a Crown dependency with its own government GIS, untested' },
   // ───────────────────────────────────────────────────────────────────────────
   // §INTL (2026-09-03, lane CONTEXT-INTL) — US metros, AU states, AE metros. Citations:
   // audit/geo-expansion/2026-09-02/{au-sweep,me-sweep}.md. NONE impl:'live'; NO bake row declares a
@@ -688,7 +762,67 @@ export const REGION_SOURCE = {
   // ⭐ boston WIRED 2026-09-05 (lane HEIGHTS-US) → BPDA "Boston Buildings with Roof Breaks" BLDG_HGT_2010 (feet), NOT
   // MassGIS (STRUCTURES_POLY has no height field — probed). chicago stays overture_us on evidence: syp8-uezg carries
   // `stories` only (a derived-levels rung, not a measured height); austin/houston have no open channel named.
-  chicago: 'overture_us', austin: 'overture_us', houston: 'overture_us', boston: 'us_open_heights',
+  // ⭐ §BAKE-US-STATES (2026-09-06, lane USA-ALL-STATES) — the six metro keys became 54 whole-STATE keys.
+  // `massachusetts` inherits boston's WIRED BPDA channel and `california` (above, beside newyork) inherits
+  // sanfrancisco's DataSF LiDAR channel — the working set (US_OPEN_CITY_BBOXES) is byte-identical, only the
+  // ROW moved. Every other state is `overture_us` (impl:'documented'): honest OSM `assumed` defaults until
+  // the USGS 3DEP nDSM stamp lands. That is a PROBED verdict for three of them and an UNPROBED one for the
+  // rest, and the difference is recorded per metro in heights/usOpenHeights.mjs US_OPEN_HEIGHTS_ASSESSED
+  // (chicago → illinois: `stories` only, no height; massgis/boston-gisportal → massachusetts; austin +
+  // houston → texas: no open channel named). ⛔ Do NOT read `overture_us` on a state as "probed and empty".
+  massachusetts: 'us_open_heights',
+  alabama: 'overture_us', alaska: 'overture_us', alaskaaleutians: 'overture_us', arizona: 'overture_us',
+  arkansas: 'overture_us', colorado: 'overture_us', connecticut: 'overture_us', delaware: 'overture_us',
+  districtofcolumbia: 'overture_us', florida: 'overture_us', georgia: 'overture_us', hawaii: 'overture_us',
+  idaho: 'overture_us', illinois: 'overture_us', indiana: 'overture_us', iowa: 'overture_us',
+  kansas: 'overture_us', kentucky: 'overture_us', louisiana: 'overture_us', maine: 'overture_us',
+  maryland: 'overture_us', michigan: 'overture_us', minnesota: 'overture_us', mississippi: 'overture_us',
+  missouri: 'overture_us', montana: 'overture_us', nebraska: 'overture_us', nevada: 'overture_us',
+  newhampshire: 'overture_us', newjersey: 'overture_us', newmexico: 'overture_us', northcarolina: 'overture_us',
+  northdakota: 'overture_us', ohio: 'overture_us', oklahoma: 'overture_us', oregon: 'overture_us',
+  pennsylvania: 'overture_us', puertoricousa: 'overture_us', rhodeisland: 'overture_us', southcarolina: 'overture_us',
+  southdakota: 'overture_us', tennessee: 'overture_us', texas: 'overture_us', usvirginislands: 'overture_us',
+  utah: 'overture_us', vermont: 'overture_us', virginia: 'overture_us', washington: 'overture_us',
+  westvirginia: 'overture_us', wisconsin: 'overture_us', wyoming: 'overture_us',
+  // ── CA + MX — §NA-HEIGHTS (2026-09-06, lane MEXICO-CANADA). Two provinces have a REAL measured
+  // channel; every other row here is an object because THE REASON IS THE FINDING and a bare string
+  // would hide a probed refusal behind a source note that does not exist.
+  // ⭐ LIVE — the bake rows declare heightJoin ca_open (NATIONAL_STAMP_TABLE → stampCaOpenHeightsOnGeojsonseq,
+  // working set CA_OPEN_CITY_BBOXES filtered per province). City-scoped: every BC/Ontario footprint
+  // outside those bboxes streams through with its honest OSM tags.
+  britishcolumbia: 'ca_open_elem',
+  ontario: 'ca_open_elem',
+  // ⚠ QUEBEC IS THE ONE THAT HURTS, and it is WIRABLE-BUT-UNWIRED, not absent. Montréal publishes a
+  // REAL 1 m LiDAR MNS and CityGML LOD2 under CC BY 4.0 (donnees.montreal.ca CKAN, HTTP 200) — but as
+  // 32 per-borough GeoTIFF ZIPs (mnsterrainbatiment_2015_1m_<borough>.zip) and city-wide SHP/GPKG
+  // ZIPs, with no keyless WCS/COG to range-read. That is the ELVIS refusal shape: a bulk portal is not
+  // a raster API, so no DSM−DTM derive is attempted and the row bakes honest OSM `assumed`.
+  quebec: { source: null, status: 'no-source', reason: 'Montréal MNS 1 m + CityGML LOD2 are OPEN (CC BY 4.0) but published as per-borough GeoTIFF ZIPs and city-wide SHP/GPKG ZIPs only — no keyless WCS/COG/query endpoint to sample (PROBED 2026-09-06, donnees.montreal.ca package_show HTTP 200). The owed build is a Montréal DSM−DTM stamp once a raster door exists; see heights/caOpenHeights.mjs CA_OPEN_HEIGHTS_ASSESSED.' },
+  // The remaining ten provinces/territories: no keyless height-bearing building service was found on
+  // 2026-09-06. Recorded as an honest gap, so a future lane must overwrite a PROBED verdict, not a blank.
+  alberta: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for Alberta on 2026-09-06 (the province has no open parcel/building fabric; AltaLIS is commercial). Bakes honest OSM `assumed`.' },
+  saskatchewan: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for Saskatchewan on 2026-09-06. Bakes honest OSM `assumed`.' },
+  manitoba: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for Manitoba on 2026-09-06. Bakes honest OSM `assumed`.' },
+  newbrunswick: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for New Brunswick on 2026-09-06. Bakes honest OSM `assumed`.' },
+  novascotia: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for Nova Scotia on 2026-09-06. Bakes honest OSM `assumed`.' },
+  princeedwardisland: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for Prince Edward Island on 2026-09-06. Bakes honest OSM `assumed`.' },
+  newfoundland: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for Newfoundland and Labrador on 2026-09-06. Bakes honest OSM `assumed`.' },
+  yukon: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for Yukon on 2026-09-06. Bakes honest OSM `assumed`.' },
+  northwestterritories: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for the Northwest Territories on 2026-09-06. Bakes honest OSM `assumed`.' },
+  nunavut: { source: null, status: 'no-source', reason: 'no keyless open height-bearing building service probed for Nunavut on 2026-09-06. Bakes honest OSM `assumed`.' },
+  // ⛔ MEXICO — a NAMED REFUSAL with the exact HTTP answer of every door tried on 2026-09-06, not a
+  // quiet omission. INEGI: gaia.inegi.org.mx/NLB/wms, /NLB/mdm6/wms, /NLB/mdm6/wms.php and
+  // /mdm6/rest/services all HTTP 404; www.inegi.org.mx/app/api/mapas/... HTTP 404;
+  // mapasrest.inegi.org.mx curl exit 6 (NXDOMAIN). datos.gob.mx/busca/api/3/action/package_search
+  // HTTP 403 "Access Denied" (424 B, an edge block). CDMX IS open and answers
+  // (datos.cdmx.gob.mx CKAN HTTP 200) and publishes "Información Catastral de la Ciudad de México"
+  // (CC-BY-4.0-ESP) — but its columns are codigo_postal · superficie_terreno · superficie_construccion ·
+  // uso_construccion · clave_rango_nivel · anio_construccion · … · latitud · longitud: a POINT with a
+  // CODED LEVEL RANGE ("RU" / "10" / "05"), not a polygon and not a floor COUNT. A coded range cannot
+  // honestly become metres — not measured, not floors×N — so nothing is armed here. INEGI DOES publish
+  // LiDAR-derived MDS/MDT for PART of the country as bulk per-sheet downloads; that is the owed build,
+  // and its coverage is explicitly NOT national.
+  mexico: { source: null, status: 'no-source', reason: 'MX has NO keyless height-bearing building service reachable as of 2026-09-06: every INEGI service path probed returned HTTP 404 (or NXDOMAIN), datos.gob.mx returned HTTP 403, and the one open channel that exists — CDMX Información Catastral (CC-BY-4.0-ESP, HTTP 200) — is point+attribute with a CODED level RANGE, not a polygon and not a floor count, so it cannot honestly yield metres. Bakes honest OSM `assumed`. Owed build: INEGI LiDAR MDS−MDT, coverage PARTIAL not national, currently bulk per-sheet download only.' },
   // AU states — ELVIS nDSM derive is the owed height build (elvis_au note carries the per-state nuance:
   // ACT's 64,674 open footprints, au-sweep §7.3; Melbourne's real LoD1 extrusions, §2.3). All plain
   // strings: a `documented` custom reason would be DEAD (resolveHeights re-derives it from the SOURCES
@@ -708,6 +842,18 @@ export const REGION_SOURCE = {
   northernterritory: 'elvis_au',
   // NZ — §BAKE-NEWZEALAND (2026-09-05, lane NZ-EVERYWHERE). Object form because the reason IS the finding: LINZ 101290 "NZ Building Outlines" has no height field, and the LiDAR DSM−DEM derive that could give one sits behind the LINZ API key (every service 401 keyless) — so no stamp is wired and the row bakes honest OSM `assumed`.
   newzealand: { source: null, status: 'no-source', reason: 'LINZ Data Service layer 101290 "NZ Building Outlines" (3,236,141 features, CC BY 4.0, EPSG:2193; API record probed 2026-09-05) carries NO height field — its fields are building_id, name, use, suburb_locality, town_city, territorial_authority, capture_method, capture_source_group/id/name/from/to, last_modified, shape. LINZ publishes a national LiDAR 1 m DEM (121859) + DSM (122082), so a DSM−DEM nDSM stamp over OSM footprints is the owed build (the ELVIS/AU shape) — but every LINZ WFS/WMTS service is API-key gated (GetCapabilities keyless → HTTP 401 Jetty; layer 122082 lists 7 services, all under /services;key=), so there is NO keyless raster to sample and nothing is fabricated: honest OSM assumed heights (ASSESS NZ)' },
+  // JP — ⭐ WIRED 2026-09-06 (lane JAPAN-FULL, §PLATEAU-JP-OSM-JOIN): the bake `japan` row declares
+  // heightJoin:'plateau_jp' → NATIONAL_STAMP_TABLE → stampJpPlateauHeightsOnGeojsonseq
+  // (heights/jpPlateauStamp.mjs; decisions in heights/jpPlateau.mjs), working set JP_CITY_BBOXES.
+  // Japan may be the best-served country in the world for this: MLIT Project PLATEAU publishes an OPEN
+  // LoD1 building model for 439 municipalities with a per-building LiDAR-median `bldg:measuredHeight`,
+  // and — decisively — publishes it ALREADY CONVERTED to 3D Tiles at stable HTTPS URLs, so the height
+  // and its position come out of a b3dm batch table by HTTP range GET instead of a 2.11 GB CityGML zip.
+  // ⚠ WHAT THIS ROW DOES NOT SAY: it does NOT say Japan is finished. The join reaches JP_CITY_BBOXES
+  // (ten cities), the .glb municipality 台東区 is refused by name, and 4.0 % of buildings carry
+  // PLATEAU's own "could not measure" 3 m default and are skipped. Everywhere else in Japan bakes
+  // honest OSM `assumed` heights — heightJoinCoverage.spec.ts is the register that pins that boundary.
+  japan: 'plateau_jp',
   // AE metros — Overture footprints (Overture height ~0% in the Gulf, like Saudi). me-sweep §2/§3. RE-PROBED
   // 2026-09-05 (lane ME-TERRAIN-PARCELS, curl -m 15; then lane ME-ABUDHABI-I3S, curl -m 20) — the two emirates DIFFER:
   //   • Dubai: gis.dubai.gov.ae / geoportal.dm.gov.ae / opendata.dm.gov.ae / 3d.dm.gov.ae NXDOMAIN; www.dubaipulse.gov.ae
@@ -739,7 +885,7 @@ export const REGION_SOURCE = {
   // maxValues 1168.7646484375 / 1168.6046142578. ⚠ The folder is `ImageService`, NOT `OpenData` — a probe against
   // `OpenData/IMGSER_AUH_DSM3_50CM` answers HTTP 200 with a 62 B `{"error":{"code":499,"message":"Token Required"}}`
   // body, which reads like a revoked channel and is really a wrong path (the 499-on-200 convention again).
-  abudhabi: 'adsdi_ndsm_ae', // ⭐ WIRED 2026-09-05 (lane ME-ABUDHABI-I3S, §ADSDI-NDSM-OVERTURE-JOIN): the bake `abudhabi` row declares heightJoin:'ad_ndsm' → NATIONAL_STAMP_TABLE → stampAdNdsmHeightsOnGeojsonseq (heights/abudhabiNdsmStamp.mjs; DGE 50 cm DSM3 − DTM, keyless, catalogued Open Data sid 2012), working set AD_CITY_BBOXES. Local proof gate cell 1,118/1,118 measured, median 12.0 m. The I3S abu_dhabi_3d_city_model stamp the brief named was REFUSED on the SDI Terms (uncatalogued item; §8.2/§8.3) — see the block above.
+  gccstates: 'adsdi_ndsm_ae', // ⭐ WIRED 2026-09-05 (lane ME-ABUDHABI-I3S, §ADSDI-NDSM-OVERTURE-JOIN): the bake `abudhabi` row declares heightJoin:'ad_ndsm' → NATIONAL_STAMP_TABLE → stampAdNdsmHeightsOnGeojsonseq (heights/abudhabiNdsmStamp.mjs; DGE 50 cm DSM3 − DTM, keyless, catalogued Open Data sid 2012), working set AD_CITY_BBOXES. Local proof gate cell 1,118/1,118 measured, median 12.0 m. The I3S abu_dhabi_3d_city_model stamp the brief named was REFUSED on the SDI Terms (uncatalogued item; §8.2/§8.3) — see the block above. §ME-NATIONAL 2026-09-06 RENAMED the bake row abudhabi → gccstates (the six GCC states are ONE Geofabrik extract and six country rectangles cut from it cannot be disjoint); the JOIN and its WORKING SET are byte-unchanged — stampBboxesFor still resolves ad_ndsm to AD_CITY_BBOXES, Abu Dhabi island only, so the same 50 cm DSM−DTM metres land on the same footprints. The rest of the peninsula streams through unstamped and honest.
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3445,6 +3591,17 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
       status: 'documented', region, source, provenance: src.provenance,
       reason: `${src.name}: this source is the bake STAMP stampAuOpenHeightsOnGeojsonseq, dispatched only when the region ` +
         `declares heightJoin:'au_open' in bake.mjs (with stampBboxesFor → AU_OPEN_CITY_BBOXES). Region "${region}" does not, so ` +
+        'its footprints keep their OSM tags until that row edit lands.',
+    };
+  }
+  else if (source === 'ca_open_elem') {
+    // §CA-OPEN-HEIGHTS — live, but (like au_open_lod1 / us_open_heights) a bake STAMP over the bake OSM
+    // footprints, not a footprint fetcher. Named explicitly rather than left to the generic fall-through
+    // so the message says WHICH stamp and HOW to arm it, the way its two siblings above do.
+    return {
+      status: 'documented', region, source, provenance: src.provenance,
+      reason: `${src.name}: this source is the bake STAMP stampCaOpenHeightsOnGeojsonseq (heights/caOpenHeightsStamp.mjs), dispatched only when the region ` +
+        `declares heightJoin ca_open in bake.mjs (with stampBboxesFor filtering CA_OPEN_CITY_BBOXES to that province). Region "${region}" does not, so ` +
         'its footprints keep their OSM tags until that row edit lands.',
     };
   }

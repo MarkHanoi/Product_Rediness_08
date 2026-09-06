@@ -336,11 +336,37 @@ jobs:
           # Spanish bake that measured Barcelona and NOTHING ELSE passed this gate green while the
           # founder stood in Ciudad Real looking at a fabricated 9 m carpet. With these rows a
           # Spanish bake that stamps only the nine capitals FAILS, and says which city is empty.
+          # §CA-OPEN-HEIGHTS (2026-09-06, lane MEXICO-CANADA) — toronto (bake region `ontario`) and
+          # vancouver (bake region `britishcolumbia`) are the two Canadian rows that declare
+          # heightJoin ca_open, so a zero here means the join silently produced nothing. Both points
+          # are inside CA_OPEN_CITY_BBOXES. Toronto gets 500 (the layer served 18,358 buildings in a
+          # single 0.04° downtown box, live-probed); Vancouver gets 300 because its LiDAR dataset is
+          # the 2009 vintage over the City of Vancouver only and the probe ring is downtown, not a
+          # 124,181-record city-wide claim — a floor chosen NOT to be a number a real re-survey could
+          # trip. ⛔ THERE IS DELIBERATELY NO MEXICAN ROW HERE. Mexico has NO wired measured-height
+          # channel (every INEGI service path probed HTTP 404, datos.gob.mx HTTP 403, and CDMX's open
+          # cadastre is a POINT with a coded level RANGE, not metres — heightSources.mjs `mexico`
+          # carries the verbatim answers). A gate row for a region with no join would fail every bake
+          # for a height nobody claimed; the honest record of that gap is the REGION_SOURCE refusal,
+          # not a red gate. Add the row in the same commit that arms a Mexican join, never before.
           # 200, not 500: these are ~75k/85k-population cities, not metros. The probe reads the
           # client's own ±0.008° NEAR ring (~2.6 km²) — dense historic centres in both cases, so 200
           # is a floor comfortably clear of noise, chosen NOT to be a number a real re-survey could
           # trip. Both are in MDS_PRIORITY_EXTRA, i.e. stamped FIRST and UNCAPPED, so this gate does
           # not depend on the national sweep's wall-clock budget reaching them.
+          # §PLATEAU-JP-OSM-JOIN (2026-09-06, lane JAPAN-FULL) — `tokyo-kanda` is the Japanese row.
+          # The point 35.7006,139.7762 is the CENTRE OF THE RECTANGLE THE JOIN WAS ACTUALLY MEASURED
+          # ON, not a landmark picked off a map: the lane ran the stamp end-to-end over
+          # 139.76962,35.69614 → 139.78270,35.70514 (Kanda/Akihabara, 千代田区) against live Overpass
+          # footprints and stamped 1,711 of 4,178 — 1,601 forward + 110 reverse matches, median 18.6 m.
+          # The probe's own ±0.008° NEAR ring is SMALLER than that rectangle, so 500 is a floor with
+          # roughly 3× headroom and is not a number a re-survey could trip. It is here for the same
+          # reason ciudadreal/toledo are: `japan` declares a national height join, so a zero here means
+          # the join silently produced nothing and the tileset would ship a fabricated 9 m carpet over
+          # Tokyo. ⚠ ONE city only, deliberately — it is the only Japanese ground this lane MEASURED.
+          # Nagoya/Osaka/Sapporo rows belong here the moment someone runs the same proof there; adding
+          # them on the assumption that PLATEAU behaves identically would be a confident register row
+          # of exactly the kind C84 §9 warns about.
           while read -r name region at min; do
             [ -z "$name" ] && continue
             if [ -n "$REGION_SCOPE" ]; then
@@ -365,8 +391,8 @@ jobs:
           melbourne victoria -37.8136,144.9631 500
           oslo norway 59.9139,10.7522 500
           manhattan newyork 40.7580,-73.9855 500
-          sanfrancisco sanfrancisco 37.7900,-122.4000 500
-          boston boston 42.3510,-71.0750 500
+          sanfrancisco california 37.7900,-122.4000 500
+          boston massachusetts 42.3510,-71.0750 500
           tallinn estonia 59.4370,24.7536 500
           antwerp belgium 51.2213,4.3997 500
           vienna austria 48.2086,16.3725 500
@@ -384,7 +410,10 @@ jobs:
           hannover germany 52.3759,9.7320 500
           stuttgart germany 48.7758,9.1829 500
           dresden germany 51.0500,13.7400 500
-          abudhabi abudhabi 24.4539,54.3773 500
+          abudhabi gccstates 24.4539,54.3773 500
+          toronto ontario 43.6532,-79.3832 500
+          vancouver britishcolumbia 49.2827,-123.1207 300
+          tokyo-kanda japan 35.7006,139.7762 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights. The tileset would render a fabricated 9 m carpet. NOT publishing."
