@@ -108,6 +108,27 @@ export {
   estimateBuildingCost,
 } from './RegionalBuildingCost.js';
 
+// ── 5D — THE INDICATIVE RATE THE USER SETS (§PL-INDICATIVE-RATE, STR §25.7,
+//        lane PL-COST-AND-CREATE-HOUSE, 2026-09-06).
+//
+// ⛔ A SECOND ESTIMATOR, DELIBERATELY NOT A PARAMETER ON THE FIRST. `estimateBuildingCost`
+// above multiplies a PUBLISHED, cited, licence-cleared rate and refuses outside the one
+// place PRYZM ships a module for. This one multiplies a rate the USER typed and says so in
+// its own statement. Synthesising a `RegionalBuildingCostModel` from a user's guess would
+// give that guess a `RatePriceProvenance` — see the module header.
+export type {
+  IndicativeRate,
+  IndicativeArea,
+  IndicativeCostRefusal,
+  IndicativeCostEstimate,
+  IndicativeCostOutcome,
+} from './IndicativeRateEstimate.js';
+export {
+  INDICATIVE_COST_REFUSAL_TEXT,
+  estimateAtIndicativeRate,
+  compareIndicativeToPublishedRate,
+} from './IndicativeRateEstimate.js';
+
 export type { RateImportResult } from './takeoffCsv.js';
 export { takeoffToCsv, costedTakeoffToCsv, rateBookToCsv, parseRateCsv } from './takeoffCsv.js';
 

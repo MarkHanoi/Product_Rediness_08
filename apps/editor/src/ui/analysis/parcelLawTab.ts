@@ -119,6 +119,14 @@ import { wireDesignStageStrip } from '../site/designStageStripControl';
 import { resolveParcelLawModel } from '../site/parcel/resolveParcelLawModel';
 import type { ParcelLawModel } from '../site/parcel/parcelLawModel';
 import { buildParcelLawFacts } from './parcelLawFacts';
+// §PL-LIVE-QUANTITIES (STR §25.7) — the live room/level/total figures and the adjustable cost
+// per m². It owns its own LIVE subscription to the space-envelope store's dirty channel — the
+// same channel the 3D scene renders from — so the panel and the scene cannot show different
+// vintages of one envelope. See that module's header for the measured liveness defect it fixes.
+import {
+  mountParcelLawQuantities,
+  type ParcelLawQuantitiesHandle,
+} from './parcelLawQuantities';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
@@ -132,6 +140,8 @@ export const PARCEL_LAW_PANEL_SLOT_TESTID = 'analysis-parcel-law-panel';
 export const PARCEL_LAW_NOTE_TESTID = 'analysis-parcel-law-note';
 /** `data-testid` on the slot the shared-model fact section is rendered into. */
 export const PARCEL_LAW_FACTS_SLOT_TESTID = 'analysis-parcel-law-facts-slot';
+/** `data-testid` on the slot the live-quantities + indicative-cost section is mounted into. */
+export const PARCEL_LAW_QUANTITIES_HOST_TESTID = 'analysis-parcel-law-quantities-slot';
 /** The `data-testid` the singleton card carries (GISAreaLayout `ensureEnvelopePanel`). */
 export const ENVELOPE_CARD_TESTID = 'buildable-envelope-card';
 /** Carries how many stage pills were wired on the last pass — read by the spec. */
@@ -181,6 +191,15 @@ export interface ParcelLawTabDeps {
   readonly readParcelLawModel?: (runtime: PryzmRuntime | null | undefined) => ParcelLawModel;
   /** Production: `buildParcelLawFacts` — a RENDERING of that model, never a second derivation. */
   readonly renderParcelLawFacts?: (model: ParcelLawModel) => HTMLElement;
+  /**
+   * Production: `mountParcelLawQuantities` — STR §25.7's live figures and adjustable rate.
+   *
+   * ⚠ OPTIONAL for the same reason as the pair above: a spec written before this seam existed
+   * constructs `ParcelLawTabDeps` as a complete literal. Omitting it yields the production mount,
+   * which on a runtime with no `spaceEnvelope` store renders the channel's own honest sentence
+   * rather than throwing — so an old spec keeps passing and keeps meaning what it meant.
+   */
+  readonly mountQuantities?: (host: HTMLElement) => ParcelLawQuantitiesHandle;
 }
 
 /** The production wiring. Resolved when CALLED, so a runtime composed after boot is seen. */
@@ -195,6 +214,7 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     wireStrip: wireDesignStageStrip,
     readParcelLawModel: resolveParcelLawModel,
     renderParcelLawFacts: buildParcelLawFacts,
+    mountQuantities: (h) => mountParcelLawQuantities(h),
   };
 }
 
@@ -227,6 +247,7 @@ export function mountParcelLawTab(
 
   let switcher: ViewSegmentSwitcherHandle | null = null;
   let panel: ParcelRailPanelHandle | null = null;
+  let quantities: ParcelLawQuantitiesHandle | null = null;
   let unsub: (() => void) | null = null;
   let disposed = false;
 
@@ -302,8 +323,31 @@ export function mountParcelLawTab(
     // ⛔ It is not a copied renderer (C19 §5.7 clause 1 forbids that); it is a second rendering
     // of ONE model. Every number is derived once, in `buildParcelLawModel`.
     root.appendChild(factsSlot);
+
+    // ── 4b. §PL-LIVE-QUANTITIES (STR §25.7) — ROOM NAMES · NET · BRUT PER LEVEL · TOTAL · COST. ──
+    //
+    // ⭐ ITS OWN SLOT AND ITS OWN LIVE CHANNEL, and that is the point of it. The figures already
+    // render on the singleton envelope card, but that card only repaints on a fixed event list
+    // that carries NO space-envelope signal (`GISAreaLayout.ts:5600`) — so a face drag or a new
+    // room envelope moved the 3D scene and left every number stale. This control subscribes to
+    // `Store.subscribeDirty`, the SAME channel `attachSpaceEnvelopeRender` renders from, which
+    // covers execute, undo and redo alike. RESI-ORCHESTRATOR-PLAN §3: honour the existing
+    // synchronisation contract, do not invent a fourth update path.
+    const quantitiesSlot = document.createElement('div');
+    quantitiesSlot.className = 'anl-parcel-law-quantities-host';
+    quantitiesSlot.setAttribute('data-testid', PARCEL_LAW_QUANTITIES_HOST_TESTID);
+    root.appendChild(quantitiesSlot);
+
     host.appendChild(root);
     renderFacts();
+    // Mounted AFTER `host.appendChild(root)` so the control's `root.isConnected` guards — which
+    // are what stop a torn-down tab from repainting — are true from its very first store event.
+    try {
+      const mount = deps.mountQuantities ?? ((h: HTMLElement) => mountParcelLawQuantities(h));
+      quantities = mount(quantitiesSlot);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] live-quantities mount failed (non-fatal):', e);
+    }
 
     // ── 5. The design-stage strip — after the claim lands (it is scheduled on a microtask). ──
     queueMicrotask(wireStrip);
@@ -346,6 +390,7 @@ export function mountParcelLawTab(
       if (disposed) return;
       try { switcher?.repaint(); } catch { /* a repaint that throws is a repaint we do not have */ }
       renderFacts();
+      try { quantities?.repaint(); } catch { /* same — a section that cannot repaint keeps its last honest render */ }
       wireStrip();
     },
     holdsEnvelopeCard,
@@ -355,6 +400,10 @@ export function mountParcelLawTab(
       const held = holdsEnvelopeCard();
       try { unsub?.(); } catch { /* teardown is best-effort */ }
       unsub = null;
+      // Before the panel, so the store subscription is released while the DOM it guards on is
+      // still attached — a listener that fires against a detached root is harmless but noisy.
+      try { quantities?.dispose(); } catch { /* teardown is best-effort */ }
+      quantities = null;
       try { panel?.dispose(); } catch { /* teardown is best-effort */ }
       panel = null;
       try { switcher?.dispose(); } catch { /* teardown is best-effort */ }
