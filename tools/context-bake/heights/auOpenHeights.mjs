@@ -104,6 +104,32 @@ export const AU_OPEN_HEIGHTS_ASSESSED = [
     evidence: 'services.ga.gov.au/gis/rest/services → HTTP 403' },
   { jurisdiction: 'elvis', region: '*', status: 'bulk-portal-not-raster-api',
     evidence: 'elevation.fsdf.org.au → HTTP 200 text/html (13,250 B); no keyless WCS/COG to sample — no DSM−DTM derive attempted' },
+  // ── re-swept 2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B, via the NATIONAL catalogue (data.gov.au CKAN
+  //    package_search) rather than by guessing hostnames — the brief's "Australia is the starkest:
+  //    eight states published live and a height working set of ONE city". Both rows below are
+  //    MEASUREMENTS, and the first is a real FINDING, not a refusal.
+  { jurisdiction: 'geelong_cc', region: 'victoria', status: 'OPEN-HEIGHT-FOUND-NOT-YET-WIRED',
+    evidence: '"Roofprints - City of Greater Geelong", CC BY 3.0 AU, KEYLESS GeoServer WFS on data.gov.au '
+      + '(https://data.gov.au/geoserver/geelong-roofprints-kml/wfs, typeName ckan_41527e85_0907_4faf_b5f4_e9655b23d128). '
+      + 'Probed 2026-09-06: a 3 × 4 km CBD box (bbox=263500,5775000,266500,5779000,EPSG:28355 + srsName=EPSG:4326) '
+      + '→ HTTP 200, 3,092,245 B, 4.57 s, 7,111 features / numberMatched 7,111, coordinates returned lon,lat '
+      + '([144.3238,-38.1249]). Per building: ROOF_HT — min −0.133 · p50 3.759 · p90 4.985 · max 38.694 m, i.e. HEIGHT '
+      + 'ABOVE GROUND (single-storey suburbia at ~3.8 m, one 38.7 m tower), NOT an AHD elevation. '
+      + '⚠ THE BBOX MUST BE IN NATIVE EPSG:28355: the same box expressed in EPSG:4326 answers HTTP 200 with an EMPTY '
+      + 'collection (147 B, numberMatched 0) — the silent-empty defect, so a wiring lane must unit-test the URL. '
+      + 'NOT WIRED HERE: it needs an EPSG:28355 (MGA zone 55) projector in reproject.mjs and a second adapter KIND '
+      + '(native-bbox WFS) beside the Opendatasoft one, which is new code, not a table row. It is the second Victorian city '
+      + 'city and the cheapest measured-height win left in Australia.' },
+  { jurisdiction: 'hobart_cc', region: 'tasmania', status: 'no-height-attribute',
+    evidence: 'City of Hobart "Building Footprints" (services1.arcgis.com/NHqdsnvwfSTg42I8/.../Building_Footprints/FeatureServer/0'
+      + '?f=json → HTTP 200, 12,925 B, maxRecordCount 1000, copyrightText "City of Hobart"): fields are OBJECTID · ifc_uid · '
+      + 'Type_Description · Session_key · Object_Metadata · created_user · created_date · last_edited_user · last_edited_date · '
+      + 'YearConstruction · Source_YearConstruction · Validation_YearConstruction · Shape__Area · Shape__Length — NO height. '
+      + 'Tasmania stays mass-only on evidence, not on assumption.' },
+  { jurisdiction: 'brisbane_cc', region: 'queensland', status: 'no-building-height-dataset',
+    evidence: 'data.brisbane.qld.gov.au IS an Opendatasoft portal (its 404 page serves odsui.css; /api/explore/v2.1/catalog/datasets '
+      + '→ HTTP 200). search("building") → 22 datasets, all planning overlays / vegetation / flood; search("lidar") or '
+      + 'search("3d") or search("footprint") → total_count 1, and it is "electoral-boundaries-state". No footprint-with-height layer.' },
 ];
 
 /** The jurisdiction whose working-set bbox contains (lon, lat), or null. */

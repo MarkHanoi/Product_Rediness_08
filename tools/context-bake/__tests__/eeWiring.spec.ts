@@ -19,7 +19,7 @@ const stamp = readFileSync(resolve(HERE, '../heights/eeHeightsStamp.mjs'), 'utf8
 
 describe('§EE-ETAK-OSM-JOIN — bake.mjs wires the ETAK stamp for the `estonia` row', () => {
     it('imports the stamp AND its working set DIRECTLY from heights/eeHeightsStamp.mjs', () => {
-        expect(bake).toMatch(/^import \{ stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES \} from '\.\/heights\/eeHeightsStamp\.mjs';/m);
+        expect(bake).toMatch(/^import \{ stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES, EE_NATIONAL_BBOXES \} from '\.\/heights\/eeHeightsStamp\.mjs';/m);
     });
 
     it("the `estonia` region row declares heightJoin:'ee_etak'", () => {
@@ -34,16 +34,22 @@ describe('§EE-ETAK-OSM-JOIN — bake.mjs wires the ETAK stamp for the `estonia`
         }
     });
 
-    it('stampBboxesFor bounds the national join to EE_CITY_BBOXES (§HEIGHT-STAMP-BUDGET preflight)', () => {
+    // ⭐ §EE-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — this test read `return
+    // EE_CITY_BBOXES.map`, and that pin WAS the defect: the four cities were both the priority order and
+    // the RETAIN set, so no Estonian town outside them could ever be measured by any number of re-bakes.
+    // The pin moves with the decision, in the same commit — a stale pin that keeps passing is how a
+    // corrected fact rots (the count/range shape in CLAUDE.md, six recurrences).
+    it('stampBboxesFor gives the join the WHOLE COUNTRY (§EE-NATIONAL), not the city list', () => {
         const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
         expect(fn, 'stampBboxesFor').not.toBeNull();
-        expect(fn![1]).toMatch(/r\.heightJoin === 'ee_etak'\)\s*return EE_CITY_BBOXES\.map/);
+        expect(fn![1]).toMatch(/r\.heightJoin === 'ee_etak'\)\s*return EE_NATIONAL_BBOXES;/);
+        expect(fn![1]).not.toMatch(/r\.heightJoin === 'ee_etak'\)\s*return EE_CITY_BBOXES/);
     });
 
     it('dispatches ee_etak through NATIONAL_STAMP_TABLE (the pinned chain admits no new key)', () => {
         const table = bake.match(/const NATIONAL_STAMP_TABLE = \{([\s\S]*?)\n\};/);
         expect(table, 'NATIONAL_STAMP_TABLE').not.toBeNull();
-        expect(table![1]).toMatch(/ee_etak:\s*\{\s*stamp:\s*stampEeEtakHeightsOnGeojsonseq,\s*bboxes:\s*EE_CITY_BBOXES\s*\}/);
+        expect(table![1]).toMatch(/ee_etak:\s*\{\s*stamp:\s*stampEeEtakHeightsOnGeojsonseq,\s*bboxes:\s*EE_NATIONAL_BBOXES\s*\}/);
         expect(bake).toMatch(/const tableStamp = NATIONAL_STAMP_TABLE\[r\.heightJoin\];/);
     });
 
@@ -52,9 +58,13 @@ describe('§EE-ETAK-OSM-JOIN — bake.mjs wires the ETAK stamp for the `estonia`
         expect(stamp).toMatch(/from '\.\/eeHeights\.mjs';/);
         expect(stamp).toMatch(/heightSource: EE_ETAK\.heightSourceTag/);
         expect(stamp).toMatch(/\[MEASURED_HEIGHT_SRC_TAG\]: MEASURED_HEIGHT_SRC_VALUE/);
-        // failure ≠ empty ≠ truncated, each counted by name
-        expect(stamp).toMatch(/tileErrors\+\+/);
-        expect(stamp).toMatch(/voidTiles\+\+/);
+        // failure ≠ empty ≠ truncated, each kept a DIFFERENT value. Since §EE-NATIONAL the counting
+        // itself lives in the shared driver (heights/nationalSweepStamp.mjs, pinned by
+        // nationalSweepStamp.spec.ts); what this stamp must still do is RETURN the two apart —
+        // `{ ok:false, error }` for a refusal and `{ ok:true, empty:true }` for a real empty.
+        expect(stamp).toMatch(/return \{ ok: false, error: got\.reason/);
+        expect(stamp).toMatch(/return \{ ok: true, empty: true/);
+        expect(stamp).toMatch(/runNationalSweep/);
         expect(stamp).toMatch(/truncated at the server's \$\{EE_ETAK\.serverCap\}-object cap/);
     });
 

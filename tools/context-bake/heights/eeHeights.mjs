@@ -323,3 +323,65 @@ export const EE_CITY_BBOXES = [
   { city: 'parnu',   bbox: [24.45, 58.36, 24.56, 58.41] },   // 11×5
   { city: 'narva',   bbox: [28.15, 59.35, 28.22, 59.40] },   // 7×5
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §EE-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — the retain set is now the WHOLE COUNTRY,
+// not the four cities above.
+//
+// ── THE DEFECT THIS REMOVES ─────────────────────────────────────────────────────────────────────
+// EE_CITY_BBOXES was BOTH the priority order AND the retain set (bake.mjs stampBboxesFor →
+// §HEIGHT-STAMP-BUDGET, L-659), so a building in Viljandi, Rakvere, Kuressaare or any of Estonia's
+// ~4,700 other settlements could never be stamped by any number of re-bakes — and the failure was
+// SILENT, because an unstamped footprint ships the honest `assumed` 9 m, the SAME value the client
+// shows where a source genuinely has no data (L-422/457/467/469; the founder hit the Spanish twin of
+// this at Ciudad Real, L-12946). ETAK never lacked national coverage: `etak:e_401_hoone_ka` is ONE
+// keyless national layer over the whole state. What was missing was REACH.
+//
+// ── THE MEASURED COST (probed 2026-09-06, `curl -m 120`, exact answers — never cite a URL you did not
+//    reach) ─────────────────────────────────────────────────────────────────────────────────────────
+//   bbox (lon,lat)                       HTTP  bytes      wall   features / numberMatched
+//   24.74,59.43,24.75,59.44  0.01° Tallinn OldTown  200  435,748 B  0.74 s   646 / 646
+//   24.70,59.40,24.75,59.45  0.05° Tallinn          200 2,672,730 B 1.58 s  5000 / 10,882  ← TRUNCATED
+//   26.70,58.35,26.75,58.40  0.05° Tartu            200 2,748,776 B 1.97 s  5000 / 13,323  ← TRUNCATED
+//   22.45,58.25,22.50,58.30  0.05° Saaremaa (rural) 200 1,839,854 B 1.06 s  3795 / 3,795
+//   25.55,58.75,25.65,58.85  0.10° Järvamaa (rural) 200   266,262 B 0.59 s   564 / 564
+//   24.75,59.45,24.80,59.50  0.05° Tallinn Bay      200       147 B 0.26 s     0 / 0  ← an honest EMPTY (sea)
+// ⭐ `numberMatched` is HONEST above the cap (10,882 / 13,323 while numberReturned is 5,000), which is
+//    what makes `etakIsTruncated` sound: a cell at 5,000 is cut, and the join SPLITS it rather than
+//    stamping from a cut answer. ⚠ Rural Estonia is NOT sparse — a 0.05° Saaremaa cell holds 3,795
+//    buildings, 59 % of the way to the cap, because every farm outbuilding is in ETAK.
+// ⇒ TILE = 0.02°. At that size the Tartu core (the densest cell measured, 13,323 per 0.05°) scales to
+//   ~2,100 per cell and Saaremaa to ~610 — both comfortably under the 5,000 cap, so the common case is
+//   ONE request per cell and the split path is the exception, not the rule. 0.05° would truncate over
+//   every city centre and pay 5 requests where 1 does; 0.01° (the city stamp's size) would multiply the
+//   national request count by four for no benefit.
+// ⇒ A 0.02° cell is ~2.6 km² at 58.5 °N, so Estonia's 45,339 km² of land is ≈ 17,500 cells, of which
+//   only the POPULATED ones (those holding an OSM footprint) are ever fetched. At the measured ~0.5 s
+//   per cell and concurrency 4 that is ≈ 20 min of wall clock for the whole country — Estonia is one of
+//   the few countries whose national sweep fits inside a single dispatch. It is still ORDERED, CURSORED
+//   and LOUD, because "fits today" is not a property to depend on.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * §EE-NATIONAL-BBOX — BYTE-IDENTICAL to the bake.mjs `estonia` region row (`bbox:
+ * '21.60,57.50,28.30,59.80'`), pinned by eeHeights.spec.ts. It must not be re-invented: a retain set
+ * smaller than the baked region is exactly the silent, permanent hole this section removes.
+ */
+export const EE_NATIONAL_BBOX = [21.60, 57.50, 28.30, 59.80];
+export const EE_NATIONAL_BBOXES = [EE_NATIONAL_BBOX];
+
+/** The national sweep's tile size, in degrees — MEASURED, see the table above. */
+export const EE_TILE_DEG = 0.02;
+
+/**
+ * §EE-SWATHE — tile ROWS per bounded-heap pass. Estonia's 2.3° of latitude is 115 rows at 0.02°;
+ * 20 rows = 0.40° of latitude per band, 6 bands. The band exists because "retain the whole country"
+ * and "hold the retained footprints in the V8 heap" are incompatible at ~1,256 B per parsed footprint
+ * (geojsonseqRead.spec.ts §heap-budget): Estonia's OSM clip is ~10⁶ buildings ⇒ ~1.2 GB in ONE pass,
+ * against a bake job given 12,288 MB that also has to run tippecanoe. Six bands ⇒ ~200 MB peak.
+ */
+export const EE_SWATHE_ROWS = 20;
+
+/** Courtesy concurrency against the keyless GeoServer. Cells are still issued in ORDERED batches, so
+ *  the resume cursor stays exact. */
+export const EE_SWEEP_CONCURRENCY = 4;

@@ -44,16 +44,23 @@ describe('§NDH-NO-OSM-JOIN — bake.mjs wires the ndh_no stamp for the `norway`
         }
     });
 
-    it('stampBboxesFor bounds the national join to NO_NDH_CITY_BBOXES (§HEIGHT-STAMP-BUDGET preflight)', () => {
+    // ⭐ §NO-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — this test used to assert
+    // `return NO_NDH_CITY_BBOXES.map`, and THAT WAS THE DEFECT it was pinning in place: the three
+    // cities were both the priority order and the RETAIN set, so Stavanger, Tromsø, Drammen and every
+    // fjord village were permanently unmeasurable, shipping the assumed 9 m that looks exactly like
+    // "no data here". The retain set is now the whole country (heap bounded by §NO-SWATHE bands, not
+    // by a narrower bbox) and the pin moves WITH the decision, in the same commit.
+    it('stampBboxesFor gives the join the WHOLE COUNTRY (§NO-NATIONAL), not the city list', () => {
         const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
         expect(fn, 'stampBboxesFor').not.toBeNull();
-        expect(fn![1]).toMatch(/r\.heightJoin === 'ndh_no'\)\s*return NO_NDH_CITY_BBOXES\.map/);
+        expect(fn![1]).toMatch(/r\.heightJoin === 'ndh_no'\)\s*return NO_NATIONAL_BBOXES;/);
+        expect(fn![1]).not.toMatch(/r\.heightJoin === 'ndh_no'\)\s*return NO_NDH_CITY_BBOXES/);
     });
 
     it('NATIONAL_STAMP_TABLE carries the ndh_no row, and the table is consulted BEFORE the pinned chain', () => {
         const table = bake.match(/const NATIONAL_STAMP_TABLE = \{([\s\S]*?)\n\};/);
         expect(table, 'NATIONAL_STAMP_TABLE').not.toBeNull();
-        expect(table![1]).toMatch(/ndh_no:\s*\{\s*stamp:\s*stampNoNdhHeightsOnGeojsonseq,\s*bboxes:\s*NO_NDH_CITY_BBOXES\s*\}/);
+        expect(table![1]).toMatch(/ndh_no:\s*\{\s*stamp:\s*stampNoNdhHeightsOnGeojsonseq,\s*bboxes:\s*NO_NATIONAL_BBOXES\s*\}/);
         const lookup = bake.indexOf('const tableStamp = NATIONAL_STAMP_TABLE[r.heightJoin];');
         // Locate the chain by its MIDDLE (the mnhFr.spec.ts pin) — sibling lanes prepend/append keys at
         // either end, and this spec must not re-assert THEIR pins, only that the table precedes the chain.
@@ -98,8 +105,15 @@ describe('§NDH-NO-OSM-JOIN — bake.mjs wires the ndh_no stamp for the `norway`
         expect(stampModule).toMatch(/heightSource: NO_NDH\.heightSourceTag/);
         // and it degrades by NAME, never by fabrication
         expect(stampModule).toMatch(/status: 'documented', reason: 'NO NHM nDSM join: geotiff dep unavailable/);
-        expect(stampModule).toMatch(/tileErrors\+\+/);
-        expect(stampModule).toMatch(/voidTiles\+\+/);
+        // failure ≠ empty, still, but since §NO-NATIONAL the COUNTING lives in the shared driver
+        // (heights/nationalSweepStamp.mjs, pinned by nationalSweepStamp.spec.ts). What this stamp must
+        // do is RETURN the two apart: `{ ok:false, error }` for a refusal or an undecodable raster,
+        // `{ ok:true, empty:true }` for a window the survey genuinely does not cover (sea, abroad).
+        expect(stampModule).toMatch(/return \{ ok: false, requests: 2, bytes, error:/);
+        expect(stampModule).toMatch(/return \{ ok: true, empty: true, requests: 2, bytes \}/);
+        // ⭐ §SPARSE-TILE-IS-NOT-A-BROKEN-FILE — the coastal cells this join lost to geotiff.js are
+        // recovered by the dedicated reader, and that wiring is part of the join, not an optimisation.
+        expect(stampModule).toMatch(/readSparseTiledFloat32/);
     });
 
     it('both CI gates refuse a Norwegian bake that ships no measured heights at Oslo S', () => {

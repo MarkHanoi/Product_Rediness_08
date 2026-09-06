@@ -51,6 +51,13 @@ export const GURS_KN = {
   typeName: 'SI.GURS.KN:STAVBE',
   outputFormat: 'application/json',
   countDefault: 20000,               // GetCapabilities CountDefault (probed) — a 0.01° cell is ≤ ~1,500 buildings
+  // §GURS-TRIM (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — the five attributes the join actually reads,
+  // plus the geometry. STAVBE publishes **127 properties per feature** (mostly multilingual code lists),
+  // and the whole country cannot be swept at that weight. MEASURED on the SAME cell the same minute
+  // (bbox=46.050,14.500,46.060,14.510, 691 features): full 4,029,288 B / 1.36 s → trimmed 226,427 B /
+  // 1.35 s. **17.8× fewer bytes for the same 691 buildings and the same wall clock**, which is what makes
+  // a national sweep affordable at all (~1.2 M Slovenian buildings: ~390 MB instead of ~7 GB).
+  propertyNames: ['VISINA_H1', 'VISINA_H2', 'VISINA_H3', 'STEVILO_ETAZ', 'VISINSKA_NATANCNOST_STAVBE_ID', 'CENTROID_GEOM'],
   heightSourceTag: 'gurs-kn-stavbe-h2h3',
   accuracyField: 'VISINSKA_NATANCNOST_STAVBE_ID',
   attribution: 'GURS — Kataster nepremičnin, STAVBE (CC BY 4.0)',
@@ -62,10 +69,26 @@ export const GURS_KN = {
  * returned coordinates (srsName=EPSG:4326) are [lon, lat]. Live-verified 2026-09-05 — the swapped order
  * is a box in the Indian Ocean and returns an EMPTY collection, not an error.
  */
-export function gursStavbeUrl([w, s, e, n], { count = GURS_KN.countDefault } = {}) {
+export function gursStavbeUrl([w, s, e, n], { count = GURS_KN.countDefault, trim = true } = {}) {
+  const props = trim ? `&propertyName=${GURS_KN.propertyNames.join(',')}` : '';
   return `${GURS_KN.wfs}?service=WFS&version=2.0.0&request=GetFeature&typeNames=${GURS_KN.typeName}` +
-    `&outputFormat=${encodeURIComponent(GURS_KN.outputFormat)}&srsName=EPSG:4326&count=${count}` +
+    `&outputFormat=${encodeURIComponent(GURS_KN.outputFormat)}&srsName=EPSG:4326&count=${count}${props}` +
     `&bbox=${s},${w},${n},${e},urn:ogc:def:crs:EPSG::4326`;
+}
+
+/**
+ * Did the server's `count` cap TRUNCATE this collection? True when it returned ≥ the cap asked for — a
+ * cell that reads exactly `count` is far more likely CUT than complete. The caller SPLITS such a cell; it
+ * must never stamp from a truncated answer, because the missing buildings would silently keep their OSM
+ * default while the cell reported "read" (§BDTOPO-CAP-TRUNCATE — a truncation wearing a success).
+ * ⚠ This did not exist while the join only ever saw 0.01° city cells (≈ 691 buildings against a 20,000
+ * cap). The national sweep asks for bigger cells over denser ground, so the cap became reachable and the
+ * check became mandatory.
+ */
+export function gursIsTruncated(fc, cap = GURS_KN.countDefault) {
+  const n = Array.isArray(fc?.features) ? fc.features.length : 0;
+  const returned = Number.isFinite(Number(fc?.numberReturned)) ? Number(fc.numberReturned) : n;
+  return Math.max(n, returned) >= cap;
 }
 
 /**
@@ -198,3 +221,50 @@ export const SI_CITY_BBOXES = [
   { city: 'kranj',     bbox: [14.33, 46.22, 14.39, 46.26] },
   { city: 'koper',     bbox: [13.70, 45.52, 13.76, 45.56] },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §SI-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — the retain set is now the WHOLE COUNTRY,
+// not the five cities above.
+//
+// ── THE DEFECT THIS REMOVES ─────────────────────────────────────────────────────────────────────
+// SI_CITY_BBOXES was BOTH the priority order AND the retain set (bake.mjs stampBboxesFor →
+// §HEIGHT-STAMP-BUDGET, L-659), so Novo mesto, Ptuj, Velenje, Nova Gorica, Murska Sobota and every
+// Slovenian village could never be stamped by any number of re-bakes — silently, because an unstamped
+// footprint ships the honest `assumed` 9 m, the same value the client shows where a source genuinely
+// has no data (L-422/457/467/469). GURS KN is ONE national register; only the REACH was missing.
+//
+// ── THE MEASURED COST (probed 2026-09-06, `curl -m 180`, exact answers) ─────────────────────────
+//   bbox=46.050,14.500,46.060,14.510 (0.01°, Ljubljana centre), count=20000:
+//     FULL properties     HTTP 200  4,029,288 B  1.36 s  691 features / numberMatched 691 · 127 props each
+//     TRIMMED propertyName HTTP 200   226,427 B  1.35 s  691 features / same five attributes + CENTROID_GEOM
+//   ⇒ 17.8× fewer bytes at identical wall clock (§GURS-TRIM above). The country is ~1.2 M buildings:
+//     ~390 MB trimmed against ~7 GB untrimmed — the difference between a sweep and an outage.
+// ⇒ TILE = 0.03°. The densest cell measured is 691 buildings per 0.01°; a 0.03° cell over the same
+//   density is ≈ 6,200, comfortably under the 20,000 CountDefault, so the common case is ONE request
+//   per cell and `gursIsTruncated` + split is the exception. A 0.03° cell at 46 °N is ~7.8 km², so
+//   Slovenia's 20,271 km² of land is ≈ 2,600 cells; at the measured ~1.4 s and concurrency 4 the whole
+//   country is ≈ 15 min of wall clock — it fits in one dispatch, and is still ORDERED, CURSORED and LOUD.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * §SI-NATIONAL-BBOX — BYTE-IDENTICAL to the bake.mjs `slovenia` region row (`bbox:
+ * '13.30,45.40,16.60,46.90'`), pinned by siHeights.spec.ts. A retain set smaller than the baked region
+ * is exactly the silent, permanent hole this section removes.
+ */
+export const SI_NATIONAL_BBOX = [13.30, 45.40, 16.60, 46.90];
+export const SI_NATIONAL_BBOXES = [SI_NATIONAL_BBOX];
+
+/** The national sweep's tile size in degrees — MEASURED, see above. */
+export const SI_TILE_DEG = 0.03;
+
+/**
+ * §SI-SWATHE — tile ROWS per bounded-heap pass. Slovenia's 1.5° of latitude is 50 rows at 0.03°;
+ * 10 rows = 0.30° of latitude per band, 5 bands. At the measured ~1,256 B of heap per parsed footprint
+ * (geojsonseqRead.spec.ts §heap-budget) the country's ~1.2 M OSM buildings would be ~1.5 GB in ONE
+ * pass; five bands keep the peak near 300 MB, inside a bake job that also runs tippecanoe.
+ */
+export const SI_SWATHE_ROWS = 10;
+
+/** Courtesy concurrency against the keyless GeoServer. Cells are issued in ORDERED batches, so the
+ *  resume cursor stays exact. */
+export const SI_SWEEP_CONCURRENCY = 4;

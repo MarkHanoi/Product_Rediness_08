@@ -22,9 +22,17 @@ const heightSources = readFileSync(resolve(HERE, '../heightSources.mjs'), 'utf8'
 const workflows = ['context-bake.yml', 'context-merge-publish.yml'].map((wf) => [wf, readFileSync(resolve(HERE, '../../../.github/workflows', wf), 'utf8')] as const);
 
 const COUNTRIES = [
-    { region: 'austria',  key: 'bev_at',  stamp: 'stampAtHeightsOnGeojsonseq', bboxes: 'AT_CITY_BBOXES', module: './heights/atHeightsStamp.mjs', city: 'vienna',    gate: /^\s*vienna austria 48\.2086,16\.3725 500$/m,    source: /^\s*austria:\s*'geoland_at',.*WIRED 2026-09-05/m },
-    { region: 'czechia',  key: 'cuzk_cz', stamp: 'stampCzHeightsOnGeojsonseq', bboxes: 'CZ_CITY_BBOXES', module: './heights/czHeightsStamp.mjs', city: 'prague',    gate: /^\s*prague czechia 50\.0875,14\.4213 500$/m,    source: /^\s*czechia:\s*'ruian_cz',.*WIRED 2026-09-05/m },
-    { region: 'slovenia', key: 'gurs_si', stamp: 'stampSiHeightsOnGeojsonseq', bboxes: 'SI_CITY_BBOXES', module: './heights/siHeightsStamp.mjs', city: 'ljubljana', gate: /^\s*ljubljana slovenia 46\.0511,14\.5051 500$/m, source: /^\s*slovenia:\s*'gurs_si',.*WIRED 2026-09-05/m },
+    // ⭐ §BEV-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A): `austria`'s RETAIN set is the whole
+    // country (BEV's own ATOM feed lists 55/55 DSM + 55/55 DTM 50 km COG tiles covering it); AT_CITY_BBOXES
+    // survives as the PRIORITY set, stamped first and uncapped, so bake.mjs still imports both.
+    { region: 'austria',  key: 'bev_at',  stamp: 'stampAtNationalHeightsOnGeojsonseq', bboxes: 'AT_CITY_BBOXES', retain: 'AT_BEV_NATIONAL_BBOXES', module: './heights/atHeightsStamp.mjs', city: 'vienna',    gate: /^\s*vienna austria 48\.2086,16\.3725 500$/m,    source: /^\s*austria:\s*'geoland_at',.*WIRED 2026-09-05/m },
+    // ⭐ §CUZK-NATIONAL-SWEEP (2026-09-06, same lane): `czechia`'s RETAIN set is the whole country — the
+    // DMP 1G / DMR 5G mosaic answered HTTP 200 image/tiff at Liberec, České Budějovice, Zlín and Cheb.
+    { region: 'czechia',  key: 'cuzk_cz', stamp: 'stampCzNationalHeightsOnGeojsonseq', bboxes: 'CZ_CITY_BBOXES', retain: 'CZ_CUZK_NATIONAL_BBOXES', module: './heights/czHeightsStamp.mjs', city: 'prague',    gate: /^\s*prague czechia 50\.0875,14\.4213 500$/m,    source: /^\s*czechia:\s*'ruian_cz',.*WIRED 2026-09-05/m },
+    // ⭐ §SI-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B): `slovenia`'s RETAIN set is the whole
+    // country; SI_CITY_BBOXES survives as the PRIORITY set (stamped first, uncapped), so bake.mjs still
+    // imports both. `retain` is what stampBboxesFor + NATIONAL_STAMP_TABLE must name.
+    { region: 'slovenia', key: 'gurs_si', stamp: 'stampSiHeightsOnGeojsonseq', bboxes: 'SI_CITY_BBOXES', retain: 'SI_NATIONAL_BBOXES', module: './heights/siHeightsStamp.mjs', city: 'ljubljana', gate: /^\s*ljubljana slovenia 46\.0511,14\.5051 500$/m, source: /^\s*slovenia:\s*'gurs_si',.*WIRED 2026-09-05/m },
 ];
 
 for (const c of COUNTRIES) {
@@ -35,6 +43,7 @@ for (const c of COUNTRIES) {
             expect(imp, `${c.module} import statement`).not.toBeNull();
             expect(imp![1]).toContain(c.stamp);
             expect(imp![1]).toContain(c.bboxes);
+            if (c.retain.endsWith('_BBOXES')) expect(imp![1]).toContain(c.retain);
         });
 
         it(`the \`${c.region}\` region row declares heightJoin:'${c.key}'`, () => {
@@ -47,16 +56,21 @@ for (const c of COUNTRIES) {
             expect(bake, `${c.city} must not be a bake region row`).not.toMatch(new RegExp(`\\{\\s*name:\\s*'${c.city}'`));
         });
 
-        it(`stampBboxesFor bounds the national join to ${c.bboxes} (§HEIGHT-STAMP-BUDGET preflight)`, () => {
+        it(`stampBboxesFor gives the join its declared retain set (${c.retain}) (§HEIGHT-STAMP-BUDGET preflight)`, () => {
             const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
             expect(fn, 'stampBboxesFor').not.toBeNull();
-            expect(fn![1]).toMatch(new RegExp(`r\\.heightJoin === '${c.key}'\\)\\s*return ${c.bboxes}\\.map`));
+            expect(fn![1]).toMatch(new RegExp(`r\\.heightJoin === '${c.key}'\\)\\s*return ${c.retain.replace('.', '\\.')}`));
         });
 
-        it(`NATIONAL_STAMP_TABLE dispatches '${c.key}' to ${c.stamp} with the ${c.bboxes} working set`, () => {
+        it(`NATIONAL_STAMP_TABLE dispatches '${c.key}' to ${c.stamp} with its retain set`, () => {
             const table = bake.match(/const NATIONAL_STAMP_TABLE\s*=\s*\{([\s\S]*?)\n\};/);
             expect(table, 'NATIONAL_STAMP_TABLE').not.toBeNull();
-            expect(table![1]).toMatch(new RegExp(`${c.key}:\\s*\\{\\s*stamp:\\s*${c.stamp}\\s*,\\s*bboxes:\\s*${c.bboxes}\\s*\\}`));
+            const want = c.retain.replace('.map', '');
+            // ⚠ WIDENED 2026-09-06 (lane HEIGHTS-WHOLE-COUNTRY-A) from `…bboxes: X \\}` to `…bboxes: X [,}]`.
+            // A national row now also declares `opts: { priorityBboxes: X_CITY_BBOXES.map(…) }`, so the city
+            // list stays VISIBLE at the dispatch site instead of hiding inside the stamp's default. What this
+            // pin is about — which stamp the key reaches and which retain set it is handed — is unchanged.
+            expect(table![1]).toMatch(new RegExp(`${c.key}:\\s*\\{\\s*stamp:\\s*${c.stamp}\\s*,\\s*bboxes:\\s*${want}\\s*[,}]`));
         });
 
         // ⭐ §PENDING-HEIGHTS — THE TWO GATES ARE NO LONGER SYMMETRIC, AND THE ASYMMETRY IS DELIBERATE

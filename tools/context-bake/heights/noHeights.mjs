@@ -46,7 +46,16 @@ export const NO_NDH = {
   crs: 'EPSG:25833',           // ETRS89 / UTM 33N — in reproject.mjs PROJ_DEFS already (the Oslo control point)
   format: 'GeoTIFF',           // the ArcGIS spelling (DK's Datafordeler says GTiff; do not copy that here)
   nativeResM: 1.0,
-  maxPx: 1100,                 // = terrain.mjs `no` maxPx — the largest request the service was seen to honour
+  // ⚠ MEASURED CEILING, not a guess (re-probed 2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B, same
+  // Oslo origin 262000/6648000 at 2 m/px): dim 1100 → HTTP 200 5,310,199 B 2.35 s · 1600 → 200
+  // 11,078,071 B 3.02 s · 2000 → 200 16,780,399 B 3.25 s · 2500 → 200 26,218,735 B 5.24 s ·
+  // **3000 → HTTP 504 text/html 764 B after 30.24 s** · 4000 → HTTP 504 after 30.28 s. The wall is a
+  // 30-SECOND GATEWAY TIMEOUT, not a size refusal — so the honest cap is "what renders well inside
+  // 30 s", and 2000 (3.25 s, an 8× margin) is that with room for a slow minute. The old 1100 was
+  // never the service's limit; it was the largest anyone had tried. Raising it is what makes the
+  // national sweep affordable: per km² the cost falls 1.10 → 1.05 MB and 0.49 → 0.20 s.
+  maxPx: 2000,
+  legacyMaxPx: 1100,           // = terrain.mjs `no` maxPx — kept for the 1 km per-tile path's shape
   tileM: 1000,                 // 1 km native tiles: 1,000 px at 1 m ≈ 5.3 MB per raster (probed 1,080 px = 5.3 MB / 1.8 s)
   padM: 20,                    // erosion + bilinear margin so a footprint on a tile edge is not sampled against void
   nodataMag: 1e5,              // no GDAL_NODATA tag → the ArcGIS float sentinel (|v| ≈ 3.4e38) is the void marker
@@ -139,3 +148,105 @@ export const NO_NDH_CITY_BBOXES = [
   { city: 'bergen',    bbox: [5.28, 60.36, 5.36, 60.42] },     // Bergenhus / Årstad core · ~5×7
   { city: 'trondheim', bbox: [10.35, 63.40, 10.46, 63.45] },   // Midtbyen + Lerkendal · ~6×6
 ];
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// §NO-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — the retain set is now the WHOLE COUNTRY,
+// not oslo/bergen/trondheim.
+//
+// ── THE DEFECT THIS REMOVES ────────────────────────────────────────────────────────
+// NO_NDH_CITY_BBOXES was BOTH the priority order AND the retain set, so Stavanger, Tromsø, Drammen,
+// Kristiansand, Troms and every fjord village could never be measured by any number of re-bakes —
+// silently, because an unstamped footprint ships the honest `assumed` 9 m, the same value the client
+// shows where a source truly has no data (L-422/457/467/469). The NHM grid is NATIONAL (DescribeCoverage
+// gml:high 1250529 × 1600549 at 1 m); only the REACH was missing.
+//
+// ── THE MEASURED COST, and why Norway is affordable at all ───────────────────────────────────
+// TWO measurements decided the shape, and both were run rather than assumed:
+//  1. RESOLUTION. The join asked for 1 m because the grid is 1 m. Re-measured 2026-09-06 on 1,057 REAL
+//     Oslo OSM footprints (10.735,59.910–10.755,59.920, Overpass), the SAME join at three resolutions:
+//        1 m  762/1057 measured · 42.3 MB · 15.2 s   (median 17.33 m)
+//        2 m  688/1057 measured · 13.1 MB ·  5.0 s   (median 17.64 m)
+//        4 m  820/1057 measured ·  4.7 MB ·  2.6 s   (median 18.42 m)
+//     Paired, on the SAME buildings: 1 m vs 2 m → Δ p05 −0.70 · p50 −0.10 · p95 +0.40 m (n 688);
+//     1 m vs 4 m → Δ p05 −1.90 · p50 −0.60 · p95 +0.20 m (n 595). ⇒ **2 m costs a tenth of a metre of
+//     median height and 3.2× fewer bytes.** 4 m costs 0.6 m, which starts to matter on a single-storey
+//     house, so the sweep asks for 2 m and says so per footprint.
+//  2. REQUEST SIZE — see NO_NDH.maxPx above: dim 2000 is served in 3.25 s; 3000 is a 504 at 30 s.
+// ⇒ CELL = 0.068° lon × 0.036° lat ≈ 4.0 × 4.0 km at 58 °N (the SOUTHERNMOST, widest metres-per-degree
+//   latitude in the `norway` row, so no cell anywhere in the country asks for more than dim 2000; by
+//   71 °N the same cell is 2.5 km wide and cheaper still). ONE cell = 2 GetCoverage requests ≈ 9.7 MB
+//   and ≈ 6.5 s serial, ≈ 1.6 s at concurrency 4 — for 16 km² of ground.
+//
+// ⚠ NORWAY IS NOT CLAIMED "COMPLETE" BY THIS. What is national is the RETAIN SET and the REACH: any
+// Norwegian footprint the bake clipped can now be measured, and the sweep visits POPULATED cells in a
+// deterministic south→north order with an exact resume cursor. How much one dispatch covers is
+// PRINTED (km² stamped / km² skipped / cursor), never assumed — and the three cities are stamped
+// FIRST and UNCAPPED on every run (§PRIORITY-OR-THE-CITIES-REGRESS), so widening the retain set can
+// never cost Oslo, Bergen or Trondheim the heights they have today.
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * §NO-NATIONAL-BBOX — BYTE-IDENTICAL to the bake.mjs `norway` region row (`bbox:
+ * '4.50,57.90,31.20,71.20'`), pinned by noHeights.spec.ts. A retain set smaller than the baked region
+ * is exactly the silent, permanent hole §MDS-BBOX-MUST-COVER-THE-REGION exists to forbid.
+ */
+export const NO_NATIONAL_BBOX = [4.50, 57.90, 31.20, 71.20];
+export const NO_NATIONAL_BBOXES = [NO_NATIONAL_BBOX];
+
+/** The national sweep's cell, in degrees — ≈ 4.0 × 4.0 km at 58 °N (MEASURED, see above). */
+export const NO_TILE_LON_DEG = 0.068;
+export const NO_TILE_LAT_DEG = 0.036;
+
+/** Sample resolution for the national sweep: 2 m, which costs a MEASURED −0.10 m of median height
+ *  against 1 m and 3.2× fewer bytes. The erosion and sampling step move with it (a 1 m erosion at
+ *  2 m/px is less than one pixel of protection against the roof edge). */
+export const NO_SWEEP_RES_M = 2;
+export const NO_SWEEP_ERODE_M = 2.0;
+export const NO_SWEEP_STEP_M = 2.0;
+
+/**
+ * §NO-SWATHE — tile ROWS per bounded-heap pass. Norway's 13.3° of latitude is 370 rows at 0.036°;
+ * 40 rows = 1.44° of latitude per band, 10 bands. At the measured ~1,256 B of heap per parsed
+ * footprint (geojsonseqRead.spec.ts §heap-budget) Norway's ~3 M OSM buildings would be ~3.8 GB in ONE
+ * pass — more than the bake job can hold beside tippecanoe. Ten bands keep the peak near 400 MB.
+ */
+export const NO_SWATHE_ROWS = 40;
+
+/** Courtesy concurrency against Kartverket's keyless WCS (each cell is TWO GetCoverage requests).
+ *  Cells are issued in ORDERED batches, so the resume cursor stays exact. */
+export const NO_SWEEP_CONCURRENCY = 4;
+
+/**
+ * The ONE pair of GetCoverage requests a national CELL costs: the padded native EPSG:25833 box and the
+ * pixel dimensions at `resM`, capped at `maxPx` so a mis-sized cell degrades RESOLUTION instead of
+ * being refused (or 504-ing) by the service.
+ *
+ * `project(lon, lat) → [X, Y]` is passed IN rather than imported, so this stays a total function of
+ * its arguments and noHeights.spec.ts can pin it against a stub projector. The cell is projected by
+ * its FOUR CORNERS and bounded: a lon/lat rectangle is not a rectangle in UTM, and taking two corners
+ * would clip the ground the cell's own footprints sit on.
+ */
+export function noNdhCellRequest([w, s, e, n], project, { resM = NO_SWEEP_RES_M, padM = NO_NDH.padM, maxPx = NO_NDH.maxPx } = {}) {
+  const corners = [project(w, s), project(e, s), project(w, n), project(e, n)];
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [X, Y] of corners) {
+    if (!Number.isFinite(X) || !Number.isFinite(Y)) return null;   // unprojectable — the caller counts a FAILURE
+    if (X < x0) x0 = X; if (X > x1) x1 = X;
+    if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
+  }
+  const box = [x0 - padM, y0 - padM, x1 + padM, y1 + padM];
+  const wPx = Math.max(2, Math.min(maxPx, Math.round((box[2] - box[0]) / resM)));
+  const hPx = Math.max(2, Math.min(maxPx, Math.round((box[3] - box[1]) / resM)));
+  return { box, width: wPx, height: hPx };
+}
+
+/** WCS 1.0.0 GetCoverage URL for a NON-SQUARE window (the national sweep's cell). `noNdhCoverageUrl`
+ *  above stays as-is for the square 1 km tile path; this one takes width ≠ height. */
+export function noNdhWindowUrl(which, [x0, y0, x1, y1], width, height, cfg = NO_NDH) {
+  const endpoint = which === 'dom' ? cfg.domEndpoint : cfg.dtmEndpoint;
+  const coverage = which === 'dom' ? cfg.dom : cfg.dtm;
+  return `${endpoint}?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&COVERAGE=${coverage}` +
+    `&CRS=${cfg.crs}&BBOX=${x0.toFixed(0)},${y0.toFixed(0)},${x1.toFixed(0)},${y1.toFixed(0)}` +
+    `&WIDTH=${width}&HEIGHT=${height}&FORMAT=${cfg.format}`;
+}
