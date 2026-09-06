@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 // in the commit that declares the `austria` / `czechia` / `slovenia` rows' heightJoin — never "built, imported by nothing".
 import { stampAtHeightsOnGeojsonseq, AT_CITY_BBOXES } from './heights/atHeightsStamp.mjs';
 import { stampCzHeightsOnGeojsonseq, CZ_CITY_BBOXES } from './heights/czHeightsStamp.mjs';
-import { stampSiHeightsOnGeojsonseq, SI_CITY_BBOXES } from './heights/siHeightsStamp.mjs';
+import { stampSiHeightsOnGeojsonseq, SI_CITY_BBOXES, SI_NATIONAL_BBOXES } from './heights/siHeightsStamp.mjs';
 // §ADSDI-NDSM-OVERTURE-JOIN (2026-09-05, lane ME-ABUDHABI-I3S) — Abu Dhabi's keyless 50 cm DSM3 − DTM stamp (catalogued
 // Open Data, DGE; the I3S city model the brief named was REFUSED on the SDI Terms — heights/abudhabiNdsm.mjs header)
 // lives in its OWN module and is imported here DIRECTLY, in the same commit that declares the `gccstates` row's
@@ -55,11 +55,11 @@ import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonse
 // §NDH-NO-OSM-JOIN (lane HEIGHTS-NORDICS, 2026-09-05) — Norway's keyless Kartverket NHM DOM − DTM stamp lives in its
 // OWN module (the heights/nl3dbagStamp.mjs precedent: heightSources.mjs is a many-lane file) and is imported here
 // DIRECTLY, in the same commit that declares the `norway` row's heightJoin — never "built, imported by nothing".
-import { stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES } from './heights/noHeightsStamp.mjs';
+import { stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES, NO_NATIONAL_BBOXES } from './heights/noHeightsStamp.mjs';
 // §EE-ETAK-OSM-JOIN + §BE-DHMV-OSM-JOIN (2026-09-05, lane HEIGHTS-EE-PL-PT-BE) — Estonia's ETAK korgus_m vector stamp and
 // Belgium's DHMV II DSM − DTM raster stamp live in their OWN modules (the same many-lane-file rule) and are imported here
 // DIRECTLY, in the commit that declares the `estonia` / `belgium` rows' heightJoin — never "built, imported by nothing".
-import { stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES } from './heights/eeHeightsStamp.mjs';
+import { stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES, EE_NATIONAL_BBOXES } from './heights/eeHeightsStamp.mjs';
 import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeightsStamp.mjs';
 // §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US) — the US per-metro stamp lives in its OWN module
 // (not heightSources.mjs — §SHARED-FILE-COLLISION) and is imported here DIRECTLY, so it cannot sit built-and-
@@ -1310,7 +1310,13 @@ function stampBboxesFor(r) {
   if (Array.isArray(r.heightStampBboxes)) return r.heightStampBboxes;
   if (r.heightJoin === 'bev_at') return AT_CITY_BBOXES.map((c) => c.bbox);    // §BEV-ALS-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `austria`, five cities
   if (r.heightJoin === 'cuzk_cz') return CZ_CITY_BBOXES.map((c) => c.bbox);   // §CUZK-NDSM-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `czechia`, five cities
-  if (r.heightJoin === 'gurs_si') return SI_CITY_BBOXES.map((c) => c.bbox);   // §GURS-KN-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `slovenia`, five cities
+  // §SI-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — `slovenia` retains the WHOLE COUNTRY.
+  // This row read `SI_CITY_BBOXES.map(...)`, which made the five cities the only Slovenian ground that
+  // could ever be measured; Novo mesto, Ptuj and every village shipped the honest `assumed` 9 m, which
+  // on the map is indistinguishable from "no data here". The heap is bounded by SWATHE PASSES inside
+  // the join (§SI-SWATHE), not by narrowing where we may measure, and SI_CITY_BBOXES keeps its second
+  // job: the PRIORITY set, stamped first and uncapped on every run.
+  if (r.heightJoin === 'gurs_si') return SI_NATIONAL_BBOXES;
   if (r.heightJoin === 'ad_ndsm') return AD_CITY_BBOXES.map((c) => c.bbox);   // §ADSDI-NDSM-OVERTURE-JOIN (ME-ABUDHABI-I3S) — `gccstates` row since §ME-NATIONAL, island core only (≈ 55 s per populated cell)
   // §MDS-NATIONAL-SWEEP (L-12946, 2026-09-06) — `spain` retains the WHOLE COUNTRY, not a city list.
   // This row used to read `MDS_CITY_BBOXES.map(...)`, and that WAS the defect the founder hit at
@@ -1326,8 +1332,17 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'au_open') return AU_OPEN_CITY_BBOXES.map((c) => c.bbox); // §AU-OPEN-HEIGHTS-OSM-JOIN — whole `victoria`, Melbourne LGA only
   if (r.heightJoin === 'ealidar_gb') return EA_LIDAR_GB_CITY_BBOXES.map((c) => c.bbox); // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`, England working set
   if (r.heightJoin === '3dbag') return NL_3DBAG_CITY_BBOXES.map((c) => c.bbox);   // §NL-3DBAG-OSM-JOIN — whole `netherlands`, six cities
-  if (r.heightJoin === 'ndh_no') return NO_NDH_CITY_BBOXES.map((c) => c.bbox);   // §NDH-NO-OSM-JOIN (HEIGHTS-NORDICS) — whole `norway`
-  if (r.heightJoin === 'ee_etak') return EE_CITY_BBOXES.map((c) => c.bbox);      // §EE-ETAK-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `estonia`, four cities
+  // §NO-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — `norway` retains the WHOLE COUNTRY.
+  // NO_NDH_CITY_BBOXES stays as the PRIORITY set (oslo/bergen/trondheim, stamped first and uncapped on
+  // every run), so this cannot cost the three cities what they have. The NHM grid was always national;
+  // only the reach was missing. LIVE-PROVEN at Stavanger — in none of the three — 594/769 real OSM
+  // footprints measured, 0 cell errors (zz-proof-national-heights.mjs).
+  if (r.heightJoin === 'ndh_no') return NO_NATIONAL_BBOXES;
+  // §EE-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B) — `estonia` retains the WHOLE COUNTRY, for
+  // the same reason `spain` and the USA do. EE_CITY_BBOXES remains the PRIORITY set (stamped first,
+  // uncapped); the heap is bounded by §EE-SWATHE bands. LIVE-PROVEN at Viljandi, which is in none of the
+  // four cities: 545 of 649 real OSM footprints measured, 0 errors (zz-proof-national-heights.mjs).
+  if (r.heightJoin === 'ee_etak') return EE_NATIONAL_BBOXES;
   if (r.heightJoin === 'be_dhmv') return BE_CITY_BBOXES.map((c) => c.bbox);      // §BE-DHMV-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `belgium`, five cities
   // (`us_open` had a branch here until 2026-09-06 — `US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name)`,
   // the metro's OWN box. No row declares that key now; the three CITY channels are served per footprint by
@@ -1382,15 +1397,15 @@ const NATIONAL_STAMP_TABLE = {
   // §CUZK-NDSM-OSM-JOIN — whole `czechia`: ČÚZK DMP 1G − DMR 5G exportImage, keyless (heights/czHeightsStamp.mjs).
   cuzk_cz: { stamp: stampCzHeightsOnGeojsonseq, bboxes: CZ_CITY_BBOXES },
   // §GURS-KN-OSM-JOIN — whole `slovenia`: GURS KN STAVBE H2 − H3 register heights, keyless WFS (heights/siHeightsStamp.mjs).
-  gurs_si: { stamp: stampSiHeightsOnGeojsonseq, bboxes: SI_CITY_BBOXES },
+  gurs_si: { stamp: stampSiHeightsOnGeojsonseq, bboxes: SI_NATIONAL_BBOXES },
   // §ADSDI-NDSM-OVERTURE-JOIN — the `gccstates` row (was `abudhabi` until §ME-NATIONAL; the WORKING SET is unchanged —
   // AD_CITY_BBOXES, Abu Dhabi island): DGE 50 cm DSM3 − DTM exportImage, keyless, catalogued Open Data
   // (heights/abudhabiNdsmStamp.mjs). Photogrammetric, not LiDAR — named in heightSource. The I3S city model is NOT read.
   ad_ndsm: { stamp: stampAdNdsmHeightsOnGeojsonseq, bboxes: AD_CITY_BBOXES },
   // §NDH-NO-OSM-JOIN — whole `norway`: Kartverket NHM DOM − DTM, keyless (heights/noHeightsStamp.mjs).
-  ndh_no: { stamp: stampNoNdhHeightsOnGeojsonseq, bboxes: NO_NDH_CITY_BBOXES },
+  ndh_no: { stamp: stampNoNdhHeightsOnGeojsonseq, bboxes: NO_NATIONAL_BBOXES },
   // §EE-ETAK-OSM-JOIN — whole `estonia`: ETAK e_401_hoone_ka korgus_m per OSM footprint, keyless WFS (heights/eeHeightsStamp.mjs).
-  ee_etak: { stamp: stampEeEtakHeightsOnGeojsonseq, bboxes: EE_CITY_BBOXES },
+  ee_etak: { stamp: stampEeEtakHeightsOnGeojsonseq, bboxes: EE_NATIONAL_BBOXES },
   // §BE-DHMV-OSM-JOIN — whole `belgium`: DHMV II DSM 1 m − DTM 1 m per 500 m Lambert-72 tile, keyless WCS (heights/beHeightsStamp.mjs).
   be_dhmv: { stamp: stampBeDhmvHeightsOnGeojsonseq, bboxes: BE_CITY_BBOXES },
   // ⛔ THE `us_open` KEY WAS REMOVED HERE 2026-09-06 (lane USA-HEIGHTS-NATIONAL) — NOT as tidying, and the
