@@ -144,13 +144,6 @@ import {
   mountParcelLawQuantities,
   type ParcelLawQuantitiesHandle,
 } from './parcelLawQuantities';
-// §PL-ENVELOPE-AUTHORING (STR §25.2 / §25.6) — CREATE the envelope, extrude it over a chosen
-// number of floor levels, and check it LIVE against the law. It is a consumer of C114's ONE
-// create verb and of `brutAreaAllocation.ts`'s arithmetic; it computes nothing itself.
-import {
-  mountParcelLawEnvelopeAuthoring,
-  type ParcelLawEnvelopeAuthoringHandle,
-} from './parcelLawEnvelopeAuthoring';
 // §PL-CREATE-HOUSE (STR §25.8) — the explicit step out of the envelope stage into BIM. It is a
 // JOIN over the PROVEN house pipeline (`generateHouseFromBoundary` → `HouseLayoutExecutor`, one
 // `runBatch` so undo removes the whole house in one step), plus C80's "may this pass replace
@@ -184,8 +177,6 @@ export const PARCEL_LAW_PANEL_SLOT_TESTID = 'analysis-parcel-law-panel';
 export const PARCEL_LAW_NOTE_TESTID = 'analysis-parcel-law-note';
 /** `data-testid` on the slot the shared-model fact section is rendered into. */
 export const PARCEL_LAW_FACTS_SLOT_TESTID = 'analysis-parcel-law-facts-slot';
-/** `data-testid` on the slot the envelope-authoring section is mounted into. */
-export const PARCEL_LAW_AUTHORING_HOST_TESTID = 'analysis-parcel-law-authoring-slot';
 /** `data-testid` on the slot the live-quantities + indicative-cost section is mounted into. */
 export const PARCEL_LAW_QUANTITIES_HOST_TESTID = 'analysis-parcel-law-quantities-slot';
 /** `data-testid` on the slot the "Create house" section is mounted into. */
@@ -268,15 +259,6 @@ export interface ParcelLawTabDeps {
    */
   readonly mountQuantities?: (host: HTMLElement) => ParcelLawQuantitiesHandle;
   /**
-   * Production: `mountParcelLawEnvelopeAuthoring` — STR §25.2/§25.6's create-and-check section.
-   *
-   * ⚠ OPTIONAL for the same reason as its siblings: a spec written before this seam existed
-   * constructs `ParcelLawTabDeps` as a complete literal, and making it required would break every
-   * such literal in a file another lane owns. Omitting it yields the production mount, which on a
-   * runtime with no space-envelope store renders its own honest sentences rather than throwing.
-   */
-  readonly mountAuthoring?: (host: HTMLElement) => ParcelLawEnvelopeAuthoringHandle;
-  /**
    * Production: `mountParcelLawCreateHouse` with its production deps — STR §25.8.
    *
    * ⚠ OPTIONAL for the same reason as the three above: older spec literals are complete and
@@ -300,7 +282,6 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     readParcelLawModel: resolveParcelLawModel,
     renderParcelLawFacts: buildParcelLawFacts,
     mountQuantities: (h) => mountParcelLawQuantities(h),
-    mountAuthoring: (h) => mountParcelLawEnvelopeAuthoring(h),
     mountCreateHouse: (h) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()),
   };
 }
@@ -335,7 +316,6 @@ export function mountParcelLawTab(
   /** §VIEW-SWITCHER-ON-THE-VIEW (L-12985) — the centred bar OVER the canvas, not in here. */
   let onView: ViewSwitcherOnViewHandle | null = null;
   let panel: ParcelRailPanelHandle | null = null;
-  let authoring: ParcelLawEnvelopeAuthoringHandle | null = null;
   let quantities: ParcelLawQuantitiesHandle | null = null;
   let createHouse: ParcelLawCreateHouseHandle | null = null;
   let unsub: (() => void) | null = null;
@@ -426,18 +406,6 @@ export function mountParcelLawTab(
     // of ONE model. Every number is derived once, in `buildParcelLawModel`.
     root.appendChild(factsSlot);
 
-    // ── 4a-bis. §PL-ENVELOPE-AUTHORING (STR §25.2 / §25.6) — CREATE THE ENVELOPE, CHECK IT LIVE. ──
-    //
-    // ⭐ PLACED BETWEEN THE FACTS AND THE QUANTITIES, and that ordering IS the founder's stage
-    // ladder: read the parcel and its law, then AUTHOR what you intend to build against it, then
-    // read what that costs, then decide to build it. It hosts the ONE create verb C114 §6a
-    // declares and the BRUT/NET arithmetic §25.2 specifies; every number on it is produced by a
-    // module this tab already depends on.
-    const authoringSlot = document.createElement('div');
-    authoringSlot.className = 'anl-parcel-law-authoring-host';
-    authoringSlot.setAttribute('data-testid', PARCEL_LAW_AUTHORING_HOST_TESTID);
-    root.appendChild(authoringSlot);
-
     // ── 4b. §PL-LIVE-QUANTITIES (STR §25.7) — ROOM NAMES · NET · BRUT PER LEVEL · TOTAL · COST. ──
     //
     // ⭐ ITS OWN SLOT AND ITS OWN LIVE CHANNEL, and that is the point of it. The figures already
@@ -461,14 +429,6 @@ export function mountParcelLawTab(
       quantities = mount(quantitiesSlot);
     } catch (e) {
       console.warn('[analysis][parcel-law] live-quantities mount failed (non-fatal):', e);
-    }
-    // Same ordering rule as the quantities control above: mounted after the body is in the DOM so
-    // its `isConnected` guards are true from its very first store event.
-    try {
-      const mountAuth = deps.mountAuthoring ?? ((h: HTMLElement) => mountParcelLawEnvelopeAuthoring(h));
-      authoring = mountAuth(authoringSlot);
-    } catch (e) {
-      console.warn('[analysis][parcel-law] envelope-authoring mount failed (non-fatal):', e);
     }
 
     // ── 4c. §PL-CREATE-HOUSE (STR §25.8) — THE EXPLICIT STEP INTO BIM. ─────────────────────
@@ -530,7 +490,6 @@ export function mountParcelLawTab(
       if (disposed) return;
       try { onView?.repaint(); } catch { /* a repaint that throws is a repaint we do not have */ }
       renderFacts();
-      try { authoring?.repaint(); } catch { /* same */ }
       try { quantities?.repaint(); } catch { /* same — a section that cannot repaint keeps its last honest render */ }
       try { createHouse?.repaint(); } catch { /* same */ }
       wireStrip();
@@ -544,8 +503,6 @@ export function mountParcelLawTab(
       unsub = null;
       // Before the panel, so the store subscription is released while the DOM it guards on is
       // still attached — a listener that fires against a detached root is harmless but noisy.
-      try { authoring?.dispose(); } catch { /* teardown is best-effort */ }
-      authoring = null;
       try { quantities?.dispose(); } catch { /* teardown is best-effort */ }
       quantities = null;
       try { createHouse?.dispose(); } catch { /* teardown is best-effort */ }
