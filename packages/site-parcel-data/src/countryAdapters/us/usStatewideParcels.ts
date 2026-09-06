@@ -465,18 +465,18 @@ export const USA_PARCEL_REFUSALS: readonly UsParcelRefusal[] = [
         regionCode: 'US-NJ',
         endpoint: 'https://mapsdep.nj.gov/arcgis/rest/services/Framework/Parcels_Composite/MapServer?f=json',
         answer:
-            'HTTP 200, 104 bytes, application/json — {"error":{"code":404,"message":"Service Framework/Parcels_Composite/MapServer not found ","details":[]}}',
+            'HTTP 200, 104 bytes, application/json — {"error":{"code":404,"message":"Service Framework/Parcels_Composite/MapServer not found ","details":[]}}. THEN ENUMERATED rather than left as a guess: GET https://mapsdep.nj.gov/arcgis/rest/services?f=json → HTTP 200, 174 bytes, folders ["Applications","Cached_Layers","Features","Tasks","Tech_Support","Utilities"] — there is no "Framework" folder on this host at all. GET …/services/Features?f=json → HTTP 200, 1115 bytes, 20 services (Elevation, Environmental_*, Geodetic, Geology, Government, Grids, Hydrography, Land_CAFRA_coast, Land_lu, Land, Structures, Transportation, Utilities) — NOT ONE carries parcels.',
         verdict:
-            'NOT WIRED — endpoint not found under the path this lane held. New Jersey publishes a statewide parcel composite (NJGIN / MOD-IV) and it is very likely reachable under a different service path; this lane did not have budget to enumerate the NJDEP/NJGIN catalogue. NEXT STEP: walk https://mapsdep.nj.gov/arcgis/rest/services?f=json and the NJGIN Open Data hub, then wire on this same pattern.',
+            'NOT WIRED, and now a MEASURED absence rather than a stale path. mapsdep.nj.gov is the NJ DEP mapping host and it does not publish the parcel composite; New Jersey\'s statewide parcels (NJGIN / MOD-IV) live under a DIFFERENT publisher. NEXT STEP: the NJGIN Open Data hub (njogis-newjersey.opendata.arcgis.com) and the NJOIT/OGIS ArcGIS Online org, NOT this host — re-probing mapsdep is now known to be wasted effort.',
     },
     {
         regionCode: 'US-KY',
         endpoint:
             'https://kygisserver.ky.gov/arcgis/rest/services/WGS84WM_Services/Ky_Parcel_Data_WGS84WM/MapServer?f=json',
         answer:
-            'HTTP 200, 116 bytes, application/json — {"error":{"code":404,"message":"Service WGS84WM_Services/Ky_Parcel_Data_WGS84WM/MapServer not found ","details":[]}}',
+            'HTTP 200, 116 bytes, application/json — {"error":{"code":404,"message":"Service WGS84WM_Services/Ky_Parcel_Data_WGS84WM/MapServer not found ","details":[]}}. THEN ENUMERATED: GET https://kygisserver.ky.gov/arcgis/rest/services/WGS84WM_Services?f=json → HTTP 200, 13,099 bytes, 170 services, of which EXACTLY ONE matches parcel/PVA — "WGS84WM_Services/Ky_PVA_Webster_Parcels_WGS84WM", a SINGLE COUNTY (Webster, pop. ~13k).',
         verdict:
-            'NOT WIRED — service path 404. The Kentucky Division of Geographic Information does publish statewide parcels; the service path has moved. NEXT STEP: enumerate the kygisserver.ky.gov catalogue.',
+            'NOT WIRED, and the enumeration changes the verdict: this is not a moved path, it is a host that publishes ONE county\'s PVA parcels out of Kentucky\'s 120. Wiring it would add a county the size of a small town while the label said Kentucky. NEXT STEP: the KyFromAbove / kygeoportal statewide parcel product (a download, last checked), or leave KY as an OSM footprint — a one-county leg is not worth a registry row.',
     },
     {
         regionCode: 'US-TN',
@@ -498,9 +498,9 @@ export const USA_PARCEL_REFUSALS: readonly UsParcelRefusal[] = [
         regionCode: 'US-OR',
         endpoint: 'https://navigator.state.or.us/arcgis/rest/services/Framework/Taxlot_Feature/MapServer?f=json',
         answer:
-            'HTTP 200, 101 bytes, application/json — {"error":{"code":404,"message":"Service Framework/Taxlot_Feature/MapServer not found ","details":[]}}',
+            'HTTP 200, 101 bytes, application/json — {"error":{"code":404,"message":"Service Framework/Taxlot_Feature/MapServer not found ","details":[]}}. THEN ENUMERATED: GET https://navigator.state.or.us/arcgis/rest/services/Framework?f=json → HTTP 200, 728 bytes, 12 services, of which the only cadastral-sounding two are "Framework/Cadastral_PLSS" and "Framework/Cadastral_PLSS_WM".',
         verdict:
-            'NOT WIRED — service path 404. Oregon publishes a statewide taxlot layer; the path this lane held is stale. NEXT STEP: enumerate the navigator.state.or.us catalogue.',
+            'NOT WIRED, and the enumeration is the interesting part: what this host calls "Cadastral" is the PLSS SURVEY GRID — township/range/section — which contains ZERO private lots. That is the exact trap the federal NGDA "Cadastre" theme sets, met again at state level: a layer named cadastral that is not a parcel fabric. Wiring it would draw section squares and call them parcels. NEXT STEP: the Oregon statewide taxlot product is a DOWNLOAD published through the Oregon Spatial Data Library / Dept. of Revenue, not this REST host.',
     },
     {
         regionCode: 'US-IL-COOK',
