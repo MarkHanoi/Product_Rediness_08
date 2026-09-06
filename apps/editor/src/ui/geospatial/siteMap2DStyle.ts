@@ -975,15 +975,29 @@ export function buildPastelWaterLayers(): Array<Record<string, unknown>> {
             layout: { 'line-cap': 'round', 'line-join': 'round' },
             paint: {
                 'line-color': P.water,
-                'line-width': ['*',
-                    ['match', ['get', 'kind'],
-                        'river', 3.0, 'canal', 2.2, 'stream', 1.2, 'drain', 0.9, 'ditch', 0.7, 1.2],
-                    zoomRamp([[12, 0.6], [16, 2.2], [19, 6]]),
+                // §MAP2D-ZOOM-AT-TOP-LEVEL (L-12950) — a `zoom` expression may ONLY be the input of a
+                // TOP-LEVEL step/interpolate. Multiplying a zoom ramp by a per-kind factor —
+                // `['*', match, zoomRamp(...)]` — nests it, and MapLibre rejects THE WHOLE STYLE for one
+                // bad layer: "layers[7].paint.line-width: 'zoom' expression may only be used as input to
+                // a top-level 'step' or 'interpolate' expression". The founder saw the 2D map render
+                // NOTHING (blank, then "surface-not-ready" and a 45 s draw-phase timeout) at Vienna and
+                // Oslo on the first build that carried this style. Same widths, legal shape: the
+                // interpolate stays at the top and the per-kind factor moves INTO each stop's value,
+                // which expressions are allowed to be.
+                'line-width': ['interpolate', ['linear'], ['zoom'],
+                    12, ['*', PASTEL_WATERWAY_KIND_FACTOR, 0.6],
+                    16, ['*', PASTEL_WATERWAY_KIND_FACTOR, 2.2],
+                    19, ['*', PASTEL_WATERWAY_KIND_FACTOR, 6],
                 ],
             },
         },
     ];
 }
+
+/** §MAP2D-ZOOM-AT-TOP-LEVEL (L-12950) — per-class waterway width factor, used inside the zoom stops
+ *  (never wrapped around the ramp — see the note on the waterway layer). */
+const PASTEL_WATERWAY_KIND_FACTOR: readonly unknown[] = ['match', ['get', 'kind'],
+    'river', 3.0, 'canal', 2.2, 'stream', 1.2, 'drain', 0.9, 'ditch', 0.7, 1.2];
 
 /** Rail as a hairline — present, never dominant. */
 export function buildPastelRailLayer(): Record<string, unknown> {
