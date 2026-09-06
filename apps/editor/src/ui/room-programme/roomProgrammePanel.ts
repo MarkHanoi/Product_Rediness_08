@@ -88,6 +88,12 @@ import {
   roomEnvelopesWithin,
   type SpaceEnvelopeRecordLike,
 } from './roomEnvelopePlan';
+// §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — the read this panel did not have.
+import {
+  describeProjectRoomsImport,
+  programmeFromProjectRooms,
+  type ProjectRoomLike,
+} from './projectRoomsToProgramme';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEST IDS — the spec addresses the panel through these, never through classes
@@ -104,6 +110,8 @@ export const ROOM_PROGRAMME_REPORT_TESTID = 'room-programme-report';
 export const ROOM_PROGRAMME_PLACE_BTN_TESTID = 'room-programme-place';
 export const ROOM_PROGRAMME_STATUS_TESTID = 'room-programme-status';
 export const ROOM_PROGRAMME_SEED_BTN_TESTID = 'room-programme-seed';
+/** §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — "load / re-read the project's rooms". */
+export const ROOM_PROGRAMME_LOAD_BTN_TESTID = 'room-programme-load-project';
 export const ROOM_PROGRAMME_NODE_ATTR = 'data-room-node';
 export const ROOM_PROGRAMME_EDGE_ATTR = 'data-room-edge';
 
@@ -147,6 +155,37 @@ export interface RoomProgrammePanelDeps {
   readonly readActiveLevelId: () => string | null;
   /** Mint an element id. Production: `createId('spaceEnvelope')` — C16 CA-2, by the CALLER. */
   readonly mintId: (kind: string) => string;
+  /**
+   * §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — every room the PROJECT holds.
+   * Production: the legacy `window.roomStore.getAll()`.
+   *
+   * ⭐ THIS DEP IS THE WHOLE DEFECT. The panel used to read exactly one source — the
+   * session brief, which starts empty — so a project holding a generated house rendered
+   * `0 PLUGGED, 0 ROOMS` and offered an EXAMPLE. The data was there; nothing looked at
+   * it. Returning `[]` is a legitimate answer (an empty project) and the panel says so
+   * honestly; it is NOT a licence to invent a programme.
+   */
+  readonly readProjectRooms: () => readonly ProjectRoomLike[];
+}
+
+/**
+ * Read the project's rooms defensively. The room store is the LEGACY `window.roomStore`
+ * — `runtime.stores` has no `room` slot (every `runtime.stores.rooms` mention in this
+ * app is a `TODO(E.18-R.S)` comment beside a `window.roomStore` read), so this follows
+ * the same route every other room consumer in `apps/editor` already takes rather than
+ * inventing a second one. Any shape it cannot read is `[]`, never a throw.
+ */
+function readProjectRoomsFrom(runtime: RuntimeLike | null): readonly ProjectRoomLike[] {
+  type RoomStoreLike = { getAll?: () => unknown };
+  const fromRuntime = runtime?.stores?.['room'] as RoomStoreLike | undefined;
+  const w = (typeof window !== 'undefined' ? window : {}) as unknown as { roomStore?: RoomStoreLike };
+  const store = (fromRuntime && typeof fromRuntime.getAll === 'function') ? fromRuntime : w.roomStore;
+  if (!store || typeof store.getAll !== 'function') return [];
+  let all: unknown;
+  try { all = store.getAll(); } catch { return []; }
+  if (Array.isArray(all)) return all as readonly ProjectRoomLike[];
+  if (all instanceof Map) return [...all.values()] as readonly ProjectRoomLike[];
+  return [];
 }
 
 /** Read the space-envelope store defensively: it may be a Map-backed Store or absent. */
@@ -185,6 +224,7 @@ export function defaultRoomProgrammePanelDeps(
     // dep's own signature to `string` is what made the ROOT `tsc` fail while the
     // package check passed, so the narrowing happens here, once.
     mintId: (kind: string) => createId(kind as ElementType),
+    readProjectRooms: () => readProjectRoomsFrom(live()),
   };
 }
 
@@ -262,6 +302,49 @@ export function mountRoomProgrammePanel(
   function addRoom(kind: ResidentialRoomKind): void {
     dispatchIntent(() =>
       applyRoomProgrammeIntent({ type: 'programme.add-room', id: deps.mintId('room'), kind }));
+  }
+
+  // ── §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) ─────────────────────────────
+  // Founder: *"the room programme ALWAYS should have the rooms on the project!"* His
+  // panel read `0 PLUGGED, 0 ROOMS` and offered an EXAMPLE while the model held a
+  // generated house and the console printed `RoomDetectionEngine detected 1 room(s)`.
+  //
+  // ⛔ THE RULES THIS LOAD OBEYS, and they are the difference between a fix and a
+  //    fabrication:
+  //    1. It NEVER invents. No project rooms ⇒ the programme stays empty and the panel
+  //       keeps saying "no rooms yet", which for an empty project is the true answer.
+  //    2. It NEVER clobbers the user's work. The automatic load fires ONCE, on mount,
+  //       and ONLY into an empty programme. Once the user has dragged, renamed or
+  //       plugged anything, only the explicit button re-reads.
+  //    3. It states what it did, with both counts (C83 §1.2).
+
+  /** Has the one automatic mount-time load already been attempted? */
+  let autoLoadTried = false;
+
+  /** How many project rooms are visible right now — drives the button's own label. */
+  function countProjectRooms(): number {
+    return safe(() => deps.readProjectRooms(), [] as readonly ProjectRoomLike[]).length;
+  }
+
+  function loadProjectRooms(announce: boolean): boolean {
+    const rooms = safe(() => deps.readProjectRooms(), [] as readonly ProjectRoomLike[]);
+    const levelId = safe(() => deps.readActiveLevelId(), null);
+    // Prefer the ACTIVE storey; fall back to the whole project when the active storey
+    // holds none, so a user on an empty upper level still sees the house they built
+    // rather than a blank panel with rooms one level down.
+    let imp = programmeFromProjectRooms(rooms, levelId);
+    let scope = levelId;
+    if (imp.imported === 0 && levelId !== null) {
+      const all = programmeFromProjectRooms(rooms, null);
+      if (all.imported > 0) { imp = all; scope = null; }
+    }
+    if (imp.imported === 0) {
+      if (announce) say(describeProjectRoomsImport(imp, scope), false);
+      return false;
+    }
+    const changed = applyRoomProgrammeIntent({ type: 'programme.reset', next: imp.programme });
+    if (announce || changed) say(describeProjectRoomsImport(imp, scope), false);
+    return changed;
   }
 
   function renderLibrary(): void {
@@ -466,6 +549,24 @@ export function mountRoomProgrammePanel(
     const total = p.entries.reduce((s, e) => s + e.targetAreaM2, 0);
     box.appendChild(el('div', LABEL_CSS, `Programme — ${p.entries.length} rooms, ${total.toFixed(1)} m²`));
     if (p.entries.length === 0) {
+      const row = el('div', 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;');
+      // §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — when the PROJECT holds rooms, the
+      // first thing offered is the project, not an example. Offering an example over a
+      // real design is the defect the founder reported, in one button.
+      const projectRooms = countProjectRooms();
+      if (projectRooms > 0) {
+        const load = el('button');
+        load.type = 'button';
+        load.setAttribute('data-testid', ROOM_PROGRAMME_LOAD_BTN_TESTID);
+        load.style.cssText = 'padding:5px 10px;border-radius:6px;border:1px solid #6600FF;background:#6600FF;color:#fff;font-size:11px;cursor:pointer;';
+        load.textContent = `Load the ${projectRooms} room${projectRooms === 1 ? '' : 's'} in this project`;
+        load.title =
+          'Reads the rooms this project already holds into the programme, keeping each '
+          + "room's own name and measured area. Relationships are not imported — plug "
+          + 'them on the graph.';
+        load.addEventListener('click', () => { loadProjectRooms(true); render(); });
+        row.appendChild(load);
+      }
       const seed = el('button');
       seed.type = 'button';
       seed.setAttribute('data-testid', ROOM_PROGRAMME_SEED_BTN_TESTID);
@@ -480,9 +581,36 @@ export function mountRoomProgrammePanel(
           next: defaultResidentialProgramme(() => deps.mintId('room')),
         }));
       });
-      box.appendChild(seed);
+      row.appendChild(seed);
+      box.appendChild(row);
+      if (projectRooms === 0) {
+        box.appendChild(el('p', `${NOTE_CSS}margin:6px 0 0;`,
+          'This project has no rooms yet, so there is nothing to load. Drag rooms in from '
+          + 'the library above to declare a programme before you build.'));
+      }
       slots.list.replaceChildren(box);
       return;
+    }
+    {
+      // §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — the explicit re-read. The automatic
+      // load runs once, into an empty programme only, so it can never overwrite an edit;
+      // this is how a user asks for the project's rooms back after editing, or picks up
+      // a house generated after the panel was opened. It REPLACES the programme, and the
+      // label says so — no silent merge.
+      const projectRooms = countProjectRooms();
+      if (projectRooms > 0) {
+        const reload = el('button');
+        reload.type = 'button';
+        reload.setAttribute('data-testid', ROOM_PROGRAMME_LOAD_BTN_TESTID);
+        reload.style.cssText = 'align-self:flex-start;margin:2px 0 6px;padding:3px 8px;border-radius:6px;border:1px solid var(--app-border,#dde3ef);background:var(--app-surface,#fff);color:#6600FF;font-size:10.5px;cursor:pointer;';
+        reload.textContent = `Re-read the ${projectRooms} room${projectRooms === 1 ? '' : 's'} in this project`;
+        reload.title =
+          'REPLACES the programme below with the rooms this project holds right now, '
+          + 'including their names and measured areas. Relationships you plugged are '
+          + 'cleared, because they belong to the programme you are replacing.';
+        reload.addEventListener('click', () => { loadProjectRooms(true); render(); });
+        box.appendChild(reload);
+      }
     }
     for (const e of p.entries) {
       const row = el('div',
@@ -825,6 +953,18 @@ export function mountRoomProgrammePanel(
     }
   } catch (e) {
     console.warn('[room-programme] envelope-store subscribe failed — the panel refreshes on edit only:', e);
+  }
+
+  // §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — the ONE automatic load, before the
+  // first paint, into an empty programme only. A project with rooms therefore opens
+  // showing them; an empty project opens saying so.
+  if (!autoLoadTried) {
+    autoLoadTried = true;
+    try {
+      if (getRoomProgramme().entries.length === 0) loadProjectRooms(false);
+    } catch (e) {
+      console.warn('[room-programme] project-room load failed (non-fatal):', e);
+    }
   }
 
   render();

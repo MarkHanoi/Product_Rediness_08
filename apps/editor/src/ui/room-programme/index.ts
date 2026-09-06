@@ -75,6 +75,14 @@ export {
 } from './roomEnvelopePlan';
 
 export {
+  describeProjectRoomsImport,
+  programmeFromProjectRooms,
+  residentialKindForRoom,
+  type ProjectRoomLike,
+  type ProjectRoomsImport,
+} from './projectRoomsToProgramme';
+
+export {
   ROOM_DRAG_MIME,
   ROOM_DRAG_PREFIX,
   ROOM_PROGRAMME_CHIP_ATTR,
@@ -83,6 +91,7 @@ export {
   ROOM_PROGRAMME_LEGEND_TESTID,
   ROOM_PROGRAMME_LIBRARY_TESTID,
   ROOM_PROGRAMME_LIST_TESTID,
+  ROOM_PROGRAMME_LOAD_BTN_TESTID,
   ROOM_PROGRAMME_NODE_ATTR,
   ROOM_PROGRAMME_NOTE,
   ROOM_PROGRAMME_PLACE_BTN_TESTID,
