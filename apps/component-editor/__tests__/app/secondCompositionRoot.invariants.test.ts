@@ -147,7 +147,16 @@ describe('ADR-0316 — the family editor is a SECOND composition root, on purpos
         ['constraintStore', 'constraint.'],
         ['solidStore', 'solid.'],
         ['referencePlaneStore', 'referencePlane.'],
+        // Lane CE-VIEWS-AND-MEASURE. Dimensions are AUTHORED CONTENT — they
+        // are part of the family, so they are undoable and command-governed.
+        ['dimensionStore', 'dimension.'],
       ];
+      // ⓘ `sketchViewStore` is deliberately ABSENT, on the same grounds as
+      //    `viewTabStore`: which work plane the author is looking at is
+      //    ephemeral view selection, not document content. Putting a camera
+      //    change on the undo stack is the P6 over-application that makes
+      //    Ctrl-Z unusable. If a view ever gains PERSISTED state, it earns a
+      //    command family and belongs in the list above.
       const verbs = await authoredVerbs();
       const orphans: string[] = [];
       for (const [slot, prefix] of owned) {

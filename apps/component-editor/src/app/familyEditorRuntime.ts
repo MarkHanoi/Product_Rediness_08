@@ -39,9 +39,16 @@ import { MockSolver, loadSolver, type SolverPorter } from '@pryzm/constraint-sol
 // is fetched lazily on first solve attempt — not at boot.
 import { createCommandBus, type CommandBus } from './commandBus.js';
 import { registerConstraintCommands } from '../commands/constraint/index.js';
+import { registerDimensionCommands } from '../commands/dimension/index.js';
 import { registerReferencePlaneCommands } from '../commands/referencePlane/index.js';
 import { registerSolidCommands } from '../commands/solid/index.js';
 import { createConstraintStore, type ConstraintStore } from '../stores/constraintStore.js';
+import { createDimensionStore, type DimensionStore } from '../stores/dimensionStore.js';
+import {
+  createSketchViewStore,
+  type SketchViewStore,
+} from '../views/sketchViewStore.js';
+import { createViewSketchSet, type ViewSketchSet } from '../views/viewSketchSet.js';
 import {
   createReferencePlaneStore,
   type ReferencePlaneStore,
@@ -65,6 +72,21 @@ export interface FamilyEditorRuntime {
   readonly referencePlaneStore: ReferencePlaneStore;
   /** S53 D6 — extrude/sweep/loft/revolve results + their §12.2 LOD bitmasks. */
   readonly solidStore: SolidStore;
+  /** Lane CE-VIEWS-AND-MEASURE — placed dimensions, keyed by work plane.
+   *  Mutated ONLY through the `dimension.*` command family (P6). */
+  readonly dimensionStore: DimensionStore;
+  /** Lane CE-VIEWS-AND-MEASURE — which work plane the author is drawing on
+   *  (plan / front elevation / side elevation) and each view's camera. */
+  readonly sketchViewStore: SketchViewStore;
+  /**
+   * Lane CE-VIEWS-AND-MEASURE — one sketch document per work plane, so a view
+   * switch preserves what was drawn. `sketchDocStore` above IS this set's
+   * PLAN document: the set adopts it rather than minting a rival, so every
+   * existing consumer of `sketchDocStore` keeps working unchanged.
+   */
+  readonly sketchViews: ViewSketchSet;
+  /** Solver runner for the PLAN document. Elevations have their own, reachable
+   *  via `sketchViews.solverFor(kind)` — see `viewSketchSet.ts` on isolation. */
   readonly solverRunner: SolverRunner;
   /** The currently-active solver (may upgrade from MockSolver to planegcs). */
   solver: SolverPorter;
@@ -90,6 +112,8 @@ export function createFamilyEditorRuntime(
   const selectionStore = createSelectionStore();
   const referencePlaneStore = createReferencePlaneStore();
   const solidStore = createSolidStore();
+  const dimensionStore = createDimensionStore();
+  const sketchViewStore = createSketchViewStore('plan');
   const commandBus = createCommandBus();
   // ⚠ EVERY authored command family must be registered here.
   //
@@ -117,6 +141,29 @@ export function createFamilyEditorRuntime(
     ...(opts.solverDebounceMs !== undefined ? { debounceMs: opts.solverDebounceMs } : {}),
   });
 
+  // ⚠ ORDER IS LOAD-BEARING. `viewSketchSet` ADOPTS `sketchDocStore` as the
+  // PLAN document and `solverRunner` as its runner, so it can only be built
+  // once both exist. It mints stores only for the two elevations — creating a
+  // fourth document here and calling one of them "plan" would be the rival
+  // subsystem ADR-0316's blessing does not extend to.
+  const sketchViews = createViewSketchSet({
+    planDoc: sketchDocStore,
+    planSolver: solverRunner,
+    constraintStore,
+    solver,
+    ...(opts.solverDebounceMs !== undefined ? { solverDebounceMs: opts.solverDebounceMs } : {}),
+  });
+
+  // Registered HERE rather than beside the other three families because it is
+  // the only one that needs a document-per-view lookup. `docSnapshotFor`
+  // routes each dimension at the document of ITS OWN work plane, which is
+  // what stops a plan dimension from measuring elevation points.
+  registerDimensionCommands(commandBus, {
+    dimensionStore,
+    constraintStoreFor: (view) => sketchViews.constraintStoreFor(view),
+    docSnapshotFor: (view) => sketchViews.docFor(view).get(),
+  });
+
   const solverReady: Promise<SolverPorter> = opts.solver || opts.skipSolverUpgrade
     ? Promise.resolve(solver)
     : loadSolver().then(
@@ -132,10 +179,18 @@ export function createFamilyEditorRuntime(
     selectionStore,
     referencePlaneStore,
     solidStore,
+    dimensionStore,
+    sketchViewStore,
+    sketchViews,
     solverRunner,
     solver,
     solverReady,
     dispose() {
+      // `sketchViews` first: it owns the two ELEVATION runners and the
+      // per-document subscriptions. `solverRunner` is the PLAN runner, which
+      // the set adopted and deliberately does not dispose, so this root still
+      // has to drop it itself.
+      sketchViews.dispose();
       solverRunner.dispose();
       commandBus.clear();
       selectionStore.clear();

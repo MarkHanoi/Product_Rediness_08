@@ -3,11 +3,12 @@
  *
  * S52 D1 / S53 D1 wiring:
  *   - View-tab bar consuming the `viewTabStore`.
- *   - Three view panels (sketch / 3D / parameters); the sketch panel
- *     mounts the real `SketchCanvas` against externally-owned
- *     stores so that the constraint runtime, status bar, and
- *     toolbars all share the same `SketchDocStore` /
- *     `SelectionStore` / `ConstraintStore`.
+ *   - Three view panels (sketch / 3D / parameters). The sketch panel is
+ *     delegated to `views/SketchViewPanel`, which adds the PLAN / FRONT /
+ *     SIDE work-plane switcher and the dimension layer on top of the real
+ *     `SketchCanvas`. Every store is owned by the runtime, so the
+ *     constraint runtime, status bar and toolbars all share one
+ *     `SketchDocStore` / `SelectionStore` / `ConstraintStore`.
  *   - The Family Editor runtime is the single owner of these stores;
  *     this shell mounts it once at startup and disposes on unmount.
  *   - The constraint toolbar (top of the sketch panel) and the
@@ -29,8 +30,7 @@ import {
   type FamilyEditorRuntime,
 } from './familyEditorRuntime.js';
 import { mountStatusBar, type StatusBarMount } from './StatusBar.js';
-import { mountConstraintToolbar } from '../sketch/ConstraintToolbar.js';
-import { mountSketchCanvas } from '../sketch/SketchCanvas.js';
+import { mountSketchViewPanel } from '../views/SketchViewPanel.js';
 import { createViewTabStore, type ViewTab, type ViewTabStore } from '../stores/viewTabStore.js';
 import {
   createLiveRegion,
@@ -171,23 +171,19 @@ function renderActivePanel(active: ViewTab, runtime: FamilyEditorRuntime): Panel
   panel.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;outline:none';
 
   if (active === 'sketch') {
-    const constraintToolbar = mountConstraintToolbar({
+    // ⭐ The sketch tab is a VIEW PANEL, not a bare canvas: work-plane bar
+    // (Plan / Front / Side), the constraint toolbar and sketch canvas bound to
+    // the ACTIVE work plane's document, and the dimension annotation layer.
+    // `SketchViewPanel` owns that composition so this file stays inside the
+    // §13 300-LoC cap and the whole view concern lives in one module.
+    const view = mountSketchViewPanel(panel, {
       commandBus: runtime.commandBus,
       selectionStore: runtime.selectionStore,
-      docStore: runtime.sketchDocStore,
+      dimensionStore: runtime.dimensionStore,
+      sketchViewStore: runtime.sketchViewStore,
+      sketchViews: runtime.sketchViews,
     });
-    panel.appendChild(constraintToolbar.element);
-    const sketch = mountSketchCanvas(panel, {
-      store: runtime.sketchDocStore,
-      selectionStore: runtime.selectionStore,
-    });
-    return {
-      element: panel,
-      cleanup: () => {
-        sketch.unmount();
-        constraintToolbar.destroy();
-      },
-    };
+    return { element: panel, cleanup: () => view.unmount() };
   }
   panel.style.cssText = 'flex:1;overflow:auto';
   panel.appendChild(renderSplash(active));
