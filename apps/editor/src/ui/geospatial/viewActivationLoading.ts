@@ -39,11 +39,15 @@
  * advances for `stallMs`, the overlay switches to its ERROR state with "Try again" and "Continue
  * anyway". The user is never trapped behind a permanent spinner.
  *
- * C01 §2 — this module has NO Cesium import. Every signal arrives through the injected
- * `ViewActivationSignals` port, so the whole state machine is unit-testable in a DOM-free,
- * Cesium-free environment (apps/editor/__tests__/viewActivationLoadingOverlay.test.ts).
+ * C01 §2 — this module has NO Cesium import and no DOM access. Every signal arrives through the
+ * injected `ViewActivationSignals` port, so the whole state machine is unit-testable in a DOM-free,
+ * Cesium-free environment (apps/editor/__tests__/viewActivationLoadingOverlay.test.ts). The one
+ * engine import is `markStartupPhase` — the EXISTING §STARTUP-BUDGET probe, which is pure (one
+ * `performance.now()`, one array push, one log line; its only import is `@opentelemetry/api`) and
+ * is deliberately NOT a rival timer. See §STARTUP-ACTIVATION-IS-UNMEASURED below.
  */
 
+import { markStartupPhase } from '@app/engine/startupBudget';
 import type { LoadingOverlayController, LoadingSession } from '@app/ui/overlays/LoadingOverlayController';
 import {
     VIEW_ACTIVATION_STALL_MS,
@@ -69,6 +73,25 @@ function termsSignature(snap: TileStreamSnapshot | null): string {
     if (!snap?.terms) return '';
     return snap.terms.map((t) => `${t.name}:${t.applicable ? 'A' : '-'}${t.value ? '1' : '0'}`).join(',');
 }
+
+/**
+ * §STARTUP-PUMP-CADENCE (founder 2026-09-06: "make the loading from the moment I add the location
+ * until it loads the plan in 2d + 3d site split view MUCH QUICKER").
+ *
+ * ⚠ THIS IS A LATENCY DIAL, NOT A TIMEOUT. The stall threshold is and stays `VIEW_ACTIVATION_STALL_MS`
+ * of WALL CLOCK (`isStalled(now, lastAdvanceAt, stallMs)`), so changing this cadence cannot make the
+ * gate more or less patient about failure — it only changes how often the gate DRIVES the scene and
+ * how soon it NOTICES readiness. It was 1000 ms, which under `requestRenderMode: true` meant two
+ * separate costs on every site activation: outstanding tile work was offered a frame at most once a
+ * second, and a view that became ready right after a tick stayed behind a full-screen overlay for up
+ * to a further second doing nothing. At 250 ms both bounds fall 4×, for the price of three extra
+ * `scene.requestRender()` flag writes per second — which cannot themselves draw a frame; Cesium's own
+ * loop still decides that, at most once per display refresh.
+ *
+ * ⛔ It buys nothing by rendering LESS: every tile, every placement and every ground sample is still
+ * awaited in full. The only thing that shrinks is dead waiting.
+ */
+export const VIEW_ACTIVATION_PUMP_MS = 250;
 
 export type ViewActivationTarget = 'globe' | 'site';
 
@@ -199,6 +222,11 @@ export interface ViewActivationLoadingOptions {
      * "visible"). Injectable as a test seam like the clock.
      */
     readonly isPageHidden?: () => boolean;
+    /**
+     * §STARTUP-PUMP-CADENCE (founder 2026-09-06) — how often the gate pumps a frame and re-reads
+     * the counters. Defaults to `VIEW_ACTIVATION_PUMP_MS`. Test seam only; production never sets it.
+     */
+    readonly pumpMs?: number;
 }
 
 /**
@@ -218,6 +246,7 @@ export function beginViewActivationLoading(
         setInterval: setTimer = (cb: () => void, ms: number) => globalThis.setInterval(cb, ms),
         clearInterval: clearTimer = (h: unknown) => globalThis.clearInterval(h as never),
         stallMs = VIEW_ACTIVATION_STALL_MS,
+        pumpMs = VIEW_ACTIVATION_PUMP_MS,
         isPageHidden = () => {
             try {
                 return typeof document !== 'undefined' && document.visibilityState === 'hidden';
@@ -231,6 +260,19 @@ export function beginViewActivationLoading(
         title: TITLES[target],
         label: viewActivationStageLabel('viewer'),
     });
+
+    // §STARTUP-ACTIVATION-IS-UNMEASURED (founder 2026-09-06: "make the loading … MUCH QUICKER")
+    //
+    // ⭐ THIS IS THE WINDOW THE FOUNDER CALLS "THE LOADING", AND UNTIL NOW IT EMITTED NOT ONE MARK.
+    // §STARTUP-BUDGET's vocabulary ends at `reveal:split-mounted`. On the founder's OWN recorded run
+    // (L-753) every mark from `geocode:end` to `reveal:split-mounted` totals ~315 ms of machine time
+    // (261+1+0+15+1+21+16), and on the Cordoba run ~1.9 s — so the seconds he is waiting are ALL on
+    // the far side of that mark, inside THIS gate: viewer → tiles → content → anchor. Measuring it is
+    // the same prescription L-772 wrote for the layer above ("the fix is 3 marks, not an
+    // optimisation"), applied one layer down, and it is why the stage marks below exist BEFORE any
+    // tuning. Passive and behaviour-free: `markStartupPhase` is one `performance.now()`, one push
+    // and one log line, and a mark arriving outside a run auto-begins one rather than being dropped.
+    markStartupPhase(`activation:${target}:start`); // §STARTUP-BUDGET
 
     // ── THE INPUT GATE (founder mandate 3) ──────────────────────────────────────
     // The overlay backdrop already blocks pointer events by z-order (z 88880 over the Cesium
@@ -312,6 +354,9 @@ export function beginViewActivationLoading(
         // "ONLY when everything is loaded and ready can the user jump in and navigate."
         try { signals.setNavigationEnabled(true); } catch { /* viewer gone */ }
         session.end();
+        // §STARTUP-BUDGET — the terminal of the window, on EVERY exit (ready, cancelled, dismissed),
+        // because a run that ended by the user giving up is a reading too, not a missing one.
+        markStartupPhase(`activation:${target}:dismissed(${ready ? 'ready' : 'not-ready'})`);
         console.log(
             `[viewActivationLoading] §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY ${target} — overlay ` +
             `dismissed (${reason}); navigation ${ready ? 'ENABLED — the view is ready' : 'restored'}.`,
@@ -519,6 +564,7 @@ export function beginViewActivationLoading(
         try {
             // 1. VIEWER
             await signals.whenViewerReady();
+            markStartupPhase(`activation:${target}:viewer-ready`); // §STARTUP-BUDGET
             if (finished) return;
             // The camera controller did not exist when we first gated — gate it now.
             try { signals.setNavigationEnabled(false); } catch { /* best-effort */ }
@@ -544,6 +590,7 @@ export function beginViewActivationLoading(
                 );
             }
             advance('tiles', 1);
+            markStartupPhase(`activation:${target}:tiles-done`); // §STARTUP-BUDGET
 
             // 3. CONTENT — the massing + real-model placement issued by the orchestrator.
             advance('content', 0);
@@ -552,6 +599,7 @@ export function beginViewActivationLoading(
             await drainPlacements();
             if (finished) return;
             advance('content', 1);
+            markStartupPhase(`activation:${target}:content-placed`); // §STARTUP-BUDGET
 
             // 4. ANCHOR — L-259 seat-and-reveal: the building is standing on ground that was
             //    actually MEASURED, not on a fabricated ellipsoid 0.
@@ -568,6 +616,7 @@ export function beginViewActivationLoading(
                 `settled (source=${ground.source}, base=${ground.baseHeightM.toFixed(2)} m) → READY.`,
             );
             advance('ready', 1);
+            markStartupPhase(`activation:${target}:ground-settled`); // §STARTUP-BUDGET
             finish('readiness chain complete', true);
         } catch (err) {
             if (finished) return;
@@ -597,15 +646,30 @@ export function beginViewActivationLoading(
                 lastAdvanceAt = Math.min(tick, lastAdvanceAt + dt);
             }
         }
-        // Poll the tile counters (see the requestRenderMode note in the header).
+        // §TILES-NEED-A-FRAME (L-715) — ⚠ PUMP BEFORE YOU SAMPLE. Under `requestRenderMode`
+        // tile work is retired during a RENDER, so a gate that only reads counters is waiting on
+        // progress it is itself preventing once the camera parks. Request the frame first, then
+        // read what it produced.
+        //
+        // ⭐ §STARTUP-PUMP-EVERY-STAGE (founder 2026-09-06: "make the loading … MUCH QUICKER") —
+        // THE PUMP USED TO LIVE INSIDE `if (onTileSample)`, i.e. IT ONLY RAN DURING THE TILES
+        // STAGE. `onTileSample` is set by `waitForTiles()` and NULLED the instant that stage
+        // settles, so for the whole of CONTENT (the massing + GLB placement landing) and ANCHOR
+        // (the L-259 ground clamp) this gate asked the scene for exactly ZERO frames — while
+        // still holding a full-screen overlay over it. That is the L-715 defect with a narrower
+        // blast radius, and it was never named: under `requestRenderMode: true` a parked camera
+        // renders only on demand, so a primitive that has downloaded still needs a frame to be
+        // processed, and the two stages that wait on exactly that were the two we stopped
+        // driving. The pump is a flag set on Cesium's EXISTING loop (`scene.requestRender()`) —
+        // it schedules no `requestAnimationFrame` (P3 intact) and cannot draw more often than
+        // the display refresh, so pumping in every stage costs a flag write and buys the frames
+        // the later stages were starved of.
+        try { signals.requestRender?.(); } catch { /* viewer gone */ }
+        framesPumped++;
+        // Poll the tile counters (see the requestRenderMode note in the header). Only the tiles
+        // stage has a sampler registered; the pump above is unconditional.
         if (onTileSample) {
-            // §TILES-NEED-A-FRAME (L-715) — ⚠ PUMP BEFORE YOU SAMPLE. Under `requestRenderMode`
-            // tile work is retired during a RENDER, so a gate that only reads counters is waiting
-            // on progress it is itself preventing once the camera parks. Request the frame first,
-            // then read what it produced.
-            try { signals.requestRender?.(); } catch { /* viewer gone */ }
             try { onTileSample(signals.sampleTileLoadProgress()); } catch { /* poll unavailable */ }
-            framesPumped++;
         }
         if (finished || failed) return;
         // §TILES-SETTLED-IS-NOT-STALLED (L-713) — ⚠ NEVER call a SETTLED view stalled. During the
@@ -655,7 +719,7 @@ export function beginViewActivationLoading(
                             : 'The 3D view did not finish opening, though the map data it asked for did arrive. You can retry, or continue and use the view as it is.',
             );
         }
-    }, 1000);
+    }, pumpMs);
 
     return {
         contentIssued(): void {
