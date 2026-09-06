@@ -68,6 +68,11 @@ const EXPECTED: ReadonlyArray<readonly [string, string]> = [
     // a country code under /api/parcel/:cc — and it is registered ahead of that catch-all so a future
     // widening of :cc can never swallow it.
     ['get', '/api/ca/bc/parcel'],
+    // §KR-PARCEL-KEYED-LEG (lane KOREA-FROM-NOTHING 2026-09-06). Also order-critical, and for the
+    // SAME reason as `/api/parcel/dk` below: `/api/parcel/kr` IS shaped like a country code under
+    // `/api/parcel/:cc`, so registering it after the catch-all would route every Korean request into
+    // the keyless EU handler with cc="kr" — which would answer about the EU cadastre, not Korea.
+    ['get', '/api/parcel/kr'],
     // ⚠ ORDER-CRITICAL. `/api/parcel/dk` MUST precede `/api/parcel/:cc`: Express
     // matches in registration order, so swapping these sends every Danish parcel
     // request into the keyless EU handler with cc="dk" and silently drops the

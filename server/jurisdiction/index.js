@@ -157,6 +157,10 @@ import { DK_PARCEL_PATH, dkParcelHandler } from './dkMatrikelProxy.js';
 // ⚠ Returns IDENTITY + surveyed area only. BC zoning is MUNICIPAL and is NOT in this layer, so no
 // buildable envelope may be derived from it.
 import { CA_BC_PARCEL_PATH, caBcParcelHandler } from './caBcParcelProxy.js';
+// §KR-PARCEL-KEYED-LEG (2026-09-06, lane KOREA-FROM-NOTHING) — South Korea's cadastral map via
+// V-World. A KEYED leg (dkMatrikelProxy precedent): with no `VWORLD_API_KEY` it answers
+// { parcel: null, reason: 'kr-no-credential' } and NEVER a fabricated polygon.
+import { KR_PARCEL_PATH, krParcelHandler } from './krParcelProxy.js';
 
 /**
  * The routes this router owns, in registration order, as `[method, path]`.
@@ -190,6 +194,7 @@ export const JURISDICTION_ROUTES = Object.freeze([
     ['get', CH_ZURICH_BZO_PATH],
     ['get', PARIS_PLU_PATH],
     ['get', CA_BC_PARCEL_PATH],
+    ['get', KR_PARCEL_PATH],
     ['get', DK_PARCEL_PATH],
     ['get', `${EU_PARCEL_PATH}/:cc`],
 ]);
@@ -328,6 +333,12 @@ export function createJurisdictionRouter({ apiLimiter }) {
     // widening must not be able to swallow it. Keyless, same-origin, never crashes: outside BC / no
     // parcel / upstream failure → 200 { parcel: null }.
     router.get(CA_BC_PARCEL_PATH, apiLimiter, caBcParcelHandler);
+    // §KR-PARCEL-KEYED-LEG — South Korea by point. Registered BEFORE the `:cc` catch-all for the same
+    // "specific before param" reason Denmark and BC are. ⚠ HONEST-DEFERRED, not wired-and-working:
+    // V-World requires a free 인증키 that this server does not hold, AND its origin answered HTTP 502 /
+    // curl exit 52 to seven probes on 2026-09-06 — so today every call returns { parcel: null } with a
+    // named `reason` and the client falls back to the OSM footprint. Never crashes.
+    router.get(KR_PARCEL_PATH, apiLimiter, krParcelHandler);
     router.get(DK_PARCEL_PATH, apiLimiter, dkParcelHandler);
     router.get(`${EU_PARCEL_PATH}/:cc`, apiLimiter, euParcelHandler);
 
