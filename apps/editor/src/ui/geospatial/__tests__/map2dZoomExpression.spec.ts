@@ -10,9 +10,10 @@
 // expression is caught here rather than by a blank map in production.
 import { describe, it, expect } from 'vitest';
 import {
-    buildPastelBackgroundLayer, buildPastelLanduseLayers, buildPastelParkLayers, buildPastelWaterLayers,
+    buildPastelBackgroundLayer, buildPastelWorldBaseLayers, buildPastelLanduseLayers, buildPastelParkLayers, buildPastelWaterLayers,
     buildPastelRailLayer, buildPastelRoadLayers, buildPastelBuildingLayers, buildPastelTreeLayer,
     buildPastelLabelLayers,
+    FORMA_PALETTE_V2,
 } from '../siteMap2DStyle';
 
 type Json = unknown;
@@ -48,6 +49,7 @@ function layerZoomUses(layer: Record<string, unknown>): Array<{ path: string; ok
 
 const allLayers = (): Array<Record<string, unknown>> => [
     buildPastelBackgroundLayer(),
+    ...buildPastelWorldBaseLayers(),
     ...buildPastelLanduseLayers(),
     ...buildPastelParkLayers(),
     ...buildPastelWaterLayers(),
@@ -83,5 +85,26 @@ describe('§MAP2D-ZOOM-AT-TOP-LEVEL (L-12950)', () => {
         expect(layerZoomUses(good).filter((u) => !u.ok)).toEqual([]);
         const step = { id: 'probe', layout: { visibility: ['step', ['zoom'], 'none', 14, 'visible'] } };
         expect(layerZoomUses(step).filter((u) => !u.ok)).toEqual([]);
+    });
+
+    // §MAP2D-WORLD-AT-LOW-ZOOM (L-12951) — zooming out must show the world, not a flat colour.
+    it('THE BUG: something real is drawn at every zoom from 0, not just the background fill', () => {
+        const world = buildPastelWorldBaseLayers();
+        expect(world.length).toBeGreaterThan(0);
+        for (const layer of world) {
+            // No minzoom at all, or one at the very bottom — these are the far-out layers.
+            const min = (layer as { minzoom?: number }).minzoom ?? 0;
+            expect(min).toBe(0);
+            // Each must stop where its detailed pastel counterpart starts, so nothing double-draws.
+            expect(typeof (layer as { maxzoom?: number }).maxzoom).toBe('number');
+        }
+    });
+
+    it('the world layers sit UNDER the detailed ones and use the pastel palette', () => {
+        const ids = buildPastelWorldBaseLayers().map((l) => String(l.id));
+        expect(ids).toContain('pastel-world-water');
+        expect(ids).toContain('pastel-world-places');
+        const water = buildPastelWorldBaseLayers().find((l) => l.id === 'pastel-world-water')!;
+        expect((water.paint as Record<string, unknown>)['fill-color']).toBe(FORMA_PALETTE_V2.water);
     });
 });

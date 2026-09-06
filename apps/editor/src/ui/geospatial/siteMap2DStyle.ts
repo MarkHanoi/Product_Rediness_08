@@ -1263,6 +1263,73 @@ export function buildPastelLabelLayers(): Array<Record<string, unknown>> {
  * added on top at runtime by `SiteBoundaryMap2D.installRingLayers()`, in the PRYZM
  * purple, exactly as before. This style changes nothing about selection.
  */
+/**
+ * §MAP2D-WORLD-AT-LOW-ZOOM (L-12951, founder 2026-09-06: "the new 2D map is sound but I can't zoom out
+ * and see the countries from far as we were doing with OpenStreetMap — it goes grey if you zoom a lot").
+ *
+ * WHY IT WENT GREY. Every pastel layer is gated: buildings z13, rail z13, minor roads z13, trees z15,
+ * labels z14, major roads z10. Below those there was nothing left but `buildPastelBackgroundLayer`, a
+ * flat fill — so zooming out past the city dissolved the map into one colour. The v1 style did not have
+ * this hole because its water / landuse / road layers were driven by the OpenMapTiles vector source at
+ * every zoom. The pastel style kept the source and dropped those layers.
+ *
+ * THE FIX. Put the world back UNDER the pastel layers, in the pastel palette, from z0: sea, land cover,
+ * and the place labels that make a country readable. They stop where the detailed pastel layers begin,
+ * so nothing double-draws and the close-in drawing is byte-identical to what the founder just approved.
+ */
+export function buildPastelWorldBaseLayers(): Array<Record<string, unknown>> {
+    const P = FORMA_PALETTE_V2;
+    return [
+        {
+            // The sea, all the way out. Without this the ocean reads as land colour.
+            id: 'pastel-world-water',
+            type: 'fill',
+            source: OMT_SOURCE,
+            'source-layer': 'water',
+            maxzoom: PASTEL_ZOOM.water,
+            paint: { 'fill-color': P.water },
+        },
+        {
+            // Green land cover (wood / grass / park) so continents are not a flat plane.
+            id: 'pastel-world-landuse',
+            type: 'fill',
+            source: OMT_SOURCE,
+            'source-layer': 'landuse',
+            maxzoom: PASTEL_ZOOM.landuse,
+            paint: { 'fill-color': P.parks, 'fill-opacity': 0.55 },
+        },
+        {
+            // Motorways and trunk roads read as the skeleton of a region when zoomed out.
+            id: 'pastel-world-roads',
+            type: 'line',
+            source: OMT_SOURCE,
+            'source-layer': 'transportation',
+            maxzoom: PASTEL_ZOOM.roadMajor,
+            filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false],
+            paint: {
+                'line-color': P.roadMajor,
+                'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1.0, 10, 1.6],
+            },
+        },
+        {
+            // Country and city names — the thing the founder actually looks for when zoomed out.
+            id: 'pastel-world-places',
+            type: 'symbol',
+            source: OMT_SOURCE,
+            'source-layer': 'place',
+            maxzoom: PASTEL_ZOOM.labels,
+            filter: ['match', ['get', 'class'], ['country', 'state', 'city', 'town'], true, false],
+            layout: {
+                'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']],
+                'text-font': ['Noto Sans Regular'],
+                'text-size': ['interpolate', ['linear'], ['zoom'], 2, 10, 6, 13, 10, 15],
+                'text-max-width': 8,
+            },
+            paint: { 'text-color': P.label, 'text-halo-color': P.labelHalo, 'text-halo-width': 1.2 },
+        },
+    ];
+}
+
 export function buildFormaMap2DStyleV2(opts: SiteMap2DStyleOptions = {}): Map2DStyleSpec {
     const sources: Record<string, unknown> = {
         [OMT_SOURCE]: {
@@ -1282,6 +1349,9 @@ export function buildFormaMap2DStyleV2(opts: SiteMap2DStyleOptions = {}): Map2DS
 
     const layers: Array<Record<string, unknown>> = [
         buildPastelBackgroundLayer(),
+        // §MAP2D-WORLD-AT-LOW-ZOOM (L-12951) — the world, under everything, so zooming out shows
+        // countries instead of a flat colour. Each of these stops where its pastel counterpart starts.
+        ...buildPastelWorldBaseLayers(),
         ...buildPastelLanduseLayers(),
         ...buildPastelParkLayers(),
         ...buildPastelWaterLayers(),
