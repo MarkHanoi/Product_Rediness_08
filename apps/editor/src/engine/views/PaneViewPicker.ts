@@ -15,7 +15,9 @@
 //     a pure function of store state.
 //   • 1 (one instance per singleton) — the picker cannot offer a choice the mount-time
 //     `validatePaneLayout` assert would reject: enablement comes from the same pure
-//     model, and a singleton move is LABELLED ("moves here, the right pane empties").
+//     model, and a singleton move is LABELLED ("the two panes SWAP: it moves here and
+//     2D Site Map moves to the right pane" — or, when this pane is empty and so has
+//     nothing to hand back, "the right pane empties"). §SWAP-NOT-VACATE, L-12999.
 //   • 6 (renderer-agnostic) — this file imports no renderer. Adding a view type is a
 //     registry entry; the picker picks it up with no edit here.
 //   • 2 (single rAF) — no `requestAnimationFrame`; the popup is plain DOM, no animation

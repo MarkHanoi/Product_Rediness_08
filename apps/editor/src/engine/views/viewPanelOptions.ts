@@ -29,10 +29,15 @@
 //
 //   · THE GLOBE. C60 §6.5 — *"the globe and the 3D Site ARE the same viewer at different
 //     camera altitudes"* — and C60 §6.10 forbids a globe `ViewType` outright. L-6802
-//     measured what happens if you mint one anyway: `assignViewToPane` vacates only the SAME
-//     view type, so a rival cesium row beside `site-3d` yields
+//     measured what happens if you mint one anyway: `assignViewToPane` re-homes only the
+//     SAME view type, so a rival cesium row beside `site-3d` yields
 //     `validatePaneLayout → {ok:false, conflicts:[{rendererKind:'cesium',panes:['left','right']}]}`
 //     — the globe button would refuse on every click in the founder's own default split.
+//     ⚠ The verb here read "vacates" until §SWAP-NOT-VACATE (L-12999, 2026-09-06); the
+//     reducer now SWAPS an occupied target instead of emptying the source pane. The
+//     measured finding is UNCHANGED and is why this matters: the predicate is still
+//     `next[otherPane] === viewType`, i.e. it keys on the VIEW TYPE and not on the renderer
+//     kind, so a second cesium-backed type would still slip past it into a conflict.
 //
 //   · SATELLITE. The identical argument one layer down. Satellite is a MapLibre STYLE on the
 //     one 2D map (`SiteBoundaryMap2D.swapBasemap`, A.8.c.f.4, shipped 2026-06-03). A rival
