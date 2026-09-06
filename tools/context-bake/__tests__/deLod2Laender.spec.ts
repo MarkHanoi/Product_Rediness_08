@@ -135,11 +135,19 @@ describe('§DE-LOD2-LAENDER projection + tile keys reproduce the tiles that answ
     expect(DE_LOD2_LAENDER.st.typeNames).toEqual(['ALKIS_LOD2_BU:BU.Building', 'ALKIS_LOD2_BU:BU.BuildingPart']);
     expect(stGetFeatureUrl(DE_LOD2_LAENDER.st, [11.632, 52.122, 11.637, 52.127], { typeName: 'ALKIS_LOD2_BU:BU.BuildingPart' })).toContain('TYPENAMES=ALKIS_LOD2_BU:BU.BuildingPart&');
   });
-  it('cityForPoint routes Alexanderplatz → berlin/be, Potsdam → bb, an unwired city (Munich) → null', () => {
+  it('cityForPoint routes Alexanderplatz → berlin/be, Potsdam → bb, Munich → by (ARMED 2026-09-06), an unwired city (Frankfurt) → null', () => {
     expect(cityForPoint(13.4133, 52.5219)?.land).toBe('be');
     expect(cityForPoint(13.059, 52.399)?.land).toBe('bb');
-    expect(cityForPoint(11.575, 48.137)).toBeNull();
-    expect(cityForPoint(11.575, 48.137, DE_LOD2_CITIES)?.land).toBe('by');
+    // ⭐ Munich USED TO ASSERT null here, and that null WAS THE BUG in miniature: an unarmed Land is
+    // filtered out of DE_LOD2_CITY_BBOXES, so its footprints never reach the join and render flat grey.
+    expect(cityForPoint(11.575, 48.137)?.land).toBe('by');
+    expect(cityForPoint(11.575, 48.137)?.city).toBe('munich');
+    // ⛔ THE INVARIANT THE MUNICH ROW USED TO CARRY IS KEPT, moved onto a Land that is STILL not wired:
+    // a city of a non-wired Land is absent from the WIRED subset but present in the full list. Frankfurt
+    // is `he`, BLOCKED (account-gated). If this ever starts returning a row, a blocked Land got armed
+    // without its door being proved — which is the one way this table can start fabricating coverage.
+    expect(cityForPoint(8.68, 50.11)).toBeNull();
+    expect(cityForPoint(8.68, 50.11, DE_LOD2_CITIES)?.land).toBe('he');
   });
 });
 
@@ -361,7 +369,7 @@ describe('§DE-LOD2-LAENDER Niedersachsen — the BUCKET, not the LGLN index, is
   });
 });
 
-describe('§DE-LOD2-LAENDER-BY Bayern — the founder's Nürnberg report, pinned as a test (verbatim 2026-09-06)', () => {
+describe('§DE-LOD2-LAENDER-BY Bayern — the founder’s Nürnberg report, pinned as a test (verbatim 2026-09-06)', () => {
   // ⭐ WHY THIS BLOCK EXISTS. The founder reported: "Nuremberg buildings are not true height buildings —
   // germany should be complete." He was right, and TWO independent facts had to be false at once:
   //   1. `by` was `probed-open-unarmed`, so DE_LOD2_CITY_BBOXES (the WIRED subset) dropped every Bavarian
