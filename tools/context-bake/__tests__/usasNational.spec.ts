@@ -31,6 +31,7 @@
 //
 // LAYERING: a build/inspection tool test — no OTel span (P8 binds exported package functions).
 import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -439,6 +440,65 @@ describe('§USAS-NATIONAL-HEIGHTS — measured-zero holes are named, and may nev
             expect(row.join, `${region} must declare the join the gate row depends on`).toBe('usas');
             const [w, s, e, n] = row.bbox;
             expect(lon >= w && lon <= e && lat >= s && lat <= n, `${name} inside ${region}`).toBe(true);
+        }
+    });
+});
+
+describe('§USAS-SWATHE — the multi-pass file plumbing loses, duplicates and fabricates NOTHING', () => {
+    // ⭐ THE ONE THING TEXT-READING CANNOT CHECK. The swathe driver truncates the output, appends each
+    // band's retained footprints, and concatenates the final leftover pass-through file — three writers,
+    // two alternating temp files. If any of them is wrong, footprints silently vanish or double, the
+    // bake still "succeeds", and the tileset is still large and well-formed. §SIZE-IS-NOT-PROVENANCE,
+    // one layer down. So the driver is RUN, for real, in a spawned node process (vite's transform
+    // rejects heightSources.mjs, which the stamp imports) — the mdsSwatheConservation precedent.
+    // NO NETWORK: maxTiles 0 stops the sweep before its first cell, which is also the maximally
+    // truncated national run, i.e. the case where conservation matters most.
+    const raw = execFileSync(process.execPath, [resolve(HERE, 'usasSwatheConservation.harness.mjs')], {
+        encoding: 'utf8', timeout: 120_000,
+    });
+    const fenced = [...raw.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => JSON.parse(m[1]!));
+    expect(fenced.length, `harness produced no JSON block:\n${raw}`).toBe(2);
+    const [national, singlePass] = fenced;
+
+    it('issues ZERO network requests at maxTiles 0 — this harness cannot be flaky on a source outage', () => {
+        expect(national.requests).toBe(0);
+        expect(singlePass.requests).toBe(0);
+    });
+
+    it('⭐ every footprint comes out exactly once, in BOTH modes — none dropped, none duplicated', () => {
+        for (const [mode, r] of [['national', national], ['single-pass', singlePass]] as const) {
+            expect(r.status, mode).toBe('ok');
+            expect(r.outCount, `${mode}: in ${r.inCount} → out ${r.outCount}`).toBe(r.inCount);
+            expect(r.uniqueIds, `${mode}: duplicate ids`).toBe(r.inCount);
+        }
+    });
+
+    it('every footprint keeps its ORIGINAL OSM tags byte for byte, and NOTHING is fabricated', () => {
+        for (const [mode, r] of [['national', national], ['single-pass', singlePass]] as const) {
+            expect(r.tagsPreserved, `${mode}: a footprint's tags were mutated`).toBe(true);
+            expect(r.fabricated, `${mode}: a footprint carries the measured marker after a 0-cell sweep`).toBe(0);
+            expect(r.measuredCount, mode).toBe(0);
+            expect(r.estimatedCount, `${mode}: this join must never report an estimate`).toBe(0);
+        }
+    });
+
+    it('the swathe mode really is MULTI-pass over the country — 32 bands of 40 rows across CONUS', () => {
+        expect(national.swathesTotal).toBe(32);      // 1,266 tile rows of 0.02° ÷ 40
+        expect(singlePass.swathesTotal).toBe(1);
+        // …and it stopped in the FIRST band, because the cap is 0 cells. Peak heap therefore tracks one
+        // band, which is the entire point: single-pass retained all 8 test footprints, swathe mode 1.
+        expect(national.swathesScanned).toBe(1);
+        expect(national.retainedFootprints).toBeLessThan(singlePass.retainedFootprints);
+    });
+
+    it('a truncated run SAYS SO, names the km² skipped, and prints a resume cursor', () => {
+        for (const [mode, r] of [['national', national], ['single-pass', singlePass]] as const) {
+            expect(r.stopReason, mode).toBe('maxTiles 0');
+            expect(r.truncationNoted, `${mode}: the note must carry TRUNCATED`).toBe(true);
+            expect(r.resumeNoted, `${mode}: the note must carry USAS_SWEEP_CURSOR=`).toBe(true);
+            expect(r.cellsSkipped, mode).toBeGreaterThan(0);
+            expect(r.km2Skipped, mode).toBeGreaterThan(0);
+            expect(r.nextCursor, mode).toBeGreaterThan(0);
         }
     });
 });

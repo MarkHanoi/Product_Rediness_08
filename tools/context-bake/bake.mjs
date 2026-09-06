@@ -64,8 +64,12 @@ import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeig
 // §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US) — the US per-metro stamp lives in its OWN module
 // (not heightSources.mjs — §SHARED-FILE-COLLISION) and is imported here DIRECTLY, so it cannot sit built-and-
 // orphaned the way the FR/CH/AU stamps each did for a day. Its pure half carries the working set.
-import { stampUsOpenHeightsOnGeojsonseq } from './heights/usOpenHeightsStamp.mjs';
-import { US_OPEN_CITY_BBOXES } from './heights/usOpenHeights.mjs';
+// §USAS-NATIONAL-HEIGHTS — ONE US stamp. `stampUsOpenHeightsOnGeojsonseq` (heights/usOpenHeightsStamp.mjs)
+// was imported here until 2026-09-06 and is NOT any more: every US row declares heightJoin:'usas', and the
+// national stamp reads the SAME three city adapters through usOpenChannelForPoint. US_OPEN_CITY_BBOXES is
+// still imported because it is the CITY-FIRST working set the resolver and stampBboxesFor's audit read.
+import { stampUsasNationalHeightsOnGeojsonseq } from './heights/usasNationalStamp.mjs';
+import { US_NATIONAL_BBOXES, US_OPEN_CITY_BBOXES, USAS_SWATHE_ROWS } from './heights/usOpenHeights.mjs';
 // §CA-OPEN-HEIGHTS-OSM-JOIN (2026-09-06, lane MEXICO-CANADA) — Canada's FIRST measured-height channel.
 // Same shape as the US import above and for the same reason (§SHARED-FILE-COLLISION): the network half
 // in its own module, the working set + every decision in the pure half, both imported here DIRECTLY in
@@ -605,15 +609,33 @@ const ALL_REGIONS = [
   // polygon spans BOTH ~145 E (Guam/NMI) and ~-170 (American Samoa), i.e. two disjoint clusters that
   // need two more rows in an `oceania`-shaped group. That is a separate lane, not a US state row.
   //
-  // HEIGHTS — §US-OPEN-HEIGHTS-OSM-JOIN moves ROW, not WORKING SET. `newyork` (NYC height_roof, feet),
-  // `california` (SF hgt_maxcm, LiDAR zonal max, cm) and `massachusetts` (Boston BPDA BLDG_HGT_2010,
-  // feet) declare heightJoin:'us_open'; stampBboxesFor still filters US_OPEN_CITY_BBOXES to the row's
-  // own `region`, so the three working-set boxes are byte-identical to the metro era and everything
-  // outside them streams through with honest OSM tags. The other 51 rows declare NO heightJoin, on the
-  // evidence already recorded in heights/usOpenHeights.mjs US_OPEN_HEIGHTS_ASSESSED (Chicago's
-  // syp8-uezg has `stories` and no height; MassGIS STRUCTURES_POLY has no height field; no open
-  // channel is named for Texas) — they bake honest OSM `assumed` defaults (heightSources REGION_SOURCE
-  // `overture_us`) until the USGS 3DEP nDSM stamp lands. Datum: NAVD88/GEOID18; terrain via
+  // HEIGHTS — ⭐ §USAS-NATIONAL-HEIGHTS (2026-09-06, lane USA-HEIGHTS-NATIONAL): **52 of the 54 rows
+  // declare `heightJoin:'usas'`**, the FEMA/ORNL "USA Structures" join (135,321,228 structures, a
+  // per-building HEIGHT in metres on the NGA LiDAR-derived subset, ONE keyless CC-BY-4.0
+  // FeatureServer). heights/usOpenHeights.mjs §USAS-NATIONAL-HEIGHTS carries every URL, byte count and
+  // per-state count.
+  //   ⛔ THIS PARAGRAPH USED TO END "The other 51 rows declare NO heightJoin … until the USGS 3DEP nDSM
+  //   stamp lands." Both halves are now false and the second was never reachable: 3DEP is a BARE-EARTH
+  //   DTM and there is NO public CONUS DSM to subtract from it (the National Map's whole catalogue
+  //   holds exactly one DSM product, ALASKA IFSAR, and its CONUS bbox query answers
+  //   `{"total": 0, "items": []}` — probed 2026-09-06, verbatim in usOpenHeights.mjs). Waiting for it
+  //   was waiting for a thing that does not exist.
+  //   ⭐ AND `us_open` IS NO LONGER DECLARED BY ANY ROW. `newyork` / `california` / `massachusetts`
+  //   moved to 'usas' too, because 'us_open' reaches ONLY its own metro bbox: it left Buffalo, Fresno,
+  //   Sacramento and Worcester on the fabricated 9 m carpet inside three states that CLAIMED a height
+  //   join — the §MDS-NATIONAL-SWEEP / Ciudad Real shape (L-12946) with a bigger denominator. The move
+  //   is a strict SUPERSET, not a swap: `usOpenChannelForPoint` resolves the CITY channel FIRST per
+  //   FOOTPRINT, so Manhattan still gets NYC's own height_roof (270.6 m in the Midtown cell, where USA
+  //   Structures reads 170.5 m), SF still gets DataSF's LiDAR zonal max and Boston still gets the BPDA
+  //   model — and everything else in those states now gets a measured metre instead of nothing.
+  //   PROVED NON-ZERO BEFORE WIRING, count-only over 0.04–0.05° boxes, 2026-09-06, HTTP 200 each:
+  //   Buffalo NY 8,837 · Fresno CA 13,046 · Sacramento CA 8,631 · Worcester MA 10,574 (and whole
+  //   `massachusetts` 1,137,762 in 9.7 s). ⚠ Rochester NY answered **0** — a real SOURCE hole, named
+  //   in usOpenHeights.mjs rather than hidden, and never a gate row.
+  //   ⛔ The two rows that must NOT declare it are `alaskaaleutians` and `usvirginislands`: both are
+  //   MEASURED-ZERO at the source (87 and 40,726 structures, ALL 'ORNL', 0 heights), and
+  //   §MEASURED-HEIGHT-GATE exits 4 on a region that declares a join and stamps zero.
+  //   Datum: NAVD88/GEOID18; terrain via
   // --dtm-source mapterhorn. ⚠ EGM2008 N is NOT uniformly negative across the US, as the old metro
   // comment implied: it is −35.5 … −13.1 m across CONUS but POSITIVE in Alaska (+8.04 at Anchorage,
   // +9.70 at Attu) and Hawaii (+15.81 at Honolulu) — every value GeoidEval-probed 2026-09-06.
@@ -621,66 +643,66 @@ const ALL_REGIONS = [
   // `pending: true` on 53 of the 54 (all but `newyork`, which is already live): merge-tiles.mjs
   // expects a pending row ONLY when it is staged, so adding 53 rows cannot make the next `expect=all`
   // publish refuse for regions that have never been live. Drop the flag as each goes live.
-  { name: 'alabama',           pbfUrl: 'https://download.geofabrik.de/north-america/us/alabama-latest.osm.pbf',                pbf: resolve(OUT, 'us-alabama-latest.osm.pbf'),             bbox: '-88.49,29.95,-84.88,35.01',    clipped: resolve(OUT, 'clip-alabama.osm.pbf'), pending: true },   // 149,014,751 B
-  { name: 'alaska',            pbfUrl: 'https://download.geofabrik.de/north-america/us/alaska-latest.osm.pbf',                 pbf: resolve(OUT, 'us-alaska-latest.osm.pbf'),              bbox: '-180.00,49.80,-129.79,72.99',  clipped: resolve(OUT, 'clip-alaska.osm.pbf'), pending: true },   // 143,908,577 B
+  { name: 'alabama',           pbfUrl: 'https://download.geofabrik.de/north-america/us/alabama-latest.osm.pbf',                pbf: resolve(OUT, 'us-alabama-latest.osm.pbf'),             bbox: '-88.49,29.95,-84.88,35.01',    clipped: resolve(OUT, 'clip-alabama.osm.pbf'), pending: true, heightJoin: 'usas' },   // 149,014,751 B
+  { name: 'alaska',            pbfUrl: 'https://download.geofabrik.de/north-america/us/alaska-latest.osm.pbf',                 pbf: resolve(OUT, 'us-alaska-latest.osm.pbf'),              bbox: '-180.00,49.80,-129.79,72.99',  clipped: resolve(OUT, 'clip-alaska.osm.pbf'), pending: true, heightJoin: 'usas' },   // 143,908,577 B
   { name: 'alaskaaleutians',   pbfUrl: 'https://download.geofabrik.de/north-america/us/alaska-latest.osm.pbf',                 pbf: resolve(OUT, 'us-alaska-latest.osm.pbf'),              bbox: '171.76,51.11,180.00,54.20',    clipped: resolve(OUT, 'clip-alaskaaleutians.osm.pbf'), pending: true },   // 143,908,577 B
-  { name: 'arizona',           pbfUrl: 'https://download.geofabrik.de/north-america/us/arizona-latest.osm.pbf',                pbf: resolve(OUT, 'us-arizona-latest.osm.pbf'),             bbox: '-114.83,31.32,-109.04,37.01',  clipped: resolve(OUT, 'clip-arizona.osm.pbf'), pending: true },   // 301,352,121 B
-  { name: 'arkansas',          pbfUrl: 'https://download.geofabrik.de/north-america/us/arkansas-latest.osm.pbf',               pbf: resolve(OUT, 'us-arkansas-latest.osm.pbf'),            bbox: '-94.63,33.00,-89.63,36.52',    clipped: resolve(OUT, 'clip-arkansas.osm.pbf'), pending: true },   // 99,404,843 B
-  { name: 'california',        pbfUrl: 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf',             pbf: resolve(OUT, 'us-california-latest.osm.pbf'),          bbox: '-125.90,32.48,-114.12,42.02',  clipped: resolve(OUT, 'clip-california.osm.pbf'), heightJoin: 'us_open', pending: true },   // 1,326,860,797 B
-  { name: 'colorado',          pbfUrl: 'https://download.geofabrik.de/north-america/us/colorado-latest.osm.pbf',               pbf: resolve(OUT, 'us-colorado-latest.osm.pbf'),            bbox: '-109.07,36.98,-102.03,41.01',  clipped: resolve(OUT, 'clip-colorado.osm.pbf'), pending: true },   // 380,830,336 B
-  { name: 'connecticut',       pbfUrl: 'https://download.geofabrik.de/north-america/us/connecticut-latest.osm.pbf',            pbf: resolve(OUT, 'us-connecticut-latest.osm.pbf'),         bbox: '-73.73,40.96,-71.78,42.06',    clipped: resolve(OUT, 'clip-connecticut.osm.pbf'), pending: true },   // 216,457,565 B
-  { name: 'delaware',          pbfUrl: 'https://download.geofabrik.de/north-america/us/delaware-latest.osm.pbf',               pbf: resolve(OUT, 'us-delaware-latest.osm.pbf'),            bbox: '-75.79,38.45,-74.98,39.85',    clipped: resolve(OUT, 'clip-delaware.osm.pbf'), pending: true },   // 22,080,735 B
-  { name: 'districtofcolumbia', pbfUrl: 'https://download.geofabrik.de/north-america/us/district-of-columbia-latest.osm.pbf',   pbf: resolve(OUT, 'us-district-of-columbia-latest.osm.pbf'), bbox: '-77.13,38.79,-76.90,39.00',    clipped: resolve(OUT, 'clip-districtofcolumbia.osm.pbf'), pending: true },   // 20,948,108 B
-  { name: 'florida',           pbfUrl: 'https://download.geofabrik.de/north-america/us/florida-latest.osm.pbf',                pbf: resolve(OUT, 'us-florida-latest.osm.pbf'),             bbox: '-88.47,24.20,-79.43,31.01',    clipped: resolve(OUT, 'clip-florida.osm.pbf'), pending: true },   // 655,835,513 B
-  { name: 'georgia',           pbfUrl: 'https://download.geofabrik.de/north-america/us/georgia-latest.osm.pbf',                pbf: resolve(OUT, 'us-georgia-latest.osm.pbf'),             bbox: '-85.61,30.35,-80.74,35.01',    clipped: resolve(OUT, 'clip-georgia.osm.pbf'), pending: true },   // 355,780,528 B
-  { name: 'hawaii',            pbfUrl: 'https://download.geofabrik.de/north-america/us/hawaii-latest.osm.pbf',                 pbf: resolve(OUT, 'us-hawaii-latest.osm.pbf'),              bbox: '-179.60,15.92,-142.65,29.03',  clipped: resolve(OUT, 'clip-hawaii.osm.pbf'), pending: true },   // 26,951,996 B
-  { name: 'idaho',             pbfUrl: 'https://download.geofabrik.de/north-america/us/idaho-latest.osm.pbf',                  pbf: resolve(OUT, 'us-idaho-latest.osm.pbf'),               bbox: '-117.25,41.98,-111.04,49.01',  clipped: resolve(OUT, 'clip-idaho.osm.pbf'), pending: true },   // 128,528,088 B
-  { name: 'illinois',          pbfUrl: 'https://download.geofabrik.de/north-america/us/illinois-latest.osm.pbf',               pbf: resolve(OUT, 'us-illinois-latest.osm.pbf'),            bbox: '-91.52,36.96,-87.49,42.51',    clipped: resolve(OUT, 'clip-illinois.osm.pbf'), pending: true },   // 358,543,406 B
-  { name: 'indiana',           pbfUrl: 'https://download.geofabrik.de/north-america/us/indiana-latest.osm.pbf',                pbf: resolve(OUT, 'us-indiana-latest.osm.pbf'),             bbox: '-88.11,37.76,-84.78,41.77',    clipped: resolve(OUT, 'clip-indiana.osm.pbf'), pending: true },   // 198,430,653 B
-  { name: 'iowa',              pbfUrl: 'https://download.geofabrik.de/north-america/us/iowa-latest.osm.pbf',                   pbf: resolve(OUT, 'us-iowa-latest.osm.pbf'),                bbox: '-96.65,40.37,-90.13,43.51',    clipped: resolve(OUT, 'clip-iowa.osm.pbf'), pending: true },   // 133,125,489 B
-  { name: 'kansas',            pbfUrl: 'https://download.geofabrik.de/north-america/us/kansas-latest.osm.pbf',                 pbf: resolve(OUT, 'us-kansas-latest.osm.pbf'),              bbox: '-102.06,36.99,-94.58,40.01',   clipped: resolve(OUT, 'clip-kansas.osm.pbf'), pending: true },   // 115,594,512 B
-  { name: 'kentucky',          pbfUrl: 'https://download.geofabrik.de/north-america/us/kentucky-latest.osm.pbf',               pbf: resolve(OUT, 'us-kentucky-latest.osm.pbf'),            bbox: '-89.59,36.49,-81.95,39.15',    clipped: resolve(OUT, 'clip-kentucky.osm.pbf'), pending: true },   // 153,429,610 B
-  { name: 'louisiana',         pbfUrl: 'https://download.geofabrik.de/north-america/us/louisiana-latest.osm.pbf',              pbf: resolve(OUT, 'us-louisiana-latest.osm.pbf'),           bbox: '-94.05,28.14,-88.66,33.03',    clipped: resolve(OUT, 'clip-louisiana.osm.pbf'), pending: true },   // 145,952,262 B
-  { name: 'maine',             pbfUrl: 'https://download.geofabrik.de/north-america/us/maine-latest.osm.pbf',                  pbf: resolve(OUT, 'us-maine-latest.osm.pbf'),               bbox: '-71.09,42.85,-66.87,47.47',    clipped: resolve(OUT, 'clip-maine.osm.pbf'), pending: true },   // 90,724,876 B
-  { name: 'maryland',          pbfUrl: 'https://download.geofabrik.de/north-america/us/maryland-latest.osm.pbf',               pbf: resolve(OUT, 'us-maryland-latest.osm.pbf'),            bbox: '-79.49,37.88,-74.95,39.73',    clipped: resolve(OUT, 'clip-maryland.osm.pbf'), pending: true },   // 214,022,414 B
-  { name: 'massachusetts',     pbfUrl: 'https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf',          pbf: resolve(OUT, 'us-massachusetts-latest.osm.pbf'),       bbox: '-73.52,40.88,-68.73,42.89',    clipped: resolve(OUT, 'clip-massachusetts.osm.pbf'), heightJoin: 'us_open', pending: true },   // 309,938,097 B
-  { name: 'michigan',          pbfUrl: 'https://download.geofabrik.de/north-america/us/michigan-latest.osm.pbf',               pbf: resolve(OUT, 'us-michigan-latest.osm.pbf'),            bbox: '-90.42,41.69,-82.06,48.36',    clipped: resolve(OUT, 'clip-michigan.osm.pbf'), pending: true },   // 312,212,383 B
-  { name: 'minnesota',         pbfUrl: 'https://download.geofabrik.de/north-america/us/minnesota-latest.osm.pbf',              pbf: resolve(OUT, 'us-minnesota-latest.osm.pbf'),           bbox: '-97.25,43.49,-89.48,49.41',    clipped: resolve(OUT, 'clip-minnesota.osm.pbf'), pending: true },   // 284,816,865 B
-  { name: 'mississippi',       pbfUrl: 'https://download.geofabrik.de/north-america/us/mississippi-latest.osm.pbf',            pbf: resolve(OUT, 'us-mississippi-latest.osm.pbf'),         bbox: '-91.66,30.04,-88.09,35.01',    clipped: resolve(OUT, 'clip-mississippi.osm.pbf'), pending: true },   // 94,080,881 B
-  { name: 'missouri',          pbfUrl: 'https://download.geofabrik.de/north-america/us/missouri-latest.osm.pbf',               pbf: resolve(OUT, 'us-missouri-latest.osm.pbf'),            bbox: '-95.78,35.99,-89.08,40.62',    clipped: resolve(OUT, 'clip-missouri.osm.pbf'), pending: true },   // 194,739,836 B
-  { name: 'montana',           pbfUrl: 'https://download.geofabrik.de/north-america/us/montana-latest.osm.pbf',                pbf: resolve(OUT, 'us-montana-latest.osm.pbf'),             bbox: '-116.06,44.35,-104.03,49.01',  clipped: resolve(OUT, 'clip-montana.osm.pbf'), pending: true },   // 100,022,190 B
-  { name: 'nebraska',          pbfUrl: 'https://download.geofabrik.de/north-america/us/nebraska-latest.osm.pbf',               pbf: resolve(OUT, 'us-nebraska-latest.osm.pbf'),            bbox: '-104.06,40.00,-95.30,43.01',   clipped: resolve(OUT, 'clip-nebraska.osm.pbf'), pending: true },   // 100,196,685 B
-  { name: 'nevada',            pbfUrl: 'https://download.geofabrik.de/north-america/us/nevada-latest.osm.pbf',                 pbf: resolve(OUT, 'us-nevada-latest.osm.pbf'),              bbox: '-120.01,35.00,-114.03,42.01',  clipped: resolve(OUT, 'clip-nevada.osm.pbf'), pending: true },   // 122,949,898 B
-  { name: 'newhampshire',      pbfUrl: 'https://download.geofabrik.de/north-america/us/new-hampshire-latest.osm.pbf',          pbf: resolve(OUT, 'us-new-hampshire-latest.osm.pbf'),       bbox: '-72.56,42.69,-70.48,45.32',    clipped: resolve(OUT, 'clip-newhampshire.osm.pbf'), pending: true },   // 71,238,020 B
-  { name: 'newjersey',         pbfUrl: 'https://download.geofabrik.de/north-america/us/new-jersey-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-jersey-latest.osm.pbf'),          bbox: '-75.58,38.75,-73.67,41.36',    clipped: resolve(OUT, 'clip-newjersey.osm.pbf'), pending: true },   // 163,381,257 B
-  { name: 'newmexico',         pbfUrl: 'https://download.geofabrik.de/north-america/us/new-mexico-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-mexico-latest.osm.pbf'),          bbox: '-109.06,31.33,-102.99,37.01',  clipped: resolve(OUT, 'clip-newmexico.osm.pbf'), pending: true },   // 136,029,857 B
-  { name: 'newyork',           pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',               pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-79.77,40.43,-71.66,45.02',    clipped: resolve(OUT, 'clip-newyork.osm.pbf'), heightJoin: 'us_open' },   // 495,982,594 B
-  { name: 'northcarolina',     pbfUrl: 'https://download.geofabrik.de/north-america/us/north-carolina-latest.osm.pbf',         pbf: resolve(OUT, 'us-north-carolina-latest.osm.pbf'),      bbox: '-84.33,33.12,-73.73,36.59',    clipped: resolve(OUT, 'clip-northcarolina.osm.pbf'), pending: true },   // 427,872,491 B
-  { name: 'northdakota',       pbfUrl: 'https://download.geofabrik.de/north-america/us/north-dakota-latest.osm.pbf',           pbf: resolve(OUT, 'us-north-dakota-latest.osm.pbf'),        bbox: '-104.06,45.93,-96.55,49.02',   clipped: resolve(OUT, 'clip-northdakota.osm.pbf'), pending: true },   // 127,788,199 B
-  { name: 'ohio',              pbfUrl: 'https://download.geofabrik.de/north-america/us/ohio-latest.osm.pbf',                   pbf: resolve(OUT, 'us-ohio-latest.osm.pbf'),                bbox: '-84.83,38.40,-80.50,42.34',    clipped: resolve(OUT, 'clip-ohio.osm.pbf'), pending: true },   // 322,887,573 B
-  { name: 'oklahoma',          pbfUrl: 'https://download.geofabrik.de/north-america/us/oklahoma-latest.osm.pbf',               pbf: resolve(OUT, 'us-oklahoma-latest.osm.pbf'),            bbox: '-103.01,33.61,-94.42,37.01',   clipped: resolve(OUT, 'clip-oklahoma.osm.pbf'), pending: true },   // 168,284,935 B
-  { name: 'oregon',            pbfUrl: 'https://download.geofabrik.de/north-america/us/oregon-latest.osm.pbf',                 pbf: resolve(OUT, 'us-oregon-latest.osm.pbf'),              bbox: '-126.39,41.96,-116.45,46.31',  clipped: resolve(OUT, 'clip-oregon.osm.pbf'), pending: true },   // 253,351,822 B
-  { name: 'pennsylvania',      pbfUrl: 'https://download.geofabrik.de/north-america/us/pennsylvania-latest.osm.pbf',           pbf: resolve(OUT, 'us-pennsylvania-latest.osm.pbf'),        bbox: '-80.53,39.66,-74.68,42.52',    clipped: resolve(OUT, 'clip-pennsylvania.osm.pbf'), pending: true },   // 346,220,783 B
+  { name: 'arizona',           pbfUrl: 'https://download.geofabrik.de/north-america/us/arizona-latest.osm.pbf',                pbf: resolve(OUT, 'us-arizona-latest.osm.pbf'),             bbox: '-114.83,31.32,-109.04,37.01',  clipped: resolve(OUT, 'clip-arizona.osm.pbf'), pending: true, heightJoin: 'usas' },   // 301,352,121 B
+  { name: 'arkansas',          pbfUrl: 'https://download.geofabrik.de/north-america/us/arkansas-latest.osm.pbf',               pbf: resolve(OUT, 'us-arkansas-latest.osm.pbf'),            bbox: '-94.63,33.00,-89.63,36.52',    clipped: resolve(OUT, 'clip-arkansas.osm.pbf'), pending: true, heightJoin: 'usas' },   // 99,404,843 B
+  { name: 'california',        pbfUrl: 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf',             pbf: resolve(OUT, 'us-california-latest.osm.pbf'),          bbox: '-125.90,32.48,-114.12,42.02',  clipped: resolve(OUT, 'clip-california.osm.pbf'), pending: true, heightJoin: 'usas' },   // 1,326,860,797 B
+  { name: 'colorado',          pbfUrl: 'https://download.geofabrik.de/north-america/us/colorado-latest.osm.pbf',               pbf: resolve(OUT, 'us-colorado-latest.osm.pbf'),            bbox: '-109.07,36.98,-102.03,41.01',  clipped: resolve(OUT, 'clip-colorado.osm.pbf'), pending: true, heightJoin: 'usas' },   // 380,830,336 B
+  { name: 'connecticut',       pbfUrl: 'https://download.geofabrik.de/north-america/us/connecticut-latest.osm.pbf',            pbf: resolve(OUT, 'us-connecticut-latest.osm.pbf'),         bbox: '-73.73,40.96,-71.78,42.06',    clipped: resolve(OUT, 'clip-connecticut.osm.pbf'), pending: true, heightJoin: 'usas' },   // 216,457,565 B
+  { name: 'delaware',          pbfUrl: 'https://download.geofabrik.de/north-america/us/delaware-latest.osm.pbf',               pbf: resolve(OUT, 'us-delaware-latest.osm.pbf'),            bbox: '-75.79,38.45,-74.98,39.85',    clipped: resolve(OUT, 'clip-delaware.osm.pbf'), pending: true, heightJoin: 'usas' },   // 22,080,735 B
+  { name: 'districtofcolumbia', pbfUrl: 'https://download.geofabrik.de/north-america/us/district-of-columbia-latest.osm.pbf',   pbf: resolve(OUT, 'us-district-of-columbia-latest.osm.pbf'), bbox: '-77.13,38.79,-76.90,39.00',    clipped: resolve(OUT, 'clip-districtofcolumbia.osm.pbf'), pending: true, heightJoin: 'usas' },   // 20,948,108 B
+  { name: 'florida',           pbfUrl: 'https://download.geofabrik.de/north-america/us/florida-latest.osm.pbf',                pbf: resolve(OUT, 'us-florida-latest.osm.pbf'),             bbox: '-88.47,24.20,-79.43,31.01',    clipped: resolve(OUT, 'clip-florida.osm.pbf'), pending: true, heightJoin: 'usas' },   // 655,835,513 B
+  { name: 'georgia',           pbfUrl: 'https://download.geofabrik.de/north-america/us/georgia-latest.osm.pbf',                pbf: resolve(OUT, 'us-georgia-latest.osm.pbf'),             bbox: '-85.61,30.35,-80.74,35.01',    clipped: resolve(OUT, 'clip-georgia.osm.pbf'), pending: true, heightJoin: 'usas' },   // 355,780,528 B
+  { name: 'hawaii',            pbfUrl: 'https://download.geofabrik.de/north-america/us/hawaii-latest.osm.pbf',                 pbf: resolve(OUT, 'us-hawaii-latest.osm.pbf'),              bbox: '-179.60,15.92,-142.65,29.03',  clipped: resolve(OUT, 'clip-hawaii.osm.pbf'), pending: true, heightJoin: 'usas' },   // 26,951,996 B
+  { name: 'idaho',             pbfUrl: 'https://download.geofabrik.de/north-america/us/idaho-latest.osm.pbf',                  pbf: resolve(OUT, 'us-idaho-latest.osm.pbf'),               bbox: '-117.25,41.98,-111.04,49.01',  clipped: resolve(OUT, 'clip-idaho.osm.pbf'), pending: true, heightJoin: 'usas' },   // 128,528,088 B
+  { name: 'illinois',          pbfUrl: 'https://download.geofabrik.de/north-america/us/illinois-latest.osm.pbf',               pbf: resolve(OUT, 'us-illinois-latest.osm.pbf'),            bbox: '-91.52,36.96,-87.49,42.51',    clipped: resolve(OUT, 'clip-illinois.osm.pbf'), pending: true, heightJoin: 'usas' },   // 358,543,406 B
+  { name: 'indiana',           pbfUrl: 'https://download.geofabrik.de/north-america/us/indiana-latest.osm.pbf',                pbf: resolve(OUT, 'us-indiana-latest.osm.pbf'),             bbox: '-88.11,37.76,-84.78,41.77',    clipped: resolve(OUT, 'clip-indiana.osm.pbf'), pending: true, heightJoin: 'usas' },   // 198,430,653 B
+  { name: 'iowa',              pbfUrl: 'https://download.geofabrik.de/north-america/us/iowa-latest.osm.pbf',                   pbf: resolve(OUT, 'us-iowa-latest.osm.pbf'),                bbox: '-96.65,40.37,-90.13,43.51',    clipped: resolve(OUT, 'clip-iowa.osm.pbf'), pending: true, heightJoin: 'usas' },   // 133,125,489 B
+  { name: 'kansas',            pbfUrl: 'https://download.geofabrik.de/north-america/us/kansas-latest.osm.pbf',                 pbf: resolve(OUT, 'us-kansas-latest.osm.pbf'),              bbox: '-102.06,36.99,-94.58,40.01',   clipped: resolve(OUT, 'clip-kansas.osm.pbf'), pending: true, heightJoin: 'usas' },   // 115,594,512 B
+  { name: 'kentucky',          pbfUrl: 'https://download.geofabrik.de/north-america/us/kentucky-latest.osm.pbf',               pbf: resolve(OUT, 'us-kentucky-latest.osm.pbf'),            bbox: '-89.59,36.49,-81.95,39.15',    clipped: resolve(OUT, 'clip-kentucky.osm.pbf'), pending: true, heightJoin: 'usas' },   // 153,429,610 B
+  { name: 'louisiana',         pbfUrl: 'https://download.geofabrik.de/north-america/us/louisiana-latest.osm.pbf',              pbf: resolve(OUT, 'us-louisiana-latest.osm.pbf'),           bbox: '-94.05,28.14,-88.66,33.03',    clipped: resolve(OUT, 'clip-louisiana.osm.pbf'), pending: true, heightJoin: 'usas' },   // 145,952,262 B
+  { name: 'maine',             pbfUrl: 'https://download.geofabrik.de/north-america/us/maine-latest.osm.pbf',                  pbf: resolve(OUT, 'us-maine-latest.osm.pbf'),               bbox: '-71.09,42.85,-66.87,47.47',    clipped: resolve(OUT, 'clip-maine.osm.pbf'), pending: true, heightJoin: 'usas' },   // 90,724,876 B
+  { name: 'maryland',          pbfUrl: 'https://download.geofabrik.de/north-america/us/maryland-latest.osm.pbf',               pbf: resolve(OUT, 'us-maryland-latest.osm.pbf'),            bbox: '-79.49,37.88,-74.95,39.73',    clipped: resolve(OUT, 'clip-maryland.osm.pbf'), pending: true, heightJoin: 'usas' },   // 214,022,414 B
+  { name: 'massachusetts',     pbfUrl: 'https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf',          pbf: resolve(OUT, 'us-massachusetts-latest.osm.pbf'),       bbox: '-73.52,40.88,-68.73,42.89',    clipped: resolve(OUT, 'clip-massachusetts.osm.pbf'), pending: true, heightJoin: 'usas' },   // 309,938,097 B
+  { name: 'michigan',          pbfUrl: 'https://download.geofabrik.de/north-america/us/michigan-latest.osm.pbf',               pbf: resolve(OUT, 'us-michigan-latest.osm.pbf'),            bbox: '-90.42,41.69,-82.06,48.36',    clipped: resolve(OUT, 'clip-michigan.osm.pbf'), pending: true, heightJoin: 'usas' },   // 312,212,383 B
+  { name: 'minnesota',         pbfUrl: 'https://download.geofabrik.de/north-america/us/minnesota-latest.osm.pbf',              pbf: resolve(OUT, 'us-minnesota-latest.osm.pbf'),           bbox: '-97.25,43.49,-89.48,49.41',    clipped: resolve(OUT, 'clip-minnesota.osm.pbf'), pending: true, heightJoin: 'usas' },   // 284,816,865 B
+  { name: 'mississippi',       pbfUrl: 'https://download.geofabrik.de/north-america/us/mississippi-latest.osm.pbf',            pbf: resolve(OUT, 'us-mississippi-latest.osm.pbf'),         bbox: '-91.66,30.04,-88.09,35.01',    clipped: resolve(OUT, 'clip-mississippi.osm.pbf'), pending: true, heightJoin: 'usas' },   // 94,080,881 B
+  { name: 'missouri',          pbfUrl: 'https://download.geofabrik.de/north-america/us/missouri-latest.osm.pbf',               pbf: resolve(OUT, 'us-missouri-latest.osm.pbf'),            bbox: '-95.78,35.99,-89.08,40.62',    clipped: resolve(OUT, 'clip-missouri.osm.pbf'), pending: true, heightJoin: 'usas' },   // 194,739,836 B
+  { name: 'montana',           pbfUrl: 'https://download.geofabrik.de/north-america/us/montana-latest.osm.pbf',                pbf: resolve(OUT, 'us-montana-latest.osm.pbf'),             bbox: '-116.06,44.35,-104.03,49.01',  clipped: resolve(OUT, 'clip-montana.osm.pbf'), pending: true, heightJoin: 'usas' },   // 100,022,190 B
+  { name: 'nebraska',          pbfUrl: 'https://download.geofabrik.de/north-america/us/nebraska-latest.osm.pbf',               pbf: resolve(OUT, 'us-nebraska-latest.osm.pbf'),            bbox: '-104.06,40.00,-95.30,43.01',   clipped: resolve(OUT, 'clip-nebraska.osm.pbf'), pending: true, heightJoin: 'usas' },   // 100,196,685 B
+  { name: 'nevada',            pbfUrl: 'https://download.geofabrik.de/north-america/us/nevada-latest.osm.pbf',                 pbf: resolve(OUT, 'us-nevada-latest.osm.pbf'),              bbox: '-120.01,35.00,-114.03,42.01',  clipped: resolve(OUT, 'clip-nevada.osm.pbf'), pending: true, heightJoin: 'usas' },   // 122,949,898 B
+  { name: 'newhampshire',      pbfUrl: 'https://download.geofabrik.de/north-america/us/new-hampshire-latest.osm.pbf',          pbf: resolve(OUT, 'us-new-hampshire-latest.osm.pbf'),       bbox: '-72.56,42.69,-70.48,45.32',    clipped: resolve(OUT, 'clip-newhampshire.osm.pbf'), pending: true, heightJoin: 'usas' },   // 71,238,020 B
+  { name: 'newjersey',         pbfUrl: 'https://download.geofabrik.de/north-america/us/new-jersey-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-jersey-latest.osm.pbf'),          bbox: '-75.58,38.75,-73.67,41.36',    clipped: resolve(OUT, 'clip-newjersey.osm.pbf'), pending: true, heightJoin: 'usas' },   // 163,381,257 B
+  { name: 'newmexico',         pbfUrl: 'https://download.geofabrik.de/north-america/us/new-mexico-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-mexico-latest.osm.pbf'),          bbox: '-109.06,31.33,-102.99,37.01',  clipped: resolve(OUT, 'clip-newmexico.osm.pbf'), pending: true, heightJoin: 'usas' },   // 136,029,857 B
+  { name: 'newyork',           pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',               pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-79.77,40.43,-71.66,45.02',    clipped: resolve(OUT, 'clip-newyork.osm.pbf'), heightJoin: 'usas' },   // 495,982,594 B
+  { name: 'northcarolina',     pbfUrl: 'https://download.geofabrik.de/north-america/us/north-carolina-latest.osm.pbf',         pbf: resolve(OUT, 'us-north-carolina-latest.osm.pbf'),      bbox: '-84.33,33.12,-73.73,36.59',    clipped: resolve(OUT, 'clip-northcarolina.osm.pbf'), pending: true, heightJoin: 'usas' },   // 427,872,491 B
+  { name: 'northdakota',       pbfUrl: 'https://download.geofabrik.de/north-america/us/north-dakota-latest.osm.pbf',           pbf: resolve(OUT, 'us-north-dakota-latest.osm.pbf'),        bbox: '-104.06,45.93,-96.55,49.02',   clipped: resolve(OUT, 'clip-northdakota.osm.pbf'), pending: true, heightJoin: 'usas' },   // 127,788,199 B
+  { name: 'ohio',              pbfUrl: 'https://download.geofabrik.de/north-america/us/ohio-latest.osm.pbf',                   pbf: resolve(OUT, 'us-ohio-latest.osm.pbf'),                bbox: '-84.83,38.40,-80.50,42.34',    clipped: resolve(OUT, 'clip-ohio.osm.pbf'), pending: true, heightJoin: 'usas' },   // 322,887,573 B
+  { name: 'oklahoma',          pbfUrl: 'https://download.geofabrik.de/north-america/us/oklahoma-latest.osm.pbf',               pbf: resolve(OUT, 'us-oklahoma-latest.osm.pbf'),            bbox: '-103.01,33.61,-94.42,37.01',   clipped: resolve(OUT, 'clip-oklahoma.osm.pbf'), pending: true, heightJoin: 'usas' },   // 168,284,935 B
+  { name: 'oregon',            pbfUrl: 'https://download.geofabrik.de/north-america/us/oregon-latest.osm.pbf',                 pbf: resolve(OUT, 'us-oregon-latest.osm.pbf'),              bbox: '-126.39,41.96,-116.45,46.31',  clipped: resolve(OUT, 'clip-oregon.osm.pbf'), pending: true, heightJoin: 'usas' },   // 253,351,822 B
+  { name: 'pennsylvania',      pbfUrl: 'https://download.geofabrik.de/north-america/us/pennsylvania-latest.osm.pbf',           pbf: resolve(OUT, 'us-pennsylvania-latest.osm.pbf'),        bbox: '-80.53,39.66,-74.68,42.52',    clipped: resolve(OUT, 'clip-pennsylvania.osm.pbf'), pending: true, heightJoin: 'usas' },   // 346,220,783 B
   // ⛔ SLUG COLLISION, CAUGHT BY THE GATE AND RENAMED — NOT `puertorico`. `terrain.mjs` already has a
   // §1b CITY row `puertorico` at [-15.7804, 27.7294, -15.6404, 27.8494]: that is Puerto Rico de Gran
   // Canaria, a Spanish resort town, source 'es' (CNIG), with a LIVE tileset at `terrain/puertorico/`.
   // Two different places, one R2 path — `terrain.mjs --check-client-coverage` refused it by name
   // ("slug 'puertorico' is BOTH a client city and a client region"). The US Commonwealth takes
   // `puertoricousa`; the Canarian town keeps the slug it already publishes under.
-  { name: 'puertoricousa',        pbfUrl: 'https://download.geofabrik.de/north-america/us/puerto-rico-latest.osm.pbf',            pbf: resolve(OUT, 'us-puerto-rico-latest.osm.pbf'),         bbox: '-68.32,17.51,-65.09,18.82',    clipped: resolve(OUT, 'clip-puertoricousa.osm.pbf'), pending: true },   // 73,899,842 B
-  { name: 'rhodeisland',       pbfUrl: 'https://download.geofabrik.de/north-america/us/rhode-island-latest.osm.pbf',           pbf: resolve(OUT, 'us-rhode-island-latest.osm.pbf'),        bbox: '-71.92,40.99,-71.06,42.02',    clipped: resolve(OUT, 'clip-rhodeisland.osm.pbf'), pending: true },   // 52,091,340 B
-  { name: 'southcarolina',     pbfUrl: 'https://download.geofabrik.de/north-america/us/south-carolina-latest.osm.pbf',         pbf: resolve(OUT, 'us-south-carolina-latest.osm.pbf'),      bbox: '-83.36,32.02,-78.51,35.22',    clipped: resolve(OUT, 'clip-southcarolina.osm.pbf'), pending: true },   // 163,161,761 B
-  { name: 'southdakota',       pbfUrl: 'https://download.geofabrik.de/north-america/us/south-dakota-latest.osm.pbf',           pbf: resolve(OUT, 'us-south-dakota-latest.osm.pbf'),        bbox: '-104.06,42.47,-96.43,45.95',   clipped: resolve(OUT, 'clip-southdakota.osm.pbf'), pending: true },   // 48,780,228 B
-  { name: 'tennessee',         pbfUrl: 'https://download.geofabrik.de/north-america/us/tennessee-latest.osm.pbf',              pbf: resolve(OUT, 'us-tennessee-latest.osm.pbf'),           bbox: '-90.32,34.98,-81.64,36.69',    clipped: resolve(OUT, 'clip-tennessee.osm.pbf'), pending: true },   // 188,952,243 B
-  { name: 'texas',             pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',                  pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-106.65,25.69,-93.01,36.53',   clipped: resolve(OUT, 'clip-texas.osm.pbf'), pending: true },   // 718,093,892 B
+  { name: 'puertoricousa',        pbfUrl: 'https://download.geofabrik.de/north-america/us/puerto-rico-latest.osm.pbf',            pbf: resolve(OUT, 'us-puerto-rico-latest.osm.pbf'),         bbox: '-68.32,17.51,-65.09,18.82',    clipped: resolve(OUT, 'clip-puertoricousa.osm.pbf'), pending: true, heightJoin: 'usas' },   // 73,899,842 B
+  { name: 'rhodeisland',       pbfUrl: 'https://download.geofabrik.de/north-america/us/rhode-island-latest.osm.pbf',           pbf: resolve(OUT, 'us-rhode-island-latest.osm.pbf'),        bbox: '-71.92,40.99,-71.06,42.02',    clipped: resolve(OUT, 'clip-rhodeisland.osm.pbf'), pending: true, heightJoin: 'usas' },   // 52,091,340 B
+  { name: 'southcarolina',     pbfUrl: 'https://download.geofabrik.de/north-america/us/south-carolina-latest.osm.pbf',         pbf: resolve(OUT, 'us-south-carolina-latest.osm.pbf'),      bbox: '-83.36,32.02,-78.51,35.22',    clipped: resolve(OUT, 'clip-southcarolina.osm.pbf'), pending: true, heightJoin: 'usas' },   // 163,161,761 B
+  { name: 'southdakota',       pbfUrl: 'https://download.geofabrik.de/north-america/us/south-dakota-latest.osm.pbf',           pbf: resolve(OUT, 'us-south-dakota-latest.osm.pbf'),        bbox: '-104.06,42.47,-96.43,45.95',   clipped: resolve(OUT, 'clip-southdakota.osm.pbf'), pending: true, heightJoin: 'usas' },   // 48,780,228 B
+  { name: 'tennessee',         pbfUrl: 'https://download.geofabrik.de/north-america/us/tennessee-latest.osm.pbf',              pbf: resolve(OUT, 'us-tennessee-latest.osm.pbf'),           bbox: '-90.32,34.98,-81.64,36.69',    clipped: resolve(OUT, 'clip-tennessee.osm.pbf'), pending: true, heightJoin: 'usas' },   // 188,952,243 B
+  { name: 'texas',             pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',                  pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-106.65,25.69,-93.01,36.53',   clipped: resolve(OUT, 'clip-texas.osm.pbf'), pending: true, heightJoin: 'usas' },   // 718,093,892 B
   { name: 'usvirginislands',   pbfUrl: 'https://download.geofabrik.de/north-america/us/us-virgin-islands-latest.osm.pbf',      pbf: resolve(OUT, 'us-us-virgin-islands-latest.osm.pbf'),   bbox: '-65.18,17.28,-63.95,18.49',    clipped: resolve(OUT, 'clip-usvirginislands.osm.pbf'), pending: true },   // 3,121,695 B
-  { name: 'utah',              pbfUrl: 'https://download.geofabrik.de/north-america/us/utah-latest.osm.pbf',                   pbf: resolve(OUT, 'us-utah-latest.osm.pbf'),                bbox: '-114.06,36.99,-109.03,42.01',  clipped: resolve(OUT, 'clip-utah.osm.pbf'), pending: true },   // 168,166,581 B
-  { name: 'vermont',           pbfUrl: 'https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf',                pbf: resolve(OUT, 'us-vermont-latest.osm.pbf'),             bbox: '-73.44,42.72,-71.46,45.03',    clipped: resolve(OUT, 'clip-vermont.osm.pbf'), pending: true },   // 45,855,328 B
-  { name: 'virginia',          pbfUrl: 'https://download.geofabrik.de/north-america/us/virginia-latest.osm.pbf',               pbf: resolve(OUT, 'us-virginia-latest.osm.pbf'),            bbox: '-83.68,36.53,-74.29,39.47',    clipped: resolve(OUT, 'clip-virginia.osm.pbf'), pending: true },   // 427,195,858 B
-  { name: 'washington',        pbfUrl: 'https://download.geofabrik.de/north-america/us/washington-latest.osm.pbf',             pbf: resolve(OUT, 'us-washington-latest.osm.pbf'),          bbox: '-126.75,45.53,-116.91,49.01',  clipped: resolve(OUT, 'clip-washington.osm.pbf'), pending: true },   // 362,671,564 B
-  { name: 'westvirginia',      pbfUrl: 'https://download.geofabrik.de/north-america/us/west-virginia-latest.osm.pbf',          pbf: resolve(OUT, 'us-west-virginia-latest.osm.pbf'),       bbox: '-82.65,37.19,-77.71,40.65',    clipped: resolve(OUT, 'clip-westvirginia.osm.pbf'), pending: true },   // 98,660,968 B
-  { name: 'wisconsin',         pbfUrl: 'https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf',              pbf: resolve(OUT, 'us-wisconsin-latest.osm.pbf'),           bbox: '-92.90,42.48,-86.20,47.42',    clipped: resolve(OUT, 'clip-wisconsin.osm.pbf'), pending: true },   // 292,438,555 B
-  { name: 'wyoming',           pbfUrl: 'https://download.geofabrik.de/north-america/us/wyoming-latest.osm.pbf',                pbf: resolve(OUT, 'us-wyoming-latest.osm.pbf'),             bbox: '-111.06,40.98,-103.94,45.02',  clipped: resolve(OUT, 'clip-wyoming.osm.pbf'), pending: true },   // 93,093,666 B
+  { name: 'utah',              pbfUrl: 'https://download.geofabrik.de/north-america/us/utah-latest.osm.pbf',                   pbf: resolve(OUT, 'us-utah-latest.osm.pbf'),                bbox: '-114.06,36.99,-109.03,42.01',  clipped: resolve(OUT, 'clip-utah.osm.pbf'), pending: true, heightJoin: 'usas' },   // 168,166,581 B
+  { name: 'vermont',           pbfUrl: 'https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf',                pbf: resolve(OUT, 'us-vermont-latest.osm.pbf'),             bbox: '-73.44,42.72,-71.46,45.03',    clipped: resolve(OUT, 'clip-vermont.osm.pbf'), pending: true, heightJoin: 'usas' },   // 45,855,328 B
+  { name: 'virginia',          pbfUrl: 'https://download.geofabrik.de/north-america/us/virginia-latest.osm.pbf',               pbf: resolve(OUT, 'us-virginia-latest.osm.pbf'),            bbox: '-83.68,36.53,-74.29,39.47',    clipped: resolve(OUT, 'clip-virginia.osm.pbf'), pending: true, heightJoin: 'usas' },   // 427,195,858 B
+  { name: 'washington',        pbfUrl: 'https://download.geofabrik.de/north-america/us/washington-latest.osm.pbf',             pbf: resolve(OUT, 'us-washington-latest.osm.pbf'),          bbox: '-126.75,45.53,-116.91,49.01',  clipped: resolve(OUT, 'clip-washington.osm.pbf'), pending: true, heightJoin: 'usas' },   // 362,671,564 B
+  { name: 'westvirginia',      pbfUrl: 'https://download.geofabrik.de/north-america/us/west-virginia-latest.osm.pbf',          pbf: resolve(OUT, 'us-west-virginia-latest.osm.pbf'),       bbox: '-82.65,37.19,-77.71,40.65',    clipped: resolve(OUT, 'clip-westvirginia.osm.pbf'), pending: true, heightJoin: 'usas' },   // 98,660,968 B
+  { name: 'wisconsin',         pbfUrl: 'https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf',              pbf: resolve(OUT, 'us-wisconsin-latest.osm.pbf'),           bbox: '-92.90,42.48,-86.20,47.42',    clipped: resolve(OUT, 'clip-wisconsin.osm.pbf'), pending: true, heightJoin: 'usas' },   // 292,438,555 B
+  { name: 'wyoming',           pbfUrl: 'https://download.geofabrik.de/north-america/us/wyoming-latest.osm.pbf',                pbf: resolve(OUT, 'us-wyoming-latest.osm.pbf'),             bbox: '-111.06,40.98,-103.94,45.02',  clipped: resolve(OUT, 'clip-wyoming.osm.pbf'), pending: true, heightJoin: 'usas' },   // 93,093,666 B
   // ─────────────────────────────────────────────────────────────────────────
   // §BAKE-NORTHAMERICA (2026-09-06, lane MEXICO-CANADA) — MEXICO (one national row) + CANADA (13
   // province/territory rows). Both countries were absent from this table ENTIRELY until today, so a
@@ -1307,7 +1329,18 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'ndh_no') return NO_NDH_CITY_BBOXES.map((c) => c.bbox);   // §NDH-NO-OSM-JOIN (HEIGHTS-NORDICS) — whole `norway`
   if (r.heightJoin === 'ee_etak') return EE_CITY_BBOXES.map((c) => c.bbox);      // §EE-ETAK-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `estonia`, four cities
   if (r.heightJoin === 'be_dhmv') return BE_CITY_BBOXES.map((c) => c.bbox);      // §BE-DHMV-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `belgium`, five cities
-  if (r.heightJoin === 'us_open') return US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name).map((c) => c.bbox); // §US-OPEN-HEIGHTS-OSM-JOIN — the metro's OWN row bbox
+  // (`us_open` had a branch here until 2026-09-06 — `US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name)`,
+  // the metro's OWN box. No row declares that key now; the three CITY channels are served per footprint by
+  // the `usas` stamp instead, which is why US_OPEN_CITY_BBOXES is still imported above.)
+  // §USAS-NATIONAL-SWEEP (2026-09-06, lane USA-HEIGHTS-NATIONAL) — `usas` retains the WHOLE COUNTRY,
+  // not a city list, for exactly the reason `mds` does above: a retain set narrower than the ground a
+  // user can drop a site on is a PERMANENT, SILENT hole, because an unstamped footprint ships an
+  // honest `assumed` 9 m that is indistinguishable from "the source has no data here" (L-12946 /
+  // L-12947). Four boxes — CONUS, Alaska, Hawai'i, Puerto Rico — each chosen to CONTAIN every
+  // §BAKE-US-STATES row it serves, so no baked US ground is outside the join's reach. The two rows
+  // deliberately left out (`alaskaaleutians`, `usvirginislands`) are measured-zero at the source and
+  // must not declare this join — see US_NATIONAL_NO_HEIGHT_ROWS in heights/usOpenHeights.mjs.
+  if (r.heightJoin === 'usas') return US_NATIONAL_BBOXES.map((c) => c.bbox);
   if (r.heightJoin === 'ca_open') return CA_OPEN_CITY_BBOXES.filter((c) => c.region === r.name).map((c) => c.bbox); // §CA-OPEN-HEIGHTS-OSM-JOIN — the PROVINCE's own city (britishcolumbia→vancouver, ontario→toronto); filtered like us_open because the two jurisdictions sit in DIFFERENT bake rows
   if (r.heightJoin === 'lod2de') return DE_LOD2_CITY_BBOXES.map((c) => c.bbox);   // §DE-LOD2-LAENDER-OSM-JOIN — whole `germany`, one city per WIRED Land
   if (r.heightJoin === 'plateau_jp') return JP_CITY_BBOXES.map((c) => c.bbox);    // §PLATEAU-JP-OSM-JOIN (JAPAN-FULL) — whole `japan`, ten cities (38 PLATEAU municipalities cover them, MEASURED 2026-09-06)
@@ -1360,10 +1393,33 @@ const NATIONAL_STAMP_TABLE = {
   ee_etak: { stamp: stampEeEtakHeightsOnGeojsonseq, bboxes: EE_CITY_BBOXES },
   // §BE-DHMV-OSM-JOIN — whole `belgium`: DHMV II DSM 1 m − DTM 1 m per 500 m Lambert-72 tile, keyless WCS (heights/beHeightsStamp.mjs).
   be_dhmv: { stamp: stampBeDhmvHeightsOnGeojsonseq, bboxes: BE_CITY_BBOXES },
-  // §US-OPEN-HEIGHTS-OSM-JOIN — newyork / sanfrancisco / boston metro rows: NYC height_roof (ft) · SF LiDAR hgt_maxcm
-  // (cm) · Boston BPDA BLDG_HGT_2010 (ft), vectors from each city's own open portal, one metre per OSM footprint
-  // (tallest contained part). stampBboxesFor filters US_OPEN_CITY_BBOXES to the row's OWN bbox (heights/usOpenHeightsStamp.mjs).
-  us_open: { stamp: stampUsOpenHeightsOnGeojsonseq, bboxes: US_OPEN_CITY_BBOXES },
+  // ⛔ THE `us_open` KEY WAS REMOVED HERE 2026-09-06 (lane USA-HEIGHTS-NATIONAL) — NOT as tidying, and the
+  // three CITY channels it named are NOT gone. NYC height_roof (ft), DataSF hgt_maxcm (LiDAR zonal max, cm)
+  // and Boston BPDA BLDG_HGT_2010 (ft) are all still read, VERBATIM, from the SAME adapters in
+  // heights/usOpenHeights.mjs — the `usas` stamp below resolves them FIRST per footprint
+  // (`usOpenChannelForPoint`). What went is the KEY, because a row declaring it reached only its own metro
+  // box and left the rest of that state on the 9 m carpet. ⚠ heights/usOpenHeightsStamp.mjs is therefore
+  // now imported by NOTHING: a NAMED orphan, not a hidden one. Its 171 lines are superseded by
+  // heights/usasNationalStamp.mjs (which is the same stamp plus an ordered sweep, a resume cursor and
+  // bounded-heap swathes); deleting it belongs to the lane that wrote it (HEIGHTS-US), not to this one.
+  // §USAS-NATIONAL-HEIGHTS — the WHOLE UNITED STATES: FEMA/ORNL "USA Structures" HEIGHT (metres, the NGA
+  // LiDAR-derived subset of 135,321,228 structures), ONE keyless CC-BY-4.0 ArcGIS FeatureServer, swept in
+  // deterministic south→north order at 0.02° with a resume cursor (USAS_SWEEP_CURSOR) and loud truncation
+  // (heights/usasNationalStamp.mjs). A height implies SOURCE='NGA' and the ORNL half NEVER carries one, so an
+  // unmeasured footprint gets NOTHING — never a modelled number (Overture's and Microsoft's US heights are
+  // ESTIMATES that saturate at ~34.7 m and are deliberately NOT wired; US_NATIONAL_ASSESSED carries the exact
+  // HTTP answers). NYC / SF / Boston keep their OWN city channel inside their own bboxes
+  // (usOpenChannelForPoint), because USA Structures under-reads tall towers — same Midtown cell, NYC 270.6 m
+  // vs USAS 170.5 m. ⭐ CLOSED THE SAME DAY IT WAS OPENED: this comment used to end "⚠ OWED … the three rows
+  // that declare heightJoin:'us_open' (newyork / california / massachusetts) still reach ONLY their city
+  // bbox … Left to the lane that owns those rows." This IS that lane, and leaving a founder-visible hole
+  // ("all EEUU — I want complete country coverage") as an owed note inside the commit that could close it
+  // would have been the §AUTHORED-BUT-UNWIRED shape. All three moved to 'usas'; the city channels still win
+  // per footprint; Buffalo / Fresno / Sacramento / Worcester were count-probed non-zero first.
+  // ⚠ THE HEAP BOUND IS PART OF THE WIRING, not an optimisation: `usas` retains the whole COUNTRY, so a
+  // whole-STATE row is streamed one §USAS-SWATHE band at a time. Without it California's retain pass is the
+  // 4.04 GB abort of run 30693132326 with a bigger input, and an `error` here EXITS 4.
+  usas: { stamp: stampUsasNationalHeightsOnGeojsonseq, bboxes: US_NATIONAL_BBOXES, opts: { swatheRows: USAS_SWATHE_ROWS } },
   // §EA-LIDAR-GB-OSM-JOIN — whole `greatbritain`: EA First-Return DSM − DTM per OS 1 km square, England working set
   // (heights/ealidarGbStamp.mjs). Scotland squares are refused before any request (outside the served envelope);
   // Wales answers zero-fill and is counted as VOID, never ground.
@@ -1682,7 +1738,11 @@ async function pushBuildingsWithNationalHeights(r, baseGeo, geos) {
     const wsen = r.bbox.split(',').map(Number);
     const retainBboxes = stampBboxesFor(r); // §HEIGHT-STAMP-BUDGET — the table's city list, never the nation
     let res;
-    try { res = await tableStamp.stamp(baseGeo, stamped, wsen, { maxTiles: 20000, retainBboxes }); }
+    // §USAS-SWATHE — `opts` is how a table row declares options the shared call cannot guess. Only `usas`
+    // uses it today, and what it declares is its HEAP BOUND: its retain set is the whole COUNTRY, so a
+    // whole-STATE row must be streamed one band of tile rows at a time or the partition holds every
+    // footprint in the state (~1,256 B each) and the join returns `error`, which EXITS 4.
+    try { res = await tableStamp.stamp(baseGeo, stamped, wsen, { maxTiles: 20000, retainBboxes, ...(tableStamp.opts ?? {}) }); }
     catch (e) { res = { status: 'error', reason: e.message }; }
     recordNationalStampOutcome(r, res, stamped, baseGeo, geos);
     return;

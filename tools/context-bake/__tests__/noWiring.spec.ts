@@ -66,7 +66,11 @@ describe('§NDH-NO-OSM-JOIN — bake.mjs wires the ndh_no stamp for the `norway`
     });
 
     it('the table path calls the stamp with the retained working set and records the outcome for the §MEASURED-HEIGHT-GATE', () => {
-        expect(bake).toMatch(/res = await tableStamp\.stamp\(baseGeo, stamped, wsen, \{ maxTiles: 20000, retainBboxes \}\)/);
+        // ⚠ WIDENED 2026-09-06 (lane USA-HEIGHTS-NATIONAL): the shared call gained `...(tableStamp.opts ?? {})`
+        // so a table row can declare its own options — `usas` passes the swathe HEAP BOUND its whole-state rows
+        // need. `ndh_no` declares none, so the spread is a no-op for it; what this pin asserts, the retained
+        // working set reaching the stamp, is unchanged.
+        expect(bake).toMatch(/res = await tableStamp\.stamp\(baseGeo, stamped, wsen, \{ maxTiles: 20000, retainBboxes,/);
         // BOTH dispatch paths feed the gate through the ONE shared recorder — count the call sites.
         const calls = bake.match(/recordNationalStampOutcome\(r, res, stamped, baseGeo, geos\);/g) ?? [];
         expect(calls.length, 'two call sites: table path + pinned chain').toBe(2);

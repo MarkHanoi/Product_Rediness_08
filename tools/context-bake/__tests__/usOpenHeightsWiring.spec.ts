@@ -1,15 +1,33 @@
-// §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US) — the WIRING of the first US measured-height
-// stamp, pinned.
+// §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US) — the WIRING of the US per-CITY measured-height
+// channels, pinned.
 //
-// The France (L-12910), Switzerland (L-12883) and Australia stamps were each BUILT and imported by nothing
-// for a day: a measured-height channel one import away while the region baked honest 9 m defaults and
-// rendered as ghosts. This spec exists so the US stamp cannot repeat that shape silently. bake.mjs runs
-// main() on import and cannot be loaded by vitest, so — like swissWiring.spec.ts / auOpenHeightsWiring
-// .spec.ts — the wiring is asserted on the TEXT, one assertion per place the join is wired, because
-// "exactly like mds" is the design rule (bake.mjs §MDS-OSM-JOIN). heightSources.mjs is read the same way.
+// ⭐ REWRITTEN 2026-09-06 (lane USA-HEIGHTS-NATIONAL), and the reason matters more than the diff. This
+// spec used to assert that `newyork` / `california` / `massachusetts` declare `heightJoin:'us_open'`,
+// that `illinois` / `texas` declare NO heightJoin, and that bake.mjs dispatches `us_open` through
+// NATIONAL_STAMP_TABLE. All three are now false, ON PURPOSE:
 //
-// The stamp lives in heights/usOpenHeightsStamp.mjs (NOT heightSources.mjs — §SHARED-FILE-COLLISION) and
-// bake.mjs imports it DIRECTLY, so the pin is on that import line, not on the shared heightSources import.
+//   • `us_open` reaches ONE metro box per state. While those three rows carried it, they DECLARED a
+//     measured-height join and delivered it to Manhattan, San Francisco and Boston only — Buffalo,
+//     Fresno, Sacramento, Worcester and Los Angeles rendered the fabricated 9 m carpet inside a state
+//     that claimed heights. That is the §MDS-NATIONAL-SWEEP / Ciudad Real defect (L-12946) with a
+//     bigger denominator, and the founder asked for the opposite ("all EEUU — complete country
+//     coverage"). Every US row now declares `heightJoin:'usas'`.
+//   • `illinois` / `texas` declaring NO join was the honest answer while the only US channels were
+//     three city portals (Chicago's own footprints carry `stories`, not a height — probed). It stopped
+//     being the honest answer the moment a NATIONAL layer was wired: FEMA/ORNL "USA Structures" serves
+//     1,641,197 height-bearing structures in Illinois and 3,530,320 in Texas.
+//
+// ⭐ WHAT DID **NOT** CHANGE, and is what this file still exists to pin: the three CITY channels are
+// still read, from the same adapters, with the same working-set boxes, byte for byte. The national
+// stamp resolves the CITY channel FIRST per FOOTPRINT (`usOpenChannelForPoint`), because USA Structures
+// UNDER-READS tall towers — same Midtown cell, NYC height_roof 270.6 m vs USA Structures 170.5 m. So the
+// question this spec answers is no longer "is us_open wired" but "did the national move quietly cost the
+// three cities their own authority survey". It did not, and here is the proof.
+//
+// The national wiring itself is pinned in usasNationalWiring.spec.ts.
+//
+// bake.mjs runs main() on import and cannot be loaded by vitest, so the wiring is asserted on the TEXT,
+// as swissWiring.spec.ts / auOpenHeightsWiring.spec.ts do. heightSources.mjs is read the same way.
 //
 // LAYERING: a build/inspection tool test — no OTel span (P8 applies to exported package functions).
 import { describe, it, expect } from 'vitest';
@@ -20,70 +38,91 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const bake = readFileSync(resolve(HERE, '../bake.mjs'), 'utf8');
 const hs = readFileSync(resolve(HERE, '../heightSources.mjs'), 'utf8');
-const stamp = readFileSync(resolve(HERE, '../heights/usOpenHeightsStamp.mjs'), 'utf8');
-const WIRED = ['newyork', 'sanfrancisco', 'boston'];
-const NOT_WIRED = ['chicago', 'austin', 'houston'];
+const stamp = readFileSync(resolve(HERE, '../heights/usasNationalStamp.mjs'), 'utf8');
+// ⭐ §BAKE-US-STATES (2026-09-06, lane USA-ALL-STATES) — the ROWS these joins hang on are whole STATES
+// now, not metro clips. The METRO keys (newyork / sanfrancisco / boston) and every probed number are
+// unchanged; only the bake row moved: sanfrancisco → `california`, boston → `massachusetts`, and
+// `newyork` kept its slug while widening Manhattan → the whole state.
+const CITY_STATES = ['newyork', 'california', 'massachusetts'];
+const RETIRED_METROS = ['sanfrancisco', 'chicago', 'austin', 'houston', 'boston'];
 
-describe('§US-OPEN-HEIGHTS-OSM-JOIN — bake.mjs wires the us_open stamp for the newyork / sanfrancisco / boston rows', () => {
-    it('imports the stamp from heights/usOpenHeightsStamp.mjs and the working set from heights/usOpenHeights.mjs', () => {
-        expect(bake).toMatch(/^import \{ stampUsOpenHeightsOnGeojsonseq \} from '\.\/heights\/usOpenHeightsStamp\.mjs';/m);
-        expect(bake).toMatch(/^import \{ US_OPEN_CITY_BBOXES \} from '\.\/heights\/usOpenHeights\.mjs';/m);
+describe('§US-OPEN-HEIGHTS-OSM-JOIN — the three CITY channels survived the move to the national join', () => {
+    it('bake.mjs imports the city working set from heights/usOpenHeights.mjs (the adapters are still read)', () => {
+        expect(bake).toMatch(/^import \{ US_NATIONAL_BBOXES, US_OPEN_CITY_BBOXES, USAS_SWATHE_ROWS \} from '\.\/heights\/usOpenHeights\.mjs';/m);
     });
 
-    it("each wired metro row declares heightJoin:'us_open'", () => {
-        for (const name of WIRED) {
+    it("the three CITY states declare heightJoin:'usas', which is a SUPERSET of what they had", () => {
+        for (const name of CITY_STATES) {
             const row = bake.match(new RegExp(`\\{\\s*name:\\s*'${name}'\\s*,[^\\n]*\\}`));
             expect(row, `${name} row`).not.toBeNull();
-            expect(row![0], name).toMatch(/heightJoin:\s*'us_open'/);
+            expect(row![0], name).toMatch(/heightJoin: 'usas'/);
         }
     });
 
-    it('no OTHER US metro row declares a heightJoin (chicago has stories, not a height — probed; austin/houston have no channel)', () => {
-        for (const name of NOT_WIRED) {
-            const row = bake.match(new RegExp(`\\{\\s*name:\\s*'${name}'\\s*,[^\\n]*\\}`));
-            expect(row, `${name} row`).not.toBeNull();
-            expect(row![0], `${name} must not declare a heightJoin`).not.toMatch(/heightJoin/);
+    it('⭐ the national stamp resolves the CITY channel FIRST, per FOOTPRINT — not per cell, not nation-first', () => {
+        // This is the ONLY thing standing between Manhattan and a 100 m under-read. If this line ever
+        // becomes `usNationalCovers(...) ? US_NATIONAL_HEIGHTS.usas : city`, the CI gate row
+        // `manhattan newyork … 500` still PASSES (there are plenty of USA Structures heights in
+        // Midtown) while every NYC tower silently loses ~100 m. A count gate cannot see that; this can.
+        expect(stamp).toMatch(/const ch = usOpenChannelForPoint\(fp\.clon, fp\.clat\);/);
+        const pure = readFileSync(resolve(HERE, '../heights/usOpenHeights.mjs'), 'utf8');
+        const fn = pure.match(/export function usOpenChannelForPoint\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+        expect(fn, 'usOpenChannelForPoint').not.toBeNull();
+        expect(fn![1]).toMatch(/const city = usOpenMetroForPoint\(lon, lat, cities\);\s*\n\s*if \(city\) return city;/);
+    });
+
+    it('the metro rows they replaced are GONE, so nothing double-bakes the same ground', () => {
+        for (const gone of RETIRED_METROS) {
+            expect(bake, `${gone} metro row must be retired`).not.toMatch(new RegExp(`\\{\\s*name:\\s*'${gone}'\\s*,\\s*pbfUrl`));
         }
     });
 
-    it('stampBboxesFor bounds each us_open region to ITS OWN US_OPEN_CITY_BBOXES row (§HEIGHT-STAMP-BUDGET preflight)', () => {
-        const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
-        expect(fn, 'stampBboxesFor').not.toBeNull();
-        expect(fn![1]).toMatch(/r\.heightJoin === 'us_open'\)\s*return US_OPEN_CITY_BBOXES\.filter\(\(c\) => c\.region === r\.name\)\.map\(\(c\) => c\.bbox\)/);
+    it('the WORKING SET is unchanged — US_OPEN_CITY_BBOXES keeps the three metro boxes byte for byte', () => {
+        // Two lanes have now moved what these boxes HANG ON (metro row → state row → national join) and
+        // neither re-derived a number. If a box here ever changes, the change is a new measurement and
+        // must arrive with the probe that produced it.
+        const ws = readFileSync(resolve(HERE, '../heights/usOpenHeights.mjs'), 'utf8');
+        const block = ws.slice(ws.indexOf('export const US_OPEN_CITY_BBOXES'));
+        expect(block).toMatch(/city: 'newyork',\s*metro: 'newyork',\s*region: 'newyork',\s*bbox: \[-74\.03, 40\.70, -73\.91, 40\.82\]/);
+        expect(block).toMatch(/city: 'sanfrancisco',\s*metro: 'sanfrancisco',\s*region: 'california',\s*bbox: \[-122\.52, 37\.70, -122\.36, 37\.83\]/);
+        expect(block).toMatch(/city: 'boston',\s*metro: 'boston',\s*region: 'massachusetts',\s*bbox: \[-71\.20, 42\.22, -70\.98, 42\.40\]/);
     });
 
-    it('dispatches us_open through NATIONAL_STAMP_TABLE (the pinned chain admits no new key — swissWiring.spec.ts pins its end), with the retained working set', () => {
-        const table = bake.match(/const NATIONAL_STAMP_TABLE = \{([\s\S]*?)\n\};/);
-        expect(table, 'NATIONAL_STAMP_TABLE').not.toBeNull();
-        expect(table![1]).toMatch(/us_open:\s*\{\s*stamp:\s*stampUsOpenHeightsOnGeojsonseq,\s*bboxes:\s*US_OPEN_CITY_BBOXES\s*\}/);
-        // The table path must reach the SAME gate bookkeeping as the chain, bounded by stampBboxesFor.
-        expect(bake).toMatch(/const tableStamp = NATIONAL_STAMP_TABLE\[r\.heightJoin\];/);
-        expect(bake).toMatch(/const retainBboxes = stampBboxesFor\(r\);[^\n]*\n[^\n]*\n[^\n]*tableStamp\.stamp\(baseGeo, stamped, wsen, \{ maxTiles: 20000, retainBboxes \}\)/);
-        expect(bake).toMatch(/recordNationalStampOutcome\(r, res, stamped, baseGeo, geos\);/);
-        // And the chain must NOT have been extended for it (that would break the sibling pins).
+    it("⛔ no row declares 'us_open' and bake.mjs no longer dispatches it (a row on it re-opens the hole)", () => {
+        expect(bake).not.toMatch(/heightJoin: 'us_open'/);
+        expect(bake).not.toMatch(/us_open: \{ stamp:/);
+        expect(bake).not.toMatch(/import \{ stampUsOpenHeightsOnGeojsonseq \}/);
+        // The pinned dispatch chain must still not have been extended for any US key.
         expect(bake).not.toMatch(/r\.heightJoin === 'us_open'\) res = await/);
     });
 });
 
-describe('§US-OPEN-HEIGHTS — heightSources.mjs routes the three metros to the live source; chicago/austin/houston stay documented', () => {
-    it("REGION_SOURCE maps newyork / sanfrancisco / boston → 'us_open_heights' and chicago / austin / houston → 'overture_us'", () => {
-        // Several regions share one REGION_SOURCE line (`newyork: …, sanfrancisco: …,`), so anchor on a
+describe('§US-OPEN-HEIGHTS — heightSources.mjs sends every US row to the LIVE national source', () => {
+    it("REGION_SOURCE maps the three city states AND illinois / texas to 'usas_national'", () => {
+        // Several regions share one REGION_SOURCE line (`newyork: …, california: …,`), so anchor on a
         // preceding line start / whitespace, not on the line start alone.
-        for (const name of WIRED) expect(hs, name).toMatch(new RegExp(`(^|[\\s,])${name}:\\s*'us_open_heights'`, 'm'));
-        for (const name of NOT_WIRED) expect(hs, name).toMatch(new RegExp(`(^|[\\s,])${name}:\\s*'overture_us'`, 'm'));
+        for (const name of [...CITY_STATES, 'illinois', 'texas']) {
+            expect(hs, name).toMatch(new RegExp(`(^|[\\s,])${name}:\\s*'usas_national'`, 'm'));
+        }
     });
-    it("SOURCES has us_open_heights (impl:'live') and overture_us stays impl:'documented'", () => {
+
+    it("SOURCES keeps us_open_heights (impl:'live') — its channels are live inside the national stamp", () => {
+        // ⚠ NO REGION MAPS TO IT ANY MORE, and that normally means dead. It is not: all three adapters
+        // are read on every US bake through usOpenChannelForPoint. The entry documents them, and says so.
         expect(hs).toMatch(/us_open_heights:\s*\{\s*\n?\s*country:\s*'us'[^\n]*impl:\s*'live'/);
-        expect(hs).toMatch(/overture_us:\s*\{\s*\n?\s*country:\s*'us'[^\n]*impl:\s*'documented'/);
+        expect(hs).toMatch(/NO REGION MAPS HERE ANY MORE, and the three channels are NOT switched/);
+        expect(hs).toMatch(/usas_national:\s*\{\s*\n?\s*country:\s*'us'[^\n]*impl:\s*'live'/);
     });
-    it('resolveHeights names the exact row edit for a region on us_open_heights without a heightJoin', () => {
+
+    it('resolveHeights points a US region at the join that actually covers it', () => {
         expect(hs).toMatch(/source === 'us_open_heights'/);
-        expect(hs).toMatch(/declares heightJoin:'us_open' in bake\.mjs \(with stampBboxesFor → US_OPEN_CITY_BBOXES\)/);
+        expect(hs).toMatch(/declares heightJoin:'usas' in bake\.mjs \(with stampBboxesFor → US_NATIONAL_BBOXES\)/);
     });
-    it('heightSources.mjs EXPORTS the join helpers the stamp module borrows (so the retained-working-set code is shared, not copied)', () => {
+
+    it('heightSources.mjs EXPORTS the join helpers the stamp modules borrow (shared, not copied)', () => {
         const exp = hs.match(/^export \{([^}]*)\};/gm) ?? [];
         const names = exp.join(' ');
-        for (const h of ['footprintFromFeature', 'stampAreasFor', 'inAnyArea', 'bucketRecords', 'httpGetSafe', 'statsOf']) {
+        for (const h of ['footprintFromFeature', 'stampAreasFor', 'inAnyArea', 'bucketRecords', 'httpGetSafe', 'statsOf', 'appendFileInto']) {
             expect(names, `heightSources.mjs must export ${h}`).toMatch(new RegExp(`\\b${h}\\b`));
         }
         expect(hs).toMatch(/^export const MEASURED_HEIGHT_SRC_TAG = 'pryzm:height_src';/m);
@@ -91,29 +130,24 @@ describe('§US-OPEN-HEIGHTS — heightSources.mjs routes the three metros to the
     });
 });
 
-describe('§US-OPEN-HEIGHTS — the stamp module keeps FAILURE and EMPTY apart and stamps the measured marker', () => {
-    it('imports the shared helpers from heightSources.mjs and the decisions from usOpenHeights.mjs', () => {
-        expect(stamp).toMatch(/from '\.\.\/heightSources\.mjs';/);
-        expect(stamp).toMatch(/from '\.\/usOpenHeights\.mjs';/);
-        expect(stamp).toMatch(/^export async function stampUsOpenHeightsOnGeojsonseq\(/m);
-    });
-    it('a refused / undecodable page FAILS the cell (tileErrors), an answered-but-empty cell is voidTiles, and a partial page never stamps', () => {
-        expect(stamp).toMatch(/if \(!rr\.ok\) \{ failed = true; break; \}/);
-        expect(stamp).toMatch(/if \(!page\) \{ failed = true; break; \}/);
-        expect(stamp).toMatch(/if \(failed\) \{ tileErrors\+\+; continue; \}/);
-        expect(stamp).toMatch(/if \(comps\.length === 0\) \{ voidTiles\+\+; continue; \}/);
-        expect(stamp).toMatch(/\[MEASURED_HEIGHT_SRC_TAG\]: MEASURED_HEIGHT_SRC_VALUE/);
-        expect(stamp).toMatch(/heightSource: m\.heightSourceTag/);
-    });
-});
-
-describe('§US-OPEN-HEIGHTS — both CI gates refuse a US metro bake that ships no measured heights', () => {
-    it('context-bake.yml and context-merge-publish.yml carry the manhattan / sanfrancisco / boston rows', () => {
+describe('§US-OPEN-HEIGHTS — both CI gates refuse a US bake that ships no measured heights', () => {
+    it('context-bake.yml and context-merge-publish.yml carry the three CITY gate rows, each naming its STATE region', () => {
+        // A gate row is `<city> <region> <lat,lon> <minMeasured>`. The REGION column had to move with
+        // the bake row (§BAKE-US-STATES) or the gate would hunt for measured heights in a region that
+        // no longer exists — which is exactly how the 2026-09-05 publish failed on ten German rows.
         for (const wf of ['context-bake.yml', 'context-merge-publish.yml']) {
             const text = readFileSync(resolve(HERE, '../../../.github/workflows', wf), 'utf8');
             expect(text, wf).toMatch(/^\s*manhattan newyork 40\.7580,-73\.9855 500$/m);
-            expect(text, wf).toMatch(/^\s*sanfrancisco sanfrancisco 37\.7900,-122\.4000 500$/m);
-            expect(text, wf).toMatch(/^\s*boston boston 42\.3510,-71\.0750 500$/m);
+            expect(text, wf).toMatch(/^\s*sanfrancisco california 37\.7900,-122\.4000 500$/m);
+            expect(text, wf).toMatch(/^\s*boston massachusetts 42\.3510,-71\.0750 500$/m);
+        }
+    });
+
+    it('…and the two NON-metro rows that make "the big cities are stamped" insufficient', () => {
+        for (const wf of ['context-bake.yml', 'context-merge-publish.yml']) {
+            const text = readFileSync(resolve(HERE, '../../../.github/workflows', wf), 'utf8');
+            expect(text, wf).toMatch(/^\s*oakpark illinois 41\.8850,-87\.7840 200$/m);
+            expect(text, wf).toMatch(/^\s*pasadenatx texas 29\.6910,-95\.2090 200$/m);
         }
     });
 });

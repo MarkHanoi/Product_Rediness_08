@@ -51,8 +51,10 @@ import { BE_CITY_BBOXES } from '../heights/beHeights.mjs';
 import { NL_3DBAG_CITY_BBOXES } from '../heights/nl3dbag.mjs';
 import { EA_LIDAR_GB_CITY_BBOXES } from '../heights/ealidarGb.mjs';
 import { DE_LOD2_CITY_BBOXES } from '../heights/deLod2Laender.mjs';
-import { US_OPEN_CITY_BBOXES } from '../heights/usOpenHeights.mjs';
+import { US_NATIONAL_BBOXES } from '../heights/usOpenHeights.mjs';
+import { CA_OPEN_CITY_BBOXES } from '../heights/caOpenHeights.mjs';
 import { AD_CITY_BBOXES } from '../heights/abudhabiNdsm.mjs';
+import { JP_CITY_BBOXES } from '../heights/jpPlateau.mjs';
 import { AU_OPEN_CITY_BBOXES } from '../heights/auOpenHeights.mjs';
 import { MNH_FR_CITY_BBOXES } from '../heights/mnhFr.mjs';
 import { SWISS_CITY_BBOXES } from '../heights/swissNdsm.mjs';
@@ -110,8 +112,18 @@ const WORKING_SET: Record<string, CityRow[] | null> = {
     '3dbag': NL_3DBAG_CITY_BBOXES as CityRow[],
     ealidar_gb: EA_LIDAR_GB_CITY_BBOXES as CityRow[],
     lod2de: DE_LOD2_CITY_BBOXES as CityRow[],
-    us_open: US_OPEN_CITY_BBOXES as CityRow[],
+    // ⭐ §USAS-NATIONAL-HEIGHTS (2026-09-06, lane USA-HEIGHTS-NATIONAL). `us_open` is retired — no bake
+    // row declares it — and the 52 US rows are on `usas`, whose working set IS THE COUNTRY. That is a
+    // PROMOTION out of this audit's central finding, and it is recorded in NATIONAL_RETAIN below rather
+    // than by quietly deleting an expectation.
+    usas: (US_NATIONAL_BBOXES as Array<{ city: string; bbox: Bbox }>).map((b) => ({ city: b.city, bbox: b.bbox })),
+    // ⚠ ADDED BY A PASSING LANE, not by its owner: `ca_open` (lane MEXICO-CANADA, 2026-09-06) was wired
+    // in bake.mjs with no row here, so `expect(WORKING_SET).toHaveProperty(r.join)` was ALREADY failing
+    // on `ontario` / `britishcolumbia` before this lane touched the file. Completing the map is a
+    // one-line honest fix; leaving the suite red so the next lane inherits it is not.
+    ca_open: CA_OPEN_CITY_BBOXES as CityRow[],
     ad_ndsm: AD_CITY_BBOXES as CityRow[],
+    plateau_jp: JP_CITY_BBOXES as CityRow[],   // §PLATEAU-JP-OSM-JOIN (JAPAN-FULL) — whole `japan`, ten cities
     lod2nrw: null,   // city-sized `koln` row (0.02 deg²) — the whole region IS the working set
 };
 
@@ -148,6 +160,11 @@ const IN_REGION_UNREACHABLE: Record<string, ReadonlyArray<readonly [string, numb
     victoria: [['Geelong', 144.360, -38.149], ['Ballarat', 143.850, -37.562], ['Dandenong', 145.215, -37.981]],
     // Abu Dhabi — the mosaic covers the emirate (lon 54.23–56.06); the stamp box is the island core only.
     gccstates: [['Khalifa City', 54.580, 24.420], ['Yas Island', 54.607, 24.499], ['Musaffah', 54.500, 24.350]],
+    // Japan — and this is the SHARPEST row in the table, because the source is NOT the constraint.
+    // All three towns have their OWN published PLATEAU LoD1 building model (measured against the live
+    // index 2026-09-06: 金沢市 FY2024 · 松山市 FY2020 · 那覇市 FY2020), each carrying a per-building LiDAR
+    // measured height. JP_CITY_BBOXES is the only thing between them and a real number.
+    japan: [['Kanazawa', 136.657, 36.561], ['Matsuyama', 132.766, 33.840], ['Naha', 127.681, 26.212]],
 };
 
 const inBox = (lon: number, lat: number, [w, s, e, n]: Bbox) => lon >= w && lon <= e && lat >= s && lat <= n;
@@ -171,9 +188,22 @@ describe('§HEIGHT-JOIN-COVERAGE (L-12947)', () => {
         for (const r of regions) expect(WORKING_SET).toHaveProperty(r.join);
     });
 
-    it('EVERY whole-country height join is bounded by a hand-typed city list, never a country tiling', () => {
+    it('EVERY whole-country height join is bounded by a hand-typed city list, never a country tiling — EXCEPT the ones that got out', () => {
         // The audit's central finding, stated as an invariant so a future whole-country tiling has to
-        // delete this expectation by name rather than quietly satisfy it.
+        // delete this expectation BY NAME rather than quietly satisfy it. ⭐ 2026-09-06, lane
+        // USA-HEIGHTS-NATIONAL: `usas` is the first join to do exactly that, so it is named here, and the
+        // assertion for it is INVERTED — a promoted join must cover essentially ALL of its region, not
+        // less than half of it. Naming it (rather than adding a `continue`) is what makes a REGRESSION
+        // visible: if someone narrows `usas` back to a city list, this arm fails on the ≥ 95 % side.
+        //
+        // ⚠ `mds` IS ALSO NATIONAL IN bake.mjs AND IS DELIBERATELY NOT LISTED HERE. `stampBboxesFor`
+        // returns MDS_NATIONAL_BBOXES for it (§MDS-NATIONAL-SWEEP, L-12946), while WORKING_SET['mds']
+        // above still reads MDS_CITY_BBOXES — so this spec measures a working set Spain no longer uses.
+        // That is a STALE ROW, not a passing one, and it is named rather than fixed here: correcting it
+        // flips the "THE HOLE" arm below (Ciudad Real becomes reachable), which the header requires to be
+        // done in the same commit as a move in HEIGHT-JOIN-COVERAGE-AUDIT.md. That belongs to the MDS
+        // lane, not to this one, and doing it silently from here would be the worse defect.
+        const NATIONAL_RETAIN = new Set(['usas']);
         const deg2 = (b: Bbox) => Math.abs((b[2] - b[0]) * (b[3] - b[1]));
         const national = regions.filter((r) => deg2(r.bbox) > 4.0);   // bake.mjs WHOLE_COUNTRY_DEG2
         expect(national.length).toBeGreaterThanOrEqual(13);
@@ -181,10 +211,17 @@ describe('§HEIGHT-JOIN-COVERAGE (L-12947)', () => {
             const ws = WORKING_SET[r.join];
             expect(ws, `${r.name} declares heightJoin '${r.join}' with no working set`).toBeTruthy();
             expect(ws!.length, `${r.name}: working set`).toBeGreaterThan(0);
+            const covered = ws!.reduce((a, c) => a + deg2(c.bbox), 0) / deg2(r.bbox);
+            if (NATIONAL_RETAIN.has(r.join)) {
+                // The retain set must CONTAIN the region, so the ratio is ≥ 1 for every US state (the
+                // four national boxes total 3,176.8 deg² against, say, texas at 147.9). usasNational
+                // .spec.ts asserts the stronger, geometric version: all four corners of every wired row.
+                expect(covered, `${r.name}: promoted join '${r.join}' must retain its whole region`).toBeGreaterThan(0.95);
+                continue;
+            }
             // The invariant is AREA, not row count: widening a list from 9 boxes to 60 is still a
             // list. Measured 2026-09-06 the worst is norway 0.007 % and the best switzerland 0.537 %,
             // so 50 % is not a threshold anyone trips by adding cities — only by actually tiling.
-            const covered = ws!.reduce((a, c) => a + deg2(c.bbox), 0) / deg2(r.bbox);
             expect(covered, `${r.name}: working set covers ${(covered * 100).toFixed(3)} % of the baked region`)
                 .toBeLessThan(0.5);
         }
@@ -214,9 +251,11 @@ describe('§HEIGHT-JOIN-COVERAGE (L-12947)', () => {
         // docs/04-reference/jurisdictions/HEIGHT-JOIN-COVERAGE-AUDIT.md in the SAME commit, then
         // replace the town here with one that is still unreachable, or delete the region's entry.
         expect(stamped, 'a listed town became reachable — update the audit doc in this commit').toEqual([]);
-        // 15 = the 19 heightJoin regions MINUS `koln` (city-sized, whole region is its own working
-        // set) and the three US metro rows (region bbox == working set, so no hole inside the region).
-        expect(Object.keys(IN_REGION_UNREACHABLE)).toHaveLength(15);
+        // 16 = the whole-country heightJoin regions MINUS `koln` (city-sized, so the whole region IS
+        // its own working set) and the US metro rows (region bbox == working set, no hole inside the
+        // region). ⚠ IT WAS 15 UNTIL 2026-09-06, when lane JAPAN-FULL added `japan` — the row and the
+        // count move together, which is the whole reason this number is asserted rather than derived.
+        expect(Object.keys(IN_REGION_UNREACHABLE)).toHaveLength(16);
     });
 
     // THE STANDARD, recorded as a documented shortfall rather than a red build (see the header).

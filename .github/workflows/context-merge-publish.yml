@@ -295,6 +295,23 @@ jobs:
           #   stuttgart germany 48.7758,9.1829 500
           #   dresden germany 51.0500,13.7400 500
           #   abudhabi gccstates 24.4539,54.3773 500
+          # §USAS-NATIONAL-HEIGHTS (2026-09-06, lane USA-HEIGHTS-NATIONAL) — `oakpark` and `pasadenatx`
+          # make "the big cities are stamped" INSUFFICIENT. manhattan / sanfrancisco / boston are each
+          # served by a CITY channel (NYC height_roof · DataSF LiDAR hgt_maxcm · BPDA BLDG_HGT_2010), so
+          # a publish that carried only those three would pass this gate while every other American town
+          # shipped a fabricated 9 m carpet — the Ciudad Real shape (L-12946/L-12947) with a bigger
+          # denominator. Oak Park, Illinois and Pasadena, Texas are SUBURBS with no open portal of their
+          # own: only the national FEMA/ORNL "USA Structures" join (heightJoin:'usas') can stamp them.
+          # Live-probed 2026-09-06 before being written here — Oak Park 0.01° cell → HTTP 200, 59,433 B,
+          # 810 structures / 760 with a HEIGHT (94 %); Pasadena TX → HTTP 200, 51,291 B, 698 / 653 (94 %).
+          # ⛔ Not Austin-north or Houston-west: both answered HTTP 200 with ZERO heights (ORNL-only
+          # ground). A gate row must be a place the source actually serves. ⛔ Nor Rochester NY, which
+          # this lane count-probed at {"count":0} — inside a WIRED state, and still a source hole.
+          # ⚠ THIS PARAGRAPH WAS WRITTEN BEFORE ITS ROWS, and for a few hours it sat in the working tree
+          # describing two gate rows that were not in the CITIES list below — a comment asserting an
+          # enforcement that did not exist, inside the file whose whole job is enforcement (the L-809
+          # shape). Caught by usasNationalWiring.spec.ts, which asserts the rows in BOTH workflows rather
+          # than in the one that happened to get them. If you ever delete a row, delete this too.
           fail=0
           checked=0
           while read -r name region at min; do
@@ -318,6 +335,8 @@ jobs:
           manhattan newyork 40.7580,-73.9855 500
           sanfrancisco california 37.7900,-122.4000 500
           boston massachusetts 42.3510,-71.0750 500
+          oakpark illinois 41.8850,-87.7840 200
+          pasadenatx texas 29.6910,-95.2090 200
           tallinn estonia 59.4370,24.7536 500
           antwerp belgium 51.2213,4.3997 500
           vienna austria 48.2086,16.3725 500

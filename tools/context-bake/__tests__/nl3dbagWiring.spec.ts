@@ -57,7 +57,13 @@ describe('§NL-3DBAG-OSM-JOIN — bake.mjs wires the 3dbag stamp for the `nether
         expect(table![1]).toMatch(/'3dbag':\s*\{\s*stamp:\s*stampNl3dbagHeightsOnGeojsonseq,\s*bboxes:\s*NL_3DBAG_CITY_BBOXES\s*\}/);
         // The table path must reach the SAME gate bookkeeping as the chain, bounded by stampBboxesFor.
         expect(bake).toMatch(/const tableStamp = NATIONAL_STAMP_TABLE\[r\.heightJoin\];/);
-        expect(bake).toMatch(/const retainBboxes = stampBboxesFor\(r\);[^\n]*\n[^\n]*\n[^\n]*tableStamp\.stamp\(baseGeo, stamped, wsen, \{ maxTiles: 20000, retainBboxes \}\)/);
+        // ⚠ WIDENED 2026-09-06 (lane USA-HEIGHTS-NATIONAL). The shared call now ends
+        // `…, retainBboxes, ...(tableStamp.opts ?? {}) }` so a table ROW can declare options the shared call
+        // cannot guess — `usas` uses it to pass its HEAP BOUND (swatheRows), without which a whole-state US
+        // row retains the whole state and the join errors. `3dbag` declares no opts, so the spread is a no-op
+        // for it, and what this pin is about — the table path handing the stamp its retained working set — is
+        // unchanged. The comment block between the two lines also grew, hence the wider line window.
+        expect(bake).toMatch(/const retainBboxes = stampBboxesFor\(r\);[^\n]*\n(?:[^\n]*\n){1,10}?[^\n]*tableStamp\.stamp\(baseGeo, stamped, wsen, \{ maxTiles: 20000, retainBboxes,/);
         expect(bake).toMatch(/recordNationalStampOutcome\(r, res, stamped, baseGeo, geos\);/);
         // And the chain must NOT carry it (that is what broke the AU pin) — sibling pins stay contiguous.
         expect(bake).not.toMatch(/r\.heightJoin === '3dbag' \|\|/);

@@ -94,7 +94,12 @@ export {
 export { MNH_FR, MNH_FR_CITY_BBOXES, SWISS_NDSM, SWISS_CITY_BBOXES, AU_OPEN_HEIGHTS, AU_OPEN_CITY_BBOXES, AU_OPEN_HEIGHTS_ASSESSED };
 // §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — the Dutch stamp lives in heights/nl3dbagStamp.mjs (imported by bake.mjs
 // directly, not through this file) and reuses the shared join helpers below via this ONE export line.
-export { footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, httpGetSafe, statsOf, areaWeightedP90, dominantRoof, clampHeight };
+// ⭐ `appendFileInto` joined this line 2026-09-06 (lane USA-HEIGHTS-NATIONAL, §USAS-SWATHE). It is the
+// 8 MB-buffer file concatenation the MDS swathe driver uses to write the final leftover pass-through
+// back into the output WITHOUT going through the V8 heap — which is the whole point of swathe passes.
+// heights/usasNationalStamp.mjs needs the identical primitive, and a private copy of a heap-critical
+// routine is how two implementations drift into one being wrong (§GREP-FOR-THE-EXISTING-SOLVER-FIRST).
+export { footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, httpGetSafe, statsOf, areaWeightedP90, dominantRoof, clampHeight, appendFileInto };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
@@ -294,9 +299,44 @@ export const SOURCES = {
     note: 'LIVE-PROBED 2026-09-05 (lane HEIGHTS-US): NYC 1,083,026 rows (736 NULL/0 heights), $limit=60000 honoured, Midtown cell 732 rows / 516 KB / 2.7 s; ' +
       'SF 177,023 rows (PDDL), every numeric column TEXT (cast!), Financial District cell 485 rows / 369 KB / 1.2 s; Boston 128,608 features ' +
       '(PDDL, maxRecordCount 2000 + pagination, 23,487 NULL/≤0), Back Bay cell 1,225 features / 1.0 MB / 7.6 s. It is a bake STAMP over bake\'s own ' +
-      'OSM footprints (heights/usOpenHeightsStamp.mjs stampUsOpenHeightsOnGeojsonseq), NOT a footprint fetcher — a metro row must declare ' +
-      'heightJoin:\'us_open\' (bake.mjs dispatch + stampBboxesFor → US_OPEN_CITY_BBOXES) to receive it. ⚠ Socrata within_box is (N,W,S,E) lat-first; ' +
-      'ArcGIS envelope is (W,S,E,N) — both pinned by usOpenHeights.spec.ts.',
+      'OSM footprints, NOT a footprint fetcher. ⚠ Socrata within_box is (N,W,S,E) lat-first; ArcGIS envelope is (W,S,E,N) — both pinned by ' +
+      'usOpenHeights.spec.ts. ⭐ 2026-09-06 (lane USA-HEIGHTS-NATIONAL): NO REGION MAPS HERE ANY MORE, and the three channels are NOT switched ' +
+      'off — read that carefully, because "no region maps to it" normally means dead. All three adapters (US_OPEN_HEIGHTS in ' +
+      'heights/usOpenHeights.mjs) are read on EVERY US bake, by heights/usasNationalStamp.mjs, which resolves the CITY channel FIRST per ' +
+      'FOOTPRINT (usOpenChannelForPoint) and only falls back to the national FEMA/ORNL layer outside their boxes. The order is a MEASUREMENT, ' +
+      'not a courtesy: in the same Midtown cell NYC height_roof reaches 270.6 m and USA Structures 170.5 m. What was retired is the bake KEY ' +
+      'heightJoin:\'us_open\' (and with it heights/usOpenHeightsStamp.mjs, now imported by nothing — a NAMED orphan), because a row declaring it ' +
+      'could reach only its own metro box and left the rest of NY / CA / MA states on the fabricated 9 m carpet.',
+  },
+  // §USAS-NATIONAL-HEIGHTS (2026-09-06, lane USA-HEIGHTS-NATIONAL) — the WHOLE-COUNTRY US channel.
+  usas_national: {
+    country: 'us', name: 'FEMA/ORNL "USA Structures" — national per-building HEIGHT (m), the NGA LiDAR-derived subset', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (national; per-state depth varies)', lodNext: 'a 3DEP-LPC-derived nDSM for the ORNL half',
+    endpoint: 'services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/USA_Structures_View/FeatureServer/0',
+    heightField: 'HEIGHT (metres, esriFieldTypeSingle, alias "Height (meters)"). Tallest part whose centroid the OSM footprint contains; '
+      + 'contains-centroid fallback. Server-side `where=HEIGHT IS NOT NULL` — the ORNL half of the layer NEVER carries a height and is not fetched.',
+    coverage: 'partial', // national REACH; per-state DEPTH runs 1.0 % (southdakota) to 95.3 % (districtofcolumbia) — measured, see note
+    keyless: true, // anonymous ArcGIS FeatureServer — NO api key, NO app token, NO repo secret
+    note: 'LIVE-PROBED 2026-09-06 (lane USA-HEIGHTS-NATIONAL; heights/usOpenHeights.mjs §USAS-NATIONAL-HEIGHTS carries every URL, byte count and '
+      + 'timing). ONE layer, 135,321,228 structures (returnCountOnly → HTTP 200, 19 B, 0.72 s), maxRecordCount 2000, pagination TRUE, CC BY 4.0. '
+      + 'PROVENANCE from the layer\'s OWN FGDC metadata (/metadata → HTTP 200, 29,975 B, application/xml), VERBATIM: HEIGHT is "a measure of the '
+      + 'height (in meters) of the structure as determined from LiDAR or other source data", source "LiDAR-derived footprints where available '
+      + 'provided by NGA" — AUTHORITY-MEASURED, lidar WHERE AVAILABLE; this row never claims measured-lidar for every structure. H_ADJ_ELEV / '
+      + 'L_ADJ_ELEV read "NONE. NOT CURRENTLY POPULATED" and probed null everywhere. A height implies SOURCE=\'NGA\', and the ORNL half is 0-for-0 '
+      + 'in all 28 state/territory bboxes measured — so an unmeasured footprint gets NOTHING, never a neighbour\'s number. Per-state height '
+      + 'coverage (whole-state groupBy SOURCE): districtofcolumbia 95.3 % · nevada 53.2 % · california 46.0 % · hawaii 42.7 % · colorado 40.2 % · '
+      + 'arizona 36.4 % · massachusetts 29.6 % · delaware 27.8 % · newyork 26.7 % · ohio 23.9 % · alaska 22.6 % · illinois 22.5 % · newmexico '
+      + '20.7 % · puertoricousa 19.6 % · kansas 18.3 % · washington 16.9 % · georgia 14.5 % · idaho 13.3 % · northcarolina 10.0 % · wyoming 8.8 % · '
+      + 'northdakota 5.5 % · vermont 4.4 % · montana 3.3 % · southdakota 1.0 %. ⚠ For texas / florida / pennsylvania / westvirginia / maine the '
+      + 'PERCENTAGE is unmeasured — their whole-state groupBy returns HTTP 200 carrying {"error":{"code":400,"message":""}} after 55 s, a '
+      + 'server-side timeout wearing a 400, as does the ungeometried national one — but their NUMERATOR is exact: the cheaper '
+      + '`where=HEIGHT IS NOT NULL&returnCountOnly=true` succeeded for ALL 49 wired rows (texas 3,530,320 · florida 2,352,630 · pennsylvania '
+      + '1,828,525 · westvirginia 443,812 · maine 32,924). ⭐ THAT SWEEP IS THE GATE PROOF: 49/49 rows non-zero, 35,722,898 height-bearing '
+      + 'structures in total, smallest southdakota 7,379 — so no wired row can trip §MEASURED-HEIGHT-GATE\'s exit-4 for stamping zero. ⛔ MEASURED-ZERO and therefore NOT wired: alaskaaleutians (87 structures, '
+      + 'all ORNL) and usvirginislands (40,726, all ORNL). ⛔ Overture and Microsoft US heights are ESTIMATES — both saturate at ~34.7 m over 79k '
+      + 'urban Wichita buildings whose tallest is 98 m — and are deliberately NOT wired: an estimate may never be written under the measured '
+      + 'marker. It is a bake STAMP (heights/usasNationalStamp.mjs stampUsasNationalHeightsOnGeojsonseq), NOT a footprint fetcher — a region must '
+      + 'declare heightJoin:\'usas\' (bake.mjs dispatch + stampBboxesFor → US_NATIONAL_BBOXES) to receive it.',
   },
   ndh_no: {
     country: 'no', name: 'Kartverket NHM nDSM (DOM − DTM, keyless WCS) on OSM footprints', impl: 'live',
@@ -670,11 +710,18 @@ export const REGION_SOURCE = {
   // DK
   copenhagen: 'geodanmark',
   // US
-  // ⭐ WIRED 2026-09-05 (lane HEIGHTS-US) — newyork / sanfrancisco (and boston, below) are the FIRST US rows with a
-  // REAL measured-height channel: NYC height_roof (feet, as-built/photogrammetric) and SF LiDAR hgt_maxcm, a bake
-  // STAMP (heights/usOpenHeightsStamp.mjs) each row declares via heightJoin:'us_open'. Footprints in the metro
-  // clip but outside the dataset (Jersey City) stream through with their honest OSM tags.
-  newyork: 'us_open_heights', california: 'us_open_heights',
+  // ⭐ WIRED 2026-09-05 (lane HEIGHTS-US) — newyork / sanfrancisco (and boston, below) were the FIRST US rows with a
+  // REAL measured-height channel: NYC height_roof (feet, as-built/photogrammetric) and SF LiDAR hgt_maxcm.
+  // ⭐ MOVED TO `usas_national` 2026-09-06 (lane USA-HEIGHTS-NATIONAL) — and NOTHING MEASURED IS LOST. The two
+  // CITY channels are still read, from the same adapters, because the national stamp resolves the city channel
+  // FIRST per FOOTPRINT (usOpenChannelForPoint). What changes is everything OUTSIDE those two metro boxes: while
+  // these rows said `us_open_heights` they declared a height join that could only ever reach Manhattan and San
+  // Francisco, so Buffalo, Rochester, Fresno, Sacramento and Los Angeles rendered the fabricated 9 m carpet
+  // inside a state that CLAIMED measured heights — the §MDS-NATIONAL-SWEEP / Ciudad Real defect (L-12946).
+  // Count-probed non-zero before the move, 2026-09-06, HTTP 200 each: Buffalo NY 8,837 · Fresno CA 13,046 ·
+  // Sacramento CA 8,631. ⚠ Rochester NY answered {"count":0} — a real SOURCE hole in the national layer, named
+  // here rather than smoothed over, and deliberately not a gate row.
+  newyork: 'usas_national', california: 'usas_national',
   // NO / SE / PT
   oslo: 'ndh_no', stockholm: 'lidar_se', lisbon: 'dgt_pt', porto: 'dgt_pt',
   // IT — Turin has a source; Rome/Milan do not.
@@ -765,25 +812,37 @@ export const REGION_SOURCE = {
   // ⭐ §BAKE-US-STATES (2026-09-06, lane USA-ALL-STATES) — the six metro keys became 54 whole-STATE keys.
   // `massachusetts` inherits boston's WIRED BPDA channel and `california` (above, beside newyork) inherits
   // sanfrancisco's DataSF LiDAR channel — the working set (US_OPEN_CITY_BBOXES) is byte-identical, only the
-  // ROW moved. Every other state is `overture_us` (impl:'documented'): honest OSM `assumed` defaults until
-  // the USGS 3DEP nDSM stamp lands. That is a PROBED verdict for three of them and an UNPROBED one for the
-  // rest, and the difference is recorded per metro in heights/usOpenHeights.mjs US_OPEN_HEIGHTS_ASSESSED
-  // (chicago → illinois: `stories` only, no height; massgis/boston-gisportal → massachusetts; austin +
-  // houston → texas: no open channel named). ⛔ Do NOT read `overture_us` on a state as "probed and empty".
-  massachusetts: 'us_open_heights',
-  alabama: 'overture_us', alaska: 'overture_us', alaskaaleutians: 'overture_us', arizona: 'overture_us',
-  arkansas: 'overture_us', colorado: 'overture_us', connecticut: 'overture_us', delaware: 'overture_us',
-  districtofcolumbia: 'overture_us', florida: 'overture_us', georgia: 'overture_us', hawaii: 'overture_us',
-  idaho: 'overture_us', illinois: 'overture_us', indiana: 'overture_us', iowa: 'overture_us',
-  kansas: 'overture_us', kentucky: 'overture_us', louisiana: 'overture_us', maine: 'overture_us',
-  maryland: 'overture_us', michigan: 'overture_us', minnesota: 'overture_us', mississippi: 'overture_us',
-  missouri: 'overture_us', montana: 'overture_us', nebraska: 'overture_us', nevada: 'overture_us',
-  newhampshire: 'overture_us', newjersey: 'overture_us', newmexico: 'overture_us', northcarolina: 'overture_us',
-  northdakota: 'overture_us', ohio: 'overture_us', oklahoma: 'overture_us', oregon: 'overture_us',
-  pennsylvania: 'overture_us', puertoricousa: 'overture_us', rhodeisland: 'overture_us', southcarolina: 'overture_us',
-  southdakota: 'overture_us', tennessee: 'overture_us', texas: 'overture_us', usvirginislands: 'overture_us',
-  utah: 'overture_us', vermont: 'overture_us', virginia: 'overture_us', washington: 'overture_us',
-  westvirginia: 'overture_us', wisconsin: 'overture_us', wyoming: 'overture_us',
+  // ROW moved. ⭐ SUPERSEDED THE SAME DAY by §USAS-NATIONAL-HEIGHTS (lane USA-HEIGHTS-NATIONAL). The
+  // sentence that stood here — "Every other state is `overture_us` (impl:'documented'): honest OSM
+  // `assumed` defaults until the USGS 3DEP nDSM stamp lands" — is no longer true, and its PREMISE was
+  // wrong besides: THERE IS NO NATIONAL 3DEP nDSM TO WAIT FOR. elevation.nationalmap.gov serves exactly
+  // ONE service, whose own description says "Bare Earth DEM" (identify at the Empire State Building
+  // returns 15.09 m — the GROUND under a 443 m tower), and the only DSM in the entire National Map
+  // catalogue is Alaska IFSAR, which answers {"total": 0, "items": []} over CONUS. What DOES exist is
+  // FEMA/ORNL "USA Structures" — ONE keyless CC-BY-4.0 layer with a per-building HEIGHT in metres over
+  // 135,321,228 structures — so **52** state/territory rows now carry `usas_national` (heightJoin:'usas'),
+  // not a documented placeholder. ⚠ THAT NUMBER WAS 49 FOR ABOUT AN HOUR, and the missing three were the
+  // ONLY ones that already claimed a measured height: newyork / california / massachusetts sat on
+  // `us_open_heights`, a join whose reach is three metro boxes. Leaving them there would have shipped the
+  // worst version of this defect — a state that CLAIMS measured heights and delivers them to one city.
+  // The two rows that are still NOT on it are MEASURED-ZERO at the source, not unprobed: alaskaaleutians
+  // (87 structures, all ORNL, 0 heights) and usvirginislands (40,726, all ORNL, 0 heights). ⛔ Do NOT read
+  // `overture_us` on those two as "unprobed" — read it as "probed, and the national layer measures nothing
+  // there". §MEASURED-HEIGHT-GATE would exit 4 if either declared the join.
+  massachusetts: 'usas_national',
+  alabama: 'usas_national', alaska: 'usas_national', alaskaaleutians: 'overture_us', arizona: 'usas_national',
+  arkansas: 'usas_national', colorado: 'usas_national', connecticut: 'usas_national', delaware: 'usas_national',
+  districtofcolumbia: 'usas_national', florida: 'usas_national', georgia: 'usas_national', hawaii: 'usas_national',
+  idaho: 'usas_national', illinois: 'usas_national', indiana: 'usas_national', iowa: 'usas_national',
+  kansas: 'usas_national', kentucky: 'usas_national', louisiana: 'usas_national', maine: 'usas_national',
+  maryland: 'usas_national', michigan: 'usas_national', minnesota: 'usas_national', mississippi: 'usas_national',
+  missouri: 'usas_national', montana: 'usas_national', nebraska: 'usas_national', nevada: 'usas_national',
+  newhampshire: 'usas_national', newjersey: 'usas_national', newmexico: 'usas_national', northcarolina: 'usas_national',
+  northdakota: 'usas_national', ohio: 'usas_national', oklahoma: 'usas_national', oregon: 'usas_national',
+  pennsylvania: 'usas_national', puertoricousa: 'usas_national', rhodeisland: 'usas_national', southcarolina: 'usas_national',
+  southdakota: 'usas_national', tennessee: 'usas_national', texas: 'usas_national', usvirginislands: 'overture_us',
+  utah: 'usas_national', vermont: 'usas_national', virginia: 'usas_national', washington: 'usas_national',
+  westvirginia: 'usas_national', wisconsin: 'usas_national', wyoming: 'usas_national',
   // ── CA + MX — §NA-HEIGHTS (2026-09-06, lane MEXICO-CANADA). Two provinces have a REAL measured
   // channel; every other row here is an object because THE REASON IS THE FINDING and a bare string
   // would hide a probed refusal behind a source note that does not exist.
@@ -3606,12 +3665,27 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
     };
   }
   else if (source === 'us_open_heights') {
-    // §US-OPEN-HEIGHTS — live, but (like au_open_lod1) a bake STAMP over bake's own footprints, not a footprint fetcher.
+    // §US-OPEN-HEIGHTS — live, but a bake STAMP over bake's own footprints, not a footprint fetcher.
+    // ⭐ THE ADVICE CHANGED 2026-09-06 and the old advice would now be actively harmful: this branch used to
+    // say "declares heightJoin:'us_open' in bake.mjs (with stampBboxesFor → US_OPEN_CITY_BBOXES)". Doing that
+    // today re-creates the hole this lane closed — that key reaches ONE metro box and leaves the rest of the
+    // state on the fabricated 9 m default. The three city channels are served by the NATIONAL stamp instead.
     return {
       status: 'documented', region, source, provenance: src.provenance,
-      reason: `${src.name}: this source is the bake STAMP stampUsOpenHeightsOnGeojsonseq (heights/usOpenHeightsStamp.mjs), dispatched only when the region ` +
-        `declares heightJoin:'us_open' in bake.mjs (with stampBboxesFor → US_OPEN_CITY_BBOXES). Region "${region}" does not, so ` +
-        'its footprints keep their OSM tags until that row edit lands.',
+      reason: `${src.name}: this source is a bake STAMP over bake's own footprints, and its three CITY channels (NYC height_roof · SF ` +
+        `hgt_maxcm · Boston BLDG_HGT_2010) are dispatched by heights/usasNationalStamp.mjs, which resolves the city channel FIRST per ` +
+        `footprint. A US region receives them by declaring heightJoin:'usas' in bake.mjs (with stampBboxesFor → US_NATIONAL_BBOXES) — ` +
+        `NOT heightJoin:'us_open', which is retired because it could only ever reach one metro box per state. Region "${region}" ` +
+        'declares no join, so its footprints keep their OSM tags until that row edit lands.',
+    };
+  }
+  else if (source === 'usas_national') {
+    // §USAS-NATIONAL-HEIGHTS — live, but (like us_open_heights / ndh_no) a bake STAMP over bake's own footprints, not a footprint fetcher.
+    return {
+      status: 'documented', region, source, provenance: src.provenance,
+      reason: `${src.name}: this source is the bake STAMP stampUsasNationalHeightsOnGeojsonseq (heights/usasNationalStamp.mjs), dispatched only ` +
+        `when the region declares heightJoin:'usas' in bake.mjs (with stampBboxesFor → US_NATIONAL_BBOXES). Region "${region}" does not, so its ` +
+        'footprints keep their OSM tags until that row edit lands.',
     };
   }
   else if (source === 'eesti3d_ee' || source === 'grb_be') {
