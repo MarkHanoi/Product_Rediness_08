@@ -25,6 +25,7 @@ import { resolve } from 'node:path';
 
 import { HEIGHT_KIND_FLOORS } from './officialFootprints.mjs';
 import { ES_CATASTRO, downloadMunicipalityZip, parseMunicipalityZip, resolveMunicipalities } from './esCatastro.mjs';
+import { EU_FOOTPRINT_SOURCE_KEYS } from './euRegisters.mjs';
 import { writeCoveredManifest } from './frBdtopo.mjs';
 import {
   CATASTRO_NATIONAL_BBOXES,
@@ -34,8 +35,16 @@ import {
   formatCatastroSweepSummary,
 } from './esCatastroNational.mjs';
 
-/** The `footprintSource` values with a wired adapter. A row not here is a CONFIG error. */
-export const FOOTPRINT_SOURCE_KEYS = Object.freeze(['es_catastro', 'fr_bdtopo']);
+/**
+ * The `footprintSource` values with a wired adapter. A row not here is a CONFIG error.
+ *
+ * ⚠ THE EU KEYS ARE FORWARDED FROM THEIR OWN MODULE, NEVER RETYPED (§GREP-SILENCE / "forward the
+ * SET, never a copy"). `EU_REGISTER_SOURCES` in `footprints/euRegisters.mjs` is where a Western
+ * European register is declared; a hand-copied literal here would let the two disagree, and the way
+ * they would disagree is the worst one available — this list is what `assertFootprintConfig` refuses
+ * a region against, so a source present there and missing here fails the Plan step of every bake.
+ */
+export const FOOTPRINT_SOURCE_KEYS = Object.freeze(['es_catastro', 'fr_bdtopo', ...EU_FOOTPRINT_SOURCE_KEYS]);
 
 /** The only merge semantics either country may declare — see the frBdtopo.mjs rationale. */
 export const FOOTPRINT_MERGE_MODE = 'replace-in-bbox';

@@ -575,6 +575,27 @@ export function euParseHits(door, body) {
 export function euParsePage(door, body, { requested = door.pageSize } = {}) {
   let json;
   try { json = JSON.parse(body); } catch { return { status: 'error', reason: `unparseable body (${String(body).slice(0, 120)})` }; }
+  // ⛔ §ESRI-JSON-IS-NOT-AN-EMPTY-PAGE (lane EU-REGISTERS-WIRE, 2026-09-06). An ArcGIS server that
+  // ignores `f=geojson` answers 200 with ESRI JSON — `{displayFieldName, fieldAliases, geometryType,
+  // fields, features:[{attributes, geometry:{rings}}]}`. That body HAS a `features` array, so the
+  // reader below walks it, `euHasRing` rejects every `rings` geometry, and the cell reports
+  // "0 kept, N dropped" — a REFUSAL wearing the costume of an empty cell. It is safe for deletions
+  // (a 0-kept cell is absent from the covered set, §COVERED-IS-PARSED) and that is exactly why it
+  // would never be noticed: an entire register could go quiet and the sweep would print zeros.
+  // The shipped fixture `be-picc-l11-rural-2026-09-06.json` IS this body, which is how it was found.
+  // Failure ≠ empty (C57 §1.5): name it.
+  if (door.kind === 'arcgis' && json && typeof json === 'object' && json.type !== 'FeatureCollection'
+    && (json.fieldAliases !== undefined || json.geometryType !== undefined || json.displayFieldName !== undefined)) {
+    return {
+      status: 'error',
+      reason: 'ESRI JSON, not the GeoJSON this door requested (f=geojson ignored) — '
+        + `keys ${Object.keys(json).slice(0, 6).join(',')}; features would ALL be dropped as ringless`,
+    };
+  }
+  if (json && typeof json === 'object' && json.error) {
+    const e = json.error;
+    return { status: 'error', reason: `server error ${e.code ?? '?'}: ${String(e.message ?? '').slice(0, 160)}` };
+  }
   const features = Array.isArray(json?.features) ? json.features : [];
   const etl = json?.properties?.exceededTransferLimit ?? json?.exceededTransferLimit ?? null;
   const more = door.kind === 'arcgis'
@@ -747,6 +768,19 @@ export function euSecondsPerCell(door, { cellDeg = door.cellDeg } = {}) {
  * appended while its bbox would still be reported covered, which is §COVERED-IS-PARSED inverted.
  * ⚠ A door with an UNKNOWN per-cell cost (GRB) is planned at the table's most expensive KNOWN cost
  * rather than at zero — an unknown must never buy a cell for free.
+ *
+ * ⛔ THE BUDGET BINDS PRIORITY CELLS TOO — corrected 2026-09-06, lane EU-REGISTERS-WIRE, BEFORE the
+ * first dispatch. This read `if (!c?.priority && seconds + cost > budgetSeconds)`, i.e. a priority
+ * cell was swept no matter how long the run had been going. That is right for the CURSOR (a resumed
+ * run re-sweeps the metros; they are a rounding error against the nation — `euSweepOrder` still
+ * guarantees exactly that) and WRONG for the BUDGET, because the two guarantees were being enforced
+ * by one flag. The wiring makes the difference concrete: `write()` forwards the region's working set
+ * in as `priorityBboxes`, so a row that declares its NATIONAL bbox there — which is precisely what
+ * "whole country" invites someone to write — marks EVERY cell priority and the sweep becomes
+ * unbounded. An 18–22 h pull inside a 330-minute job is killed by the runner, and a run killed
+ * mid-sweep never reaches `writeCoveredManifest`, so it publishes NOTHING. Ordering already delivers
+ * the intent (priority cells are planned FIRST, so a short budget spends itself on the metros);
+ * exempting them from the clock as well only bought the ability to overrun it.
  */
 export function euBudgetPlan(ordered, { budgetSeconds = 4 * 3600, secondsPerCell = 2 } = {}) {
   const cost = Number.isFinite(secondsPerCell) && secondsPerCell > 0 ? secondsPerCell : 2;
@@ -754,11 +788,17 @@ export function euBudgetPlan(ordered, { budgetSeconds = 4 * 3600, secondsPerCell
   const skipped = [];
   let seconds = 0;
   for (const c of ordered ?? []) {
-    if (!c?.priority && seconds + cost > budgetSeconds) { skipped.push(c); continue; }
+    if (seconds + cost > budgetSeconds) { skipped.push(c); continue; }
     planned.push(c);
     seconds += cost;
   }
-  return { planned, skipped, seconds: Math.round(seconds), nextCursor: skipped.length ? skipped[0].key : null };
+  // ⚠ THE CURSOR IS THE FIRST SKIPPED *TAIL* CELL, never simply `skipped[0]`. Now that the budget
+  // can stop inside the priority block, `skipped[0]` may be a METRO — and resuming from a metro key
+  // would silently strand every tail cell whose key sorts BEFORE it, because `euSweepOrder` re-admits
+  // priority cells unconditionally and filters the tail on `key >= cursor`. The tail is emitted in
+  // lexicographic order after the priority block, so its first skipped member IS the smallest one.
+  const firstTail = skipped.find((c) => !c?.priority) ?? null;
+  return { planned, skipped, seconds: Math.round(seconds), nextCursor: firstTail ? firstTail.key : null };
 }
 
 /**
@@ -794,26 +834,72 @@ export function formatEuSweepSummary(st) {
     + `${n(st.total)}; ${n(st.skipped)} SKIPPED. Skipped ground KEEPS its OSM footprints (§COVERED-IS-PARSED — `
     + `it is absent from the deletion set, not emptied).${refused} `
     + `RESUME with EU_SWEEP_CURSOR=${st.nextCursor ?? '(none)'} (cell key). `
-    + 'Priority cells are swept UNCAPPED on every run and are unaffected.';
+    + 'Priority cells ignore the CURSOR (they are re-swept on every run) but NOT the budget — '
+    + 'a clock a subset of cells may ignore is not a clock.';
 }
 
 /**
  * The national switch and its resume cursor, read from the environment — the shape
  * `catastroSweepEnv` established, so an operator resuming either sweep types the same kind of thing.
  *
- *   EU_REGISTER_NATIONAL=1        sweep the whole national bbox instead of the region's bboxes
- *   EU_SWEEP_CURSOR=<cell key>    resume AT that cell (from the previous run's summary)
- *   EU_BUDGET_SECONDS=<n>         wall-clock the pull may spend (default 4 h)
+ *   EU_REGISTER_NATIONAL=0|false|off   sweep ONLY the priority bboxes (the metros) — the OFF switch
+ *   EU_REGISTER_NATIONAL=1|true        sweep the whole national bbox (also the DEFAULT — see below)
+ *   EU_SWEEP_CURSOR=<cell key>         resume AT that cell (from the previous run's summary)
+ *   EU_BUDGET_SECONDS=<n>              wall-clock the pull may spend (default 4 h)
  *
- * ⚠ DEFAULTS ARE THE EXISTING BEHAVIOUR: with none of these set the sweep is OFF and only the
- * region's declared bboxes are pulled. Safe to land before any national bake has been dispatched.
+ * ⭐ THE DEFAULT IS NATIONAL, AND IT IS THE OPPOSITE OF SPAIN'S. Stated here because it inverts a
+ * sibling's default and a reader will otherwise assume a copy-paste slip.
+ *   • This function read `=== '1' || === 'true'` (default OFF) until 2026-09-06, lane
+ *     EU-REGISTERS-WIRE. Nothing had ever called it: the whole module was imported by nothing.
+ *   • `catastroSweepEnv` defaults OFF because Spain's UNIT is a municipality ZIP that costs ~250 s
+ *     of GML parsing and CANNOT be half-consumed — a run killed mid-municipality leaves a corrupt
+ *     partial, so the whole-country path must be asked for.
+ *   • These four doors' UNIT is a 0.02° grid cell costing 1.4–3 s (measured, `euSecondsPerCell`),
+ *     paged, idempotent and stopped cleanly by the budget or the live wall-clock guard. There is no
+ *     corrupt-partial hazard to protect against, so the founder's "EVERYWHERE POSSIBLE" wins and a
+ *     village gets its buildings without anyone remembering to tick a box.
+ *   • The safety that makes this defensible is NOT the switch: it is §COVERED-IS-PARSED. Ground the
+ *     sweep never reached is absent from the deletion set, so a truncated national run keeps every
+ *     OSM footprint it did not replace. Truncation is the DESIGN, not a failure.
+ *   • And it is still gated twice over: `applyNationalFootprints` returns immediately without
+ *     `--footprints official`, and the row carries `optIn: 'footprints'`. A default bake is
+ *     byte-identical either way.
+ *
+ * ⚠ An UNRECOGNISED value (`EU_REGISTER_NATIONAL=yes`) is national, not metros. The off switch is a
+ * closed list precisely so a typo cannot silently shrink the country to five cities.
  */
-export function euSweepEnv(env = process.env) {
-  const national = env.EU_REGISTER_NATIONAL === '1' || env.EU_REGISTER_NATIONAL === 'true';
+export const EU_NATIONAL_OFF_VALUES = Object.freeze(['0', 'false', 'off', 'no']);
+
+/**
+ * A cell key exactly as `euCellKey` emits it: sign + 3 digits + '.' + 3 digits, twice.
+ *
+ * ⛔ WHY A CURSOR IS SHAPE-CHECKED AT ALL. `context-bake.yml` allows only 10 `workflow_dispatch`
+ * inputs and already spends 9, so `EU_SWEEP_CURSOR` and `CATASTRO_SWEEP_CURSOR` are fed from the ONE
+ * `sweep_cursor` box — and the two sweeps resume in different alphabets. Catastro's is an INE code
+ * ("15078"). Feed that to `euSweepOrder` and every cell key compares LESS than it ('+' is 0x2B, '1'
+ * is 0x31), so `key.localeCompare(cursor) >= 0` filters out the ENTIRE tail and the run silently
+ * degrades to its five metros while reporting a national sweep. That is a wrong answer with no error
+ * anywhere, which is the failure this file exists to keep out of the map.
+ */
+export const EU_CELL_KEY_RE = /^[+-]\d{3}\.\d{3}[+-]\d{3}\.\d{3}$/;
+
+export function euSweepEnv(env = process.env, { warn = console.warn } = {}) {
+  const raw = env.EU_REGISTER_NATIONAL;
+  const national = !(typeof raw === 'string' && EU_NATIONAL_OFF_VALUES.includes(raw.trim().toLowerCase()));
   const budget = Number(env.EU_BUDGET_SECONDS);
+  const rawCursor = (env.EU_SWEEP_CURSOR || '').trim();
+  let cursor = null;
+  if (rawCursor) {
+    if (EU_CELL_KEY_RE.test(rawCursor)) cursor = rawCursor;
+    // IGNORED, not refused: starting from the beginning re-sweeps ground already covered, which
+    // costs time. Applying a foreign cursor loses a country, which costs the map. Say so by name.
+    else warn(`  ⚠ EU_SWEEP_CURSOR="${rawCursor}" is not a cell key (expected e.g. +003.300+051.700) `
+      + '— IGNORED, sweeping from the beginning. A Catastro INE code sorts after every cell key and '
+      + 'would silently reduce a national sweep to its metros.');
+  }
   return {
     national,
-    cursor: env.EU_SWEEP_CURSOR || null,
+    cursor,
     ...(Number.isFinite(budget) && budget > 0 ? { budgetSeconds: budget } : {}),
   };
 }
@@ -925,9 +1011,12 @@ export async function writeEuRegisterWorkingSet(sourceKey, outPath, bboxes, {
       // The live wall-clock guard. The plan above is an ESTIMATE from measured rates; this is the
       // truth, and a sweep that overran its estimate must still stop cleanly with a cursor rather
       // than be killed mid-cell by the job timeout.
-      if (!c.priority && (Date.now() - startedAt) / 1000 > budgetSeconds) {
+      // ⛔ IT BINDS PRIORITY CELLS TOO (2026-09-06) — the same correction as `euBudgetPlan`, and for
+      // the same reason: a run killed by the runner never reaches `writeCoveredManifest` below, so
+      // it publishes nothing at all. A clock that a subset of cells may ignore is not a clock.
+      if ((Date.now() - startedAt) / 1000 > budgetSeconds) {
         skippedTotal++;
-        if (!nextCursor) nextCursor = c.key;
+        if (!nextCursor && !c.priority) nextCursor = c.key;
         continue;
       }
       const before = written;
@@ -1004,21 +1093,63 @@ export async function writeEuRegisterWorkingSet(sourceKey, outPath, bboxes, {
  * ⚠ `optIn: 'footprints'` — these pulls are national sweeps and may not run unasked, the same rule
  * the Catastro row carries. Absent `--footprints official` the table is never entered and every
  * existing bake is byte-identical.
+ *
+ * ⛔ `priorityBboxes` IS REQUIRED AND MUST BE SMALL — it is not the working set. Under the national
+ * default the sweep covers the WHOLE country regardless of what is passed here; this list only
+ * decides what is swept FIRST, and (via `bake.mjs`'s §FOOTPRINT-BUDGET preflight) what a
+ * `EU_REGISTER_NATIONAL=0` run is reduced to. Handing it a national bbox marks every cell priority,
+ * which is the shape `euBudgetPlan`'s correction note describes. So the factory THROWS on an empty
+ * list rather than defaulting to the nation: a forgotten argument is a config error and belongs at
+ * the ~2 ms plan step, not at hour four (§FOOTPRINT-BUDGET, the L-659 lesson).
+ *
+ * The lists themselves are NOT invented here for NL and BE — `bake.mjs` passes the working sets its
+ * measured-height joins already use (`NL_3DBAG_CITY_BBOXES`, `BE_CITY_BBOXES`), so official
+ * footprints and measured metres land on the same ground first and there is one copy of each list.
  */
-export function euRegisterFootprintSource(sourceKey) {
+export function euRegisterFootprintSource(sourceKey, { priorityBboxes } = {}) {
   const doors = euDoorsFor(sourceKey);
+  const priority = (priorityBboxes ?? []).map((b) => (typeof b === 'string' ? b.split(',').map(Number) : b));
+  if (!priority.length) {
+    throw new Error(`euRegisters: footprint source '${sourceKey}' needs a non-empty priorityBboxes `
+      + '(the metros swept first; the national sweep still covers the whole country)');
+  }
   return Object.freeze({
     label: doors.map((d) => d.label).join(' + '),
     attribution: doors.map((d) => d.attribution).join(' · '),
     optIn: 'footprints',
-    defaultBboxes: () => doors.map((d) => d.nationalBbox),
+    defaultBboxes: () => priority,
     write: (outPath, bboxes, onArea) => writeEuRegisterWorkingSet(sourceKey, outPath, bboxes, {
       onArea,
       ...euSweepEnv(),
-      priorityBboxes: Array.isArray(bboxes) ? bboxes.map((b) => (typeof b === 'string' ? b.split(',').map(Number) : b)) : [],
+      priorityBboxes: Array.isArray(bboxes) && bboxes.length
+        ? bboxes.map((b) => (typeof b === 'string' ? b.split(',').map(Number) : b))
+        : priority,
     }),
   });
 }
+
+/**
+ * Ireland's PRIORITY cells — an ORDERING, not a coverage claim.
+ *
+ * ⚠ Written honestly: these five rectangles are city/town cores drawn around published centres, NOT
+ * a measured extent and NOT the ground Tailte Éireann covers. Tailte covers the Republic nationally
+ * (`where=1=1&returnCountOnly=true` → 3,785,414 on 2026-09-06) and the sweep visits all of it, so
+ * this list changes only WHAT COMES FIRST when a run is truncated. Every other wired source reuses
+ * the working set of its measured-height join; Ireland has NO height join at all
+ * (`EU_REGISTER_DOORS.ie_tailte` — the footprints ride the honest `assumed` default), so there was
+ * no existing list to reuse and this one is new rather than a duplicate.
+ *
+ * Killorglin is in the list because it is the PROBED village (cell -9.79,52.09,-9.77,52.11 → 1,281
+ * buildings, fixture `ie-tailte-buildings-killorglin-2026-09-06.json`): the founder's complaint is
+ * about villages, so a village is in the priority set beside the four cities, not behind them.
+ */
+export const IE_TAILTE_PRIORITY_BBOXES = Object.freeze([
+  { city: 'dublin',     bbox: [-6.34, 53.31, -6.19, 53.40] },
+  { city: 'cork',       bbox: [-8.52, 51.88, -8.42, 51.92] },
+  { city: 'galway',     bbox: [-9.09, 53.26, -9.01, 53.30] },
+  { city: 'limerick',   bbox: [-8.66, 52.64, -8.59, 52.68] },
+  { city: 'killorglin', bbox: [-9.80, 52.08, -9.76, 52.12] },
+]);
 
 /** The wired source keys, for `FOOTPRINT_SOURCE_KEYS` and the config assertion. */
 export const EU_FOOTPRINT_SOURCE_KEYS = Object.freeze(Object.keys(EU_REGISTER_SOURCES));

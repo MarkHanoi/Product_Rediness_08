@@ -93,18 +93,29 @@ describe('§ES-CATASTRO-FOOTPRINTS — bake.mjs wires the Catastro footprint sou
     expect(sourcesTable()).toMatch(/\.\.\.ES_CATASTRO_FOOTPRINTS/);
   });
 
+  // ⚠ WIDENED 2026-09-06 (lane EU-REGISTERS-WIRE). Both assertions below matched on the shape
+  // `key: {` — an OBJECT LITERAL — and there are now rows built by a FACTORY,
+  // `nl_bag: euRegisterFootprintSource('nl_bag', …)`, which no literal-shaped regex can see. The
+  // INVARIANTS are unchanged and still enforced: every declared key has a row, and every row has a
+  // bounded default working set. Only the two ways a row may be spelt are now both accepted.
   it('gives EVERY declared source key a row — a key with no row silently bakes OSM', () => {
     const table = sourcesTable();
     for (const key of FOOTPRINT_SOURCE_KEYS) {
-      expect(table, `FOOTPRINT_SOURCES row for '${key}'`).toMatch(new RegExp(`${key}:\\s*\\{`));
+      expect(table, `FOOTPRINT_SOURCES row for '${key}'`).toMatch(new RegExp(`\\b${key}:\\s*(\\{|\\w+\\()`));
     }
   });
 
-  it('gives every row a defaultBboxes() — an unbounded pull is refused, never attempted', () => {
+  it('gives every row a bounded default working set — an unbounded pull is refused, never attempted', () => {
     const table = sourcesTable();
-    const rows = table.split(/\n  (?=\w+:\s*\{)/).filter((r) => /^\s*\w+:\s*\{/.test(r));
+    // `{2}` not two literal spaces: eslint `no-regex-spaces` is an ERROR and the lint job hard-fails.
+    const rows = table.split(/\n {2}(?=\w+:\s*(\{|\w+\())/).filter((r) => /^\s*\w+:\s*(\{|\w+\()/.test(r));
     expect(rows.length).toBe(FOOTPRINT_SOURCE_KEYS.length);
-    for (const row of rows) expect(row).toMatch(/defaultBboxes:\s*\(\)\s*=>/);
+    for (const row of rows) {
+      // Either the row declares `defaultBboxes()` itself, or it is built by
+      // `euRegisterFootprintSource`, which THROWS on an empty priority list rather than defaulting
+      // to a national bbox — a stronger guarantee than this text check, pinned in euRegisters.spec.ts.
+      expect(row).toMatch(/defaultBboxes:\s*\(\)\s*=>|euRegisterFootprintSource\([^)]*priorityBboxes/);
+    }
   });
 
   it("the `spain` row declares footprintSource:'es_catastro' AND keeps its MDS height join", () => {

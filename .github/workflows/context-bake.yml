@@ -54,7 +54,7 @@ on:
         type: boolean
         default: false
       footprints:
-        description: '§OFFICIAL-FOOTPRINTS (L-12939) — where the buildings layer''s FOOTPRINTS come from. "osm" (default) is every run to date, byte-identical. "official" swaps in the national register''s own footprints for each region that declares a footprintSource — today `spain` → DG del Catastro INSPIRE Buildings, which carries one BuildingPart per volume WITH ITS OWN storey count, so a 2-floor wing beside a 3-floor block reads as two volumes and a 2020 house OSM never mapped exists at all. OSM footprints covered by an official outline are dropped; the rest are KEPT (Catastro publishes nothing for the Basque foral cadastres or Navarra, and a register''s silence must never delete Bilbao from the map). Heights are unaffected — Catastro publishes storey COUNTS, so the CNIG MDS measured-height stamp still runs, now on the official footprints.'
+        description: '§OFFICIAL-FOOTPRINTS (L-12939) — where the buildings layer''s FOOTPRINTS come from. "osm" (default) is every run to date, byte-identical. "official" swaps in the national register''s own footprints for each region that declares a footprintSource. FIVE regions do as of 2026-09-06: spain → DG del Catastro · france → IGN BD TOPO · netherlands → Kadaster BAG pand (PDOK, CC0 1.0) · belgium → Digitaal Vlaanderen GRB + SPW PICC · ireland → Tailte Éireann Prime2 Buildings (CC BY 4.0). ⚠ The three new ones publish NO height and NO storeys — they are SHAPE, and the 3DBAG / DHMV II measured-height joins still supply the metres. Brussels and Northern Ireland have no register door at all, so their cells return zero and KEEP their OSM footprints. The Spanish half of this description follows — which carries one BuildingPart per volume WITH ITS OWN storey count, so a 2-floor wing beside a 3-floor block reads as two volumes and a 2020 house OSM never mapped exists at all. OSM footprints covered by an official outline are dropped; the rest are KEPT (Catastro publishes nothing for the Basque foral cadastres or Navarra, and a register''s silence must never delete Bilbao from the map). Heights are unaffected — Catastro publishes storey COUNTS, so the CNIG MDS measured-height stamp still runs, now on the official footprints.'
         type: choice
         options: ['osm', 'official']
         default: 'osm'
@@ -63,11 +63,16 @@ on:
         type: boolean
         default: false
       sweep_cursor:
-        description: '§CATASTRO-NATIONAL-SWEEP resume point — the INE code printed by the previous run''s truncation sentence (e.g. 15078). Blank starts from the beginning. Ignored unless catastro_national is ticked.'
+        description: '§CATASTRO-NATIONAL-SWEEP / §EU-REGISTERS resume point — the cursor printed by the previous run''s truncation sentence. SHARED by both sweeps because workflow_dispatch allows only 10 inputs, and they read it in different alphabets: Catastro wants an INE code (e.g. 15078), the EU registers want a CELL KEY (e.g. +003.300+051.700). A cursor in the other sweep''s alphabet is IGNORED with a named warning and the sweep starts from the beginning — never silently applied, because an INE code sorts after every cell key and would shrink a national sweep to its metros without saying so. Blank starts from the beginning. Scope a resumed run to ONE region.'
         type: string
         default: ''
+      eu_footprints_scope:
+        description: '§EU-REGISTERS — how much of the country the Dutch/Belgian/Irish register sweeps cover. "national" (default) sweeps the whole national bbox on a 0.02° grid, metros first, resumable; "metros" reduces it to the priority cities only. Only meaningful with footprints=official. ⚠ The DEFAULT IS NATIONAL, the opposite of catastro_national, and deliberately: a Catastro unit is a ~250 s municipality ZIP that cannot be half-consumed, while a cell here costs 1.4–3 s, is paged and stops cleanly. Measured whole-country cost at 0.02°: NL ~18.3 h, BE-Wallonia ~9.1 h, IE ~22.1 h, BE-Flanders UNKNOWN (its server saturates `hits` at the literal 10000) — so ONE run cannot finish a country and is not meant to. Ground the sweep never reached KEEPS its OSM footprints; it is absent from the deletion set, never emptied.'
+        type: choice
+        options: ['national', 'metros']
+        default: 'national'
       budget_seconds:
-        description: '§CATASTRO-NATIONAL-SWEEP parse budget in seconds. The sweep stops before the municipality that would exceed it. Default 9000 (2.5 h) leaves the rest of the 330-minute job for tippecanoe and the publish. Ignored unless catastro_national is ticked.'
+        description: '§CATASTRO-NATIONAL-SWEEP / §EU-REGISTERS sweep budget in seconds, wall-clock, SHARED by both sweeps (10-input cap). Each stops BEFORE the unit that would exceed it — a municipality for Catastro, a grid cell for the EU registers — and prints the cursor to resume from. Default 9000 (2.5 h) leaves the rest of the 330-minute job for tippecanoe and the publish.'
         type: string
         default: '9000'
 
@@ -217,6 +222,17 @@ jobs:
           CATASTRO_NATIONAL: ${{ inputs.catastro_national && '1' || '' }}
           CATASTRO_SWEEP_CURSOR: ${{ inputs.sweep_cursor }}
           CATASTRO_BUDGET_SECONDS: ${{ inputs.budget_seconds }}
+          # §EU-REGISTERS — footprints/euRegisters.mjs reads these three, for the NL BAG / BE GRB+PICC
+          # / IE Tailte sweeps. ⚠ `EU_REGISTER_NATIONAL` is an OFF switch, not an on switch: the EU
+          # default is NATIONAL (the module header argues why it inverts Catastro's), so the metros
+          # scope has to be asked for by name and an unset variable means the whole country. Blank is
+          # NOT one of the off values, so a dispatch that never touches this input sweeps nationally.
+          EU_REGISTER_NATIONAL: ${{ inputs.eu_footprints_scope == 'metros' && '0' || '1' }}
+          # Shared with the Catastro cursor (10-input cap). euSweepEnv REFUSES a cursor that is not a
+          # cell key and starts from the beginning, so an INE code left in the box cannot silently
+          # shrink a national sweep to its five metros.
+          EU_SWEEP_CURSOR: ${{ inputs.sweep_cursor }}
+          EU_BUDGET_SECONDS: ${{ inputs.budget_seconds }}
           # §BAKE-BY-REGION — scope the run to a subset of REGIONS. Added after run 30706761446 was
           # CANCELLED at the 180-minute timeout with tippecanoe at 99.9 % on the national tiling:
           # every step after `Bake` was SKIPPED, so ~4 hours published nothing — including height
