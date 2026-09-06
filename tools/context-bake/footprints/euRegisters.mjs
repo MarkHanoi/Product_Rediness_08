@@ -392,7 +392,7 @@ export const EU_REGISTER_DOORS = Object.freeze({
   // ── PROBED AND NOT WIRED. No URL builder; the reason is the payload. ────────
   de_lod2: {
     key: 'de_lod2', country: 'Germany', status: 'wire-not-build', kind: null,
-    reason: 'heights/deLod2Laender.mjs already routes 12 wired Länder and its partFromBlock() already parses the '
+    reason: 'heights/deLod2Laender.mjs already routes 13 wired Länder (by ARMED 2026-09-06, §DE-LOD2-LAENDER-BY) over a 17-CITY working set — it is no longer one city per Land — and its partFromBlock() already parses the '
       + 'GroundSurface ring AND measuredHeight. The missing piece is a UTM→WGS84 ring reprojection plus a '
       + 'write*WorkingSet wrapper — not a door. NOT done here because that file is owned by the DE heights lane '
       + 'and is modified in the working tree.',
