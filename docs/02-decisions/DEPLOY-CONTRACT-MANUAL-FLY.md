@@ -1264,3 +1264,52 @@ DOCKER_CONFIG guard only · proof after `DEPLOY_RC`, chunk `main-D5i6bZyT.js` �
 Ships: the Porto gate opening + moda machinery · ADR-0377/78/79 seats + kernel primitives +
 190-solve gate · the FR no-extraction product · the U3 definition-editor workspace (§64 live).
 The play-book is stabilising: when nothing novel happens, the record says so and stays short.
+
+---
+
+## 6.9.10 TWELFTH EXECUTION — 2026-09-06 (`4e855179`), bundle proof 6/6, first try
+
+Routine on the mechanics, and the play-book held with **no incident**: clean detached worktree at
+`C:/pryzm-deploy/tree` per §6.9.2 (`git status --porcelain` empty), `DOCKER_CONFIG` guard only at a
+Windows-shaped path with `config.json` = `{}` (§6.7.2), **no MSYS exports** (§6.6.1), `FLY_API_TOKEN`
+passed explicitly because flyctl still cannot find the Windows home config. Root `tsc --noEmit
+--skipLibCheck` RC=0 before launch. Isolation gates green in-build (3/3 roots · 205 declared events ·
+2 named exceptions · 0 new). Prod-boot smoke booted `dist/index.cjs` in 4,483 ms and served
+`/api/health/live` + `/`. Blue-green: 4 green machines created → healthy → cordon → stop → destroy,
+DNS verified. Proof chunk `main-CMG0m0VO.js`, `/version` git_sha matched the expanded SHA.
+
+**⭐ §6.9.2 EARNED ITS KEEP AGAIN, AND THIS TIME IT WAS LOAD-BEARING RATHER THAN PRUDENT.** Three
+subagent lanes were mid-flight in the main repo throughout the build. One of them (VIEWREGION) held
+**staged deletions** of `apps/editor/src/ui/platform/halfCanvasSplitViewPolicy.ts` + its spec while
+still editing the six modules that referenced them — a state in which root `tsc` reports `TS6053` and
+a deploy from the main repo would have **hard-failed the build**, not merely shipped half-work. The
+detached worktree was unaffected. *(A second lane independently detected and reported those same
+TS6053s as "not mine, will hard-fail a Fly deploy" — the worktree rule is what made that a note
+rather than an outage.)*
+
+**Two of this contract's own baselines are now further out of date — both already-known shapes:**
+
+| §4.2 says | Measured here |
+|---|---|
+| vite build — **4,542 modules** | **5,803 modules**, built in **2m 6s** |
+| context upload ~16 min @ ~98 KB/s | **~17 min**, ~173 MB+ still climbing at cutoff, ~172 KB/s |
+
+§2.2 already carries its STALE banner and the instruction to read flyctl's own warning line; that
+instruction remains correct and is why no time was lost here. **The module count in §4.2 now needs
+the same treatment** — it is a moving figure printed in a fixed table.
+
+**⛔ THE NOVEL FACT, AND IT IS ABOUT WHY THIS PATH IS THE ONLY ONE: GITHUB ACTIONS IS
+QUOTA-BLOCKED.** Every `CI` and `Deploy to Fly.io` run on 2026-09-06 concluded **failure**, and the
+signature is unambiguous — **each job died in 2–4 seconds, with ZERO failing steps and NO log blob at
+all** (`GET /actions/jobs/<id>/logs` → `BlobNotFound`). Jobs that fail with no step and no log were
+never started by the runner. ⚠ **It is NOT a blanket account block, which is what makes it
+confusing:** `context-bake` runs on the same account and the same `ubuntu-latest` label were
+succeeding at the same time (southkorea + germany ✅, spain in progress at 179 min). So do not
+diagnose this from one workflow's colour. **Consequence for this contract:** §L-540-CI-GATE's
+`ci-gate` job cannot pass while this holds, so the manual path in §6 is not merely faster — it is the
+**only** working route to production, and the founder-facing risk is that nothing is gating
+regressions before they reach him. See memory `github-actions-billing-blocks-deploy`.
+
+Ships: C59 §2.10 + C58 §1.19/§1.20 (the view-region one-owner model, the authored-envelope provenance
+kind, and the founder's "envelope is not the turnstile" ruling) and `fa12be3e` — three stacked view
+switchers over one pane reduced to one dropdown per pane carrying all six views.
