@@ -60,11 +60,104 @@ export const SEA_SOURCE = Object.freeze({
   crs: 'EPSG:4326',
   zipName: 'water-polygons-split-4326.zip',
   shpName: 'water_polygons.shp',
-  /** curl -I, 2026-09-05 13:11 UTC, from the dev machine. Re-probe before trusting the byte count. */
+  /**
+   * curl -I, 2026-09-06 06:12 UTC, from the dev machine. ⚠ THE BYTE COUNT IS NOT STABLE — the product
+   * is rebuilt DAILY, and this number moved 903,819,020 → 903,852,707 in the ~17 h between the
+   * 09-05 probe and this one. Never assert it; re-probe. It is recorded to say what was actually
+   * fetched on the day the reader was proven against it, not as an expectation.
+   */
   probe: Object.freeze({
-    at: '2026-09-05', http: 200, bytes: 903_819_020, contentType: 'application/zip',
-    acceptRanges: 'bytes', lastModified: 'Sat, 05 Sep 2026 03:41:33 GMT',
+    at: '2026-09-06', http: 200, bytes: 903_852_707, contentType: 'application/zip',
+    acceptRanges: 'bytes', lastModified: 'Sun, 06 Sep 2026 03:40:56 GMT',
+    etag: '"35dfb2a3-65ac844efb524"',
+    sha256: '9ddbe2466a406ab3db3c09ed89a8d609b5a3fe207d2b80191b229f4c0bc32f45',
   }),
+});
+
+/**
+ * §SEA-REAL-PRODUCT (lane SEA-BAKE, 2026-09-06) — the FIRST run of this module against the REAL
+ * product. Until this date every structural assumption above was proven only against the synthetic
+ * shapefile in `__tests__/seaPolygons.spec.ts`; a fixture built from the header cannot falsify the
+ * header, so "the reader parses the real bytes" was UNMEASURED. It is now measured, and every
+ * assertion the reader makes held on the real archive:
+ *
+ *   · classic zip, NOT zip64 — no zip64 sentinel in the EOCD, no zip64 EOCD locator, no 0x0001
+ *     extra field on any entry. 6 entries, central directory 676 B at offset 903,852,009.
+ *   · EXACTLY ONE .shp: `water-polygons-split-4326/water_polygons.shp`, method 8 (deflate),
+ *     903,546,881 B compressed → 1,275,373,628 B uncompressed. `.dbf`/`.shx`/`.cpg`/`.prj`/
+ *     `README.txt` are the other five. The directory PREFIX in the entry name is why the `.prj`
+ *     is resolved by stem and not by basename.
+ *   · `.prj` = `GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",…]]`, 145 chars — matches the WGS-84
+ *     assertion and carries no PROJCS, so the geographic-CRS refusal stays silent on the real file.
+ *   · shapefile header: file code 9994 · version 1000 · shape type 5 (Polygon) · declared length
+ *     637,686,814 words = 1,275,373,628 B == the zip directory's uncompressed size · global bbox
+ *     [-180, -78.7385903, 180, 90]. Record numbers are sequential from 1.
+ *   · 53,328 records. Ring assembly BY CONTAINMENT was the right call and is now evidenced: all
+ *     225 touched outers came back CLOCKWISE (`outersCw` 225/225), i.e. the file follows the ESRI
+ *     convention — but the code never depended on it, and 0 holes were dropped for want of a host.
+ *   · cost, dev machine, 4 regions in ONE pass: extract 384 s (1.28 GB written), clip 105 s,
+ *     peak RSS 315 MB. Streaming holds: the pass is bounded by the largest single record, not by
+ *     the 1.28 GB file.
+ *   · yield: newsouthwales 40 polygons/273 holes/72,318 verts · victoria 35/214/64,718 ·
+ *     dubai 24/255/29,700 · france 131/9,038/1,150,967 (26.9 MB of GeoJSONSeq).
+ */
+export const SEA_REAL_RUN = Object.freeze({
+  at: '2026-09-06',
+  records: 53_328, shpBytes: 1_275_373_628, shapeType: 5, fileCode: 9994,
+  zipEntries: 6, zip64: false, shpEntry: 'water-polygons-split-4326/water_polygons.shp',
+  globalBbox: Object.freeze([-180, -78.7385903, 180, 90]),
+  outers: 225, outersClockwise: 225, holesDropped: 0,
+  extractSeconds: 384, clipSeconds: 105, peakRssMb: 315,
+});
+
+/**
+ * ⛔ §SEA-COVERS-COASTLINE-ONLY — WHAT THIS LAYER DOES **NOT** COVER, measured 2026-09-06.
+ *
+ * This product is derived from `natural=coastline` and NOTHING else. Where OSM does not draw a
+ * coastline, there is no sea here — and that is not a gap in the bake, it is the definition of the
+ * source. It matters because it means the `sea` layer does NOT fix every city the lane was aimed at:
+ *
+ *   ✔ FIXED by this layer (verified against the real product, point-in-polygon):
+ *       · Dubai / Palm Jumeirah — the Gulf is one outer with the Palm's reclaimed land as ISLAND
+ *         HOLES; the trunk centreline (55.1390, 25.1130) and Atlantis on the crescent
+ *         (55.1170, 25.1304) both resolve to a hole, the water between the fronds to sea.
+ *       · Marseille — the Vieux-Port basin (5.3690, 43.2951) is inside the sea outer (L-12909 c2).
+ *       · Melbourne — mid Port Phillip Bay (144.9000, -37.9800) is inside the sea outer.
+ *
+ *   ✖ NOT FIXED — Sydney / Cremorne Point (L-12921). Sydney Harbour carries NO coastline at all, so
+ *     it is absent from this product BY CONSTRUCTION. Measured: the westernmost sea longitude at
+ *     lat -33.83 and -33.85 is 151.288 — the open Tasman off the Heads. Cremorne Point
+ *     (151.2320, -33.8455) and the water beside it (151.2300, -33.8450) are inside NO sea polygon.
+ *     INDEPENDENT source (Overpass, 2026-09-06, osm_base 2026-09-06T06:45:35Z): `natural=coastline`
+ *     ways in (-33.870,151.180,-33.830,151.280) → **0**; in the ocean box just outside the Heads
+ *     (-33.860,151.280,-33.800,151.320) → **18**, so the query is sound and the zero is real.
+ *     Port Jackson is mapped as `natural=water` + `water=harbour` MULTIPOLYGON RELATIONS
+ *     ("Port Jackson" Q54504, "Sydney Harbour", "Parramatta River", "Lane Cove River") — 127 ways
+ *     + 8 relations in that box. That is `water` layer material (`nwr/natural=water` already), NOT
+ *     sea material.
+ *
+ *     ⚠ AND IT SILENTLY DISENGAGES THE ESCAPE HATCH. Once `sea.pmtiles` publishes, a Cremorne Point
+ *     bbox DOES contain sea polygons (the ocean off the Heads), so `waterFromTileFeatures` takes
+ *     `seaProvenance: 'baked-polygons'` and skips the walk — and the §FIX-SEA-COVERAGE-GATE does not
+ *     fire either, because the sea covers **23.5 %** of the 0.20° bbox around Cremorne Point against
+ *     a `SEA_COVERAGE_MIN` of 2 %. This is NOT a regression (the live supplement queries
+ *     `natural=coastline` too, so it never painted the harbour either — which is why L-12921
+ *     survived every previous sea fix), but it does mean L-12921 must NOT be closed by this bake.
+ *     The harbour is a `water`-layer question: whether `nwr/natural=water` multipolygon RELATIONS
+ *     survive the osmium export and reach the client as drawn water.
+ */
+export const SEA_NOT_COVERED = Object.freeze({
+  reason: 'coastline-derived: no OSM natural=coastline ⇒ no sea polygon',
+  knownGaps: Object.freeze([
+    Object.freeze({
+      place: 'Sydney Harbour / Port Jackson', issue: 'L-12921',
+      site: Object.freeze([151.2320, -33.8455]),
+      westernmostSeaLon: 151.288,
+      coastlineWaysInside: 0, coastlineWaysOutsideTheHeads: 18,
+      mappedAs: 'natural=water + water=harbour multipolygon relations',
+      belongsToLayer: 'water',
+    }),
+  ]),
 });
 
 /** Feature tags every baked sea polygon carries — the client's defining tag is `sea`. */
