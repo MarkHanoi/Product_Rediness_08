@@ -217,7 +217,18 @@ jobs:
       - name: Verify a tileset is publicly readable
         if: ${{ inputs.publish }}
         env:
-          PUBLIC_BASE: ${{ vars.VITE_CONTEXT_TILES_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/' }}
+          # §TERRAIN-PROBE-ABSOLUTE-ORIGIN (L-12968) — this used to default to
+          # `vars.VITE_CONTEXT_TILES_URL`, which in this repo is the SAME-ORIGIN PROXY PATH
+          # `/api/context-tiles/` (see tools/deploy/fly-bundle-proof.sh, which asserts exactly that
+          # value). curl cannot fetch a relative URL, so the probe built
+          # `/api/context-tiles/terrain/<city>/layer.json`, got a non-200, and FAILED THE RUN — four
+          # times (34015785661, 34019409317, 34023835778, 34026922198) while every one of those runs
+          # had published correct tiles to R2. A step that cries wolf trains everyone to ignore it,
+          # and it nearly cost us the real Hague/Eindhoven defects, which were found by reading R2.
+          # R2 is the thing this job actually wrote, so R2 is what it verifies. The prod proxy is a
+          # SEPARATE axis (it needs a deploy) and is probed below as INFORMATION, never as a gate.
+          R2_BASE: https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/
+          PROXY_BASE: ${{ vars.VITE_CONTEXT_TILES_URL || '' }}
         run: |
           set -euo pipefail
           # Verify whatever city we actually baked (prefer amsterdam). Terrain does NOT need 206 —
@@ -227,15 +238,46 @@ jobs:
             CITY="$(basename "$(ls -d tools/context-bake/out/terrain/*/ 2>/dev/null | head -1)")" || true
           fi
           if [ -z "$CITY" ]; then echo "no city to verify (none baked)."; exit 0; fi
-          URL="${PUBLIC_BASE%/}/terrain/$CITY/layer.json"
+
+          URL="${R2_BASE%/}/terrain/$CITY/layer.json"
           echo "probing $URL"
-          code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 "$URL")"
+          code=000
+          for attempt in 1 2 3 4 5; do
+            code="$(curl -s -o /tmp/layer.json -w '%{http_code}' -L --max-time 60 "$URL" || true)"
+            [ "$code" = "200" ] && break
+            echo "  attempt $attempt → HTTP $code; object-store propagation can lag a sync, retrying in 10 s"
+            sleep 10
+          done
           echo "HTTP $code (expected 200)"
-          if [ "$code" = "200" ]; then
-            echo "✓ terrain/$CITY is public — CesiumTerrainProvider.fromUrl will resolve it."
-          else
-            echo "::error::$URL returned $code — uploaded but not publicly served. Fix in the Cloudflare R2 dashboard (Public access), and ensure connect-src allows the tiles origin (server/securityHeaders.js)."
+          if [ "$code" != "200" ]; then
+            echo "::error::$URL returned $code after 5 attempts — uploaded but not publicly served. Fix in the Cloudflare R2 dashboard (Public access), and ensure connect-src allows the tiles origin (server/securityHeaders.js)."
             exit 1
+          fi
+          echo "✓ terrain/$CITY is public — CesiumTerrainProvider.fromUrl will resolve it."
+
+          # §NL-CITY-BBOX (L-12942) + §NL-CITY-DEPTH (L-12943) — a tileset that is SERVED can still be
+          # wrong: thehague shipped a stale AMSTERDAM patch and eindhoven shipped 76 m posts, and both
+          # passed a plain 200. Assert the published header actually describes THIS city's bake.
+          node -e '
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync("/tmp/layer.json", "utf8"));
+            const zmax = (m.available || []).length - 1;
+            const b = m.bounds;
+            const post = (180 / 2 ** zmax) / 256 * 111320;
+            console.log(`  published header: zmax=${zmax} (~${post.toFixed(1)} m posts) bounds=${JSON.stringify(b)}`);
+            if (!Array.isArray(b) || b.length !== 4) { console.log("::error::published layer.json has no usable bounds"); process.exit(1); }
+            if (!(zmax >= 1)) { console.log("::error::published layer.json declares no tile levels"); process.exit(1); }
+          '
+
+          # INFORMATION ONLY — the prod proxy serves the SAME R2 objects but only after a deploy, so a
+          # non-200 here is a deploy-state fact, never a reason to fail a bake that published fine.
+          if [ -n "$PROXY_BASE" ]; then
+            case "$PROXY_BASE" in
+              /*) PROXY_URL="https://pryzm.fly.dev${PROXY_BASE%/}/terrain/$CITY/layer.json" ;;
+              *)  PROXY_URL="${PROXY_BASE%/}/terrain/$CITY/layer.json" ;;
+            esac
+            pcode="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 "$PROXY_URL" || true)"
+            echo "prod proxy $PROXY_URL → HTTP $pcode (informational; a deploy may be pending)"
           fi
 
       - name: What to do next
