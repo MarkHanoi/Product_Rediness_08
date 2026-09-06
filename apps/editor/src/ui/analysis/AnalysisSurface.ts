@@ -93,7 +93,7 @@ import { GRAPH_VIEW_EVENT, graphExpanded } from './graphViewState';
 // surface; torn down on every tab change and on hide, so the singleton
 // envelope card is only ever claimed by a host the reader can see.
 import { mountParcelLawTab, type ParcelLawTabHandle } from './parcelLawTab';
-// §SHELL-SPLIT-DRAG (L-12980, founder 2026-09-06: *"the user shall be able to DRAG THE
+// §SHELL-SPLIT-DRAG (L-12983, founder 2026-09-06: *"the user shall be able to DRAG THE
 // WIDTH of the view left/right on demand — we can do that on split view already — do it
 // sound — the same"*). The 50/50 edge between `#container` and this surface is TWO inline
 // widths on two elements; the resizer writes both from one fraction, sharing the split
@@ -151,7 +151,7 @@ export class AnalysisSurface {
   /** §PARCEL-LAW-TAB (L-12915) — the live host body, or null when the Parcel
    *  Law tab is not the one on screen. Exactly one at a time; see `refresh()`. */
   private _parcelLaw: ParcelLawTabHandle | null = null;
-  /** §SHELL-SPLIT-DRAG (L-12980) — the view/panel drag handle. Live only while visible. */
+  /** §SHELL-SPLIT-DRAG (L-12983) — the view/panel drag handle. Live only while visible. */
   private _resizer: HalfCanvasResizerHandle | null = null;
 
   constructor() {
@@ -484,7 +484,7 @@ export class AnalysisSurface {
     this._paintPresentButton(); // §DEMO141 — same reason: a different project may hold a different choice
     this._buildTabs();
     this._renderFacetBar();
-    // §SHELL-SPLIT-DRAG (L-12980) — the view/panel edge becomes draggable while this
+    // §SHELL-SPLIT-DRAG (L-12983) — the view/panel edge becomes draggable while this
     // surface is on screen. Mounted HERE rather than in the constructor because
     // `#anl-surface` is appended to `document.body` at module load and only HIDDEN by
     // class: a handle mounted once would keep claiming a 13 px strip of the viewport in
@@ -554,7 +554,7 @@ export class AnalysisSurface {
     // own dispose hands the card back to the viewport ONLY if it still holds it.
     this._disposeParcelLaw();
 
-    // §SHELL-SPLIT-DRAG (L-12980). ⛔ DROP THE HANDLE AND ITS MARKS ON HIDE.
+    // §SHELL-SPLIT-DRAG (L-12983). ⛔ DROP THE HANDLE AND ITS MARKS ON HIDE.
     //
     // ⚠ ORDER IS LOAD-BEARING AND IT IS NOT THE ORDER YOU WOULD GUESS.
     // `WorkspaceController.setMode` calls `_applyLayout()` BEFORE it emits

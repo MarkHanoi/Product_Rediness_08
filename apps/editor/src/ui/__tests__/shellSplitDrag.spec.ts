@@ -1,5 +1,5 @@
 /**
- * §SHELL-SPLIT-DRAG (L-12980) — the founder can drag the boundary between the view and
+ * §SHELL-SPLIT-DRAG (L-12983) — the founder can drag the boundary between the view and
  * the Parcel Law / Analysis panel, and the drag cannot leave the shell broken behind it.
  *
  * Founder 2026-09-06, with a screenshot of the PARCEL LAW tab: *"the user shall be able to
@@ -156,7 +156,7 @@ describe('§SHELL-SPLIT-DRAG — the handle exists and is reachable', () => {
         // MEASURED, not chosen. Cesium's container is z-index 15 (`CESIUM_Z`), the
         // site-authoring pane shell root is 14, and `#anl-surface` is 50. A handle below
         // any of them is a handle the pointer never reaches — which is exactly the defect
-        // this lane found in the pane shell's own 1 px seam (L-12981).
+        // this lane found in the pane shell's own 1 px seam (L-12984).
         const { surface } = setup();
         const h = mount(surface);
         expect(Number(h.element.style.zIndex)).toBe(RESIZER_Z_INDEX);

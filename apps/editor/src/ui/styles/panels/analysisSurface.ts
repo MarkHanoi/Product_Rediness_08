@@ -1813,7 +1813,7 @@ export const ANALYSIS_SURFACE_STYLES = `
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   §VIEW-SWITCHER-ON-THE-VIEW (L-12982, founder 2026-09-06)
+   §VIEW-SWITCHER-ON-THE-VIEW (L-12985, founder 2026-09-06)
 
    *"we DON'T need the plan view / 3D view etc. on the panel -- that ... SHOULD
    BE CENTRED ON THE VIEW"*, with a screenshot boxing the four stacked

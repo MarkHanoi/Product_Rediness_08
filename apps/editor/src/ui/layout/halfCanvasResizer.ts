@@ -1,11 +1,11 @@
 /**
- * halfCanvasResizer.ts — §SHELL-SPLIT-DRAG (founder 2026-09-06 · L-12980)
+ * halfCanvasResizer.ts — §SHELL-SPLIT-DRAG (founder 2026-09-06 · L-12983)
  *
  * Layer Affected:  UI — shell layout (L7)
  * File:            apps/editor/src/ui/layout/halfCanvasResizer.ts
  * Strategy:        STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §24.1 item 2 · §25.0
  * Contracts:       C06 §15 (float budget) · C59 §2 · C84 EI-9 (one owner per rule)
- * Issue log:       L-12980
+ * Issue log:       L-12983
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * WHAT THE FOUNDER ASKED FOR, AND WHERE THE PIXELS COME FROM

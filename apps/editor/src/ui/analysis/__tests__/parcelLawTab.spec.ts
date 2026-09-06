@@ -130,7 +130,7 @@ describe('ARM A — the body calls each producer seam exactly as the contract sa
         // Synchronous: both producers were asked for, in order, with what they were owed.
         expect(seen).toEqual(['mountSwitcher(THE host)', 'buildParcelPanel(THE runtime)']);
         expect(hostEl.querySelector(`[data-testid="${PARCEL_LAW_TAB_TESTID}"]`)).toBe(h.element);
-        // ⭐ §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — the switcher is BUILT by this body and
+        // ⭐ §VIEW-SWITCHER-ON-THE-VIEW (L-12985) — the switcher is BUILT by this body and
         // PLACED on the view, not in the panel. Both halves are asserted, because the founder's
         // instruction was a MOVE: a switcher that vanished would satisfy "not on the panel" and
         // fail him completely.

@@ -36,7 +36,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 // applied by flushRuntimeEventListeners() below. That is the real production
 // path, deferred bridge and all, not a shortcut around it.
 import { flushRuntimeEventListeners } from '../../../engine/runtimeEventBridge';
-// §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — the ONE panel definition, read rather than
+// §VIEW-SWITCHER-ON-THE-VIEW (L-12985) — the ONE panel definition, read rather than
 // re-listed. See the assertions below for why this surface must not spell the rows out.
 import { VIEW_SEGMENTS } from '../../site/viewSegmentSwitcher';
 import '../AnalysisSurface';
@@ -332,7 +332,7 @@ describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
     // The cadastral half — the ONE producer's output, with the two trust facts.
     expect(body!.textContent).toContain('Catastro (Spain)');
     expect(body!.textContent).toContain('2026-08-21T09:14:00Z');
-    // ⭐ §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — THE SWITCHER IS NO LONGER IN THIS BODY.
+    // ⭐ §VIEW-SWITCHER-ON-THE-VIEW (L-12985) — THE SWITCHER IS NO LONGER IN THIS BODY.
     // Founder 2026-09-06: *"we DON'T need the plan view / 3D view etc. on the panel — that …
     // SHOULD BE CENTRED ON THE VIEW"*. Both halves of the MOVE are asserted: gone from the
     // panel, present on the view. Asserting only the first would pass with the control deleted.

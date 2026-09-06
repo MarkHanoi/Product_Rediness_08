@@ -165,7 +165,7 @@ describe('§SHELL-FLOAT-BUDGET — ARM B: every enrolled bar is really enrolled'
     // bar. Enrolled IN LOCK-STEP with the file that creates it, never afterwards: a
     // new centred bar that is not in this table is exactly what ARM D exists to catch.
     ['siteViewQuickToggle.ts', '.svq-bar'],
-    // §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — the founder's 2026-09-06 ask that the
+    // §VIEW-SWITCHER-ON-THE-VIEW (L-12985) — the founder's 2026-09-06 ask that the
     // view choice leave the right-hand panel and be *"CENTRED ON THE VIEW"*. Enrolled
     // in the same commit that creates it, for the reason stated one line above: in a
     // half-canvas mode `left: 50%` IS the panel's own left edge, so a bar moved OFF the

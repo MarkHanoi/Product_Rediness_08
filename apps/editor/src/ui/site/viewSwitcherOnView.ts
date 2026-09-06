@@ -1,5 +1,5 @@
 /**
- * viewSwitcherOnView.ts — §VIEW-SWITCHER-ON-THE-VIEW (founder 2026-09-06 · L-12982)
+ * viewSwitcherOnView.ts — §VIEW-SWITCHER-ON-THE-VIEW (founder 2026-09-06 · L-12985)
  *
  * Layer Affected:  UI — site / shell chrome (L7)
  * File:            apps/editor/src/ui/site/viewSwitcherOnView.ts
@@ -7,7 +7,7 @@
  * Contracts:       C06 §15 (float budget) · C06 §6.1 (one chrome language) ·
  *                  C19 §5.6 (a panel is a HOST; the action is the AUTHORITY) ·
  *                  C59 §1.3 / §2 (the pane shell owns pane layout)
- * Issue log:       L-12982
+ * Issue log:       L-12985
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * THE ASK, VERBATIM
@@ -51,7 +51,7 @@
  *     row says `canvas: 'half'`, `WorkspaceController._applyLayout` writes
  *     `#container.style.width`, and `#anl-surface` is `position: fixed; right: 0`.
  * So the split lands in the left region with the panel beside it, and the
- * §SHELL-SPLIT-DRAG handle (L-12980) resizes the two together. The founder's
+ * §SHELL-SPLIT-DRAG handle (L-12983) resizes the two together. The founder's
  * layout sentence is satisfied by the composition, not by a new container.
  *
  * ─────────────────────────────────────────────────────────────────────────────

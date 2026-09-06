@@ -1,5 +1,5 @@
 /**
- * §VIEW-SWITCHER-ON-THE-VIEW (L-12982) — the view choice leaves the panel, lands centred on
+ * §VIEW-SWITCHER-ON-THE-VIEW (L-12985) — the view choice leaves the panel, lands centred on
  * the view, and gains the founder's SPLIT.
  *
  * Founder 2026-09-06, boxing the four stacked full-width buttons inside the right-hand
