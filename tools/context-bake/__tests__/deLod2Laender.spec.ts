@@ -54,7 +54,9 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
     expect(by('wired')).toEqual(['bb', 'be', 'bw', 'hh', 'mv', 'ni', 'nw', 'rp', 'sh', 'sn', 'st', 'th']);
     expect(by('probed-open-unarmed')).toEqual(['by']);
     expect(by('blocked')).toEqual(['he']);
-    expect(by('unprobed')).toEqual(['hb', 'sl']);
+    expect(by('unprobed')).toEqual(['sl']);
+    // ⭐ Bremen is its OWN verdict: open, keyless, measuredHeight present — in a container with no reader.
+    expect(by('probed-open-unsupported')).toEqual(['hb']);
   });
   it('DE_LOD2_CITY_BBOXES is the WIRED subset of DE_LOD2_CITIES, one city per Land, koln byte-identical to the bake row', () => {
     expect(DE_LOD2_CITIES.length).toBe(16);
@@ -72,6 +74,7 @@ describe('§DE-LOD2-LAENDER router table — every Land present, every status ho
     expect(s).toContain('bw=wired(zip-multi/utm32/2km)');
     expect(s).toContain('sn=wired(zip/utm33/2km)');
     expect(s).toContain('by=probed-open-unarmed');
+    expect(s).toContain('hb=probed-open-unsupported');
   });
 });
 
@@ -461,12 +464,23 @@ describe('§DE-LOD2-LAENDER-BW Baden-Württemberg — the ODD-easting 2 km grid 
   it('Hessen, Bremen and Saarland stay REFUSED with a named barrier — a Land with no door is never silently "no data"', () => {
     for (const cc of ['he', 'hb', 'sl']) {
       const a = DE_LOD2_LAENDER[cc] as { status: string; reason: string; tileUrl?: unknown };
-      expect(['blocked', 'unprobed'], cc).toContain(a.status);
+      expect(['blocked', 'unprobed', 'probed-open-unsupported'], cc).toContain(a.status);
       expect(a.reason, cc).toMatch(/\d{3}|DNS|login|bot shield|not located|Berechtigung/);
       expect(a.tileUrl, `${cc} must carry NO door`).toBeUndefined();
     }
     // and the re-probe evidence is recorded, not overwritten by a bare "blocked".
-    expect((DE_LOD2_LAENDER.hb as { reason: string }).reason).toContain('DNS');
+    // Hessen's refusal now names the keyless alternative it RULED OUT, not just the gate it hit.
+    expect((DE_LOD2_LAENDER.he as { reason: string }).reason).toContain('ogc-free-maps');
+    // ⭐ Bremen's row is a BUILD, not a barrier: it carries the door it found and the attributes it measured.
+    const hb = DE_LOD2_LAENDER.hb as { container: string; tilesetUrl: string; attributes: string[]; reason: string; tileUrl?: unknown };
+    expect(hb.container).toBe('3dtiles-b3dm');
+    expect(hb.attributes).toContain('measuredHeight');
+    expect(hb.attributes).toContain('roofType');
+    expect(hb.tilesetUrl).toContain('bremen.virtualcitymap.de');
+    expect(hb.reason).toContain('measuredHeight');
+    expect(hb.tileUrl, 'hb has a tileset, NOT a CityGML tile door').toBeUndefined();
+    // Saarland's is UNKNOWN and says why the search proved nothing.
+    expect((DE_LOD2_LAENDER.sl as { reason: string }).reason).toContain('BYTE-IDENTICAL');
   });
 });
 

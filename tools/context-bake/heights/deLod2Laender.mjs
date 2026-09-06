@@ -165,17 +165,51 @@
 //         relied on; do not extend the header's "verified on every wired Land" claim to this string.
 //         Licence: geodaten.sachsen.de publishes the batch download keyless; the dl-de URI was NOT captured
 //         verbatim in this lane — recorded as such, exactly as Sachsen-Anhalt is.
-//   • he  Hessen — BLOCKED: gds.hessen.de Intershop Downloadcenter (ViewRegistration / login) — account-gated.
-//   • hb  Bremen — UNPROBED, re-probed 2026-09-05 (second pass) and still not located: geo.bremen.de states
-//         LoD1+LoD2 are OPEN DATA since 2024-06-09 "über das GeoPortal Bremen und MetaVer", but
-//         gdi2.geo.bremen.de/inspire/download/ is 403 and /3D/, /LoD2/ 404; second pass adds
-//         gdi2.geo.bremen.de/geoserver/web/ → 404 and .../geoserver/ows?…GetCapabilities → 404, and the hosts
-//         gdi.geo.bremen.de and opendata.bremen.de do not resolve (DNS). The MetaVer catalogue itself is up
-//         (metaver.de/csw?request=GetCapabilities → HTTP 200, 13,319 B) but GetRecords is 403 with and without
-//         a browser User-Agent, so the catalogue could not be searched for the LoD2 record from here.
-//         Door not located — which is UNPROBED, not "Bremen has no LoD2".
-//   • sl  Saarland — UNPROBED: saarland.de/lvgl is behind a bot shield (HTTP 403 bunny-shield challenge);
-//         geoportal.saarland.de search endpoints 404. Door not located.
+//   • he  Hessen — BLOCKED, RE-PROBED 2026-09-05 (third pass) and still account-gated, now with the
+//         keyless alternative ruled out by name. gds.hessen.de/…/ViewDownloadcenter-Start answers HTTP 200
+//         (13,076 B) — the earlier "login" reading was of the LANDING page, not the door — but EVERY
+//         dataset link on it routes to `ViewRegistration-View;pgid=…?SelectedMenuItem=Downloadcenter`, i.e.
+//         registration. The keyless service that does exist,
+//         www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-maps.ows?SERVICE=WMS&REQUEST=GetCapabilities,
+//         → HTTP 200, 174,116 B, 46 named layers (eel_dtk*, el_pg*, hboris*, he_alk*, he_dgm, he_dtk*,
+//         he_pg*, he_uek*, wms_hako, wms_he_karten) and NOT ONE of them is LoD2, 3D or a building model —
+//         `he_dgm` is a terrain raster, not a height per building. inspire-hessen.de is a hale»connect SPA
+//         (200, 1,593 B shell) and /ows/bu?…GetCapabilities is 404; geodaten.hessen.de does not resolve (DNS).
+//   • hb  Bremen — ⭐ PROBED-OPEN-UNSUPPORTED 2026-09-05 (third pass). The two earlier passes said "door not
+//         located"; that is now FALSE and the correction matters more than the status. The door IS located,
+//         IS keyless and DOES carry per-building measured heights — it is simply not CityGML, and this
+//         router has no reader for the container it is in. Path, verbatim: geo.bremen.de/produkte/3d-produkte/
+//         3d-gebaeudemodelle-11892 (200, 24,409 B) states LoD1+LoD2 are OPEN DATA "ab dem 9. Juni 2024 …
+//         über das GeoPortal Bremen und MetaVer"; the Open-Data overview it links (…/open-data-
+//         produktuebersicht-15654, 200, 37,712 B) lists SIX MetaVer records and NONE of them is the 3D
+//         model. The 3D model is in the GeoPortal's own service list instead:
+//         geoportal.bremen.de/geoportal/config.js → layerConf "../../resources/services.json" →
+//         https://geoportal.bremen.de/resources/services.json (200, 1,304,605 B, 1,242 entries) holds FOUR
+//         LoD2 layers, all `typ: "TileSet3D"` on bremen.virtualcitymap.de — id 400 "Gebäude (rote Dächer)
+//         LOD2 Bremen", 401 "Gebäude LOD2 Bremen", 402 "Gebäude LOD2 Bremerhaven", 400_7 "…texturiert".
+//         ⭐ THE ATTRIBUTES ARE THERE. tileset.json for 401 (…/datasource-data/15ecfa7c-abc0-40f9-9e1e-
+//         2279d24e53b9/tileset.json → HTTP 200, 60,454 B gzipped / 937,219 B decoded) DECLARES
+//         `measuredHeight` {valueType DOUBLE, minimum 1, maximum 249.02}, `roofType` (STRING) and
+//         `storeysAboveGround` {INTEGER 1..15}. One leaf tile, 15/34315/6695.b3dm → HTTP 200, 12,545 B,
+//         magic `b3dm` v1, BATCH_LENGTH 5, batch table 2,456 B carrying per-feature
+//         {"roofType":"1000","measuredHeight":4.07,…} and {"roofType":"2100","measuredHeight":5.577,…} —
+//         AdV roof codes DE_ROOF already maps, and heights to the millimetre.
+//         ⛔ WHY IT IS NOT WIRED, stated as a BUILD and not as a barrier: the batch table carries NO
+//         position (parentPosition −1; the tile's only geometry reference is RTC_CENTER in ECEF), so a
+//         join to an OSM footprint needs the glTF parsed, its `_BATCHID` vertex attribute partitioned per
+//         feature, and each feature's centroid transformed ECEF → WGS84. That is a new door KIND
+//         (`3dtiles-b3dm`), not a new row in this table, and half-building it inside this lane's budget
+//         would be worse than saying so. Bremen is OPEN and UNREAD, which is neither "blocked" nor "empty".
+//         ⚠ Do NOT carry the Hamburg note across: this file's `hh` row says its 3D Tiles are "b3dm, no
+//         attrs". That is true of HAMBURG's tileset and demonstrably FALSE of Bremen's — measured above.
+//   • sl  Saarland — UNPROBED, RE-PROBED 2026-09-05 (third pass); the reason is sharpened, not resolved.
+//         saarland.de/lvgl is still HTTP 403 behind a bunny-shield bot challenge. geoportal.saarland.de
+//         itself answers 200 (30,160 B) and is a Mapbender/searchCatalogue shell, but its search is
+//         CLIENT-SIDE: /search/?searchText=LoD2, ?searchText=3D-Gebäudemodell and ?searchText=Gebäudemodell
+//         return a BYTE-IDENTICAL 15,329-byte page (200) with no result markup at all — which proves the
+//         query was never executed, NOT that Saarland publishes no LoD2. /searchCatalogue/ is 404 and
+//         mapbender/php/mod_getCsw.php?REQUEST=GetCapabilities is 404. Three identical answers to three
+//         different questions is the signature of a probe that did not run; recorded as UNKNOWN.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** CityGML AdV roofType code → OSM roof:shape. An UNMAPPED or 9999 (Sonstiges) code emits NO tag —
@@ -332,12 +366,25 @@ export const DE_LOD2_LAENDER = {
     licence: 'geodaten.sachsen.de batch download, keyless (no dl-de URI captured verbatim this lane)',
     attribution: '© GeoSN',
     probe: '2026-09-05 batch page 178,355 B → share_id AyJqXpJAZJXomCb; lod2_33410_5656_2_sn_citygml.zip GET 200 9,384,946 B (HEAD 401), 33408_5652 200 12,594,244 B, 33414_5658 200 3,129,331 B, off-Land 33300_5300 404 261 B, dead token 503 232 B; entry gml 70.4 M chars → 1,523 Buildings/1,713 BuildingParts/5,702 measuredHeight, 2,851 parts, max 60.92 m',
-  },  he: { land: 'Hessen', status: 'blocked', reason: 'gds.hessen.de Intershop Downloadcenter requires registration/login (ViewRegistration); no keyless tile URL (2026-09-05)' },
-  hb: { land: 'Bremen', status: 'unprobed', reason: 'geo.bremen.de: LoD1+LoD2 OPEN DATA since 2024-06-09 via GeoPortal Bremen + MetaVer; gdi2.geo.bremen.de/inspire/download/ 403, /3D/ and /LoD2/ 404, /geoserver/web/ and /geoserver/ows 404; gdi.geo.bremen.de and opendata.bremen.de do not resolve (DNS); metaver.de CSW GetCapabilities 200 (13,319 B) but GetRecords 403 with and without a browser UA (2026-09-05, two passes)' },
-  sl: { land: 'Saarland', status: 'unprobed', reason: 'saarland.de/lvgl HTTP 403 bunny-shield bot challenge; geoportal.saarland.de mapbender search/feed endpoints 404 (2026-09-05)' },
+  },  he: { land: 'Hessen', status: 'blocked', reason: 'gds.hessen.de Downloadcenter answers HTTP 200 (13,076 B) but every dataset link routes to ViewRegistration-View — account-gated; and the keyless alternative is ruled out by name: www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-maps.ows GetCapabilities → 200, 174,116 B, 46 layers, NOT ONE of them LoD2/3D/building (he_dgm is terrain, not a per-building height); inspire-hessen.de/ows/bu 404; geodaten.hessen.de does not resolve (DNS). Re-probed 2026-09-05, third pass' },
+  hb: {
+    land: 'Bremen', status: 'probed-open-unsupported', zone: 32,
+    // ⭐ NOT "no door" and NOT "no data": the door is OPEN, keyless, and carries measuredHeight — in a
+    // container this router cannot read. Wiring it is a new door KIND (b3dm batch table + glTF _BATCHID
+    // centroids), which is a BUILD; recording it as `unprobed` would have been the lie.
+    container: '3dtiles-b3dm',
+    indexUrl: 'https://geoportal.bremen.de/resources/services.json',
+    tilesetUrl: 'https://bremen.virtualcitymap.de/datasource-data/15ecfa7c-abc0-40f9-9e1e-2279d24e53b9/tileset.json',
+    attributes: ['measuredHeight', 'roofType', 'storeysAboveGround'],
+    reason: 'LoD2 IS open and keyless, as 3D Tiles rather than CityGML: geoportal.bremen.de/resources/services.json (200, 1,304,605 B, 1,242 entries) lists four TileSet3D LoD2 layers on bremen.virtualcitymap.de; tileset.json (200, 60,454 B gz / 937,219 B) DECLARES measuredHeight DOUBLE 1..249.02, roofType and storeysAboveGround 1..15; leaf 15/34315/6695.b3dm (200, 12,545 B, BATCH_LENGTH 5) carries per-feature {"roofType":"1000","measuredHeight":4.07} and {"roofType":"2100","measuredHeight":5.577}. UNWIRED because the batch table has NO position (parentPosition -1, geometry only via RTC_CENTER) — a join needs glTF _BATCHID centroids ECEF→WGS84, i.e. a new door kind, not a table row. Probed 2026-09-05, third pass',
+  },
+  sl: { land: 'Saarland', status: 'unprobed', reason: 'saarland.de/lvgl HTTP 403 bunny-shield bot challenge; geoportal.saarland.de answers 200 (30,160 B) but its catalogue search is CLIENT-SIDE — /search/?searchText=LoD2, =3D-Gebäudemodell and =Gebäudemodell all return a BYTE-IDENTICAL 15,329 B page with no result markup, which proves the query never ran rather than that Saarland has no LoD2; /searchCatalogue/ 404, mapbender/php/mod_getCsw.php GetCapabilities 404. UNKNOWN, not empty. Re-probed 2026-09-05, third pass' },
 };
 
-export const DE_LOD2_STATUSES = ['wired', 'blocked', 'unprobed', 'probed-open-unarmed'];
+// 'probed-open-unsupported' (Bremen, 2026-09-05) is deliberately DISTINCT from both 'blocked' and
+// 'unprobed': the door is open and keyless and carries measuredHeight, but in a container this router has
+// no reader for. Collapsing it into either of the other two would report a BUILD as a BARRIER.
+export const DE_LOD2_STATUSES = ['wired', 'blocked', 'unprobed', 'probed-open-unarmed', 'probed-open-unsupported'];
 
 /** WGS84 (lat,lon) → ETRS89/UTM zone `zone`N easting/northing in metres (Snyder forward TM, GRS80).
  *  Zone-parameterised twin of heightSources.wgs84ToUtm32 (which hard-codes lon0 = 9°): 32 → EPSG:25832
