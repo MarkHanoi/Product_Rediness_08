@@ -36,6 +36,21 @@
 // sometimes unlabelled units (NC `gisacres` acres, MT `GISAcres` acres, VA `SHAPE.STArea()` in the
 // layer's own projected units, WI `GISACRES` acres) — passing any of them through as m² would be a
 // unit error wearing a number's confidence, so `ringAreaM2` is used throughout, as AU/CH/US-EXPAND do.
+//
+// ⭐ AND THAT CHOICE IS INDEPENDENTLY VERIFIED, not merely asserted. Running the nine SERVER legs
+// against the live upstreams on 2026-09-06 and comparing OUR shoelace area against each source's OWN
+// area field — a value we never read and therefore cannot have fitted to — agrees to 3–4 significant
+// figures at every one tested:
+//     NC  3,346 m² = 0.8267 ac  vs served `gisacres`      0.82463669
+//     OH    779 m² = 0.1925 ac  vs served `ASSR_ACRES`    0.19227437
+//     NY 41,201 m² = 10.181 ac  vs served `CALC_ACRES`   10.17558228
+//     MT    278 m² = 0.0687 ac  vs served `GISAcres`      0.06866983
+//     VA 115,468 m²             vs served `SHAPE.STArea()` 183,644.73 Web-Mercator units ÷
+//                                  sec²(37.54°N) = 115,646 m²  (0.15 % apart)
+// Two INDEPENDENT sources for the same quantity is the only thing that distinguishes "the ring
+// parsed" from "the ring is right": a wrong CRS, a lat/lon swap or a dropped vertex would all still
+// produce a plausible-looking positive number (§PROBE-CAN-BE-WRONG-THREE-WAYS). It does not, which
+// is also what rules out a silent Web-Mercator leak on the five layers whose native SR is 3857.
 
 import {
     isInUsBbox,
