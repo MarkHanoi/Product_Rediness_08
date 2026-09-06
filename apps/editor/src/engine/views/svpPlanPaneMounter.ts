@@ -51,16 +51,28 @@ function pin(el: HTMLElement, prop: string, value: string): void {
 }
 
 /**
+ * Pin the legacy pane node to fill whatever pane element it now lives in. ONE function so
+ * `mount` and `relocate` cannot drift into two spellings of the same geometry — a plan pane
+ * that filled its box on first mount and not on a move would look like a rendering bug.
+ */
+function pinPaneNode(paneNode: HTMLElement): void {
+    pin(paneNode, 'position', 'absolute');
+    pin(paneNode, 'top', '0');
+    pin(paneNode, 'right', '0');
+    pin(paneNode, 'bottom', '0');
+    pin(paneNode, 'left', '0');
+    pin(paneNode, 'width', '100%');
+    pin(paneNode, 'height', '100%');
+}
+
+/**
  * Build the `canvas2d` mounter for a pane shell. `resolve` hands back the ONE
  * SplitViewManager instance (there is only ever one — it owns the single plan renderer).
  */
 export function createSvpPlanPaneMounter(
     resolve: () => SplitViewManagerLike | null,
 ): PaneRendererMounter {
-    return {
-        rendererKind: 'canvas2d',
-
-        mount: (paneEl: HTMLElement): void => {
+    const mountInto = (paneEl: HTMLElement): void => {
             const svp = resolve();
             if (!svp) {
                 console.warn('[pane][plan] no SplitViewManager available — plan pane left empty.');
@@ -100,14 +112,37 @@ export function createSvpPlanPaneMounter(
 
             // Re-parent + fill the pane box (the seam: a pane element, not #container).
             paneEl.appendChild(paneNode);
-            pin(paneNode, 'position', 'absolute');
-            pin(paneNode, 'top', '0');
-            pin(paneNode, 'right', '0');
-            pin(paneNode, 'bottom', '0');
-            pin(paneNode, 'left', '0');
-            pin(paneNode, 'width', '100%');
-            pin(paneNode, 'height', '100%');
+            pinPaneNode(paneNode);
             console.log('[pane][plan] Canvas2D plan re-parented into its pane (C59 Phase 2).');
+    };
+
+    return {
+        rendererKind: 'canvas2d',
+
+        mount: mountInto,
+
+        // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988 / L-12992) — MOVE the ONE plan node into
+        // another pane without a deactivate/activate cycle. `mount` above rebuilds the legacy
+        // DOM from scratch (deactivate → activate), which for a pane-to-pane move throws away
+        // a live Canvas2D surface to get the same one back. There is exactly ONE
+        // `#svp-secondary-pane` node and a DOM node has one parent, so moving it IS the move.
+        relocate: (paneEl: HTMLElement): void => {
+            const paneNode = document.getElementById(SVP_PANE_ID);
+            if (!paneNode) {
+                // Never built (or torn down since) — fall back to the full mount.
+                console.log('[pane][plan] relocate: no live plan node — mounting instead.');
+                mountInto(paneEl);
+                return;
+            }
+            if (paneNode.parentElement !== paneEl) paneEl.appendChild(paneNode);
+            pinPaneNode(paneNode);
+            console.log('[pane][plan] §L-12988 plan node re-targeted into its pane (no rebuild).');
+        },
+
+        /** A READING off the document — where the ONE plan node actually is. */
+        isPlacedIn: (paneEl: HTMLElement): boolean => {
+            const paneNode = document.getElementById(SVP_PANE_ID);
+            return paneNode != null && paneNode.parentElement === paneEl;
         },
 
         unmount: (): void => {

@@ -350,6 +350,26 @@ export interface SiteBoundaryMap2DHandle {
     setBasemap(next: 'map' | 'satellite'): void;
     /** Which basemap is live right now — a READING off this map, not a remembered command. */
     getBasemap(): 'map' | 'satellite';
+    /**
+     * §MAP-IS-A-SINGLETON-TOO (L-12992, founder 2026-09-06) — RE-TARGET this ONE map into
+     * another host element, keeping it alive. The exact counterpart of
+     * `CesiumViewport.reparentContainerTo` (§L-412), and it exists because the two view
+     * surfaces were ASYMMETRIC: Cesium could move between panes and MapLibre could not, so
+     * *"if i clicked 2d map view it would render on the left hand side"* — the map stayed
+     * wherever it first mounted and the pane that asked for it went black.
+     *
+     * ⛔ NEVER a second map. `appendChild` MOVES an already-parented node; the overlay is
+     * `position:absolute; inset:0`, so it fills whatever POSITIONED host it lands in (the
+     * caller must give the host `position:relative|absolute` — `PaneHost` already does).
+     * `map.resize()` afterwards is what makes MapLibre re-measure: its own `trackResize`
+     * observer fires on the container's box, and a re-parent between two equally sized
+     * panes need not change that box at all.
+     */
+    reparentTo(host: HTMLElement): void;
+    /** Is this map's overlay actually inside `host` right now? A reading, not a memory. */
+    isPlacedIn(host: HTMLElement): boolean;
+    /** Re-measure after the host box changed (pane divider drag / mode switch). */
+    resize(): void;
 }
 
 export function mountSiteBoundaryMap2D(
@@ -2685,6 +2705,20 @@ export function mountSiteBoundaryMap2D(
         rearm: rearmDraw,
         setBasemap: (next) => swapBasemap(next),
         getBasemap: () => basemap,
+        // §MAP-IS-A-SINGLETON-TOO (L-12992) — see the interface for why this exists.
+        reparentTo: (host: HTMLElement): void => {
+            if (disposed) return;
+            if (overlay.parentElement !== host) {
+                host.appendChild(overlay); // MOVES the one node — no clone, no second map.
+                console.log(
+                    '[gis] map2d: §L-12992 reparentTo #' + (host.id || '(no-id)') +
+                    ' — the single map re-targeted into a pane (no new map, no tile refetch).',
+                );
+            }
+            try { map.resize(); } catch { /* torn down mid-move */ }
+        },
+        isPlacedIn: (host: HTMLElement): boolean => !disposed && overlay.parentElement === host,
+        resize: (): void => { if (!disposed) { try { map.resize(); } catch { /* torn down */ } } },
     };
 }
 

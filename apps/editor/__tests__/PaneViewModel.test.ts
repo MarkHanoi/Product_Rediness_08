@@ -14,6 +14,8 @@ import {
     panesShowingRenderer,
     resolveHostPane,
     siteAuthoringDefaultLayout,
+    parcelLawDefaultLayout,
+    paneLayoutForPreset,
     type PaneLayout,
 } from '../src/engine/views/paneViewModel';
 
@@ -24,8 +26,62 @@ describe('§L-412 VIEW_TYPE_REGISTRY — renderer-agnostic view catalogue', () =
         expect(VIEW_TYPE_REGISTRY['site-3d'].rendererKind).toBe('cesium');
         expect(VIEW_TYPE_REGISTRY['site-3d'].singleton).toBe(true);
         expect(VIEW_TYPE_REGISTRY['bim-3d'].singleton).toBe(true);       // one WebGPU device
-        expect(VIEW_TYPE_REGISTRY['site-map-2d'].singleton).toBe(false); // MapLibre is cheap
-        expect(VIEW_TYPE_REGISTRY['bim-plan-2d'].singleton).toBe(false); // Canvas2D is cheap
+        // §MAP-IS-A-SINGLETON-TOO (L-12992) — ⛔ THESE TWO READ `false` UNTIL 2026-09-06, WITH
+        // THE COMMENTS "MapLibre is cheap" / "Canvas2D is cheap" BESIDE THEM. Cheapness is not
+        // what this flag means: `singleton` asks whether the backing renderer can be in two
+        // panes AT ONCE, and neither of these can. There is ONE `SiteBoundaryMap2D` behind one
+        // module-scoped handle, and ONE `#svp-secondary-pane` DOM node (a node has one parent).
+        // The measured consequence of the old answer is the founder's black pane: the model
+        // called `{left:'site-map-2d', right:'site-map-2d'}` legal, the live host could only
+        // realise half of it, and the pane that lost held a view with no surface.
+        expect(VIEW_TYPE_REGISTRY['site-map-2d'].singleton).toBe(true);
+        expect(VIEW_TYPE_REGISTRY['bim-plan-2d'].singleton).toBe(true);
+    });
+
+    it('§L-12992 refuses a layout that puts the ONE 2D map in BOTH panes', () => {
+        // The founder's gesture: the map is on the left, he asks for it on the right.
+        const both: PaneLayout = { [LEFT_PANE]: 'site-map-2d', [RIGHT_PANE]: 'site-map-2d' };
+        const check = validatePaneLayout(both);
+        expect(check.ok).toBe(false);
+        expect(check.conflicts.map((c) => c.rendererKind)).toContain('maplibre');
+        // ...and the reducer never produces it: assigning it right VACATES the left.
+        const moved = assignViewToPane(
+            { [LEFT_PANE]: 'site-map-2d', [RIGHT_PANE]: 'site-3d' },
+            RIGHT_PANE,
+            'site-map-2d',
+        );
+        expect(moved[RIGHT_PANE]).toBe('site-map-2d');
+        expect(moved[LEFT_PANE]).toBeNull();
+        expect(validatePaneLayout(moved).ok).toBe(true);
+    });
+
+    it('§L-12992 refuses the same for the ONE Canvas2D plan node', () => {
+        const both: PaneLayout = { [LEFT_PANE]: 'bim-plan-2d', [RIGHT_PANE]: 'bim-plan-2d' };
+        expect(validatePaneLayout(both).ok).toBe(false);
+    });
+});
+
+describe('§PANE-DEFAULT-IS-PLAN-LEFT (L-12988) — the Parcel Law opening', () => {
+    it('opens PLAN LEFT · 3D SITE RIGHT — the founder\'s sentence, verbatim', () => {
+        const layout = parcelLawDefaultLayout();
+        expect(layout[LEFT_PANE]).toBe('bim-plan-2d');
+        expect(layout[RIGHT_PANE]).toBe('site-3d');
+        expect(validatePaneLayout(layout).ok).toBe(true);
+    });
+
+    it('does NOT change the onboarding opening — the 2D draw map stays on its left', () => {
+        // ⛔ The guarded half. Onboarding's left pane is the surface its flow makes the user
+        // draw the plot on (§ONBOARDING-STEP-PINS-ITS-SURFACE); re-pointing it at the plan
+        // would break the draw step to fix a different screen.
+        const onboarding = siteAuthoringDefaultLayout();
+        expect(onboarding[LEFT_PANE]).toBe('site-map-2d');
+        expect(onboarding[RIGHT_PANE]).toBe('site-3d');
+    });
+
+    it('resolves both presets by NAME, and an absent preset is the onboarding one', () => {
+        expect(paneLayoutForPreset('parcel-law')).toEqual(parcelLawDefaultLayout());
+        expect(paneLayoutForPreset('site-authoring')).toEqual(siteAuthoringDefaultLayout());
+        expect(paneLayoutForPreset(undefined)).toEqual(siteAuthoringDefaultLayout());
     });
 });
 

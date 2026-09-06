@@ -306,7 +306,15 @@ declare global {
          *  toggle. Entering the site step calls this so the user lands directly on the
          *  side-by-side; a draw/select on the left re-renders the boundary + envelope live
          *  on the right (no view-switch dance). Registered by GISAreaLayout. */
-        pryzmMountSiteAuthoringPanes?: () => void;
+        pryzmMountSiteAuthoringPanes?: (opts?: {
+            /** §PANE-DEFAULT-IS-PLAN-LEFT (L-12988) — WHICH declared opening to seed.
+             *  `'site-authoring'` (the default, and what onboarding needs) opens 2D map LEFT ·
+             *  3D Site RIGHT; `'parcel-law'` opens PLAN LEFT · 3D Site RIGHT, which is what the
+             *  founder asked the Parcel Law tab to open as. A NAME, not a layout object: a
+             *  layout shipped through a global would be a second place for a default to live,
+             *  and `paneLayoutForPreset` in the pure model is the first. */
+            readonly layout?: 'site-authoring' | 'parcel-law';
+        }) => void;
         /** §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412) — dismiss the site-authoring split: the
          *  2D map disposes and the single Cesium viewer re-homes to `#container` + hides
          *  (never disposed). Idempotent. Registered by GISAreaLayout. */

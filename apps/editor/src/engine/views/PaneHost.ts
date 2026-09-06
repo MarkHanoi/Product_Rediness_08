@@ -54,6 +54,42 @@ export interface PaneRendererMounter {
     unmount(): void;
     /** Reflow the renderer to its pane's current size (divider drag / window resize). */
     resize(): void;
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988 / L-12992) — MOVE the ONE live surface this
+     * mounter owns into `paneEl`, keeping it alive. Optional.
+     *
+     * ⭐ WHY THIS IS NOT `unmount()` + `mount()`. The two-pass reconcile below unmounts a
+     * vacated pane BEFORE mounting the new one, which is correct for a re-targeting mounter
+     * and WRONG for one whose `unmount` is a teardown. `GISAreaLayout`'s MapLibre mounter
+     * disposes the 2D map on unmount — by design, that is how the map goes away at
+     * generate-time — so a pane-to-pane MOVE destroyed the map, refetched every tile, and
+     * dropped `window.pryzmBoundaryDrawSurfaceReadyAt` (L-12992: *"map2d: disposed"* followed
+     * by 47 `draw idle tick — waiting (surface-not-ready)` retries). `relocate` lets the
+     * controller say MOVING rather than LEAVING, so departure and relocation stop sharing one
+     * verb. When absent, a move falls back to unmount + mount exactly as before.
+     */
+    relocate?(paneEl: HTMLElement): void;
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — is this mounter's surface ACTUALLY inside
+     * `paneEl` right now? Optional, and it is a READING off the document, never a memory of the
+     * last call: the whole defect this answers is a container that ended up parented to one
+     * pane while the layout said another.
+     *
+     * A mounter that cannot answer is left alone by {@link MultiPaneController.reassertPlacement}
+     * — deliberately. Re-mounting "just in case" is only safe for a mounter that re-targets,
+     * and the controller cannot tell which those are.
+     */
+    isPlacedIn?(paneEl: HTMLElement): boolean;
+}
+
+/** What one pane's placement re-assertion did. Returned so a caller (and a spec) can see it. */
+export interface PanePlacementCheck {
+    readonly paneId: PaneId;
+    readonly viewType: ViewType | null;
+    /** The mounter could not report where its surface is — nothing was asserted. */
+    readonly unknown: boolean;
+    /** The surface was somewhere else and has been put back. */
+    readonly corrected: boolean;
 }
 
 /**
@@ -64,6 +100,16 @@ export interface PaneRendererMounter {
 export class PaneHost {
     private _viewType: ViewType | null = null;
     private _mounter: PaneRendererMounter | null = null;
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — which mount attempt is CURRENT.
+     * Bumped by every mount / unmount / release, so an ASYNC mount that resolves after the
+     * layout has moved on can recognise that it is stale. Without it, the Cesium mounter's
+     * `await awaitCesiumReady()` could resolve into a pane the layout had already vacated
+     * and re-parent the single container there — permanently, because nothing looked again.
+     */
+    private _mountToken = 0;
+    /** Installed by `MultiPaneController` — "this mounter finished mounting too late". */
+    onSupersededMount: ((mounter: PaneRendererMounter) => void) | null = null;
 
     constructor(
         readonly paneId: PaneId,
@@ -90,7 +136,11 @@ export class PaneHost {
      * view+mounter (re-mounting the same singleton just resizes it). Unmounts the
      * previous view first when it differs. Returns the (possibly async) mount result.
      */
-    mount(viewType: ViewType, mounter: PaneRendererMounter): void | Promise<void> {
+    mount(
+        viewType: ViewType,
+        mounter: PaneRendererMounter,
+        opts: { readonly relocate?: boolean } = {},
+    ): void | Promise<void> {
         if (this._viewType === viewType && this._mounter === mounter) {
             mounter.resize();
             return;
@@ -98,7 +148,45 @@ export class PaneHost {
         this.unmount();
         this._viewType = viewType;
         this._mounter = mounter;
-        return mounter.mount(this.el);
+        const token = ++this._mountToken;
+
+        // §PANE-PLACEMENT-AFTER-MODE-SWITCH — a MOVE of a live singleton surface. The
+        // controller has already decided this is a relocation (the same mounter is wanted
+        // here and was just released by another pane), so the surface is alive and only its
+        // parent changes. Synchronous by contract: there is nothing to construct.
+        if (opts.relocate && typeof mounter.relocate === 'function') {
+            try {
+                mounter.relocate(this.el);
+                return;
+            } catch (e) {
+                console.warn(`[pane-host][${this.paneId}] relocate threw — falling back to mount:`, e);
+            }
+        }
+        return this._startMount(token, mounter);
+    }
+
+    private _startMount(token: number, mounter: PaneRendererMounter): void | Promise<void> {
+        const r = mounter.mount(this.el);
+        if (!(r instanceof Promise)) return r;
+        // ⭐ THE ONE PLACEMENT PASS, AFTER THE MOUNT HAS SETTLED — not a race against it.
+        return r.then(() => {
+            if (token === this._mountToken && this._mounter === mounter) {
+                // Still ours. The pane box may have settled DURING the await (a mode switch
+                // rewrites `#container`'s width while Cesium is still constructing), so make
+                // the renderer measure the box it actually landed in rather than the one it
+                // was handed. One reflow, at the end — which is also what stops the caller
+                // needing to guess when it is safe to look.
+                this.resize();
+                return;
+            }
+            console.warn(
+                `[pane-host][${this.paneId}] §PANE-PLACEMENT-AFTER-MODE-SWITCH: a mount ` +
+                `resolved AFTER the layout moved on (${mounter.rendererKind}). Its surface is ` +
+                'in a pane that no longer owns it; re-asserting placement from the committed ' +
+                'layout rather than leaving the two disagreeing.',
+            );
+            this.onSupersededMount?.(mounter);
+        });
     }
 
     /** Detach the current view (no-op when empty). Leaves the pane element in place. */
@@ -112,6 +200,76 @@ export class PaneHost {
         }
         this._mounter = null;
         this._viewType = null;
+        this._mountToken++;
+    }
+
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH — give the view up WITHOUT tearing its surface down,
+     * because it is about to be relocated into another pane by the same mounter. The pane
+     * becomes empty in the host's bookkeeping; the surface stays alive and moves.
+     */
+    releaseForMove(): void {
+        this._mounter = null;
+        this._viewType = null;
+        this._mountToken++;
+    }
+
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH — invalidate any mount still in flight WITHOUT
+     * changing what this pane hosts. Called by `MultiPaneController.dispose()`: the pane
+     * elements are about to be detached, so a mount that resolves afterwards must recognise
+     * itself as stale and send its surface home rather than parking it in a node no longer
+     * in the document — where it would be invisible for the rest of the session, with the
+     * viewport's mount-parent reference pointing at it.
+     */
+    markSuperseded(): void {
+        this._mountToken++;
+    }
+
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH — assert that the hosted renderer's surface is
+     * ACTUALLY in this pane, and put it back if it is not. Idempotent, and cheap in the
+     * normal case (one DOM parent comparison, then a reflow).
+     *
+     * ⛔ It only acts on a POSITIVE report of misplacement. A mounter with no `isPlacedIn`
+     * is reflowed and left alone: `mount()` is not universally idempotent (the MapLibre
+     * mounter's opens a map), so re-mounting on a hunch is how you get two of something.
+     */
+    reassertPlacement(): PanePlacementCheck {
+        const viewType = this._viewType;
+        const mounter = this._mounter;
+        if (!mounter || viewType == null) {
+            return { paneId: this.paneId, viewType: null, unknown: false, corrected: false };
+        }
+        if (typeof mounter.isPlacedIn !== 'function') {
+            this.resize();
+            return { paneId: this.paneId, viewType, unknown: true, corrected: false };
+        }
+        let placed = true;
+        try {
+            placed = mounter.isPlacedIn(this.el);
+        } catch (e) {
+            console.warn(`[pane-host][${this.paneId}] isPlacedIn threw — treating as unknown:`, e);
+            this.resize();
+            return { paneId: this.paneId, viewType, unknown: true, corrected: false };
+        }
+        if (placed) {
+            this.resize();
+            return { paneId: this.paneId, viewType, unknown: false, corrected: false };
+        }
+        console.warn(
+            `[pane-host][${this.paneId}] §PANE-PLACEMENT-AFTER-MODE-SWITCH: '${viewType}' ` +
+            `(${mounter.rendererKind}) is NOT in the pane the layout gives it — putting it back.`,
+        );
+        try {
+            if (typeof mounter.relocate === 'function') mounter.relocate(this.el);
+            else void mounter.mount(this.el);
+        } catch (e) {
+            console.warn(`[pane-host][${this.paneId}] placement correction threw:`, e);
+            return { paneId: this.paneId, viewType, unknown: false, corrected: false };
+        }
+        this.resize();
+        return { paneId: this.paneId, viewType, unknown: false, corrected: true };
     }
 
     /** Reflow the hosted renderer to the pane's current size. */
@@ -134,6 +292,9 @@ export class MultiPaneController {
     private readonly hosts = new Map<PaneId, PaneHost>();
     private readonly mounters = new Map<RendererKind, PaneRendererMounter>();
 
+    /** §PANE-PLACEMENT-AFTER-MODE-SWITCH — true once the shell that owns these panes is gone. */
+    private _disposed = false;
+
     constructor(
         hosts: PaneHost[],
         private readonly registry: Readonly<Record<ViewType, ViewTypeDescriptor>> = VIEW_TYPE_REGISTRY,
@@ -142,6 +303,10 @@ export class MultiPaneController {
         for (const h of hosts) {
             this.hosts.set(h.paneId, h);
             layout[h.paneId] = null;
+            // A late-resolving mount reports here rather than to the pane it landed in: only
+            // the controller can see the COMMITTED layout and every other pane, which is what
+            // deciding between "put it where it belongs" and "it belongs nowhere" needs.
+            h.onSupersededMount = (mounter) => this.reconcileSupersededMount(mounter);
         }
         this._layout = layout;
     }
@@ -227,10 +392,35 @@ export class MultiPaneController {
         // pane and then the right pane's late unmount re-homes it to #container + hides
         // it (the exact clobber a single-pass reconcile caused). Unmount-then-mount is
         // the correct order for re-targeting a shared instance.
+        //
+        // ⭐ §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12992) — A MOVE IS NOT A DEPARTURE. The
+        // ordering above is right and the VERB was wrong: a mounter whose `unmount` is a
+        // teardown (the MapLibre one disposes the 2D map — deliberately, that is how the
+        // map goes away at generate-time) had its surface destroyed by a pane-to-pane move,
+        // then rebuilt from scratch in the other pane. The founder measured the cost:
+        // `map2d: disposed` with nothing replacing it, a black pane, and a draw watchdog
+        // spinning on a readiness stamp the disposer had cleared. So when the SAME renderer
+        // kind is still wanted somewhere in `next` and its mounter can `relocate`, pass 1
+        // RELEASES the pane without unmounting and pass 2 relocates the live surface in.
+        const keptKinds = new Set<RendererKind>();
+        for (const paneId of Object.keys(next)) {
+            const vt = next[paneId] ?? null;
+            if (vt != null) keptKinds.add(this.registry[vt].rendererKind);
+        }
+        const relocating = new Set<RendererKind>();
+
         for (const host of this.hosts.values()) {
             const prev = this._layout[host.paneId] ?? null;
             const want = next[host.paneId] ?? null;
-            if (prev !== want && prev != null) host.unmount();
+            if (prev === want || prev == null) continue;
+            const prevKind = this.registry[prev].rendererKind;
+            const prevMounter = this.mounters.get(prevKind);
+            if (prevMounter && keptKinds.has(prevKind) && typeof prevMounter.relocate === 'function') {
+                relocating.add(prevKind);
+                host.releaseForMove();
+                continue;
+            }
+            host.unmount();
         }
 
         const pending: Array<Promise<void>> = [];
@@ -239,20 +429,93 @@ export class MultiPaneController {
             const want = next[host.paneId] ?? null;
             if (prev === want || want == null) continue;
 
-            const mounter = this.mounters.get(this.registry[want].rendererKind);
+            const kind = this.registry[want].rendererKind;
+            const mounter = this.mounters.get(kind);
             if (!mounter) {
                 console.warn(
                     `[pane-host][${host.paneId}] no mounter registered for '${want}' ` +
-                    `(${this.registry[want].rendererKind}) — pane left empty.`,
+                    `(${kind}) — pane left empty.`,
                 );
                 continue;
             }
-            const r = host.mount(want, mounter);
+            const r = host.mount(want, mounter, { relocate: relocating.has(kind) });
             if (r instanceof Promise) pending.push(r);
         }
         // Commit the new pure state only after the (sync part of the) reconcile.
         this._layout = next;
-        return pending.length > 0 ? Promise.all(pending).then(() => undefined) : undefined;
+        if (pending.length === 0) return undefined;
+        // ⭐ ONE AUTHORITATIVE PLACEMENT PASS once every async mounter has settled. This is
+        // the half the founder's report turns on: an async mount that resolves into a pane
+        // the layout has since changed used to leave placement and layout disagreeing with
+        // nothing to look again. Now the LAST thing a layout change does is assert, from the
+        // committed layout, that each surface is where that layout puts it.
+        return Promise.all(pending).then(() => {
+            this.reassertPlacement();
+        });
+    }
+
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — ⭐ THE ONE AUTHORITATIVE PLACEMENT PASS.
+     *
+     * For every pane, assert that the renderer the COMMITTED layout gives it is actually in
+     * that pane's element, and put it back when it is not. Call this after any transition
+     * that can re-write the shell's geometry underneath a mount that was already in flight —
+     * a workspace mode switch is the measured case (L-12988: `reparentContainerTo
+     * #pryzm-pane-right` landing while the picture was in the other half of the screen).
+     *
+     * ⛔ It is NOT a re-mount. Every correction goes through `relocate` where the mounter has
+     * one, and a mounter that cannot report its own placement is only reflowed — so this can
+     * never mint a second Cesium viewer or a second MapLibre map, which is the constraint
+     * §L-412 exists to hold.
+     */
+    reassertPlacement(): PanePlacementCheck[] {
+        if (this._disposed) return [];
+        const out: PanePlacementCheck[] = [];
+        for (const host of this.hosts.values()) out.push(host.reassertPlacement());
+        return out;
+    }
+
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH — a mounter finished mounting into a pane that had
+     * already moved on. Decide from the COMMITTED layout, never from where it landed.
+     */
+    private reconcileSupersededMount(mounter: PaneRendererMounter): void {
+        // The shell is gone: the surface is now parented into a DETACHED pane element and
+        // would be invisible for the rest of the session. Send it home.
+        if (this._disposed) {
+            try { mounter.unmount(); } catch (e) {
+                console.warn('[pane-host] late unmount after dispose threw:', e);
+            }
+            return;
+        }
+        // Still wanted somewhere? Put it in the pane the layout names.
+        for (const host of this.hosts.values()) {
+            const want = this._layout[host.paneId] ?? null;
+            if (want == null) continue;
+            if (this.mounters.get(this.registry[want].rendererKind) !== mounter) continue;
+            host.reassertPlacement();
+            return;
+        }
+        // Wanted nowhere — the layout vacated it while it was constructing.
+        try { mounter.unmount(); } catch (e) {
+            console.warn('[pane-host] late unmount threw:', e);
+        }
+    }
+
+    /**
+     * Tear the controller down with the shell that owns it. After this a late-resolving
+     * mount re-homes its surface instead of parking it in a detached pane element, and
+     * `reassertPlacement()` is a no-op. Idempotent; does NOT unmount the hosts (the shell's
+     * own dispose does that, in its own order).
+     */
+    dispose(): void {
+        this._disposed = true;
+        // ⛔ The reporting hooks stay INSTALLED on purpose. Clearing them here is what a
+        // teardown normally does and it would be exactly wrong: the only thing that can still
+        // happen after this point is a mount resolving late, and that is precisely the case
+        // that needs to be heard — `reconcileSupersededMount` re-homes it. Invalidating each
+        // host's token is what makes such a mount announce itself.
+        for (const host of this.hosts.values()) host.markSuperseded();
     }
 
     /** Reflow one pane (or all) to their current size — divider drag / window resize. */

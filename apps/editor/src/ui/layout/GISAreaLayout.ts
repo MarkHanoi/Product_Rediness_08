@@ -203,7 +203,17 @@ import { getLoadingOverlay } from '../overlays/LoadingOverlayController';
 // through the pure `assignViewToPane` model, NOT a hard-coded toggle. The single
 // Cesium viewer is RE-TARGETED into the right pane element (never cloned).
 import { mountSiteAuthoringPaneShell, type SiteAuthoringPaneShell } from '../../engine/views/SiteAuthoringPaneShell';
-import { siteAuthoringDefaultLayout, RIGHT_PANE } from '../../engine/views/paneViewModel';
+import {
+    paneLayoutForPreset,
+    RIGHT_PANE,
+    type PaneLayoutPreset,
+} from '../../engine/views/paneViewModel';
+// §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — the deferred subscription helper. Used here
+// rather than a bare `runtime?.events?.on(...)` because the LIVE boot path constructs this
+// layout with `runtime === null` (`createMainLayout(props, null)` in initUI.ts), which is the
+// same seam `resolveLiveUpdateEventBus` exists for: a direct subscription would silently
+// no-op and the placement pass would never run in production while passing in a spec.
+import { onRuntimeEvent } from '../../engine/runtimeEventBridge';
 import type { PaneRendererMounter } from '../../engine/views/PaneHost';
 import {
     createSvpPlanPaneMounter,
@@ -592,6 +602,28 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // + closes. Lazy-imports the MapLibre chunk so it is not in the main bundle.
     const startBoundaryDraw = (drawOpts?: { overlayOnly?: boolean; parent?: HTMLElement }): void => {
         if (map2dHandle) {
+            // §MAP-IS-A-SINGLETON-TOO (L-12992, founder 2026-09-06: *"if i clicked 2d map view
+            // it would render on the left hand side"*, with the pane that asked for it BLACK).
+            //
+            // ⛔ THIS USED TO BE A BARE `return`, AND THE BARE RETURN WAS THE BUG. `parent` was
+            // honoured on the FIRST mount only (the `viewport` line below); every later request
+            // for the map in a DIFFERENT pane hit this guard, logged "already open" and did
+            // nothing — so the ONE map stayed wherever it first landed while the requesting
+            // pane held a view with no surface. The asymmetry is the whole finding: the Cesium
+            // container had been pane-aware since §L-412 (`reparentContainerTo`) and the
+            // MapLibre map had not, so one of the two hostable surfaces could move and the
+            // other could not.
+            //
+            // ⭐ RE-TARGET, NEVER RE-MOUNT. A dispose-and-remount would refetch every tile AND
+            // clear `window.pryzmBoundaryDrawSurfaceReadyAt` — which is precisely the trace the
+            // founder captured: `map2d: disposed`, then §DRAW-SURFACE-IS-RECOVERABLE, then 47
+            // `draw idle tick — waiting (surface-not-ready)` retries that never settle. Moving
+            // the node keeps the map, the boundary in progress and the readiness stamp.
+            const nextHost = drawOpts?.parent ?? null;
+            if (nextHost && !map2dHandle.isPlacedIn(nextHost)) {
+                map2dHandle.reparentTo(nextHost);
+                return;
+            }
             console.log('[gis] map2d already open');
             return;
         }
@@ -6176,9 +6208,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  A no-op before any mount (and after an unmount) so the window hook is always safe. */
     let fadeInSiteAuthoringPanes: () => void = () => { /* nothing mounted */ };
 
-    const mountSiteAuthoringPanes = (): void => {
+    const mountSiteAuthoringPanes = (preset: PaneLayoutPreset = 'site-authoring'): void => {
         if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
-            console.log('[gis][panes] §L-412 site-authoring split already mounted.');
+            // §PANE-DEFAULT-IS-PLAN-LEFT (L-12988) — already up. Do NOT re-mount (that would
+            // tear down a live Cesium + map to rebuild the same two), and do NOT silently
+            // ignore the preset either: a host that asks for its own opening while the split
+            // happens to be up would otherwise get whatever the previous host left behind.
+            // Seed through the STORE, the one write path (C59 §2 invariant 3).
+            console.log(`[gis][panes] §L-412 site-authoring split already mounted — re-seeding '${preset}'.`);
+            const already = siteAuthoringPanes.store.dispatch({
+                type: 'view.pane.set-layout',
+                layout: paneLayoutForPreset(preset),
+            });
+            if (!already.ok) {
+                console.warn('[gis][panes] re-seed rejected (the existing layout stands):', already.rejected);
+            }
+            already.pending?.catch((err) => console.error('[gis][panes] re-seed apply (async) failed:', err));
             return;
         }
         const container = document.getElementById('container');
@@ -6239,9 +6284,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const mapMounter: PaneRendererMounter = {
             rendererKind: 'maplibre',
             mount: (paneEl) => { startBoundaryDraw({ parent: paneEl }); },
+            // §MAP-IS-A-SINGLETON-TOO (L-12992) — a pane-to-pane MOVE is not a departure.
+            // `unmount` below DISPOSES (that is how the map goes away at generate-time), so
+            // without this a move destroyed the map and rebuilt it in the other pane: tiles
+            // refetched, the in-progress boundary lost, and the draw watchdog left spinning on
+            // a readiness stamp the disposer had cleared. `PaneHost` calls this instead.
+            relocate: (paneEl) => {
+                if (map2dHandle) map2dHandle.reparentTo(paneEl);
+                else startBoundaryDraw({ parent: paneEl }); // never opened / already disposed.
+            },
+            isPlacedIn: (paneEl) => map2dHandle?.isPlacedIn(paneEl) ?? false,
             unmount: () => { if (map2dHandle) { try { map2dHandle.dispose(); } catch { /* gone */ } map2dHandle = null; } },
-            // MapLibre auto-reflows via its own ResizeObserver (trackResize:true).
-            resize: () => { /* auto */ },
+            // MapLibre auto-reflows via its own ResizeObserver (trackResize:true) — but that
+            // observer only fires when the BOX changes, and a re-parent between two equally
+            // sized panes does not change it. One explicit `map.resize()` costs nothing and
+            // removes the case where it would not have fired at all.
+            resize: () => { try { map2dHandle?.resize(); } catch { /* gone */ } },
         };
 
         // ── Cesium mounter (RIGHT pane) — the ONE 3D Site viewer, RE-TARGETED ──
@@ -6318,6 +6376,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // into a visible error. This is the same handshake `engageFormaCesium` makes.
                 paneActivation.contentIssued();
             },
+            // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — MOVE the ONE viewer between panes
+            // without re-running the whole activation. `reparentContainerTo` is already the
+            // §L-412 re-target primitive ("single Cesium re-targeted; no new viewer"); this
+            // just names it as the relocation verb so a pane-to-pane move never goes through
+            // unmount (which hides the viewer and restores the BIM canvases) and back.
+            relocate: (paneEl) => {
+                if (!cesiumViewport) { void cesiumMounter.mount?.(paneEl); return; }
+                cesiumViewport.reparentContainerTo?.(paneEl);
+                cesiumViewport.setVisible?.(true);
+                cesiumViewport.reparentContainerTo?.(paneEl); // reflow now it is visible.
+            },
+            // A READING off the document, never a memory — see `CesiumViewport.isContainerIn`.
+            isPlacedIn: (paneEl) => cesiumViewport?.isContainerIn?.(paneEl) ?? false,
             unmount: () => {
                 // §L-433 — leaving the pane mid-load must not strand the overlay over an empty
                 // right pane; cancel restores input and dismisses it.
@@ -6391,7 +6462,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.warn('[gis][panes] §ONBOARDING-STEP-PINS-ITS-SURFACE pin failed (non-fatal — the split still mounts):', e);
         }
 
-        const layout = siteAuthoringDefaultLayout();
+        // §PANE-DEFAULT-IS-PLAN-LEFT (L-12988, founder: *"it should initially the plan view to
+        // the left and 3d site to right"*). The OPENING is the caller's — onboarding needs the
+        // 2D draw map on the left, the Parcel Law tab needs the plan — and both are declared in
+        // the pure model rather than spelled out here (`paneLayoutForPreset`).
+        const layout = paneLayoutForPreset(preset);
         const applied = shell.store.dispatch({ type: 'view.pane.set-layout', layout });
         if (!applied.ok) {
             console.error('[gis][panes] default layout rejected — tearing the split down:', applied.rejected);
@@ -6400,7 +6475,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         applied.pending?.catch((err) => console.error('[gis][panes] layout apply (async) failed:', err));
         console.log(
-            '[gis][panes] §L-412 site-authoring split mounted — LEFT 2D map · RIGHT live 3D Site ' +
+            `[gis][panes] §L-412 site-authoring split mounted ('${preset}') — LEFT ` +
+            `${layout.left ?? 'empty'} · RIGHT ${layout.right ?? 'empty'} ` +
             '(single Cesium re-targeted; envelope live on draw/select).',
         );
     };
@@ -6432,8 +6508,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // site step + the GIS-rail launcher call this so entering the site lands directly
     // in 2D-left / 3D-right (the "Generate house?" confirm stays a SEPARATE choice,
     // never a blocker to seeing the site). Registered globally (typed in globals.d.ts).
-    window.pryzmMountSiteAuthoringPanes = () => {
-        try { mountSiteAuthoringPanes(); }
+    window.pryzmMountSiteAuthoringPanes = (opts) => {
+        try { mountSiteAuthoringPanes(opts?.layout ?? 'site-authoring'); }
         catch (e) { console.error('[gis][panes] pryzmMountSiteAuthoringPanes failed:', e); }
     };
     // §22 (PRD §17.4) — bring the just-mounted split in with a CSS opacity transition. Called by
@@ -6447,6 +6523,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         try { unmountSiteAuthoringPanes(); }
         catch (e) { console.error('[gis][panes] pryzmUnmountSiteAuthoringPanes failed:', e); }
     };
+
+    // ════════════════════════════════════════════════════════════════════════
+    // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988, founder 2026-09-06: *"after selecting
+    // analyse → parcel law → then author the right hand side gets corrupted"*, with the 3D
+    // Site filling the LEFT half and the RIGHT half blank white).
+    //
+    // ⭐ WHY THE MODE SWITCH IS THE TRIGGER, AND WHY THIS IS ONE PASS AND NOT A LISTENER
+    // THAT DOES WORK. A workspace mode change re-writes `#container`'s box — three writers,
+    // no protocol between them (`WorkspaceController._applyLayout`'s `'50%'`/`''`,
+    // `SplitViewManager._buildDOM`'s `'60%'`, and `halfCanvasResizer`'s dragged fraction;
+    // see that file's header for the measurement). The split shell lives INSIDE that box, so
+    // every pane's geometry moves underneath whatever mount happened to be in flight — and a
+    // Cesium mount is async, so one routinely is. The founder's trace is that exact shape:
+    // `reparentContainerTo #container` … then, 4.8 s later, `reparentContainerTo
+    // #pryzm-pane-right` — a mount resolving into a layout that had already changed, with
+    // nothing to look again afterwards.
+    //
+    // So this asks ONE question at the END of the transition: is each renderer in the pane
+    // the STORE says owns it? It corrects only a positively-reported mismatch, through
+    // `relocate` where the mounter has one — never a re-mount, never a second viewer
+    // (§L-412's constraint is unchanged and is what makes this safe to run on every switch).
+    // The pass is coalesced onto one frame by the shell, so a burst of mode/resize events in
+    // one transition costs one pass.
+    // ════════════════════════════════════════════════════════════════════════
+    try {
+        onRuntimeEvent('pryzm-workspace-mode', () => {
+            if (!siteAuthoringPanes || siteAuthoringPanes.isDisposed) return;
+            siteAuthoringPanes.reassertPlacement();
+        });
+    } catch (e) {
+        console.warn('[gis][panes] §PANE-PLACEMENT-AFTER-MODE-SWITCH subscribe failed (non-fatal):', e);
+    }
 
     // ── §L-676-B (C13 §3.10) — THE MISSING OWNER ────────────────────────────────
     //

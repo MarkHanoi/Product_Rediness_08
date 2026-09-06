@@ -92,9 +92,17 @@ export const SITE_AUTHORING_PANES_ROOT_ID = 'pryzm-site-authoring-panes';
  * (`types/globals.d.ts`), registered by `GISAreaLayout`; onboarding drives the same pair.
  */
 export interface SplitLayoutHost {
-    pryzmMountSiteAuthoringPanes?: () => void;
+    pryzmMountSiteAuthoringPanes?: (opts?: { readonly layout?: SplitLayoutPreset }) => void;
     pryzmUnmountSiteAuthoringPanes?: () => void;
 }
+
+/**
+ * §PANE-DEFAULT-IS-PLAN-LEFT (L-12988) — WHICH declared opening this bar's SPLIT asks for.
+ * Mirrors `PaneLayoutPreset` in the pure pane model; spelled as a string union here for the
+ * same reason it is one there — it crosses the `window` boundary, and a layout object shipped
+ * through a global would be a second place for a default to live.
+ */
+export type SplitLayoutPreset = 'site-authoring' | 'parcel-law';
 
 /** The whole host this bar reads: the GIS view actions PLUS the two split entry points. */
 export type ViewSwitcherOnViewHost = GisCapabilityHost & SplitLayoutHost;
@@ -111,6 +119,22 @@ export interface ViewSwitcherOnViewOptions {
      * A reading, never a memory — see the header.
      */
     readonly isSplitOpen?: () => boolean;
+    /**
+     * §PANE-DEFAULT-IS-PLAN-LEFT (L-12988, founder 2026-09-06: *"it should initially the plan
+     * view to the left and 3d site to right"*) — the opening SPLIT asks for.
+     *
+     * ⭐ THE HOST DECIDES, NOT THIS BAR. The founder's sentence is about the tab he was on: a
+     * host that opens on an ALREADY-DRAWN plot, where the plan is the useful left-hand
+     * companion to the 3D Site. Onboarding's host opens on a plot that does not exist yet, and
+     * its left pane must be the 2D map the guided flow makes you draw on
+     * (§ONBOARDING-STEP-PINS-ITS-SURFACE pins it for exactly that reason). One control, two
+     * hosts, two declared openings — and the default here is the onboarding one, so a caller
+     * that says nothing gets the behaviour that shipped.
+     *
+     * It seeds the OPENING only. Both panes keep their own picker, so the user re-assigns
+     * either one immediately afterwards — which is the other half of what he asked for.
+     */
+    readonly splitLayout?: SplitLayoutPreset;
 }
 
 export interface ViewSwitcherOnViewHandle {
@@ -144,6 +168,7 @@ export function mountViewSwitcherOnView(
     const span = _tracer.startSpan('pryzm.site.mountViewSwitcherOnView');
     const parent = opts.parent ?? document.body;
     const isSplitOpen = opts.isSplitOpen ?? splitShellIsMounted;
+    const splitLayout: SplitLayoutPreset = opts.splitLayout ?? 'site-authoring';
 
     // Idempotent per document: a re-mount after a tab rebuild must never leave two bars
     // centred on the same pixels. Same rule `mountSiteViewQuickToggle` states for itself.
@@ -186,8 +211,12 @@ export function mountViewSwitcherOnView(
                 ? 'Close the split and go back to a single view.\n\n'
                 + 'Read from the document (the split shell\'s own root element), not from '
                 + 'pryzmGetSiteViewState — that snapshot carries no field for pane layout.'
-                : 'Show two views side by side on the left, with this panel on the right. '
-                + 'Each pane keeps its own view picker, so you choose what goes in each.';
+                : (splitLayout === 'parcel-law'
+                    ? 'Show two views side by side on the left, with this panel on the right. '
+                    + 'It opens as the plan on the left and the 3D Site on the right; each pane '
+                    + 'keeps its own view picker, so you choose what goes in each.'
+                    : 'Show two views side by side on the left, with this panel on the right. '
+                    + 'Each pane keeps its own view picker, so you choose what goes in each.');
         }
     };
 
@@ -195,7 +224,7 @@ export function mountViewSwitcherOnView(
         if (split.disabled || disposed) return;
         try {
             if (isSplitOpen()) opts.host.pryzmUnmountSiteAuthoringPanes?.();
-            else opts.host.pryzmMountSiteAuthoringPanes?.();
+            else opts.host.pryzmMountSiteAuthoringPanes?.({ layout: splitLayout });
         } catch (e) {
             console.warn('[view-switcher-on-view] split dispatch failed (non-fatal):', e);
         }

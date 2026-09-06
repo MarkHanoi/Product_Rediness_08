@@ -108,7 +108,26 @@ export const VIEW_TYPE_REGISTRY: Readonly<Record<ViewType, ViewTypeDescriptor>> 
     // 2026-09-06: 2D SITE MAP · 2D SATELLITE · 3D SITE · 3D GLOBE · 3D PRYZM · 2D PRYZM —
     // which is why `bim-3d` now precedes `bim-plan-2d`.
     'site-map-2d': {
-        viewType: 'site-map-2d', rendererKind: 'maplibre', singleton: false,
+        // ⚠ `singleton: true` — §MAP-IS-A-SINGLETON-TOO (L-12992, founder 2026-09-06:
+        // *"on the right hand splitted view 3d site worked — but if i clicked 2d map view it
+        // would render on the left hand side"*, with the LEFT pane BLACK and its panel reading
+        // `2D Site Map` selected).
+        //
+        // ⛔ THIS FLAG WAS `false` AND THE COMMENT BESIDE IT READ "MapLibre is cheap". Cheapness
+        // is not what this flag means. `singleton` asks whether the backing renderer can exist in
+        // two panes AT ONCE, and there is exactly ONE `SiteBoundaryMap2D` in this app, reached
+        // through exactly ONE mounter (`GISAreaLayout`'s `mapMounter` → `startBoundaryDraw`), whose
+        // handle is a single module-scoped `map2dHandle`. So `{left:'site-map-2d',
+        // right:'site-map-2d'}` was a layout the pure model called LEGAL and the live host could
+        // not realise: the one map went to whichever pane the reconcile reached last and the other
+        // pane was left holding a view with no surface — the founder's black pane, exactly.
+        //
+        // ⭐ Marking it a singleton is not a cost claim; it makes `assignViewToPane` MOVE the map
+        // (vacating the other pane) the way it already moves Cesium, which is the behaviour the
+        // founder asked for by name: *"the user should be able to customize which view to have in
+        // each of the splitted views"*. The MOVE itself is cheap precisely because MapLibre is
+        // cheap — and it is a re-parent, not a rebuild (`SiteBoundaryMap2DHandle.reparentTo`).
+        viewType: 'site-map-2d', rendererKind: 'maplibre', singleton: true,
         label: '2D Site Map', glyph: '▦', paneHostable: true, panelPromoted: true,
     },
     'site-3d': {
@@ -125,7 +144,15 @@ export const VIEW_TYPE_REGISTRY: Readonly<Record<ViewType, ViewTypeDescriptor>> 
             '(the panel offers that route), which leaves this split.',
     },
     'bim-plan-2d': {
-        viewType: 'bim-plan-2d', rendererKind: 'canvas2d', singleton: false,
+        // ⚠ `singleton: true` — the SAME correction as `site-map-2d` above, and for the same
+        // measured reason rather than by analogy: the `canvas2d` mounter
+        // (`createSvpPlanPaneMounter`) drives the ONE `SplitViewManager` and RE-PARENTS its ONE
+        // `#svp-secondary-pane` node. A DOM node has one parent, so a layout naming
+        // `bim-plan-2d` in both panes is unrealisable in exactly the way the map's was. The old
+        // `false` was reasoning about the CANVAS being cheap to draw twice — true, and not what
+        // this flag asks. A genuinely replicable plan pane needs per-pane view state (C59
+        // Phase 3); until then the honest model is one instance that MOVES.
+        viewType: 'bim-plan-2d', rendererKind: 'canvas2d', singleton: true,
         // §VIEW-PANEL-PER-PANE — the founder's word ("2D PRYZM"), replacing "Plan".
         label: '2D PRYZM', glyph: '▤', paneHostable: true, panelPromoted: true,
     },
@@ -227,7 +254,18 @@ export function validatePaneLayout(
     registry: Readonly<Record<ViewType, ViewTypeDescriptor>> = VIEW_TYPE_REGISTRY,
 ): { ok: boolean; conflicts: LayoutConflict[] } {
     const conflicts: LayoutConflict[] = [];
-    const singletonKinds: RendererKind[] = ['cesium', 'webgpu-three'];
+    // ⛔ §MAP-IS-A-SINGLETON-TOO (L-12992) — THIS LINE USED TO BE
+    //     const singletonKinds: RendererKind[] = ['cesium', 'webgpu-three'];
+    // a HAND-WRITTEN SECOND CENSUS of a fact the registry two hundred lines above already
+    // declares per view (`ViewTypeDescriptor.singleton`). The two disagreed, silently and in
+    // the dangerous direction: the registry could say a renderer was a singleton and this
+    // guard would still wave a double-mount through, because the kind was not in the literal.
+    // C01 §6 rule 6 — censuses rot; derive it.
+    const singletonKinds = new Set<RendererKind>();
+    for (const viewType of listPaneViewTypes(registry)) {
+        const d = registry[viewType];
+        if (d?.singleton) singletonKinds.add(d.rendererKind);
+    }
     for (const kind of singletonKinds) {
         const panes = panesShowingRenderer(layout, kind, registry);
         if (panes.length > 1) conflicts.push({ rendererKind: kind, panes });
@@ -270,4 +308,46 @@ export function siteAuthoringDefaultLayout(
     let layout = assignViewToPane(EMPTY_LR_LAYOUT, LEFT_PANE, 'site-map-2d', registry);
     layout = assignViewToPane(layout, RIGHT_PANE, 'site-3d', registry);
     return layout;
+}
+
+/**
+ * §PANE-DEFAULT-IS-PLAN-LEFT (L-12988, founder 2026-09-06) — the PARCEL LAW / authoring
+ * default layout: **LEFT = the plan (2D PRYZM) · RIGHT = the live 3D Site**.
+ *
+ * ⭐ WHY A SECOND DEFAULT AND NOT A CHANGED ONE. `siteAuthoringDefaultLayout()` above is the
+ * ONBOARDING default, and its 2D-map-left is load-bearing there: that map is the surface the
+ * guided flow makes the user DRAW their plot on (§ONBOARDING-STEP-PINS-ITS-SURFACE pins it for
+ * exactly that reason). Re-pointing it at the plan would break the draw step to fix a different
+ * screen. The founder's sentence — *"it should initially the plan view to the left and 3d site
+ * to right"* — is about the tab he was on, which is a host that opens on an ALREADY-drawn plot.
+ * Two hosts, two openings, one algebra.
+ *
+ * Derived through `assignViewToPane` like its sibling, so it is provably conflict-free
+ * (`validatePaneLayout(...).ok === true`) rather than a hand-written pair. The user can then
+ * put anything in either pane — both views here are singletons, so a re-assignment MOVES the
+ * one surface and vacates the pane it came from.
+ */
+export function parcelLawDefaultLayout(
+    registry: Readonly<Record<ViewType, ViewTypeDescriptor>> = VIEW_TYPE_REGISTRY,
+): PaneLayout {
+    let layout = assignViewToPane(EMPTY_LR_LAYOUT, LEFT_PANE, 'bim-plan-2d', registry);
+    layout = assignViewToPane(layout, RIGHT_PANE, 'site-3d', registry);
+    return layout;
+}
+
+/**
+ * The DECLARED openings a pane-shell host may ask for by name. A string rather than a
+ * `PaneLayout` because it crosses the `window` boundary (`pryzmMountSiteAuthoringPanes`), and a
+ * layout object shipped through a global is a second place for a default to live.
+ */
+export type PaneLayoutPreset = 'site-authoring' | 'parcel-law';
+
+/** Resolve a declared preset to its layout. Unknown presets fall back to site authoring. */
+export function paneLayoutForPreset(
+    preset: PaneLayoutPreset | undefined,
+    registry: Readonly<Record<ViewType, ViewTypeDescriptor>> = VIEW_TYPE_REGISTRY,
+): PaneLayout {
+    return preset === 'parcel-law'
+        ? parcelLawDefaultLayout(registry)
+        : siteAuthoringDefaultLayout(registry);
 }

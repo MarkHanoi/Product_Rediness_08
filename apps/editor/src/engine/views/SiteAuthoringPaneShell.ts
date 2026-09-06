@@ -13,6 +13,11 @@
 // that fills its pane. No `requestAnimationFrame` here (P3) — divider drag only
 // re-sizes; the renderers reflow via their `PaneHost.resize()`.
 
+// §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — the resize/placement pass is COALESCED
+// through the ONE frame scheduler. P3 holds: no `requestAnimationFrame` here; this is the
+// same primitive `halfCanvasResizer` and `SplitViewManager` already coalesce their drags
+// with, and the 'overlay' phase is the C11 §6.1 slot for viewport/HUD work.
+import { deferWork, getFrameScheduler } from '@pryzm/frame-scheduler';
 import { EMPTY_LR_LAYOUT, LEFT_PANE, RIGHT_PANE, type PaneId } from './paneViewModel';
 import { PaneHost, MultiPaneController } from './PaneHost';
 import { PaneLayoutStore } from './paneLayoutStore';
@@ -48,6 +53,14 @@ export interface SiteAuthoringPaneShell {
     readonly store: PaneLayoutStore;
     /** The pane element for `left` / `right` (for pane-scoped chrome, e.g. the facts card). */
     getPaneElement(paneId: PaneId): HTMLElement | null;
+    /**
+     * §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — ⭐ ONE authoritative placement pass, run
+     * AFTER the surrounding layout has settled: assert that each renderer is in the pane the
+     * store gives it, and put it back if it is not. Coalesced onto the next frame, so ten
+     * callers in one transition cost one pass. Call it from anything that re-writes the
+     * shell's box underneath it — a workspace mode switch is the measured case.
+     */
+    reassertPlacement(): void;
     /** Tear the shell down (removes the DOM + listeners). Idempotent. */
     dispose(): void;
     /** True once disposed. */
@@ -273,6 +286,8 @@ export function mountSiteAuthoringPaneShell(
 
     // ── Divider drag (mirrors SplitViewManager._onDividerMove) ──────────────────
     let dragging = false;
+    /** Declared here (not beside `dispose`) because the settle pass below reads it. */
+    let disposed = false;
     const applyFraction = (): void => {
         // §C59 Phase 2 — FULL SCREEN is a LAYOUT fact, not a second mechanism: when
         // exactly one pane holds a view (the `solo` / "empty this pane" intents), the
@@ -300,6 +315,57 @@ export function mountSiteAuthoringPaneShell(
             leftPaneEl.style.flex = `0 0 ${(leftFraction * 100).toFixed(3)}%`;
         }
     };
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — ⭐ ONE SETTLE PASS, COALESCED.
+    //
+    // ⛔ WHAT THIS REPLACES, AND WHY IT WAS ITS OWN DEFECT. There were FOUR call sites
+    // (divider move, divider release, window resize, store notify) and each called
+    // `controller.resize()` straight through. `resize()` on the Cesium mounter is
+    // `reflowContainer()` → `viewer.resize()` + `scene.requestRender()` + a scheduled
+    // SECOND pass — so each trigger costs the renderer two buffer re-allocations. In the
+    // founder's trace ONE layout change produced SEVEN of them, to seven different widths:
+    //     canvas 511x981 … 372x976 … 367x976 … 256x976 … 248x976 … 252x976 … 391x976
+    // That is a renderer being resized against a box that is still settling, and the last
+    // width it happens to catch is the one the canvas keeps. Coalescing is therefore not
+    // polish here: it is what makes the FINAL measurement the one that lands.
+    //
+    // The pass does three things, in this order and only in this order:
+    //   1. `applyFraction()`  — the pane BOXES take their final geometry;
+    //   2. `reassertPlacement()` — each renderer is checked against the pane the STORE
+    //      gives it, and put back if it is elsewhere (the L-12988 disagreement);
+    //   3. `resize()` + `onResize` — everything reflows ONCE, to a box that has stopped
+    //      moving and to the pane it actually belongs in.
+    // Geometry before placement before measurement. Reversing 2 and 3 would measure the
+    // wrong pane, which is the bug.
+    //
+    // P3: `scheduleOnce` is the frame scheduler's own one-shot; when the pump is not
+    // running (headless / before composeRuntime) `deferWork(…, 0)` — also
+    // frame-scheduler-owned — keeps the pass from being silently dropped.
+    // ══════════════════════════════════════════════════════════════════════════════
+    let settleScheduled = false;
+    let settleNeedsPlacement = false;
+    const runSettle = (): void => {
+        settleScheduled = false;
+        if (disposed) return;
+        const withPlacement = settleNeedsPlacement;
+        settleNeedsPlacement = false;
+        applyFraction();
+        if (withPlacement) controller.reassertPlacement();
+        controller.resize();
+        opts.onResize?.();
+    };
+    /** Ask for a settle pass. `placement` also re-asserts which pane owns which renderer. */
+    const requestSettle = (placement = false): void => {
+        if (disposed) return;
+        if (placement) settleNeedsPlacement = true;
+        if (settleScheduled) return;
+        settleScheduled = true;
+        const scheduler = getFrameScheduler();
+        if (scheduler.isRunning) scheduler.scheduleOnce('pane-shell-settle', runSettle, 'overlay');
+        else deferWork(runSettle, 0);
+    };
+
     const onDown = (e: MouseEvent): void => {
         dragging = true;
         e.preventDefault();
@@ -310,38 +376,37 @@ export function mountSiteAuthoringPaneShell(
         const rect = root.getBoundingClientRect();
         if (rect.width <= 0) return;
         leftFraction = clampFraction((e.clientX - rect.left) / rect.width);
+        // The BOX follows the pointer synchronously (the divider must not lag); the
+        // renderer reflow is what gets coalesced onto the frame (no re-fly — C59 §3.4).
         applyFraction();
-        // Reflow the hosted renderers to the new pane sizes (no re-fly — C59 §3.4).
-        controller.resize();
-        opts.onResize?.();
+        requestSettle();
     };
     const onUp = (): void => {
         if (!dragging) return;
         dragging = false;
         document.body.style.userSelect = '';
-        controller.resize();
-        opts.onResize?.();
+        requestSettle();
     };
     divider.addEventListener('mousedown', onDown);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
 
-    // ── Window resize → reflow both renderers ────────────────────────────────────
-    const onWindowResize = (): void => {
-        controller.resize();
-        opts.onResize?.();
-    };
+    // ── Window resize → settle both renderers ───────────────────────────────────
+    // A window resize is exactly the transition in which the shell's own box is being
+    // re-written by somebody else (`#container.style.width` has three writers — see
+    // `halfCanvasResizer.ts`), so it asks for the placement check too.
+    const onWindowResize = (): void => { requestSettle(true); };
     window.addEventListener('resize', onWindowResize);
 
-    // ── Layout changes → re-tile (split ⇄ full screen) + reflow the renderers ────
-    // The store notifies AFTER the controller has mounted/unmounted, so the renderer
-    // that just moved is reflowed to the box it actually ended up in. No rAF (P3): a
-    // flex change is synchronous and each mounter's `resize()` is its own reflow
-    // primitive (Cesium's one-shot settle lives inside `reflowContainer()`).
+    // ── Layout changes → re-tile (split ⇄ full screen) + settle the renderers ────
+    // The store notifies AFTER the controller has mounted/unmounted — but a Cesium mount
+    // is ASYNC, so at notify time the surface may not have landed yet. The pass therefore
+    // runs on the next frame and re-asserts placement rather than assuming the notify
+    // ordering is the whole story; `MultiPaneController.applyLayout` independently runs
+    // its own placement pass when its pending mounts resolve. Two arms, one rule.
     const unsubscribeLayout = store.subscribe(() => {
         applyFraction();
-        controller.resize();
-        opts.onResize?.();
+        requestSettle(true);
     });
 
     // ── §C59 Phase 2 — the per-pane view picker, on EVERY pane ──────────────────
@@ -418,10 +483,10 @@ export function mountSiteAuthoringPaneShell(
         }
     }
 
-    let disposed = false;
     const dispose = (): void => {
         if (disposed) return;
         disposed = true;
+        controller.dispose();
         divider.removeEventListener('mousedown', onDown);
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
@@ -445,6 +510,7 @@ export function mountSiteAuthoringPaneShell(
         controller,
         store,
         getPaneElement: (paneId) => controller.getPaneElement(paneId),
+        reassertPlacement: () => requestSettle(true),
         dispose,
         get isDisposed() {
             return disposed;
