@@ -20,17 +20,25 @@ import {
     PARCEL_LAW_FACTS_TESTID,
     PARCEL_LAW_FACT_PREFIX,
     PARCEL_LAW_GEOMETRY_ABSENT_TESTID,
+    PARCEL_LAW_MEASURED_NOTE,
+    PARCEL_LAW_MERGED_ATTR,
     PARCEL_LAW_REFUSAL_TESTID,
+    PARCEL_LAW_SCENE_AREA_LABEL,
     buildParcelLawFacts,
+    parcelRingMeasuredFacts,
 } from '../parcelLawFacts';
 import {
     PARCEL_LAW_FACTS_LAW_SLOT_TESTID,
     PARCEL_LAW_FACTS_PLOT_SLOT_TESTID,
+    PARCEL_LAW_PANEL_SLOT_TESTID,
+    defaultParcelLawTabDeps,
     mountParcelLawTab,
     type ParcelLawCapabilityHost,
     type ParcelLawTabDeps,
 } from '../parcelLawTab';
 import { buildParcelLawModel } from '../../site/parcel/parcelLawModel';
+import { parcelProvenanceToCardModel } from '../../site/parcel/parcelCard';
+import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 
 const RECT = [
     { x: 0, z: 0 },
@@ -256,5 +264,200 @@ describe('§25.11 — REACHABILITY: the section is really in the tab body', () =
         expect(law!.querySelector(`[data-testid="${PARCEL_LAW_ENVELOPE_ABSENT_TESTID}"]`)).not.toBeNull();
         h.dispose();
         host.remove();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// §ONE-PARCEL-BLOCK (L-13005) — ONE BLOCK, ONE TYPOGRAPHY, BOTH AREAS
+// ═══════════════════════════════════════════════════════════════════════════════════════
+//
+// Founder 2026-09-06, red-boxing the second of two blocks headed PARCEL: *"the data of the
+// parcel is incorrect format."* Question 1 rendered the parcel twice — the cadastral card,
+// then a right-aligned figure list with an area of its own.
+//
+// ⛔ THE CONSTRAINT THAT MAKES THE FIX CORRECT, AND THE ONLY ONE THAT COULD MAKE IT WRONG:
+// 801 m² and 803 m² are DIFFERENT FACTS — registry-declared vs measured from the ring — and
+// collapsing them into one number would be a C57 §1.9 / §2.4 attribution loss. So the last
+// test here is the one the change is subject to: ONE block, and BOTH numbers still in it,
+// each labelled with where it came from.
+
+const CADASTRAL_PROVENANCE = {
+    kind: 'cadastral' as const,
+    source: 'catastro',
+    label: 'Catastro (Spain)',
+    sourceVersion: null,
+    retrievedAt: null,
+    license: 'CC BY 4.0 · Dirección General del Catastro',
+    sourceCrs: 'EPSG:25830',
+    refcat: '3332402DF3833C',
+    address: 'CL DOCTOR TRUETA 170 BARCELONA',
+    jurisdictionId: 'ES',
+    ingestTimestamp: '2026-09-06T20:15:19.569Z',
+    confidence: {
+        match: 'high' as const,
+        areaSource: 'registry-declared' as const,
+        areaOfficialM2: 801,
+        // 800 is the shoelace over RECT above, so the card's ring row and the model's scene
+        // measurement PRINT THE SAME NUMBER — the arm where one row states both.
+        areaSigM2: 800,
+        areaDeltaPct: null,
+        pointToParcelM: null,
+        candidateMarginM: null,
+        geometryComplete: true,
+    },
+};
+
+describe('§ONE-PARCEL-BLOCK — the ring measurements travel to the card, and nothing is lost', () => {
+    const withIdentity = (over: Record<string, unknown> = {}): ReturnType<typeof buildParcelLawModel> =>
+        buildParcelLawModel({
+            parcelRing: RECT,
+            edgeClassifications: ['front', 'side', 'rear', 'side'],
+            identity: parcelProvenanceToCardModel({ ...CADASTRAL_PROVENANCE, ...over } as never),
+            committedAreaM2: 800,
+            envelope: envelope(),
+        });
+
+    it('projects perimeter, bounding box and boundary edges onto the card row shape', () => {
+        const extras = parcelRingMeasuredFacts(withIdentity())!;
+        expect(extras).not.toBeNull();
+        const byId = new Map(extras.facts.map((f) => [f.testId, f]));
+        expect(byId.get(`${PARCEL_LAW_FACT_PREFIX}parcel-perimeter`)?.value).toContain('120');
+        expect(byId.get(`${PARCEL_LAW_FACT_PREFIX}parcel-bbox`)?.value).toBe('40.0 × 20.0 m');
+        expect(byId.get(`${PARCEL_LAW_FACT_PREFIX}parcel-edges`)?.value).toBe('4 (1 street frontage)');
+    });
+
+    it('⭐ keeps the testids the retired block used — no figure loses its handle in the move', () => {
+        const extras = parcelRingMeasuredFacts(withIdentity())!;
+        for (const key of ['parcel-perimeter', 'parcel-bbox', 'parcel-edges']) {
+            expect(extras.facts.some((f) => f.testId === `${PARCEL_LAW_FACT_PREFIX}${key}`)).toBe(true);
+        }
+    });
+
+    it('states HOW they were measured — a third provenance in the block, named (C57 §1.9)', () => {
+        expect(parcelRingMeasuredFacts(withIdentity())!.note).toBe(PARCEL_LAW_MEASURED_NOTE);
+    });
+
+    it('withholds a scene-area row when it PRINTS THE SAME as the card ring area', () => {
+        // The card already says "Area (from ring) 800 m²"; a second identical row is exactly
+        // the duplication this lane removed.
+        const extras = parcelRingMeasuredFacts(withIdentity())!;
+        expect(extras.facts.some((f) => f.label === PARCEL_LAW_SCENE_AREA_LABEL)).toBe(false);
+    });
+
+    it('⭐ SHOWS a labelled scene-area row when it prints DIFFERENTLY — disagreement is information', () => {
+        const extras = parcelRingMeasuredFacts(withIdentity({
+            confidence: { ...CADASTRAL_PROVENANCE.confidence, areaSigM2: 803 },
+        }))!;
+        const scene = extras.facts.find((f) => f.label === PARCEL_LAW_SCENE_AREA_LABEL);
+        expect(scene, 'two ring measurements that print differently must both be shown').toBeDefined();
+        expect(scene!.value).toContain('800');
+        expect(scene!.hint ?? '').toContain('committed');
+    });
+
+    it('returns null — never an empty block — when the ring could not be read', () => {
+        expect(parcelRingMeasuredFacts(buildParcelLawModel({
+            parcelRing: null, edgeClassifications: undefined, identity: null, envelope: envelope(),
+        }))).toBeNull();
+    });
+
+    it('the `plot` rendering no longer draws a SECOND parcel group, and SAYS the rows moved', () => {
+        const root = buildParcelLawFacts(withIdentity(), { scope: 'plot' });
+        expect(fact(root, 'parcel-area')).toBeNull();
+        expect(fact(root, 'parcel-perimeter')).toBeNull();
+        expect(fact(root, 'parcel-bbox')).toBeNull();
+        expect(fact(root, 'parcel-edges')).toBeNull();
+        // ⛔ "the rows moved" and "the rows are gone" are opposite facts, and an empty element
+        // alone conflates them. The attribute is what keeps them apart for the next reader.
+        expect(root.getAttribute(PARCEL_LAW_MERGED_ATTR)).toBe('card');
+    });
+
+    it('⛔ the ABSENCE SENTENCE still renders in `plot` — a card row cannot state a missing READ', () => {
+        const root = buildParcelLawFacts(buildParcelLawModel({
+            parcelRing: null, edgeClassifications: undefined, identity: null, envelope: envelope(),
+        }), { scope: 'plot' });
+        expect(root.querySelector(`[data-testid="${PARCEL_LAW_GEOMETRY_ABSENT_TESTID}"]`)).not.toBeNull();
+        expect(root.getAttribute(PARCEL_LAW_MERGED_ATTR)).toBeNull();
+    });
+
+    it('`all` is UNCHANGED — a host with no card beside it still gets every row', () => {
+        const root = buildParcelLawFacts(withIdentity());
+        expect(valueOf(root, 'parcel-area')).toContain('800');
+        expect(valueOf(root, 'parcel-perimeter')).toContain('120');
+        expect(root.getAttribute(PARCEL_LAW_MERGED_ATTR)).toBeNull();
+    });
+});
+
+describe('§ONE-PARCEL-BLOCK — END TO END: question 1, with the REAL producers', () => {
+    function fakeRuntime(site: unknown): PryzmRuntime {
+        const listeners = new Set<() => void>();
+        return {
+            siteModelStore: {
+                getSite: () => site,
+                subscribe: (l: () => void) => { listeners.add(l); return () => listeners.delete(l); },
+            },
+        } as unknown as PryzmRuntime;
+    }
+
+    it('⭐ ONE element headed PARCEL, carrying BOTH areas AND the ring measurements', () => {
+        const site = {
+            parcel: {
+                boundary: { polygon: RECT, edgeClassifications: ['front', 'side', 'rear', 'side'] },
+                area: 800,
+                provenance: CADASTRAL_PROVENANCE,
+            },
+        };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const seam = (h: HTMLElement | null): boolean => { void h; return false; };
+        const previous = window.pryzmMountEnvelopeCard;
+        window.pryzmMountEnvelopeCard = seam;
+        const h = mountParcelLawTab(hostEl, {
+            ...defaultParcelLawTabDeps(),
+            capabilityHost: { pryzmMountEnvelopeCard: seam } as ParcelLawCapabilityHost,
+            runtime: fakeRuntime(site),
+        });
+
+        const q1 = h.element.querySelector(`[data-testid="${PARCEL_LAW_PANEL_SLOT_TESTID}"]`)!;
+        expect(q1).not.toBeNull();
+
+        // ⛔ EXACTLY ONE BLOCK. Two elements headed PARCEL in question 1 is the defect itself.
+        const cards = q1.querySelectorAll('[data-testid="parcel-info-card"]');
+        expect(cards, 'question 1 must render the parcel ONCE').toHaveLength(1);
+        const card = cards[0] as HTMLElement;
+
+        // ⭐ BOTH AREAS SURVIVE, each labelled with where it came from. This is the assertion
+        // the whole change is subject to: 801 is what the cadastre publishes, 800 is measured
+        // over the ring, and one number in place of two would be an attribution loss.
+        const text = card.textContent ?? '';
+        expect(text).toContain('Area (registry)');
+        expect(text).toContain('801');
+        expect(text).toContain('Area (from ring)');
+        expect(text).toContain('800');
+
+        // …and every figure the retired second block carried is in that SAME element.
+        expect(card.querySelector(`[data-testid="${PARCEL_LAW_FACT_PREFIX}parcel-perimeter"]`)).not.toBeNull();
+        expect(card.querySelector(`[data-testid="${PARCEL_LAW_FACT_PREFIX}parcel-bbox"]`)).not.toBeNull();
+        expect(card.querySelector(`[data-testid="${PARCEL_LAW_FACT_PREFIX}parcel-edges"]`)).not.toBeNull();
+        expect(text).toContain('120');
+        // Source and retrieved-at are untouched by the merge.
+        expect(text).toContain('Catastro (Spain)');
+        expect(text).toContain('2026-09-06T20:15:19.569Z');
+        // ONE TYPOGRAPHY: every row in the block is a card row, none is an `anl-plaw-row`.
+        expect(card.querySelectorAll('.anl-plaw-row')).toHaveLength(0);
+        expect(card.querySelectorAll('.pryzm-parcel-card-row').length).toBeGreaterThanOrEqual(7);
+
+        // ⛔ AND THE SECOND BLOCK IS GONE FROM QUESTION 1 — not merely quieter. The plot-scope
+        // rendering states that its rows moved rather than leaving an ambiguous empty element.
+        const plotSlot = h.element.querySelector(`[data-testid="${PARCEL_LAW_FACTS_PLOT_SLOT_TESTID}"]`)!;
+        expect(plotSlot.querySelector(`[data-testid="${PARCEL_LAW_FACT_PREFIX}parcel-perimeter"]`)).toBeNull();
+        expect(
+            plotSlot.querySelector(`[${PARCEL_LAW_MERGED_ATTR}="card"]`),
+            'the plot rendering must SAY the rows moved, not merely be empty',
+        ).not.toBeNull();
+
+        h.dispose();
+        hostEl.remove();
+        if (previous) window.pryzmMountEnvelopeCard = previous;
+        else delete window.pryzmMountEnvelopeCard;
     });
 });

@@ -73,6 +73,7 @@ import {
     PARCEL_NO_BOUNDARY_TEXT,
     PARCEL_PROVENANCE_ABSENT_TEXT,
     type ParcelCardAction,
+    type ParcelCardExtraFact,
 } from './parcelCard.js';
 // §L-1585 — the button below dispatches a DECLARED registry action, never a hand-written
 // handler. §GIS-ACTION-REGISTRY (L-1187): "A panel is a HOST; the action is the AUTHORITY."
@@ -111,20 +112,42 @@ function resolveSiteStore(runtime: PryzmRuntime | null | undefined): SiteStoreLi
 }
 
 /**
+ * §ONE-PARCEL-BLOCK (L-13005) — the ring measurements a host contributes to the card, plus
+ * the one attribution line that says how they were measured.
+ *
+ * The section itself derives NONE of this: it is a pass-through from the host that already
+ * holds the `ParcelLawModel` to the ONE card producer. Keeping it a value (rather than a
+ * second reader inside this file) is what stops the section acquiring a second model.
+ */
+export interface ParcelSectionExtras {
+    readonly facts: readonly ParcelCardExtraFact[];
+    readonly note?: string;
+}
+
+/**
  * §L-1582 — build the parcel card for whatever the store currently holds.
  *
  * Exported separately from `mountParcelSection` so a test can drive the THREE states
  * against a plain object store, with no rail, no runtime and no DOM lifecycle — the
  * subject under test is which card gets produced for which store state.
+ *
+ * `extras` (§ONE-PARCEL-BLOCK, L-13005) is optional and defaults to nothing, so every
+ * existing caller — the GIS section, the rail panel, and this repo's five specs over this
+ * function — renders exactly the card it rendered before.
  */
 export function buildParcelSectionBody(
     site: SiteModel | null,
     actions: readonly ParcelCardAction[] = [],
+    extras?: ParcelSectionExtras | null,
 ): HTMLElement {
+    const extraFacts = extras?.facts ?? [];
+    const extraFactsNote = extras?.note;
     const polygon = site?.parcel?.boundary?.polygon;
     const hasBoundary = Array.isArray(polygon) && polygon.length >= 3;
     if (!site || !hasBoundary) {
-        return buildParcelCard(null, { absentText: PARCEL_NO_BOUNDARY_TEXT, actions });
+        return buildParcelCard(null, {
+            absentText: PARCEL_NO_BOUNDARY_TEXT, actions, extraFacts, extraFactsNote,
+        });
     }
 
     const provenance = site.parcel.provenance ?? null;
@@ -133,7 +156,9 @@ export function buildParcelSectionBody(
         // The committed AREA is still a fact we hold, so it is shown; what is unknown is
         // where the ring came from, not how big it is. Showing the area here is not a
         // softening of the absence — the absence sentence sits directly above it.
-        const card = buildParcelCard(null, { absentText: PARCEL_PROVENANCE_ABSENT_TEXT, actions });
+        const card = buildParcelCard(null, {
+            absentText: PARCEL_PROVENANCE_ABSENT_TEXT, actions, extraFacts, extraFactsNote,
+        });
         const area = site.parcel.area;
         if (Number.isFinite(area) && area > 0) {
             const row = document.createElement('div');
@@ -152,7 +177,7 @@ export function buildParcelSectionBody(
 
     return buildParcelCard(
         parcelProvenanceToCardModel(provenance, site.parcel.area),
-        { actions },
+        { actions, extraFacts, extraFactsNote },
     );
 }
 
@@ -201,6 +226,36 @@ export function buildOpenMapAction(host: GisCapabilityHost): ParcelCardAction {
 }
 
 /**
+ * Options for `mountParcelSection`. Every field is optional and every default is the
+ * behaviour this function had before the field existed, so the GIS section, the rail panel
+ * and `ProjectBrowserPanel` are untouched by their addition.
+ */
+export interface MountParcelSectionOptions {
+    /**
+     * §ONE-PARCEL-BLOCK (L-13005) — the host's ring measurements, read AT EACH RENDER.
+     *
+     * ⚠ A THUNK, NOT AN ARRAY, AND THAT IS THE WHOLE POINT. This section re-renders the card
+     * on every site-store notification. A snapshot captured at mount would leave the
+     * measured rows frozen while the identity rows around them refreshed — one block showing
+     * two vintages of one parcel, which is the failure the merge exists to remove rather than
+     * a cosmetic one. The thunk is called inside `render()`, so both halves are read on the
+     * same pass.
+     */
+    readonly extraFacts?: () => ParcelSectionExtras | null;
+    /**
+     * §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — the actions the card carries.
+     *
+     * Defaults to `[buildOpenMapAction(window)]`, which is what the GIS section and the rail
+     * panel want and what `parcelProvenanceRehost.test.ts` pins. A host whose surface already
+     * offers the route ON THE VIEW passes `() => []` so the panel does not carry a second
+     * copy of a control that belongs elsewhere. ⛔ Passing `() => []` REMOVES A COPY, never
+     * the route (C19 §5.6 clause 4) — the caller is responsible for the route existing
+     * somewhere the user can reach.
+     */
+    readonly actions?: (host: GisCapabilityHost) => readonly ParcelCardAction[];
+}
+
+/**
  * §L-1582 — mount the parcel data section into a host element supplied by the GIS panel.
  *
  * Returns a handle whose `dispose()` drops the store subscription. Never throws into the
@@ -210,22 +265,31 @@ export function buildOpenMapAction(host: GisCapabilityHost): ParcelCardAction {
 export function mountParcelSection(
     host: HTMLElement,
     runtime: PryzmRuntime | null | undefined,
+    opts: MountParcelSectionOptions = {},
 ): ParcelSectionHandle {
     const store = resolveSiteStore(runtime);
     let unsub: (() => void) | null = null;
 
     const render = (): void => {
         try {
+            // §L-1585 — `window` is the capability host, exactly as the GIS action rows
+            // use it: the entry points are the typed `window.pryzm*` globals GISAreaLayout
+            // registers at boot (globals.d.ts).
+            const capabilityHost = (typeof window !== 'undefined' ? window : {}) as unknown as GisCapabilityHost;
+            const actions = opts.actions
+                ? opts.actions(capabilityHost)
+                : [buildOpenMapAction(capabilityHost)];
+            // §ONE-PARCEL-BLOCK — read on the SAME pass as the store, never captured at mount.
+            let extras: ParcelSectionExtras | null = null;
+            try {
+                extras = opts.extraFacts?.() ?? null;
+            } catch (e) {
+                // A host whose measurements threw gets a card without them, not no card at
+                // all — the rows it contributes are additive to an answer that already stands.
+                console.warn('[gis][parcel-section] §ONE-PARCEL-BLOCK extra facts failed (non-fatal):', e);
+            }
             host.replaceChildren();
-            host.appendChild(buildParcelSectionBody(
-                store?.getSite() ?? null,
-                // §L-1585 — `window` is the capability host, exactly as the GIS action rows
-                // use it: the entry points are the typed `window.pryzm*` globals GISAreaLayout
-                // registers at boot (globals.d.ts).
-                [buildOpenMapAction(
-                    (typeof window !== 'undefined' ? window : {}) as unknown as GisCapabilityHost,
-                )],
-            ));
+            host.appendChild(buildParcelSectionBody(store?.getSite() ?? null, actions, extras));
         } catch (e) {
             console.warn('[gis][parcel-section] §L-1582 render failed (non-fatal):', e);
         }

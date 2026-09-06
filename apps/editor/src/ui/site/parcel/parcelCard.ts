@@ -156,6 +156,26 @@ export interface ParcelCardOptions {
      * Additive — the rail panel passes none and renders exactly as before.
      */
     readonly leadNotes?: readonly ParcelCardLeadNote[];
+    /**
+     * §ONE-PARCEL-BLOCK (L-13005) — ring measurements contributed by the host, rendered in
+     * THIS card's typography rather than in a second block headed PARCEL beside it.
+     *
+     * Placed directly after the area rows, because they measure the same ring the areas
+     * measure, and before `Zone pack` / `Match`, which are classification rather than
+     * measurement. Additive: the rail panel, the GIS section and the map overlay pass none
+     * and render exactly as before.
+     */
+    readonly extraFacts?: readonly ParcelCardExtraFact[];
+    /**
+     * §ONE-PARCEL-BLOCK — the attribution line for `extraFacts`, rendered beneath them.
+     *
+     * ⛔ NOT OPTIONAL DECORATION. The rows above it are measured in SCENE metres off the
+     * committed ring, while `Area (registry)` is what the cadastre publishes and
+     * `Area (from ring)` is a shoelace over the published geometry. Three provenances in one
+     * block with only one of them stated would be exactly the C57 §1.9 attribution loss the
+     * merge was forbidden to cause. Shown only when `extraFacts` is non-empty.
+     */
+    readonly extraFactsNote?: string;
 }
 
 /** A host note placed above the fact rows. `tone` picks the warn vs note class. */
@@ -163,6 +183,44 @@ export interface ParcelCardLeadNote {
     readonly text: string;
     readonly testId?: string;
     readonly tone?: 'warn' | 'note';
+}
+
+/**
+ * §ONE-PARCEL-BLOCK (L-13005) — a host-supplied fact row rendered INSIDE the card, in the
+ * card's own row typography.
+ *
+ * ⭐ WHY THIS SEAM EXISTS, AND WHY IT IS NOT "the card computing more things". The founder
+ * red-boxed the Parcel Law tab and said *"the data of the parcel is incorrect format"*: the
+ * tab rendered the parcel TWICE — this card, then immediately a second right-aligned figure
+ * list headed PARCEL carrying `Area · Perimeter · Bounding box · Boundary edges`. Two blocks,
+ * two typographies, two alignments, the area in both. The §26 lane named the duplication and
+ * left it pending *"a host-arbiter decision, not a lane"*; the founder has now made that
+ * decision: it is ONE block.
+ *
+ * The merge had exactly one sound direction. This file is the ONE PRODUCER of the cadastral
+ * card (C06 §13.3, and this file's own header states the legal consequence of a second one),
+ * so re-rendering `Ref / Addr / Area (registry) / Area (from ring) / Source / Retrieved`
+ * inside the analysis surface's fact renderer would have minted the second producer the
+ * header forbids. The ring MEASUREMENTS travel the other way instead: the caller hands them
+ * in, and they are typeset by the card, which is what makes "one typography" true by
+ * construction rather than by review.
+ *
+ * ⛔ THE CARD STILL COMPUTES NOTHING. `value` arrives already formatted, already honest — a
+ * withheld figure arrives as its caller's `not derived` wording, never as a blank this file
+ * invents. The card contributes typography and placement; the caller contributes truth.
+ *
+ * `testId` is supplied by the caller SO THAT THE MERGE LOSES NO SELECTOR: the Parcel Law tab
+ * passes the very `parcel-law-fact-*` ids its second block used, so every figure keeps the
+ * handle it had before it moved.
+ */
+export interface ParcelCardExtraFact {
+    /** `data-testid` on the row. Supplied by the caller — see above. */
+    readonly testId: string;
+    readonly label: string;
+    /** Already formatted, already honest. This file never reformats and never substitutes. */
+    readonly value: string;
+    /** Tooltip on the label. The caller's own explanation of what the figure is. */
+    readonly hint?: string;
 }
 
 /**
@@ -290,6 +348,38 @@ function fact(label: string, value: string): HTMLDivElement {
     return row;
 }
 
+/**
+ * §ONE-PARCEL-BLOCK (L-13005) — the host's ring measurements, in THIS card's row typography.
+ *
+ * ⛔ NO WITHHELD-VALUE ARM, AND THAT IS DELIBERATE. A `not derived` row needs a legible
+ * signal (§L-527/§L-553: an honest signal that is not legible is not honest in effect), and
+ * the one this card could give it lives in `styles/panels/projectBrowser.ts`. The caller
+ * therefore contributes rows only for figures it actually holds: when the ring could not be
+ * read there are NO extras, and the caller states the absence as a sentence of its own. A row
+ * that reaches here is a measured row.
+ */
+function appendExtraFacts(
+    root: HTMLElement,
+    facts: readonly ParcelCardExtraFact[],
+    note?: string,
+): void {
+    if (facts.length === 0) return;
+    for (const f of facts) {
+        const row = el('div', 'pryzm-parcel-card-row');
+        row.setAttribute('data-testid', f.testId);
+        const k = el('span', 'pryzm-parcel-card-key', f.label);
+        if (f.hint) k.title = f.hint;
+        row.appendChild(k);
+        row.appendChild(el('span', 'pryzm-parcel-card-val', f.value));
+        root.appendChild(row);
+    }
+    if (note) {
+        const n = el('div', 'pryzm-parcel-card-note', note);
+        n.setAttribute('data-testid', 'parcel-card-extra-facts-note');
+        root.appendChild(n);
+    }
+}
+
 function m2(n: number): string {
     // No thousands separator by locale — a locale-formatted number in a legal read-out is a
     // different string per user, which makes a screenshot and a test disagree.
@@ -338,6 +428,11 @@ export function buildParcelCard(
         const note = el('div', 'pryzm-parcel-card-absent', opts.absentText ?? PARCEL_PROVENANCE_ABSENT_TEXT);
         note.setAttribute('data-testid', PARCEL_CARD_ABSENT_TESTID);
         root.appendChild(note);
+        // §ONE-PARCEL-BLOCK (L-13005) — the ring measurements belong on THIS arm too. A parcel
+        // whose attribution was never recorded still has a ring, and how big / how long / how
+        // many edges it is remains a fact we hold when where it came from is not (the same
+        // reasoning `buildParcelSectionBody` states for the area row it adds to this arm).
+        appendExtraFacts(root, opts.extraFacts ?? [], opts.extraFactsNote);
         appendActions(root, opts.actions ?? []);
         return root;
     }
@@ -405,6 +500,11 @@ export function buildParcelCard(
     } else {
         root.appendChild(fact('Area', 'not determinable from this ring'));
     }
+
+    // ── §ONE-PARCEL-BLOCK (L-13005) — the host's ring measurements, HERE and not in a second
+    //    block beside this one. After the areas because they measure the same ring; before
+    //    `Zone pack` / `Match` because those are classification, not measurement.
+    appendExtraFacts(root, opts.extraFacts ?? [], opts.extraFactsNote);
 
     if (model.jurisdictionId) root.appendChild(fact('Zone pack', model.jurisdictionId));
     if (model.sourceCrs) root.appendChild(fact('Source CRS', model.sourceCrs));

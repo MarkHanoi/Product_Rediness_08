@@ -55,7 +55,11 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import type { SiteModel } from '@pryzm/schemas';
-import { mountParcelSection, type ParcelSectionHandle } from './parcelPanelSection.js';
+import {
+    mountParcelSection,
+    type MountParcelSectionOptions,
+    type ParcelSectionHandle,
+} from './parcelPanelSection.js';
 // §PARCEL-ALL-INFO (L-6905) — the phase and the pure slot decision. Neither is a renderer and
 // neither is a second reader of the envelope: one reports whether a determination is running,
 // the other maps (card present? · boundary? · phase) onto one of five states.
@@ -157,8 +161,20 @@ function hasCommittedBoundary(site: SiteModel | null): boolean {
  * cannot open, and reachability is the entire point of this change (the same
  * never-throw rule `mountParcelSection` states for itself).
  */
+/**
+ * Options for `buildParcelRailPanel`. Optional in full and forwarded verbatim to
+ * `mountParcelSection`, so the rail's own two callers (`ProjectBrowserPanel._buildParcelPanel`
+ * and its GIS section) are untouched by their existence.
+ *
+ * ⛔ THIS PANEL STILL DERIVES NOTHING. The options carry a THUNK the host owns; this file
+ * neither reads a model nor formats a figure, which is what keeps the spec's *"⛔ NEVER
+ * re-derives"* assertion true.
+ */
+export type ParcelRailPanelOptions = MountParcelSectionOptions;
+
 export function buildParcelRailPanel(
     runtime: PryzmRuntime | null | undefined,
+    opts: ParcelRailPanelOptions = {},
 ): ParcelRailPanelHandle {
     const root = document.createElement('div');
     root.className = 'pb-parcel-panel';
@@ -188,7 +204,7 @@ export function buildParcelRailPanel(
         parcelSlotRef = slot;
 
         // ⭐ THE REUSE. One call, one reader, one card producer.
-        section = mountParcelSection(slot, runtime);
+        section = mountParcelSection(slot, runtime, opts);
 
         // ══════════════════════════════════════════════════════════════════════════════
         // §PARCEL-ALL-INFO (L-6905..L-6909) — EVERYTHING ELSE HE ASKED FOR, IN ONE MOUNT

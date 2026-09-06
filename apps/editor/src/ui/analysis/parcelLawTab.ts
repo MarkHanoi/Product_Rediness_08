@@ -111,6 +111,7 @@ import type { GisCapabilityHost } from '../gis/gisActionRegistry';
 import {
   buildParcelRailPanel,
   type ParcelRailPanelHandle,
+  type ParcelRailPanelOptions,
 } from '../site/parcel/parcelRailPanel';
 import {
   mountViewSegmentSwitcher,
@@ -135,7 +136,11 @@ import { wireDesignStageStrip } from '../site/designStageStripControl';
 // needs its own rendering at all — the singleton card can only ever be in ONE host.
 import { resolveParcelLawModel } from '../site/parcel/resolveParcelLawModel';
 import type { ParcelLawModel } from '../site/parcel/parcelLawModel';
-import { buildParcelLawFacts, type ParcelLawFactsOptions } from './parcelLawFacts';
+import {
+  buildParcelLawFacts,
+  parcelRingMeasuredFacts,
+  type ParcelLawFactsOptions,
+} from './parcelLawFacts';
 // §PL-IA-Q (STR §26.3, L-12998) — THE SIX PERSONA QUESTIONS, as containers. The founder:
 // *"thing as a persona architect of land developer how it would go thoutght the workflow."*
 // ⛔ This module computes NOTHING and this tab still computes nothing; the groups only decide
@@ -267,8 +272,19 @@ export interface ParcelLawTabDeps {
   readonly capabilityHost: ParcelLawCapabilityHost;
   /** Production: `window.runtime` — resolved at MOUNT time, never at module load (§L-545). */
   readonly runtime: PryzmRuntime | null | undefined;
-  /** Production: `buildParcelRailPanel` — the ONE host of both parcel halves. */
-  readonly buildParcelPanel: (runtime: PryzmRuntime | null | undefined) => ParcelRailPanelHandle;
+  /**
+   * Production: `buildParcelRailPanel` — the ONE host of both parcel halves.
+   *
+   * ⚠ THE SECOND PARAMETER IS OPTIONAL AND EVERY EXISTING FAKE IGNORES IT. Six specs in this
+   * repo build this seam as `() => ({ element, dispose })`; a `(runtime) => handle` still
+   * satisfies `(runtime, opts?) => handle`, so §ONE-PARCEL-BLOCK cost none of them a line. A
+   * fake that ignores `opts` renders the card without the ring measurements, which is exactly
+   * what a fake with no model to measure should render.
+   */
+  readonly buildParcelPanel: (
+    runtime: PryzmRuntime | null | undefined,
+    opts?: ParcelRailPanelOptions,
+  ) => ParcelRailPanelHandle;
   /**
    * Production: `mountViewSegmentSwitcher`.
    *
@@ -546,16 +562,56 @@ export function mountParcelLawTab(
       return g ? g.body : ladder;
     };
 
-    // ── Q1 · "What is this plot?" ─────────────────────────────────────────────
-    // The cadastral half of `buildParcelRailPanel` — reference, address, the two areas kept apart
-    // (C57 §2.4), source, licence, retrieved-at — and the PARCEL group of the shared model
-    // beneath it. Both were already on this tab; they were three sections apart.
+    // ── Q1 · "What is this plot?" — ⭐ ONE BLOCK, ONE TYPOGRAPHY, BOTH AREAS ────────
+    //
+    // §ONE-PARCEL-BLOCK (L-13005). Founder 2026-09-06, red-boxing the second of two: *"the data
+    // of the parcel is incorrect format."* This question used to render the parcel TWICE — the
+    // cadastral card, then immediately a right-aligned figure list also headed PARCEL, carrying
+    // an area of its own. The §26 lane named the duplication and left it for *"a host-arbiter
+    // decision, not a lane"*; the founder has now made it.
+    //
+    // ⭐ THE RESULT IS A MERGE AND A RE-TYPESETTING, NOT A DELETION. `Ref · Addr ·
+    // Area (registry) · Area (from ring) · Perimeter · Bounding box · Boundary edges ·
+    // Zone pack · Match · Source · Licence · Retrieved` are all in ONE card now. The two areas
+    // SURVIVE and stay labelled with their bases — 801 m² is what the cadastre publishes and
+    // 803 m² is a shoelace over the ring it published, and collapsing them would be the C57
+    // §1.9 / §2.4 attribution loss this merge was forbidden to cause.
+    //
+    // ⛔ THE MEASUREMENTS TRAVEL TO THE CARD, NOT THE IDENTITY TO THE FACT RENDERER, and the
+    // direction is forced: `parcelCard.ts` is the ONE producer of the cadastral card (C06 §13.3,
+    // with a legal consequence attached to a second one), so re-rendering Ref / Addr / the areas
+    // inside the analysis fact renderer would have minted exactly the rival this repo has twice
+    // paid for. `parcelRingMeasuredFacts` projects the model's geometry onto the card's row
+    // shape; the card typesets it. One producer each, no rival.
     const panelSlot = document.createElement('div');
     panelSlot.className = 'anl-parcel-law-panel';
     panelSlot.setAttribute('data-testid', PARCEL_LAW_PANEL_SLOT_TESTID);
     bodyOf('plot').appendChild(panelSlot);
-    panel = deps.buildParcelPanel(deps.runtime);
+    panel = deps.buildParcelPanel(deps.runtime, {
+      // ⚠ A THUNK, READ ON EVERY CARD RENDER — never a snapshot taken here. The card re-renders
+      // on its own site-store notification, and a captured array would leave the measured rows
+      // frozen while the identity rows beside them refreshed: one block showing two vintages of
+      // one parcel, which is a worse defect than the two blocks this merge removed.
+      //
+      // ⛔ NOT A SECOND DERIVATION. It calls the SAME `readParcelLawModel` this tab's
+      // `renderFacts` calls, on the same inputs — one reader, read twice, never two readers
+      // (§25.11 clause 1). A fresh read rather than a cached one because the two subscriptions
+      // fire in an order nothing guarantees, and a stale measurement is exactly the failure.
+      extraFacts: () => {
+        try {
+          const readModel = deps.readParcelLawModel ?? resolveParcelLawModel;
+          return parcelRingMeasuredFacts(readModel(deps.runtime));
+        } catch (e) {
+          console.warn('[analysis][parcel-law] ring-measurement projection failed (non-fatal):', e);
+          return null;
+        }
+      },
+    });
     panelSlot.appendChild(panel.element);
+    // §ONE-PARCEL-BLOCK — this slot now carries only what a CARD ROW cannot say: the sentence
+    // for a ring that could not be read. When the ring reads, the rendering is empty and stamps
+    // `data-parcel-rows-merged-into="card"`, so "the rows moved" is distinguishable from "the
+    // rows are gone" — opposite facts that an empty element alone would conflate.
     bodyOf('plot').appendChild(factsPlotSlot);
 
     // ── Q2 · "What may I build here — and who says so?" ─────────────────────────

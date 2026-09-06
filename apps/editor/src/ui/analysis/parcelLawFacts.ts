@@ -47,6 +47,11 @@ import type {
     ParcelLawModel,
     ParcelLawStorey,
 } from '../site/parcel/parcelLawModel.js';
+// §ONE-PARCEL-BLOCK (L-13005) — the ROW SHAPE the ONE card producer typesets. Type-only, so
+// nothing of `parcelCard.ts`'s DOM reaches this module at runtime: this file contributes the
+// facts, the card contributes the typography, and there is exactly one of each.
+import type { ParcelCardExtraFact } from '../site/parcel/parcelCard.js';
+import type { ParcelSectionExtras } from '../site/parcel/parcelPanelSection.js';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawFacts');
 
@@ -64,6 +69,15 @@ export const PARCEL_LAW_REFUSAL_TESTID = 'parcel-law-refusal';
 export const PARCEL_LAW_DETERMINED_AT_TESTID = 'parcel-law-determined-at';
 /** Attribute recording WHICH half of the model a given rendering shows. */
 export const PARCEL_LAW_FACTS_SCOPE_ATTR = 'data-facts-scope';
+/**
+ * §ONE-PARCEL-BLOCK (L-13005) — set to `'card'` on a `plot` rendering whose PARCEL rows were
+ * handed to the cadastral card instead of drawn here.
+ *
+ * It exists so the merge is READABLE rather than inferable from an empty element: a reader (or
+ * a spec) looking at question 1 and finding no PARCEL group can tell "the rows moved" apart
+ * from "the rows are gone", which are opposite facts.
+ */
+export const PARCEL_LAW_MERGED_ATTR = 'data-parcel-rows-merged-into';
 
 /**
  * §PL-IA-Q (STR §26.3) — WHICH OF THE SIX PERSONA QUESTIONS THIS RENDERING ANSWERS.
@@ -110,6 +124,127 @@ export const PARCEL_LAW_GEOMETRY_ABSENT_TEXT =
     'Parcel outline unavailable. The figures below were solved against the committed boundary, '
     + 'but this panel could not re-read it, so area, perimeter and footprint / parcel are '
     + 'withheld rather than guessed. This is a missing READ, not a missing constraint.';
+
+/**
+ * §ONE-PARCEL-BLOCK (L-13005) — the attribution line under the ring measurements.
+ *
+ * The merged block carries figures from THREE provenances: what the cadastre publishes
+ * (`Area (registry)`), a shoelace over the ring it published (`Area (from ring)`), and these
+ * — measured off the ring AS COMMITTED TO THIS PROJECT, in scene metres. Three provenances
+ * in one block with only two of them stated would be the C57 §1.9 attribution loss the merge
+ * was forbidden to cause, so the line is not decoration and is not optional.
+ */
+export const PARCEL_LAW_MEASURED_NOTE =
+    'Perimeter, bounding box and boundary edges are measured from the ring as committed to '
+    + 'this project, in scene metres — not published by the source.';
+
+/**
+ * §ONE-PARCEL-BLOCK — the words on the scene-measured area row, on the ONE arm that shows it.
+ *
+ * ⚠ IT IS A THIRD AREA AND IT IS LABELLED AS ONE. See `parcelRingMeasuredFacts` for when it
+ * appears at all — it is withheld precisely when it would restate a number already on the card.
+ */
+export const PARCEL_LAW_SCENE_AREA_LABEL = 'Area (measured in scene)';
+
+/**
+ * §ONE-PARCEL-BLOCK (L-13005) — ⭐ THE MERGE ITSELF: the PARCEL group's figures, projected
+ * onto the row shape the ONE card producer typesets, so they land INSIDE the cadastral card
+ * instead of in a second block headed PARCEL beside it.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * WHY THIS DIRECTION, AND NOT THE OTHER ONE
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * Founder 2026-09-06, red-boxing the second block: *"the data of the parcel is incorrect
+ * format."* Q1 rendered the parcel twice — the labelled card (`Ref · Addr · Area (registry)
+ * 801 m² · Area (from ring) 803 m² · Zone pack · Match · Source · Retrieved`), then
+ * immediately a right-aligned figure list (`PARCEL / Area 803 m² / Perimeter 115.1 m /
+ * Bounding box 25.2 × 34.3 m / Boundary edges 17 (5 street frontage)`). Two headings, two
+ * typographies, two alignments, the area in both.
+ *
+ * The merge had exactly ONE sound direction. `parcelCard.ts` is the ONE producer of the
+ * cadastral card and its header states the legal consequence of a second one (*"two GIS
+ * surfaces that can disagree about whether a ring is a legal cadastral parcel"*), so
+ * re-rendering `Ref / Addr / the two areas / Source / Retrieved` here would have minted
+ * exactly that. The measurements travel the other way instead.
+ *
+ * ⛔ NOTHING IS DELETED BY THE MERGE. Perimeter, bounding box and boundary edges keep their
+ * values, their hints and — deliberately — their `parcel-law-fact-*` testids, so no figure
+ * loses the handle it had. The `not derived` discipline is unaffected: these four fields are
+ * non-null on `ParcelLawGeometry` by construction, and when the ring cannot be read at all
+ * there is no geometry, no extras, and the caller states the absence as a sentence instead.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * ⭐ THE AREA ROW — THE ONE JUDGEMENT IN THIS FUNCTION, STATED SO IT IS NOT RE-DECIDED
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * `801` and `803` are DIFFERENT FACTS and collapsing them is a C57 §1.9 / §2.4 attribution
+ * loss — that is settled, and the card already carries both, each labelled with its basis.
+ * The question this function answers is narrower: the model ALSO measures the committed
+ * scene ring, which is a third measurement of (nominally) the same land.
+ *
+ *   · When it ROUNDS TO THE SAME PRINTED NUMBER as the card's `Area (from ring)`, one row
+ *     states both, and a second identical row would be the duplication this lane removed.
+ *   · When it PRINTS DIFFERENTLY, both are shown, each labelled with how it was measured —
+ *     which is precisely the rule `parcelCard.ts` already applies to registry-vs-ring, one
+ *     level further out. A disagreement between the published ring and the committed ring is
+ *     information (the ring was re-projected, or edited), never noise to be tidied away.
+ *
+ * The comparison is on the PRINTED value (`Math.round`, the card's own `m2()` rounding), not
+ * on a tolerance somebody chose: two figures that a reader cannot tell apart on screen are one
+ * row, and two a reader CAN tell apart are two rows. No arbitrary epsilon is involved.
+ *
+ * Returns `null` — never an empty-but-present block — when there is no geometry to state.
+ */
+export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExtras | null {
+    const geo = model.geometry;
+    if (!geo) return null;
+    const facts: ParcelCardExtraFact[] = [];
+
+    // The area the CARD prints as its ring row: the provider's shoelace where one was
+    // published, else the committed area the card falls back to. `null` means the card prints
+    // no ring area at all, in which case the scene measurement is the only one there is.
+    const cardRingAreaM2 = model.identity?.areaSigM2 ?? model.committedAreaM2 ?? null;
+    const printsDifferently =
+        cardRingAreaM2 === null || Math.round(cardRingAreaM2) !== Math.round(geo.areaM2);
+    if (printsDifferently) {
+        facts.push({
+            testId: `${PARCEL_LAW_FACT_PREFIX}parcel-area`,
+            label: PARCEL_LAW_SCENE_AREA_LABEL,
+            value: `${Math.round(geo.areaM2).toLocaleString()} m²`,
+            hint:
+                cardRingAreaM2 === null
+                    ? 'Measured from the ring as committed to this project. The source published '
+                      + 'no area of its own for this parcel.'
+                    : 'Measured from the ring as committed to this project, which prints '
+                      + 'differently from the area computed over the ring the source published. '
+                      + 'Both are shown — the disagreement is information, not noise.',
+        });
+    }
+
+    facts.push({
+        testId: `${PARCEL_LAW_FACT_PREFIX}parcel-perimeter`,
+        label: 'Perimeter',
+        value: `${geo.perimeterM.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m`,
+    });
+    facts.push({
+        testId: `${PARCEL_LAW_FACT_PREFIX}parcel-bbox`,
+        label: 'Bounding box',
+        value: `${geo.bboxWidthM.toFixed(1)} × ${geo.bboxDepthM.toFixed(1)} m`,
+        hint:
+            'Axis-aligned extent. A non-rectangular parcel has no single width × depth, '
+            + 'so this is deliberately labelled a bounding box.',
+    });
+    facts.push({
+        testId: `${PARCEL_LAW_FACT_PREFIX}parcel-edges`,
+        label: 'Boundary edges',
+        value: `${geo.edgeCount}${geo.frontageClause}`,
+        hint:
+            'Street frontage is the edge buildable depth insets FROM. "Not recorded" means '
+            + 'nobody classified the edges of this parcel — it is NOT a finding that the plot '
+            + 'has none.',
+    });
+
+    return { facts, note: PARCEL_LAW_MEASURED_NOTE };
+}
 
 /** The lede. Says where these numbers come from, because that is the tab's whole claim. */
 export const PARCEL_LAW_FACTS_NOTE =
@@ -262,13 +397,33 @@ export function buildParcelLawFacts(
         }
 
         // ── PARCEL ────────────────────────────────────────────────────────────────────────
+        //
+        // ⭐ §ONE-PARCEL-BLOCK (L-13005) — IN `plot` SCOPE THIS GROUP NO LONGER RENDERS ITS
+        // ROWS, AND THAT IS THE FOUNDER'S DECISION, NOT AN OMISSION.
+        //
+        // `plot` is the Parcel Law tab's question-1 rendering, and question 1 already hosts the
+        // cadastral card. Rendering `Area / Perimeter / Bounding box / Boundary edges` here as
+        // well produced the two blocks he red-boxed: two headings, two typographies, two
+        // alignments, the area in both. The figures did not disappear — they are handed to the
+        // card by `parcelRingMeasuredFacts` above and typeset in ITS rows, which is what makes
+        // "one block, one typography" true by construction rather than by review.
+        //
+        // ⛔ THE ABSENCE SENTENCE STILL RENDERS HERE, on every scope. A card cannot state a
+        // missing READ in a fact row — that is what the sentence is for (C58 §1.4 / L-616), and
+        // `parcelLawFacts.spec.ts` pins it to question 1's slot. When the ring cannot be read
+        // there are no extras to hand the card, so this is the only surface that says so.
+        //
+        // `all` is UNCHANGED and still renders the historic flat section, rows included: it is
+        // the rendering a host with no card beside it gets, and collapsing it into `plot` would
+        // silently drop four figures for such a host.
+        const mergedIntoCard = scope === 'plot' && model.geometry !== null;
         const g0 = group(
             'Parcel',
             'Cadastral boundary as committed to this project, measured in scene metres.',
         );
-        if (!wantPlot) {
-            // Nothing to build here in `law` scope — the plot half is rendered by the caller's
-            // question 1 group. Fall through to the law arms below.
+        if (!wantPlot || mergedIntoCard) {
+            // Nothing to build here — in `law` scope the plot half is rendered by the caller's
+            // question 1 group; in `plot` scope the rows are on the card. Fall through.
         } else if (model.geometry) {
             const geo = model.geometry;
             g0.body.appendChild(numFact('parcel-area', 'Area', geo.areaM2, 'm²', 0));
@@ -301,7 +456,8 @@ export function buildParcelLawFacts(
             miss.style.lineHeight = '1.5';
             g0.body.appendChild(miss);
         }
-        if (wantPlot) root.appendChild(g0.root);
+        if (wantPlot && !mergedIntoCard) root.appendChild(g0.root);
+        if (mergedIntoCard) root.setAttribute(PARCEL_LAW_MERGED_ATTR, 'card');
 
         // ── The refusal / absence arms. A refusal has no numeric rows BY DESIGN (§L-550):
         //    three dashes would read as "not filled in yet", which is the ambiguity the
