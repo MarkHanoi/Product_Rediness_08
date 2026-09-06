@@ -35,6 +35,10 @@ import {
     type ContextBuildingCollection,
     type ContextBuildingFeature,
 } from "./contextBuildings";
+// §OFFICIAL-FOOTPRINTS (L-12939) — the PURE draw decider, shared with the 2D plan so the two
+// surfaces can never draw the same building twice: the massing takes the register's PARTS (a
+// 2-storey wing beside a 3-storey block reads as two volumes), the plan takes the OUTLINES.
+import { refsWithParts, shouldExtrudeInMassing, summariseOfficialFootprints } from "./officialFootprint";
 // §CTX-USE-COLOUR (L-599) — pure "what is this building" classification + palette + legend.
 // ⭐ ACTUAL use only (OSM `building=*`); PERMITTED use (clau/MUC) is a DIFFERENT layer and is
 // deliberately not merged — their disagreement is the development signal.
@@ -127,6 +131,7 @@ import { fetchContextParks, type ContextParkCollection } from "./contextParks";
 import { fetchContextLanduse, type ContextLanduseCollection } from "./contextLanduse";
 // §FORMA-CTX-RAIL / §FORMA-CTX-TREES (L-642 Phase C) — the two new baked-only T1 context layers.
 import { fetchContextRail, type ContextRailCollection } from "./contextRail";
+import { StreetLifeLayer } from "./contextStreetLifeRender";  // §STREET-LIFE (L-12936) — instanced street lamps + pedestrians (all logic lives there).
 import { fetchContextCanopySet, type ContextCanopySet } from "./contextTrees";  // §VEG-CANOPY-FROM-WOODS (L-12934) — mapped trees + canopies synthesised inside real wood/forest rings, ONE set.
 // PW.2 (§DIAG-PARTY-WALL) — capture neighbour footprints for the layout pipeline
 // (party/blind-wall detection in resolveBlindFacades). Editor-side store, no engine dep.
@@ -1610,6 +1615,8 @@ export class CesiumViewport {
   /** FORMA-CTX-WATER — OSM water polygons + waterway polylines (visual-only). */
   private contextWaterEntities: Cesium.Entity[] = [];
   private contextWaterAbort: AbortController | null = null;
+  /** §CTX-WATER-COALESCE (L-12945) — the in-flight water read, keyed by site. See loadContextWater. */
+  private contextWaterInFlight: { readonly key: string; readonly done: Promise<void> } | null = null;
   /** §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the STANDING sea/ocean layer, promoted to always-on
    *  (loaded with the terrain/location like T0 terrain, no longer only on a parcel select). Its own
    *  entity list + abort + at-guard give it a lifecycle independent of the on-select water bodies. */
@@ -1649,6 +1656,9 @@ export class CesiumViewport {
    *  shadowless, single-material Primitive (nearest-first capped — ADR-0094 budget + the instancing
    *  memory), NOT one entity per tree. Its own clear + abort give it a lifecycle independent of the
    *  entity layers; kept OUT of every entity list so no per-tree entity is ever created. */
+  /** §STREET-LIFE (L-12936) — the instanced lamp/pedestrian layer. Owns its own reads, primitives
+   *  and abort; this class only kicks it and re-seats it. DEFAULT ON in Forma. */
+  private streetLife = new StreetLifeLayer();
   private contextTreesPrimitive: Cesium.Primitive | null = null;
   private contextTreesAbort: AbortController | null = null;
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
@@ -4226,6 +4236,7 @@ export class CesiumViewport {
         this.clearContextRail();
         this.contextTreesAbort?.abort();
         this.clearContextTrees();
+        this.streetLife.dispose(this.viewer);  // §STREET-LIFE (L-12936) — the tiles carry the real street furniture.
       } else {
         const loc = this.readSiteLocation();
         if (loc) void this.loadContextBuildings(loc.lat, loc.lon, true);
@@ -6254,6 +6265,7 @@ export class CesiumViewport {
           void this.loadContextLanduse(originLat, originLon); // §FORMA-CTX-LANDUSE (grey urban / brown rural)
           void this.loadContextRail(originLat, originLon);    // §FORMA-CTX-RAIL (L-642 Phase C — dark track ribbons)
           void this.loadContextTrees(originLat, originLon);   // §FORMA-CTX-TREES (L-642 Phase C — instanced canopies)
+          void this.loadStreetLife(originLat, originLon);     // §STREET-LIFE (L-12936 — lamps + pedestrians; reads roads/landuse/furniture from cache)
         } catch (e) {
           console.warn('[CesiumViewport][forma] context kickoff threw — envelope/massing kept:', e);
         }
@@ -7287,6 +7299,10 @@ export class CesiumViewport {
       // that carries its height in its positions is not re-seatable — so it is REBUILT (the far-tier
       // precedent above), from the tile cache, on the settled base.
       this.rebuildContextTreesForBase();
+      // §STREET-LIFE (L-12936) — same class of feature as the canopies: the lamp/person instance
+      // matrices BAKE the per-point ground in, so they are REBUILT on the settled base, never
+      // re-seated by rewriting a scalar (the §CTX-TREES-RESEAT, L-12918, precedent).
+      this.rebuildStreetLifeForBase();
       // §CTX-EARTH-SLAB (L-645) — RETIRED: no globe-clip / skirt to rebuild on the risen base (the slab
       // could never clip the flat entity ground layers; see clearContextEarthSlab). Nothing to do here.
     }
@@ -8968,8 +8984,24 @@ export class CesiumViewport {
     // condition the safe-base guarantee (never a depth-culling 0) exists to survive.
     let seatFinite = 0;
     let seatFallback = 0;
+    // §OFFICIAL-FOOTPRINTS (L-12939) — when the tiles carry a national register's footprints the
+    // bake emits BOTH one feature per BuildingPart AND the whole-building outline. Extrude the
+    // PARTS — that per-volume articulation is the entire point of fetching the register; the
+    // founder's own Córdoba house is 0 + 2 + 3 + 2 storeys under ONE 320 m² outline — and SKIP the
+    // outline, which would otherwise bury them inside a single max(parts)-tall prism and z-fight
+    // with them. An outline with NO parts IS still extruded: a missing neighbour silently deletes a
+    // shadow, a party wall and a view obstruction from a study, which is worse than drawing it
+    // coarse. Non-official footprints are untouched — shouldExtrudeInMassing(undefined, …) is true.
+    const officialPartRefs = refsWithParts(nearTiers.shadowed.map((f) => ({ official: f.properties.official })));
+    const officialSummary = summariseOfficialFootprints(nearTiers.shadowed.map((f) => ({ official: f.properties.official })));
+    let officialSkipped = 0;
     for (const f of nearTiers.shadowed) {
       try {
+        const official = f.properties.official;
+        if (!shouldExtrudeInMassing(official, official?.ref ? officialPartRefs.has(official.ref) : false)) {
+          officialSkipped++;
+          continue;
+        }
         const ring = f.geometry.coordinates[0];
         if (!ring || ring.length < 4) continue;
         // §SITEFRAME-GROUND (C12 §9 T1) — seat THIS footprint on the ground UNDER ITSELF
@@ -9118,6 +9150,16 @@ export class CesiumViewport {
         `seat[finite=${seatFinite} fallback=${seatFallback}] ` +
         `safeBase=${baseAtRisk ? 'AT-RISK(base≈0 under relief → could cull IF depthCull on; terrain not yet streamed at centroid)' : 'ok'}`,
     );
+    // §OFFICIAL-FOOTPRINTS (L-12939) — counts SEPARATED BY SOURCE (C57 §1.9). A single total
+    // cannot tell "the register landed" from "we are still drawing OSM", and that is exactly the
+    // question the founder is asking when a 2020 house is missing. Silent when no register
+    // footprint is in view, so an OSM-only scene keeps its existing log unchanged.
+    if (officialSummary.parts > 0 || officialSummary.buildings > 0) {
+      console.log(
+        `[CTX-DIAG][official] ${officialSummary.line} · ${officialSkipped} outline(s) not extruded `
+        + '(their own parts are drawn instead)',
+      );
+    }
     // §CTX-LOADING-BADGE (L-524b) — first buildings are on screen, so the wait is over. If the
     // ring came back genuinely EMPTY we say THAT instead of silently clearing: "no context data
     // here" and "still loading" are different facts and must not look identical (the failure-vs-
@@ -10276,7 +10318,41 @@ export class CesiumViewport {
    * flat-ground study, mirroring loadContextRoads' ENU bridge. Visual-only: NO
    * layout/model impact. Never throws (fetch degrades to a quiet no-op).
    */
+  /**
+   * §CTX-WATER-COALESCE (L-12945, founder 2026-09-06 at Sevilla then Córdoba: "the river Guadalquivir
+   * — pretty sure it was appearing sound before — now is not loading").
+   *
+   * THE DEFECT. This method used to `abort()` the previous read on EVERY entry. Water is the slowest
+   * context layer by a wide margin — measured in the founder's own console, 608 areas + 430 waterways
+   * from 49 baked tiles in 9,972 ms at Sevilla and 647 + 199 in 9,271 ms at Córdoba, against 200 ms to
+   * 7 s for roads, parks and landuse over 20–25 tiles. `renderFormaMassing` re-enters several times for
+   * ONE parcel commit (commit → zoning-updated → terrain clamp → settled-base re-seat), so each entry
+   * killed a read that needed ten seconds. The read never reached its render: both cities logged the
+   * PMTiles read and then no `FORMA-CTX-WATER rendered` line at all, and the river drew as bare ground.
+   * It "worked before" because the layer was smaller then — this is a threshold crossed, not a regression
+   * in the water code.
+   *
+   * THE RULE. A second load for the SAME site JOINS the read in flight; only a DIFFERENT site aborts it.
+   * That is the §CTX-ONE-READ-PER-BBOX doctrine the other layers already follow (L-513b), applied to the
+   * one layer that most needed it. An honest empty still renders as empty; a failure still refuses.
+   */
   public async loadContextWater(lat: number, lon: number, force = false): Promise<void> {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+    const inFlight = this.contextWaterInFlight;
+    if (inFlight && inFlight.key === key) {
+      // Same site: JOIN, never restart. Aborting here is what lost the Guadalquivir.
+      try { await inFlight.done; } catch { /* the inner load never throws; a join must not either */ }
+      return;
+    }
+    const done = this.loadContextWaterInner(lat, lon, force);
+    this.contextWaterInFlight = { key, done };
+    try { await done; } finally {
+      if (this.contextWaterInFlight?.done === done) this.contextWaterInFlight = null;
+    }
+  }
+
+  private async loadContextWaterInner(lat: number, lon: number, force = false): Promise<void> {
     const viewer = this.viewer;
     if (!viewer) return;
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
@@ -11007,6 +11083,16 @@ export class CesiumViewport {
         `+ ${collection.syntheticCount} synthesised canopies inside ${collection.polygonCount} wood/forest polygon(s) ` +
         '— positions SYNTHETIC, polygons real (OSM natural=wood / landuse=forest).',
     );
+    // §VEG-REAL-CANOPY-BAKE (L-12935) × C57 §1.5/§1.9 — the MEASURED third source, counted APART from
+    // both the mapped and the synthesised. Three sources, three claims, three numbers; never one total.
+    console.log(
+      `[CesiumViewport][forma] §VEG-REAL-CANOPY-BAKE (L-12935): ${collection.sampledCount} SAMPLED canopy cell(s) ` +
+        `[src ${collection.sampledSources.join('+') || 'none — layer absent for this bbox'}] — crown COVER measured ` +
+        'by a tree-cover raster, POSITION a ~12 m grid sample (NOT mapped trees). ' +
+        (collection.sampledSupersededSynthesis
+          ? 'It SUPERSEDED the woods-fill synthesis here (syntheticCount is 0 by design — two grids over one forest would double the density).'
+          : 'The woods-fill synthesis still carries this site.'),
+    );
     console.log(
       `[CesiumViewport][forma] §FORMA-CTX-TREES (L-642) instanced canopies: ${instances.length} ` +
         `low-poly blob(s) in ONE shadowless shared-material primitive (radial ≤${Math.round(CONTEXT_TREES_RENDER_RADIUS_M)} m, ` +
@@ -11024,6 +11110,51 @@ export class CesiumViewport {
       try { viewer.scene.primitives.remove(this.contextTreesPrimitive); } catch { /* gone / destroyed with viewer */ }
     }
     this.contextTreesPrimitive = null;
+  }
+
+  // ── §STREET-LIFE (L-12936, founder 2026-09-05: "pedestrians but also street lighting") ─────────
+  //
+  // Deliberately THIN. The reads, the placement, the geometry, the caps and the honest log line all
+  // live in contextStreetLifeRender.ts / contextStreetLife.ts / contextFurniture.ts; this file only
+  // supplies the viewer, the per-point ground seat (the SAME `sampleGround` the canopies use) and
+  // the two lifecycle moments (kickoff, settled-base rebuild).
+
+  /** §STREET-LIFE — build/refresh the instanced lamps + pedestrians at `lat/lon`. Never throws. */
+  public loadStreetLife(lat: number, lon: number, force = false): Promise<void> {
+    if (!this.viewer) return Promise.resolve();
+    const safeBase = this.resolveContextSafeBase(lat, lon);
+    return this.streetLife.load(
+      this.viewer,
+      { groundAt: (la: number, lo: number) => this.sampleGround(la, lo, safeBase) },
+      lat, lon, force,
+    ).catch((e: unknown) => {
+      console.warn('[CesiumViewport][forma] §STREET-LIFE load failed (non-fatal, scenery only):', e);
+    });
+  }
+
+  /** §STREET-LIFE toggle — DEFAULT ON in Forma. OFF clears immediately; ON rebuilds in place. */
+  public setStreetLifeEnabled(on: boolean): void {
+    if (this.streetLife.enabled === on) return;
+    this.streetLife.enabled = on;
+    if (!on) {
+      this.streetLife.clear(this.viewer);
+      try { this.viewer?.scene.requestRender(); } catch { /* viewer gone */ }
+      return;
+    }
+    const at = this.contextBuildingsAt;
+    if (at) void this.loadStreetLife(at.lat, at.lon, true);
+  }
+
+  /** @returns whether the §STREET-LIFE scenery layer is currently ON (default true). */
+  public isStreetLifeEnabled(): boolean { return this.streetLife.enabled; }
+
+  /** §STREET-LIFE — rebuild the lamps/people on the settled terrain base (see the call site). */
+  private rebuildStreetLifeForBase(): void {
+    if (!this.viewer) return;
+    if (!this.groundReliefAttached()) return;            // flat/keyless already seated exactly.
+    const at = this.streetLife.builtAt ?? this.contextBuildingsAt;
+    if (!at || !this.streetLife.hasContent) return;      // nothing placed yet — the initial load seats it.
+    void this.loadStreetLife(at.lat, at.lon, true);
   }
 
   /** Log the "context buildings unavailable / degraded" message at most once. */
