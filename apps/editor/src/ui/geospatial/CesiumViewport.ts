@@ -7894,28 +7894,17 @@ export class CesiumViewport {
           return typeof h === 'number' && Number.isFinite(h) ? h : null;
         });
       },
-      onFlush: ({ sampled, resolved, ms, tiles, tileLevel }) => {
+      onFlush: ({ sampled, resolved, ms }) => {
         const s = this.groundSampleBatcherInstance?.stats;
         console.log(
           `[CTX-DIAG] §STARTUP-GROUND-SAMPLE-COALESCE — ONE shared sampleTerrainMostDetailed ` +
             `round-trip resolved ${resolved}/${sampled} real ground height(s) in ${ms.toFixed(0)} ms. ` +
-            // §GROUND-SAMPLE-TILE-ATTRIBUTION (L-12952) — the number the founder's run made
-            // unreadable: parks asked 493 points and roads 3555 and BOTH took 14.1 s, because
-            // `doSampling` issues ONE `requestTileGeometry` per DISTINCT TILE and interpolates
-            // every point inside it for free (Cesium 1.143 :208004/:207963). Printing the tile
-            // count says what the round-trip actually bought, and it is the number that must go
-            // down — dropping drape DENSITY would move `sampled` and not move this at all.
-            `Tiles: ${tiles} distinct terrain tile(s) at level ${tileLevel} for those ${sampled} ` +
-            `point(s) — the DOWNLOADS are the cost, the points inside a tile are free. ` +
             (s
               ? `Session: ${s.roundTrips} round-trip(s) for ${s.requests} caller(s) asking ` +
                 `${s.pointsRequested} point(s) — ${s.pointsSampled} sampled, ${s.pointsFromCache} ` +
-                `served from cache, ${s.pointsJoinedInFlight} joined a trip already in flight, ` +
-                `${s.pointsResolvedByAnEarlierFlight} answered by the flight ahead of them; ` +
-                `${s.deferredFlushes} flush(es) waited their turn, max concurrent flights ` +
-                `${s.maxConcurrentFlights} (MUST be 1 — two calls in the air re-download the same ` +
-                `tiles). BEFORE this lane every caller paid its OWN round-trip (founder Córdoba: ` +
-                `parks 493 pts and roads 3555 pts BOTH 14.1 s — the duplicate download, not the points).`
+                `served from cache, ${s.pointsJoinedInFlight} joined a trip already in flight. ` +
+                `BEFORE this lane every caller paid its OWN round-trip (founder Córdoba: parks 493 pts ` +
+                `and roads 3555 pts BOTH 14.1 s — the duplicate download, not the points).`
               : ''),
         );
       },
