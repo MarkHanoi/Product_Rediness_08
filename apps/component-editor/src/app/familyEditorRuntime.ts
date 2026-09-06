@@ -28,21 +28,50 @@
 
 // ⚠ THE SUBPATH IS LOAD-BEARING — do NOT "tidy" this back to the barrel.
 //
-// This read `from '@pryzm/constraint-solver'` (the barrel) until 2026-09-06,
-// and it was the single edge that made this app's shipped page 12.3 MB.
-// MEASURED, not reasoned: with the barrel, the root build's
-// `component-editor.html` eagerly loaded `domain-engine` (4.49 MB),
-// `vendor-three` (1.87 MB), `vendor-web-ifc` (3.56 MB), `vendor-thatopen`
-// (2.29 MB) and `vendor-three-bvh` (68 KB) — for a page that renders a 2D
-// sketch canvas and imports no THREE at all.
+// ⛔ CORRECTED 2026-09-06, SAME DAY, BY THE REBUILD THAT WAS SUPPOSED TO
+//    CONFIRM IT. This comment first read: *"it was the single edge that made
+//    this app's shipped page 12.3 MB"*. That was WRONG, and it was wrong in
+//    the most seductive way — a plausible mechanism, asserted before the
+//    measurement that would have falsified it. The rebuild is the record:
 //
-// WHY THE BARREL COSTS THAT: `packages/constraint-solver/src/index.ts`
-// re-exports `ConstraintEngine.ts` (→ `@pryzm/core-app-model`) and
-// `LevelTraversalPolicy.ts` (→ `@pryzm/geometry-wall`). Both land in the root
-// config's `domain-engine` manualChunks group, and that chunk imports THREE.
-// One re-export, five vendor chunks. `engine.ts` by contrast has exactly ONE
-// import statement and it is an `import type` — zero runtime dependencies —
-// and it declares BOTH symbols used here (`MockSolver` :93, `loadSolver` :482).
+//      BEFORE this change  component-editor.html → domain-engine 4,494,087 B
+//      AFTER  this change  component-editor.html → domain-engine 4,494,087 B
+//
+//    Byte for byte. `vendor-three`, `vendor-web-ifc`, `vendor-thatopen` and
+//    `vendor-three-bvh` all still preload. The barrel was A real edge; it was
+//    not THE edge, and cutting it moved nothing.
+//
+// WHY IT MOVED NOTHING — the real mechanism, established from the emitted
+// bytes rather than from the import graph. `dist/assets/domain-engine-*.js`
+// contains BOTH `batchCoordinator` (from `@pryzm/core-app-model`) AND
+// `PLANEGCS_WASM_URL` (from this very `engine.ts`). Rollup CO-LOCATED
+// `engine.ts` into the 4.5 MB SCC chunk, because `apps/editor` reaches the
+// solver too and the root config's `manualChunks` deliberately fuses that
+// whole strongly-connected component into one chunk. So the cost is imposed
+// by CHUNK ASSIGNMENT, not by this import statement. Changing the specifier
+// cannot escape a chunk; only changing the chunking can.
+//
+// ⭐ KEEP THE SUBPATH ANYWAY, for two reasons that survive the correction:
+//   1. It is independently correct — an L7 app should not pull an L2 barrel
+//      that re-exports `ConstraintEngine.ts` (→ `@pryzm/core-app-model`) and
+//      `LevelTraversalPolicy.ts` (→ `@pryzm/geometry-wall`) to obtain two
+//      symbols from a module that imports nothing. `engine.ts` has exactly
+//      ONE import statement and it is an `import type`; both symbols used
+//      here live in it (`MockSolver` :93, `loadSolver` :482).
+//   2. It is HALF of the two-part fix. The other half is a `manualChunks`
+//      rule pinning `constraint-solver/src/engine.ts` to its own chunk, plus
+//      a narrow door into `@pryzm/geometry-kernel` for the two pure helpers
+//      this app uses (`sampleCubicBezierChainXZ`, `intersectLines2D`). That
+//      second door needs an `exports` entry in that package's package.json,
+//      which is why it is NOT in this commit — see the lane report.
+//
+// ⚠ AND DO NOT "JUST SPLIT THE CHUNK": `@pryzm/schemas` imports domain-engine
+//   packages in 5 files and `geometry-kernel` imports `schemas`, so naively
+//   giving `geometry-kernel` its own chunk creates a CIRCULAR chunk — the
+//   exact "broken execution order" failure class vite.config.ts's own
+//   manualChunks comment documents. The weight is bound to a real cycle in
+//   the workspace graph, and that is an architecture decision, not a config
+//   tweak.
 //
 // This was invisible while the app had no bundle entry (L-12976): its own
 // `vite build` tree-shook the unused re-exports, so the 180 KB budget gate
