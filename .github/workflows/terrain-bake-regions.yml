@@ -67,6 +67,20 @@ on:
         # tiles_per_shard, per the warning above:
         #     `--national-regions --group asia`            → japan 22,072 finest / 29,611 tiles
         #     `--matrix --group asia --tiles-per-shard 3000` → 8 shards (one region, one wave)
+        # ⭐ UPDATED 2026-09-06 (lane KOREA-FROM-NOTHING) — `asia` is now TWO rows: `japan` plus the new
+        # `southkorea` national row (§BAKE-SOUTHKOREA). Re-read from the planner on the same day, NOT
+        # estimated and NOT added by hand to the line above — the numbers above are japan ALONE and are
+        # kept so the delta is visible:
+        #     `--national-regions --group asia`            → japan 22,072 finest / 29,611 tiles
+        #                                                    southkorea 1,419 finest / 1,941 tiles
+        #                                                    asia TOTAL 23,491 finest / 31,552 tiles
+        #     `--matrix --group asia --tiles-per-shard 3000` → 9 shards (japan 8 + southkorea 1)
+        # Korea is 7.45° × 5.75° and costs ONE shard — 6 % of the wave. It can also be dispatched alone
+        # via the `regions` input (`regions: southkorea`), and ⚠ IT SHOULD BE FIRST: §KR-NESTED-IN-JAPAN
+        # (terrainCoverage.ts) measures that `japan`'s rectangle CONTAINS Korea's and wins
+        # §MOST-INTERIOR-BBOX-WINS at every Korean point (Seoul 3.232 vs 1.084). Korea is reachable ONLY
+        # while `japan` is unpublished and its layer.json 404s (§PENDING-REGION-FALLS-THROUGH). Publishing
+        # `japan` before `japan` is split SHADOWS Korea silently — see L-12996.
         # That is a mid-sized wave: bigger than mexico (5–7 jobs), far smaller than canada (56).
         # §BAKE-US-STATES (2026-09-06, lane USA-ALL-STATES) — `usa` is no longer six metro clips. It is
         # 54 whole-state rows (50 states + DC + Puerto Rico + US Virgin Islands + `alaskaaleutians`, the

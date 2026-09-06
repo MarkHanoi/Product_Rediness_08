@@ -2551,6 +2551,47 @@ export const NATIONAL_REGIONS = [
   // stays UNWIRED for Japan. Datum: JGD2011 vertical (Tokyo Peil origin).
   // bbox == bake.mjs `japan` 1:1 (west of the antimeridian; Minamitorishima at 153.98 E is inside). ──
   { name: 'japan',        group: 'asia',       bbox: [122.9, 24.0, 153.99, 45.6],   geoidSepM: 36.39, probeCity: 'Tokyo', probe: [139.7671, 35.6812] },
+  // §BAKE-SOUTHKOREA (2026-09-06, lane KOREA-FROM-NOTHING) — the second `asia` row. bbox ==
+  // bake.mjs `southkorea` 1:1.
+  // MAPTERHORN LAND CHECK — PROBED 2026-09-06, EIGHT points spread to the CORNERS of the rectangle
+  // (§TERRARIUM-SPARSE-PYRAMID: relief must be SERVED before a bake may read a 404 as ocean).
+  // `curl -m 30 https://tiles.mapterhorn.com/<z/x/y>.webp`, ALL HTTP 200 image/webp, 0.13–0.85 s:
+  //   Seoul 10/873/396 → 324,002 B · Busan 10/879/404 → 277,668 B · Gangneung 10/878/395 →
+  //   197,228 B · Mokpo 10/871/406 → 196,890 B · Jeju 10/871/410 → 52,832 B · Ulleungdo 10/884/396
+  //   → 33,322 B · Baengnyeongdo 10/866/395 → 27,548 B · Marado 10/871/412 → 400 B.
+  //   ⚠ MARADO'S 400 B IS NAMED, NOT SMOOTHED: it is a 200 with a near-empty payload — the islet is
+  //   ~0.3 km² in a z10 tile that is otherwise open sea, so the tile is legitimately almost flat.
+  //   It is an honest EMPTY, not a failure and not a 404, and it is recorded as such
+  //   (§CONTEXT-DATA-HONESTY) rather than dropped from the list to make the row look uniform.
+  // ⭐ geoidSepM READ FROM THE GRID THE BAKE ITSELF READS, not from a web calculator: this module's
+  //   own `loadGeoidGrid([124.5,32.9,131.95,38.65]).sample(lon,lat)` against the NGA EGM2008 2.5′ COG
+  //   (EGM08_COG_URL = cdn.proj.org/us_nga_egm08_25.tif), 2026-09-06 → Seoul 23.0510 m. Cross-checked
+  //   against GeographicLib's GeoidEval CGI at the same point: EGM2008 23.0855 (EGM96 22.8973,
+  //   EGM84 23.2387) — 0.03 m apart, so the two independent reads agree.
+  // ⛔ AND THE SWING IS THE POINT (L-12975 — ONE geoid constant per region is wrong away from its
+  //   anchor; Dubai was 26.52 m out). Same sampler, same run, across THIS bbox:
+  //     Baengnyeongdo 17.0151 · Seoul 23.0510 · Mokpo 23.4346 · Marado 24.3774 · Jeju 25.1730 ·
+  //     Sokcho 25.8308 · Ulleungdo 28.1783 · Busan 29.3907 · Dokdo 29.4844  →  SWING 12.47 m.
+  //   A single constant is therefore ~6 m out at both ends of the country. `geoidSepM` below is
+  //   DOCUMENTATION plus the explicit `--geoid constant` fallback ONLY; the default bake reads
+  //   N(lon,lat) PER POST from EGM08_COG_URL. ⛔ Do not add a hand-picked constant for Korea.
+  // ⛔⛔ §KR-NESTED-IN-JAPAN — the `japan` row's rectangle CONTAINS this one, and `mostInterior`
+  //   gives the BIGGER box the win: at Seoul japan scores 3.233 and southkorea 1.084. What makes
+  //   this row REACHABLE TODAY is §PENDING-REGION-FALLS-THROUGH — `japan` has never been baked, so
+  //   its layer.json 404s and the viewport falls through to the next candidate. THE DAY `japan` IS
+  //   PUBLISHED, KOREA'S TILESET STOPS BEING SELECTED. See terrainCoverage.ts §KR-NESTED-IN-JAPAN.
+  // ⚠ A NATIONAL DTM MAY WELL EXIST AND IS NOT WIRED, and the door is named rather than guessed:
+  //   NGII (국토지리정보원) publishes the national DEM through the 국토정보플랫폼 (map.ngii.go.kr →
+  //   HTTP 400, 154 B on a bare GET — a wrong path, NOT a refusal) and through V-World, whose whole
+  //   origin refused every probe on 2026-09-06 (api.vworld.kr / www.vworld.kr / map.vworld.kr →
+  //   HTTP 502 Bad Gateway 107 B, or curl exit 52 "Empty reply from server"; TCP+TLS to
+  //   211.188.33.95:443 succeeded each time, so this is an ORIGIN refusal, not a network block).
+  //   `nsdi.go.kr` — the national spatial-data portal cited by most documentation — NO LONGER
+  //   RESOLVES (dns.google: "Non-existent domain"). Until one of those doors is opened this row is
+  //   Mapterhorn, VISUAL-ONLY, and the L-584 legal terrain sampling stays UNWIRED for Korea.
+  //   Datum: KVD1964 / Incheon mean sea level (national vertical datum) — NOT verified against a
+  //   served product here, so it is a LEAD, not a fact.
+  { name: 'southkorea',   group: 'asia',       bbox: [124.5, 32.9, 131.95, 38.65],  geoidSepM: 23.05, probeCity: 'Seoul', probe: [126.9780, 37.5665] },
 ];
 export const NATIONAL_GROUPS = ['europe', 'usa', 'canada', 'mexico', 'australia', 'middleeast', 'oceania', 'asia'];
 

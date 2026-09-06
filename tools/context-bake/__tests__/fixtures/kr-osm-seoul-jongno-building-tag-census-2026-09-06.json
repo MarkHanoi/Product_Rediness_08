@@ -1,0 +1,43 @@
+{
+  "_source": "live Overpass https://overpass-api.de/api/interpreter, HTTP 200 application/json 288,544 B",
+  "_probedAt": "2026-09-06",
+  "_query": "[out:json][timeout:60];way[\"building\"](37.570,126.975,37.580,126.990);out tags;",
+  "_note": "REAL response, reduced to a census + the first 12 height values. The 288 KB body is not committed; the counts below are what the spec asserts.",
+  "bbox_south_west_north_east": [
+    37.57,
+    126.975,
+    37.58,
+    126.99
+  ],
+  "buildingWays": 2038,
+  "withHeightTag": 104,
+  "withBuildingLevels": 138,
+  "sampleHeights": [
+    "32",
+    "87.1",
+    "59.39",
+    "57",
+    "35",
+    "63",
+    "57",
+    "52",
+    "27",
+    "18",
+    "63.35",
+    "70"
+  ],
+  "sampleLevels": [
+    "5",
+    "8",
+    "22",
+    "15",
+    "18",
+    "2",
+    "15",
+    "19",
+    "19",
+    "15",
+    "12",
+    "13"
+  ]
+}

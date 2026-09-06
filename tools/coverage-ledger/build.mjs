@@ -467,6 +467,12 @@ export const COUNTRY_OF_SLUG = {
   romania: 'RO', slovakia: 'SK', bulgaria: 'BG',
   // Europe — city-scoped bake rows that predate their national row
   paris: 'FR', lyon: 'FR', koln: 'DE',
+  // §BAKE-SOUTHKOREA (lane KOREA-FROM-NOTHING 2026-09-06). ⚠ TWO TABLES, TWO KEYS, AND THEY ARE NOT
+  // THE SAME STRING. The BAKE row resolves through ISO_OF_GEOFABRIK by its Geofabrik PATH segment
+  // ('south-korea', hyphenated — added above); the TERRAIN row has no `pbfUrl` at all, so it can only
+  // resolve here, by its SLUG ('southkorea', no hyphen). Supplying only one of the two still exits
+  // non-zero with 'UNMAPPED slug(s)', which is the builder behaving correctly.
+  southkorea: 'KR',
   // USA — metro rows, NOT the country
   newyork: 'US', sanfrancisco: 'US', chicago: 'US', austin: 'US', houston: 'US', boston: 'US',
   // Australia — state rows
@@ -525,7 +531,7 @@ export const ISO_OF_GEOFABRIK = {
   'san-marino': 'SM', serbia: 'RS', slovakia: 'SK', slovenia: 'SI', spain: 'ES',
   sweden: 'SE', switzerland: 'CH', ukraine: 'UA',
   turkey: 'TR', 'israel-and-palestine': 'IL', jordan: 'JO', lebanon: 'LB',
-  syria: 'SY', iraq: 'IQ', iran: 'IR', egypt: 'EG', japan: 'JP',
+  syria: 'SY', iraq: 'IQ', iran: 'IR', egypt: 'EG', japan: 'JP', 'south-korea': 'KR',
   // Non-European extracts in play
   australia: 'AU', canada: 'CA', mexico: 'MX', 'new-zealand': 'NZ', us: 'US',
   // ⛔ DELIBERATELY ABSENT: `gcc-states` is FIVE countries in one extract, so the path
@@ -565,7 +571,7 @@ export const COUNTRY_NAME = {
   RO: 'Romania', SK: 'Slovakia', BG: 'Bulgaria', US: 'United States',
   AU: 'Australia', NZ: 'New Zealand', SA: 'Saudi Arabia', AE: 'United Arab Emirates',
   QA: 'Qatar', TR: 'Türkiye', IL: 'Israel', KW: 'Kuwait', BH: 'Bahrain', OM: 'Oman',
-  JP: 'Japan', MX: 'Mexico', CA: 'Canada',
+  JP: 'Japan', MX: 'Mexico', CA: 'Canada', KR: 'South Korea',
   JO: 'Jordan', LB: 'Lebanon', SY: 'Syria', IQ: 'Iraq', IR: 'Iran', EG: 'Egypt',
   // §EUROPE-COMPLETION wave (landing 2026-09-06 from sibling lanes)
   IS: 'Iceland', FO: 'Faroe Islands', MT: 'Malta', CY: 'Cyprus', RS: 'Serbia',

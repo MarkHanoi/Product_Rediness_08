@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Date: Sun, 06 Sep 2026 16:49:01 GMT
+Server: Apache
+X-Derived-From: asia/south-korea-260905.osm.pbf.md5
+Content-Length: 61
+Content-Type: text/plain
+Cache-Status: download-proxy12;fwd=stale;detail=match
+Via: 1.1 download-proxy12 (squid/6.14)
+Connection: keep-alive
+

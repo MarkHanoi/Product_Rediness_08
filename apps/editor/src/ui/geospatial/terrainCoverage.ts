@@ -830,6 +830,44 @@ export const TERRAIN_REGION_BBOXES: ReadonlyArray<{ readonly region: string; rea
     // ⚠ THE CLIENT HAS NO `group` CONCEPT — the bake's new `asia` group needs NO client change; what
     // the client needs is this ROW, and `terrain.mjs --check-client-coverage` fails without it.
     { region: 'japan', bbox: [122.9, 24.0, 153.99, 45.6] },
+    // Asia — SOUTH KOREA, whole country (§BAKE-SOUTHKOREA, lane KOREA-FROM-NOTHING 2026-09-06).
+    // bbox == terrain.mjs NATIONAL_REGIONS == bake.mjs `southkorea`, 1:1. Drape is Mapterhorn (eight
+    // z10 land-check points across the rectangle, all HTTP 200 image/webp, PROBED — see terrain.mjs).
+    // VISUAL only: L-584 legal terrain sampling stays UNWIRED for KR, and no national DTM adapter
+    // exists because V-World's whole origin answered HTTP 502 / curl 52 to seven probes on
+    // 2026-09-06 and `nsdi.go.kr` no longer resolves.
+    //
+    // ⛔⛔ §KR-NESTED-IN-JAPAN (2026-09-06) — THIS ROW IS SHADOWED BY `japan` AND THE NUMBERS SAY SO.
+    //   `japan`'s rectangle [122.9, 24.0, 153.99, 45.6] CONTAINS [124.5, 32.9, 131.95, 38.65]
+    //   entirely, and `mostInterior` (§MOST-INTERIOR-BBOX-WINS, L-12944) awards the point to the box
+    //   it sits DEEPEST inside — which, for two NESTED boxes, is always the OUTER one. Computed with
+    //   `interiorMarginDeg` itself, cos(lat)-weighted, 2026-09-06:
+    //     Seoul (126.978, 37.5665)  japan 3.232  southkorea 1.084   → japan
+    //     Busan (129.076, 35.1796)  japan 5.048  southkorea 2.280   → japan
+    //     Jeju  (126.531, 33.4996)  japan 3.028  southkorea 0.600   → japan
+    //   No HONEST Korean rectangle can win: to beat 3.233 at Seoul it would have to extend 3.24°
+    //   past Seoul in every direction — west to 122.9, east to 131.1, south to 34.3 (north of Jeju,
+    //   Mokpo and Busan), north to 40.8 (deep inside North Korea). Redrawing Korea is not the fix.
+    //
+    //   ⭐ WHY THE ROW IS STILL REACHABLE TODAY, AND THIS IS A MEASUREMENT NOT A HOPE:
+    //   §PENDING-REGION-FALLS-THROUGH. `regionsForLonLat` returns EVERY containing region ordered by
+    //   margin, and the viewport attaches the first whose `layer.json` LOADS. `japan` is
+    //   `pending: true` in bake.mjs and has never been baked or published, so its layer.json 404s and
+    //   Seoul falls through to `southkorea`. That is precisely the case that mechanism was written
+    //   for ("this is what makes it safe to land a new country row before its first bake").
+    //
+    //   ⛔ THE DAY `japan` IS PUBLISHED, KOREA'S TILESET STOPS BEING SELECTED — silently, because the
+    //   Japanese tileset covers Korean ground from the SAME Mapterhorn source at the SAME z0..10, so
+    //   the drape still looks right and nothing errors. What breaks is (a) the Korean bake becomes
+    //   dead weight, (b) the console reports `japan` over Seoul, and (c) any future KOREAN national
+    //   DTM upgrade is unreachable behind the Japanese row. THE FIX IS TO SHRINK `japan`, NOT to grow
+    //   Korea: bake.mjs already documents the split ("BY ISLAND on the SAME extract — hokkaido /
+    //   honshu / shikoku-kyushu / okinawa"), and splitting the Ryukyus off (an `okinawa` row roughly
+    //   [122.9, 24.0, 131.4, 29.0] plus a main-archipelago `japan` starting east of the Korea Strait)
+    //   removes the containment. ⚠ Tsushima (129.17 E, Japanese) sits 0.09° EAST of Busan
+    //   (129.08 E, Korean), so the two countries interleave in longitude and the split must be
+    //   VERIFIED against both, not assumed. Tracked as L-12996.
+    { region: 'southkorea', bbox: [124.5, 32.9, 131.95, 38.65] },
 ];
 
 /** True when `lon,lat` falls inside `bbox` (inclusive). */

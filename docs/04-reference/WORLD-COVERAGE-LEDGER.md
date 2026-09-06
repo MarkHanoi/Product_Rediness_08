@@ -11,12 +11,12 @@
 
 **This page answers one question: _what does PRYZM actually serve HERE?_**
 
-Generated: 2026-09-06T16:17:53.242Z
+Generated: 2026-09-06T17:42:31.453Z
 
 ## §0 · Probe record (C57 §1.5 — the exact answer, never a claim)
 
 ```
-GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 402 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
+GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 1590 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
 ```
 
 - manifest `mergedAt`: `2026-09-06T07:58:43.604Z` · `mergeRunId`: `34015784612` · `mergeGitSha`: `ad038f5a0337097f9af7fda873383bbfdf193b36`
@@ -32,19 +32,19 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 
 | | count |
 |---|---|
-| Countries/territories with at least one row anywhere | **61** |
+| Countries/territories with at least one row anywhere | **62** |
 | — verdict COMPLETE | **0** |
-| — verdict PARTIAL | **61** |
+| — verdict PARTIAL | **62** |
 | — verdict ABSENT (zero rows in every table) | **0** |
-| Context bake regions (`bake.mjs` ALL_REGIONS) | **131** |
+| Context bake regions (`bake.mjs` ALL_REGIONS) | **132** |
 | — of those, published in the live buildings tileset | **40** |
-| — **baked in code but NOT on R2** (a region a user cannot see) | **91** |
+| — **baked in code but NOT on R2** (a region a user cannot see) | **92** |
 | Context layers baked per region | **9** default (`buildings roads water parks landuse rail trees furniture sea`) + **1** opt-in (`canopy`) |
-| Regions declaring a `heightJoin` | **71** of 131 |
-| — whose working set is WHOLE-COUNTRY | **60** |
-| Terrain national regions (`NATIONAL_REGIONS`) | **122** |
+| Regions declaring a `heightJoin` | **71** of 132 |
+| — whose working set is WHOLE-COUNTRY | **62** |
+| Terrain national regions (`NATIONAL_REGIONS`) | **123** |
 | Terrain city regions (`REGIONS`) | **592** (7 blocked) |
-| Client terrain rows (`terrainCoverage.ts`) | **581** cities + **122** regions |
+| Client terrain rows (`terrainCoverage.ts`) | **581** cities + **123** regions |
 | Parcel jurisdictions registered | **84** (68 cadastral · 16 footprint-fallback) |
 | — cadastral rows with a WIRED server leg | **68** |
 
@@ -74,12 +74,12 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | **Croatia** (HR) | 1 region(s): `croatia` | all 1 | national `croatia` | **none — assumed default** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
 | **Cyprus** (CY) | 1 region(s): `cyprus` | 0/1 — **missing `cyprus`** | national `cyprus` | **none — assumed default** | OSM | — | 🟡 PARTIAL |
 | **Czechia** (CZ) | 1 region(s): `czechia` | all 1 | national `czechia` | `cuzk_cz` **WHOLE-COUNTRY** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
-| **Denmark** (DK) | 1 region(s): `denmark` | all 1 | national `denmark` + 1 city | `dhm` **city list (4)** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
+| **Denmark** (DK) | 1 region(s): `denmark` | all 1 | national `denmark` + 1 city | `dhm` **WHOLE-COUNTRY** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
 | **Estonia** (EE) | 1 region(s): `estonia` | all 1 | national `estonia` + 1 city | `ee_etak` **WHOLE-COUNTRY** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
 | **Faroe Islands** (FO) | 1 region(s): `faroeislands` | 0/1 — **missing `faroeislands`** | national `faroeislands` | **none — assumed default** | OSM | — | 🟡 PARTIAL |
 | **Finland** (FI) | 1 region(s): `finland` | all 1 | national `finland` + 1 city | **none — assumed default** | OSM | 1 footprint-fallback | 🟡 PARTIAL |
 | **France** (FR) | 3 region(s): `paris lyon france` | all 3 | national `france` + 2 city | `mnh_fr` **WHOLE-COUNTRY** | OSM · official `fr_bdtopo` (opt-in only) | 1/1 cadastral wired | 🟡 PARTIAL |
-| **Germany** (DE) | 2 region(s): `koln germany` | all 2 | national `germany` + 1 city | `lod2nrw` region bbox; `lod2de` **city list (12)** | OSM | 15/15 cadastral wired (+1 fallback) | 🟡 PARTIAL |
+| **Germany** (DE) | 2 region(s): `koln germany` | all 2 | national `germany` + 1 city | `lod2nrw` region bbox; `lod2de` **city list (17)** | OSM | 15/15 cadastral wired (+1 fallback) | 🟡 PARTIAL |
 | **Greece** (GR) | 1 region(s): `greece` | all 1 | national `greece` | **none — assumed default** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
 | **Hungary** (HU) | 1 region(s): `hungary` | all 1 | national `hungary` | **none — assumed default** | OSM | 1 footprint-fallback | 🟡 PARTIAL |
 | **Iceland** (IS) | 1 region(s): `iceland` | 0/1 — **missing `iceland`** | national `iceland` | **none — assumed default** | OSM | — | 🟡 PARTIAL |
@@ -113,9 +113,10 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | **Serbia** (RS) | 1 region(s): `serbia` | 0/1 — **missing `serbia`** | national `serbia` | **none — assumed default** | OSM | — | 🟡 PARTIAL |
 | **Slovakia** (SK) | 1 region(s): `slovakia` | all 1 | national `slovakia` | **none — assumed default** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
 | **Slovenia** (SI) | 1 region(s): `slovenia` | all 1 | national `slovenia` | `gurs_si` **WHOLE-COUNTRY** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
+| **South Korea** (KR) | 1 region(s): `southkorea` | 0/1 — **missing `southkorea`** | national `southkorea` | **none — assumed default** | OSM | — | 🟡 PARTIAL |
 | **Spain** (ES) | 1 region(s): `spain` | all 1 | national `spain` + 563 city | `mds` **WHOLE-COUNTRY** | OSM · official `es_catastro` (opt-in only) | 1/1 cadastral wired | 🟡 PARTIAL |
 | **Sweden** (SE) | 1 region(s): `sweden` | all 1 | national `sweden` + 1 city | **none — assumed default** | OSM | 1 footprint-fallback | 🟡 PARTIAL |
-| **Switzerland** (CH) | 1 region(s): `switzerland` | all 1 | national `switzerland` + 3 city | `swiss` **city list (9)** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
+| **Switzerland** (CH) | 1 region(s): `switzerland` | all 1 | national `switzerland` + 3 city | `swiss` **WHOLE-COUNTRY** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
 | **Türkiye** (TR) | 1 region(s): `turkey` | 0/1 — **missing `turkey`** | **1× metro box** `turkey` | **none — assumed default** | OSM | 1/1 cadastral wired | 🟡 PARTIAL |
 | **Ukraine** (UA) | 1 region(s): `ukraine` | 0/1 — **missing `ukraine`** | national `ukraine` | **none — assumed default** | OSM | — | 🟡 PARTIAL |
 | **United Arab Emirates** (AE) | 1 region(s): `gccstates` | 0/1 — **missing `gccstates`** | **1× metro box** `gccstates` | `ad_ndsm` **city list (1)** | Overture | 1 footprint-fallback | 🟡 PARTIAL |
@@ -138,12 +139,12 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 - **Croatia (HR)** — NO measured height join — every building ships the assumed default
 - **Cyprus (CY)** — context baked but NOT in the live tileset: cyprus · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Czechia (CZ)** — LIVE TILES PREDATE THE CODE — `czechia` baked 2026-09-05 (sha c7d1ebe6) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour
-- **Denmark (DK)** — measured heights only inside 4 box(es) [copenhagen aarhus odense aalborg] — everywhere else ships the assumed default
+- **Denmark (DK)** — LIVE TILES PREDATE THE CODE — `denmark` baked 2026-09-03 (sha fab79894) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour
 - **Estonia (EE)** — LIVE TILES PREDATE THE CODE — `estonia` baked 2026-09-05 (sha c7d1ebe6) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour
 - **Faroe Islands (FO)** — context baked but NOT in the live tileset: faroeislands · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Finland (FI)** — NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **France (FR)** — HEIGHT JOIN NOT IN THE LIVE TILES — `france` declares `mnh_fr` but the published tiles carry `none` — the code says measured, the map still shows the assumed default · LIVE TILES PREDATE THE CODE — `france` baked 2026-09-03 (sha fab79894) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour
-- **Germany (DE)** — HEIGHT JOIN NOT IN THE LIVE TILES — `germany` declares `lod2de` but the published tiles carry `none` — the code says measured, the map still shows the assumed default · LIVE TILES PREDATE THE CODE — `germany` baked 2026-09-03 (sha fab79894) but its deciding tables last changed 2026-09-05 — what a user clicks is the OLD behaviour · measured heights only inside 12 box(es) [berlin hamburg potsdam kiel erfurt mainz schwerin magdeburg koln hannover dresden stuttgart] — everywhere else ships the assumed default
+- **Germany (DE)** — HEIGHT JOIN NOT IN THE LIVE TILES — `germany` declares `lod2de` but the published tiles carry `none` — the code says measured, the map still shows the assumed default · LIVE TILES PREDATE THE CODE — `germany` baked 2026-09-03 (sha fab79894) but its deciding tables last changed 2026-09-05 — what a user clicks is the OLD behaviour · measured heights only inside 17 box(es) [berlin hamburg potsdam kiel erfurt mainz schwerin magdeburg koln hannover munich nuernberg augsburg wuerzburg regensburg dresden stuttgart] — everywhere else ships the assumed default
 - **Greece (GR)** — NO measured height join — every building ships the assumed default
 - **Hungary (HU)** — NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Iceland (IS)** — context baked but NOT in the live tileset: iceland · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
@@ -177,9 +178,10 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 - **Serbia (RS)** — context baked but NOT in the live tileset: serbia · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Slovakia (SK)** — NO measured height join — every building ships the assumed default
 - **Slovenia (SI)** — HEIGHT JOIN NOT IN THE LIVE TILES — `slovenia` declares `gurs_si` but the published tiles carry `none` — the code says measured, the map still shows the assumed default · LIVE TILES PREDATE THE CODE — `slovenia` baked 2026-09-03 (sha fab79894) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour
+- **South Korea (KR)** — context baked but NOT in the live tileset: southkorea · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Spain (ES)** — LIVE TILES PREDATE THE CODE — `spain` baked 2026-09-03 (sha fab79894) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour
 - **Sweden (SE)** — NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
-- **Switzerland (CH)** — measured heights only inside 9 box(es) [zurich geneva bern basel lausanne winterthur luzern stgallen lugano] — everywhere else ships the assumed default
+- **Switzerland (CH)** — LIVE TILES PREDATE THE CODE — `switzerland` baked 2026-09-05 (sha 0afd0316) but its deciding tables last changed 2026-09-06 — what a user clicks is the OLD behaviour
 - **Türkiye (TR)** — context baked but NOT in the live tileset: turkey · terrain is 1 × metro box (`turkey`), NOT the country · NO measured height join — every building ships the assumed default
 - **Ukraine (UA)** — context baked but NOT in the live tileset: ukraine · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **United Arab Emirates (AE)** — context baked but NOT in the live tileset: gccstates · terrain is 1 × metro box (`gccstates`), NOT the country · measured heights only inside 1 box(es) [abudhabi-core] — everywhere else ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
@@ -191,7 +193,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | Region | Country | bbox | Buildings | heightJoin | Working set | Official footprints | Live on R2 |
 |---|---|---|---|---|---|---|---|
 | `spain` | ES | `-9.55,35.90,4.60,43.90` | osm | `mds` | **WHOLE-COUNTRY** (`MDS_NATIONAL_BBOXES`) | `es_catastro` (replace-in-bbox) | yes |
-| `denmark` | DK | `7.70,54.40,15.30,57.90` | osm | `dhm` | **4 cities** (`DHM_CITY_BBOXES`): copenhagen aarhus odense aalborg | — | yes |
+| `denmark` | DK | `7.70,54.40,15.30,57.90` | osm | `dhm` | **WHOLE-COUNTRY** (`DHM_NATIONAL_BBOXES`) | — | yes |
 | `paris` | FR | `2.22,48.80,2.47,48.91` | osm | — | — | — | yes |
 | `lyon` | FR | `4.78,45.70,4.92,45.80` | osm | — | — | — | yes |
 | `koln` | DE | `6.85,50.88,7.02,50.99` | osm | `lod2nrw` | the region bbox | — | yes |
@@ -204,12 +206,12 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `sweden` | SE | `10.90,55.20,24.20,69.10` | osm | — | — | — | yes |
 | `finland` | FI | `19.00,59.70,31.60,70.10` | osm | — | — | — | yes |
 | `norway` | NO | `4.50,57.90,31.20,71.20` | osm | `ndh_no` | **WHOLE-COUNTRY** (`NO_NATIONAL_BBOXES`) | — | yes |
-| `germany` | DE | `5.85,47.25,15.05,55.10` | osm | `lod2de` | **12 cities** (`DE_LOD2_CITY_BBOXES`): berlin hamburg potsdam kiel erfurt mainz schwerin magdeburg koln hannover dresden stuttgart | — | yes |
+| `germany` | DE | `5.85,47.25,15.05,55.10` | osm | `lod2de` | **17 cities** (`DE_LOD2_CITY_BBOXES`): berlin hamburg potsdam kiel erfurt mainz schwerin magdeburg koln hannover munich nuernberg augsburg wuerzburg regensburg dresden stuttgart | — | yes |
 | `france` | FR | `-5.15,41.30,9.60,51.10` | osm | `mnh_fr` | **WHOLE-COUNTRY** (`MNH_FR_NATIONAL_BBOXES`) | `fr_bdtopo` (replace-in-bbox) | yes |
 | `italy` | IT | `6.60,35.40,18.60,47.10` | osm | — | — | — | yes |
 | `greatbritain` | GB | `-8.20,49.90,1.80,60.90` | osm | `ealidar_gb` | **5 cities** (`EA_LIDAR_GB_CITY_BBOXES`): london manchester birmingham leeds bristol | — | yes |
 | `ireland` | IE | `-10.70,51.30,-5.30,55.50` | osm | — | — | `ie_tailte` (replace-in-bbox) | yes |
-| `switzerland` | CH | `5.90,45.80,10.50,47.85` | osm | `swiss` | **9 cities** (`SWISS_CITY_BBOXES`): zurich geneva bern basel lausanne winterthur luzern stgallen lugano | — | yes |
+| `switzerland` | CH | `5.90,45.80,10.50,47.85` | osm | `swiss` | **WHOLE-COUNTRY** (`SWISS_NATIONAL_BBOXES`) | — | yes |
 | `austria` | AT | `9.50,46.30,17.20,49.05` | osm | `bev_at` | **WHOLE-COUNTRY** (`AT_BEV_NATIONAL_BBOXES`) | — | yes |
 | `czechia` | CZ | `12.05,48.50,18.90,51.10` | osm | `cuzk_cz` | **WHOLE-COUNTRY** (`CZ_CUZK_NATIONAL_BBOXES`) | — | yes |
 | `portugal` | PT | `-9.60,36.90,-6.10,42.20` | osm | — | — | — | yes |
@@ -321,6 +323,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `jordan` | JO | `34.86,29.18,39.32,33.38` | osm | — | — | — | no |
 | `lebanon` | LB | `34.76,33.05,36.64,34.81` | osm | — | — | — | no |
 | `japan` | JP | `122.9,24.0,153.99,45.6` | osm | `plateau_jp` | **10 cities** (`JP_CITY_BBOXES`): tokyo yokohama osaka nagoya sapporo fukuoka kyoto kobe sendai hiroshima | — | no |
+| `southkorea` | KR | `124.5,32.9,131.95,38.65` | osm | — | — | — | no |
 
 ## §3b · Live vs declared — is what a user clicks what the code says?
 
@@ -334,7 +337,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | Region | Live baked at | Live sha | Live heightJoin | Declared heightJoin | Deciding tables last changed | Verdict |
 |---|---|---|---|---|---|---|
 | `spain` | 2026-09-03T07:41:29.699Z | `fab79894` | `mds` | `mds` | 2026-09-06T08:18:14.000Z | ⚠ **STALE — re-bake needed** |
-| `denmark` | 2026-09-03T08:44:31.106Z | `fab79894` | `dhm` | `dhm` | 2026-08-01T11:40:22.000Z | ✅ current |
+| `denmark` | 2026-09-03T08:44:31.106Z | `fab79894` | `dhm` | `dhm` | 2026-09-06T17:32:30.000Z | ⚠ **STALE — re-bake needed** |
 | `paris` | 2026-09-03T06:32:20.548Z | `fab79894` | — | — | 2026-07-24T08:39:25.000Z | ✅ current |
 | `lyon` | 2026-09-03T06:31:39.087Z | `fab79894` | — | — | 2026-07-24T08:39:25.000Z | ✅ current |
 | `koln` | 2026-09-03T06:36:49.214Z | `fab79894` | `lod2nrw` | `lod2nrw` | 2026-07-31T14:30:08.000Z | ✅ current |
@@ -352,7 +355,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `italy` | 2026-09-03T07:24:00.186Z | `fab79894` | — | — | 2026-09-02T06:24:02.000Z | ✅ current |
 | `greatbritain` | 2026-09-05T15:06:20.477Z | `c7d1ebe6` | `ealidar_gb` | `ealidar_gb` | 2026-09-05T12:36:54.000Z | ✅ current |
 | `ireland` | 2026-09-03T06:51:05.456Z | `fab79894` | — | — | 2026-09-06T14:31:24.000Z | ⚠ **STALE — re-bake needed** |
-| `switzerland` | 2026-09-05T11:19:12.279Z | `0afd0316` | `swiss` | `swiss` | 2026-09-05T09:31:19.000Z | ✅ current |
+| `switzerland` | 2026-09-05T11:19:12.279Z | `0afd0316` | `swiss` | `swiss` | 2026-09-06T17:32:30.000Z | ⚠ **STALE — re-bake needed** |
 | `austria` | 2026-09-05T13:54:30.032Z | `c7d1ebe6` | `bev_at` | `bev_at` | 2026-09-06T14:26:08.000Z | ⚠ **STALE — re-bake needed** |
 | `czechia` | 2026-09-05T14:05:16.517Z | `c7d1ebe6` | `cuzk_cz` | `cuzk_cz` | 2026-09-06T14:26:08.000Z | ⚠ **STALE — re-bake needed** |
 | `portugal` | 2026-09-03T06:53:10.547Z | `fab79894` | — | — | 2026-09-02T06:24:02.000Z | ✅ current |
@@ -464,6 +467,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `jordan` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `lebanon` | — | — | — | — | 2026-09-06T09:46:40.000Z | ⛔ **NOT PUBLISHED** |
 | `japan` | — | — | — | `plateau_jp` | 2026-09-06T11:32:31.000Z | ⛔ **NOT PUBLISHED** |
+| `southkorea` | — | — | — | — | 2026-09-06T17:42:30.000Z | ⛔ **NOT PUBLISHED** |
 
 ## §3c · Orphans — regions on R2 that the code no longer has
 
@@ -487,15 +491,15 @@ quietly stop existing. Named here so the disappearance is a decision, not a surp
 | heightJoin | Working set constant | Scope | Places | Channel | impl | provenance |
 |---|---|---|---|---|---|---|
 | `mds` | `MDS_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | `mds_edificacion` | live | tagged |
-| `dhm` | `DHM_CITY_BBOXES` | **CITY LIST (4)** | copenhagen aarhus odense aalborg | — | — | — |
+| `dhm` | `DHM_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | — | — | — |
 | `lod2nrw` | — (the region bbox) | region bbox | `koln` | `lod2de_nrw` | live | tagged |
 | `3dbag` | `NL_3DBAG_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | `3dbag` | — | — |
 | `ee_etak` | `EE_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | `eesti3d_ee` | live | tagged |
 | `ndh_no` | `NO_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | `ndh_no` | live | tagged |
-| `lod2de` | `DE_LOD2_CITY_BBOXES` | **CITY LIST (12)** | berlin hamburg potsdam kiel erfurt mainz schwerin magdeburg koln hannover dresden stuttgart | `lod2de` | documented | tagged |
+| `lod2de` | `DE_LOD2_CITY_BBOXES` | **CITY LIST (17)** | berlin hamburg potsdam kiel erfurt mainz schwerin magdeburg koln hannover munich nuernberg augsburg wuerzburg regensburg dresden stuttgart | `lod2de` | documented | tagged |
 | `mnh_fr` | `MNH_FR_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | `mnh_fr` | live | tagged |
 | `ealidar_gb` | `EA_LIDAR_GB_CITY_BBOXES` | **CITY LIST (5)** | london manchester birmingham leeds bristol | `ealidar_gb` | live | tagged |
-| `swiss` | `SWISS_CITY_BBOXES` | **CITY LIST (9)** | zurich geneva bern basel lausanne winterthur luzern stgallen lugano | `swissbuildings3d` | live | tagged |
+| `swiss` | `SWISS_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | `swissbuildings3d` | live | tagged |
 | `bev_at` | `AT_BEV_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | `geoland_at` | documented | tagged |
 | `cuzk_cz` | `CZ_CUZK_NATIONAL_BBOXES` | **WHOLE-COUNTRY** | (derived) | `ruian_cz` | documented | derived-levels |
 | `be_dhmv` | `BE_CITY_BBOXES` | **CITY LIST (5)** | antwerp ghent brussels leuven bruges | `grb_be` | live | tagged |
@@ -508,11 +512,11 @@ quietly stop existing. Named here so the disappearance is a decision, not a surp
 
 Regions with **no** `heightJoin` at all (every building ships the assumed default):
 
-`paris` · `lyon` · `lithuania` · `latvia` · `poland` · `luxembourg` · `sweden` · `finland` · `italy` · `ireland` · `portugal` · `croatia` · `greece` · `hungary` · `romania` · `slovakia` · `bulgaria` · `iceland` · `faroeislands` · `malta` · `cyprus` · `serbia` · `bosniaherzegovina` · `montenegro` · `northmacedonia` · `albania` · `kosovo` · `ukraine` · `belarus` · `moldova` · `andorra` · `liechtenstein` · `channelislands` · `isleofman` · `alaskaaleutians` · `usvirginislands` · `mexico` · `quebec` · `alberta` · `saskatchewan` · `manitoba` · `newbrunswick` · `novascotia` · `princeedwardisland` · `newfoundland` · `yukon` · `northwestterritories` · `nunavut` · `newsouthwales` · `queensland` · `westernaustralia` · `southaustralia` · `tasmania` · `act` · `northernterritory` · `newzealand` · `turkey` · `israel` · `jordan` · `lebanon`
+`paris` · `lyon` · `lithuania` · `latvia` · `poland` · `luxembourg` · `sweden` · `finland` · `italy` · `ireland` · `portugal` · `croatia` · `greece` · `hungary` · `romania` · `slovakia` · `bulgaria` · `iceland` · `faroeislands` · `malta` · `cyprus` · `serbia` · `bosniaherzegovina` · `montenegro` · `northmacedonia` · `albania` · `kosovo` · `ukraine` · `belarus` · `moldova` · `andorra` · `liechtenstein` · `channelislands` · `isleofman` · `alaskaaleutians` · `usvirginislands` · `mexico` · `quebec` · `alberta` · `saskatchewan` · `manitoba` · `newbrunswick` · `novascotia` · `princeedwardisland` · `newfoundland` · `yukon` · `northwestterritories` · `nunavut` · `newsouthwales` · `queensland` · `westernaustralia` · `southaustralia` · `tasmania` · `act` · `northernterritory` · `newzealand` · `turkey` · `israel` · `jordan` · `lebanon` · `southkorea`
 
 ## §5 · Terrain
 
-`NATIONAL_REGIONS` — **122** whole-region tilesets (Mapterhorn terrarium + per-post EGM2008 lift, z0..10). These are the VISUAL drape; they are never the L-584 legal sampling source.
+`NATIONAL_REGIONS` — **123** whole-region tilesets (Mapterhorn terrarium + per-post EGM2008 lift, z0..10). These are the VISUAL drape; they are never the L-584 legal sampling source.
 
 | Group | Regions | Count |
 |---|---|---|
@@ -523,7 +527,7 @@ Regions with **no** `heightJoin` at all (every building ships the assumed defaul
 | `australia` | `newsouthwales` `victoria` `queensland` `westernaustralia` `southaustralia` `tasmania` `act` `northernterritory` | 8 |
 | `middleeast` | `gccstates` `turkey` `israel` `jordan` `lebanon` | 5 |
 | `oceania` | `newzealand` | 1 |
-| `asia` | `japan` | 1 |
+| `asia` | `japan` `southkorea` | 2 |
 
 `REGIONS` — **592** per-city tilesets from NATIONAL legal-grade DTM adapters (7 carried BLOCKED with a reason, never silently dropped):
 
@@ -537,7 +541,7 @@ Regions with **no** `heightJoin` at all (every building ships the assumed defaul
 | `riyadh` | sa | SA — no open national DTM (GEOSA). Founder-gated. |
 | `jeddah` | sa | SA — no open national DTM (GEOSA). Founder-gated. |
 
-Client attach (`terrainCoverage.ts`): **581** city rows + **122** region rows.
+Client attach (`terrainCoverage.ts`): **581** city rows + **123** region rows.
 
 - bakeable terrain cities the client will **NOT** request (baked, never attached → wasted bake): `tallinn` `luxembourgcity` `newyork` `sanfrancisco`
 - national regions the client will **NOT** request: **none**

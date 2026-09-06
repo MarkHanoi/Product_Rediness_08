@@ -1057,6 +1057,71 @@ const ALL_REGIONS = [
   //   expect=all merges it in. REMOVE THE FLAG once the region is live — a flag left on a live region
   //   would let a later publish DROP it silently, the exact loss the gate exists to refuse.
   { name: 'japan',      pbfUrl: 'https://download.geofabrik.de/asia/japan-latest.osm.pbf',                            pbf: resolve(OUT, 'japan-latest.osm.pbf'),                  bbox: '122.9,24.0,153.99,45.6',   clipped: resolve(OUT, 'clip-japan.osm.pbf'), heightJoin: 'plateau_jp', pending: true },
+  // ─────────────────────────────────────────────────────────────────────────
+  // §BAKE-SOUTHKOREA (2026-09-06, lane KOREA-FROM-NOTHING) — the ONE country the founder named on
+  // 2026-09-06 that did not exist ANYWHERE in this codebase: no bake row, no terrain row, no client
+  // row, no jurisdiction leg. This row, terrain.mjs `southkorea` and terrainCoverage.ts are its whole
+  // context+terrain stack, on the §BAKE-JAPAN / §BAKE-NEWZEALAND national shape (ONE Geofabrik
+  // extract, one national rectangle, no metro clips — metro rows lose to their own national row on
+  // §MOST-INTERIOR-BBOX-WINS and duplicate every building in the overlap, §ME-NATIONAL).
+  //
+  // ⚠ THE PBF SIZE IS NOT MEASURED AND IS NOT QUOTED, for exactly the reason §BAKE-JAPAN gives one
+  //   row above — Geofabrik's download proxy would not serve the BYTES to this network on 2026-09-06:
+  //     · `HEAD asia/south-korea-latest.osm.pbf`      → HTTP/1.1 302 Found, Server: Apache,
+  //       `Location: https://download.geofabrik.de/asia/south-korea-260905.osm.pbf`,
+  //       `Via: 1.1 download-proxy12 (squid/6.14)` — so the download ROUTE is real and the extract was
+  //       rebuilt 2026-09-05.
+  //     · following that redirect for the first KiB (`Range: bytes=0-1023`) → HTTP 504 once and
+  //       HTTP 502 on three further attempts, each a 3,136 B `text/html;charset=utf-8` squid error
+  //       page, never a `.osm.pbf` magic header. `asia.html` itself → HTTP 502, 3,092 B.
+  //     · ⭐ WHAT DID ANSWER, same minute: the sibling `asia/south-korea-latest.osm.pbf.md5` →
+  //       HTTP 200 · Content-Type text/plain · Content-Length 61 ·
+  //       `X-Derived-From: asia/south-korea-260905.osm.pbf.md5` · body
+  //       `b5b789b1e7a403fb6b6f54ebeba5aa99  south-korea-latest.osm.pbf`.
+  //   THE EXTRACT EXISTS AND IS CURRENT. Only the byte-serving leg refused, and a bake retries it.
+  //   [[context-data-honesty-family]]: an unreachable file is UNKNOWN, never an invented number.
+  //   ⚠ Unlike `japan` there is NO split plan owed here — South Korea is ~100,400 km², an order of
+  //   magnitude smaller than Japan, and Geofabrik's own `asia/` listing puts it far below the rows
+  //   this workflow already bakes whole. If a scoped `region=southkorea` run ever exceeds the job
+  //   ceiling the split is BY PROVINCE on the SAME extract (the austin+houston "one download, several
+  //   clips" precedent), never a re-download.
+  //
+  // bbox 124.5,32.9,131.95,38.65 contains every ROK-administered point: Baengnyeongdo (124.63 E,
+  // 37.97 N — the far north-west island) west to 124.5; Dokdo (131.87 E) east to 131.95; Marado
+  // (126.27 E, 33.12 N — the southernmost inhabited land) south to 32.9; the DMZ line at ~38.61 N
+  // north to 38.65. West of the antimeridian, so no wrap handling.
+  //
+  // ⛔⛔ §KR-NESTED-IN-JAPAN — MEASURED, AND THE ONE THING A READER MUST NOT MISS.
+  //   `japan`'s rectangle [122.9, 24.0, 153.99, 45.6] CONTAINS this one whole. For CONTEXT that is
+  //   harmless and is stated rather than assumed: the two rows clip DIFFERENT Geofabrik extracts
+  //   (`asia/japan-latest` and `asia/south-korea-latest`), each already cut to its own country, so
+  //   the shared-extract disjointness rule (§ME-NATIONAL) does not bind and no building is published
+  //   twice. For TERRAIN it is NOT harmless: terrainCoverage.ts `mostInterior` scores by the ABSOLUTE
+  //   margin to the nearest bbox edge, so the BIGGER rectangle wins every point inside both. Measured
+  //   with the client's own cos(lat)-weighted formula at Seoul (126.978, 37.5665):
+  //     japan      → min(3.232, 21.411, 13.566, 8.034) = 3.232
+  //     southkorea → min(1.964,  3.941,  4.666, 1.084) = 1.084
+  //   japan wins by 3×, and no HONEST Korean rectangle can beat it (to do so it would have to reach
+  //   3.24° past Seoul in all four directions — over Kyushu and into North Korea). See
+  //   terrainCoverage.ts §KR-NESTED-IN-JAPAN for what saves this today and what is owed.
+  //
+  // buildings = OSM, and the ⭐ HEIGHT ANSWER IS "NO NATIONAL JOIN, MEASURED" — `heightJoin` is
+  //   deliberately ABSENT, not forgotten, and heights/nationalHeightsAssessed.mjs carries the
+  //   `southkorea` row with every probe. The short version: V-World (api.vworld.kr), the national
+  //   spatial portal that serves 3D buildings and the cadastral map, answered HTTP 502 Bad Gateway
+  //   (107 B text/html) or curl exit 52 "Empty reply from server" to SEVEN probes across THREE hosts,
+  //   with TCP+TLS succeeding each time — and it is key-gated even when up. `nsdi.go.kr` no longer
+  //   resolves at all (NXDOMAIN). So Korea bakes OSM tags only, and OSM's own height density here is
+  //   MEASURED, not assumed: a 0.015°×0.010° Jongno/central-Seoul rectangle holds 2,038 OSM building
+  //   ways, of which 104 carry `height` (5.1 %) and 138 carry `building:levels` (6.8 %) — live
+  //   Overpass, 2026-09-06. That is a real national height GAP and it is named as one.
+  //
+  // Terrain via --dtm-source mapterhorn (terrain.mjs `southkorea`, the existing `asia` group).
+  // ⚠ `pending: true` — §PENDING-REGION. This row has never been staged and merge-tiles.mjs derives
+  //   `expect=all` from THIS table, so without the flag the next expect=all publish would REFUSE BY
+  //   NAME. Bake it with region=southkorea stage=true; the following expect=all merges it in. REMOVE
+  //   THE FLAG once the region is live.
+  { name: 'southkorea', pbfUrl: 'https://download.geofabrik.de/asia/south-korea-latest.osm.pbf',                      pbf: resolve(OUT, 'south-korea-latest.osm.pbf'),            bbox: '124.5,32.9,131.95,38.65',  clipped: resolve(OUT, 'clip-southkorea.osm.pbf'), pending: true },
 ];
 
 // §BAKE-OVERTURE — the Overture buildings source. Overture publishes ONE global GeoParquet dataset
