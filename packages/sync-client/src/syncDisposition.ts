@@ -955,6 +955,45 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
     kind: 'element-property', subject: 'boundaryLineId',
     exclude: ['elementId'], conflict: 'disclose',
   },
+  // ── §SPACE-ENVELOPE-IS-NOT-REPLICATED (L-13012, C114 / ADR-0380) — the AUTHORED volume ──
+  //
+  // ⭐ THE ADAPTER ASKED FOR THIS BY NAME. The founder's trace prints
+  // `[YjsDocAdapter] W5-3: command type 'spaceEnvelope.batch.create' has NO sync
+  // disposition. Its properties are NOT replicated.` — for a family of SEVEN verbs of
+  // which ZERO were declared. That is the whole authored-massing surface (STR §26.4 /
+  // L-13007) invisible to a collaborator, on a product whose pitch is real-time
+  // collaboration.
+  //
+  // ⛔ IT IS NOT `BuildableEnvelope`. That is the SOLVED legal ceiling — a study, never
+  // authored, never an element (ADR-0380 D2). This family is what the USER draws.
+  //
+  // ⚠ THE FAMILY SPLITS 3 / 4, AND THE SPLIT IS THE HONEST ANSWER — not a shortcut.
+  // Three verbs carry ABSOLUTE state keyed on a single subject and are declared SYNCED.
+  // Four cannot be expressed by the single-subject property path AT ALL, and each gets
+  // the written reason the adapter demands rather than silence. Declaring the four as
+  // synced would be worse than leaving them undeclared: the generic path would write
+  // `delta`, `deltaM` and `envelopes` onto CRDT records as if they were properties.
+
+  // ✓ SYNCED — absolute state, one subject. `footprint` is the WHOLE new ring (the
+  // profile editor's commit verb, C114 §10b), not a vertex diff, so a receiving document
+  // reads a complete outline rather than an edit it must have applied in order.
+  'spaceEnvelope.setFootprint': { kind: 'element-property', subject: 'spaceEnvelopeId', conflict: 'disclose' },
+  // ✓ SYNCED — `height` / `baseOffset` / `name` / `occupancy` / `materialColor`, every
+  // one an absolute value. ⛔ `disclose`, not `last-writer-wins`: `height` and
+  // `baseOffset` are what `footprintAreaM2 × height` is computed from, so a silent
+  // overwrite changes how much the panel says the user INTENDED to build (C114 §3a)
+  // without anyone being told. P8's default is correct here and the exception is refused.
+  'spaceEnvelope.setParameter': { kind: 'element-property', subject: 'spaceEnvelopeId', conflict: 'disclose' },
+  // ✓ SYNCED — `withinId` is an absolute REFERENCE (or `null`), i.e. which level
+  // envelope a room envelope is seated in. ADR-0380 D3: a reference, never ownership.
+  'spaceEnvelope.setWithin':    { kind: 'element-property', subject: 'spaceEnvelopeId', conflict: 'disclose' },
+
+  // ⛔ NOT SYNCED — and each for a reason already ruled on elsewhere in this table.
+  'spaceEnvelope.batch.create': { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: payload is `{envelopes: CreateSpaceEnvelopeSpec[]}` applied in ONE produceCommand; no singular create is re-dispatched, so one `subject` key cannot name the set. See beam.batch.create. ⭐ THE MOST CONSEQUENTIAL MEMBER OF THAT BACKLOG (L-13012): this is the verb that CREATES the authored massing the whole STR §26.4 story is built on, so until the multi-subject kind exists a collaborator never receives the envelope at all — not a stale value, no value. The three `spaceEnvelope.set*` verbs above ARE declared, so an edit would merge onto an element the peer never got.' },
+  'spaceEnvelope.delete':       { kind: 'not-synced', reason: 'LIFECYCLE §NEEDS-TOMBSTONE-KIND: payload is `{spaceEnvelopeId}` only. See annotation.delete. ⚠ Sharpened by C114 §8: deleting a LEVEL envelope also CLEARS `withinId` on the room envelopes inside it, so a tombstone route for this family has to replicate that second write or peers keep records pointing at an id that is gone.' },
+  'spaceEnvelope.move':         { kind: 'not-synced', reason: 'RELATIVE: payload is `{delta}` applied to the footprint and `baseOffset`. A displacement is not a property and is not base-independent. See annotation.move. Contrast spaceEnvelope.setFootprint, which carries the ABSOLUTE ring and IS declared synced.' },
+  'spaceEnvelope.moveFace':     { kind: 'not-synced', reason: 'RELATIVE: payload is `{face, deltaM}` — metres along that face\'s own outward normal, resolved by the geometry solver against the CURRENT solid. Replaying it on a diverged base moves a different face by a different amount, and `face`/`deltaM` are dispatch inputs rather than properties. Needs the relative-mutation kind; see annotation.move.' },
+
   'roof.create':        { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
   'room.create':        { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
   'structural.create':  { kind: 'element-property', subject: 'id',      conflict: 'disclose' },
