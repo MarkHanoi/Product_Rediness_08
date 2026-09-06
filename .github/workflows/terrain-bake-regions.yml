@@ -68,6 +68,20 @@ on:
         #     `--national-regions --group asia`            → japan 22,072 finest / 29,611 tiles
         #     `--matrix --group asia --tiles-per-shard 3000` → 8 shards (one region, one wave)
         # That is a mid-sized wave: bigger than mexico (5–7 jobs), far smaller than canada (56).
+        # §BAKE-US-STATES (2026-09-06, lane USA-ALL-STATES) — `usa` is no longer six metro clips. It is
+        # 54 whole-state rows (50 states + DC + Puerto Rico + US Virgin Islands + `alaskaaleutians`, the
+        # east-of-antimeridian half of the Alaska extract). ⛔ COST, read from the planner the same day
+        # and NOT estimated, at THIS form's default tiles_per_shard per the warning above:
+        #     `--national-regions --group usa`               → 103,474 finest / 140,788 tiles, 54 regions
+        #     `--matrix --group usa --tiles-per-shard 3000`  → 73 shards
+        # Shard split: alaska 13 · hawaii 6 · california 2 · texas 2 · every other row 1. ⚠ ALASKA AND
+        # HAWAII ARE HALF THE WAVE AND MOST OF WHAT THEY BUY IS OCEAN: alaska 38,038 finest and hawaii
+        # 16,036 finest are 52 % of the 103,474, because their bboxes are the extract's true extent
+        # (50.21° × 23.19° and 36.95° × 13.11°) and the Aleutian chain and the NW Hawaiian islands are
+        # mostly sea. That is DELIBERATE and not tuned away — a tighter box would drop Midway and the
+        # Near Islands from context, and the context and terrain bboxes are pinned equal by
+        # tools/context-bake/__tests__/usStatesContext.spec.ts. Dispatch `usa` on its own: at 73 shards
+        # it is the largest single wave this workflow has run (canada is 56, asia 8, mexico 7).
         options: [europe, usa, canada, mexico, australia, middleeast, oceania, asia, all]
         default: europe
       regions:
