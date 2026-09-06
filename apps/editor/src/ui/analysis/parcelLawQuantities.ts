@@ -90,8 +90,14 @@ export interface ParcelLawQuantitiesDeps {
     readonly nowIso: () => string;
 }
 
-/** Read `runtime.stores.spaceEnvelope` without asserting a shape the runtime may not have. */
-function resolveEnvelopeStore(rt: PryzmRuntime | null | undefined): LiveEnvelopeStore | null {
+/**
+ * Read `runtime.stores.spaceEnvelope` without asserting a shape the runtime may not have.
+ *
+ * ⭐ EXPORTED 2026-09-06 (lane PL-ENVELOPE-AUTHORING) so the envelope-authoring control on THIS
+ * SAME TAB reaches the store through the identical resolver. Two five-line readers of one slot is
+ * how one section comes to say "no store" while the section beneath it renders figures.
+ */
+export function resolveEnvelopeStore(rt: PryzmRuntime | null | undefined): LiveEnvelopeStore | null {
     const s = (rt as unknown as { stores?: Record<string, unknown> } | null | undefined)
         ?.stores?.spaceEnvelope;
     if (!s || typeof s !== 'object') return null;

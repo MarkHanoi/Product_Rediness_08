@@ -87,6 +87,57 @@ export type AdoptProposalResult = AdoptProposalPlan | AdoptProposalRefusal;
 
 const ASSUMED_HEIGHT_M = 3;
 
+/**
+ * §PL-ENVELOPE-AUTHORING (2026-09-06) — ONE storey's height, and WHERE it came from.
+ *
+ * ⭐ EXTRACTED, NOT COPIED. `buildAdoptProposalPlan` below held this ladder inline; the
+ * multi-storey authoring planner (`envelopeAuthoringPlan.ts`) needs the identical decision
+ * once PER STOREY. A second ladder would be the C84 EI-9 defect — two answers to *"how tall
+ * is a storey PRYZM was not told the height of?"* that drift the first time either changes —
+ * so the block MOVED here and its caller now reads it. Every string is byte-identical to the
+ * one `adoptProposalAsEnvelope.spec.ts` already pins.
+ *
+ * ⛔ THE THIRD RUNG IS A SYNTHESISED VALUE AND SAYS SO. §ENVELOPE-SITE-DATA forbids filling a
+ * missing measurement with a plausible constant SILENTLY (C58 §1.4 / L-616): `assumed-3m`
+ * travels with the decision, into the statement AND into the element's name, because the name
+ * is the one field that follows an element into every panel.
+ *
+ * PURE: no store, no DOM, no I/O. Never throws.
+ */
+export interface StoreyHeightDecision {
+    readonly heightM: number;
+    readonly heightSource: AdoptHeightSource;
+    /** Plain language, ready to drop into a sentence after "the height is …". */
+    readonly heightWhy: string;
+}
+
+export function resolveStoreyHeight(
+    level: Pick<AdoptLevelCandidate, 'height'>,
+    ordinance: { readonly maxHeightM: number | null; readonly maxFloors: number | null },
+): StoreyHeightDecision {
+    let heightM: number;
+    let heightSource: AdoptHeightSource;
+    if (level.height !== null && level.height > 0) {
+        heightM = level.height;
+        heightSource = 'level-record';
+    } else if (
+        ordinance.maxHeightM !== null && ordinance.maxHeightM > 0
+        && ordinance.maxFloors !== null && ordinance.maxFloors > 0
+    ) {
+        heightM = ordinance.maxHeightM / ordinance.maxFloors;
+        heightSource = 'derived-floor-to-floor';
+    } else {
+        heightM = ASSUMED_HEIGHT_M;
+        heightSource = 'assumed-3m';
+    }
+    const heightWhy = heightSource === 'level-record'
+        ? `the storey's own recorded floor-to-floor (${heightM.toFixed(2)} m)`
+        : heightSource === 'derived-floor-to-floor'
+            ? `the ordinance's max height ÷ its derived storey count (${heightM.toFixed(2)} m — an even division for study, not a regulated storey height)`
+            : `an ASSUMED ${ASSUMED_HEIGHT_M.toFixed(1)} m, because neither the storey nor the ordinance supplied one`;
+    return { heightM, heightSource, heightWhy };
+}
+
 /** Normalise `bimManager.getLevels()`'s `unknown[]` into candidates. Records without a string id
  *  and a finite elevation are dropped — a storey PRYZM cannot place is not a storey to seat on. */
 export function readLevelCandidates(raw: unknown): readonly AdoptLevelCandidate[] {
@@ -160,27 +211,7 @@ export function buildAdoptProposalPlan(
             };
         }
 
-        let heightM: number;
-        let heightSource: AdoptHeightSource;
-        if (level.height !== null && level.height > 0) {
-            heightM = level.height;
-            heightSource = 'level-record';
-        } else if (
-            ordinance.maxHeightM !== null && ordinance.maxHeightM > 0
-            && ordinance.maxFloors !== null && ordinance.maxFloors > 0
-        ) {
-            heightM = ordinance.maxHeightM / ordinance.maxFloors;
-            heightSource = 'derived-floor-to-floor';
-        } else {
-            heightM = ASSUMED_HEIGHT_M;
-            heightSource = 'assumed-3m';
-        }
-
-        const heightWhy = heightSource === 'level-record'
-            ? `the storey's own recorded floor-to-floor (${heightM.toFixed(2)} m)`
-            : heightSource === 'derived-floor-to-floor'
-                ? `the ordinance's max height ÷ its derived storey count (${heightM.toFixed(2)} m — an even division for study, not a regulated storey height)`
-                : `an ASSUMED ${ASSUMED_HEIGHT_M.toFixed(1)} m, because neither the storey nor the ordinance supplied one`;
+        const { heightM, heightSource, heightWhy } = resolveStoreyHeight(level, ordinance);
 
         const levelLabel = level.name ?? `storey at ${level.elevation.toFixed(2)} m`;
         const achieved = proposal.achievedAreaM2.toFixed(0);

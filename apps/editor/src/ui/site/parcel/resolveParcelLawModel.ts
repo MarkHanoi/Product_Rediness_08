@@ -89,6 +89,38 @@ function isNoneWithoutRefusal(e: BuildableEnvelope | null): boolean {
 }
 
 /**
+ * §PL-ENVELOPE-AUTHORING (2026-09-06) — ⭐ WHICH `BuildableEnvelope` THIS SESSION IS ABOUT,
+ * resolved ONCE, by the rule stated in this file's header (resolution 1).
+ *
+ * ⛔ EXTRACTED, NOT COPIED. `resolveParcelLawModel` below held these four lines inline and is now
+ * its first caller. The envelope-authoring surface needs the SAME envelope — specifically its
+ * `insetPolygon`, the permitted footprint RING, which the `ParcelLawModel` deliberately does not
+ * carry (it carries areas, not geometry). Re-deciding "which envelope is current" beside this file
+ * would be a second reader of the one question §25.11 clause 1 exists to keep single, and the two
+ * would disagree the first moment a session solve landed between them.
+ *
+ * The `'none'`-without-refusal collapse (§L-574) is applied HERE so every caller inherits it: a
+ * bare `'none'` is not an envelope, a `'none'` carrying a refusal IS an answer.
+ *
+ * `determinedAtIso` is non-null exactly when the answer came from the PERSISTED determination, so
+ * a stored snapshot can never be presented as freshly derived (C58 §1.4).
+ */
+export function resolveParcelLawEnvelope(
+    runtime: PryzmRuntime | null | undefined,
+    deps: ParcelLawModelDeps = defaultParcelLawModelDeps(),
+): { readonly envelope: BuildableEnvelope | null; readonly determinedAtIso: string | null } {
+    const live = deps.readLiveEnvelope();
+    const hydrated = !live || isNoneWithoutRefusal(live)
+        ? deps.readStoredDetermination(runtime)
+        : null;
+    const envelope = hydrated ? hydrated.envelope : live;
+    return {
+        envelope: isNoneWithoutRefusal(envelope ?? null) ? null : (envelope ?? null),
+        determinedAtIso: hydrated?.determinedAtIso ?? null,
+    };
+}
+
+/**
  * §PARCEL-LAW-MODEL — resolve the model for whatever this session currently holds.
  *
  * Never throws: the catch arm returns the fully-absent model, which every renderer already
@@ -115,11 +147,9 @@ export function resolveParcelLawModel(
             ? 'provenance-not-recorded'
             : 'none';
 
-        const live = deps.readLiveEnvelope();
-        const hydrated = !live || isNoneWithoutRefusal(live)
-            ? deps.readStoredDetermination(runtime)
-            : null;
-        const envelope = hydrated ? hydrated.envelope : live;
+        const resolved = resolveParcelLawEnvelope(runtime, deps);
+        const hydrated = resolved.determinedAtIso !== null ? { determinedAtIso: resolved.determinedAtIso } : null;
+        const envelope = resolved.envelope;
 
         const model = buildParcelLawModel({
             parcelRing: hasBoundary ? polygon : null,
@@ -133,7 +163,8 @@ export function resolveParcelLawModel(
                     ? site.parcel.area
                     : null,
             // §L-574 — a bare `'none'` is not an envelope; a `'none'` with a refusal is.
-            envelope: isNoneWithoutRefusal(envelope ?? null) ? null : envelope,
+            // (Already applied by `resolveParcelLawEnvelope`; passed through unchanged.)
+            envelope,
             determinedAtIso: hydrated?.determinedAtIso ?? null,
         });
         span.setAttribute('pryzm.parcelLaw.identityAbsence', identityAbsence);
