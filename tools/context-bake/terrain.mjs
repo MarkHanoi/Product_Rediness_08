@@ -2143,7 +2143,9 @@ export const EGM08_COG_URL = 'https://cdn.proj.org/us_nga_egm08_25.tif';
  * under it MUST be served with relief before a bake reads any 404 as ocean.
  */
 export const NATIONAL_REGIONS = [
-  // ── Europe (28 whole-country rows; paris/lyon/koln are §1b cities) ──
+  // ── Europe (39 whole-country rows — 28 from §BAKE-EUROPE-NATIONAL + 11 from §EU-EVERY-COUNTRY;
+  //    paris/lyon/koln are §1b cities. ⚠ COUNT THE ROWS, do not trust this number: it has been a
+  //    literal since 2026-09-02 and literals rot. `node terrain.mjs --list-regions --group europe`.) ──
   { name: 'spain',        group: 'europe', bbox: [-9.55, 35.90, 4.60, 43.90],   geoidSepM: 51.67, probeCity: 'Madrid', probe: [-3.7, 40.42] },
   { name: 'denmark',      group: 'europe', bbox: [7.70, 54.40, 15.30, 57.90],   geoidSepM: 36.26, probeCity: 'Copenhagen', probe: [12.57, 55.68] },
   { name: 'netherlands',  group: 'europe', bbox: [3.30, 50.75, 7.30, 53.70],    geoidSepM: 43.19, probeCity: 'Amsterdam', probe: [4.9, 52.37] },
@@ -2172,13 +2174,197 @@ export const NATIONAL_REGIONS = [
   { name: 'romania',      group: 'europe', bbox: [20.20, 43.60, 29.80, 48.30],  geoidSepM: 35.82, probeCity: 'Bucharest', probe: [26.1, 44.43] },
   { name: 'slovakia',     group: 'europe', bbox: [16.80, 47.70, 22.60, 49.65],  geoidSepM: 43.88, probeCity: 'Bratislava', probe: [17.11, 48.15] },
   { name: 'bulgaria',     group: 'europe', bbox: [22.30, 41.20, 28.70, 44.25],  geoidSepM: 44.60, probeCity: 'Sofia', probe: [23.32, 42.7] },
-  // ── USA (6 metro rows — context is city-scoped here too; CONUS N is NEGATIVE) ──
-  { name: 'newyork',      group: 'usa', bbox: [-74.03, 40.70, -73.91, 40.82],    geoidSepM: -32.72, probeCity: 'New York', probe: [-73.99, 40.75] },
-  { name: 'sanfrancisco', group: 'usa', bbox: [-122.52, 37.70, -122.36, 37.83],  geoidSepM: -32.16, probeCity: 'San Francisco', probe: [-122.42, 37.77] },
-  { name: 'chicago',      group: 'usa', bbox: [-87.94, 41.64, -87.52, 42.05],    geoidSepM: -33.93, probeCity: 'Chicago', probe: [-87.63, 41.88] },
-  { name: 'austin',       group: 'usa', bbox: [-97.95, 30.10, -97.56, 30.52],    geoidSepM: -26.90, probeCity: 'Austin', probe: [-97.74, 30.27] },
-  { name: 'houston',      group: 'usa', bbox: [-95.80, 29.52, -95.06, 30.14],    geoidSepM: -28.41, probeCity: 'Houston', probe: [-95.37, 29.76] },
-  { name: 'boston',       group: 'usa', bbox: [-71.20, 42.22, -70.98, 42.40],    geoidSepM: -28.58, probeCity: 'Boston', probe: [-71.06, 42.36] },
+  // ── §EU-EVERY-COUNTRY (2026-09-06, lane EU-EVERY-COUNTRY) — 11 more europe rows, the terrain half
+  //    of the 17 new bake.mjs context rows. bbox is BYTE-IDENTICAL to the bake row of the same name.
+  //
+  //    ⚠ SIX OF THE SEVENTEEN CONTEXT ROWS GET NO TERRAIN ROW HERE, and that is a MEASURED decision,
+  //    not an omission. The client resolves a point to a region by §MOST-INTERIOR-BBOX-WINS
+  //    (terrainCoverage.ts, L-12944): among all boxes containing the point, the one where the point
+  //    sits furthest from an edge. Run over this table + the proposed rows, the margins are
+  //      malta         Valletta        italy 0.499  >  malta 0.312
+  //      andorra       Andorra la V.   spain 1.394  >  france 1.206  >  andorra 0.090
+  //      liechtenstein Vaduz           switzerland 0.666 > france 0.054 > liechtenstein 0.048
+  //      channelislands St Helier      france 1.913 >  channelislands 0.187
+  //      isleofman     Douglas         greatbritain 2.173 > isleofman 0.464
+  //      moldova       Chisinau        ukraine 3.011 >  moldova 0.911 > romania 0.638
+  //    — i.e. a row for any of those six would be BAKED AND NEVER REQUESTED, because the covering
+  //    neighbour always wins on margin and its tileset genuinely covers that ground (Mapterhorn is
+  //    planet-wide and each region bakes its WHOLE bbox). Six dead tilesets is not completeness, it
+  //    is waste plus a coverage table that lies. The covering region is NAMED per row in the
+  //    europeEveryCountry half of __tests__/middleEastTerrainRows.spec.ts, which asserts the
+  //    containment rather than trusting this comment.
+  //
+  //    geoidSepM was SAMPLED, not copied: EGM2008 N read bilinearly from the same COG the bake reads
+  //    per post (EGM08_COG_URL = https://cdn.proj.org/us_nga_egm08_25.tif, 8640x4321 @ 0.0416667 deg),
+  //    2026-09-06. Controls in the same run reproduce this table's own committed values — spain/Madrid
+  //    51.68 vs 51.67 committed, poland/Warsaw 31.21 vs 31.22, doha 29.79 vs 29.84 — so the sampler is
+  //    reading the same field, and these eleven numbers are measurements rather than guesses.
+  //
+  //    ⚠ ONE MEASURED SIDE-EFFECT, recorded because it is a real change and not a nicety: adding
+  //    `ukraine` moves Iaşi (RO, 27.6014,47.1585) from the `romania` tileset to the `ukraine` one —
+  //    Ukraine wraps around Moldova, so one rectangle over Ukraine necessarily swallows eastern
+  //    Romania, and ukraine's margin there (3.158) beats romania's (1.142). The relief is the same
+  //    (same Mapterhorn source, same per-post EGM2008 lift, and Iaşi is inside ukraine's baked bbox),
+  //    so this is not a false plateau — but while `ukraine` is still PENDING and unpublished it would
+  //    have left Iaşi FLAT. That is why this lane also widened terrainSlugCandidates() to return
+  //    EVERY containing region, most-interior first, so an unpublished new row falls THROUGH to its
+  //    published neighbour instead of dropping the site to bare ellipsoid.
+  { name: 'iceland',      group: 'europe', bbox: [-25.70, 62.80, -12.40, 67.55], geoidSepM: 66.47, probeCity: 'Reykjavik', probe: [-21.9426, 64.1466] },
+  { name: 'faroeislands', group: 'europe', bbox: [-8.70, 60.85, -5.50, 62.95],   geoidSepM: 56.82, probeCity: 'Torshavn', probe: [-6.7719, 62.0079] },
+  { name: 'cyprus',       group: 'europe', bbox: [31.95, 34.20, 35.00, 36.05],   geoidSepM: 28.15, probeCity: 'Nicosia', probe: [33.3823, 35.1856] },
+  { name: 'serbia',       group: 'europe', bbox: [18.80, 42.20, 23.05, 46.20],   geoidSepM: 44.32, probeCity: 'Belgrade', probe: [20.4489, 44.7866] },
+  { name: 'bosniaherzegovina', group: 'europe', bbox: [15.70, 42.55, 19.65, 45.30], geoidSepM: 46.69, probeCity: 'Sarajevo', probe: [18.4131, 43.8563] },
+  { name: 'montenegro',   group: 'europe', bbox: [18.15, 41.60, 20.40, 43.60],   geoidSepM: 40.39, probeCity: 'Podgorica', probe: [19.2636, 42.4304] },
+  { name: 'northmacedonia', group: 'europe', bbox: [20.40, 40.80, 23.05, 42.40], geoidSepM: 44.93, probeCity: 'Skopje', probe: [21.4254, 41.9981] },
+  { name: 'albania',      group: 'europe', bbox: [18.85, 39.60, 21.10, 42.70],   geoidSepM: 36.80, probeCity: 'Tirana', probe: [19.8187, 41.3275] },
+  { name: 'kosovo',       group: 'europe', bbox: [20.00, 41.85, 21.80, 43.30],   geoidSepM: 45.71, probeCity: 'Pristina', probe: [21.1655, 42.6629] },
+  { name: 'ukraine',      group: 'europe', bbox: [22.10, 44.00, 40.25, 52.40],   geoidSepM: 25.28, probeCity: 'Kyiv', probe: [30.5234, 50.4501] },
+  { name: 'belarus',      group: 'europe', bbox: [23.15, 51.20, 32.80, 56.20],   geoidSepM: 23.58, probeCity: 'Minsk', probe: [27.5615, 53.9006] },
+  // ── USA (54 whole-STATE rows — §BAKE-US-STATES, lane USA-ALL-STATES 2026-09-06; supersedes the six
+  // metro rows newyork/sanfrancisco/chicago/austin/houston/boston, whose reasoning and removal are
+  // recorded in bake.mjs). Slug + bbox are bake.mjs's REGIONS rows 1:1, pinned by
+  // __tests__/usStatesContext.spec.ts. `alaskaaleutians` is the second, EAST-of-the-
+  // antimeridian half of the Alaska extract — Mapterhorn PROBED there 2026-09-06 (10/1004/334 → HTTP
+  // 200 image/webp 177,238 B), so it is a real drape, not a decoy. ⚠ EGM2008 N is NOT uniformly
+  // negative in the US, as the old metro comment said: −35.52 (Milwaukee) … −13.14 (Billings) across
+  // CONUS, but POSITIVE in Alaska (+8.04 Anchorage, +9.70 Attu) and Hawaii (+15.81 Honolulu) and
+  // −45.34 in Puerto Rico. Every value GeoidEval-probed 2026-09-06 at the named probeCity; used only
+  // under `--geoid constant` (the default bake reads N(lon,lat) per post from EGM08_COG_URL).
+  // Land check PROBED 2026-09-06 for the rows a sparse-pyramid 404 could mis-read as ocean:
+  // alaska 10/85/290 → 200 224,868 B · hawaii 10/62/449 → 200 360,664 B · puertorico 10/323/458 → 200
+  // 195,264 B · usvirginislands 10/327/458 → 200 64,206 B · alaskaaleutians as above. ──
+  { name: 'alabama',           group: 'usa', bbox: [-88.49, 29.95, -84.88, 35.01],     geoidSepM: -30.15,    probeCity: 'Birmingham', probe: [-86.8104, 33.5186] },
+  { name: 'alaska',            group: 'usa', bbox: [-180.00, 49.80, -129.79, 72.99],   geoidSepM: 8.04,      probeCity: 'Anchorage', probe: [-149.9003, 61.2181] },
+  { name: 'alaskaaleutians',   group: 'usa', bbox: [171.76, 51.11, 180.00, 54.20],     geoidSepM: 9.70,      probeCity: 'Attu Station', probe: [173.1806, 52.8306] },
+  { name: 'arizona',           group: 'usa', bbox: [-114.83, 31.32, -109.04, 37.01],   geoidSepM: -30.27,    probeCity: 'Phoenix', probe: [-112.074, 33.4484] },
+  { name: 'arkansas',          group: 'usa', bbox: [-94.63, 33.00, -89.63, 36.52],     geoidSepM: -27.50,    probeCity: 'Little Rock', probe: [-92.2896, 34.7465] },
+  { name: 'california',        group: 'usa', bbox: [-125.90, 32.48, -114.12, 42.02],   geoidSepM: -35.18,    probeCity: 'Los Angeles', probe: [-118.2437, 34.0522] },
+  { name: 'colorado',          group: 'usa', bbox: [-109.07, 36.98, -102.03, 41.01],   geoidSepM: -17.28,    probeCity: 'Denver', probe: [-104.9903, 39.7392] },
+  { name: 'connecticut',       group: 'usa', bbox: [-73.73, 40.96, -71.78, 42.06],     geoidSepM: -30.71,    probeCity: 'Bridgeport', probe: [-73.1894, 41.1792] },
+  { name: 'delaware',          group: 'usa', bbox: [-75.79, 38.45, -74.98, 39.85],     geoidSepM: -33.81,    probeCity: 'Wilmington', probe: [-75.5398, 39.7391] },
+  { name: 'districtofcolumbia', group: 'usa', bbox: [-77.13, 38.79, -76.90, 39.00],     geoidSepM: -32.93,    probeCity: 'Washington', probe: [-77.0369, 38.9072] },
+  { name: 'florida',           group: 'usa', bbox: [-88.47, 24.20, -79.43, 31.01],     geoidSepM: -27.18,    probeCity: 'Miami', probe: [-80.1918, 25.7617] },
+  { name: 'georgia',           group: 'usa', bbox: [-85.61, 30.35, -80.74, 35.01],     geoidSepM: -30.59,    probeCity: 'Atlanta', probe: [-84.388, 33.749] },
+  { name: 'hawaii',            group: 'usa', bbox: [-179.60, 15.92, -142.65, 29.03],   geoidSepM: 15.81,     probeCity: 'Honolulu', probe: [-157.8583, 21.3069] },
+  { name: 'idaho',             group: 'usa', bbox: [-117.25, 41.98, -111.04, 49.01],   geoidSepM: -16.34,    probeCity: 'Boise', probe: [-116.2023, 43.615] },
+  { name: 'illinois',          group: 'usa', bbox: [-91.52, 36.96, -87.49, 42.51],     geoidSepM: -33.93,    probeCity: 'Chicago', probe: [-87.6298, 41.8781] },
+  { name: 'indiana',           group: 'usa', bbox: [-88.11, 37.76, -84.78, 41.77],     geoidSepM: -34.14,    probeCity: 'Indianapolis', probe: [-86.1581, 39.7684] },
+  { name: 'iowa',              group: 'usa', bbox: [-96.65, 40.37, -90.13, 43.51],     geoidSepM: -31.60,    probeCity: 'Des Moines', probe: [-93.625, 41.5868] },
+  { name: 'kansas',            group: 'usa', bbox: [-102.06, 36.99, -94.58, 40.01],    geoidSepM: -29.32,    probeCity: 'Wichita', probe: [-97.3301, 37.6872] },
+  { name: 'kentucky',          group: 'usa', bbox: [-89.59, 36.49, -81.95, 39.15],     geoidSepM: -34.08,    probeCity: 'Louisville', probe: [-85.7585, 38.2527] },
+  { name: 'louisiana',         group: 'usa', bbox: [-94.05, 28.14, -88.66, 33.03],     geoidSepM: -27.32,    probeCity: 'New Orleans', probe: [-90.0715, 29.9511] },
+  { name: 'maine',             group: 'usa', bbox: [-71.09, 42.85, -66.87, 47.47],     geoidSepM: -26.90,    probeCity: 'Portland', probe: [-70.2568, 43.6591] },
+  { name: 'maryland',          group: 'usa', bbox: [-79.49, 37.88, -74.95, 39.73],     geoidSepM: -33.60,    probeCity: 'Baltimore', probe: [-76.6122, 39.2904] },
+  { name: 'massachusetts',     group: 'usa', bbox: [-73.52, 40.88, -68.73, 42.89],     geoidSepM: -28.58,    probeCity: 'Boston', probe: [-71.0589, 42.3601] },
+  { name: 'michigan',          group: 'usa', bbox: [-90.42, 41.69, -82.06, 48.36],     geoidSepM: -35.05,    probeCity: 'Detroit', probe: [-83.0458, 42.3314] },
+  { name: 'minnesota',         group: 'usa', bbox: [-97.25, 43.49, -89.48, 49.41],     geoidSepM: -27.26,    probeCity: 'Minneapolis', probe: [-93.265, 44.9778] },
+  { name: 'mississippi',       group: 'usa', bbox: [-91.66, 30.04, -88.09, 35.01],     geoidSepM: -27.26,    probeCity: 'Jackson', probe: [-90.1848, 32.2988] },
+  { name: 'missouri',          group: 'usa', bbox: [-95.78, 35.99, -89.08, 40.62],     geoidSepM: -31.69,    probeCity: 'St. Louis', probe: [-90.1994, 38.627] },
+  { name: 'montana',           group: 'usa', bbox: [-116.06, 44.35, -104.03, 49.01],   geoidSepM: -13.14,    probeCity: 'Billings', probe: [-108.5007, 45.7833] },
+  { name: 'nebraska',          group: 'usa', bbox: [-104.06, 40.00, -95.30, 43.01],    geoidSepM: -27.79,    probeCity: 'Omaha', probe: [-95.9345, 41.2565] },
+  { name: 'nevada',            group: 'usa', bbox: [-120.01, 35.00, -114.03, 42.01],   geoidSepM: -28.13,    probeCity: 'Las Vegas', probe: [-115.1398, 36.1699] },
+  { name: 'newhampshire',      group: 'usa', bbox: [-72.56, 42.69, -70.48, 45.32],     geoidSepM: -28.25,    probeCity: 'Manchester', probe: [-71.4548, 42.9956] },
+  { name: 'newjersey',         group: 'usa', bbox: [-75.58, 38.75, -73.67, 41.36],     geoidSepM: -33.18,    probeCity: 'Newark', probe: [-74.1724, 40.7357] },
+  { name: 'newmexico',         group: 'usa', bbox: [-109.06, 31.33, -102.99, 37.01],   geoidSepM: -21.86,    probeCity: 'Albuquerque', probe: [-106.6504, 35.0844] },
+  { name: 'newyork',           group: 'usa', bbox: [-79.77, 40.43, -71.66, 45.02],     geoidSepM: -32.72,    probeCity: 'New York City', probe: [-74.006, 40.7128] },
+  { name: 'northcarolina',     group: 'usa', bbox: [-84.33, 33.12, -73.73, 36.59],     geoidSepM: -31.47,    probeCity: 'Charlotte', probe: [-80.8431, 35.2271] },
+  { name: 'northdakota',       group: 'usa', bbox: [-104.06, 45.93, -96.55, 49.02],    geoidSepM: -26.32,    probeCity: 'Fargo', probe: [-96.7898, 46.8772] },
+  { name: 'ohio',              group: 'usa', bbox: [-84.83, 38.40, -80.50, 42.34],     geoidSepM: -34.51,    probeCity: 'Columbus', probe: [-82.9988, 39.9612] },
+  { name: 'oklahoma',          group: 'usa', bbox: [-103.01, 33.61, -94.42, 37.01],    geoidSepM: -27.65,    probeCity: 'Oklahoma City', probe: [-97.5164, 35.4676] },
+  { name: 'oregon',            group: 'usa', bbox: [-126.39, 41.96, -116.45, 46.31],   geoidSepM: -22.03,    probeCity: 'Portland', probe: [-122.6784, 45.5152] },
+  { name: 'pennsylvania',      group: 'usa', bbox: [-80.53, 39.66, -74.68, 42.52],     geoidSepM: -33.83,    probeCity: 'Philadelphia', probe: [-75.1652, 39.9526] },
+  // ⛔ `puertoricousa`, NOT `puertorico` — the §1b CITY row above is Puerto Rico de Gran Canaria (source
+  // 'es'), already live at `terrain/puertorico/`. See bake.mjs for the collision the gate refused.
+  { name: 'puertoricousa',     group: 'usa', bbox: [-68.32, 17.51, -65.09, 18.82],     geoidSepM: -45.34,    probeCity: 'San Juan', probe: [-66.1057, 18.4655] },
+  { name: 'rhodeisland',       group: 'usa', bbox: [-71.92, 40.99, -71.06, 42.02],     geoidSepM: -30.32,    probeCity: 'Providence', probe: [-71.4128, 41.824] },
+  { name: 'southcarolina',     group: 'usa', bbox: [-83.36, 32.02, -78.51, 35.22],     geoidSepM: -34.36,    probeCity: 'Charleston', probe: [-79.9311, 32.7765] },
+  { name: 'southdakota',       group: 'usa', bbox: [-104.06, 42.47, -96.43, 45.95],    geoidSepM: -26.47,    probeCity: 'Sioux Falls', probe: [-96.7313, 43.546] },
+  { name: 'tennessee',         group: 'usa', bbox: [-90.32, 34.98, -81.64, 36.69],     geoidSepM: -30.19,    probeCity: 'Nashville', probe: [-86.7816, 36.1627] },
+  { name: 'texas',             group: 'usa', bbox: [-106.65, 25.69, -93.01, 36.53],    geoidSepM: -28.41,    probeCity: 'Houston', probe: [-95.3698, 29.7604] },
+  { name: 'usvirginislands',   group: 'usa', bbox: [-65.18, 17.28, -63.95, 18.49],     geoidSepM: -44.44,    probeCity: 'Charlotte Amalie', probe: [-64.9307, 18.3419] },
+  { name: 'utah',              group: 'usa', bbox: [-114.06, 36.99, -109.03, 42.01],   geoidSepM: -16.78,    probeCity: 'Salt Lake City', probe: [-111.891, 40.7608] },
+  { name: 'vermont',           group: 'usa', bbox: [-73.44, 42.72, -71.46, 45.03],     geoidSepM: -29.78,    probeCity: 'Burlington', probe: [-73.2121, 44.4759] },
+  { name: 'virginia',          group: 'usa', bbox: [-83.68, 36.53, -74.29, 39.47],     geoidSepM: -34.06,    probeCity: 'Richmond', probe: [-77.436, 37.5407] },
+  { name: 'washington',        group: 'usa', bbox: [-126.75, 45.53, -116.91, 49.01],   geoidSepM: -22.80,    probeCity: 'Seattle', probe: [-122.3321, 47.6062] },
+  { name: 'westvirginia',      group: 'usa', bbox: [-82.65, 37.19, -77.71, 40.65],     geoidSepM: -33.83,    probeCity: 'Charleston', probe: [-81.6326, 38.3498] },
+  { name: 'wisconsin',         group: 'usa', bbox: [-92.90, 42.48, -86.20, 47.42],     geoidSepM: -35.52,    probeCity: 'Milwaukee', probe: [-87.9065, 43.0389] },
+  { name: 'wyoming',           group: 'usa', bbox: [-111.06, 40.98, -103.94, 45.02],   geoidSepM: -16.30,    probeCity: 'Cheyenne', probe: [-104.8202, 41.14] },
+  // ── Mexico (1 whole-country row) + Canada (13 province/territory rows) ──
+  // §NA-TERRAIN-ROWS (2026-09-06, lane MEXICO-CANADA) — every bbox here is the bake.mjs context row
+  // 1:1 (pinned by __tests__/northAmericaContext.spec.ts), the koln rule: one number, one place.
+  //
+  // WHY TWO GROUPS AND NOT ONE 'northamerica'. This table's existing groups are already a MIX of
+  // continent (`europe`, `oceania`), region (`middleeast`) and COUNTRY (`usa`, `australia`) — and the
+  // country-named groups are the ones whose rows are sub-national, because that is how their land
+  // competencies are split. Canada is exactly Australia's shape (13 provincial rows, no national
+  // parcel fabric, no national planning scheme) so it gets Australia's treatment: a `canada` group.
+  // Mexico is one national row and gets a `mexico` group — a one-row group is not a novelty either,
+  // `oceania` has been exactly one row (`newzealand`) since 2026-09-05. Folding all three North
+  // American countries into an `americas` group would have meant MOVING the six live `usa` rows,
+  // which is a change to a shipped group for a naming preference — the one thing not worth risking.
+  //
+  // MAPTERHORN IS PROBED ACROSS BOTH COUNTRIES, INCLUDING THE HIGH ARCTIC — the §TERRARIUM-SPARSE-
+  // PYRAMID land check, run 2026-09-06 at z10 over every row's probe point (curl -m 20, all HTTP 200
+  // image/webp, so a bake here reads real posts and never mistakes a sparse-pyramid 404 for ocean):
+  //   mexicocity 10/230/455 → 271,248 B · toronto 10/286/373 → 213,932 B · montreal 10/302/366 →
+  //   289,862 B · vancouver 10/161/350 → 201,948 B · calgary 10/187/342 → 347,638 B · saskatoon
+  //   10/208/337 → 310,730 B · winnipeg 10/235/347 → 274,154 B · fredericton 10/322/364 → 347,036 B ·
+  //   halifax 10/331/369 → 326,798 B · charlottetown 10/332/363 → 258,330 B · st john's 10/362/357 →
+  //   61,548 B · whitehorse 10/127/293 → 362,930 B · yellowknife 10/186/282 → 328,506 B · iqaluit
+  //   10/317/274 → 251,694 B. ⭐ AND THE HIGH-LATITUDE QUESTION IS ANSWERED, not assumed: Resolute,
+  //   Nunavut at 74.70 N (10/242/184) → HTTP 200 image/webp 199,770 B, and four Mexican controls
+  //   (monterrey 10/226/436 · guadalajara 10/218/451 · mérida 10/257/450 · tijuana 10/179/414) all
+  //   200. There is NO coverage hole at either end.
+  //
+  // ⭐ geoidSepM HERE WAS NOT TRANSCRIBED FROM A WEB CALCULATOR. Each value was READ on 2026-09-06
+  // from the SAME NGA EGM2008 2.5′ COG the default bake reads per post (EGM08_COG_URL —
+  // cdn.proj.org/us_nga_egm08_25.tif), via this module's own `loadGeoidGrid(...).sample(lon,lat)` on a
+  // ±0.6° window (79×79 posts, res 0.0416667°). N is NEGATIVE across almost all of both countries
+  // (−37.14 m at Toronto is the extreme) and swings ~47 m from Toronto to St John's (+9.68 m), which
+  // is precisely why these constants are documentation + the explicit `--geoid constant` fallback and
+  // never a silent default.
+  //
+  // ⚠ RECTANGLES OVERLAP AT THE 49th PARALLEL AND THAT IS EXPECTED, exactly as Europe's do: `ontario`
+  // spans lon −95.20…−74.30 / lat 41.60…56.90 and therefore also covers Detroit, Buffalo and Chicago,
+  // and `manitoba`/`saskatchewan`/`alberta` reach 48.90 N into North Dakota and Montana. The client
+  // resolves by `mostInterior`, so a Chicago site still lands on the tighter `chicago` USA row; a
+  // Detroit site (no US row) gets Ontario's DRAPE, which is real relief from the same planet-wide
+  // source and strictly better than none. No live row moved to make room for these.
+  //
+  // ⛔ THE COST, MEASURED FROM THE PLANNER AND NOT ESTIMATED. `node terrain.mjs --national-regions
+  // --group canada|mexico` at the shipped defaults (z0..10), run 2026-09-06 AFTER these rows landed:
+  //     canada  TOTAL 13 regions: 143676 finest / 193199 tiles
+  //     mexico  TOTAL  1 regions:  19110 finest /  25702 tiles
+  //   ⚠ The JOB count depends on `--tiles-per-shard`, and the two defaults in this repo DISAGREE:
+  //   this module's `--matrix` defaults to 4000, while terrain-bake-regions.yml submits 3000. Both
+  //   measured: 4000 → canada 43 jobs / mexico 5; 3000 → canada 56 / mexico 7. Quote the one that
+  //   matches how you are dispatching, or run `--matrix` and count.
+  //   per row (finest → shards): nunavut 61,721 → 16 · northwestterritories 21,691 → 6 ·
+  //   mexico 19,110 → 5 · quebec 13,464 → 4 · ontario 10,560 → 3 · britishcolumbia 9,792 → 3 ·
+  //   newfoundland 7,209 → 2 · yukon 5,700 → 2 · manitoba 4,864 → 2 · alberta 3,776 → 1 ·
+  //   saskatchewan 3,264 → 1 · novascotia 858 → 1 · newbrunswick 672 → 1 · princeedwardisland 105 → 1.
+  //   Reference on the SAME run: norway 11,781 finest, queensland 10,324, sweden 6,080 — so ontario,
+  //   BC and quebec are ordinary rows by this table's own standard and only the two Arctic
+  //   territories are outliers.
+  // ⚠ AN EARLIER DRAFT OF THIS BOX CARRIED HAND-COMPUTED FIGURES (nunavut "49,932 → 13 shards",
+  // ontario "4,080 → 2") AND EVERY ONE OF THEM WAS LOW, by a factor of ~2.6 on ontario. They came
+  // from a re-implementation of the tile-range math in a scratch script instead of from
+  // `planNationalRegions`. Read the planner, never this box — and never a second implementation of
+  // the thing the planner already computes.
+  { name: 'mexico',               group: 'mexico', bbox: [-118.50, 14.50, -86.70, 32.75],   geoidSepM: -5.47,  probeCity: 'Mexico City', probe: [-99.1332, 19.4326] },
+  { name: 'ontario',              group: 'canada', bbox: [-95.20, 41.60, -74.30, 56.90],    geoidSepM: -37.14, probeCity: 'Toronto', probe: [-79.3832, 43.6532] },
+  { name: 'quebec',               group: 'canada', bbox: [-79.90, 44.90, -56.90, 62.70],    geoidSepM: -31.51, probeCity: 'Montréal', probe: [-73.5674, 45.5019] },
+  { name: 'britishcolumbia',      group: 'canada', bbox: [-139.10, 48.20, -114.00, 60.10],  geoidSepM: -19.01, probeCity: 'Vancouver', probe: [-123.1207, 49.2827] },
+  { name: 'alberta',              group: 'canada', bbox: [-120.10, 48.90, -109.90, 60.10],  geoidSepM: -16.81, probeCity: 'Calgary', probe: [-114.0719, 51.0447] },
+  { name: 'saskatchewan',         group: 'canada', bbox: [-110.10, 48.90, -101.30, 60.10],  geoidSepM: -21.46, probeCity: 'Saskatoon', probe: [-106.6702, 52.1332] },
+  { name: 'manitoba',             group: 'canada', bbox: [-102.10, 48.90, -88.90, 60.10],   geoidSepM: -27.98, probeCity: 'Winnipeg', probe: [-97.1385, 49.8951] },
+  { name: 'newbrunswick',         group: 'canada', bbox: [-69.10, 44.50, -63.70, 48.10],    geoidSepM: -22.99, probeCity: 'Fredericton', probe: [-66.6431, 45.9636] },
+  { name: 'novascotia',           group: 'canada', bbox: [-66.40, 43.30, -59.60, 47.10],    geoidSepM: -21.38, probeCity: 'Halifax', probe: [-63.5752, 44.6488] },
+  { name: 'princeedwardisland',   group: 'canada', bbox: [-64.50, 45.90, -61.90, 47.10],    geoidSepM: -18.32, probeCity: 'Charlottetown', probe: [-63.1311, 46.2382] },
+  { name: 'newfoundland',         group: 'canada', bbox: [-67.90, 46.50, -52.50, 60.50],    geoidSepM: 9.68,   probeCity: "St John's", probe: [-52.7126, 47.5615] },
+  { name: 'yukon',                group: 'canada', bbox: [-141.10, 59.90, -123.70, 69.70],  geoidSepM: 7.42,   probeCity: 'Whitehorse', probe: [-135.0568, 60.7212] },
+  { name: 'northwestterritories', group: 'canada', bbox: [-136.60, 59.90, -101.90, 78.90],  geoidSepM: -26.79, probeCity: 'Yellowknife', probe: [-114.3718, 62.4540] },
+  { name: 'nunavut',              group: 'canada', bbox: [-120.80, 51.60, -61.00, 83.20],   geoidSepM: -10.49, probeCity: 'Iqaluit', probe: [-68.5170, 63.7467] },
   // ── Australia (8 state/territory rows — huge sparse bboxes; N swings −33 → +51 across them) ──
   { name: 'newsouthwales',    group: 'australia', bbox: [141.00, -37.60, 153.70, -28.10], geoidSepM: 22.36, probeCity: 'Sydney', probe: [151.21, -33.87] },
   { name: 'victoria',         group: 'australia', bbox: [140.90, -39.20, 150.05, -33.90], geoidSepM: 4.63,  probeCity: 'Melbourne', probe: [144.96, -37.81] },
@@ -2188,20 +2374,56 @@ export const NATIONAL_REGIONS = [
   { name: 'tasmania',         group: 'australia', bbox: [143.80, -43.75, 148.55, -39.40], geoidSepM: -3.81, probeCity: 'Hobart', probe: [147.33, -42.88] },
   { name: 'act',              group: 'australia', bbox: [148.70, -35.95, 149.40, -35.10], geoidSepM: 19.23, probeCity: 'Canberra', probe: [149.13, -35.28] },
   { name: 'northernterritory', group: 'australia', bbox: [128.90, -26.10, 138.10, -10.90], geoidSepM: 51.06, probeCity: 'Darwin', probe: [130.84, -12.46] },
-  // ── Middle East (5 metro rows; SA/AE national DTMs are gov-gated — Mapterhorn = GLO-30 here) ──
-  // §ME-TERRAIN-ROWS (2026-09-05, lane ME-TERRAIN-PARCELS): riyadh/jeddah/dubai/abudhabi bboxes ARE the
-  // bake.mjs context rows 1:1 (pinned by __tests__/middleEastTerrainRows.spec.ts). Mapterhorn PROBED
-  // 2026-09-05 at z10 over every row's probe point: dubai 10/669/437 → HTTP 200 image/webp 145 392 B ·
-  // abudhabi 10/666/440 → 200 110 942 B · doha 10/658/437 → 200 156 092 B · riyadh 10/644/439 → 200
-  // 296 262 B · jeddah 10/623/449 → 200 181 958 B (curl -m 15, 0.1–0.9 s each). Relief is served, not
-  // a sparse-pyramid 404, so a bake here reads real posts. `doha` is the ONE terrain row WITHOUT a
-  // bake.mjs context row yet (QA is the only Gulf state with a keyless cadastre — the qa parcel leg —
-  // so a Doha site is reachable today and deserves a drape; its gcc-states context clip is NOT done).
-  { name: 'riyadh',       group: 'middleeast', bbox: [46.60, 24.58, 46.83, 24.80], geoidSepM: -7.35, probeCity: 'Riyadh', probe: [46.72, 24.69] },
-  { name: 'jeddah',       group: 'middleeast', bbox: [39.10, 21.45, 39.28, 21.62], geoidSepM: 4.73,  probeCity: 'Jeddah', probe: [39.19, 21.54] },
-  { name: 'dubai',        group: 'middleeast', bbox: [54.95, 24.85, 55.45, 25.35], geoidSepM: -34.13, probeCity: 'Dubai', probe: [55.27, 25.2] },
-  { name: 'abudhabi',     group: 'middleeast', bbox: [54.28, 24.33, 54.75, 24.62], geoidSepM: -33.20, probeCity: 'Abu Dhabi', probe: [54.37, 24.47] },
-  { name: 'doha',         group: 'middleeast', bbox: [51.35, 25.15, 51.65, 25.45], geoidSepM: -29.84, probeCity: 'Doha', probe: [51.53, 25.29] }, // GeoidEval EGM2008 = −29.8375 m @ 25.29N 51.53E (PROBED 2026-09-05)
+  // ── Middle East (5 whole-country rows — §ME-NATIONAL, lane ME-NATIONAL 2026-09-06) ──
+  // §ME-NATIONAL — this block WAS five metro rows (riyadh · jeddah · dubai · abudhabi · doha). They are
+  // GONE, and the reason is the resolver, not taste. terrainCoverage.ts `mostInterior` (L-12944) scores a
+  // candidate by the ABSOLUTE degrees from the point to the nearest bbox edge, so a big national box BEATS
+  // a small metro box at every interior point: at Dubai centre (55.27, 25.20) `gccstates` scores 0.95° and
+  // `dubai` 0.15°. The moment a national row exists the metro row can never win anywhere a user would put a
+  // site — it is unreachable, and it still costs a bake and still duplicates every building in the four
+  // densest metros of the region into the merged context tileset (bake.mjs §ME-NATIONAL, the shared-extract
+  // disjointness rule). That is exactly the §NL-CITY-BBOX decoy, so they are removed rather than left.
+  // NOTHING is lost in resolution: the metro rows were baked by THIS pipeline at NATIONAL_BAKE_DEFAULTS
+  // (maxZoom 10, 257-grid, Mapterhorn) — the same source, the same z, the same post spacing as the national
+  // rows below. They were never finer; they were only smaller.
+  //
+  // MAPTERHORN LAND-CHECK, PROBED 2026-09-06 (§TERRARIUM-SPARSE-PYRAMID — relief must be SERVED before a
+  // bake may read a 404 as ocean). `curl -m 25 https://tiles.mapterhorn.com/<z/x/y>.webp`, all HTTP 200
+  // image/webp, 0.11–0.80 s: riyadh 10/644/439 → 296,262 B · dubai 10/669/437 → 145,392 B · doha
+  // 10/658/437 → 156,092 B · muscat 10/678/442 → 42,586 B · kuwaitcity 10/648/424 → 86,076 B · manama
+  // 10/655/434 → 55,912 B · salalah 10/665/462 → 341,880 B · tabuk 10/615/427 → 242,182 B · ankara
+  // 10/605/388 → 325,092 B · istanbul 10/594/383 → 286,962 B · diyarbakir 10/626/395 → 253,268 B · telaviv
+  // 10/610/415 → 40,318 B · amman 10/614/415 → 356,148 B · beirut 10/612/409 → 26,718 B. Fourteen points
+  // spread to the CORNERS of the five bboxes, not just the capitals — the sparse-pyramid check is only
+  // worth running where the bake will actually read.
+  //
+  // `geoidSepM` PROBED 2026-09-06 at each row's probe city (GeographicLib GeoidEval CGI, HTTP 200; EGM2008,
+  // EGM96 in brackets): Riyadh −7.6191 (−7.7932) · Ankara 37.1984 (36.8265) · Tel Aviv 18.8040 (19.1403) ·
+  // Amman 20.8454 (20.8105) · Beirut 22.7498 (23.3062). Documentation + the explicit `--geoid constant`
+  // fallback only — the default bake reads N(lon,lat) per post from EGM08_COG_URL, which is the whole point
+  // at this scale (N swings 30 m across the `gccstates` box).
+  //
+  // TURKEY IS IN `middleeast`, NOT `europe` — decided, not defaulted, and the counter-argument is recorded:
+  //   FOR europe — Geofabrik files the extract at `europe/turkey-latest.osm.pbf` (the `pbfUrl` keeps that
+  //     path verbatim), and Thrace west of the Bosphorus is geographically European.
+  //   FOR middleeast (chosen) — (1) the row's LAND is ~97 % Anatolian: its bbox runs to 44.86 E, thirteen
+  //     degrees east of the easternmost `europe` row (finland 31.60, romania 29.80), and no europe row
+  //     reaches past 31.6 E; (2) every piece of evidence PRYZM holds on Turkey — the TKGM parcel channel
+  //     (wired, /api/parcel/tr), the e-Devlet imar gate, the TUDKA/Antalya datum lead, the absence of an
+  //     open national DSM — is in audit/geo-expansion/2026-09-02/me-sweep.md §10, the MIDDLE EAST sweep,
+  //     not the Europe one; (3) `group` is the BAKE WAVE, not a continent claim (terrain-bake-regions.yml
+  //     dispatches one group at a time), and the europe wave is 28+ published rows: adding turkey there
+  //     would mean re-baking all of them to add one, while the middleeast wave is being rebuilt by this
+  //     commit anyway and takes turkey at zero extra cost.
+  //
+  // ⚠ NOT COVERED, said by name rather than left blank: Cyprus, Iraq, Iran, Syria, Yemen and Egypt have no
+  // row in this table. Each has its own Geofabrik extract and would be one row apiece on exactly this
+  // shape; none was in this lane's scope and none is claimed.
+  { name: 'gccstates',    group: 'middleeast', bbox: [34.43, 15.24, 60.95, 32.20], geoidSepM: -7.62, probeCity: 'Riyadh', probe: [46.72, 24.69] },
+  { name: 'turkey',       group: 'middleeast', bbox: [25.52, 35.71, 44.86, 43.08], geoidSepM: 37.20, probeCity: 'Ankara', probe: [32.86, 39.90] },
+  { name: 'israel',       group: 'middleeast', bbox: [33.99, 29.43, 35.92, 33.46], geoidSepM: 18.80, probeCity: 'Tel Aviv', probe: [34.78, 32.09] },
+  { name: 'jordan',       group: 'middleeast', bbox: [34.86, 29.18, 39.32, 33.38], geoidSepM: 20.85, probeCity: 'Amman', probe: [35.91, 31.95] },
+  { name: 'lebanon',      group: 'middleeast', bbox: [34.76, 33.05, 36.64, 34.81], geoidSepM: 22.75, probeCity: 'Beirut', probe: [35.50, 33.89] },
   // ── Oceania (1 whole-country row — §BAKE-NEWZEALAND, lane NZ-EVERYWHERE 2026-09-05). The national
   // 1 m LiDAR DEM exists (LINZ layer 121859) but every LINZ service is API-key gated (keyless
   // GetCapabilities → HTTP 401), so — like the AU states — the VISUAL drape is Mapterhorn. Land check
@@ -2212,8 +2434,29 @@ export const NATIONAL_REGIONS = [
   // Datum: NZVD2016 (legal heights; the L-584 legal sampling stays UNWIRED — this row is drape-only).
   // bbox == bake.mjs `newzealand` 1:1 (west of the antimeridian; the Chathams are outside). ──
   { name: 'newzealand',   group: 'oceania',    bbox: [166.0, -47.5, 178.7, -34.3],  geoidSepM: 34.11, probeCity: 'Auckland', probe: [174.76, -36.85] },
+  // ── Asia (1 whole-country row — §BAKE-JAPAN, lane JAPAN-FULL 2026-09-06). THIS ROW CREATES THE
+  // `asia` GROUP: `middleeast` already holds the Gulf/Levant rows and is a distinct bake wave, and a
+  // group is the WAVE, not a continent claim (terrain-bake-regions.yml dispatches one group at a
+  // time), so folding japan into middleeast would mean re-baking that whole wave to add one country.
+  // Mapterhorn LAND CHECK — PROBED 2026-09-06, four points spanning the archipelago, all HTTP 200
+  // image/webp: Tokyo 10/909/403 → 264,074 B · Osaka 10/897/406 → 342,368 B · Sapporo 10/914/376 →
+  // 360,584 B · Naha 10/875/434 → 153,158 B. Relief is served across the whole span, not a
+  // sparse-pyramid 404, so a bake here reads real posts.
+  // geoidSepM = GeoidEval EGM2008 at Tokyo (35.6812, 139.7671) = 36.3918 m (EGM96 36.3660, EGM84
+  // 37.3105), PROBED 2026-09-06 — used ONLY under `--geoid constant`; the default bake reads
+  // N(lon,lat) per post from EGM08_COG_URL, which matters here more than anywhere: N swings roughly
+  // 25 → 42 m across the archipelago, so a single constant would be tens of metres wrong at the ends.
+  // ⚠ A KEYLESS NATIONAL DTM EXISTS AND IS NOT WIRED — GSI (国土地理院) serves elevation tiles with no
+  // key: probed 2026-09-06 at Tokyo z14/14552/6451, `cyberjapandata.gsi.go.jp/xyz/dem_png/…` → HTTP
+  // 200 image/png 50,651 B (10 m DEM) and `…/dem5a_png/…` → HTTP 200 image/png 74,594 B (5 m
+  // airborne-LiDAR DEM). That is a strictly better drape than Mapterhorn's GLO-30 fill and the owed
+  // upgrade (a `jp` DTM_FETCH adapter, the ES/FR/NO shape); it is NAMED here rather than silently
+  // skipped. Until it is built this row is Mapterhorn, VISUAL-ONLY, and the L-584 legal sampling
+  // stays UNWIRED for Japan. Datum: JGD2011 vertical (Tokyo Peil origin).
+  // bbox == bake.mjs `japan` 1:1 (west of the antimeridian; Minamitorishima at 153.98 E is inside). ──
+  { name: 'japan',        group: 'asia',       bbox: [122.9, 24.0, 153.99, 45.6],   geoidSepM: 36.39, probeCity: 'Tokyo', probe: [139.7671, 35.6812] },
 ];
-export const NATIONAL_GROUPS = ['europe', 'usa', 'australia', 'middleeast', 'oceania'];
+export const NATIONAL_GROUPS = ['europe', 'usa', 'canada', 'mexico', 'australia', 'middleeast', 'oceania', 'asia'];
 
 /** Bake defaults for a whole region. maxZoom 10 = the finest level a Spanish city has today (see §11
  *  header); baseErrM is the MARTINI vertical error at the finest level (coarser levels double per step,

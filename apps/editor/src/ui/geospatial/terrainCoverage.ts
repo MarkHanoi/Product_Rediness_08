@@ -646,8 +646,10 @@ export const TERRAIN_CITY_BBOXES: ReadonlyArray<{ readonly city: string; readonl
  * §TERRAIN-EVERYWHERE — the whole-region tilesets. Slug + bbox MIRROR `tools/context-bake/terrain.mjs`
  * NATIONAL_REGIONS 1:1 (asserted by `terrain.mjs --check-client-coverage`); the R2 path is
  * `terrain/<region>/`. Resolved only when no city bbox matches (city detail wins where it exists).
- * Rows are ordered as the bake's groups (europe → usa → australia → middleeast); Europe's bboxes overlap
- * at borders, so the FIRST match wins — the same first-hit rule the city table uses.
+ * Rows are ordered as the bake's groups (europe → usa → canada/mexico → australia → oceania → middleeast).
+ * ⛔ Bboxes overlap at borders, and the FIRST match does NOT win — that was true until L-12944 and this
+ * line was the last uncorrected copy of it. `mostInterior` (below) picks the box the point sits deepest
+ * inside; row order only breaks exact ties.
  */
 export const TERRAIN_REGION_BBOXES: ReadonlyArray<{ readonly region: string; readonly bbox: TerrainBbox }> = [
     // Europe — whole countries (Mapterhorn national-lidar/GLO-30, per-post EGM2008 lift; z0..10 = the resolution a Spanish city has today)
@@ -679,13 +681,123 @@ export const TERRAIN_REGION_BBOXES: ReadonlyArray<{ readonly region: string; rea
     { region: 'romania', bbox: [20.20, 43.60, 29.80, 48.30] },
     { region: 'slovakia', bbox: [16.80, 47.70, 22.60, 49.65] },
     { region: 'bulgaria', bbox: [22.30, 41.20, 28.70, 44.25] },
-    // USA — metro rows (3DEP has no keyless bake adapter; the region tileset IS the city tileset for these slugs)
-    { region: 'newyork', bbox: [-74.03, 40.70, -73.91, 40.82] },
-    { region: 'sanfrancisco', bbox: [-122.52, 37.70, -122.36, 37.83] },
-    { region: 'chicago', bbox: [-87.94, 41.64, -87.52, 42.05] },
-    { region: 'austin', bbox: [-97.95, 30.10, -97.56, 30.52] },
-    { region: 'houston', bbox: [-95.80, 29.52, -95.06, 30.14] },
-    { region: 'boston', bbox: [-71.20, 42.22, -70.98, 42.40] },
+    // §EU-EVERY-COUNTRY (2026-09-06) — the 11 new whole-country europe rows. Each bbox is
+    // BYTE-IDENTICAL to `terrain.mjs` NATIONAL_REGIONS and to the `bake.mjs` context row of the same
+    // name; `node tools/context-bake/terrain.mjs --check-client-coverage` fails if any of the three
+    // drifts. Six MORE countries got a CONTEXT row with no terrain row on purpose — malta, andorra,
+    // liechtenstein, channelislands, isleofman and moldova are each fully inside a neighbour's
+    // region box AND lose to it on §MOST-INTERIOR-BBOX-WINS, so a row here would be baked and never
+    // requested; the covering region is named in terrain.mjs's own block comment.
+    { region: 'iceland', bbox: [-25.70, 62.80, -12.40, 67.55] },
+    { region: 'faroeislands', bbox: [-8.70, 60.85, -5.50, 62.95] },
+    { region: 'cyprus', bbox: [31.95, 34.20, 35.00, 36.05] },
+    { region: 'serbia', bbox: [18.80, 42.20, 23.05, 46.20] },
+    { region: 'bosniaherzegovina', bbox: [15.70, 42.55, 19.65, 45.30] },
+    { region: 'montenegro', bbox: [18.15, 41.60, 20.40, 43.60] },
+    { region: 'northmacedonia', bbox: [20.40, 40.80, 23.05, 42.40] },
+    { region: 'albania', bbox: [18.85, 39.60, 21.10, 42.70] },
+    { region: 'kosovo', bbox: [20.00, 41.85, 21.80, 43.30] },
+    { region: 'ukraine', bbox: [22.10, 44.00, 40.25, 52.40] },
+    { region: 'belarus', bbox: [23.15, 51.20, 32.80, 56.20] },
+    // USA — 54 whole-STATE rows (§BAKE-US-STATES, lane USA-ALL-STATES 2026-09-06). These REPLACE the
+    // six metro rows (newyork kept its slug and widened Manhattan → the whole state; sanfrancisco /
+    // chicago / austin / houston / boston are gone — bake.mjs carries the reasoning). Slug + bbox
+    // mirror terrain.mjs NATIONAL_REGIONS 1:1. 3DEP has no keyless bake adapter, so every US drape is
+    // the Mapterhorn region bake. ⚠  is the EAST-of-antimeridian half of Alaska: its
+    // west edge 171.76 is GREATER than nothing here — it is a normal w<e box in the eastern hemisphere,
+    // and  is a normal w<e box in the western one. Nothing wraps, so nothing swallows the
+    // Pacific. ⚠ KNOWN LIMITATION, measured and NOT tuned away: see §MOST-INTERIOR-BBOX-WINS below and
+    // __tests__/terrainRegionResolve.spec.ts — rectangles cannot separate every US state border, and
+    // three points (Chicago, Houston, El Paso) resolve to a FOREIGN row that already contained them
+    // before these rows existed.
+    { region: 'alabama', bbox: [-88.49, 29.95, -84.88, 35.01] },
+    { region: 'alaska', bbox: [-180.00, 49.80, -129.79, 72.99] },
+    { region: 'alaskaaleutians', bbox: [171.76, 51.11, 180.00, 54.20] },
+    { region: 'arizona', bbox: [-114.83, 31.32, -109.04, 37.01] },
+    { region: 'arkansas', bbox: [-94.63, 33.00, -89.63, 36.52] },
+    { region: 'california', bbox: [-125.90, 32.48, -114.12, 42.02] },
+    { region: 'colorado', bbox: [-109.07, 36.98, -102.03, 41.01] },
+    { region: 'connecticut', bbox: [-73.73, 40.96, -71.78, 42.06] },
+    { region: 'delaware', bbox: [-75.79, 38.45, -74.98, 39.85] },
+    { region: 'districtofcolumbia', bbox: [-77.13, 38.79, -76.90, 39.00] },
+    { region: 'florida', bbox: [-88.47, 24.20, -79.43, 31.01] },
+    { region: 'georgia', bbox: [-85.61, 30.35, -80.74, 35.01] },
+    { region: 'hawaii', bbox: [-179.60, 15.92, -142.65, 29.03] },
+    { region: 'idaho', bbox: [-117.25, 41.98, -111.04, 49.01] },
+    { region: 'illinois', bbox: [-91.52, 36.96, -87.49, 42.51] },
+    { region: 'indiana', bbox: [-88.11, 37.76, -84.78, 41.77] },
+    { region: 'iowa', bbox: [-96.65, 40.37, -90.13, 43.51] },
+    { region: 'kansas', bbox: [-102.06, 36.99, -94.58, 40.01] },
+    { region: 'kentucky', bbox: [-89.59, 36.49, -81.95, 39.15] },
+    { region: 'louisiana', bbox: [-94.05, 28.14, -88.66, 33.03] },
+    { region: 'maine', bbox: [-71.09, 42.85, -66.87, 47.47] },
+    { region: 'maryland', bbox: [-79.49, 37.88, -74.95, 39.73] },
+    { region: 'massachusetts', bbox: [-73.52, 40.88, -68.73, 42.89] },
+    { region: 'michigan', bbox: [-90.42, 41.69, -82.06, 48.36] },
+    { region: 'minnesota', bbox: [-97.25, 43.49, -89.48, 49.41] },
+    { region: 'mississippi', bbox: [-91.66, 30.04, -88.09, 35.01] },
+    { region: 'missouri', bbox: [-95.78, 35.99, -89.08, 40.62] },
+    { region: 'montana', bbox: [-116.06, 44.35, -104.03, 49.01] },
+    { region: 'nebraska', bbox: [-104.06, 40.00, -95.30, 43.01] },
+    { region: 'nevada', bbox: [-120.01, 35.00, -114.03, 42.01] },
+    { region: 'newhampshire', bbox: [-72.56, 42.69, -70.48, 45.32] },
+    { region: 'newjersey', bbox: [-75.58, 38.75, -73.67, 41.36] },
+    { region: 'newmexico', bbox: [-109.06, 31.33, -102.99, 37.01] },
+    { region: 'newyork', bbox: [-79.77, 40.43, -71.66, 45.02] },
+    { region: 'northcarolina', bbox: [-84.33, 33.12, -73.73, 36.59] },
+    { region: 'northdakota', bbox: [-104.06, 45.93, -96.55, 49.02] },
+    { region: 'ohio', bbox: [-84.83, 38.40, -80.50, 42.34] },
+    { region: 'oklahoma', bbox: [-103.01, 33.61, -94.42, 37.01] },
+    { region: 'oregon', bbox: [-126.39, 41.96, -116.45, 46.31] },
+    { region: 'pennsylvania', bbox: [-80.53, 39.66, -74.68, 42.52] },
+    // `puertoricousa`, NOT `puertorico`: that slug is the Canarian city row above (Puerto Rico de Gran Canaria).
+    { region: 'puertoricousa', bbox: [-68.32, 17.51, -65.09, 18.82] },
+    { region: 'rhodeisland', bbox: [-71.92, 40.99, -71.06, 42.02] },
+    { region: 'southcarolina', bbox: [-83.36, 32.02, -78.51, 35.22] },
+    { region: 'southdakota', bbox: [-104.06, 42.47, -96.43, 45.95] },
+    { region: 'tennessee', bbox: [-90.32, 34.98, -81.64, 36.69] },
+    { region: 'texas', bbox: [-106.65, 25.69, -93.01, 36.53] },
+    { region: 'usvirginislands', bbox: [-65.18, 17.28, -63.95, 18.49] },
+    { region: 'utah', bbox: [-114.06, 36.99, -109.03, 42.01] },
+    { region: 'vermont', bbox: [-73.44, 42.72, -71.46, 45.03] },
+    { region: 'virginia', bbox: [-83.68, 36.53, -74.29, 39.47] },
+    { region: 'washington', bbox: [-126.75, 45.53, -116.91, 49.01] },
+    { region: 'westvirginia', bbox: [-82.65, 37.19, -77.71, 40.65] },
+    { region: 'wisconsin', bbox: [-92.90, 42.48, -86.20, 47.42] },
+    { region: 'wyoming', bbox: [-111.06, 40.98, -103.94, 45.02] },
+    // Canada + Mexico — §NA-TERRAIN-ROWS (2026-09-06, lane MEXICO-CANADA). Slug + bbox mirror
+    // terrain.mjs NATIONAL_REGIONS 1:1 (asserted by `terrain.mjs --check-client-coverage` AND by
+    // tools/context-bake/__tests__/northAmericaContext.spec.ts, which reads BOTH files). Canada is
+    // split by province because Geofabrik serves it split and because cadastre + planning are
+    // provincial competencies — the Australia pattern; Mexico is one national row because the same
+    // Geofabrik index lists NO Mexican sub-regions. The drape is Mapterhorn, PROBED at z10 over every
+    // probe point including Resolute at 74.70 N (HTTP 200 image/webp, 199,770 B) — no Arctic hole.
+    // ⚠ These rectangles overlap the 49th parallel by construction (ontario also spans Detroit and
+    // Chicago; the prairie rows reach 48.90 N).
+    // ⛔ CORRECTED 2026-09-06 (lane USA-ALL-STATES). This note used to read "`regionForLonLat` resolves
+    // by `mostInterior`, so a Chicago site still lands on the tighter `chicago` row above". That is the
+    // rule BACKWARDS: `mostInterior` takes the LARGEST edge margin, i.e. the box the point sits DEEPEST
+    // inside — a tighter box loses. Measured on the pre-USA-states table: at Chicago (-87.6298,
+    // 41.8781) the `chicago` metro box gave margin 0.081 deg and `ontario` 0.278, so Chicago ALREADY
+    // resolved to `ontario`; Houston and Austin already resolved to `mexico` the same way. The `chicago`
+    // row named above no longer exists (§BAKE-US-STATES), and adding `illinois`/`texas` does not fix it
+    // — `illinois` scores 0.104 at Chicago and `texas` 2.05 at Houston, still under ontario/mexico.
+    // Recorded as a measured limitation in __tests__/terrainRegionResolve.spec.ts, NOT tuned away: the
+    // cure is a polygon country test, as the Antwerp note below already says.
+    { region: 'ontario', bbox: [-95.20, 41.60, -74.30, 56.90] },
+    { region: 'quebec', bbox: [-79.90, 44.90, -56.90, 62.70] },
+    { region: 'britishcolumbia', bbox: [-139.10, 48.20, -114.00, 60.10] },
+    { region: 'alberta', bbox: [-120.10, 48.90, -109.90, 60.10] },
+    { region: 'saskatchewan', bbox: [-110.10, 48.90, -101.30, 60.10] },
+    { region: 'manitoba', bbox: [-102.10, 48.90, -88.90, 60.10] },
+    { region: 'newbrunswick', bbox: [-69.10, 44.50, -63.70, 48.10] },
+    { region: 'novascotia', bbox: [-66.40, 43.30, -59.60, 47.10] },
+    { region: 'princeedwardisland', bbox: [-64.50, 45.90, -61.90, 47.10] },
+    { region: 'newfoundland', bbox: [-67.90, 46.50, -52.50, 60.50] },
+    { region: 'yukon', bbox: [-141.10, 59.90, -123.70, 69.70] },
+    { region: 'northwestterritories', bbox: [-136.60, 59.90, -101.90, 78.90] },
+    { region: 'nunavut', bbox: [-120.80, 51.60, -61.00, 83.20] },
+    { region: 'mexico', bbox: [-118.50, 14.50, -86.70, 32.75] },
     // Australia — states/territories
     { region: 'newsouthwales', bbox: [141.00, -37.60, 153.70, -28.10] },
     { region: 'victoria', bbox: [140.90, -39.20, 150.05, -33.90] },
@@ -699,14 +811,25 @@ export const TERRAIN_REGION_BBOXES: ReadonlyArray<{ readonly region: string; rea
     // API-key gated, so the drape is Mapterhorn (z10 10/1009/624 under Auckland → HTTP 200, PROBED);
     // bbox == terrain.mjs NATIONAL_REGIONS == bake.mjs, west of the antimeridian. VISUAL only (L-584 unwired).
     { region: 'newzealand', bbox: [166.0, -47.5, 178.7, -34.3] },
-    // Middle East — metro rows (SA/AE national DTMs are gov-gated; VISUAL drape only, legal status unchanged)
-    { region: 'riyadh', bbox: [46.60, 24.58, 46.83, 24.80] },
-    { region: 'jeddah', bbox: [39.10, 21.45, 39.28, 21.62] },
-    { region: 'dubai', bbox: [54.95, 24.85, 55.45, 25.35] },
-    { region: 'abudhabi', bbox: [54.28, 24.33, 54.75, 24.62] },
-    // doha (QA) — the one Gulf state with a keyless cadastre (parcel leg `qa`); terrain row added 2026-09-05
-    // (§ME-TERRAIN-ROWS). Mapterhorn z10 10/658/437 → HTTP 200 (PROBED); no context bake row yet.
-    { region: 'doha', bbox: [51.35, 25.15, 51.65, 25.45] },
+    // Middle East — whole countries (§ME-NATIONAL, lane ME-NATIONAL 2026-09-06). This block WAS five metro
+    // rows (riyadh/jeddah/dubai/abudhabi/doha); they are gone because `mostInterior` scores by ABSOLUTE
+    // edge distance, so a national box beats a metro box at every interior point and the metro row became
+    // unreachable the moment the national one existed (terrain.mjs §ME-NATIONAL carries the measurement).
+    // Mapterhorn drape only — no Gulf/Levant/TR national DTM is keyless (SA GEOSA, AE emirate hosts and the
+    // IL MAPI bulk are all gated); the L-584 legal sampling source is unchanged and still unwired here.
+    { region: 'gccstates', bbox: [34.43, 15.24, 60.95, 32.20] },
+    { region: 'turkey', bbox: [25.52, 35.71, 44.86, 43.08] },
+    { region: 'israel', bbox: [33.99, 29.43, 35.92, 33.46] },
+    { region: 'jordan', bbox: [34.86, 29.18, 39.32, 33.38] },
+    { region: 'lebanon', bbox: [34.76, 33.05, 36.64, 34.81] },
+    // Asia — Japan, whole country (§BAKE-JAPAN, lane JAPAN-FULL 2026-09-06). GSI publishes a KEYLESS
+    // national DEM (cyberjapandata dem_png 10 m / dem5a_png 5 m LiDAR, both HTTP 200 over Tokyo,
+    // PROBED 2026-09-06) but no DTM_FETCH adapter is wired for it yet, so the drape is Mapterhorn
+    // (z10 10/909/403 under Tokyo → HTTP 200 image/webp 264,074 B, PROBED). bbox == terrain.mjs
+    // NATIONAL_REGIONS == bake.mjs, west of the antimeridian. VISUAL only (L-584 unwired for JP).
+    // ⚠ THE CLIENT HAS NO `group` CONCEPT — the bake's new `asia` group needs NO client change; what
+    // the client needs is this ROW, and `terrain.mjs --check-client-coverage` fails without it.
+    { region: 'japan', bbox: [122.9, 24.0, 153.99, 45.6] },
 ];
 
 /** True when `lon,lat` falls inside `bbox` (inclusive). */
@@ -785,12 +908,37 @@ export function regionForLonLat(lon: number, lat: number): string | null {
  * loads; a city that is listed but not yet published (an apikey city without its CI secret) therefore
  * falls through to its region instead of leaving the site flat.
  */
+/**
+ * §PENDING-REGION-FALLS-THROUGH (2026-09-06, lane EU-EVERY-COUNTRY) — the region half is now EVERY
+ * containing region, most-interior FIRST, not just the winner.
+ *
+ * WHY. §MOST-INTERIOR-BBOX-WINS picks one region out of the overlapping set; the viewport attaches
+ * the first candidate whose `layer.json` loads. With a single region candidate, a region that is
+ * LISTED but NOT YET PUBLISHED takes the site with it: the tileset 404s and the ground falls back to
+ * bare ellipsoid even though a published neighbour covers the same ground. That is not theoretical —
+ * §EU-EVERY-COUNTRY adds `ukraine`, whose one rectangle necessarily swallows eastern Romania (Ukraine
+ * wraps around Moldova), and it wins Iaşi on margin 3.158 vs romania 1.142. Until `ukraine` is baked,
+ * Iaşi would have gone FLAT, having had real relief the day before.
+ *
+ * The file already states this philosophy for the city half — "a city that is listed but not yet
+ * published therefore falls through to its region instead of leaving the site flat". This applies the
+ * same rule to regions, which is what makes it safe to land a new country row before its first bake.
+ * Ordering is unchanged for a point inside exactly one region, so nothing that resolves today moves.
+ */
+function regionsForLonLat(lon: number, lat: number): readonly string[] {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return [];
+    return TERRAIN_REGION_BBOXES
+        .filter((r) => inBbox(lon, lat, r.bbox))
+        .map((r) => ({ region: r.region, margin: interiorMarginDeg(lon, lat, r.bbox) }))
+        .sort((a, b) => b.margin - a.margin)
+        .map((r) => r.region);
+}
+
 export function terrainSlugCandidates(lon: number, lat: number): readonly string[] {
     const out: string[] = [];
     const city = cityForLonLat(lon, lat);
     if (city) out.push(city);
-    const region = regionForLonLat(lon, lat);
-    if (region && region !== city) out.push(region);
+    for (const region of regionsForLonLat(lon, lat)) if (!out.includes(region)) out.push(region);
     return out;
 }
 

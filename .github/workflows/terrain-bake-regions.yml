@@ -16,7 +16,10 @@
 # 129,340 tiles across 46 regions; a finest tile is ~640 KB in hilly Luxembourg, far less over sea
 # and plains. The plan table is the number the founder sees before a national publish — this
 # workflow is MANUAL ONLY and runs ONE group at a time, in the founder's order: europe → usa →
-# australia → middleeast (→ oceania: the single `newzealand` row, §BAKE-NEWZEALAND 2026-09-05).
+# australia → middleeast (→ oceania: the single `newzealand` row, §BAKE-NEWZEALAND 2026-09-05;
+# → canada + mexico, §NA-TERRAIN-ROWS 2026-09-06 — see the `group` input for their measured cost).
+# ⚠ The "46 regions / 129,340 tiles" figure above is the 2026-09-04 reading and is now STALE: the
+# table has grown. Re-run `--national-regions` rather than quoting it.
 #
 # SHARDING: `terrain.mjs --matrix` emits one job per region and splits a region whose finest level
 # exceeds `tiles_per_shard` into N shards (shard 0 writes layer.json + every coarse level; the finest
@@ -40,7 +43,32 @@ on:
       group:
         description: 'Region group to bake (terrain.mjs NATIONAL_GROUPS).'
         type: choice
-        options: [europe, usa, australia, middleeast, oceania, all]
+        # §NA-TERRAIN-ROWS (2026-09-06, lane MEXICO-CANADA) — `canada` (13 province/territory rows)
+        # and `mexico` (1 national row). Two country groups rather than one `americas`, because
+        # folding them together would have meant MOVING the six live `usa` rows for a naming
+        # preference. ⛔ COST, measured from the planner the same day and NOT estimated:
+        # `--group canada` plans 143,676 finest / 193,199 tiles; `--group mexico` 19,110 / 25,702.
+        # ⚠ THE JOB COUNT DEPENDS ON `tiles_per_shard`, AND THIS WORKFLOW'S DEFAULT IS 3000, NOT the
+        # 4000 that terrain.mjs's own `--matrix` uses. A first draft of this note quoted the 4000
+        # figures (43 canada / 5 mexico) — read against THIS workflow they were ~25 % low. Measured
+        # at BOTH, 2026-09-06:
+        #     tiles_per_shard 4000 → canada 43 jobs · mexico 5 jobs
+        #     tiles_per_shard 3000 → canada 56 jobs · mexico 7 jobs   ← the default this form submits
+        # At 3000 the shard split is nunavut 21 · northwestterritories 8 · mexico 7 · quebec 5 ·
+        # ontario 4 · britishcolumbia 4 · newfoundland 3 · yukon/manitoba/alberta/saskatchewan 2 ·
+        # novascotia/newbrunswick/princeedwardisland 1. Dispatch canada and mexico separately, and
+        # expect canada to be the largest single wave this workflow has run.
+        # §BAKE-JAPAN (2026-09-06, lane JAPAN-FULL) — `asia` is a NEW group holding the single `japan`
+        # national row. It is its own group and not part of `middleeast` for the reason the note above
+        # gives for canada/mexico: a group is a BAKE WAVE, and folding japan into middleeast would mean
+        # re-baking that whole live wave to add one country. Mapterhorn land check PROBED 2026-09-06 at
+        # four points (Tokyo/Osaka/Sapporo/Naha z10) — all HTTP 200 image/webp, 153 KB–361 KB. ⛔ COST,
+        # read from the planner on the same day and NOT estimated — and at THIS form's default
+        # tiles_per_shard, per the warning above:
+        #     `--national-regions --group asia`            → japan 22,072 finest / 29,611 tiles
+        #     `--matrix --group asia --tiles-per-shard 3000` → 8 shards (one region, one wave)
+        # That is a mid-sized wave: bigger than mexico (5–7 jobs), far smaller than canada (56).
+        options: [europe, usa, canada, mexico, australia, middleeast, oceania, asia, all]
         default: europe
       regions:
         description: 'Explicit region slugs (space-separated) — overrides group when set. e.g. "luxembourg denmark".'

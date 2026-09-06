@@ -36,7 +36,7 @@ import { stampCzHeightsOnGeojsonseq, CZ_CITY_BBOXES } from './heights/czHeightsS
 import { stampSiHeightsOnGeojsonseq, SI_CITY_BBOXES } from './heights/siHeightsStamp.mjs';
 // §ADSDI-NDSM-OVERTURE-JOIN (2026-09-05, lane ME-ABUDHABI-I3S) — Abu Dhabi's keyless 50 cm DSM3 − DTM stamp (catalogued
 // Open Data, DGE; the I3S city model the brief named was REFUSED on the SDI Terms — heights/abudhabiNdsm.mjs header)
-// lives in its OWN module and is imported here DIRECTLY, in the same commit that declares the `abudhabi` row's
+// lives in its OWN module and is imported here DIRECTLY, in the same commit that declares the `gccstates` row's
 // heightJoin — never "built, imported by nothing" (L-12883 / L-12910). It stamps the row's OVERTURE footprints.
 import { stampAdNdsmHeightsOnGeojsonseq, AD_CITY_BBOXES } from './heights/abudhabiNdsmStamp.mjs';
 // §PHASE1-HEIGHTS (North Star §6.1) — national real-height join. `heightSources.mjs` is side-effect-
@@ -66,6 +66,12 @@ import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeig
 // orphaned the way the FR/CH/AU stamps each did for a day. Its pure half carries the working set.
 import { stampUsOpenHeightsOnGeojsonseq } from './heights/usOpenHeightsStamp.mjs';
 import { US_OPEN_CITY_BBOXES } from './heights/usOpenHeights.mjs';
+// §CA-OPEN-HEIGHTS-OSM-JOIN (2026-09-06, lane MEXICO-CANADA) — Canada's FIRST measured-height channel.
+// Same shape as the US import above and for the same reason (§SHARED-FILE-COLLISION): the network half
+// in its own module, the working set + every decision in the pure half, both imported here DIRECTLY in
+// the commit that declares the `britishcolumbia` / `ontario` rows' heightJoin — never built-and-orphaned.
+import { stampCaOpenHeightsOnGeojsonseq } from './heights/caOpenHeightsStamp.mjs';
+import { CA_OPEN_CITY_BBOXES } from './heights/caOpenHeights.mjs';
 // §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — the Dutch stamp had the same shape one more time: REGION_SOURCE
 // `netherlands` named the join as "the named follow-up" since 2026-07-26. Its network half lives in its OWN module
 // (heights/nl3dbagStamp.mjs — the shared-file rule) and its working set in the pure half, so both are imported directly.
@@ -83,6 +89,13 @@ import { EA_LIDAR_GB_CITY_BBOXES } from './heights/ealidarGb.mjs';
 // that arms the `germany` row — the koln-only lod2nrw join above stays as the NRW reference implementation.
 import { stampDeLod2LaenderHeightsOnGeojsonseq } from './heights/deLod2LaenderStamp.mjs';
 import { DE_LOD2_CITY_BBOXES } from './heights/deLod2Laender.mjs';
+// §PLATEAU-JP-OSM-JOIN (2026-09-06, lane JAPAN-FULL) — Japan's keyless MLIT Project PLATEAU LoD1 stamp: per-building
+// `bldg:measuredHeight` read out of the SERVED 3D-Tiles b3dm batch tables by RANGE GET (no CityGML zip, no key), joined
+// to bake's OWN OSM footprints by centroid. It lives in its OWN module (the heights/nl3dbagStamp.mjs precedent —
+// heightSources.mjs is a many-lane file) and is imported here DIRECTLY, in the same commit that declares the `japan`
+// row's heightJoin — never "built, imported by nothing" (L-12883 / L-12910).
+import { stampJpPlateauHeightsOnGeojsonseq } from './heights/jpPlateauStamp.mjs';
+import { JP_CITY_BBOXES } from './heights/jpPlateau.mjs';
 // §FR-BDTOPO-FOOTPRINTS (L-12940) — the FOOTPRINT half of the French national context. It is a
 // DIFFERENT KIND of source from every import above: those stamp a real height onto bake's OWN OSM
 // footprints, this one REPLACES the footprints. The founder's two French complaints split exactly
@@ -426,34 +439,349 @@ const ALL_REGIONS = [
   { name: 'slovakia',   pbfUrl: 'https://download.geofabrik.de/europe/slovakia-latest.osm.pbf',                       pbf: resolve(OUT, 'slovakia-latest.osm.pbf'),               bbox: '16.80,47.70,22.60,49.65',  clipped: resolve(OUT, 'clip-slovakia.osm.pbf') },
   { name: 'bulgaria',   pbfUrl: 'https://download.geofabrik.de/europe/bulgaria-latest.osm.pbf',                       pbf: resolve(OUT, 'bulgaria-latest.osm.pbf'),               bbox: '22.30,41.20,28.70,44.25',  clipped: resolve(OUT, 'clip-bulgaria.osm.pbf') },
   // ─────────────────────────────────────────────────────────────────────────
-  // §BAKE-US-METROS (newyork/sanfrancisco 2026-07-24; chicago/austin/houston/boston 2026-09-03, lane
-  // CONTEXT-INTL) — state-level Geofabrik extracts (smaller than the regional bundles), each clipped to
-  // a METRO-centre bbox. ⚠ Unlike the EU/AU rows these are METROS, not whole states: a US whole-state or
-  // national bake is deferred behind the §5 R2-budget decision, and the national US footprint BACKBONE
-  // is Overture (§BAKE-OVERTURE — Overture ⊇ OSM everywhere, folds MS-ML + Google + Esri + cadastres).
-  // These metros bake OSM by default because major-US-metro OSM carries dense government footprint
-  // imports (NYC/SF/Chicago/Boston); a per-metro OSM-vs-Overture count probe (the Riyadh rule) is the
-  // owed calibration before any `--buildings-source overture` flip — no probe forces one today.
-  // HEIGHTS — ⭐ §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US): newyork / sanfrancisco / boston
-  // declare heightJoin:'us_open' and get REAL per-building heights stamped onto their OSM footprints from
-  // each city's own open channel (heights/usOpenHeights.mjs, every URL and number live-probed): NYC
-  // height_roof (FEET, as-built/photogrammetric — NOT LiDAR, per the city's metadata), SF hgt_maxcm
-  // (LiDAR zonal max, cm), Boston BPDA BLDG_HGT_2010 (FEET, 2010 photogrammetric roof-break parts).
-  // The working set is each row's OWN bbox (US_OPEN_CITY_BBOXES, byte-identical); footprints inside the
-  // clip but outside the dataset (Jersey City, Cambridge) keep honest OSM tags. chicago / austin / houston
-  // declare NO heightJoin, on evidence: Chicago's syp8-uezg has `stories` only (no height, last updated
-  // 2015), MassGIS STRUCTURES_POLY has no height field, and no open channel is named for Texas — those
-  // rows stay honest OSM `assumed` (heightSources REGION_SOURCE `overture_us`, documented) until the USGS
-  // 3DEP nDSM stamp lands. Austin+Houston share the texas extract
-  // (ONE download, two clips — grouped by `pbf` path). Add a metro by appending a row: state pbf + a
-  // metro bbox. Datum: NAVD88/GEOID18 (terrain.mjs `us`, geoidSepM NEGATIVE in CONUS); terrain via
-  // --dtm-source mapterhorn.
-  { name: 'newyork',    pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-74.03,40.70,-73.91,40.82', clipped: resolve(OUT, 'clip-newyork.osm.pbf'), heightJoin: 'us_open' },
-  { name: 'sanfrancisco', pbfUrl: 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf',         pbf: resolve(OUT, 'us-california-latest.osm.pbf'),          bbox: '-122.52,37.70,-122.36,37.83', clipped: resolve(OUT, 'clip-sanfrancisco.osm.pbf'), heightJoin: 'us_open' },
-  { name: 'chicago',    pbfUrl: 'https://download.geofabrik.de/north-america/us/illinois-latest.osm.pbf',            pbf: resolve(OUT, 'us-illinois-latest.osm.pbf'),            bbox: '-87.94,41.64,-87.52,42.05',  clipped: resolve(OUT, 'clip-chicago.osm.pbf') },
-  { name: 'austin',     pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',               pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-97.95,30.10,-97.56,30.52',  clipped: resolve(OUT, 'clip-austin.osm.pbf') },
-  { name: 'houston',    pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',               pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-95.80,29.52,-95.06,30.14',  clipped: resolve(OUT, 'clip-houston.osm.pbf') },
-  { name: 'boston',     pbfUrl: 'https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf',       pbf: resolve(OUT, 'us-massachusetts-latest.osm.pbf'),       bbox: '-71.20,42.22,-70.98,42.40',  clipped: resolve(OUT, 'clip-boston.osm.pbf'), heightJoin: 'us_open' },
+  // §EU-EVERY-COUNTRY (2026-09-06, lane EU-EVERY-COUNTRY) — the founder's "complete Europe, ALL
+  // VILLAGES, NO EXCEPTION" closed at the ROW layer. §BAKE-EUROPE-NATIONAL left Europe at 28
+  // countries; the true gap was computed here from Geofabrik's own machine-readable catalogue
+  // (`https://download.geofabrik.de/index-v1.json`, HTTP 200 application/json 3,790,471 B) rather
+  // than from a memorised list: it has 53 children under `parent: "europe"`, of which four are
+  // AGGREGATES (alps, britain-and-ireland, dach, united-kingdom) and 28 were already rows. The 17
+  // rows below are the remainder that PRYZM actually owes a site.
+  //
+  // EVERY `pbfUrl` WAS RANGE-GET PROBED 2026-09-06 from this machine (`Range: bytes=0-0` → HTTP 206
+  // + `Content-Range: bytes 0-0/<total>`, application/octet-stream). ⚠ A plain HEAD is NOT a probe
+  // here: Geofabrik's download-proxy answered HEAD with 502/503 ERR_READ_ERROR for 18 of 21 URLs
+  // while the very same URLs served 206 to a range GET on the first attempt. Sizes below are that
+  // Content-Range total, in bytes, exactly as measured.
+  //
+  // ⛔ FOUR MICRO-STATES DELIBERATELY HAVE NO ROW, and the reason is MEASURED, not assumed. Geofabrik
+  // publishes a `.poly` clip polygon per extract; point-in-polygon against the real polygon (controls
+  // in the same run: Barcelona/Madrid/Málaga ∈ spain.poly, Paris/Nice/Bordeaux ∈ france.poly,
+  // Rome ∈ italy.poly, Zurich/Buchs ∈ switzerland.poly) says:
+  //     Monaco (7.4246,43.7396)      INSIDE france.poly   → already baked by the `france` row
+  //     San Marino (12.4470,43.9356) INSIDE italy.poly    → already baked by the `italy` row
+  //     Vatican City (12.4534,41.9029) INSIDE italy.poly  → already baked by the `italy` row
+  //     Gibraltar (-5.3536,36.1408)  INSIDE spain.poly    → already baked by the `spain` row
+  // and each of those four points is ALSO inside the covering row's bbox. A `monaco`/`sanmarino` row
+  // would DOUBLE-BAKE the same OSM ways into buildings.pmtiles — the exact defect the Copenhagen
+  // dedup note above exists to prevent. Andorra, Liechtenstein, the Isle of Man, the Channel Islands
+  // and the Faroes measured OUTSIDE every neighbour's .poly, which is why they DO get a row.
+  //
+  // NO ROW BELOW DECLARES A `heightJoin` — no stamp is wired for any of these countries and a
+  // declared join that produces nothing is a non-zero exit by design (§MEASURED-HEIGHT-GATE). Each
+  // one's honest height class is recorded in heightSources.mjs REGION_SOURCE under the same name, so
+  // resolveHeights() logs the true per-country reason instead of a generic gap. buildings stay OSM
+  // (the Overture flip needs the per-country count probe first — §BAKE-OVERTURE's own rule).
+  //
+  // ⚠ ALL 17 CARRY `pending: true` (§PENDING-REGION, newzealandContext.spec.ts). merge-tiles.mjs
+  // derives `expect=all` from THIS table: without the flag the next expect=all publish would REFUSE
+  // BY NAME for seventeen regions that have never been live and therefore cannot have been lost.
+  // Remove a row's flag once its region is published — a flag left on a LIVE region would let a later
+  // publish drop it silently.
+  //
+  // BBOXES ARE MEASURED, NOT INVENTED: each is the bounding box of that extract's own `.poly` clip
+  // polygon, rounded OUTWARD to 0.05°, so the bake bbox always CONTAINS the extract and nothing is
+  // clipped away at the border. They are byte-identical to the terrain.mjs rows where one exists.
+  // Overlap with a neighbour's bbox does NOT double-bake: a Geofabrik country extract holds only
+  // that country (measured above), so the overlap strip carries HR data from the HR clip and RS data
+  // from the RS clip — the §BAKE-AU-STATES reasoning, one border east.
+  //
+  // VILLAGES — the founder's actual test, answered from the LAYERS table below, not from hope. Every
+  // filter is a TAG filter over the WHOLE national extract (`wr/building`, `w/highway`,
+  // `nwr/natural=water|waterway`, `n/natural=tree`): there is no settlement filter, no population
+  // threshold and no per-region feature cap anywhere in this file (the only caps are `maxTiles` on a
+  // height JOIN, and no row here declares one). The client reads buildings/roads/water/parks/landuse/
+  // rail/trees at z16 (contextTiles.ts LAYER_ZOOM), which is every land layer's `maxz`, so a hamlet
+  // is present at the zoom actually requested. `--drop-densest-as-needed` drops from the DENSEST
+  // tiles, i.e. city cores — a rural z16 tile is a few KB and is the last thing it touches. NAMED
+  // EXCEPTIONS, so nobody reads the above as "everything renders": `canopy` is opt-in (`--layer
+  // canopy` only) so a new country has NO canopy until that workflow runs for it; `furniture` is
+  // optional and baked z15–16; `sea` is optional and clipped to region bboxes, so the landlocked
+  // rows (serbia, kosovo, northmacedonia, belarus, moldova) correctly get none. And the honest
+  // residual: OSM BUILDING density in rural AL/XK/MK/BA/UA/BY is thinner than in DE/NL — that is a
+  // SOURCE fact, not a pipeline fact, and the owed calibration is the same per-country OSM-vs-Overture
+  // count probe §BAKE-OVERTURE demands (the Riyadh rule). It is OWED, not done.
+  //
+  // Nordic + Atlantic islands
+  { name: 'iceland',    pbfUrl: 'https://download.geofabrik.de/europe/iceland-latest.osm.pbf',                        pbf: resolve(OUT, 'iceland-latest.osm.pbf'),                bbox: '-25.70,62.80,-12.40,67.55', clipped: resolve(OUT, 'clip-iceland.osm.pbf'), pending: true },     // 64,729,720 B
+  // Faroe Islands — a Danish autonomous country with its OWN extract. PROBED: Tórshavn (-6.7719,
+  // 62.0079) is OUTSIDE denmark.poly (control: Copenhagen INSIDE), so the `denmark` row has never
+  // carried it and this is not a double-bake.
+  { name: 'faroeislands', pbfUrl: 'https://download.geofabrik.de/europe/faroe-islands-latest.osm.pbf',                pbf: resolve(OUT, 'faroe-islands-latest.osm.pbf'),          bbox: '-8.70,60.85,-5.50,62.95',  clipped: resolve(OUT, 'clip-faroeislands.osm.pbf'), pending: true },  // 7,730,526 B
+  // Mediterranean
+  { name: 'malta',      pbfUrl: 'https://download.geofabrik.de/europe/malta-latest.osm.pbf',                          pbf: resolve(OUT, 'malta-latest.osm.pbf'),                  bbox: '14.00,35.50,14.90,36.35',  clipped: resolve(OUT, 'clip-malta.osm.pbf'), pending: true },       // 8,907,969 B
+  { name: 'cyprus',     pbfUrl: 'https://download.geofabrik.de/europe/cyprus-latest.osm.pbf',                         pbf: resolve(OUT, 'cyprus-latest.osm.pbf'),                 bbox: '31.95,34.20,35.00,36.05',  clipped: resolve(OUT, 'clip-cyprus.osm.pbf'), pending: true },      // 37,222,742 B — the WHOLE island (both communities + the SBAs)
+  // Western Balkans — the largest single hole in §BAKE-EUROPE-NATIONAL: six countries, ~17.5 M people,
+  // every one of them a Geofabrik national extract that simply had no row.
+  { name: 'serbia',     pbfUrl: 'https://download.geofabrik.de/europe/serbia-latest.osm.pbf',                         pbf: resolve(OUT, 'serbia-latest.osm.pbf'),                 bbox: '18.80,42.20,23.05,46.20',  clipped: resolve(OUT, 'clip-serbia.osm.pbf'), pending: true },      // 239,255,977 B
+  { name: 'bosniaherzegovina', pbfUrl: 'https://download.geofabrik.de/europe/bosnia-herzegovina-latest.osm.pbf',      pbf: resolve(OUT, 'bosnia-herzegovina-latest.osm.pbf'),     bbox: '15.70,42.55,19.65,45.30',  clipped: resolve(OUT, 'clip-bosniaherzegovina.osm.pbf'), pending: true }, // 160,666,211 B
+  { name: 'montenegro', pbfUrl: 'https://download.geofabrik.de/europe/montenegro-latest.osm.pbf',                     pbf: resolve(OUT, 'montenegro-latest.osm.pbf'),             bbox: '18.15,41.60,20.40,43.60',  clipped: resolve(OUT, 'clip-montenegro.osm.pbf'), pending: true },  // 34,367,242 B
+  // ⚠ Geofabrik's slug is the historical `macedonia`; the REGION is `northmacedonia` (the country's
+  // name since 2019, and the slug the client + R2 path use). Slug ≠ upstream filename, deliberately.
+  { name: 'northmacedonia', pbfUrl: 'https://download.geofabrik.de/europe/macedonia-latest.osm.pbf',                  pbf: resolve(OUT, 'macedonia-latest.osm.pbf'),              bbox: '20.40,40.80,23.05,42.40',  clipped: resolve(OUT, 'clip-northmacedonia.osm.pbf'), pending: true }, // 29,662,739 B
+  { name: 'albania',    pbfUrl: 'https://download.geofabrik.de/europe/albania-latest.osm.pbf',                        pbf: resolve(OUT, 'albania-latest.osm.pbf'),                bbox: '18.85,39.60,21.10,42.70',  clipped: resolve(OUT, 'clip-albania.osm.pbf'), pending: true },     // 53,963,766 B
+  // Kosovo — PROBED: Pristina (21.1655,42.6629) is OUTSIDE serbia.poly, so the `serbia` extract does
+  // NOT carry it. Whatever one's view of the status question, the DATA question has one answer.
+  { name: 'kosovo',     pbfUrl: 'https://download.geofabrik.de/europe/kosovo-latest.osm.pbf',                         pbf: resolve(OUT, 'kosovo-latest.osm.pbf'),                 bbox: '20.00,41.85,21.80,43.30',  clipped: resolve(OUT, 'clip-kosovo.osm.pbf'), pending: true },      // 30,731,946 B
+  // Eastern Europe. ⚠ `ukraine` is the largest new extract by far (835 MB — bigger than Poland's
+  // 2.09 GB only in tile count, not bytes) and Geofabrik's own name for it is "Ukraine (with Crimea)":
+  // the extract includes Crimea (control: Simferopol INSIDE ukraine.poly) and this bbox does not
+  // exclude it. That is the extract's editorial choice, recorded here rather than silently inherited.
+  { name: 'ukraine',    pbfUrl: 'https://download.geofabrik.de/europe/ukraine-latest.osm.pbf',                        pbf: resolve(OUT, 'ukraine-latest.osm.pbf'),                bbox: '22.10,44.00,40.25,52.40',  clipped: resolve(OUT, 'clip-ukraine.osm.pbf'), pending: true },     // 876,115,930 B
+  { name: 'belarus',    pbfUrl: 'https://download.geofabrik.de/europe/belarus-latest.osm.pbf',                        pbf: resolve(OUT, 'belarus-latest.osm.pbf'),                bbox: '23.15,51.20,32.80,56.20',  clipped: resolve(OUT, 'clip-belarus.osm.pbf'), pending: true },     // 348,686,686 B
+  { name: 'moldova',    pbfUrl: 'https://download.geofabrik.de/europe/moldova-latest.osm.pbf',                        pbf: resolve(OUT, 'moldova-latest.osm.pbf'),                bbox: '26.60,45.45,30.20,48.50',  clipped: resolve(OUT, 'clip-moldova.osm.pbf'), pending: true },     // 101,087,543 B
+  // Micro-states + Crown dependencies that are NOT inside any neighbour's clip (measured — see the
+  // block header). These are the cheapest rows in the table: 3.3 + 3.3 + 3.9 + 6.1 MB of pbf, four
+  // whole jurisdictions for less than one Spanish comunidad.
+  { name: 'andorra',    pbfUrl: 'https://download.geofabrik.de/europe/andorra-latest.osm.pbf',                        pbf: resolve(OUT, 'andorra-latest.osm.pbf'),                bbox: '1.40,42.40,1.80,42.70',    clipped: resolve(OUT, 'clip-andorra.osm.pbf'), pending: true },     // 3,454,298 B
+  { name: 'liechtenstein', pbfUrl: 'https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf',               pbf: resolve(OUT, 'liechtenstein-latest.osm.pbf'),          bbox: '9.45,47.00,9.65,47.30',    clipped: resolve(OUT, 'clip-liechtenstein.osm.pbf'), pending: true }, // 3,451,921 B
+  // Guernsey + Jersey ship in ONE Geofabrik extract, so they are ONE region (`channelislands`) —
+  // splitting them would download the same pbf twice for no gain, the paris/lyon anti-pattern.
+  { name: 'channelislands', pbfUrl: 'https://download.geofabrik.de/europe/guernsey-jersey-latest.osm.pbf',            pbf: resolve(OUT, 'guernsey-jersey-latest.osm.pbf'),        bbox: '-3.60,49.00,-1.75,50.10',  clipped: resolve(OUT, 'clip-channelislands.osm.pbf'), pending: true }, // 3,887,927 B
+  { name: 'isleofman',  pbfUrl: 'https://download.geofabrik.de/europe/isle-of-man-latest.osm.pbf',                    pbf: resolve(OUT, 'isle-of-man-latest.osm.pbf'),            bbox: '-5.45,53.70,-3.65,54.70',  clipped: resolve(OUT, 'clip-isleofman.osm.pbf'), pending: true },   // 6,058,050 B
+  // ⛔ NAMED REFUSALS — Geofabrik `europe/` children this lane did NOT add, each with its reason, so
+  // the omission is a decision on the record and not a quiet hole (C57 §1.9):
+  //   • turkey (europe/turkey-latest.osm.pbf) — Geofabrik files it under europe and it holds real
+  //     European territory (Thrace, including half of İstanbul), but it is TRANSCONTINENTAL and the
+  //     scope call is the orchestrator's. ⭐ RESOLVED WHILE THIS LANE RAN: a Middle-East lane added
+  //     `turkey` on 2026-09-06 with bbox 25.52,35.71,44.86,43.08 — which DOES include Thrace, so the
+  //     European half is covered by that row and this lane must NOT add a second one.
+  //   • georgia (europe/georgia-latest.osm.pbf, the COUNTRY) — transcontinental, same call as Turkey,
+  //     and now carrying a HARD CONSTRAINT: ⚠ the slug `georgia` is ALREADY TAKEN in this table by the
+  //     US STATE (north-america/us/georgia-latest.osm.pbf, added 2026-09-06). Terrain slugs are a flat
+  //     namespace shared with the R2 path `terrain/<slug>/` and the client table, so whoever adds the
+  //     country must pick a different slug (e.g. `georgiacountry`) or the two silently collide into
+  //     one tileset. UNPROBED for size by this lane — do not quote one.
+  //   • azores (europe/azores-latest.osm.pbf) — Portuguese autonomous region at lon ≈ −25…−31, OUTSIDE
+  //     the `portugal` bbox exactly as the Canaries are outside `spain` and Svalbard is outside
+  //     `norway`. The three island add-ons are ONE follow-up of the same shape, not three surprises.
+  //   • russia (a TOP-LEVEL Geofabrik parent with 10 federal-district children, not a europe child) —
+  //     out of scope for "complete Europe" as briefed; Kaliningrad measured OUTSIDE poland.poly.
+  // ─────────────────────────────────────────────────────────────────────────
+  // §BAKE-US-STATES (2026-09-06, lane USA-ALL-STATES; supersedes §BAKE-US-METROS of 2026-07-24 /
+  // 2026-09-03) — 54 WHOLE-STATE rows, the AU analogue one ocean west. Founder 2026-09-06: "Also all
+  // EEUU — I want complete country coverage." Every one of Geofabrik's 53 `north-america/us/` extracts
+  // is a row (50 states + District of Columbia + Puerto Rico + US Virgin Islands), plus ONE extra row
+  // (`alaskaaleutians`) that takes the second, EAST-OF-THE-ANTIMERIDIAN half of the Alaska extract.
+  //
+  // ⛔ THE SIX METRO ROWS ARE GONE, DELIBERATELY — newyork (Manhattan only, `-74.03,40.70,-73.91,40.82`),
+  // sanfrancisco, chicago, austin, houston, boston. Each was a tiny clip cut out of the SAME state
+  // extract its state row now takes whole, so keeping both would download the extract twice and bake
+  // the same ground twice — the §NL-CITY-BBOX decoy shape (four Dutch cities publishing one Amsterdam
+  // patch), here at state scale. `newyork` KEEPS ITS SLUG and widens Manhattan → the whole state, so
+  // the live R2 prefix `newyork/` is replaced in place and no region is lost; the other five slugs
+  // DISAPPEAR and a merge must name them in `--allow-region-removal` (the paris/lyon → france path).
+  // Nothing measured is lost: the three metros with real heights keep them, because the join's working
+  // set is US_OPEN_CITY_BBOXES (unchanged bytes) and only the ROW it hangs on moves to the state.
+  //
+  // ⚠ MEASURED, and this is the reason the metro rows could not be kept "just in case": under
+  // §MOST-INTERIOR-BBOX-WINS (terrainCoverage.ts) a metro rectangle can never win against the state
+  // rectangle that contains it — a Manhattan-sized box's best possible margin is ~0.05°, and New York
+  // State's margin AT Manhattan is 0.31°. The metro terrain tilesets were already unreachable.
+  //
+  // BBOXES ARE THE EXTRACT'S OWN EXTENT, not a hand-drawn guess: each is the bbox of Geofabrik's own
+  // `us/<state>.kml` polygon (the thing that defines what the extract contains), rounded OUTWARD to
+  // 2 dp so the clip can never be smaller than the data. Every .kml and every .osm.pbf below was
+  // fetched 2026-09-06 (HTTP 200; the trailing comment on each row is that extract's exact
+  // Content-Length). Total download for a full sweep: 12,005,955,067 B ≈ 12.01 GB over 53 extracts —
+  // one quarter of France's single 5,075,198,227 B extract per the largest state (california,
+  // 1,326,860,797 B), so no state comes near the 330-minute job ceiling that France's bake spent 4 h
+  // inside. The `alaska` and `alaskaaleutians` rows share ONE pbf path and therefore ONE download,
+  // exactly as austin/houston shared texas.
+  //
+  // ⭐ THE ANTIMERIDIAN IS HANDLED, NOT SWALLOWED. Geofabrik's alaska.kml is TWO polygons: the mainland
+  // + panhandle at [-180.00, 49.81 … -129.80, 72.99], and the western Aleutians (Near Islands — Attu,
+  // Shemya) at [171.76, 51.11 … 180.00, 54.19]. `osmium extract -b` cannot express a wrapped box, so a
+  // single row would either drop the Near Islands or, written as w>e, silently swallow the whole
+  // Pacific. Two rows off one extract is the honest shape. Mapterhorn serves real relief there
+  // (10/1004/334 → HTTP 200 image/webp 177,238 B, probed 2026-09-06), so the terrain row is not a
+  // decoy either. HAWAII NEEDS NO SUCH SPLIT: its polygon stops at -179.60 and never crosses ±180 —
+  // the archipelago rides ONE bbox that also contains Midway and the whole NW Hawaiian chain.
+  //
+  // TERRITORIES: `puertorico` and `usvirginislands` are IN, in the `usa` group, because they are US
+  // jurisdictions with their own Geofabrik extracts (73,899,842 B / 3,121,695 B) and a PRYZM user in
+  // San Juan is a US user. Guam / Northern Mariana / American Samoa are NOT here and this is a NAMED
+  // REFUSAL, not an omission: Geofabrik has no per-territory extract for them — they sit inside
+  // `australia-oceania/american-oceania-latest.osm.pbf` (5,365,697 B, probed 2026-09-06), whose own
+  // polygon spans BOTH ~145 E (Guam/NMI) and ~-170 (American Samoa), i.e. two disjoint clusters that
+  // need two more rows in an `oceania`-shaped group. That is a separate lane, not a US state row.
+  //
+  // HEIGHTS — §US-OPEN-HEIGHTS-OSM-JOIN moves ROW, not WORKING SET. `newyork` (NYC height_roof, feet),
+  // `california` (SF hgt_maxcm, LiDAR zonal max, cm) and `massachusetts` (Boston BPDA BLDG_HGT_2010,
+  // feet) declare heightJoin:'us_open'; stampBboxesFor still filters US_OPEN_CITY_BBOXES to the row's
+  // own `region`, so the three working-set boxes are byte-identical to the metro era and everything
+  // outside them streams through with honest OSM tags. The other 51 rows declare NO heightJoin, on the
+  // evidence already recorded in heights/usOpenHeights.mjs US_OPEN_HEIGHTS_ASSESSED (Chicago's
+  // syp8-uezg has `stories` and no height; MassGIS STRUCTURES_POLY has no height field; no open
+  // channel is named for Texas) — they bake honest OSM `assumed` defaults (heightSources REGION_SOURCE
+  // `overture_us`) until the USGS 3DEP nDSM stamp lands. Datum: NAVD88/GEOID18; terrain via
+  // --dtm-source mapterhorn. ⚠ EGM2008 N is NOT uniformly negative across the US, as the old metro
+  // comment implied: it is −35.5 … −13.1 m across CONUS but POSITIVE in Alaska (+8.04 at Anchorage,
+  // +9.70 at Attu) and Hawaii (+15.81 at Honolulu) — every value GeoidEval-probed 2026-09-06.
+  //
+  // `pending: true` on 53 of the 54 (all but `newyork`, which is already live): merge-tiles.mjs
+  // expects a pending row ONLY when it is staged, so adding 53 rows cannot make the next `expect=all`
+  // publish refuse for regions that have never been live. Drop the flag as each goes live.
+  { name: 'alabama',           pbfUrl: 'https://download.geofabrik.de/north-america/us/alabama-latest.osm.pbf',                pbf: resolve(OUT, 'us-alabama-latest.osm.pbf'),             bbox: '-88.49,29.95,-84.88,35.01',    clipped: resolve(OUT, 'clip-alabama.osm.pbf'), pending: true },   // 149,014,751 B
+  { name: 'alaska',            pbfUrl: 'https://download.geofabrik.de/north-america/us/alaska-latest.osm.pbf',                 pbf: resolve(OUT, 'us-alaska-latest.osm.pbf'),              bbox: '-180.00,49.80,-129.79,72.99',  clipped: resolve(OUT, 'clip-alaska.osm.pbf'), pending: true },   // 143,908,577 B
+  { name: 'alaskaaleutians',   pbfUrl: 'https://download.geofabrik.de/north-america/us/alaska-latest.osm.pbf',                 pbf: resolve(OUT, 'us-alaska-latest.osm.pbf'),              bbox: '171.76,51.11,180.00,54.20',    clipped: resolve(OUT, 'clip-alaskaaleutians.osm.pbf'), pending: true },   // 143,908,577 B
+  { name: 'arizona',           pbfUrl: 'https://download.geofabrik.de/north-america/us/arizona-latest.osm.pbf',                pbf: resolve(OUT, 'us-arizona-latest.osm.pbf'),             bbox: '-114.83,31.32,-109.04,37.01',  clipped: resolve(OUT, 'clip-arizona.osm.pbf'), pending: true },   // 301,352,121 B
+  { name: 'arkansas',          pbfUrl: 'https://download.geofabrik.de/north-america/us/arkansas-latest.osm.pbf',               pbf: resolve(OUT, 'us-arkansas-latest.osm.pbf'),            bbox: '-94.63,33.00,-89.63,36.52',    clipped: resolve(OUT, 'clip-arkansas.osm.pbf'), pending: true },   // 99,404,843 B
+  { name: 'california',        pbfUrl: 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf',             pbf: resolve(OUT, 'us-california-latest.osm.pbf'),          bbox: '-125.90,32.48,-114.12,42.02',  clipped: resolve(OUT, 'clip-california.osm.pbf'), heightJoin: 'us_open', pending: true },   // 1,326,860,797 B
+  { name: 'colorado',          pbfUrl: 'https://download.geofabrik.de/north-america/us/colorado-latest.osm.pbf',               pbf: resolve(OUT, 'us-colorado-latest.osm.pbf'),            bbox: '-109.07,36.98,-102.03,41.01',  clipped: resolve(OUT, 'clip-colorado.osm.pbf'), pending: true },   // 380,830,336 B
+  { name: 'connecticut',       pbfUrl: 'https://download.geofabrik.de/north-america/us/connecticut-latest.osm.pbf',            pbf: resolve(OUT, 'us-connecticut-latest.osm.pbf'),         bbox: '-73.73,40.96,-71.78,42.06',    clipped: resolve(OUT, 'clip-connecticut.osm.pbf'), pending: true },   // 216,457,565 B
+  { name: 'delaware',          pbfUrl: 'https://download.geofabrik.de/north-america/us/delaware-latest.osm.pbf',               pbf: resolve(OUT, 'us-delaware-latest.osm.pbf'),            bbox: '-75.79,38.45,-74.98,39.85',    clipped: resolve(OUT, 'clip-delaware.osm.pbf'), pending: true },   // 22,080,735 B
+  { name: 'districtofcolumbia', pbfUrl: 'https://download.geofabrik.de/north-america/us/district-of-columbia-latest.osm.pbf',   pbf: resolve(OUT, 'us-district-of-columbia-latest.osm.pbf'), bbox: '-77.13,38.79,-76.90,39.00',    clipped: resolve(OUT, 'clip-districtofcolumbia.osm.pbf'), pending: true },   // 20,948,108 B
+  { name: 'florida',           pbfUrl: 'https://download.geofabrik.de/north-america/us/florida-latest.osm.pbf',                pbf: resolve(OUT, 'us-florida-latest.osm.pbf'),             bbox: '-88.47,24.20,-79.43,31.01',    clipped: resolve(OUT, 'clip-florida.osm.pbf'), pending: true },   // 655,835,513 B
+  { name: 'georgia',           pbfUrl: 'https://download.geofabrik.de/north-america/us/georgia-latest.osm.pbf',                pbf: resolve(OUT, 'us-georgia-latest.osm.pbf'),             bbox: '-85.61,30.35,-80.74,35.01',    clipped: resolve(OUT, 'clip-georgia.osm.pbf'), pending: true },   // 355,780,528 B
+  { name: 'hawaii',            pbfUrl: 'https://download.geofabrik.de/north-america/us/hawaii-latest.osm.pbf',                 pbf: resolve(OUT, 'us-hawaii-latest.osm.pbf'),              bbox: '-179.60,15.92,-142.65,29.03',  clipped: resolve(OUT, 'clip-hawaii.osm.pbf'), pending: true },   // 26,951,996 B
+  { name: 'idaho',             pbfUrl: 'https://download.geofabrik.de/north-america/us/idaho-latest.osm.pbf',                  pbf: resolve(OUT, 'us-idaho-latest.osm.pbf'),               bbox: '-117.25,41.98,-111.04,49.01',  clipped: resolve(OUT, 'clip-idaho.osm.pbf'), pending: true },   // 128,528,088 B
+  { name: 'illinois',          pbfUrl: 'https://download.geofabrik.de/north-america/us/illinois-latest.osm.pbf',               pbf: resolve(OUT, 'us-illinois-latest.osm.pbf'),            bbox: '-91.52,36.96,-87.49,42.51',    clipped: resolve(OUT, 'clip-illinois.osm.pbf'), pending: true },   // 358,543,406 B
+  { name: 'indiana',           pbfUrl: 'https://download.geofabrik.de/north-america/us/indiana-latest.osm.pbf',                pbf: resolve(OUT, 'us-indiana-latest.osm.pbf'),             bbox: '-88.11,37.76,-84.78,41.77',    clipped: resolve(OUT, 'clip-indiana.osm.pbf'), pending: true },   // 198,430,653 B
+  { name: 'iowa',              pbfUrl: 'https://download.geofabrik.de/north-america/us/iowa-latest.osm.pbf',                   pbf: resolve(OUT, 'us-iowa-latest.osm.pbf'),                bbox: '-96.65,40.37,-90.13,43.51',    clipped: resolve(OUT, 'clip-iowa.osm.pbf'), pending: true },   // 133,125,489 B
+  { name: 'kansas',            pbfUrl: 'https://download.geofabrik.de/north-america/us/kansas-latest.osm.pbf',                 pbf: resolve(OUT, 'us-kansas-latest.osm.pbf'),              bbox: '-102.06,36.99,-94.58,40.01',   clipped: resolve(OUT, 'clip-kansas.osm.pbf'), pending: true },   // 115,594,512 B
+  { name: 'kentucky',          pbfUrl: 'https://download.geofabrik.de/north-america/us/kentucky-latest.osm.pbf',               pbf: resolve(OUT, 'us-kentucky-latest.osm.pbf'),            bbox: '-89.59,36.49,-81.95,39.15',    clipped: resolve(OUT, 'clip-kentucky.osm.pbf'), pending: true },   // 153,429,610 B
+  { name: 'louisiana',         pbfUrl: 'https://download.geofabrik.de/north-america/us/louisiana-latest.osm.pbf',              pbf: resolve(OUT, 'us-louisiana-latest.osm.pbf'),           bbox: '-94.05,28.14,-88.66,33.03',    clipped: resolve(OUT, 'clip-louisiana.osm.pbf'), pending: true },   // 145,952,262 B
+  { name: 'maine',             pbfUrl: 'https://download.geofabrik.de/north-america/us/maine-latest.osm.pbf',                  pbf: resolve(OUT, 'us-maine-latest.osm.pbf'),               bbox: '-71.09,42.85,-66.87,47.47',    clipped: resolve(OUT, 'clip-maine.osm.pbf'), pending: true },   // 90,724,876 B
+  { name: 'maryland',          pbfUrl: 'https://download.geofabrik.de/north-america/us/maryland-latest.osm.pbf',               pbf: resolve(OUT, 'us-maryland-latest.osm.pbf'),            bbox: '-79.49,37.88,-74.95,39.73',    clipped: resolve(OUT, 'clip-maryland.osm.pbf'), pending: true },   // 214,022,414 B
+  { name: 'massachusetts',     pbfUrl: 'https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf',          pbf: resolve(OUT, 'us-massachusetts-latest.osm.pbf'),       bbox: '-73.52,40.88,-68.73,42.89',    clipped: resolve(OUT, 'clip-massachusetts.osm.pbf'), heightJoin: 'us_open', pending: true },   // 309,938,097 B
+  { name: 'michigan',          pbfUrl: 'https://download.geofabrik.de/north-america/us/michigan-latest.osm.pbf',               pbf: resolve(OUT, 'us-michigan-latest.osm.pbf'),            bbox: '-90.42,41.69,-82.06,48.36',    clipped: resolve(OUT, 'clip-michigan.osm.pbf'), pending: true },   // 312,212,383 B
+  { name: 'minnesota',         pbfUrl: 'https://download.geofabrik.de/north-america/us/minnesota-latest.osm.pbf',              pbf: resolve(OUT, 'us-minnesota-latest.osm.pbf'),           bbox: '-97.25,43.49,-89.48,49.41',    clipped: resolve(OUT, 'clip-minnesota.osm.pbf'), pending: true },   // 284,816,865 B
+  { name: 'mississippi',       pbfUrl: 'https://download.geofabrik.de/north-america/us/mississippi-latest.osm.pbf',            pbf: resolve(OUT, 'us-mississippi-latest.osm.pbf'),         bbox: '-91.66,30.04,-88.09,35.01',    clipped: resolve(OUT, 'clip-mississippi.osm.pbf'), pending: true },   // 94,080,881 B
+  { name: 'missouri',          pbfUrl: 'https://download.geofabrik.de/north-america/us/missouri-latest.osm.pbf',               pbf: resolve(OUT, 'us-missouri-latest.osm.pbf'),            bbox: '-95.78,35.99,-89.08,40.62',    clipped: resolve(OUT, 'clip-missouri.osm.pbf'), pending: true },   // 194,739,836 B
+  { name: 'montana',           pbfUrl: 'https://download.geofabrik.de/north-america/us/montana-latest.osm.pbf',                pbf: resolve(OUT, 'us-montana-latest.osm.pbf'),             bbox: '-116.06,44.35,-104.03,49.01',  clipped: resolve(OUT, 'clip-montana.osm.pbf'), pending: true },   // 100,022,190 B
+  { name: 'nebraska',          pbfUrl: 'https://download.geofabrik.de/north-america/us/nebraska-latest.osm.pbf',               pbf: resolve(OUT, 'us-nebraska-latest.osm.pbf'),            bbox: '-104.06,40.00,-95.30,43.01',   clipped: resolve(OUT, 'clip-nebraska.osm.pbf'), pending: true },   // 100,196,685 B
+  { name: 'nevada',            pbfUrl: 'https://download.geofabrik.de/north-america/us/nevada-latest.osm.pbf',                 pbf: resolve(OUT, 'us-nevada-latest.osm.pbf'),              bbox: '-120.01,35.00,-114.03,42.01',  clipped: resolve(OUT, 'clip-nevada.osm.pbf'), pending: true },   // 122,949,898 B
+  { name: 'newhampshire',      pbfUrl: 'https://download.geofabrik.de/north-america/us/new-hampshire-latest.osm.pbf',          pbf: resolve(OUT, 'us-new-hampshire-latest.osm.pbf'),       bbox: '-72.56,42.69,-70.48,45.32',    clipped: resolve(OUT, 'clip-newhampshire.osm.pbf'), pending: true },   // 71,238,020 B
+  { name: 'newjersey',         pbfUrl: 'https://download.geofabrik.de/north-america/us/new-jersey-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-jersey-latest.osm.pbf'),          bbox: '-75.58,38.75,-73.67,41.36',    clipped: resolve(OUT, 'clip-newjersey.osm.pbf'), pending: true },   // 163,381,257 B
+  { name: 'newmexico',         pbfUrl: 'https://download.geofabrik.de/north-america/us/new-mexico-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-mexico-latest.osm.pbf'),          bbox: '-109.06,31.33,-102.99,37.01',  clipped: resolve(OUT, 'clip-newmexico.osm.pbf'), pending: true },   // 136,029,857 B
+  { name: 'newyork',           pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',               pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-79.77,40.43,-71.66,45.02',    clipped: resolve(OUT, 'clip-newyork.osm.pbf'), heightJoin: 'us_open' },   // 495,982,594 B
+  { name: 'northcarolina',     pbfUrl: 'https://download.geofabrik.de/north-america/us/north-carolina-latest.osm.pbf',         pbf: resolve(OUT, 'us-north-carolina-latest.osm.pbf'),      bbox: '-84.33,33.12,-73.73,36.59',    clipped: resolve(OUT, 'clip-northcarolina.osm.pbf'), pending: true },   // 427,872,491 B
+  { name: 'northdakota',       pbfUrl: 'https://download.geofabrik.de/north-america/us/north-dakota-latest.osm.pbf',           pbf: resolve(OUT, 'us-north-dakota-latest.osm.pbf'),        bbox: '-104.06,45.93,-96.55,49.02',   clipped: resolve(OUT, 'clip-northdakota.osm.pbf'), pending: true },   // 127,788,199 B
+  { name: 'ohio',              pbfUrl: 'https://download.geofabrik.de/north-america/us/ohio-latest.osm.pbf',                   pbf: resolve(OUT, 'us-ohio-latest.osm.pbf'),                bbox: '-84.83,38.40,-80.50,42.34',    clipped: resolve(OUT, 'clip-ohio.osm.pbf'), pending: true },   // 322,887,573 B
+  { name: 'oklahoma',          pbfUrl: 'https://download.geofabrik.de/north-america/us/oklahoma-latest.osm.pbf',               pbf: resolve(OUT, 'us-oklahoma-latest.osm.pbf'),            bbox: '-103.01,33.61,-94.42,37.01',   clipped: resolve(OUT, 'clip-oklahoma.osm.pbf'), pending: true },   // 168,284,935 B
+  { name: 'oregon',            pbfUrl: 'https://download.geofabrik.de/north-america/us/oregon-latest.osm.pbf',                 pbf: resolve(OUT, 'us-oregon-latest.osm.pbf'),              bbox: '-126.39,41.96,-116.45,46.31',  clipped: resolve(OUT, 'clip-oregon.osm.pbf'), pending: true },   // 253,351,822 B
+  { name: 'pennsylvania',      pbfUrl: 'https://download.geofabrik.de/north-america/us/pennsylvania-latest.osm.pbf',           pbf: resolve(OUT, 'us-pennsylvania-latest.osm.pbf'),        bbox: '-80.53,39.66,-74.68,42.52',    clipped: resolve(OUT, 'clip-pennsylvania.osm.pbf'), pending: true },   // 346,220,783 B
+  // ⛔ SLUG COLLISION, CAUGHT BY THE GATE AND RENAMED — NOT `puertorico`. `terrain.mjs` already has a
+  // §1b CITY row `puertorico` at [-15.7804, 27.7294, -15.6404, 27.8494]: that is Puerto Rico de Gran
+  // Canaria, a Spanish resort town, source 'es' (CNIG), with a LIVE tileset at `terrain/puertorico/`.
+  // Two different places, one R2 path — `terrain.mjs --check-client-coverage` refused it by name
+  // ("slug 'puertorico' is BOTH a client city and a client region"). The US Commonwealth takes
+  // `puertoricousa`; the Canarian town keeps the slug it already publishes under.
+  { name: 'puertoricousa',        pbfUrl: 'https://download.geofabrik.de/north-america/us/puerto-rico-latest.osm.pbf',            pbf: resolve(OUT, 'us-puerto-rico-latest.osm.pbf'),         bbox: '-68.32,17.51,-65.09,18.82',    clipped: resolve(OUT, 'clip-puertoricousa.osm.pbf'), pending: true },   // 73,899,842 B
+  { name: 'rhodeisland',       pbfUrl: 'https://download.geofabrik.de/north-america/us/rhode-island-latest.osm.pbf',           pbf: resolve(OUT, 'us-rhode-island-latest.osm.pbf'),        bbox: '-71.92,40.99,-71.06,42.02',    clipped: resolve(OUT, 'clip-rhodeisland.osm.pbf'), pending: true },   // 52,091,340 B
+  { name: 'southcarolina',     pbfUrl: 'https://download.geofabrik.de/north-america/us/south-carolina-latest.osm.pbf',         pbf: resolve(OUT, 'us-south-carolina-latest.osm.pbf'),      bbox: '-83.36,32.02,-78.51,35.22',    clipped: resolve(OUT, 'clip-southcarolina.osm.pbf'), pending: true },   // 163,161,761 B
+  { name: 'southdakota',       pbfUrl: 'https://download.geofabrik.de/north-america/us/south-dakota-latest.osm.pbf',           pbf: resolve(OUT, 'us-south-dakota-latest.osm.pbf'),        bbox: '-104.06,42.47,-96.43,45.95',   clipped: resolve(OUT, 'clip-southdakota.osm.pbf'), pending: true },   // 48,780,228 B
+  { name: 'tennessee',         pbfUrl: 'https://download.geofabrik.de/north-america/us/tennessee-latest.osm.pbf',              pbf: resolve(OUT, 'us-tennessee-latest.osm.pbf'),           bbox: '-90.32,34.98,-81.64,36.69',    clipped: resolve(OUT, 'clip-tennessee.osm.pbf'), pending: true },   // 188,952,243 B
+  { name: 'texas',             pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',                  pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-106.65,25.69,-93.01,36.53',   clipped: resolve(OUT, 'clip-texas.osm.pbf'), pending: true },   // 718,093,892 B
+  { name: 'usvirginislands',   pbfUrl: 'https://download.geofabrik.de/north-america/us/us-virgin-islands-latest.osm.pbf',      pbf: resolve(OUT, 'us-us-virgin-islands-latest.osm.pbf'),   bbox: '-65.18,17.28,-63.95,18.49',    clipped: resolve(OUT, 'clip-usvirginislands.osm.pbf'), pending: true },   // 3,121,695 B
+  { name: 'utah',              pbfUrl: 'https://download.geofabrik.de/north-america/us/utah-latest.osm.pbf',                   pbf: resolve(OUT, 'us-utah-latest.osm.pbf'),                bbox: '-114.06,36.99,-109.03,42.01',  clipped: resolve(OUT, 'clip-utah.osm.pbf'), pending: true },   // 168,166,581 B
+  { name: 'vermont',           pbfUrl: 'https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf',                pbf: resolve(OUT, 'us-vermont-latest.osm.pbf'),             bbox: '-73.44,42.72,-71.46,45.03',    clipped: resolve(OUT, 'clip-vermont.osm.pbf'), pending: true },   // 45,855,328 B
+  { name: 'virginia',          pbfUrl: 'https://download.geofabrik.de/north-america/us/virginia-latest.osm.pbf',               pbf: resolve(OUT, 'us-virginia-latest.osm.pbf'),            bbox: '-83.68,36.53,-74.29,39.47',    clipped: resolve(OUT, 'clip-virginia.osm.pbf'), pending: true },   // 427,195,858 B
+  { name: 'washington',        pbfUrl: 'https://download.geofabrik.de/north-america/us/washington-latest.osm.pbf',             pbf: resolve(OUT, 'us-washington-latest.osm.pbf'),          bbox: '-126.75,45.53,-116.91,49.01',  clipped: resolve(OUT, 'clip-washington.osm.pbf'), pending: true },   // 362,671,564 B
+  { name: 'westvirginia',      pbfUrl: 'https://download.geofabrik.de/north-america/us/west-virginia-latest.osm.pbf',          pbf: resolve(OUT, 'us-west-virginia-latest.osm.pbf'),       bbox: '-82.65,37.19,-77.71,40.65',    clipped: resolve(OUT, 'clip-westvirginia.osm.pbf'), pending: true },   // 98,660,968 B
+  { name: 'wisconsin',         pbfUrl: 'https://download.geofabrik.de/north-america/us/wisconsin-latest.osm.pbf',              pbf: resolve(OUT, 'us-wisconsin-latest.osm.pbf'),           bbox: '-92.90,42.48,-86.20,47.42',    clipped: resolve(OUT, 'clip-wisconsin.osm.pbf'), pending: true },   // 292,438,555 B
+  { name: 'wyoming',           pbfUrl: 'https://download.geofabrik.de/north-america/us/wyoming-latest.osm.pbf',                pbf: resolve(OUT, 'us-wyoming-latest.osm.pbf'),             bbox: '-111.06,40.98,-103.94,45.02',  clipped: resolve(OUT, 'clip-wyoming.osm.pbf'), pending: true },   // 93,093,666 B
+  // ─────────────────────────────────────────────────────────────────────────
+  // §BAKE-NORTHAMERICA (2026-09-06, lane MEXICO-CANADA) — MEXICO (one national row) + CANADA (13
+  // province/territory rows). Both countries were absent from this table ENTIRELY until today, so a
+  // site dropped anywhere in either rendered the exact L-607 defect ("No surrounding building data
+  // for this area"). The shape of each half was decided by MEASUREMENT, not preference:
+  //
+  //   • CANADA IS SPLIT BY PROVINCE, the AU-states pattern one continent east — and it is not a
+  //     judgement call: Geofabrik SERVES the split. index-v1.json (HTTP 200, 3,790,471 B,
+  //     Last-Modified Sat 05 Sep 2026, probed 2026-09-06) lists `canada` with THIRTEEN children —
+  //     alberta · british-columbia · manitoba · new-brunswick · newfoundland-and-labrador ·
+  //     northwest-territories · nova-scotia · nunavut · ontario · prince-edward-island · quebec ·
+  //     saskatchewan · yukon — each with its own `-latest.osm.pbf`. Cadastre, assessment and land-use
+  //     planning are PROVINCIAL competencies in Canada exactly as they are STATE competencies in
+  //     Australia (there is no national parcel fabric and no national planning scheme), so the
+  //     "whole-country" row is a whole-PROVINCE row and the per-province extract is the cheap clip.
+  //   • MEXICO IS ONE NATIONAL ROW, and that too is the index's answer, not a preference: the same
+  //     index lists `mexico` with ZERO children. There is no per-state Geofabrik file to split on, so
+  //     Mexico mirrors `spain`/`newzealand` — one national extract, one national bbox.
+  //
+  // ⚠ THE .osm.pbf ITSELF COULD NOT BE RANGE-GET'd FROM THIS MACHINE, and the honest record is that
+  // this is NOT a wrong URL: every `*-latest.osm.pbf` on download.geofabrik.de answered
+  // `HTTP/1.1 502 Bad Gateway · Server: squid/6.14 · X-Squid-Error: ERR_READ_ERROR 0 · Via: 1.1
+  // download-proxy12` — INCLUDING europe/spain-latest.osm.pbf, a URL this file has baked daily for
+  // months. What DID answer 200 is the md5 sidecar of each, and it names the dated file behind the
+  // `-latest` alias: `north-america/canada-latest.osm.pbf.md5` → HTTP 200, 56 B, text/plain,
+  // `X-Derived-From: north-america/canada-260904.osm.pbf.md5`; `north-america/mexico-latest.osm.pbf.md5`
+  // → HTTP 200, 56 B, `X-Derived-From: north-america/mexico-260904.osm.pbf.md5`. So both extracts
+  // EXIST and were rebuilt 2026-09-04. ⛔ SIZES ARE THEREFORE UNMEASURED, and are recorded as unknown
+  // rather than guessed — the first CI bake of each row is where they surface (the workflow's "Assert
+  // the tiles are real" step fails a layer that came back empty). Canada whole is a large extract;
+  // that is one more reason the province split is the right shape here and not an optional nicety.
+  //
+  // BBOXES ARE LAND EXTENTS, not the Geofabrik cut polygons. The index's own polygon bbox for e.g.
+  // `newfoundland-and-labrador` reaches lon −44.18 and `nunavut` reaches lat 85.04 — hundreds of km of
+  // Atlantic and Arctic Ocean padding. A per-province pbf holds ONLY that province, so a land bbox
+  // clips the whole province and nothing foreign, while the ocean padding would buy zero OSM
+  // buildings and cost real terrain tiles (terrain.mjs uses these bboxes BYTE-IDENTICALLY — the koln
+  // rule: a context extent wider than the terrain extent is the "buildings floating off the edge of
+  // the DEM" defect, narrower is a visible context cliff).
+  //
+  // buildings = OSM everywhere here. ⚠ The Overture question is OPEN for Mexico and deliberately NOT
+  // answered by guesswork: Mexico is plausibly an OSM building desert of the Riyadh/Jeddah kind
+  // (5.3×/7.2× there), but `duckdb` is not installed on this machine (`which duckdb` → exit 127) and
+  // the Overpass control read HTTP 504 from overpass-api.de and curl exit 28 (90 s timeout) from the
+  // kumi mirror, so NEITHER side of the delta was measured. The rows therefore stay on OSM, the same
+  // way line 436 above leaves the US rows: "owed calibration before any `--buildings-source overture`
+  // flip — no probe forces one today". Flipping `mexico` on an unmeasured hunch is the one move that
+  // would be worse than waiting.
+  //
+  // MEASURED HEIGHTS — §CA-OPEN-HEIGHTS (heights/caOpenHeights.mjs), probed 2026-09-06:
+  //   • `britishcolumbia` declares heightJoin:'ca_open' — City of Vancouver "Building footprints 2009"
+  //     (Opendatasoft, keyless, Open Government Licence – Vancouver, 124,181 records) publishes a
+  //     LiDAR-derived per-ELEMENT topelev_m/baseelev_m/hgt_agl. Export probe over a downtown cell:
+  //     HTTP 200, 28,342 B, 41 features, 0.57 s.
+  //   • `ontario` declares heightJoin:'ca_open' — City of Toronto "Building Outline Polygon" on the
+  //     city's own keyless ArcGIS (cot_geospatial3/MapServer/2) carries DERIVED_HEIGHT in metres
+  //     above grade. Probe: HTTP 200, 41,568 B, 49 features, 0.67 s; real values 112.36 / 173.41 /
+  //     116.9 / 15.26 m downtown.
+  //   • EVERY OTHER Canadian row declares NO heightJoin, on evidence, and Montréal is the one that
+  //     hurts: donnees.montreal.ca serves a REAL 1 m LiDAR MNS (CC BY 4.0) and CityGML LOD2 — but as
+  //     32 per-borough GeoTIFF ZIPs and city-wide SHP/GPKG ZIPs, with no keyless WCS/COG to
+  //     range-read. That is the ELVIS refusal shape, so `quebec` bakes honest OSM `assumed` defaults
+  //     and Montréal is recorded as WIRABLE-BUT-UNWIRED in CA_OPEN_HEIGHTS_ASSESSED, never as absent.
+  //   • MEXICO HAS NO MEASURED-HEIGHT ROW AT ALL, and every door was probed by name on 2026-09-06:
+  //     gaia.inegi.org.mx/NLB/wms, .../NLB/mdm6/wms, .../NLB/mdm6/wms.php, .../mdm6/rest/services and
+  //     www.inegi.org.mx/app/api/mapas/… all → HTTP 404; mapasrest.inegi.org.mx → curl exit 6
+  //     (NXDOMAIN); datos.gob.mx/busca/api/3/action/package_search → HTTP 403 "Access Denied" (an edge
+  //     block, 424 B). CDMX's own portal IS open and reachable (datos.cdmx.gob.mx CKAN, HTTP 200) and
+  //     publishes "Información Catastral de la Ciudad de México" (CC-BY-4.0-ESP) — but its columns are
+  //     codigo_postal · superficie_terreno · superficie_construccion · uso_construccion ·
+  //     clave_rango_nivel · anio_construccion · … · latitud · longitud: a POINT with a CODED LEVEL
+  //     RANGE ("RU", "10", "05"), not a polygon and not a floor COUNT. A coded range cannot honestly
+  //     become metres — not measured, not even floors×N — so `mexico` bakes honest OSM `assumed`
+  //     defaults, the netherlands/AU/NZ precedent, and the refusal is named rather than silent.
+  //
+  // Datum: NAD83(CSRS)/CGVD2013 in Canada, NAD27→ITRF/NAVD-equivalent in Mexico; the terrain rows lift
+  // per post from the NGA EGM2008 COG (their geoidSepM constants were read from THAT SAME grid on
+  // 2026-09-06 — see terrain.mjs). Terrain via --dtm-source mapterhorn, PROBED at z10 over all 16
+  // points including the Arctic (Resolute 74.70 N → HTTP 200 image/webp 199,770 B) — there is no
+  // high-latitude coverage hole.
+  //
+  // ⚠ `pending: true` on ALL FOURTEEN — §PENDING-REGION, the `newzealand` precedent. None of these is
+  // staged yet, and `expect=all` in merge-tiles.mjs derives the expected set from THIS table: without
+  // the flag the next expect=all publish would REFUSE BY NAME because fourteen regions have no staged
+  // bake. Bake each with region=<slug> stage=true; the following expect=all merges it in. Remove the
+  // flag once a region is live — a flag left on a live region would let a later publish DROP it
+  // silently, the exact loss the gate exists to refuse (northAmericaContext.spec.ts pins both).
+  { name: 'mexico',               pbfUrl: 'https://download.geofabrik.de/north-america/mexico-latest.osm.pbf',                             pbf: resolve(OUT, 'mexico-latest.osm.pbf'),                       bbox: '-118.50,14.50,-86.70,32.75',  clipped: resolve(OUT, 'clip-mexico.osm.pbf'), pending: true },
+  { name: 'ontario',              pbfUrl: 'https://download.geofabrik.de/north-america/canada/ontario-latest.osm.pbf',                     pbf: resolve(OUT, 'ca-ontario-latest.osm.pbf'),                   bbox: '-95.20,41.60,-74.30,56.90',   clipped: resolve(OUT, 'clip-ontario.osm.pbf'), heightJoin: 'ca_open', pending: true },
+  { name: 'quebec',               pbfUrl: 'https://download.geofabrik.de/north-america/canada/quebec-latest.osm.pbf',                      pbf: resolve(OUT, 'ca-quebec-latest.osm.pbf'),                    bbox: '-79.90,44.90,-56.90,62.70',   clipped: resolve(OUT, 'clip-quebec.osm.pbf'), pending: true },
+  { name: 'britishcolumbia',      pbfUrl: 'https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf',            pbf: resolve(OUT, 'ca-british-columbia-latest.osm.pbf'),          bbox: '-139.10,48.20,-114.00,60.10', clipped: resolve(OUT, 'clip-britishcolumbia.osm.pbf'), heightJoin: 'ca_open', pending: true },
+  { name: 'alberta',              pbfUrl: 'https://download.geofabrik.de/north-america/canada/alberta-latest.osm.pbf',                     pbf: resolve(OUT, 'ca-alberta-latest.osm.pbf'),                   bbox: '-120.10,48.90,-109.90,60.10', clipped: resolve(OUT, 'clip-alberta.osm.pbf'), pending: true },
+  { name: 'saskatchewan',         pbfUrl: 'https://download.geofabrik.de/north-america/canada/saskatchewan-latest.osm.pbf',                pbf: resolve(OUT, 'ca-saskatchewan-latest.osm.pbf'),              bbox: '-110.10,48.90,-101.30,60.10', clipped: resolve(OUT, 'clip-saskatchewan.osm.pbf'), pending: true },
+  { name: 'manitoba',             pbfUrl: 'https://download.geofabrik.de/north-america/canada/manitoba-latest.osm.pbf',                    pbf: resolve(OUT, 'ca-manitoba-latest.osm.pbf'),                  bbox: '-102.10,48.90,-88.90,60.10',  clipped: resolve(OUT, 'clip-manitoba.osm.pbf'), pending: true },
+  { name: 'newbrunswick',         pbfUrl: 'https://download.geofabrik.de/north-america/canada/new-brunswick-latest.osm.pbf',               pbf: resolve(OUT, 'ca-new-brunswick-latest.osm.pbf'),             bbox: '-69.10,44.50,-63.70,48.10',   clipped: resolve(OUT, 'clip-newbrunswick.osm.pbf'), pending: true },
+  { name: 'novascotia',           pbfUrl: 'https://download.geofabrik.de/north-america/canada/nova-scotia-latest.osm.pbf',                 pbf: resolve(OUT, 'ca-nova-scotia-latest.osm.pbf'),               bbox: '-66.40,43.30,-59.60,47.10',   clipped: resolve(OUT, 'clip-novascotia.osm.pbf'), pending: true },
+  { name: 'princeedwardisland',   pbfUrl: 'https://download.geofabrik.de/north-america/canada/prince-edward-island-latest.osm.pbf',        pbf: resolve(OUT, 'ca-prince-edward-island-latest.osm.pbf'),      bbox: '-64.50,45.90,-61.90,47.10',   clipped: resolve(OUT, 'clip-princeedwardisland.osm.pbf'), pending: true },
+  { name: 'newfoundland',         pbfUrl: 'https://download.geofabrik.de/north-america/canada/newfoundland-and-labrador-latest.osm.pbf',   pbf: resolve(OUT, 'ca-newfoundland-and-labrador-latest.osm.pbf'), bbox: '-67.90,46.50,-52.50,60.50',   clipped: resolve(OUT, 'clip-newfoundland.osm.pbf'), pending: true },
+  { name: 'yukon',                pbfUrl: 'https://download.geofabrik.de/north-america/canada/yukon-latest.osm.pbf',                       pbf: resolve(OUT, 'ca-yukon-latest.osm.pbf'),                     bbox: '-141.10,59.90,-123.70,69.70', clipped: resolve(OUT, 'clip-yukon.osm.pbf'), pending: true },
+  { name: 'northwestterritories', pbfUrl: 'https://download.geofabrik.de/north-america/canada/northwest-territories-latest.osm.pbf',       pbf: resolve(OUT, 'ca-northwest-territories-latest.osm.pbf'),     bbox: '-136.60,59.90,-101.90,78.90', clipped: resolve(OUT, 'clip-northwestterritories.osm.pbf'), pending: true },
+  { name: 'nunavut',              pbfUrl: 'https://download.geofabrik.de/north-america/canada/nunavut-latest.osm.pbf',                     pbf: resolve(OUT, 'ca-nunavut-latest.osm.pbf'),                   bbox: '-120.80,51.60,-61.00,83.20',  clipped: resolve(OUT, 'clip-nunavut.osm.pbf'), pending: true },
   // ─────────────────────────────────────────────────────────────────────────
   // §BAKE-AU-STATES (2026-09-03, lane CONTEXT-INTL) — 8 whole-state rows, the AU analogue of
   // §BAKE-EUROPE-NATIONAL. Cadastre + planning are STATE competencies in Australia (no national scheme),
@@ -524,23 +852,141 @@ const ALL_REGIONS = [
   // CONTEXT-BUILDING-SOURCE-EVALUATION.md for the full delta table + the height caveat: Overture
   // height is ~0% in Saudi (ML footprints carry none) but 73% in Barcelona (it folds OSM+IGN in),
   // which is why European regions stay on OSM by default and lose nothing.
-  { name: 'riyadh',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '46.60,24.58,46.83,24.80',  clipped: resolve(OUT, 'clip-riyadh.osm.pbf'), buildingsSource: 'overture' },
-  { name: 'jeddah',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '39.10,21.45,39.28,21.62',  clipped: resolve(OUT, 'clip-jeddah.osm.pbf'), buildingsSource: 'overture' },
-  // §BAKE-AE-METROS (2026-09-03, lane CONTEXT-INTL) — Dubai + Abu Dhabi, the founder-named UAE metros.
-  // SAME gcc-states extract as riyadh/jeddah (Geofabrik serves NO per-country UAE/Gulf file — ONE
-  // download for all four; me-sweep §12), clipped to each emirate's metro bbox (both well inside the
-  // gcc-states.poly lon 34.43..60.95 / lat 15.25..32.20). buildings = OVERTURE, exactly the
-  // riyadh/jeddah precedent: the Gulf is an OSM building desert (me-sweep §12 "gcc-states thin … desert
-  // dominance"; riyadh 5.3× / jeddah 7.2× Overture-vs-OSM density, VERIFIED 2026-07-24) and the founder
-  // directed Overture here. ⚠ MS GlobalML stays EXCLUDED — Overture is the sanctioned conflation that
-  // happens to fold ML footprints in (licensed for us), which raw GlobalML is not. HEIGHTS: NONE — no
-  // open height channel exists (both emirates' data hosts are vantage/WAF-blocked, me-sweep §2/§3), so
-  // NO heightJoin and honest assumed defaults (Overture height is ~0% in the Gulf, like Saudi). A
-  // Dubai/AbuDhabi-specific OSM-vs-Overture count probe is the owed density calibration. Datum:
-  // me-sweep §13 names the UAE local vertical datum as UNVERIFIED-DOC — verify on first load; terrain
-  // via --dtm-source mapterhorn.
-  { name: 'dubai',      pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '54.95,24.85,55.45,25.35',  clipped: resolve(OUT, 'clip-dubai.osm.pbf'), buildingsSource: 'overture' },
-  { name: 'abudhabi',   pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '54.28,24.33,54.75,24.62',  clipped: resolve(OUT, 'clip-abudhabi.osm.pbf'), buildingsSource: 'overture', heightJoin: 'ad_ndsm' },
+  // ─────────────────────────────────────────────────────────────────────────
+  // §ME-NATIONAL (2026-09-06, lane ME-NATIONAL) — the Middle East stops being five city boxes.
+  //
+  // THE DEFECT THIS RETIRES. Until this commit the whole region was four context rows — riyadh,
+  // jeddah, dubai, abudhabi — each a ~0.2–0.5° rectangle. A site 30 km outside Dubai, anywhere in
+  // Oman, anywhere in Turkey, Israel, Jordan or Lebanon, fell outside every row and got NO context
+  // buildings at all: the L-607 "no surrounding building data" shape, at country scale.
+  //
+  // ONE ROW PER GEOFABRIK EXTRACT — and that is not a style choice, it is the invariant this table
+  // already runs on. Rows that share a `pbf` MUST have DISJOINT bboxes (austin/houston share the
+  // texas extract and do not overlap; riyadh/jeddah/dubai/abudhabi shared gcc-states and did not
+  // overlap). The merge is a tile-join of per-region PMTiles with NO dedup, so two rows whose
+  // rectangles overlap over the SAME extract publish the same building twice. Geofabrik serves NO
+  // per-country BH/KW/OM/QA/SA/AE file — one `asia/gcc-states` extract is the whole peninsula — and
+  // six country rectangles cut from it cannot be disjoint (Saudi's rectangle contains Qatar,
+  // Bahrain, Kuwait and half the UAE; a rectangle cannot exclude a peninsula). So the six GCC
+  // states are ONE row, `gccstates`, whose bbox is the extract's own `.poly` bbox. Turkey, Israel,
+  // Jordan and Lebanon each have their own extract and therefore their own row.
+  //
+  // ⛔ THE FOUR CITY ROWS ARE REMOVED, NOT KEPT ALONGSIDE — §NL-CITY-BBOX's lesson (L-12942), one
+  // region east. They add nothing `gccstates` does not: same extract, same Overture source, same
+  // tippecanoe, same zooms; and the terrain half is worse than nothing, because
+  // terrainCoverage.ts's `mostInterior` resolver scores by ABSOLUTE distance to the nearest bbox
+  // edge, so the big national box BEATS the small metro box at every interior point (Dubai centre:
+  // gccstates margin 0.95° vs dubai 0.15°). Left in place they would have been unreachable rows
+  // that still cost a bake and still duplicated every building in the four densest metros in the
+  // region. The measured-height stamp they anchored is NOT lost: `heightJoin: 'ad_ndsm'` moves to
+  // `gccstates` with its working set unchanged (stampBboxesFor still resolves it to AD_CITY_BBOXES
+  // — Abu Dhabi island only), so the same 50 cm DSM−DTM metres are stamped on the same footprints.
+  //
+  // EVERY EXTRACT RANGE-GET PROBED 2026-09-06 from this machine (`curl -sL -r 0-15` → HTTP 206 +
+  // Content-Range; ⚠ a HEAD or a non-following GET is NOT a probe here — Geofabrik's download
+  // proxy answered those with 502 ERR_READ_ERROR / 302 while the very same URLs served 206 to a
+  // redirect-following range GET):
+  //     asia/gcc-states-latest.osm.pbf           253,734,161 B   Last-Modified 2026-09-06 02:52:02 GMT
+  //     europe/turkey-latest.osm.pbf             644,955,033 B   Last-Modified 2026-09-06 05:03:03 GMT
+  //     asia/israel-and-palestine-latest.osm.pbf 119,275,457 B   Last-Modified 2026-09-06 02:41:40 GMT
+  //     asia/jordan-latest.osm.pbf                31,017,866 B   Last-Modified 2026-09-06 02:29:19 GMT
+  //     asia/lebanon-latest.osm.pbf               52,476,862 B   Last-Modified 2026-09-06 02:24:55 GMT
+  //
+  // BBOXES ARE MEASURED, NOT INVENTED: each is the bounding box of that extract's own `.poly` clip
+  // polygon (fetched the same day, HTTP 200: gcc-states 1,627 B/52 verts · turkey 6,091 B/196 ·
+  // israel-and-palestine 1,379 B/44 · jordan 7,300 B/235 · lebanon 3,363 B/108), rounded OUTWARD to
+  // 0.01°, so the bake rectangle always CONTAINS the extract and nothing is clipped at the border.
+  // Byte-identical to the terrain.mjs rows. Overlap with a NEIGHBOUR's row (gccstates × jordan,
+  // turkey × greece/bulgaria) does not double-bake: a Geofabrik extract carries only its own
+  // country, so the overlap strip gets JO data from the JO clip and nothing from the GCC clip —
+  // the §BAKE-AU-STATES / §EU-EVERY-COUNTRY reasoning.
+  //
+  // ⚠ `israel` is the SLUG; the COVERAGE is Geofabrik's `israel-and-palestine` extract clipped to
+  // its own poly bbox, so Israel, the West Bank and Gaza all bake and a site in Ramallah or Gaza
+  // City gets context. The slug is the extract's short name, not a territorial statement; the
+  // terrain regex in the client and the specs accepts `[a-z0-9]+` only, which is why the hyphenated
+  // source name is not used verbatim.
+  //
+  // BUILDINGS. `gccstates` is OVERTURE (`buildingsSource:'overture'`) — it inherits the MEASURED
+  // riyadh/jeddah finding verbatim (OSM 56,278 vs Overture 299,918 in Riyadh, 5.3×; 23,247 vs
+  // 167,766 in Jeddah, 7.2×; VERIFIED 2026-07-24) and it is the same extract over the same desert.
+  // turkey/israel/jordan/lebanon stay on OSM, the DEFAULT, because nobody has measured them: the
+  // ME sweep (audit/geo-expansion/2026-09-02/me-sweep.md §12) has only extract SIZE as a proxy
+  // (TR 615 MB dense · IL 114 MB dense · LB 50 MB · JO 30 MB thin). The owed calibration is a
+  // per-country OSM-vs-Overture building count at one metro each — flipping a row on a size proxy
+  // would be exactly the guess §BAKE-OVERTURE forbids.
+  //
+  // HEIGHTS. `gccstates` carries the ONE wired Gulf measured-height channel (ad_ndsm, Abu Dhabi
+  // island). turkey/israel/jordan/lebanon declare NO heightJoin, on evidence probed 2026-09-06 and
+  // recorded in the lane report: no national open DSM/nDSM or height-bearing footprint register was
+  // reachable for any of them (IL data.gov.il q=DTM → 0 datasets, q=מבנים → 9, all municipal or
+  // non-geometry; JO DLS_Layers_Service enumerates 15 parcel/boundary layers and NO height field;
+  // QA's own webmap enumerates 13 imagery + 11 vector services with no DSM/DTM and no building
+  // layer; TR's only extractable height signal is the TKGM parcel `nitelik` text — "11 Katli" =
+  // floors×N, a per-click derivation on the parcel channel, NOT a bake-time raster). A declared
+  // join that stamps nothing is a non-zero exit by design (§MEASURED-HEIGHT-GATE), so these rows
+  // bake honest OSM `assumed` defaults — the netherlands/newzealand precedent, said by name.
+  //
+  // ⚠ ALL FIVE CARRY `pending: true` (§PENDING-REGION, newzealandContext.spec.ts): merge-tiles.mjs
+  // derives `expect=all` from THIS table, so without the flag the next expect=all publish would
+  // REFUSE BY NAME for five regions that have never been live. ⛔ ORDERING CONSTRAINT, because the
+  // four city rows LEAVE in this same commit: `gccstates` must be baked+staged BEFORE the next
+  // expect=all merge, or that merge publishes a tileset with no Gulf data at all. Drop each flag
+  // once its region is live.
+  //
+  // Datum: me-sweep §13 names every local vertical datum in this lane as UNVERIFIED-DOC (SA Jeddah
+  // 1969 · AE Dubai Municipality/AD separate · QA QND95 · KW/BH/OM MSL · IL Yafo MSL · JO Aqaba
+  // MSL · LB MSL · TR TUDKA/Antalya) — leads, not facts; terrain via Mapterhorn, per-post EGM2008.
+  { name: 'gccstates',  pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '34.43,15.24,60.95,32.20',  clipped: resolve(OUT, 'clip-gccstates.osm.pbf'), buildingsSource: 'overture', heightJoin: 'ad_ndsm', pending: true },
+  { name: 'turkey',     pbfUrl: 'https://download.geofabrik.de/europe/turkey-latest.osm.pbf',                         pbf: resolve(OUT, 'turkey-latest.osm.pbf'),                 bbox: '25.52,35.71,44.86,43.08',  clipped: resolve(OUT, 'clip-turkey.osm.pbf'), pending: true },
+  { name: 'israel',     pbfUrl: 'https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf',             pbf: resolve(OUT, 'israel-and-palestine-latest.osm.pbf'),   bbox: '33.99,29.43,35.92,33.46',  clipped: resolve(OUT, 'clip-israel.osm.pbf'), pending: true },
+  { name: 'jordan',     pbfUrl: 'https://download.geofabrik.de/asia/jordan-latest.osm.pbf',                           pbf: resolve(OUT, 'jordan-latest.osm.pbf'),                 bbox: '34.86,29.18,39.32,33.38',  clipped: resolve(OUT, 'clip-jordan.osm.pbf'), pending: true },
+  { name: 'lebanon',    pbfUrl: 'https://download.geofabrik.de/asia/lebanon-latest.osm.pbf',                          pbf: resolve(OUT, 'lebanon-latest.osm.pbf'),                bbox: '34.76,33.05,36.64,34.81',  clipped: resolve(OUT, 'clip-lebanon.osm.pbf'), pending: true },
+  // ─────────────────────────────────────────────────────────────────────────
+  // §BAKE-JAPAN (2026-09-06, lane JAPAN-FULL) — WHOLE JAPAN (national), the §BAKE-EUROPE-NATIONAL /
+  // §BAKE-NEWZEALAND pattern. ONE Geofabrik extract, `asia/japan-latest.osm.pbf`.
+  //   ⚠ SIZE / BAKE-TIME RISK, stated because this is one of the largest rows in the table. The pbf
+  //   itself would NOT answer on 2026-09-06: Geofabrik's download proxy returned
+  //   `HTTP/1.1 502 Bad Gateway · Server: squid/6.14 · X-Squid-Error: ERR_READ_ERROR 0` to a HEAD, to
+  //   a `Range: bytes=0-1023` GET, and to the /asia/japan.html index page — three attempts, three
+  //   502s. SO THE BYTE COUNT IS NOT MEASURED AND IS NOT QUOTED HERE. What IS measured, same minute:
+  //   the sibling `asia/japan-latest.osm.pbf.md5` → HTTP 200 text/plain 55 B,
+  //   `a9e4110c7aceb1e33634845536203ae5  japan-latest.osm.pbf`, header `X-Derived-From:
+  //   asia/japan-260905.osm.pbf.md5`. The extract EXISTS and was rebuilt 2026-09-05; only the proxy
+  //   leg was failing, and a bake would retry it. The row is therefore written UNSPLIT, exactly like
+  //   `germany` and `france` (each a multi-GB single-extract country this workflow already bakes),
+  //   and THE FIRST DISPATCH MUST BE A SCOPED `region=japan` RUN whose log is read before japan is
+  //   ever folded into a multi-region wave. If that run exceeds the job ceiling, the split is BY
+  //   ISLAND on the SAME extract (hokkaido / honshu / shikoku-kyushu / okinawa as four rows sharing
+  //   one `pbf` path — the austin+houston "one download, several clips" precedent), never by
+  //   re-downloading and never by a new mechanism.
+  //   bbox 122.9,24.0,153.99,45.6 contains every prefecture: Yonaguni (122.93 E, the westernmost
+  //   point) east to 153.99 E, Hateruma (24.05 N) north to Cape Sōya (45.52 N). It stays WEST of the
+  //   antimeridian, so no wrap handling is needed.
+  //   buildings = OSM. Japan is the OPPOSITE of the Gulf desert — OSM here carries the GSI 基盤地図情報
+  //   building import; a 0.013°×0.009° Kanda/Akihabara rectangle held 4,285 OSM building ways
+  //   (live Overpass, 2026-09-06). An OSM-vs-Overture density probe (the Riyadh rule) is the owed
+  //   calibration before any `--buildings-source overture` flip; no probe forces one today.
+  //   ⭐ HEIGHTS — §PLATEAU-JP-OSM-JOIN: `heightJoin:'plateau_jp'` stamps MLIT Project PLATEAU LoD1
+  //   `bldg:measuredHeight` (a LiDAR point-cloud MEDIAN per building — `uro:lod1HeightType`
+  //   点群から取得_中央値) onto the OSM footprints inside JP_CITY_BBOXES. It reads the SERVED 3D-Tiles
+  //   b3dm batch tables by HTTP RANGE GET — never the 2.11 GB per-ward CityGML zip — and is KEYLESS
+  //   (公共データ利用規約 PDL 1.0, stated by MLIT to be CC BY 4.0 compatible; attribution
+  //   出典：国土交通省 PLATEAU). Every probe, the licence text and the measured match rate are in
+  //   heights/jpPlateau.mjs's header.
+  //   MEASURED END-TO-END 2026-09-06 over a real Kanda/Akihabara rectangle: 1,711 of 4,178 retained
+  //   OSM footprints stamped (41.0 %; 1,601 forward + 110 reverse), median 18.6 m, max 145.5 m,
+  //   46 MB fetched in 26.9 s, 0 tile errors, 214 buildings REFUSED as PLATEAU's own
+  //   取得不可のため一律値（3m） "could not measure" default, and 35 `.glb` tiles refused BY NAME
+  //   (台東区 ships 3D Tiles 1.1 — heights/jpPlateau.mjs `tileFormatOf`).
+  //   Terrain via --dtm-source mapterhorn (z10 10/909/403 over Tokyo → HTTP 200 image/webp 264,074 B,
+  //   PROBED 2026-09-06; terrain.mjs `japan`, the new `asia` group).
+  //   ⚠ `pending: true` — §PENDING-REGION, the newzealand precedent. This row has NEVER been staged
+  //   and `expect=all` derives its expected set from THIS table, so without the flag the next
+  //   expect=all publish would REFUSE BY NAME. Bake it with region=japan stage=true; the following
+  //   expect=all merges it in. REMOVE THE FLAG once the region is live — a flag left on a live region
+  //   would let a later publish DROP it silently, the exact loss the gate exists to refuse.
+  { name: 'japan',      pbfUrl: 'https://download.geofabrik.de/asia/japan-latest.osm.pbf',                            pbf: resolve(OUT, 'japan-latest.osm.pbf'),                  bbox: '122.9,24.0,153.99,45.6',   clipped: resolve(OUT, 'clip-japan.osm.pbf'), heightJoin: 'plateau_jp', pending: true },
 ];
 
 // §BAKE-OVERTURE — the Overture buildings source. Overture publishes ONE global GeoParquet dataset
@@ -843,7 +1289,7 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'bev_at') return AT_CITY_BBOXES.map((c) => c.bbox);    // §BEV-ALS-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `austria`, five cities
   if (r.heightJoin === 'cuzk_cz') return CZ_CITY_BBOXES.map((c) => c.bbox);   // §CUZK-NDSM-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `czechia`, five cities
   if (r.heightJoin === 'gurs_si') return SI_CITY_BBOXES.map((c) => c.bbox);   // §GURS-KN-OSM-JOIN (HEIGHTS-AT-CZ-SI) — whole `slovenia`, five cities
-  if (r.heightJoin === 'ad_ndsm') return AD_CITY_BBOXES.map((c) => c.bbox);   // §ADSDI-NDSM-OVERTURE-JOIN (ME-ABUDHABI-I3S) — `abudhabi` row, island core only (≈ 55 s per populated cell)
+  if (r.heightJoin === 'ad_ndsm') return AD_CITY_BBOXES.map((c) => c.bbox);   // §ADSDI-NDSM-OVERTURE-JOIN (ME-ABUDHABI-I3S) — `gccstates` row since §ME-NATIONAL, island core only (≈ 55 s per populated cell)
   // §MDS-NATIONAL-SWEEP (L-12946, 2026-09-06) — `spain` retains the WHOLE COUNTRY, not a city list.
   // This row used to read `MDS_CITY_BBOXES.map(...)`, and that WAS the defect the founder hit at
   // Ciudad Real: the nine metros were the only ground in Spain that could ever be measured, and a
@@ -862,7 +1308,9 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'ee_etak') return EE_CITY_BBOXES.map((c) => c.bbox);      // §EE-ETAK-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `estonia`, four cities
   if (r.heightJoin === 'be_dhmv') return BE_CITY_BBOXES.map((c) => c.bbox);      // §BE-DHMV-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `belgium`, five cities
   if (r.heightJoin === 'us_open') return US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name).map((c) => c.bbox); // §US-OPEN-HEIGHTS-OSM-JOIN — the metro's OWN row bbox
+  if (r.heightJoin === 'ca_open') return CA_OPEN_CITY_BBOXES.filter((c) => c.region === r.name).map((c) => c.bbox); // §CA-OPEN-HEIGHTS-OSM-JOIN — the PROVINCE's own city (britishcolumbia→vancouver, ontario→toronto); filtered like us_open because the two jurisdictions sit in DIFFERENT bake rows
   if (r.heightJoin === 'lod2de') return DE_LOD2_CITY_BBOXES.map((c) => c.bbox);   // §DE-LOD2-LAENDER-OSM-JOIN — whole `germany`, one city per WIRED Land
+  if (r.heightJoin === 'plateau_jp') return JP_CITY_BBOXES.map((c) => c.bbox);    // §PLATEAU-JP-OSM-JOIN (JAPAN-FULL) — whole `japan`, ten cities (38 PLATEAU municipalities cover them, MEASURED 2026-09-06)
   return null;
 }
 
@@ -902,7 +1350,8 @@ const NATIONAL_STAMP_TABLE = {
   cuzk_cz: { stamp: stampCzHeightsOnGeojsonseq, bboxes: CZ_CITY_BBOXES },
   // §GURS-KN-OSM-JOIN — whole `slovenia`: GURS KN STAVBE H2 − H3 register heights, keyless WFS (heights/siHeightsStamp.mjs).
   gurs_si: { stamp: stampSiHeightsOnGeojsonseq, bboxes: SI_CITY_BBOXES },
-  // §ADSDI-NDSM-OVERTURE-JOIN — the `abudhabi` row: DGE 50 cm DSM3 − DTM exportImage, keyless, catalogued Open Data
+  // §ADSDI-NDSM-OVERTURE-JOIN — the `gccstates` row (was `abudhabi` until §ME-NATIONAL; the WORKING SET is unchanged —
+  // AD_CITY_BBOXES, Abu Dhabi island): DGE 50 cm DSM3 − DTM exportImage, keyless, catalogued Open Data
   // (heights/abudhabiNdsmStamp.mjs). Photogrammetric, not LiDAR — named in heightSource. The I3S city model is NOT read.
   ad_ndsm: { stamp: stampAdNdsmHeightsOnGeojsonseq, bboxes: AD_CITY_BBOXES },
   // §NDH-NO-OSM-JOIN — whole `norway`: Kartverket NHM DOM − DTM, keyless (heights/noHeightsStamp.mjs).
@@ -924,6 +1373,20 @@ const NATIONAL_STAMP_TABLE = {
   // WFS, and Niedersachsen's S3-listed bucket) behind ONE NRW-shaped stamp; a Land whose index is down is named as BLOCKED for the run while
   // the others still stamp (heights/deLod2LaenderStamp.mjs). Working set DE_LOD2_CITY_BBOXES = wired Länder only.
   lod2de: { stamp: stampDeLod2LaenderHeightsOnGeojsonseq, bboxes: DE_LOD2_CITY_BBOXES },
+  // §PLATEAU-JP-OSM-JOIN — whole `japan`: MLIT Project PLATEAU LoD1 `bldg:measuredHeight` read out of the SERVED
+  // 3D-Tiles b3dm BATCH TABLES by HTTP range GET (28 B header, then the attribute prefix — no glTF, no texture, and
+  // never the 2.11 GB per-ward CityGML zip), joined to bake's OWN OSM footprints by building centroid. Keyless
+  // (PDL 1.0, CC BY 4.0 compatible). Working set JP_CITY_BBOXES = ten cities; 38 PLATEAU municipalities cover them
+  // (MEASURED 2026-09-06: 2,571 b3dm leaf tiles across 37 of them, mean attribute prefix 2.52 MB → ~6.5 GB for the
+  // whole working set, bounded by `maxBytesMB` and read at concurrency 6). ⛔ 台東区 (13106) ships 3D Tiles 1.1
+  // `.glb` and is a NAMED REFUSAL with a count, never a silent skip (heights/jpPlateau.mjs `tileFormatOf`).
+  plateau_jp: { stamp: stampJpPlateauHeightsOnGeojsonseq, bboxes: JP_CITY_BBOXES },
+  // §CA-OPEN-HEIGHTS-OSM-JOIN — the `britishcolumbia` + `ontario` rows: City of Vancouver's 2009 LiDAR
+  // element stack (topelev_m − baseelev_m, Opendatasoft, no row cap) and City of Toronto's DERIVED_HEIGHT
+  // (the city's own ArcGIS, maxRecordCount 2000 — a truncated 200 is counted as an ERROR, never a partial
+  // success), one metre per OSM footprint from the elements it contains (heights/caOpenHeightsStamp.mjs).
+  // stampBboxesFor filters CA_OPEN_CITY_BBOXES to the row's OWN province, exactly as us_open does.
+  ca_open: { stamp: stampCaOpenHeightsOnGeojsonseq, bboxes: CA_OPEN_CITY_BBOXES },
 };
 
 /**
