@@ -69,9 +69,30 @@ describe('§CTX-TREES-RESEAT (L-12918) — canopies are rebuilt on the settled t
         const s = makeStub({ contextTreesPrimitive: null });
         s.rebuildContextTreesForBase();
         expect(s.loadContextTrees).not.toHaveBeenCalled();
-        const t = makeStub({ contextBuildingsAt: null });
+        // Neither site known — genuinely nothing to rebuild.
+        const t = makeStub({ contextBuildingsAt: null, contextTreesAt: null });
         t.rebuildContextTreesForBase();
         expect(t.loadContextTrees).not.toHaveBeenCalled();
+    });
+
+    // §CTX-TREES-RESEAT-SITE (L-12949) — the founder's Madrid start-up, reproduced.
+    it('THE BUG: at start-up the buildings are not fetched yet, and the canopies must STILL be rebuilt', () => {
+        // Real start-up order from the founder's console (2026-09-06, Madrid): the layers warm in
+        // parallel and the trees render seconds BEFORE the terrain attaches; the footprints are fetched
+        // AFTER it ("ground-features re-seat: 2648" then "footprints fetched" on the next line). So
+        // contextBuildingsAt is still null when this runs, and reading it meant the canopies were left
+        // at base 0 — ~700 m under a city at 700 m — until a parcel click re-ran the block.
+        const s = makeStub({ contextBuildingsAt: null, contextTreesAt: { lat: 40.4168, lon: -3.7035 } });
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        s.rebuildContextTreesForBase();
+        expect(s.loadContextTrees).toHaveBeenCalledWith(40.4168, -3.7035, true);
+    });
+
+    it('prefers the site the TREES were loaded for when the two disagree', () => {
+        const s = makeStub({ contextBuildingsAt: { lat: 1, lon: 1 }, contextTreesAt: { lat: 2, lon: 2 } });
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        s.rebuildContextTreesForBase();
+        expect(s.loadContextTrees).toHaveBeenCalledWith(2, 2, true);
     });
 
     it('never throws into the re-seat pass when the reload itself throws', () => {

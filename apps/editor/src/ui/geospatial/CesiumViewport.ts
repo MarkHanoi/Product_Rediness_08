@@ -1596,6 +1596,10 @@ export class CesiumViewport {
   /** The (lat,lon) the context buildings were last loaded for — skip a refetch
    *  when the site hasn't moved (the loader also caches per bbox). */
   private contextBuildingsAt: { lat: number; lon: number } | null = null;
+  /** §CTX-TREES-RESEAT-SITE (L-12949) — the site the CANOPIES were loaded for. The trees warm in
+   *  parallel with the other layers, LONG before the buildings are fetched, so `contextBuildingsAt`
+   *  is still null when the terrain settles and the re-seat runs. See rebuildContextTreesForBase. */
+  private contextTreesAt: { lat: number; lon: number } | null = null;
   /** §PLOT-CLEAR-ENVELOPE (L-402c) — the committed working-plot (parcel) boundary
    *  projected to [lon,lat], captured on the last renderFormaMassing. loadContextBuildings
    *  removes any OSM footprint sitting ON this plot (the building the user is replacing)
@@ -7335,7 +7339,16 @@ export class CesiumViewport {
   private rebuildContextTreesForBase(): void {
     if (!this.viewer) return;
     if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
-    const at = this.contextBuildingsAt;
+    // §CTX-TREES-RESEAT-SITE (L-12949, founder 2026-09-06 at Madrid: "the roads + trees are beneath it
+    // on start up — once I select a parcel everything comes into place"). This read `contextBuildingsAt`,
+    // which is set only when the FOOTPRINTS are fetched. At startup the layers warm in parallel and the
+    // canopies render seconds BEFORE the terrain attaches, while the buildings are fetched AFTER it —
+    // the founder's own log has "ground-features re-seat: 2648" and then "footprints fetched" one line
+    // later, with no trees re-seat between them. So `at` was null, this returned "nothing placed yet",
+    // and the canopies — whose ground is baked into their instance matrices at load time — stayed at
+    // base 0, i.e. ~700 m under Madrid. Selecting a parcel re-ran the block with the buildings present,
+    // which is exactly why the trees snapped into place then. Prefer the site the TREES were loaded for.
+    const at = this.contextTreesAt ?? this.contextBuildingsAt;
     if (!at || !this.contextTreesPrimitive) return;        // nothing placed yet — the initial load will seat.
     try {
       void this.loadContextTrees(at.lat, at.lon, true);
@@ -11009,6 +11022,9 @@ export class CesiumViewport {
     if (!force && this.contextTreesPrimitive && this.contextBuildingsAt &&
         Math.abs(this.contextBuildingsAt.lat - lat) < 1e-6 &&
         Math.abs(this.contextBuildingsAt.lon - lon) < 1e-6) return;
+    // §CTX-TREES-RESEAT-SITE (L-12949) — remember OUR OWN site, so the settled-base rebuild does not
+    // depend on the buildings having been fetched first (at startup they have not been).
+    this.contextTreesAt = { lat, lon };
 
     this.contextTreesAbort?.abort();
     this.contextTreesAbort = new AbortController();
