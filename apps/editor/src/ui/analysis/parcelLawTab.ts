@@ -66,6 +66,11 @@
  *   · it mounts its body ONLY while the Parcel Law tab is the active tab of a
  *     VISIBLE surface, and tears the body down (out of the DOM) on any tab
  *     change or hide — so every claim is made by a host the reader can see;
+ *   · it renders the §PARCEL-LAW-MODEL fact section from the SHARED model (STR §25.11
+ *     clauses 1–3), so the migrated parcel/ordinance/massing/per-storey data is on THIS tab
+ *     even when the singleton card is held by another host — the two-hosts case named below.
+ *     ⛔ It is a second RENDERING of one model, never a second model and never a copied
+ *     renderer (C19 §5.7 clause 1). `parcelLawFacts.ts` carries the reasoning;
  *   · on teardown it hands the card back to the viewport ONLY IF THE CARD IS
  *     STILL INSIDE THIS BODY. If another host (the rail PARCEL panel, the GIS
  *     section) has claimed it since, this tab does not touch it — which is the
@@ -106,6 +111,14 @@ import {
   type ViewSegmentSwitcherHandle,
 } from '../site/viewSegmentSwitcher';
 import { wireDesignStageStrip } from '../site/designStageStripControl';
+// §PARCEL-LAW-MODEL (STR §25.11) — the ONE parcel/ordinance/massing model, and this tab's
+// rendering of it. NOT a second computation and NOT a copied renderer: `GISAreaLayout`'s card
+// renders the SAME model, which is what makes "the rail panel and the tab agree datum for datum"
+// true by construction rather than by review. See `parcelLawFacts.ts`'s header for why the tab
+// needs its own rendering at all — the singleton card can only ever be in ONE host.
+import { resolveParcelLawModel } from '../site/parcel/resolveParcelLawModel';
+import type { ParcelLawModel } from '../site/parcel/parcelLawModel';
+import { buildParcelLawFacts } from './parcelLawFacts';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
@@ -117,6 +130,8 @@ export const PARCEL_LAW_SWITCHER_SLOT_TESTID = 'analysis-parcel-law-switcher';
 export const PARCEL_LAW_PANEL_SLOT_TESTID = 'analysis-parcel-law-panel';
 /** `data-testid` on the one-line note that says what this tab is and is not. */
 export const PARCEL_LAW_NOTE_TESTID = 'analysis-parcel-law-note';
+/** `data-testid` on the slot the shared-model fact section is rendered into. */
+export const PARCEL_LAW_FACTS_SLOT_TESTID = 'analysis-parcel-law-facts-slot';
 /** The `data-testid` the singleton card carries (GISAreaLayout `ensureEnvelopePanel`). */
 export const ENVELOPE_CARD_TESTID = 'buildable-envelope-card';
 /** Carries how many stage pills were wired on the last pass — read by the spec. */
@@ -153,6 +168,19 @@ export interface ParcelLawTabDeps {
   readonly mountSwitcher: (host: GisCapabilityHost) => ViewSegmentSwitcherHandle;
   /** Production: `wireDesignStageStrip`. Returns the number of pills wired. */
   readonly wireStrip: (root: ParentNode) => number;
+  /**
+   * Production: `resolveParcelLawModel` — the ONE reader of the ONE model (§25.11 clause 1).
+   *
+   * ⚠ OPTIONAL, unlike the four above, and deliberately so: a spec written before this seam
+   * existed constructs `ParcelLawTabDeps` as a complete literal, and making these required
+   * would break every such literal in a file another lane owns. Omitting them yields the
+   * production pair, which on a test runtime resolves to the ABSENT model — a state the
+   * renderer handles with a sentence, so an old spec keeps passing and keeps meaning what it
+   * meant.
+   */
+  readonly readParcelLawModel?: (runtime: PryzmRuntime | null | undefined) => ParcelLawModel;
+  /** Production: `buildParcelLawFacts` — a RENDERING of that model, never a second derivation. */
+  readonly renderParcelLawFacts?: (model: ParcelLawModel) => HTMLElement;
 }
 
 /** The production wiring. Resolved when CALLED, so a runtime composed after boot is seen. */
@@ -165,6 +193,8 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     buildParcelPanel: buildParcelRailPanel,
     mountSwitcher: mountViewSegmentSwitcher,
     wireStrip: wireDesignStageStrip,
+    readParcelLawModel: resolveParcelLawModel,
+    renderParcelLawFacts: buildParcelLawFacts,
   };
 }
 
@@ -202,6 +232,25 @@ export function mountParcelLawTab(
 
   const holdsEnvelopeCard = (): boolean =>
     root.querySelector(`[data-testid="${ENVELOPE_CARD_TESTID}"]`) !== null;
+
+  // §PARCEL-LAW-MODEL — its OWN slot, so re-rendering the facts never touches the panel slot
+  // the singleton card lives in. `replaceChildren` is safe HERE and only here: this slot holds
+  // nothing shared (the rule the rail panel states for its envelope slot is about the CARD).
+  const factsSlot = document.createElement('div');
+  factsSlot.className = 'anl-parcel-law-facts';
+  factsSlot.setAttribute('data-testid', PARCEL_LAW_FACTS_SLOT_TESTID);
+
+  /** Re-read the model and re-render the fact section. Cheap, and never throws into the tab. */
+  const renderFacts = (): void => {
+    if (disposed) return;
+    try {
+      const readModel = deps.readParcelLawModel ?? resolveParcelLawModel;
+      const renderModel = deps.renderParcelLawFacts ?? buildParcelLawFacts;
+      factsSlot.replaceChildren(renderModel(readModel(deps.runtime)));
+    } catch (e) {
+      console.warn('[analysis][parcel-law] fact section render failed (non-fatal):', e);
+    }
+  };
 
   /** Wire the strip's pills under this body. Idempotent — `wireDesignStageStrip` assigns `onclick`. */
   const wireStrip = (): void => {
@@ -242,9 +291,21 @@ export function mountParcelLawTab(
     root.appendChild(panelSlot);
     panel = deps.buildParcelPanel(deps.runtime);
     panelSlot.appendChild(panel.element);
-    host.appendChild(root);
 
-    // ── 4. The design-stage strip — after the claim lands (it is scheduled on a microtask). ──
+    // ── 4. §PARCEL-LAW-MODEL (STR §25.11 clauses 2–3) — THE MIGRATED DATA, ON THE TAB. ────
+    //
+    // The card above is a SINGLETON with ONE parent. With the rail PARCEL panel open beside
+    // this tab — the founder's own screenshot — whichever host claimed it last holds it, and
+    // the other shows nothing. This section renders the SAME model the card renders, so the
+    // figures are on this tab whether or not the card is, and they cannot disagree with it.
+    //
+    // ⛔ It is not a copied renderer (C19 §5.7 clause 1 forbids that); it is a second rendering
+    // of ONE model. Every number is derived once, in `buildParcelLawModel`.
+    root.appendChild(factsSlot);
+    host.appendChild(root);
+    renderFacts();
+
+    // ── 5. The design-stage strip — after the claim lands (it is scheduled on a microtask). ──
     queueMicrotask(wireStrip);
     // …and again whenever the site store moves, because the rail panel rebuilds the card's
     // host chrome on the same signal and the card itself re-renders on a determination.
@@ -253,6 +314,10 @@ export function mountParcelLawTab(
       try {
         unsub = store.subscribe(() => {
           if (disposed || !root.isConnected) return;
+          // §PARCEL-LAW-MODEL — the SAME signal the card re-renders on (`dispatchEnvelope` →
+          // `siteUpdateZoning` → the store notifies), so the two never show different vintages
+          // of one parcel. A determination that lands while this tab is open reaches it.
+          renderFacts();
           queueMicrotask(wireStrip);
         });
       } catch (e) {
@@ -280,6 +345,7 @@ export function mountParcelLawTab(
     repaint(): void {
       if (disposed) return;
       try { switcher?.repaint(); } catch { /* a repaint that throws is a repaint we do not have */ }
+      renderFacts();
       wireStrip();
     },
     holdsEnvelopeCard,
