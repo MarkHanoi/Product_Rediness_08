@@ -119,6 +119,29 @@ const MIN_FRACTION = 0.2;
 const MAX_FRACTION = 0.8;
 
 /**
+ * §SEAM-HAIRLINE-WHITE (L-12966, founder 2026-09-06, Córdoba: "the line between 2d and 3d should be
+ * a super thin line white — not this one that we have now").
+ *
+ * WHAT IT WAS: a 6 px track filled with `linear-gradient(180deg,#2a2340,#6600FF)` — the PRYZM brand
+ * purple used as furniture. It competed with the two maps it separates AND with the parcel
+ * highlight, which is the one thing #6600FF is reserved for (§PREVIEW-COLOR-UNIFIED-PURPLE).
+ *
+ * WHAT IT IS: a 1 px WHITE hairline. The visible line is the flex track itself; the DRAG TARGET is a
+ * transparent child that overhangs it by `DIVIDER_HIT_OVERHANG_PX` on each side, so the pointer
+ * still has a 13 px band to grab. Shrinking the track to 1 px WITHOUT that overlay would have made
+ * the seam thin by making the handle unusable — the founder asked for a thinner LINE, not a
+ * harder-to-drag divider.
+ *
+ * `.svp-divider` (SplitViewManager's own body-level divider, styled in `ui/styles/panels/splitView.ts`)
+ * needed no change: it is already `background: transparent`, and `svpPlanPaneMounter` hides it
+ * outright inside this shell — this element is the ONLY seam the founder can be seeing.
+ */
+const DIVIDER_WIDTH_PX = 1;
+const DIVIDER_COLOUR = '#FFFFFF';
+/** Transparent grab margin either side of the hairline (total pointer target = 1 + 2×6 = 13 px). */
+const DIVIDER_HIT_OVERHANG_PX = 6;
+
+/**
  * Build the two-pane site-authoring shell. Returns the pane elements wrapped in a
  * `MultiPaneController` (with `left` + `right` `PaneHost`s) — the caller registers
  * the renderer mounters and applies the founder default layout via the pure model
@@ -160,17 +183,36 @@ export function mountSiteAuthoringPaneShell(
         height: '100%',
     } satisfies Partial<CSSStyleDeclaration>);
 
+    // §SEAM-HAIRLINE-WHITE (L-12966) — see the constants above for the founder quote and the reason
+    // the visible line and the hit area are two elements.
     const divider = document.createElement('div');
     divider.id = 'pryzm-pane-divider';
     divider.setAttribute('data-testid', 'pane-divider');
     Object.assign(divider.style, {
         position: 'relative',
-        flex: '0 0 6px',
+        flex: `0 0 ${DIVIDER_WIDTH_PX}px`,
         cursor: 'col-resize',
-        background: 'linear-gradient(180deg,#2a2340,#6600FF)',
+        background: DIVIDER_COLOUR,
         zIndex: '2',
         userSelect: 'none',
     } satisfies Partial<CSSStyleDeclaration>);
+
+    // The grab band. A CHILD of the divider, so the single `mousedown` listener on `divider` still
+    // receives the press by bubbling — no second listener, no second drag path to keep in sync.
+    // It overhangs both panes by `DIVIDER_HIT_OVERHANG_PX`; the divider's `zIndex: 2` keeps it above
+    // the pane surfaces, and it is fully transparent, so nothing is drawn over either map.
+    const dividerHit = document.createElement('div');
+    dividerHit.setAttribute('data-testid', 'pane-divider-hit');
+    Object.assign(dividerHit.style, {
+        position: 'absolute',
+        top: '0',
+        bottom: '0',
+        left: `-${DIVIDER_HIT_OVERHANG_PX}px`,
+        right: `-${DIVIDER_HIT_OVERHANG_PX}px`,
+        cursor: 'col-resize',
+        background: 'transparent',
+    } satisfies Partial<CSSStyleDeclaration>);
+    divider.appendChild(dividerHit);
 
     const rightPaneEl = document.createElement('div');
     rightPaneEl.id = 'pryzm-pane-right';
