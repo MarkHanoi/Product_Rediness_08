@@ -184,3 +184,184 @@ Stamp **`L662a`** committed (`contextTiles.ts`). ⚠ **NOT YET DEPLOYED** — CI
 `landuse` answered **HTTP 200 the whole time** — with **936,257,447 bytes dated 2026-07-29**, six
 weeks stale, while `rail`/`trees` at least had the decency to 404. The loud failure got noticed
 first; the quiet one was the older and larger lie. **Check `Last-Modified`, never the status code.**
+
+## 8. Publishing the rest — the plan, and the three things that stop it (lane PUBLISH-THE-82, 2026-09-06)
+
+⛔ **THE HEADLINE: the publish chain is BLOCKED at HEAD `607ab09c`, and it was blocked silently.**
+Nothing in the repo said so; `merge-tiles.mjs` says so the moment you run it.
+
+### 8.1 The arithmetic, corrected
+
+The fleet brief and the ledger regeneration both read *"131 bake regions · **49 live** · **82 NOT
+published**"*. That mixes two denominators, and the ledger disagrees with itself — §0 says 49 regions
+in the live buildings tileset, §1 says 40 published. **Measured** (`bake.mjs --regions-json` × the
+live `tileset-manifest.json`):
+
+| set | count |
+|---|---|
+| `ALL_REGIONS` in `bake.mjs` | **131** |
+| regions in the LIVE buildings tileset | **49** |
+| — of those, still a `bake.mjs` row | **40** |
+| — of those, ORPHANS the code no longer has | **9** |
+| `bake.mjs` rows NOT live | **91** |
+| rows carrying `pending: true` | **91** |
+
+`pending` and `not-live` are the **same 91 rows** — the flag is exactly maintained today, which is
+what makes `expect=all` usable at all. `82` is `131 − 49` and counts the 9 orphans as if they were
+code rows. **The number a user feels is 91.**
+
+**How many of the 91 can be published by a MERGE alone: ZERO.** Every one of the 49 staged slugs in
+`tiles-staging/` is a region that is already live (probed 2026-09-06 against the public r2.dev host,
+one `staging-manifest.json` per candidate slug: **49 × HTTP 200, 95 × HTTP 404** across all 131 rows
+plus 13 layer-slug guesses). **All 91 need a bake first.**
+
+### 8.2 ⛔ BLOCKER 1 — the merge refuses every run, and the workflow had no escape
+
+`18bc20c7` (2026-09-06 09:46 UTC) renamed nine rows. `tiles-staging/` is an **accumulator** — each
+bake syncs only its own slug prefix (`context-bake.yml:627`, `--delete` scoped to that prefix) and
+nothing prunes a slug — so the nine old staged sets are **still in the bucket** (probed: HTTP 200).
+`merge-tiles.mjs:622` refuses any staged region that is not a `bake.mjs` row. **Measured, at HEAD,
+against the 49 real staged manifests and the real live manifest:**
+
+```
+node tools/context-bake/merge-tiles.mjs merge --staging <49 real manifests> --expect all \
+  --engine js --live-manifest <real live manifest> --dry-run --no-verify   →  RC=1
+✖ merge: staged region(s) [abudhabi, austin, boston, chicago, dubai, houston, jeddah, riyadh,
+  sanfrancisco] are not in bake.mjs ALL_REGIONS — a renamed/deleted row or a typo.
+  Pass --allow-unknown-regions only if this is deliberate.
+```
+
+The last merge ran **07:58 UTC**, 108 minutes *before* the rename, so nothing had exercised this.
+`context-merge-publish.yml` **exposed no `--allow-unknown-regions` input**, so the refusal was
+unsatisfiable from the UI — the §L-716 shape: *a gate whose "yes" branch cannot be reached.* Fixed
+here by adding the `allow_unknown_regions` input (default `false`).
+
+### 8.3 ⛔ BLOCKER 2 — the no-loss gate was asking the wrong question
+
+`merge-tiles.mjs` tested `carrier(l, r)` — *"does SOME staged set hold this (layer, region)?"*. That
+is a question about the **bucket**, not about the **tileset this run publishes**, and because the
+bucket accumulates, every live region answers *yes* forever. **Measured before the fix:**
+
+```
+… --expect spain --allow-unknown-regions --dry-run    →  RC=0
+▶ no-loss gate: every live region covered for [buildings, roads, water, parks, landuse, rail, trees]
+  · buildings: 1 input(s) → merged/buildings.pmtiles
+```
+
+**One region merged, forty-eight live regions deleted, "every live region covered" printed.** That is
+the exact loss the gate is named after, and it answers the standing question *"can a scoped run
+silently shrink the map?"* — **it could.** The merged output for a layer is exactly
+`expected.filter(r => carrier(l, r))`, so the gate now asks `expectedSet.has(r) && carrier(l, r)`, and
+names the two causes apart (never staged → bake it; staged-but-unexpected → widen `expect=`). After
+the fix the same command exits **1**, and `expect=all` names the nine orphans. Pinned by
+`mergeTiles.spec.ts` *"no-loss gate: refuses a live region that IS staged but is outside the run
+expect= set"*. The pre-existing no-loss test could not catch this: it dropped a region by never
+staging it at all, which is the one case the old predicate did handle.
+
+### 8.4 §3c — the nine orphans are RENAMES, every one. Evidence, not judgement
+
+All nine were removed by ONE commit, `18bc20c7`, and each successor is drawn from the **same
+Geofabrik extract** with a **strictly containing bbox** (checked numerically, old bboxes transcribed
+from the commit's own removed lines):
+
+| orphan (live tiles today) | successor row | same `pbfUrl` | bbox contains | successor state |
+|---|---|---|---|---|
+| `sanfrancisco` | `california` | yes | yes | `pending`, never baked |
+| `chicago` | `illinois` | yes | yes | `pending`, never baked |
+| `austin` · `houston` | `texas` | yes | yes | `pending`, never baked |
+| `boston` | `massachusetts` | yes | yes | `pending`, never baked |
+| `riyadh` · `jeddah` · `dubai` · `abudhabi` | `gccstates` | yes | yes | `pending`, never baked |
+
+Height provenance **improves** across the rename: `chicago`/`austin`/`houston` had no join at all and
+`illinois`/`texas` declare `usas` (**WHOLE-COUNTRY**); `sanfrancisco`/`boston` move `us_open` →
+`usas`; `abudhabi`'s `ad_ndsm` moves onto `gccstates` unchanged. The Gulf rows keep
+`buildingsSource: 'overture'`.
+
+⛔ **So there is no deletion to decide — but the re-point is NOT SATISFIED YET.** Dropping the nine
+before their successors are staged deletes San Francisco, Chicago, Austin, Houston, Boston, Riyadh,
+Jeddah, Dubai and Abu Dhabi from a live map and puts nothing back. **`allow_region_removal` for these
+nine is legitimate in exactly one dispatch: the merge that also carries `california`, `illinois`,
+`texas`, `massachusetts` and `gccstates`.**
+
+⚠ **`newyork` is a tenth, different case, and it is NOT an orphan.** Its row survived but its bbox
+widened from the Manhattan clip (`-74.03,40.70,-73.91,40.82`) to the whole state
+(`-79.77,40.43,-71.66,45.02`) and its join moved `us_open` → `usas`; the live tiles are the OLD narrow
+bake (ledger §3, *JOIN DRIFT*). The merge compares neither bbox nor join, so an `expect=all` run
+**re-publishes the stale narrow set and stamps `heightJoin: "usas"` on it** (the merged manifest reads
+the CURRENT table, gated only on whether the staged set claimed *a* join). **Re-bake `newyork` in the
+same wave, or the manifest lies.** `spain` is the milder version of the same thing — its deciding
+tables changed after its 2026-09-03 bake.
+
+### 8.5 ⛔ BLOCKER 3 — the disk cliff, and why phasing does not solve it
+
+The merge is a **full rebuild of each layer's global archive from every staged region**. Its disk cost
+therefore grows with the **whole tileset**, not with the increment: *a phased publish does not make a
+phase cheaper.* `layer` is already the only escape, and `roads` is already the largest layer.
+
+Measured today (49 staged sets, sizes summed from their real manifests — total **82.11 GiB**, which
+independently reproduces §1's recorded 82.1 GB):
+
+| layer | staged | merged live |
+|---|---|---|
+| roads | 23.68 GiB | 23.49 GiB |
+| buildings | 22.22 GiB | 22.13 GiB |
+| parks · landuse · water | 12.15 · 11.42 · 11.06 GiB | — |
+| rail · trees | 1.20 · 0.40 GiB | — |
+
+The roads publish (`33845044576`) held 23.68 GiB in + 23.49 GiB out, so free space at that step was
+**≥ 47.2 GiB — and that inference is the only bound anyone has.** Nobody has written the actual `df`
+down.
+
+Projected additions for the 91, from **measured** `Content-Length` on every Geofabrik extract
+(24.8 GB of pbf) × a tiles/pbf ratio **calibrated on ten live whole-country rows** (aggregate 2.80,
+median 2.70, band **1.99 – 4.93**; §1's earlier global 2.61 sits inside it):
+
+| phase | regions | pbf | projected tiles @2.8× | roads share |
+|---|---|---|---|---|
+| **A** re-point the orphans — `california illinois texas massachusetts gccstates` | 5 | 2.97 GB | 8.3 GB | ~2.4 GB |
+| **B** large single markets — `japan mexico turkey newzealand israel jordan lebanon` | 7 | 4.41 GB | 12.3 GB | ~3.6 GB |
+| **C** Canada (13 provinces/territories) | 13 | 6.49 GB | 18.2 GB | ~5.2 GB |
+| **D** remaining Europe (17 pending rows) | 17 | 2.01 GB | 5.6 GB | ~1.6 GB |
+| **E** remaining US states/territories | 49 | 8.94 GB | 25.0 GB | ~7.2 GB |
+| **all 91** | 91 | 24.8 GB | **69 GB** (band 50–122) | **~20 GB** |
+
+⚠ The ratio is **modelled, not measured**, and it is biased LOW for huge sparse regions — exactly the
+ones phases C and E are full of (`finland` measures 4.93×; `nunavut`, `alaska` and `northwest
+territories` are the same shape). Phase ordering here is by *unblocking live coverage first*, then by
+pbf weight as a measured proxy for mapped built environment; **this repo holds no population table**,
+so no phase order below is claimed to be population-optimal.
+
+**Roads ends at ~44 GiB staged, needing ~88 GiB on one runner.** Against a proven-fitting 23.68 GiB
+that is not a phasing problem, it is a ceiling problem. **Phase A alone takes roads to ~26 GiB, which
+is already outside anything this repo has proven fits.**
+
+### 8.6 The ordered dispatch list — and the first item is a MEASUREMENT
+
+⭐ **Do not dispatch a publish until the headroom is a reading.** `context-merge-publish.yml`'s
+disk-guard step now prints the surplus and `df -h / /mnt`, so one cheap run answers it.
+
+1. **`context-merge-publish.yml` · `layer=trees` · `expect=all` · `publish=false` ·
+   `allow_unknown_regions=true`** — ~10 min, 0.4 GiB downloaded, changes nothing on R2. **Read three
+   lines from the log:** the surplus, `/`'s free space, and whether **`/mnt`** exists and how big it
+   is (GitHub-hosted Ubuntu carries a second volume there; moving staging + merged output onto it is
+   the cheap ceiling raise, and it must be measured before it is coded). This run will also **refuse
+   by name** at the no-loss gate, listing the nine orphans — that refusal is the fix working.
+2. **Bake phase A** — 5 dispatches of `context-bake.yml` (`stage=true`, `publish=false`, `region=` one
+   name each; concurrency is per-region so they run concurrently): `california` · `texas` ·
+   `illinois` · `massachusetts` · `gccstates`. Largest extract 1.33 GB (`california`); the
+   330-minute ceiling is not in danger for any of them. **Plus a 6th, `newyork`** (§8.4), so the state
+   bbox and the `usas` join reach the tiles the manifest describes.
+3. **Only if step 1 showed the headroom** — merge + publish phase A, **one dispatch per layer**, in
+   the 2026-09-04 order (buildings → roads → parks → water → landuse → rail → trees), each with
+   `expect=all`, `engine=tile-join`, `publish=true`, `allow_unknown_regions=true`, and
+   `allow_region_removal=sanfrancisco,chicago,austin,houston,boston,riyadh,jeddah,dubai,abudhabi`.
+   ⛔ **That removal list is only safe in a run that carries the five phase-A successors** — it is the
+   re-point completing, not a deletion. Watch each run to a terminal conclusion (§2, serial queue).
+4. **Verify per §3 from the public host** (`Last-Modified` = today · `Range: bytes=0-127` → **206** ·
+   PMTiles magic), then run `tools/context-height-probe/probe.mjs` at a **re-pointed** site —
+   Chicago `41.8781,-87.6298` and Riyadh `24.7136,46.6753` are the two that prove the rename landed
+   rather than removed coverage.
+5. **Stamp once** after the last layer (§4), then deploy through `deploy-fly.yml` (§5).
+6. **Phases B → E are NOT dispatchable today.** They are gated on the ceiling raise, not on baking.
+   Bake them by all means — a staged set costs only runner time and is the input the merge will need —
+   but do not queue a publish for them until §8.5's arithmetic has an answer.

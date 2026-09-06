@@ -665,6 +665,21 @@ function cmdMerge() {
   // merged layer. A layer's own `regions` record (written by this merge since §SEA-BAKE-POLYGONS) is
   // the precise protected set; older manifests without it fall back to the tileset-wide region list.
   // An optional layer the live manifest does not list has nothing to lose yet (its first publish).
+  //
+  // ⛔ §NO-LOSS-IS-ABOUT-THE-OUTPUT (lane PUBLISH-THE-82, 2026-09-06) — this gate used to ask
+  // `carrier(l, r)`: "does SOME staged set hold (layer, region)?". That is a question about the
+  // STAGING BUCKET, not about the tileset this run is going to publish, and the two diverge the
+  // moment `expected` is narrower than what is staged — which is every scoped run and, since the
+  // §PENDING-REGION flag, `expect=all` as well. `tiles-staging/` is an ACCUMULATOR (each bake syncs
+  // its own slug with --delete; nothing ever prunes a slug), so a region that was EVER staged keeps
+  // answering `carrier` yes forever, and the gate answered "every live region covered" while the
+  // merge dropped it. MEASURED at HEAD 607ab09c against the real 49 staged manifests + the real live
+  // manifest: `--expect spain` merged ONE region, printed "no-loss gate: every live region covered",
+  // and would have deleted 48 live regions from the map — the exact loss the gate is named after.
+  //
+  // The merged output for layer `l` is EXACTLY `expected.filter((r) => carrier(l, r))` (see `setsFor`
+  // below), so "region r survives" is `expectedSet.has(r) && carrier(l, r)` and nothing else. The
+  // gate now asks that. It cannot be satisfied by a stale staging prefix.
   const liveManifestPath = opt('--live-manifest');
   let liveManifest = null;
   if (liveManifestPath && existsSync(liveManifestPath)) {
@@ -672,6 +687,7 @@ function cmdMerge() {
     liveManifest = live;
     const liveRegions = Object.keys(live.regions ?? {});
     const allowRemoval = new Set(csv(opt('--allow-region-removal')));
+    const expectedSet = new Set(expected);
     const lost = [];
     for (const l of mergeLayers) {
       const liveLayer = live.layers?.[l];
@@ -679,12 +695,24 @@ function cmdMerge() {
       if (Array.isArray(liveLayer?.regions)) protectedRegions = liveLayer.regions;
       else if (optionalLayers.has(l)) protectedRegions = liveLayer ? liveRegions : [];
       else protectedRegions = liveRegions;
-      for (const r of protectedRegions) if (!carrier(l, r) && !allowRemoval.has(r)) lost.push({ layer: l, region: r });
+      // survives ⇔ the region is in THIS run's expected set AND some staged set carries it for `l`.
+      for (const r of protectedRegions) {
+        const survives = expectedSet.has(r) && Boolean(carrier(l, r));
+        if (!survives && !allowRemoval.has(r)) lost.push({ layer: l, region: r, staged: Boolean(carrier(l, r)) });
+      }
     }
     if (lost.length > 0) {
       const byLayer = new Map();
       for (const x of lost) { if (!byLayer.has(x.layer)) byLayer.set(x.layer, []); byLayer.get(x.layer).push(x.region); }
       for (const [l, rs] of byLayer) console.error(`✖ REGION LOSS — the LIVE tileset's '${l}' layer contains [${rs.join(', ')}] but the merged set does not.`);
+      // Name the two CAUSES apart: "never staged" needs a bake, "staged but not expected" needs the
+      // expect= set widened. Same refusal, different fix — and the second one is invisible without this.
+      const stagedButUnexpected = [...new Set(lost.filter((x) => x.staged).map((x) => x.region))];
+      if (stagedButUnexpected.length > 0) {
+        console.error(`  ⚠ ${stagedButUnexpected.length} of these ARE staged and would still be lost — they are outside this run's`);
+        console.error(`    expect= set: [${stagedButUnexpected.join(', ')}]. Widen --expect (or drop the pending flag on the`);
+        console.error('    bake.mjs row) rather than re-baking them.');
+      }
       console.error('  Publishing would remove them from the map. Stage them, or name each in --allow-region-removal');
       console.error('  to remove them DELIBERATELY.');
       process.exit(1);

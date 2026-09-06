@@ -83,6 +83,10 @@ on:
         description: 'Comma-separated regions the no-loss gate may DELIBERATELY drop from the live tileset. Leave blank normally.'
         type: string
         default: ''
+      allow_unknown_regions:
+        description: '§ORPHAN-STAGED-SET (lane PUBLISH-THE-82, 2026-09-06) — tolerate staged sets whose region is no longer a bake.mjs row. tiles-staging/ is an ACCUMULATOR (each bake syncs only its own slug; nothing prunes one), so RENAMING a row leaves its old staged set behind and the merge then refuses EVERY run by name — measured at HEAD 607ab09c: the nine rows 18bc20c7 renamed (sanfrancisco/chicago/austin/houston/boston → the state rows, riyadh/jeddah/dubai/abudhabi → gccstates) still had staged sets on R2, so `merge` exited 1 before it could merge anything and the publish chain was UNRUNNABLE from this workflow, which had no escape. This is that escape. It does NOT open a silent-loss path: the no-loss gate is scoped to what this run actually merges (§NO-LOSS-IS-ABOUT-THE-OUTPUT), so every orphan is STILL named and STILL needs allow_region_removal.'
+        type: boolean
+        default: false
 
 concurrency:
   group: context-bake
@@ -179,6 +183,18 @@ jobs:
           echo "staged inputs on disk : $(gb "$IN_BYTES") GB"
           echo "free space for output : $(gb "$AVAIL_BYTES") GB"
           echo "merge holds inputs AND output simultaneously — it needs ~1× the inputs free."
+          # §MERGE-HEADROOM-IS-A-NUMBER-NOBODY-HAS-WRITTEN-DOWN (lane PUBLISH-THE-82, 2026-09-06).
+          # The merge is a FULL REBUILD of each layer's global archive from EVERY staged region, so
+          # its disk cost grows with the whole tileset and not with the increment — a phased publish
+          # does not make a phase cheaper. `layer` is already the escape and roads is already the
+          # largest layer, so "how much room is left" decides whether the next region can ship AT ALL.
+          # Nobody can answer it from the repo: the only measured lower bound is inferred from the
+          # roads publish (33845044576) surviving 23.68 GiB in + 23.49 GiB out ⇒ ≥47.2 GiB free at
+          # step start. These three lines turn that inference into a READING, and they print the one
+          # candidate escape (the runner's second volume) rather than assuming it exists.
+          echo "── headroom, stated so the next run does not have to guess ──"
+          echo "  layer staged $(gb "$IN_BYTES") GB · post-download free $(gb "$AVAIL_BYTES") GB · surplus $(gb "$(( AVAIL_BYTES - IN_BYTES ))") GB"
+          df -h / /mnt 2>/dev/null || df -h /
           if [ "$AVAIL_BYTES" -lt "$IN_BYTES" ]; then
             echo "::error::MERGE CANNOT FIT — $(gb "$IN_BYTES") GB of staged inputs but only $(gb "$AVAIL_BYTES") GB free."
             echo "::error::tile-join writes a merged archive of roughly the input size, so this WILL exhaust the disk."
@@ -243,6 +259,7 @@ jobs:
           LAYER: ${{ inputs.layer }}
           ENGINE: ${{ inputs.engine }}
           ALLOW_REMOVAL: ${{ inputs.allow_region_removal }}
+          ALLOW_UNKNOWN: ${{ inputs.allow_unknown_regions }}
         run: |
           set -euo pipefail
           ARGS=(merge
@@ -252,6 +269,10 @@ jobs:
             --engine "${ENGINE:-tile-join}")
           if [ -n "${LAYER// /}" ];        then ARGS+=(--layer "${LAYER// /}"); fi
           if [ -n "${ALLOW_REMOVAL// /}" ]; then ARGS+=(--allow-region-removal "${ALLOW_REMOVAL// /}"); fi
+          # §ORPHAN-STAGED-SET — see the input's description. Without this the merge cannot run at all
+          # while a renamed row's staged set is still in the bucket, and it is still the no-loss gate,
+          # not this flag, that decides whether any of them may actually leave the map.
+          if [ "${ALLOW_UNKNOWN}" = "true" ];  then ARGS+=(--allow-unknown-regions); fi
           if [ -f tools/context-bake/out/live-tileset-manifest.json ]; then
             ARGS+=(--live-manifest tools/context-bake/out/live-tileset-manifest.json)
           fi

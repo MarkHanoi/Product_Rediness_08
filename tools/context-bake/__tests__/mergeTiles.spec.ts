@@ -317,6 +317,42 @@ describe('merge-tiles.mjs merge — the refusal arms', () => {
         expect(allowed.stdout).toContain('deliberate removals: denmark');
     });
 
+    // ⛔ §NO-LOSS-IS-ABOUT-THE-OUTPUT (lane PUBLISH-THE-82, 2026-09-06) — THE HOLE THE TEST ABOVE
+    // LEFT OPEN, and it is the one the real bucket walks into. That test drops `denmark` by never
+    // staging it at all; the gate then fires because `carrier('buildings','denmark')` is falsy. But
+    // `tiles-staging/` is an ACCUMULATOR — each bake syncs only its OWN slug prefix and nothing
+    // prunes a slug — so in production every live region HAS a staged set, `carrier` is truthy for
+    // all of them forever, and the gate could not fire no matter how narrow the merge was.
+    //
+    // MEASURED at HEAD 607ab09c, before the fix, against the 49 REAL staged manifests fetched from
+    // R2 (HTTP 200 each) plus the REAL live tileset-manifest.json: `--expect spain` exited 0, printed
+    // "no-loss gate: every live region covered", and merged ONE region — a publish that would have
+    // deleted 48 live regions while reporting success. This is that run, in miniature.
+    it('no-loss gate: refuses a live region that IS staged but is outside the run expect= set', () => {
+        const staging = join(DIR, 'nolossscope', 'staging');
+        stageSet(staging, 'luxembourg', ['luxembourg'], 'buildings', LU_TILES);
+        stageSet(staging, 'estonia', ['estonia'], 'buildings', EE_TILES); // staged, and stays staged forever
+        const live = join(DIR, 'nolossscope', 'live-tileset-manifest.json');
+        writeFileSync(live, JSON.stringify({
+            schema: 'pryzm-context-tileset-manifest@1',
+            regions: { luxembourg: { stagedSet: 'luxembourg' }, estonia: { stagedSet: 'estonia' } },
+        }));
+        const refused = cli(['merge', '--staging', staging, '--out', join(DIR, 'nolossscope', 'merged'),
+            '--expect', 'luxembourg', '--layer', 'buildings', '--engine', 'js', '--live-manifest', live]);
+        expect(refused.status).toBe(1);
+        expect(refused.stderr).toContain('REGION LOSS');
+        expect(refused.stderr).toContain('estonia');
+        // …and it must say WHICH fix applies: widen expect=, not re-bake something already staged.
+        expect(refused.stderr).toContain('ARE staged and would still be lost');
+
+        // The deliberate path is unchanged: name the removal and it proceeds.
+        const allowed = cli(['merge', '--staging', staging, '--out', join(DIR, 'nolossscope', 'merged'),
+            '--expect', 'luxembourg', '--layer', 'buildings', '--engine', 'js', '--live-manifest', live,
+            '--allow-region-removal', 'estonia']);
+        expect(allowed.status).toBe(0);
+        expect(allowed.stdout).toContain('deliberate removals: estonia');
+    });
+
     // §MANIFEST-LAYER-CARRY-FORWARD (lane CONTEXT-R2, 2026-09-04). The workflow header PRESCRIBES
     // a per-layer dispatch as the disk-budget escape, and the R2 publish is a sync WITHOUT --delete.
     // So a `--layer roads` run leaves buildings.pmtiles live and served; a manifest listing only
