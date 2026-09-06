@@ -60,6 +60,16 @@
 import { PMTiles, type Source, type RangeResponse } from 'pmtiles';
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
+import {
+    BakedReadError,
+    classifyBakedReadError,
+    errorMessage,
+    RETRYABLE_BAKED_READ_KINDS,
+    withBakedReadRetry,
+    DEFAULT_BAKED_READ_ATTEMPTS,
+    DEFAULT_BAKED_READ_DELAYS_MS,
+    type BakedReadFailureKind,
+} from './bakedReadRetry';
 
 /** A lon/lat bounding box `[west, south, east, north]` — same shape as `contextBuildings.Bbox`. */
 export type TileBbox = readonly [number, number, number, number];
@@ -68,7 +78,7 @@ export type TileBbox = readonly [number, number, number, number];
  *  §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — `sea`: closed sea POLYGONS from the osmdata
  *  water-polygons product (bake.mjs LAYERS `sea`, OPTIONAL — a landlocked region has no tiles). Read
  *  by contextWater.ts INSTEAD of walking the water layer's tile-fragmented `natural=coastline` lines. */
-export type ContextTileLayer = 'buildings' | 'roads' | 'water' | 'parks' | 'landuse' | 'rail' | 'trees' | 'sea';
+export type ContextTileLayer = 'buildings' | 'roads' | 'water' | 'parks' | 'landuse' | 'rail' | 'trees' | 'sea' | 'furniture' | 'canopy';
 
 /** One decoded tile feature: GeoJSON-ish rings in lon/lat plus the OSM tags that rode along. */
 export interface ContextTileFeature {
@@ -96,7 +106,13 @@ export type ContextTileResult =
      * read; a caller that caches this result for the session must only do so when it is 0, or a
      * transient network blip becomes a permanent "partial city" for the whole session.
      */
-    | { readonly status: 'ok'; readonly features: ContextTileFeature[]; readonly tilesRead: number; readonly tilesFailed: number; readonly ms: number }
+    | {
+        readonly status: 'ok'; readonly features: ContextTileFeature[]; readonly tilesRead: number; readonly tilesFailed: number;
+        /** Wall time the CALLER waited — §CTX-READ-RETRY back-off included when `attempts > 1`. */
+        readonly ms: number;
+        /** §CTX-READ-RETRY (L-12937) — how many baked-read attempts this answer cost. Absent/1 = first try. */
+        readonly attempts?: number;
+    }
     /** No tiles URL is configured (local dev / not yet rolled out) — the caller should use Overpass. */
     | { readonly status: 'disabled' }
     /**
@@ -114,7 +130,20 @@ export type ContextTileResult =
      */
     | { readonly status: 'aborted' }
     /** Tiles ARE configured but could not be read (network / 404 / corrupt / out of bounds). */
-    | { readonly status: 'unavailable'; readonly reason: string };
+    | {
+        readonly status: 'unavailable'; readonly reason: string;
+        /**
+         * §CTX-READ-RETRY (L-12937) — `true` when the failure was a network / 5xx / 429 / decode
+         * error that a retry could plausibly clear; `false` (or absent) for 403/404 = not
+         * published, zoom/cap refusals, and unsupported archives. Decides whether
+         * `readContextTileFeatures` retries before the caller's Overpass fallback runs.
+         */
+        readonly transient?: boolean;
+        /** The dominant classified failure kind, when known. */
+        readonly kind?: BakedReadFailureKind;
+        /** How many attempts were made before this answer (absent = a single, non-retried read). */
+        readonly attempts?: number;
+    };
 
 /**
  * Zoom to read each layer at — the bake's `maxz`, where geometry is least simplified. Clamped at
@@ -129,7 +158,10 @@ const LAYER_ZOOM: Record<ContextTileLayer, number> = {
     landuse: 16,
     rail: 16,
     trees: 16,
+    furniture: 16,  // §STREET-LIFE (L-12936) — baked z15–16; read at the finest.
     sea: 14, // §SEA-BAKE-POLYGONS — baked z8–z14 (the sea is read over 0.10°, ≤ 64 tiles; z16 would only multiply empty ocean tiles).
+    // §VEG-REAL-CANOPY-BAKE (L-12935) — baked z13–16; z16 is where the ~12 m sampled cells are unsimplified.
+    canopy: 16,
 };
 
 /**
@@ -144,7 +176,9 @@ const LAYER_DEFINING_TAGS: Record<ContextTileLayer, readonly string[]> = {
     landuse: ['landuse'],
     rail: ['railway'],
     trees: ['natural'], // trees.pmtiles is baked from `natural=tree` NODES only — no collision with parks.
+    furniture: ['highway', 'amenity'],  // §STREET-LIFE (L-12936) — street_lamp/bus_stop ride `highway`, bench/bicycle_parking ride `amenity`.
     sea: ['sea'], // §SEA-BAKE-POLYGONS — every baked sea polygon carries `sea=1` (+ `source=osmdata-water-polygons`).
+    canopy: ['canopy'],  // §VEG-REAL-CANOPY-BAKE — every sampled cell carries `canopy=1` (+ `cover`, `src`, `sampled`).
 };
 
 /** Whether the layer's payload is areal (polygons) or linear (ways). */
@@ -156,7 +190,9 @@ const LAYER_IS_AREAL: Record<ContextTileLayer, boolean> = {
     landuse: true,
     rail: false, // linestring track ways — like roads.
     trees: false,
+    furniture: false,
     sea: true,
+    canopy: false,  // §VEG-REAL-CANOPY-BAKE — POINTS, not areas (see LAYER_IS_POINT).
 };
 
 /**
@@ -172,7 +208,9 @@ const LAYER_KEEPS_HOLES: Record<ContextTileLayer, boolean> = {
     landuse: false,
     rail: false,
     trees: false,
+    furniture: false,
     sea: true,
+    canopy: false,  // §VEG-REAL-CANOPY-BAKE — a point has no holes.
 };
 
 /**
@@ -192,7 +230,9 @@ const LAYER_IS_POINT: Record<ContextTileLayer, boolean> = {
     landuse: false,
     rail: false,
     trees: true,
+    furniture: true,  // §STREET-LIFE (L-12936) — the SECOND point layer: `highway=street_lamp` etc. NODES.
     sea: false,
+    canopy: true,   // §VEG-REAL-CANOPY-BAKE — the THIRD point layer: one sampled cell per ~12 m of measured canopy.
 };
 
 /**
@@ -414,7 +454,7 @@ export function contextTilesOrigin(): string | null {
 // re-read through the BROWSER'S OWN decoder at Barcelona 41.3874,2.1686 with
 // `tools/context-height-probe/probe.mjs --json`: verdict **measured**, 6,332 footprints, 6,065
 // measured-LiDAR (assumed fraction 0.005), **25 of 25 covering tiles read, 0 failed, 0 absent**.
-export const CONTEXT_TILESET_VERSION = 'L662a';
+export const CONTEXT_TILESET_VERSION = 'L663a';
 
 /**
  * The full URL of one layer's PMTiles archive, cache-bust stamp included.
@@ -852,8 +892,10 @@ const archives = new Map<string, PMTiles>();
  */
 const missingArchives = new Map<string, string>();
 
-/** Does this header-read failure prove the ARCHIVE OBJECT is absent (vs a transient failure)? */
-function isArchiveMissingError(message: string): boolean {
+/** TRUE when a reader `unavailable.reason` proves the ARCHIVE is absent (403/404 on its header), as
+ *  opposed to any other failure. Exported so a layer whose absence is an honest EMPTY (§STREET-LIFE:
+ *  `furniture` not yet baked) can tell "not baked" from "read failed" without re-parsing HTTP. */
+export function isArchiveMissingError(message: string): boolean {
     return /Bad response code: 40[34]\b/.test(message);
 }
 
@@ -870,6 +912,28 @@ function archiveFor(layer: ContextTileLayer): PMTiles | null {
         archives.set(url, a);
     }
     return a;
+}
+
+/**
+ * §CTX-READ-RETRY-EVICT (L-12937) — drop the cached `PMTiles` instance for `layer`, so the NEXT
+ * attempt re-reads the header and the directories over the network.
+ *
+ * ⚠ THIS IS NOT AN OPTIMISATION — IT IS WHAT MAKES THE RETRY REAL, AND WITHOUT IT THE RETRY WOULD
+ * BE INCAPABLE OF SUCCEEDING WHILE LOOKING LIKE IT RAN. `pmtiles`' `SharedPromiseCache` stores the
+ * in-flight header/directory PROMISE in its cache BEFORE the promise settles and never deletes a
+ * REJECTED one (pmtiles@4.4.1 `src/index.ts:773-790` `getHeader`, `:809-820` `getDirectory` — the
+ * `.catch(e => reject(e))` leaves the entry in place). A second `getHeader()` on the same instance
+ * therefore `await`s the SAME rejected promise and fails identically with no HTTP request at all.
+ * A fresh `PMTiles` gets a fresh `SharedPromiseCache` (`:887-891`), which is why this evicts the
+ * INSTANCE rather than trying to reach into the library's cache.
+ *
+ * ⚠ The §CTX-TILE-DECODE-CACHE is deliberately NOT cleared. It is keyed by (version, layer, z, x,
+ * y) and holds only tiles that DID decode, so keeping it is what makes the retry cheap: the second
+ * attempt re-reads exactly the tiles that failed and nothing else.
+ */
+function dropArchive(layer: ContextTileLayer): void {
+    const url = contextTilesetUrl(layer);
+    if (url) archives.delete(url);
 }
 
 /**
@@ -898,8 +962,23 @@ function archiveFor(layer: ContextTileLayer): PMTiles | null {
  * because an empty tile is a real answer.
  */
 const tileCache = new Map<string, ContextTileFeature[]>();
+
+/**
+ * §CTX-READ-RETRY (L-12937) — how ONE tile failed to read. Carried instead of a bare `null` so the
+ * aggregate can (a) say WHY in its reason — the founder's console used to read "all 25 tile
+ * read(s) failed" with no cause — and (b) decide whether a retry could clear it.
+ */
+interface TileReadFailure {
+    readonly failed: true;
+    readonly kind: BakedReadFailureKind;
+    readonly message: string;
+}
+function isTileReadFailure(v: ContextTileFeature[] | TileReadFailure): v is TileReadFailure {
+    return !Array.isArray(v);
+}
+
 /** Concurrent readers of the SAME tile share ONE range request instead of racing duplicates. */
-const tileInFlight = new Map<string, Promise<ContextTileFeature[] | null>>();
+const tileInFlight = new Map<string, Promise<ContextTileFeature[] | TileReadFailure>>();
 
 /**
  * Bound on the decoded-tile cache. A cache is only a cache if it is BOUNDED (§L-273 learned this
@@ -1085,13 +1164,167 @@ export function tileReadVerdict(
 }
 
 /**
- * Read every feature of `layer` covering `bbox` from the baked PMTiles.
+ * §CTX-READ-RETRY (L-12937) — the aggregate verdict on ONE attempt's tile failures: the dominant
+ * kind, an example message, and whether a retry could plausibly clear it. PURE + testable.
+ *
+ * ⚠ A RETRYABLE KIND WINS EVEN WHEN IT IS NOT THE MOST FREQUENT, and that asymmetry is deliberate.
+ * The two alternatives are not symmetric in cost: a retry re-reads only the tiles that failed
+ * (every tile that decoded is in the §CTX-TILE-DECODE-CACHE) against static CDN bytes, while the
+ * other branch is live Overpass — the third party L-513 proved cannot be made dependable, and
+ * whose failure mode is a 45-second hang or a 429. Trying the cheap reliable source once more
+ * before consulting the expensive unreliable one is the whole change.
+ */
+export function summariseTileFailures(
+    failures: ReadonlyArray<{ readonly kind: BakedReadFailureKind; readonly message: string }>,
+): { kind: BakedReadFailureKind; transient: boolean; message: string } {
+    if (failures.length === 0) return { kind: 'unknown', transient: false, message: '' };
+    const counts = new Map<BakedReadFailureKind, number>();
+    for (const f of failures) counts.set(f.kind, (counts.get(f.kind) ?? 0) + 1);
+    let best = failures[0]!.kind;
+    let bestScore = -1;
+    for (const [kind, n] of counts) {
+        const score = (RETRYABLE_BAKED_READ_KINDS.has(kind) ? 1_000_000 : 0) + n;
+        if (score > bestScore) { bestScore = score; best = kind; }
+    }
+    return {
+        kind: best,
+        transient: RETRYABLE_BAKED_READ_KINDS.has(best),
+        message: failures.find((f) => f.kind === best)?.message ?? '',
+    };
+}
+
+/**
+ * Read every feature of `layer` covering `bbox` from the baked PMTiles, RETRYING a transient
+ * failure before the caller's Overpass fallback is allowed to run.
  *
  * NEVER throws. Individual tile failures are tolerated (a missing tile at the edge of the baked
- * region is normal); the result is only `unavailable` when NO tile could be read at all, which is
- * the only case that genuinely warrants falling back to Overpass.
+ * region is normal); the result is only `unavailable` when the read genuinely failed
+ * (§CTX-TILE-READ-HONESTY), and by then it has been attempted `DEFAULT_BAKED_READ_ATTEMPTS` times.
+ *
+ * §CTX-READ-RETRY (L-12937) — THE DEFECT THIS CLOSES (founder, 2026-09-05: "I NEED CONSISTENCY"):
+ *   • Jouy-en-Josas — the console carried `§CTX-PMTILES-READER` lines for landuse/parks/rail/trees/
+ *     water and NO `roads` line, then `§OVERPASS-CLIENT-FAILOVER — ALL upstream mirrors failed
+ *     (429/timeout)`; the founder saw no roads at all.
+ *   • Amsterdam, the same day — landuse/parks/rail/tree tile reads failed while a bake was
+ *     PUBLISHING to R2, i.e. the reads were racing the upload (503 / rate-limit).
+ * In both, ONE transient baked-read failure fell STRAIGHT THROUGH to live Overpass, so a layer was
+ * missing on one load and present on the next. The baked tiles are static bytes on a CDN: reading
+ * them again 400 ms later is overwhelmingly likely to work, and costs one coalesced range request
+ * per FAILED tile. So the fallback now runs only once the retries are exhausted, and when it does,
+ * the console says the layer FAILED — never letting a failure read as "nothing is mapped here"
+ * (§CONTEXT-DATA-HONESTY, C57 §1.5/§1.9, C58 §1.2).
+ *
+ * ⚠ WHAT IS **NOT** RETRIED, because these are ANSWERS and not failures:
+ *   • `ok` with zero features — an honest EMPTY. Re-asking for a second opinion on "nothing is
+ *     mapped here" is the L-467/L-469 conflation wearing a retry's clothes.
+ *   • `aborted` — the caller cancelled (§L-579); a newer request is already in flight.
+ *   • `disabled` — no tiles URL configured.
+ *   • a 403/404 archive, a zoom below the tileset floor, a bbox over the tile cap — structural
+ *     refusals that a second identical request cannot change.
+ *
+ * ⚠ ONE READER, SO ONE POLICY. The §CTX-WARM-ALL-LAYERS warm path and the `CesiumViewport` render
+ * path both reach the baked tiles ONLY through this function (`fetchContext{Roads,Water,Parks,
+ * Landuse,Rail,Trees}` all call it), so they share the retry by construction rather than by two
+ * copies of a policy that would drift. A warm read and a render read of the same tile also still
+ * share ONE range request via `tileInFlight`, and each attempt re-forms that sharing.
  */
 export async function readContextTileFeatures(
+    layer: ContextTileLayer,
+    bbox: TileBbox,
+    signal?: AbortSignal,
+): Promise<ContextTileResult> {
+    const t0 = Date.now();
+    let used = 1;
+    let answer: ContextTileResult;
+    try {
+        answer = await withBakedReadRetry(
+            async (attempt) => {
+                used = attempt;
+                const r = await readContextTilesOnce(layer, bbox, signal);
+                // The ONLY retryable outcome. `withBakedReadRetry` never retries a returned VALUE,
+                // so an honest empty, an abort and a structural refusal all return here at once.
+                if (r.status === 'unavailable' && r.transient) {
+                    throw new BakedReadError(r.reason, r.kind ?? 'unknown');
+                }
+                return r;
+            },
+            {
+                attempts: DEFAULT_BAKED_READ_ATTEMPTS,
+                delaysMs: DEFAULT_BAKED_READ_DELAYS_MS,
+                signal,
+                onRetry: ({ attempt, attempts, delayMs, error }) => {
+                    // §CTX-READ-RETRY-EVICT — MUST come before the next attempt, or pmtiles replays
+                    // its cached rejected header/directory promise and the retry cannot succeed.
+                    dropArchive(layer);
+                    console.warn(
+                        `[gis] §CTX-READ-RETRY (L-12937) layer=${layer} attempt ${attempt + 1}/${attempts} ` +
+                        `in ${delayMs} ms after ${errorMessage(error)}`,
+                    );
+                },
+            },
+        );
+    } catch (e) {
+        // The retry loop rethrows the LAST error. An abort during a back-off is the caller
+        // cancelling, not a broken tileset (§L-579).
+        if (signal?.aborted) return { status: 'aborted' };
+        const c = classifyBakedReadError(e);
+        answer = {
+            status: 'unavailable',
+            reason: c.message,
+            transient: RETRYABLE_BAKED_READ_KINDS.has(c.kind),
+            kind: c.kind,
+            attempts: used,
+        };
+    }
+
+    if (answer.status === 'ok') {
+        // §CTX-TILE-READ-HONESTY — a PARTIAL read is a real answer (it renders most of the city)
+        // but it is also the shape that makes a layer look different on two consecutive loads, so
+        // it is named in the console instead of hiding behind a `tilesRead` count that omits it.
+        if (answer.tilesFailed > 0) {
+            console.warn(
+                `[gis] §CTX-READ-RETRY (L-12937) layer=${layer} PARTIAL: ${answer.tilesFailed} of ` +
+                `${answer.tilesRead + answer.tilesFailed} covering tile(s) failed to read; the ` +
+                `${answer.tilesRead} that read held ${answer.features.length} feature(s) and are ` +
+                'rendered. This is an INCOMPLETE answer, not an empty one — do not session-cache it.',
+            );
+        }
+        return used > 1 ? { ...answer, ms: Date.now() - t0, attempts: used } : answer;
+    }
+    if (answer.status === 'aborted') {
+        // §CTX-READ-RETRY (L-12937) — SAY SO. This branch returned nothing and printed NOTHING, and
+        // that silence is half of the Jouy-en-Josas symptom: the console carried a
+        // `§CTX-PMTILES-READER` line for every layer EXCEPT roads, so the one layer the founder
+        // could not see was also the one the log could not explain. An abort is not a failure
+        // (§L-579) — a newer request is already in flight and will paint — but a read that yields
+        // no features must never leave the console unable to tell which of the two happened.
+        console.log(
+            `[gis] §CTX-READ-RETRY (L-12937) layer=${layer} ABORTED after ${Date.now() - t0} ms ` +
+            '— the caller cancelled (view/location change); a newer read paints this layer. ' +
+            'NOT a failure, NOT an empty: no Overpass call is warranted.',
+        );
+        return answer;
+    }
+    if (answer.status !== 'unavailable') return answer;
+
+    const final: ContextTileResult = { ...answer, attempts: used };
+    if (used > 1) {
+        console.error(
+            `[gis] §CTX-READ-RETRY (L-12937) layer=${layer} FAILED after ${used}/${DEFAULT_BAKED_READ_ATTEMPTS} ` +
+            `baked-read attempt(s) over ${Date.now() - t0} ms — ${answer.reason}. ⚠ FAILED IS NOT EMPTY: ` +
+            'nothing here says this layer is unmapped. The caller\'s live-Overpass fallback runs next and ' +
+            'is a DEGRADED path; whatever it returns must never be presented as the baked answer.',
+        );
+    }
+    return final;
+}
+
+/**
+ * ONE baked read attempt — the whole pre-§CTX-READ-RETRY body, unchanged except that every
+ * `unavailable` now carries `kind` + `transient` so the wrapper above can tell a hiccup from a
+ * structural refusal. Never throws.
+ */
+async function readContextTilesOnce(
     layer: ContextTileLayer,
     bbox: TileBbox,
     signal?: AbortSignal,
@@ -1105,7 +1338,15 @@ export async function readContextTileFeatures(
     if (archiveUrl) {
         const knownMissing = missingArchives.get(archiveUrl);
         if (knownMissing !== undefined) {
-            return { status: 'unavailable', reason: `${knownMissing} (known missing this session — not re-fetched)` };
+            // §CTX-KNOWN-MISSING is a 403/404: the OBJECT is not published under this stamp, so it
+            // is NOT transient and must not be retried (a re-bake ships a new tileset version,
+            // i.e. a new URL). `transient: false` is what stops the retry loop here.
+            return {
+                status: 'unavailable',
+                reason: `${knownMissing} (known missing this session — not re-fetched)`,
+                transient: false,
+                kind: 'http-4xx',
+            };
         }
     }
 
@@ -1121,15 +1362,22 @@ export async function readContextTileFeatures(
         z = Math.min(z, header.maxZoom);
         minZoom = header.minZoom;
         if (z < header.minZoom) {
-            return { status: 'unavailable', reason: `zoom ${z} below tileset minZoom ${header.minZoom}` };
+            // A structural refusal — the archive does not carry this zoom. Retrying is pointless.
+            return {
+                status: 'unavailable',
+                reason: `zoom ${z} below tileset minZoom ${header.minZoom}`,
+                transient: false,
+                kind: 'unknown',
+            };
         }
     } catch (e) {
         // An abort during the header read is the caller cancelling, not a broken tileset.
         if ((e as Error)?.name === 'AbortError' || signal?.aborted) return { status: 'aborted' };
-        const reason = `header read failed: ${(e as Error)?.message ?? e}`;
+        const classified = classifyBakedReadError(e);
+        const reason = `header read failed: ${classified.message}`;
         // §CTX-KNOWN-MISSING — a 403/404 on the archive header proves the OBJECT is absent for
         // this tileset version; memoise so the rest of the session answers without a network trip.
-        if (archiveUrl && isArchiveMissingError(String((e as Error)?.message ?? e))) {
+        if (archiveUrl && isArchiveMissingError(classified.message)) {
             missingArchives.set(archiveUrl, reason);
             console.warn(
                 `[contextTiles] §CTX-KNOWN-MISSING ${layer}: archive header read 403/404 ` +
@@ -1137,7 +1385,14 @@ export async function readContextTileFeatures(
                 'layer short-circuit to the same honest `unavailable` with no network round-trips.',
             );
         }
-        return { status: 'unavailable', reason };
+        // §CTX-READ-RETRY — a 5xx / network / decode failure on the HEADER is exactly the Amsterdam
+        // shape (a read racing an R2 publish) and is worth another attempt; a 403/404 is not.
+        return {
+            status: 'unavailable',
+            reason,
+            transient: RETRYABLE_BAKED_READ_KINDS.has(classified.kind),
+            kind: classified.kind,
+        };
     }
     if (signal?.aborted) return { status: 'aborted' };
 
@@ -1176,6 +1431,10 @@ export async function readContextTileFeatures(
         return {
             status: 'unavailable',
             reason: `bbox needs ${tiles.length} tiles even at the tileset's minimum z${z}, over the ${MAX_TILES_PER_FETCH} cap`,
+            // A cap refusal is arithmetic, not weather: the same bbox needs the same tiles next
+            // time. Retrying it would burn the back-off and change nothing.
+            transient: false,
+            kind: 'unknown',
         };
     }
 
@@ -1183,14 +1442,14 @@ export async function readContextTileFeatures(
     if (signal?.aborted) return { status: 'aborted' };
 
     const features: ContextTileFeature[] = [];
+    const failures: TileReadFailure[] = [];
     let read = 0;
-    let failed = 0;
     // §FORMA-CTX-TREES — a POINT layer carries one-vertex features; every other layer needs a real
     // ring/strand (≥3 vertices). `ringIntersectsBbox` handles a single point (degenerate box).
     const minVerts = LAYER_IS_POINT[layer] ? 1 : 3;
 
     for (const tileFeatures of perTile) {
-        if (tileFeatures === null) { failed++; continue; }
+        if (isTileReadFailure(tileFeatures)) { failures.push(tileFeatures); continue; }
         read++;
         // §CTX-TILE-DECODE-CACHE — the bbox crop happens HERE, per read, never in the cache. Two
         // bboxes sharing a tile legitimately want different subsets of it.
@@ -1206,17 +1465,33 @@ export async function readContextTileFeatures(
     }
 
     // §CTX-TILE-READ-HONESTY (L-778) — the aggregate verdict is a pure, tested rule.
+    const failed = failures.length;
     const verdict = tileReadVerdict(read, failed, features.length);
-    if (verdict.status === 'unavailable') return verdict;
+    if (verdict.status === 'unavailable') {
+        // §CTX-READ-RETRY — say WHY, and hand the wrapper the retry decision. The founder's console
+        // used to read `all 25 tile read(s) failed` with no cause at all.
+        const summary = summariseTileFailures(failures);
+        return {
+            status: 'unavailable',
+            reason: summary.message ? `${verdict.reason} — ${summary.kind}: ${summary.message}` : verdict.reason,
+            transient: summary.transient,
+            kind: summary.kind,
+        };
+    }
     return { status: 'ok', features, tilesRead: read, tilesFailed: failed, ms: Date.now() - t0 };
 }
 
 /**
  * §CTX-TILE-DECODE-CACHE — one tile's features, from cache if we already have them.
  *
- * Returns `null` for a tile that could NOT be read or decoded, and `[]` for one that genuinely
- * holds nothing — the same distinction the module-level result type draws, at tile granularity.
- * A `null` is never cached (see the cache note); a `[]` is.
+ * Returns a `TileReadFailure` for a tile that could NOT be read or decoded, and `[]` for one that
+ * genuinely holds nothing — the same distinction the module-level result type draws, at tile
+ * granularity. A failure is never cached (see the cache note); a `[]` is.
+ *
+ * §CTX-READ-RETRY (L-12937) — the failure carries its CLASSIFIED kind rather than a bare `null`,
+ * because the aggregate has to answer two different questions with it: what to tell the user
+ * (the console said only "all 25 tile read(s) failed", never why) and whether a second baked read
+ * could plausibly clear it — a 503 during an R2 publish can, a 404 cannot.
  */
 async function loadTile(
     archive: PMTiles,
@@ -1225,7 +1500,7 @@ async function loadTile(
     x: number,
     y: number,
     signal?: AbortSignal,
-): Promise<ContextTileFeature[] | null> {
+): Promise<ContextTileFeature[] | TileReadFailure> {
     const key = tileCacheKey(layer, z, x, y);
     const cached = tileCache.get(key);
     if (cached) return cached;
@@ -1235,20 +1510,26 @@ async function loadTile(
     // download that other callers are awaiting. Callers still honour their own signal after the await.
     if (pending) return pending;
 
-    const shared = (async (): Promise<ContextTileFeature[] | null> => {
+    const shared = (async (): Promise<ContextTileFeature[] | TileReadFailure> => {
         let data: ArrayBuffer | null;
         try {
             const r = await archive.getZxy(z, x, y, signal);
             data = r?.data ?? null;
-        } catch {
-            return null;
+        } catch (e) {
+            // §CTX-READ-RETRY — classify instead of swallowing: a transport failure and a decode
+            // failure retry, a 403/404 does not, an abort never does.
+            const c = classifyBakedReadError(e);
+            return { failed: true, kind: c.kind, message: c.message };
         }
         if (!data) return []; // a genuinely empty tile — sea, park, outside the built area.
         let vtLayer;
         try {
             vtLayer = new VectorTile(new PbfReader(new Uint8Array(data))).layers[layer];
-        } catch {
-            return null; // corrupt bytes are a FAILURE, not an empty tile.
+        } catch (e) {
+            // Corrupt bytes are a FAILURE, not an empty tile — and a retryable one: a half-written
+            // object (a read racing an R2 publish, Amsterdam 2026-09-05) decodes as garbage once
+            // and cleanly a second later.
+            return { failed: true, kind: 'decode', message: `tile decode failed: ${errorMessage(e)}` };
         }
         if (!vtLayer) return [];
         const out: ContextTileFeature[] = [];
@@ -1280,7 +1561,7 @@ async function loadTile(
         }
         return out;
     })().then((res) => {
-        if (res !== null) rememberTile(key, res);
+        if (!isTileReadFailure(res)) rememberTile(key, res);
         return res;
     }).finally(() => { tileInFlight.delete(key); });
 
