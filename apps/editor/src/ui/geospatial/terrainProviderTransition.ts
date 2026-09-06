@@ -124,6 +124,14 @@ export function describeTerrainTransition(t: TerrainTransition, lat: number, lon
         case 'keep-attached':
             return `[CesiumViewport][terrain] skip: '${t.city}' already attached and serves ${where}.`;
         case 'detach':
+            // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the world-framing detach has a DIFFERENT
+            // reason and must not borrow L-12913's sentence. The tileset's bounds DO cover the site;
+            // it is the CAMERA that left. Saying "bounds do not cover this site" here would be a
+            // false statement in a log, which is the class of defect §TERRAIN-RELOCATION-DETACH was
+            // itself created to remove (C84 EI-6).
+            if (t.reason === 'world-framing') {
+                return `[CesiumViewport][terrain] §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) the camera is framed on the WHOLE EARTH while '${t.stale ?? 'an untracked'}' city tileset is attached. Its bounds cover the site perfectly well — but a bounded quantized-mesh provider declares availability ONLY inside them, so at world range Cesium draws one or two level-0 roots and nothing else (the beige shard). Detaching → flat ellipsoid + global imagery; the city tileset re-attaches when the camera returns to the site.`;
+            }
             return `[CesiumViewport][terrain] §TERRAIN-RELOCATION-DETACH (L-12913) ${t.reason} at ${where} while '${t.stale ?? 'an untracked'}' tileset is attached — its layer.json bounds do not cover this site, and a bounded provider renders NO tiles outside them (the white ground). Detaching → flat ellipsoid.`;
         case 'attach':
             return `[CesiumViewport][terrain] evaluate ${where} → city=${t.city}`

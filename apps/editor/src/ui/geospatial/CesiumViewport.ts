@@ -203,6 +203,14 @@ import {
   type TerrainAttachOutcome, type TerrainProviderState,
 } from "./terrainProviderTransition";
 import { terrainTilesetCoversSite } from './terrainTilesetCoverage';
+// §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the pure table of every SHARED-VIEWER write that
+// differs between the two framings of the ONE viewer (§L-412 / C60 §6.5). Read its header before
+// touching any `scene.globe.*` / imagery / sky assignment in this file: the whole point is that the
+// enumeration lives in ONE place, so a new site-view write cannot silently leak onto the globe.
+import {
+  cesiumSurfaceKind, cesiumSurfaceWrites, describeCesiumSurface,
+  type CesiumSurfaceWrites, type CesiumViewFraming,
+} from "./cesiumSurfaceFraming";
 // §GROUND-DRAPE-ON-RELIEF (L-12924) — the pure seat decision for every C12 §12 ground-context
 // layer: each feature on ITS OWN sampled ground + the §12.4 ladder, split when its extent spans
 // more relief than the ladder can hide; the flat / keyless path byte-identical to before.
@@ -1187,6 +1195,20 @@ export class CesiumViewport {
   // ---- FORMA.2 — Forma "massing study" render mode state ----
   /** True when the Forma render mode is currently active. */
   private formaMode = false;
+  /**
+   * §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — WHERE the ONE Cesium camera is framed, as a piece
+   * of declared state rather than something inferred from the camera's altitude.
+   *
+   * ⭐ WHY IT IS DECLARED AND NOT MEASURED. `viewer.camera.positionCartographic.height` is a
+   * CONSEQUENCE of a flight that is still in progress; reading it would make the surface flicker
+   * through the flight and would answer differently mid-`flyTo` than at rest. The user pressed
+   * `3D Globe`; that intent is the fact, and `setViewFraming` records it BEFORE the flight starts.
+   *
+   * Starts `'world'`: at mount, before any site is chosen, the viewer IS the onboarding globe
+   * (§STARTUP-GLOBE-COMPLETE-FIRST) — imagery + photoreal, no city terrain. `setFormaMode(true)`
+   * moves it to `'site'`, because activating the massing study for a site IS framing on that site.
+   */
+  private viewFraming: CesiumViewFraming = 'world';
   /** The default scene light, captured the first time we enter Forma mode so
    *  toggling back to photoreal restores it exactly. */
   private originalLight: Cesium.Light | null = null;
@@ -3696,6 +3718,17 @@ export class CesiumViewport {
     }
     if (on === this.formaMode) return;
     this.formaMode = on;
+    // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — ENTERING the Forma massing study IS framing on
+    // the site: it is what `activation:site:start` does on ordinary project startup, arriving from
+    // the onboarding globe where `viewFraming` still reads 'world'. Without this the first site
+    // activation would keep the world framing and render the site as a global Earth (imagery +
+    // photoreal, no Forma ground, no city terrain) — the defect's mirror image.
+    //
+    // ⛔ LEAVING Forma does NOT move the framing back. `restorePhotorealMode` is the photoreal
+    // RESULT view, which frames on the BUILDING, not on the world; and a user who pressed
+    // `3D Globe` has stated an intent that a background mode change must not silently overturn
+    // (STR §26.1.1 — the user decides which view renders in each pane).
+    if (on) this.viewFraming = 'site';
     if (on) {
       this.applyFormaMode();
     } else {
@@ -3707,6 +3740,170 @@ export class CesiumViewport {
   /** @returns whether the Forma render mode is currently active. */
   public isFormaMode(): boolean {
     return this.formaMode;
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the framing, and the surface that follows it
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+
+  /** @returns where the ONE Cesium camera is currently framed (`'site'` or `'world'`). */
+  public getViewFraming(): CesiumViewFraming {
+    return this.viewFraming;
+  }
+
+  /**
+   * §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — declare WHERE the ONE viewer is framed, and move
+   * the whole shared surface with it.
+   *
+   * ⭐ THIS IS THE FIX, AND IT IS ONE MECHANISM FOR ONE CLASS. §L-412 and C60 §6.5 are unchanged:
+   * `3D Site` and `3D Globe` are the SAME viewer at different camera altitudes, and minting a
+   * second viewer is still forbidden (two terrain streams, two tile caches and two GPU contexts
+   * beside a live WebGPU BIM renderer — STR §26.1.1, the founder's own ruling). What was missing is
+   * that the SURFACE was per-VIEWER while the framing was per-VIEW: `frameGlobe()` moved the camera
+   * and nothing else, so the globe wore Córdoba's bounded terrain, no imagery, no photoreal and no
+   * sky — the beige shard on white the founder photographed.
+   *
+   * Call this BEFORE the flight, not after: the surface must be right for the frame the user is
+   * flying into, and the intent (a pressed button) is knowable before the camera has moved.
+   *
+   * ⛔ IT DOES NOT TEAR DOWN THE SITE. The Forma massing, the context buildings, the envelope and
+   * the parcel boundary all stay in `viewer.entities` — at world range they are sub-pixel, and
+   * disposing them would make the return trip a full re-activation (the ~5 s the founder already
+   * measured on `activation:site:start`) as well as risking the L-12992 blank pane. Only the
+   * SURFACE swaps, and it swaps back.
+   *
+   * @param framing `'world'` for the `3D Globe` row, `'site'` for `3D Site` (viewPanelOptions.ts).
+   */
+  public setViewFraming(framing: CesiumViewFraming): void {
+    const changed = framing !== this.viewFraming;
+    this.viewFraming = framing;
+    if (!this.viewer) return;                        // a pre-mount call still records the intent.
+    // ORDER MATTERS. The terrain pass runs FIRST because `detachBakedTerrain()` ends by setting
+    // `globe.enableLighting = false` (§TERRAIN-NORMALS: flat ellipsoid ground has no relief to
+    // shade). On the way OUT to the globe that would leave the Earth flat-lit, so the surface pass
+    // must come after it and have the last word. Its switch runs synchronously — the promise is
+    // only for the `layer.json` fetch on the ATTACH arm — so the ordering holds without an await.
+    const at = this.contextBuildingsAt ?? this.formaMassingOrigin;
+    if (at) void this.maybeAttachTerrainProvider(at.lat, at.lon);
+    else if (framing === 'world' && this.groundReliefAttached()) this.detachBakedTerrain();
+    this.applyCesiumSurface();
+    if (changed) {
+      // §GLOBE-RENDER-PROBE (L-639) — a bounded tileset leaves a quadtree built for its own
+      // availability. Force a full re-tessellation so the surface we just swapped to is actually
+      // re-requested rather than re-using the tile tree of the surface we left.
+      try {
+        const surf = (this.viewer.scene.globe as unknown as { _surface?: { invalidateAllTiles?: () => void } })._surface;
+        surf?.invalidateAllTiles?.();
+      } catch { /* best-effort */ }
+    }
+    this.viewer.scene.requestRender();
+  }
+
+  /**
+   * §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — apply the ONE surface table to the ONE viewer.
+   *
+   * ⛔ THIS IS THE ONLY PLACE IN THIS FILE THAT MAY WRITE THESE FIELDS. Every field it touches is
+   * enumerated in `cesiumSurfaceFraming.ts`; adding a site-view write anywhere else re-creates the
+   * exact leak this replaced, one field at a time. If a new surface write is needed, add it to the
+   * TABLE and let this method execute it.
+   *
+   * ⚠ `globe.enableLighting` is the one field with a legitimate SECOND writer: the terrain
+   * attach/detach path (§TERRAIN-NORMALS, L-636) raises it when baked relief with per-vertex
+   * normals is attached, because a flat-lit slope paints the near-white baseColor and reads as the
+   * founder's "white mask". This method sets the surface's BASE value; the terrain pass, which runs
+   * before it on a framing change and after it on an attach, owns the relief case. Both are
+   * recorded here so neither looks like an accident.
+   *
+   * Never throws — one failing GPU feature must not blank the viewport (the defensive shape every
+   * other block in this file uses).
+   */
+  private applyCesiumSurface(): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const scene = viewer.scene;
+    const globe = scene.globe;
+    const kind = cesiumSurfaceKind({ formaMode: this.formaMode, framing: this.viewFraming });
+    const w: CesiumSurfaceWrites = cesiumSurfaceWrites(kind, {
+      formaGroundCss: FORMA_PALETTE.ground,
+      globeLoadingCss: GLOBE_LOADING_COLOUR,
+    });
+
+    try {
+      for (let i = 0; i < viewer.imageryLayers.length; i++) {
+        viewer.imageryLayers.get(i).show = w.imageryLayersShown;
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][surface] imagery config failed:', e);
+    }
+
+    let tilesetShown = false;
+    try {
+      const prims = scene.primitives;
+      for (let i = 0; i < prims.length; i++) {
+        const p = prims.get(i);
+        if (p instanceof Cesium.Cesium3DTileset) {
+          p.show = w.tilesetsShown;
+          if (w.tilesetsShown) tilesetShown = true;
+        }
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][surface] tileset show config failed:', e);
+    }
+
+    try {
+      globe.show = w.globeShown === 'always' ? true : !tilesetShown;
+      globe.baseColor = Cesium.Color.fromCssColorString(w.globeBaseColourCss);
+      globe.enableLighting = w.globeEnableLighting;
+      globe.dynamicAtmosphereLighting = w.globeDynamicAtmosphereLighting;
+      globe.showGroundAtmosphere = w.globeShowGroundAtmosphere;
+      globe.translucency.enabled = w.globeTranslucency;
+      // §CTX-DEPTH-CULL-FIX (founder 2026-07-27) — HELD OFF ON BOTH SURFACES, which is why it is
+      // not a table row. In Forma, `depthTestAgainstTerrain = true` culled any extruded context
+      // building (and the ENVELOPE) whose base sat below the terrain mesh — the Madrid/Zürich
+      // failure where ~650 m of baked ground buried the base-0 footprints. On the photoreal path
+      // the previous code also held it false. One value, both surfaces, no decision to make.
+      globe.depthTestAgainstTerrain = false;
+    } catch (e) {
+      console.warn('[CesiumViewport][surface] globe config failed:', e);
+    }
+
+    try {
+      // SkyBox.show is missing from the class in cesium's generated .d.ts (emitted as a stray
+      // module-level `var show`); access via a safe cast — NOT `any` (P4), a named structural shape.
+      if (scene.skyBox) (scene.skyBox as unknown as { show: boolean }).show = w.skyShown;
+      if (scene.skyAtmosphere) scene.skyAtmosphere.show = w.skyShown;
+      if (scene.sun) scene.sun.show = w.skyShown;
+      if (scene.moon) scene.moon.show = w.skyShown;
+
+      if (w.fog === 'forma-soft') {
+        // §FORMA-SCENE-QUALITY (ADR-0089) — SOFT GROUND-AO / DEPTH GRADIENT via fog. Cesium's SSAO
+        // post-process is the fragile path (it crashes on some GPUs, see §FORMA-AO-OPT-IN); fog is
+        // the robust, GPU-agnostic way to get the reference's "gentle gradient toward the horizon"
+        // so far massing melts into the ground plane instead of meeting a hard line.
+        scene.fog.enabled = true;
+        scene.fog.density = FORMA_QUALITY.fogDensity;
+        const fogAny = scene.fog as unknown as { minimumBrightness?: number; color?: Cesium.Color };
+        if ('minimumBrightness' in fogAny) fogAny.minimumBrightness = FORMA_QUALITY.fogMinBrightness;
+        if ('color' in fogAny) fogAny.color = Cesium.Color.fromCssColorString(FORMA_QUALITY.fogColor);
+      } else {
+        scene.fog.enabled = false;
+      }
+
+      // §FORMA-SCENE-QUALITY — the soft VERTICAL SKY GRADIENT backdrop. Cesium's WebGL canvas
+      // clears to `backgroundColor` (a single flat colour), so a true gradient sky is painted as a
+      // CSS background on the container and revealed through the (alpha) canvas: the clear colour
+      // therefore goes TRANSPARENT while `FORMA_PALETTE.background` stays the no-alpha fallback.
+      // ⛔ ON THE GLOBE THAT TRANSPARENT CLEAR IS THE WHITE THE SHARD FLOATED ON — an Earth needs an
+      // opaque brand-safe clear (§GLOBE-FIRST-FRAME-COLOUR), never the page showing through.
+      scene.backgroundColor = w.backgroundColourCss === null
+        ? Cesium.Color.TRANSPARENT
+        : Cesium.Color.fromCssColorString(w.backgroundColourCss);
+      this.applyFormaSkyBackdrop(w.formaSkyBackdrop);
+    } catch (e) {
+      console.warn('[CesiumViewport][surface] sky/background config failed:', e);
+    }
+
+    console.log(describeCesiumSurface(this.viewFraming, this.formaMode, kind));
   }
 
   /**
@@ -3812,35 +4009,21 @@ export class CesiumViewport {
     const viewer = this.viewer;
     if (!viewer) return;
     const scene = viewer.scene;
-    const globe = scene.globe;
+    // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — no `globe` local here any more, and that is the
+    // point rather than tidying: every `scene.globe.*` write this method used to make is now made
+    // by `applyCesiumSurface()` against the ONE table. A future edit that needs one back should add
+    // a row to `cesiumSurfaceFraming.ts`, not re-open a handle to the shared globe from in here.
 
-    // --- Imagery / tiles: hide satellite + show a FLAT warm-grey ground (§2). ---
-    // We keep the imagery layers in place but turn them OFF so toggling back is
-    // exact; the globe itself stays shown with a single flat base colour so the
-    // massing reads as seated on uniform ground (roads/water are the 2D map's job).
-    try {
-      for (let i = 0; i < viewer.imageryLayers.length; i++) {
-        viewer.imageryLayers.get(i).show = false;
-      }
-      globe.show = true;
-      globe.baseColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.ground);
-      globe.showGroundAtmosphere = false;
-      globe.enableLighting = false; // Forma ground is flat-lit, not sun-shaded (§2).
-      globe.translucency.enabled = false;
-      // §CTX-DEPTH-CULL-FIX (founder 2026-07-27) — HOLD THE TERRAIN DEPTH TEST OFF IN FORMA.
-      // With baked relief now draped in Forma (L-631), `depthTestAgainstTerrain = true` culled
-      // any extruded context building (and the envelope) whose base sat BELOW the terrain mesh —
-      // exactly the Madrid/Zürich failure (~650 m baked ground buried the base-0 footprints, so
-      // roads drape-rendered flat but buildings vanished). Barcelona's low relief never tripped it.
-      // Turning the depth test OFF renders context + massing on top of the visible terrain in ALL
-      // cities; the only cosmetic cost is a footprint may visually intersect a steep slope — vastly
-      // better than vanishing, and it matches how low-relief Barcelona already looks. The flat/
-      // terrain-OFF path is unaffected (no relief to test against). §SITEFRAME reseat (deferred) is
-      // the eventual per-footprint in-place seat that would let the depth test return safely.
-      globe.depthTestAgainstTerrain = false;
-    } catch (e) {
-      console.warn('[CesiumViewport][forma] ground/imagery config failed:', e);
-    }
+    // --- Imagery / tiles / sky: the SURFACE, and it is no longer decided here. ---
+    // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — this block used to hide the imagery, show the
+    // globe, paint the flat Forma ground and hide the sky INLINE, and `restorePhotorealMode` held
+    // the mirror-image copy. Two hand-written copies of one table is how the globe came to inherit
+    // the site's surface: the FRAMING moved (`frameGlobe()` flew the camera to world altitude) while
+    // none of these writes did, so the founder's `3D Globe` pane rendered Córdoba's bounded terrain,
+    // with no imagery and no sky, as the whole planet — one beige triangular shard on white.
+    // Both copies are now `applyCesiumSurface()`, which reads the ONE pure table and therefore
+    // paints the Forma ground ONLY when the camera is actually framed on the site.
+    this.applyCesiumSurface();
 
     // §A.21.D43(a) — RESET the base height to the FLAT Forma ground (0).
     // `formaTerrainBaseHeight` is a persistent instance field that the PHOTOREAL
@@ -3882,55 +4065,13 @@ export class CesiumViewport {
     this.formaInitialReframeFired = false;
     this.formaOffscreenRescueUsed = false;
     this.formaUserMovedCamera = false;
-    // --- Hide the photogrammetry / 3D tilesets while in Forma mode (§2). ---
-    try {
-      const prims = scene.primitives;
-      for (let i = 0; i < prims.length; i++) {
-        const p = prims.get(i);
-        if (p instanceof Cesium.Cesium3DTileset) {
-          p.show = false;
-        }
-      }
-    } catch (e) {
-      console.warn('[CesiumViewport][forma] tileset hide failed:', e);
-    }
-
-    // --- Sky / background: soft neutral gradient backdrop (§2 + §FORMA-SCENE-QUALITY). ---
-    try {
-      // SkyBox.show is missing from the class in cesium's generated .d.ts
-      // (emitted as a stray module-level `var show`); access via a safe cast.
-      if (scene.skyBox) (scene.skyBox as unknown as { show: boolean }).show = false;
-      if (scene.skyAtmosphere) scene.skyAtmosphere.show = false;
-      if (scene.sun) scene.sun.show = false;
-      if (scene.moon) scene.moon.show = false;
-
-      // §FORMA-SCENE-QUALITY (ADR-0089) — SOFT GROUND-AO / DEPTH GRADIENT via fog.
-      // Cesium's SSAO post-process is the fragile path (it crashes on some GPUs,
-      // see §FORMA-AO-OPT-IN); fog is the robust, GPU-agnostic way to get the
-      // reference's "gentle gradient toward the horizon" so far massing melts into
-      // the ground plane instead of meeting a hard line. Very light density, high
-      // minimum brightness, and a neutral tint matched to the sky horizon so it
-      // reads as atmospheric depth, never as haze or black.
-      scene.fog.enabled = true;
-      scene.fog.density = FORMA_QUALITY.fogDensity;
-      const fogAny = scene.fog as unknown as { minimumBrightness?: number; color?: Cesium.Color };
-      if ('minimumBrightness' in fogAny) fogAny.minimumBrightness = FORMA_QUALITY.fogMinBrightness;
-      if ('color' in fogAny) fogAny.color = Cesium.Color.fromCssColorString(FORMA_QUALITY.fogColor);
-
-      // §FORMA-SCENE-QUALITY — the soft VERTICAL SKY GRADIENT backdrop. Cesium's
-      // WebGL canvas clears to `backgroundColor` (a single flat colour), so a true
-      // gradient sky is painted as a CSS background on the container and revealed
-      // through the (alpha) canvas. We therefore set the scene clear colour to
-      // TRANSPARENT so the gradient shows; the flat FORMA_PALETTE.background stays
-      // as the no-alpha fallback (a GPU/context without alpha clears opaque to it,
-      // still a clean neutral, never black). Robust on BOTH backends: Cesium is
-      // WebGL regardless of the BIM editor's WebGPU renderer, and a transparent
-      // clear is a core GL feature.
-      scene.backgroundColor = Cesium.Color.TRANSPARENT;
-      this.applyFormaSkyBackdrop(true);
-    } catch (e) {
-      console.warn('[CesiumViewport][forma] sky/background config failed:', e);
-    }
+    // --- Photoreal tilesets, sky and background: ALSO the SURFACE (see the note above). ---
+    // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the tileset-hide loop and the whole sky/fog/
+    // background block moved into `applyCesiumSurface()`, already called at the head of this method.
+    // They are the same class as the imagery write: writes onto state the globe framing shares, and
+    // each of them was individually visible in the founder's shard (no photoreal Earth, no sky, a
+    // transparent clear showing the white page). Leaving even one of them here would re-open the
+    // defect for that one field.
 
     // --- Lighting: REAL sun direction from NOAA solar position (FORMA.5, §6). ---
     // The directional light direction is solved from the site lat/lon + the
@@ -4206,7 +4347,8 @@ export class CesiumViewport {
     const viewer = this.viewer;
     if (!viewer) return;
     const scene = viewer.scene;
-    const globe = scene.globe;
+    // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the mirror of the note in `applyFormaMode`: the
+    // globe/imagery/sky restore is `applyCesiumSurface()`'s, so this method holds no globe handle.
 
     // FORMA.6 — leaving the Forma flat-ground study: drop the study real model so it
     // never lingers over the photoreal globe (the globe has its OWN realModelOnGlobe
@@ -4229,49 +4371,13 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][forma] leaving-Forma overlay clear failed:', e);
     }
 
-    try {
-      // Re-show imagery; hide globe again only if a tileset is present + shown.
-      for (let i = 0; i < viewer.imageryLayers.length; i++) {
-        viewer.imageryLayers.get(i).show = true;
-      }
-      let tilesetShown = false;
-      const prims = scene.primitives;
-      for (let i = 0; i < prims.length; i++) {
-        const p = prims.get(i);
-        if (p instanceof Cesium.Cesium3DTileset) {
-          p.show = true;
-          tilesetShown = true;
-        }
-      }
-      globe.show = !tilesetShown;
-      // §GLOBE-FIRST-FRAME-COLOUR — brand-safe base instead of pure black so a
-      // photoreal restore before tiles re-stream doesn't flash black.
-      globe.baseColor = Cesium.Color.fromCssColorString(GLOBE_LOADING_COLOUR);
-      // Restore the photoreal scene-quality settings (mirror mount :209-217).
-      globe.enableLighting = true;
-      globe.dynamicAtmosphereLighting = true;
-      globe.showGroundAtmosphere = true;
-      globe.depthTestAgainstTerrain = false;
-    } catch (e) {
-      console.warn('[CesiumViewport][forma] restore ground/imagery failed:', e);
-    }
-
-    try {
-      if (scene.skyBox) (scene.skyBox as unknown as { show: boolean }).show = true;
-      if (scene.skyAtmosphere) scene.skyAtmosphere.show = true;
-      if (scene.sun) scene.sun.show = true;
-      if (scene.moon) scene.moon.show = true;
-      // §FORMA-SCENE-QUALITY (ADR-0089) — leaving Forma: turn the soft ground-AO
-      // fog back OFF (the photoreal/globe path runs without it here) and remove the
-      // CSS sky-gradient backdrop so the photoreal canvas paints over an opaque
-      // clear colour again (not a transparent-revealed gradient).
-      scene.fog.enabled = false;
-      this.applyFormaSkyBackdrop(false);
-      // §GLOBE-FIRST-FRAME-COLOUR — brand-safe OPAQUE background, not pure black.
-      scene.backgroundColor = Cesium.Color.fromCssColorString(GLOBE_LOADING_COLOUR);
-    } catch (e) {
-      console.warn('[CesiumViewport][forma] restore sky failed:', e);
-    }
+    // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the imagery / tileset / globe / sky / fog /
+    // background restore that lived here is the MIRROR of the block `applyFormaMode` held, and the
+    // pair of hand-written copies is precisely what let the globe framing inherit the site surface.
+    // Both are now this ONE call, reading the ONE pure table. `formaMode` is already false by the
+    // time `setFormaMode` calls this, so on the site framing it resolves to the same `global-earth`
+    // surface these lines used to write — byte-for-byte the same fields, decided in one place.
+    this.applyCesiumSurface();
 
     try {
       if (this.originalLightCaptured) {
@@ -8251,6 +8357,13 @@ export class CesiumViewport {
       terrainEnabled: this.formaTerrainEnabled,
       photorealActive: this.photorealTilesActive,
       formaMode: this.formaMode,
+      // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — READ FROM THE SURFACE TABLE, never re-derived
+      // from `this.viewFraming` here. One authority decides what the shared viewer may hold; a
+      // second copy of the rule in this call would be free to disagree with it (C84 EI-1).
+      boundedTerrainPermitted: cesiumSurfaceWrites(
+        cesiumSurfaceKind({ formaMode: this.formaMode, framing: this.viewFraming }),
+        { formaGroundCss: FORMA_PALETTE.ground, globeLoadingCss: GLOBE_LOADING_COLOUR },
+      ).boundedTerrainPermitted,
       lon, lat,
     });
     // §TERRAIN-RELOCATION-DETACH (L-12913) — the resolver's verdict × what the viewer HOLDS → one of
@@ -11353,7 +11466,15 @@ export class CesiumViewport {
     // the photoreal flag is set on first tile load and is NOT reset on Forma re-entry (§A.21.D-GLOBE3),
     // so after any session that touched the globe the urban off-white was unreachable. The pure rule
     // mirrors decideBakedTerrainAttach: photoreal blocks only OUTSIDE Forma.
-    if (shouldPaintFormaGroundBase({ formaMode: this.formaMode, photorealActive: this.photorealTilesActive })) {
+    // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the `worldFraming` arm. A context land-use load
+    // that lands while the `3D Globe` framing is up would otherwise repaint `globe.baseColor` with
+    // the SITE's ground tone, i.e. paint the planet the colour of a Córdoba street. Same leak class
+    // as the terrain provider, same one-line guard, refused at the pure decision.
+    if (shouldPaintFormaGroundBase({
+      formaMode: this.formaMode,
+      photorealActive: this.photorealTilesActive,
+      worldFraming: this.viewFraming === 'world',
+    })) {
       try {
         const verdict = formaGroundBaseColour(collection.areas, lat, lon);
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString(verdict.colour);

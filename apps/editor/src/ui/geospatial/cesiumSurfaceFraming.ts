@@ -1,0 +1,198 @@
+// §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991, founder 2026-09-06: *"no need to select analyse -
+// parcel law - the 3d globe doesnt render correct initially"*) — the PURE table of every piece of
+// SHARED-VIEWER state that differs between the two things the ONE Cesium viewer is asked to be.
+//
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ THE DEFECT THIS EXISTS FOR, AND WHY IT IS A CLASS RATHER THAN A BUG
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// §L-412 is unchanged and correct: there is exactly ONE Cesium viewer, re-targeted between panes,
+// never a second one. C60 §6.5 says the same thing one layer up — *"the globe and the 3D Site ARE
+// the same viewer at different camera altitudes"* — which is why `viewPanelOptions.ts` offers
+// `3D Site` and `3D Globe` as two FRAMING VARIANTS of the single `site-3d` view type rather than as
+// two views.
+//
+// ⛔ BUT THE FRAMING WAS THE ONLY THING THAT MOVED. `defaultSiteViewCameraPorts().frameGlobe()` flew
+// the camera to world altitude and changed NOTHING ELSE, so the globe inherited the SITE surface:
+//
+//   · `viewer.terrainProvider` — a CITY-BOUNDED quantized-mesh tileset (`terrain/cordoba`). A bounded
+//     tileset declares availability only inside its own `layer.json` bbox, so at world range Cesium
+//     has one or two level-0 roots and nothing else. That is the founder's BEIGE TRIANGULAR SHARD,
+//     and his console says it in numbers: `renderedTerrainTiles=0` → 1 → 2 for an entire planet, and
+//     `L0-TILES[2]: L0(0,0)st1-ts4 L0(1,0)st3-ts0` — one of the two roots never yields a tile.
+//   · the imagery layers — `applyFormaMode` sets every one of them `show = false`, because the Forma
+//     massing study paints a flat ground instead. On a GLOBE that leaves no Earth at all: fixing the
+//     terrain provider alone would have produced a featureless cream sphere, not a globe.
+//   · the photoreal 3D tileset — hidden in Forma (`tileset.show = !formaMode`), i.e. the one surface
+//     that IS global was switched off.
+//   · `globe.baseColor` — `FORMA_PALETTE.ground`, the near-white land tone. The shard's colour.
+//   · `scene.backgroundColor = TRANSPARENT` + the CSS sky backdrop — the WHITE the shard floats on.
+//   · sky box / sky atmosphere / sun / moon / ground atmosphere — all off, so nothing reads as a planet.
+//   · `globe.enableLighting` — true whenever relief is attached (§TERRAIN-NORMALS, L-636).
+//
+// So it was never one bug. It is ONE MECHANISM — "site-view writes land on a viewer the globe view
+// also uses" — with eight symptoms, and patching the terrain provider alone would have left seven.
+//
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ THE RULE, AND IT COLLAPSES TO ONE PREDICATE
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// The surface is a function of TWO facts, and there are only two outcomes:
+//
+//     FORMA-SITE surface  ⟺  the Forma massing study is on AND the camera is framed on the SITE
+//     GLOBAL-EARTH surface ⟺  anything else
+//
+// The `!formaMode` half needs no third row: the photoreal path already carries its own global ground
+// (Google 3D tiles + imagery) and `decideBakedTerrainAttach` already refuses to drape our mesh under
+// it, so "site + photoreal" and "world" want the SAME surface. Stating that as one row rather than
+// two is what stops the third row from drifting away from the first two.
+//
+// ⛔ THIS MODULE OWNS NO COLOURS. `FORMA_PALETTE.ground` and `GLOBE_LOADING_COLOUR` are declared in
+// `CesiumViewport.ts` and passed in, because that file's header already names itself the single
+// source of truth for the Forma palette and a second copy here is exactly the drift
+// §PALETTE-PARITY-2D-3D (L-12965) spent a lane removing.
+//
+// PURE: no Cesium, no DOM, no I/O — the same precedent as `terrainProviderTransition.ts` and
+// `decideBakedTerrainAttach`. The viewport only EXECUTES the table below.
+
+/**
+ * Where the ONE Cesium camera is framed. The same two values `viewPanelOptions.ts` declares as the
+ * `framing` variant of the `site-3d` view (`3D Site` → `'site'`, `3D Globe` → `'world'`), so the
+ * panel row and the viewport cannot describe different things.
+ */
+export type CesiumViewFraming = 'site' | 'world';
+
+/** The two surfaces the one viewer can wear. */
+export type CesiumSurfaceKind = 'forma-site' | 'global-earth';
+
+/**
+ * ⭐ THE PREDICATE. `formaMode` says WHAT is being studied; `framing` says FROM HOW FAR. Only the
+ * combination "the massing study, seen from the site" wants the flat Forma ground.
+ */
+export function cesiumSurfaceKind(input: {
+    readonly formaMode: boolean;
+    readonly framing: CesiumViewFraming;
+}): CesiumSurfaceKind {
+    return input.formaMode && input.framing === 'site' ? 'forma-site' : 'global-earth';
+}
+
+/** How the globe surface itself is shown. */
+export type GlobeShownRule =
+    /** Always drawn — it IS the ground (the Forma flat/relief study). */
+    | 'always'
+    /** Drawn only when no 3D tileset is shown, because a shown tileset IS the ground. */
+    | 'unless-tileset-shown';
+
+/**
+ * ⭐ THE ENUMERATION. Every field here is a write onto state the two framings SHARE, and the list is
+ * the audit: a field that is not on it is either not shared or is safe, and both of those are
+ * recorded in the header above rather than left as an omission.
+ */
+export interface CesiumSurfaceWrites {
+    /** `viewer.imageryLayers.get(i).show` for every layer. */
+    readonly imageryLayersShown: boolean;
+    /** `Cesium3DTileset.show` for every tileset in `scene.primitives` (the photoreal globe). */
+    readonly tilesetsShown: boolean;
+    /** How `scene.globe.show` is decided. */
+    readonly globeShown: GlobeShownRule;
+    /** `scene.globe.baseColor`. */
+    readonly globeBaseColourCss: string;
+    /**
+     * `scene.globe.enableLighting` — the BASE value for the surface. ⚠ On the site surface the
+     * terrain attach/detach path owns the final word (§TERRAIN-NORMALS, L-636: relief + baked
+     * normals must be sun-shaded or every slope paints the flat baseColor — the "white mask"), so
+     * the viewport applies this FIRST and lets `maybeAttachTerrainProvider` / `detachBakedTerrain`
+     * raise it. On the global surface there is no such second writer.
+     */
+    readonly globeEnableLighting: boolean;
+    /** `scene.globe.dynamicAtmosphereLighting`. */
+    readonly globeDynamicAtmosphereLighting: boolean;
+    /** `scene.globe.showGroundAtmosphere`. */
+    readonly globeShowGroundAtmosphere: boolean;
+    /** `scene.globe.translucency.enabled`. */
+    readonly globeTranslucency: boolean;
+    /** `skyBox.show` / `skyAtmosphere.show` / `sun.show` / `moon.show`. */
+    readonly skyShown: boolean;
+    /** `scene.fog` — the Forma soft ground-AO gradient (ADR-0089), or off. */
+    readonly fog: 'forma-soft' | 'off';
+    /**
+     * `scene.backgroundColor`. `null` ⇒ `Color.TRANSPARENT`, so the CSS sky gradient painted on the
+     * container shows through the alpha canvas (§FORMA-SCENE-QUALITY).
+     */
+    readonly backgroundColourCss: string | null;
+    /** Whether the container carries the Forma CSS sky gradient (`applyFormaSkyBackdrop`). */
+    readonly formaSkyBackdrop: boolean;
+    /**
+     * ⛔ THE L-12991 FIELD. May a CITY-BOUNDED quantized-mesh terrain tileset be attached to
+     * `viewer.terrainProvider` right now? FALSE on the global surface — a bounded provider renders
+     * one or two level-0 roots at world range and nothing else (the shard). The site surface still
+     * gets its city terrain unconditionally: L-636 §TERRAIN-NORMALS, L-639 §CAMERA-UNDERGROUND-FIX
+     * and the per-footprint seat path all depend on it, so refusing it there would be a different,
+     * worse defect.
+     */
+    readonly boundedTerrainPermitted: boolean;
+}
+
+/**
+ * The table. Two rows, no branches beyond the one predicate — so "what does the globe surface look
+ * like" is answerable by reading, and testable without a GPU.
+ *
+ * @param formaGroundCss  `FORMA_PALETTE.ground` — the Forma study's flat land tone.
+ * @param globeLoadingCss `GLOBE_LOADING_COLOUR` — §GLOBE-FIRST-FRAME-COLOUR's brand-safe base
+ *                        (founder 2026-06-18: *"cesium originally shows black"*), never pure black.
+ */
+export function cesiumSurfaceWrites(
+    kind: CesiumSurfaceKind,
+    palette: { readonly formaGroundCss: string; readonly globeLoadingCss: string },
+): CesiumSurfaceWrites {
+    if (kind === 'forma-site') {
+        return {
+            imageryLayersShown: false,
+            tilesetsShown: false,
+            globeShown: 'always',
+            globeBaseColourCss: palette.formaGroundCss,
+            globeEnableLighting: false,          // flat-lit study (§2); the terrain attach raises it on relief.
+            globeDynamicAtmosphereLighting: false,
+            globeShowGroundAtmosphere: false,
+            globeTranslucency: false,
+            skyShown: false,
+            fog: 'forma-soft',
+            backgroundColourCss: null,           // TRANSPARENT → the CSS sky gradient shows through.
+            formaSkyBackdrop: true,
+            boundedTerrainPermitted: true,
+        };
+    }
+    return {
+        imageryLayersShown: true,
+        tilesetsShown: true,
+        globeShown: 'unless-tileset-shown',
+        globeBaseColourCss: palette.globeLoadingCss,
+        globeEnableLighting: true,
+        globeDynamicAtmosphereLighting: true,
+        globeShowGroundAtmosphere: true,
+        globeTranslucency: false,
+        skyShown: true,
+        fog: 'off',
+        backgroundColourCss: palette.globeLoadingCss,
+        formaSkyBackdrop: false,
+        boundedTerrainPermitted: false,
+    };
+}
+
+/**
+ * The console line for a framing change. Pure so the honesty rule is testable the same way
+ * `describeTerrainTransition` makes its own testable: the line names BOTH facts that decided the
+ * surface, so a future reader can tell a globe-that-kept-the-city-terrain from a genuine flat site.
+ */
+export function describeCesiumSurface(
+    framing: CesiumViewFraming,
+    formaMode: boolean,
+    kind: CesiumSurfaceKind,
+): string {
+    return (
+        `[CesiumViewport][surface] §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) framing='${framing}' ` +
+        `forma=${formaMode ? 'on' : 'off'} → surface='${kind}'` +
+        (kind === 'global-earth'
+            ? ' — imagery + photoreal + atmosphere ON, and NO city-bounded terrain tileset may be ' +
+              'attached (a bounded tileset renders 1-2 level-0 roots at world range: the shard).'
+            : ' — flat Forma ground, imagery + photoreal hidden, city terrain permitted.')
+    );
+}

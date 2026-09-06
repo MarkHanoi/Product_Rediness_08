@@ -992,6 +992,12 @@ export function terrainSlugForLonLat(lon: number, lat: number): string | null {
  *
  * Ordered gates (first hit wins):
  *   • toggle-off      — the user turned the 3D-Site terrain OFF (the founder escape hatch).
+ *   • world-framing   — §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991). The ONE Cesium camera is framed
+ *                       on the WHOLE EARTH (the `3D Globe` variant of `site-3d`), and a CITY-BOUNDED
+ *                       quantized-mesh tileset declares availability only inside its own layer.json
+ *                       bbox — so at world range it yields one or two level-0 roots and nothing
+ *                       else. That is the founder's beige triangular shard. The surface table
+ *                       (`cesiumSurfaceFraming.ts`) decides this; the gate only obeys it.
  *   • photoreal       — the paid Google-3D-tiles path (non-Forma) already carries its own
  *                       ground; draping our mesh under it double-grounds / z-fights.
  *   • no-baked-city   — the site is outside every baked-terrain bbox (city AND region) → keep flat.
@@ -1007,16 +1013,27 @@ export interface TerrainAttachInputs {
     readonly photorealActive: boolean;
     /** True on the free Forma flat/massing study path (where our terrain IS drawn). */
     readonly formaMode: boolean;
+    /**
+     * §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — may a CITY-BOUNDED tileset be on the shared
+     * viewer right now? This is `CesiumSurfaceWrites.boundedTerrainPermitted`, i.e. FALSE exactly
+     * while the ONE camera is framed on the whole Earth. Passed in rather than re-derived so the
+     * surface table stays the single authority and the two cannot disagree (C84 EI-1).
+     */
+    readonly boundedTerrainPermitted: boolean;
     readonly lon: number;
     readonly lat: number;
 }
 
 export type TerrainAttachDecision =
-    | { readonly attach: false; readonly reason: 'toggle-off' | 'photoreal' | 'no-baked-city' }
+    | { readonly attach: false; readonly reason: 'toggle-off' | 'world-framing' | 'photoreal' | 'no-baked-city' }
     | { readonly attach: true; readonly city: string; readonly scope: 'city' | 'region'; readonly candidates: readonly string[] };
 
 export function decideBakedTerrainAttach(inp: TerrainAttachInputs): TerrainAttachDecision {
     if (!inp.terrainEnabled) return { attach: false, reason: 'toggle-off' };
+    // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — ⛔ BEFORE the photoreal gate on purpose. At world
+    // framing the answer is the same whether or not the paid tileset ever loaded, and ordering it
+    // second would make the refusal REASON depend on a fact that is irrelevant to it.
+    if (!inp.boundedTerrainPermitted) return { attach: false, reason: 'world-framing' };
     // Skip our terrain ONLY on the true photoreal (non-Forma) path; in Forma the photoreal
     // tileset is hidden and the globe is shown, so draping baked terrain is correct.
     if (inp.photorealActive && !inp.formaMode) return { attach: false, reason: 'photoreal' };

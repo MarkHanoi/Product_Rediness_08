@@ -352,7 +352,18 @@ declare global {
              *  every caller that passed a `SiteEntryCameraTarget` through here had its pacing
              *  silently untyped — added §GLOBE-QUICK-TOGGLE (L-6806). */
             durationS?: number;
-        }): void } | null;
+        }): void;
+        /** §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — declare WHERE this one viewer is framed, so
+         *  the SURFACE moves with the camera instead of whichever view activated last winning for
+         *  both. `'world'` (the `3D Globe` row) forbids a city-bounded terrain tileset and turns the
+         *  imagery, the photoreal tileset and the sky back on; `'site'` (the `3D Site` row) restores
+         *  the Forma ground and the city terrain. Call it BEFORE `flyToGeographic`.
+         *
+         *  ⚠ REQUIRED, not optional. An optional method would be silently dropped by any host that
+         *  forgot it, and a silently dropped surface swap is exactly the defect this closes —
+         *  the founder's beige triangular shard. `CesiumViewport.setViewFraming` implements it and
+         *  `GISAreaLayout` returns that viewport verbatim. */
+        setViewFraming(framing: 'site' | 'world'): void } | null;
         /** PRYZM-EARTH-ONBOARDING PRD §16 (Milestone 2 polish) — resolves once the ONE Cesium
          *  viewport `pryzmGetSiteEntryCameraHost()` returns is actually live and accepting
          *  camera commands (i.e. `pryzmToggleGIS(true)`'s first activation has finished

@@ -70,8 +70,20 @@ export const URBAN_NEAR_M = 300;
  * photoreal path Google's tiles carry the ground and we must not paint it. Same question, same
  * answer — expressed once, here, so the two cannot drift again.
  */
-export function shouldPaintFormaGroundBase(input: { readonly formaMode: boolean; readonly photorealActive: boolean }): boolean {
+export function shouldPaintFormaGroundBase(input: {
+    readonly formaMode: boolean;
+    readonly photorealActive: boolean;
+    /**
+     * §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — TRUE while the ONE Cesium camera is framed on the
+     * WHOLE EARTH (the `3D Globe` variant of `site-3d`). A context land-use load finishing while the
+     * globe is up would otherwise repaint `globe.baseColor` with the site's ground tone — painting
+     * the PLANET the colour of a Córdoba street. The globe's own base is §GLOBE-FIRST-FRAME-COLOUR's
+     * `GLOBE_LOADING_COLOUR`, owned by the surface table (`cesiumSurfaceFraming.ts`).
+     */
+    readonly worldFraming: boolean;
+}): boolean {
     if (!input.formaMode) return false;          // not our ground to paint
+    if (input.worldFraming) return false;        // not our ground to paint EITHER — it is the Earth
     return true;                                  // in Forma the globe is the ground, photoreal hidden
 }
 

@@ -14,7 +14,10 @@ import {
     type TerrainProviderState,
 } from '../terrainProviderTransition';
 
-const FORMA = { terrainEnabled: true, photorealActive: false, formaMode: true } as const;
+// §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — `boundedTerrainPermitted: true` IS the site
+// framing: these cases are all about a bounded tileset following the SITE from city to city,
+// which is the only framing in which a bounded tileset may be attached at all.
+const FORMA = { terrainEnabled: true, photorealActive: false, formaMode: true, boundedTerrainPermitted: true } as const;
 const decide = (lat: number, lon: number) => decideBakedTerrainAttach({ ...FORMA, lat, lon });
 
 // The founder's sites (2026-09-05 screenshots) + the east-hemisphere city whose tileset was the

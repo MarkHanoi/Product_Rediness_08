@@ -127,9 +127,23 @@ export function defaultSiteViewCameraPorts(): SiteViewCameraPorts {
                 console.warn('[site-view-toggle] no globe mounted — world framing dropped.');
                 return;
             }
+            // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — ⛔ THE SURFACE MOVES BEFORE THE CAMERA.
+            // This port used to fly and nothing else, and that was the whole defect: §L-412 keeps
+            // ONE Cesium viewer (correctly), so the world framing inherited the SITE's surface —
+            // a CITY-BOUNDED terrain tileset that declares availability only inside Córdoba's bbox,
+            // the imagery layers hidden by Forma, the photoreal tileset hidden with them, and a
+            // transparent clear showing the white page. The founder's `3D Globe` pane therefore
+            // rendered one beige triangular shard instead of the Earth. The framing is declared
+            // FIRST so the surface is already correct for the frame the camera is flying into.
+            host.setViewFraming('world');
             host.flyToGeographic(worldFramingTarget());
         },
         frameSite: () => {
+            // The return trip owes the same swap, or the site would come back wearing the globe's
+            // imagery and no city relief (L-636 §TERRAIN-NORMALS / L-639 §CAMERA-UNDERGROUND-FIX
+            // and the per-footprint seat path all need the baked tileset). `pryzmZoomToSite` is
+            // still the ONE declared `site.zoom-to-site` action and still owns the target.
+            window.pryzmGetSiteEntryCameraHost?.()?.setViewFraming('site');
             window.pryzmZoomToSite?.();
         },
         canFrameSite: () => typeof window.pryzmZoomToSite === 'function',
