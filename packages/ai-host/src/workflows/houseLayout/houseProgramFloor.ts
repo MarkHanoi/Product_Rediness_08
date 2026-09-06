@@ -42,6 +42,7 @@
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
 import type { StoreyRole } from './types.js';
 import { scaleProgramToShell } from '../apartmentLayout/tgl/bubbleGraph.js';
+import { houseStoreyBand } from './houseEnvelope.js';
 
 /** §HOUSE-GROUND-FILL (A.21.D28 #4) — the most bedrooms a MULTI-storey GROUND
  *  floor may be filled with. The private level is upstairs, so the ground keeps at
@@ -419,4 +420,142 @@ export function enrichStoreyProgramToPlate(
     };
 
     return logEnrichAfter(enriched, 'grow-bedrooms');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §BRIEF-IS-AUTHORITATIVE / §PROGRAMME-OFFER (L-13023, founder 2026-09-06)
+//
+// THE DEFECT this closes. On the founder's 452 m² single-storey plate a brief of
+// `bedrooms=2, bathrooms=1` was handed to `enrichStoreyProgramToPlate` with
+// `growBedrooms=true`, and the shared plate-density sizer grew it to
+// `bedrooms=8, bathrooms=3` (`§DIAG-ENRICH after: path=grow-bedrooms
+// bedrooms=2->8 (+6) baths=1->3 (+2)`). 14 cells then went to the topology
+// enumerator, ALL EIGHT strategies came back HARD-INVALID
+// (`§TOPO-HARD-REJECT-ALL`), the pipeline shipped the least-bad layout, and the
+// user saw a blocking `§DIAG-CI-1-BANNER` naming three sealed wet rooms.
+//
+// The layout solver was RIGHT on every one of those refusals. It was handed a
+// programme nobody asked for. STR §25.0 is the governing ruling — *"I want pryzm
+// to guide this process without building the house in one click — because it
+// would never be the wanted outcome"* — so the brief is INPUT, not a starting
+// suggestion the engine may overwrite.
+//
+// WHY THE GROWTH EXISTED (its own stated reason, preserved above and NOT
+// discarded): a SPARSE brief — the founder's own empty brief, or an upper storey
+// `allocateProgramToStoreys` left with just a hall — makes the frozen squarify
+// subdivider stretch one or two rooms across the WHOLE plate ("a 165 m² Room
+// 00-001", "Living Room 696 m²"). Room COUNT is the only lever on room SIZE, so
+// the enricher raised the count. That reasoning is sound for a brief that states
+// NOTHING. It is not a licence to overwrite a brief that states something.
+//
+// THE RULE NOW: a brief that STATES a bedroom count (≥ 1) is authoritative on
+// every storey — the count is never grown to fill a plate. A brief that states
+// NOTHING (0 bedrooms — the sparse/empty case the enricher was written for) keeps
+// the plate-fill exactly as before. When the stated programme leaves real spare
+// area on the plate, PRYZM computes what the plate COULD hold and OFFERS it in
+// words, with both numbers — it never applies it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Below this share of the plate left unspent, the offer is not worth making
+ *  (the brief already fills the plate). 0.2 ⇒ offer only when ≥20 % is spare. */
+const OFFER_MIN_SPARE_FRACTION = 0.2;
+
+/** Above this share of the plate left unspent the offer is a WARNING, not a note.
+ *
+ *  WHY 0.35 and not a round number: the storey's own envelope grosses the programme up
+ *  by {@link HOUSE_CIRCULATION_FACTOR} and then soft-penalises outside target ± 25 %.
+ *  A plate that leaves ≳ a third unspent puts every room ≳ 1.5 × its comfortable target
+ *  — past that soft band, where a room stops reading as its type (measured: a 36 m²
+ *  bathroom on the 258 m² 2-storey fixture at 47 % spare; a 175 m² master at 78 %). The
+ *  engine will NOT invent rooms to absorb that (L-13023), so the user has to be told. */
+const OFFER_WARN_SPARE_FRACTION = 0.35;
+
+/**
+ * §PROGRAMME-OFFER — the arithmetic behind "your brief does not spend this plate",
+ * computed but NEVER applied. Pure + deterministic.
+ */
+export interface ProgrammeHeadroom {
+    readonly storeyIndex: number;
+    readonly role: StoreyRole;
+    /** The storey's usable plate area (m²) — the same number `§DIAG-STOREY` prints. */
+    readonly plateAreaM2: number;
+    /** The bedroom count the BRIEF states for this storey (authoritative). */
+    readonly briefBedrooms: number;
+    /** The bathroom count the BRIEF states for this storey (authoritative). */
+    readonly briefBathrooms: number;
+    /** What the plate-density model WOULD have grown the count to. NOT applied. */
+    readonly plateCouldHoldBedrooms: number;
+    /** Gross area (m²) the STATED programme targets — `houseStoreyBand.grossTargetM2`. */
+    readonly programmeGrossM2: number;
+    /** plate − stated programme gross, floored at 0: the area the brief does not spend. */
+    readonly spareAreaM2: number;
+    /**
+     * `info` — the plate is somewhat larger than the brief; rooms come out generous.
+     * `warning` — the plate is MUCH larger (over half of it unspent). The rooms will be
+     * far bigger than any architectural band, because PRYZM will not invent programme to
+     * absorb the difference. The remedy is the user's: raise the counts, or draw a
+     * smaller house footprint (STR §25.2's TO-BE-BUILT envelope). Stated, never decided.
+     */
+    readonly severity: 'info' | 'warning';
+    /** The user-facing sentence, carrying BOTH numbers (RAC refusal doctrine). */
+    readonly offer: string;
+}
+
+/**
+ * Compute the programme headroom for ONE storey: how much of the plate the STATED
+ * brief does not spend, and what the density model would have grown it to.
+ *
+ * Returns `null` when there is nothing honest to offer — no plate, no stated
+ * bedroom count, or the stated programme already spends most of the plate. Pure;
+ * no I/O; never mutates or returns a programme (this function CANNOT change what
+ * is built — that is the point).
+ */
+export function programmeHeadroom(
+    program: ApartmentProgram,
+    plateAreaM2: number,
+    role: StoreyRole,
+    storeyIndex: number,
+): ProgrammeHeadroom | null {
+    if (!(plateAreaM2 > 0)) return null;
+    const briefBedrooms = Math.max(0, Math.floor(program.bedrooms));
+    const briefBathrooms = Math.max(0, Math.floor(program.bathrooms));
+    // A brief that states NOTHING has no count to protect and nothing to offer
+    // against — the sparse-brief plate-fill still runs, unchanged.
+    if (briefBedrooms <= 0) return null;
+    const band = houseStoreyBand({ program, grossAreaM2: plateAreaM2 });
+    const spareAreaM2 = Math.max(0, plateAreaM2 - band.grossTargetM2);
+    if (spareAreaM2 < plateAreaM2 * OFFER_MIN_SPARE_FRACTION) return null;
+    // What the SHARED density sizer would have produced, had the brief not been
+    // authoritative. Computed for the OFFER only; the returned value is never fed
+    // back into the programme.
+    const wouldBe = scaleProgramToShell(program, plateAreaM2, role === 'ground' ? 'ground' : 'upper', false, false);
+    const plateCouldHoldBedrooms = Math.max(briefBedrooms, Math.max(0, Math.floor(wouldBe.bedrooms)));
+    const more = plateCouldHoldBedrooms - briefBedrooms;
+    const severity: 'info' | 'warning' =
+        spareAreaM2 >= plateAreaM2 * OFFER_WARN_SPARE_FRACTION ? 'warning' : 'info';
+    const head =
+        `This storey's plate is ${Math.round(plateAreaM2)} m². Your brief asks for `
+        + `${briefBedrooms} bedroom${briefBedrooms === 1 ? '' : 's'} and `
+        + `${briefBathrooms} bathroom${briefBathrooms === 1 ? '' : 's'}, which spends about `
+        + `${Math.round(band.grossTargetM2)} m² — so about ${Math.round(spareAreaM2)} m² of the plate `
+        + `is unspent. PRYZM built exactly what you asked for and did not add rooms to fill the rest.`;
+    const size = severity === 'warning'
+        ? ` Because more than half the plate is unspent, the rooms will come out FAR larger than a `
+        + `normal house room — that is the plate, not a mistake. Two remedies, both yours: raise the `
+        + `counts in the brief, or draw a smaller house footprint on the parcel and keep the rest as `
+        + `open ground.`
+        : ` The rooms will be generously large.`;
+    const grow = more > 0
+        ? ` At a normal house density this plate could hold up to ${plateCouldHoldBedrooms} bedrooms; `
+        + `if you want them, raise the bedroom count in the brief — PRYZM will not add rooms you did `
+        + `not ask for.`
+        : '';
+    return {
+        storeyIndex, role, plateAreaM2,
+        briefBedrooms, briefBathrooms, plateCouldHoldBedrooms,
+        programmeGrossM2: band.grossTargetM2,
+        spareAreaM2,
+        severity,
+        offer: head + size + grow,
+    };
 }

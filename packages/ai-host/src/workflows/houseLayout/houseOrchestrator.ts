@@ -24,7 +24,7 @@ import { reserveStairCoreShaped, splitRisersForShape, type StairCoreShaped, type
 import { computeStairWorldFootprint, type XZ as StairXZ } from './stairWorldFootprint.js';
 import { solveStairContainmentWorld, allCornersInside } from './stairContainment.js';
 import { allocateProgramToStoreys } from './storeyAllocation.js';
-import { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
+import { enrichStoreyProgramToPlate, programmeHeadroom, type ProgrammeHeadroom } from './houseProgramFloor.js';
 import { roofBaseElevationM, roofBaseOffsetM } from './houseVertical.js';
 // §CI-1-BANNER (SPEC-49 §4 CI-1) — the per-storey circulation verdict + blocking banner.
 import { buildHouseCirculationReport, type StoreyCirculationInput } from './circulationBanner.js';
@@ -342,6 +342,9 @@ interface EnumeratedHouse {
      *  rect/flights are rotated back by. 0 / footprint-centroid for axis-aligned. */
     readonly principalAxisRad: number;
     readonly pivot: { x: number; z: number };
+    /** §PROGRAMME-OFFER (L-13023) — per-storey "your brief does not spend this plate"
+     *  arithmetic. OFFERED, never applied; empty when the brief spends the plate. */
+    readonly programmeHeadroom: ReadonlyArray<ProgrammeHeadroom>;
 }
 
 /**
@@ -770,6 +773,38 @@ function enumeratePerStorey(
     // to `count` options each (the apartment engine already Pareto-ranks them).
     // §STAIR-KEEPOUT is passed into each per-storey engine call below.
     const perStorey: Array<{ storeyIndex: number; options: ScoredLayoutOption[] }> = [];
+
+    // ── §BRIEF-IS-AUTHORITATIVE (L-13023, founder 2026-09-06; STR §25.0) ──────────
+    // THE DEFECT: on the founder's 452 m² single-storey plate a brief of `bedrooms=2,
+    // bathrooms=1` reached `enrichStoreyProgramToPlate` with `growBedrooms=true` and
+    // came out `bedrooms=8, bathrooms=3` — 14 cells, then `§TOPO-HARD-REJECT-ALL`
+    // (all EIGHT strategies HARD-INVALID: window · circulation · reach ·
+    // room-out-of-bounds), the least-bad layout shipped, and a blocking
+    // `§DIAG-CI-1-BANNER` named three SEALED wet rooms. The solver was right every
+    // time; it was handed a programme nobody asked for.
+    //
+    // Until now, ONLY a per-LEVEL tab override (`sp.bedroomsExplicit`, the 2026-06-18
+    // §PER-STOREY-COUNT-AUTHORITATIVE fix) protected a stated count. The WHOLE-HOUSE
+    // brief — the number the modal shows the user and the only one most users ever
+    // touch — had no such protection, so the plate-density sizer overwrote it. That
+    // asymmetry is the bug: a count the user was SHOWN and then silently multiplied by
+    // four is a lie whether he typed it or accepted the default.
+    //
+    // THE RULE: a brief that STATES a bedroom count (≥1) is authoritative on every
+    // storey — never grown to fill a plate (STR §25.0: *guide the human, do not decide
+    // for him*). A brief that states NOTHING (0 bedrooms — the sparse/empty case the
+    // enricher was written for, and the ONLY case its "165 m² Room 00-001" root cause
+    // ever described) keeps the plate-fill EXACTLY as before, so the defect that
+    // motivated the growth stays closed. The room-SET floor (living/kitchen/dining/
+    // hall on the ground; ≥1 bed + bath on an upper) is untouched in both cases — that
+    // is the part that actually cured the one-giant-room blob.
+    //
+    // The unspent plate area is not hidden: `programmeHeadroom` states it in words
+    // with BOTH numbers and names what the plate COULD hold. OFFERED, never applied.
+    const briefBedrooms = Math.max(0, Math.floor(program.bedrooms));
+    const briefStatesBedrooms = briefBedrooms > 0;
+    const headroom: ProgrammeHeadroom[] = [];
+
     for (const sp of storeyPrograms) {
         const i = sp.storeyIndex;
 
@@ -796,7 +831,12 @@ function enumeratePerStorey(
         // §PER-STOREY-COUNT-AUTHORITATIVE — when the user EXPLICITLY set this storey's bedroom
         // count via a per-level override, RESPECT it: do NOT grow bedrooms to fill the plate
         // (the founder's "I said 2 bedrooms but it keeps 3"). Auto storeys keep the plate-fill.
-        const growBedrooms = (sp.role === 'upper' || storeyCount <= 1) && sp.bedroomsExplicit !== true;
+        // §BRIEF-IS-AUTHORITATIVE (L-13023) — `!briefStatesBedrooms` is the new clause.
+        // A stated whole-house bedroom count now disables the plate-fill growth on EVERY
+        // storey, exactly as a per-level override already did for its own storey.
+        const growBedrooms = (sp.role === 'upper' || storeyCount <= 1)
+            && sp.bedroomsExplicit !== true
+            && !briefStatesBedrooms;
         // §HOUSE-GROUND-FILL (A.21.D28 #4): the GROUND floor of a MULTI-storey house
         // is NOT the private level (bedrooms live upstairs), so it must NOT grow the
         // full bedroom count — but the OLD behaviour left it with only the sparse
@@ -817,10 +857,38 @@ function enumeratePerStorey(
         // upper-floor §PER-STOREY-COUNT-AUTHORITATIVE (which disables growBedrooms). Auto
         // (no-override) grounds keep `bedroomsExplicit` undefined ⇒ the fill path is
         // BYTE-IDENTICAL to today (the gate that protects the apartment + house tests).
+        //
+        // §BRIEF-IS-AUTHORITATIVE (L-13023) — a stated whole-house brief count reaches
+        // `fillGroundPlate` through the SAME `bedroomsExplicit` lever a per-level tab
+        // uses, so the multi-storey GROUND keeps the count `allocateProgramToStoreys`
+        // gave it (the brief's own split) instead of re-deriving + clamping it. The
+        // ground still grows its labelled PUBLIC/SERVICE set (study ≥200 m², utility
+        // ≥240 m²) on a large plate — those are named, non-bedroom rooms the user can
+        // see and re-type, not invented bedrooms.
+        const countAuthoritative = sp.bedroomsExplicit === true || briefStatesBedrooms;
         const enrichedProgram = enrichStoreyProgramToPlate(
             sp.program, usableAreaM2, sp.role,
-            { growBedrooms, growGroundRooms, bedroomsExplicit: sp.bedroomsExplicit === true },
+            { growBedrooms, growGroundRooms, bedroomsExplicit: countAuthoritative },
         );
+        // §PROGRAMME-OFFER (L-13023) — state the unspent plate area in words rather
+        // than spending it on rooms nobody asked for. Computed from the ENRICHED
+        // programme (what will actually be built) and NEVER fed back into it.
+        const storeyHeadroom = countAuthoritative
+            ? programmeHeadroom(enrichedProgram, usableAreaM2, sp.role, i)
+            : null;
+        if (storeyHeadroom) {
+            headroom.push(storeyHeadroom);
+            console.log(
+                `[house-layout] §PROGRAMME-OFFER storey=${i} role=${sp.role} `
+                + `plate=${Math.round(storeyHeadroom.plateAreaM2)}m² `
+                + `brief={bed:${storeyHeadroom.briefBedrooms},bath:${storeyHeadroom.briefBathrooms}} `
+                + `programmeGross=${Math.round(storeyHeadroom.programmeGrossM2)}m² `
+                + `spare=${Math.round(storeyHeadroom.spareAreaM2)}m² `
+                + `plateCouldHold=${storeyHeadroom.plateCouldHoldBedrooms}bed severity=${storeyHeadroom.severity} `
+                + `— OFFERED, NOT APPLIED. `
+                + `${storeyHeadroom.offer}`,
+            );
+        }
         // §WETROOM-PUBLIC-DOOR (founder 2026-06-18, "the ground-floor bathroom ships SEALED")
         // — on the GROUND storey ONLY, authorise the NET-ADD fallback that opens an
         // otherwise-SEALED bathroom onto the nearest reachable PUBLIC space (hall → living →
@@ -904,7 +972,10 @@ function enumeratePerStorey(
             // count was EXPLICITLY pinned per-level, lock it through the subdivider's
             // plate-density round-up so an explicit Ground bedrooms=1 ships EXACTLY 1
             // (was bumped to round(plateArea/130) ≥ 2). AUTO storeys leave it false.
-            sp.bedroomsExplicit === true,
+            // §BRIEF-IS-AUTHORITATIVE (L-13023) — a stated WHOLE-HOUSE count locks the
+            // same round-up: without this the subdivider's own `scaleProgramToShell`
+            // pass re-grows the very count the enricher just protected.
+            countAuthoritative,
             // §SPINE-FIRST P4 — opt-in (from window.__pryzmSpineFirst via the controller). The engine
             // self-gates to all-private (upper) storeys; the ground floor (public rooms) falls through
             // to the legacy carve. Absent/false ⇒ byte-identical.
@@ -916,7 +987,7 @@ function enumeratePerStorey(
     return {
         perStorey, footprint, core, coreRect, containOffsetWorld, totalRisers,
         floorToFloorM, baseElevationM, levelIdForStorey, roofKind,
-        principalAxisRad, pivot,
+        principalAxisRad, pivot, programmeHeadroom: headroom,
     };
 }
 
@@ -1057,7 +1128,9 @@ function assembleHouse(
         );
     }
 
-    return { storeys, perStoreyLayout, stairs, voids, roof, circulation };
+    // §PROGRAMME-OFFER (L-13023) — carry the per-storey headroom onto the result so a
+    // surface can OFFER it. Empty array when the brief spends its plate (nothing to say).
+    return { storeys, perStoreyLayout, stairs, voids, roof, circulation, programmeHeadroom: h.programmeHeadroom };
 }
 
 export { stairCoreAreaM2 as __stairCoreAreaM2ForTest, clampStoreyCount as __clampStoreyCountForTest };

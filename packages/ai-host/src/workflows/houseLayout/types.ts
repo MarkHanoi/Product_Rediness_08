@@ -13,6 +13,9 @@ import type { Pt } from '../apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram, RoomType, ScoredLayoutOption } from '../apartmentLayout/types.js';
 import type { StairCorePositionKind } from './stairPosition.js';
 import type { HouseCirculationReport } from './circulationBanner.js';
+// §PROGRAMME-OFFER (L-13023) — TYPE-ONLY (erased at build), so no runtime cycle with
+// `houseProgramFloor.ts`, which imports `StoreyRole` from this file.
+import type { ProgrammeHeadroom } from './houseProgramFloor.js';
 
 export type { Pt };
 
@@ -247,6 +250,19 @@ export interface HouseLayoutResult {
      * console.warn nobody read.
      */
     readonly circulation: HouseCirculationReport;
+    /**
+     * §PROGRAMME-OFFER (L-13023, founder 2026-09-06; STR §25.0) — one entry per storey
+     * whose STATED brief leaves ≥20 % of its plate unspent: the plate area, the stated
+     * counts, what the plate could hold at a normal house density, and the sentence to
+     * show the user.
+     *
+     * ⛔ These are OFFERS. Nothing in this pipeline may read them and grow a programme.
+     * The whole point of L-13023 is that a 2-bedroom brief on a 452 m² plate ships TWO
+     * bedrooms and SAYS the plate has room for more — it does not ship eight. An empty
+     * array means the brief spends its plate (or states no bedroom count at all, in
+     * which case the sparse-brief plate-fill still runs and there is nothing to offer).
+     */
+    readonly programmeHeadroom: ReadonlyArray<ProgrammeHeadroom>;
 }
 
 /**

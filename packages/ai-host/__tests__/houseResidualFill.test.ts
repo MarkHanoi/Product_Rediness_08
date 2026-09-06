@@ -52,10 +52,22 @@ const BIG: ApartmentProgram = {
 };
 
 /** §65.2 — the largest a single cell may be without reading as a "huge undivided
- *  rectangle" (the founder's complaint: "Room 00-001 63.9 m²"). The generous 48 m²
- *  ceiling admits a legitimately big living room / spine corridor while still catching a
- *  cavernous blank-sized cell. `stair` is exempt (the fixed keep-out, not subdivided). */
-const NO_CAVERN_MAX_M2 = 48.0;
+ *  rectangle" (the founder's complaint: "Room 00-001 63.9 m²"). The ceiling admits a
+ *  legitimately big living room / spine corridor while still catching a cavernous
+ *  blank-sized cell. `stair` is exempt (the fixed keep-out, not subdivided).
+ *
+ *  §BRIEF-IS-AUTHORITATIVE (L-13023, 2026-09-06) — 48.0 → 55.0, once, with a reason.
+ *  The GROUND storey of this 6-bed fixture now keeps the ONE guest bedroom
+ *  `allocateProgramToStoreys` put there instead of the bubble graph's plate-density
+ *  round-up to two (which shipped a SEVENTH bedroom for a six-bedroom brief). One
+ *  fewer room on the same plate moves the ground Living Room from ~46 to 53.7 m².
+ *
+ *  ⛔ This does NOT weaken the gate the founder asked for. His defect was an UN-NAMED
+ *  63.9 m² blank; 55.0 still catches that, and the "every cell is a NAMED program room"
+ *  assertion below — which is the actual anti-blank gate — is untouched and hard. What
+ *  moved is a heuristic ceiling on a NAMED living room, by 5.7 m², as the direct price
+ *  of not shipping a bedroom nobody asked for. */
+const NO_CAVERN_MAX_M2 = 55.0;
 
 /** A MINTED residual "Store" cell is typed `utility`; the fill bounds each to the
  *  utility dimensional hard-max (~8 m²) so no minted cell is itself cavernous. */

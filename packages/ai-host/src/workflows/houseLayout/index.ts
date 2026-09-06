@@ -9,8 +9,8 @@
 export { generateHouseLayout, generateHouseLayoutOptions } from './houseOrchestrator.js';
 export type { HouseLayoutOptions } from './houseOrchestrator.js';
 export { allocateProgramToStoreys, storeyAcousticProfiles, storeyAcousticPreference } from './storeyAllocation.js';
-export { enrichStoreyProgramToPlate } from './houseProgramFloor.js';
-export type { EnrichStoreyOptions } from './houseProgramFloor.js';
+export { enrichStoreyProgramToPlate, programmeHeadroom } from './houseProgramFloor.js';
+export type { EnrichStoreyOptions, ProgrammeHeadroom } from './houseProgramFloor.js';
 export { reserveStairCore, reserveStairCoreShaped, splitRisersForShape } from './stairCore.js';
 export type { StairCoreShaped } from './stairCore.js';
 // §CI-1-BANNER (SPEC-49 §4 CI-1; founder 2026-08-13) — the per-storey circulation
