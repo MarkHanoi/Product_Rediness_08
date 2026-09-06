@@ -267,7 +267,7 @@ describe('mountParcelLawEnvelopeAuthoring — the create chain', () => {
         input.value = '4';                       // maxFloors is 4 → within; now push past it
         input.dispatchEvent(new Event('input'));
         byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
-        expect(byTestId(AUTHORING_ADVISORY_TESTID)!.hidden).toBe(true);
+        expect(byTestId<HTMLElement>(AUTHORING_ADVISORY_TESTID)!.hidden).toBe(true);
 
         document.body.innerHTML = '';
         const h2 = harness({ readModel: () => model({
@@ -280,7 +280,7 @@ describe('mountParcelLawEnvelopeAuthoring — the create chain', () => {
         byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
         expect(h2.executed).toHaveLength(1);                                   // ⛔ NOT refused
         expect((h2.executed[0]!.payload as { envelopes: unknown[] }).envelopes).toHaveLength(3);
-        const adv = byTestId(AUTHORING_ADVISORY_TESTID)!;
+        const adv = byTestId<HTMLElement>(AUTHORING_ADVISORY_TESTID)!;
         expect(adv.hidden).toBe(false);
         expect(adv.textContent).toContain('You asked for 3 floor levels');
         expect(adv.textContent).toContain('derives 2');
