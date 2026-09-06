@@ -43,6 +43,21 @@ export type {
     AdapterOptions,
 } from './layout-adapter.js';
 
+// ── §R4-R5-PROJECTION — SHIPPED LayoutOption → the two validator DTOs ───────
+// The hop `layout-adapter.ts` deferred as "a future slice". Without it the 16
+// validators above were reachable only from their own tests.
+export {
+    projectLayoutOption,
+    planDimensionsOf,
+    FRAMEWORK_TYPE_OF,
+    TOPOLOGY_CLASS_GRAPH,
+    RECT_FILL_FLOOR,
+} from './layoutOptionAdapter.js';
+export type {
+    LayoutOptionProjection,
+    PlanDimensionQuality,
+} from './layoutOptionAdapter.js';
+
 // ── Combined one-call surface (adapter + orchestrator + formatter) ──────────
 export { validateAndFormatLayout } from './validate-and-format.js';
 export type {
