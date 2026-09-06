@@ -1106,7 +1106,7 @@ const composite = (...states) => {
  * keeps catching by clicking.
  */
 export function buildFounderMatrix(model, r2) {
-  const { countries, staleness } = model;
+  const { countries } = model;
   const manifestSources = model.publishedByLayer ?? {};
 
   // Slug → the countries it serves, INCLUDING slugs the code no longer has. An orphan

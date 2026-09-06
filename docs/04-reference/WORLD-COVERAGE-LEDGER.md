@@ -11,12 +11,12 @@
 
 **This page answers one question: _what does PRYZM actually serve HERE?_**
 
-Generated: 2026-09-06T17:46:34.890Z
+Generated: 2026-09-06T17:59:41.961Z
 
 ## §0 · Probe record (C57 §1.5 — the exact answer, never a claim)
 
 ```
-NOT PROBED (--offline) — using the committed snapshot /tools/coverage-ledger/manifest-snapshot.json
+GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 4714 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
 ```
 
 - manifest `mergedAt`: `2026-09-06T07:58:43.604Z` · `mergeRunId`: `34015784612` · `mergeGitSha`: `ad038f5a0337097f9af7fda873383bbfdf193b36`
@@ -671,7 +671,7 @@ user capability, and an HTTP 200 on a manifest is not proof a layer is in it
 ### §8a · The probe record (C57 §1.5)
 
 ```
-NOT PROBED (--offline) — using the committed snapshot tools/coverage-ledger/r2-probe-snapshot.json, probed 2026-09-06T16:44:36.524Z
+LIVE — 10 layer archive(s) range-probed at https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/<layer>.pmtiles?v=L663a (7 served a 206 with PMTiles magic) · 123 national terrain tileset(s) probed at https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/terrain/<slug>/layer.json?v=L639k (38 answered 200)
 ```
 
 | Layer archive | HTTP | object bytes | content-type | leading magic | Last-Modified | verdict |
