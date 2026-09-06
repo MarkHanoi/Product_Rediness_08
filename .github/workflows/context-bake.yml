@@ -369,6 +369,60 @@ jobs:
           fi
 
       # ─────────────────────────────────────────────────────────────────────────
+      # §FR-BDTOPO-FOOTPRINTS GATE (L-12940, 2026-09-06) — the FRENCH named building.
+      #
+      # The founder's two French complaints are DIFFERENT DEFECTS and this gate is
+      # aimed at the one a height stamp cannot reach. Sète, parcel 34301000BO0317,
+      # "not true height"; Jouy-en-Josas, parcel 78322000AB0340, "not true size /
+      # not true shape". The `mnh_fr` LiDAR stamp already answers the first FOR
+      # BUILDINGS OSM HAS DRAWN, in the shape OSM drew them — it cannot answer the
+      # second at all, and Jouy is additionally outside every MNH working bbox.
+      # IGN BD TOPO carries both facts, so the footprint swap answers both at once.
+      #
+      # THE ROW, resolved live from apicarto + the BD TOPO WFS on 2026-09-06 and
+      # pinned in tools/context-bake/__tests__/fixtures/fr-bdtopo-wfs-batiment-page-*.json:
+      # the Sète parcel holds FOUR standing buildings, every one with a real
+      # `hauteur` — 7.0 m (1 étage) · 4.4 (1) · 4.5 (—) · 6.2 (2), all "En service".
+      # BATIMENT0000000207209247 is the 7.0 m one. All four cross-check against the
+      # LiDAR HD MNH raster (an independent instrument) to a median |delta| 0.73 m.
+      #
+      # WHY THE KIND AND NOT A METRE THRESHOLD. `--require-height-kind measured`
+      # asserts the metres came from IGN's measurement rather than our floors×3.0
+      # derivation; a hard-coded "≥ 7.0 m" would go red on IGN's next re-survey of a
+      # building that is still perfectly correct. Provenance is the durable fact
+      # (C57 §1.9) — and it is exactly what `--require-floors` CANNOT check, because
+      # that flag reads a storey count on purpose (Spain publishes counts, France
+      # publishes metres).
+      #
+      # Runs ONLY when footprints=official — on the default `osm` path this building
+      # is legitimately an OSM footprint and failing would be measuring scope, not
+      # honesty (§MEASURED-SPOTCHECK-RESPECTS-REGION).
+      #
+      # ⚠ INERT UNTIL THE `footprints` INPUT EXISTS IN THIS FILE. That input is lane
+      # L-12939's hunk (§OFFICIAL-FOOTPRINTS) and is not carried here — a lane commits
+      # its own hunks. Until it lands, `inputs.footprints` is undefined, this `if` is
+      # false, and the step SKIPS on every run. A skipped step is not a passing gate:
+      # do not read a green run as evidence that Sète's footprints are official until
+      # this step's log actually prints a ✔ MEASURED-HEIGHT GATE line.
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Assert the OFFICIAL French footprints landed (Sète, by IGN's own cleabs)
+        if: ${{ inputs.footprints == 'official' && (inputs.layer == '' || inputs.layer == 'buildings') }}
+        run: |
+          set -euo pipefail
+          REGION_SCOPE="${{ inputs.region }}"
+          REGION_SCOPE="${REGION_SCOPE// /}"
+          if [ -n "$REGION_SCOPE" ]; then
+            case ",$REGION_SCOPE," in
+              *",france,"*) ;;
+              *) echo "── sete SKIPPED — region 'france' is not in this run's scope '$REGION_SCOPE'"; exit 0 ;;
+            esac
+          fi
+          node tools/context-height-probe/probe.mjs \
+            --pmtiles "$GITHUB_WORKSPACE/tools/context-bake/out/buildings.pmtiles" \
+            --at 43.39655,3.67554 --name sete-34301000BO0317 --half-deg 0.004 \
+            --require-ref BATIMENT0000000207209247 --require-height-kind measured
+
+      # ─────────────────────────────────────────────────────────────────────────
       # §SYNC-SWITCH (2026-09-02) — the per-region staging path. A stage=true run
       # uploads its tileset to tiles-staging/<slug>/ (NEVER tiles/), together with a
       # staging-manifest.json recording exactly which regions + layers these bytes
