@@ -397,10 +397,23 @@ for (const name of baselinedDupes) {
 // null / collection / literal seed, or an uninitialised `let`. Generic arguments
 // are tolerated — `new Map<string, Set<string>>()` is the commonest shape in this
 // codebase and an earlier, stricter form of this regex missed every one of them.
+//
+// ⭐ §ZERO-SEED-IS-NOT-A-DECIMAL (2026-09-06, lane CI-GREEN). The zero alternative used to be
+// `0\b`, and `\b` sits between the `0` and the `.` of EVERY decimal literal — so
+// `export const SPACE_ENVELOPE_LEVEL_OPACITY = 0.12;` was read as a counter seeded with zero.
+// That is not a narrowing of the check, it is the removal of a MISREADING: the alternative's
+// stated subject is a "literal seed", and `0.12` is a frozen style constant, not a seed. The
+// bug had already been paid for TWICE by hand — `formaWallCurve.MASSING_ARC_MIN_CHORD_M = 0.15`
+// and `contextStudyMassingStyle.STUDY_MASSING_FILL_ALPHA` are both on the debt list with
+// reasons that say, in words, *"matches STATE_RE only because the seed begins `0`"*. A
+// heuristic whose baseline grows by one row per decimal constant is measuring the regex, not
+// the estate. `0(?![\w.])` keeps every real zero seed (`= 0;`, `= 0,`, `= 0)`) and drops
+// `0.12`, `0x1f` and `0e3`. MEASURED over the two candidate roots: 75 → 73 files, and both
+// files that leave hold no mutable module state at all.
 const STATE_RE = new RegExp(
     String.raw`^(?:export\s+)?(?:let\s+(_?[a-zA-Z]\w*)\s*(?::[^=\n]+)?;`
     + String.raw`|(?:let|const)\s+(_?[a-zA-Z]\w*)\s*(?::[^=\n]+)?=\s*`
-    + String.raw`(?:null|new (?:Map|Set|WeakMap|WeakSet)\b|\{\s*\}|\[\s*\]|false|true|0\b))`,
+    + String.raw`(?:null|new (?:Map|Set|WeakMap|WeakSet)\b|\{\s*\}|\[\s*\]|false|true|0(?![\w.])))`,
     'gm',
 );
 const PROJECT_WORDS =
