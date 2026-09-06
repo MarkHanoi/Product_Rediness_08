@@ -22,12 +22,15 @@ import {
     PARCEL_LAW_SWITCHER_SLOT_TESTID,
     PARCEL_LAW_PANEL_SLOT_TESTID,
     PARCEL_LAW_NOTE,
+    PARCEL_LAW_PLOT_ROUTE_NOTE,
+    PARCEL_LAW_PLOT_ROUTE_TESTID,
     PARCEL_LAW_STRIP_WIRED_ATTR,
     ENVELOPE_CARD_TESTID,
     type ParcelLawTabDeps,
     type ParcelLawCapabilityHost,
 } from '../parcelLawTab';
 import { buildParcelRailPanel, PARCEL_RAIL_ENVELOPE_SLOT_TESTID } from '../../site/parcel/parcelRailPanel';
+import { QUESTION_GROUP_TESTID_PREFIX } from '../parcelLawQuestionGroup';
 import { VIEW_SEGMENT_SWITCHER_TESTID, VIEW_SEGMENT_ATTR, VIEW_SEGMENTS } from '../../site/viewSegmentSwitcher';
 import { VIEW_SWITCHER_ON_VIEW_TESTID, VIEW_SWITCHER_SPLIT_TESTID } from '../../site/viewSwitcherOnView';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
@@ -269,6 +272,74 @@ describe('ARM B — the REAL rail-panel builder inside the tab, over a faithful 
         h.dispose();
         // Not held → no hand-back call.
         expect(seam.calls.every((c) => c !== null)).toBe(true);
+        hostEl.remove();
+        seam.restore();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — the action leaves the read-out panel, and the
+// ROUTE does not leave with it
+// ═══════════════════════════════════════════════════════════════════════════════════════
+//
+// Founder 2026-09-06, red arrow on the full-width purple button inside question 1: *"once i
+// select a parcel — even if it has a real constructed envelope — WE DON'T NEED 'Select parcel
+// on the 2D map' in the analysis parcel law tab. THIS SHOULD BE ON THE LEFT HAND SIDE."*
+//
+// ⭐ THE FIRST THREE WORDS ARE THE CONDITION AND THESE TWO TESTS ARE THE PAIR. Suppressing the
+// button unconditionally would satisfy the quote and break C19 §5.6 clause 4 — on a project
+// with no parcel it is the ONLY route to one, which is why §L-1585 built it and why L-942 is
+// the rule that a refusal must carry its escape hatch. The second test is the one that would
+// catch that regression.
+
+describe('§SELECT-PARCEL-IS-A-VIEW-ACTION — question 1 drops the button ONLY once a plot is committed', () => {
+    it('⭐ a COMMITTED parcel: no button in question 1, and a sentence naming where selection lives', async () => {
+        const seam = fakeEnvelopeSeam();
+        const runtime = fakeRuntime(SITE);
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        expect(
+            q1.querySelector('[data-testid="parcel-open-map-btn"]'),
+            'a primary ACTION in a panel whose lede says nothing is computed here',
+        ).toBeNull();
+
+        // ⛔ AND IT SAYS SO. A panel that drops an affordance in silence has moved the user's
+        // problem, not solved it — the pointer names the view, in the tab lede's own words.
+        const note = q1.querySelector<HTMLElement>(`[data-testid="${PARCEL_LAW_PLOT_ROUTE_TESTID}"]`)!;
+        expect(note).not.toBeNull();
+        expect(note.hidden).toBe(false);
+        expect(note.textContent).toBe(PARCEL_LAW_PLOT_ROUTE_NOTE);
+
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+
+    it('⛔ NO parcel: the button SURVIVES — it is the only route, and a route is never removed', async () => {
+        const seam = fakeEnvelopeSeam();
+        const runtime = fakeRuntime(null);
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        expect(
+            q1.querySelector('[data-testid="parcel-open-map-btn"]'),
+            'C19 §5.6 clause 4 · §L-1585 · L-942 — a refusal with no escape hatch',
+        ).not.toBeNull();
+        // …and the pointer stays hidden, so the panel never shows the button AND a sentence
+        // saying selection happens somewhere else. Two halves of one fact cannot disagree.
+        const note = q1.querySelector<HTMLElement>(`[data-testid="${PARCEL_LAW_PLOT_ROUTE_TESTID}"]`)!;
+        expect(note.hidden).toBe(true);
+
+        h.dispose();
         hostEl.remove();
         seam.restore();
     });

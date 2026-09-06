@@ -135,6 +135,10 @@ import { wireDesignStageStrip } from '../site/designStageStripControl';
 // true by construction rather than by review. See `parcelLawFacts.ts`'s header for why the tab
 // needs its own rendering at all — the singleton card can only ever be in ONE host.
 import { resolveParcelLawModel } from '../site/parcel/resolveParcelLawModel';
+// §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — the DECLARED `site.map-2d` action, resolved by the
+// ONE producer of that button. This tab decides WHETHER question 1 carries it; it never writes a
+// rival handler, and `buildOpenMapAction` remains the only place the label and the dispatch live.
+import { buildOpenMapAction } from '../site/parcel/parcelPanelSection';
 import type { ParcelLawModel } from '../site/parcel/parcelLawModel';
 import {
   buildParcelLawFacts,
@@ -243,6 +247,25 @@ export const PARCEL_LAW_FACTS_LAW_SLOT_TESTID = 'analysis-parcel-law-facts-law';
 export const PARCEL_LAW_ALLOWANCE_HOST_TESTID = 'analysis-parcel-law-allowance-slot';
 /** §PL-IA-Q — `data-testid` on the slot question 5 hosts the rate entry and the estimate in. */
 export const PARCEL_LAW_COST_HOST_TESTID = 'analysis-parcel-law-cost-slot';
+/**
+ * §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — `data-testid` on question 1's one-line pointer to
+ * where plot selection actually happens, shown in place of the button once a plot IS committed.
+ */
+export const PARCEL_LAW_PLOT_ROUTE_TESTID = 'analysis-parcel-law-plot-route';
+
+/**
+ * §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — what question 1 says instead of carrying the
+ * `Select parcel on the 2D map` button, once a plot with recorded provenance is committed.
+ *
+ * Founder 2026-09-06: *"once i select a parcel — even if it has a real constructed envelope — WE
+ * DON'T NEED 'Select parcel on the 2D map' in the analysis parcel law tab. THIS SHOULD BE ON THE
+ * LEFT HAND SIDE."* It names the route rather than merely removing the control, because a panel
+ * that drops an affordance and says nothing has moved the user's problem, not solved it.
+ */
+export const PARCEL_LAW_PLOT_ROUTE_NOTE =
+  'This plot is committed. Selecting or changing it is done ON THE VIEW — switch to 2D Site Map '
+  + 'from the bar centred on the view and click another plot. Nothing on this tab changes which '
+  + 'parcel you are looking at.';
 /** The `data-testid` the singleton card carries (GISAreaLayout `ensureEnvelopePanel`). */
 export const ENVELOPE_CARD_TESTID = 'buildable-envelope-card';
 /** Carries how many stage pills were wired on the last pass — read by the spec. */
@@ -430,6 +453,9 @@ export function mountParcelLawTab(
   let chat: ParcelLawChatHandle | null = null;
   let unsub: (() => void) | null = null;
   let disposed = false;
+  /** §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — question 1's pointer, shown only when the
+   *  button it replaces is suppressed. Assigned on the successful build arm. */
+  let plotRouteNote: HTMLParagraphElement | null = null;
   /** §PL-IA-Q — the six question groups, by id, in the order STR §26.3 states them. */
   const groups = new Map<string, QuestionGroupHandle>();
 
@@ -455,15 +481,50 @@ export function mountParcelLawTab(
   const factsLawSlot = document.createElement('div');
   factsLawSlot.className = 'anl-parcel-law-facts-law';
   factsLawSlot.setAttribute('data-testid', PARCEL_LAW_FACTS_LAW_SLOT_TESTID);
+  /**
+   * The ONE model, read through the ONE reader (§25.11 clause 1) — never a second derivation and
+   * never a cached value. Three callers read it: the two fact renderings, the card's ring
+   * measurements, and question 1's route predicate. They must all see the same vintage, and a
+   * cache would be the one way they could not.
+   */
+  const readModelNow = (): ParcelLawModel =>
+    (deps.readParcelLawModel ?? resolveParcelLawModel)(deps.runtime);
+
+  /**
+   * §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — is a plot COMMITTED with its provenance recorded?
+   *
+   * ⛔ THE PREDICATE IS THE FOUNDER'S OWN CONDITION, NOT A CONVENIENCE. He wrote *"once i select a
+   * parcel"*; `identityAbsence === 'none'` is exactly that state, and it is the value
+   * `buildParcelSectionBody` already keys its three sentences off, carried on the model rather
+   * than re-decided here (§L-1582). The two other values — `no-boundary` and
+   * `provenance-not-recorded` — are the arms where the button is the ONLY route to a parcel and
+   * therefore must survive (§L-1585 · L-942).
+   *
+   * A read that throws answers `false`: the failure mode of "we could not tell" must be KEEPING
+   * the escape hatch, never removing it.
+   */
+  const plotIsCommitted = (): boolean => {
+    try {
+      return readModelNow().identityAbsence === 'none';
+    } catch (e) {
+      console.warn('[analysis][parcel-law] plot-state read failed — keeping the map route:', e);
+      return false;
+    }
+  };
+
   /** Re-read the model and re-render BOTH fact halves. Cheap, and never throws into the tab. */
   const renderFacts = (): void => {
     if (disposed) return;
     try {
-      const readModel = deps.readParcelLawModel ?? resolveParcelLawModel;
       const renderModel = deps.renderParcelLawFacts ?? buildParcelLawFacts;
-      const model = readModel(deps.runtime);
+      const model = readModelNow();
       factsPlotSlot.replaceChildren(renderModel(model, { scope: 'plot' }));
       factsLawSlot.replaceChildren(renderModel(model, { scope: 'law' }));
+      // §SELECT-PARCEL-IS-A-VIEW-ACTION — the pointer appears exactly when the button it replaces
+      // is suppressed, from the SAME model read, so the two can never contradict each other on
+      // screen (a panel showing both the button and "selection happens elsewhere" is worse than
+      // either alone).
+      if (plotRouteNote) plotRouteNote.hidden = model.identityAbsence !== 'none';
     } catch (e) {
       console.warn('[analysis][parcel-law] fact section render failed (non-fatal):', e);
     }
@@ -599,15 +660,54 @@ export function mountParcelLawTab(
       // fire in an order nothing guarantees, and a stale measurement is exactly the failure.
       extraFacts: () => {
         try {
-          const readModel = deps.readParcelLawModel ?? resolveParcelLawModel;
-          return parcelRingMeasuredFacts(readModel(deps.runtime));
+          return parcelRingMeasuredFacts(readModelNow());
         } catch (e) {
           console.warn('[analysis][parcel-law] ring-measurement projection failed (non-fatal):', e);
           return null;
         }
       },
+      // ── §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) ─────────────────────────────────────
+      //
+      // Founder 2026-09-06, red arrow on the full-width purple button inside question 1:
+      // *"once i select a parcel — even if it has a real constructed envelope — WE DON'T NEED
+      // 'Select parcel on the 2D map' in the analysis parcel law tab. THIS SHOULD BE ON THE
+      // LEFT HAND SIDE."* He is right on the principle and this tab's own lede already commits
+      // to it — *"nothing on this tab is computed here"* — so a PRIMARY ACTION in a read-out
+      // panel contradicts the panel's stated role.
+      //
+      // ⭐ READ THE FIRST THREE WORDS: **"ONCE I SELECT A PARCEL"**. That is the condition, and
+      // honouring it exactly is what makes this change safe. In the committed state the button
+      // is redundant chrome over a plot he already has. In the two ABSENT states it is the ONLY
+      // route to a parcel at all — §L-1585 exists because he asked for it, §L-942 is the rule
+      // that a refusal must carry its escape hatch, and `parcelProvenanceRehost.test.ts` pins
+      // the button on both of those arms by name.
+      //
+      // ⛔ SO THE ROUTE IS NOT REMOVED — C19 §5.6 clause 4, a route is added, never removed.
+      // Three routes to parcel selection remain in every state (the PARCEL rail panel, the GIS
+      // panel section, and the view's own 2D-map entry); what is removed is ONE redundant COPY
+      // from the one surface the founder pointed at, in the one state where it is redundant.
+      // When the view side gains its own control this arm becomes unconditional; until then a
+      // panel that dropped the affordance on a parcel-less project would be the L-942 shape
+      // wearing a founder quote.
+      actions: (host) =>
+        plotIsCommitted() ? [] : [buildOpenMapAction(host)],
     });
+    // The pointer that replaces it. A panel that drops an affordance and says nothing has moved
+    // the user's problem rather than solved it, so question 1 states where selection now happens
+    // — in the same words the tab's lede uses for the view bar.
+    plotRouteNote = document.createElement('p');
+    plotRouteNote.className = 'anl-parcel-law-note';
+    plotRouteNote.setAttribute('data-testid', PARCEL_LAW_PLOT_ROUTE_TESTID);
+    plotRouteNote.style.cssText = 'margin:4px 0 0;font-size:10px;line-height:1.5;color:#8a83a0;';
+    // textContent — no HTML sink in this file (C08 §3.1)
+    plotRouteNote.textContent = PARCEL_LAW_PLOT_ROUTE_NOTE;
+    plotRouteNote.hidden = true;
     panelSlot.appendChild(panel.element);
+    // ⛔ APPENDED TO THE QUESTION BODY, NOT INTO `panelSlot`. That slot holds the producer's
+    // element and nothing else — `parcelLawTab.spec.ts` ARM A asserts its text is exactly the
+    // panel's, which is the assertion that keeps a host from smuggling its own chrome into a
+    // producer's slot. This sentence is the TAB's, so it hangs beside the slot, not inside it.
+    bodyOf('plot').appendChild(plotRouteNote);
     // §ONE-PARCEL-BLOCK — this slot now carries only what a CARD ROW cannot say: the sentence
     // for a ring that could not be read. When the ring reads, the rendering is empty and stamps
     // `data-parcel-rows-merged-into="card"`, so "the rows moved" is distinguishable from "the
