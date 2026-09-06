@@ -22,6 +22,38 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runNationalSweep } from '../heights/nationalSweepStamp.mjs';
 // @ts-expect-error — .mjs toolchain module, no types
 import { nationalTileGrid } from '../heights/nationalSweep.mjs';
+// @ts-expect-error — .mjs toolchain module, no types
+import { loadJoinFootprintsBounded } from '../geojsonseqRead.mjs';
+
+// The driver's join helpers live in heightSources.mjs, which VITEST CANNOT IMPORT (the long-standing
+// limitation every pure-half module header names). The driver therefore resolves them at call time and
+// accepts an override — so this spec runs the REAL streaming partitioner (loadJoinFootprintsBounded,
+// imported straight from geojsonseqRead.mjs, which is importable) and supplies the three trivial
+// predicates itself. What is under test is the DRIVER'S BOOKKEEPING; the fixtures are unit squares, so
+// a five-line `footprintFromFeature` is the same function for them as the production one.
+const DEPS = {
+    loadJoinFootprintsBounded,
+    footprintFromFeature: (feat: any) => {
+        const ext = feat?.geometry?.coordinates?.[0];
+        if (!Array.isArray(ext) || ext.length < 4) return null;
+        let cx = 0, cy = 0;
+        for (const [x, y] of ext) { cx += x; cy += y; }
+        return { ext, interiors: [], clon: cx / ext.length, clat: cy / ext.length };
+    },
+    inAnyArea: (x: number, y: number, areas: number[][]) =>
+        areas.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1),
+    bucketRecords: (records: any[], cellOf: (r: any) => [number, number]) => {
+        const b = new Map<string, any[]>();
+        for (const r of records) { const k = cellOf(r).join(','); const c = b.get(k); if (c) c.push(r); else b.set(k, [r]); }
+        return b;
+    },
+    appendFileInto: (src: string, dest: string) => {
+        const fs = require('node:fs');
+        if (!fs.existsSync(src)) return 0;
+        fs.appendFileSync(dest, fs.readFileSync(src));
+        return 1;
+    },
+};
 
 type Cell = { cellBbox: number[]; records: any[]; ix: number; iy: number; key: string; priority: boolean };
 
@@ -70,7 +102,7 @@ describe('§NATIONAL-SWEEP-DRIVER — conservation: every record leaves exactly 
         const n = makeClip(inP, cells);
         const grid = nationalTileGrid(REGION, { lonDeg: TILE });
         const seen: any[] = [];
-        const run = await runNationalSweep({ inPath: inP, outPath: outP, grid, stampAreas: [REGION], recordOf: (feat: any, fp: any) => ({ feat, ...fp }), stampCell: stubStamp(seen) });
+        const run = await runNationalSweep({ deps: DEPS, inPath: inP, outPath: outP, grid, stampAreas: [REGION], recordOf: (feat: any, fp: any) => ({ feat, ...fp }), stampCell: stubStamp(seen) });
         expect(run.status).toBe('ok');
         const out = readOut(outP);
         expect(out.length).toBe(n);
@@ -88,7 +120,7 @@ describe('§NATIONAL-SWEEP-DRIVER — conservation: every record leaves exactly 
         // exactly ON the boundary is INSIDE — a real property of the filter, pinned by this choice.)
         const working: [number, number, number, number] = [10, 50, 11, 50.8];
         const run = await runNationalSweep({
-            inPath: inP, outPath: outP, grid, stampAreas: [working], priorityAreas: [[10.5, 50.5, 10.6, 50.6]],
+            deps: DEPS, inPath: inP, outPath: outP, grid, stampAreas: [working], priorityAreas: [[10.5, 50.5, 10.6, 50.6]],
             recordOf: (feat: any, fp: any) => ({ feat, ...fp }), stampCell: stubStamp(seen), swatheRows: 3,
         });
         expect(run.status).toBe('ok');
@@ -111,7 +143,7 @@ describe('§PRIORITY-OR-THE-CITIES-REGRESS', () => {
         const grid = nationalTileGrid(REGION, { lonDeg: TILE });
         const seen: Array<{ key: string; priority: boolean }> = [];
         const run = await runNationalSweep({
-            inPath: inP, outPath: outP, grid, stampAreas: [REGION], priorityAreas: [[10.5, 50.5, 10.6, 50.6]],
+            deps: DEPS, inPath: inP, outPath: outP, grid, stampAreas: [REGION], priorityAreas: [[10.5, 50.5, 10.6, 50.6]],
             recordOf: (feat: any, fp: any) => ({ feat, ...fp }), stampCell: stubStamp(seen),
             swatheRows: 3, budgetMs: 1,   // the national phase is out of time before it starts
         });
@@ -138,7 +170,7 @@ describe('§CURSOR — a truncated run names an EXACT resume point', () => {
         const seen1: any[] = [];
         const out1 = join(dir, 'out1.seq');
         const r1 = await runNationalSweep({
-            inPath: inP, outPath: out1, grid, stampAreas: [REGION], recordOf: (feat: any, fp: any) => ({ feat, ...fp }),
+            deps: DEPS, inPath: inP, outPath: out1, grid, stampAreas: [REGION], recordOf: (feat: any, fp: any) => ({ feat, ...fp }),
             stampCell: stubStamp(seen1), concurrency: 1, maxTiles: 1,
         });
         expect(r1.sweep.stopReason).toBe('maxTiles 1');
@@ -149,7 +181,7 @@ describe('§CURSOR — a truncated run names an EXACT resume point', () => {
         const seen2: any[] = [];
         const out2 = join(dir, 'out2.seq');
         const r2 = await runNationalSweep({
-            inPath: inP, outPath: out2, grid, stampAreas: [REGION], recordOf: (feat: any, fp: any) => ({ feat, ...fp }),
+            deps: DEPS, inPath: inP, outPath: out2, grid, stampAreas: [REGION], recordOf: (feat: any, fp: any) => ({ feat, ...fp }),
             stampCell: stubStamp(seen2), concurrency: 1, cursor: r1.sweep.nextCursor,
         });
         expect(r2.sweep.stopReason).toBe('complete');
@@ -165,7 +197,7 @@ describe('§CONTEXT-DATA-HONESTY — the driver keeps failure and empty apart', 
         const grid = nationalTileGrid(REGION, { lonDeg: TILE });
         const seen: any[] = [];
         const run = await runNationalSweep({
-            inPath: inP, outPath: outP, grid, stampAreas: [REGION], recordOf: (feat: any, fp: any) => ({ feat, ...fp }),
+            deps: DEPS, inPath: inP, outPath: outP, grid, stampAreas: [REGION], recordOf: (feat: any, fp: any) => ({ feat, ...fp }),
             stampCell: stubStamp(seen, (c) => (c.key === '0,0' ? { ok: false, error: 'HTTP 500' }
                 : c.key === '1,1' ? { ok: true, empty: true } : { ok: true, empty: false })),
         });

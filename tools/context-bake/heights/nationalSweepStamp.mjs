@@ -44,11 +44,31 @@
 import { appendFileSync, existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
-  loadJoinFootprintsBounded, footprintFromFeature, inAnyArea, bucketRecords, appendFileInto,
-} from '../heightSources.mjs';
-import {
   nationalCellBbox, nationalCellKm2, nationalSwathes, nationalSweepBatches, nationalSweepOrder, intersectAreas,
 } from './nationalSweep.mjs';
+
+/**
+ * ⚠ §WHY THE JOIN HELPERS ARE IMPORTED LAZILY, AND NOT AT MODULE LOAD.
+ *
+ * They live in heightSources.mjs, and **vitest cannot import heightSources.mjs** — a limitation this
+ * repo has carried long enough to be written into half a dozen module headers (heights/mdsNational.mjs,
+ * heights/eeHeights.mjs, heights/auOpenHeights.mjs …), which is exactly why every join keeps its pure
+ * half in a separate file. A STATIC import here quietly extends that limitation to this driver and to
+ * anything that imports it: nationalSweepStamp.spec.ts ran green, then stopped collecting a single test
+ * with a bare `SyntaxError: Invalid or unexpected token` the moment an unrelated commit invalidated
+ * vitest's transform cache. A test that can stop running for a reason it never names is worse than no
+ * test (§NEVER-RAN-AND-PASSED-PRINT-THE-SAME-VALUE, L-849).
+ *
+ * So the helpers are resolved at CALL time, and `deps` can be injected. Production passes nothing and
+ * gets the one true implementation out of heightSources.mjs — there is no second copy of
+ * `footprintFromFeature` to drift.
+ */
+let _deps = null;
+async function resolveDeps(injected) {
+  if (injected) return injected;
+  if (!_deps) _deps = await import('../heightSources.mjs');
+  return _deps;
+}
 
 /** Courtesy concurrency against a public keyless national service, when a join does not say. */
 export const DEFAULT_SWEEP_CONCURRENCY = 4;
@@ -92,8 +112,9 @@ function newAgg() {
  */
 async function sweepPass({
   inPath, passThroughPath, retainedOutPath, areas, grid, budget, agg, recordOf, stampCell, concurrency,
-  label, priority = false,
+  label, priority = false, helpers,
 }) {
+  const { loadJoinFootprintsBounded, footprintFromFeature, inAnyArea, bucketRecords } = helpers;
   const load = loadJoinFootprintsBounded(inPath, passThroughPath, (feat) => {
     const fp = footprintFromFeature(feat);
     if (!fp) return null;
@@ -188,8 +209,10 @@ export async function runNationalSweep({
   inPath, outPath, grid, stampAreas, recordOf, stampCell, priorityAreas = [],
   label = 'national sweep', cursorEnvLabel = 'SWEEP_CURSOR',
   cursor = 0, budgetMs = 0, maxTiles = Number.POSITIVE_INFINITY, swatheRows = 0,
-  concurrency = DEFAULT_SWEEP_CONCURRENCY, log = null,
+  concurrency = DEFAULT_SWEEP_CONCURRENCY, log = null, deps = null,
 }) {
+  const helpers = await resolveDeps(deps);
+  const { appendFileInto } = helpers;
   mkdirSync(dirname(outPath), { recursive: true });
   const t0 = Date.now();
   const budget = {
@@ -199,7 +222,7 @@ export async function runNationalSweep({
   };
   const agg = newAgg();
   const conc = Math.max(1, concurrency);
-  const passArgs = { grid, budget, agg, recordOf, stampCell, concurrency: conc };
+  const passArgs = { grid, budget, agg, recordOf, stampCell, concurrency: conc, helpers };
 
   // ── THE PASS PLAN ───────────────────────────────────────────────────────────────────────────────
   // pass 0 (optional): the PRIORITY working set, uncapped, cursor-ignored.
