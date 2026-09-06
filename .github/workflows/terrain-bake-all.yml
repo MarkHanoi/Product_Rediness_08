@@ -24,6 +24,15 @@ on:
         description: 'Parallel shards to split BAKEABLE_REGIONS across (12 ≈ 49 cities/shard).'
         type: string
         default: '12'
+      geoid:
+        # §GEOID-PER-TILE-DATUM (L-12975) — see terrain-bake.yml's copy of this input for why it is
+        # explicit. THIS workflow is the one that re-bakes all 585 at once, so it is the one whose log
+        # must say, in the founder's words, which datum a wave used. `constant` reproduces the
+        # pre-2026-09-06 per-COUNTRY lift byte-for-byte (proven in 3236cd41); it is never a fallback.
+        description: 'Vertical datum: egm08 = per-post EGM2008 N (correct). constant = the legacy per-COUNTRY geoidSepM (reproduces a pre-fix tileset).'
+        type: choice
+        options: [egm08, constant]
+        default: egm08
       publish:
         description: 'Upload to s3://pryzm-assets/tiles/terrain/. Untick to bake + inspect artifacts only.'
         type: boolean
@@ -77,6 +86,23 @@ jobs:
       - name: Reproject self-test (fail before any bake if a CRS def is wrong)
         run: node tools/context-bake/terrain.mjs --selftest
 
+      - name: Fetch the EGM2008 geoid grid ONCE (fail here, not 49 times mid-shard)
+        # §GEOID-GRID-PREFETCH (L-12977) — identical reasoning to terrain-bake.yml: under the default
+        # `--geoid egm08` every city range-reads the 80 MB NGA COG for its own window, and an
+        # unreachable grid THROWS, which this shard's per-city `::warning::` tolerance would turn into
+        # "skipped, run green, OLD wrong-datum tileset still live". Fetch once, verify, read from disk.
+        # ⛔ Never substituted, never degraded to `--geoid constant`.
+        run: |
+          set -euo pipefail
+          TIF="$RUNNER_TEMP/us_nga_egm08_25.tif"
+          curl -sS -f -L --retry 3 --retry-delay 5 --max-time 900 -o "$TIF" https://cdn.proj.org/us_nga_egm08_25.tif
+          sz="$(stat -c '%s' "$TIF")"
+          magic="$(head -c 4 "$TIF" | od -An -tx1 | tr -d ' \n')"
+          echo "EGM2008 grid: $sz bytes, magic $magic"
+          [ "$sz" -gt 80000000 ] || { echo "::error::EGM2008 grid is $sz bytes — truncated; refusing to bake on a partial geoid."; exit 1; }
+          case "$magic" in 49492a00|4d4d002a) ;; *) echo "::error::EGM2008 grid is not a TIFF (magic $magic)"; exit 1 ;; esac
+          echo "GEOID_TIF=$TIF" >> "$GITHUB_ENV"
+
       - name: Bake this shard
         env:
           DATAFORDELER_API_KEY: ${{ secrets.DATAFORDELER_API_KEY }}
@@ -84,8 +110,10 @@ jobs:
           MML_API_KEY: ${{ secrets.MML_API_KEY }}
           SHARD: ${{ matrix.shard }}
           NSHARDS: ${{ inputs.shards }}
+          GEOID: ${{ inputs.geoid }}
         run: |
           set -euo pipefail
+          echo "vertical datum for this wave: --geoid $GEOID (grid $GEOID_TIF)"
           # This shard's slice of the single source of truth (round-robin by index so each shard
           # mixes fast/slow cities evenly instead of clustering one country in one job).
           CITIES="$(node -e "import('./tools/context-bake/terrain.mjs').then(m => { const a=m.BAKEABLE_REGIONS.map(r=>r.name); const N=Number(process.env.NSHARDS), i=Number(process.env.SHARD); console.log(a.filter((_,k)=>k%N===i).join(' ')); })")"
@@ -93,12 +121,16 @@ jobs:
           failed=""
           for c in $CITIES; do
             echo "── $c ──"
-            if ! node tools/context-bake/terrain.mjs --bake-city "$c" --out "tools/context-bake/out/terrain/$c"; then
+            if ! node tools/context-bake/terrain.mjs --bake-city "$c" --out "tools/context-bake/out/terrain/$c" \
+                 --geoid "$GEOID" --geoid-tif "$GEOID_TIF"; then
               echo "::warning::terrain bake for '$c' failed — skipping (other cities continue)"
               failed="$failed $c"
             fi
           done
-          [ -n "$failed" ] && echo "::warning::shard $SHARD cities that did not bake:$failed" || echo "shard $SHARD: all attempted cities baked"
+          # A skipped city KEEPS ITS OLD TILESET — on a datum re-bake that is indistinguishable from
+          # success unless the names are printed where the founder reads them (§GEOID-REBAKE-IS-A-LIST).
+          [ -n "$failed" ] && echo "::warning::shard $SHARD cities that did not bake (they KEEP their previous tileset):$failed" || echo "shard $SHARD: all attempted cities baked"
+          { echo "### Shard $SHARD ($GEOID)"; echo ""; echo "did NOT bake (kept their old tileset): \`${failed:- none}\`"; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Assert produced tilesets are real
         run: |

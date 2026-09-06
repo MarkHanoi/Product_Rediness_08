@@ -36,7 +36,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     TERRAIN_SOURCES, NATIONAL_REGIONS, REGIONS, DTM_FETCH, loadGeoidGrid, resolveGeoidEvaluator,
-    compileWarpToTileset, napToEllipsoidal,
+    compileWarpToTileset, napToEllipsoidal, EGM08_COG_URL,
 } from '../terrain.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -242,6 +242,67 @@ describe('§GEOID-PER-TILE-DATUM — N is read per post, never inherited from a 
 
         it('and the "should replace the constant when a geoid grid is wired" TODO is gone — it IS wired', () => {
             expect(SRC).not.toMatch(/lookup should replace the constant when a geoid grid is wired/);
+        });
+    });
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    // ARM H — §GEOID-WORKFLOW-REACHABILITY (L-12977). ARM E proves the MODULE defaults to egm08.
+    // That is not the same statement as "the thing the founder clicks bakes on egm08", and this repo
+    // has just paid for that distinction twice in one day (L-12976: a whole app with no bundle entry;
+    // L-12975 itself: a constant that was right where it was measured and wrong where it was applied).
+    // The three terrain workflows are therefore read as TEXT and asserted to reach the mode — the same
+    // technique mdsBboxCoversTerrainRegion.spec.ts uses, and a total function of the current YAML.
+    // ─────────────────────────────────────────────────────────────────────────────────────────────
+    describe('ARM H — the WORKFLOW reaches the per-post datum, not just the module', () => {
+        const wf = (n: string) => readFileSync(resolve(HERE, '..', '..', '..', '.github', 'workflows', n), 'utf8');
+        const CITY_WFS = ['terrain-bake.yml', 'terrain-bake-all.yml'];
+
+        it('every city workflow invokes --bake-city, the CLI entry point that carries the geoid flag', () => {
+            for (const n of CITY_WFS) expect(wf(n)).toMatch(/terrain\.mjs --bake-city/);
+            expect(wf('terrain-bake-regions.yml')).toMatch(/terrain\.mjs --bake-region/);
+        });
+
+        it('no workflow hard-codes --geoid constant — a wave can never silently ship the legacy lift', () => {
+            // Comment lines are stripped first: the YAML *explains* `--geoid constant` in prose, and a
+            // grep that cannot tell a sentence from a command is the exact defect §RAF-GATE-COMMENT-BLIND
+            // removed from the P3 gate. What must not exist is an EXECUTED one.
+            const code = (n: string) => wf(n).split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join('\n');
+            for (const n of [...CITY_WFS, 'terrain-bake-regions.yml']) {
+                expect(code(n)).not.toMatch(/--geoid\s+constant/);
+            }
+        });
+
+        it('the mode is SELECTABLE from the dispatch form and DEFAULTS to egm08', () => {
+            for (const n of CITY_WFS) {
+                const y = wf(n);
+                // a `geoid` workflow_dispatch input, choice egm08|constant, default egm08 …
+                const form = y.slice(y.indexOf('      geoid:'), y.indexOf('      publish:'));
+                expect(form).toContain('type: choice');
+                expect(form).toContain('options: [egm08, constant]');
+                expect(form).toContain('default: egm08');
+                // … threaded into the bake step's env and onto the command line.
+                expect(y).toMatch(/GEOID: \$\{\{ inputs\.geoid \}\}/);
+                expect(y).toMatch(/--geoid "\$GEOID"/);
+            }
+            // terrain-bake-regions.yml passes no override and inherits the CLI default; ARM E pins that
+            // default, and the arm above pins that it never passes `constant`.
+            expect(SRC).toMatch(/geoidMode: val\('--geoid'\) \|\| 'egm08', geoidTif: val\('--geoid-tif'\) \|\| null, bboxOverride/);
+        });
+
+        it('the grid is pre-fetched ONCE from the SAME url terrain.mjs reads, and a bad fetch fails the run', () => {
+            for (const n of CITY_WFS) {
+                const y = wf(n);
+                expect(y).toContain(EGM08_COG_URL);            // no drifted second copy of the url
+                expect(y).toMatch(/--geoid-tif "\$GEOID_TIF"/); // the bake reads the local copy
+                // Refuse rather than half-bake: a truncated file or a non-TIFF exits non-zero. Without
+                // this, an unreachable grid throws PER CITY, lands in the `::warning::` tolerance, and
+                // leaves the OLD wrong-datum tileset live under a green run.
+                expect(y).toMatch(/refusing to bake on a partial geoid/);
+                expect(y).toMatch(/is not a TIFF \(magic/);
+            }
+        });
+
+        it('a city that does NOT bake is named as KEEPING its old tileset — silence is the defect', () => {
+            for (const n of CITY_WFS) expect(wf(n)).toMatch(/KEEP their previous tileset/);
         });
     });
 });

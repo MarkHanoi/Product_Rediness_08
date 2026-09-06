@@ -38,9 +38,24 @@ on:
   workflow_dispatch:
     inputs:
       city:
-        description: 'Bake a single city only (e.g. amsterdam). Blank = every BAKEABLE region.'
+        # §GEOID-REBAKE-IS-A-LIST (L-12977) — this said "a single city only", and that was never what
+        # the loop below does: `CITIES="$CITY"` is word-split by `for c in $CITIES`, so a
+        # space-separated list has ALWAYS worked. It went undocumented, so the §GEOID-PER-TILE-DATUM
+        # re-bake list (348 cities ≥ 1 m of Z error) looked like 348 separate dispatches. It is one.
+        description: 'Bake these cities — one slug, or a space-separated list (e.g. "tarifa ceuta algeciras"). Blank = every BAKEABLE region.'
         type: string
         default: ''
+      geoid:
+        # §GEOID-PER-TILE-DATUM (L-12975) — the mode WAS reachable (terrain.mjs defaults to egm08 and
+        # this workflow passed no override) but it was not SELECTABLE, and an operator could neither
+        # see which datum a run used nor reproduce a pre-fix tileset without editing the YAML. Both
+        # are now explicit. `constant` is the pre-2026-09-06 per-COUNTRY lift and is byte-identical to
+        # what is live today (proven in 3236cd41) — it exists to REPRODUCE a shipped tileset, never to
+        # ship a new one.
+        description: 'Vertical datum: egm08 = per-post EGM2008 N (correct). constant = the legacy per-COUNTRY geoidSepM (reproduces a pre-fix tileset).'
+        type: choice
+        options: [egm08, constant]
+        default: egm08
       publish:
         description: 'Upload to s3://pryzm-assets/tiles/terrain/. Untick to bake + inspect the artifact only.'
         type: boolean
@@ -89,6 +104,31 @@ jobs:
           echo "── live source probe ──"
           node tools/context-bake/terrain.mjs --probe || true
 
+      - name: Fetch the EGM2008 geoid grid ONCE (fail here, not 583 times mid-bake)
+        # §GEOID-GRID-PREFETCH (L-12977). Under the default `--geoid egm08` EVERY city range-reads
+        # https://cdn.proj.org/us_nga_egm08_25.tif for its own window. That is 583 reads of one 80 MB
+        # artefact, and — worse — `resolveGeoidEvaluator` correctly THROWS on an unreachable grid, so a
+        # CDN blip lands in the per-city `::warning::` tolerance below: that city is skipped, the run is
+        # still green, and the OLD wrong-datum tileset stays live. A silently-kept defect is exactly the
+        # failure this whole change exists to remove. So the grid is fetched ONCE, verified, and the
+        # bake reads it from disk via `--geoid-tif`; if it cannot be fetched the RUN FAILS HERE, loudly.
+        # ⛔ It is never substituted (EGM96 or a coarsened grid shifts every tile by decimetres with no
+        # visible signal) and never degraded to `--geoid constant` — that is the bug, not the fallback.
+        # The URL is asserted equal to terrain.mjs's own EGM08_COG_URL by geoidPerTileDatum.spec ARM H.
+        run: |
+          set -euo pipefail
+          TIF="$RUNNER_TEMP/us_nga_egm08_25.tif"
+          curl -sS -f -L --retry 3 --retry-delay 5 --max-time 900 -o "$TIF" https://cdn.proj.org/us_nga_egm08_25.tif
+          sz="$(stat -c '%s' "$TIF")"
+          magic="$(head -c 4 "$TIF" | od -An -tx1 | tr -d ' \n')"
+          echo "EGM2008 grid: $sz bytes, magic $magic"
+          # 80,585,622 B is the published size; accept only a plausible full file with TIFF magic
+          # (II*\0 little-endian or MM\0* big-endian), so a truncated/HTML error page can never be
+          # read as a geoid and lift every post by a garbage N.
+          [ "$sz" -gt 80000000 ] || { echo "::error::EGM2008 grid is $sz bytes — truncated; refusing to bake on a partial geoid."; exit 1; }
+          case "$magic" in 49492a00|4d4d002a) ;; *) echo "::error::EGM2008 grid is not a TIFF (magic $magic)"; exit 1 ;; esac
+          echo "GEOID_TIF=$TIF" >> "$GITHUB_ENV"
+
       - name: Bake
         env:
           # apikey-gated sources (used once their fetch/reproject adapters land). DK reuses the
@@ -98,8 +138,10 @@ jobs:
           LANTMATERIET_API_KEY: ${{ secrets.LANTMATERIET_API_KEY }}
           MML_API_KEY: ${{ secrets.MML_API_KEY }}
           CITY: ${{ inputs.city }}
+          GEOID: ${{ inputs.geoid }}
         run: |
           set -euo pipefail
+          echo "vertical datum for this run: --geoid $GEOID (grid $GEOID_TIF)"
           if [ -n "$CITY" ]; then
             CITIES="$CITY"
           else
@@ -114,12 +156,17 @@ jobs:
           failed=""
           for c in $CITIES; do
             echo "── $c ──"
-            if ! node tools/context-bake/terrain.mjs --bake-city "$c" --out "tools/context-bake/out/terrain/$c"; then
+            if ! node tools/context-bake/terrain.mjs --bake-city "$c" --out "tools/context-bake/out/terrain/$c" \
+                 --geoid "$GEOID" --geoid-tif "$GEOID_TIF"; then
               echo "::warning::terrain bake for '$c' failed — skipping (other cities continue)"
               failed="$failed $c"
             fi
           done
-          [ -n "$failed" ] && echo "::warning::cities that did not bake:$failed" || echo "all attempted cities baked"
+          # §GEOID-REBAKE-IS-A-LIST (L-12977) — a skipped city KEEPS ITS OLD TILESET. When the point of
+          # the run is to correct a datum, "skipped" and "corrected" must never read the same, so the
+          # names are echoed twice: once as a warning and once in the step summary the founder reads.
+          [ -n "$failed" ] && echo "::warning::cities that did not bake (they KEEP their previous tileset):$failed" || echo "all attempted cities baked"
+          { echo "### Bake ($GEOID)"; echo ""; echo "attempted: \`$CITIES\`"; echo ""; echo "did NOT bake (kept their old tileset): \`${failed:- none}\`"; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Assert produced tilesets are real
         run: |
