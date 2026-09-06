@@ -58,7 +58,14 @@
  *   - C04: no FrameScheduler / rAF dependency (P3) — CSS compositor animation only.
  */
 
-import { createPryzmLogoSpinner } from './PryzmLogoSpinner';
+// §SPLASH-IS-ONE-COMPONENT (founder 2026-09-06: "the loading, don't use the current one
+// (photo 1), add photo 2, which is the project start-up") — the pastel mesh gradient, the hero
+// pyramid, the PRYZM wordmark, the hairline track and the caption belong to the BOOT SPLASH, and
+// they are now ONE component shared with it. This surface supplies the caption and the honest
+// numbers; it defines no colour of its own. ⚠ Copying the splash's hexes in here instead would
+// have been the L-12965 defect again: seven colours defined twice, drifted apart, and neither
+// definition wrong on its own. Same look must mean SAME CODE.
+import { buildPryzmSplashButton, buildPryzmSplashChrome, type PryzmSplashChrome } from './PryzmSplashChrome';
 
 /** An interactive escape hatch offered in the overlay's ERROR state. */
 export interface LoadingOverlayAction {
@@ -86,20 +93,23 @@ export interface LoadingOverlaySurface {
 export class LoadingOverlayView implements LoadingOverlaySurface {
     private _backdrop: HTMLElement | null = null;
     private _el: HTMLElement | null = null;
-    private _title: HTMLElement | null = null;
-    private _label: HTMLElement | null = null;
+    private _chrome: PryzmSplashChrome | null = null;
     private _bar: HTMLElement | null = null;
     private _track: HTMLElement | null = null;
-    private _noteEl: HTMLElement | null = null;
-    private _pctEl: HTMLElement | null = null;
-    private _actionsEl: HTMLElement | null = null;
     private _spinner: HTMLElement | null = null;
+
+    /** The producer's own strings, held so any one of them can be updated independently and the
+     *  ONE honest line under the caption re-composed from all three. */
+    private _titleText = 'Loading';
+    private _labelText = 'Preparing…';
+    private _noteText = '';
+    private _pctText = '';
 
     private _visible = false;
     private _hideTimer: ReturnType<typeof setTimeout> | null = null;
     /** True once a real ratio has been rendered this show-session (stops the creep). */
     private _hasRealProgress = false;
-    /** True while the ERROR state is on screen (the card is interactive). */
+    /** True while the ERROR state is on screen (the column is interactive). */
     private _inError = false;
 
     // ── Public API ──────────────────────────────────────────────────────────
@@ -116,17 +126,16 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
             this._hasRealProgress = false;
             this._clearError();
             this._resetBar();
-            this._renderPercent(0);
-            if (this._noteEl) this._noteEl.textContent = '';
+            this._pctText = '';
+            this._noteText = '';
 
             this._backdrop.style.display = 'block';
             void this._backdrop.offsetHeight;
             this._backdrop.style.opacity = '1';
 
-            this._el.style.display = 'flex';
+            this._el.style.display = 'block';
             void this._el.offsetHeight;
             this._el.style.opacity = '1';
-            this._el.style.transform = 'translate(-50%, -50%) scale(1)';
             this._visible = true;
         }
 
@@ -143,11 +152,15 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
     }
 
     setTitle(title: string): void {
-        if (this._title && this._title.textContent !== title) this._title.textContent = title;
+        if (this._titleText === title) return;
+        this._titleText = title;
+        this._renderCaption();
     }
 
     setLabel(label: string): void {
-        if (this._label && this._label.textContent !== label) this._label.textContent = label;
+        if (this._labelText === label) return;
+        this._labelText = label;
+        this._renderMeta();
     }
 
     /**
@@ -163,50 +176,43 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
         const ratio = total > 0 ? completed / total : 0;
         const pct = Math.max(2, Math.min(97, Math.round(ratio * 100)));
         this._setBarWidth(pct, /* smooth */ true);
-        this._renderPercent(pct);
-        if (this._noteEl) this._noteEl.textContent = p.note ?? '';
+        this._pctText = `${pct}%`;
+        this._noteText = p.note ?? '';
+        this._renderMeta();
     }
 
     setIndeterminate(note?: string): void {
         if (!this._el || !this._visible || this._inError) return;
-        if (this._noteEl) this._noteEl.textContent = note ?? '';
+        this._noteText = note ?? '';
+        this._renderMeta();
         if (!this._hasRealProgress) this._startIndeterminateCreep();
     }
 
     /**
      * §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY — the FAILURE PATH. A readiness signal that
      * never arrives must surface as an explicit, escapable error — never an eternal
-     * spinner. The card becomes pointer-interactive ONLY here.
+     * spinner. The column becomes pointer-interactive ONLY here.
      */
     showError(e: { title: string; message: string; actions: readonly LoadingOverlayAction[] }): void {
         if (!this._el) this._build();
-        if (!this._el || !this._backdrop) return;
+        if (!this._el || !this._backdrop || !this._chrome) return;
         if (!this._visible) this.show({ title: e.title });
 
         this._inError = true;
         this._el.classList.add('pryzm-loading-overlay--error');
-        // The card must accept clicks now (it is pointer-events:none while loading, so
-        // the frosted backdrop owns the input gate).
         this._el.style.pointerEvents = 'auto';
-        if (this._spinner) this._spinner.style.display = 'none';
         if (this._track) this._track.style.display = 'none';
-        if (this._pctEl) this._pctEl.style.display = 'none';
 
-        this.setTitle(e.title);
-        this.setLabel(e.message);
-        if (this._noteEl) this._noteEl.textContent = '';
+        const chrome = this._chrome;
+        chrome.caption.classList.add('pryzm-splash-caption--error');
+        chrome.caption.textContent = `${e.title} — ${e.message}`;
+        chrome.meta.textContent = '';
 
-        const actions = this._actionsEl;
-        if (!actions) return;
+        const actions = chrome.actions;
         actions.textContent = '';
-        actions.style.display = 'flex';
+        actions.hidden = false;
         for (const a of e.actions) {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className =
-                'pryzm-loading-overlay__btn' +
-                (a.primary ? ' pryzm-loading-overlay__btn--primary' : '');
-            b.textContent = a.label;
+            const b = buildPryzmSplashButton(a.label, a.primary === true);
             b.addEventListener('click', () => {
                 try { a.onClick(); } catch (err) { console.error('[LoadingOverlayView] action threw:', err); }
             });
@@ -220,16 +226,17 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
 
         this._clearError();
         this._setBarWidth(100, /* smooth */ true);
-        this._renderPercent(100);
-        if (this._label) this._label.textContent = 'Done';
+        this._pctText = '100%';
+        this._labelText = 'Done';
+        this._noteText = '';
+        this._renderMeta();
 
         const el = this._el;
         const backdrop = this._backdrop;
 
         this._hideTimer = setTimeout(() => {
-            el.style.transition = 'opacity 0.30s ease, transform 0.30s cubic-bezier(0.4,0,1,1)';
+            el.style.transition = 'opacity 0.30s ease';
             el.style.opacity = '0';
-            el.style.transform = 'translate(-50%, -50%) scale(0.94)';
 
             if (backdrop) {
                 backdrop.style.transition = 'opacity 0.40s ease';
@@ -238,7 +245,6 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
 
             setTimeout(() => {
                 el.style.display = 'none';
-                el.style.transform = 'translate(-50%, -50%) scale(0.94)';
                 this._resetBar();
                 if (backdrop) backdrop.style.display = 'none';
             }, 450);
@@ -251,9 +257,12 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
     private _build(): void {
         this._ensureStyles();
 
+        // The GROUND. It keeps its id, its z-index and its `pointer-events: all` — that is the
+        // INPUT GATE and it is unchanged. What changed is only what it is PAINTED with: the
+        // shared `pryzm-splash-ground` mesh gradient instead of this file's own flat token fill.
         const backdrop = document.createElement('div');
         backdrop.id = 'pryzm-loading-backdrop';
-        backdrop.className = 'pryzm-loading-backdrop';
+        backdrop.className = 'pryzm-loading-backdrop pryzm-splash-ground';
         backdrop.setAttribute('data-testid', 'pryzm-loading-backdrop');
         document.body.appendChild(backdrop);
         this._backdrop = backdrop;
@@ -263,66 +272,22 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
         card.className = 'pryzm-loading-overlay';
         card.setAttribute('data-testid', 'pryzm-loading-overlay');
 
-        // §PRYZM-LOGO-SPINNER — CSS 3-D prism on the compositor thread: it keeps
-        // turning through every main-thread LONGTASK (geometry drain, WebGPU PSO
-        // compile, Cesium tile upload).
-        const spinner = createPryzmLogoSpinner('lg');
-        spinner.classList.add('pryzm-loading-overlay__spinner');
-        this._spinner = spinner;
-
-        const textBlock = document.createElement('div');
-        textBlock.className = 'pryzm-loading-overlay__text';
-
-        const title = document.createElement('div');
-        title.className = 'pryzm-loading-overlay__title';
-        title.textContent = 'Loading';
-        this._title = title;
-
-        const label = document.createElement('div');
-        label.className = 'pryzm-loading-overlay__label';
-        label.textContent = 'Preparing…';
-        this._label = label;
-
-        const noteEl = document.createElement('div');
-        noteEl.className = 'pryzm-loading-overlay__note';
-        noteEl.textContent = '';
-        this._noteEl = noteEl;
-
-        const progressRow = document.createElement('div');
-        progressRow.className = 'pryzm-loading-overlay__progress-row';
-
-        const track = document.createElement('div');
-        track.className = 'pryzm-loading-overlay__track';
-        const bar = document.createElement('div');
-        bar.className = 'pryzm-loading-overlay__bar';
-        track.appendChild(bar);
-        this._bar = bar;
-        this._track = track;
-
-        const pct = document.createElement('div');
-        pct.className = 'pryzm-loading-overlay__pct';
-        pct.textContent = '';
-        this._pctEl = pct;
-
-        progressRow.appendChild(track);
-        progressRow.appendChild(pct);
-
-        const actions = document.createElement('div');
-        actions.className = 'pryzm-loading-overlay__actions';
-        actions.style.display = 'none';
-        this._actionsEl = actions;
-
-        textBlock.appendChild(title);
-        textBlock.appendChild(label);
-        textBlock.appendChild(noteEl);
-        textBlock.appendChild(progressRow);
-        textBlock.appendChild(actions);
-
-        card.appendChild(spinner);
-        card.appendChild(textBlock);
+        // §SPLASH-IS-ONE-COMPONENT — the pyramid, wordmark, hairline track, caption and honest
+        // meta row all come from the ONE factory the engine boot uses. No hex, no gradient and
+        // no type scale is defined in this file any more.
+        const chrome = buildPryzmSplashChrome();
+        this._chrome = chrome;
+        this._bar = chrome.bar;
+        this._track = chrome.track;
+        this._spinner = chrome.spinner;
+        chrome.column.style.position = 'absolute';
+        chrome.column.style.inset = '0';
+        card.appendChild(chrome.column);
 
         document.body.appendChild(card);
         this._el = card;
+        this._renderCaption();
+        this._renderMeta();
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
@@ -334,15 +299,42 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
         if (this._el) this._el.style.pointerEvents = 'none';
         if (this._spinner) this._spinner.style.display = '';
         if (this._track) this._track.style.display = '';
-        if (this._pctEl) this._pctEl.style.display = '';
-        if (this._actionsEl) {
-            this._actionsEl.textContent = '';
-            this._actionsEl.style.display = 'none';
+        if (this._chrome) {
+            this._chrome.caption.classList.remove('pryzm-splash-caption--error');
+            this._chrome.actions.textContent = '';
+            this._chrome.actions.hidden = true;
+        }
+        this._renderCaption();
+        this._renderMeta();
+    }
+
+    /** The caption line = the producer's TITLE ("Opening the 3D Site"), uppercased by CSS. */
+    private _renderCaption(): void {
+        if (!this._chrome || this._inError) return;
+        if (this._chrome.caption.textContent !== this._titleText) {
+            this._chrome.caption.textContent = this._titleText;
         }
     }
 
-    private _renderPercent(pct: number): void {
-        if (this._pctEl) this._pctEl.textContent = `${Math.round(pct)}%`;
+    /**
+     * ⛔ THE HONEST ROW. The founder asked for the prettier screen AND still wants to know it is
+     * working, so the phase line, the producer's own note (the tile counter — "48 / 49 tiles")
+     * and the percentage are composed onto ONE line under the caption rather than dropped. A
+     * splash that says less than the surface it replaced would be a regression wearing a nicer
+     * background.
+     */
+    private _renderMeta(): void {
+        if (!this._chrome || this._inError) return;
+        const parts = [this._labelText, this._noteText].filter((t) => t.length > 0);
+        const meta = this._chrome.meta;
+        meta.textContent = parts.join(' · ');
+        if (this._pctText) {
+            if (parts.length > 0) meta.appendChild(document.createTextNode(' · '));
+            const pct = document.createElement('span');
+            pct.className = 'pryzm-splash-meta-pct';
+            pct.textContent = this._pctText;
+            meta.appendChild(pct);
+        }
     }
 
     private _resetBar(): void {
@@ -369,221 +361,48 @@ export class LoadingOverlayView implements LoadingOverlaySurface {
         void this._bar.offsetWidth; // flush the 0% reset before arming the transition
         this._bar.style.transition = 'width 2500ms cubic-bezier(0.15,0.6,0.3,1)';
         this._bar.style.width = '20%';
-        this._renderPercent(0);
     }
 
     // ── Styles ──────────────────────────────────────────────────────────────
 
+    /**
+     * ⚠ WHAT IS LEFT HERE IS POSITIONING AND THE INPUT GATE — NOTHING VISUAL.
+     *
+     * Every colour, gradient, type scale and animation this file used to own moved to
+     * `PryzmSplashChrome.ts` (§SPLASH-IS-ONE-COMPONENT). The two rules below are the ones that
+     * are genuinely THIS surface's own: where it sits in the stacking order, and the fact that
+     * the ground eats pointer events while the column does not.
+     */
     private _ensureStyles(): void {
         const id = 'pryzm-loading-overlay-style';
         if (document.getElementById(id)) return;
         const style = document.createElement('style');
         style.id = id;
         style.textContent = `
-            /* §LOADING-WHITE-BACKDROP — a WHITE but SEMI-TRANSPARENT scrim: the scene
-               reads faintly behind the card, on a clean white tint (no dark/purple).
-               §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY — this is ALSO the INPUT GATE:
-               pointer-events:all at z 88880, above the Cesium container (z 15) and the
-               view toggles (z 30/31), so nothing underneath can be navigated or clicked
-               until the readiness signal dismisses the overlay. */
+            /* §FEAT-VIEW-ACTIVATION-LOADING-OVERLAY — THE INPUT GATE. pointer-events:all at
+               z 88880, above the Cesium container (z 15) and the view toggles (z 30/31), so
+               nothing underneath can be navigated or clicked until the readiness signal
+               dismisses the overlay. §LOAD-MASK-OPAQUE-WHITE (L-483) — the ground is a FULL
+               mask (the splash gradient's final stop is opaque), never a translucent scrim over
+               a half-painted dark globe. The blur is kept for the brief fade in/out. */
             .pryzm-loading-backdrop {
-                position: fixed;
-                inset: 0;
                 z-index: 88880;
                 display: none;
                 opacity: 0;
-                /* §LOAD-MASK-OPAQUE-WHITE (L-483) — a FULL white mask, not a translucent scrim.
-                   The old rgba(...,0.68) let the layer being loaded show THROUGH at 32%, and on a
-                   view transition the thing behind is a Cesium globe whose 3D tiles have not
-                   painted yet — i.e. a DARK sphere. So the "Opening the 3D globe" card sat on a
-                   muddy grey-through-to-black wash (founder: "an ugly dark background comes up").
-                   Brand is white + purple, explicitly no black (onboarding brand note), so the
-                   honest mask is opaque white: the user sees a clean white field with the prism
-                   and progress until the scene is genuinely ready, never a half-loaded globe.
-                   The blur is kept for the brief fade in/out, when a frame may still show through.
-                   §LOAD-MASK-TINT (L-494) — a SLIGHT lavender-grey, not pure white: the prism +
-                   spinner are near-white, so on #FFFFFF they vanished (founder: "we don't see the
-                   prism rotating while loading"). A faint tint keeps the dark globe fully masked
-                   while giving the white prism contrast to read against. Still brand (white+purple,
-                   no black).
-                   §UX2-LOADING-GROUND (founder 2026-08-19: "more grey, a bit darker, so we can
-                   see the PRYZM logo more") — the FOURTH ruling on this tint, and the first that
-                   is not a literal in this file. The value, the prism's face alphas and the type
-                   that has to survive on it now live together in 'styles/tokens.ts', because the
-                   previous three rulings each moved one screen and left every sibling loading
-                   surface behind (C84 EI-8/EI-9 — one vocabulary). The fallback is the OLD value,
-                   so a surface that never loads the app sheet degrades to the previous look
-                   rather than to nothing. ⚠ See the token's note: the ground is only HALF the
-                   fix — the prism's own alpha is the lever that makes the mark visible.
-                   §UX3-LOADING-GROUND-2 — the FIFTH ruling ("darker grey than that"): the token
-                   moved again, #C8C2DE → #B2A8C7, and because it IS a token this file did not
-                   change for it. The token's note records why 72% lightness is the floor. */
-                background: var(--pryzm-loading-ground, #ECEAF3);
                 backdrop-filter: blur(8px);
                 -webkit-backdrop-filter: blur(8px);
                 transition: opacity 0.20s ease;
                 pointer-events: all;
             }
-
-            /* §L-385 — NO CARD. A transparent, centered COLUMN that floats the rotating
-               prism directly over the translucent backdrop with the text beneath it,
-               matching RendererSwapOverlay / EngineLoadingOverlay. The fixed-centre
-               position + the scale/opacity entrance-and-exit transitions are unchanged
-               (show()/hide() still drive transform: translate(-50%,-50%) scale(...)). */
             .pryzm-loading-overlay {
                 position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%) scale(0.94);
+                inset: 0;
                 z-index: 88888;
                 display: none;
                 opacity: 0;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                gap: 0;
-                padding: 0;
-                background: transparent;
-                border-radius: 0;
-                box-shadow: none;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                             Helvetica, Arial, sans-serif;
-                user-select: none;
                 pointer-events: none;
-                text-align: center;
-                transition:
-                    opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1),
-                    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-                width: min(440px, 86vw);
+                transition: opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1);
             }
-
-            /* §L-385 — the prism floats free (grey placeholder tile removed); scaled up
-               for hero presence over the scrim, its own purple drop-shadow (baked into
-               the shared spinner) gives it lift on the translucent-white backdrop. */
-            .pryzm-loading-overlay__spinner {
-                flex-shrink: 0;
-                transform: scale(1.85);
-                transform-origin: center center;
-                margin-bottom: 46px;
-                overflow: visible;
-            }
-
-            .pryzm-loading-overlay__text {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 7px;
-                width: 100%;
-                min-width: 0;
-            }
-            .pryzm-loading-overlay__title {
-                font-size: 16px;
-                font-weight: 700;
-                color: var(--pryzm-loading-title, #1a1130);
-                letter-spacing: -0.01em;
-                max-width: 100%;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-            .pryzm-loading-overlay__label {
-                font-size: 12.5px;
-                font-weight: 500;
-                /* §UX2-LOADING-GROUND — #5a5f70 fell to 3.31:1 on the darker ground. */
-                color: var(--pryzm-loading-label, #5a5f70);
-                letter-spacing: 0.005em;
-                max-width: 100%;
-            }
-            .pryzm-loading-overlay__note {
-                font-size: 11px;
-                font-weight: 500;
-                /* §UX2-LOADING-GROUND — the tile counter. #8b7fb0 read 3.06:1 on the OLD
-                   ground, i.e. it was already under AA before anything was darkened. */
-                color: var(--pryzm-loading-note, #8b7fb0);
-                letter-spacing: 0.04em;
-                min-height: 13px;
-                font-variant-numeric: tabular-nums;
-            }
-            .pryzm-loading-overlay__progress-row {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                margin-top: 16px;
-                width: min(240px, 62vw);
-            }
-            /* §LOADING-REAL-PROGRESS — thin brand-purple bar (was neutral grey). */
-            .pryzm-loading-overlay__track {
-                flex: 1;
-                height: 3px;
-                /* §UX2-LOADING-GROUND — 0.14 composited to 1.26:1 on the darker ground, so
-                   the unfilled track vanished into it. 0.30 read without competing with the
-                   filled bar. §UX3-LOADING-GROUND-2 — on #B2A8C7 that 0.30 composite fell to
-                   1.56:1; 0.45 restores it to 1.94:1. Deliberately a subdued rail (the FILLED
-                   bar carries the meaning at ≥3:1), so it is measured, not pushed to 3:1. */
-                background: rgba(102, 0, 255, 0.45);
-                border-radius: 999px;
-                overflow: hidden;
-            }
-            .pryzm-loading-overlay__bar {
-                height: 100%;
-                width: 0%;
-                /* §UX2-LOADING-GROUND — the old light end (#8B5CF6) read 2.47:1 on #C8C2DE,
-                   under SC 1.4.11's 3:1 for a meaningful graphic; both ends were moved to clear
-                   it. §UX3-LOADING-GROUND-2 — re-measured on #B2A8C7: #6600FF 3.10:1 ·
-                   #4A00B8 4.70:1, both still clear. The light end being THE brand purple at
-                   3.10:1 is exactly what caps the ground at 72% lightness — see the token. */
-                background: linear-gradient(90deg, #6600FF 0%, #4A00B8 100%);
-                border-radius: inherit;
-                box-shadow: 0 0 8px rgba(102, 0, 255, 0.40);
-            }
-            .pryzm-loading-overlay__pct {
-                flex-shrink: 0;
-                min-width: 34px;
-                text-align: right;
-                font-size: 11px;
-                font-weight: 600;
-                /* §UX2-LOADING-GROUND — #6600FF read 4.06:1 on #C8C2DE, under AA at 11px,
-                   which is why this is the accent TOKEN (retuned per ground; #4700b3 is
-                   4.86:1 on the current #B2A8C7). */
-                color: var(--pryzm-loading-accent, #6600FF);
-                letter-spacing: 0.02em;
-                font-variant-numeric: tabular-nums;
-            }
-
-            /* ── ERROR state (§FEAT-VIEW-ACTIVATION-LOADING-OVERLAY) ─────────────
-               A readiness signal that never arrives is a DEFECT, not a longer wait.
-               Say so, and always give the user a way out. */
-            .pryzm-loading-overlay--error .pryzm-loading-overlay__label {
-                color: var(--pryzm-loading-error, #b4232a);
-                white-space: normal;
-            }
-            .pryzm-loading-overlay__actions {
-                display: none;
-                gap: 8px;
-                margin-top: 18px;
-                justify-content: center;
-            }
-            .pryzm-loading-overlay__btn {
-                appearance: none;
-                /* §UX2-LOADING-GROUND — a white fill alone cannot bound this control
-                   (1.72:1 on #C8C2DE, 2.25:1 on the current #B2A8C7 — both under 3:1), so
-                   the BORDER is what bounds it (SC 1.4.11). #ece7fb could not do that on any
-                   ground; the accent can. */
-                border: 1px solid var(--pryzm-loading-accent, #6600FF);
-                background: #ffffff;
-                color: var(--pryzm-loading-accent, #6600FF);
-                cursor: pointer;
-                padding: 7px 14px;
-                border-radius: 8px;
-                font: 600 12px/1 system-ui, sans-serif;
-            }
-            .pryzm-loading-overlay__btn:hover { background: #f4f0ff; }
-            .pryzm-loading-overlay__btn--primary {
-                background: var(--pryzm-loading-accent, #6600FF);
-                border-color: var(--pryzm-loading-accent, #6600FF);
-                color: #ffffff;
-            }
-            .pryzm-loading-overlay__btn--primary:hover { background: #4A00B8; }
         `;
         document.head.appendChild(style);
     }
