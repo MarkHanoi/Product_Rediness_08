@@ -187,6 +187,11 @@ first; the quiet one was the older and larger lie. **Check `Last-Modified`, neve
 
 ## 8. Publishing the rest — the plan, and the three things that stop it (lane PUBLISH-THE-82, 2026-09-06)
 
+> ⚠ **THE NUMBERS IN §8 ARE LITERALS AND §9 REPLACES THEM WITH A GENERATOR.** Everything §8 says about
+> the SHAPE is still correct and is not superseded; every FIGURE in it was typed from a terminal on
+> 2026-09-06 and has already moved (`131` rows → **132**, `91` pending → **92**, within the day).
+> Run `node tools/context-bake/publish-plan.mjs` — read the tool, never this section.
+
 ⛔ **THE HEADLINE: the publish chain is BLOCKED at HEAD `607ab09c`, and it was blocked silently.**
 Nothing in the repo said so; `merge-tiles.mjs` says so the moment you run it.
 
@@ -367,3 +372,137 @@ disk-guard step now prints the surplus and `df -h / /mnt`, so one cheap run answ
 6. **Phases B → E are NOT dispatchable today.** They are gated on the ceiling raise, not on baking.
    Bake them by all means — a staged set costs only runner time and is the input the merge will need —
    but do not queue a publish for them until §8.5's arithmetic has an answer.
+
+## 9. The plan is now GENERATED — read the tool, never this section (lane PUBLISH-SWEEP-EXECUTE, 2026-09-06)
+
+⛔ **§8 is right about the shape and its numbers are literals.** Every figure in §8.1–§8.6 was typed
+into prose from a terminal, and the inputs a publish plan needs rot faster than almost anything else
+here: `tiles-staging/` accumulates, the live manifest changes on every merge, `bake.mjs` gains rows
+most days (`southkorea` landed **while this section was being written**, taking the row count 131 →
+132 and the pending set 91 → 92), and Geofabrik's byte-serving leg comes and goes inside the hour.
+That is the CLAUDE.md count/range defect with a deploy attached.
+
+```bash
+node tools/context-bake/publish-plan.mjs            # offline, from the committed probe snapshot
+node tools/context-bake/publish-plan.mjs --probe    # re-measure everything, rewrite the snapshot
+node tools/context-bake/publish-plan.mjs --json     # the model, for a script or a test
+```
+
+It computes the orphan verdicts, the population ranking, the per-layer tiles/pbf ratio, the bake
+wall-clock fit and the disk arithmetic from measurements, and it prints the **ordered dispatch list
+with its literal workflow inputs**. `tools/context-bake/__tests__/publishPlan.spec.ts` pins the three
+judgements a reader would otherwise take on trust. Snapshot: `publish-plan.probes.json`, keyed by
+URL / QID / runId — never by region name, so a sibling lane adding a row never invalidates it.
+
+### 9.1 What the tool measured that §8 could not
+
+| input | how | 2026-09-06 reading |
+|---|---|---|
+| live tileset | `GET <r2.dev>/tiles/tileset-manifest.json` | HTTP 200 · 49 regions · 7 layers · merged `34015784612` |
+| staged sets | **548** candidate slugs probed by name (`tiles-staging/<slug>/staging-manifest.json`) | **49 × HTTP 200 · 499 named absences** — and **not one** `<region>--<layer>` slug exists, so no region has ever staged `sea`, `furniture` or `canopy` |
+| bake wall-clock | each staged set's own `bakeRunId` → `GET api.github.com/…/actions/workflows/context-bake.yml/runs` | **49/49 runs matched**, all `success`; longest **france 204 min** against the 330-minute ceiling |
+| extract sizes | the `// N B` comments the rows already carry, plus a live re-probe | **131/131 measured**, 57.32 GB total |
+| population | Wikidata P1082, newest dated value | **132/132 rows resolved**, 0 unresolved |
+
+⭐ **`south-korea-latest.osm.pbf` measured 286,653,320 B (HTTP 206) at 17:41Z**, ninety minutes after
+lane KOREA-FROM-NOTHING recorded it as unservable (502/504). Both records are true: Geofabrik's
+proxy is intermittent, which is exactly why a size is only ever accepted from a **206** and a refusal
+is recorded as a refusal.
+
+⭐ **The tiles/pbf ratio is now PER LAYER and it reproduces §8.5 independently.** Calibrated on the
+**34** rows that are staged *and* live *and* whole-extract *and* have a measured extract *and* whose
+bbox has not moved since their bake: `buildings` 0.78× · `roads` 0.84× · `parks` 0.44× · `water`
+0.40× · `landuse` 0.40× · `rail` 0.04× · `trees` 0.01× — summing to **2.91×**, against the 2.80×
+§8.5 recorded from the same staged sets by a different route.
+
+⛔ **`newyork` is EXCLUDED from that calibration, and the exclusion is derived, not named.** Its
+staged tiles are the pre-`18bc20c7` Manhattan clip (`-74.03,40.70,-73.91,40.82`, baked at
+`c7d1ebe6`) while its `pbfUrl` is the whole New York State extract, so it contributes a **0.03×**
+buildings ratio — twenty times below the set. The tool reads `bake.mjs` at the sha the staged set
+records and compares that row's bbox to HEAD's; any row whose bbox moved after its bake drops out
+the same way.
+
+**Bake wall-clock, least squares on the 34:** `minutes ≈ 34 + 29 × pbfGB`, residuals −41..+90 min.
+No unpublished region is predicted anywhere near the ceiling — the largest, `japan` (2.51 GB), lands
+at **~106 min**.
+
+### 9.2 The nine orphans — the verdict is now COMPUTED
+
+§8.4's conclusion stands and is no longer a claim: for each live region `bake.mjs` no longer has, the
+tool finds the commit that removed the row (`git log -S`), reads the row out of that commit's parent,
+and requires **both** halves before it will say RENAME — same `pbfUrl`, and a successor bbox that
+numerically contains the removed one. All nine pass; the spec fails the build if a future orphan does
+not, because that sentence is what authorises `allow_region_removal` on nine LIVE metros.
+
+⛔ **And every successor is still `pending`, never baked** — which is the whole reason wave 1 exists.
+
+### 9.3 The no-loss gate FIRES — reproduced locally against the real bucket
+
+Not asserted — RUN, at HEAD, against the **49 real staged manifests** fetched from R2 and the **real
+live manifest** (`--dry-run --no-verify --engine js`, so nothing is written anywhere).
+
+| case | command | result |
+|---|---|---|
+| the one that used to pass silently | `--expect spain --allow-unknown-regions` | **RC=1** · `✖ REGION LOSS` on all 7 layers · `⚠ 48 of these ARE staged and would still be lost — they are outside this run's expect= set` |
+| today's real dispatch | `--expect all --allow-unknown-regions` | **RC=1** · the loss is **exactly the nine orphans**, named per layer |
+| the re-point | `--expect all --allow-unknown-regions --allow-region-removal <the nine>` | **RC=0** · `▶ no-loss gate: every live region covered … (deliberate removals: …)` · `buildings: 40 input(s)` |
+
+⭐ **Read the third row twice.** It is the only dispatch that can run today, and it publishes **40**
+regions where **49** are live — the nine metros leave and nothing replaces them. That is not a bug in
+the gate; it is the gate telling the truth about a re-point whose successors have not been baked.
+
+⭐ **The fix is on `origin/main`** (`013b04ad`, contained in `fcec5f01`). The last two merge dispatches
+— `34040687790` (14:55Z) and `34041258908` (15:06Z) — both ran at `ceb178c4`, *before* it, and both
+failed at step 10 `Merge (refuses BY NAME …)` in 3 and 5 minutes. **The next dispatch will be the
+first ever to exercise `allow_unknown_regions`.**
+
+### 9.4 The disk cliff — which layers must be split, and what a `df` would buy
+
+Projected to the **whole** 132-row table (staged today + every unpublished row at its layer ratio):
+
+| layer | final archive | merge needs ≈2× | verdict against the one proven figure |
+|---|---:|---:|---|
+| `roads` | 43.2 GiB | **86 GiB** | ⛔ must be split, or the runner must be bigger |
+| `buildings` | 40.0 GiB | **80 GiB** | ⛔ same |
+| `parks` | 22.4 GiB | 45 GiB | ✅ |
+| `landuse` | 20.7 GiB | 41 GiB | ✅ |
+| `water` | 20.4 GiB | 41 GiB | ✅ |
+| `rail` | 2.2 GiB | 4 GiB | ✅ |
+| `trees` | 0.7 GiB | 1 GiB | ✅ |
+
+⛔ **The "one proven figure" is a LOWER bound and it is an INFERENCE**: the roads publish
+(`33845044576`) held 23.68 GiB in and wrote 23.49 GiB out, so ≥ 47.2 GiB was free at that step.
+**Nobody has read the actual number**, and this lane could not: `GET /actions/jobs/100934983109/logs`
+answers **HTTP 403 `{"message":"Must have admin rights to Repository."}`** without an admin token.
+So §8.6's first item is not optional and it is not bureaucracy — it is the input every row below
+depends on:
+
+| free disk on the runner | regions publishable | population served | stops at | binding layer |
+|---:|---:|---:|---|---|
+| 47 GiB *(the proven lower bound)* | 0 of 92 | 0 | `mexico` | `roads` |
+| 60 GiB | 9 of 92 | **580,858,917** | `ontario` | `roads` |
+| 80 GiB | 58 of 92 | 881,287,802 | `westvirginia` | `roads` |
+| 100 GiB | **92 of 92** | **904,834,644** | — | — |
+
+⚠ **"Split the layer" is a CLIENT change, not a workflow input.** `contextTiles.ts` resolves a fixed
+flat path `<base>/<layer>.pmtiles?v=<stamp>`, so sharding `roads` into region groups needs the reader
+to learn about shards. **The cheap move is the runner** — one `df` reading decides whether any of
+this is needed at all, and a public repo's standard runner is not the same machine the 2026-09-03
+runs used. **Measure before designing a shard.**
+
+### 9.5 Wave 1 — the six bakes population cannot reorder
+
+| region | why | pop | pbf | pred. bake |
+|---|---|---:|---:|---:|
+| `california` | successor of `sanfrancisco` | 39,538,223 | 1.33 GB | 72 min |
+| `gccstates` | successor of `riyadh` + `jeddah` + `dubai` + `abudhabi` | 56,392,757 | 0.25 GB | 41 min |
+| `texas` | successor of `austin` + `houston` | 29,145,505 | 0.72 GB | 54 min |
+| `newyork` | bbox widened after its bake — the merged manifest would otherwise describe tiles it does not have | 20,201,249 | 0.50 GB | 48 min |
+| `illinois` | successor of `chicago` | 12,719,141 | 0.36 GB | 44 min |
+| `massachusetts` | successor of `boston` | 7,029,917 | 0.31 GB | 43 min |
+
+They bake CONCURRENTLY (`context-bake-<region>`), so the wave is **~72 min**, bounded by
+`california`. It adds `roads` +2.72 GiB and `buildings` +2.50 GiB, taking the next roads merge to
+~26.2 GiB in — **~52 GiB required, already above the only figure anyone has proven.**
+
+**The ordered dispatch list, with the literal inputs, is what the tool prints. Run it.**
