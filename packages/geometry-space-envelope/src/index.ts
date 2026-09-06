@@ -123,3 +123,20 @@ export {
     type SpaceEnvelopeFaceSurface,
     type SpaceEnvelopeGlazingAssumption,
 } from './SpaceEnvelopeSolar.js';
+
+// §RESI-STAGE-G (2026-09-06) — the FOOTPRINT ↔ authoring-frame map behind C114 §11 item 7
+// (profile edit). Pure arithmetic; the surface it feeds is L7 and is NOT imported here.
+export {
+    footprintFromProfileRing,
+    headroomFor,
+    isProfileFrameRefusal,
+    spaceEnvelopeProfileFrame,
+    MAX_PROFILE_HEADROOM_M,
+    MIN_HORIZONTAL_EXTENT_M,
+    MIN_PROFILE_HEADROOM_M,
+    PROFILE_HEADROOM_FRACTION,
+    type ProfileFrameRefusal,
+    type ProfileFrameRefusalCode,
+    type ProfileFrameVertex,
+    type SpaceEnvelopeProfileFrame,
+} from './SpaceEnvelopeProfileFrame.js';
