@@ -160,6 +160,16 @@ import {
   defaultParcelLawCreateHouseDeps,
   type ParcelLawCreateHouseHandle,
 } from './parcelLawCreateHouse';
+// §PL-CHAT (STR §25.4) — the chat surface, ON this panel. ⛔ NOT a second chat client: it resolves
+// the parcel-law asks the general ladder correctly refuses for want of a footprint, drives the SAME
+// fields the manual path drives (so "typed" and "asked" cannot disagree), and hands everything else
+// to the SHIPPED `tryHandleZeroToken`. See that module's header for why it types into a field
+// instead of dispatching a command of its own.
+import {
+  mountParcelLawChat,
+  defaultParcelLawChatDeps,
+  type ParcelLawChatHandle,
+} from './parcelLawChat';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
@@ -190,6 +200,8 @@ export const PARCEL_LAW_AUTHORING_HOST_TESTID = 'analysis-parcel-law-authoring-s
 export const PARCEL_LAW_QUANTITIES_HOST_TESTID = 'analysis-parcel-law-quantities-slot';
 /** `data-testid` on the slot the "Create house" section is mounted into. */
 export const PARCEL_LAW_CREATE_HOUSE_HOST_TESTID = 'analysis-parcel-law-create-house-slot';
+/** `data-testid` on the slot the STR §25.4 chat surface is mounted into. */
+export const PARCEL_LAW_CHAT_HOST_TESTID = 'analysis-parcel-law-chat-slot';
 /** The `data-testid` the singleton card carries (GISAreaLayout `ensureEnvelopePanel`). */
 export const ENVELOPE_CARD_TESTID = 'buildable-envelope-card';
 /** Carries how many stage pills were wired on the last pass — read by the spec. */
@@ -284,6 +296,18 @@ export interface ParcelLawTabDeps {
    * space-envelope store renders a DISABLED button and the reason — never a dead click.
    */
   readonly mountCreateHouse?: (host: HTMLElement) => ParcelLawCreateHouseHandle;
+  /**
+   * Production: `mountParcelLawChat` scoped to THIS tab body — STR §25.4.
+   *
+   * ⚠ OPTIONAL for the same reason as its four siblings: spec literals written before this seam
+   * existed are complete and must keep compiling. Omitting it yields the production mount, whose
+   * every arm reports what it could not find rather than throwing.
+   *
+   * ⛔ The `scope` it is given is the tab ROOT, not `document`. The chat drives controls by
+   * pressing them, so a wider scope could press a control on a surface the reader is not looking
+   * at — the rail PARCEL panel holds the same card when it, not this tab, claimed it last.
+   */
+  readonly mountChat?: (host: HTMLElement, scope: () => ParentNode | null) => ParcelLawChatHandle;
 }
 
 /** The production wiring. Resolved when CALLED, so a runtime composed after boot is seen. */
@@ -302,6 +326,7 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     mountQuantities: (h) => mountParcelLawQuantities(h),
     mountAuthoring: (h) => mountParcelLawEnvelopeAuthoring(h),
     mountCreateHouse: (h) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()),
+    mountChat: (h, scope) => mountParcelLawChat(h, defaultParcelLawChatDeps(scope)),
   };
 }
 
@@ -338,6 +363,7 @@ export function mountParcelLawTab(
   let authoring: ParcelLawEnvelopeAuthoringHandle | null = null;
   let quantities: ParcelLawQuantitiesHandle | null = null;
   let createHouse: ParcelLawCreateHouseHandle | null = null;
+  let chat: ParcelLawChatHandle | null = null;
   let unsub: (() => void) | null = null;
   let disposed = false;
 
@@ -489,6 +515,29 @@ export function mountParcelLawTab(
       console.warn('[analysis][parcel-law] create-house mount failed (non-fatal):', e);
     }
 
+    // ── 4d. §PL-CHAT (STR §25.4) — "A CHAT BOT ON THE PARCEL LAW PANEL". ───────────────────
+    //
+    // Founder: *"WE NEED A CHAT BOT ON THE PARCEL LAW PANEL – SO USER CAN CHAT VIA RAC OR DEFINE
+    // VIA DATA MANUALLY INPUT."* Both paths are first-class and must AGREE, so the chat does not
+    // dispatch: it types into the fields above and presses their buttons, then reads THEIR status
+    // lines back as its reply. One plan builder, one dispatcher, one refusal — see
+    // `parcelLawChat.ts`'s header.
+    //
+    // ⭐ MOUNTED LAST, and scoped to `root`. Last because the controls it drives must already be in
+    // the DOM when a turn runs; scoped to this body because pressing a button is a real gesture and
+    // a document-wide scope could press one on a surface the reader is not looking at.
+    const chatSlot = document.createElement('div');
+    chatSlot.className = 'anl-parcel-law-chat-host';
+    chatSlot.setAttribute('data-testid', PARCEL_LAW_CHAT_HOST_TESTID);
+    root.appendChild(chatSlot);
+    try {
+      const mountChat = deps.mountChat
+        ?? ((h: HTMLElement, scope: () => ParentNode | null) => mountParcelLawChat(h, defaultParcelLawChatDeps(scope)));
+      chat = mountChat(chatSlot, () => root);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] chat mount failed (non-fatal):', e);
+    }
+
     // ── 5. The design-stage strip — after the claim lands (it is scheduled on a microtask). ──
     queueMicrotask(wireStrip);
     // …and again whenever the site store moves, because the rail panel rebuilds the card's
@@ -548,6 +597,8 @@ export function mountParcelLawTab(
       authoring = null;
       try { quantities?.dispose(); } catch { /* teardown is best-effort */ }
       quantities = null;
+      try { chat?.dispose(); } catch { /* teardown is best-effort */ }
+      chat = null;
       try { createHouse?.dispose(); } catch { /* teardown is best-effort */ }
       createHouse = null;
       try { panel?.dispose(); } catch { /* teardown is best-effort */ }
