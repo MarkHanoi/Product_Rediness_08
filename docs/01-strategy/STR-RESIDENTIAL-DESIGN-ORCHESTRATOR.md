@@ -605,3 +605,170 @@ The per-section EXISTS / PARTIAL / ABSENT inventory stays in
 (re-measure 2026-09-05)** for what shipped between the two transmissions, the two defects the
 screenshots exposed (**L-12915** the missing Parcel Law tab; **L-12916** the envelope that does
 not render), and the stage that now closes §24.1 items 1–3.
+
+## §25 — Founder transmission 2026-09-06: the Parcel Law tab, specified to the row
+
+> **Provenance.** Captured the same turn (2026-09-06, session product-rediness-08-08), per the
+> standing capture rule. This is the THIRD transmission of the orchestrator vision. It arrived in
+> answer to a lane-status report that offered "Generative Resi" as a generator-quality lane, and
+> it corrects that framing: *"FOR GENERATIVE RESI - I MEAN: THIS WHICH A LOT IS DONE - BUT IT
+> SHOULD HAVE THE ENVELOPE RENDERING - BEING MODIFIABLE - ON THE ANALYSE TAB.... CALLED PARCEL
+> LAW"*. §1–§24 are unchanged and are not restated here; this section records only what is NEW
+> or newly PINNED, because a re-transmission that gets summarised loses exactly the specificity
+> that makes it buildable.
+
+### §25.0 — The framing, restated by the founder and binding on every lane
+
+> *"the layouts are not great and won't be — a human can and will be able to create better
+> layouts for now vs AI. So given that PRYZM has a proven creation engine — I would like to use
+> it on the benefit of a Human driven / orchestrator for housing creation."*
+
+> *"The user have also the possibility to build automatically (automatically atm is non-sense
+> since it is too basic or manually either via UI/RAC — which would take too long time) …
+> I want pryzm to guide this process without building the house in one click — because it would
+> never be the wanted outcome."*
+
+⛔ **This is a standing constraint, not a preference.** A lane that raises a generator's
+auto-quality score is not working on this vision. The deliverable is the ORCHESTRATION surface —
+data, envelopes, graph, gizmos — that lets a human decide fast. Read §20 (do not over-automate)
+together with this.
+
+### §25.1 — The Parcel Law data card, pinned to the row
+
+§2 and §14 said "start with the parcel" and "show data continuously". This transmission pins the
+**exact taxonomy and the exact rows**, with the founder's own worked example. Four blocks:
+
+| Block | Rows (founder's worked example in parentheses) |
+|---|---|
+| **A · PARCEL** | Area (612 m²) · Perimeter (107.9 m) · Bounding box (37.8 × 16.4 m) · Boundary edges (9, **of which 3 street frontage**) · provenance line: *"Cadastral boundary as committed to this project (Catastro / drawn), measured in scene metres."* |
+| **B · ORDINANCE LIMITS** | Max height (12.0 m) · Storeys (4) · Max FAR (2.00) · Max site coverage (50 %) · Zone (generic-urban) · **citation held per row** in a *"Why these numbers?"* affordance |
+| **C · MASSING POTENTIAL** | Buildable footprint (355 m²) · Footprint / parcel (58 %) · Footprint perimeter (89.9 m) · Max buildable area GFA (1,421 m²) · Study volume (3,672 m³) · caveat: *"Computed from the inset footprint this card solved. A STUDY, not a permit."* |
+| **D · PER STOREY** | one row per storey — Ground 0.0–3.0 m 355 m² · Level 1 3.0–6.0 m · Level 2 6.0–9.0 m · Level 3 9.0–12.0 m · caveat: *"Even floor-to-floor from max height ÷ storeys — an EQUAL DIVISION for study, not a regulated storey height."* |
+
+Plus, **when a building already stands on the parcel, rich data about that building** — the
+founder's own house is the driving case (see L-12939; the parcel resolves, the building does not
+render, because context footprints are OSM and OSM never mapped it).
+
+**Every row is interactive:** *"If user clicks area – the area highlights. Perimeter, bounding
+box etc… everything is dynamic."* Area, perimeter, bounding box and edge classification each
+highlight their own geometry in the live view. This is Stage C, and §25.1 fixes its scope.
+
+### §25.2 — BRUT vs NET, and the remaining-area arithmetic the user must be TOLD
+
+The sharpest new requirement. §5 said the envelope precedes architecture; this says what the
+envelope must *compute and disclose*, with the founder's worked example:
+
+> *"Imagine there is a plot of 1200 sqm. The maximum implantation area in ground is 200 sqm. The
+> maximum total buildable area BRUT is 320. We should let the user know that only in first floor
+> he will be able to build 120 sqm."*
+
+So the loop is: **ask the user how much of the ground-floor allowance they want** → subtract from
+the total BRUT allowance → **state the remainder for the floors above** → let the user allocate
+it (the founder's example: *"how much to build on first floor. 120 sqm or 100 sqm?"*) → and
+render each decision immediately.
+
+> *"on the 3d canvas the user will see a TO-BE-BUILT ENVELOPE OF 200 SQM IN THE BUILDABLE
+> FOOTPRINT OF THE PLOT (ANOTHER COLOUR OF ENVELOPE). AT THIS STAGE WILL BE ORIENTATIVE."*
+
+⚠ **Three distinct envelopes now exist and must be visually distinguishable, with a legend:**
+the PERMITTED (zoning upper-bound) envelope, the **TO-BE-BUILT** envelope (the user's chosen
+area, "another colour", explicitly *orientative*), and later the ROOM envelopes. The C58 §1.2
+confidence hues govern the permitted one; the to-be-built one is an INTENT, not a measurement,
+and must never inherit a confidence badge that implies it was derived from law.
+
+### §25.3 — Massing options: the optimisation criteria and the shape vocabulary, named
+
+§7 said "multiple massing options". Today names what they optimise for and what they may be:
+
+- **Criteria:** sun exposure · orientation to sea view or open view · entrance from the street ·
+  parking area · **visibility from surrounding buildings** (overlooking).
+- **Shape vocabulary:** I · L · U · **L non-90-degree** · etc.
+- *"THIS NEEDS TO BE BUILT WITHIN PRYZM."* — the founder's own note that this one is not a
+  wiring job.
+
+Worked instruction the engine must satisfy: *"I want initially as a value attribute 180 sqm brut
+in ground floor – ideally L shape – south facing oriented – and pryzm will create a logical
+TO-BE BUILT ENVELOPE. SAME FOR FIRST FLOOR."*
+
+### §25.4 — A chat surface ON the Parcel Law panel
+
+> *"WE NEED A CHAT BOT ON THE PARCEL LAW PANEL – SO USER CAN CHAT VIA RAC OR DEFINE VIA DATA
+> MANUALLY INPUT."*
+
+Both input paths are first-class and must agree: a value typed into a field and the same value
+asked for in natural language produce the same envelope. This is the RAC free-form doctrine
+(open language; safety via rule gates that refuse with BOTH numbers) applied to the design stage.
+
+### §25.5 — The room programme, the graph, and drag-and-drop
+
+§8/§9/§10 exist; this pins the interaction:
+
+- A **library of all possible rooms in a residential house**, from which the user **drags and
+  drops** onto the graph and/or the 2D/3D scene. The user may add rooms not in the initial
+  programme — corridor, hall, studio — the same way.
+- *"the graph should drive the initial layout generation"* — the graph is the INPUT, not a
+  read-out. Plugging and unplugging a relationship re-generates the layout in plan AND 3D.
+- Output at this stage is **envelopes only** — *"not yet walls, floor, slabs etc… just spaces —
+  envelopes"* — with **colours and a legend**, level envelope plus room envelopes.
+- *"until this is sound we would not generate walls, doors etc…"* — an explicit gate on
+  proceeding to elements.
+
+### §25.6 — The two editing gestures, specified precisely
+
+1. **Per-face gizmo.** *"the room envelope shall have for each face a little arrow (gizmo) that
+   shall allow the user to move only in two directions perpendicular to the face."* Movement is
+   constrained to the face normal — one axis, two directions. Neighbours adapt, as BIM 3.0
+   move→recompute already does for walls/floors/partitions.
+2. **Double-click → profile edit, in 3D.** *"use the edit profile we have built for walls +
+   windows – but in 3d environment"* — double-click an envelope, then either move the existing
+   vectors defining its footprint or author a new footprint. ⛔ **Reuse the shipped profile
+   editor; a second profile editor is a defect.**
+
+**Containment is bidirectional and must hold both ways:** editing the LEVEL envelope makes the
+room envelopes inside it adapt; a ROOM envelope is CONSTRAINED to the level envelope, may move
+freely inside it, and its neighbours adapt to fit. (C114 §12's `room ⊂ level` row is now
+ENFORCEMENT — see C114 §14c — so the refusal path already exists to build on.)
+
+### §25.7 — Live quantities, cost, and one living system
+
+At the envelope stage, live in the panel: **room names · room net surface · brut surface per
+level · total**. Plus **an adjustable cost per m²** giving a cost estimate *before* going into
+detail.
+
+> *"The graph shall monitor and represent that data and the plan view, the 3d scene and the graph
+> shall talk to each other as a single living entity. Everything shall be live."*
+
+This is §13's synchronization contract; §25 adds the graph as a third live participant and the
+cost figure as a live output.
+
+### §25.8 — "Create House", and what it must produce
+
+The envelope stage ends at an explicit user action — **CREATE HOUSE** — which produces
+**floors, slabs, columns, beams, floor finishes, walls, ceilings** automatically. Before that
+point the ENVELOPE element carries the design; the founder asks that it be extended *"sound and
+as per the contracts as if it is a room, wall etc…"* — i.e. a first-class element family, not a
+preview object.
+
+### §25.9 — RAC detailing after creation, with the founder's own test set
+
+These five instructions are the acceptance set for §17:
+
+1. *"Create a window of 0.1 sill height, 4 metres wide and 3 metres height in the south facing
+   wall in the living room."*
+2. *"Create doors that communicate the rooms as per the graph."*
+3. *"Create windows of 0.5 sill height, 2 metres wide and 1.5 metres height in all rooms facing
+   south when possible otherwise east or west in this order."*
+4. *"Create a L shape kitchen in the kitchen room on the north facing and west facing walls."*
+5. *"Create bedrooms layout with queen beds etc."*
+
+Note #3 carries a PREFERENCE ORDER with a fallback chain, and #2 reads the graph as design
+input — neither is a simple parameterised create.
+
+### §25.10 — What §25 does NOT change
+
+The engine inventory, the stage ladder and the honest EXISTS / PARTIAL / ABSENT measurements stay
+in [`RESI-ORCHESTRATOR-PLAN.md`](../03-execution/plans/RESI-ORCHESTRATOR-PLAN.md). §25 adds
+specificity to §2, §5, §7, §9, §10, §11, §12, §14, §15, §16 and §17 — it does not add a stage and
+it does not reorder the ladder. The founder's own estimate stands and should be tested rather
+than assumed: *"I believe most of the engine already exists – just needs to be put things
+together."* Where that turns out to be false for a given row, say so by name.
