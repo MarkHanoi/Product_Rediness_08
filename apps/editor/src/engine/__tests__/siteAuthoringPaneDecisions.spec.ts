@@ -6,11 +6,14 @@
 //           authoring ends the suppression lifts and the plan pane can re-open.
 //   Req 2 — the paned 3D Site FRAMES the plot ONCE on the first parcel-boundary commit
 //           (no whole-city zoom-out), then falls back to the no-re-fly path (no jitter).
+//   L-13000 — the split MAY NOT EXIST while the onboarding globe still owns the screen
+//           (§ONBOARDING-IS-FULL-BLEED), and the §22 reveal must still get through.
 
 import { describe, it, expect } from 'vitest';
 import {
     shouldAutoOpenSplitView,
     shouldFramePanedSiteOnUpdate,
+    shouldMountSiteAuthoringSplit,
     ringCentroidXZ,
     resolveLiveUpdateEventBus,
     PARCEL_BOUNDARY_SET_EVENT,
@@ -205,5 +208,53 @@ describe('§L-412 root-cause — the Forma live-update bus survives a null captu
         // …and dispatching the commit into a not-yet-framed live pane frames the plot.
         windowBus.emit(PARCEL_BOUNDARY_SET_EVENT);
         expect(framed).toBe(true);
+    });
+});
+
+describe('§ONBOARDING-IS-FULL-BLEED (L-13000) — the split may not exist over the onboarding globe', () => {
+    // The founder, 2026-09-06, with a screenshot of "STEP 1 OF 4 · LOCATION" and the globe
+    // squeezed into the left half: *"pLEASE MAKE SURE AT THIS STAGE THE VIEW IS ALWAYS IN
+    // 'AUTHOR' FULL VIEW WITH THE EARTH"*. The globe is a FULL-BLEED surface, not a pane.
+    it('REFUSES the mount on the onboarding globe before the model has a Site', () => {
+        expect(shouldMountSiteAuthoringSplit({
+            onboardingGlobePhase: true,
+            siteCommitted: false,
+        })).toBe(false);
+    });
+
+    // ⭐ THE REGRESSION THIS FILE EXISTS TO CATCH, and it is the one a "simplification"
+    // would cause: refusing on the PHASE ALONE deletes PRD §22's zoom-then-split reveal,
+    // which mounts DURING the guided flow by design. The reveal's contractual order
+    // (`siteRevealSequence`: seed-frame → anchor-site-location → arm-listener → mount-split)
+    // means the Site is committed by the time the mount is asked for.
+    it('ALLOWS the §22 reveal: same phase, but the location has been anchored first', () => {
+        expect(shouldMountSiteAuthoringSplit({
+            onboardingGlobePhase: true,
+            siteCommitted: true,
+        })).toBe(true);
+    });
+
+    // "Draw it on the map" with NO location: `startDrawThenGenerate()` calls `ensureSite()`,
+    // which seeds {0, 0} deliberately. Refusing here would strand the user on the drawing
+    // step with no map — L-10721 again — which is why the predicate asks about the Site's
+    // EXISTENCE and not about a plausible lat/lon.
+    it('ALLOWS the draw step reached with no geocoded location (ensureSite seeds 0/0)', () => {
+        expect(shouldMountSiteAuthoringSplit({
+            onboardingGlobePhase: true,
+            siteCommitted: true,
+        })).toBe(true);
+    });
+
+    it('is INERT outside the guided flow — on the canvas the split is ordinary chrome', () => {
+        // A project opened from the hub declares `canvas` at the open gesture (§L-1186),
+        // so neither arm of the gate may touch the Parcel Law tab’s view switcher.
+        expect(shouldMountSiteAuthoringSplit({
+            onboardingGlobePhase: false,
+            siteCommitted: false,
+        })).toBe(true);
+        expect(shouldMountSiteAuthoringSplit({
+            onboardingGlobePhase: false,
+            siteCommitted: true,
+        })).toBe(true);
     });
 });

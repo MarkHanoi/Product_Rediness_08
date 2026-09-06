@@ -42,6 +42,58 @@ export function shouldAutoOpenSplitView(state: SplitViewAutoOpenState): boolean 
     return !state.isActive && !state.autoOpenSuppressed;
 }
 
+/** The two facts that decide whether the site-authoring split may EXIST yet. */
+export interface SiteAuthoringSplitMountState {
+    /**
+     * `panelDefaults.appPhase() === 'onboarding-globe'` — the guided setup flow is
+     * running and the PRYZM Earth globe is a FULL-BLEED surface, not a pane.
+     */
+    readonly onboardingGlobePhase: boolean;
+    /**
+     * The model has a Site (`siteModelStore.getSite() !== null`).
+     *
+     * ⭐ SITE-EXISTS, NOT "the location is a real lat/lon", and the difference is
+     * load-bearing. The two onboarding paths that legitimately need the split commit
+     * DIFFERENT things immediately before asking for it: §22's reveal anchors a real
+     * geocoded location (`dispatchSiteLocation`), while "Draw it on the map" with no
+     * location calls `ensureSite()`, which seeds `{0, 0}` ON PURPOSE. A lat/lon test
+     * would either accept the 0/0 sentinel — and so test nothing — or refuse the
+     * second path and leave the user on the drawing step with no map (L-10721 again).
+     */
+    readonly siteCommitted: boolean;
+}
+
+/**
+ * §ONBOARDING-IS-FULL-BLEED (L-13000) — may the site-authoring split MOUNT now?
+ *
+ * THE DEFECT (founder 2026-09-06, two screenshots): the split mounted while the user
+ * was still on the onboarding LOCATION step, reserving the right half for a 3D Site
+ * pane with nothing to paint while the full-bleed globe kept the left. His canvas
+ * walked `1019 → 557 → 277 → 280 → 346 → 374` and twice reached `0x0`. His
+ * requirement: *"AT THIS STAGE THE VIEW IS ALWAYS IN 'AUTHOR' FULL VIEW WITH THE
+ * EARTH"* — no split, no analysis panel, until the flow reaches the step that needs
+ * one.
+ *
+ * ⛔ THE CALLER MUST SKIP THE MOUNT, NOT HIDE THE SHELL. A mounted shell still
+ * re-targets the SINGLE Cesium container (§L-412 `reparentContainerTo`) and still
+ * drives the resize cascade, so a `display: none` would leave every measurement above
+ * exactly where it was. This is the strong form of absence the launcher rail already
+ * uses (§UX1-PANEL-DEFAULTS D6).
+ *
+ * ⚠ THE PHASE ALONE IS NOT THE ANSWER, and a future edit must not simplify it to one:
+ * §22's zoom-then-split reveal mounts DURING the guided flow BY DESIGN (the founder's
+ * own choreography — the globe owns the screen for the whole flight, then the split
+ * appears). Refusing on the phase alone would delete that. The reveal passes this gate
+ * by CONSTRUCTION rather than by luck: `runSiteRevealSequence`'s order is contractual
+ * and asserted — anchor-site-location precedes mount-split — and the draw step's
+ * `ensureSite()` likewise precedes its own mount.
+ */
+export function shouldMountSiteAuthoringSplit(state: SiteAuthoringSplitMountState): boolean {
+    // Outside the guided globe flow the split is ordinary editor chrome — never gated.
+    if (!state.onboardingGlobePhase) return true;
+    return state.siteCommitted;
+}
+
 /** A point in the scene's XZ ground plane (metres, LTP-local). */
 export interface XZPoint {
     readonly x: number;

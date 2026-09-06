@@ -224,6 +224,7 @@ import {
 // guarantee unit-testable without a live Cesium viewer.
 import {
     shouldFramePanedSiteOnUpdate,
+    shouldMountSiteAuthoringSplit,
     ringCentroidXZ,
     resolveLiveUpdateEventBus,
     type LiveUpdateEventBus,
@@ -665,6 +666,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // this, pressing "2D Satellite" from the view panel BEFORE the map exists opens
             // the cream map and silently loses the request.
             if (requestedBasemap !== 'map') map2dHandle.setBasemap(requestedBasemap);
+            // §MAP2D-ENVELOPE (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §26.4) — ONE-SHOT at mount, so a
+            // map opened over an ALREADY-SOLVED site shows the envelope immediately instead of
+            // waiting for the next `site.*` event that may never come (the re-entry / reload case
+            // L-445 documents for the globe). The live path is the subscription in
+            // `subscribeFormaLiveUpdate`. We pass the PAYLOAD only — the map asks the one
+            // visibility authority itself (§ENVELOPE-ONE-VISIBILITY / C84 EI-1).
+            try {
+                map2dHandle.setBuildableEnvelope(resolveFormaEnvelope()?.solids ?? null);
+            } catch (e) {
+                console.warn('[gis][c58] §MAP2D-ENVELOPE one-shot at map mount failed (non-fatal):', e);
+            }
             console.log('[gis] map2d: Hektar 2D boundary-draw map opened');
         }).catch((err: unknown) => {
             console.error('[gis] map2d: failed to open', err);
@@ -5663,6 +5675,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     try { refreshEnvelopePanel(); } catch (e) {
                         console.warn(`[gis][envelope-card] §DVP170 live-update refresh on ${evt} failed (non-fatal):`, e);
                     }
+                    // ⭐ §MAP2D-ENVELOPE (STR §26.4) — the 2D MAP's envelope, and it belongs HERE,
+                    // OUTSIDE the Cesium gate, for exactly the reason §DVP170 above records.
+                    // `liveUpdateFormaMassing` returns early at `if (!cesiumViewport?.renderFormaMassing)
+                    // return;` and again at `if (formaViewMode === 'map2d' && !site3dPaned) return;` —
+                    // i.e. it refuses to run PRECISELY when the 2D map is the only thing on screen,
+                    // which is the founder's case ("on 2d map view" it never rendered). Hanging the
+                    // map's repaint off that function would therefore reproduce the reported defect
+                    // with a live-looking wire behind it. The map is a THIRD rasteriser of the same
+                    // payload, not a Cesium accessory.
+                    try {
+                        map2dHandle?.setBuildableEnvelope(resolveFormaEnvelope()?.solids ?? null);
+                    } catch (e) {
+                        console.warn(`[gis][c58] §MAP2D-ENVELOPE live-update on ${evt} failed (non-fatal):`, e);
+                    }
                 });
                 // EventSubscription is callable-as-disposer.
                 formaLiveUpdateDisposers.push(() => { try { sub(); } catch { /* gone */ } });
@@ -6209,20 +6235,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let fadeInSiteAuthoringPanes: () => void = () => { /* nothing mounted */ };
 
     /**
-     * §ONBOARDING-IS-FULL-BLEED (L-13000) — has the model COMMITTED a Site yet?
-     *
-     * ⭐ WHY SITE-EXISTS AND NOT "the location is a real lat/lon". Both onboarding
-     * paths that legitimately need the split commit a Site immediately before asking
-     * for it, and they commit DIFFERENT things:
-     *   · the §22 reveal → `dispatchSiteLocation()` — a real geocoded location;
-     *   · "Draw it on the map" with no location → `startDrawThenGenerate()` →
-     *     `ensureSite()`, which seeds `{0, 0}` on purpose (`siteDispatch.ts`: *"supply
-     *     a 0/0 location when the caller has none yet"*).
-     * A lat/lon test would have to either accept the 0/0 sentinel — in which case it
-     * is not testing a location at all — or refuse the second path and leave the user
-     * on the drawing step with no map, which is L-10721 all over again. The Site's
-     * EXISTENCE is the fact both paths share, and it is exactly what the location step
-     * has not yet produced: nothing in `renderLocationStep()` creates one.
+     * §ONBOARDING-IS-FULL-BLEED (L-13000) — has the model COMMITTED a Site yet? The
+     * `siteCommitted` input to `shouldMountSiteAuthoringSplit`, which carries the
+     * reasoning for why EXISTENCE (and not a real lat/lon) is the right question.
      *
      * Reads `siteModelStore` directly rather than `getSiteOrigin()`, which also falls
      * back to `lastGeocodeFrame` and to the frozen LTP origin — neither of which is a
@@ -6256,20 +6271,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // phase — the same strong form of absence `mountSiteViewLauncher()` already
         // uses for the launcher rail (§UX1-PANEL-DEFAULTS D6).
         //
-        // ⭐ THE PREDICATE IS THE EXISTING ONE, NARROWED BY THE FOUNDER'S OWN WORDING
-        // (*"the split mounts when the flow reaches the step that actually needs it —
-        // a committed location"*). `appPhase()` ALONE IS TOO COARSE HERE and would
-        // break the §22 zoom-then-split reveal, which mounts DURING the guided flow
-        // by design — the founder's own choreography (*"the full-screen globe owns the
-        // whole screen for the ENTIRE flight"*). The reveal cannot be caught by this
-        // gate, and not by luck: `runSiteRevealSequence`'s order is CONTRACTUAL and
-        // asserted — seed-frame → ANCHOR-SITE-LOCATION → arm-listener → mount-split —
-        // so the Site exists by step 4. Same for the draw step, whose `ensureSite()`
-        // runs before its mount. A caller reaching the mount BEFORE either (the
-        // location step itself, a stray view switch, a recover-draw-surface retry
-        // before the anchor) is refused, and says why.
+        // ⭐ THE PREDICATE IS THE EXISTING ONE (`appPhase()` — the same question the
+        // launcher rail asks before declining to mount, §UX1-PANEL-DEFAULTS D6, and
+        // the 2D-map pin asks below, §ONBOARDING-STEP-PINS-ITS-SURFACE / L-10720),
+        // NARROWED BY THE FOUNDER'S OWN WORDING: *"the split mounts when the flow
+        // reaches the step that actually needs it — a committed location"*. The RULE
+        // is pure and lives in `shouldMountSiteAuthoringSplit`, beside its sibling
+        // `shouldAutoOpenSplitView`, so it is asserted without a Cesium viewer; read
+        // that function for why the phase ALONE would delete the §22 reveal.
         // ════════════════════════════════════════════════════════════════════
-        if (appPhase() === 'onboarding-globe' && !siteCommittedInModel()) {
+        if (!shouldMountSiteAuthoringSplit({
+            onboardingGlobePhase: appPhase() === 'onboarding-globe',
+            siteCommitted: siteCommittedInModel(),
+        })) {
             console.log(
                 '[gis][panes] §L-412 site-authoring split NOT mounted — the phase is the onboarding '
                 + 'globe and the model has no Site yet, so the globe keeps the FULL screen '
