@@ -708,6 +708,31 @@ export const USAS_TILE_DEG = 0.02;
  *  BATCHES so "the first cell of the first incomplete batch" remains an EXACT resume cursor. */
 export const USAS_SWEEP_CONCURRENCY = 4;
 
+/**
+ * §USAS-SWEEP-BUDGET — minutes of wall clock the national sweep may spend, per region.
+ *
+ * ⭐ THE DEFAULT IS A NUMBER, NOT "UNLIMITED", AND THAT IS THE WHOLE POINT. The bake job's ceiling is
+ * 330 minutes for the download, the osmium clip, every layer and tippecanoe. A California sweep is
+ * ~589×478 cells at 0.02°, and if it simply runs until the RUNNER kills it, the job dies mid-step and
+ * publishes NOTHING — a whole state's bake lost, with no artefact, no summary and no cursor. With a
+ * budget the same run TRUNCATES LOUDLY (formatUsasSweepSummary: why, km² stamped, km² skipped, bands
+ * never opened, the exact resume cursor), the measured half still ships, and the rest keeps its honest
+ * OSM tags. §ABORT-IS-NOT-A-CAP cuts both ways: an uncapped sweep that gets killed is an ABORT wearing
+ * no explanation at all.
+ *
+ * 180 of the 330 leaves ~150 minutes for a 1.3 GB extract download, the clip, seven other layers and
+ * tippecanoe — measured against France's 4-hour whole-country bake, not guessed at from nothing.
+ * Override per dispatch with `USAS_SWEEP_BUDGET_MIN` (or `USAS_SWEEP_BUDGET_MS`); pass
+ * `sweepBudgetMs: 0` in code for a deliberately unbounded run.
+ *
+ * ⚠ HONESTY LIMIT, stated rather than implied — the same one mdsNational carries: successive runs do
+ * NOT accumulate into one tileset today. Each bake regenerates `<region>-buildings-stamped.geojsonseq`
+ * from the OSM clip, so a second dispatch with `USAS_SWEEP_CURSOR` stamps a DIFFERENT slice of the
+ * state in a DIFFERENT tileset. Accumulating slices needs a per-region incremental merge that does not
+ * exist. Named, not built.
+ */
+export const USAS_SWEEP_BUDGET_MIN = 180;
+
 const USAS_M_PER_DEG_LAT = 111_320;
 const usasMPerDegLon = (lat) => 111_320 * Math.cos((lat * Math.PI) / 180);
 

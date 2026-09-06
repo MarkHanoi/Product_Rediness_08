@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "pand",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::28992" } },
+"features": [
+{ "type": "Feature", "id": "pand.6105d61f-bbbb-4e8c-b6ec-c63d1e706c21", "properties": { "identificatie": "0048100000001963", "rdf_seealso": "http://bag.basisregistraties.overheid.nl/bag/id/pand/0048100000001963", "bouwjaar": 1980, "status": "Pand in gebruik", "gebruiksdoel": "woonfunctie", "oppervlakte_min": 189, "oppervlakte_max": 189, "aantal_verblijfsobjecten": 1 }, "bbox": [ 275829.747, 559473.104, 275848.8, 559494.487 ], "geometry": { "type": "Polygon", "coordinates": [ [ [ 275845.655, 559485.389 ], [ 275845.377, 559485.693 ], [ 275848.8, 559488.579 ], [ 275843.831, 559494.487 ], [ 275839.35, 559490.694 ], [ 275838.671, 559491.5 ], [ 275829.747, 559483.872 ], [ 275832.256, 559480.955 ], [ 275836.164, 559476.411 ], [ 275839.008, 559473.104 ], [ 275844.269, 559477.61 ], [ 275841.474, 559480.806 ], [ 275842.891, 559481.994 ], [ 275842.429, 559482.596 ], [ 275845.655, 559485.389 ] ] ] } }
+],
+"bbox": [ 275829.747, 559473.104, 275848.8, 559494.487 ]
+}

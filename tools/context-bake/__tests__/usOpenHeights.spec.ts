@@ -268,13 +268,36 @@ describe('§US-OPEN-HEIGHTS — one height per OSM footprint', () => {
 });
 
 describe('§US-OPEN-HEIGHTS — the working set and the assessed metros', () => {
-    it('every US_OPEN_CITY_BBOXES row is BYTE-IDENTICAL to its bake.mjs region row bbox and names an adapter', () => {
+    // ⚠ CORRECTED 2026-09-06 (§BAKE-US-STATES, lane USA-ALL-STATES). This assertion used to read
+    // BYTE-IDENTICAL, and that identity was the metro era's COINCIDENCE, not the contract: the join's
+    // working set happened to equal the bake row because the bake row WAS the metro clip. The rows are
+    // whole STATES now (sanfrancisco → `california`, boston → `massachusetts`, newyork widened), so the
+    // real invariant — the one that was always doing the work — is CONTAINMENT: a working-set box
+    // outside its own bake row would ask the stamp to hold footprints the clip never produced, and a
+    // stamp bbox not covered by the row is the §MDS-BBOX-MUST-COVER-THE-REGION hole with the arrow
+    // reversed. Identical-or-inside is asserted, never merely "defined".
+    it('every US_OPEN_CITY_BBOXES row sits INSIDE its bake.mjs region row bbox and names a real adapter', () => {
         const rows = bakeRegionBboxes();
         for (const c of US_OPEN_CITY_BBOXES) {
-            expect(rows.get(c.region), `bake.mjs row ${c.region}`).toEqual(c.bbox);
+            const row = rows.get(c.region);
+            expect(row, `bake.mjs row ${c.region} (the working set names it)`).toBeDefined();
+            const [rw, rs, re_, rn] = row!;
+            const [w, s, e, n] = c.bbox;
+            expect(rw, `${c.city}: bake row west edge`).toBeLessThanOrEqual(w);
+            expect(rs, `${c.city}: bake row south edge`).toBeLessThanOrEqual(s);
+            expect(re_, `${c.city}: bake row east edge`).toBeGreaterThanOrEqual(e);
+            expect(rn, `${c.city}: bake row north edge`).toBeGreaterThanOrEqual(n);
             expect(US_OPEN_HEIGHTS[c.metro as keyof typeof US_OPEN_HEIGHTS], `adapter ${c.metro}`).toBeDefined();
             expect(US_OPEN_HEIGHTS[c.metro as keyof typeof US_OPEN_HEIGHTS].region).toBe(c.region);
         }
+    });
+
+    it('the three working-set boxes are UNCHANGED by the metro→state move (no number was re-derived)', () => {
+        expect(US_OPEN_CITY_BBOXES.map((c) => [c.city, c.region, c.bbox])).toEqual([
+            ['newyork', 'newyork', [-74.03, 40.70, -73.91, 40.82]],
+            ['sanfrancisco', 'california', [-122.52, 37.70, -122.36, 37.83]],
+            ['boston', 'massachusetts', [-71.20, 42.22, -70.98, 42.40]],
+        ]);
     });
     it('usOpenMetroForPoint routes Midtown → newyork, the Financial District → sanfrancisco, Back Bay → boston, the Loop → null', () => {
         expect(usOpenMetroForPoint(-73.9855, 40.758)?.metro).toBe('newyork');
