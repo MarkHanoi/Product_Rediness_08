@@ -209,6 +209,34 @@ jobs:
             --endpoint-url "$ENDPOINT" \
             || echo "::warning::no live tileset-manifest.json — BOOTSTRAP publish (the gate arms on the first publish that ships one)"
 
+      # §MERGE-NEEDS-PROJ4-TOO (L-12974) — merge-tiles.mjs imports bake.mjs for its region rows and
+      # `allLayers`, and bake.mjs's module graph now reaches footprints/esCatastro.mjs → proj4. Without
+      # this the Merge step below dies before it can refuse-by-name, with
+      #   ERR_MODULE_NOT_FOUND: Cannot find package 'proj4' imported from …/footprints/esCatastro.mjs
+      # which is what killed the canopy publish (run 34036543936) — i.e. THE PUBLISH PATH ITSELF was
+      # broken, not just the bakes.
+      # ⚠ THIS IS THE THIRD WORKFLOW to need the same package: context-bake.yml provisions it at :184,
+      # context-bake-canopy.yml at :135, and now here. A new bake.mjs dependency must be added to ALL
+      # THREE, because each provisions its own SUBSET — that asymmetry has now broken a run three
+      # separate times today. Same isolated-scratch pattern and the same reason as the geotiff note in
+      # context-bake.yml: npm cannot run anywhere inside the repo (the root package.json declares
+      # npm-style workspaces, so npm walks up and chokes on pnpm's `workspace:*`).
+      - name: Provision the merge's module-graph dependency (proj4)
+        run: |
+          set -euo pipefail
+          HOSTDIR="${RUNNER_TEMP:-/tmp}/merge-host"
+          rm -rf "$HOSTDIR"; mkdir -p "$HOSTDIR"
+          printf '{"name":"pryzm-merge-host","private":true}\n' > "$HOSTDIR/package.json"
+          ( cd "$HOSTDIR" && npm install --no-package-lock proj4@2 ) \
+            || { echo "::error::Could not PROVISION proj4 for the merge. TOOLING failure, NOT a coverage verdict."; exit 1; }
+          DEST="$GITHUB_WORKSPACE/tools/context-bake/node_modules"
+          mkdir -p "$DEST"
+          cp -R "$HOSTDIR/node_modules/." "$DEST/"
+          # Fail LOUD here rather than inside the merge, where it would read as a coverage problem.
+          ( cd "$GITHUB_WORKSPACE/tools/context-bake" \
+            && node --input-type=module -e "await import('./bake.mjs').then(()=>console.log('✓ bake.mjs module graph resolves from the merge host'))" ) \
+            || { echo "::error::bake.mjs still does not resolve — the merge would die before it could refuse-by-name."; exit 1; }
+
       - name: Merge (refuses BY NAME on any missing region / ambiguity / integrity gap)
         env:
           EXPECT: ${{ inputs.expect }}
