@@ -475,9 +475,20 @@ describe('§VIEW-PANEL-PER-PANE — ⭐ the PER-PANE panel drives ONLY its own p
         // pin that refused a harmless click would be the unsatisfiable-gate shape (§L-716).
         const pinned = new Map<ViewType, string>([['site-map-2d', 'the map is load-bearing']]);
         expect(row(SPLIT, 'site-3d', { paneId: RIGHT_PANE, pinnedViews: pinned }).enabled).toBe(true);
-        // …but assigning something else INTO the pinned pane does evict it, and is refused.
-        expect(row(SPLIT, 'site-3d', { paneId: LEFT_PANE, pinnedViews: pinned }).reason)
+
+        // ⚠ THE SECOND HALF ASSERTED A REFUSAL ON `SPLIT` UNTIL §SWAP-NOT-VACATE (L-12999,
+        // 2026-09-06), with the comment *"assigning something else INTO the pinned pane
+        // does evict it"*. On `SPLIT` that is no longer true: `site-3d` is live in the
+        // RIGHT pane, so assigning it LEFT now SWAPS and the map lands right — moved, not
+        // evicted, which is the distinction this pin has always drawn. Re-pointed at
+        // `MAP_ONLY`, where the incoming view is live nowhere else, so it genuinely
+        // replaces the map and the refusal is the correct answer. Both halves of the arm's
+        // point survive: a harmless click is allowed, an evicting one is refused.
+        const MAP_ONLY: PaneLayout = { [LEFT_PANE]: 'site-map-2d', [RIGHT_PANE]: null };
+        expect(row(MAP_ONLY, 'site-3d', { paneId: LEFT_PANE, pinnedViews: pinned }).reason)
             .toBe('the map is load-bearing');
+        // …and on the split the same row is live, because nothing is evicted there.
+        expect(row(SPLIT, 'site-3d', { paneId: LEFT_PANE, pinnedViews: pinned }).enabled).toBe(true);
     });
 });
 
@@ -572,14 +583,25 @@ describe('§VIEW-PANEL-PER-PANE — ⭐ REACHABILITY: it is mounted, and the but
         const r = mk(rightEl, RIGHT_PANE);
         // Put the 3D Site in the LEFT pane from the LEFT panel.
         leftEl.querySelector<HTMLButtonElement>(`[data-testid="site-view-quick-toggle-site-3d-${LEFT_PANE}"]`)!.click();
-        // The singleton MOVED (it cannot be in two panes) and the right pane is now empty —
-        // the model's own rule, not a solo.
-        expect(store.getLayout()).toEqual({ [LEFT_PANE]: 'site-3d', [RIGHT_PANE]: null });
-        // The RIGHT panel repainted from the shared store: it shows nothing active.
+        // ⚠ THIS ASSERTED `{left:'site-3d', right:null}` UNTIL §SWAP-NOT-VACATE (L-12999
+        // clause 4, 2026-09-06), with the comment *"the right pane is now empty — the
+        // model's own rule, not a solo"*. Still the model's own rule and still not a solo;
+        // the rule changed. This is the founder's exact panel gesture (a 3D row pressed in
+        // the pane that does not hold it), and clause 4 of his ruling is that the other
+        // pane must not be left blank — so the two panes exchange.
+        expect(store.getLayout()).toEqual({ [LEFT_PANE]: 'site-3d', [RIGHT_PANE]: 'site-map-2d' });
+        // The RIGHT panel repainted from the shared store: 3D Site is no longer ITS view…
         expect(
             rightEl.querySelector(`[data-testid="site-view-quick-toggle-site-3d-${RIGHT_PANE}"]`)!
                 .getAttribute('aria-pressed'),
         ).toBe('false');
+        // …and the view it DID receive is the one it now reports as active. The panel is
+        // mounted inside its pane, so this is also the proof the right pane still has
+        // chrome to state itself with — the escape hatch the old vacate took off screen.
+        expect(
+            rightEl.querySelector(`[data-testid="site-view-quick-toggle-site-map-${RIGHT_PANE}"]`)!
+                .getAttribute('aria-pressed'),
+        ).toBe('true');
         l.dispose(); r.dispose();
         leftEl.remove(); rightEl.remove();
     });

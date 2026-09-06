@@ -74,15 +74,58 @@ describe('§ONBOARDING-STEP-PINS-ITS-SURFACE — the pane store refuses to vacat
         expect(store.getLayout()[RIGHT_PANE]).toBe(SITE3D);
     });
 
-    it('REFUSES an assign that would evict it, including via the singleton MOVE', () => {
+    it('⭐ §SWAP-NOT-VACATE — the singleton MOVE no longer evicts it, so there is nothing to refuse', () => {
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // ⚠ THIS ARM ASSERTED A REFUSAL (`res.ok === false`, `res.rejected === REASON`)
+        // UNTIL §SWAP-NOT-VACATE (L-12999 clause 4, 2026-09-06). It is CHANGED, not
+        // deleted, and it now asserts the PROPERTY it always existed to protect — *the 2D
+        // draw map is never taken off screen* — rather than the MECHANISM that used to be
+        // the only way to protect it.
+        //
+        // WHAT SUPERSEDED IT: `assignViewToPane` used to write `null` into the pane the
+        // singleton moved out of, so assigning `site-3d` LEFT really did evict the map and
+        // the pin had to refuse. It now SWAPS: the map is handed to the RIGHT pane. The pin
+        // rule itself is UNCHANGED — this file's own header states it as *"MAY NOT BE
+        // VACATED, NOT 'MAY NOT BE MOVED'"*, and arm 4 below pins that distinction
+        // deliberately. The map is moved, not vacated, so the rule is satisfied and the
+        // refusal correctly does not fire.
+        //
+        // ⛔ THE PIN STILL HAS TEETH, and the two arms around this one are why: `solo` and
+        // an explicit `assign(pane, null)` are genuine evictions and are still refused. So
+        // is this same assign when the map's pane is the one the singleton is NOT in — see
+        // the arm immediately below, which is new and covers the case this one stopped
+        // covering.
+        //
+        // ⭐ AND THE FOUNDER'S DEAD END IS CLOSED MORE FIRMLY THAN BEFORE, not less: the
+        // route that disposed `SiteBoundaryMap2D` and cleared
+        // `window.pryzmBoundaryDrawSurfaceReadyAt` no longer exists for this gesture at
+        // all, and `MultiPaneController` RELOCATES rather than unmounts a surface that is
+        // still wanted somewhere (§MAP-IS-A-SINGLETON-TOO), so the draw survives the move.
+        // ═══════════════════════════════════════════════════════════════════════════════
         const store = pinnedStore();
-        // `site-3d` is a singleton: assigning it LEFT moves it out of RIGHT and evicts the
-        // map entirely. This is the pane-picker route, not the quick-toggle route.
+        const res = store.dispatch({ type: 'view.pane.assign', paneId: LEFT_PANE, viewType: SITE3D });
+
+        expect(res.ok).toBe(true);
+        expect(res.rejected).toBeUndefined();
+        // THE PROPERTY: the draw surface is still on screen. That is all the pin ever asked.
+        expect(Object.values(store.getLayout())).toContain(MAP);
+        expect(store.getLayout()[RIGHT_PANE]).toBe(MAP);
+        expect(store.getLayout()[LEFT_PANE]).toBe(SITE3D);
+    });
+
+    it('⛔ …but an assign that GENUINELY evicts it is still refused (the teeth this keeps)', () => {
+        // The case the arm above stopped covering, and the reason it is not a regression:
+        // when the pinned map is the only thing in its pane and the incoming view is NOT
+        // live in another pane, there is no swap to make — the map is simply replaced. The
+        // pin refuses, exactly as it always did.
+        const store = new PaneLayoutStore({ [LEFT_PANE]: MAP, [RIGHT_PANE]: null });
+        store.pinView(MAP, REASON);
+
         const res = store.dispatch({ type: 'view.pane.assign', paneId: LEFT_PANE, viewType: SITE3D });
 
         expect(res.ok).toBe(false);
         expect(res.rejected).toBe(REASON);
-        expect(store.getLayout()[LEFT_PANE]).toBe(MAP);
+        expect(store.getLayout()[LEFT_PANE]).toBe(MAP); // a rejected intent mutates NOTHING.
     });
 
     it('REFUSES emptying the pane that holds it', () => {
@@ -203,7 +246,17 @@ describe('§ONBOARDING-STEP-PINS-ITS-SURFACE — the controls DISABLE-AND-EXPLAI
     });
 
     it('the per-pane picker marks the evicting choice unavailable WITH the reason', () => {
-        const store = pinnedStore();
+        // ⚠ THE LAYOUT UNDER TEST CHANGED WITH §SWAP-NOT-VACATE (L-12999, 2026-09-06); the
+        // ASSERTIONS did not. This arm used to use the split `{left:MAP, right:SITE3D}`,
+        // where choosing `site-3d` for the LEFT pane evicted the map. It now SWAPS there
+        // (the map lands right, nothing is evicted, and the picker correctly offers it) —
+        // so the arm was re-pointed at a layout where the choice genuinely IS an eviction,
+        // which is the thing it exists to prove the picker explains rather than declining
+        // on click. The picker derives its verdict from the SAME `assignViewToPane`
+        // hypothetical the store guards with, so the two cannot disagree; the companion
+        // arm below pins that agreement on the swap layout.
+        const store = new PaneLayoutStore({ [LEFT_PANE]: MAP, [RIGHT_PANE]: null });
+        store.pinView(MAP, REASON);
         const opts = describePaneViewOptions({
             layout: store.getLayout(),
             paneId: LEFT_PANE,
@@ -212,6 +265,24 @@ describe('§ONBOARDING-STEP-PINS-ITS-SURFACE — the controls DISABLE-AND-EXPLAI
         const site3d = opts.find((o) => o.viewType === SITE3D);
         expect(site3d!.enabled).toBe(false);
         expect(site3d!.reason).toBe(REASON);
+    });
+
+    it('⭐ the picker and the STORE agree on the swap layout too — both allow it', () => {
+        // The agreement arm. A picker that offered a choice the store refuses is the
+        // dead-click this whole file exists to remove; a picker that DISABLED a choice the
+        // store would accept is the same defect inverted — a route lost for no reason.
+        const store = pinnedStore();
+        const opts = describePaneViewOptions({
+            layout: store.getLayout(),
+            paneId: LEFT_PANE,
+            pinnedViews: store.pinnedViews(),
+        });
+        const site3d = opts.find((o) => o.viewType === SITE3D)!;
+        expect(site3d.enabled).toBe(true);
+        expect(site3d.state).toBe('moves-singleton');
+        expect(site3d.swapsWith).toBe(MAP);   // it says WHAT comes back, before the click.
+        expect(store.dispatch({ type: 'view.pane.assign', paneId: LEFT_PANE, viewType: SITE3D }).ok)
+            .toBe(true);
     });
 
     it('⛔ with NO pin the bar and the picker are byte-for-byte the pre-change behaviour', () => {

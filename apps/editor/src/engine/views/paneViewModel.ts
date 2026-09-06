@@ -123,10 +123,15 @@ export const VIEW_TYPE_REGISTRY: Readonly<Record<ViewType, ViewTypeDescriptor>> 
         // pane was left holding a view with no surface — the founder's black pane, exactly.
         //
         // ⭐ Marking it a singleton is not a cost claim; it makes `assignViewToPane` MOVE the map
-        // (vacating the other pane) the way it already moves Cesium, which is the behaviour the
-        // founder asked for by name: *"the user should be able to customize which view to have in
-        // each of the splitted views"*. The MOVE itself is cheap precisely because MapLibre is
-        // cheap — and it is a re-parent, not a rebuild (`SiteBoundaryMap2DHandle.reparentTo`).
+        // the way it already moves Cesium, which is the behaviour the founder asked for by name:
+        // *"the user should be able to customize which view to have in each of the splitted
+        // views"*. The MOVE itself is cheap precisely because MapLibre is cheap — and it is a
+        // re-parent, not a rebuild (`SiteBoundaryMap2DHandle.reparentTo`).
+        //
+        // ⚠ THIS COMMENT SAID "(vacating the other pane)" UNTIL §SWAP-NOT-VACATE (2026-09-06).
+        // It no longer does: an occupied target SWAPS, so moving the map into the pane that
+        // holds the 3D Site hands the 3D Site back to the map's old pane. The map being a
+        // singleton is still exactly why it MOVES; what changed is what it leaves behind.
         viewType: 'site-map-2d', rendererKind: 'maplibre', singleton: true,
         label: '2D Site Map', glyph: '▦', paneHostable: true, panelPromoted: true,
     },
@@ -210,11 +215,64 @@ export function panesShowingRenderer(
 }
 
 /**
- * Assign `viewType` to `paneId`, returning a NEW layout (immutable). If the view is
- * a heavyweight singleton and is already live in ANOTHER pane, that other pane is
- * vacated (set to `null`) — because the one Cesium/WebGPU instance can only be in
- * one place. This is the invariant that makes "swap the 3D Site into either pane"
- * safe: it MOVES the singleton rather than cloning it.
+ * Assign `viewType` to `paneId`, returning a NEW layout (immutable). When the view is a
+ * heavyweight singleton already live in ANOTHER pane it cannot be cloned — the one
+ * Cesium / WebGPU / MapLibre / Canvas2D instance can only be in one place — so it MOVES.
+ * The question this function answers is what the pane it moved OUT OF is left holding:
+ *
+ *   · the target pane was OCCUPIED  ⇒ **SWAP.** The displaced view goes to the pane the
+ *     singleton came from. Both panes end holding something.
+ *   · the target pane was EMPTY     ⇒ **MOVE.** There is nothing to hand back, so the
+ *     source pane empties — byte-for-byte the pre-2026-09-06 behaviour.
+ *
+ * ═════════════════════════════════════════════════════════════════════════════════════
+ * ⛔ §SWAP-NOT-VACATE (L-12999 clause 4, founder ruling · STR §26.1.1 · C57 §1.5)
+ * ═════════════════════════════════════════════════════════════════════════════════════
+ * THIS FUNCTION USED TO WRITE `null` INTO THE SOURCE PANE UNCONDITIONALLY, and that one
+ * line is the last unmet clause of the founder's 2026-09-06 ruling on the two Cesium
+ * views. Measured through the real click path (`segmentClickIntents` → here) from his own
+ * default split `{left:'site-map-2d', right:'site-3d'}`, pressing **3D Globe in the LEFT
+ * pane** produced `{left:'site-3d', right:null}` — the right pane vacated, its surface
+ * unmounted, its view panel collapsed with it.
+ *
+ * ⭐ AND THE DEAD END WAS WORSE THAN THE BLANK. `SiteAuthoringPaneShell.applyFraction`
+ * collapses a pane that is alone-empty, and the per-pane view panel is mounted INSIDE the
+ * pane element — so the vacated pane took its own picker off screen with it. The only
+ * remaining route back to a split is the surviving panel's `◧ Split`, which is gated on
+ * `canRestoreSplit`, and `view.pane.assign` deliberately nulls the split memory. So the
+ * refusal's "yes" branch was unreachable: exactly [[refusing-half-needs-its-escape-hatch]]
+ * / L-942, *"a gate whose yes branch is unreachable is a regression with a citation
+ * attached"*.
+ *
+ * ⭐ THE FIX SHAPE IS THE FOUNDER'S OWN SENTENCE, not an invention of this lane. STR
+ * §26.1.1 names the resolution verbatim: *"offers the action that resolves it (swap the
+ * panes, or move 3D here and put 2D there)"*. A swap IS that action, applied by the model
+ * instead of demanded of the user.
+ *
+ * ⛔ WHY THIS IS UNIVERSAL AND NOT A CESIUM SPECIAL CASE — decided deliberately, recorded
+ * so it is not narrowed later by someone who thinks the ruling was about Cesium:
+ *   1. `singleton` is a fact about the RENDERER ("one instance, one place"). It justifies
+ *      MOVING the view. It says nothing whatever about what the source pane should show
+ *      afterwards, so the vacate was an extra consequence with no argument behind it.
+ *   2. The blank panes the founder actually photographed were NOT Cesium. L-12992 is the
+ *      MapLibre 2D map; L-12988 is the plan. A Cesium-only rule would close his instance
+ *      and leave the class open — [[committed-is-not-reachable]].
+ *   3. A per-renderer exception would be a SECOND CENSUS beside
+ *      `ViewTypeDescriptor.singleton` (C01 §6 rule 6: censuses rot). `validatePaneLayout`
+ *      two hundred lines below was corrected for exactly that defect on 2026-09-06.
+ *   4. No pane in this model carries a capability the others lack, so a view that is legal
+ *      in the target pane is legal in the source pane. There is no constructible case in
+ *      which leaving a pane EMPTY beats handing it the displaced view.
+ *
+ * ⚠ WHAT IS NOT CHANGED, because these are INTENTIONAL emptyings rather than side effects:
+ * `assignViewToPane(layout, pane, null)` (the user asked to empty that pane) and
+ * `view.pane.solo` (the user asked for full screen, and the split is remembered so the way
+ * back exists). Only the *involuntary* vacate — the one nobody asked for — is gone.
+ *
+ * ⭐ INVARIANT ESTABLISHED: an assign naming a non-null `viewType` never REDUCES the number
+ * of panes holding a view. `paneOccupancy()` below is that property, named, and
+ * `PaneViewModel.test.ts` asserts it across every (layout × pane × view) triple in the
+ * registry rather than on the founder's one path.
  */
 export function assignViewToPane(
     layout: PaneLayout,
@@ -222,15 +280,42 @@ export function assignViewToPane(
     viewType: ViewType | null,
     registry: Readonly<Record<ViewType, ViewTypeDescriptor>> = VIEW_TYPE_REGISTRY,
 ): PaneLayout {
+    // What the target pane is giving up. `null` when it was empty — which is precisely
+    // what makes the empty-target case degrade to the old vacate with no branch of its own.
+    const displaced = layout[paneId] ?? null;
     const next: Record<PaneId, ViewType | null> = { ...layout, [paneId]: viewType };
     if (viewType != null && descriptorOf(viewType, registry).singleton) {
+        // ⚠ `handedBack` matters only for a MALFORMED input layout that already holds the
+        // singleton in two panes (`validatePaneLayout` calls that a conflict and the store
+        // refuses it before it can reach here). Handing `displaced` to the first such pane
+        // and `null` to the rest keeps this total and deterministic rather than minting a
+        // duplicate of `displaced` while "fixing" a duplicate of `viewType`.
+        let handedBack = false;
         for (const otherPane of Object.keys(next)) {
-            if (otherPane !== paneId && next[otherPane] === viewType) {
-                next[otherPane] = null; // vacate the singleton's previous pane.
-            }
+            if (otherPane === paneId || next[otherPane] !== viewType) continue;
+            next[otherPane] = handedBack ? null : displaced;
+            handedBack = true;
         }
     }
     return next;
+}
+
+/** How many panes currently hold a view. The quantity §SWAP-NOT-VACATE protects. */
+export function paneOccupancy(layout: PaneLayout): number {
+    return Object.keys(layout).filter((paneId) => layout[paneId] != null).length;
+}
+
+/**
+ * §SWAP-NOT-VACATE — the panes that would be left holding NOTHING by `next`.
+ *
+ * ⛔ THE POINT IS THAT "EMPTY" IS NOT AUTOMATICALLY A DEFECT. `solo` empties every other
+ * pane on purpose and the shell collapses them; an explicit `assign(pane, null)` is the
+ * user asking. What C57 §1.5 forbids is a failure DRESSED AS AN EMPTY — a pane nobody
+ * asked to empty, holding nothing, saying nothing. So this reports the SET, and the
+ * callers that care (the tests, and the shell's honest-empty placeholder) decide.
+ */
+export function emptyPanes(layout: PaneLayout): PaneId[] {
+    return Object.keys(layout).filter((paneId) => layout[paneId] == null);
 }
 
 /** Swap the views hosted by two panes, returning a NEW layout (immutable). */
@@ -325,7 +410,8 @@ export function siteAuthoringDefaultLayout(
  * Derived through `assignViewToPane` like its sibling, so it is provably conflict-free
  * (`validatePaneLayout(...).ok === true`) rather than a hand-written pair. The user can then
  * put anything in either pane — both views here are singletons, so a re-assignment MOVES the
- * one surface and vacates the pane it came from.
+ * one surface and SWAPS the displaced view back into the pane it came from (§SWAP-NOT-VACATE;
+ * this line read "vacates the pane it came from" until 2026-09-06).
  */
 export function parcelLawDefaultLayout(
     registry: Readonly<Record<ViewType, ViewTypeDescriptor>> = VIEW_TYPE_REGISTRY,

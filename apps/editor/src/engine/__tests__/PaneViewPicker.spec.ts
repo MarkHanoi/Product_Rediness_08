@@ -90,8 +90,13 @@ describe('§C59 Phase 2 — a view picker on EVERY pane', () => {
 });
 
 describe('§C59 Phase 2 — choosing a view dispatches an intent (P6)', () => {
-    it('moves the SINGLE Cesium into the left pane; the right pane vacates', () => {
-        const { shell, cesium } = buildShell();
+    it('moves the SINGLE Cesium into the left pane; the right pane takes the 2D map', () => {
+        // ⚠ THIS ARM ASSERTED `[RIGHT_PANE]).toBeNull()` UNTIL §SWAP-NOT-VACATE (L-12999
+        // clause 4, 2026-09-06) — the founder ruled that the pane a Cesium view moves out
+        // of must never be left blank, and this is the DOM route he actually clicks. The
+        // half this arm was really guarding — ONE Cesium instance, re-targeted, never a
+        // second viewer (§L-412) — is untouched and is still asserted on every line below.
+        const { shell, cesium, map } = buildShell();
         expect(cesium.lastPaneEl).toBe(shell.getPaneElement(RIGHT_PANE));
 
         trigger(LEFT_PANE).click();
@@ -101,10 +106,14 @@ describe('§C59 Phase 2 — choosing a view dispatches an intent (P6)', () => {
         opt.click();
 
         expect(shell.store.getLayout()[LEFT_PANE]).toBe('site-3d');
-        expect(shell.store.getLayout()[RIGHT_PANE]).toBeNull();
+        expect(shell.store.getLayout()[RIGHT_PANE]).toBe('site-map-2d');
         expect(cesium.lastPaneEl).toBe(shell.getPaneElement(LEFT_PANE)); // ONE instance, re-targeted
         expect(cesium.mountCount).toBe(2);
         expect(cesium.unmountCount).toBe(1);
+        // ⭐ AND THE OTHER PANE IS LIVE, not merely non-null in the store: the ONE MapLibre
+        // map really landed in it. A store that moved on from the renderers is how panes go
+        // blank with no way back, so the layout claim is checked against the mounter.
+        expect(map.lastPaneEl).toBe(shell.getPaneElement(RIGHT_PANE));
     });
 
     it('puts the PLAN in a pane next to the 3D Site (the founder\'s plan ⇄ 3D Site ask)', () => {
@@ -117,10 +126,27 @@ describe('§C59 Phase 2 — choosing a view dispatches an intent (P6)', () => {
     });
 
     it('repaints every pane\'s picker from the store after a change', () => {
+        // ⚠ THE EXPECTED RIGHT-PANE TRIGGER WAS `/Empty pane/` UNTIL §SWAP-NOT-VACATE
+        // (L-12999 clause 4, 2026-09-06). The arm is about REPAINTING — that a change made
+        // in one pane's picker is reflected in the other's — and that property is what it
+        // still asserts; only the text it repaints TO changed, because the right pane now
+        // receives the displaced view instead of being emptied. The "Empty pane" label is
+        // not dead code — the arm below exercises it on a layout where a pane genuinely is
+        // empty, which is now the only way to reach it.
         const { shell } = buildShell();
         trigger(LEFT_PANE).click();
         option(LEFT_PANE, 'site-3d').click();
         expect(trigger(LEFT_PANE).textContent).toContain('3D Site');
+        expect(trigger(RIGHT_PANE).textContent).toContain('2D Site Map');
+        expect(shell.store.getLayout()[RIGHT_PANE]).toBe('site-map-2d');
+    });
+
+    it('§SWAP-NOT-VACATE — an intentional empty still repaints to "Empty pane"', () => {
+        // The guarded half: `assign(pane, null)` is the user asking, and the picker must
+        // still say so. This is the label the arm above used to assert, on the layout that
+        // actually produces it.
+        const { shell } = buildShell();
+        shell.store.dispatch({ type: 'view.pane.assign', paneId: RIGHT_PANE, viewType: null });
         expect(trigger(RIGHT_PANE).textContent).toMatch(/Empty pane/);
         expect(shell.store.getLayout()[RIGHT_PANE]).toBeNull();
     });

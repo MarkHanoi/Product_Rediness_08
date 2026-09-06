@@ -33,10 +33,16 @@ import {
  * What choosing this option would do.
  *  • `current`         — already shown in this pane (selecting it is a no-op).
  *  • `available`       — assigns cleanly.
- *  • `moves-singleton` — allowed, but the ONE heavyweight instance MOVES here and the
- *                        other pane is VACATED (C59 §1.2). Must be explained BEFORE the
- *                        click, never discovered after the other pane goes blank.
+ *  • `moves-singleton` — allowed: the ONE heavyweight instance MOVES here (C59 §1.2), and
+ *                        this pane's current view goes back to the pane it came from — a
+ *                        SWAP. Must be explained BEFORE the click, never discovered after.
  *  • `unavailable`     — not selectable; `reason` says why.
+ *
+ * ⚠ §SWAP-NOT-VACATE (L-12999, 2026-09-06) — the `moves-singleton` bullet above read *"the
+ * other pane is VACATED … never discovered after the other pane goes blank"*. That copy was
+ * accurate about the old reducer and is now the exact opposite of what happens: the
+ * displaced view is handed back, so nothing goes blank. The consequence is still stated
+ * before the click; only the consequence changed.
  */
 export type PaneViewOptionState = 'current' | 'available' | 'moves-singleton' | 'unavailable';
 
@@ -50,8 +56,14 @@ export interface PaneViewOption {
     readonly enabled: boolean;
     /** Human explanation. Always present unless the option is plainly `available`. */
     readonly reason?: string;
-    /** For `moves-singleton`: the pane that would be vacated. */
+    /** For `moves-singleton`: the pane the singleton would move OUT of. */
     readonly movesFromPane?: PaneId;
+    /**
+     * §SWAP-NOT-VACATE — for `moves-singleton`: the view THIS pane would hand back to
+     * `movesFromPane`. Absent ⇒ this pane is empty, so there is nothing to hand back and
+     * `movesFromPane` really does end up empty (the honest remainder of the old behaviour).
+     */
+    readonly swapsWith?: ViewType;
 }
 
 export interface PaneViewOptionsInput {
@@ -98,7 +110,8 @@ export function describePaneName(paneId: PaneId): string {
  *   4. hypothetical layout fails validation → `unavailable` + the conflict (defensive:
  *      the reducer maintains the invariant, so this should be unreachable — but the
  *      picker must never be able to offer a choice the mount-time assert would reject)
- *   5. singleton live in another pane       → `moves-singleton` + which pane empties
+ *   5. singleton live in another pane       → `moves-singleton` + what the two panes
+ *      exchange (§SWAP-NOT-VACATE; this line read "which pane empties")
  *   6. otherwise                            → `available`
  */
 export function describePaneViewOptions(input: PaneViewOptionsInput): PaneViewOption[] {
@@ -171,15 +184,27 @@ export function describePaneViewOptions(input: PaneViewOptionsInput): PaneViewOp
 
         const otherPane = findOtherPaneShowing(layout, viewType, paneId);
         if (otherPane != null && d.singleton) {
+            // §SWAP-NOT-VACATE (L-12999 clause 4) — say what the reducer will ACTUALLY do.
+            // `assignViewToPane` hands this pane's current view back to `otherPane` when
+            // there is one, and empties `otherPane` only when this pane has nothing to give.
+            // Both sentences are derived from `layout[paneId]`, so the copy cannot drift
+            // from the reducer the way the old flat "…empties." sentence just did.
+            const displaced = layout[paneId] ?? null;
+            const displacedLabel = displaced != null ? registry[displaced]?.label : null;
             return {
                 ...base,
                 state: 'moves-singleton',
                 enabled: true,
                 movesFromPane: otherPane,
+                ...(displaced != null ? { swapsWith: displaced } : {}),
                 reason:
-                    `Currently open in ${describePaneName(otherPane)}. There is only one ` +
-                    `${d.rendererKind} instance, so it MOVES here and ${describePaneName(otherPane)} ` +
-                    `empties.`,
+                    displacedLabel != null
+                        ? `Currently open in ${describePaneName(otherPane)}. There is only one ` +
+                          `${d.rendererKind} instance, so the two panes SWAP: it moves here and ` +
+                          `${displacedLabel} moves to ${describePaneName(otherPane)}.`
+                        : `Currently open in ${describePaneName(otherPane)}. There is only one ` +
+                          `${d.rendererKind} instance, so it MOVES here. This pane holds nothing ` +
+                          `to give back, so ${describePaneName(otherPane)} empties.`,
             };
         }
 

@@ -87,12 +87,32 @@ describe('§C59 Phase 2 — disable-or-EXPLAIN (never a bare greyed option)', ()
         expect(o.reason).toMatch(/canvas2d/);
     });
 
-    it('EXPLAINS a singleton move BEFORE the click — which pane empties', () => {
+    it('EXPLAINS a singleton move BEFORE the click — what the two panes exchange', () => {
+        // ⚠ THIS ARM ASSERTED `expect(o.reason).toMatch(/empt/i)` UNTIL §SWAP-NOT-VACATE
+        // (L-12999 clause 4, 2026-09-06), and the title said "which pane empties". Both
+        // were correct copy for a reducer that vacated; keeping either would now REQUIRE
+        // THE PICKER TO LIE about what the click does, which is the one thing this
+        // disable-or-EXPLAIN suite exists to prevent. The property is unchanged — the
+        // consequence is stated before the click, not discovered after — so what is
+        // asserted is still the consequence, and the consequence is now a swap.
         const o = optionFor(DEFAULT_SITE, LEFT_PANE, 'site-3d');
         expect(o.state).toBe('moves-singleton');
         expect(o.enabled).toBe(true); // the founder's headline: 3D Site into EITHER pane.
         expect(o.movesFromPane).toBe(RIGHT_PANE);
+        expect(o.swapsWith).toBe('site-map-2d');
         expect(o.reason).toMatch(/right pane/i);
+        expect(o.reason).toMatch(/swap/i);
+        expect(o.reason).toContain('2D Site Map'); // names what lands in the other pane.
+    });
+
+    it('…and when THIS pane is empty it says so honestly: the other pane really does empty', () => {
+        // The surviving half of the old copy, and the reason the sentence is DERIVED from
+        // `layout[paneId]` rather than hard-coded either way: with nothing to hand back, a
+        // move does leave the source pane empty, and the picker must say that too.
+        const soloRight = { [LEFT_PANE]: null, [RIGHT_PANE]: 'site-3d' } as const;
+        const o = optionFor(soloRight, LEFT_PANE, 'site-3d');
+        expect(o.state).toBe('moves-singleton');
+        expect(o.swapsWith).toBeUndefined();
         expect(o.reason).toMatch(/empt/i);
     });
 
@@ -154,12 +174,18 @@ describe('§C59 Phase 2 — PaneLayoutStore is the ONE write path (P6)', () => {
         expect(seen).toHaveLength(1);
     });
 
-    it('MOVES the singleton: assigning 3D Site to the other pane vacates the first', () => {
+    it('MOVES the singleton: assigning 3D Site to the other pane SWAPS the two', () => {
+        // ⚠ THIS ARM ASSERTED `[RIGHT_PANE]).toBeNull()` UNTIL §SWAP-NOT-VACATE (L-12999
+        // clause 4, 2026-09-06). Superseded by the founder's ruling that the pane a
+        // singleton moves out of must never be left blank. The store is a thin wrapper
+        // over the pure reducer BY DESIGN, so this arm's job is to prove the store did not
+        // grow its own opinion — it inherits whatever `assignViewToPane` decides, and the
+        // decision is pinned in `PaneViewModel.test.ts`.
         const store = new PaneLayoutStore(DEFAULT_SITE, { applier: new RecordingApplier() });
         const r = store.dispatch({ type: 'view.pane.assign', paneId: LEFT_PANE, viewType: 'site-3d' });
         expect(r.ok).toBe(true);
         expect(store.getLayout()[LEFT_PANE]).toBe('site-3d');
-        expect(store.getLayout()[RIGHT_PANE]).toBeNull(); // never two Cesium mounts.
+        expect(store.getLayout()[RIGHT_PANE]).toBe('site-map-2d'); // never two Cesium mounts.
     });
 
     it('REJECTS a non-hostable view with the contract reason — and changes NOTHING', () => {
