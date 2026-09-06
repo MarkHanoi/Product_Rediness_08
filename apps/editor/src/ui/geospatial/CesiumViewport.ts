@@ -6363,17 +6363,37 @@ export class CesiumViewport {
     // Deliberately logged on EVERY massing render (not only on failure): the founder's report
     // is "the envelope is not there", and the whole point is that the answer is a NUMBER
     // nobody currently has. C12 §1.4 — an unresolved datum must be visible as unresolved.
-    if (input.keepPhotoreal) {
+    // ⛔ THE GATE WAS `if (input.keepPhotoreal)`, AND THAT MADE THE PROBE BLIND ON THE ONE PATH IT
+    // IS ASKED ABOUT (STR §26.4, founder 2026-09-06: *"the envelope renders great on pryzm view —
+    // but on 3d site vie"*). `keepPhotoreal` is the PHOTOREAL-GLOBE path; the 3D SITE is the Forma
+    // path, where it is falsy — so this line has never once printed in a trace of the view the
+    // founder reports on. A probe that only speaks about the case nobody is asking about is
+    // [[context-data-honesty-family]] with the arms swapped: it is not wrong, it is ABSENT, and
+    // absent reads as "nothing to report".
+    //
+    // The buried-risk ARM is genuinely photoreal-specific (the Google tile mesh sits tens of metres
+    // above the ellipsoid), so it stays gated — asserting it on the Forma path would be a false
+    // warning. But the BASE and its PROVENANCE are exactly as load-bearing on the Forma path, where
+    // the ground is baked relief (Córdoba ~100-130 m) and `formaTerrainBaseHeight` is 0 until the
+    // clamp lands. So the line now prints on BOTH paths and says which one it is speaking about.
+    {
       const unresolved = this.globeGroundSource === 'unresolved' || !this.globeGroundResolved;
+      const buriedRisk = input.keepPhotoreal && (unresolved || Math.abs(baseHeight) < 1e-3);
       console.log(
         `[CesiumViewport][globe] §SITE-OVERLAY-DATUM-DIAG: site overlay seated at base ` +
-          `${baseHeight.toFixed(2)} m ELLIPSOIDAL · groundSource=${this.globeGroundSource} · ` +
-          `resolved=${this.globeGroundResolved ? 'y' : 'n'}` +
-          (unresolved || Math.abs(baseHeight) < 1e-3
+          `${baseHeight.toFixed(2)} m ELLIPSOIDAL · path=${input.keepPhotoreal ? 'photoreal-globe' : '3d-site (forma)'} · ` +
+          `relief=${this.groundReliefAttached() ? `on ('${this.formaTerrainCity ?? 'untracked'}')` : 'off (flat ellipsoid)'} · ` +
+          `baseSource=${this.formaTerrainBaseSource} · baseMeasured=${this.formaTerrainBaseMeasured ? 'y' : 'n'} · ` +
+          `groundSource=${this.globeGroundSource} · resolved=${this.globeGroundResolved ? 'y' : 'n'}` +
+          (buriedRisk
             ? ' — ⚠ BURIED-RISK: the photoreal tile surface is tens of metres above the ellipsoid, ' +
               'so an overlay at ~0 m sits UNDER the visible ground and reads as "not rendered". ' +
               'This is a DATUM failure, not a draw failure (C12 §1.4).'
-            : ' — datum measured; overlay should sit on the visible tile surface.'),
+            : input.keepPhotoreal
+              ? ' — datum measured; overlay should sit on the visible tile surface.'
+              : ' — on the 3D Site the ground is the BAKED RELIEF (or the flat ellipsoid when no ' +
+                'tileset covers the site), and this base is what every overlay is seated on. A base ' +
+                'of 0 while relief is ON means the terrain clamp has not landed yet (C12 §1.4).'),
       );
     }
 
