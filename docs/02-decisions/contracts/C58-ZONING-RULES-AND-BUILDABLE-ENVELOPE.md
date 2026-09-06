@@ -795,6 +795,94 @@ calls `setBuildableEnvelopeFootprintVisible` — an arm checking only that the e
 have passed for the three days it had no caller.
 
 ---
+### §1.19 — The envelope is AUTHORABLE ON THE VIEW, and an AUTHORED envelope is a THIRD provenance kind that must never be mistaken for a solved one (L-13031, STR §26)
+
+> **Founder, verbatim (2026-09-06):** *"don't forget the most important — the capacity to DESIGN,
+> CREATE, EDIT the buildable envelope on 2D site map view or 3D site view."*
+>
+> And earlier, on the same subject: *"I am still not able to create / edit the envelopes on 2D site
+> view / 3D site view — architecturally sound"*, and *"it should open a panel like when you create a
+> wall or a slab with the tools."*
+
+⛔ **THIS IS A NEW AXIS FOR C58 AND IT MUST BE STATED BEFORE IT IS BUILT, BECAUSE IT CUTS ACROSS THE
+WHOLE CONTRACT.** Until now C58 has been **purely generative**: the engine SOLVES an envelope from a
+rule pack, and every surface in §5 exists to render that solved answer with its provenance. There has
+been **no human authoring route at all** — §9 does not exclude one, it never contemplated one. A
+hand-drawn envelope is therefore not covered by any existing tier, and the danger is precise and
+severe: **an envelope the user drew, rendered in the same PRYZM purple as an envelope the engine
+derived from a cited ordinance, is a legal claim PRYZM did not make.** That is the L-373 credibility
+failure (§1.4) in its worst available shape.
+
+**Normative:**
+
+1. **AUTHORING IS A ROUTE, NOT A MODE.** Creating or editing an envelope on a site view is an
+   element-authoring interaction like a wall or a slab (the founder's own analogy): a tool is picked,
+   a panel opens, geometry is drawn or edited on the active view, and the result is committed
+   **through the command bus** (P6). It is NOT a bespoke drawing surface bolted to one view, and it
+   is NOT a second envelope pipeline. C16 (command authoring) and C114 (element space envelope) own
+   the mechanics; C58 owns only what follows about provenance and law.
+2. **IT WORKS ON WHICHEVER SITE VIEW IS OPEN.** Create and edit MUST be available on **2D Site Map**
+   and **3D Site**, and the tool follows the pane's view (C59 §2.10.3 clause 4 — the tool's chrome
+   belongs to its pane). ⚠ **The known wiring gap is shared with L-13016 / L-13022 and MUST be closed
+   ONCE for all three:** `CesiumViewport.ts` and `SiteBoundaryMap2D.ts` import `siteGeometryHighlight`
+   **zero** times, so nothing that must appear "on whichever view is open" — selection highlight,
+   massing preview, or this authoring tool — can reach either surface today. One wiring, three
+   features; three separate wirings would be the defect this clause exists to prevent.
+3. **⛔ AN AUTHORED ENVELOPE CARRIES `confidence: 'authored'` AND MAY NEVER BORROW A SOLVED TIER.**
+   It is not `published-structured`, not `block-constructed`, not `estimated-ruleset`. It is the
+   user's own proposal. It renders in a visually distinct treatment from every solved tier (C58 §5.2
+   / C18), its chip reads as the user's own input, and **it carries no `ordinanceRef` and no
+   `DerivationTrace`** — because there is no derivation. A surface that lets an authored envelope
+   badge itself "Real · constructed" is a violation of §1.4, not a styling choice.
+4. **AN AUTHORED ENVELOPE DOES NOT OVERWRITE THE SOLVED ONE.** Where a rule-pack envelope exists,
+   both are held: the solved envelope remains the statement of what the law permits, the authored one
+   is the proposal. Where they disagree, **the disagreement is shown, with both numbers** — the
+   §RAC-FREEFORM-PLUS-HARD-STOPPERS doctrine: a refusal states both figures rather than silently
+   clamping. Clamping the user's drawing to the solved envelope, or silently replacing the solved
+   envelope with the drawing, are both forbidden.
+5. **AN AUTHORED ENVELOPE IS A FIRST-CLASS INPUT DOWNSTREAM.** §1.8's envelope → authoring bridge
+   takes it exactly as it takes a solved one; generation is bounded by whichever envelope is active,
+   and the active choice is the user's and is stated.
+
+---
+
+### §1.20 — ⛔ THE ENVELOPE IS NOT A PRECONDITION FOR THE PARCEL-LAW PROCESS (L-13032, founder ruling 2026-09-06)
+
+> **Founder, verbatim:** *"having an envelope should not be the single pre-requisite to advance on
+> going through the parcel law process — the user still should be able to."*
+
+**This is a gating ruling and it OVERRIDES any local convenience that made the envelope a hard gate.**
+The parcel-law process is the sequence a user walks to understand and act on a parcel. The buildable
+envelope is **one artefact produced along the way**, not the turnstile at its entrance.
+
+**Normative:**
+
+1. **NO STEP OF THE PARCEL-LAW PROCESS MAY BE BLOCKED SOLELY BY THE ABSENCE OF AN ENVELOPE.** Not
+   disabled, not hidden, not silently inert. If a step genuinely cannot produce a meaningful result
+   without one, it says so **in the founder's own terms — what is missing and what would supply it**
+   — and every step that CAN proceed still does.
+2. **AND THIS IS THE SAME RULE AS §1.13, APPLIED FORWARD.** §1.13 already establishes that a REFUSAL
+   is a positive answer and must be representable and distinct from a coverage gap. **A parcel whose
+   envelope is refused — correctly, with citations, because the jurisdiction's rules are unknown or
+   the data is absent — is a parcel PRYZM has answered honestly.** Gating the rest of the process on
+   that refusal converts C58's most carefully-built honest answer into a dead end, and punishes the
+   user for the very jurisdictions where PRYZM's refusal discipline is doing its best work. ⭐ This
+   is the C63 ruling restated on a different axis: **a refusal is a correct answer, not an absent
+   one** — and the process must be walkable on a correct answer.
+3. **THE ENVELOPE-DEPENDENT AND ENVELOPE-INDEPENDENT PARTS ARE SEPARATED EXPLICITLY.** Parcel
+   identity, cadastral attributes, ownership and area, the room programme (STR §25.5), the brief, and
+   the record of what the user intends are **all independent of the envelope** and remain fully
+   available. Only genuinely envelope-derived figures — permitted volume, storey count against a
+   permitted height, percentage-of-permitted — depend on it, and those state their dependency rather
+   than disabling their host.
+4. **⛔ A `null` ENVELOPE IS A STATE TO RENDER, NOT A BRANCH TO SKIP.** The failure mode this clause
+   exists to prevent is the one this repo has already paid for repeatedly (§CONTEXT-DATA-HONESTY,
+   L-13002): a reader that answers "no envelope" and a reader that answers "envelope not yet
+   computed" and a reader whose runtime was null all return the SAME falsy value, and the UI treats
+   all three as "not ready". **Distinguish them at the read, and say which one it is.**
+
+---
+
 
 ## §2 — Schema
 

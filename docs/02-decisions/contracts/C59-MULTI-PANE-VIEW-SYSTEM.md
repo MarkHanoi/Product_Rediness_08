@@ -98,6 +98,128 @@ The founder's Phase-2 ask, verbatim: *"in each view (either split view or comple
 
 9. **A REGISTRY-DERIVED SURFACE MAY ONLY OFFER VIEWS. Anything else is modelled BESIDE it, as an action** (§2.9, L-6800..L-6809). A control whose contents are derived from `VIEW_TYPE_REGISTRY` can, by construction, offer nothing that is not a `ViewType` — so the fix for "this derived bar is missing X" is **never** to mint a `ViewType` for X. Camera framings, layout restores and reframes are **actions**; they carry a label, an `enabled`, and a **reason whenever `enabled` is false**, and they return their intents as **DATA** (invariant 3). See §2.9.
 
+10. **THE VIEW REGION HAS EXACTLY ONE OWNER. The workspace mode SIZES it; the split DIVIDES it; no other code writes its box** (§2.10, L-13030, STR §26.1.2). A workspace mode (Analysis / Inspect / Data) and a split are **not siblings competing for the shell** — they are two levels of one hierarchy. The mode decides how much of the shell is view region; the split decides how that region is partitioned into panes; a pane decides which view it hosts. Each level reads the level above and writes only its own. **Normative consequence:** `#container.style.width` (and `maxWidth` / `flexGrow` / `flexBasis`) has exactly ONE writer. A second module writing that box — for any reason, including "restoring" it — is a violation of this invariant, not a workaround for a timing problem, and MUST NOT be repaired with a debounce, a re-assert pass, or a settle guard. See §2.10.
+
+---
+
+## §2.10 — The view region is a HIERARCHY, not a set of siblings (L-13030, STR §26.1.2)
+
+> **Founder, verbatim (2026-09-06), after testing the deployed build:**
+> *"We need to have a sound and really robust system for the split view / and the analysis / inspect
+> panels — because **SPLIT VIEW SHOULD ALWAYS SPLIT THE VIEW OF THE SECTION OF THE VIEWS.** So if in
+> AUTHOR, then split view will divide the view in 2. But in ANALYSE view, then split view will
+> divide **THE LEFT HAND SIDE VIEW** in 2 — and this is not robust at the moment, is mixed up, not
+> architecturally sound."*
+>
+> And, on being shown it again: *"we are in AUTHOR, but the split view keeps intact on the left hand
+> side, and when NON-split view the view is already splitted… then I opened the Analysis tab and
+> there I managed, by clicking split view again, to set it correctly — many bugs here. But when
+> clicking again Author, we see again that the single view doesn't cover the complete screen."*
+
+### §2.10.1 — Why §0's diagnosis was INCOMPLETE, which is why this kept coming back
+
+§0 of this contract names **three** mutually-incompatible mechanisms stacked on one `#container`
+(`SplitViewManager`, Cesium, MapLibre) and C59 dissolved them into pane hosts. **That enumeration
+missed a fourth owner, and the fourth is the one still breaking.** The **workspace mode** —
+Analysis / Inspect / Data — also writes `#container`'s box, and it was never modelled as a view
+mechanism at all because it presents as a *panel*, not as a view. So C59 fixed the three it named
+and left the unnamed one writing the same property.
+
+**MEASURED 2026-09-06 — `#container.style.width` has SIX write sites across FOUR modules:**
+
+| Module | Sites | Writes |
+|---|---|---|
+| `SplitViewManager.ts` | `:580`, `:638`, `:1769` | `(1-ratio)*100%` on activate · `''` on deactivate — plus `maxWidth`, `flexGrow:0`, `flexShrink:0`, `flexBasis:auto` |
+| `DataWorkbench.ts` | `:918`, `:922`, `:926`, `:930` | `''` (hidden) · `calc(100% - 420px)` (panel) · **`50%` (split)** · `'0'` (full) |
+| `svpPlanPaneMounter.ts` | `:102` | `''` |
+| `AIAreaLayout.ts` | `:116` | `${w}px` |
+
+⚠ **THE CODE ALREADY CONFESSES THIS, AND ITS CONFESSION UNDERCOUNTS.** Both
+`SiteAuthoringPaneShell.ts:410` and `PaneHost.spec.ts:446` carry the comment *"`#container.style.width`
+has **three** writers"*. It is four modules and six sites. A comment that names the defect but gets
+its size wrong is how a known problem stays open: the number looked survivable.
+
+### §2.10.2 — The failure is an OSCILLATION, not a race, and that distinction decides the fix
+
+Two writers of one property, each of whose write triggers the other's settle pass, is a **feedback
+loop**. `DataWorkbench` (split mode) writes `50%`; `SplitViewManager` writes `60%` plus flex
+overrides; each write resizes the canvas; each resize runs the placement/settle pass that re-asserts
+the other's value.
+
+**Captured in the founder's console — this exact block repeats SIX times consecutively for ZERO user input:**
+
+```
+[SplitViewManager] Canvas2D context ready
+[SvpPlanToolOverlay] Attached with snap service. viewId: vd-sys-plan-l0
+[SplitViewManager] Split view activated (Canvas2D plan mode)
+resize — canvas 501x976   (x4)
+[SplitViewManager] §VIEW-AUTOFRAME: framed main 3D viewport on split-view entry.
+[SvpPlanToolOverlay] Detached
+[SplitViewManager] Split view deactivated
+resize — canvas 836x976   (x4)
+```
+
+Eight canvas resizes and one camera re-frame per cycle. **The founder's three symptoms are three
+resting points of this one loop** — "Author still split on the left", "non-split is already split",
+"single view doesn't cover the screen" — which is precisely why they were reported as separate bugs
+and fixed separately, without converging.
+
+⛔ **THE FORBIDDEN FIXES, stated so a future lane does not spend a week on one.** A debounce, a
+throttle, a re-entrancy guard, an `if (already applied) return`, or a harder re-assert pass all make
+the oscillation *settle faster* while leaving two modules disagreeing about the value. The loop
+returns the first time a transition is slower than the guard window — and it will be, on the
+founder's WebGL box, on a Cesium mount, which is async (§1.4). **The repeated
+`§PANE-PLACEMENT-AFTER-MODE-SWITCH … putting it back` in the same trace IS a re-assert pass already
+doing its job and not helping** (L-13025); adding a second one is the same move again.
+
+### §2.10.3 — The model (normative)
+
+1. **VIEW REGION.** The part of the shell that holds panes. It is **not** the window, and it is not
+   `#container` by definition — `#container` is merely what implements it today.
+2. **The WORKSPACE MODE sizes the view region, and nothing else.** Author → the region is the whole
+   shell. Analysis / Inspect / Data → the panel claims its share and the region is what remains. The
+   mode writes the region's box; it never writes a pane, never touches split state, and never
+   consults it.
+3. **The SPLIT divides the view region — always, and only.** In Author the region splits in two; in
+   Analysis the *remaining* region splits in two. The split writes pane boxes **inside** the region,
+   as fractions of it. **It never writes the region's own box.** The analysis panel is never one half
+   of a split.
+4. **A PANE hosts one view** and owns its own chrome (§1.4). Every pane control — the view dropdown,
+   the split toggle, the drag handle — is a child of its pane and positioned **relative to that
+   pane**, never to the window and never to the canvas (L-13003, L-13027).
+5. **Reads go up, writes go down.** Each level may read the level above and write only its own.
+   No level re-asserts another level's value.
+
+**These follow from the model and are the observable form of it:**
+
+- Split state is **orthogonal to workspace mode** and survives a mode change. Toggling Analysis does
+  not clear, set, or re-enter the split; toggling the split does not resize the panel.
+- Changing the workspace mode changes exactly one thing: the region's size. Pane count, pane
+  contents, and which view is in which pane are unchanged.
+- Every geometry transition is **idempotent and terminating** — applying it twice equals applying it
+  once, and applying it once triggers no further application.
+
+### §2.10.4 — The acceptance test (a lane MAY NOT claim §2.10 without it)
+
+From Author, split → **two views**. Switch to Analysis → the panel takes its share and **the split
+survives inside the remaining region**, still two views, now narrower. Switch back to Author → the
+panel yields and the two views expand to fill the shell. Repeat the cycle three times.
+
+**Pass conditions, all of them:** no pane blanks · no control leaves its pane · the count of views
+never changes · the shell is fully covered in every state · and — the one that catches the
+oscillation — **each transition produces a BOUNDED number of canvas resizes, and the console shows
+no `Split view activated` / `Split view deactivated` pair that the user did not ask for.**
+
+⛔ **NOT LICENSED BY THIS SECTION** — the standing constraints are unchanged: a second Cesium viewer
+or a second MapLibre map (§2 invariant 1, §L-412 — one of each, re-targeted); a rival option table
+(`viewPanelOptions.ts` stays the one definition, §2 invariant 9); or losing §26.1.1's mutual
+exclusion — at most one Cesium-backed view is ACTIVE across the whole region however it is divided.
+
+⭐ **AND THE LEGACY PATH IS REMOVED, NOT RETAINED BESIDE THE NEW ONE.** The founder's instruction
+was explicit: *"everything needs to be perfect and don't have legacy code."* A migration that leaves
+`DataWorkbench` still writing `#container.style.width` behind a flag has not satisfied this section —
+it has added a fifth writer.
+
 ---
 
 ## §2.9 — A derived surface cannot offer a non-view, and that is a FEATURE (L-6800..L-6809)
