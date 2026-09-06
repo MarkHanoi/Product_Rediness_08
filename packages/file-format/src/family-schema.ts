@@ -309,12 +309,78 @@ export type IfcMappingFile = z.infer<typeof IfcMappingFileSchema>;
 /* Reference planes / parameters / profiles / solids / types / slots   */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* §PARAMETRIC-DATUM (C110 §2.8 · C111 §5.1 D-9 · STR-UCE-MASTER-SPEC   */
+/* §82.1) — the field that makes a reference plane a REVIT reference    */
+/* plane rather than a persisted orientation.                           */
+/*                                                                     */
+/* ⭐ THE ACT IT EXPRESSES, IN THE AUTHOR'S WORDS: *"this datum sits    */
+/*    `Height` above the origin"* — a DIMENSION, labelled with a        */
+/*    PARAMETER, that positions the plane. Change the parameter and the */
+/*    plane moves; the shapes built on that plane move with it. Without */
+/*    it a plane can only say which way a shape GROWS (its `normal`,    */
+/*    honoured since §82.4-DIRECTED-EXTRUDE) and never WHERE it sits.   */
+/*                                                                     */
+/* ⛔ IT DOES NOT DUPLICATE `origin`, AND THE TWO ARE NOT TWO ANSWERS   */
+/*    TO ONE QUESTION (C110 §2.8 §TWO-DEFAULT-STORES, C84 EI-9).        */
+/*    `origin` is the v1 LITERAL datum and is still NOT APPLIED by the  */
+/*    bake — there is no per-solid transform on `SolidFeatureSchema`    */
+/*    (see `box-solid.ts`'s declared absences), so a literal offset      */
+/*    moves nothing and `set-extrude-work-plane` refuses one outright.  */
+/*    `offsetExpression` is the channel that IS honoured. Exactly one    */
+/*    of the two may be non-trivial: `set-plane-offset` REFUSES an      */
+/*    expression on a plane whose `origin` is not the model origin, and */
+/*    `bakeFamilyInstance` refuses the same pair a second time, because */
+/*    a document that states a position twice states it wrongly once.   */
+/*                                                                     */
+/* ⚠ THE OFFSET IS SIGNED, ALONG `normal`, AND IT IS A RUNTIME LENGTH  */
+/*   — the same unit `SolidFeature.lengthExpression` is in, crossing    */
+/*   `§4D-ONE-LENGTH-SEAM` (`runtimeLengthToMetres`) exactly once at    */
+/*   the bake. ⛔ Not metres here: minting a second length convention   */
+/*   inside one document is the 1000× defect class ADR-0376 D3 names.   */
+/*                                                                     */
+/* ⚠ `.optional()` AND NOT `.default(null)`, for C111 §5.4-a's exact    */
+/*   reason: a defaulted key appears on every plane of every existing   */
+/*   document and changes its packed bytes, its `schemaHash` AND its    */
+/*   signature. ABSENT means "this datum is not dimensioned"; it is not */
+/*   `null`, and an absent field re-packs byte-identically.             */
+/*                                                                     */
+/* ⚠ DECLARED, NOT SILENT (C84 EI-6) — what this field does NOT close: */
+/*   • The offset is measured from the MODEL ORIGIN, never from another */
+/*     plane. Plane-to-plane dimensioning needs a datum graph and its   */
+/*     own cycle detection; C110 §4.3's Kahn sort is over PARAMETERS,   */
+/*     not planes, and reusing it would be a second graph wearing the   */
+/*     first one's name. Not built, and not pretended.                  */
+/*   • The plane's SPIN about its normal is STILL unpersisted           */
+/*     (§4D-SCHEMA-DELTA). This field moves a plane along its normal;   */
+/*     it does not rotate anything.                                     */
+/*   • Only an `extrude` solid follows a moved plane, because only      */
+/*     `extrude` bakes at all (`BAKEABLE_SOLID_KINDS`).                 */
+/*                                                                     */
+/* ⚠ VERSIONING, MEASURED RATHER THAN ASSUMED. This is an ADDITIVE     */
+/*   optional key inside v1.1, not a `formatVersion` bump, and that is  */
+/*   safe for one measured reason and no other:                         */
+/*   `find . -name "*.pryzm-family"` (excluding node_modules) piped to  */
+/*   `wc -l` → **0** (re-run 2026-09-06, as C110 §3.3-a instructs; the  */
+/*   literal command is in that clause — it is not repeated here        */
+/*   because its own glob would close this comment). There              */
+/*   is no corpus, so there is no reader in the world that would strip  */
+/*   this key and bake an un-offset shape. ⛔ If that command ever      */
+/*   returns a file, this field belongs in C111 §12 D-12's version bump */
+/*   with the rest of the byte-changing set — re-run it, do not         */
+/*   transcribe this line.                                              */
+/* ------------------------------------------------------------------ */
+
 export const ReferencePlaneSchema = z.object({
   id: PlaneId,
   name: z.string().min(1),
   origin: Vec3,
   normal: Vec3,
   isHost: z.boolean().default(false),
+  /** ⭐ §PARAMETRIC-DATUM — signed offset along `normal`, in RUNTIME length
+   *  units, as an expression over the definition's parameters. Read the block
+   *  above before adding a second positional channel. */
+  offsetExpression: z.string().min(1).optional(),
 });
 export type ReferencePlane = z.infer<typeof ReferencePlaneSchema>;
 

@@ -106,6 +106,20 @@ export {
   type RenameReferencePlaneParams,
 } from './ops/rename-reference-plane.js';
 
+/* ── lane CE-PARAMS-AND-PLANES (§82.1-PARAMETRIC-DATUM) — the op that makes a
+ * reference plane FLEX. `add-reference-plane` puts a datum in the document and
+ * `rename-reference-plane` gives it the identity the chooser lists it by; both
+ * leave it at the model origin forever, because `origin` is a literal no
+ * parameter can reach and no evaluator applies. `set-plane-offset` dimensions
+ * the plane with an EXPRESSION over the definition's own parameters, and the
+ * bake moves every extrude built on that plane by the resolved distance — the
+ * Revit semantic (geometry locked to planes, planes positioned by parametric
+ * dimensions) rather than a number stored beside the geometry. */
+export {
+  makeSetPlaneOffsetMigrator,
+  type SetPlaneOffsetParams,
+} from './ops/set-plane-offset.js';
+
 
 /* ── lane UCE-FAMILY — the two ops that make the definition EDITOR half real ──
  * `update-profile` is lane U3's OWED O-1 (profile geometry write-back — without

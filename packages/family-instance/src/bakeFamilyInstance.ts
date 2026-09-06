@@ -57,8 +57,16 @@
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 
-import type { FamilyDocument, FamilyManifest, SolidFeature } from '@pryzm/file-format';
+import type {
+  FamilyDocument,
+  FamilyManifest,
+  Profile,
+  ReferencePlane,
+  SolidFeature,
+} from '@pryzm/file-format';
 import {
+  evaluate,
+  ExpressionEvalError,
   kindOfDataType,
   resolveParameter,
   type EvalScope,
@@ -69,6 +77,7 @@ import {
 } from '@pryzm/family-runtime';
 import {
   isNumericallyZero,
+  isParallel,
   type BufferGeometryDescriptor,
   type ProfilePoint,
 } from '@pryzm/geometry-kernel';
@@ -370,10 +379,32 @@ function bakeOneSolid(
         );
       }
 
+      // ⭐⭐ §82.1-PARAMETRIC-DATUM — THE PLANE'S OFFSET IS READ, AND THE SOLID
+      //     MOVES WITH IT.
+      //
+      // ⛔ THIS RETIRES HALF OF §4D-SCHEMA-DELTA's fourth bullet and half of
+      //    `add-reference-plane`'s "STILL NOT HONOURED" note. Both read that a
+      //    plane's ORIGIN is not applied — true of the LITERAL `origin`, which
+      //    is still applied by nothing and still refused by
+      //    `set-extrude-work-plane`. It is NOT true of `offsetExpression`, the
+      //    parametric channel: that IS applied here, which is what makes a
+      //    reference plane a datum a PARAMETER can move rather than a label.
+      //
+      // ⭐ THE UNDIMENSIONED PATH IS BIT-IDENTICAL. A plane with no
+      //    `offsetExpression` yields `worldY = 0`, and `produceExtrude` reads
+      //    `options?.worldY ?? 0` — same vertices, same bounds, SAME HASH as
+      //    passing no option at all. So every existing document re-bakes to the
+      //    descriptor it already had.
+      const placement = resolvePlaneOffsetM(solid, profile, document, scope);
+      if (!placement.ok) return refuse(solid, placement.reason, placement.message);
+
       // §82.4-DIRECTED-EXTRUDE — the document's axis, forwarded verbatim. The
       // producer normalises it; the bake does not pre-normalise, so there is one
       // normalisation in the system and not two that can round differently.
-      const descriptor = adapter.extrude(polygon, heightM, { direction: solid.direction });
+      const descriptor = adapter.extrude(polygon, heightM, {
+        direction: solid.direction,
+        worldY: placement.offsetM,
+      });
       return { ok: true, baked: { solidId: solid.id, kind: 'extrude', descriptor } };
     }
 
@@ -408,6 +439,171 @@ function bakeOneSolid(
         `[bakeFamilyInstance] boolean solid ${solid.id}: \`produceBoolean\` exists and works, but evaluating a boolean feature requires a FEATURE-GRAPH ORDER — which solids are consumed by the boolean and therefore must not also appear in the output. \`featureEdges[]\` was added by lane 4B and DECLARED INERT (ADR-0376 D7 OPEN). Picking an evaluation order here would decide D7 by accident and freeze it. Refused pending D7.`,
       );
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * §82.1-PARAMETRIC-DATUM — where a reference plane stops being a label
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * THE REVIT SEMANTIC THIS IMPLEMENTS, stated so the next reader can check the
+ * code against it rather than against a hope: geometry is LOCKED to reference
+ * planes; planes are positioned by PARAMETRIC dimensions; changing a parameter
+ * moves the plane and the geometry follows.
+ *
+ * Here that is exactly three steps and no more:
+ *   1. the solid's profile names a plane (`Profile.planeId` — the LOCK);
+ *   2. the plane names a dimension (`ReferencePlane.offsetExpression` — an
+ *      expression over the SAME resolved parameter scope every profile
+ *      coordinate and every `lengthExpression` is read against, evaluated by
+ *      the ONE engine, C110 §4 standing rule);
+ *   3. the resolved distance is handed to `produceExtrude` as `worldY`, which
+ *      offsets the solid ALONG the sweep axis before the axis is rotated into
+ *      place — so the shape lands on the plane.
+ *
+ * ⛔ STEP 3 IS ONLY SOUND WHILE THE SWEEP AXIS IS THE PLANE'S NORMAL, and that
+ *    is a document fact this function must CHECK rather than assume.
+ *    `set-extrude-work-plane` writes the plane's unit normal onto the solid's
+ *    `direction`, so an authored document agrees by construction — but a
+ *    hand-written one need not, and `worldY` moves the solid along `direction`,
+ *    not along the normal. If they disagree the offset would go somewhere the
+ *    author never asked for, so this refuses and names both vectors. ⛔ Do NOT
+ *    "fix" that by projecting the offset onto the axis: an offset along a plane
+ *    is not a component of an offset along some other line, and the projection
+ *    would silently shorten every dimension the author wrote (spec §75).
+ *
+ * ⚠ DECLARED ABSENCES (C84 EI-6), each with its reason:
+ *   • ANTIPARALLEL is refused, not negated. A `direction` of −n̂ on a plane
+ *     dimensioned `+900` leaves "which way is 900 mm" answered two ways, and
+ *     picking one here would freeze the answer by accident.
+ *   • Only `extrude` consults a plane, because only `extrude` bakes
+ *     (`BAKEABLE_SOLID_KINDS`). The other four refuse upstream of this.
+ *   • The plane's SPIN about its normal is still unpersisted
+ *     (§4D-SCHEMA-DELTA). This moves a plane along its normal and rotates
+ *     nothing.
+ *   • The offset is measured from the MODEL ORIGIN, never from another plane.
+ *     Plane-to-plane dimensioning needs a datum graph with its own cycle
+ *     detection; C110 §4.3's Kahn sort is over PARAMETERS, not planes.
+ */
+
+type PlanePlacement =
+  | { readonly ok: true; readonly offsetM: number }
+  | {
+      readonly ok: false;
+      readonly reason: UnsupportedSolid['reason'];
+      readonly message: string;
+    };
+
+/** Signed distance, in document metres, that this solid must move along its
+ *  sweep axis because the plane its profile is locked to carries a parametric
+ *  dimension. `0` when there is no plane, or no dimension — the pre-§82.1 path,
+ *  which `produceExtrude` reads as `options?.worldY ?? 0` and therefore bakes
+ *  byte-identically to passing no option at all. */
+function resolvePlaneOffsetM(
+  solid: SolidFeature,
+  profile: Profile,
+  document: FamilyDocument,
+  scope: EvalScope,
+): PlanePlacement {
+  const plane = (document.referencePlanes as readonly ReferencePlane[])
+    .find((pl) => pl.id === profile.planeId);
+  // ⚠ A MISSING PLANE IS NOT THIS FUNCTION'S REFUSAL. `profileToPolygon` reads
+  //   a profile's ordinates as model X/Z and never consulted the plane, so
+  //   every v1 document with a dangling `planeId` bakes today. Refusing here
+  //   would newly break documents this change is not about.
+  if (!plane || plane.offsetExpression === undefined) return { ok: true, offsetM: 0 };
+
+  const n = plane.normal;
+  const nLen = Math.hypot(n.x, n.y, n.z);
+  const d = solid.direction;
+  const dLen = Math.hypot(d.x, d.y, d.z);
+  if (isNumericallyZero(nLen)) {
+    return {
+      ok: false,
+      reason: 'unsupported-feature',
+      message:
+        `[bakeFamilyInstance] extrude solid ${solid.id} is built on plane "${plane.name}" ` +
+        `(${plane.id}), which is dimensioned "${plane.offsetExpression}" but carries a zero-length ` +
+        'normal — so the dimension names no direction to move along.',
+    };
+  }
+
+  // Unit vectors first: `isParallel` is documented as unable to tell whether it
+  // was handed a cross product of NON-unit vectors, so normalising is the
+  // caller's job and is done here rather than trusted to the document.
+  const un = { x: n.x / nLen, y: n.y / nLen, z: n.z / nLen };
+  const ud = { x: d.x / dLen, y: d.y / dLen, z: d.z / dLen };
+  const cross = Math.hypot(
+    un.y * ud.z - un.z * ud.y,
+    un.z * ud.x - un.x * ud.z,
+    un.x * ud.y - un.y * ud.x,
+  );
+  const dot = un.x * ud.x + un.y * ud.y + un.z * ud.z;
+  if (!isParallel(cross) || dot <= 0) {
+    return {
+      ok: false,
+      reason: 'unsupported-feature',
+      message:
+        `[bakeFamilyInstance] extrude solid ${solid.id} sweeps along (${d.x}, ${d.y}, ${d.z}) while ` +
+        `the plane it is built on, "${plane.name}" (${plane.id}), has normal (${n.x}, ${n.y}, ${n.z}) ` +
+        `and is dimensioned "${plane.offsetExpression}". The offset is measured along the plane's ` +
+        'normal and the solid moves along its sweep axis; while those are not the SAME direction the ' +
+        'offset would land the shape somewhere the document does not state. Refused rather than ' +
+        'projecting it (spec §75). Put the solid on the plane with `set-extrude-work-plane`, which ' +
+        "writes the plane's unit normal onto the solid's direction.",
+    };
+  }
+
+  // ⛔ ONE POSITION, CHECKED A SECOND TIME. `set-plane-offset` refuses this pair
+  //    at authoring; a hand-written document never passes through that op, and a
+  //    literal origin the bake ignores sitting beside an offset the bake applies
+  //    is a document that means one thing and renders another.
+  const o = plane.origin;
+  if (!isNumericallyZero(o.x) || !isNumericallyZero(o.y) || !isNumericallyZero(o.z)) {
+    return {
+      ok: false,
+      reason: 'unsupported-feature',
+      message:
+        `[bakeFamilyInstance] plane "${plane.name}" (${plane.id}) states its position TWICE: a ` +
+        `literal origin (${o.x}, ${o.y}, ${o.z}) that no evaluator applies, and the dimension ` +
+        `"${plane.offsetExpression}" that this bake does apply. Refused rather than silently ` +
+        'preferring one (spec §75). Return the origin to (0, 0, 0) and keep the dimension.',
+    };
+  }
+
+  let runtimeLength: number;
+  try {
+    // ⛔ THE ONE expression engine (C110 §4, audit R1). This lane mints none,
+    //    and does not add a separate branch for a bare number either: `"900"` is
+    //    a NUMBER literal the grammar already reads, so a second `parseFloat`
+    //    path would be a second reading of one spelling (C84 EI-9).
+    runtimeLength = evaluate(plane.offsetExpression, scope);
+  } catch (err) {
+    const detail =
+      err instanceof ExpressionEvalError || err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      reason: 'invalid-length',
+      message:
+        `[bakeFamilyInstance] extrude solid ${solid.id} is built on plane "${plane.name}" ` +
+        `(${plane.id}), whose dimension ${JSON.stringify(plane.offsetExpression)} did not evaluate ` +
+        `against the resolved parameter scope: ${detail}`,
+    };
+  }
+  if (!Number.isFinite(runtimeLength)) {
+    return {
+      ok: false,
+      reason: 'invalid-length',
+      message:
+        `[bakeFamilyInstance] plane "${plane.name}" (${plane.id}) dimension ` +
+        `${JSON.stringify(plane.offsetExpression)} resolved to ${String(runtimeLength)}, which is ` +
+        'not a distance.',
+    };
+  }
+
+  // §4D-ONE-LENGTH-SEAM crossed exactly once, by the one helper. ⛔ A NEGATIVE
+  // offset is LEGAL and is not clamped: "150 mm below the datum" is a dimension
+  // an author writes, and a clamp would silently move their geometry.
+  return { ok: true, offsetM: runtimeLengthToMetres(runtimeLength) };
 }
 
 function noCapability(solid: SolidFeature, adapter: GeometryAdapter): SolidOutcome {

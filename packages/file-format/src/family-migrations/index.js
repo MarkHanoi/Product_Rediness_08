@@ -50,4 +50,13 @@ export { makeDeleteExpressionMigrator, } from './ops/delete-expression.js';
  * → 0). `set-type-values` is that missing op; `typeValuesChecksum` is the single
  * digest both it and `split-type` write. */
 export { makeSetTypeValuesMigrator, typeValuesChecksum, } from './ops/type-values.js';
+/* ── lane CE-PARAMS-AND-PLANES (§82.1-PARAMETRIC-DATUM) — the op that makes a
+ * reference plane FLEX. `add-reference-plane` puts a datum in the document and
+ * `rename-reference-plane` gives it the identity the chooser lists it by; both
+ * leave it at the model origin forever, because `origin` is a literal no
+ * parameter can reach and no evaluator applies. `set-plane-offset` dimensions
+ * the plane with an EXPRESSION over the definition's own parameters, and the
+ * bake moves every extrude built on that plane by the resolved distance — the
+ * Revit semantic rather than a number stored beside the geometry. */
+export { makeSetPlaneOffsetMigrator, } from './ops/set-plane-offset.js';
 //# sourceMappingURL=index.js.map

@@ -19,4 +19,5 @@ export { makeRenameReferencePlaneMigrator, type RenameReferencePlaneParams, } fr
 export { makeUpdateProfileMigrator, type UpdateProfileParams, type ProfilePointUpdate, } from './ops/update-profile.js';
 export { makeDeleteExpressionMigrator, type DeleteExpressionParams, } from './ops/delete-expression.js';
 export { makeSetTypeValuesMigrator, typeValuesChecksum, type SetTypeValuesParams, type TypeValueMap, } from './ops/type-values.js';
+export { makeSetPlaneOffsetMigrator, type SetPlaneOffsetParams, } from './ops/set-plane-offset.js';
 //# sourceMappingURL=index.d.ts.map

@@ -168,6 +168,13 @@ export {
   /* --- lane UCE-ACCEPTANCES (§82.1-NAME-A-DATUM) --- rename a work plane. --- */
   makeRenameReferencePlaneMigrator,
   type RenameReferencePlaneParams,
+  /* --- lane CE-PARAMS-AND-PLANES (§82.1-PARAMETRIC-DATUM) --- dimension a work
+   * plane with an expression, so a parameter MOVES it and the shapes built on it
+   * follow. ⛔ LISTED HERE FOR THE REASON THE BLOCK ABOVE GIVES: `applyOp()`
+   * resolves ops off THIS list, so an op exported only one level down is
+   * `undefined` at the only call site that matters. */
+  makeSetPlaneOffsetMigrator,
+  type SetPlaneOffsetParams,
   /* --- lane UCE-FAMILY --- profile write-back + the introduce-expression pair --- */
   makeUpdateProfileMigrator,
   type UpdateProfileParams,
