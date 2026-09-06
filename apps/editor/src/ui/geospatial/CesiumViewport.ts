@@ -228,7 +228,7 @@ import {
 import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
 // §FORMA-GROUND-URBAN-WHITE (L-12922) — off-white ground base in and beside urban land, light brown
 // in open country; decided from the loaded landuse (pure).
-import { formaGroundBaseColour } from "./formaGroundColour";
+import { formaGroundBaseColour, shouldPaintFormaGroundBase } from "./formaGroundColour";
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
@@ -10934,7 +10934,11 @@ export class CesiumViewport {
     // within 300 m of an urban polygon); the drape does not cover streets, squares or the gaps between
     // polygons, so the base is what the founder sees between them. Forma only — the photoreal globe
     // is its own ground. Pure decision in formaGroundColour.ts.
-    if (this.formaMode && !this.photorealTilesActive) {
+    // §FORMA-GROUND-PAINT-GATE (L-12948) — was `formaMode && !photorealTilesActive`, which never ran:
+    // the photoreal flag is set on first tile load and is NOT reset on Forma re-entry (§A.21.D-GLOBE3),
+    // so after any session that touched the globe the urban off-white was unreachable. The pure rule
+    // mirrors decideBakedTerrainAttach: photoreal blocks only OUTSIDE Forma.
+    if (shouldPaintFormaGroundBase({ formaMode: this.formaMode, photorealActive: this.photorealTilesActive })) {
       try {
         const verdict = formaGroundBaseColour(collection.areas, lat, lon);
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString(verdict.colour);

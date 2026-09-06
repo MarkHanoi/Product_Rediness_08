@@ -2,7 +2,7 @@
 // (every city and village), light brown in open country (the founder's 2026-07-29 mountain rule).
 import { describe, it, expect } from 'vitest';
 import {
-    formaGroundBaseColour, FORMA_GROUND_RURAL, FORMA_GROUND_URBAN, URBAN_NEAR_M,
+    formaGroundBaseColour, shouldPaintFormaGroundBase, FORMA_GROUND_RURAL, FORMA_GROUND_URBAN, URBAN_NEAR_M,
 } from '../src/ui/geospatial/formaGroundColour';
 
 // Euston, London: a residential polygon around the site (lon −0.1316, lat 51.5265).
@@ -44,5 +44,18 @@ describe('§FORMA-GROUND-URBAN-WHITE (L-12922)', () => {
     it('never throws on junk input', () => {
         expect(() => formaGroundBaseColour([{ kind: 'urban', ring: [] }], Number.NaN, 0)).not.toThrow();
         expect(formaGroundBaseColour([{ kind: 'urban', ring: [[0, 0]] }], 0.5, 0.5).arm).toBe('rural');
+    });
+
+    // §FORMA-GROUND-PAINT-GATE (L-12948) — the reason the off-white never appeared in production.
+    it('THE BUG: a session that loaded photoreal tiles still paints the Forma ground', () => {
+        // photorealTilesActive is set on first tile load and is never reset on Forma re-entry, so the
+        // old `formaMode && !photorealActive` guard was false for the rest of the session.
+        expect(shouldPaintFormaGroundBase({ formaMode: true, photorealActive: true })).toBe(true);
+        expect(shouldPaintFormaGroundBase({ formaMode: true, photorealActive: false })).toBe(true);
+    });
+
+    it('outside Forma the photoreal tiles carry the ground and we must NOT paint it', () => {
+        expect(shouldPaintFormaGroundBase({ formaMode: false, photorealActive: true })).toBe(false);
+        expect(shouldPaintFormaGroundBase({ formaMode: false, photorealActive: false })).toBe(false);
     });
 });
