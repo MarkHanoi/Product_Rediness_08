@@ -804,3 +804,125 @@ conflict, and the resolution is binding:
 3. **The rail panel keeps working**, rendering from that same shared model, per C19 §5.6 clause 4
    (a route is added, never removed). If the founder later wants the rail panel retired, that is a
    deliberate separate removal with its own decision — not a side effect of this work.
+
+---
+
+## §26 — THE ORGANISATION IS THE WORK NOW (founder transmission, 2026-09-06)
+
+> ⭐ **READ THIS BEFORE BUILDING ANYTHING ELSE ON THE PARCEL LAW TAB.** The founder's verdict on the
+> state of §25 as shipped, in his own words:
+>
+> *"honestly a lot is done — i can see most of the pieces working and i am impressed — is just that
+> is not well organize."*
+>
+> That sentence is the whole brief. **The capability gap is closed; the INFORMATION-ARCHITECTURE gap
+> is open.** Do not respond to §26 by building more cards, more figures or more determinations —
+> every number he lists below already exists and he can see it. Respond by ORGANISING what is there.
+> A lane that adds a new computed fact to this tab has misread this section.
+
+### §26.1 — The layout he expects, stated as a sequence
+
+He gave the flow as a walkthrough. It is binding as written:
+
+1. The user selects the location (his example: **Paris**).
+2. The user lands on **the usual split view — 2D view LEFT, 3D site view RIGHT**. (This is the
+   §L-412 site-authoring split and it already exists.)
+3. The user clicks **Analysis → Parcel Law**.
+4. **At that moment the RIGHT pane becomes Parcel Law, and the LEFT pane holds the views.** This is
+   the inversion that is currently wrong: the panel takes the right, the view work moves left.
+5. **The user can split the LEFT side further.** The left half is itself splittable.
+6. ⭐ **It must be sound BOTH ways — whether the left side is ONE view or a SPLIT view.** Both
+   arrangements are first-class; neither is a degraded mode of the other.
+7. ⭐ **In every one of those panes the user chooses which view renders**, from the four he named:
+   **2D map view · 2D satellite view · 3D site view · 3D globe**.
+
+> ⛔ **What this section does NOT license.** It is not permission to mint a second Cesium viewer or a
+> second MapLibre map per pane. §L-412 is unchanged: ONE Cesium container and ONE MapLibre map,
+> RE-TARGETED between panes. A nested split makes the re-targeting harder, not optional — see
+> L-12988 (placement and layout disagreeing across a mode switch) and L-12992 (the 2D map has no
+> re-target path at all, so it always lands left). **Those two defects are prerequisites of §26.1,
+> not separate work**: a nested, user-assignable pane tree cannot be built on a surface where one of
+> the two view types cannot move between panes.
+
+### §26.2 — "Properly displayed" — the presentation standard
+
+His words: *"then on the analysis it needs to be more intuitive and way easier better displayed —
+basically the user wants most of the data you provided but properly displayed… structure better —
+with pryzm standards the data on parcel law — do it sound — architecturally sound and ui / ux
+sound."*
+
+Three separable requirements, and they are not the same job:
+
+- **KEEP THE DATA.** *"most of the data you provided"* — the cadastral card, the buildable envelope
+  with its citations, designed-vs-permitted, how these were measured, built area by storey, intended
+  area, massing options, the volume legend, ground-floor fit, the allowance ledger, live quantities,
+  cost, Create house. He is not asking for less. ⛔ **Do not delete determinations to make the tab
+  look tidier** — the honesty apparatus (each card stating its own source, confidence and citations
+  on its face) is a C57/C58 obligation and survives any re-organisation.
+- **CHANGE THE ORDER AND THE WEIGHT.** Today the tab is a flat vertical stack of roughly fifteen
+  peer-level sections, every one of them expanded, with no hierarchy between "what is this plot"
+  and "what may I build" and "what have I drawn" and "what will it cost". That flatness IS the
+  complaint.
+- **HOLD PRYZM'S OWN UI STANDARD.** White + purple `#6600FF`, never black
+  ([[preview-color-unified-pryzm-purple]], [[onboarding-site-generate-view-flow]]).
+
+### §26.3 — Design it from the persona, not from the data model
+
+His instruction: *"thing as a persona architect of land developer how it would go thoutght the
+workflow."*
+
+⭐ **This is the actual design constraint and it is the one most likely to be skipped.** The current
+tab is ordered the way the MODEL is ordered — parcel facts, then ordinance, then massing, then
+authoring, then quantities, then cost — which is the order a programmer discovers them in. An
+architect or land developer arrives with a QUESTION, and the questions have a natural sequence:
+
+1. *What is this plot?* (ref, address, area, source, retrieved-at)
+2. *What may I build here, and who says so?* (the envelope, its citations, its confidence)
+3. *What do I want to build?* (ground-floor fit, storeys, the drawn perimeter)
+4. *How much of my allowance have I used, and what is left?* (the BRUT/NET ledger — §25.2)
+5. *What does it cost?*
+6. *Take me into BIM.* (Create house)
+
+A lane restructuring this tab must be able to say which of those six questions each section answers,
+and any section that answers none of them is in the wrong place or belongs behind a disclosure.
+
+### §26.4 — The envelope must be creatable in 3D SITE, not only in PRYZM view
+
+His words: *"also the envelope renders great on pryzm view — but on 3d site vie not on 2d map view —
+i would like the user to be able to create the envelope in 3d site if this is possible as we can do
+on pryzm view — check if this is possible and structure better."*
+
+**Read as: it renders in the PRYZM (BIM/WebGPU) view — and it does NOT render in the 3D site view,
+nor on the 2D map view.** His screenshot bears this out: the purple envelope volume is drawn in the
+WebGPU BIM view (the GPU pill reads `WebGPU`), while the Cesium 3D site view and the MapLibre 2D map
+show no envelope.
+
+Two requirements, and the second is the hard one:
+
+- **RENDER** the envelope in the 3D site view and on the 2D map view. The 2D map already renders the
+  parcel ring and the context; the envelope footprint is the same class of geometry.
+- ⭐ **CREATE** it there — *"be able to create the envelope in 3d site … as we can do on pryzm view"*.
+  He explicitly says *"check if this is possible"*, so the honest answer may be "partly", and a
+  measured "here is what is possible, here is what is not, and why" is an acceptable deliverable.
+  What is NOT acceptable is silently delivering the render half and calling the section done.
+
+> ⚠ **The known obstacle, so nobody rediscovers it as a surprise.** The BIM/WebGPU view and the
+> Cesium site view are different renderers with different frames — the 2D plan draws the AUTHORING
+> frame, de-rotated by θ from the 2D map BY DESIGN (ADR-0115). Any authoring gesture made in the
+> Cesium view has to land in the same command path the PRYZM-view gesture uses (P6: commands are the
+> only mutation path), not a parallel one. **One command path, two input surfaces** — never two
+> authoring implementations that can drift.
+
+### §26.5 — What "sound" means here, since he used the word three times
+
+*"it should work sound"* · *"do it sound"* · *"architecturally sound and ui / ux sound"*.
+
+- **Architecturally sound** — P1 one composition root, P6 commands as the only mutation path, §L-412
+  one viewer re-targeted, one shared parcel-law model behind both the tab and the rail panel
+  (§25.11), no `any` seams, no second implementation of an existing solver.
+- **UI/UX sound** — the persona sequence of §26.3, PRYZM's palette, and every figure still carrying
+  its own source and confidence on its face.
+- **And measurable** — a claim that the tab is "better organised" is not verifiable. A lane taking
+  §26 must state what it is optimising and how it knows it improved: which of the six questions each
+  section serves, what is above the fold, what moved behind a disclosure, and what a user must click
+  to reach an envelope from a cold start.
