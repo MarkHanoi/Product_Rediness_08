@@ -1047,6 +1047,46 @@ const usAzMaricopaUrl = arcgisPointUrl(
     'APN,APN_DASH,PHYSICAL_ADDRESS,PHYSICAL_CITY,PHYSICAL_ZIP,OWNER_NAME',
 );
 
+// -- LANE USA-PARCELS WAVE 2 (2026-09-06) -- URL builders for FIVE more WHOLE STATES -------------
+//
+// NJ - VT - CT - IN - MD, all keyless ArcGIS point-intersects, so `arcgisPointUrl` is reused
+// verbatim. EVERY outFields list below was executed against the live layer before being written
+// here (2026-09-06) and all five returned HTTP 200 with a real parcel -- the check that matters,
+// because on ArcGIS a non-existent outField fails the WHOLE query instead of dropping the column.
+//
+// COVERAGE IS MEASURED, not read off the service title: NJ 21/21 counties, VT 256 towns (all 255
+// plus the gores/grants), CT 169/169 towns, IN 92/92 counties, MD 24/24 jurisdictions.
+//
+// TWO OF THESE STATES WERE RECORDED AS REFUSALS EARLIER THE SAME DAY and both refusals had probed
+// the WRONG HOST -- NJ at mapsdep.nj.gov (the DEP host) and MD at geodata.md.gov (which is STILL
+// 503; the live host is mdgeodata.md.gov, an `md` prefix). See usStatewideParcelsWave2.ts.
+
+/** NEW JERSEY -- NJGIN/NJOGIS statewide MOD-IV composite. Native 102100; `outSR=4326` -> degrees. */
+const usNjUrl = arcgisPointUrl(
+    'https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/ArcGIS/rest/services/Parcels_Composite_NJ_WM/FeatureServer/0/query',
+    'PAMS_PIN,GIS_PIN,PIN_NODUP,PCLBLOCK,PCLLOT,PROP_LOC,MUN_NAME,COUNTY,PROP_CLASS,PCLLASTUPD,CALC_ACRE',
+);
+/** VERMONT -- VCGI statewide standardized parcels. Native 32145 (VT State Plane METRES). */
+const usVtUrl = arcgisPointUrl(
+    'https://services1.arcgis.com/BkFxaEFNwHqX3tAw/arcgis/rest/services/FS_VCGI_OPENDATA_Cadastral_VTPARCELS_poly_standardized_parcels_SP_v1/FeatureServer/0/query',
+    'SPAN,PARCID,LOCAPROP,DESCPROP,TOWN,TNAME,PROPTYPE,YEAR,SOURCEDATE,OWNER1,ACRESGL',
+);
+/** CONNECTICUT -- CT GIS Office statewide CAMA+parcel. Native 103016 (CT State Plane US ft). */
+const usCtUrl = arcgisPointUrl(
+    'https://services3.arcgis.com/3FL1kr7L4LvwA2Kb/arcgis/rest/services/Connecticut_CAMA_and_Parcel_Layer/FeatureServer/0/query',
+    'Parcel_ID,CAMA_Link,Location,Town_Name,Property_City,Parcel_Type,Zone,State_Use_Description,Parcel_Collection_Year,Land_Acres',
+);
+/** INDIANA -- IndianaMap/IGIO statewide parcels. Native 4326 (already WGS84). */
+const usInUrl = arcgisPointUrl(
+    'https://gisdata.in.gov/server/rest/services/Hosted/Parcel_Boundaries_of_Indiana_Current/FeatureServer/0/query',
+    'state_parcel_id,parcel_id,local_id,prop_add,prop_city,esri_poname,tax_county,county_fips,dlgf_prop_class_code,loaddate',
+);
+/** MARYLAND -- MD iMAP / SDAT parcel boundaries. ⚠ HOST IS mdgeodata.md.gov, NOT geodata.md.gov. */
+const usMdUrl = arcgisPointUrl(
+    'https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_ParcelBoundaries/MapServer/0/query',
+    'ACCTID,JURSCODE,GEOGCODE,ADDRESS,CITY,DESCTOWN,ZIPCODE,RESITYP,POLYDATE',
+);
+
 /**
  * AUSTRALIA — six state cadastres (lane AU-OPEN, live-probed 2026-09-03; descriptors mirrored from
  * countryAdapters/au/auStateCadastre.ts AU_STATE_DESCRIPTORS — endpoints, id fields, quirks).
@@ -2033,6 +2073,110 @@ export const EU_CADASTRE_SOURCES = {
             const raw = jsonProp(p, 'PHYSICAL_ADDRESS');
             const address = raw ? String(raw).replace(/\s+/g, ' ').trim() || null : null;
             return { refcat, areaM2: ringAreaM2(c.ring), address };
+        },
+    },
+    // ── Lane USA-PARCELS WAVE 2 (2026-09-06): FIVE more WHOLE STATES — NJ · VT · CT · IN · MD.
+    // `source` values match the registry rows exactly; a mismatch is what made the earlier
+    // us-ma/us-fl/us-wa-king legs 404 despite being registered, so they are copied, not retyped.
+    // ⛔ AREA IS ALWAYS `ringAreaM2`. Three of these layers serve an acreage that is a TAX-ROLL
+    // figure and NOT the polygon (CT `Land_Acres` returned exactly 1 for parcels of 2561/3230/2357
+    // m²; NJ `CALC_ACRE` and VT `ACRESGL` are Grand-List/assessment values), and Indiana's
+    // `SHAPE__Area` is in SQUARE DEGREES because the layer is native 4326. Passing any of them
+    // through would be a unit error wearing a number's confidence.
+    'us-nj': {
+        // 21 of New Jersey's 21 counties (measured, returnDistinctValues on COUNTY).
+        guard: (lat, lon) => lat >= 38.79 && lat <= 41.36 && lon >= -75.6 && lon <= -73.88,
+        url: usNjUrl,
+        format: 'arcgis',
+        source: 'us-nj-njgin-modiv-composite',
+        normalise: (c) => {
+            const p = c.props || {};
+            // PAMS_PIN (municipality_block_lot[_qualifier]) is the STATEWIDE-unique key —
+            // 0714_835_7 @ 916-918 Broadway, Newark (measured). GIS_PIN/PIN_NODUP are the same
+            // value on the rows seen, kept as fallbacks rather than assumed identical.
+            const refcat = String(jsonProp(p, 'PAMS_PIN', 'GIS_PIN', 'PIN_NODUP') ?? '').trim();
+            // PROP_LOC is the site location as the assessor holds it ("916-918 BROADWAY"); the
+            // municipality is NOT appended — it is not part of a street address.
+            const addr = jsonProp(p, 'PROP_LOC');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: addr ? String(addr) : null };
+        },
+    },
+    'us-vt': {
+        // 256 towns — Vermont's 255 towns/cities plus the unorganised gores and grants.
+        guard: (lat, lon) => lat >= 42.72 && lat <= 45.02 && lon >= -73.44 && lon <= -71.46,
+        url: usVtUrl,
+        format: 'arcgis',
+        source: 'us-vt-vcgi-standardized-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // SPAN is the statewide School Property Account Number (114-035-10304 @ Burlington,
+            // measured). ⚠ It is NOT one-per-polygon — condominium units in one building SHARE a
+            // SPAN — so PARCID (the municipal map-parcel id) is the fallback that separates them.
+            // A NULL SPAN is legitimate (WATER / EXEMPT polygons carry no tax account) and falls
+            // through to an empty refcat, which the caller refuses rather than keying on a surrogate.
+            const refcat = String(jsonProp(p, 'SPAN', 'PARCID') ?? '').trim();
+            // LOCAPROP is the located address; DESCPROP is a property description and is used only
+            // as a fallback because whole towns serve LOCAPROP null (measured across Burlington).
+            const addr = jsonProp(p, 'LOCAPROP', 'DESCPROP');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: addr ? String(addr) : null };
+        },
+    },
+    'us-ct': {
+        // 169 of 169 towns. Connecticut has NO county government — the TOWN is the assessing
+        // unit, so 169 towns is the correct statewide denominator, not 8 counties.
+        guard: (lat, lon) => lat >= 40.95 && lat <= 42.06 && lon >= -73.74 && lon <= -71.78,
+        url: usCtUrl,
+        format: 'arcgis',
+        source: 'us-ct-ctgis-cama-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // Parcel_ID is the town's parcel key ("25/022/000019" @ Gilead Rd, Andover, measured);
+            // CAMA_Link is the assessor-system join key and rides as the fallback.
+            const refcat = String(jsonProp(p, 'Parcel_ID', 'CAMA_Link') ?? '').trim();
+            // ⛔ `Location` ONLY. Mailing_Address is the OWNER'S address, frequently out of state,
+            // and rendering it as the site address would be a wrong answer wearing a real field
+            // name. Location is null across whole towns (measured: all of Hartford), so an
+            // address-less parcel is the NORMAL case here, not a failure.
+            const addr = jsonProp(p, 'Location');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: addr ? String(addr) : null };
+        },
+    },
+    'us-in': {
+        // 92 of Indiana's 92 counties (measured, returnDistinctValues on county_fips).
+        guard: (lat, lon) => lat >= 37.77 && lat <= 41.77 && lon >= -88.1 && lon <= -84.78,
+        url: usInUrl,
+        format: 'arcgis',
+        source: 'us-in-indianamap-parcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // state_parcel_id is the DLGF STATEWIDE parcel number (564130801801, measured);
+            // parcel_id/local_id are county-local and only unique within their county.
+            const refcat = String(jsonProp(p, 'state_parcel_id', 'parcel_id', 'local_id') ?? '').trim();
+            // prop_add is frequently null on rural rows (measured at Lake Village); dlgf_prop_address
+            // is the Dept. of Local Government Finance address and is the documented fallback.
+            const addr = jsonProp(p, 'prop_add');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: addr ? String(addr) : null };
+        },
+    },
+    'us-md': {
+        // 24 of 24 jurisdictions — Maryland's 23 counties plus Baltimore City.
+        // ⚠ HOST IS mdgeodata.md.gov. geodata.md.gov (no `md` prefix) is a DIFFERENT hostname and
+        // is still serving an HTTP 503 maintenance page; do not "fix" this URL to that one.
+        guard: (lat, lon) => lat >= 37.88 && lat <= 39.73 && lon >= -79.49 && lon <= -74.99,
+        url: usMdUrl,
+        format: 'arcgis',
+        source: 'us-md-sdat-parcel-boundaries',
+        normalise: (c) => {
+            const p = c.props || {};
+            // ⚠ ACCTID (the SDAT account id) is unique only WITHIN its JURSCODE — the statewide
+            // key is the PAIR. It is emitted as `JURSCODE/ACCTID` so the id shown is actually
+            // statewide-unique, the same correction OH (PIN vs STATEWIDE_PIN) and NY (PRINT_KEY vs
+            // SBL) needed. Measured: BACI + "0301011738 004" @ 2107 E Baltimore St.
+            const acct = String(jsonProp(p, 'ACCTID') ?? '').trim();
+            const juris = String(jsonProp(p, 'JURSCODE') ?? '').trim();
+            const refcat = acct && juris ? `${juris}/${acct}` : acct || juris;
+            const addr = jsonProp(p, 'ADDRESS');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: addr ? String(addr) : null };
         },
     },
     // ── Lane PROXY-EE-LT-PL (2026-09-02): the E9 registration wave's named residual. The three

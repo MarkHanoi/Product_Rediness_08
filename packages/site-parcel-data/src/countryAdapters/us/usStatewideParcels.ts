@@ -467,7 +467,7 @@ export const USA_PARCEL_REFUSALS: readonly UsParcelRefusal[] = [
         answer:
             'HTTP 200, 104 bytes, application/json — {"error":{"code":404,"message":"Service Framework/Parcels_Composite/MapServer not found ","details":[]}}. THEN ENUMERATED rather than left as a guess: GET https://mapsdep.nj.gov/arcgis/rest/services?f=json → HTTP 200, 174 bytes, folders ["Applications","Cached_Layers","Features","Tasks","Tech_Support","Utilities"] — there is no "Framework" folder on this host at all. GET …/services/Features?f=json → HTTP 200, 1115 bytes, 20 services (Elevation, Environmental_*, Geodetic, Geology, Government, Grids, Hydrography, Land_CAFRA_coast, Land_lu, Land, Structures, Transportation, Utilities) — NOT ONE carries parcels.',
         verdict:
-            'NOT WIRED, and now a MEASURED absence rather than a stale path. mapsdep.nj.gov is the NJ DEP mapping host and it does not publish the parcel composite; New Jersey\'s statewide parcels (NJGIN / MOD-IV) live under a DIFFERENT publisher. NEXT STEP: the NJGIN Open Data hub (njogis-newjersey.opendata.arcgis.com) and the NJOIT/OGIS ArcGIS Online org, NOT this host — re-probing mapsdep is now known to be wasted effort.',
+            '⛔ SUPERSEDED 2026-09-06, THE SAME DAY IT WAS WRITTEN — NEW JERSEY IS NOW WIRED as US-NJ (US_NJ_PARCELS, usStatewideParcelsWave2.ts). This row is KEPT rather than deleted because every HTTP answer above is TRUE and the correction is the whole lesson: all of it was a true statement about mapsdep.nj.gov (the NJ DEP mapping host) and a FALSE statement about New Jersey. Following this row\'s OWN next step found the parcels on the first request — the NJGIN/NJOGIS ArcGIS Online org (services2.arcgis.com/XVOqAjTOJ5P6ngMu) publishes Parcels_Composite_NJ_WM: 3,481,240 features, 21 of 21 counties measured, PAMS_PIN + WGS84 ring, live-probed at Newark (0714_835_7) and Jersey City (0906_101_6_HM). ⭐ THE LESSON: a 404 on ONE host is evidence about THAT HOST ONLY. Enumerating the wrong host does not protect you — it produces a confident, well-evidenced, wrong "this state has nothing".',
     },
     {
         regionCode: 'US-KY',
@@ -492,7 +492,7 @@ export const USA_PARCEL_REFUSALS: readonly UsParcelRefusal[] = [
         answer:
             'HTTP 503, 19405 bytes, text/html — "<!doctype html> <title>Site Maintenance</title> …"',
         verdict:
-            'NOT WIRED — the whole MD iMAP host is serving a maintenance page. This is an OUTAGE, not an absence: Maryland MDProperty View is a real statewide open parcel product. NEXT STEP: re-probe; wire on this pattern when the host returns.',
+            '⛔ SUPERSEDED 2026-09-06, THE SAME DAY IT WAS WRITTEN — MARYLAND IS NOW WIRED as US-MD (US_MD_PARCELS, usStatewideParcelsWave2.ts). ⚠ AND NOT BECAUSE THE HOST RECOVERED: geodata.md.gov is STILL HTTP 503 "Site Maintenance" on re-probe 2026-09-06, byte-identical to the answer above. The live iMAP host is mdgeodata.md.gov — an `md` PREFIX, a DIFFERENT hostname, not this one returning — and it answers HTTP 200 with PlanningCadastre/MD_ParcelBoundaries: 2,288,725 features, 24 of 24 jurisdictions measured (23 counties + Baltimore City), ACCTID + WGS84 ring, live-probed at Baltimore City (0301011738 004, 2107 E BALTIMORE ST). ⭐ THE LESSON: this row read a 503 and inferred a TEMPORARY outage of the state\'s ONLY channel. Both halves were wrong, and its "re-probe later" would have waited forever — the state was serving parcels the whole time from a host one character different in name.',
     },
     {
         regionCode: 'US-OR',

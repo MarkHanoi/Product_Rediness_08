@@ -432,7 +432,7 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at + 14 de-*; USA-PARCELS + 9 us)', () => {
+    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at + 14 de-*; USA-PARCELS + 9 us; USA-PARCELS-W2 + 5 us states)', () => {
         expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual([
             'at', 'au-act', 'au-nsw', 'au-qld', 'au-sa', 'au-tas', 'au-vic',
             'be-vlg', 'bg', 'ch', 'cz',
@@ -453,8 +453,18 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
             // supported by this service."}} for every query, and its WMS GetFeatureInfo returns real
             // attributes with `"geometry": null`. Identity without a ring; a key here would
             // advertise Texas as wired. See USA_PARCEL_REFUSALS for the verbatim transcript.
-            'us-az-maricopa', 'us-ca-la', 'us-chi', 'us-fl', 'us-ma', 'us-mt', 'us-nc', 'us-ny',
-            'us-nyc', 'us-oh', 'us-sf', 'us-tx-harris', 'us-ut', 'us-va', 'us-wa-king', 'us-wi',
+            // LANE USA-PARCELS WAVE 2 (2026-09-06) — +5 WHOLE STATES: nj/vt/ct/in/md, every one
+            // measured CLEAN against its own denominator (NJ 21/21 counties · VT 256 towns ·
+            // CT 169/169 towns · IN 92/92 counties · MD 24/24 jurisdictions).
+            // ⭐ 'us-nj' AND 'us-md' EXIST BECAUSE A REFUSAL WAS WRONG, and both were wrong the
+            // same way: the earlier probe named the WRONG HOST and recorded its answer as the
+            // STATE's. NJ was probed at mapsdep.nj.gov (the DEP host — no parcels there, true, and
+            // irrelevant); the parcels are on the NJGIN/NJOGIS AGOL org. MD was probed at
+            // geodata.md.gov, which returned 503 and STILL DOES — the live host is
+            // mdgeodata.md.gov, an `md` PREFIX. ⛔ Do not "correct" either URL back.
+            'us-az-maricopa', 'us-ca-la', 'us-chi', 'us-ct', 'us-fl', 'us-in', 'us-ma', 'us-md',
+            'us-mt', 'us-nc', 'us-nj', 'us-ny', 'us-nyc', 'us-oh', 'us-sf', 'us-tx-harris',
+            'us-ut', 'us-va', 'us-vt', 'us-wa-king', 'us-wi',
         ]);
     });
 

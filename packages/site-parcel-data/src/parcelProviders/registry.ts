@@ -143,6 +143,21 @@ import {
     US_AZ_MARICOPA_BBOX,
     isInMaricopaCountyAz,
 } from '../countryAdapters/us/usStatewideParcels.js';
+// LANE USA-PARCELS · WAVE 2 (2026-09-06) — five more whole STATES, each a bbox `contains` + bbox
+// specificity metric, exactly as the wave-1 US rows above. NJ and MD OVERTURN a same-day refusal
+// whose probe had named the wrong host; see usStatewideParcelsWave2.ts for the correction in full.
+import {
+    US_NJ_BBOX,
+    isInNewJersey,
+    US_VT_BBOX,
+    isInVermont,
+    US_CT_BBOX,
+    isInConnecticut,
+    US_IN_BBOX,
+    isInIndiana,
+    US_MD_BBOX,
+    isInMaryland,
+} from '../countryAdapters/us/usStatewideParcelsWave2.js';
 // LANE RO (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Romania row (contains is
 // claimsNation('RO'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
 import { ROMANIA_BBOX } from '../countryAdapters/ro/roJurisdiction.js';
@@ -928,6 +943,86 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         note: 'Maricopa County (AZ) Assessor parcels — VERIFIED-LIVE 2026-09-06: keyless ArcGIS MapServer (gis.mcassessor.maricopa.gov/arcgis/rest/services/Parcels/MapServer/0, copyrightText "Maricopa County Assessor\'s Office", serviceDescription "Dynamic parcel boundaries", native EPSG:3857). Point-intersect @ Phoenix (33.449177,-112.074098) → HTTP 200, 1372 bytes: APN 11221001, APN_DASH 112-21-001, PHYSICAL_ADDRESS "50 N CENTRAL AVE   PHOENIX  85004", PHYSICAL_CITY PHOENIX, OWNER_NAME "PHOENIX CITY OF (LEASED OUT)", 7-vertex WGS84 ring. ONE COUNTY (Phoenix metro), not statewide — Arizona has no open statewide parcel service (the State Land Department publishes TRUST land, not private lots), so AZ is wired county-first and a Tucson / Flagstaff click falls to the OSM footprint rather than a mis-attributed cadastre. APN is the 8-digit book-map-item id; APN_DASH is the same value formatted. Zoning is municipal ordinance, NEVER inferred here.',
     },
     // ══════════════════════════════════════════════════════════════════════════════════════
+    // LANE USA-PARCELS · WAVE 2 (2026-09-06) — FIVE MORE WHOLE STATES: NJ · VT · CT · IN · MD.
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // Same shape as the two US blocks above (bbox `contains` + same-origin proxy + the shared ArcGIS
+    // client). Every row was LIVE-PROBED 2026-09-06 with a real parcel id and a WGS84 ring, and every
+    // "statewide" claim was counted against the layer's OWN county/town field with
+    // `returnDistinctValues` rather than read off its title — the method that caught US-NY (38/62)
+    // and US-VA (94/95) in wave 1. ⭐ ALL FIVE MEASURED CLEAN: NJ 21/21 counties · VT 256 towns ·
+    // CT 169/169 towns · IN 92/92 counties · MD 24/24 jurisdictions. Nothing had to be rounded down.
+    //
+    // ⛔ NJ AND MD OVERTURN A REFUSAL WRITTEN THE SAME DAY, both for the same reason — the earlier
+    // probe named the WRONG HOST and recorded its 404/503 as the STATE's answer. The superseded rows
+    // are kept in `USA_PARCEL_REFUSALS` with the correction attached, because the HTTP answers were
+    // true and only the conclusion was wrong.
+    //
+    // OVERLAPS, all resolved by specificity (smallest bbox first) + the honest `empty` fall-through:
+    //   • US-NJ (≈4.4 deg²), US-VT (≈4.6 deg²) and US-CT (≈2.2 deg²) all sit inside US-NY (≈36 deg²)
+    //     and are far smaller, so each is tried FIRST on its own soil — correct, since the NYS layer
+    //     carries no NJ/VT/CT parcels and would answer `empty` there anyway.
+    //   • US-CT (≈2.2 deg²) vs US-MA (≈6.5 deg²): MA's rectangle overhangs Connecticut, CT is
+    //     smaller and wins inside CT; a southern-MA click tries CT first, gets an honest `empty`,
+    //     and falls through to MassGIS.
+    //   • US-MD (≈8.3 deg²) vs US-VA (≈25 deg²) across the Potomac — MD is smaller and wins in MD.
+    //   • US-IN (≈13.3 deg²) vs US-OH (≈17.0 deg²) share a 0.05° strip on the state line; IN is
+    //     smaller and is tried first there, and answers `empty` for an Ohio point.
+    {
+        // US-NJ — NJGIN/NJOGIS statewide composite, 21 of 21 counties (measured).
+        regionCode: 'US-NJ',
+        countryName: 'United States (New Jersey · statewide)',
+        providerId: 'us-nj-njgin-modiv-composite',
+        label: 'NJ Parcels Composite / MOD-IV (New Jersey · statewide)',
+        proxyPath: '/api/parcel/us-nj',
+        kind: 'cadastral',
+        contains: isInNewJersey,
+        note: 'NJ statewide parcels composite — VERIFIED-LIVE 2026-09-06, and it OVERTURNS the US-NJ refusal recorded earlier the same day, which enumerated the NJ DEP host mapsdep.nj.gov and correctly found no parcels THERE. The publisher is the NJGIN/NJOGIS ArcGIS Online org: keyless FeatureServer services2.arcgis.com/XVOqAjTOJ5P6ngMu/.../Parcels_Composite_NJ_WM/FeatureServer/0, layer "Cad_parcel_mod4", native EPSG:102100, 3,481,240 features. Point-intersect @ Newark (40.780885,-74.155224) → HTTP 200, 1692 bytes: PAMS_PIN 0714_835_7, PROP_LOC "916-918 BROADWAY", MUN_NAME "NEWARK CITY", COUNTY ESSEX, 5-vertex WGS84 ring. Second county @ Jersey City (40.761628,-74.053565) → PAMS_PIN 0906_101_6_HM, HUDSON. COVERAGE MEASURED: returnDistinctValues on `COUNTY` = 21 of 21 New Jersey counties. PAMS_PIN (municipality_block_lot[_qualifier]) is the statewide-unique key. ⚠ FRESHNESS IS PER-ROW: max(PCLLASTUPD) = 2026-03-25 but the Newark row reads 2015-07-23 and the minimum is a corrupt 0111-12-01 — cite the row, never the max. ⚠ `CALC_ACRE` is a tax-roll acreage, NOT the polygon area; area is geometry-derived and the ring is independently verified against `Shape__Area` at ratio 1.0000. Zoning/FAR are municipal (MLUL), NEVER inferred here. ⚠ ROUTING, MEASURED: NYC_BBOX (40.47–40.93 N, -74.28 – -73.68 E) OVERHANGS THE HUDSON and covers BOTH Newark and Jersey City, and at ≈0.28 deg² it is far smaller than this row (≈4.4 deg²), so specificity tries MapPLUTO FIRST on New Jersey soil. The OUTCOME is still correct — MapPLUTO holds only NYC tax lots, returns nothing at Newark, and `resolveParcelWithFallback` falls THROUGH to this row, which answers — but it costs ONE WASTED UPSTREAM CALL on every click in the two largest cities in New Jersey. Named, not hidden; tightening NYC_BBOX to the true shoreline is the fix, and it lives in a different file.',
+    },
+    {
+        // US-VT — VCGI statewide standardized parcels, 256 towns (all 255 + gores/grants).
+        regionCode: 'US-VT',
+        countryName: 'United States (Vermont · statewide)',
+        providerId: 'us-vt-vcgi-standardized-parcels',
+        label: 'VCGI Standardized Parcels (Vermont · statewide)',
+        proxyPath: '/api/parcel/us-vt',
+        kind: 'cadastral',
+        contains: isInVermont,
+        note: 'VCGI statewide standardized parcels — VERIFIED-LIVE 2026-09-06: keyless ArcGIS Online FeatureServer (services1.arcgis.com/BkFxaEFNwHqX3tAw/.../FS_VCGI_OPENDATA_Cadastral_VTPARCELS_poly_standardized_parcels_SP_v1/FeatureServer/0, native EPSG:32145 = VT State Plane METRES, 343,996 features). Point-intersect @ Burlington (44.522464,-73.266076) → HTTP 200, 9910 bytes: SPAN 114-035-10304, PARCID 023-1-016-000, TOWN BURLINGTON, YEAR 2025, SOURCEDATE 20250922, 5-vertex WGS84 ring. COVERAGE MEASURED: returnDistinctValues on `TOWN` = 256 — Vermont\'s 255 towns/cities plus the unorganised gores and grants, i.e. the full statewide tessellation. ⚠ SPAN IS NOT ONE-PER-POLYGON: condominium units share the School Property Account Number (measured: SPAN C-535-8371 on two polygons), so PARCID rides as the secondary id and is what separates stacked units. ⚠ A NULL SPAN is legitimate — WATER and other EXEMPT polygons carry no tax account and are refused as `no-parcel-id` rather than keyed on a surrogate. `ACRESGL` is Grand-List acreage, NOT the polygon area; area is geometry-derived, ring verified against `Shape__Area` (already m²) at ratio 1.0001. Zoning is municipal (24 V.S.A. ch. 117) and Act 250 is a separate permit regime — NEITHER inferred here.',
+    },
+    {
+        // US-CT — CT GIS Office statewide CAMA+parcel layer, 169 of 169 towns (measured).
+        regionCode: 'US-CT',
+        countryName: 'United States (Connecticut · statewide)',
+        providerId: 'us-ct-ctgis-cama-parcels',
+        label: 'CT Statewide CAMA and Parcel Layer (Connecticut · statewide)',
+        proxyPath: '/api/parcel/us-ct',
+        kind: 'cadastral',
+        contains: isInConnecticut,
+        note: 'Connecticut statewide CAMA + parcel layer — VERIFIED-LIVE 2026-09-06: keyless ArcGIS Online FeatureServer (services3.arcgis.com/3FL1kr7L4LvwA2Kb/.../Connecticut_CAMA_and_Parcel_Layer/FeatureServer/0, owner ctgisoffice, native EPSG:103016 = CT State Plane US survey FEET, 1,320,686 features). Point-intersect @ Andover (41.697994,-72.387870) → HTTP 200, 10956 bytes: Parcel_ID "25/022/000019", Location "GILEAD RD", Town_Name Andover, 7-vertex WGS84 ring. COVERAGE MEASURED: returnDistinctValues on `Town_Name` = 169 of 169 — Connecticut has no county government, so the TOWN is the assessing unit and 169 towns is the correct statewide denominator, not 8 counties. FRESHNESS: `Parcel_Collection_Year` has a SINGLE distinct value, "2026" — one annual vintage statewide, unusually clean for a US fabric. ⚠ `Location` is NULL across whole towns (measured: all of Hartford), so the card must tolerate an address-less parcel; `Property_City` carries the locality. ⛔ `Mailing_Address` is the OWNER\'S address, often out of state — NEVER render it as the site address. ⚠ The layer carries a `Zone` string inline (measured "N3-1") — CONTEXT/DRAFT lead only; CT zoning is municipal (C.G.S. ch. 124) and no FAR or height is inferred here. `Land_Acres` is quantised to whole acres (measured: exactly 1 for parcels of 2561/3230/2357 m²) and is NEVER used; area is geometry-derived, ring verified against `Shape__Area` (ft²) at a constant ratio 0.0930 = 1/10.764.',
+    },
+    {
+        // US-IN — IndianaMap/IGIO statewide parcels, 92 of 92 counties (measured).
+        regionCode: 'US-IN',
+        countryName: 'United States (Indiana · statewide)',
+        providerId: 'us-in-indianamap-parcels',
+        label: 'IndianaMap Parcel Boundaries (Indiana · statewide)',
+        proxyPath: '/api/parcel/us-in',
+        kind: 'cadastral',
+        contains: isInIndiana,
+        note: 'IndianaMap statewide parcel boundaries — VERIFIED-LIVE 2026-09-06: keyless ArcGIS FeatureServer (gisdata.in.gov/server/rest/services/Hosted/Parcel_Boundaries_of_Indiana_Current/FeatureServer/0, native EPSG:4326 — already WGS84, 3,682,675 features). Point-intersect @ Lake Village, Newton Co. (41.141519,-87.350124) → HTTP 200, 8537 bytes: state_parcel_id 564130801801, nguid "urn:emergency:uid:gis:PCL:821117010081481701:newtoncounty.in.gov", esri_poname "Lake Village", 37-vertex WGS84 ring. COVERAGE MEASURED: returnDistinctValues on `county_fips` = 92 of 92 Indiana counties. FRESHNESS: max(`loaddate`) = 2025-10-27, per-row and per-county. `state_parcel_id` (the DLGF statewide parcel number) is the statewide-unique key; the county-local `parcel_id`/`local_id` ride as secondary. ⛔ `SHAPE__Area` IS IN SQUARE DEGREES, not m² — the layer is served natively in 4326, so the value reads ~1.6e-6 for an 18,643 m² lot and passing it through would understate every Indiana parcel by ~10 orders of magnitude. Area is geometry-derived. ⚠ The point-intersect can return MORE THAN ONE feature (measured: 2) where county fabrics abut or a stacked polygon exists; first-wins, the same rule every other US row uses. Zoning/FAR are municipal (IC 36-7-4), NEVER inferred here.',
+    },
+    {
+        // US-MD — MD iMAP / SDAT statewide parcel boundaries, 24 of 24 jurisdictions (measured).
+        regionCode: 'US-MD',
+        countryName: 'United States (Maryland · statewide)',
+        providerId: 'us-md-sdat-parcel-boundaries',
+        label: 'MD iMAP Parcel Boundaries (Maryland · statewide, SDAT)',
+        proxyPath: '/api/parcel/us-md',
+        kind: 'cadastral',
+        contains: isInMaryland,
+        note: 'Maryland statewide parcel boundaries — VERIFIED-LIVE 2026-09-06, and it OVERTURNS the US-MD refusal recorded earlier the same day, which read HTTP 503 "Site Maintenance" from geodata.md.gov and called Maryland an OUTAGE. ⚠ THE HOST DID NOT RECOVER: geodata.md.gov is STILL 503 on re-probe. The live iMAP host is mdgeodata.md.gov — an `md` PREFIX, a different hostname — serving PlanningCadastre/MD_ParcelBoundaries/MapServer/0, its own serviceDescription "parcel polygons of the entire state … from the State Department of Assessments and Taxation", native EPSG:102100, 2,288,725 features. Point-intersect @ Baltimore City (39.291530,-76.587071) → HTTP 200, 16196 bytes: ACCTID "0301011738 004", JURSCODE BACI, ADDRESS "2107 E BALTIMORE ST", CITY BALTIMORE, 6-vertex WGS84 ring. COVERAGE MEASURED: returnDistinctValues on `JURSCODE` = 24 — Maryland\'s 23 counties plus Baltimore City. FRESHNESS: max(`POLYDATE`) = "2026JAN" (a YYYYMON string, not an epoch). ⚠ ACCTID IS UNIQUE ONLY WITHIN ITS JURISDICTION — the statewide-unique key is the PAIR JURSCODE+ACCTID, the same shape as OH PIN vs STATEWIDE_PIN and NY PRINT_KEY vs SBL, so JURSCODE rides in the locality fields and must be shown beside the id. Area is geometry-derived; ring verified against `Shape.STArea()` at ratio 1.0000 on two of three sampled parcels — the third read 2.96× because it is MULTI-RING and the client areas the outer ring only (pre-existing on every US row, named not averaged). Zoning/FAR are municipal, NEVER inferred here.',
+    },
+    // ══════════════════════════════════════════════════════════════════════════════════════
     // LANE AU-OPEN (2026-09-03) — AUSTRALIA, the six OPEN states + two DECLARED DEFERRALS.
     // ══════════════════════════════════════════════════════════════════════════════════════
     // Sub-national codes AU-<STATE> (ISO 3166-2:AU), the proven US-<STATE> idiom extended — a bbox
@@ -1499,6 +1594,14 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     'US-VA': US_VA_BBOX,
     'US-CA-LA': US_CA_LA_BBOX,
     'US-AZ-MARICOPA': US_AZ_MARICOPA_BBOX,
+    // Lane USA-PARCELS wave 2 (2026-09-06). Every one of these is SMALLER than the row it overlaps
+    // (NJ/VT/CT inside US-NY; CT under MA's overhang; MD vs US-VA; IN vs US-OH on a 0.05° strip), so
+    // specificity puts each state ahead on its own soil and the enclosing row stays the fall-through.
+    'US-NJ': US_NJ_BBOX,
+    'US-VT': US_VT_BBOX,
+    'US-CT': US_CT_BBOX,
+    'US-IN': US_IN_BBOX,
+    'US-MD': US_MD_BBOX,
     // L-12871 batch (2026-09-02). ⚠ These bboxes are the rows' SPECIFICITY metric only — the
     // rows' `contains` is `claimsNation`, never the rectangle. Since the national filter in
     // `resolveParcelCandidates` keeps at most one country on a claim, specificity now orders
