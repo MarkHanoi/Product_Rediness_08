@@ -148,6 +148,15 @@ import { PARIS_PLU_PATH, parisPluHandler } from './parisPluProxy.js';
 import { EU_PARCEL_PATH, euParcelHandler } from './euCadastreProxy.js';
 // L-613 (Denmark slice) — the Danish Matrikel cadastral proxy (credential-gated Datafordeler).
 import { DK_PARCEL_PATH, dkParcelHandler } from './dkMatrikelProxy.js';
+// §CA-BC-PARCEL-PROXY (2026-09-06, lane MEXICO-CANADA) — ParcelMap BC on the BC Data Catalogue's
+// keyless public WFS. Canada has NO national parcel fabric (land titles are provincial), so this is
+// a per-PROVINCE route, not a `/api/parcel/ca`: BC is the province that answers keylessly, and the
+// module header carries the exact HTTP answer of every other Canadian and Mexican door probed the
+// same day (Ontario bulk-only + unspecified licence, Québec endpoint not found, Alberta commercial,
+// CDMX point-without-polygon, datos.gob.mx HTTP 403). Client consumer: a future resolveCaBcParcel.
+// ⚠ Returns IDENTITY + surveyed area only. BC zoning is MUNICIPAL and is NOT in this layer, so no
+// buildable envelope may be derived from it.
+import { CA_BC_PARCEL_PATH, caBcParcelHandler } from './caBcParcelProxy.js';
 
 /**
  * The routes this router owns, in registration order, as `[method, path]`.
@@ -180,6 +189,7 @@ export const JURISDICTION_ROUTES = Object.freeze([
     ['get', CH_GRUNDNUTZUNG_PATH],
     ['get', CH_ZURICH_BZO_PATH],
     ['get', PARIS_PLU_PATH],
+    ['get', CA_BC_PARCEL_PATH],
     ['get', DK_PARCEL_PATH],
     ['get', `${EU_PARCEL_PATH}/:cc`],
 ]);
@@ -312,6 +322,12 @@ export function createJurisdictionRouter({ apiLimiter }) {
     // registered BEFORE the `:cc` catch-all (Express matches specific paths before params). DK carries a
     // server-side Datafordeler credential (Matrikel is not keyless); without it → { parcel: null } →
     // client OSM footprint. FR/NL/NO/DE-NRW are keyless under /api/parcel/:cc.
+    // §CA-BC-PARCEL-PROXY — ParcelMap BC by point. Registered BEFORE the `:cc` catch-all for the same
+    // reason Denmark is: `/api/ca/bc/parcel` is a distinct prefix today, but the ordering rule this
+    // block already states ("specific before param") is the contract, and a future `/api/parcel/:cc`
+    // widening must not be able to swallow it. Keyless, same-origin, never crashes: outside BC / no
+    // parcel / upstream failure → 200 { parcel: null }.
+    router.get(CA_BC_PARCEL_PATH, apiLimiter, caBcParcelHandler);
     router.get(DK_PARCEL_PATH, apiLimiter, dkParcelHandler);
     router.get(`${EU_PARCEL_PATH}/:cc`, apiLimiter, euParcelHandler);
 

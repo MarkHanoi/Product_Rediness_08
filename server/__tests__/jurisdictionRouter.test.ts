@@ -63,6 +63,11 @@ const EXPECTED: ReadonlyArray<readonly [string, string]> = [
     ['get', '/api/ch/grundnutzung'],
     ['get', '/api/ch/zurich-bzo'],
     ['get', '/api/paris/plu'],
+    // §CA-BC-PARCEL-PROXY (2026-09-06, lane MEXICO-CANADA) — ParcelMap BC by point. Canada has no
+    // national parcel fabric (land titles are provincial), so this is a per-PROVINCE path rather than
+    // a country code under /api/parcel/:cc — and it is registered ahead of that catch-all so a future
+    // widening of :cc can never swallow it.
+    ['get', '/api/ca/bc/parcel'],
     // ⚠ ORDER-CRITICAL. `/api/parcel/dk` MUST precede `/api/parcel/:cc`: Express
     // matches in registration order, so swapping these sends every Danish parcel
     // request into the keyless EU handler with cc="dk" and silently drops the
