@@ -77,6 +77,14 @@ import {
     mountViewSegmentSwitcher,
     type ViewSegmentSwitcherHandle,
 } from './viewSegmentSwitcher';
+// §AFTER-LOCATION-LAND-ON-THE-PASTEL-MAP (L-13001) — the SPLIT control's label,
+// enabled-ness and refusal are now ONE pure decision, shared with the site phase's
+// bottom-left pill. Two hosts, one answer: a copy would drift, and a split toggle that
+// disagrees with itself about whether it can act is worse than one that cannot.
+import {
+    describeSplitToggle,
+    SPLIT_TOGGLE_UNAVAILABLE_TEXT,
+} from '../../engine/views/siteAuthoringPaneDecisions';
 
 const _tracer = trace.getTracer('pryzm.site.viewSwitcherOnView');
 
@@ -144,10 +152,14 @@ export interface ViewSwitcherOnViewHandle {
     dispose(): void;
 }
 
-/** The sentence on a SPLIT control that cannot dispatch. Named, never a silent no-op. */
-export const SPLIT_UNAVAILABLE_TEXT =
-    'Split is not available from here in this session: the site views have not registered '
-    + 'pryzmMountSiteAuthoringPanes. Open the site once from the GIS panel, then return.';
+/**
+ * The sentence on a SPLIT control that cannot dispatch. Named, never a silent no-op.
+ *
+ * ⚠ RE-EXPORT, NOT A DEFINITION (L-13001). It lives beside the decision that chooses it
+ * so the on-view bar and the site phase's bottom-left pill refuse in the SAME words; this
+ * name is kept because it is what the specs and the callers already import.
+ */
+export const SPLIT_UNAVAILABLE_TEXT = SPLIT_TOGGLE_UNAVAILABLE_TEXT;
 
 /** Observe the split shell. `SiteAuthoringPaneShell` removes its root on dispose. */
 function splitShellIsMounted(): boolean {
@@ -194,17 +206,23 @@ export function mountViewSwitcherOnView(
         const open = (() => {
             try { return isSplitOpen(); } catch { return false; }
         })();
-        const canOpen = typeof opts.host.pryzmMountSiteAuthoringPanes === 'function';
-        const canClose = typeof opts.host.pryzmUnmountSiteAuthoringPanes === 'function';
-        const live = open ? canClose : canOpen;
+        // L-13001 — the shared decision answers label / enabled / pressed / refusal. The
+        // two richer ENABLED titles below stay here because they are about THIS host's
+        // layout ("with this panel on the right"), which the pure model cannot know.
+        const shown = describeSplitToggle({
+            open,
+            canOpen: typeof opts.host.pryzmMountSiteAuthoringPanes === 'function',
+            canClose: typeof opts.host.pryzmUnmountSiteAuthoringPanes === 'function',
+        });
+        const live = shown.enabled;
 
-        split.textContent = open ? '◧ Split — on' : '◧ Split';
+        split.textContent = shown.label;
         split.disabled = !live;
-        split.setAttribute('aria-pressed', open ? 'true' : 'false');
+        split.setAttribute('aria-pressed', shown.pressed ? 'true' : 'false');
         split.toggleAttribute('data-split-open', open);
         if (!live) {
             split.setAttribute('data-view-segment-unavailable', 'true');
-            split.title = SPLIT_UNAVAILABLE_TEXT;
+            split.title = shown.title;
         } else {
             split.removeAttribute('data-view-segment-unavailable');
             split.title = open

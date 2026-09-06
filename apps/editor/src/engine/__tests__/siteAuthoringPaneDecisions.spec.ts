@@ -18,6 +18,9 @@ import {
     shouldFramePanedSiteOnUpdate,
     shouldMountSiteAuthoringSplit,
     isSiteCommittedInModel,
+    shouldMountSiteSplitLauncher,
+    describeSplitToggle,
+    SPLIT_TOGGLE_UNAVAILABLE_TEXT,
     ringCentroidXZ,
     resolveLiveUpdateEventBus,
     PARCEL_BOUNDARY_SET_EVENT,
@@ -312,5 +315,91 @@ describe('§SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED (L-13002) — the gate r
         const throwing = { siteModelStore: { getSite: () => { throw new Error('disposed'); } } };
         expect(isSiteCommittedInModel(throwing, storeHolding(SITE))).toBe(true);
         expect(isSiteCommittedInModel(throwing, null)).toBe(false);
+    });
+});
+
+describe('§AFTER-LOCATION-LAND-ON-THE-PASTEL-MAP (L-13001) — the bottom-left split pill', () => {
+    // Founder, about the step right after a location resolves: *"i want to have the split
+    // view icon (as we have in pryzm view interface, on the bottom left corner, to activate
+    // split view)"*. The predicate is the L-13000/L-13002 pair reused, NOT a new flag.
+    it('is PRESENT at the site phase — the guided flow is running and a Site exists', () => {
+        expect(shouldMountSiteSplitLauncher({
+            onboardingGlobePhase: true,
+            siteCommitted: true,
+        })).toBe(true);
+    });
+
+    it('⛔ is ABSENT at STEP 1 OF 4 — no pill may appear over the full-bleed globe', () => {
+        // The founder confirmed that view is correct ("Image 1 — initial view is sound");
+        // this is the same §ONBOARDING-IS-FULL-BLEED boundary, asked of chrome instead of
+        // of the split itself — and it is the SAME two inputs, so the two cannot drift.
+        expect(shouldMountSiteSplitLauncher({
+            onboardingGlobePhase: true,
+            siteCommitted: false,
+        })).toBe(false);
+    });
+
+    it('⛔ is ABSENT on the canvas — which is what keeps launcher slot 0 single-occupancy', () => {
+        // `#svp-toggle-button` (initUI, the legacy BIM 3D + floor-plan split) takes slot 0
+        // there via the same `launcherRailStyle('splitView')`. Two controls in one declared
+        // slot is C06 §7.2's own defect (L-159). They are exclusive BY CONSTRUCTION: this
+        // one lives only where the `launcher-rail` row is `absent`, that one only where it
+        // is `open`.
+        expect(shouldMountSiteSplitLauncher({
+            onboardingGlobePhase: false,
+            siteCommitted: true,
+        })).toBe(false);
+        expect(shouldMountSiteSplitLauncher({
+            onboardingGlobePhase: false,
+            siteCommitted: false,
+        })).toBe(false);
+    });
+
+    it('⭐ it is EXACTLY the complement of the launcher rail, by construction', () => {
+        // Stated as a property rather than four literals: for every input the pill is up
+        // only in the globe phase, which is precisely where the rail (and so the legacy
+        // button) is absent. A future edit that widens either side fails here.
+        for (const siteCommitted of [true, false]) {
+            for (const onboardingGlobePhase of [true, false]) {
+                const pill = shouldMountSiteSplitLauncher({ onboardingGlobePhase, siteCommitted });
+                if (pill) expect(onboardingGlobePhase).toBe(true);
+            }
+        }
+    });
+});
+
+describe('§26.1.1 — the split toggle REFUSES OUT LOUD, and never one-way', () => {
+    // *"A silently greyed-out segment is the wrong implementation of this ruling — it tells
+    // the user nothing and reads as a bug."* One decision, two hosts (the on-view bar's
+    // `.vsw-split` and the site phase's corner pill), so they cannot disagree.
+    it('offers OPEN when the split is down and the mount entry point is registered', () => {
+        const d = describeSplitToggle({ open: false, canOpen: true, canClose: true });
+        expect(d.enabled).toBe(true);
+        expect(d.pressed).toBe(false);
+        expect(d.label).toContain('Split');
+        expect(d.title).not.toBe(SPLIT_TOGGLE_UNAVAILABLE_TEXT);
+    });
+
+    it('offers CLOSE when the split is up — the route back is never missing', () => {
+        // L-6804: the gate belongs on the way OUT, where refusing is free, never on the way
+        // back, where refusing strands.
+        const d = describeSplitToggle({ open: true, canOpen: false, canClose: true });
+        expect(d.enabled).toBe(true);
+        expect(d.pressed).toBe(true);
+    });
+
+    it('⛔ a refusal NAMES the reason and the resolving action', () => {
+        const d = describeSplitToggle({ open: false, canOpen: false, canClose: false });
+        expect(d.enabled).toBe(false);
+        expect(d.title).toBe(SPLIT_TOGGLE_UNAVAILABLE_TEXT);
+        expect(d.title).toContain('pryzmMountSiteAuthoringPanes'); // the reason
+        expect(d.title).toContain('Open the site once'); // the action that resolves it
+    });
+
+    it('reads the RIGHT capability for the direction it is about to go', () => {
+        // A control that is up and can close must not be refused because it cannot re-open,
+        // and vice versa. This is the asymmetry a single `canDispatch` flag would erase.
+        expect(describeSplitToggle({ open: true, canOpen: true, canClose: false }).enabled).toBe(false);
+        expect(describeSplitToggle({ open: false, canOpen: true, canClose: false }).enabled).toBe(true);
     });
 });

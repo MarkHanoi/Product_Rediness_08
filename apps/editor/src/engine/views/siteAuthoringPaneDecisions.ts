@@ -243,3 +243,91 @@ export function resolveLiveUpdateEventBus(
     if (windowBus && typeof windowBus.on === 'function') return windowBus;
     return null;
 }
+
+/** What the SITE-phase bottom-left split pill knows about its world. */
+export interface SiteSplitLauncherState {
+    /** `panelDefaults.appPhase() === 'onboarding-globe'` — the guided flow is running. */
+    readonly onboardingGlobePhase: boolean;
+    /** The model has a Site (see {@link isSiteCommittedInModel}). */
+    readonly siteCommitted: boolean;
+}
+
+/**
+ * §AFTER-LOCATION-LAND-ON-THE-PASTEL-MAP (L-13001, founder 2026-09-06) — may the
+ * bottom-left SPLIT pill exist right now?
+ *
+ * HIS ASK: *"i want to have the split view icon (as we have in pryzm view interface, on
+ * the bottom left corner, to activate split view)"*, said about the step AFTER a location
+ * resolves.
+ *
+ * ⭐ THE PREDICATE IS THE L-13000/L-13002 PAIR, REUSED A THIRD TIME — NOT A NEW FLAG.
+ * "The guided flow is running AND a Site exists" is exactly the SITE phase: the split has
+ * mounted, the pastel 2D map is on the left and the 3D Site on the right. Before a Site
+ * exists it is STEP 1 OF 4 and the globe owns the whole screen
+ * (§ONBOARDING-IS-FULL-BLEED) — the founder confirmed that view is correct and no pill
+ * may appear over it.
+ *
+ * ⛔ AND IT IS FALSE ON THE CANVAS, WHICH IS THE HALF THAT PREVENTS A COLLISION.
+ * `#svp-toggle-button` (initUI) already owns launcher-rail SLOT 0 there — the same corner,
+ * the same slot accounting (§FIX-LAUNCHER-COVERS-SPLITVIEW / L-159, C06 §7.2). The two
+ * controls are mutually exclusive BY CONSTRUCTION rather than by careful placement: this
+ * one exists only while the launcher rail is `absent` (the globe phase), and that one only
+ * while it is `open` (the canvas). Never both, so slot 0 is never double-booked.
+ *
+ * ⚠ THEY ALSO DRIVE DIFFERENT SPLITS, AND THAT IS WHY THIS IS NOT ONE BUTTON WITH TWO
+ * MOODS. `#svp-toggle-button` toggles the legacy `splitViewManager` (BIM 3D + floor plan)
+ * — the very pane `mountSiteAuthoringPanes` calls `suppressAutoOpen()` on, because during
+ * site authoring there are no walls for it to draw (§L-412 Req 1). At the site phase the
+ * only split that exists is the site-authoring one, so this pill dispatches THAT pair of
+ * declared entry points and nothing else.
+ */
+export function shouldMountSiteSplitLauncher(state: SiteSplitLauncherState): boolean {
+    return state.onboardingGlobePhase && state.siteCommitted;
+}
+
+/** The rendered state of a split toggle — what to say, and whether it can act. */
+export interface SplitTogglePresentation {
+    readonly label: string;
+    readonly enabled: boolean;
+    readonly pressed: boolean;
+    readonly title: string;
+}
+
+/** What a split toggle can observe about the split and about its own wiring. */
+export interface SplitToggleState {
+    /** Is the site-authoring split on screen? A READING, never a remembered command. */
+    readonly open: boolean;
+    /** `pryzmMountSiteAuthoringPanes` is registered in this session. */
+    readonly canOpen: boolean;
+    /** `pryzmUnmountSiteAuthoringPanes` is registered in this session. */
+    readonly canClose: boolean;
+}
+
+/** The sentence a split toggle shows when it cannot act. Named, never a silent no-op. */
+export const SPLIT_TOGGLE_UNAVAILABLE_TEXT =
+    'Split is not available from here in this session: the site views have not registered '
+    + 'pryzmMountSiteAuthoringPanes. Open the site once from the GIS panel, then return.';
+
+/**
+ * §26.1.1 — THE REFUSAL SPEAKS. A split toggle that cannot act says WHY and what to do;
+ * a silently greyed segment *"tells the user nothing and reads as a bug, which is exactly
+ * how the founder has read three defects this session"*.
+ *
+ * Pure so the two hosts of this control — the on-view bar's `.vsw-split` and the site
+ * phase's bottom-left pill — render ONE decision instead of drifting copies of it. Neither
+ * is the authority; this is.
+ */
+export function describeSplitToggle(state: SplitToggleState): SplitTogglePresentation {
+    const enabled = state.open ? state.canClose : state.canOpen;
+    return {
+        label: state.open ? '◧ Split — on' : '◧ Split',
+        enabled,
+        pressed: state.open,
+        title: !enabled
+            ? SPLIT_TOGGLE_UNAVAILABLE_TEXT
+            : state.open
+                ? 'Close the split and go back to a single view.'
+                : 'Show two views side by side — the 2D site map and the 3D Site. '
+                    + 'Each pane keeps its own view picker, so you choose what goes in each.',
+    };
+}

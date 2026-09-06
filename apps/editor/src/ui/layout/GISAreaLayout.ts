@@ -16,10 +16,13 @@ import type { UIProps } from '../Layout';
 // truth + the no-overlap launcher-rail layout policy. Replaces the hand-picked
 // `position:absolute … zIndex:'20'`-inside-#container anchoring that buried these
 // always-on pills under root-level chrome (toolbar 9000, nav rail 9999).
-// §GIS-ACTION-REGISTRY (L-1360) — `launcherRailStyle` / `LAUNCHER_PILL_*` are no longer
-// imported here: this file mounted six launcher-rail pills and now mounts none. The
-// rail policy itself stays in `zLayers.ts` for the surfaces that still use it.
-import { zCss } from './zLayers';
+// §GIS-ACTION-REGISTRY (L-1360) — this file mounted six launcher-rail pills and now
+// mounts none of THOSE: the rail policy stays in `zLayers.ts` and the site actions moved
+// to the GIS panel. ⚠ L-13001 RE-ADDS EXACTLY ONE, and re-imports the rail helpers for
+// it: the SITE-phase split pill, which occupies the same declared slot 0 the canvas
+// phase's `#svp-toggle-button` occupies — so it must come from the same slot authority,
+// never from a hand-picked `bottom:` (that is the L-159 defect verbatim).
+import { zCss, launcherRailStyle, LAUNCHER_PILL_COSMETICS } from './zLayers';
 // §UX1-PANEL-DEFAULTS — the ONE table that says which chrome is open on start-up, plus
 // the `Reset panel layout` verb. C82 §1.1: a panel closed by default keeps a visible
 // route back, and that route is the launcher pill mounted below.
@@ -225,6 +228,8 @@ import {
 import {
     shouldFramePanedSiteOnUpdate,
     shouldMountSiteAuthoringSplit,
+    shouldMountSiteSplitLauncher,
+    describeSplitToggle,
     isSiteCommittedInModel,
     ringCentroidXZ,
     resolveLiveUpdateEventBus,
@@ -6208,6 +6213,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     try {
         installPhaseChrome();
         onAppPhaseChanged(() => mountSiteViewLauncher());
+        // L-13001 — on the canvas the launcher rail returns and `#svp-toggle-button` takes
+        // slot 0 back, so the site-phase pill must go. One slot, one occupant (C06 §7.2).
+        onAppPhaseChanged(() => refreshSiteSplitLauncher());
         // §UX1-VP-DEFAULT-CLOSED — the reopen route for `view-properties`, mounted at
         // the SAME site as the phase applier so the two cannot be wired apart. The
         // registry row may only say `closed` because this line exists; an authored-
@@ -6578,7 +6586,114 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             `${layout.left ?? 'empty'} · RIGHT ${layout.right ?? 'empty'} ` +
             '(single Cesium re-targeted; envelope live on draw/select).',
         );
+        refreshSiteSplitLauncher(); // L-13001 — the corner control follows the split.
         return true;
+    };
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // §AFTER-LOCATION-LAND-ON-THE-PASTEL-MAP (L-13001) — THE SPLIT ICON, BOTTOM-LEFT,
+    // AT THE SITE PHASE.
+    //
+    // Founder 2026-09-06, about the step right after a location resolves: *"i want to have
+    // the split view icon (as we have in pryzm view interface, on the bottom left corner,
+    // to activate split view)"*.
+    //
+    // ⭐ WHY A SECOND CONTROL IS NOT A RIVAL HERE, and this is the part to read before
+    // "consolidating" it with `#svp-toggle-button`:
+    //   · `#svp-toggle-button` (initUI) toggles the LEGACY `splitViewManager` — BIM 3D +
+    //     floor plan. During site authoring that pane has no walls to draw, which is why
+    //     `mountSiteAuthoringPanes` calls `suppressAutoOpen()` on it (§L-412 Req 1). Wiring
+    //     the founder's corner to it at this phase would hand him the blank right-hand pane
+    //     L-13000 was raised about.
+    //   · THEY ARE NEVER ON SCREEN TOGETHER. That button belongs to the `launcher-rail`
+    //     row, which is `absent` on the globe and `open` on the canvas; this pill exists
+    //     only while that row is absent. Slot 0 (§FIX-LAUNCHER-COVERS-SPLITVIEW / L-159,
+    //     C06 §7.2) is therefore never double-booked — by construction, not by placement.
+    //   · NO SECOND OPTION TABLE AND NO SECOND LAYOUT OWNER: it dispatches the two DECLARED
+    //     entry points (`pryzmMountSiteAuthoringPanes` / `pryzmUnmountSiteAuthoringPanes`),
+    //     the same pair the on-view bar's `.vsw-split` and onboarding both drive, and it
+    //     renders the SAME pure `describeSplitToggle` they do.
+    //   · IT READS, IT DOES NOT REMEMBER. "Is the split up?" is answered from
+    //     `siteAuthoringPanes`, the live handle — never from a snapshot, which is the
+    //     C84 EI-1b failure this repo pays for most.
+    // ══════════════════════════════════════════════════════════════════════════
+    const SITE_SPLIT_LAUNCHER_ID = 'pryzm-site-split-launcher';
+    let siteSplitLauncher: HTMLButtonElement | null = null;
+
+    const paintSiteSplitLauncher = (): void => {
+        if (!siteSplitLauncher) return;
+        const shown = describeSplitToggle({
+            open: !!siteAuthoringPanes && !siteAuthoringPanes.isDisposed,
+            canOpen: typeof window.pryzmMountSiteAuthoringPanes === 'function',
+            canClose: typeof window.pryzmUnmountSiteAuthoringPanes === 'function',
+        });
+        siteSplitLauncher.disabled = !shown.enabled;
+        siteSplitLauncher.title = shown.title;
+        siteSplitLauncher.setAttribute('aria-pressed', shown.pressed ? 'true' : 'false');
+        siteSplitLauncher.style.opacity = shown.enabled ? '1' : '0.42';
+        siteSplitLauncher.style.background = shown.pressed ? '#6600FF' : '#ffffff';
+        siteSplitLauncher.style.color = shown.pressed ? '#ffffff' : '#6600FF';
+    };
+
+    /** Remove the pill. Idempotent — the canvas phase and a dispose both call it. */
+    const removeSiteSplitLauncher = (): void => {
+        siteSplitLauncher?.remove();
+        siteSplitLauncher = null;
+    };
+
+    const refreshSiteSplitLauncher = (): void => {
+        try {
+            if (!shouldMountSiteSplitLauncher({
+                onboardingGlobePhase: appPhase() === 'onboarding-globe',
+                siteCommitted: siteCommittedInModel(),
+            })) {
+                removeSiteSplitLauncher();
+                return;
+            }
+            if (siteSplitLauncher?.isConnected) { paintSiteSplitLauncher(); return; }
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = SITE_SPLIT_LAUNCHER_ID;
+            btn.setAttribute('data-testid', SITE_SPLIT_LAUNCHER_ID);
+            btn.setAttribute('aria-label', 'Toggle split view');
+            // The same two-panel mark as `#svp-toggle-button` — one chrome language
+            // (C06 §6.1); the founder recognises the corner by its icon.
+            btn.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">'
+                + '<rect x="1" y="1" width="5.5" height="14" rx="1" fill="currentColor" opacity="0.55"/>'
+                + '<rect x="9.5" y="1" width="5.5" height="14" rx="1" fill="currentColor" opacity="0.9"/>'
+                + '<line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1" stroke-dasharray="2 1"/>'
+                + '</svg>';
+            Object.assign(btn.style, {
+                ...launcherRailStyle('splitView'),
+                ...LAUNCHER_PILL_COSMETICS,
+                pointerEvents: 'auto',
+            } satisfies Partial<CSSStyleDeclaration>);
+            btn.addEventListener('click', () => {
+                if (btn.disabled) return;
+                try {
+                    if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
+                        window.pryzmUnmountSiteAuthoringPanes?.();
+                    } else {
+                        window.pryzmMountSiteAuthoringPanes?.({ layout: 'site-authoring' });
+                    }
+                } catch (e) {
+                    console.warn('[gis][panes] site split pill dispatch failed (non-fatal):', e);
+                }
+                // Re-observe rather than assume: a control that PAINTED its own click would
+                // be asserting a layout it never checked (the L-13002 lesson, one layer up).
+                paintSiteSplitLauncher();
+            });
+            document.body.appendChild(btn);
+            siteSplitLauncher = btn;
+            paintSiteSplitLauncher();
+            console.log(
+                '[gis][panes] §AFTER-LOCATION-LAND-ON-THE-PASTEL-MAP (L-13001) — bottom-left split '
+                + 'pill mounted for the SITE phase (launcher-rail slot 0; the legacy '
+                + '#svp-toggle-button owns that slot on the canvas and the two are never both up).',
+            );
+        } catch (e) {
+            console.warn('[gis][panes] site split pill refresh failed (non-fatal):', e);
+        }
     };
 
     /** Tear the split down: unmounts both renderers (Cesium re-homes to #container +
@@ -6602,6 +6717,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         // Re-home the envelope card onto #container (getForma3dHostEl now returns it).
         try { refreshEnvelopePanel(); } catch { /* best-effort */ }
+        // L-13001 — the pill STAYS (it is the route BACK to split; removing it here would
+        // be L-6804's one-way door), but it must repaint to the unpressed state.
+        refreshSiteSplitLauncher();
     };
 
     // O.2 / §L-412 — programmatic entry to the site-authoring split. The onboarding
