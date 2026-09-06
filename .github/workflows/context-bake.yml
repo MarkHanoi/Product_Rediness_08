@@ -257,17 +257,27 @@ jobs:
       - name: Assert the tiles are real
         run: |
           set -euo pipefail
+          # §OPTIONAL-LAYER-ABSENCE-IS-NOT-A-BREAK (lane LAYERS-FURNITURE-SEA, 2026-09-06) — the set of
+          # layers whose absence is HONEST is bake.mjs's OWN `optionalLayers` table, READ HERE rather
+          # than re-typed. It was the literal `sea`, and `furniture` (§STREET-LIFE, L-12936) is in
+          # exactly the same class: bake.mjs writes NO archive for an optional layer with zero features
+          # (bake.mjs §STREET-LIFE, "0 feature(s) … no furniture.pmtiles written"), and a small scope
+          # writes a FEW-KB one. Both fell through to `::error::` — the §DESERT-LAYER-HONESTY defect one
+          # layer later, and it would have failed the FIRST furniture dispatch on the bake being right.
+          # Deriving the list means the next optional layer is covered the day its row lands.
+          OPTIONAL_LAYERS="$(node tools/context-bake/bake.mjs --regions-json \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write((JSON.parse(s).optionalLayers||[]).join(" ")))')"
+          echo "optional layers, from bake.mjs --regions-json: ${OPTIONAL_LAYERS:-<none>}"
           cd tools/context-bake/out
-          # §SEA-BAKE-POLYGONS — an OPTIONAL-layer scope (layer=sea over a landlocked region) legitimately
-          # produces NO archive at all: bake.mjs names it ("0 polygon(s) … no sea.pmtiles written") and
-          # stage-manifest records it as not produced. That is an absence, not a broken bake.
           shopt -s nullglob
           files=(*.pmtiles)
           if [ "${#files[@]}" -eq 0 ]; then
-            if [ "${{ inputs.layer }}" = "sea" ]; then
-              echo "::warning::no sea.pmtiles — the scoped region(s) yielded 0 sea polygons (landlocked / no OSM coastline); optional layer, honest absence."
-              exit 0
-            fi
+            for ol in $OPTIONAL_LAYERS; do
+              if [ "${{ inputs.layer }}" = "$ol" ]; then
+                echo "::warning::no ${ol}.pmtiles — the scoped region(s) yielded 0 ${ol} feature(s) (landlocked, or nothing of this kind mapped in these bboxes); OPTIONAL layer, honest absence — stage-manifest records it under optionalLayersNotProduced."
+                exit 0
+              fi
+            done
             echo "::error::no .pmtiles produced at all — the bake wrote nothing."
             exit 1
           fi
@@ -286,13 +296,17 @@ jobs:
               # staged bake on trees.pmtiles=8045 B, which is empty-is-correct, not broken
               # (the same failure≠empty confusion as the context-data-honesty family).
               # buildings/roads keep the hard floor: a region without those IS a broken bake.
-              case "$f" in
-                trees.pmtiles|parks.pmtiles|water.pmtiles|rail.pmtiles|sea.pmtiles)
-                  echo "::warning::$f is only $sz bytes — accepted as an honestly sparse layer (magic still checked below)." ;;
-                *)
-                  echo "::error::$f is only $sz bytes — the bake produced an effectively empty tileset."
-                  fail=1 ;;
-              esac
+              # §OPTIONAL-LAYER-ABSENCE-IS-NOT-A-BREAK — the sparse-is-honest set = the four layers
+              # named by §DESERT-LAYER-HONESTY plus EVERY optional layer bake.mjs declares, so
+              # `furniture` (and any future optional row) is covered without another literal. A
+              # z15–16 point archive for andorra / liechtenstein / nunavut is a few KB and correct.
+              base="${f%.pmtiles}"
+              if printf '%s\n' trees parks water rail $OPTIONAL_LAYERS | grep -qx -- "$base"; then
+                echo "::warning::$f is only $sz bytes — accepted as an honestly sparse layer (magic still checked below)."
+              else
+                echo "::error::$f is only $sz bytes — the bake produced an effectively empty tileset."
+                fail=1
+              fi
             fi
             # PMTiles v3 files start with the magic string "PMTiles".
             if [ "$(head -c 7 "$f")" != "PMTiles" ]; then

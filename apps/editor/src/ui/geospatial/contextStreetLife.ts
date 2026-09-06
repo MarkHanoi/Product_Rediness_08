@@ -110,7 +110,10 @@ export interface PlaceLampsOptions {
 }
 
 export interface PlaceLampsResult {
-    /** Mapped lamps first (as-is), then synthesised lamps nearest-first. */
+    /** MAPPED lamps first, nearest-first (§MAPPED-LAMPS-NEAREST-FIRST), then synthesised lamps,
+     *  also nearest-first. The caller caps by SLICING this array, so both halves must be ordered:
+     *  mapped precede synthetic so DATA survives the cap, and each half is nearest-first so what
+     *  survives is what is near the site. */
     readonly lamps: StreetLamp[];
     readonly mappedCount: number;
     readonly syntheticCount: number;
@@ -316,6 +319,19 @@ export function placeLamps(
         lamps.push({ lon: m.lon, lat: m.lat, synthetic: false, osmId: m.osmId, distM: Math.hypot(x, y) });
     }
     const mappedCount = lamps.length;
+    // §MAPPED-LAMPS-NEAREST-FIRST (lane LAYERS-FURNITURE-SEA, 2026-09-06) — the MAPPED half is not
+    // capped here (see LAMP_SYNTHETIC_CAP), but its CALLER caps: the renderer takes
+    // `.slice(0, STREET_LIFE_MAX_LAMPS)` (1200) over `mapped ++ synthetic`. Unsorted, that slice keeps
+    // the first 1200 mapped lamps in TILE-READ order — an arbitrary corner of the bbox — and can leave
+    // the site itself unlit while lamps stand 800 m away. π·890² ≈ 2.5 km² of a Nordic or Dutch city
+    // carries well over 1200 mapped `highway=street_lamp` nodes, so this is the NORMAL case exactly
+    // where OSM lighting is best mapped, not an edge case. It has never been visible because
+    // `furniture` 404s in every region (measured 2026-09-06: `tiles/furniture.pmtiles` HTTP 404), so
+    // `mappedCount` is 0 everywhere and the mapped half is empty; it would have appeared the day the
+    // layer published, in the cities the founder would check first. Sorting here (the synthetic half
+    // already sorts) makes the caller's cap keep the NEAREST mapped lamps, and mapped still precedes
+    // every synthetic lamp in the returned array, so DATA continues to win over SCENERY.
+    lamps.sort((a, b) => a.distM - b.distM);
 
     const synth: StreetLamp[] = [];
     let waysEligible = 0, waysLit = 0, waysSkippedMapped = 0;

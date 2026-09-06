@@ -116,3 +116,40 @@ describe('every enumeration of the layer ids names `furniture` (four lists, one 
         expect([...listed![1]!.matchAll(/'([a-z]+)'/g)].map((m) => m[1]!)).toContain('furniture');
     });
 });
+
+// §OPTIONAL-LAYER-ABSENCE-IS-NOT-A-BREAK (lane LAYERS-FURNITURE-SEA, 2026-09-06) — bake.mjs marking a
+// layer OPTIONAL is only half the contract: the workflow step that runs straight after the bake has
+// to agree, or the honest absence bake.mjs prints becomes a red run. It did not agree. "Assert the
+// tiles are real" excused a missing archive only for the LITERAL `sea`, and its few-KB allowlist was
+// the literal `trees|parks|water|rail|sea` — so the FIRST `--layer furniture` dispatch over a scope
+// with little or nothing mapped (andorra, liechtenstein, nunavut, gccstates) would have failed the
+// run ON THE BAKE BEING CORRECT. That is the §DESERT-LAYER-HONESTY defect (Riyadh/Jeddah/Abu Dhabi,
+// trees.pmtiles=8045 B) one layer later, which is why the fix DERIVES the set from bake.mjs's own
+// `optionalLayers` rather than adding a fourth literal to keep in sync.
+describe('§OPTIONAL-LAYER-ABSENCE-IS-NOT-A-BREAK — context-bake.yml must not fail on an honest furniture absence', () => {
+    const bakeYml = (): string => readFileSync(join(ROOT, '.github', 'workflows', 'context-bake.yml'), 'utf8');
+
+    it('derives the honest-absence set from bake.mjs --regions-json, never from a literal layer list', () => {
+        const y = bakeYml();
+        expect(y, 'the sparse-layer allowlist is still a hard-coded case list that omits furniture')
+            .not.toContain('trees.pmtiles|parks.pmtiles|water.pmtiles|rail.pmtiles|sea.pmtiles)');
+        expect(y, 'the no-archive branch still tests the literal layer id `sea`')
+            .not.toMatch(/= "sea" \]/);
+        expect(y).toContain('OPTIONAL_LAYERS="$(node tools/context-bake/bake.mjs --regions-json');
+        expect(y).toMatch(/for ol in \$OPTIONAL_LAYERS/);
+        expect(y).toMatch(/printf '%s\\n' trees parks water rail \$OPTIONAL_LAYERS \| grep -qx/);
+    });
+
+    it('that derived set covers furniture, and still leaves buildings/roads on the hard floor', () => {
+        const tables = JSON.parse(run(['--regions-json']).stdout) as { optionalLayers: string[]; allLayers: string[] };
+        expect(tables.optionalLayers).toContain('furniture');
+        // The exact set the patched step builds: the four §DESERT-LAYER-HONESTY layers + bake.mjs's own.
+        const sparseOk = new Set<string>(['trees', 'parks', 'water', 'rail', ...tables.optionalLayers]);
+        for (const l of tables.optionalLayers) {
+            expect(sparseOk.has(l), `optional layer '${l}' is not in the sparse-is-honest set`).toBe(true);
+        }
+        // A region without buildings or roads IS a broken bake and must still fail loudly.
+        expect(sparseOk.has('buildings')).toBe(false);
+        expect(sparseOk.has('roads')).toBe(false);
+    }, SLOW);
+});

@@ -215,6 +215,55 @@ describe('§STREET-LIFE mapped lamps are DATA and win over synthesis', () => {
     });
 });
 
+// ── §MAPPED-LAMPS-NEAREST-FIRST ──────────────────────────────────────────────────────────
+
+// The caller (contextStreetLifeRender.load) takes `.slice(0, STREET_LIFE_MAX_LAMPS)` — 1200 — over
+// `mapped ++ synthetic`. `placeLamps` caps only the SYNTHETIC half, so the mapped half reaches that
+// slice uncapped, and if it arrives in tile-read order the slice keeps an arbitrary CORNER of the
+// bbox: the site itself goes dark while lamps stand hundreds of metres away. π·890² ≈ 2.5 km² of a
+// Nordic or Dutch city carries well over 1200 mapped `highway=street_lamp` nodes, so this is the
+// NORMAL case exactly where OSM lighting is best mapped. It is invisible today only because the
+// `furniture` layer 404s in every region (measured 2026-09-06), which makes `mapped` always empty —
+// it would have appeared the day the layer published, in the cities checked first.
+describe('§MAPPED-LAMPS-NEAREST-FIRST — the caller\'s cap must keep the NEAREST mapped lamps', () => {
+    /** 400 mapped lamps handed over FARTHEST-FIRST, as a tile read may well deliver them. */
+    const mappedFarthestFirst: MappedLamp[] = Array.from({ length: 400 }, (_, i) => {
+        const eastM = (400 - i) * 5;   // i=0 → 2000 m away, i=399 → 5 m away
+        return { lon: at(eastM, 0)[0], lat: at(eastM, 0)[1], osmId: 9000 + i };
+    });
+
+    it('returns the mapped half nearest-first, whatever order it was given in', () => {
+        const res = placeLamps(mappedFarthestFirst, [], { origin: ORIGIN });
+        expect(res.mappedCount).toBe(400);
+        const dists = res.lamps.filter((l) => !l.synthetic).map((l) => l.distM);
+        expect([...dists].sort((a, b) => a - b)).toEqual(dists);
+    });
+
+    it('a 1200-style cap over the returned array keeps the NEAREST mapped lamps, not a tile-order corner', () => {
+        const CAP = 50;   // the renderer's STREET_LIFE_MAX_LAMPS, scaled to the fixture
+        const res = placeLamps(mappedFarthestFirst, [], { origin: ORIGIN });
+        const rendered = res.lamps.slice(0, CAP);
+        expect(rendered).toHaveLength(CAP);
+        // Every rendered lamp must be nearer than every lamp the cap dropped — the property the
+        // unsorted array violated (it kept the 50 FARTHEST and left the site unlit).
+        const droppedMin = Math.min(...res.lamps.slice(CAP).map((l) => l.distM));
+        const renderedMax = Math.max(...rendered.map((l) => l.distM));
+        expect(renderedMax).toBeLessThanOrEqual(droppedMin);
+        // and the nearest lamp of all is rendered.
+        expect(Math.min(...rendered.map((l) => l.distM))).toBeCloseTo(5, 0);
+    });
+
+    it('DATA still wins: every mapped lamp precedes every synthesised one, so the cap sheds scenery first', () => {
+        // A way far from every mapped lamp, so synthesis is not suppressed by the exclusion.
+        const far = eastWay(4242, 'residential', 600, 3000);
+        const res = placeLamps(mappedFarthestFirst, [far], { origin: ORIGIN });
+        expect(res.syntheticCount).toBeGreaterThan(0);
+        const firstSynthetic = res.lamps.findIndex((l) => l.synthetic);
+        expect(firstSynthetic).toBe(res.mappedCount);
+        expect(res.lamps.slice(0, res.mappedCount).every((l) => !l.synthetic)).toBe(true);
+    });
+});
+
 // ── pedestrians ─────────────────────────────────────────────────────────────────────────────────
 
 const URBAN_BLOCK: LanduseAreaLike = {

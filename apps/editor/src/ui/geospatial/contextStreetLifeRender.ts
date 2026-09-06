@@ -187,9 +187,16 @@ export class StreetLifeLayer {
         this.clear(viewer);
         this.at = { lat, lon };
 
-        const lamps = lampResult.lamps
-            .filter((l) => l.distM <= STREET_LIFE_RENDER_RADIUS_M)
-            .slice(0, STREET_LIFE_MAX_LAMPS);
+        // §MAPPED-LAMPS-NEAREST-FIRST (lane LAYERS-FURNITURE-SEA, 2026-09-06) — this cap is the one
+        // that truncates the MAPPED half (`placeLamps` caps only the synthetic half), so say by how
+        // much and how many of the dropped were DATA. Silently rendering 1200 of 3000 mapped lamps
+        // while the log line prints "3000 mapped lamp(s)" is the failure≠empty confusion in its
+        // rendering form: a count that is not what you are looking at. `placeLamps` now returns the
+        // mapped half nearest-first, so what survives the slice is the nearest, not a tile-order corner.
+        const inRadius = lampResult.lamps.filter((l) => l.distM <= STREET_LIFE_RENDER_RADIUS_M);
+        const lamps = inRadius.slice(0, STREET_LIFE_MAX_LAMPS);
+        const lampsDroppedByRenderCap = inRadius.length - lamps.length;
+        const mappedDroppedByRenderCap = inRadius.slice(STREET_LIFE_MAX_LAMPS).filter((l) => !l.synthetic).length;
         const people = peopleResult.people.slice(0, STREET_LIFE_MAX_PEOPLE);
 
         // §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964) — resolve the DETAILED ground for exactly the
@@ -233,7 +240,8 @@ export class StreetLifeLayer {
                 `(radial ≤${STREET_LIFE_RENDER_RADIUS_M} m; ${lampResult.waysEligible} eligible road way(s), ` +
                 `${lampResult.waysSkippedMapped} left to their mapped lamps, ` +
                 `${lampResult.syntheticDroppedByCap} synthesised lamp(s) + ${peopleResult.droppedByCap} ` +
-                'person(s) dropped by the nearest-first cap).',
+                `person(s) dropped by the nearest-first cap; render cap dropped a further ` +
+                `${lampsDroppedByRenderCap} lamp(s) of which ${mappedDroppedByRenderCap} MAPPED).`,
         );
     }
 
