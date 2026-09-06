@@ -1134,8 +1134,18 @@ async function main() {
   }
 
   writeFileSync(LEDGER_PATH, md, 'utf8');
+  // Rewrite the snapshot ONLY when the manifest itself moved. Stamping `probedAt` on
+  // every run made a one-line diff on a 939-line file each time anyone regenerated —
+  // pure churn in a shared tree, and churn is how a real change stops being noticed.
   if (probe.ok && probe.mode === 'live') {
-    writeFileSync(SNAPSHOT_PATH, JSON.stringify({ probedAt: probe.probedAt, url: MANIFEST_URL, manifest: probe.manifest }, null, 2) + '\n', 'utf8');
+    const prev = existsSync(SNAPSHOT_PATH) ? JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) : null;
+    const changed = JSON.stringify(prev?.manifest ?? null) !== JSON.stringify(probe.manifest);
+    if (changed) {
+      writeFileSync(SNAPSHOT_PATH, JSON.stringify({ probedAt: probe.probedAt, url: MANIFEST_URL, manifest: probe.manifest }, null, 2) + '\n', 'utf8');
+      console.log('  snapshot: UPDATED (the live manifest moved)');
+    } else {
+      console.log('  snapshot: unchanged');
+    }
   }
 
   const rows = [...model.countries.values()];
