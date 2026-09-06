@@ -25,7 +25,12 @@ const stamp = readFileSync(resolve(HERE, '../heights/nl3dbagStamp.mjs'), 'utf8')
 
 describe('§NL-3DBAG-OSM-JOIN — bake.mjs wires the 3dbag stamp for the `netherlands` row', () => {
     it('imports the stamp from heights/nl3dbagStamp.mjs AND its working set from heights/nl3dbag.mjs', () => {
-        expect(bake).toMatch(/^import\s*\{[^}]*\bstampNl3dbagHeightsOnGeojsonseq\b[^}]*\}\s*from\s*'\.\/heights\/nl3dbagStamp\.mjs';/m);
+        // ⭐ §NL-3DBAG-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — bake.mjs now imports the
+        // NATIONAL wrapper and the NATIONAL retain set beside it. The city stamp is NOT orphaned: it is what
+        // each bounded-heap band runs, called by the wrapper inside the same module. The city list is still
+        // imported too, because it is still the PRIORITY order at the dispatch site.
+        expect(bake).toMatch(/^import\s*\{[^}]*\bstampNl3dbagNationalHeightsOnGeojsonseq\b[^}]*\}\s*from\s*'\.\/heights\/nl3dbagStamp\.mjs';/m);
+        expect(bake).toMatch(/^import\s*\{[^}]*\bNL_3DBAG_NATIONAL_BBOXES\b[^}]*\}\s*from\s*'\.\/heights\/nl3dbagStamp\.mjs';/m);
         expect(bake).toMatch(/^import\s*\{[^}]*\bNL_3DBAG_CITY_BBOXES\b[^}]*\}\s*from\s*'\.\/heights\/nl3dbag\.mjs';/m);
     });
 
@@ -41,10 +46,16 @@ describe('§NL-3DBAG-OSM-JOIN — bake.mjs wires the 3dbag stamp for the `nether
         }
     });
 
-    it('stampBboxesFor bounds the national join to NL_3DBAG_CITY_BBOXES (§HEIGHT-STAMP-BUDGET preflight)', () => {
+    // ⭐ §NL-3DBAG-NATIONAL-SWEEP (2026-09-06) — this pin used to REQUIRE NL_3DBAG_CITY_BBOXES, which means
+    // it pinned the DEFECT: six boxes were the only ground in the Netherlands that could ever be measured,
+    // and Maastricht / Leeuwarden / Enschede / Middelburg / Den Bosch shipped the labelled `assumed` 9 m —
+    // on the map indistinguishable from "3DBAG has no data here". It HAS data there: probed 2026-09-06,
+    // five for five (heights/nl3dbagStamp.mjs §NL-3DBAG-NATIONAL-SWEEP carries the verbatim answers). The
+    // retain set is the COUNTRY now, and the heap is bounded by swathe passes instead of by a city list.
+    it('stampBboxesFor gives the join the WHOLE-COUNTRY retain set (§HEIGHT-STAMP-BUDGET preflight)', () => {
         const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
         expect(fn, 'stampBboxesFor').not.toBeNull();
-        expect(fn![1]).toMatch(/r\.heightJoin === '3dbag'\)\s*return NL_3DBAG_CITY_BBOXES\.map/);
+        expect(fn![1]).toMatch(/r\.heightJoin === '3dbag'\)\s*return NL_3DBAG_NATIONAL_BBOXES/);
     });
 
     it('dispatches 3dbag as a NATIONAL_STAMP_TABLE row (stamp + working set), through the SHARED outcome recorder', () => {
@@ -54,7 +65,7 @@ describe('§NL-3DBAG-OSM-JOIN — bake.mjs wires the 3dbag stamp for the `nether
         // held footprint is stamped uncapped (~10² populated cells against maxTiles 20000) without a priority list.
         const table = bake.match(/const NATIONAL_STAMP_TABLE = \{([\s\S]*?)\n\};/);
         expect(table, 'NATIONAL_STAMP_TABLE').not.toBeNull();
-        expect(table![1]).toMatch(/'3dbag':\s*\{\s*stamp:\s*stampNl3dbagHeightsOnGeojsonseq,\s*bboxes:\s*NL_3DBAG_CITY_BBOXES\s*\}/);
+        expect(table![1]).toMatch(/'3dbag':\s*\{\s*stamp:\s*stampNl3dbagNationalHeightsOnGeojsonseq,\s*bboxes:\s*NL_3DBAG_NATIONAL_BBOXES\s*,\s*opts:\s*\{\s*priorityBboxes:\s*NL_3DBAG_CITY_BBOXES\.map/);
         // The table path must reach the SAME gate bookkeeping as the chain, bounded by stampBboxesFor.
         expect(bake).toMatch(/const tableStamp = NATIONAL_STAMP_TABLE\[r\.heightJoin\];/);
         // ⚠ WIDENED 2026-09-06 (lane USA-HEIGHTS-NATIONAL). The shared call now ends

@@ -198,10 +198,16 @@ describe('§MNH-FR-CITY-BBOXES — the france row working set', () => {
 describe('§HEIGHTS-FR-SOLID — bake.mjs wires the mnh_fr stamp for the `france` row', () => {
     const bake = readFileSync(resolve(HERE, '../bake.mjs'), 'utf8');
 
-    it('imports the stamp AND its working set from heightSources.mjs', () => {
+    // ⭐ §MNH-FR-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — bake.mjs now imports the
+    // NATIONAL wrapper from its own module (heights/mnhFrNationalStamp.mjs — the nl3dbagStamp
+    // shared-file rule), and the city list from heightSources.mjs, where it is the PRIORITY order.
+    // `stampMnhFrHeightsOnGeojsonseq` is NOT orphaned: it is what each bounded-heap band runs, and the
+    // wrapper imports it. bake.mjs simply no longer needs to name it.
+    it('imports the NATIONAL wrapper, and the city list it uses as the priority order', () => {
+        expect(bake).toMatch(/^import\s*\{[^}]*\bstampMnhFrNationalHeightsOnGeojsonseq\b[^}]*\}\s*from\s*'\.\/heights\/mnhFrNationalStamp\.mjs';/m);
+        expect(bake).toMatch(/^import\s*\{[^}]*\bMNH_FR_NATIONAL_BBOXES\b[^}]*\}\s*from\s*'\.\/heights\/mnhFrNationalStamp\.mjs';/m);
         const imp = bake.match(/^import\s*\{([^}]*)\}\s*from\s*'\.\/heightSources\.mjs';/m);
         expect(imp, 'heightSources.mjs import statement').not.toBeNull();
-        expect(imp![1]).toContain('stampMnhFrHeightsOnGeojsonseq');
         expect(imp![1]).toContain('MNH_FR_CITY_BBOXES');
     });
 
@@ -224,15 +230,26 @@ describe('§HEIGHTS-FR-SOLID — bake.mjs wires the mnh_fr stamp for the `france
         expect(row).toMatch(/heightJoin:\s*'mnh_fr'/);
     });
 
-    it('stampBboxesFor bounds the national join to MNH_FR_CITY_BBOXES (§HEIGHT-STAMP-BUDGET preflight)', () => {
+    // ⭐ §MNH-FR-NATIONAL-SWEEP (2026-09-06) — this pin used to REQUIRE MNH_FR_CITY_BBOXES, which means
+    // it pinned the DEFECT: thirteen metro boxes (~200 km² of a 551,695 km² country) were BOTH the
+    // priority order AND the retain set, so Toulon, Perpignan, Nîmes, Reims, Le Havre, Brest, Metz,
+    // Caen, Limoges, Ajaccio and every village were STRUCTURALLY unmeasurable and shipped the labelled
+    // `assumed` 9 m — on the map indistinguishable from "IGN has published nothing here". The file's own
+    // header had already said so ("the binding limit … is THIS FILE'S CITY LIST, not IGN's publication")
+    // and answered it by measuring 27 more cities BY HAND. The retain set is the country now; the list
+    // keeps its second job, the PRIORITY order, which the next assertion still pins.
+    it('stampBboxesFor gives the join the WHOLE-COUNTRY retain set (§HEIGHT-STAMP-BUDGET preflight)', () => {
         const fn = bake.match(/function stampBboxesFor\(r\)\s*\{([\s\S]*?)\n\}/);
         expect(fn, 'stampBboxesFor').not.toBeNull();
-        expect(fn![1]).toMatch(/r\.heightJoin === 'mnh_fr'\)\s*return MNH_FR_CITY_BBOXES\.map/);
+        expect(fn![1]).toMatch(/r\.heightJoin === 'mnh_fr'\)\s*return MNH_FR_NATIONAL_BBOXES/);
     });
 
-    it('dispatches mnh_fr to stampMnhFrHeightsOnGeojsonseq with priority = retained = the city list', () => {
+    it('dispatches mnh_fr to the NATIONAL stamp, IN THE PINNED CHAIN, with the city list as priority', () => {
+        // ⛔ The key stays in the chain rather than moving to NATIONAL_STAMP_TABLE: this assertion and
+        // swissWiring.spec.ts's `'mnh_fr' || 'swiss')` pin the chain as CONTIGUOUS TEXT, so lifting it
+        // out would break two sibling pins for no behavioural gain.
         expect(bake).toMatch(/r\.heightJoin === 'mds' \|\| r\.heightJoin === 'dhm' \|\| r\.heightJoin === 'lod2nrw' \|\| r\.heightJoin === 'mnh_fr'/);
         expect(bake).toMatch(/r\.heightJoin === 'mnh_fr' \? MNH_FR_CITY_BBOXES\.map\(\(c\) => c\.bbox\)/);
-        expect(bake).toMatch(/if \(r\.heightJoin === 'mnh_fr'\) res = await stampMnhFrHeightsOnGeojsonseq\(baseGeo, stamped, wsen, \{ maxTiles, priorityBboxes, retainBboxes \}\)/);
+        expect(bake).toMatch(/if \(r\.heightJoin === 'mnh_fr'\) res = await stampMnhFrNationalHeightsOnGeojsonseq\(baseGeo, stamped, wsen, \{ maxTiles, priorityBboxes, retainBboxes \}\)/);
     });
 });

@@ -35,7 +35,23 @@ import {
   BEV_ALS, AT_CITY_BBOXES, bevTileToken, laeaTileKey, laeaWindow, maskBevNodata, parseBevDatasetFeed, parseBevServiceFeed, pickBevDataset,
 } from './atHeights.mjs';
 
-export { AT_CITY_BBOXES };
+// §BEV-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — the shared whole-country kernel.
+import {
+  AT_BEV_NATIONAL_BBOXES, makeSweepBudget, nationalTileGrid, sweepPopulatedCells,
+  formatNationalSweepSummary, resolveSweepCursor, resolveSwatheRows,
+} from './nationalSweep.mjs';
+import { cursorCorner, foldBandResults, runSwathedNationalStamp } from './nationalSweepRunner.mjs';
+
+export { AT_CITY_BBOXES, AT_BEV_NATIONAL_BBOXES };
+
+/** Append retained (stamped or not) features in bounded chunks. `records.map(...).join('\n')` builds
+ *  ONE string as large as the whole band — a second copy of the working set at the exact moment the
+ *  band is at peak heap. Chunking keeps the spike at ~25k features. (mdsNational's `appendRetained`.) */
+function appendRetained(destPath, records, chunk = 25_000) {
+  for (let i = 0; i < records.length; i += chunk) {
+    appendFileSync(destPath, records.slice(i, i + chunk).map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  }
+}
 
 /** Lazy `geotiff` import — the module stays importable without the dep (the heightSources.mjs pattern). */
 let _geotiffMod = null;
@@ -78,8 +94,14 @@ async function readWindow(cog, win) {
  * @param bbox [w,s,e,n] WGS84 — the REGION bbox (whole Austria); the working set is `retainBboxes`.
  */
 export async function stampAtHeightsOnGeojsonseq(inPath, outPath, bbox, {
-  timeoutMs = 120_000, tileSpanDeg = 0.01, padM = 60, maxTiles = 4000, retainBboxes = null,
+  timeoutMs = 120_000, tileSpanDeg = 0.01, tileSpanLonDeg = null, tileSpanLatDeg = null,
+  padM = 60, maxTiles = 4000, retainBboxes = null, priorityBboxes = [],
   erodeM = 1.0, percentile = 90, minSamples = 4, sampleStep = 1.0,
+  // §BEV-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — the four options a bounded-heap
+  // band pass supplies. A caller that passes NONE of them (every city-sized row, every unit test)
+  // takes the identical path it took before: pass-through and retained both land in `outPath`, the
+  // budget is local, and the sweep is one pass.
+  passThroughPath = null, retainedOutPath = null, sweepBudget = null, sweepGrid = null,
 } = {}) {
   if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `AT BEV nDSM join: input footprints not found (${inPath})` };
   if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'AT BEV nDSM join: no bbox supplied' };
@@ -95,11 +117,13 @@ export async function stampAtHeightsOnGeojsonseq(inPath, outPath, bbox, {
     return { status: 'error', reason: `AT BEV nDSM join: the ATOM service feed did not answer as a feed (HTTP ${feedRes.status} ${feedRes.reason ?? ''}, ${feedRes.body?.length ?? 0} B) — the index refused us; footprints keep OSM default (a FAILURE, not "no tiles").`.replace(/\s+/g, ' ') };
   }
 
-  const [w, s, e, n] = bbox;
   const stampAreas = stampAreasFor(retainBboxes, bbox);
   mkdirSync(dirname(outPath), { recursive: true });
+  if (passThroughPath) mkdirSync(dirname(passThroughPath), { recursive: true });
   // §JOIN-BOUNDED-WORKING-SET — stream; hold only footprints inside a stamp bbox, projected to LAEA.
-  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
+  // In a banded run the rest goes to the NEXT band's input, not to the output, so each pass's input is
+  // strictly smaller than the last and peak heap tracks one band instead of the nation.
+  const load = loadJoinFootprintsBounded(inPath, passThroughPath ?? outPath, (feat) => {
     const fp = footprintFromFeature(feat);
     if (!fp) return null;
     if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
@@ -115,18 +139,25 @@ export async function stampAtHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const records = load.retained;
   const read = load.read;
 
-  const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
-  const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
-  const cellIx = (lon) => Math.min(nx - 1, Math.max(0, Math.floor((lon - w) / tileSpanDeg)));
-  const cellIy = (lat) => Math.min(ny - 1, Math.max(0, Math.floor((lat - s) / tileSpanDeg)));
-  const buckets = bucketRecords(records, (r) => [cellIx(r.clon), cellIy(r.clat)]);
+  // The grid is the REGION's, never the band's — so a cell `ord` means the same thing in every pass
+  // and a cursor written by one band is readable by the next (§NATIONAL-SWEEP).
+  const grid = sweepGrid ?? nationalTileGrid(bbox, {
+    lonDeg: tileSpanLonDeg ?? tileSpanDeg, latDeg: tileSpanLatDeg ?? tileSpanDeg,
+  });
+  const buckets = bucketRecords(records, (r) => [grid.cellIx(r.clon), grid.cellIy(r.clat)]);
+  // One shared budget across bands when the runner supplies one; a local, single-pass one otherwise.
+  const budget = sweepBudget ?? makeSweepBudget({ maxTiles });
   const cogs = new Map();          // tile token → { dsm, dtm } | { void: true } | { error: reason }
-  let processedTiles = 0, tileErrors = 0, voidTiles = 0, voidCells = 0, cellErrors = 0, tileCapHit = false, feedRequests = 1;
+  let processedTiles = 0, tileErrors = 0, voidTiles = 0, voidCells = 0, cellErrors = 0, priorityTiles = 0, feedRequests = 1;
   let windowsRead = 0, nodataPixels = 0, totalPixels = 0;
   const errorSamples = [];
-  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose (see the MDS join's catch).
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from the cap on purpose (see the MDS join's catch).
   let sweepAborted = false, sweepAbortReason = null;
-  const heights = [];
+  // The heights array is the BUDGET's, so the aggregate statistics belong to the whole sweep and not
+  // to whichever band ran last. `measuredAtStart` keeps THIS pass's own count honest for the fold.
+  const heights = budget.heights;
+  const measuredAtStart = heights.length;
+  const done = new Set();
   const t0 = Date.now();
 
   /** Resolve + open the DSM and DTM COGs for a 50 km tile ONCE. */
@@ -156,13 +187,13 @@ export async function stampAtHeightsOnGeojsonseq(inPath, outPath, bbox, {
     return entry;
   };
 
-  try {
-    // Sweep ONLY the populated cells, sorted → deterministic under the cap. The retained working set IS
-    // the city list, so every held footprint is visited (the swiss/au_open guarantee; no priority list).
-    for (const key of [...buckets.keys()].sort()) {
-      const inTile = buckets.get(key);
-      if (!inTile || inTile.length === 0) continue;
-      if (cogs.size >= maxTiles) { tileCapHit = true; break; }
+  /** Read ONE cell's COG windows and stamp its footprints. Returns TRUE when at least one window was
+   *  actually READ, so a refusal counts as an opened-but-failed cell and never as stamped ground. */
+  const stampCell = async (c, inTile) => {
+    {
+      const key = c.key;
+      if (!inTile || inTile.length === 0) return false;
+      let cellRead = false;
       // The cell's native extent = the LAEA envelope of its footprints, padded so eroded edges still sample.
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const r of inTile) for (const [X, Y] of r.extNative) { if (X < minX) minX = X; if (X > maxX) maxX = X; if (Y < minY) minY = Y; if (Y > maxY) maxY = Y; }
@@ -182,6 +213,7 @@ export async function stampAtHeightsOnGeojsonseq(inPath, outPath, bbox, {
           dtm = await withTimeout(readWindow(c.dtm, wt), timeoutMs, `${key} DTM window`);
         } catch (err) { cellErrors++; if (errorSamples.length < 5) errorSamples.push(`${key}: ${String(err?.message ?? err)}`); continue; }
         windowsRead += 2;
+        cellRead = true;
         nodataPixels += dsm.masked + dtm.masked; totalPixels += dsm.values.length + dtm.values.length;
         if (dsm.masked === dsm.values.length || dtm.masked === dtm.values.length) { voidCells++; continue; } // abroad: an honest void
         for (const r of recs) {
@@ -199,20 +231,49 @@ export async function stampAtHeightsOnGeojsonseq(inPath, outPath, bbox, {
           }
         }
       }
+      return cellRead;
     }
-  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
+  };
 
-  // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
-  const measured = heights.length;
-  heights.sort((a, b) => a - b);
+  try {
+    // §PRIORITY-FIRST — the priority bboxes are stamped FIRST and are NOT subject to `maxTiles`, so
+    // the metros are GUARANTEED measured heights on every run however early the national sweep is
+    // truncated. They DO respect the wall-clock deadline. (Empty for a city-sized caller.)
+    for (const pb of priorityBboxes) {
+      if (!Array.isArray(pb) || pb.length !== 4) continue;
+      const [pw, ps, pe, pn] = pb;
+      const before = windowsRead;
+      for (let iy = grid.cellIy(ps); iy <= grid.cellIy(pn) && !budget.stopReason; iy++) {
+        for (let ix = grid.cellIx(pw); ix <= grid.cellIx(pe); ix++) {
+          const key = `${ix},${iy}`;
+          if (done.has(key) || !buckets.has(key)) continue;
+          if (Date.now() > budget.deadlineAt) { budget.stopReason ??= 'time-budget-in-priority'; break; }
+          done.add(key);
+          await stampCell({ ix, iy, key, ord: grid.ordOf(ix, iy) }, buckets.get(key));
+        }
+      }
+      priorityTiles += Math.round((windowsRead - before) / 2);
+    }
+    // §NATIONAL-SWEEP — only POPULATED cells, in a DETERMINISTIC NUMERIC order (row-major
+    // south→north), resumable from the shared cursor. Never lexicographic: "10,3" sorts before "2,3"
+    // and makes a capped run un-resumable (mdsNational's scar).
+    await sweepPopulatedCells({ buckets, grid, budget, done, onCell: stampCell });
+  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); budget.stopReason ??= 'sweep-aborted'; } // §ABORT-IS-NOT-A-CAP
+
+  // Pass-through footprints went to `passThroughPath` (the next band's input) or straight to
+  // `outPath`; append the retained (stamped or not) ones — in bounded chunks, because
+  // `records.map(...).join('\n')` builds one string as large as the whole band at peak heap.
+  appendRetained(retainedOutPath ?? outPath, records);
+  const tileCapHit = String(budget.stopReason ?? '').startsWith('maxTiles');
+  const measured = heights.length - measuredAtStart;   // THIS pass's own — the fold sums bands
+  const sorted = [...heights].sort((a, b) => a - b);   // a copy: the budget array is shared across bands
   const tilesUsed = [...cogs.entries()].filter(([, c]) => c.dsm).map(([t, c]) => `${t} (DSM ${c.dsm.stichtag} · DTM ${c.dtm.stichtag})`);
   return {
     status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
-    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    heightStats: statsOf(sorted), heightSamples: sorted.slice(0, 8), priorityTiles,
     tilesProcessed: processedTiles, tileErrors: tileErrors + cellErrors, voidTiles, voidCells, cellErrors, emptyTiles: 0, tileCapHit, sweepAborted, sweepAbortReason,
-    tileGrid: `${buckets.size} populated 0.01° cell(s) over ${cogs.size} 50 km tile(s)`, tilesUsed, feedRequests, windowsRead,
+    tileGrid: `${buckets.size} populated ${grid.lonDeg}°×${grid.latDeg}° cell(s) over ${cogs.size} 50 km tile(s)`, tilesUsed, feedRequests, windowsRead,
     nodataFraction: totalPixels ? Number((nodataPixels / totalPixels).toFixed(3)) : null, errorSamples,
     elapsedS: Number(((Date.now() - t0) / 1000).toFixed(1)),
     retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
@@ -226,5 +287,118 @@ export async function stampAtHeightsOnGeojsonseq(inPath, outPath, bbox, {
       `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
       `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${windowsRead} window(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
       `; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §BEV-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — the WHOLE OF AUSTRIA, not five cities.
+//
+// ── THE DEFECT THIS REMOVES ─────────────────────────────────────────────────────────────────────
+// `stampBboxesFor('bev_at')` returned AT_CITY_BBOXES: vienna / graz / linz / salzburg / innsbruck, and
+// NOTHING ELSE in the country could ever be measured. Klagenfurt, Villach, Wels, St. Pölten, Dornbirn,
+// Bregenz, Wiener Neustadt and every Alpine village shipped the labelled `assumed` 9 m — on the map
+// indistinguishable from "the source has no data here" (L-422/457/467/469). Same shape as Ciudad Real
+// (L-12946), and it was never BEV's limit.
+//
+// ── THE SOURCE WAS ALREADY NATIONAL, IN THIS REPO'S OWN WORDS ───────────────────────────────────
+// heights/atHeights.mjs's header, from the 2026-09-05 probe of the INSPIRE ATOM service feed:
+// "672 entries = 55 tiles × {DSM, DTM} × 6 Stichtage … EVERY tile is present in EVERY Stichtag —
+// 55/55 DSM and 55/55 DTM for 2025", and "Coverage is the whole country (55 tiles)". FIFTY-FIVE COG
+// TILES COVER AUSTRIA. The join opened five city boxes out of them. Nothing had to be discovered to
+// widen this — only the retain set had to stop being a city list.
+//
+// ── WHY THIS SWEEP IS CHEAP, AND WHY THAT IS A MEASUREMENT AND NOT A HOPE ───────────────────────
+// Unlike the ES/FR/CZ raster joins, BEV is read by HTTP RANGE out of a Cloud-Optimised BigTIFF, and
+// the window this stamp asks for is the LAEA ENVELOPE OF THE CELL'S OWN FOOTPRINTS, not the cell. So
+// the bytes track BUILDINGS, not ground: empty Alpine cells are never requested at all (they hold no
+// footprint, so they are not populated cells), and a sparse village cell costs a window a few hundred
+// metres across. The probed cost, from atHeights.mjs: a 301 × 301 m window read in 0.89 s (DSM) +
+// 0.78 s (DTM), against a 9-IFD 50001² COG whose header opens once per 50 km tile and is CACHED
+// (`cogs`) for every later cell in it.
+//
+// ── WHAT IS STILL BOUNDED, AND SAID OUT LOUD ────────────────────────────────────────────────────
+// 770 × 275 = 211,750 cells over the `austria` bbox at 0.01°; only POPULATED ones are visited. The run
+// still takes a declared slice (`budgetMs`), stamps the five metros FIRST and UNCAPPED, prints an EXACT
+// resume cursor and the populated km² it SKIPPED. ⚠ Successive runs do NOT accumulate into one tileset
+// today — each bake regenerates the stamped file, so a second dispatch with AT_SWEEP_CURSOR stamps a
+// DIFFERENT slice. Spain's named limitation (§MDS-NATIONAL-SWEEP "HONESTY LIMIT"), inherited unchanged.
+//
+// ⛔ THE CELL STAYS 0.01°. It is not a raster request size here — it is how many footprints share one
+//    window, and a bigger cell makes the LAEA envelope (and therefore the window) span more empty
+//    ground between villages. Widening it costs bytes rather than saving requests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Cell of the Austrian national sweep. Unchanged from the city join: see the ⛔ above. */
+export const AT_TILE_DEG = 0.01;
+/** Tile rows per bounded-heap pass. 30 × 0.01° = 0.30° of latitude ≈ 11 % of the country's rows. */
+export const AT_SWATHE_ROWS = 30;
+
+/**
+ * Stamp BEV ALS nDSM heights across the WHOLE of Austria, one bounded-heap band at a time.
+ *
+ * Same join, same COG windows, same honesty rules as `stampAtHeightsOnGeojsonseq` — this only changes
+ * WHERE it is allowed to look (the country, not five boxes) and adds the machinery that makes that
+ * survivable: swathe passes, an ordered numeric sweep, a resume cursor and loud truncation.
+ *
+ * @param bbox [w,s,e,n] WGS84 — the `austria` bake row's bbox.
+ */
+export async function stampAtNationalHeightsOnGeojsonseq(inPath, outPath, bbox, {
+  maxTiles = 20_000, retainBboxes = null, sweepCursor = null, sweepBudgetMs = null, swatheRows = null,
+  priorityBboxes = AT_CITY_BBOXES.map((c) => c.bbox), ...rest
+} = {}) {
+  if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'AT BEV nDSM national join: no bbox supplied' };
+  const grid = nationalTileGrid(bbox, { lonDeg: AT_TILE_DEG, latDeg: AT_TILE_DEG });
+  const budgetMin = Number(process.env.AT_SWEEP_BUDGET_MIN ?? 90) || 90;
+  const budget = makeSweepBudget({
+    maxTiles,
+    budgetMs: Number(sweepBudgetMs ?? budgetMin * 60_000) || 0,
+    startCursor: resolveSweepCursor(sweepCursor, process.env.AT_SWEEP_CURSOR),
+  });
+  const rows = resolveSwatheRows(swatheRows, process.env.AT_SWATHE_ROWS, AT_SWATHE_ROWS);
+  const areas = Array.isArray(retainBboxes) && retainBboxes.length ? retainBboxes : AT_BEV_NATIONAL_BBOXES;
+
+  const run = await runSwathedNationalStamp({
+    stamp: stampAtHeightsOnGeojsonseq,
+    inPath, outPath, bbox, retainBboxes: areas, grid, swatheRows: rows, budget, label: 'BEV ALS nDSM',
+    callOpts: {
+      ...rest, maxTiles, tileSpanLonDeg: AT_TILE_DEG, tileSpanLatDeg: AT_TILE_DEG, priorityBboxes,
+    },
+  });
+  if (run.status === 'error') return { status: 'error', reason: run.reason };
+  if (!run.results.length) return { status: 'documented', reason: 'AT BEV nDSM national join: no band held a footprint.' };
+
+  const ok = run.results.filter((r) => r.status === 'ok');
+  const fold = foldBandResults(ok, {
+    sum: ['footprintCount', 'measuredCount', 'retainedFootprints', 'tilesProcessed', 'priorityTiles',
+      'tileErrors', 'voidTiles', 'voidCells', 'cellErrors', 'windowsRead', 'feedRequests', 'populatedCells'],
+    max: ['peakHeapUsedMB', 'heapLimitMB'],
+    concat: ['errorSamples', 'tilesUsed'],
+  });
+  const heights = [...budget.heights].sort((a, b) => a - b);
+  const corner = cursorCorner(grid, budget.nextCursor);
+  const sweep = {
+    stopReason: budget.stopReason ?? 'complete',
+    cellsStamped: budget.cellsStamped, km2Stamped: budget.km2Stamped,
+    cellsSkipped: budget.cellsSkipped, km2Skipped: budget.km2Skipped,
+    swathesTotal: budget.swathesTotal, swathesScanned: budget.swathesScanned,
+    nextCursor: budget.nextCursor, nextCursorLat: corner.lat, nextCursorLon: corner.lon,
+  };
+  return {
+    status: 'ok', outPath, ...fold,
+    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    coverage: fold.footprintCount ? Number((fold.measuredCount / fold.footprintCount).toFixed(3)) : 0,
+    tileGrid: `${grid.nx}×${grid.ny}`, tileSpanDeg: AT_TILE_DEG,
+    tileCapHit: String(budget.stopReason ?? '').startsWith('maxTiles'),
+    sweepAborted: ok.some((r) => r.sweepAborted), sweepAbortReason: ok.find((r) => r.sweepAborted)?.sweepAbortReason ?? null,
+    attribution: BEV_ALS.attribution,
+    sweep, sweepCursorFrom: budget.startCursor, swatheRows: rows, stampAreas: areas.length,
+    note: `BEV ALS nDSM (P90 of ALS DSM − ALS DTM over the eroded footprint, 1 m COG windows) stamped onto OSM `
+      + `footprints across the WHOLE COUNTRY → ${fold.measuredCount}/${fold.footprintCount} RETAINED footprint(s) got a `
+      + `MEASURED height; ${fold.passedThroughFootprints} never held by any band passed through with their ORIGINAL `
+      + `OSM tags; ${fold.windowsRead} window(s) read over ${fold.populatedCells} populated ${AT_TILE_DEG}° cell(s), `
+      + `${fold.voidTiles} void tile(s), ${fold.voidCells} void cell(s), ${fold.tileErrors} error(s). `
+      + `${formatNationalSweepSummary(sweep, { label: 'BEV ALS national sweep', cursorEnv: 'AT_SWEEP_CURSOR' })} `
+      + `Priority metros (${priorityBboxes.length}) are stamped UNCAPPED in their own band. `
+      + `Peak heap ${fold.peakHeapUsedMB} MB of ${fold.heapLimitMB} MB.`,
   };
 }

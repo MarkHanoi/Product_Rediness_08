@@ -54,6 +54,28 @@ import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readSync, u
 export const SEQ_WRITE_CHUNK_CHARS = 8 * 1024 * 1024;
 export function writeFeaturesSeq(path, feats) {
   writeFileSync(path, '');
+  return appendFeaturesSeq(path, feats);
+}
+
+/**
+ * §SEQ-APPEND-STREAMED (L-12978) — the APPEND half, and the reason it exists.
+ *
+ * The comment above used to end: *"the per-batch `records.map(...).join` writes elsewhere in this
+ * file are already bounded by their batch size and are left alone."* **That premise is false for a
+ * NATIONAL sweep.** In `stampMnhFrHeightsOnGeojsonseq`, `stampDhmHeightsOnGeojsonseq` and
+ * `stampSwissHeightsOnGeojsonseq`, `records` is not a batch — it is every RETAINED footprint for the
+ * whole country, accumulated across the entire swathe sweep and written once at the end. France has
+ * millions, so that single `.join('\n')` builds a string past V8's ~512 MiB cap.
+ *
+ * MEASURED: run 34030652876 (`region=france footprints=official`) ran the full 170 minutes, produced
+ * a 3.8 GB buildings.pmtiles, and then died at the gate with
+ *   "✖ france (mnh_fr): error — 0 measured height(s). Invalid string length"
+ *   "✖ MEASURED-HEIGHT GATE FAILED — 1 region(s) that declare a height join shipped ZERO measured"
+ * i.e. the whole bake was thrown away at the last step, for the second time (L-12937 was the same
+ * `Invalid string length` in the same country). The gate did its job — it refused to publish a
+ * fabricated 9 m carpet — but the cost is a 170-minute run each time.
+ */
+export function appendFeaturesSeq(path, feats) {
   let buf = '';
   let n = 0;
   for (const f of feats) {
@@ -92,6 +114,15 @@ export {
   MDS_SWEEP_CONCURRENCY, MDS_MAX_SPAN_LAT_DEG, MDS_MAX_SPAN_LON_DEG,
 };
 export { MNH_FR, MNH_FR_CITY_BBOXES, SWISS_NDSM, SWISS_CITY_BBOXES, AU_OPEN_HEIGHTS, AU_OPEN_CITY_BBOXES, AU_OPEN_HEIGHTS_ASSESSED };
+// §NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — the SHARED whole-country kernel, extracted
+// from mdsNational.mjs / usOpenHeights.mjs so a fourth country does not hand-roll a fourth copy of the same
+// eight functions. Spain and the USA are deliberately NOT refactored onto it (their constants are pinned
+// byte-for-byte by two live specs); the duplication is NAMED in heights/nationalSweep.mjs, not hidden.
+import {
+  MNH_FR_NATIONAL_BBOX, MNH_FR_NATIONAL_BBOXES,
+  makeSweepBudget, nationalTileGrid, sweepPopulatedCells,
+} from './heights/nationalSweep.mjs';
+export { MNH_FR_NATIONAL_BBOX, MNH_FR_NATIONAL_BBOXES };
 // §NL-3DBAG-OSM-JOIN (2026-09-05, lane HEIGHTS-NL) — the Dutch stamp lives in heights/nl3dbagStamp.mjs (imported by bake.mjs
 // directly, not through this file) and reuses the shared join helpers below via this ONE export line.
 // ⭐ `appendFileInto` joined this line 2026-09-06 (lane USA-HEIGHTS-NATIONAL, §USAS-SWATHE). It is the
@@ -2690,7 +2721,9 @@ export async function stampDhmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  // §SEQ-APPEND-STREAMED (L-12978) — `records` here is the WHOLE-COUNTRY retained set for a
+  // national sweep, NOT a batch: one .join() past V8's ~512 MiB cap is what killed run 34030652876.
+  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   const emptyTiles = Math.max(0, nx * ny - buckets.size);
@@ -2859,7 +2892,9 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  // §SEQ-APPEND-STREAMED (L-12978) — `records` here is the WHOLE-COUNTRY retained set for a
+  // national sweep, NOT a batch: one .join() past V8's ~512 MiB cap is what killed run 34030652876.
+  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   return {
@@ -2913,15 +2948,21 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
 // interior is the same mitigation DK/CH apply to their surface models.
 export async function stampMnhFrHeightsOnGeojsonseq(inPath, outPath, bbox, {
   timeoutMs = 120_000,
-  tileSpanDeg = 0.01, resM = 1.0, maxTilePx = MNH_FR.maxPx, maxTiles = 4000, padDeg = 0.001,
+  tileSpanDeg = 0.01, tileSpanLonDeg = null, tileSpanLatDeg = null,
+  resM = 1.0, maxTilePx = MNH_FR.maxPx, maxTiles = 4000, padDeg = 0.001,
   priorityBboxes = [], retainBboxes = null, coveragePrecheck = true,
   erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 1.0,
+  // §MNH-FR-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-A) — the band-pass options, plus
+  // `cellPrecheck`. A caller that passes NONE of them (a city-sized row, a unit test) takes the
+  // identical path it took before: one pass, a local budget, everything into `outPath`.
+  passThroughPath = null, retainedOutPath = null, sweepBudget = null, sweepGrid = null,
+  cellPrecheck = false,
 } = {}) {
   if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `MNH-FR join: input footprints not found (${inPath})` };
   if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'MNH-FR join: no bbox supplied' };
   const gt = await loadGeoTiff();
   if (!gt) return { status: 'documented', reason: 'MNH-FR join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
-  const [w, s, e, n] = bbox;
+  // (the region corners come from `grid` now — §MNH-FR-NATIONAL-SWEEP)
 
   // §MNH-FR-COVERAGE-PRECHECK — one ~100 ms hits query per stamp area, BEFORE a footprint is held.
   const declaredAreas = stampAreasFor(retainBboxes, bbox);
@@ -2948,7 +2989,10 @@ export async function stampMnhFrHeightsOnGeojsonseq(inPath, outPath, bbox, {
   }
 
   mkdirSync(dirname(outPath), { recursive: true });
-  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
+  if (passThroughPath) mkdirSync(dirname(passThroughPath), { recursive: true });
+  // In a banded run the pass-through goes to the NEXT band's input, not to the output, so each pass's
+  // input is strictly smaller than the last and peak heap tracks one band instead of the nation.
+  const load = loadJoinFootprintsBounded(inPath, passThroughPath ?? outPath, (feat) => {
     const fp = footprintFromFeature(feat);
     if (!fp) return null;
     if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
@@ -2958,27 +3002,49 @@ export async function stampMnhFrHeightsOnGeojsonseq(inPath, outPath, bbox, {
   const records = load.retained;
   const read = load.read;
 
-  const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
-  const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
-  const cellIx = (lon) => Math.min(nx - 1, Math.max(0, Math.floor((lon - w) / tileSpanDeg)));
-  const cellIy = (lat) => Math.min(ny - 1, Math.max(0, Math.floor((lat - s) / tileSpanDeg)));
-  const buckets = bucketRecords(records, (r) => [cellIx(r.clon), cellIy(r.clat)]);
+  // The grid is the REGION's, never the band's — so a cell `ord` means the same thing in every pass
+  // and a cursor written by one band is readable by the next (§NATIONAL-SWEEP).
+  const grid = sweepGrid ?? nationalTileGrid(bbox, {
+    lonDeg: tileSpanLonDeg ?? tileSpanDeg, latDeg: tileSpanLatDeg ?? tileSpanDeg,
+  });
+  const nx = grid.nx, ny = grid.ny;
+  const buckets = bucketRecords(records, (r) => [grid.cellIx(r.clon), grid.cellIy(r.clat)]);
+  // One shared budget across bands when the runner supplies one; a local, single-pass one otherwise.
+  const budget = sweepBudget ?? makeSweepBudget({ maxTiles });
   const doneCells = new Set();
-  let processedTiles = 0, tileErrors = 0, voidTiles = 0, tileCapHit = false, priorityTiles = 0;
+  let processedTiles = 0, tileErrors = 0, voidTiles = 0, priorityTiles = 0;
   let nodataPixels = 0, totalPixels = 0, bytesFetched = 0;
-  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose (see the MDS join's catch).
+  let cellsPrechecked = 0, cellsSkippedNoDalle = 0, precheckUnknown = 0;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from the cap on purpose (see the MDS join's catch).
   let sweepAborted = false, sweepAbortReason = null;
-  const heights = [];
-  const processCell = async (ix, iy, respectCap) => {
+  // The heights array is the BUDGET's, so the aggregate statistics belong to the whole sweep and not
+  // to whichever band ran last. `measuredAtStart` keeps THIS pass's own count honest for the fold.
+  const heights = budget.heights;
+  const measuredAtStart = heights.length;
+  const processCell = async (ix, iy) => {
     const key = `${ix},${iy}`;
-    if (doneCells.has(key)) return false;
     const inTile = buckets.get(key);
     if (!inTile || inTile.length === 0) return false;
-    if (respectCap && processedTiles >= maxTiles) { tileCapHit = true; return true; }
     doneCells.add(key);
-    const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
-    const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
+    const tw = grid.w + ix * grid.lonDeg, ts = grid.s + iy * grid.latDeg;
+    const te = Math.min(tw + grid.lonDeg, grid.e), tn = Math.min(ts + grid.latDeg, grid.n);
     const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
+    // §MNH-FR-CELL-PRECHECK — at national scale the per-AREA precheck says "covered" for the whole of
+    // France and saves nothing, while LiDAR HD is genuinely UNPUBLISHED over real ground (probed
+    // 2026-09-06: Vannes 5 dalles… no — numberMatched="0"; Dordogne 105, Clermont 108, Nancy 106,
+    // Dunkerque 64, inland Corsica 115). One ~0.2 s hits query per cell buys back a ~39 MB / ~15 s
+    // GetMap wherever IGN has published nothing. ⛔ THREE-VALUED, never two: a FAILED hits request is
+    // UNKNOWN and the raster is fetched anyway. Collapsing "the index refused us" into "there is
+    // nothing here" is the failure-vs-empty conflation this repo keeps re-learning (L-422/457/467/469).
+    if (cellPrecheck) {
+      cellsPrechecked++;
+      let hits = null;
+      try { const hr = await httpGet(mnhFrDalleHitsUrl(rbox), { timeoutMs: 30_000 }); hits = hr.ok ? parseWfsHits(hr.body) : null; }
+      catch { hits = null; }
+      const verdict = classifyDalleCoverage(hits);
+      if (verdict === 'none') { cellsSkippedNoDalle++; return true; }  // READ (asked and answered), not stamped
+      if (verdict === 'unknown') precheckUnknown++;
+    }
     const rr = await httpGetBuffer(mnhFrGetMapUrl(rbox, mnhFrPxDims(rbox, resM, maxTilePx)), { timeoutMs });
     if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; return false; }
     bytesFetched += rr.ab.byteLength;
@@ -2989,7 +3055,7 @@ export async function stampMnhFrHeightsOnGeojsonseq(inPath, outPath, bbox, {
     const masked = maskNodata(mnh.values, MNH_FR.nodata);
     nodataPixels += masked; totalPixels += mnh.values.length;
     processedTiles++;
-    if (masked === mnh.values.length) { voidTiles++; return false; } // unpublished ground: an honest void, not an error.
+    if (masked === mnh.values.length) { voidTiles++; return true; } // unpublished ground: an honest void, not an error.
     for (const r of inTile) {
       const h = mdsHeightForBuilding(r.ext, r.interiors, mnh, { erodeM, percentile, minSamples, sampleStepM });
       if (h) {
@@ -2997,37 +3063,46 @@ export async function stampMnhFrHeightsOnGeojsonseq(inPath, outPath, bbox, {
         heights.push(h.height);
       }
     }
-    return false;
+    return true;
   };
   try {
     // Priority areas first (UNCAPPED) — each listed city is guaranteed its heights before the sweep
     // can exhaust `maxTiles`. A priority bbox with no retained footprints stamps nothing — harmless.
+    // They DO respect the wall-clock deadline: a job that dies at the ceiling publishes nothing.
     for (const pb of priorityBboxes) {
       if (!Array.isArray(pb) || pb.length !== 4) continue;
       const [pw, ps, pe, pn] = pb;
       const before = processedTiles;
-      for (let iy = cellIy(ps); iy <= cellIy(pn); iy++) {
-        for (let ix = cellIx(pw); ix <= cellIx(pe); ix++) await processCell(ix, iy, false);
+      for (let iy = grid.cellIy(ps); iy <= grid.cellIy(pn) && !budget.stopReason; iy++) {
+        for (let ix = grid.cellIx(pw); ix <= grid.cellIx(pe); ix++) {
+          if (doneCells.has(`${ix},${iy}`)) continue;
+          if (Date.now() > budget.deadlineAt) { budget.stopReason ??= 'time-budget-in-priority'; break; }
+          await processCell(ix, iy);
+        }
       }
       priorityTiles += processedTiles - before;
     }
-    // Sweep ONLY the populated cells, sorted → deterministic under the cap.
-    const rest = [...buckets.keys()].filter((k) => !doneCells.has(k)).sort();
-    for (const k of rest) {
-      const [ix, iy] = k.split(',').map(Number);
-      if (await processCell(ix, iy, true)) break;
-    }
-  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
+    // §NATIONAL-SWEEP — only POPULATED cells, in a DETERMINISTIC NUMERIC order (row-major south→north),
+    // resumable from the shared cursor. Never lexicographic: "10,3" sorts before "2,3" and makes a
+    // capped run un-resumable (mdsNational's scar).
+    await sweepPopulatedCells({
+      buckets, grid, budget, done: doneCells, onCell: (c) => processCell(c.ix, c.iy),
+    });
+  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); budget.stopReason ??= 'sweep-aborted'; } // §ABORT-IS-NOT-A-CAP
 
-  // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
-  const measured = heights.length;
-  heights.sort((a, b) => a - b);
+  // Pass-through footprints went to `passThroughPath` (the next band's input) or straight to `outPath`;
+  // append the retained (stamped or not) ones, in bounded chunks (`appendRetained` — the whole-band
+  // string this replaced was a second copy of the working set at peak heap).
+  appendRetained(retainedOutPath ?? outPath, records);
+  const tileCapHit = String(budget.stopReason ?? '').startsWith('maxTiles');
+  const measured = heights.length - measuredAtStart;   // THIS pass's own — the fold sums bands
+  const sorted = [...heights].sort((a, b) => a - b);   // a copy: the budget array is shared across bands
   const emptyTiles = Math.max(0, nx * ny - buckets.size);
   return {
     status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
     coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
-    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    heightStats: statsOf(sorted), heightSamples: sorted.slice(0, 8),
+    cellsPrechecked, cellsSkippedNoDalle, precheckUnknown,
     tilesProcessed: processedTiles, priorityTiles, tileErrors, voidTiles, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
     nodataFraction: totalPixels ? Number((nodataPixels / totalPixels).toFixed(3)) : null,
     bytesFetchedMB: Number((bytesFetched / 1e6).toFixed(1)),
@@ -3041,6 +3116,7 @@ export async function stampMnhFrHeightsOnGeojsonseq(inPath, outPath, bbox, {
       `${skippedAreas ? ` (${skippedAreas} declared area(s) skipped — IGN has published no MNH dalle there yet)` : ''}; ` +
       `${processedTiles} tile(s)${priorityTiles ? ` (${priorityTiles} in ${priorityBboxes.length} priority bbox(es) first)` : ''}, ` +
       `${voidTiles} void (unpublished) tile(s), ${tileErrors} raster error(s), ${(bytesFetched / 1e6).toFixed(0)} MB fetched` +
+      `${cellsPrechecked ? `; ${cellsSkippedNoDalle} of ${cellsPrechecked} prechecked cell(s) SKIPPED — IGN's dalle index lists no published MNH there (an honest EMPTY, not a failure); ${precheckUnknown} precheck(s) UNKNOWN and sampled anyway` : ''}` +
       `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
       `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
       `; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
@@ -3145,7 +3221,9 @@ export async function stampAuOpenHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  // §SEQ-APPEND-STREAMED (L-12978) — `records` here is the WHOLE-COUNTRY retained set for a
+  // national sweep, NOT a batch: one .join() past V8's ~512 MiB cap is what killed run 34030652876.
+  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   const emptyTiles = Math.max(0, nx * ny - buckets.size);
