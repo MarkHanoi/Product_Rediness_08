@@ -132,7 +132,16 @@ jobs:
           HOSTDIR="${RUNNER_TEMP:-/tmp}/geotiff-host"
           rm -rf "$HOSTDIR"; mkdir -p "$HOSTDIR"
           printf '{"name":"pryzm-geotiff-host","private":true}\n' > "$HOSTDIR/package.json"
-          ( cd "$HOSTDIR" && npm install --no-package-lock geotiff@2.1.3 )
+          # §CANOPY-NEEDS-PROJ4-TOO (L-12974) — proj4 is provisioned here for the SAME reason
+          # context-bake.yml:184 provisions it: `bake.mjs` is ONE entry point, so this job's
+          # `--layer canopy` still loads the whole module graph, and that graph now reaches
+          # footprints/esCatastro.mjs → proj4. Without it the run dies at the scope preview with
+          #   ERR_MODULE_NOT_FOUND: Cannot find package 'proj4' imported from …/esCatastro.mjs
+          # ⚠ THE STANDING HAZARD: every new bake.mjs dependency must be added to BOTH workflows.
+          # This job provisions a SUBSET of what the main bake does, so a dependency landed against
+          # context-bake.yml alone leaves this one broken — which is exactly what happened here, and
+          # what the missing jpPlateauStamp.mjs did one level up (§BAKE-IMPORTS-MUST-BE-TRACKED).
+          ( cd "$HOSTDIR" && npm install --no-package-lock geotiff@2.1.3 proj4@2 )
           DEST="$GITHUB_WORKSPACE/tools/context-bake/node_modules"
           mkdir -p "$DEST"
           cp -R "$HOSTDIR/node_modules/." "$DEST/"
