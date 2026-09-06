@@ -84,6 +84,17 @@ export {
   type DeleteSolidParams,
 } from './ops/delete-solid.js';
 
+/* ── lane UCE-ACCEPTANCES (§82.4-DIRECTED-EXTRUDE) — the op that makes a
+ * reference plane CONSEQUENTIAL. `add-reference-plane` could put a datum in the
+ * document and nothing read it; `produceExtrude` now sweeps along any axis, so
+ * this op binds a solid to a plane and writes that plane's unit normal as the
+ * sweep direction — both fields in one act, because two ops would make
+ * "profile on the wall plane, extrusion still vertical" persistable. */
+export {
+  makeSetExtrudeWorkPlaneMigrator,
+  type SetExtrudeWorkPlaneParams,
+} from './ops/set-extrude-work-plane.js';
+
 /* ── lane UCE-FAMILY — the two ops that make the definition EDITOR half real ──
  * `update-profile` is lane U3's OWED O-1 (profile geometry write-back — without
  * it a mounted sketch surface cannot persist a single dragged vertex);

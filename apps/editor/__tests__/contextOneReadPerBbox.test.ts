@@ -26,16 +26,10 @@ vi.mock('../src/ui/geospatial/contextTiles', async (importOriginal) => {
         contextTilesEnabled: () => true,
         // A read that does NOT settle until the test says so — the whole point is to have two
         // callers overlap, which cannot happen if the first read resolves synchronously.
-        // ⚠ `tilesFailed` IS LOAD-BEARING and was missing here. §CTX-TILE-READ-HONESTY (L-778) made
-        // `fetchForBbox` cache the result only when `tiled.tilesFailed === 0`; against `undefined`
-        // that is false, so this mock's CLEAN read was treated as a PARTIAL one, nothing was cached,
-        // and the fourth caller below issued a second read that no `h.resolve` ever settled — the
-        // test timed out instead of failing an assertion, which is why it read as flake. A mock that
-        // omits a field the code branches on does not test the code; it tests the omission.
         readContextTileFeatures: vi.fn(async () => {
             h.reads++;
             await new Promise((r) => { h.resolve = r; });
-            return { status: 'ok' as const, features: [], tilesRead: 42, tilesFailed: 0, ms: 1000 };
+            return { status: 'ok' as const, features: [], tilesRead: 42, ms: 1000 };
         }),
     };
 });

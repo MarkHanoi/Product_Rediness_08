@@ -53,6 +53,13 @@ export interface ProfilePoint {
   readonly z: number;
 }
 
+/** A 3D vector in the producer's own (dimensionless) component spelling. */
+export interface ExtrudeDirection {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
 export interface ExtrudeOptions {
   /** Material key for the entire extrusion. Defaults to `'extrude|default'`. */
   readonly material?: MaterialKey;
@@ -60,8 +67,43 @@ export interface ExtrudeOptions {
    * World-Y origin of the bottom cap, in metres. Defaults to 0.
    * Useful when the family wants to position the descriptor at a
    * specific level elevation without a separate transform step.
+   *
+   * ⚠ With `direction` set, this offsets the bottom cap along the EXTRUSION
+   *   AXIS before the axis is rotated into place — it stays "how far up the
+   *   sweep the solid starts", which is what every existing caller means by it.
    */
   readonly worldY?: number;
+  /**
+   * ⭐ §82.4-DIRECTED-EXTRUDE (STR-UCE-MASTER-SPEC §82.4 — *"extrusion on ANY
+   * work plane, not +Y only"*). The direction the profile is swept along, as a
+   * vector this producer normalises. Defaults to `+Y`, which is what every
+   * caller before this option got and still gets **byte-identically**: the
+   * default path is not merely equivalent, it is the same code with no rotation
+   * applied and no extra term in the hash.
+   *
+   * ─── THE GEOMETRIC CONTRACT, EXACTLY ────────────────────────────────────────
+   * The profile is authored in the plane PERPENDICULAR to the sweep, in the
+   * producer's own XZ ordinates, and the finished solid is the +Y build rotated
+   * by the MINIMAL rotation carrying `+Y` to the unit `direction` (Rodrigues
+   * about `+Y × d̂`). Minimal, and named as such, because it is the only choice
+   * that needs no second field: a general work-plane placement also fixes the
+   * SPIN about the axis, and this producer is deliberately NOT given one —
+   * `ReferencePlaneSchema` persists no in-plane basis (see §4D-SCHEMA-DELTA in
+   * `bakeFamilyInstance`), so accepting a spin here would invent an orientation
+   * the document cannot state. A caller needing a spin must persist a basis
+   * first.
+   *
+   * ⛔ It REFUSES rather than substitutes (spec §75): a non-finite or
+   *    zero-length vector throws `DescriptorInvariantError` — it never silently
+   *    falls back to +Y, which is exactly the defect the bake's own
+   *    §4D-DIRECTION-IS-NOT-READ refusal was written against.
+   *
+   * ⭐ Antiparallel (`-Y`) is handled explicitly, not left to a degenerate
+   *    cross product: the rotation is π about `+X`. A rotation matrix built
+   *    from a zero-length axis would be all-NaN, and NaN geometry is the shape
+   *    of bug that reaches the screen as "nothing drawn, no reason".
+   */
+  readonly direction?: ExtrudeDirection;
 }
 
 export interface ExtrudeResult extends BufferGeometryDescriptor {
@@ -118,6 +160,10 @@ export const produceExtrude: ExtrudeProducer = (profile, heightM, options) => {
   const worldY = options?.worldY ?? 0;
   const topY = worldY + heightM;
   const material = options?.material ?? asMaterialKey('extrude|default');
+  // §82.4-DIRECTED-EXTRUDE — resolved BEFORE any array is filled, so a refused
+  // direction costs nothing and, more importantly, cannot half-build a solid.
+  // `null` = the +Y default = the untouched pre-existing path.
+  const rotation = resolveExtrudeRotation(options?.direction);
 
   const n = ccw.length;
   const totalVerts = 6 * n;
@@ -202,6 +248,19 @@ export const produceExtrude: ExtrudeProducer = (profile, heightM, options) => {
     uv[2 * (sideBase + 3) + 1] = heightM;
   }
 
+  // ── 3b. §82.4-DIRECTED-EXTRUDE — rotate the finished build into place. ──
+  // ⭐ AFTER the arrays are written and BEFORE the indices, deliberately: the
+  //    rotation is a RIGID motion, so winding, triangulation and the index
+  //    buffer below are invariant under it (det R = +1). Rotating the vertices
+  //    rather than re-deriving the whole build along an arbitrary axis is what
+  //    keeps ONE body of extrusion arithmetic in this file — a second,
+  //    axis-general fill would be the rival producer §76 gate B forbids.
+  //    UVs are untouched: they are surface parameters, not world coordinates.
+  if (rotation !== null) {
+    rotateTriples(position, rotation);
+    rotateTriples(normal, rotation);
+  }
+
   // ── 4. Indices. ───────────────────────────────────────────────────
   const capTriangles = triangulateCap(ccw); // n-2 triangles, indices into ccw
   const sideTriCount = 2 * n;
@@ -235,15 +294,41 @@ export const produceExtrude: ExtrudeProducer = (profile, heightM, options) => {
   }
 
   // ── 5. Bounds + groups + hash. ────────────────────────────────────
+  // ⛔ TWO PATHS, AND THE SPLIT IS DELIBERATE. The +Y path keeps measuring the
+  //    DOUBLE-precision profile ordinates exactly as before — replacing it with
+  //    a scan of the Float32 position buffer would shift every existing
+  //    descriptor's bounds by a float32 rounding step and quietly rewrite
+  //    snapshots that have nothing to do with this change. The directed path
+  //    MUST scan the written vertices: the rotated extent is not derivable from
+  //    the profile's XZ box, and a bounds box that disagreed with the geometry
+  //    it describes reaches the user as a wrongly culled or wrongly framed solid.
   let minX = Infinity;
+  let minY = worldY;
   let minZ = Infinity;
   let maxX = -Infinity;
+  let maxY = topY;
   let maxZ = -Infinity;
-  for (const p of ccw) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.z < minZ) minZ = p.z;
-    if (p.z > maxZ) maxZ = p.z;
+  if (rotation === null) {
+    for (const p of ccw) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.z < minZ) minZ = p.z;
+      if (p.z > maxZ) maxZ = p.z;
+    }
+  } else {
+    minY = Infinity;
+    maxY = -Infinity;
+    for (let i = 0; i < position.length; i += 3) {
+      const px = position[i]!;
+      const py = position[i + 1]!;
+      const pz = position[i + 2]!;
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+      if (pz < minZ) minZ = pz;
+      if (pz > maxZ) maxZ = pz;
+    }
   }
 
   const descriptor: BufferGeometryDescriptor = {
@@ -252,30 +337,124 @@ export const produceExtrude: ExtrudeProducer = (profile, heightM, options) => {
     uv,
     index,
     bounds: {
-      min: { x: minX, y: worldY, z: minZ },
-      max: { x: maxX, y: topY, z: maxZ },
+      min: { x: minX, y: minY, z: minZ },
+      max: { x: maxX, y: maxY, z: maxZ },
     },
     groups: [
       { start: 0, count: totalIndices, materialIndex: 0 },
     ],
     materialKeys: [material],
-    hash: composeExtrudeHash(ccw, heightM, worldY, material),
+    hash: composeExtrudeHash(ccw, heightM, worldY, material, rotation?.unit),
   };
 
   return Object.freeze({ ...descriptor, appliedReversal });
 };
 
-/** Deterministic content-addressed key for the extrusion. */
+/**
+ * Deterministic content-addressed key for the extrusion.
+ *
+ * ⚠ `direction` is APPENDED and only when the extrusion is directed, so every
+ *   +Y descriptor keeps the exact key it had before §82.4 — a hash that moved
+ *   for unchanged geometry would invalidate every cached descriptor in the
+ *   repository to announce a feature none of them use.
+ */
 export function composeExtrudeHash(
   profileCcw: readonly ProfilePoint[],
   heightM: number,
   worldY: number,
   material: MaterialKey,
+  direction?: ExtrudeDirection,
 ): string {
   const verts = profileCcw
     .map((p) => `${p.x.toFixed(6)},${p.z.toFixed(6)}`)
     .join('|');
-  return `${HASH_SCHEMA_VERSION}|h=${heightM.toFixed(6)}|y=${worldY.toFixed(6)}|m=${material}|v=${verts}`;
+  const base = `${HASH_SCHEMA_VERSION}|h=${heightM.toFixed(6)}|y=${worldY.toFixed(6)}|m=${material}|v=${verts}`;
+  if (direction === undefined) return base;
+  return `${base}|d=${direction.x.toFixed(6)},${direction.y.toFixed(6)},${direction.z.toFixed(6)}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* §82.4-DIRECTED-EXTRUDE — the rotation                                */
+/* ------------------------------------------------------------------ */
+
+/** Row-major 3×3 rotation, plus the unit direction it was built from. */
+interface ExtrudeRotation {
+  /** `[m00,m01,m02, m10,m11,m12, m20,m21,m22]`. */
+  readonly m: readonly number[];
+  readonly unit: ExtrudeDirection;
+}
+
+/**
+ * Below this the sweep axis is treated as parallel (or antiparallel) to +Y.
+ * Chosen as the producer's existing dimensionless-zero scale rather than a new
+ * tolerance: it is a component of a UNIT vector, so it is an angle in disguise
+ * (≈ 1e-9 rad), far below any angular tolerance a caller could care about.
+ */
+const AXIS_PARALLEL_EPS = 1e-9;
+
+/**
+ * The minimal rotation carrying `+Y` to `d̂`, or `null` when `d` is absent or
+ * already `+Y` (the identity — and the pre-§82.4 code path, untouched).
+ *
+ * ⛔ Throws on a non-finite or zero-length vector: this producer refuses rather
+ *    than substituting +Y (spec §75).
+ */
+function resolveExtrudeRotation(direction: ExtrudeDirection | undefined): ExtrudeRotation | null {
+  if (direction === undefined) return null;
+  const { x, y, z } = direction;
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+    throw new DescriptorInvariantError(
+      `produceExtrude: direction has non-finite components (${x}, ${y}, ${z}); refused rather than ` +
+        'substituting the +Y default.',
+    );
+  }
+  const len = Math.hypot(x, y, z);
+  if (len < AXIS_PARALLEL_EPS) {
+    throw new DescriptorInvariantError(
+      `produceExtrude: direction (${x}, ${y}, ${z}) has zero length, so it names no sweep axis; ` +
+        'refused rather than substituting the +Y default.',
+    );
+  }
+  const ux = x / len;
+  const uy = y / len;
+  const uz = z / len;
+
+  // a = +Y, b = û.  a × b = (uz, 0, -ux);  |a × b| = hypot(ux, uz);  a·b = uy.
+  const s = Math.hypot(ux, uz);
+  if (s < AXIS_PARALLEL_EPS) {
+    if (uy > 0) return null; // already +Y — identity, and the default path.
+    // Antiparallel: π about +X.  (x, y, z) → (x, −y, −z).  det = +1.
+    return { m: [1, 0, 0, 0, -1, 0, 0, 0, -1], unit: { x: ux, y: uy, z: uz } };
+  }
+  const kx = uz / s;
+  const ky = 0;
+  const kz = -ux / s;
+  const c = uy;      // cos θ
+  const sn = s;      // sin θ  (θ ∈ (0, π), so sin θ = |a × b| ≥ 0)
+  const t = 1 - c;
+
+  // R = I·c + [k]ₓ·sin θ + k kᵀ·(1 − c)   — Rodrigues, row-major.
+  return {
+    m: [
+      t * kx * kx + c,        t * kx * ky - sn * kz,  t * kx * kz + sn * ky,
+      t * kx * ky + sn * kz,  t * ky * ky + c,        t * ky * kz - sn * kx,
+      t * kx * kz - sn * ky,  t * ky * kz + sn * kx,  t * kz * kz + c,
+    ],
+    unit: { x: ux, y: uy, z: uz },
+  };
+}
+
+/** Apply the rotation in place to every (x, y, z) triple of a flat array. */
+function rotateTriples(arr: Float32Array, rot: ExtrudeRotation): void {
+  const m = rot.m;
+  for (let i = 0; i < arr.length; i += 3) {
+    const x = arr[i]!;
+    const y = arr[i + 1]!;
+    const z = arr[i + 2]!;
+    arr[i] = m[0]! * x + m[1]! * y + m[2]! * z;
+    arr[i + 1] = m[3]! * x + m[4]! * y + m[5]! * z;
+    arr[i + 2] = m[6]! * x + m[7]! * y + m[8]! * z;
+  }
 }
 
 /**

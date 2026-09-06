@@ -365,6 +365,8 @@ export {
 export {
   produceExtrude,
   composeExtrudeHash,
+  // §82.4-DIRECTED-EXTRUDE — the sweep axis is part of the public option shape.
+  type ExtrudeDirection,
   type ExtrudeOptions,
   type ExtrudeProducer,
   type ExtrudeResult,

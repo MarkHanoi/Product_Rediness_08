@@ -375,6 +375,8 @@ export function openComponentDefinitionWorkspace(
     /** lane U8 — the selected shape, or null. Selection is VIEW state, not
      *  document state: it is never packed and never migrated. */
     let selectedSolidId: string | null = null;
+    /** §82.4 — is the "Add work plane…" form open? VIEW state, like the above. */
+    let addPlaneOpen = false;
 
     /* ── chrome ── */
     const overlay = el('div',
@@ -1210,6 +1212,77 @@ export function openComponentDefinitionWorkspace(
         return null;
     }
 
+    /* ── §82.4-DIRECTED-EXTRUDE — WORK PLANES ─────────────────────────────────
+     * STR-UCE-MASTER-SPEC §82.1 (reference planes) + §82.4 (*"extrusion on ANY
+     * work plane (not +Y only)"*).
+     *
+     * ⭐ Until this lane a reference plane was a datum NOTHING READ: the bake
+     *    refused any direction but +Y, so `ensurePlane()` minted one horizontal
+     *    'Base' plane and no author had a reason to make a second. The producer
+     *    now sweeps along any axis and `set-extrude-work-plane` binds a solid to
+     *    a plane, so these two gestures are what turn §82.1 from a persisted
+     *    field into something a user can SEE the effect of.
+     *
+     * ⚠ ORIGIN IS NOT APPLIED, so this UI does not offer one. The bake has no
+     *   per-solid transform, and the op REFUSES an offset plane rather than
+     *   honouring half of it — offering an origin field here would collect an
+     *   intent that is guaranteed to be refused (§75, one refusal, stated once).
+     */
+    const WORK_PLANE_ORIENTATIONS: readonly (readonly [string, string, { x: number; y: number; z: number }])[] = [
+        ['up', 'Horizontal — builds upward (+Y)', { x: 0, y: 1, z: 0 }],
+        ['x', 'Vertical — builds along +X', { x: 1, y: 0, z: 0 }],
+        ['z', 'Vertical — builds along +Z', { x: 0, y: 0, z: 1 }],
+    ];
+
+    async function addWorkPlane(name: string, orientation: string): Promise<string | null> {
+        const chosen = WORK_PLANE_ORIENTATIONS.find(([key]) => key === orientation);
+        if (chosen === undefined) {
+            const msg = `Unknown work-plane orientation '${orientation}' — nothing was added.`;
+            setStatus(msg, true);
+            return msg;
+        }
+        const trimmed = name.trim();
+        if (trimmed === '') {
+            const msg = 'Name the work plane before adding it — an unnamed datum cannot be referred to.';
+            setStatus(msg, true);
+            return msg;
+        }
+        const planeId = `plane_${mintUlid()}`;
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeAddReferencePlaneMigrator(v, v, {
+            plane: {
+                id: planeId,
+                name: trimmed,
+                origin: { x: 0, y: 0, z: 0 },
+                normal: chosen[2],
+                // ⛔ Never a second host: `add-reference-plane` refuses one, and a
+                //    host plane answers "what does a hosted instance sit on" — a
+                //    question this gesture is not asking.
+                isHost: false,
+            } as ReferencePlane,
+        }));
+        if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
+        addPlaneOpen = false;
+        render();
+        setStatus(
+            `Work plane “${trimmed}” added to the draft (not yet saved). Select a shape and set its ` +
+            'work plane to build along this plane’s normal.');
+        return null;
+    }
+
+    async function applyWorkPlane(solidId: string, planeId: string): Promise<string | null> {
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeSetExtrudeWorkPlaneMigrator(v, v, { solidId, planeId }));
+        if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
+        render();
+        const plane = (draft.document.referencePlanes as readonly ReferencePlane[])
+            .find((pl) => pl.id === planeId);
+        setStatus(
+            `Shape re-based onto “${plane?.name ?? planeId}” — it now builds along that plane’s normal, ` +
+            'and every viewport re-evaluated through the same bake the placed instance uses.');
+        return null;
+    }
+
     function selectShape(solidId: string | null): void {
         selectedSolidId = solidId;
         render();
@@ -1364,6 +1437,46 @@ export function openComponentDefinitionWorkspace(
             `border:1px solid ${LINE};border-radius:8px;padding:10px;margin:4px 0;` +
             'display:flex;flex-direction:column;gap:6px;');
         box.setAttribute('data-cdw-shape-editor', solidId);
+
+        // ── §82.4-DIRECTED-EXTRUDE — WHICH WAY DOES THIS SHAPE BUILD? ─────────
+        // Rendered BEFORE the dimension branch, and outside it, on purpose: a
+        // shape whose profile this editor did not author (`reading === null`) can
+        // still be re-based onto another work plane — the axis is a property of
+        // the SOLID, not of the box spelling.
+        {
+            const solidRec = draft.document.solids.find((s) => s.id === solidId) as
+                { readonly kind: string; readonly profileId?: string } | undefined;
+            if (solidRec?.kind === 'extrude') {
+                const planes = draft.document.referencePlanes as readonly ReferencePlane[];
+                const current = (draft.document.profiles as readonly Profile[])
+                    .find((pr) => pr.id === solidRec.profileId)?.planeId ?? null;
+                const row = el('div', 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;');
+                row.append(el('span', `font-size:11.5px;color:${MUTED};width:70px;`, 'Work plane'));
+                if (planes.length === 0) {
+                    // UNREACHABLE and EMPTY are different facts (C84 EI-6).
+                    const none = el('span', `font-size:11.5px;color:${MUTED};`,
+                        'this definition carries no work plane to build along');
+                    none.setAttribute('data-cdw-shape-plane-none', solidId);
+                    row.appendChild(none);
+                } else {
+                    const sel = document.createElement('select');
+                    sel.setAttribute('data-cdw-shape-plane', solidId);
+                    for (const pl of planes) {
+                        const o = document.createElement('option');
+                        o.value = pl.id;
+                        o.textContent = `${pl.name}${pl.isHost ? ' · host' : ''}`;
+                        sel.appendChild(o);
+                    }
+                    if (current !== null) sel.value = current;
+                    // ⭐ ONE act: the op writes the profile's plane AND the solid's
+                    //   sweep axis together, so "profile on the wall plane,
+                    //   extrusion still vertical" is not a state this can produce.
+                    sel.addEventListener('change', () => { void applyWorkPlane(solidId, sel.value); });
+                    row.appendChild(sel);
+                }
+                box.appendChild(row);
+            }
+        }
 
         if (reading === null) {
             // ⭐ HONEST: "not a box this editor wrote" is an ANSWER. Offering
@@ -1596,17 +1709,75 @@ export function openComponentDefinitionWorkspace(
             }
         }
 
-        // reference planes (read-only list — the plan's §U3 list, no reorient UI minted)
-        if (doc.referencePlanes.length > 0) {
-            card.appendChild(el('div',
-                'font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;' +
-                `color:${MUTED};margin:10px 0 4px;`, 'Reference planes'));
-            for (const pl of doc.referencePlanes as readonly ReferencePlane[]) {
-                const row = el('div', `font-size:12px;color:${INK};margin:1px 0;`,
-                    `${pl.name}${pl.isHost ? ' · host' : ''}`);
-                row.setAttribute('data-cdw-plane', pl.id);
-                card.appendChild(row);
+        // ── WORK PLANES (§82.1 / §82.4) — the list is no longer read-only: a plane
+        //    can be ADDED here, and a shape can be built along its normal (see the
+        //    per-shape control in `renderShapeEditor`). ⛔ Still NO reorient and NO
+        //    delete: a plane already carrying profiles cannot be moved or removed
+        //    without deciding what happens to the geometry bound to it, and
+        //    `add-reference-plane`'s header states that decision is not made.
+        card.appendChild(el('div',
+            'font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;' +
+            `color:${MUTED};margin:10px 0 4px;`, 'Work planes'));
+        for (const pl of doc.referencePlanes as readonly ReferencePlane[]) {
+            const row = el('div', `font-size:12px;color:${INK};margin:1px 0;`,
+                `${pl.name}${pl.isHost ? ' · host' : ''} · normal (${pl.normal.x}, ${pl.normal.y}, ${pl.normal.z})`);
+            row.setAttribute('data-cdw-plane', pl.id);
+            card.appendChild(row);
+        }
+        if (doc.referencePlanes.length === 0) {
+            const none = el('div', `font-size:11.5px;color:${MUTED};margin:1px 0;`,
+                'This Component declares no work planes yet. Adding a shape mints the horizontal ' +
+                'host plane; add another to build along a different axis.');
+            none.setAttribute('data-cdw-planes-empty', '');
+            card.appendChild(none);
+        }
+        if (!addPlaneOpen) {
+            const addPlaneBtn = el('button',
+                `background:#fff;color:${PURPLE};border:1px solid ${PURPLE};padding:3px 10px;` +
+                'border-radius:6px;font-weight:600;cursor:pointer;font-size:11.5px;margin:4px 0 0;',
+                'Add work plane…');
+            addPlaneBtn.setAttribute('data-cdw-add-plane', '');
+            addPlaneBtn.addEventListener('click', () => { addPlaneOpen = true; render(); });
+            card.appendChild(addPlaneBtn);
+        } else {
+            const form = el('div',
+                `border:1px solid ${LINE};border-radius:8px;padding:8px;margin:4px 0;` +
+                'display:flex;gap:6px;align-items:center;flex-wrap:wrap;');
+            form.setAttribute('data-cdw-plane-form', '');
+
+            const nameInput = document.createElement('input');
+            nameInput.setAttribute('data-cdw-plane-name', '');
+            nameInput.placeholder = 'Plane name';
+            nameInput.value = `Plane ${doc.referencePlanes.length + 1}`;
+            nameInput.style.cssText = 'width:140px;padding:3px 5px;font:12px system-ui,sans-serif;';
+
+            const orient = document.createElement('select');
+            orient.setAttribute('data-cdw-plane-orientation', '');
+            for (const [value, label] of WORK_PLANE_ORIENTATIONS) {
+                const o = document.createElement('option');
+                o.value = value; o.textContent = label;
+                orient.appendChild(o);
             }
+
+            const create = el('button',
+                `background:${PURPLE};color:#fff;border:none;padding:4px 12px;border-radius:6px;` +
+                'font-weight:600;cursor:pointer;font-size:11.5px;', 'Add plane');
+            create.setAttribute('data-cdw-plane-create', '');
+            create.addEventListener('click', () => { void addWorkPlane(nameInput.value, orient.value); });
+
+            const cancel = el('button', 'padding:4px 10px;font-size:11.5px;cursor:pointer;', 'Cancel');
+            cancel.setAttribute('data-cdw-plane-cancel', '');
+            cancel.addEventListener('click', () => { addPlaneOpen = false; render(); });
+
+            form.append(nameInput, orient, create, cancel);
+            card.appendChild(form);
+            // ⚠ The declared limit, said where the author is choosing — not buried.
+            const note = el('div', `font-size:11px;color:${MUTED};line-height:1.45;margin:2px 0 0;`,
+                'A work plane sets which way a shape BUILDS (its normal). Its ORIGIN is not applied: ' +
+                'the evaluator carries no per-solid placement, so an offset plane would move nothing ' +
+                'and is refused rather than half-honoured.');
+            note.setAttribute('data-cdw-plane-origin-note', '');
+            card.appendChild(note);
         }
 
         // ── SHAPES (lane U8) — the authored-geometry list: select → edit

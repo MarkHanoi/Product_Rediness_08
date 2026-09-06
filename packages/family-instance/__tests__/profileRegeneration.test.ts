@@ -478,16 +478,51 @@ describe('§4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a
     });
   }
 
-  it('a non-+Y extrude direction REFUSES instead of being silently ignored (L-11530 shape)', async () => {
+  // ⭐⭐ §82.4-DIRECTED-EXTRUDE — THIS CASE WAS INVERTED, DELIBERATELY.
+  //
+  // It read: *"a non-+Y extrude direction REFUSES instead of being silently
+  // ignored (L-11530 shape)"*, and it was correct while `ExtrudeOptions` had no
+  // axis: refusing beat building a vertical solid for a document that asked for
+  // a horizontal one. `produceExtrude` now sweeps along any axis
+  // (`__tests__/produceExtrude.direction.test.ts`), so the refusal became the
+  // OPPOSITE lie — "cannot" said by code that can. What the L-11530 lesson
+  // actually protects is that the persisted field must not be IGNORED; that is
+  // now asserted the strong way, by measuring the geometry the field produced.
+  it('§82.4 — a non-+Y extrude direction BAKES, swept along that axis (the field is read, not ignored)', async () => {
     const sideways = {
       ...extrudeSolid('sol_01HZ00000000000000000RCS01', 'prof_01HZ00000000000000000RCT01'),
       direction: { x: 1, y: 0, z: 0 },
     } as SolidFeature;
     const res = await bakeOne([rectangularProfile()], [sideways]);
+    expect(res.ok).toBe(true);
+    expect(res.unsupported).toHaveLength(0);
+    expect(res.baked).toHaveLength(1);
+
+    const b = res.baked[0]!.descriptor.bounds;
+    const upright = await bakeOne(
+      [rectangularProfile()],
+      [extrudeSolid('sol_01HZ00000000000000000RCS01', 'prof_01HZ00000000000000000RCT01')],
+    );
+    const u = upright.baked[0]!.descriptor.bounds;
+    // The upright solid's height is its Y extent; the directed one's is its X
+    // extent — the same length, moved onto the axis the document named.
+    expect(b.max.x - b.min.x).toBeCloseTo(u.max.y - u.min.y, 6);
+    expect(b.max.y - b.min.y).not.toBeCloseTo(u.max.y - u.min.y, 6);
+  });
+
+  it('§82.4 — a ZERO-LENGTH direction still REFUSES by name, and does not take the bake down with it', async () => {
+    const axisless = {
+      ...extrudeSolid('sol_01HZ00000000000000000RCS01', 'prof_01HZ00000000000000000RCT01'),
+      direction: { x: 0, y: 0, z: 0 },
+    } as SolidFeature;
+    const res = await bakeOne([rectangularProfile()], [axisless]);
     expect(res.ok).toBe(false);
+    expect(res.unsupported).toHaveLength(1);
     expect(res.unsupported[0]!.reason).toBe('unsupported-feature');
-    expect(res.unsupported[0]!.message).toContain('direction');
-    expect(res.unsupported[0]!.message).toContain('SILENTLY');
+    expect(res.unsupported[0]!.message).toContain('names no sweep axis');
+    // ⛔ The producer THROWS on this input; the bake must turn that into a
+    //    per-solid sentence rather than letting one solid kill the whole bake.
+    expect(res.unsupported[0]!.message).toContain('spec §75');
   });
 
   it('an UNDER-DETERMINED arc still refuses — and that is where `profile-needs-solver` was always TRUE', async () => {

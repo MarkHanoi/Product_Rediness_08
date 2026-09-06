@@ -321,21 +321,35 @@ function bakeOneSolid(
         );
       }
 
-      // ⭐ §4D-DIRECTION-IS-NOT-READ — `SolidFeatureSchema`'s extrude arm
-      //    persists a `direction` unit vector, and `ExtrudeOptions` has no
-      //    direction: `produceExtrude` extrudes along +Y, always.  Until this
-      //    lane the field was validated, migrated, round-tripped — and
-      //    silently ignored, so a document asking for a horizontal extrusion
-      //    got a vertical one and nothing said so.  That is the L-11530 shape
-      //    ("a persisted row can be a lie in the dangerous direction") and
-      //    spec §75 forbids it.  It now REFUSES.  ⚠ Behaviour change confined
-      //    to documents that set a non-default direction; the schema default
-      //    is +Y and no writer for any other value exists in this tree.
-      if (!isPlusY(solid.direction)) {
+      // ⭐⭐ §82.4-DIRECTED-EXTRUDE — THE DIRECTION IS READ, AND SWEPT ALONG.
+      //
+      // ⛔ THIS REPLACES §4D-DIRECTION-IS-NOT-READ. That note read: *"the
+      //    adapter's extrude capability builds along +Y only … Closing it needs
+      //    a direction/axis on ExtrudeOptions in @pryzm/geometry-kernel"*, and
+      //    the bake REFUSED any other direction rather than silently building a
+      //    vertical solid. The refusal was right for its day and it named its
+      //    own fix; the fix has landed (`ExtrudeOptions.direction`, measured in
+      //    `packages/geometry-kernel/__tests__/produceExtrude.direction.test.ts`),
+      //    so the refusal is retired rather than left standing as a lie in the
+      //    OTHER direction — "we cannot" said by code that can.
+      //
+      // ⭐ THE +Y PATH IS BIT-IDENTICAL. An explicit `direction: {0,1,0}` is the
+      //    identity in the producer: same vertices, same bounds, SAME HASH as
+      //    passing no option at all (asserted in that suite's first case). So
+      //    handing the field through unconditionally does not re-shape, and does
+      //    not re-key, one existing descriptor.
+      //
+      // ⛔ WHAT IS STILL REFUSED, and why it is refused HERE rather than left to
+      //    throw out of the producer: a zero-length direction is SCHEMA-VALID
+      //    (`Vec3` is three finite numbers; it does not require a unit vector),
+      //    and a throw would take the whole bake down for one solid instead of
+      //    producing the per-solid sentence spec §75 asks for.
+      const dirLen = Math.hypot(solid.direction.x, solid.direction.y, solid.direction.z);
+      if (!Number.isFinite(dirLen) || isNumericallyZero(dirLen)) {
         return refuse(
           solid,
           'unsupported-feature',
-          `[bakeFamilyInstance] extrude solid ${solid.id} asks for direction (${solid.direction.x}, ${solid.direction.y}, ${solid.direction.z}); the adapter's extrude capability builds along +Y only and would SILENTLY produce a vertical extrusion instead. Refused rather than substituted (spec §75). Closing it needs a direction/axis on ExtrudeOptions in @pryzm/geometry-kernel — see §4D-SCHEMA-DELTA.`,
+          `[bakeFamilyInstance] extrude solid ${solid.id} carries direction (${solid.direction.x}, ${solid.direction.y}, ${solid.direction.z}), which has zero length and so names no sweep axis. Refused rather than substituting the +Y default (spec §75) — a solid whose axis is unstated is not a solid that happens to be vertical.`,
         );
       }
 
@@ -356,7 +370,10 @@ function bakeOneSolid(
         );
       }
 
-      const descriptor = adapter.extrude(polygon, heightM, {});
+      // §82.4-DIRECTED-EXTRUDE — the document's axis, forwarded verbatim. The
+      // producer normalises it; the bake does not pre-normalise, so there is one
+      // normalisation in the system and not two that can round differently.
+      const descriptor = adapter.extrude(polygon, heightM, { direction: solid.direction });
       return { ok: true, baked: { solidId: solid.id, kind: 'extrude', descriptor } };
     }
 
@@ -402,13 +419,13 @@ function noCapability(solid: SolidFeature, adapter: GeometryAdapter): SolidOutco
   );
 }
 
-/** Is this the extrude direction `produceExtrude` actually builds along? */
-function isPlusY(d: { readonly x: number; readonly y: number; readonly z: number }): boolean {
-  // Dimensionless components of a unit vector — `EPSILON_ZERO`'s declared
-  // role (C73 §2.1), consumed via the kernel's predicate rather than a
-  // literal at this call site.
-  return isNumericallyZero(d.x) && isNumericallyZero(d.z) && d.y > 0;
-}
+/* §82.4-DIRECTED-EXTRUDE — `isPlusY` was here, and it is GONE ON PURPOSE.
+ * It answered "is this the ONE direction the producer can build along?", a
+ * question with no meaning now that the producer builds along any axis. Keeping
+ * it as a branch ("fast path for vertical") would re-introduce two code paths
+ * for one operation and the temptation to let them diverge. `isNumericallyZero`
+ * survives at the call site above, doing the job it is actually for (C73 §2.1):
+ * deciding whether a vector has length at all. */
 
 /**
  * Evaluate `lengthExpression`.  v1 contract: must be either a
