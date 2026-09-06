@@ -222,3 +222,103 @@ describe('§C59 Phase 2 — a rejected intent is never silent', () => {
         expect(store.getLayout()[LEFT_PANE]).toBeNull();
     });
 });
+
+// ════════════════════════════════════════════════════════════════════════════════
+// §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015 / L-13025, founder 2026-09-06)
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// He photographed THREE view switchers stacked over one pane and ruled: *"keep the one, the
+// formal and more robust only, and keep it DROP DOWN only. But when in split view, on the
+// left hand side only, please keep TWO dropdown panels."* — then completed it: *"we need to
+// have the DROP DOWN PANEL to choose the view required in BOTH split view ON START UP … ALL
+// OF THAT SHOULD BE CONCATENATED ON THE SINGLE DROP DOWN PANEL WITH ALL VIEWS."*
+//
+// ⭐ THE RULE THESE ARMS PIN: **switcher count == visible pane count**, the survivor is the
+// dropdown, it is there FROM STARTUP, and it carries ALL the views. Counting is the whole
+// point — the defect was never a missing control, it was three of them.
+describe('§ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN — one dropdown per pane, from startup', () => {
+    it('⭐ mounts exactly ONE view control per pane, with NO interaction first', () => {
+        const { shell } = buildShell();
+        for (const pane of [LEFT_PANE, RIGHT_PANE]) {
+            const paneEl = shell.getPaneElement(pane)!;
+            expect(
+                paneEl.querySelectorAll(`[data-testid="pane-view-picker-${pane}"]`),
+                `pane ${pane} should carry exactly one dropdown at startup`,
+            ).toHaveLength(1);
+        }
+        // ⛔ AND NOTHING ELSE. The floating six-segment bar that used to sit beside the
+        // dropdown is the middle one of his three; it is not hidden, it is not mounted.
+        expect(document.querySelectorAll('.svq-bar--pane')).toHaveLength(0);
+        // The whole document holds two switchers because it holds two panes — not because
+        // a number was written down anywhere.
+        expect(document.querySelectorAll('[data-pane-picker]')).toHaveLength(
+            Object.keys(shell.store.getLayout()).length,
+        );
+    });
+
+    it('⭐ the ONE dropdown carries ALL SIX of the founder\u2019s views', () => {
+        const { shell } = buildShell();
+        trigger(LEFT_PANE).click();
+        for (const id of ['site-map', 'site-satellite', 'site-3d', 'site-globe', 'pryzm-3d', 'pryzm-2d']) {
+            expect(
+                popup(LEFT_PANE).querySelector(`[data-option-id="${id}"]`),
+                `the dropdown is missing the ${id} row`,
+            ).toBeTruthy();
+        }
+        // ⛔ And the pane menu SURVIVES under them — every view the six do not offer is
+        // still reachable (*"if the user wants to open more they can do it in the browser"*).
+        //
+        // ⚠ THE UNIQUENESS TEST IS PER SECTION, NOT PER VIEW TYPE, and that distinction is the
+        // whole design: `site-map-2d` legitimately appears TWICE in the panel (2D Site Map and
+        // 2D Satellite are one view under two basemaps) and so does `site-3d` (3D Site / 3D
+        // Globe, one Cesium camera at two altitudes). What must never happen is a view showing
+        // up in the panel AND again under "More views" — the duplication the founder
+        // photographed, one level down. That overlap is DERIVED from `viewPanelOptions()`.
+        const panelTypes = new Set(
+            [...popup(LEFT_PANE).querySelectorAll('[data-option-id]')]
+                .map((b) => b.getAttribute('data-view-type')),
+        );
+        const menuTypes = [...popup(LEFT_PANE).querySelectorAll('[data-view-type]')]
+            .filter((b) => !b.hasAttribute('data-option-id'))
+            .map((b) => b.getAttribute('data-view-type'));
+        expect(menuTypes.filter((vt) => panelTypes.has(vt))).toEqual([]);
+        // The registry list is genuinely still there — an empty "More views" would pass the
+        // line above for the wrong reason.
+        expect(menuTypes.length).toBeGreaterThan(0);
+        expect(shell.store.getRegistry()['bim-plan-2d']).toBeTruthy();
+    });
+
+    it('⛔ an unavailable row STILL APPEARS and its refusal is DOM TEXT, not a title=', () => {
+        // STR §26.1.1 / L-12999, a founder ruling: *"PRYZM declines in ONE SENTENCE naming the
+        // reason and offers the action that resolves it; a silently greyed-out segment is the
+        // WRONG implementation."* A dropdown whose disabled row says nothing would be that
+        // same failure in a new shape — which is exactly the risk of moving to a `<select>`.
+        const { shell } = buildShell();
+        trigger(LEFT_PANE).click();
+        const disabled = [...popup(LEFT_PANE).querySelectorAll<HTMLButtonElement>(
+            '[data-option-id]',
+        )].filter((b) => b.disabled);
+        expect(disabled.length, 'no refused row in this workspace to check').toBeGreaterThan(0);
+        for (const b of disabled) {
+            const spoken = b.querySelector('.svq-reason')?.textContent ?? '';
+            expect(spoken.length, `${b.getAttribute('data-option-id')} is greyed and silent`)
+                .toBeGreaterThan(0);
+            // The row is still OFFERED, per clause 1 of the ruling — never dropped.
+            expect(b.isConnected).toBe(true);
+        }
+        expect(shell.store.getLayout()).toBeTruthy();
+    });
+
+    it('⭐ §SWAP-NOT-VACATE — a singleton move states its cost BEFORE the click', () => {
+        // The consequence sentence used to live only on the registry rows. Those rows for
+        // `site-3d` are now covered by the panel, so the sentence had to travel with the
+        // move or it would have been lost in a refactor — the silent kind of regression.
+        const { shell } = buildShell();
+        expect(shell.store.getLayout()[RIGHT_PANE]).toBe('site-3d');
+        trigger(LEFT_PANE).click();
+        const row = popup(LEFT_PANE).querySelector<HTMLButtonElement>('[data-option-id="site-3d"]')!;
+        expect(row.getAttribute('data-option-state')).toBe('moves-singleton');
+        expect(row.textContent).toMatch(/right pane/i);
+        expect(row.disabled).toBe(false); // a consequence, not a refusal
+    });
+});

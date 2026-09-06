@@ -23,15 +23,14 @@ import { PaneHost, MultiPaneController } from './PaneHost';
 import { PaneLayoutStore } from './paneLayoutStore';
 import { mountPaneViewPicker, type PaneViewPickerHandle } from './PaneViewPicker';
 import { mountPaneEmptyState, type PaneEmptyStateHandle } from './PaneEmptyState';
-// §SITE-VIEW-QUICK-TOGGLE (L-5110) — the founder's top-centre 3D globe / 3D site
-// control. It is SHELL chrome (fixed, budgeted on the canvas region), not pane chrome,
-// which is why it mounts beside the panes rather than inside one. It shares the SAME
-// store as the pickers below — there is no second write path.
-import {
-    mountSiteViewQuickToggle,
-    type SiteViewBasemapPorts,
-    type SiteViewCameraPorts,
-    type SiteViewQuickToggleHandle,
+// §SITE-VIEW-QUICK-TOGGLE (L-5110) — the founder's 3D globe / 3D site control. ⭐ TYPES
+// ONLY SINCE §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015): this shell no longer
+// MOUNTS it, it RESOLVES ITS PORTS and hands them to each pane's dropdown, which hosts the
+// panel in its popup. The composition layer is still the one place that knows how the
+// camera and the basemap are reached (P1/P4) — only the host of the rows changed.
+import type {
+    SiteViewBasemapPorts,
+    SiteViewCameraPorts,
 } from './SiteViewQuickToggle';
 import type { SiteViewGlobeFraming } from './siteViewQuickToggleModel';
 // §GLOBE-QUICK-TOGGLE (L-6800..L-6807, C60 §6.5) — the DECLARED world framing. Imported here,
@@ -428,11 +427,40 @@ export function mountSiteAuthoringPaneShell(
     // ONE component, mounted per pane, content derived from VIEW_TYPE_REGISTRY. This is
     // the standardised switcher the founder asked for; it replaces per-surface bespoke
     // toggles for pane views (C59 §4 Phase 2, absorbing L-405).
+    //
+    // ⭐ §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015, founder 2026-09-06) — AND IT
+    // IS NOW THE ONLY VIEW CONTROL ON A PANE. He photographed three stacked over one pane
+    // and ruled *"keep the one, the formal and more robust only, and keep it DROP DOWN
+    // only … when in split view … keep TWO dropdown panels"*, so the founder's six moved
+    // INTO this dropdown's popup (`panel` below) instead of floating over the pane beside
+    // it. Switcher count == visible pane count, and `applyFraction` collapses the vacated
+    // pane in a solo layout — so a single view shows one dropdown and a split shows two,
+    // by the same mechanism rather than by two behaviours.
+    //
+    // ⚠ THE GLOBE FRAMING IS SHARED, HELD HERE. Two panes drive ONE Cesium camera; a memory
+    // private to each panel would let the left one report "you are on the globe" while the
+    // right one reports you are not — two copies of one fact, drifting, which is the defect
+    // `gisActionRegistry` exists to remove. This shell owns the value and hands both
+    // dropdowns the same getter and the same setter.
+    let globeFraming: SiteViewGlobeFraming = 'site';
     const pickers: PaneViewPickerHandle[] = [];
     if (opts.viewPicker !== false) {
+        const camera = opts.camera ?? defaultSiteViewCameraPorts();
+        const basemap = opts.basemap ?? defaultSiteViewBasemapPorts();
+        const panel = {
+            mountableKinds: () => controller.registeredKinds?.() ?? null,
+            camera,
+            basemap,
+            getFraming: () => globeFraming,
+            onFramingChanged: (next: SiteViewGlobeFraming) => {
+                globeFraming = next;
+                // The OTHER dropdown is now stale about the one camera. Repaint it.
+                for (const p of pickers) p.refresh();
+            },
+        } as const;
         pickers.push(
-            mountPaneViewPicker({ paneId: LEFT_PANE, paneEl: leftPaneEl, store, corner: 'top-left' }),
-            mountPaneViewPicker({ paneId: RIGHT_PANE, paneEl: rightPaneEl, store, corner: 'top-right' }),
+            mountPaneViewPicker({ paneId: LEFT_PANE, paneEl: leftPaneEl, store, corner: 'top-left', panel }),
+            mountPaneViewPicker({ paneId: RIGHT_PANE, paneEl: rightPaneEl, store, corner: 'top-right', panel }),
         );
     }
 
@@ -466,67 +494,29 @@ export function mountSiteAuthoringPaneShell(
         );
     }
 
-    // ── §VIEW-PANEL-PER-PANE (founder 2026-09-06) — ONE VIEW PANEL PER PANE ────────
+    // ── ⛔ §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — THE FLOATING PER-PANE
+    //      SEGMENT BAR IS GONE, AND ITS ROWS ARE NOT ────────────────────────────────
     //
-    // Founder, with screenshots: *"WHEN BEING IN A SINGLE VIEW … WE KEEP THE PANEL WITH ALL
-    // MAIN OPTIONS TO THE TOP: 2D SITE MAP / 2D SATELLITE / 3D SITE / 3D GLOBE / 3D PRYZM /
-    // 2D PRYZM … WHEN BEING IN SPLIT VIEW — WE SHALL HAVE TWO PANELS LIKE THAT — AND THE
-    // USER CAN DECIDE WHAT TO ADD IN EACH OF THE SPLIT VIEWS (LEFT OR RIGHT)."*
+    // Until 2026-09-06 this shell mounted a SECOND control per pane: `mountSiteViewQuickToggle`
+    // as `.svq-bar--pane`, the six-segment bar floating at the top of each pane BESIDE the
+    // dropdown above. The founder photographed the result — three switchers stacked over one
+    // pane (this bar, the dropdown, and the body-level `.vsw-onview` bar) — and ruled:
     //
-    // ⭐ ONE MECHANISM SERVES BOTH SENTENCES, which is why this is a change of HOST rather
-    // than a new control. The panel is mounted INSIDE each pane element, and `applyFraction`
-    // already collapses the vacated pane in a solo layout — so the split shows two panels,
-    // and a single view shows the surviving pane's one panel at its top. Nothing switches
-    // between two behaviours; there is only ever "a panel per visible pane".
+    //   *"the left hand side have double panels with the view — keep the one, the formal and
+    //    more robust only, and keep it DROP DOWN only. But when in split view, on the left hand
+    //    side only, please keep TWO dropdown panels."*
     //
-    // ⛔ WHAT THIS REPLACED, AND WHY IT IS NOT A LOST ROUTE. Until today this mounted ONE
-    // bar on `document.body`, centred on the canvas region, that SOLOed whatever you pressed
-    // — so in the founder's own default split there was no way to say "satellite on the
-    // left, 3D site on the right", which is precisely what he asked for. Every row that bar
-    // carried (2D Site Map · 3D Site · 3D Globe · ◧ Split) is on BOTH panels here, plus the
-    // three he added, so C19 §5.6 clause 4 holds: routes were added, none removed.
+    // ⛔ NO ROUTE WAS REMOVED (C19 §5.6 clause 4). Every row that bar carried — the founder's
+    // six from `viewPanelOptions()`, their variants, their refusals and the three ports they
+    // dispatch into — is rendered by the SAME component in its `'menu'` shape inside each
+    // dropdown's popup (`panel` above). The bar's own `◧ Split` is suppressed there only
+    // because the popup already renders `describePaneLayoutActions`, restore-split included.
     //
-    // ⛔ Mounted IN ADDITION to the pickers above, never instead of them. Four of the pane
-    // menu's six entries are disabled WITH REASONS (C59 Phase 2's disable-or-explain rule)
-    // and those refusals are real information about Phase 3 work — and elevations and
-    // sections live ONLY there, which is the founder's own *"if the user wants to open more
-    // they can do it in the browser."*
-    //
-    // Both panels read and write the SAME `store`, so a change made from either one — or
-    // from a pane menu — repaints the other. There is still exactly one layout owner.
-    //
-    // ⚠ THE GLOBE FRAMING IS SHARED, HELD HERE. Two panels drive ONE Cesium camera; a memory
-    // private to each panel would let the left one report "you are on the globe" while the
-    // right one reports you are not — two copies of one fact, drifting, which is the defect
-    // `gisActionRegistry` exists to remove. This shell owns the value and hands both panels
-    // the same getter and the same setter.
-    //
-    // Gated on the same `viewPicker` flag: a test asking for bare geometry wants no chrome
-    // at all, and splitting the flag would let one arrive without the other.
-    let globeFraming: SiteViewGlobeFraming = 'site';
-    const quickToggles: SiteViewQuickToggleHandle[] = [];
-    if (opts.viewPicker !== false) {
-        const camera = opts.camera ?? defaultSiteViewCameraPorts();
-        const basemap = opts.basemap ?? defaultSiteViewBasemapPorts();
-        for (const [pane, el] of [[LEFT_PANE, leftPaneEl], [RIGHT_PANE, rightPaneEl]] as const) {
-            quickToggles.push(
-                mountSiteViewQuickToggle({
-                    store,
-                    parent: el,
-                    paneId: pane,
-                    mountableKinds: () => controller.registeredKinds?.() ?? null,
-                    camera,
-                    basemap,
-                    getFraming: () => globeFraming,
-                    onFramingChanged: (next) => {
-                        globeFraming = next;
-                        // The OTHER panel is now stale about the one camera. Repaint it.
-                        for (const t of quickToggles) t.refresh();
-                    },
-                }),
-            );
-        }
-    }
+    // ⛔ AND NO SECOND OPTION TABLE WAS MINTED. `viewPanelOptions.ts` remains the ONE panel
+    // definition; this lane changed the HOST, not the definition — which is exactly what the
+    // §VIEW-PANEL-PER-PANE lane did before it when the bar moved from `document.body` into
+    // the panes. `SiteViewQuickToggle.ts`'s `'bar'` shape is still the shipped whole-screen
+    // control and is still exercised by its own spec; nothing was deleted.
 
     const dispose = (): void => {
         if (disposed) return;
@@ -542,9 +532,6 @@ export function mountSiteAuthoringPaneShell(
         }
         for (const e of emptyStates) {
             try { e.dispose(); } catch { /* chrome already gone */ }
-        }
-        for (const t of quickToggles) {
-            try { t.dispose(); } catch { /* chrome already gone */ }
         }
         // Detach both hosted renderers before removing the DOM (the mounters re-home
         // their singleton — e.g. Cesium back to #container — on unmount).

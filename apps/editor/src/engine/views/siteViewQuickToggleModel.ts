@@ -73,6 +73,11 @@ import {
     type ViewPanelOptionId,
     type ViewPanelVariant,
 } from './viewPanelOptions';
+// §SWAP-NOT-VACATE (L-12999 clause 3) — the singleton-move consequence sentence is READ from
+// here, never re-written: `describePaneViewOptions` is the one function that knows what the
+// reducer does with the displaced view. Both modules are pure and neither imports the other's
+// caller, so this adds no cycle.
+import { describePaneViewOptions } from './paneViewOptions';
 
 /** Which MapLibre basemap the 2D site map is drawing. */
 export type SiteViewBasemap = 'map' | 'satellite';
@@ -112,6 +117,24 @@ export interface SiteViewSegment {
     readonly enabled: boolean;
     /** WHY it is not selectable. Present whenever `enabled` is false — never a bare grey. */
     readonly reason?: string;
+    /**
+     * §SWAP-NOT-VACATE (L-12999 clause 3) — what this click COSTS THE OTHER PANE, stated
+     * BEFORE the click rather than discovered after it. Present only on a pane-scoped row
+     * whose view is a singleton currently live in the other pane; `enabled` stays TRUE,
+     * because this is a consequence, not a refusal.
+     *
+     * ⭐ THE SENTENCE IS NOT WRITTEN HERE. It is `describePaneViewOptions`'s
+     * `moves-singleton` reason, read across — the ONE place that knows what
+     * `assignViewToPane` will actually do with the displaced view. A second copy would
+     * drift from the reducer exactly as the old flat "…empties." sentence did.
+     *
+     * ⚠ WHY IT MATTERS NOW: §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) puts these
+     * rows and the registry rows in ONE popup. Before that they were two controls and only
+     * the registry one carried this; a row that silently dropped it would be the founder
+     * clicking `3D Site` in the left pane and finding out afterwards what happened to the
+     * right one — which is the thing STR §26.1.1 clause 3 was written to forbid.
+     */
+    readonly consequence?: string;
     /** The pane a click would put it in. */
     readonly targetPane: PaneId;
     /**
@@ -287,6 +310,24 @@ export function describeSiteViewQuickToggle(
     const canSetBasemap = input.canSetBasemap ?? true;
     const occupied = occupiedCount(layout);
 
+    // §SWAP-NOT-VACATE (L-12999 clause 3) / §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN
+    // (L-13015) — the singleton-move CONSEQUENCE, read from the ONE function that knows it.
+    // Pane-scoped only: a whole-screen click solos, and `describePaneViewOptions` models the
+    // pane question, not that one.
+    const consequences: ReadonlyMap<ViewType, string> = paneScoped
+        ? new Map(
+              describePaneViewOptions({
+                  layout,
+                  paneId,
+                  registry,
+                  mountableKinds: mountable,
+                  pinnedViews: pinned,
+              })
+                  .filter((o) => o.state === 'moves-singleton' && o.reason)
+                  .map((o) => [o.viewType, o.reason!] as const),
+          )
+        : new Map();
+
     const segments = viewPanelOptions(registry).map((opt: ViewPanelOption): SiteViewSegment => {
         const d = registry[opt.viewType]!;
         const hostPane = paneHosting(layout, opt.viewType);
@@ -313,6 +354,9 @@ export function describeSiteViewQuickToggle(
             variantUnreported,
             targetPane,
             paneScoped,
+            ...(consequences.has(opt.viewType)
+                ? { consequence: consequences.get(opt.viewType)! }
+                : {}),
         } as const;
 
         // STATIC half — the registry says this view cannot be pane-hosted yet.

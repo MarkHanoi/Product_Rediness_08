@@ -5,7 +5,22 @@
 // Founder 2026-08-21: *"we don't really need this 3D Site button on the top-right corner
 // (almost hidden) … a button 3D globe / 3D site in the middle top would be beneficial."*
 //
-// ⭐ §VIEW-PANEL-PER-PANE (founder 2026-09-06) — this control now mounts in TWO shapes:
+// ⛔ §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015, founder 2026-09-06) — THE PANE
+// SHAPE BELOW IS NO LONGER MOUNTED IN PRODUCTION, AND THAT IS THE FOUNDER'S INSTRUCTION,
+// NOT DRIFT. He photographed THREE switchers stacked over one pane — this control's
+// `.svq-bar--pane`, the body-level `.vsw-onview` bar, and `PaneViewPicker`'s dropdown —
+// and ruled: *"the left hand side have double panels with the view — keep the one, the
+// formal and more robust only, and keep it DROP DOWN only. But when in split view, on the
+// left hand side only, please keep TWO dropdown panels."* So the rule is now
+// SWITCHER COUNT == VISIBLE PANE COUNT, and the survivor is the dropdown.
+//
+// ⭐ THIS CONTROL WAS NOT RETIRED — IT WAS RE-HOSTED. `SiteAuthoringPaneShell` now mounts
+// it in the `'menu'` shape INSIDE each pane's `PaneViewPicker` popup. Same rows (still
+// `viewPanelOptions()`, the ONE option definition), same three ports, same intents, same
+// test ids. What changed is the painting and the placement — and a dropdown that hid its
+// refusals would have broken STR §26.1.1, so the menu prints them.
+//
+// ⭐ §VIEW-PANEL-PER-PANE (founder 2026-09-06) — the two HOSTS it can address:
 //   · SHELL chrome (no `paneId`) — the top-centre bar over the canvas region, budgeted on
 //     `--shell-canvas-cx`. A click SOLOs: it makes that view the whole screen.
 //   · PANE chrome (`paneId`) — one panel at the top of EACH pane, addressing only its own
@@ -52,12 +67,24 @@ import {
     segmentClickIntents,
     type SiteViewBasemap,
     type SiteViewGlobeFraming,
+    type SiteViewQuickToggleModel,
     type SiteViewSegment,
 } from './siteViewQuickToggleModel';
 
 export interface SiteViewQuickToggleHandle {
     readonly element: HTMLElement;
     refresh(): void;
+    /**
+     * §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — the model AS LAST PAINTED.
+     *
+     * ⭐ A READING OF THE ONE COMPUTATION, never a second one. `PaneViewPicker` hosts this
+     * control inside its dropdown and needs to label its trigger with the row that is
+     * ACTIVE — and "active" is variant-aware (`2D Satellite` vs `2D Site Map` are one view
+     * type). Re-deriving it in the host would be two copies of one fact, drifting, which is
+     * the defect this whole panel definition exists to remove. `null` only before the first
+     * paint, which cannot be observed: `render()` runs during mount.
+     */
+    currentModel(): SiteViewQuickToggleModel | null;
     dispose(): void;
 }
 
@@ -135,7 +162,41 @@ export interface SiteViewQuickToggleOptions {
      */
     readonly getFraming?: () => SiteViewGlobeFraming;
     readonly onFramingChanged?: (next: SiteViewGlobeFraming) => void;
+    /**
+     * §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015, founder 2026-09-06:
+     * *"keep the one, the formal and more robust only, and keep it DROP DOWN only"*).
+     *
+     * ⭐ A SHAPE, NOT A SECOND CONTROL. The rows, the refusals, the intents and the three
+     * ports are IDENTICAL in both shapes — only the painting differs, which is why this is
+     * an option here rather than a rival component (`viewPanelOptions.ts` stays the ONE
+     * option definition, §VIEW-PANEL-PER-PANE).
+     *
+     *   · `'bar'`  (default) — the horizontal segmented row. What shipped.
+     *   · `'menu'` — full-width stacked rows for a dropdown popup, and ⭐ THE REFUSAL IS
+     *     PRINTED UNDER THE ROW rather than only in a `title=`. That is not cosmetic: STR
+     *     §26.1.1 / L-12999 is a founder ruling that an unavailable option stays OFFERED and
+     *     that its refusal SPEAKS — *"a silently greyed-out segment is the WRONG
+     *     implementation"*. A dropdown whose disabled row says nothing would be exactly that
+     *     failure wearing a new shape.
+     */
+    readonly shape?: SiteViewQuickToggleShape;
+    /**
+     * Render the `◧ Split` control (default true). Set FALSE only when the HOST already
+     * offers the layout actions — `PaneViewPicker` renders `describePaneLayoutActions`,
+     * which includes restore-split, so two controls in one popup would say the same thing
+     * twice.
+     */
+    readonly showSplit?: boolean;
+    /**
+     * Called after every paint with the model that was painted. The dropdown host uses it
+     * to keep its trigger label in step with a repaint this control made on its own (a
+     * basemap swap, a store change, the other pane's panel moving the camera).
+     */
+    readonly onRendered?: (model: SiteViewQuickToggleModel) => void;
 }
+
+/** @see SiteViewQuickToggleOptions.shape */
+export type SiteViewQuickToggleShape = 'bar' | 'menu';
 
 export const SITE_VIEW_QUICK_TOGGLE_TESTID = 'site-view-quick-toggle';
 
@@ -153,11 +214,17 @@ export function mountSiteViewQuickToggle(
 ): SiteViewQuickToggleHandle {
     const parent = opts.parent ?? document.body;
     const paneId = opts.paneId ?? null;
+    const shape: SiteViewQuickToggleShape = opts.shape ?? 'bar';
     const testid = siteViewQuickToggleTestId(paneId);
     parent.querySelector(`[data-testid="${testid}"]`)?.remove();
 
     const root = document.createElement('div');
-    root.className = 'svq-bar' + (paneId ? ' svq-bar--pane' : '');
+    // ⚠ `--pane` IS THE FLOATING PANE-CHROME PLACEMENT (`position: absolute; top: 52px;
+    // left: 50%`), so the MENU shape must not carry it: inside a dropdown popup that rule
+    // would tear the rows out of the popup's flow. The menu is placed by its host.
+    root.className =
+        'svq-bar'
+        + (shape === 'menu' ? ' svq-bar--menu' : paneId ? ' svq-bar--pane' : '');
     root.setAttribute('data-testid', testid);
     if (paneId) root.setAttribute('data-pane', paneId);
     root.setAttribute('role', 'group');
@@ -174,6 +241,9 @@ export function mountSiteViewQuickToggle(
         ownFraming = next;
         opts.onFramingChanged?.(next);
     };
+
+    /** The model as last painted — handed to the dropdown host, never recomputed there. */
+    let painted: SiteViewQuickToggleModel | null = null;
 
     const render = (): void => {
         const model = describeSiteViewQuickToggle({
@@ -196,8 +266,15 @@ export function mountSiteViewQuickToggle(
             canSetBasemap: opts.basemap != null && (opts.basemap.canSetBasemap?.() ?? true),
         });
 
+        painted = model;
         root.replaceChildren();
         for (const seg of model.segments) root.appendChild(buildSegment(seg));
+
+        // The HOST already offers the layout actions in the menu shape — see `showSplit`.
+        if (opts.showSplit === false) {
+            try { opts.onRendered?.(model); } catch { /* a host that throws is its own bug */ }
+            return;
+        }
 
         // `◧ Split` — the route BACK. A control that takes the user full-screen without one
         // is the L-942 shape: a branch whose escape hatch was never built.
@@ -214,6 +291,30 @@ export function mountSiteViewQuickToggle(
             opts.store.dispatch({ type: 'view.pane.restore-split' });
         });
         root.appendChild(split);
+        try { opts.onRendered?.(model); } catch { /* a host that throws is its own bug */ }
+    };
+
+    /**
+     * §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — the sentence a MENU row prints
+     * under itself. STR §26.1.1 / L-12999, verbatim: *"PRYZM declines in ONE SENTENCE naming
+     * the reason and offers the action that resolves it; a silently greyed-out segment is
+     * the WRONG implementation."* A `title=` satisfies neither half on a touch surface, so
+     * in the menu the reason is DOM text.
+     *
+     * ⚠ It renders the SAME string the bar shape puts in its `title` — one wording, two
+     * shapes. `null` ⇒ the row has nothing to declare and gets no second line.
+     */
+    const menuReason = (seg: SiteViewSegment): string | null => {
+        if (seg.reason) return seg.reason;
+        // §SWAP-NOT-VACATE (L-12999 clause 3) — the consequence is stated BEFORE the click.
+        if (seg.consequence) return seg.consequence;
+        if (seg.variantUnreported) {
+            return 'This works. Whether it is what you are looking at right now cannot be read '
+                + 'in this session, so it is never highlighted — that is a missing reading, '
+                + 'not "off".';
+        }
+        if (seg.soloed && seg.active) return `${seg.label} is already filling the screen.`;
+        return null;
     };
 
     const buildSegment = (seg: SiteViewSegment): HTMLElement => {
@@ -230,6 +331,17 @@ export function mountSiteViewQuickToggle(
         btn.setAttribute('data-testid', `site-view-quick-toggle-${seg.optionId}${paneId ? `-${paneId}` : ''}`);
         btn.setAttribute('data-view-type', seg.viewType);
         btn.setAttribute('data-option-id', seg.optionId);
+        // ⭐ THE SAME `PaneViewOptionState` VOCABULARY the registry rows use, because
+        // §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN puts both kinds of row in ONE popup
+        // and a popup that speaks two languages about "what happens if I click this" is
+        // two controls wearing one border.
+        btn.setAttribute(
+            'data-option-state',
+            !seg.enabled ? 'unavailable'
+                : seg.active ? 'current'
+                    : seg.consequence ? 'moves-singleton'
+                        : 'available',
+        );
         btn.disabled = !seg.enabled;
 
         // C43 — the state is carried by more than colour, and "I cannot tell you" is a THIRD
@@ -252,6 +364,19 @@ export function mountSiteViewQuickToggle(
         // textContent only — no HTML sink in this file (C08 §3.1 §XSS-SINK-SCAN).
         lbl.textContent = seg.label;
         btn.appendChild(lbl);
+
+        // ⭐ THE REFUSAL SPEAKS (STR §26.1.1 / L-12999). In the menu shape it is DOM text
+        // under the row, not only a hover string — the ruling names a silent grey-out as
+        // the wrong implementation, and a `title=` is silent on a touch device.
+        if (shape === 'menu') {
+            const why = menuReason(seg);
+            if (why) {
+                const r = document.createElement('span');
+                r.className = 'svq-reason';
+                r.textContent = why; // textContent only — no HTML sink (C08 §3.1)
+                btn.appendChild(r);
+            }
+        }
 
         btn.title = seg.reason
             ?? (seg.variantUnreported
@@ -319,6 +444,7 @@ export function mountSiteViewQuickToggle(
     return {
         element: root,
         refresh: render,
+        currentModel: () => painted,
         dispose(): void {
             if (disposed) return;
             disposed = true;

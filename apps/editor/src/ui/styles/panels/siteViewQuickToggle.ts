@@ -179,6 +179,74 @@ export const SITE_VIEW_QUICK_TOGGLE_STYLES = `
         z-index: 38;
     }
 
+    /* ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015, founder 2026-09-06: "keep the
+       one, the formal and more robust only, and keep it DROP DOWN only") - the MENU shape.
+
+       SAME CONTROL, SAME ROWS, SAME REFUSALS - only the painting differs. It is mounted
+       INSIDE 'PaneViewPicker''s popup, so it is placed by its host and carries NO position
+       of its own: no 'absolute', no 'fixed', nothing for the float budget to classify.
+       Six segments plus Split wrapped onto two rows at ~470px in the founder's half-width
+       pane; stacking them is the layout agreeing with him. */
+    .svq-bar--menu {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        box-shadow: none;
+        max-width: none;
+    }
+    .svq-bar--menu .svq-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 3px;
+        width: 100%;
+        text-align: left;
+        padding: 8px 10px;
+        border-radius: 8px;
+        white-space: normal;
+    }
+    .svq-bar--menu .svq-glyph { display: inline; }
+
+    /* THE REFUSAL SPEAKS (STR 26.1.1 / L-12999): "PRYZM declines in ONE SENTENCE naming
+       the reason ... a silently greyed-out segment is the WRONG implementation." So the
+       reason is DOM TEXT under the row, never only a 'title=' - a hover string says
+       nothing on a touch surface and nothing to a screen reader that is not hovering. */
+    .svq-reason {
+        display: block;
+        font: 400 11px/1.35 var(--app-font, system-ui, sans-serif);
+        color: #5b5470;
+        white-space: normal;
+    }
+    .svq-btn:disabled .svq-reason { color: #8b86a0; }
+
+    /* L-13025 (founder 2026-09-06) - "the left hand side view, on the top-right corner,
+       there is ALSO something we don't need, for 2D map view / 2D satellite. ALL OF THAT
+       SHOULD BE CONCATENATED ON THE SINGLE DROP DOWN PANEL WITH ALL VIEWS."
+
+       That is the 2D map's OWN corner 'Map | Satellite' chip (A.8.c.f.4,
+       'pryzm-gis-basemap-toggle', top 52px / right 12px on the map overlay). Both of its
+       routes are now rows of the pane dropdown ('2D Site Map' / '2D Satellite'), which
+       dispatch into the SAME 'SiteBoundaryMap2D.swapBasemap' - so this is a duplicate
+       control, not a second capability.
+
+       SCOPED TO THE SPLIT SHELL, DELIBERATELY, and this is the whole care in the rule: the
+       chip is hidden ONLY where a pane dropdown exists to replace it. The map also mounts
+       standalone (onboarding's draw surface, the import overlay) where there is no pane and
+       no dropdown; hiding it there would delete the only basemap route on that surface -
+       a removed route, not a de-duplicated one (C19 5.6 clause 4 / L-942).
+
+       NO JS LIFECYCLE, because the fact is structural: 'PaneHost' re-parents the map
+       overlay INTO the pane element, so "the map is in a pane of the split shell" is
+       exactly "the chip is a descendant of #pryzm-site-authoring-panes". A mount-time flag
+       would have to be re-asked on every re-target; this cannot go stale. */
+    #pryzm-site-authoring-panes .pryzm-gis-basemap-toggle {
+        display: none;
+    }
+
     /* UNREPORTED is not OFF (C84 EI-1b). The row works; whether it is what you are looking
        at cannot be read in this session, so it must not paint as either state. A dotted
        underline says "there is a state here I cannot show you" without borrowing the

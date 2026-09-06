@@ -216,6 +216,32 @@ export function mountViewSwitcherOnView(
         });
         const live = shown.enabled;
 
+        // ⭐ §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — WHILE THE PANES ARE UP,
+        // THIS BAR IS A SPLIT CONTROL AND NOTHING ELSE.
+        //
+        // Founder 2026-09-06, on three switchers stacked over one pane: *"the left hand side
+        // have double panels with the view — keep the one, the formal and more robust only,
+        // and keep it DROP DOWN only. But when in split view, on the left hand side only,
+        // please keep TWO dropdown panels."* Switcher count == visible pane count. When the
+        // shell is up, every pane carries its own dropdown over the SAME six rows, so these
+        // segments are the duplicate he photographed.
+        //
+        // ⛔ AND WHEN THE SHELL IS DOWN THEY STAY, because then there are no panes and no
+        // dropdowns: hiding them there would leave the surface with no way to change the
+        // view at all — the L-942 shape, a gate whose "yes" branch is unreachable. This is
+        // also the ONLY host of the honest *"current view is not reported…"* line, which
+        // exists precisely because a paneless surface has no authoritative reading; a pane
+        // dropdown reads `PaneLayoutStore` and needs no such sentence.
+        //
+        // ⚠ A MEASUREMENT OF THE DOCUMENT, NOT AN ENUMERATION OF STATES (C01 §6 rule 6):
+        // `isSplitOpen` observes the shell's own root id, the same reading the split button
+        // itself is painted from — so the two can never disagree about whether panes exist.
+        if (switcher) {
+            const seg = switcher.element;
+            if (open && seg.parentElement === root) root.removeChild(seg);
+            else if (!open && seg.parentElement !== root) root.insertBefore(seg, split);
+        }
+
         split.textContent = shown.label;
         split.disabled = !live;
         split.setAttribute('aria-pressed', shown.pressed ? 'true' : 'false');
@@ -249,34 +275,59 @@ export function mountViewSwitcherOnView(
         // Re-observe rather than assume: the shell mounts synchronously today, but a
         // control that PAINTED its own click would be asserting a layout it never checked.
         paintSplit();
-        placeBelowQuickToggle();
+        placeBelowBandOccupants();
     });
 
     /**
-     * ⚠ TWO CENTRED BARS ARE POSSIBLE, AND THIS IS THE ONLY REASON THIS FUNCTION EXISTS.
+     * ⚠ SEVERAL CONTROLS CAN OCCUPY THIS BAND, AND THIS FUNCTION IS THE ONLY THING THAT
+     * KEEPS THEM APART. The band is `top: calc(6px + var(--shell-topbar-h) + 8px)` at
+     * `left: var(--shell-canvas-cx)` — this bar's own sheet rule, and it is not this bar's
+     * alone. So this bar MEASURES what is up there and sits under the lowest of them. A
+     * measurement, not an enumeration of the states in which the others exist (C01 §6 rule
+     * 6: censuses rot).
      *
-     * `SiteAuthoringPaneShell` mounts its OWN top-centre bar (`.svq-bar`,
-     * §SITE-VIEW-QUICK-TOGGLE) whenever the split is up, and that bar takes the SAME
-     * `left: var(--shell-canvas-cx)` this one does. In the founder's split case they would
-     * land on top of each other.
+     * ⭐ CORRECTED 2026-09-06 (L-13004 / L-13015) — this routine measured ONE selector,
+     * `.svq-bar`, and both halves of that were wrong:
      *
-     * ⛔ The fix is NOT to hide one of them: they are different controls (that one is
-     * PER-PANE, this one is WHOLE-SCREEN + the split toggle), and hiding the whole-screen
-     * one would take the way OUT of split with it. So this bar MEASURES the other and sits
-     * under it. A measurement, not an enumeration of the states in which the other exists —
-     * C01 §6 rule 6: censuses rot.
+     *   · IT MEASURED THE WRONG ELEMENT. `document.querySelector('.svq-bar')` also matches
+     *     the PANE-SCOPED `.svq-bar--pane`, which is `position: absolute` inside a pane —
+     *     so a pane bar's viewport rect was being fed into a `position: fixed` element's
+     *     `top`. Right by luck when the pane happened to be flush with the viewport top,
+     *     wrong the moment it was not. The selector now excludes it explicitly.
+     *
+     *   · IT NEVER MEASURED THE THING THAT ACTUALLY OCCLUDES. The onboarding COMPACT PILL
+     *     (`.os-onboarding-overlay--compact`) is declared at the IDENTICAL top and left in
+     *     `onboardingStyles.ts`, and at `z-index: 2147483000` — above everything. It, not
+     *     the top bar (which this band already clears by ~8px), is what hides the switcher
+     *     during the guided flow. The honest fix is to make one MEASURE the other rather
+     *     than to nudge a constant that leaves the coupling unmeasured.
+     *     ⚠ The pill's OVERLAY root is `background: transparent; pointer-events: none` with
+     *     `width: auto` — measuring it would over-measure whitespace — so the visible
+     *     `.os-compact-row` inside it is preferred, and the overlay is only the fallback.
      */
-    const placeBelowQuickToggle = (): void => {
+    const OCCUPANTS_OF_THE_BAND: readonly string[] = [
+        // ⚠ NOT `.svq-bar` — that also matches the pane-scoped `.svq-bar--pane`, which is
+        // absolutely positioned inside a pane and whose rect means nothing to a fixed bar.
+        '.svq-bar:not(.svq-bar--pane)',
+        '.os-onboarding-overlay--compact .os-compact-row',
+        '.os-onboarding-overlay--compact',
+    ];
+
+    const placeBelowBandOccupants = (): void => {
         if (disposed) return;
         try {
-            const other = document.querySelector<HTMLElement>('.svq-bar');
-            const rect = other?.getBoundingClientRect?.();
-            if (other && rect && rect.height > 0) {
-                root.style.top = `${Math.round(rect.bottom + 8)}px`;
-            } else {
-                // Back to the sheet's own derived value (it clears the shell's top band).
-                root.style.top = '';
+            let lowest = 0;
+            for (const sel of OCCUPANTS_OF_THE_BAND) {
+                const el = document.querySelector<HTMLElement>(sel);
+                if (!el || el === root || root.contains(el)) continue;
+                const rect = el.getBoundingClientRect?.();
+                if (!rect || rect.height <= 0) continue;
+                if (rect.bottom > lowest) lowest = rect.bottom;
+                // The pill's own row was found, so its overlay fallback adds nothing.
+                if (sel.endsWith('.os-compact-row')) break;
             }
+            // Back to the sheet's own derived value (it clears the shell's top band).
+            root.style.top = lowest > 0 ? `${Math.round(lowest + 8)}px` : '';
         } catch { /* an unmeasurable sibling leaves the sheet's value in force */ }
     };
 
@@ -287,7 +338,7 @@ export function mountViewSwitcherOnView(
         root.appendChild(split);
         parent.appendChild(root);
         paintSplit();
-        placeBelowQuickToggle();
+        placeBelowBandOccupants();
         span.setAttribute('pryzm.viewSwitcherOnView.mounted', true);
     } catch (e) {
         span.setAttribute('pryzm.viewSwitcherOnView.mounted', false);
@@ -303,7 +354,7 @@ export function mountViewSwitcherOnView(
             if (disposed) return;
             try { switcher?.repaint(); } catch { /* a repaint that throws is one we do not have */ }
             paintSplit();
-            placeBelowQuickToggle();
+            placeBelowBandOccupants();
         },
         dispose(): void {
             if (disposed) return;

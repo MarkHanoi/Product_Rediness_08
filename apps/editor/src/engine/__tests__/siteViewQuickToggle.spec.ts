@@ -678,16 +678,37 @@ describe('§VIEW-PANEL-PER-PANE — it ADDS a route and removes none', () => {
         expect(read('apps/editor/src/engine/views/PaneViewPicker.ts')).toContain('reasonEl');
     });
 
-    it('⭐ the shell mounts ONE panel PER PANE, into the pane elements', () => {
+    // ⭐ RE-POINTED 2026-09-06 (§ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN, L-13015/L-13025).
+    //
+    // These four arms asserted that `SiteAuthoringPaneShell` mounts THIS control per pane as
+    // the floating `.svq-bar--pane`. It no longer does, and that is a FOUNDER RULING, not
+    // drift: he photographed three switchers stacked over one pane and said *"keep the one,
+    // the formal and more robust only, and keep it DROP DOWN only … when in split view … keep
+    // TWO dropdown panels"*, then completed it with *"exactly ONE dropdown per pane, carrying
+    // ALL views, present from STARTUP"*. So the invariant these arms guard has MOVED — the
+    // panel is now hosted inside each pane's `PaneViewPicker` popup — and they are re-pointed
+    // at the new host rather than deleted. ⛔ The thing they must keep proving is unchanged
+    // and is the reason they exist: ONE panel per pane, ONE store, ONE shared camera memory,
+    // and both torn down with the shell.
+    it('⭐ the shell mounts ONE panel PER PANE — now INSIDE that pane dropdown', () => {
         const code = codeOnly(read(SHELL));
-        expect(code).toMatch(/\[LEFT_PANE, leftPaneEl\], \[RIGHT_PANE, rightPaneEl\]/);
-        expect(code).toMatch(/mountSiteViewQuickToggle\(\{[\s\S]{0,400}paneId: pane/);
-        expect(code).toContain('parent: el');
+        // One `panel` port set, handed to BOTH pickers — so the two panes cannot acquire
+        // different rows, different ports or different cameras.
+        expect(code).toMatch(/mountPaneViewPicker\(\{[\s\S]{0,160}paneId: LEFT_PANE[\s\S]{0,160}panel/);
+        expect(code).toMatch(/mountPaneViewPicker\(\{[\s\S]{0,160}paneId: RIGHT_PANE[\s\S]{0,160}panel/);
+        // ⛔ AND THE FLOATING BAR IS GONE — not hidden, not conditional. A second control
+        // that merely stopped being visible is the stack he photographed, one CSS rule away.
+        expect(code).not.toMatch(/mountSiteViewQuickToggle\(/);
+        // The dropdown host mounts it, in the MENU shape, with the split suppressed because
+        // that popup already renders `describePaneLayoutActions`.
+        const picker = codeOnly(read('apps/editor/src/engine/views/PaneViewPicker.ts'));
+        expect(picker).toMatch(/mountSiteViewQuickToggle\(\{[\s\S]{0,400}shape: 'menu'/);
+        expect(picker).toMatch(/showSplit: false/);
     });
 
     it('the panels share the ONE store — no second write path (C59 §2 invariant 3)', () => {
-        const code = codeOnly(read(SHELL));
-        expect(code).toMatch(/mountSiteViewQuickToggle\(\{\s*store,/);
+        const picker = codeOnly(read('apps/editor/src/engine/views/PaneViewPicker.ts'));
+        expect(picker).toMatch(/mountSiteViewQuickToggle\(\{\s*store,/);
         const dom = codeOnly(read('apps/editor/src/engine/views/SiteViewQuickToggle.ts'));
         expect(dom).not.toContain('MultiPaneController');
         expect(dom).not.toMatch(/applyLayout\(/);
@@ -700,11 +721,15 @@ describe('§VIEW-PANEL-PER-PANE — it ADDS a route and removes none', () => {
         const code = codeOnly(read(SHELL));
         expect(code).toContain('let globeFraming');
         expect(code).toContain('getFraming: () => globeFraming');
-        expect(code).toMatch(/onFramingChanged:[\s\S]{0,200}t\.refresh\(\)/);
+        expect(code).toMatch(/onFramingChanged:[\s\S]{0,200}p\.refresh\(\)/);
     });
 
     it('both panels are torn down with the shell', () => {
-        expect(codeOnly(read(SHELL))).toMatch(/for \(const t of quickToggles\)[\s\S]{0,80}t\.dispose\(\)/);
+        // The panel is disposed BY its dropdown host, and the host by the shell — so the
+        // chain is asserted at both links rather than at a loop that no longer exists.
+        expect(codeOnly(read(SHELL))).toMatch(/for \(const p of pickers\)[\s\S]{0,80}p\.dispose\(\)/);
+        expect(codeOnly(read('apps/editor/src/engine/views/PaneViewPicker.ts')))
+            .toMatch(/panel\?\.dispose\(\)/);
     });
 
     it('⛔ the SHELL bar is still BUDGETED, and the PANE panel is deliberately not', () => {
@@ -824,7 +849,12 @@ describe('§VIEW-PANEL-PER-PANE — the production wiring is real, not authored-
         const src = read(SHELL);
         expect(src).toContain('defaultSiteViewCameraPorts');
         expect(src).toContain('defaultSiteViewBasemapPorts');
-        expect(src).toMatch(/mountSiteViewQuickToggle\(\{[\s\S]{0,400}camera,[\s\S]{0,80}basemap,/);
+        // §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — the ports now travel to the
+        // panel through the pane dropdown that hosts it. The shell is still the ONE place
+        // that resolves them (P1), which is what this arm exists to hold.
+        expect(src).toMatch(/const panel = \{[\s\S]{0,300}camera,[\s\S]{0,120}basemap,/);
+        expect(codeOnly(read('apps/editor/src/engine/views/PaneViewPicker.ts')))
+            .toMatch(/mountSiteViewQuickToggle\(\{[\s\S]{0,500}camera: opts\.panel\.camera/);
     });
 
     it('the ports resolve the DECLARED globals — no new machinery, no window-any (P4)', () => {

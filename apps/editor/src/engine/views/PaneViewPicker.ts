@@ -30,14 +30,51 @@
 // underneath it (not only in a `title=`), because a greyed option with no reason is an
 // explicitly bad answer per the Phase-2 brief. The same applies to a singleton move: the
 // consequence is stated BEFORE the click, not discovered after the other pane blanks.
+//
+// ⭐ §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015, founder 2026-09-06) — THIS IS NOW
+// THE PANE'S ONE VIEW CONTROL, and it is the only one on screen per pane.
+//
+// He photographed THREE switchers stacked over one pane — this dropdown, the per-pane
+// `.svq-bar--pane` segment bar, and the body-level `.vsw-onview` bar — and ruled: *"the left
+// hand side have double panels with the view — keep the one, the formal and more robust
+// only, and keep it DROP DOWN only. But when in split view, on the left hand side only,
+// please keep TWO dropdown panels."* The rule that came out of it is
+// **SWITCHER COUNT == VISIBLE PANE COUNT**, and the survivor is this dropdown.
+//
+// So the founder's six (`viewPanelOptions()`) moved INTO this popup, rendered by
+// `mountSiteViewQuickToggle` in its `'menu'` shape — a change of HOST, not a new control,
+// and not a second copy of the option definition. Three things had to survive the move and
+// all three did:
+//   · THE SIX THEMSELVES, with their VARIANTS (satellite is a basemap on the one map; the
+//     globe is an altitude on the one Cesium camera). The trigger names the active row
+//     variant-and-all, read from the panel's own model.
+//   · THE REFUSALS, SPOKEN. STR §26.1.1 / L-12999 is a founder ruling that an unavailable
+//     option stays OFFERED and that its refusal says one sentence naming the reason — *"a
+//     silently greyed-out segment is the WRONG implementation"*. The menu shape prints it
+//     under the row, which is the rule this file already followed for the registry list.
+//   · THE PANE MENU, beneath, carrying every view the six do not offer (elevations,
+//     sections) — the founder's *"if the user wants to open more they can do it in the
+//     browser"*. Nothing is listed twice: the overlap is derived, not enumerated.
 
-import type { PaneId, ViewType } from './paneViewModel';
+import type { PaneId, RendererKind, ViewType } from './paneViewModel';
 import {
     describePaneLayoutActions,
     describePaneViewOptions,
     type PaneViewOption,
 } from './paneViewOptions';
 import type { PaneLayoutStore } from './paneLayoutStore';
+// §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — the founder's six live in the
+// popup now, rendered by the control that already owns them. NOT re-implemented here:
+// `viewPanelOptions.ts` is the ONE option definition (§VIEW-PANEL-PER-PANE) and a second
+// list of six rows would be the rival bar this repo has refused three times today.
+import {
+    mountSiteViewQuickToggle,
+    type SiteViewBasemapPorts,
+    type SiteViewCameraPorts,
+    type SiteViewQuickToggleHandle,
+} from './SiteViewQuickToggle';
+import type { SiteViewGlobeFraming } from './siteViewQuickToggleModel';
+import { viewPanelOptions } from './viewPanelOptions';
 
 export interface PaneViewPickerHandle {
     readonly element: HTMLElement;
@@ -55,11 +92,42 @@ export interface PaneViewPickerOptions {
     readonly store: PaneLayoutStore;
     /** Corner within the pane. Defaults to top-left. */
     readonly corner?: 'top-left' | 'top-right';
+    /**
+     * §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — the founder's six rows, hosted
+     * INSIDE this dropdown. Omit and the picker renders the registry list alone (what a
+     * bare-geometry test wants); pass it and this is the pane's ONE view control.
+     *
+     * The three ports are handed straight through to `mountSiteViewQuickToggle` — this file
+     * reads no globals and resolves no camera (P1/P4): the composition layer
+     * (`SiteAuthoringPaneShell`) owns that, exactly as it did when the panel was a bar.
+     */
+    readonly panel?: PaneViewPickerPanelPorts;
+}
+
+/** @see PaneViewPickerOptions.panel */
+export interface PaneViewPickerPanelPorts {
+    /** Renderer kinds with a mounter registered here (the runtime half of availability). */
+    readonly mountableKinds?: () => ReadonlySet<RendererKind> | null;
+    readonly camera?: SiteViewCameraPorts;
+    readonly basemap?: SiteViewBasemapPorts;
+    /** The SHARED globe-framing memory — two panes drive ONE Cesium camera. */
+    readonly getFraming?: () => SiteViewGlobeFraming;
+    readonly onFramingChanged?: (next: SiteViewGlobeFraming) => void;
 }
 
 const BRAND = '#6600FF';
 const BRAND_TINT = '#f4f0ff';
 const BORDER = '#ece7fb';
+
+/**
+ * The view types the hosted panel already offers, DERIVED from the ONE option definition
+ * (`viewPanelOptions.ts`) rather than listed here. A hand-written list would let a new
+ * promoted row appear TWICE in this popup — once in the panel, once under "More views" —
+ * which is the duplication the founder photographed, one level down.
+ */
+const PANEL_VIEW_TYPES: ReadonlySet<ViewType> = new Set(
+    viewPanelOptions().map((o) => o.viewType),
+);
 
 /**
  * Mount the picker into `paneEl`. Idempotent per pane: an existing picker element is
@@ -134,6 +202,47 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
     root.appendChild(trigger);
     root.appendChild(popup);
     paneEl.appendChild(root);
+
+    // ── §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — THE SIX, IN THE POPUP ──
+    //
+    // Founder 2026-09-06, on three switchers stacked over one pane: *"keep the one, the
+    // formal and more robust only, and keep it DROP DOWN only. But when in split view, on
+    // the left hand side only, please keep TWO dropdown panels."*
+    //
+    // ⛔ NOT A FOURTH CONTROL AND NOT A COPY OF THE SIX. `mountSiteViewQuickToggle` is the
+    // shipped renderer of `viewPanelOptions()`; it is mounted here in its `'menu'` shape,
+    // with its own SPLIT suppressed because this popup already renders
+    // `describePaneLayoutActions` (which includes restore-split) below.
+    let panel: SiteViewQuickToggleHandle | null = null;
+    let panelHost: HTMLDivElement | null = null;
+    if (opts.panel) {
+        panelHost = document.createElement('div');
+        panelHost.setAttribute('data-testid', `pane-view-picker-panel-${paneId}`);
+        try {
+            panel = mountSiteViewQuickToggle({
+                store,
+                parent: panelHost,
+                paneId,
+                shape: 'menu',
+                showSplit: false,
+                mountableKinds: opts.panel.mountableKinds,
+                camera: opts.panel.camera,
+                basemap: opts.panel.basemap,
+                getFraming: opts.panel.getFraming,
+                onFramingChanged: opts.panel.onFramingChanged,
+                // The panel repaints itself (a basemap swap, a camera move made from the
+                // OTHER pane). The trigger must follow, or the pill names a view the popup
+                // no longer says is current.
+                onRendered: () => { trigger.textContent = triggerLabel(); },
+            });
+        } catch (e) {
+            // A panel that failed to build must not take the pane's view menu with it —
+            // the registry list below is the route that still works.
+            console.warn('[pane-view-picker] view panel failed to mount (non-fatal):', e);
+            panelHost = null;
+            panel = null;
+        }
+    }
 
     let open = false;
     const setOpen = (next: boolean): void => {
@@ -278,25 +387,53 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
         render(rejected);
     };
 
-    const render = (rejected?: string): void => {
-        const layout = store.getLayout();
-        const current = layout[paneId] ?? null;
-        const registry = store.getRegistry();
-        const currentDesc = current ? registry[current] : null;
-        trigger.textContent = currentDesc
-            ? `${currentDesc.glyph ? `${currentDesc.glyph} ` : ''}${currentDesc.label} ▾`
-            : '⃞ Empty pane ▾';
-
-        popup.replaceChildren();
-
-        const heading = document.createElement('div');
-        heading.textContent = 'Show in this pane';
-        Object.assign(heading.style, {
+    const headingEl = (text: string): HTMLDivElement => {
+        const h = document.createElement('div');
+        h.textContent = text;
+        Object.assign(h.style, {
             padding: '6px 10px 8px', color: '#6b6482',
             font: '600 11px/1 system-ui, sans-serif', letterSpacing: '0.04em',
             textTransform: 'uppercase',
         } satisfies Partial<CSSStyleDeclaration>);
-        popup.appendChild(heading);
+        return h;
+    };
+
+    const separatorEl = (): HTMLDivElement => {
+        const s = document.createElement('div');
+        Object.assign(s.style, {
+            height: '1px', background: BORDER, margin: '6px 4px',
+        } satisfies Partial<CSSStyleDeclaration>);
+        return s;
+    };
+
+    /**
+     * §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — the trigger names the row the
+     * user is actually looking at, VARIANT AND ALL.
+     *
+     * ⭐ `2D Satellite` and `2D Site Map` are ONE view type under two basemaps, and `3D
+     * Globe` and `3D Site` are ONE view type under two camera framings — so a label read
+     * from the registry descriptor alone would say "2D Site Map" while the user is looking
+     * at satellite. The panel has already computed which row is active; this READS that one
+     * computation rather than making a second (C84 EI-1b: two copies of one fact drift).
+     * With no panel hosted, the registry descriptor is the whole answer and is correct.
+     */
+    const triggerLabel = (): string => {
+        const seg = panel?.currentModel()?.segments.find((s) => s.active);
+        if (seg) return `${seg.glyph ? `${seg.glyph} ` : ''}${seg.label} ▾`;
+        const current = store.getLayout()[paneId] ?? null;
+        const d = current ? store.getRegistry()[current] : null;
+        return d ? `${d.glyph ? `${d.glyph} ` : ''}${d.label} ▾` : '⃞ Empty pane ▾';
+    };
+
+    const render = (rejected?: string): void => {
+        const layout = store.getLayout();
+        const current = layout[paneId] ?? null;
+        const registry = store.getRegistry();
+        trigger.textContent = triggerLabel();
+
+        popup.replaceChildren();
+
+        popup.appendChild(headingEl('Show in this pane'));
 
         const options = describePaneViewOptions({
             layout,
@@ -308,13 +445,28 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
             // refusal VISIBLE in the menu instead of silent on click.
             pinnedViews: store.pinnedViews(),
         });
-        for (const o of options) popup.appendChild(renderOption(o));
 
-        const sep = document.createElement('div');
-        Object.assign(sep.style, {
-            height: '1px', background: BORDER, margin: '6px 4px',
-        } satisfies Partial<CSSStyleDeclaration>);
-        popup.appendChild(sep);
+        if (panelHost) {
+            // ⭐ THE FOUNDER'S SIX, FIRST — rendered by the control that owns them. The
+            // host element is re-attached rather than rebuilt: rebuilding it every paint
+            // would drop the panel's own store subscription and its ports with it.
+            popup.appendChild(panelHost);
+            // ⛔ AND THE PANE MENU SURVIVES BENEATH IT (the 2026-08 brief: "do not delete
+            // that menu — it carries real refusals with reasons"). Only the views the six
+            // do not already offer appear here, so no row is listed twice — this is the
+            // founder's own *"if the user wants to open more they can do it in the
+            // browser"*, and it is where elevations and sections live.
+            const more = options.filter((o) => !PANEL_VIEW_TYPES.has(o.viewType));
+            if (more.length > 0) {
+                popup.appendChild(separatorEl());
+                popup.appendChild(headingEl('More views'));
+                for (const o of more) popup.appendChild(renderOption(o));
+            }
+        } else {
+            for (const o of options) popup.appendChild(renderOption(o));
+        }
+
+        popup.appendChild(separatorEl());
 
         for (const a of describePaneLayoutActions(layout, paneId, store.canRestoreSplit())) {
             popup.appendChild(
@@ -364,11 +516,18 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
 
     return {
         element: root,
-        refresh: () => render(),
+        refresh: () => {
+            // The hosted panel first: the trigger label is READ from its model, so
+            // repainting this one before that one would label the pill from a stale row.
+            try { panel?.refresh(); } catch { /* a panel that cannot repaint is not fatal */ }
+            render();
+        },
         dispose: () => {
             unsubscribe();
             document.removeEventListener('click', onDocClick);
             document.removeEventListener('keydown', onKey);
+            try { panel?.dispose(); } catch { /* chrome already gone */ }
+            panel = null;
             root.remove();
         },
     };
