@@ -41,6 +41,8 @@ import { Readable } from 'node:stream';
 
 import {
     bboxesIntersect,
+    decodeXmlByProlog,
+    isZipFile,
     buildingFloorsFromParts,
     mapCatastroUse,
     parseAtomEntries,
@@ -453,5 +455,80 @@ describe('esCatastro · the live single-parcel WFS door', () => {
         expect(url).not.toContain('version=2.0.0');
         expect(url).toContain('STOREDQUERIE_ID=GetBuildingPartByParcel');
         expect(url).toContain(`refcat=${REFCAT}`);
+    });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CATASTRO-LATIN1-ATOM (L-12971) — the defect that silently drops ~8 % of Spain.
+//
+// The Catastro ATOM feeds are served `Content-Type: text/xml` with NO charset parameter and a
+// prolog declaring ISO-8859-1. `Response.text()` ignores the prolog and assumes UTF-8, so every
+// Ñ/Á/Ü in a municipality NAME became U+FFFD — and the name is a PATH SEGMENT of the ZIP href.
+//
+// ⚠ MEASURED LIVE 2026-09-06, both readings of municipality 37030 AÑOVER DE TORMES in the same
+// second, and the failure is IN-BAND (L-469), not a 404:
+//     decoded as UTF-8   → HTTP 200, 15,257 B, magic 3c21646f `<!do…`   (an HTML error page)
+//     decoded as Latin-1 → HTTP 200, 111,224 B, magic 504b0304 `PK..`   (the real ZIP)
+// Province 37 alone publishes 362 enclosures of which **31 are non-ASCII (8.6 %)**, and a live
+// resolve over [-5.85,40.75,-5.35,41.10] after the fix returned 92 municipalities of which 7 carry
+// non-ASCII names — BELEÑA (90,558 B) and DOÑINOS DE SALAMANCA (505,607 B) both download as real
+// ZIPs where they previously fetched an error page.
+//
+// ⛔ THE NINE METROS HIDE THIS COMPLETELY (barcelona/cordoba/madrid/valencia/sevilla/malaga/
+// zaragoza/bilbao/murcia are pure ASCII), exactly like the missing EPSG:25829 def. Both fire on
+// ZERO municipalities today and on hundreds the moment the sweep goes national — which is why they
+// are pinned here rather than left for a national bake to discover at hour three.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§CATASTRO-LATIN1-ATOM — a feed is decoded by the encoding IT declares', () => {
+    /** The real shape: an ISO-8859-1 prolog and a 0xD1 byte for Ñ. */
+    const latin1Feed = (name: string) => Buffer.concat([
+        Buffer.from('<?xml version="1.0" encoding="ISO-8859-1"?><feed><entry><title>', 'latin1'),
+        Buffer.from(name, 'latin1'),
+        Buffer.from('</title></entry></feed>', 'latin1'),
+    ]);
+
+    it('decodes an ISO-8859-1 document by its prolog, not as UTF-8', () => {
+        const buf = latin1Feed('37030-AÑOVER DE TORMES');
+        expect(decodeXmlByProlog(buf)).toContain('AÑOVER DE TORMES');
+        // The defect, stated as the thing that must NOT come back.
+        expect(buf.toString('utf8')).toContain('�');
+        expect(decodeXmlByProlog(buf)).not.toContain('�');
+    });
+
+    it('still decodes a UTF-8 document, and defaults to UTF-8 when nothing is declared', () => {
+        const utf8 = Buffer.from('<?xml version="1.0" encoding="UTF-8"?><feed>AÑOVER</feed>', 'utf8');
+        expect(decodeXmlByProlog(utf8)).toContain('AÑOVER');
+        expect(decodeXmlByProlog(Buffer.from('<feed>plain</feed>', 'utf8'))).toContain('plain');
+    });
+
+    it('carries the accented name through parseAtomEntries — the decode is upstream of the parse', () => {
+        // The name reaches the href, so a mangled decode is a mangled REQUEST, not a cosmetic label.
+        const xml = decodeXmlByProlog(latin1Feed('37030-AÑOVER DE TORMES'));
+        expect(parseAtomEntries(xml)[0]?.title).toBe('37030-AÑOVER DE TORMES');
+    });
+
+    it('isZipFile ACCEPTS a populated archive and REFUSES an HTML error page served as 200', () => {
+        const dir = mkdtempSync(resolve(tmpdir(), 'cat-magic-'));
+        const zip = resolve(dir, 'ok.zip');
+        writeFileSync(zip, Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64)]));
+        expect(isZipFile(zip)).toBe(true);
+
+        // The measured error body: status 200, begins `<!do`. It must never read as a clean zero.
+        const err = resolve(dir, 'error.html');
+        writeFileSync(err, '<!doctype html><html><body>error</body></html>');
+        expect(isZipFile(err)).toBe(false);
+    });
+
+    it('REFUSES an EMPTY archive too — Catastro serves none, so one means a misdirected request', () => {
+        const dir = mkdtempSync(resolve(tmpdir(), 'cat-magic2-'));
+        const empty = resolve(dir, 'empty.zip');
+        // PK = end-of-central-directory with no members.
+        writeFileSync(empty, Buffer.from([0x50, 0x4b, 0x05, 0x06, ...new Array(18).fill(0)]));
+        expect(isZipFile(empty)).toBe(false);
+    });
+
+    it('is false for a missing file rather than throwing — the caller is already on an error path', () => {
+        expect(isZipFile(resolve(tmpdir(), 'no-such-file-'+Date.now()+'.zip'))).toBe(false);
     });
 });

@@ -92,7 +92,7 @@
 //     heights keep coming from the CNIG MDS raster stamp (`heightJoin:'mds'`), which now runs on
 //     these footprints instead of OSM's — the two compose, they do not compete.
 // ─────────────────────────────────────────────────────────────────────────────
-import { createReadStream, createWriteStream, existsSync, mkdirSync, openSync, readSync, closeSync, statSync } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, mkdirSync, openSync, readSync, closeSync, statSync, unlinkSync } from 'node:fs';
 import { createInflateRaw } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { resolve } from 'node:path';
@@ -406,10 +406,48 @@ export function zipEntryStream(zipPath, entry) {
 
 // ── NETWORK ─────────────────────────────────────────────────────────────────
 
+/**
+ * §CATASTRO-LATIN1-ATOM (L-12971) — decode an XML document by the encoding IT declares.
+ *
+ * ⚠ The prolog is ASCII in every encoding we accept, so reading it as latin1 is always safe.
+ * ISO-8859-1 / windows-1252 / ISO-8859-15 differ only in 0x80–0x9F and 0xA4/0xA6/0xA8…, none of
+ * which appear in a Spanish municipality name; they are folded to latin1 deliberately rather than
+ * pulling in a full decoder for a distinction this feed never makes.
+ */
+export function decodeXmlByProlog(buf) {
+  const declared = /<\?xml[^>]*encoding=["']([\w-]+)["']/i.exec(buf.subarray(0, 200).toString('latin1'))?.[1];
+  const enc = (declared ?? 'utf-8').toLowerCase();
+  if (enc === 'iso-8859-1' || enc === 'latin1' || enc === 'windows-1252' || enc === 'iso-8859-15') {
+    return buf.toString('latin1');
+  }
+  return buf.toString('utf8');
+}
+
+/**
+ * GET a Catastro ATOM feed, decoded by the encoding the DOCUMENT ITSELF declares.
+ *
+ * ⛔ §CATASTRO-LATIN1-ATOM — `r.text()` IS WRONG HERE AND IT SILENTLY LOSES ~8 % OF SPAIN.
+ * Every Catastro ATOM feed is served `Content-Type: text/xml` with NO charset parameter and a
+ * prolog declaring `encoding="ISO-8859-1"`. WHATWG fetch ignores the prolog and defaults an
+ * unparameterised `text/*` to UTF-8, so every Ñ/Á/Ü in a municipality NAME decodes to U+FFFD —
+ * and that name is a PATH SEGMENT of the ZIP's href. Measured live 2026-09-06 on province 37
+ * (Salamanca): 362 enclosure hrefs, **31 of them non-ASCII (8.6 %)**.
+ *
+ * The consequence is the in-band-error shape this repo has been burned by (L-469), NOT a 404 —
+ * both readings of municipality 37030 AÑOVER DE TORMES, same second:
+ *   href as decoded TODAY   → HTTP **200**, 15,257 B, magic `3c21646f` = `<!do…` — an HTML error page
+ *   href decoded as Latin-1 → HTTP **200**, 111,224 B, magic `504b0304` = `PK` — the real ZIP
+ * A status check cannot tell those apart, which is why `downloadMunicipalityZip` now also asserts
+ * the local-file-header magic instead of trusting `r.ok`.
+ *
+ * ⚠ THE NINE METROS HIDE THIS COMPLETELY — barcelona, cordoba, madrid, valencia, sevilla, malaga,
+ * zaragoza, bilbao and murcia are all pure ASCII. Exactly like the missing EPSG:25829 def, it fires
+ * on ZERO municipalities today and on hundreds the moment the sweep goes national.
+ */
 async function getText(url) {
   const r = await fetch(url, { headers: { 'User-Agent': ES_CATASTRO.ua }, redirect: 'follow' });
   if (!r.ok) throw new Error(`esCatastro: GET ${url} → HTTP ${r.status}`);
-  return await r.text();
+  return decodeXmlByProlog(Buffer.from(await r.arrayBuffer()));
 }
 
 /**
@@ -443,6 +481,25 @@ export async function resolveMunicipalities(bbox, { log = () => {} } = {}) {
   return { status: 'ok', municipalities, provinces: provinces.length, refused };
 }
 
+/**
+ * §CATASTRO-LATIN1-ATOM (L-12971) — is this file actually a ZIP?
+ *
+ * Reads the 4-byte local file header only. `PK` is a populated archive; `PK` is an
+ * EMPTY archive's end-of-central-directory and is DELIBERATELY REJECTED HERE TOO — Catastro serves
+ * no empty archives, so one arriving means the request went somewhere unintended, and accepting it
+ * would reproduce the exact "clean zero" this guard exists to stop.
+ */
+export function isZipFile(path) {
+  let fd;
+  try {
+    fd = openSync(path, 'r');
+    const head = Buffer.alloc(4);
+    const n = readSync(fd, head, 0, 4, 0);
+    return n === 4 && head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04;
+  } catch { return false; }
+  finally { if (fd !== undefined) { try { closeSync(fd); } catch { /* already closed */ } } }
+}
+
 /** Download one municipality ZIP to `dir` (skipped when already present and non-empty). */
 export async function downloadMunicipalityZip(muni, dir, { log = () => {} } = {}) {
   mkdirSync(dir, { recursive: true });
@@ -452,6 +509,18 @@ export async function downloadMunicipalityZip(muni, dir, { log = () => {} } = {}
   if (!r.ok) throw new Error(`esCatastro: ZIP ${muni.code} → HTTP ${r.status}`);
   await pipeline(r.body, createWriteStream(path));
   const bytes = statSync(path).size;
+  // ⛔ §CATASTRO-LATIN1-ATOM (L-12971) — HTTP 200 IS NOT PROOF OF A ZIP. A mis-encoded href returns
+  // the site's HTML error page WITH STATUS 200 (measured: 15,257 B beginning `<!do`), which would
+  // unzip to nothing and be reported as a municipality that genuinely has no buildings. That is the
+  // failure-vs-empty collapse (C57 §1.5) pointed at a map. Assert the local-file-header magic so a
+  // served error is a REFUSAL, and DELETE the body so the `cached` fast path above cannot re-serve
+  // it as a good download on the next run.
+  if (!isZipFile(path)) {
+    try { unlinkSync(path); } catch { /* best effort — the throw below is the real signal */ }
+    throw new Error(
+      `esCatastro: ZIP ${muni.code} → HTTP 200 but the body is NOT a ZIP (${bytes.toLocaleString()} B); `
+      + `the href is probably mis-encoded — see §CATASTRO-LATIN1-ATOM`);
+  }
   log(`  catastro: ${muni.code}-${muni.name} ZIP ${bytes.toLocaleString()} B`);
   return { path, cached: false, bytes };
 }
