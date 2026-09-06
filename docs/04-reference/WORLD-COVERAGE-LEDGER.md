@@ -11,12 +11,12 @@
 
 **This page answers one question: _what does PRYZM actually serve HERE?_**
 
-Generated: 2026-09-06T09:39:05.953Z
+Generated: 2026-09-06T09:45:47.625Z
 
 ## §0 · Probe record (C57 §1.5 — the exact answer, never a claim)
 
 ```
-GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 1739 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
+GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 799 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
 ```
 
 - manifest `mergedAt`: `2026-09-06T07:58:43.604Z` · `mergeRunId`: `34015784612` · `mergeGitSha`: `ad038f5a0337097f9af7fda873383bbfdf193b36`
@@ -126,7 +126,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 
 - **Albania (AL)** — context baked but NOT in the live tileset: albania · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Andorra (AD)** — context baked but NOT in the live tileset: andorra · no terrain · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
-- **Australia (AU)** — terrain is 8 × state/territory (`newsouthwales victoria queensland westernaustralia southaustralia tasmania act northernterritory`), NOT the country · measured heights only inside 1 box(es) [melbourne] — everywhere else ships the assumed default
+- **Australia (AU)** — LIVE TILES PREDATE THE CODE — `northernterritory` baked 2026-09-03 (sha fab79894) but its deciding tables last changed 2026-09-05 — what a user clicks is the OLD behaviour · terrain is 8 × state/territory (`newsouthwales victoria queensland westernaustralia southaustralia tasmania act northernterritory`), NOT the country · measured heights only inside 1 box(es) [melbourne] — everywhere else ships the assumed default
 - **Austria (AT)** — measured heights only inside 5 box(es) [vienna graz linz salzburg innsbruck] — everywhere else ships the assumed default
 - **Bahrain (BH)** — context baked but NOT in the live tileset: gccstates · terrain is 1 × metro box (`gccstates`), NOT the country · measured heights only inside 1 box(es) [abudhabi-core] — everywhere else ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
 - **Belarus (BY)** — context baked but NOT in the live tileset: belarus · NO measured height join — every building ships the assumed default · no cadastral parcel row (click falls to the OSM footprint)
@@ -364,106 +364,116 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `romania` | 2026-09-03T07:17:06.927Z | `fab79894` | — | — | 2026-09-02T06:24:02.000Z | ✅ current |
 | `slovakia` | 2026-09-03T07:08:56.122Z | `fab79894` | — | — | 2026-09-02T06:24:02.000Z | ✅ current |
 | `bulgaria` | 2026-09-03T07:07:25.351Z | `fab79894` | — | — | 2026-09-02T06:24:02.000Z | ✅ current |
-| `iceland` | — | — | — | — | 2026-09-06T09:38:20.000Z | ⛔ **NOT PUBLISHED** |
-| `faroeislands` | — | — | — | — | 2026-09-06T09:38:20.000Z | ⛔ **NOT PUBLISHED** |
-| `malta` | — | — | — | — | 2026-09-06T09:38:21.000Z | ⛔ **NOT PUBLISHED** |
-| `cyprus` | — | — | — | — | 2026-09-06T09:38:21.000Z | ⛔ **NOT PUBLISHED** |
-| `serbia` | — | — | — | — | 2026-09-06T09:38:21.000Z | ⛔ **NOT PUBLISHED** |
-| `bosniaherzegovina` | — | — | — | — | 2026-09-06T09:38:21.000Z | ⛔ **NOT PUBLISHED** |
-| `montenegro` | — | — | — | — | 2026-09-06T09:38:22.000Z | ⛔ **NOT PUBLISHED** |
-| `northmacedonia` | — | — | — | — | 2026-09-06T09:38:22.000Z | ⛔ **NOT PUBLISHED** |
-| `albania` | — | — | — | — | 2026-09-06T09:38:22.000Z | ⛔ **NOT PUBLISHED** |
-| `kosovo` | — | — | — | — | 2026-09-06T09:38:23.000Z | ⛔ **NOT PUBLISHED** |
-| `ukraine` | — | — | — | — | 2026-09-06T09:38:23.000Z | ⛔ **NOT PUBLISHED** |
-| `belarus` | — | — | — | — | 2026-09-06T09:38:23.000Z | ⛔ **NOT PUBLISHED** |
-| `moldova` | — | — | — | — | 2026-09-06T09:38:24.000Z | ⛔ **NOT PUBLISHED** |
-| `andorra` | — | — | — | — | 2026-09-06T09:38:24.000Z | ⛔ **NOT PUBLISHED** |
-| `liechtenstein` | — | — | — | — | 2026-09-06T09:38:25.000Z | ⛔ **NOT PUBLISHED** |
-| `channelislands` | — | — | — | — | 2026-09-06T09:38:25.000Z | ⛔ **NOT PUBLISHED** |
-| `isleofman` | — | — | — | — | 2026-09-06T09:38:27.000Z | ⛔ **NOT PUBLISHED** |
-| `alabama` | — | — | — | — | 2026-09-06T09:38:28.000Z | ⛔ **NOT PUBLISHED** |
-| `alaska` | — | — | — | — | 2026-09-06T09:38:29.000Z | ⛔ **NOT PUBLISHED** |
-| `alaskaaleutians` | — | — | — | — | 2026-09-06T09:38:30.000Z | ⛔ **NOT PUBLISHED** |
-| `arizona` | — | — | — | — | 2026-09-06T09:38:30.000Z | ⛔ **NOT PUBLISHED** |
-| `arkansas` | — | — | — | — | 2026-09-06T09:38:31.000Z | ⛔ **NOT PUBLISHED** |
-| `california` | — | — | — | `us_open` | 2026-09-06T09:38:32.000Z | ⛔ **NOT PUBLISHED** |
-| `colorado` | — | — | — | — | 2026-09-06T09:38:33.000Z | ⛔ **NOT PUBLISHED** |
-| `connecticut` | — | — | — | — | 2026-09-06T09:38:33.000Z | ⛔ **NOT PUBLISHED** |
-| `delaware` | — | — | — | — | 2026-09-06T09:38:34.000Z | ⛔ **NOT PUBLISHED** |
-| `districtofcolumbia` | — | — | — | — | 2026-09-06T09:38:34.000Z | ⛔ **NOT PUBLISHED** |
-| `florida` | — | — | — | — | 2026-09-06T09:38:34.000Z | ⛔ **NOT PUBLISHED** |
-| `georgia` | — | — | — | — | 2026-09-06T09:38:35.000Z | ⛔ **NOT PUBLISHED** |
-| `hawaii` | — | — | — | — | 2026-09-06T09:38:35.000Z | ⛔ **NOT PUBLISHED** |
-| `idaho` | — | — | — | — | 2026-09-06T09:38:36.000Z | ⛔ **NOT PUBLISHED** |
-| `illinois` | — | — | — | — | 2026-09-06T09:38:36.000Z | ⛔ **NOT PUBLISHED** |
-| `indiana` | — | — | — | — | 2026-09-06T09:38:37.000Z | ⛔ **NOT PUBLISHED** |
-| `iowa` | — | — | — | — | 2026-09-06T09:38:37.000Z | ⛔ **NOT PUBLISHED** |
-| `kansas` | — | — | — | — | 2026-09-06T09:38:37.000Z | ⛔ **NOT PUBLISHED** |
-| `kentucky` | — | — | — | — | 2026-09-06T09:38:38.000Z | ⛔ **NOT PUBLISHED** |
-| `louisiana` | — | — | — | — | 2026-09-06T09:38:38.000Z | ⛔ **NOT PUBLISHED** |
-| `maine` | — | — | — | — | 2026-09-06T09:38:39.000Z | ⛔ **NOT PUBLISHED** |
-| `maryland` | — | — | — | — | 2026-09-06T09:38:39.000Z | ⛔ **NOT PUBLISHED** |
-| `massachusetts` | — | — | — | `us_open` | 2026-09-06T09:38:40.000Z | ⛔ **NOT PUBLISHED** |
-| `michigan` | — | — | — | — | 2026-09-06T09:38:40.000Z | ⛔ **NOT PUBLISHED** |
-| `minnesota` | — | — | — | — | 2026-09-06T09:38:40.000Z | ⛔ **NOT PUBLISHED** |
-| `mississippi` | — | — | — | — | 2026-09-06T09:38:41.000Z | ⛔ **NOT PUBLISHED** |
-| `missouri` | — | — | — | — | 2026-09-06T09:38:41.000Z | ⛔ **NOT PUBLISHED** |
-| `montana` | — | — | — | — | 2026-09-06T09:38:42.000Z | ⛔ **NOT PUBLISHED** |
-| `nebraska` | — | — | — | — | 2026-09-06T09:38:42.000Z | ⛔ **NOT PUBLISHED** |
-| `nevada` | — | — | — | — | 2026-09-06T09:38:42.000Z | ⛔ **NOT PUBLISHED** |
-| `newhampshire` | — | — | — | — | 2026-09-06T09:38:43.000Z | ⛔ **NOT PUBLISHED** |
-| `newjersey` | — | — | — | — | 2026-09-06T09:38:43.000Z | ⛔ **NOT PUBLISHED** |
-| `newmexico` | — | — | — | — | 2026-09-06T09:38:43.000Z | ⛔ **NOT PUBLISHED** |
-| `newyork` | 2026-09-05T13:19:26.254Z | `c7d1ebe6` | `us_open` | `us_open` | 2026-09-06T09:38:44.000Z | ⚠ **STALE — re-bake needed** |
-| `northcarolina` | — | — | — | — | 2026-09-06T09:38:44.000Z | ⛔ **NOT PUBLISHED** |
-| `northdakota` | — | — | — | — | 2026-09-06T09:38:45.000Z | ⛔ **NOT PUBLISHED** |
-| `ohio` | — | — | — | — | 2026-09-06T09:38:45.000Z | ⛔ **NOT PUBLISHED** |
-| `oklahoma` | — | — | — | — | 2026-09-06T09:38:46.000Z | ⛔ **NOT PUBLISHED** |
-| `oregon` | — | — | — | — | 2026-09-06T09:38:46.000Z | ⛔ **NOT PUBLISHED** |
-| `pennsylvania` | — | — | — | — | 2026-09-06T09:38:47.000Z | ⛔ **NOT PUBLISHED** |
-| `puertoricousa` | — | — | — | — | 2026-09-06T09:38:47.000Z | ⛔ **NOT PUBLISHED** |
-| `rhodeisland` | — | — | — | — | 2026-09-06T09:38:48.000Z | ⛔ **NOT PUBLISHED** |
-| `southcarolina` | — | — | — | — | 2026-09-06T09:38:48.000Z | ⛔ **NOT PUBLISHED** |
-| `southdakota` | — | — | — | — | 2026-09-06T09:38:48.000Z | ⛔ **NOT PUBLISHED** |
-| `tennessee` | — | — | — | — | 2026-09-06T09:38:49.000Z | ⛔ **NOT PUBLISHED** |
-| `texas` | — | — | — | — | 2026-09-06T09:38:49.000Z | ⛔ **NOT PUBLISHED** |
-| `usvirginislands` | — | — | — | — | 2026-09-06T09:38:50.000Z | ⛔ **NOT PUBLISHED** |
-| `utah` | — | — | — | — | 2026-09-06T09:38:50.000Z | ⛔ **NOT PUBLISHED** |
-| `vermont` | — | — | — | — | 2026-09-06T09:38:50.000Z | ⛔ **NOT PUBLISHED** |
-| `virginia` | — | — | — | — | 2026-09-06T09:38:50.000Z | ⛔ **NOT PUBLISHED** |
-| `washington` | — | — | — | — | 2026-09-06T09:38:51.000Z | ⛔ **NOT PUBLISHED** |
-| `westvirginia` | — | — | — | — | 2026-09-06T09:38:51.000Z | ⛔ **NOT PUBLISHED** |
-| `wisconsin` | — | — | — | — | 2026-09-06T09:38:51.000Z | ⛔ **NOT PUBLISHED** |
-| `wyoming` | — | — | — | — | 2026-09-06T09:38:51.000Z | ⛔ **NOT PUBLISHED** |
-| `mexico` | — | — | — | — | 2026-09-06T09:38:52.000Z | ⛔ **NOT PUBLISHED** |
-| `ontario` | — | — | — | `ca_open` | 2026-09-06T09:38:52.000Z | ⛔ **NOT PUBLISHED** |
-| `quebec` | — | — | — | — | 2026-09-06T09:38:52.000Z | ⛔ **NOT PUBLISHED** |
-| `britishcolumbia` | — | — | — | `ca_open` | 2026-09-06T09:38:53.000Z | ⛔ **NOT PUBLISHED** |
-| `alberta` | — | — | — | — | 2026-09-06T09:38:53.000Z | ⛔ **NOT PUBLISHED** |
-| `saskatchewan` | — | — | — | — | 2026-09-06T09:38:53.000Z | ⛔ **NOT PUBLISHED** |
-| `manitoba` | — | — | — | — | 2026-09-06T09:38:53.000Z | ⛔ **NOT PUBLISHED** |
-| `newbrunswick` | — | — | — | — | 2026-09-06T09:38:54.000Z | ⛔ **NOT PUBLISHED** |
-| `novascotia` | — | — | — | — | 2026-09-06T09:38:54.000Z | ⛔ **NOT PUBLISHED** |
-| `princeedwardisland` | — | — | — | — | 2026-09-06T09:38:54.000Z | ⛔ **NOT PUBLISHED** |
-| `newfoundland` | — | — | — | — | 2026-09-06T09:38:55.000Z | ⛔ **NOT PUBLISHED** |
-| `yukon` | — | — | — | — | 2026-09-06T09:38:55.000Z | ⛔ **NOT PUBLISHED** |
-| `northwestterritories` | — | — | — | — | 2026-09-06T09:38:55.000Z | ⛔ **NOT PUBLISHED** |
-| `nunavut` | — | — | — | — | 2026-09-06T09:38:56.000Z | ⛔ **NOT PUBLISHED** |
+| `iceland` | — | — | — | — | 2026-09-06T09:44:18.000Z | ⛔ **NOT PUBLISHED** |
+| `faroeislands` | — | — | — | — | 2026-09-06T09:44:19.000Z | ⛔ **NOT PUBLISHED** |
+| `malta` | — | — | — | — | 2026-09-06T09:44:19.000Z | ⛔ **NOT PUBLISHED** |
+| `cyprus` | — | — | — | — | 2026-09-06T09:44:19.000Z | ⛔ **NOT PUBLISHED** |
+| `serbia` | — | — | — | — | 2026-09-06T09:44:20.000Z | ⛔ **NOT PUBLISHED** |
+| `bosniaherzegovina` | — | — | — | — | 2026-09-06T09:44:20.000Z | ⛔ **NOT PUBLISHED** |
+| `montenegro` | — | — | — | — | 2026-09-06T09:44:21.000Z | ⛔ **NOT PUBLISHED** |
+| `northmacedonia` | — | — | — | — | 2026-09-06T09:44:21.000Z | ⛔ **NOT PUBLISHED** |
+| `albania` | — | — | — | — | 2026-09-06T09:44:21.000Z | ⛔ **NOT PUBLISHED** |
+| `kosovo` | — | — | — | — | 2026-09-06T09:44:22.000Z | ⛔ **NOT PUBLISHED** |
+| `ukraine` | — | — | — | — | 2026-09-06T09:44:22.000Z | ⛔ **NOT PUBLISHED** |
+| `belarus` | — | — | — | — | 2026-09-06T09:44:22.000Z | ⛔ **NOT PUBLISHED** |
+| `moldova` | — | — | — | — | 2026-09-06T09:44:23.000Z | ⛔ **NOT PUBLISHED** |
+| `andorra` | — | — | — | — | 2026-09-06T09:44:23.000Z | ⛔ **NOT PUBLISHED** |
+| `liechtenstein` | — | — | — | — | 2026-09-06T09:44:24.000Z | ⛔ **NOT PUBLISHED** |
+| `channelislands` | — | — | — | — | 2026-09-06T09:44:24.000Z | ⛔ **NOT PUBLISHED** |
+| `isleofman` | — | — | — | — | 2026-09-06T09:44:25.000Z | ⛔ **NOT PUBLISHED** |
+| `alabama` | — | — | — | — | 2026-09-06T09:44:26.000Z | ⛔ **NOT PUBLISHED** |
+| `alaska` | — | — | — | — | 2026-09-06T09:44:26.000Z | ⛔ **NOT PUBLISHED** |
+| `alaskaaleutians` | — | — | — | — | 2026-09-06T09:44:26.000Z | ⛔ **NOT PUBLISHED** |
+| `arizona` | — | — | — | — | 2026-09-06T09:44:27.000Z | ⛔ **NOT PUBLISHED** |
+| `arkansas` | — | — | — | — | 2026-09-06T09:44:27.000Z | ⛔ **NOT PUBLISHED** |
+| `california` | — | — | — | `us_open` | 2026-09-06T09:44:28.000Z | ⛔ **NOT PUBLISHED** |
+| `colorado` | — | — | — | — | 2026-09-06T09:44:30.000Z | ⛔ **NOT PUBLISHED** |
+| `connecticut` | — | — | — | — | 2026-09-06T09:44:30.000Z | ⛔ **NOT PUBLISHED** |
+| `delaware` | — | — | — | — | 2026-09-06T09:44:31.000Z | ⛔ **NOT PUBLISHED** |
+| `districtofcolumbia` | — | — | — | — | 2026-09-06T09:44:32.000Z | ⛔ **NOT PUBLISHED** |
+| `florida` | — | — | — | — | 2026-09-06T09:44:32.000Z | ⛔ **NOT PUBLISHED** |
+| `georgia` | — | — | — | — | 2026-09-06T09:44:33.000Z | ⛔ **NOT PUBLISHED** |
+| `hawaii` | — | — | — | — | 2026-09-06T09:44:34.000Z | ⛔ **NOT PUBLISHED** |
+| `idaho` | — | — | — | — | 2026-09-06T09:44:34.000Z | ⛔ **NOT PUBLISHED** |
+| `illinois` | — | — | — | — | 2026-09-06T09:44:35.000Z | ⛔ **NOT PUBLISHED** |
+| `indiana` | — | — | — | — | 2026-09-06T09:44:36.000Z | ⛔ **NOT PUBLISHED** |
+| `iowa` | — | — | — | — | 2026-09-06T09:44:36.000Z | ⛔ **NOT PUBLISHED** |
+| `kansas` | — | — | — | — | 2026-09-06T09:44:37.000Z | ⛔ **NOT PUBLISHED** |
+| `kentucky` | — | — | — | — | 2026-09-06T09:44:38.000Z | ⛔ **NOT PUBLISHED** |
+| `louisiana` | — | — | — | — | 2026-09-06T09:44:41.000Z | ⛔ **NOT PUBLISHED** |
+| `maine` | — | — | — | — | 2026-09-06T09:44:44.000Z | ⛔ **NOT PUBLISHED** |
+| `maryland` | — | — | — | — | 2026-09-06T09:44:46.000Z | ⛔ **NOT PUBLISHED** |
+| `massachusetts` | — | — | — | `us_open` | 2026-09-06T09:44:49.000Z | ⛔ **NOT PUBLISHED** |
+| `michigan` | — | — | — | — | 2026-09-06T09:44:52.000Z | ⛔ **NOT PUBLISHED** |
+| `minnesota` | — | — | — | — | 2026-09-06T09:44:54.000Z | ⛔ **NOT PUBLISHED** |
+| `mississippi` | — | — | — | — | 2026-09-06T09:44:56.000Z | ⛔ **NOT PUBLISHED** |
+| `missouri` | — | — | — | — | 2026-09-06T09:44:57.000Z | ⛔ **NOT PUBLISHED** |
+| `montana` | — | — | — | — | 2026-09-06T09:44:58.000Z | ⛔ **NOT PUBLISHED** |
+| `nebraska` | — | — | — | — | 2026-09-06T09:45:00.000Z | ⛔ **NOT PUBLISHED** |
+| `nevada` | — | — | — | — | 2026-09-06T09:45:01.000Z | ⛔ **NOT PUBLISHED** |
+| `newhampshire` | — | — | — | — | 2026-09-06T09:45:02.000Z | ⛔ **NOT PUBLISHED** |
+| `newjersey` | — | — | — | — | 2026-09-06T09:45:03.000Z | ⛔ **NOT PUBLISHED** |
+| `newmexico` | — | — | — | — | 2026-09-06T09:45:04.000Z | ⛔ **NOT PUBLISHED** |
+| `newyork` | 2026-09-05T13:19:26.254Z | `c7d1ebe6` | `us_open` | `us_open` | 2026-09-06T09:45:06.000Z | ⚠ **STALE — re-bake needed** |
+| `northcarolina` | — | — | — | — | 2026-09-06T09:45:07.000Z | ⛔ **NOT PUBLISHED** |
+| `northdakota` | — | — | — | — | 2026-09-06T09:45:08.000Z | ⛔ **NOT PUBLISHED** |
+| `ohio` | — | — | — | — | 2026-09-06T09:45:08.000Z | ⛔ **NOT PUBLISHED** |
+| `oklahoma` | — | — | — | — | 2026-09-06T09:45:09.000Z | ⛔ **NOT PUBLISHED** |
+| `oregon` | — | — | — | — | 2026-09-06T09:45:09.000Z | ⛔ **NOT PUBLISHED** |
+| `pennsylvania` | — | — | — | — | 2026-09-06T09:45:10.000Z | ⛔ **NOT PUBLISHED** |
+| `puertoricousa` | — | — | — | — | 2026-09-06T09:45:11.000Z | ⛔ **NOT PUBLISHED** |
+| `rhodeisland` | — | — | — | — | 2026-09-06T09:45:12.000Z | ⛔ **NOT PUBLISHED** |
+| `southcarolina` | — | — | — | — | 2026-09-06T09:45:14.000Z | ⛔ **NOT PUBLISHED** |
+| `southdakota` | — | — | — | — | 2026-09-06T09:45:15.000Z | ⛔ **NOT PUBLISHED** |
+| `tennessee` | — | — | — | — | 2026-09-06T09:45:16.000Z | ⛔ **NOT PUBLISHED** |
+| `texas` | — | — | — | — | 2026-09-06T09:45:18.000Z | ⛔ **NOT PUBLISHED** |
+| `usvirginislands` | — | — | — | — | 2026-09-06T09:45:19.000Z | ⛔ **NOT PUBLISHED** |
+| `utah` | — | — | — | — | 2026-09-06T09:45:20.000Z | ⛔ **NOT PUBLISHED** |
+| `vermont` | — | — | — | — | 2026-09-06T09:45:20.000Z | ⛔ **NOT PUBLISHED** |
+| `virginia` | — | — | — | — | 2026-09-06T09:45:21.000Z | ⛔ **NOT PUBLISHED** |
+| `washington` | — | — | — | — | 2026-09-06T09:45:21.000Z | ⛔ **NOT PUBLISHED** |
+| `westvirginia` | — | — | — | — | 2026-09-06T09:45:22.000Z | ⛔ **NOT PUBLISHED** |
+| `wisconsin` | — | — | — | — | 2026-09-06T09:45:22.000Z | ⛔ **NOT PUBLISHED** |
+| `wyoming` | — | — | — | — | 2026-09-06T09:45:23.000Z | ⛔ **NOT PUBLISHED** |
+| `mexico` | — | — | — | — | 2026-09-06T09:45:23.000Z | ⛔ **NOT PUBLISHED** |
+| `ontario` | — | — | — | `ca_open` | 2026-09-06T09:45:24.000Z | ⛔ **NOT PUBLISHED** |
+| `quebec` | — | — | — | — | 2026-09-06T09:45:25.000Z | ⛔ **NOT PUBLISHED** |
+| `britishcolumbia` | — | — | — | `ca_open` | 2026-09-06T09:45:25.000Z | ⛔ **NOT PUBLISHED** |
+| `alberta` | — | — | — | — | 2026-09-06T09:45:27.000Z | ⛔ **NOT PUBLISHED** |
+| `saskatchewan` | — | — | — | — | 2026-09-06T09:45:28.000Z | ⛔ **NOT PUBLISHED** |
+| `manitoba` | — | — | — | — | 2026-09-06T09:45:28.000Z | ⛔ **NOT PUBLISHED** |
+| `newbrunswick` | — | — | — | — | 2026-09-06T09:45:29.000Z | ⛔ **NOT PUBLISHED** |
+| `novascotia` | — | — | — | — | 2026-09-06T09:45:30.000Z | ⛔ **NOT PUBLISHED** |
+| `princeedwardisland` | — | — | — | — | 2026-09-06T09:45:31.000Z | ⛔ **NOT PUBLISHED** |
+| `newfoundland` | — | — | — | — | 2026-09-06T09:45:31.000Z | ⛔ **NOT PUBLISHED** |
+| `yukon` | — | — | — | — | 2026-09-06T09:45:32.000Z | ⛔ **NOT PUBLISHED** |
+| `northwestterritories` | — | — | — | — | 2026-09-06T09:45:33.000Z | ⛔ **NOT PUBLISHED** |
+| `nunavut` | — | — | — | — | 2026-09-06T09:45:34.000Z | ⛔ **NOT PUBLISHED** |
 | `newsouthwales` | 2026-09-03T07:27:45.590Z | `fab79894` | — | — | 2026-09-03T05:47:36.000Z | ✅ current |
-| `victoria` | 2026-09-05T12:43:58.080Z | `d65e1702` | `au_open` | `au_open` | 2026-09-05T12:06:46.000Z | ✅ current |
+| `victoria` | 2026-09-05T12:43:58.080Z | `d65e1702` | `au_open` | `au_open` | 2026-09-05T12:06:35.000Z | ✅ current |
 | `queensland` | 2026-09-03T07:28:02.934Z | `fab79894` | — | — | 2026-09-03T05:47:36.000Z | ✅ current |
 | `westernaustralia` | 2026-09-03T07:22:34.196Z | `fab79894` | — | — | 2026-09-03T05:47:36.000Z | ✅ current |
 | `southaustralia` | 2026-09-03T07:20:05.979Z | `fab79894` | — | — | 2026-09-03T05:47:36.000Z | ✅ current |
 | `tasmania` | 2026-09-03T07:17:45.853Z | `fab79894` | — | — | 2026-09-03T05:47:36.000Z | ✅ current |
 | `act` | 2026-09-03T07:20:55.957Z | `fab79894` | — | — | 2026-09-03T05:47:36.000Z | ✅ current |
-| `northernterritory` | 2026-09-03T07:23:43.824Z | `fab79894` | — | — | 2026-09-03T05:47:36.000Z | ✅ current |
+| `northernterritory` | 2026-09-03T07:23:43.824Z | `fab79894` | — | — | 2026-09-05T12:06:46.000Z | ⚠ **STALE — re-bake needed** |
 | `newzealand` | — | — | — | — | 2026-09-05T12:54:44.000Z | ⛔ **NOT PUBLISHED** |
-| `gccstates` | — | — | — | `ad_ndsm` | 2026-09-06T09:39:02.000Z | ⛔ **NOT PUBLISHED** |
-| `turkey` | — | — | — | — | 2026-09-06T09:39:03.000Z | ⛔ **NOT PUBLISHED** |
-| `israel` | — | — | — | — | 2026-09-06T09:39:03.000Z | ⛔ **NOT PUBLISHED** |
-| `jordan` | — | — | — | — | 2026-09-06T09:39:03.000Z | ⛔ **NOT PUBLISHED** |
-| `lebanon` | — | — | — | — | 2026-09-06T09:39:04.000Z | ⛔ **NOT PUBLISHED** |
-| `japan` | — | — | — | `plateau_jp` | 2026-09-06T09:39:04.000Z | ⛔ **NOT PUBLISHED** |
+| `gccstates` | — | — | — | `ad_ndsm` | 2026-09-06T09:45:43.000Z | ⛔ **NOT PUBLISHED** |
+| `turkey` | — | — | — | — | 2026-09-06T09:45:44.000Z | ⛔ **NOT PUBLISHED** |
+| `israel` | — | — | — | — | 2026-09-06T09:45:45.000Z | ⛔ **NOT PUBLISHED** |
+| `jordan` | — | — | — | — | 2026-09-06T09:45:45.000Z | ⛔ **NOT PUBLISHED** |
+| `lebanon` | — | — | — | — | 2026-09-06T09:45:46.000Z | ⛔ **NOT PUBLISHED** |
+| `japan` | — | — | — | `plateau_jp` | 2026-09-06T09:45:47.000Z | ⛔ **NOT PUBLISHED** |
+
+## §3c · Orphans — regions on R2 that the code no longer has
+
+The reverse of §3, and it is not symmetric: a region the CODE has and R2 lacks is
+un-shipped work, while a region R2 has and the CODE lacks is **tiles nobody can
+re-bake**. It is what a rename leaves behind (`riyadh` → `gccstates`), and the next
+merge — a union of STAGED regions only, with no carry-forward — is where those tiles
+quietly stop existing. Named here so the disappearance is a decision, not a surprise.
+
+**9 orphan(s):** `sanfrancisco` · `chicago` · `austin` · `houston` · `boston` · `riyadh` · `jeddah` · `dubai` · `abudhabi`
 
 ## §4 · Height working sets — where a "measured height" actually exists
 
@@ -494,7 +504,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | `ca_open` | `CA_OPEN_CITY_BBOXES` | **CITY LIST (2)** | vancouver toronto | `ca_open_elem` | live | tagged |
 | `au_open` | `AU_OPEN_CITY_BBOXES` | **CITY LIST (1)** | melbourne | `au_open_lod1` | live | tagged |
 | `ad_ndsm` | `AD_CITY_BBOXES` | **CITY LIST (1)** | abudhabi-core | `adsdi_ndsm_ae` | documented | tagged |
-| `plateau_jp` | `JP_CITY_BBOXES` | **CITY LIST (10)** | tokyo yokohama osaka nagoya sapporo fukuoka kyoto kobe sendai hiroshima | — | — | — |
+| `plateau_jp` | `JP_CITY_BBOXES` | **CITY LIST (10)** | tokyo yokohama osaka nagoya sapporo fukuoka kyoto kobe sendai hiroshima | `plateau_jp` | live | tagged |
 
 Regions with **no** `heightJoin` at all (every building ships the assumed default):
 

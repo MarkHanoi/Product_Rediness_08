@@ -955,6 +955,22 @@ export function renderLedger(model, probe) {
   }
   w('');
 
+  // ── §3c ORPHANS ON R2 ──
+  const codeNames = new Set(model.bakeRegions.map((r) => r.name));
+  const orphans = [...model.publishedBuildings].filter((n) => !codeNames.has(n));
+  w('## §3c · Orphans — regions on R2 that the code no longer has');
+  w('');
+  w('The reverse of §3, and it is not symmetric: a region the CODE has and R2 lacks is');
+  w('un-shipped work, while a region R2 has and the CODE lacks is **tiles nobody can');
+  w('re-bake**. It is what a rename leaves behind (`riyadh` → `gccstates`), and the next');
+  w('merge — a union of STAGED regions only, with no carry-forward — is where those tiles');
+  w('quietly stop existing. Named here so the disappearance is a decision, not a surprise.');
+  w('');
+  w(orphans.length
+    ? `**${orphans.length} orphan(s):** ${orphans.map((n) => `\`${n}\``).join(' · ')}`
+    : '**None** — every region in the live tileset still has a `bake.mjs` row.');
+  w('');
+
   // ── §4 THE HEIGHT TRAP ──
   w('## §4 · Height working sets — where a "measured height" actually exists');
   w('');
