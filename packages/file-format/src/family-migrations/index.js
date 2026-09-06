@@ -29,6 +29,12 @@ export { makeDeleteSolidMigrator, } from './ops/delete-solid.js';
  * sweep direction — both fields in one act, because two ops would make
  * "profile on the wall plane, extrusion still vertical" persistable. */
 export { makeSetExtrudeWorkPlaneMigrator, } from './ops/set-extrude-work-plane.js';
+/* ── lane UCE-ACCEPTANCES (§82.1-NAME-A-DATUM) — the RENAME half of §82.1.
+ * A plane's NAME is its whole user-facing identity; the work-plane chooser
+ * lists planes BY NAME, so this op enforces name uniqueness. The id never
+ * moves, so a rename cannot orphan a profile. */
+export { makeRenameReferencePlaneMigrator, } from './ops/rename-reference-plane.js';
+
 /* ── lane UCE-FAMILY — the two ops that make the definition EDITOR half real ──
  * `update-profile` is lane U3's OWED O-1 (profile geometry write-back — without
  * it a mounted sketch surface cannot persist a single dragged vertex);

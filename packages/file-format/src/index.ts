@@ -165,6 +165,9 @@ export {
    * unwiring device ([[grep-silence-has-three-causes]]). */
   makeSetExtrudeWorkPlaneMigrator,
   type SetExtrudeWorkPlaneParams,
+  /* --- lane UCE-ACCEPTANCES (§82.1-NAME-A-DATUM) --- rename a work plane. --- */
+  makeRenameReferencePlaneMigrator,
+  type RenameReferencePlaneParams,
   /* --- lane UCE-FAMILY --- profile write-back + the introduce-expression pair --- */
   makeUpdateProfileMigrator,
   type UpdateProfileParams,

@@ -377,6 +377,8 @@ export function openComponentDefinitionWorkspace(
     let selectedSolidId: string | null = null;
     /** §82.4 — is the "Add work plane…" form open? VIEW state, like the above. */
     let addPlaneOpen = false;
+    /** §82.1 — the plane whose name is being edited, or null. VIEW state. */
+    let renamingPlaneId: string | null = null;
 
     /* ── chrome ── */
     const overlay = el('div',
@@ -1270,6 +1272,28 @@ export function openComponentDefinitionWorkspace(
         return null;
     }
 
+    /* ── §82.1-NAME-A-DATUM — rename one work plane. ──────────────────────────
+     * STR-UCE-MASTER-SPEC §82.1 asks for it by name: *"Create a reference plane
+     * in a 2-D view; it is visible in the 3-D view; RENAME IT; dimension to
+     * it."* The op refuses an empty name, a duplicate, and a rename to the name
+     * the plane already has — each with its own sentence, which this surface
+     * renders VERBATIM rather than paraphrasing (spec §75, audit E2).
+     * ⛔ The form stays OPEN on a refusal: closing it would throw away what the
+     *    author typed at exactly the moment they need to correct it. */
+    async function applyRenamePlane(planeId: string, name: string): Promise<string | null> {
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeRenameReferencePlaneMigrator(v, v, {
+            planeId, newName: name,
+        }));
+        if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
+        renamingPlaneId = null;
+        render();
+        setStatus(
+            `Work plane renamed to “${name.trim()}” in the draft (not yet saved). Its id did not ` +
+            'change, so every shape built on it is untouched.');
+        return null;
+    }
+
     async function applyWorkPlane(solidId: string, planeId: string): Promise<string | null> {
         const v = draft.document.formatVersion;
         const res = await applyOp((ff) => ff.makeSetExtrudeWorkPlaneMigrator(v, v, { solidId, planeId }));
@@ -1719,9 +1743,46 @@ export function openComponentDefinitionWorkspace(
             'font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;' +
             `color:${MUTED};margin:10px 0 4px;`, 'Work planes'));
         for (const pl of doc.referencePlanes as readonly ReferencePlane[]) {
-            const row = el('div', `font-size:12px;color:${INK};margin:1px 0;`,
-                `${pl.name}${pl.isHost ? ' · host' : ''} · normal (${pl.normal.x}, ${pl.normal.y}, ${pl.normal.z})`);
+            const row = el('div',
+                'display:flex;align-items:center;gap:8px;margin:1px 0;' +
+                `font-size:12px;color:${INK};`);
             row.setAttribute('data-cdw-plane', pl.id);
+            row.appendChild(el('span', '',
+                `${pl.name}${pl.isHost ? ' · host' : ''} · normal (${pl.normal.x}, ${pl.normal.y}, ${pl.normal.z})`));
+
+            // ── §82.1-NAME-A-DATUM — RENAME. ─────────────────────────────────
+            // ⭐ The name is a plane's whole user-facing identity: the `plane_…`
+            //    id never reaches a surface and the per-shape chooser lists
+            //    planes BY NAME, so "which datum is this shape on?" is a question
+            //    only the name answers. §82.1 asks for it in those words.
+            // ⛔ RENAME IS OFFERED WHERE REORIENT AND DELETE ARE NOT, and the
+            //    difference is not squeamishness: the id does not move, so a
+            //    rename cannot orphan a profile or move one number of geometry.
+            //    Reorienting or deleting a plane that already carries profiles
+            //    needs a decision about that geometry, and that decision is not
+            //    made (`add-reference-plane`'s own header).
+            if (renamingPlaneId === pl.id) {
+                const input = document.createElement('input');
+                input.setAttribute('data-cdw-plane-rename-input', pl.id);
+                input.value = pl.name;
+                input.style.cssText = 'width:150px;padding:2px 5px;font:12px system-ui,sans-serif;';
+                const ok = el('button',
+                    `background:${PURPLE};color:#fff;border:none;padding:2px 9px;border-radius:6px;` +
+                    'font-weight:600;cursor:pointer;font-size:11px;', 'Rename');
+                ok.setAttribute('data-cdw-plane-rename-apply', pl.id);
+                ok.addEventListener('click', () => { void applyRenamePlane(pl.id, input.value); });
+                const cancel = el('button', 'padding:2px 8px;font-size:11px;cursor:pointer;', 'Cancel');
+                cancel.setAttribute('data-cdw-plane-rename-cancel', pl.id);
+                cancel.addEventListener('click', () => { renamingPlaneId = null; render(); });
+                row.append(input, ok, cancel);
+            } else {
+                const btn = el('button',
+                    `background:none;border:none;color:${PURPLE};cursor:pointer;font-size:11px;` +
+                    'text-decoration:underline;padding:0;', 'Rename');
+                btn.setAttribute('data-cdw-plane-rename', pl.id);
+                btn.addEventListener('click', () => { renamingPlaneId = pl.id; render(); });
+                row.appendChild(btn);
+            }
             card.appendChild(row);
         }
         if (doc.referencePlanes.length === 0) {

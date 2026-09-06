@@ -12,7 +12,8 @@
 //     3-D viewport draws a mesh 2.4 m TALL → "Add work plane…" CLICK, name it,
 //     choose "builds along +X", "Add plane" CLICK → the shape's "Work plane"
 //     SELECT changes → the SAME viewport now draws a mesh 2.4 m WIDE and 0.6 m
-//     tall → save → the reloaded catalogue document still says +X.
+//     tall → "Rename" the plane in place → save → the reloaded catalogue document
+//     still says +X, under the new name.
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // ─── ⛔ WHY THIS FILE EXISTS AT ALL ─────────────────────────────────────────────
@@ -282,7 +283,52 @@ describe('§82.4 — a user reaches "build this shape along THAT work plane" wit
         click('[data-cdw-plane-cancel]');
     }, BUDGET);
 
-    it('ARM 8 — ⭐ IT SURVIVES THE SAVE: packFamily → the ONE catalogue/loader → the reloaded document still builds along +X', async () => {
+    it('ARM 8 — ⭐⭐ §82.1 "RENAME IT", by clicking: the name changes, the ID does not, and no geometry moves', async () => {
+        const solidsBefore = JSON.stringify(doc().solids);
+        const profilesBefore = JSON.stringify(doc().profiles);
+
+        click(`[data-cdw-plane-rename="${NEW_PLANE_ID}"]`);
+        const input = q<HTMLInputElement>(`[data-cdw-plane-rename-input="${NEW_PLANE_ID}"]`);
+        expect(input, 'the inline rename field opened on the row').not.toBeNull();
+        expect(input!.value, 'it opens on the current name, not empty').toBe('Wall face');
+        input!.value = 'North elevation';
+        click(`[data-cdw-plane-rename-apply="${NEW_PLANE_ID}"]`);
+
+        await vi.waitFor(() => {
+            expect(doc().referencePlanes.find((p: any) => p.id === NEW_PLANE_ID).name)
+                .toBe('North elevation');
+        });
+        // ⭐ IDENTITY IS THE ID, AND IT DID NOT MOVE — which is exactly why a rename
+        //   is offerable on a plane already carrying shapes while reorient/delete
+        //   are not: nothing can be orphaned.
+        expect(JSON.stringify(doc().solids), 'no solid changed').toBe(solidsBefore);
+        expect(JSON.stringify(doc().profiles), 'no profile changed').toBe(profilesBefore);
+        // …and the per-shape chooser, which lists planes BY NAME, followed it.
+        const opt = q<HTMLSelectElement>(`[data-cdw-shape-plane="${SOLID_ID}"]`)!
+            .querySelector(`option[value="${NEW_PLANE_ID}"]`);
+        expect(opt?.textContent).toBe('North elevation');
+    }, BUDGET);
+
+    it('ARM 9 — ⛔ THE REFUSAL REACHES THE USER VERBATIM: renaming a plane to a name another plane already has is refused, in the op\'s own sentence, and nothing changes', async () => {
+        click(`[data-cdw-plane-rename="${NEW_PLANE_ID}"]`);
+        const input = q<HTMLInputElement>(`[data-cdw-plane-rename-input="${NEW_PLANE_ID}"]`)!;
+        input.value = 'Base';                      // the HOST plane's name
+        click(`[data-cdw-plane-rename-apply="${NEW_PLANE_ID}"]`);
+
+        await vi.waitFor(() => {
+            expect(ws.statusText).toContain('already carries a reference plane named "Base"');
+        });
+        // The op's WHOLE sentence, not a paraphrase (spec §75 / audit E2).
+        expect(ws.statusText).toContain('chosen by NAME and never by id');
+        expect(doc().referencePlanes.find((p: any) => p.id === NEW_PLANE_ID).name)
+            .toBe('North elevation');
+        // ⛔ The form stays OPEN on a refusal — what the author typed is still there
+        //   at the moment they need to correct it.
+        expect(q(`[data-cdw-plane-rename-input="${NEW_PLANE_ID}"]`)).not.toBeNull();
+        click(`[data-cdw-plane-rename-cancel="${NEW_PLANE_ID}"]`);
+    }, BUDGET);
+
+    it('ARM 10 — ⭐ IT SURVIVES THE SAVE: packFamily → the ONE catalogue/loader → the reloaded document still builds along +X', async () => {
         const saveBtn = q('[data-cdw-save]');
         expect(saveBtn, 'the save affordance is on the surface').not.toBeNull();
         (saveBtn as HTMLElement).click();
@@ -297,7 +343,8 @@ describe('§82.4 — a user reaches "build this shape along THAT work plane" wit
         expect(solid.direction).toEqual({ x: 1, y: 0, z: 0 });
         const profile = reloaded.profiles.find((p: any) => p.id === solid.profileId);
         expect(profile.planeId).toBe(NEW_PLANE_ID);
-        expect(reloaded.referencePlanes.find((p: any) => p.id === NEW_PLANE_ID).name).toBe('Wall face');
+        expect(reloaded.referencePlanes.find((p: any) => p.id === NEW_PLANE_ID).name)
+            .toBe('North elevation');
         ws.close();
     }, BUDGET);
 });

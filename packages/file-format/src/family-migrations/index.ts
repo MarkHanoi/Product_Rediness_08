@@ -94,6 +94,18 @@ export {
   makeSetExtrudeWorkPlaneMigrator,
   type SetExtrudeWorkPlaneParams,
 } from './ops/set-extrude-work-plane.js';
+/* ── lane UCE-ACCEPTANCES (§82.1-NAME-A-DATUM) — the RENAME half of §82.1.
+ * A plane's NAME is its whole user-facing identity: the `plane_…` id never
+ * reaches a surface, and the work-plane chooser lists planes BY NAME. So a
+ * definition with two planes called the same thing is one where the author
+ * cannot tell which datum a shape is built on — which is why THIS op enforces
+ * name uniqueness and `add-reference-plane`, written before the chooser
+ * existed, does not. The id never moves, so a rename cannot orphan a profile. */
+export {
+  makeRenameReferencePlaneMigrator,
+  type RenameReferencePlaneParams,
+} from './ops/rename-reference-plane.js';
+
 
 /* ── lane UCE-FAMILY — the two ops that make the definition EDITOR half real ──
  * `update-profile` is lane U3's OWED O-1 (profile geometry write-back — without

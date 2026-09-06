@@ -15,6 +15,7 @@ export { makeAddBoxSolidMigrator, makeSetBoxDimensionsMigrator, readBoxSolid, ty
 export { makeAddReferencePlaneMigrator, type AddReferencePlaneParams, } from './ops/add-reference-plane.js';
 export { makeDeleteSolidMigrator, type DeleteSolidParams, } from './ops/delete-solid.js';
 export { makeSetExtrudeWorkPlaneMigrator, type SetExtrudeWorkPlaneParams, } from './ops/set-extrude-work-plane.js';
+export { makeRenameReferencePlaneMigrator, type RenameReferencePlaneParams, } from './ops/rename-reference-plane.js';
 export { makeUpdateProfileMigrator, type UpdateProfileParams, type ProfilePointUpdate, } from './ops/update-profile.js';
 export { makeDeleteExpressionMigrator, type DeleteExpressionParams, } from './ops/delete-expression.js';
 export { makeSetTypeValuesMigrator, typeValuesChecksum, type SetTypeValuesParams, type TypeValueMap, } from './ops/type-values.js';
