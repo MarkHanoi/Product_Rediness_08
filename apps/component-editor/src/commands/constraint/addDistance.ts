@@ -3,6 +3,7 @@
 import type { CommandHandler, CommandResult } from '../../app/commandBus.js';
 import {
   CONSTRAINT_COMMAND_CATEGORY,
+  constraintStoreForArgs,
   type AddDistanceArgs,
   type ConstraintCommandContext,
 } from './types.js';
@@ -27,8 +28,11 @@ export function createAddDistanceHandler(
       } else if (typeof args.value !== 'string' || args.value.length === 0) {
         throw new Error('constraint.addDistance: value must be a number or a non-empty parameter name.');
       }
-      const id = ctx.constraintStore.newId('distance-pp');
-      ctx.constraintStore.add({
+      // §CONSTRAINT-IS-VIEW-SCOPED — the store of THIS work plane, never an
+      // ambient one. See `types.ts` for why that distinction is load-bearing.
+      const store = constraintStoreForArgs(ctx, args, ADD_DISTANCE_VERB);
+      const id = store.newId('distance-pp');
+      store.add({
         id,
         kind: 'distance-pp',
         p1: args.p1,
@@ -37,7 +41,7 @@ export function createAddDistanceHandler(
       });
       return {
         payload: id,
-        undo: () => ctx.constraintStore.remove(id),
+        undo: () => store.remove(id),
       };
     },
   };

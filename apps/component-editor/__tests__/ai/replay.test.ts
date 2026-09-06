@@ -59,7 +59,13 @@ function buildRuntime(fixture: ReplayFixture): Runtime {
   const constraintStore = createConstraintStore();
   const solidStore = createSolidStore();
 
-  registerConstraintCommands(bus, { constraintStore });
+  // §CONSTRAINT-IS-VIEW-SCOPED — this harness has ONE document, so every
+  // work plane resolves to the one store. The replayed fixtures name no
+  // `view`, which is exactly the case `activeView()` exists to answer.
+  registerConstraintCommands(bus, {
+    constraintStoreFor: () => constraintStore,
+    activeView: () => 'plan',
+  });
   registerReferencePlaneCommands(bus, { store: refStore });
   registerSolidCommands(bus, { store: solidStore });
 

@@ -689,6 +689,108 @@ members instead of classifying. **§9.5-c** the `ifc-mapping.json` projection is
 records what a parameter binds to, not an export. Export remains
 [C25](./C25-IFC-EXPORT-PRODUCTION.md)'s.
 
+### §9.6 — CURVES — the `spline` entity's TWO spellings, and what a user still cannot draw
+
+> ⛔ **THIS SECTION IS MINTED BECAUSE TWO SOURCE FILES ALREADY CITED IT AND IT DID NOT EXIST.**
+> `packages/family-instance/src/profileToPolygon.ts` refused every non-cubic spline with the words
+> *"Rational/weighted curves are a declared gap — **see C111 §9.6-d**"*, and
+> `packages/geometry-kernel/src/math/cubicBezier.ts` repeated the declaration with the same
+> citation. **This contract stopped at §9.5.** A gap declared against a section that does not exist
+> is a gap declared against nothing — the same defect shape as `CLAUDE.md`'s enforcement claims
+> (L-809/L-812), pointed the other way. Both halves are now real: the maths is
+> `packages/geometry-kernel/src/math/nurbsCurve.ts`, and the persisted spelling is below.
+
+**§9.6-a — `data` is a flat record of scalars, so every vector is INDEXED.** `ProfileEntitySchema.data`
+is `z.record(string, number|string|boolean|null)`. It cannot hold an array, so a control polygon, a
+knot vector and a weight vector are each spelled as numbered keys — the `cp0…cpN` convention that
+already existed, extended, **not** a schema change. This is deliberate and load-bearing:
+§8.2 above
+records that the migration framework cannot complete a single migration, so a curve capability that
+needed a `formatVersion` bump would be a capability nobody could ever open an old document with.
+
+**§9.6-b — SPELLING 1, the cubic Bézier chain (v1, unchanged).**
+
+| key | type | meaning |
+|---|---|---|
+| `degree` | number | ⛔ MUST be `3`. |
+| `count` | number | control-point count; MUST be `3k+1`, `k ≥ 1` (4, 7, 10, …) |
+| `cp0`…`cpN` | string | ids of sibling `point` entities, IN CURVE ORDER |
+
+**§9.6-c — SPELLING 2, the rational B-spline (NURBS).** Selected by the PRESENCE of `knotCount`.
+
+| key | type | meaning |
+|---|---|---|
+| `degree` | number | literal integer in `[1, 11]` |
+| `count` | number | control-point count; MUST be `≥ degree + 1` |
+| `cp0`…`cpN` | string | ids of sibling `point` entities, IN CURVE ORDER |
+| `knotCount` | number | MUST equal `count + degree + 1`. ⭐ **Its presence is the discriminator.** |
+| `knot0`…`knotM` | number | literal, non-decreasing; interior multiplicity ≤ `degree` |
+| `w0`…`wN` | number | **OPTIONAL, ALL-OR-NONE**, every one `> 0` |
+
+⭐ **A document with no `knotCount` reads EXACTLY as it did before**, through the same evaluator, to
+the same vertices. The addition is strictly additive: no schema change, no `formatVersion` bump, and
+no existing document's packed bytes or `schemaHash` move.
+
+**§9.6-d — WHAT IS EXPRESSIBLE, and the measurement that says so.** ⚠ **This subsection previously
+existed only as a citation.** A rational quadratic expresses an EXACT circle, ellipse and conic; a
+polynomial curve of any degree cannot. Measured on the baked `BufferGeometryDescriptor.position`
+buffer (`packages/family-instance/__tests__/profileNurbs.test.ts`, the 9-point unit circle):
+
+| curve | max \|r − R\| at R = 1 m |
+|---|---|
+| rational quadratic (weights `1, √2/2, …`) | **3.158e-8** — float32 buffer rounding, not curve error |
+| the SAME control points, weights all 1 | **6.066e-2** = `3/(2√2) − 1`, exactly |
+
+The second row is, to every digit, the number
+`§4D-CLOSED-FORM-PROFILE` in `packages/family-instance/src/profileToPolygon.ts` already recorded
+from an independent probe of the quadratic-Bézier arc sampler — *"max |r − R| = 0.060660 m …
+INVARIANT in segments"*. In float64 the same circle measures ~1e-16
+(`packages/geometry-kernel/__tests__/nurbsCurve.test.ts`).
+
+**§9.6-e — REFUSALS, each naming what the document does not determine.** Every one carries the code
+`'profile-needs-solver'`, which `bakeFamilyInstance` maps to the bake reason `'unsupported-feature'`
+— **the code is a value on the wire (C69 §1.1) and is deliberately not renamed.**
+
+1. `degree` absent, or present and ≠ 3, with no `knotCount` → refused, and the message NAMES the
+   escape (`add 'knotCount' + 'knot0'…`). ⛔ An absent `degree` gets a DIFFERENT sentence from an
+   unsupported one: telling an author whose entity carries no `degree` that *"a degree-undefined
+   curve IS expressible"* is an instruction nobody can act on.
+2. `knotCount ≠ count + degree + 1`, decreasing knots, an interior knot of multiplicity > `degree`,
+   or an empty parameter domain → refused, with the arithmetic stated.
+3. A weight ≤ 0 → refused: it puts a **pole inside the curve's own parameter domain**. Clamping it
+   to a small positive number would move the curve without saying so.
+4. A PARTIAL weight set (`k` of `count`) → refused. Defaulting the missing half would silently pick
+   one of two readings — "the author meant 1" or "a write dropped keys" — and bake it.
+
+**§9.6-f — `degree`, `count`, `knot*` and `w*` are LITERAL; coordinates are EXPRESSION-VALUED.** A
+control point's `x`/`z` may be an expression over the definition's parameters, which is what makes a
+curve REGENERATE from parameters (spec §67). The four literal keys are not, and the reasons differ:
+`degree`/`count` fix the entity's TOPOLOGY (and therefore the meaning of every constraint attached
+to it); `knot*` fixes its PARAMETERISATION, and a parameter edit that reordered two knots would not
+move the curve, it would make it stop being a curve — mid-bake, surfacing as a geometry error rather
+than the parameter error it is; `w*` because a weight driven through zero is refusal 3 above,
+arriving from a parameter table.
+
+**§9.6-g — ⛔ WHAT IS STILL REFUSED, precisely, so nobody reads §9.6-d as "NURBS support".**
+
+- **PERIODIC / closed curves as a KIND.** A closed curve is authored the way the NURBS book authors
+  one — repeat the first `degree` control points at the end. There is no `periodic: true` flag, and
+  inventing one would mean inventing the wrap.
+- **NURBS SURFACES.** This is a CURVE seam. `SolidFeatureSchema` still bakes `extrude` only
+  (§10.1 below).
+- **⭐ AUTHORING ONE BY DRAWING.** `apps/component-editor`'s `SketchSpline` carries
+  `controlPoints` and NOTHING ELSE — no degree, no knots, no weights — and
+  `apps/component-editor/src/sketch/splineGeometry.ts` samples it through `sampleCubicBezierChainXZ`. **So a knotted or weighted
+  curve is expressible in the FORMAT and evaluable in the BAKE, and there is no gesture that
+  produces one.** It arrives from a document, an importer, or a migration op. That is a real gap and
+  it is named here rather than left for a reader to discover from the absence of a button.
+- **A CONSTRAINT ON A NURBS BEYOND ITS CONTROL POINTS.** `§9.3`'s ledger is unchanged: control
+  points are ordinary sibling `point` entities and enter the solver's variable space for free, so
+  `fixed`/`distance`/`coincident` on a control point are real. `point-on-curve` remains absent from
+  both vocabularies and is still refused BY NAME at the gesture that asks for it
+  (`apps/component-editor/src/sketch/ConstraintToolbar.ts`'s `refusePointOnCurve`).
+
+
 ---
 
 ## §10 — GEOMETRY & REPRESENTATIONS (C84 §6 s10)

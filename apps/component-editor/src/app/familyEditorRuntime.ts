@@ -125,7 +125,6 @@ export function createFamilyEditorRuntime(
   // and it is why ADR-0316 requires `secondCompositionRoot.invariants`
   // to assert reachability of every `*_VERB` in `src/commands/**` rather
   // than merely asserting the files exist.
-  registerConstraintCommands(commandBus, { constraintStore });
   registerReferencePlaneCommands(commandBus, { store: referencePlaneStore });
   registerSolidCommands(commandBus, { store: solidStore });
 
@@ -152,6 +151,24 @@ export function createFamilyEditorRuntime(
     constraintStore,
     solver,
     ...(opts.solverDebounceMs !== undefined ? { solverDebounceMs: opts.solverDebounceMs } : {}),
+  });
+
+  // ⚠ MOVED HERE FROM BESIDE THE OTHER THREE FAMILIES (§CONSTRAINT-IS-VIEW-SCOPED).
+  // It read `registerConstraintCommands(commandBus, { constraintStore })` above,
+  // which is what made the constraint toolbar plan-only: one ambient store, and
+  // every document's first point is `pt-0`, so an elevation constraint was
+  // "valid against" the plan and deformed it. It now resolves the store of the
+  // dispatch's own work plane, which means it can only be registered once
+  // `sketchViews` exists — the same ordering `registerDimensionCommands` below
+  // already has, and for the same reason.
+  //
+  // ⭐ `secondCompositionRoot.invariants.test.ts` asserts every `*_VERB` under
+  //    `src/commands/**` is reachable from THIS function; moving the call
+  //    inside it keeps that true, and the test is what would catch it if a
+  //    later edit dropped the line instead of moving it.
+  registerConstraintCommands(commandBus, {
+    constraintStoreFor: (view) => sketchViews.constraintStoreFor(view),
+    activeView: () => sketchViewStore.get().active,
   });
 
   // Registered HERE rather than beside the other three families because it is

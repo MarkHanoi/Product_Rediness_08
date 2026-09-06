@@ -57,13 +57,17 @@ function harness() {
   const selectionStore = createSelectionStore();
   const constraintStore = createConstraintStore();
   const commandBus = createCommandBus();
-  registerConstraintCommands(commandBus, { constraintStore });
+  registerConstraintCommands(commandBus, {
+    constraintStoreFor: () => constraintStore,
+    activeView: () => 'plan',
+  });
   const host = document.createElement('div');
   document.body.append(host);
   const bar = mountConstraintToolbar({
     commandBus,
     selectionStore,
     docStore: s.doc,
+    view: 'plan',
     promptValueMm: () => 100,
   });
   host.append(bar.element);

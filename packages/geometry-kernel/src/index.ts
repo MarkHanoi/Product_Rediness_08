@@ -65,6 +65,30 @@ export {
   catmullRomToCubicBezierChainXZ,
 } from './math/cubicBezier.js';
 
+// §CURVE-RATIONAL-NURBS — the RATIONAL curve the cubic module declares it
+// cannot express (weights + knots + arbitrary degree). It does NOT replace
+// `cubicBezier.ts`: a cubic Bezier chain is a special case of this and
+// `bezierChainAsNurbs()` performs that conversion, but the persisted cubic
+// path keeps its own evaluator so existing documents keep their exact bytes.
+export {
+  MIN_NURBS_DEGREE,
+  MAX_NURBS_DEGREE,
+  MIN_NURBS_SEGMENTS_PER_SPAN,
+  MAX_NURBS_SEGMENTS_PER_SPAN,
+  validateNurbsCurve,
+  nurbsDomain,
+  isRationalNurbs,
+  clampedUniformKnots,
+  nurbsFromControls,
+  bezierChainAsNurbs,
+  nurbsPointXZ,
+  nurbsSpanChordDeviation,
+  segmentsForNurbsSpan,
+  sampleNurbsCurveXZ,
+  type NurbsCurve2D,
+  type NurbsValidity,
+} from './math/nurbsCurve.js';
+
 export { produceWall, type WallProducer } from './producers/wall.js';
 export { composeWallGeometryHash, WALL_HASH_SCHEMA_VERSION } from './producers/_internal/composeWallGeometryHash.js';
 export { computeOpeningWorldPos } from './producers/_internal/computeOpeningWorldPos.js';

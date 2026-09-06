@@ -3,6 +3,7 @@
 import type { CommandHandler, CommandResult } from '../../app/commandBus.js';
 import {
   CONSTRAINT_COMMAND_CATEGORY,
+  constraintStoreForArgs,
   type AddPerpendicularArgs,
   type ConstraintCommandContext,
 } from './types.js';
@@ -18,8 +19,11 @@ export function createAddPerpendicularHandler(
       if (args.l1 === args.l2) {
         throw new Error('constraint.addPerpendicular: l1 and l2 must differ.');
       }
-      const id = ctx.constraintStore.newId('perpendicular');
-      ctx.constraintStore.add({
+      // §CONSTRAINT-IS-VIEW-SCOPED — the store of THIS work plane, never an
+      // ambient one. See `types.ts` for why that distinction is load-bearing.
+      const store = constraintStoreForArgs(ctx, args, ADD_PERPENDICULAR_VERB);
+      const id = store.newId('perpendicular');
+      store.add({
         id,
         kind: 'perpendicular',
         l1: args.l1,
@@ -27,7 +31,7 @@ export function createAddPerpendicularHandler(
       });
       return {
         payload: id,
-        undo: () => ctx.constraintStore.remove(id),
+        undo: () => store.remove(id),
       };
     },
   };

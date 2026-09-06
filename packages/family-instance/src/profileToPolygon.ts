@@ -71,6 +71,7 @@
 //    | `circle` | `center`, `radius`                       | `center` = id of a sibling `point`          |
 //    | `arc`    | `center`, `radius`, `startAngle`, `endAngle` | angles RADIANS, CCW from +X            |
 //    | `spline` | `degree`, `count`, `cp0`…`cp{count−1}`   | cubic Bézier chain — see §CURVE-SPLINE-SPELLING |
+//    | `spline` | + `knotCount`, `knot0`…, opt. `w0`…      | rational B-spline — see §CURVE-RATIONAL-NURBS |
 //
 // ═══════════════════════════════════════════════════════════════════════════
 // §CURVE-SPLINE-SPELLING — the free-form curve, and why THIS spelling
@@ -107,10 +108,40 @@
 //    to them automatically — a referenced point emits no boundary vertex of
 //    its own.
 //
-// ⛔ **RATIONAL curves (weighted NURBS) are NOT expressible.** Declared in
-//    `packages/geometry-kernel/src/math/cubicBezier.ts` and repeated here so a
-//    reader of either file learns it: an exact circle is the `arc` kind's job,
-//    not a cubic's. See C111 §9.6-d.
+// ⚠ **THE "RATIONAL CURVES ARE NOT EXPRESSIBLE" DECLARATION THAT STOOD HERE IS
+//   RETIRED — BY BUILDING THEM, NOT BY WIDENING THE SENTENCE.** It read:
+//   *"RATIONAL curves (weighted NURBS) are NOT expressible … an exact circle is
+//   the `arc` kind's job, not a cubic's. See C111 §9.6-d."* It cited a contract
+//   section that DID NOT EXIST — C111 stopped at §9.5 — so the gap was declared
+//   against nothing. Both halves are now real: the maths is
+//   `packages/geometry-kernel/src/math/nurbsCurve.ts` (de Boor in homogeneous
+//   coordinates), and the persisted spelling is C111 §9.6, minted with it.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// §CURVE-RATIONAL-NURBS — the general curve, and what it costs to spell
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//    | key            | type    | meaning                                          |
+//    |----------------|---------|--------------------------------------------------|
+//    | `degree`       | number  | literal integer 1…11                             |
+//    | `count`        | number  | control-point count; MUST be ≥ `degree + 1`       |
+//    | `cp0`…`cpN`    | string  | ids of sibling `point` entities, IN CURVE ORDER  |
+//    | `knotCount`    | number  | MUST equal `count + degree + 1`. ⭐ ITS PRESENCE  |
+//    |                |         | is what selects this spelling over the chain.    |
+//    | `knot0`…       | number  | literal, non-decreasing                          |
+//    | `w0`…`wN`      | number  | OPTIONAL, ALL-OR-NONE, every one > 0             |
+//
+// ⭐ **A document with no `knotCount` reads EXACTLY as it did before**, through
+//    the same cubic evaluator, to the same vertices. The new spelling is
+//    additive and needs no schema change and no `formatVersion` bump — which
+//    matters here more than usual, because C111 §8.2 records that the migration
+//    framework cannot complete a single migration.
+//
+// ⛔ **What is still refused**: a PERIODIC flag (a closed curve is authored by
+//    repeating the first `degree` control points, which is a document act, not
+//    a flag), NURBS SURFACES (this is a curve seam), and expression-valued
+//    `knot*` / `w*` (see the functions' own headers — a parameter edit must not
+//    be able to reorder a knot vector or drive a weight through zero).
 //
 // ⛔ The refusal CODE stays `'profile-needs-solver'` for a malformed or
 //    unsupported-degree spline. It is a value on the wire (C69 §1.1) and
@@ -158,6 +189,13 @@ import {
   CUBIC_BEZIER_DEGREE,
   isCubicBezierChainLength,
   sampleCubicBezierChainXZ,
+  // §CURVE-RATIONAL-NURBS — the weighted/knotted curve. Same rule as the cubic:
+  // CONSUMED from the kernel, never re-implemented here.
+  MIN_NURBS_DEGREE,
+  MAX_NURBS_DEGREE,
+  validateNurbsCurve,
+  sampleNurbsCurveXZ,
+  type NurbsCurve2D,
   type Pt2,
 } from '@pryzm/geometry-kernel';
 
@@ -351,12 +389,12 @@ export function profileToPolygon(profile: Profile, scope: EvalScope = {}): Polyg
         // §CURVE-SPLINE-SPELLING (C111 §9.6). The REFUSAL that stood here
         // until the spelling existed is retired above, in the header, with
         // its reason — not deleted silently.
-        const controls = readSplineControlPoints(profile, e, byId, scope);
-        // The chain's own endpoints are AUTHORED points and are emitted as
-        // such; the interior vertices are computed. `push`'s tolerance-based
-        // merge (which applies only where a curve is involved) then joins the
-        // span to the line or arc that meets it.
-        for (const c of sampleCubicBezierChainXZ(controls)) {
+        // The curve's own endpoints are AUTHORED points (for the clamped
+        // spellings both surfaces write) and are emitted as such; the interior
+        // vertices are computed. `push`'s tolerance-based merge (which applies
+        // only where a curve is involved) then joins the span to the line or
+        // arc that meets it.
+        for (const c of sampleSplineEntity(profile, e, byId, scope)) {
           push({ x: c[0], z: c[1], sourceId: e.id, onCurve: true });
         }
         break;
@@ -430,45 +468,201 @@ function resolveReference(
 }
 
 /**
- * §CURVE-SPLINE-SPELLING — resolve `degree` + `count` + `cp0…cpN` into the
- * control polygon, refusing at every step where the document does not
- * determine the curve.
+ * §CURVE-SPLINE-SPELLING / §CURVE-RATIONAL-NURBS — resolve a `spline` entity
+ * into the polyline that flattens it, refusing at every step where the
+ * document does not determine the curve.
  *
  * ⛔ Every refusal here carries `'profile-needs-solver'` and NAMES what is
  *    missing or unsupported. None of them substitutes a default: a spline with
  *    no `count` is under-determined, and inventing one would be inventing
  *    geometry the author did not draw (spec §75).
+ *
+ * ⭐ **`knotCount` SELECTS THE SPELLING, and its ABSENCE is what keeps every
+ *    v1 document byte-identical.** A `spline` without `knotCount` is the cubic
+ *    Bézier chain this file has always read, flattened by the same
+ *    `sampleCubicBezierChainXZ` that produced its existing bytes. A `spline`
+ *    WITH `knotCount` is a general rational B-spline and goes through the
+ *    kernel's NURBS evaluator. The two are one curve family — a cubic chain IS
+ *    a degree-3 NURBS with unit weights, and `bezierChainAsNurbs()` proves it —
+ *    but the persisted cubic path is deliberately NOT re-routed, because
+ *    swapping the evaluator under documents nobody edited would change their
+ *    vertex counts.
  */
-function readSplineControlPoints(
+function sampleSplineEntity(
   profile: Profile,
   entity: ProfileEntity,
   byId: ReadonlyMap<string, ProfileEntity>,
   scope: EvalScope,
 ): Pt2[] {
   const degree = entity.data['degree'];
-  if (degree !== CUBIC_BEZIER_DEGREE) {
+  const knotCount = entity.data['knotCount'];
+
+  // ── Spelling 1: the cubic Bézier chain (v1). Unchanged, including the
+  //    vertex count it produces.
+  if (knotCount === undefined || knotCount === null) {
+    if (degree !== CUBIC_BEZIER_DEGREE) {
+      // ⭐ A MISSING degree and a PRESENT-BUT-UNSUPPORTED degree are different
+      //    facts and get different sentences. Telling an author whose entity
+      //    carries no `degree` at all that "a degree-undefined curve IS
+      //    expressible" would be an instruction they cannot act on.
+      const missing = degree === undefined || degree === null;
+      throw new ProfileEvalError(
+        'profile-needs-solver',
+        missing
+          ? `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') declares no 'degree'; only degree ${CUBIC_BEZIER_DEGREE} (cubic Bézier chain) is evaluable without a knot vector. Write 'degree', and for any degree but ${CUBIC_BEZIER_DEGREE} also write 'knotCount' + 'knot0'…. See C111 §9.6.`
+          : `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') declares degree ${JSON.stringify(degree)} with no 'knotCount'; the Bézier-chain spelling is degree ${CUBIC_BEZIER_DEGREE} only. A degree-${JSON.stringify(degree)} curve IS expressible — add 'knotCount' (= count + degree + 1) plus 'knot0'…, and optional weights 'w0'…, and it evaluates as a rational B-spline. See C111 §9.6.`,
+      );
+    }
+    const count = entity.data['count'];
+    if (typeof count !== 'number' || !isCubicBezierChainLength(count)) {
+      throw new ProfileEvalError(
+        'profile-needs-solver',
+        `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') has count ${JSON.stringify(count)}; a cubic Bézier chain needs a literal 3k+1 control-point count (4, 7, 10, …). 'count' is a COUNT and is deliberately not expression-valued — see §CURVE-SPLINE-SPELLING.`,
+      );
+    }
+    return sampleCubicBezierChainXZ(readControlPoints(profile, entity, byId, scope, count));
+  }
+
+  // ── Spelling 2: the general rational B-spline (C111 §9.6).
+  if (
+    typeof degree !== 'number' ||
+    !Number.isInteger(degree) ||
+    degree < MIN_NURBS_DEGREE ||
+    degree > MAX_NURBS_DEGREE
+  ) {
     throw new ProfileEvalError(
       'profile-needs-solver',
-      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') declares degree ${JSON.stringify(degree)}; only degree ${CUBIC_BEZIER_DEGREE} (cubic Bézier chain) is evaluable. Rational/weighted curves are a declared gap — see C111 §9.6-d.`,
+      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') declares degree ${JSON.stringify(degree)}; a knotted spline needs a literal integer degree in [${MIN_NURBS_DEGREE}, ${MAX_NURBS_DEGREE}].`,
     );
   }
   const count = entity.data['count'];
-  if (typeof count !== 'number' || !isCubicBezierChainLength(count)) {
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < degree + 1) {
     throw new ProfileEvalError(
       'profile-needs-solver',
-      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') has count ${JSON.stringify(count)}; a cubic Bézier chain needs a literal 3k+1 control-point count (4, 7, 10, …). 'count' is a COUNT and is deliberately not expression-valued — see §CURVE-SPLINE-SPELLING.`,
+      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') has count ${JSON.stringify(count)}; a degree-${degree} curve needs a literal integer control-point count ≥ ${degree + 1}.`,
     );
   }
+  if (typeof knotCount !== 'number' || knotCount !== count + degree + 1) {
+    throw new ProfileEvalError(
+      'profile-needs-solver',
+      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') has knotCount ${JSON.stringify(knotCount)}; a degree-${degree} curve over ${count} control points needs exactly ${count + degree + 1} knots (count + degree + 1).`,
+    );
+  }
+
+  const curve: NurbsCurve2D = {
+    degree,
+    controls: readControlPoints(profile, entity, byId, scope, count),
+    weights: readSplineWeights(profile, entity, count),
+    knots: readSplineKnots(profile, entity, knotCount),
+  };
+  // The kernel owns every structural rule (non-decreasing knots, interior
+  // multiplicity ≤ degree, non-empty domain, positive weights). It REPORTS
+  // rather than throws precisely so this file can re-code the failure as the
+  // value already on the wire instead of leaking a RangeError through the bake.
+  const validity = validateNurbsCurve(curve);
+  if (!validity.ok) {
+    throw new ProfileEvalError(
+      'profile-needs-solver',
+      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') is not a valid rational B-spline: ${validity.reason} See C111 §9.6.`,
+    );
+  }
+  return sampleNurbsCurveXZ(curve);
+}
+
+/** The `cp0…cp{count−1}` control polygon, shared by BOTH spellings so a
+ *  dangling or non-`point` control point refuses with the one message this
+ *  file already emits, not a second dialect of it. Coordinates stay fully
+ *  expression-valued — that is what makes a curve regenerate from parameters. */
+function readControlPoints(
+  profile: Profile,
+  entity: ProfileEntity,
+  byId: ReadonlyMap<string, ProfileEntity>,
+  scope: EvalScope,
+  count: number,
+): Pt2[] {
   const controls: Pt2[] = [];
   for (let i = 0; i < count; i++) {
-    // ⭐ The SAME reference resolver every other kind uses (`p1` / `p2` /
-    //    `center`) — so a dangling or non-`point` control point refuses with
-    //    the one message this file already emits, not a second dialect of it.
     const target = resolveReference(profile, entity, `cp${i}`, byId);
     const { x, z } = readPointCoords(profile, target, scope);
     controls.push([x, z]);
   }
   return controls;
+}
+
+/**
+ * The `knot0…knot{knotCount−1}` vector.
+ *
+ * ⛔ **LITERAL NUMBERS ONLY — knots are not expression-valued, and that is the
+ *    same ruling `count` and `degree` already carry.** A knot vector is the
+ *    curve's PARAMETERISATION: a parameter edit that reordered two knots would
+ *    not move the curve, it would make it stop being a curve, mid-bake, with
+ *    the failure surfacing as a geometry error rather than as the parameter
+ *    error it actually is. The COORDINATES stay parametric, so the shape still
+ *    regenerates.
+ */
+function readSplineKnots(
+  profile: Profile,
+  entity: ProfileEntity,
+  knotCount: number,
+): number[] {
+  const knots: number[] = [];
+  for (let i = 0; i < knotCount; i++) {
+    const raw = entity.data[`knot${i}`];
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+      throw new ProfileEvalError(
+        'profile-needs-solver',
+        `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') has knot${i} = ${JSON.stringify(raw)}; every knot must be a literal finite number. Knots are not expression-valued — see C111 §9.6.`,
+      );
+    }
+    knots.push(raw);
+  }
+  return knots;
+}
+
+/**
+ * The `w0…w{count−1}` weights, or all-ones when the entity carries none.
+ *
+ * ⭐ **ALL OR NONE.** A partially-weighted spline is ambiguous — did the author
+ *    mean weight 1 on the rest, or did a write drop half the keys? Refusing
+ *    names the ambiguity; defaulting the missing half would silently pick one
+ *    reading and bake it.
+ *
+ * ⭐ **NO weights at all is NOT a guess.** A B-spline with unit weights is not
+ *    "a NURBS with a default filled in" — it is the definition of the
+ *    non-rational case, the identity element of the weight axis. The ones are
+ *    written out explicitly rather than left implicit in the evaluator.
+ *
+ * ⛔ Weights are LITERAL, for the reason knots are: a weight driven through
+ *    zero by a parameter edit puts a POLE inside the curve's own domain.
+ */
+function readSplineWeights(
+  profile: Profile,
+  entity: ProfileEntity,
+  count: number,
+): number[] {
+  let present = 0;
+  for (let i = 0; i < count; i++) {
+    if (entity.data[`w${i}`] !== undefined) present++;
+  }
+  if (present === 0) return new Array<number>(count).fill(1);
+  if (present !== count) {
+    throw new ProfileEvalError(
+      'profile-needs-solver',
+      `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') carries ${present} of ${count} weights ('w0'…'w${count - 1}'); weights are ALL-OR-NONE. Omit them for a non-rational curve, or write every one.`,
+    );
+  }
+  const weights: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const raw = entity.data[`w${i}`];
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+      throw new ProfileEvalError(
+        'profile-needs-solver',
+        `[profileToPolygon] profile ${profile.id} entity ${entity.id} ('spline') has w${i} = ${JSON.stringify(raw)}; every weight must be a literal finite number > 0. A non-positive weight puts a pole inside the curve's own domain. Weights are not expression-valued — see C111 §9.6.`,
+      );
+    }
+    weights.push(raw);
+  }
+  return weights;
 }
 
 function readPointCoords(

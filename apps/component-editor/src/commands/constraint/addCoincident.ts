@@ -3,6 +3,7 @@
 import type { CommandHandler, CommandResult } from '../../app/commandBus.js';
 import {
   CONSTRAINT_COMMAND_CATEGORY,
+  constraintStoreForArgs,
   type AddCoincidentArgs,
   type ConstraintCommandContext,
 } from './types.js';
@@ -18,8 +19,11 @@ export function createAddCoincidentHandler(
       if (args.p1 === args.p2) {
         throw new Error('constraint.addCoincident: p1 and p2 must differ.');
       }
-      const id = ctx.constraintStore.newId('coincident-pp');
-      ctx.constraintStore.add({
+      // §CONSTRAINT-IS-VIEW-SCOPED — the store of THIS work plane, never an
+      // ambient one. See `types.ts` for why that distinction is load-bearing.
+      const store = constraintStoreForArgs(ctx, args, ADD_COINCIDENT_VERB);
+      const id = store.newId('coincident-pp');
+      store.add({
         id,
         kind: 'coincident-pp',
         p1: args.p1,
@@ -27,7 +31,7 @@ export function createAddCoincidentHandler(
       });
       return {
         payload: id,
-        undo: () => ctx.constraintStore.remove(id),
+        undo: () => store.remove(id),
       };
     },
   };

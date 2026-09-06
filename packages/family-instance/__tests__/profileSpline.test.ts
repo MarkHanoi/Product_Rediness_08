@@ -184,13 +184,25 @@ describe('spline profile entity — the refusal is retired by DEFINING the spell
 });
 
 describe('spline refusals — each NAMES what the document does not determine', () => {
-  it('REFUSES a non-cubic degree, and the bake reason is unsupported-feature', async () => {
+  it('REFUSES a non-cubic degree IN THE CHAIN SPELLING, and names the escape', async () => {
+    // ⚠ THIS ASSERTION CHANGED, AND THE CHANGE IS THE OPPOSITE OF WIDENING A
+    //   REFUSAL MESSAGE WHILE THE MATHS STAYS CUBIC. It read
+    //   `toMatch(/only degree 3/)` against the sentence *"only degree 3 (cubic
+    //   Bézier chain) is evaluable. Rational/weighted curves are a declared gap
+    //   — see C111 §9.6-d"* — a citation to a contract section that did not
+    //   exist. A degree-5 curve IS now evaluable (see `profileNurbs.test.ts`,
+    //   which bakes one); what is still refused is spelling it WITHOUT a knot
+    //   vector, because a Bézier chain has no way to express degree 5. So the
+    //   message must both refuse and say what to write instead, and this test
+    //   asserts BOTH halves.
     const r = await bake(dProfile({ degree: 5 }));
     expect(r.baked).toEqual([]);
     expect(r.unsupported).toHaveLength(1);
     expect(r.unsupported[0]!.reason).toBe('unsupported-feature');
     expect(r.unsupported[0]!.message).toMatch(/declares degree 5/);
-    expect(r.unsupported[0]!.message).toMatch(/only degree 3/);
+    expect(r.unsupported[0]!.message).toMatch(/Bézier-chain spelling is degree 3 only/);
+    expect(r.unsupported[0]!.message).toMatch(/add 'knotCount'/);
+    expect(r.unsupported[0]!.message).toMatch(/C111 §9\.6/);
   });
 
   it('REFUSES a control-point count that is not 3k+1', async () => {

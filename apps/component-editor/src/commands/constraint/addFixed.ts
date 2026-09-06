@@ -3,6 +3,7 @@
 import type { CommandHandler, CommandResult } from '../../app/commandBus.js';
 import {
   CONSTRAINT_COMMAND_CATEGORY,
+  constraintStoreForArgs,
   type AddFixedArgs,
   type ConstraintCommandContext,
 } from './types.js';
@@ -20,8 +21,11 @@ export function createAddFixedHandler(
           `constraint.addFixed: x and y must be finite (got x=${args.x}, y=${args.y}).`,
         );
       }
-      const id = ctx.constraintStore.newId('fixed');
-      ctx.constraintStore.add({
+      // §CONSTRAINT-IS-VIEW-SCOPED — the store of THIS work plane, never an
+      // ambient one. See `types.ts` for why that distinction is load-bearing.
+      const store = constraintStoreForArgs(ctx, args, ADD_FIXED_VERB);
+      const id = store.newId('fixed');
+      store.add({
         id,
         kind: 'fixed',
         p: args.p,
@@ -30,7 +34,7 @@ export function createAddFixedHandler(
       });
       return {
         payload: id,
-        undo: () => ctx.constraintStore.remove(id),
+        undo: () => store.remove(id),
       };
     },
   };

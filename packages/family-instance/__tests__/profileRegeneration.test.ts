@@ -567,7 +567,15 @@ describe('§4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a
     expect(res.unsupported[0]!.reason).toBe('unsupported-feature');
     expect(res.unsupported[0]!.message).toContain('spline');
     // Names WHICH field is missing, and what the evaluable set is.
-    expect(res.unsupported[0]!.message).toContain('degree undefined');
+    //
+    // ⚠ These two strings changed with §CURVE-RATIONAL-NURBS, and the INTENT
+    //   of the test did not. It asserted `'degree undefined'` — the JSON
+    //   spelling of an ABSENT key — against a message that also told the author
+    //   *"a degree-undefined curve IS expressible"*, which is not an
+    //   instruction anyone can act on. An empty `data: {}` now refuses by
+    //   NAMING the absent key, which is what "names WHICH field is missing"
+    //   asked for in the first place.
+    expect(res.unsupported[0]!.message).toContain("declares no 'degree'");
     expect(res.unsupported[0]!.message).toContain('only degree 3');
   });
 

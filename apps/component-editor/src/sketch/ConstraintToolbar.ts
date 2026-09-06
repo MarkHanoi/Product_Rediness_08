@@ -58,6 +58,7 @@ import { splineTangentLegId } from './buildConstraintSet.js';
 import { pointToSegmentDistance } from './hitTest.js';
 import type { SelectionStore } from '../stores/selectionStore.js';
 import type { SketchDocStore } from '../stores/sketchDocStore.js';
+import type { SketchViewKind } from '../views/viewProjection.js';
 
 export interface ConstraintToolbarMount {
   readonly element: HTMLElement;
@@ -68,6 +69,14 @@ export interface ConstraintToolbarOptions {
   readonly commandBus: CommandBus;
   readonly selectionStore: SelectionStore;
   readonly docStore: SketchDocStore;
+  /**
+   * §CONSTRAINT-IS-VIEW-SCOPED — the work plane `docStore` belongs to. Every
+   * dispatch below carries it, so the constraint lands in THAT plane's store
+   * and a recorded log replays onto the plane it was authored on rather than
+   * onto whichever one happens to be active at replay time. This is what
+   * retired the plan-only refusal in `views/SketchViewPanel.ts`.
+   */
+  readonly view: SketchViewKind;
   /** Optional value-prompt — defaults to a `window.prompt`. Tests inject
    *  a deterministic provider. */
   readonly promptValueMm?: (defaultMm: number) => number | null;
@@ -88,6 +97,10 @@ export function mountConstraintToolbar(opts: ConstraintToolbarOptions): Constrai
   const status = document.createElement('span');
   status.dataset.role = 'constraint-status';
   status.style.cssText = 'margin-left:auto;color:#9090a8;font:12px/1.4 system-ui;min-height:14px';
+
+  /** Every constraint dispatch, with this toolbar's work plane attached. */
+  const exec = (verb: string, args: Record<string, unknown>): Promise<unknown> =>
+    opts.commandBus.execute(verb, { ...args, view: opts.view });
 
   const handlers: Array<() => void> = [];
   function makeButton(label: string, onClick: () => Promise<void>): HTMLButtonElement {
@@ -115,7 +128,7 @@ export function mountConstraintToolbar(opts: ConstraintToolbarOptions): Constrai
   bar.append(
     makeButton('Coincident', async () => {
       const pts = pickPoints(opts, 2);
-      await opts.commandBus.execute(ADD_COINCIDENT_VERB, { p1: pts[0]!, p2: pts[1]! });
+      await exec(ADD_COINCIDENT_VERB, { p1: pts[0]!, p2: pts[1]! });
       setStatus(status, `Coincident: ${pts[0]} ↔ ${pts[1]}`, false);
     }),
     makeButton('Distance', async () => {
@@ -128,29 +141,29 @@ export function mountConstraintToolbar(opts: ConstraintToolbarOptions): Constrai
         setStatus(status, 'Distance cancelled.', false);
         return;
       }
-      await opts.commandBus.execute(ADD_DISTANCE_VERB, { p1: pts[0]!, p2: pts[1]!, value: v });
+      await exec(ADD_DISTANCE_VERB, { p1: pts[0]!, p2: pts[1]!, value: v });
       setStatus(status, `Distance ${v.toFixed(2)} mm: ${pts[0]} → ${pts[1]}`, false);
     }),
     makeButton('Fixed', async () => {
       const pts = pickPoints(opts, 1);
       const p = opts.docStore.get().pointById[pts[0]!]!;
-      await opts.commandBus.execute(ADD_FIXED_VERB, { p: pts[0]!, x: p.x, y: p.z });
+      await exec(ADD_FIXED_VERB, { p: pts[0]!, x: p.x, y: p.z });
       setStatus(status, `Fixed ${pts[0]} at (${p.x.toFixed(1)}, ${p.z.toFixed(1)})`, false);
     }),
     makeButton('Parallel', async () => {
       const lns = pickLines(opts, 2);
-      await opts.commandBus.execute(ADD_PARALLEL_VERB, { l1: lns[0]!, l2: lns[1]! });
+      await exec(ADD_PARALLEL_VERB, { l1: lns[0]!, l2: lns[1]! });
       setStatus(status, `Parallel: ${lns[0]} ∥ ${lns[1]}`, false);
     }),
     makeButton('Perpend.', async () => {
       const lns = pickLines(opts, 2);
-      await opts.commandBus.execute(ADD_PERPENDICULAR_VERB, { l1: lns[0]!, l2: lns[1]! });
+      await exec(ADD_PERPENDICULAR_VERB, { l1: lns[0]!, l2: lns[1]! });
       setStatus(status, `Perpendicular: ${lns[0]} ⟂ ${lns[1]}`, false);
     }),
     makeButton('Tangent', async () => {
       const t = pickSplineAndLine(opts);
       // The LEG is `l2` so the handle swings and the on-curve point holds.
-      await opts.commandBus.execute(ADD_PARALLEL_VERB, {
+      await exec(ADD_PARALLEL_VERB, {
         l1: t.lineId,
         l2: splineTangentLegId(t.splineId, t.which) as EntityId,
       });
