@@ -22,6 +22,7 @@ import { EMPTY_LR_LAYOUT, LEFT_PANE, RIGHT_PANE, type PaneId } from './paneViewM
 import { PaneHost, MultiPaneController } from './PaneHost';
 import { PaneLayoutStore } from './paneLayoutStore';
 import { mountPaneViewPicker, type PaneViewPickerHandle } from './PaneViewPicker';
+import { mountPaneEmptyState, type PaneEmptyStateHandle } from './PaneEmptyState';
 // §SITE-VIEW-QUICK-TOGGLE (L-5110) — the founder's top-centre 3D globe / 3D site
 // control. It is SHELL chrome (fixed, budgeted on the canvas region), not pane chrome,
 // which is why it mounts beside the panes rather than inside one. It shares the SAME
@@ -435,6 +436,36 @@ export function mountSiteAuthoringPaneShell(
         );
     }
 
+    // ── §SWAP-NOT-VACATE (L-12999 clause 4) — EVERY PANE STATES ITSELF ──────────
+    //
+    // Founder ruling: *"pane A must end holding SOMETHING IT CAN STATE — a 2D view, or an
+    // honest placeholder that says why it is not showing 3D and what to press to get it
+    // back."* `assignViewToPane`'s swap delivers the first clause and is the better answer;
+    // this is the second, for the empties that remain ON PURPOSE.
+    //
+    // ⭐ THE CASE THIS ACTUALLY PAINTS is the one `applyFraction` above CANNOT collapse.
+    // Its solo rule is `leftEmpty !== rightEmpty` — exactly one occupied — so `× Empty this
+    // pane` and `Full screen` become a legible full screen and never a blank rectangle. But
+    // this shell opens on `EMPTY_LR_LAYOUT`, where BOTH panes are empty, nothing is solo,
+    // and both stay on screen holding nothing. That is the *"BLANK light-lavender rectangle
+    // with only the tool rail"* of the founder's second L-13000 screenshot, and it is a
+    // REAL window: `set-layout` arrives later, and a Cesium mount is async on top of that.
+    //
+    // ⛔ NOT A CSS FIX (the ruling forbids one by name): the pane keeps its box, its chrome
+    // and its place in the split. It gains WORDS and one button, and the button dispatches a
+    // `view.pane.*` intent like every other control here (P6).
+    //
+    // Mounted AFTER the pickers so it sits under them in DOM order, and gated on the same
+    // `viewPicker` flag — a test asking for bare geometry wants no chrome at all, and the
+    // placeholder's whole offer is "use the panel above", which that test has removed.
+    const emptyStates: PaneEmptyStateHandle[] = [];
+    if (opts.viewPicker !== false) {
+        emptyStates.push(
+            mountPaneEmptyState({ paneId: LEFT_PANE, paneEl: leftPaneEl, store }),
+            mountPaneEmptyState({ paneId: RIGHT_PANE, paneEl: rightPaneEl, store }),
+        );
+    }
+
     // ── §VIEW-PANEL-PER-PANE (founder 2026-09-06) — ONE VIEW PANEL PER PANE ────────
     //
     // Founder, with screenshots: *"WHEN BEING IN A SINGLE VIEW … WE KEEP THE PANEL WITH ALL
@@ -508,6 +539,9 @@ export function mountSiteAuthoringPaneShell(
         unsubscribeLayout();
         for (const p of pickers) {
             try { p.dispose(); } catch { /* chrome already gone */ }
+        }
+        for (const e of emptyStates) {
+            try { e.dispose(); } catch { /* chrome already gone */ }
         }
         for (const t of quickToggles) {
             try { t.dispose(); } catch { /* chrome already gone */ }

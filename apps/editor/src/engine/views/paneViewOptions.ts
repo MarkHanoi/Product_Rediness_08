@@ -294,3 +294,102 @@ export function describePaneLayoutActions(
         },
     ];
 }
+
+// ── The honest empty pane (§SWAP-NOT-VACATE, L-12999 clause 4 · C57 §1.5) ────
+
+/**
+ * What an EMPTY pane must say for itself, and the one press that fills it.
+ *
+ * `null` ⇒ the pane holds a view; there is nothing to state.
+ */
+export interface EmptyPaneStatement {
+    readonly paneId: PaneId;
+    /** One short line naming the state. Never a bare blank. */
+    readonly headline: string;
+    /** Why it is empty, in this layout's own terms. */
+    readonly detail: string;
+    /**
+     * The action that resolves it — the founder's *"offers the action that resolves
+     * it"* (STR §26.1.1). Absent ONLY when nothing can fill this pane, and then
+     * `detail` says so rather than the pane offering a dead button.
+     */
+    readonly action?: {
+        readonly label: string;
+        /** `assign` ⇒ dispatch `view.pane.assign` with `viewType`. */
+        readonly kind: 'assign' | 'restore-split';
+        readonly viewType?: ViewType;
+    };
+}
+
+/**
+ * ⭐ WHY THIS EXISTS AS WELL AS THE SWAP, AND IS NOT MADE REDUNDANT BY IT.
+ *
+ * §SWAP-NOT-VACATE removed the INVOLUNTARY empty — the pane nobody asked to empty. Three
+ * voluntary ones remain and are correct: `assign(pane, null)`, `solo`, and the shell's own
+ * opening state (`EMPTY_LR_LAYOUT`, before a preset lands). The first two are collapsed by
+ * `SiteAuthoringPaneShell.applyFraction` into a legible full screen. The THIRD is not: with
+ * BOTH panes empty nothing is solo, so both stay on screen holding nothing — which is
+ * precisely the *"BLANK light-lavender rectangle"* of the founder's second L-13000
+ * screenshot.
+ *
+ * ⛔ C57 §1.5 — a failure dressed as an empty. A pane that is empty because the user said so
+ * and a pane that is empty because a layout never arrived look IDENTICAL on screen, and the
+ * founder has read that ambiguity as corruption three times. So the pane STATES which it is.
+ *
+ * ⛔ THIS IS NOT A CSS FIX. The forbidden implementation is hiding the pane and calling it
+ * solved; the pane keeps its box, its chrome and its place in the split, and gains WORDS.
+ *
+ * THE SUGGESTED ACTION IS DERIVED, never a hardcoded favourite: the first pane-hostable view
+ * in registry order that has a mounter here and is NOT already on screen. Filling the pane
+ * with THAT view adds a surface instead of moving one, so it cannot empty the other pane —
+ * the failure this whole section exists to end. When every hostable view is already up, the
+ * only honest offer left is `restore-split`, and when that is unavailable too there is no
+ * action and `detail` says what to press instead.
+ */
+export function describeEmptyPane(input: {
+    readonly layout: PaneLayout;
+    readonly paneId: PaneId;
+    readonly registry?: Readonly<Record<ViewType, ViewTypeDescriptor>>;
+    readonly mountableKinds?: ReadonlySet<RendererKind> | null;
+    readonly canRestoreSplit?: boolean;
+}): EmptyPaneStatement | null {
+    const registry = input.registry ?? VIEW_TYPE_REGISTRY;
+    const { layout, paneId } = input;
+    if (layout[paneId] != null) return null;
+
+    const mountable = input.mountableKinds ?? null;
+    const others = Object.keys(layout).filter((p) => p !== paneId);
+    const occupiedOther = others.find((p) => layout[p] != null) ?? null;
+    const onScreen = new Set(Object.values(layout).filter((v): v is ViewType => v != null));
+
+    const fillable = listPaneViewTypes(registry).find((vt) => {
+        const d = registry[vt];
+        if (!d?.paneHostable || onScreen.has(vt)) return false;
+        return !mountable || mountable.has(d.rendererKind);
+    }) ?? null;
+
+    const detail =
+        occupiedOther != null
+            ? `Nothing is assigned to this pane. ${describePaneName(occupiedOther)[0]!.toUpperCase()}`
+              + `${describePaneName(occupiedOther).slice(1)} is showing `
+              + `${registry[layout[occupiedOther]!]!.label}.`
+            : 'No view has been assigned to either pane yet.';
+
+    if (fillable != null) {
+        return {
+            paneId,
+            headline: 'This pane is empty',
+            detail,
+            action: { label: `Show ${registry[fillable]!.label} here`, kind: 'assign', viewType: fillable },
+        };
+    }
+    if (input.canRestoreSplit) {
+        return { paneId, headline: 'This pane is empty', detail, action: { label: '◧ Back to split', kind: 'restore-split' } };
+    }
+    return {
+        paneId,
+        headline: 'This pane is empty',
+        detail: `${detail} Every view this workspace can host is already on screen — `
+            + 'use the panel above to choose a different one for this pane.',
+    };
+}
