@@ -1863,12 +1863,39 @@ export const ANALYSIS_SURFACE_STYLES = `
    the control itself is untouched (it is owned by lane VIEW-PANEL-PER-PANE). */
 .vsw-onview .view-segment-switcher { gap: 0; }
 .vsw-onview .view-segment-switcher-row {
-  flex-wrap: nowrap;
+  /* §THE-BAR-IS-NOT-ON-THE-VIEW (L-13003) -- WRAP, NEVER SPILL. 'nowrap' plus a
+     'max-width' is a box that CLAMPS and children that DO NOT: the row simply
+     overflowed past the clamp, to the right, over whatever surface was there.
+     Wrapping keeps every segment inside the bar and inside the canvas region --
+     nothing hidden, nothing scrolled out of reach, still centred on the view. */
+  flex-wrap: wrap;
+  justify-content: center;
   border: none;
   padding: 0;
   background: transparent;
 }
-.vsw-onview .view-segment-btn { flex: 0 0 auto; white-space: nowrap; }
+/* ⛔ 'width: auto' IS THE FIX, AND IT IS LOAD-BEARING (L-13003).
+
+   These buttons carry '.pb-gis-action' from the projectBrowser sheet, where they
+   are RAIL ROWS and so declare 'width: 100%'. 'flex: 0 0 auto' resolves its basis
+   from that used width -- so each of the six segments demanded the FULL width of
+   the bar, and 'flex-shrink: 0' forbade them from giving any of it back. The row
+   became six bar-widths long and ran off to the right: the founder photographed
+   '2D Site Map' over the map, '2D Satellite' inside the Analysis panel's header
+   and a third segment at the window edge, one control stretched across two
+   surfaces that do not belong to each other.
+
+   The bar's own 'max-width' could not save it -- it bounds the BOX, not the
+   overflowing children -- which is why the rule looked correct while the screen
+   was not. Reusing a panel-row class on a pill row is fine; inheriting its width
+   is not. Do not delete this line to "tidy the rule": the class it neutralises
+   lives in another sheet and will re-assert itself. */
+.vsw-onview .view-segment-btn {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 100%;
+  white-space: nowrap;
+}
 
 /* ⛔ THE STATUS LINE STAYS. It is the control's honest answer to "which view am
    I on" -- including the case it CANNOT answer (no snapshot field for the PRYZM

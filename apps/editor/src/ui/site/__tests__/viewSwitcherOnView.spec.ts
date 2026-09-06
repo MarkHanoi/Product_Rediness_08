@@ -20,6 +20,8 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
     mountViewSwitcherOnView,
     SITE_AUTHORING_PANES_ROOT_ID,
@@ -220,5 +222,62 @@ describe('§VIEW-SWITCHER-ON-THE-VIEW — teardown', () => {
         expect(switcherDisposed).toBe(1);
         expect(document.querySelector(`[data-testid="${VIEW_SWITCHER_ON_VIEW_TESTID}"]`)).toBeNull();
         expect(() => h.dispose()).not.toThrow();
+    });
+});
+
+describe('§THE-BAR-IS-NOT-ON-THE-VIEW (L-13003) — the bar is bounded by the view it is centred on', () => {
+    // The founder, 2026-09-06, with three screenshots and blue arrows drawn across them:
+    // *"the panel with 2d site map, 2d satelite, 3d site and 3d globe expands too long to
+    // the right - this absolutely wrong."* `2D Site Map` sat over the map, `2D Satellite`
+    // landed inside the ANALYSIS panel's header, and a third segment was pushed to the
+    // window edge — ONE control stretched across two surfaces that do not belong to each
+    // other, contradicting the sentence rendered three lines below it: *"Switch the view —
+    // or split it — from the bar centred on the view itself"*.
+    //
+    // ⭐ THE CAUSE WAS ONE INHERITED DECLARATION, WHICH IS WHY IT IS ASSERTED ON THE SHEET
+    // AND NOT ON A RENDERED BOX. These buttons reuse `.pb-gis-action` from the projectBrowser
+    // sheet, where they are RAIL ROWS carrying `width: 100%`. Under `flex: 0 0 auto` that
+    // used width becomes each segment's basis and `flex-shrink: 0` forbids giving it back —
+    // so six segments demanded six bar-widths and the row ran off to the right. happy-dom
+    // computes no flex layout, so a geometric assertion here would pass in both worlds and
+    // pin nothing; the sheet is where the fact lives.
+    const CSS = readFileSync(
+        resolve(process.cwd(), 'apps/editor/src/ui/styles/panels/analysisSurface.ts'),
+        'utf8',
+    );
+    const ruleBody = (selector: string): string => {
+        const at = CSS.indexOf(selector + ' {');
+        expect(at, `the rule ${selector} is gone from the sheet`).toBeGreaterThan(-1);
+        return CSS.slice(CSS.indexOf('{', at) + 1, CSS.indexOf('}', at));
+    };
+
+    it('⛔ the segment neutralises the rail row width it inherits', () => {
+        const btn = ruleBody('.vsw-onview .view-segment-btn');
+        expect(btn).toMatch(/width:\s*auto/);
+        // And the rail's own rule is still the 100% this override exists to answer, so a
+        // future removal of THAT is what makes this override droppable — not a tidy-up here.
+        const rail = readFileSync(
+            resolve(process.cwd(), 'apps/editor/src/ui/styles/panels/projectBrowser.ts'),
+            'utf8',
+        );
+        const railRule = rail.slice(rail.indexOf('.pb-gis-action {'));
+        expect(railRule.slice(0, railRule.indexOf('}'))).toMatch(/width:\s*100%/);
+    });
+
+    it('the row WRAPS rather than spilling past the bar it is clamped to', () => {
+        // `max-width` bounds the BOX, never the overflowing children — which is exactly why
+        // the rule looked correct while the screen was not.
+        const row = ruleBody('.vsw-onview .view-segment-switcher-row');
+        expect(row).toMatch(/flex-wrap:\s*wrap/);
+        expect(row).not.toMatch(/flex-wrap:\s*nowrap/);
+    });
+
+    it('and the bar is still bounded by the CANVAS region, not by the window', () => {
+        // The half of the contract that was already right, pinned so this fix cannot be
+        // "simplified" into a window-centred bar (§SHELL-FLOAT-BUDGET, C06 §15).
+        const bar = ruleBody('.vsw-onview');
+        expect(bar).toContain('left: var(--shell-canvas-cx');
+        expect(bar).toContain('max-width: calc(var(--shell-canvas-w');
+        expect(bar).not.toMatch(/left:\s*50%/);
     });
 });
