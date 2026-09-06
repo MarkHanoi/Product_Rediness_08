@@ -104,6 +104,79 @@ The founder's Phase-2 ask, verbatim: *"in each view (either split view or comple
 
 ## §2.10 — The view region is a HIERARCHY, not a set of siblings (L-13030, STR §26.1.2)
 
+> ⛔ **CORRECTED 2026-09-06, SAME DAY, BY THE LANE THAT IMPLEMENTED IT (`e0edcdd1`). Four of the
+> claims below were WRONG. They are kept, struck through in prose, because the WAY they were wrong is
+> the reusable lesson: §2.10 was written from a `grep` and a console trace, and a grep cannot see
+> what a stylesheet does, cannot tell a VARIABLE named `container` from the ELEMENT `#container`, and
+> cannot tell a live collision from dead code.**
+>
+> **(a) THE CENSUS WAS WRONG IN BOTH DIRECTIONS — one row was a phantom, three were missing.**
+> ~~"SIX write sites across FOUR modules"~~ → **SEVEN inline sites across FIVE modules, PLUS a
+> stylesheet rule.** The header even contradicted its own table, which enumerated nine.
+> - ❌ **`AIAreaLayout.ts` was a FALSE POSITIVE.** Its `container` is
+>   `document.getElementById(aiPanelId)` — the **AI chat panel**, never `#container`. The variable
+>   has since been renamed `panelEl` so the next census cannot re-mint the row.
+> - ⚠ **MISSING: `WorkspaceController.ts` `_applyLayout` (:437-439)** — the fourth owner the prose
+>   correctly named but the table omitted.
+> - ⚠ **MISSING: `halfCanvasResizer.ts`** `apply()` + `dispose()`.
+> - ⚠ **MISSING, AND THE WORST OF ALL: a STYLESHEET rule.** `ui/styles/panels/splitView.ts` carried
+>   `#container.svp-active { width:60%; max-width:60%; flex-grow/shrink/basis: !important }`. **The
+>   `!important` flex declarations meant NO inline write could ever RELEASE the region while that
+>   class was on the node.** A census of `.style.width` assignments is structurally blind to this.
+>
+> **(b) §2.10.2 NAMED THE WRONG PAIR. The SHAPE was right; the culprits were not.**
+> ~~`DataWorkbench`'s `50%` fighting `SplitViewManager`'s `60%`~~ — **that collision is LATENT, never
+> live**: `DataWorkbench`'s `'split'` arm is **dead code**, because `WorkspaceController._applyLayout`
+> drives the workbench only to `'hidden'` or `'full'`, and nothing anywhere dispatches
+> `setMode('split')`.
+> ⭐ **The loop the founder actually recorded came from a module §2.10 never mentioned:
+> `ui/platform/halfCanvasSplitViewPolicy.ts`**, called from `_applyLayout`. It returns `close` on
+> entering a half-canvas mode → `SplitViewManager.deactivate()`, and `reopen` on returning to full →
+> `activate()`. That reproduces his block exactly **and in his order**. A second producer of the same
+> pair is `svpPlanPaneMounter.mount()`, which does `if (isActive) deactivate(); activate();` to
+> rebuild from a known state.
+> ⭐⭐ **SO THE ROOT WAS MODE↔SPLIT *COUPLING*, NOT TWO RIVAL WIDTH STRINGS — and that is why the fix
+> had to DELETE the policy rather than merely unify the writers.** A single-owner refactor that kept
+> `halfCanvasSplitViewPolicy` would have left the oscillation running through a tidier pipe. The
+> invariant in §2 clause 10 is still exactly right; the mechanism paragraph was not.
+>
+> **(c) ⚠ THE MODE'S WRITE NEVER BOUND — AND FIXING IT IS A LIVE BEHAVIOUR CHANGE.** §2.10.1 said the
+> mode "also writes `#container`'s box". It *wrote* it; the write was **ignored**. `#container` is
+> `flex: 1 1 0`, and a `width` with no `max-width` and no `flex-grow: 0` does nothing under flex
+> layout. **So Analysis and Inspect have been rendering a FULL-WIDTH 3D canvas with the panel merely
+> covering its right half.** The owner now writes all five properties, so the region genuinely
+> narrows. ⭐ **This is the one item here that wants founder eyes**: canvas-anchored chrome reading
+> `--shell-canvas-cx` will now centre on the real half-region instead of on the viewport — which is
+> correct under §2.10.3 clause 4, and visibly different from what shipped before.
+>
+> **(d) §2.10.3 CLAUSE 3 CANNOT BE IMPLEMENTED LITERALLY TODAY, and that is not a defect.**
+> `.svp-pane` is `position: fixed` at `document.body`, **not** a child of the region — so *"the split
+> writes pane boxes INSIDE the region"* is expressed as **arithmetic** (the owner computes the pane's
+> `right` offset from the mode's claim), not as nesting. That offset is also what dissolves L-12915:
+> the pane now sits *beside* `#anl-surface` instead of behind it, which is why the close/reopen
+> policy had no subject left to close. Re-parenting `.svp-pane` into the region is **C59 Phase 4**
+> consolidation, not a prerequisite for this invariant.
+>
+> **(e) ONE RESIDUAL, STATED RATHER THAN HIDDEN.** `#container { transition: width 0.2s }` is kept
+> (presentation, not geometry), so each region change animates and the `ResizeObserver` fires several
+> times per transition. **That is the "resize ×4" in the founder's trace.** It is BOUNDED per
+> transition, so §2.10.4 holds as written; dropping the transition would make it exactly one, and is
+> a deliberate non-change.
+>
+> ⭐ **THE OWNER, AS BUILT:** `apps/editor/src/ui/layout/viewRegionGeometry.ts`. Mode declares a
+> **claim** on the shell, split declares a **fraction of the region**, a drag declares an
+> **override**; one pure `computeViewRegionBoxes` derives `#container`'s five box properties +
+> `display`, `.svp-pane`'s width **and `right` offset**, and `.svp-divider`'s position. ⭐ **It
+> contains NO guard, debounce, throttle or `alreadyApplied` latch — termination is a PROPERTY OF THE
+> SHAPE:** the boxes are a pure function of the state, so re-applying writes identical strings, which
+> move no box, which fire no observer, which start no settle pass. **That is what §2.10.2's
+> prohibition was protecting, and it is what a debounce would have counterfeited.**
+> Pinned by `apps/editor/src/engine/__tests__/viewRegionGeometry.spec.ts` — **19/19**, carrying the
+> §2.10.4 cycle on a real DOM *plus* the four properties a pixel assertion cannot catch: **idempotent,
+> terminating (ten re-applies change no property), order-independent (mode-then-split ≡
+> split-then-mode), and total on a shell that does not exist yet.**
+
+
 > **Founder, verbatim (2026-09-06), after testing the deployed build:**
 > *"We need to have a sound and really robust system for the split view / and the analysis / inspect
 > panels — because **SPLIT VIEW SHOULD ALWAYS SPLIT THE VIEW OF THE SECTION OF THE VIEWS.** So if in
