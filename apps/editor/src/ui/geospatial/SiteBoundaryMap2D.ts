@@ -48,8 +48,32 @@ import {
     buildBoundaryFromLatLonRing,
     parcelFrameOrigin,
     latLonToSceneXZ,
+    sceneXZToLatLon,
     type LatLon,
 } from '../site/boundaryProjection.js';
+// §MAP2D-ENVELOPE (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §26.4 / C58 §1.14 / L-1188) — the buildable
+// envelope on the 2D site map. Founder: *"the envelope renders great on pryzm view — but on 3d site
+// vie not on 2d map view"*. Three surfaces now draw the SAME `MassingSolid[]` the pure L2
+// `envelopeToMassing` produced — the Cesium globe (§ENVELOPE-VIA-MASSING), the three.js BIM/plan
+// scene (`ParcelBoundarySceneRenderer.buildEnvelopeVolume`) and this map — so none of them can
+// re-derive geometry or a height of its own (§1.14.2: the rasteriser never re-derives).
+import { applyEnvelopeVisibilityAxes, envelopeDrawMode, type MassingSolid } from '@pryzm/site-parcel-data';
+// ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) / §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — the ONE authority
+// for "should the envelope be on screen?", read at THIS rasteriser and never at the caller (C84
+// EI-1). Same import pair `CesiumViewport` uses.
+import { getBuildableEnvelopeAxes, subscribeBuildableEnvelopeVisibility } from '../site/envelopeVisibility.js';
+// §ENVELOPE-CONFIDENCE-COLOUR (L-608) / §L-619 — the ONE colour table. A hue is C58 §1.2's
+// CONFIDENCE BADGE, so this surface maps `MassingSolid.style.hue` through the same three constants
+// the globe and the flat card map it through, and mints no colour of its own.
+import {
+    CONFIDENT_VIOLET_CSS,
+    PROVISIONAL_GREY_CSS,
+    SUGGESTED_AMBER_CSS,
+} from '../site/envelopeRenderStyle.js';
+// §L-430 slice 2b / ADR-0115 — the scene-XZ (PROJECT frame) → ENU (TRUE frame) boundary. THE one
+// place authored scene coordinates cross into the world frame; see `sceneEnuFrame.ts`'s header for
+// why writing `east = x, north = -z` inline is the bug it exists to prevent.
+import { sceneXZToEnu } from './sceneEnuFrame.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth, dispatchClearParcelBoundary, canCommitParcelBoundary } from '../site/siteDispatch.js';
 // §L-536-THETA-RESET — the SAME pure derivation `dispatchParcelBoundary` uses, so the θ this
 // surface publishes cannot drift from the θ the ring is de-rotated by. See commit() below.
@@ -197,6 +221,21 @@ const SNAP_LAYER = 'pryzm-boundary-snap-indicator';
 const PARCEL_SELECT_SOURCE = 'pryzm-parcel-select';
 const PARCEL_SELECT_FILL_LAYER = 'pryzm-parcel-select-fill';
 const PARCEL_SELECT_LINE_LAYER = 'pryzm-parcel-select-line';
+
+// ── §MAP2D-ENVELOPE (STR §26.4) — the C58 buildable-envelope FOOTPRINT ────────
+// Its own geojson source + fill/line pair, re-added inside `installRingLayers` so it
+// survives the Map|Satellite swap exactly as the parcel highlight does.
+//
+// ⚠ A FOOTPRINT, NOT A FAKE BOX. This map is pitch-locked (`pitch: 0`,
+// `pitchWithRotate: false` unless the caller asks for `extrude`), so a `fill-extrusion`
+// would read as a flat fill with a misleading offset rather than as a volume. The honest
+// 2D representation of a study solid is the ground polygon it stands on — which is also
+// exactly what `envelopeGroundShade` calls the answer to *"what area may I build on?"*.
+// The HEIGHT is not dropped silently: the 3D Site view and the PRYZM view draw it, and the
+// envelope card prints it.
+const ENVELOPE_SOURCE = 'pryzm-buildable-envelope';
+const ENVELOPE_FILL_LAYER = 'pryzm-buildable-envelope-fill';
+const ENVELOPE_LINE_LAYER = 'pryzm-buildable-envelope-line';
 /** Snap activation radius in screen pixels (founder: "snap in corners"). */
 const SNAP_PX = 12;
 /** Half-size (px) of the queryRenderedFeatures box around the cursor — cheap. */
@@ -370,6 +409,18 @@ export interface SiteBoundaryMap2DHandle {
     isPlacedIn(host: HTMLElement): boolean;
     /** Re-measure after the host box changed (pane divider drag / mode switch). */
     resize(): void;
+    /**
+     * §MAP2D-ENVELOPE (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §26.4) — hand this map the C58
+     * buildable-envelope solids to draw as a FOOTPRINT. `null` / `[]` clears it.
+     *
+     * ⭐ THE PAYLOAD, NEVER THE DECISION. The caller passes whatever `envelopeToMassing` produced
+     * (`resolveFormaEnvelope()?.solids`) and does NOT consult the user's Envelope ON/OFF choice —
+     * this map asks the ONE authority itself, on every repaint, exactly as `renderFormaMassing`
+     * does (§ENVELOPE-ONE-VISIBILITY / L-1170, C84 EI-1). Gating at the caller is what produced
+     * four disagreeing answers to one question, and a payload handed over here is by definition a
+     * snapshot: the payload may be stale, the ANSWER never is.
+     */
+    setBuildableEnvelope(solids: ReadonlyArray<MassingSolid> | null): void;
 }
 
 export function mountSiteBoundaryMap2D(
@@ -855,6 +906,17 @@ export function mountSiteBoundaryMap2D(
     // Guards against overlapping fetches while one click's parcel is still loading.
     let parcelFetchInFlight = false;
 
+    /**
+     * §MAP2D-ENVELOPE (STR §26.4 / C58 §1.14) — the buildable-envelope solids this map was last
+     * handed, in SCENE-XZ METRES (the parcel/wall frame), NOT lon/lat. `setBuildableEnvelope`
+     * writes it; `envelopeFeatureCollection()` projects it. Empty until the host hands one over,
+     * which is the honest resting state: no envelope has been solved for this site yet.
+     *
+     * ⛔ NOT a second visibility flag. Whether these are DRAWN — and as a volume footprint or as
+     * the flat ground shade — is re-asked of `getBuildableEnvelopeAxes()` on every repaint.
+     */
+    let envelopeSolids: ReadonlyArray<MassingSolid> = [];
+
     // §L-384 — vertex redo stack (polygon draw): vertices removed by undo, restored by
     // redo. Any NEW vertex placement clears it (standard undo/redo semantics).
     const redoStack: LatLon[] = [];
@@ -1076,6 +1138,11 @@ export function mountSiteBoundaryMap2D(
             source: PARCEL_SELECT_SOURCE,
             paint: { 'line-color': VIOLET, 'line-width': 2.5 },
         });
+        // §MAP2D-ENVELOPE (STR §26.4) — the C58 buildable-envelope footprint. ⭐ REGISTERED HERE
+        // ON PURPOSE: `swapBasemap` calls `map.setStyle(style, {diff:false})`, which WIPES every
+        // added source and layer, and this function is what the `style.load` handler re-runs. A
+        // layer added anywhere else silently vanishes the first time the user presses Satellite.
+        installEnvelopeLayers();
         refreshParcelHighlight();
     }
 
@@ -1100,6 +1167,177 @@ export function mountSiteBoundaryMap2D(
                 properties: {},
             }],
         });
+    }
+
+    // ── §MAP2D-ENVELOPE (STR §26.4 · C58 §1.14 / §1.17) — the buildable envelope ──────────────
+    //
+    // THE FOUNDER'S REPORT (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §26.4, 2026-09-06):
+    //   "the envelope renders great on pryzm view — but on 3d site vie not on 2d map view"
+    //
+    // That is a REACHABILITY complaint, not a missing computation. The very same `MassingSolid[]`
+    // already reaches the Cesium globe (§ENVELOPE-VIA-MASSING) and the three.js BIM/plan scene
+    // (`ParcelBoundarySceneRenderer.buildEnvelopeVolume`); this surface simply never asked for it.
+    // So nothing is re-derived here — C58 §1.14.2: the rasteriser extrudes/draws what the pure L2
+    // `envelopeToMassing` decided and never re-derives geometry or a height from a scalar.
+    //
+    // ⭐ THE FRAME IS THE WHOLE PROBLEM, AND IT IS NOT NEGOTIABLE. `MassingSolid.ring` is scene-XZ
+    // METRES in the PROJECT-north frame (`envelopeToMassing.ts` §MassingSolid) — the frame the
+    // parcel ring and the walls are baked in. It is NOT lon/lat. The two conversions below are the
+    // SAME PAIR the globe uses, in the same order:
+    //
+    //     scene-XZ (PROJECT frame)  --sceneXZToEnu(x, z, θ)-->        ENU east/north (TRUE frame)
+    //     ENU east/north            --sceneXZToLatLon({x: east, z: -north}, lat0, lon0)--> WGS84
+    //
+    // ⛔ DO NOT INVENT A THIRD PROJECTION. Both helpers already exist, are pure and are unit-tested.
+    // A hand-rolled `lon = lon0 + x/…` here would be correct at θ = 0 and silently WRONG at
+    // Barcelona's θ ≈ 45° — and a wrong-signed θ lands the footprint MIRRORED across the frame
+    // origin, which is §PARCEL-SHADE-NOT-MIRRORED (L-10740): a defect whose own success criterion
+    // had no term for it and therefore reported CONSISTENT forever.
+
+    /** §ENVELOPE-CONFIDENCE-COLOUR (L-608) — hue → CSS, from the ONE table. No colour is minted here. */
+    function envelopeHueCss(hue: MassingSolid['style']['hue']): string {
+        return hue === 'confident'
+            ? CONFIDENT_VIOLET_CSS
+            : hue === 'suggested-preview'
+                ? SUGGESTED_AMBER_CSS
+                : PROVISIONAL_GREY_CSS;
+    }
+
+    /**
+     * Project the live envelope payload into map-frame GeoJSON polygons — or into an HONEST EMPTY.
+     *
+     * ⚠ C57 §1.5 — A FAILURE IS NEVER DRESSED AS AN EMPTY. There are four different reasons this
+     * can return no features, and each one says which it is in the log:
+     *   1. no envelope has been handed over (the resting state — not a failure);
+     *   2. the user has hidden it (the ONE authority answered `none`);
+     *   3. the projection ORIGIN is unavailable — we refuse rather than draw at a guessed origin,
+     *      because a footprint at the wrong origin is a legal claim about the wrong land;
+     *   4. θ is unavailable because the site store could not be reached — likewise a refusal,
+     *      since "θ is 0" and "θ could not be read" are the §L-446 ambiguity that cost a whole
+     *      deploy-test cycle on the globe. A REACHABLE store with `trueNorth: 0` is a definite
+     *      answer (the schema defaults it) and draws normally.
+     */
+    function envelopeFeatureCollection(): GeoJSON.FeatureCollection {
+        if (envelopeSolids.length === 0) return emptyFC();
+
+        // ⭐ THE CHOKEPOINT, ASKED HERE AND NOT AT THE CALLER (C84 EI-1 / §ENVELOPE-ONE-VISIBILITY).
+        // `applyEnvelopeVisibilityAxes` is the pure L2 rule BOTH other rasterisers read, so the map,
+        // the globe and the BIM scene cannot read one preference three different ways. When the
+        // VOLUME is off it returns the flat ground shade — which on a pitch-locked plan map is
+        // visually the same footprint, correctly, since the shade IS a projection of these solids.
+        const axes = getBuildableEnvelopeAxes();
+        const drawn = applyEnvelopeVisibilityAxes(envelopeSolids, axes);
+        if (drawn.length === 0) {
+            console.log(
+                `[gis][c58] map2d §MAP2D-ENVELOPE — ${envelopeSolids.length} envelope solid(s) held, ` +
+                `drawing NONE: mode=${envelopeDrawMode(axes)} (the user has the envelope hidden). ` +
+                'Not a failure and not an absence of constraint.',
+            );
+            return emptyFC();
+        }
+
+        const origin = getOrigin();
+        if (!origin) {
+            console.warn(
+                '[gis][c58] map2d §MAP2D-ENVELOPE — REFUSING to draw the buildable envelope: no site ' +
+                'frame ORIGIN is resolvable yet (resolveSiteFrameOrigin found no LTP-ENU origin, no ' +
+                'geocoded site location and no geocode frame). A footprint drawn about a guessed ' +
+                'origin is a legal claim about the wrong land (C57 §1.5), so nothing is drawn.',
+            );
+            return emptyFC();
+        }
+
+        // θ — read the SAME `SiteLocation.trueNorth` `CesiumViewport.readProjectNorthRad` reads.
+        // `resolveSiteContext` is used rather than `runtime?.siteModelStore` because the LIVE boot
+        // path hands `mountGISArea` a NULL runtime (`createMainLayout(props, null)`, initUI.ts) and
+        // this map is constructed with it — the §L-412 root cause. That resolver already owns the
+        // `window.runtime` fallback, so this file needs no cast of its own (P4 / L-845).
+        const store = resolveSiteContext(runtime ?? null)?.store ?? null;
+        const location = store?.getSite()?.location ?? null;
+        if (!location) {
+            console.warn(
+                '[gis][c58] map2d §MAP2D-ENVELOPE — REFUSING to draw the buildable envelope: the site ' +
+                'store is unreachable, so θ (SiteLocation.trueNorth) could not be READ. ⚠ This is NOT ' +
+                'the same as θ = 0: assuming 0 here would draw a correctly-shaped footprint at the ' +
+                'wrong BEARING on any rotated site (Barcelona θ ≈ 45°) — the §L-446 ambiguity. ' +
+                `${drawn.length} solid(s) withheld.`,
+            );
+            return emptyFC();
+        }
+        const thetaRad = Number.isFinite(location.trueNorth) ? location.trueNorth : 0;
+
+        // Largest first, so a smaller upper tier paints ON TOP of the ground tier it sits inside.
+        // ⚠ EVERY solid is drawn. A §L-616 envelope is a FAR-realistic mass inside a translucent
+        // legal-ceiling shell, and a tiered one is several distinct legal statements (§1.7b.6);
+        // silently picking one would publish a different envelope than the globe shows.
+        const ordered = [...drawn].sort((a, b) => b.areaM2 - a.areaM2);
+        const features: GeoJSON.Feature[] = [];
+        for (const solid of ordered) {
+            if (!solid.ring || solid.ring.length < 3) continue;
+            const coords: Array<[number, number]> = solid.ring.map((p) => {
+                const { east, north } = sceneXZToEnu(p.x, p.z, thetaRad);
+                const ll = sceneXZToLatLon({ x: east, z: -north }, origin.lat, origin.lon);
+                return [ll.lon, ll.lat];
+            });
+            features.push({
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
+                properties: {
+                    id: solid.id,
+                    role: solid.role,
+                    // ⭐ The colour travels ON THE FEATURE, straight off the solid's own style, so the
+                    // paint below is a dumb `['get', …]` and this file holds no envelope knowledge.
+                    hue: envelopeHueCss(solid.style.hue),
+                    fillAlpha: solid.style.fillAlpha,
+                },
+            });
+        }
+        console.log(
+            `[gis][c58] map2d §MAP2D-ENVELOPE — drawing ${features.length} envelope footprint(s) ` +
+            `(mode=${envelopeDrawMode(axes)}, θ=${(thetaRad * 180 / Math.PI).toFixed(2)}°, ` +
+            `origin ${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}).`,
+        );
+        return { type: 'FeatureCollection', features };
+    }
+
+    /** Push the current envelope footprint(s) — or the honest empty — into the map source. */
+    function refreshEnvelope(): void {
+        const src = map.getSource(ENVELOPE_SOURCE) as GeoJSONSource | undefined;
+        if (!src) return; // style is mid-swap; `installRingLayers` re-adds + repaints.
+        src.setData(envelopeFeatureCollection());
+    }
+
+    /**
+     * Register the envelope source + its fill/line pair. Called from `installRingLayers`, which is
+     * what `map.on('load')` and the post-`setStyle` `style.load` handler both run — so the envelope
+     * survives the Map|Satellite toggle exactly as the parcel highlight does. Idempotent.
+     *
+     * ⚠ `beforeId: FILL_LAYER` is deliberate: the envelope is a constraint the parcel boundary is
+     * read AGAINST, so the dashed green boundary line and its violet vertex handles must stay
+     * legible ON TOP of it. Inserted below them, above every basemap layer.
+     */
+    function installEnvelopeLayers(): void {
+        if (map.getSource(ENVELOPE_SOURCE)) { refreshEnvelope(); return; }
+        map.addSource(ENVELOPE_SOURCE, { type: 'geojson', data: emptyFC() });
+        map.addLayer({
+            id: ENVELOPE_FILL_LAYER,
+            type: 'fill',
+            source: ENVELOPE_SOURCE,
+            paint: {
+                'fill-color': ['get', 'hue'],
+                'fill-opacity': ['get', 'fillAlpha'],
+            },
+        }, FILL_LAYER);
+        map.addLayer({
+            id: ENVELOPE_LINE_LAYER,
+            type: 'line',
+            source: ENVELOPE_SOURCE,
+            paint: {
+                'line-color': ['get', 'hue'],
+                'line-width': 1.75,
+            },
+        }, FILL_LAYER);
+        refreshEnvelope();
     }
 
     /** Hide + empty the parcel info card. */
@@ -2547,6 +2785,10 @@ export function mountSiteBoundaryMap2D(
         // §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC — drop the boundary listener (leak-free teardown).
         try { boundarySub?.dispose(); } catch { /* ignore */ }
         boundarySub = null;
+        // §MAP2D-ENVELOPE — drop the envelope-visibility listener. A listener left behind would
+        // hold this whole closure (and its dead map) alive and repaint into a removed source.
+        try { envelopeVisibilitySub?.(); } catch { /* ignore */ }
+        envelopeVisibilitySub = null;
         // §FIX-DRAW-WATCHDOG-MUST-NOT-AUTHOR — a disposed map is not a drawable surface.
         try { delete (window as unknown as { pryzmBoundaryDrawSurfaceReadyAt?: number }).pryzmBoundaryDrawSurfaceReadyAt; } catch { /* ignore */ }
         // A.21.D9 — remove all pooled dimension-label markers.
@@ -2590,6 +2832,23 @@ export function mountSiteBoundaryMap2D(
         console.warn('[gis] map2d §FIX-MAP2D-EXTERNAL-BOUNDARY-SYNC: could not subscribe (non-fatal):', e);
     }
     syncCommittedFromStore('mount');
+
+    // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) / §ENVELOPE-TWO-AXES (L-1188) — SUBSCRIBE, don't poll and
+    // don't be told. The `Envelope: ON/OFF` control writes the one authority and pokes no renderer;
+    // every surface repaints itself from this notification, which is what makes "the toggle changed
+    // the flag but the map never heard" structurally impossible instead of a branch someone has to
+    // remember. The listener takes NO argument by design — it says "it changed; re-ask" — so
+    // `refreshEnvelope` re-reads both axes rather than caching a snapshot of the answer.
+    // Mirrors `CesiumViewport.envelopeVisibilitySub` and `ParcelBoundarySceneRenderer`.
+    let envelopeVisibilitySub: (() => void) | null = null;
+    try {
+        envelopeVisibilitySub = subscribeBuildableEnvelopeVisibility(() => {
+            if (disposed) return;
+            try { refreshEnvelope(); } catch { /* style may be mid-swap; installRingLayers repaints */ }
+        });
+    } catch (e) {
+        console.warn('[gis][c58] map2d §MAP2D-ENVELOPE: could not subscribe to the envelope visibility authority (non-fatal):', e);
+    }
 
     map.on('load', () => {
         installRingLayers();
@@ -2719,6 +2978,16 @@ export function mountSiteBoundaryMap2D(
         },
         isPlacedIn: (host: HTMLElement): boolean => !disposed && overlay.parentElement === host,
         resize: (): void => { if (!disposed) { try { map.resize(); } catch { /* torn down */ } } },
+        // §MAP2D-ENVELOPE (STR §26.4) — see the interface for why the caller passes the PAYLOAD and
+        // never the decision. Safe before `map.on('load')`: the solids are stored and the very
+        // first `installEnvelopeLayers()` paints them.
+        setBuildableEnvelope: (solids: ReadonlyArray<MassingSolid> | null): void => {
+            if (disposed) return;
+            envelopeSolids = solids ?? [];
+            try { refreshEnvelope(); } catch (e) {
+                console.warn('[gis][c58] map2d §MAP2D-ENVELOPE: repaint failed (non-fatal):', e);
+            }
+        },
     };
 }
 
