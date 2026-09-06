@@ -59,6 +59,40 @@
 // demand opposite next actions from a user and rendering them alike is the single most-repeated
 // defect in this repo (C58 §1.4 / L-616).
 //
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §NO-RULE-PACK-STILL-AUTHORS (L-12993, 2026-09-06) — AND HIS OWN NUMBERS ARE THE THIRD RING
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The paragraph above was TRUE and still left the founder with no path. On his Córdoba parcel
+// (CL CAPITULARES 18, `no-rule-pack`) `model.massing.footprintM2` is null, so the permitted-ring
+// route is closed AND the fitted-plate route is closed with it — `resolveLiveTargetFootprintProposal`
+// erodes INWARD from the permitted area, so it needs the very ring that does not exist. Both routes
+// started from the same missing thing and the section correctly said so, which made it a DEAD END:
+// every control was live, and the button could never enable.
+//
+// ⭐ HE HAD ALREADY SUPPLIED THE MISSING INPUT. `envelopeCardSections.buildStudyHeightEntryHtml`
+// takes a HEIGHT and a SETBACK, `buildUserSuppliedStudyEnvelope` turns them into a study whose
+// `footprintPolygon` IS a ring in the same scene-XZ frame as `insetPolygon`, and it was sitting in
+// `contextDerivedStudyEnvelopeState` under this site's id — read by the card, unread by this
+// section. So the third route reads the ring that already existed; ⛔ it does not compute one.
+//
+// ⛔ THE TWO RULES THAT MAKE THIS CORRECT RATHER THAN A FABRICATION (C58 §1.4 / L-616):
+//   1. ONLY `heightBasis.method === 'user-supplied'` is accepted. The median-of-neighbours arm of
+//      the same slot is PRYZM's own derivation with a setback PRYZM defaulted, and extruding it
+//      would be exactly the *"setback PRYZM guesses when the ordenanza is silent"* — a fabricated
+//      legal fact. A setback the USER typed is HIS decision and is carried as his.
+//   2. ⛔ PRYZM NEVER PICKS THE SETBACK. There is no default here, no inference from neighbours and
+//      no zero-on-his-behalf: with no saved decision this route is simply ABSENT, and the fallback
+//      sentence names the control he can use. An UNKNOWN constraint drawn as zero is an
+//      overstatement on real land, and it would be one made in PRYZM's voice.
+// Every figure this route produces is therefore labelled a STUDY OF HIS OWN NUMBERS, never a
+// permitted quantity — and the live law check above it still reports the allowance as UNKNOWN with
+// its named reason, because supplying a setback tells PRYZM nothing about the ordenanza.
+//
+// ⚠ IT RANKS BELOW THE PERMITTED RING, DELIBERATELY. Where PRYZM HAS solved a determination, a
+// study saved earlier — possibly before that solve — must not silently outrank it
+// ([[verification-artifact-can-predate-subject]]). The fitted plate still wins over both, because
+// it is a decision made INSIDE the current determination.
+//
 // ⛔ P6 — THIS FILE WRITES NO STORE. The one mutation it can cause is
 // `bus.executeCommand('spaceEnvelope.batch.create', …)`. ⛔ P4 — no `(window as any)`: both globals
 // it needs are reached through a typed, injectable host. ⛔ C08 §3.1 — every control it BUILDS is
@@ -83,7 +117,12 @@ import { buildBrutAllocationHtml } from '../site/envelopeCardSections';
 import {
     resolveParcelLawEnvelope,
     resolveParcelLawModel,
+    resolveParcelLawSiteId,
 } from '../site/parcel/resolveParcelLawModel';
+import {
+    getContextDerivedStudyEnvelope,
+    subscribeContextDerivedStudyEnvelope,
+} from '../site/contextDerivedStudyEnvelopeState';
 import type { ParcelLawModel } from '../site/parcel/parcelLawModel';
 import { resolveLiveTargetFootprintProposal } from '../site/targetFootprintAreaState';
 import { resolveEnvelopeStore, type LiveEnvelopeStore } from './parcelLawQuantities';
@@ -112,6 +151,8 @@ export const AUTHORING_LAWCHECK_TESTID = 'parcel-law-authoring-lawcheck';
 export const AUTHORING_LAWCHECK_LEDE_TESTID = 'parcel-law-authoring-lawcheck-lede';
 /** `'yes'`, or `'no:<reason>'` — whether the live store channel was subscribed. */
 export const AUTHORING_SUBSCRIBED_ATTR = 'data-live-subscribed';
+/** `'yes'` / `'no:threw'` — whether the USER-SUPPLIED study channel was subscribed (L-12993). */
+export const AUTHORING_STUDY_SUBSCRIBED_ATTR = 'data-study-subscribed';
 /** How many repaints the STORE channel has driven. Read by the liveness spec. */
 export const AUTHORING_LIVE_ATTR = 'data-live-repaints';
 
@@ -130,6 +171,22 @@ export interface AuthoringCapabilityHost {
     } | undefined;
 }
 
+/**
+ * §NO-RULE-PACK-STILL-AUTHORS (L-12993) — the STUDY MASSING the user supplied for this site, as
+ * this section needs it. Every field is HIS, read off the study `buildUserSuppliedStudyEnvelope`
+ * already built from his height and his setback — ⛔ nothing here is derived, defaulted or inferred.
+ */
+export interface UserSuppliedStudyFootprint {
+    /** `ContextDerivedStudyEnvelope.footprintPolygon` — scene-XZ metres, the `insetPolygon` frame. */
+    readonly ring: readonly { x: number; z: number }[];
+    /** `footprintAreaM2`, from the same producer as the ring. Never recomputed here. */
+    readonly areaM2: number;
+    /** The inward offset HE typed. `0` means he typed zero, never that PRYZM assumed one. */
+    readonly setbackM: number;
+    /** The height HE typed, carried so the section can say what it does and does not drive. */
+    readonly heightM: number;
+}
+
 /** One storey this gesture created, kept only so its perimeter can be opened for editing. */
 interface CreatedStorey {
     readonly spaceEnvelopeId: string;
@@ -145,6 +202,20 @@ export interface ParcelLawEnvelopeAuthoringDeps {
     readonly readModel: (rt: PryzmRuntime | null | undefined) => ParcelLawModel;
     /** Production: `resolveParcelLawEnvelope` — the SAME "which envelope is current" rule. */
     readonly readEnvelopeRing: (rt: PryzmRuntime | null | undefined) => readonly { x: number; z: number }[] | null;
+    /**
+     * Production: the USER-SUPPLIED study massing for the current site, or `null` (L-12993).
+     * ⛔ Returns `null` for a PRYZM-derived study — see the header's rule 1.
+     *
+     * ⚠ OPTIONAL, so every spec literal written before this seam existed keeps compiling; omitted
+     * means "no study", which is the state of every parcel whose owner never typed one.
+     */
+    readonly readStudyFootprint?: (rt: PryzmRuntime | null | undefined) => UserSuppliedStudyFootprint | null;
+    /**
+     * Production: `subscribeContextDerivedStudyEnvelope` — so SAVING a study height on the card
+     * enables this section's button in the same beat, instead of on some later unrelated repaint.
+     * ⚠ Optional for the same reason as `readStudyFootprint`.
+     */
+    readonly subscribeStudy?: (fn: () => void) => () => void;
     /** Production: `createId('spaceEnvelope')`. Injected so a spec can pin the ids (C16 CA-2). */
     readonly mintId: () => string;
     /** Production: `window`. */
@@ -169,6 +240,34 @@ export function defaultParcelLawEnvelopeAuthoringDeps(): ParcelLawEnvelopeAuthor
             const ring = env?.insetPolygon ?? null;
             return Array.isArray(ring) && ring.length >= 3 ? ring : null;
         },
+        // §NO-RULE-PACK-STILL-AUTHORS (L-12993) — the ring the user's OWN numbers already built.
+        // ⛔ ONE STUDY SLOT, ONE SITE RULE: the study comes from the same session state the
+        // envelope card renders (`contextDerivedStudyEnvelopeState`, written by
+        // `applyUserSuppliedStudyHeight`), keyed by the same site the ONE parcel-law model reads
+        // (`resolveParcelLawSiteId`). No second study, no second "which site".
+        readStudyFootprint: (rt) => {
+            try {
+                const siteId = resolveParcelLawSiteId(rt);
+                if (siteId === null) return null;
+                const result = getContextDerivedStudyEnvelope(siteId);
+                if (result === null || !result.ok) return null;
+                const study = result.study;
+                // ⛔ RULE 1 — a PRYZM-derived study is NOT the user's decision. See the header.
+                if (study.heightBasis.method !== 'user-supplied') return null;
+                const ring = study.footprintPolygon;
+                if (!Array.isArray(ring) || ring.length < 3) return null;
+                return {
+                    ring,
+                    areaM2: study.footprintAreaM2,
+                    setbackM: study.setback_m,
+                    heightM: study.heightBasis.suppliedHeight_m,
+                };
+            } catch (e) {
+                console.warn('[analysis][parcel-law][authoring] study read failed (non-fatal):', e);
+                return null;
+            }
+        },
+        subscribeStudy: subscribeContextDerivedStudyEnvelope,
         mintId: () => createId('spaceEnvelope'),
         capabilityHost: w,
     };
@@ -203,10 +302,17 @@ interface FootprintSource {
  * ⚠ `footprintIsUpperBound` TRAVELS WITH THE PERMITTED RING (L-619 / C58 §1.2). When the ring is
  * the whole parcel only because the setbacks are unknown, the sentence says so — extruding it
  * without that rider would present an unknown as a permission.
+ *
+ * ⭐ AND THE THIRD ROUTE, L-12993: the STUDY FOOTPRINT THE USER'S OWN SETBACK LEAVES. It ranks
+ * LAST of the three on purpose — see the module header — and it is the only route open on a parcel
+ * PRYZM holds no rule pack for, which is most parcels on earth. ⛔ It is offered only when a study
+ * is PASSED IN; this function never invents one, and `null` for `study` means the user typed
+ * nothing, not that his setback is zero.
  */
 export function resolveFootprintSource(
     model: ParcelLawModel,
     permittedRing: readonly { x: number; z: number }[] | null,
+    study: UserSuppliedStudyFootprint | null = null,
 ): FootprintSource {
     const permittedAreaM2 = model.massing?.footprintM2 ?? null;
     const plate = resolveLiveTargetFootprintProposal(
@@ -240,6 +346,26 @@ export function resolveFootprintSource(
                   + 'its own.',
         };
     }
+    // ── THE THIRD ROUTE (L-12993) — his own numbers, labelled as his. ────────────────────────
+    if (study !== null && study.ring.length >= 3) {
+        const zeroSetback = study.setbackM <= 0;
+        return {
+            ring: study.ring,
+            areaM2: study.areaM2,
+            label: `the ${study.setbackM.toFixed(1)} m setback you supplied`,
+            text:
+                `Extrudes the ${study.areaM2.toFixed(0)} m² footprint YOUR OWN ${study.setbackM.toFixed(1)} m setback `
+                + (zeroSetback
+                    ? 'leaves — with a setback of zero that is the parcel ring itself. '
+                    : 'leaves inside the parcel ring. ')
+                + '⚠ This is YOUR study, not a permitted area: PRYZM has not transcribed an ordenanza for this '
+                + 'parcel, so it is neither confirming this setback nor saying this may be built — it is drawing '
+                + `what you asked for. You also supplied ${study.heightM.toFixed(1)} m as the study HEIGHT; each `
+                + 'envelope’s storey height comes from this project’s storeys, not from that number. Change the '
+                + 'setback on “Type one for a study massing” to move this line. Every storey gets this same ring; '
+                + 'you can then edit any storey’s perimeter on its own.',
+        };
+    }
     return {
         ring: null,
         areaM2: null,
@@ -247,7 +373,11 @@ export function resolveFootprintSource(
         text:
             'PRYZM has not solved a buildable footprint for this parcel and no ground-floor plate is fitted, so '
             + 'there is no perimeter to extrude yet. This is a gap in what PRYZM has — NOT a finding that nothing '
-            + 'may be built here.',
+            + 'may be built here. ⭐ You can author one from your own numbers: on the site card, under “Don’t know '
+            + 'the height? Type one for a study massing”, enter a height and a setback and press “Build study from '
+            + 'this height” — PRYZM will then extrude the footprint YOUR setback leaves inside the parcel ring, '
+            + 'labelled as yours throughout. ⛔ PRYZM will not choose that setback for you: where the ordenanza is '
+            + 'silent, a setback PRYZM invented would be a legal claim it has no basis for.',
     };
 }
 
@@ -309,6 +439,8 @@ export function mountParcelLawEnvelopeAuthoring(
     let disposed = false;
     let liveRepaints = 0;
     let unsubStore: (() => void) | null = null;
+    /** §NO-RULE-PACK-STILL-AUTHORS — the study channel's own unsubscribe. */
+    let unsubStudy: (() => void) | null = null;
     /** What the user last typed, so a live repaint never blanks their entry. */
     let typedStoreys = '';
     /** The last gesture's outcome — carried, never sniffed back out of prose. */
@@ -375,7 +507,12 @@ export function mountParcelLawEnvelopeAuthoring(
     } => {
         const rt = deps.runtime();
         const model = deps.readModel(rt);
-        const source = resolveFootprintSource(model, deps.readEnvelopeRing(rt));
+        // §NO-RULE-PACK-STILL-AUTHORS — a study read that throws must not blank the section; the
+        // absence is a VALUE this resolver already handles (it renders the "type one" sentence).
+        let study: UserSuppliedStudyFootprint | null = null;
+        try { study = deps.readStudyFootprint?.(rt) ?? null; }
+        catch (e) { console.warn('[analysis][parcel-law][authoring] study read threw (non-fatal):', e); }
+        const source = resolveFootprintSource(model, deps.readEnvelopeRing(rt), study);
         const levels = readLevelCandidates(deps.readLevels());
         const store = resolveEnvelopeStore(rt);
         const snapshot = collectIntendedAreas(
@@ -598,6 +735,26 @@ export function mountParcelLawEnvelopeAuthoring(
                 + (store ? 'exposes no subscribeDirty' : 'is not reachable')
                 + ' — the law check will not update live this session.');
         }
+        // ── THE STUDY CHANNEL (L-12993) — the founder types a height and a setback on the card,
+        // `applyUserSuppliedStudyHeight` writes the ONE study slot, and this section's create
+        // button must enable IN THAT BEAT. Without this subscription the ring would appear only on
+        // some later unrelated repaint, which is the §AUTHORED-BUT-UNWIRED shape: the fix would be
+        // present and the founder would not see it. Same pub/sub the 3-D study volume uses.
+        if (deps.subscribeStudy) {
+            try {
+                unsubStudy = deps.subscribeStudy(() => {
+                    if (disposed || !root.isConnected) return;
+                    render();
+                });
+                root.setAttribute(AUTHORING_STUDY_SUBSCRIBED_ATTR, 'yes');
+            } catch (e) {
+                root.setAttribute(AUTHORING_STUDY_SUBSCRIBED_ATTR, 'no:threw');
+                console.warn('[analysis][parcel-law][authoring] study subscribe threw — a study saved on '
+                    + 'the card will not enable the create button until this section repaints:', e);
+            }
+        } else {
+            root.setAttribute(AUTHORING_STUDY_SUBSCRIBED_ATTR, 'no:not-wired');
+        }
         span.setAttribute('pryzm.analysis.parcelLawAuthoring.mounted', true);
     } catch (e) {
         span.setAttribute('pryzm.analysis.parcelLawAuthoring.mounted', false);
@@ -615,6 +772,8 @@ export function mountParcelLawEnvelopeAuthoring(
             disposed = true;
             try { unsubStore?.(); } catch { /* teardown is best-effort */ }
             unsubStore = null;
+            try { unsubStudy?.(); } catch { /* teardown is best-effort */ }
+            unsubStudy = null;
             root.remove();
         },
     };

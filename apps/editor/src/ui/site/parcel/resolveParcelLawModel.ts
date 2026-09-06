@@ -121,6 +121,28 @@ export function resolveParcelLawEnvelope(
 }
 
 /**
+ * §NO-RULE-PACK-STILL-AUTHORS (L-12993, 2026-09-06) — ⭐ WHICH SITE this session is about, by the
+ * SAME store resolution (`resolveSiteStore`, this file's header resolution 2) the model itself
+ * uses. Returns the site's id, or `null` when no site is open.
+ *
+ * ⛔ EXTRACTED SO THERE IS NO THIRD "WHICH STORE" RULE. The envelope-authoring surface needs the
+ * site id to read the USER-SUPPLIED study massing that is keyed by it
+ * (`contextDerivedStudyEnvelopeState`), and the alternatives were both worse: repeating the
+ * arg-then-ambient walk beside it (a third copy of resolution 2 — C84 EI-9), or calling
+ * `resolveSiteContext`, which TOASTS and resolves a project id on every miss and would therefore
+ * fire on every repaint of a tab that is open with no project.
+ */
+export function resolveParcelLawSiteId(runtime: PryzmRuntime | null | undefined): string | null {
+    try {
+        const id = resolveSiteStore(runtime)?.getSite()?.id;
+        return typeof id === 'string' && id.length > 0 ? id : null;
+    } catch (e) {
+        console.warn('[site][parcel-law-model] site-id read failed (non-fatal):', e);
+        return null;
+    }
+}
+
+/**
  * §PARCEL-LAW-MODEL — resolve the model for whatever this session currently holds.
  *
  * Never throws: the catch arm returns the fully-absent model, which every renderer already

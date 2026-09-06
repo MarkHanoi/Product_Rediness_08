@@ -23,13 +23,23 @@ import {
     AUTHORING_STOREYS_INPUT_TESTID,
     AUTHORING_SUBSCRIBED_ATTR,
     AUTHORING_ADVISORY_TESTID,
+    AUTHORING_STUDY_SUBSCRIBED_ATTR,
     buildLiveLawCheck,
+    defaultParcelLawEnvelopeAuthoringDeps,
     mountParcelLawEnvelopeAuthoring,
     resolveFootprintSource,
     type ParcelLawEnvelopeAuthoringDeps,
+    type UserSuppliedStudyFootprint,
 } from '../parcelLawEnvelopeAuthoring';
 import type { ParcelLawModel } from '../../site/parcel/parcelLawModel';
 import { __resetTargetFootprintProposalForTests } from '../../site/targetFootprintAreaState';
+// §NO-RULE-PACK-STILL-AUTHORS (L-12993) — the ONE study slot the envelope card writes and this
+// section now reads. Driven directly, so the production reader is exercised rather than faked.
+import {
+    resetContextDerivedStudyEnvelopeState,
+    setContextDerivedStudyEnvelope,
+} from '../../site/contextDerivedStudyEnvelopeState';
+import type { ContextDerivedStudyEnvelopeResult } from '@pryzm/site-parcel-data';
 
 const RING = [
     { x: 0, z: 0 },
@@ -453,5 +463,238 @@ describe('REACHABILITY — the Parcel Law tab hosts the authoring section', () =
             .toContain('NOT a finding that nothing is intended');
         handle.dispose();
         expect(hostEl.querySelector(`[data-testid="${AUTHORING_SLOT_TESTID}"]`)).toBeNull();
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §NO-RULE-PACK-STILL-AUTHORS (L-12993) — THE FOUNDER'S OWN NUMBERS ARE THE THIRD RING.
+//
+// The founder, on CL CAPITULARES 18 (Córdoba, 6,942 m², coverage `no-rule-pack`): *"how to create
+// the envelope described on C114? there is a lot of data but dont understand how to create the
+// envelope shape."* He could not — and he was not missing a control: BOTH routes to a ring started
+// from `model.massing.footprintM2`, which is null there, so the button could never enable. He had
+// ALREADY typed the missing input ("Study massing — 24.0 m (supplied by you)", setback 0) into a
+// form whose output this section never read.
+//
+// ⛔ WHAT THESE CASES ALSO PIN IS THE HALF THAT MUST NOT MOVE: PRYZM never picks the setback, a
+// PRYZM-DERIVED study is not the user's decision, and nothing derived from his numbers is ever
+// presented as permitted (C58 §1.4 / L-616).
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+
+const PARCEL_RING = [
+    { x: 0, z: 0 },
+    { x: 100, z: 0 },
+    { x: 100, z: 69.42 },
+    { x: 0, z: 69.42 },
+];
+
+/** The founder's own study: 24 m tall, setback 0 ⇒ the parcel ring itself, 6,942 m². */
+const HIS_STUDY: UserSuppliedStudyFootprint = {
+    ring: PARCEL_RING,
+    areaM2: 6942,
+    setbackM: 0,
+    heightM: 24,
+};
+
+/** His Córdoba parcel as the ONE model reports it: a ring, and no transcribed ordenanza at all. */
+function noRulePackModel(): ParcelLawModel {
+    return model({
+        massing: null,
+        perStorey: null,
+        ordinance: {
+            ...model().ordinance!,
+            zoneCode: null,
+            maxHeightM: null,
+            maxFloors: null,
+            maxFAR: null,
+            maxCoveragePct: null,
+        },
+        geometry: { ...model().geometry!, areaM2: 6942 },
+    });
+}
+
+describe('§NO-RULE-PACK-STILL-AUTHORS — resolveFootprintSource with the user own numbers', () => {
+    it('⭐ offers HIS setback footprint as the ring when PRYZM solved none', () => {
+        const src = resolveFootprintSource(noRulePackModel(), null, HIS_STUDY);
+        expect(src.ring).toBe(PARCEL_RING);
+        expect(src.areaM2).toBe(6942);
+        // Labelled as HIS decision, in his own numbers — never as a permitted quantity.
+        expect(src.label).toContain('you supplied');
+        expect(src.text).toContain('6942 m²');
+        expect(src.text).toContain('YOUR OWN 0.0 m setback');
+        expect(src.text).toContain('the parcel ring itself');
+        expect(src.text).toContain('YOUR study, not a permitted area');
+        // ⛔ And it does not let his HEIGHT masquerade as the storey heights it does not drive.
+        expect(src.text).toContain('24.0 m as the study HEIGHT');
+        expect(src.text).toContain('not from that number');
+    });
+
+    it('names a NON-ZERO supplied setback as an inset, still as the user own decision', () => {
+        const src = resolveFootprintSource(
+            noRulePackModel(),
+            null,
+            { ...HIS_STUDY, setbackM: 3, areaM2: 6100 },
+        );
+        expect(src.text).toContain('YOUR OWN 3.0 m setback');
+        expect(src.text).toContain('inside the parcel ring');
+        expect(src.text).not.toContain('the parcel ring itself');
+    });
+
+    it('⚠ ranks BELOW the permitted ring — a study saved earlier never outranks a real solve', () => {
+        const src = resolveFootprintSource(model(), RING, HIS_STUDY);
+        expect(src.ring).toBe(RING);
+        expect(src.text).toContain('200 m² permitted buildable footprint');
+    });
+
+    it('⛔ invents NO setback when the user typed none, and names the control that takes one', () => {
+        const src = resolveFootprintSource(noRulePackModel(), null, null);
+        expect(src.ring).toBeNull();
+        expect(src.text).toContain('Type one for a study massing');
+        expect(src.text).toContain('will not choose that setback for you');
+        expect(src.text).toContain('NOT a finding that nothing may be built');
+    });
+});
+
+describe('§NO-RULE-PACK-STILL-AUTHORS — the create gesture on a parcel with no rule pack', () => {
+    it('⭐ ENABLES "Create envelope" and dispatches ONE batch from his own ring', () => {
+        const h = harness({
+            readModel: noRulePackModel,
+            readEnvelopeRing: () => null,
+            readStudyFootprint: () => HIS_STUDY,
+        });
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+
+        const btn = byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!;
+        expect(btn.disabled).toBe(false);                       // ⛔ THE DEAD END IS GONE
+        const input = byTestId<HTMLInputElement>(AUTHORING_STOREYS_INPUT_TESTID)!;
+        input.value = '2';
+        input.dispatchEvent(new Event('input'));
+        btn.click();
+
+        expect(h.executed).toHaveLength(1);
+        expect(h.executed[0]!.type).toBe('spaceEnvelope.batch.create');
+        expect((h.executed[0]!.payload as { envelopes: unknown[] }).envelopes).toHaveLength(2);
+        // The plan names the ring's provenance — his setback, not an ordinance.
+        expect(byTestId(AUTHORING_STATUS_TESTID)!.textContent).toContain('you supplied');
+        // ⛔ AND THE COMPLIANCE HALF STAYS HONEST: supplying a setback tells PRYZM nothing about
+        // the ordenanza, so the allowance is still UNKNOWN — never 0 m² remaining (C58 §1.4).
+        // ⭐ THE ASSERTION IS THE MEASURED SENTENCE, not the one this case first guessed at
+        // ([[tolerance-from-measured-error-not-the-test]]). It was authored reading "does not know
+        // the TOTAL" — the wording the FAR arm uses — and the arm this parcel actually takes says
+        // it differently and, if anything, better. The renderer was not tuned to the expectation.
+        const law = byTestId(AUTHORING_LAWCHECK_TESTID)!;
+        expect(law.textContent).toContain('not known');
+        expect(law.textContent).toContain('PRYZM will not guess');
+        expect(law.textContent).toContain('no allowance to divide between floors');
+        expect(law.textContent).toContain('NOT a finding that nothing may be built');
+        expect(law.textContent).not.toContain('0 m² remains');
+        expect(law.textContent).not.toContain('0 m² remaining');
+    });
+
+    it('⛔ keeps the button DEAD, with the escape hatch named, when he has typed nothing', () => {
+        const h = harness({
+            readModel: noRulePackModel,
+            readEnvelopeRing: () => null,
+            readStudyFootprint: () => null,
+        });
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        expect(byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.disabled).toBe(true);
+        expect(byTestId(AUTHORING_SOURCE_TESTID)!.textContent).toContain('Type one for a study massing');
+    });
+
+    it('⭐ enables the button IN THE SAME BEAT the study is saved — no unrelated repaint needed', () => {
+        let study: UserSuppliedStudyFootprint | null = null;
+        const studyListeners: (() => void)[] = [];
+        const h = harness({
+            readModel: noRulePackModel,
+            readEnvelopeRing: () => null,
+            readStudyFootprint: () => study,
+            subscribeStudy: (fn) => { studyListeners.push(fn); return () => { }; },
+        });
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        expect(byTestId(AUTHORING_SLOT_TESTID)!.getAttribute(AUTHORING_STUDY_SUBSCRIBED_ATTR)).toBe('yes');
+        expect(byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.disabled).toBe(true);
+
+        // The founder presses "Build study from this height" on the card next door.
+        study = HIS_STUDY;
+        for (const fn of studyListeners) fn();
+
+        expect(byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.disabled).toBe(false);
+        expect(byTestId(AUTHORING_SOURCE_TESTID)!.textContent).toContain('YOUR OWN 0.0 m setback');
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⛔ THE PRODUCTION READER — the half a fake dep cannot establish. `readStudyFootprint`'s default
+// must read the SAME slot the envelope card renders, keyed by the SAME site the ONE parcel-law
+// model reads, and must REFUSE a study PRYZM derived for itself.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('defaultParcelLawEnvelopeAuthoringDeps().readStudyFootprint', () => {
+    const SITE_ID = 'site_test-cordoba';
+
+    beforeEach(() => {
+        resetContextDerivedStudyEnvelopeState();
+        (window as unknown as { runtime: unknown }).runtime = {
+            siteModelStore: { getSite: () => ({ id: SITE_ID }) },
+        };
+    });
+
+    it('⭐ reads the study the card wrote, off the one slot, keyed by the one site', () => {
+        setContextDerivedStudyEnvelope(SITE_ID, {
+            ok: true,
+            study: {
+                status: 'context-derived-study',
+                footprintPolygon: PARCEL_RING,
+                footprintAreaM2: 6942,
+                setback_m: 0,
+                maxHeight_m: 24,
+                heightBasis: {
+                    method: 'user-supplied',
+                    sourceLabel: 'Height supplied by you',
+                    suppliedHeight_m: 24,
+                    sampledAtIso: '2026-09-06T09:00:00.000Z',
+                },
+                disclaimer: 'INDICATIVE ONLY — not a compliance determination.',
+            },
+        } as ContextDerivedStudyEnvelopeResult);
+
+        const out = defaultParcelLawEnvelopeAuthoringDeps().readStudyFootprint!(null);
+        expect(out).not.toBeNull();
+        expect(out!.areaM2).toBe(6942);
+        expect(out!.setbackM).toBe(0);
+        expect(out!.heightM).toBe(24);
+        expect(out!.ring).toHaveLength(4);
+    });
+
+    it('⛔ REFUSES a study PRYZM derived for itself — a median-of-neighbours setback is not HIS', () => {
+        setContextDerivedStudyEnvelope(SITE_ID, {
+            ok: true,
+            study: {
+                status: 'context-derived-study',
+                footprintPolygon: PARCEL_RING,
+                footprintAreaM2: 6942,
+                setback_m: 0,
+                maxHeight_m: 11,
+                heightBasis: {
+                    method: 'median-neighbour-height',
+                    sourceLabel: 'Nearby buildings',
+                    sampledCount: 7,
+                    excludedAssumedCount: 0,
+                    radius_m: 120,
+                    medianHeight_m: 11,
+                    minHeight_m: 8,
+                    maxHeight_m: 15,
+                    sampledAtIso: '2026-09-06T09:00:00.000Z',
+                },
+                disclaimer: 'INDICATIVE ONLY — not a compliance determination.',
+            },
+        } as ContextDerivedStudyEnvelopeResult);
+
+        expect(defaultParcelLawEnvelopeAuthoringDeps().readStudyFootprint!(null)).toBeNull();
+    });
+
+    it('returns null — not a zero-setback ring — when no study was ever saved', () => {
+        expect(defaultParcelLawEnvelopeAuthoringDeps().readStudyFootprint!(null)).toBeNull();
     });
 });

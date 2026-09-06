@@ -419,6 +419,21 @@ export function mountParcelLawTab(
     onView = (deps.mountOnViewSwitcher ?? mountViewSwitcherOnView)({
       host: deps.capabilityHost as ViewSwitcherOnViewHost,
       mountSwitcher: deps.mountSwitcher,
+      // §PANE-DEFAULT-IS-PLAN-LEFT (L-12988, founder 2026-09-06): *"it should initially the
+      // plan view to the left and 3d site to right — and the user should be able to customise
+      // which view to have in each of the splitted views — but this doesn't occur."*
+      //
+      // ⭐ THE SECOND HALF OF THAT SENTENCE ALREADY SHIPPED; ONLY THE FIRST WAS MISSING. Every
+      // pane carries its own picker and its own view panel (§VIEW-PANEL-PER-PANE, da5a8d97), so
+      // "customise which view is in each" has been true since that lane landed. What was
+      // missing is that THIS host never said what its split should OPEN as, so it inherited
+      // onboarding's 2D-map-left — and reading "no default of mine" as "doesn't occur" is
+      // exactly right from where he sits.
+      //
+      // ⛔ NOT a changed default: onboarding's opening is unchanged and must be, because the
+      // 2D map on its left is the surface its guided flow makes you draw the plot on. Two
+      // hosts, two declared openings, one algebra (`paneLayoutForPreset`).
+      splitLayout: 'parcel-law',
     });
 
     // ── 2. The note: what this tab is (a host) and is not (a calculator). ──────────────
