@@ -1,5 +1,24 @@
 // containmentGate — the ONE place every mutating verb asks "does this record still respect
 // room ⊂ level?" before it writes.
+//
+// @command-gate: not-a-command-bus-handler
+//
+// ⭐ WHY THE MARKER, AND WHY IT IS NOT A GATE WEAKENING (lane CI-GREEN, 2026-09-06).
+// TWO checks classify a file as a CommandBus handler by DIRECTORY — anything one level under a
+// plugin's `src/handlers/` — and both went RED on this file the moment 4ad339c1 landed it:
+//   • `tools/ga-gate/check-otel-spans.ts` ZONE A (zero tolerance, NO baseline) —
+//     "1 CommandBus handler file(s) have no withHandlerSpan()", failing `test-root` through
+//     `tools/ga-gate/__tests__/otelSpanCoverage.spec.ts`.
+//   • `tests/commands/__tests__/affected-stores.test.ts` R1 + R4 — "missing affectedStores",
+//     "missing: canExecute, execute".
+// It is NOT a handler, and both gates provide THIS marker for exactly that case (four files
+// already carry it, e.g. `plugins/selection/src/handlers/selectionStoreAccess.ts`). MEASURED:
+//   grep -cE "readonly type|implements|CommandHandler|canExecute|execute\(" -> 0 hits
+// Its four exports are `contextEntryOf`, `prismOf`, `contextWorldOf` and `containmentRefusalFor`
+// — pure record→record helpers the bus cannot dispatch. ⚠ A SPAN HERE WOULD BE THE WRONG FIX:
+// P8's subject is the handler's own span, and the two REAL handlers that call this
+// (`CreateSpaceEnvelopeBatch`, `MutateSpaceEnvelope`) are both instrumented already, so a span
+// on the helper would nest inside theirs and instrument the same work twice.
 // §RESI-STAGE-G (2026-09-05) · STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §12 · C114 §12a / §14 ·
 // C84 EI-9.2 · C83 §1.2.
 //
