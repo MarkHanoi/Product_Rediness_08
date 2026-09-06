@@ -175,6 +175,12 @@ export {
    * `undefined` at the only call site that matters. */
   makeSetPlaneOffsetMigrator,
   type SetPlaneOffsetParams,
+  /* --- lane CE-PARAMS-AND-PLANES (§PARAM-VALUE-IS-EDITABLE) --- change a
+   * parameter's VALUE. ⛔ LISTED HERE for the reason the block above gives:
+   * `applyOp()` resolves ops off THIS list, so an op exported only one level down
+   * is `undefined` at the only call site that matters. */
+  makeSetParameterDefaultMigrator,
+  type SetParameterDefaultParams,
   /* --- lane UCE-FAMILY --- profile write-back + the introduce-expression pair --- */
   makeUpdateProfileMigrator,
   type UpdateProfileParams,

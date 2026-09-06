@@ -218,6 +218,9 @@ export interface ComponentDefinitionWorkspaceHandle {
         parameterId: string, newDataType: FamilyParameterDataType,
     ): Promise<string | null>;
     applyDeleteParameter(parameterId: string): Promise<string | null>;
+    /** §PARAM-VALUE-IS-EDITABLE — set (or, with an empty string, CLEAR) one
+     *  parameter's definition value. Refusals come back as text, never a throw. */
+    applySetParameterDefault(parameterId: string, raw: string): Promise<string | null>;
     /** Mount the 4F profile panel for one of the definition's profiles. */
     openProfile(profileId: string): boolean;
     /** §UCE-PROFILE-WRITE-BACK — commit the mounted panel's current ring back onto
@@ -379,6 +382,9 @@ export function openComponentDefinitionWorkspace(
     let addPlaneOpen = false;
     /** §82.1 — the plane whose name is being edited, or null. VIEW state. */
     let renamingPlaneId: string | null = null;
+    /** §82.1-PARAMETRIC-DATUM — the plane whose DIMENSION is being edited, or
+     *  null. VIEW state, like the two above: never packed, never migrated. */
+    let dimensioningPlaneId: string | null = null;
 
     /* ── chrome ── */
     const overlay = el('div',
@@ -819,6 +825,67 @@ export function openComponentDefinitionWorkspace(
         return null;
     }
 
+    /* ── §PARAM-VALUE-IS-EDITABLE — change a parameter's VALUE. ───────────────
+     * C110 §1.1 row 6 · C110 §3 · ADR-0376 D4 · spec §75.
+     *
+     * ⭐ THE MOST ORDINARY EDIT AN AUTHOR MAKES, and until this lane the surface
+     *    could not do it: it could add a parameter, rename it, retype it, delete
+     *    it, give it a formula and remove the formula — and could not make Height
+     *    2400 instead of 2100. The only way to move a number was to author a
+     *    CONSTANT FORMULA, which clears the default (D4), records a
+     *    `supersededDefault` and leaves the parameter reading as derived when the
+     *    author only wanted to type a number.
+     *
+     * ⛔ THE OP REFUSES A PARAMETER THAT CARRIES A FORMULA and this surface does
+     *    not second-guess that: it renders the op's sentence, which names
+     *    "Remove formula" as the way through. Pre-filtering the button away would
+     *    hide the reason ([[refusing-half-needs-its-escape-hatch]]).
+     */
+    async function applySetParameterDefault(
+        parameterId: string,
+        raw: string,
+    ): Promise<string | null> {
+        const p = paramById(parameterId);
+        if (!p) {
+            const msg = `Parameter ${parameterId} is not carried by this definition.`;
+            setStatus(msg, true);
+            return msg;
+        }
+        const text = raw.trim();
+        // ⛔ ONE PARSE, HERE, AND ONLY THE PART A FORM CAN HONESTLY DO: turn the
+        //    text box into the datatype's own value. Every SEMANTIC rule (a count
+        //    is a whole number, a boolean is 0/1, a formula-carrying parameter
+        //    refuses) lives in the op and speaks in the op's words — this surface
+        //    mints no second rulebook (C84 EI-9).
+        let value: number | string | null;
+        if (text === '') {
+            value = null;
+        } else if (p.dataType === 'string') {
+            value = text;
+        } else {
+            const n = Number(text);
+            if (!Number.isFinite(n)) {
+                const msg =
+                    `"${raw}" is not a number, and ${p.name} is declared '${p.dataType}' ` +
+                    `(${runtimeUnitLabel(p.dataType)}). Nothing was written.`;
+                renderRowRefusal(parameterId, msg);
+                return msg;
+            }
+            value = n;
+        }
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) =>
+            ff.makeSetParameterDefaultMigrator(v, v, { parameterId, defaultValue: value }));
+        if (!res.ok) { renderRowRefusal(parameterId, res.refusal); return res.refusal; }
+        setStatus(value === null
+            ? `${p.name} now carries no value; every formula that reads it resolves against ` +
+              'nothing until one is set, and the table says so below the row.'
+            : `${p.name} = ${String(value)} ${runtimeUnitLabel(p.dataType)} in the draft (not yet ` +
+              'saved). Every viewport re-evaluated through the one bake — shapes bound to it, and ' +
+              'work planes dimensioned by it, moved.');
+        return null;
+    }
+
     async function applyDeleteParameter(parameterId: string): Promise<string | null> {
         const v = draft.document.formatVersion;
         const res = await applyOp((ff) =>
@@ -830,7 +897,7 @@ export function openComponentDefinitionWorkspace(
 
     /* ── row action strip ── */
     function closeInlineEditors(): void {
-        card.querySelectorAll('[data-cdw-expr-editor],[data-cdw-actions],[data-cdw-rename-form],[data-cdw-retype-form]')
+        card.querySelectorAll('[data-cdw-expr-editor],[data-cdw-actions],[data-cdw-rename-form],[data-cdw-retype-form],[data-cdw-default-form]')
             .forEach((n) => n.remove());
     }
 
@@ -895,6 +962,31 @@ export function openComponentDefinitionWorkspace(
             const td2 = el('td', 'padding:2px 8px 8px;'); td2.colSpan = 5;
             td2.appendChild(form); tr2.appendChild(td2);
             row.insertAdjacentElement('afterend', tr2);
+        }));
+        strip.appendChild(btn('Value…', 'data-cdw-act-default', () => {
+            closeInlineEditors();
+            const form = el('div', 'display:flex;gap:6px;margin-top:4px;align-items:center;');
+            const input = document.createElement('input');
+            input.setAttribute('data-cdw-default-input', parameterId);
+            // Opens on the TRUTH — the value the document holds, not a placeholder.
+            input.value = p.defaultValue === null ? '' : String(p.defaultValue);
+            input.placeholder = 'empty clears the value';
+            input.style.cssText = 'padding:3px 6px;font:12px ui-monospace,monospace;width:110px;';
+            const unit = el('span', `font-size:11.5px;color:${MUTED};`, runtimeUnitLabel(p.dataType));
+            const ok = el('button', 'padding:2px 10px;cursor:pointer;', 'Set value');
+            ok.setAttribute('data-cdw-default-apply', parameterId);
+            ok.addEventListener('click', () => { void applySetParameterDefault(parameterId, input.value); });
+            input.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') void applySetParameterDefault(parameterId, input.value);
+                if (ev.key === 'Escape') closeInlineEditors();
+            });
+            form.append(input, unit, ok);
+            const tr3 = document.createElement('tr');
+            tr3.setAttribute('data-cdw-default-form', parameterId);
+            const td3 = el('td', 'padding:2px 8px 8px;'); td3.colSpan = 5;
+            td3.appendChild(form); tr3.appendChild(td3);
+            row.insertAdjacentElement('afterend', tr3);
+            input.focus?.();
         }));
         strip.appendChild(btn('Delete', 'data-cdw-act-delete', () => { void applyDeleteParameter(parameterId); }));
 
@@ -1292,6 +1384,224 @@ export function openComponentDefinitionWorkspace(
             `Work plane renamed to “${name.trim()}” in the draft (not yet saved). Its id did not ` +
             'change, so every shape built on it is untouched.');
         return null;
+    }
+
+    /* ── §82.1-PARAMETRIC-DATUM — DIMENSION one work plane. ──────────────────
+     * STR-UCE-MASTER-SPEC §82.1's fourth and last clause: *"Create a reference
+     * plane in a 2-D view; it is visible in the 3-D view; rename it; DIMENSION
+     * TO IT."* C110 (parameter/unit/expression model) · C111 §5.1 D-9.
+     *
+     * ⭐⭐ THE REVIT SEMANTIC THIS CLOSES, stated so the surface can be checked
+     *     against it: geometry is LOCKED to reference planes (a profile's
+     *     `planeId`), planes are positioned by PARAMETRIC dimensions (this), so
+     *     changing a parameter MOVES the plane and every shape built on it
+     *     follows. ⛔ A control that wrote a number onto the plane would NOT be
+     *     this — the founder's requirement excludes exactly that. So the value
+     *     this gesture writes is an EXPRESSION over the definition's own
+     *     parameters, read at bake time by the ONE expression engine
+     *     (`bakeFamilyInstance`'s `resolvePlaneOffsetM`), against the same
+     *     resolved scope every `lengthExpression` is read against.
+     *
+     * ⚠ UNITS (C110 §3, ADR-0376 D3). The offset is a RUNTIME LENGTH — the unit
+     *   `runtimeUnitLabel('length')` names — and crosses to metres exactly once,
+     *   at the bake. That is why "Fixed" renders that label beside the box and
+     *   why only `dataType: 'length'` parameters are offered: binding a datum
+     *   height to an `angle` would be a quantity-kind error the string channel
+     *   cannot catch afterwards.
+     *
+     * ⛔ THE EXPRESSION IS NOT VALIDATED HERE, and that is deliberate, not a
+     *    gap left open: `@pryzm/file-format` does not depend on
+     *    `@pryzm/family-runtime` and no lane may mint a second parser (C110 §4).
+     *    An unparseable dimension is refused where it is EVALUATED, in the
+     *    engine's own words, and the live preview re-bakes on every accepted op
+     *    — so the author sees the refusal immediately, from the one authority.
+     */
+    async function applySetPlaneOffset(
+        planeId: string,
+        offsetExpression: string | null,
+    ): Promise<string | null> {
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeSetPlaneOffsetMigrator(v, v, {
+            planeId, offsetExpression,
+        }));
+        // ⛔ The form stays OPEN on a refusal — same reason rename does: closing
+        //    it discards what the author typed at the moment they must correct it.
+        if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
+        dimensioningPlaneId = null;
+        render();
+        const plane = (draft.document.referencePlanes as readonly ReferencePlane[])
+            .find((pl) => pl.id === planeId);
+        setStatus(offsetExpression === null
+            ? `Dimension cleared — “${plane?.name ?? planeId}” is back at the model origin, and every ` +
+              'shape built on it moved with it.'
+            : `Work plane “${plane?.name ?? planeId}” is dimensioned ${offsetExpression} ` +
+              `(${runtimeUnitLabel('length')}) from the origin along its normal. Every shape built on ` +
+              'it moved with it, in every viewport — change the parameter and they move again.');
+        return null;
+    }
+
+    /**
+     * The inline "dimension this plane" form. Three ways to say WHERE the datum
+     * sits, all of which produce ONE thing — an expression string over the
+     * definition's own parameters, which is the only channel the bake reads:
+     *
+     *   • **Bind to parameter** — writes the parameter's NAME. ⭐ THE DEFAULT,
+     *     and the one the founder's requirement is about: the plane is then
+     *     positioned BY a parameter, so changing that parameter moves it.
+     *     C110 §1.4 — the expression grammar identifies a parameter by its
+     *     NAME, never by its id, which is why the option's value carries the
+     *     name and not the `par_…`.
+     *   • **Fixed** — a literal in `runtimeUnitLabel('length')`. Offered because
+     *     "600 above the origin" is a real authoring intent, and refusing it
+     *     would push authors to mint a one-use parameter. ⚠ A fixed datum does
+     *     NOT flex; the note below says so where the choice is made.
+     *   • **Expression** — free text (`Height - 100`), because the whole point
+     *     of an expression channel is arithmetic over parameters, and a picker
+     *     alone cannot spell that.
+     *
+     * ⛔ NO SECOND PARSER. This form never evaluates what it collects: the
+     *    grammar lives in `@pryzm/family-runtime` and the bake is where an
+     *    unreadable dimension refuses, in that engine's own words (C110 §4).
+     *    What IS checked here is what a form can honestly check — that "Fixed"
+     *    was given a finite number, so the string handed to the op is a number
+     *    literal rather than `NaN`.
+     */
+    function renderPlaneDimensionForm(row: HTMLElement, pl: ReferencePlane): void {
+        const bindable = bindableParameters();
+        const current = pl.offsetExpression;
+        const matched = current === undefined
+            ? undefined
+            : bindable.find((q) => q.name === current);
+        const currentIsNumber = current !== undefined && current.trim() !== ''
+            && Number.isFinite(Number(current));
+
+        const form = el('div',
+            `display:flex;gap:4px;align-items:center;flex-wrap:wrap;border:1px solid ${LINE};` +
+            'border-radius:6px;padding:4px 6px;');
+        form.setAttribute('data-cdw-plane-dim-form', pl.id);
+
+        const mode = document.createElement('select');
+        mode.setAttribute('data-cdw-plane-dim-mode', pl.id);
+        for (const [value, label] of [
+            ['parameter', 'Bind to parameter'],
+            ['literal', 'Fixed'],
+            ['expression', 'Expression'],
+        ] as const) {
+            const o = document.createElement('option');
+            o.value = value; o.textContent = label;
+            mode.appendChild(o);
+        }
+
+        const paramSel = document.createElement('select');
+        paramSel.setAttribute('data-cdw-plane-dim-param', pl.id);
+        for (const q of bindable) {
+            const o = document.createElement('option');
+            // ⭐ The NAME is the value: an expression names a parameter by name.
+            o.value = q.name; o.textContent = q.name;
+            paramSel.appendChild(o);
+        }
+
+        const num = document.createElement('input');
+        num.setAttribute('data-cdw-plane-dim-value', pl.id);
+        num.type = 'number';
+        num.placeholder = runtimeUnitLabel('length');
+        num.style.cssText = 'width:82px;padding:2px 5px;font:12px ui-monospace,monospace;';
+
+        const expr = document.createElement('input');
+        expr.setAttribute('data-cdw-plane-dim-expr', pl.id);
+        expr.placeholder = 'e.g. Height - 100';
+        expr.style.cssText = 'width:150px;padding:2px 5px;font:12px ui-monospace,monospace;';
+
+        // Seed from the TRUTH the document carries, so the form opens on what is
+        // there rather than on a default that would silently overwrite it.
+        if (matched !== undefined) {
+            mode.value = 'parameter';
+            paramSel.value = matched.name;
+        } else if (currentIsNumber) {
+            mode.value = 'literal';
+            num.value = String(current);
+        } else if (current !== undefined) {
+            mode.value = 'expression';
+            expr.value = current;
+        } else {
+            mode.value = bindable.length > 0 ? 'parameter' : 'literal';
+        }
+
+        const sync = (): void => {
+            paramSel.style.display = mode.value === 'parameter' ? '' : 'none';
+            num.style.display = mode.value === 'literal' ? '' : 'none';
+            expr.style.display = mode.value === 'expression' ? '' : 'none';
+        };
+        mode.addEventListener('change', sync);
+
+        const readExpression = (): { ok: true; value: string } | { ok: false; refusal: string } => {
+            if (mode.value === 'parameter') {
+                if (paramSel.value === '') {
+                    return {
+                        ok: false,
+                        refusal: 'There is no length parameter to bind this datum to yet. Add one in ' +
+                            'Parameters first, or choose Fixed — a plane bound to nothing would not flex.',
+                    };
+                }
+                return { ok: true, value: paramSel.value };
+            }
+            if (mode.value === 'literal') {
+                const n = Number(num.value);
+                if (num.value.trim() === '' || !Number.isFinite(n)) {
+                    return {
+                        ok: false,
+                        refusal: `A fixed dimension needs a finite number (in ${runtimeUnitLabel('length')}); ` +
+                            `"${num.value}" is not one. Nothing was written.`,
+                    };
+                }
+                return { ok: true, value: String(n) };
+            }
+            const raw = expr.value.trim();
+            if (raw === '') {
+                return {
+                    ok: false,
+                    refusal: 'An empty expression is not a dimension of zero. Type one, or use Clear ' +
+                        'to return the datum to the origin and say so.',
+                };
+            }
+            return { ok: true, value: raw };
+        };
+
+        const apply = el('button',
+            `background:${PURPLE};color:#fff;border:none;padding:2px 9px;border-radius:6px;` +
+            'font-weight:600;cursor:pointer;font-size:11px;', 'Apply');
+        apply.setAttribute('data-cdw-plane-dim-apply', pl.id);
+        apply.addEventListener('click', () => {
+            const read = readExpression();
+            if (!read.ok) { setStatus(read.refusal, true); return; }
+            void applySetPlaneOffset(pl.id, read.value);
+        });
+
+        form.append(mode, paramSel, num, expr, apply);
+
+        // CLEAR is the same op with `null`, offered only when there is something
+        // to clear — a button that would no-op is a button that lies.
+        if (current !== undefined) {
+            const clear = el('button', 'padding:2px 8px;font-size:11px;cursor:pointer;', 'Clear');
+            clear.setAttribute('data-cdw-plane-dim-clear', pl.id);
+            clear.addEventListener('click', () => { void applySetPlaneOffset(pl.id, null); });
+            form.appendChild(clear);
+        }
+
+        const cancel = el('button', 'padding:2px 8px;font-size:11px;cursor:pointer;', 'Cancel');
+        cancel.setAttribute('data-cdw-plane-dim-cancel', pl.id);
+        cancel.addEventListener('click', () => { dimensioningPlaneId = null; render(); });
+        form.appendChild(cancel);
+
+        if (bindable.length === 0) {
+            const note = el('span', `font-size:11px;color:${MUTED};`,
+                'no length parameter to bind to yet — a Fixed datum does not flex');
+            note.setAttribute('data-cdw-plane-dim-nobind', pl.id);
+            form.appendChild(note);
+        }
+
+        sync();
+        row.appendChild(form);
     }
 
     async function applyWorkPlane(solidId: string, planeId: string): Promise<string | null> {
@@ -1734,21 +2044,35 @@ export function openComponentDefinitionWorkspace(
         }
 
         // ── WORK PLANES (§82.1 / §82.4) — the list is no longer read-only: a plane
-        //    can be ADDED here, and a shape can be built along its normal (see the
-        //    per-shape control in `renderShapeEditor`). ⛔ Still NO reorient and NO
-        //    delete: a plane already carrying profiles cannot be moved or removed
-        //    without deciding what happens to the geometry bound to it, and
+        //    can be ADDED here, RENAMED, DIMENSIONED (§82.1-PARAMETRIC-DATUM), and a
+        //    shape can be built along its normal (see the per-shape control in
+        //    `renderShapeEditor`). ⛔ Still NO reorient and NO delete: a plane
+        //    already carrying profiles cannot be REORIENTED or removed without
+        //    deciding what happens to the geometry bound to it, and
         //    `add-reference-plane`'s header states that decision is not made.
+        //    ⭐ Dimensioning is not in that class and the difference is the reason,
+        //    not an exception: moving a plane along its OWN NORMAL leaves every
+        //    profile in the plane, so the geometry travels with the datum — which
+        //    is exactly what the author asked for.
         card.appendChild(el('div',
             'font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;' +
             `color:${MUTED};margin:10px 0 4px;`, 'Work planes'));
         for (const pl of doc.referencePlanes as readonly ReferencePlane[]) {
             const row = el('div',
-                'display:flex;align-items:center;gap:8px;margin:1px 0;' +
+                'display:flex;align-items:center;gap:8px;margin:1px 0;flex-wrap:wrap;' +
                 `font-size:12px;color:${INK};`);
             row.setAttribute('data-cdw-plane', pl.id);
-            row.appendChild(el('span', '',
-                `${pl.name}${pl.isHost ? ' · host' : ''} · normal (${pl.normal.x}, ${pl.normal.y}, ${pl.normal.z})`));
+            // ⭐ §82.1-PARAMETRIC-DATUM — WHERE the plane is, rendered beside WHICH
+            //    WAY it faces. An undimensioned datum says so in words rather than
+            //    leaving a blank the reader has to interpret (C57 §1.5: failure and
+            //    empty are the same value only when nobody names them).
+            const dimLabel = pl.offsetExpression === undefined
+                ? 'at the origin'
+                : `dimensioned ${pl.offsetExpression} ${runtimeUnitLabel('length')}`;
+            const nameSpan = el('span', '',
+                `${pl.name}${pl.isHost ? ' · host' : ''} · normal (${pl.normal.x}, ${pl.normal.y}, ${pl.normal.z}) · ${dimLabel}`);
+            nameSpan.setAttribute('data-cdw-plane-dim-label', pl.id);
+            row.appendChild(nameSpan);
 
             // ── §82.1-NAME-A-DATUM — RENAME. ─────────────────────────────────
             // ⭐ The name is a plane's whole user-facing identity: the `plane_…`
@@ -1782,6 +2106,28 @@ export function openComponentDefinitionWorkspace(
                 btn.setAttribute('data-cdw-plane-rename', pl.id);
                 btn.addEventListener('click', () => { renamingPlaneId = pl.id; render(); });
                 row.appendChild(btn);
+            }
+
+            // ── §82.1-PARAMETRIC-DATUM — DIMENSION THE PLANE. ────────────────
+            // ⭐ This is the affordance that makes the plane a REFERENCE plane:
+            //    the author says "this datum sits `Height` above the origin",
+            //    and every shape locked to it moves when `Height` changes.
+            // ⛔ It is offered where REORIENT and DELETE still are not, and the
+            //    difference is the same one the rename note gives: moving a
+            //    plane ALONG ITS OWN NORMAL leaves every profile in the plane —
+            //    the geometry travels with the datum, which is precisely the
+            //    intent. Reorienting or deleting needs a decision about that
+            //    geometry, and that decision is not made.
+            if (dimensioningPlaneId === pl.id) {
+                renderPlaneDimensionForm(row, pl);
+            } else {
+                const dimBtn = el('button',
+                    `background:none;border:none;color:${PURPLE};cursor:pointer;font-size:11px;` +
+                    'text-decoration:underline;padding:0;',
+                    pl.offsetExpression === undefined ? 'Dimension' : 'Edit dimension');
+                dimBtn.setAttribute('data-cdw-plane-dimension', pl.id);
+                dimBtn.addEventListener('click', () => { dimensioningPlaneId = pl.id; render(); });
+                row.appendChild(dimBtn);
             }
             card.appendChild(row);
         }
@@ -1833,10 +2179,19 @@ export function openComponentDefinitionWorkspace(
             form.append(nameInput, orient, create, cancel);
             card.appendChild(form);
             // ⚠ The declared limit, said where the author is choosing — not buried.
+            // ⚠ CORRECTED by §82.1-PARAMETRIC-DATUM. This note read *"an offset
+            //   plane would move nothing and is refused rather than half-honoured"*.
+            //   That is still true of the LITERAL origin — no evaluator applies it —
+            //   and it is now FALSE of a plane's parametric DIMENSION, which the
+            //   bake does apply. Leaving the old sentence would be a "cannot" said
+            //   by code that can, the exact defect add-reference-plane's header was
+            //   corrected for one lane ago.
             const note = el('div', `font-size:11px;color:${MUTED};line-height:1.45;margin:2px 0 0;`,
-                'A work plane sets which way a shape BUILDS (its normal). Its ORIGIN is not applied: ' +
-                'the evaluator carries no per-solid placement, so an offset plane would move nothing ' +
-                'and is refused rather than half-honoured.');
+                'A work plane sets which way a shape BUILDS (its normal). Its literal ORIGIN is not ' +
+                'applied — no evaluator reads one — so a plane is added AT the origin and then ' +
+                'DIMENSIONED: bind that dimension to a parameter and every shape built on the plane ' +
+                'moves when the parameter changes. Stating the position both ways at once is refused ' +
+                'rather than half-honoured.');
             note.setAttribute('data-cdw-plane-origin-note', '');
             card.appendChild(note);
         }
@@ -1978,6 +2333,7 @@ export function openComponentDefinitionWorkspace(
         applyRename,
         applyDataTypeChange,
         applyDeleteParameter,
+        applySetParameterDefault,
         openProfile,
         commitProfile,
         profilePanel: () => profilePanel,

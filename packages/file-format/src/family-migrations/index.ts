@@ -120,6 +120,21 @@ export {
   type SetPlaneOffsetParams,
 } from './ops/set-plane-offset.js';
 
+/* ── lane CE-PARAMS-AND-PLANES (§PARAM-VALUE-IS-EDITABLE) — the op that lets an
+ * author change a parameter's VALUE. The suite could add a parameter, rename it,
+ * retype it, delete it, give it a formula and remove the formula, and could not
+ * make Height 2400 instead of 2100: the only way to move a number was to author a
+ * constant FORMULA, which clears the default (ADR-0376 D4) and leaves the
+ * parameter reading as derived. ⛔ It REFUSES a parameter that carries a formula,
+ * because D4 means a value typed there would resolve to nothing — a silent no-op
+ * is what spec §75 forbids — and it checks the value against the declared
+ * dataType, which `FamilyParameterSchema` cannot (its `defaultValue` union has no
+ * cross-field rule). */
+export {
+  makeSetParameterDefaultMigrator,
+  type SetParameterDefaultParams,
+} from './ops/set-parameter-default.js';
+
 
 /* ── lane UCE-FAMILY — the two ops that make the definition EDITOR half real ──
  * `update-profile` is lane U3's OWED O-1 (profile geometry write-back — without

@@ -123,6 +123,16 @@ function subjectKey(req: ComponentPreviewRequest): string {
             p: d.parameters,
             pr: d.profiles,
             s: d.solids,
+            // ⭐ §82.1-PARAMETRIC-DATUM — ADDED, and the omission was a real defect,
+            //    not a tidy-up. The bake reads `ReferencePlane.offsetExpression`
+            //    (`bakeFamilyInstance`'s `resolvePlaneOffsetM`), so a plane's
+            //    dimension IS something "the bake's answer can depend on". While it
+            //    was absent, dimensioning a plane produced a NEW bake whose subject
+            //    carried the OLD key — and `ElementPreviewRenderer` rebuilds content
+            //    only when `subject.key` changed, so the numbers moved and the
+            //    picture did not. [[three-invalidation-gates-in-series]]: the gate
+            //    furthest upstream hides every fix downstream of it.
+            rp: d.referencePlanes,
             t: req.typeId,
             tv: type?.values ?? null,
             o: req.instanceOverrides ?? null,

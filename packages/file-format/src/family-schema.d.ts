@@ -154,6 +154,7 @@ export declare const ReferencePlaneSchema: z.ZodObject<{
         z: z.ZodNumber;
     }, z.core.$strip>;
     isHost: z.ZodDefault<z.ZodBoolean>;
+    offsetExpression: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type ReferencePlane = z.infer<typeof ReferencePlaneSchema>;
 export declare const FamilyParameterDataTypeSchema: z.ZodEnum<{

@@ -59,4 +59,8 @@ export { makeSetTypeValuesMigrator, typeValuesChecksum, } from './ops/type-value
  * bake moves every extrude built on that plane by the resolved distance — the
  * Revit semantic rather than a number stored beside the geometry. */
 export { makeSetPlaneOffsetMigrator, } from './ops/set-plane-offset.js';
+/* ── lane CE-PARAMS-AND-PLANES (§PARAM-VALUE-IS-EDITABLE) — change a parameter's
+ * VALUE without authoring a constant formula. Refuses a parameter carrying a
+ * formula (ADR-0376 D4) and checks the value against the declared dataType. */
+export { makeSetParameterDefaultMigrator, } from './ops/set-parameter-default.js';
 //# sourceMappingURL=index.js.map

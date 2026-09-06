@@ -276,6 +276,12 @@ export const ReferencePlaneSchema = z.object({
     origin: Vec3,
     normal: Vec3,
     isHost: z.boolean().default(false),
+    /* §PARAMETRIC-DATUM — hand-emitted beside the .ts, which is the AUTHORITY for
+       the reasoning. Kept in step because THIS file is what family-pack.ts and
+       family-unpack.ts import, so a field missing here is a field Zod STRIPS at
+       save time while the draft still shows it — a silent loss, caught by ARM 11
+       of componentPlaneDimensionGestureReach.test.ts and not by inspection. */
+    offsetExpression: z.string().min(1).optional(),
 });
 export const FamilyParameterDataTypeSchema = z.enum([
     'length',
