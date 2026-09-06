@@ -483,11 +483,14 @@ const GATES: Gate[] = [
   // satisfied by producing artefacts, which is how check-move-propagation went green
   // over a consumer file wired into nothing.
   //
-  // Lands RED at exit 1 against a NAMED shrink-only 38-row ledger
-  // (generator-circulation-ledger.json: DOORLESS ×18 · UNREACHABLE ×12 ·
-  // CORRIDOR-STAIR-GAP ×6 · CORRIDOR-HALL-GAP ×2 — the CI-1/CI-4 classes pinned
+  // Lands RED at exit 1 against a NAMED shrink-only 27-row ledger
+  // (generator-circulation-ledger.json: DOORLESS ×14 · UNREACHABLE ×7 ·
+  // CORRIDOR-STAIR-GAP ×4 · CORRIDOR-HALL-GAP ×2 — the CI-1/CI-4 classes pinned
   // 2026-08-14 at the executed reading under the founder decision that closed
-  // SPEC-49 §4's standing ledger question), checked in both directions, with 8
+  // SPEC-49 §4's standing ledger question; 38 → 27 on 2026-09-06 when 11 rows
+  // PAID by earlier commits but never struck were struck, each proven still-swept
+  // first so a vanished case could not be mistaken for a fixed one), checked in
+  // both directions, with 8
   // planted/clean controls executed INSIDE every run — exit 2 as a blind comparator
   // if any arm stays silent. Carries a gate-newly-measured.json entry, NOT
   // gate-debt.json: the defects predate the instrument and nobody chose to ship them.
