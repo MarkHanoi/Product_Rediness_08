@@ -68,6 +68,55 @@ export function groundSampleKey(p: GroundSamplePoint): string {
     return `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
 }
 
+/**
+ * §GROUND-SAMPLE-TILE-ATTRIBUTION (L-12952, founder Cordoba 2026-09-06) — HOW MANY TERRAIN TILES
+ * a batch of points actually touches, which is the ONLY quantity the round-trip is billed in.
+ *
+ * ⭐ THE FOUNDER'S OWN EVIDENCE SAID SO AND NOBODY HAD NAMED IT. Parks asked for **493** points
+ * and roads for **3555** — 7× more — and both took **14.1 s**, to within 30 ms. A cost that is
+ * FLAT in the point count is not paid per point. The shipped Cesium source says exactly why
+ * (`node_modules/cesium/Build/CesiumUnminified/Cesium.js`, 1.143.0, MEASURED 2026-09-06):
+ *   · **208004–208027** `doSampling` buckets every position into `tileRequestSet[xy.toString()]`
+ *     and builds ONE `tileRequest` per DISTINCT tile — a thousand points inside one tile produce
+ *     ONE entry.
+ *   · **207963–207980** `attemptConsumeNextQueueItem` issues exactly one
+ *     `terrainProvider.requestTileGeometry(x, y, level)` per entry, and every point inside that
+ *     tile is then answered by `interpolateHeight` on the ALREADY-DOWNLOADED mesh — free.
+ *
+ * ⛔ THE CONSEQUENCE, AND IT REVERSES A PLAUSIBLE-LOOKING FIX: "sample fewer points / drop the
+ * drape density" buys approximately NOTHING, because the tile set is fixed by the BBOX, not by
+ * how densely you sample inside it. Landuse's 9 145 points and a hypothetical 900 land in the
+ * SAME handful of tiles and cost the SAME download. Decimating the drape would have traded real
+ * per-feature seating accuracy (the L-12924 defect the founder reported the day before) for no
+ * measured gain. What DOES cost is asking for those tiles more than once — which is what this
+ * module removes.
+ *
+ * Cesium terrain is served on a `GeographicTilingScheme`, whose defaults are 2 tiles in X and 1
+ * in Y at level 0 (`Cesium.js:40748`, `getNumberOfXTilesAtLevel = 2 << level`). Pure arithmetic —
+ * no Cesium import, so this is unit-testable and cannot drift with a bundler change.
+ */
+export function terrainTileKey(p: GroundSamplePoint, level: number): string {
+    const nx = 2 * 2 ** level;
+    const ny = 2 ** level;
+    const x = Math.min(nx - 1, Math.max(0, Math.floor(((p.lon + 180) / 360) * nx)));
+    const y = Math.min(ny - 1, Math.max(0, Math.floor(((90 - p.lat) / 180) * ny)));
+    return `${level}/${x}/${y}`;
+}
+
+/** The number of DISTINCT terrain tiles `points` land in at `level` — i.e. the number of
+ *  `requestTileGeometry` downloads `sampleTerrain` issues for them. */
+export function countDistinctTerrainTiles(
+    points: ReadonlyArray<GroundSamplePoint>,
+    level: number,
+): number {
+    const seen = new Set<string>();
+    for (const p of points) {
+        if (!Number.isFinite(p?.lat) || !Number.isFinite(p?.lon)) continue;
+        seen.add(terrainTileKey(p, level));
+    }
+    return seen.size;
+}
+
 /** Samples real terrain for a batch of points. Returns one entry per input point, in order:
  *  a finite height, or `null` where the provider could not answer (NOT a fabricated 0). */
 export type GroundSampleFn = (
@@ -80,6 +129,12 @@ export interface GroundSampleFlushStats {
     /** Of those, how many came back with a finite height. */
     readonly resolved: number;
     readonly ms: number;
+    /** §GROUND-SAMPLE-TILE-ATTRIBUTION — distinct terrain tiles those points land in at
+     *  `tileLevel`, i.e. the number of downloads Cesium actually issues for them. THIS is what
+     *  the round-trip costs; `sampled` is very nearly free. */
+    readonly tiles: number;
+    /** The level `tiles` was counted at (the batcher's `tileLevel` option). */
+    readonly tileLevel: number;
 }
 
 export interface GroundSampleBatcherStats {
@@ -95,6 +150,17 @@ export interface GroundSampleBatcherStats {
     readonly pointsJoinedInFlight: number;
     /** Terrain round-trips actually issued — THE number this module exists to reduce. */
     readonly roundTrips: number;
+    /** §GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME — the HIGH-WATER MARK of simultaneous sampler calls.
+     *  It must read 1. Two round-trips in the air at once re-download the same tiles, which is
+     *  the exact defect this module was built to remove; windowing alone left it half-fixed —
+     *  a late layer (landuse entered ~4 s after the other three, hence its own 9 702 ms) and
+     *  EVERY layer's second, split-piece batch each started a fresh concurrent flight. */
+    readonly maxConcurrentFlights: number;
+    /** Flushes that WAITED for an in-flight round-trip instead of racing it. */
+    readonly deferredFlushes: number;
+    /** Points a flush no longer had to sample because the round-trip it waited for answered
+     *  them — the split-piece and late-layer batches paying nothing. */
+    readonly pointsResolvedByAnEarlierFlight: number;
 }
 
 export interface GroundSampleBatcherOptions {
@@ -105,10 +171,22 @@ export interface GroundSampleBatcherOptions {
     readonly cache: Map<string, number>;
     /** Injected timer (P3 / testability). Defaults to `setTimeout` when omitted. */
     readonly schedule?: (fn: () => void, ms: number) => void;
+    /** Injected timer for the SERIALISATION DEGRADE CEILING only — deliberately separate from
+     *  `schedule`, which drives the coalescing window and which a test fires by hand. */
+    readonly scheduleCeiling?: (fn: () => void, ms: number) => void;
     /** Called once per real round-trip, for the §STARTUP-BUDGET AFTER number. */
     readonly onFlush?: (stats: GroundSampleFlushStats) => void;
     /** Monotonic clock; injected so a test can assert `ms` without sleeping. */
     readonly now?: () => number;
+    /** §GROUND-SAMPLE-TILE-ATTRIBUTION — the terrain level the flush log attributes tiles at.
+     *  Reporting ONLY; it changes nothing about what is sampled. Defaults to 14, the level a
+     *  city-scale baked quantized-mesh set typically tops out at. */
+    readonly tileLevel?: number;
+    /** §GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME — hard ceiling on how long a flush waits for the
+     *  round-trip ahead of it. A sampler that never settles must DEGRADE (a second concurrent
+     *  flight, i.e. the old behaviour) rather than deadlock every later seat behind it.
+     *  Defaults to 20 s. */
+    readonly serializeMaxWaitMs?: number;
 }
 
 interface Flush {
@@ -136,6 +214,16 @@ export class GroundSampleBatcher {
     private readonly inFlight = new Map<string, Promise<void>>();
     private flush: Flush | null = null;
     private generation = 0;
+    /**
+     * §GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME — the tail of the round-trip queue. Each flush takes
+     * this promise, replaces it with its OWN, awaits the one it took, and releases its own when
+     * it is done: a plain FIFO mutex, so at most ONE sampler call is ever in the air. Windowing
+     * alone merges the callers that arrive TOGETHER and does nothing about the ones that arrive
+     * four seconds later, nor about each layer's second (split-piece) batch — and those
+     * re-download the identical tile set, which is the whole cost.
+     */
+    private flightChain: Promise<void> = Promise.resolve();
+    private liveFlights = 0;
 
     private _requests = 0;
     private _pointsRequested = 0;
@@ -143,6 +231,9 @@ export class GroundSampleBatcher {
     private _pointsFromCache = 0;
     private _pointsJoinedInFlight = 0;
     private _roundTrips = 0;
+    private _maxConcurrentFlights = 0;
+    private _deferredFlushes = 0;
+    private _pointsResolvedByAnEarlierFlight = 0;
 
     constructor(opts: GroundSampleBatcherOptions) {
         this.opts = opts;
@@ -156,6 +247,9 @@ export class GroundSampleBatcher {
             pointsFromCache: this._pointsFromCache,
             pointsJoinedInFlight: this._pointsJoinedInFlight,
             roundTrips: this._roundTrips,
+            maxConcurrentFlights: this._maxConcurrentFlights,
+            deferredFlushes: this._deferredFlushes,
+            pointsResolvedByAnEarlierFlight: this._pointsResolvedByAnEarlierFlight,
         };
     }
 
@@ -222,44 +316,144 @@ export class GroundSampleBatcher {
         return promise;
     }
 
+    /**
+     * §GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME (L-12952) — wait for my turn, drop what the previous
+     * turn already answered, then run ONE sampler call.
+     *
+     * ⭐ WHY THE WINDOW WAS NOT ENOUGH, in the founder's own numbers. The 120 ms window merges the
+     * callers that arrive together; it merged three of the four ground layers. It could not merge
+     * LANDUSE, which entered ~4 s later (its own line reads 9 702 ms against the others' 14 1xx),
+     * and it could not merge any layer's SECOND batch — the split-piece seats, which by
+     * construction cannot be known until the first batch has come back. Both of those started a
+     * fresh `sampleTerrainMostDetailed` while one was still in the air, and two concurrent calls
+     * download the SAME tiles twice: `doSampling` shares no tile cache between calls
+     * (`Cesium.js:208004`), and an in-flight URL is not an HTTP cache hit. So the window removed
+     * about half the duplication and the log still showed "2 batch round-trip(s)" per layer.
+     *
+     * A FIFO mutex removes the rest: at most one sampler call is in the air, so the tile set is
+     * never downloaded twice AT THE SAME TIME.
+     *
+     * ⚠ WHAT IT DOES **NOT** CLAIM, said plainly so the next reader does not over-read it. The
+     * split-piece batch still happens, and it still asks for points the probe batch never asked
+     * for — piece seats are new points, by construction. Serialising makes it run AFTER the probe
+     * flight instead of beside it, over (almost always) the same tiles. Whether that second
+     * round-trip is then cheap depends on the browser HTTP cache for those tile URLs, which is
+     * NOT MEASURED here and must not be asserted. `pointsResolvedByAnEarlierFlight` is the
+     * residual-case counter for a point that became cached between being queued and getting its
+     * turn; `request()` already joins an in-flight point, so it normally reads 0 and a non-zero
+     * value is itself the finding.
+     *
+     * ⛔ IT NEVER SAMPLES FEWER POINTS. A point dropped before the sampler was MEASURED by the
+     * flight in front of it and its real height is in the cache; nothing is interpolated,
+     * decimated or defaulted (§CONTEXT-DATA-HONESTY / C57 §1.5). And the wait is BOUNDED
+     * (`serializeMaxWaitMs`): a sampler that never settles must degrade to the old concurrent
+     * behaviour, never deadlock every later seat behind it.
+     */
     private async runFlush(flush: Flush): Promise<void> {
         // A newer generation (or an `invalidate()`) already retired this flush.
         if (this.flush !== flush) return;
         this.flush = null;
-        const batch = Array.from(this.pending.values());
+        const queued = Array.from(this.pending.values());
         this.pending.clear();
-        if (batch.length === 0) { flush.settle(); return; }
-        const keys = batch.map(groundSampleKey);
-        for (const key of keys) this.inFlight.set(key, flush.promise);
+        if (queued.length === 0) { flush.settle(); return; }
+        const queuedKeys = queued.map(groundSampleKey);
+        // Registered BEFORE the mutex wait, so a caller arriving while this flush is queued JOINS
+        // it rather than opening a third front.
+        for (const key of queuedKeys) this.inFlight.set(key, flush.promise);
+
+        // ── Take a ticket in the FIFO. Synchronous, so tickets are handed out in call order. ──
+        const ahead = this.flightChain;
+        let releaseTurn: () => void = () => { /* replaced synchronously below */ };
+        this.flightChain = new Promise<void>((resolve) => { releaseTurn = resolve; });
+
         const clock = this.opts.now ?? (() => Date.now());
-        const t0 = clock();
-        let resolved = 0;
         try {
-            const heights = await this.opts.sample(batch);
-            // ⚠ GENERATION FENCE — if the cache was invalidated while this round-trip was in the
-            // air, these heights belong to the PREVIOUS city. Writing them would seat the new
-            // site on the old one's relief, which is worse than not measuring at all.
-            if (flush.generation === this.generation) {
-                for (let i = 0; i < batch.length; i++) {
-                    const h = heights[i];
-                    if (typeof h === 'number' && Number.isFinite(h)) {
-                        this.opts.cache.set(keys[i]!, h);
-                        resolved++;
-                    }
+            {
+                // Only a flush that finds a round-trip ACTUALLY in the air was deferred; a chain
+                // whose head has already released cost nothing and must not inflate the number.
+                if (this.liveFlights > 0) this._deferredFlushes++;
+                const settled = await this.awaitTurn(ahead);
+                if (!settled) {
+                    // The flight ahead exceeded `serializeMaxWaitMs`. Degrade to the pre-L-12952
+                    // behaviour (a concurrent call) rather than stall the drape for ever — and say
+                    // so, because a run that degraded is a different reading from one that did not.
+                    this._maxConcurrentFlights = Math.max(this._maxConcurrentFlights, this.liveFlights + 1);
                 }
-                this._roundTrips++;
-                this._pointsSampled += batch.length;
-                this.opts.onFlush?.({ sampled: batch.length, resolved, ms: clock() - t0 });
+            }
+            // The generation fence, checked AFTER the wait: an `invalidate()` during it means these
+            // points belong to a city we have left.
+            if (flush.generation !== this.generation) return;
+
+            // Points the flight ahead already measured are in the cache — free, and dropped here.
+            const batch: GroundSamplePoint[] = [];
+            const keys: string[] = [];
+            for (let i = 0; i < queued.length; i++) {
+                const key = queuedKeys[i]!;
+                if (this.opts.cache.has(key)) { this._pointsResolvedByAnEarlierFlight++; continue; }
+                batch.push(queued[i]!);
+                keys.push(key);
+            }
+            if (batch.length === 0) return;
+
+            const t0 = clock();
+            let resolved = 0;
+            this.liveFlights++;
+            if (this.liveFlights > this._maxConcurrentFlights) this._maxConcurrentFlights = this.liveFlights;
+            try {
+                const heights = await this.opts.sample(batch);
+                // ⚠ GENERATION FENCE — if the cache was invalidated while this round-trip was in
+                // the air, these heights belong to the PREVIOUS city. Writing them would seat the
+                // new site on the old one's relief, which is worse than not measuring at all.
+                if (flush.generation === this.generation) {
+                    for (let i = 0; i < batch.length; i++) {
+                        const h = heights[i];
+                        if (typeof h === 'number' && Number.isFinite(h)) {
+                            this.opts.cache.set(keys[i]!, h);
+                            resolved++;
+                        }
+                    }
+                    this._roundTrips++;
+                    this._pointsSampled += batch.length;
+                    const tileLevel = this.opts.tileLevel ?? 14;
+                    this.opts.onFlush?.({
+                        sampled: batch.length,
+                        resolved,
+                        ms: clock() - t0,
+                        tiles: countDistinctTerrainTiles(batch, tileLevel),
+                        tileLevel,
+                    });
+                }
+            } finally {
+                this.liveFlights--;
             }
         } catch {
             // A sampler failure is UNMEASURED, not zero: leave the points out of the cache and let
             // the seat ladder fall back to the safe base (the L-259 rule). Never throws upward —
             // this runs from a timer, where a rejection has no caller to catch it.
         } finally {
-            for (const key of keys) {
+            releaseTurn();
+            for (const key of queuedKeys) {
                 if (this.inFlight.get(key) === flush.promise) this.inFlight.delete(key);
             }
             flush.settle();
         }
+    }
+
+    /** Wait for the round-trip ahead, but never longer than `serializeMaxWaitMs`.
+     *  @returns true when it settled, false when the ceiling fired first (degraded, not stuck). */
+    private async awaitTurn(ahead: Promise<void>): Promise<boolean> {
+        const ceilingMs = this.opts.serializeMaxWaitMs ?? 20_000;
+        // ⚠ ITS OWN TIMER, NOT `schedule`. `schedule` drives the coalescing WINDOW and a test
+        // fires it by hand; sharing it here would let a test's window tick trip the degrade
+        // ceiling and read a concurrency the run never had.
+        const scheduleCeiling = this.opts.scheduleCeiling ?? ((fn, ms) => { setTimeout(fn, ms); });
+        let settled = false;
+        let timedOut = false;
+        const ceiling = new Promise<void>((resolve) => {
+            scheduleCeiling(() => { if (settled) return; timedOut = true; resolve(); }, ceilingMs);
+        });
+        await Promise.race([ahead.catch(() => undefined), ceiling]);
+        settled = true;
+        return !timedOut;
     }
 }

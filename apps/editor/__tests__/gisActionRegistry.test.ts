@@ -259,6 +259,20 @@ function allTsFiles(dir: string, out: string[] = []): string[] {
 const SRC_FILES = allTsFiles(SRC_DIR);
 const SRC_TEXT = new Map(SRC_FILES.map((f) => [f, readFileSync(f, 'utf8')] as const));
 
+/**
+ * The same source with ALL whitespace removed, computed ONCE per file.
+ *
+ * ⚠ THIS WAS A PER-ENTRY-POINT `squash(text)` INSIDE THE ARM BELOW, and it made the
+ * arm quadratic: |entry points| × |files| whole-file regex rewrites, ~5,400 files a
+ * pass. It sat just under the 5 s default budget, and declaring ONE more entry point
+ * (`pryzmActivateBimView`, §PARCEL-LAW-BIM3D) tipped it over — the arm TIMED OUT
+ * rather than failing an assertion, which reads as a red gate for a defect that does
+ * not exist. Hoisting the squash changes no assertion; it changes when it is computed.
+ */
+const SRC_SQUASHED = new Map(
+    [...SRC_TEXT].map(([f, text]) => [f, text.replace(/\s+/g, '')] as const),
+);
+
 describe('§GIS-ACTION-REGISTRY — a declared entry point is REGISTERED in production source', () => {
     it('finds an assignment for every entry point the registry declares', () => {
         for (const ep of ALL_ENTRY_POINTS) {
@@ -267,9 +281,8 @@ describe('§GIS-ACTION-REGISTRY — a declared entry point is REGISTERED in prod
             // Whitespace-normalised substring match, not a regex: the thing being
             // searched for contains quotes and backticks, and a regex built out of those
             // is how this arm broke the first time it was written.
-            const squash = (t: string): string => t.replace(/\s+/g, '');
             const forms = ['window.' + ep + '=', 'w.' + ep + '='];
-            const hit = [...SRC_TEXT].find(([, text]) => forms.some((f) => squash(text).includes(f)));
+            const hit = [...SRC_SQUASHED].find(([, text]) => forms.some((f) => text.includes(f)));
             expect(
                 hit,
                 `${ep} is declared by the GIS action registry but NOTHING in apps/editor/src ` +
@@ -306,8 +319,7 @@ describe('§GIS-ACTION-REGISTRY (L-1360) — the removed launcher pills stay rem
         for (const id of REMOVED_PILL_IDS) {
             // A comment naming the id is fine and expected — the removals document
             // themselves. What must not come back is an element carrying it.
-            const creators = [...SRC_TEXT].filter(([, text]) => {
-                const squashed = text.replace(/\s+/g, '');
+            const creators = [...SRC_SQUASHED].filter(([, squashed]) => {
                 return squashed.includes(".id='" + id + "'")
                     || squashed.includes('.id="' + id + '"')
                     || squashed.includes("setAttribute('id','" + id + "')")
@@ -436,8 +448,7 @@ describe('§GIS-ENVELOPE-REHOST (L-1362) — re-hosted, never re-implemented', (
         resolve(SRC_DIR, 'ui', 'ViewBrowser', 'ProjectBrowserPanel.ts'), 'utf8');
 
     it('registers the mount hook in production source', () => {
-        const squash = (t: string): string => t.replace(/\s+/g, '');
-        const hit = [...SRC_TEXT].find(([, text]) => squash(text).includes('window.pryzmMountEnvelopeCard='));
+        const hit = [...SRC_SQUASHED].find(([, text]) => text.includes('window.pryzmMountEnvelopeCard='));
         expect(
             hit,
             'nothing assigns window.pryzmMountEnvelopeCard — the GIS panel would silently show ' +

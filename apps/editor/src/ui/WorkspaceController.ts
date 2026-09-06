@@ -46,11 +46,37 @@ import {
 } from './platform/workspaceModes';
 // §SHELL-FLOAT-BUDGET (L-4010..L-4016) — the ONE writer of the canvas region.
 import { publishShellCanvasRegion } from './layout/shellCanvasBudget';
+// §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915) — the pure rule; this file performs it.
+import { decideSplitViewForCanvas } from './platform/halfCanvasSplitViewPolicy';
 
 export type { WorkspaceMode };
 
 const LS_KEY = 'pryzm-workspace-mode';
 // F.events.6 — dispatch migrated to runtime.events; EVENT const retired.
+
+/**
+ * §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915) — the THREE members of
+ * `SplitViewManager` this file is allowed to know about. A structural type, not an
+ * import: the manager lives in `engine/views/` and pulls THREE + the OBC world in
+ * with it, and the shell must not acquire that dependency to close a pane. P4 — this
+ * is why there is a type here rather than a `(window as any)` at the call site.
+ */
+interface SplitViewPaneLike {
+    readonly isActive: boolean;
+    activate(): void;
+    deactivate(): void;
+}
+
+/**
+ * The live pane, or `null` when the manager has not been constructed yet (it is
+ * created in `initScene`, which can finish AFTER `restoreFromStorage()` runs).
+ * A missing manager is a normal state, not an error — there is no pane to reconcile.
+ */
+function resolveSplitViewPane(): SplitViewPaneLike | null {
+    const svm = window.splitViewManager as Partial<SplitViewPaneLike> | undefined;
+    if (!svm || typeof svm.activate !== 'function' || typeof svm.deactivate !== 'function') return null;
+    return svm as SplitViewPaneLike;
+}
 
 type LevelExplodeMode = 'stacked' | 'exploded' | 'solo';
 const LEVEL_MODE_ORDER: LevelExplodeMode[] = ['stacked', 'exploded', 'solo'];
@@ -68,6 +94,14 @@ type LensId = typeof LENS_DEFS[number]['id'];
 
 export class WorkspaceController {
   private _mode: WorkspaceMode = 'author';
+  /**
+   * §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915) — did THIS controller close the
+   * split-view pane? Only a pane the shell closed may be reopened by the shell.
+   * ⛔ Deliberately a private field rather than `SplitViewManager.suppressAutoOpen()`:
+   * that flag is a single boolean with two other claimants (GIS site panes,
+   * onboarding), and clearing it here would clear a suppression we never set.
+   */
+  private _splitViewClosedByShell = false;
   private _activeLens: LensId = 'ghost';
   private _levelExplodeMode: LevelExplodeMode = 'stacked';
   private _soloLevelId: string | undefined;
@@ -221,6 +255,37 @@ export class WorkspaceController {
     // Enumerating the causes of a narrow canvas is a CENSUS, and this lane's
     // whole finding is that censuses rot. The region is measured instead.
     // The registry still DECIDES the width just below; the publisher READS it.
+    // §HALF-CANVAS-OWNS-THE-RIGHT-EDGE (L-12915 · STR §24.1 item 2) — RECONCILE THE
+    // SECOND CLAIMANT OF `#container.style.width` BEFORE WRITING IT.
+    //
+    // `#anl-surface` / `#aud-stack` (a half mode's right-hand surface) and `.svp-pane`
+    // are BOTH `position: fixed; right: 0`, and the surface's z-index is 50 against the
+    // pane's 1 — so in a half mode the pane renders entirely behind the panel. Worse,
+    // `SplitViewManager._buildDOM` writes `#container.style.width = '60%'` on the very
+    // node this switch is about to set to `'50%'`, and `_teardownDOM` writes `''` back.
+    // Two owners, one inline property, no protocol. See `halfCanvasSplitViewPolicy.ts`
+    // for the measurement and for why `suppressAutoOpen()` was the wrong seam.
+    //
+    // ⚠ ORDER IS LOAD-BEARING, IN BOTH DIRECTIONS.
+    //   · CLOSE happens BEFORE the switch: `_teardownDOM` clears `style.width`, so a
+    //     close afterwards would wipe the 50% we just set.
+    //   · REOPEN happens AFTER it: `_buildDOM` sets its own 60%, so a reopen before the
+    //     switch would be overwritten by the `''` of the full-canvas branch.
+    const pane = resolveSplitViewPane();
+    const splitDecision = decideSplitViewForCanvas({
+      canvas: def?.canvas ?? 'full',
+      splitViewActive: pane?.isActive === true,
+      closedByShell: this._splitViewClosedByShell,
+    });
+    this._splitViewClosedByShell = splitDecision.closedByShell;
+    if (splitDecision.action === 'close') {
+      // Total, like `publishShellCanvasRegion` below and for the same reason: a pane
+      // that throws on teardown must not be able to abort a mode switch.
+      try { pane?.deactivate(); } catch (e) {
+        console.warn('[WorkspaceController] §HALF-CANVAS-OWNS-THE-RIGHT-EDGE: split-view deactivate failed (non-fatal):', e);
+      }
+    }
+
     if (canvas) {
       switch (def?.canvas ?? 'full') {
         case 'full':   canvas.style.display = 'block'; canvas.style.width = '';    break;
@@ -231,6 +296,15 @@ export class WorkspaceController {
       // the bars move in the same frame as the canvas rather than one
       // ResizeObserver tick later. Same function DockingLayout's observer calls;
       // neither site computes a value.
+      publishShellCanvasRegion();
+    }
+
+    if (splitDecision.action === 'reopen') {
+      try { pane?.activate(); } catch (e) {
+        console.warn('[WorkspaceController] §HALF-CANVAS-OWNS-THE-RIGHT-EDGE: split-view activate failed (non-fatal):', e);
+      }
+      // The pane just re-wrote `#container.style.width` to its own 60%, so the float
+      // budget every canvas-anchored bar reads is now stale by exactly that much.
       publishShellCanvasRegion();
     }
 

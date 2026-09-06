@@ -71,6 +71,11 @@ import {
 } from './siteMap2DStyle.js';
 // MAP-DATA-OVERTURE — keyless OSM/Overture context-building loader.
 import { fetchContextBuildings } from './contextBuildings.js';
+// §OFFICIAL-FOOTPRINTS (L-12939) — the PURE draw decider shared with the 3D massing. The plan draws
+// whole-building OUTLINES; the massing draws the register's PARTS. Drawing parts on a plan would
+// show every building's internal divisions as separate structures — a masterplan drawing full of
+// seams that do not exist on the ground.
+import { shouldDrawInPlan, summariseOfficialFootprints } from './officialFootprint.js';
 // §MAP2D-PASTEL (L-12938) — the OTHER baked context collections (roads, water areas +
 // waterways, parks, landuse, rail, mapped trees + synthesised canopies) converted to the
 // GeoJSON the pastel style's sources expect. It reads the SAME per-bbox memoised caches
@@ -1370,8 +1375,20 @@ export function mountSiteBoundaryMap2D(
                 setNeighbourFootprints(c.lat, c.lng, collection);
                 const live = map.getSource(CONTEXT_BUILDINGS_SOURCE) as GeoJSONSource | undefined;
                 if (live) {
-                    live.setData(collection as unknown as GeoJSON.FeatureCollection);
-                    console.log(`[gis] map2d: context buildings → ${collection.features.length} footprint(s).`);
+                    // §OFFICIAL-FOOTPRINTS (L-12939) — drop the register's PARTS from the PLAN
+                    // only. Filtered here rather than with a maplibre layer `filter` because
+                    // `official` is a nested object on the feature, so a style expression reaching
+                    // into it would be a second, silently-divergent copy of the same rule.
+                    const planFeatures = collection.features.filter((f) => shouldDrawInPlan(f.properties.official));
+                    const official = summariseOfficialFootprints(
+                        collection.features.map((f) => ({ official: f.properties.official })),
+                    );
+                    live.setData({ type: 'FeatureCollection', features: planFeatures } as unknown as GeoJSON.FeatureCollection);
+                    // Counts SEPARATED BY SOURCE (C57 §1.9) — a single total cannot tell "the
+                    // register landed" from "we are still drawing OSM", which is exactly the
+                    // question being asked when a 2020 house is missing from the map.
+                    console.log(`[gis] map2d: context buildings → ${planFeatures.length} footprint(s) drawn`
+                        + (official.parts > 0 || official.buildings > 0 ? ` · ${official.line}` : ''));
                 }
             });
         };

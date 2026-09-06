@@ -94,8 +94,12 @@ function makeStub(over: Partial<Stub> = {}): Stub {
     };
     // The SHIPPED methods, bound to the stub. `sampleGround` is the real one too, so the cache /
     // fallback rule under test is the production rule (no globe → the safe base).
+    // ⚠ `groundSampleBatcher` MUST be in this list. §STARTUP-GROUND-SAMPLE-COALESCE (d4cec9de)
+    // rerouted `sampleContextGroundsBatch` through it, and a stub that binds the caller but not
+    // the callee throws inside the pass-2 await — where the reseat's guard swallows it — so the
+    // test read "0 sampler calls" and looked like a seating regression instead of a missing stub.
     for (const m of ['reseatContextGroundFeaturesForBase', 'unsampledContextGroundSeatPoints',
-                     'sampleGround', 'sampleContextGroundsBatch']) {
+                     'sampleGround', 'sampleContextGroundsBatch', 'groundSampleBatcher']) {
         (s as unknown as Record<string, unknown>)[m] = (proto[m] as (...a: unknown[]) => unknown).bind(s);
     }
     return s;
@@ -154,7 +158,17 @@ describe('§GROUND-DRAPE-ON-RELIEF (L-12924) — the ground-feature re-seat is P
         expect(h(gE)).toBeCloseTo(71.01, 6);
         expect(h(noPoint)).toBeCloseTo(71.01, 6);
         // Pass 2: exactly the missing point was batch-sampled ONCE, and the entity moved onto its ground.
-        await new Promise((r) => setTimeout(r, 0));
+        // §STARTUP-GROUND-SAMPLE-COALESCE (L-12930, d4cec9de) — PASS 2 IS NOW WINDOWED, AND THIS
+        // WAIT WAS NOT UPDATED WITH IT. `sampleContextGroundsBatch` no longer calls
+        // `sampleTerrainMostDetailed` on the spot: it queues into `GroundSampleBatcher`, whose
+        // default window is 120 ms of REAL time, so two `setTimeout(r, 0)` ticks landed with
+        // `calls` still at 0. That commit touched `groundSampleBatcher.ts`, `CesiumViewport.ts`,
+        // `SiteBoundaryMap2D.ts`, `startupBudget.ts` and its own spec — never this file — so this
+        // test has been RED on main since it landed, for TWO independent reasons: the missing
+        // `groundSampleBatcher` binding in `makeStub` above, and this wait. The subject of the
+        // test is unchanged and every assertion below is the ORIGINAL one.
+        // ⛔ Do not shorten it back to 0 — that is the failure, not the fix.
+        await new Promise((r) => setTimeout(r, 200));
         await new Promise((r) => setTimeout(r, 0));
         expect(sampleTerrainMostDetailed.calls).toHaveLength(1);
         expect(sampleTerrainMostDetailed.calls[0]).toHaveLength(1);

@@ -142,6 +142,15 @@ registerProjectScopeProbe({
 // §SEAM-2 INCREMENT 2 (L-604 / C12 §1.5) — the SINGLE origin authority shared by the parcel-ring
 // projection (`getSiteOrigin`) and the 3D-Site render frame (`getFormaOrigin`), so the ring and the
 // ENU frame are always built about ONE origin (closes the residual translation shift).
+// §PARCEL-LAW-UNRESOLVED (STR §25.1 block B) — the WORDS a citation slot carries, decided by a
+// pure module so both honest arms ("we never looked" vs "a figure with no source") are pinned by a
+// test. This file keeps the markup and the §L-402-XSS escaping, which must have exactly one home.
+import {
+    citationFoldHasContent,
+    describeCitationFoldCaveats,
+    describeCitationSlot,
+    describeUnresolvedSlot,
+} from '../site/complianceCitationSlots';
 import { resolveSiteFrameOrigin } from '../site/boundaryProjection';
 import { resolveSiteFramingExtent } from '../site/siteFramingExtent';
 // §PARCEL-SELECT (L-380 P1 → L-613) — the real cadastral parcel data source for the map's
@@ -214,7 +223,9 @@ import {
     // and it flags the L-630 NL case (real published fields under an `estimated-ruleset` scalar
     // reduced for a zone-extent footprint, NOT a default pack).
     resolveHeadlineProvenance,
-    BCN_ART323_DWELLING_MODULE_M2,
+    // §PARCEL-LAW-MODEL — BCN_ART323_DWELLING_MODULE_M2 is imported by `parcelLawModel.ts` now:
+    // the Art. 323 module and the ⌈GFA ÷ module⌉ count are ONE derivation, not one here and one
+    // there. This file renders `law.capacity`.
     // C58 §1.14 / STRUCTURAL-SEAM-1 — the pure L2 function that turns a WHOLE `BuildableEnvelope`
     // into the solids the 3D massing draws. `resolveFormaEnvelope` no longer narrows the envelope to
     // four fields; it passes the full contract here so no honesty field is discarded at the render.
@@ -224,7 +235,24 @@ import {
     // L-456 — the pure L2 capacity comparison (designed vs permitted). It judges; it measures
     // nothing and renders nothing. See the §L-456 block in `refreshEnvelopePanel`.
     buildCapacityComparison,
+    // §PARCEL-LAW-UNRESOLVED (STR §25.1 block B) — the promised-but-unfilled citation slots. The
+    // MODEL decides which rows the card owes a citation to and why each is empty; this file only
+    // renders that decision, so the two arms ("we never looked" vs "a number with no source") are
+    // pinned by a pure test rather than by an `if` written at the render site.
+    type ComplianceUnresolvedRow,
 } from '@pryzm/site-parcel-data';
+// §PARCEL-LAW-MODEL (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §25.11 clause 1) — the ONE
+// parcel/ordinance/massing/per-storey model. This card RENDERS it; it no longer derives it, so
+// the Parcel Law tab can state the same figures without a second computation. See the module
+// header for what was actually shared before this and what was not.
+import {
+    buildParcelLawModel,
+    permittedStudyFiguresOf,
+    polygonBboxXZ,
+    polygonPerimeterXZ,
+    resolveDepthTerm,
+} from '../site/parcel/parcelLawModel.js';
+import { polygonAreaXZ } from '../site/siteInspectorData.js';
 // L-456 — the L5 halves of the comparison: the authored-model MEASUREMENT adapter and the pure
 // section RENDERER. Both live beside the envelope they are compared against (see the layering
 // argument at the head of `designMeasurement.ts`).
@@ -3269,35 +3297,26 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // count would look identical to a derived one and would silently propagate into every area and
     // yield figure on this card — the L-459 pattern, and the exact failure C58 §1.4 forbids. A
     // dash that says "not derived" is worth more than a plausible number.
-    const polyPerimeterM = (ring: ReadonlyArray<{ x: number; z: number }>): number => {
-        if (ring.length < 2) return 0;
-        let p = 0;
-        for (let i = 0; i < ring.length; i++) {
-            const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
-            p += Math.hypot(b.x - a.x, b.z - a.z);
-        }
-        return p;
-    };
-    const polyAreaM2 = (ring: ReadonlyArray<{ x: number; z: number }>): number => {
-        if (ring.length < 3) return 0;
-        let a = 0;
-        for (let i = 0; i < ring.length; i++) {
-            const p = ring[i]!, q = ring[(i + 1) % ring.length]!;
-            a += p.x * q.z - q.x * p.z;
-        }
-        return Math.abs(a) / 2;
-    };
-    /** Axis-aligned extent. Labelled "bounding box", never "dimensions" — a non-rectangular parcel
-     *  has no single width×depth, and calling a bbox that would overstate what we know. */
-    const polyBboxM = (ring: ReadonlyArray<{ x: number; z: number }>): { w: number; d: number } => {
-        if (ring.length === 0) return { w: 0, d: 0 };
-        const xs = ring.map((p) => p.x), zs = ring.map((p) => p.z);
-        return { w: Math.max(...xs) - Math.min(...xs), d: Math.max(...zs) - Math.min(...zs) };
-    };
+    // §PARCEL-LAW-MODEL (STR §25.11 clause 1) — THE THREE RING HELPERS ARE NO LONGER LOCAL.
+    //
+    // They were `const`s inside this closure, so nothing outside `mountGISArea` could reach them
+    // — which is why the Parcel Law tab had no route to "parcel area" or "footprint perimeter"
+    // except its own arithmetic, the second-independently-computed model §25.11 clause 1 forbids.
+    // ⚠ `polyAreaM2` was ALSO the THIRD copy of a shoelace this repo already had: the shared one
+    // is `polygonAreaXZ` (`siteInspectorData.ts`, A.8.f, unit-tested), and a fourth lives in
+    // `HouseLayoutController.ts:709`. Aliased rather than renamed at ~10 call sites, so the
+    // migration is one reviewable hunk and every existing reader is unchanged.
+    const polyPerimeterM = polygonPerimeterXZ;
+    const polyAreaM2 = polygonAreaXZ;
+    const polyBboxM = polygonBboxXZ;
     const num = (v: number, unit: string, dp = 1): string =>
         `${v.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp })} ${unit}`;
+    // §PARCEL-LAW-UNRESOLVED (L-616 / C58 §1.4) — the sentence now REFUSES THE COMPLETION the reader
+    // would otherwise make. "not derived" alone is read as "unbounded", and an unbounded constraint
+    // drawn on real land is an overstatement, not a blank. It also names where the empty slot is
+    // accounted for, because the fold below now keeps a row for it instead of dropping it.
     const NOT_DERIVED =
-        '<span style="color:#a49dbb;font-style:italic;" title="The rule pack did not derive this. We do not infer it — an inferred value would be indistinguishable from a derived one.">not derived</span>';
+        '<span style="color:#a49dbb;font-style:italic;" title="The rule pack did not derive this for this zone, and PRYZM does not infer it — an inferred value would be indistinguishable from a derived one. This is a MISSING LOOKUP, NOT a finding that the zone sets no limit. The row keeps its slot in &quot;Why these numbers?&quot; below.">not derived</span>';
 
     /**
      * §RESI-ORCH-COST (2026-09-03) — THE ONE PLACE THE CARD DERIVES ITS PERMITTED FOOTPRINT AND
@@ -3310,16 +3329,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * pack did not derive a storey count, because footprint × a GUESSED storey count is
      * indistinguishable from footprint × a derived one — and it would now propagate into money.
      */
+    // §PARCEL-LAW-MODEL (STR §25.11 clause 1) — the BODY moved to `permittedStudyFiguresOf` in
+    // `parcel/parcelLawModel.ts`, unchanged, so the Parcel Law tab states the SAME footprint and
+    // the SAME GFA as this card instead of computing `footprint × storeys` a second time. The
+    // local name is kept because eleven call sites in this file read it.
     const permittedStudyFigures = (
         e: NonNullable<ReturnType<typeof getLastBuildableEnvelope>>,
-    ): { footprintM2: number; gfaM2: number | null } => {
-        const inset = e.insetPolygon ?? [];
-        const footprintM2 = e.insetAreaM2 || polyAreaM2(inset);
-        return {
-            footprintM2,
-            gfaM2: e.maxFloors !== null && e.maxFloors > 0 ? footprintM2 * e.maxFloors : null,
-        };
-    };
+    ): { footprintM2: number; gfaM2: number | null } => permittedStudyFiguresOf(e);
 
     /**
      * §CARD-DEPTH-TERM (L-676) — the LOCAL-LANGUAGE name of the buildable-depth rule, taken from
@@ -3333,15 +3349,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * new city inherits its own term the moment its pack quotes its own ordinance; Barcelona keeps
      * the Catalan because Barcelona's own quote is Catalan.
      */
-    const depthTermFor = (ordinanceRef: string | null | undefined): string => {
-        const t = (ordinanceRef ?? '').toLowerCase();
-        if (t.includes('profunditat edificable')) return 'profunditat edificable';
-        if (t.includes('profundidad edificable') || t.includes('fondo máximo edificable')) {
-            return 'profundidad edificable';
-        }
-        // Neutral, and deliberately NOT a guess at the local term.
-        return 'buildable depth rule';
-    };
+    // §PARCEL-LAW-MODEL — moved to `resolveDepthTerm` so the tab prints the SAME local term.
+    const depthTermFor = resolveDepthTerm;
 
     const buildSiteDataBlock = (env: ReturnType<typeof getLastBuildableEnvelope>): string => {
         if (!env) return '';
@@ -3349,21 +3358,44 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // resolver, not `runtime?.siteModelStore` directly. See `getCommittedParcelBoundary`.
         const committed = getCommittedParcelBoundary();
         const parcelRing = committed?.polygon ?? [];
+        const inset = env.insetPolygon ?? [];
+        // ── §PARCEL-LAW-MODEL (STR §25.11 clause 1 · C06 §13.3) — ONE MODEL, BOTH SURFACES. ────
+        //
+        // Every figure this block used to derive inline — parcel area/perimeter/bbox, the frontage
+        // clause, the ordinance rows, footprint, coverage, GFA, the storey bands, the Art. 323
+        // count — is now produced ONCE by `buildParcelLawModel` and RENDERED here. The Parcel Law
+        // tab builds the same model from the same two inputs, so the two surfaces cannot state
+        // different setbacks, heights or FAR for one parcel — a disagreement that reaches the
+        // user's land, which is why §25.11 clause 1 forbids a second model rather than merely
+        // discouraging one.
+        //
+        // ⛔ THE RAW `edgeClassifications` IS PASSED THROUGH UNDEFAULTED, here as before: `?? []`
+        // would tell the frontage rule "examined, landlocked" about a parcel nobody measured.
+        const law = buildParcelLawModel({
+            parcelRing,
+            edgeClassifications: committed === null ? undefined : committed.edgeClassifications,
+            identity: null,
+            envelope: env,
+        });
         // §GR-10/GR-14 — THREE outcomes, not two: never-classified, classified-
         // and-landlocked, and classified-with-N-frontages. `frontageClause`
         // prints a non-empty sentence for each; the old `?? []` + `> 0` test
         // printed the SAME empty string for the first two, so a card about an
         // unmeasured plot read exactly like a card about a landlocked one.
-        const frontage = frontageClause(committed === null ? undefined : committed.edgeClassifications);
-        const inset = env.insetPolygon ?? [];
+        // (Now read off the model's `geometry`, which calls the same rule; the fallback covers
+        // the ring-absent arm, where the model has no geometry to carry a clause on.)
+        const frontage = law.geometry?.frontageClause
+            ?? frontageClause(committed === null ? undefined : committed.edgeClassifications);
 
         // §RESI-ORCH-COST / §RESI-ORCH-HIGHLIGHT — hoisted above `row` because BOTH the
         // massing rows below and the highlight-availability rule need them, and a second
         // `footprint × storeys` here is precisely how a card comes to disagree with the fold
         // beneath it (C06 §13.3). `permittedStudyFigures` is the ONE producer.
         const { footprintM2: footprint, gfaM2: gfa } = permittedStudyFigures(env);
-        const coverPct = parcelRing.length >= 3 && polyAreaM2(parcelRing) > 0
-            ? (footprint / polyAreaM2(parcelRing)) * 100 : null;
+        // §PARCEL-LAW-MODEL — read, not recomputed. `law.massing` is null on a refusal, and this
+        // block is only reached on the full-determination arm, so `?? null` is the honest default
+        // rather than a branch that could print a coverage for a parcel with no footprint.
+        const coverPct = law.massing?.coveragePct ?? null;
 
         // ── §RESI-ORCH-HIGHLIGHT (STR §3) — WHICH ROWS MAY BE CLICKED, AND WHY THE REST MAY NOT.
         //
@@ -3463,8 +3495,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 undefined, 'height')
             + row('Storeys', env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
                 'Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
-            + row('Max FAR', env.maxFAR !== null ? env.maxFAR.toFixed(2) : NOT_DERIVED)
-            + row('Max site coverage', env.maxCoverage !== null ? `${(env.maxCoverage * 100).toFixed(0)} %` : NOT_DERIVED);
+            + row('Max FAR', env.maxFAR !== null ? env.maxFAR.toFixed(2) : NOT_DERIVED,
+                'Floor-area ratio — buildable floor area per m² of parcel. A blank here is a gap in our '
+                + 'rule pack for this zone, never a statement that the zone caps no floor area.')
+            + row('Max site coverage', env.maxCoverage !== null ? `${(env.maxCoverage * 100).toFixed(0)} %` : NOT_DERIVED,
+                'Share of the PARCEL the building may occupy. A blank here is a gap in our rule pack '
+                + 'for this zone, never a statement that the zone caps no coverage.');
         const ordCite = env.derivation.find((d) => typeof d.ordinanceRef === 'string' && d.ordinanceRef)?.ordinanceRef;
         const ordBlock = group('Ordinance limits',
             ordCite ? `Zone ${env.zoneCode ?? 'n/a'} · ${ordCite}` : `Zone ${env.zoneCode ?? 'n/a'} · citation held per row in "Why these numbers?"`,
@@ -3483,7 +3519,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             + (coverPct !== null ? row('Footprint / parcel', `${coverPct.toFixed(0)} %`) : '')
             + (inset.length >= 3 ? row('Footprint perimeter', num(polyPerimeterM(inset), 'm')) : '')
             + row('Max buildable area (GFA)',
-                gfa !== null ? num(gfa, 'm²', 0) : NOT_DERIVED,
+                // §PARCEL-LAW-MODEL — read from the MODEL, not from the raw `gfa` local, for one
+                // narrow but real reason: with a zero footprint `permittedStudyFigures` returns
+                // `0 × storeys = 0`, and this row printed "0 m²" directly under a "not derived"
+                // footprint — two spellings of one absence, the numeric one being a claim about the
+                // user's land (C58 §1.4). `law.massing.gfaM2` is null whenever the footprint is,
+                // so the card and the Parcel Law tab state the same thing on that arm.
+                law.massing?.gfaM2 != null ? num(law.massing.gfaM2, 'm²', 0) : NOT_DERIVED,
                 'Footprint × storeys. Deliberately blank when the storey count was not derived — a guessed storey count would become a guessed sellable area.',
                 'gfa')
             + row('Study volume', env.maxVolumeM3 !== null ? num(env.maxVolumeM3, 'm³', 0) : NOT_DERIVED,
@@ -3493,21 +3535,23 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
 
         // ── PER-STOREY — only when storeys are real. ──
         const perLevel = (() => {
-            if (env.maxFloors === null || env.maxFloors <= 0 || footprint <= 0) return '';
-            const n = env.maxFloors;
-            // ⚠ The band is only shown when a max height exists; otherwise the storey rows carry
-            // area alone rather than an invented floor-to-floor.
-            const ftf = env.maxHeight_m !== null && n > 0 ? env.maxHeight_m / n : null;
-            const cells = Array.from({ length: Math.min(n, 40) }, (_, i) => {
-                const lvl = i;
-                const band = ftf !== null ? `${(lvl * ftf).toFixed(1)}–${((lvl + 1) * ftf).toFixed(1)} m` : '—';
+            // §PARCEL-LAW-MODEL — the BANDS come from the model (`law.perStorey`), which applies the
+            // same two rules: no storey table without a derived storey count and a real footprint,
+            // and no vertical band without a derived max height (an equal division for study, never
+            // an invented floor-to-floor). This block now only formats them.
+            const ps = law.perStorey;
+            if (ps === null) return '';
+            const ftf = ps.floorToFloorM;
+            const cells = ps.storeys.map((st) => {
+                const band = st.bandFromM !== null && st.bandToM !== null
+                    ? `${st.bandFromM.toFixed(1)}–${st.bandToM.toFixed(1)} m` : '—';
                 return `<div style="display:flex;justify-content:space-between;gap:8px;padding:1.5px 0;">
-                          <span style="color:#6b6480;">${lvl === 0 ? 'Ground' : `Level ${lvl}`}</span>
+                          <span style="color:#6b6480;">${escHtml(st.label)}</span>
                           <span style="color:#8a83a0;">${band}</span>
-                          <span style="font-weight:600;">${num(footprint, 'm²', 0)}</span>
+                          <span style="font-weight:600;">${num(st.areaM2, 'm²', 0)}</span>
                         </div>`;
             }).join('');
-            const truncated = n > 40 ? `<div style="color:#a49dbb;font-size:9.5px;">…${n - 40} further storeys not listed.</div>` : '';
+            const truncated = ps.truncatedCount > 0 ? `<div style="color:#a49dbb;font-size:9.5px;">…${ps.truncatedCount} further storeys not listed.</div>` : '';
             return group('Per storey', ftf !== null
                 ? 'Even floor-to-floor from max height ÷ storeys — an EQUAL DIVISION for study, not a regulated storey height.'
                 : 'No max height derived, so no vertical band is shown rather than an invented one.',
@@ -3553,16 +3597,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // GFA approximates that and is not identical to it**, so this is labelled an indication,
         // never a determination — and it inherits the GFA's own honesty: when storeys were not
         // derived, GFA is null and this reads "not derived" rather than inventing a count.
-        const art323Dwellings = gfa !== null && gfa > 0
-            ? Math.ceil(gfa / BCN_ART323_DWELLING_MODULE_M2)
-            : null;
-        const capacityBlock = (env.zoneCode === '13b' || env.zoneCode === '13a')
+        // §PARCEL-LAW-MODEL — `law.capacity` is non-null for exactly the zones Art. 323 governs and
+        // carries the module, the count (which INHERITS GFA's null rather than inventing one) and
+        // the citation. The zone test and the arithmetic are no longer written twice.
+        const cap = law.capacity;
+        const capacityBlock = cap !== null
             ? group('Capacity',
                 'A SEPARATE legal question from the envelope above — the geometry is complete, and this is not a defect in it.',
-                row('Dwelling module', `${BCN_ART323_DWELLING_MODULE_M2} m² per dwelling`)
-                + row('Max dwellings', art323Dwellings !== null ? `≈ ${art323Dwellings}` : NOT_DERIVED,
+                row('Dwelling module', `${cap.moduleM2} m² per dwelling`)
+                + row('Max dwellings', cap.maxDwellings !== null ? `≈ ${cap.maxDwellings}` : NOT_DERIVED,
                     'Art. 323: superfície construïda ÷ 80 m², rounded up. Computed from the envelope GFA above, which APPROXIMATES the ordinance\'s superfície construïda rather than equalling it — an indication, not a determination.')
-                + row('Source', 'PGM Art. 323 — aplicació exclusiva al municipi de Barcelona'))
+                + row('Source', cap.citation))
             : '';
 
         // §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — a first-class fold of the card (no longer
@@ -4096,9 +4141,37 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // HONESTY (C58 §1.4): estimated rows are badged individually; a row with no citation
         // reads "no citation" rather than silently looking authoritative.
         // (`report` is built above the badge — STRUCTURAL-SEAM-3 — and reused here.)
+        //
+        // §PARCEL-LAW-UNRESOLVED (STR §25.1 block B · C58 §1.3/§1.4 · L-616) — A PROMISED ROW KEEPS
+        // ITS SLOT. Block B above prints Max height / Storeys / Max FAR / Max site coverage on
+        // EVERY parcel, falling to `not derived`. This fold used to `continue` past any constraint
+        // the derivation did not carry, so those rows VANISHED here — and the reader could not tell
+        // "we did not look up FAR" (a hole in OUR data) from "this zone states no FAR limit" (a
+        // finding about the ordinance). A reader completes the missing row as "unbounded", which is
+        // an OVERSTATEMENT on real land. `report.unresolvedRows` is the pure model's answer and the
+        // WORDS come from `complianceCitationSlots`, so both arms are pinned by a test rather than
+        // by a ternary written here.
         const safeWhyBlock = (() => {
-            if (!report || report.rows.length === 0) return '';
-            const rowsHtml = report.rows.map((r) => {
+            if (!citationFoldHasContent(report)) return '';
+            const rpt = report!;
+            const pillHtml = (slot: { pill: string; tone: string; title: string }): string => {
+                // Tone → colour lives HERE and nowhere else; the module decides meaning, not paint.
+                const paint = slot.tone === 'machine'
+                    ? 'color:#b3261e;background:#fdecea;border:1px solid #f3b9b3;font-weight:800;'
+                    : slot.tone === 'uncited'
+                    ? 'color:#b3261e;background:#fdecea;border:1px solid #f3b9b3;font-weight:800;'
+                    : slot.tone === 'estimated'
+                    ? 'color:#6600FF;background:#f3eeff;font-weight:700;'
+                    : slot.tone === 'published'
+                    ? 'color:#2e7d32;background:#eef7ee;font-weight:700;'
+                    // `stated-empty` and `unfilled` are DELIBERATELY the same neutral grey: both
+                    // mean "no figure here", and colouring one of them like a determination is the
+                    // very confusion this section exists to end.
+                    : 'color:#6b6480;background:#f2f0f7;border:1px solid #e3dff0;font-weight:700;';
+                return `<span title="${escHtml(slot.title)}" style="${paint}border-radius:999px;padding:1px 6px;font-size:9.5px;">${escHtml(slot.pill)}</span>`;
+            };
+            const rowsHtml = rpt.rows.map((r) => {
+                const slot = describeCitationSlot(r);
                 const href = safeHttpUrl(r.ordinanceRef);
                 const cite = href
                     ? `<a href="${escHtml(href)}" target="_blank" rel="noopener noreferrer" style="color:#6600FF;text-decoration:underline;">citation</a>`
@@ -4114,11 +4187,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // `pipeline-extracted` ranks STRICTLY BELOW `ordinance-pdf`). Fixing the headline
                 // chip alone would have left every row underneath it still reading "PUB".
                 // Branched FIRST, and red to match the headline chip — the two must agree.
-                const prov = r.provenance === 'pipeline-extracted'
-                    ? '<span title="MACHINE-EXTRACTED by PRYZM’s OCR/extraction pipeline and NOT human-verified. Not published data — a wrong value here is our error." style="color:#b3261e;background:#fdecea;border:1px solid #f3b9b3;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:800;">⚠ MACHINE</span>'
-                    : r.isEstimate
-                    ? '<span style="color:#6600FF;background:#f3eeff;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700;">EST</span>'
-                    : '<span style="color:#2e7d32;background:#eef7ee;border-radius:999px;padding:1px 6px;font-size:9.5px;font-weight:700;">PUB</span>';
+                // ⚠ THE LADDER MOVED INTO `describeCitationSlot`, ORDER PRESERVED, PLUS ONE ARM:
+                // a row whose entry resolved to NO VALUE now reads "STATES NONE" instead of a bare
+                // em-dash under a green PUB pill — badging "published" over nothing asserts that a
+                // figure was published. See that function's header for why the order is load-bearing.
+                const prov = pillHtml(slot);
                 // §L-508b — STACKED, not two-column. The old side-by-side flex let a long label
                 // ("Buildable depth (profunditat edificable)") take the whole width and starve the
                 // value to a per-character strip. Label on its own line, then the bold value + PUB/
@@ -4129,21 +4202,44 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                           <div style="color:#8a83a0;font-size:10px;margin-top:1px;">zone ${escHtml(r.zoneCode)} · ${escHtml(r.source)} · ${cite}</div>
                         </div>`;
             }).join('');
-            const gfa = report.maxGrossFloorAreaM2 !== null
+            // §PARCEL-LAW-UNRESOLVED — THE SLOTS THE CARD PROMISED AND THE PACK DID NOT FILL.
+            // They are rendered as REAL ROWS, in block B's own reading order, carrying the label the
+            // card used and a sentence in place of the citation. They are NOT interleaved with the
+            // resolved rows: a reader scanning the fold must be able to see, in one glance, which
+            // part of this determination is sourced and which part is a hole in it.
+            const unresolvedHtml = rpt.unresolvedRows.length === 0 ? '' : (() => {
+                const items = rpt.unresolvedRows.map((u: ComplianceUnresolvedRow) => {
+                    const slot = describeUnresolvedSlot(u);
+                    return `<div style="padding:5px 0;border-top:1px solid #efecf7;">
+                              <div style="color:#6b6480;margin-bottom:2px;">${escHtml(u.label)}</div>
+                              <div>${pillHtml(slot)}</div>
+                              <div style="color:#8a83a0;font-size:10px;margin-top:1px;line-height:1.4;">${escHtml(slot.note ?? '')}</div>
+                            </div>`;
+                }).join('');
+                return `<div style="margin-top:7px;">
+                          <div style="font-weight:700;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#6b6480;">Rows with no citation</div>
+                          ${items}
+                        </div>`;
+            })();
+            const gfa = rpt.maxGrossFloorAreaM2 !== null
                 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #efecf7;">
                      <span style="color:#6b6480;">Max gross floor area</span>
-                     <span style="font-weight:600;">${Math.round(report.maxGrossFloorAreaM2).toLocaleString()} m²</span>
+                     <span style="font-weight:600;">${Math.round(rpt.maxGrossFloorAreaM2).toLocaleString()} m²</span>
                    </div>
                    <div style="color:#a49dbb;font-size:9.5px;margin-top:2px;">Zoning ceiling = buildable footprint × FAR (indicative).</div>`
                 : '';
-            const caveat = report.hasAnyEstimate
-                ? `<div style="margin-top:6px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;">${report.estimatedRowCount} of ${report.rows.length} value(s) are ESTIMATED — not an authoritative determination.</div>`
-                : '';
+            // ⚠ THE ESTIMATE FRACTION KEEPS ITS OWN DENOMINATOR. `describeCitationFoldCaveats`
+            // counts unresolved slots in a SEPARATE sentence rather than growing `rows.length`;
+            // quietly widening an existing fraction restates a published quantity as a different
+            // one, which is the L-526 failure class.
+            const caveats = describeCitationFoldCaveats(rpt);
+            const caveat = caveats.length === 0 ? '' : caveats.map((line) =>
+                `<div style="margin-top:6px;color:#8a5a00;background:#fff6e5;border-radius:6px;padding:5px 7px;font-size:10px;line-height:1.45;">${escHtml(line)}</div>`).join('');
             // §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — first-class fold; contained for the
             // narrow GIS rail like its three sibling sections.
             return `<details data-testid="envelope-section-why" style="margin-top:9px;min-width:0;max-width:100%;overflow-wrap:break-word;">
                       <summary style="cursor:pointer;color:#6600FF;font-size:11px;font-weight:600;list-style:none;">Why these numbers?</summary>
-                      <div style="margin-top:5px;font-size:11px;min-width:0;max-width:100%;">${rowsHtml}${gfa}${caveat}</div>
+                      <div style="margin-top:5px;font-size:11px;min-width:0;max-width:100%;">${rowsHtml}${unresolvedHtml}${gfa}${caveat}</div>
                     </details>`;
         })();
         // §L-518c — an ALIGNMENT zone (Barcelona 13a) has NULL setbacks/height/FAR BY DESIGN (the

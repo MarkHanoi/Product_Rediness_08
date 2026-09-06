@@ -557,6 +557,61 @@ export function contextBboxAround(
 }
 
 /**
+ * §CTX-FETCH-BBOX-LATTICE (L-12953, founder Córdoba 2026-09-06: "the same layer is re-read 5–6
+ * times per session … each triggering a full re-render") — SNAP THE FETCH CENTRE TO A LATTICE, so
+ * two callers who mean "the same neighbourhood" produce the SAME cache key.
+ *
+ * THE DEFECT, and it is why §CTX-ONE-READ-PER-BBOX did not collapse these. That guard is exact and
+ * correct: one read per bbox, shared in flight, cached on completion. But the bbox is derived from
+ * whatever lat/lon the CALLER happened to hold, and on the startup path four different callers hold
+ * four different points for one neighbourhood — the geocode result (`site.location-changed`), the
+ * site origin (`renderFormaMassing`), the camera ground point (the pan refresh), and the 2D map
+ * CENTRE, which moves on every `moveend` while the user pans looking for a parcel. `bboxKey` then
+ * rounds the already-computed corners to 4 dp (≈11 m), which does not SNAP anything: a centre 12 m
+ * away is a different key. So every caller missed every other caller's cache and paid its own
+ * 36–42-tile read. The founder's console shows exactly that signature — five buildings reads at
+ * 8871 / 8799 / 8804 / 8817 / 8919 footprints, all near each other and all different, because each
+ * one framed a slightly different window over the same city.
+ *
+ * ⛔ IT MUST NOT BUY THE CACHE HIT BY DROPPING A FOOTPRINT. Snapping alone would SHIFT the window
+ * by up to half a lattice cell, which would silently drop real buildings off one edge — the one
+ * thing speed may never buy (§CONTEXT-DATA-HONESTY / C57 §1.5, and the founder's own "never render
+ * less real data"). So the half-extent is GROWN by the snap radius: the returned box is a strict
+ * SUPERSET of `contextBboxAround(lat, lon, halfDeg)` for every lat/lon, which
+ * `contextFetchBboxLattice.spec.ts` asserts numerically rather than by argument. The cost is ~4.5 %
+ * more extent on the far ring — a few more tiles, well inside `MAX_TILES_PER_FETCH` — and the
+ * benefit is that every caller within ~111 m shares ONE read.
+ *
+ * ⚠ FETCH ONLY. The near/far CLASSIFICATION still uses `contextBboxAround` at the TRUE centre, so
+ * which footprints count as "near" is byte-identical to before; only the extent that is downloaded
+ * and cached is snapped. Never use this to decide what to draw.
+ *
+ * The lattice is 0.001°, deliberately the SAME granularity `SiteBoundaryMap2D` already declares as
+ * "same area, skip the refetch" (`${c.lat.toFixed(3)},${c.lng.toFixed(3)}`). The two were quantised
+ * at different grains, which is how a map pan that the 2D layer called "the same place" became a
+ * cold read one layer down.
+ */
+export const CONTEXT_FETCH_SNAP_DEG = 0.001;
+
+export function contextFetchBbox(
+    lat: number,
+    lon: number,
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
+): Bbox {
+    const snap = CONTEXT_FETCH_SNAP_DEG;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return contextBboxAround(lat, lon, halfDeg);
+    const snappedLat = Math.round(lat / snap) * snap;
+    const snappedLon = Math.round(lon / snap) * snap;
+    // The worst-case shift is snap/2 in each axis, so the growth must EXCEED snap/2 — at exactly
+    // snap/2 a centre sitting on a cell edge lands on the boundary, where floating-point rounding
+    // decides whether a footprint is inside, and "sometimes" is not a superset. 0.55 × snap
+    // (~61 m) keeps a real margin at every latitude, including the equator where the E/W widening
+    // `1 / cos(lat)` contributes nothing. The spec pins the property numerically across latitudes
+    // and across offsets inside one cell rather than trusting this sentence.
+    return contextBboxAround(snappedLat, snappedLon, halfDeg + snap * 0.55);
+}
+
+/**
  * §CTX-HEIGHT-PROVENANCE (L-459) — HOW a context building's height was arrived at.
  *
  * - `measured-lidar` — a REAL MEASURED per-building height from a regional/national authority source
@@ -1649,7 +1704,7 @@ export async function fetchContextBuildingsNearAndFar(
     // of data, and a slower first paint, to protect against a failure mode that no longer exists.
     // So on the tiles path we go straight to the single far read and partition it.
     if (contextTilesEnabled()) {
-        const full = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+        const full = await fetchForBbox(contextFetchBbox(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
         if (signal?.aborted) return empty;
         const nearBbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
         const nearFeatures = selectNearFootprints({ farFeatures: full.features, nearBbox });
@@ -1674,7 +1729,7 @@ export async function fetchContextBuildingsNearAndFar(
         };
     }
 
-    const nearFirst = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG), signal);
+    const nearFirst = await fetchForBbox(contextFetchBbox(lat, lon, CONTEXT_BBOX_HALF_DEG), signal);
     if (signal?.aborted) return empty;
     if (nearFirst.features.length > 0) {
         console.log(
@@ -1706,7 +1761,7 @@ export async function fetchContextBuildingsNearAndFar(
     let full: Fetched;
     if (nearFirst.features.length > 0) {
         const farPromise = fetchForBbox(
-            contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG),
+            contextFetchBbox(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG),
             signal,
             // Swallow — a failed BONUS must never reject the whole context fetch, and letting it
             // run on unattended would otherwise be an unhandled rejection.
@@ -1732,7 +1787,7 @@ export async function fetchContextBuildingsNearAndFar(
     } else {
         // Near came back empty, so the far ring is no longer a bonus — it is the only chance of
         // any context at all. Wait for it, as before.
-        full = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+        full = await fetchForBbox(contextFetchBbox(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
     }
     if (signal?.aborted) return empty;
 
@@ -1748,7 +1803,7 @@ export async function fetchContextBuildingsNearAndFar(
 
         // Near came back empty too — try the still-narrower extent before giving up. This is the
         // pre-existing last resort and stays exactly as it was.
-        const narrow = await fetchForBbox(contextBboxAround(lat, lon, CONTEXT_BBOX_FALLBACK_HALF_DEG), signal);
+        const narrow = await fetchForBbox(contextFetchBbox(lat, lon, CONTEXT_BBOX_FALLBACK_HALF_DEG), signal);
         if (signal?.aborted) return empty;
         return { near: narrow, far: emptyContextCollection() };
     }

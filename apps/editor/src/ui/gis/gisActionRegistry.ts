@@ -51,6 +51,16 @@ export interface GisCapabilityHost {
     pryzmEnterSiteView?: (initial?: 'map2d' | 'plan' | '3d') => void;
     /** O.7.2 — the top-level result view: '2D' = BIM 3D+plan dual pane, '3D' = photoreal globe. */
     pryzmShowSiteResultView?: (initial?: '2D' | '3D') => void;
+    /**
+     * §PARCEL-LAW-BIM3D (L-12915 / STR §24.1 item 2) — activate a BIM view on the
+     * WHOLE canvas: `activateView(mode)` exits GIS and routes through ViewController,
+     * and it opens NO secondary pane. Registered by GISAreaLayout since L-78.
+     *
+     * ⭐ Declared here 2026-09-06 because it was a live window entry point that no
+     * action named — so no surface could offer it, and every host that wanted "the
+     * BIM 3D view" had to reach for `site.bim-split`, which opens a right-edge pane.
+     */
+    pryzmActivateBimView?: (mode?: 'Top' | '3D' | 'Front' | 'Back' | 'Left' | 'Right') => Promise<void> | void;
     /** §FEAT-PLAN-VIEW-GIS (L-104, ADR-0115) — plan view over the real-world aerial. */
     pryzmEnterPlanViewGis?: () => void | Promise<void>;
     /** FORMA.6 — building fidelity on the "3D Site" (Forma) surface. */
@@ -221,6 +231,47 @@ export const GIS_ACTIONS: readonly GisActionDecl[] = [
         entryPoints: ['pryzmShowSiteResultView'],
         absorbs: ['3D + plan (view-mode switch segment)'],
         dispatch: (h) => { h.pryzmShowSiteResultView?.('2D'); },
+    },
+    {
+        // §PARCEL-LAW-BIM3D (L-12915 · STR §24.1 item 2) — the founder's "BIM 3D", as a
+        // LEFT-PANE view rather than a dual pane.
+        //
+        // ⭐ WHY THIS ROW EXISTS, MEASURED RATHER THAN ASSERTED. `site.bim-split` was the
+        // only declared way to reach a BIM 3D view, and it opens the SplitViewManager
+        // secondary pane: `.svp-pane` is `position: fixed; right: 0; width: 40%;
+        // z-index: 1` (styles/panels/splitView.ts). The Analysis surface is
+        // `#anl-surface { position: fixed; right: 0; width: 50%; z-index: 50 }`
+        // (styles/panels/analysisSurface.ts). So from the PARCEL LAW tab — which lives ON
+        // that surface — pressing "BIM 3D" opened a pane ENTIRELY BEHIND the panel, and
+        // `SplitViewManager._buildDOM` additionally wrote `#container.style.width = '60%'`
+        // over the 50% `WorkspaceController` had just set, sliding the right tenth of the
+        // 3-D viewport under the panel too. Two right-edge claimants, one inline style.
+        //
+        // This action is the one that was always there and never declared: `activateView`
+        // exits GIS, routes through ViewController, and opens no pane at all — so the BIM
+        // 3D view fills the canvas half the reader can actually see.
+        //
+        // ⛔ `site.bim-split` is NOT removed (C19 §5.6 clause 4 — a route is added, never
+        // removed). It stays declared, stays on the GIS bar, and stays correct in a
+        // full-canvas mode, which is the mode it was designed for.
+        //
+        // ⚠ NO `activeWhen`, AND THAT IS THE HONEST STATE, NOT AN OMISSION.
+        // `GisSiteViewState` carries `segment` / `formaMode` / `buildingFidelity`; none of
+        // them reports which BIM view ViewController activated, and `activateView` does not
+        // move `activeSegment`. Inventing a predicate over the fields that DO exist would
+        // paint a highlight from a fact the authority never stated. A surface that renders
+        // this action therefore shows it as never-current and must SAY so — see
+        // `viewSegmentSwitcher`'s unreported-state arm. The fix is a field on the snapshot,
+        // owned by GISAreaLayout; it is named in this lane's report as a seam.
+        id: 'site.bim-3d',
+        label: 'BIM 3D',
+        icon: '▣',
+        title: 'The BIM model in 3D, filling the canvas — no secondary plan pane. '
+            + 'Leaves the site/globe surfaces and returns to the PRYZM model view.',
+        group: 'siteViews',
+        entryPoints: ['pryzmActivateBimView'],
+        absorbs: [],
+        dispatch: (h) => { void h.pryzmActivateBimView?.('3D'); },
     },
     {
         id: 'site.plan-gis',

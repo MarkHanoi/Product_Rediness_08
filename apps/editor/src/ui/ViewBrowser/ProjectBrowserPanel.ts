@@ -54,6 +54,18 @@ import {
     buildParcelRailPanel,
     type ParcelRailPanelHandle,
 } from '../site/parcel/parcelRailPanel';
+// §ROOM-PROGRAMME (STR §8/§9/§10/§25.5) — the residential room library, drag-and-drop
+// and the relationship graph AS LAYOUT INPUT. Placed in THIS file because this is the
+// rail the founder actually opens: §FACADE-PANEL-REACHABILITY (L-10930) is the record of
+// a feature authored into `ExportRailPanel.ts`, which this hub does not render, and which
+// was therefore unreachable for its whole life while a test that built its own rail
+// certified it present.
+import {
+    defaultRoomProgrammePanelDeps,
+    mountRoomProgrammePanel,
+    type RoomProgrammeHostRuntime,
+    type RoomProgrammePanelHandle,
+} from '../room-programme/roomProgrammePanel';
 
 // ── Section icon map ───────────────────────────────────────────────────────
 
@@ -106,6 +118,19 @@ const SECTION_ICONS: Record<string, string> = {
         <line x1="9.5" y1="11.5" x2="14.5" y2="12.5"/>
     </svg>`,
 
+    // §ROOM-PROGRAMME (STR §8/§9) — three cells with a link between two of them: the
+    // room programme AND its relationship graph, which is the whole idea of the section.
+    // Inline SVG for the reason PARCEL's comment above gives — a 404'd <img> renders as a
+    // broken glyph and the entry reads as disabled, which is the exact "authored but
+    // unreachable" impression this rail exists to avoid.
+    PROGRAMME: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="8" height="7" rx="1"/>
+        <rect x="13" y="4" width="8" height="7" rx="1"/>
+        <rect x="3" y="14" width="18" height="6" rx="1"/>
+        <line x1="11" y1="7.5" x2="13" y2="7.5"/>
+        <line x1="7" y1="11" x2="7" y2="14"/>
+    </svg>`,
+
     // A.24 / A.31.e — Inspect (Model Tree + Provenance). Magnifier-over-tree
     // glyph; inline SVG so it inherits the rail's currentColor + needs no asset.
     INSPECT: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -148,6 +173,12 @@ export class ProjectBrowserPanel {
      * on screen that had silently stopped updating. Two slots, two handles.
      */
     private _parcelPanel: ParcelRailPanelHandle | null = null;
+    /**
+     * §ROOM-PROGRAMME — the room-programme panel's handle. Its own field for the same
+     * reason `_parcelPanel` is: it holds a programme subscription and an envelope-store
+     * subscription, and a shared field would let closing one section deafen the other.
+     */
+    private _roomProgrammePanel: RoomProgrammePanelHandle | null = null;
 
     /** Founder 2026-08-10 — first-line AI chat launcher button (top of rail,
      *  directly under the PRYZM logo). Kept as a field so the active-state
@@ -226,6 +257,15 @@ export class ProjectBrowserPanel {
                 try { this._parcelPanel.dispose(); } catch { /* defensive */ }
                 this._parcelPanel = null;
             }
+            // §ROOM-PROGRAMME — same rule, own field: the panel holds a programme
+            // subscription AND an envelope-store `subscribeDirty`, and a subscription
+            // outliving its DOM is how a closed panel keeps re-rendering into a
+            // detached tree. ⚠ The BRIEF itself survives (it is session state in
+            // `roomProgrammeModel`), so reopening the section shows the same programme.
+            if (this._rail.activeId !== 'PROGRAMME' && this._roomProgrammePanel !== null) {
+                try { this._roomProgrammePanel.dispose(); } catch { /* defensive */ }
+                this._roomProgrammePanel = null;
+            }
             if (this._rail.activeId !== 'INSPECT' && this._inspectHandle !== null) {
                 try { this._inspectHandle.dispose(); } catch { /* defensive */ }
                 this._inspectHandle = null;
@@ -266,6 +306,12 @@ export class ProjectBrowserPanel {
             // its own parcel block, since removing it would break the route the founder
             // asked to have restored one day earlier (§GIS-PARCEL-REHOST L-1582).
             { id: 'PARCEL',         label: 'Parcel',            buildFn: () => this._buildParcelPanel()            },
+            // §ROOM-PROGRAMME (STR §8/§9/§10/§25.5) — directly after PARCEL because that
+            // is the order of the founder's own flow: the parcel resolves the plate, the
+            // plate becomes a level envelope, and this is what goes inside it. The
+            // section produces SPACES ONLY — it dispatches `spaceEnvelope.batch.create`
+            // and nothing else. Walls are gated at this stage by STR §25.5.
+            { id: 'PROGRAMME',      label: 'Room Programme',    buildFn: () => this._buildRoomProgrammePanel()     },
             { id: 'AI',             label: 'AI & Tools',        buildFn: () => this._aiPanel.build()               },
             { id: 'PHYSICS',        label: 'Physics',           buildFn: () => this._physicsPanel.build()          },
         ];
@@ -789,6 +835,27 @@ export class ProjectBrowserPanel {
         try { this._parcelPanel?.dispose(); } catch { /* defensive */ }
         this._parcelPanel = buildParcelRailPanel(this.runtime);
         return this._parcelPanel.element;
+    }
+
+    // ── §ROOM-PROGRAMME (STR §8 / §9 / §10 / §25.5) — the room library + the graph ──
+    //
+    // Four lines, like `_buildParcelPanel` above and for the same reason: every figure,
+    // colour and refusal is produced by the `room-programme/` modules and only PLACED
+    // here. This method mounts and owns the handle; it computes nothing.
+    //
+    // ⚠ The panel resolves the LIVE runtime itself (`runtime ?? window.runtime`) rather
+    // than trusting a prop — §L-12916 is the record of the envelope card's INTENDED-area
+    // fold reading `runtime` off a prop that is null by design on the live boot path, and
+    // printing "unavailable" on every real session because of it. `this.runtime` is
+    // passed as the preferred source, never as the only one.
+    private _buildRoomProgrammePanel(): HTMLElement {
+        try { this._roomProgrammePanel?.dispose(); } catch { /* defensive */ }
+        const holder = document.createElement('div');
+        this._roomProgrammePanel = mountRoomProgrammePanel(
+            holder,
+            defaultRoomProgrammePanelDeps(this.runtime as unknown as RoomProgrammeHostRuntime | null),
+        );
+        return holder;
     }
 
     private _buildGISPanel(): HTMLElement {
