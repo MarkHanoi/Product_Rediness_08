@@ -123,6 +123,43 @@ const PMTILES_FILE = arg('--pmtiles');
  * times an assumed storey height is not a measurement.
  */
 const REQUIRE_MEASURED = arg('--require-measured') === null ? null : Number(arg('--require-measured'));
+/**
+ * §OFFICIAL-FOOTPRINTS GATE (L-12939, 2026-09-05) — exit non-zero unless the named national-register
+ * reference is PRESENT in the tiles with at least `--require-floors` storeys.
+ *
+ * WHY A REFCAT AND NOT A COUNT. The measured-height gate above asks "are there ≥ N measured
+ * footprints here", which is the right question for a raster stamp. It is the WRONG question for a
+ * footprint swap: a region can carry half a million OSM footprints, pass every count-based check,
+ * and still be missing the specific 2020 house the founder is standing in — which is exactly the
+ * defect this lane exists to close (CL Isla Lanzarote 4, Córdoba, refcat 1950501UG4915S: "Residencial
+ * · 320 m² · 2020" on the Sede Electrónica, ABSENT from our map because our footprints are OSM).
+ * "A building we know exists, by its own national identifier, at its own storey count" is the only
+ * assertion that can tell a real official bake from an OSM bake that happens to be large.
+ *
+ * `--require-floors` reads `building:levels` — the register's REAL integer. It deliberately does
+ * NOT read a metre value: Catastro publishes storey COUNTS, and `pryzm:height_floors_m` is our own
+ * `floors × 3.0` derivation. Asserting the derivation would be asserting our own arithmetic.
+ */
+const REQUIRE_REF = arg('--require-ref');
+const REQUIRE_FLOORS = arg('--require-floors') === null ? null : Number(arg('--require-floors'));
+/**
+ * §FR-BDTOPO-FOOTPRINTS GATE (L-12940, 2026-09-06) — the FRENCH half of the named-building gate:
+ * the matched `--require-ref` must carry a `pryzm:height_kind` of this value, and when that value
+ * is 'measured' it must ALSO carry a finite `height` > 0.
+ *
+ * WHY `--require-floors` COULD NOT SERVE. It reads `building:levels` on purpose, because Spain's
+ * register publishes storey COUNTS and asserting our own floors×3.0 derivation would be asserting
+ * our own arithmetic. France is the opposite case: IGN's BD TOPO publishes `hauteur` IN METRES,
+ * measured, and cross-checked against the LiDAR HD MNH raster to a median |delta| of 0.73 m over
+ * the founder's two parcels. The founder's Sète complaint is "not true HEIGHT", so the gate has to
+ * assert the metre value and its PROVENANCE — a `floors×3.0` estimate satisfying a height gate is
+ * the honesty inversion C57 §1.9 bans, and a storey count says nothing about it either way.
+ *
+ * Deliberately NOT a numeric threshold on the metres. A hard-coded "≥ 7.0 m at Sète" would fail on
+ * IGN's next re-survey of a building that is still perfectly correct; the durable assertions are
+ * "this building exists, by its national identifier" and "its height is MEASURED, not derived".
+ */
+const REQUIRE_HEIGHT_KIND = arg('--require-height-kind');
 
 if (!AT || !/^-?[\d.]+,\s*-?[\d.]+$/.test(AT.trim())) {
   console.error('✖ --at lat,lon is required, e.g. --at 50.9375,6.9603 --name koln');
@@ -469,5 +506,71 @@ if (REQUIRE_MEASURED !== null) {
     process.exit(6);
   }
   console.log(`✔ MEASURED GATE — ${NAME}: ${report.measuredMarkerCount} measured footprint(s) (≥ ${REQUIRE_MEASURED}).`);
+}
+
+// §OFFICIAL-FOOTPRINTS GATE (L-12939) — the footprint-swap assertion. See --require-ref above.
+if (REQUIRE_REF !== null) {
+  if (read.status !== 'ok') {
+    console.error(`✖ OFFICIAL FOOTPRINTS GATE — ${NAME}: could not read the tiles (${verdict}${report.reason ? `: ${report.reason}` : ''}). This is NOT a statement about the data.`);
+    process.exit(5);
+  }
+  // The tag keys mirror tools/context-bake/footprints/officialFootprints.mjs OFFICIAL_TAGS. Both
+  // sides carry their own copy on purpose (the bake is .mjs, this is a standalone probe with no
+  // import of it); esCatastro.spec.ts pins the producing half, and a rename that reaches only one
+  // side fails HERE — loudly — rather than shipping tiles whose data nothing reads.
+  const REF_TAG = 'pryzm:ref';
+  const PART_TAG = 'pryzm:part';
+  const SRC_TAG = 'pryzm:source';
+  const hits = read.tags.filter((t) => t[REF_TAG] === REQUIRE_REF);
+  if (hits.length === 0) {
+    const anyOfficial = read.tags.filter((t) => t[SRC_TAG]).length;
+    console.error(
+      `✖ OFFICIAL FOOTPRINTS GATE FAILED — ${NAME}: reference ${REQUIRE_REF} is NOT in the tiles.
+` +
+      `  ${report.footprints} footprint(s) read here, of which ${anyOfficial} carry an official ${SRC_TAG}. ` +
+      (anyOfficial === 0
+        ? 'NONE are official — the run baked OSM footprints. Did it pass `--footprints official`, and did the region declare a footprintSource?'
+        : 'Official footprints ARE present, so the merge ran — but this specific building is missing from them. Check the municipality resolved from the ATOM feed and its bbox.'));
+    process.exit(7);
+  }
+  const floors = hits
+    .map((t) => Number(t['building:levels']))
+    .filter((v) => Number.isFinite(v));
+  const best = floors.length ? Math.max(...floors) : null;
+  const parts = hits.filter((t) => t[PART_TAG] === 'true').length;
+  if (REQUIRE_FLOORS !== null && (best === null || best < REQUIRE_FLOORS)) {
+    console.error(
+      `✖ OFFICIAL FOOTPRINTS GATE FAILED — ${NAME}: reference ${REQUIRE_REF} is present ` +
+      `(${hits.length} feature(s), ${parts} part(s)) but its storey count is ${best === null ? 'ABSENT' : best}, ` +
+      `required ≥ ${REQUIRE_FLOORS}.
+` +
+      '  A footprint with no `building:levels` renders as the fabricated 9 m default, which is the ' +
+      'flat carpet this gate exists to catch — the register HAS the number.');
+    process.exit(8);
+  }
+  // §FR-BDTOPO-FOOTPRINTS GATE (L-12940) — the metre value AND its provenance. See --require-height-kind.
+  if (REQUIRE_HEIGHT_KIND !== null) {
+    const KIND_TAG = 'pryzm:height_kind';
+    const kinds = hits.map((t) => t[KIND_TAG] ?? 'ABSENT');
+    const qualifying = hits.filter((t) => t[KIND_TAG] === REQUIRE_HEIGHT_KIND
+      && (REQUIRE_HEIGHT_KIND !== 'measured' || (Number.isFinite(Number(t.height)) && Number(t.height) > 0)));
+    if (qualifying.length === 0) {
+      console.error(
+        `✖ OFFICIAL FOOTPRINTS GATE FAILED — ${NAME}: reference ${REQUIRE_REF} is present ` +
+        `(${hits.length} feature(s)) but NONE carries ${KIND_TAG}='${REQUIRE_HEIGHT_KIND}'` +
+        `${REQUIRE_HEIGHT_KIND === 'measured' ? ' with a height > 0' : ''}.\n` +
+        `  kinds read: ${[...new Set(kinds)].join(', ')} · heights read: ${[...new Set(hits.map((t) => t.height ?? 'ABSENT'))].join(', ')}\n` +
+        (kinds.every((k) => k === 'ABSENT')
+          ? `  NO feature here carries ${KIND_TAG} at all — these are OSM footprints, or the adapter's tag contract regressed.`
+          : '  The footprint landed but its height is DERIVED, not measured. A floors×3.0 estimate must never satisfy a measured-height gate (C57 §1.9).'));
+      process.exit(9);
+    }
+    console.log(`✔ MEASURED-HEIGHT GATE — ${NAME}: ${REQUIRE_REF} · ${qualifying.length}/${hits.length} feature(s) `
+      + `${KIND_TAG}='${REQUIRE_HEIGHT_KIND}' · height ${qualifying.map((t) => t.height).join(', ')} m.`);
+  }
+  console.log(
+    `✔ OFFICIAL FOOTPRINTS GATE — ${NAME}: ${REQUIRE_REF} present · ${hits.length} feature(s) ` +
+    `(${parts} part(s) + ${hits.length - parts} outline(s)) · source ${hits[0][SRC_TAG] ?? 'UNSTAMPED'} · ` +
+    `max ${best ?? 'no'} storey(s)${REQUIRE_FLOORS !== null ? ` (≥ ${REQUIRE_FLOORS})` : ''}.`);
 }
 process.exit(verdict === 'unreachable' ? 2 : 0);
