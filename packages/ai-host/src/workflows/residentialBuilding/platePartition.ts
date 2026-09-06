@@ -541,11 +541,14 @@ function absorbResidual(
             continue;
         }
         if (peekDemand) nextDemand();   // gates passed — consume the peeked demand
+        // §RESI-ABSORBED-DOOR-EDGE — the edge that ACTUALLY fronts a corridor, measured; `'z0'` only
+        // as the historic last resort when no bbox edge shares a door width with any band.
+        const absorbedRect = normRect(rbb);
         placements.push({
             typology: demand.typology,
-            rect: normRect(rbb),
+            rect: absorbedRect,
             areaM2: round4(area),
-            doorEdge: 'z0',
+            doorEdge: bestFrontingEdge(absorbedRect, corridors) ?? 'z0',
             polygon: ring.map(p => ({ x: round4(p.x), z: round4(p.z) })),
         });
     }
@@ -630,6 +633,53 @@ function polygonFrontsCorridor(poly: readonly Pt[], corridors: readonly Rect[], 
     return false;
 }
 
+// ── §RESI-ABSORBED-DOOR-EDGE (P8, L-13010) ───────────────────────────────────────────────────────
+// `absorbResidual` used to stamp `doorEdge: 'z0'` on EVERY absorbed cell — a hard-coded literal, not a
+// measurement. It had already proved (via `polygonFrontsCorridor`) that the region FRONTS a corridor,
+// then threw away WHICH edge did the fronting. On a plate whose corridor spine runs along Z (a narrow
+// plate: the spine is the vertical band beside the core, and the absorbed cells sit LEFT and RIGHT of
+// it) the fronting edge is `x0`/`x1`, never `z0` — so every downstream consumer that reads `doorEdge`
+// was pointed at an EXTERIOR FAÇADE edge:
+//   · `cellDoorOnConnectedCorridor` → `coreReachable:false` on every unit (measured 0/6 on 22×14);
+//   · `repairCoreCirculation`'s `servesCell` → sees no band serving the cell, so it adds NO spur
+//     (the repair pass believed there was nothing to repair);
+//   · `computeCoreDoorPlacement` → no `coreDoorOffset`;
+//   · the orchestrator's `§RESI-ENTRY-INTO-CORRIDOR` seam → the per-cell D-TGL engine routed the
+//     apartment's FRONT DOOR to the outside wall instead of the public corridor.
+// This measures the fronting edge with the SAME coincidence test the tag will later apply
+// (`cellDoorOnConnectedCorridor`), so the tag is true BY CONSTRUCTION rather than by luck. Edges are
+// scanned in the fixed order x0,x1,z0,z1 and the LARGEST shared run wins (strict `>` keeps the first
+// on a tie) → deterministic. Returns null when no bbox edge shares a door width with any band; the
+// caller then keeps the historic `'z0'`, so a plate where `'z0'` was already correct is byte-identical.
+function bestFrontingEdge(r: Rect, corridors: readonly Rect[]): ApartmentCell['doorEdge'] | null {
+    const rx0 = Math.min(r.x0, r.x1), rx1 = Math.max(r.x0, r.x1);
+    const rz0 = Math.min(r.z0, r.z1), rz1 = Math.max(r.z0, r.z1);
+    const edges: ReadonlyArray<{ e: ApartmentCell['doorEdge']; horizontal: boolean; k: number; lo: number; hi: number }> = [
+        { e: 'x0', horizontal: false, k: rx0, lo: rz0, hi: rz1 },
+        { e: 'x1', horizontal: false, k: rx1, lo: rz0, hi: rz1 },
+        { e: 'z0', horizontal: true, k: rz0, lo: rx0, hi: rx1 },
+        { e: 'z1', horizontal: true, k: rz1, lo: rx0, hi: rx1 },
+    ];
+    let bestEdge: ApartmentCell['doorEdge'] | null = null;
+    let bestShare = 0;
+    for (const ed of edges) {
+        let share = 0;
+        for (const c of corridors) {
+            const cx0 = Math.min(c.x0, c.x1), cx1 = Math.max(c.x0, c.x1);
+            const cz0 = Math.min(c.z0, c.z1), cz1 = Math.max(c.z0, c.z1);
+            if (ed.horizontal) {
+                if (!(Math.abs(ed.k - cz0) < 0.05 || Math.abs(ed.k - cz1) < 0.05)) continue;
+                share = Math.max(share, Math.min(ed.hi, cx1) - Math.max(ed.lo, cx0));
+            } else {
+                if (!(Math.abs(ed.k - cx0) < 0.05 || Math.abs(ed.k - cx1) < 0.05)) continue;
+                share = Math.max(share, Math.min(ed.hi, cz1) - Math.max(ed.lo, cz0));
+            }
+        }
+        if (share >= DOOR_WIDTH_M - EPS && share > bestShare + EPS) { bestShare = share; bestEdge = ed.e; }
+    }
+    return bestEdge;
+}
+
 const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 function normRect(r: Rect): Rect {
     return { x0: round4(r.x0), z0: round4(r.z0), x1: round4(r.x1), z1: round4(r.z1) };
@@ -708,7 +758,7 @@ function rectTouchesBand(r: Rect, band: Rect): boolean {
  *  corridor bands only (BFS over the corridor adjacency graph, seeded by bands touching the core).
  *  A band NOT in this set is a marooned stub — any apartment fronting only such a band is NOT
  *  core-connected. Pure + deterministic (index order fixed). */
-function coreConnectedBandSet(corridorBands: readonly Rect[], core: Rect): Set<number> {
+export function coreConnectedBandSet(corridorBands: readonly Rect[], core: Rect): Set<number> {
     const reachable = new Set<number>();
     const queue: number[] = [];
     // Seed: every band that touches the core.
@@ -731,7 +781,7 @@ function coreConnectedBandSet(corridorBands: readonly Rect[], core: Rect): Set<n
  *  (the core-connected set)? The door edge is the cell's `doorEdge`; we test that edge shares ≥ a
  *  door width with a core-connected band's coincident boundary. Mirrors `polygonFrontsCorridor` but
  *  restricted to the door edge AND to core-connected bands. */
-function cellDoorOnConnectedCorridor(
+export function cellDoorOnConnectedCorridor(
     cell: ApartmentCell, corridorBands: readonly Rect[], connected: ReadonlySet<number>,
 ): boolean {
     const r = cell.rect;

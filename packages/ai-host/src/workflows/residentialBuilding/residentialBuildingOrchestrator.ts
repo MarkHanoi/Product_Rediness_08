@@ -46,6 +46,10 @@ import { deriveCoreSizing, APPROACH_CLEAR_M } from './coreSizing.js';
 // core + a landing, no corridor. Planned by its own pure module, consumed through the SAME
 // `PlatePartitionResult` shape as the corridor grid.
 import { partitionSingleCoreLanding } from './singleCoreLanding.js';
+// P8 (tracker) — the corridor-spine GATE. ISOLATED + GATED: importing it changes nothing on the
+// default path; the assessment only RUNS when `__pryzmResidentialCorridorGate === true`, so
+// production stays byte-identical until the founder browser-validates (tracker P8 gate column).
+import { assessCorridorQuality, corridorQualityGateOn } from './residentialCorridorQuality.js';
 import type { Pt, Rect } from '../apartmentLayout/tgl/rectDecomposition.js';
 import { rectArea, rectWidth, rectDepth, principalAxisAngle, rotatePt, decomposeToRects } from '../apartmentLayout/tgl/rectDecomposition.js';
 import type { ApartmentProgram } from '../apartmentLayout/types.js';
@@ -493,6 +497,18 @@ export function orchestrateResidentialBuilding(
                 span.setAttribute('pryzm.resi.orchestrate.status', out.status);
                 if (out.status === 'ok') {
                     span.setAttribute('pryzm.resi.orchestrate.levels', out.levels.length);
+                    // P8 — the corridor-spine gate. DEFAULT OFF (the tracker's "HARD GATE,
+                    // default-OFF"): the whole block short-circuits, so an unflagged run does not
+                    // even build the report. The gate REPORTS; it never rejects a building and never
+                    // throws (C50 §1.7) — promoting it to merge-blocking is tracker row P10.2.
+                    if (corridorQualityGateOn()) {
+                        const q = assessCorridorQuality(out);
+                        span.setAttribute('pryzm.resi.corridor.reached', q.reached);
+                        span.setAttribute('pryzm.resi.corridor.coreReached', q.coreReachable);
+                        span.setAttribute('pryzm.resi.corridor.servedThrough', q.servedThrough);
+                        span.setAttribute('pryzm.resi.corridor.pass', q.pass);
+                        console.log(`[resi-building] ${q.diagnostic}`);
+                    }
                 }
                 span.end();
                 return out;
