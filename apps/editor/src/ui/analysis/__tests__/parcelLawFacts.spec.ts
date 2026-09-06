@@ -24,7 +24,8 @@ import {
     buildParcelLawFacts,
 } from '../parcelLawFacts';
 import {
-    PARCEL_LAW_FACTS_SLOT_TESTID,
+    PARCEL_LAW_FACTS_LAW_SLOT_TESTID,
+    PARCEL_LAW_FACTS_PLOT_SLOT_TESTID,
     mountParcelLawTab,
     type ParcelLawCapabilityHost,
     type ParcelLawTabDeps,
@@ -237,14 +238,22 @@ describe('§25.11 — REACHABILITY: the section is really in the tab body', () =
             // this test is that the PRODUCTION pair runs.
         };
         const h = mountParcelLawTab(host, deps);
-        const slot = h.element.querySelector(`[data-testid="${PARCEL_LAW_FACTS_SLOT_TESTID}"]`);
-        expect(slot).not.toBeNull();
-        const facts = slot!.querySelector(`[data-testid="${PARCEL_LAW_FACTS_TESTID}"]`);
-        expect(facts).not.toBeNull();
+        // §PL-IA-Q (L-12998) — the ONE model now renders into TWO slots, because its halves answer
+        // two different persona questions (STR §26.3). ⛔ The point of this test is UNCHANGED: the
+        // production reader and renderer really run inside the tab body, and every absence still
+        // arrives as a SENTENCE rather than an empty box. Only the placement moved.
+        const plot = h.element.querySelector(`[data-testid="${PARCEL_LAW_FACTS_PLOT_SLOT_TESTID}"]`);
+        const law = h.element.querySelector(`[data-testid="${PARCEL_LAW_FACTS_LAW_SLOT_TESTID}"]`);
+        expect(plot).not.toBeNull();
+        expect(law).not.toBeNull();
+        expect(plot!.querySelector(`[data-testid="${PARCEL_LAW_FACTS_TESTID}"]`)).not.toBeNull();
+        expect(law!.querySelector(`[data-testid="${PARCEL_LAW_FACTS_TESTID}"]`)).not.toBeNull();
         // With no runtime there is no parcel and no determination — and it SAYS so, in both
-        // halves, rather than rendering an empty box.
-        expect(facts!.querySelector(`[data-testid="${PARCEL_LAW_GEOMETRY_ABSENT_TESTID}"]`)).not.toBeNull();
-        expect(facts!.querySelector(`[data-testid="${PARCEL_LAW_ENVELOPE_ABSENT_TESTID}"]`)).not.toBeNull();
+        // halves, rather than rendering an empty box. ⭐ Each sentence is now asserted in the
+        // question that owns it: the unreadable ring under "what is this plot?", the missing
+        // determination under "what may I build here?".
+        expect(plot!.querySelector(`[data-testid="${PARCEL_LAW_GEOMETRY_ABSENT_TESTID}"]`)).not.toBeNull();
+        expect(law!.querySelector(`[data-testid="${PARCEL_LAW_ENVELOPE_ABSENT_TESTID}"]`)).not.toBeNull();
         h.dispose();
         host.remove();
     });

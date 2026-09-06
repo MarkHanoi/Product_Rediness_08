@@ -127,12 +127,21 @@ function quantitiesHtml(model: LiveQuantitiesModel): string {
 }
 
 /** The rate entry. Prefilled from `current` so a set rate never looks unset after a repaint. */
-function rateEntryHtml(current: IndicativeRate | null): string {
+function rateEntryHtml(
+    current: IndicativeRate | null,
+    opts?: { readonly leadingRule?: boolean },
+): string {
     const valueAttr = current ? ` value="${escHtml(current.amountPerM2)}"` : '';
     const chosen = current?.currency ?? DEFAULT_INDICATIVE_CURRENCY;
     const options = INDICATIVE_CURRENCIES.map((c) =>
         `<option value="${escHtml(c)}"${c === chosen ? ' selected' : ''}>${escHtml(c)}</option>`).join('');
-    return `<div style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;">
+    // §PL-IA-Q — the hairline separates the rate from the quantities ABOVE it. When the two are
+    // placed in different question groups there is nothing above it to separate from, and an
+    // orphan rule reads as a section boundary that is not there.
+    const lead = (opts?.leadingRule ?? true)
+        ? 'margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;'
+        : '';
+    return `<div style="${lead}min-width:0;max-width:100%;">
         <div style="font-weight:700;font-size:10.5px;color:#6600FF;">Cost per m² — your number</div>
         <div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;">PRYZM ships a published, cited rate for one place only, so outside it the honest answer is a refusal. Type what YOU assume and PRYZM will multiply it by the area above. It will be labelled as your assumption, and the currency is yours to choose — PRYZM never guesses one from your locale.</div>
         <div style="display:flex;gap:6px;margin-top:6px;align-items:flex-end;">
@@ -168,6 +177,62 @@ function costHtml(outcome: IndicativeCostOutcome): string {
         + `${escHtml(fmt0(e.amount))} ${escHtml(e.currency)}</span></div>`
         + `<div data-testid="${LIVE_QUANTITIES_COST_STATEMENT_TESTID}" style="margin-top:4px;font-size:9px;`
         + `color:#8a83a0;line-height:1.5;">${escHtml(e.statement)}</div></div>`;
+}
+
+/**
+ * §PL-IA-Q (STR §26.3) — `data-testid` on the QUANTITIES half when the two are placed apart.
+ */
+export const LIVE_QUANTITIES_QUANTITIES_PART_TESTID = 'live-quantities-quantities-part';
+/** §PL-IA-Q — `data-testid` on the COST half when the two are placed apart. */
+export const LIVE_QUANTITIES_COST_PART_TESTID = 'live-quantities-cost-part';
+
+/**
+ * ⭐ §PL-IA-Q — THE QUANTITIES HALF ALONE: *"how much have I used?"*
+ *
+ * The founder's persona sequence (§26.3) asks *"how much of my allowance have I used, and what
+ * is left?"* BEFORE it asks *"what does it cost?"*. Those are two questions, and this section
+ * answered both in one block because one model feeds both — which is a reason to compute once,
+ * not a reason to RENDER once. Splitting the markup changes no arithmetic: the caller passes the
+ * same `model` to this and the same `outcome` to its sibling, both derived exactly as before.
+ *
+ * ⛔ The heading drops *"& indicative cost"* here, because in this arrangement it would name a
+ * figure that is not in this block — and a heading that promises a number the reader cannot see
+ * is the disclosure defect this whole re-organisation exists to remove.
+ */
+export function buildLiveQuantitiesQuantitiesPart(model: LiveQuantitiesModel): string {
+    const span = _tracer.startSpan('pryzm.site.buildLiveQuantitiesQuantitiesPart');
+    try {
+        span.setAttribute('pryzm.liveQuantities.readable', model.readable);
+        return `<div data-testid="${LIVE_QUANTITIES_QUANTITIES_PART_TESTID}" style="min-width:0;max-width:100%;">`
+            + `<div style="font-weight:700;font-size:11px;color:#2b2740;">Live quantities</div>`
+            + `<div style="margin-top:2px;margin-bottom:6px;font-size:9.5px;color:#8a83a0;line-height:1.45;">`
+            + `These figures come from the level and room envelopes on this site and update as you edit them. `
+            + `They are a STUDY at the envelope stage — nothing has been modelled yet.</div>`
+            + `${quantitiesHtml(model)}</div>`;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * ⭐ §PL-IA-Q — THE COST HALF ALONE: *"what does it cost?"*
+ *
+ * The rate entry and the estimate it produces, with every honesty property they already carried:
+ * the rate is labelled the USER'S assumption, the currency is chosen and never inferred, and a
+ * refusal prints the estimator's own sentence with its reason on `data-arm`.
+ */
+export function buildLiveQuantitiesCostPart(
+    rate: IndicativeRate | null,
+    outcome: IndicativeCostOutcome,
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildLiveQuantitiesCostPart');
+    try {
+        span.setAttribute('pryzm.liveQuantities.costArm', outcome.ok ? 'estimate' : outcome.reason);
+        return `<div data-testid="${LIVE_QUANTITIES_COST_PART_TESTID}" style="min-width:0;max-width:100%;">`
+            + `${rateEntryHtml(rate, { leadingRule: false })}${costHtml(outcome)}</div>`;
+    } finally {
+        span.end();
+    }
 }
 
 /**

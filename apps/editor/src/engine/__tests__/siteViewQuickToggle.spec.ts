@@ -200,8 +200,31 @@ describe('§VIEW-PANEL-PER-PANE — the two rival view types that were NOT minte
     });
 
     it('the ONE basemap implementation is the map\'s own, re-hosted not re-written', () => {
-        const map2d = read('apps/editor/src/ui/geospatial/SiteBoundaryMap2D.ts');
-        // Exactly one `setStyle` call in the app's 2D map — the swap this panel drives.
+        // ⛔ `codeOnly`, NOT `read` — CORRECTED 2026-09-06 (lane GLOBE-AND-ENVELOPE-IN-CESIUM), and
+        // this is the FIFTH recurrence of the defect THIS FILE'S OWN `codeOnly` DOCSTRING DESCRIBES:
+        // *"Every source-text arm below asserts the ABSENCE of a pattern — and a well-written header
+        // EXPLAINS the absence by naming the very pattern it forbids … So the better the comment,
+        // the more certainly the raw-text arm fails."* It said "learned it FOUR TIMES in one
+        // session"; this arm was the one that had not learned it.
+        //
+        // WHAT WENT RED, AND WHY IT WAS NOT A REGRESSION. §MAP2D-ENVELOPE registered the buildable-
+        // envelope layers inside `installRingLayers`, which is correct and load-bearing — a
+        // `setStyle(style, {diff:false})` wipes every added source and layer, and that function is
+        // what the `style.load` handler re-runs. Saying so REQUIRES naming `map.setStyle(`, so a
+        // raw-text count read 2 while `SiteBoundaryMap2D.ts` still contained exactly ONE CALL
+        // (measured: raw 2, code-only 1 — the other is the comment at ~:1142).
+        //
+        // ⭐ THE COUNT IS STILL 1, DELIBERATELY. The invariant is intact and is NOT being relaxed:
+        // there is one basemap implementation, RE-HOSTED not re-written, and a second `setStyle`
+        // call site would still fail this line. Only the MEASUREMENT changed — from counting
+        // sentences to counting code. This is the same correction §RAF-GATE-COMMENT-BLIND made to
+        // the P3 gate, which reported "5 owners" when there was 1 owner and 4 comment lines, three
+        // of them doc comments asserting P3 compliance (CLAUDE.md P3).
+        //
+        // ⛔ Do NOT "fix" a future red here by watering down the comment in `SiteBoundaryMap2D.ts`.
+        // A gate that punishes accurate comments trains the codebase to lie.
+        const map2d = codeOnly(read('apps/editor/src/ui/geospatial/SiteBoundaryMap2D.ts'));
+        // Exactly one `setStyle` CALL in the app's 2D map — the swap this panel drives.
         expect((map2d.match(/map\.setStyle\(/g) ?? []).length).toBe(1);
         // The handle hands OUT that function; it does not re-implement it.
         expect(map2d).toContain('setBasemap: (next) => swapBasemap(next)');

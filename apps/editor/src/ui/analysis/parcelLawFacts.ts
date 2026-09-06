@@ -62,6 +62,35 @@ export const PARCEL_LAW_ENVELOPE_ABSENT_TESTID = 'parcel-law-envelope-absent';
 export const PARCEL_LAW_REFUSAL_TESTID = 'parcel-law-refusal';
 /** `data-testid` on the stored-determination date line. */
 export const PARCEL_LAW_DETERMINED_AT_TESTID = 'parcel-law-determined-at';
+/** Attribute recording WHICH half of the model a given rendering shows. */
+export const PARCEL_LAW_FACTS_SCOPE_ATTR = 'data-facts-scope';
+
+/**
+ * §PL-IA-Q (STR §26.3) — WHICH OF THE SIX PERSONA QUESTIONS THIS RENDERING ANSWERS.
+ *
+ * The founder's complaint about this tab was never that a figure was missing; it was that the
+ * figures arrive in the order a PROGRAMMER discovers them. Two of these groups answer
+ * *"what is this plot?"* and four answer *"what may I build here, and who says so?"* — different
+ * questions, asked at different moments, and until now welded into one flat block.
+ *
+ * ⛔ THIS IS A PLACEMENT SWITCH, NOT A FILTER ON TRUTH. Every group still renders, from the same
+ * model, with the same source line and the same `not derived` discipline; the caller decides
+ * which of its two question groups each one lands in. `all` is the default and is byte-identical
+ * to the section this file has always produced, so the rail panel and every existing spec are
+ * untouched.
+ *
+ *   · `plot` — the PARCEL group (area, perimeter, bounding box, boundary edges) and, when the
+ *     ring could not be read, the sentence that says so.
+ *   · `law`  — the shared-model lede, the stored-determination date, the refusal / absence arms
+ *     and the ORDINANCE LIMITS · MASSING POTENTIAL · PER STOREY · CAPACITY groups.
+ *   · `all`  — both, in the historic order.
+ */
+export type ParcelLawFactsScope = 'all' | 'plot' | 'law';
+
+/** Options for `buildParcelLawFacts`. Optional in full, so every existing call is unchanged. */
+export interface ParcelLawFactsOptions {
+    readonly scope?: ParcelLawFactsScope;
+}
 
 /** The words a withheld value renders as. ONE spelling, so a spec can assert it verbatim. */
 export const NOT_DERIVED_TEXT = 'not derived';
@@ -193,22 +222,34 @@ function storeyRow(st: ParcelLawStorey): HTMLDivElement {
  * with content for every state a project can be in — including the two that are the common
  * ones (no plot committed, and a plot whose zone PRYZM has not encoded).
  */
-export function buildParcelLawFacts(model: ParcelLawModel): HTMLElement {
+export function buildParcelLawFacts(
+    model: ParcelLawModel,
+    opts?: ParcelLawFactsOptions,
+): HTMLElement {
     const span = _tracer.startSpan('pryzm.analysis.buildParcelLawFacts');
+    // §PL-IA-Q (STR §26.3) — WHICH HALF OF THE MODEL THIS RENDERING SHOWS. Defaulting to `all`
+    // is not politeness: it is what makes this an ADDITIVE change to a producer three surfaces
+    // read. Every existing caller keeps the flat section it had, datum for datum.
+    const scope: ParcelLawFactsScope = opts?.scope ?? 'all';
+    const wantPlot = scope !== 'law';
+    const wantLaw = scope !== 'plot';
     const root = el('div', 'anl-plaw-facts');
     root.setAttribute('data-testid', PARCEL_LAW_FACTS_TESTID);
     root.setAttribute('data-envelope-state', model.envelopeState);
     root.setAttribute('data-identity-absence', model.identityAbsence);
+    root.setAttribute(PARCEL_LAW_FACTS_SCOPE_ATTR, scope);
     try {
-        const note = el('p', 'anl-plaw-note', PARCEL_LAW_FACTS_NOTE);
-        note.style.margin = '0 0 6px';
-        note.style.fontSize = '10.5px';
-        note.style.opacity = '0.8';
-        root.appendChild(note);
+        if (wantLaw) {
+            const note = el('p', 'anl-plaw-note', PARCEL_LAW_FACTS_NOTE);
+            note.style.margin = '0 0 6px';
+            note.style.fontSize = '10.5px';
+            note.style.opacity = '0.8';
+            root.appendChild(note);
+        }
 
         // ── The stored-determination date. A dated snapshot presented as freshly derived
         //    would fabricate recency, which is provenance (C58 §1.4). ─────────────────────
-        if (model.determinedAtIso) {
+        if (wantLaw && model.determinedAtIso) {
             const d = el(
                 'div',
                 'anl-plaw-determined-at',
@@ -225,7 +266,10 @@ export function buildParcelLawFacts(model: ParcelLawModel): HTMLElement {
             'Parcel',
             'Cadastral boundary as committed to this project, measured in scene metres.',
         );
-        if (model.geometry) {
+        if (!wantPlot) {
+            // Nothing to build here in `law` scope — the plot half is rendered by the caller's
+            // question 1 group. Fall through to the law arms below.
+        } else if (model.geometry) {
             const geo = model.geometry;
             g0.body.appendChild(numFact('parcel-area', 'Area', geo.areaM2, 'm²', 0));
             g0.body.appendChild(numFact('parcel-perimeter', 'Perimeter', geo.perimeterM, 'm', 1));
@@ -257,12 +301,12 @@ export function buildParcelLawFacts(model: ParcelLawModel): HTMLElement {
             miss.style.lineHeight = '1.5';
             g0.body.appendChild(miss);
         }
-        root.appendChild(g0.root);
+        if (wantPlot) root.appendChild(g0.root);
 
         // ── The refusal / absence arms. A refusal has no numeric rows BY DESIGN (§L-550):
         //    three dashes would read as "not filled in yet", which is the ambiguity the
         //    refusal card exists to remove. ────────────────────────────────────────────────
-        if (model.envelopeState === 'refused' && model.refusal) {
+        if (wantLaw && model.envelopeState === 'refused' && model.refusal) {
             const r = model.refusal;
             const box = el('div', 'anl-plaw-refusal');
             box.setAttribute('data-testid', PARCEL_LAW_REFUSAL_TESTID);
@@ -286,7 +330,7 @@ export function buildParcelLawFacts(model: ParcelLawModel): HTMLElement {
             root.appendChild(box);
             return root;
         }
-        if (model.envelopeState === 'absent') {
+        if (wantLaw && model.envelopeState === 'absent') {
             const miss = el('div', 'anl-plaw-absent', PARCEL_LAW_ENVELOPE_ABSENT_TEXT);
             miss.setAttribute('data-testid', PARCEL_LAW_ENVELOPE_ABSENT_TESTID);
             miss.style.marginTop = '9px';
@@ -298,7 +342,7 @@ export function buildParcelLawFacts(model: ParcelLawModel): HTMLElement {
 
         // ── ORDINANCE LIMITS ──────────────────────────────────────────────────────────────
         const ord = model.ordinance;
-        if (ord) {
+        if (wantLaw && ord) {
             const g1 = group(
                 'Ordinance limits',
                 ord.citation
@@ -342,7 +386,7 @@ export function buildParcelLawFacts(model: ParcelLawModel): HTMLElement {
 
         // ── MASSING POTENTIAL ─────────────────────────────────────────────────────────────
         const mass = model.massing;
-        if (mass) {
+        if (wantLaw && mass) {
             const g2 = group(
                 'Massing potential',
                 mass.footprintIsUpperBound
@@ -369,7 +413,7 @@ export function buildParcelLawFacts(model: ParcelLawModel): HTMLElement {
 
         // ── PER STOREY ────────────────────────────────────────────────────────────────────
         const ps = model.perStorey;
-        if (ps) {
+        if (wantLaw && ps) {
             const g3 = group(
                 'Per storey',
                 ps.floorToFloorM !== null
@@ -393,7 +437,7 @@ export function buildParcelLawFacts(model: ParcelLawModel): HTMLElement {
 
         // ── CAPACITY — §L-588/§L-590. A SEPARATE legal question from the geometry above. ──
         const cap = model.capacity;
-        if (cap) {
+        if (wantLaw && cap) {
             const g4 = group(
                 'Capacity',
                 'A SEPARATE legal question from the envelope above — the geometry is complete, and '

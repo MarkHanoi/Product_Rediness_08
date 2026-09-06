@@ -42,6 +42,8 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { collectIntendedAreas, type IntendedAreaSnapshot } from '../site/intendedAreaChannel';
 import { buildLiveQuantitiesModel } from '../site/liveQuantitiesModel';
 import {
+    buildLiveQuantitiesCostPart,
+    buildLiveQuantitiesQuantitiesPart,
     buildLiveQuantitiesSection,
     DEFAULT_INDICATIVE_CURRENCY,
     LIVE_QUANTITIES_APPLY_BTN_TESTID,
@@ -61,6 +63,8 @@ const _tracer = trace.getTracer('pryzm.analysis.parcelLawQuantities');
 
 /** `data-testid` on the slot this control owns. */
 export const PARCEL_LAW_QUANTITIES_SLOT_TESTID = 'analysis-parcel-law-quantities';
+/** §PL-IA-Q — `data-testid` on the COST half's slot when it was placed in another host. */
+export const PARCEL_LAW_COST_SLOT_TESTID = 'analysis-parcel-law-cost';
 /** Carries how many live re-renders the store channel has driven — read by the spec. */
 export const PARCEL_LAW_QUANTITIES_LIVE_ATTR = 'data-live-repaints';
 /** `'yes'` when the store's dirty channel was subscribed; `'no'` (with a reason) when not. */
@@ -120,8 +124,28 @@ export function defaultParcelLawQuantitiesDeps(): ParcelLawQuantitiesDeps {
     };
 }
 
+/**
+ * §PL-IA-Q (STR §26.3) — where this ONE mount puts its two halves.
+ *
+ * ⛔ A PLACEMENT, NEVER A SPLIT OF THE PRODUCER. One `render()`, one store subscription, one
+ * `estimateAtIndicativeRate` call whatever this says; the quantities and the cost simply land in
+ * the two question groups that ask for them (§26.3 items 4 and 5).
+ */
+export interface ParcelLawQuantitiesPlacement {
+    /**
+     * Host for the rate entry and the indicative cost. Omit and both halves stay in one block,
+     * which is the historic layout and what every existing caller gets.
+     */
+    readonly costHost?: HTMLElement | null;
+}
+
 export interface ParcelLawQuantitiesHandle {
     readonly element: HTMLElement;
+    /**
+     * The cost half's element when it was placed elsewhere, else `null`. Read by the tab so its
+     * question-5 digest can mirror a figure that is not inside `element`.
+     */
+    readonly costElement: HTMLElement | null;
     /** Re-read everything and repaint. Cheap; never throws into the host. */
     repaint(): void;
     /** How many repaints the STORE channel has driven. Read by the liveness spec. */
@@ -139,11 +163,26 @@ export interface ParcelLawQuantitiesHandle {
 export function mountParcelLawQuantities(
     host: HTMLElement,
     deps: ParcelLawQuantitiesDeps = defaultParcelLawQuantitiesDeps(),
+    opts?: ParcelLawQuantitiesPlacement,
 ): ParcelLawQuantitiesHandle {
     const span = _tracer.startSpan('pryzm.analysis.mountParcelLawQuantities');
     const root = document.createElement('div');
     root.className = 'anl-parcel-law-quantities';
     root.setAttribute('data-testid', PARCEL_LAW_QUANTITIES_SLOT_TESTID);
+
+    // §PL-IA-Q — the second host, when the caller asked for the two halves to be placed apart.
+    const costHost = opts?.costHost ?? null;
+    const costRoot: HTMLElement | null = costHost === null ? null : document.createElement('div');
+    if (costRoot !== null) {
+        costRoot.className = 'anl-parcel-law-cost';
+        costRoot.setAttribute('data-testid', PARCEL_LAW_COST_SLOT_TESTID);
+        costHost!.appendChild(costRoot);
+    }
+    /** Query across BOTH halves — the controls the chat and the status line drive may be in either. */
+    const q = <T extends HTMLElement>(testid: string): T | null =>
+        root.querySelector<T>(`[data-testid="${testid}"]`)
+        ?? costRoot?.querySelector<T>(`[data-testid="${testid}"]`)
+        ?? null;
 
     let disposed = false;
     let liveRepaints = 0;
@@ -165,9 +204,17 @@ export function mountParcelLawQuantities(
             const model = buildLiveQuantitiesModel(snapshot());
             const rate: IndicativeRate | null = getIndicativeRate();
             const outcome: IndicativeCostOutcome = estimateAtIndicativeRate(rate, model.area);
-            root.innerHTML = buildLiveQuantitiesSection(model, rate, outcome);
+            if (costRoot === null) {
+                root.innerHTML = buildLiveQuantitiesSection(model, rate, outcome);
+            } else {
+                // ⭐ SAME MODEL, SAME OUTCOME, TWO PLACES. The pair is written in ONE pass, so the
+                // quantities and the cost can never show different vintages of one envelope — the
+                // property the store subscription below exists to guarantee.
+                root.innerHTML = buildLiveQuantitiesQuantitiesPart(model);
+                costRoot.innerHTML = buildLiveQuantitiesCostPart(rate, outcome);
+            }
             if (pendingStatus !== null) {
-                const status = root.querySelector<HTMLElement>(`[data-testid="${LIVE_QUANTITIES_STATUS_TESTID}"]`);
+                const status = q<HTMLElement>(LIVE_QUANTITIES_STATUS_TESTID);
                 if (status) status.textContent = pendingStatus;
             }
             wireControls();
@@ -177,6 +224,13 @@ export function mountParcelLawQuantities(
                 'The live-quantities section could not render this pass. The figures it shows are '
                 + 'still on the buildable-envelope card; this is a failure of THIS section, not a '
                 + 'finding about your project.';
+            // ⛔ The cost half says the same thing rather than standing there with a stale total
+            // beside a section that has just admitted it could not re-read the areas under it.
+            if (costRoot !== null) {
+                costRoot.textContent =
+                    'No indicative cost this pass — the quantities it multiplies could not be '
+                    + 'read. The rate you set is unchanged.';
+            }
         }
     };
 
@@ -185,9 +239,9 @@ export function mountParcelLawQuantities(
      * the same convention `GISAreaLayout`'s `wireStudyHeightEntry` follows for the card.
      */
     const wireControls = (): void => {
-        const input = root.querySelector<HTMLInputElement>(`[data-testid="${LIVE_QUANTITIES_RATE_INPUT_TESTID}"]`);
-        const select = root.querySelector<HTMLSelectElement>(`[data-testid="${LIVE_QUANTITIES_CURRENCY_TESTID}"]`);
-        const btn = root.querySelector<HTMLButtonElement>(`[data-testid="${LIVE_QUANTITIES_APPLY_BTN_TESTID}"]`);
+        const input = q<HTMLInputElement>(LIVE_QUANTITIES_RATE_INPUT_TESTID);
+        const select = q<HTMLSelectElement>(LIVE_QUANTITIES_CURRENCY_TESTID);
+        const btn = q<HTMLButtonElement>(LIVE_QUANTITIES_APPLY_BTN_TESTID);
         if (!btn) return;
         btn.onclick = (): void => {
             const parsed = parseIndicativeRateInput(
@@ -199,7 +253,7 @@ export function mountParcelLawQuantities(
                 // ⛔ The rate is UNCHANGED on a bad input, and the message says so. Silently
                 // clearing it would turn a typo into a lost decision.
                 pendingStatus = parsed.text;
-                const status = root.querySelector<HTMLElement>(`[data-testid="${LIVE_QUANTITIES_STATUS_TESTID}"]`);
+                const status = q<HTMLElement>(LIVE_QUANTITIES_STATUS_TESTID);
                 if (status) status.textContent = parsed.text;
                 return;
             }
@@ -262,6 +316,7 @@ export function mountParcelLawQuantities(
 
     return {
         element: root,
+        costElement: costRoot,
         repaint: render,
         liveRepaintCount: () => liveRepaints,
         dispose(): void {
@@ -272,6 +327,10 @@ export function mountParcelLawQuantities(
             unsubStore = null;
             unsubRate = null;
             root.remove();
+            // §PL-IA-Q — the cost half is this mount's wherever it was placed; leaving a live rate
+            // entry standing in another host after disposing is stranded chrome, and pressing it
+            // would drive a control whose subscriptions have already been released.
+            costRoot?.remove();
         },
     };
 }

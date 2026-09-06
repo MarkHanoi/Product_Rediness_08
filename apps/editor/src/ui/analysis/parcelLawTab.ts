@@ -135,12 +135,23 @@ import { wireDesignStageStrip } from '../site/designStageStripControl';
 // needs its own rendering at all — the singleton card can only ever be in ONE host.
 import { resolveParcelLawModel } from '../site/parcel/resolveParcelLawModel';
 import type { ParcelLawModel } from '../site/parcel/parcelLawModel';
-import { buildParcelLawFacts } from './parcelLawFacts';
+import { buildParcelLawFacts, type ParcelLawFactsOptions } from './parcelLawFacts';
+// §PL-IA-Q (STR §26.3, L-12998) — THE SIX PERSONA QUESTIONS, as containers. The founder:
+// *"thing as a persona architect of land developer how it would go thoutght the workflow."*
+// ⛔ This module computes NOTHING and this tab still computes nothing; the groups only decide
+// WHERE an already-produced section lands, and each group's collapsed digest is a MIRROR of a
+// row inside its own body (C58 §1.2 — a hidden confidence is a broken figure).
+import {
+  buildQuestionGroup,
+  PARCEL_LAW_QUESTION_GROUPS,
+  type QuestionGroupHandle,
+} from './parcelLawQuestionGroup';
 // §PL-LIVE-QUANTITIES (STR §25.7) — the live room/level/total figures and the adjustable cost
 // per m². It owns its own LIVE subscription to the space-envelope store's dirty channel — the
 // same channel the 3D scene renders from — so the panel and the scene cannot show different
 // vintages of one envelope. See that module's header for the measured liveness defect it fixes.
 import {
+  defaultParcelLawQuantitiesDeps,
   mountParcelLawQuantities,
   type ParcelLawQuantitiesHandle,
 } from './parcelLawQuantities';
@@ -148,6 +159,7 @@ import {
 // number of floor levels, and check it LIVE against the law. It is a consumer of C114's ONE
 // create verb and of `brutAreaAllocation.ts`'s arithmetic; it computes nothing itself.
 import {
+  defaultParcelLawEnvelopeAuthoringDeps,
   mountParcelLawEnvelopeAuthoring,
   type ParcelLawEnvelopeAuthoringHandle,
 } from './parcelLawEnvelopeAuthoring';
@@ -192,7 +204,21 @@ export const PARCEL_LAW_SWITCHER_SLOT_TESTID = 'analysis-parcel-law-switcher';
 export const PARCEL_LAW_PANEL_SLOT_TESTID = 'analysis-parcel-law-panel';
 /** `data-testid` on the one-line note that says what this tab is and is not. */
 export const PARCEL_LAW_NOTE_TESTID = 'analysis-parcel-law-note';
-/** `data-testid` on the slot the shared-model fact section is rendered into. */
+/**
+ * ⛔ RETIRED 2026-09-06 (§PL-IA-Q, L-12998) — NOTHING IN THIS BODY CARRIES THIS ID ANY MORE.
+ *
+ * The shared model used to render into ONE slot, because one builder produced all of it. It now
+ * renders into TWO, because its halves answer two different persona questions (STR §26.3): the
+ * PARCEL group is *"what is this plot?"* and the ordinance / massing / per-storey / capacity
+ * groups are *"what may I build here, and who says so?"*. A single wrapper spanning both would
+ * have to live in one group or the other, which is the flatness this lane removed.
+ *
+ * The constant is KEPT exported rather than deleted, on the same reasoning that kept
+ * `PARCEL_LAW_SWITCHER_SLOT_TESTID`: an in-flight import in a sibling lane's working tree still
+ * compiles, and the next reader finds the removal STATED instead of finding a testid that
+ * silently matches nothing. Use `PARCEL_LAW_FACTS_PLOT_SLOT_TESTID` and
+ * `PARCEL_LAW_FACTS_LAW_SLOT_TESTID`.
+ */
 export const PARCEL_LAW_FACTS_SLOT_TESTID = 'analysis-parcel-law-facts-slot';
 /** `data-testid` on the slot the envelope-authoring section is mounted into. */
 export const PARCEL_LAW_AUTHORING_HOST_TESTID = 'analysis-parcel-law-authoring-slot';
@@ -202,6 +228,16 @@ export const PARCEL_LAW_QUANTITIES_HOST_TESTID = 'analysis-parcel-law-quantities
 export const PARCEL_LAW_CREATE_HOUSE_HOST_TESTID = 'analysis-parcel-law-create-house-slot';
 /** `data-testid` on the slot the STR §25.4 chat surface is mounted into. */
 export const PARCEL_LAW_CHAT_HOST_TESTID = 'analysis-parcel-law-chat-slot';
+/** §PL-IA-Q — `data-testid` on the ladder that holds the six question groups, in order. */
+export const PARCEL_LAW_LADDER_TESTID = 'analysis-parcel-law-ladder';
+/** §PL-IA-Q — `data-testid` on the slot question 1 renders the plot half of the model into. */
+export const PARCEL_LAW_FACTS_PLOT_SLOT_TESTID = 'analysis-parcel-law-facts-plot';
+/** §PL-IA-Q — `data-testid` on the slot question 2 renders the law half of the model into. */
+export const PARCEL_LAW_FACTS_LAW_SLOT_TESTID = 'analysis-parcel-law-facts-law';
+/** §PL-IA-Q — `data-testid` on the slot question 4 hosts the BRUT/NET allowance ledger in. */
+export const PARCEL_LAW_ALLOWANCE_HOST_TESTID = 'analysis-parcel-law-allowance-slot';
+/** §PL-IA-Q — `data-testid` on the slot question 5 hosts the rate entry and the estimate in. */
+export const PARCEL_LAW_COST_HOST_TESTID = 'analysis-parcel-law-cost-slot';
 /** The `data-testid` the singleton card carries (GISAreaLayout `ensureEnvelopePanel`). */
 export const ENVELOPE_CARD_TESTID = 'buildable-envelope-card';
 /** Carries how many stage pills were wired on the last pass — read by the spec. */
@@ -212,11 +248,9 @@ export const PARCEL_LAW_STRIP_WIRED_ATTR = 'data-parcel-law-strip-wired';
  * data, because the tab's empty state is the common one for existing projects.
  */
 export const PARCEL_LAW_NOTE =
-  'Hosted, not computed: the cadastral card, the buildable envelope, the designed-vs-permitted '
-  + 'comparison, massing options and the intended-area channel are the same elements the PARCEL '
-  + 'rail panel shows, placed here beside the view. Switch the view — or split it — from the bar '
-  + 'centred on the view itself; drag the edge between them to set how much room each gets. '
-  + 'Nothing on this tab is re-derived.';
+  'Six questions, in the order an architect asks them. Every figure below is produced elsewhere '
+  + 'and only placed here — nothing on this tab is re-derived, and each one still states its own '
+  + 'source and confidence. Switch the view, or split it, from the bar centred on the view itself.';
 
 /** The minimal store surface this tab subscribes to for re-wiring the strip. Structural. */
 interface SiteStoreLike {
@@ -269,7 +303,7 @@ export interface ParcelLawTabDeps {
    */
   readonly readParcelLawModel?: (runtime: PryzmRuntime | null | undefined) => ParcelLawModel;
   /** Production: `buildParcelLawFacts` — a RENDERING of that model, never a second derivation. */
-  readonly renderParcelLawFacts?: (model: ParcelLawModel) => HTMLElement;
+  readonly renderParcelLawFacts?: (model: ParcelLawModel, opts?: ParcelLawFactsOptions) => HTMLElement;
   /**
    * Production: `mountParcelLawQuantities` — STR §25.7's live figures and adjustable rate.
    *
@@ -278,7 +312,15 @@ export interface ParcelLawTabDeps {
    * which on a runtime with no `spaceEnvelope` store renders the channel's own honest sentence
    * rather than throwing — so an old spec keeps passing and keeps meaning what it meant.
    */
-  readonly mountQuantities?: (host: HTMLElement) => ParcelLawQuantitiesHandle;
+  readonly mountQuantities?: (
+    host: HTMLElement,
+    /**
+     * §PL-IA-Q — where the rate entry and the estimate go: question 5's body, while the
+     * quantities themselves answer question 4. A fake that ignores this argument still
+     * compiles and still means what it meant; it simply leaves question 5 empty.
+     */
+    costHost: HTMLElement,
+  ) => ParcelLawQuantitiesHandle;
   /**
    * Production: `mountParcelLawEnvelopeAuthoring` — STR §25.2/§25.6's create-and-check section.
    *
@@ -287,7 +329,11 @@ export interface ParcelLawTabDeps {
    * such literal in a file another lane owns. Omitting it yields the production mount, which on a
    * runtime with no space-envelope store renders its own honest sentences rather than throwing.
    */
-  readonly mountAuthoring?: (host: HTMLElement) => ParcelLawEnvelopeAuthoringHandle;
+  readonly mountAuthoring?: (
+    host: HTMLElement,
+    /** §PL-IA-Q — where the BRUT/NET allowance ledger goes: question 4's body. */
+    lawCheckHost: HTMLElement,
+  ) => ParcelLawEnvelopeAuthoringHandle;
   /**
    * Production: `mountParcelLawCreateHouse` with its production deps — STR §25.8.
    *
@@ -323,8 +369,10 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     wireStrip: wireDesignStageStrip,
     readParcelLawModel: resolveParcelLawModel,
     renderParcelLawFacts: buildParcelLawFacts,
-    mountQuantities: (h) => mountParcelLawQuantities(h),
-    mountAuthoring: (h) => mountParcelLawEnvelopeAuthoring(h),
+    mountQuantities: (h, costHost) =>
+      mountParcelLawQuantities(h, defaultParcelLawQuantitiesDeps(), { costHost }),
+    mountAuthoring: (h, lawCheckHost) =>
+      mountParcelLawEnvelopeAuthoring(h, defaultParcelLawEnvelopeAuthoringDeps(), { lawCheckHost }),
     mountCreateHouse: (h) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()),
     mountChat: (h, scope) => mountParcelLawChat(h, defaultParcelLawChatDeps(scope)),
   };
@@ -366,6 +414,8 @@ export function mountParcelLawTab(
   let chat: ParcelLawChatHandle | null = null;
   let unsub: (() => void) | null = null;
   let disposed = false;
+  /** §PL-IA-Q — the six question groups, by id, in the order STR §26.3 states them. */
+  const groups = new Map<string, QuestionGroupHandle>();
 
   const holdsEnvelopeCard = (): boolean =>
     root.querySelector(`[data-testid="${ENVELOPE_CARD_TESTID}"]`) !== null;
@@ -373,19 +423,41 @@ export function mountParcelLawTab(
   // §PARCEL-LAW-MODEL — its OWN slot, so re-rendering the facts never touches the panel slot
   // the singleton card lives in. `replaceChildren` is safe HERE and only here: this slot holds
   // nothing shared (the rule the rail panel states for its envelope slot is about the CARD).
-  const factsSlot = document.createElement('div');
-  factsSlot.className = 'anl-parcel-law-facts';
-  factsSlot.setAttribute('data-testid', PARCEL_LAW_FACTS_SLOT_TESTID);
-
-  /** Re-read the model and re-render the fact section. Cheap, and never throws into the tab. */
+  //
+  // ⭐ §PL-IA-Q (STR §26.3) — ONE MODEL, ONE READ, TWO PLACES. The shared model answers two
+  // different persona questions: its PARCEL group is *"what is this plot?"* and its ordinance,
+  // massing, per-storey and capacity groups are *"what may I build here, and who says so?"*.
+  // They were one block because one builder produced them, not because a reader wants them
+  // together — which is exactly the flatness §26.2 names. `buildParcelLawFacts` now takes a
+  // scope, so the SAME model object is rendered into the two groups that ask for it.
+  //
+  // ⛔ STILL NOT A SECOND DERIVATION. `readModel` is called ONCE per pass and its result is
+  // handed to both renderings, so the two halves cannot be different vintages of one parcel.
+  const factsPlotSlot = document.createElement('div');
+  factsPlotSlot.className = 'anl-parcel-law-facts-plot';
+  factsPlotSlot.setAttribute('data-testid', PARCEL_LAW_FACTS_PLOT_SLOT_TESTID);
+  const factsLawSlot = document.createElement('div');
+  factsLawSlot.className = 'anl-parcel-law-facts-law';
+  factsLawSlot.setAttribute('data-testid', PARCEL_LAW_FACTS_LAW_SLOT_TESTID);
+  /** Re-read the model and re-render BOTH fact halves. Cheap, and never throws into the tab. */
   const renderFacts = (): void => {
     if (disposed) return;
     try {
       const readModel = deps.readParcelLawModel ?? resolveParcelLawModel;
       const renderModel = deps.renderParcelLawFacts ?? buildParcelLawFacts;
-      factsSlot.replaceChildren(renderModel(readModel(deps.runtime)));
+      const model = readModel(deps.runtime);
+      factsPlotSlot.replaceChildren(renderModel(model, { scope: 'plot' }));
+      factsLawSlot.replaceChildren(renderModel(model, { scope: 'law' }));
     } catch (e) {
       console.warn('[analysis][parcel-law] fact section render failed (non-fatal):', e);
+    }
+  };
+
+  /** Re-mirror every group's collapsed digest from what its body ALREADY says. Derives nothing. */
+  const refreshDigests = (): void => {
+    if (disposed) return;
+    for (const g of groups.values()) {
+      try { g.refreshDigest(); } catch { /* a digest that cannot mirror keeps its last honest text */ }
     }
   };
 
@@ -436,92 +508,171 @@ export function mountParcelLawTab(
       splitLayout: 'parcel-law',
     });
 
-    // ── 2. The note: what this tab is (a host) and is not (a calculator). ──────────────
+    // ── 2. The note: six questions, in the order the persona asks them. ───────────
     const note = document.createElement('p');
     note.className = 'anl-parcel-law-note';
     note.setAttribute('data-testid', PARCEL_LAW_NOTE_TESTID);
+    note.style.cssText = 'margin:0 0 4px;font-size:10px;line-height:1.5;color:#8a83a0;';
     note.textContent = PARCEL_LAW_NOTE; // textContent — no HTML sink in this file (C08 §3.1)
     root.appendChild(note);
 
-    // ── 3. Both parcel halves, through the ONE existing host of both. ──────────────────
-    // `buildParcelRailPanel` mounts `mountParcelSection` into its own slot (its own handle —
-    // C19 §5.7 clause 4) and claims the envelope card into its own envelope slot on a
-    // microtask, then re-claims on every site-store notification while that slot is
-    // connected. Claiming only while connected is what makes "claim only while this tab is
-    // active" true: the surface removes this body from the DOM on tab change and on hide.
+    // ══════════════════════════════════════════════════════════════════════════
+    // ⭐ §PL-IA-Q (STR §26.3, L-12998) — THE LADDER. THIS IS THE WHOLE OF DELIVERABLE 2.
+    // ══════════════════════════════════════════════════════════════════════════
+    // Founder 2026-09-06: *"honestly a lot is done — i can see most of the pieces working and i
+    // am impressed — is just that is not well organize."*
+    //
+    // ⛔ NOT ONE NEW FIGURE IS ADDED BELOW, AND NOT ONE IS REMOVED. Every producer this tab
+    // mounted before it still mounts, with the same deps, the same subscriptions and the same
+    // refusal sentences. What changed is the ORDER and the WEIGHT: the flat stack of peer-level
+    // sections becomes six groups named after the six questions §26.3 states, and each group is
+    // a `<details>` whose COLLAPSED summary still carries the headline AND its confidence
+    // (C58 §1.2 — a disclosure that hides whether a figure is solved, estimated or an
+    // unreviewed suggestion has broken the contract even though it deleted nothing).
+    const ladder = document.createElement('div');
+    ladder.className = 'anl-parcel-law-ladder';
+    ladder.setAttribute('data-testid', PARCEL_LAW_LADDER_TESTID);
+    root.appendChild(ladder);
+    for (const spec of PARCEL_LAW_QUESTION_GROUPS) {
+      const g = buildQuestionGroup(spec);
+      groups.set(spec.id, g);
+      ladder.appendChild(g.element);
+    }
+    const bodyOf = (id: string): HTMLElement => {
+      const g = groups.get(id);
+      // A missing group can only mean the spec table lost a row, and losing a section silently is
+      // the failure mode this lane exists to avoid — so fall back to the ladder itself, where the
+      // reader still sees the section, rather than dropping it on the floor.
+      return g ? g.body : ladder;
+    };
+
+    // ── Q1 · "What is this plot?" ─────────────────────────────────────────────
+    // The cadastral half of `buildParcelRailPanel` — reference, address, the two areas kept apart
+    // (C57 §2.4), source, licence, retrieved-at — and the PARCEL group of the shared model
+    // beneath it. Both were already on this tab; they were three sections apart.
     const panelSlot = document.createElement('div');
     panelSlot.className = 'anl-parcel-law-panel';
     panelSlot.setAttribute('data-testid', PARCEL_LAW_PANEL_SLOT_TESTID);
-    root.appendChild(panelSlot);
+    bodyOf('plot').appendChild(panelSlot);
     panel = deps.buildParcelPanel(deps.runtime);
     panelSlot.appendChild(panel.element);
+    bodyOf('plot').appendChild(factsPlotSlot);
 
-    // ── 4. §PARCEL-LAW-MODEL (STR §25.11 clauses 2–3) — THE MIGRATED DATA, ON THE TAB. ────
+    // ── Q2 · "What may I build here — and who says so?" ─────────────────────────
     //
-    // The card above is a SINGLETON with ONE parent. With the rail PARCEL panel open beside
-    // this tab — the founder's own screenshot — whichever host claimed it last holds it, and
-    // the other shows nothing. This section renders the SAME model the card renders, so the
-    // figures are on this tab whether or not the card is, and they cannot disagree with it.
+    // ⭐ THE ENVELOPE CARD MOVES HERE — AS A SLOT, NOT AS A SECOND BUILD. `buildParcelRailPanel`
+    // still owns its envelope slot, still claims the singleton into it through
+    // `window.pryzmMountEnvelopeCard`, still re-claims on every site-store notification while
+    // that slot is CONNECTED, and still prints one of five named sentences when the card is
+    // absent. All this tab does is re-parent that slot into the question it answers — the same
+    // move §L-412 makes with the ONE Cesium container. Nothing about C19 §5.7's singleton
+    // discipline changes, because the card's parent is still that one envelope slot.
     //
-    // ⛔ It is not a copied renderer (C19 §5.7 clause 1 forbids that); it is a second rendering
-    // of ONE model. Every number is derived once, in `buildParcelLawModel`.
-    root.appendChild(factsSlot);
+    // ⛔ The slot stays inside THIS body, so `holdsEnvelopeCard()` and the conditional hand-back
+    // on dispose keep working exactly as this file's header describes them.
+    const envelopeSlot = panel.envelopeSlot;
+    if (envelopeSlot) bodyOf('law').appendChild(envelopeSlot);
+    bodyOf('law').appendChild(factsLawSlot);
 
-    // ── 4a-bis. §PL-ENVELOPE-AUTHORING (STR §25.2 / §25.6) — CREATE THE ENVELOPE, CHECK IT LIVE. ──
-    //
-    // ⭐ PLACED BETWEEN THE FACTS AND THE QUANTITIES, and that ordering IS the founder's stage
-    // ladder: read the parcel and its law, then AUTHOR what you intend to build against it, then
-    // read what that costs, then decide to build it. It hosts the ONE create verb C114 §6a
-    // declares and the BRUT/NET arithmetic §25.2 specifies; every number on it is produced by a
-    // module this tab already depends on.
+    // ── Q3 · "What do I want to build?" ─────────────────────────────────────
+    // §PL-ENVELOPE-AUTHORING (STR §25.2 / §25.6) — the ONE create verb C114 §6a declares, the
+    // storey count, and the per-storey `Edit perimeter` controls.
     const authoringSlot = document.createElement('div');
     authoringSlot.className = 'anl-parcel-law-authoring-host';
     authoringSlot.setAttribute('data-testid', PARCEL_LAW_AUTHORING_HOST_TESTID);
-    root.appendChild(authoringSlot);
+    bodyOf('intent').appendChild(authoringSlot);
 
-    // ── 4b. §PL-LIVE-QUANTITIES (STR §25.7) — ROOM NAMES · NET · BRUT PER LEVEL · TOTAL · COST. ──
+    // ── Q4 · "How much of my allowance have I used?" ───────────────────────────
     //
-    // ⭐ ITS OWN SLOT AND ITS OWN LIVE CHANNEL, and that is the point of it. The figures already
-    // render on the singleton envelope card, but that card only repaints on a fixed event list
-    // that carries NO space-envelope signal (`GISAreaLayout.ts:5600`) — so a face drag or a new
-    // room envelope moved the 3D scene and left every number stale. This control subscribes to
-    // `Store.subscribeDirty`, the SAME channel `attachSpaceEnvelopeRender` renders from, which
-    // covers execute, undo and redo alike. RESI-ORCHESTRATOR-PLAN §3: honour the existing
-    // synchronisation contract, do not invent a fourth update path.
+    // ⭐ THE LEDGER LEAVES THE AUTHORING SECTION AND BECOMES ITS OWN ANSWER.
+    // `buildBrutAllocationHtml` is headed *"How much of the allowance have you used?"* — which is
+    // §26.3 item 4 almost verbatim — and it sat six rows below a Create button because ONE MOUNT
+    // produced both. It is placed here, and the live quantities that measure what has actually
+    // been drawn are placed with it.
+    //
+    // ⛔ ONE MOUNT, ONE SUBSCRIPTION, ONE ARITHMETIC. Both halves are still produced by the single
+    // `mountParcelLawEnvelopeAuthoring` / `mountParcelLawQuantities` pass below, so the ledger and
+    // the create controls cannot show different vintages of one envelope.
+    const allowanceSlot = document.createElement('div');
+    allowanceSlot.className = 'anl-parcel-law-allowance-host';
+    allowanceSlot.setAttribute('data-testid', PARCEL_LAW_ALLOWANCE_HOST_TESTID);
+    bodyOf('allowance').appendChild(allowanceSlot);
+
+    // §PL-LIVE-QUANTITIES (STR §25.7) — ROOM NAMES · NET · BRUT PER LEVEL · TOTAL.
+    //
+    // ⭐ ITS OWN LIVE CHANNEL, and that is the point of it. The figures also render on the
+    // singleton envelope card, but that card only repaints on a fixed event list carrying NO
+    // space-envelope signal — so a face drag or a new room envelope moved the 3D scene and left
+    // every number stale. This control subscribes to `Store.subscribeDirty`, the SAME channel
+    // `attachSpaceEnvelopeRender` renders from, which covers execute, undo and redo alike.
+    // RESI-ORCHESTRATOR-PLAN §3: honour the existing synchronisation contract, do not invent a
+    // fourth update path.
     const quantitiesSlot = document.createElement('div');
     quantitiesSlot.className = 'anl-parcel-law-quantities-host';
     quantitiesSlot.setAttribute('data-testid', PARCEL_LAW_QUANTITIES_HOST_TESTID);
-    root.appendChild(quantitiesSlot);
+    bodyOf('allowance').appendChild(quantitiesSlot);
 
-    host.appendChild(root);
-    renderFacts();
-    // Mounted AFTER `host.appendChild(root)` so the control's `root.isConnected` guards — which
-    // are what stop a torn-down tab from repainting — are true from its very first store event.
-    try {
-      const mount = deps.mountQuantities ?? ((h: HTMLElement) => mountParcelLawQuantities(h));
-      quantities = mount(quantitiesSlot);
-    } catch (e) {
-      console.warn('[analysis][parcel-law] live-quantities mount failed (non-fatal):', e);
-    }
-    // Same ordering rule as the quantities control above: mounted after the body is in the DOM so
-    // its `isConnected` guards are true from its very first store event.
-    try {
-      const mountAuth = deps.mountAuthoring ?? ((h: HTMLElement) => mountParcelLawEnvelopeAuthoring(h));
-      authoring = mountAuth(authoringSlot);
-    } catch (e) {
-      console.warn('[analysis][parcel-law] envelope-authoring mount failed (non-fatal):', e);
-    }
+    // ── Q5 · "What does it cost?" ──────────────────────────────────────────
+    // The rate the user supplies — explicitly THEIR assumption, never a published figure, with a
+    // currency they choose and PRYZM never infers from a locale (C38 §1.2) — and the estimate it
+    // produces, or the estimator's own refusal sentence with its reason on `data-arm`.
+    const costSlot = document.createElement('div');
+    costSlot.className = 'anl-parcel-law-cost-host';
+    costSlot.setAttribute('data-testid', PARCEL_LAW_COST_HOST_TESTID);
+    bodyOf('cost').appendChild(costSlot);
 
-    // ── 4c. §PL-CREATE-HOUSE (STR §25.8) — THE EXPLICIT STEP INTO BIM. ─────────────────────
-    //
-    // LAST on the tab, and that ordering is the stage ladder: a user reads the parcel, then the
-    // law, then what they intend and what it costs, and only then decides to build it. The
-    // control refuses — visibly, with numbers — whenever the level it would build on already
-    // carries authored walls (C80: a generator may not destroy what it cannot account for).
+    // ── Q6 · "Take me into BIM." ────────────────────────────────────────────
+    // §PL-CREATE-HOUSE (STR §25.8). LAST, and that ordering is the founder's own ladder: a user
+    // reads the parcel, then the law, then what they intend and what it costs, and only then
+    // decides to build it. The control refuses — visibly, with numbers — whenever the level it
+    // would build on already carries authored walls (C80: a generator may not destroy what it
+    // cannot account for).
     const createHouseSlot = document.createElement('div');
     createHouseSlot.className = 'anl-parcel-law-create-house-host';
     createHouseSlot.setAttribute('data-testid', PARCEL_LAW_CREATE_HOUSE_HOST_TESTID);
-    root.appendChild(createHouseSlot);
+    bodyOf('bim').appendChild(createHouseSlot);
+
+    // ── §PL-CHAT (STR §25.4) — "A CHAT BOT ON THE PARCEL LAW PANEL". ──────────────────
+    //
+    // ⭐ DELIBERATELY OUTSIDE THE NUMBERED LADDER, and this is the one placement §26.3 does not
+    // decide for us. The chat answers NONE of the six questions by itself — it answers WHICHEVER
+    // of them you ask, by typing into the sections above and reading their status lines back.
+    // §26.3 says *"any section that answers none of them is in the wrong place or belongs behind a
+    // disclosure"*; putting the chat behind a disclosure would hide the only control that spans
+    // every question, so it is PINNED below the ladder instead — always reachable, and never
+    // competing with a question for the reader's place in the sequence.
+    //
+    // Founder: *"WE NEED A CHAT BOT ON THE PARCEL LAW PANEL – SO USER CAN CHAT VIA RAC OR DEFINE
+    // VIA DATA MANUALLY INPUT."* Both paths are first-class and must AGREE, so the chat does not
+    // dispatch: it types into the fields above and presses their buttons, then reads THEIR status
+    // lines back as its reply. One plan builder, one dispatcher, one refusal.
+    const chatSlot = document.createElement('div');
+    chatSlot.className = 'anl-parcel-law-chat-host';
+    chatSlot.setAttribute('data-testid', PARCEL_LAW_CHAT_HOST_TESTID);
+    root.appendChild(chatSlot);
+
+    host.appendChild(root);
+    renderFacts();
+
+    // ── The producers, mounted AFTER the body is in the DOM ────────────────────────
+    // Every one of these guards its repaints on `isConnected`; mounting after the append is what
+    // makes those guards true from the very first store event.
+    try {
+      const mount = deps.mountQuantities
+        ?? ((h: HTMLElement, costHost: HTMLElement) => mountParcelLawQuantities(
+          h, defaultParcelLawQuantitiesDeps(), { costHost }));
+      quantities = mount(quantitiesSlot, costSlot);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] live-quantities mount failed (non-fatal):', e);
+    }
+    try {
+      const mountAuth = deps.mountAuthoring
+        ?? ((h: HTMLElement, lawCheckHost: HTMLElement) => mountParcelLawEnvelopeAuthoring(
+          h, defaultParcelLawEnvelopeAuthoringDeps(), { lawCheckHost }));
+      authoring = mountAuth(authoringSlot, allowanceSlot);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] envelope-authoring mount failed (non-fatal):', e);
+    }
     try {
       const mountCH = deps.mountCreateHouse
         ?? ((h: HTMLElement) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()));
@@ -529,22 +680,9 @@ export function mountParcelLawTab(
     } catch (e) {
       console.warn('[analysis][parcel-law] create-house mount failed (non-fatal):', e);
     }
-
-    // ── 4d. §PL-CHAT (STR §25.4) — "A CHAT BOT ON THE PARCEL LAW PANEL". ───────────────────
-    //
-    // Founder: *"WE NEED A CHAT BOT ON THE PARCEL LAW PANEL – SO USER CAN CHAT VIA RAC OR DEFINE
-    // VIA DATA MANUALLY INPUT."* Both paths are first-class and must AGREE, so the chat does not
-    // dispatch: it types into the fields above and presses their buttons, then reads THEIR status
-    // lines back as its reply. One plan builder, one dispatcher, one refusal — see
-    // `parcelLawChat.ts`'s header.
-    //
     // ⭐ MOUNTED LAST, and scoped to `root`. Last because the controls it drives must already be in
     // the DOM when a turn runs; scoped to this body because pressing a button is a real gesture and
     // a document-wide scope could press one on a surface the reader is not looking at.
-    const chatSlot = document.createElement('div');
-    chatSlot.className = 'anl-parcel-law-chat-host';
-    chatSlot.setAttribute('data-testid', PARCEL_LAW_CHAT_HOST_TESTID);
-    root.appendChild(chatSlot);
     try {
       const mountChat = deps.mountChat
         ?? ((h: HTMLElement, scope: () => ParentNode | null) => mountParcelLawChat(h, defaultParcelLawChatDeps(scope)));
@@ -552,6 +690,9 @@ export function mountParcelLawTab(
     } catch (e) {
       console.warn('[analysis][parcel-law] chat mount failed (non-fatal):', e);
     }
+    // The digests mirror what the mounts above have just rendered. Each group also watches its own
+    // body from here on, so this is the FIRST reading, never the only one.
+    refreshDigests();
 
     // ── 5. The design-stage strip — after the claim lands (it is scheduled on a microtask). ──
     queueMicrotask(wireStrip);
@@ -566,6 +707,7 @@ export function mountParcelLawTab(
           // `siteUpdateZoning` → the store notifies), so the two never show different vintages
           // of one parcel. A determination that lands while this tab is open reaches it.
           renderFacts();
+          refreshDigests();
           queueMicrotask(wireStrip);
         });
       } catch (e) {
@@ -598,6 +740,7 @@ export function mountParcelLawTab(
       try { quantities?.repaint(); } catch { /* same — a section that cannot repaint keeps its last honest render */ }
       try { createHouse?.repaint(); } catch { /* same */ }
       wireStrip();
+      refreshDigests();
     },
     holdsEnvelopeCard,
     dispose(): void {
@@ -623,6 +766,12 @@ export function mountParcelLawTab(
       // its bar over the canvas is the stranded-chrome failure this body's teardown exists for.
       try { onView?.dispose(); } catch { /* teardown is best-effort */ }
       onView = null;
+      // §PL-IA-Q — the six groups own MutationObservers on their own bodies; leaving one connected
+      // to a detached tree is a listener that outlives the surface that put it up.
+      for (const g of groups.values()) {
+        try { g.dispose(); } catch { /* teardown is best-effort */ }
+      }
+      groups.clear();
       // See the header: hand the card back to the viewport ONLY if it is still in this body.
       // If another host has claimed it since, it is theirs and this tab does not reach into
       // their state (C19 §5.7 clause 2, by its reason).

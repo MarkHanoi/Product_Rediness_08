@@ -273,6 +273,21 @@ export function defaultParcelLawEnvelopeAuthoringDeps(): ParcelLawEnvelopeAuthor
     };
 }
 
+/**
+ * §PL-IA-Q (STR §26.3) — where this ONE mount puts its two halves.
+ *
+ * ⛔ A PLACEMENT, NEVER A SPLIT OF THE PRODUCER. There is one `render()`, one store
+ * subscription and one `buildLiveLawCheck` call whatever this says; only the parent of the
+ * law-check pair changes.
+ */
+export interface ParcelLawEnvelopeAuthoringPlacement {
+    /**
+     * Host for the live law check (the lede + the BRUT/NET allowance ledger). Omit and the pair
+     * stays inside this section, which is the historic layout.
+     */
+    readonly lawCheckHost?: HTMLElement | null;
+}
+
 export interface ParcelLawEnvelopeAuthoringHandle {
     readonly element: HTMLElement;
     /** Re-read everything and repaint. Cheap; never throws into the host. */
@@ -429,6 +444,7 @@ const H = (tag: string, css: string, text?: string): HTMLElement => {
 export function mountParcelLawEnvelopeAuthoring(
     host: HTMLElement,
     deps: ParcelLawEnvelopeAuthoringDeps = defaultParcelLawEnvelopeAuthoringDeps(),
+    opts?: ParcelLawEnvelopeAuthoringPlacement,
 ): ParcelLawEnvelopeAuthoringHandle {
     const span = _tracer.startSpan('pryzm.analysis.mountParcelLawEnvelopeAuthoring');
     const root = document.createElement('div');
@@ -496,7 +512,22 @@ export function mountParcelLawEnvelopeAuthoring(
     const lawSlot = H('div', 'margin-top:2px;');
     lawSlot.setAttribute('data-testid', AUTHORING_LAWCHECK_TESTID);
 
-    root.append(heading, sourceLine, entryRow, statusLine, advisoryLine, createdList, lawLede, lawSlot);
+    // ⭐ §PL-IA-Q (STR §26.3) — THE LEDGER IS A DIFFERENT QUESTION FROM THE GESTURE.
+    //
+    // Sections 1–6 answer *"what do I want to build?"*; the live law check answers *"how much of
+    // my allowance have I used, and what is left?"*. They were welded together because one mount
+    // produced both, not because they belong in one place — and welding them is precisely the
+    // flatness the founder named (§26.2: *"no hierarchy between 'what is this plot' and 'what may
+    // I build' and 'what have I drawn'"*).
+    //
+    // ⛔ ONE MOUNT, ONE SUBSCRIPTION, ONE COMPUTATION — TWO PLACES ON THE PAGE. This is not a
+    // second law check; `render()` writes to `lawSlot` whichever host holds it, so the ledger and
+    // the create controls can never show different vintages of one envelope. When no placement is
+    // given the pair stays inside this section, exactly as before, and every existing caller and
+    // spec is unaffected.
+    const lawCheckHost = opts?.lawCheckHost ?? null;
+    root.append(heading, sourceLine, entryRow, statusLine, advisoryLine, createdList);
+    (lawCheckHost ?? root).append(lawLede, lawSlot);
 
     /** Read everything this section shows, from the ONE producer of each figure. */
     const readAll = (): {
@@ -645,6 +676,17 @@ export function mountParcelLawEnvelopeAuthoring(
             root.replaceChildren(H('div', 'font-size:9.5px;line-height:1.45;color:#8a5a00;',
                 'The envelope-authoring section could not render this pass. This is a failure of THIS '
                 + 'section, not a finding about your project.'));
+            // ⛔ THE LEDGER GOES WITH IT. When it was placed in another host, `replaceChildren`
+            // above cannot reach it, and a stale allowance table left standing beside a section
+            // that just admitted it could not render is the worst of both — a figure with no
+            // statement of its own vintage. It states the same failure instead.
+            if (lawCheckHost !== null) {
+                lawLede.remove();
+                lawSlot.replaceChildren(H('div', 'font-size:9.5px;line-height:1.45;color:#8a5a00;',
+                    'The allowance ledger could not be re-read this pass, because the section that '
+                    + 'produces it failed to render. The figures above it are from the last pass '
+                    + 'that succeeded.'));
+            }
         }
     };
 
@@ -775,6 +817,12 @@ export function mountParcelLawEnvelopeAuthoring(
             try { unsubStudy?.(); } catch { /* teardown is best-effort */ }
             unsubStudy = null;
             root.remove();
+            // §PL-IA-Q — the law-check pair is this mount's, wherever it was placed. `root.remove()`
+            // reaches it only when it lives inside `root`; a mount that left a live ledger standing
+            // in someone else's host after disposing is the stranded-chrome failure the tab body's
+            // own teardown exists to prevent.
+            lawLede.remove();
+            lawSlot.remove();
         },
     };
 }

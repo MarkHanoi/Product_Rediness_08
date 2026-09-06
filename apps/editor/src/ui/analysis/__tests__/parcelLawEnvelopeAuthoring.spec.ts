@@ -440,7 +440,11 @@ describe('resolveFootprintSource', () => {
 
 describe('REACHABILITY — the Parcel Law tab hosts the authoring section', () => {
     it('mounts it into its own slot, through the production default, without a runtime', async () => {
-        const { mountParcelLawTab, PARCEL_LAW_AUTHORING_HOST_TESTID } = await import('../parcelLawTab');
+        const {
+            mountParcelLawTab,
+            PARCEL_LAW_ALLOWANCE_HOST_TESTID,
+            PARCEL_LAW_AUTHORING_HOST_TESTID,
+        } = await import('../parcelLawTab');
         const hostEl = document.createElement('div');
         document.body.appendChild(hostEl);
         const handle = mountParcelLawTab(hostEl, {
@@ -459,7 +463,15 @@ describe('REACHABILITY — the Parcel Law tab hosts the authoring section', () =
         // The section itself is INSIDE that slot — the slot alone would be an empty promise.
         expect(slot!.querySelector(`[data-testid="${AUTHORING_SLOT_TESTID}"]`)).not.toBeNull();
         // ⛔ And with no store it says so rather than rendering a table of zeros.
-        expect(slot!.querySelector(`[data-testid="${AUTHORING_LAWCHECK_TESTID}"]`)!.textContent)
+        // ⭐ §PL-IA-Q (L-12998) — THE LEDGER IS NOW IN QUESTION 4, NOT INSIDE THE AUTHORING SLOT.
+        // STR §26.3 splits *"what do I want to build?"* from *"how much of my allowance have I
+        // used?"*, and `buildBrutAllocationHtml` is headed with the second question almost
+        // verbatim. ⛔ ONE MOUNT STILL PRODUCES BOTH — this asserts the placement moved and the
+        // SENTENCE did not, which is the whole claim: no determination was deleted to tidy the tab.
+        const allowance = hostEl.querySelector(`[data-testid="${PARCEL_LAW_ALLOWANCE_HOST_TESTID}"]`);
+        expect(allowance, 'question 4 has no host for the allowance ledger').not.toBeNull();
+        expect(slot!.querySelector(`[data-testid="${AUTHORING_LAWCHECK_TESTID}"]`)).toBeNull();
+        expect(allowance!.querySelector(`[data-testid="${AUTHORING_LAWCHECK_TESTID}"]`)!.textContent)
             .toContain('NOT a finding that nothing is intended');
         handle.dispose();
         expect(hostEl.querySelector(`[data-testid="${AUTHORING_SLOT_TESTID}"]`)).toBeNull();

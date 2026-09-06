@@ -74,6 +74,8 @@ import {
     LIVE_QUANTITIES_RATE_INPUT_TESTID,
     LIVE_QUANTITIES_STATUS_TESTID,
     LIVE_QUANTITIES_TESTID,
+    LIVE_QUANTITIES_COST_PART_TESTID,
+    LIVE_QUANTITIES_QUANTITIES_PART_TESTID,
 } from '../site/liveQuantitiesSection';
 import {
     MASSING_OPTIONS_GENERATE_BTN_TESTID,
@@ -185,6 +187,34 @@ const q = <T extends Element>(scope: ParentNode | null, testid: string): T | nul
 /** Collapse a section's rendered text into one readable line, capped. Never invents a word. */
 function excerpt(node: Element | null, cap = 600): string | null {
     const raw = (node?.textContent ?? '').replace(/\s+/g, ' ').trim();
+    if (raw.length === 0) return null;
+    return raw.length <= cap ? raw : `${raw.slice(0, cap)}…`;
+}
+
+/**
+ * ⭐ §PL-IA-Q (STR §26.3, L-12998) — READ EVERY PIECE OF A SECTION THAT IS NOW PLACED APART.
+ *
+ * The Parcel Law tab groups its sections by the six persona questions, and two producers now put
+ * their halves in two different groups: the live quantities answer *"how much have I used?"* while
+ * the rate and estimate answer *"what does it cost?"*, and the parcel facts split the same way
+ * between *"what is this plot?"* and *"what may I build?"*.
+ *
+ * ⛔ A `querySelector` THAT STOPS AT THE FIRST MATCH WOULD SILENTLY HALVE THE ANSWER — and it
+ * would do it in the one place this file exists to prevent: the chat's reply would sound complete
+ * while quoting only the half it happened to reach first. Reading every match keeps the chat's
+ * central property intact: it has no sentence of its own, so what it quotes must be everything the
+ * sections actually say.
+ */
+function excerptAll(scope: ParentNode | null, testids: readonly string[], cap = 600): string | null {
+    if (!scope) return null;
+    const sel = testids.map((t) => `[data-testid="${t}"]`).join(',');
+    let nodes: Element[];
+    try {
+        nodes = [...scope.querySelectorAll(sel)];
+    } catch {
+        return null;
+    }
+    const raw = nodes.map((n) => n.textContent ?? '').join(' · ').replace(/\s+/g, ' ').trim();
     if (raw.length === 0) return null;
     return raw.length <= cap ? raw : `${raw.slice(0, cap)}…`;
 }
@@ -469,13 +499,23 @@ export function mountParcelLawChat(
                 };
             }
             case 'ask': {
-                const [testid, what] =
+                // §PL-IA-Q — a LIST per topic, because two of these sections are placed in two
+                // question groups. See `excerptAll`: quoting only the first half would make a
+                // partial answer sound whole.
+                const [testids, what]: [readonly string[], string] =
                     intent.topic === 'remaining'
-                        ? [AUTHORING_LAWCHECK_TESTID, 'the live law check on this panel']
+                        ? [[AUTHORING_LAWCHECK_TESTID], 'the live law check on this panel']
                         : intent.topic === 'cost'
-                            ? [LIVE_QUANTITIES_TESTID, 'the live quantities section on this panel']
-                            : [PARCEL_LAW_FACTS_TESTID, 'the parcel fact section on this panel'];
-                const text = excerpt(q(scope, testid));
+                            ? [
+                                [
+                                    LIVE_QUANTITIES_TESTID,
+                                    LIVE_QUANTITIES_QUANTITIES_PART_TESTID,
+                                    LIVE_QUANTITIES_COST_PART_TESTID,
+                                ],
+                                'the live quantities and cost sections on this panel',
+                            ]
+                            : [[PARCEL_LAW_FACTS_TESTID], 'the parcel fact section on this panel'];
+                const text = excerptAll(scope, testids);
                 if (text === null) {
                     return {
                         driven: false,

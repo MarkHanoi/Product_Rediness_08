@@ -98,6 +98,31 @@ export const PARCEL_PANEL_INTRO =
 
 export interface ParcelRailPanelHandle {
     readonly element: HTMLElement;
+    /**
+     * §PL-IA-Q (STR §26.3) — THE CADASTRAL HALF'S SLOT, exposed so a host may place it.
+     *
+     * The two halves of this panel answer DIFFERENT persona questions: the cadastral card is
+     * *"what is this plot?"* and the buildable-envelope card is *"what may I build here, and
+     * who says so?"*. The rail renders them stacked because a rail is one column; the Parcel Law
+     * tab groups them under those two questions, so it needs to place them separately.
+     *
+     * ⛔ THIS EXPOSES A SLOT, NOT A SECOND BUILD. Both slots keep their handles, their store
+     * subscriptions and their `isConnected` guards here, in this file, exactly as before — a
+     * host that re-parents a slot moves the SAME element with the SAME contents. Re-parenting is
+     * what §L-412 already does for the Cesium container; nothing about the singleton-card
+     * discipline (C19 §5.7) changes, because the card's parent is still this envelope slot.
+     *
+     * `null` only on the build-failed arm, where the panel has no slots to give.
+     *
+     * ⚠ OPTIONAL, and deliberately so — the convention this codebase already states for every
+     * seam added to a shape other lanes construct as a complete literal. Five specs build a
+     * `ParcelRailPanelHandle` by hand; making these required would break all five in files this
+     * lane does not own, for no gain: a caller that does not know about the slots is exactly a
+     * caller that will not place them.
+     */
+    readonly parcelSlot?: HTMLElement | null;
+    /** The envelope half's slot — the one `window.pryzmMountEnvelopeCard` claims into. */
+    readonly envelopeSlot?: HTMLElement | null;
     dispose(): void;
 }
 
@@ -140,6 +165,9 @@ export function buildParcelRailPanel(
     root.setAttribute('data-testid', PARCEL_RAIL_PANEL_TESTID);
 
     let section: ParcelSectionHandle | null = null;
+    /** §PL-IA-Q — held so the handle can hand them out; assigned on the successful build arm. */
+    let parcelSlotRef: HTMLElement | null = null;
+    let envelopeSlotRef: HTMLElement | null = null;
     let unsubStore: (() => void) | null = null;
     let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
@@ -157,6 +185,7 @@ export function buildParcelRailPanel(
         slot.className = 'pb-parcel-slot';
         slot.setAttribute('data-testid', PARCEL_RAIL_SLOT_TESTID);
         root.appendChild(slot);
+        parcelSlotRef = slot;
 
         // ⭐ THE REUSE. One call, one reader, one card producer.
         section = mountParcelSection(slot, runtime);
@@ -214,6 +243,7 @@ export function buildParcelRailPanel(
         envSlot.className = 'pb-parcel-envelope-slot';
         envSlot.setAttribute('data-testid', PARCEL_RAIL_ENVELOPE_SLOT_TESTID);
         root.appendChild(envSlot);
+        envelopeSlotRef = envSlot;
 
         const store = resolveSiteStore(runtime);
 
@@ -344,6 +374,8 @@ export function buildParcelRailPanel(
 
     return {
         element: root,
+        get parcelSlot(): HTMLElement | null { return parcelSlotRef; },
+        get envelopeSlot(): HTMLElement | null { return envelopeSlotRef; },
         dispose(): void {
             disposed = true;
             try { section?.dispose(); } catch { /* teardown is best-effort */ }
