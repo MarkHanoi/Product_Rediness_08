@@ -20,7 +20,7 @@
 ## ⏱ THE NUMBER — read this line and stop
 
 > ### **0 of 28 readiness cells PROVEN · 4 FAILED by execution · 2 CONTESTED · 22 UNPROVEN**
-> ### **and 0 of 28 are GATED — every reading here can regress silently tomorrow.**
+> ### **and 0 of 28 are GATED AT THE INVARIANT — 6 sit on a 27-row shrink-only ledger (2026-09-06); the other 22 can regress silently tomorrow.**
 > Sources: [SPEC-49-CIRCULATION-INTEGRITY](../specs/SPEC-49-CIRCULATION-INTEGRITY.md) §2 (executed
 > sweeps) and [ISSUE-LOG](../../04-reference/ISSUE-LOG.md) **L-854…L-865** (browser observation on
 > `517f7a70`), both 2026-08-13. **Those artefacts are the authority; this line only quotes them.**
@@ -32,14 +32,19 @@
 > | **FAILED by an executed instrument** | **4** — `apartment` R1 + R2, `casa-unifamiliar` R1 + R2 |
 > | **CONTESTED — two instruments disagree** | **2** — `residential-building` R1 + R2 (§1.2) |
 > | **UNPROVEN — nobody measured** | **22** |
-> | **Cells held by a GATE** | **0 of 28** — the readiness gates do not exist (§1.4) |
+> | **Cells held by a GATE** | **0 of 28 fully · 6 PARTIALLY** (2026-09-06) — `check-generator-circulation.ts` ledgers R1+R2 for the three swept packs at a **27-row shrink-only baseline, not hard-0**, so those six cells can no longer regress *silently*, but nothing holds them at the invariant. `office-building` is unswept and R3/R6/R7 have no file at HEAD (§1.4) |
 > | **Founder-reported defects REPRODUCED** | **3 of 3** (GQ-D1 · GQ-D2 · GQ-D3, §1.3) |
 >
-> **The worst single reading, so it is not buried:** `casa-unifamiliar` (house) ships **12 of 24
-> storeys with an unreachable room** and **11 of 24 with a doorless room** — including one storey
-> whose **`Stair` has no opening at all**. Apartment is **7 / 106** on both. **The generators are not
-> in the same condition**, and a blended rate would have been true of none of them and would have
-> pointed the fix at the wrong one.
+> **The worst single reading, so it is not buried** *(re-measured 2026-09-06 — the 2026-08-13
+> reading was 12/24 · 11/24 · 7/106)*: `casa-unifamiliar` (house) ships **9 of 24 storeys with an
+> unreachable room** and **9 of 24 with a doorless room** — still including storeys whose **`Stair`
+> has no opening at all** (four such rows remain ledgered). Apartment is **5 / 107** on both. **The
+> generators are not in the same condition**, and a blended rate would have been true of none of
+> them and would have pointed the fix at the wrong one.
+>
+> ⚠ **The numbers fell; no cell passed.** Every R1/R2 cell is still **❌**, and the fall is other
+> lanes' generator work between 08-13 and 09-06 — surfaced by re-running SPEC-49 §2's
+> reproductions, not produced by the lane that re-ran them (§1.2).
 >
 > ⚠ **There is no ✅ in this programme, and one nearly appeared.** The synthetic sweep read
 > `residential-building` **0/34 clean** on R1 and R2 — and the founder, looking at a real generated
@@ -180,8 +185,8 @@ plan with a defect, it is not a plan.
 
 | # | Readiness gate | The invariant | Gate exists? |
 |---|---|---|---|
-| **R1** | **REACHABILITY** | every room is reachable from the entry along a door-graph path — the access DAG of [SPEC-CIRCULATION-GRAPH](../specs/SPEC-CIRCULATION-GRAPH.md) PART 1 | ❌ **no file at HEAD** |
-| **R2** | **APERTURE** | every enclosed room has ≥ 1 door; no room is sealed; every door is hosted in a real wall segment | ❌ **no file at HEAD** |
+| **R1** | **REACHABILITY** | every room is reachable from the entry along a door-graph path — the access DAG of [SPEC-CIRCULATION-GRAPH](../specs/SPEC-CIRCULATION-GRAPH.md) PART 1 | ⚠ **PARTIAL — `check-generator-circulation.ts` (CI-1), measured 2026-09-06.** Not hard-0: a NAMED shrink-only ledger. And it reads the **engine's own carried verdict**, not an independent BFS — the gate says so itself. **Not the R1 gate 1.4 describes** |
+| **R2** | **APERTURE** | every enclosed room has ≥ 1 door; no room is sealed; every door is hosted in a real wall segment | ⚠ **PARTIAL — `check-generator-circulation.ts` (CI-2), measured 2026-09-06.** NAMED shrink-only ledger, not hard-0. Reads the shipped door graph independently AND the carried verdict, and the two agree exactly. **Does not check a door is USABLE** (width, swing, hosted in a real segment) — that half is unmeasured |
 | **R3** | **CLEARANCE** | no furniture, fixture or element occludes a door swing or a circulation path | ❌ **no file at HEAD** |
 | **R4** | **DIMENSIONAL** | corridor widths, room minima, door widths hold against the normative database | ❌ no gate — 14 validators exist, unwired as a gate |
 | **R5** | **ADJACENCY** | mandatory adjacencies present, forbidden adjacencies absent, privacy gradient monotone | ❌ no gate — 10 validators exist, unwired as a gate |
@@ -190,8 +195,8 @@ plan with a defect, it is not a plan.
 
 | Typology pack | R1 | R2 | R3 | R4 | R5 | R6 | R7 | Sample behind the non-❔ cells |
 |---|---|---|---|---|---|---|---|---|
-| `apartment` | ❌ **7/106** | ❌ **7/106** | ❔ | ❔ | ❔ | ❔ | ❔ | 106 shipped winners of 108 shell × programme combos through `generateDeterministicLayouts` |
-| `casa-unifamiliar` (house) | ❌ **12/24** | ❌ **11/24** | ❔ | ❔ | ❔ | ❔ | ❔ | 24 shipped storeys through `generateHouseLayout`, 0 null |
+| `apartment` | ❌ **5/107** | ❌ **5/107** | ❔ | ❔ | ❔ | ❔ | ❔ | **107** shipped winners of 108 shell × programme combos through `generateDeterministicLayouts` |
+| `casa-unifamiliar` (house) | ❌ **9/24** | ❌ **9/24** | ❔ | ❔ | ❔ | ❔ | ❔ | 24 shipped storeys through `generateHouseLayout`, 0 null |
 | `residential-building` | ⚠ **CONTESTED** | ⚠ **CONTESTED** | ❔ | ❔ | ❔ | ❔ | ❔ | sweep: 34 synthetic units, **0/34**, `coreReachable` affirmative · browser: founder on a real generated building, *"rooms without doors, circulation not good"* (L-862) |
 | `office-building` | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ | ❔ | **never swept** |
 
@@ -199,6 +204,34 @@ plan with a defect, it is not a plan.
 nobody measured · ✅ = PROVEN, and no cell has earned one.** Readings quoted from
 [SPEC-49](../specs/SPEC-49-CIRCULATION-INTEGRITY.md) §2 and ISSUE-LOG **L-854…L-865**; SPEC-49 names
 the reproduction file and the exact `vitest` command for each. **Never put a mark here without one.**
+
+> ⚠ **R1/R2 RATES RE-MEASURED 2026-09-06 (lane RESI-CI0-EMIT-BOUNDARY, `c1e4de7c`).** They read
+> `apartment 7/106 · 7/106` and `house 12/24 · 11/24` from 2026-08-13 until this edit. Re-measured
+> by re-running SPEC-49 §2's own reproductions — **the §-1.1 protocol: the rate is re-measured
+> THERE first, then quoted here** — and SPEC-49 §2 has been updated in the same commit, so the two
+> files do not disagree.
+>
+> **⛔ THE CELLS ARE STILL ❌ AND NOTHING HERE WAS PROVEN.** A rate that fell is not a cell that
+> passed. `casa-unifamiliar` still ships **9 of 24 storeys with an unreachable room and 9 with a
+> doorless room**; `apartment` still ships 5 of 107 broken on both.
+>
+> **⛔ THIS LANE DID NOT EARN THIS MOVEMENT AND MUST NOT BE READ AS HAVING DONE SO.** It changed no
+> generator code. The improvement is other lanes' work between 08-13 and 09-06, surfaced by
+> re-running the instrument. Recording it under a lane that only re-measured would be the
+> confident-register-row defect this programme exists to avoid.
+>
+> ⭐ **Two things the new numbers say that the old ones did not.** (a) The apartment **denominator**
+> moved 106 → **107**: one combo that used to ship nothing now ships, so the base is larger AND the
+> failures fewer. (b) **CI-1 and CI-2 are now exactly equal on both generators** (5/5, 9/9) —
+> SPEC-49 §2 fact 2 predicted this, because the defect is *"no door was ever emitted"*, not a
+> routing failure; the house sweep has now collapsed to the full identity apartment always had.
+>
+> ⚠ **A SECOND INSTRUMENT READS R1 LOWER, and it is a finding, not noise.**
+> `check-generator-circulation.ts` reads CI-1 at **3/107 · 4/24** because it reads the **carried
+> CI-0 verdict** (computed pre-emission on the bubble graph); the figures in the table above come
+> from an **independent BFS over the SHIPPED door graph**. **CI-2 agrees exactly on all three
+> generators**, which is precisely what makes the CI-1 gap worth naming. Per §a2 this is **not**
+> resolved by preferring the kinder number: the artefact-side reading is closer to the user.
 
 > **Three qualifications that the marks alone would hide:**
 >
@@ -229,8 +262,8 @@ blocks a door fails the **typology's** R3 — the defect belongs to the plan a u
 
 | id | Defect as reported | Maps to | State — 2026-08-13 |
 |---|---|---|---|
-| **GQ-D1** | the corridor does not reach the relevant bedrooms | **R1 REACHABILITY** (SPEC-49 CI-1) | ✅ **REPRODUCED** — apartment 7/106, house **12/24**, residential 0/34 |
-| **GQ-D2** | rooms without doors | **R2 APERTURE** (SPEC-49 CI-2) | ✅ **REPRODUCED** — apartment 7/106, house **11/24**, residential 0/34 |
+| **GQ-D1** | the corridor does not reach the relevant bedrooms | **R1 REACHABILITY** (SPEC-49 CI-1) | ✅ **REPRODUCED** — 2026-09-06: apartment **5/107**, house **9/24**, residential 0/34 *(was 7/106 · 12/24 on 2026-08-13)* — **still open, still red** |
+| **GQ-D2** | rooms without doors | **R2 APERTURE** (SPEC-49 CI-2) | ✅ **REPRODUCED** — 2026-09-06: apartment **5/107**, house **9/24**, residential 0/34 *(was 7/106 · 11/24)* — **still open, still red** |
 | **GQ-D3** | furniture in front of a door | **R3 CLEARANCE** (SPEC-49 CI-3) | ✅ **REPRODUCED in the engine** at a **1 % floor** (3/288 against the real swing arc) — **per-typology rate UNPROVEN** |
 
 > ### ⚠ The measurement corrected the report, and the correction changes the fix
@@ -251,22 +284,41 @@ generator findings — none of them circulation — are §1.5.
 
 ### §1.4 — What is NOT-YET-TRUE, stated so nobody mistakes it for a settled invariant
 
-- **No readiness gate exists. Zero of seven.** Measured 2026-08-13:
-  `find . -name 'check-*circulation*' -o -name 'check-*reachab*'` → **empty**; `tools/ga-gate/` holds
-  **56 files** and none is scoped to generator output. `check-deterministic-regeneration` exists but
-  is a **BIM 3.0** gate about model regeneration, **not** about generator plan determinism — do not
-  cite it for R6.
+- ~~**No readiness gate exists. Zero of seven.**~~ **CORRECTED 2026-09-06 — ONE now exists, and it
+  covers TWO gates PARTIALLY.** The 2026-08-13 reading (`find . -name 'check-*circulation*' -o -name
+  'check-*reachab*'` → **empty**) is stale: **`tools/ga-gate/check-generator-circulation.ts`** drives
+  all three generators over the committed sweeps and ledgers **CI-1 (= R1)**, **CI-2 (= R2)** and
+  **CI-4**. Re-run the find, do not trust this line.
+  ⚠ **It is NOT the R1/R2 gate §1.2 describes, and the difference is not a technicality:**
+  (a) it is a **NAMED shrink-only ledger of 27 rows, not hard-0** — it passes at exit 1 *with* the
+  defects, by design; (b) its CI-1 arm reads the **engine's own carried verdict**, so it cannot
+  falsify the engine — SPEC-49 §7 additionally records that predicate as duplicate-name
+  LATENT-unsafe; (c) it reads the **engine payload, never the built model**, so a door emitted and
+  then dropped by `executePlan` is invisible to it; (d) it counts doors without checking any door is
+  **usable**. **R3, R6 and R7 still have no file at HEAD**, and `check-deterministic-regeneration`
+  is a **BIM 3.0** gate about model regeneration — **do not cite it for R6.**
 - **`SPEC-CIRCULATION-GRAPH.md` states its invariants in binding language and the code does not
   hold them.** It says *"a layout that fails any invariant below is INVALID and must be rejected
   before scoring"*; §1.2 measures 4 cells failing. A specification describing enforcement that does
   not exist is the exact defect class recorded as **L-809 / L-812** in `CLAUDE.md`. Treat that spec
   as a *source of invariants*, not as evidence of them.
-- ⛔ **The verdict is COMPUTED AND THROWN AWAY at the emit boundary.** SPEC-49 §3 measured that
-  `hardValid` / `hardFailedRules` do not survive onto the emitted `LayoutOption`, so **a caller that
-  wanted to refuse a broken plan cannot see that it is broken.** This is why validators exist and
-  defects ship anyway, and it is why SPEC-49 makes carrying the verdict (`CI-0`) the prerequisite
-  beneath every gate on its list. **Nothing in Phase 1 is buildable before it.** The machinery was
-  never missing; its answer was discarded one layer before the decision that needed it.
+- ~~⛔ **The verdict is COMPUTED AND THROWN AWAY at the emit boundary.**~~ **CORRECTED 2026-09-06 —
+  THIS BULLET WAS STALE, AND STALE IN THE DIRECTION THAT COSTS MOST.** It read: *"`hardValid` /
+  `hardFailedRules` do not survive onto the emitted `LayoutOption` … **Nothing in Phase 1 is
+  buildable before it.**"* **`CI-0` shipped in `1559275e`** and the verdict has been crossing the
+  emit boundary since. Because this bullet and item 1.1 both still said NOT-DONE, **the item the
+  programme calls its own blocker read as un-started while it was already delivered** — a doc
+  asserting the ABSENCE of machinery that exists, which is L-809/L-812 inverted, and it parked
+  everything sequenced beneath it. Measured at HEAD:
+  `npx tsx tools/ga-gate/check-generator-circulation.ts` → verdict **CARRIED (CI-0) 107/107 ·
+  24/24 · 34/34**, ARM B **0 disagreements across 165 measured options**.
+  ⚠ **What is still TRUE from the old bullet, and must not be lost with it:** the verdict is a
+  **verdict, not a refusal**. §TOPO-HARD-REJECT-ALL still ships the least-bad hard-invalid
+  candidate (apartment **13/107**, house **15/24** hard-invalid winners shipped anyway), and the
+  house path still cannot refuse a storey. **Defects still ship; they are merely no longer
+  silent** — `houseLayout/circulationBanner.ts` names the sealed rooms. The founder decision on
+  refuse-vs-banner (SPEC-49 §4, CI-1's runtime half) is **still open**.
+  ⛔ **Read the gate, never this line.**
 - **The 14 dimensional and 10 topology validators are apartment-scoped.** Whether
   `casa-unifamiliar`, `residential-building` or `office-building` reach them at all is **UNPROVEN**.
 - **There is exactly ONE normative programme-rules database and it is residential.** `office-building`
@@ -328,8 +380,8 @@ typologies (school, museum, hospital) · THEN the edit engine.** It is encoded b
 | # | Work item | Exit condition | Status |
 |---|---|---|---|
 | 1.0 | **Reproduce GQ-D1/D2/D3 as failing artefacts** | each defect has a runnable case that goes red today | ✅ **DONE 2026-08-13** — SPEC-49 §2; four reproduction files named there, each driving the real production entry (C74 §3.4) |
-| 1.1 | ⛔ **`CI-0` — carry the circulation verdict across the emit boundary** | `hardValid` / `hardFailedRules` / unreachable + doorless room names ride on the emitted `LayoutOption` | ⬜ **NEXT, AND IT BLOCKS EVERYTHING BELOW.** Additive, no behaviour change on its own. SPEC-49 §4 |
-| 1.2 | **Fix the house generator first** | `casa-unifamiliar` R1/R2 off **12/24 · 11/24**; the doorless `Stair` case gone | ⬜ TODO — **house is an order of magnitude worse than apartment; sequence by measured severity, not by alphabet** |
+| 1.1 | **`CI-0` — carry the circulation verdict across the emit boundary** | `hardValid` / `hardFailedRules` / unreachable + doorless room names ride on the emitted `LayoutOption` | ✅ **DONE — shipped `1559275e`**, re-verified by execution 2026-09-06 (`c1e4de7c`). **This row read "⬜ NEXT, AND IT BLOCKS EVERYTHING BELOW" long after it had shipped** — see the correction box under §1.4. Delivered `LayoutOption.circulation?: LayoutCirculationVerdict`, carrying MORE than the exit condition asked: three never-merged room sets by **id and name** plus the CI-4 gap flags. Carried **107/107 · 24/24 · 34/34**, ARM B **0 disagreements / 165 options**. ⚠ **A verdict, not a refusal** — 1.2 and 1.5 below are NOT closed by it |
+| 1.2 | **Fix the house generator first** | `casa-unifamiliar` R1/R2 off **9/24 · 9/24** (re-measured 2026-09-06; was 12/24 · 11/24 at the 08-13 pin); the doorless `Stair` case gone — **4 `Stair` rows remain** in `generator-circulation-ledger.json` | ⬜ **TODO — still the worst generator by a wide margin** (house 38% vs apartment 5%). ⭐ The ledger names the cheapest first move: the **doorless `Stair` rows**, which need no product decision, where the bathroom rows do — §DOOR-RESCUE-REACH's wet-room exclusion is DELIBERATE, so closing those means deciding who rescues a landlocked wet room |
 | 1.3 | **Ratify the seven readiness gates** as a contract, not a plan | a contract section defines "production-ready generator" normatively | ⬜ TODO — **contract lane owns this, not this file** |
 | 1.4 | **Build R1 REACHABILITY** — enumerate the denominator from the registry, land RED | every generated plan's every room is DETERMINED-reachable, DETERMINED-unreachable, or **UNDETERMINED with a typed reason**; silence is a failure. ⚠ **key the access graph by room `id`, not display name** — SPEC-49 §7 records a latent duplicate-name defect that currently reads a sealed room as reached | ⬜ TODO |
 | 1.5 | **Build R2 APERTURE** | zero sealed rooms across all four packs, or a named shrink-only ledger | ⬜ TODO |
@@ -434,7 +486,7 @@ cannot be enumerated today; scoring it now would be a verdict over an unestablis
 
 | Phase | DONE means | Today |
 |---|---|---|
-| **1** | the ratified gate set exists (7, or 10 with §1.5's candidates) · each enumerates its subject from the registry · each exits 2 rather than guess · each watched go red · every cell measured, **zero CONTESTED** · GQ-D1/D2/D3 each have a case that went red **then green** | **0 gates built · 6 of 28 cells measured, 2 of those CONTESTED · all 3 defects red, none yet green** |
+| **1** | the ratified gate set exists (7, or 10 with §1.5's candidates) · each enumerates its subject from the registry · each exits 2 rather than guess · each watched go red · every cell measured, **zero CONTESTED** · GQ-D1/D2/D3 each have a case that went red **then green** | **2026-09-06: 1 gate built covering 2 of 7 invariants PARTIALLY** (`check-generator-circulation.ts` — CI-1/CI-2/CI-4, ledgered not hard-0, watched red in both directions, exits 2 as a blind comparator) **· 6 of 28 cells measured, 2 of those CONTESTED · all 3 defects red, none yet green** |
 | **2** | school + museum + hospital each have P-a…P-d · each registered · each scoring all 7 gates · denominator restated at 49 | **not started; blocked** |
 | **3** | bar-3 gate exists and shrinks · edit contract ratified · edit denominator enumerable · engine passes it | **blocked at the precondition** |
 
@@ -452,6 +504,8 @@ its discipline).
 | 2026-08-13 | `65633d7e` | **First measurement, from SPEC-49's executed sweeps.** GQ-D1/D2/D3 all reproduced; the measurement **merged D1 and D2 into one defect** (no door emitted, not a routing failure). C81 landed, so Phase 3.2 closes. `CI-0` inserted as Phase 1's blocking prerequisite. | **UNPROVEN → FAILED ×4 · UNPROVEN → (provisionally) PROVEN ×2** |
 | 2026-08-13 | *(this commit)* | **The two ✅s withdrawn within the hour**, by the browser probe (L-859…L-865): a harness said `residential-building` was clean, the founder watching a real generated building said *"rooms without doors, circulation not good"*. Both cells → **CONTESTED**; **CONTESTED** added to §0 as a fourth state. §1.5 opens on three defects no R1–R7 cell can hold, as candidate **R8–R10**, deliberately outside the denominator until ratified. | **PROVEN → CONTESTED ×2** |
 | 2026-08-14 | *(L-GENBOUNDARYv2 probe commit)* | **L-907/L-909 evidence, executed** (ISSUE-LOG L-907/L-909 lane appends are the authority; this row only cites them): the strip-slicer bbox mint is pinned by execution (`proceduralLayout.ts:57-87`, **10/18 partition endpoints outside the captured boundary** on a non-orthogonal T-shell); the founder's chooser chips **"25 errors" + "Circulation ~0%" reproduced to the digit**, and both are partly FALSE readings (15 errors = report-layer unmeasured-as-zero; ~0% = BFS over an unbuilt adjacency graph while the option's own doors form a fully-connected chain); L-909(b) **determined**: windows WERE generated, the G-10/G-7/A-7 triple is FALSE → **15 of 19 executed-path errors are false readings**. Candidate rows boundary-capture / plan-fidelity remain candidates — **no cell state moved, evidence only**. | — |
+
+| 2026-09-06 | `c1e4de7c` | **Item 1.1 `CI-0` closed — as ALREADY-SHIPPED, not as newly built.** The lane opened to build CI-0 and found it landed in **`1559275e`**; this file's item 1.1 and its §1.4 blocker bullet had both read NOT-DONE ever since, so *"the item that blocks everything below"* read un-started while it was delivered. Both corrected, with the executed artefact. The circulation gate was **exiting 3 STALE** at HEAD over **11 rows paid by earlier commits and never struck**; struck **38 → 27** after proving all 11 cases still swept (`shipped=true measured=true`), so a *vanished* case could not be mistaken for a *fixed* one. Gate **RC=3 → RC=1** at its declared level. R1/R2 rates re-measured in SPEC-49 §2 first, then quoted: apartment **7/106 → 5/107**, house **12/24 → 9/24** (R1) and **11/24 → 9/24** (R2). **NO GENERATOR CODE CHANGED** — the rate movement is other lanes' work, banked. | **no cell changed state** — R1/R2 stay **❌** on both generators; only their numerators, the gate column, and item 1.1 moved |
 
 > **Read the two rows together, because the pair is the lesson.** The first entry moved four cells to
 > FAILED and two to PROVEN. The second entry **took both greens back within the hour.** Neither

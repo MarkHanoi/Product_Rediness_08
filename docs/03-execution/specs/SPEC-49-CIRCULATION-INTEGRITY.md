@@ -51,15 +51,56 @@ under test):
   `furnishRoom`)
 - shared predicates: `packages/ai-host/__tests__/helpers/circulationPredicates.ts`
 
-Run: `cd packages/ai-host && npx vitest run __tests__/circulationIntegrity*.test.ts __tests__/furnitureDoorClearanceAudit.test.ts --silent=false`
+Run: `cd packages/ai-host && npx vitest run __tests__/circulationIntegrity*.test.ts __tests__/furnitureDoorClearanceAudit.test.ts --silent=false --testTimeout=300000 --disable-console-intercept`
+
+> ⚠ **Two flags were ADDED to that command on 2026-09-06, because the command as
+> written no longer works.** Measured at HEAD: without `--testTimeout`, the apartment
+> sweep (16.7 s) blows vitest's 5 s default and the run reports
+> `Test Files 1 failed | 1 passed (2)` / `Tests 2 failed | 5 passed (7)` with
+> `Error: Test timed out in 5000ms` — **a timeout, not an assertion failure, and
+> nothing in that output says so.** An agent running the documented command would
+> read the authority for these rates as RED and could easily record a generator
+> regression that did not happen. Without `--disable-console-intercept` the run
+> passes but prints **none** of the rate lines below, so the numbers this section
+> exists to carry are invisible. With both flags: `Test Files 2 passed (2)` /
+> `Tests 7 passed (7)`.
 
 ### CI-1 / CI-2 — reachability and doorlessness
 
+**Re-measured 2026-09-06** (lane RESI-CI0-EMIT-BOUNDARY), by re-running the reproductions
+above — the §8 protocol, which requires a changed rate to be re-measured HERE before it is
+quoted in the tracker:
+
 | Typology | Sample | **CI-1 unreachable** | **CI-2 doorless** | Verdict |
 |---|---|---|---|---|
-| `apartmentLayout` | 106 shipped winners (of 108 combos) | **7 / 106 = 7%** | **7 / 106 = 7%** | **PRESENT** |
-| `houseLayout` | 24 shipped storeys (0 null) | **12 / 24 = 50%** | **11 / 24 = 46%** | **PRESENT — severe** |
+| `apartmentLayout` | **107** shipped winners (of 108 combos) | **5 / 107 = 5%** | **5 / 107 = 5%** | **PRESENT** |
+| `houseLayout` | 24 shipped storeys (0 null) | **9 / 24 = 38%** | **9 / 24 = 38%** | **PRESENT — severe** |
 | `residentialBuilding` | 34 shipped units | **0 / 34 = 0%** | **0 / 34 = 0%** | **ABSENT** on the plates swept |
+
+> ⚠ **The 2026-08-13 reading was `7/106 · 7/106` · `12/24 · 11/24` · `0/34 · 0/34`.**
+> Every apartment and house figure has moved, and the apartment DENOMINATOR moved too
+> (106 → 107 shipped winners: one combo that previously shipped nothing now ships).
+> **This lane changed no generator code** — the movement is other lanes' work between
+> 08-13 and 09-06, surfaced here by re-running the instrument, not produced by it.
+> The improvement is real but it is NOT this section's achievement, and none of it was
+> obtained by weakening a predicate: the reproductions are unchanged.
+>
+> ⭐ **CI-1 and CI-2 are now EQUAL on both generators (5/5 and 9/9).** §2 fact 2 below
+> predicted exactly this: the two sets were already identical on apartment and 11-of-12
+> on house, because the defect is *"no door was ever emitted"*, not a routing failure.
+> The house sweep has now collapsed to full identity.
+>
+> ⚠ **A SECOND INSTRUMENT DISAGREES ABOUT CI-1, AND THE DISAGREEMENT IS REAL, NOT NOISE.**
+> `tools/ga-gate/check-generator-circulation.ts` — same three sweeps, same HEAD — reads
+> CI-1 at **3/107 · 4/24 · 0/34** where this table reads **5/107 · 9/24 · 0/34**. The two
+> are measuring different things and both are correct: the gate reads the **carried CI-0
+> verdict** (`unreachableRoomIds`, computed on the bubble graph *before* emission), while
+> this table's helper runs an **independent BFS over the SHIPPED door graph**. A room the
+> engine's own pre-emission graph believes is reached, but which no shipped door reaches,
+> counts here and not there. **CI-2 agrees exactly on all three (5/107 · 9/24 · 0/34)**,
+> which is what makes the CI-1 gap a finding rather than a bug in either reader.
+> **Do not reconcile these by preferring one number** — the artefact-side reading is the
+> one closer to the user (§0-style reasoning; the tracker's CONTESTED doctrine).
 
 Two facts the numbers carry that a single blended rate would have hidden:
 
@@ -140,10 +181,28 @@ Every one of CI-1, CI-2 and CI-4 is already computed, correctly, at candidate le
 3. **No orchestrator applies a final gate.** `assembleHouse` pushes the argmax-score option per
    storey with no soundness check; its only failure mode is `null` when the engine returned `[]`.
    `runApartmentCellLayout` takes `options[0]` unconditionally.
-4. **The `hardValid` / `hardFailedRules` verdict is DROPPED at the emit boundary.** It lives on
-   `TglCandidate`; `emitGeometry` projects to `LayoutOption`, which has no such field. So even a
-   caller that WANTED to refuse cannot see the verdict. This is the single most consequential
-   structural fact in this audit.
+4. ~~**The `hardValid` / `hardFailedRules` verdict is DROPPED at the emit boundary.**~~
+   **CLOSED — `CI-0` SHIPPED in `1559275e`.** As audited, the verdict lived on `TglCandidate` and
+   `emitGeometry` projected to a `LayoutOption` with no such field, so even a caller that WANTED to
+   refuse could not see the verdict — *"the single most consequential structural fact in this
+   audit"*. **That is no longer true at HEAD**, and this item is kept struck-through rather than
+   deleted because the tracker and this SPEC both sequenced everything else beneath it.
+   `LayoutOption.circulation?: LayoutCirculationVerdict` now carries `hardValid`,
+   `hardFailedRules`, and **three separately-named room sets that are never merged** (C75 §1.2) —
+   `unreachableRoomIds`/`Names`, `unroutedToCirculationRoomIds`/`Names`,
+   `doorlessRoomIds`/`Names` — plus the CI-4 `corridorStairGap` / `corridorHallGap` flags. Verified
+   by execution **2026-09-06**: the verdict is carried on **107/107 apartment · 24/24 house ·
+   34/34 residential** shipped options, with **0 disagreements across 165 measured options**
+   between the carried verdict and the shipped artefact
+   (`npx tsx tools/ga-gate/check-generator-circulation.ts`, ARM A + ARM B).
+   ⚠ **`undefined` means NOT MEASURED, never "sound"** — the type says so and the gate classifies
+   it that way. **The verdict is a verdict, not a refusal:** nothing in the engine refuses on it,
+   and §TOPO-HARD-REJECT-ALL still ships the least-bad hard-invalid candidate (items 1–3 above are
+   all still live). What CI-0 bought is that the answer now EXISTS at the layer that must act on
+   it — and one consumer already does: `houseLayout/circulationBanner.ts` emits a
+   `§DIAG-CI-1-BANNER` naming the sealed rooms, e.g. *"SEALED — no door at all: Bedroom 3,
+   Bedroom 1, Bathroom 1 … the layout was generated and SHIPPED anyway — this is a warning about
+   what was built, not a refusal to build it."*
 5. **The existing sweep is structurally blind to the defect.**
    `circulationRobustnessSweep.test.ts` counts a candidate `sound` only when it is ALREADY
    `hardValid` — precisely excluding the case where nothing is hard-valid and the least-bad ships.
@@ -199,9 +258,9 @@ this audit — this lane diagnoses.**
 
 | Invariant | Gate | Where | Shape |
 |---|---|---|---|
-| **CI-0 (prerequisite)** | **Carry the verdict across the emit boundary** | `emitGeometry.ts` → `LayoutOption` | Add a `circulation: { hardValid, hardFailedRules, unreachableRoomNames, doorlessRoomNames }` block to the emitted option. **Nothing else on this list is buildable until this exists** — today the verdict is computed and thrown away. Additive; no behaviour change on its own. |
+| **CI-0 (prerequisite)** | ✅ **SHIPPED `1559275e`** — the verdict crosses the emit boundary | `emitGeometry.ts` → `LayoutOption` | Delivered as `LayoutOption.circulation?: LayoutCirculationVerdict`, and it carries MORE than this row asked for: `hardValid`, `hardFailedRules`, **three** never-merged room sets by **both id and name** (`unreachable*`, `unroutedToCirculation*`, `doorless*`) and the CI-4 `corridorStairGap`/`corridorHallGap` flags. Re-verified by execution 2026-09-06 — carried 107/107 · 24/24 · 34/34, ARM B 0 disagreements / 165 options. Additive as promised: no candidate is dropped and no geometry moved. ⚠ It is a **verdict, not a refusal** — §TOPO-HARD-REJECT-ALL still ships the least-bad candidate, so CI-1's runtime half below is NOT closed by this row. |
 | **CI-1** | **Final orchestrator gate** | `houseOrchestrator.assembleHouse`, `runApartmentCellLayout`, `generate.ts` | A winner ships only if `fraction === 1`. Requires a decision the founder owns: house currently CANNOT refuse a storey. Options: (a) refuse and surface the reason, (b) ship + a blocking honest banner naming the sealed rooms. **Silently shipping is the one option this SPEC rules out.** *2026-08-14: the CI ledger half is DECIDED and BUILT (see the decision block above); the (a)-vs-(b) runtime half is still open.* |
-| **CI-2** | **Shrink-only doorless ratchet** | `tools/ga-gate/check-generator-circulation.ts` (new) | Drives the three generators over the committed sweeps, counts doorless rooms, fails if the count exceeds a baseline. Start at the measured 7/106 · 11/24 · 0/34, ratchet to 0. This is the cheapest real gate on the list and needs no product decision. |
+| **CI-2** | ✅ **BUILT** — shrink-only doorless ratchet | `tools/ga-gate/check-generator-circulation.ts` | Drives the three generators over the committed sweeps, reads the carried CI-0 verdict AND an independent door-graph reader, and fails if a NAMED row appears that the ledger does not declare. Pinned 2026-08-13 at 7/106 · 11/24 · 0/34; **reads 5/107 · 9/24 · 0/34 on 2026-09-06** and the ledger has shrunk **38 → 27 rows** (`generator-circulation-ledger.json`). ⚠ **Rows are NAMED `<CLASS>::<generator>::<sweep-case>`, never a bare count** — a count lets one fix and one new break cancel out. The gate also exits **3 on a STALE row** (declared but no longer measured), which is what caught 11 rows paid by earlier commits and never struck (`c1e4de7c`). |
 | **CI-3** | **Wire the sector, then hard-assert it** | schema → `OpeningPose` → `placeSolver` | Three ordered steps: (1) thread `Door.swing` through the wall-opening payload into `OpeningPose`; (2) replace `doorObstacles` with `doorSwingKeepout`'s sector at all four duplicate sites, deleting the drift; (3) add an AREA validator to `validate.ts` and promote it from soft-warn to hard. Step 1 is the blocker and is the only one that leaves the furnisher. |
 | **CI-4** | **Carry contiguity onto the option** | `enumerate.ts` → `emitGeometry.ts` | `corridorStairGap` / `corridorHallGap` exist per-candidate and are dropped. Carry them (part of CI-0's block), then gate. Building scale is already enforced and measured clean — do not rebuild it. *2026-08-14: carried and LEDGERED (storey scale), see the decision block above.* |
 
