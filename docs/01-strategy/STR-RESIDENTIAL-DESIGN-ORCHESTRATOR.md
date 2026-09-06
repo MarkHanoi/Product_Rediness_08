@@ -887,6 +887,57 @@ helping:** two simultaneous Cesium viewers would mean two terrain streams, two t
 GPU contexts on a page that already runs a WebGPU BIM renderer beside it. The founder chose the
 cheap, honest constraint over the expensive, fragile capability. A future lane that "restores" the
 second viewer is undoing a deliberate decision, not fixing a limitation.
+
+### §26.1.2 — FOUNDER RULING, 2026-09-06: SPLIT DIVIDES THE VIEW REGION, NOT THE WINDOW
+
+His words, given after testing the deployed build and finding the behaviour *"mixed up"*:
+
+> *"We need to have a sound and really robust system for the split view / and the analysis / inspect
+> panels — because SPLIT VIEW SHOULD ALWAYS SPLIT THE VIEW OF THE SECTION OF THE VIEWS. So if in
+> AUTHOR, then split view will divide the view in 2. But in ANALYSE view, then split view will
+> divide THE LEFT HAND SIDE VIEW in 2 — and this is not robust at the moment, is mixed up, not
+> architecturally sound."*
+
+⭐ **THIS IS THE GOVERNING MODEL FOR THE ENTIRE PANE SYSTEM AND IT SUPERSEDES ANY LOCAL RULE THAT
+CONTRADICTS IT.** State it once, implement it once:
+
+1. **There is a VIEW REGION.** It is the part of the shell that holds views. It is not the window.
+2. **A workspace mode decides how big the view region is.** In **Author** the view region is the
+   whole canvas. In **Analysis** (and Inspect, and Data) a panel claims part of the shell, and the
+   view region is what remains.
+3. **SPLIT divides the VIEW REGION — always, and only.** Author: the canvas splits in two.
+   Analysis: the remaining left area splits in two. The panel is never one half of a split.
+4. **Every pane control belongs to a pane inside that region** — the view dropdown, the split
+   toggle, the drag handle. None of them is positioned against the window or the canvas.
+
+⛔ **WHY THE CURRENT BEHAVIOUR IS "MIXED UP", stated so the fix targets the cause and not the
+symptoms.** Today the split and the panel are SIBLINGS competing for the same shell: the workspace
+mode sets `#container` to 50 %, the split view separately claims its own pane, and the switcher
+positions itself from CANVAS-relative variables (`--shell-canvas-cx` / `--shell-canvas-w`). Three
+independent owners of one geometry. Every symptom the founder has reported in this area is that
+same collision wearing a different hat:
+
+| Symptom | Row | The collision |
+|---|---|---|
+| Right half blank after Analysis → Author | L-12988 | placement and layout disagreed across the transition |
+| Onboarding globe halved, empty pane beside it | L-13000 | a mode wrote `width:50%` onto the full-bleed globe |
+| Switcher spans the window, wraps to two rows | L-13003 | segments sized against a rail row, not a pane |
+| Bar centres itself over a viewless region | L-13027 | anchored to the canvas after the canvas stopped being the view |
+| Pane blanked when a singleton view moved | L-12999 | a move vacated instead of swapping |
+| Map displaced, then re-asserted, repeatedly | L-13025 | the mount and the placement disagree on ordering |
+
+**Six rows, one cause.** They have been fixed one at a time; §26.1.2 is the statement that makes
+them one fix.
+
+⭐ **THE TEST THAT SETTLES IT** — a lane may not claim §26.1.2 without it: from Author, split → two
+views. Switch to Analysis → the panel takes its share and **the split survives inside the remaining
+region**, still two views, now narrower. Switch back to Author → the panel yields and the two views
+expand. At no point does a pane blank, a control leave its pane, or the count of views change.
+
+⛔ **NOT LICENSED BY THIS SECTION:** a second Cesium viewer or a second MapLibre map (§L-412 — one
+of each, re-targeted); a rival option table (`viewPanelOptions.ts` stays the one definition); or
+losing the mutual-exclusion ruling in §26.1.1 — at most one Cesium-backed view is ACTIVE across the
+whole region however that region is divided.
 ### §26.2 — "Properly displayed" — the presentation standard
 
 His words: *"then on the analysis it needs to be more intuitive and way easier better displayed —
