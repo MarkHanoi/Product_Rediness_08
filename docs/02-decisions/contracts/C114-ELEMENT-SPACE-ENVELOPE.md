@@ -551,6 +551,69 @@ solar), **11** (IFC disposition), **12** (the INTENDED-vs-BUILT *presentation* �
 channel shipped, the presentation did not) and **13** (`WallMoveReweld` type parameter)
 remain, and §12b's C74 §2 ENFORCEMENT row is **still owed**.
 
+### 2026-09-06 · lane PL-ENVELOPE-AUTHORING — the family acquires a CREATE surface, and its footprint acquires the three authoring modes
+
+Appended per §14's own rule (*living record — appended, never rewritten*). Every row names its
+commit and its measurement; **anything not listed here is NOT shipped**, and §14a's reporting rule
+applies to this entry in full.
+
+| Delta item | State | Commit | Proof |
+|---|---|---|---|
+| ⭐ A USER-REACHABLE CREATE GESTURE — footprint × N storeys → ONE `spaceEnvelope.batch.create` | ✅ **SHIPPED** | `9d4ee67f` | `envelopeAuthoringPlan.spec.ts` **21/21** · `parcelLawEnvelopeAuthoring.spec.ts` **18/18** |
+| The storey-count verdict against `maxFloors` — **ADVISORY, per §12's decisive row** | ✅ **SHIPPED** | `9d4ee67f` | asserted BOTH ways: the plan is produced, the envelope count is NOT clamped, and both numbers are carried as values |
+| The LIVE law check — implantation used · GFA used · remainder per floor · BRUT/NET | ✅ **SHIPPED** | `9d4ee67f` | the founder's 1,200 / 200 / 320 worked example reads *"allocated 200 of the 320 total, so 120 m² remains for the floors above"* |
+| 7 (profile edit) — **the three DRAWING modes reach the envelope**: straight · orthogonal · curved | ✅ **SHIPPED** | `8279e0d0` | `wallProfileEditorDrawModes.spec.ts` **7/7** · `wallProfileEditorChrome.test.ts` **30/30 unchanged** · `spaceEnvelopeProfileEditTool.spec.ts` **18/18** (17 before) |
+
+**§14f — ⭐ THE MODES EXISTED AND WERE UNREACHABLE, WHICH IS NOT THE SAME AS MISSING.**
+`ElevationOutlineSurface` has declared `'polyline'`, `'arc'` and ABSOLUTE `orthoOn` since
+§OUTLINE81 (its header, `:18-24`), and `WindowOutlineEditorDialog` builds all three controls
+(`:100-101`, `:131`). The wall modal — the one §14's item 7 joined this family to — *"simply never
+leaves `select` mode, which is how it keeps byte-identical behaviour"*. So the founder's
+*"CURVED LINES, STRAIGHT LINES, OR ORTHOGONALS"* was present in the surface and could not be
+reached through the only dialog that opens it. The fix is **one optional subject flag**
+(`WallProfileEditorSubject.drawModes`, the exact precedent of `title` recorded in §14e), a mode bar
+built only when it is set, and `drawModes: true` on the envelope's subject. ⛔ **No outline surface
+was written — §10b is honoured to the letter.** ⛔ **And it grants nothing:** an arc-authored ring
+is still judged by `spaceEnvelope.setFootprint` and `containmentGate`, with both numbers.
+
+**§14g — WHAT THE CREATE SURFACE IS AND IS NOT.** It is on the **Parcel Law tab**
+(`apps/editor/src/ui/analysis/parcelLawEnvelopeAuthoring.ts`), between the fact section and the
+live quantities, which is the founder's own stage ladder. It COMPUTES NOTHING: the parcel and
+ordinance figures come from `resolveParcelLawModel` (§25.11 clause 1's ONE model), the permitted
+RING from `resolveParcelLawEnvelope` (extracted from that same reader, so no second *"which
+envelope is current"* rule exists), the BRUT/NET arithmetic from `brutAreaAllocation.ts` — **which
+had ZERO production callers before this commit** — and what is drawn from `collectIntendedAreas`.
+⛔ It is not a generator: it extrudes a ring the user chose over storeys the user typed, which is
+STR §25.0's *"guide this process WITHOUT BUILDING THE HOUSE IN ONE CLICK"*.
+
+#### §14h — ⛔ WHAT IS **NOT** TRUE OF THIS ENTRY
+
+- ⛔ **NOTHING IN THIS LANE IS BROWSER-VERIFIED, unchanged from §14d and §14e.** No envelope has
+  been created on screen, no arc drawn with a pointer, no remainder watched to move. The bus, the
+  store and the profile-edit port are FAKES OF THE SEAM. What the draw-mode cases add over §14e's
+  source-reading wire spec is real clicks on real buttons in happy-dom — stronger, still not a browser.
+- ⚠ **EACH STOREY IS ITS OWN ELEMENT, so editing one storey's perimeter does NOT move the others.**
+  There is no linked-footprint concept in this family and none was invented. The section says so
+  where the buttons are, rather than letting a user discover it.
+- ⚠ **THE LAW-CHECK TABLE'S WORDING WAS WRITTEN FOR A TYPED TARGET, NOT A DRAWN ONE.**
+  `buildBrutAllocation` says *"Nothing was allocated here"* on a refused row; here the "request" is
+  an area the user already DREW, so the honest reading is *"this storey is outside the allowance"* —
+  the envelope is neither deleted nor clamped. A lede sentence states that in the open; the
+  underlying strings are unchanged, and the seam is logged rather than tidied away.
+- ⛔ **`spaceEnvelopeReachableThroughComposedRuntime.test.ts` ARM F and ARM G are RED at HEAD, and
+  they PREDATE this lane.** Its fixture creates a room ring at x 1…5 / z 1…5 inside a level ring at
+  x 0…4 / z 0…4, which §14c's `room ⊂ level` ENFORCEMENT (landed `4ad339c1`, gate last touched
+  `224cfeff`) now refuses at `canExecute` with *"asks for 1.41 m; the limit is 0.00 m"* — the gate is
+  behaving exactly as this contract says it must, and the FIXTURE is what is stale. Neither file is
+  touched by this lane's commits. **The persistence half of §11 item 5 is therefore currently
+  unproven by a running test, and that is worse than it looks: ARM G is the SAVE→RELOAD arm.**
+- ⚠ **The create surface reads `maxFloors` from the parcel-law model, so it inherits that model's
+  silence.** Where the ordinance is untranscribed (the founder's Córdoba parcel) the section is
+  fully authorable and every compliance figure reports UNKNOWN with its named reason — never zero,
+  never unbounded (C58 §1.4 / L-616).
+
+---
+
 ---
 
 ---
