@@ -94,6 +94,59 @@ export function shouldMountSiteAuthoringSplit(state: SiteAuthoringSplitMountStat
     return state.siteCommitted;
 }
 
+/** The one field of the runtime the `siteCommitted` question needs. */
+export interface SiteStoreHolder {
+    readonly siteModelStore?: { getSite?: () => unknown } | null;
+}
+
+/**
+ * §SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED (L-13002) — READ `siteCommitted` THE WAY
+ * THE COMMIT WROTE IT.
+ *
+ * ⛔ THE DEFECT THIS EXISTS TO PREVENT, and it is the SIXTH recurrence of one shape in
+ * this subsystem (§L-1580 · §L-12916 · `getFormaBoundary` · `buildSiteDataBlock` ·
+ * {@link resolveLiveUpdateEventBus} · this). The live boot path constructs `GISAreaLayout`
+ * via `createMainLayout(props, /* runtime *\/ null)` (`initUI.ts` → `Layout.ts:86`), so the
+ * CAPTURED runtime is `null` and `runtime?.siteModelStore` is `undefined`. The L-13000
+ * gate's `siteCommitted` input read exactly that — so it answered **`false` on every
+ * production session, no matter what had been committed**, and
+ * {@link shouldMountSiteAuthoringSplit} refused the split at the §22 reveal and at the
+ * draw step, the two places its own refusal text names as the ones that mount.
+ *
+ * ⭐ THE ORDERING CLAIM IN L-13000 WAS TRUE; THE READ WAS NOT. `runSiteRevealSequence`
+ * DOES run `anchor-site-location` → `dispatchSiteLocation` → `ensureSite` before
+ * `mount-split`, and that write lands in `resolveSiteContext`'s store — which resolves
+ * `runtimeArg ?? window.runtime`. The gate then asked a different object.
+ *
+ * ⚠ EITHER HOLDER COUNTS, DELIBERATELY. The commit resolves `captured ?? window`; a
+ * reader that resolved only `captured` when captured is non-null could still miss a Site
+ * written against `window.runtime` by a surface that was handed no runtime of its own
+ * (the onboarding draw step is exactly that). "Does the model have a Site?" is a question
+ * about the app, and production has ONE runtime — the two reads can only diverge in the
+ * null-captured case this function exists for.
+ *
+ * Pure (P8 span-exempt): no `window` access of its own — the caller passes both holders,
+ * which is what makes the null-captured case assertable without a live runtime.
+ */
+export function isSiteCommittedInModel(
+    capturedRuntime: SiteStoreHolder | null | undefined,
+    windowRuntime: SiteStoreHolder | null | undefined,
+): boolean {
+    for (const holder of [capturedRuntime, windowRuntime]) {
+        const getSite = holder?.siteModelStore?.getSite;
+        if (typeof getSite !== 'function') continue;
+        let site: unknown = null;
+        try {
+            site = getSite.call(holder!.siteModelStore) ?? null;
+        } catch {
+            // A store that throws is not a store that holds a Site. Try the other holder.
+            continue;
+        }
+        if (site !== null) return true;
+    }
+    return false;
+}
+
 /** A point in the scene's XZ ground plane (metres, LTP-local). */
 export interface XZPoint {
     readonly x: number;

@@ -1016,7 +1016,7 @@ export class OnboardingStepController {
     private async revealSplitAtParcel(target: SiteRevealTarget): Promise<void> {
         const w = window as unknown as {
             pryzmSetGeocodeFrame?: (frame: { lat: number; lon: number; bbox?: [number, number, number, number] }) => void;
-            pryzmMountSiteAuthoringPanes?: () => void;
+            pryzmMountSiteAuthoringPanes?: () => boolean | void;
             pryzmFadeInSiteAuthoringPanes?: () => void;
         };
         const result = await runSiteRevealSequence(
@@ -1060,7 +1060,10 @@ export class OnboardingStepController {
                     if (typeof w.pryzmMountSiteAuthoringPanes !== 'function') {
                         throw new Error('pryzmMountSiteAuthoringPanes is not wired');
                     }
-                    w.pryzmMountSiteAuthoringPanes();
+                    // L-13002 — FORWARD THE HOST'S ANSWER. It returns `false` when its
+                    // §ONBOARDING-IS-FULL-BLEED gate declines; swallowing that is what let
+                    // this method log "split mounted in order" over an unmounted split.
+                    return w.pryzmMountSiteAuthoringPanes();
                 },
                 fadeInSplit: () => { w.pryzmFadeInSiteAuthoringPanes?.(); },
             },

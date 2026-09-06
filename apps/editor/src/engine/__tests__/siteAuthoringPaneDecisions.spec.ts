@@ -8,12 +8,16 @@
 //           (no whole-city zoom-out), then falls back to the no-re-fly path (no jitter).
 //   L-13000 — the split MAY NOT EXIST while the onboarding globe still owns the screen
 //           (§ONBOARDING-IS-FULL-BLEED), and the §22 reveal must still get through.
+//   L-13002 — …and the `siteCommitted` INPUT to that gate must be read the way the commit
+//           WROTE it. Reading the bare captured runtime made it `false` on every
+//           production session, so the reveal it was built to let through was refused.
 
 import { describe, it, expect } from 'vitest';
 import {
     shouldAutoOpenSplitView,
     shouldFramePanedSiteOnUpdate,
     shouldMountSiteAuthoringSplit,
+    isSiteCommittedInModel,
     ringCentroidXZ,
     resolveLiveUpdateEventBus,
     PARCEL_BOUNDARY_SET_EVENT,
@@ -256,5 +260,57 @@ describe('§ONBOARDING-IS-FULL-BLEED (L-13000) — the split may not exist over 
             onboardingGlobePhase: false,
             siteCommitted: true,
         })).toBe(true);
+    });
+});
+
+describe('§SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED (L-13002) — the gate read the wrong store', () => {
+    // ⛔ THE PRODUCTION SHAPE, and the whole defect in one object. `createMainLayout(props,
+    // null)` (initUI.ts → Layout.ts:86) hands `mountGISArea` a NULL runtime by design; the
+    // Site is committed against `window.runtime`'s store by `resolveSiteContext`, which
+    // resolves `runtimeArg ?? window.runtime`. A reader that consults only the captured
+    // runtime therefore answers `false` FOREVER — which refused the §22 reveal's mount, left
+    // the 2D map unmounted, and cost the founder a 45-second §UX1-DRAW-PHASE-GATE timeout.
+    const storeHolding = (site: unknown) => ({ siteModelStore: { getSite: () => site } });
+    const SITE = { id: 'site_p1' };
+
+    it('sees the Site when the CAPTURED runtime is null and the window one holds it', () => {
+        expect(isSiteCommittedInModel(null, storeHolding(SITE))).toBe(true);
+    });
+
+    it('and so the L-13000 gate now ALLOWS the reveal it was written to allow', () => {
+        expect(shouldMountSiteAuthoringSplit({
+            onboardingGlobePhase: true,
+            siteCommitted: isSiteCommittedInModel(null, storeHolding(SITE)),
+        })).toBe(true);
+    });
+
+    // The pre-fix behaviour, pinned so a "simplify back to `runtime?.siteModelStore`" is a
+    // RED test rather than a 45-second wait in production.
+    it('the captured-only read is the bug: null captured ⇒ the gate refuses', () => {
+        const capturedOnly = (rt: { siteModelStore?: { getSite?: () => unknown } } | null) =>
+            (rt?.siteModelStore?.getSite?.() ?? null) !== null;
+        expect(capturedOnly(null)).toBe(false);
+        expect(shouldMountSiteAuthoringSplit({
+            onboardingGlobePhase: true,
+            siteCommitted: capturedOnly(null),
+        })).toBe(false);
+    });
+
+    it('honest FALSE when neither holder has a Site (the real STEP 1 OF 4 state)', () => {
+        expect(isSiteCommittedInModel(null, storeHolding(null))).toBe(false);
+        expect(isSiteCommittedInModel(null, null)).toBe(false);
+        expect(isSiteCommittedInModel({}, { siteModelStore: null })).toBe(false);
+    });
+
+    it('reads the CAPTURED holder when it is the one that has the Site', () => {
+        expect(isSiteCommittedInModel(storeHolding(SITE), null)).toBe(true);
+        // Either holder counts: the draw step commits through whichever runtime it resolved.
+        expect(isSiteCommittedInModel(storeHolding(null), storeHolding(SITE))).toBe(true);
+    });
+
+    it('a THROWING store is not a Site — it falls through to the other holder', () => {
+        const throwing = { siteModelStore: { getSite: () => { throw new Error('disposed'); } } };
+        expect(isSiteCommittedInModel(throwing, storeHolding(SITE))).toBe(true);
+        expect(isSiteCommittedInModel(throwing, null)).toBe(false);
     });
 });

@@ -112,8 +112,21 @@ export interface SiteRevealDeps {
      * Optional: when absent only the content gates, which is the §REVEAL-CONTENT-READY behaviour.
      */
     readonly awaitFlightComplete?: () => Promise<unknown>;
-    /** `window.pryzmMountSiteAuthoringPanes()` — the ONE existing split mount (idempotent). */
-    readonly mountSplit: () => void;
+    /**
+     * `window.pryzmMountSiteAuthoringPanes()` — the ONE existing split mount (idempotent).
+     *
+     * ⭐ §SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED (L-13002) — IT MAY DECLINE, AND THE
+     * DECLINE IS AN OUTCOME, NOT AN EXCEPTION. The host gates the mount on the app phase
+     * and on whether the model holds a Site (§ONBOARDING-IS-FULL-BLEED), and it returns
+     * `false` rather than throwing when it says no. This dep used to be typed `() => void`,
+     * so a refusal read here as a success: the sequence pushed `mount-split`, returned
+     * `mounted: true`, and the founder's console said *"§22 reveal: split mounted in
+     * order"* over a screen with no split on it — the only symptom left being a 45-second
+     * wait for a draw surface that could never load. `undefined` is still treated as
+     * success, so a host that genuinely returns nothing (and the tests that model one)
+     * behaves exactly as before; only an explicit `false` stops the sequence.
+     */
+    readonly mountSplit: () => boolean | void;
     /** Presentation-only fade. Never gates; a throw here does not un-mount the split. */
     readonly fadeInSplit?: () => void;
 }
@@ -129,7 +142,11 @@ export type SiteRevealStep =
 
 export type SiteRevealStopReason =
     | 'geocode-frame-not-seeded'
-    | 'site-location-not-anchored';
+    | 'site-location-not-anchored'
+    /** The host was asked and said no — see `mountSplit` (L-13002). */
+    | 'split-mount-declined'
+    /** The host threw. The split is not up and the error is on the console. */
+    | 'split-mount-threw';
 
 export interface SiteRevealResult {
     /** True only when the split was actually mounted (both preconditions satisfied). */
@@ -236,13 +253,27 @@ export async function runSiteRevealSequence(
         }
 
         // 4) The ONE existing mount (P1 — no parallel mount path; idempotent).
+        //
+        // ⛔ L-13002 — BELIEVE THE HOST, NOT THE CALL. `mountSplit` returning without
+        // throwing is NOT evidence that a split exists: the host declines by RETURNING
+        // `false` (its §ONBOARDING-IS-FULL-BLEED gate), and this block used to record that
+        // as `mount-split` + `mounted: true`.
+        let mounted = false;
         try {
-            deps.mountSplit();
-            steps.push('mount-split');
+            mounted = deps.mountSplit() !== false;
         } catch (e) {
             console.error('[site-reveal] mountSplit threw — the split did not open:', e);
-            return { mounted: false, steps };
+            return { mounted: false, steps, stoppedBecause: 'split-mount-threw' };
         }
+        if (!mounted) {
+            console.warn(
+                '[site-reveal] the host DECLINED to mount the split (it returned false) — staying '
+                + 'full-screen on the globe. Its own console line above says why; this sequence '
+                + 'ran its preconditions in order:', steps.join(' → '),
+            );
+            return { mounted: false, steps, stoppedBecause: 'split-mount-declined' };
+        }
+        steps.push('mount-split');
 
         // 5) Presentation only.
         if (deps.fadeInSplit) {

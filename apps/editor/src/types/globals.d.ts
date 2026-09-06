@@ -314,7 +314,13 @@ declare global {
              *  layout shipped through a global would be a second place for a default to live,
              *  and `paneLayoutForPreset` in the pure model is the first. */
             readonly layout?: 'site-authoring' | 'parcel-law';
-        }) => void;
+            // RETURNS (§SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED, L-13002): `true` iff the
+            // split is ON SCREEN after the call (a fresh mount, or an already-mounted re-seed);
+            // `false` when the host declined, in which case the console line it printed says
+            // why. Callers that report the step to the user (the §22 reveal) MUST read this —
+            // the previous `void` made a refusal indistinguishable from a mount, which is how
+            // "split mounted in order" was logged over a split that never appeared.
+        }) => boolean | void;
         /** §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412) — dismiss the site-authoring split: the
          *  2D map disposes and the single Cesium viewer re-homes to `#container` + hides
          *  (never disposed). Idempotent. Registered by GISAreaLayout. */

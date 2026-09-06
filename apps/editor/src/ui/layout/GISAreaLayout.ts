@@ -225,9 +225,11 @@ import {
 import {
     shouldFramePanedSiteOnUpdate,
     shouldMountSiteAuthoringSplit,
+    isSiteCommittedInModel,
     ringCentroidXZ,
     resolveLiveUpdateEventBus,
     type LiveUpdateEventBus,
+    type SiteStoreHolder,
 } from '../../engine/views/siteAuthoringPaneDecisions';
 // L-402 — the PURE explain-why report model (C58 §1.3 derivation → presentable rows).
 import {
@@ -6239,18 +6241,32 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * `siteCommitted` input to `shouldMountSiteAuthoringSplit`, which carries the
      * reasoning for why EXISTENCE (and not a real lat/lon) is the right question.
      *
-     * Reads `siteModelStore` directly rather than `getSiteOrigin()`, which also falls
-     * back to `lastGeocodeFrame` and to the frozen LTP origin — neither of which is a
-     * statement about the model.
+     * Reads `siteModelStore` rather than `getSiteOrigin()`, which also falls back to
+     * `lastGeocodeFrame` and to the frozen LTP origin — neither of which is a statement
+     * about the model.
+     *
+     * ⛔ §SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED (L-13002) — THIS LINE READ THE BARE
+     * CAPTURED `runtime` AND SO ANSWERED `false` ON EVERY PRODUCTION SESSION. The live
+     * boot path hands this layout `runtime = null` by design, and the Site is committed
+     * against `window.runtime`'s store. The result was a 45-second wait for a draw surface
+     * that could never arrive (§UX1-DRAW-PHASE-GATE) because the split never mounted and
+     * so the 2D map never mounted. The resolution now lives in the pure
+     * `isSiteCommittedInModel`, beside the gate it feeds, where it is asserted without a
+     * live runtime.
      */
-    const siteCommittedInModel = (): boolean => {
-        const store = runtime?.siteModelStore as
-            | { getSite?: () => { id?: string } | null }
-            | undefined;
-        return (store?.getSite?.() ?? null) !== null;
-    };
+    const siteCommittedInModel = (): boolean => isSiteCommittedInModel(
+        runtime as unknown as SiteStoreHolder | null,
+        (typeof window !== 'undefined')
+            ? ((window as { runtime?: unknown }).runtime as SiteStoreHolder | undefined) ?? null
+            : null,
+    );
 
-    const mountSiteAuthoringPanes = (preset: PaneLayoutPreset = 'site-authoring'): void => {
+    // §SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED (L-13002) — RETURNS WHETHER THE SPLIT IS
+    // UP AFTER THIS CALL. It used to return `void`, so every early return above was
+    // indistinguishable from success to the caller: the §22 reveal logged *"split mounted in
+    // order"* while nothing had mounted, and the only evidence left was a 45-second wait.
+    // A refusal that the caller cannot observe is not a refusal, it is a silent failure.
+    const mountSiteAuthoringPanes = (preset: PaneLayoutPreset = 'site-authoring'): boolean => {
         // ════════════════════════════════════════════════════════════════════
         // §ONBOARDING-IS-FULL-BLEED (L-13000, founder 2026-09-06 with two screenshots)
         // — THE SPLIT MAY NOT EXIST WHILE THE ONBOARDING GLOBE STILL OWNS THE SCREEN.
@@ -6290,7 +6306,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 + '(§ONBOARDING-IS-FULL-BLEED, L-13000). The split mounts at the §22 reveal / the '
                 + 'draw step, both of which commit the Site first.',
             );
-            return;
+            return false;
         }
         if (siteAuthoringPanes && !siteAuthoringPanes.isDisposed) {
             // §PANE-DEFAULT-IS-PLAN-LEFT (L-12988) — already up. Do NOT re-mount (that would
@@ -6307,12 +6323,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 console.warn('[gis][panes] re-seed rejected (the existing layout stands):', already.rejected);
             }
             already.pending?.catch((err) => console.error('[gis][panes] re-seed apply (async) failed:', err));
-            return;
+            return true; // already up — the caller's postcondition ("the split is on screen") holds.
         }
         const container = document.getElementById('container');
         if (!container) {
             console.error('[gis][panes] §L-412 #container not found — cannot mount the split.');
-            return;
+            return false;
         }
         // Close any single-pane 2D-map overlay first — it re-opens INTO the left pane.
         if (map2dHandle) { try { map2dHandle.dispose(); } catch { /* gone */ } map2dHandle = null; }
@@ -6554,7 +6570,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         if (!applied.ok) {
             console.error('[gis][panes] default layout rejected — tearing the split down:', applied.rejected);
             unmountSiteAuthoringPanes();
-            return;
+            return false;
         }
         applied.pending?.catch((err) => console.error('[gis][panes] layout apply (async) failed:', err));
         console.log(
@@ -6562,6 +6578,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             `${layout.left ?? 'empty'} · RIGHT ${layout.right ?? 'empty'} ` +
             '(single Cesium re-targeted; envelope live on draw/select).',
         );
+        return true;
     };
 
     /** Tear the split down: unmounts both renderers (Cesium re-homes to #container +
@@ -6592,8 +6609,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // in 2D-left / 3D-right (the "Generate house?" confirm stays a SEPARATE choice,
     // never a blocker to seeing the site). Registered globally (typed in globals.d.ts).
     window.pryzmMountSiteAuthoringPanes = (opts) => {
-        try { mountSiteAuthoringPanes(opts?.layout ?? 'site-authoring'); }
-        catch (e) { console.error('[gis][panes] pryzmMountSiteAuthoringPanes failed:', e); }
+        // §SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED (L-13002) — FORWARD THE OUTCOME. The
+        // §22 reveal reports what it actually did from this value; a swallowed `void` is how
+        // a refused mount got logged as a successful one for a whole release.
+        try { return mountSiteAuthoringPanes(opts?.layout ?? 'site-authoring'); }
+        catch (e) {
+            console.error('[gis][panes] pryzmMountSiteAuthoringPanes failed:', e);
+            return false;
+        }
     };
     // §22 (PRD §17.4) — bring the just-mounted split in with a CSS opacity transition. Called by
     // the onboarding reveal sequence as its LAST step (presentation only — it never gates
