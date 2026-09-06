@@ -226,6 +226,14 @@ import {
 // §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — one shared terrain round-trip for every ground layer
 // that asks inside the same short window, instead of one duplicate download per layer (pure).
 import { GroundSampleBatcher, groundSampleKey } from "./groundSampleBatcher";
+// §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — the sea's arrival re-clips the land-use drape by
+// REMOVING the pieces that are over water, instead of forcing the whole layer to reload. Pure.
+import {
+  landuseAreaClipCentroid,
+  seaRingsSignature,
+  planLanduseSeaClip,
+  decideLanduseReclip,
+} from "./contextLanduseSeaClip";
 // §FORMA-FALLBACK-KEY-IS-LOCAL (L-12920) — the night-time study key, expressed in the site's ENU
 // frame (pure), so the ground is lit at every longitude, not only near Europe.
 import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
@@ -1703,6 +1711,20 @@ export class CesiumViewport {
    *  Weak: an entity removed by a `clearContext*` takes its record with it. `point: null` = a
    *  feature that could not be located (falls back to the safe base, as at load). */
   private contextGroundSeatPoints = new WeakMap<Cesium.Entity, { layer: GroundLayer; point: GroundLatLon | null }>();
+  /** §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — the clip centroid of the land-use AREA each drawn
+   *  piece belongs to (many pieces share one area once §GROUND-DRAPE-ON-RELIEF splits it), so the
+   *  sea's arrival can remove exactly the pieces over water instead of forcing the whole layer to
+   *  re-fetch, re-decompose (13 788 pieces at Sète), re-sample and rebuild. Weak: an entity removed
+   *  by `clearContextLanduse` takes its record with it. */
+  private contextLanduseAreaCentroid = new WeakMap<Cesium.Entity, readonly [number, number]>();
+  /** §LANDUSE-SEA-RECLIP-IN-PLACE — the sea rings the DRAWN land-use was clipped against, captured
+   *  at the `keptAreas` filter (NOT at the end of the pass: rings that arrive mid-pass were not in
+   *  that filter and must still be applied). Null = no land-use pass has completed yet. */
+  private contextLanduseSeaSignature: string | null = null;
+  /** §LANDUSE-SEA-RECLIP-IN-PLACE — distinct areas removed IN PLACE since the last full land-use
+   *  pass. Non-zero means a later, DIFFERENT coastline may need to RESTORE grey that an in-place
+   *  removal cannot bring back, and only that case pays for the full reload. */
+  private contextLanduseSeaClipRemoved = 0;
   /** §FORMA-CTX-TREES (L-642 Phase C) — ALL context tree canopies batched into ONE instanced,
    *  shadowless, single-material Primitive (nearest-first capped — ADR-0094 budget + the instancing
    *  memory), NOT one entity per tree. Its own clear + abort give it a lifecycle independent of the
@@ -7985,11 +8007,25 @@ export class CesiumViewport {
     }
     const now = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const t0 = now();
+    // §DRAPE-COST-ATTRIBUTION (L-12972) — the summary used to print ONE `ms`, and a single number
+    // cannot say WHICH half of this method is slow. That cost a whole triage lane: the founder's
+    // Sète console read "PARKS 15699 ms · LANDUSE 15522 · ROADS 15442" and the obvious reading —
+    // "the relief splitter is expensive" — is WRONG. MEASURED 2026-09-06 on a Sète-shaped corpus
+    // THREE TIMES his size (43 551 pieces from 3 442 features, against his 13 788 from 1 342), the
+    // ENTIRE pure decomposition — seat points, probes, the split decision and every Sutherland–
+    // Hodgman grid clip — costs **296 ms**. The rest is WAITING for terrain, behind a FIFO that
+    // allows one flight at a time (§GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME, L-12952): three layers
+    // reporting the same 15.5 s to within 260 ms are three layers ending when one shared queue
+    // drains. So the two are now timed SEPARATELY and printed separately — the next reader gets the
+    // attribution for free instead of reconstructing it. (§CONTEXT-DATA-HONESTY: ship the probe.)
+    let waitMs = 0;
     const seats = features.map((f) => (f.kind === 'polygon' ? polygonSeatPoint(f.coords) : corridorSeatPoint(f.coords)));
     const probes = features.map((f, i) => featureReliefProbePoints(f.coords, seats[i] ?? null));
     const batch: GroundLatLon[] = [];
     for (const list of probes) for (const p of list) batch.push(p);   // the seat is probe[0]
+    const w0 = now();
     try { await this.sampleContextGroundsBatch(batch); } catch { /* never throws, belt and braces */ }
+    waitMs += now() - w0;
     if (!this.viewer) return { pieces: [], summary: 'viewer disposed during the terrain sample' };
     const cached = (p: GroundLatLon): number | undefined =>
       this.contextGroundCache.get(`${p.lat.toFixed(6)},${p.lon.toFixed(6)}`);
@@ -8018,7 +8054,9 @@ export class CesiumViewport {
       return [{ coords: f.coords, seat: seats[i] ?? null }];
     });
     if (secondBatch.length > 0) {
+      const w1 = now();
       try { await this.sampleContextGroundsBatch(secondBatch); } catch { /* as above */ }
+      waitMs += now() - w1;
       if (!this.viewer) return { pieces: [], summary: 'viewer disposed during the piece sample' };
     }
     const safeBase = this.resolveContextSafeBase(siteLat, siteLon);
@@ -8052,7 +8090,14 @@ export class CesiumViewport {
       `sampled ground (${Number.isFinite(lo) ? `${lo.toFixed(1)}–${hi.toFixed(1)} m` : 'n/a'}), the rest on the safe base ` +
       `${safeBase.toFixed(1)} m; ${measured} relief-measured, ${split} split (>${GROUND_DRAPE_RELIEF_SPLIT_M} m relief, piece length from each feature’s own slope) into ` +
       `${pieceCount - (features.length - split)} piece(s); ${batch.length + secondBatch.length} terrain point(s) in ` +
-      `${secondBatch.length > 0 ? 2 : 1} batch round-trip(s), ${ms.toFixed(0)} ms (cache-served on a re-seat)`;
+      `${secondBatch.length > 0 ? 2 : 1} batch round-trip(s), ${ms.toFixed(0)} ms (cache-served on a re-seat). ` +
+      // §DRAPE-COST-ATTRIBUTION (L-12972) — WHERE the ms went. `waiting` is time inside
+      // `sampleContextGroundsBatch`, i.e. this layer's own downloads PLUS its wait behind every
+      // other layer in the one-flight-at-a-time FIFO; `own work` is the pure decomposition. When
+      // `waiting` dominates — it did at Sète, by ~50× — splitting less buys nothing and costs the
+      // per-feature seating this whole mechanism exists for.
+      `§DRAPE-COST-ATTRIBUTION: ${waitMs.toFixed(0)} ms waiting for terrain (shared FIFO), ` +
+      `${(ms - waitMs).toFixed(0)} ms own work (seat points, probes, split decision, grid clips)`;
     return { pieces, summary };
   }
 
@@ -10907,9 +10952,19 @@ export class CesiumViewport {
         `(${collection.sea.length} baked + ${supplementalSea.length} live-coastline supplement) — ` +
         `${seaPlaced === 0 ? 'HONEST no-op (inland / no coastline)' : 'always-on with terrain/location'}.`,
     );
-    // Re-clip the land-use drape against the freshly-loaded sea (idempotent; cached fetch). This makes
-    // the sea→land-use ordering irrelevant — whichever loads first, the grey ends at the coast.
-    if (this.contextSeaRingsLonLat.length > 0) void this.loadContextLanduse(lat, lon, true);
+    // Re-clip the land-use drape against the freshly-loaded sea. This makes the sea→land-use
+    // ordering irrelevant — whichever loads first, the grey ends at the coast.
+    //
+    // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — this was
+    //     if (this.contextSeaRingsLonLat.length > 0) void this.loadContextLanduse(lat, lon, true);
+    // i.e. it forced the ENTIRE land-use layer to reload to obtain ONE filter. Affordable when a
+    // land-use pass was 1 342 flat polygons; §GROUND-DRAPE-ON-RELIEF (L-12924) made that same pass
+    // 13 788 pieces plus two terrain round-trips behind a one-flight-at-a-time FIFO, and it is why
+    // the founder's Sète console prints the identical piece count twice. The re-clip is now an
+    // in-place REMOVAL of the pieces over water (the L-635 in-place-re-seat shape), and it is safe
+    // to call unconditionally: it is a no-op when the coastline has not changed, and it handles the
+    // inland `0 rings` case by signature like any other.
+    this.reclipContextLanduseAgainstSea(lat, lon, { mayStartLayer: true });
   }
 
   /**
@@ -11149,6 +11204,12 @@ export class CesiumViewport {
     // the cheap robust test: a polygon whose centre is water is a reclaimed/port/mislabelled area
     // that should read as sea, not urban. Runs BEFORE the seat sample so a clipped area is never sampled.
     let clippedBySea = 0;
+    // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — the coastline THIS filter saw, captured HERE and not
+    // at the end of the pass. The sea can land while the drape is still being resolved (its own
+    // Overpass fetch races this one), and rings that arrive after this line were never in this
+    // filter — recording the LATER signature would mark the drape clipped against a coastline it
+    // never met, and the grey would bleed past the coast for good.
+    const seaSignatureAtFilter = seaRingsSignature(this.contextSeaRingsLonLat);
     const keptAreas = collection.areas.filter((area) => {
       if (this.contextSeaRingsLonLat.length > 0 && area.ring.length >= 3) {
         let cx = 0, cy = 0;
@@ -11186,6 +11247,10 @@ export class CesiumViewport {
     for (let ai = 0; ai < keptAreas.length; ai++) {
       const area = keptAreas[ai]!;
       const pieces = drape.pieces[ai] ?? [];
+      // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — ONE clip centroid per AREA, shared by all its
+      // pieces, so a later sea can drop exactly this area's pieces without reloading the layer.
+      // Computed once per area (not per piece): Sète's 1 342 areas, not its 13 788 pieces.
+      const areaClipCentroid = landuseAreaClipCentroid(area.ring);
       for (const piece of pieces) {
         try {
           const positions = piece.coords.map(([flon, flat]) => {
@@ -11211,6 +11276,7 @@ export class CesiumViewport {
             },
           });
           this.contextGroundSeatPoints.set(ent, { layer: 'landuse', point: piece.seat });
+          if (areaClipCentroid) this.contextLanduseAreaCentroid.set(ent, areaClipCentroid);
           this.contextLanduseEntities.push(ent);
           placed++;
           if (isUrban) urbanPlaced++;
@@ -11238,11 +11304,115 @@ export class CesiumViewport {
         console.warn('[CesiumViewport][forma] ground base colour decision threw (non-fatal, base unchanged):', e);
       }
     }
+    // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — this drape is clipped against the coastline the
+    // `keptAreas` filter ACTUALLY saw, which is not necessarily the one on screen now.
+    this.contextLanduseSeaSignature = seaSignatureAtFilter;
+    this.contextLanduseSeaClipRemoved = 0;
     viewer.scene.requestRender();
     console.log(
       `[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} piece(s) of ${keptAreas.length} area(s) ` +
         `(${urbanPlaced} urban-grey, ${placed - urbanPlaced} rural-brown)${clippedBySea > 0 ? `, ${clippedBySea} clipped off the sea` : ''}. ` +
         `§GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
+    );
+    // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — the sea may have landed WHILE this pass was
+    // resolving its drape (both fetch Overpass; neither waits for the other). Whichever of the two
+    // finishes last performs the clip, so the ordering is irrelevant and neither has to force the
+    // other to reload. A no-op when the signature above is still current.
+    this.reclipContextLanduseAgainstSea(lat, lon, { mayStartLayer: false });
+  }
+
+  /**
+   * §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972, founder Sète 2026-09-06 "really slow rendering the 3d
+   * view once the parcel has been selected — especially since latest deployment").
+   *
+   * Apply a newly-loaded coastline to the land-use drape ALREADY on screen by REMOVING the pieces
+   * that are over water — the §CTX-BUILDINGS-INPLACE-RESEAT (L-635) shape, applied to the one
+   * effect the old code forced a whole layer reload to obtain.
+   *
+   * ⭐ WHAT THIS REPLACES, AND WHY IT IS A SÈTE-ONLY REGRESSION. `loadContextSea` ended with
+   * `if (this.contextSeaRingsLonLat.length > 0) void this.loadContextLanduse(lat, lon, true)`
+   * (§FORMA-CTX-LANDUSE-SEA-CLIP, L-642, 2026-07-29). In July that forced pass was 1 342 flat
+   * polygons at one scalar height and nobody noticed. §GROUND-DRAPE-ON-RELIEF (L-12924, 2026-09-05
+   * — "the latest deployment") made the same pass cost, at Sète, **13 788 pieces from 1 342 areas**
+   * plus **two terrain round-trips** that now queue behind a one-flight-at-a-time FIFO
+   * (§GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME, L-12952), on top of `clearContextLanduse()` and 13 788
+   * entity rebuilds. The founder's console shows the duplicate directly: the identical piece count
+   * printed TWICE in one session, and "8 round-trip(s) for 34 caller(s) asking 96828 point(s)".
+   * Córdoba is INLAND — no sea rings, this path never runs — which is exactly why he sees it here.
+   *
+   * ⛔ IT IS NOT A SPEED-FOR-FEATURES TRADE. `landuseAreaClipCentroid` reproduces the `keptAreas`
+   * filter's own vertex-mean, so this removes precisely the areas the forced reload would have
+   * dropped and keeps every piece it would have kept; an area whose centroid was never recorded is
+   * KEPT, never guessed away. The one case a removal cannot serve — a coastline that SHRANK, where
+   * grey must come BACK — still takes the full reload (`decideLanduseReclip` → 'full-reload').
+   *
+   * Synchronous, guarded, idempotent: no fetch, no terrain sample, no clear, no abort, so it cannot
+   * race the pan / location-change loads the way the forced reload could.
+   */
+  private reclipContextLanduseAgainstSea(
+    lat: number, lon: number,
+    opts: { readonly mayStartLayer: boolean },
+  ): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const currentSignature = seaRingsSignature(this.contextSeaRingsLonLat);
+    const action = decideLanduseReclip({
+      drawnPieces: this.contextLanduseEntities.length,
+      clippedAgainstSignature: this.contextLanduseSeaSignature,
+      currentSignature,
+      areasRemovedInPlace: this.contextLanduseSeaClipRemoved,
+    });
+    if (action === 'skip-unchanged') return;
+    if (action === 'nothing-drawn') {
+      // ⛔ TERMINATION, not an optimisation. The call at the END of `loadContextLanduse` passes
+      // `mayStartLayer:false`: a pass that legitimately placed ZERO pieces (every area clipped off
+      // the sea) leaves the list empty, and kicking the layer from there would re-enter the pass
+      // that just produced nothing — forever.
+      if (!opts.mayStartLayer) return;
+      // ⚠ NOT a no-op, and deliberately so. At a COASTAL site `loadContextSea` runs from the
+      // pre-parcel-select framing funnel, and the old forced reload was what STARTED the land-use
+      // layer there — so a coastal site showed the grey/brown drape before any parcel was selected
+      // and an inland site did not. That is accidental, but it is VISIBLE, and this lane does not
+      // get to delete something the founder can see in order to buy speed (his other standing
+      // complaint is that things go MISSING). So the layer is still kicked — just NOT `force`d, so
+      // a drape already on screen is left alone instead of being torn down and rebuilt.
+      void this.loadContextLanduse(lat, lon);
+      return;
+    }
+    if (action === 'full-reload') {
+      // A coastline that changed AFTER an in-place removal may need to RESTORE grey, which a
+      // removal cannot do. Rare, and the only remaining caller of the July behaviour.
+      console.log(
+        '[CesiumViewport][forma] §LANDUSE-SEA-RECLIP-IN-PLACE — coastline changed again after an ' +
+          'in-place removal; a removal cannot restore grey, so this one case reloads the layer.',
+      );
+      void this.loadContextLanduse(lat, lon, true);
+      return;
+    }
+    const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const plan = planLanduseSeaClip({
+      centroids: this.contextLanduseEntities.map((ent) => this.contextLanduseAreaCentroid.get(ent) ?? null),
+      inSea: (plon, plat) => this.isLonLatInSea(plon, plat),
+    });
+    if (plan.removeIdx.length > 0) {
+      const drop = new Set(plan.removeIdx);
+      const kept: Cesium.Entity[] = [];
+      for (let i = 0; i < this.contextLanduseEntities.length; i++) {
+        const ent = this.contextLanduseEntities[i]!;
+        if (!drop.has(i)) { kept.push(ent); continue; }
+        try { viewer.entities.remove(ent); } catch { /* already gone */ }
+      }
+      this.contextLanduseEntities = kept;
+      this.contextLanduseSeaClipRemoved += plan.areasRemoved;
+      viewer.scene.requestRender();
+    }
+    this.contextLanduseSeaSignature = currentSignature;
+    const ms = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
+    console.log(
+      `[CesiumViewport][forma] §LANDUSE-SEA-RECLIP-IN-PLACE: ${plan.removeIdx.length} piece(s) of ` +
+        `${plan.areasRemoved} area(s) removed off the sea, ${this.contextLanduseEntities.length} kept ` +
+        `(${plan.areasTested} distinct area(s) tested, ${plan.unkeyed} unkeyed → kept) in ${ms.toFixed(0)} ms ` +
+        '— no re-fetch, no re-split, no terrain round-trip, no rebuild.',
     );
   }
 
@@ -11272,6 +11442,11 @@ export class CesiumViewport {
       try { viewer.entities.remove(ent); } catch { /* gone */ }
     }
     this.contextLanduseEntities = [];
+    // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — nothing is drawn, so nothing is clipped against
+    // anything. Leaving a stale signature here would make the next sea load read `skip-unchanged`
+    // against a drape that no longer exists.
+    this.contextLanduseSeaSignature = null;
+    this.contextLanduseSeaClipRemoved = 0;
   }
 
   /**

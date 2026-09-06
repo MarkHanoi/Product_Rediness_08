@@ -286,3 +286,92 @@ describe('splitting a feature into per-seat pieces', () => {
         expect(steep.length).toBeLessThanOrEqual(GROUND_DRAPE_MAX_PIECES_PER_FEATURE);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §GROUND-DRAPE-ON-RELIEF, THE SÈTE GUARD (L-12972, founder 2026-09-06: "really slow rendering
+// the 3d view once the parcel has been selected").
+//
+// ⭐ WHY A PERF COMPLAINT ADDS A CORRECTNESS TEST. The obvious way to make Sète fast is to split
+// less — raise `GROUND_DRAPE_RELIEF_SPLIT_M`, shorten the piece budget, cap the pieces per layer.
+// Every one of those trades the founder's SLOW bug for his MISSING/FLOATING one: the splitter
+// exists because a flat ribbon on a hillside floats above the ground downhill and sinks under it
+// uphill, which is the L-12924 defect he reported at Lisbon Baixa the day before ("the grey layer
+// … is CUTTING the buildings"). These pin the staircase so that a later speed lane cannot quietly
+// flatten it — the prohibition becomes executable instead of a sentence in a brief.
+//
+// ⚠ HONESTY. The 50.2 m and 224.2 m are the founder's MEASURED Sète ground range, read off his
+// console. The ground BETWEEN them here is a MODELLED linear ramp up Mont St Clair, not sampled
+// terrain — this asserts the splitter's arithmetic against a known slope, NOT that Sète's terrain
+// is a ramp. Nothing here is a claim about the real mesh.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('the Sète staircase — a speed lane must not be able to flatten the drape', () => {
+    const SETE = { lat: 43.4028, lon: 3.6963 };
+    const SETE_GROUND_MIN_M = 50.2;      // founder's console, MEASURED
+    const SETE_GROUND_MAX_M = 224.2;     // founder's console, MEASURED
+    const RUN_M = 900;                   // the ramp's horizontal run — MODELLED
+    const kx = 111320 * Math.cos((SETE.lat * Math.PI) / 180);
+    /** MODELLED ground: a linear ramp east from the quay to the summit, clamped at both ends. */
+    const ground = (lon: number): number => {
+        const x = Math.min(RUN_M, Math.max(0, (lon - SETE.lon) * kx));
+        return SETE_GROUND_MIN_M + (SETE_GROUND_MAX_M - SETE_GROUND_MIN_M) * (x / RUN_M);
+    };
+
+    const dLon = RUN_M / kx;
+    const HILL_ROAD: LonLat[] = [[SETE.lon, SETE.lat], [SETE.lon + dLon, SETE.lat]];
+
+    it('a road climbing 174 m in 900 m is split, and every piece carries ~3 m of relief, not 174', () => {
+        const probes = featureReliefProbePoints(HILL_ROAD, corridorSeatPoint(HILL_ROAD));
+        const range = reliefRangeM(probes.map((p) => ground(p.lon)));
+        expect(range).toBeCloseTo(SETE_GROUND_MAX_M - SETE_GROUND_MIN_M, 6);
+        expect(decideDrapeStrategy({ reliefAttached: true, reliefRangeM: range })).toBe('split');
+
+        const pieces = splitCorridorIntoSegments(
+            HILL_ROAD, drapePieceLengthM(featureSpanM(HILL_ROAD, 'corridor'), range),
+        );
+        expect(pieces.length).toBeGreaterThan(1);
+        expect(pieces.length).toBeLessThanOrEqual(GROUND_DRAPE_MAX_PIECES_PER_FEATURE);
+
+        // THE GUARD: each piece's own residual relief stays inside the tolerance this module
+        // declares. Raise the threshold, lengthen the piece, or cap the count, and this fails.
+        for (const p of pieces) {
+            const hs = p.coords.map((c) => ground(c[0]));
+            expect(Math.max(...hs) - Math.min(...hs)).toBeLessThanOrEqual(GROUND_DRAPE_RELIEF_SPLIT_M + 1e-6);
+        }
+    });
+
+    it('the pieces are a MONOTONIC staircase up the hill, not one plane through it', () => {
+        // The visible defect L-12924 fixed: ONE seat for the whole road puts the downhill end tens
+        // of metres in the air and buries the uphill end. A staircase reads as ground; a plane does not.
+        const pieces = splitCorridorIntoSegments(
+            HILL_ROAD, drapePieceLengthM(featureSpanM(HILL_ROAD, 'corridor'), SETE_GROUND_MAX_M - SETE_GROUND_MIN_M),
+        );
+        const seats = pieces.map((p) => decideGroundFeatureSeat({
+            reliefAttached: true, baseM: SETE_GROUND_MIN_M, layer: 'roads', groundAtPointM: ground(p.seat.lon),
+        }).heightM);
+        for (let i = 1; i < seats.length; i++) expect(seats[i]!).toBeGreaterThan(seats[i - 1]!);
+        // And the staircase actually spans the hill rather than hugging one end.
+        expect(seats[seats.length - 1]! - seats[0]!).toBeGreaterThan(SETE_GROUND_MAX_M - SETE_GROUND_MIN_M - 20);
+
+        // What the pre-L-12924 single scalar would have done, for contrast: the WHOLE road at the
+        // seat point's ground, i.e. ~87 m of error at each end.
+        const single = decideGroundFeatureSeat({
+            reliefAttached: true, baseM: SETE_GROUND_MIN_M, layer: 'roads',
+            groundAtPointM: ground(corridorSeatPoint(HILL_ROAD)!.lon),
+        }).heightM;
+        expect(Math.abs(single - ground(SETE.lon))).toBeGreaterThan(80);
+    });
+
+    it('a FLAT feature on the same hillside is NOT split — the cost is paid only where relief is', () => {
+        // The other half of the prohibition: the splitter must not be "made cheap" by splitting
+        // everything a bit less, and it must not be paid where nothing is gained either.
+        const quay: LonLat[] = [
+            [SETE.lon - 0.002, SETE.lat], [SETE.lon - 0.0015, SETE.lat],
+            [SETE.lon - 0.0015, SETE.lat + 0.0005], [SETE.lon - 0.002, SETE.lat + 0.0005],
+            [SETE.lon - 0.002, SETE.lat],
+        ];
+        const probes = featureReliefProbePoints(quay, polygonSeatPoint(quay));
+        const range = reliefRangeM(probes.map((p) => ground(p.lon)));
+        expect(range).toBe(0);                                    // west of the ramp: clamped flat
+        expect(decideDrapeStrategy({ reliefAttached: true, reliefRangeM: range })).toBe('single');
+    });
+});
