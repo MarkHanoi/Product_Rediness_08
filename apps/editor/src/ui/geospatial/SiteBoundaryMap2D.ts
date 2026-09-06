@@ -152,6 +152,9 @@ import {
     type ParcelCandidateChoice,
 } from '../site/parcel/parcelCandidateChoice.js';
 import { footprintParcelProvider } from '../site/parcel/FootprintParcelProvider.js';
+// §STARTUP-SELECT-IS-NOT-DWELL (L-12931) — the mark that splits the user's dwell on the 2D map
+// from the machine cost of turning her click into a 3D render. A MARK, never a gate.
+import { markStartupPhase } from '../../engine/startupBudget.js';
 import type { ParcelProvenance } from '@pryzm/schemas';
 
 /** §BND-90-DEFAULT-ON — forgiving lock band (deg) for freehand map drawing (was the
@@ -1307,6 +1310,11 @@ export function mountSiteBoundaryMap2D(
         if (disposed || committed || !selectedParcel) return;
         const ring = selectedParcel.ring;
         if (ring.length < 3) { toast('Selected parcel has no usable boundary.', 'error'); return; }
+        // §STARTUP-SELECT-IS-NOT-DWELL (L-12931) — THE GESTURE. Everything before this line is the
+        // user dwelling on the 2D map; `parcel:selected → parcel:committed → envelope:dispatched`
+        // is the machine leg the founder times as "selection on 2d to render on 3d". The full
+        // reading (why `parcel:committed +159845ms` is NOT 160 s of work) is in `startupBudget.ts`.
+        markStartupPhase('parcel:selected'); // §STARTUP-BUDGET
         // §L-1580 — capture the attribution BEFORE `selectedParcel` is dropped two lines below.
         //
         // The per-jurisdiction row is resolved at the parcel's OWN first vertex and its OWN

@@ -24,7 +24,8 @@
 // don't drift): onboarding:shown · cesium:warm-start/-done · location-step:open ·
 // globe:camera-host-ready · geocode:start/end · context-warm:start/done ·
 // flight:parcel-arrival · reveal:content-ready · reveal:flight-settled · reveal:split-mounted ·
-// parcel:committed · envelope:dispatched · enter-canvas. Add phases; do not rename them.
+// parcel:selected · parcel:committed · envelope:dispatched · enter-canvas. Add phases; do not
+// rename them.
 //
 // ⭐ ADDED 2026-08-24 (lane EARTH31, §STARTUP-GLOBE-PREWARM / §STARTUP-BOOT-STAGES, L-10560) —
 // two families, both because the founder's own run had a 2.5-second hole in it that no mark
@@ -157,9 +158,27 @@
 // open:version-read-start/-done → open:snapshot-loaded → open:first-interactive-frame →
 // globe:eager-init-start/-done → open:project-loaded →
 // location-step:open → geocode:start/end → context-warm:start/done → flight:parcel-arrival →
-// reveal:content-ready → reveal:flight-settled → reveal:split-mounted → parcel:committed →
+// reveal:content-ready → reveal:flight-settled → reveal:split-mounted → parcel:selected →
+// parcel:committed →
 // envelope:dispatched → enter-canvas. ⭐ A run that skips a mark is itself a finding — say which
 // one, do not average over it.
+//
+// ⭐ ADDED 2026-09-06 (lane PERF-STARTUP-SELECT, §STARTUP-SELECT-IS-NOT-DWELL, L-12931) — ONE
+// mark, and it is the THIRD recurrence of the `hub:open-clicked` shape in this module: a delta
+// that reads as machine cost while it is mostly a human deciding. The founder's Córdoba paste
+// read `parcel:committed +159845ms (t+165799ms)` and, on his second parcel, `+290118ms`. The
+// previous mark in both cases is `reveal:split-mounted`, so those 160 s and 290 s are the split
+// view sitting on screen while he panned the 2D map and read parcel cards. His actual complaint
+// — *"the time from selection on 2d to render on 3d … should be less than a second"* — is a
+// STRICTLY SHORTER interval that had no mark at its start.
+//
+//   · parcel:selected — `SiteBoundaryMap2D.useSelectedParcel()`, the gesture itself (the user
+//     has chosen a parcel and pressed use). Everything before it is dwell ∥ map work;
+//     `parcel:selected → parcel:committed → envelope:dispatched(…)` is the machine leg, and it
+//     is the ONLY interval a selection→3D perf claim may be made against.
+//     ⛔ Never quote a `parcel:committed` delta as a cost again without `parcel:selected` in the
+//     same run. The drawn-boundary arm (`SiteBoundaryDrawTool`) has no such gesture — a run that
+//     drew rather than selected legitimately skips this mark, and that absence is the reading.
 //
 // P8: every exported function carries an OTel span.
 

@@ -223,6 +223,9 @@ import {
   type LatLon as GroundLatLon,
   type LonLat as GroundLonLat,
 } from "./groundFeatureSeat";
+// §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — one shared terrain round-trip for every ground layer
+// that asks inside the same short window, instead of one duplicate download per layer (pure).
+import { GroundSampleBatcher, groundSampleKey } from "./groundSampleBatcher";
 // §FORMA-FALLBACK-KEY-IS-LOCAL (L-12920) — the night-time study key, expressed in the site's ENU
 // frame (pure), so the ground is lit at every longitude, not only near Europe.
 import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
@@ -3695,6 +3698,9 @@ export class CesiumViewport {
     // this cache BEFORE it checks the provider, so stale entries would seat the flat study at
     // the detached city's elevations.
     this.contextGroundCache.clear();
+    // §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — fence any round-trip still in the air, so the
+    // DETACHED relief's heights cannot land in the cache we just emptied. Waiters still settle.
+    this.groundSampleBatcherInstance?.invalidate();
     this.formaTerrainBaseHeight = 0;
     // §TERRAIN-BASE-PROVENANCE — the base just went back to the ellipsoid, which on this
     // path is the TRUE flat ground (not a failed sample). Reset the provenance with it so a
@@ -7698,7 +7704,10 @@ export class CesiumViewport {
     // so per-footprint relief NEVER resolved and every building sat at the single flat centroid base while
     // the roads draped on the real relief. `sampleTerrainMostDetailed` reads the terrain provider directly
     // (works regardless of globe.show) and returns the correct height — batched once per load below.
-    const cached = this.contextGroundCache.get(`${lat.toFixed(6)},${lon.toFixed(6)}`);
+    // §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — ONE key rule, shared with the batcher that FILLS
+    // this cache (`groundSampleKey`). A reader keyed differently from its writer re-samples every
+    // point forever while reporting a healthy hit rate, so the literal lives in exactly one place.
+    const cached = this.contextGroundCache.get(groundSampleKey({ lat, lon }));
     if (typeof cached === 'number' && Number.isFinite(cached)) return cached;
     try {
       const globe = this.viewer?.scene.globe;
@@ -7729,43 +7738,72 @@ export class CesiumViewport {
     const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
     if (!provider || !this.terrainProviderHasElevationData(provider)) return; // flat/keyless → base is exact.
     // §STARTUP-TERRAIN-SAMPLE-REUSE (founder 2026-08-07, 5–10× startup) — THE CACHE IS KEPT
-    // ACROSS LOADS, AND ONLY THE MISSING POINTS ARE SAMPLED. This method used to `clear()` on
-    // entry, so EVERY context pass — including a duplicate render for the same site — re-asked
-    // the terrain provider for all ~6,000 footprint heights. The ground under a footprint does
+    // ACROSS LOADS, AND ONLY THE MISSING POINTS ARE SAMPLED. The ground under a footprint does
     // not change between passes; a lat/lon key is globally unique, so retention is safe. The
     // cache IS cleared where its answers genuinely die: `detachBakedTerrain()` (heights of a
     // detached relief must not seat a flat study — `sampleGround` consults this cache before it
     // checks the provider) and `resetProjectScopedState()` (a new project must not inherit a
     // prior city's ground). A pan samples only its newly-visible footprints.
-    const missing = centroids.filter(
-      (c) => !this.contextGroundCache.has(`${c.lat.toFixed(6)},${c.lon.toFixed(6)}`),
-    );
-    if (missing.length === 0) {
-      console.log(
-        `[CTX-DIAG] §STARTUP-TERRAIN-SAMPLE-REUSE — all ${centroids.length} footprint grounds ` +
-          'already sampled this session; no terrain round-trip.',
-      );
-      return;
-    }
-    try {
-      const cartos = missing.map((c) => Cesium.Cartographic.fromDegrees(c.lon, c.lat));
-      const sampled = await Cesium.sampleTerrainMostDetailed(provider, cartos);
-      let ok = 0;
-      for (let i = 0; i < sampled.length; i++) {
-        const h = sampled[i]?.height;
-        if (typeof h === 'number' && Number.isFinite(h)) {
-          this.contextGroundCache.set(`${missing[i].lat.toFixed(6)},${missing[i].lon.toFixed(6)}`, h);
-          ok++;
+    //
+    // ⭐ §STARTUP-GROUND-SAMPLE-COALESCE (L-12930, founder Córdoba 2026-09-06) — THE CACHE WAS
+    // NEVER THE PROBLEM ON A COLD SITE; THE DUPLICATE DOWNLOAD WAS. The reuse note above is about
+    // points already sampled. On the FIRST pass nothing is cached, and `CesiumViewport` fires the
+    // five ground loaders as five fire-and-forget `void` calls in one tick — so five
+    // `sampleTerrainMostDetailed` calls (ten, counting each layer's split-piece second batch) ran
+    // CONCURRENTLY over the SAME bbox at the SAME LOD. `sampleTerrainMostDetailed` shares no tile
+    // cache between calls, so each one re-downloaded the same tile set, and all of them queued
+    // behind each other in one `RequestScheduler`. The founder's log proves it: parks asked for
+    // **493** points and roads for **3555** — 7× more — and BOTH took **14.1 s**, to within 30 ms.
+    // A cost flat in the point count is a cost paid per DOWNLOAD, not per point.
+    //
+    // So the request now goes through `GroundSampleBatcher`: everything that asks inside one short
+    // window is merged into ONE round-trip, a point already in flight JOINS it, and a cached point
+    // costs nothing. ⛔ It samples fewer TIMES, never fewer POINTS — every point a caller asks for
+    // is still measured and still answered with its own real terrain height. Nothing is
+    // interpolated, decimated or defaulted (§CONTEXT-DATA-HONESTY / C57 §1.5).
+    await this.groundSampleBatcher().request(centroids);
+  }
+
+  /** §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — the one batcher in front of
+   *  `Cesium.sampleTerrainMostDetailed`, created lazily so a viewport that never loads context
+   *  never builds one. It fills `contextGroundCache` directly, which is what `sampleGround` reads. */
+  private groundSampleBatcherInstance: GroundSampleBatcher | null = null;
+  private groundSampleBatcher(): GroundSampleBatcher {
+    if (this.groundSampleBatcherInstance) return this.groundSampleBatcherInstance;
+    this.groundSampleBatcherInstance = new GroundSampleBatcher({
+      // Long enough to catch the five ground loaders (the founder's run entered three of them
+      // within 30 ms of each other) and the buildings pass; negligible against the 14 s it saves.
+      windowMs: 120,
+      cache: this.contextGroundCache,
+      sample: async (points) => {
+        const viewer = this.viewer;
+        const provider = viewer?.terrainProvider as Cesium.TerrainProvider | undefined;
+        if (!viewer || !provider || !this.terrainProviderHasElevationData(provider)) {
+          return points.map(() => null);   // UNMEASURED, not 0 — the seat ladder falls back safely.
         }
-      }
-      console.log(
-        `[CTX-DIAG] per-footprint terrain: sampleTerrainMostDetailed resolved ${ok}/${missing.length} ` +
-          `real ground heights (${centroids.length - missing.length} reused from cache; ` +
-          'getHeight is unusable in Forma).',
-      );
-    } catch (e) {
-      console.warn('[CTX-DIAG] per-footprint terrain batch-sample failed — falling back to centroid base:', e);
-    }
+        const cartos = points.map((p) => Cesium.Cartographic.fromDegrees(p.lon, p.lat));
+        const sampled = await Cesium.sampleTerrainMostDetailed(provider, cartos);
+        return points.map((_, i) => {
+          const h = sampled[i]?.height;
+          return typeof h === 'number' && Number.isFinite(h) ? h : null;
+        });
+      },
+      onFlush: ({ sampled, resolved, ms }) => {
+        const s = this.groundSampleBatcherInstance?.stats;
+        console.log(
+          `[CTX-DIAG] §STARTUP-GROUND-SAMPLE-COALESCE — ONE shared sampleTerrainMostDetailed ` +
+            `round-trip resolved ${resolved}/${sampled} real ground height(s) in ${ms.toFixed(0)} ms. ` +
+            (s
+              ? `Session: ${s.roundTrips} round-trip(s) for ${s.requests} caller(s) asking ` +
+                `${s.pointsRequested} point(s) — ${s.pointsSampled} sampled, ${s.pointsFromCache} ` +
+                `served from cache, ${s.pointsJoinedInFlight} joined a trip already in flight. ` +
+                `BEFORE this lane every caller paid its OWN round-trip (founder Córdoba: parks 493 pts ` +
+                `and roads 3555 pts BOTH 14.1 s — the duplicate download, not the points).`
+              : ''),
+        );
+      },
+    });
+    return this.groundSampleBatcherInstance;
   }
 
   /**
@@ -14655,6 +14693,9 @@ export class CesiumViewport {
         this.lastLocationHandled = null;
         this.contextLoadInFlight = null;
         this.contextGroundCache.clear();
+        // §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — as above: a round-trip started for the PREVIOUS
+        // project must not write that city's elevations into this one's freshly emptied cache.
+        this.groundSampleBatcherInstance?.invalidate();
         // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea layer is per-viewport too; cancel +
         // drop it so it doesn't leak across a project switch.
         this.contextSeaAbort?.abort();
