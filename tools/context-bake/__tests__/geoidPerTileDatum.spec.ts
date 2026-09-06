@@ -19,6 +19,16 @@
 // arithmetic and could not have caught the thing that was actually wrong — that the number the
 // compiler used was measured 8.5° from where it was applied. Reading real posts is what makes
 // `expectedN` falsifiable.
+//
+// ⭐ THE BYTE-IDENTITY HALF IS PROVEN BY A REAL BAKE, NOT BY THIS SPEC — recorded here because it is
+// the arm that says this change cannot cause a SILENT Z shift, and it needs a network DTM fetch so it
+// cannot live in CI. `--bake-city tarifa --bbox -5.62,36.00,-5.60,36.02` compiled by the PRE-CHANGE
+// terrain.mjs (0beedabd^) and by the current one under `--geoid constant` are `diff -r`-IDENTICAL over
+// all 17 tiles + layer.json; the new default differs in every one. The Z that moves:
+//     --geoid constant   finest 13/7937/5735.terrain   h 51.0..108.5 m ellipsoidal
+//     --geoid egm08      finest 13/7937/5735.terrain   h 42.2.. 99.8 m ellipsoidal
+// 8.8 m, matching the 8.82 m the evaluator printed for that bbox. ARM E below is the CI-runnable
+// version of the same statement, on a synthetic flat raster over the real Dubai geoid block.
 import { describe, it, expect } from 'vitest';
 import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

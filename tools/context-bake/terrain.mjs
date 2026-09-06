@@ -2121,7 +2121,14 @@ export async function bakeCity(region, { outDir, gridSize = 257, geotiffMod, Mar
   // constant. `src.geoidSepM` is keyed to the country's PRINCIPAL CITY, so it is right at that city and
   // wrong everywhere the country is wide: MEASURED 2026-09-06 against cdn.proj.org/us_nga_egm08_25.tif,
   // `es` 51.0 (Madrid) is 7.42 m out at Las Palmas and 9.23 m out at Tarifa; `it` 48.0 is 4.49 m out at
-  // Milan. `--geoid constant` reproduces the old lift byte-for-byte and stays available.
+  // Milan. `--geoid constant` reproduces the old lift byte-for-byte and stays available — PROVEN, not
+  // asserted: `--bake-city tarifa --bbox -5.62,36.00,-5.60,36.02` compiled by the PRE-CHANGE terrain.mjs
+  // (0beedabd^) and by this one under `--geoid constant` are `diff -r`-IDENTICAL across all 17 tiles +
+  // layer.json, while the new default differs in every one of them. Same run, the Z the tile carries:
+  //   --geoid constant  finest 13/7937/5735.terrain  h 51.0..108.5 m ellipsoidal   (Madrid's N)
+  //   --geoid egm08     finest 13/7937/5735.terrain  h 42.2.. 99.8 m ellipsoidal   (Tarifa's N)
+  // — an 8.8 m drop, matching the 8.82 m the evaluator printed. The old tiles put that coast 8.8 m
+  // too HIGH. Every city in the re-bake list moves DOWN or UP by its own printed delta, never silently.
   const geoid = await resolveGeoidEvaluator(bbox, { mode: geoidMode, constantM: src.geoidSepM ?? null, geotiffMod, tifPath: geoidTif });
   if (geoid.mode === 'egm08') {
     log(`  geoid: EGM2008 per post over ${bbox.join(',')} · N ∈ [${geoid.minN.toFixed(2)}, ${geoid.maxN.toFixed(2)}] m (swing ${geoid.swingM.toFixed(2)} m)`
