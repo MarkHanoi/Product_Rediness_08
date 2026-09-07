@@ -16,7 +16,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     NOT_DERIVED_TEXT,
+    PARCEL_LAW_BASIS_ATTR,
     PARCEL_LAW_ENVELOPE_ABSENT_TESTID,
+    PARCEL_LAW_EQUAL_DIVISION_LEDE,
     PARCEL_LAW_FACTS_TESTID,
     PARCEL_LAW_FACT_PREFIX,
     PARCEL_LAW_GEOMETRY_ABSENT_TESTID,
@@ -459,5 +461,96 @@ describe('§ONE-PARCEL-BLOCK — END TO END: question 1, with the REAL producers
         hostEl.remove();
         if (previous) window.pryzmMountEnvelopeCard = previous;
         else delete window.pryzmMountEnvelopeCard;
+    });
+});
+
+// ── §LAW-ROW-BASIS (L-13018) — the row vocabulary, pinned on the founder's OWN pair ──────────
+//
+// Founder 2026-09-06: *"this data is still not well formatted … every row has the same visual
+// weight, so `Max height 22.4 m` (a hard legal ceiling) reads exactly like `Footprint perimeter
+// 85.7 m` (a derived convenience), and the six PER STOREY rows repeat `452 m²` six times without
+// conveying that they are an EQUAL DIVISION rather than six measured facts."*
+//
+// ⚠ THESE ARE NOT STYLE ASSERTIONS AND THEY DELIBERATELY DO NOT READ A FONT-WEIGHT. Weight is a
+// rendering of the BASIS, and the basis is the thing that must not rot: a future row added to
+// ORDINANCE LIMITS without a basis silently reads as derived, and a future "tidy-up" that drops
+// three of the six storey rows is exactly what the founder forbade. Pinning `data-basis` and the
+// row COUNT catches both; pinning `750` catches a designer.
+describe('§LAW-ROW-BASIS (L-13018) — a legal ceiling is distinguishable from a derived figure', () => {
+    const model = buildParcelLawModel({
+        parcelRing: RECT,
+        edgeClassifications: ['front', 'side', 'rear', 'side'],
+        identity: null,
+        envelope: envelope(),
+    });
+    const root = buildParcelLawFacts(model);
+    const basisOf = (key: string): string | null =>
+        fact(root, key)?.getAttribute(PARCEL_LAW_BASIS_ATTR) ?? null;
+
+    it('THE FOUNDER\'S OWN PAIR: Max height is a ceiling, Footprint perimeter is derived', () => {
+        expect(basisOf('max-height')).toBe('ceiling');
+        expect(basisOf('footprint-perimeter')).toBe('derived');
+        // They must not merely differ — each must be the RIGHT one. A swap would pass a
+        // "they are different" assertion and be the exact defect inverted.
+        expect(basisOf('max-height')).not.toBe(basisOf('footprint-perimeter'));
+    });
+
+    it('every ORDINANCE LIMITS row is a ceiling — including the two that are not derived', () => {
+        for (const key of ['setback-front', 'setback-side', 'setback-rear', 'max-height', 'storeys', 'max-far', 'max-coverage']) {
+            expect(basisOf(key), `${key} must be a legal ceiling`).toBe('ceiling');
+        }
+    });
+
+    it('every MASSING POTENTIAL row is derived — PRYZM computed them, the ordinance did not', () => {
+        for (const key of ['footprint', 'coverage', 'footprint-perimeter', 'gfa', 'study-volume']) {
+            expect(basisOf(key), `${key} must be derived`).toBe('derived');
+        }
+    });
+
+    it('⛔ `not derived` SURVIVES and stays a ceiling — unknown is not zero (C58 §1.4)', () => {
+        // The founder forbade fixing this block by deleting rows. Re-assert the honesty value
+        // is still rendered, still visible, and still classed as the legal fact it is.
+        const bare = buildParcelLawFacts(buildParcelLawModel({
+            parcelRing: RECT,
+            edgeClassifications: ['front', 'side', 'rear', 'side'],
+            identity: null,
+            envelope: envelope({ maxFAR: null, maxCoverage: null }),
+        }));
+        const far = bare.querySelector(`[data-testid="${PARCEL_LAW_FACT_PREFIX}max-far"]`)!;
+        expect(far.textContent).toContain(NOT_DERIVED_TEXT);
+        expect(far.getAttribute('data-derived')).toBe('false');
+        expect(far.getAttribute(PARCEL_LAW_BASIS_ATTR)).toBe('ceiling');
+    });
+
+    it('PER STOREY — the equal-division lede leads, and all six rows SURVIVE beneath it', () => {
+        const storeys = root.querySelectorAll('[data-testid^="parcel-law-storey-"]');
+        // ⛔ NOT COLLAPSED. Six printed rows are what make the division checkable.
+        expect(storeys.length).toBe(6);
+        for (const r of storeys) {
+            expect(r.getAttribute(PARCEL_LAW_BASIS_ATTR)).toBe('assumed');
+        }
+        const lede = root.querySelector('[data-testid="parcel-law-group-lede"]')!;
+        expect(lede).not.toBeNull();
+        expect(lede.textContent).toBe(PARCEL_LAW_EQUAL_DIVISION_LEDE);
+        // ⭐ THE PLACEMENT IS THE FIX, SO THE PLACEMENT IS WHAT IS PINNED. The founder's report
+        // is that the words were right and the position was wrong; a test that only asserted the
+        // words exist would pass on the defect it was written to close. The lede must be the
+        // FIRST thing in the group body, ahead of every storey row.
+        const body = lede.parentElement!;
+        expect(body.firstElementChild).toBe(lede);
+        expect(body.contains(storeys[0]!)).toBe(true);
+    });
+
+    it('the group badges name the three bases, so the vocabulary is readable not inferred', () => {
+        expect(root.querySelector('[data-testid="parcel-law-basis-ceiling"]')).not.toBeNull();
+        expect(root.querySelector('[data-testid="parcel-law-basis-derived"]')).not.toBeNull();
+        expect(root.querySelector('[data-testid="parcel-law-basis-assumed"]')).not.toBeNull();
+    });
+
+    it('the question-2 confidence probe still resolves — the source line did not move', () => {
+        // `parcelLawQuestionGroup.ts` reads `.anl-plaw-group-source` as a confidence probe. A
+        // badge added beside it must not have displaced it, or every collapsed summary loses
+        // its confidence and C58 §1.2 is breached by a layout change.
+        expect(root.querySelector('.anl-plaw-group-source')).not.toBeNull();
     });
 });

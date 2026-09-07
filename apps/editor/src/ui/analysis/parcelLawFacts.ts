@@ -246,6 +246,84 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
     return { facts, note: PARCEL_LAW_MEASURED_NOTE };
 }
 
+/**
+ * ⭐ §LAW-ROW-BASIS (L-13018 · C58 §1.4 · C57 §1.9) — THE THIRD REPORT OF ONE SHAPE, FIXED AS A
+ * CLASS RATHER THAN AS A BLOCK.
+ *
+ * Founder 2026-09-06 on the ordinance / massing / per-storey / capacity stack: *"this data is
+ * still not well formatted."* — after L-13005 and L-13009 said the same thing about two other
+ * blocks. His diagnosis is the specification, and it is not about density:
+ *
+ *   *"every row has the same visual weight, so `Max height 22.4 m` (a hard legal ceiling) reads
+ *   exactly like `Footprint perimeter 85.7 m` (a derived convenience), and the six PER STOREY
+ *   rows repeat `452 m²` six times without conveying that they are an EQUAL DIVISION rather than
+ *   six measured facts — the caption says so in small grey text under them, which is the right
+ *   words in the wrong weight."*
+ *
+ * ⛔ SO THIS IS A TYPOGRAPHY PROBLEM WITH A PROVENANCE CAUSE, AND ONLY THE PROVENANCE FIX IS
+ * DURABLE. Every figure on this tab already knows what KIND of claim it is — the module that
+ * produced it knew whether it read a number off an ordinance, computed one, or divided one
+ * evenly. That knowledge was simply never carried to the renderer, so the renderer drew all
+ * three alike. `FactBasis` carries it, and the weight is DERIVED from it, which is what stops
+ * the next row someone adds from silently defaulting to "looks legal".
+ *
+ * ⛔ NOTHING IS DELETED AND NOTHING IS COLLAPSED — the founder forbade both by name. `not derived`
+ * stays visible on Max FAR and Max site coverage (C58 §1.4: unknown ≠ zero), and all six
+ * per-storey rows stay listed, because the repetition is what makes the equal-division
+ * assumption CHECKABLE. What changes is that the assumption is stated at the WEIGHT of a
+ * governing fact instead of as a caption under the rows it governs.
+ */
+export type FactBasis =
+    /** Read off the governing document. A hard limit; the reader may not exceed it. */
+    | 'ceiling'
+    /** Computed by PRYZM from a ceiling and this parcel's geometry. True, and consequential. */
+    | 'derived'
+    /** Rests on an assumption PRYZM made and states — an equal division, a module size. */
+    | 'assumed';
+
+/** Attribute carrying the basis onto every row and group, so it is addressable, not inferred. */
+export const PARCEL_LAW_BASIS_ATTR = 'data-basis';
+
+/**
+ * The badge a GROUP wears, in the reader's words rather than the type's.
+ *
+ * ⚠ On the group, never on every row. Six rows each wearing "ASSUMED" is the undifferentiated
+ * density this lane was asked to remove, in a new costume; the group states the basis once and
+ * the rows inside inherit it. A row whose basis DIFFERS from its group's is the exception, and
+ * that is exactly when a per-row marker earns its place.
+ */
+export const PARCEL_LAW_BASIS_BADGE: Readonly<Record<FactBasis, string>> = Object.freeze({
+    ceiling: 'legal ceiling',
+    derived: 'derived by PRYZM',
+    assumed: 'assumed',
+});
+
+/** What each badge MEANS, on hover, so the vocabulary teaches itself. */
+export const PARCEL_LAW_BASIS_TITLE: Readonly<Record<FactBasis, string>> = Object.freeze({
+    ceiling:
+        'Read off the governing ordinance. A hard limit — a design may not exceed it, and PRYZM '
+        + 'did not compute it.',
+    derived:
+        'Computed by PRYZM from the ceilings above and the geometry of this parcel. True of this '
+        + 'plot, but not itself a legal limit.',
+    assumed:
+        'Rests on an assumption PRYZM made and states in the open — an equal division, a module '
+        + 'size. Change the assumption and this figure changes with it.',
+});
+
+/**
+ * §LAW-ROW-BASIS — the equal-division sentence, promoted from a caption UNDER the six rows to a
+ * lede ABOVE them.
+ *
+ * ⛔ THE WORDS WERE ALREADY RIGHT; THE PLACEMENT AND THE WEIGHT WERE NOT. A reader who has taken
+ * `452 m² · 452 m² · 452 m² · 452 m² · 452 m² · 452 m²` as six measured facts has already
+ * misread the block by the time they reach a 9.5px grey line beneath it. It is the governing
+ * statement of the group, so it goes first, at the weight of one.
+ */
+export const PARCEL_LAW_EQUAL_DIVISION_LEDE =
+    'One plate, divided equally. These are the SAME footprint repeated once per storey — an '
+    + 'assumption for study, not six measurements and not a regulated storey height.';
+
 /** The lede. Says where these numbers come from, because that is the tab's whole claim. */
 export const PARCEL_LAW_FACTS_NOTE =
     'The same parcel, ordinance and massing model the PARCEL rail panel renders — one source, '
@@ -270,23 +348,42 @@ function fact(
     key: string,
     label: string,
     value: string,
-    opts?: { readonly hint?: string; readonly derived?: boolean },
+    opts?: { readonly hint?: string; readonly derived?: boolean; readonly basis?: FactBasis },
 ): HTMLDivElement {
     const row = el('div', 'anl-plaw-row');
     row.setAttribute('data-testid', `${PARCEL_LAW_FACT_PREFIX}${key}`);
+    // §LAW-ROW-BASIS (L-13018) — the basis is on the ROW, so a reader, a spec and a future
+    // stylesheet all address the same fact rather than three copies of a judgement.
+    const basis: FactBasis = opts?.basis ?? 'derived';
+    row.setAttribute(PARCEL_LAW_BASIS_ATTR, basis);
     row.style.display = 'flex';
     row.style.justifyContent = 'space-between';
     row.style.gap = '10px';
-    row.style.padding = '2.5px 0';
+    // A ceiling gets AIR as well as weight. Six rows at one rhythm read as one list however
+    // the type is set; the legal rows are the ones a reader must be able to find without
+    // reading, so they are the ones given room.
+    row.style.padding = basis === 'ceiling' ? '4px 0' : '2.5px 0';
     const k = el('span', 'anl-plaw-key', label);
     if (opts?.hint) k.title = opts.hint;
+    // ⛔ NO COLOUR LITERAL — the separation is WEIGHT and OPACITY against the host's own text
+    // colour, so it survives the panel's theme and the §UI-DENSITY-SCALE transform alike. A hex
+    // here would be C84 EI-8 and would also have to be maintained per surface.
+    k.style.opacity = basis === 'ceiling' ? '1' : '0.72';
+    if (basis === 'ceiling') k.style.fontWeight = '600';
     const v = el('span', 'anl-plaw-val', value);
-    v.style.fontWeight = '600';
+    v.style.fontWeight = basis === 'ceiling' ? '750' : basis === 'derived' ? '600' : '500';
+    if (basis === 'ceiling') v.style.fontSize = '11.5px';
     v.style.textAlign = 'right';
     if (opts?.derived === false) {
         v.style.fontStyle = 'italic';
         v.title = NOT_DERIVED_TITLE;
         row.setAttribute('data-derived', 'false');
+        // ⛔ AN UNKNOWN CEILING IS STILL A CEILING, AND IT MUST NOT SHRINK. `not derived` on Max
+        // FAR is a C58 §1.4 honesty value the founder named and forbade removing; de-weighting
+        // it would hide it just as effectively as deleting it, one step more deniably. It keeps
+        // the row's air and loses only the numeric weight it has no number to carry.
+        v.style.fontWeight = '500';
+        v.style.fontSize = '';
     } else {
         row.setAttribute('data-derived', 'true');
     }
@@ -303,22 +400,69 @@ function numFact(
     unit: string,
     dp: number,
     hint?: string,
+    basis: FactBasis = 'derived',
 ): HTMLDivElement {
-    if (value === null) return fact(key, label, NOT_DERIVED_TEXT, { hint, derived: false });
+    if (value === null) return fact(key, label, NOT_DERIVED_TEXT, { hint, derived: false, basis });
     const n = value.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
-    return fact(key, label, unit ? `${n} ${unit}` : n, { hint });
+    return fact(key, label, unit ? `${n} ${unit}` : n, { hint, basis });
 }
 
-function group(title: string, source: string): { root: HTMLDivElement; body: HTMLDivElement } {
+/**
+ * §LAW-ROW-BASIS (L-13018) — a titled block whose HEADING states what kind of claim the rows
+ * inside are, and whose optional LEDE states a governing assumption BEFORE the figures it
+ * governs rather than as a caption after them.
+ *
+ * ⛔ THE SOURCE LINE STAYS EXACTLY WHERE IT IS. `.anl-plaw-group-source` is a live confidence
+ * PROBE for question 2 (`parcelLawQuestionGroup.ts` — `confidenceProbes`), so moving it or
+ * renaming it would silently blank the collapsed summary's confidence, which is the C58 §1.2
+ * failure a disclosure must never cause. The badge and the lede are ADDED beside it.
+ */
+function group(
+    title: string,
+    source: string,
+    opts?: { readonly basis?: FactBasis; readonly lede?: string },
+): { root: HTMLDivElement; body: HTMLDivElement } {
     const root = el('div', 'anl-plaw-group');
     root.style.marginTop = '9px';
-    const h = el('div', 'anl-plaw-group-title', title);
+    const basis = opts?.basis ?? null;
+    if (basis) root.setAttribute(PARCEL_LAW_BASIS_ATTR, basis);
+    const h = el('div', 'anl-plaw-group-title');
+    h.style.display = 'flex';
+    h.style.alignItems = 'baseline';
+    h.style.justifyContent = 'space-between';
+    h.style.gap = '8px';
     h.style.fontWeight = '700';
     h.style.fontSize = '10px';
     h.style.letterSpacing = '.04em';
     h.style.textTransform = 'uppercase';
+    h.appendChild(el('span', 'anl-plaw-group-name', title));
+    if (basis) {
+        // The badge earns its place by being the ONE thing that differs between four blocks a
+        // reader currently cannot tell apart, so it is set apart from the title rather than
+        // appended to it — a title reading `PER STOREY ASSUMED` is one phrase, not two facts.
+        const badge = el('span', 'anl-plaw-group-basis', PARCEL_LAW_BASIS_BADGE[basis]);
+        badge.setAttribute('data-testid', `parcel-law-basis-${basis}`);
+        badge.title = PARCEL_LAW_BASIS_TITLE[basis];
+        badge.style.fontWeight = basis === 'ceiling' ? '700' : '600';
+        badge.style.fontSize = '8.5px';
+        badge.style.letterSpacing = '.08em';
+        badge.style.opacity = basis === 'ceiling' ? '0.9' : '0.6';
+        badge.style.whiteSpace = 'nowrap';
+        h.appendChild(badge);
+    }
     root.appendChild(h);
     const body = el('div', 'anl-plaw-group-body');
+    if (opts?.lede) {
+        // ⭐ ABOVE the rows, at reading weight. See `PARCEL_LAW_EQUAL_DIVISION_LEDE`: the founder's
+        // report is precisely that the right words were in the wrong weight and the wrong place.
+        const lede = el('div', 'anl-plaw-group-lede', opts.lede);
+        lede.setAttribute('data-testid', 'parcel-law-group-lede');
+        lede.style.fontSize = '10px';
+        lede.style.lineHeight = '1.45';
+        lede.style.margin = '2px 0 5px';
+        lede.style.opacity = '0.85';
+        body.appendChild(lede);
+    }
     root.appendChild(body);
     const s = el('div', 'anl-plaw-group-source', source);
     s.style.fontSize = '9.5px';
@@ -331,11 +475,18 @@ function group(title: string, source: string): { root: HTMLDivElement; body: HTM
 function storeyRow(st: ParcelLawStorey): HTMLDivElement {
     const row = el('div', 'anl-plaw-storey');
     row.setAttribute('data-testid', `parcel-law-storey-${st.index}`);
+    // §LAW-ROW-BASIS (L-13018) — every storey row is an ASSUMPTION (one plate divided equally),
+    // and it says so in the attribute as well as in the group's lede. ⛔ The list is NOT
+    // collapsed: the founder forbade that by name, because the repetition is what lets a reader
+    // check the equal division instead of taking it on trust.
+    row.setAttribute(PARCEL_LAW_BASIS_ATTR, 'assumed');
     row.style.display = 'flex';
     row.style.justifyContent = 'space-between';
     row.style.gap = '8px';
     row.style.padding = '1.5px 0';
-    row.appendChild(el('span', 'anl-plaw-key', st.label));
+    const key = el('span', 'anl-plaw-key', st.label);
+    key.style.opacity = '0.72';
+    row.appendChild(key);
     // ⚠ A null band is a DASH here and the group's source line says WHY (no max height was
     // derived), rather than a fabricated floor-to-floor. The two must be read together.
     const band = st.bandFromM !== null && st.bandToM !== null
@@ -345,7 +496,11 @@ function storeyRow(st: ParcelLawStorey): HTMLDivElement {
     b.style.opacity = '0.75';
     row.appendChild(b);
     const a = el('span', 'anl-plaw-val', `${Math.round(st.areaM2).toLocaleString()} m²`);
-    a.style.fontWeight = '600';
+    // The repeated figure is the LEAST informative thing in the row — it is the same plate six
+    // times — so it does not carry the weight of a measurement. The BAND is what differs storey
+    // to storey, and the group's lede is what governs both.
+    a.style.fontWeight = '500';
+    a.style.opacity = '0.85';
     row.appendChild(a);
     return row;
 }
@@ -420,6 +575,7 @@ export function buildParcelLawFacts(
         const g0 = group(
             'Parcel',
             'Cadastral boundary as committed to this project, measured in scene metres.',
+            { basis: 'derived' },
         );
         if (!wantPlot || mergedIntoCard) {
             // Nothing to build here — in `law` scope the plot half is rendered by the caller's
@@ -499,11 +655,17 @@ export function buildParcelLawFacts(
         // ── ORDINANCE LIMITS ──────────────────────────────────────────────────────────────
         const ord = model.ordinance;
         if (wantLaw && ord) {
+            // §LAW-ROW-BASIS (L-13018) — the ONLY block on this tab whose figures are LAW.
+            // Founder: *"`Max height 22.4 m` (a hard legal ceiling) reads exactly like
+            // `Footprint perimeter 85.7 m` (a derived convenience)"*. Every row below is read off
+            // the governing document; none of them is computed here. That is what the badge says,
+            // and what the extra weight and air are for.
             const g1 = group(
                 'Ordinance limits',
                 ord.citation
                     ? `Zone ${ord.zoneCode ?? 'n/a'} · ${ord.citation}`
                     : `Zone ${ord.zoneCode ?? 'n/a'} · citation held per row on the card's "Why these numbers?"`,
+                { basis: 'ceiling' },
             );
             // An ALIGNMENT zone has null setbacks/height/FAR BY DESIGN — the depth IS the rule
             // (§L-518c). Surfacing the depth first is what stops the section reading as "empty".
@@ -514,16 +676,18 @@ export function buildParcelLawFacts(
                         ? 'Block-granularity: the ordinance derives this from the whole block, so '
                           + 'neighbouring parcels on it share the figure.'
                         : 'Parcel-granularity: the ordinance states this depth directly for the zone.',
+                    'ceiling',
                 ));
                 g1.body.appendChild(numFact(
                     'alignment-offset', 'Alignment offset', ord.alignmentOffsetM, 'm', 1,
+                    undefined, 'ceiling',
                 ));
             } else {
-                g1.body.appendChild(numFact('setback-front', 'Setback (front)', ord.setbackFrontM, 'm', 1));
-                g1.body.appendChild(numFact('setback-side', 'Setback (side)', ord.setbackSideM, 'm', 1));
-                g1.body.appendChild(numFact('setback-rear', 'Setback (rear)', ord.setbackRearM, 'm', 1));
+                g1.body.appendChild(numFact('setback-front', 'Setback (front)', ord.setbackFrontM, 'm', 1, undefined, 'ceiling'));
+                g1.body.appendChild(numFact('setback-side', 'Setback (side)', ord.setbackSideM, 'm', 1, undefined, 'ceiling'));
+                g1.body.appendChild(numFact('setback-rear', 'Setback (rear)', ord.setbackRearM, 'm', 1, undefined, 'ceiling'));
             }
-            g1.body.appendChild(numFact('max-height', 'Max height', ord.maxHeightM, 'm', 1));
+            g1.body.appendChild(numFact('max-height', 'Max height', ord.maxHeightM, 'm', 1, undefined, 'ceiling'));
             g1.body.appendChild(fact(
                 'storeys',
                 'Storeys',
@@ -533,10 +697,11 @@ export function buildParcelLawFacts(
                         'Shown only when the rule pack derived it. We do NOT back-compute storeys '
                         + 'from height ÷ a floor-to-floor guess.',
                     derived: ord.maxFloors !== null,
+                    basis: 'ceiling',
                 },
             ));
-            g1.body.appendChild(numFact('max-far', 'Max FAR', ord.maxFAR, '', 2));
-            g1.body.appendChild(numFact('max-coverage', 'Max site coverage', ord.maxCoveragePct, '%', 0));
+            g1.body.appendChild(numFact('max-far', 'Max FAR', ord.maxFAR, '', 2, undefined, 'ceiling'));
+            g1.body.appendChild(numFact('max-coverage', 'Max site coverage', ord.maxCoveragePct, '%', 0, undefined, 'ceiling'));
             root.appendChild(g1.root);
         }
 
@@ -549,6 +714,7 @@ export function buildParcelLawFacts(
                     ? 'Footprint = the whole parcel because this ordinance publishes no setbacks — a '
                       + 'MAXIMUM extent, not a solved buildable area. A real building will be smaller.'
                     : 'Computed from the inset footprint this determination solved. A STUDY, not a permit.',
+                { basis: 'derived' },
             );
             g2.body.appendChild(numFact('footprint', 'Buildable footprint', mass.footprintM2, 'm²', 0));
             g2.body.appendChild(numFact('coverage', 'Footprint / parcel', mass.coveragePct, '%', 0));
@@ -570,12 +736,22 @@ export function buildParcelLawFacts(
         // ── PER STOREY ────────────────────────────────────────────────────────────────────
         const ps = model.perStorey;
         if (wantLaw && ps) {
+            // §LAW-ROW-BASIS (L-13018) — the SECOND half of the founder's report, verbatim:
+            // *"the six PER STOREY rows repeat `452 m²` six times without conveying that they are
+            // an EQUAL DIVISION rather than six measured facts — the caption says so in small
+            // grey text under them, which is the right words in the wrong weight."*
+            //
+            // ⛔ NOT FIXED BY COLLAPSING THE LIST — he forbade that in the same breath, and he is
+            // right: six printed rows are what let a reader CHECK the division. Fixed by moving
+            // the statement in front of the figures it governs, at the weight of one, and by
+            // marking the whole group `assumed` so it cannot be read as measurement.
             const g3 = group(
                 'Per storey',
                 ps.floorToFloorM !== null
                     ? 'Even floor-to-floor from max height ÷ storeys — an EQUAL DIVISION for study, '
                       + 'not a regulated storey height.'
                     : 'No max height derived, so no vertical band is shown rather than an invented one.',
+                { basis: 'assumed', lede: PARCEL_LAW_EQUAL_DIVISION_LEDE },
             );
             for (const st of ps.storeys) g3.body.appendChild(storeyRow(st));
             if (ps.truncatedCount > 0) {
@@ -598,6 +774,7 @@ export function buildParcelLawFacts(
                 'Capacity',
                 'A SEPARATE legal question from the envelope above — the geometry is complete, and '
                 + 'this is not a defect in it.',
+                { basis: 'assumed' },
             );
             g4.body.appendChild(fact('dwelling-module', 'Dwelling module', `${cap.moduleM2} m² per dwelling`));
             g4.body.appendChild(fact(
