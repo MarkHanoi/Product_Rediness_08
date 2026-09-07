@@ -30,7 +30,7 @@
 //    in a browser. Nothing in this family is browser-verified, including on bim-3d
 //    (C114 §14d, `:456` / `:522` / `:591`) — unchanged by this lane.
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     emitSpaceEnvelopeFaceMoved,
     installSpaceEnvelopeFaceDragOnSurface,
@@ -468,5 +468,106 @@ describe('§ENVELOPE-DRAG-CONSEQUENCE — the committed-move event', () => {
         // a spec that re-spelled it would pass while production and consumer disagreed.
         expect(seen).toEqual([{ name: SPACE_ENVELOPE_FACE_MOVED_EVENT, payload: ev }]);
         expect(SPACE_ENVELOPE_FACE_MOVED_EVENT).toBe('pryzm:spaceEnvelope:faceMoved');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-PER-LEVEL — ONE INDEPENDENT ENVELOPE PER STOREY, PINNED SO IT CANNOT SILENTLY
+//    BECOME ONE PRISM EXTRUDED OVER N.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// Founder: *"also we shall have a independt buildable envleope for each level."*
+//
+// ⭐ THIS IS A REGRESSION PIN, NOT A NEW FEATURE — AND SAYING SO IS THE POINT. The independence
+// the founder asked for is ALREADY how the model works, and this lane's finding was that nothing
+// asserted it. Three facts hold it up, and all three are load-bearing:
+//   1. `SpaceEnvelope` is seated on ONE storey — `levelId` (`SpaceEnvelope.ts:174`), with its own
+//      `footprint` (`:200`), `baseOffset` (`:211`) and `height` (`:218`).
+//   2. Authoring emits N records for N storeys in ONE batch — `envelopeAuthoringPlan.ts:22-23`:
+//      *"four floors are four records, each on its own `levelId`, minted in ONE batch."*
+//   3. The gesture's payload names ONE `spaceEnvelopeId`, and the contextual planner refuses to
+//      adapt across storeys — `SpaceEnvelopeContext.ts:640` scopes a level's adaptation to rooms
+//      whose `withinId` is that level, and `:689` types a cross-storey neighbour as NOT-A-PEER.
+//
+// ⛔ WHAT WOULD BREAK IT, AND THEREFORE WHAT THIS TEST EXISTS TO CATCH: any future change that
+// re-extrudes the stack from one footprint — a "keep the storeys aligned" convenience, a shared
+// ring, a neighbour rule that stops checking `levelId`. Each of those would look right on screen
+// for the common case where every storey has the same plate, and would silently destroy the
+// setback the founder asked for the moment one storey differed. That is the failure this pins.
+
+/** Four storeys, stacked, each its own record on its own `levelId` — the shape §ENVELOPE-PER-LEVEL
+ *  describes and `envelopeAuthoringPlan` mints. Same plate, so a bug that re-extruded the stack
+ *  would still LOOK correct — which is exactly why the assertions are on identity, not geometry. */
+const STOREYS: DraggableSpaceEnvelope[] = [0, 1, 2, 3].map((i) => ({
+    id: `L${i}-envelope`,
+    levelId: `L${i}`,
+    role: 'level',
+    name: `Storey ${i}`,
+    withinId: null,
+    footprint: ROOM.footprint,
+    baseOffset: i * 3,
+    height: 3,
+}));
+
+describe('⭐ §ENVELOPE-PER-LEVEL — dragging one storey’s face moves THAT storey only', () => {
+    let canvas: FakeCanvas;
+    let rec: Recorder;
+    let dispatched: { spaceEnvelopeId: string; face: SpaceEnvelopeFaceRef; deltaM: number }[];
+    let committed: SpaceEnvelopeFaceMoveCommitted[];
+    let dispose: () => void;
+
+    beforeEach(() => {
+        canvas = fakeCanvas();
+        rec = fakeSurface({ handles: false });
+        dispatched = [];
+        committed = [];
+        // ⭐ THE SUBJECT IS STOREY 2 — deliberately not the first or the last, so an
+        // off-by-one that always picked the bottom (or the top) of the stack fails here.
+        rec.picked = STOREYS[2]!;
+        dispose = installSpaceEnvelopeFaceDragOnSurface({
+            domElement: canvas.el,
+            surface: rec.surface,
+            getRecord: (id) => STOREYS.find((r) => r.id === id),
+            getWorld: () => STOREYS,
+            dispatch: (p) => { dispatched.push(p); },
+            onCommitted: (ev) => { committed.push(ev); },
+        });
+    });
+
+    afterEach(() => { dispose(); });
+
+    it('⛔ EXACTLY ONE dispatch, naming THAT storey — the other three are not re-extruded', () => {
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointermove', pointerEvent(120, 0));
+        canvas.fire('pointerup', pointerEvent(120, 0));
+
+        expect(dispatched).toHaveLength(1);
+        expect(dispatched[0]!.spaceEnvelopeId).toBe('L2-envelope');
+        // The whole point: no sibling storey is named by any dispatch.
+        const named = dispatched.map((d) => d.spaceEnvelopeId);
+        for (const other of ['L0-envelope', 'L1-envelope', 'L3-envelope']) {
+            expect(named).not.toContain(other);
+        }
+    });
+
+    it('⛔ the PREVIEW redraws that storey and NO other — a stacked neighbour is not a peer', () => {
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointermove', pointerEvent(120, 0));
+
+        expect(rec.drawn.length).toBeGreaterThan(0);
+        expect([...new Set(rec.drawn.map((r) => r.id))]).toEqual(['L2-envelope']);
+    });
+
+    it('⭐ the storey that moved is the storey the consequence names — a setback is per level', () => {
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointermove', pointerEvent(120, 0));
+        canvas.fire('pointerup', pointerEvent(120, 0));
+
+        expect(committed).toHaveLength(1);
+        expect(committed[0]!.spaceEnvelopeId).toBe('L2-envelope');
+        // ⭐ THE RING ACTUALLY DIFFERS — the record for storey 2 is now a different plate from its
+        // neighbours', which IS the founder's setback. A pin that only checked ids would pass
+        // against an implementation that named one storey and moved nothing.
+        expect(committed[0]!.ringAfter).not.toEqual(committed[0]!.ringBefore);
+        expect(committed[0]!.ringBefore).toEqual(STOREYS[0]!.footprint);
     });
 });

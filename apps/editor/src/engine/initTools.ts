@@ -135,6 +135,12 @@ import {
     emitSpaceEnvelopeFaceMoved,
     type SpaceEnvelopeFaceMoveEventSink,
 } from './spaceEnvelopeDragSurface';
+// §ENVELOPE-WALLS-FOLLOW (lane FACE-DRAG-FINISH) — the ONE consumer of that event: walls the
+// envelope produced follow the face that moved, in ONE `wall.cascadeBaseline` (C114 §6a).
+import {
+    installSpaceEnvelopeWallFollow,
+    type WallFollowRuntimeLike,
+} from './spaceEnvelopeWallFollowComposition';
 // §RESI-STAGE-G (2026-09-06) · C114 §10b / §11 item 7 — the footprint profile editor's
 // TOOL. It builds no surface: it opens the wall modal's port on the envelope's own ring.
 import {
@@ -2171,15 +2177,19 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     // ⭐ §ENVELOPE-DRAG-CONSEQUENCE (lane FACE-DRAG-2, 2026-09-07) — ONE event per
                     // committed face move, carrying BOTH rings (handover ADDENDUM §D).
                     //
-                    // ⛔ IT IS NOT A CASCADE AND IT WRITES NOTHING. The wall-follows-envelope link
-                    // is a SEPARATE lane with a founder ruling still to make (a hand-edited wall
-                    // must NOT silently snap back), and the persistable link is the SEMANTIC GRAPH,
-                    // not a field on the wall — nothing on a wall survives reload. This is the
-                    // INPUT that lane needs, built now so it does not have to reopen the gesture:
-                    // `moveFace`'s payload is `{face, deltaM}` RELATIVE to the current solid, so a
-                    // consequence handler seeing only the delta cannot compute where a derived wall
-                    // should land. There are ZERO consumers in the tree today, and that is stated
-                    // rather than hidden.
+                    // ⛔ IT IS NOT A CASCADE AND IT WRITES NOTHING. The emit is the INPUT; the
+                    // cascade is a consumer of it. `moveFace`'s payload is `{face, deltaM}`
+                    // RELATIVE to the current solid, so a consequence handler seeing only the delta
+                    // could not compute where a derived wall should land — hence both rings.
+                    //
+                    // ⭐ UPDATED 2026-09-07 (lane FACE-DRAG-FINISH, §ENVELOPE-WALLS-FOLLOW). This
+                    // comment used to end *"There are ZERO consumers in the tree today"*. There is
+                    // now exactly ONE: `installSpaceEnvelopeWallFollow` (below), which reads the
+                    // `wall —boundedBy→ envelope` edges and dispatches ONE `wall.cascadeBaseline`.
+                    // The founder ruling that lane was waiting on is MADE and lives in
+                    // `spaceEnvelopeWallFollowPlan.ts`: a wall that no longer spans the edge PRYZM
+                    // built it from is treated as the user's and is NOT moved (C80 §2.2/§3.1) —
+                    // it never silently snaps back.
                     onFaceMoveCommitted: (ev) => {
                         emitSpaceEnvelopeFaceMoved(
                             runtime.events as unknown as SpaceEnvelopeFaceMoveEventSink | undefined,
@@ -2188,6 +2198,22 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     },
                 });
                 console.log('[initTools] §FEAT-SPACE-ENVELOPE: store→mesh subscriber and face drag installed.');
+
+                // ⭐ §ENVELOPE-WALLS-FOLLOW (lane FACE-DRAG-FINISH, 2026-09-07) — THE CONSUMER.
+                // Founder: *"THE ENVELOPE BEING EXTENDED ON PRYZM 3D VIEW SHOULD MEANS THE CONTEXT
+                // WALLS - PERIMETER WALLS SHALL FOLLOW AND THEE INTERIOR PARTITIONS TOO."*
+                //
+                // ⭐ INSTALLED ONCE, ON THE RUNTIME — NOT ONCE PER SURFACE. The event is raised by
+                // the GESTURE, on whichever surface it ran, so this ONE registration covers the
+                // BIM 3-D viewport here AND the 3-D Site's own `installSpaceEnvelopeFaceDragOnSurface`
+                // in `GISAreaLayout.ts`, and a third surface will need no wiring at all. Installing
+                // it per surface would be N copies of the C80 decision (C84 EI-9) and N cascades
+                // for one drag.
+                //
+                // ⚠ The runtime is passed as a THUNK, never captured: §L-545-SITE-CAPTURE /
+                // §L-12916 — a reference held across a project switch is a reference to a runtime
+                // that no longer exists.
+                installSpaceEnvelopeWallFollow(() => runtime as unknown as WallFollowRuntimeLike);
             }
         }
 
