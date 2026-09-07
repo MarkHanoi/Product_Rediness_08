@@ -121,7 +121,11 @@ import {
   resolveSiteScope,
   SITE_SCOPE_SLAB_SIDE_CSS,
   SITE_SCOPE_SLAB_LIP_M,
-  SITE_SCOPE_SLAB_DEPTH_M,
+  // §FULL-PLATE-DEPTH (L-13122) — the depth is a FUNCTION of the scope, not a constant. The old
+  // `SITE_SCOPE_SLAB_DEPTH_M` was 60 m at every radius from 150 m to 7 071 m; at the founder's
+  // 3 020 m circle that is 1 % of the disc's diameter, which is the "flat map decal" he
+  // photographed. `siteScope.ts` carries the arithmetic and the table.
+  siteScopeSlabDepthM,
   SITE_SCOPE_PREVIEW_CSS,
   scopeOuterRadiusM as scopeOuterRadiusUnclampedM,
   type SiteScope,
@@ -2566,7 +2570,12 @@ export class CesiumViewport {
       let lowest = Infinity;
       for (const t of tops) if (t < lowest) lowest = t;
       if (!Number.isFinite(lowest)) lowest = safeBase;
-      const floor = lowest - SITE_SCOPE_SLAB_LIP_M - SITE_SCOPE_SLAB_DEPTH_M;
+      // §FULL-PLATE-DEPTH (L-13122) — the plate is as deep as it is wide, in proportion. See
+      // `siteScopeSlabDepthM`; the log line below prints the metres it resolved to AND the
+      // percentage of the plate's own diameter, so the founder can read the aspect off his console
+      // rather than off a screenshot.
+      const depthM = siteScopeSlabDepthM(this.contextScope);
+      const floor = lowest - SITE_SCOPE_SLAB_LIP_M - depthM;
       const closed = [...ring, ring[0]!];
       const wallPositions = closed.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0));
       const maximumHeights = closed.map((_, i) => tops[i % ring.length]!);
@@ -2602,7 +2611,10 @@ export class CesiumViewport {
           `flat-shaded ${SITE_SCOPE_SLAB_SIDE_CSS} (PerInstanceColorAppearance flat:true — UNLIT by construction, ` +
           `so the warm key light that made the retired tan skirt read as a "red ring" cannot reach it), ` +
           `top on sampled relief + ${SITE_SCOPE_SLAB_LIP_M} m, floor ${floor.toFixed(1)} m ` +
-          `(${SITE_SCOPE_SLAB_DEPTH_M} m below the lowest rim), shadowless. The globe legs are reported ` +
+          `(${Math.round(depthM)} m below the lowest rim — ` +
+          `${((depthM / Math.max(1, 2 * scopeOuterRadiusUnclampedM(this.contextScope))) * 100).toFixed(1)}% of the plate's own ` +
+          `${Math.round(2 * scopeOuterRadiusUnclampedM(this.contextScope))} m diameter; §FULL-PLATE-DEPTH L-13122 — ` +
+          `a FIXED 60 m read as 1.0% here and looked like a flat decal), shadowless. The globe legs are reported ` +
           `on the §SITE-SCOPE globe line above — read THAT for what the terrain was actually cut to.`,
       );
     } catch (e) {

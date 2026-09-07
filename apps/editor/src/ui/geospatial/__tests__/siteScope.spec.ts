@@ -31,6 +31,9 @@ import {
     scopePolygonSegments,
     scopePolygonTrueXZ,
     scopePolygonXZ,
+    SITE_SCOPE_SLAB_DEPTH_MAX_M,
+    SITE_SCOPE_SLAB_DEPTH_MIN_M,
+    siteScopeSlabDepthM,
     type SiteScope,
     type SiteScopeRange,
 } from '../siteScope';
@@ -297,6 +300,68 @@ describe('fetch extent — the scope as the ONE source of halfDeg (F-1 RETRACTED
             expect(p.lat).toBeLessThanOrEqual(box.maxLat);
             expect(p.lon).toBeGreaterThanOrEqual(box.minLon);
             expect(p.lon).toBeLessThanOrEqual(box.maxLon);
+        }
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// §FULL-PLATE-DEPTH (L-13122) — the plate is a CUT SECTION, so its depth is read against its width
+// ─────────────────────────────────────────────────────────────────────────────────────────
+//
+// The founder's 2026-09-07 screenshot: a 3 020 m circle rendering as "a thin, flat disc floating on
+// white… no visible slab side or depth… a flat map decal, not a cut section of ground". The side
+// primitive WAS built — the console's `SIDE + FLOOR BUILT` line was true — at a FIXED 60 m against a
+// 6 040 m diameter: one percent. These pin the aspect ratio, not the metres, because the aspect is
+// the fact a viewer sees and the metres are only how it is spelled.
+describe('§FULL-PLATE-DEPTH — the slab depth is a fraction of the plate, not a constant', () => {
+    /** depth ÷ DIAMETER — what shares the screen with the plate. */
+    const aspect = (scope: SiteScope): number => siteScopeSlabDepthM(scope) / (2 * scopeOuterRadiusM(scope));
+
+    it('⛔ THE REGRESSION: a fixed 60 m is 1 % of the founder\u2019s 3 020 m circle, and the fix is not', () => {
+        const founders: SiteScope = { shape: 'circle', radiusM: 3020 };
+        // The number that shipped, stated so the test carries the defect and not only the cure.
+        expect(60 / (2 * 3020)).toBeLessThan(0.011);
+        // What it resolves to now: 3020 × 0.12 = 362.4 m, i.e. 6 % of the 6 040 m diameter.
+        expect(siteScopeSlabDepthM(founders)).toBeCloseTo(362.4, 6);
+        expect(aspect(founders)).toBeCloseTo(0.06, 10);
+    });
+
+    it('holds the SAME aspect across the whole slider range once the floor is cleared', () => {
+        // The floor binds below r = 500 m (60 / 0.12); above it the ratio is exactly 6 %.
+        for (const r of [500, 900, 1781, 3020, 5035, 7071]) {
+            expect(aspect({ shape: 'circle', radiusM: r })).toBeCloseTo(0.06, 10);
+        }
+    });
+
+    it('never moves the SMALL end: at and below the 500 m hinge the depth is the old 60 m exactly', () => {
+        for (const r of [150, 300, 499.9, 500]) {
+            expect(siteScopeSlabDepthM({ shape: 'circle', radiusM: r })).toBe(
+                r >= 500 ? 60 : SITE_SCOPE_SLAB_DEPTH_MIN_M,
+            );
+        }
+        expect(SITE_SCOPE_SLAB_DEPTH_MIN_M).toBe(60);   // the constant that shipped, kept verbatim.
+    });
+
+    it('the MAX is a guard, not the operating point — the widest legal scope does not reach it', () => {
+        const widest: SiteScope = { shape: 'circle', radiusM: 7071 };   // CTX_SCOPE_MAX_RADIUS_M
+        expect(siteScopeSlabDepthM(widest)).toBeLessThan(SITE_SCOPE_SLAB_DEPTH_MAX_M);
+        expect(siteScopeSlabDepthM({ shape: 'circle', radiusM: 1e6 })).toBe(SITE_SCOPE_SLAB_DEPTH_MAX_M);
+    });
+
+    it('a rectangle is as deep as the circle that circumscribes it — the shape toggle changes nothing', () => {
+        const r = 3020;
+        const square: SiteScope = { shape: 'rectangle', halfWidthM: r / Math.SQRT2, halfDepthM: r / Math.SQRT2 };
+        expect(scopeOuterRadiusM(square)).toBeCloseTo(r, 6);
+        expect(siteScopeSlabDepthM(square)).toBeCloseTo(siteScopeSlabDepthM({ shape: 'circle', radiusM: r }), 6);
+    });
+
+    it('⛔ NEVER NaN: a NaN minimumHeight makes WallGeometry build NOTHING, which is the same symptom', () => {
+        // The one failure mode that would reproduce the defect this function exists to fix, so it is
+        // pinned rather than trusted: a degenerate scope yields the floor, never a non-finite depth.
+        for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+            const d = siteScopeSlabDepthM({ shape: 'circle', radiusM: bad });
+            expect(Number.isFinite(d)).toBe(true);
+            expect(d).toBeGreaterThanOrEqual(SITE_SCOPE_SLAB_DEPTH_MIN_M);
         }
     });
 });

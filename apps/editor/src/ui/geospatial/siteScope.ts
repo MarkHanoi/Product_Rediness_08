@@ -420,8 +420,68 @@ export const SITE_SCOPE_SLAB_SIDE_CSS = '#E6E6E3';
  *  wall's straight top and show the backdrop through a sliver. 0.3 m of lip covers that; it reads
  *  as the slab's rim. */
 export const SITE_SCOPE_SLAB_LIP_M = 0.3;
-/** How far the slab's floor sits below the LOWEST cut-edge ground: a thick block of earth, not a
- *  paper cut-out (the retired skirt used the same 60 m; it was the colour that failed, not the depth). */
-export const SITE_SCOPE_SLAB_DEPTH_M = 60;
+/**
+ * ⛔⛔ THE PLATE'S DEPTH IS A FRACTION OF ITS WIDTH, NOT A CONSTANT — §FULL-PLATE-DEPTH (L-13122,
+ * founder 2026-09-07: *"WE NEED THE FULL PLATE ON THE 3D SITE — THE FULL CUT SECTION"*).
+ *
+ * ⚠ THIS CONSTANT USED TO BE THE WHOLE ANSWER: `SITE_SCOPE_SLAB_DEPTH_M = 60`, one number, at every
+ * scope. Its doc line said *"a thick block of earth, not a paper cut-out"* — and that sentence was
+ * true only at the radius it was written for. THE SLIDER'S RANGE IS 150 m → 7 071 m, a 47× span,
+ * and the depth did not move across any of it. Read as the aspect ratio a viewer actually sees —
+ * depth ÷ DIAMETER, because that is what shares the screen:
+ *
+ *   scope radius   diameter   fixed 60 m depth   what it reads as
+ *   ───────────────────────────────────────────────────────────────────────────────────────
+ *      150 m         300 m        20.0 %         a chunky block  (fine)
+ *      900 m       1 800 m         3.3 %         a thin lip
+ *    3 020 m       6 040 m         1.0 %         ⛔ A FLAT MAP DECAL — the founder's screenshot
+ *    7 071 m      14 142 m         0.42 %        ⛔ invisible; sub-pixel at any framing
+ *
+ * At the founder's 3 020 m circle the side is ONE PERCENT of the disc. Tilt the camera to 30° and
+ * that is a handful of pixels against a 6 km plate on a white ground — which is exactly what he
+ * photographed and described as *"no visible slab side or depth… a flat map decal, not a cut
+ * section of ground"*. ⭐ THE SIDE WAS BUILT. The build log's `SIDE + FLOOR BUILT` line was TRUE.
+ * The primitive was there, correctly coloured, correctly seated — and 1 % tall. A rendering defect
+ * whose evidence reads as a success is the worst shape to diagnose, and it is why this is stated
+ * here as arithmetic rather than left as a tuned literal.
+ *
+ * THE RULE: `depth = clamp(k · circumscribing radius, MIN, MAX)`.
+ *
+ * `k = 0.12` of the RADIUS is 6 % of the DIAMETER, which is the aspect the physical reference this
+ * feature is named after holds — a cityweft-style cut block reads as a plate, not a wafer, at
+ * roughly one part in twenty of its width. It is a LOOK, deliberately, and it is spelled as one
+ * number so it can be moved as one.
+ *
+ * `MIN = 60` is the old constant, kept EXACTLY, so nothing at or below a 500 m scope moves: the
+ * founder has already looked at the small end and did not complain about it, and a lane that fixes
+ * the wide end by changing the narrow end has traded one defect for another it cannot see.
+ *
+ * `MAX = 900` bounds the widest plate at 849 m of earth (7 071 · 0.12), so the cap is a guard, not
+ * the operating point — no real scope reaches it. ⛔ It exists because the depth extends the scene's
+ * bounding volume DOWNWARD and an unbounded fraction would let a future range raise push the
+ * camera's far plane by kilometres for a surface nobody looks at.
+ */
+export const SITE_SCOPE_SLAB_DEPTH_MIN_M = 60;
+/** See `SITE_SCOPE_SLAB_DEPTH_MIN_M`. A guard on the widest plate, never the operating point. */
+export const SITE_SCOPE_SLAB_DEPTH_MAX_M = 900;
+/** Fraction of the CIRCUMSCRIBING RADIUS the plate is deep — 6 % of its diameter. */
+export const SITE_SCOPE_SLAB_DEPTH_PER_RADIUS = 0.12;
+
+/**
+ * §FULL-PLATE-DEPTH (L-13122) — how deep the cut plate is AT THIS SCOPE, metres. PURE.
+ *
+ * ⚠ Reads the CIRCUMSCRIBING radius, which is the same number the slider's track carries and every
+ * radial limit in `contextExtentBudget.ts` reduces to — so a rectangle and the circle that
+ * circumscribes it are the same thickness, and the shape toggle never changes the plate's depth.
+ * A non-finite or non-positive scope yields the MIN rather than a NaN wall (a NaN `minimumHeights`
+ * entry makes `WallGeometry` produce nothing at all, silently — the one failure mode that would
+ * reproduce the very symptom this exists to fix).
+ */
+export function siteScopeSlabDepthM(scope: SiteScope): number {
+    const r = scopeOuterRadiusM(scope);
+    if (!Number.isFinite(r) || r <= 0) return SITE_SCOPE_SLAB_DEPTH_MIN_M;
+    const wanted = r * SITE_SCOPE_SLAB_DEPTH_PER_RADIUS;
+    return Math.min(SITE_SCOPE_SLAB_DEPTH_MAX_M, Math.max(SITE_SCOPE_SLAB_DEPTH_MIN_M, wanted));
+}
 /** The slider's live preview ring — the ONE brand accent (#6600FF, `FORMA_PALETTE_V2.parcelAccent`). */
 export const SITE_SCOPE_PREVIEW_CSS = '#6600FF';
