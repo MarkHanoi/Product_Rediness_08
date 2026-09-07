@@ -245,8 +245,41 @@ export interface SpaceEnvelopeFaceMoveCommitted {
     readonly ringBefore: ReadonlyArray<{ readonly x: number; readonly z: number }>;
     /** The footprint the commit was asked to write. Same frame, same convention. */
     readonly ringAfter: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    /**
+     * ⭐ §ENVELOPE-PARTITIONS-FOLLOW (lane WALLS-FOLLOW-WIRE, 2026-09-07) — THE ROOMS THE SAME
+     * COMMIT MOVED, each with the two rings that describe its move.
+     *
+     * ⛔ IT IS NOT A CONVENIENCE FIELD. Founder: *"… AND THE INTERIOR PARTITIONS TOO."* A
+     * partition is `boundedBy` its ROOM envelope, never the level's — `buildFromDesignPlan.ts:631`
+     * writes `envelopeRole: 'room'` on every partition's `derivedFrom`. So a consumer holding only
+     * the SUBJECT's two rings can move the perimeter and can NEVER move a partition, however the
+     * cascade is written. The rooms moved in the same patch pair as the subject
+     * (`MutateSpaceEnvelope.ts:238-260` maps `plan.adapted` into the same `produceCommand`), and
+     * without this field their new rings die inside the gesture.
+     *
+     * ⚠ `ringBefore` IS READ FROM THE STORE DURING THE DRAG, NOT AFTER IT. The store is untouched
+     * until pointer-up (the drag is preview-only, P6), and `deps.dispatch` runs BEFORE this event is
+     * raised — so a read taken at commit time could already be the moved ring. Each room's
+     * pre-drag ring is therefore captured the FIRST time the plan names it, and never re-read.
+     *
+     * Empty when nothing adapted, which is the ordinary outcome of pulling a face OUTWARD: no room
+     * is stranded by a larger level, so no room moves, so no partition has anything to follow.
+     */
+    readonly adapted?: readonly SpaceEnvelopeAdaptedRing[];
     /** Which surface the gesture ran on — `'bim-3d'`, `'site-3d'`, … Free-form by design. */
     readonly surfaceId?: string;
+}
+
+/**
+ * One envelope that adapted alongside the dragged subject, with the rings that bracket its move.
+ * Same frame and same open-loop convention as the subject's own two rings.
+ */
+export interface SpaceEnvelopeAdaptedRing {
+    readonly envelopeId: string;
+    /** Its footprint as the store held it when the gesture started. */
+    readonly ringBefore: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    /** The footprint the SAME commit was asked to write for it. */
+    readonly ringAfter: ReadonlyArray<{ readonly x: number; readonly z: number }>;
 }
 
 /**
@@ -392,6 +425,19 @@ interface ActiveDrag {
      * commits, so the two can never describe different frames of the drag.
      */
     lastPlannedRing: ReadonlyArray<{ readonly x: number; readonly z: number }> | null;
+    /**
+     * §ENVELOPE-PARTITIONS-FOLLOW — each adapted envelope's PRE-DRAG ring, captured the first
+     * time the plan names it and never overwritten. ⛔ Captured during the drag, because the only
+     * window in which the store is guaranteed to still hold the pre-drag geometry closes at
+     * `deps.dispatch` — which runs before the committed event is raised.
+     */
+    readonly adaptedRingBefore: Map<string, ReadonlyArray<{ readonly x: number; readonly z: number }>>;
+    /**
+     * The adapted rings the LAST accepted plan produced — the same lockstep rule as
+     * `lastPlannedRing`, and computed from the SAME plan object, so the subject's ring and the
+     * rooms' rings can never come from different frames of the drag.
+     */
+    lastAdapted: readonly SpaceEnvelopeAdaptedRing[] | null;
     /** Neighbours the preview has REDRAWN — restored from the store on release / click. */
     previewedNeighbourIds: Set<string>;
 }
@@ -450,6 +496,8 @@ export function installSpaceEnvelopeFaceDragOnSurface(
             startRecord: record,
             lastDeltaM: 0,
             lastPlannedRing: null,
+            adaptedRingBefore: new Map<string, ReadonlyArray<{ readonly x: number; readonly z: number }>>(),
+            lastAdapted: null,
             previewedNeighbourIds: new Set<string>(),
         };
         // ⚠ Capture the pointer so a drag that leaves the canvas still ends HERE. Without
@@ -561,18 +609,40 @@ export function installSpaceEnvelopeFaceDragOnSurface(
         // before it is written. A neighbour that adapted on an earlier frame and not on this
         // one is put back from the store, so the preview never leaves a phantom.
         const adaptedNow = new Set<string>();
+        // §ENVELOPE-PARTITIONS-FOLLOW — built in the SAME pass that draws the preview, from the
+        // SAME `plan`, so the rings the partitions will follow are the rings the user is looking at.
+        const adaptedRings: SpaceEnvelopeAdaptedRing[] = [];
         for (const e of plan.adapted) {
             const rec = deps.getRecord(e.envelopeId);
             if (!rec) continue;
             adaptedNow.add(e.envelopeId);
             active.previewedNeighbourIds.add(e.envelopeId);
+            const ringAfter = e.footprint.map((p) => ({ x: p.x, z: p.z }));
+            // ⛔ FIRST SIGHT WINS. `rec` is the STORE's record and the store is untouched until
+            // pointer-up, so any read during the drag is the pre-drag ring — but re-reading it on
+            // every frame would silently start returning the COMMITTED ring the moment a future
+            // change made the dispatch synchronous, and a `ringBefore` equal to `ringAfter` reads
+            // as "this room did not move" rather than as a bug.
+            if (!active.adaptedRingBefore.has(e.envelopeId)) {
+                active.adaptedRingBefore.set(
+                    e.envelopeId,
+                    rec.footprint.map((p) => ({ x: p.x, z: p.z })),
+                );
+            }
+            adaptedRings.push({
+                envelopeId: e.envelopeId,
+                ringBefore: active.adaptedRingBefore.get(e.envelopeId)!,
+                ringAfter,
+            });
             surface.previewDraw({
                 ...rec,
-                footprint: e.footprint.map((p) => ({ x: p.x, z: p.z })),
+                footprint: ringAfter,
                 baseOffset: e.baseOffset,
                 height: e.height,
             });
         }
+        // Lockstep with `lastPlannedRing` — both describe THIS frame's plan and no other.
+        active.lastAdapted = adaptedRings;
         for (const id of active.previewedNeighbourIds) {
             if (adaptedNow.has(id)) continue;
             surface.previewRestore(id);
@@ -622,6 +692,12 @@ export function installSpaceEnvelopeFaceDragOnSurface(
                     deltaM: drag.lastDeltaM,
                     ringBefore: drag.startRecord.footprint.map((p) => ({ x: p.x, z: p.z })),
                     ringAfter: drag.lastPlannedRing,
+                    // ⭐ §ENVELOPE-PARTITIONS-FOLLOW — the rooms the SAME commit moved. Omitted
+                    // rather than sent empty when nothing adapted, so a consumer can tell "no room
+                    // moved" from "this surface does not report rooms" (§CONTEXT-DATA-HONESTY).
+                    ...(drag.lastAdapted && drag.lastAdapted.length > 0
+                        ? { adapted: drag.lastAdapted }
+                        : {}),
                     ...(deps.surfaceId !== undefined ? { surfaceId: deps.surfaceId } : {}),
                 });
             } catch (e) {

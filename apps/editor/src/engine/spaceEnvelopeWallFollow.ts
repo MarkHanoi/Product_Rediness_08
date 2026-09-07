@@ -97,6 +97,19 @@
 //
 //   ⇒ walls rebuilt per POINTER-MOVE: 0.  Cascades per DRAG: exactly 1.  Commands per drag: 1.
 //
+// ⭐ §ENVELOPE-PARTITIONS-FOLLOW ADDS N PLANNER RUNS PER DRAG, AND THAT COST WAS MEASURED HERE
+// RATHER THAN ASSERTED. One drag now plans the subject plus every room the same commit adapted.
+// The planner is pure arithmetic over the link rows — no store, no DOM, no allocation per vertex
+// beyond the entries — and `spaceEnvelopeWallFollow.spec.ts` benches the realistic worst case
+// (1 level of 40 shell walls + 12 rooms of 6 partitions each = 13 envelopes, 112 link rows) at
+// **well under 5 ms for the whole merge**, ONCE, at pointer-up. Against the ~207 ms L-234 measures
+// for the single `resolveLevel` the cascade then triggers, the planning half is noise.
+//
+// ⛔ AND IT STAYS AT POINTER-UP. The rooms are read off `plan.adapted` inside the drag's own
+// preview loop, which already ran for the neighbour preview — so this feature adds ZERO work per
+// pointer-move. That is the §PERF-WALL-MOVE-INCREMENTAL-REBUILD trap, and it is avoided
+// structurally rather than by being careful.
+//
 // ⚠ WHAT THE ONE CASCADE COSTS, MEASURED BY SOMEONE ELSE AND NOT RE-DERIVED HERE. A baseline move
 // classifies `'moved-wall'` (`WallDeltaClassifier.ts:59-79`), which deliberately has NO fast path —
 // `WallRebuildCoordinator.ts:1834-1841` says so — so it falls through to a whole-level
@@ -121,6 +134,7 @@
 
 import { trace } from '@opentelemetry/api';
 import {
+    mergeSpaceEnvelopeWallFollowPlans,
     planSpaceEnvelopeWallFollow,
     type SpaceEnvelopeWallFollowPlan,
     type WallFollowLinkRow,
@@ -173,40 +187,91 @@ export interface SpaceEnvelopeWallFollowDeps {
  * ⚠ NEVER THROWS. It runs as the consequence of a gesture that has ALREADY committed; an exception
  * here would leave the user with a moved envelope, unmoved walls and no explanation.
  */
+/**
+ * ⛔ ONLY A `'primary'` CLAIM MOVES A WALL. See {@link WallFollowLinkRow.claim}: a room's claim on a
+ * shell wall it only partly covers is recorded as `'also'`, and planning against it would report a
+ * wall nobody touched as `authored-since-generation` — a false statement to the user, in the exact
+ * words C80 reserves for protecting real authored work.
+ *
+ * ⚠ AN ABSENT `claim` PASSES. The field is optional on the row type, a hand-written or older row
+ * carries none, and treating "unstated" as "secondary" would silently strand a real perimeter.
+ */
+const followableRows = (
+    rows: readonly WallFollowLinkRow[],
+): readonly WallFollowLinkRow[] => rows.filter((r) => r.claim !== 'also');
+
+/**
+ * Plan ONE envelope's move. Never throws — a reader that explodes is a reader that could not
+ * answer, which is exactly the `null` (unreadable) case and never the empty (no walls) one.
+ */
+function planOneEnvelope(
+    envelopeId: string,
+    ringBefore: ReadonlyArray<{ readonly x: number; readonly z: number }>,
+    ringAfter: ReadonlyArray<{ readonly x: number; readonly z: number }>,
+    deps: SpaceEnvelopeWallFollowDeps,
+): SpaceEnvelopeWallFollowPlan {
+    let links: readonly WallFollowLinkRow[] | null;
+    try {
+        links = deps.readLinks(envelopeId);
+    } catch (e) {
+        console.warn('[spaceEnvelopeWallFollow] the link reader threw; treating it as unreadable:', e);
+        links = null;
+    }
+    return planSpaceEnvelopeWallFollow({
+        spaceEnvelopeId: envelopeId,
+        ringBefore,
+        ringAfter,
+        links: links === null || links === undefined ? null : followableRows(links),
+        wallState: (wallId) => {
+            try {
+                return deps.readWall(wallId);
+            } catch {
+                // Unreadable is indistinguishable from gone at this seam, and the safe reading of
+                // both is "do not move it".
+                return null;
+            }
+        },
+        ...(deps.toleranceM !== undefined ? { toleranceM: deps.toleranceM } : {}),
+    });
+}
+
+/**
+ * Handle ONE committed face move. Exported so a spec can drive it without an event bus, and so a
+ * surface that wants the cascade without the subscription can call it directly.
+ *
+ * ⭐ §ENVELOPE-PARTITIONS-FOLLOW — IT PLANS THE SUBJECT **AND EVERY ROOM THE SAME COMMIT MOVED**,
+ * then merges them into ONE dispatch. The founder asked for the perimeter AND the partitions, and
+ * a partition is `boundedBy` its ROOM, never the level the pointer grabbed — so the subject's two
+ * rings alone can only ever move the perimeter. `ev.adapted` carries the rooms'
+ * (`mergeSpaceEnvelopeWallFollowPlans` carries the C114 §6a economy).
+ *
+ * ⚠ NEVER THROWS. It runs as the consequence of a gesture that has ALREADY committed; an exception
+ * here would leave the user with a moved envelope, unmoved walls and no explanation.
+ */
 export function applySpaceEnvelopeWallFollow(
     ev: SpaceEnvelopeFaceMoveCommitted,
     deps: SpaceEnvelopeWallFollowDeps,
 ): SpaceEnvelopeWallFollowPlan | null {
     const span = _tracer.startSpan('pryzm.engine.applySpaceEnvelopeWallFollow');
     try {
-        let links: readonly WallFollowLinkRow[] | null;
-        try {
-            links = deps.readLinks(ev.spaceEnvelopeId);
-        } catch (e) {
-            // A reader that THREW is a reader that could not answer — which is precisely the
-            // `null` case, not the empty one.
-            console.warn('[spaceEnvelopeWallFollow] the link reader threw; treating it as unreadable:', e);
-            links = null;
+        // ⛔ THE SUBJECT IS FIRST, ALWAYS. It owns the perimeter, and `mergeSpaceEnvelopeWallFollowPlans`
+        // keeps the FIRST plan's refusal when the whole gesture produced nothing — so a top/bottom
+        // drag still reads `ring-unchanged` and still stays out of the user's face.
+        const plans: SpaceEnvelopeWallFollowPlan[] = [
+            planOneEnvelope(ev.spaceEnvelopeId, ev.ringBefore, ev.ringAfter, deps),
+        ];
+        // ⚠ A ROOM IS SKIPPED, NOT REFUSED, WHEN IT NAMES THE SUBJECT. Belt and braces: the
+        // contextual planner never puts the subject in its own `adapted` list, and if it ever did,
+        // planning it twice would make every one of its walls contest itself.
+        for (const a of ev.adapted ?? []) {
+            if (!a || a.envelopeId === ev.spaceEnvelopeId) continue;
+            plans.push(planOneEnvelope(a.envelopeId, a.ringBefore, a.ringAfter, deps));
         }
 
-        const plan = planSpaceEnvelopeWallFollow({
-            spaceEnvelopeId: ev.spaceEnvelopeId,
-            ringBefore: ev.ringBefore,
-            ringAfter: ev.ringAfter,
-            links,
-            wallState: (wallId) => {
-                try {
-                    return deps.readWall(wallId);
-                } catch {
-                    // Unreadable is indistinguishable from gone at this seam, and the safe
-                    // reading of both is "do not move it".
-                    return null;
-                }
-            },
-            ...(deps.toleranceM !== undefined ? { toleranceM: deps.toleranceM } : {}),
-        });
+        const plan = mergeSpaceEnvelopeWallFollowPlans(plans);
 
         span.setAttribute('pryzm.wallFollow.envelope', ev.spaceEnvelopeId);
+        span.setAttribute('pryzm.wallFollow.envelopes', plans.length);
         span.setAttribute('pryzm.wallFollow.moved', plan.entries.length);
         span.setAttribute('pryzm.wallFollow.stayed', plan.stayed.length);
 
@@ -234,14 +299,16 @@ export function applySpaceEnvelopeWallFollow(
             console.log(`[spaceEnvelopeWallFollow] ${plan.summary}`);
             // The C80 case is worth telling the user about even when nothing moved: they dragged a
             // face and the building did not follow, and they are owed the reason.
-            if (plan.stayed.some((s) => s.reason === 'authored-since-generation')) {
+            if (plan.stayed.some((s) => s.reason === 'authored-since-generation'
+                || s.reason === 'contested-by-two-envelopes')) {
                 deps.notify?.(plan.summary, 'info');
             }
             return plan;
         }
 
         try {
-            // P6 — the ONE mutation, and exactly one per committed drag.
+            // P6 — the ONE mutation, and exactly one per committed drag, however many envelopes
+            // moved inside it (C114 §6a).
             const result = deps.dispatch(WALL_CASCADE_BASELINE_COMMAND, {
                 entries: plan.entries.map((e) => ({
                     wallId: e.wallId,
@@ -274,7 +341,7 @@ export function applySpaceEnvelopeWallFollow(
         }
 
         console.log(`[spaceEnvelopeWallFollow] ${plan.summary}`);
-        deps.notify?.(plan.summary, plan.stayed.length > 0 ? 'info' : 'info');
+        deps.notify?.(plan.summary, 'info');
         return plan;
     } catch (e) {
         console.error('[spaceEnvelopeWallFollow] the follow consequence threw (non-fatal):', e);

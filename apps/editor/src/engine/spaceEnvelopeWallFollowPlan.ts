@@ -95,12 +95,19 @@
 //     CORRECT for this input and INCOMPLETE for the founder's ask: dragging the roof up does not
 //     make the walls taller. The verb that would (`wall.updateHeightBatch`, one undo entry) exists;
 //     what does not exist is height on the event. Named in the report, not silently absent.
-//  2. **Interior partitions follow only when the partition's OWN envelope face moved.** A partition
-//     is `boundedBy` its ROOM envelope, not the level envelope. Dragging a LEVEL face DOES adapt
-//     the rooms inside it (`SpaceEnvelopeContext.ts:640-684`, committed in the same patch pair at
-//     `MutateSpaceEnvelope.ts:238-260`) — but the committed event carries only the SUBJECT's two
-//     rings, so the adapted rooms' new rings never reach a consumer. Until they do, a level drag
-//     moves the perimeter and leaves the partitions. Stated in the summary every time it happens.
+//  2. ⭐ **CORRECTED 2026-09-07 (lane WALLS-FOLLOW-WIRE) — THIS ITEM SAID PARTITIONS COULD NOT
+//     FOLLOW. THEY NOW DO.** It read: *"the committed event carries only the SUBJECT's two rings,
+//     so the adapted rooms' new rings never reach a consumer. Until they do, a level drag moves the
+//     perimeter and leaves the partitions."* That was true of the event, and the event was the only
+//     thing in the way. `SpaceEnvelopeFaceMoveCommitted.adapted` now carries every room the SAME
+//     commit moved with its own two rings, and `mergeSpaceEnvelopeWallFollowPlans` plans each of
+//     them through THIS planner and merges the result into ONE cascade.
+//     ⚠ WHAT IS STILL TRUE, AND IS THE MODEL'S ANSWER RATHER THAN A GAP: a room only appears in
+//     `adapted` when the moved level would otherwise STRAND it (`SpaceEnvelopeContext.ts:422` skips
+//     every room still contained). So pulling a face OUTWARD moves the perimeter and moves no
+//     partition — because no room moved. Pushing it IN past a room adapts that room, and its
+//     partitions follow. The partitions track the ROOMS, which is what BIM 3.0 provenance means;
+//     they do not track the level directly and must not be made to.
 //  3. **A row is not proof of a wall.** `buildFromDesignExecutor.ts:26-33` measured that undoing a
 //     wall batch LEAVES THE LINK ROWS BEHIND, pointing at ids no longer in the store. Every row is
 //     resolved through `wallState` and a `null` is `wall-no-longer-exists`, never a crash.
@@ -144,6 +151,19 @@ export interface WallFollowLinkRow {
     readonly edgeIndex: number;
     readonly wallKind?: string;
     readonly ringWelded?: boolean;
+    /**
+     * ⭐ `'primary'` — THIS envelope edge is the one the wall was BUILT FROM. `'also'` — a
+     * SECOND envelope also claims this wall as a boundary (`buildFromDesignPlan.ts:645`/`:657`:
+     * a room edge lying on the shell, or a partition shared between two rooms).
+     *
+     * ⛔ AN `'also'` ROW MUST NEVER DRIVE A FOLLOW, and the reason is measured rather than
+     * stylistic: a room's claim is recorded on a shell wall *"it only PARTLY covers"*
+     * (`buildFromDesignPlan.ts:641-643`). Planning that shell wall against the ROOM's edge would
+     * find it does not span it and would name it `authored-since-generation` — telling the user
+     * *"you moved this by hand"* about a wall nobody has touched. The filter lives in the wiring
+     * (`spaceEnvelopeWallFollow.ts`), which is where a row becomes a request.
+     */
+    readonly claim?: string;
 }
 
 /** What the store says about one linked wall right now. `null` from the reader means it is gone. */
@@ -163,7 +183,14 @@ export type WallFollowStayReason =
     /** ⭐ C80 — the wall is no longer the whole of its edge: hand-moved, split, trimmed or welded. */
     | 'authored-since-generation'
     /** The edge this wall sits on is identical in both rings — nothing to follow. */
-    | 'edge-did-not-move';
+    | 'edge-did-not-move'
+    /**
+     * ⛔ §ENVELOPE-PARTITIONS-FOLLOW — two envelopes that BOTH moved in this one commit each
+     * planned this wall, to DIFFERENT places. Neither answer is preferred: the wall is left where
+     * it is and named, because moving it to one of two contradictory positions is a well-formed
+     * wrong answer and there is nothing in the model that says which is right.
+     */
+    | 'contested-by-two-envelopes';
 
 /** Why NO wall moved and the cascade was not attempted at all. */
 export type WallFollowRefusalCode =
@@ -453,6 +480,129 @@ export function planSpaceEnvelopeWallFollow(
 }
 
 /**
+ * ⭐ §ENVELOPE-PARTITIONS-FOLLOW — ONE PLAN FOR ONE GESTURE, out of the N envelopes that moved.
+ *
+ * ⛔ WHY THIS EXISTS AT ALL: A PARTITION IS NOT BOUNDED BY THE ENVELOPE THE USER DRAGGED.
+ * `buildFromDesignPlan.ts:631` writes `envelopeRole: 'room'` on every partition's `derivedFrom`,
+ * and the shell walls carry `'level'`. So the founder's *"AND THE INTERIOR PARTITIONS TOO"* is not
+ * one plan against one ring — it is the LEVEL's plan for the perimeter PLUS one plan per ROOM the
+ * same commit moved, and those rooms are exactly `SpaceEnvelopeContextPlan.adapted`, which
+ * `MutateSpaceEnvelope.ts:238-260` writes in the SAME patch pair as the subject.
+ *
+ * ⛔ AND WHY THEY MERGE RATHER THAN DISPATCH SEPARATELY: C114 §6a. Thirteen envelopes moving
+ * would be thirteen `wall.cascadeBaseline` commands and thirteen undo entries for ONE drag — the
+ * exact trap this family exists to avoid. One merged plan is one dispatch.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * ⛔ THE ONE HAZARD MERGING INTRODUCES, AND THE ANSWER TO IT
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * `CascadeWallBaselineCommand` applies its entries in order, so TWO entries for one wall would be
+ * a SILENT last-write-wins — one envelope's answer overwriting another's with nothing said. That
+ * is the shape C80 forbids, arriving through the back door.
+ *
+ * ⭐ So a wall two moved envelopes place DIFFERENTLY is DROPPED and NAMED
+ * (`contested-by-two-envelopes`), never resolved by ordering. A wall two envelopes place the SAME
+ * (within {@link MERGE_AGREEMENT_TOLERANCE_M}) travels ONCE — agreement is not a conflict.
+ *
+ * ⚠ In practice the contest is rare BY CONSTRUCTION, not by luck: the wiring drops `'also'` link
+ * rows before planning, so each wall is planned against the one envelope edge it was built from.
+ * This branch guards what that construction does not cover — a hand-written graph, a reload that
+ * admitted rows from two generations, a future second producer.
+ *
+ * ⭐ PURE, TOTAL, ORDER-STABLE. A single plan is returned VERBATIM, so the one-envelope path this
+ * lane inherited is bit-for-bit what it was.
+ */
+export function mergeSpaceEnvelopeWallFollowPlans(
+    plans: readonly SpaceEnvelopeWallFollowPlan[],
+): SpaceEnvelopeWallFollowPlan {
+    const span = _tracer.startSpan('pryzm.engine.mergeSpaceEnvelopeWallFollowPlans');
+    try {
+        if (plans.length === 0) {
+            return {
+                ok: false,
+                refusal: null,
+                entries: Object.freeze([]),
+                stayed: Object.freeze([]),
+                cause: WALL_FOLLOW_CAUSE,
+                summary: 'No envelope moved, so no wall had anything to follow.',
+            };
+        }
+        // ⛔ IDENTITY ON ONE. Re-deriving a single plan through the merge would be a second
+        // spelling of an answer that already exists (C84 EI-9), and every existing assertion about
+        // the perimeter path is an assertion about THIS object.
+        if (plans.length === 1) return plans[0]!;
+
+        const first = new Map<string, WallFollowEntry>();
+        const contested = new Set<string>();
+        for (const plan of plans) {
+            for (const e of plan.entries) {
+                const seen = first.get(e.wallId);
+                if (!seen) { first.set(e.wallId, e); continue; }
+                if (!sameBaseline(seen.newBaseLine, e.newBaseLine)) contested.add(e.wallId);
+            }
+        }
+
+        const entries: WallFollowEntry[] = [];
+        for (const [wallId, e] of first) {
+            if (!contested.has(wallId)) entries.push(e);
+        }
+        const movedIds = new Set(entries.map((e) => e.wallId));
+
+        // ⛔ A WALL THAT MOVED IS NOT ALSO A WALL THAT STAYED. A shell wall reads
+        // `edge-did-not-move` under every room's plan and MOVES under the level's; reporting both
+        // would tell the user two contradictory things about one wall in one sentence.
+        const stayedByWall = new Map<string, WallFollowStay>();
+        for (const plan of plans) {
+            for (const stay of plan.stayed) {
+                if (movedIds.has(stay.wallId)) continue;
+                if (contested.has(stay.wallId)) continue;
+                if (!stayedByWall.has(stay.wallId)) stayedByWall.set(stay.wallId, stay);
+            }
+        }
+        const stayed: WallFollowStay[] = [...stayedByWall.values()];
+        for (const wallId of contested) {
+            stayed.push({
+                wallId,
+                reason: 'contested-by-two-envelopes',
+                detail: 'Two envelopes that both moved in this edit place this wall in different '
+                    + 'places, so PRYZM left it where it is rather than picking one of them.',
+            });
+        }
+
+        // The SUBJECT's refusal survives only when the whole gesture produced nothing — which keeps
+        // a top/bottom drag reading `ring-unchanged` exactly as it did before rooms were consulted.
+        const refusal = entries.length === 0 && stayed.length === 0
+            ? plans[0]!.refusal
+            : null;
+
+        return {
+            ok: entries.length > 0,
+            refusal,
+            entries: Object.freeze(entries),
+            stayed: Object.freeze(stayed),
+            cause: WALL_FOLLOW_CAUSE,
+            summary: refusal ? refusal.message : summarise(entries.length, stayed),
+        };
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * Two moved envelopes AGREE about a wall when both place both endpoints within this distance.
+ * ⚠ It is an AGREEMENT tolerance, not an authorship one — it says *"these are the same answer"*,
+ * and it is deliberately far tighter than {@link DEFAULT_AUTHORED_TOLERANCE_M}, which decides
+ * whether a human touched something.
+ */
+export const MERGE_AGREEMENT_TOLERANCE_M = 1e-6;
+
+function sameBaseline(a: WallFollowBaseline, b: WallFollowBaseline): boolean {
+    const t = MERGE_AGREEMENT_TOLERANCE_M;
+    return Math.abs(a[0].x - b[0].x) <= t && Math.abs(a[0].z - b[0].z) <= t
+        && Math.abs(a[1].x - b[1].x) <= t && Math.abs(a[1].z - b[1].z) <= t;
+}
+
+/**
  * The sentence the user reads. It names the C80 outcome explicitly whenever one occurred, because
  * a wall that quietly did not move is exactly the silent outcome this design exists to prevent.
  */
@@ -461,6 +611,7 @@ function summarise(moved: number, stayed: readonly WallFollowStay[]): string {
     const gone = stayed.filter((s) => s.reason === 'wall-no-longer-exists').length;
     const unknown = stayed.filter((s) => s.reason === 'edge-index-unrecoverable'
         || s.reason === 'edge-index-out-of-range').length;
+    const contested = stayed.filter((s) => s.reason === 'contested-by-two-envelopes').length;
 
     if (moved === 0 && stayed.length === 0) return 'No walls are linked to this envelope yet.';
 
@@ -476,6 +627,10 @@ function summarise(moved: number, stayed: readonly WallFollowStay[]): string {
     if (gone > 0) parts.push(`${gone} recorded wall${gone === 1 ? '' : 's'} no longer exist${gone === 1 ? 's' : ''}.`);
     if (unknown > 0) {
         parts.push(`${unknown} wall${unknown === 1 ? '' : 's'} could not be matched to an envelope edge.`);
+    }
+    if (contested > 0) {
+        parts.push(`${contested} wall${contested === 1 ? '' : 's'} stayed because two envelopes that both `
+            + `moved place ${contested === 1 ? 'it' : 'them'} differently, and PRYZM will not pick one.`);
     }
     return parts.join(' ');
 }
