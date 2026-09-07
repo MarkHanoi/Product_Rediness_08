@@ -275,3 +275,147 @@ no anchor" can never be read as the same observation.
 
 Pinned by `apps/editor/src/ui/geospatial/__tests__/scopeAnchor.spec.ts`, including a source-text arm
 on the one production call site (the unit arms all pass against a module nobody calls).
+
+---
+
+## 8 — What ONE context load actually pays for (L-13110 / L-13111, lane STARTUP-FIX 2026-09-07)
+
+> **Authority:** ISSUE-LOG **L-13110** (§CTX-ONE-READ-PER-BBOX), **L-13111**
+> (§CTX-MANIFEST-KNOWN-MISSING), **L-13112** (§DRAPE-COST-ATTRIBUTION — measured and deliberately
+> NOT changed). Founder baseline: §STARTUP-BUDGET, `geocode:end → ready = 18.5 s`, of which
+> **11.8 s is the deliberate slow descent** and **4.4 s is tiles landing after the scene settled**.
+> This section is about that 4.4 s and about nothing else.
+
+### 8.1 — The rule that keeps being got wrong: a DURATION is not a PRICE
+
+The founder's Barcelona console prints `parks: 800 green area(s) from 81 baked tile(s)` **three
+times** — 5672 / 3401 / 3400 ms — and `landuse: 2265 area(s) from 30 tiles` three times at
+3754 / 1486 / 1486 ms. Read naively that is ~9 s of duplicated parks work. **It is not, and a lane
+that "fixes" it as if it were will optimise something that was never spent.**
+
+Those three lines are **three callers sharing ONE download**. `contextTiles.tileInFlight` registers
+each tile's promise BEFORE it settles, so callers 2 and 3 wait on caller 1; the three **equal end
+times** (5672 − 3401 ≈ 5672 − 3400 ≈ 2.27 s of stagger) are the signature of one download, not
+three. What `ms` reports is each caller's own wall-clock, which for callers 2 and 3 is almost
+entirely *waiting*. §CTX-READ-PROVENANCE (`contextTiles.TileReadProvenance`) exists to say so in the
+console: a read that downloaded nothing prints **"this read PAID FOR NOTHING"** beside its duration.
+
+**⛔ THE DEFECT IS REAL AT A DIFFERENT LAYER, AND THE TWO NEED DIFFERENT CURES.** At the TILE layer
+it is a cache HIT — nothing to fix, and adding a second tile-level cache would be work with no
+subject. At the COLLECTION layer it was a MISS: the layer readers had a resolved-value cache
+populated on COMPLETION, which cannot serve a caller issued while the first read is still in flight
+— and on the onboarding flow they always are (`warmAllContextLayers` at the `city` stage,
+`CesiumViewport.loadContext*` at pane mount, the re-render after the terrain sample lands).
+
+### 8.2 — §CTX-ONE-READ-PER-BBOX, propagated (L-585 → all ten layers)
+
+The guard, per reader, is three lines and one invariant:
+
+- de-duplicate **above** the tile read (`inFlight`, released in a `finally`);
+- the shared read takes **no `AbortSignal`** — one caller's abort must not hand the others an empty
+  result for a read that was nearly done;
+- each caller honours its **own** signal after the await, so an abort cancels the **render** (§L-579)
+  and `contextFurniture` keeps its per-CALLER `aborted` state, which is a different value from the
+  shared read's outcome (§CONTEXT-DATA-HONESTY).
+
+| reader | guard |
+|---|---|
+| `contextBuildings` | since L-585 |
+| `contextRoads`, `contextWater` | older §L-323 FIX B form |
+| `contextParks`, `contextLanduse` | L-13110, first pass |
+| `contextRail`, `contextTrees`, `contextFurniture`, `contextCanopyBaked` | L-13110, this pass |
+
+**⭐ THE TWO THAT LOOK LIKE THEY CANNOT MATTER ARE THE TWO THAT MATTERED MOST.** `furniture` and
+`canopy` are absent from the live tileset, and their readers deliberately do **not** cache a
+non-`ok` result (a transient blip must never become a session-long "no lamps"). So the
+resolved-value cache never fills for them at all, and before the guard **every** overlapping caller
+ran a full read. §CTX-KNOWN-MISSING bounds the repeat to a memo lookup — but only after the first
+probe returns, which is exactly the window the callers overlap in.
+
+**MEASURED (warmed medians, 7 reps, `readContextTileFeatures` mocked so the number is the work
+ABOVE the tiles):**
+
+| layer | payload | 3 concurrent callers, guarded | the same work run 3× | saved | per duplicate caller |
+|---|---|---|---|---|---|
+| `trees` | 6,000 points | 0.97 ms | 2.75 ms | 1.77 ms | 0.89 ms |
+| `rail` | 1,200 ways × 40 vertices | 3.29 ms | 9.86 ms | 6.56 ms | 3.28 ms |
+
+**⚠ SAY WHAT THIS IS NOT.** It is **milliseconds, not seconds**, and it does not include the
+per-read bbox crop or the tile-list computation inside `readContextTileFeatures` (unmeasured — the
+bench mocks that call). The user-visible startup saving from this half is small; its value is that
+the main thread stops doing the same work three times during the window the reveal animation runs
+in, and that ten readers now behave the same way. **Anyone reporting this as "9 seconds recovered"
+has reproduced the misreading §8.1 exists to prevent.**
+
+Pinned by `apps/editor/src/ui/geospatial/__tests__/contextOneReadPerBbox.spec.ts` — the subject is
+the NUMBER of `readContextTileFeatures` calls for N concurrent callers of one bbox: **was 3, must
+be 1**, with mutation proofs recorded in the file.
+
+### 8.3 — §CTX-MANIFEST-KNOWN-MISSING: one manifest read instead of six 404s
+
+`canopy`, `sea` and `furniture` each 404 on their archive header, and §CTX-RANGE-COALESCE re-issues
+the span's members individually before §CTX-KNOWN-MISSING can memoise the layer — roughly **two
+requests per absent layer per session**, on the hot path, queued behind Cesium's terrain stream.
+
+**MEASURED against production, 2026-09-07 — and the response SIZE is the tell, because our refusal
+and R2's are both a bare 404:**
+
+| URL | status | bytes | ms | whose 404 |
+|---|---|---|---|---|
+| `pub-…r2.dev/tiles/tileset-manifest.json` | 200 | 24,279 | 196 | — (it EXISTS) |
+| `app.pryzm.so/api/context-tiles/tileset-manifest.json` | 404 | **38** | 242 | **OURS** |
+| `/api/context-tiles/canopy.pmtiles?v=L663a` | 404 | **38** | 205 | **OURS** (allowlist drift) |
+| `/api/context-tiles/sea.pmtiles?v=L663a` | 404 | 27,150 | 356 | R2's |
+| `/api/context-tiles/furniture.pmtiles?v=L663a` | 404 | 27,150 | 436 | R2's |
+| `/api/context-tiles/parks.pmtiles?v=L663a` | 206 | 128 | 365 | — (it answers) |
+
+38 bytes is `{"error":"unknown context tile layer"}`.
+
+**⛔ THE SERVER LEG HAD TO COME FIRST, AND THAT IS WHY THIS WAS NOT SHIPPED EARLIER.**
+`VITE_CONTEXT_TILES_URL` is deployed as the same-origin proxy (§L-776), whose layer handler is an
+**allowlist** — so `tileset-manifest.json` resolved to a layer name nobody had allowlisted and came
+back as our own 404. A client written against that would have failed open on every load and changed
+nothing (§AUTHORED-BUT-UNWIRED — audit REACHABILITY, not existence). The route
+(`server/context-delivery/`, registered **before** `:layer`, which matches the literal path and
+would otherwise refuse it) is the unblock; `canopy` joined the allowlist in the same commit.
+
+The client then reads the manifest **once per session** and pre-seeds §CTX-KNOWN-MISSING for every
+layer it does not name. Live reading 2026-09-07: `layers = [buildings, landuse, parks, rail, roads,
+trees, water]` — the seven that answer, and none of the three that 404.
+
+**AFTER: ~6 archive requests replaced by 1 manifest request per session**, and the ~997 ms of
+request time those three probes cost (one each; the row's ~2-per-layer makes the session figure
+roughly double) becomes one ~200–400 ms read that also arms every future absent layer for free.
+
+**Four properties are load-bearing, and each is pinned in
+`apps/editor/src/ui/geospatial/__tests__/contextManifestKnownMissing.spec.ts`:**
+
+1. **The answer does not change.** A suppressed layer still answers `unavailable`, with a reason
+   that NAMES the manifest, carrying §CTX-KNOWN-MISSING's `(known missing this session…)` suffix —
+   which is what keeps `contextFurniture`'s honest `absent` state reachable. Only the round trip
+   goes. Failure and empty remain different values.
+2. **It fails OPEN.** Unreadable, non-JSON, unidentified or zero-layer ⇒ seed nothing, probe as
+   before. Two guards are stricter than "the fetch resolved": the document must declare
+   `pryzm-context-tileset-manifest@*` (an error body is not a manifest), and the layer set must be
+   **non-empty** — a manifest naming zero layers would suppress the entire context off one
+   malformed publish, the worst thing this feature could do.
+3. **A MEASUREMENT BEATS A DOCUMENT.** The manifest lands asynchronously and can resolve after a
+   layer has been read successfully. `provenArchives` records every archive whose header we have
+   actually read, and `manifestSeedVerdict` refuses to suppress one — otherwise a stale or narrow
+   manifest could delete a **live** layer from the map for the session.
+4. **The reveal never waits.** The gate is deadlined (`CONTEXT_MANIFEST_GATE_MS`) and `buildings` is
+   exempt **by name**: the onboarding reveal gates on the near-buildings read and nothing else, so
+   the cost is paid only in the stream that lands after the scene settles — the 4.4 s this section
+   is about. ⭐ The gate itself is not optional: a fire-and-forget prime saves **nothing**, because
+   `warmAllContextLayers` issues the manifest and the nine layer reads in the same tick, so an
+   un-awaited manifest lands after the very 404s it exists to prevent. That mutation is recorded.
+
+### 8.4 — What was deliberately NOT changed (L-13112)
+
+Parks spent **8,414 ms waiting for terrain and 18 ms on its own work**, behind a 22,793-point /
+7,056 ms buildings sample. The single shared flight is the right design and
+`groundSampleBatcher.maxConcurrentFlights` **must stay 1** — two calls in the air re-download the
+same tiles, which is the whole §STARTUP-GROUND-SAMPLE-COALESCE finding. That invariant is already
+pinned in `groundSampleBatcher.spec.ts`; **do not weaken it.** Neither priority-jumping nor
+splitting the big sample may land without a per-flight reading of *tiles requested* vs *tiles served
+from the browser HTTP cache*, which nothing measures today.

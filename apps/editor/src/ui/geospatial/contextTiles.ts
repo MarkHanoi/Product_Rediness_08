@@ -1168,10 +1168,16 @@ async function awaitManifestGate(): Promise<void> {
     if (timer !== undefined) clearTimeout(timer);
 }
 
-/** Every layer the manifest verdict is applied to. Order is the console line's order. */
-const CONTEXT_TILE_LAYERS: readonly ContextTileLayer[] = [
-    'buildings', 'roads', 'water', 'parks', 'landuse', 'rail', 'trees', 'sea', 'furniture', 'canopy',
-];
+/**
+ * Every layer the manifest verdict is applied to.
+ *
+ * ⚠ DERIVED FROM `LAYER_ZOOM`, NOT HAND-WRITTEN. `LAYER_ZOOM` is a `Record<ContextTileLayer, …>`, so
+ * TypeScript already forces it to be exhaustive — a new layer added to the union cannot compile
+ * without appearing there, and therefore cannot silently escape the manifest check. A second
+ * hand-written literal of the same ten names is the drift this file's own proxy-allowlist history
+ * records (`rail`/`trees` refused BY US for months because a list next door lagged the union).
+ */
+const CONTEXT_TILE_LAYERS = Object.keys(LAYER_ZOOM) as ContextTileLayer[];
 
 /** TRUE when a reader `unavailable.reason` proves the ARCHIVE is absent (403/404 on its header), as
  *  opposed to any other failure. Exported so a layer whose absence is an honest EMPTY (§STREET-LIFE:
