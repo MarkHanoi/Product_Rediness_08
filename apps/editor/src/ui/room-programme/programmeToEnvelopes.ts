@@ -779,5 +779,130 @@ export function measureAdjacency(
   return out;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §ROOM-WALL-DRAG (L-13096) — THE PARTY WALLS, AS DRAGGABLE SEGMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * One wall shared by two solved cells: where it is, how long, and which way is "into `b`".
+ *
+ * ⭐ THIS IS THE HANDLE THE FOUNDER GRABS. *"I shall be able to … draw them"* — the smallest
+ * honest footprint edit this solver can KEEP is moving a party wall, because a cell's ring is a
+ * pure function of the AREAS and the order (see the module header): shifting the wall between two
+ * rooms IS a transfer of area between them, and area is a currency the bisection consumes. A
+ * freehand ring is not expressible in that output at all, so storing one would either be ignored
+ * on the next re-solve or require replacing the solver — the same reasoning `RoomProgrammeEntry.
+ * pinnedOrder` records for why a pin is an ORDINAL and not an `{x,z}`.
+ */
+export interface ProgrammeRoomSeam {
+    readonly aId: string;
+    readonly bId: string;
+    /** The two rooms' index in `layout.order` — what the panel labels the handle with. */
+    readonly aOrder: number;
+    readonly bOrder: number;
+    /** Length of the shared wall, m. AUTHORITY: `findSharedFaces`' own `overlapM`. */
+    readonly lengthM: number;
+    /** The shared segment's ends, in world XZ — the line the panel draws. */
+    readonly from: EnvelopePoint;
+    readonly to: EnvelopePoint;
+    /**
+     * Unit XZ vector pointing OUT of `a` and INTO `b`. Dragging the wall along it GROWS `a` and
+     * shrinks `b` by the same area, which is the arithmetic the panel commits.
+     */
+    readonly normal: { readonly x: number; readonly z: number };
+}
+
+/**
+ * Every party wall in a solved layout, one entry per PAIR.
+ *
+ * ⛔ THE PREDICATE IS `findSharedFaces`, THE SAME ONE `measureAdjacency` ASKS (C84 EI-9.2: *"the
+ * gate, the pre-flight and the builder must ask the same one"*). If this enumerated its own
+ * coincidence rule the panel could offer a drag handle on a wall the adjacency report does not
+ * consider shared — two answers to one question, with a gesture attached to the wrong one.
+ *
+ * ⚠ THE SPLIT IS DELIBERATE AND WORTH NAMING: `findSharedFaces` decides **IF** two cells share a
+ * wall and **HOW LONG** it is; this function only reads **WHERE**, by clipping the subject edge it
+ * named against the neighbour edge it named. `lengthM` is taken from the predicate's `overlapM`
+ * and never from the clipped segment, so if the two ever disagreed the predicate would still be
+ * the one the product believes.
+ */
+export function programmeSharedWalls(
+    cells: readonly RoomEnvelopeCell[],
+): readonly ProgrammeRoomSeam[] {
+    if (cells.length < 2) return [];
+    const world: SpaceEnvelopeContextEntry[] = cells.map((c) => ({
+        prism: { id: c.roomId, footprint: c.ring, baseOffset: 0, height: 1 },
+        role: 'room',
+        levelId: 'layout-preview',
+        withinId: null,
+        name: c.name,
+    }));
+    const orderOf = new Map(cells.map((c, i) => [c.roomId, i] as const));
+    const centroid = new Map(cells.map((c) => {
+        let cx = 0; let cz = 0;
+        for (const q of c.ring) { cx += q.x; cz += q.z; }
+        return [c.roomId, { x: cx / c.ring.length, z: cz / c.ring.length }] as const;
+    }));
+
+    // One seam per PAIR, keeping the LONGEST when two cells meet along more than one edge — the
+    // longest is the wall a user would recognise as "the wall between these two rooms", and
+    // offering two handles for one boundary would make the same drag mean two different amounts.
+    const best = new Map<string, ProgrammeRoomSeam>();
+
+    for (const [ai, cell] of cells.entries()) {
+        const subject = world[ai]!;
+        const ring = cell.ring;
+        for (let i = 0; i < ring.length; i += 1) {
+            for (const f of findSharedFaces(subject, { kind: 'side', edgeIndex: i }, world)) {
+                const bOrder = orderOf.get(f.envelopeId);
+                if (bOrder === undefined) continue;
+                const k = linkKey(cell.roomId, f.envelopeId);
+                const prior = best.get(k);
+                if (prior && prior.lengthM >= f.overlapM) continue;
+
+                const a = ring[i]!;
+                const b = ring[(i + 1) % ring.length]!;
+                const tx = b.x - a.x; const tz = b.z - a.z;
+                const tl = Math.hypot(tx, tz);
+                if (tl <= 0) continue;
+                const ux = tx / tl; const uz = tz / tl;
+
+                // WHERE: clip the neighbour's named edge onto the subject's named edge.
+                const other = world.find((w) => w.prism.id === f.envelopeId);
+                if (!other) continue;
+                const oring = other.prism.footprint;
+                const c = oring[f.face.edgeIndex]!;
+                const d = oring[(f.face.edgeIndex + 1) % oring.length]!;
+                const pc = (c.x - a.x) * ux + (c.z - a.z) * uz;
+                const pd = (d.x - a.x) * ux + (d.z - a.z) * uz;
+                const lo = Math.max(0, Math.min(pc, pd));
+                const hi = Math.min(tl, Math.max(pc, pd));
+                if (hi <= lo) continue;
+
+                // The normal is derived from the two CENTROIDS rather than re-deriving an outward
+                // normal: it has to point from `a` into `b`, and "which side is the neighbour on"
+                // is exactly what a centroid difference answers, with no winding assumption.
+                const ca = centroid.get(cell.roomId)!;
+                const cb = centroid.get(f.envelopeId)!;
+                let nx = -uz; let nz = ux;
+                if ((cb.x - ca.x) * nx + (cb.z - ca.z) * nz < 0) { nx = -nx; nz = -nz; }
+
+                best.set(k, {
+                    aId: cell.roomId,
+                    bId: f.envelopeId,
+                    aOrder: ai,
+                    bOrder,
+                    lengthM: round6(f.overlapM),
+                    from: { x: a.x + ux * lo, y: a.y, z: a.z + uz * lo },
+                    to: { x: a.x + ux * hi, y: a.y, z: a.z + uz * hi },
+                    normal: { x: nx, z: nz },
+                });
+            }
+        }
+    }
+    // Deterministic order, so a re-render never reshuffles the handles under the pointer.
+    return [...best.values()].sort((x, y) => (x.aOrder - y.aOrder) || (x.bOrder - y.bOrder));
+}
+
 /** Degrees, re-exported so the panel does not import two modules for one picture. */
 export { programmeDegrees };

@@ -73,13 +73,17 @@ import {
 import {
   applyRoomProgrammeIntent,
   defaultResidentialProgramme,
+  describePairResize,
   getRoomProgramme,
   subscribeRoomProgramme,
   type RoomProgramme,
 } from './roomProgrammeModel';
 import {
+  programmeSharedWalls,
   solveProgrammeLayout,
+  type ProgrammeLayout,
   type ProgrammeLayoutResult,
+  type ProgrammeRoomSeam,
 } from './programmeToEnvelopes';
 import {
   buildRoomEnvelopePlan,
@@ -128,6 +132,27 @@ export const ROOM_CELL_ID_ATTR = 'data-room-cell';
 export const ROOM_CELL_ORDER_ATTR = 'data-room-cell-order';
 /** `"1"` iff the user has PINNED this room to its position. Absent means solver-placed. */
 export const ROOM_CELL_PINNED_ATTR = 'data-room-cell-pinned';
+
+// ── §ROOM-WALL-DRAG (L-13096) — THE PARTY WALL'S OWN IDENTITY ────────────────
+//
+// The same reasoning §ROOM-PIN records for the cells: a gesture cannot be built on a shape whose
+// identity has to be recovered by parsing a sentence, and a spec cannot drive one either.
+
+/** The room on the side the wall GROWS when it is dragged along its normal. */
+export const ROOM_SEAM_A_ATTR = 'data-room-seam-a';
+/** The room on the side it SHRINKS. */
+export const ROOM_SEAM_B_ATTR = 'data-room-seam-b';
+/** The shared wall's length in metres, as a string — what the transfer is measured against. */
+export const ROOM_SEAM_LENGTH_ATTR = 'data-room-seam-length';
+/**
+ * The handle's outward XZ normal, `"x,z"` — the direction that GROWS room `a`.
+ *
+ * ⭐ IT IS PUBLISHED BECAUSE A CONTROL WHOSE DIRECTION CANNOT BE READ IS HALF-TESTED. Without it
+ * a spec can only assert that *something* moved; with it, a spec computes the pixel travel for a
+ * named transfer from the plate's own dimensions and checks the metres that come back — which is
+ * what makes the pixel→metre chain a MEASURED claim rather than a self-consistent one.
+ */
+export const ROOM_SEAM_NORMAL_ATTR = 'data-room-seam-normal';
 
 /** The drag payload. A prefixed `text/plain` mirrors `FurnitureCarousel`'s idiom. */
 export const ROOM_DRAG_MIME = 'application/x-pryzm-room-kind';
@@ -796,6 +821,270 @@ export function mountRoomProgrammePanel(
     render();
   }
 
+  // ── §ROOM-WALL-DRAG (L-13096) — DRAWING THE ROOMS BY MOVING THEIR WALLS ────
+  //
+  // Founder: *"This room locator needs to be more flexible and more dynamic — I shall be able to
+  // reorganize also the rooms on the plan view — draw them etc."*
+  //
+  // ⭐ WHAT THIS IS, AND — SO NOBODY READS MORE INTO IT — WHAT IT IS NOT. §ROOM-PIN gave him the
+  // ORDER. This gives him the FOOTPRINT, in the one currency the solver can keep: a party wall is
+  // dragged, and the area that crosses it moves from one room's target to the other's. It is NOT a
+  // freehand boundary tool. `solveProgrammeLayout` PARTITIONS a plate — a cell's ring is a pure
+  // function of the areas and the order — so an arbitrary authored ring has no representation in
+  // its output at all: storing one would either be re-solved away on the user's next keystroke
+  // (the exact defect L-13079 names) or require replacing the solver. `RoomProgrammeEntry.
+  // pinnedOrder` records the same argument for why a pin is an ordinal and not an `{x,z}`.
+  //
+  // ⛔ THE AREAS ARE THE TRUTH, THE WALL IS THE CONSEQUENCE. C06 §13.3 has one producer per live
+  // figure: `targetAreaM2` in the session brief, shown on the room list, is the number this drag
+  // moves — the same number, not a second copy — and the plan the user then sees is the SOLVER's
+  // answer for those areas. The ghost line follows the pointer during the gesture; it is a
+  // proposal, and the hint text says so rather than implying the wall lands under the cursor.
+  //
+  // ⛔ ONE GESTURE, ONE INTENT. Every pointer move recomputes a CANDIDATE and writes nothing; the
+  // single `programme.resize-pair` is dispatched on release. Two `programme.set-area`s would
+  // re-solve the plate between them, with one room grown and the other not yet shrunk.
+  //
+  // ⚠ AND, EXACTLY AS §ROOM-PIN STATES: this writes the session BRIEF through
+  // `applyRoomProgrammeIntent`, not the bus. `roomProgrammeModel.ts`'s header argues P6 in full —
+  // a programme is a brief, not a domain store, and the bus is reached by "Place envelopes in
+  // 3D", which is the undoable gesture (C114 §6a, one `spaceEnvelope.batch.create`). So Ctrl+Z
+  // does not undo a wall drag, and the panel says so rather than letting him assume it.
+
+  /** A wall drag in flight. `null` between gestures. */
+  let seamDrag: {
+    readonly seam: ProgrammeRoomSeam;
+    readonly aArea0: number;
+    readonly bArea0: number;
+    readonly clientX0: number;
+    readonly clientY0: number;
+    /** World metres per client pixel, per axis — measured ONCE, at pointerdown. */
+    readonly mPerPxX: number;
+    readonly mPerPxZ: number;
+    /** Viewbox units per world metre, for moving the ghost line. */
+    readonly vbPerMx: number;
+    readonly vbPerMz: number;
+    readonly line: SVGLineElement;
+  } | null = null;
+
+  /**
+   * The candidate areas for a pointer at `(clientX, clientY)`.
+   *
+   * ⭐ THE ROUNDING IS DELIBERATE AND ONE-SIDED. `aNew` is rounded to a centimetre-squared and
+   * `bNew` is DERIVED BY SUBTRACTION from the pair's untouched sum, so the conservation invariant
+   * `describePairResize` enforces survives the rounding exactly. Rounding both independently would
+   * leak up to 0.01 m² per drag into (or out of) the programme — a wall move that quietly changes
+   * how much floor the brief asks for.
+   */
+  function seamCandidate(d: NonNullable<typeof seamDrag>, clientX: number, clientY: number): {
+    readonly aAreaM2: number; readonly bAreaM2: number; readonly transferM2: number; readonly offsetM: number;
+  } {
+    const dxM = (clientX - d.clientX0) * d.mPerPxX;
+    const dzM = (clientY - d.clientY0) * d.mPerPxZ;
+    // The perpendicular displacement of the wall: the pointer's travel projected onto the seam
+    // normal. Motion ALONG the wall moves it nowhere, which is what a wall does.
+    const offsetM = dxM * d.seam.normal.x + dzM * d.seam.normal.z;
+    const transferM2 = offsetM * d.seam.lengthM;
+    const sum = d.aArea0 + d.bArea0;
+    const aAreaM2 = Math.round((d.aArea0 + transferM2) * 100) / 100;
+    return { aAreaM2, bAreaM2: sum - aAreaM2, transferM2, offsetM };
+  }
+
+  /**
+   * Say what this candidate would do — or why it will be refused, with BOTH numbers and the way
+   * out. Called on every move so the limit is met while dragging, not discovered on release.
+   *
+   * ⛔ THE VERDICT IS `describePairResize`'s, NOT A SECOND READING OF THE SAME RULES (C84 EI-8a).
+   * A panel that re-derives "is this allowed?" beside the reducer that decides it is how a
+   * control comes to say one thing and do another.
+   */
+  function seamMessage(
+    d: NonNullable<typeof seamDrag>,
+    cand: { readonly aAreaM2: number; readonly bAreaM2: number; readonly transferM2: number },
+    aName: string,
+    bName: string,
+  ): { readonly text: string; readonly refusal: boolean } {
+    const v = describePairResize(getRoomProgramme(), d.seam.aId, cand.aAreaM2, d.seam.bId, cand.bAreaM2);
+    if (v.ok) {
+      return {
+        text: `${aName} ${cand.aAreaM2.toFixed(2)} m² · ${bName} ${cand.bAreaM2.toFixed(2)} m² — `
+          + `${Math.abs(cand.transferM2).toFixed(2)} m² moved across a ${d.seam.lengthM.toFixed(2)} m wall. `
+          + 'Release to keep it.',
+        refusal: false,
+      };
+    }
+    if (v.code === 'below-minimum') {
+      // C83 §1.2 — BOTH numbers, and then L-942's escape hatch: the largest move that IS allowed,
+      // stated as a number he can actually drag to. A refusal whose yes-branch is unreachable is
+      // a regression with a citation attached.
+      const hatch = v.maxTransferM2 > 0
+        ? `The most ${(v.offenderName ?? 'it')} can give up is ${v.maxTransferM2.toFixed(2)} m² — drag back to there and it is yours.`
+        : `${v.offenderName ?? 'It'} is already at its floor, so this wall cannot move that way at `
+          + 'all. Raise its area in the list, or give the space to a different neighbour.';
+      return {
+        text: `${v.offenderName} cannot go to ${(v.askedAreaM2 ?? 0).toFixed(2)} m²: PRYZM's floor for `
+          + `that room is ${(v.floorAreaM2 ?? 0).toFixed(2)} m². Nothing was clamped. ${hatch}`,
+        refusal: true,
+      };
+    }
+    return {
+      text: `That wall move was refused (${v.code ?? 'unknown'}) and nothing changed.`,
+      refusal: true,
+    };
+  }
+
+  /** Write the status line WITHOUT a re-render — a repaint mid-gesture would destroy the ghost. */
+  function sayLive(text: string, refusal: boolean): void {
+    say(text, refusal);
+    const st = root.querySelector<HTMLElement>(`[data-testid="${ROOM_PROGRAMME_STATUS_TESTID}"]`);
+    if (st) {
+      st.textContent = text;
+      st.style.color = refusal ? '#8a5a00' : '';
+    }
+  }
+
+  /**
+   * The MOVE and RELEASE halves, installed once on the `<svg>`.
+   *
+   * ⛔ ON THE ROOT, FOR THE REASON `wireReorderRelease` STATES: without pointer capture a browser
+   * fires `pointermove` / `pointerup` at the element under the pointer, which during a wall drag
+   * is whatever cell the wall has been pulled over — never the line the gesture began on.
+   */
+  function wireSeamDragRoot(svg: SVGSVGElement, layout: ProgrammeLayout): void {
+    const nameOf = new Map(layout.cells.map((c) => [c.roomId, c.name] as const));
+    svg.addEventListener('pointermove', (ev) => {
+      const d = seamDrag;
+      if (!d) return;
+      const e = ev as PointerEvent;
+      const cand = seamCandidate(d, e.clientX, e.clientY);
+      // The ghost, moved along the normal by the SAME offset the arithmetic used.
+      const tx = cand.offsetM * d.seam.normal.x * d.vbPerMx;
+      const tz = cand.offsetM * d.seam.normal.z * d.vbPerMz;
+      d.line.setAttribute('transform', `translate(${tx.toFixed(3)} ${tz.toFixed(3)})`);
+      const m = seamMessage(d, cand, nameOf.get(d.seam.aId) ?? d.seam.aId, nameOf.get(d.seam.bId) ?? d.seam.bId);
+      d.line.setAttribute('stroke', m.refusal ? '#c2410c' : '#6600FF');
+      sayLive(m.text, m.refusal);
+    });
+    svg.addEventListener('pointerup', (ev) => {
+      const d = seamDrag;
+      seamDrag = null;
+      if (!d) return;
+      const e = ev as PointerEvent;
+      const cand = seamCandidate(d, e.clientX, e.clientY);
+      const aName = nameOf.get(d.seam.aId) ?? d.seam.aId;
+      const bName = nameOf.get(d.seam.bId) ?? d.seam.bId;
+      // A wall released where it was grabbed is a CANCEL — the same rule §ROOM-PIN states for a
+      // release on the cell the drag started from. `render()` still runs, to drop the ghost.
+      if (cand.aAreaM2 === d.aArea0) { render(); return; }
+      const changed = applyRoomProgrammeIntent({
+        type: 'programme.resize-pair',
+        aId: d.seam.aId, aAreaM2: cand.aAreaM2,
+        bId: d.seam.bId, bAreaM2: cand.bAreaM2,
+      });
+      const m = seamMessage(d, cand, aName, bName);
+      if (changed) {
+        pendingReplace = null;
+        say(
+          `${aName} is now ${cand.aAreaM2.toFixed(2)} m² and ${bName} ${cand.bAreaM2.toFixed(2)} m² — `
+          + `${Math.abs(cand.transferM2).toFixed(2)} m² moved across the wall between them. The plan `
+          + 'is re-solved from those two areas, so the wall lands where they put it. (A wall move '
+          + 'is part of this session\'s brief, not the undo stack — Ctrl+Z will not take it back.)',
+          false);
+      } else {
+        // ⛔ SPOKEN, NEVER SWALLOWED. A drag that appears to do nothing is the "did my change
+        // save?" failure this lane exists to remove.
+        say(m.text, true);
+      }
+      // ⛔ RENDERED ON BOTH ARMS — the refusal is the thing the user most needs to see, and it
+      // lives in the status line this repaint writes.
+      render();
+    });
+    // Leaving the strip mid-drag abandons the gesture, so a release elsewhere on the page cannot
+    // complete a move the user walked away from. The ghost goes with the repaint.
+    svg.addEventListener('pointerleave', () => {
+      if (!seamDrag) return;
+      seamDrag = null;
+      render();
+    });
+  }
+
+  /**
+   * Draw one draggable handle per party wall.
+   *
+   * ⛔ THE LINES ARE SIBLINGS OF THE CELL GROUPS, NOT CHILDREN. A handle inside a cell group would
+   * make its `pointerdown` bubble through that group's §ROOM-PIN reorder listener, so one press
+   * would start two gestures with one pointer.
+   */
+  function drawSeams(
+    svg: SVGSVGElement,
+    layout: ProgrammeLayout,
+    sx: (v: number) => number,
+    sz: (v: number) => number,
+    vbPerMx: number,
+    vbPerMz: number,
+    W: number,
+  ): void {
+    const nameOf = new Map(layout.cells.map((c) => [c.roomId, c.name] as const));
+    const areaOf = new Map(getRoomProgramme().entries.map((e) => [e.id, e.targetAreaM2] as const));
+    for (const seam of programmeSharedWalls(layout.cells)) {
+      const aArea0 = areaOf.get(seam.aId);
+      const bArea0 = areaOf.get(seam.bId);
+      // A wall whose rooms are not both in the brief cannot be moved in the brief's currency.
+      if (aArea0 === undefined || bArea0 === undefined) continue;
+      const line = svgEl('line');
+      line.setAttribute('x1', sx(seam.from.x).toFixed(2));
+      line.setAttribute('y1', sz(seam.from.z).toFixed(2));
+      line.setAttribute('x2', sx(seam.to.x).toFixed(2));
+      line.setAttribute('y2', sz(seam.to.z).toFixed(2));
+      line.setAttribute('stroke', '#6600FF');
+      line.setAttribute('stroke-opacity', '0.45');
+      // Fat enough to grab. The visible weight is the opacity, not the width — a 6-unit purple
+      // bar over every party wall would read as a drawn wall the product had decided on.
+      line.setAttribute('stroke-width', '5');
+      line.setAttribute('stroke-linecap', 'round');
+      line.setAttribute(ROOM_SEAM_A_ATTR, seam.aId);
+      line.setAttribute(ROOM_SEAM_B_ATTR, seam.bId);
+      line.setAttribute(ROOM_SEAM_LENGTH_ATTR, seam.lengthM.toFixed(3));
+      line.setAttribute(ROOM_SEAM_NORMAL_ATTR, `${seam.normal.x.toFixed(6)},${seam.normal.z.toFixed(6)}`);
+      line.style.cursor = 'move';
+      const t = svgEl('title');
+      t.textContent =
+        `The wall between ${nameOf.get(seam.aId) ?? seam.aId} and ${nameOf.get(seam.bId) ?? seam.bId} — `
+        + `${seam.lengthM.toFixed(2)} m long. Drag it to move floor area from one to the other; `
+        + 'every centimetre across it is ' + seam.lengthM.toFixed(2) + ' m² per metre.';
+      line.appendChild(t);
+      line.addEventListener('pointerdown', (ev) => {
+        const e = ev as PointerEvent;
+        const rect = svg.getBoundingClientRect();
+        // ⛔ AN UNMEASURABLE SURFACE REFUSES THE GESTURE RATHER THAN GUESSING A SCALE. A zero-width
+        // rect (the panel is display:none, or laid out at zero) would make every pixel of travel
+        // an infinite number of metres; saying so beats committing one.
+        if (!(rect.width > 0)) {
+          sayLive('This plan is not laid out yet, so PRYZM cannot tell how far you dragged. '
+            + 'Open the panel fully and try again — nothing was changed.', true);
+          return;
+        }
+        // Client px → viewBox units → world metres. `preserveAspectRatio` is the default, so ONE
+        // factor serves both axes; the per-axis world scales then differ because the strip's
+        // height is clamped to [120, 280] and the viewBox aspect is not the plate's.
+        const vbPerPx = W / rect.width;
+        seamDrag = {
+          seam,
+          aArea0: areaOf.get(seam.aId)!,
+          bArea0: areaOf.get(seam.bId)!,
+          clientX0: e.clientX,
+          clientY0: e.clientY,
+          mPerPxX: vbPerPx / vbPerMx,
+          mPerPxZ: vbPerPx / vbPerMz,
+          vbPerMx,
+          vbPerMz,
+          line,
+        };
+      });
+      svg.appendChild(line);
+    }
+  }
+
   // ── PLAN PREVIEW + LEGEND ──────────────────────────────────────────────────
 
   function renderPreview(layout: ProgrammeLayoutResult): void {
@@ -824,8 +1113,13 @@ export function mountRoomProgrammePanel(
     const spanZ = Math.max(1e-6, z1 - z0);
     const W = 300;
     const H = Math.max(120, Math.min(280, Math.round((W * spanZ) / spanX)));
-    const sx = (v: number): number => ((v - x0) / spanX) * (W - 8) + 4;
-    const sz = (v: number): number => ((v - z0) / spanZ) * (H - 8) + 4;
+    // §ROOM-WALL-DRAG — the two scales the drag inverts, named where they are decided rather
+    // than re-derived in the gesture. They DIFFER whenever `H`'s clamp bites, so a wall drag has
+    // to project on both axes; one uniform factor would mis-measure every non-axis-aligned wall.
+    const vbPerMx = (W - 8) / spanX;
+    const vbPerMz = (H - 8) / spanZ;
+    const sx = (v: number): number => (v - x0) * vbPerMx + 4;
+    const sz = (v: number): number => (v - z0) * vbPerMz + 4;
 
     const svg = svgEl('svg');
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -837,6 +1131,9 @@ export function mountRoomProgrammePanel(
     makeDropTarget(svg);
     // §ROOM-PIN (L-13079) — the release half of the reorder gesture. One listener, on the root.
     wireReorderRelease(svg);
+    // §ROOM-WALL-DRAG (L-13096) — the move + release halves of the wall gesture. Also on the root,
+    // and for the same reason: the pointer leaves the line the moment the wall starts moving.
+    wireSeamDragRoot(svg, layout);
 
     const drawRing = (
       ring: readonly { x: number; z: number }[],
@@ -915,12 +1212,21 @@ export function mountRoomProgrammePanel(
       wireCellReorder(g, c.roomId, c.name, i);
       svg.appendChild(g);
     });
+    // §ROOM-WALL-DRAG (L-13096) — LAST, so the handles sit above the fills they separate.
+    drawSeams(svg, layout, sx, sz, vbPerMx, vbPerMz, W);
     box.appendChild(svg);
     box.appendChild(el(
       'div',
       `${NOTE_CSS}margin-top:4px;`,
       'Drag a room onto another to move it there — it stays pinned (📌) while everything '
-      + 'unpinned re-solves around it. Double-click a pinned room to hand it back to the solver.',
+      + 'unpinned re-solves around it. Double-click a pinned room to hand it back to the solver. '
+      // ⛔ THE SECOND SENTENCE IS THE HONEST ONE, AND IT IS NOT OPTIONAL. The ghost line follows
+      // the pointer; the WALL lands where the plan re-solves it for the two areas the drag set.
+      // Saying the wall goes where you drop it would be a control that looks live and is not.
+      + 'Drag the purple line between two rooms to move floor area across that wall: the two '
+      + 'areas change by exactly what crosses it, and the plan re-solves from them — so the wall '
+      + 'lands where those areas put it, not under the cursor. Neither gesture is undoable with '
+      + 'Ctrl+Z; both are part of this session\'s brief.',
     ));
 
     // ── LEGEND — STR §10 asks for colour-coded categories WITH a legend ────────

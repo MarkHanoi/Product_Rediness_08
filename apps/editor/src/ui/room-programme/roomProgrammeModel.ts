@@ -119,7 +119,149 @@ export type RoomProgrammeIntent =
   | { readonly type: 'programme.pin-room'; readonly id: string; readonly order: number }
   /** §ROOM-PIN — hand the room back to the solver. */
   | { readonly type: 'programme.unpin-room'; readonly id: string }
+  /**
+   * §ROOM-WALL-DRAG (L-13096, founder 2026-09-07: *"This room locator needs to be more flexible
+   * and more dynamic — I shall be able to reorganize also the rooms on the plan view — draw them
+   * etc."*) — MOVE THE WALL BETWEEN TWO ROOMS, by restating BOTH their target areas at once.
+   *
+   * ⭐ WHY A PAIR AND NOT TWO `programme.set-area`s. Moving a party wall is ONE gesture with ONE
+   * meaning: area leaves one room and arrives in the other. Two separate intents would re-solve
+   * the plate in between, at a moment when one room had grown and the other had not yet shrunk —
+   * a transient the user sees as a flash and, when the brief already fills the plate, as a
+   * `programme-exceeds-level` refusal for a drag that never asked for more space. Atomic is
+   * therefore not a nicety: it is what makes the intent mean "wall", not "two resizes".
+   *
+   * ⛔ CONSERVATION IS AN INVARIANT, NOT AN EXPECTATION. `aAreaM2 + bAreaM2` must equal the two
+   * rooms' CURRENT sum within `PAIR_RESIZE_EPSILON_M2`, and an intent that breaks it is REFUSED.
+   * That is what separates a wall move from a resize: the plate's total demand does not change,
+   * so a drag can never newly trip the solver's `programme-exceeds-level`. A caller that wants to
+   * GROW the programme asks in the currency that says so — `programme.set-area`.
+   *
+   * ⛔ REFUSED (state returned UNCHANGED) by `describePairResize` AND BY NOTHING ELSE — the
+   * reducer delegates every test to it so the panel's message and the reducer's decision cannot
+   * disagree about what is allowed (C84 EI-8a: no second copy of a predicate). The floor a room
+   * may not cross is `residentialRoomEntry(kind).minAreaM2` — the SAME number
+   * `solveProgrammeLayout` refuses `room-below-minimum` on, so a drag this reducer ACCEPTS can
+   * never produce a layout the solver then rejects for that reason.
+   */
+  | {
+      readonly type: 'programme.resize-pair';
+      readonly aId: string; readonly aAreaM2: number;
+      readonly bId: string; readonly bAreaM2: number;
+    }
   | { readonly type: 'programme.reset'; readonly next: RoomProgramme };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §ROOM-WALL-DRAG (L-13096) — THE ONE ASKER FOR "MAY THIS WALL MOVE THAT FAR?"
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * How exactly the two new areas must still add up to the two old ones, m².
+ *
+ * ⚠ IT IS A FLOAT TOLERANCE, NOT A BUDGET. The panel derives the second area by SUBTRACTING the
+ * first from the pair's current sum, so the residual it has to absorb is the ~1e-13 of a double,
+ * not a discretion the caller may spend. It is stated as a named constant rather than an inline
+ * `1e-6` so a future reader can see there is exactly one place it is decided.
+ */
+export const PAIR_RESIZE_EPSILON_M2 = 1e-6;
+
+/** Why a wall move was refused. Every member is a sentence the panel has to be able to speak. */
+export type PairResizeRefusalCode =
+    /** One of the two ids is not in the programme. */
+    | 'unknown-room'
+    /** Both ids name the same room — a wall has two sides. */
+    | 'same-room'
+    /** An area is NaN, infinite, or not positive. */
+    | 'not-finite'
+    /** The two new areas do not add up to the two old ones: this is a resize, not a wall move. */
+    | 'not-conserved'
+    /** A room would drop below its library floor. THE refusal the user actually meets. */
+    | 'below-minimum';
+
+/**
+ * The verdict on one wall move, carrying the numbers a refusal has to state.
+ *
+ * ⭐ IT CARRIES `maxTransferM2` BECAUSE §REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH (L-942) REQUIRES IT.
+ * A refusal whose yes-branch is unreachable is *"a regression with a citation attached"*. So the
+ * verdict does not merely say no: it measures the largest move IN THE SAME DIRECTION that this
+ * very function would accept, which the user can then perform. When it is 0 the room is already
+ * at its floor and the panel says THAT instead — an honest dead end named as one, rather than a
+ * number that looks like an invitation.
+ */
+export interface PairResizeVerdict {
+    readonly ok: boolean;
+    readonly code: PairResizeRefusalCode | null;
+    /** The room that would breach its floor (`below-minimum` only). */
+    readonly offenderId: string | null;
+    readonly offenderName: string | null;
+    /** What the drag asked that room to become, m². The FIRST of C83's two numbers. */
+    readonly askedAreaM2: number | null;
+    /** Its library floor, m². The SECOND. */
+    readonly floorAreaM2: number | null;
+    /** L-942 — the largest transfer this function accepts in the requested direction, m². */
+    readonly maxTransferM2: number;
+}
+
+function refusal(
+    code: PairResizeRefusalCode,
+    maxTransferM2: number,
+    offender?: { readonly id: string; readonly name: string; readonly asked: number; readonly floor: number },
+): PairResizeVerdict {
+    return {
+        ok: false,
+        code,
+        offenderId: offender?.id ?? null,
+        offenderName: offender?.name ?? null,
+        askedAreaM2: offender?.asked ?? null,
+        floorAreaM2: offender?.floor ?? null,
+        maxTransferM2,
+    };
+}
+
+/**
+ * THE predicate behind `programme.resize-pair`. Total, pure, never throws.
+ *
+ * ⛔ THE REDUCER CALLS THIS AND SO DOES THE PANEL, WHICH IS THE POINT. `applyReorder`'s sibling
+ * defect — a panel that re-derives "is this allowed?" beside the reducer that decides it — is how
+ * a control comes to say one thing and do another. Here the message the user reads is built from
+ * the verdict that actually refused the intent.
+ */
+export function describePairResize(
+    state: RoomProgramme,
+    aId: string,
+    aAreaM2: number,
+    bId: string,
+    bAreaM2: number,
+): PairResizeVerdict {
+    if (aId === bId) return refusal('same-room', 0);
+    const a = state.entries.find((e) => e.id === aId);
+    const b = state.entries.find((e) => e.id === bId);
+    if (!a || !b) return refusal('unknown-room', 0);
+    if (![aAreaM2, bAreaM2].every((v) => Number.isFinite(v) && v > 0)) return refusal('not-finite', 0);
+
+    // The room the drag SHRINKS is the only one that can hit a floor, and it is the one whose
+    // headroom defines the escape hatch. When neither shrinks there is nothing to transfer.
+    const shrinking = aAreaM2 < a.targetAreaM2 ? a : bAreaM2 < b.targetAreaM2 ? b : null;
+    const floorOf = (e: RoomProgrammeEntry): number => residentialRoomEntry(e.kind)?.minAreaM2 ?? 0;
+    const maxTransferM2 = shrinking ? Math.max(0, shrinking.targetAreaM2 - floorOf(shrinking)) : 0;
+
+    // ⛔ CONSERVATION IS CHECKED BEFORE THE FLOOR, so a caller who tried to grow the programme is
+    // told THAT rather than being handed a floor number for a question it never asked.
+    const before = a.targetAreaM2 + b.targetAreaM2;
+    if (Math.abs((aAreaM2 + bAreaM2) - before) > PAIR_RESIZE_EPSILON_M2) {
+        return refusal('not-conserved', maxTransferM2);
+    }
+
+    for (const [e, asked] of [[a, aAreaM2], [b, bAreaM2]] as const) {
+        const floor = floorOf(e);
+        // ⛔ REFUSED, NEVER CLAMPED (C83). Silently seating the wall at the floor would report an
+        // area nobody asked for under a gesture the user believes he controlled.
+        if (asked < floor) {
+            return refusal('below-minimum', maxTransferM2, { id: e.id, name: e.name, asked, floor });
+        }
+    }
+    return { ok: true, code: null, offenderId: null, offenderName: null, askedAreaM2: null, floorAreaM2: null, maxTransferM2 };
+}
 
 /** Order-independent key so (A,B) and (B,A) are ONE link. Mirrors the name-keyed stash. */
 export function linkKey(a: string, b: string): string {
@@ -247,6 +389,30 @@ export function reduceRoomProgramme(
       if (state.entries.some((e) => e.id !== id && e.pinnedOrder === order)) return state;
       return {
         entries: state.entries.map((e) => (e.id === id ? { ...e, pinnedOrder: order } : e)),
+        links: state.links,
+      };
+    }
+
+    case 'programme.resize-pair': {
+      // ⛔ ONE ASKER. Every test lives in `describePairResize`; this case decides nothing of its
+      // own, so the sentence the panel shows the user is derived from the very verdict that
+      // refused the intent — not from a second reading of the same rules (C84 EI-8a).
+      const verdict = describePairResize(state, intent.aId, intent.aAreaM2, intent.bId, intent.bAreaM2);
+      if (!verdict.ok) return state;
+      const a = state.entries.find((e) => e.id === intent.aId)!;
+      const b = state.entries.find((e) => e.id === intent.bId)!;
+      // A wall released where it was grabbed is a CANCEL, not an edit — the same rule the pin
+      // gesture states for a release on its own cell.
+      if (a.targetAreaM2 === intent.aAreaM2 && b.targetAreaM2 === intent.bAreaM2) return state;
+      return {
+        entries: state.entries.map((e) => (
+          e.id === intent.aId ? { ...e, targetAreaM2: intent.aAreaM2 }
+            : e.id === intent.bId ? { ...e, targetAreaM2: intent.bAreaM2 }
+              : e
+        )),
+        // ⭐ THE PINS AND THE LINKS DO NOT MOVE. A wall drag restates two AREAS and nothing else:
+        // the seriation is the graph's, and the order is the pins'. Touching either here would
+        // make one gesture mean two things.
         links: state.links,
       };
     }
