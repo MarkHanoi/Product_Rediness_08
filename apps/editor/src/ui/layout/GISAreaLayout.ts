@@ -229,6 +229,14 @@ import {
     type PaneLayoutPreset,
     type SitePaneMode,
 } from '../../engine/views/paneViewModel';
+// §ONE-VIEW-SWITCHER (L-13160, founder 2026-09-07 · C59 §1.4) — the PURE decision half of
+// the legacy-bar retirement. `shouldRetireLegacyViewBars('pryzm-view')` is the predicate;
+// `LEGACY_BAR_CONTROLS` is the classification (which of those buttons are view switches and
+// which are Cesium-surface controls that must NOT be swept up with them).
+import {
+    LEGACY_VIEW_BAR_RETIREMENT_REASON,
+    shouldRetireLegacyViewBars,
+} from '../../engine/views/legacyViewSwitcherRetirement';
 // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — the deferred subscription helper. Used here
 // rather than a bare `runtime?.events?.on(...)` because the LIVE boot path constructs this
 // layout with `runtime === null` (`createMainLayout(props, null)` in initUI.ts), which is the
@@ -1504,6 +1512,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             toggleGIS(false);
         }
 
+        // §ONE-VIEW-SWITCHER (L-13160) — THE CHOKE POINT. This is the ONE function every
+        // route into a PRYZM view lands on (`pryzmActivateBimView` → `site.bim-3d` /
+        // `site.bim-plan` from the dropdown; `enterPlanViewGis` → `site.plan-gis`; the
+        // site-overlay "✓ Finish" landing). Retiring here — rather than at each entry point —
+        // is why the next route added cannot reintroduce the founder's two rows.
+        // ⚠ AFTER `toggleGIS(false)`, deliberately: the Cesium surface is what those bars'
+        // non-view controls act on, so they lose their subject in the same statement pair.
+        retireLegacyViewBars(`activateView('${mode}')`);
+
         // Route ALL view switches through ViewController.activate() — the single
         // authority that dispatches 'view-activated', triggering
         // RenderPipelineManager.updateCamera() so the TSL pipeline rebuilds
@@ -1691,6 +1708,51 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         refreshGlobeFidelityButtons = () => { /* bar gone */ };
     };
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // §ONE-VIEW-SWITCHER (founder 2026-09-07 · L-13160 · C59 §1.4)
+    //
+    // *"at the beginning we have a dropdown panel to select the desired view — but after we
+    //  move into PRYZM 3D / PRYZM 2D view the layout changes — so I want to keep the same
+    //  all through."*
+    //
+    // ⭐ THIS EXTENDS §BIM-3D-CHROME-QUIET (`e737bb54`), IT DOES NOT FIGHT IT. That lane put
+    // the teardown at the transition rather than in a mount-time guard — right, and kept —
+    // but it put it at ONE transition: `applyBimDualPane`, reached only from
+    // `applyResultView('2D')`. MEASURED at HEAD: every OTHER route into a PRYZM view lands on
+    // `activateView(mode)` — `window.pryzmActivateBimView` (`GIS_ACTIONS.site.bim-3d` /
+    // `.site.bim-plan`, i.e. the founder's own `3D PRYZM` / `2D PRYZM` dropdown rows),
+    // `enterPlanViewGis` (`site.plan-gis`), and the *"✓ Finish"* landing
+    // `enterCanvasWithSitePlanUnderlay`. `activateView` calls `toggleGIS(false)` +
+    // `ViewController.activate`, and NEITHER touches a bar — so the founder reached PRYZM 3D
+    // through the very dropdown the previous lane built, and both legacy rows came with him.
+    //
+    // ⛔ THE SORT MATTERS MORE THAN THE TEARDOWN — see `legacyViewSwitcherRetirement.ts`.
+    // Those rows are not all view switches. `⤢ Zoom to Site` · `☀ Analysis` · `◉ Real` /
+    // `▢ Massing` · `▶ Fly tour` · `▤ All floors` are camera / render / panel / level controls
+    // whose SUBJECT is the ONE Cesium site surface. On a PRYZM view that surface is hidden
+    // (`toggleGIS(false)` → `cesiumViewport.setVisible(false)`), the Forma analysis panel is
+    // disposed and there is no placed massing to filter — so they were not doing anything
+    // here. ⭐ NOTHING IS RELOCATED, because both bars STAY MOUNTED, unchanged, on the views
+    // their controls act on: `ensureResultToggle()` builds the globe bar and
+    // `mountFormaViewToggle()` the Forma sub-bar, exactly as before this lane.
+    //
+    // Idempotent: both removers no-op when their bar is not mounted.
+    // ══════════════════════════════════════════════════════════════════════════
+    const retireLegacyViewBars = (where: string): void => {
+        if (!shouldRetireLegacyViewBars('pryzm-view')) return; // pure predicate, one owner.
+        const hadAny = resultToggle !== null || formaToggle !== null;
+        removeFormaViewToggle();
+        removeResultToggle();
+        // §BIM-3D-CHROME-QUIET ARM B — the strip was the de-facto asserter of
+        // `#container { position: relative }`. Re-assert it through its NAMED owner so every
+        // floating panel and the pane shell keep their offset parent (L-13027).
+        const viewport = document.getElementById('container');
+        if (viewport) ensureViewportPositioned(viewport);
+        if (hadAny) {
+            console.log(`[gis] ${LEGACY_VIEW_BAR_RETIREMENT_REASON} (retired at: ${where})`);
+        }
+    };
+
     // Active-state styling for the toggle buttons (no <style> injection — inline,
     // on-brand white / #6600FF).
     const styleResultBtn = (el: HTMLButtonElement | null, active: boolean): void => {
@@ -1785,15 +1847,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // C59 Phase 3). That is deferred architecture, reported to the founder, not guessed at
         // here.
         // ══════════════════════════════════════════════════════════════════════
-        removeResultToggle();
-        const viewport = document.getElementById('container');
-        if (viewport) ensureViewportPositioned(viewport);
-        console.log(
-            '[gis] §BIM-3D-CHROME-QUIET — segmented view-mode strip retired on the PRYZM 3D split '
-            + '(L-13027: it centres on #container, which this layout no longer fills). The three '
-            + 'views stay reachable as GIS_ACTIONS site.earth / site.globe / site.bim-split in the '
-            + 'GIS panel. #container positioning re-asserted by ensureViewportPositioned().',
-        );
+        // §ONE-VIEW-SWITCHER (L-13160) — was a bare `removeResultToggle()` + a local
+        // `ensureViewportPositioned`. Routed through the ONE named retirement so this
+        // transition and `activateView`'s cannot drift apart, and so the Forma sub-bar
+        // (which this path reached only because `applyResultView` happened to remove it
+        // first) is retired here too rather than by luck of the caller.
+        retireLegacyViewBars('applyBimDualPane');
     };
 
     /**

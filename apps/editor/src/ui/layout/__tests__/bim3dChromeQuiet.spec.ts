@@ -105,7 +105,14 @@ describe('§BIM-3D-CHROME-QUIET — ARM A: the segmented strip is retired on the
       'the BIM dual pane must remove the segmented strip — it is `left: 50%` on #container, '
         + 'and this layout gives 40% of #container to the plan pane, so its centre is not on '
         + 'the view it names (L-13027)',
-    ).toContain('removeResultToggle()');
+    ).toContain("retireLegacyViewBars('applyBimDualPane')");
+    // §ONE-VIEW-SWITCHER (L-13160) — the teardown MOVED ONE LEVEL, it did not weaken: the
+    // bare `removeResultToggle()` that stood here is now inside the ONE named retirement,
+    // which removes BOTH legacy rows and is also called from `activateView` (the route
+    // `site.bim-3d` / `site.bim-plan` take, which this function never enters). Follow it.
+    const retire = closureFn(GIS, 'retireLegacyViewBars');
+    expect(retire).toContain('removeResultToggle()');
+    expect(retire).toContain('removeFormaViewToggle()');
   });
 
   it('the 2D landing does not mount-then-tear-down (a one-frame flash)', () => {
@@ -142,12 +149,20 @@ describe('§BIM-3D-CHROME-QUIET — ARM B: #container keeps a NAMED positioning 
   });
 
   it('⭐ the BIM path — which no longer mounts the strip — asserts it itself', () => {
+    // §ONE-VIEW-SWITCHER (L-13160) — the assertion moved WITH the teardown, into
+    // `retireLegacyViewBars`, so it now covers `activateView`'s route as well as
+    // `applyBimDualPane`'s. ⛔ THE ARM IS STRENGTHENED, NOT RELAXED: before this it was
+    // asserted on ONE of the four routes into a PRYZM view; the other three tore nothing
+    // down and re-asserted nothing.
     expect(
-      closureFn(GIS, 'applyBimDualPane'),
-      'applyBimDualPane removed the control that used to assert #container is positioned, so '
+      closureFn(GIS, 'retireLegacyViewBars'),
+      'the retirement removes the control that used to assert #container is positioned, so '
         + 'it must assert it directly or the pane shell and every floating panel re-anchor to '
         + 'the nearest positioned ancestor',
     ).toContain('ensureViewportPositioned(viewport)');
+    // …and every BIM route reaches it.
+    expect(closureFn(GIS, 'applyBimDualPane')).toContain('retireLegacyViewBars(');
+    expect(closureFn(GIS, 'activateView')).toContain('retireLegacyViewBars(');
   });
 
   it('every surviving mount into #container still goes through the one owner', () => {
