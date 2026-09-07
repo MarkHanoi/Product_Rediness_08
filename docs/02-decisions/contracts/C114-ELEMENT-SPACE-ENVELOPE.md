@@ -282,11 +282,12 @@ Namespace `spaceEnvelope.*` (C69 §3.6). Lineage bands are C84 §4A's L1–L6.
 
 | Mutation | Cascade | Reversed by undo? |
 |---|---|---|
-| `moveFace` | the **four faces sharing an edge with the moved face adapt** (their shared vertices move); neighbouring envelopes do **not** move | MUST be — the whole ring is captured in one patch |
+| `moveFace` | the **four faces sharing an edge with the moved face adapt** (their shared vertices move); ⚠ **CORRECTED 2026-09-07 — this cell used to end *"neighbouring envelopes do **not** move"*, and that has been false since the contextual planner shipped.** `SpaceEnvelopeContext.ts` adapts (a) every ROOM a moved LEVEL would otherwise strand and (b) a sibling room sharing the moved face, and `MutateSpaceEnvelope.ts:238-260` writes them in the **same patch pair** — so it is still ONE undo entry, which is presumably what the old cell was reaching for. A neighbour that could not follow is in `plan.undetermined` with a typed C78 §8 reason and is left where it was. | MUST be — the whole ring, and every adapted neighbour, are captured in one patch |
 | `delete` a level envelope | children naming it in `withinId` are **NOT deleted**; their `withinId` is cleared and the containment finding turns advisory | MUST be |
 | any geometry change | `footprintAreaM2` / `volumeM3` recomputed in the same patch | MUST be |
 | any geometry change | adjacency / stacking / containment findings are **recomputed on read, never stored** — so there is no cascade to reverse (ADR-0380 D3) | N/A by construction |
 | any change | living-graph node/edge projection refreshes via `buildingGraphMaintainer` | MUST be |
+| ⭐ `moveFace` (committed) | **§ENVELOPE-WALLS-FOLLOW / §ENVELOPE-PARTITIONS-FOLLOW (L-13116)** — every wall PRYZM recorded as derived from the moved envelope *or from any room the same commit adapted* follows, in ONE `wall.cascadeBaseline`. A wall that no longer spans the edge it was built from is treated as AUTHORED, is NOT moved, and is NAMED (C80). | ⚠ **NO — and this is a KNOWN, INHERITED violation, not a new one.** The cascade lands on the LEGACY stack (`CascadeWallBaseline.ts:35` declares `affectedStores: []`), so one drag is TWO entries on TWO stacks. That is the exact shape `C85-ELEMENT-WALL.md:305-307` (W-P-3) already carries for the wall-move pair and states *"This MUST become one entry"*; the normative form is W-V-2 (`:418`). Closing it is a wall-family change. |
 
 > ⭐ **§8a — THE ABSENT CASCADE IS THE DESIGN.** Adjacency and stacking are *functions* of two
 > prisms. Storing them would be a cache, and a cache is a second answer to a question the geometry
@@ -674,6 +675,52 @@ Appended per §14's own rule. **Anything not listed here is NOT shipped.**
 ---
 
 ---
+
+---
+
+### 2026-09-07 · lane WALLS-FOLLOW-WIRE — **the envelope stops being a drawing: the building inside it follows**
+
+Founder: *"THE ENVLOPE BEING EXTENDED ON PRYSM 3D VIEW SHOULD MEANS THE CONTEXT WALLS - PERIMETER
+WALLS SHALL FOLLOW AND THEE INTERIOR PARTITIONS TOO - AS PER BIM3.0 PRINCIPALS"*
+
+`3c04d040` landed the PLANNER and said, in its own message, that whether the founder could drag a
+face and watch his partitions move was **not established**. This lane is that join. SPEC:
+`docs/03-execution/specs/SPEC-ENVELOPE-WALLS-FOLLOW.md`. Rows: **L-13115 · L-13116 · L-13117 ·
+L-13118**.
+
+⭐ **THE ONE FINDING WORTH CARRYING FORWARD: A PARTITION IS NOT BOUNDED BY THE THING THE POINTER
+GRABBED.** `buildFromDesignPlan.ts:631` writes `envelopeRole: 'room'` on every partition's
+`derivedFrom`; shell walls carry `'level'`. So the committed event's two rings — the SUBJECT's —
+could move the perimeter and could **never** move a partition, however the cascade downstream was
+written. The rooms *do* move, in the same patch pair (§8's corrected `moveFace` row); their new
+rings were dying inside the gesture. `SpaceEnvelopeFaceMoveCommitted.adapted` now carries them, and
+`mergeSpaceEnvelopeWallFollowPlans` folds N per-envelope plans into ONE dispatch — which is what
+keeps **§6a** (one gesture, one undo entry) true at thirteen envelopes instead of thirteen commands.
+
+⛔ **AND ONE REACHABILITY DEFECT THE UNIT TESTS COULD NOT SEE (L-13115).** The consumer was armed
+BELOW `attachSpaceEnvelopeRender`, which derefs `world.renderer.three` with no `try` — so on any
+boot where the THREE viewport was not up, the 3-D Site's face drag raised its event into an empty
+listener set and the founder would have been told nothing. Hoisted, and the ORDER is now pinned
+**together with its premise** in `spaceEnvelopeWallFollowWire.spec.ts`.
+
+**C80 — the decision, stated so it is not re-litigated:** a wall follows **iff its current baseline
+still spans the whole of the edge it came from**, within a declared 0.05 m. Anything else — hand
+moved, split, trimmed, welded at generation — is treated as `protected`, left alone, and **named
+with both numbers**. Two new rules join it: a wall two moved envelopes place *differently* is
+DROPPED as `contested-by-two-envelopes` (never resolved by entry order, which is C80's forbidden
+silent overwrite through the back door), and only a `'primary'` link claim may move a wall — an
+`'also'` claim planned would have told the user *"you moved this by hand"* about a wall nobody
+touched.
+
+**Measured, not asserted:** 13 envelopes / 112 link rows / 112 entries → **0.55 ms**, once, at
+pointer-up; **0 ms per pointer-move**, structurally (the cascade runs on the pointer-UP handler and
+the rooms are read inside the drag's existing preview loop). §PERF-WALL-MOVE-INCREMENTAL-REBUILD
+(L-234/L-250) is avoided by shape.
+
+⚠ **STILL NOT TRUE, AND NAMED:** dragging the TOP face does not make the walls taller (L-13118 —
+the verb exists, the event field does not); walls follow only where the semantic graph RECORDED
+them, and `recordEnvelopeWallLinks` has exactly ONE caller (L-13117 — the durable fix is C80's own
+`ElementProvenanceIndex`, which nothing calls); and **nothing here is browser-verified** (§14d).
 
 ---
 
