@@ -1623,10 +1623,23 @@ export async function readContextTileFeatures(
         // could not see was also the one the log could not explain. An abort is not a failure
         // (§L-579) — a newer request is already in flight and will paint — but a read that yields
         // no features must never leave the console unable to tell which of the two happened.
+        // ⛔ §ABORT-PROMISES-NOTHING (L-13171, 2026-09-07) — THIS LINE USED TO END "a newer read
+        // paints this layer", AND THAT WAS A PROMISE THE CODE DOES NOT MAKE. In the Gulf it was
+        // flatly false: `CesiumViewport.loadContextRoads` aborted the shared in-flight read and then
+        // ADOPTED it (§CTX-ONE-READ-PER-BBOX, contextRoads.ts), so the "newer read" was the very read
+        // that had just been cancelled, and the founder's Dubai / Abu Dhabi / Riyadh scenes carried
+        // no street network and no street life at all. The read-funnel cannot know whether anyone
+        // will ask again — only the caller knows that — so it must not claim it will. A log line that
+        // asserts a behaviour the code does not provide is the same class of defect as a gate that
+        // does not gate; it sends the next reader to the wrong file. What is TRUE and worth saying is
+        // the classification: an abort is neither a failure nor an empty, and warrants no Overpass call.
         console.log(
             `[gis] §CTX-READ-RETRY (L-12937) layer=${layer} ABORTED after ${Date.now() - t0} ms ` +
-            '— the caller cancelled (view/location change); a newer read paints this layer. ' +
-            'NOT a failure, NOT an empty: no Overpass call is warranted.',
+            '— the caller cancelled (view/location change). NOT a failure, NOT an empty: nothing here ' +
+            'says this layer is unmapped, and no Overpass call is warranted. ⚠ §ABORT-PROMISES-NOTHING ' +
+            '(L-13171): whether anything repaints this layer is the CALLER decision, not this ' +
+            'reader — if the layer stays blank, the caller never asked again (or asked and dropped ' +
+            'the answer), and that is where to look.',
         );
         return answer;
     }

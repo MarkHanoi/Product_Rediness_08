@@ -737,12 +737,26 @@ export async function fetchContextWater(
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
-    // §L-323 FIX B — share ONE in-flight request per bbox across concurrent consumers.
-    const pending = inFlight.get(key);
-    if (pending) return pending;
-    const p = fetchWaterForBbox(bbox, key, signal, scopeReadFanOutCap(halfDeg)).finally(() => { inFlight.delete(key); });
-    inFlight.set(key, p);
-    return p;
+    // §CTX-ONE-READ-PER-BBOX (L-585 / L-13110 / L-13171) — de-duplicate ABOVE the tile read, and
+    // ⛔ pass NO signal down. Water was the OTHER layer L-585 / L-13110 never reached: `parks`,
+    // `rail`, `trees`, `furniture`, `landuse` and `buildings` were all converted, `roads` and
+    // `water` were not, and roads is what cost the Gulf its whole street network (L-13171 —
+    // `contextRoads.ts` carries the full mechanism). Driving the SHARED promise with the FIRST
+    // consumer's signal turns ONE caller's cancel into EVERY caller's empty collection, and the
+    // empty is then indistinguishable from "there is no water here" (§CONTEXT-DATA-HONESTY).
+    // ⚠ Fixed here PRE-EMPTIVELY, on the same evidence: water HAS rendered in every trace so far,
+    // which is luck of load ordering, not a difference in the code. Two files were wrong; both are
+    // fixed, so a reader cannot find one converted and one not and have to work out why.
+    let shared = inFlight.get(key);
+    if (!shared) {
+        shared = fetchWaterForBbox(bbox, key, undefined, scopeReadFanOutCap(halfDeg)).finally(() => { inFlight.delete(key); });
+        inFlight.set(key, shared);
+    }
+    const collection = await shared;
+    // ⚠ EACH CALLER HONOURS ITS OWN SIGNAL, AFTER THE SHARED READ (§L-579). The abandoned read still
+    // completes and fills `cache` for the callers still watching.
+    if (signal?.aborted) return emptyWaterCollection();
+    return collection;
 }
 
 /**

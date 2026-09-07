@@ -107,6 +107,52 @@ function roadsFromTileFeatures(features: ContextTileFeature[]): ContextRoadColle
     return { type: 'ContextRoadCollection', ways };
 }
 
+/**
+ * §CTX-ONE-READ-PER-BBOX (L-585 / L-13110) — ⛔ ROADS AND WATER WERE THE TWO LAYERS THIS SECTION
+ * NEVER REACHED, AND ROADS IS WHY DUBAI, ABU DHABI AND RIYADH DREW NO STREETS (L-13171, 2026-09-07).
+ *
+ * THE SYMPTOM. The founder's Dubai / Abu Dhabi / Riyadh consoles carry a render line for every
+ * context layer EXCEPT roads — `§FORMA-CTX-RAIL rendered: 16`, `§FORMA-CTX-PARKS rendered: 40`,
+ * `§FORMA-CTX-LANDUSE rendered: 123`, `FORMA-CTX-WATER rendered: 48`, `§FORMA-CTX-TREES 84 blob(s)`
+ * — and NO `§FORMA-CTX-ROAD-RIBBON` LINE AT ALL, while the reader logged `roads: 832 way(s)`. Roads
+ * were READ and never DRAWN. Downstream, `§STREET-LIFE (L-12936): 0 mapped lamp(s) + 0 synthesised
+ * lamp(s) along 0 road way(s) + 0 synthetic pedestrian(s)` — street furniture and pedestrians are
+ * SYNTHESISED FROM THE ROAD NETWORK, so "no roads", "no lamps" and "no people" were ONE defect.
+ *
+ * ⭐ THE TELL WAS IN THE LIST OF LAYERS THAT WORKED. `parks`, `rail`, `trees`, `furniture`,
+ * `landuse` and `buildings` were all moved onto the shape below by L-585 / L-13110 — the shared read
+ * takes NO signal, and each caller honours its OWN signal after the await. `roads` and `water` were
+ * left on the old `fetch…ForBbox(bbox, key, signal, …)` and are the only two that were. Every layer
+ * that rendered had been converted; the one that did not render had not.
+ *
+ * THE MECHANISM, and it is deterministic rather than a race. Sharing the in-flight promise is right
+ * (§L-323 FIX B). Driving it with the FIRST consumer's `AbortSignal` is not, because it makes ONE
+ * consumer's cancel into EVERY consumer's answer. `CesiumViewport.loadContextRoads` opens with
+ * `this.contextRoadsAbort?.abort()`, so its second call:
+ *   1. aborts controller A — the signal the in-flight promise P is riding;
+ *   2. calls `fetchContextRoads` again, and `inFlight.delete(key)` has NOT run yet (it lives in a
+ *      `.finally`, a microtask after P settles, and P cannot settle until the abort propagates);
+ *   3. therefore adopts P — the read it just poisoned — and awaits it;
+ *   4. receives `emptyRoadCollection()`, because `fetchRoadsForBbox` maps `status: 'aborted'` → empty;
+ *   5. hits `if (collection.ways.length === 0) return;` in the ribbon renderer and returns having
+ *      logged NOTHING — which is why the trace has no `§FORMA-CTX-ROAD-RIBBON` line to explain.
+ * ⛔ THE LOADER ABORTED THE VERY READ IT WAS ABOUT TO AWAIT. Street life, fired from the same kickoff
+ * block at the same `groundFetchHalfDeg(scope)` and therefore the same bbox key, adopted the same
+ * poisoned promise — which is why the two symptoms always appeared together.
+ *
+ * WHY THE GULF AND NOT BARCELONA. Nothing here is Gulf-specific and it must not be fixed as if it
+ * were. What differs is timing: where the warm pass (`contextLayerWarm.ts`, which passes NO signal)
+ * wins the race and fills `cache`, later callers take the `cache.get(key)` fast path and no abort can
+ * reach them. The Gulf's terrain resolution failed slowly (§TERRAIN-PUBLISHED-ORPHAN, L-13170 —
+ * `gccstates` 404s on every probe), which re-ordered the kickoff enough for the loader to win the
+ * race and then cancel itself. A latent ordering defect that a slow terrain probe made reproducible.
+ *
+ * THE FIX is the one the six converted layers already carry: the shared read takes NO signal, and a
+ * caller that has navigated away drops the result itself. Sharing a REQUEST is correct; sharing a
+ * CANCELLATION is not — a cancellation is a fact about ONE caller's view, an empty collection is a
+ * fact about the WORLD, and this code was collapsing abort, failure and empty into the same `[]`
+ * (§CONTEXT-DATA-HONESTY). The abandoned read still lands in `cache`, so it is never wasted.
+ */
 export async function fetchContextRoads(
     lat: number, lon: number, signal?: AbortSignal,
     /** §SITE-SCOPE F-2 (C12 §13.1) — the scope-derived half-extent; defaults to the near read. */
@@ -119,12 +165,20 @@ export async function fetchContextRoads(
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
-    // §L-323 FIX B — share ONE in-flight request per bbox across concurrent consumers.
-    const pending = inFlight.get(key);
-    if (pending) return pending;
-    const p = fetchRoadsForBbox(bbox, key, signal, scopeReadFanOutCap(halfDeg)).finally(() => { inFlight.delete(key); });
-    inFlight.set(key, p);
-    return p;
+
+    // §CTX-ONE-READ-PER-BBOX (L-585 / L-13110 / L-13171) — de-duplicate ABOVE the tile read, and
+    // ⛔ pass NO signal down: it belongs to whichever consumer happened to arrive first.
+    let shared = inFlight.get(key);
+    if (!shared) {
+        shared = fetchRoadsForBbox(bbox, key, undefined, scopeReadFanOutCap(halfDeg)).finally(() => { inFlight.delete(key); });
+        inFlight.set(key, shared);
+    }
+    const collection = await shared;
+    // ⚠ EACH CALLER HONOURS ITS OWN SIGNAL, AFTER THE SHARED READ (§L-579). A caller that navigated
+    // away renders nothing; the shared read still completes and populates the cache for the callers
+    // that are still watching. ⛔ This empty means "I stopped caring", never "the world has no roads".
+    if (signal?.aborted) return emptyRoadCollection();
+    return collection;
 }
 
 /**

@@ -36,12 +36,23 @@
  *     controls have a subject.
  *   ARM H — THE HONESTY SURVIVES: C59 Phase 3 is still named, `bim-3d` is still refused
  *     per-pane BY NAME, and `596dfe21`'s draw-surface pin still names BOTH commit routes.
+ *   ARM I — ⭐ THE REPLACEMENT IS REAL DOM. `ViewSwitcherPill` is MOUNTED here, opened,
+ *     closed, relabelled and disposed. §COMMITTED-IS-NOT-REACHABLE: a retirement whose
+ *     replacement was only described would leave the founder with a quieter screen and no
+ *     way to switch — a worse product than the two rows.
+ *   ARM J — the pill goes up exactly where the rows come down, and every surface that brings
+ *     its OWN switcher stands it down (SWITCHER COUNT == VISIBLE VIEW-REGION COUNT, L-13015).
+ *   ARM K — the two things this lane decided NOT to touch, pinned so the decision cannot be
+ *     reversed by accident in either direction: the plan pane's `svp-view-select` is already
+ *     its ONE dropdown (no second one is mounted beside it), and the right-hand
+ *     `Grid · IFC · V/G · Range` toolbar switches no view at all — it is view PROPERTIES
+ *     (C59 §6), a different concern, and it is untouched.
  *
- * ⚠ SOURCE-TEXT ARMS. `mountGISArea` is a ~7,000-line closure whose controls are built
- * inside private arrow functions with no exported seam. Nothing here measures a pixel; it
- * measures that the teardown is at the transition, that the classification matches the
- * source, and that every relocated capability is still declared. The founder SEEING a quiet
- * top bar is not established by this file.
+ * ⚠ SOURCE-TEXT ARMS (A–H, J, K). `mountGISArea` is a ~7,000-line closure whose controls are
+ * built inside private arrow functions with no exported seam. Those arms measure that the
+ * teardown is at the transition, that the classification matches the source, and that every
+ * relocated capability is still declared. ARM I is the one that mounts DOM. Nothing here
+ * measures a pixel, and the founder SEEING a quiet top bar is not established by this file.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -529,6 +540,53 @@ describe('§ONE-VIEW-SWITCHER · ARM J — the pill is mounted where the rows re
                 closure(owner).includes('removePryzmViewPill()'),
                 `${owner} owns the region's switcher, so it must stand the pill down (L-13015)`,
             ).toBe(true);
+        }
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════
+// ARM K — THE RIGHT-HAND BAR IS VIEW **PROPERTIES**, AND THE PLAN PANE ALREADY HAS ITS ONE
+// DROPDOWN. Both are DECISIONS this lane took and did not act on; an arm keeps them from
+// being quietly reversed in either direction — a future "consolidation" deleting the plan
+// pane's select, or a future "uniformity" pass stacking a second switcher beside it.
+// ═════════════════════════════════════════════════════════════════════════════════════════
+describe('§ONE-VIEW-SWITCHER · ARM K — the plan pane keeps ONE view control, and its toolbar is properties', () => {
+    const SVM = read('apps/editor/src/engine/views/SplitViewManager.ts');
+    const VHB = read('apps/editor/src/ui/views/ViewHeaderButtons.ts');
+
+    it('the pane builds exactly ONE view control — its own `svp-view-select`', () => {
+        const built = SVM.match(/viewSel\.className = 'svp-view-select'/g) ?? [];
+        expect(built.length).toBe(1);
+    });
+
+    it('⛔ and NO second switcher is mounted into it (that is the L-13015 stack, one level down)', () => {
+        for (const rival of [
+            'mountViewSwitcherPill',
+            'mountSiteViewQuickToggle',
+            'mountViewSegmentSwitcher',
+            'mountPaneViewPicker',
+        ]) {
+            expect(SVM.includes(rival), `SplitViewManager must not host ${rival}`).toBe(false);
+        }
+    });
+
+    it('the DECISION is written where the control is, not only in a report', () => {
+        expect(SVM).toContain('§ONE-VIEW-SWITCHER');
+        // Both halves of it: why one is enough, and what this pane genuinely cannot do.
+        expect(SVM).toMatch(/SWITCHER COUNT == VISIBLE VIEW-REGION COUNT/);
+        expect(SVM).toMatch(/cannot host the 3D Site/);
+    });
+
+    it('⭐ the right-hand toolbar switches NO view — it is Grid / IFC / V-G / Range / Close', () => {
+        // The founder's screenshot boxed it with the two legacy rows. It is a different
+        // concern (C59 §6 — standardized view PROPERTIES), so it is untouched. The arm proves
+        // the classification rather than asserting it: none of those controls dispatches a
+        // declared view action or a pane-layout intent.
+        for (const t of ['Hide grid', 'Visibility & Graphics', 'View Properties & Range']) {
+            expect(VHB.includes(t), `${t} must still be built`).toBe(true);
+        }
+        for (const viewish of ['site.earth', 'site.globe', 'site.map-2d', 'site.bim-3d', 'view.pane.assign']) {
+            expect(VHB.includes(viewish), `the header toolbar must not dispatch ${viewish}`).toBe(false);
         }
     });
 });

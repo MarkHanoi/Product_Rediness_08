@@ -451,6 +451,33 @@ export class SplitViewManager implements ISplitViewManager {
         const dot = document.createElement('span');
         dot.className = 'svp-header-dot';
 
+        // ══════════════════════════════════════════════════════════════════════
+        // §ONE-VIEW-SWITCHER (founder 2026-09-07 · L-13160 · C59 §1.4 / §1.1)
+        //
+        // ⭐ THIS SELECT IS THIS PANE'S ONE VIEW CONTROL, AND IT ALREADY IS A DROPDOWN.
+        // The rule that came out of L-13015 is SWITCHER COUNT == VISIBLE VIEW-REGION COUNT.
+        // In the PRYZM 3D + plan split there are two regions: `#container` (the model), which
+        // §ONE-VIEW-SWITCHER gives the `ViewSwitcherPill`, and THIS pane, which has carried
+        // this select since it replaced the static "Floor Plan" label.
+        //
+        // ⛔ SO NO SECOND DROPDOWN IS ADDED HERE, DELIBERATELY. Mounting the founder's six
+        // beside this one would put two view controls over one pane — the exact stack he
+        // photographed and ruled on (*"keep the one, the formal and more robust only"*).
+        //
+        // ⚠ AND IT SWITCHES AT A DIFFERENT GRANULARITY, WHICH IS WHY IT IS NOT REDUNDANT
+        // WITH THE PILL. The pill chooses among the founder's six top-level views; this
+        // chooses among this project's VIEW DEFINITIONS (which plan, which section, which
+        // elevation). C59 §1.1 names that as exactly what `bim-elevation-2d` /
+        // `bim-section-2d` need before they can be pane-hosted — *"a per-pane view-definition
+        // id, which is Phase 3's per-pane view state"* — and this select is where that id
+        // lives today.
+        //
+        // ⛔ WHAT THIS PANE CANNOT DO, STATED RATHER THAN HIDDEN: it cannot host the 3D Site
+        // or the 2D map. It is the legacy Canvas2D pane, not a `PaneHost` (C59 §3, Phase 4),
+        // so its dropdown offers view definitions and never the Cesium/MapLibre views. That
+        // is a real difference from a site pane's picker, and it is a C59 phase boundary, not
+        // an omission by this lane.
+        // ══════════════════════════════════════════════════════════════════════
         // View-type selector — replaces the static "Floor Plan" text label.
         const viewSel = document.createElement('select');
         viewSel.className = 'svp-view-select';
