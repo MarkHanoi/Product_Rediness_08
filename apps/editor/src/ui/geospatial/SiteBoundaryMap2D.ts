@@ -245,6 +245,14 @@ import {
     parcelFeatureToCardModel,
     parcelFeatureToProvenance,
 } from '../site/parcel/parcelCard.js';
+// ⭐ §PARCEL-CARD-DRAGGABLE (L-13091, founder 2026-09-07: *"make this panel movable and
+// draggable"*) — THE HELPER THAT ALREADY EXISTS. `makeDraggable` has driven every floating
+// panel in this app since S73-WIRE and is offset-parent aware (§L-577b), which is what a
+// PANE-ABSOLUTE float needs. It gained ONE option for this lane — `bounds`, so the clamp is the
+// PANE and not the window (C59 §2.10.3 clause 4) — rather than gaining a rival: a second drag
+// implementation bolted to this card is the shape that produced three disagreeing
+// commandManager counters, and there is no version of it that is cheaper than an option.
+import { makeDraggable, clampDraggableWithin, DRAG_PINNED_ATTR } from '../makeDraggable.js';
 // §L-1580 (C57 §1.9) — the ROUTING table's own row for the click point. `parcelProvider`
 // here is the generic registry, whose label is deliberately generic ("Cadastral parcel /
 // building footprint"); §1.9 requires the ATTRIBUTION of the provider that actually
@@ -383,6 +391,20 @@ export const PARCEL_REPLACE_NOTE =
 
 /** `data-testid` on that lead note, so the replacing arm is addressable rather than inferred. */
 export const PARCEL_REPLACE_NOTE_TESTID = 'parcel-replace-note';
+
+/**
+ * ⭐ §RESELECT-PARCEL (L-13094) — `data-testid` on the card's "choose a different parcel" action.
+ *
+ * Founder 2026-09-07: *"on the panel where it says use this parcel - add - the optin to
+ * re-select parcel to change parcel"*. The card had two ways forward (commit this plot, or
+ * abandon selection for the draw tool) and no way BACK to the question it was answering — so a
+ * user who clicked the wrong plot could only leave the mode and re-enter it.
+ *
+ * ⛔ THE BUTTON IS NEW; THE ROUTE IS NOT. It calls `clearParcelSelection`, which is the state
+ * this map already returns to when a click lands on no parcel. Exported so a spec can address
+ * the action rather than matching its label, which is prose and will be re-worded.
+ */
+export const PARCEL_RESELECT_BTN_TESTID = 'parcel-reselect-btn';
 
 const COMMITTED_PARCEL_SOURCE = 'pryzm-committed-parcel';
 const COMMITTED_PARCEL_FILL_LAYER = 'pryzm-committed-parcel-fill';
@@ -641,33 +663,80 @@ export function mountSiteBoundaryMap2D(
     } satisfies Partial<CSSStyleDeclaration>);
     overlay.appendChild(mapEl);
 
+    // ── §TOP-STACK (L-13090 · C59 §2.10.3 clause 4) — ONE top-centre COLUMN ─────────────────
+    //
+    // Founder 2026-09-07, arrow drawn at the pane's own `2D Site Map ▾` dropdown:
+    // *"On those panels - please add the message further up (first arrow)"*. In his screenshots
+    // the instruction banner is also CLIPPED — its right edge disappears under the parcel card.
+    //
+    // ⭐ THE CLIP AND THE HEIGHT ARE ONE DEFECT, AND IT IS A LAYOUT DEFECT, NOT A `top` VALUE.
+    // The banner sat at `top:92px; left:50%` and the parcel card at `top:92px; right:12px` —
+    // two absolutely-positioned floats given the SAME row and no knowledge of each other, so
+    // whichever was wider won and the other was covered. Moving the banner up without fixing
+    // that would re-collide the moment the text grew by a line, which is exactly how it got
+    // here (`§DRAW-TOOLBAR-OFFSET` already bumped it 12 → 92 for the same class of reason).
+    //
+    // So the fix is a COLUMN that owns the top-centre band, with two properties:
+    //   1. its children FLOW, so `↺ Redraw boundary` and the banner can never overlap each
+    //      other however long either gets — the previous `top:12px` redraw button also
+    //      overlapped the PANE's own centred view dropdown, which this retires as a side effect;
+    //   2. its right edge stops short of the card column by `--map2d-top-stack-right`, the
+    //      SAME token that sizes the card. One number, two readers, so the reservation cannot
+    //      drift from the thing it reserves for.
+    //
+    // ⛔ IT DOES NOT COVER THE PANE'S OWN DROPDOWN. `PaneViewPicker` occupies y ∈ [10, ~42] of
+    // the pane at z-index 60; this column starts at 52px, which is as far up as a MAP float may
+    // go without painting over a PANE control. That boundary is C59 §2.10.3 clause 4, not taste.
+    const topStack = document.createElement('div');
+    topStack.className = 'pryzm-gis-map2d-topstack';
+    topStack.setAttribute('data-testid', 'map2d-top-stack');
+    Object.assign(topStack.style, {
+        position: 'absolute',
+        top: '52px',
+        left: '12px',
+        // Re-written by `refreshTopStack()` — see there for the two states and why they differ.
+        right: '176px',
+        zIndex: '23',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px',
+        // The column is a LAYOUT box, not a surface: clicks fall through to the map, and each
+        // child re-enables pointer events for itself if it needs them (the redraw button does).
+        pointerEvents: 'none',
+    } satisfies Partial<CSSStyleDeclaration>);
+    overlay.appendChild(topStack);
+
     // Instruction chip. Text is mode-dependent (see refreshChip below): the
     // §RECT-BOUNDARY rectangle mode shows "Click two opposite corners"; the legacy
     // polygon mode keeps the vertex-by-vertex instruction.
     const chip = document.createElement('div');
+    chip.setAttribute('data-testid', 'map2d-instruction-chip');
     chip.textContent = 'Click two opposite corners · Esc to cancel';
     Object.assign(chip.style, {
-        position: 'absolute',
-        // §DRAW-TOOLBAR-OFFSET (2026-06-24) — top bumped 12px → 92px so this
-        // centred instruction pill clears BOTH the Author/Inspect/Data mode-tab
-        // row (top:6px) and the boundary mode strip below it (now at top:52px).
-        top: '92px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: '21',
+        // §TOP-STACK — a FLOW child of `topStack`. No `position`, no `left:50%`, no
+        // `transform: translateX(-50%)`: the column centres it, and a centring transform inside
+        // a centring flex box is the shape that let it hang off its own container.
+        maxWidth: '100%',
         background: 'rgba(255,255,255,0.92)',
         border: `1px solid ${VIOLET}`,
         borderRadius: '20px',
         padding: '6px 16px',
         font: '13px/1.4 system-ui, sans-serif',
         color: '#2a2438',
+        textAlign: 'center',
+        // ⛔ WRAPS, NEVER TRUNCATES. Every string this pill carries is an instruction or a
+        // consequence (`PARCEL_RESELECT_CHIP` is two clauses long), and a truncated disclosure
+        // is worse than none — the rule `.pb-parcel-intro` states for the same reason.
+        whiteSpace: 'normal',
+        overflowWrap: 'anywhere',
         boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
         pointerEvents: 'none',
     } satisfies Partial<CSSStyleDeclaration>);
     // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — no boundary to trace in overlay-only mode,
     // so the "click two corners" instruction would be misleading. Hide it.
     if (opts.overlayOnly) chip.style.display = 'none';
-    overlay.appendChild(chip);
+    topStack.appendChild(chip);
 
     // Close (×) button.
     const closeBtn = document.createElement('button');
@@ -836,10 +905,71 @@ export function mountSiteBoundaryMap2D(
     // label and every string inside it is produced by `buildParcelCard`, which the GIS rail
     // panel mounts as well. The `data-testid` moved onto the produced card so both surfaces
     // are addressed by the same selector.
+    //
+    // §PARCEL-CARD-PANE-SIZED (L-13092) / §PARCEL-CARD-DRAGGABLE (L-13091) — the host's box and
+    // its drag both live in `.pryzm-gis-parcel-host` + `makeDraggable`, NOT here. The width is
+    // `clamp(232px, 20%, 360px)` of the PANE (the founder's *"20% of the space ocapy"*, floored
+    // where 20% stops being able to hold a fact row — the derivation is in the stylesheet), and
+    // the drag grip is the card's own title row, which only THIS host makes draggable.
     const parcelCard = document.createElement('div');
     parcelCard.className = 'pryzm-gis-parcel-card pryzm-gis-parcel-host';
     parcelCard.style.display = 'none';
     overlay.appendChild(parcelCard);
+    // ⛔ THE BOUNDS ARE A THUNK RETURNING THE OVERLAY, NEVER A CAPTURED RECT. `overlay` is
+    // `position:absolute; inset:0` inside the pane, so its box IS the pane's box — and that box
+    // changes on every splitter drag (the founder's console: canvas 459 → 742 → 812 → 841 →
+    // 1023 px in one session). A rect captured at mount would clamp into a pane that no longer
+    // exists. The excludes keep a click on a card BUTTON from starting a drag.
+    const disposeParcelDrag = makeDraggable(
+        parcelCard,
+        '.pryzm-parcel-card-title',
+        ['.pryzm-parcel-card-btn'],
+        null,
+        { bounds: () => overlay },
+    );
+    // ⛔ THE CLAMP MUST ALSO RUN ON RESIZE, NOT ONLY WHILE A POINTER IS DOWN. `makeDraggable`'s
+    // own clamp fires during a drag; nothing re-checks the card when the PANE changes underneath
+    // it. A card parked at the right edge of a 1023 px pane is outside a 459 px one, and the
+    // founder re-splits constantly (his console: 459 → 742 → 812 → 841 → 1023 px in one session).
+    // The failure is not cosmetic and not recoverable by the user: once the card's TITLE ROW is
+    // off-pane there is no grip left to drag it back, so the card is gone until reload.
+    // `clampDraggableWithin` returns early unless the card carries DRAG_PINNED_ATTR, so a card the
+    // user has never moved keeps its stylesheet position and this observer costs it nothing.
+    const parcelCardBoundsObserver = new ResizeObserver(() => {
+        try { clampDraggableWithin(parcelCard, () => overlay); } catch { /* pane detached mid-observe */ }
+    });
+    try { parcelCardBoundsObserver.observe(overlay); } catch { /* host without ResizeObserver */ }
+
+    // ── ⭐ §SITE-PLAN-OVERLAY-OFF-THE-MAP (L-13093) — THE DOCK, and why it is not a `display:none`
+    //
+    // Founder 2026-09-07: *"exclude site overlay plan for now - or add it in the panel on the
+    // left hand side or parcel - but not there on main view"*. What he is looking at is this
+    // controller's COLLAPSED header row — `Site plan overlay · no plan added` — floating at
+    // `top:92px; right:12px`, i.e. the exact coordinates of the parcel card, over his map.
+    //
+    // ⭐ RELOCATED, NOT DELETED. He offered both; relocation is the reversible one, and there is
+    // a container that fits: the Parcel rail panel, which already re-homes the SINGLETON
+    // buildable-envelope card through `window.pryzmMountEnvelopeCard` (§GIS-ENVELOPE-REHOST,
+    // L-1362). This is that seam a second time, deliberately — the same shape, the same
+    // move-don't-clone discipline, the same `isConnected` self-healing.
+    //
+    // ⛔ WHY A WRAPPER AND NOT `panel.style.display='none'`: the controller's `renderPanel()`
+    // sets `panel.style.display = ''` on EVERY render, so a hide written on the panel is undone
+    // the next time anything about the overlay changes. Hiding the CONTAINER is a fact the
+    // producer cannot overwrite — and it also gives the panel a home to return to when the rail
+    // releases it, so a released panel is hidden rather than stranded on a detached node.
+    //
+    // ⚠ IN OVERLAY-ONLY MODE THE DOCK STAYS VISIBLE ON THE MAP, AND THAT IS NOT AN EXCEPTION
+    // BEING SMUGGLED IN. `overlayOnly` is the onboarding "Overlay a plan/PDF" branch: the map is
+    // mounted for no other purpose, there is no parcel card and no rail beside it, and
+    // `OnboardingStepController` tells the user in so many words to *"press 'Overlay plan / PDF'"*
+    // — a control that would then be in a panel he has not been sent to. Hiding it there would
+    // not declutter a main view; it would break the import flow at its only step.
+    const sitePlanDock = document.createElement('div');
+    sitePlanDock.className = 'pryzm-gis-siteplan-dock';
+    sitePlanDock.setAttribute('data-testid', 'map2d-siteplan-dock');
+    if (!opts.overlayOnly) sitePlanDock.style.display = 'none';
+    overlay.appendChild(sitePlanDock);
 
     // ── §L-384 — undo / redo vertex affordance (bottom-left pill) ────────────────
     // Ctrl+Z / Ctrl+Y also drive these (keyListener). Shown only for the vertex-by-
@@ -880,14 +1010,21 @@ export function mountSiteBoundaryMap2D(
     redrawBtn.textContent = '↺ Redraw boundary';
     redrawBtn.setAttribute('data-testid', 'boundary-redraw-btn');
     Object.assign(redrawBtn.style, {
-        position: 'absolute', top: '12px', left: '50%', transform: 'translateX(-50%)',
-        zIndex: '23', display: 'none', padding: '8px 16px', borderRadius: '20px',
+        // §TOP-STACK (L-13090) — was `position:absolute; top:12px; left:50%`, which put it in
+        // the PANE's own band and squarely under `PaneViewPicker`'s centred `2D Site Map ▾`
+        // dropdown (also centred, also at the top, z-index 60): on a committed site the pane's
+        // view switcher and this button were drawn on top of one another. It is now a flow child
+        // of the top column, above the banner, so the two can only ever stack.
+        display: 'none', padding: '8px 16px', borderRadius: '20px', maxWidth: '100%',
         border: `1px solid ${VIOLET}`, background: VIOLET, color: '#ffffff', cursor: 'pointer',
         font: '600 13px/1 system-ui, sans-serif', boxShadow: '0 2px 10px rgba(60,52,40,0.22)',
+        // The column itself is click-through; a real control inside it is not.
+        pointerEvents: 'auto',
     } satisfies Partial<CSSStyleDeclaration>);
     redrawBtn.addEventListener('click', () => rearmDraw());
     if (opts.overlayOnly) redrawBtn.style.display = 'none';
-    overlay.appendChild(redrawBtn);
+    // First in the column: the action leads, the instruction that qualifies it follows.
+    topStack.insertBefore(redrawBtn, topStack.firstChild);
 
     // ── §SITE-PLAN-OVERLAY — "Overlay plan/PDF" entry ────────────────────────────
     // §FIX-DUPLICATE-OVERLAY-ENTRY (2026-08-05, founder request) — this used to be a SEPARATE
@@ -2180,10 +2317,78 @@ export function mountSiteBoundaryMap2D(
         src.setData(spaceEnvelopeFeatureCollection());
     }
 
+    /**
+     * §TOP-STACK (L-13090) — the ONE writer of the instruction column's box.
+     *
+     * ⭐ EVERY INPUT IS A READING, NEVER A REMEMBERED FLAG. `modeBar.style.display` and
+     * `parcelCard.style.display` are the facts; a mirrored boolean beside them is how two
+     * pieces of chrome come to disagree about which of them is on screen, and this file has
+     * already paid for that once (`§UX-PARCEL-SELECT-DEFAULT`, where the opening chrome and the
+     * opening mode disagreed). Idempotent, so it may be called from every state change.
+     */
+    function refreshTopStack(): void {
+        // The draw-mode strip is a top-centre float this column does not own (it is the shared
+        // `.wdh-bar`), so the column starts below it whenever it is up.
+        const modeBarUp = modeBar.style.display !== 'none';
+        topStack.style.top = modeBarUp ? '96px' : '52px';
+
+        // The right gutter. Three states, and the third is why this is a function:
+        //   'on'    — the card is in its default right slot, so the column stops short of it by
+        //             `--map2d-top-stack-right`, the SAME token that sizes the card.
+        //   'moved' — the user has DRAGGED the card. Its column no longer means anything, so the
+        //             reservation is dropped and the banner takes the width back. The column sits
+        //             at z-index 23 against the card's 22, so if he parks the card under the
+        //             banner the banner still reads (and is `pointer-events:none`, so his clicks
+        //             still reach the card underneath).
+        //   'off'   — no card. 176px clears the Map|Satellite toggle (top:52px; right:12px,
+        //             ~152px wide) and nothing else is out there.
+        const cardUp = parcelCard.style.display !== 'none';
+        const cardMoved = parcelCard.getAttribute(DRAG_PINNED_ATTR) === '1';
+        const state = !cardUp ? 'off' : (cardMoved ? 'moved' : 'on');
+        overlay.setAttribute('data-parcel-card', state);
+        topStack.style.right = state === 'on' ? 'var(--map2d-top-stack-right)' : '176px';
+    }
+
     /** Hide + empty the parcel info card. */
     function hideParcelCard(): void {
         parcelCard.style.display = 'none';
         parcelCard.replaceChildren();
+        refreshTopStack();
+    }
+
+    /**
+     * ⭐ §RESELECT-PARCEL (L-13094 · C19 §5.6 clause 4) — CLEAR THE SELECTION AND RE-ARM PICKING.
+     *
+     * Founder 2026-09-07: *"on the panel where it says use this parcel - add - the optin to
+     * re-select parcel to change parcel"*.
+     *
+     * ⛔ THIS MINTS NO MECHANISM. Every line below already existed, inline, in
+     * `handleParcelSelectClick`'s no-parcel branch — the state this map ALREADY returns to when
+     * a click finds nothing. It is extracted here so the founder's new action and that branch
+     * are the same code rather than two routines that can drift into two different ideas of
+     * what "no parcel selected" means. A second re-select path beside this one would be the
+     * rival-solver defect this repo keeps re-paying for (rival commandManager counters, rival
+     * compose roots), and it would be a defect with a legal surface attached: two ways to clear
+     * a selection is two ways to leave a highlight painted over land the user is no longer
+     * looking at.
+     *
+     * SELECT mode is asserted rather than assumed: the card is only reachable from SELECT
+     * today, but `setInteractionMode` early-returns when the mode already matches, so asserting
+     * it costs nothing and stops the action becoming a no-op if a future host mounts the card
+     * from anywhere else.
+     */
+    function clearParcelSelection(reason: 'user-reselect' | 'no-parcel-here'): void {
+        if (disposed) return;
+        if (interactionMode !== 'select') setInteractionMode('select');
+        selectedParcel = null;
+        oversizeHolding = null;
+        try { refreshParcelHighlight(); } catch { /* style may be swapping */ }
+        hideParcelCard();
+        chip.textContent = committed
+            ? PARCEL_RESELECT_CHIP
+            : 'Click a plot to select its real cadastral parcel · Esc to cancel';
+        try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* ignore */ }
+        console.log(`[gis] §RESELECT-PARCEL (L-13094): selection cleared, picking re-armed — ${reason}.`);
     }
 
     /**
@@ -2220,6 +2425,18 @@ export function mountSiteBoundaryMap2D(
             testId: 'parcel-draw-btn',
             variant: choice.primary === 'draw' ? 'primary' as const : 'secondary' as const,
             onClick: () => setInteractionMode('draw'),
+        };
+        // ⭐ §RESELECT-PARCEL (L-13094) — the founder's third path off this card. It is the
+        // SAME state the map returns to when a click finds no parcel (`clearParcelSelection`);
+        // the card contributes a label, not a mechanism. Always last: the two commits and the
+        // draw escape are decisions about THIS plot, and this one un-asks the question.
+        const reselect = {
+            label: '↺ Choose a different parcel',
+            testId: PARCEL_RESELECT_BTN_TESTID,
+            variant: 'secondary' as const,
+            title: 'Clears this selection and re-arms picking — click another plot on the map. '
+                + 'Nothing is committed and nothing about the project changes.',
+            onClick: () => clearParcelSelection('user-reselect'),
         };
         const holdingHa = size.areaM2 !== null ? Math.round(size.areaM2 / 10_000) : null;
         const holdingTitle = holdingHa !== null
@@ -2268,7 +2485,7 @@ export function mountSiteBoundaryMap2D(
                     // the card is `within`, and the warning must not vanish with the ring it judged.
                     ...(holdingBanner ? [{ text: holdingBanner, testId: PARCEL_SIZE_REVIEW_TESTID }] : []),
                 ],
-                actions: [useFootprint, useHolding, draw],
+                actions: [useFootprint, useHolding, draw, reselect],
             }));
         } else {
             const use = {
@@ -2285,10 +2502,11 @@ export function mountSiteBoundaryMap2D(
                     ...replaceNotes,
                     ...(choice.why ? [{ text: choice.why, testId: PARCEL_CANDIDATE_WHY_TESTID, tone: 'note' as const }] : []),
                 ],
-                actions: choice.primary === 'draw' ? [draw, use] : [use, draw],
+                actions: choice.primary === 'draw' ? [draw, use, reselect] : [use, draw, reselect],
             }));
         }
         parcelCard.style.display = 'block';
+        refreshTopStack();
         return choice;
     }
 
@@ -2330,6 +2548,7 @@ export function mountSiteBoundaryMap2D(
             ],
         }));
         parcelCard.style.display = 'block';
+        refreshTopStack();
         chip.textContent = 'No cadastral source is connected here — draw the boundary instead · Esc to cancel';
     }
 
@@ -2379,6 +2598,7 @@ export function mountSiteBoundaryMap2D(
             chip.textContent = committed
                 ? PARCEL_RESELECT_CHIP
                 : 'Click a plot to select its real cadastral parcel · Esc to cancel';
+            refreshTopStack();
         } else {
             // Back to DRAW — drop the parcel highlight + card (+ any displaced holding, §L-12912).
             selectedParcel = null;
@@ -2419,11 +2639,10 @@ export function mountSiteBoundaryMap2D(
             try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* ignore */ }
             if (!parcel) {
                 parcelFetchInFlight = false;
-                selectedParcel = null;
-                oversizeHolding = null;
-                refreshParcelHighlight();
-                hideParcelCard();
-                chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
+                // §RESELECT-PARCEL (L-13094) — these six lines WERE this branch, inline. They are
+                // now the one routine the founder's "choose a different parcel" action calls too,
+                // so the two cannot drift into two ideas of "nothing is selected".
+                clearParcelSelection('no-parcel-here');
                 toast('No parcel found here — try again or draw manually.', 'info');
                 return;
             }
@@ -3243,6 +3462,9 @@ export function mountSiteBoundaryMap2D(
     }
     /** Update the instruction chip text for the active UI mode. */
     function refreshModeChrome(): void {
+        // §TOP-STACK (L-13090) — every caller of this function has just changed which top-centre
+        // floats are up, so the column re-reads its box here rather than at each call site.
+        try { refreshTopStack(); } catch { /* pre-mount — the initial paint below runs it again */ }
         switch (uiMode) {
             case 'rectangle':
                 chip.textContent = 'Click two opposite corners · Esc to cancel';
@@ -3341,6 +3563,10 @@ export function mountSiteBoundaryMap2D(
         chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
         try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* map style may still be loading */ }
     }
+    // §TOP-STACK (L-13090) — the column's box must agree with the opening chrome for the same
+    // reason the chip text must (§UX-PARCEL-SELECT-DEFAULT): an opening state assembled by two
+    // rules that never met is how this file shipped a rectangle strip over a parcel picker.
+    refreshTopStack();
     paintInteractionToggle();
 
     // ── Commit / cancel ───────────────────────────────────────────────────────
@@ -3572,6 +3798,7 @@ export function mountSiteBoundaryMap2D(
             chip.textContent = PARCEL_RESELECT_CHIP;
             paintInteractionToggle();
         }
+        refreshTopStack();
         try { map.getCanvas().style.cursor = opts.overlayOnly ? '' : 'crosshair'; } catch { /* ignore */ }
         // §L-384 — the undo/redo pill is a draw affordance; drop it. Offer RE-DRAW instead
         // (clear-then-recreate of the immutable C19 boundary) so a mis-drawn plot isn't a trap.
@@ -3791,6 +4018,20 @@ export function mountSiteBoundaryMap2D(
         try { overlayController?.dispose(); } catch { /* ignore */ }
         overlayController = null;
         try { delete (window as unknown as { pryzmOpenSitePlanOverlay?: () => void }).pryzmOpenSitePlanOverlay; } catch { /* ignore */ }
+        // §SITE-PLAN-OVERLAY-OFF-THE-MAP (L-13093) — a seam that outlives its controller would
+        // hand a rail panel a claim on a disposed element and silently answer `false` forever.
+        try {
+            delete (window as unknown as {
+                pryzmMountSitePlanOverlayPanel?: (host: HTMLElement | null) => boolean;
+            }).pryzmMountSitePlanOverlayPanel;
+        } catch { /* ignore */ }
+        // §PARCEL-CARD-DRAGGABLE (L-13091) — the drag binds `document` listeners; leaving them
+        // attached keeps this whole closure (and its dead map) alive on every mouse move.
+        try { disposeParcelDrag(); } catch { /* ignore */ }
+        // The bounds observer holds `overlay` and this closure; an un-disconnected ResizeObserver
+        // keeps a disposed map's whole graph reachable, which is the same leak as the drag
+        // listeners above and is not caught by removing the node.
+        try { parcelCardBoundsObserver.disconnect(); } catch { /* ignore */ }
         try { map.remove(); } catch { /* map may already be torn down */ }
         if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
         console.log('[gis] map2d: disposed');
@@ -4014,7 +4255,11 @@ export function mountSiteBoundaryMap2D(
             const ctx = resolveSiteContext(runtime ?? null);
             overlayController = mountSitePlanOverlayController({
                 map,
-                parent: overlay,
+                // §SITE-PLAN-OVERLAY-OFF-THE-MAP (L-13093) — the DOCK, not the overlay. In
+                // normal boundary-draw mode the dock is `display:none`, so the panel is off the
+                // main view until a host claims it through the seam below; in overlay-only mode
+                // the dock is visible and this is byte-for-byte the previous behaviour.
+                parent: sitePlanDock,
                 getOrigin,
                 projectId: ctx?.projectId ?? null,
                 toast: (message, severity) => {
@@ -4056,6 +4301,29 @@ export function mountSiteBoundaryMap2D(
             // choice can open the upload picker after the draw map mounts.
             (window as unknown as { pryzmOpenSitePlanOverlay?: () => void }).pryzmOpenSitePlanOverlay =
                 () => overlayController?.promptUpload();
+            // ⭐ §SITE-PLAN-OVERLAY-OFF-THE-MAP (L-13093) — THE RE-HOST SEAM, modelled on
+            // `pryzmMountEnvelopeCard` down to the return value: a host CLAIMS the panel, and
+            // `null` releases it back to this map's (hidden, in normal mode) dock.
+            //
+            // ⛔ IT MOVES ONE ELEMENT. `appendChild` re-parents; there is no clone and no second
+            // controller, so the calibration state machine, the MapLibre raster it drives and the
+            // `isCalibrating()` the draw tool yields to are all the same objects wherever the
+            // panel is rendered. Cloning it would give this app two panels that can disagree
+            // about whether a plan is placed — the C06 §13.3 shape.
+            //
+            // A host that is not connected is refused rather than accommodated: the seam returns
+            // false and the panel stays where it is (the same `document.contains` self-healing
+            // `getForma3dHostEl` applies, and for the same reason — a claim honoured onto a
+            // detached node strands the panel where nothing can reach it).
+            (window as unknown as {
+                pryzmMountSitePlanOverlayPanel?: (host: HTMLElement | null) => boolean;
+            }).pryzmMountSitePlanOverlayPanel = (host: HTMLElement | null): boolean => {
+                const el = overlayController?.element;
+                if (!el) return false;
+                const target = host && host.isConnected ? host : sitePlanDock;
+                if (el.parentElement !== target) target.appendChild(el);
+                return target !== sitePlanDock;
+            };
         } catch (err) {
             console.warn('[site-overlay] controller mount failed (non-fatal):', err);
         }

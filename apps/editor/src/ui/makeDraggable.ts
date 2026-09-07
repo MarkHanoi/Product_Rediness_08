@@ -29,15 +29,131 @@
  *                            behaviour is identical with or without a runtime.
  *                            TODO(F.6.5): wire drag-end position to
  *                            runtime.persistence.panelLayout when F.6.5 lands.
+ * @param options             §PANE-BOUNDED-DRAG (L-13091) — see `MakeDraggableOptions`.
  * @returns                   A dispose function that removes all drag listeners.
  */
+
+// ── §PANE-BOUNDED-DRAG (L-13091 · C59 §2.10.3 clause 4) ─────────────────────────────────────
+//
+// Founder 2026-09-07: *"make this panel movable and draggable"* — of the parcel confirm card,
+// which is a PANE-ABSOLUTE float inside the 2D Site Map's pane.
+//
+// ⭐ THIS IS AN OPTION ON THE ONE HELPER, NOT A SECOND HELPER. Twenty-odd panels already drag
+// through `makeDraggable`; a bespoke handler bolted to the parcel card would be the rival-solver
+// shape this repo has paid for repeatedly (rival commandManager counters, rival compose roots).
+//
+// ⛔ WHY THE VIEWPORT CLAMP IS NOT ENOUGH, AND IS NOT A DETAIL. C59 §2.10.3 clause 4: *"Every
+// pane control … is a child of its pane and positioned relative to that pane, never to the
+// window."* The existing clamp is `window.innerWidth/innerHeight`, so inside a split view a
+// panel can be dragged clean out of its own pane and over its sibling — and the founder's own
+// console shows his pane width swinging 459 → 742 → 812 → 841 → 1023 px as he drags the
+// splitter, so the pane and the window are never the same box for him. `bounds` names the box
+// the panel may not leave; the default stays `'viewport'`, so every existing caller is
+// byte-for-byte unchanged.
+export type DragBounds =
+    | 'viewport'
+    | HTMLElement
+    /** Resolved on every clamp, so a pane that is re-parented or re-sized is re-read, never remembered. */
+    | (() => HTMLElement | null | undefined);
+
+export interface MakeDraggableOptions {
+    /**
+     * The box the panel may not be dragged out of. Default `'viewport'`.
+     *
+     * ⚠ A THUNK IS THE HONEST FORM for a pane: the pane element's BOX changes on every splitter
+     * drag, and a rect captured at install time would clamp against a box that no longer exists.
+     */
+    readonly bounds?: DragBounds;
+}
+
+/** The clamp box in VIEWPORT coordinates — the space `getBoundingClientRect()` reports in. */
+function resolveBoundsRect(bounds: DragBounds | undefined): { left: number; top: number; width: number; height: number } {
+    const fallback = { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+    if (!bounds || bounds === 'viewport') return fallback;
+    const host = typeof bounds === 'function' ? bounds() : bounds;
+    if (!host || !host.isConnected) return fallback;
+    const r = host.getBoundingClientRect();
+    // A zero box is a host that has not laid out yet (or a detached one a thunk still returns).
+    // Clamping into a 0×0 rect would stack every panel in its top-left corner, which is worse
+    // than not clamping at all — so the honest answer is the viewport, and it is stated here
+    // rather than silently produced.
+    if (!(r.width > 0) || !(r.height > 0)) return fallback;
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
+}
+
+/**
+ * §PANE-BOUNDED-DRAG — the ORIGIN that `style.left/top` are measured from, in viewport
+ * coordinates. Module-level so the drag loop and `clampDraggableWithin` cannot disagree about it
+ * (two copies of this arithmetic is how §L-577b shipped: a viewport rect written into an
+ * offset-parent-relative property, which launched the envelope panel off-screen on a bare click).
+ */
+function originOfPanel(panel: HTMLElement): { x: number; y: number } {
+    if (getComputedStyle(panel).position === 'fixed') return { x: 0, y: 0 };
+    const op = panel.offsetParent as HTMLElement | null;
+    if (!op) {
+        // No positioned ancestor ⇒ offsets are relative to the initial containing block, i.e.
+        // the document, so the origin moves with the page scroll.
+        return { x: -window.scrollX, y: -window.scrollY };
+    }
+    const r = op.getBoundingClientRect();
+    const cs = getComputedStyle(op);
+    // `left` is measured from the offset parent's PADDING box, so skip its border; and the
+    // parent's own scroll shifts the coordinate space.
+    return {
+        x: r.left + (parseFloat(cs.borderLeftWidth) || 0) - op.scrollLeft,
+        y: r.top + (parseFloat(cs.borderTopWidth) || 0) - op.scrollTop,
+    };
+}
+
+/**
+ * Marks a panel whose `left/top` this utility has PINNED. Set on the first mousedown.
+ *
+ * ⛔ IT IS READ BEFORE EVERY RE-CLAMP, AND THAT IS THE WHOLE POINT. An un-dragged panel is still
+ * anchored by its authored CSS (`right: 12px`, a centring transform, …); writing a pinned
+ * `left/top` onto it "to keep it inside" would silently destroy that anchor and move a panel the
+ * user never touched. `clampDraggableWithin` therefore refuses any panel without this stamp.
+ */
+export const DRAG_PINNED_ATTR = 'data-drag-pinned';
+
+/**
+ * §PANE-BOUNDED-DRAG — re-clamp an ALREADY-DRAGGED panel back inside `bounds`.
+ *
+ * The founder's pane narrows every time he drags the splitter, and a position that was legal in
+ * an 841 px pane hangs off the edge of a 459 px one. Clamping only on pointer-move would leave
+ * the panel unrecoverable in exactly the state he creates most often, so the host calls this from
+ * its resize path as well.
+ *
+ * Returns true when a pinned panel was (re)positioned, false when there was nothing to do — an
+ * un-pinned panel, a detached panel, or a panel already inside the box.
+ */
+export function clampDraggableWithin(panel: HTMLElement, bounds: DragBounds): boolean {
+    if (!panel.isConnected) return false;
+    if (panel.getAttribute(DRAG_PINNED_ATTR) !== '1') return false;
+    const box = resolveBoundsRect(bounds);
+    const rect = panel.getBoundingClientRect();
+    if (!(rect.width > 0) || !(rect.height > 0)) return false;
+    // Math.max(0, …) so a panel LARGER than its pane pins to the pane's top-left rather than
+    // being pushed off the other way — an unreadable panel is recoverable, an unreachable one is not.
+    const maxX = box.left + Math.max(0, box.width - rect.width);
+    const maxY = box.top + Math.max(0, box.height - rect.height);
+    const x = Math.min(maxX, Math.max(box.left, rect.left));
+    const y = Math.min(maxY, Math.max(box.top, rect.top));
+    if (x === rect.left && y === rect.top) return false;
+    const o = originOfPanel(panel);
+    panel.style.left = (x - o.x) + 'px';
+    panel.style.top = (y - o.y) + 'px';
+    return true;
+}
+
 export function makeDraggable(
     panel: HTMLElement,
     dragHandleSelector: string,
     excludeSelectors: string[] = [],
     // Phase B.4 (S73-WIRE) — runtime threaded for future F.6.5 panel-layout persistence.
     _runtime?: import('@pryzm/runtime-composer/types').PryzmRuntime | null,
+    options?: MakeDraggableOptions,
 ): () => void {
+    const bounds: DragBounds = options?.bounds ?? 'viewport';
     let dragging = false;
     let offsetX  = 0;
     let offsetY  = 0;
@@ -81,23 +197,10 @@ export function makeDraggable(
      *
      * The viewport clamp in `onMouseMove` could not save it, because a click produces no mousemove.
      */
-    function originOf(): { x: number; y: number } {
-        if (getComputedStyle(panel).position === 'fixed') return { x: 0, y: 0 };
-        const op = panel.offsetParent as HTMLElement | null;
-        if (!op) {
-            // No positioned ancestor ⇒ offsets are relative to the initial containing block, i.e.
-            // the document, so the origin moves with the page scroll.
-            return { x: -window.scrollX, y: -window.scrollY };
-        }
-        const r = op.getBoundingClientRect();
-        const cs = getComputedStyle(op);
-        // `left` is measured from the offset parent's PADDING box, so skip its border; and the
-        // parent's own scroll shifts the coordinate space.
-        return {
-            x: r.left + (parseFloat(cs.borderLeftWidth) || 0) - op.scrollLeft,
-            y: r.top + (parseFloat(cs.borderTopWidth) || 0) - op.scrollTop,
-        };
-    }
+    // §PANE-BOUNDED-DRAG — ONE implementation, at module scope, shared with
+    // `clampDraggableWithin`. It used to be a closure here, which meant the resize re-clamp
+    // would have needed a second copy of the §L-577b arithmetic.
+    const originOf = (): { x: number; y: number } => originOfPanel(panel);
 
     let originX = 0;
     let originY = 0;
@@ -110,6 +213,10 @@ export function makeDraggable(
         panel.style.bottom    = 'auto';
         panel.style.margin    = '0';
         panel.style.transform = 'none';
+        // §PANE-BOUNDED-DRAG — from here on this panel's position is OURS, so a later re-clamp
+        // may move it. Before this stamp it is still held by its authored CSS anchor and must
+        // not be touched. See DRAG_PINNED_ATTR.
+        panel.setAttribute(DRAG_PINNED_ATTR, '1');
     }
 
     function onMouseDown(e: MouseEvent) {
@@ -148,11 +255,15 @@ export function makeDraggable(
         // VIEWPORT coordinates, which is the space the clamp below must work in.
         const x = e.clientX - offsetX;
         const y = e.clientY - offsetY;
-        // Clamp so the panel can't be dragged fully off-screen — in viewport space...
-        const maxX = Math.max(0, window.innerWidth  - panelW);
-        const maxY = Math.max(0, window.innerHeight - panelH);
-        const clampedX = Math.min(maxX, Math.max(0, x));
-        const clampedY = Math.min(maxY, Math.max(0, y));
+        // Clamp so the panel can't be dragged fully off its box — in viewport space...
+        // §PANE-BOUNDED-DRAG — the box is resolved on EVERY move, not captured at mousedown:
+        // a pane can be resized by the splitter mid-drag, and a stale rect would clamp into a
+        // box that is no longer there.
+        const box = resolveBoundsRect(bounds);
+        const maxX = box.left + Math.max(0, box.width  - panelW);
+        const maxY = box.top  + Math.max(0, box.height - panelH);
+        const clampedX = Math.min(maxX, Math.max(box.left, x));
+        const clampedY = Math.min(maxY, Math.max(box.top,  y));
         // ...then §L-577b converts into the space `left/top` are actually measured from.
         panel.style.left = (clampedX - originX) + 'px';
         panel.style.top  = (clampedY - originY) + 'px';

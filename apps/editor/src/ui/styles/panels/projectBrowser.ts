@@ -1595,19 +1595,100 @@ export const PROJECT_BROWSER_STYLES = `
 
 /* The map overlay hosts the SAME element as a floating card — position and
    width are the HOST's business, so they are scoped to the host, never baked
-   into the producer. */
+   into the producer.
+
+   ── §PARCEL-CARD-PANE-SIZED (L-13092, founder 2026-09-07) ────────────────────
+   Founder: *"please make this panel 20% of the space ocapy - and dragable"*.
+
+   ⭐ 20% OF ITS PANE, NEVER OF THE VIEWPORT. '--map2d-parcel-card-w' is declared on
+   '.pryzm-gis-map2d', which is 'position:absolute; inset:0' inside the PANE — so the
+   percentage resolves against the pane's width, and the SAME token drives the
+   instruction banner's right gutter ('--map2d-top-stack-right' below). One token, two
+   readers, so the card and the banner can never disagree about where the right rail
+   starts. C59 §2.10.3 clause 4 requires exactly this: a pane control is measured
+   against its pane. The founder's own console shows his pane at 459 / 742 / 812 / 841 /
+   1023 px within one session; a viewport-relative width is the wrong size in all five.
+
+   ⚠ 20% IS THE TARGET, THE FLOOR IS 232px, AND THE FLOOR USUALLY WINS. That is stated
+   rather than hidden, because 20% of his narrowest pane is 92px and no card renders
+   "P³ PICASSO 12 BARCELONA" or "Use this parcel →" in 92px. The floor is DERIVED, not
+   picked: '.pryzm-parcel-card-key''s 'min-width: 92px' + the row 'gap: 8px' + ~108px of
+   value (a 20-character referencia catastral) + the card's 'padding: 10px 12px' on both
+   sides = 232px. Below that the fact rows stop being rows. So 20% governs from a
+   ~1160px pane upward; under that the card is 232px and honest about it. The ceiling is
+   360px — a legal read-out wider than that is spending pane, not carrying more fact. */
+.pryzm-gis-map2d {
+    --map2d-parcel-card-w: clamp(232px, 20%, 360px);
+    /* The right gutter every top-centre float must leave for the card column. '24px' is
+       12px of card margin + a 12px gap. Read by the instruction-banner stack. */
+    --map2d-top-stack-right: calc(24px + var(--map2d-parcel-card-w));
+}
 .pryzm-gis-parcel-host {
     position: absolute;
     top: 92px;
     right: 12px;
     z-index: 22;
-    width: 262px;
+    width: var(--map2d-parcel-card-w, 262px);
+    /* A card taller than its pane would be undraggable back into view once its header
+       left the top edge — so it scrolls inside the pane instead of overflowing it. */
+    max-height: calc(100% - 104px);
+    overflow-y: auto;
     box-shadow: 0 4px 18px rgba(60,52,40,0.22);
     border-radius: var(--app-radius-sm);
 }
 .pryzm-gis-parcel-host > .pryzm-parcel-card {
     background: var(--app-panel-bg);
     border-color: var(--app-accent);
+}
+/* §PARCEL-CARD-DRAGGABLE (L-13091) — the grip is the card's own title row, and the
+   affordance is scoped to THIS host: the same producer also renders into the Parcel rail
+   and the GIS section, where the card is a flow child and nothing may be dragged. Styling
+   the grip from the host rather than the producer is what keeps that true (the L-1361
+   rule applied to a cursor). */
+.pryzm-gis-parcel-host > .pryzm-parcel-card > .pryzm-parcel-card-title {
+    cursor: move;
+    /* A drag grip that selects its own text on the first mousedown reads as broken. */
+    user-select: none;
+}
+.pryzm-gis-parcel-host > .pryzm-parcel-card > .pryzm-parcel-card-title::after {
+    content: ' ⠿';
+    opacity: 0.55;
+    letter-spacing: 0;
+}
+
+/* §SITE-PLAN-OVERLAY-OFF-THE-MAP (L-13093) — the Site plan overlay panel, RE-HOSTED into
+   the Parcel rail slot. Same de-floating discipline the envelope card already needs: the
+   producer positions itself as a map float with INLINE styles, so the docked rule has to
+   out-specify them. */
+.pb-parcel-siteplan-slot {
+    margin-top: 8px;
+    border-top: 1px solid var(--app-border-light);
+    padding-top: 8px;
+    min-width: 0;
+}
+.pb-parcel-siteplan-slot > .pryzm-site-overlay-panel {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    box-shadow: none !important;
+    border: 1px solid var(--app-border-light) !important;
+}
+/* The sentence shown in that slot while no 2D Site Map is mounted to supply the panel.
+   An absence carried by words, never by an empty box (C84 EI-1b). */
+.pb-parcel-siteplan-state {
+    padding: 8px 10px;
+    border: 1px dashed var(--app-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-bg);
+    color: var(--app-text-muted);
+    font-size: var(--pryzm-panel-font-size-meta);
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 /* §PARCEL-ALL-INFO (L-6905) — the Parcel panel hosts the SAME singleton card, so it needs the
