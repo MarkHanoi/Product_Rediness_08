@@ -1,7 +1,11 @@
 # ADR-0382 — The 3D-Site SCOPE is ONE value, and it is cut per LAYER CLASS
 
-**Status:** PROPOSED — Phase 1 (design + pure parts) landed; Phase 2 (render-path wiring + the
-slider) gated on the extent lane; four rulings await the founder (§Q).
+**Status:** PROPOSED — **both phases are now BUILT** (Phase 1 `d602e1bf`/`c76fef51`; Phase 2
+`26396bb8`/`9784a3e8`/`bd76a346`/`bce1d42c`/`0f4bfc8d`: the slider, every layer class pre-clipping,
+and the globe cut + slab side ARMED). It stays PROPOSED rather than ACCEPTED because the five §Q
+rulings still await the founder and because NOTHING IS BROWSER-VERIFIED — D3's class A and B (the
+globe clip and the flat slab side) cannot be asserted headlessly (AUDIT §7.1/§7.2). D2's rectangle
+default shipped; D8's slider shipped with `site.setScope` deliberately OFF the undo stack.
 **Date:** 2026-09-07 · **Lane:** SCOPE-SLAB · **Issue:** L-645 (re-opened with the founder's
 2026-09-07 wording) · **Grounds:** [`AUDIT-3D-SITE-SCOPE-CROP`](../../03-execution/plans/AUDIT-3D-SITE-SCOPE-CROP.md)
 · **Binds:** [C12 §13](../contracts/C12-GEOSPATIAL.md) · **Absorbed into:**

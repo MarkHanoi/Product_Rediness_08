@@ -144,9 +144,11 @@ related L-637 (sea), L-639 (terrain), L-454 (near-cap) · **§7 below — the SC
 > and completed."* **Authority:** [C12 §13](../../02-decisions/contracts/C12-GEOSPATIAL.md) (normative) ·
 > [ADR-0382](../../02-decisions/adrs/ADR-0382-site-scope-one-value-cut-per-layer-class.md) (the rulings) ·
 > [`AUDIT-3D-SITE-SCOPE-CROP`](../plans/AUDIT-3D-SITE-SCOPE-CROP.md) (every layer, every mechanism).
-> L-645 said this SPEC should absorb the cut-slab; this section is that. **Status: Phase 1 landed
-> (value, polygon, geometric clip, command — 74 tests); Phase 2 (wiring + slider) PLANNED, gated on
-> the extent lane (L-13058).**
+> L-645 said this SPEC should absorb the cut-slab; this section is that. **Status: Phase 1 AND
+> Phase 2 LANDED (2026-09-07) — the value, the polygon, the geometric clip, the command, the
+> per-pane slider and the ARMED globe cut + slab side. ⚠ NOT browser-verified (§7.1/§7.2 of the
+> audit); sea island holes and the >891 m tree read remain OPEN and are named in code at
+> `SITE_SCOPE_CLIP_ARMED`.**
 
 ### 7.1 — What changes in the mental model of §0
 
