@@ -1,12 +1,14 @@
-# SPEC — The start-up load window (§STARTUP-NAME-WHILE-IT-LOADS · §STARTUP-BUDGET)
+# SPEC — The start-up load window (§STARTUP-LOAD-ORDERING · §STARTUP-BUDGET)
 
-> **What this pins:** the ONE invariant the "Name your project" card rests on, and the measured
-> verdicts on the three costs the founder's own Barcelona console shows inside the 18.5 s from
-> `geocode:end` to `ready`.
+> **What this pins:** that the site load starts on the GEOCODE and not on any UI event, and the
+> measured verdicts on the three costs the founder's own Barcelona console shows inside the 18.5 s
+> from `geocode:end` to `ready`.
 >
-> **Status:** RATIFIED-BY-TEST 2026-09-07 (lane STARTUP-PROVE · L-13109 / L-13110 / L-13111 / L-13112). §1 is enforced by two spec arms and
-> was proven falsifiable by mutation. §2 is enforced. §3 and §4 are MEASURED VERDICTS with no code
-> change — read them before opening either.
+> **Status:** RATIFIED-BY-TEST 2026-09-07 (lane STARTUP-PROVE · L-13109 / L-13110 / L-13111 / L-13112),
+> **§1 and §2 AMENDED 2026-09-07 (lane NAME-CARD-OUT · L-13173) — the "Name your project" card this
+> spec was written around HAS BEEN REMOVED at the founder's request.** §1 is enforced by three spec
+> arms and was proven falsifiable by mutation. §2 is enforced. §3 and §4 are MEASURED VERDICTS with
+> no code change — read them before opening either.
 >
 > **Governance:** conflict order VISION → ARCHITECTURE → contracts → ADRs → SPECs. Authorities:
 > C06 (UI shell / boot), C12 (context), C59 (view regions), `SPEC-PROJECT-OPEN-CREATE-PIPELINE.md`
@@ -25,15 +27,22 @@
 | tiles landing AFTER the descent settled | 4 400 | The tail worth attacking. |
 | everything else | ~2 300 | geocode → warm kick-off → split mount. |
 
-The card exists to spend the first slice on something useful. It only does that if **the load is
-already running when the card goes up**.
+⛔ **THE CARD THAT USED TO SPEND THAT FIRST SLICE IS GONE (L-13173).** It only ever bought time if
+the load was already running when it went up — and by the time §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT
+(`d1ecb2fe`) removed the reveal's wait on the context warm, there was little left to buy. See §1.
 
 ---
 
-## 1 — THE LOAD-BEARING INVARIANT: the warm/load STARTS BEFORE the card resolves
+## 1 — THE LOAD-BEARING INVARIANT: the load starts on the GEOCODE, not on any UI event
 
-> ⛔ **If dismissing the card is what STARTS the load, wall-clock gets WORSE and only the
-> perception moves.** The feature is then a lie with a nice animation.
+> ⚠ **AMENDED 2026-09-07 (L-13173). THIS SECTION USED TO READ "the warm/load STARTS BEFORE THE CARD
+> RESOLVES", and the card it names no longer exists.** The founder asked for it — *"Maybe add
+> straight after a new modal asking for the name of the project — like that gives you time"* — when
+> `geocode:end → split-mounted` was 22.8 s **because the reveal awaited the context warm**. That gate
+> was removed, so the card became a step between him and his site and he asked for it back out:
+> *"Remove / Exclude the project name — keep it as before — default name based on location — and a
+> code"*. **The invariant did not go with it; it got stronger.** Nothing is raised between the
+> geocode and the split at all, so there is no user event that COULD gate the load.
 
 **The wiring, in execution order** (`GlobeHeroSearch.descendAndHandOff` drives it, not the
 controller's source order):
@@ -43,39 +52,54 @@ controller's source order):
    fetchContextBuildingsNearAndFar(...)` **held, never awaited**.
 2. `onParcelArrival(picked)` fires at the **`parcel`** stage. Inside it, in this order:
    a. `this.revealInFlight = this.revealSplitAtParcel({...})` — kicked off, **not awaited**;
-   b. **only then** `showStartupProjectNameCard({...})`, which returns `void`.
+   b. `this.retireLocationCard('parcel-arrival')` — the *"Where is your project?"* card comes down
+      the instant its question is answered (§ONE-CARD-AT-A-TIME, L-13130), and **nothing replaces it**;
+   c. `void this.applyProjectName(startupProjectName(picked.address, this.resolveProjectId())).catch(...)`
+      — a real `persistence.client.rename`, fire-and-forget.
 
-**Enforcement — `apps/editor/src/ui/onboarding/__tests__/startupNameCardLoadOrdering.spec.ts`:**
+**The name:** `Barcelona — 8B34` — the geocoded place, the em dash the pre-location default already
+uses, and **the last four alphanumerics of the project id**. ⚠ The incumbent `2026-09-07 18:31` stamp
+was rejected on three readings of the hub grid: `.ph-card-meta` already prints a date one line below
+the name; the two dates would disagree (`updatedAt` moves, a name does not); and `.ph-card-name` is
+`nowrap` + `ellipsis`, so a long name is truncated **from the end** — exactly where a disambiguator
+sits. Four characters survive that. The code is a literal substring of the id, so it is a real handle
+rather than a decoration.
+
+**Enforcement — `apps/editor/src/ui/onboarding/__tests__/startupLoadOrdering.spec.ts`:**
 
 | Arm | What it observes | How it fails |
 |---|---|---|
-| **A — behavioural**, over the REAL `GlobeHeroSearch` | the warm is started from a port, its promise held; the card is raised from `onParcelArrival` | ⭐ **the falsifying case**: the test resolves the warm **without touching the card** and requires that it SETTLED while the card was still mounted and uncommitted. A card that gated the load cannot reach that line — the warm would still be pending. |
-| **B — source**, over `OnboardingStepController.onParcelArrival`'s real body | `this.revealSplitAtParcel(` appears BEFORE `showStartupProjectNameCard(`; no `await` / `return` on the card; `markStartupPhase('context-warm:start')` lives in `warmContextCache`, not in the arrival handler | a reorder in the production file. Arm A drives fakes and by construction cannot see one. |
+| **A — behavioural**, over the REAL `GlobeHeroSearch` | the warm is started from a port, its promise held; the reveal is kicked off from `onParcelArrival` before the name is written | ⭐ **the falsifying case**: the warm and the reveal both SETTLE while `document.body` holds **zero** children and no event has been dispatched. Re-add a card under any name and this goes red on the first line. A second arm gives the rename a promise that never settles and requires the reveal to complete anyway. |
+| **B — source**, over the real `OnboardingStepController` | `this.revealSplitAtParcel(` before `this.applyProjectName(autoName)`; no `await` on the write; `markStartupPhase('context-warm:start')` still in `warmContextCache`; **no `showStartupProjectNameCard` / `onboardingCardSlot` anywhere, and no `createElement` in the arrival handler** | a reorder — or a re-added card — in the production file. Arm A drives fakes and by construction cannot see one. |
+| **C — the two things the removal must not break** | the SKIP-LOCATION branch keeps its own *"Step 2 of 2 · Name"* step (with no location there is no place to name the project after); and the largest `setStepIndicator(n, …)` still equals the `N` the chip claims | a step added or removed without the denominator moving with it. |
 
-**§MUTATION PROOF** (run before commit, both reverted):
+**§MUTATION PROOF** (run before commit, all reverted):
 
-- warm moved so it starts from `onCommit` (the "card gates the load" shape) → Arm A's falsifying
-  case FAILED: *expected [ 'flight:parcel-arrival', …(2) ] to include 'context-warm:done'*.
-- the two statements in the real `onParcelArrival` swapped → Arm B FAILED: *expected 825 to be less
-  than 733*.
+- a `<div>` appended to `document.body` in the arrival handler → **2 failed | 16 passed**,
+  *expected 1 to be +0*.
+- the reveal's completion mark chained behind the rename promise → **2 failed | 16 passed**,
+  *expected [ 'context-warm:start', …(4) ] to include 'reveal:split-mounted'*.
+- the step chip's denominator changed to 5 in the real controller → **1 failed | 17 passed**,
+  *expected 5 to be 4*.
 
 > ⛔ **WHAT THIS REPLACED, because the shape recurs.** The original assertion built its OWN array,
 > pushed `'context-warm:start'` and `'reveal:kicked-off'` into it two lines apart with no production
 > code between them, and asserted that the literal pushed first had a lower index than the literal
-> pushed third. It would have printed PASS with the card wired as a hard gate, with
+> pushed third. It would have printed PASS with the load wired as a hard gate, with
 > `warmContextCache` deleted, or with `GlobeHeroSearch` deleted. **Never restore a self-pushed-array
 > ordering test here** (§COMMITTED-IS-NOT-REACHABLE, §L-851).
 
 ---
 
-## 2 — The four regression paths, each pinned
+## 2 — The regression paths, each pinned
 
 | # | Invariant | Where |
 |---|---|---|
-| 2.1 | **Enter AND Escape both commit a default.** Enter commits what is typed (empty → the geocoded default); Escape / Skip / close commit the default. Escape is bound at the DOCUMENT in CAPTURE, so it works when focus has moved to the globe and nothing downstream can swallow it. A naming card that can refuse to close is a NEW GATE on the start-up path — §REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH (L-942). | both specs |
-| 2.2 | **The name is a REAL write, best-effort.** `onCommit` → `this.applyProjectName(name)` → `runtime.persistence.client.rename(projectId, name)` — the same path the hub's rename modal uses, never a second naming write. It is `void`-ed with a `.catch`. A rename that THROWS synchronously and one that REJECTS asynchronously both still close the card. An empty name is a NO-OP, not a write of `""`. | ordering spec §L-942 block |
-| 2.3 | **The descent is NOT paused while the card is up.** Every camera target the stage chain produces is issued before the card exists; the card knows nothing about the camera. Dismissing it issues NO further flight (no resume, no catch-up). No backdrop element exists at all — the card is the ONLY node appended to `body`, so the globe stays visible AND interactive, which is what §STARTUP-SLOW-DESCENT was for. | ordering spec §STARTUP-SLOW-DESCENT block |
-| 2.4 | **The card is NEVER auto-dismissed when the load wins the race.** With half-typed text in the field, both the warm and the split mount are resolved and the card must still be mounted with the text intact. Yanking a focused text field out from under a cursor is worse than the wait it saves. | ordering spec |
+| 2.1 | **No step between the location and the site.** Nothing is raised on the location path — no modal, no field, no Enter-to-continue. Asserted as a CENSUS of `document.body`, not as the absence of one element id, so a replacement card fails it whatever it is called. | ordering spec, falsifying arm |
+| 2.2 | **The name is a REAL write, best-effort.** `applyProjectName(name)` → `runtime.persistence.client.rename(projectId, name)` — the same path the hub's rename modal uses, never a second naming write. It is `void`-ed with a `.catch`, so a rename that hangs, throws or rejects cannot hold or break the reveal. An empty name is a NO-OP, not a write of `""`; no place ⇒ no write at all. | ordering spec Arm B + `startupProjectName.spec.ts` |
+| 2.3 | **The descent is unchanged.** Every camera target the stage chain produces is issued before the name is written; the naming path knows nothing about the camera, and not one node is appended to `body`, so the globe stays visible AND interactive — which is what §STARTUP-SLOW-DESCENT was for. | ordering spec §STARTUP-SLOW-DESCENT block |
+| 2.4 | **The SKIP-LOCATION naming step survives.** *"Step 2 of 2 · Name"* / *"No location, no plot"* still asks, still renames through `applyProjectName`, still ends in `landInCanvasWithUnderlay()`. The two steps share `applyProjectName`, so deleting the wrong one was the live risk in L-13173. | ordering spec Arm C |
+| 2.5 | **`retireLocationCard()` still owns the location card, and `leaveLocationStep()` still owns the globe only.** Two halves, two moments (§REVEAL-FLIGHT-COMPLETE; releasing the globe early is the §22 black-3D-pane hazard). This is the surviving half of L-13130 — the slot module that sequenced it against the name card went with the card. | ordering spec Arm B |
 
 ---
 

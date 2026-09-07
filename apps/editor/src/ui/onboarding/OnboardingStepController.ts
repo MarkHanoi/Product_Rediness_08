@@ -97,23 +97,10 @@ import {
 import { lookupParcelByRefcat } from '../site/parcel/CatastroParcelProvider.js';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { warmAllContextLayers } from '../geospatial/contextLayerWarm.js';
-// §STARTUP-NAME-CARD (founder 2026-09-07) — the floating "Name your project" card raised over the
-// LIVE globe the instant the geocode resolves, so the ~18 s load has something useful in front of
-// it. ⛔ It gates NOTHING — see `startupProjectNameCardIsNonGating`.
-import {
-    showStartupProjectNameCard,
-    dismissStartupProjectNameCard,
-    commitStartupProjectNameCard,
-    startupProjectNameDefault,
-    STARTUP_NAME_CARD_SLOT_ID,
-} from './startupProjectNameCard.js';
-// §ONE-CARD-AT-A-TIME (L-13130) — the ONE modal onboarding slot. The location card and the name
-// card change places through `handOffOnboardingModalCard`, in one synchronous transition.
-import {
-    handOffOnboardingModalCard,
-    markOnboardingModalCard,
-    unmarkOnboardingModalCard,
-} from './onboardingCardSlot.js';
+// §STARTUP-NAME-FROM-LOCATION (founder 2026-09-07, L-13173) — the location path names the project
+// from the geocoded place plus a short code and asks NOTHING. ⛔ There is no card here any more;
+// see `startupProjectName.ts`'s header for why the one that existed was removed at his request.
+import { startupProjectName } from './startupProjectName.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
 import { markStartupPhase } from '../../engine/startupBudget';
 // §UX-COMPACT-TYPE-PILL (L-11131) — the confirm pill is placed BESIDE the view-mode bar,
@@ -444,7 +431,8 @@ export class OnboardingStepController {
      * arrival. ⛔ It is NOT "the location step is over": the step has TWO halves that leave at
      * DIFFERENT moments, and conflating them is precisely why nothing dismissed the card.
      *   · the CARD ("Where is your project?") must go the instant the location is accepted —
-     *     its question has been answered and the name card is taking its place;
+     *     its question has been answered, and since §STARTUP-NAME-FROM-LOCATION (L-13173) nothing
+     *     replaces it: the user goes straight from the location to the site;
      *   · the GLOBE (`globeHero`) must stay until `revealInFlight` has resolved, because the split
      *     re-parents that very viewport (§REVEAL-FLIGHT-COMPLETE) — `leaveLocationStep()` owns
      *     that half, and only that half.
@@ -642,10 +630,6 @@ export class OnboardingStepController {
         this.addCleanup(makeDraggable(overlay, '.os-header', ['button', 'input', 'a']));
         this.addCleanup(makeResizable(overlay, grip, { minWidth: 300, minHeight: 220 }));
 
-        // §ONE-CARD-AT-A-TIME (L-13130) — the overlay is born MODAL (every step but the docked
-        // banner is), so it claims the slot from its first paint rather than from whichever step
-        // happens to render first. `setDrawingPresentation()` moves it in and out from here on.
-        markOnboardingModalCard(overlay, 'onboarding-step');
         document.body.appendChild(overlay);
         this.overlay = overlay;
     }
@@ -687,26 +671,13 @@ export class OnboardingStepController {
         // it sits beside an interactive map, so drop the dialog role while drawing.
         if (drawing) {
             this.overlay.setAttribute('role', 'region');
-            // §ONE-CARD-AT-A-TIME (L-13130) — the docked banner and the confirm pill are NOT modal
-            // cards: they have no scrim, pointer events fall through, and they are DESIGNED to
-            // share the screen with a live surface (and with the name card, which the load
-            // finishing must never retire). So the overlay leaves the slot here.
-            unmarkOnboardingModalCard(this.overlay);
         } else {
             this.overlay.setAttribute('role', 'dialog');
-            // §ONE-CARD-AT-A-TIME (L-13130) — a MODAL step is a card in the slot, and a card in
-            // the slot is on screen: `enterDrawPhaseWhenSurfaceReady()` hides the overlay and only
-            // `renderDrawingStep()` un-hid it, so a modal step reached from the draw phase came up
-            // invisible. Releasing `hidden` here makes "modal presentation" and "visible" one fact.
+            // §UX1-DRAW-PHASE-GATE — a MODAL step must be VISIBLE:
+            // `enterDrawPhaseWhenSurfaceReady()` hides the overlay and only `renderDrawingStep()`
+            // un-hid it, so a modal step reached from the draw phase came up invisible. Releasing
+            // `hidden` here makes "modal presentation" and "visible" one fact.
             this.overlay.hidden = false;
-            // ⚠ THE USER WALKING ON IS NOT THE LOAD WINNING. §STARTUP-NAME-CARD is deliberately
-            // never auto-dismissed by the load finishing — but a naming card left standing under a
-            // LATER modal step is the two-cards defect again, so it is retired here by SAVING what
-            // is typed (the same route its own "Save name" button takes; nothing is lost).
-            // ⇒ the draw banner and the confirm pill take the `drawing` arm above and leave the
-            // card alone, which is exactly the behaviour the founder asked for.
-            commitStartupProjectNameCard();
-            markOnboardingModalCard(this.overlay, 'onboarding-step');
         }
     }
 
@@ -909,67 +880,46 @@ export class OnboardingStepController {
                     address: picked.address,
                     ...(picked.bbox ? { bbox: picked.bbox } : {}),
                 });
-                // §STARTUP-NAME-CARD (founder 2026-09-07, live build cd5bcbb9: "Maybe add straight
-                // after a new modal asking for the name of the project — like that gives you time
-                // — then you load barcelona split view straight away!").
+                // ⛔ THE LOCATION CARD LEAVES HERE, AND NOTHING TAKES ITS PLACE.
                 //
-                // ⭐ STATEMENT ORDER IS THE PROOF, NOT A COMMENT. The reveal is kicked off on the
-                // line ABOVE, and `warmContextCache` fired at the `city` stage before that. So by
-                // the time this card exists the context warm, the armed descent, the split mount
-                // and the tile reads are ALL already in flight, and none of them can observe it:
-                // `showStartupProjectNameCard` returns `void` and exposes no readiness signal
-                // (`startupProjectNameCardIsNonGating`). ⛔ If a future edit makes the load wait on
-                // this card, wall-clock gets WORSE and only the perception moves — that is the one
-                // failure mode this whole design is arranged against.
+                // §ONE-CARD-AT-A-TIME (L-13130) minted `retireLocationCard()` because NOBODY owned
+                // the location card's dismissal: `leaveLocationStep()` reads like the step's
+                // teardown but disposes the GLOBE only (and must — the split re-parents that
+                // viewport, §REVEAL-FLIGHT-COMPLETE), so the "Where is your project?" card's DOM
+                // was replaced by the NEXT step's `clearBody()`, which runs after
+                // `await this.revealInFlight` — i.e. ~18 s later, with a live "Skip — no location"
+                // button still on screen over a site that had already been accepted. That half of
+                // the fix is unchanged and still load-bearing. What is gone is the card it used to
+                // hand off TO.
                 //
-                // ⚠ NOT auto-dismissed when the load wins the race: the split simply reveals
-                // BEHIND the card and the user confirms in their own time. Yanking a focused text
-                // field out from under a cursor is worse than the wait it would save.
+                // §STARTUP-NAME-FROM-LOCATION (founder 2026-09-07, L-13173): *"Remove / Exclude
+                // the project name — keep it as before — default name based on location — and a
+                // code"*.
                 //
-                // ⚠ NOT full-screen and NO backdrop — the founder asked for the slow descent
-                // specifically so he could WATCH it (§STARTUP-SLOW-DESCENT), so the globe stays
-                // visible and live around the card. Escape or "Skip" commits the geocoded default
-                // (§REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH, L-942 — it can always be closed).
+                // ⭐ THIS REVERSES A FEATURE HE HIMSELF ASKED FOR, AND BOTH DECISIONS WERE RIGHT AT
+                // THE TIME THEY WERE MADE. He proposed a naming modal to buy time — *"like that
+                // gives you time — then you load barcelona split view straight away!"* — when
+                // `geocode:end → split-mounted` was 22.8 s BECAUSE the reveal awaited the context
+                // warm. §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT (`d1ecb2fe`) removed that gate and the
+                // split now mounts when the flight settles, so the wait the card was hiding is
+                // largely gone and the card is just a step between him and his site. ⛔ Do not
+                // re-add it as a "small" convenience: a modal here is a step, and a step here was
+                // the thing being removed.
                 //
-                // ⛔ §ONE-CARD-AT-A-TIME (L-13130) — AND THE LOCATION CARD LEAVES IN THE SAME
-                // BREATH. As first shipped this block raised the name card and nothing took the
-                // "Where is your project?" card down, so the founder got BOTH: the location card
-                // still holding his query, still printing "Found: Barcelona, …", still offering a
-                // live "Skip — no location", and — at z-index 2147483000 against the name card's
-                // 88 870 — sitting ON TOP of the button he was being asked to press. That was not
-                // a race to lose: the location card's DOM was only replaced by the NEXT step's
-                // `clearBody()`, which runs after `await this.revealInFlight`, i.e. after the whole
-                // ~18 s reveal this card exists to cover. It overlapped on every single run.
-                // ⛔ THE FIX IS A TRANSITION, NOT A TIMER AND NOT A Z-INDEX: retire-then-raise
-                // inside ONE synchronous `handOffOnboardingModalCard` call, with the slot proving
-                // itself empty in between. A `setTimeout` would have left the same missing hand-off
-                // with a delay bolted on; a z-index bump would have left a live Skip button under a
-                // card asking a different question.
-                const defaultName = startupProjectNameDefault(picked.address);
-                handOffOnboardingModalCard({
-                    from: 'onboarding-step',
-                    // ⚠ An address with no usable place name raises NO card, and that leaves the
-                    // slot legitimately EMPTY — the loading overlay owns the screen from there. The
-                    // location card still goes: its question has been answered either way.
-                    to: defaultName ? STARTUP_NAME_CARD_SLOT_ID : null,
-                    retire: () => this.retireLocationCard('parcel-arrival'),
-                    raise: () => {
-                        if (!defaultName) return;
-                        showStartupProjectNameCard({
-                            defaultName,
-                            onCommit: (name) => {
-                                // The SAME `runtime.persistence.client.rename` path the hub's rename
-                                // modal uses — best-effort, never gating, never a second naming write.
-                                void this.applyProjectName(name).catch((e) => {
-                                    console.warn('[onboarding-step] §STARTUP-NAME-CARD rename failed (non-fatal):', e);
-                                });
-                            },
-                        });
-                        // The card outlives this step's own DOM (it floats on `document.body` over
-                        // the split that is about to mount), so it is torn down with the CONTROLLER.
-                        this.addCleanup(() => dismissStartupProjectNameCard());
-                    },
-                });
+                // ⚠ THE NAME IS STILL A REAL WRITE, on the SAME `persistence.client.rename` path
+                // the hub's rename modal uses — best-effort, `void`-ed with a `.catch`, so it can
+                // never gate the reveal that was kicked off on the line above and can never reject
+                // into this handler. Renaming stays available from the hub; only the interruption
+                // went. An address with no usable place name writes NOTHING and the project keeps
+                // the `Untitled Site — <stamp>` it already has (⛔ never a fabricated name).
+                const autoName = startupProjectName(picked.address, this.resolveProjectId());
+                this.retireLocationCard('parcel-arrival');
+                if (autoName) {
+                    console.log(`[onboarding-step] §STARTUP-NAME-FROM-LOCATION naming the project "${autoName}".`);
+                    void this.applyProjectName(autoName).catch((e) => {
+                        console.warn('[onboarding-step] §STARTUP-NAME-FROM-LOCATION rename failed (non-fatal):', e);
+                    });
+                }
             },
             entries: siteEntryCoverageEntries(),
             // §STARTUP-BUDGET — the same geocoder, with phase marks around the round-trip.
@@ -1016,14 +966,14 @@ export class OnboardingStepController {
         skip.addEventListener('click', () => {
             // ⛔ §ONE-CARD-AT-A-TIME (L-13130) — "SKIP AFTER A SUCCESSFUL GEOCODE" IS A STATE
             // NOBODY DESIGNED, AND BEFORE THIS IT WAS ONE CLICK AWAY. While the location card
-            // lingered over the name card, its Skip button stayed live: clicking it ran
+            // lingered through the whole ~18 s reveal, its Skip button stayed live: clicking it ran
             // `this.picked = null` — discarding a location the reveal had ALREADY anchored with
             // `dispatchSiteLocation` — then `leaveLocationStep()` while `revealInFlight` was still
             // running (disposing, with `splitRevealed` still false, the very globe the split was
-            // about to adopt: the §22 black-3D-pane hazard), and finally raised a SECOND naming
-            // prompt beside the floating one. The card is now retired at parcel arrival, so the
-            // button no longer exists; this guard is what makes that a property of the STATE rather
-            // than of the DOM happening to be gone.
+            // about to adopt: the §22 black-3D-pane hazard), and finally raised the skip branch's
+            // own naming step over a site that had already been built. The card is now retired at
+            // parcel arrival, so the button no longer exists; this guard is what makes that a
+            // property of the STATE rather than of the DOM happening to be gone.
             if (this.locationCardRetired) {
                 console.warn('[onboarding-step] §ONE-CARD-AT-A-TIME: "Skip — no location" clicked after a location was accepted — ignored (the site is already anchored).');
                 return;
@@ -1047,6 +997,14 @@ export class OnboardingStepController {
 
     /**
      * §ONE-CARD-AT-A-TIME (L-13130) — take the LOCATION CARD down. Idempotent.
+     *
+     * ⚠ THIS IS NOW THE WHOLE OF L-13130's FIX. It shipped as one half of a two-card TRANSITION
+     * (`onboardingCardSlot.handOffOnboardingModalCard`, which sequenced this retire against raising
+     * the "Name your project" card). §STARTUP-NAME-FROM-LOCATION (L-13173) deleted that card at the
+     * founder's request, so the slot had a single possible occupant and its `at most one card`
+     * invariant became unfalsifiable; the module and its spec went with the card. **This method did
+     * not** — the location card lingering over an accepted site was always a defect in its own
+     * right, card or no card, and it is the half that was missing in the first place.
      *
      * ⛔ THIS IS THE HALF `leaveLocationStep()` NEVER OWNED, AND THE WHOLE DEFECT IS THAT NOBODY
      * ELSE DID EITHER. `leaveLocationStep()` reads like the step's teardown, but its body disposes
@@ -1644,6 +1602,18 @@ export class OnboardingStepController {
     }
 
     /**
+     * The active project id, from the ONE legacy global this file reads it from.
+     *
+     * ⚠ EXTRACTED SO THERE IS ONE READ, NOT TWO. `applyProjectName` needs it to address the
+     * rename; §STARTUP-NAME-FROM-LOCATION needs it to derive the name's CODE
+     * (`startupProjectCode` — the last four alphanumerics of this string). Two copies of the
+     * lookup is how the code and the row it names drift apart.
+     */
+    private resolveProjectId(): string | null {
+        return (window as unknown as { currentProjectId?: string }).currentProjectId ?? null;
+    }
+
+    /**
      * Persist the typed name through the SAME path the hub's rename modal uses —
      * `runtime.persistence.client.rename(projectId, name)` — rather than inventing
      * a second write. An empty name is a no-op, not a write of "".
@@ -1653,7 +1623,7 @@ export class OnboardingStepController {
         const client = (this.runtime as unknown as {
             persistence?: { client?: { rename?: (id: string, n: string) => Promise<unknown> } };
         }).persistence?.client;
-        const projectId = (window as unknown as { currentProjectId?: string }).currentProjectId;
+        const projectId = this.resolveProjectId();
         if (!client?.rename || !projectId) {
             console.warn('[onboarding-step] no rename path available - keeping the existing project name.');
             return;
