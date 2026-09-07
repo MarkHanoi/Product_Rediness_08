@@ -85,3 +85,11 @@ docs/04-reference/Video/
 # family-migrations UTF-8 emit scratch (tooling artefact, never source)
 packages/file-format/.u8emit/
 packages/file-format/.u8emit.tsconfig.json
+
+# §LANE-VERIFY-SCRATCH (2026-09-07) — fleet lanes write their gate captures, vitest
+# baselines and de-conflict patches here while they verify. 56 files at one point,
+# which read as "60 uncommitted changes" in the editor and hid the real ones.
+# Tooling artefacts, never source.
+.verify-tmp/
+scratch_*.txt
+apps/editor/tsconfig.lane-*.json
