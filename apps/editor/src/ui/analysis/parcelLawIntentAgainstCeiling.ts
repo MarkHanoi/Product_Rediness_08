@@ -58,6 +58,68 @@ export const INTENT_CEILING_VERDICT_ATTR = 'data-verdict';
 export const INTENT_CEILING_UNREADABLE_TESTID = 'parcel-law-intent-ceiling-unreadable';
 /** Carries how many store-driven repaints have run — read by the liveness spec. */
 export const INTENT_CEILING_LIVE_ATTR = 'data-live-repaints';
+/** Marks the INTENT figure of a pair, so a spec can prove the row still exposes both numbers. */
+export const INTENT_CEILING_INTENT_FIGURE_ATTR = 'data-intent-figure';
+/** Marks the CEILING figure of a pair — the other half of the same proof. */
+export const INTENT_CEILING_CEILING_FIGURE_ATTR = 'data-ceiling-figure';
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// §PAIR-IS-ALIGNMENT-NOT-A-WORD (L-13077, founder 2026-09-07: *"there is still text on the
+// incorrect format"*) — THE PAIR IS EXPRESSED BY THE LAYOUT. THE WORD IS NOT PRINTED.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// This section used to emit a literal grey uppercase `beside` between the two figures, inside a
+// `1fr auto 1fr` grid. Two defects, one cause:
+//
+//   1. ⛔ *"Beside"* is the RELATIONSHIP §26.6.0 rule 3 asks the layout to EXPRESS — *"every intent
+//      sits beside its ceiling"* — not a word it asks the card to say. Printing the name of a
+//      relationship is what a layout does when it cannot show one. The founder read it as text in
+//      the wrong format, which is exactly what it was.
+//   2. ⛔ The three-column grid had no narrow arm. In his Analysis panel (~370–460 px, and the pane
+//      is user-resizable) the right cell wrapped mid-phrase — `Maximum levels` / `6 storeys` on two
+//      lines — while the left did not, so the two halves of ONE comparison rendered at different
+//      apparent sizes and the row lost the symmetry that made it a comparison at all.
+//
+// ⭐ THE REPLACEMENT IS A SHARED NUMERIC COLUMN, which is how two magnitudes have been made
+// comparable on paper for four centuries. The pair is TWO LINES, each a `minmax(0,1fr) auto` grid,
+// so BOTH figures land on the SAME right edge, one directly above the other, at the same size and
+// the same weight. The ceiling line carries a 2 px left rule; the intent line carries the same rule
+// in `transparent`, so the two content boxes are identical widths and the figures cannot drift
+// apart by the width of the rule. There is ONE layout at every width — nothing switches, nothing is
+// tuned to a breakpoint, and there is no width at which the pair stops reading as a pair. Labels
+// wrap inside their own cell (`overflow-wrap:anywhere`); figures never wrap (`white-space:nowrap`)
+// and are `tabular-nums`, so the digits stack.
+//
+// ⛔ THE CEILING'S FIGURE IS THE SAME SIZE AND WEIGHT AS THE INTENT'S, DELIBERATELY. De-weighting
+// the law's number would hide it just as effectively as deleting it, one step more deniably — the
+// defect `parcelLawFacts.ts` already names for `not derived`. Only the ceiling's LABEL is stepped
+// down, because it is long prose, never because it matters less.
+//
+// ── THE TYPE SCALE, AND WHY IT IS DECLARED HERE ─────────────────────────────────────────────
+// The founder also read the figures as *"much larger than labels"*. Measured cause: the pair's two
+// figures were the ONLY elements in this section carrying no `font-size`, so they fell through to
+// the document default (16 px) while every label, lede, verdict and group heading around them was
+// pinned at 9–11 px. `.anl-panel` / `#anl-surface` / `.anl-grid` set no base (they are not in
+// `tokens.ts`'s `:where(...)` body-size list), so "inherit" here means 16. The card's scale was not
+// overriding these literals — the opposite: the literals were pinned and the numbers never were.
+//
+// Two further facts made the old set of literals accidental rather than chosen:
+//   · §UI-DENSITY-SCALE (`uiScale.ts`) transforms the ASSEMBLED STYLESHEET only. Inline `cssText`
+//     px literals bypass the one density authority entirely, so this section could not move when
+//     `UI_SCALE` moves — and it also bypassed that authority's `MIN_FONT_PX = 10` legibility floor
+//     (C43 / WCAG 2.2 AA), which the old `9px` and `9.5px` literals sat below.
+//   · Six unrelated literals (9 · 9.5 · 10 · 11) encode no ratio, so no reader could tell which
+//     differences were meant.
+// So the section declares ONE base and expresses every child as a ratio of it. Three steps, stated:
+// figures at 1× · labels at {@link SCALE_LABEL} · prose at {@link SCALE_PROSE}. Nothing lands under
+// 10 px, and changing the hierarchy is now one number.
+/** The section's type base, in px. Every other size in this file is a ratio of it. */
+const SCALE_BASE_PX = 11.5;
+/** Labels — the long prose halves of a row. One step down from the figures they name. */
+const SCALE_LABEL = '0.91em';
+/** Prose — ledes, verdict sentences, group headings, per-storey lines. Two steps down. */
+const SCALE_PROSE = '0.87em';
+/** The rule that brackets a ceiling line to the intent above it. */
+const PAIR_RULE = '#e4dff5';
 
 export const INTENT_CEILING_TITLE = 'What I want to build — beside what I can';
 export const INTENT_CEILING_LEDE =
@@ -120,19 +182,21 @@ export function buildIntentAgainstCeilingSection(
     try {
         const root = el('div', 'anl-plaw-intent-ceiling');
         root.setAttribute('data-testid', INTENT_CEILING_TESTID);
-        root.style.cssText = 'margin-top:10px;padding-top:8px;border-top:1px solid #efecf7;min-width:0;max-width:100%;';
+        // §PAIR-IS-ALIGNMENT-NOT-A-WORD — the ONE base every size below is a ratio of.
+        root.style.cssText = `margin-top:10px;padding-top:8px;border-top:1px solid #efecf7;`
+            + `min-width:0;max-width:100%;font-size:${SCALE_BASE_PX}px;line-height:1.45;`;
         const title = el('div', 'anl-plaw-intent-title', INTENT_CEILING_TITLE);
-        title.style.cssText = 'font-weight:700;font-size:11px;';
+        title.style.cssText = 'font-weight:700;font-size:0.96em;';
         root.appendChild(title);
         const lede = el('div', 'anl-plaw-intent-lede', INTENT_CEILING_LEDE);
-        lede.style.cssText = 'margin:2px 0 6px;font-size:9.5px;line-height:1.45;opacity:0.8;';
+        lede.style.cssText = `margin:2px 0 6px;font-size:${SCALE_PROSE};line-height:1.5;opacity:0.8;`;
         root.appendChild(lede);
 
         if (!model.readable) {
             const miss = el('div', 'anl-plaw-absent', model.text);
             miss.setAttribute('data-testid', INTENT_CEILING_UNREADABLE_TESTID);
             miss.setAttribute('data-reason', model.reason);
-            miss.style.cssText = 'font-size:10px;line-height:1.5;';
+            miss.style.cssText = `font-size:${SCALE_PROSE};line-height:1.55;`;
             root.appendChild(miss);
             return root;
         }
@@ -149,45 +213,77 @@ export function buildIntentAgainstCeilingSection(
         });
         const on = getSiteHighlight();
 
-        const ceilingCell = (p: IntentPair): HTMLElement => {
-            const cell = el('span', 'anl-plaw-intent-ceiling-cell');
-            cell.style.cssText = 'text-align:right;font-variant-numeric:tabular-nums;';
-            const value = el('span', 'anl-plaw-val', fmt(p.ceiling, p.unit, p.dp));
-            value.style.fontWeight = '700';
-            if (p.ceiling === null) { value.style.fontStyle = 'italic'; value.style.fontWeight = '500'; }
-            // §26.6 rule 2 — the ceiling's NAME is the link to its owner.
-            const subject: SiteHighlightFixedSubject | null = p.ceilingSubject;
-            if (subject !== null) {
-                const a: SiteHighlightAvailability = avail[subject];
-                cell.appendChild(buildSiteHighlightLabelEl(p.ceilingLabel, subject, a, on === subject));
-            } else {
-                cell.appendChild(el('span', 'anl-plaw-key', p.ceilingLabel));
-            }
-            cell.appendChild(document.createTextNode(' '));
-            cell.appendChild(value);
-            return cell;
+        // ⭐ ONE line shape for BOTH halves of a pair: label left (wraps inside its own cell),
+        // figure right (never wraps, tabular). Identical grids ⇒ the two figures share one right
+        // edge at every panel width, which is what makes the pair a COMPARISON without a word.
+        // `ruleInk` is the only difference: the ceiling is bracketed, the intent's rule is
+        // transparent so the two content boxes stay exactly the same width.
+        const pairLine = (ruleInk: string): HTMLElement => {
+            const line = el('div', 'anl-plaw-intent-line');
+            line.style.cssText =
+                'display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;'
+                + `align-items:baseline;min-width:0;border-left:2px solid ${ruleInk};padding-left:6px;`;
+            return line;
+        };
+        const figure = (text: string, attr: string, muted: boolean): HTMLElement => {
+            const v = el('span', 'anl-plaw-val', text);
+            v.setAttribute(attr, muted ? 'absent' : 'present');
+            // ⛔ SAME SIZE, SAME WEIGHT as its counterpart — see the header. A figure PRYZM does
+            // not hold reads italic at a lighter weight because it is not a measurement, never
+            // because it matters less.
+            v.style.cssText = 'justify-self:end;white-space:nowrap;font-variant-numeric:tabular-nums;'
+                + `font-weight:${muted ? '500' : '700'};${muted ? 'font-style:italic;opacity:0.85;' : ''}`;
+            return v;
+        };
+        const labelCell = (node: HTMLElement): HTMLElement => {
+            const c = el('span', 'anl-plaw-intent-label');
+            c.style.cssText = `min-width:0;overflow-wrap:anywhere;font-size:${SCALE_LABEL};opacity:0.78;`;
+            c.appendChild(node);
+            return c;
         };
 
         const pairRow = (p: IntentPair): HTMLElement => {
             const row = el('div', 'anl-plaw-intent-row');
             row.setAttribute('data-testid', `${INTENT_CEILING_ROW_PREFIX}${p.id}`);
             row.setAttribute(INTENT_CEILING_VERDICT_ATTR, p.verdict.kind);
-            row.style.cssText = 'padding:4px 0;border-top:1px solid rgba(0,0,0,0.06);';
+            row.style.cssText = 'padding:5px 0;border-top:1px solid rgba(0,0,0,0.06);min-width:0;';
             const head = el('div', 'anl-plaw-intent-head');
-            head.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:baseline;';
-            const intent = el('span', 'anl-plaw-intent-intent');
-            intent.appendChild(el('span', 'anl-plaw-key', `${p.label} `));
-            const iv = el('span', 'anl-plaw-val', p.intent === null ? '—' : `${p.intent.toFixed(p.dp)} ${p.unit}`);
-            iv.style.fontWeight = '600';
-            intent.appendChild(iv);
+            head.style.cssText = 'display:grid;gap:1px;min-width:0;';
+
+            // ── the INTENT line ──
+            const intent = pairLine('transparent');
+            intent.appendChild(labelCell(el('span', 'anl-plaw-key', p.label)));
+            intent.appendChild(figure(
+                p.intent === null ? '—' : `${p.intent.toFixed(p.dp)} ${p.unit}`,
+                INTENT_CEILING_INTENT_FIGURE_ATTR,
+                p.intent === null,
+            ));
             head.appendChild(intent);
-            const beside = el('span', 'anl-plaw-intent-beside', 'beside');
-            beside.style.cssText = 'font-size:9px;opacity:0.6;letter-spacing:.06em;text-transform:uppercase;';
-            head.appendChild(beside);
-            head.appendChild(ceilingCell(p));
+
+            // ── the CEILING line, directly beneath and bracketed to it ──
+            // An exceeded ceiling takes the warning ink on its rule: the REFUSAL is already stated
+            // in full below, so this only makes the row findable — it adds no claim of its own.
+            const ceiling = pairLine(p.verdict.kind === 'exceeds'
+                ? 'var(--app-status-warning-ink, #b45309)'
+                : PAIR_RULE);
+            // §26.6 rule 2 — the ceiling's NAME is the link to its owner.
+            const subject: SiteHighlightFixedSubject | null = p.ceilingSubject;
+            if (subject !== null) {
+                const a: SiteHighlightAvailability = avail[subject];
+                ceiling.appendChild(labelCell(buildSiteHighlightLabelEl(p.ceilingLabel, subject, a, on === subject)));
+            } else {
+                ceiling.appendChild(labelCell(el('span', 'anl-plaw-key', p.ceilingLabel)));
+            }
+            ceiling.appendChild(figure(
+                fmt(p.ceiling, p.unit, p.dp),
+                INTENT_CEILING_CEILING_FIGURE_ATTR,
+                p.ceiling === null,
+            ));
+            head.appendChild(ceiling);
             row.appendChild(head);
+
             const verdict = el('div', 'anl-plaw-intent-verdict', p.verdict.sentence);
-            verdict.style.cssText = 'font-size:10px;line-height:1.45;margin-top:2px;';
+            verdict.style.cssText = `font-size:${SCALE_PROSE};line-height:1.5;margin-top:3px;padding-left:8px;`;
             if (p.verdict.kind === 'exceeds') verdict.style.fontWeight = '600';
             if (p.verdict.kind === 'ceiling-not-derived' || p.verdict.kind === 'no-intent' || p.verdict.kind === 'intent-unmeasurable') {
                 verdict.style.fontStyle = 'italic';
@@ -200,7 +296,7 @@ export function buildIntentAgainstCeilingSection(
             const g = el('div', 'anl-plaw-intent-group');
             g.style.marginTop = '8px';
             const h = el('div', 'anl-plaw-group-name', heading);
-            h.style.cssText = 'font-weight:700;font-size:10px;letter-spacing:.04em;text-transform:uppercase;';
+            h.style.cssText = `font-weight:700;font-size:${SCALE_PROSE};letter-spacing:.04em;text-transform:uppercase;opacity:0.9;`;
             g.appendChild(h);
             root.appendChild(g);
             return g;
@@ -213,18 +309,25 @@ export function buildIntentAgainstCeilingSection(
         if (model.totalHeightBasis) {
             const basis = el('div', 'anl-plaw-intent-basis', model.totalHeightBasis);
             basis.setAttribute('data-testid', 'parcel-law-intent-height-basis');
-            basis.style.cssText = 'font-size:9.5px;line-height:1.4;opacity:0.75;margin-top:2px;';
+            basis.style.cssText = `font-size:${SCALE_PROSE};line-height:1.5;opacity:0.75;margin-top:3px;padding-left:8px;`;
             g1.appendChild(basis);
         }
         if (model.heightsPerLevel.length > 0) {
             const list = el('div', 'anl-plaw-intent-heights');
             list.setAttribute('data-testid', 'parcel-law-intent-heights-per-level');
-            list.style.cssText = 'margin-top:3px;padding-left:10px;';
+            list.style.cssText = 'margin-top:3px;padding-left:8px;min-width:0;';
             for (const l of model.heightsPerLevel) {
+                // Same `minmax(0,1fr) auto` shape as a pair line, so the storey heights land on the
+                // SAME right edge as the figures they break down — one numeric column per section.
                 const line = el('div', 'anl-plaw-intent-height');
-                line.style.cssText = 'display:flex;justify-content:space-between;gap:8px;font-size:9.5px;opacity:0.85;';
-                line.appendChild(el('span', 'anl-plaw-key', `${l.name ?? `Storey ${l.levelId}`}${l.elevation !== null ? ` · ${l.elevation.toFixed(2)} m` : ''}`));
-                line.appendChild(el('span', 'anl-plaw-val', l.heightM === null ? 'no height declared' : `${l.heightM.toFixed(1)} m`));
+                line.style.cssText = `display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;`
+                    + `align-items:baseline;min-width:0;font-size:${SCALE_PROSE};opacity:0.85;`;
+                const k = el('span', 'anl-plaw-key', `${l.name ?? `Storey ${l.levelId}`}${l.elevation !== null ? ` · ${l.elevation.toFixed(2)} m` : ''}`);
+                k.style.cssText = 'min-width:0;overflow-wrap:anywhere;';
+                line.appendChild(k);
+                const v = el('span', 'anl-plaw-val', l.heightM === null ? 'no height declared' : `${l.heightM.toFixed(1)} m`);
+                v.style.cssText = 'justify-self:end;white-space:nowrap;font-variant-numeric:tabular-nums;';
+                line.appendChild(v);
                 list.appendChild(line);
             }
             g1.appendChild(list);

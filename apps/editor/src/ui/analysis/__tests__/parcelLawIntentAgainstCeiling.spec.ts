@@ -8,6 +8,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import {
+    INTENT_CEILING_CEILING_FIGURE_ATTR,
+    INTENT_CEILING_INTENT_FIGURE_ATTR,
     INTENT_CEILING_LIVE_ATTR,
     INTENT_CEILING_ROW_PREFIX,
     INTENT_CEILING_TESTID,
@@ -140,6 +142,105 @@ describe('§26.6 rule 3 — mounted: every intent beside its ceiling, refusal wi
         expect(miss.getAttribute('data-reason')).toBe('no-store');
         expect(host.querySelectorAll(`[${INTENT_CEILING_VERDICT_ATTR}]`)).toHaveLength(0);
         h.dispose();
+    });
+});
+
+describe('§PAIR-IS-ALIGNMENT-NOT-A-WORD (L-13077) — the relationship is the LAYOUT, never a printed word', () => {
+    /** Mount over a store with one over-ceiling ground plate and one within-ceiling height. */
+    function mounted(): { host: HTMLElement; dispose: () => void } {
+        const s = fakeStore([level('e0', 'L0', 875, 3), level('e1', 'L1', 300, 3)]);
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const h = mountParcelLawIntentAgainstCeiling(host, deps(s.runtime));
+        return { host, dispose: () => h.dispose() };
+    }
+
+    it('⛔ the literal word is GONE from every pair row — no separator element, no stray "beside"', () => {
+        const { host, dispose } = mounted();
+        // The element that carried it no longer exists anywhere in the section.
+        expect(host.querySelectorAll('.anl-plaw-intent-beside')).toHaveLength(0);
+        const rows = [...host.querySelectorAll(`[${INTENT_CEILING_VERDICT_ATTR}]`)];
+        expect(rows.length).toBeGreaterThan(0);
+        for (const row of rows) {
+            // ⛔ Scoped to the ROW, not the section: the section TITLE and LEDE are sentences that
+            // legitimately use the word, and they are load-bearing prose (§26.6.6). What must not
+            // exist is the word printed BETWEEN the two figures as if it were data.
+            const head = row.querySelector('.anl-plaw-intent-head')!;
+            expect(head).not.toBeNull();
+            expect(head.textContent!.toLowerCase()).not.toContain('beside');
+        }
+        dispose();
+    });
+
+    it('⭐ the row still exposes BOTH figures, and the pair is two lines sharing one numeric column', () => {
+        const { host, dispose } = mounted();
+        const ground = host.querySelector(`[data-testid="${INTENT_CEILING_ROW_PREFIX}ground-area"]`)!;
+        const intentFig = ground.querySelector(`[${INTENT_CEILING_INTENT_FIGURE_ATTR}]`)!;
+        const ceilingFig = ground.querySelector(`[${INTENT_CEILING_CEILING_FIGURE_ATTR}]`)!;
+        expect(intentFig.textContent).toContain('875 m²');
+        expect(ceilingFig.textContent).toContain('431 m²');
+        expect(intentFig.getAttribute(INTENT_CEILING_INTENT_FIGURE_ATTR)).toBe('present');
+        expect(ceilingFig.getAttribute(INTENT_CEILING_CEILING_FIGURE_ATTR)).toBe('present');
+        // Exactly one of each per row — a second copy of either would be the duplication rule 1 bans.
+        expect(ground.querySelectorAll(`[${INTENT_CEILING_INTENT_FIGURE_ATTR}]`)).toHaveLength(1);
+        expect(ground.querySelectorAll(`[${INTENT_CEILING_CEILING_FIGURE_ATTR}]`)).toHaveLength(1);
+        // Two lines, each the SAME grid, so the two figures share one right edge at every width.
+        const lines = ground.querySelectorAll('.anl-plaw-intent-line');
+        expect(lines).toHaveLength(2);
+        for (const l of lines) {
+            expect((l as HTMLElement).style.gridTemplateColumns).toBe('minmax(0,1fr) auto');
+        }
+        // ⛔ The figures must never wrap, and must be tabular so the digits stack.
+        for (const f of [intentFig, ceilingFig] as HTMLElement[]) {
+            expect(f.style.whiteSpace).toBe('nowrap');
+            expect(f.style.fontVariantNumeric).toBe('tabular-nums');
+        }
+        dispose();
+    });
+
+    it('⛔ the CEILING figure is never de-weighted below the intent it is compared against', () => {
+        const { host, dispose } = mounted();
+        for (const row of host.querySelectorAll(`[${INTENT_CEILING_VERDICT_ATTR}="within"], [${INTENT_CEILING_VERDICT_ATTR}="exceeds"]`)) {
+            const i = row.querySelector<HTMLElement>(`[${INTENT_CEILING_INTENT_FIGURE_ATTR}="present"]`);
+            const c = row.querySelector<HTMLElement>(`[${INTENT_CEILING_CEILING_FIGURE_ATTR}="present"]`);
+            if (!i || !c) continue;
+            expect(c.style.fontWeight).toBe(i.style.fontWeight);
+            // Neither figure carries its own font-size — both inherit the section's ONE base, so
+            // they cannot render at different sizes however the base moves.
+            expect(i.style.fontSize).toBe('');
+            expect(c.style.fontSize).toBe('');
+        }
+        dispose();
+    });
+
+    it('⭐ every refusal sentence survives the re-layout, verbatim (§26.6.6 — the restructure MOVES, never removes)', () => {
+        const { host, dispose } = mounted();
+        const ground = host.querySelector(`[data-testid="${INTENT_CEILING_ROW_PREFIX}ground-area"]`)!;
+        expect(ground.getAttribute(INTENT_CEILING_VERDICT_ATTR)).toBe('exceeds');
+        expect(ground.textContent).toContain('444 m² less than you asked for');
+        expect(ground.textContent).toContain('PRYZM will not clamp');
+        dispose();
+    });
+
+    it('the section declares ONE type base, and no inline size lands under the 10px legibility floor', () => {
+        const { host, dispose } = mounted();
+        const root = host.querySelector<HTMLElement>(`[data-testid="${INTENT_CEILING_TESTID}"]`)!;
+        // ⭐ The base exists — without it the two figures fall through to the document default
+        // (16px) while every label around them is pinned, which is the defect the founder read as
+        // "values much larger than labels".
+        expect(root.style.fontSize).toMatch(/^\d+(\.\d+)?px$/);
+        expect(Number.parseFloat(root.style.fontSize)).toBeGreaterThanOrEqual(10);
+        // ⛔ NO DESCENDANT CARRIES A FRESH px LITERAL. A size here is either a ratio of the base
+        // (`em`) or `inherit` — the highlight control declares `font:inherit` so a linked ceiling
+        // label renders at exactly the size of the plain one beside it. Either way the section
+        // moves as ONE, and no child can drift under §UI-DENSITY-SCALE's MIN_FONT_PX floor while
+        // the base clears it. This is the pin that keeps the six scattered literals from coming
+        // back one edit at a time.
+        for (const n of root.querySelectorAll<HTMLElement>('*')) {
+            const fs = n.style.fontSize;
+            if (fs.length > 0) expect(fs).not.toMatch(/px$/);
+        }
+        dispose();
     });
 });
 
