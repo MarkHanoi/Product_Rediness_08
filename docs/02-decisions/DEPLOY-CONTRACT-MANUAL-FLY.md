@@ -1313,3 +1313,17 @@ regressions before they reach him. See memory `github-actions-billing-blocks-dep
 Ships: C59 §2.10 + C58 §1.19/§1.20 (the view-region one-owner model, the authored-envelope provenance
 kind, and the founder's "envelope is not the turnstile" ruling) and `fa12be3e` — three stacked view
 switchers over one pane reduced to one dropdown per pane carrying all six views.
+
+---
+
+## 6.9.11 THIRTEENTH EXECUTION — 2026-09-07 (`722403a1`), bundle proof 6/6, first try
+
+Routine, no incident. Detached worktree `C:/pryzm-deploy/tree` moved `c512a2d1 → 722403a1` with
+`git checkout --detach` (`git status --porcelain` empty); root `tsc --noEmit --skipLibCheck` on the
+WORKTREE RC=0 while the main tree carried an uncommitted TS6133 in `CesiumViewport.ts` from a live
+lane — §6.9.2 load-bearing again. `DOCKER_CONFIG=C:/pryzm-deploy/empty-docker-config` (`{}`),
+`FLY_API_TOKEN` from `~/.fly/pryzm_deploy_token`, no MSYS exports. Smoke booted `dist/index.cjs` in
+1,925 ms; blue-green + DNS verified; proof chunk `main-CPYasGIU.js`, `/version` matched the expanded
+SHA. Payload: L-13053 single-view-is-a-layout-fact (`d5f9d38d`) + L-13057 onboarding location panel
+(`722403a1`). Launched while seven GitHub Actions runs (six staged bakes + a merge measurement) were
+in flight — the manual path and Actions do not contend.
