@@ -51,6 +51,13 @@ class FakeSurface implements EnvelopeDrawSurface {
     clearCount = 0;
     accept = true;
     previews: { committed: ArcVertex2D[]; tail: ArcVertex2D[]; closeRing: boolean }[] = [];
+    /** §ENVELOPE-DRAW-SETTLED-RING — every settled ring this surface was asked to paint. */
+    settled: SceneXZPoint[][] = [];
+    settledClears = 0;
+    /** The ring currently painted, mirroring what a real adapter's entities would show. */
+    get settledShowing(): SceneXZPoint[] | null {
+        return this.settled.length > 0 ? this.settled[this.settled.length - 1]! : null;
+    }
     constructor(readonly surfaceId: EnvelopeDrawSurfaceId) {}
     groundPointFromPointer(clientX: number, clientY: number): SceneXZPoint | null {
         return { x: clientX, z: clientY };
@@ -59,6 +66,8 @@ class FakeSurface implements EnvelopeDrawSurface {
         this.previews.push({ committed: [...committed], tail: [...tail], closeRing });
     }
     clearPreview(): void { this.clearCount++; }
+    drawSettledRing(ring: readonly SceneXZPoint[]): void { this.settled.push(ring.map((p) => ({ ...p }))); }
+    clearSettledRing(): void { this.settledClears++; this.settled.length = 0; }
     arm(sink: EnvelopeDrawSink): boolean {
         this.armCount++;
         if (!this.accept) return false;
@@ -377,5 +386,109 @@ describe('the hand-off store — ring and area together, session-only', () => {
         s.sink!.onPoint({ x: 0, z: 0 });
         disarmEnvelopeDraw();
         expect(beats).toBe(3);
+    });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §ENVELOPE-DRAW-SETTLED-RING (L-13148) — THE PERIMETER SURVIVES ENTER
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// The founder: *"when i click enter - it desappar from hte screen - it should continue"*.
+//
+// ⛔ THESE CASES PIN THE LIFECYCLE, NOT THE PICTURE. Whether a Cesium polyline or a MapLibre fill
+// actually appears is browser-only and a fake cannot falsify it ([[fake-more-capable-than-real]]).
+// What IS testable above the port is the thing that was wrong: WHEN the settled ring is asked for
+// and WHEN it is taken away.
+describe('§ENVELOPE-DRAW-SETTLED-RING — the finished perimeter stays on screen', () => {
+    it('⭐ Enter paints the CLOSED ring on the owning surface, and the disarm does not remove it', () => {
+        const s = new FakeSurface('site-3d');
+        registerEnvelopeDrawSurface(s);
+        armEnvelopeDraw();
+        for (const p of RECT) s.sink!.onPoint(p);
+        s.sink!.onFinish();
+
+        // The gesture is over — the surface was disarmed and its in-progress preview cleared …
+        expect(isEnvelopeDrawArmed()).toBe(false);
+        expect(s.disarmCount).toBeGreaterThan(0);
+        expect(s.clearCount).toBeGreaterThan(0);
+        // … and the FINISHED ring is on screen, which is the whole point.
+        expect(s.settledShowing).toEqual(RECT);
+        // It is the SAME ring the panel was handed — one producer, not a second copy.
+        expect(s.settledShowing).toEqual(getDrawnEnvelopeFootprint()!.ring);
+    });
+
+    it('⛔ DISCARDING the drawing takes the ring off screen — through the slot, not the caller', () => {
+        const s = new FakeSurface('site-3d');
+        registerEnvelopeDrawSurface(s);
+        armEnvelopeDraw();
+        for (const p of RECT) s.sink!.onPoint(p);
+        s.sink!.onFinish();
+        expect(s.settledShowing).not.toBeNull();
+
+        clearDrawnEnvelopeFootprint();                    // what the panel's discard button calls
+        expect(s.settledShowing).toBeNull();
+        expect(s.settledClears).toBeGreaterThan(0);
+    });
+
+    it('⛔ a NEW draw drops the previous outline, so two rings are never on the globe at once', () => {
+        const s = new FakeSurface('site-3d');
+        registerEnvelopeDrawSurface(s);
+        armEnvelopeDraw();
+        for (const p of RECT) s.sink!.onPoint(p);
+        s.sink!.onFinish();
+        expect(s.settledShowing).not.toBeNull();
+
+        armEnvelopeDraw();                                 // he presses Draw again
+        expect(s.settledShowing).toBeNull();
+    });
+
+    it('⚠ ESC after a finished drawing keeps it — cancelling a REDRAW must not destroy the drawing', () => {
+        const s = new FakeSurface('site-3d');
+        registerEnvelopeDrawSurface(s);
+        armEnvelopeDraw();
+        for (const p of RECT) s.sink!.onPoint(p);
+        s.sink!.onFinish();
+        const stored = getDrawnEnvelopeFootprint();
+
+        armEnvelopeDraw();                                 // re-arm: the old outline goes (case above)
+        s.sink!.onPoint({ x: 99, z: 99 });                 // one corner, then Esc
+        s.sink!.onCancel();
+        // The STORED drawing is untouched — the pre-existing rule this feature must not break.
+        expect(getDrawnEnvelopeFootprint()).toBe(stored);
+    });
+
+    it('⛔ a REFUSED (degenerate) finish paints nothing — the store write is what may refuse', () => {
+        const s = new FakeSurface('site-3d');
+        registerEnvelopeDrawSurface(s);
+        armEnvelopeDraw();
+        // Three clicks on the same spot: `collapseCoincident` eats the ring and `finish` refuses.
+        for (let i = 0; i < 3; i++) s.sink!.onPoint({ x: 5, z: 5 });
+        s.sink!.onFinish();
+        expect(getDrawnEnvelopeFootprint()).toBeNull();
+        expect(s.settledShowing).toBeNull();
+        expect(getEnvelopeDrawStatus().refusal).toContain('same spot');
+    });
+
+    it('⚠ a surface that does not implement the port method still stores the ring', () => {
+        // Optional means optional: no picture, no throw, and the panel still has the perimeter.
+        const s = new FakeSurface('site-map-2d');
+        (s as { drawSettledRing?: unknown }).drawSettledRing = undefined;
+        registerEnvelopeDrawSurface(s);
+        armEnvelopeDraw();
+        for (const p of RECT) s.sink!.onPoint(p);
+        s.sink!.onFinish();
+        expect(getDrawnEnvelopeFootprint()!.ring).toEqual(RECT);
+        expect(s.settledShowing).toBeNull();
+    });
+
+    it('⛔ the ring is painted on the surface that OWNED the gesture, not on the other pane', () => {
+        const a = new FakeSurface('site-3d');
+        const b = new FakeSurface('site-map-2d');
+        registerEnvelopeDrawSurface(a);
+        registerEnvelopeDrawSurface(b);
+        armEnvelopeDraw();
+        for (const p of RECT) a.sink!.onPoint(p);          // the first click wins on `a`
+        a.sink!.onFinish();
+        expect(a.settledShowing).toEqual(RECT);
+        expect(b.settledShowing).toBeNull();
     });
 });

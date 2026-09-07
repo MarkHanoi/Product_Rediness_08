@@ -66,7 +66,9 @@ import {
 import { polygonSignedAreaOrdinates } from '@pryzm/geometry-kernel';
 import type { EnvelopeDrawSink, EnvelopeDrawSurface, SceneXZPoint } from './envelopeDrawSurface';
 import {
+    getDrawnEnvelopeFootprint,
     setDrawnEnvelopeFootprint,
+    subscribeDrawnEnvelopeFootprint,
     type EnvelopeDrawMode,
 } from './drawnEnvelopeFootprintState';
 
@@ -136,6 +138,68 @@ const author = new BoundaryPathAuthor();
 let loopFirst: SceneXZPoint | null = null;
 /** The last pointer position over ground, for the rubber-band. */
 let cursor: SceneXZPoint | null = null;
+
+// ── ⭐ §ENVELOPE-DRAW-SETTLED-RING (L-13148) — THE FINISHED PERIMETER STAYS ON SCREEN ───────
+//
+// The founder: *"when i click enter - it desappar from hte screen - it should continue"*.
+//
+// ⛔ THE VANISH WAS NOT A BUG IN AN ADAPTER — it was a gap in the LIFECYCLE. `finish()` stores the
+// ring and calls `disarmAll()`; `disarm()` clears the in-progress preview, correctly, because the
+// gesture is over. Nothing was ever asked to draw the ring that is now STORED, so the user closed
+// a perimeter, was handed a panel that talks about it, and had nothing on screen to decide about
+// while he chose a storey count.
+//
+// ⛔ IT IS KEPT ALIVE BY THE SLOT, NOT BY THIS MODULE'S GESTURE STATE, AND THAT IS THE DESIGN.
+// `drawnEnvelopeFootprintState` is already the ONE answer to *"what perimeter is current?"* — the
+// panel's source line, its discard button and the plan's ring all read it. Hanging the picture off
+// the same slot means the picture cannot outlive the drawing or disappear while it survives, in
+// any of the five ways the slot can change (redraw, discard, a degenerate ring being refused, the
+// panel clearing it, a test reset). A second lifetime here would be a second answer.
+/** The surface currently showing a settled ring, or `null`. Cleared through `clearSettledRing`. */
+let settledOn: EnvelopeDrawSurface | null = null;
+
+function paintSettledRing(surface: EnvelopeDrawSurface, ring: readonly SceneXZPoint[]): void {
+    ensureSlotSubscription();
+    clearSettledRing();
+    // ⚠ A SURFACE THAT DOES NOT IMPLEMENT IT IS NOT AN ERROR. The ring is stored either way and
+    // the panel names it; only the picture is absent, which is exactly what an optional port method
+    // means. Recording the owner anyway would leave a clear pointed at nothing.
+    if (typeof surface.drawSettledRing !== 'function') return;
+    try {
+        surface.drawSettledRing(ring);
+        settledOn = surface;
+    } catch (e) {
+        console.warn('[site][envelope-draw] settled-ring draw threw (non-fatal):', e);
+    }
+}
+
+function clearSettledRing(): void {
+    const s = settledOn;
+    settledOn = null;
+    if (!s) return;
+    try { s.clearSettledRing?.(); } catch { /* surface may be mid-teardown */ }
+}
+
+/**
+ * ⛔ ONE SUBSCRIPTION, INSTALLED WHEN THE FIRST RING IS PAINTED AND NEVER TORN DOWN. It is what
+ * makes *"the drawing was discarded but its outline is still on the globe"* unrepresentable rather
+ * than a branch every caller has to remember ([[authored-but-unwired-is-the-bottleneck]]).
+ *
+ * ⚠ IT IS LAZY RATHER THAN MODULE-LOAD, AND THAT IS NOT STYLE. `__resetDrawnEnvelopeFootprintForTests`
+ * calls `listeners.clear()` — it drops EVERY subscriber, including this one — so a module-load
+ * subscription is dead from the first `beforeEach` onwards and the clear-on-discard rule would be
+ * green in production and silently absent under test, which is the [[fake-more-capable-than-real]]
+ * shape inverted. Installing it at the moment a ring is painted, and dropping the handle in this
+ * module's own test reset, keeps the two in step.
+ */
+let slotUnsub: (() => void) | null = null;
+
+function ensureSlotSubscription(): void {
+    if (slotUnsub !== null) return;
+    slotUnsub = subscribeDrawnEnvelopeFootprint(() => {
+        if (getDrawnEnvelopeFootprint() === null) clearSettledRing();
+    });
+}
 
 /** What the gesture is doing, in the user's words — read by the panel's status line. */
 export interface EnvelopeDrawStatus {
@@ -218,6 +282,9 @@ export function registerEnvelopeDrawSurface(surface: EnvelopeDrawSurface): () =>
         return () => {
             const i = registered.indexOf(surface);
             if (i >= 0) registered.splice(i, 1);
+            // The surface holding the settled outline is going away with its entities; drop the
+            // pointer so a later clear does not call into a torn-down viewer.
+            if (settledOn === surface) settledOn = null;
             if (armed.has(surface)) {
                 armed.delete(surface);
                 try { surface.disarm(); } catch { /* mid-teardown */ }
@@ -300,6 +367,10 @@ export function armEnvelopeDraw(): EnvelopeDrawActivation {
     const span = _tracer.startSpan('pryzm.site.armEnvelopeDraw');
     try {
         if (armed.size > 0) { resetGesture(); disarmAll(); }
+        // ⛔ THE PREVIOUS DRAWING'S OUTLINE GOES WHEN A NEW DRAW STARTS, not when it finishes. A
+        // user re-arming has decided to replace the perimeter; leaving the old one painted would
+        // put two rings on the globe and no way to tell which one the panel is talking about.
+        clearSettledRing();
         lastRefusal = null;
         let accepted = 0;
         for (const surface of registered) {
@@ -430,6 +501,11 @@ function finish(rawRing: readonly ArcVertex2D[], mode: EnvelopeDrawMode): void {
     resetGesture();
     disarmAll();
     setDrawnEnvelopeFootprint({ ring: stored, areaM2, surfaceId: from.surfaceId, mode });
+    // ⭐ §ENVELOPE-DRAW-SETTLED-RING — AFTER the store write, never before: the write is the thing
+    // that can refuse (a degenerate ring), and painting first would leave an outline on screen for
+    // a perimeter the slot rejected. `from` is captured above because `resetGesture()` has already
+    // nulled `owner` by the time we get here.
+    paintSettledRing(from, stored);
     console.log(
         `[site][envelope-draw] §ENVELOPE-DRAW finished on ${from.surfaceId}: ${stored.length} corners · `
         + `${areaM2.toFixed(1)} m² · mode=${mode}. Handed to the create panel — nothing is dispatched here (P6).`,
@@ -520,6 +596,11 @@ function makeSink(surface: EnvelopeDrawSurface): EnvelopeDrawSink {
 
 /** Test-only reset — drops surfaces, listeners, the gesture and the mode. */
 export function __resetEnvelopeDrawArmingForTests(): void {
+    clearSettledRing();
+    // ⛔ The handle is DROPPED, not called: `__resetDrawnEnvelopeFootprintForTests` clears the whole
+    // listener set, so the stored unsubscribe already points at nothing. Dropping it is what lets
+    // the next paint install a live one. See `ensureSlotSubscription`.
+    slotUnsub = null;
     resetGesture();
     for (const s of [...armed]) { armed.delete(s); try { s.disarm(); } catch { /* ignore */ } }
     registered.length = 0;

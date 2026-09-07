@@ -110,6 +110,32 @@ export interface EnvelopeDrawSurface {
     ): void;
     clearPreview(): void;
     /**
+     * ⭐ §ENVELOPE-DRAW-SETTLED-RING (lane ENVELOPE-DRAW-AND-STOREYS, 2026-09-07 · L-13148) —
+     * PAINT THE PERIMETER THE USER JUST CLOSED, AND KEEP IT PAINTED AFTER THE GESTURE ENDS.
+     *
+     * The founder: *"when i click enter - it desappar from hte screen - it should continue"*. He
+     * closed the ring and the drawing vanished, so while he decided how many storeys to ask for he
+     * had nothing on screen to decide ABOUT. The vanish was not a bug in any adapter: `finish()`
+     * calls `disarmAll()`, `disarm()` calls `clearPreview()`, and the preview is by definition the
+     * IN-PROGRESS one. Nothing was ever asked to draw the FINISHED one.
+     *
+     * ⛔ IT IS A SECOND CHANNEL, NOT A LONGER-LIVED FIRST ONE, AND THAT IS THE WHOLE DESIGN. The
+     * in-progress preview is cleared by six different exits (disarm, cancel, re-arm, the first
+     * click winning on another surface, unregister, teardown) and every one of them is correct for
+     * a half-drawn ring and wrong for a stored one. Sharing the entities would mean each of those
+     * six sites had to learn the difference; a separate channel means none of them do.
+     *
+     * ⚠ OPTIONAL. A surface that does not implement it keeps exactly today's behaviour — the ring
+     * is stored and the panel names it, there is simply nothing painted. That is a reachability
+     * statement, not caution: an adapter is never made to promise a picture it cannot draw.
+     *
+     * @param ring the CLOSED perimeter, in the same project-frame scene-XZ metres as `onPoint` —
+     *             the exact vertices handed to `setDrawnEnvelopeFootprint`, never a second copy.
+     */
+    drawSettledRing?(ring: readonly SceneXZPoint[]): void;
+    /** Drop the settled ring. Idempotent; safe on a surface that never drew one. */
+    clearSettledRing?(): void;
+    /**
      * Bind pointer/keyboard handlers to THIS sink, yield the surface's own click ladder to the
      * gesture, and keep camera pan/rotate LIVE (click-to-place needs pan at parcel scale — plan
      * §3a/§3b). Returns `false` when the surface cannot arm right now (not mounted, mid-teardown)

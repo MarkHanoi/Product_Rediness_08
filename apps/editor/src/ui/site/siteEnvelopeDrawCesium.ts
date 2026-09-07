@@ -258,6 +258,17 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
     /** The height the most recent successful pick landed on, or `null` before the first one. */
     private lastGroundHeightM: number | null = null;
 
+    // ── §ENVELOPE-DRAW-SETTLED-RING (L-13148) — the FINISHED perimeter's own entities. ──────
+    // ⛔ SEPARATE FROM THE PREVIEW POOL ABOVE, DELIBERATELY. `disarm()` clears the preview on
+    // every exit, and that is right for a half-drawn ring and wrong for a stored one. Two entity
+    // sets is what lets one lifecycle end without ending the other; see the port's own note.
+    /** The closed violet outline of the perimeter the user finished, or `null`. */
+    private settledLine: CesiumNS.Entity | null = null;
+    /** The faint violet ground fill under it — so the FOOTPRINT reads, not just its edge. */
+    private settledFill: CesiumNS.Entity | null = null;
+    /** The corner dots of the settled ring, one per vertex. */
+    private readonly settledPoints: CesiumNS.Entity[] = [];
+
     constructor(deps: SiteEnvelopeDrawCesiumDeps) {
         this.deps = deps;
         this.viewer = deps.viewer;
@@ -463,6 +474,90 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
                 this.viewer.entities.remove(this.lineEntity);
                 this.lineEntity = null;
             }
+            this.viewer.scene?.requestRender?.();
+        } catch { /* viewer torn down — nothing to clear */ }
+    }
+
+    /**
+     * ⭐ §ENVELOPE-DRAW-SETTLED-RING (L-13148) — the founder's *"it should continue"*, drawn.
+     *
+     * ⚠ IT RESOLVES ITS OWN FRAME. `this.frame` is latched at `arm()` and NULLED by `disarm()`,
+     * and this is called immediately AFTER the finish has disarmed every surface — so reading the
+     * latched frame here would find `null` every single time and paint nothing, silently. It reads
+     * the SAME `resolveSiteDrawFrame` the arm did, about the SAME origin, so the settled ring lands
+     * on the pixels the preview occupied a moment earlier.
+     *
+     * ⚠ AND IT REUSES THE PICK-HEIGHT MEMO. `groundHeightFor` still holds the height each corner's
+     * own pick landed on, because `disarm()` does not clear it. That is why the settled ring sits on
+     * the terrain the preview sat on rather than sinking to the ellipsoid — the same reason
+     * `drawPreview` seats absolutely instead of clamping (the 3-D Site hides the globe).
+     */
+    drawSettledRing(ring: readonly SceneXZPoint[]): void {
+        this.clearSettledRing();
+        if (ring.length < 3) return;
+        const frame = this.frame ?? this.resolveFrameNow();
+        if (!frame) {
+            // The origin went away between the last click and the finish — a re-seat mid-gesture.
+            // The RING IS STILL STORED and the panel still names it; only the picture is missing,
+            // and saying so is better than a line at a guessed point (C57 §1.5).
+            console.warn(
+                '[site][envelope-draw][3d] §ENVELOPE-DRAW-SETTLED-RING the perimeter was stored but '
+                + 'the site frame origin is no longer resolvable, so it is not drawn. The create '
+                + 'panel still holds it.',
+            );
+            return;
+        }
+        try {
+            const C = this.C;
+            const positions = ring.map((p) => {
+                const ll = projectXZToLatLon(p, frame);
+                return C.Cartesian3.fromDegrees(ll.lon, ll.lat, this.groundHeightFor(p) + PREVIEW_LIFT_M);
+            });
+            // The FILL first, so the outline and the dots draw over it.
+            this.settledFill = this.viewer.entities.add({
+                polygon: {
+                    hierarchy: new C.PolygonHierarchy(positions),
+                    // ⛔ `perPositionHeight` — the vertices already carry the height each pick
+                    // landed on. Letting Cesium flatten them to one `height` would sink the
+                    // footprint into a slope, and clamping it would hand it to the hidden globe.
+                    perPositionHeight: true,
+                    material: C.Color.fromCssColorString(VIOLET_CSS).withAlpha(0.13),
+                    outline: false,
+                    shadows: C.ShadowMode.DISABLED,
+                },
+            });
+            this.settledLine = this.viewer.entities.add({
+                polyline: {
+                    positions: [...positions, positions[0]!],
+                    width: 3,
+                    material: C.Color.fromCssColorString(VIOLET_CSS),
+                },
+            });
+            for (const pos of positions) {
+                this.settledPoints.push(this.viewer.entities.add({
+                    position: pos,
+                    point: {
+                        pixelSize: 8,
+                        color: C.Color.fromCssColorString(VIOLET_CSS),
+                        outlineColor: C.Color.WHITE,
+                        outlineWidth: 2,
+                        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                    },
+                }));
+            }
+            this.viewer.scene.requestRender();
+        } catch (e) {
+            console.warn('[site][envelope-draw][3d] settled-ring draw failed (non-fatal):', e);
+        }
+    }
+
+    /** Idempotent; safe after teardown and safe when nothing was ever drawn. */
+    clearSettledRing(): void {
+        try {
+            for (const ent of this.settledPoints) this.viewer.entities.remove(ent);
+            this.settledPoints.length = 0;
+            if (this.settledFill) { this.viewer.entities.remove(this.settledFill); this.settledFill = null; }
+            if (this.settledLine) { this.viewer.entities.remove(this.settledLine); this.settledLine = null; }
             this.viewer.scene?.requestRender?.();
         } catch { /* viewer torn down — nothing to clear */ }
     }

@@ -72,6 +72,12 @@ export const ENVELOPE_DRAW_LINE_SOURCE = 'pryzm-envelope-draw-line';
 export const ENVELOPE_DRAW_POINT_SOURCE = 'pryzm-envelope-draw-points';
 export const ENVELOPE_DRAW_LINE_LAYER = 'pryzm-envelope-draw-line-layer';
 export const ENVELOPE_DRAW_POINT_LAYER = 'pryzm-envelope-draw-point-layer';
+// §ENVELOPE-DRAW-SETTLED-RING (L-13148) — the FINISHED perimeter's own source and layers.
+// ⛔ ITS OWN SOURCE, NOT THE PREVIEW'S. `clearPreview()` empties the preview sources on every
+// exit; sharing them would mean the settled ring is wiped by the very disarm that creates it.
+export const ENVELOPE_SETTLED_SOURCE = 'pryzm-envelope-settled';
+export const ENVELOPE_SETTLED_FILL_LAYER = 'pryzm-envelope-settled-fill-layer';
+export const ENVELOPE_SETTLED_LINE_LAYER = 'pryzm-envelope-settled-line-layer';
 
 /**
  * The six things this adapter asks of a MapLibre map. A STRUCTURAL type, not an import: it keeps
@@ -238,6 +244,81 @@ export class SiteEnvelopeDrawMap2D implements EnvelopeDrawSurface {
             this.deps.map.getSource(ENVELOPE_DRAW_LINE_SOURCE)?.setData(emptyFC());
             this.deps.map.getSource(ENVELOPE_DRAW_POINT_SOURCE)?.setData(emptyFC());
         } catch { /* style swapped or map disposed — the sources went with it */ }
+    }
+
+    /**
+     * ⭐ §ENVELOPE-DRAW-SETTLED-RING (L-13148) — the closed perimeter stays on the map after the
+     * gesture ends. See the port's note for why this is a second channel and not a longer-lived
+     * preview.
+     *
+     * ⚠ IT RESOLVES ITS OWN FRAME, for the same reason the 3-D adapter does: `this.frame` is
+     * nulled by `disarm()`, and the finish disarms before it paints.
+     */
+    drawSettledRing(ring: readonly SceneXZPoint[]): void {
+        if (ring.length < 3) { this.clearSettledRing(); return; }
+        const frame = this.frame ?? this.resolveFrameNow();
+        if (!frame) {
+            console.warn(
+                '[site][envelope-draw][2d] §ENVELOPE-DRAW-SETTLED-RING the perimeter was stored but '
+                + 'the site frame origin is no longer resolvable, so it is not drawn. The create '
+                + 'panel still holds it.',
+            );
+            return;
+        }
+        if (!this.ensureSettledLayers()) return;
+        try {
+            const coords = ring.map((pt) => {
+                const ll = projectXZToLatLon(pt, frame);
+                return [ll.lon, ll.lat] as [number, number];
+            });
+            this.deps.map.getSource(ENVELOPE_SETTLED_SOURCE)?.setData({
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    properties: {},
+                    // GeoJSON polygons close explicitly — first vertex repeated last.
+                    geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
+                }],
+            });
+        } catch (e) {
+            console.warn('[site][envelope-draw][2d] settled-ring draw failed (non-fatal):', e);
+        }
+    }
+
+    /** Idempotent; safe when the style was swapped and the source went with it. */
+    clearSettledRing(): void {
+        try { this.deps.map.getSource(ENVELOPE_SETTLED_SOURCE)?.setData(emptyFC()); }
+        catch { /* style swapped or map disposed */ }
+    }
+
+    /** The settled ring's source + two layers, installed lazily for the same reason as the preview's. */
+    private ensureSettledLayers(): boolean {
+        try {
+            const map = this.deps.map;
+            if (!map.getSource(ENVELOPE_SETTLED_SOURCE)) {
+                map.addSource(ENVELOPE_SETTLED_SOURCE, { type: 'geojson', data: emptyFC() });
+            }
+            if (!map.getLayer(ENVELOPE_SETTLED_FILL_LAYER)) {
+                map.addLayer({
+                    id: ENVELOPE_SETTLED_FILL_LAYER,
+                    type: 'fill',
+                    source: ENVELOPE_SETTLED_SOURCE,
+                    paint: { 'fill-color': VIOLET_CSS, 'fill-opacity': 0.13 },
+                });
+            }
+            if (!map.getLayer(ENVELOPE_SETTLED_LINE_LAYER)) {
+                map.addLayer({
+                    id: ENVELOPE_SETTLED_LINE_LAYER,
+                    type: 'line',
+                    source: ENVELOPE_SETTLED_SOURCE,
+                    paint: { 'line-color': VIOLET_CSS, 'line-width': 2.5 },
+                });
+            }
+            return true;
+        } catch (e) {
+            console.warn('[site][envelope-draw][2d] settled-ring layers could not be installed:', e);
+            return false;
+        }
     }
 
     // ── ARM / DISARM ────────────────────────────────────────────────────────────────────────
