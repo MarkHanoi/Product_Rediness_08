@@ -53,6 +53,34 @@ const GIS = read('apps/editor/src/ui/layout/GISAreaLayout.ts');
 const REGISTRY = read('apps/editor/src/ui/gis/gisActionRegistry.ts');
 const PANE_MODEL = read('apps/editor/src/engine/views/paneViewModel.ts');
 const BROWSER = read('apps/editor/src/ui/ViewBrowser/ProjectBrowserPanel.ts');
+const SVM = read('apps/editor/src/engine/views/SplitViewManager.ts');
+const SPLIT_CSS = read('apps/editor/src/ui/styles/panels/splitView.ts');
+const ALH = read('apps/editor/src/ui/levels/ActiveLevelHUD.ts');
+const DOCKING = read('apps/editor/src/ui/layout/DockingLayout.ts');
+const CPL = read('apps/editor/src/ui/layout/CreatePanelLayout.ts');
+const LG_RAIL = read('apps/editor/src/ui/ViewBrowser/panels/LevelsGridsRailPanel.ts');
+const BINDER = read('apps/editor/src/engine/views/LevelPlanViewBinder.ts');
+const PLAN_CANVAS = read('packages/core-app-model/src/views/PlanViewCanvas.ts');
+
+/**
+ * ⭐ SOURCE WITH COMMENTS REMOVED, and it is load-bearing for every "this is GONE" arm.
+ * §BIM-3D-CHROME-QUIET documents each retired control IN PLACE — naming
+ * `_setCameraElevation`, `_getLevels` and `projectContext.activeLevelId` in the comment
+ * that explains why they left. A naive `not.toContain` over the raw file therefore fails
+ * on the explanation rather than on a regression, which is the §RAF-GATE-COMMENT-BLIND
+ * defect (P3, L-13084): a gate that counts sentences instead of code.
+ */
+const stripComments = (src: string): string => src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+const SVM_CODE = stripComments(SVM);
+
+/** The body of a top-level CSS rule inside a `styles/panels/*.ts` template literal. */
+function cssRule(src: string, selector: string): string {
+  const at = src.indexOf(`\n${selector} {`);
+  if (at === -1) return '';
+  const open = src.indexOf('{', at);
+  const close = src.indexOf('\n}', open);
+  return src.slice(open + 1, close);
+}
 
 /**
  * The body of a `const <name> = (...) => { … };` arrow declared inside `mountGISArea`,
@@ -155,5 +183,134 @@ describe('§BIM-3D-CHROME-QUIET — ARM C: the three functions are still declare
     expect(PANE_MODEL).toContain("viewType: 'bim-3d'");
     expect(PANE_MODEL).toMatch(/'bim-3d'[\s\S]{0,600}paneHostable:\s*false/);
     expect(PANE_MODEL).toContain('cannot be ');
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+ * ARM D — THE PANE-HEADER LEVEL CHIP IS RELOCATED, NOT DELETED.
+ *
+ * `Level: [Ground ▾]` in `.svp-header` was the SECOND writer of
+ * `projectContext.activeLevelId`. It is gone from the pane header, and every one of
+ * its three jobs has a named owner elsewhere. The arms below fail if any of those
+ * owners disappears — which is the only way this becomes a deletion.
+ * ════════════════════════════════════════════════════════════════════════════ */
+describe('§BIM-3D-CHROME-QUIET — ARM D: the level chip moved to a control that is always on screen', () => {
+  it('the split pane no longer builds a level chip, and no longer WRITES the active level', () => {
+    expect(SVM_CODE, 'the pane header still builds a level select').not.toContain("'svp-level-select'");
+    expect(SVM_CODE, 'the pane header still builds the level group').not.toContain('levelGroup.className');
+    // ⭐ THE POINT OF THE MOVE. C59 §2 invariant 3 / P6: the level has ONE authority and
+    // the pane FOLLOWS it (via LevelPlanViewBinder → setPlanViewId) rather than writing it.
+    expect(
+      SVM_CODE,
+      'SplitViewManager writes projectContext again — it is a follower, not a writer',
+    ).not.toContain('projectContext.activeLevelId =');
+  });
+
+  it('⭐ CHANGING the level is still one gesture — ActiveLevelHUD writes the SAME field', () => {
+    expect(ALH).toContain('this.props.projectContext.activeLevelId = id');
+    // And it is genuinely mounted, in the mode bar, beside Author | Inspect | Analysis | Data —
+    // not conditional on this pane being open.
+    expect(DOCKING, 'the mode-bar slot the HUD mounts into is gone').toContain("levelSlot.id        = 'alh-modebar-slot'");
+    expect(CPL, 'nothing fills that slot any more').toContain("document.getElementById('alh-modebar-slot')");
+    expect(CPL).toContain('new ActiveLevelHUD(');
+  });
+
+  it('JUMPING to a level BY NAME from a list is still reachable (the HUD only steps up/down)', () => {
+    // ⚠ THE STATED COST OF THE MOVE, pinned so it cannot quietly get worse: the HUD is a
+    // stepper, so the by-name list lives in the Levels & Grids rail panel. If that mount
+    // goes, the degradation stops being "one extra gesture" and becomes "unreachable".
+    expect(LG_RAIL).toContain('LevelManagerPanel');
+    expect(LG_RAIL).toContain('new LevelManagerPanel(');
+  });
+
+  it('⛔ the chip ONE unproven residual was PROBED, and the probe still holds', () => {
+    // The chip also called `_setCameraElevation(lv.elevation)`; the HUD does not. That leg
+    // was measured INERT before removal, and these arms are the measurement, kept alive:
+    //   (a) nothing sets a camera elevation in the pane any more, and
+    //   (b) `PlanViewCanvas` still reads `camTarget.y` for a finiteness check and a log
+    //       string ONLY — never for geometry. If (b) ever changes, the probe is void and
+    //       a per-level plan camera has to be built deliberately.
+    expect(SVM_CODE).not.toContain('_setCameraElevation(');
+    expect(SVM_CODE).not.toMatch(/_camTarget\.y\s*=/);
+    // MEASURED: FOUR mentions of `camTarget.y` in PlanViewCanvas, and not one is geometry —
+    //   1. `Number.isFinite(camTarget.y)`      — the sanity check
+    //   2. the cm-rounded `refusedKey`          — log de-duplication
+    //   3. the refusal message text             — a printed number
+    //   4. `fitToDrawing`'s `this._camTarget.y` — PRESERVES the existing y while writing x/z
+    // A FIFTH is the signal that someone started using it, and the probe must be re-run.
+    const yReads = PLAN_CANVAS.match(/camTarget\.y/g) ?? [];
+    expect(
+      yReads.length,
+      'PlanViewCanvas gained a new camTarget.y reader — re-run the §BIM-3D-CHROME-QUIET probe '
+        + 'before trusting that the retired level chip changed no pixel',
+    ).toBe(4);
+    expect(PLAN_CANVAS).toContain('Number.isFinite(camTarget.y)');
+  });
+
+  it('the chip OTHER two legs are carried by the binder, which the HUD write drives', () => {
+    // `_hasFitProjectedDrawing = false` + the pane re-target both live on the path
+    // activeLevelChanged → LevelPlanViewBinder._retargetPlanSurfaces → svm.setPlanViewId
+    // → _onViewSelectChange.
+    expect(BINDER).toContain("window.addEventListener('activeLevelChanged'");
+    expect(BINDER).toContain('svm.setPlanViewId?.(target.id)');
+    expect(SVM).toMatch(/setPlanViewId\(viewId: string\): void \{[\s\S]{0,200}_onViewSelectChange\(viewId\)/);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+ * ARM E — THE VIEW-DEFINITION SELECT IS QUIETER AND STILL THERE.
+ *
+ * ⭐ THIS IS THE PUSHBACK THE FOUNDER RULED ON. He struck `Ground Fl…` with the rest
+ * of the header; it is NOT a level chip — it is the ONLY route in the product to open
+ * a SECTION or an ELEVATION, and `paneViewModel.ts` refuses both per-pane by pointing
+ * the user AT it. Removing it would turn two registry refusals into lies. Ruling:
+ * keep it, make it quieter.
+ * ════════════════════════════════════════════════════════════════════════════ */
+describe('§BIM-3D-CHROME-QUIET — ARM E: .svp-view-select is quiet, labelled, and still the only door to sections/elevations', () => {
+  it('⛔ it is still built, and still carries every optgroup', () => {
+    expect(SVM).toContain("viewSel.className = 'svp-view-select'");
+    for (const group of ['Floor Plans', 'Reflected Ceiling Plans', 'Sections', 'Elevations']) {
+      expect(SVM, `the "${group}" optgroup left the only control that offers it`).toContain(
+        `addGroup('${group}'`,
+      );
+    }
+  });
+
+  it('⭐ the two refusals that POINT at it are still worded as pointers, so it may not go', () => {
+    // If these refusals are ever reworded away from "that pane's own view selector", the
+    // reason this control is exempt from the tidy-up has changed and this arm should be
+    // revisited — not silenced.
+    expect(PANE_MODEL).toContain("'bim-section-2d'");
+    expect(PANE_MODEL).toContain("'bim-elevation-2d'");
+    // ⚠ The apostrophe is BACKSLASH-ESCAPED in the source (a single-quoted TS string), so
+    // the literal on disk reads `pane\'s`. Matching the human spelling silently found zero.
+    const pointers = PANE_MODEL.match(/pane\\?'s own view selector/g) ?? [];
+    expect(pointers.length, 'the refusals stopped naming the control they depend on').toBe(2);
+  });
+
+  it('QUIETER: no filled box at rest — the chrome arrives on hover and focus', () => {
+    const rest = cssRule(SPLIT_CSS, '.svp-view-select');
+    expect(rest.length, '.svp-view-select rule not found').toBeGreaterThan(20);
+    expect(rest, 'the select is a filled box again').toContain('background: transparent');
+    // ⛔ TRANSPARENT, NOT ABSENT. A removed border reflows the header by 1px the moment
+    // hover restores it; a transparent one reserves the space.
+    expect(rest, 'the border was removed rather than made transparent').toContain(
+      'border: 1px solid transparent',
+    );
+    for (const state of [':hover', ':focus']) {
+      const body = cssRule(SPLIT_CSS, `.svp-view-select${state}`);
+      expect(body, `.svp-view-select${state} no longer draws the control`).toContain('border-color');
+    }
+  });
+
+  it('⛔ QUIET IS NOT ICON-ONLY — the legibility floors that shellFloatBudget pins are intact', () => {
+    // The reason, and it is measured elsewhere: a `<select>` with `appearance: none` paints
+    // its chevron as a background-image at ANY width, so the affordance outlives the label
+    // and you get a control the user can click and cannot read. Shrinking this to a bare
+    // chevron would BE that defect, deliberately.
+    const rest = cssRule(SPLIT_CSS, '.svp-view-select');
+    expect(rest).toContain('appearance: none');
+    expect(rest).toMatch(/min-width:\s*\d+px/);
+    expect(rest).toContain('text-overflow: ellipsis');
   });
 });

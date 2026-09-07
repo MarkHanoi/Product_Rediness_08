@@ -138,15 +138,38 @@ export const SPLIT_VIEW_STYLES = `
     box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
 }
 
-/* ── View-type selector (Plan / Sections / Elevations / RCP) ──────────────── */
+/* ── View-type selector (Plan / Sections / Elevations / RCP) ──────────────────
+   §BIM-3D-CHROME-QUIET (founder 2026-09-07 · L-13027 · L-13084 · C59 §2.10.3)
+
+   *"clean the rest on the top — make it simple."* He struck this control too, and the
+   ruling on the pushback was KEEP IT, MAKE IT QUIETER — because it is NOT a level chip:
+   its optgroups (Floor Plans · RCP · Sections · Elevations) are the ONLY route in the
+   product to open a section or an elevation, and 'paneViewModel.ts' refuses those view
+   types per-pane by pointing the user AT this control. Removing it would make two
+   registry refusals into lies.
+
+   So: the BOX goes, the CONTROL stays. Transparent ground and a transparent 1px border
+   (reserved, not removed — so hover reveals the affordance without a 1px reflow), and a
+   grey chevron instead of the indigo one. It now reads as the pane's title with a small
+   disclosure, which is what it replaced ("replaces the static 'Floor Plan' text label"),
+   while hover and focus still draw the full control.
+
+   ⛔ WHAT IS DELIBERATELY NOT DONE: it is not made ICON-ONLY. 'shellFloatBudget.spec.ts'
+   §"no labelled control in that header can collapse to its own chevron" exists because a
+   '<select>' with 'appearance: none' paints its chevron as a background-image at ANY
+   width — "the affordance outlives the label", a control you can click and cannot read.
+   Dropping the label deliberately would BE that defect, and it also costs the founder's
+   standing complaint the other way ("I don't know which view I'm in"). Quiet, labelled,
+   one gesture to every optgroup. 'appearance: none' and the 'min-width' floor are pinned
+   by that spec and stay. */
 
 .svp-view-select {
     font-family: var(--app-font, system-ui, sans-serif);
     font-size: 11px;
     font-weight: 600;
-    color: #2d3748;
-    background: #f7fafc;
-    border: 1px solid #e2e8f0;
+    color: #4a5568;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 4px;
     padding: 2px 22px 2px 7px;
     cursor: pointer;
@@ -155,7 +178,7 @@ export const SPLIT_VIEW_STYLES = `
     min-width: 100px;
     appearance: none;
     -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3l3 4 3-4' stroke='%236366f1' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3l3 4 3-4' stroke='%23a0aec0' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 6px center;
     text-overflow: ellipsis;
@@ -163,15 +186,17 @@ export const SPLIT_VIEW_STYLES = `
     overflow: hidden;
     letter-spacing: 0;
     text-transform: none;
-    transition: border-color 0.12s, box-shadow 0.12s;
+    transition: border-color 0.12s, box-shadow 0.12s, background-color 0.12s, color 0.12s;
 }
 
 .svp-view-select:focus {
+    color: #2d3748;
     border-color: #6366f1;
     box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
 }
 
 .svp-view-select:hover {
+    color: #2d3748;
     border-color: #a5b4fc;
     background-color: #f0f1ff;
 }

@@ -40,7 +40,9 @@ import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { DEFAULT_PLAN_VIEW_ID } from '@pryzm/core-app-model';
 import { resolveVgCanvasStyle } from '@pryzm/core-app-model';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
-import { projectContext } from '@pryzm/core-app-model';
+// §BIM-3D-CHROME-QUIET — the `projectContext` import left with the level chip: this pane
+// no longer WRITES the active level. It still FOLLOWS it, through `LevelPlanViewBinder`
+// calling `setPlanViewId()`, which is the one-writer shape C59 §2 invariant 3 asks for.
 import { IFC_PROJECTION_CHANGED_EVENT } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
 import { sheetStore } from '@pryzm/core-app-model';
@@ -86,11 +88,13 @@ const PLAN_FIT_OUTLIER_WARN_M = 5_000;
 /** Target frame interval for the secondary renderer (~30 fps). */
 const SECONDARY_FPS_INTERVAL = 1000 / 30;
 
-interface Level {
-    id: string;
-    name: string;
-    elevation: number;
-}
+/**
+ * §BIM-3D-CHROME-QUIET (founder 2026-09-07 · L-13027 · L-13084 · C59 §2.10.3) — the local
+ * `Level` shape and `_getLevels()` left with the pane-header level chip they existed to
+ * populate. The active level now has ONE control (`ActiveLevelHUD`, in the mode bar) and
+ * one full list (`LevelManagerPanel`, in the Levels & Grids rail panel); this pane reads
+ * the level through `projectContext` / `LevelPlanViewBinder` and no longer enumerates them.
+ */
 
 export class SplitViewManager implements ISplitViewManager {
     private _world:    OBC.World;
@@ -106,10 +110,8 @@ export class SplitViewManager implements ISplitViewManager {
     private _viewHeaderHandle: ViewHeaderButtonsHandle | null = null;
     /** Public accessor — used by remote-sync handlers to refresh header state. */
     get viewHeaderHandle(): ViewHeaderButtonsHandle | null { return this._viewHeaderHandle; }
-    /** Level group wrapper — hidden when a non-plan view is active. */
-    private _levelGroup:      HTMLElement | null = null;
-    /** Level selector element — kept for future programmatic level changes. */
-    private readonly _levelSelectRef: { el: HTMLSelectElement | null } = { el: null };
+    // §BIM-3D-CHROME-QUIET — `_levelGroup` / `_levelSelectRef` retired with the chip
+    // (see the note above the class). Nothing else in this file held either.
 
     // Phase 2 — VG event listeners to clean up on deactivate
     private _vgUnlisteners: Array<() => void> = [];
@@ -251,8 +253,9 @@ export class SplitViewManager implements ISplitViewManager {
         if (!viewId || viewId === this._planViewId) return;
         this._onViewSelectChange(viewId);
         if (this._viewSelect) this._viewSelect.value = viewId;
-        const lv = viewDefinitionStore.get(viewId)?.spatial?.levelId;
-        if (lv && this._levelSelectRef.el) this._levelSelectRef.el.value = lv;
+        // §BIM-3D-CHROME-QUIET — the pane-header level chip this used to keep in sync is
+        // gone; `ActiveLevelHUD` re-renders off `projectContext`'s `activeLevelChanged`,
+        // which is the event that got us here, so the surviving control is already right.
     }
 
     getSvpCanvas(): HTMLCanvasElement | null {
@@ -431,8 +434,6 @@ export class SplitViewManager implements ISplitViewManager {
     // ── DOM ───────────────────────────────────────────────────────────────────
 
     private _buildDOM(): void {
-        const levels = this._getLevels();
-
         // ── Secondary pane ────────────────────────────────────────────────────
         const pane = document.createElement('div');
         pane.className = 'svp-pane';
@@ -463,49 +464,55 @@ export class SplitViewManager implements ISplitViewManager {
         titleGroup.appendChild(dot);
         titleGroup.appendChild(viewSel);
 
-        const levelGroup = document.createElement('div');
-        levelGroup.className = 'svp-header-level';
-        this._levelGroup = levelGroup;
-
-        if (levels.length > 0) {
-            const levelLabel = document.createElement('span');
-            levelLabel.className = 'svp-level-label';
-            levelLabel.textContent = 'Level:';
-
-            const sel = document.createElement('select');
-            sel.className = 'svp-level-select';
-            levels.forEach(lv => {
-                const opt = document.createElement('option');
-                opt.value = lv.id;
-                opt.textContent = lv.name;
-                sel.appendChild(opt);
-            });
-            sel.addEventListener('change', () => {
-                const lv = levels.find(l => l.id === sel.value);
-                if (!lv) return;
-                this._setCameraElevation(lv.elevation);
-                this._hasFitProjectedDrawing = false;
-                // §FEAT-LEVEL-RELATIVE-PLAN-VIEWS (L-720) — this selector said "Level:"
-                // but only moved the CAMERA: the pane kept drawing, projecting, clipping
-                // and snapping against the previous level's plan view, and the app's
-                // active level did not move at all. Publishing the level through
-                // ProjectContext (the single level authority) makes the label honest —
-                // LevelPlanViewBinder then re-targets this pane AND the main viewport at
-                // that level's plan view, and new elements land on the storey shown.
-                projectContext.activeLevelId = lv.id;
-            });
-            this._levelSelectRef.el = sel;
-
-            levelGroup.appendChild(levelLabel);
-            levelGroup.appendChild(sel);
-        }
+        // ══════════════════════════════════════════════════════════════════════
+        // §BIM-3D-CHROME-QUIET (founder 2026-09-07 · L-13027 · L-13084 · C59 §2.10.3)
+        //
+        // *"clean the rest on the top — make it simple."* The `Level: [Ground ▾]` chip
+        // that stood here is RELOCATED, NOT DELETED — and it was never this pane's
+        // control to own: `projectContext.activeLevelId` is the ONE level authority and
+        // this chip was one of three writers of it.
+        //
+        // ⭐ WHERE THE FUNCTION LIVES NOW, so nothing became unreachable:
+        //   · CHANGE the active level → `ActiveLevelHUD` (`ui/levels/ActiveLevelHUD.ts:123`),
+        //     mounted into `#alh-modebar-slot` beside Author | Inspect | Analysis | Data
+        //     (`DockingLayout.ts:230` creates the slot, `CreatePanelLayout.ts:835` fills it).
+        //     It writes the SAME `projectContext.activeLevelId = id`, always on screen,
+        //     independent of whether this pane is open.
+        //   · JUMP to a level BY NAME from a list → `LevelManagerPanel`
+        //     (`ui/levels/LevelManagerPanel.ts`) inside the Levels & Grids rail panel
+        //     (`ui/ViewBrowser/panels/LevelsGridsRailPanel.ts:54`). The HUD steps ▲/▼; the
+        //     rail panel is the full list, which is what a tall project needs.
+        //   · SHOW which level is active → the HUD renders name + elevation.
+        //
+        // ⛔ THE ONE RESIDUAL, PROBED BEFORE REMOVAL RATHER THAN ASSUMED. The chip also
+        // called `_setCameraElevation(lv.elevation)`, and the HUD does not. MEASURED: that
+        // leg is INERT. `_setCameraElevation` writes `_camTarget.y` and NOTHING reads it —
+        // `_render` maps world→canvas from `.x`/`.z` only; `PlanViewCanvas.setFrustum`
+        // (`packages/core-app-model/src/views/PlanViewCanvas.ts:871`) copies the vector but
+        // reads `.y` solely for a `Number.isFinite` check and the refusal log's text. Its
+        // own body says so: *"Store the target elevation for multi-level support (future)."*
+        // And `_onViewSelectChange` resets `_camTarget.set(0, 0, 0)` on every view change,
+        // so even the stored value does not survive the level switch it was set by.
+        // The chip's OTHER two legs ARE carried: `_hasFitProjectedDrawing = false` is set
+        // by `_onViewSelectChange`, reached via `LevelPlanViewBinder._retargetPlanSurfaces`
+        // → `setPlanViewId`; and that binder is driven by the very `activeLevelChanged`
+        // that `ActiveLevelHUD` emits (`ProjectContext.ts:33`).
+        //
+        // ⚠ STATED COST: switching level from the HUD is ▲/▼ stepping, not a one-click jump
+        // to an arbitrary storey. On a tall project the by-name jump is the rail panel, one
+        // extra gesture away. That is a real degradation and it is written down rather than
+        // blessed.
+        //
+        // The `.svp-level-select` / `.svp-header-level` RULES STAY in `styles/panels/
+        // splitView.ts` — `shellFloatBudget.spec.ts` pins their legibility floors and they
+        // are the shape any future in-pane level control must take.
+        // ══════════════════════════════════════════════════════════════════════
 
         // ── Contract 25b Wave 2 — legacy VG eye button + template dropdown retired ───
         // The unified shared toolbar built below (`buildViewHeaderToolbar`, Stage S1+S4)
         // owns the V/G entry point, intent picker and overrides badge.
 
         header.appendChild(titleGroup);
-        header.appendChild(levelGroup);
 
         // ── Stage S1+S4 — shared parity toolbar (Grid / IFC / V/G / Overrides / Intent / Range / Close) ──
         const handle = buildViewHeaderToolbar({
@@ -644,9 +651,7 @@ export class SplitViewManager implements ISplitViewManager {
         this._canvas         = null;
         this._gridToggleBtn  = null;
         this._viewSelect     = null;
-        this._levelGroup     = null;
         this._divider        = null;
-        this._levelSelectRef.el = null;
 
         // §VIEW-REGION-HAS-ONE-OWNER — the region is no longer divided. Five inline
         // clears used to live here; the owner releases the box back to `flex: 1 1 0`.
@@ -1038,12 +1043,12 @@ export class SplitViewManager implements ISplitViewManager {
 
         // Phase 2 G6 — extracted to _configureCanvasForView so first-frame
         // (activate) and subsequent view changes apply identical setup.
-        const isPlanLike = this._configureCanvasForView(viewDef, viewType);
-
-        // Show/hide the level selector — only meaningful for plan-family views.
-        if (this._levelGroup) {
-            this._levelGroup.style.display = isPlanLike ? '' : 'none';
-        }
+        // §BIM-3D-CHROME-QUIET — the return value gated the pane-header level chip's
+        // visibility (plan-family views only). The chip is relocated to `ActiveLevelHUD`,
+        // which is level state and not view state, so it is correct for it NOT to hide on
+        // a section or an elevation: the active level still decides where new elements
+        // land. Nothing else read this flag here.
+        this._configureCanvasForView(viewDef, viewType);
 
         // Reset pan/zoom so the new drawing fits the pane.
         this._camTarget.set(0, 0, 0);
@@ -1279,10 +1284,15 @@ export class SplitViewManager implements ISplitViewManager {
         this._planCanvas.setSize(w, h);
     }
 
-    private _setCameraElevation(elevation: number): void {
-        // Store the target elevation for multi-level support (future).
-        this._camTarget.y = elevation;
-    }
+    // §BIM-3D-CHROME-QUIET — `_setCameraElevation(elevation)` lived here and had ONE
+    // caller, the retired level chip. Its whole body was `this._camTarget.y = elevation`
+    // under the comment *"Store the target elevation for multi-level support (future)."*
+    // ⭐ IT WAS PROVABLY INERT and that is why removing it changes no pixel: `_render`
+    // maps world→canvas from `_camTarget.x` / `.z` only, `PlanViewCanvas.setFrustum` reads
+    // `.y` for a finiteness check and a log string and never for geometry, and
+    // `_onViewSelectChange` clears the vector with `_camTarget.set(0, 0, 0)` on every view
+    // change. Documented rather than silently deleted so a future per-level plan CAMERA
+    // (the "future" that comment promised) is built deliberately, not inherited half-done.
 
     // ── Render Loop ───────────────────────────────────────────────────────────
 
@@ -1989,27 +1999,10 @@ export class SplitViewManager implements ISplitViewManager {
         }
     }
 
-    private _getLevels(): Level[] {
-        try {
-            const bimManager = window.bimManager;
-            if (bimManager?.getLevels) {
-                return (bimManager.getLevels() as any[]).map((lv: any) => ({
-                    id:        lv.id,
-                    name:      lv.name ?? lv.id,
-                    elevation: lv.elevation ?? 0,
-                }));
-            }
-            const pc = window.projectContext;
-            if (pc?.getLevels) {
-                return (pc.getLevels() as any[]).map((lv: any) => ({
-                    id:        lv.id,
-                    name:      lv.name ?? lv.id,
-                    elevation: lv.elevation ?? 0,
-                }));
-            }
-        } catch { /* ignore */ }
-        return [];
-    }
+    // §BIM-3D-CHROME-QUIET — `_getLevels()` (a bimManager-then-projectContext level
+    // reader) lived here with ONE caller: `_buildDOM`, populating the retired level chip.
+    // `ActiveLevelHUD` and `LevelManagerPanel` read levels from an INJECTED `bimManager`
+    // rather than off `window`, which is the shape a replacement should take.
 
     /** Notify the primary OBC world/renderer that its canvas size changed. */
     private _notifyPrimaryResize(): void {
