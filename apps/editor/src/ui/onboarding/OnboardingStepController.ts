@@ -97,6 +97,14 @@ import {
 import { lookupParcelByRefcat } from '../site/parcel/CatastroParcelProvider.js';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { warmAllContextLayers } from '../geospatial/contextLayerWarm.js';
+// §STARTUP-NAME-CARD (founder 2026-09-07) — the floating "Name your project" card raised over the
+// LIVE globe the instant the geocode resolves, so the ~18 s load has something useful in front of
+// it. ⛔ It gates NOTHING — see `startupProjectNameCardIsNonGating`.
+import {
+    showStartupProjectNameCard,
+    dismissStartupProjectNameCard,
+    startupProjectNameDefault,
+} from './startupProjectNameCard.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
 import { markStartupPhase } from '../../engine/startupBudget';
 // §UX-COMPACT-TYPE-PILL (L-11131) — the confirm pill is placed BESIDE the view-mode bar,
@@ -851,6 +859,43 @@ export class OnboardingStepController {
                     address: picked.address,
                     ...(picked.bbox ? { bbox: picked.bbox } : {}),
                 });
+                // §STARTUP-NAME-CARD (founder 2026-09-07, live build cd5bcbb9: "Maybe add straight
+                // after a new modal asking for the name of the project — like that gives you time
+                // — then you load barcelona split view straight away!").
+                //
+                // ⭐ STATEMENT ORDER IS THE PROOF, NOT A COMMENT. The reveal is kicked off on the
+                // line ABOVE, and `warmContextCache` fired at the `city` stage before that. So by
+                // the time this card exists the context warm, the armed descent, the split mount
+                // and the tile reads are ALL already in flight, and none of them can observe it:
+                // `showStartupProjectNameCard` returns `void` and exposes no readiness signal
+                // (`startupProjectNameCardIsNonGating`). ⛔ If a future edit makes the load wait on
+                // this card, wall-clock gets WORSE and only the perception moves — that is the one
+                // failure mode this whole design is arranged against.
+                //
+                // ⚠ NOT auto-dismissed when the load wins the race: the split simply reveals
+                // BEHIND the card and the user confirms in their own time. Yanking a focused text
+                // field out from under a cursor is worse than the wait it would save.
+                //
+                // ⚠ NOT full-screen and NO backdrop — the founder asked for the slow descent
+                // specifically so he could WATCH it (§STARTUP-SLOW-DESCENT), so the globe stays
+                // visible and live around the card. Escape or "Skip" commits the geocoded default
+                // (§REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH, L-942 — it can always be closed).
+                const defaultName = startupProjectNameDefault(picked.address);
+                if (defaultName) {
+                    showStartupProjectNameCard({
+                        defaultName,
+                        onCommit: (name) => {
+                            // The SAME `runtime.persistence.client.rename` path the hub's rename
+                            // modal uses — best-effort, never gating, never a second naming write.
+                            void this.applyProjectName(name).catch((e) => {
+                                console.warn('[onboarding-step] §STARTUP-NAME-CARD rename failed (non-fatal):', e);
+                            });
+                        },
+                    });
+                    // The card outlives this step's own DOM (it floats on `document.body` over the
+                    // split that is about to mount), so it is torn down with the CONTROLLER.
+                    this.addCleanup(() => dismissStartupProjectNameCard());
+                }
             },
             entries: siteEntryCoverageEntries(),
             // §STARTUP-BUDGET — the same geocoder, with phase marks around the round-trip.

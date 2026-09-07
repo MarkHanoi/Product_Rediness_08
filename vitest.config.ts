@@ -180,6 +180,14 @@ export default defineConfig({
       // this list is an ALLOWLIST (§L-851): a spec outside it is never discovered, and
       // "never ran" and "passed" print the same value.
       'apps/editor/src/ui/layout/__tests__/**/*.spec.ts',
+      // §STARTUP-NAME-CARD (founder 2026-09-07): the floating "Name your project" card raised over
+      // the flying globe at geocode:end, and the assertions that keep it a TIME-BUYER rather than a
+      // GATE (it returns void, so no loader can await it; Escape always closes it).
+      // ⚠ ADDED IN THE SAME COMMIT AS THE SPEC, and this is why: the directory was NOT on this
+      // allowlist, so `npx vitest run apps/editor/src/ui/onboarding` reported
+      // "No test files found" — §L-851 exactly, "never ran" and "passed" print the same value.
+      // Every existing onboarding spec was invisible to the root suite until this line.
+      'apps/editor/src/ui/onboarding/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.
