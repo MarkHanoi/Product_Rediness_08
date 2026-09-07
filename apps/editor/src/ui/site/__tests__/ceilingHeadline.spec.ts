@@ -42,7 +42,8 @@ import {
     CEILING_SUBJECT,
     type CeilingKey,
 } from '../ceilingHeadlineSection';
-import { CEILING_LABEL } from '../intentAgainstCeilingModel';
+import { buildIntentAgainstCeiling, CEILING_LABEL } from '../intentAgainstCeilingModel';
+import { buildParcelLawModel } from '../parcel/parcelLawModel';
 import {
     __resetSiteHighlightForTests,
     __resetSiteHighlightSurfacesForTests,
@@ -344,5 +345,113 @@ describe('§26.6.7 / C58 §1.13 (L-13048) — THE ABSENCE ARMS SURVIVED THE LIFT
         expect(card).toContain('Buildable depth');
         expect(card).toContain('Alignment offset');
         expect(card).toContain('Alignment zone — setbacks/height/FAR set by');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// §26.6.0 RULE 1 vs RULE 3 (L-13085, lane HEADLINE-CLOSE) — WHERE A CEILING FIGURE MAY APPEAR
+// A SECOND TIME, AND THE ONE THING THAT MUST NOT DRIFT WHEN IT DOES.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ THIS BLOCK EXISTS BECAUSE THE TWO RULES PULL AGAINST EACH OTHER AND NOTHING SAID SO.
+// Rule 1 is *"NOTHING IS DUPLICATED. ONE FIGURE, ONE PLACE"*. Rule 3 is *"EVERY INTENT SITS SIDE
+// BY SIDE WITH ITS CEILING … I ALWAYS HAVE A WAY TO CHECK AGAINST THE TOTAL"*. In the Parcel Law
+// tab BOTH apply to one number: `Maximum height · 18.0 m` is in the card's headline (question 2)
+// AND beside the declared total height (question 3). A lane reading rule 1 alone, counting the
+// label in the mounted TAB and finding two, would "fix" rule 1 by deleting the founder's single
+// most repeated requirement.
+//
+// ⭐ RULE 1 RESOLVES IT IN ITS OWN WORDS: *"A figure appears in the section that OWNS it, and
+// everywhere else LINKS to it."* The card OWNS the four; question 3 LINKS to them — its ceiling
+// NAME is built by `buildSiteHighlightLabelEl`, the same ONE control builder, carrying the same
+// subject, writing the same store. So rule 1 is scoped to the OWNER surface (asserted above:
+// exactly one per key in the headline, and the card cannot name them a second time), and this
+// block pins the boundary so neither rule can be repaired by breaking the other.
+//
+// ⛔ AND IT PINS THE ONE THING THAT COULD SILENTLY DRIFT. The two surfaces already share the four
+// NAMES (`CEILING_LABEL`, its ONE owner). They do NOT share the four SUBJECTS: the headline reads
+// `CEILING_SUBJECT`, while `intentAgainstCeilingModel.ts` passes `'height'` / `'footprint'` /
+// `'gfa'` / `null` as literals at five `pair(...)` call sites. TWO TABLES, ONE BINDING — and the
+// failure they permit is invisible: change one and `Maximum buildable area` lights the study
+// volume from the card and something else from question 3, for the same named ceiling, with no
+// test red anywhere. This is executable agreement between the two live producers, not a grep.
+
+describe('§26.6.0 rule 1 vs rule 3 (L-13085) — the card OWNS the four; question 3 LINKS to them', () => {
+    const RECT = [{ x: 0, z: 0 }, { x: 40, z: 0 }, { x: 40, z: 30 }, { x: 0, z: 30 }];
+
+    /** A determined Barcelona-shaped envelope — the same fixture shape `intentAgainstCeilingModel.spec.ts` uses. */
+    function envelope(): never {
+        return {
+            insetPolygon: [{ x: 3, z: 3 }, { x: 37, z: 3 }, { x: 37, z: 27 }, { x: 3, z: 27 }],
+            insetAreaM2: 431, maxHeight_m: 9, farLimitedHeight_m: null, maxFloors: 3, maxFAR: null,
+            maxCoverage: null, maxVolumeM3: 3879, footprintIsUpperBound: false, confidence: 'structured',
+            granularity: 'parcel', status: 'ok', refusal: null, zoneCode: 'R1',
+            derivation: [{ constraint: 'setback.front', value: 3, source: 'pack', ordinanceRef: 'Art. 1', fieldProvenance: 'published-structured' }],
+            caveats: [], tiers: [], permittedUse: [],
+        } as never;
+    }
+
+    const intentModel = () => buildIntentAgainstCeiling({
+        readable: true,
+        byLevel: [
+            { levelId: 'L0', name: 'Ground', elevation: 0, levelEnvelopeCount: 1, intendedAreaM2: 300, heightM: 3, baseOffsetM: 0, rooms: [], roomsSubtotalM2: 0 },
+            { levelId: 'L1', name: 'First', elevation: 3, levelEnvelopeCount: 1, intendedAreaM2: 300, heightM: 3, baseOffsetM: 0, rooms: [], roomsSubtotalM2: 0 },
+        ],
+        roomEnvelopeCount: 0, roomsOnStoreysWithoutLevel: 0, skippedCount: 0, totalIntendedM2: 600,
+    }, buildParcelLawModel({
+        parcelRing: RECT, edgeClassifications: undefined, identity: null, envelope: envelope(),
+    }));
+
+    it('⭐ THE TWO SUBJECT TABLES AGREE — one named ceiling lights ONE geometry on both surfaces', () => {
+        const m = intentModel();
+        if (!m.readable) throw new Error('readable expected');
+        // Reverse the ONE name table, so a pair is matched by the founder's word rather than by a
+        // position in a list either surface could reorder.
+        const keyOfLabel = new Map<string, CeilingKey>(
+            CEILING_KEYS.map((k) => [CEILING_LABEL[k], k] as const),
+        );
+        const pairs = [m.levels, m.totalHeight, m.groundArea, ...m.areasPerLevel, m.totalArea];
+        // Every one of question 3's pairs names one of the founder's four — no fifth ceiling, and
+        // none of the four renamed on the way (which would defeat the match above silently).
+        expect(pairs.length).toBeGreaterThanOrEqual(5);
+        let matched = 0;
+        for (const p of pairs) {
+            const key = keyOfLabel.get(p.ceilingLabel);
+            expect(key, `question 3 pairs against "${p.ceilingLabel}", which is not one of the four`).not.toBeUndefined();
+            expect(
+                p.ceilingSubject,
+                `"${p.ceilingLabel}" lights ${String(p.ceilingSubject)} in question 3 but `
+                + `${String(CEILING_SUBJECT[key!])} in the card's headline — one ceiling, two geometries`,
+            ).toBe(CEILING_SUBJECT[key!]);
+            matched++;
+        }
+        expect(matched).toBe(pairs.length);
+        // ⛔ All four are actually exercised, so this cannot pass by matching none of them.
+        expect(new Set(pairs.map((p) => keyOfLabel.get(p.ceilingLabel)))).toEqual(new Set(CEILING_KEYS));
+    });
+
+    it('⛔ question 3 LINKS to the four — it never builds a second ceiling ROW of its own', () => {
+        // Rule 1's own escape clause is "everywhere else LINKS to it", and a link is the ONE
+        // control builder, not a second copy of the card's read-out row. Source pins, because the
+        // subject here is which module a file may import.
+        const q3 = src('../../analysis/parcelLawIntentAgainstCeiling.ts');
+        expect(q3).not.toContain('buildCeilingHeadlineHtml');
+        expect(q3).not.toContain('buildEnvelopeCardRowHtml');
+        // …and the ceiling's NAME goes through the ONE control builder, so following it writes the
+        // same store the headline's buttons write and the three views paint from.
+        expect(q3).toContain('buildSiteHighlightLabelEl(p.ceilingLabel');
+        // ⭐ The behaviour behind these pins is mounted and CLICKED in
+        // `parcelLawIntentAgainstCeiling.spec.ts` ("every CEILING is a hyperlink to its owner");
+        // what is pinned HERE is the boundary between the two rules, which neither spec owned.
+    });
+
+    it('⛔ the card is the OWNER — the headline is the only producer of a ceiling row', () => {
+        // Restated against the tab as well as the card, because the tab is where both rules apply
+        // to one number and where a rule-1 count would be taken.
+        const tab = src('../../analysis/parcelLawTab.ts');
+        expect(tab).not.toContain('buildCeilingHeadlineHtml');
+        expect(tab).not.toContain('buildEnvelopeCardRowHtml');
+        // The tab hosts the card as a re-homed SINGLETON — it never re-renders the four itself.
+        expect(src('../../layout/GISAreaLayout.ts')).toContain('buildCeilingHeadlineHtml(');
     });
 });
