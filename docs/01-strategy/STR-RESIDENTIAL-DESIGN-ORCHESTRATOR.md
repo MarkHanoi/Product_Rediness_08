@@ -1269,7 +1269,26 @@ Three separate facts, not one:
   `ParcelLawModel` carries `geometry.edges` and `ordinance.rules` (each setback constraint with
   ITS OWN citation, C58 §1.3) as the register's inputs.
 
-**Open, and why (not a lane's convenience — the architecture):**
+**STATUS LEDGER — re-measured 2026-09-07 by lane HEADLINE-CLOSE (L-13085). ⛔ READ THIS BEFORE
+THE LIST BELOW.** This list was headed *"Open, and why"* and, by the time it was read again, held
+**nothing that was open**: one standing architectural CONSTRAINT (which is not work), one bullet
+struck out as closed, one shipped, and one belonging to another lane. That is the exact defect the
+`Rooms DRAW` bullet below names in its own words — *"an 'Open' list that outlives the work it
+describes sends the next lane to rebuild something that is already on disk"* — recurring inside the
+section that recorded it. So each row now carries its state, and the heading no longer claims a
+state for all of them:
+
+| Row | State (2026-09-07) |
+|---|---|
+| Card-vs-tab ownership (§26.6.3 3.3 · §26.6.4) | **STANDING CONSTRAINT, not open work.** The founder's lift question inside it was DECIDED and SHIPPED. |
+| The four ceilings in the headline | **CLOSED** — `c8c62c51` lifted them, `954162ec` built the seam and the spec, `cb978592` pinned the rule-1/rule-3 boundary. |
+| Rules 1 · 2 · absence arms, end to end | **CLOSED AND RE-VERIFIED** — see the HEADLINE-CLOSE record below; no fix was needed and none was manufactured. |
+| Rooms DRAW on the open view | **CLOSED** (`1fa54287`) — and the bullet was stale when written. |
+| Rooms drawn by their party walls | **SHIPPED** (§DRAW-THEM, L-13096). |
+| Rule 4 (one massing at a time) | **NOT THIS SECTION'S** — MASSING-SHAPES owns it (`905b655f`). |
+| Pixels | ⚠ **GENUINELY OPEN.** Every arm above is measured in a real DOM or at its producer; **none of it has been seen in a browser.** This is the one row a spec cannot close. |
+
+**The rows, and why each is where it is (this is the architecture, not a lane's convenience):**
 
 - **§26.6.3 (3.3) massing options and §26.6.4's `Designed vs permitted` table stay INSIDE the
   singleton card, which sits in question 2.** The card is one element re-homed between hosts and
@@ -1343,6 +1362,45 @@ Three separate facts, not one:
   reader takes for buildable floor area. Three of the old headline's four lines were already
   duplicates of fold rows under different names, so the lift removed a duplication that predated
   it. ⚠ **Pixels unverified — not deployed.**
+  · ⭐ **RE-VERIFIED END TO END 2026-09-07 (lane HEADLINE-CLOSE, `cb978592`) — AND THE VERDICT IS
+  THAT NOTHING WAS OPEN.** Four things were re-measured against the code rather than against this
+  record, because a clean bill of health backed by a spec is a deliverable and a manufactured change
+  is not (C84 §9: the prose-justified verdicts were the wrong ones; the honest blanks were safe).
+  **(1) Rule 2 end to end** — the three subjects are real buttons, `wireSiteHighlightRows` returns
+  3, a click writes the ONE store, `keepSiteHighlightRowsPainted` repaints from it, and all three
+  renderers genuinely subscribe AND register AND carry both cues:
+  `ParcelBoundarySceneRenderer.ts:273/281/631-634`, `CesiumViewport.ts:2813/2822/7885/8045/8061`,
+  `SiteBoundaryMap2D.ts:4102/4107/1763/1766/1872`. **(2) Rule 1** — the fold's remaining rows are
+  `Buildable depth` · `Setbacks (F/S/R)` · `Max FAR` · `Max site coverage` · `Footprint / parcel` ·
+  `Footprint perimeter` · `Study volume` (`GISAreaLayout.ts:4134-4177`); **not one of them is one of
+  the four under another name**, which is the failure mode the lift itself corrected. **(3) The
+  absence arms** — four rows never three, `not derived` with its *"MISSING LOOKUP, not a finding"*
+  clause, and a zero footprint read as an absence. **(4)** the two §26.6.7 rows above.
+  · ⛔ **WHAT *WAS* OPEN WAS THE SEAM BETWEEN RULE 1 AND RULE 3, AND NOTHING SAID SO.** Both rules
+  bind ONE number in the Parcel Law tab: `Maximum height` is in the card's headline (question 2) and
+  again beside the declared total height (question 3, rule 3's *"side by side"*). A lane executing
+  rule 1 literally — count the label in the mounted TAB, require exactly one — finds **two** and
+  repairs rule 1 by deleting the founder's most repeated requirement. ⭐ **Rule 1 resolves it in its
+  own words** — *"a figure appears in the section that OWNS it, and everywhere else LINKS to it"*:
+  the card OWNS the four, question 3 LINKS to them, its ceiling NAME built by
+  `buildSiteHighlightLabelEl`, the same ONE control builder, writing the same store. **Rule 1's
+  "exactly one" is therefore scoped to the OWNER surface**, and that scoping is now pinned rather
+  than inferred.
+  · ⭐ **AND THE PIN CAUGHT A REAL DRIFT RISK: TWO TABLES, ONE BINDING.** The two surfaces share the
+  four NAMES (`CEILING_LABEL`, one owner) but **not the four SUBJECTS** — the headline reads
+  `CEILING_SUBJECT` (`ceilingHeadlineSection.ts:86`) while `intentAgainstCeilingModel.ts` passes
+  `null` / `'height'` / `'footprint'` / `'footprint'` / `'gfa'` as **literals at five `pair(...)`
+  call sites** (`:176 :202 :218 :227 :236`). Change either and one named ceiling lights two different
+  geometries on two surfaces, with nothing red anywhere. `ceilingHeadline.spec.ts` now builds the
+  real `ParcelLawModel`, runs the real `buildIntentAgainstCeiling`, matches each pair to a ceiling by
+  **the founder's word** (never by list position) and requires the subjects to agree — executable
+  agreement between two live producers, not a grep. ⭐ **Scramble control run:** flipping
+  `CEILING_SUBJECT.buildable` to `'footprint'` fails it and the message names both sides.
+  ⚠ **The one-table follow-up is NOT taken and is named here rather than left implied:** the honest
+  end state is `CEILING_SUBJECT` living beside `CEILING_LABEL` in `intentAgainstCeilingModel.ts` (the
+  import already runs that way, so there is no cycle) with question 3 reading it. That file was
+  outside this lane's territory while three siblings ran; **until it moves, the agreement is
+  MEASURED, not structural.**
 - ~~**Rooms DRAW on the open view (§26.6.4).** Not done. It needs a `room:<id>` parametrised
   subject and a cue arm in the three renderers…~~ ⭐ **CLOSED — and this bullet was STALE WHEN IT
   WAS WRITTEN.** `1fa54287` had already landed both halves: `roomHighlightSubject` /
