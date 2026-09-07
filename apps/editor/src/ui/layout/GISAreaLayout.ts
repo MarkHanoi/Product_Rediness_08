@@ -566,6 +566,19 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // A.8.a/A.8.c — GIS site-authoring surfaces, created when Cesium mounts.
     let geocodeBox: import('../site/siteGeocodeSearchBox').SiteGeocodeSearchBox | null = null;
     let boundaryTool: import('../geospatial/SiteBoundaryDrawTool').SiteBoundaryDrawTool | null = null;
+    /**
+     * §ENVELOPE-DRAW C5 (L-13050) — the 3D Site adapter for the ENVELOPE perimeter draw, and its
+     * unregister.
+     *
+     * ⛔ IT IS NOT `boundaryTool`, AND THE TWO MUST NOT BE MERGED. `SiteBoundaryDrawTool` draws a
+     * PARCEL in lat/lon and dispatches `site.setParcelBoundary`; this draws an ELEMENT perimeter in
+     * project-frame scene-XZ and dispatches NOTHING — it hands a ring to the create panel, which
+     * owns the one `spaceEnvelope.batch.create` (P6). They share a renderer and a gesture SHAPE and
+     * nothing else, which is exactly the L-1322 trap: *"merging two things because they share three
+     * words is how the five spellings happened."*
+     */
+    let envelopeDraw3d: import('../site/siteEnvelopeDrawCesium').SiteEnvelopeDrawCesium | null = null;
+    let envelopeDraw3dUnregister: (() => void) | null = null;
     // A.8.c.f — the Hektar-style 2D cream/shadow boundary-draw map. This REPLACES
     // the Cesium-3D draw surface for the DRAW step (Cesium stays for 3D render):
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
@@ -921,7 +934,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // A.8.a/A.8.c — GIS site-authoring surfaces (lazy-loaded with Cesium).
             import('../site/siteGeocodeSearchBox'),
             import('../geospatial/SiteBoundaryDrawTool'),
-        ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }]) => {
+            // §ENVELOPE-DRAW C5 (L-13050) — the 3D Site ENVELOPE-perimeter adapter, lazy-loaded in
+            // the SAME batch so it never reaches the main bundle: it takes the Cesium namespace as
+            // a dep and imports it `type`-only (P2).
+            import('../site/siteEnvelopeDrawCesium'),
+            import('../site/siteEnvelopeDrawArming'),
+        ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }, { SiteEnvelopeDrawCesium }, { registerEnvelopeDrawSurface }]) => {
             if (!cesiumViewport) {
                 // §L-446 — resolve CAPTURED-THEN-WINDOW, the pattern §L-412 already established
                 // here and `getFormaBoundary` uses for the store. The captured `runtime` is NULL
@@ -1031,6 +1049,51 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     window.pryzmStartBoundaryDraw = () => { void startBoundaryDraw(); };
                     window.pryzmStartBoundaryDraw3D = () => boundaryTool?.start();
                     window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
+
+                    // ── ⭐ §ENVELOPE-DRAW C5 (L-13050) — THE 3D SITE BECOMES A DRAW SURFACE ──────
+                    //
+                    // The founder's top-priority sentence: *"THE MOST IMPORTANT IS THE CAPACITY TO
+                    // CREATE — DRAW — DESIGN BUILDABLE ENVELOPES IN THE 2D SITE VIEW AND 3D SITE
+                    // VIEW."* Registering here is what turns the panel's Draw button from an honest
+                    // refusal into a working gesture on this surface.
+                    //
+                    // ⛔ REGISTER ON MOUNT, UNREGISTER ON TEARDOWN, BOTH IN THIS FILE. An adapter
+                    // left registered after its viewer is destroyed would be armed by the next
+                    // Draw press and would pick against a dead scene (L-7801, one layer out).
+                    //
+                    // ⚠ `setScenePickingEnabled` IS NOT PASSED YET and that is a named gap, not an
+                    // oversight: `CesiumViewport` has no such method at this commit (see the lane
+                    // report / ISSUE-LOG row). Until it does, a draw click ALSO runs the viewport's
+                    // own selection pick — the drawing works, the selection side-effect fires
+                    // alongside it, and the adapter LOGS that rather than pretending otherwise.
+                    try {
+                        envelopeDraw3dUnregister?.();
+                        envelopeDraw3d = new SiteEnvelopeDrawCesium({
+                            viewer,
+                            Cesium,
+                            // ⛔ THE ONE ORIGIN (R6) — the same `resolveSiteFrameOrigin` call the
+                            // parcel ring is committed about, never a re-read geocode.
+                            getOrigin: getSiteOrigin,
+                            // θ — the SAME `SiteLocation.trueNorth` both rasterisers read. `null`
+                            // when the store is unreachable, which the adapter treats as a REFUSAL
+                            // and not as zero (the §L-446 ambiguity).
+                            getSiteLocation: () => {
+                                try {
+                                    const rt = runtime ?? (window.runtime as unknown as PryzmRuntime | undefined) ?? null;
+                                    const store = rt?.siteModelStore as
+                                        | { getSite?: () => { location?: { trueNorth?: number } | null } | null }
+                                        | undefined;
+                                    return store?.getSite?.()?.location ?? null;
+                                } catch { return null; }
+                            },
+                        });
+                        envelopeDraw3dUnregister = registerEnvelopeDrawSurface(envelopeDraw3d);
+                        console.log('[gis] §ENVELOPE-DRAW 3D Site registered as an envelope-perimeter draw surface.');
+                    } catch (e) {
+                        console.warn('[gis] §ENVELOPE-DRAW could not register the 3D Site draw surface (non-fatal) — '
+                            + 'the Draw button on the envelope panel will SAY SO rather than doing nothing:', e);
+                    }
+
                     console.log('[gis] site-authoring surfaces ready (geocode search + 2D Hektar boundary map). Run pryzmStartBoundaryDraw() for the 2D draw, pryzmStartBoundaryDraw3D() for the Cesium draw.');
                 }
             }
@@ -7447,6 +7510,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         catch (e) { console.warn('[gis] §L-676-B closeBoundaryMap2D during project teardown failed (non-fatal):', e); }
         try { boundaryTool?.cancel(); }
         catch (e) { console.warn('[gis] §L-676-B boundaryTool.cancel during project teardown failed (non-fatal):', e); }
+        // §ENVELOPE-DRAW C5 — an envelope perimeter drawn against Project A must not survive into
+        // B, and neither may the adapter that would keep picking against A's scene.
+        try { envelopeDraw3d?.disarm(); }
+        catch (e) { console.warn('[gis] §ENVELOPE-DRAW disarm during project teardown failed (non-fatal):', e); }
         _layoutOwningProjectId = null;
         console.log('[gis] §L-676-B GIS layout project scope cleared (geocode frame + placement caches dropped).');
     };

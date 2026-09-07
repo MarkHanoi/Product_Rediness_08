@@ -254,6 +254,27 @@ export const ENVELOPE_DRAW_NO_SURFACE_REASON =
     + 'Draw again. This is a wiring state in PRYZM, not a finding about your parcel — you can still '
     + 'extrude the permitted footprint or your fitted plate from this panel.';
 
+/**
+ * §ENVELOPE-DRAW C5 — the refusal an arm that accepted NOTHING carries back. See the call site.
+ * Exported so the panel and a spec read the same producer rather than two spellings.
+ */
+export function composeArmRefusal(): string {
+    if (registered.length === 0) return ENVELOPE_DRAW_NO_SURFACE_REASON;
+    const said: string[] = [];
+    for (const s of registered) {
+        let why: string | null = null;
+        try { why = s.cannotArmReason?.() ?? null; }
+        catch (e) { console.warn(`[site][envelope-draw] ${s.surfaceId}.cannotArmReason threw:`, e); }
+        if (why !== null && why.trim() !== '') said.push(why.trim());
+    }
+    if (said.length === 0) {
+        return `${registered.length} site view(s) are attached, but none accepted the drawing and `
+            + 'none said why. That is a wiring gap in PRYZM, not a finding about your parcel — you '
+            + 'can still extrude the permitted footprint or your fitted plate from this panel.';
+    }
+    return said.join(' · ');
+}
+
 function resetGesture(): void {
     author.reset();
     loopFirst = null;
@@ -290,12 +311,20 @@ export function armEnvelopeDraw(): EnvelopeDrawActivation {
         span.setAttribute('pryzm.envelopeDraw.registered', registered.length);
         span.setAttribute('pryzm.envelopeDraw.accepted', accepted);
         if (accepted === 0) {
+            // ⭐ §ENVELOPE-DRAW C5 — A SURFACE THAT IS ATTACHED BUT CANNOT ARM GETS TO SAY WHY.
+            // With no surface registered the refusal is the generic one (the route back is "open a
+            // site view"). With surfaces registered that generic sentence is TRUE ABOUT THE WRONG
+            // THING — it sends the user to open a view they are already looking at — so the
+            // surfaces' own reasons are printed instead, each naming its own next action (C16
+            // CA-18). ⛔ A surface that supplies no reason contributes none; nothing is invented on
+            // its behalf.
+            const reason = composeArmRefusal();
             console.warn(
                 `[site][envelope-draw] §ENVELOPE-DRAW arm REFUSED — ${registered.length} surface(s) registered, `
-                + '0 accepted. ' + ENVELOPE_DRAW_NO_SURFACE_REASON,
+                + '0 accepted. ' + reason,
             );
             notifyStatus();
-            return { ok: false, surfaces: 0, reason: ENVELOPE_DRAW_NO_SURFACE_REASON };
+            return { ok: false, surfaces: 0, reason };
         }
         console.log(
             `[site][envelope-draw] §ENVELOPE-DRAW armed on ${accepted} surface(s) `
@@ -352,9 +381,50 @@ function repaintPreview(): void {
     }
 }
 
-function finish(ring: readonly ArcVertex2D[], mode: EnvelopeDrawMode): void {
+/**
+ * §ENVELOPE-DRAW C5 — DROP CONSECUTIVE COINCIDENT CORNERS (including last-vs-first).
+ *
+ * ⭐ THIS IS ONE RULE FOR BOTH RENDERERS, NOT A CESIUM PATCH. Every double-click-to-close gesture
+ * on both surfaces emits the closing click as a corner FIRST and the finish SECOND — Cesium fires
+ * LEFT_CLICK, LEFT_CLICK, LEFT_DOUBLE_CLICK; MapLibre fires click, click, dblclick — so the ring
+ * arrives with its last corner sitting on top of the previous one. A zero-length edge in a
+ * committed footprint is a real defect (it is a polygon vertex that no consumer can normal), and
+ * fixing it with a per-adapter pixel/time heuristic would mint TWO heuristics that disagree.
+ *
+ * ⛔ IT IS A COLLAPSE, NEVER A SIMPLIFY. Only exactly-coincident neighbours go (1 mm, well under
+ * any real corner); no collinear-vertex removal, no smoothing, no reordering. The user's corners
+ * are the user's corners.
+ */
+function collapseCoincident(ring: readonly ArcVertex2D[]): ArcVertex2D[] {
+    const EPS_M = 1e-3;
+    const out: ArcVertex2D[] = [];
+    for (const p of ring) {
+        const prev = out[out.length - 1];
+        if (prev && Math.abs(prev.x - p.x) < EPS_M && Math.abs(prev.z - p.z) < EPS_M) continue;
+        out.push({ x: p.x, z: p.z });
+    }
+    while (out.length >= 2) {
+        const a = out[0]!;
+        const b = out[out.length - 1]!;
+        if (Math.abs(a.x - b.x) < EPS_M && Math.abs(a.z - b.z) < EPS_M) out.pop();
+        else break;
+    }
+    return out;
+}
+
+function finish(rawRing: readonly ArcVertex2D[], mode: EnvelopeDrawMode): void {
     const from = owner;
     if (!from) return;
+    const ring = collapseCoincident(rawRing);
+    if (ring.length < 3) {
+        // The collapse ate the perimeter — every corner landed on the same spot. That is a REFUSAL
+        // for the user to read, never a ring to hand the planner (the store refuses it anyway).
+        lastRefusal =
+            `Those ${rawRing.length} corners are all on the same spot, so there is no perimeter to `
+            + 'close. Place corners further apart and try again — nothing was stored.';
+        notifyStatus();
+        return;
+    }
     const areaM2 = Math.abs(polygonSignedAreaOrdinates(ring.length, (i) => ring[i]!.x, (i) => ring[i]!.z));
     const stored = ring.map((p) => ({ x: p.x, z: p.z }));
     resetGesture();

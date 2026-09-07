@@ -118,4 +118,20 @@ export interface EnvelopeDrawSurface {
     arm(sink: EnvelopeDrawSink): boolean;
     /** Unbind, restore the surface's own click ladder, clear the preview. Idempotent. */
     disarm(): void;
+    /**
+     * §ENVELOPE-DRAW C5 (C16 CA-18) — WHY this surface would refuse to arm right now, in the words
+     * a user can act on, or `null` when it would accept.
+     *
+     * ⭐ ADDED BECAUSE A BOOLEAN CANNOT CARRY A REASON, AND THE REASON IS THE PRODUCT. Without it a
+     * mounted 3D Site that cannot resolve the site frame origin refuses through `arm() → false`,
+     * and the registry then prints *"no site view is attached"* — a TRUE sentence about the WRONG
+     * thing, which sends the user to re-open a view that is already open. With it the registry
+     * prints *"On the 3D Site view: no site frame ORIGIN is resolvable — search the address or
+     * select the parcel first"*, which names the actual next action.
+     *
+     * ⚠ OPTIONAL, and a surface that omits it is not lying — it is saying nothing, and the registry
+     * falls back to the generic refusal. That is the honest default; inventing a reason on a
+     * surface's behalf is exactly the fabrication this repo keeps logging.
+     */
+    cannotArmReason?(): string | null;
 }
