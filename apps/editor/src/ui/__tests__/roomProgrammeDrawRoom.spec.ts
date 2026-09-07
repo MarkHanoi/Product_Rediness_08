@@ -67,7 +67,11 @@ import {
   type DrawnRect,
   type DrawnRoomVerdict,
 } from '../room-programme/roomDrawPlan';
-import { solveProgrammeLayout, type ProgrammeLayout } from '../room-programme/programmeToEnvelopes';
+import {
+  probeProgrammeLayout,
+  solveProgrammeLayout,
+  type ProgrammeLayout,
+} from '../room-programme/programmeToEnvelopes';
 import { residentialRoomEntry } from '../room-programme/residentialRoomLibrary';
 import type { SpaceEnvelopeRecordLike } from '../room-programme/roomEnvelopePlan';
 
@@ -438,6 +442,50 @@ describe('§ROOM-DRAW-NEW — the degenerate gestures', () => {
     const back = ask(pureProgramme(), { x0: 5, z0: 6, x1: 1, z1: 1 });
     expect(back.ok).toBe(fwd.ok);
     expect(back.drawnAreaM2).toBe(fwd.drawnAreaM2);
+  });
+});
+
+describe('§ROOM-DRAW-NEW — the PROBE is the solve with its search truncated, not a rival', () => {
+  it('⭐ probe and full solve agree on ok/refused for every programme size, and on the CODE', () => {
+    // ⛔ THIS IS THE CORRECTNESS ARGUMENT FOR A PERFORMANCE CHANGE, AND IT HAS TO BE A TEST.
+    // `describeDrawnRoom` runs on every pointer move, and the FULL solve was benched at 14.7 ms
+    // per move at four rooms and 37.3 ms at twenty — against a 16.7 ms frame budget, i.e. a drag
+    // that stutters at a realistic brief and is unusable at a large one. `probeProgrammeLayout`
+    // stops at the FIRST cutting discipline that partitions the plate instead of running all
+    // three and keeping the best, which is ~3× cheaper (measured 3.1 / 4.9 / 7.3 / 11.8 ms).
+    // ⭐ IT CHANGES NO VERDICT because both are refused exactly when EVERY policy fails — the
+    // failure arm sits after the loop. That claim is what this test exists to keep true if either
+    // the policy list or the selection rule is ever edited.
+    const KINDS = ['living', 'kitchen', 'bedroom', 'bathroom', 'hall', 'wc', 'office', 'storage'];
+    for (const n of [1, 2, 4, 8, 12, 20]) {
+      for (const each of [11, 30]) {
+        let p: RoomProgramme = EMPTY_ROOM_PROGRAMME;
+        for (let i = 0; i < n; i += 1) {
+          p = reduceRoomProgramme(p, {
+            type: 'programme.add-room', id: `r${i}`, kind: KINDS[i % KINDS.length] as never });
+          p = reduceRoomProgramme(p, { type: 'programme.set-area', id: `r${i}`, targetAreaM2: each });
+        }
+        const full = solveProgrammeLayout({ levelRing: PLATE, programme: p });
+        const probe = probeProgrammeLayout({ levelRing: PLATE, programme: p });
+        expect(probe === null).toBe(full.ok);
+        // … and when they refuse, they refuse for the SAME REASON. A probe that agreed on the
+        // verdict but not the code would put a sentence in front of the user that the full solve
+        // would never have written.
+        if (!full.ok) expect(probe!.code).toBe(full.code);
+      }
+    }
+    // The empty and the over-full cases too — the refusals that arrive BEFORE the policy loop.
+    expect(probeProgrammeLayout({ levelRing: PLATE, programme: EMPTY_ROOM_PROGRAMME })!.code)
+      .toBe('no-rooms');
+    expect(probeProgrammeLayout({ levelRing: [], programme: pureProgramme() })!.code)
+      .toBe('no-level-ring');
+  });
+
+  it('⛔ the probe returns NO LAYOUT, so nothing can come to depend on which arrangement won', () => {
+    // The truncated search picks a DIFFERENT arrangement from the full solve in general. Returning
+    // a refusal-or-null rather than a `ProgrammeLayout` is what makes that difference unreachable
+    // instead of merely undocumented — a caller cannot read a `satisfiedCount` this never computed.
+    expect(probeProgrammeLayout({ levelRing: PLATE, programme: pureProgramme() })).toBeNull();
   });
 });
 

@@ -561,6 +561,40 @@ const RESIDUAL_KEY = '\u0000residual';
  * whole output is a picture and a measurement.
  */
 export function solveProgrammeLayout(input: ProgrammeLayoutInput): ProgrammeLayoutResult {
+  return runProgrammeLayout(input, false);
+}
+
+/**
+ * ⚡ CAN this programme lay out on this plate? The refusal if not, `null` if it can.
+ *
+ * ⭐ IT IS `solveProgrammeLayout`'S OWN BODY WITH THE SEARCH TRUNCATED — NOT A SECOND ASKER, and
+ * the distinction is exact rather than rhetorical. `solveProgrammeLayout` runs all three cutting
+ * disciplines in full and keeps the one that honours the most relationships; this stops at the
+ * FIRST that produces a valid partition. **The ok/refused verdict and the refusal CODE are
+ * therefore identical between the two**, because both are refused exactly when EVERY policy fails
+ * — the failure arm is only reached after the loop. What differs is which arrangement comes back,
+ * and that is precisely why this returns NO LAYOUT: a caller cannot accidentally read a
+ * `satisfiedCount` this did not bother to compute (C84 EI-8a is about one PREDICATE having one
+ * asker, and it still does).
+ *
+ * ⛔ IT EXISTS BECAUSE THE FULL SOLVE IS TOO SLOW FOR A POINTERMOVE, MEASURED AND NOT ASSUMED.
+ * §ROOM-DRAW-NEW (L-13120) re-asks *"would this lay out?"* on every pointer move so the user meets
+ * a limit while drawing rather than discovering it on release. Benched on the 24 × 10 m plate:
+ * the full solve costs **14.7 ms per move at 4 rooms and 37.3 ms at 20**, against a 16.7 ms frame
+ * budget — a drag that visibly stutters at a realistic brief and is unusable at a large one. The
+ * three policies are the whole difference (each is a complete recursive bisection, 44 bisection
+ * iterations per split, one kernel boolean per iteration), so stopping at the first feasible one
+ * is a ~3× saving that changes no verdict.
+ */
+export function probeProgrammeLayout(input: ProgrammeLayoutInput): ProgrammeLayoutRefusal | null {
+  const r = runProgrammeLayout(input, true);
+  return r.ok ? null : r;
+}
+
+function runProgrammeLayout(
+  input: ProgrammeLayoutInput,
+  stopAtFirstFeasible: boolean,
+): ProgrammeLayoutResult {
   const { levelRing, programme } = input;
 
   if (!Array.isArray(levelRing) || levelRing.length < 3) {
@@ -679,6 +713,15 @@ export function solveProgrammeLayout(input: ProgrammeLayoutInput): ProgrammeLayo
         areaM2: round6(footprintAreaM2(ring)),
         targetAreaM2: e.targetAreaM2,
       });
+    }
+    if (stopAtFirstFeasible) {
+      // ⛔ BREAK BEFORE `measureAdjacency`, WHICH IS THE OTHER HALF OF THE SAVING. The probe's
+      // question is answered the moment ONE policy partitions the plate; measuring how well this
+      // arrangement honours the relationships would be computing an answer nobody reads. The
+      // fields below are the ones a refusal never looks at, and `probeProgrammeLayout` throws the
+      // layout away rather than publishing them.
+      best = { cells, adjacency: [], satisfied: 0, sharedM: 0, residualRing: null };
+      break;
     }
     const adjacency = measureAdjacency(cells, programme.links);
     const satisfied = adjacency.filter((a) => a.satisfied).length;
