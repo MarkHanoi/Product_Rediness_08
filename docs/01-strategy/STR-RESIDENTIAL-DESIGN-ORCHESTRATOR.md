@@ -1020,3 +1020,133 @@ Two requirements, and the second is the hard one:
   §26 must state what it is optimising and how it knows it improved: which of the six questions each
   section serves, what is above the fold, what moved behind a disclosure, and what a user must click
   to reach an envelope from a cold start.
+
+---
+
+## §26.6 — THE COMPLETE PARCEL LAW CARD SPEC (founder, 2026-09-07, with seven screenshots)
+
+He opened with *"COMPLETE SPEC OF THE CARD: ANALYSIS PARCEL LAW"* and closed with *"DO IT SOUND —
+ARCHITECTURALLY SOUND — NO SHORT CUTS"*. **This section is the specification for that card and
+supersedes any local arrangement of it.** It is written section by section because he gave it that
+way, but ⭐ **the four CROSS-CUTTING RULES below are the architecture; the section list is only where
+they land.**
+
+### §26.6.0 — The four cross-cutting rules (normative — read these first)
+
+1. ⛔ **NOTHING IS DUPLICATED. ONE FIGURE, ONE PLACE.** His sharpest and most repeated complaint.
+   *"ALL THIS DATA IS DUPLICATED"* (of the `Full site & massing data` block) and *"IMAGE 6 SHOULD NOT
+   BE DUPLICATED … NOT DUPLICATED NOT THERE"*. The `ORDINANCE LIMITS` / `MASSING POTENTIAL` /
+   `CAPACITY` triple currently renders **twice** — inside the collapsed *Full site & massing data*
+   fold AND again lower down. One of them goes. **A figure appears in the section that OWNS it, and
+   everywhere else links to it.**
+2. ⭐ **EVERY FIGURE IS A HYPERLINK, AND FOLLOWING IT HIGHLIGHTS THE THING ON WHICHEVER VIEW IS
+   OPEN, IN PRYZM VIOLET.** *"IF THE USER SELECTS AREA IT WORKS LIKE A HYPERLINK … THE AREA IN THE
+   LEFT HAND SIDE 2D MAP VIEW OR 3D SITE VIEW SHOULD HIGHLIGHT THE AREA (IN PRYZM VIOLET COLOUR)."*
+   ⚠ **HALF OF THIS IS ALREADY BUILT AND IS THE REASON THE RULE IS CHEAP:** the figures inside
+   *Full site & massing data* are **already selectable** — his words, *"IN THIS SECTION IS ALREADY
+   HYPERLINKED — ALTHOUGH DOESN'T RENDER ON THE VIEWS — BUT IT IS SELECTABLE"* — and the card's own
+   banner already promises *"Every figure traceable to elements — click any of them."* **So the work
+   is (a) move that behaviour up to §1 where the figure lives, and (b) make following it actually
+   paint on the view.** (b) is the `siteGeometryHighlight` wiring closed for parcels in `9dd3cf55` —
+   **reuse it, do not build a second one** (C58 §1.19 clause 2).
+   Applies to: `Area`, `Perimeter`, `Bounding box`, `Boundary edges`, and every setback vector.
+3. ⭐ **EVERY INTENT SITS SIDE BY SIDE WITH ITS CEILING, AND CAN NEVER EXCEED IT.** *"I ALWAYS HAVE A
+   WAY TO CHECK AGAINST THE TOTAL … SAME PRINCIPLE SIDE BY SIDE — USER CAN SEE HOW MUCH IS TRYING TO
+   BUILD AGAINST THE MAXIMUM … CAN NEVER GO BEYOND."* Total height beside maximum height; ground area
+   beside maximum implantation area; per level, the same. ⛔ **"Can never go beyond" is a REFUSAL,
+   not a clamp** — C58 §1.13 and the §RAC-HARD-STOPPERS doctrine: state **both numbers** and refuse,
+   never silently trim the user's figure. The product already does this correctly in one place —
+   *"Ground: you asked for 875 m², but no storey may overhang the buildable footprint, which is
+   431 m² — 444 m² less than you asked for. Nothing was allocated here."* **That sentence is the
+   model; generalise it, do not replace it.**
+4. ⛔ **ONE MASSING RENDERS AT A TIME.** *"THE MASSING OPTIONS SHOULD RENDER — ONE AT A TIME — CANNOT
+   HAVE MULTIPLE RENDERING."* This is L-13038 stated as a rendering rule as well as a mint rule, and
+   his own screenshots show the product refusing because of it, twice — *"3 level envelopes are
+   candidates … PRYZM will not choose for you"* and *"Two level envelopes sit at the same base height
+   (0 m) with different footprints — 430.9 m² and 300.6 m²."*
+
+### §26.6.1 — Section 1: "What is this plot?" — *"generally correct, but"*
+
+- **Move the hyperlink behaviour here** from the duplicated block (rule 2).
+- **`Area computed from the ring (shoelace); the source publishes no legal area` must sit ON THE SAME
+  LINE as the Area**, not as an orphaned caption beneath it.
+- **`Perimeter`, `Bounding box`, `Boundary edges` are hyperlinks too**, each highlighting its own
+  geometry — the perimeter as a ring, the bounding box as a box, an edge as that edge.
+- ⭐ **What is already right and must not be lost:** the amber `⚠ Building footprint (OSM) — NOT a
+  legal cadastral parcel … carries no cadastral reference`, the `Match: low` row, the source line and
+  the retrieval timestamp. Those are C57 §1.5/§1.9 attribution and they stay.
+
+### §26.6.2 — Section 2: "What CAN I build here?" — renamed, and the setback register lands here
+
+- **RENAME** from *"What may I build here?"* to **"What can I build here?"** (his words).
+- **REMOVE the `×` in the top-right corner of the Buildable envelope card** (2.1, explicit).
+- ⭐ **THE SETBACK REGISTER — the biggest single addition in this spec.** *"WE SHOULD HAVE DATA ABOUT
+  THE DEPTH — BUT GENERALLY ABOUT EVERY SETBACK — AND WHY — AND IT SHOULD BE SELECTABLE AND
+  HYPERLINK — I WANT TO KNOW FOR EVERY VECTOR OF THE PERIMETER THE SETBACK — THIS SHOULD BE DROPDOWN
+  AS IT CAN GET A LOT OF DATA."* So: **per perimeter edge, the setback applied, the rule that
+  produced it, and a link that highlights THAT EDGE on the view** — collapsed into a dropdown because
+  it scales with edge count. ⚠ This is C58 §1.3 (*every constraint cites its source rule*) rendered
+  per-edge instead of per-parcel, and it depends on C19 §2.3 `edgeClassifications`, whose authoring
+  is C19 §10.1-pending — **so where an edge's class is unknown, say so per edge; do not infer one.**
+- **FOUR FIGURES MUST BE UNAMBIGUOUS AND NAMED AS HE NAMES THEM:**
+  | His term | Meaning |
+  |---|---|
+  | **Maximum buildable area** | across ALL floors (GFA) |
+  | **Maximum implantation area** | in plan, GROUND floor only |
+  | **Maximum height** | |
+  | **Maximum levels** | |
+  ⚠ Today three of those read `not derived` for Barcelona Zone 13a, and the card correctly explains
+  why (*"Values marked not derived were not produced by the rule pack for this zone. PRYZM does not
+  infer them — an inferred value would be indistinguishable from a derived one on this card."*).
+  ⭐ **That refusal is correct and stays** — the requirement is that the four are NAMED and PRESENT
+  as rows, not that they are filled.
+
+### §26.6.3 — Section 3: "What I WANT to build" — intent, against the ceiling
+
+*"HERE IS WHERE I DEFINE WHAT DO I WANT TO BUILD BASED ON OR AGAINST WHAT I CAN."* Order:
+**first the envelope perimeter, then what is inside it.**
+
+- **3.1 — Levels and heights.** How many levels; height of each level and of all levels. **Total
+  height renders beside Maximum height** (rule 3), then a per-level breakdown concatenated beneath.
+- **3.2 — Areas.** Ground area I want, beside the **Maximum implantation area**; then per level, the
+  same pairing. Never exceed — refuse with both numbers (rule 3).
+- **3.3 — Massing options.** One renders at a time (rule 4). ⭐ **AND THE APPEARANCE IS SPECIFIED
+  BY REFERENCE:** *"THE MASSING SHOULD BE MORE SOLID AND SLIGHTLY WHITE-GREY LIKE IN HEKTAR"* — his
+  image 3 is a white/pale-grey solid massing model with cast shadows and a sun control. ⚠ **This is
+  a study volume, so it must not read as a permitted envelope**: C58 §1.19 clause 3 and C58 §5.2 keep
+  the CONFIDENCE hues for the permitted envelope (violet solved / grey estimated / amber unreviewed).
+  A white-grey solid is available precisely *because* it is not one of those — but the two must stay
+  visually distinguishable, and the card's existing legend (`Permitted envelope` / `To-be-built
+  envelope` / `Room envelopes`, each with its sentence) is how that is explained. **Keep the legend.**
+
+### §26.6.4 — Section 4: Built vs permitted, then the interior
+
+- **The breakdown he means is his image 5** — the existing `Designed vs permitted` table: per metric
+  (`Footprint · ocupación`, `Gross floor area · superficie construida`, `Net floor area · superficie
+  útil`, `Height · altura reguladora`, `Storeys · plantas`), the designed figure, the permitted
+  figure, and a `NOT CHECKED` state with its reason. ⭐ **That table is already right** — including
+  *"Designed figures are measured from the authored model — nothing is inferred, and a metric PRYZM
+  cannot measure reads as not checked. This compares only the metrics PRYZM holds a limit for; it is
+  not a building-code review."* **Keep it; it is the answer to "a clear breakdown".**
+- **Then the interior: rooms.** His image 7 — the relationship graph plus `PROGRAMME — 6 ROOMS,
+  64.0 M²`. *"THAT SHOULD BE THERE — AND SHALL RENDER ON THE VIEWS."* The panel is already hosted
+  here (L-13024, `5a791767`); ⛔ **the new requirement is that the rooms DRAW on whichever view is
+  open** — the same `siteGeometryHighlight` wiring as rule 2, and the same one-wiring-for-all rule.
+
+### §26.6.5 — Section 5 and after
+
+- **Image 6's `ORDINANCE LIMITS` / `MASSING POTENTIAL` / `CAPACITY` block is the DUPLICATE and it
+  goes** (rule 1). Its figures live in §2 and are reachable from anywhere by the hyperlink.
+- **Keep the last three sections with the relevant numbers** — allowance used, cost, and Take me into
+  BIM. ⭐ **Their refusals are exemplary and stay**: *"not known — PRYZM will not guess"* on the
+  allowance, *"PRYZM ships a published, cited rate for one place only, so outside that the honest
+  answer is a refusal. Type what YOU assume"* on cost, and the two-rival-envelopes refusal on Create
+  house.
+
+### §26.6.6 — What this spec does NOT license
+
+⛔ A second highlight mechanism (reuse `siteGeometryHighlight`) · a second option table
+(`viewPanelOptions.ts` stays the one definition) · inferring `not derived` values to fill the four
+named figures · clamping a user's intent instead of refusing with both numbers · removing any
+existing refusal sentence in order to tidy the card. **Every refusal quoted in this section is load-
+bearing and was hard-won; the restructure moves them, it does not delete them.**
