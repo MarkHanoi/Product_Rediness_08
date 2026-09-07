@@ -1435,5 +1435,49 @@ state for all of them:
   and the largest move that IS allowed** (C83 §1.2 + L-942), never clamped. ⚠ It writes the
   session BRIEF, not the bus — P6 as `roomProgrammeModel.ts` argues it — so **Ctrl+Z does not
   take it back, and the panel says that too.**
+- **A room that does not exist yet is DRAWN — §ROOM-DRAW-NEW. SHIPPED 2026-09-07, lane
+  ROOMS-DRAW-2, L-13120. This CLOSES the *“draw them”* half the bullet above left open**, and the
+  taxonomy is the finding. The three plan gestures now cover the founder's sentence in the three
+  currencies `solveProgrammeLayout` can keep: §ROOM-PIN gives the ORDER, §ROOM-WALL-DRAG the
+  FOOTPRINT of rooms that already exist, and this the room that does not. **Arm “Draw a room”,
+  drag a rectangle, and one room is added at the area it measures** (`programme.draw-room` →
+  `describeDrawnRoom` → `wireDrawRoot`).
+  ⭐ **THE GESTURE WAS NEVER THE HARD PART.** The bullet above scoped to a party wall precisely
+  because that preserves the tiling invariant for free — what one room gains the other loses. A
+  drawn rectangle has no such guarantee, so the deliverable is mostly the **founder's own
+  taxonomy** (§SPATIAL-VALIDITY-RULES, 2026-08-14 — IMPOSSIBLE ≠ INADVISABLE ≠ FINE, keyed on
+  MEANING, and it ASKS rather than silently correcting):
+  **(1) off the plate = IMPOSSIBLE** (C114 §12) — refused with both numbers, and a half-outside
+  rectangle is refused WHOLE, because quietly keeping the part that fits reports a room the user
+  did not draw as one he did and he cannot see the difference (the rectangle is not stored);
+  **(2) under the kind's floor = IMPOSSIBLE**, refused at the INTENT rather than at the solve, so
+  one bad rectangle cannot replace the plan he was drawing on with a `room-below-minimum` refusal
+  card; **(3) bigger than the unallocated plate = IMPOSSIBLE** — and this is the clause that
+  **defines the gesture: a drawn room takes its floor from what the storey has NOT allocated,
+  never from its neighbours.** That is this gesture's conservation invariant and the counterpart
+  of the wall drag's, and between them neither gesture can silently shrink a room the user did not
+  touch; **(4) drawn over existing rooms = INADVISABLE, NOT IMPOSSIBLE, therefore NOT REFUSED** —
+  the solver PARTITIONS, so nothing overlaps in its output and a straddling rectangle is a request
+  whose RESULT will not look like the rectangle. The live message says so, names the rooms, and
+  points at the gesture that does the other thing he may have meant. He decides by releasing.
+  ⛔ **Every refusal carries a REACHABLE way out (L-942).** `largestDrawableM2` is the biggest room
+  the asker would accept right now, floored to a cm² so the number is one he can hit — and a spec
+  **takes that number, draws exactly it, and asserts it is accepted.** A dead end reads **0, not
+  the free area**, and names the three gestures that open it, because a number there would invite
+  a drawing refused for a second reason.
+  ⭐ **“One asker” is achieved LITERALLY, not by discipline (C84 EI-8a):** `describeDrawnRoom`
+  reduces the very intent the panel will dispatch, runs `solveProgrammeLayout` on the result,
+  returns the SOLVER'S OWN statement verbatim on a refusal, and **returns the INTENT** — so the
+  panel cannot authorise a drawing the verdict refused, because the panel never builds one. A
+  refusal the solver learns tomorrow is inherited for free.
+  ⛔ **STILL NOT A FREEHAND BOUNDARY, and still for the reason the bullet above gives.** A
+  rectangle contributes the two things the solver CAN keep — an AREA and a POSITION IN THE ORDER
+  — and the position is taken only when a MAJORITY of it sits on one cell; below that the room is
+  added unpinned and the sentence says so, because seating it anyway would be *“a position you did
+  not choose, presented as one you did”*. The hint says the room lands where those two put it
+  **“not on the rectangle you drew”**. L-13079's ENVELOPE-DRAW port is still **not needed and not
+  taken**, and its two blockers still stand.
+  ⚠ Session BRIEF, not the bus — so **Ctrl+Z does not take a drawn room back, and the panel says
+  so** and names the list as the way to remove it.
 - **Rule 4** is MASSING-SHAPES' (`905b655f`); this lane's card does not contradict it and the
   two-rival-storeys refusal is pinned at its producer.
