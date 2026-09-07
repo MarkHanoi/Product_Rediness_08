@@ -1511,6 +1511,13 @@ export const PROJECT_BROWSER_STYLES = `
     color: var(--app-text-muted);
     font-size: var(--pryzm-panel-font-size-meta);
 }
+/* §26.6.1 (L-13046) — a note that sits ON THE SAME LINE as the figure it qualifies: the third
+   cell of a card row, taking the remaining width and wrapping inside it, never a caption beneath. */
+.pryzm-parcel-card-note--inline {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 400;
+}
 .pryzm-parcel-card-source {
     color: var(--app-text-muted);
     font-size: var(--pryzm-panel-font-size-meta);

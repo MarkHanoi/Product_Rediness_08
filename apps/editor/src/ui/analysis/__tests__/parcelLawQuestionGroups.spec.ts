@@ -106,7 +106,8 @@ describe('ARM A — the sequence is the PERSONA\'s (STR §26.3), not the model\'
         const questions = groups.map((g) => g.querySelector('.anl-plaw-q-title')?.textContent ?? '');
         expect(questions).toEqual([
             'What is this plot?',
-            'What may I build here — and who says so?',
+            // §26.6.2 (L-13046) — renamed by the founder: *"What CAN I build here?"*, his words.
+            'What can I build here?',
             'What do I want to build?',
             'How much of my allowance have I used?',
             'What does it cost?',
@@ -207,10 +208,18 @@ describe('ARM B — ⭐ NOTHING WAS DROPPED, and each section is in the question
                 } as never;
             },
         });
-        // ⭐ ONE READ, TWO RENDERINGS. Two reads would be two vintages of one parcel, which is the
-        // defect §25.11 extracted the shared model to prevent (C19 §5.6 clause 1).
+        // ⭐ ONE READ. Two reads would be two vintages of one parcel, which is the defect §25.11
+        // extracted the shared model to prevent (C19 §5.6 clause 1).
         expect(reads).toHaveLength(1);
-        expect(host.querySelectorAll(`[data-testid="${PARCEL_LAW_FACTS_TESTID}"]`)).toHaveLength(2);
+        // ⭐ AND NOW ONE RENDERING — §26.6 rule 1 (L-13046). This line used to read `2`: the law
+        // half was a second rendering of the same model beneath the envelope card's own fold, and
+        // the founder called it by name (*"IMAGE 6 SHOULD NOT BE DUPLICATED"*). The plot half is
+        // the one that stays; the law slot is stamped with where its figures now live.
+        expect(host.querySelectorAll(`[data-testid="${PARCEL_LAW_FACTS_TESTID}"]`)).toHaveLength(1);
+        expect(
+            host.querySelector(`[data-testid="${PARCEL_LAW_FACTS_LAW_SLOT_TESTID}"]`)!
+                .getAttribute('data-duplicate-removed'),
+        ).toBe('envelope-card-site-data-fold');
         handle.dispose();
         host.remove();
     });

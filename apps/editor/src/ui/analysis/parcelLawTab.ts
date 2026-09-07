@@ -129,6 +129,13 @@ import {
   type ViewSwitcherOnViewOptions,
 } from '../site/viewSwitcherOnView';
 import { wireDesignStageStrip } from '../site/designStageStripControl';
+// ⭐ §26.6 rule 2 (L-13046) — EVERY FIGURE IS A HYPERLINK, and following it PAINTS the geometry on
+// whichever view is open. The rows are built as highlight controls by their producers (the
+// cadastral card via `parcelRingMeasuredFacts`, the setback register, the envelope card's fold);
+// this tab does two things and only two: it WIRES every such control under its root, and it keeps
+// their pressed state PAINTED from the ONE store every view subscribes to. ⛔ No second highlight
+// path (C58 §1.19 clause 2, §26.6.6) — these are the same two functions `GISAreaLayout` calls.
+import { keepSiteHighlightRowsPainted, wireSiteHighlightRows } from '../site/siteHighlightRowControl';
 // §PARCEL-LAW-MODEL (STR §25.11) — the ONE parcel/ordinance/massing model, and this tab's
 // rendering of it. NOT a second computation and NOT a copied renderer: `GISAreaLayout`'s card
 // renders the SAME model, which is what makes "the rail panel and the tab agree datum for datum"
@@ -281,6 +288,15 @@ export const PARCEL_LAW_PLOT_ROUTE_NOTE =
 export const ENVELOPE_CARD_TESTID = 'buildable-envelope-card';
 /** Carries how many stage pills were wired on the last pass — read by the spec. */
 export const PARCEL_LAW_STRIP_WIRED_ATTR = 'data-parcel-law-strip-wired';
+/** §26.6 rule 2 — carries how many highlight controls were wired on the last pass. Read by the spec. */
+export const PARCEL_LAW_HIGHLIGHT_WIRED_ATTR = 'data-parcel-law-highlight-wired';
+/**
+ * §26.6 rule 1 (L-13046) — stamped on question 2's tab-owned slot to STATE that the
+ * ORDINANCE LIMITS · MASSING POTENTIAL · PER STOREY · CAPACITY rendering that used to live there
+ * was removed as a DUPLICATE of the envelope card's *Full site & massing data* fold — so a reader
+ * (or a spec) can tell "the block moved to its owner" from "the block is gone".
+ */
+export const PARCEL_LAW_DUPLICATE_REMOVED_ATTR = 'data-duplicate-removed';
 
 /**
  * The lede sentence. It names the ROUTE (the switcher and the producers) rather than the
@@ -491,6 +507,8 @@ export function mountParcelLawTab(
   /** §PL-ROOM-PROGRAMME — the re-hosted ROOM PROGRAMME panel's handle. */
   let roomProgramme: RoomProgrammePanelHandle | null = null;
   let unsub: (() => void) | null = null;
+  /** §26.6 rule 2 — the highlight-store subscription that keeps every row's ◉ honest. */
+  let unsubHighlight: (() => void) | null = null;
   let disposed = false;
   /** §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — question 1's pointer, shown only when the
    *  button it replaces is suppressed. Assigned on the successful build arm. */
@@ -551,14 +569,27 @@ export function mountParcelLawTab(
     }
   };
 
-  /** Re-read the model and re-render BOTH fact halves. Cheap, and never throws into the tab. */
+  /**
+   * Re-read the model and re-render the PLOT half. Cheap, and never throws into the tab.
+   *
+   * ⛔ §26.6 rule 1 (L-13046, founder 2026-09-07): *"ALL THIS DATA IS DUPLICATED … IMAGE 6 SHOULD
+   * NOT BE DUPLICATED … NOT DUPLICATED NOT THERE."* The LAW half — ORDINANCE LIMITS · MASSING
+   * POTENTIAL · PER STOREY · CAPACITY — is NO LONGER RENDERED HERE. It was a second rendering of
+   * the one model, justified by the two-hosts case (`parcelLawFacts.ts` header); the founder has
+   * ruled the duplication out, and its OWNER is the singleton envelope card's *Full site & massing
+   * data* fold, which sits in this same question and whose rows are the hyperlinks (rule 2).
+   * ⚠ Nothing is re-derived and no refusal was deleted: the card's own refusal / absence arms
+   * (C58 §1.13 · L-13048) state those on the card, in this question. Question 2's tab-owned slot
+   * now carries the SETBACK REGISTER (§26.6.2) — a figure the card does not have — and is stamped
+   * with `PARCEL_LAW_DUPLICATE_REMOVED_ATTR` so the move is readable rather than inferable.
+   */
   const renderFacts = (): void => {
     if (disposed) return;
     try {
       const renderModel = deps.renderParcelLawFacts ?? buildParcelLawFacts;
       const model = readModelNow();
       factsPlotSlot.replaceChildren(renderModel(model, { scope: 'plot' }));
-      factsLawSlot.replaceChildren(renderModel(model, { scope: 'law' }));
+      factsLawSlot.setAttribute(PARCEL_LAW_DUPLICATE_REMOVED_ATTR, 'envelope-card-site-data-fold');
       // §SELECT-PARCEL-IS-A-VIEW-ACTION — the pointer appears exactly when the button it replaces
       // is suppressed, from the SAME model read, so the two can never contradict each other on
       // screen (a panel showing both the button and "selection happens elsewhere" is worse than
@@ -585,6 +616,23 @@ export function mountParcelLawTab(
       root.setAttribute(PARCEL_LAW_STRIP_WIRED_ATTR, String(n));
     } catch (e) {
       console.warn('[analysis][parcel-law] strip wiring failed (non-fatal):', e);
+    }
+  };
+
+  /**
+   * §26.6 rule 2 — wire every highlight control under this body. Idempotent (`onclick` is
+   * assigned, never added), so it is safe to run after every producer re-render: the cadastral
+   * card rebuilds on its own site-store notification, the envelope card on its determination, the
+   * setback register on this tab's own pass — and a control rebuilt by any of them is a control
+   * that has lost its handler until this runs again.
+   */
+  const wireHighlights = (): void => {
+    if (disposed) return;
+    try {
+      const n = wireSiteHighlightRows(root);
+      root.setAttribute(PARCEL_LAW_HIGHLIGHT_WIRED_ATTR, String(n));
+    } catch (e) {
+      console.warn('[analysis][parcel-law] highlight wiring failed (non-fatal):', e);
     }
   };
 
@@ -870,6 +918,12 @@ export function mountParcelLawTab(
 
     host.appendChild(root);
     renderFacts();
+    // §26.6 rule 2 — the cadastral card and the plot facts are in the DOM; wire their controls
+    // now, and keep every control under this body painted from the ONE store from here on, so a
+    // click on the envelope card's fold (wired by GISAreaLayout on ITS root) repaints question 1's
+    // ◉ too, and vice versa. Disposed with the tab.
+    wireHighlights();
+    unsubHighlight = keepSiteHighlightRowsPainted(root);
 
     // ── The producers, mounted AFTER the body is in the DOM ────────────────────────
     // Every one of these guards its repaints on `isConnected`; mounting after the append is what
@@ -921,7 +975,8 @@ export function mountParcelLawTab(
     refreshDigests();
 
     // ── 5. The design-stage strip — after the claim lands (it is scheduled on a microtask). ──
-    queueMicrotask(wireStrip);
+    // §26.6 rule 2 — and the highlight controls the claimed card brought with it, on the same tick.
+    queueMicrotask(() => { wireStrip(); wireHighlights(); });
     // …and again whenever the site store moves, because the rail panel rebuilds the card's
     // host chrome on the same signal and the card itself re-renders on a determination.
     const store = resolveSiteStore(deps.runtime);
@@ -934,7 +989,9 @@ export function mountParcelLawTab(
           // of one parcel. A determination that lands while this tab is open reaches it.
           renderFacts();
           refreshDigests();
-          queueMicrotask(wireStrip);
+          // The cadastral card has ALREADY rebuilt by now (its subscription predates this one), so
+          // its fresh controls are wired on this microtask together with the strip.
+          queueMicrotask(() => { wireStrip(); wireHighlights(); });
         });
       } catch (e) {
         console.warn('[analysis][parcel-law] site-store subscribe failed — the strip is wired once, at mount:', e);
@@ -969,6 +1026,7 @@ export function mountParcelLawTab(
       // on refresh, so a house generated while this tab was open shows up on the next repaint.
       try { roomProgramme?.refresh(); } catch { /* same */ }
       wireStrip();
+      wireHighlights();
       refreshDigests();
     },
     holdsEnvelopeCard,
@@ -978,6 +1036,9 @@ export function mountParcelLawTab(
       const held = holdsEnvelopeCard();
       try { unsub?.(); } catch { /* teardown is best-effort */ }
       unsub = null;
+      // §26.6 rule 2 — a highlight listener that outlived this body would repaint a detached tree.
+      try { unsubHighlight?.(); } catch { /* teardown is best-effort */ }
+      unsubHighlight = null;
       // Before the panel, so the store subscription is released while the DOM it guards on is
       // still attached — a listener that fires against a detached root is harmless but noisy.
       try { authoring?.dispose(); } catch { /* teardown is best-effort */ }

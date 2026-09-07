@@ -119,6 +119,9 @@ export interface QuestionGroupHandle {
  * to build? 4. How much of my allowance have I used, and what is left? 5. What does it cost?
  * 6. Take me into BIM."*
  *
+ * ⭐ Question 2 was RENAMED by the founder on 2026-09-07 (§26.6.2, L-13046): *"What CAN I build
+ * here?"*. The §26.3 wording above is kept as the record of where the sequence came from.
+ *
  * ⭐ WHY ONLY THE FIRST TWO OPEN COLD. §26.5 asks what is above the fold and why. A cold arrival
  * has no envelope, so groups 3–6 have nothing of their own to say yet — their digests say so in
  * words. The two that ALWAYS have an answer (what this plot is, and what the law permits on it)
@@ -145,8 +148,11 @@ export const PARCEL_LAW_QUESTION_GROUPS: readonly QuestionGroupSpec[] = Object.f
     Object.freeze({
         id: 'law',
         ordinal: 2,
-        question: 'What may I build here — and who says so?',
-        hint: 'The buildable envelope, its ordinance citations and its confidence.',
+        // §26.6.2 (L-13046, founder 2026-09-07): *"RENAME from 'What may I build here?' to 'What
+        // CAN I build here?'"* — his words, verbatim. "Who says so" moves into the hint: it is
+        // still the question's substance (the citations are C58 §1.3), it is no longer its title.
+        question: 'What can I build here?',
+        hint: 'The buildable envelope, the setback per edge, its ordinance citations (who says so) and its confidence.',
         open: true,
         headlineProbes: Object.freeze([
             { selector: '[data-testid="parcel-law-fact-footprint"] .anl-plaw-val' },

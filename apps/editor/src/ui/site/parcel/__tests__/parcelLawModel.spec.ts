@@ -391,3 +391,43 @@ describe('§25.11 clause 1 — ONE model, rendered twice (the files this lane ow
         expect(src).not.toMatch(/siteModelStore|fetch\s*\(/);
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// §26.6.2 (L-13046) — THE SETBACK REGISTER'S INPUTS: one row per EDGE, and each setback
+// constraint with ITS OWN citation (C58 §1.3 per constraint, not per parcel).
+// ═══════════════════════════════════════════════════════════════════════════════════════
+
+describe('§26.6.2 — edges, per edge, with the classification AS RECORDED', () => {
+    it('one edge per ring vertex, with its length and the label the array carries', () => {
+        const m = buildParcelLawModel({
+            parcelRing: RECT,
+            edgeClassifications: ['front', 'side', 'rear', 'side'],
+            identity: null,
+            envelope: envelope(),
+        });
+        const edges = m.geometry!.edges;
+        expect(edges.map((e) => e.index)).toEqual([0, 1, 2, 3]);
+        expect(edges.map((e) => e.lengthM)).toEqual([40, 20, 40, 20]);
+        expect(edges.map((e) => e.classification)).toEqual(['front', 'side', 'rear', 'side']);
+    });
+
+    it('⛔ NOT RECORDED is null PER EDGE — never "unclassified", never inferred (C19 §10.1 pending)', () => {
+        const none = buildParcelLawModel({ parcelRing: RECT, edgeClassifications: undefined, identity: null, envelope: envelope() });
+        expect(none.geometry!.edges.every((e) => e.classification === null)).toBe(true);
+        expect(none.edgeClassifications).toBeNull();
+        // A wrong-length array is the schema's own "nobody classified" shape — same answer.
+        const short = buildParcelLawModel({ parcelRing: RECT, edgeClassifications: ['front'], identity: null, envelope: envelope() });
+        expect(short.geometry!.edges.every((e) => e.classification === null)).toBe(true);
+        // …but the RAW array is carried through untouched, for the frontage rule to read.
+        expect(short.edgeClassifications).toEqual(['front']);
+    });
+
+    it('carries each setback constraint with ITS OWN citation, and only the ones the trace has', () => {
+        const m = buildParcelLawModel({ parcelRing: RECT, edgeClassifications: undefined, identity: null, envelope: envelope() });
+        const rules = m.ordinance!.rules;
+        expect(rules['setback.front']).toEqual({ valueM: 3, ordinanceRef: 'PGM Art. 242.2', provenance: null, source: 'catastro-es' });
+        expect(rules['setback.side']!.ordinanceRef).toBeNull();
+        expect(rules['alignment.depth']).toBeUndefined();
+        expect(rules['alignment.offset']).toBeUndefined();
+    });
+});

@@ -374,7 +374,9 @@ import { currentCostJurisdiction } from '../dataworkbench/buckets/resolveCostJur
 import {
     describeSiteHighlightAvailability,
     getSiteHighlight,
-    type SiteHighlightSubject,
+    // §26.6 rule 2 (L-13046) — the FIXED subjects; the fold's rows are the fixed seven. Edge
+    // subjects (`edge:<n>`) belong to the setback register on the Parcel Law tab, not to this fold.
+    type SiteHighlightFixedSubject,
 } from '../site/siteGeometryHighlight';
 // §RESI-ORCH-HIGHLIGHT-DOM — the label markup and the click wire live in ONE module so a test can
 // mount the REAL button and click it (`siteHighlightRowControl.spec.ts`). This file only calls
@@ -3638,7 +3640,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             label: string,
             value: string,
             hint?: string,
-            highlight?: SiteHighlightSubject,
+            highlight?: SiteHighlightFixedSubject,
         ): string => {
             const avail = highlight ? highlightAvail[highlight] : null;
             const isOn = highlight !== undefined && activeHighlight === highlight;
@@ -3666,8 +3668,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // Area → the parcel · Perimeter → the boundary · frontage → the relevant edges.
                 row('Area', num(polyAreaM2(parcelRing), 'm²', 0), undefined, 'parcel')
                 + row('Perimeter', num(polyPerimeterM(parcelRing), 'm'), undefined, 'boundary')
+                // §26.6 rule 2 (L-13046) — the box is a subject too: *"the bounding box as a box"*.
                 + row('Bounding box', `${num(polyBboxM(parcelRing).w, '', 1)} × ${num(polyBboxM(parcelRing).d, 'm', 1)}`,
-                    'Axis-aligned extent. A non-rectangular parcel has no single width × depth, so this is deliberately labelled a bounding box.')
+                    'Axis-aligned extent. A non-rectangular parcel has no single width × depth, so this is deliberately labelled a bounding box.',
+                    'bbox')
                 + row('Boundary edges', `${parcelRing.length}${frontage}`,
                     'Street frontage is the edge buildable depth insets FROM. "Not recorded" means '
                     + 'nobody classified this parcel\'s edges — it is NOT a finding that the plot has none.',
@@ -3699,10 +3703,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     : 'Parcel-granularity: the ordinance states this depth directly for the zone — see the citation below.') : '')
             // §RESI-ORCH-HIGHLIGHT — "Max height → the vertical limit". The plane is drawn only
             // from a DERIVED height; when the pack derived none the row is un-clickable and says so.
-            + row('Max height', env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED,
+            // §26.6.2 (L-13046) — THE FOUR FIGURES, NAMED AS THE FOUNDER NAMES THEM: Maximum height ·
+            // Maximum levels · Maximum implantation area · Maximum buildable area. Present as rows
+            // whether or not the pack derived them; `not derived` stays and is never inferred.
+            + row('Maximum height', env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED,
                 undefined, 'height')
-            + row('Storeys', env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
-                'Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
+            + row('Maximum levels', env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
+                'Storeys. Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
             + row('Max FAR', env.maxFAR !== null ? env.maxFAR.toFixed(2) : NOT_DERIVED,
                 'Floor-area ratio — buildable floor area per m² of parcel. A blank here is a gap in our '
                 + 'rule pack for this zone, never a statement that the zone caps no floor area.')
@@ -3722,11 +3729,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const massBody =
             // §RESI-ORCH-HIGHLIGHT — "Max footprint → the buildable envelope" and
             // "Max GFA → the resulting potential", the last two rows of STR §3's own table.
-            row('Buildable footprint', footprint > 0 ? num(footprint, 'm²', 0) : NOT_DERIVED,
-                undefined, 'footprint')
+            // §26.6.2 (L-13046) — "Maximum implantation area": in PLAN, the GROUND floor only.
+            row('Maximum implantation area (ground, plan)', footprint > 0 ? num(footprint, 'm²', 0) : NOT_DERIVED,
+                'The buildable footprint — the most any single storey may cover, in plan.', 'footprint')
             + (coverPct !== null ? row('Footprint / parcel', `${coverPct.toFixed(0)} %`) : '')
             + (inset.length >= 3 ? row('Footprint perimeter', num(polyPerimeterM(inset), 'm')) : '')
-            + row('Max buildable area (GFA)',
+            // §26.6.2 — "Maximum buildable area": across ALL floors (GFA).
+            + row('Maximum buildable area (all floors, GFA)',
                 // §PARCEL-LAW-MODEL — read from the MODEL, not from the raw `gfa` local, for one
                 // narrow but real reason: with a zero footprint `permittedStudyFigures` returns
                 // `0 × storeys = 0`, and this row printed "0 m²" directly under a "not derived"

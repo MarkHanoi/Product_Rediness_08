@@ -52,6 +52,12 @@ import type {
 // facts, the card contributes the typography, and there is exactly one of each.
 import type { ParcelCardExtraFact } from '../site/parcel/parcelCard.js';
 import type { ParcelSectionExtras } from '../site/parcel/parcelPanelSection.js';
+// ⭐ §26.6 rule 2 (L-13046) — EVERY FIGURE IS A HYPERLINK. The four ring rows this module hands
+// the card each carry a highlight DECISION, computed here by the ONE availability rule so the
+// card typesets it and never re-decides whether a ring exists. `Area` → the parcel · `Perimeter`
+// → the boundary · `Bounding box` → the box · `Boundary edges` → the frontage edges (three arms:
+// not recorded / landlocked / n front — the row is text-with-reason on the first two).
+import { describeSiteHighlightAvailability } from '../site/siteGeometryHighlight.js';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawFacts');
 
@@ -199,6 +205,18 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
     if (!geo) return null;
     const facts: ParcelCardExtraFact[] = [];
 
+    // §26.6 rule 2 — ONE availability decision for the four parcel subjects, from the SAME model
+    // the rows are measured from. The footprint / height / GFA inputs are not this card's
+    // question (those rows live on the envelope card), so they are passed as absent and their
+    // arms are simply not read. ⛔ `edgeClassifications` is the model's RAW carriage, undefaulted.
+    const avail = describeSiteHighlightAvailability({
+        parcelRingLength: geo.edgeCount,
+        edgeClassifications: model.edgeClassifications ?? undefined,
+        footprintRingLength: 0,
+        maxHeightM: null,
+        gfaM2: null,
+    });
+
     // The area the CARD prints as its ring row: the provider's shoelace where one was
     // published, else the committed area the card falls back to. `null` means the card prints
     // no ring area at all, in which case the scene measurement is the only one there is.
@@ -217,6 +235,7 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
                     : 'Measured from the ring as committed to this project, which prints '
                       + 'differently from the area computed over the ring the source published. '
                       + 'Both are shown — the disagreement is information, not noise.',
+            highlight: { subject: 'parcel', availability: avail.parcel },
         });
     }
 
@@ -224,6 +243,7 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
         testId: `${PARCEL_LAW_FACT_PREFIX}parcel-perimeter`,
         label: 'Perimeter',
         value: `${geo.perimeterM.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m`,
+        highlight: { subject: 'boundary', availability: avail.boundary },
     });
     facts.push({
         testId: `${PARCEL_LAW_FACT_PREFIX}parcel-bbox`,
@@ -232,6 +252,7 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
         hint:
             'Axis-aligned extent. A non-rectangular parcel has no single width × depth, '
             + 'so this is deliberately labelled a bounding box.',
+        highlight: { subject: 'bbox', availability: avail.bbox },
     });
     facts.push({
         testId: `${PARCEL_LAW_FACT_PREFIX}parcel-edges`,
@@ -241,9 +262,19 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
             'Street frontage is the edge buildable depth insets FROM. "Not recorded" means '
             + 'nobody classified the edges of this parcel — it is NOT a finding that the plot '
             + 'has none.',
+        // The frontage subject: lights the edges classified as street frontage. Text-with-reason
+        // when nobody classified them, or when they were classified and none faces a street —
+        // two different sentences, never one. Per-edge links live in the setback register (§2).
+        highlight: { subject: 'frontage', availability: avail.frontage },
     });
 
-    return { facts, note: PARCEL_LAW_MEASURED_NOTE };
+    return {
+        facts,
+        note: PARCEL_LAW_MEASURED_NOTE,
+        // The card's OWN `Area (registry)` / `Area (from ring)` rows: the same plot, so the same
+        // subject and the same decision as the scene-measured row above.
+        areaHighlight: { subject: 'parcel', availability: avail.parcel },
+    };
 }
 
 /**

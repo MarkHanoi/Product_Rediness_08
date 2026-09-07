@@ -68,34 +68,93 @@ import { frontEdgeCount } from './parcelEdgeClassificationDetermination';
 const _tracer = trace.getTracer('pryzm.site.siteGeometryHighlight');
 
 /**
- * The six things a card row can point at. Closed on purpose: a seventh must be added HERE, with
+ * The FIXED things a card row can point at. Closed on purpose: an eighth must be added HERE, with
  * its availability arm and its renderer arm, and the type error at every `switch` is the feature.
+ *
+ * §26.6 rule 2 (L-13046, 2026-09-07) added `bbox` — *"the bounding box as a box"* — so the
+ * `Bounding box` row on question 1 is a hyperlink like its neighbours instead of the one plain row
+ * between three buttons.
  */
-export type SiteHighlightSubject =
+export type SiteHighlightFixedSubject =
     | 'parcel'
     | 'boundary'
+    | 'bbox'
     | 'frontage'
     | 'footprint'
     | 'height'
     | 'gfa';
 
-/** Iteration order for tests and for any future legend. */
-export const SITE_HIGHLIGHT_SUBJECTS: readonly SiteHighlightSubject[] = Object.freeze([
-    'parcel', 'boundary', 'frontage', 'footprint', 'height', 'gfa',
+/**
+ * ⭐ §26.6 rule 2 / §26.6.2 (L-13046) — ONE EDGE OF THE PARCEL RING, BY INDEX.
+ *
+ * Founder: *"I WANT TO KNOW FOR EVERY VECTOR OF THE PERIMETER THE SETBACK … IT SHOULD BE
+ * SELECTABLE AND HYPERLINK"*. The setback register (`setbackRegisterModel.ts`) lists one row per
+ * edge, and each row's link must light THAT EDGE — not the frontage set, not the ring. A ring has
+ * as many edges as it has vertices, so this cannot be a fixed member; it is a PARAMETRISED subject
+ * carried through the SAME store, the SAME attribute and the SAME subscribers as the fixed seven.
+ *
+ * ⛔ NOT A SECOND HIGHLIGHT MECHANISM (C58 §1.19 clause 2, §26.6.6). The value `edge:3` is written
+ * by `setSiteHighlight`, read by `getSiteHighlight`, and answered by the renderers' `boundary-edge`
+ * cue arm — one channel, one more kind of subject. `edgeHighlightSubject` is the ONE constructor
+ * and `parseEdgeHighlightSubject` the ONE parser, so no renderer ever splits the string itself.
+ */
+export type SiteHighlightEdgeSubject = `edge:${number}`;
+
+/** Every subject the store can hold: the fixed seven, or one ring edge by index. */
+export type SiteHighlightSubject = SiteHighlightFixedSubject | SiteHighlightEdgeSubject;
+
+/** Iteration order for tests and for any future legend. The FIXED subjects only — edges are
+ *  as many as the ring has, and are enumerated from the ring, never from this table. */
+export const SITE_HIGHLIGHT_SUBJECTS: readonly SiteHighlightFixedSubject[] = Object.freeze([
+    'parcel', 'boundary', 'bbox', 'frontage', 'footprint', 'height', 'gfa',
 ] as const);
+
+/** The prefix of an edge subject. One spelling, owned here. */
+export const SITE_HIGHLIGHT_EDGE_PREFIX = 'edge:';
+
+/** THE constructor of an edge subject. `index` is the ring vertex index the edge starts at. */
+export function edgeHighlightSubject(index: number): SiteHighlightEdgeSubject {
+    return `${SITE_HIGHLIGHT_EDGE_PREFIX}${Math.trunc(index)}` as SiteHighlightEdgeSubject;
+}
+
+/**
+ * THE parser. `null` for anything that is not a well-formed edge subject — including the fixed
+ * subjects, so a renderer can write `parseEdgeHighlightSubject(subject) ?? …` without a second
+ * check. Never throws.
+ */
+export function parseEdgeHighlightSubject(subject: string | null | undefined): number | null {
+    if (typeof subject !== 'string') return null;
+    // Digits only after the prefix: `edge:` (empty), `edge:-1`, `edge:1.5` and `edge:x` are all
+    // NOT an edge — `Number('')` is 0, which is why this is a pattern and not a cast.
+    const m = /^edge:(\d+)$/.exec(subject);
+    return m ? Number(m[1]) : null;
+}
+
+/** Type guard: is this string one of the subjects the store accepts? */
+export function isSiteHighlightSubject(value: string | null | undefined): value is SiteHighlightSubject {
+    if (typeof value !== 'string') return false;
+    return (SITE_HIGHLIGHT_SUBJECTS as readonly string[]).includes(value)
+        || parseEdgeHighlightSubject(value) !== null;
+}
 
 /** The DOM attribute a clickable card row carries. One name, so the panel and its wiring agree. */
 export const SITE_HIGHLIGHT_ATTR = 'data-site-highlight';
 
 /** What the user is told will light up. Answers §3's *"what does this number mean physically?"* */
-export const SITE_HIGHLIGHT_MEANING: Readonly<Record<SiteHighlightSubject, string>> = Object.freeze({
+export const SITE_HIGHLIGHT_MEANING: Readonly<Record<SiteHighlightFixedSubject, string>> = Object.freeze({
     parcel: 'Lights the parcel — the whole plot this area is measured over.',
     boundary: 'Lights the boundary — the closed ring this perimeter is measured along.',
+    bbox: 'Lights the bounding box — the axis-aligned extent these two dimensions describe. A box, not the plot.',
     frontage: 'Lights the edges classified as street frontage — the ones buildable depth insets from.',
     footprint: 'Lights the buildable footprint — the inset ring this area is measured inside.',
     height: 'Lights the vertical limit — a plane drawn at this height over the buildable footprint.',
     gfa: 'Lights the resulting potential — the study volume this floor area is derived from.',
 });
+
+/** What the user is told an EDGE row will light. Same sentence shape as the fixed seven. */
+export function edgeHighlightMeaning(index: number): string {
+    return `Lights edge ${Math.trunc(index) + 1} of the parcel ring — the one vector this setback applies to.`;
+}
 
 /** Whether a subject can be shown, and — when it cannot — why not, in the user's words. */
 export interface SiteHighlightAvailability {
@@ -137,7 +196,7 @@ const NO_FOOTPRINT = 'No buildable footprint was solved for this parcel, so ther
  */
 export function describeSiteHighlightAvailability(
     inputs: SiteHighlightInputs,
-): Readonly<Record<SiteHighlightSubject, SiteHighlightAvailability>> {
+): Readonly<Record<SiteHighlightFixedSubject, SiteHighlightAvailability>> {
     const span = _tracer.startSpan('pryzm.site.describeSiteHighlightAvailability');
     try {
         const hasParcel = inputs.parcelRingLength >= 3;
@@ -163,12 +222,16 @@ export function describeSiteHighlightAvailability(
                     }
                     : { available: true, reason: SITE_HIGHLIGHT_MEANING.frontage };
 
-        const result: Record<SiteHighlightSubject, SiteHighlightAvailability> = {
+        const result: Record<SiteHighlightFixedSubject, SiteHighlightAvailability> = {
             parcel: hasParcel
                 ? { available: true, reason: SITE_HIGHLIGHT_MEANING.parcel }
                 : { available: false, reason: NO_PARCEL },
             boundary: hasParcel
                 ? { available: true, reason: SITE_HIGHLIGHT_MEANING.boundary }
+                : { available: false, reason: NO_PARCEL },
+            // A bounding box is a pure function of the ring, so it exists exactly when the ring does.
+            bbox: hasParcel
+                ? { available: true, reason: SITE_HIGHLIGHT_MEANING.bbox }
                 : { available: false, reason: NO_PARCEL },
             frontage,
             footprint: hasFootprint
@@ -205,6 +268,35 @@ export function describeSiteHighlightAvailability(
             SITE_HIGHLIGHT_SUBJECTS.filter((s) => result[s].available).length,
         );
         return Object.freeze(result);
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * §26.6 rule 2 — THE availability decision for ONE EDGE. Pure; total; never throws.
+ *
+ * An edge exists exactly when the ring exists and the index is inside it. There is no third arm:
+ * an edge's CLASS may be unknown (C19 §10.1 is pending), but the edge itself is a segment of a
+ * committed ring and can always be lit. The register says per row what is and is not known about
+ * the edge; this function only answers *"is there a segment to point at?"*.
+ */
+export function describeEdgeHighlightAvailability(
+    edgeIndex: number,
+    parcelRingLength: number,
+): SiteHighlightAvailability {
+    const span = _tracer.startSpan('pryzm.site.describeEdgeHighlightAvailability');
+    try {
+        if (parcelRingLength < 3) return { available: false, reason: NO_PARCEL };
+        if (!Number.isInteger(edgeIndex) || edgeIndex < 0 || edgeIndex >= parcelRingLength) {
+            return {
+                available: false,
+                reason:
+                    `Edge ${edgeIndex + 1} is outside this ${parcelRingLength}-edge ring, so there is no `
+                    + 'segment to light. This is an indexing gap in PRYZM, not a finding about the plot.',
+            };
+        }
+        return { available: true, reason: edgeHighlightMeaning(edgeIndex) };
     } finally {
         span.end();
     }
@@ -496,14 +588,25 @@ export const SITE_HIGHLIGHT_RECEDE_FACTOR = 0.22;
  * rather than falling back to lighting something else — pointing at the wrong
  * geometry is worse than pointing at none, because the user cannot tell.
  */
-export type SiteHighlightCue = 'front-edges' | 'inset-ring' | 'limit-plane';
+export type SiteHighlightCue =
+    | 'front-edges'
+    | 'inset-ring'
+    | 'limit-plane'
+    /** §26.6 rule 2 — the axis-aligned box the `Bounding box` row describes. Never on screen otherwise. */
+    | 'bbox'
+    /** §26.6 rule 2 — ONE segment of the ring, the edge a setback-register row names. */
+    | 'boundary-edge';
 
 /** See `SiteHighlightCue`. Total; pure. */
 export function siteHighlightCue(subject: SiteHighlightSubject): SiteHighlightCue | null {
-    switch (subject) {
+    // An edge is answered by ONE constructed segment; the rest of the ring recedes around it so
+    // the edge is legible AS a part of the ring (the frontage rule, per edge).
+    if (parseEdgeHighlightSubject(subject) !== null) return 'boundary-edge';
+    switch (subject as SiteHighlightFixedSubject) {
         case 'frontage': return 'front-edges';
         case 'footprint': return 'inset-ring';
         case 'height': return 'limit-plane';
+        case 'bbox': return 'bbox';
         // Area → the parcel, Perimeter → the boundary, GFA → the study volume: all three
         // are ALREADY DRAWN. Emphasis alone answers them, and inventing a second copy of
         // geometry that is already on screen would double-draw the plot.
@@ -538,17 +641,44 @@ export function siteHighlightEmphasis(
     // the user's own plate when they click "Max footprint" would answer a question about the law
     // with a picture of a wish.
     if (role === 'proposal') return 'recede';
-    switch (subject) {
+    // An edge is a CONSTRUCTED cue like frontage: the authored ring recedes so the one lit
+    // segment reads as a part of it, never as a second outline.
+    if (parseEdgeHighlightSubject(subject) !== null) return 'recede';
+    switch (subject as SiteHighlightFixedSubject) {
         case 'parcel':
             return role === 'parcel-fill' || role === 'parcel-line' ? 'subject' : 'recede';
         case 'boundary':
             return role === 'parcel-line' ? 'subject' : 'recede';
         case 'gfa':
             return role === 'envelope-volume' || role === 'study-volume' ? 'subject' : 'recede';
+        case 'bbox':
         case 'frontage':
         case 'footprint':
         case 'height':
             // Every authored surface recedes; only the constructed cue carries the answer.
             return 'recede';
     }
+}
+
+/**
+ * §26.6 rule 2 — the axis-aligned bounding box of a ring, as a closed 4-vertex ring in the SAME
+ * frame as its input (scene XZ). The ONE producer of the box every renderer's `bbox` cue draws, so
+ * the box the `Bounding box` row lights is the box its two numbers were measured on
+ * (`polygonBboxXZ` in `parcelLawModel.ts` measures the same extremes). Empty for a ring under
+ * three vertices — a degenerate ring has no box worth pointing at.
+ */
+export function boundingBoxRingXZ(
+    ring: ReadonlyArray<{ readonly x: number; readonly z: number }>,
+): ReadonlyArray<{ readonly x: number; readonly z: number }> {
+    if (ring.length < 3) return [];
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of ring) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.z < minZ) minZ = p.z;
+        if (p.z > maxZ) maxZ = p.z;
+    }
+    return Object.freeze([
+        { x: minX, z: minZ }, { x: maxX, z: minZ }, { x: maxX, z: maxZ }, { x: minX, z: maxZ },
+    ]);
 }

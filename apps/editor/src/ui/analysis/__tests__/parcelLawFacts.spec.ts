@@ -30,6 +30,7 @@ import {
     parcelRingMeasuredFacts,
 } from '../parcelLawFacts';
 import {
+    PARCEL_LAW_DUPLICATE_REMOVED_ATTR,
     PARCEL_LAW_FACTS_LAW_SLOT_TESTID,
     PARCEL_LAW_FACTS_PLOT_SLOT_TESTID,
     PARCEL_LAW_PANEL_SLOT_TESTID,
@@ -248,22 +249,24 @@ describe('§25.11 — REACHABILITY: the section is really in the tab body', () =
             // this test is that the PRODUCTION pair runs.
         };
         const h = mountParcelLawTab(host, deps);
-        // §PL-IA-Q (L-12998) — the ONE model now renders into TWO slots, because its halves answer
-        // two different persona questions (STR §26.3). ⛔ The point of this test is UNCHANGED: the
-        // production reader and renderer really run inside the tab body, and every absence still
-        // arrives as a SENTENCE rather than an empty box. Only the placement moved.
+        // §PL-IA-Q (L-12998) put the ONE model into TWO slots. ⭐ §26.6 rule 1 (L-13046, founder
+        // 2026-09-07: *"ALL THIS DATA IS DUPLICATED … NOT DUPLICATED NOT THERE"*) took the LAW half
+        // back out: ORDINANCE LIMITS · MASSING POTENTIAL · PER STOREY · CAPACITY are owned by the
+        // envelope card's *Full site & massing data* fold, in the same question, and the tab no
+        // longer renders a second copy. ⛔ The point of this test is UNCHANGED for the plot half:
+        // the production reader and renderer really run inside the tab body, and the unreadable
+        // ring still arrives as a SENTENCE rather than an empty box.
         const plot = h.element.querySelector(`[data-testid="${PARCEL_LAW_FACTS_PLOT_SLOT_TESTID}"]`);
         const law = h.element.querySelector(`[data-testid="${PARCEL_LAW_FACTS_LAW_SLOT_TESTID}"]`);
         expect(plot).not.toBeNull();
         expect(law).not.toBeNull();
         expect(plot!.querySelector(`[data-testid="${PARCEL_LAW_FACTS_TESTID}"]`)).not.toBeNull();
-        expect(law!.querySelector(`[data-testid="${PARCEL_LAW_FACTS_TESTID}"]`)).not.toBeNull();
-        // With no runtime there is no parcel and no determination — and it SAYS so, in both
-        // halves, rather than rendering an empty box. ⭐ Each sentence is now asserted in the
-        // question that owns it: the unreadable ring under "what is this plot?", the missing
-        // determination under "what may I build here?".
         expect(plot!.querySelector(`[data-testid="${PARCEL_LAW_GEOMETRY_ABSENT_TESTID}"]`)).not.toBeNull();
-        expect(law!.querySelector(`[data-testid="${PARCEL_LAW_ENVELOPE_ABSENT_TESTID}"]`)).not.toBeNull();
+        // ⛔ THE DUPLICATE IS GONE, AND THE SLOT SAYS SO — "moved to its owner" must be readable,
+        // not inferred from an empty element (the L-13005 rule, applied to question 2).
+        expect(law!.querySelector(`[data-testid="${PARCEL_LAW_FACTS_TESTID}"]`)).toBeNull();
+        expect(law!.querySelector(`[data-testid="${PARCEL_LAW_ENVELOPE_ABSENT_TESTID}"]`)).toBeNull();
+        expect(law!.getAttribute(PARCEL_LAW_DUPLICATE_REMOVED_ATTR)).toBe('envelope-card-site-data-fold');
         h.dispose();
         host.remove();
     });

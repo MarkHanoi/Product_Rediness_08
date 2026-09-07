@@ -176,6 +176,9 @@ import {
   registerSiteHighlightSurface,
   siteHighlightCue,
   siteHighlightEmphasis,
+  // §26.6 rule 2 (L-13046) — the two cues that answer `Bounding box` and a setback-register edge.
+  boundingBoxRingXZ,
+  parseEdgeHighlightSubject,
   SITE_HIGHLIGHT_RECEDE_FACTOR,
   type SiteHighlightRole,
   type SiteHighlightSubject,
@@ -6885,6 +6888,50 @@ export class CesiumViewport {
     // Drawn just clear of the ground plane so it is never z-fighting the parcel fill it sits over.
     const CUE_LIFT_M = 0.35;
     const CUE_CSS = CONFIDENT_VIOLET_CSS;
+
+    // ── §26.6 rule 2 (L-13046) — the two cues that need ONLY the committed ring. ──────────────
+    // 'bbox' — "Bounding box → the box": the axis-aligned extent the row's two numbers describe,
+    // from the ONE producer (`boundingBoxRingXZ`) the other views draw from. 'boundary-edge' —
+    // ONE segment of the ring, the edge a setback-register row names; an index outside the ring
+    // draws nothing rather than the nearest edge.
+    if (cue === 'bbox' || cue === 'boundary-edge') {
+      const ring = boundary ?? [];
+      if (ring.length < 3) return;
+      if (cue === 'bbox') {
+        const box = boundingBoxRingXZ(ring).map((p) => toCartesian(p.x, p.z, baseHeight + CUE_LIFT_M));
+        const ent = viewer.entities.add({
+          name: 'pryzm-site-highlight-bbox',
+          polyline: {
+            positions: [...box, box[0]!],
+            width: 4,
+            clampToGround: false,
+            material: Cesium.Color.fromCssColorString(CUE_CSS).withAlpha(0.95),
+          },
+        });
+        this.formaMassingEntities.push(ent);
+        this.formaSiteOverlayEntities.add(ent);
+        return;
+      }
+      const index = parseEdgeHighlightSubject(subject);
+      if (index === null || index >= ring.length) return;
+      const a = ring[index]!;
+      const b = ring[(index + 1) % ring.length]!;
+      const ent = viewer.entities.add({
+        name: 'pryzm-site-highlight-boundary-edge',
+        polyline: {
+          positions: [
+            toCartesian(a.x, a.z, baseHeight + CUE_LIFT_M),
+            toCartesian(b.x, b.z, baseHeight + CUE_LIFT_M),
+          ],
+          width: 6,
+          clampToGround: false,
+          material: Cesium.Color.fromCssColorString(CUE_CSS).withAlpha(0.95),
+        },
+      });
+      this.formaMassingEntities.push(ent);
+      this.formaSiteOverlayEntities.add(ent);
+      return;
+    }
 
     if (cue === 'front-edges') {
       const ring = boundary ?? [];

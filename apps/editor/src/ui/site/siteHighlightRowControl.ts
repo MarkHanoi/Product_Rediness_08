@@ -29,12 +29,16 @@
 // a handful of attributes leaves the user's disclosure state exactly where they put it.
 //
 // P4 — no globals. P6 — writes ONE session store, dispatches nothing, touches no scene.
-// C08 §3.1 — every interpolated runtime string routes through the local `escHtml`.
+// C08 §3.1 — the control is BUILT as DOM (`buildSiteHighlightLabelEl`); the HTML form is its
+// serialisation, so every runtime string is escaped by the serialiser and this file keeps no
+// escaper of its own (§26.6 rule 2, L-13046 — see that builder's header).
 
 import { trace } from '@opentelemetry/api';
 import {
     describeSiteHighlightReach,
     getSiteHighlight,
+    isSiteHighlightSubject,
+    subscribeSiteHighlight,
     toggleSiteHighlight,
     SITE_HIGHLIGHT_ATTR,
     type SiteHighlightAvailability,
@@ -42,13 +46,6 @@ import {
 } from './siteGeometryHighlight';
 
 const _tracer = trace.getTracer('pryzm.site.siteHighlightRowControl');
-
-/** Local HTML escaper — the guard this file declares for itself (C08 §3.1). */
-function escHtml(value: unknown): string {
-    return String(value ?? '').replace(/[&<>"']/g, (c) => (
-        c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;'
-    ));
-}
 
 /** The attribute an UNAVAILABLE row carries, so a test can prove it is text and not a control. */
 export const SITE_HIGHLIGHT_UNAVAILABLE_ATTR = 'data-site-highlight-unavailable';
@@ -90,13 +87,71 @@ const OFF_INK = '#6b6480';
 const OFF_RULE = '#c3bdd6';
 
 /**
- * The label cell of one read-out row.
+ * ⭐ §26.6 rule 2 (L-13046) — THE ONE BUILDER of a highlight label, as DOM.
+ *
+ * Until this lane the label existed only as an HTML string, which suited the envelope card (an
+ * `innerHTML` template) and nothing else: `parcelCard.ts` — the ONE producer of the question-1
+ * card, and the place the founder's `Area` / `Perimeter` / `Bounding box` / `Boundary edges` rows
+ * actually live — builds with `createElement` + `textContent` and has no HTML sink by rule
+ * (C08 §3.1). So the card's rows could not be buttons without either a second copy of this markup
+ * or a sink the card forbids itself. This is neither: the DOM builder is the definition, and
+ * `buildSiteHighlightLabelHtml` below is its serialisation, so the two hosts render one control.
  *
  * @param label      the row's user-facing label ("Max footprint")
- * @param subject    which of the six §3 subjects this row points at
+ * @param subject    which subject this row points at — one of the fixed seven, or one ring edge
  * @param avail      the availability DECISION for that subject — computed once per render by
- *                   `describeSiteHighlightAvailability`, never re-derived here
+ *                   `describeSiteHighlightAvailability` / `describeEdgeHighlightAvailability`,
+ *                   never re-derived here
  * @param isOn       whether this subject is the one currently emphasised
+ */
+export function buildSiteHighlightLabelEl(
+    label: string,
+    subject: SiteHighlightSubject,
+    avail: SiteHighlightAvailability,
+    isOn: boolean,
+): HTMLElement {
+    if (avail.available) {
+        // §SITE-HIGHLIGHT-REACH — read here rather than passed in, so the call sites in the card
+        // need no signature change and cannot forget it. See the block above for why this informs
+        // rather than gates.
+        const reach = describeSiteHighlightReach();
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute(SITE_HIGHLIGHT_ATTR, subject);
+        btn.setAttribute(SITE_HIGHLIGHT_REACH_ATTR, String(reach.surfaces.length));
+        btn.setAttribute(SITE_HIGHLIGHT_REASON_ATTR, avail.reason);
+        btn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        btn.title = composeRowTitle(avail.reason, reach.sentence);
+        btn.style.cssText =
+            `appearance:none;background:${isOn ? ON_BG : 'transparent'};border:none;`
+            + `border-bottom:1px dotted ${isOn ? ON_INK : OFF_RULE};padding:0 2px;margin:0;`
+            + `cursor:pointer;font:inherit;color:${isOn ? ON_INK : OFF_INK};`
+            + `font-weight:${isOn ? '700' : 'inherit'};border-radius:3px;`;
+        btn.appendChild(document.createTextNode(label));
+        const glyph = document.createElement('span');
+        glyph.setAttribute('data-hl-glyph', '1');
+        glyph.textContent = isOn ? ' ◉' : ' ◎';
+        btn.appendChild(glyph);
+        return btn;
+    }
+    // The honest unreachable arm: text, a dimmed glyph, and the REASON where a hover finds it.
+    const wrap = document.createElement('span');
+    wrap.style.color = OFF_INK;
+    wrap.appendChild(document.createTextNode(label));
+    const marker = document.createElement('span');
+    marker.setAttribute(SITE_HIGHLIGHT_UNAVAILABLE_ATTR, subject);
+    marker.title = avail.reason;
+    marker.style.cssText = 'color:#ddd8ea;cursor:help;';
+    marker.textContent = ' ◎';
+    wrap.appendChild(marker);
+    return wrap;
+}
+
+/**
+ * The label cell of one read-out row, as markup — for the `innerHTML`-templated envelope card.
+ * ⛔ A SERIALISATION OF `buildSiteHighlightLabelEl`, never a second copy of the control: the DOM
+ * serialiser escapes every runtime string (C08 §3.1), which is why this file no longer carries an
+ * escaper of its own.
  */
 export function buildSiteHighlightLabelHtml(
     label: string,
@@ -104,25 +159,7 @@ export function buildSiteHighlightLabelHtml(
     avail: SiteHighlightAvailability,
     isOn: boolean,
 ): string {
-    if (avail.available) {
-        // §SITE-HIGHLIGHT-REACH — read here rather than passed in, so the call sites in the card
-        // need no signature change and cannot forget it. See the block above for why this informs
-        // rather than gates.
-        const reach = describeSiteHighlightReach();
-        return `<button type="button" ${SITE_HIGHLIGHT_ATTR}="${escHtml(subject)}"
-                   ${SITE_HIGHLIGHT_REACH_ATTR}="${reach.surfaces.length}"
-                   ${SITE_HIGHLIGHT_REASON_ATTR}="${escHtml(avail.reason)}"
-                   aria-pressed="${isOn ? 'true' : 'false'}"
-                   title="${escHtml(composeRowTitle(avail.reason, reach.sentence))}"
-                   style="appearance:none;background:${isOn ? ON_BG : 'transparent'};border:none;
-                          border-bottom:1px dotted ${isOn ? ON_INK : OFF_RULE};padding:0 2px;margin:0;
-                          cursor:pointer;font:inherit;color:${isOn ? ON_INK : OFF_INK};
-                          font-weight:${isOn ? '700' : 'inherit'};border-radius:3px;">${escHtml(label)}<span data-hl-glyph="1">${isOn ? ' ◉' : ' ◎'}</span></button>`;
-    }
-    // The honest unreachable arm: text, a dimmed glyph, and the REASON where a hover finds it.
-    return `<span style="color:${OFF_INK};">${escHtml(label)}<span
-             ${SITE_HIGHLIGHT_UNAVAILABLE_ATTR}="${escHtml(subject)}"
-             title="${escHtml(avail.reason)}" style="color:#ddd8ea;cursor:help;"> ◎</span></span>`;
+    return buildSiteHighlightLabelEl(label, subject, avail, isOn).outerHTML;
 }
 
 /**
@@ -177,8 +214,11 @@ export function wireSiteHighlightRows(root: ParentNode): number {
     try {
         let wired = 0;
         root.querySelectorAll<HTMLButtonElement>(`[${SITE_HIGHLIGHT_ATTR}]`).forEach((btn) => {
-            const subject = btn.getAttribute(SITE_HIGHLIGHT_ATTR) as SiteHighlightSubject | null;
-            if (!subject) return;
+            const subject = btn.getAttribute(SITE_HIGHLIGHT_ATTR);
+            // ⛔ Only a subject the store's vocabulary knows is wired. A row carrying an attribute
+            // value nothing can draw would be the dead click this module exists to prevent, one
+            // typo away — so it stays inert here and the spec counts it as un-wired.
+            if (!isSiteHighlightSubject(subject)) return;
             btn.onclick = (ev) => {
                 ev.stopPropagation();
                 ev.preventDefault();
@@ -189,6 +229,38 @@ export function wireSiteHighlightRows(root: ParentNode): number {
         });
         span.setAttribute('pryzm.siteHighlight.wiredButtons', wired);
         return wired;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * ⭐ §26.6 rule 2 (L-13046) — KEEP EVERY ROW UNDER `root` PAINTED FROM THE STORE, whoever wrote it.
+ *
+ * `wireSiteHighlightRows` repaints the root it was wired on, and only on ITS OWN click. The Parcel
+ * Law tab now carries highlight rows in two places that are wired by two callers: question 1's
+ * cadastral card (wired by the tab) and the singleton envelope card's fold (wired by
+ * `GISAreaLayout`, on the card's `panel` root, every time the card re-renders). A click on either
+ * writes the ONE store; without this, the other's ◉ would go stale — the row would assert an
+ * emphasis the scene had already moved off. This is the same push-not-poll subscription every
+ * drawing surface holds, applied to the rows that NAME the subject.
+ *
+ * ⛔ NOT a drawing surface, so it does NOT call `registerSiteHighlightSurface` — a panel that
+ * repaints its own pressed state is not a view that draws the geometry (`siteGeometryHighlight.ts`
+ * §SITE-HIGHLIGHT-REACH: counting the panel as a viewport is the fake-more-capable-than-real shape).
+ *
+ * @returns the unsubscribe; call it when `root` leaves the document.
+ */
+export function keepSiteHighlightRowsPainted(root: ParentNode): () => void {
+    const span = _tracer.startSpan('pryzm.site.keepSiteHighlightRowsPainted');
+    try {
+        return subscribeSiteHighlight(() => {
+            try {
+                paintSiteHighlightRows(root);
+            } catch (e) {
+                console.warn('[site][highlight] row repaint failed (non-fatal):', e);
+            }
+        });
     } finally {
         span.end();
     }

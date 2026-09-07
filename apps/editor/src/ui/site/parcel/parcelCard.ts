@@ -57,6 +57,15 @@
 import type { ParcelProvenance, ParcelSourceKind } from '@pryzm/schemas';
 import type { ParcelFeature } from './ParcelProvider.js';
 import { assessParcelSize, parcelSizeReviewText, PARCEL_SIZE_REVIEW_TESTID } from './parcelSizeReview.js';
+// ⭐ §26.6 rule 2 (L-13046, founder 2026-09-07): *"IF THE USER SELECTS AREA IT WORKS LIKE A
+// HYPERLINK … THE AREA IN THE LEFT HAND SIDE 2D MAP VIEW OR 3D SITE VIEW SHOULD HIGHLIGHT THE AREA
+// (IN PRYZM VIOLET COLOUR)."* The row label becomes the SAME control the envelope card's fold has
+// carried since §RESI-ORCH-HIGHLIGHT — built by the ONE builder in `siteHighlightRowControl.ts`,
+// which writes the ONE store every site view subscribes to. This file decides nothing about
+// availability and nothing about what lights: it is handed a DECISION and typesets it (C08 §3.1:
+// the builder is DOM, so this card still has no HTML sink).
+import { getSiteHighlight, type SiteHighlightAvailability, type SiteHighlightSubject } from '../siteGeometryHighlight.js';
+import { buildSiteHighlightLabelEl } from '../siteHighlightRowControl.js';
 
 /** The `data-testid` on the card root, whichever surface hosts it. */
 export const PARCEL_CARD_TESTID = 'parcel-info-card';
@@ -176,6 +185,26 @@ export interface ParcelCardOptions {
      * merge was forbidden to cause. Shown only when `extraFacts` is non-empty.
      */
     readonly extraFactsNote?: string;
+    /**
+     * §26.6 rule 2 (L-13046) — makes the card's OWN area row(s) a hyperlink to the parcel on
+     * whichever view is open. The card renders `Area (registry)` / `Area (from ring)` from the
+     * model, not from `extraFacts`, so the host cannot reach those labels through the seam above;
+     * this is the one field that lets it. Omitted by every host but the Parcel Law tab, which is
+     * the only host whose views subscribe to the highlight store.
+     */
+    readonly areaHighlight?: ParcelCardRowHighlight;
+}
+
+/**
+ * §26.6 rule 2 (L-13046) — what a hyperlinked row points at, DECIDED BY THE HOST.
+ *
+ * ⛔ THE CARD DOES NOT DECIDE AVAILABILITY. `availability` arrives already computed by
+ * `describeSiteHighlightAvailability` (or its per-edge sibling) so this producer never re-derives
+ * whether a ring exists; it only renders the button or the text-with-reason that decision names.
+ */
+export interface ParcelCardRowHighlight {
+    readonly subject: SiteHighlightSubject;
+    readonly availability: SiteHighlightAvailability;
 }
 
 /** A host note placed above the fact rows. `tone` picks the warn vs note class. */
@@ -221,6 +250,11 @@ export interface ParcelCardExtraFact {
     readonly value: string;
     /** Tooltip on the label. The caller's own explanation of what the figure is. */
     readonly hint?: string;
+    /**
+     * §26.6 rule 2 — when present, the label is the highlight CONTROL rather than text: following
+     * it lights `subject` on every subscribed view, in PRYZM violet. See `ParcelCardRowHighlight`.
+     */
+    readonly highlight?: ParcelCardRowHighlight;
 }
 
 /**
@@ -341,10 +375,52 @@ function el<K extends keyof HTMLElementTagNameMap>(
     return n;
 }
 
-function fact(label: string, value: string): HTMLDivElement {
+/**
+ * The label cell of a row: plain text, or — §26.6 rule 2 — the highlight control the host decided
+ * this row carries. ONE key-cell builder for the card's own rows and the host's extras, so the two
+ * cannot render the affordance differently.
+ */
+function keyCell(label: string, hint?: string, highlight?: ParcelCardRowHighlight): HTMLSpanElement {
+    const k = el('span', 'pryzm-parcel-card-key');
+    if (highlight) {
+        k.appendChild(buildSiteHighlightLabelEl(
+            label,
+            highlight.subject,
+            highlight.availability,
+            getSiteHighlight() === highlight.subject,
+        ));
+    } else {
+        k.textContent = label;
+    }
+    if (hint) k.title = hint;
+    return k;
+}
+
+/**
+ * One label/value row.
+ *
+ * §26.6.1 (L-13046) — `inlineNote` renders ON THE SAME LINE as the value, as a third, muted cell
+ * of the same flex row. Founder: *"`Area computed from the ring (shoelace); the source publishes no
+ * legal area` must sit ON THE SAME LINE as the Area, not as an orphaned caption beneath it."* It
+ * keeps the `parcel-area-derived-note` testid it always had, so nothing that looked for the
+ * sentence loses it — only its placement moved.
+ */
+function fact(
+    label: string,
+    value: string,
+    opts?: {
+        readonly highlight?: ParcelCardRowHighlight;
+        readonly inlineNote?: { readonly text: string; readonly testId: string };
+    },
+): HTMLDivElement {
     const row = el('div', 'pryzm-parcel-card-row');
-    row.appendChild(el('span', 'pryzm-parcel-card-key', label));
+    row.appendChild(keyCell(label, undefined, opts?.highlight));
     row.appendChild(el('span', 'pryzm-parcel-card-val', value));
+    if (opts?.inlineNote) {
+        const n = el('span', 'pryzm-parcel-card-note pryzm-parcel-card-note--inline', opts.inlineNote.text);
+        n.setAttribute('data-testid', opts.inlineNote.testId);
+        row.appendChild(n);
+    }
     return row;
 }
 
@@ -367,9 +443,9 @@ function appendExtraFacts(
     for (const f of facts) {
         const row = el('div', 'pryzm-parcel-card-row');
         row.setAttribute('data-testid', f.testId);
-        const k = el('span', 'pryzm-parcel-card-key', f.label);
-        if (f.hint) k.title = f.hint;
-        row.appendChild(k);
+        // §26.6 rule 2 — the host's DECISION, typeset here. A row handed no `highlight` renders
+        // exactly as it did before this field existed.
+        row.appendChild(keyCell(f.label, f.hint, f.highlight));
         row.appendChild(el('span', 'pryzm-parcel-card-val', f.value));
         root.appendChild(row);
     }
@@ -487,16 +563,20 @@ export function buildParcelCard(
 
     // ── Area. C57 §2.4 / KV-3: the two areas are DIFFERENT FACTS and are never merged.
     //    When both exist they are both shown; the row label always states the basis.
+    //    §26.6 rule 2 — each area row is the parcel hyperlink when the host supplied one; the
+    //    two rows point at the SAME plot, because they are two measurements of one ring.
+    const highlight = opts.areaHighlight;
     if (model.areaSource === 'registry-declared' && model.areaOfficialM2 !== null) {
-        root.appendChild(fact('Area (registry)', m2(model.areaOfficialM2)));
+        root.appendChild(fact('Area (registry)', m2(model.areaOfficialM2), { highlight }));
         if (model.areaSigM2 !== null) {
-            root.appendChild(fact('Area (from ring)', m2(model.areaSigM2)));
+            root.appendChild(fact('Area (from ring)', m2(model.areaSigM2), { highlight }));
         }
     } else if (model.areaSigM2 !== null) {
-        root.appendChild(fact('Area (from ring)', m2(model.areaSigM2)));
-        const n = el('div', 'pryzm-parcel-card-note', PARCEL_AREA_DERIVED_NOTE);
-        n.setAttribute('data-testid', 'parcel-area-derived-note');
-        root.appendChild(n);
+        // §26.6.1 — the derivation note sits ON THE SAME LINE as the figure it qualifies.
+        root.appendChild(fact('Area (from ring)', m2(model.areaSigM2), {
+            highlight,
+            inlineNote: { text: PARCEL_AREA_DERIVED_NOTE, testId: 'parcel-area-derived-note' },
+        }));
     } else {
         root.appendChild(fact('Area', 'not determinable from this ring'));
     }

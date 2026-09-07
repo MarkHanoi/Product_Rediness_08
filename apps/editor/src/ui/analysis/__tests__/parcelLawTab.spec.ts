@@ -14,17 +14,21 @@
  * real DOM node, and the assertions read `parentElement`, not a flag.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
     mountParcelLawTab,
     defaultParcelLawTabDeps,
     PARCEL_LAW_TAB_TESTID,
     PARCEL_LAW_SWITCHER_SLOT_TESTID,
     PARCEL_LAW_PANEL_SLOT_TESTID,
+    PARCEL_LAW_FACTS_LAW_SLOT_TESTID,
     PARCEL_LAW_NOTE,
     PARCEL_LAW_PLOT_ROUTE_NOTE,
     PARCEL_LAW_PLOT_ROUTE_TESTID,
     PARCEL_LAW_STRIP_WIRED_ATTR,
+    PARCEL_LAW_HIGHLIGHT_WIRED_ATTR,
     ENVELOPE_CARD_TESTID,
     type ParcelLawTabDeps,
     type ParcelLawCapabilityHost,
@@ -33,6 +37,16 @@ import { buildParcelRailPanel, PARCEL_RAIL_ENVELOPE_SLOT_TESTID } from '../../si
 import { QUESTION_GROUP_TESTID_PREFIX } from '../parcelLawQuestionGroup';
 import { VIEW_SEGMENT_SWITCHER_TESTID, VIEW_SEGMENT_ATTR, VIEW_SEGMENTS } from '../../site/viewSegmentSwitcher';
 import { VIEW_SWITCHER_ON_VIEW_TESTID, VIEW_SWITCHER_SPLIT_TESTID } from '../../site/viewSwitcherOnView';
+import { buildParcelLawModel } from '../../site/parcel/parcelLawModel';
+import {
+    SITE_HIGHLIGHT_ATTR,
+    __resetSiteHighlightForTests,
+    getSiteHighlight,
+    setSiteHighlight,
+    subscribeSiteHighlight,
+} from '../../site/siteGeometryHighlight';
+import { SITE_HIGHLIGHT_UNAVAILABLE_ATTR } from '../../site/siteHighlightRowControl';
+import { ANALYSIS_SURFACE_STYLES } from '../../styles/panels/analysisSurface';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
@@ -342,5 +356,289 @@ describe('§SELECT-PARCEL-IS-A-VIEW-ACTION — question 1 drops the button ONLY 
         h.dispose();
         hostEl.remove();
         seam.restore();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// §26.6 — THE COMPLETE PARCEL LAW CARD SPEC (L-13046, founder 2026-09-07, seven screenshots).
+// *"DO IT SOUND — ARCHITECTURALLY SOUND — NO SHORT CUTS."* The four cross-cutting rules are the
+// architecture; these blocks pin the rules at the layer the founder experiences — the DOM of the
+// mounted tab — never a flag on a handle.
+// ═══════════════════════════════════════════════════════════════════════════════════════
+
+afterEach(() => {
+    // The tab subscribes to the highlight store at mount; a leaked subscriber would repaint the
+    // PREVIOUS test's tree. The subject is cleared for the same reason.
+    __resetSiteHighlightForTests();
+});
+
+/** A determined Barcelona-shaped envelope — enough for the model to produce the law triple. */
+function determinedEnvelope(): never {
+    return {
+        insetPolygon: [{ x: 3, z: 3 }, { x: 17, z: 3 }, { x: 17, z: 18 }, { x: 3, z: 18 }],
+        insetAreaM2: 210,
+        maxHeight_m: 18,
+        farLimitedHeight_m: null,
+        maxFloors: 6,
+        maxFAR: null,
+        maxCoverage: null,
+        maxVolumeM3: 3780,
+        footprintIsUpperBound: false,
+        confidence: 'structured',
+        granularity: 'parcel',
+        status: 'ok',
+        refusal: null,
+        zoneCode: '13a',
+        derivation: [
+            { constraint: 'alignment.depth', value: 15, source: 'bcn-pgm', ordinanceRef: 'PGM Art. 242.2', fieldProvenance: 'published-structured' },
+        ],
+        caveats: [],
+        tiers: [],
+        permittedUse: [],
+    } as never;
+}
+
+/**
+ * The singleton, faked the way the REAL card renders: with the *Full site & massing data* fold
+ * carrying the ORDINANCE LIMITS · MASSING POTENTIAL · CAPACITY headings — so the test can count
+ * how many times the triple is on the tab, which is the founder's exact complaint.
+ */
+function fakeEnvelopeSeamWithFold(): ReturnType<typeof fakeEnvelopeSeam> {
+    const seam = fakeEnvelopeSeam();
+    seam.card.textContent = '';
+    const fold = document.createElement('details');
+    fold.setAttribute('data-testid', 'envelope-section-site-data');
+    fold.innerHTML =
+        '<summary>Full site &amp; massing data</summary>'
+        + '<div><div class="fake-group-title">Ordinance limits</div>'
+        + '<div class="fake-group-title">Massing potential</div>'
+        + '<div class="fake-group-title">Capacity</div></div>';
+    seam.card.appendChild(fold);
+    return seam;
+}
+
+describe('§26.6 rule 1 — NOTHING IS DUPLICATED: the ORDINANCE LIMITS / MASSING POTENTIAL / CAPACITY triple renders ONCE', () => {
+    it('⭐ on a DETERMINED parcel the triple appears exactly once on the whole tab — the card fold, and no second block', async () => {
+        const seam = fakeEnvelopeSeamWithFold();
+        const runtime = fakeRuntime(SITE);
+        const deps: ParcelLawTabDeps = {
+            ...defaultParcelLawTabDeps(),
+            capabilityHost: seam.host,
+            runtime,
+            // The ONE model, DETERMINED — the state in which the tab used to render the triple a
+            // second time beneath the card. The production renderer runs.
+            readParcelLawModel: () => buildParcelLawModel({
+                parcelRing: SITE.parcel.boundary.polygon,
+                edgeClassifications: undefined,
+                identity: null,
+                identityAbsence: 'none',
+                envelope: determinedEnvelope(),
+            }),
+        };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        expect(h.holdsEnvelopeCard()).toBe(true);
+
+        const text = h.element.textContent ?? '';
+        for (const heading of ['Ordinance limits', 'Massing potential', 'Capacity']) {
+            const count = text.split(heading).length - 1;
+            expect(count, `"${heading}" renders ${count} times — the founder's image 6 was the second`).toBe(1);
+        }
+        // The one occurrence is INSIDE the card's fold, i.e. at its owner — not a tab copy.
+        expect(h.element.querySelectorAll('.anl-plaw-group')).toHaveLength(0);
+        const law = h.element.querySelector(`[data-testid="${PARCEL_LAW_FACTS_LAW_SLOT_TESTID}"]`)!;
+        expect(law.querySelector('.anl-plaw-group')).toBeNull();
+        expect(law.getAttribute('data-duplicate-removed')).toBe('envelope-card-site-data-fold');
+
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+});
+
+describe('§26.6 rule 2 — EVERY FIGURE IS A HYPERLINK, and following it writes the store every view paints from', () => {
+    it('⭐ question 1: Area (both rows), Perimeter and Bounding box are highlight CONTROLS; unrecorded frontage is text-with-reason', async () => {
+        const seam = fakeEnvelopeSeam();
+        const runtime = fakeRuntime(SITE);
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        const subjects = [...q1.querySelectorAll<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}]`)]
+            .map((b) => b.getAttribute(SITE_HIGHLIGHT_ATTR));
+        // Every AREA row points at the SAME plot — the registry area, the ring area and, because
+        // SITE's 20 × 21 ring measures 420 m² in scene against the 424 m² the source published,
+        // the labelled scene-area row too (§ONE-PARCEL-BLOCK: a disagreement is information).
+        // Perimeter points at the ring; the bounding box at the box.
+        expect(subjects.filter((s) => s === 'parcel')).toHaveLength(3);
+        expect(subjects).toContain('boundary');
+        expect(subjects).toContain('bbox');
+        // SITE carries no edgeClassifications → "not recorded" → text with its reason, not a
+        // control that swallows a click (the three-arm frontage rule, on the card).
+        expect(q1.querySelector(`button[${SITE_HIGHLIGHT_ATTR}="frontage"]`)).toBeNull();
+        const frontage = q1.querySelector<HTMLElement>(`[${SITE_HIGHLIGHT_UNAVAILABLE_ATTR}="frontage"]`)!;
+        expect(frontage).not.toBeNull();
+        expect(frontage.title).toContain('classified');
+        // And the tab WIRED them — the count is stamped, so "wired nothing" is distinguishable.
+        expect(Number(h.element.getAttribute(PARCEL_LAW_HIGHLIGHT_WIRED_ATTR))).toBeGreaterThanOrEqual(4);
+
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+
+    it('⭐ FOLLOWING the link writes the ONE store the views subscribe to, and the tab keeps every row PAINTED from it', async () => {
+        const seam = fakeEnvelopeSeam();
+        const runtime = fakeRuntime(SITE);
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        const perimeter = q1.querySelector<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}="boundary"]`)!;
+        const areas = [...q1.querySelectorAll<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}="parcel"]`)];
+
+        // A view — the seam CesiumViewport / SiteBoundaryMap2D / ParcelBoundarySceneRenderer sit on.
+        const view = vi.fn();
+        subscribeSiteHighlight(view);
+        expect(getSiteHighlight()).toBeNull();
+        perimeter.click();
+        expect(getSiteHighlight()).toBe('boundary');
+        expect(view).toHaveBeenCalledTimes(1);
+        expect(perimeter.getAttribute('aria-pressed')).toBe('true');
+
+        // ⭐ THE STORE MOVES FROM ELSEWHERE (the envelope card's own fold, wired on ITS root) and
+        // the tab's rows follow — the ◉ never asserts an emphasis the scene has left.
+        setSiteHighlight('parcel');
+        expect(perimeter.getAttribute('aria-pressed')).toBe('false');
+        for (const a of areas) expect(a.getAttribute('aria-pressed')).toBe('true');
+
+        // Disposed → the tab no longer repaints a detached tree; the store is untouched by dispose.
+        h.dispose();
+        setSiteHighlight('bbox');
+        expect(getSiteHighlight()).toBe('bbox');
+        for (const a of areas) expect(a.getAttribute('aria-pressed')).toBe('true'); // detached: stale by design
+        hostEl.remove();
+        seam.restore();
+    });
+});
+
+describe('§26.6.1 — "Area computed from the ring (shoelace)…" sits ON THE SAME LINE as the Area', () => {
+    it('the derivation note is a cell of the area ROW, not a caption beneath it', async () => {
+        const seam = fakeEnvelopeSeam();
+        const site = {
+            parcel: {
+                ...SITE.parcel,
+                provenance: {
+                    ...SITE.parcel.provenance,
+                    kind: 'footprint', source: 'footprint (OSM)', label: 'OpenStreetMap building footprint',
+                    refcat: 'way/123', confidence: {
+                        areaOfficialM2: null, areaSigM2: 424, areaSource: 'derived-from-ring', match: 'low', geometryComplete: true,
+                    },
+                },
+            },
+        };
+        const runtime = fakeRuntime(site);
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const note = h.element.querySelector<HTMLElement>('[data-testid="parcel-area-derived-note"]')!;
+        expect(note, 'the derivation note was deleted — §26.6.6 forbids removing a refusal to tidy').not.toBeNull();
+        expect(note.textContent).toContain('Area computed from the ring (shoelace)');
+        const row = note.parentElement!;
+        expect(row.classList.contains('pryzm-parcel-card-row')).toBe(true);
+        expect(row.textContent).toContain('Area (from ring)');
+        expect(row.textContent).toContain('424 m²');
+        // ⭐ What is already right and must not be lost (§26.6.1): the amber OSM warning, Match,
+        // source and timestamp — C57 §1.5 / §1.9 attribution.
+        const text = h.element.textContent ?? '';
+        expect(text).toContain('Building footprint (OSM) — NOT a legal cadastral parcel');
+        expect(text).toContain('low');
+        expect(text).toContain('OpenStreetMap building footprint');
+        expect(text).toContain('2026-08-21T09:14:00Z');
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+});
+
+describe('§26.6.6 — every refusal the spec quotes is STILL PRESENT: rendered where the tab renders it, pinned at its producer where the card does', () => {
+    const src = (rel: string): string => readFileSync(resolve(__dirname, rel), 'utf8');
+
+    it('the cost-rate refusal renders on a cold tab (question 5)', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: null };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const q5 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}cost"]`)!;
+        expect(q5.textContent).toContain('PRYZM ships a published, cited rate for one place only, so outside it the honest answer is a refusal. Type what YOU assume');
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+
+    it('⛔ the sentences the CARD and its producers own are pinned verbatim at their ONE producer', () => {
+        // §26.6.2 — the not-derived refusal, on the card's fold.
+        expect(src('../../layout/GISAreaLayout.ts')).toContain('Values marked <i>not derived</i> were not produced by the rule pack for this zone.');
+        expect(src('../../layout/GISAreaLayout.ts')).toContain('PRYZM does not infer them');
+        // §26.6.4 — the Designed vs permitted table's not-checked sentence.
+        const capacity = src('../../site/capacityPanelSection.ts');
+        expect(capacity).toContain('Designed figures are measured from the authored model');
+        expect(capacity).toContain('it is not a building-code review');
+        // §26.6.3 rule 3 — the model sentence, at its ONE producer.
+        expect(src('../../site/brutAreaAllocation.ts')).toContain('no storey may overhang the');
+        expect(src('../../site/brutAreaAllocation.ts')).toContain('less than you asked for. Nothing was ');
+        // §26.6.5 — the allowance refusal and the two-rival-envelopes refusals.
+        expect(src('../../site/envelopeCardSections.ts')).toMatch(/PRYZM will not guess/);
+        expect(src('../../room-programme/roomEnvelopePlan.ts')).toContain('PRYZM will not choose for you');
+        expect(src('../../site/createHousePlan.ts')).toContain('sit at the same base height');
+        // §26.6.3 — the three-line legend stays.
+        expect(src('../../site/envelopeCardSections.ts')).toContain('buildEnvelopeLegendHtml');
+    });
+});
+
+describe('§26.6.2 — question 2 is RENAMED, the × is withheld on this host, and the four figures are NAMED as he names them', () => {
+    const src = (rel: string): string => readFileSync(resolve(__dirname, rel), 'utf8');
+
+    it('the question reads "What can I build here?" — the founder\'s words', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
+        expect(q2.querySelector('.anl-plaw-q-title')!.textContent).toBe('What can I build here?');
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+
+    it('⛔ the card\'s ✕ is withheld INSIDE this tab by scope — the producer is untouched, so the GIS hosts keep theirs', () => {
+        // The card is a re-homed singleton; a host-specific branch inside its renderer would be
+        // the C19 §5.7 defect. The host decides its own chrome, in its own stylesheet.
+        expect(ANALYSIS_SURFACE_STYLES).toContain('.anl-parcel-law [data-testid="envelope-close"] { display: none; }');
+        // …and the producer still renders it for the hosts that have a launcher pill.
+        expect(src('../../layout/GISAreaLayout.ts')).toContain('data-testid="envelope-close"');
+    });
+
+    it('the four figures are present as ROWS, named as he names them — and "not derived" is never inferred', () => {
+        const card = src('../../layout/GISAreaLayout.ts');
+        expect(card).toContain("row('Maximum height'");
+        expect(card).toContain("row('Maximum levels'");
+        expect(card).toContain("row('Maximum implantation area (ground, plan)'");
+        expect(card).toContain("row('Maximum buildable area (all floors, GFA)'");
+        // The refusal that fills a missing one STAYS (§26.6.2: "that refusal is correct and stays").
+        expect(card).toContain(': NOT_DERIVED,');
     });
 });

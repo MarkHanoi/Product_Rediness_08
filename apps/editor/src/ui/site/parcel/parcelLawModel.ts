@@ -66,7 +66,11 @@
 import { trace } from '@opentelemetry/api';
 import type { BuildableEnvelope } from '@pryzm/schemas';
 import { BCN_ART323_DWELLING_MODULE_M2 } from '@pryzm/site-parcel-data';
-import { frontageClause, frontEdgeCount } from '../parcelEdgeClassificationDetermination.js';
+import {
+    frontageClause,
+    frontEdgeCount,
+    parcelEdgeClassificationsOrUnknown,
+} from '../parcelEdgeClassificationDetermination.js';
 import { polygonAreaXZ, type XZVertex } from '../siteInspectorData.js';
 import type { ParcelCardModel } from './parcelCard.js';
 
@@ -117,6 +121,37 @@ export interface ParcelLawGeometry {
     readonly frontageClause: string;
     /** `null` = NOBODY CLASSIFIED THE EDGES. Not the same fact as "no edge is frontage". */
     readonly frontEdgeCount: number | null;
+    /**
+     * §26.6.2 (L-13046) — ONE ROW PER RING EDGE, for the setback register and the per-edge
+     * hyperlink. `classification` is the C19 §2.3 label when the edges were classified, and
+     * `null` — per edge — when nobody recorded one (C19 §10.1 is pending). ⛔ Never inferred.
+     */
+    readonly edges: readonly ParcelLawEdge[];
+}
+
+/** One edge of the committed ring, from vertex `index` to vertex `index + 1` (wrapping). */
+export interface ParcelLawEdge {
+    /** 0-based ring vertex index the edge starts at. The edge's highlight subject is `edge:<index>`. */
+    readonly index: number;
+    readonly lengthM: number;
+    /** `'front' | 'side' | 'rear' | 'unclassified'` as recorded, or `null` when nothing was. */
+    readonly classification: string | null;
+}
+
+/**
+ * §26.6.2 (L-13046) — ONE CONSTRAINT OF THE DERIVATION TRACE, with the rule that produced it.
+ *
+ * C58 §1.3: *"every envelope constraint cites its source rule."* The register renders this per
+ * EDGE, so it needs the citation beside the value rather than the first citation in the trace.
+ * `valueM` is `null` when the row exists but carries no number (never coerced); a constraint with
+ * NO row at all is simply absent from `rules`, which the register prints as *not derived*.
+ */
+export interface ParcelLawRule {
+    readonly valueM: number | null;
+    readonly ordinanceRef: string | null;
+    /** The per-field provenance flag the trace carries (C58 §1.3), verbatim. */
+    readonly provenance: string | null;
+    readonly source: string | null;
 }
 
 /** ORDINANCE LIMITS — every value read from the derivation trace, with its citation. */
@@ -143,7 +178,26 @@ export interface ParcelLawOrdinance {
     readonly citation: string | null;
     /** The derivation's source id — the publisher, when one answered. */
     readonly sourceId: string | null;
+    /**
+     * §26.6.2 — the setback-family constraints of the trace, keyed by their C58 constraint name
+     * (`setback.front` · `setback.side` · `setback.rear` · `alignment.depth` ·
+     * `alignment.offset`), each with ITS OWN citation. Present only for constraints the trace
+     * actually carries. This is what lets the register cite per edge rather than per parcel.
+     */
+    readonly rules: Readonly<Partial<Record<ParcelLawSetbackConstraint, ParcelLawRule>>>;
 }
+
+/** The C58 constraint names the setback register reads. Closed; anything else is not a setback. */
+export type ParcelLawSetbackConstraint =
+    | 'setback.front'
+    | 'setback.side'
+    | 'setback.rear'
+    | 'alignment.depth'
+    | 'alignment.offset';
+
+export const PARCEL_LAW_SETBACK_CONSTRAINTS: readonly ParcelLawSetbackConstraint[] = Object.freeze([
+    'setback.front', 'setback.side', 'setback.rear', 'alignment.depth', 'alignment.offset',
+] as const);
 
 /** MASSING POTENTIAL — what the limits actually buy. A STUDY, never a permit. */
 export interface ParcelLawMassing {
@@ -210,6 +264,13 @@ export interface ParcelLawModel {
     readonly committedAreaM2: number | null;
     readonly geometry: ParcelLawGeometry | null;
     readonly geometryAbsence: ParcelLawGeometryAbsence | null;
+    /**
+     * §26.6 rule 2 — the RAW `boundary.edgeClassifications`, carried through UNDEFAULTED so a
+     * renderer can hand it to `describeSiteHighlightAvailability` (whose frontage arm needs the
+     * raw value to tell "absent" from "wrong length" from "all unclassified"). `null` when the
+     * input carried nothing. ⛔ A renderer must not `?? []` it — see `ParcelLawModelInput`.
+     */
+    readonly edgeClassifications: readonly string[] | null;
     readonly envelopeState: ParcelLawEnvelopeState;
     readonly refusal: ParcelLawRefusal | null;
     readonly ordinance: ParcelLawOrdinance | null;
@@ -325,6 +386,11 @@ export function buildParcelLawModel(input: ParcelLawModelInput): ParcelLawModel 
     try {
         const ring = input.parcelRing ?? null;
         const hasRing = Array.isArray(ring) && ring.length >= 3;
+        // §26.6 rule 2 — carried raw. `undefined` and a non-array both become `null`; an array is
+        // kept AS IS (wrong length included), because the frontage rule is the one that decides
+        // what a wrong length means and it must see it.
+        const rawEdgeClassifications: readonly string[] | null =
+            Array.isArray(input.edgeClassifications) ? [...input.edgeClassifications] : null;
         const geometry: ParcelLawGeometry | null = hasRing
             ? {
                   areaM2: polygonAreaXZ(ring!),
@@ -335,6 +401,21 @@ export function buildParcelLawModel(input: ParcelLawModelInput): ParcelLawModel 
                   // UNDEFAULTED on purpose — see `ParcelLawModelInput.edgeClassifications`.
                   frontageClause: frontageClause(input.edgeClassifications, ring!.length),
                   frontEdgeCount: frontEdgeCount(input.edgeClassifications, ring!.length),
+                  // §26.6.2 — one row per edge. The classification is read through the SAME
+                  // three-arm determination the clause and the count use (`null` = not recorded),
+                  // so the register can never say "front" about an edge the clause calls
+                  // unrecorded.
+                  edges: ((): readonly ParcelLawEdge[] => {
+                      const labels = parcelEdgeClassificationsOrUnknown(input.edgeClassifications, ring!.length);
+                      return Object.freeze(ring!.map((a, i): ParcelLawEdge => {
+                          const b = ring![(i + 1) % ring!.length]!;
+                          return {
+                              index: i,
+                              lengthM: Math.hypot(b.x - a.x, b.z - a.z),
+                              classification: labels === null ? null : (labels[i] ?? null),
+                          };
+                      }));
+                  })(),
               }
             : null;
         const geometryAbsence: ParcelLawGeometryAbsence | null = hasRing
@@ -368,6 +449,7 @@ export function buildParcelLawModel(input: ParcelLawModelInput): ParcelLawModel 
                 committedAreaM2: input.committedAreaM2 ?? null,
                 geometry,
                 geometryAbsence,
+                edgeClassifications: rawEdgeClassifications,
                 envelopeState,
                 refusal,
                 ordinance: null,
@@ -399,6 +481,22 @@ export function buildParcelLawModel(input: ParcelLawModelInput): ParcelLawModel 
             setbackRearM: derivedNumber(env, 'setback.rear'),
             citation,
             sourceId: env.derivation[0]?.source ?? null,
+            // §26.6.2 — each setback-family row with ITS OWN citation (C58 §1.3 per constraint).
+            // Only rows the trace carries; a missing constraint is missing here too.
+            rules: ((): Readonly<Partial<Record<ParcelLawSetbackConstraint, ParcelLawRule>>> => {
+                const out: Partial<Record<ParcelLawSetbackConstraint, ParcelLawRule>> = {};
+                for (const c of PARCEL_LAW_SETBACK_CONSTRAINTS) {
+                    const row = env.derivation.find((d) => d.constraint === c);
+                    if (!row) continue;
+                    out[c] = {
+                        valueM: typeof row.value === 'number' && Number.isFinite(row.value) ? row.value : null,
+                        ordinanceRef: typeof row.ordinanceRef === 'string' && row.ordinanceRef ? row.ordinanceRef : null,
+                        provenance: typeof row.fieldProvenance === 'string' ? row.fieldProvenance : null,
+                        source: typeof row.source === 'string' ? row.source : null,
+                    };
+                }
+                return Object.freeze(out);
+            })(),
         };
 
         const { footprintM2, gfaM2 } = permittedStudyFiguresOf(env);
@@ -466,6 +564,7 @@ export function buildParcelLawModel(input: ParcelLawModelInput): ParcelLawModel 
             committedAreaM2: input.committedAreaM2 ?? null,
             geometry,
             geometryAbsence,
+            edgeClassifications: rawEdgeClassifications,
             envelopeState,
             refusal: null,
             ordinance,

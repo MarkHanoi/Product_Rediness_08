@@ -96,6 +96,9 @@ import {
     siteHighlightCue,
     siteHighlightEmphasis,
     SITE_HIGHLIGHT_RECEDE_FACTOR,
+    // §26.6 rule 2 (L-13046) — the two cues that answer `Bounding box` and a setback-register edge.
+    boundingBoxRingXZ,
+    parseEdgeHighlightSubject,
     type SiteHighlightRole,
 } from '../site/siteGeometryHighlight.js';
 // §PARCEL-VISIBLE-EVERYWHERE — the ONE scene-XZ → WGS84 read for the committed C19 ring, shared
@@ -1610,6 +1613,40 @@ export function mountSiteBoundaryMap2D(
             const ll = sceneXZToLatLon({ x: east, z: -north }, origin.lat, origin.lon);
             return [ll.lon, ll.lat];
         };
+
+        // ── §26.6 rule 2 (L-13046) — the two cues that need ONLY the committed ring. ──────────
+        // 'bbox' — the axis-aligned extent the `Bounding box` row's two numbers describe, from the
+        // ONE producer (`boundingBoxRingXZ`) the 3D views draw from, so the three views light the
+        // same box. 'boundary-edge' — ONE segment of the ring, the edge a setback-register row
+        // names; an index outside the ring yields the honest empty, never the nearest edge.
+        if (cue === 'bbox' || cue === 'boundary-edge') {
+            const ring = (store?.getParcelBoundary?.()?.polygon ?? []) as ReadonlyArray<{ x: number; z: number }>;
+            if (ring.length < 3) return emptyFC();
+            if (cue === 'bbox') {
+                const box = boundingBoxRingXZ(ring).map(toLonLat);
+                return {
+                    type: 'FeatureCollection',
+                    features: [{
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: [...box, box[0]!] },
+                        properties: { cue },
+                    }],
+                };
+            }
+            const index = parseEdgeHighlightSubject(subject);
+            if (index === null || index >= ring.length) return emptyFC();
+            return {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: [toLonLat(ring[index]!), toLonLat(ring[(index + 1) % ring.length]!)],
+                    },
+                    properties: { cue, edgeIndex: index },
+                }],
+            };
+        }
 
         if (cue === 'inset-ring') {
             // ⚠ ONE RING, THE PRINCIPAL TIER'S — exactly what the card's footprint number is

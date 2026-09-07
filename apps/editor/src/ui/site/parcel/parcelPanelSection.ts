@@ -74,7 +74,13 @@ import {
     PARCEL_PROVENANCE_ABSENT_TEXT,
     type ParcelCardAction,
     type ParcelCardExtraFact,
+    type ParcelCardRowHighlight,
 } from './parcelCard.js';
+// §26.6 rule 2 (L-13046) — the state-2 area row below is built by hand in this file; its label
+// takes the SAME control the card's own rows take, from the ONE builder, so a parcel whose
+// provenance was never recorded still has a hyperlinked area.
+import { getSiteHighlight } from '../siteGeometryHighlight.js';
+import { buildSiteHighlightLabelEl } from '../siteHighlightRowControl.js';
 // §L-1585 — the button below dispatches a DECLARED registry action, never a hand-written
 // handler. §GIS-ACTION-REGISTRY (L-1187): "A panel is a HOST; the action is the AUTHORITY."
 import {
@@ -122,6 +128,11 @@ function resolveSiteStore(runtime: PryzmRuntime | null | undefined): SiteStoreLi
 export interface ParcelSectionExtras {
     readonly facts: readonly ParcelCardExtraFact[];
     readonly note?: string;
+    /**
+     * §26.6 rule 2 (L-13046) — the host's decision that the card's OWN area row(s) are the
+     * parcel hyperlink. Passed through to `buildParcelCard`; never decided here.
+     */
+    readonly areaHighlight?: ParcelCardRowHighlight;
 }
 
 /**
@@ -142,6 +153,7 @@ export function buildParcelSectionBody(
 ): HTMLElement {
     const extraFacts = extras?.facts ?? [];
     const extraFactsNote = extras?.note;
+    const areaHighlight = extras?.areaHighlight;
     const polygon = site?.parcel?.boundary?.polygon;
     const hasBoundary = Array.isArray(polygon) && polygon.length >= 3;
     if (!site || !hasBoundary) {
@@ -165,7 +177,18 @@ export function buildParcelSectionBody(
             row.className = 'pryzm-parcel-card-row';
             const k = document.createElement('span');
             k.className = 'pryzm-parcel-card-key';
-            k.textContent = 'Area (from ring)';
+            // §26.6 rule 2 — the ring is real even when its attribution is not, so the area on
+            // this arm is a hyperlink to it exactly as on the full card.
+            if (areaHighlight) {
+                k.appendChild(buildSiteHighlightLabelEl(
+                    'Area (from ring)',
+                    areaHighlight.subject,
+                    areaHighlight.availability,
+                    getSiteHighlight() === areaHighlight.subject,
+                ));
+            } else {
+                k.textContent = 'Area (from ring)';
+            }
             const v = document.createElement('span');
             v.className = 'pryzm-parcel-card-val';
             v.textContent = `${Math.round(area)} m²`;
@@ -177,7 +200,7 @@ export function buildParcelSectionBody(
 
     return buildParcelCard(
         parcelProvenanceToCardModel(provenance, site.parcel.area),
-        { actions, extraFacts, extraFactsNote },
+        { actions, extraFacts, extraFactsNote, areaHighlight },
     );
 }
 

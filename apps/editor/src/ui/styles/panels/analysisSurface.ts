@@ -1784,6 +1784,15 @@ export const ANALYSIS_SURFACE_STYLES = `
 }
 .anl-parcel-law-panel { min-width: 0; }
 
+/* §26.6.2 (L-13046, founder 2026-09-07): "REMOVE the × in the top-right corner of the Buildable
+   envelope card." The card is a SINGLETON re-homed between hosts (§GIS-ENVELOPE-REHOST); its ✕
+   exists for the GIS hosts, where a launcher pill re-opens a dismissed card (§L-621b). On the
+   Parcel Law tab there is no such pill and the card IS question 2's answer, so dismissing it
+   would strand the reader on an empty question. The host, not the producer, decides its own
+   chrome: the control is withheld here by scope, and the card's own render is untouched
+   (C19 §5.7 -- one card, one renderer, no host-specific branch inside it). */
+.anl-parcel-law [data-testid="envelope-close"] { display: none; }
+
 /* The four-view switcher: one segmented row, not four rail rows. Mountable by
    any host (viewSegmentSwitcher.ts); the Analysis surface is its first. */
 .view-segment-switcher {

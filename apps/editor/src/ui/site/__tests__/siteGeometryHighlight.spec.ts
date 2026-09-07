@@ -26,6 +26,8 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import {
     SITE_HIGHLIGHT_SUBJECTS,
@@ -33,6 +35,11 @@ import {
     SITE_HIGHLIGHT_ATTR,
     SITE_HIGHLIGHT_RECEDE_FACTOR,
     describeSiteHighlightAvailability,
+    describeEdgeHighlightAvailability,
+    boundingBoxRingXZ,
+    edgeHighlightSubject,
+    parseEdgeHighlightSubject,
+    isSiteHighlightSubject,
     siteHighlightCue,
     siteHighlightEmphasis,
     getSiteHighlight,
@@ -40,7 +47,6 @@ import {
     toggleSiteHighlight,
     subscribeSiteHighlight,
     __resetSiteHighlightForTests,
-    type SiteHighlightSubject,
     type SiteHighlightRole,
     type SiteHighlightInputs,
 } from '../siteGeometryHighlight';
@@ -300,14 +306,15 @@ describe('§RESI-ORCH-HIGHLIGHT — the store: push, not poll', () => {
 });
 
 describe('§RESI-ORCH-HIGHLIGHT — the shared vocabulary', () => {
-    it('enumerates all six subjects exactly once', () => {
-        expect(SITE_HIGHLIGHT_SUBJECTS).toHaveLength(6);
-        expect(new Set(SITE_HIGHLIGHT_SUBJECTS).size).toBe(6);
+    it('enumerates all SEVEN fixed subjects exactly once — six of STR §3, plus §26.6 rule 2\'s bounding box', () => {
+        expect(SITE_HIGHLIGHT_SUBJECTS).toHaveLength(7);
+        expect(new Set(SITE_HIGHLIGHT_SUBJECTS).size).toBe(7);
+        expect(SITE_HIGHLIGHT_SUBJECTS).toContain('bbox');
     });
 
     it('gives every subject a physical meaning — STR §3’s "what does this number mean?"', () => {
         for (const s of SITE_HIGHLIGHT_SUBJECTS) {
-            const meaning: string = SITE_HIGHLIGHT_MEANING[s as SiteHighlightSubject];
+            const meaning: string = SITE_HIGHLIGHT_MEANING[s];
             expect(meaning.length, `${s}`).toBeGreaterThan(20);
             expect(meaning.toLowerCase()).toContain('lights');
         }
@@ -315,5 +322,108 @@ describe('§RESI-ORCH-HIGHLIGHT — the shared vocabulary', () => {
 
     it('names ONE DOM attribute, so the card and its wiring cannot disagree', () => {
         expect(SITE_HIGHLIGHT_ATTR).toBe('data-site-highlight');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// §26.6 rule 2 (L-13046, founder 2026-09-07) — EVERY FIGURE IS A HYPERLINK: `Bounding box`
+// and EVERY EDGE join the vocabulary, through the SAME store and the SAME cue channel.
+// ═══════════════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ The point of these tests is that the two new subjects are NOT a second mechanism: the edge
+// is a parametrised value of the ONE union, constructed and parsed in ONE place, answered by ONE
+// cue name every renderer switches on. A renderer that forgot the arm fails to compile
+// (`ParcelBoundarySceneRenderer.buildHighlightCue` is an exhaustive switch), which is the feature.
+
+/** Every role a surface can tag geometry with — the same closed list the emphasis table is total over. */
+const ROLES_266: readonly SiteHighlightRole[] = Object.freeze([
+    'parcel-line', 'parcel-fill', 'envelope-volume', 'study-volume', 'proposal', 'cue',
+]);
+
+describe('§26.6 rule 2 — the bounding box is a subject', () => {
+    it('is available exactly when the ring is, and says what it lights', () => {
+        expect(describeSiteHighlightAvailability(COMPLETE).bbox.available).toBe(true);
+        expect(describeSiteHighlightAvailability(COMPLETE).bbox.reason.toLowerCase()).toContain('box');
+        expect(describeSiteHighlightAvailability({ ...COMPLETE, parcelRingLength: 2 }).bbox.available).toBe(false);
+    });
+
+    it('is answered by a CONSTRUCTED cue and recedes every authored surface around it', () => {
+        expect(siteHighlightCue('bbox')).toBe('bbox');
+        for (const r of ROLES_266.filter((x) => x !== 'cue')) {
+            expect(siteHighlightEmphasis('bbox', r), r).toBe('recede');
+        }
+        expect(siteHighlightEmphasis('bbox', 'cue')).toBe('subject');
+    });
+
+    it('boundingBoxRingXZ is the ONE producer of the box — axis-aligned, closed, four corners', () => {
+        const ring = [{ x: 3, z: 1 }, { x: 10, z: 4 }, { x: 7, z: 12 }, { x: 1, z: 9 }];
+        const box = boundingBoxRingXZ(ring);
+        expect(box).toEqual([{ x: 1, z: 1 }, { x: 10, z: 1 }, { x: 10, z: 12 }, { x: 1, z: 12 }]);
+        // A degenerate ring has no box worth pointing at.
+        expect(boundingBoxRingXZ([{ x: 0, z: 0 }, { x: 1, z: 1 }])).toEqual([]);
+    });
+});
+
+describe('§26.6 rule 2 / §26.6.2 — every ring edge is a subject, by index', () => {
+    it('is constructed and parsed in ONE place, and round-trips', () => {
+        expect(edgeHighlightSubject(0)).toBe('edge:0');
+        expect(edgeHighlightSubject(17)).toBe('edge:17');
+        expect(parseEdgeHighlightSubject('edge:17')).toBe(17);
+        expect(parseEdgeHighlightSubject(edgeHighlightSubject(3))).toBe(3);
+    });
+
+    it('parses NOTHING ELSE — a fixed subject, a negative, a fraction, garbage', () => {
+        expect(parseEdgeHighlightSubject('parcel')).toBeNull();
+        expect(parseEdgeHighlightSubject('edge:-1')).toBeNull();
+        expect(parseEdgeHighlightSubject('edge:1.5')).toBeNull();
+        expect(parseEdgeHighlightSubject('edge:')).toBeNull();
+        expect(parseEdgeHighlightSubject(null)).toBeNull();
+        expect(parseEdgeHighlightSubject(undefined)).toBeNull();
+    });
+
+    it('the type guard admits the fixed subjects and well-formed edges, and nothing else', () => {
+        for (const s of SITE_HIGHLIGHT_SUBJECTS) expect(isSiteHighlightSubject(s), s).toBe(true);
+        expect(isSiteHighlightSubject('edge:4')).toBe(true);
+        expect(isSiteHighlightSubject('edge:x')).toBe(false);
+        expect(isSiteHighlightSubject('rooms')).toBe(false);
+        expect(isSiteHighlightSubject(null)).toBe(false);
+    });
+
+    it('is available for every index INSIDE the ring, and names the gap for one outside it', () => {
+        expect(describeEdgeHighlightAvailability(0, 4).available).toBe(true);
+        expect(describeEdgeHighlightAvailability(3, 4).available).toBe(true);
+        expect(describeEdgeHighlightAvailability(3, 4).reason).toContain('edge 4');
+        const outside = describeEdgeHighlightAvailability(4, 4);
+        expect(outside.available).toBe(false);
+        expect(outside.reason).toContain('outside');
+        expect(outside.reason).toContain('not a finding about the plot');
+        // No ring, no edge — the same sentence the fixed subjects use.
+        expect(describeEdgeHighlightAvailability(0, 2).available).toBe(false);
+    });
+
+    it('goes through the ONE store like every other subject', () => {
+        setSiteHighlight(edgeHighlightSubject(2));
+        expect(getSiteHighlight()).toBe('edge:2');
+        expect(toggleSiteHighlight(edgeHighlightSubject(2))).toBeNull();
+    });
+
+    it('is answered by the boundary-edge cue and recedes every authored surface — an edge reads as PART of the ring', () => {
+        expect(siteHighlightCue(edgeHighlightSubject(1))).toBe('boundary-edge');
+        for (const r of ROLES_266.filter((x) => x !== 'cue')) {
+            expect(siteHighlightEmphasis(edgeHighlightSubject(1), r), r).toBe('recede');
+        }
+        expect(siteHighlightEmphasis(edgeHighlightSubject(1), 'cue')).toBe('subject');
+    });
+
+    it('⛔ every renderer carries the two new cue arms — a subject nothing draws is a dead click', () => {
+        const scene = readFileSync(resolve(__dirname, '../ParcelBoundarySceneRenderer.ts'), 'utf8');
+        const cesium = readFileSync(resolve(__dirname, '../../geospatial/CesiumViewport.ts'), 'utf8');
+        const map = readFileSync(resolve(__dirname, '../../geospatial/SiteBoundaryMap2D.ts'), 'utf8');
+        for (const [name, src] of [['scene', scene], ['cesium', cesium], ['map2d', map]] as const) {
+            expect(src, `${name} lacks the bbox arm`).toContain("'bbox'");
+            expect(src, `${name} lacks the boundary-edge arm`).toContain("'boundary-edge'");
+            expect(src, `${name} does not draw the ONE box`).toContain('boundingBoxRingXZ(');
+            expect(src, `${name} parses the edge itself`).toContain('parseEdgeHighlightSubject(');
+        }
     });
 });
