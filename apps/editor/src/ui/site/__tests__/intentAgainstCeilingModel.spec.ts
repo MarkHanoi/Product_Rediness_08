@@ -1,0 +1,179 @@
+/**
+ * §26.6 rule 3 (L-13046, founder 2026-09-07) — EVERY INTENT SITS BESIDE ITS CEILING AND CAN NEVER
+ * EXCEED IT. *"Can never go beyond"* is a REFUSAL with both numbers, never a clamp.
+ *
+ * ⭐ The founder's model sentence is pinned VERBATIM through the ONE generalised producer, and every
+ * pair's refusal is asserted to carry the intent, the ceiling and the difference — with the intent
+ * left untouched on the model.
+ */
+
+import { describe, expect, it } from 'vitest';
+import { beyondCeilingStatement, buildBrutAllocation, resolveBrutAllowance } from '../brutAreaAllocation';
+import type { IntendedAreaSnapshot } from '../intendedAreaChannel';
+import { buildIntentAgainstCeiling, CEILING_LABEL, INTENT_REFUSAL_CONSEQUENCE } from '../intentAgainstCeilingModel';
+import { buildParcelLawModel } from '../parcel/parcelLawModel';
+
+const RECT = [{ x: 0, z: 0 }, { x: 40, z: 0 }, { x: 40, z: 30 }, { x: 0, z: 30 }];
+
+function envelope(over: Record<string, unknown> = {}): never {
+    return {
+        insetPolygon: [{ x: 3, z: 3 }, { x: 37, z: 3 }, { x: 37, z: 27 }, { x: 3, z: 27 }],
+        insetAreaM2: 431, maxHeight_m: 9, farLimitedHeight_m: null, maxFloors: 3, maxFAR: null,
+        maxCoverage: null, maxVolumeM3: 3879, footprintIsUpperBound: false, confidence: 'structured',
+        granularity: 'parcel', status: 'ok', refusal: null, zoneCode: 'R1',
+        derivation: [{ constraint: 'setback.front', value: 3, source: 'pack', ordinanceRef: 'Art. 1', fieldProvenance: 'published-structured' }],
+        caveats: [], tiers: [], permittedUse: [], ...over,
+    } as never;
+}
+
+const law = (over: Record<string, unknown> = {}) =>
+    buildParcelLawModel({ parcelRing: RECT, edgeClassifications: undefined, identity: null, envelope: envelope(over) });
+
+function snapshot(levels: readonly { id: string; name: string; elevation: number | null; areaM2: number; heightM: number | null }[]): IntendedAreaSnapshot {
+    return {
+        readable: true,
+        byLevel: levels.map((l) => ({
+            levelId: l.id, name: l.name, elevation: l.elevation, levelEnvelopeCount: 1,
+            intendedAreaM2: l.areaM2, heightM: l.heightM, baseOffsetM: 0, rooms: [], roomsSubtotalM2: 0,
+        })),
+        roomEnvelopeCount: 0, roomsOnStoreysWithoutLevel: 0, skippedCount: 0,
+        totalIntendedM2: levels.length === 0 ? null : levels.reduce((s, l) => s + l.areaM2, 0),
+    };
+}
+
+describe('§26.6 rule 3 — the founder\'s sentence is THE producer, generalised', () => {
+    it('⭐ reproduces his example byte for byte: 875 asked, 431 permitted, 444 less, nothing allocated', () => {
+        expect(beyondCeilingStatement({
+            label: 'Ground', asked: 875, ceiling: 431, unit: 'm²', dp: 0,
+            ceilingClause: 'no storey may overhang the buildable footprint', consequence: 'Nothing was allocated here.',
+        })).toBe('Ground: you asked for 875 m², but no storey may overhang the buildable footprint, which is 431 m² — 444 m² less than you asked for. Nothing was allocated here.');
+    });
+
+    it('⛔ the allocation still prints EXACTLY that sentence through the same producer — nothing was replaced', () => {
+        const allowance = resolveBrutAllowance({ permittedFootprintM2: 431, maxFAR: null, parcelAreaM2: 1200, maxFloors: 3 });
+        const model = buildBrutAllocation(
+            allowance,
+            [{ levelId: 'L0', name: 'Ground', elevation: 0 }],
+            [{ levelId: 'L0', requestedM2: 875 }],
+        );
+        expect(model.rows[0]!.statement).toBe('Ground: you asked for 875 m², but no storey may overhang the buildable footprint, which is 431 m² — 444 m² less than you asked for. Nothing was allocated here.');
+        // …and it was REFUSED, not clipped: nothing allocated, the request kept as typed.
+        expect(model.rows[0]!.allocatedM2).toBeNull();
+        expect(model.rows[0]!.requestedM2).toBe(875);
+    });
+
+    it('speaks heights in the same voice, to one decimal', () => {
+        expect(beyondCeilingStatement({
+            label: 'Total height', asked: 12, ceiling: 9, unit: 'm', dp: 1,
+            ceilingClause: 'no building may rise above the maximum height', consequence: INTENT_REFUSAL_CONSEQUENCE,
+        })).toBe(`Total height: you asked for 12.0 m, but no building may rise above the maximum height, which is 9.0 m — 3.0 m less than you asked for. ${INTENT_REFUSAL_CONSEQUENCE}`);
+    });
+});
+
+describe('§26.6.3 — 3.1 levels and heights, beside their ceilings', () => {
+    it('total height beside Maximum height, WITHIN, measured top-of-highest to base-of-lowest', () => {
+        const m = buildIntentAgainstCeiling(snapshot([
+            { id: 'L0', name: 'Ground', elevation: 0, areaM2: 300, heightM: 3 },
+            { id: 'L1', name: 'First', elevation: 3, areaM2: 300, heightM: 3 },
+        ]), law());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.totalHeight).toMatchObject({ intent: 6, ceiling: 9, unit: 'm', ceilingLabel: CEILING_LABEL.height, ceilingSubject: 'height' });
+        expect(m.totalHeight.verdict.kind).toBe('within');
+        expect(m.totalHeight.verdict.sentence).toContain('6.0 m of the 9.0 m');
+        expect(m.totalHeight.verdict.sentence).toContain('3.0 m in hand');
+        expect(m.totalHeightBasis).toContain('top of the highest');
+        expect(m.levels).toMatchObject({ intent: 2, ceiling: 3, unit: 'storeys' });
+        expect(m.levels.verdict.kind).toBe('within');
+        expect(m.heightsPerLevel.map((h) => h.heightM)).toEqual([3, 3]);
+    });
+
+    it('⛔ EXCEEDS — refused with both numbers and the difference; the intent is NOT trimmed on the model', () => {
+        const m = buildIntentAgainstCeiling(snapshot([
+            { id: 'L0', name: 'Ground', elevation: 0, areaM2: 300, heightM: 4 },
+            { id: 'L1', name: 'First', elevation: 4, areaM2: 300, heightM: 4 },
+            { id: 'L2', name: 'Second', elevation: 8, areaM2: 300, heightM: 4 },
+            { id: 'L3', name: 'Third', elevation: 12, areaM2: 300, heightM: 4 },
+        ]), law());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.totalHeight.intent).toBe(16);
+        expect(m.totalHeight.verdict.kind).toBe('exceeds');
+        expect(m.totalHeight.verdict.sentence).toBe(
+            `Total height: you asked for 16.0 m, but no building may rise above the maximum height, which is 9.0 m — 7.0 m less than you asked for. ${INTENT_REFUSAL_CONSEQUENCE}`,
+        );
+        expect(m.levels.verdict.kind).toBe('exceeds');
+        expect(m.levels.verdict.sentence).toContain('you asked for 4 storeys');
+        expect(m.levels.verdict.sentence).toContain('which is 3 storeys');
+        expect(m.levels.verdict.sentence).toContain('1 storeys less');
+    });
+
+    it('a ceiling the pack did not derive reads as NOT CHECKABLE — never a pass, never a fail', () => {
+        const m = buildIntentAgainstCeiling(snapshot([{ id: 'L0', name: 'Ground', elevation: 0, areaM2: 300, heightM: 3 }]), law({ maxHeight_m: null, maxFloors: null }));
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.totalHeight.ceiling).toBeNull();
+        expect(m.totalHeight.verdict.kind).toBe('ceiling-not-derived');
+        expect(m.totalHeight.verdict.sentence).toContain('you asked for 3.0 m');
+        expect(m.totalHeight.verdict.sentence).toContain('was not derived');
+        expect(m.totalHeight.verdict.sentence).toContain('does not infer');
+        expect(m.levels.verdict.kind).toBe('ceiling-not-derived');
+    });
+
+    it('no height declared → the total is UNMEASURABLE, and says so rather than assuming 3 m', () => {
+        const m = buildIntentAgainstCeiling(snapshot([{ id: 'L0', name: 'Ground', elevation: 0, areaM2: 300, heightM: null }]), law());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.totalHeight.intent).toBeNull();
+        expect(m.totalHeight.verdict.kind).toBe('intent-unmeasurable');
+        expect(m.totalHeight.verdict.sentence).toContain('not assumed');
+    });
+
+    it('a storey with no elevation → heights are ADDED, and the stacking assumption is STATED', () => {
+        const m = buildIntentAgainstCeiling(snapshot([
+            { id: 'L0', name: 'Ground', elevation: 0, areaM2: 300, heightM: 3 },
+            { id: 'L1', name: 'First', elevation: null, areaM2: 300, heightM: 3.5 },
+        ]), law());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.totalHeight.intent).toBe(6.5);
+        expect(m.totalHeightBasis).toContain('added up');
+        expect(m.totalHeightBasis).toContain('assumption');
+    });
+});
+
+describe('§26.6.3 — 3.2 areas: ground beside Maximum implantation area, per level, then the total', () => {
+    it('ground and every storey beside the implantation ceiling, the total beside the buildable area', () => {
+        const m = buildIntentAgainstCeiling(snapshot([
+            { id: 'L0', name: 'Ground', elevation: 0, areaM2: 300, heightM: 3 },
+            { id: 'L1', name: 'First', elevation: 3, areaM2: 250, heightM: 3 },
+        ]), law());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.groundArea).toMatchObject({ intent: 300, ceiling: 431, ceilingLabel: CEILING_LABEL.implantation, ceilingSubject: 'footprint' });
+        expect(m.groundArea.verdict.kind).toBe('within');
+        expect(m.areasPerLevel.map((p) => p.intent)).toEqual([300, 250]);
+        expect(m.areasPerLevel.every((p) => p.ceiling === 431)).toBe(true);
+        // The total is the ONE producer's: footprint × storeys = 431 × 3 = 1293 here (no FAR).
+        expect(m.totalArea).toMatchObject({ intent: 550, ceiling: 1293, ceilingLabel: CEILING_LABEL.buildable, ceilingSubject: 'gfa' });
+        expect(m.totalArea.verdict.kind).toBe('within');
+    });
+
+    it('⛔ the founder\'s own numbers on the ground pair: 875 asked, 431 permitted — refused, not clipped', () => {
+        const m = buildIntentAgainstCeiling(snapshot([{ id: 'L0', name: 'Ground', elevation: 0, areaM2: 875, heightM: 3 }]), law());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.groundArea.intent).toBe(875);
+        expect(m.groundArea.verdict.kind).toBe('exceeds');
+        expect(m.groundArea.verdict.sentence).toContain('you asked for 875 m², but no storey may overhang the buildable footprint, which is 431 m² — 444 m² less than you asked for.');
+        expect(m.groundArea.verdict.sentence).toContain(INTENT_REFUSAL_CONSEQUENCE);
+    });
+
+    it('nothing declared → every pair says so; the ceilings still stand beside the absence', () => {
+        const m = buildIntentAgainstCeiling(snapshot([]), law());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.groundArea.verdict.kind).toBe('no-intent');
+        expect(m.groundArea.ceiling).toBe(431);
+        expect(m.totalArea.verdict.kind).toBe('no-intent');
+        expect(m.levels.verdict.kind).toBe('no-intent');
+        expect(m.totalHeight.verdict.kind).toBe('no-intent');
+    });
+
+    it('an unreadable store is an ADMISSION about PRYZM, forwarded verbatim', () => {
+        const m = buildIntentAgainstCeiling({ readable: false, reason: 'no-store', text: 'NO STORE' }, law());
+        expect(m).toEqual({ readable: false, reason: 'no-store', text: 'NO STORE' });
+    });
+});

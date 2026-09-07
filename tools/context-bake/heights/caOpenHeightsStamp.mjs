@@ -56,12 +56,11 @@
 // KEYLESS: an anonymous Opendatasoft Explore export and the City of Toronto's own anonymous ArcGIS
 // MapServer — no key, no app token, no repo secret. Licences per adapter row.
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   MEASURED_HEIGHT_SRC_TAG, MEASURED_HEIGHT_SRC_VALUE, loadJoinFootprintsBounded,
   footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, httpGetSafe, statsOf,
-  appendFeaturesSeq,
 } from '../heightSources.mjs';
 import {
   CA_OPEN_HEIGHTS, caElements, caOpenHeightForFootprint, caOpenIsTruncated,
@@ -161,7 +160,7 @@ export async function stampCaOpenHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   const emptyTiles = Math.max(0, gridCells - populatedCells);

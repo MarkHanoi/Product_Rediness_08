@@ -45,21 +45,6 @@
 //                                              -97.6305,30.4395,-97.6195,30.4505 → HTTP 200, 98 B,
 //                                              0.82 s, body VERBATIM
 //                                              {"type":"FeatureCollection","crs":{…},"features":[]}.
-//                                              ⭐ A WHOLE BAND CAN BE THAT EMPTY AND STILL BE RIGHT.
-//                                              Run 34101676645 (massachusetts) logged "swathe 1/3
-//                                              (lat 40.88–41.68): 0 measured so far over 451 cell(s)"
-//                                              and read as a dead source. LIVE-PROBED 2026-09-07 with
-//                                              this module's exact URL shape: New Bedford cell
-//                                              -70.9305,41.6295,-70.9095,41.6505 → HTTP 200, 98 B,
-//                                              the verbatim empty body above; `returnCountOnly` on the
-//                                              same envelope → 1,047 structures, ALL SOURCE='ORNL',
-//                                              `HEIGHT IS NOT NULL` → 0. Fall River 2,484 → 0; Cape Cod
-//                                              54 → 0; the MA south coast + Cape [-71.15,41.45,-69.90,41.68]
-//                                              139,658 → 0; the islands 27,805 → 0. Downtown Boston
-//                                              (band 2) with the SAME URL → HTTP 200, 257,172 B, 406 of
-//                                              505 structures carry HEIGHT; band 2 as a whole holds
-//                                              721,851 height-bearing rows. The counter was honest; the
-//                                              run died in band 2's WRITE (§SEQ-WRITE-STREAMED-USAS).
 //   • footprint matches no component         → keeps its ORIGINAL OSM tags. Never a neighbour's height.
 //   • cell never opened (cap / budget)       → counted in `cellsSkipped` + `km2Skipped` and named in
 //                                              the note with a resume cursor. Never silently dropped.
@@ -80,12 +65,11 @@
 // per footprint in `heightSource` and per channel in `measurement`.
 // KEYLESS: an anonymous ArcGIS FeatureServer — no key, no app token, no repo secret. CC BY 4.0.
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   MEASURED_HEIGHT_SRC_TAG, MEASURED_HEIGHT_SRC_VALUE, loadJoinFootprintsBounded,
   footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, httpGetSafe, statsOf, appendFileInto,
-  appendFeaturesSeq,
 } from '../heightSources.mjs';
 import {
   USAS_SWATHE_ROWS, USAS_SWEEP_CONCURRENCY, USAS_TILE_DEG, formatUsasSweepSummary, parseUsOpenPage,
@@ -258,16 +242,7 @@ async function usasStampPass({
 
   // The retained footprints — stamped or not — go to the output. Written AFTER the sweep so a band's
   // heap is released before the next band's partition begins.
-  // §SEQ-WRITE-STREAMED-USAS (2026-09-07, lane USAS-OVERFLOW) — this line was
-  //   `appendFileSync(retainedOutPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n')`
-  // — ONE string for every retained footprint in the band. A band is a HEAP bound, not a STRING bound:
-  // massachusetts (run 34101676645) clips 2,680,591 footprints, band 2 (lat 41.68–42.48, Boston to
-  // Worcester to Springfield) holds most of them, and V8's cap is 536,870,888 chars
-  // (`buffer.constants.MAX_STRING_LENGTH`, Node 20/24). It threw `RangeError: Invalid string length`
-  // OUTSIDE the sweep's try/catch above, bake.mjs caught it as `{status:'error'}`, and the gate read
-  // "0 measured height(s)" — France's exact shape (L-12937 / L-12978) on the fourth US state. The
-  // shared chunked appender serialises ≤ 8 MiB at a time; the largest string ever built is one chunk.
-  if (records.length) appendFeaturesSeq(retainedOutPath, records.map((r) => r.feat));
+  if (records.length) appendFileSync(retainedOutPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
   return { status: 'ok', retained: records.length, read };
 }
 
@@ -348,12 +323,8 @@ export async function stampUsasNationalHeightsOnGeojsonseq(inPath, outPath, bbox
       if (p.status !== 'ok') break;       // nothing left in the stream — every record is already written out
       swathesScanned++;
       cur = pt;
-      // The per-band line names VOID and ERROR cells separately: "0 measured over 451 cells" alone
-      // cannot tell ORNL-only ground (a real empty, every page HTTP 200) from a refusing service, and
-      // the summary that can is never printed if a later band dies (§CONTEXT-DATA-HONESTY).
       console.log(`    · USA Structures swathe ${sw.index + 1}/${swathes.length} (lat ${sw.bbox[1].toFixed(2)}–${sw.bbox[3].toFixed(2)}): ` +
-        `${heights.length} measured so far over ${agg.cellsStamped} cell(s), ${Math.round(agg.km2Stamped)} km² ` +
-        `(${agg.voidTiles} void / ${agg.tileErrors} error cell(s), ${agg.componentsFetched} components), peak heap ${agg.peakHeapUsedMB} MB.`);
+        `${heights.length} measured so far over ${agg.cellsStamped} cell(s), ${Math.round(agg.km2Stamped)} km², peak heap ${agg.peakHeapUsedMB} MB.`);
     }
     // Everything still unretained — bands never opened, cells behind a cap, and anything outside the
     // working set — is written through UNCHANGED. Original OSM tags, honest `assumed`; never

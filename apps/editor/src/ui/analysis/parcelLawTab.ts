@@ -136,6 +136,13 @@ import { wireDesignStageStrip } from '../site/designStageStripControl';
 // their pressed state PAINTED from the ONE store every view subscribes to. ⛔ No second highlight
 // path (C58 §1.19 clause 2, §26.6.6) — these are the same two functions `GISAreaLayout` calls.
 import { keepSiteHighlightRowsPainted, wireSiteHighlightRows } from '../site/siteHighlightRowControl';
+// ⭐ §26.6.2 (L-13046) — THE SETBACK REGISTER, the largest single addition in the spec: per
+// perimeter edge, the setback applied, the rule that produced it (C58 §1.3 per edge) and a link
+// that lights THAT edge. A pure model over the ONE `ParcelLawModel` (never a second read) and a
+// DOM renderer; this tab places it in question 2 and re-renders it on the same store signal the
+// facts re-render on.
+import { buildSetbackRegister } from '../site/setbackRegisterModel';
+import { buildSetbackRegisterSection, SETBACK_REGISTER_TESTID } from '../site/setbackRegisterSection';
 // §PARCEL-LAW-MODEL (STR §25.11) — the ONE parcel/ordinance/massing model, and this tab's
 // rendering of it. NOT a second computation and NOT a copied renderer: `GISAreaLayout`'s card
 // renders the SAME model, which is what makes "the rail panel and the tab agree datum for datum"
@@ -198,6 +205,16 @@ import {
   defaultParcelLawChatDeps,
   type ParcelLawChatHandle,
 } from './parcelLawChat';
+// §26.6 rule 3 (L-13046) — EVERY INTENT SITS BESIDE ITS CEILING, AND CAN NEVER EXCEED IT. The
+// declared level envelopes (levels · heights · areas) beside Maximum levels · Maximum height ·
+// Maximum implantation area · Maximum buildable area, live on the store's dirty channel; an
+// intent that exceeds its ceiling is REFUSED with both numbers, never clamped. Hosted in question
+// 3, directly after the control that declares the intent.
+import {
+  defaultParcelLawIntentDeps,
+  mountParcelLawIntentAgainstCeiling,
+  type ParcelLawIntentHandle,
+} from './parcelLawIntentAgainstCeiling';
 // §PL-ROOM-PROGRAMME (L-13024 clause 3, STR §25.5) — the ROOM PROGRAMME panel, RE-HOSTED into
 // question 3. ⛔ THE SAME MODULE THE RAIL USED TO MOUNT, not a copy of it: the rail's PROGRAMME
 // section was removed in the same commit, so there is exactly one live mount of this surface.
@@ -254,6 +271,8 @@ export const PARCEL_LAW_CREATE_HOUSE_HOST_TESTID = 'analysis-parcel-law-create-h
 /** `data-testid` on the slot the STR §25.4 chat surface is mounted into. */
 export const PARCEL_LAW_CHAT_HOST_TESTID = 'analysis-parcel-law-chat-slot';
 /** §PL-ROOM-PROGRAMME — `data-testid` on the slot the ROOM PROGRAMME panel is re-hosted into. */
+/** §26.6 rule 3 — `data-testid` on the slot the intent-beside-ceiling section is mounted into. */
+export const PARCEL_LAW_INTENT_HOST_TESTID = 'analysis-parcel-law-intent-slot';
 export const PARCEL_LAW_ROOM_PROGRAMME_HOST_TESTID = 'analysis-parcel-law-room-programme-slot';
 /** §PL-IA-Q — `data-testid` on the ladder that holds the six question groups, in order. */
 export const PARCEL_LAW_LADDER_TESTID = 'analysis-parcel-law-ladder';
@@ -377,6 +396,13 @@ export interface ParcelLawTabDeps {
    * constructs `ParcelLawTabDeps` as a complete literal. Omitting it yields the production mount,
    * which on a runtime with no `spaceEnvelope` store renders the channel's own honest sentence
    * rather than throwing — so an old spec keeps passing and keeps meaning what it meant.
+  /**
+   * §26.6.2 — Production: `buildSetbackRegisterSection(buildSetbackRegister(model), { open })`.
+   * A RENDERING of the same model read, never a second read. ⚠ OPTIONAL for the same reason as
+   * its siblings: older spec literals are complete and must keep compiling; omitting it yields
+   * the production pair.
+   */
+  readonly renderSetbackRegister?: (model: ParcelLawModel, opts: { readonly open: boolean }) => HTMLElement;
    */
   readonly mountQuantities?: (
     host: HTMLElement,
@@ -448,6 +474,13 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
   const w = (typeof window !== 'undefined' ? window : {}) as unknown as
     ParcelLawCapabilityHost & { runtime?: PryzmRuntime | null };
   return {
+  /**
+   * §26.6 rule 3 — Production: `mountParcelLawIntentAgainstCeiling` with its production deps.
+   * ⚠ OPTIONAL for the same reason as its siblings: spec literals written before this seam
+   * existed are complete and must keep compiling. Omitting it yields the production mount, which
+   * on a runtime with no space-envelope store renders its own admission rather than throwing.
+   */
+  readonly mountIntent?: (host: HTMLElement) => ParcelLawIntentHandle;
     capabilityHost: w,
     runtime: w.runtime ?? null,
     buildParcelPanel: buildParcelRailPanel,
@@ -463,6 +496,7 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     mountCreateHouse: (h) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()),
     mountChat: (h, scope) => mountParcelLawChat(h, defaultParcelLawChatDeps(scope)),
     // §PL-ROOM-PROGRAMME — the panel resolves the LIVE runtime itself (`runtime ??
+    renderSetbackRegister: (model, opts) => buildSetbackRegisterSection(buildSetbackRegister(model), opts),
     // window.runtime`), so the null-by-design boot prop cannot make it print "unavailable"
     // (§L-12916). `w.runtime` is handed in as the PREFERRED source, never the only one.
     mountRoomProgramme: (h) => mountRoomProgrammePanel(
@@ -472,6 +506,7 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
 
 export interface ParcelLawTabHandle {
   readonly element: HTMLElement;
+    mountIntent: (h) => mountParcelLawIntentAgainstCeiling(h, defaultParcelLawIntentDeps()),
   /** Re-derive the switcher's highlight and re-wire the strip. Cheap. */
   repaint(): void;
   /** Whether the singleton card is inside THIS body right now. Read by the spec. */
@@ -508,6 +543,8 @@ export function mountParcelLawTab(
   let roomProgramme: RoomProgrammePanelHandle | null = null;
   let unsub: (() => void) | null = null;
   /** §26.6 rule 2 — the highlight-store subscription that keeps every row's ◉ honest. */
+  /** §26.6 rule 3 — the intent-beside-ceiling section's handle. */
+  let intent: ParcelLawIntentHandle | null = null;
   let unsubHighlight: (() => void) | null = null;
   let disposed = false;
   /** §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — question 1's pointer, shown only when the
@@ -599,6 +636,15 @@ export function mountParcelLawTab(
       console.warn('[analysis][parcel-law] fact section render failed (non-fatal):', e);
     }
   };
+      // §26.6.2 — the SETBACK REGISTER, from the SAME model read as the plot half (one read,
+      // two renderings — never two vintages of one parcel). The reader's disclosure state is
+      // carried across re-renders: a dropdown that snaps shut on every store notification is an
+      // obstacle, not a dropdown.
+      const previous = factsLawSlot.querySelector<HTMLDetailsElement>(`[data-testid="${SETBACK_REGISTER_TESTID}"]`);
+      const open = previous?.open === true;
+      const renderRegister = deps.renderSetbackRegister
+        ?? ((m: ParcelLawModel, o: { readonly open: boolean }) => buildSetbackRegisterSection(buildSetbackRegister(m), o));
+      factsLawSlot.replaceChildren(renderRegister(model, { open }));
 
   /** Re-mirror every group's collapsed digest from what its body ALREADY says. Derives nothing. */
   const refreshDigests = (): void => {
@@ -834,6 +880,14 @@ export function mountParcelLawTab(
     // envelopes, and only then reaches Create house — the §25.5 contract that *"the graph
     // drives the initial layout generation"*, in the ladder's own order.
     //
+    // §26.6 rule 3 / §26.6.3 — 3.1 levels and heights · 3.2 areas, each BESIDE its ceiling,
+    // directly after the control that declares them. ⛔ Nothing here is derived: the intent is
+    // `collectIntendedAreas`, the ceilings are the ONE model, the refusal is the ONE sentence.
+    const intentSlot = document.createElement('div');
+    intentSlot.className = 'anl-parcel-law-intent-host';
+    intentSlot.setAttribute('data-testid', PARCEL_LAW_INTENT_HOST_TESTID);
+    bodyOf('intent').appendChild(intentSlot);
+
     // ⛔ IT IS THE ONE INSTANCE, MOVED. The rail's PROGRAMME section used to mount it and no
     // longer does. Two live mounts would share one session model and still be two rival
     // surfaces for one job — the rule this session has already applied to the Cesium viewer,
@@ -953,6 +1007,13 @@ export function mountParcelLawTab(
     }
     try {
       const mountRP = deps.mountRoomProgramme
+    try {
+      const mountIntent = deps.mountIntent
+        ?? ((h: HTMLElement) => mountParcelLawIntentAgainstCeiling(h, defaultParcelLawIntentDeps()));
+      intent = mountIntent(intentSlot);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] intent-beside-ceiling mount failed (non-fatal):', e);
+    }
         ?? ((h: HTMLElement) => mountRoomProgrammePanel(
           h, defaultRoomProgrammePanelDeps(
             (deps.runtime ?? null) as unknown as RoomProgrammeHostRuntime | null)));
@@ -1036,6 +1097,7 @@ export function mountParcelLawTab(
       const held = holdsEnvelopeCard();
       try { unsub?.(); } catch { /* teardown is best-effort */ }
       unsub = null;
+      try { intent?.repaint(); } catch { /* same */ }
       // §26.6 rule 2 — a highlight listener that outlived this body would repaint a detached tree.
       try { unsubHighlight?.(); } catch { /* teardown is best-effort */ }
       unsubHighlight = null;
@@ -1062,6 +1124,9 @@ export function mountParcelLawTab(
       try { onView?.dispose(); } catch { /* teardown is best-effort */ }
       onView = null;
       // §PL-IA-Q — the six groups own MutationObservers on their own bodies; leaving one connected
+      // §26.6 rule 3 — the section holds a dirty-channel subscription; release it with the body.
+      try { intent?.dispose(); } catch { /* teardown is best-effort */ }
+      intent = null;
       // to a detached tree is a listener that outlives the surface that put it up.
       for (const g of groups.values()) {
         try { g.dispose(); } catch { /* teardown is best-effort */ }

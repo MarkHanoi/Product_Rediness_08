@@ -31,12 +31,11 @@
 //   • proj4 / geotiff missing in the runner            → `documented` (footprints keep OSM) — a build gate, said by name.
 // KEYLESS (OGL v3 — commercial use allowed, attribution required; terrain.mjs TERRAIN_SOURCES.gb). No repo secret.
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   MEASURED_HEIGHT_SRC_TAG, MEASURED_HEIGHT_SRC_VALUE, loadJoinFootprintsBounded, ndsmHeightForBuilding,
   footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, statsOf,
-  appendFeaturesSeq,
 } from '../heightSources.mjs';
 import { EA_LIDAR_GB, bngTileKey, bngTileBbox, inEaEnvelope, eaDsmUrl, eaDtmUrl, eaRasterVerdict } from './ealidarGb.mjs';
 
@@ -168,7 +167,7 @@ export async function stampEaLidarGbHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   return {

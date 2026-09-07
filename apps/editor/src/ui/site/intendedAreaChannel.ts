@@ -97,6 +97,15 @@ export interface IntendedLevelArea {
      * ⛔ NO ROOM AREA IS IN THIS NUMBER. See `rooms` / `roomsSubtotalM2`.
      */
     readonly intendedAreaM2: number;
+    /**
+     * §26.6 rule 3 (L-13046) — the storey's declared HEIGHT: the tallest LEVEL envelope's
+     * `height` on this storey (metres), or `null` when no level envelope carries a positive one.
+     * Read here, in the ONE producer, so "total height beside maximum height" is computed from
+     * the same records the areas are — never from a second pass over the store.
+     */
+    readonly heightM: number | null;
+    /** The lowest LEVEL envelope's `baseOffset` on this storey (metres above the level datum). */
+    readonly baseOffsetM: number | null;
     /** §RESI-STAGE-G — the room envelopes seated on this storey, largest first, then by name. */
     readonly rooms: readonly IntendedRoomArea[];
     /**
@@ -167,7 +176,7 @@ export function collectIntendedAreas(
         const levelById = new Map<string, IntendedLevelDatum>();
         for (const l of levels) if (l && typeof l.id === 'string' && l.id.length > 0) levelById.set(l.id, l);
 
-        const acc = new Map<string, { count: number; areaM2: number }>();
+        const acc = new Map<string, { count: number; areaM2: number; heightM: number | null; baseOffsetM: number | null }>();
         /** §RESI-STAGE-G — room envelopes by STOREY, kept apart from `acc` so no arithmetic can
          *  cross between them by accident. `levelEnvelopeIds` records which ids are LEVEL
          *  envelopes, so a room's `withinId` can be checked without a second pass. */
@@ -203,9 +212,16 @@ export function collectIntendedAreas(
             if (role !== 'level') { skippedCount++; continue; }
             if (levelId === null || areaM2 === null || areaM2 < 0) { skippedCount++; continue; }
             if (typeof raw.id === 'string' && raw.id.length > 0) levelEnvelopeIds.add(raw.id);
-            const cur = acc.get(levelId) ?? { count: 0, areaM2: 0 };
+            const cur = acc.get(levelId) ?? { count: 0, areaM2: 0, heightM: null, baseOffsetM: null };
             cur.count += 1;
             cur.areaM2 += areaM2;
+            // §26.6 rule 3 — the storey's height is the TALLEST level envelope on it; two level
+            // envelopes side by side on one storey do not stack. A non-positive or missing height
+            // contributes nothing rather than a zero.
+            const h = finite(raw.height);
+            if (h !== null && h > 0) cur.heightM = cur.heightM === null ? h : Math.max(cur.heightM, h);
+            const base = finite(raw.baseOffset);
+            if (base !== null) cur.baseOffsetM = cur.baseOffsetM === null ? base : Math.min(cur.baseOffsetM, base);
             acc.set(levelId, cur);
         }
 
@@ -240,6 +256,8 @@ export function collectIntendedAreas(
                 levelEnvelopeCount: v.count,
                 // ⛔ `v.areaM2` ONLY. The rooms are a sibling field; nothing above adds them in.
                 intendedAreaM2: v.areaM2,
+                heightM: v.heightM,
+                baseOffsetM: v.baseOffsetM,
                 rooms: Object.freeze(rooms),
                 roomsSubtotalM2: rooms.reduce((sum, r) => sum + r.netAreaM2, 0),
             };

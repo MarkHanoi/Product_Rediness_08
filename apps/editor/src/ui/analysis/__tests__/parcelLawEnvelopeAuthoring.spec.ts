@@ -406,6 +406,9 @@ describe('buildLiveLawCheck — what is DRAWN becomes the allocation', () => {
         expect(out.remainingM2).toBeCloseTo(120, 6);
         const first = out.rows.find((r) => r.levelId === 'lvl-1')!;
         expect(first.requestedM2).toBeNull();
+                    // §26.6 rule 3 — the channel now carries the storey's height (L-13046).
+                    heightM: null,
+                    baseOffsetM: null,
         expect(first.ceilingM2).toBeCloseTo(120, 6);      // ⭐ "only 120 m² on the first floor"
         expect(first.ceilingSource).toBe('remaining-brut');
     });

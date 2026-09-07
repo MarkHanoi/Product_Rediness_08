@@ -111,6 +111,51 @@ export interface BrutAllowance {
 const fin = (v: unknown): number | null =>
     typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 0. ⭐ §26.6 rule 3 (L-13046) — THE ONE PRODUCER OF "YOU ASKED FOR X, BUT THE CEILING IS Y"
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Founder 2026-09-07: *"EVERY INTENT SITS SIDE BY SIDE WITH ITS CEILING, AND CAN NEVER EXCEED
+// IT … CAN NEVER GO BEYOND."* And STR §26.6.0 rule 3 names the sentence this module already
+// produced for one ceiling as THE MODEL — *"Ground: you asked for 875 m², but no storey may
+// overhang the buildable footprint, which is 431 m² — 444 m² less than you asked for. Nothing was
+// allocated here."* — and says: *"generalise it, do not replace it."*
+//
+// ⛔ "CAN NEVER GO BEYOND" IS A REFUSAL, NOT A CLAMP (C58 §1.13 · §RAC-HARD-STOPPERS · C58 §1.19
+// clause 4). The sentence states BOTH numbers and the difference; the caller keeps the user's
+// figure exactly as it was. No arm of this module, and no caller of this function, trims an
+// intent to fit — a silently clipped figure is a decision PRYZM made in the user's name.
+//
+// One template, five slots, so height / storeys / ground area / per-level area / total area all
+// refuse in one voice and a reader who has learnt the sentence once has learnt it everywhere.
+
+export interface BeyondCeilingInput {
+    /** The row's label: `Ground` · `Total height` · `Levels` … */
+    readonly label: string;
+    /** What the user asked for (typed, drawn, or counted) — in `unit`. */
+    readonly asked: number;
+    /** The ceiling it exceeds — in `unit`. */
+    readonly ceiling: number;
+    /** `m²` · `m` · `storeys` — printed after every number. */
+    readonly unit: string;
+    /** Decimal places for the three numbers. The allocation prints `0`; heights print `1`. */
+    readonly dp: number;
+    /** The rule, as a clause: *"no storey may overhang the buildable footprint"*. */
+    readonly ceilingClause: string;
+    /** What PRYZM did — and did not — do about it: *"Nothing was allocated here."* */
+    readonly consequence: string;
+}
+
+/**
+ * THE sentence. Pure; total; never throws. `asked` must exceed `ceiling` — a caller that reaches
+ * this with a figure inside the ceiling has no refusal to state and must not print one.
+ */
+export function beyondCeilingStatement(i: BeyondCeilingInput): string {
+    const f = (n: number): string => `${n.toFixed(i.dp)} ${i.unit}`;
+    return `${i.label}: you asked for ${f(i.asked)}, but ${i.ceilingClause}, which is ${f(i.ceiling)} — `
+        + `${f(i.asked - i.ceiling)} less than you asked for. ${i.consequence}`;
+}
+
 /**
  * ⭐ THE ONE PRODUCER OF THE TWO ALLOWANCES. Pure; total; never throws.
  *
@@ -434,11 +479,17 @@ export function buildBrutAllocation(
                     ceilingM2,
                     ceilingSource,
                     refusal: 'exceeds-footprint-ceiling',
-                    statement:
-                        `${label}: you asked for ${want.toFixed(0)} m², but no storey may overhang the `
-                        + `buildable footprint, which is ${footprintCeiling.toFixed(0)} m² — `
-                        + `${(want - footprintCeiling).toFixed(0)} m² less than you asked for. Nothing was `
-                        + 'allocated here.',
+                    // §26.6 rule 3 — THE MODEL SENTENCE, produced by the ONE generalised producer
+                    // below. Byte-identical to what this arm always said; pinned by the spec.
+                    statement: beyondCeilingStatement({
+                        label,
+                        asked: want,
+                        ceiling: footprintCeiling,
+                        unit: 'm²',
+                        dp: 0,
+                        ceilingClause: 'no storey may overhang the buildable footprint',
+                        consequence: 'Nothing was allocated here.',
+                    }),
                 });
                 continue;
             }

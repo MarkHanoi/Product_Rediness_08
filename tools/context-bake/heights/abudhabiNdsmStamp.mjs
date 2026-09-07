@@ -37,12 +37,11 @@
 // No repo secret. The measured marker is written because the metre is MEASURED (satellite-stereo photogrammetric
 // DSM − DTM); `heightSource` names the method so the tile never claims LiDAR.
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   MEASURED_HEIGHT_SRC_TAG, MEASURED_HEIGHT_SRC_VALUE, loadJoinFootprintsBounded, mdsHeightForBuilding,
   footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, httpGetSafe, statsOf,
-  appendFeaturesSeq,
 } from '../heightSources.mjs';
 import {
   AD_ADSDI, AD_CITY_BBOXES, adNdsmExportImageUrl, adNdsmPxDims, adNdsmServiceVerdict, cellInsideMosaics,
@@ -225,7 +224,7 @@ export async function stampAdNdsmHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   const emptyTiles = Math.max(0, nx * ny - buckets.size);

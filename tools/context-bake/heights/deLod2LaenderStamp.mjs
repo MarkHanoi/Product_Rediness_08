@@ -33,7 +33,7 @@
 //   • sweep threw mid-grid              → `sweepAborted` — a FAILURE, never reported as a cap (§ABORT-IS-NOT-A-CAP).
 // KEYLESS everywhere it is wired (licences per Land in the router table). No repo secret.
 // ─────────────────────────────────────────────────────────────────────────────
-import { existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createInflateRaw } from 'node:zlib';
 import { Readable, Writable, Transform, pipeline } from 'node:stream';
@@ -41,7 +41,6 @@ import { promisify } from 'node:util';
 import {
   loadJoinFootprintsBounded, footprintFromFeature, stampAreasFor, inAnyArea, statsOf,
   areaWeightedP90, dominantRoof, clampHeight, nationalBuildingTags, utmNToWgs84,
-  appendFeaturesSeq,
 } from '../heightSources.mjs';
 import {
   DE_LOD2_LAENDER, DE_LOD2_CITY_BBOXES, cityForPoint, wgs84ToUtm, tileKeyFor, tileBboxNative,
@@ -544,7 +543,7 @@ export async function stampDeLod2LaenderHeightsOnGeojsonseq(inPath, outPath, bbo
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   const blockedList = Object.keys(landsBlocked);

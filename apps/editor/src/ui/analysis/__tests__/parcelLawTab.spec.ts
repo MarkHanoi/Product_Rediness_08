@@ -29,6 +29,8 @@ import {
     PARCEL_LAW_PLOT_ROUTE_TESTID,
     PARCEL_LAW_STRIP_WIRED_ATTR,
     PARCEL_LAW_HIGHLIGHT_WIRED_ATTR,
+    PARCEL_LAW_AUTHORING_HOST_TESTID,
+    PARCEL_LAW_INTENT_HOST_TESTID,
     ENVELOPE_CARD_TESTID,
     type ParcelLawTabDeps,
     type ParcelLawCapabilityHost,
@@ -47,6 +49,13 @@ import {
 } from '../../site/siteGeometryHighlight';
 import { SITE_HIGHLIGHT_UNAVAILABLE_ATTR } from '../../site/siteHighlightRowControl';
 import { ANALYSIS_SURFACE_STYLES } from '../../styles/panels/analysisSurface';
+import {
+    SETBACK_REGISTER_ARM_ATTR,
+    SETBACK_REGISTER_CLASS_ATTR,
+    SETBACK_REGISTER_ROW_PREFIX,
+    SETBACK_REGISTER_TESTID,
+} from '../../site/setbackRegisterSection';
+import { INTENT_CEILING_TESTID, INTENT_CEILING_UNREADABLE_TESTID } from '../parcelLawIntentAgainstCeiling';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
@@ -596,8 +605,11 @@ describe('§26.6.6 — every refusal the spec quotes is STILL PRESENT: rendered 
         expect(capacity).toContain('Designed figures are measured from the authored model');
         expect(capacity).toContain('it is not a building-code review');
         // §26.6.3 rule 3 — the model sentence, at its ONE producer.
-        expect(src('../../site/brutAreaAllocation.ts')).toContain('no storey may overhang the');
-        expect(src('../../site/brutAreaAllocation.ts')).toContain('less than you asked for. Nothing was ');
+        // Generalised (§26.6.0 rule 3: "generalise it, do not replace it") — the clause and the
+        // consequence are the allocation arm's, the template is the ONE producer's.
+        expect(src('../../site/brutAreaAllocation.ts')).toContain("ceilingClause: 'no storey may overhang the buildable footprint'");
+        expect(src('../../site/brutAreaAllocation.ts')).toContain("consequence: 'Nothing was allocated here.'");
+        expect(src('../../site/brutAreaAllocation.ts')).toContain('less than you asked for. ${i.consequence}');
         // §26.6.5 — the allowance refusal and the two-rival-envelopes refusals.
         expect(src('../../site/envelopeCardSections.ts')).toMatch(/PRYZM will not guess/);
         expect(src('../../room-programme/roomEnvelopePlan.ts')).toContain('PRYZM will not choose for you');
@@ -640,5 +652,81 @@ describe('§26.6.2 — question 2 is RENAMED, the × is withheld on this host, a
         expect(card).toContain("row('Maximum buildable area (all floors, GFA)'");
         // The refusal that fills a missing one STAYS (§26.6.2: "that refusal is correct and stays").
         expect(card).toContain(': NOT_DERIVED,');
+    });
+});
+
+describe('§26.6.2 — THE SETBACK REGISTER lands in question 2, per edge, each edge a link the tab wires', () => {
+    it('one row per edge in question 2, its class stated per edge, and every edge link wired with the rest', async () => {
+        const seam = fakeEnvelopeSeam();
+        const runtime = fakeRuntime(SITE);
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
+        const register = q2.querySelector<HTMLDetailsElement>(`[data-testid="${SETBACK_REGISTER_TESTID}"]`)!;
+        expect(register, 'the register is not in question 2').not.toBeNull();
+        expect(register.tagName).toBe('DETAILS');
+        const rows = register.querySelectorAll(`[data-testid^="${SETBACK_REGISTER_ROW_PREFIX}"]`);
+        expect(rows).toHaveLength(SITE.parcel.boundary.polygon.length);
+        // SITE has no classifications and no determination: each row says BOTH, per edge.
+        for (const r of rows) {
+            expect(r.getAttribute(SETBACK_REGISTER_CLASS_ATTR)).toBe('not-recorded');
+            expect(r.getAttribute(SETBACK_REGISTER_ARM_ATTR)).toBe('no-determination');
+        }
+        const edges = [...register.querySelectorAll<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}]`)]
+            .map((b) => b.getAttribute(SITE_HIGHLIGHT_ATTR));
+        expect(edges).toEqual(['edge:0', 'edge:1', 'edge:2', 'edge:3']);
+        // Wired by the tab together with question 1's rows: 3 areas + perimeter + bbox + 4 edges.
+        expect(Number(h.element.getAttribute(PARCEL_LAW_HIGHLIGHT_WIRED_ATTR))).toBeGreaterThanOrEqual(9);
+        register.querySelector<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}="edge:2"]`)!.click();
+        expect(getSiteHighlight()).toBe('edge:2');
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+
+    it('the reader\'s disclosure state survives a store notification — a dropdown that snaps shut is an obstacle', async () => {
+        const seam = fakeEnvelopeSeam();
+        const runtime = fakeRuntime(SITE);
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const before = h.element.querySelector<HTMLDetailsElement>(`[data-testid="${SETBACK_REGISTER_TESTID}"]`)!;
+        expect(before.open).toBe(false);
+        before.open = true;
+        (runtime as unknown as { siteModelStore: { _notify: () => void } }).siteModelStore._notify();
+        await tick();
+        const after = h.element.querySelector<HTMLDetailsElement>(`[data-testid="${SETBACK_REGISTER_TESTID}"]`)!;
+        expect(after).not.toBe(before); // re-rendered from the fresh model read
+        expect(after.open).toBe(true);
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+});
+
+describe('§26.6 rule 3 — the intent-beside-ceiling section is hosted in question 3, after the control that declares the intent', () => {
+    it('mounts in question 3 and, with no store, prints the admission rather than zeros', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const q3 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}intent"]`)!;
+        const slot = q3.querySelector(`[data-testid="${PARCEL_LAW_INTENT_HOST_TESTID}"]`)!;
+        expect(slot).not.toBeNull();
+        expect(slot.querySelector(`[data-testid="${INTENT_CEILING_TESTID}"]`)).not.toBeNull();
+        expect(slot.querySelector(`[data-testid="${INTENT_CEILING_UNREADABLE_TESTID}"]`)).not.toBeNull();
+        // It sits AFTER the authoring slot (declare, then see it beside the ceiling).
+        const order = [...q3.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid'));
+        expect(order.indexOf(PARCEL_LAW_AUTHORING_HOST_TESTID)).toBeLessThan(order.indexOf(PARCEL_LAW_INTENT_HOST_TESTID));
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
     });
 });
