@@ -21,7 +21,10 @@ import {
     systemProvenance,
 } from '@pryzm/schemas/provenance';
 import {
+    GENERATED_MASSING_RULE,
+    OWN_AUTHORING_RULE,
     isReplaceableByGeneratedMassing,
+    isReplaceableByOwnAuthoring,
     readLevelEnvelopes,
     resolveLevelEnvelopeSupersession,
     type ExistingLevelEnvelope,
@@ -113,6 +116,68 @@ describe('resolveLevelEnvelopeSupersession', () => {
         const s = resolveLevelEnvelopeSupersession([row({ id: 'old', provenance: null })]);
         if (s.kind !== 'blocked') throw new Error(`expected blocked, got ${s.kind}`);
         expect(s.sentence).toContain('no origin recorded');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §ENVELOPE-DRAW R8 — the SIBLING rule: the user's own authoring replaces only itself
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('isReplaceableByOwnAuthoring', () => {
+    it('⭐ ONLY authored qualifies — the user may replace what the user made', () => {
+        expect(isReplaceableByOwnAuthoring(authoredProvenance('drawn on the 3D Site'))).toBe(true);
+        expect(isReplaceableByOwnAuthoring(authoredProvenance())).toBe(true);
+    });
+
+    it('⛔ PRYZM\'s own plates are NOT replaceable by a drawing — computed and regenerated block', () => {
+        expect(isReplaceableByOwnAuthoring(GENERATED)).toBe(false);
+        expect(isReplaceableByOwnAuthoring(regeneratedProvenance(GENERATED, 'again'))).toBe(false);
+    });
+
+    it('⛔ null / unknown / predates-the-field block — unknown sits with "not mine"', () => {
+        expect(isReplaceableByOwnAuthoring(null)).toBe(false);
+        expect(isReplaceableByOwnAuthoring(provenancePredatingTheField())).toBe(false);
+    });
+
+    it('⛔ and the generated-massing rule is NOT widened by the sibling — a drawing still blocks it', () => {
+        expect(isReplaceableByGeneratedMassing(authoredProvenance('drawn'))).toBe(false);
+    });
+});
+
+describe('resolveLevelEnvelopeSupersession with OWN_AUTHORING_RULE', () => {
+    it('the DEFAULT rule is the generated-massing one — the original sentences are unchanged', () => {
+        const a = resolveLevelEnvelopeSupersession([row()]);
+        const b = resolveLevelEnvelopeSupersession([row()], GENERATED_MASSING_RULE);
+        expect(a).toEqual(b);
+        if (a.kind !== 'replace') throw new Error(a.kind);
+        expect(a.sentence).toContain('which PRYZM generated');
+    });
+
+    it('⭐ an authored envelope ⇒ REPLACE, and the sentence says the USER authored it, in one undo', () => {
+        const s = resolveLevelEnvelopeSupersession(
+            [row({ id: 'mine', name: 'Level envelope · Ground · 200 m²', provenance: authoredProvenance('extruded') })],
+            OWN_AUTHORING_RULE,
+        );
+        if (s.kind !== 'replace') throw new Error(`expected replace, got ${s.kind}`);
+        expect(s.ids).toEqual(['mine']);
+        expect(s.sentence).toContain('which you authored earlier');
+        expect(s.sentence).not.toContain('PRYZM generated');
+        expect(s.sentence).toContain('ONE undo');
+    });
+
+    it('⛔ a GENERATED plate BLOCKS the user\'s authoring — with the route out, grammar for one', () => {
+        const s = resolveLevelEnvelopeSupersession([row({ id: 'plate' })], OWN_AUTHORING_RULE);
+        if (s.kind !== 'blocked') throw new Error(`expected blocked, got ${s.kind}`);
+        expect(s.sentence).toContain('a level envelope that is not your own authoring');
+        expect(s.sentence).toContain('a plate PRYZM fitted from a massing option');
+        expect(s.sentence).toContain('Nothing was created and nothing was deleted');
+        expect(s.sentence).toContain('Delete the one you do not want yourself');
+    });
+
+    it('⛔ two blockers read in the plural', () => {
+        const s = resolveLevelEnvelopeSupersession([row({ id: 'a' }), row({ id: 'b' })], OWN_AUTHORING_RULE);
+        if (s.kind !== 'blocked') throw new Error(s.kind);
+        expect(s.sentence).toContain('2 level envelopes that are not your own authoring');
     });
 });
 

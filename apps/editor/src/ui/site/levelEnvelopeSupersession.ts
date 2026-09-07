@@ -40,6 +40,18 @@
 // knows it made. An envelope saved before provenance was recorded on this family therefore BLOCKS
 // the replacement and says so, rather than being swept away on the strength of a `??`.
 //
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-DRAW-ON-THE-SITE-VIEWS (lane ENVELOPE-DRAW, 2026-09-07, R8) — A SECOND RULE, NOT A
+// WIDER ONE
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The user's OWN authoring (the create panel on the Parcel Law tab and the site views, and the
+// perimeter drawn on a site view) asks a DIFFERENT question of the same store: *"may my new envelope
+// replace the one I made earlier on this storey?"* The answer is `isReplaceableByOwnAuthoring` —
+// true ONLY for `authored` — carried as `OWN_AUTHORING_RULE`. The generated-massing rule is NOT
+// widened by it: a generated plate still never destroys a drawing, and a drawing does not yet sweep
+// away a generated plate either (that is an open founder decision, refused with the route out).
+// ONE resolver, two rules, two voices — the sentence always says WHO made what it replaces.
+//
 // PURE: no store of its own, no DOM, no bus, no clock, no RNG. Never throws.
 
 import { trace } from '@opentelemetry/api';
@@ -178,6 +190,74 @@ export function isReplaceableByGeneratedMassing(p: ValueProvenance | null): bool
     return p.origin === 'computed' || p.origin === 'regenerated';
 }
 
+/**
+ * **The sibling rule — §ENVELOPE-DRAW-ON-THE-SITE-VIEWS (lane ENVELOPE-DRAW, 2026-09-07), R8.**
+ * May the user's OWN authoring gesture replace this envelope?
+ *
+ * ⭐ ONLY `authored` QUALIFIES. This is the founder's L-13038 ruling (*"when I select another the
+ * previous shall be removed"*) applied to his own authoring: pressing Create on the same storey a
+ * second time, or drawing a second perimeter, REPLACES the envelope that same gesture made — stated
+ * before the click, one undo. What it does NOT do is widen `isReplaceableByGeneratedMassing`: a
+ * generated plate may still never destroy a drawing, and this rule is used ONLY by the authoring
+ * route (`buildEnvelopeAuthoringPlan`), never by the massing-option adopt path.
+ *
+ * ⛔ `computed` / `regenerated` (PRYZM's own plates) BLOCK here, deliberately and conservatively.
+ * Whether the user's drawing may sweep away a plate PRYZM fitted is a founder decision the lane
+ * did not have; until it is made, the refusal names the plate and the way out (delete it, or keep
+ * it and draw on another storey), which is strictly better than destroying either silently.
+ * ⛔ A NULL PROVENANCE, OR ONE WITH NO KNOWN ORIGIN, BLOCKS — the same §CONTEXT-DATA-HONESTY rule
+ * as the generated-massing sibling: a record PRYZM cannot attribute is not one it may delete.
+ */
+export function isReplaceableByOwnAuthoring(p: ValueProvenance | null): boolean {
+    if (p === null) return false;
+    if (!hasKnownOrigin(p)) return false;
+    return p.origin === 'authored';
+}
+
+/**
+ * WHICH rule decides a replacement, and how its sentences read. The two rules differ in who is
+ * asking — PRYZM's massing solver, or the user's own authoring control — and the sentence must say
+ * which, or a user reads "PRYZM generated" about a perimeter they drew.
+ */
+export interface SupersessionRule {
+    /** May this envelope be replaced by the thing about to be created? */
+    readonly replaceable: (p: ValueProvenance | null) => boolean;
+    /** Ends "…already on this storey (names), which …" / "…all of which …" — e.g. `PRYZM generated`. */
+    readonly replacedClause: string;
+    /** Ends "This storey already carries a level envelope … (names)" — takes `one` for grammar. */
+    readonly blockedClause: (one: boolean) => string;
+    /** Why the blocker blocks, in this rule's voice. A full sentence. */
+    readonly blockedWhy: string;
+    /** The way out, after "Nothing was created and nothing was deleted." */
+    readonly blockedRoute: string;
+}
+
+/** The default — §L-13038's massing-option adopt. Sentences byte-identical to the original. */
+export const GENERATED_MASSING_RULE: SupersessionRule = Object.freeze({
+    replaceable: isReplaceableByGeneratedMassing,
+    replacedClause: 'PRYZM generated',
+    blockedClause: () => 'PRYZM cannot prove it generated',
+    blockedWhy:
+        'an envelope you drew or edited by hand is your work, and replacing it silently would destroy '
+        + 'an edit nothing warned you about.',
+    blockedRoute:
+        'Delete the one you do not want yourself and press again, and PRYZM will put this option in '
+        + 'its place.',
+});
+
+/** The authoring route's rule — §ENVELOPE-DRAW R8. Only what the user authored is replaced. */
+export const OWN_AUTHORING_RULE: SupersessionRule = Object.freeze({
+    replaceable: isReplaceableByOwnAuthoring,
+    replacedClause: 'you authored earlier from this control',
+    blockedClause: (one: boolean) => one ? 'that is not your own authoring' : 'that are not your own authoring',
+    blockedWhy:
+        'this control replaces only what it authored; a plate PRYZM fitted from a massing option, or '
+        + 'an envelope whose origin PRYZM cannot establish, is not swept away by your drawing.',
+    blockedRoute:
+        'Delete the one you do not want yourself, or create the envelope on a storey that does not '
+        + 'carry it, and press again.',
+});
+
 /** How an envelope reads in a sentence: its name, or its area, or — last — its id. */
 export function describeLevelEnvelope(e: ExistingLevelEnvelope): string {
     if (e.name !== null) {
@@ -199,6 +279,7 @@ export function describeLevelEnvelope(e: ExistingLevelEnvelope): string {
  */
 export function resolveLevelEnvelopeSupersession(
     onStorey: readonly ExistingLevelEnvelope[],
+    rule: SupersessionRule = GENERATED_MASSING_RULE,
 ): LevelEnvelopeSupersession {
     const span = _tracer.startSpan('pryzm.site.resolveLevelEnvelopeSupersession');
     try {
@@ -206,7 +287,8 @@ export function resolveLevelEnvelopeSupersession(
             span.setAttribute('pryzm.supersede.kind', 'none');
             return { kind: 'none' };
         }
-        const blockers = onStorey.filter((e) => !isReplaceableByGeneratedMassing(e.provenance));
+        span.setAttribute('pryzm.supersede.rule', rule === GENERATED_MASSING_RULE ? 'generated-massing' : 'own-authoring');
+        const blockers = onStorey.filter((e) => !rule.replaceable(e.provenance));
         if (blockers.length > 0) {
             span.setAttribute('pryzm.supersede.kind', 'blocked');
             span.setAttribute('pryzm.supersede.blockers', blockers.length);
@@ -221,11 +303,9 @@ export function resolveLevelEnvelopeSupersession(
                 blockers: Object.freeze([...blockers]),
                 sentence:
                     `This storey already carries ${one ? 'a level envelope' : `${blockers.length} level envelopes`} `
-                    + `PRYZM cannot prove it generated (${named}). ⛔ PRYZM will not delete `
-                    + `${one ? 'it' : 'them'}: an envelope you drew or edited by hand is your work, and `
-                    + 'replacing it silently would destroy an edit nothing warned you about. Nothing was '
-                    + 'created and nothing was deleted. Delete the one you do not want yourself and press '
-                    + 'again, and PRYZM will put this option in its place.',
+                    + `${rule.blockedClause(one)} (${named}). ⛔ PRYZM will not delete `
+                    + `${one ? 'it' : 'them'}: ${rule.blockedWhy} Nothing was `
+                    + `created and nothing was deleted. ${rule.blockedRoute}`,
             };
         }
         span.setAttribute('pryzm.supersede.kind', 'replace');
@@ -237,10 +317,10 @@ export function resolveLevelEnvelopeSupersession(
             ids: Object.freeze(onStorey.map((e) => e.id)),
             targets: Object.freeze([...onStorey]),
             sentence: one
-                ? `Replaces the level envelope already on this storey (${names}), which PRYZM generated. `
+                ? `Replaces the level envelope already on this storey (${names}), which ${rule.replacedClause}. `
                   + 'The replacement is ONE undo — Ctrl+Z brings the previous one back.'
                 : `Replaces the ${onStorey.length} level envelopes already on this storey (${names}), all of `
-                  + 'which PRYZM generated. The replacement is ONE undo — Ctrl+Z brings them all back.',
+                  + `which ${rule.replacedClause}. The replacement is ONE undo — Ctrl+Z brings them all back.`,
         };
     } finally {
         span.end();

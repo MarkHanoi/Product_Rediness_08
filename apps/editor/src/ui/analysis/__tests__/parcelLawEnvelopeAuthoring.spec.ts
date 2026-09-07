@@ -23,6 +23,7 @@ import {
     AUTHORING_STOREYS_INPUT_TESTID,
     AUTHORING_SUBSCRIBED_ATTR,
     AUTHORING_ADVISORY_TESTID,
+    AUTHORING_INTENT_TESTID,
     AUTHORING_STUDY_SUBSCRIBED_ATTR,
     buildLiveLawCheck,
     defaultParcelLawEnvelopeAuthoringDeps,
@@ -124,14 +125,23 @@ function harness(over: Partial<ParcelLawEnvelopeAuthoringDeps> = {}, storeOk = t
             executeCommand: (type: string, payload: unknown) => {
                 executed.push({ type, payload });
                 // Mirror what the real handler does, so the live law check has something to read.
-                const p = payload as { envelopes: { spaceEnvelopeId: string; levelId: string }[] };
+                // §ENVELOPE-DRAW R8 — and mirror `supersedes` (removed in the SAME command) and the
+                // spec's `provenance` (carried through untouched), or a second press could not be
+                // told from a first one and the replace arm would be untestable here.
+                const p = payload as {
+                    envelopes: { spaceEnvelopeId: string; levelId: string; name?: string; provenance?: unknown }[];
+                    supersedes?: string[];
+                };
+                for (const id of p.supersedes ?? []) state.delete(id);
                 for (const e of p.envelopes) {
                     state.set(e.spaceEnvelopeId, {
                         id: e.spaceEnvelopeId,
                         levelId: e.levelId,
                         role: 'level',
+                        name: e.name,
                         footprintAreaM2: 200,
                         withinId: null,
+                        ...(e.provenance !== undefined ? { provenance: e.provenance } : {}),
                     });
                 }
                 for (const l of listeners) l();
@@ -308,7 +318,10 @@ describe('mountParcelLawEnvelopeAuthoring — the create chain', () => {
     });
 
     it('admits a missing bus as PRYZM\'s gap and creates nothing', () => {
-        const h = harness({ runtime: () => ({ stores: {} } as never) });
+        // §ENVELOPE-DRAW R8 — the store read now PRECEDES the bus check (a store PRYZM cannot read
+        // withholds the button before any click), so this case hands a readable EMPTY store and no
+        // bus, which is exactly the missing-BUS arm it has always pinned.
+        const h = harness({ runtime: () => ({ stores: { spaceEnvelope: { getState: () => new Map() } } } as never) });
         mountParcelLawEnvelopeAuthoring(document.body, h.deps);
         const input = byTestId<HTMLInputElement>(AUTHORING_STOREYS_INPUT_TESTID)!;
         input.value = '1';
@@ -406,9 +419,6 @@ describe('buildLiveLawCheck — what is DRAWN becomes the allocation', () => {
         expect(out.remainingM2).toBeCloseTo(120, 6);
         const first = out.rows.find((r) => r.levelId === 'lvl-1')!;
         expect(first.requestedM2).toBeNull();
-                    // §26.6 rule 3 — the channel now carries the storey's height (L-13046).
-                    heightM: null,
-                    baseOffsetM: null,
         expect(first.ceilingM2).toBeCloseTo(120, 6);      // ⭐ "only 120 m² on the first floor"
         expect(first.ceilingSource).toBe('remaining-brut');
     });
@@ -711,5 +721,126 @@ describe('defaultParcelLawEnvelopeAuthoringDeps().readStudyFootprint', () => {
 
     it('returns null — not a zero-setback ring — when no study was ever saved', () => {
         expect(defaultParcelLawEnvelopeAuthoringDeps().readStudyFootprint!(null)).toBeNull();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §ENVELOPE-DRAW R8 (L-13047's tail) — the second press REPLACES; the outcome is stated BEFORE it
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+describe('§ENVELOPE-DRAW R8 — pressing Create twice replaces instead of accumulating', () => {
+    const typeStoreys = (n: string): void => {
+        const input = byTestId<HTMLInputElement>(AUTHORING_STOREYS_INPUT_TESTID)!;
+        input.value = n;
+        input.dispatchEvent(new Event('input'));
+    };
+
+    it('⭐ the FIRST press creates with origin:authored on every spec (C58 §1.19 clause 3 — the live defect, fixed)', () => {
+        const h = harness();
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        typeStoreys('2');
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+        const payload = h.executed[0]!.payload as { envelopes: { provenance: { origin: string; detail?: string } }[]; supersedes: string[] };
+        expect(payload.envelopes.map((e) => e.provenance.origin)).toEqual(['authored', 'authored']);
+        expect(payload.envelopes[0]!.provenance.detail).toContain('permitted buildable footprint');
+        expect(payload.supersedes).toEqual([]);
+    });
+
+    it('⭐ the SECOND press carries the first press\'s ids in `supersedes` — ONE command, and the store ends with 2, not 4', () => {
+        const h = harness();
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        typeStoreys('2');
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+        const first = (h.executed[0]!.payload as { envelopes: { spaceEnvelopeId: string }[] }).envelopes.map((e) => e.spaceEnvelopeId);
+        expect(h.state.size).toBe(2);
+
+        // The intent line now says REPLACE, before the click, and the button says so too.
+        h.fire();
+        const intent = byTestId<HTMLElement>(AUTHORING_INTENT_TESTID)!;
+        expect(intent.getAttribute('data-intent')).toBe('replace');
+        expect(intent.textContent).toContain('you authored earlier');
+        expect(intent.textContent).toContain('ONE undo');
+        expect(byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.textContent).toBe('Replace and create envelope');
+
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+        expect(h.executed).toHaveLength(2);                                   // ⛔ one command per press
+        const second = h.executed[1]!.payload as { envelopes: unknown[]; supersedes: string[] };
+        expect([...second.supersedes].sort()).toEqual([...first].sort());
+        expect(second.envelopes).toHaveLength(2);
+        expect(h.state.size).toBe(2);                                         // ⛔ not 4
+        expect(byTestId(AUTHORING_STATUS_TESTID)!.textContent).toContain('Replaced — one undo brings the previous back');
+    });
+
+    it('states `create` before the first press — nothing on the target storeys', () => {
+        const h = harness();
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        typeStoreys('3');
+        h.fire();
+        const intent = byTestId<HTMLElement>(AUTHORING_INTENT_TESTID)!;
+        expect(intent.hidden).toBe(false);
+        expect(intent.getAttribute('data-intent')).toBe('create');
+        expect(intent.textContent).toContain('Creates 3 level envelopes');
+    });
+
+    it('hides the intent line while no storey count is typed', () => {
+        const h = harness();
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        expect(byTestId<HTMLElement>(AUTHORING_INTENT_TESTID)!.hidden).toBe(true);
+        expect(byTestId(AUTHORING_INTENT_TESTID)!.getAttribute('data-intent')).toBe('idle');
+    });
+
+    it('⛔ a plate PRYZM fitted on Ground WITHHOLDS the button and prints the storey and the way out — nothing dispatched', () => {
+        const h = harness();
+        h.state.set('plate', {
+            id: 'plate', levelId: 'lvl-0', role: 'level', name: 'Proposed ground floor · 301 m²',
+            footprintAreaM2: 301, withinId: null,
+            provenance: { origin: 'computed', detail: 'fitted by the massing solver' },
+        });
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        typeStoreys('2');
+        h.fire();
+        const intent = byTestId<HTMLElement>(AUTHORING_INTENT_TESTID)!;
+        expect(intent.getAttribute('data-intent')).toBe('refuse');
+        expect(intent.textContent).toContain('On Ground');
+        expect(intent.textContent).toContain('Proposed ground floor · 301 m²');
+        expect(intent.textContent).toContain('Delete the one you do not want yourself');
+        const btn = byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!;
+        expect(btn.disabled).toBe(true);
+        btn.click();
+        expect(h.executed).toHaveLength(0);
+    });
+
+    it('⛔ an envelope with NO provenance (the founder\'s pre-fix records) refuses rather than being swept away', () => {
+        const h = harness();
+        h.state.set('legacy', { id: 'legacy', levelId: 'lvl-0', role: 'level', footprintAreaM2: 431, withinId: null });
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        typeStoreys('1');
+        h.fire();
+        expect(byTestId(AUTHORING_INTENT_TESTID)!.getAttribute('data-intent')).toBe('refuse');
+        expect(byTestId(AUTHORING_INTENT_TESTID)!.textContent).toContain('no origin recorded');
+        expect(byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.disabled).toBe(true);
+    });
+
+    it('⛔ an UNREADABLE store refuses with the read\'s own sentence — never creates blind', () => {
+        const h = harness({}, false);
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        typeStoreys('1');
+        const intent = byTestId<HTMLElement>(AUTHORING_INTENT_TESTID)!;
+        expect(intent.getAttribute('data-intent')).toBe('refuse');
+        expect(intent.textContent).toContain('cannot see what is already on the storey');
+        expect(byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.disabled).toBe(true);
+    });
+
+    it('the production default reads the runtime\'s own store through the ONE channel (readLevelEnvelopes)', () => {
+        const deps = defaultParcelLawEnvelopeAuthoringDeps();
+        // `readExisting` is optional on the deps; the mount falls back to the production read.
+        expect(deps.readExisting).toBeUndefined();
+        const h = harness();
+        mountParcelLawEnvelopeAuthoring(document.body, { ...h.deps, readExisting: undefined });
+        typeStoreys('1');
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+        expect(h.executed).toHaveLength(1);
+        h.fire();
+        expect(byTestId(AUTHORING_INTENT_TESTID)!.getAttribute('data-intent')).toBe('replace');
     });
 });

@@ -22,6 +22,8 @@ import {
     resolveStoreyHeight,
     type AdoptLevelCandidate,
 } from '../adoptProposalAsEnvelope';
+import { authoredProvenance, systemProvenance } from '@pryzm/schemas/provenance';
+import type { ExistingLevelEnvelope, LevelEnvelopeReadResult } from '../levelEnvelopeSupersession';
 
 const RING = [
     { x: 0, z: 0 },
@@ -48,9 +50,25 @@ function input(over: Partial<EnvelopeAuthoringInput> = {}): EnvelopeAuthoringInp
         ordinance: { maxHeightM: 12, maxFloors: 4 },
         levels: LEVELS,
         mintedIds: IDS,
+        // §ENVELOPE-DRAW R8 — the planner REQUIRES the store read; every case below starts from
+        // "readable, empty" and the supersession cases override it.
+        existing: { readable: true, rows: [] },
         ...over,
     };
 }
+
+/** An envelope already in the store, as `readLevelEnvelopes` returns it. */
+function existingRow(over: Partial<ExistingLevelEnvelope> = {}): ExistingLevelEnvelope {
+    return {
+        id: 'old-1',
+        levelId: 'lvl-0',
+        name: 'Level envelope · Ground · 200 m²',
+        footprintAreaM2: 200,
+        provenance: authoredProvenance('user extruded the permitted buildable footprint'),
+        ...over,
+    };
+}
+const readable = (rows: readonly ExistingLevelEnvelope[]): LevelEnvelopeReadResult => ({ readable: true, rows });
 
 describe('buildEnvelopeAuthoringPlan — the create gesture', () => {
     it('extrudes the footprint over N storeys as N level envelopes in ONE batch command', () => {
@@ -215,6 +233,134 @@ describe('buildEnvelopeAuthoringPlan — refusals, each with both numbers', () =
         if (r.ok) return;
         expect(r.reason).toBe('too-few-ids');
         expect(r.statement).toContain("gap in PRYZM's wiring");
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §ENVELOPE-DRAW (C3) — PROVENANCE ON THE PATH THAT ALREADY SHIPS, and REPLACE instead of ACCUMULATE
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+describe('§ENVELOPE-DRAW — every emitted spec carries origin:authored (C58 §1.19 clause 3)', () => {
+    it('⭐ stamps `authored` on EVERY storey, with a detail naming the ring source', () => {
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 3 }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.payload.envelopes).toHaveLength(3);
+        for (const e of r.payload.envelopes) {
+            expect(e.provenance.origin).toBe('authored');
+            expect(e.provenance.detail).toContain('the permitted buildable footprint');
+            expect(e.provenance.detail).toContain('user extruded');
+        }
+    });
+
+    it('carries the caller\'s own detail verbatim when one is supplied (the drawn route will)', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            provenanceDetail: 'user drew the envelope perimeter on the 3D Site view',
+        }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.payload.envelopes[0]!.provenance).toEqual(authoredProvenance('user drew the envelope perimeter on the 3D Site view'));
+    });
+
+    it('⛔ never `predates-provenance`, never a system origin — a grep for authored finds this producer', () => {
+        const r = buildEnvelopeAuthoringPlan(input());
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.payload.envelopes.every((e) => e.provenance.origin === 'authored')).toBe(true);
+        expect(r.payload.envelopes.some((e) => e.provenance.origin === 'regenerated')).toBe(false);
+    });
+});
+
+describe('§ENVELOPE-DRAW R8 — the SECOND press REPLACES what this control authored, in ONE command', () => {
+    it('an empty store ⇒ intent `create`, supersedes nothing, the statement ends with the one-undo sentence', () => {
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 2 }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.intent).toBe('create');
+        expect(r.payload.supersedes).toEqual([]);
+        expect(r.replaces).toEqual([]);
+        expect(r.statement).toContain('One undo removes all of it');
+    });
+
+    it('⭐ authored envelopes on the target storeys ⇒ intent `replace`, their ids in `supersedes`, ONE command', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 2,
+            existing: readable([
+                existingRow({ id: 'old-g', levelId: 'lvl-0' }),
+                existingRow({ id: 'old-1', levelId: 'lvl-1', name: 'Level envelope · Level 1 · 200 m²' }),
+            ]),
+        }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.intent).toBe('replace');
+        expect(r.command).toBe('spaceEnvelope.batch.create');          // ⛔ not a delete + a create
+        expect([...r.payload.supersedes].sort()).toEqual(['old-1', 'old-g']);
+        expect(r.replaces.map((e) => e.id).sort()).toEqual(['old-1', 'old-g']);
+        // The replace half comes FIRST, in the resolver's own voice, and names WHO made it.
+        expect(r.statement.indexOf('Replaces')).toBeLessThan(r.statement.indexOf('In their place'));
+        expect(r.statement).toContain('you authored earlier');
+        expect(r.statement).toContain('ONE undo');
+        expect(r.statement).not.toContain('One undo removes all of it');
+        // And each replacement STAYS authored — carrying how many it replaced, never `regenerated`.
+        for (const e of r.payload.envelopes) {
+            expect(e.provenance.origin).toBe('authored');
+            expect(e.provenance.detail).toContain('replaced 1 envelope the user authored earlier');
+        }
+    });
+
+    it('⭐ PER STOREY — an authored envelope on a storey OUTSIDE the ask is left alone', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 1,
+            existing: readable([existingRow({ id: 'upper', levelId: 'lvl-2' })]),
+        }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.intent).toBe('create');
+        expect(r.payload.supersedes).toEqual([]);
+    });
+
+    it('⛔ a plate PRYZM fitted (`computed`) on a target storey REFUSES the WHOLE gesture — nothing created, nothing deleted', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 2,
+            existing: readable([
+                existingRow({ id: 'plate', levelId: 'lvl-0', name: 'Proposed ground floor · 301 m²',
+                    provenance: systemProvenance('computed', 'fitted by the massing solver') }),
+            ]),
+        }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.reason).toBe('rival-envelope-not-authored');
+        expect(r.statement).toContain('On Ground');
+        expect(r.statement).toContain('Proposed ground floor · 301 m²');
+        expect(r.statement).toContain('not your own authoring');
+        expect(r.statement).toContain('Nothing was created and nothing was deleted');
+        expect(r.statement).toContain('Nothing was created on ANY storey');
+    });
+
+    it('⛔ an envelope with NO readable origin refuses too — unknown sits with "not mine", never with "mine"', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            existing: readable([existingRow({ id: 'legacy', provenance: null })]),
+        }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.reason).toBe('rival-envelope-not-authored');
+        expect(r.statement).toContain('no origin recorded');
+    });
+
+    it('⛔ an UNREADABLE store refuses with the read\'s own sentence — never creates blind', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            existing: { readable: false, reason: 'no-store', text: 'This runtime exposes no space-envelope store, so PRYZM cannot see what is already on the storey.' },
+        }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.reason).toBe('envelopes-unreadable');
+        expect(r.statement).toContain('cannot see what is already on the storey');
+    });
+
+    it('a mixed storey (one authored, one computed) refuses — one blocker blocks the storey', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            existing: readable([
+                existingRow({ id: 'mine', levelId: 'lvl-0' }),
+                existingRow({ id: 'plate', levelId: 'lvl-0', provenance: systemProvenance('computed', 'fitted') }),
+            ]),
+        }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.reason).toBe('rival-envelope-not-authored');
     });
 });
 

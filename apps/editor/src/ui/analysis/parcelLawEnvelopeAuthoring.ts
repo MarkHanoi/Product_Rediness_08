@@ -93,6 +93,20 @@
 // ([[verification-artifact-can-predate-subject]]). The fitted plate still wins over both, because
 // it is a decision made INSIDE the current determination.
 //
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-DRAW R8 (lane ENVELOPE-DRAW, 2026-09-07) — PRESSING CREATE TWICE REPLACES, IT DOES
+// NOT ACCUMULATE — AND THE OUTCOME IS STATED BEFORE THE CLICK
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// L-13047 recorded this control as *"STILL ACCUMULATES: press it twice and you get two level
+// envelopes per storey"*. The founder's L-13038 ruling — *"when I select another the previous shall
+// be removed"* — applies to his own authoring. So every render reads what is already on the target
+// storeys (`readLevelEnvelopes`, the SAME read the adopt card uses) and hands it to the planner,
+// which returns the ids to SUPERSEDE in the one `spaceEnvelope.batch.create` (C114 §6d — one
+// produceCommand, one undo). The intent line under the button says `create` / `replace` / `refuse`
+// BEFORE the click, exactly as `adoptProposalAsEnvelope` does: a replace names what goes, a refuse
+// withholds the button and prints the storey and the way out. ⛔ Only what this control AUTHORED is
+// replaced (`OWN_AUTHORING_RULE`); a plate PRYZM fitted, or an origin PRYZM cannot read, refuses.
+//
 // ⛔ P6 — THIS FILE WRITES NO STORE. The one mutation it can cause is
 // `bus.executeCommand('spaceEnvelope.batch.create', …)`. ⛔ P4 — no `(window as any)`: both globals
 // it needs are reached through a typed, injectable host. ⛔ C08 §3.1 — every control it BUILDS is
@@ -125,6 +139,10 @@ import {
 } from '../site/contextDerivedStudyEnvelopeState';
 import type { ParcelLawModel } from '../site/parcel/parcelLawModel';
 import { resolveLiveTargetFootprintProposal } from '../site/targetFootprintAreaState';
+// §ENVELOPE-DRAW R8 (L-13047's tail) — WHAT IS ALREADY ON EACH STOREY, read through the same
+// channel the massing-option adopt reads, so this control and that card cannot disagree about
+// what is in the store (C84 EI-9). The judgement is the planner's; this file only reads.
+import { readLevelEnvelopes, type LevelEnvelopeReadResult } from '../site/levelEnvelopeSupersession';
 import { resolveEnvelopeStore, type LiveEnvelopeStore } from './parcelLawQuantities';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawEnvelopeAuthoring');
@@ -141,6 +159,12 @@ export const AUTHORING_STATUS_TESTID = 'parcel-law-authoring-status';
 export const AUTHORING_SOURCE_TESTID = 'parcel-law-authoring-source';
 /** The C114 §12 storey-count ADVISORY. Present only when the ask exceeds the derived count. */
 export const AUTHORING_ADVISORY_TESTID = 'parcel-law-authoring-advisory';
+/**
+ * §ENVELOPE-DRAW R8 — what the NEXT click will do, stated before it: `data-intent` is
+ * `create` / `replace` / `refuse` / `idle` (no storey count typed yet). On `refuse` the create
+ * button is withheld and this line carries the reason and the way out.
+ */
+export const AUTHORING_INTENT_TESTID = 'parcel-law-authoring-intent';
 /** One "Edit perimeter" button per created storey. `data-space-envelope-id` names its subject. */
 export const AUTHORING_EDIT_PERIMETER_ATTR = 'data-authoring-edit-perimeter';
 /** The list of created storeys with their perimeter-edit buttons. */
@@ -220,6 +244,18 @@ export interface ParcelLawEnvelopeAuthoringDeps {
     readonly mintId: () => string;
     /** Production: `window`. */
     readonly capabilityHost: AuthoringCapabilityHost;
+    /**
+     * §ENVELOPE-DRAW R8 — what is ALREADY in the space-envelope store, as the READ returned it.
+     * Production: `readLevelEnvelopes(resolveEnvelopeStore(rt))`. Optional so every spec literal
+     * written before this seam keeps compiling; omitted means the production read of the runtime's
+     * own store, never "assume empty".
+     */
+    readonly readExisting?: (rt: PryzmRuntime | null | undefined) => LevelEnvelopeReadResult;
+}
+
+/** The production read of what is on the storeys — ONE channel, shared with the adopt card. */
+function readExistingDefault(rt: PryzmRuntime | null | undefined): LevelEnvelopeReadResult {
+    return readLevelEnvelopes(resolveEnvelopeStore(rt));
 }
 
 /** The production wiring. Resolved when CALLED, so a runtime composed after boot is seen. */
@@ -304,6 +340,11 @@ interface FootprintSource {
     readonly label: string;
     /** The sentence rendered under the heading. Says what the ring IS and what it is not. */
     readonly text: string;
+    /**
+     * §ENVELOPE-DRAW — the `authoredProvenance` detail for an envelope made from this ring, in the
+     * producer's own words (C58 §1.19 clause 3: an authored envelope names its own source).
+     */
+    readonly provenanceDetail: string;
 }
 
 /**
@@ -338,6 +379,7 @@ export function resolveFootprintSource(
             ring: plate.ring,
             areaM2: plate.achievedAreaM2,
             label: 'the ground-floor plate you fitted',
+            provenanceDetail: 'user extruded the ground-floor plate they fitted inside the permitted footprint, from the envelope authoring control',
             text:
                 `Extrudes the ${plate.achievedAreaM2.toFixed(0)} m² plate you fitted on the ground, inside the `
                 + `${plate.permittedAreaM2.toFixed(0)} m² permitted footprint. Every storey gets this same ring; `
@@ -349,6 +391,9 @@ export function resolveFootprintSource(
         return {
             ring: permittedRing,
             areaM2: permittedAreaM2,
+            provenanceDetail: upperBound
+                ? 'user extruded the permitted footprint (an UPPER BOUND — setbacks unknown) from the envelope authoring control'
+                : 'user extruded the permitted buildable footprint from the envelope authoring control',
             label: upperBound
                 ? 'the permitted footprint, which is an UPPER BOUND'
                 : 'the permitted buildable footprint',
@@ -368,6 +413,7 @@ export function resolveFootprintSource(
             ring: study.ring,
             areaM2: study.areaM2,
             label: `the ${study.setbackM.toFixed(1)} m setback you supplied`,
+            provenanceDetail: `user extruded the study footprint their own ${study.setbackM.toFixed(1)} m setback leaves, from the envelope authoring control`,
             text:
                 `Extrudes the ${study.areaM2.toFixed(0)} m² footprint YOUR OWN ${study.setbackM.toFixed(1)} m setback `
                 + (zeroSetback
@@ -385,6 +431,7 @@ export function resolveFootprintSource(
         ring: null,
         areaM2: null,
         label: 'nothing',
+        provenanceDetail: 'no ring — nothing is authored from this state',
         text:
             'PRYZM has not solved a buildable footprint for this parcel and no ground-floor plate is fitted, so '
             + 'there is no perimeter to extrude yet. This is a gap in what PRYZM has — NOT a finding that nothing '
@@ -482,7 +529,9 @@ export function mountParcelLawEnvelopeAuthoring(
     input.style.cssText =
         'width:100%;box-sizing:border-box;padding:5px 6px;border-radius:6px;border:1px solid #d8d3e6;'
         + 'font:600 11px system-ui;';
-    input.addEventListener('input', () => { typedStoreys = input.value; });
+    // §ENVELOPE-DRAW R8 — the intent line answers the storey count the user is TYPING, so it
+    // re-renders per keystroke rather than on the next store event (which may never come).
+    input.addEventListener('input', () => { typedStoreys = input.value; render(); });
     entryCol.appendChild(label);
     entryCol.appendChild(input);
     const createBtn = document.createElement('button');
@@ -502,6 +551,12 @@ export function mountParcelLawEnvelopeAuthoring(
     const advisoryLine = H('div', 'margin-top:5px;font-size:9.5px;line-height:1.45;');
     advisoryLine.setAttribute('data-testid', AUTHORING_ADVISORY_TESTID);
     advisoryLine.hidden = true;
+
+    // §ENVELOPE-DRAW R8 — what the NEXT click does, before it. Hidden until a storey count is typed.
+    const intentLine = H('div', 'margin-top:4px;font-size:9.5px;line-height:1.45;color:#6b6480;');
+    intentLine.setAttribute('data-testid', AUTHORING_INTENT_TESTID);
+    intentLine.setAttribute('data-intent', 'idle');
+    intentLine.hidden = true;
 
     const createdList = H('div', 'margin-top:6px;');
     createdList.setAttribute('data-testid', AUTHORING_CREATED_TESTID);
@@ -526,7 +581,7 @@ export function mountParcelLawEnvelopeAuthoring(
     // given the pair stays inside this section, exactly as before, and every existing caller and
     // spec is unaffected.
     const lawCheckHost = opts?.lawCheckHost ?? null;
-    root.append(heading, sourceLine, entryRow, statusLine, advisoryLine, createdList);
+    root.append(heading, sourceLine, entryRow, intentLine, statusLine, advisoryLine, createdList);
     (lawCheckHost ?? root).append(lawLede, lawSlot);
 
     /** Read everything this section shows, from the ONE producer of each figure. */
@@ -535,6 +590,7 @@ export function mountParcelLawEnvelopeAuthoring(
         source: FootprintSource;
         levels: readonly AdoptLevelCandidate[];
         snapshot: IntendedAreaSnapshot;
+        existing: LevelEnvelopeReadResult;
     } => {
         const rt = deps.runtime();
         const model = deps.readModel(rt);
@@ -550,7 +606,37 @@ export function mountParcelLawEnvelopeAuthoring(
             store as LiveEnvelopeStore | null,
             levels.map((l) => ({ id: l.id, name: l.name, elevation: l.elevation })),
         );
-        return { model, source, levels, snapshot };
+        const existing = (deps.readExisting ?? readExistingDefault)(rt);
+        return { model, source, levels, snapshot, existing };
+    };
+
+    /**
+     * §ENVELOPE-DRAW R8 — THE PLAN THE NEXT CLICK WOULD DISPATCH, built from the same inputs with
+     * PLACEHOLDER ids (never dispatched — the click mints real ones, C16 CA-2). ONE producer for
+     * "what will happen" and "what happened": the intent line and the click cannot disagree.
+     */
+    const previewPlan = (
+        r: ReturnType<typeof readAll>,
+    ): EnvelopeAuthoringResult | null => {
+        const wanted = Number(typedStoreys);
+        if (typedStoreys.trim() === '' || !Number.isFinite(wanted) || wanted <= 0 || !Number.isInteger(wanted)) return null;
+        const n = Math.min(Math.floor(wanted), 64);
+        const ids: string[] = [];
+        for (let i = 0; i < n; i++) ids.push(`preview-${i}`);
+        return buildEnvelopeAuthoringPlan({
+            ring: r.source.ring,
+            ringAreaM2: r.source.areaM2,
+            ringSourceLabel: r.source.label,
+            requestedStoreys: typedStoreys,
+            ordinance: {
+                maxHeightM: r.model.ordinance?.maxHeightM ?? null,
+                maxFloors: r.model.ordinance?.maxFloors ?? null,
+            },
+            levels: r.levels,
+            mintedIds: ids,
+            existing: r.existing,
+            provenanceDetail: r.source.provenanceDetail,
+        });
     };
 
     /** Paint the perimeter-edit buttons for whatever the last create produced. */
@@ -621,7 +707,7 @@ export function mountParcelLawEnvelopeAuthoring(
     const render = (): void => {
         if (disposed) return;
         try {
-            const { model, source, levels, snapshot } = readAll();
+            const { model, source, levels, snapshot, existing } = readAll();
 
             sourceLine.textContent = source.text;
             input.value = typedStoreys;
@@ -638,9 +724,46 @@ export function mountParcelLawEnvelopeAuthoring(
             // ⛔ THE CONTROL IS OFFERED ONLY WHERE IT CAN WORK. A create button with no ring to
             // extrude can only ever refuse, and a control that can only fail is a dead click with
             // a label on it. The reason is already in `source.text` above it.
-            const canCreate = source.ring !== null;
-            createBtn.disabled = !canCreate;
+            let canCreate = source.ring !== null;
             input.disabled = !canCreate;
+
+            // ── §ENVELOPE-DRAW R8 — STATE THE OUTCOME BEFORE THE CLICK ─────────────────────────
+            // `create` / `replace` / `refuse`, from the SAME planner the click runs. A refuse of the
+            // supersession class (a rival this control did not author, an unreadable store)
+            // WITHHOLDS the button and prints the reason; every other refusal (storey count, no
+            // levels) is left to the click, exactly as before, because the user is still typing.
+            const preview = canCreate ? previewPlan({ model, source, levels, snapshot, existing }) : null;
+            let intent: 'idle' | 'create' | 'replace' | 'refuse' = 'idle';
+            let intentText = '';
+            if (preview !== null) {
+                if (preview.ok) {
+                    intent = preview.intent;
+                    intentText = preview.intent === 'replace'
+                        ? preview.statement
+                        : `Creates ${preview.storeys.length} level envelope${preview.storeys.length === 1 ? '' : 's'} — `
+                          + 'the target storeys carry nothing this control made. One undo removes them.';
+                } else if (preview.reason === 'rival-envelope-not-authored' || preview.reason === 'envelopes-unreadable') {
+                    intent = 'refuse';
+                    intentText = preview.statement;
+                    canCreate = false;
+                }
+            }
+            intentLine.hidden = intent === 'idle';
+            intentLine.textContent = intentText;
+            intentLine.setAttribute('data-intent', intent);
+            intentLine.style.color = intent === 'refuse' ? '#8a5a00' : intent === 'replace' ? '#4b4460' : '#6b6480';
+            intentLine.style.background = intent === 'refuse' ? '#fdf8ee' : intent === 'replace' ? '#f4f0ff' : '';
+            intentLine.style.borderLeft = intent === 'refuse' ? '2px solid #c9973a' : intent === 'replace' ? '2px solid #6600FF' : '';
+            intentLine.style.padding = intent === 'idle' ? '' : '4px 6px';
+            intentLine.style.borderRadius = intent === 'idle' ? '' : '0 5px 5px 0';
+            createBtn.textContent = intent === 'replace' ? 'Replace and create envelope' : 'Create envelope';
+            createBtn.title = intent === 'replace'
+                ? 'Replaces the level envelope(s) you authored earlier on these storeys — one undo brings them back.'
+                : intent === 'refuse'
+                    ? 'Withheld — see the reason above the button.'
+                    : '';
+
+            createBtn.disabled = !canCreate;
             createBtn.style.opacity = canCreate ? '1' : '0.55';
             createBtn.style.cursor = canCreate ? 'pointer' : 'not-allowed';
 
@@ -648,7 +771,14 @@ export function mountParcelLawEnvelopeAuthoring(
             // event is not a gesture. Only its numbers are re-read, never its verdict.
             if (dispatchError !== null) setStatus(dispatchError, 'refused');
             else if (lastResult !== null && !lastResult.ok) setStatus(lastResult.statement, 'refused');
-            else if (lastResult !== null && lastResult.ok) setStatus(`Created — one undo removes it. ${lastResult.statement}`, 'done');
+            else if (lastResult !== null && lastResult.ok) {
+                setStatus(
+                    lastResult.intent === 'replace'
+                        ? `Replaced — one undo brings the previous back. ${lastResult.statement}`
+                        : `Created — one undo removes it. ${lastResult.statement}`,
+                    'done',
+                );
+            }
 
             const advisory = lastResult !== null && lastResult.ok ? lastResult.advisory : null;
             advisoryLine.hidden = advisory === null;
@@ -696,7 +826,7 @@ export function mountParcelLawEnvelopeAuthoring(
         dispatchError = null;
         created = [];
         try {
-            const { model, source, levels } = readAll();
+            const { model, source, levels, existing } = readAll();
             // ⛔ THE IDS ARE MINTED HERE, NEVER IN THE HANDLER (C16 CA-2): `execute()` runs again
             // on REDO, so an id minted inside the handler would differ the second time and orphan
             // every `withinId` pointing at the first.
@@ -716,6 +846,10 @@ export function mountParcelLawEnvelopeAuthoring(
                 },
                 levels,
                 mintedIds,
+                // §ENVELOPE-DRAW R8 — read in the SAME beat as the click, never from the last render:
+                // a store event between them is exactly the state a stale read would create blind on.
+                existing,
+                provenanceDetail: source.provenanceDetail,
             });
             lastResult = plan;
             if (!plan.ok) { render(); return; }

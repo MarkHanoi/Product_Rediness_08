@@ -58,12 +58,42 @@
 // reported as UNKNOWN by the surface, never fabricated as compliant (C58 §1.4 / L-616: *"an UNKNOWN
 // constraint drawn as zero or unbounded is an overstatement on real land"*).
 //
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-DRAW-ON-THE-SITE-VIEWS (lane ENVELOPE-DRAW, 2026-09-07) — PROVENANCE, AND REPLACE
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// TWO LIVE DEFECTS THIS COMMIT CLOSES ON THE PATH THAT ALREADY SHIPS (PLAN-ENVELOPE-DRAW §4):
+//
+//  1. ⛔ `AuthoredEnvelopeSpec` HAD NO `provenance`. C58 §1.19 clause 3 is unambiguous — *"an
+//     authored envelope carries `confidence: 'authored'` and may never borrow a solved tier"* — yet
+//     every envelope created from this planner landed on the schema's retrofit default,
+//     `predates-provenance`. Two consequences were shipping: the founder's own envelopes did not
+//     read as his, and `isReplaceableByGeneratedMassing` (null/unknown ⇒ block) made them silently
+//     BLOCK the massing-option replace path — the L-13038 behaviour pointed the wrong way. Every
+//     spec now carries `authoredProvenance(detail)`, the ONE constructor that may write `authored`
+//     (C75 §2.2 — a system pass cannot reach it by type), with the detail naming the ring source.
+//
+//  2. ⛔ THE CONTROL ACCUMULATED (L-13047's tail): press Create twice and every storey carried two
+//     level envelopes. The founder's L-13038 ruling — *"when I select another the previous shall be
+//     removed"* — applies to his own authoring too. The planner now takes WHAT IS ALREADY ON EACH
+//     STOREY (`existing`, the read RESULT, so *"could not read"* and *"empty"* never arrive as one
+//     value), asks `resolveLevelEnvelopeSupersession` with `OWN_AUTHORING_RULE`, and returns the ids
+//     to supersede in the SAME `spaceEnvelope.batch.create` — one produceCommand, one undo (C114
+//     §6d). Only `authored` is replaced; a plate PRYZM fitted, or an origin PRYZM cannot establish,
+//     REFUSES with the storey named and the way out. The outcome is stated BEFORE the click.
+//
 // PURE: no store, no DOM, no THREE, no bus, no clock, no RNG (ids are minted by the CALLER —
 // C16 CA-2: `execute()` runs again on REDO, so an id minted near the handler would differ the
 // second time). Never throws. Deterministic.
 
 import { trace } from '@opentelemetry/api';
 import type { Pt } from '@pryzm/schemas';
+import { authoredProvenance, type ValueProvenance } from '@pryzm/schemas/provenance';
+import {
+    OWN_AUTHORING_RULE,
+    resolveLevelEnvelopeSupersession,
+    type ExistingLevelEnvelope,
+    type LevelEnvelopeReadResult,
+} from './levelEnvelopeSupersession';
 import {
     resolveStoreyHeight,
     type AdoptHeightSource,
@@ -95,7 +125,11 @@ export type EnvelopeAuthoringRefusalReason =
     /** ⭐ Fewer storeys exist than were asked for. PRYZM does not create one to hold a number. */
     | 'not-enough-storeys'
     /** The caller minted fewer ids than storeys. A wiring fault, surfaced rather than swallowed. */
-    | 'too-few-ids';
+    | 'too-few-ids'
+    /** §ENVELOPE-DRAW R8 — the space-envelope store could not be READ. Creating blind is how rivals accumulate. */
+    | 'envelopes-unreadable'
+    /** §ENVELOPE-DRAW R8 — a target storey carries a level envelope this control did not author. Refused, nothing deleted. */
+    | 'rival-envelope-not-authored';
 
 /**
  * ⭐ THE STOREY-COUNT DISAGREEMENT — REPORTED, BUILT ANYWAY. See the header: C114 §12 rules this
@@ -120,6 +154,14 @@ export interface AuthoredEnvelopeSpec {
     readonly role: 'level';
     readonly withinId: null;
     readonly name: string;
+    /**
+     * §ENVELOPE-DRAW — WHO made this. ALWAYS `authoredProvenance(detail)` here: this planner only
+     * ever records a human decision (C58 §1.19 clause 3), and `authored` is reachable through
+     * exactly one constructor so a grep finds every site that claims a user acted (C75 §2.2).
+     * ⛔ A replacement stays `authored` — never `regenerated`, which is a SYSTEM origin and would
+     * make the next generated massing option free to sweep the user's drawing away.
+     */
+    readonly provenance: ValueProvenance;
 }
 
 /** One storey of the plan, so a surface can list what it is about to create BEFORE the click. */
@@ -134,7 +176,18 @@ export interface AuthoredStoreyRow {
 export interface EnvelopeAuthoringPlan {
     readonly ok: true;
     readonly command: 'spaceEnvelope.batch.create';
-    readonly payload: { readonly envelopes: readonly AuthoredEnvelopeSpec[] };
+    readonly payload: {
+        readonly envelopes: readonly AuthoredEnvelopeSpec[];
+        /**
+         * §ENVELOPE-DRAW R8 / C114 §6d — the level envelopes this batch REPLACES, removed in the
+         * SAME command so the swap is ONE undo. Empty when every target storey was clear.
+         */
+        readonly supersedes: readonly string[];
+    };
+    /** `replace` when `supersedes` is non-empty — the surface says so BEFORE the click. */
+    readonly intent: 'create' | 'replace';
+    /** What is being replaced, as VALUES, so a surface renders them without parsing prose. */
+    readonly replaces: readonly ExistingLevelEnvelope[];
     readonly storeys: readonly AuthoredStoreyRow[];
     /** The footprint area every storey carries, m² — passed IN, never re-derived here. */
     readonly footprintAreaM2: number;
@@ -183,6 +236,20 @@ export interface EnvelopeAuthoringInput {
     readonly levels: readonly AdoptLevelCandidate[];
     /** One `spaceEnvelope_<ulid>` per storey, minted by the CALLER (C16 CA-2). */
     readonly mintedIds: readonly string[];
+    /**
+     * §ENVELOPE-DRAW R8 — what is ALREADY in the space-envelope store, as the READ returned it.
+     * ⛔ REQUIRED, and the read RESULT rather than a bare array, because *"the store could not be
+     * read"* and *"the storey is empty"* must not arrive here as the same value — the first refuses,
+     * the second creates. A caller that does not read the store gets no plan, by type: that is the
+     * accumulation defect made unrepresentable rather than remembered.
+     */
+    readonly existing: LevelEnvelopeReadResult;
+    /**
+     * The `authoredProvenance` detail — where the ring came from, in the caller's words, e.g.
+     * *"user drew the envelope perimeter on the 3D Site view"*. Defaults to a sentence built from
+     * `ringSourceLabel`, so provenance is never blank even when a caller says nothing more.
+     */
+    readonly provenanceDetail?: string;
 }
 
 const isWholePositive = (n: number): boolean => Number.isFinite(n) && n > 0 && Number.isInteger(n);
@@ -308,10 +375,58 @@ export function buildEnvelopeAuthoringPlan(
             };
         }
 
+        // ── §ENVELOPE-DRAW R8 — WHAT IS ALREADY ON EACH TARGET STOREY, asked AFTER the storeys are
+        // known and never before: the supersession is scoped to the storeys this gesture seats on,
+        // so every other storey is untouched by construction rather than by care.
+        if (!input.existing.readable) {
+            span.setAttribute('pryzm.authoring.refusal', 'envelopes-unreadable');
+            return { ok: false, reason: 'envelopes-unreadable', statement: input.existing.text };
+        }
+        const supersedes: string[] = [];
+        const replaces: ExistingLevelEnvelope[] = [];
+        const replacedCountByLevel = new Map<string, number>();
+        const replaceSentences: string[] = [];
+        const blockedSentences: string[] = [];
+        for (const level of used) {
+            const onStorey = input.existing.rows.filter((e) => e.levelId === level.id);
+            const s = resolveLevelEnvelopeSupersession(onStorey, OWN_AUTHORING_RULE);
+            if (s.kind === 'blocked') {
+                blockedSentences.push(`On ${labelOf(level)} — ${s.sentence}`);
+            } else if (s.kind === 'replace') {
+                supersedes.push(...s.ids);
+                replaces.push(...s.targets);
+                replacedCountByLevel.set(level.id, s.ids.length);
+                replaceSentences.push(`On ${labelOf(level)} — ${s.sentence}`);
+            }
+        }
+        if (blockedSentences.length > 0) {
+            // ⛔ REFUSE THE WHOLE GESTURE, not the storey: creating on three storeys and skipping
+            // the fourth would leave the user with a partial building and no sentence saying which
+            // floor is missing. Both numbers are in the storey sentences; the way out is named.
+            span.setAttribute('pryzm.authoring.refusal', 'rival-envelope-not-authored');
+            span.setAttribute('pryzm.authoring.blockedStoreys', blockedSentences.length);
+            return {
+                ok: false,
+                reason: 'rival-envelope-not-authored',
+                statement:
+                    `${blockedSentences.join(' ')} ⚠ Nothing was created on ANY storey: this gesture is one `
+                    + 'envelope per storey in one undo, and PRYZM will not create the other storeys and '
+                    + 'leave this one out silently.',
+            };
+        }
+        const intent: 'create' | 'replace' = supersedes.length > 0 ? 'replace' : 'create';
+
         // ⛔ The area is the CALLER's figure, echoed — never recomputed (see `ringAreaM2`).
         const footprintAreaM2 = input.ringAreaM2 !== null && Number.isFinite(input.ringAreaM2)
             ? input.ringAreaM2
             : 0;
+
+        // §ENVELOPE-DRAW — the ONE detail every spec of this gesture carries, so the create arm and
+        // the replace arm cannot describe the same producer two ways (C84 EI-8a). A storey that
+        // replaced something says how many, so an N > 1 heal is not recorded as a fresh create.
+        const baseDetail = input.provenanceDetail
+            ?? `user extruded ${input.ringSourceLabel} over ${asked} storey${asked === 1 ? '' : 's'} `
+               + 'from the envelope authoring control';
 
         const footprint = ring.map((p) => ({ x: p.x, y: 0 as const, z: p.z }));
 
@@ -343,6 +458,13 @@ export function buildEnvelopeAuthoringPlan(
                 name: heightSource === 'assumed-3m'
                     ? `Level envelope · ${label} · ${footprintAreaM2.toFixed(0)} m² · height assumed`
                     : `Level envelope · ${label} · ${footprintAreaM2.toFixed(0)} m²`,
+                // ⭐ C58 §1.19 clause 3 — ALWAYS the user's. See `AuthoredEnvelopeSpec.provenance`.
+                provenance: authoredProvenance(
+                    (replacedCountByLevel.get(level.id) ?? 0) > 0
+                        ? `${baseDetail}; replaced ${replacedCountByLevel.get(level.id)} envelope`
+                          + `${replacedCountByLevel.get(level.id) === 1 ? '' : 's'} the user authored earlier on this storey`
+                        : baseDetail,
+                ),
             });
         }
 
@@ -369,20 +491,34 @@ export function buildEnvelopeAuthoringPlan(
             : ` ⚠ ${assumedHeights} of the ${asked} storey height${assumedHeights === 1 ? ' was' : 's were'} `
               + 'ASSUMED at 3.0 m, because neither the storey record nor the ordinance supplied one — each such '
               + 'envelope says so in its name.';
-        const statement =
-            `Creates ${asked} level envelope${asked === 1 ? '' : 's'} of ${footprintAreaM2.toFixed(0)} m² each — `
+        const createHalf =
+            `${intent === 'replace' ? 'In their place: creates' : 'Creates'} ${asked} level envelope${asked === 1 ? '' : 's'} `
+            + `of ${footprintAreaM2.toFixed(0)} m² each — `
             + `${used.map((l) => labelOf(l)).join(', ')} — from ${input.ringSourceLabel}. `
             + `${totalIntendedM2.toFixed(0)} m² of intended floor area in total. It records what you INTEND to `
-            + 'build; it is not the permitted envelope and does not change it. One undo removes all of it.'
+            + 'build; it is not the permitted envelope and does not change it. '
+            + (intent === 'replace'
+                ? 'The replacement is ONE undo — Ctrl+Z brings back what it replaced and removes all of this.'
+                : 'One undo removes all of it.')
             + heightNote;
+        // ⭐ THE REPLACEMENT HALF COMES FIRST. A user about to lose an envelope reads that before the
+        // verb that creates the new one — and the sentence is `resolveLevelEnvelopeSupersession`'s,
+        // never a second copy of it here (the `adoptProposalAsEnvelope` precedent).
+        const statement = intent === 'replace'
+            ? `${replaceSentences.join(' ')} ${createHalf}`
+            : createHalf;
 
         span.setAttribute('pryzm.authoring.storeys', asked);
         span.setAttribute('pryzm.authoring.advisory', advisory !== null);
         span.setAttribute('pryzm.authoring.assumedHeights', assumedHeights);
+        span.setAttribute('pryzm.authoring.intent', intent);
+        span.setAttribute('pryzm.authoring.supersedes', supersedes.length);
         return {
             ok: true,
             command: 'spaceEnvelope.batch.create',
-            payload: { envelopes },
+            payload: { envelopes, supersedes },
+            intent,
+            replaces,
             storeys,
             footprintAreaM2,
             totalIntendedM2,
