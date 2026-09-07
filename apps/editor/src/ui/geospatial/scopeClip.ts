@@ -414,7 +414,12 @@ export interface ScopeCompleteMark {
 }
 
 /** The label the `read` arm reports itself under. One string, so a caption and a tooltip agree. */
-export const SCOPE_READ_CEILING_LABEL = 'the zoom-16 building + canopy read';
+// ⛔ CORRECTED 2026-09-07 (lane SCOPE-FILL, L-13098): this read `'the zoom-16 building + canopy
+// read'`, and the BUILDING half of that is measurably false — a coarser buildings read loses no
+// footprints at all (Barcelona 953 at z15 vs 953 across its four z16 children; identical down to
+// z13). The canopy half is true, for a different reason: tippecanoe's DEFAULT `--drop-rate 2.5`
+// removes ~60 % of a POINT layer per zoom step. So this ceiling is about the trees alone.
+export const SCOPE_READ_CEILING_LABEL = 'the zoom-16 canopy read';
 
 /**
  * The largest circumscribing radius at which the scope is COMPLETE — the slider's "complete" mark.
