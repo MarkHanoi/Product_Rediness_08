@@ -10,7 +10,10 @@
 // that warming the wide one SUBSUMES the near one rather than replacing it with a different tile set.
 import { describe, it, expect } from 'vitest';
 import { contextBboxAround } from '../contextBuildings';
-import { CTX_NEAR_HALF_DEG, groundFetchHalfDeg, scopeReadFanOutCap } from '../contextExtentBudget';
+import {
+    CTX_NEAR_HALF_DEG, groundFetchHalfDeg, scopeReadFanOutCap,
+    farTierRadiusM, METRES_PER_DEG_LAT,
+} from '../contextExtentBudget';
 import { zoomForExtent, tilesCovering, MAX_TILES_PER_FETCH } from '../contextTiles';
 
 // The founder's own Barcelona open coordinate — the run every number in this file comes from.
@@ -33,7 +36,26 @@ describe('§CTX-WARM-READS-THE-RENDER-EXTENT — the divergence the fix closes',
         // If this ever equalises, the fix has become a no-op and the comment in contextLayerWarm.ts
         // should say so rather than describing a gap that closed.
         expect(groundFetchHalfDeg()).toBeGreaterThan(CTX_NEAR_HALF_DEG);
-        expect(groundFetchHalfDeg()).toBeCloseTo(2 * CTX_NEAR_HALF_DEG, 6);
+
+        // ⛔ THIS LINE USED TO READ `toBeCloseTo(2 * CTX_NEAR_HALF_DEG, 6)` AND IT PINNED A
+        // COINCIDENCE, NOT AN INVARIANT — measured 2026-09-07 when it failed at HEAD:
+        //   groundFetchHalfDeg()   = 1781 m / 111 320 = 0.015998922026590010  (metres-DERIVED)
+        //   2 * CTX_NEAR_HALF_DEG  = 2 * 0.008        = 0.016                 (a degree LITERAL)
+        //   difference             = 1.078e-6 deg = **0.12 m**
+        // Float noise is ~1e-15; 1.078e-6 is four orders of magnitude larger, so this was never
+        // noise. The two sides are INDEPENDENTLY derived — one from the scope's far-tier radius in
+        // METRES, one from a doubled degree constant — and they agree to 12 cm only because 1781 m
+        // happens to sit next to 1781.12 m. Loosening the tolerance would have widened the
+        // coincidence window rather than testing anything, so the claim is replaced by the fact
+        // that is actually load-bearing: the ground read IS the scope's far-tier radius, converted
+        // once. That is what `groundFetchHalfDeg` promises in its own doc comment, and it is what
+        // breaks if someone re-points it at a different radius or a second conversion creeps in.
+        expect(groundFetchHalfDeg()).toBeCloseTo(farTierRadiusM() / METRES_PER_DEG_LAT, 12);
+
+        // …and it is still ABOUT double the near default, which is the shape a reader expects from
+        // the header. Asserted as a RATIO with a tolerance sized to the 0.12 m gap above (0.1 %),
+        // never as an equality between a metres-derived number and a degree literal.
+        expect(groundFetchHalfDeg() / CTX_NEAR_HALF_DEG).toBeCloseTo(2, 2);
     });
 
     it('reproduces the founder’s 25-of-81 tile counts from pure arithmetic', () => {
