@@ -174,3 +174,31 @@ scratchpad
 # the only mentions are provenance comments. Excluded so the manual (non-CI)
 # deploy path has a context small enough to upload over a domestic uplink.
 tools/*/out
+
+# ─── Context bloat found 2026-09-07 (manual deploy at 142 MB and climbing) ──
+# The founder waits on every one of these deploys, and the context upload was
+# taking >12 minutes before the build even started. Four directories slipped
+# through the patterns above — each verified NOT to be a build or runtime input
+# before being excluded here, because a wrong entry breaks the image silently:
+#  • audit/ (56 MB, 1323 tracked files) — accessibility/architecture research
+#    evidence. NOT a pnpm workspace member (pnpm-workspace.yaml globs are
+#    packages/tools/apps/plugins/tests-only) and holds no package.json. The one
+#    "audit" string in package.json is `@pryzm/wcag-audit`, which lives under
+#    packages/ and is unaffected.
+#  • public/apex/ (43 MB) — hero.mp4 / hero-hevc.mp4 / poster art for the APEX
+#    marketing site. C51 §3.2.1: apex marketing paths are 301-REDIRECTED by
+#    server.js:5937 to pryzm.so, never served from this image. Same rationale as
+#    the existing `**/dist-apex` line — Cloudflare serves it, Fly must not carry
+#    it. (`public/items` is already excluded above for the same class of reason.)
+#  • lane4e-dist/ (36 MB) — a stale lane build artefact; ZERO references in the
+#    Dockerfile, package.json, or any source.
+#  • dist-server-deps/ (20 MB) — UNTRACKED host build output. The Dockerfile
+#    mentions it only in a comment (:190); the bundles are produced inside the
+#    builder stage. Shipping a host copy is exactly what the `dist` exclusions
+#    above exist to prevent.
+# ⚠ If a deploy ever fails with a missing path from one of these, the fix is to
+# name that path with a `!` exception — not to delete the whole entry.
+audit
+public/apex
+lane4e-dist
+dist-server-deps
