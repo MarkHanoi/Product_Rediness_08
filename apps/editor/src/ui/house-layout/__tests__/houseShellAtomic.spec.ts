@@ -33,13 +33,20 @@ vi.mock('../../apartment-layout/gatherLayoutPayload.js', () => ({
 }));
 const _controllerResult = { current: { ok: true } as { ok: boolean; reason?: string } };
 const _controllerThrows = { current: false };
+// §CHOOSER-CANCEL-ROLLS-BACK (L-13020) — the LAST request the caller handed the controller.
+// `request()` resolving `{ok:true}` means *"the chooser is open"*, so the cancel callback riding
+// on that request is the only thing that can undo the shell afterwards. Capturing it here is what
+// lets this spec press Cancel.
+const _lastRequest = { current: null as { onCancelled?: () => void | Promise<void> } | null };
 vi.mock('../HouseLayoutController.js', () => ({
     HouseLayoutController: class {
-        async request(): Promise<{ ok: boolean; reason?: string }> {
+        async request(_rt: unknown, req: { onCancelled?: () => void | Promise<void> }): Promise<{ ok: boolean; reason?: string }> {
+            _lastRequest.current = req;
             if (_controllerThrows.current) throw new Error('controller exploded');
             return _controllerResult.current;
         }
-        async buildDirect(): Promise<{ ok: boolean; reason?: string }> {
+        async buildDirect(_rt: unknown, req: { onCancelled?: () => void | Promise<void> }): Promise<{ ok: boolean; reason?: string }> {
+            _lastRequest.current = req;
             if (_controllerThrows.current) throw new Error('controller exploded');
             return _controllerResult.current;
         }
@@ -47,7 +54,7 @@ vi.mock('../HouseLayoutController.js', () => ({
 }));
 
 import { weldFootprintForWalls, WALL_MIN_BASELINE_M } from '../weldFootprintForWalls.js';
-import { generateHouseFromBoundary } from '../houseFromBoundary.js';
+import { generateHouseFromBoundary, generateHouseInExistingShell } from '../houseFromBoundary.js';
 
 /** A fake bus that records every dispatch and models `wall.batch.create`'s ACTUAL contract. */
 function makeBus(opts: { rejectShortWalls: boolean }) {
@@ -109,6 +116,7 @@ beforeEach(() => {
     _mockLevelId.current = 'level-ground';
     _controllerResult.current = { ok: true };
     _controllerThrows.current = false;
+    _lastRequest.current = null;
     (globalThis as unknown as { window?: unknown }).window ??= {};
 });
 
@@ -289,5 +297,72 @@ describe('§HOUSE-SHELL-IS-ATOMIC 2 — the shell is ONE command, and a failure 
         expect(res.ok).toBe(true);
         expect(bus.calls.filter((c) => c.type === 'wall.delete')).toHaveLength(0);
         expect(bus.walls.size).toBe(4);
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §CHOOSER-CANCEL-ROLLS-BACK (L-13020) — DECLINING THE CHOOSER MUST NOT LEAVE A BARE SHELL.
+//
+// The same family as §HOUSE-SHELL-IS-ATOMIC above and reached by a different door: there the run
+// THREW and kept geometry; here the user DECLINED and geometry was kept. The mechanism is the one
+// the test just above pins as correct — `generateHouseFromBoundary` deliberately KEEPS the shell
+// when the chooser opens, because the chooser is about to build on it. The gap was that a cancel
+// arrives AFTER that promise has resolved, so only the cancel path can compensate.
+//
+// ⛔ THESE ARE BEHAVIOUR ASSERTIONS: how many walls are on the level after the user says no.
+describe('§CHOOSER-CANCEL-ROLLS-BACK (L-13020) — the cancel path owns the undo', () => {
+    it('registers a rollback WITH the request — the promise has resolved by cancel time', async () => {
+        const bus = makeBus({ rejectShortWalls: true });
+        const { rt } = makeRuntime(bus);
+        const res = await generateHouseFromBoundary(rt as never, 1, { footprint: SQUARE });
+        expect(res.ok).toBe(true);
+        // The shell is still up — that is the SUCCESS path and it is correct (the chooser is open).
+        expect(bus.walls.size).toBe(4);
+        expect(typeof _lastRequest.current?.onCancelled).toBe('function');
+    });
+
+    it('⛔ pressing Cancel removes every wall PRYZM drew, and says so', async () => {
+        const bus = makeBus({ rejectShortWalls: true });
+        const { rt, toasts } = makeRuntime(bus);
+        await generateHouseFromBoundary(rt as never, 1, { footprint: SQUARE });
+        expect(bus.walls.size).toBe(4);
+
+        await _lastRequest.current!.onCancelled!();
+
+        // THE FOUNDER-VISIBLE CLAIM: no bare shell survives a decline.
+        expect(bus.walls.size).toBe(0);
+        expect(bus.calls.filter((c) => c.type === 'wall.delete')).toHaveLength(4);
+        // ⚠ AND IT IS SPOKEN. A shell that silently appears and silently vanishes is two
+        // unexplained events; the user must be told what was taken back and why.
+        const last = toasts[toasts.length - 1]!;
+        expect(last.message).toContain('No layout chosen');
+        expect(last.message).toContain('exactly as it was');
+    });
+
+    it('is ONE-SHOT — a second cancel (Escape after a backdrop click) deletes nothing twice', async () => {
+        const bus = makeBus({ rejectShortWalls: true });
+        const { rt } = makeRuntime(bus);
+        await generateHouseFromBoundary(rt as never, 1, { footprint: SQUARE });
+        await _lastRequest.current!.onCancelled!();
+        await _lastRequest.current!.onCancelled!();
+        expect(bus.calls.filter((c) => c.type === 'wall.delete')).toHaveLength(4);
+    });
+
+    it('⛔ registers NOTHING on the existing-shell path — that shell is the USER\'s', async () => {
+        // `generateHouseInExistingShell` opens the SAME chooser over walls the user authored.
+        // Deleting those on cancel would be a far worse defect than the one this closes, so the
+        // discrimination is expressed by which caller supplies a callback — never by a flag.
+        const bus = makeBus({ rejectShortWalls: true });
+        const { rt } = makeRuntime(bus);
+        await generateHouseInExistingShell(rt as never, 1);
+        expect(_lastRequest.current).not.toBeNull();
+        expect(_lastRequest.current?.onCancelled).toBeUndefined();
+    });
+
+    it('does not register a rollback on the autoBuild path — there is no chooser to cancel', async () => {
+        const bus = makeBus({ rejectShortWalls: true });
+        const { rt } = makeRuntime(bus);
+        await generateHouseFromBoundary(rt as never, 1, { footprint: SQUARE, autoBuild: true });
+        expect(_lastRequest.current?.onCancelled).toBeUndefined();
     });
 });

@@ -102,6 +102,26 @@ export interface HouseLayoutRequest {
     readonly floorToFloorM?: number;
     readonly roofKind?: 'flat' | 'gable' | 'hip';
     readonly siteLatitudeDeg?: number;
+    /**
+     * ⭐ §CHOOSER-CANCEL-ROLLS-BACK (L-13020) — WHAT THE CALLER WANTS UNDONE IF THE USER
+     * DECLINES THE CHOOSER.
+     *
+     * `request()` resolves as soon as `modal.show` is called — `ok` here means *"the chooser is
+     * open"*, not *"the house is built"*. So a caller that committed geometry IN ORDER TO OPEN
+     * the chooser (`generateHouseFromBoundary` draws the shell the variants are computed against)
+     * has already returned by the time the user presses Cancel, and cannot compensate. Its undo
+     * has to travel WITH the request and be run by the cancel path itself.
+     *
+     * ⛔ THE CALLER SUPPLIES IT PRECISELY BECAUSE ONLY THE CALLER KNOWS WHAT IT CREATED. The
+     * controller must never invent a rollback: `generateHouseInExistingShell` opens the SAME
+     * chooser against a shell the USER drew, and deleting that on cancel would be a far worse
+     * defect than the one this closes. It passes nothing, so nothing is undone — the difference
+     * is expressed by which caller supplies a callback, not by a flag the controller interprets.
+     *
+     * Runs on EVERY cancel route the modal has (the Cancel button, the backdrop, Escape), once,
+     * and never after a pick. Must not throw.
+     */
+    readonly onCancelled?: () => void | Promise<void>;
 }
 
 /** Wall record as read from the wall store (same shape the executor reads). */
@@ -315,8 +335,33 @@ export class HouseLayoutController {
                 {
                     onSelect: (index: number) => this._build(runtime, index),
                     onCancel: () => {
-                        console.log('[house-layout] controller: modal cancelled (no scene mutation)');
                         this._regen = null;
+                        // §CHOOSER-CANCEL-ROLLS-BACK (L-13020) — ⛔ "no scene mutation" WAS THE BUG,
+                        // and it was written here as a certainty. It is true of the CONTROLLER and
+                        // false of the flow: `generateHouseFromBoundary` commits a shell before it
+                        // ever reaches this modal, so a cancel left walls with no layout on the
+                        // level — the same family as L-13011 (a partial result surviving a path
+                        // that did not complete) reached by a different door: there the run threw,
+                        // here the user declined, and in both cases the model kept geometry nobody
+                        // asked to keep.
+                        //
+                        // ⛔ THE COMMENT IS NOT THE FIX AND NEITHER IS A TOAST. The caller's own
+                        // undo runs here, because here is the only place that knows the answer was
+                        // "no". Fire-and-forget by contract (`onCancel` is `() => void`, and the
+                        // modal is already dismissed); it must never throw, so it cannot.
+                        const undo = req.onCancelled;
+                        if (!undo) {
+                            console.log('[house-layout] controller: chooser cancelled — caller registered no rollback, so nothing is undone.');
+                            return;
+                        }
+                        console.log('[house-layout] controller: chooser cancelled — running the caller\'s rollback (§CHOOSER-CANCEL-ROLLS-BACK, L-13020).');
+                        try {
+                            void Promise.resolve(undo()).catch((e: unknown) => {
+                                console.error('[house-layout] controller: the cancel rollback rejected — geometry may remain:', e);
+                            });
+                        } catch (e) {
+                            console.error('[house-layout] controller: the cancel rollback threw — geometry may remain:', e);
+                        }
                     },
                     // §MODAL-DYNAMIC live regenerate: a debounced form change.
                     onProgramChange: (state) => this._regenerate(state),

@@ -239,9 +239,37 @@ export async function generateHouseFromBoundary(
         // §GEN-CHAT (RAC U5b.2) — the chat path builds the best variant
         // directly (its Confirm card was the preview); the modal path is
         // byte-identical to before.
+        // ⭐ §CHOOSER-CANCEL-ROLLS-BACK (L-13020) — THE SHELL'S UNDO TRAVELS WITH THE REQUEST.
+        //
+        // `_controller.request` resolves when the CHOOSER OPENS, not when the build completes, so
+        // by the time the user presses Cancel this function has already returned and can no longer
+        // compensate. The undo therefore goes WITH the request and is run by the cancel path
+        // itself — the only place that knows the answer was "no".
+        //
+        // ⛔ ONE-SHOT, AND IT CANNOT RACE THE BUILD. `HouseLayoutModal` calls exactly one of
+        // `onSelect` / `onCancel` and dismisses first, so this and a build cannot both run; the
+        // `cancelled` latch makes a double cancel (a stray Escape after a backdrop click) a no-op
+        // rather than a second pass of `wall.delete` over ids that are already gone.
+        //
+        // ⛔ IT IS ONLY REGISTERED ON THE PATH THAT DREW THE SHELL. `generateHouseInExistingShell`
+        // opens the SAME chooser over a shell the USER authored and registers nothing — deleting
+        // that on cancel would be a far worse defect than the one this closes.
+        const shellForCancel = shellCreated;
+        let cancelled = false;
+        const rollbackOnCancel = async (): Promise<void> => {
+            if (cancelled) return;
+            cancelled = true;
+            const total = shellForCancel?.length ?? 0;
+            if (total === 0) return;
+            const removed = await rollbackShell(bus, shellForCancel);
+            // ⚠ SAY IT. A shell that silently appears and silently vanishes is two unexplained
+            // events; the user declined a layout, and what PRYZM drew IN ORDER TO ASK is what is
+            // being taken back. `rollbackNote` also states the partial case honestly.
+            toast(`No layout chosen.${rollbackNote(removed, total)}`, 'info');
+        };
         const res = opts?.autoBuild === true
             ? await _controller.buildDirect(rt, req)
-            : await _controller.request(rt, req);
+            : await _controller.request(rt, { ...req, onCancelled: rollbackOnCancel });
         // The build happens on the user's modal pick (or directly on the chat
         // path) — surface the request result in the HouseExecuteResult shape
         // the caller expects, with the buildDirect honesty lines when present.
@@ -249,10 +277,16 @@ export async function generateHouseFromBoundary(
             // ⚠ ON THE MODAL PATH `ok` MEANS "THE CHOOSER IS OPEN", NOT "THE HOUSE IS BUILT"
             // (`HouseLayoutController.request` returns as soon as `modal.show` is called). The
             // shell is DELIBERATELY kept here: it is the plate the user is about to choose a
-            // layout for. ⛔ KNOWN GAP, stated rather than hidden: if the user then CANCELS the
-            // chooser, that cancel happens after this promise has already resolved, so this
-            // function cannot roll the shell back and the level keeps a bare shell. Closing that
-            // needs the cancel path itself to compensate — see the lane report for L-13011.
+            // layout for.
+            //
+            // ⭐ §CHOOSER-CANCEL-ROLLS-BACK (L-13020) — THE GAP THIS COMMENT USED TO DECLARE IS
+            // CLOSED. It read: *"if the user then CANCELS the chooser, that cancel happens after
+            // this promise has already resolved, so this function cannot roll the shell back and
+            // the level keeps a bare shell. Closing that needs the cancel path itself to
+            // compensate."* That diagnosis was exactly right, and `rollbackOnCancel` above is the
+            // compensation — registered on the request, run by the cancel path. The `null` below
+            // is what stops the ERROR arms from double-deleting walls the cancel latch owns; the
+            // callback closed over `shellForCancel` before it was cleared.
             shellCreated = null;
             return { ok: true, ...(res.report !== undefined ? { report: res.report } : {}) };
         }
