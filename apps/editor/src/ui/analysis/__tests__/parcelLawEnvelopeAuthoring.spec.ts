@@ -14,6 +14,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
     AUTHORING_CREATE_BTN_TESTID,
     AUTHORING_CREATED_TESTID,
+    AUTHORING_DRAG_FACE_ATTR,
+    AUTHORING_DRAG_FOCUS_SUBSCRIBED_ATTR,
     AUTHORING_EDIT_PERIMETER_ATTR,
     AUTHORING_LAWCHECK_TESTID,
     AUTHORING_LAWCHECK_LEDE_TESTID,
@@ -855,5 +857,203 @@ describe('§ENVELOPE-DRAW R8 — pressing Create twice replaces instead of accum
         expect(h.executed).toHaveLength(1);
         h.fire();
         expect(byTestId(AUTHORING_INTENT_TESTID)!.getAttribute('data-intent')).toBe('replace');
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (lane FACE-DRAG-BUTTON, L-13236) — PR-G-28, THE `Drag face` ROW
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// Founder: *"CREATE A BUTTON NEXT TO 'EDIT PERIMETER' — 'DRAG FACE' — SO THE USER COULD SELECT A
+// LEVEL AND DRAG THE FACES OF EACH VOLUME PER LEVEL"*.
+//
+// ✅ WHAT THESE ARMS ESTABLISH: one control per storey, carrying its own subject id · pressing it
+//    takes the focus for THAT storey and pressing again releases it · the label and `data-focused`
+//    both move · it is DISABLED WITH THE SURFACES' OWN REASON where no 3-D view can take a drag,
+//    never dead · it DISPATCHES NOTHING (P6) · and the rows survive a reload, because they are read
+//    from the store rather than from the session's create list.
+// ⛔ WHAT THEY DO NOT ESTABLISH: that a face moves. That is the gesture's own suite
+//    (`spaceEnvelopeDragSurfacePorts.spec.ts`, which pins the focus restriction itself) and, in the
+//    end, a browser — C114 §14d, unchanged by this lane.
+
+/** A focus slot the panel drives, so the take/release round trip is measured and not assumed. */
+function focusFake(): {
+    readonly deps: Partial<ParcelLawEnvelopeAuthoringDeps>;
+    readonly taken: { spaceEnvelopeId: string; label: string }[];
+    releases: number;
+} {
+    let slot: { spaceEnvelopeId: string; label: string } | null = null;
+    const listeners: (() => void)[] = [];
+    const taken: { spaceEnvelopeId: string; label: string }[] = [];
+    const out = {
+        taken,
+        releases: 0,
+        deps: {
+            readFaceDragAvailability: () => ({ ok: true, surfaces: 1 }),
+            readFaceDragFocus: () => slot,
+            subscribeFaceDragFocus: (fn: () => void) => {
+                listeners.push(fn);
+                return () => { /* one mount per case */ };
+            },
+            takeFaceDragFocus: (f: { spaceEnvelopeId: string; label: string }) => {
+                taken.push(f);
+                slot = f;
+                for (const l of listeners) l();
+            },
+            releaseFaceDragFocus: () => {
+                out.releases += 1;
+                slot = null;
+                for (const l of listeners) l();
+            },
+        } as Partial<ParcelLawEnvelopeAuthoringDeps>,
+    };
+    return out;
+}
+
+const dragButtons = (): HTMLButtonElement[] => Array.from(
+    document.querySelectorAll<HTMLButtonElement>(`[${AUTHORING_DRAG_FACE_ATTR}]`),
+);
+
+describe('⭐ PR-G-28 — the per-storey `Drag face` control', () => {
+    it('offers ONE per storey, beside Edit perimeter, naming its own subject', () => {
+        const f = focusFake();
+        const h = harness(f.deps);
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        const input = byTestId<HTMLInputElement>(AUTHORING_STOREYS_INPUT_TESTID)!;
+        input.value = '3';
+        input.dispatchEvent(new Event('input'));
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+
+        const btns = dragButtons();
+        expect(btns).toHaveLength(3);
+        const edits = Array.from(document.querySelectorAll<HTMLButtonElement>(
+            `[${AUTHORING_EDIT_PERIMETER_ATTR}]`,
+        ));
+        // ⛔ SAME ROW, SAME SUBJECT. Two controls that named different envelopes on one line would
+        // be the worst available outcome: the user edits one storey and drags another.
+        expect(btns.map((b) => b.getAttribute('data-space-envelope-id')))
+            .toEqual(edits.map((b) => b.getAttribute('data-space-envelope-id')));
+        for (const b of btns) {
+            expect(b.disabled).toBe(false);
+            expect(b.getAttribute('data-focused')).toBe('no');
+            expect(b.textContent).toBe('Drag face');
+        }
+    });
+
+    it('⭐ pressing it SELECTS that storey; pressing again releases — and the label says which', () => {
+        const f = focusFake();
+        const h = harness(f.deps);
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        const input = byTestId<HTMLInputElement>(AUTHORING_STOREYS_INPUT_TESTID)!;
+        input.value = '2';
+        input.dispatchEvent(new Event('input'));
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+
+        const first = dragButtons()[0]!;
+        const id = first.getAttribute('data-space-envelope-id')!;
+        first.click();
+        expect(f.taken).toHaveLength(1);
+        expect(f.taken[0]!.spaceEnvelopeId).toBe(id);
+        // The label carried alongside the id is the storey's own, so a refusal can name it.
+        expect(f.taken[0]!.label.length).toBeGreaterThan(0);
+
+        const after = dragButtons();
+        expect(after[0]!.getAttribute('data-focused')).toBe('yes');
+        expect(after[0]!.textContent).toBe('Stop dragging');
+        // ⛔ AND ONLY ONE STOREY IS THE SUBJECT. A second row still reading `yes` would mean the
+        // pick was restricted to two storeys, which is not a selection at all.
+        expect(after[1]!.getAttribute('data-focused')).toBe('no');
+
+        after[0]!.click();
+        expect(f.releases).toBe(1);
+        expect(dragButtons()[0]!.getAttribute('data-focused')).toBe('no');
+        expect(dragButtons()[0]!.textContent).toBe('Drag face');
+    });
+
+    it('⛔ P6 — the button DISPATCHES NOTHING. The only mutation is the gesture\'s own moveFace', () => {
+        const f = focusFake();
+        const h = harness(f.deps);
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        const input = byTestId<HTMLInputElement>(AUTHORING_STOREYS_INPUT_TESTID)!;
+        input.value = '2';
+        input.dispatchEvent(new Event('input'));
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+        const before = h.executed.length;                       // the ONE batch.create
+        dragButtons()[0]!.click();
+        dragButtons()[0]!.click();
+        expect(h.executed).toHaveLength(before);
+    });
+
+    it('⛔ DISABLED WITH THE SURFACES\' OWN REASON where no 3-D view can take a drag (C115-27)', () => {
+        const reason = 'The 3D Site has no site frame seated yet, so PRYZM cannot say where on the '
+            + 'Earth a face you drag would land.';
+        const taken: unknown[] = [];
+        const h = harness({
+            readFaceDragAvailability: () => ({ ok: false, surfaces: 0, reason }),
+            readFaceDragFocus: () => null,
+            takeFaceDragFocus: (x) => { taken.push(x); },
+        });
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        const input = byTestId<HTMLInputElement>(AUTHORING_STOREYS_INPUT_TESTID)!;
+        input.value = '1';
+        input.dispatchEvent(new Event('input'));
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+
+        const btn = dragButtons()[0]!;
+        expect(btn.disabled).toBe(true);
+        // ⛔ VERBATIM (C83 §1.2). The panel never paraphrases a surface's sentence and never writes
+        // one on its behalf — that is how a card comes to state a condition the scene disagrees with.
+        expect(btn.title).toBe(reason);
+        btn.click();
+        expect(taken).toEqual([]);
+    });
+
+    it('⭐ the rows SURVIVE A RELOAD — they are read from the store, not from the session', () => {
+        // ⛔ THE DEFECT THIS CLOSES: `created` is written only by the create click, so before this
+        // lane BOTH per-storey buttons were offered only in the session that pressed Create. The
+        // envelopes persist; the controls did not. A user who refreshed lost the button entirely,
+        // and would have reported it as a defect in the new one.
+        const f = focusFake();
+        const h = harness(f.deps);
+        h.state.set('se-restored-1', {
+            id: 'se-restored-1', levelId: 'lvl-0', role: 'level', name: 'Ground',
+            footprintAreaM2: 200, withinId: null,
+        });
+        h.state.set('se-restored-2', {
+            id: 'se-restored-2', levelId: 'lvl-1', role: 'level', name: 'Level 1',
+            footprintAreaM2: 200, withinId: null,
+        });
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        // ⛔ NOTHING WAS CREATED IN THIS SESSION — no create click anywhere above.
+        expect(h.executed).toHaveLength(0);
+        const btns = dragButtons();
+        expect(btns).toHaveLength(2);
+        // …and in the project's own storey order, not the store Map's insertion order.
+        expect(btns.map((b) => b.getAttribute('data-space-envelope-id')))
+            .toEqual(['se-restored-1', 'se-restored-2']);
+        expect(document.querySelectorAll(`[${AUTHORING_EDIT_PERIMETER_ATTR}]`)).toHaveLength(2);
+    });
+
+    it('⭐ the FOCUS CHANNEL is subscribed — the row flips when the focus changes anywhere else', () => {
+        const f = focusFake();
+        const h = harness(f.deps);
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        expect(byTestId(AUTHORING_SLOT_TESTID)!.getAttribute(AUTHORING_DRAG_FOCUS_SUBSCRIBED_ATTR))
+            .toBe('yes');
+    });
+
+    it('says so, rather than nothing, when the availability read itself throws', () => {
+        const h = harness({
+            readFaceDragAvailability: () => { throw new Error('registry exploded'); },
+            readFaceDragFocus: () => null,
+        });
+        mountParcelLawEnvelopeAuthoring(document.body, h.deps);
+        const input = byTestId<HTMLInputElement>(AUTHORING_STOREYS_INPUT_TESTID)!;
+        input.value = '1';
+        input.dispatchEvent(new Event('input'));
+        byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
+        const btn = dragButtons()[0]!;
+        expect(btn.disabled).toBe(true);
+        expect(btn.title).toContain('registry exploded');
     });
 });

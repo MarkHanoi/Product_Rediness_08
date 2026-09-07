@@ -180,6 +180,10 @@ import { initRoomMeaningRestoreProposals } from '../ui/ai/RoomMeaningRestoreProp
 // §ROOM-LOSS-NOTICE (L-12660) — the TELL half: announced immediately, unconditionally,
 // independent of whether a matching face ever comes home for the OFFER above to reach.
 import { initRoomLossNotices } from '../ui/ai/RoomLossNotice';
+// ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (lane FACE-DRAG-BUTTON, L-13236) — the ONE per-storey focus slot
+// the Parcel Law panel's *Drag face* button writes. Read here so the BIM viewport honours the same
+// selection the 3-D Site does; the restriction itself lives once, in the renderer-free gesture.
+import { getSpaceEnvelopeFaceDragFocus } from '../ui/site/spaceEnvelopeFaceDragFocusState';
 import { RoomTool } from '@pryzm/room-topology';
 import { RoomBoundingLineTool } from '@pryzm/geometry-wall';
 
@@ -2145,6 +2149,12 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     scene: world.scene.three,
                     domElement: world.renderer.three.domElement,
                     camera: () => world.camera.three,
+                    // ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — the founder's *"select a level
+                    // and drag the faces of each volume per level"*. The Parcel Law panel's per-
+                    // storey *Drag face* button writes the ONE focus slot; this passes the READ of
+                    // it, lazily, so BIM 3-D honours the same selection as the 3-D Site rather than
+                    // being the one surface where the button silently means nothing.
+                    readFaceDragFocus: () => getSpaceEnvelopeFaceDragFocus(),
                     // P6 — the ONLY mutation path. ⭐ ONE dispatch per gesture, minted on
                     // pointer-up by the controller, so one face drag costs one Ctrl+Z.
                     dispatchFaceMove: (payload) => {

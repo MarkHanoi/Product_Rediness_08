@@ -159,6 +159,25 @@ import {
 // channel the massing-option adopt reads, so this control and that card cannot disagree about
 // what is in the store (C84 EI-9). The judgement is the planner's; this file only reads.
 import { readLevelEnvelopes, type LevelEnvelopeReadResult } from '../site/levelEnvelopeSupersession';
+// ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (lane FACE-DRAG-BUTTON, L-13236) — the founder's *"CREATE A
+// BUTTON NEXT TO 'EDIT PERIMETER' — 'DRAG FACE' … SO THE USER COULD SELECT A LEVEL AND DRAG THE
+// FACES OF EACH VOLUME PER LEVEL"*. Three module channels, no globals (P4):
+//   · the surfaces' OWN verdict on whether a drag is possible at all, and their own reason if not;
+//   · the focus slot that says WHICH storey the next grab belongs to;
+//   · the take/release pair, which also disarms the perimeter draw (one canvas, two gestures).
+// ⛔ NONE OF THEM DISPATCHES ANYTHING (P6). The one mutation is the `spaceEnvelope.moveFace` the
+// gesture itself sends on pointer-up — this button chooses a subject, it does not edit geometry.
+import {
+    getSpaceEnvelopeFaceDragFocus,
+    subscribeSpaceEnvelopeFaceDragFocus,
+    type SpaceEnvelopeFaceDragFocus,
+} from '../site/spaceEnvelopeFaceDragFocusState';
+import {
+    releaseSpaceEnvelopeFaceDragFocus,
+    spaceEnvelopeFaceDragAvailability,
+    takeSpaceEnvelopeFaceDragFocus,
+    type SpaceEnvelopeFaceDragAvailability,
+} from '../site/spaceEnvelopeFaceDragSurfaces';
 import { resolveEnvelopeStore, type LiveEnvelopeStore } from './parcelLawQuantities';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawEnvelopeAuthoring');
@@ -185,6 +204,20 @@ export const AUTHORING_INTENT_TESTID = 'parcel-law-authoring-intent';
 export const AUTHORING_EDIT_PERIMETER_ATTR = 'data-authoring-edit-perimeter';
 /** The list of created storeys with their perimeter-edit buttons. */
 export const AUTHORING_CREATED_TESTID = 'parcel-law-authoring-created';
+/**
+ * ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — the founder's second per-storey button, beside
+ * *Edit perimeter* and built the same way. `data-space-envelope-id` names its subject and
+ * `data-focused` (`'yes'` / `'no'`) carries the state, so a spec — and the chat (PR-H-03) — reads
+ * the value rather than the label.
+ *
+ * ⛔ IT IS A SUBJECT SELECTOR, NOT AN ARMING CONTROL, AND THAT DISTINCTION IS LOAD-BEARING. The
+ * face-drag gesture is installed unconditionally on both 3-D surfaces and is live whether or not
+ * this button was ever pressed. Making it a mode would BREAK the gesture for everyone who never
+ * found the button — a reachability regression dressed as a feature. What it adds is the half the
+ * founder's sentence actually asks for: *select a level*, so a pull aimed at Level 2 cannot land on
+ * Level 3, and so that storey's faces become visible before the pointer goes near them.
+ */
+export const AUTHORING_DRAG_FACE_ATTR = 'data-authoring-drag-face';
 /**
  * §ENVELOPE-DRAW C4 — the way OUT of the drawn route. Present ONLY while the drawn perimeter is
  * the source; discarding it hands the ladder back to the plate / permitted ring / study below it.
@@ -220,6 +253,14 @@ export const AUTHORING_STUDY_SUBSCRIBED_ATTR = 'data-study-subscribed';
  * gesture being REACHABLE and the ring landing in a slot nobody reads.
  */
 export const AUTHORING_DRAWN_SUBSCRIBED_ATTR = 'data-drawn-subscribed';
+/**
+ * §ENVELOPE-FACE-DRAG-PER-LEVEL — `'yes'` / `'no:threw'` / `'no:not-wired'`: whether the per-storey
+ * FOCUS channel was subscribed. ⛔ Pinned by a spec for exactly the reason
+ * `AUTHORING_DRAWN_SUBSCRIBED_ATTR` is: without it the button would set the slot and the row would
+ * keep saying *Drag face* until some unrelated repaint — the founder would press it, see nothing
+ * change, and correctly conclude it does nothing.
+ */
+export const AUTHORING_DRAG_FOCUS_SUBSCRIBED_ATTR = 'data-drag-focus-subscribed';
 /** How many repaints the STORE channel has driven. Read by the liveness spec. */
 export const AUTHORING_LIVE_ATTR = 'data-live-repaints';
 
@@ -323,6 +364,20 @@ export interface ParcelLawEnvelopeAuthoringDeps {
      * own store, never "assume empty".
      */
     readonly readExisting?: (rt: PryzmRuntime | null | undefined) => LevelEnvelopeReadResult;
+    // ── ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — the four seams the Drag face button needs ──
+    // ⚠ ALL OPTIONAL, so every spec literal written before this lane keeps compiling. Omitted means
+    // the production module functions below, never "assume it works": a panel that assumed a drag
+    // surface exists would ship exactly the D7 defect this control is built to avoid.
+    /** Production: `spaceEnvelopeFaceDragAvailability` — the SURFACES' verdict, never the panel's. */
+    readonly readFaceDragAvailability?: () => SpaceEnvelopeFaceDragAvailability;
+    /** Production: `getSpaceEnvelopeFaceDragFocus`. */
+    readonly readFaceDragFocus?: () => SpaceEnvelopeFaceDragFocus | null;
+    /** Production: `subscribeSpaceEnvelopeFaceDragFocus`. THE CHANNEL THAT MAKES THE BUTTON LIVE. */
+    readonly subscribeFaceDragFocus?: (fn: () => void) => () => void;
+    /** Production: `takeSpaceEnvelopeFaceDragFocus` — which also disarms the perimeter draw. */
+    readonly takeFaceDragFocus?: (focus: SpaceEnvelopeFaceDragFocus) => void;
+    /** Production: `releaseSpaceEnvelopeFaceDragFocus`. */
+    readonly releaseFaceDragFocus?: () => void;
 }
 
 /** The production read of what is on the storeys — ONE channel, shared with the adopt card. */
@@ -384,6 +439,14 @@ export function defaultParcelLawEnvelopeAuthoringDeps(): ParcelLawEnvelopeAuthor
         // §ENVELOPE-CREATE-DEADEND (L-13086) — `LevelManagerPanel._addLevel`'s id shape, verbatim.
         mintLevelId: (nextIndex) => `L${nextIndex}-${Date.now()}`,
         capabilityHost: w,
+        // §ENVELOPE-FACE-DRAG-PER-LEVEL — module functions, never captured values: a 3-D surface
+        // may mount long after this dep set is built, and a captured verdict would freeze the
+        // button in whatever state the panel opened in.
+        readFaceDragAvailability: spaceEnvelopeFaceDragAvailability,
+        readFaceDragFocus: getSpaceEnvelopeFaceDragFocus,
+        subscribeFaceDragFocus: subscribeSpaceEnvelopeFaceDragFocus,
+        takeFaceDragFocus: takeSpaceEnvelopeFaceDragFocus,
+        releaseFaceDragFocus: releaseSpaceEnvelopeFaceDragFocus,
     };
 }
 
@@ -645,6 +708,8 @@ export function mountParcelLawEnvelopeAuthoring(
     let unsubStudy: (() => void) | null = null;
     /** §ENVELOPE-DRAW C4 — the drawn-perimeter channel's own unsubscribe. */
     let unsubDrawn: (() => void) | null = null;
+    /** §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — the per-storey focus channel's own unsubscribe. */
+    let unsubDragFocus: (() => void) | null = null;
     /** What the user last typed, so a live repaint never blanks their entry. */
     let typedStoreys = '';
     /** The last gesture's outcome — carried, never sniffed back out of prose. */
@@ -831,56 +896,185 @@ export function mountParcelLawEnvelopeAuthoring(
         });
     };
 
-    /** Paint the perimeter-edit buttons for whatever the last create produced. */
+    /**
+     * ⭐ THE STOREYS THIS SECTION CAN OFFER PER-STOREY CONTROLS FOR.
+     *
+     * ⛔ THE SESSION LIST IS A CACHE, NOT THE AUTHORITY, AND FIXING THAT IS PART OF THIS LANE.
+     * `created` is written only by `runCreate`, so before this both *Edit perimeter* AND the new
+     * *Drag face* were offered ONLY in the same session that pressed Create — the envelopes persist
+     * and the buttons did not. The founder would have reloaded once and lost the control he asked
+     * for, and it would have been reported as a defect in the new button.
+     *
+     * ⭐ THE STORE READ IS THE ONE THIS FILE ALREADY MAKES. `readExisting` → `readLevelEnvelopes`
+     * is the same channel the supersession decision and the adopt card use, so "which storeys have
+     * an envelope" has exactly one answer here (C84 EI-9). The session list still wins when it is
+     * populated, because it carries the labels the plan just minted, in the plan's own order.
+     *
+     * ⚠ AN UNREADABLE STORE YIELDS NO ROWS — never an invented one. `readLevelEnvelopes`
+     * distinguishes "no envelopes" from "could not read", and the second must not be rendered as
+     * an empty storey list wearing a confident face.
+     */
+    const storeyRows = (): readonly CreatedStorey[] => {
+        if (created.length > 0) return created;
+        let existing: LevelEnvelopeReadResult;
+        try { existing = (deps.readExisting ?? readExistingDefault)(deps.runtime()); }
+        catch { return []; }
+        if (!existing.readable) return [];
+        // Ordered by the project's own storey order where it can be resolved, so "Ground" comes
+        // before "Level 3" instead of arriving in whatever order the store's Map iterates.
+        let order: string[] = [];
+        try { order = readLevelCandidates(deps.readLevels()).map((l) => l.id); }
+        catch { order = []; }
+        const rank = (levelId: string): number => {
+            const i = order.indexOf(levelId);
+            return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+        };
+        return [...existing.rows]
+            .sort((a, b) => rank(a.levelId) - rank(b.levelId))
+            .map((r) => ({ spaceEnvelopeId: r.id, label: r.name ?? r.levelId }));
+    };
+
+    /**
+     * Paint the per-storey control row: *Edit perimeter* (PR-G-15) and *Drag face* (PR-G-28).
+     *
+     * ⛔ ONE ROW, TWO ROUTES INTO ONE ELEMENT, AND NEITHER OF THEM MUTATES ANYTHING HERE (P6).
+     * *Edit perimeter* hands the id to the shipped outline tool, whose Apply dispatches
+     * `spaceEnvelope.setFootprint`. *Drag face* writes a session FOCUS slot; the mutation is the
+     * single `spaceEnvelope.moveFace` the gesture dispatches on pointer-up (C114 §6a — one gesture,
+     * one Ctrl+Z). This function dispatches nothing at all, and a spec pins that.
+     */
     const renderCreated = (): void => {
         createdList.replaceChildren();
-        if (created.length === 0) return;
+        const rows = storeyRows();
+        if (rows.length === 0) return;
         const tool = deps.capabilityHost.spaceEnvelopeTool;
+        // ⛔ THE SURFACES' OWN VERDICT, ASKED ONCE PER REPAINT — never guessed, never cached across
+        // repaints. A 3-D view can mount or tear down between two renders of this panel.
+        let drag: SpaceEnvelopeFaceDragAvailability;
+        try { drag = (deps.readFaceDragAvailability ?? spaceEnvelopeFaceDragAvailability)(); }
+        catch (e) {
+            drag = {
+                ok: false,
+                surfaces: 0,
+                reason: `PRYZM could not ask the 3-D views whether a face drag is possible: ${String(e)}. `
+                    + 'Nothing changed — you can still edit each storey outline with Edit perimeter.',
+            };
+        }
+        let focus: SpaceEnvelopeFaceDragFocus | null = null;
+        try { focus = (deps.readFaceDragFocus ?? getSpaceEnvelopeFaceDragFocus)() ?? null; }
+        catch { focus = null; }
+
         const note = H('div', 'font-size:9px;color:#8a83a0;line-height:1.4;',
             tool
                 ? 'Author each storey’s perimeter in the outline editor — straight, orthogonal or curved. '
+                  + 'Or press Drag face to select that storey and pull its faces in the 3-D view; a pull '
+                  + 'that would collapse the volume refuses with both numbers. '
                   + 'Each storey is its own element, so editing one does not move the others.'
                 : 'The outline editor is not reachable in this session, so PRYZM is not offering a button that '
-                  + 'would do nothing. The envelopes were still created — you can drag their faces in the 3-D view.');
+                  + 'would do nothing. The envelopes were still created — you can still select a storey with '
+                  + 'Drag face and pull its faces in the 3-D view.');
         createdList.appendChild(note);
-        if (!tool) return;
-        for (const c of created) {
+        for (const c of rows) {
             const row = H('div', 'display:flex;gap:6px;align-items:center;margin-top:4px;min-width:0;');
             row.appendChild(H('div', 'flex:1;min-width:0;font-size:10px;color:#4b4460;overflow-wrap:break-word;', c.label));
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.textContent = 'Edit perimeter';
-            btn.setAttribute(AUTHORING_EDIT_PERIMETER_ATTR, '');
-            btn.setAttribute('data-space-envelope-id', c.spaceEnvelopeId);
-            btn.style.cssText =
-                'flex:none;appearance:none;border:1px solid #d8d3e6;cursor:pointer;padding:4px 8px;'
-                + 'border-radius:6px;font:600 10px system-ui;background:#faf9fd;color:#6600FF;';
-            // ⛔ THE AVAILABILITY IS ASKED OF THE TOOL, NOT GUESSED. `profileEditAvailability` is
-            // the resolver's own per-element verdict, so a button that cannot work is DISABLED
-            // WITH ITS REASON rather than shown and dead (§FIX-DEAD-EDIT-PROFILE-BUTTON).
-            let verdict: { ok: boolean; reason?: string } = { ok: true };
-            try { verdict = tool.profileEditAvailability(c.spaceEnvelopeId); }
-            catch (e) { verdict = { ok: false, reason: `PRYZM could not ask the outline editor: ${String(e)}` }; }
-            if (!verdict.ok) {
-                btn.disabled = true;
-                btn.style.cursor = 'not-allowed';
-                btn.style.opacity = '0.55';
-                btn.title = verdict.reason ?? 'Not available for this envelope.';
+
+            // ── PR-G-15 — Edit perimeter ────────────────────────────────────────────────────
+            if (tool) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = 'Edit perimeter';
+                btn.setAttribute(AUTHORING_EDIT_PERIMETER_ATTR, '');
+                btn.setAttribute('data-space-envelope-id', c.spaceEnvelopeId);
+                btn.style.cssText =
+                    'flex:none;appearance:none;border:1px solid #d8d3e6;cursor:pointer;padding:4px 8px;'
+                    + 'border-radius:6px;font:600 10px system-ui;background:#faf9fd;color:#6600FF;';
+                // ⛔ THE AVAILABILITY IS ASKED OF THE TOOL, NOT GUESSED. `profileEditAvailability` is
+                // the resolver's own per-element verdict, so a button that cannot work is DISABLED
+                // WITH ITS REASON rather than shown and dead (§FIX-DEAD-EDIT-PROFILE-BUTTON).
+                let verdict: { ok: boolean; reason?: string } = { ok: true };
+                try { verdict = tool.profileEditAvailability(c.spaceEnvelopeId); }
+                catch (e) { verdict = { ok: false, reason: `PRYZM could not ask the outline editor: ${String(e)}` }; }
+                if (!verdict.ok) {
+                    btn.disabled = true;
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.opacity = '0.55';
+                    btn.title = verdict.reason ?? 'Not available for this envelope.';
+                } else {
+                    btn.onclick = (ev): void => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        try { tool.enterProfileEditMode(c.spaceEnvelopeId); }
+                        catch (e) {
+                            setStatus(
+                                `PRYZM could not open the outline editor: ${String((e as Error)?.message ?? e)}. `
+                                + 'Nothing changed.',
+                                'refused',
+                            );
+                        }
+                    };
+                }
+                row.appendChild(btn);
+            }
+
+            // ── ⭐ PR-G-28 — Drag face (L-13236) ────────────────────────────────────────────
+            // C115-27's three visual states, from the SURFACES' own answer: a live toggle where a
+            // 3-D view can take the gesture · a DISABLED control carrying that view's verbatim
+            // reason where it cannot · never a dead click.
+            const focused = focus !== null && focus.spaceEnvelopeId === c.spaceEnvelopeId;
+            const dragBtn = document.createElement('button');
+            dragBtn.type = 'button';
+            dragBtn.textContent = focused ? 'Stop dragging' : 'Drag face';
+            dragBtn.setAttribute(AUTHORING_DRAG_FACE_ATTR, '');
+            dragBtn.setAttribute('data-space-envelope-id', c.spaceEnvelopeId);
+            dragBtn.setAttribute('data-focused', focused ? 'yes' : 'no');
+            dragBtn.style.cssText =
+                'flex:none;appearance:none;cursor:pointer;padding:4px 8px;border-radius:6px;'
+                + 'font:600 10px system-ui;'
+                + (focused
+                    ? 'border:1px solid #6600FF;background:#6600FF;color:#ffffff;'
+                    : 'border:1px solid #d8d3e6;background:#faf9fd;color:#6600FF;');
+            if (!drag.ok) {
+                // ⛔ THE SURFACE'S OWN SENTENCE, VERBATIM (C16 CA-18 / C83 §1.2). The panel never
+                // writes a reason on a surface's behalf — that is how a card comes to state a
+                // condition the scene disagrees with.
+                dragBtn.disabled = true;
+                dragBtn.style.cursor = 'not-allowed';
+                dragBtn.style.opacity = '0.55';
+                dragBtn.title = drag.reason ?? 'No 3-D view can take a face drag right now.';
             } else {
-                btn.onclick = (ev): void => {
+                dragBtn.title = focused
+                    ? 'This storey is the subject: grab any of its faces in the 3-D view and pull along '
+                      + 'the face’s own normal. Press again to release, and the drag goes back to '
+                      + 'whichever envelope is under the pointer.'
+                    : 'Selects this storey for face dragging: its arrows appear in the 3-D view, and a '
+                      + 'pull can only land on THIS storey — not on the one above or below it. A move '
+                      + 'that would collapse the volume refuses with both numbers. Nothing is created '
+                      + 'or changed by pressing this.';
+                dragBtn.onclick = (ev): void => {
                     ev.preventDefault();
                     ev.stopPropagation();
-                    try { tool.enterProfileEditMode(c.spaceEnvelopeId); }
-                    catch (e) {
+                    try {
+                        if (focused) (deps.releaseFaceDragFocus ?? releaseSpaceEnvelopeFaceDragFocus)();
+                        else {
+                            (deps.takeFaceDragFocus ?? takeSpaceEnvelopeFaceDragFocus)({
+                                spaceEnvelopeId: c.spaceEnvelopeId,
+                                label: c.label,
+                            });
+                        }
+                    } catch (e) {
                         setStatus(
-                            `PRYZM could not open the outline editor: ${String((e as Error)?.message ?? e)}. `
+                            `PRYZM could not select that storey for face dragging: ${String((e as Error)?.message ?? e)}. `
                             + 'Nothing changed.',
                             'refused',
                         );
+                        return;
                     }
+                    // The focus channel repaints this section; this call is what makes the label
+                    // flip immediate even in a host that did not wire the subscription.
+                    renderCreated();
                 };
             }
-            row.appendChild(btn);
+            row.appendChild(dragBtn);
             createdList.appendChild(row);
         }
     };
@@ -1302,6 +1496,29 @@ export function mountParcelLawEnvelopeAuthoring(
         } else {
             root.setAttribute(AUTHORING_DRAWN_SUBSCRIBED_ATTR, 'no:not-wired');
         }
+        // ── ⭐ THE PER-STOREY FOCUS CHANNEL (§ENVELOPE-FACE-DRAG-PER-LEVEL, L-13236) ──────────
+        // The founder presses *Drag face* on the Level 2 row; `takeSpaceEnvelopeFaceDragFocus`
+        // writes the ONE focus slot; the 3-D Site paints Level 2's arrows and the gesture starts
+        // refusing every other storey — and THIS row must flip to *Stop dragging* in the SAME beat,
+        // or the only visible consequence of his click is on the far side of the screen. The click
+        // handler also repaints directly, so the button is never dead; this subscription is what
+        // keeps the row honest when the focus is released from ANYWHERE ELSE — a project teardown,
+        // the last 3-D surface unmounting, or a sibling row being selected instead.
+        if (deps.subscribeFaceDragFocus) {
+            try {
+                unsubDragFocus = deps.subscribeFaceDragFocus(() => {
+                    if (disposed || !root.isConnected) return;
+                    renderCreated();
+                });
+                root.setAttribute(AUTHORING_DRAG_FOCUS_SUBSCRIBED_ATTR, 'yes');
+            } catch (e) {
+                root.setAttribute(AUTHORING_DRAG_FOCUS_SUBSCRIBED_ATTR, 'no:threw');
+                console.warn('[analysis][parcel-law][authoring] face-drag focus subscribe threw — the '
+                    + 'Drag face buttons will not reflect a focus released elsewhere:', e);
+            }
+        } else {
+            root.setAttribute(AUTHORING_DRAG_FOCUS_SUBSCRIBED_ATTR, 'no:not-wired');
+        }
         span.setAttribute('pryzm.analysis.parcelLawAuthoring.mounted', true);
     } catch (e) {
         span.setAttribute('pryzm.analysis.parcelLawAuthoring.mounted', false);
@@ -1323,6 +1540,14 @@ export function mountParcelLawEnvelopeAuthoring(
             unsubStudy = null;
             try { unsubDrawn?.(); } catch { /* teardown is best-effort */ }
             unsubDrawn = null;
+            try { unsubDragFocus?.(); } catch { /* teardown is best-effort */ }
+            unsubDragFocus = null;
+            // ⛔ AND THE FOCUS ITSELF IS RELEASED. A focus is a RESTRICTION on the 3-D pick; leaving
+            // one standing after the panel that set it has gone would leave the founder with a
+            // single grabbable storey and nothing anywhere able to say why — the worst possible
+            // shape for a restriction, and precisely the state a disposer exists to prevent.
+            try { (deps.releaseFaceDragFocus ?? releaseSpaceEnvelopeFaceDragFocus)(); }
+            catch { /* teardown is best-effort */ }
             root.remove();
             // §PL-IA-Q — the law-check pair is this mount's, wherever it was placed. `root.remove()`
             // reaches it only when it lives inside `root`; a mount that left a live ledger standing

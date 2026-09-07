@@ -342,6 +342,30 @@ Namespace `spaceEnvelope.*` (C69 §3.6). Lineage bands are C84 §4A's L1–L6.
 > (`HEIGHT_DATUM_CAVEAT`, ADR-0377), and that answer does not belong in a field that would make a
 > single sampled point look like a measured one. ⛔ **Do not add a `terrainOffset` field.**
 
+> ⭐ **§10d — THE FACE DRAG MAY HAVE A SUBJECT, AND MUST NOT HAVE A MODE** (lane FACE-DRAG-BUTTON,
+> 2026-09-07 · L-13236 · C115 PR-G-28 / C115-149 / C115-150).
+> Founder: *"SO THE USER COULD SELECT A LEVEL AND DRAG THE FACES OF EACH VOLUME PER LEVEL"*. With N
+> storeys stacked on one footprint, face `i` of Level 2 and face `i` of Level 3 occupy the **same
+> screen pixels** from a low camera, so a mis-grab is a certainty rather than a risk — and the wrong
+> storey moving looks exactly like a working drag. A per-storey **FOCUS** is therefore permitted and
+> is the founder's own fix, under three binding constraints:
+>
+> 1. ⛔ **A FOCUS RESTRICTS; IT NEVER ENABLES.** With no focus set the gesture **MUST** behave
+>    exactly as it does without the feature — every drawn envelope grabbable. Gating the *gesture*
+>    on a focus would turn a live direct-manipulation gesture into a mode nobody finds, which is a
+>    reachability regression, not a refinement.
+> 2. ⛔ **THE RESTRICTION LIVES IN EXACTLY ONE PLACE** — the renderer-free gesture's single pick
+>    wrapper, which fronts all three consumers of a pick (drag start, hover, double-click). A
+>    per-adapter copy would let the affordance stand on a storey the pick refuses: an affordance
+>    that lies (C84 EI-9). ⛔ **Do not add a focus guard to any surface's `pickFace`.**
+> 3. ⛔ **A FOCUS IS SESSION STATE AND IS NEVER PERSISTED.** An envelope is a design fact; a focus is
+>    a statement about where this user's attention is right now. Restored on a later load it would
+>    silently narrow the pick on a surface nobody had touched.
+>
+> ⚠ And a focus **MUST** be releasable and **MUST** be visible while held, on every surface that
+> honours it — otherwise a user who focused Ground and forgot finds Level 3 unresponsive and reads
+> it as a broken drag. The affordance is part of this clause, not a follow-up to it (§11 item 6).
+
 > **§10b — THE PROFILE EDITOR IS JOINED, NOT REBUILT.** `WallProfileEditorPort` /
 > `WallProfileEditorSubject` are **already generic by port**; the shared surface
 > `apps/editor/src/ui/ElevationOutlineSurface.ts` is already reused by `ComponentProfilePanel`; the
@@ -721,6 +745,74 @@ the rooms are read inside the drag's existing preview loop). §PERF-WALL-MOVE-IN
 the verb exists, the event field does not); walls follow only where the semantic graph RECORDED
 them, and `recordEnvelopeWallLinks` has exactly ONE caller (L-13117 — the durable fix is C80's own
 `ElementProvenanceIndex`, which nothing calls); and **nothing here is browser-verified** (§14d).
+
+### 2026-09-07 · lane FACE-DRAG-BUTTON — **the gesture acquires a SUBJECT, and stops being invisible**
+
+Founder: *"AT THE MOMENT I CAN CHANGE THE PERIMETER OR BOUNDARY OF THE MASSING PER LEVEL — BUT I
+WANT TO BE ABLE DO IT NOT ONLY ON PLAN VIEW — BUT ALSO BY DRAGGING EACH FACE OF THE LEVEL — CREATE A
+BUTTON NEXT TO "EDIT PERIMETER" — "DRAG FACE" — SO THE USER COULD SELECT A LEVEL AND DRAG THE FACES
+OF EACH VOLUME PER LEVEL"*. Row: **L-13236**. Register: **C115 PR-G-28** (§3.G), with §3.I's
+arithmetic moved in the same commit (27 → 28 control rows, 176 → 177 entries) and **C115-151 …
+C115-153** added to §6.3.
+
+⭐ **THE FINDING WORTH CARRYING FORWARD: THE GESTURE WAS ALREADY THERE, AND THAT IS WHY IT WAS
+INVISIBLE.** `installSpaceEnvelopeFaceDragOnSurface` was wired to the 3-D Site canvas at
+`GISAreaLayout.ts` with no flag, no arming and no tool precondition — always live. But the Cesium
+adapter shipped **no `handles`**, so all eight of the core's `surface.handles?.…` calls were
+permanent no-ops there: no arrow, no hover highlight, no cursor change. §25.6's own port note
+predicted this exact outcome in advance — *"omit it and the drag works exactly as it did, and stays
+undiscoverable, which is a regression in reachability rather than in behaviour"* — and it is what
+shipped. **A complete, correct, unreachable gesture reads to a user as an absent one.**
+
+**The button is therefore a SUBJECT SELECTOR, not an arming control, and §10 gains that distinction
+rather than a mode.** The drag needs no arming and must not acquire one: gating it on a press would
+break it for everyone who never found the row. What the founder's sentence *does* ask for and did
+not exist is a per-storey **subject** — with five storeys on one footprint, the face of Level 2 and
+the face of Level 3 occupy the same pixels from a low camera, so a mis-grab is a certainty rather
+than a risk, and the wrong storey moving looks exactly like a working drag.
+
+⛔ **THE RESTRICTION LIVES ONCE, IN THE CORE, AND THE ADAPTERS DO NOT RE-IMPLEMENT IT.** One
+`pick(ev)` wrapper now fronts the only three consumers of a pick — drag start, hover and the
+double-click — so there is exactly **one** `surface.pickFace(` call in the whole gesture. Three
+surfaces would have been three copies of one restriction, and a copy that drifted would let the
+arrows stand on a storey the pick refuses: an affordance that lies (C84 EI-9). The same wrapper is
+what lets a focused storey **keep** its arrows when the pointer is over nothing, which is what makes
+a selection made in a side panel visible at all.
+
+**Three seams that already existed and reached nothing are now connected**, none of which this lane
+created: `onProfileEdit` (double-click → the shipped outline editor) was passed on BIM 3-D and not
+on the 3-D Site; `onPreview` (the live *"+1.35 m"*) was passed by **neither** wiring, so the figure
+was computed every frame and dropped — it now writes a real element, never an event with no
+listener; and `cannotDragReason()` — a complete three-state user-voiced refusal — had exactly one
+production caller, `console.log`. A register (`spaceEnvelopeFaceDragSurfaces.ts`) now lets the panel
+ask the surfaces and print **their** sentence verbatim, which is what makes C115-27's
+disabled-with-reason state possible instead of a dead click.
+
+**And the per-storey rows now survive a reload.** They were read from the session's create list, so
+both *Edit perimeter* and any sibling were offered only in the session that pressed *Create* — the
+envelopes persisted and their controls did not. They are read from the space-envelope store now,
+through the same `readLevelEnvelopes` channel the supersession decision uses.
+
+⚠ **STILL NOT TRUE, AND NAMED — read this before claiming the founder's ask is closed:**
+
+1. ⛔ **THE LARGER HALF OF HIS ASK IS A DEPLOY, NOT A BUTTON.** `c8c62c51` ("the 3D Site becomes a
+   face-drag surface", 2026-09-07 16:04) is **not an ancestor** of `2c12b8d5`, the last build the
+   record calls proven-live (12:05). So the 3-D Site face drag has **never been in a build the
+   founder has run**, and his *"AT THE MOMENT I CAN … BUT I WANT TO …"* is a report that the gesture
+   does not exist on **his** build rather than that it is broken. A button shipped without the
+   deploy would be pressed, do nothing visible, and the failure would be read as the button.
+2. **Nothing here is browser-verified** (§14d, unchanged). The Cesium arrows in particular are
+   asserted only either side of the draw: the port exists, it is inert and non-throwing without a
+   seated frame, the focus resolves the right subject, teardown is idempotent, and — as source — no
+   placement maths is done in the adapter and the frame hop is the rasteriser's own. **That an arrow
+   APPEARS is not established by any test and cannot be**, for the reason
+   `siteEnvelopeFaceDragCesium.spec.ts` gives in its own header.
+3. **`spaceEnvelope.moveFace` is declared NOT-SYNCED** (L-13045; its payload is relative), and
+   `spaceEnvelope.batch.create` has no disposition at all (L-13012). Making the drag *discoverable*
+   on the surface the founder demos from promotes a latent single-user limitation to a visible one.
+   Not this lane's to fix; this lane's to name.
+4. **The focus is honoured on both 3-D surfaces and on neither 2-D one** — correct per C115-56, and
+   the refusal names the exclusion rather than leaving the user to discover it.
 
 ---
 

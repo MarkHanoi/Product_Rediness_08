@@ -700,3 +700,130 @@ describe('⭐ §ENVELOPE-PARTITIONS-FOLLOW — the committed event names the roo
         expect(committed[0]!.adapted).toBeUndefined();
     });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (lane FACE-DRAG-BUTTON, L-13236) — THE PER-STOREY SUBJECT
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// Founder: *"SO THE USER COULD SELECT A LEVEL AND DRAG THE FACES OF EACH VOLUME PER LEVEL"*.
+//
+// ⛔ THE ARM THAT MATTERS MOST IS THE PERMISSIVE ONE. A focus RESTRICTS and must never ENABLE: with
+// no focus the gesture has to behave exactly as it did before this lane existed, or the button
+// would have silently turned a live gesture into a mode that only works after someone finds it —
+// a reachability regression wearing a feature's clothes. Both directions are pinned below.
+//
+// ⛔ AND THE GUARD IS PINNED HERE, IN THE CORE, RATHER THAN IN EACH ADAPTER. That is the whole
+// reason it was written here: three surfaces would otherwise be three copies of one restriction,
+// and a copy that drifted would let the arrows stand on a storey the pick refuses — an affordance
+// that lies (C84 EI-9).
+
+/** A second storey stacked on the same footprint — the neighbour a mis-grab lands on. */
+const UPSTAIRS: DraggableSpaceEnvelope = { ...ROOM, id: 'Upstairs', baseOffset: 3 };
+
+describe('⭐ the per-storey FOCUS restricts the pick — and, unfocused, restricts nothing', () => {
+    let canvas: FakeCanvas;
+    let rec: Recorder;
+    let dispatched: { spaceEnvelopeId: string; face: SpaceEnvelopeFaceRef; deltaM: number }[];
+    let edited: string[];
+    let focus: { spaceEnvelopeId: string } | null;
+    let dispose: () => void;
+
+    const install = (opts?: { throwingFocus?: boolean }): void => {
+        canvas = fakeCanvas();
+        rec = fakeSurface({ handles: true });
+        dispatched = [];
+        edited = [];
+        focus = null;
+        const world = [ROOM, UPSTAIRS];
+        dispose = installSpaceEnvelopeFaceDragOnSurface({
+            domElement: canvas.el,
+            surface: rec.surface,
+            getRecord: (id) => world.find((r) => r.id === id),
+            getWorld: () => world,
+            dispatch: (p) => { dispatched.push(p); },
+            onProfileEdit: (id) => { edited.push(id); },
+            readFocus: opts?.throwingFocus
+                ? () => { throw new Error('the focus slot blew up'); }
+                : () => focus,
+        });
+    };
+
+    beforeEach(() => { install(); });
+    afterEach(() => { dispose(); });
+
+    const fullDrag = (): void => {
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointermove', pointerEvent(200, 0));
+        canvas.fire('pointerup', pointerEvent(200, 0));
+    };
+
+    it('⛔ NO FOCUS ⇒ NO RESTRICTION — every envelope is grabbable exactly as before this lane', () => {
+        rec.picked = UPSTAIRS;
+        fullDrag();
+        expect(dispatched).toHaveLength(1);
+        expect(dispatched[0]!.spaceEnvelopeId).toBe('Upstairs');
+    });
+
+    it('⭐ the FOCUSED storey drags — one gesture, one dispatch (C114 §6a)', () => {
+        focus = { spaceEnvelopeId: 'Upstairs' };
+        rec.picked = UPSTAIRS;
+        fullDrag();
+        expect(dispatched).toHaveLength(1);
+        expect(dispatched[0]!.spaceEnvelopeId).toBe('Upstairs');
+    });
+
+    it('⛔ a grab that lands on ANOTHER storey is DROPPED — this is the whole point of "per level"', () => {
+        // Five storeys share one footprint; from a low camera the face of Level 2 and the face of
+        // Level 3 occupy the same pixels. Without this, the founder aims at the storey he selected
+        // and moves the one above it — and the result looks like a working drag.
+        focus = { spaceEnvelopeId: 'Kitchen' };
+        rec.picked = UPSTAIRS;
+        fullDrag();
+        expect(dispatched).toHaveLength(0);
+        // ⛔ AND THE CAMERA IS NEVER TAKEN. A drop that still suspended navigation would leave the
+        // globe frozen with no gesture running to hand it back.
+        expect(rec.camera).toEqual([]);
+    });
+
+    it('⛔ and the DOUBLE-CLICK obeys the same focus — no editing a storey you deselected', () => {
+        focus = { spaceEnvelopeId: 'Kitchen' };
+        rec.picked = UPSTAIRS;
+        canvas.fire('dblclick', pointerEvent(0, 0));
+        expect(edited).toEqual([]);
+        rec.picked = ROOM;
+        canvas.fire('dblclick', pointerEvent(0, 0));
+        expect(edited).toEqual(['Kitchen']);
+    });
+
+    it('⭐ the FOCUSED storey keeps its arrows when the pointer is over nothing', () => {
+        // The founder pressed *Drag face* in a panel on the other side of the screen. A
+        // hover-only affordance would blink his selection away the instant he moved the pointer to
+        // aim at it — i.e. the selection would be invisible exactly while he was acting on it.
+        focus = { spaceEnvelopeId: 'Kitchen' };
+        rec.pickNothing = true;
+        canvas.fire('pointermove', pointerEvent(10, 10));
+        expect(rec.handleTargets[rec.handleTargets.length - 1]).toBe('Kitchen');
+        // …and leaving the canvas entirely does not drop them either.
+        canvas.fire('pointerleave', {});
+        expect(rec.handleTargets[rec.handleTargets.length - 1]).toBe('Kitchen');
+    });
+
+    it('⛔ UNFOCUSED, hovering nothing still CLEARS the handles — the old behaviour is untouched', () => {
+        rec.picked = ROOM;
+        canvas.fire('pointermove', pointerEvent(10, 10));   // hover ON — handles appear
+        expect(rec.handleTargets[rec.handleTargets.length - 1]).toBe('Kitchen');
+        rec.pickNothing = true;
+        canvas.fire('pointermove', pointerEvent(10, 10));   // hover OFF — handles go
+        expect(rec.handleTargets[rec.handleTargets.length - 1]).toBeNull();
+    });
+
+    it('⛔ a THROWING focus reader does NOT restrict, and does not kill the gesture', () => {
+        // Restricting on a slot that could not be read would make every face un-grabbable while
+        // looking like a working selection — failure and emptiness arriving as the same value.
+        install({ throwingFocus: true });
+        rec.picked = UPSTAIRS;
+        expect(() => fullDrag()).not.toThrow();
+        expect(dispatched).toHaveLength(1);
+        expect(dispatched[0]!.spaceEnvelopeId).toBe('Upstairs');
+    });
+});

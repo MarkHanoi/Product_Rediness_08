@@ -90,6 +90,10 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
         ...(deps.onPreview ? { onPreview: deps.onPreview } : {}),
         ...(deps.getWorld ? { getWorld: deps.getWorld } : {}),
         ...(deps.onProfileEdit ? { onProfileEdit: deps.onProfileEdit } : {}),
+        // ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — WHICH STOREY IS THE SUBJECT. Forwarded, never
+        // interpreted: the restriction itself is ONE wrapper inside the renderer-free gesture, so
+        // BIM 3-D and the 3-D Site cannot come to disagree about which envelope the panel selected.
+        ...(deps.readFocus ? { readFocus: deps.readFocus } : {}),
         // §ENVELOPE-DRAG-CONSEQUENCE — forwarded, not re-implemented. The event is raised once, by
         // the gesture, on whichever surface it ran (ADDENDUM §D).
         ...(deps.onCommitted ? { onCommitted: deps.onCommitted } : {}),

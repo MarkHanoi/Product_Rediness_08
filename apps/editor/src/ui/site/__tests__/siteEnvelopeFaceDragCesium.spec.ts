@@ -40,8 +40,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { SiteEnvelopeDrawCesium, type SiteEnvelopeDrawCesiumDeps } from '../siteEnvelopeDrawCesium';
+// §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — the REAL focus slot, driven directly rather than faked,
+// so the production reader this adapter uses for the affordance is the one under test.
+import {
+    __resetSpaceEnvelopeFaceDragFocusForTests,
+    clearSpaceEnvelopeFaceDragFocus,
+    setSpaceEnvelopeFaceDragFocus,
+} from '../spaceEnvelopeFaceDragFocusState';
 import type { DraggableSpaceEnvelope } from '../../../engine/spaceEnvelopeDragSurface';
 
 const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
@@ -121,6 +128,10 @@ function build(over: Partial<SiteEnvelopeDrawCesiumDeps> = {}): {
     } as unknown as SiteEnvelopeDrawCesiumDeps;
     return { surface: new SiteEnvelopeDrawCesium(deps), canvas, touched };
 }
+
+// ⛔ THE MODULE SLOT IS SESSION STATE. A focus left standing by one case would silently restrict the
+// affordance in the next, and the suite would acquire an order dependence it could not see.
+afterEach(() => { __resetSpaceEnvelopeFaceDragFocusForTests(); });
 
 describe('⭐ the 3D Site SAYS why it cannot take a face drag, rather than swallowing the gesture', () => {
     it('names the UNWIRED state — a host that wired the draw but not the drag', () => {
@@ -301,5 +312,120 @@ describe('SOURCE arms — the invariants no headless assertion can reach', () =>
 
     it('⛔ ONE Cesium adapter — the class implements BOTH ports (C84 EI-9)', () => {
         expect(SOURCE).toContain('implements EnvelopeDrawSurface, SpaceEnvelopeDragSurface');
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §25.6 GESTURE 1 — THE ARROW AFFORDANCE (lane FACE-DRAG-BUTTON, L-13236)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ THE DEFECT THESE ARMS CLOSE, STATED PLAINLY: this adapter shipped the face drag COMPLETE and
+// INVISIBLE. `spaceEnvelopeDragSurface.ts:41-44` predicted it in advance — *"omit it and the drag
+// works exactly as it did, and stays undiscoverable, which is a regression in reachability rather
+// than in behaviour"* — and that is exactly what happened. No hover highlight, no cursor change, no
+// arrow, and therefore no reason for any user to suspect a face could be pulled at all.
+//
+// ⚠ WHAT STILL CANNOT BE ASSERTED HERE, AND IS NOT: that an arrow APPEARS. Drawing one needs a real
+// `viewer.entities`, a real camera and a real frame; a stub assembled from this file's own
+// assumptions could not falsify them ([[fake-more-capable-than-real]]). What IS pinned below is
+// everything either side of the draw: the port exists, it is inert and non-throwing where the
+// surface cannot answer, the focus fallback resolves the right subject, teardown is idempotent —
+// and, as SOURCE, that no placement maths is done here and the frame hop is the rasteriser's own.
+
+describe('⭐ the arrow affordance — the port that turns an invisible gesture into a visible one', () => {
+    it('⛔ the OPTIONAL fifth port is IMPLEMENTED. Its absence was the whole reachability defect', () => {
+        const { surface } = build({ getSceneFrame: () => SEATED_FRAME, getEnvelopes: () => [ROOM] });
+        expect(surface.handles).toBeTruthy();
+        expect(typeof surface.handles!.targetId).toBe('function');
+        expect(typeof surface.handles!.setTarget).toBe('function');
+        expect(typeof surface.handles!.setActiveFace).toBe('function');
+    });
+
+    it('`targetId()` reports what the GESTURE pointed the handles at, and null once cleared', () => {
+        const { surface } = build({ getSceneFrame: () => null, getEnvelopes: () => [ROOM] });
+        expect(surface.handles!.targetId()).toBeNull();
+        surface.handles!.setTarget(ROOM);
+        expect(surface.handles!.targetId()).toBe('Kitchen');
+        surface.handles!.setTarget(null);
+        expect(surface.handles!.targetId()).toBeNull();
+    });
+
+    it('⭐ with a per-storey FOCUS the handles belong to that storey with no hover at all', () => {
+        // The founder pressed *Drag face* on a panel row across the screen. If the arrows only
+        // appeared on hover, the one visible consequence of his click would be invisible until he
+        // found the volume with his mouse — i.e. the selection would be unfindable exactly while he
+        // was acting on it.
+        const { surface } = build({ getSceneFrame: () => null, getEnvelopes: () => [ROOM] });
+        expect(surface.handles!.targetId()).toBeNull();
+        setSpaceEnvelopeFaceDragFocus({ spaceEnvelopeId: 'Kitchen', label: 'Ground' });
+        expect(surface.handles!.targetId()).toBe('Kitchen');
+        clearSpaceEnvelopeFaceDragFocus();
+        expect(surface.handles!.targetId()).toBeNull();
+    });
+
+    it('⛔ a focus on an envelope this surface cannot SEE resolves to nothing, never to a guess', () => {
+        // "Drawn" and "grabbable" are one set (`getEnvelopes` is the same reader the pick uses). An
+        // arrow standing on an envelope this surface never drew would be an affordance for a volume
+        // that is not on screen.
+        const { surface } = build({ getSceneFrame: () => SEATED_FRAME, getEnvelopes: () => [ROOM] });
+        setSpaceEnvelopeFaceDragFocus({ spaceEnvelopeId: 'not-here', label: 'Level 9' });
+        expect(surface.handles!.targetId()).toBeNull();
+    });
+
+    it('⛔ with NO seated frame the handles draw NOTHING and never throw', () => {
+        // Same rule as the pick: with no frame there is no way to say where on the Earth an arrow
+        // goes, and a guessed one would stand beside the face it belongs to. These calls run inside
+        // the core's `pointermove`, so an exception would leave the face stuck under a live pointer.
+        const { surface, touched } = build({ getSceneFrame: () => null, getEnvelopes: () => [ROOM] });
+        expect(() => surface.handles!.setTarget(ROOM)).not.toThrow();
+        expect(() => surface.handles!.setActiveFace({ kind: 'side', edgeIndex: 1 })).not.toThrow();
+        expect(() => surface.handles!.setTarget(null)).not.toThrow();
+        expect(touched).toEqual([]);
+    });
+
+    it('teardown drops the subscription and the entities, and is idempotent', () => {
+        const { surface } = build({ getSceneFrame: () => null, getEnvelopes: () => [ROOM] });
+        surface.handles!.setTarget(ROOM);
+        expect(() => surface.disposeFaceDragAffordance()).not.toThrow();
+        expect(() => surface.disposeFaceDragAffordance()).not.toThrow();
+        expect(surface.handles!.targetId()).toBeNull();
+    });
+
+    it('⛔ SOURCE — NO placement maths is done here; every number is the pure solver\'s', () => {
+        // An arrow placed by a second arithmetic would point one way while the drag moved another
+        // (C84 EI-9) — and it would look like a sensitivity problem, not a duplication.
+        expect(SOURCE).toContain('spaceEnvelopeFaceHandles(prismOfSpaceEnvelopeRecord(target))');
+        expect(SOURCE).toContain('h.anchor.x + h.axis.x * h.halfLengthM');
+    });
+
+    it('⭐ SOURCE — the frame hop is the RASTERISER\'S OWN, not a second frame construction', () => {
+        // `renderSpaceEnvelopes` places the prism with `sceneXZToEnu(x, z, θ)` pushed through
+        // `eastNorthUpToFixedFrame(origin)`, seated on the terrain base. The arrows must ride the
+        // SAME hop or they float beside their own faces on a terrain re-seat (§L-430).
+        expect(SOURCE).toContain('sceneXZToEnu(p.x, p.z, frame.thetaRad)');
+        expect(SOURCE).toContain('p.y + frame.baseHeightM');
+        expect(SOURCE).toContain('Transforms.eastNorthUpToFixedFrame(');
+    });
+
+    it('⛔ SOURCE — the arrows are STRAIGHT segments, not geodesic arcs clamped to the ellipsoid', () => {
+        expect(SOURCE).toContain('arcType: C.ArcType.NONE');
+    });
+
+    it('⛔ SOURCE — the entity pool is REUSED, never re-added on every frame of a drag', () => {
+        // `setTarget` runs on every pointer move (the handle rides the face it is pulling) and
+        // `renderSpaceEnvelopes` is already doing a full clear-and-rebuild on the same frames. Two
+        // entity churns per move is the lifecycle the THREE gizmo's header says it refused to live
+        // inside; the signature guard makes an unchanged frame free.
+        expect(SOURCE).toContain('if (sig === this.handleSignature) return;');
+        expect(SOURCE).toContain('existing.polyline.positions = new C.ConstantProperty(seg.positions);');
+    });
+
+    it('⛔ SOURCE — the arrows are NOT the pick. The pick is still the pure ray/prism solver', () => {
+        // L-13045 priced this feature at `n + 2` hit-testable primitives per envelope. These
+        // polylines are an AFFORDANCE and nothing reads them: `pickFace` still resolves through
+        // `pickNearestSpaceEnvelopeFace`, so a deleted arrow cannot make a face un-grabbable.
+        const pickBody = SOURCE.slice(SOURCE.indexOf('pickFace(ev: DragPointerLike)'));
+        expect(pickBody).toContain('pickNearestSpaceEnvelopeFace(');
+        expect(pickBody.slice(0, pickBody.indexOf('previewDraw'))).not.toContain('handleEntities');
     });
 });

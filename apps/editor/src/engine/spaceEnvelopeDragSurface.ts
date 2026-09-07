@@ -179,6 +179,18 @@ export interface FacePick {
 }
 
 /**
+ * ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL — the storey the next grab belongs to, as this gesture needs it.
+ *
+ * ⛔ AN ID, NEVER A RECORD, and deliberately a structural type rather than an import: the slot that
+ * produces it is a UI session module (`ui/site/spaceEnvelopeFaceDragFocusState.ts`) and this file
+ * is the renderer-free gesture. One field is the whole contract; widening it would drag a UI
+ * concern into the core the port extraction exists to keep clean.
+ */
+export interface SpaceEnvelopeFaceDragFocusRef {
+    readonly spaceEnvelopeId: string;
+}
+
+/**
  * ⭐ §25.6 GESTURE 1 — THE LITTLE ARROW, as a port. OPTIONAL: a surface may ship the drag
  * before it ships the affordance.
  */
@@ -435,6 +447,28 @@ export interface SpaceEnvelopeFaceDragCoreDeps {
      */
     readonly onProfileEdit?: (spaceEnvelopeId: string) => void;
     /**
+     * ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (lane FACE-DRAG-BUTTON, L-13236) — WHICH STOREY IS THE
+     * SUBJECT, read LAZILY on every pick.
+     *
+     * Founder: *"SO THE USER COULD SELECT A LEVEL AND DRAG THE FACES OF EACH VOLUME PER LEVEL"*.
+     * With five storeys stacked on one footprint, every face of Level 2 has Level 1 below it and
+     * Level 3 above it in the same screen pixels; a low camera makes a mis-grab a certainty. A
+     * focus is the founder's own fix, named in his own sentence: pick the storey, then pull ITS
+     * faces.
+     *
+     * ⛔ IT IS NOT AN ARMING. Omit it — or return `null` — and the gesture behaves EXACTLY as it
+     * always has: every drawn envelope is grabbable. A focus RESTRICTS; it never enables. Anything
+     * else would turn a live gesture into a mode nobody finds, which is a reachability regression
+     * dressed as a feature.
+     *
+     * ⛔ AND IT LIVES HERE, ONCE, RATHER THAN IN EACH ADAPTER'S `pickFace`. Three surfaces would be
+     * three copies of one restriction, and a copy that drifted would let the arrows stand on a
+     * storey the pick refuses — an affordance that lies (C84 EI-9). The core owns the only three
+     * places a pick is consumed (drag start, hover, double-click), so one wrapper covers all of
+     * them and every future surface for free.
+     */
+    readonly readFocus?: () => SpaceEnvelopeFaceDragFocusRef | null;
+    /**
      * ⭐ §ENVELOPE-DRAG-CONSEQUENCE — called ONCE, immediately after the single dispatch, with
      * both rings (see {@link SpaceEnvelopeFaceMoveCommitted}).
      *
@@ -512,9 +546,44 @@ export function installSpaceEnvelopeFaceDragOnSurface(
     const { surface } = deps;
     let active: ActiveDrag | null = null;
 
+    /**
+     * ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL — THE ONE PICK, WITH THE ONE FOCUS RESTRICTION.
+     *
+     * Every consumer of a pick in this file goes through here: the drag start, the hover that
+     * places the arrows, and the double-click that opens the outline editor. That is what makes
+     * *"the arrows stand where the pick will answer"* true by construction — an affordance drawn on
+     * a storey the pick refuses is the worst failure available to this feature, because it looks
+     * exactly like a broken drag (C84 EI-9).
+     *
+     * ⛔ NO FOCUS ⇒ NO RESTRICTION. `readFocus` absent, or answering `null`, returns the surface's
+     * own pick untouched.
+     */
+    const pick = (ev: DragPointerLike): FacePick | null => {
+        const picked = surface.pickFace(ev);
+        if (!picked) return null;
+        let focus: SpaceEnvelopeFaceDragFocusRef | null = null;
+        try { focus = deps.readFocus?.() ?? null; }
+        catch (e) {
+            // A focus reader that threw is not a focus. Restricting on an unread slot would make
+            // every face un-grabbable while looking like a working selection.
+            console.warn('[spaceEnvelopeFaceDrag] the face-drag focus reader threw (non-fatal):', e);
+            return picked;
+        }
+        if (focus !== null && focus.spaceEnvelopeId !== picked.id) return null;
+        return picked;
+    };
+
+    /** The focused envelope's live record, or `null`. Lazy, never captured (§L-545-SITE-CAPTURE). */
+    const focusedRecord = (): DraggableSpaceEnvelope | null => {
+        let focus: SpaceEnvelopeFaceDragFocusRef | null = null;
+        try { focus = deps.readFocus?.() ?? null; } catch { return null; }
+        if (focus === null) return null;
+        return deps.getRecord(focus.spaceEnvelopeId) ?? null;
+    };
+
     const onPointerDown = (ev: PointerEvent): void => {
         if (ev.button !== 0) return;
-        const picked = surface.pickFace(ev);
+        const picked = pick(ev);
         if (!picked) return;
         const { id, face } = picked;
 
@@ -595,8 +664,20 @@ export function installSpaceEnvelopeFaceDragOnSurface(
     const onHover = (ev: PointerEvent): void => {
         const handles = surface.handles;
         if (!handles || active) return;
-        const picked = surface.pickFace(ev);
+        const picked = pick(ev);
         if (!picked) {
+            // ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL — A FOCUSED STOREY KEEPS ITS ARROWS. The founder
+            // selected that level in the panel; the arrows ARE the answer to *"which faces did I
+            // just select?"*, and a hover-only affordance would make them flicker away the instant
+            // he moved the pointer to aim — i.e. the selection would be invisible exactly while he
+            // was acting on it. With no focus this is unreachable and the clear below runs as it
+            // always did.
+            const focused = focusedRecord();
+            if (focused !== null) {
+                handles.setTarget(focused);
+                handles.setActiveFace(null);
+                return;
+            }
             // ⛔ CLEARED, NOT LEFT BEHIND. Handles on an envelope the pointer has left
             // belong to nothing the user is looking at, and the next click on them starts a
             // drag on an envelope they had stopped aiming at.
@@ -815,16 +896,27 @@ export function installSpaceEnvelopeFaceDragOnSurface(
      */
     const onDoubleClick = (ev: MouseEvent): void => {
         if (!deps.onProfileEdit) return;
-        const picked = surface.pickFace(ev);
+        // ⭐ THROUGH THE SAME FOCUS-AWARE PICK. While a storey is the subject, a double-click on a
+        // storey above or below must not open THAT storey's outline editor — the user would edit an
+        // envelope they had explicitly deselected, and the panel would still say the first one was
+        // the subject.
+        const picked = pick(ev);
         if (!picked) return;
         ev.stopPropagation();
         ev.preventDefault();
         deps.onProfileEdit(picked.id);
     };
 
-    /** The pointer left the canvas entirely — no envelope is under it, so no handles. */
+    /**
+     * The pointer left the canvas entirely — no envelope is under it, so no handles.
+     * ⭐ Unless a storey is FOCUSED: the selection outlives the pointer, exactly as it does on the
+     * hover path above, or the founder would watch his selected level go dark every time he moved
+     * the mouse back to the panel that selected it.
+     */
     const onPointerLeave = (): void => {
         if (active) return;
+        const focused = focusedRecord();
+        if (focused !== null) { surface.handles?.setTarget(focused); return; }
         surface.handles?.setTarget(null);
     };
 

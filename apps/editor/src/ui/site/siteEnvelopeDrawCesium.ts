@@ -80,8 +80,11 @@ import type * as CesiumNS from 'cesium';
 import { trace } from '@opentelemetry/api';
 import type { ArcVertex2D } from '@pryzm/geometry-slab/boundary-path';
 import {
+    describeFaceRef,
     pickNearestSpaceEnvelopeFace,
     prismOfSpaceEnvelopeRecord,
+    spaceEnvelopeFaceHandles,
+    type SpaceEnvelopeFaceRef,
     type SpaceEnvelopePrism,
 } from '@pryzm/geometry-space-envelope';
 import type {
@@ -95,7 +98,14 @@ import {
     resolveSiteDrawFrame,
     type SiteDrawFrame,
 } from './siteEnvelopeDrawFrame';
-import { enuToSceneXZ } from '../geospatial/sceneEnuFrame';
+import { enuToSceneXZ, sceneXZToEnu } from '../geospatial/sceneEnuFrame';
+// §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — the storey the panel selected. Read for the AFFORDANCE
+// only: the pick restriction itself lives ONCE in the renderer-free gesture, never here (see
+// `spaceEnvelopeDragSurface.ts`'s `pick` wrapper). This file draws what that gesture will accept.
+import {
+    getSpaceEnvelopeFaceDragFocus,
+    subscribeSpaceEnvelopeFaceDragFocus,
+} from './spaceEnvelopeFaceDragFocusState';
 // ⛔ TYPE-ONLY, therefore ERASED — no runtime edge from this file to the engine, and no THREE (P2).
 // The four port shapes live once, in the renderer-free gesture; re-declaring them here would be a
 // second copy of the contract this adapter exists to satisfy (C84 EI-9).
@@ -104,12 +114,24 @@ import type {
     DraggableSpaceEnvelope,
     FacePick,
     SceneRay,
+    SpaceEnvelopeDragHandles,
     SpaceEnvelopeDragSurface,
 } from '../../engine/spaceEnvelopeDragSurface';
 
 const _tracer = trace.getTracer('pryzm.site.siteEnvelopeDrawCesium');
 
 const VIOLET_CSS = '#6600FF';
+
+/**
+ * §25.6 GESTURE 1 — the two arrow colours, COPIED FROM THE THREE GIZMO rather than re-chosen.
+ * `SpaceEnvelopeFaceGizmoBuilder.ts:65/67` owns `0x6600ff` / `0xb388ff`; the same gesture wearing
+ * two different violets on two surfaces would read as two different affordances.
+ */
+const HANDLE_CSS = VIOLET_CSS;
+const HANDLE_ACTIVE_CSS = '#b388ff';
+
+/** Arrow width in PIXELS — screen-space, so an arrow stays grabbable-looking at any zoom. */
+const HANDLE_WIDTH_PX = 9;
 
 /**
  * §ENVELOPE-DRAW-PREVIEW-LINE (L-13088) — the memo key for a picked vertex's ground height.
@@ -269,10 +291,39 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
     /** The corner dots of the settled ring, one per vertex. */
     private readonly settledPoints: CesiumNS.Entity[] = [];
 
+    // ── §25.6 GESTURE 1 — THE ARROW AFFORDANCE'S OWN ENTITIES (L-13236) ─────────────────────
+    // ⛔ POOLED AND REUSED, NEVER RE-ADDED PER FRAME, and that is not micro-optimisation. During a
+    // drag `setTarget` is called on EVERY pointer move (the handle rides the face it is pulling),
+    // and `renderSpaceEnvelopes` is ALREADY doing a full clear-and-rebuild on the same frames. Two
+    // full entity churns per pointer move is the lifecycle the THREE gizmo's header says it refused
+    // to live inside; a pool plus the signature guard below means a frame that changed nothing
+    // costs nothing, and a frame that moved the face reassigns positions on entities that already
+    // exist.
+    /** One polyline per arrow half — two per face. Reused across repaints; length is the pool. */
+    private readonly handleEntities: CesiumNS.Entity[] = [];
+    /** What the GESTURE last pointed the handles at (hover / drag), or `null`. */
+    private handleHoverTarget: DraggableSpaceEnvelope | null = null;
+    /** `describeFaceRef` of the lit face, or `null`. A key, so a re-created ref still matches. */
+    private handleActiveKey: string | null = null;
+    /** The last painted state, so an unchanged repaint is free. `''` ⇒ nothing is drawn. */
+    private handleSignature = '';
+    /** The focus channel's unsubscribe — dropped by {@link disposeFaceDragAffordance}. */
+    private unsubFocus: (() => void) | null = null;
+
     constructor(deps: SiteEnvelopeDrawCesiumDeps) {
         this.deps = deps;
         this.viewer = deps.viewer;
         this.C = deps.Cesium;
+        // ⭐ THE SELECTION MUST BE VISIBLE BEFORE THE POINTER MOVES. The gesture drives the handles
+        // from hover, which is right for discovery and useless for a SELECTION made in a panel on
+        // the other side of the screen: the founder presses *Drag face* on the Level 2 row and must
+        // see Level 2's arrows immediately, without first finding the volume with his mouse.
+        try {
+            this.unsubFocus = subscribeSpaceEnvelopeFaceDragFocus(() => { this.repaintHandles(); });
+        } catch (e) {
+            console.warn('[site][envelope-face-drag][3d] could not subscribe the per-level focus '
+                + '— the arrows will appear on hover only (non-fatal):', e);
+        }
     }
 
     /**
@@ -749,6 +800,183 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
     dragDomElement(): HTMLElement | null {
         try { return (this.viewer?.scene?.canvas as HTMLElement | undefined) ?? null; }
         catch { return null; }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐ THE OPTIONAL FIFTH PORT — §25.6 GESTURE 1, THE LITTLE ARROWS, ON CESIUM (L-13236)
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    //
+    // ⛔ THIS IS THE HALF WHOSE ABSENCE `spaceEnvelopeDragSurface.ts:41-44` PREDICTED IN ADVANCE:
+    // *"omit it and the drag works exactly as it did, and stays undiscoverable, which is a
+    // regression in reachability rather than in behaviour"*. That is precisely what shipped on this
+    // surface — a complete, correct, INVISIBLE gesture. No hover highlight, no cursor change, no
+    // arrow, and therefore no reason for any user to suspect a face could be pulled at all.
+    //
+    // ⛔ NO PLACEMENT MATHS IS DONE HERE. Every number comes from `spaceEnvelopeFaceHandles`, the
+    // same pure solver the THREE gizmo uses, so an arrow cannot point one way while the drag moves
+    // another (C84 EI-9). This file contributes exactly one thing the solver cannot: the scene → ENU
+    // → ECEF hop, and it is the SAME hop `CesiumViewport.renderSpaceEnvelopes` makes to draw the
+    // prism the arrows stand on — `sceneXZToEnu(x, z, θ)` then `Matrix4.multiplyByPoint(enu, …)`,
+    // with scene-Y lifted back onto the terrain seat. An arrow placed through a second frame
+    // construction would float beside its own face on a re-seat (§L-430).
+
+    /** The record the arrows currently belong to: what the gesture pointed at, else the FOCUS. */
+    private effectiveHandleTarget(): DraggableSpaceEnvelope | null {
+        if (this.handleHoverTarget !== null) return this.handleHoverTarget;
+        let focusId: string | null = null;
+        try { focusId = getSpaceEnvelopeFaceDragFocus()?.spaceEnvelopeId ?? null; }
+        catch { return null; }
+        if (focusId === null) return null;
+        // ⛔ LOOKED UP LAZILY IN THE ONE STORE READER THE PICK USES. The focus carries an ID and
+        // never a record (§L-545-SITE-CAPTURE), and reading it through `getEnvelopes` is what makes
+        // "the arrows stand on something that is drawn" true rather than hoped.
+        try {
+            for (const r of this.deps.getEnvelopes?.() ?? []) {
+                if (r && r.id === focusId) return r;
+            }
+        } catch { return null; }
+        return null;
+    }
+
+    /**
+     * ⭐ THE ONE PAINT. Called from the gesture (hover / drag) and from the focus channel, so both
+     * routes produce identical arrows from identical inputs.
+     *
+     * ⚠ The signature guard is what makes it safe to call on every pointer move: a frame in which
+     * nothing moved reassigns nothing.
+     */
+    private repaintHandles(): void {
+        const target = this.effectiveHandleTarget();
+        const frame = this.deps.getSceneFrame?.() ?? null;
+        const sig = target === null || frame === null
+            ? ''
+            : `${target.id}|${target.baseOffset}|${target.height}|${this.handleActiveKey ?? '-'}|`
+              + `${frame.originLat},${frame.originLon},${frame.thetaRad},${frame.baseHeightM}|`
+              + target.footprint.map((p) => `${p.x.toFixed(3)},${p.z.toFixed(3)}`).join(';');
+        if (sig === this.handleSignature) return;
+        this.handleSignature = sig;
+        if (sig === '') { this.clearHandleEntities(); return; }
+        try {
+            this.paintHandleEntities(target!, frame!);
+        } catch (e) {
+            // ⛔ AN AFFORDANCE THAT THREW MUST NOT KILL THE GESTURE. This runs inside the core's
+            // `pointermove` handler; an exception here would remove the frame and leave the face
+            // stuck under a pointer that is still moving. The drag keeps working WITHOUT arrows,
+            // which is the state this surface shipped in and is strictly better than no drag.
+            this.handleSignature = '';
+            this.clearHandleEntities();
+            console.warn('[site][envelope-face-drag][3d] the face arrows could not be drawn; the '
+                + 'drag itself is unaffected (non-fatal):', e);
+        }
+    }
+
+    /** Build (or re-point) one polyline per arrow half. ⛔ Pool reuse — see the field's note. */
+    private paintHandleEntities(target: DraggableSpaceEnvelope, frame: {
+        readonly originLat: number; readonly originLon: number;
+        readonly thetaRad: number; readonly baseHeightM: number;
+    }): void {
+        const C = this.C;
+        const viewer = this.viewer;
+        if (!viewer) { this.clearHandleEntities(); return; }
+        const enu = C.Transforms.eastNorthUpToFixedFrame(
+            C.Cartesian3.fromDegrees(frame.originLon, frame.originLat, 0),
+        );
+        // The EXACT inverse of `rayInSceneFrame`'s conversion, and the exact forward of
+        // `renderSpaceEnvelopes`'s: θ on the plan pair, the terrain seat on the height.
+        const toCartesian = (p: { x: number; y: number; z: number }): CesiumNS.Cartesian3 => {
+            const { east, north } = sceneXZToEnu(p.x, p.z, frame.thetaRad);
+            return C.Matrix4.multiplyByPoint(
+                enu, new C.Cartesian3(east, north, p.y + frame.baseHeightM), new C.Cartesian3(),
+            );
+        };
+        const handles = spaceEnvelopeFaceHandles(prismOfSpaceEnvelopeRecord(target));
+        const segments: { positions: CesiumNS.Cartesian3[]; active: boolean }[] = [];
+        for (const h of handles) {
+            const active = this.handleActiveKey !== null && this.handleActiveKey === h.key;
+            const out = { x: h.anchor.x + h.axis.x * h.halfLengthM,
+                y: h.anchor.y + h.axis.y * h.halfLengthM,
+                z: h.anchor.z + h.axis.z * h.halfLengthM };
+            const inn = { x: h.anchor.x - h.axis.x * h.halfLengthM,
+                y: h.anchor.y - h.axis.y * h.halfLengthM,
+                z: h.anchor.z - h.axis.z * h.halfLengthM };
+            // ⭐ TWO ARROWS, NOT ONE. The founder's gesture is bidirectional — a face is pushed OUT
+            // and pulled IN along the same normal — and a single-headed arrow would state half of
+            // that. Both are drawn from the anchor outwards so each carries its own head.
+            const centre = { x: h.anchor.x, y: h.anchor.y, z: h.anchor.z };
+            segments.push({ positions: [toCartesian(centre), toCartesian(out)], active });
+            segments.push({ positions: [toCartesian(centre), toCartesian(inn)], active });
+        }
+        for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i]!;
+            const colour = C.Color.fromCssColorString(seg.active ? HANDLE_ACTIVE_CSS : HANDLE_CSS);
+            const existing = this.handleEntities[i];
+            if (existing?.polyline) {
+                existing.polyline.positions = new C.ConstantProperty(seg.positions);
+                existing.polyline.material = new C.PolylineArrowMaterialProperty(colour);
+                existing.show = true;
+                continue;
+            }
+            this.handleEntities.push(viewer.entities.add({
+                polyline: {
+                    positions: seg.positions,
+                    width: HANDLE_WIDTH_PX,
+                    material: new C.PolylineArrowMaterialProperty(colour),
+                    // ⛔ STRAIGHT, NOT GEODESIC. At a few metres a geodesic arc would be drawn
+                    // clamped to the ellipsoid and the arrow would lie on the ground instead of
+                    // standing off the face it belongs to.
+                    arcType: C.ArcType.NONE,
+                    // The arrows are the AFFORDANCE: they must be findable through the translucent
+                    // storey above them, or a stacked envelope hides its own controls.
+                    depthFailMaterial: new C.PolylineArrowMaterialProperty(colour.withAlpha(0.45)),
+                },
+            }));
+        }
+        for (let i = segments.length; i < this.handleEntities.length; i++) {
+            const e = this.handleEntities[i];
+            if (e) e.show = false;
+        }
+        viewer.scene?.requestRender?.();
+    }
+
+    /** Remove every arrow entity. Idempotent, never throws. */
+    private clearHandleEntities(): void {
+        const viewer = this.viewer;
+        for (const e of this.handleEntities) {
+            try { viewer?.entities.remove(e); } catch { /* already gone */ }
+        }
+        this.handleEntities.length = 0;
+        try { viewer?.scene?.requestRender?.(); } catch { /* torn down */ }
+    }
+
+    /**
+     * ⭐ THE PORT. The gesture owns hover and drag; this object is the surface's answer to it.
+     * ⚠ Arrow functions, so `this` is the adapter however the core destructures the port.
+     */
+    readonly handles: SpaceEnvelopeDragHandles = {
+        targetId: (): string | null => this.effectiveHandleTarget()?.id ?? null,
+        setTarget: (record: DraggableSpaceEnvelope | null): void => {
+            this.handleHoverTarget = record;
+            if (record === null) this.handleActiveKey = null;
+            this.repaintHandles();
+        },
+        setActiveFace: (face: SpaceEnvelopeFaceRef | null): void => {
+            this.handleActiveKey = face === null ? null : describeFaceRef(face);
+            this.repaintHandles();
+        },
+    };
+
+    /**
+     * Drop the arrow entities and the focus subscription. ⛔ A host that recreates this adapter
+     * MUST call it, or the previous adapter keeps repainting arrows into a viewer it no longer
+     * owns every time the founder selects a storey.
+     */
+    disposeFaceDragAffordance(): void {
+        try { this.unsubFocus?.(); } catch { /* mid-teardown */ }
+        this.unsubFocus = null;
+        this.handleHoverTarget = null;
+        this.handleActiveKey = null;
+        this.handleSignature = '';
+        this.clearHandleEntities();
     }
 
     // ── ARM / DISARM ────────────────────────────────────────────────────────────────────────

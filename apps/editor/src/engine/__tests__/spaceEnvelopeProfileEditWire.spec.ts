@@ -108,8 +108,15 @@ describe('(3) the GESTURE exists — and is cleaned up', () => {
 
     it('the double-click resolves through the SAME pick the drag uses', () => {
         // Two picks would be two answers to "which envelope is under the pointer?".
+        //
+        // ⚠ REPOINTED 2026-09-07 (§ENVELOPE-FACE-DRAG-PER-LEVEL · L-13236). The three consumers —
+        // drag start, hover and this double-click — now share ONE `pick(ev)` wrapper inside the
+        // core, which applies the per-storey focus restriction. The claim is UNCHANGED and in fact
+        // strengthened: there is exactly ONE `surface.pickFace` call in the whole file, so the
+        // three cannot resolve differently, and none of them can reach past the focus.
         const dblBody = core.slice(core.indexOf('const onDoubleClick'));
-        expect(dblBody).toMatch(/surface\.pickFace\(ev\)/);
+        expect(dblBody).toMatch(/= pick\(ev\)/);
+        expect((core.match(/surface\.pickFace\(/g) ?? [])).toHaveLength(1);
         // ⭐ AND THERE IS EXACTLY ONE PICK IMPLEMENTATION ON THE THREE SURFACE. This is the
         // assertion the port extraction makes possible and the old one could not express:
         // the core cannot raycast at all, so hover, drag-start and double-click physically

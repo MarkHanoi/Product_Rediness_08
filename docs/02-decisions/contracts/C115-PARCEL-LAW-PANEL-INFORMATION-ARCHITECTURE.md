@@ -1297,6 +1297,96 @@ user can add rooms but not relationships (OPEN DEFECT D-9).
 
 ---
 
+### §8.1 — ⭐ STAGE 05 BECOMES QUESTION **4** OF THE LADDER, AND IT IS DISCREET WHEN EMPTY
+
+> ⭐ **SHIPPED 2026-09-07 — lane SECTION-4-ROOMS, row `L-13237`.** Founder, verbatim:
+> *"THEN THE IMAGE 3 AND IMAGE 4 — THE ROOMS SHOULD BE THE NEW SECTION 4 — BUT MAKE IT SMALLER AND
+> MORE DISCREET — BOTH THE ROOM GRAPH AND THE 'ROOMS PER LEVEL' SECTION — SLIGHTLY SMALLER."*
+> This section is the split `C115-06` demanded and the discretion rules that bound it.
+
+`C115-170` Stage 05 **MUST** be its own question group, built from `buildQuestionGroup` —
+**the same primitive as ①②③**, never a lookalike. It ships at **ordinal 4**, its question is
+`C115-05`'s stage-05 question verbatim (*"What can I fit inside it?"*), and it opens **closed**
+for §26.5's stated reason: a cold arrival has declared no rooms.
+
+⚠ **THE ORDINAL DIVERGES FROM `C115-05`'s STAGE ORDER, AND THAT IS RECORDED RATHER THAN HIDDEN.**
+`C115-05` orders **04 FEASIBILITY** then **05 PROGRAMME**. The shipped group that now sits at
+ordinal **5** (`allowance`, *"How much of my allowance have I used?"*) is a **precursor** of stage
+04, not that stage: §7 says the one feasibility table *"REPLACES the current duplication between
+Designed vs permitted, How much allowance have I used?, Live quantities"*, and that table is not
+built. The founder asked for rooms at **4**, which is also the only option that moves **no content
+at all** — the surface keeps the DOM position it already occupied inside question 3.
+`C115-171` When §7's single feasibility table is built it will land **after** PROGRAMME on the
+shipped ladder, which contradicts `C115-05`'s order. That PR **MUST** either re-order the two
+groups or amend the `C115-05` table — it **MUST NOT** ship silently against it. `L-13237` holds
+this open. ⛔ **This clause does not itself amend `C115-05`;** the stage table is §1 and needs the
+founder's ruling, not a lane's.
+
+`C115-172` `C115-73` requires the stage to open with a **Programme summary**, and the panel has
+never had one — it opens with the room library. The summary **MUST** be supplied by the question
+group's **digest**, mirrored through a stable selector on the line `renderList` already prints
+(`ROOM_PROGRAMME_SUMMARY_TESTID`). ⛔ **It MUST NOT be a second count and MUST NOT be a new block:**
+a summary block above the library would grow the surface the founder asked to shrink and would be
+a second place for the room count to be wrong (C19 §5.6 clause 1). The digest's **confidence** half
+carries `C115-77`'s session-only asymmetry — *"declared by you · N plugged · this session only"* —
+because C58 §1.2 makes a figure's standing part of the figure, and a stage promoted onto the ladder
+presents the programme as project state.
+
+#### §8.1.1 — WHAT "SMALLER AND MORE DISCREET" MAY AND MAY NOT BUY
+
+`C115-173` **The graph canvas MUST be height-arm'd, not shrunk in place.** With no rooms declared
+it renders as a **compact drop rail** with a **stated height**; with one or more rooms it returns to
+the full `300 × 190` box with **no height attribute**. The measurement that justifies this is
+recorded rather than asserted: the `<svg>` declares a `viewBox` and `width:100%` and **no height**,
+so a browser sizes it by intrinsic ratio — `190/300 = 0.633 ×` the content width, roughly **250 px
+of blank card carrying one 50-character sentence** in a ~400 px panel.
+⛔ **The compaction is bound by `C115-72` and `C115-74`:** it applies to the **empty branch only**,
+the populated path is untouched (`layoutND` is still called with `[W - 40, H - 40]`), and the rail
+**remains a drop target at any height** — behaviour 5 (*drop a library chip onto the graph*) may not
+be traded for pixels. The arm that ran **MUST** be stamped machine-readably, because happy-dom has
+no layout engine and *"the empty graph got smaller"* is otherwise unfalsifiable.
+⛔ **The empty-state sentence — *"No rooms yet — drag one in, or click a chip above."* — MUST
+survive inside the rail.** It is a named absence (§4.4 clause 1) **and** the only place the panel
+states that a chip CLICK adds a room, which is the sole non-pointer route in while `C115-78` / D-9
+stands (§4.4 clause 4).
+
+`C115-174` ⛔ **THE REDUCTION MUST NOT BE TAKEN FROM THE TYPE SCALE.** The surface is already at
+9–11.5 px and §4.3 (`C115-36`/`C115-37`) makes weight and size part of the honesty vocabulary — an
+unknown ceiling **MUST NOT** be de-weighted. It is taken from **collapse** (the group's own fold)
+and from **whitespace** (label rhythm and note gutters). Nothing a reader can read gets smaller;
+the gaps between the things they read do.
+
+`C115-175` **`Rooms per level` MUST compress a storey that holds no rooms to ONE line** — the same
+label, the same envelope sentence in the same colour, the same absence sentence, with no card
+chrome. The five bordered three-line cards the founder photographed each carry a **real** fact (the
+level envelope and its area), so §4.4 permits **compression only, never withholding**, and
+`C115-40` still forbids withholding at row level.
+⛔ **It applies to the `one` envelope arm alone.** `rival` keeps the **full card** — a warning that
+two envelopes contend for one storey is not a thing to make discreet (§4.4 clause 3) — and `none` /
+`unreadable` cannot occur on a 0-room storey at all, because `groupRoomsPerLevel` skips a storey
+with neither rooms nor an envelope. All **four** arms survive (`C115-76`); the arm that ran **MUST**
+be stamped so a spec proves which one did rather than inferring it from text.
+⛔ **Exactly one datum may be dropped, and it is named:** the head's literal `"0 rooms"` chip, which
+is the same datum as *"No rooms on this storey yet."* — one spelling of zero, not two. Nothing else.
+
+`C115-176` A PR taking this section **MUST** prove `C115-74`'s seven behaviours and the compaction's
+two states **by exercising them in a real DOM**, not by assertion: `AC-4` (*0 graph functionality
+removed*) is not satisfied by a comment. ⛔ **The proof MUST drive the transition with a real
+gesture** — a drop and a chip click — because a spec that reads the arm attribute after setting the
+model directly would pass with the drop target removed.
+
+> ⚠ **FOUND WHILE PROVING IT, AND IT WAS NOT A REGRESSION OF THIS PASS — `L-13238`.**
+> `makeDropTarget` is applied to **four nested nodes** (the graph SVG, the programme list, the plan
+> preview and the panel **root**), `drop` bubbles, and `acceptDrop` did not stop it — so a chip
+> released on any of the inner three ran the handler **twice** and added **TWO rooms** with two undo
+> steps behind them. Every earlier spec dropped on the **root**, where the bubble has nowhere left
+> to go, which is why it stood. Fixed by stopping propagation **only after the payload is
+> recognised** — an unrecognised drop must keep bubbling. ⭐ **The lesson is that the first spec to
+> use an inner target found it:** *"drop a chip on the graph"* had been asserted only at the one
+> position where the defect is invisible.
+
+---
+
 ## §9 — STAGE 06: COST
 
 > ⭐ **SHIPPED 2026-09-07 — lane COST-ONE-PLACE, row `L-13145`. THIS SECTION'S DUPLICATION IS

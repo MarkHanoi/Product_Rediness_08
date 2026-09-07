@@ -104,6 +104,17 @@ export interface SpaceEnvelopeRenderDeps {
      */
     readonly onProfileEdit?: (spaceEnvelopeId: string) => void;
     /**
+     * ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (lane FACE-DRAG-BUTTON, L-13236) — the storey the Parcel Law
+     * panel selected with *Drag face*, read lazily on every pick.
+     *
+     * ⛔ A DEP RATHER THAN A MODULE IMPORT, and that is the point: the focus slot is a UI session
+     * module (`ui/site/spaceEnvelopeFaceDragFocusState.ts`) and this file is the renderer's
+     * attachment. `initTools` owns the composition and passes it, exactly as it passes the profile
+     * editor's factory. ⛔ Omit it and the BIM viewport behaves EXACTLY as before — every envelope
+     * grabbable — because a focus RESTRICTS and never enables.
+     */
+    readonly readFaceDragFocus?: () => { readonly spaceEnvelopeId: string } | null;
+    /**
      * ⭐ §ENVELOPE-DRAG-CONSEQUENCE (lane FACE-DRAG-2) — called ONCE after the single
      * `spaceEnvelope.moveFace` dispatch, with BOTH rings (ADDENDUM §D). Forwarded straight to
      * the gesture; nothing here computes it.
@@ -230,6 +241,9 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
             // here: the controller already holds the pick, and a second listener on the same
             // canvas would race it for the same event.
             ...(deps.onProfileEdit ? { onProfileEdit: deps.onProfileEdit } : {}),
+            // §ENVELOPE-FACE-DRAG-PER-LEVEL — forwarded to the ONE focus wrapper in the gesture, so
+            // *Drag face* means the same thing on this surface as it does on the 3-D Site.
+            ...(deps.readFaceDragFocus ? { readFocus: deps.readFaceDragFocus } : {}),
             // §ENVELOPE-DRAG-CONSEQUENCE — the derived-geometry hook (ADDENDUM §D). Named for the
             // surface it ran on so a consumer can tell a BIM-canvas drag from a 3-D Site one.
             ...(deps.onFaceMoveCommitted ? { onCommitted: deps.onFaceMoveCommitted } : {}),
