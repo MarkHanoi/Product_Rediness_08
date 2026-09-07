@@ -160,7 +160,8 @@
 // location-step:open → geocode:start/end → context-warm:start/done → flight:parcel-arrival →
 // reveal:content-ready → reveal:flight-settled → reveal:split-mounted → parcel:selected →
 // parcel:committed →
-// envelope:dispatched → enter-canvas. ⭐ A run that skips a mark is itself a finding — say which
+// envelope:dispatched → enter-canvas:requested → enter-canvas:bim-view → enter-canvas:split →
+// enter-canvas. ⭐ A run that skips a mark is itself a finding — say which
 // one, do not average over it.
 //
 // ⭐ ADDED 2026-09-06 (lane PERF-STARTUP-SELECT, §STARTUP-SELECT-IS-NOT-DWELL, L-12931) — ONE
@@ -179,6 +180,34 @@
 //     ⛔ Never quote a `parcel:committed` delta as a cost again without `parcel:selected` in the
 //     same run. The drawn-boundary arm (`SiteBoundaryDrawTool`) has no such gesture — a run that
 //     drew rather than selected legitimately skips this mark, and that absence is the reading.
+//
+// ⭐ ADDED 2026-09-07 (lane STARTUP-449, §STARTUP-ENTER-CANVAS-IS-NOT-DWELL, L-13040) — THREE
+// marks, and this is the FOURTH recurrence of the same shape, one day after the third. The
+// founder's trace read `[§STARTUP-BUDGET] enter-canvas +300855ms (t+449473ms)` — five minutes
+// on ONE phase, in a 449 s run — and the reason nobody could say what those five minutes WERE
+// is structural, not a missing measurement:
+//
+//   `enter-canvas` is marked at the BOTTOM of `enterCanvasWithSitePlan.ts:runLanding()`, and
+//   the mark before it is `envelope:dispatched(…)`. Between those two sits the site split view
+//   with the parcel + envelope cards on screen, and EVERY caller of that landing is a click:
+//   OnboardingStepController `landInCanvasWithUnderlay()` at :1287 ("Open the canvas →"),
+//   :1797 ("✓ Finish" on the plan overlay), :2367 ("Do it myself"), :3167 / :3580 (the resi /
+//   office "Not now"), plus SiteBoundaryMap2D:3751 (the map host's own Finish). So that delta
+//   was the user READING and DECIDING, indistinguishable in the table from a five-minute hang.
+//   Human dwell and machine work, the same value, for the fourth time in this file.
+//
+//   · enter-canvas:requested — the gesture. `envelope:dispatched → enter-canvas:requested` is
+//     dwell ∥ site-view work and is NOT a perf number.
+//   · enter-canvas:bim-view — after the awaited `pryzmActivateBimView('3D')` (steps 1+2:
+//     2D map teardown, GIS exit, ViewController.activate, camera restore, pipeline re-cam).
+//     ⚠ This leg had NO mark on ANY existing family: `activation:{globe|site}:*` is the CESIUM
+//     gate (`viewActivationLoading.ts` — `ViewActivationTarget = 'globe' | 'site'`), never the
+//     BIM view, so a slow 3D activation was invisible to the instrument by construction.
+//   · enter-canvas:split — after `SplitViewManager.activate()`. The remaining
+//     `enter-canvas:split → enter-canvas` is step 4 alone, the awaited zoom-to-fit (the leg
+//     that hid L-745's `t is not iterable` behind a warn line).
+//     ⛔ Never quote an `enter-canvas` delta as a cost again without `enter-canvas:requested`
+//     in the same run. Say which half you measured.
 //
 // P8: every exported function carries an OTel span.
 

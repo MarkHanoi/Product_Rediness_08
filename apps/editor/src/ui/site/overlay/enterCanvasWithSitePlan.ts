@@ -107,6 +107,17 @@ export function enterCanvasWithSitePlanUnderlay(): Promise<void> {
 async function runLanding(): Promise<void> {
     const w = window as unknown as EnterCanvasHooks;
     console.log('[site-overlay→canvas] §ENTER-CANVAS: landing — close map → exit GIS → 3D view → split (3D + plan) → frame.');
+    // §STARTUP-ENTER-CANVAS-IS-NOT-DWELL (L-13040) — THE GESTURE MARK. Until now the only mark
+    // on this transition was `enter-canvas`, emitted at the BOTTOM of this function, so its
+    // §STARTUP-BUDGET delta was measured from `envelope:dispatched(…)` — i.e. it charged the
+    // user READING the parcel/envelope cards and deciding ("Do it myself" / a typology /
+    // "✓ Finish") to a phase named after machine work. Every caller of this landing is a click
+    // (OnboardingStepController:1287/1797/2367/3167/3580 · SiteBoundaryMap2D:3751), so that
+    // delta was human dwell ∥ machine work at the SAME VALUE — the fourth recurrence of the
+    // `hub:open-clicked` / `hub:back-clicked` / `parcel:selected` shape startupBudget.ts already
+    // documents three times. Everything BEFORE this mark is dwell; everything after it is the
+    // landing's own cost, broken down by the two marks below.
+    markStartupPhase('enter-canvas:requested'); // §STARTUP-BUDGET
 
     // 1) Tear down the 2D overlay map (it is absolutely positioned over the editor #container).
     try {
@@ -127,6 +138,12 @@ async function runLanding(): Promise<void> {
         console.warn('[site-overlay→canvas] §ENTER-CANVAS: BIM view activation failed (non-fatal):', err);
         try { w.pryzmToggleGIS?.(false); } catch { /* ignore */ }
     }
+    // §STARTUP-ENTER-CANVAS-IS-NOT-DWELL (L-13040) — steps 1+2: the 2D map teardown plus the
+    // AWAITED `activateView('3D')` (GIS exit → ViewController.activate → camera restore →
+    // RenderPipelineManager.updateCamera). This is the only awaited heavy leg before the split,
+    // and it emitted no mark of its own on any target — `activation:{globe|site}:*` is the
+    // Cesium gate (viewActivationLoading.ts:96), never the BIM view.
+    markStartupPhase('enter-canvas:bim-view'); // §STARTUP-BUDGET
 
     // 3) Open the plan + 3D SPLIT view. `isActive` is a boolean getter on SplitViewManager;
     //    the split auto-opens on project load, so activating an already-open split would
@@ -137,6 +154,10 @@ async function runLanding(): Promise<void> {
     } catch (err) {
         console.warn('[site-overlay→canvas] §ENTER-CANVAS: split-view activation failed (non-fatal):', err);
     }
+    // §STARTUP-ENTER-CANVAS-IS-NOT-DWELL (L-13040) — step 3: SplitViewManager.activate() (the
+    // Canvas2D plan pane + SvpPlanToolOverlay attach). `enter-canvas:split → enter-canvas` is
+    // then step 4 alone, the awaited zoom-to-fit.
+    markStartupPhase('enter-canvas:split'); // §STARTUP-BUDGET
 
     // 4) Frame the camera on the just-placed plan.
     try {
