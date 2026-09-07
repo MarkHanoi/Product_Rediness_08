@@ -76,8 +76,16 @@ import {
     disarmEnvelopeDraw,
     getEnvelopeDrawStatus,
     subscribeEnvelopeDrawStatus,
+    setEnvelopeDrawMode,
+    subscribeEnvelopeDrawMode,
+    resolveEnvelopeDrawMode,
+    ENVELOPE_DRAW_BAR_MODES,
     ENVELOPE_DRAW_NO_SURFACE_REASON,
 } from './siteEnvelopeDrawArming';
+// §ENVELOPE-MODE-BAR (L-13152) — the ONE persistent in-viewport mode strip, reused. ⛔ Not a copy:
+// this is the shared successor to the four hand-maintained HUDs, already reused by pool, balcony and
+// boundary-line. See `ENVELOPE_DRAW_BAR_MODES` for why the pills are declared beside the mode store.
+import { DrawingModeBar } from '../DrawingModeBar';
 import {
     getDrawnEnvelopeFootprint,
     subscribeDrawnEnvelopeFootprint,
@@ -121,6 +129,13 @@ let live: {
     unsubs: readonly (() => void)[];
     /** Repaint the draw row (button pressed state + status line) from the READING. */
     paintDraw: () => void;
+    /**
+     * §ENVELOPE-MODE-BAR (L-13152) — the mode strip, up only while the draw is ARMED.
+     * ⛔ It hangs off the panel singleton so `closeSiteEnvelopeTool` takes it down with everything
+     * else. A strip that outlived its panel is L-7801's shape wearing different chrome, and
+     * `DrawingModeBar` appends to `document.body`, so nothing else would ever remove it.
+     */
+    modeBar: DrawingModeBar;
 } | null = null;
 
 /** Whether the tool panel is open right now. Surfaces paint their button's pressed state from it. */
@@ -138,6 +153,9 @@ export function closeSiteEnvelopeTool(): void {
     // FINISHED drawing survives (`disarmEnvelopeDraw` only drops the in-progress ring), so
     // re-opening the panel still finds the perimeter the user drew.
     try { disarmEnvelopeDraw(); } catch { /* a disarm must not block the close */ }
+    // §ENVELOPE-MODE-BAR — UNCONDITIONAL. `dismiss()` is idempotent, and a strip left on
+    // `document.body` after its panel is gone has no owner to remove it.
+    try { current.modeBar.dismiss(); } catch { /* a stranded strip must not block the close */ }
     for (const un of current.unsubs) {
         try { un(); } catch { /* teardown is best-effort */ }
     }
@@ -240,6 +258,44 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         /** The last refusal, held until the next arm — a refusal the user never read is a no-op. */
         let refusal: string | null = null;
 
+        // ═════════════════════════════════════════════════════════════════════════════════
+        // ⭐⭐ §ENVELOPE-MODE-BAR (L-13152) — THE PRYZM MODE STRIP, MOUNTED FOR THIS GESTURE
+        // ═════════════════════════════════════════════════════════════════════════════════
+        // The founder: *"I need the draw tool as you see on the image 4 - as we have in pryzm"*, and
+        // earlier *"i would like the panel with curved - stright line - orothogonal etc.. as we have
+        // with the slab / wall tool"*.
+        //
+        // ⛔ REUSED, NOT REBUILT. `DrawingModeBar` is the shared strip that already replaced four
+        // per-tool HUD copies and is already driven by pool, balcony and boundary-line. ⛔ AND IT IS
+        // NON-DESTRUCTIVE BY CONTRACT: `onSelect` writes the mode store and NOTHING else — no
+        // re-arm — which is why switching mode mid-draw keeps the corners already placed. That is
+        // the exact defect the component was built to remove, and `setEnvelopeDrawMode`'s own body
+        // already honours it (it drops only a half-finished loop anchor or arc midpoint).
+        const modeBar = new DrawingModeBar();
+
+        /** Raise the strip when the draw is armed, take it down when it is not. Idempotent. */
+        const paintModeBar = (): void => {
+            const armed = getEnvelopeDrawStatus().armed;
+            if (!armed) { modeBar.dismiss(); return; }
+            if (modeBar.isVisible()) { modeBar.setMode(resolveEnvelopeDrawMode()); return; }
+            modeBar.show({
+                // ⛔ THE WALL'S OWN WORD, NOT A SECOND ONE — the same note `ToolsAreaLayout` carries
+                // at its own two call sites. `.wdh-mode-lbl` uppercases it, which is why the
+                // founder's screenshot reads "MODE:".
+                label: 'Mode:',
+                modes: ENVELOPE_DRAW_BAR_MODES,
+                initialMode: resolveEnvelopeDrawMode(),
+                // ⛔ THE STORE, AND ONLY THE STORE (§05-BIM-UI-ARCHITECTURE §7.1). The gesture reads
+                // `resolveEnvelopeDrawMode()` fresh on every click, so this lands on the NEXT corner
+                // with no re-arm and no loss of the current perimeter.
+                onSelect: (id) => setEnvelopeDrawMode(id),
+                // ⚠ The wall bar's default is *"ESC to finish"*, which is WRONG here and dangerously
+                // so: on this gesture Esc CANCELS and Enter finishes. A shared component with a
+                // per-tool hint is exactly why `escHint` exists.
+                escHint: 'ENTER closes · ESC cancels',
+            });
+        };
+
         const paintDraw = (): void => {
             const status = getEnvelopeDrawStatus();
             const drawn = getDrawnEnvelopeFootprint();
@@ -289,6 +345,9 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
             drawStatus.style.borderLeft = state === 'refused' ? '2px solid #c9973a' : '';
             drawStatus.style.padding = state === 'refused' ? '4px 6px' : '';
             drawStatus.style.borderRadius = state === 'refused' ? '0 5px 5px 0' : '';
+            // §ENVELOPE-MODE-BAR — driven from the SAME reading as the button and the status line, so
+            // the strip cannot be up while the row says idle. One subscription, one repaint.
+            paintModeBar();
         };
 
         drawBtn.addEventListener('click', (ev) => {
@@ -324,8 +383,13 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         catch (e) { console.warn('[site] §ENVELOPE-DRAW status subscribe threw (non-fatal):', e); }
         try { unsubs.push(subscribeDrawnEnvelopeFootprint(() => paintDraw())); }
         catch (e) { console.warn('[site] §ENVELOPE-DRAW ring subscribe threw (non-fatal):', e); }
+        // §ENVELOPE-MODE-BAR — the THIRD channel, and it is its own: a mode can be switched from the
+        // strip's keyboard accelerator without the arm status changing at all, so the highlight would
+        // otherwise sit on the previous pill until some unrelated repaint moved it.
+        try { unsubs.push(subscribeEnvelopeDrawMode(() => paintModeBar())); }
+        catch (e) { console.warn('[site] §ENVELOPE-MODE-BAR mode subscribe threw (non-fatal):', e); }
         paintDraw();
-        live = { root, authoring, unsubs, paintDraw };
+        live = { root, authoring, unsubs, paintDraw, modeBar };
         span.setAttribute('pryzm.siteEnvelopeTool.opened', true);
         console.log(
             '[site] §ENVELOPE-TOOL-ON-THE-SITE-VIEWS panel opened over a site view — ONE command '

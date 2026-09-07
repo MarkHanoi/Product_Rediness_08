@@ -64,6 +64,11 @@ import {
 // `signedAreaAbs` (plan §7 rule 8: `SiteBoundaryDrawTool` and `SiteBoundaryMap2D` each carry one
 // already; this lane consumes the canonical body instead of adding a copy).
 import { polygonSignedAreaOrdinates } from '@pryzm/geometry-kernel';
+// §ENVELOPE-MODE-BAR (L-13152) — the wall's OWN three path constants, spread rather than retyped.
+// ⛔ The founder asked for *"the draw tool as you see on the image — as we have in pryzm"*, and
+// `boundary-line` already establishes the pattern for that claim: spread `WALL_DRAW_MODES` so
+// "same as the wall" is true BY CONSTRUCTION and cannot drift into three matching literals.
+import { WALL_DRAW_MODES, type CreationMode } from '@app/engine/views/plantools/elementCreationMatrix';
 import type { EnvelopeDrawSink, EnvelopeDrawSurface, SceneXZPoint } from './envelopeDrawSurface';
 import {
     getDrawnEnvelopeFootprint,
@@ -76,14 +81,81 @@ const _tracer = trace.getTracer('pryzm.site.siteEnvelopeDrawArming');
 
 export type { EnvelopeDrawMode } from './drawnEnvelopeFootprintState';
 
-/** Bar order. The three path constraints first, then the three closed loops — the slab strip's order. */
-export const ENVELOPE_DRAW_MODES: readonly EnvelopeDrawMode[] = Object.freeze([
-    'linear', 'ortho', 'curved', 'rectangular', 'circular', 'elliptical',
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §ENVELOPE-MODE-BAR (L-13152) — THE PILLS, AND WHY THEY ARE DECLARED HERE
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The founder, twice: *"i would like the panel with curved - stright line - orothogonal etc.. as we
+// have with the slab / wall tool in pryzm views"* and *"I need the draw tool as you see on the image
+// 4 - as we have in pryzm"*.
+//
+// ⛔ THE MODE STORE BELOW WAS BUILT AND NEVER WIRED. `setEnvelopeDrawMode` had **zero production
+// callers** — only its own spec — so the six gestures existed, `resolveEnvelopeDrawMode()` was read
+// fresh on every click exactly as designed, and the user could never reach any of them: every
+// perimeter was drawn in the `'linear'` default. That is [[authored-but-unwired-is-the-bottleneck]]
+// in its purest form, and it is why the bar was missing rather than broken.
+//
+// ⛔ THE BAR IS `DrawingModeBar`, NOT A SECOND ONE. That component is the shared successor that
+// already replaced four hand-maintained HUD copies and is already reused by pool, balcony and
+// boundary-line through `activatePlanOnlyTool`; the wall's `.wdh-bar` in the founder's screenshot is
+// its predecessor's markup and its own stylesheet. A second strip with its own key bindings and its
+// own idea of what "orthogonal" means is the rival-mechanism defect this repo keeps logging.
+//
+// ⛔ AND THE ROW IS *NOT* ADDED TO `ELEMENT_CREATION_MATRIX`. Every consumer of that table treats a
+// row as a PLAN/3-D element tool — `planAutoModeReachability`, `pointerReachesArmedHandler` and the
+// activator-coverage gates all iterate it and would report a real, permanent violation for a tool
+// that has no plan handler, no `ToolManager` key and no 3-D arm because it draws on a GLOBE. Minting
+// false violations to look tidy is the exact defect CLAUDE.md records for the layer table. The three
+// PATH constants are still shared with the wall by spreading `WALL_DRAW_MODES`; only the loop rows,
+// whose ids and keys already match every other family, are spelled here.
+export const ENVELOPE_DRAW_BAR_MODES: readonly CreationMode[] = Object.freeze([
+    ...WALL_DRAW_MODES,
+    // ⛔ SAME IDS AND SAME KEYS as the wall / slab / floor / boundary-line rows — they are
+    // `BoundaryLoopMode` from @pryzm/geometry-slab, the module that turns each into vertices, and
+    // `boundaryLoopVertices` below is the generator this gesture already calls.
+    { id: 'rectangular', key: 'Q', label: 'Rectangular', description: 'Closed perimeter from two opposite corners' },
+    { id: 'circular',    key: 'I', label: 'Circular',    description: 'Closed perimeter from centre and rim' },
+    { id: 'elliptical',  key: 'E', label: 'Elliptical',  description: 'Closed perimeter from centre and bounding corner' },
+    // ⭐ PRESENT, DISABLED, AND IT SAYS WHY — the founder's own rule for this bar. "By Slab" is a
+    // real wall mode and it is INAPPLICABLE HERE, which is a different fact from "not implemented":
+    // this gesture runs on the 2-D Site Map and the 3-D globe, where there is no slab to pick, and
+    // `EnvelopeDrawSurface` has no slab picker to give it one. Omitting it would make the bar read as
+    // a smaller, different tool than the one he already knows; rendering it live would be a dead
+    // click. ⚠ If a site view ever gains a slab pick, this string is what has to go — and a grep
+    // for `unavailable` finds it.
+    {
+        id: 'byslab', key: 'S', label: 'By Slab', isAction: true,
+        description: 'Create the perimeter from a selected slab',
+        unavailable:
+            'Not on a site view — “By Slab” traces a slab you have selected in the BIM model, and the '
+            + 'envelope perimeter is drawn on the map or the globe, where there is no slab to pick. Draw '
+            + 'the corners, or use one of the closed shapes.',
+    },
 ]);
+
+/**
+ * Bar order. The three path constraints first, then the three closed loops — the slab strip's order.
+ *
+ * ⛔ DERIVED FROM THE PILLS, NEVER TYPED TWICE (C84 EI-9). This list is what the GESTURE accepts and
+ * the list above is what the USER is offered; two literals would let the bar offer a seventh pill
+ * that `setEnvelopeDrawMode` silently ignores, which is a dead control that looks alive. Anything the
+ * bar declares UNAVAILABLE is not a gesture mode and is filtered out here by the same field the bar
+ * greys it with, so the two cannot disagree about which is which.
+ */
+export const ENVELOPE_DRAW_MODES: readonly EnvelopeDrawMode[] = Object.freeze(
+    ENVELOPE_DRAW_BAR_MODES
+        .filter((m) => m.unavailable === undefined)
+        .map((m) => m.id)
+        .filter((id): id is EnvelopeDrawMode => isEnvelopeDrawModeId(id)),
+);
+
+/** The narrowing `ENVELOPE_DRAW_MODES` uses, declared before it so the freeze above can call it. */
+function isEnvelopeDrawModeId(v: unknown): v is EnvelopeDrawMode {
+    return isBoundaryDrawMode(v) || isBoundaryLoopMode(v);
+}
 
 /** Narrows an arbitrary picker string to one of the six. Spelled by the two existing guards. */
 export function isEnvelopeDrawMode(v: unknown): v is EnvelopeDrawMode {
-    return isBoundaryDrawMode(v) || isBoundaryLoopMode(v);
+    return isEnvelopeDrawModeId(v);
 }
 
 // ── THE MODE STORE ──────────────────────────────────────────────────────────────────────────────

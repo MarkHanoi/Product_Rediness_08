@@ -93,6 +93,23 @@ export interface CreationMode {
      * (wall's "By Slab"). Actions never take the active-pill highlight.
      */
     readonly isAction?: boolean;
+    /**
+     * ⭐ §ENVELOPE-MODE-BAR (L-13152) — WHY THIS MODE CANNOT BE PICKED **HERE**, in the words a
+     * user can act on. `undefined` means it can.
+     *
+     * ⛔ IT IS PER-USE, NOT PER-MODE, AND THAT IS THE WHOLE POINT. "By Slab" is a first-class
+     * mode of the WALL tool and is meaningless for an envelope perimeter drawn on a globe — the
+     * mode is not broken, it is inapplicable in one place. A boolean on the mode itself would
+     * make it unavailable everywhere.
+     *
+     * ⛔ AND THE ALTERNATIVE — JUST LEAVING IT OUT — IS THE THING THIS FIELD EXISTS TO REFUSE.
+     * The founder's own rule for the envelope bar: *a mode that cannot apply must be visibly
+     * unavailable WITH A REASON — never silently absent, and never present-but-inert.* Silent
+     * absence makes the bar look like a different, poorer tool than the one he already knows;
+     * present-but-inert is a dead click with a label on it. `DrawingModeBar` renders this as a
+     * disabled pill carrying the sentence, and its accelerator does nothing.
+     */
+    readonly unavailable?: string;
 }
 
 export interface ElementCreationCapability {

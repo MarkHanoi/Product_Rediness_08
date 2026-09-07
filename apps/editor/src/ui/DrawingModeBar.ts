@@ -82,6 +82,9 @@ export class DrawingModeBar {
     private keyHandler: ((e: KeyboardEvent) => void) | null = null;
     private opts: DrawingModeBarOptions | null = null;
 
+    /** The bar element, for a caller that needs to place it. `null` while dismissed. */
+    element(): HTMLElement | null { return this.el; }
+
     show(opts: DrawingModeBarOptions): void {
         // ⛔ §AUTHORING-CONTEXT-GATE (L-5103) — the founder's second sentence:
         // *"make sure the stray mode strip cannot render in that context at
@@ -134,6 +137,26 @@ export class DrawingModeBar {
             // The launcher menu's description, preserved as the tooltip.
             btn.title = `${mode.label} — ${mode.description} (${mode.key})`;
 
+            // ⭐ §ENVELOPE-MODE-BAR (L-13152) — A MODE THAT CANNOT APPLY **HERE** IS SHOWN AND SAYS WHY.
+            // ⛔ The two alternatives are both worse. Omitting it makes the bar look like a smaller,
+            // different tool than the one the user already knows the shape of — they hunt for a pill
+            // that is simply gone. Rendering it live makes it a dead click with a label on it. This
+            // third arm keeps the bar's SHAPE recognisable and puts the reason where the pointer
+            // already is (`CreationMode.unavailable`'s own doc).
+            if (mode.unavailable) {
+                btn.disabled = true;
+                btn.dataset.unavailable = '1';
+                btn.classList.add('wdh-btn--unavailable');
+                btn.setAttribute('aria-disabled', 'true');
+                // ⚠ The REASON replaces the description, it does not follow it: the user hovering a
+                // greyed pill is asking one question, and answering a different one first buries it.
+                btn.title = `${mode.label} — ${mode.unavailable}`;
+                // Inline, because `.wdh-*` is a SHARED stylesheet (§05-BIM-UI-ARCHITECTURE §2.1: this
+                // component adds no CSS) and a new class there would repaint five other bars.
+                btn.style.opacity = '0.42';
+                btn.style.cursor = 'not-allowed';
+            }
+
             const key = document.createElement('span');
             key.className = 'wdh-key';
             key.textContent = mode.key;
@@ -144,7 +167,7 @@ export class DrawingModeBar {
             lbl.textContent = mode.label;
             btn.appendChild(lbl);
 
-            btn.addEventListener('click', () => this._pick(mode));
+            if (!mode.unavailable) btn.addEventListener('click', () => this._pick(mode));
             bar.appendChild(btn);
         }
 
@@ -162,6 +185,10 @@ export class DrawingModeBar {
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
             const hit = this.opts?.modes.find(m => m.key.toUpperCase() === e.key.toUpperCase());
             if (!hit) return;
+            // §ENVELOPE-MODE-BAR — an unavailable mode's accelerator must not fire either, and it
+            // must not SWALLOW the key: returning before `stopImmediatePropagation` leaves the key
+            // free for whatever else is listening, which is what "not offered here" should mean.
+            if (hit.unavailable) return;
             // Bubbling phase + stopImmediatePropagation, matching WallDrawingHUD: the
             // tool's own capture-phase handlers run first, then this claims the key so
             // it cannot also reach a focused toolbar button (§FIX-COMMIT-STEALS-VIEW).
