@@ -2,6 +2,21 @@
 
 **Headline: LOD 1 now → LOD 2 (LiDAR HD) · real-height coverage ~88% · VERIFIED**
 
+> ⚠ **Corrected 2026-09-07 (L-13061) — the headline above is the SOURCE's coverage, not the PRODUCT's.**
+> *~88% / VERIFIED* is a measurement of what **IGN publishes** (BD TOPO `hauteur`, LiDAR HD dalles) and it
+> stands. It is **not** what PRYZM ships. Two denominators, both read on 2026-09-07:
+>
+> | denominator | reading |
+> |---|---|
+> | IGN publishes a measured height (this document's subject) | ~88% of buildings, VERIFIED |
+> | PRYZM's LIVE France tiles carry a measured height | **0%** — live `regions.france` is the 2026-09-03 bake, `heightJoin: null` |
+> | PRYZM's STAGED France tiles (run 34040680013, unpublished) | 660,680 of 1,266,716 held footprints, swathes 1–6 of 33 |
+>
+> The join that turns the first row into the second is built and national (`§MNH-FR-NATIONAL-SWEEP`,
+> `tools/context-bake/bake.mjs`); what separates them is a publish and a per-run sweep budget. Read
+> **ISSUE-LOG L-13060** for the chain and the live manifest for the current state — never this headline.
+
+
 > **LOD-200 context-building rate** — the fraction of the existing buildings around a plot for
 > which we can obtain a faithful **≥ LOD-150 physical model** — **real parcel geometry + real
 > MEASURED per-building height + ≥1 extra attribute (roof form / storeys / use / year)** — from an
