@@ -101,6 +101,7 @@ import { ClearProjectCommand } from '@pryzm/command-registry';
 // empty project. Previously it was `await import()`-ed on EVERY load, fetching a
 // separate lazy chunk and adding an await yield to the hydrate critical path.
 import { runViewTemplateToIntentMigration } from './migrations/ViewTemplateToIntentMigration';
+import type { WallDerivation } from '@pryzm/geometry-wall';
 import { doorStore, doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowStore, windowSystemTypeStore } from '@pryzm/geometry-window';
 import { AddLevelCommand } from '@pryzm/command-registry';
@@ -1145,6 +1146,21 @@ export class ProjectLoader {
                     joinIntent: (wall as {
                         joinIntent?: { start?: 'butt' | 'through'; end?: 'butt' | 'through' };
                     }).joinIntent,
+                    // §WALL-PROVENANCE (L-13117) — restore WHICH ELEMENT THIS WALL CAME OUT OF.
+                    // THE LOAD HALF, and the half most easily forgotten: this loop rebuilds every
+                    // wall through `CreateWallCommand` and passes a HAND-WRITTEN option list, so a
+                    // field the serialiser writes perfectly still dies one frame after the loader
+                    // reads it unless it is named here too (C84 EI-6; `baseLine[i].y` is the
+                    // standing proof).
+                    //
+                    // ⛔ ABSENT IS PASSED THROUGH AS ABSENT, NEVER AS `[]`. A pre-L-13117 project
+                    // has no `derivedFrom` on any wall, and that means PRYZM DOES NOT KNOW where
+                    // those walls came from — it does NOT mean they came from nowhere. Defaulting
+                    // to an empty array here would turn every legacy wall into a positive claim
+                    // that it belongs to no envelope, which is the §CONTEXT-DATA-HONESTY defect
+                    // (failure and empty are the same value) at the exact hop where it is
+                    // cheapest to introduce and hardest to see afterwards.
+                    derivedFrom: (wall as { derivedFrom?: WallDerivation[] }).derivedFrom,
                 });
                 const r = exec(cmd);
                 if (r.success) {

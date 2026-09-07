@@ -686,6 +686,24 @@ export class ImportProjectCommand implements Command {
                     wallProfile:   wall.wallProfile,
                     layers:        wall.layers,
                     sideFinishes:  wall.sideFinishes,
+                    // §WALL-PROVENANCE (L-13117) — WHICH ELEMENT THIS WALL CAME OUT OF,
+                    // on the DEFAULT-ON restore path.
+                    //
+                    // ⭐ NAMED HERE IN THE SAME COMMIT AS THE SERIALISER, deliberately: the
+                    // four fields above are the standing record of what happens when it is
+                    // not — each was added to `serializeWall()` by a lane that proved its fix
+                    // against the LEGACY loader only, and each then died on the path that
+                    // actually ships. A lineage that survived the save and not the load would
+                    // make an envelope face-drag move the building in the session it was
+                    // generated in and move nothing after the next reopen, which is a worse
+                    // failure than never having shipped it: it is intermittent by reload.
+                    //
+                    // ⛔ `undefined` is forwarded AS `undefined`. Absent means the wall's
+                    // origin is NOT RECORDED (a pre-L-13117 project, or an uninstrumented
+                    // producer); `[]` would be the positive claim that a producer looked and
+                    // found no source. Substituting one for the other here is the
+                    // §CONTEXT-DATA-HONESTY defect at its cheapest hop.
+                    derivedFrom:   wall.derivedFrom,
                 });
                 const r = runSub(cmd);
                 if (r.success) {

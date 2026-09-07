@@ -36,6 +36,13 @@ export * from './ElementConfidence.js';
 // covered one of the three vocabularies, and was typed `Record<string, …>` — so a
 // member added upstream compiled cleanly and silently meant nothing.
 export * from './DetectionMethodOrigin.js';
+// §WALL-PROVENANCE (L-13117) — the ELEMENT-LINEAGE half of provenance: which element this
+// element came out of, and which edge of it. Filed here beside `ValueOrigin` because it is the
+// same subject, and kept SEPARATE from it because C75 §1.2 forbids merging axes: `ValueOrigin`
+// says what KIND of thing produced a value and carries no element id at all, which is the
+// measured gap L-13117 names. See the file header for why C23's `ProvenanceEdge` cannot serve
+// (its `fromArtefactId` is regex-pinned to an AI artefact id).
+export * from './ElementDerivation.js';
 
 export * from './AIArtefact.js';
 export * from './ProvenanceEdge.js';

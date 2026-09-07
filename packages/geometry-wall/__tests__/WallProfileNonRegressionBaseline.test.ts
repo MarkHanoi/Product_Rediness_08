@@ -892,6 +892,14 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
             // false after the next reload — the same false success with a delay fuse.
             'sideFinishes',
             'joinIntent',
+            // §WALL-PROVENANCE (L-13117) — WHICH ELEMENT THIS WALL CAME OUT OF. Same
+            // C84 EI-6 clause as the three fields above and the strongest instance of it:
+            // no predicate over the saved geometry can reconstruct the claim, because
+            // "this wall lies on that edge" and "this wall was generated as that edge"
+            // are different statements and only the second one licenses a cascade to move
+            // it. Dropped on save, the envelope→wall relationship would work for the
+            // session it was authored in and silently not afterwards.
+            'derivedFrom',
             'properties', 'ifcData', 'metadata', 'loadBearing',
         ]);
     });
@@ -910,6 +918,7 @@ describe('§WALL-PROFILE §(B) — the three hand-written whitelists', () => {
             'sideFinishes',  // §FIX-SIDEFINISH-PERSISTS (L-999) — the LOAD half for the finish
             'wallProfile',   // §WALL-PROFILE Slice 1 — the LOAD half, the one most easily missed
             'systemTypeId', 'layers', 'joinIntent',
+            'derivedFrom',   // §WALL-PROVENANCE (L-13117) — the LOAD half for the lineage
         ]);
     });
 

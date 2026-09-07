@@ -60,7 +60,7 @@ const SERIALISED_WALL_FIELDS = [
     'id', 'type', 'levelId', 'parentId', 'baseLine', 'height', 'thickness',
     'baseOffset', 'materialId', 'materialColor', 'openings', 'childrenIds',
     'layers', 'systemTypeId', 'curve', 'rakeAngleDeg', 'wallProfile',
-    'sideFinishes', 'joinIntent',
+    'sideFinishes', 'joinIntent', 'derivedFrom',
     'properties', 'ifcData', 'metadata', 'loadBearing',
 ] as const;
 

@@ -33,7 +33,7 @@
  */
 
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
-import { WallData, WallCurve, WallLayer, WallBaseline, WallJoinIntent } from '@pryzm/geometry-wall';
+import { WallData, WallCurve, WallLayer, WallBaseline, WallJoinIntent, WallDerivation } from '@pryzm/geometry-wall';
 // §C83-S1 — the wall-side occupancy predicate. Already a dependency of this
 // package (`CreateWallOpeningCommand` imports `wallOccupancyStore` from it), so
 // this adds no edge and no layer violation.
@@ -188,6 +188,30 @@ export class CreateWallCommand implements Command {
              * named on both sides. C84 EI-6.
              */
             sideFinishes?: Record<string, unknown>,
+            /**
+             * §WALL-PROVENANCE (L-13117) — WHICH ELEMENT THIS WALL CAME OUT OF, on the
+             * RELOAD path.
+             *
+             * Supplied by the project loaders, which rebuild every persisted wall through
+             * this command and pass a hand-written option list. Threaded here for exactly
+             * the reason `joinIntent`, `wallProfile` and `sideFinishes` are: the `wallData`
+             * literal below is a WHITELIST, so a field the serialiser writes correctly still
+             * dies one frame after the loader reads it unless it is named on BOTH sides
+             * (C84 EI-6).
+             *
+             * ⛔ ABSENT MUST STAY ABSENT. `undefined` means the wall's origin is NOT
+             * RECORDED — a pre-L-13117 project, or a producer that does not stamp — and it
+             * is NOT the claim that the wall came from nowhere. An empty array IS that
+             * claim, and only a producer may make it. Nothing on this path may substitute
+             * one for the other (§CONTEXT-DATA-HONESTY).
+             *
+             * Unlike `layers`, there is NO catalogue to backfill from and NO derivation to
+             * fall back on: the fact recorded is historical (*at the moment this wall was
+             * minted it was edge 3 of that envelope*) and no predicate over the saved
+             * geometry can reconstruct it — proximity to an edge is a different claim
+             * entirely. Same class as `joinIntent`: carried, or gone forever.
+             */
+            derivedFrom?: WallDerivation[],
         }
     ) {
         this.targetIds = [wallId];
@@ -417,6 +441,13 @@ export class CreateWallCommand implements Command {
             // materialColor, layers and curve elsewhere in this pipeline — so the field has
             // to be named here or the loader's value dies one frame after it is read.
             joinIntent: this.wallData.joinIntent,
+
+            // §WALL-PROVENANCE (L-13117) — forward the PERSISTED lineage. Same whitelist
+            // rule as `joinIntent` directly above: named here or the loader's value dies one
+            // frame after it is read. `undefined` for every interactive create, which is the
+            // honest reading — a hand-drawn wall has no source element, and "not recorded"
+            // is what this field says about it until a producer stamps otherwise.
+            derivedFrom: this.wallData.derivedFrom,
 
             // §FIX-SIDEFINISH-PERSISTS (L-999) — the per-side finish, restored from the
             // snapshot. `undefined` for every interactive create, which is byte-identical

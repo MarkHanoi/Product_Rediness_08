@@ -116,6 +116,19 @@ export class MirrorElementCommand implements Command {
         // land the wall against entirely different neighbours, or against none.
         // `WallStore.add()` re-derives from the mirrored wall's own neighbourhood.
         delete (mirrored as { joinIntent?: unknown }).joinIntent;
+        // §WALL-PROVENANCE (L-13117) — DROP the source wall's element lineage too, and
+        // for a STRONGER reason than the join gesture above. A MIRROR IS NOT THE ELEMENT IT WAS MIRRORED FROM:
+        // `derivedFrom` asserts *"I am edge 3 of envelope E-ground"*, which is a claim about
+        // a PLACE and an IDENTITY. Inherited verbatim through the `{...wall}` spread in
+        // `serializeWallSnapshot`, this new wall would claim to BE an edge it is not, and an
+        // envelope face-drag would then have to decide what to do with two walls claiming
+        // one edge — a contest manufactured by a clone, not by the model.
+        //
+        // ⛔ DELETING IS NOT LOSING. Unlike `joinIntent`, nothing re-derives this: the honest
+        // value for a cloned wall is exactly what absence means — NOT RECORDED. It is not
+        // `[]` either, because nobody looked; a producer that genuinely found no source is
+        // the only thing entitled to say that (§CONTEXT-DATA-HONESTY).
+        delete (mirrored as { derivedFrom?: unknown }).derivedFrom;
 
         ctx.stores.wallStore.add(mirrored);
 
