@@ -1620,8 +1620,34 @@ export const PROJECT_BROWSER_STYLES = `
 .pryzm-gis-map2d {
     --map2d-parcel-card-w: clamp(232px, 20%, 360px);
     /* The right gutter every top-centre float must leave for the card column. '24px' is
-       12px of card margin + a 12px gap. Read by the instruction-banner stack. */
-    --map2d-top-stack-right: calc(24px + var(--map2d-parcel-card-w));
+       12px of card margin + a 12px gap. Read by the instruction-banner stack.
+
+       ── §BANNER-NEVER-STARVES (L-13113) ──────────────────────────────────────
+       ⭐ THE RESERVATION IS CAPPED, because an UNCAPPED one re-creates the defect it
+       exists to fix. The founder's complaint was a banner CLIPPED by the card; reserving
+       the card's column cures that, but the reservation is a fixed 232px floor plus 24px
+       against a pane that his own console shows at 459 / 742 / 812 / 841 / 1023px in ONE
+       session. Below a 448px pane the reservation eats more than the banner can spare and
+       the sentence shreds into a one-word-per-line ribbon — unclipped, and just as
+       unreadable. A defect that changes shape is not a defect that was fixed.
+
+       So the banner keeps a 180px floor: 'min()' hands the card its full column whenever
+       the pane can afford it, and stops reserving the moment it cannot. '192px' is that
+       180px floor plus the stack's own 12px left inset. When the cap bites, the banner
+       reclaims the width and simply sits OVER the card — which is safe by construction and
+       not by luck: the stack is z-index 23 against the card's 22 and is
+       'pointer-events: none', so the sentence reads on top and every click still lands on
+       the card underneath. That is the SAME degrade the dragged-card state already takes
+       (see 'refreshTopStack', state 'moved'), so this adds a trigger, not a behaviour.
+
+       ⛔ MEASURED, NOT GUESSED: at all five of his observed pane widths the cap does NOT
+       bite (at his narrowest, 459px, it yields 267px against the normal 256px), so this
+       line changes nothing he can see today and only ever adds width, never removes it.
+       Pinned across those widths by 'map2dTopStackGutter.spec.ts'. */
+    --map2d-top-stack-right: min(
+        calc(24px + var(--map2d-parcel-card-w)),
+        calc(100% - 192px)
+    );
 }
 .pryzm-gis-parcel-host {
     position: absolute;
