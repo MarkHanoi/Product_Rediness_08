@@ -19,6 +19,9 @@
  * Contract: 01-BIM-ENGINE-CORE-CONTRACT §2.7 (builders owned at bootstrap layer).
  */
 
+// §PROBE-CANNOT-CONFUSE-NA-WITH-FAILURE (L-13209) — a diagnostic must not print the same
+// sentence for "this surface does not do this" and "this surface does this and it failed".
+import { bimPickingApplies, notApplicableReason, surfaceUnderPointer } from './pointerSurface';
 import type { BuilderMaterialDef } from '@pryzm/core-app-model/material-resolver';
 import { applyMaterialMaps, uvSpaceOfGeometry } from '@pryzm/core-app-model/material-resolver';
 import * as THREE from '@pryzm/renderer-three/three';
@@ -2856,15 +2859,59 @@ export async function initUI(p: UIParams): Promise<void> {
         // Guessing between them costs a deploy each. One line of console decides it.
         //
         // Remove this probe once the arm is known and fixed.
-        const _probe = (arm: string, detail?: unknown): void => {
-            console.log(`[dblclick-zoom] §PROBE-DBLCLICK-ZOOM-WHICH-ARM returned at: ${arm}`, detail ?? '');
+        // §PROBE-CANNOT-CONFUSE-NA-WITH-FAILURE (L-13209 · §CONTEXT-DATA-HONESTY) — WHICH
+        // SURFACE was the pointer actually over?
+        //
+        // ⭐ THIS IS THE HALF THE ORIGINAL PROBE COULD NOT SEE, and it is why the founder got
+        // four `raycast MISS and no usable fallback` lines for a double-click that could never
+        // have worked. This handler is bound to `#container`, and the OTHER view surfaces are
+        // DESCENDANTS of `#container`: the single Cesium container (`#cesium-viewport-container`,
+        // re-parented into whichever pane hosts 3D Site) and the MapLibre 2D site map
+        // (`.maplibregl-map`). Neither registers a dblclick handler of its own, so the event
+        // bubbles here — into a handler that raycasts the BIM three.js world and frames the BIM
+        // camera. Cesium is a DIFFERENT camera on a DIFFERENT scene graph; even a HIT would move
+        // a camera the user is not looking through.
+        //
+        // ⚠ AND THE MISS WAS NOT EVEN MEASURED WHERE HE CLICKED. The OBC raycaster's `Mouse`
+        // listens for `pointermove` on the BIM canvas, which the Cesium container COVERS as a
+        // sibling at z-index 15 — so no pointermove over Cesium ever reaches it and the caster
+        // still holds the last position the pointer had over the BIM canvas. The reported MISS
+        // was a stale-coordinate raycast against a scene the click had nothing to do with.
+        //
+        // A diagnostic that prints the same sentence for "this surface does not do this" and
+        // "this surface does this and it failed" is the defect it exists to prevent. Every arm
+        // below now carries the surface, and the non-BIM surfaces get an arm of their own.
+        // ⛔ POSITIVE identification only, never "not the BIM canvas ⇒ not BIM" — see
+        // `pointerSurface.ts`. An unrecognised target stays 'bim', which is exactly the
+        // behaviour that shipped before, so this can only ADD honesty, never remove a
+        // working path (§ROOM-LABEL-EDIT below double-clicks a DOM overlay, not the canvas).
+        const _surface = surfaceUnderPointer(e.target);
+
+        const _probe = (arm: string, detail?: Record<string, unknown>): void => {
+            console.log(
+                `[dblclick-zoom] §PROBE-DBLCLICK-ZOOM-WHICH-ARM returned at: ${arm}`,
+                { surface: _surface, ...(detail ?? {}) },
+            );
         };
 
         // Let SelectionManager's slab-profile dblclick handle slabs first
         // (it calls e.preventDefault() so we check defaultPrevented)
         if (e.defaultPrevented) { _probe('defaultPrevented (an earlier dblclick handler claimed it)'); return; }
+
+        // §PROBE-CANNOT-CONFUSE-NA-WITH-FAILURE — NOT APPLICABLE, and it says so.
+        // ⚠ This is a REPORT, not a fix for double-click on those surfaces. Framing a Cesium or
+        // MapLibre camera is a real feature and it does not exist; it belongs to whoever owns
+        // that surface, and is tracked as L-13210. What this arm removes is the false report
+        // that the BIM pick FAILED there.
+        if (!bimPickingApplies(_surface)) {
+            _probe(notApplicableReason(_surface), {
+                target: (e.target as Element | null)?.id || (e.target as Element | null)?.tagName || 'unknown',
+            });
+            return;
+        }
+
         const activeToolMode = toolManager.getActiveTool?.();
-        if (activeToolMode && activeToolMode !== 'none') { _probe('a tool is active', activeToolMode); return; }
+        if (activeToolMode && activeToolMode !== 'none') { _probe('a tool is active', { activeToolMode }); return; }
 
         // §ROOM-LABEL-EDIT — a double-click on a room label edits it (name + number)
         // instead of zooming. Intercept before the camera-frame raycast below.
