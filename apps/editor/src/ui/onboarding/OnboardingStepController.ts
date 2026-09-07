@@ -94,7 +94,7 @@ import {
     describeCadastralMiss,
     type CadastralRefReading,
 } from './cadastralRefSniff.js';
-import { fetchParcelByRefcat } from '../site/parcel/CatastroParcelProvider.js';
+import { lookupParcelByRefcat } from '../site/parcel/CatastroParcelProvider.js';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { warmAllContextLayers } from '../geospatial/contextLayerWarm.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
@@ -1174,28 +1174,55 @@ export class OnboardingStepController {
             `${reading.registry.fullName} ${reading.kind} reference → parcel ${reading.parcelRef}.`,
         );
 
-        let parcel: Awaited<ReturnType<typeof fetchParcelByRefcat>> = null;
+        // §CADASTRAL-UNREACHABLE-IS-NOT-A-MISS (D-CAD-A, founder 2026-09-07 "make sure this works
+        // sound" about cadastral entry) — ⚠ THIS USED TO READ A BARE `null` FOR BOTH ANSWERS, AND
+        // IT TOLD THE USER THE WRONG ONE. `fetchParcelByRefcat` returns `null` for an honest
+        // Catastro miss AND for offline / proxy 5xx / non-JSON, so a user with no network was told
+        // *"Catastro (Spain) has no parcel with reference … — check the reference"*: the product
+        // asserting that a correct reference the user typed is wrong, when the truth is that nobody
+        // was asked. That function's OWN doc comment forbade collapsing the two and its return type
+        // made obeying it impossible. `lookupParcelByRefcat` (CatastroParcelProvider.ts) keeps the
+        // three outcomes apart — §CONTEXT-DATA-HONESTY: failure and empty are different values.
+        //
+        // ⚠ The `catch` this replaces was authored around a function documented NEVER to throw, so
+        // the one honest "could not reach" string in the whole feature was UNREACHABLE code standing
+        // in for the case that routed to the wrong message. It is now that case's own arm, and the
+        // catch stays as a genuine backstop saying the same thing.
+        //
+        // ⚠ NAMED `lookup`, NOT `outcome`: `outcome` is already bound below in this same function
+        // scope for the `hero.flyToResolved` result.
+        let lookup: Awaited<ReturnType<typeof lookupParcelByRefcat>>;
         try {
-            parcel = await fetchParcelByRefcat(reading.parcelRef);
+            lookup = await lookupParcelByRefcat(reading.parcelRef);
         } catch (err) {
-            // The client is documented never to throw; this is a backstop, and it is reported as
-            // what it is — a lookup that could not complete — never as "no such parcel".
             console.warn('[onboarding-step] cadastral lookup threw (non-fatal):', err);
-            if (this.disposed) return;
+            lookup = { status: 'unreachable', reason: `threw: ${String(err)}` };
+        }
+        if (this.disposed) return;
+
+        if (lookup.status === 'unreachable') {
+            // OUTCOME 1 — WE COULD NOT ASK. ⛔ Never phrased as "no such parcel": the reference may
+            // be perfectly good and we have no standing to doubt it.
+            console.warn(
+                `[onboarding-step] §CADASTRAL-UNREACHABLE-IS-NOT-A-MISS: ${reading.registry.fullName} ` +
+                `could not be reached for ${reading.parcelRef} — ${lookup.reason}. Reporting it as ` +
+                'unreachable, NOT as a miss.',
+            );
             status.textContent =
                 `Could not reach ${reading.registry.fullName} to look up ${reading.parcelRef}. ` +
                 'Try again, or search for the place by name.';
             submitBtn.disabled = false;
             return;
         }
-        if (this.disposed) return;
 
-        if (!parcel) {
-            // OUTCOME 2 — asked, and answered "no such parcel". Names the registry.
+        if (lookup.status === 'miss') {
+            // OUTCOME 2 — ASKED, and answered "no such parcel". The one case that may say so.
             status.textContent = describeCadastralMiss(reading);
             submitBtn.disabled = false;
             return;
         }
+
+        const parcel = lookup.parcel;
 
         const frame = parcelFrameFromRing(parcel.ring);
         if (!frame) {
@@ -2258,11 +2285,29 @@ export class OnboardingStepController {
             if (present !== last) {
                 last = present;
                 if (!present) {
+                    // ⚠ TWO REACHABLE STATES, TWO TRUE SENTENCES — AND THIS BRANCH PRINTED ONLY ONE.
+                    // The VISIBLE copy in `renderDrawingStep` already branches on `everSeen`
+                    // precisely because `enterDrawPhaseWhenSurfaceReady()` reveals the draw step on
+                    // its 45 s TIMEOUT with no surface having existed; this console line did not. On
+                    // the founder's Barcelona start-up it therefore asserted "the 2D draw surface is
+                    // GONE … SiteBoundaryMap2D disposed" about a map that had NEVER OPENED — there is
+                    // no `[gis] map2d: disposed` anywhere in his console, and `map2d: ready` lands
+                    // moments later. `last` starts `null`, so the first tick after a timeout reveal
+                    // reports a "change" to absent: this fires ~200 ms after EVERY timeout reveal,
+                    // guaranteed. A diagnostic that names the wrong cause sends the next reader to the
+                    // wrong file (§CONTEXT-DATA-HONESTY — "never opened" and "was disposed" are
+                    // different values, and only one of them is a disposal bug).
                     console.warn(
-                        '[onboarding-step] §DRAW-SURFACE-IS-RECOVERABLE — the 2D draw surface is GONE ' +
-                        '(window.pryzmBoundaryDrawSurfaceReadyAt was cleared, i.e. SiteBoundaryMap2D ' +
-                        'disposed). The idle watchdog will correctly report "surface-not-ready" until ' +
-                        'it returns; offering the user a way to bring it back rather than stalling.',
+                        everSeen
+                            ? '[onboarding-step] §DRAW-SURFACE-IS-RECOVERABLE — the 2D draw surface is GONE ' +
+                              '(window.pryzmBoundaryDrawSurfaceReadyAt was cleared, i.e. SiteBoundaryMap2D ' +
+                              'disposed). The idle watchdog will correctly report "surface-not-ready" until ' +
+                              'it returns; offering the user a way to bring it back rather than stalling.'
+                            : '[onboarding-step] §DRAW-SURFACE-IS-RECOVERABLE — the 2D draw surface has NOT ' +
+                              'OPENED YET (window.pryzmBoundaryDrawSurfaceReadyAt has never been stamped on ' +
+                              'this run — nothing was disposed). This is the §UX1-DRAW-PHASE-GATE timeout ' +
+                              'lane: the draw banner was shown without a surface, and MapLibre load has ' +
+                              'still not fired. Offering the user a way to OPEN it rather than stalling.',
                     );
                 }
                 try { onPresenceChange(present, everSeen); } catch { /* presentation only */ }
