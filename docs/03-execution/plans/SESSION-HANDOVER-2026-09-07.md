@@ -49,8 +49,8 @@ Next: when all six conclude success → `context-merge-publish.yml` `{"layer":"b
 bakes (sweep cursor resumes at 5320 — but successive runs do NOT accumulate, see mnhFrNationalStamp.mjs header).
 Dispatch helper: `scratchpad/gh-dispatch.mjs` pattern = POST `/actions/workflows/<wf>/dispatches` with token from `git credential fill`.
 
-## RED RATCHET TO FIX (not absorbable)
-`check-contract-cited-paths.ts` RC=3 (507/490): 17 unresolved paths from C114/C59/C58/C111 edits — mark PLANNED files PLANNED.
+## RATCHETS — ALL GREEN AT CLOSE
+`check-contract-cited-paths.ts` was RC=3 (507/490) and is now **RC=0 at 462 = baseline 462** (`d6713967`, L-13072) — baseline tightened DOWN, never raised, zero new PLANNED markers. Residual 462 is dominated by genuinely-unbuilt subjects; `scripts/ci-check-spans.ts` alone holds 23 sites (the L-812 phantom) and needs a contract-owner decision, not a path edit.
 
 ## FOUNDER QUESTIONS PENDING (both options named in the lane rows)
 L-13034 house-shell sizing · massing: opaque vs 0.55 · keep plate ladder? · card: lift the four figures to the headline? · envelope: may a drawing replace a fitted plate? clear the drawn ring on parcel redraw?
@@ -58,7 +58,7 @@ L-13034 house-shell sizing · massing: opaque vs 0.55 · keep plate ladder? · c
 ## NEXT-SESSION PROMPT (paste verbatim)
 > Resume from docs/03-execution/plans/SESSION-HANDOVER-2026-09-07.md.
 >
-> **(1) Prove the live build.** `bash tools/deploy/fly-bundle-proof.sh 26396bb8` — if it does not pass, redeploy per DEPLOY-CONTRACT-MANUAL-FLY.md §6.9.11 (detached worktree `C:/pryzm-deploy/tree`, `FLY_API_TOKEN` from `~/.fly/pryzm_deploy_token`, `DOCKER_CONFIG=C:/pryzm-deploy/empty-docker-config`) and prove it again. Then `git status` and commit anything green with explicit paths (never bare, never stash).
+> **(1) Prove the live build.** `bash tools/deploy/fly-bundle-proof.sh f5b0b42e` — if it does not pass, redeploy per DEPLOY-CONTRACT-MANUAL-FLY.md §6.9.11 (detached worktree `C:/pryzm-deploy/tree`, `FLY_API_TOKEN` from `~/.fly/pryzm_deploy_token`, `DOCKER_CONFIG=C:/pryzm-deploy/empty-docker-config`) and prove it again. Then `git status` and commit anything green with explicit paths (never bare, never stash).
 >
 > **(2) Re-arm the R2 rollout — this is the founder-visible one (Sète still renders ghosts).** The cron died with the last session. Read these six bake runs via the GitHub API (PAT from `git credential fill`): massachusetts 34106885030 · california 34106888476 · texas 34106892241 · illinois 34106895725 · newyork 34106900276 · gccstates 34101679682. For a failure, read the failed job's log and diagnose the FIRST real error (ignore `[36;1m` script echoes). When all six are green, dispatch `context-merge-publish.yml` with `{"layer":"buildings","expect":"all","engine":"tile-join","publish":"true","allow_unknown_regions":"true","allow_region_removal":"sanfrancisco,chicago,austin,houston,boston,riyadh,jeddah,dubai,abudhabi"}` (headroom measured 99 GB — it fits; the removal list is only legitimate in the run that carries the five successors + newyork). Then verify the manifest reads `regions.france.heightJoin == "mnh_fr"`, probe Sète with `node tools/context-height-probe/probe.mjs --at 43.39655,3.67554 --name sete`, publish roads → parks → water → landuse → rail → trees ONE AT A TIME, bump `CONTEXT_TILESET_VERSION` L663a→L664a, deploy, and tell me **"🚀 LIVE — test Sète heights"**. Whole-France coverage needs ~5 more `region=france stage=true` bakes; read `mnhFrNationalStamp.mjs`'s header first — successive runs do NOT accumulate today.
 >
