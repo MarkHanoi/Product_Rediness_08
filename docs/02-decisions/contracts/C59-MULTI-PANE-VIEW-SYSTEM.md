@@ -293,6 +293,96 @@ was explicit: *"everything needs to be perfect and don't have legacy code."* A m
 `DataWorkbench` still writing `#container.style.width` behind a flag has not satisfied this section —
 it has added a fifth writer.
 
+### §2.10.5 — BOUNDED IS NOT ENOUGH: a reflow to an UNCHANGED box must do NO WORK (L-13205 / L-13206)
+
+> **Founder, verbatim (2026-09-07), pasting a console trace taken while dragging the split:**
+> *"CHECK ALSO FOR ERRORS AND SOLVE THEM - AND DO EVERYTHING SOUND"*
+
+**§2.10.4 asks each transition for a BOUNDED number of canvas resizes, and this path SATISFIED that
+letter while violating its point.** The founder's trace shows
+`[gis][cesium] resize (external-reflow (multi-pane host)) — canvas NxM` dozens of times across one
+divider drag — 701 → 702 → 704 → 709 → 722 → … → 447 → 338 — **with many sizes logged 2× and 4×.**
+One settle pass per frame is bounded. It is also useless work, every frame, on the founder's WebGL
+box, over a 3-D-tiles city.
+
+**§2.10.4 is therefore AMENDED, not reinterpreted.** Its pass conditions now also require:
+
+> **A geometry transition that measures the SAME box as the last one must produce ZERO renderer
+> work: no buffer re-allocation, no forced render, and no console line beyond a count.**
+
+**Why the old shape produced work at all — and why the answer was not "Cesium should guard this".**
+Cesium already does. `CesiumWidget.resize()` early-returns without re-allocating when canvas
+`clientWidth` / `clientHeight` / `devicePixelRatio` are unchanged. **PRYZM defeated that guard**:
+`CesiumViewport.forceResizeAndRender` called `viewer.resize()` (correctly a no-op) and then
+`scene.requestRender()` **unconditionally**, plus a scheduled second unconditional
+`resize() + requestRender()`. The viewer runs `requestRenderMode: true`, so `requestRender()` is
+*precisely* the call that forces Cesium to draw a frame it had already decided it did not need —
+**two full frames per reflow request.** The same size repeats because
+`SiteAuthoringPaneShell` writes the pane box as a 3-decimal float percentage while `clientWidth` is
+an integer: consecutive drag frames genuinely land on the same pixel width.
+
+**And there were TWO writers producing the request, one of them by construction.**
+`MultiPaneController.reassertPlacement()` fans out to `PaneHost.reassertPlacement()`, and **every
+return path of that method already ends in `this.resize()`** — so `runSettle`'s following
+`controller.resize()` reflowed every host a SECOND time, to the same box, on every placement settle.
+Reducing the writer is the §2.10-native half of the fix; the equality test is the other half.
+
+#### ⛔ THIS IS NOT ONE OF §2.10.2's FORBIDDEN FIXES, AND THE DISTINCTION IS NORMATIVE
+
+A future lane WILL read the equality test as *"an `if (already applied) return`"* and try to remove
+it. Read §2.10.2 precisely before doing so. It forbids **a timer or a latch used to settle a FEEDBACK
+LOOP between two rival writers of one property** — such a fix makes the oscillation settle faster
+while leaving the two writers disagreeing, so it returns the first time a transition is slower than
+the guard window. **That is a different situation from this one in every particular:**
+
+| | §2.10.2's forbidden latch | §2.10.5's equality test |
+|---|---|---|
+| Writers of the property | TWO, disagreeing | ONE (the split writes pane boxes; the reflow writes nothing) |
+| What repeats | an OSCILLATION — each write triggers the other's settle | a request to re-measure a box that did not move |
+| The mechanism | a window in time (timer / re-entrancy flag) | a comparison of the MEASURED box, now |
+| If a transition is slow | the guard window is missed; the loop returns | nothing changes; slowness is irrelevant |
+| Does it delay anything | yes | **no** — a real change is honoured on the very next call |
+
+§2.10.3's own note is the template this follows, verbatim: *"termination is a PROPERTY OF THE SHAPE:
+the boxes are a pure function of the state, so re-applying writes identical strings, which move no
+box, which fire no observer, which start no settle pass."* **The equality test makes the RENDERER's
+reflow a pure function of the measured box, exactly as the pane geometry is already a pure function
+of the state.** No timer exists anywhere on this path, and none may be added.
+
+#### Normative clauses
+
+1. **A layout host's reflow request defaults to `if-changed`.** `CesiumViewport.reflowContainer()`
+   is the entry point the multi-pane host calls on every settle pass — i.e. once per mousemove of a
+   divider drag — and it must skip when the measured box is identical to the last effective reflow.
+2. **`force` is an EXPLICIT argument of the callers that changed something the measured box cannot
+   report.** Today that is exactly one case: a DOM re-parent into an identically-sized pane. Mount,
+   `setVisible(true)` and the warm-hidden path also force, because a 0-size or hidden container must
+   be made to paint. **A caller may not force "to be safe" — forcing is a claim about the DOM.**
+3. **A skipped reflow is COUNTED, never silent** (§CONTEXT-DATA-HONESTY). The count is printed by the
+   next effective reflow, so the console shows one line per genuine size with the number of redundant
+   requests attached. *"No reflow happened"* and *"twelve reflows were dropped"* must not print the
+   same value — that is how the redundant writer stays visible instead of being papered over.
+4. **An unmeasurable box is never "unchanged".** `null` must not compare equal to anything, including
+   another `null`. "Cannot tell" and "did not move" are different answers.
+5. **A failed reflow forgets the box.** Recording a size the renderer never actually drew at would let
+   a later `if-changed` request skip on a lie.
+6. **The scheduled second pass is conditional in BOTH modes.** It exists only because a container
+   often acquires its real size a frame after `display` flips `none → block`; when the box did not
+   move since the first pass measured it, the first pass already drew at that size.
+
+#### The acceptance test
+
+`apps/editor/src/ui/geospatial/__tests__/cesiumReflowNoOp.spec.ts`. It drives
+`runReflow` — **the production function, not a re-implementation of it**
+(§FAKE-MORE-CAPABLE-THAN-REAL) — through a counting port and asserts **CALL COUNTS**: thirteen
+identical requests produce ONE render, ONE log line and ONE scheduled pass; a real size change is
+honoured on the very next call with no elapsed time; `force` is never skipped; the second pass does
+nothing at an unchanged box and DOES render at a box acquired a frame late. Source-level arms pin
+that `forceResizeAndRender` actually routes through the gate, that `reflowContainer()` defaults to
+`if-changed`, that a DOM move forces, and that `runSettle` no longer calls `controller.resize()`
+after `reassertPlacement()`. **Verified falsifiable:** with `shouldSkip` stubbed to `false` the file
+fails 2 of 17.
+
 ---
 
 ## §2.9 — A derived surface cannot offer a non-view, and that is a FEATURE (L-6800..L-6809)

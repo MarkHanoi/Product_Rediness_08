@@ -185,9 +185,89 @@ establishes only that they sometimes are. **L-7813, OPEN.**
 - Inserts are non-blocking: the broadcast to Socket.io peers MUST NOT wait for the DB write.
 - The log MUST NOT be the sole persistence mechanism; it supplements snapshots.
 
+### §3.3.1 — ⛔ AN OUTBOUND EMIT THAT CANNOT BE DELIVERED MUST BE QUEUED OR REPORTED, NEVER DROPPED (L-13208, 2026-09-07)
+
+**THE GAP THIS CLOSES, stated as the defect.** §3.3 governs the log's RETENTION and its
+NON-BLOCKING insert. It said nothing about the emit that POPULATES it — even though
+`server.js`'s single `socket.on('command-executed')` handler is **BOTH** the peer broadcast **AND**
+the only writer of `project_command_log`. So one dropped client emit removes an edit from every
+peer **and** from the table catch-up replays from: **no future catch-up by anyone can recover it.**
+That is a permanent, silent data loss reached by a route no clause in §3 covered.
+
+**How it was reached, from the founder's console (2026-09-07).** The client guard was
+`if (!socket?.connected || !currentProjectId) return;` — a silent return. It is wrong in **both**
+directions:
+
+- **It admits the window it should refuse.** During a CLOSING transport `socket.connected` is still
+  `true`, so the guard PASSES and the packet is handed to `ws.send()` on a dead socket. The browser
+  discards it and engine.io then emits an **unconditional FAKE DRAIN** whose handler splices the
+  packet out of the write buffer as if it had been sent
+  (`try { doWrite(packet, data); } catch (e) {}` … `// fake drain`). No queue, no retry, no report.
+- **It refuses the window socket.io would have handled.** When `connected` is false, socket.io's own
+  `emit` BUFFERS into `sendBuffer`; the app guard returns before that can happen.
+
+**And the client cannot notice.** `_triggerCatchUp` queries
+`/api/projects/:id/commands?since=…&excludeSelf=1` — **inbound-only, own rows excluded**. It asks
+what OTHERS did and is structurally incapable of reporting that this client's own emit vanished.
+`Catch-up: no missed commands` and *"eleven of your edits never left the browser"* printed the
+same value (§CONTEXT-DATA-HONESTY). This is the same class of harm as §3.2's
+*"Silent last-write-wins overwrite is FORBIDDEN"*, reached by a different route.
+
+**Binding rules:**
+
+1. **Every outbound emit on a DURABLE path MUST classify its deliverability before emitting**, and
+   the classification MUST include the CLOSING-transport window (`io.engine.transport.writable`),
+   not just `socket.connected`.
+2. **A non-deliverable durable emit MUST be queued or REPORTED. Silently returning is forbidden.**
+   The report MUST name the command and the verdict, and MUST be retained for the session.
+3. **An UNREADABLE transport is DELIVERABLE, not a failure.** Fabricating a loss that did not happen
+   is the mirror image of hiding one that did. Only a positive `writable === false` counts.
+4. **The catch-up line MUST NOT claim a clean slate over a local gap.** It reports the INBOUND
+   direction and must say so; when local commands were refused, the line carries them.
+5. **A durable emit MUST NOT be blind-replayed on reconnect.** A client-side replay mints a SECOND
+   `commandLogId` for the same edit, and §FIX-REPLAY-AT-MOST-ONCE (L-814) keys its dedupe on exactly
+   that id — so the "fix" replaces a silent loss with a silent DUPLICATE, which is worse.
+   ⚠ **MEASURED-OPEN: reliable outbound delivery is NOT achieved by this clause.** It requires a
+   server-side ack (`server.js`'s `command-executed` handler registers no ack callback today) plus
+   id-stable dedup. **L-13211, OPEN.** Until it lands, this section guarantees only that the loss is
+   LOUD — which is a diagnostic property, not a delivery guarantee, and must not be written up as one.
+
+Implementation: `apps/editor/src/engine/collabOutbound.ts` (`classifyOutbound`,
+`UndeliveredCommandLedger`), consumed by `apps/editor/src/engine/initCollaboration.ts`. Spec:
+`apps/editor/src/engine/__tests__/collabOutboundDelivery.spec.ts`.
+
 ### §3.4 — Presence
 
 Real-time cursors and user-joined/left events MUST be relayed via Socket.io with server-authoritative `displayName` enrichment. The client MUST NOT send its own `displayName` — the server resolves it from `pryzm_users` and injects it.
+
+### §3.4.1 — Presence is a SAMPLE STREAM: coalesced, and volatile (L-13207, 2026-09-07)
+
+§3.4 governed WHO the cursor belongs to and said nothing about **how often it may be sent**. The
+client therefore emitted `cursor-move` **once per raw `mousemove`**, unthrottled and uncoalesced,
+from a listener on `#container` — into which the multi-pane shell and its DIVIDER are mounted. A
+divider drag is one socket write per pointer event; when the transport went CLOSING mid-drag the
+founder got ~40 `WebSocket is already in CLOSING or CLOSED state.` warnings in under a second.
+
+**Binding rules:**
+
+1. **A presence sample MUST be coalesced to at most ONE emit per frame**, folding to the LATEST
+   sample. ⛔ **Not a debounce and not a throttle** — a debounce restarts on each new sample and so
+   never fires during continuous motion, which is precisely when presence matters. The fold fires
+   every frame motion continues; latency is bounded by one frame.
+2. **Coalescing rides the frame bus** (`@pryzm/frame-scheduler`), never `setTimeout` — P3 / ADR-003.
+3. **A presence packet MUST be sent VOLATILE.** A cursor position is superseded by the next one, and
+   `socket.volatile` is socket.io's own primitive for that: it DISCARDS the packet when the
+   transport is not writable instead of writing into a closing socket. **This is what removes the
+   warning AT THE SOURCE. Suppressing the console instead is forbidden** — it hides the same write.
+4. **A presence loss is NOT reported and MUST NOT be**, which is the difference from §3.3.1: a stale
+   cursor is worthless, so discarding it is correct behaviour, not a defect to surface.
+
+⚠ **UNRELATED DEFECT FOUND ON THIS PATH, NOT YET FIXED — L-13212, OPEN.** `server.js`'s
+`remote-cursor` relay spreads the client payload **AFTER** the server-authoritative fields
+(`{ userId: socket.data.userId, displayName: socket.data.displayName, ...data }`), so a
+client-supplied `userId`/`displayName` would OVERRIDE them — the exact inversion of §3.4's
+*"The client MUST NOT send its own `displayName`"*. Latent today only because the shipped client
+sends `{projectId, x, y}`. One-line fix (spread first); it belongs to whoever owns `server.js`.
 
 ### §3.5 — Remote command replay: a collaborative command MUST be reconstructible, and reconstruction MUST NOT guess (§ANN-REMOTE-FACTORY, 2026-08-07, `73edb837`)
 
