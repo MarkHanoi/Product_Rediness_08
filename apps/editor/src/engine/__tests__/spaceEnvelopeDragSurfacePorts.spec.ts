@@ -571,3 +571,132 @@ describe('⭐ §ENVELOPE-PER-LEVEL — dragging one storey’s face moves THAT s
         expect(committed[0]!.ringBefore).toEqual(STOREYS[0]!.footprint);
     });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-PARTITIONS-FOLLOW (lane WALLS-FOLLOW-WIRE, 2026-09-07) — THE ROOMS THE SAME COMMIT
+//    MOVED TRAVEL WITH THE EVENT.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ WHY THIS FIELD DECIDES WHETHER THE FOUNDER'S ASK IS POSSIBLE AT ALL. A partition is
+// `boundedBy` its ROOM envelope — `buildFromDesignPlan.ts:631` writes `envelopeRole: 'room'` on
+// every partition's `derivedFrom` — never the level the pointer grabbed. So an event carrying only
+// the SUBJECT's two rings can move the perimeter and can NEVER move a partition, however the
+// cascade downstream is written. The rooms DO move in the same commit
+// (`MutateSpaceEnvelope.ts:238-260` maps `plan.adapted` into the same `produceCommand`); without
+// this field their new rings die inside the gesture.
+//
+// ✅ ESTABLISHES: a level drag that strands a room reports THAT ROOM with a `ringBefore` equal to
+//    its PRE-drag footprint and a `ringAfter` that differs; the field is OMITTED (not sent empty)
+//    when nothing adapted; and the adapted ring is the one the PREVIEW drew, not a re-derivation.
+// ⛔ DOES NOT ESTABLISH: that any wall moves. That is `spaceEnvelopeWallFollow.spec.ts`.
+
+/** The storey plate: 6 × 4 m, face #1 is the plane x = 6, outward +x. */
+const HOST_LEVEL: DraggableSpaceEnvelope = {
+    id: 'L0-envelope',
+    levelId: 'L0',
+    role: 'level',
+    name: 'Ground',
+    withinId: null,
+    footprint: [{ x: 0, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 0, z: 4 }],
+    baseOffset: 0,
+    height: 3,
+};
+
+/** A room seated in it, hard against the face that will be dragged INWARD. */
+const SEATED_ROOM: DraggableSpaceEnvelope = {
+    id: 'Kitchen-in-L0',
+    levelId: 'L0',
+    role: 'room',
+    name: 'Kitchen',
+    withinId: 'L0-envelope',
+    footprint: [{ x: 2, z: 0 }, { x: 6, z: 0 }, { x: 6, z: 4 }, { x: 2, z: 4 }],
+    baseOffset: 0,
+    height: 3,
+};
+
+describe('⭐ §ENVELOPE-PARTITIONS-FOLLOW — the committed event names the rooms that moved with it', () => {
+    let canvas: FakeCanvas;
+    let rec: Recorder;
+    let committed: SpaceEnvelopeFaceMoveCommitted[];
+    let dispose: () => void;
+
+    const install = (world: DraggableSpaceEnvelope[], subject: DraggableSpaceEnvelope): void => {
+        canvas = fakeCanvas();
+        rec = fakeSurface({ handles: false });
+        rec.picked = subject;
+        committed = [];
+        dispose = installSpaceEnvelopeFaceDragOnSurface({
+            domElement: canvas.el,
+            surface: rec.surface,
+            getRecord: (id) => world.find((r) => r.id === id),
+            getWorld: () => world,
+            dispatch: () => { /* the store is not written in this fixture */ },
+            onCommitted: (ev) => { committed.push(ev); },
+        });
+    };
+
+    afterEach(() => { dispose(); });
+
+    /** Face #1 pulled INWARD (−x): the level shrinks past the room, so the room must follow. */
+    const dragInward = (pixels: number): void => {
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointermove', pointerEvent(-pixels, 0));
+        canvas.fire('pointerup', pointerEvent(-pixels, 0));
+    };
+
+    it('⭐ a level face pulled in past a room reports THAT ROOM, with both of its rings', () => {
+        install([HOST_LEVEL, SEATED_ROOM], HOST_LEVEL);
+        dragInward(200);
+
+        expect(committed).toHaveLength(1);
+        const ev = committed[0]!;
+        expect(ev.spaceEnvelopeId).toBe('L0-envelope');
+        expect(ev.adapted).toBeDefined();
+        expect(ev.adapted!.map((a) => a.envelopeId)).toEqual(['Kitchen-in-L0']);
+
+        const room = ev.adapted![0]!;
+        // ⭐ `ringBefore` IS THE PRE-DRAG FOOTPRINT, VERTEX FOR VERTEX. The store is never written
+        // in this fixture, so a `ringBefore` that had come from a post-commit read would still be
+        // this — which is why the NEXT assertion, that the two rings DIFFER, is the load-bearing
+        // one: it is what fails if the capture ever silently starts returning the moved ring.
+        expect(room.ringBefore).toEqual(SEATED_ROOM.footprint);
+        expect(room.ringAfter).not.toEqual(room.ringBefore);
+        expect(room.ringAfter).toHaveLength(SEATED_ROOM.footprint.length);
+        // The room's own far edge (x = 2) is untouched; only the edge that met the level moved.
+        expect(room.ringAfter.some((q) => Math.abs(q.x - 2) < 1e-9)).toBe(true);
+        expect(room.ringAfter.every((q) => q.x <= 6 - 1e-9 + 1e-6)).toBe(true);
+    });
+
+    it('⭐ the reported ring IS the ring the PREVIEW drew — one plan, never two derivations', () => {
+        install([HOST_LEVEL, SEATED_ROOM], HOST_LEVEL);
+        dragInward(200);
+
+        const room = committed[0]!.adapted![0]!;
+        // The LAST preview drawn for that room is the one the commit was asked to write.
+        const drawnForRoom = rec.drawn.filter((r) => r.id === 'Kitchen-in-L0');
+        expect(drawnForRoom.length).toBeGreaterThan(0);
+        expect(drawnForRoom[drawnForRoom.length - 1]!.footprint)
+            .toEqual(room.ringAfter.map((q) => ({ x: q.x, z: q.z })));
+    });
+
+    it('⛔ nothing adapted ⇒ the field is OMITTED, never an empty array', () => {
+        // Pulled OUTWARD: the room is still contained, so `SpaceEnvelopeContext.ts:422` skips it
+        // and NO room moves. That is the model's answer, not a gap — and "no room moved" must not
+        // arrive looking like "this surface does not report rooms" (§CONTEXT-DATA-HONESTY).
+        install([HOST_LEVEL, SEATED_ROOM], HOST_LEVEL);
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointermove', pointerEvent(200, 0));
+        canvas.fire('pointerup', pointerEvent(200, 0));
+
+        expect(committed).toHaveLength(1);
+        expect(committed[0]!.ringAfter).not.toEqual(committed[0]!.ringBefore);
+        expect(committed[0]!.adapted).toBeUndefined();
+    });
+
+    it('⛔ a lone envelope with no rooms at all reports no adapted set', () => {
+        install([HOST_LEVEL], HOST_LEVEL);
+        dragInward(150);
+        expect(committed).toHaveLength(1);
+        expect(committed[0]!.adapted).toBeUndefined();
+    });
+});
