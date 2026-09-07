@@ -160,6 +160,9 @@ import {
   CTX_FAR_TIER_MAX_INSTANCES,
   CTX_TREES_MAX_INSTANCES,
   CTX_CANOPIES_MAX_SYNTHESISED,
+  // §SITE-SCOPE (C12 §13.5) — the whole-scene building budget, reported against the in-scope
+  // eligible count so the slider's "complete" mark is a MEASURED number, not an assumption.
+  CTX_TOTAL_MAX_BUILDINGS,
 } from "./contextExtentBudget";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import {
@@ -2651,6 +2654,39 @@ export class CesiumViewport {
     } catch { /* viewer torn down — nothing to gate */ }
   }
 
+  /**
+   * §ENVELOPE-DRAW C5 (L-13050, plan §3a / §7 rule 2) — SUSPEND THIS VIEWPORT'S OWN SCENE PICK.
+   *
+   * ⛔ TWO LIVE HANDLERS ON ONE CANVAS IS THE DEFECT, NOT THE DESIGN. `setupSelectionHandler`
+   * below owns a `ScreenSpaceEventHandler` whose LEFT_CLICK runs `scene.pick`, and the envelope
+   * draw adapter (`siteEnvelopeDrawCesium.ts`) owns another. Cesium fires BOTH, so without this a
+   * click that places a corner ALSO runs the selection pick and opens or closes the
+   * context-building query panel — the user places a vertex and a panel appears.
+   *
+   * ⚠ IT SUSPENDS THE CALLBACK, NOT THE HANDLER. Destroying and rebuilding the handler would
+   * re-enter `setupSelectionHandler`'s whole construction path per arm; a flag read at the top of
+   * the callback is exact, cheap and cannot leave the viewport permanently unselectable through a
+   * partially-completed rebuild. The flag defaults to ENABLED and is restored on every disarm —
+   * including the cancel and the teardown paths, since a suspend with no matching restore would
+   * leave the 3D Site unable to select anything for the rest of the session, and it would read as
+   * an unrelated bug (the L-7801 shape, pointed the other way).
+   *
+   * ⛔ THIS IS NOT `setNavigationEnabled`, AND THE TWO MUST NOT BE MERGED. Camera navigation stays
+   * LIVE during a draw on purpose: click-to-place at parcel scale needs pan and zoom. Only the
+   * PICK is suspended.
+   */
+  public setScenePickingEnabled(on: boolean): void {
+    this.scenePickingEnabled = on;
+    console.log(
+      `[CesiumViewport] §ENVELOPE-DRAW scene picking ${on ? 'RESTORED' : 'SUSPENDED'} — `
+      + `the selection handler's callback will ${on ? 'run' : 'yield'} on the next click. `
+      + 'Camera navigation is unaffected.',
+    );
+  }
+
+  /** §ENVELOPE-DRAW C5 — the flag `setScenePickingEnabled` writes. Defaults to ON. */
+  private scenePickingEnabled = true;
+
   /** L-270 — the ground-settle state RIGHT NOW (no clamp in flight → this is terminal). */
   private groundSettleSnapshot(): GroundSettleSignal {
     return {
@@ -3447,6 +3483,12 @@ export class CesiumViewport {
 
     this.handler.setInputAction(
       (movement: { position: Cesium.Cartesian2 }) => {
+        // ⛔ §ENVELOPE-DRAW C5 (L-13050) — YIELD WHILE A PERIMETER IS BEING DRAWN. The envelope
+        // draw adapter owns a second `ScreenSpaceEventHandler` on this same canvas and Cesium
+        // fires both, so without this line a click that places a corner would ALSO run
+        // `scene.pick` and open or close the context-building panel. The flag is written by
+        // `setScenePickingEnabled` and restored on every disarm — see that method.
+        if (!this.scenePickingEnabled) return;
         // §FORMA-CLICK-NO-NAV (2026-06-30) — a scene click in the 3D-Site / Forma
         // view must STAY in the view (interact with the scene), never route home.
         // `scene.pick()` runs an off-screen render pass; on a heavy Forma scene
@@ -10599,6 +10641,51 @@ export class CesiumViewport {
     const nearDemotedExtrudable = nearTiers.demoted.filter(extrudableInMassing);
     const farExtrudable = far.features.filter(extrudableInMassing);
 
+    // ── §SITE-SCOPE (C12 §13.3 class D; ADR-0382 D3) — THE FOOTPRINTS ARE CUT, NOT DROPPED ────
+    //
+    // A building that STRADDLES the scope edge becomes the clean vertical SECTION the founder's
+    // reference shows — it is never dropped (that would eat a whole building for one metre of
+    // overhang) and never kept whole (that is the retired slab's "buildings past the edge of the
+    // roads"). A ring wholly inside passes through BY REFERENCE, so nothing that was never near the
+    // edge can have a vertex drifted by the boolean.
+    //
+    // ⚠ CUT HERE, BEFORE THE CENTROID GATHER, FOR A REASON THAT IS NOT TIDINESS: the next block
+    // buys ONE terrain sample per footprint centroid, so clipping afterwards would pay for the
+    // ground under buildings the slab does not contain — and a SECTIONED building's centroid moves,
+    // so it would also be the wrong ground. Each tier is extruded to its own height downstream,
+    // exactly as before; only the ring changed.
+    //
+    // ⚠ THE CLIPPED RING IS RE-CLOSED. `clipRingLonLat` drops a repeated closing vertex before it
+    // runs the boolean (a zero-length edge would poison the arrangement) and returns an OPEN loop,
+    // while every consumer downstream — and the `ring.length < 4` guard in the placement loop — has
+    // always been handed CLOSED OSM rings. Without re-closing, a clipped triangle (3 open vertices)
+    // would be silently skipped as malformed: a building deleted by the guard rather than by the cut.
+    const scopeRingOf = (f: ContextBuildingFeature): ReadonlyArray<readonly [number, number]> =>
+      (f.geometry.coordinates[0] ?? []) as unknown as ReadonlyArray<readonly [number, number]>;
+    const scopeFeature = <T extends ContextBuildingFeature>(item: T, ring: ReadonlyArray<readonly [number, number]>): T => {
+      if ((ring as unknown) === (item.geometry.coordinates[0] as unknown)) return item;  // wholly inside — same reference.
+      const out: number[][] = ring.map((pt) => [pt[0], pt[1]]);
+      const a = out[0], b = out[out.length - 1];
+      if (a && b && (a[0] !== b[0] || a[1] !== b[1])) out.push([a[0]!, a[1]!]);
+      return { ...item, geometry: { ...item.geometry, coordinates: [out] } } as unknown as T;
+    };
+    const nearShadowedScoped = this.scopeClipRings(
+      'buildings-shadowed', nearTiers.shadowed, scopeRingOf, lat, lon,
+    ).map(({ item, ring }) => scopeFeature(item, ring));
+    const nearDemotedScoped = this.scopeClipRings(
+      'buildings-demoted', nearDemotedExtrudable, scopeRingOf, lat, lon,
+    ).map(({ item, ring }) => scopeFeature(item, ring));
+    const farScoped = this.scopeClipRings(
+      'buildings-far', farExtrudable, scopeRingOf, lat, lon,
+    ).map(({ item, ring }) => scopeFeature(item, ring));
+    // §SITE-SCOPE (C12 §13.5) — record what the whole-scene building budget is being asked to hold
+    // INSIDE the scope, so the slider's "complete" mark and the cap verdict speak measured numbers
+    // rather than an assumption. Eligible = every extrudable footprint the scope contains.
+    this.scopeCapReports.set('buildings', {
+      eligible: nearShadowedScoped.length + nearDemotedScoped.length + farScoped.length,
+      cap: CTX_TOTAL_MAX_BUILDINGS,
+    });
+
     // §CTX-PERFOOTPRINT-SAMPLE (L-635) — batch-sample the REAL terrain height under EVERY footprint about
     // to be placed (near shadowed + demoted + far), in ONE sampleTerrainMostDetailed round-trip, so each
     // building seats on its OWN relief. THE FIX for "buildings sit below the terrain": getHeight is
@@ -10613,10 +10700,10 @@ export class CesiumViewport {
     // round-trip sized by the far ring. Cache + honesty semantics unchanged (same method, same
     // per-point cache, §STARTUP-TERRAIN-SAMPLE-REUSE retention).
     const nearGroundCentroids: Array<{ lat: number; lon: number }> = [];
-    for (const f of nearTiers.shadowed) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
-    for (const f of nearDemotedExtrudable) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
+    for (const f of nearShadowedScoped) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
+    for (const f of nearDemotedScoped) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) nearGroundCentroids.push(c); }
     const farGroundCentroids: Array<{ lat: number; lon: number }> = [];
-    for (const f of farExtrudable) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) farGroundCentroids.push(c); }
+    for (const f of farScoped) { const c = ringCentroidLatLon(f.geometry.coordinates[0]); if (c) farGroundCentroids.push(c); }
     const farGroundSample = this.sampleContextGroundsBatch(farGroundCentroids); // starts immediately, in parallel
     await this.sampleContextGroundsBatch(nearGroundCentroids);
     if (signal.aborted || !this.viewer || this.viewer !== viewer) { void farGroundSample.catch(() => { /* superseded */ }); return; } // a newer load superseded us during the sample.
@@ -10647,7 +10734,7 @@ export class CesiumViewport {
     // shadow tier alone (§OFFICIAL-FOOTPRINTS-ALL-TIERS, L-12953) — a ref set drawn from one tier
     // answers "this building has no parts" for a building whose parts merely landed in another.
     let officialSkipped = 0;
-    for (const f of nearTiers.shadowed) {
+    for (const f of nearShadowedScoped) {
       try {
         const official = f.properties.official;
         if (!shouldExtrudeInMassing(official, official?.ref ? officialPartRefs.has(official.ref) : false)) {
@@ -10843,7 +10930,7 @@ export class CesiumViewport {
     // §CTX-SITE-SCOPE (L-13058) — the disc radius is `f(scope)`, resolved ONCE here so the split,
     // the far cull and the log line cannot disagree about which circle they describe.
     const nearSolidR = nearSolidRadiusM(this.contextScope);
-    for (const f of nearDemotedExtrudable) {
+    for (const f of nearDemotedScoped) {
       ((f.properties.distM ?? 0) <= nearSolidR ? demotedSolid : demotedToFar).push(f);
     }
     // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — the DEMOTED SOLID near-tier: cheap shading, but TRUE
@@ -10865,7 +10952,7 @@ export class CesiumViewport {
     // to the safe base on relief cities. The near tiers are already on screen at this point.
     await farGroundSample;
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return; // superseded during the far sample.
-    const farSplit = this.plotClearSplit(farExtrudable, parcelLonLat);
+    const farSplit = this.plotClearSplit(farScoped, parcelLonLat);
     this.renderContextFarTierInstanced([...farSplit.kept, ...demotedToFar], lat, lon, viewer);
 
     // §CTX-EARTH-SLAB (L-645) — RETIRED. The globe-clip "cut slab" is defensively torn down on every
@@ -12143,7 +12230,7 @@ export class CesiumViewport {
     // a no-op if the standing load already covered this bbox). ONE sea render path, never two.
     void this.loadContextSea(lat, lon, force);
     // Only the inland lake/pond/river bodies remain here; bail when there are none (the sea is above).
-    if (collection.areas.length === 0 && collection.ways.length === 0) return;
+    if (waterAreas.length === 0 && waterWays.length === 0) return; // nothing read, or nothing inside the scope.
 
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
@@ -12162,7 +12249,7 @@ export class CesiumViewport {
     let areasPlaced = 0;
     let waysPlaced = 0;
     // Filled lake/pond/reservoir polygons.
-    for (let ai = 0; ai < collection.areas.length; ai++) {
+    for (let ai = 0; ai < waterAreas.length; ai++) {
       for (const piece of drape.pieces[ai] ?? []) {
         try {
           const positions = piece.coords.map(([flon, flat]) => {
@@ -12232,9 +12319,13 @@ export class CesiumViewport {
     };
     // (The §12.5 duplicate test — prefer the mapped water SURFACE over a nominal ribbon laid on top
     // of it — ran above, before the seat sample; `drawnWays` are the survivors.)
-    for (let wi = 0; wi < drawnWays.length; wi++) {
-      const way = drawnWays[wi]!;
-      for (const piece of drape.pieces[collection.areas.length + wi] ?? []) {
+    for (let wi = 0; wi < waterWays.length; wi++) {
+      const way = waterWays[wi]!;
+      // ⚠ THE OFFSET IS `waterAreas.length`, NOT `collection.areas.length`. `drape.pieces` is
+      // indexed by the array that was HANDED to `resolveGroundDrapePieces`, and since §SITE-SCOPE
+      // that is the CLIPPED list — using the unclipped count here would read the ways' pieces off
+      // by however many areas the scope cut away, seating every river on the wrong ground.
+      for (const piece of drape.pieces[waterAreas.length + wi] ?? []) {
         try {
           const positions = piece.coords.map(([flon, flat]) => {
             const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
@@ -12356,7 +12447,19 @@ export class CesiumViewport {
     // the lowest ground a coastal ring touches; a bbox-clipped corner may sit on a hill) — never
     // split (a level sheet has nothing to follow). Resolved before the clear. On Lisbon the old
     // single scalar hung the Tagus 60 m above the water-front.
-    const seaRings = [...collection.sea.map((a) => a.ring), ...supplementalSea];
+    const seaReadRings = [...collection.sea.map((a) => a.ring), ...supplementalSea];
+    // §SITE-SCOPE (C12 §13.3 class C) — THE SEA IS THE WIDEST LAYER OF ALL (§CONTEXT_SEA_HALF_DEG,
+    // ~11 km), so an un-cut sea is the single most visible way a slab leaks: a blue sheet running to
+    // the horizon past a cut coastline. Every ring is intersected with the scope polygon here.
+    //
+    // ⚠ NAMED LIMIT — ISLAND HOLES ARE STILL DROPPED, exactly as they were before this clip
+    // (AUDIT F-3): the reader carries them (`contextWater.ts` `LAYER_KEEPS_HOLES.sea`) and this
+    // render path has always built a single-argument `PolygonHierarchy` from the OUTER ring only,
+    // so an island already paints blue. Clipping the outer ring changes nothing about that — it is
+    // neither fixed nor made worse here — and a correct holed cut needs the hierarchy fixed FIRST
+    // (`(outer \ holes) ∩ S = (outer ∩ S) \ (holes ∩ S)` for a convex S). Stated rather than left
+    // for the next reader to rediscover from a blue island inside the slab.
+    const seaRings = this.scopeClipRings('sea', seaReadRings, (r) => r, lat, lon).map((p) => p.ring);
     const seaDrape = await this.resolveGroundDrapePieces(
       'sea', seaRings.map((ring) => ({ coords: ring, kind: 'polygon' as const })), lat, lon,
       { seatRule: 'min-probe', split: false },
@@ -12372,7 +12475,8 @@ export class CesiumViewport {
     viewer.scene.requestRender();
     console.log(
       `[CesiumViewport][forma] §FEAT-FORMA-SEA-CONTEXT standing sea: ${seaPlaced} surface(s) ` +
-        `(${collection.sea.length} baked + ${supplementalSea.length} live-coastline supplement) — ` +
+        `(${collection.sea.length} baked + ${supplementalSea.length} live-coastline supplement, ` +
+        `${seaRings.length} in-scope piece(s) after the §SITE-SCOPE cut) — ` +
         `${seaPlaced === 0 ? 'HONEST no-op (inland / no coastline)' : 'always-on with terrain/location'}.`,
     );
     // Re-clip the land-use drape against the freshly-loaded sea. This makes the sea→land-use
@@ -12650,8 +12754,14 @@ export class CesiumViewport {
     // is CUTTING the buildings". Each polygon seats on ITS OWN sampled ground; one spanning more
     // than 3 m of relief (Baixa→Chiado is ~80 m) becomes a grid of cells, each on its own ground.
     // Resolved before the clear so the previous drape stays up meanwhile.
+    // §SITE-SCOPE (C12 §13.3 class C) — the land-use drape is the WIDEST layer read (8 km) and so
+    // the one a scope cuts hardest: every kept ring is intersected with the scope polygon before it
+    // is seated, so nothing outside the slab buys a terrain sample or a vertex. Runs AFTER the
+    // §FORMA-CTX-LANDUSE-SEA-CLIP centroid filter above — a polygon dropped as sea is never clipped.
+    const scopedAreas = this.scopeClipRings('landuse', keptAreas, (a) => a.ring, lat, lon)
+      .map((p) => ({ ...p.item, ring: p.ring }));
     const drape = await this.resolveGroundDrapePieces(
-      'landuse', keptAreas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })), lat, lon,
+      'landuse', scopedAreas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })), lat, lon,
     );
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
@@ -12671,8 +12781,8 @@ export class CesiumViewport {
 
     let placed = 0;
     let urbanPlaced = 0;
-    for (let ai = 0; ai < keptAreas.length; ai++) {
-      const area = keptAreas[ai]!;
+    for (let ai = 0; ai < scopedAreas.length; ai++) {
+      const area = scopedAreas[ai]!;
       const pieces = drape.pieces[ai] ?? [];
       // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — ONE clip centroid per AREA, shared by all its
       // pieces, so a later sea can drop exactly this area's pieces without reloading the layer.
@@ -12745,7 +12855,7 @@ export class CesiumViewport {
     this.contextLanduseSeaClipRemoved = 0;
     viewer.scene.requestRender();
     console.log(
-      `[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} piece(s) of ${keptAreas.length} area(s) ` +
+      `[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} piece(s) of ${scopedAreas.length} in-scope area(s) (${keptAreas.length} kept after the sea clip) ` +
         `(${urbanPlaced} urban-grey, ${placed - urbanPlaced} rural-brown)${clippedBySea > 0 ? `, ${clippedBySea} clipped off the sea` : ''}. ` +
         `§GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
     );

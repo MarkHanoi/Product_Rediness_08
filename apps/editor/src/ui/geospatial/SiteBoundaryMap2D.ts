@@ -74,6 +74,10 @@ import {
 // place authored scene coordinates cross into the world frame; see `sceneEnuFrame.ts`'s header for
 // why writing `east = x, north = -z` inline is the bug it exists to prevent.
 import { sceneXZToEnu } from './sceneEnuFrame.js';
+// §ENVELOPE-DRAW C6 (L-13050) — the envelope-perimeter draw adapter for THIS surface, and the
+// registry the create panel's Draw button arms. ⛔ The adapter binds no map event; see its header.
+import { SiteEnvelopeDrawMap2D, type EnvelopeDrawMapLike } from '../site/siteEnvelopeDrawMap2D';
+import { registerEnvelopeDrawSurface } from '../site/siteEnvelopeDrawArming';
 // ⭐ §PARCEL-VISIBLE-EVERYWHERE (L-13016, founder 2026-09-06) — THE SECOND SUBSCRIBER.
 //
 // Founder: *"When a parcel is selected, the parcel should be HIGHLIGHTED no matter the view
@@ -3750,6 +3754,13 @@ export function mountSiteBoundaryMap2D(
         siteHighlightSub = null;
         try { siteHighlightSurfaceReg?.(); } catch { /* ignore */ }
         siteHighlightSurfaceReg = null;
+        // §ENVELOPE-DRAW C6 — disarm BEFORE unregistering: an armed adapter on a disposed map
+        // would still hold capture listeners on a container the map is about to drop, and the
+        // gesture above would still believe this surface could finish it (L-7801).
+        try { envelopeDrawSurface?.disarm(); } catch { /* ignore */ }
+        try { envelopeDrawSurfaceReg?.(); } catch { /* ignore */ }
+        envelopeDrawSurfaceReg = null;
+        envelopeDrawSurface = null;
         // §MASSING-ON-THE-SITE-VIEWS (L-13022) — drop the massing-slot listener. One left behind
         // would hold this whole closure (and its dead map) alive and repaint into a removed source
         // the next time the user picked an option.
@@ -3855,6 +3866,48 @@ export function mountSiteBoundaryMap2D(
         siteHighlightSurfaceReg = registerSiteHighlightSurface('siteBoundaryMap2d', '2D Site Map');
     } catch (e) {
         console.warn('[gis] map2d §PARCEL-VISIBLE-EVERYWHERE: could not subscribe to the site-highlight store (non-fatal):', e);
+    }
+
+    // ── ⭐ §ENVELOPE-DRAW C6 (L-13050) — THIS MAP BECOMES A DRAW SURFACE ────────────────────
+    //
+    // The founder's top-priority sentence names BOTH views: *"THE CAPACITY TO CREATE — DRAW —
+    // DESIGN BUILDABLE ENVELOPES IN THE 2D SITE VIEW AND 3D SITE VIEW — SAME PRINCIPLE."* This
+    // registration is what makes the create panel's Draw button arm THIS surface as well as 3D Site.
+    //
+    // ⛔ IT ADDS NO MAP EVENT BINDING, AND THIS COMMENT DELIBERATELY DOES NOT SPELL THE ONE THAT
+    // EXISTS — `siteMap2DStyleV2.spec.ts` counts that literal by GREP, so a comment quoting it reads
+    // as a second binding. That is §RAF-GATE-COMMENT-BLIND (P3, 2026-08-10), where a gate counted
+    // three doc comments asserting compliance as three violations; it fired on this very edit and is
+    // recorded here rather than quietly worked around. The single click binding this file holds, and
+    // its precedence ladder, are both UNTOUCHED — the adapter consumes its clicks with CAPTURE-phase DOM
+    // listeners on `getCanvasContainer()`, so an event it takes never becomes a MapLibre click and
+    // never reaches the precedence ladder. L-69 is structurally absent here rather than out-ranked.
+    // That is also why `freezeDraw()` having detached dblclick/mousemove/key after a parcel commit
+    // does not matter: the adapter never borrowed those handlers.
+    //
+    // ⚠ HEIGHT IS NOT DRAWN ON A PLAN MAP (L-13045) — there is no screen direction meaning "up".
+    // The adapter yields a RING; the storey count on the create panel supplies the height.
+    let envelopeDrawSurface: SiteEnvelopeDrawMap2D | null = null;
+    let envelopeDrawSurfaceReg: (() => void) | null = null;
+    try {
+        envelopeDrawSurface = new SiteEnvelopeDrawMap2D({
+            map: map as unknown as EnvelopeDrawMapLike,
+            // ⛔ THE ONE ORIGIN (R6) — the same `getOrigin` every other projection on this map uses,
+            // never a re-read geocode.
+            getOrigin,
+            // θ — the SAME `SiteLocation.trueNorth` this file's own envelope rasteriser reads, through
+            // the same `resolveSiteContext` (which owns the window.runtime fallback, so no cast is
+            // minted here — P4 / L-845). `null` is a REFUSAL, never θ = 0 (the §L-446 ambiguity).
+            getSiteLocation: () => {
+                try { return resolveSiteContext(runtime ?? null)?.store?.getSite()?.location ?? null; }
+                catch { return null; }
+            },
+        });
+        envelopeDrawSurfaceReg = registerEnvelopeDrawSurface(envelopeDrawSurface);
+        console.log('[gis] map2d §ENVELOPE-DRAW registered as an envelope-perimeter draw surface.');
+    } catch (e) {
+        console.warn('[gis] map2d §ENVELOPE-DRAW: could not register the draw surface (non-fatal) — '
+            + 'the Draw button on the envelope panel will SAY SO rather than doing nothing:', e);
     }
 
     // ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022) — SUBSCRIBE TO THE ONE MASSING SLOT.

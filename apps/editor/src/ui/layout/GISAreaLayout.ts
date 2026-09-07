@@ -1086,6 +1086,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                                     return store?.getSite?.()?.location ?? null;
                                 } catch { return null; }
                             },
+                            // ⛔ SUSPEND THE VIEWPORT'S OWN SCENE PICK FOR THE DURATION (plan §7
+                            // rule 2). Cesium fires BOTH handlers on one click, so without this a
+                            // corner-placing click would also run `scene.pick` and open or close
+                            // the context-building panel. ⚠ NOT `setNavigationEnabled`: camera pan
+                            // stays live on purpose — click-to-place at parcel scale needs it.
+                            setScenePickingEnabled: (on: boolean) => {
+                                cesiumViewport?.setScenePickingEnabled(on);
+                            },
                         });
                         envelopeDraw3dUnregister = registerEnvelopeDrawSurface(envelopeDraw3d);
                         console.log('[gis] §ENVELOPE-DRAW 3D Site registered as an envelope-perimeter draw surface.');
