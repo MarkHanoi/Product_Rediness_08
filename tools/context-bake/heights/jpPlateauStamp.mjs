@@ -54,11 +54,12 @@
 // no keyless national DSM at either door, so GSI cannot yield an nDSM and is NOT a rival to this
 // stamp. It is a candidate to upgrade `terrain.mjs`'s Mapterhorn drape over Japan — a separate build.
 // ─────────────────────────────────────────────────────────────────────────────
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   MEASURED_HEIGHT_SRC_TAG, MEASURED_HEIGHT_SRC_VALUE, loadJoinFootprintsBounded,
   footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, statsOf, clampHeight,
+  appendFeaturesSeq,
 } from '../heightSources.mjs';
 import {
   JP_PLATEAU, JP_PLATEAU_INDEX_URLS, JP_CITY_BBOXES, plateauRecordsForBboxes, tilesetLeafTiles,
@@ -189,7 +190,7 @@ export async function stampJpPlateauHeightsOnGeojsonseq(inPath, outPath, bbox, {
 
   const resolved = await resolvePlateauTilesets(stampAreas, { timeoutMs, maxMunicipalities });
   if (!resolved.ok) {
-    if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+    if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
     return {
       status: 'documented', outPath, count: read.parsed, footprintCount: records.length, measuredCount: 0,
       // A source outage is NOT a pipeline defect and NOT an empty country (§SOURCE-OUTAGE-VS-PIPELINE-DEFECT).
@@ -299,7 +300,7 @@ export async function stampJpPlateauHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); }
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   const leafTotal = resolved.tilesets.reduce((s, t) => s + t.leaves.length, 0);

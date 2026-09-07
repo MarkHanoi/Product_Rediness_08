@@ -39,11 +39,12 @@
 // KEYLESS (Vlaanderen: "Het gebruik van de service is kosteloos", probed 2026-09-05). No repo secret.
 // ⚠ The DSM is all sursol (vegetation too) — P90 over the eroded interior is the DK/FR/CH/NO mitigation.
 // ─────────────────────────────────────────────────────────────────────────────
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   MEASURED_HEIGHT_SRC_TAG, MEASURED_HEIGHT_SRC_VALUE, loadJoinFootprintsBounded,
   footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, statsOf, ndsmHeightForBuilding,
+  appendFeaturesSeq,
 } from '../heightSources.mjs';
 import { BE_DHMV, BE_CITY_BBOXES, beDhmvCoverageUrl, beDhmvTileRequest, lambert72TileKey, maskDhmvNodata, splitWcsMultipart } from './beHeights.mjs';
 
@@ -194,7 +195,7 @@ export async function stampBeDhmvHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   return {
