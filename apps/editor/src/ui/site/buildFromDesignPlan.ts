@@ -326,19 +326,27 @@ function distanceToSegment(p: DesignVertex, a: DesignVertex, b: DesignVertex): n
  * POLYLINE instead would drop a chord across a re-entrant corner — a real partition closing a
  * notch — because both of its ends sit on the perimeter while the edge itself cuts through open
  * space. That is a partition the user drew, deleted for a reason nobody could see.
+ *
+ * ⛔ IT RETURNS THE EDGE'S INDEX, NOT A BOOLEAN, AND THAT IS THE WHOLE POINT (found by
+ * `buildFromDesignPlan.spec.ts`, 2026-09-07). This used to answer yes/no, and the caller then
+ * looked the shell wall up by EXACT SEGMENT KEY in order to record the room's claim on it. A room
+ * flush against a façade almost never spans the WHOLE façade — it covers part of it — so the keys
+ * did not match, the lookup returned -1, and the claim was DROPPED SILENTLY: the edge disappeared
+ * (correctly) and nothing recorded that the room had ever bounded that wall. The link the cascade
+ * depends on was missing for exactly the rooms most likely to have one.
  */
-function edgeLiesOnShell(
+function shellEdgeIndexOf(
     p: DesignVertex,
     q: DesignVertex,
     shell: readonly DesignVertex[],
-): boolean {
+): number {
     for (let i = 0; i < shell.length; i++) {
         const a = shell[i]!;
         const b = shell[(i + 1) % shell.length]!;
         if (distanceToSegment(p, a, b) <= SHELL_COINCIDENCE_TOL_M
-            && distanceToSegment(q, a, b) <= SHELL_COINCIDENCE_TOL_M) return true;
+            && distanceToSegment(q, a, b) <= SHELL_COINCIDENCE_TOL_M) return i;
     }
-    return false;
+    return -1;
 }
 
 /**
@@ -508,11 +516,9 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
 
         // ── 1. THE SHELL — one wall per level-envelope edge ────────────────────────────────────
         const walls: PlannedWall[] = [];
-        const shellKeys = new Set<string>();
         for (let i = 0; i < shellRing.length; i++) {
             const a = shellRing[i]!;
             const b = shellRing[(i + 1) % shellRing.length]!;
-            shellKeys.add(segmentKey(a, b));
             walls.push({
                 kind: 'shell',
                 a, b,
@@ -631,12 +637,15 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
                 const k = segmentKey(a, b);
 
                 // (a) collinear-and-coincident with a shell edge → the shell already carries it.
-                if (shellKeys.has(k) || edgeLiesOnShell(a, b, shellRing)) {
+                // ⭐ THE SAME TEST DECIDES THE DROP AND NAMES THE WALL THAT ABSORBS THE CLAIM.
+                // Shell walls were pushed in ring order, so ring edge `i` IS `walls[i]` — which is
+                // why the room's claim can be recorded on a shell wall it only PARTLY covers.
+                const shellIdx = shellEdgeIndexOf(a, b, shellRing);
+                if (shellIdx >= 0) {
                     onShell++;
                     droppedOnShellCount++;
-                    const shellIdx = walls.findIndex((w) => w.kind === 'shell' && segmentKey(w.a, w.b) === k);
-                    if (shellIdx >= 0) {
-                        const w = walls[shellIdx]!;
+                    const w = walls[shellIdx];
+                    if (w && w.kind === 'shell') {
                         walls[shellIdx] = { ...w, alsoBounds: Object.freeze([...w.alsoBounds, ref]) };
                     }
                     continue;
