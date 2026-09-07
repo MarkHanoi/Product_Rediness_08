@@ -140,22 +140,59 @@ export const METRES_PER_DEG_LAT = 111_320;
 /**
  * ⛔ THE SLIDER'S RANGE, AND IT IS MEASURED, NOT TASTE.
  *
- * MAX 1781 m = 0.016°, the largest extent whose buildings tile read still fits z16 inside
- * `CTX_BUILDINGS_MAX_TILES_PER_FETCH` in every one of the founder's test cities (Barcelona/Madrid
- * 81 tiles, Córdoba/Lisbon 72, against a 112 cap). Past it `zoomForExtent` steps the read to z15,
- * and because the bake runs `--drop-densest-as-needed` that does not coarsen dense cores, IT DELETES
- * FOOTPRINTS from them — the L-579 "many buildings are not rendering" defect arriving through a zoom
- * step nobody asked for. So the ceiling is where the DATA stops being complete, not where the frame
- * rate is guessed to fall over.
- *
  * MIN 150 m so the slab can be tight around a plot without the scene emptying to nothing.
  *
- * ⚠ RAISING THE MAX IS NOT A ONE-LINE CHANGE. It requires re-measuring the tile fan-out (see
- * `CTX_BUILDINGS_MAX_TILES_PER_FETCH`) and accepting a read that grows with the AREA — 2× the radius
- * is 4× the first-paint read on the layer the reveal gates on.
+ * ⭐ MAX RAISED 1781 → 3562 m on 2026-09-07, on the founder's *"first i want to be double length —
+ * 4x the size — it is too small"* (he was looking at the rectangle default, which reads
+ * 2 519 × 2 519 m; doubling its side is a circumscribing radius of 2519·√2 = 3562 m). **The raise is
+ * DELIBERATELY PAST THE READ-COMPLETE CEILING BELOW, and that is only honest because the ceiling is
+ * now a published number the slider prints rather than a silent clamp.** See
+ * `CTX_SCOPE_READ_COMPLETE_CEILING_M`.
  */
 export const CTX_SCOPE_MIN_RADIUS_M = 150;
-export const CTX_SCOPE_MAX_RADIUS_M = 1781;
+export const CTX_SCOPE_MAX_RADIUS_M = 3562;
+
+/**
+ * ⛔ THE LARGEST SCOPE AT WHICH THE BUILDING READ IS STILL COMPLETE — 1 781 m, AND IT IS A DATA
+ * FACT, NOT A FRAME-RATE GUESS.
+ *
+ * Past it `zoomForExtent` steps the buildings read from z16 to z15, and because the bake runs
+ * `--drop-densest-as-needed` — which does not COARSEN a dense core, it DELETES footprints from it —
+ * a wider single-box read returns FEWER buildings than a narrower one. That is the L-579 "many
+ * buildings are not rendering" defect arriving through a zoom step nobody asked for, and it is
+ * exactly what the founder's *"within the scope should be sound — really detailed and completed"*
+ * forbids. So the slider may now REACH 3 562 m, and past this line it SAYS what it costs.
+ *
+ * ⭐ MEASURED 2026-09-07 with this repo's own `tileCountCovering` / `zoomForExtent`, over the
+ * longitude-honest bbox (`scopeFetchHalfDeg`), against `CTX_BUILDINGS_MAX_TILES_PER_FETCH` = 112:
+ *
+ * | radius | Barcelona | Madrid | Córdoba | Lisbon | Oslo | zoom the reader picks |
+ * |--------|-----------|--------|---------|--------|------|-----------------------|
+ * | 1781 m |    81     |   81   |   64    |   72   | 156  | z16 everywhere but Oslo (z15) |
+ * | 2519 m |   144     |  144   |  144    |  132   | 306  | **z15** — over the cap |
+ * | 3562 m |   272     |  256   |  256    |  256   | 576  | **z15** — 2.4× over the cap |
+ * | 5038 m |   529     |  529   |  484    |  484   | 1156 | **z14** |
+ *
+ * ⭐ AND THE HONEST ROUTE TO THE FOUNDER'S FULL ASK IS A STITCH, NOT A COARSER READ — also measured.
+ * Splitting the same bbox into N×N sub-boxes and reading EACH at z16 keeps every sub-read inside
+ * the 112 cap:
+ *
+ * | radius | 2×2 worst sub-box | 3×3 | 4×4 | verdict |
+ * |--------|-------------------|-----|-----|---------|
+ * | 3562 m | 81 (Oslo 169 ✗)   | 42–81 ✓ | 25–49 ✓ | **3×3 works in every test city** |
+ * | 5038 m | 144 ✗             | 81 ✓ (Oslo 144 ✗) | 49–100 ✓ | **4×4 works in every test city** |
+ *
+ * So the full 4× area IS reachable at z16 — the cost is the tile count: 272 tiles at 3 562 m and
+ * 529 at 5 038 m against 81 today at Barcelona, i.e. ~3.4× and ~6.5× the building read.
+ *
+ * ⛔ THE STITCH IS NOT IMPLEMENTED HERE, ON PURPOSE. It belongs in `contextTiles.ts` /
+ * `contextBuildings.ts`, which lane STARTUP-61S is concurrently rewriting to cut a 61 s start-up —
+ * and a 3.4–6.5× read is the exact opposite of that lane's goal, so it is a trade for the two lanes'
+ * owner to make with these numbers in hand, not a constant for this file to bump behind their back.
+ * Until it lands, a scope past this ceiling is a BIGGER SLAB WITH A THINNER NEIGHBOURHOOD, and the
+ * slider says so in words (C12 §13.5).
+ */
+export const CTX_SCOPE_READ_COMPLETE_CEILING_M = 1781;
 
 /**
  * §CTX-EXTENT-BUDGET — the shipped default scope: a **1781 m** disc, up from the 1225 m the far tier
@@ -248,8 +285,17 @@ export const CTX_NEAR_SOLID_RADIUS_CEILING_M = 891;
  * geometry in the scene (instanced, shadowless), and the tile read is the same z16 bbox the
  * buildings already pay for.
  */
-export const CTX_TREES_RADIUS_CEILING_M = CTX_SCOPE_MAX_RADIUS_M;
-export const CTX_STREET_LIFE_RADIUS_CEILING_M = CTX_SCOPE_MAX_RADIUS_M;
+/**
+ * ⛔ CORRECTED 2026-09-07 WITH THE MAX RAISE — these were `CTX_SCOPE_MAX_RADIUS_M`, and leaving
+ * them there while the max went 1781 → 3562 would have been the silent half of the founder's own
+ * constraint. Trees are baked z14–16 with `--drop-densest-as-needed`: past the READ-COMPLETE
+ * ceiling the canopy read steps to z15 and the bake has already DELETED the dense cores, so a
+ * 3 562 m tree ring would draw a THINNER canopy than a 1 781 m one and call it more. Pinning both
+ * to `CTX_SCOPE_READ_COMPLETE_CEILING_M` means a slab wider than the honest read keeps the widest
+ * canopy the data actually supports, instead of spreading a deleted one over twice the area.
+ */
+export const CTX_TREES_RADIUS_CEILING_M = CTX_SCOPE_READ_COMPLETE_CEILING_M;
+export const CTX_STREET_LIFE_RADIUS_CEILING_M = CTX_SCOPE_READ_COMPLETE_CEILING_M;
 
 /**
  * ⭐ THE FAR TIER IS THE ONLY LAYER WHOSE RADIUS *IS* THE SCOPE. It is ONE batched, shadowless,
@@ -316,7 +362,12 @@ export function groundFetchHalfDeg(scope: SiteContextScope = DEFAULT_SITE_CONTEX
  * `undefined` = the layer's own default cap.
  */
 export function scopeReadFanOutCap(halfDeg: number): number | undefined {
-    const ceiling = farFetchHalfDeg({ shape: 'circle', radiusM: CTX_SCOPE_MAX_RADIUS_M });
+    // ⛔ THE CEILING IS THE READ-COMPLETE ONE, NOT THE SLIDER MAX (corrected 2026-09-07 with the
+    // raise). 112 was measured at 0.016° with ~28 % headroom; a 0.032° read is 272 tiles at
+    // Barcelona, so handing it the 112 cap would not keep it at z16 — it would just step to z15
+    // one cap later, which is the same silent deletion wearing a bigger number. Past the ceiling
+    // the layer takes its own default and the slider states the cost.
+    const ceiling = farFetchHalfDeg({ shape: 'circle', radiusM: CTX_SCOPE_READ_COMPLETE_CEILING_M });
     return halfDeg <= ceiling + 1e-9 ? CTX_BUILDINGS_MAX_TILES_PER_FETCH : undefined;
 }
 

@@ -227,6 +227,48 @@ export interface ViewActivationLoadingOptions {
      * the counters. Defaults to `VIEW_ACTIVATION_PUMP_MS`. Test seam only; production never sets it.
      */
     readonly pumpMs?: number;
+    /**
+     * §STARTUP-QUIET-ACTIVATION (founder 2026-09-07) — see `ViewActivationQuietWindow`. Absent on
+     * every path but the start-up descent, and when absent NOTHING here changes: the full-screen
+     * overlay goes up synchronously exactly as it always has.
+     */
+    readonly quietWindow?: ViewActivationQuietWindow;
+}
+
+/**
+ * §STARTUP-QUIET-ACTIVATION (founder 2026-09-07: *"do the zoom in to the location way slower — to
+ * ideally not have the loading page at all"*).
+ *
+ * ⭐ WHAT THIS CHANGES IS **WHERE** THE LOAD IS REPORTED, NEVER **WHETHER** IT IS. Every readiness
+ * term, the stall watchdog, the input gate, the READY dismissal and the failure copy are untouched.
+ * While a quiet window is open the SAME strings this producer would have painted on the full-screen
+ * splash are painted on an unobtrusive in-view line instead, over the live descending scene.
+ *
+ * ⛔ A HIDDEN OVERLAY MUST NEVER BECOME A HIDDEN ERROR. `fail()` — the stall watchdog, a rejected
+ * mount, a torn-down viewport — RAISES the full overlay first and then shows the error on it, with
+ * its "Try again" / "Continue anyway" escapes. There is no path on which a failure stays quiet.
+ *
+ * ⛔ AND THERE IS DELIBERATELY NO TIME CEILING. An "escalate after N seconds" rule would be a fixed
+ * deadline race, which this file's own header forbids for exactly the reason it forbids it for the
+ * stall watchdog: it fails a slow-but-healthy load and passes a frozen one. A stream that merely
+ * OUTLASTS the flight keeps the quiet line, which is still showing its live ratio ("21 / 22 tiles ·
+ * 58 %"); a stream that STOPS is caught by the unchanged `VIEW_ACTIVATION_STALL_MS` progress-freeze
+ * watchdog, which raises the overlay. Slow and stuck stay different answers (§CONTEXT-DATA-HONESTY).
+ */
+export interface ViewActivationQuietWindow {
+    /**
+     * Settles when the animation that is COVERING this load is over — in production the start-up
+     * camera descent (`CesiumViewport.whenStartupDescentSettled()`). It is used ONLY to log the
+     * hand-over point and to stop claiming the flight is still running; it does NOT escalate.
+     * A rejection is treated as "the flight is over", never as a failure of the load.
+     */
+    readonly until: Promise<unknown>;
+    /**
+     * Paint the unobtrusive in-view line. `null` clears it. Called with the SAME phase label, note
+     * and percentage the overlay would have shown. Must never throw a load down — a throw here is
+     * caught and ignored, because a cosmetic line failing is not a reason to fail an activation.
+     */
+    readonly show: (line: string | null) => void;
 }
 
 /**
@@ -256,10 +298,114 @@ export function beginViewActivationLoading(
         },
     } = opts;
 
-    const session: LoadingSession = overlay.begin(`view-activation:${target}`, {
-        title: TITLES[target],
-        label: viewActivationStageLabel('viewer'),
-    });
+    // ── §STARTUP-QUIET-ACTIVATION — the ONE session, opened NOW or opened LATE ──────────
+    //
+    // `session` below is the same five calls the rest of this file has always made
+    // (`setLabel` / `setProgress` / `setIndeterminate` / `fail` / `end`). With no quiet window it
+    // is a straight pass-through to a session begun synchronously — byte-for-byte today's
+    // behaviour, and every existing test exercises exactly that. With one, the session is NOT
+    // begun: the identical paint is routed to `quiet.show(...)` and the real session is opened
+    // only when something needs the full screen (a failure). Holding the LAST paint is what makes
+    // that late open honest — the overlay comes up showing the CURRENT reading, never a blank one.
+    const quiet = opts.quietWindow ?? null;
+    let realSession: LoadingSession | null = null;
+    let overlayRaised = false;
+    let paintLabel = viewActivationStageLabel('viewer');
+    let lastPaint:
+        | { kind: 'progress'; completed: number; total: number; note?: string }
+        | { kind: 'indeterminate'; note?: string } = { kind: 'indeterminate' };
+
+    const quietLine = (): string => {
+        const pct =
+            lastPaint.kind === 'progress' && lastPaint.total > 0
+                ? `${Math.round((lastPaint.completed / lastPaint.total) * 100)}%`
+                : '';
+        return [TITLES[target], paintLabel, lastPaint.note ?? '', pct]
+            .filter((p) => typeof p === 'string' && p.length > 0)
+            .join(' · ');
+    };
+
+    const paintQuiet = (): void => {
+        if (!quiet || overlayRaised) return;
+        try { quiet.show(quietLine()); } catch { /* a cosmetic line never fails a load */ }
+    };
+
+    const clearQuiet = (): void => {
+        if (!quiet) return;
+        try { quiet.show(null); } catch { /* ditto */ }
+    };
+
+    /** Open the full-screen overlay, replaying the current reading onto it. Idempotent. */
+    const raiseOverlay = (why: string): LoadingSession => {
+        if (realSession) return realSession;
+        overlayRaised = true;
+        clearQuiet();
+        const s = overlay.begin(`view-activation:${target}`, {
+            title: TITLES[target],
+            label: paintLabel,
+        });
+        if (lastPaint.kind === 'progress') s.setProgress(lastPaint.completed, lastPaint.total, lastPaint.note);
+        else s.setIndeterminate(lastPaint.note);
+        realSession = s;
+        if (quiet) {
+            console.log(
+                `[viewActivationLoading] §STARTUP-QUIET-ACTIVATION ${target} — raising the ` +
+                `full-screen overlay (${why}). Quiet line was: "${quietLine()}".`,
+            );
+        }
+        return s;
+    };
+
+    const session = {
+        setLabel(label: string): void {
+            paintLabel = label;
+            if (realSession) realSession.setLabel(label);
+            else paintQuiet();
+        },
+        setProgress(completed: number, total: number, note?: string): void {
+            lastPaint = { kind: 'progress', completed, total, note };
+            if (realSession) realSession.setProgress(completed, total, note);
+            else paintQuiet();
+        },
+        setIndeterminate(note?: string): void {
+            lastPaint = { kind: 'indeterminate', note };
+            if (realSession) realSession.setIndeterminate(note);
+            else paintQuiet();
+        },
+        /** ⛔ A failure ALWAYS takes the full screen — the quiet window is not an error channel. */
+        fail(e: Parameters<LoadingSession['fail']>[0]): void {
+            raiseOverlay('the activation FAILED — a quiet window is not an error channel').fail(e);
+        },
+        end(): void {
+            clearQuiet();
+            realSession?.end();
+        },
+    };
+
+    // No quiet window ⇒ the overlay is UP synchronously, before any await, exactly as before.
+    if (!quiet) raiseOverlay('no quiet window — the default full-screen activation');
+    else {
+        console.log(
+            `[viewActivationLoading] §STARTUP-QUIET-ACTIVATION ${target} — the start-up descent is ` +
+            'flying, so this load reports on an in-view line instead of the full-screen splash. ' +
+            'Readiness, the stall watchdog and the input gate are UNCHANGED; a failure still takes ' +
+            'the full screen.',
+        );
+        paintQuiet();
+        void Promise.resolve(quiet.until).then(
+            () => {
+                if (finished) return;
+                markStartupPhase(`activation:${target}:descent-settled`); // §STARTUP-BUDGET
+                console.log(
+                    `[viewActivationLoading] §STARTUP-QUIET-ACTIVATION ${target} — the descent has ` +
+                    'landed and the load is still running. Staying QUIET on purpose: the in-view ' +
+                    'line keeps showing the live ratio, and the unchanged progress-freeze watchdog ' +
+                    '(not a clock) is what raises the overlay if it actually stops.',
+                );
+            },
+            () => { /* a refused/superseded flight is a settled flight, never a load failure */ },
+        );
+    }
 
     // §STARTUP-ACTIVATION-IS-UNMEASURED (founder 2026-09-06: "make the loading … MUCH QUICKER")
     //
@@ -273,6 +419,10 @@ export function beginViewActivationLoading(
     // tuning. Passive and behaviour-free: `markStartupPhase` is one `performance.now()`, one push
     // and one log line, and a mark arriving outside a run auto-begins one rather than being dropped.
     markStartupPhase(`activation:${target}:start`); // §STARTUP-BUDGET
+    // §STARTUP-QUIET-ACTIVATION — a SECOND mark on the quiet route, emitted after `:start` so the
+    // budget reads in the order it happened. It names the window in which the founder is looking
+    // at the descending scene rather than at the splash.
+    if (quiet) markStartupPhase(`activation:${target}:quiet-start`); // §STARTUP-BUDGET
 
     // ── THE INPUT GATE (founder mandate 3) ──────────────────────────────────────
     // The overlay backdrop already blocks pointer events by z-order (z 88880 over the Cesium

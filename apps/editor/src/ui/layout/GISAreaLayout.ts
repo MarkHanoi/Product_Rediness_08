@@ -207,6 +207,10 @@ import { computeGisContextUnderlayRotationZ } from '../site/overlay/siteGisConte
 // (viewer → tiles → content placed → L-259 ground seat-and-reveal), gates scene input until
 // then, and fails visibly (never hangs) if a signal never arrives.
 import { beginViewActivationLoading, containViewActivation, type ViewActivationHandle, type ViewActivationTarget } from '../geospatial/viewActivationLoading';
+// §STARTUP-QUIET-ACTIVATION (founder 2026-09-07) — the unobtrusive in-view status line the
+// start-up activation reports on INSTEAD of the full-screen splash while the descent is flying.
+// It is not a second overlay: it gates nothing, and any failure still raises the ONE overlay.
+import { showQuietActivationLine } from '../geospatial/quietActivationLine';
 import { getLoadingOverlay } from '../overlays/LoadingOverlayController';
 // §FEAT-MULTI-PANE-VIEW-SYSTEM (L-412, C59 Phase 1b) — the renderer-agnostic pane
 // host: the site-authoring default lands the 2D map (LEFT) + the live 3D Site (RIGHT)
@@ -1542,10 +1546,25 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     ): ViewActivationHandle => {
         // Rapid view switching must never stack overlays — supersede the previous activation.
         activeViewActivation?.cancel('superseded by a new view activation');
+        // §STARTUP-QUIET-ACTIVATION (founder 2026-09-07: "ideally not have the loading page at
+        // all") — is a START-UP camera descent currently covering this load?
+        //
+        // ⭐ THE CONDITION IS A REAL SIGNAL, NOT A ROUTE GUESS. `whenStartupDescentSettled()` is
+        // non-null only when the onboarding reveal ARMED a descent on this very viewport one step
+        // before it anchored the site (`OnboardingStepController.revealSplitAtParcel`), so this
+        // cannot accidentally silence a globe re-open, a project restore, a view switch or a retry
+        // — every one of those keeps the full-screen overlay it has today. It is scoped to `site`
+        // for the same reason: the descent lands on the 3D Site, so it can only cover that.
+        const startupDescent = target === 'site'
+            ? (cesiumViewport?.whenStartupDescentSettled?.() ?? null)
+            : null;
         const handle = beginViewActivationLoading({
             target,
             overlay: getLoadingOverlay(),
             onRetry: retry,
+            ...(startupDescent
+                ? { quietWindow: { until: startupDescent, show: showQuietActivationLine } }
+                : {}),
             signals: {
                 whenViewerReady: () => awaitCesiumReady(),
                 // §SS-FIX-FORMA-TILES-READINESS-KEYLESS-GATE (L-327) — tell the (Cesium-free)

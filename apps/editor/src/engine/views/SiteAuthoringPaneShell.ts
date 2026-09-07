@@ -45,7 +45,10 @@ import type { SiteViewGlobeFraming } from './siteViewQuickToggleModel';
 // in the COMPOSITION layer, and not by the bar's own model: C60 depends on C59 (C60 §7), so a
 // C59 chrome module reaching into C60 for a lat/lon would invert that edge. The bar names the
 // framing (`view.site.frame-globe`); this file is where "the globe framing" has a value.
-import { worldFramingTarget } from './siteEntryModel';
+import {
+    describeSiteFramingReturn,
+    siteFramingReturnDecision,
+} from './siteEntryModel';
 
 /** The shell handle: pane elements, the store (the ONE write path), and disposal. */
 export interface SiteAuthoringPaneShell {
@@ -119,19 +122,51 @@ export interface SiteAuthoringPaneShellOptions {
  * headless-testable and so there is exactly one place that knows how the globe is reached.
  *
  * ⭐ NEITHER PORT IS NEW MACHINERY.
- *   · `frameGlobe` → `CesiumViewport.flyToGeographic(worldFramingTarget())` — the SAME primitive
- *     and the SAME declared framing the onboarding globe already flies on this founder's WebGL
- *     box on every project start (`SiteEntryStore.frameCurrent()`), so its behaviour there is
- *     established rather than assumed.
- *   · `frameSite` → `window.pryzmZoomToSite`, the ONE declared `site.zoom-to-site` action in
- *     `gisActionRegistry.ts`, whose whole reason for existing is that the ACTIVE SURFACE decides
- *     the target. Re-deriving a "fly back to the site" target here would be a third copy of the
- *     thing that registry exists to de-duplicate.
+ *   · `frameGlobe` → `setViewFraming('world')` and NOTHING ELSE. See §GLOBE-KEEPS-THE-VIEW below.
+ *   · `frameSite` → `setViewFraming('site')`, then `window.pryzmZoomToSite` — the ONE declared
+ *     `site.zoom-to-site` action in `gisActionRegistry.ts`, whose whole reason for existing is
+ *     that the ACTIVE SURFACE decides the target — but ONLY when the camera is too far out to
+ *     keep. Re-deriving a "fly back to the site" target here would be a third copy of the thing
+ *     that registry exists to de-duplicate.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════
+ * ⭐ §GLOBE-KEEPS-THE-VIEW (L-13070) — WHY THE OUTBOUND FLIGHT IS GONE
+ * ═══════════════════════════════════════════════════════════════════════════════════════════
+ * Founder, 2026-09-07: *"when selecting the parcel — I have selected 3D Globe — it goes into the
+ * right view — but it should keep zooming (ideally the precise same view) than the previous view
+ * on 3D Site … I would like ideally the same view — precisely the same."*
+ *
+ * `frameGlobe` used to end `host.flyToGeographic(worldFramingTarget())` — `WORLD_HOME` (15°N,
+ * 5°E) at 20 000 km, pitch −90°. That call, and only that call, is why his Barcelona parcel
+ * became the whole Earth. It is DELETED, not replaced: `3D Site` and `3D Globe` are the SAME
+ * Cesium viewer (§L-412, C60 §6.5, STR §26.1.1), so the camera does not need saving and
+ * restoring across the switch — it needs to be LEFT ALONE. Not moving it is exact by
+ * construction: position, heading, pitch and roll are the same object, to no tolerance at all.
+ *
+ * ⛔ NOT `sharedCameraPose.ts` (L-600), and this is the reuse question answered rather than
+ * skipped. That pure model exists for the CROSS-RENDERER ask — one angle shared between Cesium
+ * and the WebGPU BIM camera, two cameras in two coordinate frames — and it is still unwired
+ * behind C59 Phase 3. This switch never crosses that boundary, so projecting a pose here would
+ * be machinery for a problem that does not arise. L-600 stays open on its own terms.
+ * ⛔ NOT `ViewCameraStateStore` either: it is keyed by view-definition id, belongs to the BIM
+ * renderer, and its §L-378 guard explicitly REFUSES globe/ECEF-scale positions — it could not
+ * hold this camera even if it were reachable from here.
+ *
+ * ⚠ THE RETURN TRIP IS NOT SYMMETRIC. `global-earth` renders at every altitude, so carrying the
+ * camera OUT is unconditionally safe. `forma-site` does not: it attaches a CITY-BOUNDED terrain
+ * tileset, so a WORLD-range camera carried back into `3D Site` would rebuild L-12991's beige
+ * shard in the mirror direction. `siteFramingReturnDecision()` is that one pure rule.
  *
  * `canFrameSite` reports whether that entry point is registered AT ALL — the
  * `entryPoints: []` doctrine from the same registry: *"a dead button that looked alive is its
  * own bug"*. When it is missing the bar refuses the OUTBOUND click, so the user is never flown
  * somewhere the return trip cannot be made from.
+ *
+ * ⚠ IT IS DELIBERATELY UNCHANGED BY L-13070, even though the CARRY arm of the return trip no
+ * longer needs `pryzmZoomToSite`. The guard's job is *"can the return be made from ANYWHERE"*,
+ * and the REFRAME arm still needs that action — so weakening it to "the host exists" would light
+ * the row for a user who is at world range with no way back. Keeping the stronger predicate
+ * costs a row that was already dark and re-lights nothing that could then fail.
  */
 export function defaultSiteViewCameraPorts(): SiteViewCameraPorts {
     return {
@@ -147,18 +182,41 @@ export function defaultSiteViewCameraPorts(): SiteViewCameraPorts {
             // a CITY-BOUNDED terrain tileset that declares availability only inside Córdoba's bbox,
             // the imagery layers hidden by Forma, the photoreal tileset hidden with them, and a
             // transparent clear showing the white page. The founder's `3D Globe` pane therefore
-            // rendered one beige triangular shard instead of the Earth. The framing is declared
-            // FIRST so the surface is already correct for the frame the camera is flying into.
+            // rendered one beige triangular shard instead of the Earth. ⚠ L-12991's fix SURVIVES
+            // L-13070 unchanged and is the reason this row still does anything at all: the
+            // surface swap IS the `3D Globe` row now that the flight is gone. What used to be
+            // "declare the framing before the flight" is simply "declare the framing".
             host.setViewFraming('world');
-            host.flyToGeographic(worldFramingTarget());
+            // §GLOBE-KEEPS-THE-VIEW (L-13070) — ⛔ AND NOTHING ELSE. There is no
+            // `flyToGeographic(worldFramingTarget())` here any more, and re-adding one is the
+            // founder's *"it goes into the right view — but it should keep … the precise same
+            // view"* defect coming back. The surface swaps; the camera is untouched, which is
+            // what makes the carry EXACT rather than approximate. `global-earth` is drawn from
+            // imagery + the photoreal tileset, both global, so it renders at whatever altitude
+            // the user was already at — including 600 m over his parcel.
+            console.log(
+                '[site-view-panel] §GLOBE-KEEPS-THE-VIEW (L-13070) 3D Globe — surface swapped to ' +
+                "'global-earth'; the camera is NOT moved, so the view is the one you were on.",
+            );
         },
         frameSite: () => {
             // The return trip owes the same swap, or the site would come back wearing the globe's
             // imagery and no city relief (L-636 §TERRAIN-NORMALS / L-639 §CAMERA-UNDERGROUND-FIX
-            // and the per-footprint seat path all need the baked tileset). `pryzmZoomToSite` is
-            // still the ONE declared `site.zoom-to-site` action and still owns the target.
-            window.pryzmGetSiteEntryCameraHost?.()?.setViewFraming('site');
-            window.pryzmZoomToSite?.();
+            // and the per-footprint seat path all need the baked tileset).
+            const host = window.pryzmGetSiteEntryCameraHost?.() ?? null;
+            if (!host) {
+                console.warn('[site-view-toggle] no globe mounted — site framing dropped.');
+                return;
+            }
+            host.setViewFraming('site');
+            // §GLOBE-KEEPS-THE-VIEW (L-13070) — carry the camera when the user is still looking
+            // at a site, reframe when he is not. The rule is PURE and lives in `siteEntryModel`
+            // beside the altitude bands it is expressed in; this is the one place that executes
+            // it. `pryzmZoomToSite` is still the ONE declared `site.zoom-to-site` action and
+            // still owns the target on the reframe arm — the carry arm issues no flight at all.
+            const decision = siteFramingReturnDecision(host.getCameraAltitudeM?.() ?? null);
+            console.log(describeSiteFramingReturn(decision));
+            if (decision.action === 'reframe') window.pryzmZoomToSite?.();
         },
         canFrameSite: () => typeof window.pryzmZoomToSite === 'function',
     };

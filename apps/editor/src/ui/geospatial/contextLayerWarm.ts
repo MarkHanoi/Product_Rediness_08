@@ -31,6 +31,7 @@ import { fetchContextTrees } from './contextTrees';
 import { fetchContextFurniture } from './contextFurniture';
 import { fetchContextBakedCanopy } from './contextCanopyBaked';
 import { CONTEXT_WIDE_HALF_DEG, CONTEXT_SEA_HALF_DEG } from './contextExtents';
+import { groundFetchHalfDeg } from './contextExtentBudget';
 
 const _tracer = trace.getTracer('pryzm.gis.context-layer-warm');
 
@@ -45,12 +46,36 @@ export function warmAllContextLayers(lat: number, lon: number): void {
     try {
         if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
         const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        // §CTX-WARM-READS-THE-RENDER-EXTENT (L-13079, founder Barcelona 2026-09-07) — ⚠ THE WARM
+        // AND THE RENDER MUST ASK FOR THE SAME BOX, and for ROADS and PARKS they had stopped doing so.
+        //
+        // THE DIVERGENCE, MEASURED. This module's own header promises "using EXACTLY the bbox extents
+        // `CesiumViewport` will later ask for". §SITE-SCOPE F-2 then moved the ROADS and PARKS render
+        // reads onto `groundFetchHalfDeg(scope)` — `CesiumViewport.loadContextRoads` / `loadContextParks`,
+        // both marked "read to the rim" — and left this file on the NEAR default. At the default scope
+        // that is **0.008° warmed against 0.016° read**: half the linear extent, a QUARTER of the area.
+        // The founder's Barcelona console shows both halves of it: the warm read `parks 214 / 25 tiles`
+        // and the render read `parks 800 green area(s) from 81 baked tile(s) in 1173 ms`. 25 of 81 —
+        // the warm was covering 31 % of the tiles it exists to cover, and the render paid for the
+        // other 56 on the critical path, ahead of the drape that cannot start until the read lands.
+        //
+        // ⛔ NOTHING IS READ THAT WAS NOT GOING TO BE READ. The wide box is a strict SUPERSET of the
+        // near one at the same zoom (`zoomForExtent` picks z16 for both under `scopeReadFanOutCap`'s
+        // 112-tile cap), and §CTX-TILE-DECODE-CACHE is keyed PER TILE — so this warms the exact tiles
+        // the render was already going to fetch, 6 s earlier, in a window where the user is watching a
+        // loading page. It is the same bytes, moved; it renders no more and no fewer features.
+        //
+        // ⚠ WHAT IT DOES NOT COVER, SAID PLAINLY: the warm runs before any viewport exists, so it uses
+        // the DEFAULT scope. A user with a wider persisted scope still reads wider at render time and
+        // warms only that subset — fewer tiles warmed, never wrong ones, because a subset of a
+        // per-tile cache is always valid.
+        const groundHalfDeg = groundFetchHalfDeg();
         const layers: Array<[string, Promise<unknown>]> = [
-            ['roads', fetchContextRoads(lat, lon)],
+            ['roads', fetchContextRoads(lat, lon, undefined, groundHalfDeg)],
             ['water', fetchContextWater(lat, lon)],
             // The sea mask reads water at its OWN much wider extent — warm that key too.
             ['water(sea)', fetchContextWater(lat, lon, undefined, CONTEXT_SEA_HALF_DEG)],
-            ['parks', fetchContextParks(lat, lon)],
+            ['parks', fetchContextParks(lat, lon, undefined, groundHalfDeg)],
             ['landuse', fetchContextLanduse(lat, lon, undefined, CONTEXT_WIDE_HALF_DEG)],
             ['rail', fetchContextRail(lat, lon)],
             ['trees', fetchContextTrees(lat, lon)],

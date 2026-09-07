@@ -180,6 +180,15 @@ const DRAW_IDLE_OFFER_MS = DRAW_IDLE_OFFER_MS_DEFAULT;
  * (§STARTUP-DIRECT-DESCENT — founder ruled "speed wins", 2026-08-07), so nothing in the product
  * now flies the camera deliberately slowly. If a demo needs that back, it is the 8-second
  * `flyToGeographic` leg, not the button, that must be restored.
+ *
+ * ⭐ THE SLOW LEG CAME BACK 2026-09-07 (§STARTUP-SLOW-DESCENT), AND NOT WHERE THIS NOTE PREDICTED.
+ * The founder asked for it on the ordinary start-up route — *"do the zoom in to the location way
+ * slower — to ideally not have the loading page at all"* — so it is the TERMINAL ARRIVAL that is
+ * now slow (`CesiumViewport.armStartupDescent`, armed by `revealSplitAtParcel` one statement
+ * before it anchors the site), not a restored `flyToGeographic` leg. This note's diagnosis was
+ * right and its prescription was wrong: a longer `flyToGeographic` would have been CANCELLED
+ * within milliseconds by the `site.location-changed` arrival flight, which is exactly why the
+ * founder's own trace read `reveal:flight-settled +7ms` for a leg the code calls 1.6 s.
  */
 
 /** The narrowed location result we thread into `createSiteFromRect`. */
@@ -946,6 +955,42 @@ export class OnboardingStepController {
                 anchorSiteLocation: (t) => {
                     const ctx = resolveSiteContext(this.runtime);
                     if (!ctx) return false;
+                    // §STARTUP-SLOW-DESCENT (founder 2026-09-07) — ARM THE CINEMATIC HERE, one
+                    // statement before the dispatch that triggers it.
+                    //
+                    // ⭐ WHY *HERE* AND NOWHERE ELSE. `dispatchSiteLocation` is what emits
+                    // `site.location-changed`, and THAT event is what makes `CesiumViewport` fly
+                    // the terrain-aware arrival (`frameSiteLocation`) — the flight that actually
+                    // seats the camera on the plot. Arming is therefore a one-statement window: it
+                    // has to be after we know a site context exists (or we would arm a flight that
+                    // never happens) and before the dispatch (or the flight has already chosen its
+                    // pacing). It is deliberately NOT wired to the site-entry `flyToGeographic`
+                    // legs, because those are superseded by this arrival within milliseconds —
+                    // which is precisely why the founder's own trace read
+                    // `reveal:flight-settled +7ms` over what the code called a 1.6 s "flight".
+                    //
+                    // ⚠ TWO FOUNDER RULINGS POINT OPPOSITE WAYS AND BOTH STAND. READ BOTH.
+                    //   • §STARTUP-DIRECT-DESCENT, 2026-08-07 — *"speed up ideally 5× the complete
+                    //     project start-up process"*, "speed wins". STILL IN FORCE, and this does
+                    //     not touch it: the world→country→city legs are still passed THROUGH in
+                    //     one synchronous dispatch chain, so Cesium still never commits to a
+                    //     frustum load at an altitude nobody looks at. That ruling was about
+                    //     PARKED intermediate stages, not about the terminal arrival.
+                    //   • §STARTUP-SLOW-DESCENT, 2026-09-07 — *"do the zoom in to the location way
+                    //     slower — to ideally not have the loading page at all"*. SUPERSEDES the
+                    //     older ruling FOR THE TERMINAL ARRIVAL ONLY, which is the leg the user
+                    //     actually watches. ⛔ Do not delete the 08-07 rule when you read this; the
+                    //     two govern different legs of the same descent, and collapsing them back
+                    //     into one number is how the "flight" became 7 ms in the first place.
+                    //
+                    // Best-effort: an unwired hook (no globe mounted yet, an older bundle) means
+                    // the ordinary 5 s arrival, which is a poorer FEEL and not a broken route — so
+                    // it must never stop the reveal.
+                    try {
+                        window.pryzmGetSiteEntryCameraHost?.()?.armStartupDescent?.();
+                    } catch (e) {
+                        console.warn('[onboarding-step] §STARTUP-SLOW-DESCENT: could not arm the descent (non-fatal):', e);
+                    }
                     dispatchSiteLocation(ctx, {
                         latitude: t.lat,
                         longitude: t.lon,

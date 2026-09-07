@@ -269,7 +269,30 @@ export class SiteEntryStore {
             }
             // effect.kind === 'site-handoff' — C19 §1.3/§1.4, the one-shot boundary.
             if (!this.site) {
-                console.warn('[site-entry] no site port wired — hand-off dropped.');
+                // §HANDOFF-DROP-IS-THE-DESIGN (2026-09-07) — ⚠ THIS LINE IS EXPECTED ON EVERY
+                // ONBOARDING ENTRY AND NOTHING IS LOST BY IT. It read "no site port wired —
+                // hand-off dropped.", which the founder reasonably read as a defect in his trace
+                // (`[site-entry] no site port wired — hand-off dropped.` at t+11476 ms, on the
+                // very run that opened correctly).
+                //
+                // WHAT IS ACTUALLY TRUE: `setSitePort()` has NO production caller anywhere in the
+                // repo. `GlobeHeroSearch` deliberately wires no site port and says so — Site
+                // creation stays owned by `OnboardingStepController`'s reveal, which anchors the
+                // location itself via `dispatchSiteLocation` one step later. The entry flow's
+                // machine still needs its terminal intent to CLOSE (that is what puts it in the
+                // `parcel` stage and makes the reveal legal), and no production code reads the
+                // `handedOff` flag this branch leaves false — its only reader is a unit test.
+                //
+                // So the honest statement is "no port is wired here, ON PURPOSE, and the site is
+                // anchored by the caller instead", not "your hand-off was dropped". Same class as
+                // §CONTEXT-DATA-HONESTY: a message that cannot distinguish a designed no-op from a
+                // real loss costs the reader a real investigation. `console.log`, not `warn` —
+                // warning about the expected path is what made this look like a bug.
+                console.log(
+                    '[site-entry] no site port wired — the entry flow closes its own machine here ' +
+                    'and the caller anchors the site (this is the DESIGNED path for onboarding; ' +
+                    'nothing is lost). C19 §1.3/§1.4.',
+                );
                 continue;
             }
             handedOff = this.site.handOff({

@@ -395,6 +395,39 @@ declare global {
          *  the founder's beige triangular shard. `CesiumViewport.setViewFraming` implements it and
          *  `GISAreaLayout` returns that viewport verbatim. */
         setViewFraming(framing: 'site' | 'world'): void;
+        /** §STARTUP-SLOW-DESCENT (founder 2026-09-07: "do the zoom in to the location way slower —
+         *  to ideally not have the loading page at all") — arm the NEXT site arrival to fly the
+         *  long start-up descent instead of the ordinary 5 s one. The onboarding reveal calls it
+         *  one step before it anchors the site location, i.e. immediately before the
+         *  `site.location-changed` that triggers that arrival.
+         *
+         *  ⚠ OPTIONAL, and the reveal treats a missing implementation as "no cinematic" rather
+         *  than as a failure — an older bundle then gets exactly today's 5 s arrival, which is a
+         *  degraded FEEL, never a broken route. It changes PACING only: the flight's start
+         *  vantage and its destination seat are unchanged (L-13059).
+         *  Implemented by `CesiumViewport.armStartupDescent`. */
+        armStartupDescent?: () => void;
+        /** §STARTUP-SLOW-DESCENT — settles when an armed start-up descent is no longer in progress
+         *  (complete OR cancelled — "not flying", never "arrived"). `null` when none was armed.
+         *
+         *  ⛔ AN OBSERVATION, NEVER A GATE (L-716). Its one consumer is the quiet-activation
+         *  window, which uses it to log the hand-over point and nothing else: no readiness, no
+         *  dismissal and no failure depends on it, precisely because a location change has exits
+         *  that never reach the arrival flight. Do not make anything wait on it. */
+        whenStartupDescentSettled?: () => Promise<void> | null;
+        /** §GLOBE-KEEPS-THE-VIEW (L-13070) — the ONE camera's current WGS84 height in metres, or
+         *  `null` when it cannot be read (no live viewport, or a host that predates this member).
+         *
+         *  ⚠ OPTIONAL, and for the `getResolvedSiteScope` reason rather than the `setViewFraming`
+         *  one: a missing framing swap is a silent visual defect, whereas a missing altitude
+         *  reading makes `siteFramingReturnDecision()` answer `reframe` — which is EXACTLY the
+         *  behaviour the `3D Site` row had before this reading existed. The degraded answer is
+         *  today's answer, so a host that omits it loses the camera carry and nothing else.
+         *
+         *  ⛔ IT MUST NOT BE USED TO INFER THE FRAMING. `CesiumViewport.viewFraming` is declared
+         *  by the row the user pressed, never measured — a height read mid-`flyTo` would make the
+         *  surface flicker through the flight. This is read ONCE, at click time, at rest. */
+        getCameraAltitudeM?(): number | null;
         /** §SITE-SCOPE (L-645; C12 §13; ADR-0382 D8) — the four scope READS the per-pane scope
          *  slider drives. `GISAreaLayout` returns the `CesiumViewport` VERBATIM from this getter
          *  (`window.pryzmGetSiteEntryCameraHost = () => cesiumViewport`), and that viewport is the

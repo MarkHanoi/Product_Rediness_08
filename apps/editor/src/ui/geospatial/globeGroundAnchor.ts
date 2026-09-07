@@ -445,8 +445,52 @@ export function georefOriginsDiverge(ev: GeorefOriginEvidence, toleranceM = 1): 
  * stray 0 (the L-259 rule applied per-point). When no terrain is attached the centroid base is
  * itself the honest flat-0, so the fallback stays correct. Deterministic; no Cesium/DOM.
  */
+/**
+ * §GLOBE-HEIGHT-READABLE (L-13078) — the widest |height| that can be an EARTH SURFACE ELEVATION.
+ *
+ * Challenger Deep is −10 935 m and Everest +8 849 m; the geoid separation adds at most ±107 m. So
+ * ±20 000 m is roughly twice the deepest real reading in either direction — deliberately generous,
+ * because this predicate must never reject a measurement, only an artefact.
+ */
+export const GLOBE_SURFACE_HEIGHT_BAND_M = 20_000;
+
+/**
+ * §GLOBE-HEIGHT-READABLE (L-13078, founder Barcelona 2026-09-07) — is a `globe.getHeight` reading
+ * an ELEVATION at all?
+ *
+ * ⭐ THE DEFECT THIS EXISTS FOR, AND IT IS WORSE THAN AN `undefined`. The founder's console printed
+ * `centroidTerrainSurface=-6328484.2m` and, in the same line, a
+ * `§COARSE-VS-DETAILED … mean|Δ|=6328546.71m`. That is not terrain error. `Globe.prototype.getHeight`
+ * (Cesium 1.143 `Cesium.js:218354`) builds its pick ray with the origin placed ON THE Z AXIS
+ * (`getSurfaceNormalIntersectionWithZAxis`, :218399) and returns
+ * `cartesianToCartographic(intersection).height` (:218429). When the only tile with a rendered mesh
+ * is a coarse/degenerate root, the pick can return the ray ORIGIN, and the "height" that comes back
+ * is then a pure function of LATITUDE: −6 328 484.24 m at lat 41.38250, against Barcelona's own
+ * open coordinate 41.38258. It is reproducible arithmetic, not a measurement.
+ *
+ * ⛔ AND EVERY `Number.isFinite` GUARD IN THIS REPO PASSES IT. Cesium does not return `undefined`
+ * here — it returns a finite, plausibly-typed, physically impossible number. Only a VALUE-DOMAIN
+ * check can reject it, which is what this is. Subtract it from a real detailed height and you get
+ * ~an Earth radius of "terrain error"; compare a real base against it and `base − surf > 0` is
+ * unconditionally true, which is how a `0 BELOW terrain ✓` can be printed by the SAME artefact that
+ * printed the 6 328 km alarm. A probe that cannot fail is not evidence.
+ *
+ * Pure; no Cesium, no DOM. `undefined` / `null` / `NaN` are unreadable too — the honest answer for
+ * all of them is the same: this is not a measurement, do not treat it as one.
+ */
+export function isReadableGlobeSurfaceHeight(h: number | null | undefined): h is number {
+    return typeof h === 'number' && Number.isFinite(h) && Math.abs(h) <= GLOBE_SURFACE_HEIGHT_BAND_M;
+}
+
 export function resolveGroundSample(sampled: number | null | undefined, centroidBaseM: number): number {
-    return typeof sampled === 'number' && Number.isFinite(sampled) ? sampled : centroidBaseM;
+    // §GLOBE-HEIGHT-READABLE (L-13078) — ⚠ THIS USED TO READ `Number.isFinite(sampled)`, and that is
+    // the guard the −6 328 484 m artefact walks straight through. The rule the doc comment above
+    // states — "a FINITE sample wins … anything else falls back to the centroid — NEVER a stray 0"
+    // — was written against `undefined`, the failure mode Cesium had when it was written. The
+    // Earth-radius ray-origin reading is the same class of non-measurement and gets the same answer:
+    // fall back to the centroid base. Nothing else changes; every in-band reading still wins, which
+    // `GlobeGroundAnchor.test.ts` §SITEFRAME-GROUND already pins.
+    return isReadableGlobeSurfaceHeight(sampled) ? sampled : centroidBaseM;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────

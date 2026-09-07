@@ -297,6 +297,7 @@ import {
   originSeparationMeters,
   georefOriginsDiverge,
   resolveGroundSample,
+  isReadableGlobeSurfaceHeight,
   ringCentroidLatLon,
   // §TERRAIN-BASE-PROVENANCE (C12 §1.4) — the baked-terrain path's provenance reduction,
   // so a FAILED centroid sample is no longer the same value as a real 0 m ground.
@@ -384,6 +385,7 @@ import {
 // §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — one shared terrain round-trip for every ground layer
 // that asks inside the same short window, instead of one duplicate download per layer (pure).
 import { GroundSampleBatcher, groundSampleKey } from "./groundSampleBatcher";
+import { TerrainTileMemo, memoiseTerrainTiles } from "./terrainTileMemo";
 // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — the sea's arrival re-clips the land-use drape by
 // REMOVING the pieces that are over water, instead of forcing the whole layer to reload. Pure.
 import {
@@ -619,6 +621,37 @@ const PHOTOREAL_VOID_CAP_SEAT_EPSILON_M = 0.05;
 const SITE_ARRIVAL_FLY_DURATION_S = 5;
 /** Establishing-shot altitude (m) the slow descent begins from. */
 const SITE_ARRIVAL_HIGH_ALT_M = 9000;
+
+/**
+ * §STARTUP-SLOW-DESCENT (founder 2026-09-07) — the arrival duration for the ONE-SHOT **start-up**
+ * descent, seconds. Every other caller of `frameSiteLocation` keeps `SITE_ARRIVAL_FLY_DURATION_S`.
+ *
+ * ⚠ THIS REVERSES §STARTUP-DIRECT-DESCENT FOR THE START-UP ROUTE ONLY, AND THE OLDER RULING IS
+ * DELIBERATELY LEFT STANDING WHERE IT WAS WON. On **2026-08-07** the founder ruled *"speed up
+ * ideally 5× the complete project start-up process"* and the descent chain was collapsed so the
+ * intermediate world/country/city legs are superseded before Cesium renders a frame at those
+ * altitudes (`GlobeHeroSearch.descendAndHandOff`, `SITE_ENTRY_FLIGHT_DURATION_S` = 1.6 s). That
+ * ruling was about **skipped frustum loads** — three wasted LOD streams competing with the context
+ * read — and it is still correct and still in force: this constant does NOT re-introduce them.
+ *
+ * On **2026-09-07** the founder asked for the opposite of what the collapse produced at the END of
+ * the chain: *"do the zoom in to the location way slower — to ideally not have the loading page at
+ * all."* The two are only in tension if you read the 08-07 ruling as "the camera must be fast".
+ * It is not: it is "do not PARK the camera at altitudes nobody looks at". A single continuous
+ * descent along the SAME path, taken more slowly, parks nowhere and loads no extra frustum — see
+ * `frameSiteLocationAtGround`, which starts this flight from exactly the same
+ * `SITE_ARRIVAL_HIGH_ALT_M` vantage it always did and ends on exactly the same seat.
+ *
+ * ⛔ WHY 12 s, AND WHY THE NUMBER IS NOT LOAD-BEARING. The founder's own measured run
+ * (2026-09-06, HEAD `2c12b8d5`) spent **61 s** streaming behind the splash
+ * (`activation:site:start` → `activation:site:tiles-done` = 60,977 ms), so no honest flight can
+ * "cover" the whole wait and this one does not pretend to: it covers the OPENING of it, which is
+ * the part the founder watches. 12 s is the long end of his stated 8–15 s, chosen because a lane
+ * cutting that 61 s is in flight — if the stream lands at ~15 s the descent covers most of it, and
+ * if it stays long the in-view line (§STARTUP-QUIET-ACTIVATION) carries the rest without a splash.
+ * ⚠ It is a FEEL dial, not a correctness one: nothing sequences on it, and nothing waits for it.
+ */
+const STARTUP_DESCENT_FLY_DURATION_S = 12;
 
 /**
  * GIS-CESIUM-ZRAISE — z-index the Cesium container is raised to while GIS is
@@ -1358,6 +1391,23 @@ export class CesiumViewport {
    *  exact plot bbox, so the event-driven point-flyTo doesn't override the better
    *  extent framing with a redundant second flight. One-shot. */
   private suppressNextLocationFly = false;
+  /**
+   * §STARTUP-SLOW-DESCENT (founder 2026-09-07) — ARMED for the NEXT site-arrival flight only.
+   *
+   * Same one-shot shape as `suppressNextLocationFly` directly above, and for the same reason: the
+   * fact "this arrival is the project's FIRST, and the user is watching it instead of a splash" is
+   * known to the ONBOARDING flow, not to the camera. A viewport-wide setting would slow a project
+   * restore and a GIS-rail geocode too, which nobody asked for.
+   *
+   * ⛔ IT IS CONSUMED, NOT MERELY READ — `frameSiteLocationAtGround` clears it as it starts the
+   * flight, so a second location change cannot inherit a cinematic it was not armed for.
+   */
+  private startupDescentArmed = false;
+  /** §STARTUP-SLOW-DESCENT — settles when the armed descent is no longer in progress (complete OR
+   *  cancelled, exactly like `flyToGeographic`: "no longer flying", never "arrived"). `null` when
+   *  no start-up descent has been armed or flown. Read by `whenStartupDescentSettled()`. */
+  private startupDescentSettled: Promise<void> | null = null;
+  private resolveStartupDescent: (() => void) | null = null;
   /** §STARTUP-LOCATION-IDEMPOTENT (founder 2026-08-07, 5–10× startup) — the coordinates of the
    *  last `site.location-changed` event this subscriber actually HANDLED. A later event carrying
    *  the SAME point (the θ-publish from `dispatchSiteTrueNorth` at parcel commit is the main
@@ -2070,6 +2120,9 @@ export class CesiumViewport {
   private scopeCapReports = new Map<string, { readonly eligible: number; readonly cap: number }>();
   /** One-time guard for the "clipping polygons unsupported" warning. */
   private siteScopeUnsupportedWarned = false;
+  /** §SITE-SCOPE — TRUE while `globe.cartographicLimitRectangle` is ours, so the teardown knows
+   *  to put `Rectangle.MAX_VALUE` back rather than leaving the globe bounded for good. */
+  private siteScopeLimitRectApplied = false;
   /** Disposer for the `site.scope-changed` runtime subscription. */
   private scopeSub: (() => void) | null = null;
 
@@ -2197,63 +2250,169 @@ export class CesiumViewport {
   }
 
   /**
-   * §SITE-SCOPE (C12 §13.3 classes A + B + H) — cut the GLOBE to the scope polygon and build the
-   * slab SIDE + FLOOR. Runs on the buildings funnel once the terrain base is resolved, is rebuilt on
-   * the terrain settle (the ring's own heights move), and is torn down by `clearContextEarthSlab`.
+   * SECTION-SITE-SCOPE (C12 13.3 classes A + B + H) - cut the GLOBE to the scope and build the slab
+   * SIDE + FLOOR. Runs on the buildings funnel once the terrain base is resolved, is re-asserted at
+   * the end of the same load, is rebuilt on the terrain settle, and is torn down by
+   * `clearContextEarthSlab`. Forma-only. Never throws.
    *
-   *  A · `globe.clippingPolygons` = ONE `ClippingPolygon` from the clipper's `polygonLatLon` — the
-   *      SAME n-gon / four corners every layer was cut to — `inverse: true` (keep only the inside).
-   *      Feature-detected (`ClippingPolygonCollection.isSupported` = WebGL2); on any failure the
-   *      globe is left whole AND no side is drawn — never a half-slab (§CONTEXT-DATA-HONESTY).
-   *  B · a `Primitive` of `WallGeometry` on the ring (top = terrain sampled along the ring + the lip,
-   *      bottom = the lowest top − the depth) + a `PolygonGeometry` floor, `PerInstanceColorAppearance
-   *      ({ flat: true })` in the neutral slab grey: unlit by construction, so the warm key light that
-   *      turned the retired tan entity wall into a "red ring" cannot reach it. Shadowless.
-   *  H · fog off while the slab is up (the outside has no fragments; the rim must not fade) —
-   *      restored on clear; no other surface setting is touched (C12 §13.7).
-   * Forma-only; the photoreal globe keeps its parcel void (ADR-0382 D6). Never throws.
+   * -- REWRITTEN 2026-09-07 AFTER THE FOUNDER'S FIRST PROD TEST (build `2c12b8d5`) --------------
+   *
+   * He photographed a VAST beige hill-shaded landmass with a small clipped rectangle of city
+   * floating in the middle of it: every per-layer geometric clip working, the GLOBE not cut, no slab
+   * side, and - the part that made it undiagnosable - NOT ONE CONSOLE LINE about the globe, the
+   * terrain or the side, while eleven `SITE-SCOPE clip` lines printed for the other layers.
+   *
+   * ROOT CAUSE, AND IT IS A STALE FLAG THIS FILE HAD ALREADY RECORDED ONCE. The first line of this
+   * method was `if (!viewer || !this.formaMode || this.photorealTilesActive) return;` - a SILENT
+   * return. `photorealTilesActive` is set TRUE when the photoreal tileset loads and is cleared ONLY
+   * on `dispose`; `hasRealTileProvider()`'s own comment, a few hundred lines up, says so in as many
+   * words: "a prior globe view leaves `photorealTilesActive === true` (it is not reset on Forma
+   * re-entry)" - that is L-371, the same stale flag, one consumer over. The founder's onboarding
+   * flies the photoreal GLOBE before it enters the 3D Site, so on his machine the flag was true and
+   * the entire feature returned at its first line, on the DEFAULT path.
+   *
+   * AND THE GUARD WAS WRONG IN ITS OWN TERMS, not merely stale. What ADR-0382 D6 forbids is scoping
+   * the photoreal GLOBE VIEW; the predicate for that is "the photoreal tileset is SHOWING", never
+   * "a tileset was ever loaded in this session". `formaMode` already establishes which view we are
+   * in (STR 26.1.1 makes the two mutually exclusive), so the tileset is asked whether it is VISIBLE
+   * - a fact with no memory.
+   *
+   * MECHANISM, AND WHY THERE ARE NOW TWO LEGS. `globe.clippingPolygons` cuts the exact n-gon but
+   * needs WebGL 2 (`ClippingPolygonCollection.isSupported` reads `scene.context.webgl2`) and a
+   * signed-distance texture. `globe.cartographicLimitRectangle` is a first-class `Globe` property
+   * implemented as a plain fragment `discard` under the `TILE_LIMIT_RECTANGLE` define
+   * (CesiumUnminified/index.js:207388, accessor :214979) - no support gate, no texture - and it also
+   * drives tile-level render culling (:211831). So the RECTANGLE leg is applied ALWAYS and is what
+   * guarantees the landmass is gone; the POLYGON leg refines it to the exact ring when supported.
+   *
+   * WHEN THE POLYGON LEG IS UNAVAILABLE THE CUT IS THE BOUNDING BOX, WHICH IS A SUPERSET, and the
+   * log SAYS SO with the corner overshoot in metres. A rotated scope (theta != 0 - Barcelona's grid
+   * is theta ~ -44.9 deg) therefore keeps four corner wedges of terrain outside the slab side. That
+   * is a named, printed degradation, not a silent one, and it is strictly better than a continent.
+   *
+   * EVERY PATH THROUGH THIS METHOD NOW PRINTS EXACTLY ONE `SITE-SCOPE globe` LINE. A fallback a user
+   * cannot tell apart from "not implemented" is the CONTEXT-DATA-HONESTY failure in its rendering
+   * form - it cost this feature a whole founder test cycle. The APPLIED line READS THE PROPERTIES
+   * BACK off the globe rather than reporting what was assigned, so it is a measurement, not a claim.
    */
   private async applySiteScopeClip(lat: number, lon: number): Promise<void> {
+    const say = (verdict: string, detail: string): void => {
+      console.log(`[CesiumViewport][forma] §SITE-SCOPE globe — ${verdict}: ${detail}`);
+    };
     const viewer = this.viewer;
-    if (!viewer || !this.formaMode || this.photorealTilesActive) return;
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
-    const CP = Cesium as unknown as { ClippingPolygon?: unknown; ClippingPolygonCollection?: unknown };
-    if (typeof CP.ClippingPolygon !== 'function' || typeof CP.ClippingPolygonCollection !== 'function'
-        || !Cesium.ClippingPolygonCollection.isSupported(viewer.scene)) {
-      if (!this.siteScopeUnsupportedWarned) {
-        this.siteScopeUnsupportedWarned = true;
-        console.warn('[CesiumViewport][forma] §SITE-SCOPE — clipping polygons unsupported here (WebGL 2 required); the globe is left whole and no slab side is drawn (C12 §13.3).');
-      }
-      this.clearContextEarthSlab();
+    if (!viewer) { say('SKIPPED', 'no viewer.'); return; }
+    if (!this.formaMode) {
+      say('SKIPPED', 'not in Forma (3D Site) mode — the scope is a 3D-Site feature (ADR-0382 D6).');
+      return;
+    }
+    // THE VISIBILITY OF THE TILESET, NOT THE MEMORY THAT ONE LOADED. See the header.
+    if (this.photorealTileset?.show === true) {
+      say('SKIPPED', 'the photoreal tileset is SHOWING — it keeps its §7 parcel void; one tileset holds ONE `inverse` (ADR-0382 D6 / AUDIT F-13).');
+      return;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
+      say('SKIPPED', `no usable origin (lat=${String(lat)} lon=${String(lon)}) — the scope is centred on the site frame origin, never on 0,0.`);
       return;
     }
     const clipper = this.scopeClipperFor(lat, lon);
     const key = `${this.scopeClipperCache?.key ?? ''}|${this.formaTerrainBaseHeight.toFixed(2)}`;
-    if (this.siteScopeClipAt && this.siteScopeClipAt.key === key && this.siteScopeSlabPrimitive) return; // already up.
+    if (this.siteScopeClipAt && this.siteScopeClipAt.key === key && this.siteScopeSlabPrimitive) {
+      say('UNCHANGED', `already cut to this scope × origin × θ × terrain base (${this.formaTerrainBaseHeight.toFixed(1)} m); nothing rebuilt.`);
+      return;
+    }
     const ring = clipper.polygonLatLon;
+    if (ring.length < 3) { say('REFUSED', `the scope polygon has ${ring.length} vertices — nothing to cut to.`); return; }
+
+    // -- LEG A1 - the RECTANGLE bound. ALWAYS. No support gate, no texture. --------------------
+    let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+    for (const p of ring) {
+      if (p.lat < minLat) minLat = p.lat;
+      if (p.lat > maxLat) maxLat = p.lat;
+      if (p.lon < minLon) minLon = p.lon;
+      if (p.lon > maxLon) maxLon = p.lon;
+    }
+    let rectApplied = false;
     try {
-      // A · the globe. Height-independent (a vertical curtain), so it is applied synchronously.
-      const positions = ring.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0));
-      viewer.scene.globe.clippingPolygons = new Cesium.ClippingPolygonCollection({
-        polygons: [new Cesium.ClippingPolygon({ positions })],
-        inverse: true,
-      });
-      if (this.siteScopeFogWas === null) this.siteScopeFogWas = viewer.scene.fog.enabled;
-      viewer.scene.fog.enabled = false;
-      this.siteScopeClipAt = { lat, lon, key };
-      viewer.scene.requestRender();
+      viewer.scene.globe.cartographicLimitRectangle = Cesium.Rectangle.fromDegrees(minLon, minLat, maxLon, maxLat);
+      this.siteScopeLimitRectApplied = true;
+      rectApplied = true;
     } catch (e) {
-      console.warn('[CesiumViewport][forma] §SITE-SCOPE globe clip failed — globe left whole, no slab side:', e);
+      say('FAILED (rectangle leg)', `globe.cartographicLimitRectangle threw — ${String(e)}`);
+    }
+
+    // -- LEG A2 - the exact POLYGON, when this machine supports it. -----------------------------
+    const CP = Cesium as unknown as { ClippingPolygon?: unknown; ClippingPolygonCollection?: unknown };
+    const polygonSupported =
+      typeof CP.ClippingPolygon === 'function' && typeof CP.ClippingPolygonCollection === 'function'
+      && Cesium.ClippingPolygonCollection.isSupported(viewer.scene);
+    let polygonApplied = false;
+    if (polygonSupported) {
+      try {
+        const positions = ring.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0));
+        viewer.scene.globe.clippingPolygons = new Cesium.ClippingPolygonCollection({
+          polygons: [new Cesium.ClippingPolygon({ positions })],
+          inverse: true,
+        });
+        polygonApplied = !!viewer.scene.globe.clippingPolygons;   // READ BACK; do not assume.
+      } catch (e) {
+        say('DEGRADED', `the exact polygon clip threw (${String(e)}); the rectangle bound above still stands.`);
+      }
+    } else if (!this.siteScopeUnsupportedWarned) {
+      this.siteScopeUnsupportedWarned = true;
+      say('DEGRADED', 'ClippingPolygonCollection.isSupported === false (WebGL 2 required) — the cut is the BOUNDING RECTANGLE only.');
+    }
+
+    if (!rectApplied && !polygonApplied) {
+      say('REFUSED', 'neither the rectangle nor the polygon leg applied — the globe is left WHOLE and NO slab side is drawn (never a half-slab).');
       this.clearContextEarthSlab();
       return;
     }
+
+    if (this.siteScopeFogWas === null) this.siteScopeFogWas = viewer.scene.fog.enabled;
+    viewer.scene.fog.enabled = false;
+    this.siteScopeClipAt = { lat, lon, key };
+    viewer.scene.requestRender();
+
+    // The corner overshoot the rectangle leaves when it is ALONE and the scope is rotated: the
+    // bbox half-diagonal minus the scope's own circumscribing radius. ~0 when theta ~ 0.
+    const rBox = Math.hypot(
+      (maxLat - minLat) * 111_320 / 2,
+      (maxLon - minLon) * 111_320 * Math.cos(lat * Math.PI / 180) / 2,
+    );
+    const rScope = scopeOuterRadiusUnclampedM(this.contextScope);
+    // READ BACK off the globe - this line reports what IS set, not what was assigned.
+    const rectLive = viewer.scene.globe.cartographicLimitRectangle;
+    const rectText = rectLive
+      ? `${Cesium.Math.toDegrees(rectLive.west).toFixed(5)},${Cesium.Math.toDegrees(rectLive.south).toFixed(5)} → ` +
+        `${Cesium.Math.toDegrees(rectLive.east).toFixed(5)},${Cesium.Math.toDegrees(rectLive.north).toFixed(5)}`
+      : 'unset';
+    say(
+      'APPLIED',
+      `${this.contextScope.shape} of ${Math.round(rScope)} m about ${lat.toFixed(5)},${lon.toFixed(5)} — ` +
+        `rectangle leg ${rectApplied ? 'ON' : 'OFF'} (live bbox ${rectText}) · ` +
+        `polygon leg ${polygonApplied ? `ON (${ring.length}-gon, inverse)` : 'OFF'} · ` +
+        (polygonApplied
+          ? 'the cut is the EXACT scope polygon.'
+          : `the cut is the BOUNDING BOX — up to ${Math.max(0, Math.round(rBox - rScope))} m wider than the scope at the corners (NAMED degradation, never silent).`) +
+        ' fog off. Building the slab side next.',
+    );
     // B · the side + floor, seated on the terrain sampled along the ring (ONE batched flight —
     //     the ring's points land in tiles the buildings already pulled).
     try {
       await this.sampleContextGroundsBatch(ring.map((p) => ({ lat: p.lat, lon: p.lon })));
     } catch { /* falls back to the safe base below — never a stray 0 */ }
-    if (!this.viewer || this.viewer !== viewer) return;
-    if (!this.siteScopeClipAt || this.siteScopeClipAt.key !== key) return; // superseded while sampling.
+    // ⛔ BOTH OF THESE WERE SILENT RETURNS, and between them they are the reason a cut globe with no
+    // side could look identical to "the feature did nothing" (the founder's 2026-09-07 test). The
+    // globe legs above have already applied and logged by this point, so a return here leaves a CUT
+    // globe and NO side — a state that must be stated, not inferred from the absence of a line.
+    if (!this.viewer || this.viewer !== viewer) {
+      console.log('[CesiumViewport][forma] §SITE-SCOPE slab — ABANDONED: the viewer was replaced while the rim terrain was sampling; the globe cut stands, no side drawn.');
+      return;
+    }
+    if (!this.siteScopeClipAt || this.siteScopeClipAt.key !== key) {
+      console.log('[CesiumViewport][forma] §SITE-SCOPE slab — SUPERSEDED: a newer scope × origin × θ × terrain base took over while the rim terrain was sampling; that pass builds the side.');
+      return;
+    }
     try {
       const safeBase = this.resolveContextSafeBase(lat, lon);
       const tops = ring.map((p) => this.sampleGround(p.lat, p.lon, safeBase) + SITE_SCOPE_SLAB_LIP_M);
@@ -2292,13 +2451,15 @@ export class CesiumViewport {
       this.siteScopeSlabPrimitive = prim;
       viewer.scene.requestRender();
       console.log(
-        `[CesiumViewport][forma] §SITE-SCOPE slab — globe cut to a ${this.contextScope.shape} of ` +
-          `${Math.round(scopeOuterRadiusUnclampedM(this.contextScope))} m (${ring.length}-gon, inverse); side + floor: ` +
-          `flat-shaded ${SITE_SCOPE_SLAB_SIDE_CSS}, top on sampled relief + ${SITE_SCOPE_SLAB_LIP_M} m, floor ${floor.toFixed(1)} m ` +
-          `(${SITE_SCOPE_SLAB_DEPTH_M} m below the lowest rim); fog off.`,
+        `[CesiumViewport][forma] §SITE-SCOPE slab — SIDE + FLOOR BUILT on the ${ring.length}-vertex scope ring: ` +
+          `flat-shaded ${SITE_SCOPE_SLAB_SIDE_CSS} (PerInstanceColorAppearance flat:true — UNLIT by construction, ` +
+          `so the warm key light that made the retired tan skirt read as a "red ring" cannot reach it), ` +
+          `top on sampled relief + ${SITE_SCOPE_SLAB_LIP_M} m, floor ${floor.toFixed(1)} m ` +
+          `(${SITE_SCOPE_SLAB_DEPTH_M} m below the lowest rim), shadowless. The globe legs are reported ` +
+          `on the §SITE-SCOPE globe line above — read THAT for what the terrain was actually cut to.`,
       );
     } catch (e) {
-      console.warn('[CesiumViewport][forma] §SITE-SCOPE slab side build failed — globe clip kept, no side:', e);
+      console.warn('[CesiumViewport][forma] §SITE-SCOPE slab — SIDE BUILD FAILED; the globe cut above is KEPT and no side is drawn:', e);
     }
   }
 
@@ -4176,6 +4337,14 @@ export class CesiumViewport {
       roll: 0,
     };
     if (opts.instant) {
+      // §STARTUP-SLOW-DESCENT — an INSTANT framing is not a descent. Disarm and settle, so a
+      // start-up arming that lands on the mount-framing path resolves rather than dangling.
+      if (this.startupDescentArmed) {
+        this.startupDescentArmed = false;
+        const resolve = this.resolveStartupDescent;
+        this.resolveStartupDescent = null;
+        resolve?.();
+      }
       viewer.camera.setView({ destination, orientation });
     } else {
       // §SITE-CINEMATIC-ARRIVAL — slow two-stage establishing descent. (a) Jump
@@ -4202,7 +4371,34 @@ export class CesiumViewport {
       // and the base-settle reframe self-suppressed (camera stuck at Z=0). Token-gating
       // makes this stale cancel a no-op once the reframe flight has superseded it.
       const arrivalToken = this.beginProgrammaticFly();
-      const clearArrivalFlag = (): void => { this.endProgrammaticFly(arrivalToken); };
+      // §STARTUP-SLOW-DESCENT (founder 2026-09-07) — CONSUME the one-shot arming here, at the one
+      // place the arrival tween is actually created. Consuming (rather than reading) means a
+      // second `site.location-changed` cannot inherit a cinematic nobody armed for it, and it is
+      // cleared BEFORE the `try` so a throwing `flyTo` cannot leave it armed forever.
+      const isStartupDescent = this.startupDescentArmed;
+      this.startupDescentArmed = false;
+      const durationS = isStartupDescent ? STARTUP_DESCENT_FLY_DURATION_S : SITE_ARRIVAL_FLY_DURATION_S;
+      // ⚠ SETTLE EXACTLY ONCE, AND SETTLE ON `cancel` TOO. Same contract as `flyToGeographic`: the
+      // promise means "this descent is no longer in progress", never "the camera arrived". A user
+      // who grabs the globe mid-descent, or a newer flight that supersedes it, must not leave the
+      // quiet-activation window waiting on an animation that will never finish.
+      const settleStartupDescent = (): void => {
+        const resolve = this.resolveStartupDescent;
+        this.resolveStartupDescent = null;
+        resolve?.();
+      };
+      const clearArrivalFlag = (): void => {
+        this.endProgrammaticFly(arrivalToken);
+        if (isStartupDescent) settleStartupDescent();
+      };
+      if (isStartupDescent) {
+        console.log(
+          `[CesiumViewport] §STARTUP-SLOW-DESCENT — flying the START-UP arrival over ${durationS}s ` +
+          `(the ordinary arrival is ${SITE_ARRIVAL_FLY_DURATION_S}s) from ground+${SITE_ARRIVAL_HIGH_ALT_M}m ` +
+          'down to the SAME seat as always. Reverses §STARTUP-DIRECT-DESCENT (2026-08-07) for this ' +
+          'route only — the path and the destination are unchanged, only the pacing.',
+        );
+      }
       // §GLOBE-CRASH-GUARD — compose with §GLOBE-FRAME-NO-JUMP-2: if `flyTo` throws
       // synchronously the `complete`/`cancel` callbacks never run, so the in-flight
       // flag would stick `true` forever (the moveStart listener would then never
@@ -4212,7 +4408,7 @@ export class CesiumViewport {
         viewer.camera.flyTo({
           destination,
           orientation,
-          duration: SITE_ARRIVAL_FLY_DURATION_S,
+          duration: durationS,
           easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
           complete: clearArrivalFlag,
           cancel: clearArrivalFlag,
@@ -4387,6 +4583,34 @@ export class CesiumViewport {
   /** @returns where the ONE Cesium camera is currently framed (`'site'` or `'world'`). */
   public getViewFraming(): CesiumViewFraming {
     return this.viewFraming;
+  }
+
+  /**
+   * §GLOBE-KEEPS-THE-VIEW (L-13070) — the ONE camera's current WGS84 height, in metres, or
+   * `null` when there is nothing live to read it from.
+   *
+   * ⚠ THIS IS NOT A SECOND `viewFraming`, AND IT MUST NOT BECOME ONE. The field doc on
+   * `viewFraming` above rules that the surface is DECLARED and never inferred from this number,
+   * precisely because it is a consequence of a flight that may still be in progress. Nothing in
+   * this class reads it; its one consumer is the `3D Site` row in the pane picker
+   * (`defaultSiteViewCameraPorts().frameSite`), which reads it ONCE, at click time, with the
+   * camera at rest, to decide whether the user's current view can simply be KEPT — the founder's
+   * *"precisely the same view"* — or whether it is so far out that the site surface (a flat
+   * Forma ground under a city-bounded terrain tileset) could not be drawn from there.
+   *
+   * `null` rather than `0` on every degraded path: a fabricated zero would read as "on the
+   * pavement" and would carry the camera into exactly the frame this exists to refuse.
+   */
+  public getCameraAltitudeM(): number | null {
+    if (!this.isViewerLive()) return null;
+    const viewer = this.viewer;
+    if (!viewer) return null;
+    try {
+      const h = viewer.camera.positionCartographic.height;
+      return Number.isFinite(h) ? h : null;
+    } catch {
+      return null;                                   // a destroyed camera is an unreadable one.
+    }
   }
 
   /**
@@ -4625,6 +4849,9 @@ export class CesiumViewport {
     // §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — fence any round-trip still in the air, so the
     // DETACHED relief's heights cannot land in the cache we just emptied. Waiters still settle.
     this.groundSampleBatcherInstance?.invalidate();
+    // §TERRAIN-TILE-MEMO (L-13077) — the decoded tiles die with the relief for the same reason the
+    // point cache does: they are THIS tileset's ground, and the next attach may be another city's.
+    this.invalidateTerrainTileMemo();
     this.formaTerrainBaseHeight = 0;
     // §TERRAIN-BASE-PROVENANCE — the base just went back to the ellipsoid, which on this
     // path is the TRUE flat ground (not a failed sample). Reset the provenance with it so a
@@ -9301,7 +9528,15 @@ export class CesiumViewport {
           return points.map(() => null);   // UNMEASURED, not 0 — the seat ladder falls back safely.
         }
         const cartos = points.map((p) => Cesium.Cartographic.fromDegrees(p.lon, p.lat));
-        const sampled = await Cesium.sampleTerrainMostDetailed(provider, cartos);
+        // §TERRAIN-TILE-MEMO (L-13077) — sample through a memo of DECODED tiles, so the SECOND
+        // flight over one bbox interpolates out of the first flight's tiles instead of downloading
+        // them again. The founder's Barcelona run fetched the SAME 12 level-14 tiles twice, five
+        // seconds each (flights 1 and 2 below), because `doSampling` builds its tile set fresh on
+        // every call and `CesiumTerrainProvider.requestTileGeometry` is a bare fetch+decode with no
+        // memo (Cesium 1.143 :208004 / :257569, read 2026-09-07). The split-piece batch CANNOT be
+        // merged into the probe batch — it is not knowable until the probe batch returns — so the
+        // only way to stop paying for it twice is to keep the tiles.
+        const sampled = await Cesium.sampleTerrainMostDetailed(this.samplingTerrainProvider(provider), cartos);
         return points.map((_, i) => {
           const h = sampled[i]?.height;
           return typeof h === 'number' && Number.isFinite(h) ? h : null;
@@ -9320,6 +9555,21 @@ export class CesiumViewport {
             // down — dropping drape DENSITY would move `sampled` and not move this at all.
             `Tiles: ${tiles} distinct terrain tile(s) at level ${tileLevel} for those ${sampled} ` +
             `point(s) — the DOWNLOADS are the cost, the points inside a tile are free. ` +
+            // §TERRAIN-TILE-MEMO (L-13077) — WHICH of those tiles were actually downloaded. The
+            // line above counts the tiles a flight TOUCHES; this one counts the tiles it PAID for.
+            // On the founder's Barcelona run flight 2 touched 12 and paid for 12 (5 s); with the
+            // memo it touches 12 and pays for 0. A `downloads` figure that stays equal to `tiles`
+            // on a second flight over the same bbox means the memo is not being reached — read
+            // these two numbers together or neither of them says anything.
+            (() => {
+              const m = this.terrainTileMemoEntry?.memo.stats;
+              return m
+                ? `Tile memo: ${m.downloads} download(s) + ${m.hits} hit(s) of ${m.requests} ` +
+                  `tile request(s) this session, ${m.resident} tile(s) resident, ${m.evicted} evicted, ` +
+                  `${m.failures} failed (a failure is NEVER memoised — a transient 503 must not read ` +
+                  `as "no ground here"). `
+                : '';
+            })() +
             (s
               ? `Session: ${s.roundTrips} round-trip(s) for ${s.requests} caller(s) asking ` +
                 `${s.pointsRequested} point(s) — ${s.pointsSampled} sampled, ${s.pointsFromCache} ` +
@@ -9334,6 +9584,46 @@ export class CesiumViewport {
       },
     });
     return this.groundSampleBatcherInstance;
+  }
+
+  /**
+   * §TERRAIN-TILE-MEMO (L-13077) — the decoded-tile memo for the CURRENTLY attached provider, and
+   * the provider it belongs to.
+   *
+   * ⚠ THE PROVIDER IDENTITY IS PART OF THE STATE, NOT AN AFTERTHOUGHT. `level/x/y` names a piece of
+   * ground only WITHIN one tileset; the same triple against Barcelona's and Madrid's bakes is two
+   * different hillsides. So the memo is rebuilt whenever `viewer.terrainProvider` changes — the
+   * same fence `GroundSampleBatcher.invalidate()` already draws around the point cache, for the
+   * same reason (§STARTUP-GROUND-SAMPLE-COALESCE: a previous city's elevations must never seat a
+   * new site).
+   */
+  private terrainTileMemoEntry: { readonly provider: object; readonly memo: TerrainTileMemo; readonly view: Cesium.TerrainProvider } | null = null;
+
+  /**
+   * The provider `sampleTerrainMostDetailed` should sample THROUGH — the real one, viewed behind a
+   * memo of its decoded tiles.
+   *
+   * ⛔ NOT `viewer.terrainProvider`. The globe must keep the REAL provider: it renders from its own
+   * `GlobeSurfaceTile` cache and re-pointing it at a sampling memo would put a second lifetime
+   * policy in front of the render path, which is not what this measures or fixes.
+   */
+  private samplingTerrainProvider(provider: Cesium.TerrainProvider): Cesium.TerrainProvider {
+    const held = this.terrainTileMemoEntry;
+    if (held && held.provider === (provider as unknown as object)) return held.view;
+    // A different provider is a different city's ground: drop what the old one decoded.
+    held?.memo.clear();
+    const memo = new TerrainTileMemo();
+    const view = memoiseTerrainTiles(provider as unknown as Cesium.TerrainProvider & { requestTileGeometry(x: number, y: number, level: number, request?: unknown): Promise<unknown> | undefined }, memo);
+    const entry = { provider: provider as unknown as object, memo, view: view as Cesium.TerrainProvider };
+    this.terrainTileMemoEntry = entry;
+    return entry.view;
+  }
+
+  /** §TERRAIN-TILE-MEMO (L-13077) — drop every decoded tile. Called wherever the ground answers
+   *  die (relief detached, project switched), beside `GroundSampleBatcher.invalidate()`. */
+  private invalidateTerrainTileMemo(): void {
+    this.terrainTileMemoEntry?.memo.clear();
+    this.terrainTileMemoEntry = null;
   }
 
   /**
@@ -11055,6 +11345,7 @@ export class CesiumViewport {
           let n = 0;
           let sumAbs = 0;
           let worst = 0;
+          let unreadable = 0;
           for (const [k, detailed] of this.contextGroundCache) {
             if (n >= 200) break;
             const comma = k.indexOf(',');
@@ -11062,18 +11353,46 @@ export class CesiumViewport {
             const pLon = Number(k.slice(comma + 1));
             if (!Number.isFinite(pLat) || !Number.isFinite(pLon)) continue;
             const coarse = globe.getHeight(Cesium.Cartographic.fromDegrees(pLon, pLat));
-            if (typeof coarse !== 'number' || !Number.isFinite(coarse)) continue;
+            // §GLOBE-HEIGHT-READABLE (L-13078) — ⚠ NOT `Number.isFinite`. See below: an unreadable
+            // coarse source is the whole reason this probe reported 6 328 km of "terrain error".
+            if (!isReadableGlobeSurfaceHeight(coarse)) { unreadable++; continue; }
             const d = detailed - coarse;                 // > 0 ⇒ the coarse mesh is BELOW the real ground
             n++;
             sumAbs += Math.abs(d);
             if (Math.abs(d) > Math.abs(worst)) worst = d;
           }
-          coarseVsDetailed = n > 0
+          // §GLOBE-HEIGHT-READABLE (L-13078, founder Barcelona 2026-09-07) — ⛔ A PROBE THAT CANNOT
+          // MEASURE MUST SAY SO, NOT PRINT A NUMBER.
+          //
+          // THIS LINE READ `mean|Δ|=6328546.71m worst=6328550.92m` on the founder's run and it was
+          // not terrain error at all: `globe.getHeight` returned its own Z-axis RAY ORIGIN
+          // (−6 328 484.24 m is a pure function of latitude 41.3825 — Barcelona's own open
+          // coordinate), which is finite and sails through every `Number.isFinite` guard. Subtracting
+          // a real detailed height from it yields ~an Earth radius, and the arithmetic even
+          // reconstructs the healthy readings: 6328546.71 − 6328484.2 = 62.5 m and
+          // 6328550.92 − 6328484.2 = 66.7 m, which is exactly right for Barcelona's ellipsoidal
+          // ground. THE DETAILED SIDE WAS ALWAYS FINE; the coarse side was a constant.
+          //
+          // ⚠ THIS FILE HAD ALREADY RECORDED THE SOURCE AS UNUSABLE — three times ("getHeight is
+          // unusable in Forma", "the RENDERED globe collapsed (getHeight=-6.3e6)", "the broken
+          // `globe.getHeight`") — and this probe compared it against the authoritative one anyway.
+          // That is Shape D: a diagnostic that cannot report the truth, which is worse than none,
+          // because its magnitude invited a geoid/datum hypothesis that has nothing to do with it.
+          //
+          // ⛔ THE NUMBER IS NOT "CORRECTED". There is nothing to correct — it is reproducible
+          // arithmetic, not a measurement. The only honest output is UNMEASURED, with the count.
+          coarseVsDetailed = unreadable > 0
+            ? ` | §COARSE-VS-DETAILED: UNMEASURED — globe.getHeight was UNREADABLE at ${unreadable} of `
+              + `${unreadable + n} cached point(s) (outside ±20 km, i.e. the Z-axis ray-origin artefact off an `
+              + 'untessellated/degenerate coarse mesh — NOT a terrain error, and NOT comparable to the detailed '
+              + `sample)${n > 0 ? `; the ${n} readable point(s) gave mean|Δ|=${(sumAbs / n).toFixed(2)}m worst=${worst.toFixed(2)}m` : ''}`
+            : n > 0
             ? ` | §COARSE-VS-DETAILED over ${n} cached point(s): mean|Δ|=${(sumAbs / n).toFixed(2)}m worst=${worst.toFixed(2)}m `
               + '(detailed − coarse; >0 = the tessellated mesh sits UNDER the sampled ground, which is what buries a baked layer)'
             : ' | §COARSE-VS-DETAILED: 0 cached points — UNMEASURED, not “they agree”';
         } catch (e) { coarseVsDetailed = ` | §COARSE-VS-DETAILED err:${(e as Error).message}`; }
         let checked = 0;
+        let unreadableSurf = 0;
         let below = 0;
         let worstGapM = 0;      // most-negative (base − surface); < 0 means base under the terrain
         let sumGapM = 0;
@@ -11083,7 +11402,16 @@ export class CesiumViewport {
           if (!c) continue;
           const surf = globe.getHeight(Cesium.Cartographic.fromDegrees(c.lon, c.lat));
           const base = entity.polygon?.height?.getValue(now);
-          if (typeof surf !== 'number' || typeof base !== 'number') continue;
+          // §GLOBE-HEIGHT-READABLE (L-13078) — ⛔ `typeof surf !== 'number'` LET THE ARTEFACT
+          // THROUGH, AND THIS CHECK THEN COULD NOT FAIL. With `surf = -6 328 484 m` and a real
+          // `base ≈ 62 m`, `gap = base - surf` is +6 328 546 m, never `< -1` — so the founder's run
+          // printed `0 BELOW terrain ✓ buildings on/above surface` as a VACUOUS PASS, produced by
+          // the identical garbage that produced the 6 328 km alarm two clauses earlier. The ✓ was
+          // never independent corroboration; it was the sign twin of the same defect. A footprint
+          // whose terrain surface is unreadable is NOT CHECKED (`unreadableSurf`), never counted as
+          // clean — the same rule the coarse-vs-detailed arm above now follows.
+          if (!isReadableGlobeSurfaceHeight(surf)) { unreadableSurf++; continue; }
+          if (typeof base !== 'number' || !Number.isFinite(base)) continue;
           const gap = base - surf;                 // negative ⇒ building base is UNDER the terrain surface
           checked++;
           sumGapM += gap;
@@ -11172,7 +11500,15 @@ export class CesiumViewport {
             `${this.formaTerrainSampledAt ? ` @${this.formaTerrainSampledAt.lat.toFixed(5)},${this.formaTerrainSampledAt.lon.toFixed(5)}` : ' @never-sampled'}) ` +
             `| of ${checked} sampled footprints: ` +
             `${below} BELOW terrain (avgGap=${avgGap.toFixed(1)}m, worst=${worstGapM.toFixed(1)}m under). ` +
-            `${below > 0 ? '⚠ BUILDINGS UNDER MESH — this is the sink bug.' : '✓ buildings on/above surface.'} ` +
+            // §GLOBE-HEIGHT-READABLE (L-13078) — a verdict is only worth printing where there was
+            // something to measure against. `checked === 0` with footprints skipped means the globe's
+            // surface was UNREADABLE, not that the buildings are fine.
+            `${checked === 0
+              ? (unreadableSurf > 0
+                ? `UNMEASURED — globe.getHeight was unreadable at all ${unreadableSurf} footprint(s) (the Z-axis ray-origin artefact); there is NO terrain surface to compare a seat against, which is NOT the same as "the seats are correct".`
+                : 'UNMEASURED — no footprint had both a seat and a terrain surface.')
+              : below > 0 ? '⚠ BUILDINGS UNDER MESH — this is the sink bug.' : '✓ buildings on/above surface.'} ` +
+            `${unreadableSurf > 0 && checked > 0 ? `(${unreadableSurf} further footprint(s) NOT CHECKED — unreadable terrain surface.) ` : ''}` +
             `| §GLOBE-RENDER globeShow=${gAny.show} tilesLoaded=${gAny.tilesLoaded} provider=${provAny?.constructor?.name} normals=${provAny?.hasVertexNormals} renderedTerrainTiles=${renderedTiles} camH=${viewer.camera.positionCartographic.height.toFixed(0)}m${coarseVsDetailed} | L0-TILES[${lz.length}]: ${lzDump}${cullDump}`,
         );
       } catch (e) {
@@ -11855,6 +12191,17 @@ export class CesiumViewport {
       try {
         if (viewer.scene.globe.clippingPolygons) {
           viewer.scene.globe.clippingPolygons = undefined as unknown as Cesium.ClippingPolygonCollection;
+        }
+        // ⛔ THE RECTANGLE LEG MUST BE PUT BACK, and it is the one that would be invisible if it
+        // were not: `cartographicLimitRectangle` is a plain property with no owner and no lifetime,
+        // so a scope left on it bounds the globe for the rest of the session — including the 3D
+        // GLOBE view, which would then render one rectangle of Earth. `Rectangle.MAX_VALUE` is the
+        // documented default (Cesium `Globe.js`), and only OUR rectangle is reset: the flag exists
+        // so this never clobbers a limit somebody else set.
+        if (this.siteScopeLimitRectApplied) {
+          viewer.scene.globe.cartographicLimitRectangle = Cesium.Rectangle.clone(Cesium.Rectangle.MAX_VALUE);
+          this.siteScopeLimitRectApplied = false;
+          console.log('[CesiumViewport][forma] §SITE-SCOPE globe — CLEARED: cartographicLimitRectangle restored to MAX_VALUE, clipping polygons dropped, fog restored.');
         }
         if (this.siteScopeSlabPrimitive) {
           try { viewer.scene.primitives.remove(this.siteScopeSlabPrimitive); } catch { /* gone */ }
@@ -16832,6 +17179,8 @@ export class CesiumViewport {
         // §STARTUP-GROUND-SAMPLE-COALESCE (L-12930) — as above: a round-trip started for the PREVIOUS
         // project must not write that city's elevations into this one's freshly emptied cache.
         this.groundSampleBatcherInstance?.invalidate();
+        // §TERRAIN-TILE-MEMO (L-13077) — and the decoded tiles go with them.
+        this.invalidateTerrainTileMemo();
         // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the standing sea layer is per-viewport too; cancel +
         // drop it so it doesn't leak across a project switch.
         this.contextSeaAbort?.abort();
@@ -17301,6 +17650,61 @@ export class CesiumViewport {
    */
   public suppressNextSiteLocationFly(): void {
     this.suppressNextLocationFly = true;
+  }
+
+  /**
+   * §STARTUP-SLOW-DESCENT (founder 2026-09-07: *"in the project start up — after the user adds the
+   * location — or cadastral information — do the zoom in to the location way slower — to ideally
+   * not have the loading page at all"*).
+   *
+   * Arm the NEXT site-arrival flight to be the long start-up descent
+   * (`STARTUP_DESCENT_FLY_DURATION_S`) instead of the ordinary `SITE_ARRIVAL_FLY_DURATION_S`.
+   * Call it IMMEDIATELY BEFORE the `site.location-changed` that starts the project — the
+   * onboarding reveal does, one step before `dispatchSiteLocation` (see
+   * `OnboardingStepController.revealSplitAtParcel`).
+   *
+   * ⚠ THE DESTINATION DOES NOT CHANGE, AND THAT IS THE POINT (L-13059). The flight still starts
+   * from `SITE_ARRIVAL_HIGH_ALT_M` above the resolved ground and still lands on exactly the
+   * §SITE-VIEWPOINT-CONSISTENT seat (`groundBase + SITE_FRAME_HEIGHT_M`, pitch
+   * `SITE_FRAME_PITCH_DEG`) this code has always left the camera on. Only the pacing differs, so
+   * the parcel fit L-13059 deliberately stepped back is untouched, and the tile set the descent
+   * requests is the same one it requested at 5 s — a camera path is a function of its endpoints,
+   * not of how long it takes to travel them.
+   *
+   * ⛔ ONE-SHOT, and consumed by the flight itself. A route that arms and then never flies (the
+   * viewport is torn down, a placed building takes the `flyToFormaSite` branch, the location event
+   * is suppressed) simply leaves the arming set for the next arrival at worst — it can never
+   * *block* anything, because nothing waits on it (see `whenStartupDescentSettled`).
+   */
+  public armStartupDescent(): void {
+    this.startupDescentArmed = true;
+    if (!this.resolveStartupDescent) {
+      this.startupDescentSettled = new Promise<void>((resolve) => {
+        this.resolveStartupDescent = resolve;
+      });
+    }
+    console.log(
+      '[CesiumViewport] §STARTUP-SLOW-DESCENT — armed: the next site arrival flies over ' +
+      `${STARTUP_DESCENT_FLY_DURATION_S}s instead of ${SITE_ARRIVAL_FLY_DURATION_S}s.`,
+    );
+  }
+
+  /**
+   * §STARTUP-SLOW-DESCENT — settles when an armed start-up descent is no longer in progress
+   * (complete OR cancelled — "not flying", never "arrived", exactly like `flyToGeographic`).
+   * `null` when no start-up descent has been armed on this viewport.
+   *
+   * ⛔ READ THE CONTRACT BEFORE YOU BUILD ON IT (L-716, §READINESS-MUST-BE-SATISFIABLE). This
+   * promise is an OBSERVATION, never a GATE: its one consumer (`viewActivationLoading`'s quiet
+   * window) uses it only to log the hand-over point, and NOTHING escalates, dismisses, hides or
+   * fails on it. That is deliberate. `frameSiteLocationAtGround` is not the only way a location
+   * change can end — a placed building diverts to `flyToFormaSite`, a suppressed event returns
+   * early, a disposed viewer no-ops — so a promise that could be waited on here would be exactly
+   * the unsatisfiable conjunction L-716 spent five rounds on. It is safe precisely because
+   * nothing waits for it. ⛔ Do not make anything wait for it.
+   */
+  public whenStartupDescentSettled(): Promise<void> | null {
+    return this.startupDescentSettled;
   }
 
   public transformModel(translation: Cesium.Cartesian3, rotationAngle: number) {

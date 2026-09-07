@@ -174,6 +174,24 @@ export const SITE_ENTRY_ALTITUDE_M: Readonly<Record<SiteEntryStage, number>> = {
  * WHERE to look, only how to get there" (`siteEntryStore.ts`). Pacing is the same kind of decision —
  * a declared property of a stage transition, not an implementation detail of one renderer. Leaving
  * it hard-coded in the viewport is precisely how it came to be invisible.
+ *
+ * ⛔ CORRECTED 2026-09-07 (§STARTUP-SLOW-DESCENT) — READING (3) ABOVE IS WRONG ABOUT WHAT THE USER
+ * SEES, AND THE FOUNDER'S OWN TRACE IS THE FALSIFICATION. It claims "this constant is once again
+ * the duration of the SINGLE rendered flight: the terminal confirmation leg". It is not. On his
+ * run at HEAD `2c12b8d5` the mark reads **`reveal:flight-settled +7ms`** — seven milliseconds for
+ * a 1.6 s flight — because the terminal leg is CANCELLED almost immediately by the arrival flight
+ * that `site.location-changed` triggers (`CesiumViewport.frameSiteLocationAtGround` does a
+ * `setView` to the establishing vantage, which cancels any tween in progress). So the descent the
+ * user actually watches has never been this constant at all; it is `SITE_ARRIVAL_FLY_DURATION_S`
+ * (5 s), and on the start-up route now `STARTUP_DESCENT_FLY_DURATION_S` (12 s, armed by
+ * `OnboardingStepController.revealSplitAtParcel`).
+ *
+ * ⚠ THIS IS STILL A REAL VALUE — do not "simplify" it to 0 or to `instant`. It paces the entry
+ * flow's OWN navigations (a globe click, a stage `descend`, `worldFramingTarget`) where no arrival
+ * flight follows to supersede it. What is untrue is only the claim that it is what the user sees
+ * during PROJECT START-UP. And the deeper lesson is the file's own: pacing declared in the model
+ * is invisible if a SECOND authority flies the same camera to the same place afterwards — the fix
+ * for that is not a third number here, it is knowing which flight actually renders.
  */
 export const SITE_ENTRY_FLIGHT_DURATION_S = 1.6;
 
@@ -423,9 +441,118 @@ export function cameraForState(state: SiteEntryState, instant = false): SiteEntr
  * `instant: false` — this is a navigation the user asked for, so it is a visible flight
  * (`SITE_ENTRY_FLIGHT_DURATION_S`), not a cut. Contrast `cameraForState(state, true)`, which
  * `frameCurrent()` uses because a MOUNT is not a navigation.
+ *
+ * ⛔ UNWIRED FROM THE `3D Globe` ROW BY §GLOBE-KEEPS-THE-VIEW (L-13070) — SAID OUT LOUD BECAUSE
+ * "authored but unwired" is this repo's most-repeated defect shape and a doc comment that still
+ * read *"the whole production wiring"* would be the lie that makes it one.
+ * `defaultSiteViewCameraPorts().frameGlobe()` was its only production caller and it no longer
+ * calls it: the founder asked for the `3D Globe` row to KEEP the camera he is on, and this
+ * target is 15°N 5°E at 20 000 km — the definition of not keeping it.
+ * It is RETAINED, not deleted, for two reasons that are both still live: it is the declared
+ * shape of "the world framing" (`SITE_ENTRY_ALTITUDE_M.world` × `SITE_ENTRY_PITCH_DEG.world`)
+ * that the onboarding entry flow flies through `cameraForState`, and a future explicit
+ * *"take me out to the planet"* affordance — should the founder want one alongside the row —
+ * is this function and nothing else. `siteViewQuickToggle.spec.ts` pins the absence of the
+ * call, so it cannot drift back in silently.
  */
 export function worldFramingTarget(): SiteEntryCameraTarget {
     return cameraForState(INITIAL_SITE_ENTRY_STATE);
+}
+
+// ── §GLOBE-KEEPS-THE-VIEW (L-13070) — the return trip's carry-or-reframe decision ────
+
+/**
+ * §GLOBE-KEEPS-THE-VIEW (L-13070, founder 2026-09-07: *"when selecting the parcel — I have
+ * selected 3D Globe — it goes into the right view — but it should keep zooming (ideally the
+ * precise same view) than the previous view on 3D Site … I would like ideally the same view —
+ * precisely the same"*).
+ *
+ * ⭐ THE OUTBOUND TRIP NEEDS NO DECISION AND NO STORE. `3D Site` and `3D Globe` are the SAME
+ * Cesium viewer (§L-412, C60 §6.5, STR §26.1.1), so "keep the camera" is not a save/restore
+ * problem at all — it is the absence of a flight. `frameGlobe()` used to call
+ * `flyToGeographic(worldFramingTarget())`, which is why the founder's parcel became the whole
+ * Earth. Deleting that call is the whole of "precisely the same": the camera object is never
+ * touched, so position, heading, pitch and roll carry over EXACTLY rather than to a tolerance.
+ * ⛔ This is NOT `sharedCameraPose.ts` (L-600). That model exists for the CROSS-RENDERER case
+ * (Cesium ↔ the WebGPU BIM camera), where two cameras in two frames must be projected onto each
+ * other. Reaching for it here would be building a bridge across a boundary that is not crossed.
+ *
+ * ⛔ BUT THE RETURN TRIP IS NOT SYMMETRIC, and that asymmetry is a RENDER fact, not a
+ * preference. `global-earth` renders at every altitude — imagery and the photoreal tileset are
+ * global — so carrying the camera OUT is unconditionally safe. `forma-site` does not: the
+ * `3D Site` surface attaches a CITY-BOUNDED quantized-mesh tileset that declares availability
+ * only inside its own `layer.json` bbox (`TERRAIN_CITY_BBOXES`), and a flat near-white Forma
+ * ground fills everything outside it. Carrying a WORLD-range camera back into `3D Site` would
+ * therefore rebuild L-12991's beige shard in the mirror direction. So the return CARRIES while
+ * the camera is still looking at a site, and REFRAMES when it is not.
+ *
+ * ⚠ THIS IS NOT "FRAMING BECOMES ALTITUDE-DERIVED", and the distinction matters:
+ * `CesiumViewport.viewFraming`'s own field doc rules that out — *"`positionCartographic.height`
+ * is a CONSEQUENCE of a flight that is still in progress; reading it would make the surface
+ * flicker through the flight"*. That ruling stands. The framing is still DECLARED by the row the
+ * user pressed. This reads the altitude ONCE, at click time, with the camera at rest, and it
+ * decides only whether the click is followed by a flight — never what the surface is.
+ */
+export const SITE_FRAMING_CARRY_CEILING_M = SITE_ENTRY_ALTITUDE_M.city;
+
+/**
+ * The decision, with the reason kept as data so the console line and the tests read the same
+ * fact. `altitudeM` is echoed back so a log can state the number it judged.
+ */
+export type SiteFramingReturnDecision =
+    | { readonly action: 'carry'; readonly altitudeM: number }
+    | {
+          readonly action: 'reframe';
+          readonly altitudeM: number | null;
+          readonly reason: 'above-site-band' | 'altitude-unreadable';
+      };
+
+/**
+ * @param cameraAltitudeM the ONE camera's current WGS84 height in metres, or `null` when the
+ *        host cannot report it (a viewport that is not live yet, or a host that predates the
+ *        reading — it is an OPTIONAL member of the declared camera host).
+ *
+ * ⛔ `null` REFRAMES. An unreadable altitude is a MISSING FACT, not a small one, and the two
+ * outcomes are not equally safe: a wrong "carry" leaves the founder looking at the shard, a
+ * wrong "reframe" only costs him a flight he would have got anyway before this change. The
+ * degraded answer is therefore exactly today's behaviour, never worse.
+ */
+export function siteFramingReturnDecision(cameraAltitudeM: number | null): SiteFramingReturnDecision {
+    if (cameraAltitudeM === null || !Number.isFinite(cameraAltitudeM)) {
+        return { action: 'reframe', altitudeM: null, reason: 'altitude-unreadable' };
+    }
+    if (cameraAltitudeM > SITE_FRAMING_CARRY_CEILING_M) {
+        return { action: 'reframe', altitudeM: cameraAltitudeM, reason: 'above-site-band' };
+    }
+    return { action: 'carry', altitudeM: cameraAltitudeM };
+}
+
+/**
+ * The console line, pure so the honesty rule is testable the same way `describeCesiumSurface`
+ * makes its own testable: it names the number that decided, so a reader can tell a deliberate
+ * carry from a flight that silently failed.
+ */
+export function describeSiteFramingReturn(d: SiteFramingReturnDecision): string {
+    const head = '[site-view-panel] §GLOBE-KEEPS-THE-VIEW (L-13070) 3D Site';
+    if (d.action === 'carry') {
+        return (
+            `${head} — CARRYING the camera exactly: ${Math.round(d.altitudeM)} m is within the ` +
+            `site band (≤ ${SITE_FRAMING_CARRY_CEILING_M} m), so no flight is issued and the ` +
+            'view is unchanged apart from the surface swap.'
+        );
+    }
+    if (d.reason === 'altitude-unreadable') {
+        return (
+            `${head} — REFRAMING on the site: the camera altitude could not be read, and an ` +
+            'unreadable altitude is not a small one. Refusing to guess.'
+        );
+    }
+    return (
+        `${head} — REFRAMING on the site: ${Math.round(d.altitudeM ?? 0)} m is above the site ` +
+        `band (> ${SITE_FRAMING_CARRY_CEILING_M} m), where the 3D Site surface is a flat ` +
+        'near-white ground under a city-bounded terrain tileset — the L-12991 shard. Carrying ' +
+        'the camera there would be preserving a view that cannot be drawn.'
+    );
 }
 
 // ── The reducer ─────────────────────────────────────────────────────────────────────

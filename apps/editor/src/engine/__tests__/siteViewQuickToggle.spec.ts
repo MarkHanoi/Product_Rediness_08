@@ -871,8 +871,20 @@ describe('§VIEW-PANEL-PER-PANE — the production wiring is real, not authored-
         expect(code).toContain('window.pryzmSetSiteBasemap');
         expect(code).toContain('window.pryzmGetSiteBasemap');
         expect(code).not.toMatch(/window as any/);
-        expect(code).toContain('worldFramingTarget()');
         expect(code).not.toMatch(/altitudeM:\s*\d/);
+    });
+
+    it('⭐ §GLOBE-KEEPS-THE-VIEW (L-13070) — the shell issues NO outbound flight at all', () => {
+        // The founder's defect in one assertion. `frameGlobe` used to end
+        // `flyToGeographic(worldFramingTarget())` — 15°N 5°E at 20 000 km — which is why his
+        // Barcelona parcel became the whole Earth. The row is now a SURFACE swap and nothing
+        // else, and "nothing else" is only checkable as an absence.
+        const code = codeOnly(read(SHELL));
+        expect(code).not.toMatch(/worldFramingTarget/);
+        expect(code).not.toMatch(/flyToGeographic/);
+        // The return trip still owns the ONE declared reframe action, on its reframe arm only.
+        expect(code).toContain('siteFramingReturnDecision');
+        expect(code).toMatch(/decision\.action === 'reframe'[\s\S]{0,80}pryzmZoomToSite/);
     });
 
     it('every global it reaches for is actually TYPED (P4)', () => {
@@ -884,6 +896,9 @@ describe('§VIEW-PANEL-PER-PANE — the production wiring is real, not authored-
         // §L-6806 — `durationS` was missing from the declaration while the implementation
         // accepted it, so every `SiteEntryCameraTarget` passed through was silently untyped.
         expect(g).toMatch(/durationS\?:\s*number/);
+        // §GLOBE-KEEPS-THE-VIEW (L-13070) — the altitude reading the `3D Site` row's carry
+        // decision is made from. OPTIONAL: a host without it degrades to the old always-reframe.
+        expect(g).toMatch(/getCameraAltitudeM\?\(\):\s*number \| null/);
     });
 
     it('⛔ the DOM half still reads no globals of its own', () => {
