@@ -2290,6 +2290,23 @@ export class CesiumViewport {
   private siteScopeFogWas: boolean | null = null;
   /** The slider's live preview ring (one polyline entity, re-positioned in place). */
   private siteScopePreviewEntity: Cesium.Entity | null = null;
+  /**
+   * §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — the applied `cartographicLimitRectangle`, parked here
+   * while the 3D Globe is framed and put back verbatim on the way home. `null` = not suspended.
+   * It is a CACHE, not a second authority: `clearContextEarthSlab` drops it, because a rectangle
+   * belonging to a slab that no longer exists must never be restored over a later one.
+   */
+  private siteScopeLimitRectCached: Cesium.Rectangle | null = null;
+  /**
+   * §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — is PRYZM's SYNTHESISED context drawn right now? Written
+   * ONLY by `applySynthesisedContextVisibility`, which is called ONLY from the surface table's
+   * `synthesisedContextShown` row. Read by `reapplyPlotClearToContext` (so a context building has
+   * exactly ONE `show` writer) and by `applySiteScopeClip` (so a scope change cannot re-cut the
+   * Earth while the globe is framed).
+   */
+  private synthesisedContextShown = true;
+  /** §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — microtask de-dup for the post-add re-suppression pass. */
+  private contextVisibilitySyncQueued = false;
   /** Per MAPPED layer: eligible-inside-the-scope vs cap, recorded by the loaders for the slider's
    *  "complete" mark and the C12 §13.5 verdict line. */
   private scopeCapReports = new Map<string, { readonly eligible: number; readonly cap: number }>();
@@ -2561,6 +2578,15 @@ export class CesiumViewport {
     if (!viewer) { say('SKIPPED', 'no viewer.'); return; }
     if (!this.formaMode) {
       say('SKIPPED', 'not in Forma (3D Site) mode — the scope is a 3D-Site feature (ADR-0382 D6).');
+      return;
+    }
+    // §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — `formaMode` is TRUE on the 3D Globe (the founder's own
+    // log line reads `framing='world' forma=on`), so the guard above does NOT cover this case and
+    // a scope change made while the globe is framed would re-cut the Earth to a 2 km rectangle
+    // under the photoreal tiles. The surface owns the cut; when it is not drawing our context, the
+    // cut is not applied. `applySynthesisedContextVisibility(true)` re-arms it on the way home.
+    if (!this.synthesisedContextShown) {
+      say('SKIPPED', 'the surface is not drawing the synthesised PRYZM context (3D Globe) — the scope cut is suspended, not torn down; it is re-armed on return to the 3D Site.');
       return;
     }
     // THE VISIBILITY OF THE TILESET, NOT THE MEMORY THAT ONE LOADED. See the header.
@@ -3449,6 +3475,52 @@ export class CesiumViewport {
 
       // Disable depth test against terrain
       this.viewer.scene.globe.depthTestAgainstTerrain = false;
+
+      // ─────────────────────────────────────────────────────────────────────────────
+      // §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — RE-SUPPRESS WHATEVER ARRIVES WHILE THE GLOBE IS
+      // FRAMED. The surface table decides whether our synthesised context is drawn, and
+      // `applySynthesisedContextVisibility` applies that to everything ALREADY on screen. A context
+      // load that COMPLETES afterwards — the founder reparents panes constantly, and opening a
+      // project with the 3D Globe active runs the whole context load — would mint fresh entities and
+      // primitives that default to `show: true` and pop the stylised city back over the real one.
+      //
+      // ⭐ THIS IS DELIBERATELY NOT "ADD THE CALL TO ALL TEN LOADERS". `loadContextBuildings`,
+      // `…Roads`, `…Rail`, `…Water`, `…Sea`, `…Parks`, `…Landuse`, `…Trees`, the street-life layer
+      // and the far-tier rebuild would each need one, and the eleventh loader somebody adds would
+      // not — which is the "second authority beside the table" failure this whole lane exists to
+      // avoid. Cesium already tells us when something is added; listening once cannot be forgotten.
+      //
+      // ⚠ COALESCED, BECAUSE THE LOADERS ADD IN A LOOP. A `collectionChanged` per entity over a
+      // 6 000-footprint ring, each running an O(n) pass, is O(n²). One microtask per synchronous
+      // burst makes it one pass per load. And the pass ONLY runs while the context is suppressed:
+      // on the 3D Site a fresh entity's default `show: true` is already correct, so the normal path
+      // costs one boolean test per burst and never touches an entity.
+      //
+      // ⚠ `added.length > 0` GATES THE ENTITY ARM ON PURPOSE. Setting `.show` raises the entity's
+      // `definitionChanged`, which EntityCollection reports in the `changed` array — reacting to
+      // that would make this pass re-trigger itself forever.
+      try {
+        const viewerRef = this.viewer;
+        const scheduleContextVisibilitySync = (): void => {
+          if (this.contextVisibilitySyncQueued) return;
+          this.contextVisibilitySyncQueued = true;
+          queueMicrotask(() => {
+            this.contextVisibilitySyncQueued = false;
+            if (this.viewer !== viewerRef) return;          // superseded / disposed.
+            if (this.synthesisedContextShown) return;       // nothing to suppress.
+            this.applySynthesisedContextVisibility(false);
+          });
+        };
+        viewerRef.entities.collectionChanged.addEventListener(
+          (_collection: unknown, added: readonly Cesium.Entity[]) => {
+            if (added.length > 0) scheduleContextVisibilitySync();
+          },
+        );
+        const prims = viewerRef.scene.primitives as unknown as { primitiveAdded?: { addEventListener?: (cb: () => void) => unknown } };
+        prims.primitiveAdded?.addEventListener?.(() => scheduleContextVisibilitySync());
+      } catch (e) {
+        console.warn('[CesiumViewport][surface] §GLOBE-IS-ITS-OWN-CONTEXT add-hook not installed:', e);
+      }
 
       // ----------------------------
       // 🗺️ Base map imagery — ESRI satellite, ONLY on the token/photoreal path
@@ -5151,7 +5223,164 @@ export class CesiumViewport {
       console.warn('[CesiumViewport][surface] sky/background config failed:', e);
     }
 
+    // §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — the context-overlay AXIS of the same table. It is
+    // applied LAST, after the surface writes, so the console line below describes a scene that is
+    // already in its final state rather than one mid-swap.
+    this.applySynthesisedContextVisibility(w.synthesisedContextShown);
+
     console.log(describeCesiumSurface(this.viewFraming, this.formaMode, kind));
+  }
+
+  /**
+   * §GLOBE-IS-ITS-OWN-CONTEXT (L-13144, founder 2026-09-07: *"3d globe (3d tiles renders sound)
+   * however, it renders with all the context from 3d site - check why and fix it sound"*) — show or
+   * hide PRYZM's SYNTHESISED context overlay, as DECLARED by the surface table.
+   *
+   * ⭐ THE CAUSE WAS ONE WORD OF HIS OWN LOG. `§GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991)
+   * framing='world' **forma=on** → surface='global-earth'`. The surface row governs IMAGERY ·
+   * PHOTOREAL · ATMOSPHERE · GLOBE SHOW · TERRAIN ATTACH — and governed the context overlay
+   * NOWHERE. `forma=on` was printed on the line and nothing acted on it, so switching to the globe
+   * swapped the surface and left every context primitive drawn over the photoreal tileset.
+   *
+   * ⭐ WHY THE FIX IS A TABLE ROW AND NOT AN `if (framing === 'world')` AT THE SWITCHER. That is
+   * exactly the shape L-12991 was raised to remove: eight symptoms of ONE mechanism, each patched
+   * where it was noticed. A branch beside the table is a second authority, and the next surface
+   * anybody adds gets the terrain rule right and this one wrong. The axis is
+   * `CesiumSurfaceWrites.synthesisedContextShown`; this method only EXECUTES it.
+   *
+   * ⭐⭐ THE SPLIT — SYNTHESISED CONTEXT HIDES, AUTHORED-OR-DERIVED DESIGN STAYS.
+   *
+   * HIDDEN (all synthesised by PRYZM from OSM/baked tiles; on the globe the photoreal tileset IS
+   * this content, so ours is a stylised city drawn over the real one):
+   *   · `contextBuildingEntities`  — the near shadow-casting ring + the demoted solid tier
+   *   · `contextFarTierPrimitive` + `contextFarTierWirePrimitive` — the instanced far tier (L-13143)
+   *   · `contextRoadEntities` · `contextRailEntities` · `contextWaterEntities` · `contextSeaEntities`
+   *   · `contextParkEntities` · `contextLanduseEntities` · `contextTreesPrimitive` · `streetLife`
+   *   · `contextQueryHighlight` — it highlights a context building; without its subject it is a
+   *     floating outline over the real city
+   *   · the §SITE-SCOPE slab + its globe cut + the slider's preview ring — see below
+   *
+   * KEPT (the user's own work, and the reason to be on the globe at all):
+   *   · `formaMassingEntities` — the to-be-built massing
+   *   · `formaSiteOverlayEntities` — the buildable ENVELOPE and the parcel BOUNDARY (§SITE-OVERLAY-
+   *     NOT-BUILDING, L-464: a constraint does not stop applying because the view changed)
+   *   · `spaceEnvelopeEntities` — the AUTHORED space-envelope prisms (STR §26.4)
+   *   · `siteMetricEntities` / `facadeAnalysisEntities` — analysis OF the design
+   *   · `photorealVoidCapEntity` — globe machinery, not context
+   * ⛔ `§PLOT-CLEAR-PHOTOREAL` cuts a parcel-shaped void into the photoreal tileset so, in its own
+   * words, *"the proposed design now reads inside real context"*. Hiding the design along with the
+   * context would destroy the feature that void exists for.
+   *
+   * ⭐ WHERE THE SLAB LANDED, AND IT IS SETTLED BY PRECEDENT RATHER THAN BY TASTE. The §SITE-SCOPE
+   * cut plate is CONTEXT and hides. Two independent reasons: (1) `restorePhotorealMode` already
+   * drops it (`clearContextEarthSlab()`) in the same breath as the buildings, roads, water, sea,
+   * parks, land-use, rail, trees and street life, with the rationale *"the 3D tiles already show
+   * the real …"* — so the codebase had already ruled that the slab belongs to the context set, on a
+   * path the founder accepted; and (2) the slab is a representation of the GROUND, and on the globe
+   * the ground is the photoreal surface. A kilometre-wide opaque plate over real Barcelona is the
+   * founder's complaint at its largest, and it would bury the very void the design reads through.
+   *
+   * ⚠ AND THE GLOBE CUT GOES WITH IT, FOR A REASON `clearContextEarthSlab` ALREADY STATES IN FULL:
+   * *"`cartographicLimitRectangle` is a plain property with no owner and no lifetime, so a scope
+   * left on it bounds the globe for the rest of the session — including the 3D GLOBE view, which
+   * would then render one rectangle of Earth."* That is invisible on the founder's own photoreal
+   * path (a shown tileset drives `globe.show` false) and NOT invisible on the keyless one, where
+   * the globe + imagery are the Earth. Both legs are suspended here.
+   *
+   * ⛔ THIS IS A FLIP, NOT A TEARDOWN — the whole point. Nothing is disposed, aborted or re-fetched,
+   * and no primitive is rebuilt: the globe cut is suspended by `ClippingPolygonCollection.enabled`
+   * and a cached rectangle rather than by `clearContextEarthSlab()`, so `applySiteScopeClip`'s own
+   * *"UNCHANGED: already cut to this scope × origin × θ × terrain base; nothing rebuilt"* early-out
+   * still holds on the way back. `restorePhotorealMode` CLEARS instead, which is right for its axis
+   * (leaving Forma entirely) and would be wrong here: the founder switches panes repeatedly and a
+   * clearing hide would hand him the multi-second reload he has been reporting all day.
+   *
+   * ⚠ CONTEXT BUILDINGS ARE COMPOSED, NOT OVERWRITTEN. `reapplyPlotClearToContext` is the authority
+   * for their `show` (§PLOT-CLEAR-ENVELOPE, L-418) and a blanket `show = true` here would resurrect
+   * an on-plot building the parcel commit deliberately hid. The two signals are ANDed in that one
+   * method, so there is exactly one writer and no ordering to get wrong.
+   *
+   * Never throws.
+   */
+  private applySynthesisedContextVisibility(shown: boolean): void {
+    const viewer = this.viewer;
+    // Record the intent even with no viewer: a pre-mount surface pass must not be forgotten.
+    this.synthesisedContextShown = shown;
+    if (!viewer) return;
+    let entitiesFlipped = 0, primitivesFlipped = 0;
+    const flipEntities = (list: Iterable<Cesium.Entity>): void => {
+      for (const e of list) {
+        try { if (e.show !== shown) { e.show = shown; entitiesFlipped++; } } catch { /* entity gone */ }
+      }
+    };
+    const flipPrimitive = (p: { show: boolean } | null): void => {
+      if (!p) return;
+      try { if (p.show !== shown) { p.show = shown; primitivesFlipped++; } } catch { /* destroyed */ }
+    };
+    try {
+      // The buildings' ONE writer, which now reads `synthesisedContextShown` itself.
+      this.reapplyPlotClearToContext();
+      flipEntities(this.contextRoadEntities);
+      flipEntities(this.contextRailEntities);
+      flipEntities(this.contextWaterEntities);
+      flipEntities(this.contextSeaEntities);
+      flipEntities(this.contextParkEntities);
+      flipEntities(this.contextLanduseEntities);
+      if (this.contextQueryHighlight) flipEntities([this.contextQueryHighlight]);
+      if (this.siteScopePreviewEntity) flipEntities([this.siteScopePreviewEntity]);
+      flipPrimitive(this.contextFarTierPrimitive);
+      flipPrimitive(this.contextFarTierWirePrimitive);
+      flipPrimitive(this.contextTreesPrimitive);
+      flipPrimitive(this.siteScopeSlabPrimitive);
+      this.streetLife.setShown(shown);
+      this.applySiteScopeGlobeCutSuspended(!shown);
+      if (shown) {
+        // Re-arm the scope cut. It early-outs UNCHANGED when it is already applied (the normal
+        // case — we only suspended it), and APPLIES it when a scope change was refused while the
+        // globe was framed. Either way: geometry, never a fetch.
+        const at = this.siteScopeClipAt ?? this.contextBuildingsAt ?? this.formaMassingOrigin;
+        if (at) void this.applySiteScopeClip(at.lat, at.lon);
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][surface] §GLOBE-IS-ITS-OWN-CONTEXT visibility flip failed:', e);
+    }
+    if (entitiesFlipped > 0 || primitivesFlipped > 0) {
+      console.log(
+        `[CesiumViewport][surface] §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) synthesised context ` +
+          `${shown ? 'SHOWN' : 'HIDDEN'} — ${entitiesFlipped} entity + ${primitivesFlipped} primitive ` +
+          `show-flag change(s), 0 disposed, 0 re-fetched, 0 rebuilt. The DESIGN (parcel boundary, ` +
+          `buildable envelope, to-be-built massing, authored space envelopes) is untouched.`,
+      );
+      try { viewer.scene.requestRender(); } catch { /* torn down */ }
+    }
+  }
+
+  /**
+   * §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — suspend / resume the §SITE-SCOPE globe cut WITHOUT tearing
+   * it down, so the return trip stays a flip.
+   *
+   * The two legs are asymmetric because Cesium's are: `clippingPolygons` is a collection with its
+   * own `enabled` flag (suspend in place), while `cartographicLimitRectangle` is a bare property, so
+   * the applied rectangle is CACHED here and put back verbatim. `siteScopeLimitRectApplied` gates
+   * the cache exactly as `clearContextEarthSlab` gates its restore — we never clobber a limit
+   * somebody else set. Never throws.
+   */
+  private applySiteScopeGlobeCutSuspended(suspended: boolean): void {
+    const globe = this.viewer?.scene?.globe;
+    if (!globe) return;
+    try {
+      const polys = globe.clippingPolygons;
+      if (polys) polys.enabled = !suspended;
+      if (suspended) {
+        if (this.siteScopeLimitRectApplied && this.siteScopeLimitRectCached === null) {
+          this.siteScopeLimitRectCached = Cesium.Rectangle.clone(globe.cartographicLimitRectangle);
+          globe.cartographicLimitRectangle = Cesium.Rectangle.clone(Cesium.Rectangle.MAX_VALUE);
+        }
+      } else if (this.siteScopeLimitRectCached !== null) {
+        globe.cartographicLimitRectangle = this.siteScopeLimitRectCached;
+        this.siteScopeLimitRectCached = null;
+      }
+    } catch { /* a Cesium build without one of the two legs — leave the globe as-is */ }
   }
 
   /**
@@ -10543,7 +10772,10 @@ export class CesiumViewport {
       if (!provider || !attachedSlug) {
         // EVERY candidate failed. The site has no tileset — and "no tileset" means FLAT, which is a
         // detach whenever a bounded provider (some other city's) is still attached (L-12913).
-        const after = resolveTerrainTransition({ attach: false, reason: 'tileset-unavailable' }, this.terrainProviderState());
+        // §TERRAIN-SLUG-RESOLVES-TO-NOTHING (L-13144) — pass the slugs we ACTUALLY asked for so the
+        // flat-ground line can name them; "the tileset is missing" and "this site has no relief" are
+        // different values and must not print the same sentence (§CONTEXT-DATA-HONESTY).
+        const after = resolveTerrainTransition({ attach: false, reason: 'tileset-unavailable', tried: candidates }, this.terrainProviderState());
         if (after.action === 'detach') { console.warn(describeTerrainTransition(after, lat, lon)); this.detachBakedTerrain(); }
         else console.log(describeTerrainTransition(after, lat, lon));
         return { kind: 'unavailable' };                  // memoised → future calls await this, no re-hammer
@@ -12236,7 +12468,13 @@ export class CesiumViewport {
       );
       let toggled = 0;
       for (const { entity, feature } of this.contextBuildingPlacements) {
-        const wantShow = !onPlot.has(feature);
+        // §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — TWO SIGNALS, ONE WRITER, ANDed HERE. A context
+        // building is drawn iff it is not on the committed plot AND the current surface draws
+        // PRYZM's synthesised context at all (the 3D Globe does not — the photoreal tileset is the
+        // context there). Composing them in this one method is deliberate: two methods each writing
+        // `entity.show` would fight, and the loser would be whichever ran first — so a parcel commit
+        // on the globe would have resurrected the whole city over the real one.
+        const wantShow = !onPlot.has(feature) && this.synthesisedContextShown;
         if (entity.show !== wantShow) { entity.show = wantShow; toggled++; }
       }
       if (toggled > 0) {
@@ -12942,6 +13180,9 @@ export class CesiumViewport {
     this.siteScopeSlabPrimitive = null;
     this.siteScopeFogWas = null;
     this.siteScopeClipAt = null;
+    // §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — the parked rectangle belonged to the slab that just
+    // went away. Restoring it later would bound the globe to a scope nothing is drawing.
+    this.siteScopeLimitRectCached = null;
     this.previewSiteScope(null);
   }
 

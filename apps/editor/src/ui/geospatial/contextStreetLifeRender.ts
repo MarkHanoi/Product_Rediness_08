@@ -135,6 +135,36 @@ export class StreetLifeLayer {
     public enabled = true;
 
     /**
+     * §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — whether the two primitives are DRAWN right now.
+     *
+     * ⭐ DELIBERATELY SEPARATE FROM `enabled`, and the distinction is the whole point. `enabled` is
+     * the USER's street-life toggle: turning it off CLEARS the layer, because the user asked for it
+     * gone. This is the SURFACE's answer to *"is PRYZM's synthesised context drawn on this
+     * surface?"* — on the 3D Globe the photoreal tileset is the context, so ours hides. A hide must
+     * never clear: the founder switches panes repeatedly and the return trip has to be a flag flip,
+     * not a rebuild.
+     *
+     * ⚠ IT IS APPLIED AT BUILD TIME TOO (`applyShown` runs at the end of `load`), so a load that
+     * COMPLETES while the globe is framed does not pop the lamps back on screen.
+     */
+    private shownState = true;
+
+    /** §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — flip both primitives' `show`. Idempotent, no rebuild. */
+    public setShown(shown: boolean): void {
+        this.shownState = shown;
+        this.applyShown();
+    }
+
+    /** True when the layer is currently drawn (the surface flag, not the user toggle). */
+    public get shown(): boolean { return this.shownState; }
+
+    private applyShown(): void {
+        for (const p of [this.lampsPrimitive, this.peoplePrimitive]) {
+            if (p) { try { p.show = this.shownState; } catch { /* destroyed with the viewer */ } }
+        }
+    }
+
+    /**
      * §CTX-SITE-SCOPE (L-13058 × L-645) — the ONE radial input. `CesiumViewport` pushes its own
      * scope in whenever it changes; the render radius is `streetLifeRadiusM(this.scope)`, never a
      * literal, so this layer follows the site scope in BOTH directions without a second copy of the
@@ -273,6 +303,10 @@ export class StreetLifeLayer {
             lampInstances,
             peopleInstances,
         };
+        // §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — a load that lands while the 3D Globe is framed must
+        // NOT pop the lamps and people back onto the photoreal city. The surface flag is applied to
+        // the freshly-built primitives here, before the first render is requested.
+        this.applyShown();
         try { viewer.scene.requestRender(); } catch { /* viewer torn down mid-build */ }
 
         console.log(streetLifeLogLine({

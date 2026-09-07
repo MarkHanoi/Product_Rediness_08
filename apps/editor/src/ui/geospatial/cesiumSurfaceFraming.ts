@@ -168,6 +168,32 @@ export interface CesiumSurfaceWrites {
      * worse defect.
      */
     readonly boundedTerrainPermitted: boolean;
+    /**
+     * §GLOBE-IS-ITS-OWN-CONTEXT (L-13144, founder 2026-09-07: *"3d globe (3d tiles renders sound)
+     * however, it renders with all the context from 3d site - check why and fix it sound"*) —
+     * whether PRYZM's SYNTHESISED context overlay is shown: the extruded context buildings, the
+     * road / rail / water / sea ribbons, the land-use drape, the park polygons, the tree canopies,
+     * the street furniture, and the §SITE-SCOPE cut slab.
+     *
+     * ⭐ THE DISTINCTION THAT MAKES THIS SOUND. **On the globe the photoreal tileset IS the
+     * context.** Our synthesised city is not merely redundant there — it is a stylised Barcelona
+     * drawn ON TOP of the real one, two representations of the same buildings fighting for the same
+     * pixels. That is what must go.
+     *
+     * ⛔ AND THE USER'S OWN WORK MUST STAY. The parcel boundary, the buildable envelope, the
+     * to-be-built massing and the authored room/space envelopes are the entire reason to be on the
+     * globe — `§PLOT-CLEAR-PHOTOREAL` exists to cut a parcel-shaped void into the photoreal tileset
+     * precisely so *"the proposed design now reads inside real context"*. So the split is
+     * **SYNTHESISED CONTEXT hides · AUTHORED-OR-DERIVED DESIGN stays**, and a row that hid
+     * everything would destroy the feature the void cut was built for.
+     *
+     * ⚠ THIS IS A VISIBILITY FLIP, NOT A TEARDOWN. Nothing is disposed, nothing is re-fetched, and
+     * nothing is re-seated: returning to `'forma-site'` sets the same `show` flags back to true and
+     * the already-built, already-ground-seated primitives reappear exactly where they were. A hide
+     * that forced a rebuild would reintroduce the multi-second reload this whole area has been
+     * fighting (§CTX-BUILDINGS-RENDER-FIRST, L-635).
+     */
+    readonly synthesisedContextShown: boolean;
 }
 
 /**
@@ -217,6 +243,8 @@ export function cesiumSurfaceWrites(
             backgroundColourCss: palette.formaBackdropCss,
             formaSkyBackdrop: true,
             boundedTerrainPermitted: true,
+            // The site view IS the synthesised study — this is the surface the context was built for.
+            synthesisedContextShown: true,
         };
     }
     return {
@@ -237,6 +265,9 @@ export function cesiumSurfaceWrites(
         backgroundColourCss: palette.globeLoadingCss,
         formaSkyBackdrop: false,
         boundedTerrainPermitted: false,
+        // §GLOBE-IS-ITS-OWN-CONTEXT (L-13144) — the photoreal tileset is the context here, so ours
+        // is a stylised city drawn over the real one. Hidden, not disposed. The DESIGN stays.
+        synthesisedContextShown: false,
     };
 }
 
@@ -254,8 +285,12 @@ export function describeCesiumSurface(
         `[CesiumViewport][surface] §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) framing='${framing}' ` +
         `forma=${formaMode ? 'on' : 'off'} → surface='${kind}'` +
         (kind === 'global-earth'
-            ? ' — imagery + photoreal + atmosphere ON, and NO city-bounded terrain tileset may be ' +
-              'attached (a bounded tileset renders 1-2 level-0 roots at world range: the shard).'
-            : ' — flat Forma ground, imagery + photoreal hidden, city terrain permitted.')
+            ? ' — imagery + photoreal + atmosphere ON, NO city-bounded terrain tileset may be ' +
+              'attached (a bounded tileset renders 1-2 level-0 roots at world range: the shard), ' +
+              'and the SYNTHESISED PRYZM context is HIDDEN (§GLOBE-IS-ITS-OWN-CONTEXT, L-13144: the ' +
+              'photoreal tileset IS the context) while the DESIGN — parcel, envelope, massing, room ' +
+              'envelopes — stays visible.'
+            : ' — flat Forma ground, imagery + photoreal hidden, city terrain permitted, ' +
+              'synthesised context shown.')
     );
 }

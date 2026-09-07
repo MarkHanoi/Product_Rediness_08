@@ -548,3 +548,132 @@ applied to the **whole not-accurate set** (on a `derived-levels` city, most of i
 own read. `FORMA_PALETTE.contextUncertainHeight` (#E8973A) remains referenced by **no render site**
 and is kept only as the record of what not to do. ⛔ **Do not re-point a render site at it to "make
 the wireframes visible".**
+
+---
+
+## 10 — §GLOBE-IS-ITS-OWN-CONTEXT: on the globe, the photoreal tileset IS the context (L-13144, founder 2026-09-07)
+
+> *"3d globe (3d tiles renders sound) however, it renders with all the context from 3d site - check
+> why and fix it sound"*
+
+His screenshots: real Barcelona photoreal tiles — correct and good — with a large pale patch of
+PRYZM's own extruded context buildings sitting **on top of** the real city. Two representations of
+the same Barcelona, drawn over each other.
+
+### 10.1 — The cause is one word of his own log
+
+```
+§GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) framing='world' forma=on → surface='global-earth'
+```
+
+The surface-framing row governs **IMAGERY · PHOTOREAL · ATMOSPHERE · GLOBE SHOW · TERRAIN ATTACH**.
+It governed the **Forma context overlay nowhere**. `forma=on` is printed on that very line and
+nothing acted on it, so switching to the globe swapped the surface and left every context primitive
+— buildings, road/rail/water/park/sea ribbons, land-use drape, tree canopies, street life and the
+§SITE-SCOPE slab — visible over the photoreal tileset.
+
+⚠ Note the trap this sat behind: `formaMode` is **TRUE** on the 3D Globe. Every existing guard that
+reads *"not in Forma mode → skip"* — `applySiteScopeClip`'s first refusal, `restorePhotorealMode`'s
+whole context teardown — is on the **formaMode** axis and therefore never fired. The defect lives on
+the **framing** axis, which had no context rule at all.
+
+### 10.2 — The rule (binding)
+
+**R-10.1 — THE AXIS IS A ROW IN THE FRAMING TABLE, NOT A BRANCH AT THE VIEW SWITCHER.**
+`CesiumSurfaceWrites.synthesisedContextShown` in `cesiumSurfaceFraming.ts`; `applyCesiumSurface`
+executes it via `applySynthesisedContextVisibility`. ⛔ An `if (framing === 'world') hideContext()`
+somewhere in the switcher is the forbidden shortcut — it puts a second authority beside the table,
+and the next surface anybody adds will get the terrain rule right and this one wrong. That is
+precisely the eight-symptoms-of-one-mechanism shape L-12991 was raised to remove.
+
+| surface | `synthesisedContextShown` |
+|---|---|
+| `forma-site` (formaMode ∧ framing='site') | **true** — this is the surface the context was built for |
+| `global-earth` (everything else) | **false** — the photoreal tileset IS the context here |
+
+**R-10.2 — SYNTHESISED CONTEXT HIDES · AUTHORED-OR-DERIVED DESIGN STAYS.**
+
+| hidden on `global-earth` | kept on `global-earth` |
+|---|---|
+| `contextBuildingEntities` (near ring + demoted tier) | `formaMassingEntities` — the to-be-built massing |
+| `contextFarTierPrimitive` + `contextFarTierWirePrimitive` | `formaSiteOverlayEntities` — buildable envelope + parcel boundary |
+| `contextRoadEntities` · `contextRailEntities` | `spaceEnvelopeEntities` — the authored prisms (STR §26.4) |
+| `contextWaterEntities` · `contextSeaEntities` | `siteMetricEntities` · `facadeAnalysisEntities` — analysis *of* the design |
+| `contextParkEntities` · `contextLanduseEntities` | `photorealVoidCapEntity` — globe machinery, not context |
+| `contextTreesPrimitive` · `streetLife` | |
+| `contextQueryHighlight` — it highlights a hidden subject | |
+| the §SITE-SCOPE slab, its globe cut and the slider preview ring | |
+
+⛔ **The design half is not a nicety.** `§PLOT-CLEAR-PHOTOREAL` cuts a parcel-shaped void into the
+photoreal tileset so, in its own words, *"the proposed design now reads inside real context"*. A fix
+that hid the design along with the context would delete the reason that void exists. Both halves are
+asserted in `globeContextOverlay.spec.ts`, the second by reading the render site's source and
+requiring that it names **no** design collection.
+
+**R-10.3 — THE §SITE-SCOPE SLAB IS CONTEXT AND HIDES.** Settled by precedent, not by taste:
+`restorePhotorealMode` **already** drops it (`clearContextEarthSlab()`) in the same breath as the
+buildings, roads, water, sea, parks, land-use, rail, trees and street life, with the rationale *"the
+3D tiles already show the real …"*. The codebase had already ruled the slab into the context set, on
+a path the founder accepted. Independently: the slab is a representation of the **ground**, and on
+the globe the ground is the photoreal surface — a kilometre-wide opaque plate over real Barcelona is
+the founder's complaint at its largest, and it would bury the very void the design reads through.
+
+**R-10.4 — THE GLOBE CUT GOES WITH THE SLAB.** `clearContextEarthSlab` already states why in full:
+*"`cartographicLimitRectangle` is a plain property with no owner and no lifetime, so a scope left on
+it bounds the globe for the rest of the session — including the 3D GLOBE view, which would then
+render one rectangle of Earth."* Invisible on the founder's photoreal path (a shown tileset drives
+`globe.show` false); **not** invisible on the keyless one, where the globe + imagery are the Earth.
+Both legs are suspended. And `applySiteScopeClip` refuses while the globe is framed, because
+`formaMode` is true there and its existing guard does not cover the case.
+
+### 10.3 — Reversible without a reload: a FLIP, not a teardown
+
+**R-10.5 — NOTHING IS DISPOSED, ABORTED, RE-FETCHED OR REBUILT.** The founder switches panes
+repeatedly; a clearing hide would hand him back the multi-second reload this whole area has been
+fighting (§CTX-BUILDINGS-RENDER-FIRST, L-635). So:
+
+- entities and primitives change only their `show` flag;
+- the globe cut is suspended by `ClippingPolygonCollection.enabled` plus a **cached**
+  `cartographicLimitRectangle`, **not** by `clearContextEarthSlab()` — so `siteScopeClipAt` and the
+  slab primitive survive and `applySiteScopeClip`'s own *"UNCHANGED: already cut to this scope ×
+  origin × θ × terrain base; nothing rebuilt"* early-out still holds on the return trip;
+- `restorePhotorealMode` **clears** instead, and that stays right for **its** axis (leaving Forma
+  entirely). Two axes, two behaviours, both stated.
+
+**R-10.6 — A CONTEXT BUILDING HAS EXACTLY ONE `show` WRITER.** `reapplyPlotClearToContext` ANDs the
+plot-clear verdict with `synthesisedContextShown`. Two methods each writing `entity.show` would
+fight and the loser would be whichever ran first — so a parcel commit made on the globe would have
+resurrected the whole city over the real one.
+
+**R-10.7 — A LOAD THAT LANDS WHILE THE GLOBE IS FRAMED MUST NOT POP THE CONTEXT BACK.** Fresh
+entities and primitives default to `show: true`. The re-suppression is driven by
+`viewer.entities.collectionChanged` (gated on `added.length > 0`, because setting `.show` itself
+raises `definitionChanged` and would otherwise re-trigger forever) and `scene.primitives.
+primitiveAdded`, coalesced into **one** pass per synchronous burst by a microtask — a per-entity
+pass over a 6 000-footprint ring would be O(n²) — and it runs **only** while the context is
+suppressed, so the 3D Site path costs one boolean test per burst. ⛔ Deliberately NOT "add the call
+to all ten loaders": the eleventh loader somebody adds would not have it, which is the same second
+authority R-10.1 forbids.
+
+### 10.4 — The seat check (asked, and answered by reading, not by assuming)
+
+`§CTX-TERRAIN-GAP` after the swap reads `relief=off … seatBase=0.0m(ellipsoid-flat-ground
+@never-sampled)` while `terrainOn=true`, which raises the obvious fear: does a context primitive
+re-seat to base 0 on the globe and then reappear at the wrong height?
+
+**No.** `detachBakedTerrain()` sets `formaTerrainBaseHeight = 0` and empties the ground caches, but
+it **re-seats nothing** — placed entities keep their baked positions. The only re-seat paths
+(`reseatContextPlacementsForBase`, `rebuildContextFarTierForBase`, the canopy and street-life
+rebuilds) all early-return on `!groundReliefAttached()`, which is false for the whole time the globe
+is framed. Returning to `'forma-site'` re-attaches the city terrain and the settle path re-seats
+exactly as it always did. Hiding it makes the question moot as well, but the answer is recorded
+because "moot" is not "checked".
+
+### 10.5 — Named residual
+
+The hide is applied to the holders enumerated in R-10.2. A context layer added later gets the
+re-suppression pass for free (R-10.7 listens to Cesium, not to the loaders) **only if it stores its
+entities in one of those collections or its primitives in `scene.primitives`**; a layer that parks a
+primitive in a new private field must be added to `applySynthesisedContextVisibility`, and
+`globeContextOverlay.spec.ts` enumerates the current set so the omission is visible in a diff rather
+than only on screen.
