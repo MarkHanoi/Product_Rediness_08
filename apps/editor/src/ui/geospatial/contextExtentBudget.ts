@@ -313,19 +313,17 @@ export const CTX_SEA_HALF_DEG_MULTIPLE = 12.5;
 // ── the expensive tier — DELIBERATELY NOT RAISED ────────────────────────────────────────────
 
 /**
- * ⛔ THE SHADOW RING, HELD AT 600 m. Two independent reasons, either of which alone is decisive:
+ * The shadow ring, under the name `contextBuildings.ts` re-exports.
  *
- *   1. IT IS NOT A TASTE VALUE — it is Cesium's own shadow-map `maximumDistance`
- *      (`CesiumViewport.ts` §FORMA-GRAZING-BANDING-FIX, `sm.maximumDistance = 600`). Beyond it
- *      Cesium does not render the shadow AT ALL, so a caster out there pays the full cost and
- *      contributes nothing visible. Raising this constant alone would buy pure waste; raising both
- *      would buy a bigger shadow map. Either way it is a shadow change, not an extent change.
- *   2. Shadow casters are the most expensive thing in the scene, and the founder's constraint was
- *      explicit. "More extent" is bought in the shadowless instanced tier or it is not bought.
+ * ⛔ IT IS THE SAME FACT AS `CTX_SHADOW_RADIUS_CEILING_M`, SO IT IS THE SAME BINDING — NOT A SECOND
+ * COPY OF 600. Two constants holding one number is precisely the defect this file exists to remove;
+ * a duplicate would be free to drift, and the drift would be silent (nothing compares them). The
+ * full rationale for the value — Cesium's own shadow-map `maximumDistance`, and why raising it buys
+ * waste rather than extent — lives on `CTX_SHADOW_RADIUS_CEILING_M` above and is not repeated here.
  *
- * ⚠ COUPLED CONSTANT — if `sm.maximumDistance` ever changes, change this with it.
+ * ⚠ The LIVE radius is `shadowRadiusM(scope)` = min(scope, this). This name is the CEILING.
  */
-export const CTX_NEAR_SHADOW_RADIUS_M = 600;
+export const CTX_NEAR_SHADOW_RADIUS_M = CTX_SHADOW_RADIUS_CEILING_M;
 
 /** ⛔ Backstop on the shadow-casting tier. HELD AT 1600 for the same two reasons. Cap-bound on the
  *  founder's run (1,600 of 5,440 kept) — and that is the cap doing its job, not a limit to lift. */
