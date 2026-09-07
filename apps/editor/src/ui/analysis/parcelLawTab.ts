@@ -224,6 +224,13 @@ import {
   type RoomProgrammePanelHandle,
   type RoomProgrammeHostRuntime,
 } from '../room-programme/roomProgrammePanel';
+// §ROOMS-PER-LEVEL (L-13039, STR §25.5 / §26.6.4) — the project's rooms PER STOREY, each with the
+// level envelope of that storey. Pure model + small section, both next to the massing options.
+import {
+  defaultRoomsPerLevelDeps,
+  mountRoomsPerLevelSection,
+  type RoomsPerLevelHandle,
+} from '../site/roomsPerLevelSection';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
@@ -541,6 +548,8 @@ export function mountParcelLawTab(
   let chat: ParcelLawChatHandle | null = null;
   /** §PL-ROOM-PROGRAMME — the re-hosted ROOM PROGRAMME panel's handle. */
   let roomProgramme: RoomProgrammePanelHandle | null = null;
+  /** §ROOMS-PER-LEVEL — the per-storey rooms section's handle. */
+  let roomsPerLevel: RoomsPerLevelHandle | null = null;
   let unsub: (() => void) | null = null;
   /** §26.6 rule 2 — the highlight-store subscription that keeps every row's ◉ honest. */
   /** §26.6 rule 3 — the intent-beside-ceiling section's handle. */
@@ -1018,6 +1027,13 @@ export function mountParcelLawTab(
           h, defaultRoomProgrammePanelDeps(
             (deps.runtime ?? null) as unknown as RoomProgrammeHostRuntime | null)));
       roomProgramme = mountRP(roomProgrammeSlot);
+      // §ROOMS-PER-LEVEL (L-13039) — directly beneath the programme, in the same question: the same
+      // rooms, grouped by the storey they sit on. Mounted here, computed nowhere near here.
+      try {
+        roomsPerLevel = mountRoomsPerLevelSection(roomProgrammeSlot, defaultRoomsPerLevelDeps(deps.runtime ?? null));
+      } catch (e) {
+        console.warn('[analysis][parcel-law] rooms-per-level mount failed (non-fatal):', e);
+      }
     } catch (e) {
       console.warn('[analysis][parcel-law] room-programme mount failed (non-fatal):', e);
     }
@@ -1086,6 +1102,7 @@ export function mountParcelLawTab(
       // §PL-ROOM-PROGRAMME — the panel re-reads the project's rooms and the envelope store
       // on refresh, so a house generated while this tab was open shows up on the next repaint.
       try { roomProgramme?.refresh(); } catch { /* same */ }
+      try { roomsPerLevel?.refresh(); } catch { /* same */ }
       wireStrip();
       wireHighlights();
       refreshDigests();
@@ -1114,6 +1131,8 @@ export function mountParcelLawTab(
       // §PL-ROOM-PROGRAMME — the panel holds a programme subscription and an envelope-store
       // subscription; leaving either connected to a detached body is a listener that outlives
       // the surface that put it up.
+      try { roomsPerLevel?.dispose(); } catch { /* teardown is best-effort */ }
+      roomsPerLevel = null;
       try { roomProgramme?.dispose(); } catch { /* teardown is best-effort */ }
       roomProgramme = null;
       try { panel?.dispose(); } catch { /* teardown is best-effort */ }

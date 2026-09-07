@@ -62,7 +62,10 @@ import { DESIGN_STAGE_JUMP_ATTR, DESIGN_STAGE_JUMP_STATUS_TESTID } from './desig
 import type { IntendedAreaSnapshot } from './intendedAreaChannel';
 // §RESI-ORCH-MASSING-OPTIONS (STR §7) — the enumerator is pure and lives next door. This file
 // renders its answer and NEVER re-derives a figure from it.
-import type { MassingOption, MassingOptionSet } from './massingOptionModel';
+import type { AuthoredMassingState, MassingOption, MassingOptionSet } from './massingOptionModel';
+// §CREATE-IT-MYSELF (L-13039) — the option that is NOT generated, rendered on BOTH arms of the
+// massing fold, and the pre-click refusal each generated card carries once it exists.
+import { buildAuthoredBlockLineHtml, buildAuthoredMassingOptionHtml } from './massingAuthoredOptionSection';
 import type { UserSuppliedStudyHeightRecord } from './userSuppliedStudyHeightState';
 // §TOBE-ENVELOPE (STR §25.2, lane PL-TOBE-ENVELOPE) — the LEGEND's rows and the to-be-built hue
 // come from the ONE authority the SCENE reads. A legend that re-typed its own swatch colour would
@@ -441,6 +444,8 @@ export const MASSING_PICK_ATTR = 'data-massing-pick';
  */
 export function buildMassingOptionsFold(
     state: { readonly kind: 'idle' } | { readonly kind: 'computed'; readonly set: MassingOptionSet },
+    /** §CREATE-IT-MYSELF (L-13039) — the ground storey's authored state; `null` ⇒ the route is offered. */
+    authored: AuthoredMassingState | null = null,
 ): string {
     const span = _tracer.startSpan('pryzm.site.buildMassingOptionsFold');
     try {
@@ -450,6 +455,8 @@ export function buildMassingOptionsFold(
             + `needs and the floor area it reaches. <b>PRYZM does not pick one</b> — the trade between `
             + `floor area and open ground is yours.</div>`;
 
+        // §CREATE-IT-MYSELF — first on both arms: the user's own massing is not something Generate produces.
+        const authoredCard = buildAuthoredMassingOptionHtml(authored);
         if (state.kind === 'idle') {
             span.setAttribute('pryzm.massing.foldArm', 'idle');
             return fold(
@@ -457,6 +464,7 @@ export function buildMassingOptionsFold(
                 'idle',
                 'Massing options',
                 intro
+                + authoredCard
                 + `<button type="button" data-testid="${MASSING_OPTIONS_GENERATE_BTN_TESTID}" `
                 + `style="margin-top:7px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;`
                 + `padding:6px 10px;border-radius:8px;font:600 11px system-ui;background:#faf9fd;color:#6600FF;">`
@@ -476,7 +484,7 @@ export function buildMassingOptionsFold(
         }
         span.setAttribute('pryzm.massing.foldArm', 'computed');
         span.setAttribute('pryzm.massing.foldOptions', set.options.length);
-        const cards = set.options.map(buildMassingOptionCard).join('');
+        const cards = set.options.map((o) => buildMassingOptionCard(o, authored)).join('');
         const caveat =
             `<div style="margin-top:7px;padding-top:5px;border-top:1px dashed #ece9f4;color:#8a83a0;`
             + `font-size:9px;line-height:1.45;">${escHtml(set.caveat)}</div>`;
@@ -489,7 +497,7 @@ export function buildMassingOptionsFold(
             MASSING_OPTIONS_SECTION_TESTID,
             'computed',
             `Massing options — ${escHtml(String(set.options.length))} generated`,
-            intro + cards + caveat + clear,
+            intro + authoredCard + cards + caveat + clear,
         );
     } finally {
         span.end();
@@ -497,7 +505,7 @@ export function buildMassingOptionsFold(
 }
 
 /** One option card: what it is, why, its axes as facts, its limitations, and its pick button. */
-function buildMassingOptionCard(o: MassingOption): string {
+function buildMassingOptionCard(o: MassingOption, authored: AuthoredMassingState | null = null): string {
     const axes = o.scores
         .map((a) => {
             // ⛔ A NULL AXIS PRINTS "not derived", NEVER A ZERO-LENGTH BAR. An empty bar is read as
@@ -547,6 +555,9 @@ function buildMassingOptionCard(o: MassingOption): string {
         + `<div style="margin-top:3px;font-size:9.5px;line-height:1.45;color:#6b6480;">${escHtml(o.statement)}</div>`
         + (axes === '' ? '' : `<div style="margin-top:5px;">${axes}</div>`)
         + limits
+        // §CREATE-IT-MYSELF — the pre-click refusal, beside the button it applies to. Empty when
+        // nothing on the storey would refuse; a refused option carries no button and no line.
+        + (pick === '' ? '' : buildAuthoredBlockLineHtml(authored))
         + pick
         + `</div>`;
 }

@@ -128,7 +128,6 @@ import {
 // §CREATE-IT-MYSELF (L-13039) — the ONE rule that says whether PRYZM may replace what is on the
 // storey lives next door and is keyed on provenance. This module asks it; it never re-decides it.
 import {
-    describeLevelEnvelope,
     resolveLevelEnvelopeSupersession,
     type ExistingLevelEnvelope,
     type LevelEnvelopeReadResult,
@@ -1037,9 +1036,4 @@ export function resolveAuthoredMassingState(
     } finally {
         span.end();
     }
-}
-
-/** How a blocking envelope reads in a sentence — the supersession module's own wording. */
-export function describeAuthoredMassingEnvelope(e: ExistingLevelEnvelope): string {
-    return describeLevelEnvelope(e);
 }

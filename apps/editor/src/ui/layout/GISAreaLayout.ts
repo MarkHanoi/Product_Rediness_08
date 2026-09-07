@@ -419,8 +419,13 @@ import {
 } from '../site/envelopeCardSections';
 import {
     enumerateMassingOptions,
+    // §CREATE-IT-MYSELF (L-13039) — the ground storey's authored state, resolved on every render
+    // from the SAME store read + ground storey the adopt planner uses, so the option list and the
+    // Keep button describe one storey. Pure; the decision is `resolveLevelEnvelopeSupersession`'s.
+    resolveAuthoredMassingState,
     type MassingOptionSet,
 } from '../site/massingOptionModel';
+import { wireAuthoredMassingOption } from '../site/massingAuthoredOptionSection';
 // §RESI-ORCH-STAGE-WIRE (STR §21) — *"the right panel exposes the controls relevant to the current
 // stage."* The DECISION (which section leads, which is gated, and why) is pure and lives next
 // door; this file renders it and wires the jump. ⛔ Nothing is HIDDEN by the stage — see
@@ -441,6 +446,7 @@ import { collectIntendedAreas } from '../site/intendedAreaChannel';
 // one envelope, so one gesture is one undo entry).
 import {
     buildAdoptProposalPlan,
+    pickGroundLevel,
     readLevelCandidates,
     type AdoptProposalResult,
 } from '../site/adoptProposalAsEnvelope';
@@ -3220,6 +3226,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 refreshEnvelopePanel();
             };
         }
+        // §CREATE-IT-MYSELF (L-13039) — the ONE authoring route (P6): the same site envelope tool the
+        // Parcel Law tab mounts. No draw gesture and no second panel are built here.
+        wireAuthoredMassingOption(panel, () => {
+            if (typeof window.pryzmOpenSiteEnvelopeTool === 'function') window.pryzmOpenSiteEnvelopeTool();
+            else console.warn('[gis][envelope-card] §CREATE-IT-MYSELF: pryzmOpenSiteEnvelopeTool is not registered on this surface');
+        });
         panel.querySelectorAll<HTMLButtonElement>(`[${MASSING_PICK_ATTR}]`).forEach((btn) => {
             btn.onclick = (ev) => {
                 ev.stopPropagation();
@@ -4825,8 +4837,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     massingOptions = null;
                     massingOptionsForFootprintM2 = null;
                 }
+                // §CREATE-IT-MYSELF (L-13039) — what is on the GROUND storey, resolved before any click,
+                // from the same reads `resolveAdoptResult` makes. A failed read is passed as UNREADABLE,
+                // never as an empty storey.
+                let authoredState: ReturnType<typeof resolveAuthoredMassingState> | null = null;
+                try {
+                    const ground = pickGroundLevel(readLevelCandidates(
+                        (window.bimManager as { getLevels?: () => unknown[] } | undefined)?.getLevels?.() ?? [],
+                    ));
+                    authoredState = resolveAuthoredMassingState(
+                        readLevelEnvelopes(liveRuntime()?.stores?.spaceEnvelope ?? null),
+                        ground?.id ?? null,
+                    );
+                } catch (err) {
+                    console.warn('[gis][envelope-card] authored-massing state failed (non-fatal):', err);
+                }
                 return buildMassingOptionsFold(
                     massingOptions === null ? { kind: 'idle' } : { kind: 'computed', set: massingOptions },
+                    authoredState,
                 );
             } catch (err) {
                 console.warn('[gis][envelope-card] massing options fold failed (non-fatal):', err);

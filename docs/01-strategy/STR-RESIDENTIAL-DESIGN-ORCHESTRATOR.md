@@ -690,6 +690,64 @@ Worked instruction the engine must satisfy: *"I want initially as a value attrib
 in ground floor – ideally L shape – south facing oriented – and pryzm will create a logical
 TO-BE BUILT ENVELOPE. SAME FOR FIRST FLOOR."*
 
+#### §25.3.1 — Amended 2026-09-07 (lane MASSING-SHAPES · L-13037 / L-13039 / §26.6 rule 4)
+
+Founder, verbatim: *"MASSING OPTIONS SHOULD ALLOW ME TO CHOOSE DIFFERENT SHAPES — I, L, U, ANGLED
+SHAPES — COHERENT SHAPES … WHEN I SELECT ANOTHER MASSING OPTION THE PREVIOUS ONE SHALL BE REMOVED —
+BUT MORE IMPORTANT I NEED TO HAVE CREATE MYSELF MASSING OPTION! IN WHICH CASE I DESIGN I SHALL BE
+ABLE TO SEE THE ROOMS PER LEVEL HERE."* Five rules, each with its owner in code:
+
+1. **A shape is chosen BEFORE a size.** The option list leads with the shape families (I · L ·
+   angled L · U); the four plate fractions follow as one shape's size ladder
+   (`massingOptionModel.ts`). ⭐ **When no ground-floor area has been named the shapes are NOT
+   withheld** — each is solved at the LARGEST outline of its family that fits the permitted
+   footprint at the stated wing depth (`whenNoTarget: 'largest-fit'`, `massingShapeOptions.ts`).
+   That is the family's own ceiling, the same fact "Full plate" states, and **not a default**:
+   the option says `sized-to-largest-fit` with both numbers and names the action that sizes it.
+   ⚠ *Why this rule exists:* at HEAD before it, the card's Generate button read the §5
+   target-area channel, found it empty on any parcel where the user had not first typed an area
+   into a different section, and withheld every shape — the four-plates screenshot behind
+   L-13037 was that branch, not a missing engine.
+2. **"COHERENT" is measured, not assumed.** Every solved placement's wings are measured on the
+   BUILT ring (the template ∩ the permitted outline), at stations along each wing's body with
+   the tip zones excluded. A body thinner than 2 m excludes the placement; a family with no
+   survivor is **refused** `family-wings-sliver` with the narrowest width, where it was measured,
+   and the minimum (C58 §1.13). An L or U whose built ring has no re-entrant corner is refused
+   `family-collapses-to-bar` rather than listed as a rectangle wearing a letter. Every shape is
+   `template ∩ buildableFootprint`, so containment in the permitted envelope holds by
+   construction (C58 §1.19 clause 4, §1.20).
+3. **ONE massing at a time — mint AND preview.** Keeping an option REPLACES the generated level
+   envelope on that storey in one command (`supersedes` on `spaceEnvelope.batch.create`,
+   L-13047); a shape option rides the SAME `TargetFootprintProposal` channel and the SAME adopt
+   planner as a plate, so there is no second commit path (P6). The candidate PREVIEW is a single
+   session slot (`targetFootprintAreaState`): choosing another option replaces what is drawn, by
+   construction. ⚠ Today that preview draws on the THREE plan scene only
+   (`ParcelBoundarySceneRenderer`); the 2D Site Map and the 3D Site do not subscribe to it
+   (L-13022, OPEN).
+4. **The study massing is a pale white-grey SOLID** (§26.6.3), fill `#e8e8ee` with a slate ink
+   rim, more solid than before (`toBeBuiltEnvelopeStyle.ts` — the ONE owner; the adopted level
+   prism reads it too). It is distinct from the permitted envelope's confidence hues by a
+   measured lightness gap, and the three-line legend stays. ⚠ Open tension for the founder:
+   a fully opaque massing would hide the rooms per level inside it; the level is kept below the
+   room's weight so the rooms stay readable.
+5. **"Create it myself" is a first-class entry** in the option list, on both arms of the fold
+   (`massingAuthoredOptionSection.ts`). It opens the ONE site envelope tool
+   (`window.pryzmOpenSiteEnvelopeTool`). Once the user's own level envelope
+   (`provenance.origin: 'authored'`) is on the ground storey, the entry reads *"Your own — N m² ·
+   chosen"*, and every generated option states BEFORE any click that keeping it would be refused
+   — the supersession rule's own sentence, one producer. An envelope whose origin PRYZM cannot
+   establish is a third state: it blocks, and is described as exactly that, never as yours.
+   ⚠ **Precondition not yet met in code:** the site envelope tool's `batch.create` payload carries
+   no `provenance`, so a drawn envelope lands as `predates-provenance` and reads as the third
+   state. The stamp belongs in `envelopeAuthoringPlan.ts` (lane ENVELOPE-DRAW).
+6. **Rooms per level.** The project's rooms are grouped by the storey they sit on, each storey
+   joined to its level envelope (one · none · rivals · unreadable — four facts, kept apart), and
+   mounted beneath the room programme in the Parcel Law tab (`roomsPerLevelModel.ts` — pure —
+   and `roomsPerLevelSection.ts`). ⛔ A room with no resolvable storey is listed under an explicit
+   *"level not known"* group with its reason — never dropped, never put on Ground. An unknown area
+   is `null`, excluded from the storey sum and counted beside it. Rooms DRAWING on the view is
+   §26.6.4's rule 2 (`siteGeometryHighlight`), not a second path from this section.
+
 ### §25.4 — A chat surface ON the Parcel Law panel
 
 > *"WE NEED A CHAT BOT ON THE PARCEL LAW PANEL – SO USER CAN CHAT VIA RAC OR DEFINE VIA DATA
