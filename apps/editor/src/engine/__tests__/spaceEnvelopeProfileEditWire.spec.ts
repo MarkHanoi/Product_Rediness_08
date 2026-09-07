@@ -90,21 +90,40 @@ describe('(2) the HANDLE the resolver reads is assigned, with a real dialog behi
 });
 
 describe('(3) the GESTURE exists — and is cleaned up', () => {
-    const controller = read('engine/spaceEnvelopeFaceDragController.ts');
+    // ⚠ REPOINTED 2026-09-07 (§ENVELOPE-DRAG-PORTS · L-13045). The gesture moved out of
+    // `spaceEnvelopeFaceDragController.ts` — which is now the THREE WIRING and nothing else
+    // — into the renderer-free `spaceEnvelopeDragSurface.ts`, with the six THREE-touching
+    // lines in `spaceEnvelopeDragSurfaceThree.ts`. The three claims below are unchanged;
+    // only the file that has to satisfy each one moved.
+    const core = read('engine/spaceEnvelopeDragSurface.ts');
+    const threeAdapter = read('engine/spaceEnvelopeDragSurfaceThree.ts');
     const attach = read('engine/attachSpaceEnvelopeRender.ts');
 
-    it('the controller installs a dblclick listener and REMOVES it in the disposer', () => {
-        expect(controller).toMatch(/addEventListener\('dblclick', onDoubleClick\)/);
+    it('the gesture installs a dblclick listener and REMOVES it in the disposer', () => {
+        expect(core).toMatch(/addEventListener\('dblclick', onDoubleClick\)/);
         // ⛔ A listener that outlives the scene gives the next runtime two of them — the same
         // reason the disposer already exists for the four pointer listeners.
-        expect(controller).toMatch(/removeEventListener\('dblclick', onDoubleClick\)/);
+        expect(core).toMatch(/removeEventListener\('dblclick', onDoubleClick\)/);
     });
 
     it('the double-click resolves through the SAME pick the drag uses', () => {
-        // Two raycasts would be two answers to "which envelope is under the pointer?".
-        expect(controller).toMatch(/const pickFace = /);
-        const dblBody = controller.slice(controller.indexOf('const onDoubleClick'));
-        expect(dblBody).toMatch(/pickFace\(ev\)/);
+        // Two picks would be two answers to "which envelope is under the pointer?".
+        const dblBody = core.slice(core.indexOf('const onDoubleClick'));
+        expect(dblBody).toMatch(/surface\.pickFace\(ev\)/);
+        // ⭐ AND THERE IS EXACTLY ONE PICK IMPLEMENTATION ON THE THREE SURFACE. This is the
+        // assertion the port extraction makes possible and the old one could not express:
+        // the core cannot raycast at all, so hover, drag-start and double-click physically
+        // cannot resolve through different rays (C84 EI-9).
+        expect(core).not.toMatch(/Raycaster|setFromCamera/);
+        expect((threeAdapter.match(/new THREE\.Raycaster\(\)/g) ?? [])).toHaveLength(1);
+    });
+
+    it('⛔ the RENDERER-FREE half stays renderer-free — no THREE value import', () => {
+        // P2 and the whole point of the split: a Cesium or MapLibre adapter must be able to
+        // import the gesture without dragging a renderer in behind it. `import type` is
+        // erased and is allowed; a value import is not.
+        expect(core).not.toMatch(/^import \* as THREE/m);
+        expect(core).not.toMatch(/^import \{[^}]*\} from '@pryzm\/renderer-three/m);
     });
 
     it('attachSpaceEnvelopeRender threads onProfileEdit through to the controller', () => {
