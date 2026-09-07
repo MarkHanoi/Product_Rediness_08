@@ -32,8 +32,16 @@ import {
     groundDistanceM,
     ringDrapeGrid,
     spendDrapeBudgetNearestFirst,
+    // §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — the split pieces were the right decomposition and the
+    // wrong SURFACE: each was flat, so a hillside read as a staircase ("in fragments").
+    GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER,
+    pieceVertexPoints,
+    conformVertexPoints,
+    conformingVertexHeights,
+    drapeSeamStepM,
     type LonLat,
 } from '../groundFeatureSeat';
+import { groundSampleKey } from '../groundSampleBatcher';
 
 // Lisbon: Baixa (Rua Augusta) and Chiado, ~80 m apart in orthometric height, ~500 m apart on the map.
 const BAIXA = { lat: 38.7107, lon: -9.1374 };
@@ -556,5 +564,183 @@ describe('§DRAPE-LAYER-BUDGET — the splitter had a per-FEATURE cap and no LAY
         // A seat-only feature measures UNKNOWN, and unknown does not split (it does not flatten either).
         expect(reliefRangeM([100])).toBeNull();
         expect(decideDrapeStrategy({ reliefAttached: true, reliefRangeM: null })).toBe('single');
+    });
+});
+
+// ───────────────────────────────────────────────────────────────────────────────────────────────
+// §DRAPE-CONFORMS-TO-TERRAIN (L-13175, founder Sydney / Cremorne Point 2026-09-07: the context
+// "appeared in fragments — not organic shape like it is the terrain").
+//
+// ⭐ WHAT THESE ASSERT ON, AND WHY IT IS NOT A SCREENSHOT. "Organic" is a look; the MEASURABLE
+// claim underneath it is that a sloped feature renders as ONE surface — every point two pieces
+// share is drawn at ONE height by both. That is `drapeSeamStepM`, in metres, and it scores the old
+// piecewise-flat drape and the new conforming one on the same scale: the flat route reports its own
+// risers, the conforming route reports 0. A regression to flat cannot pass.
+//
+// ⚠ THE FAKE SAMPLER IS KEYED THE WAY THE REAL CACHE IS, ON PURPOSE. `contextGroundCache` stores
+// one height per `groundSampleKey` (6 dp ≈ 0.11 m) and `conformVertexPoints` asks for one point per
+// key, so in production two cells whose shared edge differs by a float ulp read the SAME cached
+// number. A sampler here that evaluated a continuous function at each raw float would make the
+// seams close to ~1e-13 instead of exactly 0 — and would be testing a system we do not ship
+// (§FAKE-MORE-CAPABLE-THAN-REAL: a fake that is smoother than the real thing hides the real thing's
+// seams). So the fake samples the DEDUPED point set and both cells read it back by key.
+describe('§DRAPE-CONFORMS-TO-TERRAIN (L-13175) — a sloped feature is one surface, not N flat pieces', () => {
+    /** A planar hillside through Nürnberg's origin: `slope` metres of rise per metre of easting. */
+    const hillside = (slope: number) => (p: { lat: number; lon: number }): number => {
+        const [x] = lonLatToLocalM([p.lon, p.lat], NUREMBERG);
+        return 300 + slope * x;
+    };
+
+    /** The production pipeline, purely: split a ring, sample every distinct vertex ONCE by key, and
+     *  give each piece both seats — the flat scalar it has today and the conforming mesh. */
+    function drapeHillsideRing(ring: LonLat[], slope: number, layer: 'parks' = 'parks') {
+        const ground = hillside(slope);
+        const seat = polygonSeatPoint(ring)!;
+        const probes = featureReliefProbePoints(ring, seat);
+        const range = reliefRangeM(probes.map(ground));
+        expect(decideDrapeStrategy({ reliefAttached: true, reliefRangeM: range })).toBe('split');
+        const pieceM = drapePieceLengthM(featureSpanM(ring, 'polygon'), range);
+        const parts = splitRingIntoGridCells(ring, pieceM);
+        expect(parts.length).toBeGreaterThan(4);                    // it really did fragment
+
+        // ONE sample per distinct vertex, stored by the cache's own key — exactly `secondBatch`.
+        const cache = new Map<string, number>();
+        for (const p of conformVertexPoints(parts)) cache.set(groundSampleKey(p), ground(p));
+        const cached = (c: LonLat): number | undefined => cache.get(groundSampleKey({ lat: c[1], lon: c[0] }));
+
+        const flat = parts.map((p) => {
+            const h = decideGroundFeatureSeat({
+                reliefAttached: true, baseM: 0, layer, groundAtPointM: cached([p.seat.lon, p.seat.lat]) ?? ground(p.seat),
+            }).heightM;
+            return { coords: p.coords, heights: p.coords.map(() => h) };
+        });
+        const conform = parts.map((p) => ({
+            coords: p.coords,
+            heights: conformingVertexHeights({ layer, groundAtVertexM: p.coords.map(cached) }),
+        }));
+        return { parts, pieceM, cache, flat, conform };
+    }
+
+    it('⭐ the conforming mesh closes every seam (0 m) where the flat pieces leave real risers', () => {
+        // 400 m square on a 10 % hillside — Cremorne Point / Lisbon grade, ~40 m of relief.
+        const { flat, conform, pieceM } = drapeHillsideRing(squareRingM(400, 0, 0), 0.10);
+
+        // TODAY: every piece is one height, so two neighbours disagree at their shared edge. The
+        // riser is the founder's fragment, and it is ~the piece length times the slope.
+        const flatStep = drapeSeamStepM(flat);
+        expect(flatStep).toBeGreaterThan(1);
+        expect(flatStep).toBeCloseTo(pieceM * 0.10, 0);
+
+        // AFTER: every vertex measured, so every shared vertex is drawn at one height by both
+        // pieces. Not "small" — ZERO. That is what "one continuous surface" means numerically.
+        for (const c of conform) expect(c.heights).not.toBeNull();
+        expect(drapeSeamStepM(conform as Array<{ coords: LonLat[]; heights: number[] }>)).toBe(0);
+    });
+
+    it('⛔ and it is not flat-in-disguise: every piece VARIES across itself, by its own slope', () => {
+        const { conform, pieceM } = drapeHillsideRing(squareRingM(400, 0, 0), 0.10);
+        let varied = 0;
+        for (const c of conform) {
+            const hs = c.heights!;
+            const spread = Math.max(...hs) - Math.min(...hs);
+            // Never more than its own cell can span. The 0.1 % is the MEASURED disagreement between
+            // two local equirectangular frames — the splitter cuts about the RING's centroid, this
+            // hillside is evaluated about Nürnberg's, and `cos(lat)` differs a little between them
+            // (measured 2.9e-5 relative on this fixture). It is 34× the observed error and ~1000×
+            // smaller than any real regression: flat-in-disguise reads 0, a coarser grid doubles it.
+            expect(spread).toBeLessThanOrEqual(pieceM * 0.10 * 1.001);
+            if (spread > 1e-6) varied++;
+        }
+        // A cell whose whole footprint is one easting can legitimately be level on this hillside;
+        // the claim is that the LAYER stopped being a set of planes, so most of them must vary.
+        expect(varied).toBeGreaterThan(conform.length / 2);
+    });
+
+    it('the ladder offset rides on the VERTEX ground, not on a base — same §12.4 numbers', () => {
+        for (const layer of ['landuse', 'parks', 'sea', 'water'] as const) {
+            const hs = conformingVertexHeights({ layer, groundAtVertexM: [10, 20, 30, 10] });
+            expect(hs).toEqual([10, 20, 30, 10].map((g) => g + GROUND_LAYER_OFFSET_M[layer]));
+        }
+    });
+
+    it('⛔ ONE unmeasured vertex ⇒ null ⇒ the piece keeps its flat seat — a mesh is never torn', () => {
+        // Filling the hole with the base is the ordinary fallback everywhere else in this module and
+        // it is exactly wrong here: it would drag one corner onto a different surface and open the
+        // polygon. UNKNOWN is not the base (§CONTEXT-DATA-HONESTY / C84 EI-6).
+        expect(conformingVertexHeights({ layer: 'parks', groundAtVertexM: [10, 20, null, 10] })).toBeNull();
+        expect(conformingVertexHeights({ layer: 'parks', groundAtVertexM: [10, undefined, 30, 10] })).toBeNull();
+        expect(conformingVertexHeights({ layer: 'parks', groundAtVertexM: [10, NaN, 30, 10] })).toBeNull();
+        expect(conformingVertexHeights({ layer: 'parks', groundAtVertexM: [10, 20] })).toBeNull();
+    });
+
+    it('shared corners are asked for ONCE — the dedup IS the mechanism, and it caps the cost', () => {
+        const { parts } = drapeHillsideRing(squareRingM(400, 0, 0), 0.10);
+        const naive = parts.reduce((n, p) => n + p.coords.length, 0);
+        const asked = conformVertexPoints(parts).length;
+        expect(asked).toBeLessThan(naive);            // every interior corner is shared by up to 4 cells
+        // A grid of n cells has ~n + 2√n distinct corners, not 4n — that ratio is why the vertex
+        // budget can be a small multiple of the piece budget rather than four times it.
+        expect(asked).toBeLessThan(parts.length * 2);
+        // ...and it never asks twice for the same key.
+        const keys = new Set(conformVertexPoints(parts).map(groundSampleKey));
+        expect(keys.size).toBe(asked);
+    });
+
+    it('a closed ring does not pay twice for its repeated first vertex', () => {
+        const ring = squareRingM(100, 0, 0);
+        expect(ring[0]).toEqual(ring[ring.length - 1]);
+        expect(pieceVertexPoints(ring)).toHaveLength(4);
+    });
+
+    it('the vertex budget is spent NEAREST FIRST, and losing it keeps TODAY’s drape', () => {
+        const features = Array.from({ length: 900 }, (_, i) => squareRingM(200, (i % 30) * 300, Math.floor(i / 30) * 300));
+        const bids = features.map((r, i) => ({
+            index: i,
+            distanceM: groundDistanceM(NUREMBERG, polygonSeatPoint(r)!),
+            cost: conformVertexPoints(splitRingIntoGridCells(r, 40)).length,
+        }));
+        const wanted = bids.reduce((n, b) => n + b.cost, 0);
+        expect(wanted).toBeGreaterThan(GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER);
+        const verdict = spendDrapeBudgetNearestFirst(bids, GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER);
+        expect(verdict.spent).toBeLessThanOrEqual(GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER);
+        expect(verdict.denied).toBeGreaterThan(0);
+        // Nearest first: no denied feature is nearer than the farthest granted one.
+        const grantedMax = Math.max(...bids.filter((b) => verdict.granted.has(b.index)).map((b) => b.distanceM));
+        const deniedMin = Math.min(...bids.filter((b) => !verdict.granted.has(b.index) && b.cost > 0).map((b) => b.distanceM));
+        expect(grantedMax).toBeLessThanOrEqual(deniedMin);
+        // ⛔ A denied feature is NOT dropped and NOT flattened to a layer scalar — it keeps the
+        // L-12924 per-piece seat, which is what this file's other suites already pin.
+        const denied = bids.find((b) => !verdict.granted.has(b.index))!;
+        expect(splitRingIntoGridCells(features[denied.index]!, 40).length).toBeGreaterThan(0);
+    });
+
+    // ⭐ REACHABILITY, not existence (§AUTHORED-BUT-UNWIRED / §COMMITTED-IS-NOT-REACHABLE). Every
+    // function above can be perfect and the founder still sees steps if the render sites never call
+    // them. These read the viewport source and pin the wiring itself.
+    describe('the render sites actually draw the mesh', () => {
+        const src = readFileSync(resolve(__dirname, '../CesiumViewport.ts'), 'utf8');
+
+        it('all three POLYGON ground layers seat through `drapePieceSeat` and pass perPositionHeight', () => {
+            // parks + landuse + inland water. The sea is deliberately not one of them (next test).
+            const seats = src.match(/this\.drapePieceSeat\(enu, invEnu, piece\)/g) ?? [];
+            expect(seats).toHaveLength(3);
+            const wired = src.match(/perPositionHeight: seat\.perPositionHeight/g) ?? [];
+            expect(wired).toHaveLength(3);
+            // ⛔ The scalar must be DROPPED when the mesh is used: Cesium ignores `height` under
+            // `perPositionHeight`, so shipping both would leave a silent second opinion in the code
+            // for the next reader to trust.
+            const both = src.match(/height: seat\.perPositionHeight \? undefined : piece\.heightM/g) ?? [];
+            expect(both).toHaveLength(3);
+        });
+
+        it('the SEA opts out — a sea surface is level, and conforming it would ramp it up the shore', () => {
+            expect(src).toContain("{ seatRule: 'min-probe', split: false, conform: false }");
+        });
+
+        it('corridors are NOT silently conformed — Cesium has no per-position height for a ribbon', () => {
+            // If a future edit gives `corridor:` a `perPositionHeight`, it renders nothing new and
+            // the reason is invisible. Pin the absence with the reason attached.
+            expect(src).not.toMatch(/corridor: \{[^}]*perPositionHeight/s);
+        });
     });
 });

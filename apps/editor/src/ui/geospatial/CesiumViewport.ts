@@ -405,6 +405,13 @@ import {
   estimateSplitPieceCount,
   groundDistanceM,
   spendDrapeBudgetNearestFirst,
+  // §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — the founder's "fragments … not organic shape like it is
+  // the terrain": a split piece is a FLAT polygon, so a hillside reads as a staircase. Each piece's
+  // vertices now carry their OWN sampled ground, and neighbouring cells share those vertices bit
+  // for bit, so the seams close and the drape is ONE surface. Same pieces, same triangles.
+  GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER,
+  conformVertexPoints,
+  conformingVertexHeights,
   type DrapeBudgetCandidate,
   type GroundLayer,
   type LatLon as GroundLatLon,
@@ -9873,6 +9880,16 @@ export class CesiumViewport {
             const g = kind === 'polygon' ? ent.polygon : ent.corridor;
             // Skip an entity that does not carry THIS geometry kind (the water list holds both
             // polygons and corridors), or one whose height was never seated as a scalar.
+            //
+            // ⭐ §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — A CONFORMING PIECE LANDS IN THAT SECOND
+            // CASE AND MUST, so do not "fix" this skip. Its height lives in its POSITIONS
+            // (`perPositionHeight`), and `conformingVertexHeights` only returns a mesh when EVERY
+            // vertex was MEASURED — a measured terrain elevation is absolute and owes nothing to
+            // `formaTerrainBaseHeight`, so this pass would recompute the identical number. The
+            // entities this pass exists for are the ones that fell back to the base, and a
+            // conforming piece by construction never did. (A future change that lets a conforming
+            // mesh hold ONE unmeasured vertex would break that argument before it broke the
+            // render — which is the other reason the all-or-nothing rule is where it is.)
             if (!g || !g.height) continue;
             const rec = this.contextGroundSeatPoints.get(ent);
             const ground = rec?.point ? this.sampleGround(rec.point.lat, rec.point.lon, baseM) : null;
@@ -10401,6 +10418,15 @@ export class CesiumViewport {
    *      the same 3 m tolerance — a fixed piece length would leave ~6 m risers on a Lisbon slope.
    *   4. Each piece's height = its own ground + the §12.4 ladder offset (`decideGroundFeatureSeat`);
    *      an unmeasured point falls back to the SAFE base (never a stray 0, the L-259 rule).
+   *   5. §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — and then the piece STOPS BEING FLAT. Steps 3–4 are
+   *      the right decomposition and the wrong surface: a polygon at one scalar is a plane, so a
+   *      hillside park is a staircase of tiles ("appeared in fragments — not organic shape like it
+   *      is the terrain"). Every DISTINCT vertex of every piece rides the same second batch, each
+   *      gets its own ground + ladder (`conformingVertexHeights`), and the caller draws with
+   *      `perPositionHeight`. Two neighbouring cells share their edge bit for bit, so one sample
+   *      answers both and the seam CLOSES. Same pieces, same entities, same triangles — only the Z
+   *      of existing vertices changes. Polygons only (a `corridor` has no per-position height) and
+   *      never the sea (`conform:false`, a sea surface is level).
    *
    * FLAT / KEYLESS (no relief attached): NO sampling, ONE scalar `base + ladder` for every feature
    * — byte-identical to the pre-L-12924 seat, pinned by `groundFeatureSeat.spec.ts`.
@@ -10413,6 +10439,14 @@ export class CesiumViewport {
    * shows it under relief). Plausible by code path, but L-11840 (heatmap invisible with the globe
    * shown) is not explained by that reading and nothing here is browser-verified, so clamping is
    * NOT wired here (evaluated, not shipped) and the answer is the per-feature scalar + split.
+   * ⭐ RE-MEASURED 2026-09-07 (L-13175) against the same shipped file, because "re-enable the depth
+   * test and let the GPU classify" is the first idea anyone has when they see the fragments, and it
+   * is aimed at the wrong flag: `Cesium.js` **:248276** is the `clearGlobeDepth` expression the
+   * theory rests on, and **:247773** `performPass(frustumCommands, Pass.TERRAIN_CLASSIFICATION)`
+   * runs at a LOWER line number than the **:247781** `if (clearGlobeDepth) { clearDepth.execute(…) }`
+   * it is supposed to be starved by. Turning `depthTestAgainstTerrain` ON would buy classification
+   * nothing and would cost §CTX-DEPTH-CULL-FIX — context buildings culled under relief, the trade
+   * L-635 already refused. The flag stays OFF and step 5 needs neither flag.
    *
    * `opts.seatRule: 'min-probe'` (the sea) seats on the LOWEST probe — sea level is the lowest
    * ground a coastal ring touches, and its bbox-clipped corners may sit on a hill. Never throws.
@@ -10422,9 +10456,21 @@ export class CesiumViewport {
     features: ReadonlyArray<{ readonly coords: ReadonlyArray<GroundLonLat>; readonly kind: 'polygon' | 'corridor' }>,
     siteLat: number,
     siteLon: number,
-    opts: { readonly seatRule?: 'point' | 'min-probe'; readonly split?: boolean } = {},
+    opts: { readonly seatRule?: 'point' | 'min-probe'; readonly split?: boolean; readonly conform?: boolean } = {},
   ): Promise<{
-    pieces: Array<Array<{ coords: ReadonlyArray<GroundLonLat>; seat: GroundLatLon | null; heightM: number }>>;
+    pieces: Array<Array<{
+      coords: ReadonlyArray<GroundLonLat>;
+      seat: GroundLatLon | null;
+      heightM: number;
+      /**
+       * §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — present ⇒ this piece is a CONFORMING MESH: one
+       * height per entry of `coords`, each vertex on its own measured ground + the §12.4 ladder.
+       * The caller draws it with `perPositionHeight: true` and IGNORES `heightM`. Absent ⇒ the
+       * piecewise-flat drape, `heightM` for the whole piece, exactly as before. Polygons only —
+       * `CorridorGraphics` has no per-position height (see the module header).
+       */
+      vertexHeightsM?: ReadonlyArray<number>;
+    }>>;
     summary: string;
   }> {
     const offset = GROUND_LAYER_OFFSET_M[layer];
@@ -10516,6 +10562,30 @@ export class CesiumViewport {
       }
       return [{ coords: f.coords, seat: seats[i] ?? null }];
     });
+    // ── BUDGET 3: the CONFORMANCE vertices. §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — the pieces above
+    // are the right DECOMPOSITION and the wrong SURFACE: each one is a flat polygon at one scalar,
+    // so a hillside park is a staircase of tiles ("appeared in fragments — not organic shape like it
+    // is the terrain"). Ask for every DISTINCT vertex of every piece instead, and the piece becomes
+    // a conforming mesh. Two neighbouring grid cells share their edge bit for bit (the
+    // non-accumulating lattice in `splitRingIntoGridCells`), so one sample answers both and the seam
+    // closes — that dedup is the mechanism, not an optimisation.
+    // ⚠ POLYGONS ONLY: `CorridorGraphics` seats a ribbon from one scalar and has no
+    // `perPositionHeight`, so roads/rail/waterway centre-lines ask for nothing here and cost nothing
+    // (their sampling is unchanged). The sea passes `conform:false` — a sea surface is LEVEL.
+    const conformWanted = plan.map((parts, i) => (
+      opts.conform === false || features[i]!.kind !== 'polygon' ? [] : conformVertexPoints(parts)
+    ));
+    const conformBudget = spendDrapeBudgetNearestFirst(
+      conformWanted.map((p, i): DrapeBudgetCandidate => ({ index: i, distanceM: distances[i]!, cost: p.length })),
+      GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER,
+    );
+    // The vertices ride the SAME second round-trip the split seats already pay for — no extra
+    // flight, and the tile memo (§TERRAIN-TILE-MEMO) serves them out of tiles this batch already
+    // decoded, so the added cost is in-memory interpolation, not another download.
+    for (let i = 0; i < conformWanted.length; i++) {
+      if (!conformBudget.granted.has(i)) continue;
+      for (const p of conformWanted[i]!) secondBatch.push(p);
+    }
     if (secondBatch.length > 0) {
       const w1 = now();
       try { await this.sampleContextGroundsBatch(secondBatch); } catch { /* as above */ }
@@ -10527,6 +10597,13 @@ export class CesiumViewport {
     let perFeature = 0;
     let lo = Infinity;
     let hi = -Infinity;
+    // §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — how many features actually became one surface, and how
+    // many stayed a staircase and WHY. Printed unconditionally: "0 conformed" is the reading that
+    // says the route is not reaching this city, and a counter that only speaks when it succeeds
+    // cannot be told apart from one that is not wired up.
+    let conformedFeatures = 0;
+    let conformedPieces = 0;
+    let conformIncomplete = 0;
     const pieces = plan.map((parts, i) => parts.map((part) => {
       let ground: number | null = null;
       let seat = part.seat;
@@ -10546,7 +10623,23 @@ export class CesiumViewport {
       if (decided.heightM > hi) hi = decided.heightM;
       pieceCount++;
       return { coords: part.coords, seat, heightM: decided.heightM };
-    }));
+    })).map((rows, i) => {
+      // §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — the per-VERTEX seat, decided AFTER the per-piece one
+      // so a feature that cannot conform still has its L-12924 flat seat to fall back to.
+      if (!conformBudget.granted.has(i)) return rows;
+      const vh = rows.map((r) => conformingVertexHeights({
+        layer,
+        groundAtVertexM: r.coords.map((c) => cached({ lat: c[1], lon: c[0] })),
+      }));
+      // ⛔ ALL-OR-NOTHING PER FEATURE, and per feature rather than per piece BECAUSE OF THE SEAM:
+      // one conforming cell beside one flat cell is a CRACK — a strictly worse artefact than the
+      // step this replaces. If any piece has an unmeasured vertex, the whole feature stays flat.
+      // Nothing is invented to fill the hole (§CONTEXT-DATA-HONESTY / C57 §1.5).
+      if (vh.some((v) => v === null)) { conformIncomplete++; return rows; }
+      conformedFeatures++;
+      conformedPieces += rows.length;
+      return rows.map((r, ri) => ({ ...r, vertexHeightsM: vh[ri]! as ReadonlyArray<number> }));
+    });
     const ms = now() - t0;
     const summary =
       `${features.length} feature(s) seated PER FEATURE on relief: ${perFeature}/${pieceCount} piece(s) on their own ` +
@@ -10567,8 +10660,53 @@ export class CesiumViewport {
       `§DRAPE-LAYER-BUDGET: pieces ${pieceBudget.spent}/${GROUND_DRAPE_MAX_PIECES_PER_LAYER} granted nearest-first ` +
       `(${pieceBudget.denied} feature(s) beyond it kept WHOLE on their own seat, ${pieceBudget.deniedCost} piece(s) ` +
       `not cut); probes ${probeBudget.spent}/${GROUND_DRAPE_MAX_PROBE_POINTS_PER_LAYER} ` +
-      `(${probeBudget.denied} feature(s) seat-point only, relief UNKNOWN not flat)`;
+      `(${probeBudget.denied} feature(s) seat-point only, relief UNKNOWN not flat). ` +
+      // §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — the founder's question in one line: is the drape ONE
+      // surface, or is it fragments? `conformed` counts features drawn with per-vertex ground
+      // (`perPositionHeight`), i.e. no seam anywhere inside them; everything else is the old
+      // piecewise-flat staircase and the reason is named rather than left to be guessed at.
+      `§DRAPE-CONFORMS-TO-TERRAIN: ${conformedFeatures}/${features.length} feature(s) conform to the ` +
+      `terrain per vertex (${conformedPieces} piece(s), ${conformBudget.spent}/` +
+      `${GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER} vertex probe(s) nearest-first); ` +
+      `${conformBudget.denied} beyond the vertex budget and ${conformIncomplete} with an unmeasured ` +
+      `vertex stay piecewise-flat (never torn, never invented)`;
     return { pieces, summary };
+  }
+
+  /**
+   * §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — ONE ground-drape piece → the ECEF positions to draw it
+   * with, through the SAME ENU bridge every §12 ground layer already uses (so this is a refactor of
+   * three identical inline copies, not a fourth placement rule).
+   *
+   * ⛔ THE TWO SEATS ARE MUTUALLY EXCLUSIVE AND THAT IS WHY THIS IS ONE FUNCTION. Cesium's
+   * `PolygonGraphics` seats a polygon EITHER from the scalar `height` (every vertex flat at that
+   * number) OR from the positions' own heights with `perPositionHeight: true` — setting `height`
+   * alongside `perPositionHeight` makes Cesium IGNORE the scalar, and building conforming positions
+   * while leaving `perPositionHeight` off makes it ignore THEM. Either mix renders the drape at the
+   * wrong height with no error, which is precisely the class of silent defect this lane is fixing.
+   * So the decision ("did this piece get per-vertex ground?") is taken HERE, once, and the caller is
+   * handed both halves of it together.
+   *
+   * A `vertexHeightsM` whose length does not match `coords` is refused rather than partly applied:
+   * a mesh missing one vertex's height is a torn mesh.
+   */
+  private drapePieceSeat(
+    enu: Cesium.Matrix4,
+    invEnu: Cesium.Matrix4,
+    piece: {
+      readonly coords: ReadonlyArray<GroundLonLat>;
+      readonly heightM: number;
+      readonly vertexHeightsM?: ReadonlyArray<number>;
+    },
+  ): { positions: Cesium.Cartesian3[]; perPositionHeight: boolean } {
+    const vh = piece.vertexHeightsM;
+    const conform = !!vh && vh.length === piece.coords.length;
+    const positions = piece.coords.map(([flon, flat], vi) => {
+      const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
+      const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
+      return this.enuToCartesian(enu, off.x, off.y, conform ? vh![vi]! : piece.heightM);
+    });
+    return { positions, perPositionHeight: conform };
   }
 
   /**
@@ -10772,7 +10910,7 @@ export class CesiumViewport {
       if (!provider || !attachedSlug) {
         // EVERY candidate failed. The site has no tileset — and "no tileset" means FLAT, which is a
         // detach whenever a bounded provider (some other city's) is still attached (L-12913).
-        // §TERRAIN-SLUG-RESOLVES-TO-NOTHING (L-13144) — pass the slugs we ACTUALLY asked for so the
+        // §TERRAIN-SLUG-RESOLVES-TO-NOTHING (L-13170) — pass the slugs we ACTUALLY asked for so the
         // flat-ground line can name them; "the tileset is missing" and "this site has no relief" are
         // different values and must not print the same sentence (§CONTEXT-DATA-HONESTY).
         const after = resolveTerrainTransition({ attach: false, reason: 'tileset-unavailable', tried: candidates }, this.terrainProviderState());
@@ -13328,7 +13466,23 @@ export class CesiumViewport {
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     this.clearContextRoads();
-    if (collection.ways.length === 0) return;
+    if (collection.ways.length === 0) {
+      // ⛔ §ABORT-PROMISES-NOTHING (L-13171) — THIS RETURN WAS SILENT, and its silence is why the
+      // Gulf defect took a day instead of five minutes: every other context layer printed a render
+      // line and roads printed NOTHING AT ALL, so the founder's trace could not say whether roads
+      // were empty, aborted or never drawn. Three different values, one blank console
+      // (§CONTEXT-DATA-HONESTY). The read itself is fixed in contextRoads.ts; this line exists so
+      // that if it ever happens again it SAYS SO.
+      console.warn(
+        '[CesiumViewport][forma] §FORMA-CTX-ROAD-RIBBON 0 way(s) came back for ' +
+          `lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} — NO road ribbons drawn, and street life will report 0 ` +
+          'lamps along 0 ways because it synthesises from this network. ⚠ An empty road collection is either an ' +
+          'honest EMPTY (the bbox really has no mapped highways) or a CANCELLED read handed back as empty ' +
+          '(§ABORT-PROMISES-NOTHING, L-13171) — check the §CTX-PMTILES-READER / §CTX-READ-RETRY line for this ' +
+          'bbox above to tell them apart.',
+      );
+      return;
+    }
 
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
@@ -13631,19 +13785,18 @@ export class CesiumViewport {
     for (let ai = 0; ai < waterAreas.length; ai++) {
       for (const piece of drape.pieces[ai] ?? []) {
         try {
-          const positions = piece.coords.map(([flon, flat]) => {
-            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
-          });
-          if (positions.length < 4) continue;
+          const seat = this.drapePieceSeat(enu, invEnu, piece);
+          if (seat.positions.length < 4) continue;
           const ent = viewer.entities.add({
             name: 'pryzm-forma-context-water',
             polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(positions),
+              hierarchy: new Cesium.PolygonHierarchy(seat.positions),
               // §CTX-ABS-SEAT (L-635) — absolute, NOT clampToGround; §GROUND-DRAPE-ON-RELIEF (L-12924) —
-              // THIS piece's own sampled ground + 0.03.
-              height: piece.heightM,
+              // THIS piece's own sampled ground + 0.03. §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — when the
+              // piece conforms, its VERTICES carry the ground and the scalar is dropped: the two seats
+              // are mutually exclusive (see `drapePieceSeat`), so a lake on a slope is one surface.
+              height: seat.perPositionHeight ? undefined : piece.heightM,
+              perPositionHeight: seat.perPositionHeight,
               material: waterFill,
               outline: false,
             },
@@ -13841,7 +13994,11 @@ export class CesiumViewport {
     const seaRings = this.scopeClipRings('sea', seaReadRings, (r) => r, lat, lon).map((p) => p.ring);
     const seaDrape = await this.resolveGroundDrapePieces(
       'sea', seaRings.map((ring) => ({ coords: ring, kind: 'polygon' as const })), lat, lon,
-      { seatRule: 'min-probe', split: false },
+      // §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — `conform:false` here is a DECISION, not an omission:
+      // a sea surface is LEVEL. Draping it per-vertex onto the sampled coast terrain would make the
+      // water ramp up the shore, which is a new defect wearing the fix's clothes. `min-probe` +
+      // `split:false` already say the same thing; this says it to the third mechanism too.
+      { seatRule: 'min-probe', split: false, conform: false },
     );
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
@@ -14039,19 +14196,18 @@ export class CesiumViewport {
       const pieces = drape.pieces[ai] ?? [];
       for (const piece of pieces) {
         try {
-          const positions = piece.coords.map(([flon, flat]) => {
-            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
-          });
-          if (positions.length < 3) continue;
+          const seat = this.drapePieceSeat(enu, invEnu, piece);
+          if (seat.positions.length < 3) continue;
           const ent = viewer.entities.add({
             name: 'pryzm-forma-context-park',
             polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(positions),
+              hierarchy: new Cesium.PolygonHierarchy(seat.positions),
               // §CTX-ABS-SEAT (L-635) — absolute, NOT clampToGround; §GROUND-DRAPE-ON-RELIEF (L-12924) —
               // THIS piece's own sampled ground + 0.01 (a hillside park is a grid of cells, each on its ground).
-              height: piece.heightM,
+              // §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — and those cells now share their corner HEIGHTS,
+              // so the grid stops reading as a staircase: the founder's "green … in fragments".
+              height: seat.perPositionHeight ? undefined : piece.heightM,
+              perPositionHeight: seat.perPositionHeight,
               material: parkFill,
               // A split park draws no per-cell edge — the grid seams are not park boundaries.
               outline: pieces.length === 1,
@@ -14169,21 +14325,19 @@ export class CesiumViewport {
       const areaClipCentroid = landuseAreaClipCentroid(area.ring);
       for (const piece of pieces) {
         try {
-          const positions = piece.coords.map(([flon, flat]) => {
-            const fc = Cesium.Cartesian3.fromDegrees(flon, flat, 0);
-            const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
-            return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
-          });
-          if (positions.length < 4) continue;
+          const seat = this.drapePieceSeat(enu, invEnu, piece);
+          if (seat.positions.length < 4) continue;
           const isUrban = area.kind === 'urban';
           const ent = viewer.entities.add({
             name: 'pryzm-forma-context-landuse',
             polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(positions),
+              hierarchy: new Cesium.PolygonHierarchy(seat.positions),
               // §CTX-ABS-SEAT (L-635) — absolute, not clampToGround; §GROUND-DRAPE-ON-RELIEF (L-12924) —
               // THIS piece's own sampled ground + 0.005, so the grey lies ON Baixa and ON Chiado, not
-              // on one plane between them.
-              height: piece.heightM,
+              // on one plane between them. §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — and it lies on the
+              // SLOPE BETWEEN them too, per vertex, instead of as a flight of grey steps.
+              height: seat.perPositionHeight ? undefined : piece.heightM,
+              perPositionHeight: seat.perPositionHeight,
               material: isUrban ? urbanFill : ruralFill,
               // A split area draws no per-cell edge — the grid seams are not land-use boundaries.
               outline: pieces.length === 1,

@@ -41,6 +41,11 @@
 //
 // Pure: no Cesium, no DOM. The viewport executes these verdicts; the tests pin them.
 import { ringCentroidLatLon } from './globeGroundAnchor';
+// §DRAPE-CONFORMS-TO-TERRAIN (L-13175) — the ONE ground-cache key literal, imported rather than
+// re-typed: a conformance that deduped vertices differently from the cache it reads would sample
+// each shared edge twice and leave the two copies free to disagree — which is exactly the crack it
+// exists to close. `groundSampleBatcher` imports nothing, so this keeps the module pure.
+import { groundSampleKey } from './groundSampleBatcher';
 
 export interface LatLon { readonly lat: number; readonly lon: number }
 /** GeoJSON order — longitude FIRST — the shape every context loader carries. */
@@ -569,4 +574,193 @@ export function splitCorridorIntoSegments(
         if (seat) out.push({ coords: cur, seat });
     }
     return out;
+}
+
+// ───────────────────────────────────────────────────────────────────────────────────────────────
+// §DRAPE-CONFORMS-TO-TERRAIN (L-13175, founder Sydney / Cremorne Point 2026-09-07: "check in many
+// places — specially when the terrain is not flat — the context, like the green, water, urban land
+// areas, appeared in fragments, not organic shape like it is the terrain: is there something we
+// can do?"). His screenshot shows parks and land use as BANDED STRIPS AND STEPS on a real hill.
+//
+// ⭐ THE FRAGMENTS ARE THIS FILE'S OWN OUTPUT, AND THAT IS NOT A BUG IN THE SPLIT — IT IS THE
+// SPLIT DOING EXACTLY WHAT IT WAS ASKED. `splitRingIntoGridCells` cuts a sloped polygon into grid
+// cells and `decideGroundFeatureSeat` gives each cell ONE scalar height. A polygon at ONE height is
+// FLAT. So a hillside park is N flat tiles at N different heights, and the riser between two
+// neighbouring tiles is `slope × cell edge` — visible as a staircase. `drapePieceLengthM` already
+// shrinks that riser toward `GROUND_DRAPE_RELIEF_SPLIT_M`; ⛔ but a 3 m step is still a step, and
+// shrinking it further only buys smaller steps at a linear cost in entities. Finer splitting is a
+// STOPGAP and must never be described as the fix.
+//
+// ⭐⭐ WHAT ACTUALLY REMOVES THE STEPS: give every VERTEX its own sampled ground height and let the
+// polygon be a CONFORMING MESH instead of a plane (Cesium `perPositionHeight: true`). Two things
+// make this nearly free here, and both are properties this module ALREADY has:
+//   1. The pieces are UNCHANGED. Same cells, same rings, same vertex count ⇒ the same entity count
+//      and the same triangle count as today. Only the Z of each existing vertex changes. There is
+//      no new geometry to rasterise, so the frame cost is the frame cost we already pay.
+//   2. `splitRingIntoGridCells` cuts on a NON-ACCUMULATING lattice (`x0 + ix * cell`) and clips
+//      with one `clipPolygonToRect` formula, so two neighbouring cells produce their shared edge
+//      BIT FOR BIT. Sample the ground by lat/lon key and both cells read the SAME height for that
+//      shared vertex ⇒ the seam closes exactly. C0-continuous, no crack, no step. That lattice
+//      property was written for the budget's piece ESTIMATE; it is what makes conformance work.
+//
+// ⭐ THE COST, MEASURED 2026-09-07 rather than asserted — on a Sète-shaped corpus (1 342 areas on
+// a 10 % / 4 % planar hillside, so every one of them splits) the pure decomposition reports:
+//     pieces 7 116 → 7 116 · entities 7 116 → 7 116 · triangles unchanged
+//     terrain points 13 826 → 26 752 (+12 926, deduped; 35 580 without the shared-vertex dedup,
+//                                     i.e. the dedup removes 64 % of the ask — 1.82 points/piece)
+//     own work 36.5 ms → 109.0 ms (+72.5 ms)
+// Read those against `§DRAPE-COST-ATTRIBUTION`'s field numbers for the SAME method — "2 444 ms
+// waiting for terrain, 7 ms own work". The added work is on the side that was already ~0.3 % of the
+// wall time, and the added points ride the round-trip the split seats ALREADY pay for, inside tiles
+// that batch already decoded (§TERRAIN-TILE-MEMO) — no extra flight, no extra download.
+// ⚠ NOT MEASURED HERE, and said plainly rather than implied: the in-BROWSER cost of interpolating
+// those 12 926 extra points out of already-decoded tiles. What IS established is that the change
+// adds no entity, no triangle, no draw call and no network request, so there is no frame-rate
+// mechanism for it to hurt — and `GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER` bounds it regardless.
+//
+// ⛔ WHY NOT GPU TERRAIN CLASSIFICATION (the "just turn `depthTestAgainstTerrain` back on" lead).
+// It is the obvious idea and it is aimed at the wrong flag. RE-MEASURED 2026-09-07 against the
+// shipped source (`node_modules/cesium/Build/CesiumUnminified/Cesium.js`, 1.143.0):
+//   · **:248276** `const clearGlobeDepth = ... defined(globe) && globe.show && (!globe.depthTestAgainstTerrain || this.mode === SCENE2D)`
+//   · **:247773** `performPass(frustumCommands, Pass.TERRAIN_CLASSIFICATION)` — and the
+//     `if (clearGlobeDepth) { clearDepth.execute(...) }` it is supposed to be starved by is at
+//     **:247781**, i.e. AFTER it.
+// So `depthTestAgainstTerrain=false` does NOT starve the classification pass — the classification
+// pass has already run by the time that flag's depth clear happens. Turning the flag ON would buy
+// classification NOTHING and would cost §CTX-DEPTH-CULL-FIX (context buildings culled under
+// relief), which is the trade L-635 already refused. The claim in the header of this file is
+// therefore CONFIRMED, twice measured, and the flag stays OFF. (What genuinely starves
+// classification is `globe.show=false`; §TERRAIN-NORMALS now shows the globe under relief, so
+// clamping is plausible BY CODE PATH — but L-11840 observed a classified heatmap invisible WITH
+// the globe shown, and nothing is browser-verified, so it stays evaluated-not-shipped. The route
+// below needs neither flag, works on any provider, and is depth-flag-independent.)
+//
+// ⚠ WHAT DELIBERATELY STAYS PIECEWISE, NAMED RATHER THAN QUIETLY TRADED:
+//   · **Corridors (roads, rail, waterway centre-lines).** Cesium's `CorridorGraphics` seats the
+//     whole ribbon from ONE scalar `height` and has no `perPositionHeight` — a ribbon cannot carry
+//     per-vertex ground without being rebuilt as an offset polygon, which changes every junction's
+//     corner geometry in every city, flat ones included. Out of scope here, and the founder named
+//     areas, not streets.
+//   · **The sea.** It is seated `min-probe` and `split:false` ON PURPOSE: a sea surface is LEVEL.
+//     Conforming it to the sampled sea-bed/coast terrain would make the water ramp up the shore —
+//     a new defect dressed as a fix. The sea passes `conform:false`.
+
+/**
+ * §DRAPE-CONFORMS-TO-TERRAIN — the companion ceiling on the CONFORMANCE probe batch, in the same
+ * shape and for the same reason as `GROUND_DRAPE_MAX_PIECES_PER_LAYER`: a per-feature rule with no
+ * layer total is a rate, and a rate times a crowd is unbounded.
+ *
+ * The cost is DISTINCT vertices, not pieces — a grid of cells shares almost every corner with a
+ * neighbour, so an n-cell feature asks for roughly n + 2√n points rather than 4n. At the layer
+ * piece ceiling (6 000) that is ~6 200 points, and 24 000 leaves room for the irregular boundary
+ * cells that carry the polygon's own edge vertices on top of the lattice corners.
+ *
+ * ⛔ WHAT THE BUDGET MAY NOT BUY. A feature beyond it keeps TODAY's piecewise-flat drape — its own
+ * per-piece sampled seats, exactly the L-12924 behaviour. It is never dropped, never flattened to a
+ * layer scalar, and never given a fabricated vertex height. Coarser is honest
+ * (§CONTEXT-DATA-HONESTY / C57 §1.5); nearest-first means what coarsens is the far rim.
+ */
+export const GROUND_DRAPE_MAX_VERTEX_POINTS_PER_LAYER = 24_000;
+
+/** The distinct vertices of one piece's ring/line, deduplicated on the SAME key the ground cache
+ *  is keyed by (`groundSampleKey`, 6 dp ≈ 0.11 m) — so a closed ring's repeated first vertex is
+ *  asked for once, and so is an edge two neighbouring cells share. */
+export function pieceVertexPoints(coords: ReadonlyArray<LonLat>): LatLon[] {
+    const out: LatLon[] = [];
+    const seen = new Set<string>();
+    for (const c of coords) {
+        if (!c || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) continue;
+        const p: LatLon = { lat: c[1], lon: c[0] };
+        const k = groundSampleKey(p);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(p);
+    }
+    return out;
+}
+
+/** Every distinct vertex across ALL pieces of one feature — the exact point set that must be
+ *  sampled for that feature to render as one continuous surface. The dedup across pieces is not an
+ *  optimisation, it is the MECHANISM: a shared edge sampled once is a shared edge that cannot
+ *  disagree with itself. */
+export function conformVertexPoints(
+    pieces: ReadonlyArray<{ readonly coords: ReadonlyArray<LonLat> }>,
+): LatLon[] {
+    const out: LatLon[] = [];
+    const seen = new Set<string>();
+    for (const piece of pieces) {
+        for (const p of pieceVertexPoints(piece.coords)) {
+            const k = groundSampleKey(p);
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(p);
+        }
+    }
+    return out;
+}
+
+/**
+ * The per-vertex seat: each vertex's OWN measured ground + the §12.4 ladder offset, aligned 1:1
+ * with `coords`.
+ *
+ * ⛔ ALL-OR-NOTHING, AND THAT IS THE POINT. One unmeasured vertex returns `null` and the caller
+ * keeps the piece's flat scalar seat. Filling the hole with the base — the ordinary fallback
+ * everywhere else in this module — would drag ONE corner of the mesh to a different surface and
+ * tear the polygon open, which is a WORSE artefact than the step it was trying to remove. UNKNOWN
+ * is not zero and it is not the base either (§CONTEXT-DATA-HONESTY, C84 EI-6): here the honest
+ * answer to a partly-measured ring is "stay flat".
+ */
+export function conformingVertexHeights(input: {
+    readonly layer: GroundLayer;
+    readonly groundAtVertexM: ReadonlyArray<number | null | undefined>;
+}): number[] | null {
+    const hs = input.groundAtVertexM;
+    if (hs.length < 3) return null;
+    const offset = GROUND_LAYER_OFFSET_M[input.layer];
+    const out: number[] = [];
+    for (const g of hs) {
+        if (typeof g !== 'number' || !Number.isFinite(g)) return null;
+        out.push(g + offset);
+    }
+    return out;
+}
+
+/**
+ * THE MEASUREMENT THE SPEC ASSERTS ON, so "organic" stops being a screenshot opinion: the largest
+ * height DISAGREEMENT at any point two or more pieces SHARE. For each shared vertex (same
+ * `groundSampleKey`) take the spread of the heights the pieces drew it at; the answer is the max.
+ *
+ *   · **0 ⇒ one continuous surface.** Every seam closes exactly; there is no riser to see.
+ *   · **> 0 ⇒ the founder's fragments**, and the number IS the riser height in metres. A
+ *     piecewise-flat drape on a slope reports its own step here.
+ *
+ * It reads only the drawn geometry, so it scores the CONFORMING route and the flat route on the
+ * same scale and a regression to flat cannot pass it.
+ */
+export function drapeSeamStepM(
+    pieces: ReadonlyArray<{ readonly coords: ReadonlyArray<LonLat>; readonly heights: ReadonlyArray<number> }>,
+): number {
+    const lo = new Map<string, number>();
+    const hi = new Map<string, number>();
+    for (const piece of pieces) {
+        for (let i = 0; i < piece.coords.length; i++) {
+            const c = piece.coords[i];
+            const h = piece.heights[i];
+            if (!c || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) continue;
+            if (typeof h !== 'number' || !Number.isFinite(h)) continue;
+            const k = groundSampleKey({ lat: c[1], lon: c[0] });
+            const l = lo.get(k);
+            if (l === undefined || h < l) lo.set(k, h);
+            const g = hi.get(k);
+            if (g === undefined || h > g) hi.set(k, h);
+        }
+    }
+    let worst = 0;
+    for (const [k, h] of hi) {
+        const l = lo.get(k);
+        if (l === undefined) continue;
+        const step = h - l;
+        if (step > worst) worst = step;
+    }
+    return worst;
 }
