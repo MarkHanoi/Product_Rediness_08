@@ -265,7 +265,64 @@ export type AnalysisRefresh = 'manual' | 'on-commit' | 'on-selection';
  * ⛔ Not an open string: the OTel attribute set is bounded by this union, the
  * same cardinality argument the widget-kind union carries above.
  */
-export type AnalysisTabId = 'overview' | 'quantities' | 'relationships' | 'areas' | 'parcel-law';
+export type AnalysisTabId = 'overview' | 'quantities' | 'relationships' | 'areas';
+
+/**
+ * ⛔ RETIRED 2026-09-07 (§SITE-IS-A-MODE, L-13180 · C115 §0.3 · §2.5 `C115-17`) —
+ * `'parcel-law'` WAS A MEMBER OF THE UNION ABOVE AND IS NOT ANY MORE.
+ *
+ * It did not disappear. The Parcel Law panel is now a TOP-LEVEL WORKSPACE MODE
+ * (`workspaceModes.ts`, `id: 'site'`, rendered left of Author) hosted by
+ * `apps/editor/src/ui/site/SiteSurface.ts`. The body itself — `mountParcelLawTab`,
+ * its ≈51 producers, its testids and its `data-*` attributes — moved ACROSS
+ * UNCHANGED; only its host changed.
+ *
+ * This constant is KEPT EXPORTED rather than deleted, on the precedent
+ * `PARCEL_LAW_SWITCHER_SLOT_TESTID` set in `parcelLawTab.ts`: the next reader
+ * finds the removal STATED, and a spec can assert the relocation instead of
+ * merely asserting an absence. `AnalysisSurface` stamps its root with
+ * `data-parcel-rows-merged-into="site-workspace-mode"`, which is the machine-readable
+ * half `C115-17` requires of every block this refactor relocates.
+ *
+ * ⚠ A PERSISTED `activeTab: 'parcel-law'` CANNOT WHITE-SCREEN A RETURNING USER.
+ * `analysisLayout.loadLayout()` and `hydrate()` both validate the stored value
+ * against `ANALYSIS_TABS` and fall back to `'overview'`; `reconcileLayout()`
+ * iterates `ANALYSIS_TABS` and never reads the stale key, and the orphan
+ * `tabs['parcel-law']` entry (always `[]` by design) is dropped on the next save.
+ * That migration is BEHAVIOUR THIS UNION ALREADY HAD, not new code — it is pinned
+ * by `analysisSurfaceMount.spec.ts` rather than left to inference.
+ */
+export const ANALYSIS_RETIRED_TAB_IDS: readonly string[] = Object.freeze(['parcel-law']);
+
+/**
+ * ⭐ THE RELOCATION STAMP'S ATTRIBUTE NAME — C115 §2.5 `C115-17`.
+ *
+ * ⛔ THE PATTERN IS REUSED, NOT RE-INVENTED, WHICH IS WHAT THE CLAUSE ASKS: this is
+ * byte-identical to `PARCEL_LAW_MERGED_ATTR` in
+ * `apps/editor/src/ui/analysis/parcelLawFacts.ts`, which already stamps the parcel
+ * rows that merged into the envelope card.
+ *
+ * ⚠ IT IS SPELLED HERE RATHER THAN IMPORTED FROM THERE, AND THAT IS DELIBERATE.
+ * `parcelLawFacts.ts` is one node of the ≈51-producer parcel tree; importing one
+ * constant from it would drag that whole tree back into the Analysis bundle — the
+ * exact coupling this relocation removed. `analysisSurfaceMount.spec.ts` asserts the
+ * two strings are EQUAL, so the duplication cannot drift silently: a spec is the
+ * right place to hold two modules to one string when the alternative is a real
+ * dependency edge.
+ */
+export const ANALYSIS_RELOCATED_ATTR = 'data-parcel-rows-merged-into';
+
+/** The stamp's VALUE on `#anl-surface`: where the Parcel Law tab went. */
+export const ANALYSIS_RELOCATED_TO_SITE_MODE = 'site-workspace-mode';
+
+/**
+ * Where each retired tab went. ⛔ A relocation must be READABLE, not inferable
+ * (C115 §2.5 `C115-17`): a reader and a spec have to be able to tell *"the block
+ * moved to its owner"* from *"the block is gone"*.
+ */
+export const ANALYSIS_RETIRED_TAB_HOMES: Readonly<Record<string, string>> = Object.freeze({
+  'parcel-law': ANALYSIS_RELOCATED_TO_SITE_MODE,
+});
 
 export interface AnalysisTabDef {
   readonly id: AnalysisTabId;
@@ -284,14 +341,12 @@ export const ANALYSIS_TABS: readonly AnalysisTabDef[] = Object.freeze([
   // caption that refutes the card beneath it — the same self-refuting shape
   // L-3303 fixed on the status strip.
   { id: 'areas',         label: 'Areas & change', lede: 'How much floor, under a NAMED standard — plus the unit mix and version diff that are still NOT BUILT, each saying why.' },
-  // §PARCEL-LAW-TAB (L-12915 · STR §21 / §24.1 · RESI-ORCHESTRATOR-PLAN §8.3 Stage J).
-  // ⛔ NOT A WIDGET GRID. This tab is a HOST of three producers (the cadastral
-  // card, the singleton buildable-envelope card, the design-stage strip) plus
-  // the four-view switcher for the left pane — see `parcelLawTab.ts`. Its
-  // arrangement list is always empty and the surface renders the host body in
-  // place of cards. C19 §5.6 clause 1: the panel is a host, the producers are
-  // the authorities; nothing here is re-derived.
-  { id: 'parcel-law',    label: 'Parcel law',     lede: 'What may be built on this plot — the cadastral facts, the buildable envelope with its citations, designed vs permitted, and the design stage you are at — beside a 3D view you can switch.' },
+  // ⛔ THE FIFTH ROW WAS `parcel-law` AND IT MOVED, IT DID NOT DIE.
+  // §SITE-IS-A-MODE (L-13180 · C115 §0.3) — it is now the top-level SITE workspace
+  // mode. Its `lede` string survives VERBATIM as `SITE_SURFACE_LEDE` in
+  // `apps/editor/src/ui/site/SiteSurface.ts` (C115 `C115-01`: a block that
+  // disappears is a contract violation; a block that MOVES gets a stamp).
+  // See `ANALYSIS_RETIRED_TAB_IDS` / `ANALYSIS_RETIRED_TAB_HOMES` above.
 ]);
 
 export function analysisTabById(id: string): AnalysisTabDef | undefined {

@@ -288,7 +288,18 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
         `[InspectModeCoordinator] Entered analysis — lens: ${this._effectiveLens()} ` +
         `(light-grey ghost + PRYZM purple selection)`,
       );
-    } else if (mode === 'author' || mode === 'data') {
+    } else if (mode === 'author' || mode === 'data' || mode === 'site') {
+      // §SITE-IS-A-MODE (L-13180 · C115 §0.3) — `'site'` joins THIS arm BY EXPLICIT
+      // CHOICE, which is what the ⚠ two comments above demand of any new mode.
+      //
+      // ⭐ WHY THE RESTORE ARM AND NOT A LENS ARM: Site paints no diagnostic lens of
+      // its own. Its subject is the LAND — the parcel, its law, the buildable envelope
+      // — and the elements it highlights are painted by the parcel panel's own
+      // highlight controls (C115 §3.G PR-G-26) over the ORDINARY materials, not over a
+      // ghosted model. Leaving it out of every arm was the concrete regression this
+      // line prevents: entering Site FROM Inspect would leave Inspect's cyan ghost
+      // painted across the model with the level explode still active, because the
+      // `else` does nothing — the exact defect L-6410 records for `'analysis'`.
       if (diagnosticMaterialManager.isActive()) {
         diagnosticMaterialManager.restore(this._scene);
         // Clear global renderer clip plane when leaving inspect
@@ -384,6 +395,10 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
    * right default for `inspect` and harmless for the modes that call `restore()`.
    */
   private _effectiveLens(): InspectLens {
+    // ⚠ `'site'` is deliberately NOT a case here: it paints no lens, so the `else`
+    // branch (the remembered Inspect lens) is the right answer for it — and it is
+    // only ever consulted while `diagnosticMaterialManager.isActive()`, which
+    // `_onWorkspaceMode`'s restore arm has just made false on entering Site.
     return this._workspaceMode === 'analysis' ? 'analysis' : this._activeLens;
   }
 

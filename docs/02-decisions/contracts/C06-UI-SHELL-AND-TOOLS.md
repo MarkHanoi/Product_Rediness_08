@@ -243,15 +243,22 @@ Section views and elevation views are produced by the drawing engine (`packages/
 - Dark mode MUST toggle via `<html data-theme="dark|light">`.
 - All text-on-background combinations MUST meet WCAG AA contrast (4.5:1 for normal text, 3:1 for large). CI gate: `packages/wcag-audit/`.
 
-### §6.1 — The three workspace-mode surfaces share ONE header treatment
+### §6.1 — The FOUR workspace-mode surfaces share ONE header treatment
 
 > **Added 2026-08-22 · L-3700/L-3701 · §DW-ONE-HEADER-BAND.** Founder, twice in one session:
 > *"Inspect has a clean layout … completely clean and tidy panel … they should all follow the same
 > UI/UX principles as Inspect. Same UI design, colours and principles."*
+>
+> ⚠ **AMENDED IN PLACE 2026-09-07 · lane SITE-TAB · `L-13180` · C115 §0.3.** This heading read
+> *"The three workspace-mode surfaces"* and the sentence below named three. **There are FOUR:** the
+> Parcel Law panel left Analysis's tab strip and became the top-level **Site** mode
+> (`#ste-surface`, `apps/editor/src/ui/site/SiteSurface.ts`). Leaving the enumeration at three
+> would have demoted a shipped read surface out of a rule that is binding on it — the same
+> count-that-rots shape `CLAUDE.md` records for the contract range.
 
-**Inspect (F2), Data (F3) and Analysis (F4) are one product.** `.aud-header`
-(`apps/editor/src/ui/styles/panels/autonomous-auditor/auditStack.ts`) is the **reference
-implementation**, not merely one of three:
+**Inspect (F2), Data (F3), Analysis (F4) and Site (no shortcut — C115 `C115-155`) are one
+product.** `.aud-header` (`apps/editor/src/ui/styles/panels/autonomous-auditor/auditStack.ts`) is
+the **reference implementation**, not merely one of four:
 
 | property | value | why it is in the contract |
 |---|---|---|
@@ -264,6 +271,15 @@ implementation**, not merely one of three:
 
 **A mode surface MUST reach its content in ONE chrome band plus, at most, one navigation row.** A
 third stacked band is a signal that a control belongs in the header's actions slot.
+
+> ⭐ **Site takes the "at most" literally and renders NO navigation row**, and both omissions are
+> decisions rather than gaps: a tab strip with one tab is an empty band that teaches the reader to
+> stop looking at that band, and the Analysis facet bar's chips can only be created by clicking an
+> Analysis WIDGET — there are none on Site, so the bar could never be non-empty. ⛔ It does NOT
+> re-declare the six tabulated properties above under a new prefix: `#ste-surface` reuses the
+> class rules the `anl-` sheet already ships, because two independent copies of a shared metric
+> diverge the first time one side moves — which is rule 1 immediately below, applied rather than
+> restated.
 
 **Two rules that exist because both were violated, silently, for months:**
 

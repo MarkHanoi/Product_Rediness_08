@@ -60,10 +60,16 @@ describe('§WORKSPACE-MODE-REGISTRY', () => {
       expect(new Set(keys).size).toBe(keys.length);
     });
 
-    it('the four shipped modes are present with the canvas layout each needs', () => {
-      // These four are asserted by NAME on purpose: they are the shipped
+    it('the five shipped modes are present with the canvas layout each needs', () => {
+      // These five are asserted by NAME on purpose: they are the shipped
       // product surface, and silently losing one is a regression a
       // shape-only test would pass.
+      //
+      // ⚠ AMENDED 2026-09-07 (§SITE-IS-A-MODE, L-13180 · C115 §0.3) — this read
+      // "the four shipped modes" and named four. `site` is the fifth, and it is
+      // added here rather than left to the shape arms for exactly the reason the
+      // comment above gives: the Parcel Law panel is now reachable ONLY through
+      // this row, so a row silently lost is the whole panel silently lost.
       expect(getWorkspaceMode('author')?.canvas).toBe('full');
       expect(getWorkspaceMode('inspect')?.canvas).toBe('half');
       // ADR-0343 §D.1 reason 2 — a dashboard that cannot highlight what it
@@ -71,6 +77,36 @@ describe('§WORKSPACE-MODE-REGISTRY', () => {
       // 'hidden', the Analysis surface has become a DataWorkbench bucket.
       expect(getWorkspaceMode('analysis')?.canvas).toBe('half');
       expect(getWorkspaceMode('data')?.canvas).toBe('hidden');
+      // ⛔ SAME REASON, ONE CONTRACT STRONGER. C115 §1.4.1 makes every figure on
+      // the Site panel a hyperlink that PAINTS its geometry, and §3.G `C115-27`
+      // forbids a dead click. `'hidden'` here turns all 27 control rows into dead
+      // clicks in one edit.
+      expect(getWorkspaceMode('site')?.canvas).toBe('half');
+    });
+
+    it('⛔ Site is FIRST in pill order, and it claims NO keyboard shortcut', () => {
+      // Founder 2026-09-07: the Site pill is rendered LEFT OF AUTHOR. Order in
+      // this table IS the rendered order and the tab order (see its header), so
+      // this is the only place that fact can be asserted.
+      expect(WORKSPACE_MODES[0]?.id).toBe('site');
+      // ⭐ `null`, not a key, and the reason is a hazard rather than a shortage:
+      // F1–F4 are taken, and `WorkspaceController._keyListener` calls
+      // `preventDefault()` on any MATCHED key — so binding F5 would swallow
+      // browser reload app-wide, which is this project's own documented recovery
+      // from a stale service-worker cache. L-13180 holds the chord-map proposal.
+      expect(getWorkspaceMode('site')?.shortcut).toBeNull();
+      // …and the tooltip must therefore not advertise one. A pill whose title
+      // names a key the handler does not hold is a dead affordance with a label.
+      expect(getWorkspaceMode('site')!.title).not.toMatch(/F\d/);
+    });
+
+    it('Site suppresses BOTH the properties panel and the editing toolbar', () => {
+      // ⚠ NOT A NEW DECISION — it PRESERVES the behaviour the panel had while it
+      // was an Analysis tab (§PANEL-MODE-GATE L-12080 / §TOOLBAR-MODE-GATE
+      // L-12220). Asserted because a carried-over decision is exactly the kind
+      // that gets silently dropped in a relocation.
+      expect(getWorkspaceMode('site')?.propertiesPanel).toBe('suppressed');
+      expect(getWorkspaceMode('site')?.editingToolbar).toBe('suppressed');
     });
 
     it('lookups round-trip and reject unknowns', () => {

@@ -36,9 +36,25 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 // applied by flushRuntimeEventListeners() below. That is the real production
 // path, deferred bridge and all, not a shortcut around it.
 import { flushRuntimeEventListeners } from '../../../engine/runtimeEventBridge';
-// §VIEW-SWITCHER-ON-THE-VIEW (L-12985) — the ONE panel definition, read rather than
-// re-listed. See the assertions below for why this surface must not spell the rows out.
-import { VIEW_SEGMENTS } from '../../site/viewSegmentSwitcher';
+// §SITE-IS-A-MODE (L-13180 · C115 §0.3 / §2.5) — the relocation stamp this surface must
+// carry now that the Parcel Law tab has moved out of it, plus the retired-id record.
+// Read from the module, never spelled out here: a stamp a spec re-types is a stamp that
+// can drift from the thing it stamps.
+import {
+  ANALYSIS_RELOCATED_ATTR,
+  ANALYSIS_RELOCATED_TO_SITE_MODE,
+  ANALYSIS_RETIRED_TAB_HOMES,
+  ANALYSIS_RETIRED_TAB_IDS,
+  ANALYSIS_TABS,
+} from '../AnalysisTypes';
+// ⭐ THE ATTRIBUTE NAME IS HELD TO ITS ORIGINAL. C115 §2.5 `C115-17` requires the
+// relocation stamp to REUSE `PARCEL_LAW_MERGED_ATTR`, never to mint a rival attribute.
+// `AnalysisTypes` spells the string rather than importing it (an import would drag the
+// whole parcel producer tree back into the Analysis bundle — the coupling this move
+// removed), so THIS is the one place the two are held equal.
+import { PARCEL_LAW_MERGED_ATTR } from '../parcelLawFacts';
+import { loadLayout } from '../analysisLayout';
+import { DEFAULT_TAB_LAYOUT, WIDGET_CATALOGUE } from '../widgetCatalogue';
 import '../AnalysisSurface';
 
 interface Rec { id: string; levelId?: string; systemTypeId?: string }
@@ -253,208 +269,151 @@ describe('§ANALYSIS-MOUNT — the workspace-mode event drives it', () => {
 });
 
 /**
- * §PARCEL-LAW-TAB (L-12915 · STR §21 / §24.1 · C19 §5.6 / §5.7) — the fifth tab is a HOST.
+ * §SITE-IS-A-MODE (L-13180 · C115 §0.3 · §2.5 `C115-17`) — THE PARCEL LAW TAB LEFT, AND
+ * THE PROOF THAT IT LEFT *TO SOMEWHERE* RATHER THAN LEFT *ENTIRELY*.
  *
- * Driven through the REAL surface, the REAL tab strip and the REAL rail-panel builder. The
- * fakes are installed on `window` — the production capability host — and are fakes of the
- * SEAM: a `pryzmMountEnvelopeCard` that MOVES one card element between hosts (the real seam's
- * shape), a site store on `window.runtime`, and the two view entry points recording calls.
+ * ⛔ THE ≈135 LINES THAT WERE HERE WERE NOT DELETED. Six `it`s drove the fifth tab
+ * through claim / repaint / teardown / never-evict / hide-while-open. Every one of them
+ * lives in `apps/editor/src/ui/site/__tests__/siteSurfaceMount.spec.ts`, re-keyed from a
+ * tab click to `bus.emit('pryzm-workspace-mode', { mode: 'site' })`. Moving the
+ * assertions rather than dropping them is the only thing that makes the founder's
+ * *"0 functionality lost"* checkable rather than merely claimed (C115 §13 AC-16 — probes
+ * and testids move WITH their renderings).
+ *
+ * What remains HERE is the other half of the move, and it is the half a spec looking only
+ * at the new home would pass with the OLD home still live: this surface must no longer
+ * host the body, and it must SAY where the body went.
  */
-describe('§PARCEL-LAW-TAB — the fifth tab hosts the producers', () => {
-  const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
-  const CARD_TESTID = 'buildable-envelope-card';
-  const card = document.createElement('div');
-  card.setAttribute('data-testid', CARD_TESTID);
-  card.textContent = 'ENVELOPE CARD (singleton)';
-  const viewport = document.createElement('div');
-  viewport.id = 'fake-viewport';
-  const seamCalls: Array<HTMLElement | null> = [];
-  const viewCalls: string[] = [];
-
-  beforeAll(() => {
-    document.body.appendChild(viewport);
-    viewport.appendChild(card);
-    window.pryzmMountEnvelopeCard = (host: HTMLElement | null): boolean => {
-      seamCalls.push(host);
-      (host ?? viewport).appendChild(card);
-      return true;
-    };
-    window.pryzmGetSiteViewState = () => ({ segment: '2D', formaMode: 'plan', buildingFidelity: 'real' });
-    window.pryzmEnterSiteView = (initial) => { viewCalls.push(`pryzmEnterSiteView(${initial ?? ''})`); };
-    window.pryzmShowSiteResultView = (initial) => { viewCalls.push(`pryzmShowSiteResultView(${initial ?? ''})`); };
-    (window.runtime as unknown as { siteModelStore?: unknown }).siteModelStore = {
-      getSite: () => ({
-        parcel: {
-          boundary: { polygon: [{ x: 0, z: 0 }, { x: 20, z: 0 }, { x: 20, z: 21 }, { x: 0, z: 21 }] },
-          area: 424,
-          provenance: {
-            kind: 'cadastral', source: 'catastro', label: 'Catastro (Spain)', refcat: '3634515DF3833D',
-            address: 'CALLE EJEMPLO 1, CORDOBA', jurisdictionId: 'es-cordoba', sourceCrs: 'EPSG:25830',
-            license: 'CC BY 4.0 · Dirección General del Catastro', ingestTimestamp: '2026-08-21T09:14:00Z',
-            confidence: { areaOfficialM2: 423, areaSigM2: 424, areaSource: 'registry-declared', match: 'high', geometryComplete: true },
-          },
-        },
-      }),
-      subscribe: (_l: () => void) => () => { /* noop */ },
-    };
-  });
-
-  afterAll(() => {
-    viewport.remove();
-    delete window.pryzmMountEnvelopeCard;
-    delete window.pryzmGetSiteViewState;
-    delete window.pryzmEnterSiteView;
-    delete window.pryzmShowSiteResultView;
-  });
-
+describe('§SITE-IS-A-MODE — Analysis gave the tab up, and stamped where it went', () => {
   const el = (): HTMLElement => document.getElementById('anl-surface')!;
-  const tab = (id: string): HTMLButtonElement => el().querySelector<HTMLButtonElement>(`.anl-tab[data-tab="${id}"]`)!;
+  const tabEl = (id: string): HTMLButtonElement =>
+    el().querySelector<HTMLButtonElement>(`.anl-tab[data-tab="${id}"]`)!;
 
-  it('the tab strip has FIVE tabs and the fifth carries no count chip', async () => {
+  it('the tab strip has FOUR tabs and none of them is `parcel-law`', async () => {
     bus.emit('pryzm-workspace-mode', { mode: 'analysis' });
-    // Condition, not a sleep - see `until` above: the first activation in a cold
-    // worker awaits `import('chart.js')` before the grid is built.
     await until(() => el().classList.contains('anl-surface--visible'));
     const tabs = [...el().querySelectorAll('.anl-tab')].map((b) => (b as HTMLElement).dataset.tab);
-    expect(tabs).toEqual(['overview', 'quantities', 'relationships', 'areas', 'parcel-law']);
-    expect(tab('parcel-law').querySelector('.anl-tab-count'), 'a host tab must not advertise "0 widgets"').toBeNull();
-    expect(tab('parcel-law').querySelector('.anl-tab-nb')).toBeNull();
-    expect(tab('overview').querySelector('.anl-tab-count')).not.toBeNull();
-  });
-
-  it('⭐ opening it mounts the body IN PLACE OF cards, hosts the real cadastral card, and CLAIMS the envelope card', async () => {
-    tab('parcel-law').click();
-    await until(() => el().querySelector('[data-testid="analysis-parcel-law"]') !== null);
-    const body = el().querySelector('[data-testid="analysis-parcel-law"]');
-    expect(body, 'the Parcel Law body did not mount').not.toBeNull();
-    expect(el().querySelectorAll('.anl-card')).toHaveLength(0);
-    expect(el().textContent).not.toContain('This tab has no widgets');
-    // The cadastral half — the ONE producer's output, with the two trust facts.
-    expect(body!.textContent).toContain('Catastro (Spain)');
-    expect(body!.textContent).toContain('2026-08-21T09:14:00Z');
-    // ⭐ §VIEW-SWITCHER-ON-THE-VIEW (L-12985) — THE SWITCHER IS NO LONGER IN THIS BODY.
-    // Founder 2026-09-06: *"we DON'T need the plan view / 3D view etc. on the panel — that …
-    // SHOULD BE CENTRED ON THE VIEW"*. Both halves of the MOVE are asserted: gone from the
-    // panel, present on the view. Asserting only the first would pass with the control deleted.
-    expect(body!.querySelector('[data-testid="view-segment-switcher"]')).toBeNull();
-    const onViewBar = document.querySelector<HTMLElement>('[data-testid="view-switcher-on-view"]');
-    expect(onViewBar, 'the on-view bar did not mount').not.toBeNull();
-    expect(onViewBar!.parentElement).toBe(document.body); // not a descendant of the panel
-    const segs = onViewBar!.querySelectorAll('[data-testid="view-segment-switcher"] button[data-view-segment]');
-    // Counted from the ONE panel definition (`viewPanelOptions()` via VIEW_SEGMENTS), never
-    // hard-coded here: this surface HOSTS that definition and must not become a second census.
-    expect(segs).toHaveLength(VIEW_SEGMENTS.length);
-    // ⛔ NO DEAD CLICKS (L-1187) — and the honest invariant is "live OR refused with a reason",
-    // not "all live". Two of the six rows now declare `pryzmSetSiteBasemap` as an entry point,
-    // which this fake host does not register, so they are correctly DISABLED and must SAY so.
-    for (const s of segs) {
-      const b = s as HTMLButtonElement;
-      if (b.disabled) {
-        expect(b.getAttribute('data-view-segment-unavailable')).toBe('true');
-        expect(b.title.length, `${b.getAttribute('data-view-segment')} refused without a reason`)
-          .toBeGreaterThan(0);
-      }
+    expect(tabs).toEqual(['overview', 'quantities', 'relationships', 'areas']);
+    // Derived, not merely re-listed: the strip renders whatever `ANALYSIS_TABS` holds,
+    // so asserting the two agree is what makes the literal above mean something.
+    expect(tabs).toEqual(ANALYSIS_TABS.map((t) => t.id));
+    for (const retired of ANALYSIS_RETIRED_TAB_IDS) {
+      expect(tabs, `${retired} is still on the Analysis strip`).not.toContain(retired);
     }
-    // …and the SPLIT choice, which is a layout and not a seventh view.
-    expect(onViewBar!.querySelector('[data-testid="view-switcher-split"]')).not.toBeNull();
-    // The singleton was CLAIMED into this body.
-    expect(seamCalls.length).toBeGreaterThanOrEqual(1);
-    expect(body!.contains(card)).toBe(true);
-    // The status line says HOSTED, and does not borrow the census sentence.
-    const status = el().querySelector('.anl-status')!.textContent ?? '';
-    expect(status).toContain('nothing on this tab is computed here');
-    expect(status).not.toContain('every declared source read');
   });
 
-  it('a segment click reaches the SAME registered entry point the GIS bar drives', () => {
-    // ⛔ The segment IDS are not hard-coded here. They belong to `viewPanelOptions()`, owned
-    // by lane VIEW-PANEL-PER-PANE, and this surface only HOSTS them — pinning a spelling here
-    // would make this file a second authority for the panel definition. The two ACTIONS are
-    // what this test is about, so they are looked up by their registry id.
-    const bar = document.querySelector<HTMLElement>('[data-testid="view-switcher-on-view"]')!;
-    const seg = (actionId: string): HTMLButtonElement => {
-      const def = VIEW_SEGMENTS.find((s) => s.actionId === actionId);
-      expect(def, `no segment dispatches ${actionId}`).toBeDefined();
-      return bar.querySelector<HTMLButtonElement>(`button[data-view-segment="${def!.id}"]`)!;
-    };
-    seg('site.globe').click();
-    seg('site.earth').click();
-    expect(viewCalls).toEqual(['pryzmShowSiteResultView(3D)', 'pryzmEnterSiteView(3d)']);
+  it('⭐ the surface carries the C115 §2.5 RELOCATION STAMP naming the Site mode', () => {
+    // ⛔ THE CLAUSE THIS ENFORCES, in its own words: *"a reader (and a spec) can tell
+    // 'the block moved to its owner' from 'the block is gone'"*. Without the stamp the
+    // arm above is indistinguishable from a deletion.
+    expect(el().getAttribute(ANALYSIS_RELOCATED_ATTR)).toBe(ANALYSIS_RELOCATED_TO_SITE_MODE);
+    // …the stamp REUSES the existing attribute rather than inventing a rival one…
+    expect(ANALYSIS_RELOCATED_ATTR).toBe(PARCEL_LAW_MERGED_ATTR);
+    // …and the retired id records its new home in exactly the words the stamp uses.
+    expect(ANALYSIS_RETIRED_TAB_HOMES['parcel-law']).toBe(ANALYSIS_RELOCATED_TO_SITE_MODE);
   });
 
-  it('the picker refuses to add a widget here, and says why', () => {
+  it('⛔ this surface mounts no parcel-law body on ANY tab it still owns', async () => {
+    // The pill is gone from the strip, but a stale persisted `activeTab` or a leftover
+    // branch could still mount the body. This asserts the BODY, not the pill.
+    for (const t of ANALYSIS_TABS) {
+      tabEl(t.id).click();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(
+        el().querySelector('[data-testid="analysis-parcel-law"]'),
+        `the parcel body mounted on the ${t.id} tab`,
+      ).toBeNull();
+    }
+    // ⚠ RESTORE — the active tab is PERSISTED, so a test that walks away has mutated
+    // shared state for every test after it in this file.
+    tabEl('overview').click();
+    await settleCards();
+  });
+
+  it('the picker no longer refuses — a row is disabled ONLY because it is already placed', async () => {
+    // ⛔ THE FIRST VERSION OF THIS ARM WAS WRONG AND THE SUITE CAUGHT IT, which is worth
+    // recording rather than quietly rewriting. It asserted *"at least one row is enabled"*
+    // as its control — and that FAILED, correctly: **every catalogue widget is in
+    // `DEFAULT_TAB_LAYOUT`**, so on a default dashboard every row IS disabled, for the
+    // honest reason ("already on this dashboard") and not for the retired host-tab reason.
+    // A control that cannot distinguish the two reasons is not a control.
+    //
+    // ⭐ SO THE PRECONDITION IS MADE FIRST: one tab is EMPTIED, which is a supported state
+    // this surface already promises to respect (`analysisTabs.spec.ts` — *"a stored EMPTY
+    // tab does not silently refill with the default"*). Its five widgets then become
+    // unplaced and their rows MUST come back enabled, while every other row stays disabled.
+    // That is bidirectional, so it fails if the picker disables everything AND if it
+    // disables nothing.
+    const KEY = 'pryzm.analysis.layout.unscoped'; // mirrors analysisLayout `LS_PREFIX` + no projectId
+    const before = loadLayout();
+    const emptied = [...DEFAULT_TAB_LAYOUT.overview];
+    expect(emptied.length, 'the overview default is empty — this arm would be vacuous').toBeGreaterThan(0);
+    localStorage.setItem(KEY, JSON.stringify({ ...before, tabs: { ...before.tabs, overview: [] }, activeTab: 'overview' }));
+
+    // `_show()` re-reads `loadLayout()`, so a mode round-trip is the production path.
+    bus.emit('pryzm-workspace-mode', { mode: 'author' });
+    await new Promise((r) => setTimeout(r, 0));
+    bus.emit('pryzm-workspace-mode', { mode: 'analysis' });
+    await until(() => el().querySelector('#anl-add') !== null && el().classList.contains('anl-surface--visible'));
+
     el().querySelector<HTMLButtonElement>('#anl-add')!.click();
     const picker = el().querySelector('.anl-picker')!;
-    expect(picker.textContent).toContain('takes no widgets');
-    const rows = picker.querySelectorAll<HTMLButtonElement>('.anl-picker-row');
+    // The host-tab refusal went with the host tab. Asserted so a stray "takes no widgets"
+    // note left behind fails loudly rather than merely confusing a reader.
+    expect(picker.textContent).not.toContain('takes no widgets');
+    const rows = [...picker.querySelectorAll<HTMLButtonElement>('.anl-picker-row')];
     expect(rows.length).toBeGreaterThan(0);
-    for (const r of rows) expect(r.disabled).toBe(true);
+    // Rows carry the widget TITLE, so the id is resolved through the catalogue rather than
+    // spelled out here — this file must not become a second census of the widget list.
+    const idOf = (row: HTMLElement): string | undefined =>
+      WIDGET_CATALOGUE.find((w) => w.title === row.querySelector('.anl-picker-label')?.textContent)?.id;
+    const enabled = rows.filter((r) => !r.disabled).map(idOf).filter((x): x is string => x != null);
+    expect([...enabled].sort(), 'the emptied tab\'s widgets did not come back as addable')
+      .toEqual([...emptied].sort());
+    // ⭐ AND THE OTHER DIRECTION: a still-placed widget is still refused.
+    expect(rows.filter((r) => r.disabled).length).toBeGreaterThan(0);
+
     el().querySelector<HTMLButtonElement>('#anl-add')!.click(); // close
     expect(el().querySelector('.anl-picker')).toBeNull();
-  });
 
-  it('⭐ a model commit while the tab is open REPAINTS the body — it never remounts it and never bounces the card', async () => {
-    const bodyBefore = el().querySelector('[data-testid="analysis-parcel-law"]')!;
-    const callsBefore = seamCalls.length;
-    // The production trigger: a DOM event the surface debounces (350 ms) into refresh().
-    window.dispatchEvent(new Event('level-changed'));
-    await new Promise((r) => setTimeout(r, 450));
-    const bodyAfter = el().querySelector('[data-testid="analysis-parcel-law"]');
-    expect(bodyAfter, 'the body was remounted (a different node) instead of repainted').toBe(bodyBefore);
-    // No hand-back, no re-claim: the seam was not touched by the refresh.
-    expect(seamCalls.length, 'the refresh bounced the singleton through the seam').toBe(callsBefore);
-    expect(bodyBefore.contains(card)).toBe(true);
-    const status = el().querySelector('.anl-status')!.textContent ?? '';
-    expect(status).toContain('Repainted in');
-    expect(status).toContain('nothing on this tab is computed here');
-  });
-
-  it('⭐ leaving the tab tears the body down and hands the card back ONLY because it still held it', async () => {
-    const before = seamCalls.length;
-    tab('overview').click();
-    await settleCards();
-    expect(el().querySelector('[data-testid="analysis-parcel-law"]')).toBeNull();
-    // Exactly one hand-back — the null call — and the card is back in the viewport, not
-    // stranded inside the hidden surface.
-    expect(seamCalls.slice(before)).toEqual([null]);
-    expect(card.parentElement).toBe(viewport);
-    expect(el().contains(card)).toBe(false);
-    // Overview is a grid again.
-    expect(el().querySelectorAll('.anl-card').length).toBeGreaterThanOrEqual(5);
-  });
-
-  it('⛔ NEVER evicts another host that claimed the card since — no null call on tab change then', async () => {
-    tab('parcel-law').click();
-    await until(() => el().querySelector('[data-testid="analysis-parcel-law"]')?.contains(card) === true);
-    expect(el().querySelector('[data-testid="analysis-parcel-law"]')!.contains(card)).toBe(true);
-    // The rail PARCEL panel (say) claims it while the tab is open.
-    const other = document.createElement('div');
-    document.body.appendChild(other);
-    window.pryzmMountEnvelopeCard!(other);
-    const before = seamCalls.length;
-    tab('overview').click();
-    await settleCards();
-    expect(seamCalls.length, 'the tab reached into another host\'s claim').toBe(before);
-    expect(card.parentElement).toBe(other);
-    other.remove();
-    viewport.appendChild(card);
-  });
-
-  it('hiding the surface while the tab is open tears the body down too (no claim by an invisible host)', async () => {
-    tab('parcel-law').click();
-    await until(() => el().contains(card));
-    expect(el().contains(card)).toBe(true);
+    // ⚠ RESTORE — the arrangement is PERSISTED, so an arm that walks away has emptied a
+    // tab for every test after it in this file.
+    localStorage.removeItem(KEY);
     bus.emit('pryzm-workspace-mode', { mode: 'author' });
-    await tick();
-    expect(el().classList.contains('anl-surface--visible')).toBe(false);
-    expect(el().querySelector('[data-testid="analysis-parcel-law"]')).toBeNull();
-    expect(card.parentElement).toBe(viewport);
-    // ⚠ RESTORE — the active tab is persisted; leave the file where it found it.
+    await new Promise((r) => setTimeout(r, 0));
     bus.emit('pryzm-workspace-mode', { mode: 'analysis' });
-    await until(() => el().classList.contains('anl-surface--visible'));
-    tab('overview').click();
     await settleCards();
+  });
+
+  it('⚠ a persisted `activeTab: "parcel-law"` lands on Overview, not on nothing', async () => {
+    // ⛔ THE MIGRATION IS BEHAVIOUR `loadLayout()` ALREADY HAD — it validates the stored
+    // value against `ANALYSIS_TABS` and falls back to `'overview'`. It is pinned here
+    // rather than left to inference, because a returning user whose last-read tab was
+    // the relocated one must land somewhere valid instead of on a grid with a selected
+    // tab that no longer exists.
+    //
+    // ⭐ THE CONTROL COMES FIRST, and it is what stops this arm passing vacuously: the
+    // DEFAULT activeTab is also `'overview'`, so if this key were wrong the fallback
+    // assertion below would pass on a layout that was never read at all. Writing a
+    // DIFFERENT valid tab and seeing it come back proves the key and the read path.
+    const KEY = 'pryzm.analysis.layout.unscoped'; // mirrors analysisLayout `LS_PREFIX` + no projectId
+    const record = { version: 2, tabs: { overview: [], quantities: [], relationships: [], areas: [] } };
+    localStorage.setItem(KEY, JSON.stringify({ ...record, activeTab: 'areas' }));
+    expect(loadLayout().activeTab, 'the storage key this arm writes is not the one read').toBe('areas');
+
+    localStorage.setItem(KEY, JSON.stringify({ ...record, activeTab: 'parcel-law' }));
+    expect(loadLayout().activeTab).toBe('overview');
+
+    // …and it reaches the DOM: `_show()` re-reads `loadLayout()`, so a mode round-trip
+    // is the production path a returning user actually takes.
     bus.emit('pryzm-workspace-mode', { mode: 'author' });
-    await tick();
+    await new Promise((r) => setTimeout(r, 0));
+    bus.emit('pryzm-workspace-mode', { mode: 'analysis' });
+    await until(() => el().querySelector('.anl-tab--active') !== null);
+    expect((el().querySelector('.anl-tab--active') as HTMLElement).dataset.tab).toBe('overview');
+
+    localStorage.removeItem(KEY);
+    bus.emit('pryzm-workspace-mode', { mode: 'author' });
+    await new Promise((r) => setTimeout(r, 0));
   });
 });

@@ -14,6 +14,10 @@
  * ⛔ Do NOT reintroduce a mode name as a literal in this file.
  *
  * The modes, as the registry declares them:
+ *   site     (—)  — 50/50 split: site view left, SiteSurface right (#ste-surface).
+ *                   ⛔ NO SHORTCUT, by decision: F1–F4 are taken and F5 is the
+ *                   browser's RELOAD, which `_keyListener` would swallow via
+ *                   preventDefault(). See the `site` row in workspaceModes.ts.
  *   author   (F1) — full 3D canvas; DataWorkbench hidden
  *   inspect  (F2) — 50/50 split: 3D left (+ Z-Slicer + Lens Bar HUDs), AuditStack right
  *   analysis (F4) — 50/50 split: 3D left, Analysis surface right (ADR-0343)
@@ -450,6 +454,19 @@ export class WorkspaceController {
     // The WORKBENCH half stays a per-mode decision: it is not derivable from the
     // canvas layout, and §L-847 below is a founder ruling that must stay visible.
     switch (this._mode) {
+      case 'site':
+        // §SITE-IS-A-MODE (L-13180 · C115 §0.3) — 50/50: the site view keeps the left
+        // half, `#ste-surface` (the Parcel Law panel) takes the right. DataWorkbench
+        // hidden, like every other half-canvas mode.
+        //
+        // ⛔ THIS ARM IS NOT OPTIONAL AND THE SWITCH HAS NO `default`. A mode missing
+        // from here leaves the workbench in whatever state the PREVIOUS mode left it —
+        // so Data → Site would render a full-width workbench on top of this panel.
+        // `analysisHonesty.spec.ts` pins the identical hazard for Analysis; the site
+        // arm is pinned by `siteSurfaceMount.spec.ts`.
+        if (dw) dw.setMode('hidden');
+        break;
+
       case 'author':
         if (dw) dw.setMode('hidden');
         break;

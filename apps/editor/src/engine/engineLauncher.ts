@@ -82,6 +82,17 @@ import '../ui/inspect/AuditStack';
 // document.body and shows itself on `pryzm-workspace-mode` === 'analysis'.
 // Side-effect import, because nothing else needs to hold a reference to it.
 import '../ui/analysis/AnalysisSurface';
+// §SITE-IS-A-MODE (L-13180 · C115 §0.3) — the SITE workspace mode's right-hand half.
+// ⛔ SIDE-EFFECT IMPORT, BESIDE ITS SIBLING, AND IT IS WHAT MAKES THE MODE REAL.
+// `SiteSurface` is a module-load singleton that self-appends to document.body and
+// queues its `pryzm-workspace-mode` subscription through the deferred bridge.
+// Without this line nothing constructs it: the Site pill would still render (the
+// bar is registry-driven) and open a 50 % canvas with no panel beside it —
+// §COMMITTED-IS-NOT-REACHABLE, with every unit test still green.
+// ⚠ The `flushRuntimeEventListeners()` call below MUST stay AHEAD of
+// `workspaceController.restoreFromStorage()`, or a user whose saved mode is `site`
+// boots into exactly that empty half. `siteSurfaceMount.spec.ts` pins the ordering.
+import '../ui/site/SiteSurface';
 // §HILITE140 (L-12292) — the relationship graph's hop-N related-elements push
 // to the 3-D scene. A SEPARATE side-effect import, deliberately: it subscribes
 // to `selectionBus` on its own (mirroring `graphViewState.ts`'s own

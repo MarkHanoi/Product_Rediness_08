@@ -885,7 +885,18 @@ He gave the flow as a walkthrough. It is binding as written:
 1. The user selects the location (his example: **Paris**).
 2. The user lands on **the usual split view — 2D view LEFT, 3D site view RIGHT**. (This is the
    §L-412 site-authoring split and it already exists.)
-3. The user clicks **Analysis → Parcel Law**.
+3. The user clicks the **Site** pill in the mode bar — the first pill, left of Author.
+   > ⚠ **AMENDED IN PLACE 2026-09-07 · lane SITE-TAB · `L-13180` · C115 §0.3.** This step read
+   > *"The user clicks **Analysis → Parcel Law**"*. The founder's 2026-09-07 transmission makes the
+   > Parcel Law panel a **top-level workspace mode rendered left of Author**, not a sub-tab of
+   > Analysis, so that route no longer exists. This document outranks the contract suite; leaving
+   > the sentence stale would have made the strongest document in the stack describe a route the
+   > shell does not have. **The rest of §26.1 is unchanged and still binding as written** — in
+   > particular steps 4–7, which describe the arrangement the `site` row's `canvas: 'half'` claim
+   > produces (C59 §2.10: the mode declares a claim and writes no box; the region owner places the
+   > split pane BESIDE the panel). ⛔ The mode is entered by the user, not automatically on
+   > location selection — that half is `L-13183`, OPEN, and C115 `C115-160` records why it is a
+   > separate change.
 4. **At that moment the RIGHT pane becomes Parcel Law, and the LEFT pane holds the views.** This is
    the inversion that is currently wrong: the panel takes the right, the view work moves left.
 5. **The user can split the LEFT side further.** The left half is itself splittable.

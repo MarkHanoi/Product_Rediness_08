@@ -6,7 +6,9 @@ AND FIX THE LAW PANEL - THERE IS DUPLICATION OF DATA ETC... MAKE IT SOUND"* — 
 [`STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §26.6`](../../01-strategy/STR-RESIDENTIAL-DESIGN-ORCHESTRATOR.md),
 which is the same founder's earlier transmission on the same surface.
 **Binds:** every PR that adds, moves, renames, folds, collapses, re-hosts or deletes anything
-rendered by the Parcel Law tab, the GIS rail PARCEL panel, or the floating buildable-envelope card.
+rendered by the **Site workspace mode's Parcel Law panel** (⭐ **it was the Analysis tab
+`parcel-law` until 2026-09-07 — see §0.3**), the GIS rail PARCEL panel, or the floating
+buildable-envelope card.
 **Siblings:** [`C19 §5.6–§5.8`](C19-SITE-MODEL-AND-PARCEL.md) (host/singleton mechanics) ·
 [`C57`](C57-PARCEL-DATA-LAYER.md) (parcel provenance) ·
 [`C58`](C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (the determination, its refusals, its honesty
@@ -80,6 +82,103 @@ tidied away, because it is the single most important fact about the register in 
 INVENTORY.** §3 is therefore written as an enumerated register with counts, not as prose, and §14
 lists what remains unmeasured. ⛔ **A reviewer MUST NOT treat any single audit's item list as the
 preservation checklist.** The register in §3 is the checklist; the audits are its sources.
+
+---
+
+### §0.3 — ⭐ WHERE THIS PANEL LIVES (AMENDED 2026-09-07 · lane SITE-TAB · `L-13180`)
+
+> ⚠ **THIS SUBSECTION WAS ADDED BECAUSE THE HOST CHANGED AFTER THE CONTRACT WAS MINTED, AND A
+> CONTRACT THAT STILL DESCRIBES THE OLD HOME IS THE EXACT ROT CLASS `CLAUDE.md` DOCUMENTS AT
+> LENGTH.** It is an amendment IN PLACE, not a derivative document.
+
+**Authority:** the founder transmission of **2026-09-07** — the Parcel Law panel is to be a
+**top-level workspace mode rendered left of Author**, not a sub-tab of Analysis.
+
+`C115-151` The Parcel Law panel's canonical host is the **`site` workspace mode**
+(`apps/editor/src/ui/platform/workspaceModes.ts`), rendered by
+`apps/editor/src/ui/site/SiteSurface.ts` into `#ste-surface`. It **WAS** `AnalysisTabId`'s
+`'parcel-law'` member and the fifth pill of `#anl-surface`'s tab strip. Every clause in this
+contract that says *"the tab"* is to be read as *"the panel"*; the **file paths are unchanged**
+(`parcelLawTab.ts`, `parcelLawFacts.ts`, `parcelLawQuestionGroup.ts` and the ≈51 producers all
+stay where they are), because **only the HOST moved** — `mountParcelLawTab(host, deps)` was already
+host-agnostic and required no signature change.
+
+`C115-152` ⛔ **THE PANEL MOVED. IT WAS NOT COPIED, AND IT MUST NEVER BE.** There is **exactly one**
+live `mountParcelLawTab` call in the shell. Two live parcel panels would be precisely the
+duplication this contract was opened to remove, and the buildable-envelope card is a **singleton**
+(C19 §5.7) that two racing hosts would bounce between. `siteSurfaceMount.spec.ts` asserts the
+count in shipped text, with comments stripped so a comment cannot satisfy it.
+
+`C115-153` The **§2.5 relocation stamp is discharged**: `#anl-surface` carries
+`data-parcel-rows-merged-into="site-workspace-mode"` — the SAME attribute
+`PARCEL_LAW_MERGED_ATTR` already declares, reused rather than re-invented as `C115-17` requires.
+The retired union member is **kept exported and documented** as `ANALYSIS_RETIRED_TAB_IDS` /
+`ANALYSIS_RETIRED_TAB_HOMES` (`AnalysisTypes.ts`), on the `PARCEL_LAW_SWITCHER_SLOT_TESTID`
+precedent. `PARCEL_LAW_TAB_TESTID` **keeps its verbatim value `analysis-parcel-law`** — it is now a
+MISNOMER and that is the cheaper of the two errors: §3.H `C115-28`/`C115-29` make a renamed testid
+a **silent** break of ≈156 probes. The rename is logged as `L-13181` and must move the testid and
+every probe of it in one commit or not at all.
+
+`C115-154` The mode declares **`canvas: 'half'`**, and that is **FORCED, not chosen**. §1.4.1
+`C115-113`…`C115-118` (the founder's rule 2) make every figure on this panel a hyperlink that
+PAINTS its geometry, and §3.G `C115-27` forbids a dead click; a `'hidden'` canvas turns all 27
+control rows into dead clicks in one edit (ADR-0343 §D.1 reason 2 — *a surface in a HIDDEN mode is
+a selector that has nothing to select in*). `'full'` is impossible: the panel is
+`position: fixed; right: 0; width: 50%`, so a no-claim mode would centre the shell's chrome on a
+canvas the panel covers. The founder's arrangement — **view LEFT, panel RIGHT** — then falls out of
+C59 §2.10 for free: the mode DECLARES a claim and writes no box, and the region owner places the
+split pane BESIDE the panel.
+
+`C115-155` The mode declares **`shortcut: null`**, and its tooltip **MUST NOT** name a key. F1–F4
+are taken; `WorkspaceController._keyListener` calls `preventDefault()` on any MATCHED key, so
+binding **F5** would swallow browser reload application-wide — which is this repository's own
+documented recovery from a stale service-worker cache. A chord map for all five modes is proposed
+as `L-13180` and is **not** taken here. ⛔ A pill whose title advertises a binding the handler does
+not hold is a dead affordance with a label on it.
+
+`C115-156` The mode declares **`propertiesPanel: 'suppressed'`** and **`editingToolbar:
+'suppressed'`**. ⚠ **NOT a new decision** — `analysis` declares both today, so the row PRESERVES
+shipped behaviour (§PANEL-MODE-GATE `L-12080`, §TOOLBAR-MODE-GATE `L-12220`). No §3.G register row
+is a shell-toolbar affordance — all 27 are panel-internal — so suppression drops nothing from the
+register.
+
+`C115-157` ⛔ **THE SITE PILL IS ALWAYS PRESENT AND ALWAYS CLICKABLE.** It **MUST NOT** be hidden or
+disabled before a location exists. `C115-02` forbids hiding a section because it is empty, and
+§4.4's four-part test — the only thing that permits withholding — **fails here on clauses 1, 3 and
+4**: this panel's absence states are NAMED absences with escape hatches (PR-A-08's five refusal
+sentences, PR-A-01's six absence kinds × four strings, PR-E-45's seven spellings of *"no parcel is
+committed"*). A greyed pill with no explanation is the defect PR-C-35 forbids. ⭐ The onboarding
+case needs no rule of its own: §ONBOARDING-IS-FULL-BLEED (`L-13000`) keys on
+`appPhase() === 'onboarding-globe'` rather than on a mode list, so a half-canvas Site mode is
+automatically HELD and `author` full-bleed applied — and the held mode is **HELD, NEVER DISCARDED**.
+
+`C115-158` ⚠ **ONE NAMED SENTENCE WAS AMENDED, AND §3.E `C115-22` REQUIRES THE NEW WORDING TO BE
+STATED RATHER THAN SLIPPED IN.** The host status line read *"…nothing on this **tab** is computed
+here. Each card states its own source, confidence and citations on its face; read those, not this
+line."* It now reads *"…nothing on this **panel** is computed here…"*. **The word "tab" is the only
+change**; the claim, and the instruction to read each card's own face instead of the line, are
+untouched. It is C19 §5.6 clause 1 spoken at the status line and deleting it would have been the
+`C115-01` violation the whole relocation exists to avoid. ⭐ The retired tab's **`lede` survives
+verbatim** as `SITE_SURFACE_LEDE`.
+
+`C115-159` ⚠ **A PERSISTED `activeTab: 'parcel-law'` MUST land somewhere valid.** It does, and by
+behaviour the layout loader ALREADY had rather than by new code: `loadLayout()` and `hydrate()`
+both validate the stored value against `ANALYSIS_TABS` and fall back to `'overview'`;
+`reconcileLayout()` iterates `ANALYSIS_TABS` and never reads the stale key; the orphan
+`tabs['parcel-law']` entry is dropped on the next save. It is **pinned by a spec with a non-vacuous
+control** (a different valid tab is written first and read back), because the fallback value and
+the default value are the same string — which is exactly how this arm could have passed while
+reading nothing at all.
+
+`C115-160` ⚠ **WHAT THIS AMENDMENT DOES NOT DO, STATED SO IT IS NOT MISREAD AS DONE.** It does
+**not** make the app land in Site mode automatically when the user finishes selecting a location.
+That is a second, separately-justified change: every guided-flow exit passes through
+`setAppPhase('canvas')`, which has **four call sites**, and forcing the mode there would destroy
+`L-13000`'s explicit *"HELD, NOT DROPPED"* guarantee for a RETURNING user opening an existing
+project. The sound split — new project completing onboarding lands in Site; existing project
+opened restores the saved mode — requires distinguishing those four call sites and is logged as
+`L-13183`. ⛔ Until it ships, *"from the moment the user selects the location we will be in site"*
+is **NOT-YET-TRUE**.
 
 ---
 
@@ -158,14 +257,122 @@ read weight off the ordinal.
 clause 1): cadastral reference · address · **all three areas as three facts** (registry · from-ring ·
 measured-in-scene, §2.3(a)) · perimeter · bounding box · boundary edges with the street-frontage
 clause · planning zone · source · retrieval date · confidence/match tier. `C115-111` The full
-technical detail **MUST** sit behind the **"View full parcel data"** disclosure of §11 — which does
-not exist yet (§3, PR-A-04) and whose absence is a gap, not a licence to drop the detail.
+technical detail **MUST** sit behind the **"View full parcel data"** disclosure of §11.
+
+> ⭐ **BUILT 2026-09-07 — lane PLOT-SECTION-1.** This clause read *"which does not exist yet (§3,
+> PR-A-04) and whose absence is a gap, not a licence to drop the detail"*. Two corrections in one:
+> **the disclosure now exists** (`ParcelCardDetailFold` in
+> `apps/editor/src/ui/site/parcel/parcelCard.ts`, `data-testid="parcel-full-technical-detail"`,
+> supplied by `apps/editor/src/ui/analysis/parcelLawTab.ts`), **and the cross-reference was wrong**:
+> **PR-A-04 is `createHouseSection.ts`**, the §BIM-FROM-THE-DESIGN fourth arm — it has never had
+> anything to do with this control. ⚠ The same wrong citation is repeated in §2.2's canonical-home
+> table and is NOT corrected here (that table is outside this lane's ownership); it is logged as
+> **L-13191**. What is preserved is unchanged: the absence was never a licence to drop the detail,
+> and neither is the disclosure — see `C115-152` and §1.4.2 for the fact-by-fact mapping.
 
 `C115-112` Every honesty string this stage already speaks **MUST** survive: the amber
 *"⚠ Building footprint (OSM) — NOT a legal cadastral parcel … carries no cadastral reference"*, the
 `Match: low` row, `PARCEL_PROVENANCE_ABSENT_TEXT`, `PARCEL_NO_BOUNDARY_TEXT`, `PARCEL_USER_DRAWN_NOTE`
 and `PARCEL_AREA_DERIVED_NOTE` — the last ⭐ **on the same line as the figure** (STR §26.6.1, the
 founder's own correction), never as an orphaned caption beneath it. §3.E PR-E-03 … PR-E-08.
+
+`C115-151` ⭐ **STAGE 01 IS THE PANEL'S CANONICAL HOME FOR THE PLOT-DISPLAY CONTROLS.** The two
+buildable-envelope visibility axes — the **SHOW ON THE PLOT** group (`Volume` / `Footprint` +
+its caption), produced by `apps/editor/src/ui/site/envelopeVisibilityControl.ts` — **MUST** be
+displayed in Stage 01 while the Parcel Law panel is mounted.
+
+**Why this stage and not Stage 02, stated so it is not re-litigated.** They are **view chrome about
+the plot**, not a determination: `envelopeVisibility.ts` is a pair of persisted booleans about what
+is DRAWN, it refuses `projectScopeRegistry` in its own header for exactly that reason, and §1.4.1
+already makes Stage 01 the panel's **view-painting stage** — every figure in it is a hyperlink that
+lights geometry on whichever site view is open. A control that decides what is *drawn* on the plot
+belongs beside the controls that decide what is *highlighted* on it. Until 2026-09-07 the group was
+never in this panel at all: it is string-concatenated into the singleton buildable-envelope card,
+which the tab re-parents into **question 2**, so the founder was looking at a Stage-02 control and
+asking for a Stage-01 one.
+
+`C115-152` ⭐ **THE STAGE-01 DENSITY BUDGET — WHAT "SMALLER" MAY AND MAY NOT BE BOUGHT WITH.**
+Stage 01 **MAY** be made shorter with: row → inline compression; a `Summary → Details` disclosure
+whose summary names its contents (`C115-92`); and one-line attribution. It **MUST NOT** be made
+shorter with: **row-level withholding** (`C115-40`); **de-weighting an honesty string**
+(`C115-37`, §4.3); or **hiding attribution** (C57 §1.9, PR-F-09). The line is drawn at the KIND of
+claim, not at the row's length:
+
+| Stays on the VISIBLE FACE, in every arm | May go behind **"View full parcel data"** |
+|---|---|
+| the kind banner (footprint / hand-drawn) · the size review · `Match` tier · the incomplete-geometry warning | zone pack · source CRS · retrieval date |
+| **all three areas** with their bases, and `PARCEL_AREA_DERIVED_NOTE` **on the line** (`C115-112`) | perimeter · bounding box · boundary edges, **with `PARCEL_LAW_MEASURED_NOTE` travelling with them** |
+| `Source:` and `Licence:` (C57 §1.9 — attribution is a licence obligation, and a licence line one click away was not displayed) | the plot-selection ROUTE sentence (`PARCEL_LAW_PLOT_ROUTE_NOTE`) — it is a POINTER, and §4.4 clause 4 protects the section carrying *the only route*, which this is not: the map button itself still renders unfolded on both parcel-less arms |
+| every stated ABSENCE (`PARCEL_LAW_GEOMETRY_ABSENT_TEXT`, `PARCEL_PROVENANCE_ABSENT_TEXT`, `PARCEL_NO_BOUNDARY_TEXT`) — `C115-39` clause 1: a named absence has something to say | — |
+
+`C115-153` ⛔ **EVERY HOST THAT DISPLAYS THE AXES CONTROL MUST ALSO RE-RENDER FROM THE AUTHORITY.**
+Measured at HEAD before this amendment: `subscribeBuildableEnvelopeVisibility` had **four** call
+sites (`CesiumViewport.ts`, `SiteBoundaryMap2D.ts`, `ParcelBoundarySceneRenderer.ts`, and the
+definition) and **none in `GISAreaLayout.ts`** — the envelope card WRITES the authority and repaints
+only from its own click handler. With one displaying surface that is latent; with two it is a
+control that reads `ON` while the state is `OFF`, one screen from the switch that changed it. This
+is why `C115-151` is satisfied by a **claim**, not by a second instance.
+
+`C115-154` ⚠ **THE CLAIM IS A HOST ARBITER AND IT IS NOT THE `C115-88` CLAUSE-1 SHAPE — stated
+because the two look alike.** `apps/editor/src/ui/site/plotDisplayControlsHost.ts` holds ONE claim,
+**by element**; `GISAreaLayout`'s `envelopeToggleHtml()` renders nothing while the claim is held.
+That is C19 §5.7 clause 1's own remedy and `C115-87` restates it. It is **not** a host branch inside
+the card's renderer in the `C115-88` sense: the card never asks *"which surface am I in?"* (a
+question one re-home makes wrong), it asks *"is this job taken?"*; there is **no copied renderer**
+(one producer, one authority, one pair of persisted booleans); and the claim **self-heals** — an
+element that has left the document is not a claimant, so the worst available failure is the card
+rendering once without the switches, never a lost control.
+⛔ **`C115-89` STILL STANDS AND IS NOT FIXED BY THIS.** Two hosts open at once remains a named,
+unfixed property; the arbiter only guarantees that **one** of them draws the switches, never both.
+
+⚠ **§3 ROWS THIS TOUCHES, AND WHY THEY ARE NOT AMENDED HERE.** `PR-A-03` and `PR-G-07` both read
+*"rendered on **all four** card render arms"*. All four arms still call the one producer and still
+render it on every host that has not been superseded, so the CONTROL is preserved — but the wording
+no longer describes the panel arm precisely, and §3 is outside this lane's ownership (§1 clauses
+only). `C115-19` requires a register row to move in the commit that changes it; this amendment
+therefore records the discrepancy rather than leaving it silent, and it is logged as **L-13192**.
+
+#### §1.4.2 — ⭐ THE STAGE-01 FACE/FOLD MAPPING (NORMATIVE — THE PRESERVATION PROOF)
+
+`C115-155` **"Smaller" never means "fewer facts".** A PR that changes what is on Stage 01's face
+**MUST** update this table in the same commit, fact by fact. Nothing below is removed; every row
+names where it is and, when it moved, the one interaction that reveals it.
+
+| Fact | Before (2026-09-07 AM) | After | Revealed by |
+|---|---|---|---|
+| Footprint / hand-drawn banner | face | **face** | — (`C115-112`, `C115-37`) |
+| Size review warning | face | **face** | — |
+| `Ref` / `OSM id` | face | **face** | — |
+| `Addr` | face | **face** | — |
+| `Area (registry)` | face | **face** | — |
+| `Area (from ring)` + `PARCEL_AREA_DERIVED_NOTE` **on the line** | face | **face** | — (`C115-112`) |
+| `Area (measured in scene)` (shown only when it prints differently) | face | **face** | — (§2.3(a); a disagreement behind a fold is a disagreement nobody finds) |
+| `Match` tier | face | **face** | — (honesty string) |
+| Incomplete-geometry warning | face | **face** | — (honesty string) |
+| `Source:` | face | **face** | — (C57 §1.9) |
+| `Licence:` | face | **face** | — (C57 §1.9) |
+| `Perimeter` (highlight control, F-2) | face | **fold** | click *"View full parcel data"* |
+| `Bounding box` (highlight control, F-3) | face | **fold** | click *"View full parcel data"* |
+| `Boundary edges` + frontage clause (F-4) | face | **fold** | click *"View full parcel data"* |
+| `PARCEL_LAW_MEASURED_NOTE` | face | **fold**, with the three rows it attributes | click *"View full parcel data"* |
+| `Zone pack` | face | **fold** | click *"View full parcel data"* |
+| `Source CRS` | face | **fold** | click *"View full parcel data"* |
+| `Retrieved:` | face | **fold** | click *"View full parcel data"* |
+| `PARCEL_LAW_PLOT_ROUTE_NOTE` | face | **fold** | click *"View full parcel data"* |
+| `PARCEL_LAW_GEOMETRY_ABSENT_TEXT` | face | **face** | — (`C115-39` clause 3) |
+| `Select parcel on the 2D map` button (parcel-less arms) | face | **face** | — (§4.4 clause 4 · L-942) |
+| **SHOW ON THE PLOT** `Volume` / `Footprint` + caption | Stage **02** (inside the envelope card) | Stage **01** | — (`C115-151`; it is not folded) |
+
+`C115-156` ⛔ **THE FOLD KEEPS THE CONTROLS ITS ROWS ARE.** `C115-113` F-2 / F-3 / F-4 are
+unchanged by the move: perimeter, bounding box and boundary edges are still real highlight controls
+that paint their own geometry, they still carry their `parcel-law-fact-*` testids, and
+`C115-117`'s obligation is met by the tab's existing idempotent `wireHighlights()` pass, which runs
+after every producer render — including the one that builds the fold.
+`C115-157` The disclosure **MUST** be an instance of the §11 primitive: keyed by its own
+`data-testid`, session-scoped, not persisted, and remembered in the map
+`parcelLawQuestionGroup.ts` already owns (`questionGroupFoldIsOpen` / `setQuestionGroupFoldOpen`) —
+**not a sixth mechanism** (`C115-91`). ⛔ The card that renders it holds **no** fold state of its
+own; it is handed `open` and reports the toggle back.
 
 #### §1.4.1 — ⭐⭐ THE FOUNDER'S RULE 2, MADE NORMATIVE HERE — *"EVERY FIGURE IS A HYPERLINK"*
 
@@ -666,7 +873,19 @@ this level* · PR-G-21 draw toggle + kind select · PR-G-22 library chips (drag 
 PR-G-23 *Load the N rooms in this project* / *Re-read…* / *Start from the example ground floor* ·
 PR-G-24 *Create house* · PR-G-25 *Create BIM from this design* · PR-G-26 the **6** highlight-row
 control call sites (⚠ **six, not seven** — four cited "sites" are field assignments consumed by one
-renderer) · PR-G-27 the on-view view switcher.
+renderer) · PR-G-27 the on-view view switcher · **PR-G-28 per-storey *Drag face* / *Stop dragging***
+(disabled **with the 3-D surfaces' own verbatim reason**, composed by `composeFaceDragRefusal()`;
+`data-focused` carries the state so the row is read by value, not by label).
+
+⭐ **PR-G-28 IS A SUBJECT SELECTOR, NOT AN ARMING CONTROL, AND THE DISTINCTION IS NORMATIVE.**
+`C115-149` The face-drag gesture is installed unconditionally on both 3-D surfaces and **MUST**
+remain live whether or not this control was ever pressed. A future change that gates the *gesture*
+on the button is a **reachability regression**, not a refinement: it would break the drag for every
+user who never found the row. What the control adds is the half the founder's sentence asks for —
+*select a level*, so a pull aimed at Level 2 cannot land on Level 3, and so that storey's faces
+become **visible** before the pointer goes near them. `C115-150` The restriction **MUST** live in
+exactly one place (the renderer-free gesture's single pick wrapper); a per-adapter copy would let
+the affordance stand on a storey the pick refuses, which is an affordance that lies (C84 EI-9).
 
 ### §3.H — MACHINE-READABLE STATE THAT OTHER CODE DEPENDS ON
 
@@ -685,8 +904,8 @@ renderer) · PR-G-27 the on-view view switcher.
 ### §3.I — REGISTER SIZE, STATED
 
 **22 producer rows (§3.A) · 4 render arms (§3.B) · 35 vocabulary rows (§3.C) · 16 unbounded
-families (§3.D) · 51 named sentences (§3.E) · 14 citation/hyperlink rows (§3.F) · 27 control rows
-(§3.G) · 7 machine-state couplings (§3.H) = 176 register entries**, standing over roughly **370+
+families (§3.D) · 51 named sentences (§3.E) · 14 citation/hyperlink rows (§3.F) · 28 control rows
+(§3.G) · 7 machine-state couplings (§3.H) = 177 register entries**, standing over roughly **370+
 rendered data points**, **≈130 citation/provenance-bearing fields** and **≈300 enumerated union
 arms**. `C115-30` A reviewer **MUST** be able to hold a refactored panel against this list; a claim
 of *"0 data points lost"* that does not walk it is unsupported.
@@ -934,6 +1153,30 @@ shape, not bugs to tidy: PR-C-18's `rival` arm exists for exactly this and is a 
 `C115-56` Per-storey editing **MUST** remain available: face drag on the 3D views (the 2D map is
 excluded by design — a plan has no vertical axis) and a per-storey *Edit perimeter* route into the
 profile editor, disabled **with the resolver's own per-element reason** when unreachable.
+
+⭐ **AMENDED 2026-09-07 (lane FACE-DRAG-BUTTON · L-13176) — THE FACE-DRAG HALF NOW HAS AN ENTRY
+POINT AS WELL AS A GESTURE.** `C115-151` The first clause is satisfied by a *gesture*, and until
+this lane that was **all** it was satisfied by: the drag was installed on both 3-D surfaces,
+complete and correct, with **no affordance on the 3-D Site at all** — no arrows, no hover
+highlight, no cursor change — and **no per-storey way in from this panel**. A clause met only by an
+invisible gesture is met in the letter and not in the substance ([[committed-is-not-reachable]]).
+The clause therefore now carries two obligations, both of which **MUST** hold:
+
+1. **A per-storey ENTRY POINT** beside *Edit perimeter* — **PR-G-28**, with §3.G's three visual
+   states and the surfaces' own verbatim reason when no 3-D view can take a drag.
+2. **A VISIBLE AFFORDANCE on each surface that offers the gesture.** `C115-152` A surface may ship
+   the drag before it ships the arrows, but a panel **MUST NOT** offer *Drag face* against a surface
+   whose affordance is absent **without saying so** — an armed-but-invisible gesture is a claim, not
+   a capability. Both 3-D surfaces now draw the §25.6 double-headed arrows (BIM 3-D through
+   `SpaceEnvelopeFaceGizmoBuilder`; the 3-D Site through the adapter's `handles` port, from the same
+   pure `spaceEnvelopeFaceHandles` solver, so an arrow cannot point one way while the drag moves
+   another).
+
+⚠ **AND THE ROWS MUST OUTLIVE THE SESSION THAT MADE THEM.** `C115-153` The per-storey control rows
+**MUST** be read from the space-envelope store, never from the session's create list. Before this
+lane both PR-G-15 and PR-G-28 were offered *only* in the session that pressed *Create* — the
+envelopes persisted and their controls did not, so one reload removed the only route to per-storey
+editing while §6.3 still claimed it was available.
 
 ⚠ **NOT-YET-TRUE — per-storey GENERATION does not exist, and the gap is wider than the audit
 concluded.** Every generated option is ONE footprint ring plus a storey COUNT; the product's own
@@ -1475,6 +1718,37 @@ them; it does not log them.
 ---
 
 ## §17 — STATUS (living record — appended, never rewritten)
+
+### 2026-09-07 · lane SITE-TAB · §0.3 ADDED — THE HOST CHANGED — `L-13180`
+
+The Parcel Law panel is no longer Analysis's fifth tab. It is the **`site` workspace mode**, first
+in pill order (left of Author), hosted by `apps/editor/src/ui/site/SiteSurface.ts` (`#ste-surface`).
+
+**What moved:** the HOST, and only the host. `mountParcelLawTab(host, deps)` was already
+host-agnostic, so no producer, no testid, no `data-*` attribute and no rendered string changed —
+which is why the §3 register is untouched by this lane and why AC-1/AC-2/AC-3/AC-4 are unaffected
+rather than re-argued.
+
+**What was discharged:** §2.5 `C115-17` — `#anl-surface` carries
+`data-parcel-rows-merged-into="site-workspace-mode"`, reusing `PARCEL_LAW_MERGED_ATTR` rather than
+minting a rival attribute; `ANALYSIS_RETIRED_TAB_IDS` / `ANALYSIS_RETIRED_TAB_HOMES` keep the
+retired union member exported and documented.
+
+**What was amended:** ONE named sentence — *"nothing on this **tab** is computed here"* → *"nothing
+on this **panel** is computed here"* (`C115-158`). The retired tab's `lede` survives verbatim.
+
+**⛔ What this lane could NOT verify, and is not claiming.** §14.14 forbids reporting an acceptance
+criterion met on the strength of a passing suite, and that applies here: 16 assertions drive the
+real surface through the real workspace-mode event in happy-dom, but **happy-dom paints nothing**.
+Nothing in this lane measured a pixel, a colour, or whether the panel actually occupies the right
+half beside a live site view **in a browser**. The founder-visible half is therefore
+**UNVERIFIED IN A BROWSER**, exactly as §14 requires it to be said.
+
+**Also open, and named rather than left implicit:** `L-13181` (the `anl-` prefix and the
+`analysis-parcel-law` testid are now misnomers), `L-13182` (two enumerated mode lists with silent
+fall-through — a structural hazard for every future mode), `L-13183` (landing in Site after
+location selection), `L-13184` (`AnalysisSurface`'s persisted keys for a retired tab are never
+garbage-collected).
 
 ### 2026-09-07 · lane COST-ONE-PLACE · §9 IMPLEMENTED — `L-13145`
 The first code this contract has caused. The founder reported the duplication §9 predicted

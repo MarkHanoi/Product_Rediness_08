@@ -223,8 +223,14 @@ describe('§BIM-3D-CHROME-QUIET — ARM D: the level chip moved to a control tha
 
   it('⭐ CHANGING the level is still one gesture — ActiveLevelHUD writes the SAME field', () => {
     expect(ALH).toContain('this.props.projectContext.activeLevelId = id');
-    // And it is genuinely mounted, in the mode bar, beside Author | Inspect | Analysis | Data —
-    // not conditional on this pane being open.
+    // And it is genuinely mounted, in the mode bar, beside Site | Author | Inspect | Data |
+    // Analysis — not conditional on this pane being open.
+    // ⚠ AMENDED 2026-09-07 (§SITE-IS-A-MODE, L-13180): this comment read "Author | Inspect |
+    // Analysis | Data" and named four modes. There are five, and `site` is FIRST in pill
+    // order (founder: left of Author). Nothing this arm ASSERTS changed — the slot id and the
+    // HUD's single write of `projectContext.activeLevelId` are the subject — but a comment
+    // that names the shipped pill row and is wrong about it is the rot class CLAUDE.md
+    // documents at length, so it moves with the row.
     expect(DOCKING, 'the mode-bar slot the HUD mounts into is gone').toContain("levelSlot.id        = 'alh-modebar-slot'");
     expect(CPL, 'nothing fills that slot any more').toContain("document.getElementById('alh-modebar-slot')");
     expect(CPL).toContain('new ActiveLevelHUD(');

@@ -49,7 +49,13 @@ export interface WorkspaceModeDef {
   readonly id: string;
   /** Pill label. */
   readonly label: string;
-  /** Tooltip / aria-label. Carries the shortcut, because the pill is small. */
+  /**
+   * Tooltip / aria-label. Carries the shortcut, because the pill is small.
+   *
+   * ⛔ A ROW WITH `shortcut: null` MUST NOT NAME A KEY HERE. A tooltip that
+   * advertises a binding the key handler does not hold is a dead affordance
+   * with a label on it — the `site` row below is the live example.
+   */
   readonly title: string;
   /** `KeyboardEvent.key` that activates this mode, or `null` for no shortcut. */
   readonly shortcut: string | null;
@@ -95,11 +101,59 @@ const ICON = (paths: string): string =>
 /**
  * The modes, in pill order.
  *
- * ⚠ Order is the rendered order AND the tab order. `analysis` sits after
- * `inspect` because it is the second half-mode; `data` stays last because it is
- * the only mode that removes the canvas.
+ * ⚠ Order is the rendered order AND the tab order. `site` sits FIRST because it
+ * is where the work STARTS — the founder's 2026-09-07 transmission puts the
+ * parcel-law surface *"left of Author"*, and the reason is the workflow, not
+ * taste: an architect answers *what is this site · what may I build here* before
+ * a wall exists to author. `analysis` sits after `inspect` because it is the
+ * third half-mode; `data` stays last because it is the only mode that removes
+ * the canvas.
  */
 export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
+  {
+    // §SITE-IS-A-MODE (L-13180 · C115 §0.3). ⭐ THE PARCEL LAW PANEL'S HOST.
+    //
+    // It was the FIFTH TAB OF ANALYSIS until 2026-09-07 and is now a top-level
+    // mode. This is a RELOCATION, not a copy: `AnalysisTabId` lost its
+    // `'parcel-law'` member in the same commit, and `#anl-surface` carries the
+    // §2.5 relocation stamp naming this mode as the new home. Two live parcel
+    // panels would be exactly the duplication C115 was opened to remove.
+    id: 'site',
+    label: 'Site',
+    // ⛔ NO KEY IN THIS STRING — see `title` on the interface above. F1–F4 are
+    // taken by the four rows below, and every remaining function key is claimed
+    // by the browser: F5 is RELOAD, and `WorkspaceController._keyListener` calls
+    // `preventDefault()` on any matched key, so binding it would swallow
+    // hard-refresh app-wide — which is this project's own documented recovery
+    // from a stale service-worker cache. `shortcut: null` is a supported row
+    // value, not a gap. L-13180 holds the chord-map proposal for all five modes.
+    title: 'Site mode — the parcel, its law and your envelope, beside the site view',
+    shortcut: null,
+    // ⛔ FORCED, NOT CHOSEN. C115 §1.4.1 `C115-113`…`C115-118` (founder rule 2)
+    // make EVERY figure on this panel a hyperlink that PAINTS its geometry on
+    // whichever view is open, and §3.G `C115-27` forbids a dead click. `'hidden'`
+    // (Data's value) would turn all 27 control rows into dead clicks —
+    // ADR-0343 §D.1 reason 2: a surface in a HIDDEN mode is a selector with
+    // nothing to select in. `'full'` is impossible: the panel is
+    // `position: fixed; right: 0; width: 50%`, so a `CLAIM_NONE` would centre the
+    // shell's chrome on a canvas the panel covers.
+    canvas: 'half',
+    // §PANEL-MODE-GATE (L-12080). ⚠ NOT A NEW DECISION — the panel lives in
+    // `analysis` today, which declares both columns suppressed, so this row
+    // PRESERVES shipped behaviour rather than changing it. The reasoning carries
+    // over unchanged: the multi-selection panel popping over the very figures the
+    // selection was made to read.
+    propertiesPanel: 'suppressed',
+    // §TOOLBAR-MODE-GATE (L-12220). Same carry-over, and Site is the stronger
+    // case: its left half shows the SITE (globe / 2D site map / plan), and a
+    // floating move/rotate/delete/join strip there would offer BIM edits from a
+    // mode whose subject is land. No C115 §3.G register row is a shell-toolbar
+    // affordance — all 27 are panel-internal — so suppression drops nothing.
+    editingToolbar: 'suppressed',
+    // A parcel outline with its plot lines — the "map" glyph, not a globe: this
+    // mode is about ONE plot, and the globe already means "3D Site" on the view.
+    icon: ICON('<path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7"/><path d="M9 20l6-3"/><path d="M9 20V7"/><path d="M15 17l4.553 2.276A1 1 0 0 0 21 18.382V7.618a1 1 0 0 0-.553-.894L15 4"/><path d="M15 17V4"/><path d="M15 4L9 7"/>'),
+  },
   {
     id: 'author',
     label: 'Author',

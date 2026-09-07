@@ -75,6 +75,11 @@ import { AUTONOMOUS_AUDITOR_STYLES } from './panels/autonomousAuditor';
 // Injected AFTER DESIGN_TOKENS like every other panel sheet, which is the
 // premise §PANEL-BRAND-STANDARD ARM B stands on.
 import { ANALYSIS_SURFACE_STYLES } from './panels/analysisSurface';
+// §SITE-IS-A-MODE (L-13180 · C115 §0.3) — the SITE workspace mode's right-hand half.
+// MUST sit AFTER the anl- sheet: `#ste-surface` reuses that sheet's class rules for its
+// chrome and body (see siteSurface.ts's header for why), and only re-declares the two
+// id-scoped rules `#anl-surface` owns for itself.
+import { SITE_SURFACE_STYLES } from './panels/siteSurface';
 import { SURH_STYLES } from '../SaveUndoRedoHUD';
 import { VTB_STYLES } from '../views/ViewTabBar';
 import { APP_TOAST_STYLES } from './panels/appToast';
@@ -240,6 +245,7 @@ export function injectAppTheme(): void {
         + PREVIEW_LAYER_STYLES
         + AUTONOMOUS_AUDITOR_STYLES
         + ANALYSIS_SURFACE_STYLES
+        + SITE_SURFACE_STYLES
         + SURH_STYLES
         + VTB_STYLES
         + APP_TOAST_STYLES
