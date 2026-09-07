@@ -1559,6 +1559,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             props.grid.fade = mode === '3D';
             await props.navManager.setViewMode(mode as any);
         }
+
+        // §ONE-VIEW-SWITCHER (L-13160) — RE-READ THE LABEL AFTER THE SWITCH LANDS, and this
+        // is not belt-and-braces: the mount above runs BEFORE the awaited activation, so at
+        // that moment `_viewController.currentMode` is still the PREVIOUS view. A pill left
+        // unrefreshed would name the view the user just LEFT — a label asserting a fact it
+        // read too early, which is the §L-13002 shape (a reader running before the write it
+        // depends on). `ensurePryzmViewPill` is idempotent: it refreshes a live pill rather
+        // than rebuilding one, so this costs a repaint and never a re-mount.
+        // ⚠ Deliberately UNGUARDED by success: `activate` either resolved or threw past this
+        // line, so re-reading the authority is correct in both surviving cases — the pill
+        // reports what the controller says, never what this function asked for.
+        ensurePryzmViewPill();
     };
 
     // §CESIUM-GIZMO-REMOVED (2026-06-19) — the move-on-globe transform gizmo (the

@@ -509,6 +509,20 @@ describe('§ONE-VIEW-SWITCHER · ARM J — the pill is mounted where the rows re
         expect(body.slice(0, body.indexOf('\n    };'))).toContain('ensurePryzmViewPill()');
     });
 
+    it('⭐ and RE-READS the label AFTER the awaited activation, not only before it', () => {
+        // The mount happens inside `retireLegacyViewBars`, which runs BEFORE
+        // `await _viewController.activate(mode)` — so at mount time `currentMode` is still
+        // the view being left. Without a second call the pill names the previous view.
+        const at = GIS.indexOf('const activateView = async');
+        const body = GIS.slice(at, GIS.indexOf('\n    };', at));
+        const first = body.indexOf('ensurePryzmViewPill()');
+        const activate = body.indexOf('await props._viewController.activate(mode)');
+        expect(activate).toBeGreaterThan(-1);
+        // The one inside `retireLegacyViewBars` is not in this body; the call here must come
+        // AFTER the await.
+        expect(first).toBeGreaterThan(activate);
+    });
+
     it('⛔ it injects the SHIPPED option host — no seventh copy of the founder\'s six', () => {
         const body = GIS.slice(GIS.indexOf('const ensurePryzmViewPill ='));
         const fn = body.slice(0, body.indexOf('\n    };'));
