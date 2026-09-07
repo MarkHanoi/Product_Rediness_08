@@ -898,3 +898,83 @@ describe('§VIEW-PANEL-PER-PANE — the production wiring is real, not authored-
         expect(css).not.toMatch(/:\s*(#000\b|#000000|black)\b/);
     });
 });
+
+// ════════════════════════════════════════════════════════════════════════════════
+// §PANE-DROPDOWN-VISIBLE (L-13052) — THE DROPDOWN WAS BUILT AND COULD NOT BE SEEN
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// Founder 2026-09-07, with two red-boxed screenshots: *"I WANT A DROP DOWN PANEL WHERE USER
+// CAN SELECT FROM ANY OTHER VIEW TO RENDER INSTEAD"* and *"REMOVE THOSE TWO SMALL PANELS —
+// 2D SITE / 2D SATELLITE — IS HIDDEN ON THE LEFT HAND SIDE TOP RIGHT CORNER."*
+//
+// ⭐ THE CONTROL EXISTED AND EVERY BEHAVIOURAL ARM ABOVE PASSED. All three defects were
+// PAINT ORDER and CASCADE — facts no headless DOM assertion in this file can observe,
+// because jsdom/happy-dom resolve neither stacking order nor `!important`. So they are
+// asserted where they are decided: in the source text of the two files that declare them.
+//
+// ⛔ EACH ARM PINS A MEASURED TIE, NOT A PREFERENCE. Every number here was read off the
+// file that owns the rival value, and the rival file is named in the arm.
+describe('§PANE-DROPDOWN-VISIBLE (L-13052) — the picker is actually PAINTED', () => {
+    const PICKER = 'apps/editor/src/engine/views/PaneViewPicker.ts';
+    const SHEET = 'apps/editor/src/ui/styles/panels/siteViewQuickToggle.ts';
+    const MAP = 'apps/editor/src/ui/geospatial/SiteBoundaryMap2D.ts';
+
+    it('⛔ the picker outranks the MapLibre overlay it shares a stacking context with', () => {
+        // THE DEFECT: both were `zIndex: '40'`. The pane element is `position: relative`
+        // with `z-index: auto`, so it is NOT a stacking context and the tie fell to DOM
+        // order — and the map overlay is appended LAST, always, because the picker mounts
+        // with the shell and the overlay when the renderer mounter runs. The left pane's
+        // dropdown was covered edge to edge by the pastel map.
+        const mapZ = /zIndex:\s*'(\d+)'/.exec(
+            codeOnly(read(MAP)).slice(codeOnly(read(MAP)).indexOf('pryzm-gis-map2d')),
+        );
+        expect(mapZ).not.toBeNull();
+        const pickerZ = /zIndex:\s*'(\d+)'/.exec(codeOnly(read(PICKER)));
+        expect(pickerZ).not.toBeNull();
+        // STRICTLY greater — equality is the bug, not a near miss.
+        expect(Number(pickerZ![1])).toBeGreaterThan(Number(mapZ![1]));
+    });
+
+    it('⛔ the MENU shape neutralises `.svq-bar`\'s `position: fixed`', () => {
+        // THE DEFECT: the root carries BOTH classes and `.svq-bar--menu` reset display,
+        // padding, border, background, shadow and max-width but never `position` — so the
+        // six rows were painted FIXED at the top-centre of the WINDOW, outside the popup
+        // that hosts them, at `z-index: 8980`. The file's own comment asserted the reset
+        // that the sheet did not perform.
+        const css = codeOnly(read(SHEET));
+        const menu = css.slice(css.indexOf('.svq-bar--menu {'));
+        const block = menu.slice(0, menu.indexOf('}'));
+        expect(block).toMatch(/position:\s*static/);
+        expect(block).toMatch(/top:\s*auto/);
+        expect(block).toMatch(/left:\s*auto/);
+        expect(block).toMatch(/transform:\s*none/);
+        expect(block).toMatch(/z-index:\s*auto/);
+    });
+
+    it('⛔ the basemap-chip hide rule can beat the chip\'s INLINE `display`', () => {
+        // THE DEFECT: `SiteBoundaryMap2D` builds the chip with an inline `display: 'flex'`,
+        // and an inline declaration outranks any author rule at any specificity — so the
+        // scoped `display: none` did nothing and the founder kept seeing the chip. The
+        // SCOPE is deliberate and must not widen: the map also mounts standalone, where
+        // this chip is the only basemap route (C19 §5.6 clause 4 / L-942).
+        expect(codeOnly(read(MAP))).toMatch(/pryzm-gis-basemap-toggle/);
+        const css = codeOnly(read(SHEET));
+        expect(css).toMatch(
+            /#pryzm-site-authoring-panes\s+\.pryzm-gis-basemap-toggle\s*\{\s*display:\s*none\s*!important;/,
+        );
+        // …and it stays SCOPED — an unscoped rule would delete the standalone route.
+        expect(css).not.toMatch(/^\s*\.pryzm-gis-basemap-toggle\s*\{/m);
+    });
+
+    it('⭐ the popup measures ITS OWN PANE, never the window (C59 §2.10.3 clause 4)', () => {
+        // `max-height: 70vh` and `max-width: 340px` were window/half-screen assumptions in a
+        // box that is neither. Measuring `paneEl` keeps the control pane-anchored — the
+        // opposite of the L-13027 window-anchoring defect, not a repeat of it.
+        const picker = codeOnly(read(PICKER));
+        expect(picker).toContain('sizePopupToPane');
+        expect(picker).toMatch(/paneEl\.clientWidth/);
+        expect(picker).toMatch(/paneEl\.clientHeight/);
+        // ⛔ and it is still a CHILD of its pane — never `position: fixed`.
+        expect(picker).not.toMatch(/position:\s*'fixed'/);
+    });
+});

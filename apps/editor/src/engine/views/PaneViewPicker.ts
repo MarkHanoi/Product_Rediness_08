@@ -148,10 +148,24 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
         left: corner === 'top-left' ? '10px' : 'auto',
         right: corner === 'top-right' ? '10px' : 'auto',
         // Pane chrome sits above ITS OWN pane's renderer surface only (C06 §7).
-        // 40 clears the re-parented renderer surfaces that carry their own z inside the
-        // pane (the Cesium container's CESIUM_Z=15, the MapLibre `inset:0` overlay) while
-        // staying inside this pane's box — it can never overlay the sibling pane.
-        zIndex: '40',
+        //
+        // ⛔ CORRECTED 2026-09-07 (§PANE-DROPDOWN-VISIBLE, L-13052). This was `40` and the
+        // comment claimed it *"clears … the MapLibre `inset:0` overlay"*. IT DID NOT — it
+        // TIED with it. `SiteBoundaryMap2D`'s overlay `.pryzm-gis-map2d` is
+        // `position:absolute; inset:0; zIndex:'40'` (§DRAW-MAP-ABOVE-CESIUM, 2026-06-03),
+        // the SAME value; the pane element is `position:relative` with `z-index:auto`, so
+        // it is NOT a stacking context and both children are painted in the shell root's
+        // one context, where an equal z-index is broken by DOM ORDER. The picker is
+        // appended at shell-mount time and the map overlay when the mounter runs — i.e.
+        // ALWAYS LATER — so the LEFT pane's dropdown was painted, sized and clickable and
+        // covered edge-to-edge by the pastel map. That is the founder's "empty region at
+        // the top of the pane": the control was there and nothing of it was visible.
+        //
+        // 60 clears every surface a pane can host (Cesium's CESIUM_Z=15, the MapLibre
+        // overlay's 40, the retired `.svq-bar--pane`'s 38) with room above the largest.
+        // The pane's `overflow:hidden` still clips it, so a raised z can never let this
+        // pane's chrome paint over the sibling pane — C06 §7 holds unchanged.
+        zIndex: '60',
         font: '600 12px/1 system-ui, sans-serif',
     } satisfies Partial<CSSStyleDeclaration>);
 
@@ -244,12 +258,47 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
         }
     }
 
+    /**
+     * §PANE-DROPDOWN-VISIBLE (L-13052) — ⭐ THE POPUP MEASURES ITS OWN PANE, at open.
+     *
+     * The constants above are a DEFAULT, not a fit: `min-width:272px` / `max-width:340px`
+     * / `max-height:70vh` were written against a half-screen pane and the lane that wrote
+     * them recorded the residual in its own audit — *"a pane narrower than 340px would let
+     * it overflow"*, and `70vh` is a WINDOW measurement inside a box that is not the window.
+     * A divider dragged to `MIN_FRACTION` (0.2) on a 1280 px screen gives a 256 px pane, so
+     * the residual is reachable by dragging, not only in theory.
+     *
+     * ⛔ THE PANE, NOT THE WINDOW (C59 §2.10.3 clause 4). This reads `paneEl`'s own box —
+     * the element this control is a child of — so the popup stays pane-anchored. The
+     * L-13027 defect was anchoring pane chrome to the VIEWPORT; measuring the pane is the
+     * opposite of that, and is what the earlier lane deliberately deferred rather than
+     * ruled out. Read at OPEN time, so a divider drag is already accounted for and nothing
+     * is cached to go stale.
+     */
+    const POPUP_W_MAX = 340;
+    const POPUP_W_PREF = 272;
+    const POPUP_GUTTER = 20;
+    const sizePopupToPane = (): void => {
+        const w = paneEl.clientWidth;
+        const h = paneEl.clientHeight;
+        if (w > 0) {
+            const avail = Math.max(160, w - POPUP_GUTTER);
+            popup.style.maxWidth = `${Math.min(POPUP_W_MAX, avail)}px`;
+            popup.style.minWidth = `${Math.min(POPUP_W_PREF, avail)}px`;
+        }
+        // Leave the trigger's own band (top:10 + ~32 tall + gutter) plus a bottom gutter.
+        if (h > 0) popup.style.maxHeight = `${Math.max(180, h - 60)}px`;
+    };
+
     let open = false;
     const setOpen = (next: boolean): void => {
         open = next;
         popup.style.display = open ? 'block' : 'none';
         trigger.setAttribute('aria-expanded', String(open));
-        if (open) render();
+        if (open) {
+            sizePopupToPane();
+            render();
+        }
     };
     trigger.addEventListener('click', (e) => {
         e.stopPropagation();

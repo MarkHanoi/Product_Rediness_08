@@ -186,8 +186,28 @@ export const SITE_VIEW_QUICK_TOGGLE_STYLES = `
        INSIDE 'PaneViewPicker''s popup, so it is placed by its host and carries NO position
        of its own: no 'absolute', no 'fixed', nothing for the float budget to classify.
        Six segments plus Split wrapped onto two rows at ~470px in the founder's half-width
-       pane; stacking them is the layout agreeing with him. */
+       pane; stacking them is the layout agreeing with him.
+
+       CORRECTED 2026-09-07 (PANE-DROPDOWN-VISIBLE, L-13052). The paragraph above said this
+       shape "carries NO position of its own: no 'absolute', no 'fixed'" AND THAT WAS NOT
+       WHAT THE SHEET DID. The root element carries BOTH classes ('svq-bar svq-bar--menu'),
+       and this block reset display, padding, border, background, shadow and max-width but
+       NEVER 'position' - so '.svq-bar''s 'position: fixed; top: calc(6px +
+       var(--shell-topbar-h) + 8px); left: var(--shell-canvas-cx); transform:
+       translateX(-50%); z-index: 8980' still applied. The founder's six rows were therefore
+       torn out of the dropdown popup's flow and painted FIXED against the window, centred
+       at the top of the screen, above every panel - which is exactly the stray wide bar he
+       photographed and which the popup was built to absorb. A comment asserting the reset
+       is not the reset; these five declarations are.
+
+       They are written as the neutral values a flow child has, so the menu is placed by its
+       host and by nothing here - which is what the paragraph above always meant. */
     .svq-bar--menu {
+        position: static;
+        top: auto;
+        left: auto;
+        transform: none;
+        z-index: auto;
         display: flex;
         flex-direction: column;
         align-items: stretch;
@@ -197,6 +217,7 @@ export const SITE_VIEW_QUICK_TOGGLE_STYLES = `
         background: transparent;
         box-shadow: none;
         max-width: none;
+        width: 100%;
     }
     .svq-bar--menu .svq-btn {
         display: flex;
@@ -242,9 +263,18 @@ export const SITE_VIEW_QUICK_TOGGLE_STYLES = `
        NO JS LIFECYCLE, because the fact is structural: 'PaneHost' re-parents the map
        overlay INTO the pane element, so "the map is in a pane of the split shell" is
        exactly "the chip is a descendant of #pryzm-site-authoring-panes". A mount-time flag
-       would have to be re-asked on every re-target; this cannot go stale. */
+       would have to be re-asked on every re-target; this cannot go stale.
+
+       '!important' CORRECTED 2026-09-07 (PANE-DROPDOWN-VISIBLE, L-13052). Without it this
+       rule DID NOTHING and the founder went on seeing the chip: 'SiteBoundaryMap2D' builds
+       the element with 'Object.assign(toggle.style, { ... display: "flex" ... })', and an
+       INLINE declaration outranks any author stylesheet rule at any specificity. The scope
+       above was correct and is unchanged - the only defect was that a stylesheet 'display'
+       cannot beat an inline one. The alternative fix, deleting the chip's inline 'display',
+       would have changed how it lays out on the standalone map this rule deliberately does
+       not touch; overriding it only inside the split shell does not. */
     #pryzm-site-authoring-panes .pryzm-gis-basemap-toggle {
-        display: none;
+        display: none !important;
     }
 
     /* UNREPORTED is not OFF (C84 EI-1b). The row works; whether it is what you are looking
