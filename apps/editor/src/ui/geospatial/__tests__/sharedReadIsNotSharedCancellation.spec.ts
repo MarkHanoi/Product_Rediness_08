@@ -37,6 +37,16 @@ function stubReader() {
     return { readContextTileFeatures, release: (f: unknown[] = []) => release(f), started };
 }
 
+/** A ~905 m RESIDENTIAL street through Business Bay (0.009 deg of longitude at lat 25.18). The class
+ *  matters: `placePedestrians` walks footway/pedestrian/path/steps centre-lines and residential /
+ *  tertiary sidewalks ONLY, so a `primary` way would place lamps and no people — correctly, and for a
+ *  reason that has nothing to do with this defect. */
+const LONG_ROAD = [{
+    rings: [[[55.2550, 25.1845], [55.2640, 25.1845]]],
+    tags: { highway: 'residential' },
+    syntheticId: 7,
+}];
+
 /** One baked road way in Business Bay, in the REAL `ContextTileFeature` shape the reader emits
  *  (`rings` + stringified `tags`, not GeoJSON `geometry`/`properties` — a fixture invented from the
  *  call site rather than the type is a fake that cannot falsify anything). */
@@ -131,5 +141,46 @@ describe('§ABORT-PROMISES-NOTHING (L-13171) — the read funnel stops promising
         expect(src).toMatch(/§ABORT-PROMISES-NOTHING/);
         // What IS true is still said: an abort is neither a failure nor an empty.
         expect(aborted.slice(0, 900)).toMatch(/NOT a failure, NOT an empty/);
+    });
+});
+
+describe('§STREET-LIFE (L-12936 / L-13171) — the lamps and pedestrians come back WITH the roads', () => {
+    it('the recovered collection drives lamps and pedestrians, so one fix closes all three symptoms', async () => {
+        // ⭐ VERIFIED, NOT ASSUMED. The founder's three Gulf traces read
+        // `0 mapped lamp(s) + 0 synthesised lamp(s) along 0 road way(s) + 0 synthetic pedestrian(s)`.
+        // Street life is SYNTHESISED FROM THE ROAD NETWORK — `placeLamps(…, roads.ways, …)` and
+        // `placePedestrians(roads.ways, …)` — so "no roads", "no street furniture" and "no people"
+        // were one defect. This walks the ACTUAL chain: a consumer aborts, the road read survives,
+        // and the ways it returns are handed to the real synthesisers.
+        const stub = stubReader();
+        vi.doMock('../contextTiles', async (orig) => ({
+            ...(await orig<Record<string, unknown>>()),
+            readContextTileFeatures: stub.readContextTileFeatures,
+        }));
+        const { fetchContextRoads } = await import('../contextRoads');
+        const { placeLamps, placePedestrians } = await import('../contextStreetLife');
+
+        const a = new AbortController();
+        const pA = fetchContextRoads(25.18451, 55.25983, a.signal);
+        a.abort();                                   // the loader cancels itself, as it did in Dubai
+        const b = new AbortController();
+        const pB = fetchContextRoads(25.18451, 55.25983, b.signal);
+        stub.release(LONG_ROAD);
+
+        expect((await pA).ways.length).toBe(0);      // the caller that gave up gets nothing, honestly
+        const roads = await pB;
+        expect(roads.ways.length).toBe(1);           // …and the one still watching gets the street
+
+        const origin = { lat: 25.18451, lon: 55.25983 };
+        const lamps = placeLamps([], roads.ways, { origin, radiusM: 2519 });
+        const people = placePedestrians(roads.ways, [], { origin, radiusM: 2519 });
+        expect(lamps.lamps.length).toBeGreaterThan(0);
+        expect(people.people.length).toBeGreaterThan(0);
+
+        // ⚠ No land-use is handed in, so these are RURAL-spaced people (§STREET-LIFE treats an absence
+        // as NOT urban — an absence is never an urban finding). The point here is > 0, not the density.
+        // …and the counter-case, which is what the console actually printed: no ways in, nothing out.
+        expect(placeLamps([], [], { origin, radiusM: 2519 }).lamps.length).toBe(0);
+        expect(placePedestrians([], [], { origin, radiusM: 2519 }).people.length).toBe(0);
     });
 });
