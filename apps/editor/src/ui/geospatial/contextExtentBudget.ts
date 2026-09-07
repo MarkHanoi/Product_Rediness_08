@@ -9,11 +9,22 @@
 // `STREET_LIFE_MAX_PEOPLE`, …) keeps its existing exported NAME and now DERIVES from a row here, so
 // no call site or test moved and there is still exactly one number per fact.
 //
-// ⛔ LEAF MODULE — IT IMPORTS NOTHING, BY DESIGN. `contextBuildings`, `contextExtents`,
+// ⛔ LEAF MODULE — IT IMPORTS NO CONTEXT SIBLING, BY DESIGN. `contextBuildings`, `contextExtents`,
 // `contextTiles`, `contextStreetLife*`, `contextCanopySynth` and `CesiumViewport` all read it, and
 // several of those already import each other. A leaf cannot close a cycle (memory
 // `scc-no-barrel-access-at-module-load`: a circular barrel resolves to `undefined` at module load
-// and white-screens the app). Keep it that way — numbers only, no types from siblings.
+// and white-screens the app). Its ONLY imports are the scope VALUE module (`./siteScope`, which
+// imports `@pryzm/schemas`, `@pryzm/geometry-kernel` and the frame helpers — none of which import
+// anything in this family) and a type from `@pryzm/schemas`. Keep it that way — numbers, plus the
+// one value they are all functions of.
+//
+// ⭐ §SITE-SCOPE RECONCILIATION (2026-09-07, lanes CONTEXT-EXTENT-2X × SCOPE-SLAB, C12 §13.1). Two
+// scope types were minted on the same day — this file's `SiteContextScope` (the radial-cull half)
+// and the persisted L0 `SiteScope` (`packages/schemas/src/site/SiteScope.ts`, the value the slider
+// writes through `site.setScope`). ONE owner: `SiteContextScope` is now a type alias of the schema
+// and the circumscribing-radius body lives once, in `siteScope.ts`; this file adds the RANGE clamp
+// and the fallback, which are the measurements it owns. A stored scope therefore reaches
+// `CesiumViewport.setContextScope` with no adapter and no second shape.
 //
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // ⛔ THE RULE THAT DECIDES EVERY ROW: EVERY TIER IS NEAREST-FIRST, **THEN** CAPPED.
@@ -89,6 +100,9 @@
 // Instrumentation belongs on the LOADERS that call them, which already have it (CesiumViewport,
 // contextLayerWarm, groundSampleBatcher).
 
+import type { SiteScope } from '@pryzm/schemas';
+import { scopeOuterRadiusM as scopeOuterRadiusUnclampedM, type SiteScopeRange } from './siteScope';
+
 // ── THE SCOPE ─ ONE value every radial limit derives from ───────────────────────────────────
 
 /**
@@ -112,15 +126,13 @@
  * rectangular". Every radial limit below reduces it to its CIRCUMSCRIBING radius, so a rectangular
  * scope LOADS a superset of what it will show — which is the only safe direction: a shape that
  * loads less than it draws has holes, and a shape that loads more just spends cache.
+ *
+ * ⭐ THE TYPE IS THE PERSISTED SCHEMA (C12 §13.1): `circle { radiusM }` | `rectangle { halfWidthM,
+ * halfDepthM }`, project frame, about the site frame origin. `halfWidthM` runs along scene +X and
+ * `halfDepthM` along scene Z (E–W / N–S exactly when θ = 0). Not an interface of its own any more —
+ * a second shape was the one-owner failure L-645 exists to close.
  */
-export interface SiteContextScope {
-    readonly shape: 'circle' | 'rectangle';
-    /** Circle only — the disc radius in metres. */
-    readonly radiusM?: number;
-    /** Rectangle only — half-extents in metres (E–W, N–S). */
-    readonly halfWidthM?: number;
-    readonly halfDepthM?: number;
-}
+export type SiteContextScope = SiteScope;
 
 /** Metres per degree of latitude — the SAME literal the render radii already used, so nothing shifts. */
 export const METRES_PER_DEG_LAT = 111_320;
@@ -151,7 +163,21 @@ export const CTX_SCOPE_MAX_RADIUS_M = 1781;
  * "double scope" ask lands on; `CTX_FAR_HALF_DEG` below records why it is 0.016° and not the literal
  * 2× (0.022°), with the per-city tile arithmetic that decided it.
  */
-export const DEFAULT_SITE_CONTEXT_SCOPE: SiteContextScope = { shape: 'circle', radiusM: 1781 };
+const DEFAULT_SCOPE_RADIUS_M = 1781;
+export const DEFAULT_SITE_CONTEXT_SCOPE: SiteContextScope = { shape: 'circle', radiusM: DEFAULT_SCOPE_RADIUS_M };
+
+/**
+ * §SITE-SCOPE — THE ONE RANGE OBJECT: what `resolveSiteScope(stored, range)` (`siteScope.ts`) is
+ * handed so a persisted value is clamped onto the measured slider range WITH THE NUMBER STATED
+ * (`source: 'clamped'`, `note: "stored scope 2400 m is outside 150–1781 m; clamped to 1781 m"`),
+ * never silently. The range lives here because the ceiling is a tile-fan-out measurement this
+ * file owns; the resolver lives there because it is the value's own module.
+ */
+export const SITE_SCOPE_RANGE: SiteScopeRange = {
+    minRadiusM: CTX_SCOPE_MIN_RADIUS_M,
+    maxRadiusM: CTX_SCOPE_MAX_RADIUS_M,
+    fallback: DEFAULT_SITE_CONTEXT_SCOPE,
+};
 
 /**
  * The scope's CIRCUMSCRIBING radius in metres, clamped to the measured slider range. PURE.
@@ -160,17 +186,13 @@ export const DEFAULT_SITE_CONTEXT_SCOPE: SiteContextScope = { shape: 'circle', r
  * old literals impossible to reintroduce: there is one place to change and one place to test.
  * A malformed scope falls back to the default rather than to 0; "no scope" must never render as
  * "no context", which is the §CONTEXT-DATA-HONESTY failure shape.
+ *
+ * ⭐ ONE BODY: the unclamped radius is `siteScope.ts`'s `scopeOuterRadiusM` (circle → r, rectangle →
+ * the half-diagonal); this wrapper adds only the fallback and the range clamp this file owns.
  */
 export function scopeOuterRadiusM(scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE): number {
-    let r: number;
-    if (scope?.shape === 'rectangle') {
-        const w = Number.isFinite(scope.halfWidthM) ? (scope.halfWidthM as number) : NaN;
-        const d = Number.isFinite(scope.halfDepthM) ? (scope.halfDepthM as number) : NaN;
-        r = (Number.isFinite(w) && Number.isFinite(d)) ? Math.hypot(w, d) : NaN;
-    } else {
-        r = Number.isFinite(scope?.radiusM) ? (scope.radiusM as number) : NaN;
-    }
-    if (!Number.isFinite(r) || r <= 0) r = DEFAULT_SITE_CONTEXT_SCOPE.radiusM as number;
+    let r = scope ? scopeOuterRadiusUnclampedM(scope) : NaN;
+    if (!Number.isFinite(r) || r <= 0) r = DEFAULT_SCOPE_RADIUS_M;
     return Math.min(CTX_SCOPE_MAX_RADIUS_M, Math.max(CTX_SCOPE_MIN_RADIUS_M, r));
 }
 
