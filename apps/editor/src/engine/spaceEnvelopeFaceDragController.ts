@@ -90,5 +90,9 @@ export function installSpaceEnvelopeFaceDrag(deps: SpaceEnvelopeFaceDragDeps): (
         ...(deps.onPreview ? { onPreview: deps.onPreview } : {}),
         ...(deps.getWorld ? { getWorld: deps.getWorld } : {}),
         ...(deps.onProfileEdit ? { onProfileEdit: deps.onProfileEdit } : {}),
+        // §ENVELOPE-DRAG-CONSEQUENCE — forwarded, not re-implemented. The event is raised once, by
+        // the gesture, on whichever surface it ran (ADDENDUM §D).
+        ...(deps.onCommitted ? { onCommitted: deps.onCommitted } : {}),
+        ...(deps.surfaceId !== undefined ? { surfaceId: deps.surfaceId } : {}),
     });
 }

@@ -219,6 +219,102 @@ export interface SpaceEnvelopeDragSurface {
     readonly handles?: SpaceEnvelopeDragHandles;
 }
 
+/**
+ * ⭐ §ENVELOPE-DRAG-CONSEQUENCE (lane FACE-DRAG-2, 2026-09-07) — WHAT A COMMITTED FACE MOVE
+ * TELLS THE REST OF THE APP. Handover ADDENDUM §D asked for exactly this shape.
+ *
+ * ⛔ `ringBefore` AND `ringAfter` ARE LOAD-BEARING, AND THE REASON IS THE COMMAND'S OWN PAYLOAD.
+ * `spaceEnvelope.moveFace` carries `{face, deltaM}` — RELATIVE to whatever solid the store holds
+ * at the moment it runs. A consequence handler that saw only the delta could not compute where a
+ * derived wall should land without re-deriving the subject's geometry, and re-deriving it is how
+ * two answers to one question appear (C84 EI-9). Both rings are carried, in the SAME project-frame
+ * scene-XZ metres the record is authored in, so the consumer needs nothing else.
+ *
+ * ⚠ `ringAfter` IS THE PLANNED RING, NOT A RE-READ OF THE STORE. It is the exact geometry the
+ * live preview last showed and the exact geometry the commit was asked to write — the two come
+ * from ONE call to `planSpaceEnvelopeFaceMoveInContext`, which is what stops the preview promising
+ * a move the commit refuses. If the handler refuses (the store moved under the gesture), the
+ * dispatch's own `.catch` is where that is heard; this event is not a receipt for persistence and
+ * must not be read as one.
+ */
+export interface SpaceEnvelopeFaceMoveCommitted {
+    readonly spaceEnvelopeId: string;
+    readonly face: SpaceEnvelopeFaceRef;
+    readonly deltaM: number;
+    /** The subject's footprint BEFORE the gesture, project-frame scene-XZ metres, open loop. */
+    readonly ringBefore: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    /** The footprint the commit was asked to write. Same frame, same convention. */
+    readonly ringAfter: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    /** Which surface the gesture ran on — `'bim-3d'`, `'site-3d'`, … Free-form by design. */
+    readonly surfaceId?: string;
+}
+
+/**
+ * ⭐ THE ONE NAME. Emitted on `runtime.events` after the single `spaceEnvelope.moveFace` dispatch.
+ *
+ * ⛔ IT IS DECLARED HERE, BESIDE THE GESTURE THAT RAISES IT, AND NOT IN EACH WIRING SITE. There
+ * are already two wiring sites (the THREE/WebGPU canvas and the 3-D Site) and a third is planned;
+ * a string literal spelled at each of them is three chances to spell it differently, and a
+ * mis-spelled event name fails SILENTLY at both ends.
+ */
+export const SPACE_ENVELOPE_FACE_MOVED_EVENT = 'pryzm:spaceEnvelope:faceMoved';
+
+/**
+ * ⭐ THE ONE SPELLING OF THE COMMAND THIS GESTURE DISPATCHES (P6). It mirrors
+ * `MutateSpaceEnvelope`'s own `readonly type` in `plugins/space-envelope`.
+ *
+ * ⛔ IT EXISTS BECAUSE THERE ARE NOW TWO WIRING SITES AND A THIRD IS PLANNED. `initTools` (the
+ * THREE/WebGPU canvas) and `GISAreaLayout` (the 3-D Site) both dispatch this verb; a literal
+ * spelled at each is two chances to spell it differently, and a mis-spelled verb reaches the bus
+ * as an UNKNOWN COMMAND — which fails at a different layer, with a different sentence, than the
+ * refusal the user should have seen.
+ */
+export const SPACE_ENVELOPE_MOVE_FACE_COMMAND = 'spaceEnvelope.moveFace';
+
+/** The narrowest shape of the composed `runtime.bus` this needs. Structural — no runtime import. */
+export interface SpaceEnvelopeCommandBusLike {
+    executeCommand(name: string, payload: unknown): unknown;
+}
+
+/**
+ * Dispatch the ONE face-move command, always as a promise the caller can `.catch`.
+ *
+ * ⚠ `Promise.resolve(...)` IS NOT CEREMONY. `RuntimeSlot.bus.executeCommand` is declared to return
+ * `unknown` on the composed handle, so calling `.catch` on it directly is a type error — and
+ * dropping the `.catch` to satisfy the compiler turns a refused move into an UNHANDLED REJECTION
+ * the user never hears about (§FIX-OP-SILENT-NOOP).
+ */
+export function dispatchSpaceEnvelopeFaceMove(
+    bus: SpaceEnvelopeCommandBusLike,
+    payload: { spaceEnvelopeId: string; face: SpaceEnvelopeFaceRef; deltaM: number },
+): Promise<unknown> {
+    return Promise.resolve(bus.executeCommand(SPACE_ENVELOPE_MOVE_FACE_COMMAND, payload));
+}
+
+/** The narrowest shape of `runtime.events` this needs. Structural, so no runtime import. */
+export interface SpaceEnvelopeFaceMoveEventSink {
+    emit(name: string, payload: unknown): void;
+}
+
+/**
+ * Emit {@link SPACE_ENVELOPE_FACE_MOVED_EVENT}, never throwing into the gesture.
+ *
+ * ⚠ A consequence handler that throws must not kill the pointer-up that raised it: the move is
+ * already dispatched by the time this runs, so an exception here would leave the user with a
+ * committed edit and a half-finished gesture (the camera hand-back happens first, deliberately).
+ */
+export function emitSpaceEnvelopeFaceMoved(
+    events: SpaceEnvelopeFaceMoveEventSink | null | undefined,
+    ev: SpaceEnvelopeFaceMoveCommitted,
+): void {
+    if (!events || typeof events.emit !== 'function') return;
+    try {
+        events.emit(SPACE_ENVELOPE_FACE_MOVED_EVENT, ev);
+    } catch (e) {
+        console.warn('[spaceEnvelopeFaceDrag] a face-move consequence listener threw (non-fatal):', e);
+    }
+}
+
 /** Everything the gesture needs that is NOT about drawing or picking. */
 export interface SpaceEnvelopeFaceDragCoreDeps {
     /** The element the pointer events arrive on. */
@@ -263,6 +359,21 @@ export interface SpaceEnvelopeFaceDragCoreDeps {
      * dispatches on Apply (P6). Omit it and the double-click does nothing at all.
      */
     readonly onProfileEdit?: (spaceEnvelopeId: string) => void;
+    /**
+     * ⭐ §ENVELOPE-DRAG-CONSEQUENCE — called ONCE, immediately after the single dispatch, with
+     * both rings (see {@link SpaceEnvelopeFaceMoveCommitted}).
+     *
+     * ⛔ IT IS NOT A SECOND MUTATION PATH (P6). Nothing here writes; a consequence that wants to
+     * move a wall dispatches its OWN command from its OWN handler, and that is a second undo entry
+     * by design — a cascade folded into this gesture's single dispatch would be a store write
+     * nobody asked the bus for.
+     *
+     * ⚠ A NO-OP GESTURE RAISES NOTHING, exactly as it dispatches nothing. A listener that fired on
+     * a click-that-was-not-an-edit would rebuild derived geometry for a move that never happened.
+     */
+    readonly onCommitted?: (ev: SpaceEnvelopeFaceMoveCommitted) => void;
+    /** Names the surface in {@link SpaceEnvelopeFaceMoveCommitted.surfaceId}. Optional. */
+    readonly surfaceId?: string;
 }
 
 /** Below this a drag is a click, not an edit. Not a dimension — a gesture threshold. */
@@ -275,6 +386,12 @@ interface ActiveDrag {
     readonly grabWorld: { x: number; y: number; z: number };
     readonly startRecord: DraggableSpaceEnvelope;
     lastDeltaM: number;
+    /**
+     * §ENVELOPE-DRAG-CONSEQUENCE — the ring the LAST accepted plan produced, kept in lockstep with
+     * `lastDeltaM`. ⛔ Written in the SAME statement as the delta and read only when the delta
+     * commits, so the two can never describe different frames of the drag.
+     */
+    lastPlannedRing: ReadonlyArray<{ readonly x: number; readonly z: number }> | null;
     /** Neighbours the preview has REDRAWN — restored from the store on release / click. */
     previewedNeighbourIds: Set<string>;
 }
@@ -332,6 +449,7 @@ export function installSpaceEnvelopeFaceDragOnSurface(
             grabWorld: { x: picked.point.x, y: picked.point.y, z: picked.point.z },
             startRecord: record,
             lastDeltaM: 0,
+            lastPlannedRing: null,
             previewedNeighbourIds: new Set<string>(),
         };
         // ⚠ Capture the pointer so a drag that leaves the canvas still ends HERE. Without
@@ -420,12 +538,16 @@ export function installSpaceEnvelopeFaceDragOnSurface(
             return;
         }
         const { plan } = planned;
+        const plannedRing = plan.entry.footprint.map((p) => ({ x: p.x, z: p.z }));
+        // ⛔ ONE STATEMENT, TWO FIELDS. The delta and the ring it produced are written together so
+        // the committed event can never carry a delta from one frame and a ring from another.
         active.lastDeltaM = reading.deltaM;
+        active.lastPlannedRing = plannedRing;
         deps.onPreview?.(reading.deltaM, reading.faceLabel);
         // PREVIEW ONLY — the store is untouched until release (P6).
         const previewed = {
             ...active.startRecord,
-            footprint: plan.entry.footprint.map((p) => ({ x: p.x, z: p.z })),
+            footprint: plannedRing,
             baseOffset: plan.entry.baseOffset,
             height: plan.entry.height,
         };
@@ -485,6 +607,27 @@ export function installSpaceEnvelopeFaceDragOnSurface(
         // store's own `subscribeDirty` notification, not this closure — so the committed
         // solid on screen is the one the store holds, never the one the preview computed.
         deps.dispatch({ spaceEnvelopeId: drag.id, face: drag.face, deltaM: drag.lastDeltaM });
+        // ⭐ §ENVELOPE-DRAG-CONSEQUENCE — AFTER the dispatch, never instead of it, and carrying
+        // BOTH rings because the command's own payload is relative (ADDENDUM §D). Consumers today:
+        // none in the tree — this is built ahead of the wall-follows-envelope cascade so that lane
+        // does not have to reopen the gesture to get its input.
+        // ⚠ `lastPlannedRing` is non-null whenever `lastDeltaM` cleared the threshold — they are
+        // written together — but it is CHECKED rather than asserted: a null here would mean the two
+        // had drifted, and emitting an event with an invented ring is worse than emitting none.
+        if (deps.onCommitted && drag.lastPlannedRing) {
+            try {
+                deps.onCommitted({
+                    spaceEnvelopeId: drag.id,
+                    face: drag.face,
+                    deltaM: drag.lastDeltaM,
+                    ringBefore: drag.startRecord.footprint.map((p) => ({ x: p.x, z: p.z })),
+                    ringAfter: drag.lastPlannedRing,
+                    ...(deps.surfaceId !== undefined ? { surfaceId: deps.surfaceId } : {}),
+                });
+            } catch (e) {
+                console.warn('[spaceEnvelopeFaceDrag] the committed-move listener threw (non-fatal):', e);
+            }
+        }
     };
 
     /**

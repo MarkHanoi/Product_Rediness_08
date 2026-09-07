@@ -128,6 +128,13 @@ import {
     attachSpaceEnvelopeRender,
     type DirtySpaceEnvelopeStore,
 } from './attachSpaceEnvelopeRender';
+// §ENVELOPE-DRAG-CONSEQUENCE (lane FACE-DRAG-2) — the ONE emit helper and the ONE event name,
+// imported rather than spelled, so the two wiring sites cannot drift apart.
+import {
+    dispatchSpaceEnvelopeFaceMove,
+    emitSpaceEnvelopeFaceMoved,
+    type SpaceEnvelopeFaceMoveEventSink,
+} from './spaceEnvelopeDragSurface';
 // §RESI-STAGE-G (2026-09-06) · C114 §10b / §11 item 7 — the footprint profile editor's
 // TOOL. It builds no surface: it opens the wall modal's port on the envelope's own ring.
 import {
@@ -2113,7 +2120,12 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         // 'unknown'` — and dropping the `.catch` to satisfy the compiler
                         // would turn a refused move into an UNHANDLED REJECTION the user
                         // never hears about, which is the §FIX-OP-SILENT-NOOP defect.
-                        void Promise.resolve(runtime.bus.executeCommand('spaceEnvelope.moveFace', payload))
+                        // ⛔ ONE SPELLING OF THE VERB, shared with the 3-D Site wiring
+                        // (`GISAreaLayout`). Two literals for one command is two chances to spell
+                        // it differently, and a mis-spelled verb reaches the bus as an UNKNOWN
+                        // COMMAND — a different failure, at a different layer, from the refusal the
+                        // user should have seen.
+                        void dispatchSpaceEnvelopeFaceMove(runtime.bus, payload)
                             .catch((e: unknown) => {
                                 // The planner already refused DURING the drag with both
                                 // numbers, so reaching here means the store moved under
@@ -2155,6 +2167,24 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     // commit are what make the gesture findable in the first place.
                     setCameraControlsEnabled: (enabled: boolean) => {
                         if (world.camera?.controls) world.camera.controls.enabled = enabled;
+                    },
+                    // ⭐ §ENVELOPE-DRAG-CONSEQUENCE (lane FACE-DRAG-2, 2026-09-07) — ONE event per
+                    // committed face move, carrying BOTH rings (handover ADDENDUM §D).
+                    //
+                    // ⛔ IT IS NOT A CASCADE AND IT WRITES NOTHING. The wall-follows-envelope link
+                    // is a SEPARATE lane with a founder ruling still to make (a hand-edited wall
+                    // must NOT silently snap back), and the persistable link is the SEMANTIC GRAPH,
+                    // not a field on the wall — nothing on a wall survives reload. This is the
+                    // INPUT that lane needs, built now so it does not have to reopen the gesture:
+                    // `moveFace`'s payload is `{face, deltaM}` RELATIVE to the current solid, so a
+                    // consequence handler seeing only the delta cannot compute where a derived wall
+                    // should land. There are ZERO consumers in the tree today, and that is stated
+                    // rather than hidden.
+                    onFaceMoveCommitted: (ev) => {
+                        emitSpaceEnvelopeFaceMoved(
+                            runtime.events as unknown as SpaceEnvelopeFaceMoveEventSink | undefined,
+                            ev,
+                        );
                     },
                 });
                 console.log('[initTools] §FEAT-SPACE-ENVELOPE: store→mesh subscriber and face drag installed.');

@@ -32,7 +32,10 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+    emitSpaceEnvelopeFaceMoved,
     installSpaceEnvelopeFaceDragOnSurface,
+    SPACE_ENVELOPE_FACE_MOVED_EVENT,
+    type SpaceEnvelopeFaceMoveCommitted,
     type DraggableSpaceEnvelope,
     type DragPointerLike,
     type FacePick,
@@ -341,5 +344,129 @@ describe('⭐ the gesture runs with NO renderer — four functions and it works'
         rec.pickNothing = true;
         canvas.fire('dblclick', pointerEvent(10, 10));
         expect(opened).toEqual(['Kitchen']);
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-DRAG-CONSEQUENCE (lane FACE-DRAG-2, 2026-09-07) — WHAT A COMMITTED MOVE TELLS THE
+// REST OF THE APP. Handover ADDENDUM §D.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ THE RINGS ARE THE POINT, AND THEY ARE WHY THIS IS NOT "just emit the payload". The command's
+// own payload is `{face, deltaM}` — RELATIVE to whatever solid the store holds when it runs. A
+// wall-follows-envelope handler that saw only the delta could not compute where the wall goes
+// without re-deriving the subject's geometry, and a second derivation of one geometry is the
+// C84 EI-9 hazard. So both rings travel WITH the event.
+//
+// ✅ ESTABLISHES: one event per committed gesture, never more; `ringBefore` is the PRE-drag
+//    footprint and `ringAfter` is the geometry the commit was asked to write, and they DIFFER by
+//    the drag; a no-op gesture raises NOTHING; a throwing listener cannot break the gesture; and
+//    the event is raised AFTER the dispatch, never instead of it.
+// ⛔ DOES NOT ESTABLISH: that anything consumes it. There are ZERO consumers in the tree today —
+//    it is built ahead of the cascade lane so that lane need not reopen this gesture.
+describe('§ENVELOPE-DRAG-CONSEQUENCE — the committed-move event', () => {
+    let canvas: FakeCanvas;
+    let rec: Recorder;
+    let dispatched: { spaceEnvelopeId: string; face: SpaceEnvelopeFaceRef; deltaM: number }[];
+    let committed: SpaceEnvelopeFaceMoveCommitted[];
+    let order: string[];
+
+    const install = (onCommitted?: (ev: SpaceEnvelopeFaceMoveCommitted) => void): (() => void) => {
+        canvas = fakeCanvas();
+        rec = fakeSurface({ handles: false });
+        dispatched = [];
+        committed = [];
+        order = [];
+        return installSpaceEnvelopeFaceDragOnSurface({
+            domElement: canvas.el,
+            surface: rec.surface,
+            surfaceId: 'test-surface',
+            getRecord: (id) => (id === ROOM.id ? ROOM : undefined),
+            getWorld: () => [ROOM],
+            dispatch: (p) => { dispatched.push(p); order.push('dispatch'); },
+            onCommitted: onCommitted ?? ((ev) => { committed.push(ev); order.push('committed'); }),
+        });
+    };
+
+    const fullDrag = (): void => {
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointermove', pointerEvent(200, 0));
+        canvas.fire('pointerup', pointerEvent(200, 0));
+    };
+
+    it('raises EXACTLY ONE event per committed gesture, carrying BOTH rings and the surface', () => {
+        const dispose = install();
+        fullDrag();
+        expect(dispatched).toHaveLength(1);
+        expect(committed).toHaveLength(1);
+        const ev = committed[0]!;
+        expect(ev.spaceEnvelopeId).toBe('Kitchen');
+        expect(ev.face).toEqual(FACE_1);
+        expect(ev.deltaM).toBe(dispatched[0]!.deltaM);
+        expect(ev.surfaceId).toBe('test-surface');
+        // ⭐ `ringBefore` is the PRE-drag footprint, vertex for vertex.
+        expect(ev.ringBefore).toEqual(ROOM.footprint);
+        dispose();
+    });
+
+    it('⭐ `ringAfter` is the ring the commit was asked to write — face #1 moved, the rest held', () => {
+        const dispose = install();
+        fullDrag();
+        const ev = committed[0]!;
+        // Face #1 is the plane x = 6, outward +x. A 2 m pull moves ONLY the two vertices on
+        // that edge; a `ringAfter` equal to `ringBefore` would mean the event carried the
+        // pre-drag solid and the cascade would rebuild a wall exactly where it already was.
+        expect(ev.ringAfter).not.toEqual(ev.ringBefore);
+        expect(ev.ringAfter).toHaveLength(ROOM.footprint.length);
+        const movedX = ev.ringAfter.map((p) => p.x).filter((x) => Math.abs(x - 6) > 1e-6);
+        expect(movedX.length).toBeGreaterThan(0);
+        // The vertices NOT on the dragged edge are untouched — x = 0 survives.
+        expect(ev.ringAfter.some((p) => Math.abs(p.x) < 1e-9)).toBe(true);
+        dispose();
+    });
+
+    it('⛔ raised AFTER the dispatch, never instead of it', () => {
+        const dispose = install();
+        fullDrag();
+        expect(order).toEqual(['dispatch', 'committed']);
+        dispose();
+    });
+
+    it('⛔ a NO-OP gesture raises NOTHING — as it dispatches nothing (C113 §6.4)', () => {
+        const dispose = install();
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointerup', pointerEvent(0, 0));
+        expect(dispatched).toHaveLength(0);
+        expect(committed).toHaveLength(0);
+        dispose();
+    });
+
+    it('⛔ a listener that THROWS cannot break the gesture — the move is already committed', () => {
+        const dispose = install(() => { throw new Error('a consequence handler blew up'); });
+        expect(() => fullDrag()).not.toThrow();
+        expect(dispatched).toHaveLength(1);
+        dispose();
+    });
+
+    it('the emit helper is total — no sink, a sink with no `emit`, and a throwing sink', () => {
+        const seen: { name: string; payload: unknown }[] = [];
+        const ev: SpaceEnvelopeFaceMoveCommitted = {
+            spaceEnvelopeId: 'Kitchen',
+            face: FACE_1,
+            deltaM: 2,
+            ringBefore: ROOM.footprint,
+            ringAfter: ROOM.footprint,
+        };
+        expect(() => emitSpaceEnvelopeFaceMoved(null, ev)).not.toThrow();
+        expect(() => emitSpaceEnvelopeFaceMoved(undefined, ev)).not.toThrow();
+        expect(() => emitSpaceEnvelopeFaceMoved({} as never, ev)).not.toThrow();
+        expect(() => emitSpaceEnvelopeFaceMoved(
+            { emit: () => { throw new Error('listener'); } }, ev,
+        )).not.toThrow();
+        emitSpaceEnvelopeFaceMoved({ emit: (name, payload) => { seen.push({ name, payload }); } }, ev);
+        // ⛔ ONE NAME, asserted against the exported constant rather than a second literal —
+        // a spec that re-spelled it would pass while production and consumer disagreed.
+        expect(seen).toEqual([{ name: SPACE_ENVELOPE_FACE_MOVED_EVENT, payload: ev }]);
+        expect(SPACE_ENVELOPE_FACE_MOVED_EVENT).toBe('pryzm:spaceEnvelope:faceMoved');
     });
 });

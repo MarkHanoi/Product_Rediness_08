@@ -49,6 +49,7 @@ import {
     installSpaceEnvelopeFaceDrag,
     type DraggableSpaceEnvelope,
 } from './spaceEnvelopeFaceDragController';
+import type { SpaceEnvelopeFaceMoveCommitted } from './spaceEnvelopeDragSurface';
 // §25.6 gesture 1 (2026-09-06) — the per-face arrow. Constructed HERE rather than in
 // `initTools` for the same reason the plan reader is: it needs exactly the scene this
 // function already holds, and a second construction site would be a second set of arrows.
@@ -102,6 +103,12 @@ export interface SpaceEnvelopeRenderDeps {
      * absent — the ContextualEditBar's "Edit Profile" button is the other way in.
      */
     readonly onProfileEdit?: (spaceEnvelopeId: string) => void;
+    /**
+     * ⭐ §ENVELOPE-DRAG-CONSEQUENCE (lane FACE-DRAG-2) — called ONCE after the single
+     * `spaceEnvelope.moveFace` dispatch, with BOTH rings (ADDENDUM §D). Forwarded straight to
+     * the gesture; nothing here computes it.
+     */
+    readonly onFaceMoveCommitted?: (ev: SpaceEnvelopeFaceMoveCommitted) => void;
     /**
      * ⛔ §25.6 GESTURE 1 — TURN THE CAMERA ORBIT OFF WHILE A FACE IS DRAGGED. Omit it
      * and the camera orbits under the drag, because `camera-controls` binds the SAME
@@ -223,6 +230,10 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
             // here: the controller already holds the pick, and a second listener on the same
             // canvas would race it for the same event.
             ...(deps.onProfileEdit ? { onProfileEdit: deps.onProfileEdit } : {}),
+            // §ENVELOPE-DRAG-CONSEQUENCE — the derived-geometry hook (ADDENDUM §D). Named for the
+            // surface it ran on so a consumer can tell a BIM-canvas drag from a 3-D Site one.
+            ...(deps.onFaceMoveCommitted ? { onCommitted: deps.onFaceMoveCommitted } : {}),
+            surfaceId: 'bim-3d',
         });
     }
 
