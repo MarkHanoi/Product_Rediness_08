@@ -645,13 +645,86 @@ describe('§26.6.2 — question 2 is RENAMED, the × is withheld on this host, a
     });
 
     it('the four figures are present as ROWS, named as he names them — and "not derived" is never inferred', () => {
+        // ⚠ REWRITTEN 2026-09-07 (§26.6.7, L-13085). This asserted four LITERALS —
+        // `row('Maximum height'` etc. — and went red the moment the founder's ruling lifted the
+        // four figures to the card's HEADLINE, because the headline reads their names from
+        // `CEILING_LABEL` instead of re-typing them. The invariant is that the four are RENDERED
+        // AS ROWS with his names and with `not derived` intact; the literal spelling of the call
+        // was never the invariant, and pinning it made a correct move look like a regression.
         const card = src('../../layout/GISAreaLayout.ts');
-        expect(card).toContain("row('Maximum height'");
-        expect(card).toContain("row('Maximum levels'");
-        expect(card).toContain("row('Maximum implantation area (ground, plan)'");
-        expect(card).toContain("row('Maximum buildable area (all floors, GFA)'");
+        for (const key of ['levels', 'height', 'implantation', 'buildable']) {
+            expect(card).toContain(`row(CEILING_LABEL.${key}`);
+        }
+        // ⭐ The names come from the ONE owner, so the card and question 3 cannot drift apart.
+        expect(card).toContain("from '../site/intentAgainstCeilingModel'");
         // The refusal that fills a missing one STAYS (§26.6.2: "that refusal is correct and stays").
         expect(card).toContain(': NOT_DERIVED,');
+    });
+
+    it('⭐ §26.6.7 RULE 1 — each of the four renders in exactly ONE place, so the lift is a MOVE', () => {
+        // FOUNDER RULING 2026-09-07, closing §26.6.7's *"decision pending"*: lift the four to the
+        // headline AND DROP THEM FROM THE FOLD. ⛔ Lifting without removing is the defect, not the
+        // fix — it re-creates the duplication rule 1 exists to end, one edit after applying it.
+        //
+        // ⚠ THIS IS A SOURCE COUNT, NOT A MOUNTED-DOM COUNT, AND THAT IS STATED RATHER THAN
+        // GLOSSED. `buildSiteDataBlock` is an arrow inside `mountGISArea`, a ~7,000-line closure
+        // with no seam that renders the real card in a spec; the sibling suite
+        // `bim3dChromeQuiet.spec.ts` reaches the same controls the same way and for the same
+        // reason. Counting the CALL SITES is the strongest available check that there is one
+        // producer per figure, which is what rule 1 actually asks.
+        const card = src('../../layout/GISAreaLayout.ts');
+        for (const key of ['levels', 'height', 'implantation', 'buildable']) {
+            const n = (card.match(new RegExp(`row\\(CEILING_LABEL\\.${key}\\b`, 'g')) ?? []).length;
+            expect(n, `CEILING_LABEL.${key} is rendered ${n} times — rule 1 asks for one`).toBe(1);
+        }
+        // ⛔ AND THE OLD FOLD ROWS ARE GONE, not merely outnumbered. A literal left behind would
+        // print the figure a second time under the same name.
+        expect(card).not.toContain("row('Maximum height'");
+        expect(card).not.toContain("row('Maximum levels'");
+        expect(card).not.toContain("row('Maximum implantation area");
+        expect(card).not.toContain("row('Maximum buildable area");
+    });
+
+    it('⛔ §26.6.7 — the lift keeps rule 2: three of the four are still CONTROLS, and levels still is not', () => {
+        // A figure that became plain text in the headline would be a rule-2 REGRESSION wearing a
+        // rule-1 fix. `row()`'s 4th argument is the highlight subject, and it is the same builder
+        // (`buildSiteHighlightLabelHtml`) and the same wiring (`wireSiteHighlightRows(panel)`,
+        // which takes the whole panel — the headline is inside it).
+        const card = src('../../layout/GISAreaLayout.ts');
+        // Read each headline row's own call text — from `row(CEILING_LABEL.<k>` to the `)` that
+        // closes it — and assert the highlight subject `row()` takes as its 4th argument.
+        const callOf = (key: string): string => {
+            const at = card.indexOf(`row(CEILING_LABEL.${key}`);
+            expect(at, `no headline row for ${key}`).toBeGreaterThan(-1);
+            return card.slice(at, card.indexOf('\n            + row', at + 1) + 1 || at + 900);
+        };
+        expect(callOf('height')).toContain("'height'");
+        expect(callOf('implantation')).toContain("'footprint'");
+        expect(callOf('buildable')).toContain("'gfa'");
+        // ⛔ `Maximum levels` carries NO subject, here as before: there is no geometry for
+        // "storeys" to light, and §3's rule is that a row whose geometry does not exist must not
+        // render as a control — a dead click is indistinguishable from a broken product.
+        expect(callOf('levels')).not.toContain("'levels'");
+    });
+
+    it('⛔ §26.6.7 — the SETBACK TRIPLE was relocated, not deleted, and has ONE producer', () => {
+        // It lived in the headline the four figures replaced and appears NOWHERE else on the card,
+        // so dropping it with the rest of that headline would have deleted data. It moved into the
+        // fold's ordinance block, where it belongs on the merits — it is an ordinance limit read
+        // off the derivation trace, exactly like the two rows beside it.
+        const card = src('../../layout/GISAreaLayout.ts');
+        expect(card).toContain("row('Setbacks (F/S/R)', setbackTriple(env)");
+        expect((card.match(/const setbackTriple = /g) ?? []).length).toBe(1);
+        // The old per-call local is gone, so two surfaces cannot print different setbacks.
+        expect(card).not.toContain("const setback = (c: 'setback.front'");
+    });
+
+    it('⛔ §26.6.7 — the DEGENERATE refusal survives the lift, verbatim', () => {
+        // Setbacks that consume the parcel mean there IS no buildable envelope, so the four
+        // ceilings would print a footprint and a buildable area for land that has neither. The
+        // refusal is the answer on that arm, not a placeholder for one.
+        const card = src('../../layout/GISAreaLayout.ts');
+        expect(card).toContain('Setbacks consume the whole parcel — no buildable envelope.');
     });
 });
 

@@ -153,7 +153,19 @@ export type ProgrammeLayoutRefusalCode =
   /** A cut produced two disjoint regions — a concave plate this heuristic cannot serve. */
   | 'multi-region-split'
   /** A cut produced no usable polygon. A bug-catcher; never "repaired". */
-  | 'degenerate-split';
+  | 'degenerate-split'
+  /**
+   * §ROOM-PIN (L-13079) — a pin addresses a position this programme does not have, or two
+   * rooms are pinned to one position. Refused with BOTH numbers; no room is nudged.
+   *
+   * ⚠ THE REDUCER MAKES THIS UNREACHABLE FROM THE UI, AND IT IS STILL HERE. `programme.pin-room`
+   * refuses an out-of-range or taken slot, and `programme.remove-room` drops a pin its removal
+   * would strand — so through the panel this cannot happen. It exists for state assembled any
+   * other way (a fixture, a future restore, a caller holding an entry array directly). A solver
+   * that GUESSED in that case would silently place a room where nobody asked, which is the
+   * failure the pin was added to prevent, arriving through the pin itself.
+   */
+  | 'pin-unplaceable';
 
 export interface ProgrammeLayoutRefusal {
   readonly ok: false;
@@ -246,6 +258,88 @@ export function seriateByGraph(
     }
   }
   return placed;
+}
+
+/**
+ * §ROOM-PIN (L-13079) — re-seat the seriation so every PINNED room holds the position the user
+ * gave it, and every unpinned room re-solves around them.
+ *
+ * ⭐ THIS IS THE WHOLE REASON A PIN IS AN ORDINAL. `solveProgrammeLayout` bisects the plate by
+ * area in sequence order, so a room's cell IS its index. Fixing the index is therefore the
+ * strongest promise this solver can keep — and it keeps it EXACTLY: a pinned room's index is
+ * copied through, never nudged, never re-ranked by degree. Without this function the layout is a
+ * pure function of `(levelRing, programme)` and `render()` re-solves on every intent, so any
+ * arrangement the user made would be erased by his very next rename (L-13079's blocking finding).
+ *
+ * ⛔ IT DOES NOT RE-SERIATE THE REMAINDER. The unpinned rooms keep their RELATIVE order from
+ * `seriateByGraph` and simply flow into the slots the pins left free. Re-running Cuthill–McKee on
+ * the remainder would let one pin reshuffle rooms the user never touched, which is the same
+ * "my arrangement moved on its own" complaint one level down.
+ *
+ * Deterministic and total: same inputs, same output, no RNG, no clock.
+ */
+export function applyPinnedOrder(
+  seriated: readonly string[],
+  entries: readonly RoomProgrammeEntry[],
+): { readonly ok: true; readonly order: readonly string[] } | ProgrammeLayoutRefusal {
+  const pinned = new Map<string, number>();
+  for (const e of entries) {
+    if (e.pinnedOrder === undefined) continue;
+    if (!seriated.includes(e.id)) continue;
+    pinned.set(e.id, e.pinnedOrder);
+  }
+  if (pinned.size === 0) return { ok: true, order: seriated };
+
+  const n = seriated.length;
+  const byName = new Map(entries.map((e) => [e.id, e.name]));
+  const slots: (string | null)[] = new Array<string | null>(n).fill(null);
+  // Ascending pinned position, so a collision names the two rooms in the order a reader sees them.
+  const inOrder = [...pinned.entries()].sort((a, b) => a[1] - b[1]);
+  for (const [id, at] of inOrder) {
+    if (at < 0 || at >= n) {
+      return {
+        ok: false,
+        code: 'pin-unplaceable',
+        statement:
+          `${byName.get(id) ?? id} is pinned to position ${at + 1}, and this programme has `
+          + `${n} room${n === 1 ? '' : 's'} — there is no position ${at + 1} to hold it. PRYZM `
+          + 'will not move it to the nearest free place: that would be a position you did not '
+          + 'choose, presented as one you did. Unpin the room, or add rooms until that position '
+          + 'exists.',
+      };
+    }
+    const held = slots[at];
+    if (held !== null) {
+      return {
+        ok: false,
+        code: 'pin-unplaceable',
+        statement:
+          `${byName.get(held) ?? held} and ${byName.get(id) ?? id} are both pinned to position `
+          + `${at + 1}. One position holds one room, and PRYZM will not decide which of the two `
+          + 'you meant. Unpin one of them.',
+      };
+    }
+    slots[at] = id;
+  }
+  // The unpinned rooms flow into what is left, in their seriated order.
+  const rest = seriated.filter((id) => !pinned.has(id));
+  let r = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (slots[i] === null) { slots[i] = rest[r] ?? null; r += 1; }
+  }
+  const order = slots.filter((id): id is string => id !== null);
+  // A bug-catcher, not a repair: if this ever trips, the two arrays disagreed about the room set.
+  if (order.length !== n) {
+    return {
+      ok: false,
+      code: 'pin-unplaceable',
+      statement:
+        `PRYZM could not seat every room: ${order.length} of ${n} positions were filled. No `
+        + 'partial arrangement is drawn, because a plan missing a room reads as a plan that does '
+        + 'not need it.',
+    };
+  }
+  return { ok: true, order };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -529,7 +623,14 @@ export function solveProgrammeLayout(input: ProgrammeLayoutInput): ProgrammeLayo
     };
   }
 
-  const order = seriateByGraph(entries, programme.links);
+  // §ROOM-PIN (L-13079) — THE GRAPH PROPOSES, THE USER DISPOSES. The seriation is still what
+  // decides where an unpinned room goes; `applyPinnedOrder` then holds every pinned room at the
+  // position the user gave it. With no pins this is `seriated` itself, referentially — so every
+  // existing programme, fixture and spec solves to exactly the layout it did before.
+  const seriated = seriateByGraph(entries, programme.links);
+  const seated = applyPinnedOrder(seriated, entries);
+  if (!seated.ok) return seated;
+  const order = seated.order;
   const byId = new Map(entries.map((e) => [e.id, e]));
 
   const slots: Slot[] = order

@@ -391,3 +391,162 @@ describe('§ROOM-PROGRAMME — the batch payload', () => {
     expect(describeReplacement([])).toBeNull();
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §ROOM-PIN (L-13079) — AN ARRANGEMENT THE RE-SOLVE MAY NOT EAT
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// The founder: *"This room locator needs to be more flexible and more dynamic — I
+// shall be able to reorganize also the rooms on the plan view."* L-13079's blocking
+// finding is why the PIN lands before any drag: `roomProgrammePanel.render()` calls
+// `solveProgrammeLayout` UNCONDITIONALLY on every intent, and the layout was a pure
+// function of `(levelRing, programme)` — so a rearrangement was not merely lost on
+// reload, it was erased by the user's very next rename, and `RoomProgrammeEntry` had
+// no field in which a rearrangement was even REPRESENTABLE.
+//
+// ⭐ THE FIRST TEST IS THE ONE THAT MATTERS, and it is written as a DIFFERENCE across
+// an unrelated intent rather than as a property of one solve — exactly as the
+// relationship arm above is, and for the same reason: a pin that is stored, echoed
+// back, and quietly ignored by the solver would pass every other assertion here.
+describe('§ROOM-PIN — a pinned room survives the re-solve its neighbours trigger', () => {
+  const rooms = [
+    ['living', 'living', 40],
+    ['kitchen', 'kitchen', 30],
+    ['bed', 'bedroom', 25],
+    ['bath', 'bathroom', 12],
+  ] as ReadonlyArray<readonly [string, string, number]>;
+
+  it('⭐ pinning holds the cell, and a RENAME no longer moves it', () => {
+    const base = programmeOf(rooms, [['living', 'kitchen'], ['living', 'bed']]);
+    const free = ok(solveProgrammeLayout({ levelRing: PLATE, programme: base }));
+    // Pick a room the solver did NOT already place first, so the pin is a real move.
+    const target = free.order.find((id) => id !== free.order[0])!;
+    const pinned = reduceRoomProgramme(base, { type: 'programme.pin-room', id: target, order: 0 });
+    expect(pinned).not.toBe(base);
+    const solved = ok(solveProgrammeLayout({ levelRing: PLATE, programme: pinned }));
+    expect(solved.order[0]).toBe(target);
+
+    // ⛔ THE DEFECT THIS EXISTS TO CLOSE. Rename an unrelated room — the intent L-13079
+    // names by name — and re-solve. Before the pin the whole order came back from the
+    // seriation and the arrangement was gone; the pinned room must still be first, in
+    // the SAME cell, not merely in the same list position.
+    const renamed = reduceRoomProgramme(pinned, {
+      type: 'programme.rename-room', id: 'bath', name: 'Shower room',
+    });
+    const after = ok(solveProgrammeLayout({ levelRing: PLATE, programme: renamed }));
+    expect(after.order[0]).toBe(target);
+    const cellBefore = solved.cells.find((c) => c.roomId === target)!;
+    const cellAfter = after.cells.find((c) => c.roomId === target)!;
+    expect(cellAfter.ring.map((p) => `${p.x.toFixed(3)},${p.z.toFixed(3)}`).join('|'))
+      .toBe(cellBefore.ring.map((p) => `${p.x.toFixed(3)},${p.z.toFixed(3)}`).join('|'));
+  });
+
+  it('an unpinned programme solves to EXACTLY what it solved to before the pin existed', () => {
+    // ⭐ The additive guarantee. `applyPinnedOrder` returns the seriation itself when no
+    // room is pinned, so every existing programme, fixture and spec is untouched.
+    const p = programmeOf(rooms, [['living', 'kitchen']]);
+    const a = ok(solveProgrammeLayout({ levelRing: PLATE, programme: p }));
+    expect(a.order).toEqual(seriateByGraph(p.entries, p.links));
+  });
+
+  it('unpinned rooms keep their RELATIVE seriation order around the pin', () => {
+    // ⛔ One pin must not reshuffle rooms the user never touched — that is the same
+    // "it moved on its own" complaint one level down.
+    const p = programmeOf(rooms, [['living', 'kitchen'], ['living', 'bed']]);
+    const seriated = seriateByGraph(p.entries, p.links);
+    const last = seriated[seriated.length - 1]!;
+    const pinned = reduceRoomProgramme(p, { type: 'programme.pin-room', id: last, order: 0 });
+    const solved = ok(solveProgrammeLayout({ levelRing: PLATE, programme: pinned }));
+    expect(solved.order[0]).toBe(last);
+    expect(solved.order.slice(1)).toEqual(seriated.filter((id) => id !== last));
+  });
+
+  it('⛔ the reducer REFUSES an out-of-range or already-taken position — it never nudges', () => {
+    const p = programmeOf(rooms);
+    // Out of range: 4 rooms, so positions are 0…3.
+    expect(reduceRoomProgramme(p, { type: 'programme.pin-room', id: 'bed', order: 4 })).toBe(p);
+    expect(reduceRoomProgramme(p, { type: 'programme.pin-room', id: 'bed', order: -1 })).toBe(p);
+    expect(reduceRoomProgramme(p, { type: 'programme.pin-room', id: 'bed', order: 1.5 })).toBe(p);
+    // Taken: the second pin is refused and the FIRST stands — nothing is displaced.
+    const one = reduceRoomProgramme(p, { type: 'programme.pin-room', id: 'bed', order: 2 });
+    const two = reduceRoomProgramme(one, { type: 'programme.pin-room', id: 'bath', order: 2 });
+    expect(two).toBe(one);
+    expect(one.entries.find((e) => e.id === 'bed')!.pinnedOrder).toBe(2);
+    expect(one.entries.find((e) => e.id === 'bath')!.pinnedOrder).toBeUndefined();
+  });
+
+  it('unpinning hands the room back, and leaves an entry indistinguishable from a never-pinned one', () => {
+    const p = programmeOf(rooms);
+    const pinned = reduceRoomProgramme(p, { type: 'programme.pin-room', id: 'bed', order: 1 });
+    const free = reduceRoomProgramme(pinned, { type: 'programme.unpin-room', id: 'bed' });
+    const e = free.entries.find((x) => x.id === 'bed')!;
+    expect(e.pinnedOrder).toBeUndefined();
+    expect(Object.hasOwn(e, 'pinnedOrder')).toBe(false);
+    // A second unpin is a no-op, so a caller can tell "nothing happened" from "it moved".
+    expect(reduceRoomProgramme(free, { type: 'programme.unpin-room', id: 'bed' })).toBe(free);
+  });
+
+  it('⛔ removing a room DROPS a stranded pin rather than moving the room somewhere unasked', () => {
+    // 4 rooms → positions 0…3. Pin the last one, then delete a different room: position 3
+    // ceases to exist. Clamping would keep the pin's authority while silently relocating the
+    // room; dropping it returns that ONE room to the solver, which is the visible default.
+    const p = programmeOf(rooms);
+    const pinned = reduceRoomProgramme(p, { type: 'programme.pin-room', id: 'bath', order: 3 });
+    expect(pinned.entries.find((e) => e.id === 'bath')!.pinnedOrder).toBe(3);
+    const removed = reduceRoomProgramme(pinned, { type: 'programme.remove-room', id: 'kitchen' });
+    expect(removed.entries).toHaveLength(3);
+    expect(removed.entries.find((e) => e.id === 'bath')!.pinnedOrder).toBeUndefined();
+    // …and the layout still solves, rather than refusing on a pin the user cannot see.
+    expect(ok(solveProgrammeLayout({ levelRing: PLATE, programme: removed })).cells).toHaveLength(3);
+  });
+
+  it('an in-range pin SURVIVES a removal — only the stranded one is dropped', () => {
+    const p = programmeOf(rooms);
+    let s = reduceRoomProgramme(p, { type: 'programme.pin-room', id: 'living', order: 0 });
+    s = reduceRoomProgramme(s, { type: 'programme.pin-room', id: 'bath', order: 3 });
+    const removed = reduceRoomProgramme(s, { type: 'programme.remove-room', id: 'kitchen' });
+    expect(removed.entries.find((e) => e.id === 'living')!.pinnedOrder).toBe(0);
+    expect(removed.entries.find((e) => e.id === 'bath')!.pinnedOrder).toBeUndefined();
+  });
+
+  it('⛔ a directly-assembled bad pin REFUSES with both numbers — the solver never guesses', () => {
+    // Unreachable through the reducer by construction; reachable from a fixture or a future
+    // restore. `applyPinnedOrder` is the arm that refuses rather than seating the room somewhere.
+    const p = programmeOf(rooms);
+    const bad: RoomProgramme = {
+      entries: p.entries.map((e) => (e.id === 'bed' ? { ...e, pinnedOrder: 9 } : e)),
+      links: p.links,
+    };
+    const r = solveProgrammeLayout({ levelRing: PLATE, programme: bad });
+    expect(r.ok).toBe(false);
+    if (r.ok) throw new Error('unreachable');
+    expect(r.code).toBe('pin-unplaceable');
+    // BOTH numbers: the position asked for, and how many there are.
+    expect(r.statement).toContain('position 10');
+    expect(r.statement).toContain('4 rooms');
+    expect(r.statement).toContain('will not move it');
+
+    const collide: RoomProgramme = {
+      entries: p.entries.map((e) => (
+        e.id === 'bed' || e.id === 'bath' ? { ...e, pinnedOrder: 1 } : e
+      )),
+      links: p.links,
+    };
+    const c = solveProgrammeLayout({ levelRing: PLATE, programme: collide });
+    expect(c.ok).toBe(false);
+    if (c.ok) throw new Error('unreachable');
+    expect(c.code).toBe('pin-unplaceable');
+    expect(c.statement).toContain('position 2');
+    expect(c.statement).toContain('will not decide which');
+  });
+
+  it('the pin is deterministic — the same programme solves to the same order twice', () => {
+    const p = reduceRoomProgramme(programmeOf(rooms, [['living', 'kitchen']]), {
+      type: 'programme.pin-room', id: 'bath', order: 0,
+    });
+    const a = ok(solveProgrammeLayout({ levelRing: PLATE, programme: p }));
+    const b = ok(solveProgrammeLayout({ levelRing: PLATE, programme: p }));
+    expect(a.order).toEqual(b.order);
+    expect(ringKey(a)).toBe(ringKey(b));
+  });
+});

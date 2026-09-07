@@ -115,6 +115,20 @@ export const ROOM_PROGRAMME_LOAD_BTN_TESTID = 'room-programme-load-project';
 export const ROOM_PROGRAMME_NODE_ATTR = 'data-room-node';
 export const ROOM_PROGRAMME_EDGE_ATTR = 'data-room-edge';
 
+// ── §ROOM-PIN (L-13079) — THE PLAN STRIP'S OWN IDENTITY ──────────────────────
+//
+// ⛔ THESE COME FIRST, AND L-13079 SAYS SO BY NAME. Before this the preview's cells carried
+// NOTHING addressable — a `<polygon>` and a `<title>` with prose in it — so nothing in the
+// product could name the room a pointer was over. A gesture cannot be built on a shape whose
+// identity has to be recovered by parsing a sentence, and a spec cannot check one either.
+
+/** The room a plan cell stands for. Present on the cell group and on its polygon. */
+export const ROOM_CELL_ID_ATTR = 'data-room-cell';
+/** That cell's position in the solved order — the currency a pin is written in. */
+export const ROOM_CELL_ORDER_ATTR = 'data-room-cell-order';
+/** `"1"` iff the user has PINNED this room to its position. Absent means solver-placed. */
+export const ROOM_CELL_PINNED_ATTR = 'data-room-cell-pinned';
+
 /** The drag payload. A prefixed `text/plain` mirrors `FurnitureCarousel`'s idiom. */
 export const ROOM_DRAG_MIME = 'application/x-pryzm-room-kind';
 export const ROOM_DRAG_PREFIX = 'pryzm-room:';
@@ -655,6 +669,133 @@ export function mountRoomProgrammePanel(
     slots.list.replaceChildren(box);
   }
 
+  // ── §ROOM-PIN (L-13079) — REORDERING ROOMS ON THE PLAN ─────────────────────
+  //
+  // Founder: *"I shall be able to reorganize also the rooms on the plan view."*
+  //
+  // ⭐ POINTER EVENTS, NOT HTML5 DRAG-AND-DROP, AND THE REASON IS THIS SURFACE. The panel
+  // already uses HTML5 DnD for the LIBRARY chips, and `makeDropTarget` is installed on this very
+  // `<svg>` so a chip can be dropped onto the plan to add a room. Making the cells HTML5-draggable
+  // too would put two drag protocols on one element with one `dataTransfer` between them, and
+  // `draggable` is not honoured on SVG children across browsers in any case. A pointer gesture is
+  // a different channel: it cannot be confused with a chip drop, it needs no `DataTransfer`, and
+  // it is directly drivable by a spec.
+  //
+  // ⛔ IT WRITES THROUGH THE PROGRAMME INTENT PATH, WHICH IS THIS SUBSYSTEM'S BLESSED ONE — the
+  // same `applyRoomProgrammeIntent` every other edit on this panel uses (add · rename · set-area ·
+  // link · unlink). It is deliberately NOT a bus command: `roomProgrammeModel.ts`'s header makes
+  // the P6 argument in full — a programme is a session BRIEF, not a domain store, and its
+  // blessed precedent is the `activeRoom*Overrides` family (C52 §3). The bus is reached when the
+  // brief is COMMITTED, by "Create room envelopes", and that is the gesture that is undoable.
+  // ⚠ SO: A PIN IS NOT ON THE UNDO STACK, and this panel must not imply that it is. Ctrl+Z does
+  // not unpin — dragging the room back, or double-clicking it, does.
+
+  /** Where a reorder gesture began: the room under the pointer at `pointerdown`. */
+  let reorderFrom: { readonly id: string; readonly name: string; readonly order: number } | null = null;
+
+  /** The cell group under a pointer event, or `null` if the pointer is on bare plate. */
+  function cellUnder(ev: PointerEvent): { readonly id: string; readonly order: number } | null {
+    const t = ev.target as Element | null;
+    const g = t?.closest?.(`[${ROOM_CELL_ID_ATTR}][${ROOM_CELL_ORDER_ATTR}]`) ?? null;
+    if (!g) return null;
+    const id = g.getAttribute(ROOM_CELL_ID_ATTR);
+    const order = Number(g.getAttribute(ROOM_CELL_ORDER_ATTR));
+    if (!id || !Number.isInteger(order)) return null;
+    return { id, order };
+  }
+
+  /**
+   * The gesture's RELEASE, installed once on the `<svg>` rather than per cell.
+   *
+   * ⛔ IT CANNOT LIVE ON THE SOURCE CELL, AND THAT IS NOT A STYLE CHOICE. Without pointer
+   * capture a browser fires `pointerup` on the element under the pointer at release — the
+   * DESTINATION — so a listener on the cell the drag STARTED from would never run for the one
+   * gesture this feature is about. (A spec written against a per-cell listener would still have
+   * passed, by dispatching an event the browser never produces: §FAKE-MORE-CAPABLE-THAN-REAL.)
+   * One listener on the shared root sees every release, whichever cell it lands on.
+   */
+  function wireReorderRelease(svg: SVGSVGElement): void {
+    svg.addEventListener('pointerup', (ev) => {
+      const from = reorderFrom;
+      reorderFrom = null;
+      if (!from) return;
+      const to = cellUnder(ev as PointerEvent);
+      // Released on bare plate, or back on itself: nothing was asked for, so nothing is done.
+      // ⛔ NOT "pin it where it already is" — a gesture that ends where it started is a cancel,
+      // and turning it into a pin would make every stray click a silent commitment.
+      if (!to || to.id === from.id) return;
+      applyReorder(from, to.order);
+    });
+    // Leaving the plan strip mid-drag abandons the gesture, so a release somewhere else on the
+    // page cannot complete a move the user walked away from.
+    svg.addEventListener('pointerleave', () => { reorderFrom = null; });
+  }
+
+  function wireCellReorder(g: SVGGElement, id: string, name: string, order: number): void {
+    g.addEventListener('pointerdown', () => {
+      reorderFrom = { id, name, order };
+    });
+    // §ROOM-PIN — the way BACK. A pin the user cannot release is a trap, and the release has to
+    // live on the same surface as the gesture that set it.
+    g.addEventListener('dblclick', () => {
+      if (getRoomProgramme().entries.find((e) => e.id === id)?.pinnedOrder === undefined) return;
+      dispatchIntent(() => {
+        const changed = applyRoomProgrammeIntent({ type: 'programme.unpin-room', id });
+        if (changed) {
+          say(
+            `${name} is no longer pinned — the solver places it again, from the relationships you `
+            + 'plugged in.', false);
+        }
+        return changed;
+      });
+    });
+  }
+
+  /**
+   * Move `from` to position `toOrder`, by PINNING it there.
+   *
+   * ⛔ EVERY REFUSAL IS SPOKEN. `programme.pin-room` returns the state unchanged when the slot is
+   * already held by another pinned room, and a drag that appears to do nothing is exactly the
+   * "did my change save?" failure this whole lane exists to remove. The panel says which room
+   * holds the slot and what to do about it.
+   */
+  function applyReorder(
+    from: { readonly id: string; readonly name: string; readonly order: number },
+    toOrder: number,
+  ): void {
+    const p = getRoomProgramme();
+    const holder = p.entries.find((e) => e.id !== from.id && e.pinnedOrder === toOrder);
+    if (holder) {
+      say(
+        `${from.name} cannot take position ${toOrder + 1}: ${holder.name} is pinned there. One `
+        + `position holds one room, and PRYZM will not decide which of the two you meant — `
+        + `double-click ${holder.name} to unpin it first, then drag ${from.name} across.`,
+        true);
+      render();
+      return;
+    }
+    const changed = applyRoomProgrammeIntent({
+      type: 'programme.pin-room', id: from.id, order: toOrder,
+    });
+    if (changed) {
+      pendingReplace = null;
+      say(
+        `${from.name} is pinned to position ${toOrder + 1}. It stays there while the rooms you `
+        + 'have not pinned re-solve around it. Double-click it to hand it back to the solver. '
+        + '(A pin is part of this session\'s brief, not the undo stack — Ctrl+Z will not '
+        + 'release it.)', false);
+    } else {
+      // The reducer's one remaining refusal at this point is an out-of-range order, which the
+      // strip cannot produce: it only offers positions that exist. Said anyway rather than
+      // swallowed — a silent no-op is the defect, whatever caused it.
+      say(`${from.name} could not be pinned to position ${toOrder + 1}. Nothing moved.`, true);
+    }
+    // ⛔ RENDERED ON BOTH ARMS. `dispatchIntent` repaints only when the state changed, which is
+    // right for every other caller and wrong here: the REFUSAL is the thing the user most needs
+    // to see, and it lives in the status line this repaint is what writes.
+    render();
+  }
+
   // ── PLAN PREVIEW + LEGEND ──────────────────────────────────────────────────
 
   function renderPreview(layout: ProgrammeLayoutResult): void {
@@ -694,6 +835,8 @@ export function mountRoomProgrammePanel(
       `Plan of ${layout.cells.length} room envelopes inside a ${layout.levelAreaM2.toFixed(0)} square metre level envelope.`);
     svg.style.cssText = `${CARD_CSS}display:block;`;
     makeDropTarget(svg);
+    // §ROOM-PIN (L-13079) — the release half of the reorder gesture. One listener, on the root.
+    wireReorderRelease(svg);
 
     const drawRing = (
       ring: readonly { x: number; z: number }[],
@@ -716,12 +859,40 @@ export function mountRoomProgrammePanel(
       r.appendChild(t);
       svg.appendChild(r);
     }
-    for (const c of layout.cells) {
+    // §ROOM-PIN (L-13079) — the pins as the PROGRAMME holds them, so the strip can mark a
+    // pinned cell without re-deciding anything the solver already decided.
+    const pinnedOf = new Map(
+      getRoomProgramme().entries.map((e) => [e.id, e.pinnedOrder] as const),
+    );
+    layout.cells.forEach((c, i) => {
+      // ⭐ ONE GROUP PER ROOM, CARRYING THE IDENTITY. `layout.cells[i].roomId === layout.order[i]`
+      // by construction in `solveProgrammeLayout` (the cells are built by walking `order`), so
+      // the index IS the position a pin is written in — no second derivation, no lookup that
+      // could disagree. The group wraps the polygon AND its two labels, so a pointer landing on
+      // the room's own name is the same gesture as one landing on its floor.
+      const g = svgEl('g');
+      const isPinned = pinnedOf.get(c.roomId) !== undefined;
+      g.setAttribute(ROOM_CELL_ID_ATTR, c.roomId);
+      g.setAttribute(ROOM_CELL_ORDER_ATTR, String(i));
+      if (isPinned) g.setAttribute(ROOM_CELL_PINNED_ATTR, '1');
+      g.style.cursor = 'grab';
       const poly = drawRing(c.ring, libraryColourFor(c.kind), '0.85');
+      poly.setAttribute(ROOM_CELL_ID_ATTR, c.roomId);
+      if (isPinned) {
+        // A pinned cell is DRAWN as pinned. A held position the user cannot see is a promise
+        // he has to remember, and the next re-solve looks like the pin failed.
+        poly.setAttribute('stroke', '#6600FF');
+        poly.setAttribute('stroke-width', '1.6');
+      }
       const t = svgEl('title');
-      t.textContent = `${c.name} — ${c.areaM2.toFixed(2)} m² (asked for ${c.targetAreaM2.toFixed(2)} m²)`;
+      t.textContent =
+        `${c.name} — ${c.areaM2.toFixed(2)} m² (asked for ${c.targetAreaM2.toFixed(2)} m²). `
+        + (isPinned
+          ? `Pinned to position ${i + 1} — drag it onto another room to move it, or double-click `
+            + 'to hand it back to the solver.'
+          : `Position ${i + 1}, chosen by the solver. Drag it onto another room to pin it there.`);
       poly.appendChild(t);
-      svg.appendChild(poly);
+      g.appendChild(poly);
       let cx = 0; let cz = 0;
       for (const q of c.ring) { cx += q.x; cz += q.z; }
       cx /= c.ring.length; cz /= c.ring.length;
@@ -731,8 +902,8 @@ export function mountRoomProgrammePanel(
       lab.setAttribute('text-anchor', 'middle');
       lab.setAttribute('font-size', '8');
       lab.setAttribute('fill', '#22223a');
-      lab.textContent = c.name;
-      svg.appendChild(lab);
+      lab.textContent = isPinned ? `${c.name} 📌` : c.name;
+      g.appendChild(lab);
       const ar = svgEl('text');
       ar.setAttribute('x', String(sx(cx)));
       ar.setAttribute('y', String(sz(cz) + 9));
@@ -740,9 +911,17 @@ export function mountRoomProgrammePanel(
       ar.setAttribute('font-size', '7');
       ar.setAttribute('fill', '#5a5a72');
       ar.textContent = `${c.areaM2.toFixed(1)} m²`;
-      svg.appendChild(ar);
-    }
+      g.appendChild(ar);
+      wireCellReorder(g, c.roomId, c.name, i);
+      svg.appendChild(g);
+    });
     box.appendChild(svg);
+    box.appendChild(el(
+      'div',
+      `${NOTE_CSS}margin-top:4px;`,
+      'Drag a room onto another to move it there — it stays pinned (📌) while everything '
+      + 'unpinned re-solves around it. Double-click a pinned room to hand it back to the solver.',
+    ));
 
     // ── LEGEND — STR §10 asks for colour-coded categories WITH a legend ────────
     const legend = el('div', 'display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:6px;');
@@ -902,14 +1081,24 @@ export function mountRoomProgrammePanel(
       // ⛔ THE PROMISE IS NARROWED, NOT DELETED, AND THE ROUTE IS GIVEN. A capability sentence
       // that names no surface cannot be checked by the reader and cannot be falsified by a test;
       // one that names the view is true everywhere it is read and tells the user where to go.
-      // ⭐ When the Cesium / MapLibre adapters land (the ports are already extracted — four
-      // methods, `spaceEnvelopeDragSurface.ts`), WIDEN THIS SENTENCE IN THE SAME COMMIT. A
-      // capability that ships with its claim left behind is the same defect pointed the other way.
+      //
+      // ⭐ WIDENED AGAIN 2026-09-07 (lane FACE-DRAG-2), IN THE COMMIT THAT LANDED THE 3D SITE
+      // ADAPTER — which is precisely what the note above asked the next lane to do. The Cesium
+      // adapter (`siteEnvelopeDrawCesium.ts`) now implements all four drag ports and
+      // `GISAreaLayout` installs the SAME renderer-free gesture on the 3D Site canvas, so the
+      // claim is true on TWO surfaces and the sentence says exactly those two.
+      //
+      // ⛔ THE 2D SITE MAP IS STILL EXCLUDED, AND NOT BY OVERSIGHT. A plan map has no vertical
+      // axis: `spaceEnvelopeFaceAxis` gives the top and bottom faces ±Y, which no plan gesture can
+      // express, so height there is a numeric field and never a drag (L-13045). Naming the two 3-D
+      // views is therefore the widest sentence that is still TRUE, which is the only kind worth
+      // widening to.
       say(
         (removed > 0 ? `Replaced ${removed}. ` : '')
-        + `Created — ${plan.statement} To reshape them, open the PRYZM 3D view: there each face is `
-        + 'draggable and a double-click opens its profile for editing. (On the Site views they are '
-        + 'drawn, but not yet editable by pointer.)', false);
+        + `Created — ${plan.statement} To reshape them, drag a face: each one moves along its own `
+        + 'perpendicular on the PRYZM 3D view and on the 3D Site view, and a double-click on PRYZM '
+        + '3D opens its profile for editing. (On the 2D Site map they are drawn, not dragged — a '
+        + 'plan has no height axis.)', false);
     } catch (e) {
       say(
         `PRYZM could not create the room envelopes: ${String((e as Error)?.message ?? e)}. `

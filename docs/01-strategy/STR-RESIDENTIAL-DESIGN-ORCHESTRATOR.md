@@ -1277,11 +1277,45 @@ Three separate facts, not one:
   MutationObserver re-moving nodes on every render — a shortcut — or a host arbiter that renders
   the card's sections as separately mountable producers (C19 §5.7 clause 1's prescribed fix). The
   founder's section list is honoured where the tab owns the producer and NOT where the card does.
-  ⚠ **Founder decision pending:** lift the four named figures to the card's HEADLINE (replacing
+  ⭐ **DECIDED 2026-09-07 by the founder — LIFT THEM. Implemented by lane CARD-POLISH-3 (L-13085);
+  this paragraph read *"Founder decision pending"* until then, and the question it asked is
+  recorded below so the next reader finds the decision rather than re-litigating it.**
+  *The question was:* lift the four named figures to the card's HEADLINE (replacing
   `Setbacks (F/S/R) · Max height · Max FAR · Buildable`) and drop them from the fold, or keep the
-  headline as is. Lifting them is a rule-1 move (one place) that also makes them visible without
-  opening the fold; it is a GISAreaLayout edit this lane did not make because it changes what
-  three hosts' headline says.
+  headline as is.
+  **What landed:** the headline is now `Maximum levels · Maximum height · Maximum implantation
+  area (ground, plan) · Maximum buildable area (all floors, GFA)`, with their values, built by
+  `buildSiteDataBlock`'s `ceilingHeadline` — which now returns `{ headline, fold }` so both halves
+  come from ONE read of one envelope. The four rows are **DELETED** from the fold, not copied:
+  lifting without removing would re-create the duplication rule 1 exists to end, one edit after
+  applying the rule. `parcelLawTab.spec.ts` counts each `row(CEILING_LABEL.<key>` call site and
+  requires exactly one, and asserts the four old literals are gone.
+  · **Rule 2 survives**: the same `row()` builds them, so `height` / `footprint` / `gfa` keep their
+  highlight subjects, `buildSiteHighlightLabelHtml` is still the one control builder, and
+  `wireSiteHighlightRows(panel)` still wires them (it takes the whole panel). `Maximum levels`
+  carries no subject — there is no geometry for "storeys" to light, and §3 forbids rendering a
+  dead control.
+  · **The names come from `CEILING_LABEL`** (`intentAgainstCeilingModel.ts`), which already owned
+  them for question 3 — so the headline and the intent/ceiling pairs cannot drift apart.
+  · **ONE headline for all three hosts** (GIS rail PARCEL panel · floating GIS card · Parcel Law
+  tab question 2). C19 §5.7 forbids a host branch inside the singleton's renderer and there is
+  none.
+  · **Absence and refusal arms survive.** A ceiling the pack did not derive prints `not derived` in
+  the headline exactly as it did in the fold (C58 §1.4 · L-13048). The **degenerate** arm keeps its
+  refusal sentence *instead* of the four — setbacks that consume the parcel mean there is no
+  buildable envelope, so printing a footprint and a buildable area for it would be a claim about
+  the user's land. The **alignment-zone** arm (§L-518c) keeps `Buildable depth` + `Alignment
+  offset` + its caveat *in addition to* the four, because such a zone has null setbacks/height/FAR
+  by design and the four alone would read as the "empty / not filled in" complaint that arm exists
+  to answer.
+  · **The setback triple was RELOCATED, not deleted.** It was in the replaced headline and appears
+  nowhere else on the card, so it moved into the fold's ordinance block, behind ONE producer
+  (`setbackTriple`); the per-call local `setback()` is gone.
+  · ⭐ **The lift also corrected a mislabel the duplication was hiding:** the old headline's
+  `Buildable` rendered `gfaTxt`, i.e. `"<insetArea> m² footprint"` — a FOOTPRINT under a label a
+  reader takes for buildable floor area. Three of the old headline's four lines were already
+  duplicates of fold rows under different names, so the lift removed a duplication that predated
+  it. ⚠ **Pixels unverified — not deployed.**
 - **Rooms DRAW on the open view (§26.6.4).** Not done. It needs a `room:<id>` parametrised subject
   and a cue arm in the three renderers reading the space-envelope store's room footprints — the
   same shape as `edge:<n>`, one more kind. MASSING-SHAPES' `roomsPerLevelSection` is mounted in
