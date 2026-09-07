@@ -23,6 +23,7 @@ import {
     type Bbox,
 } from './contextBuildings';
 import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
+import { scopeReadFanOutCap } from './contextExtentBudget';
 
 /**
  * §VEG-CANOPY-FROM-WOODS (L-12934) — the green-area class, read off the OSM tag that defines it.
@@ -141,11 +142,13 @@ export function parksFromTileFeatures(features: ContextTileFeature[]): ContextPa
 
 export async function fetchContextParks(
     lat: number, lon: number, signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 (C12 §13.1) — the scope-derived half-extent; defaults to the near read. */
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
 ): Promise<ContextParkCollection> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
         return emptyParkCollection();
     }
-    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const bbox = contextBboxAround(lat, lon, halfDeg);
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
@@ -154,7 +157,7 @@ export async function fetchContextParks(
     // back to Overpass ONLY on `unavailable` (a real read failure); an honest empty `ok` is an ANSWER
     // (§CONTEXT-DATA-HONESTY). `aborted` = caller cancelled → render nothing (§L-579); `disabled`
     // falls through to the Overpass path below unchanged.
-    const tiled = await readContextTileFeatures('parks', bbox, signal);
+    const tiled = await readContextTileFeatures('parks', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) }); // §SITE-SCOPE F-2
     if (tiled.status === 'ok') {
         const collection = parksFromTileFeatures(tiled.features);
         cache.set(key, collection);

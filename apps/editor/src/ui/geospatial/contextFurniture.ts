@@ -27,6 +27,7 @@
 // takes this module's MAPPED lamps as the data that WINS over synthesis. Never throws.
 
 import { contextBboxAround, CONTEXT_BBOX_HALF_DEG, type Bbox } from './contextBuildings';
+import { scopeReadFanOutCap } from './contextExtentBudget';
 import { readContextTileFeatures, isArchiveMissingError, type ContextTileFeature } from './contextTiles';
 import type { MappedLamp, FurnitureLayerState } from './contextStreetLife';
 
@@ -113,17 +114,19 @@ export function lampsFrom(items: ReadonlyArray<FurnitureItem>): MappedLamp[] {
  */
 export async function fetchContextFurniture(
     lat: number, lon: number, signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 (C12 §13.1) — the scope-derived half-extent; defaults to the near read. */
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
 ): Promise<ContextFurnitureCollection> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
         return emptyFurnitureCollection('disabled');
     }
-    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const bbox = contextBboxAround(lat, lon, halfDeg);
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
 
     let tiled: Awaited<ReturnType<typeof readContextTileFeatures>>;
-    try { tiled = await readContextTileFeatures('furniture', bbox, signal); }
+    try { tiled = await readContextTileFeatures('furniture', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) }); } // §SITE-SCOPE F-2
     catch (e) { return emptyFurnitureCollection('unavailable', String((e as Error)?.message ?? e)); }
 
     if (tiled.status === 'ok') {

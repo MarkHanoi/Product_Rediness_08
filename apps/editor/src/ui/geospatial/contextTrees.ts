@@ -18,6 +18,7 @@
 // Never throws.
 
 import { contextBboxAround, CONTEXT_BBOX_HALF_DEG, type Bbox } from './contextBuildings';
+import { scopeReadFanOutCap } from './contextExtentBudget';
 import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
 
 export interface ContextTree {
@@ -59,16 +60,21 @@ function treesFromTileFeatures(features: ContextTileFeature[]): ContextTreeColle
 
 export async function fetchContextTrees(
     lat: number, lon: number, signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 (C12 §13.1) — the scope-derived half-extent (`groundFetchHalfDeg`); defaults to
+     *  the near read so every pre-scope caller is byte-identical. */
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
 ): Promise<ContextTreeCollection> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
         return emptyTreeCollection();
     }
-    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const bbox = contextBboxAround(lat, lon, halfDeg);
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
 
-    const tiled = await readContextTileFeatures('trees', bbox, signal);
+    // §SITE-SCOPE F-2 — trees are baked z14–16 with `--drop-densest-as-needed`: a read stepped below
+    // z16 DELETES trees. The scope-range cap keeps the read at z16 out to the slab's rim.
+    const tiled = await readContextTileFeatures('trees', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) });
     if (tiled.status === 'ok') {
         const collection = treesFromTileFeatures(tiled.features);
         cache.set(key, collection);
@@ -151,6 +157,8 @@ export async function fetchContextCanopySet(
         readonly maxRadiusM: number; readonly maxMapped?: number; readonly maxSynthetic?: number;
         /** §VEG-REAL-CANOPY-BAKE — cap on MEASURED cells. Default `MAX_SAMPLED_CANOPIES`. */
         readonly maxSampled?: number;
+        /** §SITE-SCOPE F-2 — the half-extent BOTH underlying reads (trees, parks) take; omitted ⇒ the near read. */
+        readonly fetchHalfDeg?: number;
     },
     signal?: AbortSignal,
 ): Promise<ContextCanopySet> {
@@ -162,8 +170,8 @@ export async function fetchContextCanopySet(
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return empty;
 
     const [trees, parks, baked] = await Promise.all([
-        fetchContextTrees(lat, lon, signal).catch(() => emptyTreeCollection()),
-        fetchContextParks(lat, lon, signal).catch(() => ({ type: 'ContextParkCollection' as const, areas: [] })),
+        fetchContextTrees(lat, lon, signal, opts.fetchHalfDeg).catch(() => emptyTreeCollection()),
+        fetchContextParks(lat, lon, signal, opts.fetchHalfDeg).catch(() => ({ type: 'ContextParkCollection' as const, areas: [] })),
         // §VEG-REAL-CANOPY-BAKE (L-12935) — the MEASURED third source, read in the same parallel batch
         // (each layer is bbox-cached, so on a warm site this costs no network at all).
         fetchContextBakedCanopy(lat, lon, signal).catch(() => emptyBakedCanopy()),

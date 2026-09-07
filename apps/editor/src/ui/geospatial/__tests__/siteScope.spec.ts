@@ -18,6 +18,7 @@ import {
     convertScopeShape,
     createScopeContainment,
     metresToDegLat,
+    metresToDegLon,
     minimumScopeContainingRing,
     resolveSiteScope,
     scopeAreaM2,
@@ -270,17 +271,22 @@ describe('the parcel is never outside the slab', () => {
     });
 });
 
-describe('fetch extent — the scope as the ONE source of halfDeg (finding F-1)', () => {
-    it('the lat-degree value FALLS SHORT east–west at Barcelona; scopeFetchHalfDeg covers both axes', () => {
+describe('fetch extent — the scope as the ONE source of halfDeg (F-1 RETRACTED)', () => {
+    it('scopeFetchHalfDeg is the LATITUDE half-degree, because contextBboxAround widens longitude itself', () => {
         const s: SiteScope = { shape: 'circle', radiusM: 1781 };
         const cos = Math.cos(BCN.lat * Math.PI / 180);
         const metresPerDegLat = (Math.PI / 180) * 6_378_137;
-        // What the loaders do today: r / (metres per degree of latitude), applied to lon as well.
-        const naive = metresToDegLat(1781);
-        expect(naive * metresPerDegLat * cos).toBeLessThan(1781 * 0.76); // ≈ 1336 m: a 25 % E–W shortfall
-        const honest = scopeFetchHalfDeg(s, BCN.lat);
-        expect(honest * metresPerDegLat * cos).toBeCloseTo(1781, 6); // covers E–W exactly
-        expect(honest * metresPerDegLat).toBeGreaterThan(1781);       // over-reads N–S by 1/cos — the safe side
+        const halfDeg = scopeFetchHalfDeg(s);
+        expect(halfDeg).toBeCloseTo(metresToDegLat(1781), 12);
+        // The helper it feeds: `contextBboxAround(lat, lon, h)` = [lon − h/cos φ, lat − h, lon + h/cos φ, lat + h].
+        // Re-derive its longitude arm here and check the box covers the disc on BOTH axes — which is
+        // exactly what the withdrawn F-1 claimed it did not.
+        const lonHalfDeg = halfDeg / Math.max(0.2, cos);
+        expect(halfDeg * metresPerDegLat).toBeCloseTo(1781, 6);            // N–S: exact
+        expect(lonHalfDeg * metresPerDegLat * cos).toBeCloseTo(1781, 6);   // E–W: exact, not 25 % short
+        // And the value this function used to return would have DOUBLE-widened the read.
+        const wrong = metresToDegLon(1781, BCN.lat);
+        expect((wrong / cos) * metresPerDegLat * cos).toBeGreaterThan(1781 * 1.3);
     });
 
     it('scopeBboxLatLon contains every polygon vertex, for a rotated rectangle too', () => {

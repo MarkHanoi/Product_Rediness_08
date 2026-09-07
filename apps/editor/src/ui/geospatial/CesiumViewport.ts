@@ -114,6 +114,39 @@ import { decideMassingRing, resolveFullBuildingHeightM, type FullHeightDecision 
 import { CONFIDENT_VIOLET_CSS, PROVISIONAL_GREY_CSS, SUGGESTED_AMBER_CSS } from "../site/envelopeRenderStyle";
 import type { MassingSolid } from "@pryzm/site-parcel-data";
 import { CONTEXT_WIDE_HALF_DEG, CONTEXT_SEA_HALF_DEG } from "./contextExtents";
+// §SITE-SCOPE (L-645 re-opened 2026-09-07; C12 §13; ADR-0382) — the scope VALUE (one polygon in
+// every frame) and the GEOMETRIC pre-clip every entity/primitive layer is cut with. Pure modules;
+// the range object and the scope-derived read extent come from the budget leaf.
+import {
+  resolveSiteScope,
+  SITE_SCOPE_SLAB_SIDE_CSS,
+  SITE_SCOPE_SLAB_LIP_M,
+  SITE_SCOPE_SLAB_DEPTH_M,
+  SITE_SCOPE_PREVIEW_CSS,
+  scopeOuterRadiusM as scopeOuterRadiusUnclampedM,
+  type SiteScope,
+} from "./siteScope";
+import {
+  createScopeClipper,
+  createScopeClipTally,
+  capVerdict,
+  completeScopeRadiusM,
+  type ScopeClipper,
+  type ScopeClipTally,
+  type CapVerdict,
+  type LonLat as ScopeLonLat,
+} from "./scopeClip";
+import { SITE_SCOPE_RANGE, groundFetchHalfDeg } from "./contextExtentBudget";
+/**
+ * §SITE-SCOPE — is the GLOBE CUT + SLAB SIDE armed? ⛔ FALSE until EVERY layer class pre-clips
+ * (C12 §13.3). As of 2026-09-07 roads, parks, trees, lamps and people are cut to the scope polygon;
+ * the building tiers, rail, inland water, land-use and the sea are NOT yet. Cutting the globe while
+ * those still extend past the rim would re-create the retired §CTX-EARTH-SLAB's picture — entities
+ * floating over a void — which is the one outcome this design exists to prevent. Flip to `true` in
+ * the commit that lands the last pre-clip; `applySiteScopeClip` and its settle rebuild are complete
+ * and gated on this one constant.
+ */
+const SITE_SCOPE_CLIP_ARMED = false;
 // §CTX-SITE-SCOPE / §CTX-EXTENT-BUDGET (L-13058 x L-645) - the ONE tunable table every 3D-Site
 // context radius and cap derives from. Leaf module (imports nothing) so it cannot close a cycle.
 import {
@@ -1937,10 +1970,284 @@ export class CesiumViewport {
     );
     const at = this.contextBuildingsAt;
     if (at) {
+      // §SITE-SCOPE (C12 §13.1/§13.3) — EVERY layer is cut to the scope, so every layer reloads on a
+      // scope change, not only the three that bake a radius. Each loader swaps (builds the new
+      // geometry, then clears — C12 §13.4 / F-8), so the scene is never blank between the two.
       void this.loadContextBuildings(at.lat, at.lon, true);
       void this.loadContextTrees(at.lat, at.lon, true);
       void this.loadStreetLife(at.lat, at.lon, true);
+      void this.loadContextRoads(at.lat, at.lon, true);
+      void this.loadContextRail(at.lat, at.lon, true);
+      void this.loadContextParks(at.lat, at.lon, true);
+      void this.loadContextWater(at.lat, at.lon, true);
+      void this.loadContextLanduse(at.lat, at.lon, true);
     }
+  }
+
+  // ── §SITE-SCOPE (L-645; C12 §13; ADR-0382) — the slab: ONE polygon, every layer cut to it ─────
+  //
+  // The retired §CTX-EARTH-SLAB cut the globe surface ONLY. Measured against Cesium 1.143.0,
+  // `clippingPolygons` exists on Globe / Cesium3DTileset / Model and nothing else — never on an
+  // entity or a `Primitive`, which is every visible layer here. So the cut is per LAYER CLASS
+  // (C12 §13.3): the globe by `globe.clippingPolygons`, the slab side by a FLAT-shaded primitive,
+  // every entity / primitive layer by the GEOMETRIC pre-clip in `scopeClip.ts` (rings via the
+  // kernel's `intersectPolygons2D`, corridors via segment split, instances by centre), the subject
+  // never. One `ScopeClipper` per (scope, origin, θ) is built lazily and shared by every loader, so
+  // the globe clip, the geometric clip and the instance filter cannot disagree at the rim.
+
+  /** The shared clipper for the CURRENT scope about the CURRENT origin + θ; rebuilt when any changes. */
+  private scopeClipperCache: { readonly key: string; readonly clipper: ScopeClipper } | null = null;
+  /** Where the globe clip + slab side are currently applied (null = no slab). */
+  private siteScopeClipAt: { lat: number; lon: number; key: string } | null = null;
+  /** The slab SIDE + FLOOR primitive (flat-shaded, neutral — C12 §13.6 forbids a lit material). */
+  private siteScopeSlabPrimitive: Cesium.Primitive | null = null;
+  /** `scene.fog.enabled` before the slab took it (restored on clear — C12 §13.7). */
+  private siteScopeFogWas: boolean | null = null;
+  /** The slider's live preview ring (one polyline entity, re-positioned in place). */
+  private siteScopePreviewEntity: Cesium.Entity | null = null;
+  /** Per MAPPED layer: eligible-inside-the-scope vs cap, recorded by the loaders for the slider's
+   *  "complete" mark and the C12 §13.5 verdict line. */
+  private scopeCapReports = new Map<string, { readonly eligible: number; readonly cap: number }>();
+  /** One-time guard for the "clipping polygons unsupported" warning. */
+  private siteScopeUnsupportedWarned = false;
+  /** Disposer for the `site.scope-changed` runtime subscription. */
+  private scopeSub: (() => void) | null = null;
+
+  /** Build (or reuse) the clipper for the current scope about `(lat, lon)` with the site's θ. */
+  private scopeClipperFor(lat: number, lon: number): ScopeClipper {
+    const theta = this.readProjectNorthRad();
+    const s = this.contextScope;
+    const key = `${s.shape}|${s.shape === 'circle' ? s.radiusM : `${s.halfWidthM}x${s.halfDepthM}`}|${lat.toFixed(8)}|${lon.toFixed(8)}|${theta.toFixed(9)}`;
+    if (this.scopeClipperCache && this.scopeClipperCache.key === key) return this.scopeClipperCache.clipper;
+    const clipper = createScopeClipper(s, { lat, lon }, theta);
+    this.scopeClipperCache = { key, clipper };
+    return clipper;
+  }
+
+  /**
+   * §SITE-SCOPE — cut a RING layer to the scope before it is built. Returns one entry per KEPT
+   * loop (a straddling ring becomes its cut piece(s); a refused ring is kept whole and counted;
+   * an outside ring produces nothing). Logs the C12 §13.5 tally line for the layer.
+   */
+  private scopeClipRings<T>(
+    layer: string, items: ReadonlyArray<T>, ringOf: (t: T) => ReadonlyArray<readonly [number, number]>,
+    lat: number, lon: number, tally: ScopeClipTally = createScopeClipTally(),
+  ): Array<{ readonly item: T; readonly ring: ReadonlyArray<readonly [number, number]> }> {
+    const clipper = this.scopeClipperFor(lat, lon);
+    const out: Array<{ readonly item: T; readonly ring: ReadonlyArray<readonly [number, number]> }> = [];
+    for (const item of items) {
+      const res = clipper.clipRingLonLat(ringOf(item) as ReadonlyArray<ScopeLonLat>);
+      tally.add(layer, res.verdict);
+      for (const ring of res.rings) out.push({ item, ring });
+    }
+    for (const line of tally.lines()) console.log(`[CesiumViewport][forma] §SITE-SCOPE clip — ${line}`);
+    return out;
+  }
+
+  /** §SITE-SCOPE — cut a POLYLINE (corridor) layer to the scope; one entry per kept piece. */
+  private scopeClipLines<T>(
+    layer: string, items: ReadonlyArray<T>, lineOf: (t: T) => ReadonlyArray<readonly [number, number]>,
+    lat: number, lon: number,
+  ): Array<{ readonly item: T; readonly coords: ReadonlyArray<readonly [number, number]> }> {
+    const clipper = this.scopeClipperFor(lat, lon);
+    const tally = createScopeClipTally();
+    const out: Array<{ readonly item: T; readonly coords: ReadonlyArray<readonly [number, number]> }> = [];
+    for (const item of items) {
+      const res = clipper.clipPolylineLonLat(lineOf(item) as ReadonlyArray<ScopeLonLat>);
+      tally.add(layer, res.verdict);
+      for (const coords of res.pieces) out.push({ item, coords });
+    }
+    for (const line of tally.lines()) console.log(`[CesiumViewport][forma] §SITE-SCOPE clip — ${line}`);
+    return out;
+  }
+
+  /**
+   * §SITE-SCOPE (C12 §13.1) — read the PERSISTED scope (`SiteModel.scope`, written only by
+   * `site.setScope`) and make it the live scope, resolved through the ONE range object. Called on
+   * the render funnel before the loaders fire and from the `site.scope-changed` subscription;
+   * `setContextScope` is the single entry of the value into the context load.
+   */
+  private syncScopeFromStore(reload: boolean): void {
+    const store = this.runtime?.siteModelStore as { getScope?: () => SiteScope | null } | undefined;
+    const stored = store?.getScope?.() ?? null;
+    const resolved = resolveSiteScope(stored, SITE_SCOPE_RANGE);
+    if (resolved.note) console.log(`[CesiumViewport][forma] §SITE-SCOPE resolve — ${resolved.note} (source: ${resolved.source})`);
+    if (reload) {
+      this.setContextScope(resolved.scope);
+    } else {
+      this.contextScope = resolved.scope;
+      this.streetLife.scope = resolved.scope;
+    }
+  }
+
+  /** The resolved live scope + how it was resolved (for the slider). */
+  public getResolvedSiteScope(): { readonly scope: SiteScope; readonly source: string } {
+    const store = this.runtime?.siteModelStore as { getScope?: () => SiteScope | null } | undefined;
+    const r = resolveSiteScope(store?.getScope?.() ?? null, SITE_SCOPE_RANGE);
+    return { scope: r.scope, source: r.source };
+  }
+
+  /**
+   * §SITE-SCOPE (C12 §13.4) — the slider's LIVE PREVIEW: one polyline ring at the would-be scope,
+   * re-positioned in place on every pointer move. Never a load. `null` removes it.
+   */
+  public previewSiteScope(scope: SiteScope | null): void {
+    const viewer = this.viewer;
+    if (!viewer) return;
+    const at = this.contextBuildingsAt ?? this.formaMassingOrigin;
+    if (!scope || !at) {
+      if (this.siteScopePreviewEntity) { try { viewer.entities.remove(this.siteScopePreviewEntity); } catch { /* gone */ } }
+      this.siteScopePreviewEntity = null;
+      viewer.scene.requestRender();
+      return;
+    }
+    const theta = this.readProjectNorthRad();
+    const ring = createScopeClipper(scope, { lat: at.lat, lon: at.lon }, theta).polygonLatLon;
+    const h = this.formaTerrainBaseHeight + 2;
+    const positions = ring.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, h));
+    positions.push(positions[0]!);
+    if (this.siteScopePreviewEntity?.polyline) {
+      this.siteScopePreviewEntity.polyline.positions = new Cesium.ConstantProperty(positions);
+    } else {
+      this.siteScopePreviewEntity = viewer.entities.add({
+        name: 'pryzm-site-scope-preview',
+        polyline: {
+          positions,
+          width: 3,
+          material: Cesium.Color.fromCssColorString(SITE_SCOPE_PREVIEW_CSS),
+          clampToGround: false,
+          arcType: Cesium.ArcType.NONE,
+        },
+      });
+    }
+    viewer.scene.requestRender();
+  }
+
+  /** §SITE-SCOPE (C12 §13.5) — the per-MAPPED-layer cap verdicts for the CURRENT scope. */
+  public getScopeCapVerdicts(): CapVerdict[] {
+    const out: CapVerdict[] = [];
+    for (const [layer, r] of this.scopeCapReports) out.push(capVerdict(layer, r.eligible, r.cap, this.contextScope));
+    return out;
+  }
+
+  /** §SITE-SCOPE (C12 §13.5) — the largest scope at which every mapped cap holds, from the last load. */
+  public getCompleteScopeMark(): { readonly radiusM: number; readonly boundBy: string } | null {
+    const layers = [...this.scopeCapReports].map(([layer, r]) => ({ layer, eligible: r.eligible, cap: r.cap }));
+    return completeScopeRadiusM(this.contextScope, layers);
+  }
+
+  /**
+   * §SITE-SCOPE (C12 §13.3 classes A + B + H) — cut the GLOBE to the scope polygon and build the
+   * slab SIDE + FLOOR. Runs on the buildings funnel once the terrain base is resolved, is rebuilt on
+   * the terrain settle (the ring's own heights move), and is torn down by `clearContextEarthSlab`.
+   *
+   *  A · `globe.clippingPolygons` = ONE `ClippingPolygon` from the clipper's `polygonLatLon` — the
+   *      SAME n-gon / four corners every layer was cut to — `inverse: true` (keep only the inside).
+   *      Feature-detected (`ClippingPolygonCollection.isSupported` = WebGL2); on any failure the
+   *      globe is left whole AND no side is drawn — never a half-slab (§CONTEXT-DATA-HONESTY).
+   *  B · a `Primitive` of `WallGeometry` on the ring (top = terrain sampled along the ring + the lip,
+   *      bottom = the lowest top − the depth) + a `PolygonGeometry` floor, `PerInstanceColorAppearance
+   *      ({ flat: true })` in the neutral slab grey: unlit by construction, so the warm key light that
+   *      turned the retired tan entity wall into a "red ring" cannot reach it. Shadowless.
+   *  H · fog off while the slab is up (the outside has no fragments; the rim must not fade) —
+   *      restored on clear; no other surface setting is touched (C12 §13.7).
+   * Forma-only; the photoreal globe keeps its parcel void (ADR-0382 D6). Never throws.
+   */
+  private async applySiteScopeClip(lat: number, lon: number): Promise<void> {
+    const viewer = this.viewer;
+    if (!viewer || !this.formaMode || this.photorealTilesActive) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+    const CP = Cesium as unknown as { ClippingPolygon?: unknown; ClippingPolygonCollection?: unknown };
+    if (typeof CP.ClippingPolygon !== 'function' || typeof CP.ClippingPolygonCollection !== 'function'
+        || !Cesium.ClippingPolygonCollection.isSupported(viewer.scene)) {
+      if (!this.siteScopeUnsupportedWarned) {
+        this.siteScopeUnsupportedWarned = true;
+        console.warn('[CesiumViewport][forma] §SITE-SCOPE — clipping polygons unsupported here (WebGL 2 required); the globe is left whole and no slab side is drawn (C12 §13.3).');
+      }
+      this.clearContextEarthSlab();
+      return;
+    }
+    const clipper = this.scopeClipperFor(lat, lon);
+    const key = `${this.scopeClipperCache?.key ?? ''}|${this.formaTerrainBaseHeight.toFixed(2)}`;
+    if (this.siteScopeClipAt && this.siteScopeClipAt.key === key && this.siteScopeSlabPrimitive) return; // already up.
+    const ring = clipper.polygonLatLon;
+    try {
+      // A · the globe. Height-independent (a vertical curtain), so it is applied synchronously.
+      const positions = ring.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0));
+      viewer.scene.globe.clippingPolygons = new Cesium.ClippingPolygonCollection({
+        polygons: [new Cesium.ClippingPolygon({ positions })],
+        inverse: true,
+      });
+      if (this.siteScopeFogWas === null) this.siteScopeFogWas = viewer.scene.fog.enabled;
+      viewer.scene.fog.enabled = false;
+      this.siteScopeClipAt = { lat, lon, key };
+      viewer.scene.requestRender();
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §SITE-SCOPE globe clip failed — globe left whole, no slab side:', e);
+      this.clearContextEarthSlab();
+      return;
+    }
+    // B · the side + floor, seated on the terrain sampled along the ring (ONE batched flight —
+    //     the ring's points land in tiles the buildings already pulled).
+    try {
+      await this.sampleContextGroundsBatch(ring.map((p) => ({ lat: p.lat, lon: p.lon })));
+    } catch { /* falls back to the safe base below — never a stray 0 */ }
+    if (!this.viewer || this.viewer !== viewer) return;
+    if (!this.siteScopeClipAt || this.siteScopeClipAt.key !== key) return; // superseded while sampling.
+    try {
+      const safeBase = this.resolveContextSafeBase(lat, lon);
+      const tops = ring.map((p) => this.sampleGround(p.lat, p.lon, safeBase) + SITE_SCOPE_SLAB_LIP_M);
+      let lowest = Infinity;
+      for (const t of tops) if (t < lowest) lowest = t;
+      if (!Number.isFinite(lowest)) lowest = safeBase;
+      const floor = lowest - SITE_SCOPE_SLAB_LIP_M - SITE_SCOPE_SLAB_DEPTH_M;
+      const closed = [...ring, ring[0]!];
+      const wallPositions = closed.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0));
+      const maximumHeights = closed.map((_, i) => tops[i % ring.length]!);
+      const minimumHeights = closed.map(() => floor);
+      const colour = Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromCssColorString(SITE_SCOPE_SLAB_SIDE_CSS));
+      const wall = new Cesium.GeometryInstance({
+        geometry: new Cesium.WallGeometry({
+          positions: wallPositions, maximumHeights, minimumHeights,
+          vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT,
+        }),
+        attributes: { color: colour },
+      });
+      const cap = new Cesium.GeometryInstance({
+        geometry: new Cesium.PolygonGeometry({
+          polygonHierarchy: new Cesium.PolygonHierarchy(ring.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0))),
+          height: floor,
+          vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT,
+        }),
+        attributes: { color: colour },
+      });
+      if (this.siteScopeSlabPrimitive) { try { viewer.scene.primitives.remove(this.siteScopeSlabPrimitive); } catch { /* gone */ } }
+      const prim = new Cesium.Primitive({
+        geometryInstances: [wall, cap],
+        appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: false, closed: false }),
+        asynchronous: true,
+        shadows: Cesium.ShadowMode.DISABLED,
+      });
+      viewer.scene.primitives.add(prim);
+      this.siteScopeSlabPrimitive = prim;
+      viewer.scene.requestRender();
+      console.log(
+        `[CesiumViewport][forma] §SITE-SCOPE slab — globe cut to a ${this.contextScope.shape} of ` +
+          `${Math.round(scopeOuterRadiusUnclampedM(this.contextScope))} m (${ring.length}-gon, inverse); side + floor: ` +
+          `flat-shaded ${SITE_SCOPE_SLAB_SIDE_CSS}, top on sampled relief + ${SITE_SCOPE_SLAB_LIP_M} m, floor ${floor.toFixed(1)} m ` +
+          `(${SITE_SCOPE_SLAB_DEPTH_M} m below the lowest rim); fog off.`,
+      );
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §SITE-SCOPE slab side build failed — globe clip kept, no side:', e);
+    }
+  }
+
+  /** §SITE-SCOPE — rebuild the slab on the settled terrain base (the ring's own heights moved). */
+  private rebuildSiteScopeClipForBase(): void {
+    if (!SITE_SCOPE_CLIP_ARMED) return;
+    const at = this.siteScopeClipAt ?? this.contextBuildingsAt;
+    if (!at || !this.viewer) return;
+    void this.applySiteScopeClip(at.lat, at.lon);
   }
   private contextTreesPrimitive: Cesium.Primitive | null = null;
   private contextTreesAbort: AbortController | null = null;
@@ -3897,6 +4204,13 @@ export class CesiumViewport {
     });
     // EventSubscription is both callable and Disposable — store the callable form.
     this.locationSub = () => sub();
+    // §SITE-SCOPE (C12 §13.4) — the slider's RELEASE dispatches `site.setScope`; the bus event is the
+    // ONE trigger of the reload (never a pointer move). `setContextScope` is the single entry of the
+    // value into the context load.
+    if (!this.scopeSub) {
+      const scopeSub = events.on('site.scope-changed', () => { this.syncScopeFromStore(true); });
+      this.scopeSub = () => scopeSub();
+    }
   }
 
   /**
@@ -4616,6 +4930,7 @@ export class CesiumViewport {
         this.contextBuildingsAbort?.abort();
         this.clearContextBuildings();
         this.contextBuildingsAt = null;
+        this.clearContextEarthSlab(); // §SITE-SCOPE — leaving the site: drop the slab with the context.
         // FORMA-CTX road-leak fix (2026-06-17) — the OSM road centre-lines are a FORMA-only
         // context overlay; on the photoreal globe the 3D tiles already show the real roads, so
         // the grey Forma lines must be cleared too (they were leaking onto the tiles as floating
@@ -6741,6 +7056,7 @@ export class CesiumViewport {
         this.contextBuildingsAbort = null;
         this.clearContextBuildings();
         this.contextBuildingsAt = null;
+        this.clearContextEarthSlab(); // §SITE-SCOPE — leaving the site: drop the slab with the context.
       } else {
         // §DECOUPLE-ENVELOPE-FROM-CONTEXT (L-402c fix) — the parcel boundary, buildable
         // envelope and massing are ALREADY drawn synchronously above; context now streams
@@ -6749,6 +7065,9 @@ export class CesiumViewport {
         // loader) can NEVER unwind back into renderFormaMassing and undo the just-rendered
         // envelope/massing. A slow or failed context load must never block or blank the site.
         try {
+          // §SITE-SCOPE (C12 §13.1) — the persisted scope becomes the live scope BEFORE any loader
+          // reads it, so the first paint is already cut to the slab (no reload).
+          this.syncScopeFromStore(false);
           void this.loadContextBuildings(originLat, originLon);
           void this.loadContextRoads(originLat, originLon);   // FORMA-CTX §22.2
           void this.loadContextWater(originLat, originLon);   // FORMA-CTX-WATER
@@ -8193,6 +8512,8 @@ export class CesiumViewport {
       // relief instead of sitting ~700 m under it. Cheap (bounded count), no re-fetch — same in-place
       // principle as the near-ring re-seat above.
       this.rebuildContextFarTierForBase();
+      // §SITE-SCOPE — the slab's side follows the ring's OWN sampled relief; rebuild it on the risen base.
+      this.rebuildSiteScopeClipForBase();
       // §CTX-TREES-RESEAT (L-12918, founder 2026-09-05: "we don't have trees in Spain but we do have
       // them everywhere else") — the canopies are a Primitive whose per-tree ground is BAKED INTO THE
       // POSITIONS at load time, sampled BEFORE the terrain settled (flat 0). Everything in this block
@@ -9995,11 +10316,21 @@ export class CesiumViewport {
     this.lastContextCollection = collection;
     if (this.siteMetricActive) this.renderSiteMetricOverlay();
 
-    this.clearContextBuildings();
+    // §SITE-SCOPE F-8 (C12 §13.4 — SWAP, NEVER BLANK). The clear used to sit HERE, before the ground
+    // sample round-trip, so the previous buildings were gone while terrain was still being asked and
+    // an abort inside that window left the scene EMPTY (the L-635 "blanked Madrid" shape) — reached
+    // again through the slider's reload. The clear now runs right before placement, after the near
+    // sample resolves (`siteScopeSwapNeverBlank.spec.ts` pins the order). An EMPTY answer still
+    // clears below, because an empty new site must not keep showing the old one.
     this.contextBuildingsAt = { lat, lon };
     this.noteProjectScopeOwner(); // §L-676 — record WHICH project this context load belongs to.
+    // §SITE-SCOPE (C12 §13.3 class A/B) — the base is resolved (awaited above), so cut the globe and
+    // raise the slab side NOW, before the buildings swap: the cut never lags the context it frames.
+    // Gated on `SITE_SCOPE_CLIP_ARMED` until every layer class pre-clips (see the constant's doc).
+    if (SITE_SCOPE_CLIP_ARMED) void this.applySiteScopeClip(lat, lon);
 
     if (collection.features.length === 0) {
+      this.clearContextBuildings();
       this.warnContextOnce('no context footprints returned for this site (sparse/offline).');
       // §CTX-LOADING-BADGE-ARM (L-585) — ⚠ THIS RETURN USED TO LEAVE THE BADGE SPINNING FOREVER.
       // An empty ring is a settled ANSWER, and the badge must state it rather than keep implying
@@ -10114,6 +10445,9 @@ export class CesiumViewport {
     const farGroundSample = this.sampleContextGroundsBatch(farGroundCentroids); // starts immediately, in parallel
     await this.sampleContextGroundsBatch(nearGroundCentroids);
     if (signal.aborted || !this.viewer || this.viewer !== viewer) { void farGroundSample.catch(() => { /* superseded */ }); return; } // a newer load superseded us during the sample.
+    // §SITE-SCOPE F-8 (C12 §13.4) — SWAP: the replacement is fetched, clipped and ground-sampled;
+    // only now do the previous entities go, and the new ones follow in the same task.
+    this.clearContextBuildings();
 
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — resolve the SAFE base ONCE for this placement so an
     // un-tessellated footprint under attached relief can never fall back to a depth-culling ~0.
@@ -11215,15 +11549,28 @@ export class CesiumViewport {
    * feature reverts to LOGGED-NOT-BUILT and the scene returns to the known-good L-642 state.
    */
   public clearContextEarthSlab(): void {
+    // §SITE-SCOPE (2026-09-07) — this is now the teardown of the §13 slab (globe clip + flat side +
+    // fog), which SUPERSEDES the retired §CTX-EARTH-SLAB whose root cause the doc above records. It
+    // is called where the context leaves a site (photoreal swap, site clear, dispose) — NOT from
+    // `clearContextBuildings`, because a same-site reload (the slider) swaps buildings under a slab
+    // that stays up (C12 §13.4). Idempotent; never throws.
     const viewer = this.viewer;
     if (viewer?.scene?.globe) {
       try {
         if (viewer.scene.globe.clippingPolygons) {
           viewer.scene.globe.clippingPolygons = undefined as unknown as Cesium.ClippingPolygonCollection;
-          viewer.scene.requestRender();
         }
+        if (this.siteScopeSlabPrimitive) {
+          try { viewer.scene.primitives.remove(this.siteScopeSlabPrimitive); } catch { /* gone */ }
+        }
+        if (this.siteScopeFogWas !== null) viewer.scene.fog.enabled = this.siteScopeFogWas;
+        viewer.scene.requestRender();
       } catch { /* leave the globe as-is; never throw out of a clear */ }
     }
+    this.siteScopeSlabPrimitive = null;
+    this.siteScopeFogWas = null;
+    this.siteScopeClipAt = null;
+    this.previewSiteScope(null);
   }
 
   /**
@@ -11290,9 +11637,10 @@ export class CesiumViewport {
     // a re-load / project switch.
     this.clearContextFarTier();
     this.contextFarTierState = null;
-    // §CTX-EARTH-SLAB (L-645) — RETIRED. Defensively null any leftover globe clip (heals a stale cached
-    // bundle); nothing is ever re-applied. The terrain is always left whole (see clearContextEarthSlab).
-    this.clearContextEarthSlab();
+    // §SITE-SCOPE (C12 §13.4) — the slab (globe clip + side) is deliberately NOT torn down here: a
+    // same-site reload from the slider swaps the buildings under a slab that stays up. The callers
+    // that leave a site (`contextBuildingsAt = null` sites, dispose) call `clearContextEarthSlab`.
+    this.scopeCapReports.delete('buildings');
     // §PLOT-CLEAR-ENVELOPE (L-418) — the entity refs are gone, so drop their footprint
     // pairings too (they are repopulated on the next placement).
     this.contextBuildingPlacements = [];
@@ -11325,14 +11673,18 @@ export class CesiumViewport {
     const signal = this.contextRoadsAbort.signal;
 
     let collection: ContextRoadCollection;
-    try { collection = await fetchContextRoads(lat, lon, signal); }
+    try { collection = await fetchContextRoads(lat, lon, signal, groundFetchHalfDeg(this.contextScope)); } // §SITE-SCOPE F-2 — read to the rim.
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     // §GROUND-DRAPE-ON-RELIEF (L-12924) — resolve each way's OWN seat (and split the ones that run
     // down a hill) BEFORE clearing the previous ribbons, so the old grid stays up until the new one
     // is ready. Flat / keyless: no sampling, the pre-L-12924 single scalar.
-    const roadWays = collection.ways.filter((w) => w.kind === 'road'); // slice 1 = roads only
+    // §SITE-SCOPE (C12 §13.3 class C) — every way is CUT to the scope polygon first (a street that
+    // leaves and re-enters becomes two pieces); nothing outside the slab is draped or built.
+    const roadWays = this.scopeClipLines(
+      'roads', collection.ways.filter((w) => w.kind === 'road'), (w) => w.coords, lat, lon, // slice 1 = roads only
+    ).map((p) => ({ ...p.item, coords: p.coords }));
     const drape = await this.resolveGroundDrapePieces(
       'roads', roadWays.map((w) => ({ coords: w.coords, kind: 'corridor' as const })), lat, lon,
     );
@@ -11986,18 +12338,22 @@ export class CesiumViewport {
     const signal = this.contextParkAbort.signal;
 
     let collection: ContextParkCollection;
-    try { collection = await fetchContextParks(lat, lon, signal); }
+    try { collection = await fetchContextParks(lat, lon, signal, groundFetchHalfDeg(this.contextScope)); } // §SITE-SCOPE F-2 — read to the rim.
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    // §SITE-SCOPE (C12 §13.3 class C) — every park ring is CUT to the scope polygon (∩ via the kernel
+    // boolean) before it is draped; a refused ring is kept whole and counted, never dropped.
+    const parkAreas = this.scopeClipRings('parks', collection.areas, (a) => a.ring, lat, lon)
+      .map((p) => ({ ...p.item, ring: p.ring }));
     // §GROUND-DRAPE-ON-RELIEF (L-12924) — per-park seat (grid-split on a hillside), resolved before the clear.
     const drape = await this.resolveGroundDrapePieces(
-      'parks', collection.areas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })), lat, lon,
+      'parks', parkAreas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })), lat, lon,
     );
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     this.clearContextParks();
-    if (collection.areas.length === 0) return;
+    if (parkAreas.length === 0) return;
 
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
@@ -12011,7 +12367,7 @@ export class CesiumViewport {
     const parkEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.parkEdge).withAlpha(0.6);
 
     let placed = 0;
-    for (let ai = 0; ai < collection.areas.length; ai++) {
+    for (let ai = 0; ai < parkAreas.length; ai++) {
       const pieces = drape.pieces[ai] ?? [];
       for (const piece of pieces) {
         try {
@@ -12020,7 +12376,7 @@ export class CesiumViewport {
             const off = Cesium.Matrix4.multiplyByPoint(invEnu, fc, new Cesium.Cartesian3());
             return this.enuToCartesian(enu, off.x, off.y, piece.heightM);
           });
-          if (positions.length < 4) continue;
+          if (positions.length < 3) continue;
           const ent = viewer.entities.add({
             name: 'pryzm-forma-context-park',
             polygon: {
@@ -12390,7 +12746,8 @@ export class CesiumViewport {
       // wall-clock (it overlaps the PMTiles read) and is coalesced with every sibling's call.
       [collection] = await Promise.all([
         fetchContextCanopySet(lat, lon, {
-          maxRadiusM: treesRadiusM(this.contextScope),   // §CTX-SITE-SCOPE — min(scope, 891 m bbox ceiling).
+          maxRadiusM: treesRadiusM(this.contextScope),   // §CTX-SITE-SCOPE — min(scope, ceiling); the ceiling is the scope ceiling since F-2.
+          fetchHalfDeg: groundFetchHalfDeg(this.contextScope), // §SITE-SCOPE F-2 — the read follows the scope to the rim.
           maxMapped: CONTEXT_TREES_MAX_INSTANCES,
           maxSynthetic: CONTEXT_CANOPIES_MAX_SYNTHESISED,
         }, signal),
@@ -12399,9 +12756,15 @@ export class CesiumViewport {
     } catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
-    this.clearContextTrees();
-    const bounded = collection.instances;
-    if (bounded.length === 0) { viewer.scene.requestRender(); return; } // honest no-op.
+    // §SITE-SCOPE (C12 §13.3 class E) — a tree is a point: centre-in-scope against the ONE polygon
+    // (a rectangle's corner is not a disc's), dropped ones counted. The mapped-available count is
+    // recorded for the slider's "complete" mark (§13.5) — the read now reaches the rim (F-2).
+    const treeClipper = this.scopeClipperFor(lat, lon);
+    const treeFilter = treeClipper.filterPointsLonLat(collection.instances, (t) => [t.lon, t.lat] as const);
+    const bounded = treeFilter.kept;
+    this.scopeCapReports.set('trees', { eligible: collection.mappedAvailable, cap: CONTEXT_TREES_MAX_INSTANCES });
+    console.log(`[CesiumViewport][forma] §SITE-SCOPE clip — trees: ${bounded.length} inside · ${treeFilter.dropped} outside the scope polygon`);
+    if (bounded.length === 0) { this.clearContextTrees(); viewer.scene.requestRender(); return; } // honest no-op.
 
     // §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964, founder Córdoba 2026-09-06: "the trees and maybe other
     // assets sits under the visual plane on the 3d view originally — after the user selects the parcel
@@ -12443,6 +12806,9 @@ export class CesiumViewport {
       await this.sampleContextGroundsBatch(bounded.map((t) => ({ lat: t.lat, lon: t.lon })));
     } catch { /* never throws; a miss falls back exactly as before */ }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
+    // §SITE-SCOPE F-8 (C12 §13.4) — SWAP: the previous canopies stayed up through the terrain
+    // round-trip above; they go now, and the replacement primitive is built in this same task.
+    this.clearContextTrees();
 
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — the same safe base the building tiers use: a footprint
     // under still-streaming relief falls back to the settled ground, never a depth-culling ~0.
@@ -12545,6 +12911,11 @@ export class CesiumViewport {
     // defect was made of. `buildLamps` is the first caller, and by then the base has settled.
     let safeBase: number | null = null;
     const seatBase = (): number => (safeBase ??= this.resolveContextSafeBase(lat, lon));
+    // §SITE-SCOPE (C12 §13.3 class E) — hand the renderer the ONE containment polygon beside the scope.
+    {
+      const clipper = this.scopeClipperFor(lat, lon);
+      this.streetLife.scopeContains = (p) => clipper.containsLonLat(p);
+    }
     return this.streetLife.load(
       this.viewer,
       {
@@ -16107,6 +16478,7 @@ export class CesiumViewport {
         if (this.contextPanRefreshTimer !== null) { clearTimeout(this.contextPanRefreshTimer); this.contextPanRefreshTimer = null; }
         this.clearContextBuildings();
         this.contextBuildingsAt = null;
+        this.clearContextEarthSlab(); // §SITE-SCOPE — leaving the site: drop the slab with the context.
         this.contextLastLoadAtMs = 0;
         // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — the two BAKED-POSITION scenery layers are
         // per-site exactly like the footprints, and `clearContextBuildings()` above does NOT touch
@@ -16359,6 +16731,10 @@ export class CesiumViewport {
         console.warn('[CesiumViewport] location subscription dispose failed:', e);
       }
       this.locationSub = null;
+    }
+    if (this.scopeSub) {
+      try { this.scopeSub(); } catch (e) { console.warn('[CesiumViewport] scope subscription dispose failed:', e); }
+      this.scopeSub = null;
     }
 
     // §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — same rule, same reason: the space-envelope store

@@ -221,12 +221,19 @@ export const CTX_SHADOW_RADIUS_CEILING_M = 600;
  *  the scene, and 0.008° is also the fetch extent shared with roads/parks/rail/trees/furniture. */
 export const CTX_NEAR_SOLID_RADIUS_CEILING_M = 891;
 
-/** Ceiling on the instanced TREE canopies — bbox-bound; see `CTX_TREES_MAX_INSTANCES` for why a
- *  wider tree disc is a follow-up with its own tile arithmetic and not a constant bump. */
-export const CTX_TREES_RADIUS_CEILING_M = 891;
-
-/** Ceiling on street life (lamps + people) — bbox-bound on the same shared 0.008° read. */
-export const CTX_STREET_LIFE_RADIUS_CEILING_M = 890;
+/**
+ * §SITE-SCOPE F-2 (C12 §13.1, 2026-09-07) — the trees and the street life FOLLOW THE SCOPE now.
+ * Their ceilings were the 0.008° near read (891 / 890 m), which left a 1781 m slab with buildings
+ * to its rim and trees, lamps and people stopping at half the radius — the retired §CTX-EARTH-SLAB's
+ * "not one value" defect re-created. Their READS now derive from the scope
+ * (`groundFetchHalfDeg`) with the buildings' measured fan-out cap (`scopeReadFanOutCap`), so the
+ * data is complete to the rim and the ceiling is the scope ceiling. The `min(scope, ceiling)`
+ * bodies below are unchanged; the ceiling moved. Cost: trees/lamps/people are the cheapest
+ * geometry in the scene (instanced, shadowless), and the tile read is the same z16 bbox the
+ * buildings already pay for.
+ */
+export const CTX_TREES_RADIUS_CEILING_M = CTX_SCOPE_MAX_RADIUS_M;
+export const CTX_STREET_LIFE_RADIUS_CEILING_M = CTX_SCOPE_MAX_RADIUS_M;
 
 /**
  * ⭐ THE FAR TIER IS THE ONLY LAYER WHOSE RADIUS *IS* THE SCOPE. It is ONE batched, shadowless,
@@ -267,6 +274,34 @@ export function streetLifeRadiusM(scope: SiteContextScope = DEFAULT_SITE_CONTEXT
  */
 export function farFetchHalfDeg(scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE): number {
     return Math.max(CTX_NEAR_HALF_DEG, farTierRadiusM(scope) / METRES_PER_DEG_LAT);
+}
+
+/**
+ * §SITE-SCOPE F-2 (C12 §13.1) — the half-extent (degrees of latitude) the GROUND layers, the trees
+ * and the street-life reads take: the scope's circumscribing radius, never narrower than the near
+ * read they used to be pinned at. Passed to `contextBboxAround`, which widens longitude by
+ * `1/cos φ` itself (the withdrawn F-1 — do NOT pre-widen this value). It is the far-fetch value by
+ * construction: one bbox for everything that must be complete to the slab's rim.
+ */
+export function groundFetchHalfDeg(scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE): number {
+    return farFetchHalfDeg(scope);
+}
+
+/**
+ * §SITE-SCOPE F-2 — the per-read tile fan-out cap for a scope-derived read. Every baked layer is
+ * built with `--drop-densest-as-needed` (`tools/context-bake/bake.mjs` LAYERS), so a read that
+ * `zoomForExtent` steps below z16 does not coarsen a dense tile, it DELETES features from it — the
+ * L-579 defect through a zoom step. At the default 64-tile cap a 0.016° read (81 tiles at Barcelona)
+ * would do exactly that to roads, parks, rail, water, trees and furniture. So a read whose half-
+ * extent lies inside the MEASURED scope range takes the buildings' cap — 112, sized at 0.016° on
+ * the founder's test cities with ~28 % headroom (`CTX_BUILDINGS_MAX_TILES_PER_FETCH`) — and a wider
+ * read (the 8 km land-use wash, the 11 km sea) keeps the default, because for those a bigger cap
+ * only buys a finer zoom nobody looks at (3.3× the requests to tint the same ground).
+ * `undefined` = the layer's own default cap.
+ */
+export function scopeReadFanOutCap(halfDeg: number): number | undefined {
+    const ceiling = farFetchHalfDeg({ shape: 'circle', radiusM: CTX_SCOPE_MAX_RADIUS_M });
+    return halfDeg <= ceiling + 1e-9 ? CTX_BUILDINGS_MAX_TILES_PER_FETCH : undefined;
 }
 
 // ── fetch half-extents (degrees of latitude) ────────────────────────────────────────────────
@@ -413,7 +448,15 @@ export const CTX_FAR_TIER_MAX_INSTANCES = 8000;
  * extent that pushes the read below z16 does not coarsen trees, IT DELETES THEM. That is a
  * follow-up with its own tile-cap arithmetic, not a constant bump.
  */
-export const CTX_TREES_MAX_INSTANCES = 3000;
+export const CTX_TREES_MAX_INSTANCES = 10_000;
+// ⭐ §SITE-SCOPE F-2 (2026-09-07): 3000 → 10 000. The tree READ now follows the scope to the slab's
+// rim (it was pinned at the 891 m near bbox), so at the 1781 m ceiling Barcelona's density
+// (~1,035 mapped trees/km², L-13058) is ~10,300 eligible; 3,000 would have thinned the outer
+// two-thirds of the slab silently. 10 000 draws the complete mapped set at every founder test city
+// inside the ceiling, in the ONE shadowless instanced primitive — the cheapest geometry in the
+// scene. When the cap DOES bite inside a scope, the loader prints `capVerdict` with the numbers
+// (C12 §13.5) rather than thinning quietly. ⚠ Not a measured frame-time budget (no GPU capture);
+// `AUDIT-3D-SITE-SCOPE-CROP §7.4` names the open check.
 
 /** §VEG-CANOPY-FROM-WOODS — synthesised canopies filling real wood/forest rings. Unchanged: the
  *  founder's run did not report this cap biting, so raising it would buy nothing measurable. */

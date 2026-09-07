@@ -14,6 +14,7 @@ import {
     type Bbox,
 } from './contextBuildings';
 import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
+import { scopeReadFanOutCap } from './contextExtentBudget';
 
 /** How a land-use polygon is coloured on the terrain. */
 export type LanduseKind = 'urban' | 'rural';
@@ -145,7 +146,9 @@ export async function fetchContextLanduse(
     if (hit) return hit;
 
     // Baked tiles FIRST (mirrors contextParks); Overpass only on a real read failure.
-    const tiled = await readContextTileFeatures('landuse', bbox, signal);
+    // §SITE-SCOPE F-2 — a scope-range read (the near/scope call) takes the z16-safe cap; the 8 km
+    // wash keeps the default (a finer zoom nobody looks at).
+    const tiled = await readContextTileFeatures('landuse', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) });
     if (tiled.status === 'ok') {
         const collection = landuseFromTileFeatures(tiled.features);
         cache.set(key, collection);

@@ -14,6 +14,7 @@ import {
     type Bbox,
 } from './contextBuildings';
 import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
+import { scopeReadFanOutCap } from './contextExtentBudget';
 import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 
 export interface ContextWaterArea {
@@ -739,7 +740,7 @@ export async function fetchContextWater(
     // §L-323 FIX B — share ONE in-flight request per bbox across concurrent consumers.
     const pending = inFlight.get(key);
     if (pending) return pending;
-    const p = fetchWaterForBbox(bbox, key, signal).finally(() => { inFlight.delete(key); });
+    const p = fetchWaterForBbox(bbox, key, signal, scopeReadFanOutCap(halfDeg)).finally(() => { inFlight.delete(key); });
     inFlight.set(key, p);
     return p;
 }
@@ -751,6 +752,10 @@ export async function fetchContextWater(
  */
 async function fetchWaterForBbox(
     bbox: Bbox, key: string, signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 — the scope-range cap for the NEAR `water` read; the 11 km sea read keeps the
+     *  default (`scopeReadFanOutCap` returns undefined past the scope ceiling), and the `sea` layer
+     *  read is never widened. */
+    fanOutCap?: number,
 ): Promise<ContextWaterCollection> {
     // §CTX-PMTILES-READER (L-513b) — THE BAKED TILES COME FIRST, mirroring contextBuildings. Fall
     // back to Overpass ONLY on `unavailable` (a real read failure); an honest empty `ok` is an ANSWER
@@ -761,7 +766,7 @@ async function fetchWaterForBbox(
     // the sea is theirs, no walk. Empty / disabled / unavailable ⇒ the walk over the coastline lines,
     // exactly as before, so a region without a baked sea degrades to yesterday's path, not to nothing.
     const [tiled, seaTiled] = await Promise.all([
-        readContextTileFeatures('water', bbox, signal),
+        readContextTileFeatures('water', bbox, signal, { fanOutCap }),
         readContextTileFeatures('sea', bbox, signal),
     ]);
     if (tiled.status === 'ok') {

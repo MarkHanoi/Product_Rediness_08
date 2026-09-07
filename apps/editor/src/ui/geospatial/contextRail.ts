@@ -16,6 +16,7 @@
 // Never throws.
 
 import { contextBboxAround, CONTEXT_BBOX_HALF_DEG, type Bbox } from './contextBuildings';
+import { scopeReadFanOutCap } from './contextExtentBudget';
 import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
 
 export interface ContextRailWay {
@@ -74,16 +75,18 @@ function railFromTileFeatures(features: ContextTileFeature[]): ContextRailCollec
 
 export async function fetchContextRail(
     lat: number, lon: number, signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 (C12 §13.1) — the scope-derived half-extent; defaults to the near read. */
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
 ): Promise<ContextRailCollection> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
         return emptyRailCollection();
     }
-    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const bbox = contextBboxAround(lat, lon, halfDeg);
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
 
-    const tiled = await readContextTileFeatures('rail', bbox, signal);
+    const tiled = await readContextTileFeatures('rail', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) }); // §SITE-SCOPE F-2
     if (tiled.status === 'ok') {
         const collection = railFromTileFeatures(tiled.features);
         cache.set(key, collection);

@@ -33,7 +33,7 @@ import type {
   RingBufferUndoStack,
 } from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
-import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore, IfcMetaStore, SiteCreatedEvent, SiteLocationChangedEvent, SiteParcelBoundarySetEvent, SiteZoningUpdatedEvent } from '@pryzm/stores';
+import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore, IfcMetaStore, SiteCreatedEvent, SiteLocationChangedEvent, SiteParcelBoundarySetEvent, SiteZoningUpdatedEvent, SiteScopeChangedEvent } from '@pryzm/stores';
 import type {
   TypologyRegistry,
   PipelineRouter,
@@ -2544,6 +2544,9 @@ export interface RuntimeEvents {
    *  buildable-envelope wiring (C58 L-402b) dispatches this after the pure
    *  envelope solve; the Site Inspector + Forma envelope card may subscribe. */
   'site.zoning-updated': SiteZoningUpdatedEvent;
+  /** §SITE-SCOPE (C12 §13.4 / ADR-0382) — emitted after `site.setScope`; the 3D-Site viewport
+   *  reloads its context layers to the new scope on THIS event, never on a slider pointer move. */
+  'site.scope-changed': SiteScopeChangedEvent;
   /** §FIX-SITE-OVERLAY-RENDER-AND-FLOW (L-58) — emitted when the user presses
    *  "✓ Use this placement" on the site-plan overlay (a georeferenced client
    *  PDF/image). The onboarding wizard listens to advance Step 2 → the

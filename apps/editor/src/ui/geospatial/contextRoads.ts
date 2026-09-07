@@ -14,6 +14,7 @@ import {
     type Bbox,
 } from './contextBuildings';
 import { readContextTileFeatures, type ContextTileFeature } from './contextTiles';
+import { scopeReadFanOutCap } from './contextExtentBudget';
 
 export interface ContextWay {
     /** Polyline as [lon,lat] pairs (open way — NOT a closed ring). */
@@ -108,18 +109,20 @@ function roadsFromTileFeatures(features: ContextTileFeature[]): ContextRoadColle
 
 export async function fetchContextRoads(
     lat: number, lon: number, signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 (C12 §13.1) — the scope-derived half-extent; defaults to the near read. */
+    halfDeg: number = CONTEXT_BBOX_HALF_DEG,
 ): Promise<ContextRoadCollection> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
         return emptyRoadCollection();
     }
-    const bbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
+    const bbox = contextBboxAround(lat, lon, halfDeg);
     const key = bboxKey(bbox);
     const hit = cache.get(key);
     if (hit) return hit;
     // §L-323 FIX B — share ONE in-flight request per bbox across concurrent consumers.
     const pending = inFlight.get(key);
     if (pending) return pending;
-    const p = fetchRoadsForBbox(bbox, key, signal).finally(() => { inFlight.delete(key); });
+    const p = fetchRoadsForBbox(bbox, key, signal, scopeReadFanOutCap(halfDeg)).finally(() => { inFlight.delete(key); });
     inFlight.set(key, p);
     return p;
 }
@@ -131,13 +134,15 @@ export async function fetchContextRoads(
  */
 async function fetchRoadsForBbox(
     bbox: Bbox, key: string, signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 — the scope-range fan-out cap (`scopeReadFanOutCap`), or the layer default. */
+    fanOutCap?: number,
 ): Promise<ContextRoadCollection> {
     // §CTX-PMTILES-READER (L-513b) — THE BAKED TILES COME FIRST, mirroring contextBuildings. We fall
     // back to Overpass ONLY on a real read failure (`unavailable`); an honest empty `ok` result is an
     // ANSWER and must NOT re-ask the third party (§CONTEXT-DATA-HONESTY). `aborted` = the caller
     // cancelled → render nothing and let the newer request paint (§L-579). `disabled` (no tiles URL)
     // simply falls through to the Overpass path below unchanged.
-    const tiled = await readContextTileFeatures('roads', bbox, signal);
+    const tiled = await readContextTileFeatures('roads', bbox, signal, { fanOutCap });
     if (tiled.status === 'ok') {
         const collection = roadsFromTileFeatures(tiled.features);
         cache.set(key, collection);

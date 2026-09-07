@@ -37,7 +37,7 @@ import { CONTEXT_WIDE_HALF_DEG } from './contextExtents';
 // i.e. 3,044 dropped) and lamps were RADIUS-bound. See the budget file for that split.
 import {
     CTX_STREET_LIFE_MAX_LAMPS, CTX_STREET_LIFE_MAX_PEOPLE, CTX_STREET_LIFE_RADIUS_CEILING_M,
-    streetLifeRadiusM, DEFAULT_SITE_CONTEXT_SCOPE, type SiteContextScope,
+    streetLifeRadiusM, groundFetchHalfDeg, DEFAULT_SITE_CONTEXT_SCOPE, type SiteContextScope,
 } from './contextExtentBudget';
 import {
     placeLamps, placePedestrians, streetLifeLogLine,
@@ -142,7 +142,16 @@ export class StreetLifeLayer {
      */
     public scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE;
 
-    /** The radius this layer will actually cull to right now — `min(scope, 890 m bbox ceiling)`. */
+    /**
+     * §SITE-SCOPE (C12 §13.2/§13.3) — the ONE-POLYGON containment every layer shares, handed in by
+     * the viewport beside `scope`. A rectangle scope is not a disc: the radial cull below keeps
+     * the cheap pre-filter, and this predicate decides membership against the SAME n-gon / four
+     * corners the globe is cut to. `null` (tests, pre-scope callers) = radial only, as before.
+     */
+    public scopeContains: ((lonLat: readonly [number, number]) => boolean) | null = null;
+
+    /** The radius this layer will actually cull to right now — `min(scope, ceiling)`; the ceiling
+     *  is the scope ceiling since §SITE-SCOPE F-2 (the read follows the scope). */
     public get radiusM(): number { return streetLifeRadiusM(this.scope); }
 
     /** Where the layer is currently built, or null. Used by the settled-base rebuild. */
@@ -193,9 +202,13 @@ export class StreetLifeLayer {
 
         let furniture, roads, landuse;
         try {
+            // §SITE-SCOPE F-2 — the lamps and the roads they hang on are read to the SCOPE's rim, not
+            // the old 0.008° near box; the land-use wash keeps its wide read (it is a cheap coarse
+            // tint and is already cached by the warm-up).
+            const halfDeg = groundFetchHalfDeg(this.scope);
             [furniture, roads, landuse] = await Promise.all([
-                fetchContextFurniture(lat, lon, signal),
-                fetchContextRoads(lat, lon, signal),
+                fetchContextFurniture(lat, lon, signal, halfDeg),
+                fetchContextRoads(lat, lon, signal, halfDeg),
                 fetchContextLanduse(lat, lon, signal, CONTEXT_WIDE_HALF_DEG),
             ]);
         } catch { return; }
@@ -212,20 +225,20 @@ export class StreetLifeLayer {
             { origin, radiusM },
         );
 
-        this.clear(viewer);
-        this.at = { lat, lon };
-
         // §MAPPED-LAMPS-NEAREST-FIRST (lane LAYERS-FURNITURE-SEA, 2026-09-06) — this cap is the one
         // that truncates the MAPPED half (`placeLamps` caps only the synthetic half), so say by how
         // much and how many of the dropped were DATA. Silently rendering 1200 of 3000 mapped lamps
         // while the log line prints "3000 mapped lamp(s)" is the failure≠empty confusion in its
         // rendering form: a count that is not what you are looking at. `placeLamps` now returns the
         // mapped half nearest-first, so what survives the slice is the nearest, not a tile-order corner.
-        const inRadius = lampResult.lamps.filter((l) => l.distM <= radiusM);
+        // §SITE-SCOPE (C12 §13.3, class E) — membership is the ONE polygon, not the disc, when the
+        // viewport hands one in: a lamp on the far side of a rectangle's corner is outside the slab.
+        const inScope = (lon: number, lat: number): boolean => this.scopeContains === null || this.scopeContains([lon, lat]);
+        const inRadius = lampResult.lamps.filter((l) => l.distM <= radiusM && inScope(l.lon, l.lat));
         const lamps = inRadius.slice(0, STREET_LIFE_MAX_LAMPS);
         const lampsDroppedByRenderCap = inRadius.length - lamps.length;
         const mappedDroppedByRenderCap = inRadius.slice(STREET_LIFE_MAX_LAMPS).filter((l) => !l.synthetic).length;
-        const people = peopleResult.people.slice(0, STREET_LIFE_MAX_PEOPLE);
+        const people = peopleResult.people.filter((p) => inScope(p.lon, p.lat)).slice(0, STREET_LIFE_MAX_PEOPLE);
 
         // §CTX-SEAT-FIRST-FOR-BAKED-LAYERS (L-12964) — resolve the DETAILED ground for exactly the
         // points about to be baked, BEFORE `groundAt` is asked for any of them. See `StreetLifeHost`.
@@ -239,6 +252,14 @@ export class StreetLifeLayer {
             if (signal.aborted || !this.viewerStillCurrent(viewer)) return;
             if (!this.enabled) { this.clear(viewer); return; }
         }
+
+        // §SITE-SCOPE F-8 (C12 §13.4 — SWAP, NEVER BLANK). The clear used to sit ABOVE the ground
+        // preparation, so the old lamps and people were gone for the whole terrain round-trip and an
+        // abort inside it left the scene empty — the L-635 "blanked Madrid" window, reached through
+        // the scope slider's reload. The previous primitives now stay up until the replacements are
+        // built in the next two lines; `siteScopeSwapNeverBlank.spec.ts` pins the order.
+        this.clear(viewer);
+        this.at = { lat, lon };
 
         const lampInstances = this.buildLamps(viewer, host, lamps);
         const peopleInstances = this.buildPeople(viewer, host, people);

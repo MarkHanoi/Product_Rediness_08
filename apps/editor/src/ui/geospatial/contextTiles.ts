@@ -1262,6 +1262,10 @@ export async function readContextTileFeatures(
     layer: ContextTileLayer,
     bbox: TileBbox,
     signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 — a PER-READ fan-out cap. A scope-derived read of a `--drop-densest`
+     *  layer passes `scopeReadFanOutCap(halfDeg)` so it stays at z16 inside the measured scope
+     *  range; omitted ⇒ the layer's own default (`tileFanOutCap`). */
+    opts: { readonly fanOutCap?: number } = {},
 ): Promise<ContextTileResult> {
     const t0 = Date.now();
     let used = 1;
@@ -1270,7 +1274,7 @@ export async function readContextTileFeatures(
         answer = await withBakedReadRetry(
             async (attempt) => {
                 used = attempt;
-                const r = await readContextTilesOnce(layer, bbox, signal);
+                const r = await readContextTilesOnce(layer, bbox, signal, opts.fanOutCap);
                 // The ONLY retryable outcome. `withBakedReadRetry` never retries a returned VALUE,
                 // so an honest empty, an abort and a structural refusal all return here at once.
                 if (r.status === 'unavailable' && r.transient) {
@@ -1358,6 +1362,9 @@ async function readContextTilesOnce(
     layer: ContextTileLayer,
     bbox: TileBbox,
     signal?: AbortSignal,
+    /** §SITE-SCOPE F-2 — the per-read fan-out cap threaded from `readContextTileFeatures`'s
+     *  `opts.fanOutCap`; `undefined` ⇒ the layer's own default (`tileFanOutCap`). */
+    fanOutCapOverride?: number,
 ): Promise<ContextTileResult> {
     const archive = archiveFor(layer);
     if (!archive) return { status: 'disabled' };
@@ -1458,7 +1465,7 @@ async function readContextTilesOnce(
     // the widened far extent still reads at z16; every other layer keeps the default, because for
     // them a bigger cap only buys a finer zoom they do not need. ⛔ Both the zoom search and the
     // refusal below MUST use the same number, or a layer picks a zoom it is then refused for.
-    const fanOutCap = tileFanOutCap(layer);
+    const fanOutCap = fanOutCapOverride ?? tileFanOutCap(layer);
     z = zoomForExtent(bbox, z, minZoom, fanOutCap);
     const tiles = tilesCovering(bbox, z);
     if (tiles.length === 0) return { status: 'ok', features: [], tilesRead: 0, tilesFailed: 0, ms: Date.now() - t0 };

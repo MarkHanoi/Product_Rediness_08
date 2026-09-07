@@ -381,18 +381,47 @@ export function scopeBboxLatLon(scope: SiteScope, origin: LatLon): LatLonBbox {
 }
 
 /**
- * ⚠ THE ONE HALF-DEGREE the loaders' `contextBboxAround(lat, lon, halfDeg)` must be given so the
- * box covers the scope on BOTH axes. That helper applies ONE number to latitude AND longitude, and
- * a degree of longitude is cos φ shorter than a degree of latitude — so `r / 111 320` (degrees of
- * latitude) covers the scope north–south and FALLS SHORT east–west by 1 − cos φ (25 % at
- * Barcelona, 41.4°N; 50 % at Oslo, 60°N). The honest value is the LONGITUDE requirement, which
- * over-reads north–south by 1/cos φ instead. Named in AUDIT-3D-SITE-SCOPE-CROP §6 finding F-1.
+ * THE ONE HALF-DEGREE the loaders' `contextBboxAround(lat, lon, halfDeg)` must be given so the box
+ * covers the scope: the scope's circumscribing radius in DEGREES OF LATITUDE.
+ *
+ * ⛔ RETRACTION (2026-09-07, AUDIT-3D-SITE-SCOPE-CROP F-1 — WITHDRAWN). This function first
+ * returned the LONGITUDE requirement (`r / (111 320 · cos φ)`) on the claim that
+ * `contextBboxAround` applies one number to both axes and therefore reads a disc 25 % short
+ * east–west at Barcelona. That claim was made from a grep and is FALSE: `contextBboxAround`
+ * (`contextBuildings.ts`, "Widen E/W a touch by latitude") multiplies its longitude half-extent by
+ * `1 / cos φ` itself. Feeding it the longitude value would have widened twice — a 1.33× wider read
+ * at Barcelona, 2× at Oslo — for a shortfall that did not exist. The latitude value is the honest
+ * input; `scopeBboxLatLon` above does its own longitude widening because it builds a box, not an
+ * argument to that helper. (Memory `confident-register-rows-are-the-wrong-ones`, again.)
  */
-export function scopeFetchHalfDeg(scope: SiteScope, originLatDeg: number): number {
-    return metresToDegLon(scopeOuterRadiusM(scope), originLatDeg);
+export function scopeFetchHalfDeg(scope: SiteScope): number {
+    return metresToDegLat(scopeOuterRadiusM(scope));
 }
 
 /** Convenience: a WGS84 point → TRUE-north XZ about `origin` (ONE projection — `latLonToSceneXZ`). */
 export function latLonToTrueXZ(p: LatLon, origin: LatLon): XZPoint {
     return latLonToSceneXZ(p, origin.lat, origin.lon);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// The slab's look — decided here (ADR-0382 D4/D5), consumed by the render path
+// ─────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The slab SIDE and FLOOR colour: a NEUTRAL grey, R = G = B ± 3, one step below the building fill.
+ * Drawn with `PerInstanceColorAppearance({ flat: true })` — unlit — so this IS the pixel colour at
+ * every angle under any light. The retired skirt was a LIT entity wall in the warm ground tan, seen
+ * edge-on under the Forma key light: the founder's "red ring". A lit material on the slab side is
+ * forbidden by name (C12 §13.6).
+ */
+export const SITE_SCOPE_SLAB_SIDE_CSS = '#E6E6E3';
+/** How far the side wall's top sits ABOVE the terrain sampled along the ring. The globe clip's edge
+ *  is exact; the wall is sampled at n points, so between samples the true relief can sit above the
+ *  wall's straight top and show the backdrop through a sliver. 0.3 m of lip covers that; it reads
+ *  as the slab's rim. */
+export const SITE_SCOPE_SLAB_LIP_M = 0.3;
+/** How far the slab's floor sits below the LOWEST cut-edge ground: a thick block of earth, not a
+ *  paper cut-out (the retired skirt used the same 60 m; it was the colour that failed, not the depth). */
+export const SITE_SCOPE_SLAB_DEPTH_M = 60;
+/** The slider's live preview ring — the ONE brand accent (#6600FF, `FORMA_PALETTE_V2.parcelAccent`). */
+export const SITE_SCOPE_PREVIEW_CSS = '#6600FF';
