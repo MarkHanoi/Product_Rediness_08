@@ -361,6 +361,55 @@ export const PARCEL_LAW_FACTS_NOTE =
     + 'two surfaces. Shown here as well as on the card so the figures stay on this tab when the '
     + 'card is claimed by another panel.';
 
+// ── THE TYPE SCALE — ONE BASE FOR THE WHOLE CARD ────────────────────────────────────────────
+//
+// §ONE-TYPE-BASE (L-13077, FOUNDER RULING 2026-09-07: *"one base for the whole card"*).
+//
+// `parcelLawIntentAgainstCeiling.ts` (question 3) declared this scale first, for a defect this
+// file had in a WORSE form. There, the two compared figures were the only elements carrying no
+// `font-size` and fell through to the document default (16 px) while their labels were pinned at
+// 9–11 px, which the founder read as *"values much larger than labels"*.
+//
+// ⭐ HERE THE SAME FALL-THROUGH ALSO INVERTED THE ONE HIERARCHY THIS TAB MAY NOT INVERT. Neither
+// `anl-plaw-key` nor `anl-plaw-val` carried a size, and nothing in the repo styles those class
+// names — they are hooks, not rules — so every row's label AND figure rendered at 16 px. The one
+// exception was `basis === 'ceiling'`, pinned at 11.5 px. So the LAW's number rendered SMALLER
+// than the derived convenience beside it: `Max height 22.4 m` at 11.5 px under `Area 452 m²` at
+// 16. That is the de-weighting this file's own comments forbid by name, arrived at by accident.
+// With one base and figures at 1×, every figure on the tab is the same size and the ceiling's
+// extra WEIGHT (750) is what sets it apart — which is what those comments always said.
+//
+// ⚠ THE PLOT FIGURES GET VISIBLY SMALLER — Area, Perimeter and Bounding box drop 16 → 11.5 px.
+// That trade was put to the founder in those words and accepted: one base for the whole card is
+// worth more than three headline numbers keeping a size nobody chose for them.
+//
+// Two facts make a fresh literal here WORSE than merely inconsistent, and they are why the steps
+// below are `em` and the spec forbids `px` on any descendant:
+//   · §UI-DENSITY-SCALE (`uiScale.ts`) transforms the ASSEMBLED STYLESHEET only. An inline px
+//     literal — whether via `cssText` or `style.fontSize` — bypasses the one density authority
+//     entirely, so it cannot move when `UI_SCALE` moves…
+//   · …and it bypasses that authority's `MIN_FONT_PX = 10` legibility floor (C43 / WCAG 2.2 AA).
+//     The old literals included `9.5px` (group source, truncation line) and `8.5px` (the basis
+//     badge), both of which sat UNDER that floor and were shipped only because nothing checked.
+// Expressed as ratios of an 11.5 px base, the smallest step lands at 10.0 px — so the floor is
+// now the reason there is no step below `SCALE_PROSE`, rather than a rule this file evaded.
+//
+/**
+ * The section's type base, in px. Every other size in this file is a ratio of it.
+ * ⛔ Held equal to `parcelLawIntentAgainstCeiling.ts`'s `SCALE_BASE_PX` BY THE FOUNDER'S RULING —
+ * the two sections sit on one card and a reader crossing between them must not cross a step.
+ * It is duplicated rather than shared because the two files are independent renderings with no
+ * common module below them; the spec asserts the equality so the copy cannot drift silently.
+ */
+const SCALE_BASE_PX = 11.5;
+/** Labels — the prose half of a row, and the row keys. One step down from the figures they name. */
+const SCALE_LABEL = '0.91em';
+/**
+ * Prose — ledes, notes, source lines, absence sentences, group headings, the basis badge.
+ * Two steps down, and the LAST step: 0.87 × 11.5 = 10.005 px, which is the C43 floor.
+ */
+const SCALE_PROSE = '0.87em';
+
 // ── DOM helpers. `textContent` only; no interpolation into markup anywhere in this file. ──
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -401,9 +450,17 @@ function fact(
     // here would be C84 EI-8 and would also have to be maintained per surface.
     k.style.opacity = basis === 'ceiling' ? '1' : '0.72';
     if (basis === 'ceiling') k.style.fontWeight = '600';
+    // §ONE-TYPE-BASE — the label steps down from the figure because it is prose, never because it
+    // matters less. Before this it carried no size at all and rendered at the document default.
+    k.style.fontSize = SCALE_LABEL;
     const v = el('span', 'anl-plaw-val', value);
     v.style.fontWeight = basis === 'ceiling' ? '750' : basis === 'derived' ? '600' : '500';
-    if (basis === 'ceiling') v.style.fontSize = '11.5px';
+    // ⛔ THE FIGURE CARRIES NO SIZE OF ITS OWN — IT IS THE BASE, 1×, ON EVERY ROW. This line used
+    // to read `if (basis === 'ceiling') v.style.fontSize = '11.5px'`, which pinned the LAW's
+    // number and left every derived one to fall through to 16 px: the one figure that may never
+    // be de-weighted was the only figure that was. Sameness is now structural — there is no
+    // branch here to get wrong — and `basis` separates the rows by WEIGHT and AIR, as its own
+    // comments always claimed.
     v.style.textAlign = 'right';
     if (opts?.derived === false) {
         v.style.fontStyle = 'italic';
@@ -413,8 +470,11 @@ function fact(
         // FAR is a C58 §1.4 honesty value the founder named and forbade removing; de-weighting
         // it would hide it just as effectively as deleting it, one step more deniably. It keeps
         // the row's air and loses only the numeric weight it has no number to carry.
+        //
+        // §ONE-TYPE-BASE — `v.style.fontSize = ''` stood here, undoing the ceiling's 11.5 px pin.
+        // There is no pin left to undo: `not derived` renders at the SAME size as the number it
+        // stands in for, which is the only size that does not editorialise about the gap.
         v.style.fontWeight = '500';
-        v.style.fontSize = '';
     } else {
         row.setAttribute('data-derived', 'true');
     }
@@ -463,7 +523,7 @@ function group(
     h.style.justifyContent = 'space-between';
     h.style.gap = '8px';
     h.style.fontWeight = '700';
-    h.style.fontSize = '10px';
+    h.style.fontSize = SCALE_PROSE;
     h.style.letterSpacing = '.04em';
     h.style.textTransform = 'uppercase';
     h.appendChild(el('span', 'anl-plaw-group-name', title));
@@ -475,7 +535,18 @@ function group(
         badge.setAttribute('data-testid', `parcel-law-basis-${basis}`);
         badge.title = PARCEL_LAW_BASIS_TITLE[basis];
         badge.style.fontWeight = basis === 'ceiling' ? '700' : '600';
-        badge.style.fontSize = '8.5px';
+        // ⛔ `8.5px` STOOD HERE — UNDER the C43 / WCAG 2.2 AA floor §UI-DENSITY-SCALE enforces as
+        // `MIN_FONT_PX = 10`, and shipped only because an inline literal is invisible to it. The
+        // badge is the ONE thing distinguishing four blocks a reader cannot otherwise tell apart,
+        // so it is the last element on the tab that may be illegible. It is set apart from its
+        // title by weight, letter-spacing and opacity instead — none of which cost legibility.
+        //
+        // ⛔ AND IT CARRIES NO SIZE AT ALL, WHICH IS NOT THE SAME AS CARRYING `SCALE_PROSE`. This
+        // element is a CHILD of the heading, and `em` COMPOUNDS: `SCALE_PROSE` here would be 0.87
+        // of the heading's already-stepped 10.0 px, landing at 8.7 px — the very floor breach
+        // being removed, restored by the mechanism meant to prevent it. A ratio is only safe on a
+        // child of the ROOT; anywhere else, inherit. (The spec's `px` scan cannot catch this: an
+        // `em` that compounds under the floor is a legal value in a nested place.)
         badge.style.letterSpacing = '.08em';
         badge.style.opacity = basis === 'ceiling' ? '0.9' : '0.6';
         badge.style.whiteSpace = 'nowrap';
@@ -488,7 +559,7 @@ function group(
         // report is precisely that the right words were in the wrong weight and the wrong place.
         const lede = el('div', 'anl-plaw-group-lede', opts.lede);
         lede.setAttribute('data-testid', 'parcel-law-group-lede');
-        lede.style.fontSize = '10px';
+        lede.style.fontSize = SCALE_PROSE;
         lede.style.lineHeight = '1.45';
         lede.style.margin = '2px 0 5px';
         lede.style.opacity = '0.85';
@@ -496,7 +567,7 @@ function group(
     }
     root.appendChild(body);
     const s = el('div', 'anl-plaw-group-source', source);
-    s.style.fontSize = '9.5px';
+    s.style.fontSize = SCALE_PROSE;
     s.style.marginTop = '3px';
     s.style.opacity = '0.7';
     root.appendChild(s);
@@ -517,6 +588,9 @@ function storeyRow(st: ParcelLawStorey): HTMLDivElement {
     row.style.padding = '1.5px 0';
     const key = el('span', 'anl-plaw-key', st.label);
     key.style.opacity = '0.72';
+    // §ONE-TYPE-BASE — the same label step as `fact()`, so a storey row and a fact row set at
+    // one rhythm. The band and the figure stay at 1×: they are the two things being compared.
+    key.style.fontSize = SCALE_LABEL;
     row.appendChild(key);
     // ⚠ A null band is a DASH here and the group's source line says WHY (no max height was
     // derived), rather than a fabricated floor-to-floor. The two must be read together.
@@ -556,6 +630,13 @@ export function buildParcelLawFacts(
     const wantLaw = scope !== 'plot';
     const root = el('div', 'anl-plaw-facts');
     root.setAttribute('data-testid', PARCEL_LAW_FACTS_TESTID);
+    // §ONE-TYPE-BASE (L-13077) — THE ONE PLACE A SIZE IS DECLARED IN px ON THIS SECTION. Without
+    // it every figure and every unpinned label inherits the document default (16 px), which is
+    // both the founder's "values much larger than labels" and the inversion that rendered the
+    // ceiling SMALLER than the derived row above it. Every descendant is a ratio of this, and
+    // `parcelLawFacts.spec.ts` fails the build if a fresh `px` literal appears on one.
+    root.style.fontSize = `${SCALE_BASE_PX}px`;
+    root.style.lineHeight = '1.45';
     root.setAttribute('data-envelope-state', model.envelopeState);
     root.setAttribute('data-identity-absence', model.identityAbsence);
     root.setAttribute(PARCEL_LAW_FACTS_SCOPE_ATTR, scope);
@@ -563,7 +644,7 @@ export function buildParcelLawFacts(
         if (wantLaw) {
             const note = el('p', 'anl-plaw-note', PARCEL_LAW_FACTS_NOTE);
             note.style.margin = '0 0 6px';
-            note.style.fontSize = '10.5px';
+            note.style.fontSize = SCALE_PROSE;
             note.style.opacity = '0.8';
             root.appendChild(note);
         }
@@ -577,7 +658,7 @@ export function buildParcelLawFacts(
                 `Stored determination — solved ${model.determinedAtIso}. Nothing has been re-derived to show it.`,
             );
             d.setAttribute('data-testid', PARCEL_LAW_DETERMINED_AT_TESTID);
-            d.style.fontSize = '10px';
+            d.style.fontSize = SCALE_PROSE;
             d.style.opacity = '0.75';
             root.appendChild(d);
         }
@@ -639,7 +720,7 @@ export function buildParcelLawFacts(
             const miss = el('div', 'anl-plaw-absent', PARCEL_LAW_GEOMETRY_ABSENT_TEXT);
             miss.setAttribute('data-testid', PARCEL_LAW_GEOMETRY_ABSENT_TESTID);
             miss.setAttribute('data-absence', model.geometryAbsence ?? 'ring-unreadable');
-            miss.style.fontSize = '10px';
+            miss.style.fontSize = SCALE_PROSE;
             miss.style.lineHeight = '1.5';
             g0.body.appendChild(miss);
         }
@@ -656,7 +737,7 @@ export function buildParcelLawFacts(
             box.setAttribute('data-refusal-code', r.code);
             box.setAttribute('data-legally-grounded', String(r.legallyGrounded));
             box.style.marginTop = '9px';
-            box.style.fontSize = '10.5px';
+            box.style.fontSize = SCALE_PROSE;
             box.style.lineHeight = '1.5';
             const head = el('div', 'anl-plaw-refusal-headline', r.headline);
             head.style.fontWeight = '600';
@@ -677,7 +758,7 @@ export function buildParcelLawFacts(
             const miss = el('div', 'anl-plaw-absent', PARCEL_LAW_ENVELOPE_ABSENT_TEXT);
             miss.setAttribute('data-testid', PARCEL_LAW_ENVELOPE_ABSENT_TESTID);
             miss.style.marginTop = '9px';
-            miss.style.fontSize = '10.5px';
+            miss.style.fontSize = SCALE_PROSE;
             miss.style.lineHeight = '1.5';
             root.appendChild(miss);
             return root;
@@ -791,7 +872,7 @@ export function buildParcelLawFacts(
                     'anl-plaw-truncated',
                     `…${ps.truncatedCount} further storeys not listed.`,
                 );
-                t.style.fontSize = '9.5px';
+                t.style.fontSize = SCALE_PROSE;
                 t.style.opacity = '0.7';
                 g3.body.appendChild(t);
             }

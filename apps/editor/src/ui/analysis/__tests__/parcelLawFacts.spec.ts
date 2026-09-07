@@ -13,6 +13,8 @@
 // swallowed by the tab's non-fatal catch and simply not be there. That is the "committed ≠
 // reachable" defect, and the last test is the one that would catch it.
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
     NOT_DERIVED_TEXT,
@@ -555,5 +557,116 @@ describe('§LAW-ROW-BASIS (L-13018) — a legal ceiling is distinguishable from 
         // badge added beside it must not have displaced it, or every collapsed summary loses
         // its confidence and C58 §1.2 is breached by a layout change.
         expect(root.querySelector('.anl-plaw-group-source')).not.toBeNull();
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §ONE-TYPE-BASE (L-13077, FOUNDER RULING 2026-09-07: *"one base for the whole card"*)
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// `parcelLawIntentAgainstCeiling.ts` (question 3) was given a declared base in `3848c0cd`. This
+// file had the SAME fall-through and kept it, so the card rendered question 1's figures at the
+// document default (16 px) beside question 3's at 11.5 — one card, two type systems, neither
+// chosen. These tests pin the base HERE and pin it EQUAL to the other section's, because the
+// founder's ruling is about the card, not about a file.
+//
+// ⛔ THREE ARMS, DELIBERATELY, BECAUSE ONE OF THEM CANNOT SEE THE OTHERS' DEFECT:
+//   A. a fresh `px` literal on any descendant — the original defect shape, and the one that
+//      bypasses §UI-DENSITY-SCALE (`uiScale.ts` transforms the assembled STYLESHEET only, so an
+//      inline literal moves with nothing and clears no floor);
+//   B. an `em` that COMPOUNDS under the floor — legal to arm A, invisible to it, and a live trap
+//      here: the basis badge is a CHILD of a heading that is itself stepped down, so `0.87em` on
+//      it would land at 8.7 px. Arm B resolves the whole chain and measures what a reader gets;
+//   C. the two files' bases being equal — arms A and B both pass on a card set in two sizes.
+describe('§ONE-TYPE-BASE — the card has ONE base, and no child may leave it (L-13077)', () => {
+    const src = readFileSync(resolve(__dirname, '../parcelLawFacts.ts'), 'utf8');
+    const intentSrc = readFileSync(resolve(__dirname, '../parcelLawIntentAgainstCeiling.ts'), 'utf8');
+    const baseOf = (s: string): number => {
+        const m = /const SCALE_BASE_PX = ([\d.]+);/.exec(s);
+        expect(m).not.toBeNull();
+        return Number.parseFloat(m![1]!);
+    };
+
+    /** The size a reader actually gets, resolving every `em` up the chain to the root's px base. */
+    const effectivePx = (node: HTMLElement, root: HTMLElement): number => {
+        const chain: HTMLElement[] = [];
+        for (let n: HTMLElement | null = node; n !== null; n = n.parentElement) {
+            chain.push(n);
+            if (n === root) break;
+        }
+        let px = Number.parseFloat(root.style.fontSize);
+        for (const n of chain.reverse()) {
+            const fs = n.style.fontSize;
+            if (n === root || fs.length === 0) continue;
+            const em = /^([\d.]+)em$/.exec(fs);
+            if (em) px *= Number.parseFloat(em[1]!);
+            else px = Number.parseFloat(fs);
+        }
+        return px;
+    };
+
+    const full = buildParcelLawFacts(buildParcelLawModel({
+        parcelRing: RECT,
+        edgeClassifications: ['front', 'side', 'rear', 'side'],
+        identity: null,
+        envelope: envelope(),
+    }));
+
+    it('A — the root declares the base in px, and NOTHING below it does', () => {
+        // ⭐ Without this the figures fall through to the document default: nothing in the repo
+        // styles `.anl-plaw-key` / `.anl-plaw-val` (they are hooks, not rules) and the Analysis
+        // surface sets no body size, so "inherit" here means 16 px.
+        expect(full.style.fontSize).toMatch(/^\d+(\.\d+)?px$/);
+        expect(Number.parseFloat(full.style.fontSize)).toBeGreaterThanOrEqual(10);
+        for (const n of full.querySelectorAll<HTMLElement>('*')) {
+            const fs = n.style.fontSize;
+            if (fs.length > 0) expect(fs).not.toMatch(/px$/);
+        }
+    });
+
+    it('B — every element a reader sees resolves to 10 px or more, em-compounding included', () => {
+        // ⛔ THE ARM THAT CATCHES WHAT ARM A CANNOT. `0.87em` is a legal value everywhere; on a
+        // child of an already-stepped heading it lands at 8.7 px, which is the C43 / WCAG 2.2 AA
+        // floor breach (`MIN_FONT_PX = 10`) that the old `8.5px` badge literal shipped. Both
+        // spellings are the same defect and only this arm sees both.
+        for (const n of full.querySelectorAll<HTMLElement>('*')) {
+            const px = effectivePx(n, full);
+            expect(Number.isFinite(px)).toBe(true);
+            expect(px).toBeGreaterThanOrEqual(10);
+        }
+    });
+
+    it('C — question 1 and question 3 declare the SAME base, so the card is set once', () => {
+        // The bases are duplicated (the two renderings share no module below them) and this is
+        // what stops the copy drifting. If a lane changes one, this fails and names the other.
+        expect(baseOf(src)).toBe(baseOf(intentSrc));
+    });
+
+    it('⛔ the LAW\'s figure is never smaller than the derived figure beside it', () => {
+        // ⭐ THIS IS THE INVERSION THE BASE REMOVED, AND IT WAS REAL, NOT HYPOTHETICAL. `ceiling`
+        // rows were pinned at 11.5 px while every derived row fell through to 16 — so `Max height`
+        // rendered SMALLER than `Perimeter`. This file's own comments forbid de-weighting a
+        // ceiling by name; the defect arrived through the one path a comment cannot police.
+        const ceilingVal = full
+            .querySelector<HTMLElement>(`[${PARCEL_LAW_BASIS_ATTR}="ceiling"] .anl-plaw-val`);
+        const derivedVal = full
+            .querySelector<HTMLElement>(`[${PARCEL_LAW_BASIS_ATTR}="derived"] .anl-plaw-val`);
+        expect(ceilingVal).not.toBeNull();
+        expect(derivedVal).not.toBeNull();
+        expect(effectivePx(ceilingVal!, full)).toBeGreaterThanOrEqual(effectivePx(derivedVal!, full));
+        // …and it is the SAME size, not merely "not smaller": weight and air are what separate
+        // the bases, which is what `fact()` has always claimed.
+        expect(effectivePx(ceilingVal!, full)).toBe(effectivePx(derivedVal!, full));
+    });
+
+    it('⭐ the label steps down from its figure — the founder\'s "values much larger than labels", inverted honestly', () => {
+        const row = fact(full, 'parcel-area')!;
+        const k = row.querySelector<HTMLElement>('.anl-plaw-key')!;
+        const v = row.querySelector<HTMLElement>('.anl-plaw-val')!;
+        // The figure is the base; the label is one step down because it is prose. Before this
+        // BOTH were 16 px, so there was no hierarchy at all — only an accident that looked like one.
+        expect(effectivePx(v, full)).toBe(Number.parseFloat(full.style.fontSize));
+        expect(effectivePx(k, full)).toBeLessThan(effectivePx(v, full));
+        expect(effectivePx(k, full)).toBeGreaterThanOrEqual(10);
     });
 });
