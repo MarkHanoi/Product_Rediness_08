@@ -304,6 +304,52 @@ const ENVELOPE_LINE_LAYER = 'pryzm-buildable-envelope-line';
 // Registered in `installSiteHighlightLayers()` (called from the same two places
 // `installRingLayers` is) so it survives the Map|Satellite `setStyle` wipe exactly as the
 // envelope and the selection highlight do.
+// ── §CONTINUE-WITH-THIS-PARCEL (L-13026 · C19 §5.6 clause 4 · C58 §1.20) ─────────────────────
+//
+// Founder 2026-09-06: *"Also I need to be able to — once selected a parcel — CONTINUE WITH THIS
+// PARCEL. Before we had a panel for it, now is not being showed."*
+//
+// The panel is the one this file already mounts on a parcel click (`showParcelCard` →
+// `buildParcelCard`), whose primary action is literally *"Use this parcel  →"*. It was never
+// deleted — `freezeDraw()` hid the toggle that arms selection and detached the click that reaches
+// it, so on a project that already has a committed boundary the card could not appear at all.
+// These four strings are what the restored route SAYS, held here so the chip, the button title
+// and the card's lead note cannot drift into three different accounts of one action.
+//
+// ⛔ NONE OF THEM IS A NEW CONTROL. They are the words on controls that already exist.
+
+/** The instruction chip while SELECT is armed on a site that already has a committed boundary. */
+export const PARCEL_RESELECT_CHIP =
+    'Click a plot to read its cadastral facts — and to continue with it instead of the plot '
+    + 'committed to this project.';
+
+/** Why the DRAW segment refuses once a boundary is committed, and what makes it available again. */
+export const DRAW_FROZEN_TITLE =
+    'This site already has a parcel boundary, and a C19 boundary is a one-shot — it cannot be '
+    + 'drawn over. Press “↺ Redraw boundary” to clear it, then draw or select again.';
+
+/**
+ * The consequence of "Use this parcel" ON A COMMITTED SITE, stated BEFORE the click.
+ *
+ * ⛔ It is a REPLACEMENT and it says so. Proceeding runs the same CLEAR-then-recreate route
+ * "↺ Redraw boundary" runs — the only legal way to change an immutable C19 §1.4 polygon — so a
+ * user who does not want to lose the plot they have must be able to read that here, not discover
+ * it afterwards (ASK, never auto-edit).
+ */
+export const PARCEL_REPLACE_TITLE =
+    'Continues with this parcel: it REPLACES the plot currently committed to this project. The '
+    + 'committed boundary is cleared first (the same step “↺ Redraw boundary” performs), then '
+    + 'this parcel is committed in its place.';
+
+/** The same fact as a card lead note, for a reader who never hovers a button. */
+export const PARCEL_REPLACE_NOTE =
+    'This project already has a committed plot. Continuing with this parcel replaces it — the '
+    + 'committed boundary is cleared, then this one is committed. Nothing else about the project '
+    + 'is touched.';
+
+/** `data-testid` on that lead note, so the replacing arm is addressable rather than inferred. */
+export const PARCEL_REPLACE_NOTE_TESTID = 'parcel-replace-note';
+
 const COMMITTED_PARCEL_SOURCE = 'pryzm-committed-parcel';
 const COMMITTED_PARCEL_FILL_LAYER = 'pryzm-committed-parcel-fill';
 const COMMITTED_PARCEL_LINE_LAYER = 'pryzm-committed-parcel-line';
@@ -1958,6 +2004,16 @@ export function mountSiteBoundaryMap2D(
             ? `Commits the whole ${holdingHa} ha parcel as your site. `
               + 'If you clicked a house, its lot is not in the published cadastre — draw it instead.'
             : undefined;
+        // §CONTINUE-WITH-THIS-PARCEL (L-13026) — the card is now reachable in TWO states, and they
+        // demand different words. Pre-commit, "Use this parcel" ADDS the project's first plot;
+        // post-commit it REPLACES one. Same producer, same button, one honest sentence apart —
+        // and the note rides the existing `leadNotes` channel rather than a second banner.
+        const replacing = committed;
+        const useTitle = (fallback?: string): string | undefined =>
+            replacing ? PARCEL_REPLACE_TITLE : fallback;
+        const replaceNotes = replacing
+            ? [{ text: PARCEL_REPLACE_NOTE, testId: PARCEL_REPLACE_NOTE_TESTID, tone: 'note' as const }]
+            : [];
 
         if (choice.primary === 'footprint') {
             // The house outline leads; the holding is a NAMED secondary commit through the same path.
@@ -1965,15 +2021,15 @@ export function mountSiteBoundaryMap2D(
                 label: 'Use my house outline  →',
                 testId: 'parcel-use-btn',
                 variant: 'primary' as const,
-                title: 'Commits the OSM building outline as a STARTING boundary. It is the building, '
-                    + 'not the land: adjust it or draw your lot for the legal line.',
+                title: useTitle('Commits the OSM building outline as a STARTING boundary. It is the building, '
+                    + 'not the land: adjust it or draw your lot for the legal line.'),
                 onClick: () => useSelectedParcel(),
             };
             const useHolding = {
                 label: choice.useHoldingLabel ?? 'Use the holding anyway',
                 testId: PARCEL_USE_HOLDING_TESTID,
                 variant: 'secondary' as const,
-                title: holdingTitle,
+                title: useTitle(holdingTitle),
                 onClick: () => {
                     if (!oversizeHolding) return;
                     selectedParcel = oversizeHolding;
@@ -1984,6 +2040,7 @@ export function mountSiteBoundaryMap2D(
             parcelCard.appendChild(buildParcelCard(shownModel, {
                 title: choice.cardTitle ?? undefined,
                 leadNotes: [
+                    ...replaceNotes,
                     ...(choice.why ? [{ text: choice.why, testId: PARCEL_CANDIDATE_WHY_TESTID }] : []),
                     // Keep the displaced holding's own size-review banner in view: the footprint on
                     // the card is `within`, and the warning must not vanish with the ring it judged.
@@ -1998,11 +2055,14 @@ export function mountSiteBoundaryMap2D(
                     : 'Use this parcel  →',
                 testId: 'parcel-use-btn',
                 variant: choice.primary === 'draw' ? 'secondary' as const : 'primary' as const,
-                title: choice.primary === 'draw' ? holdingTitle : undefined,
+                title: useTitle(choice.primary === 'draw' ? holdingTitle : undefined),
                 onClick: () => useSelectedParcel(),
             };
             parcelCard.appendChild(buildParcelCard(shownModel, {
-                leadNotes: choice.why ? [{ text: choice.why, testId: PARCEL_CANDIDATE_WHY_TESTID, tone: 'note' }] : [],
+                leadNotes: [
+                    ...replaceNotes,
+                    ...(choice.why ? [{ text: choice.why, testId: PARCEL_CANDIDATE_WHY_TESTID, tone: 'note' as const }] : []),
+                ],
                 actions: choice.primary === 'draw' ? [draw, use] : [use, draw],
             }));
         }
@@ -2058,6 +2118,11 @@ export function mountSiteBoundaryMap2D(
             b.style.background = active ? VIOLET : 'transparent';
             b.style.color = active ? '#ffffff' : '#2a2438';
             b.setAttribute('aria-pressed', String(active));
+            // §CONTINUE-WITH-THIS-PARCEL (L-13026) — a REFUSING segment reads as refusing.
+            // `disabled` is set by `freezeDraw` (draw) / cleared by `rearmDraw`; the opacity is
+            // derived from it here rather than written beside every flip, so the two can never
+            // disagree about whether a segment is available.
+            b.style.opacity = b.disabled ? '0.45' : '1';
         }
     }
 
@@ -2067,7 +2132,15 @@ export function mountSiteBoundaryMap2D(
      * the parcel picker. Clears the parcel highlight/card when leaving SELECT.
      */
     function setInteractionMode(next: 'draw' | 'select'): void {
-        if (disposed || committed || next === interactionMode) return;
+        if (disposed || next === interactionMode) return;
+        // §CONTINUE-WITH-THIS-PARCEL (L-13026) — this guard used to read `|| committed ||`, which
+        // froze BOTH modes on commit. Only DRAW is genuinely impossible then (the C19 §1.4 polygon
+        // is a one-shot; "↺ Redraw boundary" is the route that clears it). SELECT stays open, and
+        // that is the founder's "continue with this parcel" route on the view.
+        if (committed && next === 'draw') {
+            toast('This site already has a parcel boundary. Press “↺ Redraw boundary” to clear it first.', 'info');
+            return;
+        }
         interactionMode = next;
         // Clear any in-progress draw so the two modes never bleed.
         rectCornerA = null; circleCentre = null; ellipseCentre = null;
@@ -2079,7 +2152,11 @@ export function mountSiteBoundaryMap2D(
 
         if (next === 'select') {
             modeBar.style.display = 'none';
-            chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
+            // §CONTINUE-WITH-THIS-PARCEL — after a commit there is nothing to "cancel", and the
+            // consequence of proceeding is different. Say which state the reader is in.
+            chip.textContent = committed
+                ? PARCEL_RESELECT_CHIP
+                : 'Click a plot to select its real cadastral parcel · Esc to cancel';
         } else {
             // Back to DRAW — drop the parcel highlight + card (+ any displaced holding, §L-12912).
             selectedParcel = null;
@@ -2102,7 +2179,9 @@ export function mountSiteBoundaryMap2D(
      * draw path. Guarded against overlapping fetches + teardown.
      */
     function handleParcelSelectClick(e: MapMouseEvent): void {
-        if (disposed || committed || parcelFetchInFlight) return;
+        // §CONTINUE-WITH-THIS-PARCEL (L-13026) — `committed` is NOT a reason to ignore a parcel
+        // click. See `freezeDraw` for why selection outlives the commit and drawing does not.
+        if (disposed || parcelFetchInFlight) return;
         const { lng, lat } = e.lngLat;
         // §L-384 — DATA NOT WIRED for this deployment: render the honest placeholder card
         // (the full select UI is present + demoable; the real fetch lands with the parcel
@@ -2114,7 +2193,7 @@ export function mountSiteBoundaryMap2D(
         void parcelProvider.fetchParcelAtPoint(lng, lat).then((parcel) => {
             // §L-12912 — the in-flight guard is released in the FINAL `.then` below, after the
             // optional footprint lookup, so a second click cannot race a half-rendered card.
-            if (disposed || committed || interactionMode !== 'select') { parcelFetchInFlight = false; return; }
+            if (disposed || interactionMode !== 'select') { parcelFetchInFlight = false; return; }
             try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* ignore */ }
             if (!parcel) {
                 parcelFetchInFlight = false;
@@ -2140,7 +2219,7 @@ export function mountSiteBoundaryMap2D(
             if (preview.status === 'oversize') chip.textContent = 'Large holding — looking for the building outline under your click…';
             return footprintP.then((footprint) => {
                 parcelFetchInFlight = false;
-                if (disposed || committed || interactionMode !== 'select') return;
+                if (disposed || interactionMode !== 'select') return;
                 const choice = showParcelCard(parcel, footprint);
                 chip.textContent = choice.chip;
                 console.log(
@@ -2163,9 +2242,41 @@ export function mountSiteBoundaryMap2D(
      * → site.parcel-boundary-set). No one-off path — generation consumes it unchanged.
      */
     function useSelectedParcel(): void {
-        if (disposed || committed || !selectedParcel) return;
+        if (disposed || !selectedParcel) return;
         const ring = selectedParcel.ring;
         if (ring.length < 3) { toast('Selected parcel has no usable boundary.', 'error'); return; }
+        // ⭐ §CONTINUE-WITH-THIS-PARCEL (L-13026 · C19 §1.4) — PROCEEDING FROM A COMMITTED SITE
+        // TRAVELS THE ONE LEGAL ROUTE, IT DOES NOT MINT A SECOND ONE.
+        //
+        // The C19 parcel polygon is an IMMUTABLE one-shot, so `commit()` below would refuse
+        // (§FIX-BOUNDARY-COMMIT-REFUSE / ADR-0299) — correctly. The only legal way to change it
+        // is CLEAR-then-recreate, and that route already exists and is already reachable: it is
+        // exactly what "↺ Redraw boundary" runs. So this composes the two shipped calls in the
+        // shipped order rather than writing a third path: `rearmDraw()` (site.replace → empty
+        // boundary, un-freeze) and then the same commit every other arm of this function uses.
+        //
+        // ⛔ THE GESTURE IS THE CONSENT, AND THE CARD SAYS SO BEFORE IT IS MADE. The button that
+        // reaches here on this arm carries `PARCEL_REPLACE_TITLE` and the card carries
+        // `PARCEL_REPLACE_NOTE`, both naming the replacement in advance — this must never be a
+        // silent re-write of a plot the user still believes they have (ASK, never auto-edit).
+        if (committed) {
+            // `rearmDraw()` clears `selectedParcel` on its way through; hold it across the clear
+            // so the parcel the user actually clicked is the one that gets committed.
+            const keep = selectedParcel;
+            console.log('[gis] map2d §CONTINUE-WITH-THIS-PARCEL — replacing the committed boundary '
+                + `with ${keep.refcat ?? 'the selected parcel'} through the CLEAR-then-recreate route.`);
+            rearmDraw();
+            if (disposed || committed) {
+                // The clear did not take (no site context, or a dispatch refusal that left the
+                // freeze in place). Change nothing else and say so — never fall through into a
+                // commit that would be refused with the boundary already gone.
+                console.warn('[gis] map2d §CONTINUE-WITH-THIS-PARCEL — the boundary was not cleared; '
+                    + 'the committed plot is unchanged. Use "↺ Redraw boundary" and select again.');
+                toast('Could not release the committed boundary — press “↺ Redraw boundary”, then select again.', 'error');
+                return;
+            }
+            selectedParcel = keep;
+        }
         // §STARTUP-SELECT-IS-NOT-DWELL (L-12931) — THE GESTURE. Everything before this line is the
         // user dwelling on the 2D map; `parcel:selected → parcel:committed → envelope:dispatched`
         // is the machine leg the founder times as "selection on 2d to render on 3d". The full
@@ -2553,7 +2664,12 @@ export function mountSiteBoundaryMap2D(
     }
 
     function onClick(e: MapMouseEvent): void {
-        if (disposed || committed) return;
+        // §CONTINUE-WITH-THIS-PARCEL (L-13026) — this guard used to read `disposed || committed`.
+        // A committed site still refuses every DRAW path below — the `committed` return simply
+        // moves to sit AFTER the select dispatch instead of in front of it, so parcel SELECTION
+        // survives the commit and the founder's "Use this parcel" card is reachable again. The
+        // overlay-only and calibration yields keep their existing precedence over both.
+        if (disposed) return;
         // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — OVERLAY-ONLY mode: the boundary draw
         // tool is disarmed. Map clicks never add a vertex / commit a boundary; only the
         // site-plan overlay panel + its 2-point calibration (which listens on its OWN map
@@ -2570,6 +2686,9 @@ export function mountSiteBoundaryMap2D(
         // §PARCEL-SELECT (L-380 P1) — in SELECT mode a click fetches the real parcel
         // instead of adding a draw vertex. The draw tools below never run in this mode.
         if (interactionMode === 'select') { handleParcelSelectClick(e); return; }
+        // §CONTINUE-WITH-THIS-PARCEL (L-13026) — every DRAW path is below this line, and a
+        // committed C19 §1.4 boundary forbids all of them until "↺ Redraw boundary" clears it.
+        if (committed) return;
         // Ignore the click that ends a vertex-drag.
         if (draggingIdx !== null) return;
         // A.8.c.g — commit the snapped position when a snap is active, else raw.
@@ -3108,6 +3227,14 @@ export function mountSiteBoundaryMap2D(
         closeBtn.style.display = '';
         if (!opts.overlayOnly && interactionMode === 'draw') modeBar.style.display = '';
         if (!opts.overlayOnly) interToggle.style.display = '';
+        // §CONTINUE-WITH-THIS-PARCEL (L-13026) — the draw segment `freezeDraw` refused is
+        // available again the instant the boundary it refused for is cleared. Undoing the
+        // refusal HERE, in the one function that clears the boundary, is what stops the two
+        // states drifting apart.
+        drawModeBtn.disabled = false;
+        drawModeBtn.style.cursor = 'pointer';
+        drawModeBtn.removeAttribute('title');
+        paintInteractionToggle();
         try { refreshRing(); } catch { /* ignore */ }
         try { refreshSnapIndicator(); } catch { /* ignore */ }
         try { refreshParcelHighlight(); } catch { /* ignore */ }
@@ -3160,10 +3287,15 @@ export function mountSiteBoundaryMap2D(
     function freezeDraw(): void {
         if (committed) return;
         committed = true;
-        // Detach map draw handlers (handlers also early-return on `committed`, so this
+        // Detach map DRAW handlers (handlers also early-return on `committed`, so this
         // is belt-and-braces against any in-flight event).
+        //
+        // ⛔ §CONTINUE-WITH-THIS-PARCEL (L-13026) — `click` IS DELIBERATELY NOT DETACHED.
+        // `onClick` routes to `handleParcelSelectClick` in SELECT mode and early-returns from
+        // every DRAW path while `committed`, so keeping it bound freezes drawing exactly as
+        // before while leaving parcel SELECTION alive. Detaching it here is what made the
+        // founder's "continue with this parcel" card unreachable on a committed project.
         try {
-            map.off('click', onClick);
             map.off('dblclick', onDblClick);
             map.off('mousedown', VERTEX_LAYER, onMouseDownVertex);
             map.off('mousemove', onMouseMove);
@@ -3180,17 +3312,45 @@ export function mountSiteBoundaryMap2D(
         try { refreshDimLabels(); } catch { /* style may be swapping */ }
         // §CIRCLE-BOUNDARY — drop the live radius readout (the circle is committed).
         try { refreshRadiusLabel(); } catch { /* style may be swapping */ }
-        try { map.getCanvas().style.cursor = ''; } catch { /* ignore */ }
         // Freeze the chrome: the instruction chip + close (×) no longer apply (the
         // overlay is now a passive backdrop for the confirm step). Hide them so the
         // user isn't tempted to keep drawing/cancelling.
-        chip.style.display = 'none';
         closeBtn.style.display = 'none';
         // §BND-MODE-STRIP — the mode toolbar is a draw-only affordance; remove it on commit.
         modeBar.style.display = 'none';
-        // §PARCEL-SELECT — the select/draw toggle + parcel card are pre-commit affordances.
-        interToggle.style.display = 'none';
         hideParcelCard();
+        // ⭐ §CONTINUE-WITH-THIS-PARCEL (L-13026 · C19 §5.6 clause 4) — SELECT SURVIVES THE
+        // COMMIT; DRAW DOES NOT. Founder 2026-09-06: *"once selected a parcel — CONTINUE WITH
+        // THIS PARCEL. Before we had a panel for it, now is not being showed."*
+        //
+        // The panel he means is the ONE this map already mounts on a parcel click —
+        // `showParcelCard` → `buildParcelCard`, whose primary action is literally
+        // *"Use this parcel →"*. It was never deleted; this function made it unreachable by
+        // treating parcel SELECTION as a draw-only affordance and hiding the toggle that arms
+        // it. Drawing a second C19 §1.4 boundary really is impossible until the first is
+        // cleared, but SELECTING a parcel is not drawing — reading a plot's cadastral facts and
+        // choosing to proceed with it is exactly what the founder asks for after commit, and it
+        // is what `PARCEL_LAW_PLOT_ROUTE_NOTE` (§SELECT-PARCEL-IS-A-VIEW-ACTION, L-13004) now
+        // tells him to come here and do. A panel that names a route the view refuses to honour
+        // is the L-942 shape wearing a founder quote.
+        //
+        // ⛔ THE DRAW SEGMENT IS DISABLED, NOT REMOVED — it states WHY, and "↺ Redraw boundary"
+        // beside it is the route that makes it available again. A control that vanishes teaches
+        // nothing; one that refuses with its reason teaches the way out.
+        if (opts.overlayOnly) {
+            chip.style.display = 'none';
+            interToggle.style.display = 'none';
+        } else {
+            interToggle.style.display = '';
+            drawModeBtn.disabled = true;
+            drawModeBtn.style.cursor = 'not-allowed';
+            drawModeBtn.title = DRAW_FROZEN_TITLE;
+            interactionMode = 'select';
+            chip.style.display = '';
+            chip.textContent = PARCEL_RESELECT_CHIP;
+            paintInteractionToggle();
+        }
+        try { map.getCanvas().style.cursor = opts.overlayOnly ? '' : 'crosshair'; } catch { /* ignore */ }
         // §L-384 — the undo/redo pill is a draw affordance; drop it. Offer RE-DRAW instead
         // (clear-then-recreate of the immutable C19 boundary) so a mis-drawn plot isn't a trap.
         editBar.style.display = 'none';
