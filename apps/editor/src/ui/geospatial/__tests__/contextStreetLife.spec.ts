@@ -329,7 +329,18 @@ describe('§STREET-LIFE placePedestrians', () => {
     });
 
     it('marks every person synthetic, hands out an in-range palette index, and caps nearest-first', () => {
-        const roads = Array.from({ length: 40 }, (_, i) => eastWay(800 + i, 'footway', 900, i * 12, 'pedestrian'));
+        // §CTX-EXTENT-BUDGET (L-13058) — THE FIXTURE IS SIZED FROM THE CAP, NOT FROM A LITERAL.
+        // It was 40 ways, which generated 1,440 candidates: enough to overflow the old cap of 800,
+        // and SILENTLY NOT ENOUGH the moment it doubled to 1,600 — at which point this test stops
+        // asserting "the cap bites nearest-first" and starts asserting "the fixture is small", which
+        // is a test that passes for the wrong reason. Each 900 m way yields ~36 walkers at the 25 m
+        // urban pitch, so ask for enough ways to overflow whatever the cap currently is, with margin.
+        // The 8 m north step keeps every way inside URBAN_BLOCK (|y| < 500 m) so the spacing stays
+        // urban; a way that fell outside would silently switch to the 80 m rural pitch and
+        // under-generate again.
+        const wayCount = Math.ceil(PEDESTRIAN_CAP / 30) + 5;
+        const roads = Array.from({ length: wayCount },
+            (_, i) => eastWay(800 + i, 'footway', 900, i * 8, 'pedestrian'));
         const res = placePedestrians(roads, [URBAN_BLOCK], { origin: ORIGIN });
         expect(res.people.length).toBe(PEDESTRIAN_CAP);
         expect(res.droppedByCap).toBeGreaterThan(0);

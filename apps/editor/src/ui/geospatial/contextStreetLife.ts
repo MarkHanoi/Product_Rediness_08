@@ -26,6 +26,8 @@
 
 import type { ContextWay } from './contextRoads';
 import { pointInRing, URBAN_NEAR_M, type LanduseAreaLike } from './formaGroundColour';
+// §CTX-EXTENT-BUDGET (L-13058) — the ONE tunable table for every 3D-Site context radius/cap.
+import { CTX_LAMP_SYNTHETIC_CAP, CTX_STREET_LIFE_MAX_PEOPLE } from './contextExtentBudget';
 
 // ── Tunables (all exported so the spec asserts against the shipped values, never a copy) ──────────
 
@@ -43,7 +45,7 @@ export const LAMP_ROAD_CLASSES: ReadonlySet<string> = new Set([
     'residential', 'living_street', 'tertiary', 'secondary', 'primary',
 ]);
 /** Hard nearest-first cap on synthesised lamps (ADR-0094 budget; mapped lamps are not capped here). */
-export const LAMP_SYNTHETIC_CAP = 1500;
+export const LAMP_SYNTHETIC_CAP = CTX_LAMP_SYNTHETIC_CAP;
 
 /** Pedestrian ways walked along their centre-line. */
 export const PEDESTRIAN_WAY_CLASSES: ReadonlySet<string> = new Set(['footway', 'pedestrian', 'path', 'steps']);
@@ -56,7 +58,7 @@ export const PEDESTRIAN_URBAN_SPACING_M = 25;
 /** One person per N metres of way, elsewhere. */
 export const PEDESTRIAN_RURAL_SPACING_M = 80;
 /** Hard nearest-first cap on pedestrians. */
-export const PEDESTRIAN_CAP = 800;
+export const PEDESTRIAN_CAP = CTX_STREET_LIFE_MAX_PEOPLE;
 /** Number of entries in the renderer's muted clothing palette; `palette` is always in [0, N). */
 export const PEDESTRIAN_PALETTE_SIZE = 6;
 

@@ -19,6 +19,17 @@ import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
 import { sanitizeRing } from './contextRingGeometry';
 // §CTX-HEIGHT-ADOPTION (L-1663) — per-building cadastral floor-count adoptions (§DEMO-PATCH).
 import { applyContextHeightAdoptions } from './contextHeightAdoptions';
+// §CTX-EXTENT-BUDGET (L-13058) — the ONE tunable table for every 3D-Site context radius and cap.
+// Leaf module (imports nothing), so this cannot close an import cycle.
+import {
+    CTX_NEAR_HALF_DEG,
+    CTX_NEAR_FALLBACK_HALF_DEG,
+    CTX_FAR_HALF_DEG,
+    CTX_FAR_MIN_BUILDINGS,
+    CTX_TOTAL_MAX_BUILDINGS,
+    CTX_NEAR_SHADOW_RADIUS_M,
+    CTX_NEAR_MAX_SHADOW_CASTERS,
+} from './contextExtentBudget';
 //
 // WHY THIS EXISTS
 // ---------------
@@ -280,7 +291,7 @@ const MAX_HEIGHT_M = 400;
  * (toFixed(4)) so each extent is simply its OWN cache key; the 7-day localStorage
  * TTL + 4-mirror fallback are unchanged (old wider-bbox entries just age out).
  */
-export const CONTEXT_BBOX_HALF_DEG = 0.008;
+export const CONTEXT_BBOX_HALF_DEG = CTX_NEAR_HALF_DEG;
 
 /**
  * §A.21.D54 — narrow fallback half-extent (the pre-D43 0.005°, ~±550 m). Used
@@ -288,7 +299,7 @@ export const CONTEXT_BBOX_HALF_DEG = 0.008;
  * dense urban wide tile timed out — so the Forma study still gets its immediate
  * context buildings rather than a bare ground plane.
  */
-export const CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005;
+export const CONTEXT_BBOX_FALLBACK_HALF_DEG = CTX_NEAR_FALLBACK_HALF_DEG;
 
 /**
  * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-187, founder-approved) — the FAR-ring half-extent.
@@ -311,13 +322,32 @@ export const CONTEXT_BBOX_FALLBACK_HALF_DEG = 0.005;
 // so the plot's surroundings still read fully; only the distant annulus shrinks. ⚠ This is a
 // MITIGATION of the latency, not the real fix — L-504 (self-host OSM building tiles so reads
 // are O(1) with no query cost or 429) is what makes context <2 s ALWAYS.
-export const CONTEXT_BBOX_FAR_HALF_DEG = 0.011;
+//
+// ⭐ §CTX-EXTENT-BUDGET (L-13058, 2026-09-07) — THE HALVING ABOVE IS NOW REVERSED, BACK TO 0.016°,
+// AND BOTH OF ITS TWO STATED REASONS HAVE SINCE BEEN RETIRED BY OTHER WORK. Read them one at a time
+// rather than treating the paragraph as a standing verdict:
+//   1. "a `way["building"]…out geom` Overpass query over the whole dense Eixample … the dense-city
+//      Overpass cost that intermittently returns 0". ⭐ THERE IS NO QUERY ANY MORE. §CTX-PMTILES-READER
+//      (L-513b) replaced Overpass on the hot path: the far read is a fixed set of STATIC byte-range
+//      GETs against a baked PMTiles archive with no query planner, no rate limit and no 429. The
+//      cost that justified the halving is not merely smaller, it is a different mechanism. What
+//      remains is the FAN-OUT (36 → 81 range requests at 0.016°), which is bounded and measured —
+//      see `CTX_BUILDINGS_MAX_TILES_PER_FETCH` for the per-city tile arithmetic.
+//   2. "the slow-render load the founder called out". ⭐ THE FAR RING NO LONGER RENDERS THAT WAY.
+//      In July every far footprint was an extruded entity. §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642
+//      Phase B) rebuilt the far tier as ONE batched, shadowless, single-shared-material primitive
+//      combined off-thread — which is precisely the mechanism that makes a wider annulus affordable.
+// ⛔ WHAT IS *NOT* CLAIMED: the near ring is still untouched at `CONTEXT_BBOX_HALF_DEG`, so nothing
+// here adds a shadow caster or a solid entity. The extra extent is instanced and shadowless or it
+// is not shipped. The value itself lives in `contextExtentBudget.ts` with the measured per-city
+// tile fan-out that chose 0.016° over the founder's literal 2× (0.022°).
+export const CONTEXT_BBOX_FAR_HALF_DEG = CTX_FAR_HALF_DEG;
 
 /** §FEAT-FORMA-CONTEXT-EXTENT-LOD — FLOOR on the far-ring allowance (the nearest N by centroid
  *  distance). Since §L-579 this is the MINIMUM the far ring may draw, not the maximum — the
  *  effective cap is derived from the whole-scene budget below. Kept at its historic value so the
  *  far ring can never render LESS than it did before that change. */
-export const CONTEXT_FAR_MAX_BUILDINGS = 900;
+export const CONTEXT_FAR_MAX_BUILDINGS = CTX_FAR_MIN_BUILDINGS;
 
 /**
  * §L-579 — TOTAL drawn context footprints (near + far). THE CAP THAT ACTUALLY MATTERS.
@@ -344,13 +374,26 @@ export const CONTEXT_FAR_MAX_BUILDINGS = 900;
  * under-filled. The far tier is also the CHEAP one — flat, shadowless, height-clamped — so it is
  * the right place to spend what the near ring leaves over.
  *
- * ⚠ HONESTY NOTE, in the same spirit as the note on `CONTEXT_NEAR_MAX_BUILDINGS`: 6,000 is NOT a
- * measured frame-time budget. No GPU capture was taken. It is set from the observed numbers above
- * — enough to cover a dense Barcelona far ring (Eixample needs ~2,900 beyond the near set) while
- * staying within ~1.5× the footprint count the scene already drew before this change. Re-derive it
- * from profiler evidence before treating it as tuned.
+ * ⚠ HONESTY NOTE, in the same spirit as the note on `CONTEXT_NEAR_MAX_BUILDINGS`: this is NOT a
+ * measured frame-time budget. No GPU capture was taken. Re-derive it from profiler evidence before
+ * treating it as tuned.
+ *
+ * ⭐ §CTX-EXTENT-BUDGET (L-13058, 2026-09-07) — RAISED 6,000 → 14,000, AND THE 6,000 HAD BECOME THE
+ * HARDEST-BITING CAP IN THE WHOLE CONTEXT SCENE. The founder's console: `near=5440 far=900 (cap 900)
+ * of 9902`. Trace it: the near ring spent 5,440 of the 6,000, `resolveFarRingCap` returned
+ * `max(900, 560)` = the 900 FLOOR, and **9,002 footprints that were already downloaded, decoded and
+ * centroided were thrown away.** The table this bullet documents (Eixample "3,445 never drawn") is
+ * the same defect one budget-revision later — the whole-scene total simply became the new fixed 900.
+ * Those footprints cost nothing to draw beyond instances in the ONE shadowless far-tier primitive:
+ * same tiles, same terrain round-trip (points inside a tile are free —
+ * §GROUND-SAMPLE-TILE-ATTRIBUTION), zero extra shadow casters.
+ *
+ * ⚠ AND THE LOG WAS MISREADABLE, WHICH IS HOW THIS WENT UNNOTICED: both call sites printed
+ * `cap ${cap}` — the FLOOR parameter — not the EFFECTIVE budget `resolveFarRingCap` returned. Here
+ * they coincided at 900, so the console looked like an untouched cap. Both sites now print the
+ * effective cap AND the number dropped.
  */
-export const CONTEXT_TOTAL_MAX_BUILDINGS = 6000;
+export const CONTEXT_TOTAL_MAX_BUILDINGS = CTX_TOTAL_MAX_BUILDINGS;
 
 /**
  * The far-ring allowance for a scene that already holds `nearCount` near footprints.
@@ -380,7 +423,7 @@ export function resolveFarRingCap(
  * ⚠ COUPLED CONSTANT: if `sm.maximumDistance` changes, change this with it, or the tiers
  * silently drift apart again.
  */
-export const CONTEXT_NEAR_SHADOW_RADIUS_M = 600;
+export const CONTEXT_NEAR_SHADOW_RADIUS_M = CTX_NEAR_SHADOW_RADIUS_M;
 
 /**
  * §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — hard BACKSTOP on the expensive near tier.
@@ -401,7 +444,7 @@ export const CONTEXT_NEAR_SHADOW_RADIUS_M = 600;
  * It is NOT a GPU frame-time measurement — no frame-time capture was taken. Re-derive it from
  * profiler evidence before treating it as a tuned performance value.
  */
-export const CONTEXT_NEAR_MAX_BUILDINGS = 1600;
+export const CONTEXT_NEAR_MAX_BUILDINGS = CTX_NEAR_MAX_SHADOW_CASTERS;
 
 /**
  * Overpass request timeout (ms).
@@ -1709,19 +1752,29 @@ export async function fetchContextBuildingsNearAndFar(
         const nearBbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
         const nearFeatures = selectNearFootprints({ farFeatures: full.features, nearBbox });
         const nearOsmIds = new Set<number>(nearFeatures.map((f) => f.properties.osmId));
+        // §L-579 — spend the WHOLE-SCENE budget the near ring left over rather than a
+        // fixed 900 that hard-truncated the far ring in dense fabric. `Math.max` keeps
+        // this MONOTONE: it can only ever draw more than before, never less.
+        // §CTX-EXTENT-BUDGET (L-13058) — hoisted out of the call so the LOG can print the
+        // EFFECTIVE cap. It used to print `cap`, the 900 FLOOR, which on the founder's run
+        // coincided with the effective value and made a hard cap bite (900 of 9,902) read as
+        // an untouched cap — the misreading that had the far tier filed as radius-bound.
+        const effectiveFarCap = Math.max(cap, resolveFarRingCap(nearFeatures.length));
         const farFeatures = selectFarRingFootprints({
             farFeatures: full.features,
             centerLat: lat, centerLon: lon,
             nearBbox,
             nearOsmIds,
-            // §L-579 — spend the WHOLE-SCENE budget the near ring left over rather than a
-            // fixed 900 that hard-truncated the far ring in dense fabric. `Math.max` keeps
-            // this MONOTONE: it can only ever draw more than before, never less.
-            cap: Math.max(cap, resolveFarRingCap(nearFeatures.length)),
+            cap: effectiveFarCap,
         });
+        const farCandidates = full.features.length - nearFeatures.length;
         console.log(
             `[gis] §CTX-PMTILES-READER near+far from ONE baked-tile read: ${nearFeatures.length} near ` +
-                `+ ${farFeatures.length} far (cap ${cap}) of ${full.features.length} footprint(s).`,
+                `+ ${farFeatures.length} far of ${full.features.length} footprint(s) ` +
+                `(§CTX-EXTENT-BUDGET: far cap ${effectiveFarCap} EFFECTIVE = max(floor ${cap}, ` +
+                `total ${CONTEXT_TOTAL_MAX_BUILDINGS} − near ${nearFeatures.length}); ` +
+                `${Math.max(0, farCandidates - farFeatures.length)} far candidate(s) dropped by that cap ` +
+                `— they were already downloaded and decoded, so a drop here is pure waste).`,
         );
         return {
             near: { type: 'FeatureCollection', features: nearFeatures },
@@ -1811,20 +1864,24 @@ export async function fetchContextBuildingsNearAndFar(
     const nearBbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
     const nearFeatures = selectNearFootprints({ farFeatures: full.features, nearBbox });
     const nearOsmIds = new Set<number>(nearFeatures.map((f) => f.properties.osmId));
+    // §L-579 / §CTX-EXTENT-BUDGET (L-13058) — see the tiles path above for why the EFFECTIVE cap,
+    // not the `cap` floor, is the number the log must carry.
+    const effectiveFarCap = Math.max(cap, resolveFarRingCap(nearFeatures.length));
     const farFeatures = selectFarRingFootprints({
         farFeatures: full.features,
         centerLat: lat, centerLon: lon,
         nearBbox,
         nearOsmIds,
-        // §L-579 — spend the WHOLE-SCENE budget the near ring left over rather than a
-        // fixed 900 that hard-truncated the far ring in dense fabric. `Math.max` keeps
-        // this MONOTONE: it can only ever draw more than before, never less.
-        cap: Math.max(cap, resolveFarRingCap(nearFeatures.length)),
+        cap: effectiveFarCap,
     });
+    const farCandidates = full.features.length - nearFeatures.length;
     console.log(
         `[gis] §PERF-CTX-SINGLE-FETCH near+far from ONE ${CONTEXT_BBOX_FAR_HALF_DEG}° fetch: ` +
             `${nearFeatures.length} near (extruded+shadows) + ${farFeatures.length} far ` +
-            `(flat/shadowless, cap ${cap}) of ${full.features.length} footprint(s).`,
+            `(flat/shadowless) of ${full.features.length} footprint(s) ` +
+            `(§CTX-EXTENT-BUDGET: far cap ${effectiveFarCap} EFFECTIVE = max(floor ${cap}, ` +
+            `total ${CONTEXT_TOTAL_MAX_BUILDINGS} − near ${nearFeatures.length}); ` +
+            `${Math.max(0, farCandidates - farFeatures.length)} far candidate(s) dropped by that cap).`,
     );
     return {
         near: { type: 'FeatureCollection', features: nearFeatures },

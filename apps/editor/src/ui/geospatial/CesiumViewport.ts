@@ -11,9 +11,11 @@ import {
     // nearest-N capped) split client-side, so the far ring never waits on a second network hop.
     fetchContextBuildingsNearAndFar,
     CONTEXT_BBOX_HALF_DEG,
-    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the far-ring half-extent, reused to derive the
-    // RADIAL (circle) far-tier cull radius so the two never drift apart from the fetch extent.
-    CONTEXT_BBOX_FAR_HALF_DEG,
+    // §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the far-ring half-extent used to be imported
+    // here to derive the far-tier cull radius. §CTX-SITE-SCOPE (L-13058) inverted that: the radius
+    // is now `farTierRadiusM(scope)` and the FETCH half-extent derives from the same scope
+    // (`farFetchHalfDeg`), so the two still cannot drift — but the dependency runs the other way and
+    // this file no longer needs the degree value at all.
     // §FEAT-FORMA-SEA-CONTEXT (L-637) — supplemental LIVE coastline fetch (the baked water tiles
     // carry no `natural=coastline`, so a baked coastal city has no sea mask). Reuses the SAME
     // §OVERPASS-PROXY + bbox helper the context loaders use — no parallel network path.
@@ -112,6 +114,20 @@ import { decideMassingRing, resolveFullBuildingHeightM, type FullHeightDecision 
 import { CONFIDENT_VIOLET_CSS, PROVISIONAL_GREY_CSS, SUGGESTED_AMBER_CSS } from "../site/envelopeRenderStyle";
 import type { MassingSolid } from "@pryzm/site-parcel-data";
 import { CONTEXT_WIDE_HALF_DEG, CONTEXT_SEA_HALF_DEG } from "./contextExtents";
+// §CTX-SITE-SCOPE / §CTX-EXTENT-BUDGET (L-13058 x L-645) - the ONE tunable table every 3D-Site
+// context radius and cap derives from. Leaf module (imports nothing) so it cannot close a cycle.
+import {
+  type SiteContextScope,
+  DEFAULT_SITE_CONTEXT_SCOPE,
+  scopeOuterRadiusM,
+  farTierRadiusM,
+  nearSolidRadiusM,
+  shadowRadiusM,
+  treesRadiusM,
+  CTX_FAR_TIER_MAX_INSTANCES,
+  CTX_TREES_MAX_INSTANCES,
+  CTX_CANOPIES_MAX_SYNTHESISED,
+} from "./contextExtentBudget";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import {
     fetchContextWater,
@@ -833,12 +849,21 @@ const FORMA_SEA_MASK_CACHE = new Map<string, Array<Array<readonly [number, numbe
  * reads as a disc of city, not a square patch. Both are DERIVED from the existing fetch half-extents
  * (≈111.32 km per degree of latitude) — no new magic number is introduced.
  *
- *   • SOLID near tier (extruded entities, unchanged look): distM ≤ CONTEXT_NEAR_RENDER_RADIUS_M.
- *   • Instanced far tier (T2 low-poly): CONTEXT_NEAR_RENDER_RADIUS_M < distM ≤ CONTEXT_FAR_RENDER_RADIUS_M.
- *   • Beyond CONTEXT_FAR_RENDER_RADIUS_M: culled (the horizon).
+ *   • SOLID near tier (extruded entities, unchanged look): distM ≤ nearSolidRadiusM(scope).
+ *   • Instanced far tier (T2 low-poly): nearSolidRadiusM(scope) < distM ≤ farTierRadiusM(scope).
+ *   • Beyond farTierRadiusM(scope): culled (the horizon).
  */
-const CONTEXT_NEAR_RENDER_RADIUS_M = CONTEXT_BBOX_HALF_DEG * 111_320;      // ~890 m (near bbox on-axis)
-const CONTEXT_FAR_RENDER_RADIUS_M = CONTEXT_BBOX_FAR_HALF_DEG * 111_320;   // ~1225 m (far bbox on-axis)
+/*
+ * ⭐ §CTX-SITE-SCOPE (L-13058 × L-645) — THESE TWO LITERALS ARE GONE. Both radii are now
+ * `f(this.contextScope)`: `nearSolidRadiusM(scope)` = min(scope, 891 m ceiling) and
+ * `farTierRadiusM(scope)` = the scope itself. There is ONE radial input for the whole context load
+ * (`CesiumViewport.contextScope`), and every layer — shadow ring, solid near tier, instanced far
+ * tier, trees, street life — reads it through a named function in `contextExtentBudget.ts` instead
+ * of holding its own copy of the number. That is what lets a user-driven scope (the L-645 slab
+ * slider) move all five together, in BOTH directions, without a sixth copy of the arithmetic.
+ * ⛔ The functions are NOT symmetric, and the asymmetry is the design: only the far tier follows the
+ * scope outward. Everything more expensive is `min(scope, ceiling)` — see the budget file.
+ */
 /*
  * §CTX-EARTH-SLAB (L-645) — RETIRED (see `clearContextEarthSlab` for the full root-cause rationale). The
  * globe-clip "cut slab" + its skirt/cap and the CONTEXT_SLAB_RADIUS_M / _SKIRT_DEPTH_M / _RING_SEGMENTS
@@ -916,7 +941,7 @@ function seaFractionOfBbox(
  * pathologically dense district can never hand the batch an unbounded geometry set. Nearest-first, so
  * when it bites it drops the FARTHEST footprints (least visible), never an arbitrary slice.
  */
-const CONTEXT_FAR_TIER_MAX_INSTANCES = 4000;
+const CONTEXT_FAR_TIER_MAX_INSTANCES = CTX_FAR_TIER_MAX_INSTANCES;
 
 /**
  * §FORMA-CTX-TREES (L-642 Phase C) — hard NEAREST-FIRST cap on the instanced tree canopies. Trees are
@@ -927,7 +952,7 @@ const CONTEXT_FAR_TIER_MAX_INSTANCES = 4000;
  * Nearest-first, so when it bites it drops the FARTHEST (least visible) trees, never an arbitrary slice.
  * 1500 low-poly blobs in one draw call is comfortably inside the budget beside the building tiers.
  */
-const CONTEXT_TREES_MAX_INSTANCES = 1500;
+const CONTEXT_TREES_MAX_INSTANCES = CTX_TREES_MAX_INSTANCES;
 /**
  * §VEG-CANOPY-FROM-WOODS (L-12934) — hard cap on the SYNTHESISED canopies that fill the real
  * `natural=wood` / `landuse=forest` rings (contextCanopySynth.ts). Separate from the mapped cap
@@ -935,10 +960,13 @@ const CONTEXT_TREES_MAX_INSTANCES = 1500;
  * ours, and they are counted apart in the log. Both share the ONE primitive, so the budget that
  * matters is the sum — 7500 instances of one geometry with one material is still one draw call.
  */
-const CONTEXT_CANOPIES_MAX_SYNTHESISED = 6000;
-/** §FORMA-CTX-TREES — radial cull for tree canopies: the T1 near disc (SPEC §2 lists trees under "what
- *  T1 needs"). Beyond it a canopy blob is a sub-pixel speck, so cull rather than spend an instance. */
-const CONTEXT_TREES_RENDER_RADIUS_M = CONTEXT_NEAR_RENDER_RADIUS_M;
+const CONTEXT_CANOPIES_MAX_SYNTHESISED = CTX_CANOPIES_MAX_SYNTHESISED;
+/* §FORMA-CTX-TREES — the radial cull for tree canopies (the T1 near disc; SPEC §2 lists trees under
+ * "what T1 needs") is now `treesRadiusM(this.contextScope)` = min(scope, 891 m). Beyond the ceiling
+ * a canopy blob is a sub-pixel speck AND is outside the bbox the trees were read from, so the cull
+ * is data-bound, not taste-bound — see `CTX_TREES_MAX_INSTANCES` for why widening it is a follow-up
+ * with its own tile arithmetic (`trees` is a POINT layer baked z14–16 with
+ * `--drop-densest-as-needed`: below z16 a coarser read DELETES trees rather than simplifying them). */
 
 /**
  * §FACADE-STUDY-SUBJECT (L-596) × C58 §1.14 — collapse the envelope's `MassingSolid[]` to the ONE
@@ -1856,6 +1884,61 @@ export class CesiumViewport {
   /** §STREET-LIFE (L-12936) — the instanced lamp/pedestrian layer. Owns its own reads, primitives
    *  and abort; this class only kicks it and re-seats it. DEFAULT ON in Forma. */
   private streetLife = new StreetLifeLayer();
+
+  /**
+   * ⭐ §CTX-SITE-SCOPE (L-13058 × L-645) — THE SINGLE ENTRY POINT FOR EVERY RADIAL LIMIT IN THE
+   * 3D-SITE CONTEXT LOAD, and the one value a scope slider will drive.
+   *
+   * Its centre is not stored here: it is always the site frame origin the loaders are already
+   * called with (`loadContextBuildings(lat, lon)` / `loadContextTrees(lat, lon)` / `streetLife.load`),
+   * so a scope can never drift off the parcel the way a second copy of the origin could
+   * (memory `site-origin-on-parcel-regression` is exactly that failure). This field carries only the
+   * SHAPE and SIZE.
+   *
+   * Every layer reads it through a named function in `contextExtentBudget.ts` —
+   * `shadowRadiusM` · `nearSolidRadiusM` · `farTierRadiusM` · `treesRadiusM` · `streetLifeRadiusM` —
+   * so there is one number to change and five derived answers, instead of five literals free to
+   * drift. ⛔ The functions are deliberately ASYMMETRIC: only the far tier (ONE shadowless instanced
+   * primitive) follows the scope outward; the expensive tiers are `min(scope, ceiling)` and can only
+   * ever SHRINK below their ceiling. A bigger scope must not mint shadow casters.
+   */
+  private contextScope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE;
+
+  /** §CTX-SITE-SCOPE — the live scope. Read by every context loader; `setContextScope` writes it. */
+  public getContextScope(): SiteContextScope { return this.contextScope; }
+
+  /**
+   * §CTX-SITE-SCOPE — set the site scope and reload the layers whose radius depends on it.
+   *
+   * ⚠ THE RELOAD IS NOT OPTIONAL AND IS NOT A CONVENIENCE. Every radial limit is applied at BUILD
+   * time (the far tier and the tree/street-life primitives bake their ground into instance matrices
+   * — §CTX-TREES-RESEAT L-12918), so a scope change that only writes the field would leave the scene
+   * showing the OLD disc while every log line reported the NEW radius: a number that is not what you
+   * are looking at, which is the §CONTEXT-DATA-HONESTY failure in its rendering form.
+   *
+   * No-op when the resolved radius is unchanged, so a slider that emits continuously does not
+   * re-read tiles on every pixel. Visual only; never throws.
+   */
+  public setContextScope(scope: SiteContextScope): void {
+    const before = scopeOuterRadiusM(this.contextScope);
+    const after = scopeOuterRadiusM(scope);
+    this.contextScope = scope;
+    this.streetLife.scope = scope;
+    if (Math.abs(after - before) < 0.5) return;   // same disc — nothing to rebuild.
+    console.log(
+      `[CesiumViewport][forma] §CTX-SITE-SCOPE — scope ${scope?.shape ?? 'circle'} ` +
+        `${Math.round(before)} m → ${Math.round(after)} m. Derived radii: shadow ` +
+        `${Math.round(shadowRadiusM(scope))} m · near solid ${Math.round(nearSolidRadiusM(scope))} m · ` +
+        `far tier ${Math.round(farTierRadiusM(scope))} m · trees ${Math.round(treesRadiusM(scope))} m. ` +
+        'Reloading the layers that bake a radius into their geometry.',
+    );
+    const at = this.contextBuildingsAt;
+    if (at) {
+      void this.loadContextBuildings(at.lat, at.lon, true);
+      void this.loadContextTrees(at.lat, at.lon, true);
+      void this.loadStreetLife(at.lat, at.lon, true);
+    }
+  }
   private contextTreesPrimitive: Cesium.Primitive | null = null;
   private contextTreesAbort: AbortController | null = null;
   /** Abort handle for an in-flight context-building fetch (cancelled on a newer
@@ -9920,14 +10003,19 @@ export class CesiumViewport {
     // render boundary — deliberately NOT in the fetch, because `collection` above also feeds
     // setNeighbourFootprints (party-wall resolution) and the site-metric density heatmaps,
     // which need the COMPLETE set or they report a wrong density number.
+    // §CTX-SITE-SCOPE (L-13058 × L-645) — the shadow ring is `min(scope, 600 m)`. It follows the
+    // scope DOWNWARD (a 300 m slab must not cast shadows out to 600 m) and can never follow it up:
+    // 600 m is Cesium's own shadow-map `maximumDistance`, past which the shadow is not rendered at
+    // all, so a caster out there is pure cost. See `CTX_SHADOW_RADIUS_CEILING_M`.
+    const shadowR = shadowRadiusM(this.contextScope);
     const nearTiers = selectNearRingRenderTiers({
-      features: nearSplit.kept, centerLat: lat, centerLon: lon,
+      features: nearSplit.kept, centerLat: lat, centerLon: lon, shadowRadiusM: shadowR,
     });
     if (nearTiers.demoted.length > 0) {
       console.log(
         `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-NEAR-CAP — near ring tiered: ` +
-          `${nearTiers.shadowed.length} shadow-casting (within ` +
-          `${CONTEXT_NEAR_SHADOW_RADIUS_M} m, cap ${CONTEXT_NEAR_MAX_BUILDINGS}) + ` +
+          `${nearTiers.shadowed.length} shadow-casting (within §CTX-SITE-SCOPE ${Math.round(shadowR)} m ` +
+          `of a ${CONTEXT_NEAR_SHADOW_RADIUS_M} m ceiling, cap ${CONTEXT_NEAR_MAX_BUILDINGS}) + ` +
           `${nearTiers.demoted.length} demoted to shadowless/true-height ` +
           `(of ${nearSplit.kept.length} kept). Coverage unchanged; shadow casters bounded.`,
       );
@@ -10196,8 +10284,11 @@ export class CesiumViewport {
     // as a disc, not a square. `distM` was stamped by selectNearRingRenderTiers — no re-measure.
     const demotedSolid: ContextBuildingFeature[] = [];
     const demotedToFar: ContextBuildingFeature[] = [];
+    // §CTX-SITE-SCOPE (L-13058) — the disc radius is `f(scope)`, resolved ONCE here so the split,
+    // the far cull and the log line cannot disagree about which circle they describe.
+    const nearSolidR = nearSolidRadiusM(this.contextScope);
     for (const f of nearDemotedExtrudable) {
-      ((f.properties.distM ?? 0) <= CONTEXT_NEAR_RENDER_RADIUS_M ? demotedSolid : demotedToFar).push(f);
+      ((f.properties.distM ?? 0) <= nearSolidR ? demotedSolid : demotedToFar).push(f);
     }
     // §FEAT-FORMA-CONTEXT-NEAR-CAP (L-454) — the DEMOTED SOLID near-tier: cheap shading, but TRUE
     // height (no 24 m clamp) because these are the site's own immediate neighbours. plotClearSplit
@@ -10922,7 +11013,8 @@ export class CesiumViewport {
    *   • ONE batched `Cesium.Primitive` (all footprints combined into one vertex buffer → one draw call),
    *   • ONE shared appearance/material (`PerInstanceColorAppearance`, every instance the same colour),
    *   • SHADOWLESS (`ShadowMode.DISABLED` — the shadow pass is the perf driver the founder flagged),
-   *   • RADIALLY culled to a disc (`CONTEXT_FAR_RENDER_RADIUS_M`) + a hard nearest-first count backstop.
+   *   • RADIALLY culled to a disc (`farTierRadiusM(scope)` — the ONE scope value, §CTX-SITE-SCOPE)
+   *     plus a hard nearest-first count backstop (`CONTEXT_FAR_TIER_MAX_INSTANCES`).
    *
    * It is kept OUT of `contextBuildingEntities`/`contextBuildingPlacements`, so the near ring's pick +
    * in-place terrain re-seat are untouched; this primitive owns its own clear + rebuild. Never throws.
@@ -10936,8 +11028,11 @@ export class CesiumViewport {
       || Math.abs(this.contextBuildingsAt.lat - lat) > 1e-9
       || Math.abs(this.contextBuildingsAt.lon - lon) > 1e-9) return;
     // RADIAL (circle) cull + nearest-first count cap → bounded by construction (the "not square" disc).
+    // §CTX-SITE-SCOPE — this tier is the ONLY one whose radius IS the scope (it is one shadowless
+    // instanced primitive, so it is the one that can afford to follow the slider all the way out).
+    const farR = farTierRadiusM(this.contextScope);
     const culled = features
-      .filter((f) => (f.properties.distM ?? Infinity) <= CONTEXT_FAR_RENDER_RADIUS_M)
+      .filter((f) => (f.properties.distM ?? Infinity) <= farR)
       .sort((a, b) => (a.properties.distM ?? 0) - (b.properties.distM ?? 0));
     const bounded = culled.length > CONTEXT_FAR_TIER_MAX_INSTANCES
       ? culled.slice(0, CONTEXT_FAR_TIER_MAX_INSTANCES) : culled;
@@ -11009,8 +11104,10 @@ export class CesiumViewport {
     viewer.scene.requestRender();
     console.log(
       `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642) instanced far tier: ${instances.length} ` +
-        `low-poly footprint(s) in ONE shadowless shared-material primitive (radial ≤${Math.round(CONTEXT_FAR_RENDER_RADIUS_M)} m, ` +
-        `cap ${CONTEXT_FAR_TIER_MAX_INSTANCES}).`,
+        `low-poly footprint(s) in ONE shadowless shared-material primitive ` +
+        `(§CTX-SITE-SCOPE radial ≤${Math.round(farTierRadiusM(this.contextScope))} m, ` +
+        `cap ${CONTEXT_FAR_TIER_MAX_INSTANCES} — ` +
+        `${features.length >= CONTEXT_FAR_TIER_MAX_INSTANCES ? 'the CAP is binding, so raising the scope will not add more' : 'the RADIUS is binding, so the cap has headroom'}).`,
     );
   }
 
@@ -12246,7 +12343,7 @@ export class CesiumViewport {
       // wall-clock (it overlaps the PMTiles read) and is coalesced with every sibling's call.
       [collection] = await Promise.all([
         fetchContextCanopySet(lat, lon, {
-          maxRadiusM: CONTEXT_TREES_RENDER_RADIUS_M,
+          maxRadiusM: treesRadiusM(this.contextScope),   // §CTX-SITE-SCOPE — min(scope, 891 m bbox ceiling).
           maxMapped: CONTEXT_TREES_MAX_INSTANCES,
           maxSynthetic: CONTEXT_CANOPIES_MAX_SYNTHESISED,
         }, signal),
@@ -12367,7 +12464,8 @@ export class CesiumViewport {
     );
     console.log(
       `[CesiumViewport][forma] §FORMA-CTX-TREES (L-642) instanced canopies: ${instances.length} ` +
-        `low-poly blob(s) in ONE shadowless shared-material primitive (radial ≤${Math.round(CONTEXT_TREES_RENDER_RADIUS_M)} m, ` +
+        `low-poly blob(s) in ONE shadowless shared-material primitive ` +
+        `(§CTX-SITE-SCOPE radial ≤${Math.round(treesRadiusM(this.contextScope))} m, ` +
         `mapped cap ${CONTEXT_TREES_MAX_INSTANCES} of ${collection.bakedTreeCount} baked tree(s), ` +
         `synthetic cap ${CONTEXT_CANOPIES_MAX_SYNTHESISED}${collection.syntheticCappedAway > 0 ? ` (${collection.syntheticCappedAway} cut)` : ''}, ` +
         `${collection.excludedNearMappedTree} skipped as duplicates of a mapped tree).`,

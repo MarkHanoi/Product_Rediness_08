@@ -33,6 +33,12 @@ import { fetchContextRoads } from './contextRoads';
 import { fetchContextLanduse } from './contextLanduse';
 import { fetchContextFurniture } from './contextFurniture';
 import { CONTEXT_WIDE_HALF_DEG } from './contextExtents';
+// §CTX-EXTENT-BUDGET (L-13058) — one tunable table; people were CAP-bound (800 kept of 3,844,
+// i.e. 3,044 dropped) and lamps were RADIUS-bound. See the budget file for that split.
+import {
+    CTX_STREET_LIFE_MAX_LAMPS, CTX_STREET_LIFE_MAX_PEOPLE, CTX_STREET_LIFE_RADIUS_CEILING_M,
+    streetLifeRadiusM, DEFAULT_SITE_CONTEXT_SCOPE, type SiteContextScope,
+} from './contextExtentBudget';
 import {
     placeLamps, placePedestrians, streetLifeLogLine,
     PEDESTRIAN_PALETTE_SIZE,
@@ -40,11 +46,21 @@ import {
 } from './contextStreetLife';
 import type { LanduseAreaLike } from './formaGroundColour';
 
-/** Radial cull for the rendered objects — the near context disc (~890 m), like the canopies. */
-export const STREET_LIFE_RENDER_RADIUS_M = 890;
+/**
+ * Radial cull for the rendered objects — the near context disc (~890 m), like the canopies.
+ *
+ * ⭐ §CTX-SITE-SCOPE (L-13058 × L-645) — THIS IS NOW THE CEILING, NOT THE VALUE. The live radius is
+ * `streetLifeRadiusM(scope)` = `min(scope, 890)`, read from the ONE `SiteContextScope` the whole
+ * context load derives from, so a scope slider shrinks the crowd with the slab instead of leaving
+ * pedestrians walking around outside it. It cannot grow past 890 m because street life is placed
+ * along the roads read at `CTX_NEAR_HALF_DEG` — the radius is bbox-bound, not taste-bound. Kept
+ * exported at the ceiling value so `contextStreetLife.spec.ts` and the existing callers still read
+ * the same number they always did.
+ */
+export const STREET_LIFE_RENDER_RADIUS_M = CTX_STREET_LIFE_RADIUS_CEILING_M;
 /** Hard instance ceilings AFTER the placement caps, so a pathological road set still cannot blow up. */
-export const STREET_LIFE_MAX_LAMPS = 1200;
-export const STREET_LIFE_MAX_PEOPLE = 800;
+export const STREET_LIFE_MAX_LAMPS = CTX_STREET_LIFE_MAX_LAMPS;
+export const STREET_LIFE_MAX_PEOPLE = CTX_STREET_LIFE_MAX_PEOPLE;
 
 /** Lamp post geometry — 6 m pole + a small warm head, per the founder's "street lighting". */
 export const LAMP_POLE_HEIGHT_M = 6;
@@ -118,6 +134,17 @@ export class StreetLifeLayer {
     /** §STREET-LIFE toggle — DEFAULT ON in Forma. Honoured by `load` and by the base rebuild. */
     public enabled = true;
 
+    /**
+     * §CTX-SITE-SCOPE (L-13058 × L-645) — the ONE radial input. `CesiumViewport` pushes its own
+     * scope in whenever it changes; the render radius is `streetLifeRadiusM(this.scope)`, never a
+     * literal, so this layer follows the site scope in BOTH directions without a second copy of the
+     * arithmetic. Defaulted so a caller that never sets it behaves exactly as before.
+     */
+    public scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE;
+
+    /** The radius this layer will actually cull to right now — `min(scope, 890 m bbox ceiling)`. */
+    public get radiusM(): number { return streetLifeRadiusM(this.scope); }
+
     /** Where the layer is currently built, or null. Used by the settled-base rebuild. */
     public get builtAt(): { lat: number; lon: number } | null { return this.at; }
     public get hasContent(): boolean { return this.lampsPrimitive !== null || this.peoplePrimitive !== null; }
@@ -176,12 +203,13 @@ export class StreetLifeLayer {
         if (!this.enabled) { this.clear(viewer); return; }
 
         const origin = { lat, lon };
-        const lampResult = placeLamps(furniture.lamps, roads.ways, {
-            origin, radiusM: STREET_LIFE_RENDER_RADIUS_M,
-        });
+        // §CTX-SITE-SCOPE — resolved ONCE per load so placement, the cull below and the log line
+        // can never disagree about which disc they are describing.
+        const radiusM = this.radiusM;
+        const lampResult = placeLamps(furniture.lamps, roads.ways, { origin, radiusM });
         const peopleResult = placePedestrians(
             roads.ways, landuse.areas as ReadonlyArray<LanduseAreaLike>,
-            { origin, radiusM: STREET_LIFE_RENDER_RADIUS_M },
+            { origin, radiusM },
         );
 
         this.clear(viewer);
@@ -193,7 +221,7 @@ export class StreetLifeLayer {
         // while the log line prints "3000 mapped lamp(s)" is the failure≠empty confusion in its
         // rendering form: a count that is not what you are looking at. `placeLamps` now returns the
         // mapped half nearest-first, so what survives the slice is the nearest, not a tile-order corner.
-        const inRadius = lampResult.lamps.filter((l) => l.distM <= STREET_LIFE_RENDER_RADIUS_M);
+        const inRadius = lampResult.lamps.filter((l) => l.distM <= radiusM);
         const lamps = inRadius.slice(0, STREET_LIFE_MAX_LAMPS);
         const lampsDroppedByRenderCap = inRadius.length - lamps.length;
         const mappedDroppedByRenderCap = inRadius.slice(STREET_LIFE_MAX_LAMPS).filter((l) => !l.synthetic).length;
@@ -235,9 +263,12 @@ export class StreetLifeLayer {
             ...(furniture.reason === undefined ? {} : { furnitureReason: furniture.reason }),
         }));
         console.log(
-            `[CesiumViewport][forma] §STREET-LIFE (L-12936) render: ${lampInstances} lamp instance(s) + ` +
-                `${peopleInstances} person instance(s) in TWO shadowless shared-material primitives ` +
-                `(radial ≤${STREET_LIFE_RENDER_RADIUS_M} m; ${lampResult.waysEligible} eligible road way(s), ` +
+            `[CesiumViewport][forma] §STREET-LIFE (L-12936) render: ${lampInstances} lamp instance(s) ` +
+                `(${lamps.length} lamp(s), cap ${STREET_LIFE_MAX_LAMPS}) + ${peopleInstances} person ` +
+                `instance(s) (${people.length} person(s), cap ${STREET_LIFE_MAX_PEOPLE}) ` +
+                `in TWO shadowless shared-material primitives ` +
+                `(radial ≤${Math.round(radiusM)} m of a ${CTX_STREET_LIFE_RADIUS_CEILING_M} m ceiling; ` +
+                `${lampResult.waysEligible} eligible road way(s), ` +
                 `${lampResult.waysSkippedMapped} left to their mapped lamps, ` +
                 `${lampResult.syntheticDroppedByCap} synthesised lamp(s) + ${peopleResult.droppedByCap} ` +
                 `person(s) dropped by the nearest-first cap; render cap dropped a further ` +

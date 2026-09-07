@@ -16,6 +16,7 @@ import {
     readContextTileFeatures,
     __setContextTilesBaseUrl,
     MAX_TILES_PER_FETCH,
+    tileFanOutCap,
     CONTEXT_TILES_SAME_ORIGIN_BASE,
     CONTEXT_TILESET_VERSION,
     clearContextTileArchives,
@@ -33,6 +34,8 @@ import {
     resolveFarRingCap,
     CONTEXT_FAR_MAX_BUILDINGS,
     CONTEXT_TOTAL_MAX_BUILDINGS,
+    CONTEXT_BBOX_FAR_HALF_DEG,
+    contextFetchBbox,
 } from '../src/ui/geospatial/contextBuildings';
 
 afterEach(() => { __setContextTilesBaseUrl(null); });
@@ -74,11 +77,33 @@ describe('tile addressing', () => {
         expect(Number.isFinite(latToTileY(-89.9, 16))).toBe(true);
     });
 
-    it('covers the real far extent within the fan-out cap', () => {
-        // CONTEXT_BBOX_FAR_HALF_DEG = 0.011 around Barcelona — the widest extent we ever ask for.
-        const h = 0.011;
+    it('covers the real far extent within the BUILDINGS fan-out cap', () => {
+        // §CTX-EXTENT-BUDGET (L-13058) — read the SHIPPED extent, never a copy of it. This test
+        // hard-coded `0.011` and the default cap; both moved, and a literal would have gone on
+        // passing while describing an extent the app no longer asks for.
+        // ⛔ It must also compare against `tileFanOutCap('buildings')`, not `MAX_TILES_PER_FETCH`:
+        // buildings carry their own higher ceiling precisely so the widened extent still reads at
+        // z16, and checking the wrong cap would report a false failure.
+        const h = CONTEXT_BBOX_FAR_HALF_DEG;
         const tiles = tilesCovering([2.1686 - h, 41.3874 - h, 2.1686 + h, 41.3874 + h], 16);
-        expect(tiles.length).toBeLessThanOrEqual(MAX_TILES_PER_FETCH);
+        expect(tiles.length).toBeLessThanOrEqual(tileFanOutCap('buildings'));
+    });
+
+    it('§CTX-EXTENT-BUDGET keeps the buildings read at FULL z16 across the founder test cities', () => {
+        // ⭐ THE PROPERTY THAT BOUNDED THE EXTENT CHOICE, PINNED. Below z16 the bake's
+        // `--drop-densest-as-needed` DROPS footprints from dense cores rather than simplifying them,
+        // so a silent zoom step is the L-579 "many buildings are not rendering" defect returning.
+        // These are the cities the founder actually tests; if a future extent bump breaks this, the
+        // extent is wrong — do not relax the assertion.
+        const cities: ReadonlyArray<readonly [string, number, number]> = [
+            ['Barcelona', 41.3888, 2.159], ['Madrid', 40.4168, -3.7038],
+            ['Cordoba', 37.8877, -4.7976], ['Lisbon', 38.71, -9.14],
+        ];
+        for (const [name, lat, lon] of cities) {
+            const bbox = contextFetchBbox(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG);
+            const z = zoomForExtent(bbox as unknown as TileBbox, 16, 12, tileFanOutCap('buildings'));
+            expect(z, `${name} fell off z16 — the far extent is too wide for the buildings cap`).toBe(16);
+        }
     });
 });
 
@@ -490,8 +515,10 @@ describe('§CTX-ZOOM-FITS-EXTENT — precision is chosen to match the extent', (
     };
 
     it('keeps the NEAR buildings extent at full z16 — the hot path must not regress', () => {
-        // CONTEXT_BBOX_FAR_HALF_DEG = 0.011 already fits the cap at z16.
-        expect(zoomForExtent(around(0.011), 16, 12)).toBe(16);
+        // §CTX-EXTENT-BUDGET (L-13058) — read the SHIPPED far extent and the BUILDINGS cap. The old
+        // literal `0.011` + default cap would have kept passing after the extent moved, i.e. it
+        // would have gone on certifying a hot path the app had stopped taking.
+        expect(zoomForExtent(around(CONTEXT_BBOX_FAR_HALF_DEG), 16, 12, tileFanOutCap('buildings'))).toBe(16);
     });
 
     it('steps the 8 km landuse extent down until it fits, instead of refusing', () => {

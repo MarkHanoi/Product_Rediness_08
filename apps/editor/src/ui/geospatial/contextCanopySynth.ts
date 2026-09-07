@@ -40,6 +40,9 @@
 // reader forwards inner rings, the clearing is honoured with no change on this side.
 
 import { pointInRingEvenOdd } from '@pryzm/geometry-kernel';
+// §CTX-EXTENT-BUDGET (L-13058) — the ONE tunable table for every 3D-Site context radius/cap.
+// Trees were CAP-bound (1,500 drawn of 2,462 already-baked), so the cap is what moved.
+import { CTX_TREES_MAX_INSTANCES, CTX_CANOPIES_MAX_SYNTHESISED } from './contextExtentBudget';
 
 // ── constants (each with its one-line rationale) ─────────────────────────────
 
@@ -331,7 +334,7 @@ export function synthesiseCanopies(
  * MAPPED trees kept — the shipped §FORMA-CTX-TREES cap, deliberately UNCHANGED. A real tree always
  * outranks a synthesised one, so this cap is applied to the mapped set on its own.
  */
-export const MAX_MAPPED_TREES = 1500;
+export const MAX_MAPPED_TREES = CTX_TREES_MAX_INSTANCES;
 /**
  * SYNTHESISED canopies kept. 4× the mapped cap because a wood needs AREA coverage, not landmarks:
  * at `CANOPY_GRID_SPACING_M` this is ~49 ha of continuous canopy — larger than any wood that fits
@@ -339,7 +342,7 @@ export const MAX_MAPPED_TREES = 1500;
  * One shared geometry + one shared material means 7500 total instances is still ONE draw call
  * (ADR-0094 / `webgpu-heavy-scene-crash-and-instancing`).
  */
-export const MAX_SYNTHESISED_CANOPIES = 6000;
+export const MAX_SYNTHESISED_CANOPIES = CTX_CANOPIES_MAX_SYNTHESISED;
 
 /** A mapped tree as the reader hands it over (`contextTrees.ContextTree`). */
 export interface MappedTreeInput {

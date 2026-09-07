@@ -7,6 +7,10 @@
 // Cesium-free by design (numbers only) — safe to import from any onboarding/UI module.
 
 import { CONTEXT_BBOX_HALF_DEG } from './contextBuildings';
+// §CTX-EXTENT-BUDGET (L-13058) — the ONE tunable table for every 3D-Site context radius/cap.
+// These two extents are NOT widened by that lane (they are already 8 km / 11 km and are read at a
+// coarse zoom); they derive from it so the whole family is tuned in one place.
+import { CTX_WIDE_HALF_DEG_MULTIPLE, CTX_SEA_HALF_DEG_MULTIPLE } from './contextExtentBudget';
 
 /**
  * §FORMA-CTX-WIDE-EXTENT (L-642, founder 2026-07-29 — "the grey should cover all urban areas out
@@ -16,7 +20,7 @@ import { CONTEXT_BBOX_HALF_DEG } from './contextBuildings';
  * extruded building tiers (ADR-0094 budget unchanged). §CONTEXT-DATA-HONESTY: a wider read that
  * finds no land-use still degrades to a quiet no-op, never fabricated grey.
  */
-export const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 9;   // 0.072° ≈ 8 km radius (city ground)
+export const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * CTX_WIDE_HALF_DEG_MULTIPLE;   // 0.072° ≈ 8 km radius (city ground)
 
 /**
  * §FORMA-CTX-SEA-EXTENT (L-642, founder — "the sea should … cover all the sea, the immensity") —
@@ -25,4 +29,4 @@ export const CONTEXT_WIDE_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 9;   // 0.072° ≈
  * extent is cheap + honest — inland it is a quiet no-op. ~11 km radius: past the horizon of a
  * normal 3D-Site zoom, so the coast stops reading as an island edge.
  */
-export const CONTEXT_SEA_HALF_DEG = CONTEXT_BBOX_HALF_DEG * 12.5; // 0.10° ≈ 11 km radius (the immensity)
+export const CONTEXT_SEA_HALF_DEG = CONTEXT_BBOX_HALF_DEG * CTX_SEA_HALF_DEG_MULTIPLE; // 0.10° ≈ 11 km radius (the immensity)

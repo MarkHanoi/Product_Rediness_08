@@ -70,6 +70,9 @@ import {
     DEFAULT_BAKED_READ_DELAYS_MS,
     type BakedReadFailureKind,
 } from './bakedReadRetry';
+// §CTX-EXTENT-BUDGET (L-13058) — the ONE tunable table for every 3D-Site context radius and cap.
+// Leaf module (imports nothing), so this cannot close an import cycle.
+import { CTX_BUILDINGS_MAX_TILES_PER_FETCH, CTX_MAX_CACHED_TILES } from './contextExtentBudget';
 
 /** A lon/lat bounding box `[west, south, east, north]` — same shape as `contextBuildings.Bbox`. */
 export type TileBbox = readonly [number, number, number, number];
@@ -236,12 +239,39 @@ const LAYER_IS_POINT: Record<ContextTileLayer, boolean> = {
 };
 
 /**
- * Hard cap on tiles fetched for ONE bbox. At z16 a tile is ~450 m across at Barcelona's latitude,
- * so the widest context extent (`CONTEXT_BBOX_FAR_HALF_DEG` = 0.011° ≈ 2.4 km) needs ~36. The cap
- * exists so a nonsense bbox cannot fan out into hundreds of range requests; when it bites we say so
- * rather than silently returning a truncated ring.
+ * Hard cap on tiles fetched for ONE bbox. At z16 a tile is ~450 m across at Barcelona's latitude.
+ * The cap exists so a nonsense bbox cannot fan out into hundreds of range requests; when it bites
+ * `zoomForExtent` steps DOWN a level until it fits, and if even the tileset floor does not fit we
+ * say so rather than silently returning a truncated ring.
+ *
+ * ⚠ THIS IS THE DEFAULT, NOT A UNIVERSAL LIMIT — see `tileFanOutCap` below. It stays at 64 because
+ * for the WIDE layers the cap is doing real work: `zoomForExtent` picks the FINEST zoom that fits,
+ * so raising this number makes `landuse` (0.072°) and `sea` (0.10°) read FINER for no visual gain
+ * (measured: landuse z13/30 tiles at cap 64 → z14/100 tiles at cap 144). Widen a cap per layer, or
+ * pay 3× the range requests on layers nobody looks at closely.
  */
 export const MAX_TILES_PER_FETCH = 64;
+
+/**
+ * §CTX-EXTENT-BUDGET (L-13058) — per-layer overrides of the fan-out cap above.
+ *
+ * `buildings` is the only entry, and the only layer that needs one: it is the layer whose extent
+ * L-13058 widened (0.011° → 0.016°, ~36 → ~81 tiles at z16 in the founder's test cities) AND the
+ * layer where full z16 detail is load-bearing. The bake runs `tippecanoe -Z12 -z16
+ * --drop-densest-as-needed`, so letting the buildings read fall to z15 in a dense core does not
+ * merely coarsen outlines — IT DROPS WHOLE FOOTPRINTS, which is the L-579 "many buildings are not
+ * rendering" defect arriving silently through a zoom step. Every other layer keeps the default.
+ *
+ * The value and its per-city measurement live in `contextExtentBudget.ts`.
+ */
+const LAYER_TILE_FAN_OUT_CAP: Partial<Record<ContextTileLayer, number>> = {
+    buildings: CTX_BUILDINGS_MAX_TILES_PER_FETCH,
+};
+
+/** The fan-out cap that applies to `layer` — its own override, else `MAX_TILES_PER_FETCH`. PURE. */
+export function tileFanOutCap(layer: ContextTileLayer): number {
+    return LAYER_TILE_FAN_OUT_CAP[layer] ?? MAX_TILES_PER_FETCH;
+}
 
 // ── configuration ────────────────────────────────────────────────────────────
 
@@ -987,7 +1017,7 @@ const tileInFlight = new Map<string, Promise<ContextTileFeature[] | TileReadFail
  * tiles; eviction is oldest-first by insertion, which for a user panning around one site is the
  * tiles they have moved away from.
  */
-const MAX_CACHED_TILES = 512;
+const MAX_CACHED_TILES = CTX_MAX_CACHED_TILES;
 
 function tileCacheKey(layer: ContextTileLayer, z: number, x: number, y: number): string {
     // The tileset version belongs in the key: a re-bake must not be served stale decoded features
@@ -1424,13 +1454,18 @@ async function readContextTilesOnce(
     // ⚠ THE CAP STILL BITES, AND MUST. If even the tileset's minimum zoom cannot cover the bbox
     // inside the cap, this still refuses rather than truncating — a partial ring that LOOKS
     // complete is the failure mode this whole subsystem exists to avoid.
-    z = zoomForExtent(bbox, z, minZoom);
+    // §CTX-EXTENT-BUDGET (L-13058) — the cap is PER LAYER now. `buildings` carries a higher one so
+    // the widened far extent still reads at z16; every other layer keeps the default, because for
+    // them a bigger cap only buys a finer zoom they do not need. ⛔ Both the zoom search and the
+    // refusal below MUST use the same number, or a layer picks a zoom it is then refused for.
+    const fanOutCap = tileFanOutCap(layer);
+    z = zoomForExtent(bbox, z, minZoom, fanOutCap);
     const tiles = tilesCovering(bbox, z);
     if (tiles.length === 0) return { status: 'ok', features: [], tilesRead: 0, tilesFailed: 0, ms: Date.now() - t0 };
-    if (tiles.length > MAX_TILES_PER_FETCH) {
+    if (tiles.length > fanOutCap) {
         return {
             status: 'unavailable',
-            reason: `bbox needs ${tiles.length} tiles even at the tileset's minimum z${z}, over the ${MAX_TILES_PER_FETCH} cap`,
+            reason: `bbox needs ${tiles.length} tiles even at the tileset's minimum z${z}, over the ${fanOutCap} cap`,
             // A cap refusal is arithmetic, not weather: the same bbox needs the same tiles next
             // time. Retrying it would burn the back-off and change nothing.
             transient: false,
