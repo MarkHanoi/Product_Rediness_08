@@ -11,9 +11,9 @@
  * the heavy scene wiring stays in CesiumViewport.ts. No THREE, no `(window as
  * any)`, no I/O — and no imports at all: the backdrop is now flat white at both
  * stops, so it references nothing (see `skyHorizon` for the two founder sentences
- * that took it there, and for what carries the silhouette instead). The single exported function carries no OpenTelemetry span by
- * design — it is a pure string builder with no side effects and no async work
- * (the file's CesiumViewport callers are themselves span-free UI methods, per
+ * that took it there, and for what carries the silhouette instead). The exported functions carry no OpenTelemetry span by
+ * design — they are a pure string builder and a pure predicate, with no side effects and no async
+ * work (the file's CesiumViewport callers are themselves span-free UI methods, per
  * the existing convention in that file).
  */
 
@@ -49,12 +49,24 @@ export const FORMA_QUALITY = {
    *
    * ⚠ THE RISK, NAMED BEFORE IT WAS TAKEN — DOES THE SLAB LOSE ITS SILHOUETTE AGAINST WHITE?
    * Measured against the three tones that actually meet the backdrop at the cut edge:
-   *   · slab TOP  — `FORMA_PALETTE_V2.land` #F5F2EA, ΔL* ≈ 3.5 against white. Faint, and it is the
+   *   · slab TOP  — `FORMA_PALETTE_V2.land` #F5F2EA, ΔL* **4.48** against white. Faint, and it is the
    *     face the camera sees least at the rim.
-   *   · slab SIDE — `SITE_SCOPE_SLAB_SIDE_CSS` #E6E6E3, ΔL* ≈ 8.6 against white, FLAT-shaded so it
+   *   · slab SIDE — `SITE_SCOPE_SLAB_SIDE_CSS` #E6E6E3, ΔL* **8.78** against white, FLAT-shaded so it
    *     holds that value at every sun angle. This is the vertical face the cut edge is MADE of, and
    *     it is what keeps the silhouette. It is why the side may not be whitened with the backdrop.
-   *   · context BUILDINGS — #E8E1D4 and darker. Never at risk.
+   *   · context BUILDINGS — #E8E1D4, ΔL* **10.25**. Never at risk.
+   *   · ⚠ PROPOSED MASSING — `FORMA_PALETTE.proposedFill` #F4F4F2, ΔL* **3.86**. THIS IS THE THINNEST
+   *     STEP IN THE SCENE, and it belongs to the one thing the founder is actually looking at. Its
+   *     edge is carried by the graphite silhouette POST-PROCESS (#2B2B2B), which `applyFormaMode`
+   *     itself reports as possibly `silhouette=unavailable` on a GPU where the stage will not
+   *     compile. **White backdrop + silhouette unavailable is the combination that loses the
+   *     subject**, so the applied line now prints the backdrop tone and the silhouette verdict
+   *     together — one line answers "is it white yet" and "did the edge survive".
+   *
+   * ⚠ THE FOUR NUMBERS ABOVE ARE MEASURED, NOT EYEBALLED (L-13100). CIE L* from sRGB with the
+   * D65 luminance row (0.2126729, 0.7151522, 0.0721750); white is 100.00 exactly. This block
+   * previously read "≈ 3.5" and "≈ 8.6" for the first two; both were wrong, and the TOP was wrong
+   * in the direction that understates the risk. `formaPaletteParity.spec.ts` now recomputes them.
    * ⛔ SO THE SIDE IS THE SILHOUETTE AND MUST STAY DARKER THAN THE BACKDROP. If the founder reports
    * the edge disappearing, deepen `SITE_SCOPE_SLAB_SIDE_CSS`, do NOT re-grey the backdrop — a grey
    * backdrop is the thing he has now asked twice to remove.
@@ -91,11 +103,17 @@ export const FORMA_QUALITY = {
 } as const;
 
 /**
- * §FORMA-SCENE-QUALITY — build the CSS backdrop gradient applied to the Cesium
- * container while in Forma mode. A gentle vertical linear gradient from a cool
- * off-white top to a faintly warmer horizon, with a barely-there radial lift in
- * the centre so the model sits in a soft "studio" pool of light (the Spacio /
- * Forma reference look). Pure: returns a CSS `background` shorthand value.
+ * §FORMA-SCENE-QUALITY — build the CSS backdrop applied to the Cesium container while in Forma
+ * mode. A vertical linear gradient between the two stops, with a barely-there white radial lift in
+ * the centre so the model sits in a soft "studio" pool of light (the Spacio / Forma reference).
+ * Pure: returns a CSS `background` shorthand value.
+ *
+ * ⚠ CORRECTED 2026-09-07 (L-13100) — this doc read *"a gentle vertical linear gradient from a cool
+ * off-white top to a faintly warmer horizon"*, which described the SUPERSEDED #F2F3F6 → #E4E3E0
+ * pair. Both stops are now flat #FFFFFF (the founder's *"make the background completely white"*),
+ * so today this builds a flat white field and the radial lift composites to nothing. The SHAPE is
+ * kept, not the description: `formaBackdropClearCss` detects the degeneracy rather than assuming
+ * it, so restoring a real gradient here needs no other edit.
  *
  * Span-free: pure string builder, no side effects (see module header).
  */
@@ -110,4 +128,59 @@ export function buildFormaSkyGradientCss(
     `rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.0) 60%)`;
   const vertical = `linear-gradient(180deg, ${top} 0%, ${horizon} 100%)`;
   return `${radial}, ${vertical}`;
+}
+
+/**
+ * The colour of the radial centre-lift in `buildFormaSkyGradientCss`, named rather than left as a
+ * bare `rgba(255,255,255,…)` inside a template literal, so `formaBackdropClearCss` can REASON about
+ * it instead of assuming it away. A white lift composites to nothing only over white; over any
+ * other tone it is a real, non-flat highlight.
+ */
+export const FORMA_BACKDROP_RADIAL_LIFT_CSS = '#FFFFFF';
+
+/**
+ * §SITE-SCOPE-CITYWEFT-CLEAR (L-13100, founder 2026-09-07: *"the 3d site view is better — make the
+ * background completely white if you can"*) — the OPAQUE SCENE CLEAR colour for the Forma site
+ * surface, or `null` when the backdrop still needs the canvas to be see-through.
+ *
+ * ⭐ WHY THIS EXISTS AT ALL. The whole reason the Forma surface cleared `Cesium.Color.TRANSPARENT`
+ * is stated in CesiumViewport's own comment and it was a good reason: *"Cesium's WebGL canvas clears
+ * to `backgroundColor` (a single flat colour), so a true gradient sky is painted as a CSS background
+ * on the container and revealed through the (alpha) canvas."* A flat clear cannot be a gradient —
+ * so as long as the backdrop WAS a gradient, transparency was forced.
+ *
+ * ⭐⭐ THE FOUNDER'S SENTENCE REMOVED THE GRADIENT, AND THEREFORE REMOVED THE REASON. With
+ * `skyTop === skyHorizon === #FFFFFF` the vertical gradient is degenerate and the radial lift is
+ * white-on-white, so the CSS backdrop is now EXACTLY ONE FLAT COLOUR — which a scene clear can be.
+ *
+ * ⛔ AND THE TRANSPARENT CLEAR WAS NOT FREE. It made "the background is white" a property of a DOM
+ * STYLE rather than of the scene, and the style underneath it is BLACK: `CesiumViewport.ts` sets
+ * `container.style.background = "#000"` at construction, which `applyFormaSkyBackdrop` stashes and
+ * overwrites. Every frame in which the backdrop has not been applied — or in which that best-effort
+ * `try` caught — shows that black through the alpha canvas. Two further claims in the file were
+ * measured FALSE while writing this: `FORMA_PALETTE.background` (#E9EAEC) is documented as the
+ * "no-alpha fallback … instead of black", and **nothing read it** (`grep` → one definition, two
+ * comments, zero uses), so on a context that ignores `alpha:true` the real fallback was the
+ * container's #000 — the one colour §GLOBE-FIRST-FRAME-COLOUR exists to keep off the screen.
+ *
+ * ⭐ SELF-HEALING, WHICH IS THE POINT OF RETURNING `null` RATHER THAN A BOOLEAN. If a future author
+ * restores a real gradient (either stop moved off white), this returns `null`, the surface table
+ * puts the clear back to TRANSPARENT, and the CSS gradient shows through again — today's behaviour,
+ * recovered without anyone remembering that it had to be. The CSS backdrop is left applied either
+ * way, as belt-and-braces behind an opaque canvas.
+ *
+ * Pure; span-free (see module header).
+ *
+ * @returns the flat CSS colour to clear to, or `null` if the backdrop is a genuine gradient.
+ */
+export function formaBackdropClearCss(
+  top: string = FORMA_QUALITY.skyTop,
+  horizon: string = FORMA_QUALITY.skyHorizon,
+): string | null {
+  const norm = (css: string): string => css.trim().toUpperCase();
+  // Flat ⇔ both stops agree AND they agree with the radial lift, which is what makes the lift a
+  // no-op. Two stops that agree on #EEEEEE are still NOT flat: the 35 % white pool sits on top.
+  const flat =
+    norm(top) === norm(horizon) && norm(top) === norm(FORMA_BACKDROP_RADIAL_LIFT_CSS);
+  return flat ? top : null;
 }

@@ -148,6 +148,13 @@ export interface CesiumSurfaceWrites {
     /**
      * `scene.backgroundColor`. `null` ⇒ `Color.TRANSPARENT`, so the CSS sky gradient painted on the
      * container shows through the alpha canvas (§FORMA-SCENE-QUALITY).
+     *
+     * ⭐ §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — THE SITE ROW IS NO LONGER UNCONDITIONALLY `null`.
+     * Transparency was never the goal; it was the price of a GRADIENT, because a scene clear is one
+     * flat colour. The founder's *"make the background completely white"* collapsed the gradient to
+     * one flat colour, so the price stopped being owed. `formaBackdropClearCss()` (formaSceneQuality)
+     * is the pure decision and it still returns `null` the moment a real gradient comes back — so
+     * this field carries BOTH behaviours and nobody has to remember to restore one.
      */
     readonly backgroundColourCss: string | null;
     /** Whether the container carries the Forma CSS sky gradient (`applyFormaSkyBackdrop`). */
@@ -170,10 +177,19 @@ export interface CesiumSurfaceWrites {
  * @param formaGroundCss  `FORMA_PALETTE.ground` — the Forma study's flat land tone.
  * @param globeLoadingCss `GLOBE_LOADING_COLOUR` — §GLOBE-FIRST-FRAME-COLOUR's brand-safe base
  *                        (founder 2026-06-18: *"cesium originally shows black"*), never pure black.
+ * @param formaBackdropCss `formaBackdropClearCss()` — the flat backdrop colour the Forma site row
+ *                        may clear to OPAQUELY, or `null` while the backdrop is a real gradient and
+ *                        the canvas must stay see-through. Passed in, never imported: this module
+ *                        owns no colours (see the header), and it must not learn a hex from a
+ *                        second place any more than `formaGroundCss` may.
  */
 export function cesiumSurfaceWrites(
     kind: CesiumSurfaceKind,
-    palette: { readonly formaGroundCss: string; readonly globeLoadingCss: string },
+    palette: {
+        readonly formaGroundCss: string;
+        readonly globeLoadingCss: string;
+        readonly formaBackdropCss: string | null;
+    },
 ): CesiumSurfaceWrites {
     if (kind === 'forma-site') {
         return {
@@ -195,7 +211,10 @@ export function cesiumSurfaceWrites(
             globeTranslucency: false,
             skyShown: false,
             fog: 'forma-soft',
-            backgroundColourCss: null,           // TRANSPARENT → the CSS sky gradient shows through.
+            // §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — the founder's flat white is clearable, so the
+            // canvas paints it itself instead of leaving a hole for a DOM style to fill. `null`
+            // here (a restored gradient) still means TRANSPARENT + the CSS backdrop, unchanged.
+            backgroundColourCss: palette.formaBackdropCss,
             formaSkyBackdrop: true,
             boundedTerrainPermitted: true,
         };

@@ -56,7 +56,34 @@ import {
     buildPastelBackgroundLayer,
 } from '../siteMap2DStyle';
 import { FORMA_GROUND_URBAN, FORMA_GROUND_RURAL } from '../formaGroundColour';
-import { FORMA_QUALITY } from '../formaSceneQuality';
+import { FORMA_QUALITY, formaBackdropClearCss, FORMA_BACKDROP_RADIAL_LIFT_CSS } from '../formaSceneQuality';
+import { SITE_SCOPE_SLAB_SIDE_CSS } from '../siteScope';
+
+/**
+ * §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — CIE L* from an sRGB hex, so the silhouette arms below
+ * assert a MEASURED value step instead of a hand-waved one. sRGB inverse companding, then the D65
+ * luminance row (0.2126729, 0.7151522, 0.0721750), then the CIE lightness transfer. Declared here
+ * rather than imported because no product code needs it — this is the spec's own instrument, and a
+ * helper only tests use belongs with the tests.
+ *
+ * ⚠ PURE WHITE IS NOT EXACTLY 100 HERE, AND THE FIRST DRAFT OF THIS SPEC WENT RED ON THAT. The
+ * published D65 row sums to 1.0000001, not 1, so #FFFFFF lands at 100.0000039 — 3.9e-6 high. The
+ * arm below therefore compares at 4 decimal places, which is four orders of magnitude tighter than
+ * any assertion that follows it and still cannot be satisfied by a real colour change. Rounding the
+ * coefficients to make the number come out flat would be tuning the instrument to the test.
+ */
+function lStar(hex: string): number {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const chan = (c: number): number => {
+        const u = c / 255;
+        return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+    };
+    const Y =
+        0.2126729 * chan((n >> 16) & 255) +
+        0.7151522 * chan((n >> 8) & 255) +
+        0.0721750 * chan(n & 255);
+    return Y > 0.008856 ? 116 * Math.cbrt(Y) - 16 : 903.2963 * Y;
+}
 
 const paintOf = (layer: Record<string, unknown>): Record<string, unknown> =>
     layer['paint'] as Record<string, unknown>;
@@ -348,16 +375,118 @@ describe('§SITE-SCOPE-CITYWEFT — the backdrop outside the cut', () => {
         expect(FORMA_QUALITY.skyHorizon).toBe('#FFFFFF');
     });
 
-    it('⛔ the SLAB SIDE is what still carries the silhouette, so it may not be whitened too', () => {
-        // With the backdrop flat white, the vertical cut face is the only thing separating the slab
-        // from the void. It is FLAT-shaded (PerInstanceColorAppearance flat:true), so it holds this
-        // value at every sun angle — which is exactly why it can be relied on as the silhouette.
+    /**
+     * ⛔⛔ REWRITTEN 2026-09-07 (§SITE-SCOPE-CITYWEFT-CLEAR, L-13100) — THIS ARM WAS BOTH
+     * MIS-TARGETED AND VACUOUS, which is the worst combination a guard can have.
+     *
+     *   · MIS-TARGETED. Its title says SLAB SIDE and its body read
+     *     `const side = FORMA_PALETTE_V2.land` — which is the slab **TOP** (#F5F2EA, the ground
+     *     paper), not the side (#E6E6E3, `SITE_SCOPE_SLAB_SIDE_CSS`, declared in `siteScope.ts`).
+     *     The arm that exists to keep three surfaces distinct had itself confused two of them.
+     *   · VACUOUS. `expect(parseInt(side.slice(1), 16)).toBeLessThan(0xffffff)` passes for
+     *     **#FEFEFE** — ΔL* 0.35 from the backdrop, an edge no eye could find. The one edit the
+     *     title forbids ("may not be whitened too") is the edit the body permitted.
+     *
+     * It now asserts the ARITHMETIC, in the same spirit as `cesiumSurfaceFraming.spec.ts`'s shading
+     * band. MEASURED TODAY — backdrop #FFFFFF 100.00 · slab TOP #F5F2EA 95.52 · slab SIDE #E6E6E3
+     * 91.22 · context buildings #E8E1D4 89.75 · proposed massing #F4F4F2 96.14.
+     *
+     * ⚠ THE FLOORS ARE A DESIGN COMMITMENT, NOT A PERCEPTUAL MEASUREMENT, and are stated as such
+     * rather than dressed up: there is no dataset here to derive a threshold from, so each floor is
+     * set BELOW what ships (headroom named per assertion) so the arm fires on a REGRESSION rather
+     * than pinning an exact hex that nobody may then tune.
+     */
+    it('⛔ every surface that MEETS the white backdrop keeps a measured value step', () => {
+        // The side is FLAT-shaded (PerInstanceColorAppearance flat:true), so it holds its value at
+        // every sun angle — which is exactly why it, and not the lit top, is the silhouette.
         const viewportSrc = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
         expect(viewportSrc).toContain('flat: true');
-        const side = FORMA_PALETTE_V2.land;
-        // The ground paper is itself off-white; the SIDE must be darker than the ground, or the
-        // edge reads as one flat field from top to backdrop.
-        expect(parseInt(side.slice(1), 16)).toBeLessThan(0xffffff);
+
+        // The backdrop is the reference all four steps are measured from. See `lStar`'s note for
+        // why this is 4 places and not an equality: the D65 row sums to 1.0000001.
+        const backdrop = lStar(FORMA_QUALITY.skyTop);
+        expect(backdrop).toBeCloseTo(100, 4);
+
+        // THE CUT EDGE. The vertical face is what the silhouette is MADE of: ships at ΔL* 8.78,
+        // floor 6.0, headroom 2.78. Whitening the side to #FEFEFE — which the old arm allowed —
+        // gives 0.35 and fails here.
+        const side = lStar(SITE_SCOPE_SLAB_SIDE_CSS);
+        expect(backdrop - side, `slab SIDE ${SITE_SCOPE_SLAB_SIDE_CSS} vs backdrop`).toBeGreaterThanOrEqual(6.0);
+
+        // THE GROUND PAPER. Seen least at the rim, so a thinner step is acceptable: ships at 4.48,
+        // floor 3.0.
+        const top = lStar(FORMA_PALETTE_V2.land);
+        expect(backdrop - top, `slab TOP ${FORMA_PALETTE_V2.land} vs backdrop`).toBeGreaterThanOrEqual(3.0);
+
+        // ⭐ AND THE ORDERING, WHICH IS WHAT THE MIS-TARGETED ARM MEANT TO SAY. Side darker than
+        // top, top darker than backdrop — or the rim reads as one flat field from paper to void.
+        expect(side, 'the SIDE must be darker than the TOP').toBeLessThan(top);
+        expect(top, 'the TOP must be darker than the BACKDROP').toBeLessThan(backdrop);
+    });
+
+    /**
+     * ⚠ THE RISK THAT IS NOT THE SLAB'S, NAMED BECAUSE IT IS THE THINNEST STEP IN THE SCENE AND IT
+     * BELONGS TO THE ONE THING THE FOUNDER IS LOOKING AT. `FORMA_PALETTE.proposedFill` #F4F4F2 sits
+     * ΔL* **3.86** below pure white — less than the slab's own top — and its edge is carried not by
+     * a value step but by the graphite silhouette POST-PROCESS (#2B2B2B), which `applyFormaMode`
+     * reports as possibly `silhouette=unavailable` on a GPU where the stage will not compile.
+     *
+     * ⛔ SO THIS SPEC CANNOT CLAIM THE SUBJECT SURVIVES A WHITE BACKDROP. It pins the two halves it
+     * can reach — the fill keeps SOME step, and the graphite outline stays dark — and the third
+     * fact (did the stage compile on THIS GPU) is printed into the applied console line instead,
+     * because no headless arm can establish it. That split is deliberate: a fake post-process built
+     * from these expectations could not falsify them (memory `fake-more-capable-than-real`).
+     */
+    it('⚠ the PROPOSED massing keeps a step, and its graphite outline stays dark', () => {
+        const viewportSrc = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        const fill = viewportSrc.match(/^\s*proposedFill: '(#[0-9A-F]{6})',\s*$/m)?.[1];
+        const outline = viewportSrc.match(/^\s*silhouette: '(#[0-9A-F]{6})',\s*$/m)?.[1];
+        expect(fill, 'proposedFill literal not found in CesiumViewport.ts').toBeTruthy();
+        expect(outline, 'silhouette literal not found in CesiumViewport.ts').toBeTruthy();
+        // Ships at 3.86, floor 2.5. Raising the fill to pure white would zero it.
+        expect(lStar(FORMA_QUALITY.skyTop) - lStar(fill as string), `proposedFill ${fill} vs backdrop`)
+            .toBeGreaterThanOrEqual(2.5);
+        // The outline is the real carrier when it compiles — graphite, well clear of both.
+        expect(lStar(outline as string), `silhouette ${outline} must stay graphite`).toBeLessThan(40);
+    });
+
+    /**
+     * ⭐ §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — the backdrop is white in the SCENE, not only in a
+     * DOM style. Transparency was the price of a GRADIENT; the founder's *"completely white"*
+     * collapsed the gradient, and what transparency left behind was that
+     * `container.style.background = "#000"` (CesiumViewport.ts) is what shows through the alpha
+     * canvas in any frame the CSS backdrop has not been applied to.
+     */
+    describe('the flat backdrop is CLEARABLE, and the decision reverses itself', () => {
+        it("flat white at both stops => an opaque clear in the founder's own tone", () => {
+            expect(formaBackdropClearCss()).toBe('#FFFFFF');
+            expect(formaBackdropClearCss()).toBe(FORMA_QUALITY.skyTop);
+        });
+
+        it('⛔ a genuine gradient => null, so the transparent clear comes back by itself', () => {
+            expect(formaBackdropClearCss('#FFFFFF', '#E4E3E0')).toBeNull();
+            expect(formaBackdropClearCss('#F2F3F6', '#FFFFFF')).toBeNull();
+        });
+
+        // ⚠ THE RADIAL IS WHY "BOTH STOPS AGREE" IS NOT SUFFICIENT ON ITS OWN. The gradient builder
+        // layers a 35 % WHITE centre lift over the vertical stops; that lift is invisible only over
+        // white. Two stops agreeing on #EEEEEE still leave a lit pool in the middle, so the backdrop
+        // is not flat and must NOT be collapsed to a single clear colour.
+        it('⛔ equal-but-not-white stops are still NOT flat — the white radial lift sits on top', () => {
+            expect(formaBackdropClearCss('#EEEEEE', '#EEEEEE')).toBeNull();
+            expect(formaBackdropClearCss(FORMA_BACKDROP_RADIAL_LIFT_CSS, FORMA_BACKDROP_RADIAL_LIFT_CSS))
+                .toBe(FORMA_BACKDROP_RADIAL_LIFT_CSS);
+        });
+
+        // The applied console line is the ONLY place the founder can read which of the three
+        // surfaces changed. It printed one hex (the ground) and called the backdrop "soft
+        // sky-gradient backdrop" with no value, so a screenshot could not answer his own question.
+        it('the applied line names all three surfaces separately', () => {
+            const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+            expect(src).toContain("'; slab TOP (ground) ' + FORMA_PALETTE.ground");
+            expect(src).toContain("'; slab SIDE/FLOOR ' + SITE_SCOPE_SLAB_SIDE_CSS");
+            expect(src).toContain('const backdropClear = formaBackdropClearCss();');
+        });
     });
 
     it('⛔ neither backdrop tone reintroduces COLOUR beyond the cut — grey/paper only, never a sky', () => {

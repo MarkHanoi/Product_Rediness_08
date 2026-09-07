@@ -19,7 +19,15 @@ import {
     type CesiumViewFraming,
 } from '../cesiumSurfaceFraming';
 
-const PALETTE = { formaGroundCss: '#F5F2EA', globeLoadingCss: '#EDECF5' } as const;
+// §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — `formaBackdropCss` is the THIRD colour the table takes
+// from its caller and never owns. `'#FFFFFF'` here mirrors what `formaBackdropClearCss()` returns
+// for the shipped flat-white backdrop; the `null` case (a restored gradient) has its own arm below,
+// because a table that only ever gets one of two inputs is a table with one untested row.
+const PALETTE = {
+    formaGroundCss: '#F5F2EA',
+    globeLoadingCss: '#EDECF5',
+    formaBackdropCss: '#FFFFFF' as string | null,
+} as const;
 const writes = (formaMode: boolean, framing: CesiumViewFraming) =>
     cesiumSurfaceWrites(cesiumSurfaceKind({ formaMode, framing }), PALETTE);
 
@@ -66,14 +74,36 @@ describe('cesiumSurfaceWrites — every field the two framings shared', () => {
         expect(site.tilesetsShown).toBe(false);
     });
 
-    // The white the shard floated on. Forma sets `scene.backgroundColor = TRANSPARENT` so the CSS
-    // sky gradient shows through the alpha canvas (§FORMA-SCENE-QUALITY); on a globe that is the
-    // page showing through. An Earth needs an opaque brand-safe clear (§GLOBE-FIRST-FRAME-COLOUR).
-    it('the globe clears to an OPAQUE brand colour; the site clears transparent for its gradient', () => {
+    // The white the shard floated on. On a globe a TRANSPARENT clear is the page showing through;
+    // an Earth needs an opaque brand-safe clear (§GLOBE-FIRST-FRAME-COLOUR). Unchanged.
+    it('the globe clears to an OPAQUE brand colour and never wears the Forma backdrop', () => {
         expect(writes(true, 'world').backgroundColourCss).toBe(PALETTE.globeLoadingCss);
         expect(writes(true, 'world').formaSkyBackdrop).toBe(false);
-        expect(writes(true, 'site').backgroundColourCss).toBeNull();
+    });
+
+    // ⭐ §SITE-SCOPE-CITYWEFT-CLEAR (L-13100). THIS ARM READ `.toBeNull()` UNCONDITIONALLY. The
+    // site row cleared TRANSPARENT because a scene clear is one flat colour and the backdrop was a
+    // GRADIENT — a real constraint while it lasted. The founder's *"make the background completely
+    // white if you can"* collapsed the gradient, so the constraint lapsed, and what transparency
+    // left behind was worse than it looked: the white became a property of `container.style`, whose
+    // base underneath is `#000`.
+    it('the SITE row clears OPAQUELY to the flat backdrop, and still wears the CSS backdrop too', () => {
+        expect(writes(true, 'site').backgroundColourCss).toBe('#FFFFFF');
+        // Belt-and-braces, not either/or: the container keeps the same tone, so the frames BEFORE
+        // `applyCesiumSurface` runs are not the container's black.
         expect(writes(true, 'site').formaSkyBackdrop).toBe(true);
+    });
+
+    // ⛔ THE REVERSIBILITY ARM — the reason `formaBackdropClearCss` returns `string | null` rather
+    // than a boolean. Restore a genuine gradient (either stop off white) and the site row must go
+    // back to TRANSPARENT so the CSS gradient shows through the alpha canvas, WITHOUT anyone
+    // remembering that it had to. Without this arm the opaque clear would be a one-way door.
+    it('a restored GRADIENT puts the site row back to a transparent clear', () => {
+        const gradient = { ...PALETTE, formaBackdropCss: null };
+        expect(cesiumSurfaceWrites('forma-site', gradient).backgroundColourCss).toBeNull();
+        expect(cesiumSurfaceWrites('forma-site', gradient).formaSkyBackdrop).toBe(true);
+        // The globe row is unaffected by the backdrop decision in either direction.
+        expect(cesiumSurfaceWrites('global-earth', gradient).backgroundColourCss).toBe(PALETTE.globeLoadingCss);
     });
 
     it('the globe reads as a planet: sky, atmosphere and lighting on, no Forma fog', () => {
@@ -101,9 +131,12 @@ describe('cesiumSurfaceWrites — every field the two framings shared', () => {
     // in `CesiumViewport.ts`, which names itself the single source of truth for the Forma palette;
     // a second copy here is the drift §PALETTE-PARITY-2D-3D (L-12965) spent a lane removing.
     it('takes both base colours from the caller rather than owning any', () => {
-        const custom = { formaGroundCss: '#010203', globeLoadingCss: '#040506' };
+        const custom = { formaGroundCss: '#010203', globeLoadingCss: '#040506', formaBackdropCss: '#070809' };
         expect(cesiumSurfaceWrites('forma-site', custom).globeBaseColourCss).toBe('#010203');
         expect(cesiumSurfaceWrites('global-earth', custom).globeBaseColourCss).toBe('#040506');
+        // §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — the third caller-owned colour, same rule: the
+        // module must pass it through, never substitute a hex of its own.
+        expect(cesiumSurfaceWrites('forma-site', custom).backgroundColourCss).toBe('#070809');
     });
 });
 
