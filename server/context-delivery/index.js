@@ -59,7 +59,10 @@
 
 import express from 'express';
 
-import { CONTEXT_TILES_PATH, contextTilesHandler, contextTilesTerrainHandler } from './contextTilesProxy.js';
+import {
+    CONTEXT_TILES_PATH, CONTEXT_TILES_MANIFEST_FILE,
+    contextTilesHandler, contextTilesManifestHandler, contextTilesTerrainHandler,
+} from './contextTilesProxy.js';
 import { CATALOG_PROXY_PATH, catalogAssetHandler } from './catalogAssetProxy.js';
 
 /**
@@ -69,6 +72,7 @@ import { CATALOG_PROXY_PATH, catalogAssetHandler } from './catalogAssetProxy.js'
  */
 export const CONTEXT_DELIVERY_ROUTES = Object.freeze([
     ['get', `${CONTEXT_TILES_PATH}/terrain/*`],
+    ['get', `${CONTEXT_TILES_PATH}/${CONTEXT_TILES_MANIFEST_FILE}`],
     ['get', `${CONTEXT_TILES_PATH}/:layer`],
     ['get', `${CATALOG_PROXY_PATH}/*`],
 ]);
@@ -96,6 +100,18 @@ export function createContextDeliveryRouter() {
     // live at multi-segment `terrain/<city>/…` paths the `:layer` route can't match; without this they
     // fell through to the SPA and returned index.html (silent flat ground). Same no-limiter reasoning.
     router.get(`${CONTEXT_TILES_PATH}/terrain/*`, contextTilesTerrainHandler);
+    // §CTX-MANIFEST-KNOWN-MISSING (L-13111) — `tileset-manifest.json`, published BESIDE the tiles by
+    // the merge and, until this route, UNREACHABLE from the client: the `:layer` handler below is an
+    // ALLOWLIST, so the manifest resolved to a layer name that is not on it and got OUR 404
+    // (measured 2026-09-07: 404, 38 bytes — `{"error":"unknown context tile layer"}` — against the
+    // upstream's 200 / 24,279 bytes). The client reads it once a session to skip the archive-header
+    // probes for layers it does not name; the honest `unavailable` verdict is unchanged, only the
+    // round trip goes.
+    //
+    // ⛔ MUST be registered BEFORE the single-segment `:layer` route, for the same reason as the
+    // terrain route above: `:layer` matches `tileset-manifest.json` and would refuse it by allowlist
+    // before this handler was ever reached. Order here is the whole wiring.
+    router.get(`${CONTEXT_TILES_PATH}/${CONTEXT_TILES_MANIFEST_FILE}`, contextTilesManifestHandler);
     router.get(`${CONTEXT_TILES_PATH}/:layer`, contextTilesHandler);
 
     // §CATALOG-R2-PROXY (L-578b) — the furniture catalogue (GLBs + thumbnails) over our own origin,

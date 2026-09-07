@@ -8,8 +8,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
     makeContextTilesHandler,
+    makeContextTilesManifestHandler,
     CONTEXT_TILE_LAYERS,
     CONTEXT_TILES_PATH,
+    CONTEXT_TILES_MANIFEST_FILE,
 // @ts-expect-error — the proxy is plain JS (server modules are not TS in this tree).
 } from '../context-delivery/contextTilesProxy.js';
 
@@ -124,5 +126,103 @@ describe('context tiles proxy', () => {
 
     it('exposes the route prefix the client composes against', () => {
         expect(CONTEXT_TILES_PATH).toBe('/api/context-tiles');
+    });
+
+    it('⭐ FORWARDS canopy instead of refusing it — our own 404 is not the upstream\'s', async () => {
+        // §CTX-MANIFEST-KNOWN-MISSING (L-13111). `canopy` reached the client's ContextTileLayer union
+        // with §VEG-REAL-CANOPY-BAKE (L-12935) and never reached this allowlist, so a canopy read got
+        // OUR 404 — indistinguishable, client-side, from "never baked". Measured against production
+        // 2026-09-07, and the SIZE is the tell because both answers are a bare 404:
+        //   canopy.pmtiles    → 404 in 205 ms, 38 bytes    (`{"error":"unknown context tile layer"}` — OURS)
+        //   furniture.pmtiles → 404 in 436 ms, 27150 bytes (R2's)
+        // This does not make canopy render. It makes its absence attributable to the bake.
+        const fetchImpl = vi.fn(async () => upstreamResponse());
+        const handler = makeContextTilesHandler({ fetch: fetchImpl, upstream: 'https://x.test/tiles/' });
+        const res = makeRes();
+        await handler({ params: { layer: 'canopy' }, headers: {} }, res);
+        expect(fetchImpl.mock.calls[0][0]).toBe('https://x.test/tiles/canopy.pmtiles');
+        expect(res.statusCode).toBe(206);
+    });
+});
+
+// ── §CTX-MANIFEST-KNOWN-MISSING (L-13111, lane STARTUP-FIX 2026-09-07) ────────────────────────
+//
+// ⭐ THIS ROUTE IS THE UNBLOCK, NOT AN OPTIMISATION. L-13111's cure — read the tileset manifest once
+// and skip the archive-header probe for layers it does not name — was recorded as SOUND and NOT
+// SHIPPED, because the client could not reach the artefact: `VITE_CONTEXT_TILES_URL` is deployed as
+// this same-origin proxy (L-776), the `:layer` handler is an ALLOWLIST, and `tileset-manifest.json`
+// is not a layer. Measured against production 2026-09-07, before this route existed:
+//     https://pub-…r2.dev/tiles/tileset-manifest.json               → 200, 24,279 B, 196 ms
+//     https://app.pryzm.so/api/context-tiles/tileset-manifest.json  → 404,     38 B, 242 ms
+// The live manifest names `layers = [buildings, landuse, parks, rail, roads, trees, water]` — the
+// seven that answer, and none of `canopy` / `sea` / `furniture`, which are the three that 404.
+describe('§CTX-MANIFEST-KNOWN-MISSING — the tileset manifest route', () => {
+    const jsonUpstream = ({ status = 200, headers = {}, text = '{"layers":{"buildings":{}}}' } = {}) => {
+        const bytes = new TextEncoder().encode(text);
+        const h = new Map(Object.entries({ 'content-type': 'application/json', ...headers })
+            .map(([k, v]) => [k.toLowerCase(), v]));
+        return { status, body: bytes, headers: { get: (k) => h.get(k.toLowerCase()) ?? null }, arrayBuffer: async () => bytes.buffer };
+    };
+
+    it('fetches tileset-manifest.json from the upstream base, beside the tiles', async () => {
+        const fetchImpl = vi.fn(async () => jsonUpstream());
+        const handler = makeContextTilesManifestHandler({ fetch: fetchImpl, upstream: 'https://x.test/tiles/' });
+        const res = makeRes();
+        await handler({ headers: {} }, res);
+        expect(fetchImpl.mock.calls[0][0]).toBe('https://x.test/tiles/tileset-manifest.json');
+        expect(res.statusCode).toBe(200);
+        expect(new TextDecoder().decode(res.body)).toContain('buildings');
+    });
+
+    it('⛔ does NOT cache the manifest for an hour — a per-layer merge rewrites it in place', async () => {
+        // The tiles carry `max-age=3600, must-revalidate` (§L-580-CACHE). Applying that here would
+        // suppress a layer for an hour AFTER the publish that landed it — the same mistake with a
+        // worse blast radius, because it hides a whole layer rather than serving a stale one. The
+        // publish sets `no-cache` on this object for exactly that reason; we forward it.
+        const handler = makeContextTilesManifestHandler({ fetch: async () => jsonUpstream({ headers: { 'cache-control': 'no-cache' } }) });
+        const res = makeRes();
+        await handler({ headers: {} }, res);
+        expect(res.headers['cache-control']).toBe('no-cache');
+        expect(res.headers['cache-control']).not.toContain('max-age=3600');
+    });
+
+    it('defaults to no-cache when the upstream states nothing', async () => {
+        const handler = makeContextTilesManifestHandler({ fetch: async () => jsonUpstream({ headers: { 'cache-control': undefined } }) });
+        const res = makeRes();
+        await handler({ headers: {} }, res);
+        expect(res.headers['cache-control']).toBe('no-cache');
+    });
+
+    it('reports an upstream failure as a STATUS — the client then probes exactly as before', async () => {
+        // ⛔ FAILING OPEN IS THE CONTRACT (§CONTEXT-DATA-HONESTY). An unreadable manifest must cost
+        // the client nothing but the probes it was already paying; it must never seed an absence.
+        const handler = makeContextTilesManifestHandler({ fetch: async () => { throw new Error('socket hang up'); } });
+        const res = makeRes();
+        await handler({ headers: {} }, res);
+        expect(res.statusCode).toBe(502);
+    });
+
+    it('maps an upstream timeout to 504, distinctly from a connection failure', async () => {
+        const handler = makeContextTilesManifestHandler({
+            fetch: async () => { const e = new Error('aborted'); e.name = 'AbortError'; throw e; },
+        });
+        const res = makeRes();
+        await handler({ headers: {} }, res);
+        expect(res.statusCode).toBe(504);
+    });
+
+    it('passes a 404 straight through — before this route, WE were the 404', async () => {
+        const handler = makeContextTilesManifestHandler({ fetch: async () => jsonUpstream({ status: 404, text: 'nope' }) });
+        const res = makeRes();
+        await handler({ headers: {} }, res);
+        expect(res.statusCode).toBe(404);
+    });
+
+    it('names the file the merge publishes, so the client and the bake cannot drift', () => {
+        expect(CONTEXT_TILES_MANIFEST_FILE).toBe('tileset-manifest.json');
+        // ⚠ And it is NOT a tile layer. `CONTEXT_TILE_LAYERS` means "an archive a PMTiles RANGE
+        // reader may ask for"; the manifest is a whole small JSON document. Putting it on that list
+        // would make the range-read case above try to byte-range a JSON file.
+        expect(CONTEXT_TILE_LAYERS).not.toContain(CONTEXT_TILES_MANIFEST_FILE);
     });
 });

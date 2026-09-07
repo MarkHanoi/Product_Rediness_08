@@ -193,14 +193,22 @@ describe('the proxy allowlist and the client layer union do not drift', () => {
         // indistinguishable, client-side, from "never baked" (§L-513b), so a lagging allowlist makes
         // the bake carry the blame for a refusal we made. That is the invariant; it is armed here
         // with ONE named exception, because a baseline that names its gap is honest and a loop that
-        // hides it is not:
+        // hides it is not.
+        //
+        // ⭐ THE EXCEPTION IS GONE (lane STARTUP-FIX, L-13111, 2026-09-07) — DELETED, as this test's
+        // own instruction required, in the commit that closed it. It read:
+        //     const KNOWN_LAGGING = new Set(['canopy']);
         //   · `canopy` — added to the client union by the concurrent §VEG-REAL-CANOPY-BAKE lane
         //     (bake.mjs LAYERS `canopy`, `optIn: true`, so no ordinary bake produces it yet) and NOT
         //     yet added to the proxy allowlist. Measured 2026-09-05 by this test; it is that lane's
         //     one-word fix, not this one's, and the exception must be DELETED when they make it.
-        const KNOWN_LAGGING = new Set(['canopy']);
+        // The measurement that closed it, against production 2026-09-07 — the response SIZE is the
+        // tell, because our refusal and R2's are both a bare 404:
+        //     /api/context-tiles/canopy.pmtiles?v=L663a    → 404, **38 bytes**   ← OURS
+        //     /api/context-tiles/furniture.pmtiles?v=L663a → 404, **27150 bytes** ← R2's
+        // The invariant below is now unconditional: EVERY layer the client can ask for is a layer
+        // the proxy will forward. Do not re-introduce a lagging set — add the layer.
         for (const l of declared) {
-            if (KNOWN_LAGGING.has(l)) { expect(allowed, `'${l}' is in the allowlist now — delete it from KNOWN_LAGGING`).not.toContain(l); continue; }
             expect(allowed, `proxy allowlist is missing '${l}'`).toContain(l);
         }
     });
@@ -226,8 +234,13 @@ describe('§SEA-IS-NOT-ONE-WORLD-RUN — the merge workflow must not recommend a
         // The retired recommendation is QUOTED in the correction (recorded, not deleted), so the
         // assertion is not "the words are absent" — it is "every occurrence is on the line that
         // retires it". A blunt not.toContain here would forbid the record of the mistake.
-        const lines = mergeYml().split(/?
-/);
+        // ⛔ L-13114 (lane STARTUP-FIX, 2026-09-07) — THIS LINE HELD A LITERAL CR AND A LITERAL LF
+        // INSIDE A REGEX LITERAL: the bytes were `.split(/<CR>?<LF>/);`, i.e. `\r?\n` written with
+        // the escapes expanded. A raw newline in a regex literal is a hard PARSE error, so esbuild
+        // refused the file and THE WHOLE SPEC NEVER RAN — including the allowlist-drift invariant
+        // above, whose `KNOWN_LAGGING` entry said "the exception must be DELETED when they make it"
+        // and was guarded by nothing. Committed broken in fd61083e (2026-09-06). See the ISSUE-LOG.
+        const lines = mergeYml().split(/\r?\n/);
         const hits = lines.filter((l) => l.includes('region blank, layer=sea'));
         expect(hits.length, 'the all--sea recommendation vanished entirely — keep the record').toBeGreaterThan(0);
         for (const l of hits) {

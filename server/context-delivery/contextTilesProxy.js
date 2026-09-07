@@ -70,7 +70,39 @@ export const CONTEXT_TILES_UPSTREAM =
 // contextWater.ts to read the layer: an allowlist that lags the client is the drift documented above,
 // and it fails in the one way this codebase treats as a defect — our own 404 is indistinguishable
 // from "never baked", so the client would blame the bake for a refusal WE made (§L-513b honesty).
-export const CONTEXT_TILE_LAYERS = ['buildings', 'roads', 'water', 'parks', 'landuse', 'rail', 'trees', 'furniture', 'sea'];
+// §CTX-MANIFEST-KNOWN-MISSING (L-13111, lane STARTUP-FIX 2026-09-07) — `canopy`, the last lagging
+// entry. It was added to the client's `ContextTileLayer` union by §VEG-REAL-CANOPY-BAKE (L-12935)
+// and never here, so a canopy read got OUR 404 rather than the upstream's — the drift this list's
+// own header records for `rail`/`trees`, one layer later. MEASURED 2026-09-07 against production,
+// and the response SIZE is the tell, because both answers are a bare 404:
+//     /api/context-tiles/canopy.pmtiles?v=L663a     → 404 in 205 ms, **38 bytes**  ← OURS
+//     /api/context-tiles/furniture.pmtiles?v=L663a  → 404 in 436 ms, **27150 bytes** ← R2's
+// 38 bytes is `{"error":"unknown context tile layer"}`. Adding canopy here does not make canopy
+// render (it is `optIn: true` in bake.mjs and is not in the live tileset — see the manifest reading
+// on the manifest handler below); it makes the absence attributable to the bake instead of to us.
+export const CONTEXT_TILE_LAYERS = ['buildings', 'roads', 'water', 'parks', 'landuse', 'rail', 'trees', 'furniture', 'sea', 'canopy'];
+
+/**
+ * §CTX-MANIFEST-KNOWN-MISSING (L-13111) — the tileset manifest's file name, published BESIDE the
+ * tiles by `tools/context-bake/merge-tiles.mjs` and served by the handler below.
+ *
+ * ⭐ WHY THIS NEEDED A ROUTE OF ITS OWN, AND WHY THE CLIENT HALF WOULD HAVE BEEN DEAD CODE WITHOUT IT.
+ * L-13111's cure — read the manifest once and skip the archive-header probe for layers it does not
+ * name — is sound, and the artefact has existed since 2026-09-03. The client could not reach it:
+ * `VITE_CONTEXT_TILES_URL` is deployed as the SAME-ORIGIN PROXY PATH (L-776, above), and the layer
+ * handler is an ALLOWLIST, so `tileset-manifest.json` resolved to a layer name that is not on the
+ * list and got OUR 404. Measured 2026-09-07, and it is the same 38-byte tell:
+ *     https://pub-…r2.dev/tiles/tileset-manifest.json          → 200, 24279 B, 196 ms   (it EXISTS)
+ *     https://app.pryzm.so/api/context-tiles/tileset-manifest.json → 404, **38 B**, 242 ms (WE refuse it)
+ * A client shipped against that would have failed open on every load and changed nothing
+ * (§AUTHORED-BUT-UNWIRED — audit REACHABILITY, not existence). This route is the unblock.
+ *
+ * ⚠ IT IS NOT ADDED TO `CONTEXT_TILE_LAYERS`. That list means "an archive a PMTiles range reader may
+ * ask for", and every consumer treats it that way — `server/__tests__/contextTilesProxy.test.ts`
+ * range-reads each entry, and two `tools/context-bake` wiring specs assert it against the client's
+ * `ContextTileLayer` union. The manifest is a whole small JSON document, not a ranged archive.
+ */
+export const CONTEXT_TILES_MANIFEST_FILE = 'tileset-manifest.json';
 
 export const CONTEXT_TILES_UPSTREAM_TIMEOUT_MS = 15_000;
 
@@ -147,6 +179,72 @@ export function makeContextTilesHandler(deps = {}) {
 }
 
 export const contextTilesHandler = makeContextTilesHandler();
+
+/**
+ * §CTX-MANIFEST-KNOWN-MISSING (L-13111) — same-origin passthrough for `tileset-manifest.json`.
+ *
+ * WHAT THE CLIENT DOES WITH IT: reads it ONCE per session and pre-seeds §CTX-KNOWN-MISSING for every
+ * layer the manifest does not name, so the ~2 wasted requests per absent layer per session
+ * (§CTX-RANGE-COALESCE's span attempt plus its per-member re-issue) are never issued at all. Live
+ * reading 2026-09-07: `layers = [buildings, landuse, parks, rail, roads, trees, water]` — the seven
+ * that answer, and none of the three that 404.
+ *
+ * ⛔ WHAT IT DOES **NOT** CHANGE, AND MUST NOT: the honest `unavailable` verdict. §CONTEXT-DATA-
+ * HONESTY — failure and empty are different values — so only the ROUND TRIP goes. A layer the
+ * manifest does not name still answers `unavailable` with a reason that NAMES the manifest as its
+ * source, and an unreadable or unparseable manifest changes NOTHING: the client falls back to
+ * probing exactly as before. This route failing open is therefore a slow path, never a wrong answer.
+ *
+ * ⚠ NOT A RANGE READ, AND DELIBERATELY NOT CACHED HARD. The manifest is a ~24 KB JSON document that
+ * is REWRITTEN IN PLACE by every per-layer merge (§MANIFEST-LAYER-CARRY-FORWARD is what makes "not
+ * named ⇒ not live" a true statement rather than an accident), and the publish sets `no-cache` on it
+ * for exactly that reason. So the upstream's own `Cache-Control` is forwarded when present, and the
+ * fallback is `no-cache` — never the tiles' `max-age=3600`. A manifest cached for an hour would
+ * suppress a layer for an hour AFTER the publish that landed it, which is the §L-580-CACHE mistake
+ * with a worse blast radius: it would hide a whole layer rather than serve a stale one.
+ */
+export function makeContextTilesManifestHandler(deps = {}) {
+    const fetchImpl = deps.fetch ?? globalThis.fetch;
+    const upstreamBase = deps.upstream ?? CONTEXT_TILES_UPSTREAM;
+
+    return async function contextTilesManifestHandler(req, res) {
+        const base = upstreamBase.endsWith('/') ? upstreamBase : `${upstreamBase}/`;
+        const url = `${base}${CONTEXT_TILES_MANIFEST_FILE}`;
+
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), CONTEXT_TILES_UPSTREAM_TIMEOUT_MS);
+        try {
+            const headers = {};
+            if (req.headers?.['if-none-match']) headers['If-None-Match'] = req.headers['if-none-match'];
+
+            const upstream = await fetchImpl(url, { headers, signal: ctrl.signal });
+            res.status(upstream.status);
+            for (const h of ['content-type', 'content-length', 'etag', 'last-modified']) {
+                const v = upstream.headers.get(h);
+                if (v) res.setHeader(h, v);
+            }
+            if (!upstream.headers.get('content-type')) res.setHeader('content-type', 'application/json');
+            res.setHeader('Cache-Control', upstream.headers.get('cache-control') || 'no-cache');
+            res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+
+            if (upstream.status === 304 || upstream.status === 204 || !upstream.body) return res.end();
+            const buf = Buffer.from(await upstream.arrayBuffer());
+            return res.end(buf);
+        } catch (err) {
+            const aborted = err?.name === 'AbortError';
+            console.warn(
+                `[context-tiles] §CTX-MANIFEST-KNOWN-MISSING ${CONTEXT_TILES_MANIFEST_FILE} failed `
+                + `(${aborted ? 'upstream timeout' : err?.message ?? err}) — the client will probe every `
+                + 'layer exactly as it did before this route existed. A slow path, not a wrong answer.',
+            );
+            return res.status(aborted ? 504 : 502).end();
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+}
+
+export const contextTilesManifestHandler = makeContextTilesManifestHandler();
 
 /**
  * §CTX-TILES-TERRAIN — same-origin passthrough for the baked Cesium quantized-mesh TERRAIN under

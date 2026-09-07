@@ -13,6 +13,17 @@
  *     fall through to the SPA catch-all and return index.html, which renders as
  *     SILENT FLAT GROUND rather than an error.
  *
+ *     §CTX-MANIFEST-KNOWN-MISSING (L-13111) adds a SECOND route with the same
+ *     ordering requirement and a different failure mode:
+ *     `${CONTEXT_TILES_PATH}/tileset-manifest.json` MUST also precede `:layer`,
+ *     because `:layer` DOES match it — as the layer name
+ *     `tileset-manifest.json`, which is not on the allowlist, so the manifest
+ *     came back as OUR 404. That is not hypothetical: it is what production
+ *     served until this route existed (measured 2026-09-07 — 404, 38 bytes,
+ *     `{"error":"unknown context tile layer"}`, against the upstream's 200 /
+ *     24,279 bytes), and it is why the client-side half of L-13111 could not
+ *     be written first. Registered after `:layer` this route is DEAD.
+ *
  *   • THE ABSENCE OF `apiLimiter` on the two static-byte routes. That is a
  *     measured decision, not an oversight: one 3D-Site load issues ~30-35 tile
  *     reads and the furniture carousel fetches many thumbnails at once, so a
@@ -34,6 +45,9 @@ import {
 const EXPECTED: ReadonlyArray<readonly [string, string, number]> = [
     // [method, path, expected middleware count on the route]
     ['get', '/api/context-tiles/terrain/*', 1], // handler ONLY — no limiter, by design
+    // §CTX-MANIFEST-KNOWN-MISSING (L-13111) — MUST sit between terrain and `:layer`. See the ORDER
+    // note in the header: `:layer` matches this literal path and refuses it by allowlist.
+    ['get', '/api/context-tiles/tileset-manifest.json', 1], // handler ONLY — no limiter, by design
     ['get', '/api/context-tiles/:layer', 1], // handler ONLY — no limiter, by design
     ['get', '/api/catalog/items/*', 1], // handler ONLY — no limiter, by design
 ];
