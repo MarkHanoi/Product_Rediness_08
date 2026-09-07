@@ -26,6 +26,13 @@
  * colour, or whether the panel actually covers 50 % of the viewport; the ARM C arms are
  * SHIPPED-TEXT reads, and they say so. They cannot prove the shell behaves — they pin the
  * wiring whose silent loss would leave a fully-tested surface that never mounts.
+ *
+ * ⭐ ARM D closes the nearest half of that gap without pretending to close all of it: it
+ * runs the REAL `injectAppTheme()` and reads the sheet the app actually injects, so
+ * *"`#ste-surface` is a fixed right-half panel"* is an assertion about an ARTEFACT rather
+ * than about a `+ SITE_SURFACE_STYLES` in a source file. It still does not lay anything
+ * out. ⛔ **A browser check is therefore still OWED and is recorded as owed** — C115
+ * §14.14 forbids reporting an acceptance criterion met on a passing suite alone.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -43,6 +50,9 @@ import { getWorkspaceMode } from '../../platform/workspaceModes';
 // construction (no runtime yet) and applied by `flushRuntimeEventListeners()` below. That
 // is the real production path, deferred bridge and all, not a shortcut around it.
 import { SITE_SURFACE_ID, SITE_SURFACE_LEDE } from '../SiteSurface';
+// ARM D drives the REAL sheet builder rather than reading its source: a `+ SITE_SURFACE_STYLES`
+// in a file is text, an injected rule is the artefact the browser would use.
+import { injectAppTheme } from '../../styles/AppTheme';
 import '../SiteSurface';
 
 const REPO = resolve(__dirname, '../../../../../..');
@@ -350,5 +360,65 @@ describe('§SITE-IS-A-MODE ARM C — committed is not the same as reachable', ()
       strip(read('apps/editor/src/ui/analysis/AnalysisSurface.ts')),
       'AnalysisSurface still mounts the parcel body — the panel was COPIED, not moved',
     ).not.toContain('mountParcelLawTab');
+  });
+});
+
+// ── ARM D — the panel's BOX and CHROME really reach the injected stylesheet ───────────
+
+/**
+ * ⛔ THE GAP THIS ARM CLOSES, AND THE GAP IT STILL DOES NOT.
+ *
+ * happy-dom performs no layout and paints nothing, so no assertion in this file can prove
+ * the panel occupies the right half of a real viewport. What it CAN prove — and what ARM C
+ * cannot, because ARM C reads source text — is that the rules exist in the sheet the app
+ * actually injects. That distinction is C01 §6.1's: **ABSENT and UNREACHABLE styling are
+ * indistinguishable in a browser and have opposite fixes.** A `#ste-surface` that never
+ * reached the sheet would render as an ordinary block at the bottom of `document.body`
+ * with every behavioural arm above still green — the panel present, and invisible.
+ *
+ * ⭐ The class arm is C06 §6.1 rule 2 applied rather than restated: *"every class a panel
+ * EMITS must have a rule in that panel's sheet, and something must compare the two
+ * artefacts"* — minted because `.dw-heatmap-bar` was emitted for its whole life against a
+ * sheet declaring `.dw-viz-bar`, rendered completely unstyled, and nothing noticed.
+ * It is the arm that makes this surface's deliberate REUSE of the `anl-` chrome vocabulary
+ * (see `SiteSurface`'s header, and L-13181) checkable instead of merely asserted.
+ */
+describe('§SITE-IS-A-MODE ARM D — the rules are in the sheet the app injects', () => {
+  const sheet = (): string => {
+    injectAppTheme();
+    const style = document.getElementById('app-master-theme-v3');
+    expect(style, 'injectAppTheme() produced no master sheet').not.toBeNull();
+    return style!.textContent ?? '';
+  };
+
+  it('⭐ `#ste-surface` is a fixed right-half panel in the INJECTED css, not merely in a source file', () => {
+    const m = /#ste-surface\s*\{([^}]*)\}/.exec(sheet());
+    expect(m, '#ste-surface has no rule in the injected sheet — the panel would render as a block in the page flow').not.toBeNull();
+    const rule = m![1]!;
+    expect(rule).toContain('position: fixed');
+    expect(rule).toContain('right: 0');
+    expect(rule).toContain('width: 50%');
+    // ⛔ The rank is load-bearing in BOTH directions: above `.svp-pane` (z-index 1) so a split
+    // pane cannot paint over the panel, and below the half-canvas drag handle
+    // (`RESIZER_Z_INDEX = 51`) so the seam stays grabbable. It matches `#anl-surface`.
+    expect(rule).toContain('z-index: 50');
+    // Hidden by CLASS, never detached — which is precisely why `_hide()` must tear the parcel
+    // body down itself (a claimed singleton card in a hidden-but-attached host is stranded).
+    expect(rule).toContain('display: none');
+    expect(sheet()).toContain('#ste-surface.ste-surface--visible');
+  });
+
+  it('⛔ every chrome class this surface EMITS has a rule in the injected sheet', () => {
+    // Read off the LIVE surface rather than hand-listed, so a class added to `SiteSurface`
+    // tomorrow is covered by this arm the day it is added rather than the day someone
+    // remembers to extend a list here.
+    const css = sheet();
+    const emitted = new Set<string>();
+    for (const node of el().querySelectorAll('*')) {
+      for (const c of (node as HTMLElement).classList) if (c.startsWith('anl-') || c.startsWith('ste-')) emitted.add(c);
+    }
+    expect(emitted.size, 'the surface emitted no prefixed class — this arm would be vacuous').toBeGreaterThan(4);
+    const unstyled = [...emitted].filter((c) => !new RegExp(`\\.${c}[^A-Za-z0-9_-]`).test(css));
+    expect(unstyled, 'these classes are emitted with no rule anywhere in the injected sheet').toEqual([]);
   });
 });
