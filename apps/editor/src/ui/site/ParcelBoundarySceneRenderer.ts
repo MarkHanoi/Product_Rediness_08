@@ -125,6 +125,9 @@ import {
     siteHighlightCue,
     siteHighlightEmphasis,
     SITE_HIGHLIGHT_RECEDE_FACTOR,
+    // §26.6 rule 2 (L-13046) — the two cues that answer `Bounding box` and a setback-register edge.
+    boundingBoxRingXZ,
+    parseEdgeHighlightSubject,
     type SiteHighlightSubject,
     type SiteHighlightRole,
 } from './siteGeometryHighlight';
@@ -150,12 +153,16 @@ import {
 // they must be the same colour; before this import the plate was study-teal and the adopted prism
 // was violet, and the user watched it change identity twice on one click.
 import {
-    TO_BE_BUILT_ROSE,
+    TO_BE_BUILT_FILL,
+    TO_BE_BUILT_INK,
     TO_BE_BUILT_GROUND_FILL_ALPHA,
 } from './toBeBuiltEnvelopeStyle';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
+
+/** The edge subject string the cue tags itself with — spelled by the ONE constructor. */
+const subjectOfEdge = (index: number): string => `edge:${index}`;
 
 /** Slight +y lift (metres) so the outline never z-fights the ground grid. */
 const GROUND_Y_OFFSET = 0.02;
@@ -457,7 +464,8 @@ export class ParcelBoundarySceneRenderer {
      * refuses (§ENVELOPE-SITE-DATA: never synthesise a missing value), and worse in three dimensions
      * because a reader can see that a NUMBER is a number and cannot see that a SOLID is a guess.
      *
-     * ⛔ ROSE AND DASHED, i.e. the SKETCH vocabulary in the TO-BE-BUILT hue — never the plan-backed
+     * ⛔ THE TO-BE-BUILT FILL WITH ITS INK RIM, DASHED, i.e. the SKETCH vocabulary in the
+     * to-be-built colours (pale white-grey solid, slate rim — STR §26.6.3) — never the plan-backed
      * violet. This plate is compliant-by-construction on ONE axis only (it is an erosion of the
      * permitted footprint, so its area cannot exceed it). PRYZM has checked it against nothing else
      * — no setback shaping, no frontage rule, no party wall. Drawing it in the determination hue
@@ -511,7 +519,7 @@ export class ParcelBoundarySceneRenderer {
                 const mesh = new THREE.Mesh(
                     geo,
                     new THREE.MeshBasicMaterial({
-                        color: TO_BE_BUILT_ROSE,
+                        color: TO_BE_BUILT_FILL,
                         transparent: true,
                         opacity: TO_BE_BUILT_GROUND_FILL_ALPHA,
                         depthWrite: false,
@@ -530,7 +538,8 @@ export class ParcelBoundarySceneRenderer {
                 console.warn('[ParcelBoundarySceneRenderer] proposed-plate triangulation failed:', err);
             }
 
-            const rim = this.buildDashedRim(ring, y, TO_BE_BUILT_ROSE);
+            // The INK, not the fill: a near-white plate has no silhouette on a light ground.
+            const rim = this.buildDashedRim(ring, y, TO_BE_BUILT_INK);
             if (rim) {
                 rim.name = 'pryzm-target-footprint-proposal-rim';
                 rim.userData.siteHighlightRole = 'proposal' satisfies SiteHighlightRole;
@@ -627,8 +636,53 @@ export class ParcelBoundarySceneRenderer {
             case 'front-edges': return this.buildFrontEdgesCue(polygon);
             case 'inset-ring': return this.buildInsetRingCue();
             case 'limit-plane': return this.buildLimitPlaneCue();
+            case 'bbox': return this.buildBboxCue(polygon);
+            case 'boundary-edge': return this.buildBoundaryEdgeCue(polygon, parseEdgeHighlightSubject(subject));
             case null: return null;
         }
+    }
+
+    /**
+     * §26.6 rule 2 — "Bounding box → the box." The axis-aligned extent the row's two numbers
+     * describe, drawn as ITS OWN closed violet ring so it reads as a box around the plot and not
+     * as a second plot outline. The ring is produced by `boundingBoxRingXZ`, the ONE producer the
+     * other two views draw from, so the three views light the same box.
+     */
+    private buildBboxCue(polygon: XZPoint[]): THREE.Object3D | null {
+        const box = boundingBoxRingXZ(polygon);
+        if (box.length < 4) return null;
+        const line = this.buildClosedCueLine(box, HIGHLIGHT_CUE_Y, 'pryzm-site-highlight-bbox');
+        if (line) line.userData.siteHighlightSubject = 'bbox';
+        return line;
+    }
+
+    /**
+     * §26.6.2 — ONE EDGE of the ring, the one a setback-register row names. A single violet
+     * segment over the (receded) boundary, so it reads as a part of the ring. `index` outside the
+     * ring draws nothing — an honest null, never the nearest edge instead.
+     */
+    private buildBoundaryEdgeCue(polygon: XZPoint[], index: number | null): THREE.Object3D | null {
+        if (index === null || polygon.length < 3 || index < 0 || index >= polygon.length) return null;
+        const a = polygon[index]!;
+        const b = polygon[(index + 1) % polygon.length]!;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(
+            new Float32Array([a.x, HIGHLIGHT_CUE_Y, a.z, b.x, HIGHLIGHT_CUE_Y, b.z]), 3,
+        ));
+        const line = new THREE.LineSegments(
+            geo,
+            new THREE.LineBasicMaterial({
+                color: PRYZM_VIOLET,
+                transparent: true,
+                opacity: 0.95,
+                depthWrite: false,
+            }),
+        );
+        line.name = 'pryzm-site-highlight-boundary-edge';
+        line.userData.siteHighlightRole = 'cue' satisfies SiteHighlightRole;
+        line.userData.siteHighlightSubject = subjectOfEdge(index);
+        line.userData.siteHighlightEdgeIndex = index;
+        return line;
     }
 
     /**

@@ -67,7 +67,7 @@ import type { UserSuppliedStudyHeightRecord } from './userSuppliedStudyHeightSta
 // §TOBE-ENVELOPE (STR §25.2, lane PL-TOBE-ENVELOPE) — the LEGEND's rows and the to-be-built hue
 // come from the ONE authority the SCENE reads. A legend that re-typed its own swatch colour would
 // be a legend that can disagree with the geometry it explains — which is worse than no legend.
-import { ENVELOPE_LEGEND, TO_BE_BUILT_ROSE_CSS } from './toBeBuiltEnvelopeStyle';
+import { ENVELOPE_LEGEND, TO_BE_BUILT_INK_CSS } from './toBeBuiltEnvelopeStyle';
 // §TOBE-ALLOCATION (STR §25.2) — the arithmetic is decided next door, pure and tested. This file
 // renders the answer and NEVER re-derives a figure from it (the C06 §13.3 one-producer rule).
 import type { BrutAllocationModel } from './brutAreaAllocation';
@@ -1445,7 +1445,7 @@ export function buildBrutAllocationHtml(model: BrutAllocationModel, editable = f
         const headlineBorder = !known || over ? '#c9973a' : '#6600FF';
 
         const remainderChip = known
-            ? `<div style="font:800 15px system-ui;color:${over ? '#8a5a00' : TO_BE_BUILT_ROSE_CSS};">`
+            ? `<div style="font:800 15px system-ui;color:${over ? '#8a5a00' : TO_BE_BUILT_INK_CSS};">`
               + `${escHtml(model.remainingM2!.toFixed(0))} m²</div>`
               + `<div style="font-size:8.5px;color:#8a83a0;">${over ? 'over the limit' : 'left to allocate'}</div>`
             : `<div style="font:800 12px system-ui;color:#8a5a00;">not known</div>`

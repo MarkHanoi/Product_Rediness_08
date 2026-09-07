@@ -34,20 +34,34 @@
 // one is what moves. The `#6600FF` preview idiom is untouched everywhere else it is used.
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-// ⭐ WHY ROSE, AND WHAT IT WAS CHOSEN AGAINST
+// ⭐ WHY WHITE-GREY, AND WHAT IT WAS CHOSEN AGAINST — REVISED 2026-09-07 (lane MASSING-SHAPES)
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-// Four hues are already spoken for in the site scene and none of them may be re-used:
+// STR §26.6.3, founder verbatim: *"THE MASSING SHOULD BE MORE SOLID AND SLIGHTLY WHITE-GREY LIKE IN
+// HEKTAR"* — his image 3 is a pale solid massing model with cast shadows. This module drew the
+// to-be-built envelope in ROSE `#e5175b` at 0.22 (2026-09-06) for a reason that was right then and
+// is still right now: the hue had to sit outside the four meanings already spoken for. It now sits
+// outside them as a PALE WHITE-GREY instead, and the reasoning is corrected in place rather than
+// left describing a colour the code no longer uses.
+//
+// The four hues that carry meaning and may not be re-used:
 //
 //   · `0x6600ff` confident violet   — a PERMITTED determination            (envelopeRenderStyle.ts)
 //   · `0x9a93b0` provisional grey   — a PERMITTED estimate                 (envelopeRenderStyle.ts)
 //   · `0xff9900` suggested amber    — an admin-only unreviewed suggestion  (envelopeRenderStyle.ts)
 //   · `0x00a99a` study teal         — a CONTEXT-DERIVED study massing      (contextStudyMassingStyle.ts)
 //
-// Their hue angles are ≈264°, ≈254°, ≈36° and ≈175°. The widest gaps left are green (≈120°) and
-// rose (≈340°). Green was rejected: at ≈140° it sits 35° from study teal, and teal already means
-// "an indicative study" — the nearest neighbour in meaning as well as in hue is the worst place to
-// put a fifth term. Azure (≈216°) was rejected for the same reason against violet. Rose at ≈340°
-// is the furthest any new hue can get from all four at once.
+// ⚠ THE ONE COLLISION THAT MATTERS IS WITH THE PROVISIONAL GREY, and it is not a collision. That
+// grey is a mid, desaturated lavender (L* ≈ 62) drawn at a near-wireframe weight; this fill is a
+// near-white (L* ≈ 92) drawn SOLID. They differ on lightness by more than a third of the scale
+// and on weight by an order of magnitude, and the spec pins the lightness gap as a NUMBER, not
+// as an inequality of two hex literals. Two greys of the same lightness would have been the
+// defect; a pale solid beside a faint mid-grey wireframe is the distinction the founder asked
+// for. The legend's three rows STAY (§26.6.3: "keep the legend").
+//
+// ⭐ THE SOLID IS TWO CHANNELS, NOT ONE. A near-white fill vanishes on a light basemap unless its
+// EDGE is drawn in something darker, so this module publishes an INK — a slate grey for rims,
+// outlines, the card's figures and the legend swatch border — alongside the FILL. Surfaces draw
+// the fill with the ink around it; the ink is never a fill and the fill is never text.
 //
 // ⛔ COLOUR IS NEVER THE ONLY CHANNEL. A hue alone fails a greyscale screenshot and a
 // colour-vision-deficient reader, which is why every other envelope in this repo carries a second
@@ -61,41 +75,61 @@
 // `contextStudyMassingStyle.ts` states for itself).
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The hue
+// The hue — FILL and INK
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * ⭐ THE TO-BE-BUILT ENVELOPE'S ONE COLOUR — rose `#e5175b`, as a numeric hex for THREE.
+ * ⭐ THE TO-BE-BUILT ENVELOPE'S FILL — pale white-grey `#e8e8ee`, as a numeric hex for THREE.
+ * *"SLIGHTLY WHITE-GREY LIKE IN HEKTAR"* (STR §26.6.3).
  *
  * Deliberately outside the confident-violet / provisional-grey / suggested-amber family that
  * carries C58 §1.2 CONFIDENCE, and outside the study-teal that carries "context-derived study".
- * An intent volume is neither, and it must not be able to be read as either.
+ * An intent volume is neither, and it must not be able to be read as either — see the header for
+ * why a near-white SOLID is not the provisional grey's faint mid-grey wireframe.
  */
-export const TO_BE_BUILT_ROSE = 0xe5175b;
+export const TO_BE_BUILT_FILL = 0xe8e8ee;
 
 /**
- * The SAME rose as a CSS string. DERIVED from the number above, never typed a second time — the
+ * The SAME fill as a CSS string. DERIVED from the number above, never typed a second time — the
  * exact hand-copy drift `contextStudyMassingStyle.ts` documents one level down.
  */
-export const TO_BE_BUILT_ROSE_CSS = `#${TO_BE_BUILT_ROSE.toString(16).padStart(6, '0')}`;
+export const TO_BE_BUILT_FILL_CSS = `#${TO_BE_BUILT_FILL.toString(16).padStart(6, '0')}`;
 
 /**
- * The fill weight of a to-be-built VOLUME (a prism the user has chosen an area for).
- *
- * ⚠ HEAVIER THAN THE STUDY MASSING (0.05) AND HEAVIER THAN AN UPPER-BOUND PERMITTED SOLID (0.06),
- * AND THAT IS THE HONEST ORDERING, not an inconsistency. Those two are faint because PRYZM is
- * unsure what the LAW allows. This one is not a claim about the law at all — it is the user's own
- * decision, and PRYZM is not unsure about what the user asked for. Drawing a decision as faintly
- * as an uncertain measurement is the §24.1 item-3 defect ("the honesty must survive, the
- * invisibility must not") pointing the other way.
+ * ⭐ THE INK — slate grey `#5c5c6e` for the rim, the outline, the card's to-be-built figures and
+ * the legend swatch's border. A near-white fill has no silhouette of its own on a light map; the
+ * ink gives it one. ⛔ Never used as a fill and never mistaken for a confidence hue: it is darker
+ * than the provisional grey and it is drawn as a LINE.
  */
-export const TO_BE_BUILT_FILL_ALPHA = 0.22;
+export const TO_BE_BUILT_INK = 0x5c5c6e;
+export const TO_BE_BUILT_INK_CSS = `#${TO_BE_BUILT_INK.toString(16).padStart(6, '0')}`;
+
+/**
+ * The fill weight of a to-be-built VOLUME (a prism the user has chosen an area for) — the
+ * adopted C114 level envelope, read by `spaceEnvelopeAppearance` as `SPACE_ENVELOPE_LEVEL_OPACITY`.
+ *
+ * ⭐ *"MORE SOLID"* (STR §26.6.3): raised from 0.22 to 0.55. ⚠ HEAVIER THAN THE STUDY MASSING
+ * (0.05) AND HEAVIER THAN AN UPPER-BOUND PERMITTED SOLID (0.06), AND THAT IS THE HONEST ORDERING,
+ * not an inconsistency. Those two are faint because PRYZM is unsure what the LAW allows. This one
+ * is not a claim about the law at all — it is the user's own decision, and PRYZM is not unsure
+ * about what the user asked for. Drawing a decision as faintly as an uncertain measurement is the
+ * §24.1 item-3 defect ("the honesty must survive, the invisibility must not") pointing the other
+ * way.
+ *
+ * ⚠ STILL BELOW A ROOM'S WEIGHT. §RESI-STAGE-G pins `level < room` so the rooms inside the level
+ * stay readable; that ordering is kept, with the room raised alongside. A fully opaque massing
+ * would hide the rooms per level the founder asked to see in the same breath (L-13039) — the
+ * tension is his to settle, and it is named in the lane report rather than resolved by a number.
+ */
+export const TO_BE_BUILT_FILL_ALPHA = 0.55;
 
 /**
  * The flat GROUND-PLATE weight, used before any storey height is known — the pre-adoption
- * `targetFootprintAreaState` plate. Lighter than the volume: a plate is one decision short of one.
+ * `targetFootprintAreaState` plate, i.e. the massing option being COMPARED. Lighter than the
+ * volume: a plate is one decision short of one. Raised from 0.16 with the volume, for the same
+ * reason.
  */
-export const TO_BE_BUILT_GROUND_FILL_ALPHA = 0.16;
+export const TO_BE_BUILT_GROUND_FILL_ALPHA = 0.45;
 
 /**
  * ⛔ THE SENTENCE EVERY SURFACE THAT DRAWS THIS ENVELOPE MUST ALSO PRINT — the founder's own word
@@ -111,7 +145,7 @@ export const TO_BE_BUILT_ORIENTATIVE_TEXT =
 
 /**
  * The three envelope kinds §25.2 names. CLOSED — a fourth kind must be added here, and the type
- * error at every consumer is the feature.
+ * error at every consumer is the feature. (§26.6.3: the three-line legend STAYS.)
  */
 export type EnvelopeLegendKind = 'permitted' | 'to-be-built' | 'room';
 
@@ -162,7 +196,7 @@ export const ENVELOPE_LEGEND: readonly EnvelopeLegendEntry[] = Object.freeze([
     Object.freeze({
         kind: 'to-be-built' as const,
         label: 'To-be-built envelope',
-        swatchCss: TO_BE_BUILT_ROSE_CSS,
+        swatchCss: TO_BE_BUILT_FILL_CSS,
         meaning: TO_BE_BUILT_ORIENTATIVE_TEXT,
         carriesConfidenceBadge: false,
     }),

@@ -44,7 +44,7 @@ import { OCCUPANCY_PALETTE, UNCLASSIFIED_FILL } from '@pryzm/room-topology';
 // §TOBE-ENVELOPE (STR §25.2) — the ONE authority for the to-be-built envelope's colour, shared
 // with the pre-adoption plate (`ParcelBoundarySceneRenderer`) and the card legend. A pure leaf
 // with no imports of its own, so importing it here pulls no rendering stack across (P2).
-import { TO_BE_BUILT_ROSE_CSS } from '../ui/site/toBeBuiltEnvelopeStyle';
+import { TO_BE_BUILT_FILL_ALPHA, TO_BE_BUILT_FILL_CSS } from '../ui/site/toBeBuiltEnvelopeStyle';
 
 /**
  * ⭐ THE LEVEL ENVELOPE'S COLOUR — the TO-BE-BUILT rose, and the fallback for any role
@@ -65,16 +65,24 @@ import { TO_BE_BUILT_ROSE_CSS } from '../ui/site/toBeBuiltEnvelopeStyle';
  *
  * The value now comes from the ONE authority — `toBeBuiltEnvelopeStyle.ts` — which is also
  * what the pre-adoption plate and the card legend read, so the same thing is the same colour
- * before and after the user commits to it. See that module for why rose and not green/azure.
+ * before and after the user commits to it. See that module for the colour's reasoning
+ * (pale white-grey since 2026-09-07 — STR §26.6.3, *"more solid and slightly white-grey like
+ * in Hektar"*; rose before that).
  */
-export const SPACE_ENVELOPE_LEVEL_COLOUR = TO_BE_BUILT_ROSE_CSS;
+export const SPACE_ENVELOPE_LEVEL_COLOUR = TO_BE_BUILT_FILL_CSS;
 
 /**
  * Alphas. ⛔ The INVARIANT is `LEVEL < ROOM` (a test asserts it), not the numbers: the
  * level is a container the user must see THROUGH, and a room is the thing being read.
+ *
+ * ⭐ THE LEVEL'S WEIGHT IS THE STYLE MODULE'S, NOT A SECOND LITERAL. `TO_BE_BUILT_FILL_ALPHA`
+ * was declared there and read by NOTHING while this file kept its own 0.12 — two answers to
+ * "how solid is the to-be-built volume", one of them unreachable (C84 EI-9). The founder's
+ * *"MORE SOLID"* (STR §26.6.3) is therefore applied in ONE place and lands here, and the room
+ * is raised with it so the ordering invariant survives the change rather than being weakened.
  */
-export const SPACE_ENVELOPE_LEVEL_OPACITY = 0.12;
-export const SPACE_ENVELOPE_ROOM_OPACITY = 0.34;
+export const SPACE_ENVELOPE_LEVEL_OPACITY = TO_BE_BUILT_FILL_ALPHA;
+export const SPACE_ENVELOPE_ROOM_OPACITY = 0.7;
 /** Any other role (today only `maximumBuildable`, which cannot be created — C114 §6b). */
 export const SPACE_ENVELOPE_OTHER_OPACITY = 0.28;
 

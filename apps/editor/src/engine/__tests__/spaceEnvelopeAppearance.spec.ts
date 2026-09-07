@@ -18,7 +18,7 @@ import {
 } from '../spaceEnvelopeAppearance';
 // §TOBE-ENVELOPE — imported, never re-typed: the point of the arm below is that these two values
 // must DIFFER, and a hand-copied literal would keep passing after one of them moved.
-import { TO_BE_BUILT_ROSE_CSS } from '../../ui/site/toBeBuiltEnvelopeStyle';
+import { TO_BE_BUILT_FILL_CSS } from '../../ui/site/toBeBuiltEnvelopeStyle';
 import { CONFIDENT_VIOLET_HEX } from '../../ui/site/envelopeRenderStyle';
 
 describe('§RESI-STAGE-G — colour', () => {
@@ -62,7 +62,7 @@ describe('§RESI-STAGE-G — colour', () => {
     it('a LEVEL envelope takes the TO-BE-BUILT colour and never an occupancy colour', () => {
         const a = resolveSpaceEnvelopeAppearance({ role: 'level', occupancy: 'kitchen' });
         expect(a.colour).toBe(SPACE_ENVELOPE_LEVEL_COLOUR);
-        expect(a.colour).toBe(TO_BE_BUILT_ROSE_CSS);
+        expect(a.colour).toBe(TO_BE_BUILT_FILL_CSS);
         expect(a.colourSource).toBe('role-default');
     });
 

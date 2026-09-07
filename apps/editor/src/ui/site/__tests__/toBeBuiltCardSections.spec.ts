@@ -33,7 +33,7 @@ import {
     buildBrutAllocation,
     type AllocationStorey,
 } from '../brutAreaAllocation';
-import { TO_BE_BUILT_ROSE_CSS } from '../toBeBuiltEnvelopeStyle';
+import { TO_BE_BUILT_FILL_CSS, TO_BE_BUILT_INK_CSS } from '../toBeBuiltEnvelopeStyle';
 
 const GROUND: AllocationStorey = { levelId: 'L0', name: 'Ground', elevation: 0 };
 const FIRST: AllocationStorey = { levelId: 'L1', name: 'Level 1', elevation: 3 };
@@ -50,7 +50,7 @@ describe('§25.2 — the three-envelope legend', () => {
         expect(html).toContain('data-legend-kind="permitted"');
         expect(html).toContain('data-legend-kind="to-be-built"');
         expect(html).toContain('data-legend-kind="room"');
-        expect(html).toContain(TO_BE_BUILT_ROSE_CSS);
+        expect(html).toContain(TO_BE_BUILT_FILL_CSS);
     });
 
     it('⛔ marks WHICH row carries a confidence badge — only the permitted one', () => {
@@ -83,9 +83,10 @@ describe('§25.2 — the remainder the user must be TOLD', () => {
         const html = buildBrutAllocationHtml(model);
         expect(html).toContain(BRUT_ALLOCATION_HEADLINE_TESTID);
         expect(html).toContain('120 m² remains for the floors above');
-        // The chip carries the number on its own, in the to-be-built colour.
+        // The chip carries the number on its own, in the to-be-built INK (a figure is text, and
+        // the pale fill is not legible as text — the style module publishes both for that reason).
         expect(html).toContain('120 m²');
-        expect(html).toContain(TO_BE_BUILT_ROSE_CSS);
+        expect(html).toContain(TO_BE_BUILT_INK_CSS);
         // ⛔ NOT inside a <details> — a remainder a user must click to find has not been disclosed.
         const headlineAt = html.indexOf(BRUT_ALLOCATION_HEADLINE_TESTID);
         const firstDetailsAt = html.indexOf('<details');
