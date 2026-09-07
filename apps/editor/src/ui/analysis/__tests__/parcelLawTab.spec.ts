@@ -48,6 +48,9 @@ import {
     subscribeSiteHighlight,
 } from '../../site/siteGeometryHighlight';
 import { SITE_HIGHLIGHT_UNAVAILABLE_ATTR } from '../../site/siteHighlightRowControl';
+// §26.6.7 (L-13085) — the four ceilings' subject table, at its ONE owner. The headline's own
+// mounted-DOM suite is `site/__tests__/ceilingHeadline.spec.ts`.
+import { CEILING_SUBJECT } from '../../site/ceilingHeadlineSection';
 import { ANALYSIS_SURFACE_STYLES } from '../../styles/panels/analysisSurface';
 import {
     SETBACK_REGISTER_ARM_ATTR,
@@ -651,14 +654,21 @@ describe('§26.6.2 — question 2 is RENAMED, the × is withheld on this host, a
         // `CEILING_LABEL` instead of re-typing them. The invariant is that the four are RENDERED
         // AS ROWS with his names and with `not derived` intact; the literal spelling of the call
         // was never the invariant, and pinning it made a correct move look like a regression.
-        const card = src('../../layout/GISAreaLayout.ts');
+        //
+        // ⚠ REPOINTED AGAIN 2026-09-07 (lane HEADLINE-VERIFY, L-13085). It asserted
+        // `row(CEILING_LABEL.<key>` in `GISAreaLayout.ts`; the headline's PRODUCER has since moved
+        // to `ceilingHeadlineSection.ts` so the four could be mounted, counted and CLICKED in a
+        // real DOM (`ceilingHeadline.spec.ts`) instead of grepped for the shape of a call. The
+        // invariant is unchanged and is now asserted where it can be seen.
+        const producer = src('../../site/ceilingHeadlineSection.ts');
         for (const key of ['levels', 'height', 'implantation', 'buildable']) {
-            expect(card).toContain(`row(CEILING_LABEL.${key}`);
+            expect(producer).toContain(`${key}:`);
         }
         // ⭐ The names come from the ONE owner, so the card and question 3 cannot drift apart.
-        expect(card).toContain("from '../site/intentAgainstCeilingModel'");
+        expect(producer).toContain("import { CEILING_LABEL } from './intentAgainstCeilingModel'");
         // The refusal that fills a missing one STAYS (§26.6.2: "that refusal is correct and stays").
-        expect(card).toContain(': NOT_DERIVED,');
+        expect(producer).toContain('CARD_NOT_DERIVED_HTML');
+        expect(producer).toContain('not derived');
     });
 
     it('⭐ §26.6.7 RULE 1 — each of the four renders in exactly ONE place, so the lift is a MOVE', () => {
@@ -666,45 +676,43 @@ describe('§26.6.2 — question 2 is RENAMED, the × is withheld on this host, a
         // headline AND DROP THEM FROM THE FOLD. ⛔ Lifting without removing is the defect, not the
         // fix — it re-creates the duplication rule 1 exists to end, one edit after applying it.
         //
-        // ⚠ THIS IS A SOURCE COUNT, NOT A MOUNTED-DOM COUNT, AND THAT IS STATED RATHER THAN
-        // GLOSSED. `buildSiteDataBlock` is an arrow inside `mountGISArea`, a ~7,000-line closure
-        // with no seam that renders the real card in a spec; the sibling suite
-        // `bim3dChromeQuiet.spec.ts` reaches the same controls the same way and for the same
-        // reason. Counting the CALL SITES is the strongest available check that there is one
-        // producer per figure, which is what rule 1 actually asks.
+        // ⭐ THE MOUNTED-DOM COUNT NOW EXISTS, and it is in `ceilingHeadline.spec.ts`. This test
+        // used to carry a paragraph explaining that a DOM count was impossible — `buildSiteDataBlock`
+        // is an arrow inside `mountGISArea`, a ~5,500-line closure no spec can render — and that
+        // counting CALL SITES was the strongest available check. Lane HEADLINE-VERIFY (L-13085)
+        // removed that constraint instead of restating it: the headline's producer moved to
+        // `ceilingHeadlineSection.ts`, so the four are counted in a real DOM there. What remains
+        // HERE is the other half of rule 1, which only a source read can answer — that the CARD
+        // does not print them a second time.
         const card = src('../../layout/GISAreaLayout.ts');
-        for (const key of ['levels', 'height', 'implantation', 'buildable']) {
-            const n = (card.match(new RegExp(`row\\(CEILING_LABEL\\.${key}\\b`, 'g')) ?? []).length;
-            expect(n, `CEILING_LABEL.${key} is rendered ${n} times — rule 1 asks for one`).toBe(1);
-        }
-        // ⛔ AND THE OLD FOLD ROWS ARE GONE, not merely outnumbered. A literal left behind would
-        // print the figure a second time under the same name.
-        expect(card).not.toContain("row('Maximum height'");
-        expect(card).not.toContain("row('Maximum levels'");
-        expect(card).not.toContain("row('Maximum implantation area");
-        expect(card).not.toContain("row('Maximum buildable area");
+        // ⛔ ONE PRODUCER, CALLED ONCE. Two calls would be two headlines from two store reads.
+        expect((card.match(/buildCeilingHeadlineHtml\(/g) ?? []).length).toBe(1);
+        // ⛔ AND THE CARD CANNOT NAME THE FOUR AT ALL — two ways, both of which a re-added fold row
+        // would have to take. It no longer imports `CEILING_LABEL`, so it cannot render them from
+        // their owner; and no `row()` call re-types one, so it cannot render them from a literal.
+        // (Prose mentions of the labels in this file's comments are deliberately not matched — the
+        // §26.6.7 record OF the lift is written in them.)
+        expect(card).not.toMatch(/\bCEILING_LABEL\b\s*[.[]/);
+        expect(card).not.toMatch(/row\(\s*['"`]Maximum/);
     });
 
     it('⛔ §26.6.7 — the lift keeps rule 2: three of the four are still CONTROLS, and levels still is not', () => {
         // A figure that became plain text in the headline would be a rule-2 REGRESSION wearing a
-        // rule-1 fix. `row()`'s 4th argument is the highlight subject, and it is the same builder
-        // (`buildSiteHighlightLabelHtml`) and the same wiring (`wireSiteHighlightRows(panel)`,
-        // which takes the whole panel — the headline is inside it).
-        const card = src('../../layout/GISAreaLayout.ts');
-        // Read each headline row's own call text — from `row(CEILING_LABEL.<k>` to the `)` that
-        // closes it — and assert the highlight subject `row()` takes as its 4th argument.
-        const callOf = (key: string): string => {
-            const at = card.indexOf(`row(CEILING_LABEL.${key}`);
-            expect(at, `no headline row for ${key}`).toBeGreaterThan(-1);
-            return card.slice(at, card.indexOf('\n            + row', at + 1) + 1 || at + 900);
-        };
-        expect(callOf('height')).toContain("'height'");
-        expect(callOf('implantation')).toContain("'footprint'");
-        expect(callOf('buildable')).toContain("'gfa'");
+        // rule-1 fix. ⭐ VERIFIED 2026-09-07 (L-13085): rule 2 SURVIVED the lift, and the proof is
+        // `ceilingHeadline.spec.ts`, which mounts the real headline, asserts three REAL buttons
+        // carrying `height` / `footprint` / `gfa`, CLICKS them into the one store the three views
+        // paint from, and asserts `Maximum levels` is not a control. This test keeps the half that
+        // belongs to the tab: the subject table is the module's, not four literals at a call site.
+        expect(CEILING_SUBJECT).toEqual({
+            levels: null, height: 'height', implantation: 'footprint', buildable: 'gfa',
+        });
         // ⛔ `Maximum levels` carries NO subject, here as before: there is no geometry for
         // "storeys" to light, and §3's rule is that a row whose geometry does not exist must not
         // render as a control — a dead click is indistinguishable from a broken product.
-        expect(callOf('levels')).not.toContain("'levels'");
+        expect(CEILING_SUBJECT.levels).toBeNull();
+        // …and the card still wires the whole panel, so the headline's controls are wired with the
+        // fold's rather than needing a second wire nobody would remember to call.
+        expect(src('../../layout/GISAreaLayout.ts')).toContain('wireSiteHighlightRows(panel)');
     });
 
     it('⛔ §26.6.7 — the SETBACK TRIPLE was relocated, not deleted, and has ONE producer', () => {

@@ -385,7 +385,19 @@ import {
 // §RESI-ORCH-HIGHLIGHT-DOM — the label markup and the click wire live in ONE module so a test can
 // mount the REAL button and click it (`siteHighlightRowControl.spec.ts`). This file only calls
 // them; it keeps no private copy of either. See that module's header for why.
-import { buildSiteHighlightLabelHtml, wireSiteHighlightRows } from '../site/siteHighlightRowControl';
+import { wireSiteHighlightRows } from '../site/siteHighlightRowControl';
+// §26.6.7 (L-13085) — the card's ROW markup, its `not derived` sentence, its number formatter and
+// the FOUR-CEILING HEADLINE the founder's 2026-09-07 ruling lifted out of the fold. They live next
+// door so a spec can mount the REAL headline, count each figure in a REAL DOM and click the REAL
+// buttons — `buildSiteDataBlock` is an arrow inside this ~5,500-line closure and no spec can render
+// it. ⛔ This file keeps NO private copy of any of the four: `row`, `num` and `NOT_DERIVED` below
+// are one-line delegations, so the headline and the fold cannot drift.
+import {
+    buildCeilingHeadlineHtml,
+    buildEnvelopeCardRowHtml,
+    CARD_NOT_DERIVED_HTML,
+    formatCardMeasure,
+} from '../site/ceilingHeadlineSection';
 // §RESI-ORCH-TARGET-AREA (STR §5, lane RESI-ORCH 2026-09-04) — *"I want ~120 m² on the ground
 // floor."* The solver is pure and lives next door; this file owns only the control, the wire and
 // the statement it renders. See `targetFootprintAreaSolver.ts` for why this is a PROPOSAL inside a
@@ -425,11 +437,10 @@ import {
     // §FOLD-MEMORY (L-13078) — re-attach the disclosure memory after the card's innerHTML swap.
     wireEnvelopeCardFoldMemory,
 } from '../site/envelopeCardSections';
-// §26.6.7 (L-13085) — THE ONE SPELLING OF THE FOUR CEILINGS. The card's headline and question 3's
-// intent/ceiling pairs must name them identically or the reader is comparing two vocabularies;
-// `intentAgainstCeilingModel` already owned the names, so the headline reads them rather than
-// re-typing four strings that would then drift one rename at a time.
-import { CEILING_LABEL } from '../site/intentAgainstCeilingModel';
+// §26.6.7 (L-13085) — THE ONE SPELLING OF THE FOUR CEILINGS lives in `intentAgainstCeilingModel`'s
+// `CEILING_LABEL`, which question 3's intent/ceiling pairs already read. The card's headline reads
+// it too — now from `ceilingHeadlineSection.ts`, which imports it directly, so this file no longer
+// names the four at all and cannot drift from question 3 one rename at a time.
 import {
     enumerateMassingOptions,
     // §CREATE-IT-MYSELF (L-13039) — the ground storey's authored state, resolved on every render
@@ -3922,14 +3933,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     const polyPerimeterM = polygonPerimeterXZ;
     const polyAreaM2 = polygonAreaXZ;
     const polyBboxM = polygonBboxXZ;
-    const num = (v: number, unit: string, dp = 1): string =>
-        `${v.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp })} ${unit}`;
-    // §PARCEL-LAW-UNRESOLVED (L-616 / C58 §1.4) — the sentence now REFUSES THE COMPLETION the reader
+    // §26.6.7 (L-13085) — ALIASES, not definitions. Both MOVED to `ceilingHeadlineSection.ts` with
+    // the row and the headline they serve, and are aliased here so the ~50 existing call sites below
+    // are untouched. The `not derived` sentence in particular must have ONE spelling: the headline
+    // and the fold both print it, and two copies is how one absence comes to be worded two ways.
+    const num = formatCardMeasure;
+    // §PARCEL-LAW-UNRESOLVED (L-616 / C58 §1.4) — the sentence REFUSES THE COMPLETION the reader
     // would otherwise make. "not derived" alone is read as "unbounded", and an unbounded constraint
     // drawn on real land is an overstatement, not a blank. It also names where the empty slot is
-    // accounted for, because the fold below now keeps a row for it instead of dropping it.
-    const NOT_DERIVED =
-        '<span style="color:#a49dbb;font-style:italic;" title="The rule pack did not derive this for this zone, and PRYZM does not infer it — an inferred value would be indistinguishable from a derived one. This is a MISSING LOOKUP, NOT a finding that the zone sets no limit. The row keeps its slot in &quot;Why these numbers?&quot; below.">not derived</span>';
+    // accounted for, because the fold below keeps a row for it instead of dropping it.
+    const NOT_DERIVED = CARD_NOT_DERIVED_HTML;
 
     /**
      * §RESI-ORCH-COST (2026-09-03) — THE ONE PLACE THE CARD DERIVES ITS PERMITTED FOOTPRINT AND
@@ -4067,19 +4080,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             value: string,
             hint?: string,
             highlight?: SiteHighlightFixedSubject,
-        ): string => {
-            const avail = highlight ? highlightAvail[highlight] : null;
-            const isOn = highlight !== undefined && activeHighlight === highlight;
-            // The label is a button, or text-with-reason, or plain text — and the first two are
-            // rendered by the module the spec clicks, never by a copy kept here.
-            const labelHtml = highlight && avail
-                ? buildSiteHighlightLabelHtml(label, highlight, avail, isOn)
-                : `<span style="color:#6b6480;">${escHtml(label)}</span>`;
-            return `<div style="display:flex;justify-content:space-between;gap:10px;padding:2.5px 0;">
-               <span>${labelHtml}${hint ? `<span title="${escHtml(hint)}" style="color:#c3bdd6;cursor:help;"> ⓘ</span>` : ''}</span>
-               <span style="font-weight:600;text-align:right;">${value}</span>
-             </div>`;
-        };
+        ): string => buildEnvelopeCardRowHtml({
+            label,
+            value,
+            hint,
+            highlight,
+            avail: highlight ? highlightAvail[highlight] : null,
+            isOn: highlight !== undefined && activeHighlight === highlight,
+        });
         const group = (title: string, source: string, body: string): string =>
             `<div style="margin-top:9px;">
                <div style="font-weight:700;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#6600FF;">${escHtml(title)}</div>
@@ -4266,12 +4274,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // label a reader takes for buildable floor area. The headline now states both quantities
         // under their own names, from the model.
         //
-        // ⛔ THEY ARE BUILT BY THE SAME `row()` AS THE FOLD, SO RULE 2 SURVIVES THE MOVE. `height`,
-        // `footprint` and `gfa` keep their highlight subjects and therefore stay CONTROLS —
-        // `buildSiteHighlightLabelHtml` is still the one builder, `wireSiteHighlightRows(panel)`
-        // still wires them (it takes the whole panel, and the headline is inside it), and the ◉ is
-        // still painted from the store. A figure that became plain text in the headline would be a
-        // rule-2 REGRESSION dressed as a rule-1 fix.
+        // ⛔ THEY ARE BUILT BY THE SAME ROW PRODUCER AS THE FOLD, SO RULE 2 SURVIVES THE MOVE —
+        // ⭐ VERIFIED 2026-09-07, not asserted. `height`, `footprint` and `gfa` keep their highlight
+        // subjects and therefore stay CONTROLS: `buildEnvelopeCardRowHtml` is the ONE row producer
+        // for headline and fold alike and calls `buildSiteHighlightLabelHtml`, the ONE control
+        // builder; `wireSiteHighlightRows(panel)` still wires them (it takes the whole panel, and
+        // the headline is inside it); the Parcel Law tab re-wires and keeps the ◉ painted from the
+        // store (`keepSiteHighlightRowsPainted(root)`). A figure that became plain text in the
+        // headline would be a rule-2 REGRESSION dressed as a rule-1 fix, and `ceilingHeadline.spec.ts`
+        // now fails if one does.
         //
         // ⛔ `Maximum levels` CARRIES NO HIGHLIGHT SUBJECT, HERE AS BEFORE. There is no geometry
         // for "storeys" to light; §3's own rule is that a row whose geometry does not exist must
@@ -4284,23 +4295,30 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // ⛔ ONE HEADLINE FOR ALL THREE HOSTS. The card is a re-homed singleton and C19 §5.7
         // forbids a host branch inside its renderer, so this is produced once, here, for the GIS
         // rail PARCEL panel, the floating GIS card and the Parcel Law tab alike.
-        const ceilingHeadline =
-            row(CEILING_LABEL.levels, env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
-                'Storeys. Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
-            + row(CEILING_LABEL.height, env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED,
-                undefined, 'height')
-            + row(CEILING_LABEL.implantation, footprint > 0 ? num(footprint, 'm²', 0) : NOT_DERIVED,
-                'The buildable footprint — the most any single storey may cover, in plan.', 'footprint')
-            + row(CEILING_LABEL.buildable,
-                // §PARCEL-LAW-MODEL — read from the MODEL, not from the raw `gfa` local, for one
-                // narrow but real reason: with a zero footprint `permittedStudyFigures` returns
-                // `0 × storeys = 0`, and this row printed "0 m²" directly under a "not derived"
-                // footprint — two spellings of one absence, the numeric one being a claim about the
-                // user's land (C58 §1.4). `law.massing.gfaM2` is null whenever the footprint is,
-                // so the card and the Parcel Law tab state the same thing on that arm.
-                law.massing?.gfaM2 != null ? num(law.massing.gfaM2, 'm²', 0) : NOT_DERIVED,
-                'Footprint × storeys. Deliberately blank when the storey count was not derived — a guessed storey count would become a guessed sellable area.',
-                'gfa');
+        // ⭐ §26.6.7 (L-13085, VERIFICATION LANE) — THE PRODUCER MOVED NEXT DOOR, and that is the
+        // whole point of this hunk. `c8c62c51` shipped the lift with its own commit message saying
+        // *"NOT VERIFIED HERE: that the lifted figures keep their rule-2 behaviour"*, and it could
+        // not be verified: the headline was assembled inside `buildSiteDataBlock`, an arrow in this
+        // ~5,500-line closure, so the strongest available check was a grep of this file for the
+        // SHAPE of a call. `ceilingHeadlineSection.ts` is the seam that ends that — its spec mounts
+        // the REAL headline, counts each of the four in a REAL DOM (rule 1), asserts the three
+        // subjects are REAL buttons and clicks them into the ONE store the three views paint from
+        // (rule 2), and drives every absence arm (C58 §1.13 · L-13048).
+        //
+        // ⛔ Values are handed over RAW, not pre-formatted: the `0 footprint ⇒ not derived` and
+        // `null GFA ⇒ not derived` decisions are the honest ones and belong where a test can reach
+        // them. `law.massing.gfaM2` is read from the MODEL rather than the raw `gfa` local for one
+        // narrow but real reason: with a zero footprint `permittedStudyFigures` returns
+        // `0 × storeys = 0`, and this row printed "0 m²" directly under a "not derived" footprint —
+        // two spellings of one absence, the numeric one being a claim about the user's land.
+        const ceilingHeadline = buildCeilingHeadlineHtml({
+            maxFloors: env.maxFloors,
+            maxHeightM: env.maxHeight_m,
+            footprintM2: footprint,
+            gfaM2: law.massing?.gfaM2 ?? null,
+            avail: highlightAvail,
+            active: activeHighlight,
+        });
 
         // §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — a first-class fold of the card (no longer
         // nested inside a "Site data & capacity" wrapper); min/max-width contain it in the

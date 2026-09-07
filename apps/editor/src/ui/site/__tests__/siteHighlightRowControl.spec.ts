@@ -180,8 +180,18 @@ describe('§RESI-ORCH-HIGHLIGHT-DOM — the card and the scene use THIS module (
     const scene = readFileSync(resolve(__dirname, '../ParcelBoundarySceneRenderer.ts'), 'utf8');
 
     it('GISAreaLayout renders the label through buildSiteHighlightLabelHtml and wires through wireSiteHighlightRows', () => {
+        // ⚠ REPOINTED 2026-09-07 (§26.6.7, L-13085) — ONE HOP LONGER, SAME INVARIANT. The card's
+        // read-out row moved to `ceilingHeadlineSection.ts`'s `buildEnvelopeCardRowHtml` so the
+        // four lifted ceilings could be mounted and clicked in a spec (`ceilingHeadline.spec.ts`);
+        // the card now calls THAT, and that calls THIS module's builder. The invariant was never
+        // "the card names this function" — it is that the card renders the label through the ONE
+        // builder and keeps no copy of the markup, which the next test pins directly.
+        expect(card).toContain('buildEnvelopeCardRowHtml({');
+        expect(card).toContain("from '../site/ceilingHeadlineSection'");
         expect(card).toContain("from '../site/siteHighlightRowControl'");
-        expect(card).toContain('buildSiteHighlightLabelHtml(');
+        const rowProducer = readFileSync(resolve(__dirname, '../ceilingHeadlineSection.ts'), 'utf8');
+        expect(rowProducer).toContain("from './siteHighlightRowControl'");
+        expect(rowProducer).toContain('buildSiteHighlightLabelHtml(');
         expect(card).toContain('wireSiteHighlightRows(panel)');
     });
 

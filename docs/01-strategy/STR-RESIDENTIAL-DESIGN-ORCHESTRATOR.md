@@ -1288,20 +1288,47 @@ Three separate facts, not one:
   `buildSiteDataBlock`'s `ceilingHeadline` — which now returns `{ headline, fold }` so both halves
   come from ONE read of one envelope. The four rows are **DELETED** from the fold, not copied:
   lifting without removing would re-create the duplication rule 1 exists to end, one edit after
-  applying the rule. `parcelLawTab.spec.ts` counts each `row(CEILING_LABEL.<key>` call site and
-  requires exactly one, and asserts the four old literals are gone.
-  · **Rule 2 survives**: the same `row()` builds them, so `height` / `footprint` / `gfa` keep their
-  highlight subjects, `buildSiteHighlightLabelHtml` is still the one control builder, and
-  `wireSiteHighlightRows(panel)` still wires them (it takes the whole panel). `Maximum levels`
-  carries no subject — there is no geometry for "storeys" to light, and §3 forbids rendering a
-  dead control.
+  applying the rule.
+  · ⭐ **RULE 2 SURVIVED THE LIFT — VERIFIED 2026-09-07 (lane HEADLINE-VERIFY, L-13085), not
+  asserted.** `c8c62c51` shipped with its own warning — *"NOT VERIFIED HERE: that the lifted figures
+  keep their rule-2 behaviour … a figure that becomes plain text in the headline is a rule-2
+  regression"* — and the verification came back **CLEAN**. Read at that commit: the four are built
+  by `buildSiteDataBlock`'s own `row()` (`GISAreaLayout.ts:4065`), whose 4th argument is the
+  highlight subject and which renders the label through `buildSiteHighlightLabelHtml`
+  (`GISAreaLayout.ts:4076`) whenever a subject and an availability exist; the headline is
+  interpolated into the panel as `safeRows` (`GISAreaLayout.ts:5406`) **before**
+  `wireSiteHighlightRows(panel)` runs (`GISAreaLayout.ts:5429`), which takes the whole panel; and
+  the Parcel Law tab re-wires (`parcelLawTab.ts:687`) and keeps the ◉ painted from the store
+  (`parcelLawTab.ts:989`). `height` / `footprint` / `gfa` kept their subjects; `Maximum levels`
+  carries none — there is no geometry for "storeys" to light, and §3 forbids rendering a dead
+  control. **No fix was needed and none was manufactured.**
+  · ⛔ **WHAT WAS BROKEN WAS THE PROOF, AND THAT IS WHAT THIS LANE FIXED.** The headline was
+  assembled inside `buildSiteDataBlock`, an arrow in `mountGISArea` — a ~5,500-line closure no spec
+  can render — so the strongest available check was a **grep of the card's source for the SHAPE of
+  a call**, and `parcelLawTab.spec.ts` said so in its own words. A grep cannot tell a `<button>`
+  from a `<span>`, cannot click, and cannot count what a browser would show. So the producer moved
+  next door to **`apps/editor/src/ui/site/ceilingHeadlineSection.ts`** —
+  `buildCeilingHeadlineHtml` plus `buildEnvelopeCardRowHtml`, the **ONE** row markup for headline
+  and fold alike (the card's `row` is now a one-line delegation, and `num` / `NOT_DERIVED` are
+  aliases of the moved constants, so the two halves of one card cannot drift). **`ceilingHeadline.spec.ts`
+  (14 cases) mounts the REAL headline** and pins, in a real DOM: rule 1 — each of the four exactly
+  once, by key AND by the label the reader sees, four rows never three; rule 2 — three REAL buttons
+  carrying `height` / `footprint` / `gfa`, `wireSiteHighlightRows` returning **3**, a click writing
+  the ONE store, the ◉ repainted from that store when ANOTHER surface writes it, and `Maximum
+  levels` not a control; all three renderers — `limit-plane` · `inset-ring` · `envelope-volume`
+  arms present in `ParcelBoundarySceneRenderer` · `CesiumViewport` · `SiteBoundaryMap2D`, all three
+  registering so the row can say where the click will show; and every absence arm.
   · **The names come from `CEILING_LABEL`** (`intentAgainstCeilingModel.ts`), which already owned
   them for question 3 — so the headline and the intent/ceiling pairs cannot drift apart.
   · **ONE headline for all three hosts** (GIS rail PARCEL panel · floating GIS card · Parcel Law
   tab question 2). C19 §5.7 forbids a host branch inside the singleton's renderer and there is
   none.
-  · **Absence and refusal arms survive.** A ceiling the pack did not derive prints `not derived` in
-  the headline exactly as it did in the fold (C58 §1.4 · L-13048). The **degenerate** arm keeps its
+  · **Absence and refusal arms survive — VERIFIED, arm by arm.** A ceiling the pack did not derive
+  prints `not derived` in the headline exactly as it did in the fold (C58 §1.4 · L-13048): the
+  headline renders **four rows, never three**, each carrying `data-derived="not-derived"` and the
+  sentence that refuses the *"unbounded"* completion (L-616), and a **zero** footprint reads as an
+  absence rather than as `0 m²` — a ceiling of nothing is a claim about the user's land that
+  nothing derived. The **degenerate** arm keeps its
   refusal sentence *instead* of the four — setbacks that consume the parcel mean there is no
   buildable envelope, so printing a footprint and a buildable area for it would be a claim about
   the user's land. The **alignment-zone** arm (§L-518c) keeps `Buildable depth` + `Alignment
@@ -1316,9 +1343,39 @@ Three separate facts, not one:
   reader takes for buildable floor area. Three of the old headline's four lines were already
   duplicates of fold rows under different names, so the lift removed a duplication that predated
   it. ⚠ **Pixels unverified — not deployed.**
-- **Rooms DRAW on the open view (§26.6.4).** Not done. It needs a `room:<id>` parametrised subject
-  and a cue arm in the three renderers reading the space-envelope store's room footprints — the
-  same shape as `edge:<n>`, one more kind. MASSING-SHAPES' `roomsPerLevelSection` is mounted in
-  question 3 by that lane; the link column is the hook.
+- ~~**Rooms DRAW on the open view (§26.6.4).** Not done. It needs a `room:<id>` parametrised
+  subject and a cue arm in the three renderers…~~ ⭐ **CLOSED — and this bullet was STALE WHEN IT
+  WAS WRITTEN.** `1fa54287` had already landed both halves: `roomHighlightSubject` /
+  `parseRoomHighlightSubject` are THE constructor and THE parser
+  (`siteGeometryHighlight.ts:165` / `:177`, carried through the SAME store and attribute as the
+  fixed seven and `edge:<n>` — no second mechanism), and the cue arm exists in **all three**
+  renderers: `CesiumViewport.ts:7797`, `SiteBoundaryMap2D.ts:1811`,
+  `ParcelBoundarySceneRenderer.ts:637`. Verified 2026-09-07 by lane ROOMS-DRAW
+  (`grep -rn parseRoomHighlightSubject` → 3 renderers + the vocabulary + its spec).
+  ⚠ **The recurrence is the point, not the fix:** an “Open” list that outlives the work it
+  describes sends the next lane to rebuild something that is already on disk — the same
+  count/range rot CLAUDE.md logs five recurrences of, one bullet down.
+- **Rooms are DRAWN — by their party walls (§9 · §25.5). SHIPPED 2026-09-07, lane ROOMS-DRAW,
+  L-13096 — and the SCOPE is the finding.** The founder asked to *“reorganize also the rooms on
+  the plan view — draw them etc.”* `2f75a364` gave him the ORDER (§ROOM-PIN); this gives him the
+  FOOTPRINT. **Dragging the wall between two rooms moves floor area across it**
+  (`programme.resize-pair` → `programmeSharedWalls` → `drawSeams`).
+  ⛔ **A FREEHAND ROOM BOUNDARY WAS NOT BUILT, AND IS NOT EXPRESSIBLE HERE.**
+  `solveProgrammeLayout` **partitions** a plate — a cell's ring is a pure function of
+  `(levelRing, areas, order)` — so an authored ring has nowhere to live: it would be re-solved
+  away on the user's next keystroke, which is the defect L-13079 calls *“worse than not
+  shipping”*. A party-wall move is the **largest footprint edit this solver can KEEP**, because
+  moving a shared wall IS a transfer of area and area is the currency the bisection consumes —
+  the same argument `RoomProgrammeEntry.pinnedOrder` records for why a pin is an ordinal and not
+  an `{x,z}`. ⚠ So L-13079's planned ENVELOPE-DRAW port (`BoundaryPathAuthor` +
+  `EnvelopeDrawSurface`) was **not needed and not taken**; its two blockers — the closed
+  two-member `EnvelopeDrawSurfaceId` and the module-singleton sink hard-wired to
+  `setDrawnEnvelopeFootprint` — **still stand**, and a future freehand tool still meets them.
+  ⭐ The areas are the truth and the wall is the consequence: the ghost line follows the pointer,
+  the wall lands where the plan re-solves it, and **the hint text says so** rather than shipping a
+  control that looks live and is not. A move under a room's floor is **refused with both numbers
+  and the largest move that IS allowed** (C83 §1.2 + L-942), never clamped. ⚠ It writes the
+  session BRIEF, not the bus — P6 as `roomProgrammeModel.ts` argues it — so **Ctrl+Z does not
+  take it back, and the panel says that too.**
 - **Rule 4** is MASSING-SHAPES' (`905b655f`); this lane's card does not contradict it and the
   two-rival-storeys refusal is pinned at its producer.
