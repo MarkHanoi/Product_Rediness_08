@@ -1275,6 +1275,62 @@ deleting six of the seven surfaces is not.**
 
 ---
 
+### §12.5 — ⭐⭐ RECONCILIATION WITH THE OPEN ISSUE-LOG ROWS ON THIS SUBJECT (NORMATIVE)
+
+⛔ **AT MINT THIS CONTRACT CITED EXACTLY ONE `L-` ROW (L-13005, in §2.3's title) WHILE AT LEAST
+SIXTEEN OPEN ROWS STOOD ON ITS OWN SUBJECT.** `C115-36` even quoted L-13018's founder sentence
+**verbatim** without citing it. That is the shape this repository has paid for repeatedly: two
+documents governing one question, and a reader left to guess which. `C115-147` **A reader MUST NOT
+have to guess whether this contract or an issue-log row governs a question. This table decides it,
+and a row not listed here is NOT governed by this contract.**
+
+**The three dispositions, defined once:**
+
+| Disposition | Means | What the reader does |
+|---|---|---|
+| **ABSORBED** | ⭐ **this contract now states WHAT is required**; the row remains OPEN as the tracking item and the record of the founder's words | Read the clause for the obligation; read the row for the report, the screenshots and the history |
+| **OPEN ALONGSIDE** | this contract adds **no clause** on that question | The row governs. ⛔ Do not read silence here as a ruling |
+| **SUPERSEDED** | the row's question is answered here and the row closes | Cite the clause, not the row |
+
+⛔ **NOTHING IN THIS TABLE IS `SUPERSEDED`, AND THAT IS THE FINDING, NOT AN OVERSIGHT.** A contract
+that has not been seen in a browser (§14.14) and has changed no code closes no defect. `C115-148`
+**A row is closed by a fix that is measured, never by a document that describes one.**
+
+| Row | Its subject, in one line | Disposition | Where |
+|---|---|---|---|
+| **L-12993** | *"no ring ⇒ no envelope"* and the escape hatch is half-wired; ⭐ *"a setback PRYZM guesses is a fabricated legal fact"* | **ABSORBED (the never-infer half only)** — the escape-hatch half is **OPEN ALONGSIDE** | `C115-128` (§1.5.2); C58 §1.3 |
+| **L-12998** | ⭐ the founder's verdict that made this contract necessary — *"the organisation is the work now"* | **ABSORBED** — this document is the answer to it, and the row stays open until the refactor ships | the whole of §1–§11 |
+| **L-13004** | *"Select parcel on the 2D map"* is a **view** action, not a panel action | **OPEN ALONGSIDE** — ⚠ **and it collides with a register row, so read both:** §3.G **PR-G-01** requires the control (and its unavailable variant) to survive; L-13004 requires it to MOVE. ⛔ **RE-HOME, NEVER DELETE** — C19 §5.6 clause 4 | PR-G-01 · §2.5 |
+| **L-13005** | two parcel blocks, two formats, one of them the registry/ring pair | **ABSORBED** | §2.3(a) (which is named for it), §2.2, §1.4 |
+| **L-13006** | *"click a figure, highlight the thing — NO MATTER THE VIEW"* | **ABSORBED** | §1.4.1 `C115-113`…`C115-118`. ⭐ Its *"report the matrix BEFORE building"* instruction is adopted verbatim as `C115-118` |
+| **L-13009** | the created-envelope confirmation is one dense grey paragraph; *"one undo removes it"* twice | **OPEN ALONGSIDE** — ⚠ **this contract names no clause over that block.** Its class (form, not content) is §4.3's, and its caveat is protected by `C115-01`, but the row governs the fix | §4.3 for the class only |
+| **L-13018** | *"this data is still not well formatted"* — the ORDINANCE LIMITS / MASSING POTENTIAL / PER STOREY / CAPACITY block | **ABSORBED** | §4.3 `C115-36`, §1.5.1 `C115-122`/`C115-124`, and ⛔ **PR-D-03**, which is the founder's own ruling that the per-storey repetition is what makes the equal-division assumption checkable |
+| **L-13024** | bring the ROOM PROGRAMME into Parcel Law and show the project rooms | **ABSORBED** | §8 — `C115-73` (the hierarchy), `C115-76` (the room-import honesty rule: one automatic load, into an EMPTY programme only, inventing nothing) |
+| **L-13026** | the *"continue with this parcel"* panel stopped appearing — ⭐ a **regression report**, not a feature request | **OPEN ALONGSIDE** | ⛔ this contract adds no clause. C19 §5.6 clause 4 governs, and §2.5's stamp is what would have made the disappearance legible |
+| **L-13032** | ⭐ **FOUNDER RULING** — *"having an envelope should not be the single pre-requisite to advance"* | **ABSORBED, BUT NOT OWNED** — ⛔ **C58 §1.20 is the authority and outranks this document** (§12's conflict order). `C115-130` restates it for Stage 02 and may never narrow it | `C115-130`; C58 §1.20 |
+| **L-13038** | keeping a massing option **accumulates** instead of replacing — *"ONE MASSING RENDERS AT A TIME"* | **ABSORBED (both halves, kept apart)** — MINT half addressed by **L-13047**; ⚠ **RENDER half OPEN and unmeasured** | §6.2.1 `C115-142`…`C115-146` |
+| **L-13041** | the next-step button vanishes when the envelope is null — a live C58 §1.20 breach whose own comment claims the opposite | **OPEN ALONGSIDE** — `C115-130` names the invariant it breaches; the fix is the row's | `C115-130` |
+| **L-13046** | ⭐ the founder's COMPLETE card spec, captured as STR §26.6 | **NOT SUPERSEDED — RETAINED AND AMENDED**, on exactly the two axes §12's table states | §12; §1; §6.1; §1.4.1; §6.2.1 |
+| **L-13047** | keeping a massing option now **replaces** (`905b655f`) | **OPEN ALONGSIDE (its named residue)** — ⛔ two things it left: an envelope PRYZM generated and the user then hand-EDITED still reads `computed`, and `parcelLawEnvelopeAuthoring` still accumulates | §5.3 `C115-45` (**D-4**) |
+| **L-13064** | §26.6 rules 1–3 landed; **§26.6.3 and §26.6.4 open** | **OPEN ALONGSIDE** — its two open halves are §10's (massing hosted in the card, the arbiter) and §8's (rooms draw on the view) | §10 · §8 |
+| **L-13077** | *"pair is alignment, not a word"* — **FIXED**, with one open line: question 1's figures still fall through to the document default while question 3 is pinned | **ABSORBED (the residual only)** | §4.3 — ⭐ the row's finding that an UNPINNED figure inherits 16 px is the mechanism §4.3 exists to protect |
+| **L-13085** | ⭐ **FOUNDER RULING** — lift the four named ceilings to the card HEADLINE; done at `c8c62c51` | **CLOSED BY ITS OWN FIX — ⛔ AND THIS CONTRACT MUST NOT RE-OPEN IT.** §2.3(g) records that the same four appearing again on Stage 04 is **REQUIRED, not a duplication**; a lane that counts the label twice deletes the most-requested behaviour on the panel | §2.3(g); §1.5 `C115-121` |
+
+`C115-149` ⚠ **THE ROWS THIS CONTRACT ITSELF MINTS ARE §15's, AND THEY ARE A DIFFERENT SET.** D-1 …
+D-12 are defects **this** audit found; the table above is the founder's standing backlog on the same
+surface. ⛔ **A PR MUST NOT close a row from this table by fixing a D-row, or vice versa** — they
+overlap in subject and not in claim.
+
+`C115-150` ⚠ **THIS TABLE IS NOT THE WHOLE BACKLOG, AND SAYING SO IS PART OF THE RECONCILIATION.**
+It covers the rows measured against this contract's subject. The massing-authoring family
+(L-13007 · L-13017 · L-13022 · L-13031 · L-13036 · L-13037 · L-13039 · L-13050 · L-13051), the
+create-house family (L-13011 · L-13013 · L-13014 · L-13020) and the room-programme direct-
+manipulation family (L-13079 · L-13096 · L-13120) touch surfaces this panel hosts but are governed
+by C114, C80 and their own lanes. **A reader who needs a ruling on one of those asks for it; the
+absence of a row here is not a disposition.**
+
+---
+
 ## §13 — ACCEPTANCE CRITERIA
 
 `C115-105` A PR claiming to implement this contract **MUST** be checkable against every clause below.
