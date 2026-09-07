@@ -228,7 +228,32 @@ export function completenessCaption(
         // the `mark === null` branch above says "not measured yet" rather than "complete"
         // (§CONTEXT-DATA-HONESTY: a failure and an empty are different values, and so are an
         // unmeasured and a clean one).
-        return `Complete at this scope — every mapped feature inside it is drawn (measured to ~${formatMetres(mark.radiusM)} m).`;
+        // ⛔⛔ §FULL-PLATE-HONESTY (L-13124) — THE `none` ARM'S NUMBER IS THE SCOPE ITSELF, SO THE
+        // OLD SENTENCE WAS A TAUTOLOGY DRESSED AS A MEASUREMENT. `completeScopeRadiusM` returns
+        // `{ radiusM: outer, boundBy: 'none (every cap holds…)', kind: 'none' }` when no cap bites —
+        // `outer` being the CURRENT scope. So the caption printed *"measured to ~3 020 m"* at 3 020 m,
+        // *"~7 071 m"* at 7 071 m, and so on: the mark could never fall short of the slider, and the
+        // founder read a number he had just dialled in as a survey result. The mark's own doc says
+        // it plainly — *"the mark is a lower bound, not a maximum"* — and the caption said the
+        // opposite. `cap` and `read` marks ARE real ceilings and keep their sentence.
+        //
+        // ⛔ AND "EVERY MAPPED FEATURE" WAS ALWAYS TOO BROAD. Exactly TWO layers ever report a
+        // density (`scopeCapReports` holds `buildings` and `trees`); roads, rail, water, parks,
+        // land use, street furniture and the TERRAIN report nothing, so the sentence spoke for six
+        // layers it had not measured. At the founder's Dubai site three of them (trees, rail, parks)
+        // are not baked for that region at all and the terrain tileset 404s — and the caption still
+        // said everything was drawn. It now names what it measured and disclaims the rest
+        // (§CONTEXT-DATA-HONESTY: an unmeasured layer and a clean one are different values).
+        if (mark.kind === 'none') {
+            const measured = verdicts.map((v) => v.layer).filter((s) => s.length > 0);
+            const names = measured.length > 0 ? measured.join(' and ') : 'the layers that reported';
+            return (
+                `Complete at this scope for what was measured: every ${names} feature inside the plate ` +
+                'is drawn and no cap bites here. Layers that report no density — and the terrain — are ' +
+                'not covered by this line.'
+            );
+        }
+        return `Complete at this scope — every ${mark.boundBy} feature inside it is drawn (that limit is measured to ~${formatMetres(mark.radiusM)} m).`;
     }
     return (
         `Past the complete mark: beyond ~${formatMetres(mark.radiusM)} m the ${mark.boundBy} cap thins the rim — ` +

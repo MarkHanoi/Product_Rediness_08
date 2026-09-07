@@ -1402,6 +1402,13 @@ export function selectFarRingFootprints(input: {
     readonly nearBbox: Bbox;
     readonly nearOsmIds: ReadonlySet<number>;
     readonly cap?: number;
+    /**
+     * ⭐ §FULL-PLATE-READ (L-13123) — "could this footprint be ON THE PLATE?", applied BEFORE the
+     * nearest-first cap. Supplied by the ONE caller that has a scope; omitted, nothing changes.
+     * It must be the scope DILATED by `SCOPE_READ_STRADDLE_SLACK_M` so a footprint that straddles
+     * the edge survives to be SECTIONED by the clip rather than deleted here.
+     */
+    readonly onPlate?: (lon: number, lat: number) => boolean;
 }): ContextBuildingFeature[] {
     const cap = input.cap ?? CONTEXT_FAR_MAX_BUILDINGS;
     const [w, s, e, n] = input.nearBbox;
@@ -1411,6 +1418,20 @@ export function selectFarRingFootprints(input: {
         const [clon, clat] = ringCentroidLonLat(f);
         // Skip the inner disc — the near ring already covers it (extruded + shadows).
         if (clon >= w && clon <= e && clat >= s && clat <= n) continue;
+        // ⭐⭐ §FULL-PLATE-READ (L-13123) — THE CULL IS BEFORE THE CAP, AND THE ORDER IS THE FIX.
+        //
+        // The read box is a SQUARE around the scope's CIRCUMSCRIBING disc, so for a rectangular
+        // plate it holds ~2× (and for a circular plate ~4/π ≈ 1.27×) the footprints the plate will
+        // draw. Capping that box nearest-first spends the budget on a disc of radius R where
+        // πR² ≈ (cap/candidates)·(2r)² — and the plate's own CORNERS sit at r. So the corners are
+        // covered only while `cap/candidates ≥ π/4 = 0.785`, and past that they empty from the
+        // outside in. At the founder's DEFAULT Barcelona rectangle that ratio is 14 000/15 781 =
+        // 0.887 — it holds, by 13 %. At his 3 562 m scope it is 0.475 and the corners are GONE:
+        // `CTX_TOTAL_MAX_BUILDINGS_CEILING` clamps the budget from ~2 607 m upward while the read
+        // box keeps growing as r². Culling here moves the denominator from 4r² to 2r² (rectangle),
+        // which is the whole budget spent on footprints that will be drawn instead of half of it on
+        // footprints the clip is about to discard.
+        if (input.onPlate && !input.onPlate(clon, clat)) continue;
         const distM = planarMetres(input.centerLat, input.centerLon, clat, clon);
         tagged.push({
             ...f,
@@ -1688,6 +1709,24 @@ export interface ContextBuildingsNearFar {
     readonly near: ContextBuildingCollection;
     /** Far ring: flat/low-poly, shadows OFF, nearest-N capped, tagged `ring:'far'`. */
     readonly far: ContextBuildingCollection;
+    /**
+     * ⭐ §FULL-PLATE-READ (L-13123) — HOW MANY FAR FOOTPRINTS WERE ON THE PLATE **BEFORE** THE CAP.
+     *
+     * ⛔ THE HONESTY DEFECT THIS EXISTS TO CLOSE, AND IT IS THE CAPTION'S. `CesiumViewport` reported
+     * `scopeCapReports.set('buildings', { eligible, cap })` with `eligible` counted AFTER
+     * `selectFarRingFootprints` had already applied `cap` — so `eligible` could never exceed `cap`,
+     * `capVerdict`'s `dropped = eligible − cap` was never positive, and the buildings layer reported
+     * **"complete" by construction, at every scope, whatever the cap had thrown away.** That is what
+     * let the slider print *"Complete at this scope — every mapped feature inside it is drawn"* on a
+     * plate the cap had emptied at the corners. A number that has had the limit applied to it cannot
+     * measure the limit.
+     *
+     * `undefined` when no plate predicate was supplied (the six default-neighbourhood callers) —
+     * NOT `0`, because "not measured" and "none" are different values (§CONTEXT-DATA-HONESTY).
+     */
+    readonly farOnPlateBeforeCap?: number;
+    /** §FULL-PLATE-READ — far footprints read but NOT on the plate. Correctly discarded, never "waste". */
+    readonly farOffPlate?: number;
 }
 
 /**
@@ -1732,6 +1771,12 @@ export async function fetchContextBuildingsNearAndFar(
      * caller that HAS a scope — passes `groundFetchHalfDeg(this.contextScope)`.
      */
     farHalfDeg: number = CONTEXT_BBOX_FAR_HALF_DEG,
+    /**
+     * ⭐ §FULL-PLATE-READ (L-13123) — "is this centre ON THE PLATE (dilated by the straddle slack)?".
+     * Only `CesiumViewport.loadContextBuildings` has a scope and passes it; every other caller wants
+     * the default neighbourhood and gets today's behaviour byte for byte.
+     */
+    onPlate?: (lon: number, lat: number) => boolean,
 ): Promise<ContextBuildingsNearFar> {
     const empty: ContextBuildingsNearFar = {
         near: emptyContextCollection(),
@@ -1847,20 +1892,58 @@ export async function fetchContextBuildingsNearAndFar(
             nearBbox,
             nearOsmIds,
             cap: effectiveFarCap,
+            onPlate,
         });
         const farCandidates = full.features.length - nearFeatures.length;
+        // ⭐ §FULL-PLATE-READ (L-13123) — the SAME cull, counted, so the two drops can be told
+        // apart. They are DIFFERENT FACTS and the old line collapsed them into one word:
+        //   · OFF-PLATE — read because the fetch box is a square around the plate's circumscribing
+        //     disc, then correctly discarded because it is outside the plate. NOT waste; the cost
+        //     of a rectangular read serving a rotatable polygon. ~50 % of a rectangle scope's read.
+        //   · DROPPED BY THE CAP — on the plate, downloaded, decoded, and NOT DRAWN. This is the
+        //     only number that means a hole in the founder's plate, and before this lane it was
+        //     buried inside the other one.
+        // ⛔ The old line called the SUM *"pure waste"*, which over-stated the defect by ~4× at the
+        // default scope and made the real one unreadable.
+        const farOnPlateBeforeCap = onPlate
+            ? (() => {
+                let n = 0;
+                const [bw, bs, be, bn] = nearBbox;
+                for (const f of full.features) {
+                    if (nearOsmIds.has(f.properties.osmId)) continue;
+                    const [clon, clat] = ringCentroidLonLat(f);
+                    if (clon >= bw && clon <= be && clat >= bs && clat <= bn) continue;
+                    if (onPlate(clon, clat)) n++;
+                }
+                return n;
+            })()
+            : undefined;
+        const droppedByCap = farOnPlateBeforeCap === undefined
+            ? Math.max(0, farCandidates - farFeatures.length)
+            : Math.max(0, farOnPlateBeforeCap - farFeatures.length);
         console.log(
             `[gis] §CTX-PMTILES-READER near+far from ${nearRead ? 'TWO baked-tile reads (§SCOPE-FILL: ' +
                 'the wide read would not be served at z16, so the near ring was read separately at full zoom)' : 'ONE baked-tile read'}: ${nearFeatures.length} near ` +
                 `+ ${farFeatures.length} far of ${full.features.length} footprint(s) ` +
                 `(§CTX-EXTENT-BUDGET: far cap ${effectiveFarCap} EFFECTIVE = max(floor ${cap}, ` +
                 `total ${CONTEXT_TOTAL_MAX_BUILDINGS} − near ${nearFeatures.length}); ` +
-                `${Math.max(0, farCandidates - farFeatures.length)} far candidate(s) dropped by that cap ` +
-                `— they were already downloaded and decoded, so a drop here is pure waste).`,
+                (farOnPlateBeforeCap === undefined
+                    ? `${droppedByCap} far candidate(s) dropped by that cap — no plate predicate was ` +
+                      'passed by this caller, so how many of them were on the plate is NOT MEASURED.'
+                    : `§FULL-PLATE-READ: ${farCandidates - farOnPlateBeforeCap} far candidate(s) read ` +
+                      'OFF THE PLATE and correctly discarded (the fetch box is a square around the ' +
+                      "plate's circumscribing disc, so a rectangular plate reads ~2× what it draws), " +
+                      `${farOnPlateBeforeCap} ON the plate, of which ${droppedByCap} DROPPED BY THE CAP` +
+                      (droppedByCap > 0
+                          ? ' — ⛔ THESE ARE HOLES IN THE PLATE: downloaded, decoded and not drawn.'
+                          : ' — the cap does not bite at this scope; every on-plate footprint is drawn.')) +
+                ')',
         );
         return {
             near: { type: 'FeatureCollection', features: nearFeatures },
             far: { type: 'FeatureCollection', features: farFeatures },
+            farOnPlateBeforeCap,
+            farOffPlate: farOnPlateBeforeCap === undefined ? undefined : farCandidates - farOnPlateBeforeCap,
         };
     }
 
@@ -1961,6 +2044,7 @@ export async function fetchContextBuildingsNearAndFar(
         nearBbox,
         nearOsmIds,
         cap: effectiveFarCap,
+        onPlate,   // §FULL-PLATE-READ (L-13123) — the Overpass path gets the same cull-before-cap.
     });
     const farCandidates = full.features.length - nearFeatures.length;
     console.log(

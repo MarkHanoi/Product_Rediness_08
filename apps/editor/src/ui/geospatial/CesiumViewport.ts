@@ -126,6 +126,10 @@ import {
   // 3 020 m circle that is 1 % of the disc's diameter, which is the "flat map decal" he
   // photographed. `siteScope.ts` carries the arithmetic and the table.
   siteScopeSlabDepthM,
+  // §FULL-PLATE-READ (L-13123) — the plate GROWN by the straddle slack, so the reader's
+  // cull-before-cap admits the footprints the clip is going to SECTION.
+  dilateSiteScope,
+  SCOPE_READ_STRADDLE_SLACK_M,
   SITE_SCOPE_PREVIEW_CSS,
   scopeOuterRadiusM as scopeOuterRadiusUnclampedM,
   type SiteScope,
@@ -2194,6 +2198,24 @@ export class CesiumViewport {
     const clipper = createScopeClipper(s, { lat, lon }, theta);
     this.scopeClipperCache = { key, clipper };
     return clipper;
+  }
+
+  /**
+   * ⭐ §FULL-PLATE-READ (L-13123) — "may this centre be ADMITTED to the plate?", for the reader's
+   * cull-before-cap. The DILATED scope (`SCOPE_READ_STRADDLE_SLACK_M`), so a footprint straddling
+   * the plate edge is admitted and handed to `scopeClipRings`, which sections it — a plain
+   * centre-in-scope test would delete exactly the buildings that make the cut face.
+   *
+   * ⚠ ITS OWN CLIPPER, NOT `scopeClipperFor`'s. That one is the EXACT plate and is the authority on
+   * what is DRAWN; this one is deliberately generous and decides only what is CONSIDERED. Sharing a
+   * clipper between the two would make the admission test the crop, which is the one thing the
+   * slack exists to prevent.
+   */
+  private plateAdmissionFor(lat: number, lon: number): (lon: number, lat: number) => boolean {
+    const theta = this.readProjectNorthRad();
+    const dilated = dilateSiteScope(this.contextScope, SCOPE_READ_STRADDLE_SLACK_M);
+    const clipper = createScopeClipper(dilated, { lat, lon }, theta);
+    return (flon: number, flat: number) => clipper.containsLonLat([flon, flat]);
   }
 
   /**
@@ -11165,6 +11187,9 @@ export class CesiumViewport {
     // from the SAME data with no second network hop (was a gated fire-and-forget fetch).
     let near: ContextBuildingCollection;
     let far: ContextBuildingCollection;
+    // ⭐ §FULL-PLATE-READ (L-13123) — how many FAR footprints were ON the plate BEFORE the cap.
+    // `undefined` = not measured (the predicate was not built), never 0.
+    let farOnPlateBeforeCap: number | undefined;
     try {
       // §CTX-BUILDINGS-SEAT-FIRST (L-635) — resolve the terrain ground base IN PARALLEL with the
       // footprint fetch, so context is seated ONCE at the real city elevation (~650 m Madrid) the
@@ -11181,11 +11206,23 @@ export class CesiumViewport {
         // globe clip but never the download: a 5 035 m slab cropped where the founder set it and
         // was filled with 1 781 m of buildings. His words: *"all the scope should have buildings …
         // at the moment is still contrain to the original radiours"*.
-        fetchContextBuildingsNearAndFar(lat, lon, signal, undefined, groundFetchHalfDeg(this.contextScope)),
+        // ⭐⭐ §FULL-PLATE-READ (L-13123) — THE PLATE PREDICATE, AND IT IS THE ORDER THAT IS THE FIX.
+        // The read box is a SQUARE around the plate's circumscribing disc, so it returns ~2× what a
+        // rectangular plate draws — and the whole-scene cap was spent on that whole box,
+        // nearest-first, BEFORE the scope clip ran. The kept set was therefore a DISC of radius R
+        // with πR² ≈ (cap/candidates)·(2r)², while the plate's CORNERS sit at r: covered only while
+        // cap/candidates ≥ π/4. Culling here spends every unit of the budget on a footprint the
+        // plate will actually carry. The scope is DILATED by the straddle slack so a footprint on
+        // the edge still reaches `scopeClipRings`, which SECTIONS it (the founder's `251 cut`).
+        fetchContextBuildingsNearAndFar(
+          lat, lon, signal, undefined, groundFetchHalfDeg(this.contextScope),
+          this.plateAdmissionFor(lat, lon),
+        ),
         this.ensureGroundBaseForContext(lat, lon),
       ]);
       near = split.near;
       far = split.far;
+      farOnPlateBeforeCap = split.farOnPlateBeforeCap;
     } catch (e) {
       // fetchContextBuildingsNearAndFar never throws, but be defensive.
       this.warnContextOnce('fetch threw — no context buildings: ' + String(e));
@@ -11377,8 +11414,17 @@ export class CesiumViewport {
     // §SITE-SCOPE (C12 §13.5) — record what the whole-scene building budget is being asked to hold
     // INSIDE the scope, so the slider's "complete" mark and the cap verdict speak measured numbers
     // rather than an assumption. Eligible = every extrudable footprint the scope contains.
+    // ⛔⛔ §FULL-PLATE-READ (L-13123) — `eligible` USED TO BE COUNTED AFTER THE CAP, WHICH MADE THE
+    // BUILDINGS LAYER REPORT "COMPLETE" BY CONSTRUCTION. `farScoped` descends from
+    // `selectFarRingFootprints`, which has ALREADY applied the whole-scene cap — so
+    // `eligible ≤ cap` always held, `capVerdict`'s `dropped = eligible − cap` was never positive,
+    // and the slider printed *"Complete at this scope — every mapped feature inside it is drawn"*
+    // whatever the cap had thrown away. A number that has had the limit applied to it cannot
+    // measure the limit. The far half now uses the reader's PRE-CAP on-plate count when it has one,
+    // and falls back to the post-cap figure — labelled — when it does not.
+    const farEligible = farOnPlateBeforeCap ?? farScoped.length;
     this.scopeCapReports.set('buildings', {
-      eligible: nearShadowedScoped.length + nearDemotedScoped.length + farScoped.length,
+      eligible: nearShadowedScoped.length + nearDemotedScoped.length + farEligible,
       // §SCOPE-FILL (L-13098) — the budget the slider's mark is measured against must be the one
       // this scope is actually given, or the mark reports a cap that is not the cap.
       cap: totalMaxBuildings(farTierRadiusM(this.contextScope)),

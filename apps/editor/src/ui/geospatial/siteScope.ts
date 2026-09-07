@@ -122,6 +122,40 @@ export function clampSiteScope(scope: SiteScope, range: Pick<SiteScopeRange, 'mi
 }
 
 /**
+ * ⭐ §FULL-PLATE-READ (L-13123) — the scope GROWN by `slackM` on every side. PURE, shape-preserving,
+ * and an EXACT Minkowski dilation for both shapes (a circle by its radius, a rectangle by each
+ * half-extent), so `contains(dilate(s, d))` is exactly "within `d` metres of the scope".
+ *
+ * ⛔ WHY IT EXISTS, AND WHY IT IS NOT `clampSiteScope`. The buildings read is a SQUARE box around
+ * the scope's circumscribing disc, so it returns roughly TWICE the footprints a rectangular plate
+ * will draw — and the whole-scene cap was spent on that box, nearest-first, BEFORE the scope clip
+ * ran. Culling to the scope FIRST spends every unit of the budget on a footprint that will actually
+ * be drawn. But a plain centre-in-scope test would DELETE the straddlers the clip exists to SECTION
+ * (the founder's own log reads `251 cut`), turning a clean vertical cut face into a missing
+ * building. The dilation is that safety margin, expressed as geometry rather than as a fudge: a
+ * footprint whose CENTRE is within `slackM` of the plate is kept and handed to the clip, which
+ * decides. `clampSiteScope` SCALES to a target radius (it would grow a rectangle's short side by
+ * the same RATIO as its long one); this ADDS a distance, which is the only correct sense of "near
+ * enough to the edge to matter".
+ */
+export function dilateSiteScope(scope: SiteScope, slackM: number): SiteScope {
+    const d = Number.isFinite(slackM) && slackM > 0 ? slackM : 0;
+    if (d === 0) return scope;
+    return scope.shape === 'circle'
+        ? { shape: 'circle', radiusM: scope.radiusM + d }
+        : { shape: 'rectangle', halfWidthM: scope.halfWidthM + d, halfDepthM: scope.halfDepthM + d };
+}
+
+/**
+ * §FULL-PLATE-READ (L-13123) — how far outside the plate a footprint's CENTRE may sit and still be
+ * handed to the clip. 150 m is a whole Barcelona Eixample block (113 m) plus half again; a footprint
+ * whose centre is further out than this cannot reach the plate with any geometry this reader has
+ * ever seen. Stated as a metre figure rather than a ratio so it does not silently grow with the
+ * slider — the risk it covers is a BUILDING'S size, which does not depend on the scope.
+ */
+export const SCOPE_READ_STRADDLE_SLACK_M = 150;
+
+/**
  * Resolve what the render uses from what the store holds. Total: never throws, never returns a
  * scope outside `range`, never returns "no scope" — "no scope" rendering as "no context" is the
  * §CONTEXT-DATA-HONESTY failure shape, so an un-authored value resolves to the range's fallback.
