@@ -90,8 +90,22 @@ export interface PaneViewPickerOptions {
     readonly paneEl: HTMLElement;
     /** The ONE view-state store for this shell. All writes go through it (P6). */
     readonly store: PaneLayoutStore;
-    /** Corner within the pane. Defaults to top-left. */
-    readonly corner?: 'top-left' | 'top-right';
+    /**
+     * Where in the pane the dropdown sits. Defaults to top-left.
+     *
+     * ⭐ `'top-center'` IS THE FOUNDER'S ANSWER (2026-09-07, verbatim: *"THEY NEED TO BE
+     * CENTERED."*), and it is what C59's own card text already promised — *"Switch the view,
+     * or split it, from the bar centred on the view itself."*
+     *
+     * ⛔ CENTRED ON THE PANE, NEVER ON THE CANVAS OR THE WINDOW (C59 §2.10.3 clause 4,
+     * L-13027). The retired whole-screen bar centred itself with `--shell-canvas-cx` /
+     * `--shell-canvas-w`, which are CANVAS-relative — so when the split collapsed it re-centred
+     * on a region that was no longer a view. This control is `position:absolute` inside
+     * `paneEl`, so `left:50%` + `translateX(-50%)` is arithmetic on ITS OWN PANE and stays
+     * right through a divider drag, a solo, and a workspace-mode resize without reading a
+     * single shell variable.
+     */
+    readonly corner?: 'top-left' | 'top-right' | 'top-center';
     /**
      * §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015) — the founder's six rows, hosted
      * INSIDE this dropdown. Omit and the picker renders the registry list alone (what a
@@ -142,11 +156,20 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
     const root = document.createElement('div');
     root.setAttribute('data-pane-picker', paneId);
     root.setAttribute('data-testid', `pane-view-picker-${paneId}`);
+    const centred = corner === 'top-center';
     Object.assign(root.style, {
         position: 'absolute',
         top: '10px',
-        left: corner === 'top-left' ? '10px' : 'auto',
-        right: corner === 'top-right' ? '10px' : 'auto',
+        left: centred ? '50%' : (corner === 'top-left' ? '10px' : 'auto'),
+        right: centred ? 'auto' : (corner === 'top-right' ? '10px' : 'auto'),
+        // §PANE-DROPDOWN-CENTRED (founder 2026-09-07) — the centring is PANE arithmetic: this
+        // element is absolutely positioned inside `paneEl`, so 50% is 50% OF THE PANE. No
+        // `--shell-canvas-cx`, no `position: fixed`, nothing measured off the window — that is
+        // the L-13027 defect, and it is the reason the old bar drifted off its view the moment
+        // the split collapsed.
+        // The pane clips its chrome (`overflow:hidden`), so a centred control can never bleed
+        // into its sibling however narrow the pane gets — no width assumption is needed here.
+        transform: centred ? 'translateX(-50%)' : '',
         // Pane chrome sits above ITS OWN pane's renderer surface only (C06 §7).
         //
         // ⛔ CORRECTED 2026-09-07 (§PANE-DROPDOWN-VISIBLE, L-13052). This was `40` and the
@@ -200,8 +223,13 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
         display: 'none',
         position: 'absolute',
         top: '40px',
-        left: corner === 'top-left' ? '0' : 'auto',
-        right: corner === 'top-right' ? '0' : 'auto',
+        // The popup hangs from the trigger, so it is centred on the SAME axis — and because
+        // its parent (`root`) is already centred on the pane, this 50% is measured inside a box
+        // that is itself pane-relative. `sizePopupToPane()` clamps its width to the pane at
+        // OPEN time, so a centred popup can never be wider than the pane it is centred in.
+        left: centred ? '50%' : (corner === 'top-left' ? '0' : 'auto'),
+        right: centred ? 'auto' : (corner === 'top-right' ? '0' : 'auto'),
+        transform: centred ? 'translateX(-50%)' : '',
         minWidth: '272px',
         maxWidth: '340px',
         padding: '6px',

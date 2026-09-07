@@ -68,7 +68,7 @@ export interface PaneRendererMounter {
      * controller say MOVING rather than LEAVING, so departure and relocation stop sharing one
      * verb. When absent, a move falls back to unmount + mount exactly as before.
      */
-    relocate?(paneEl: HTMLElement): void;
+    relocate?(paneEl: HTMLElement): void | Promise<void>;
     /**
      * §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — is this mounter's surface ACTUALLY inside
      * `paneEl` right now? Optional, and it is a READING off the document, never a memory of the
@@ -78,8 +78,16 @@ export interface PaneRendererMounter {
      * A mounter that cannot answer is left alone by {@link MultiPaneController.reassertPlacement}
      * — deliberately. Re-mounting "just in case" is only safe for a mounter that re-targets,
      * and the controller cannot tell which those are.
+     *
+     * ⛔ `undefined` means NOT-YET-KNOWN, and it is a THIRD answer, not a falsy `false`
+     * (§UNKNOWN-IS-NOT-MISPLACED, L-13053). `GISAreaLayout`'s MapLibre mounter used to answer
+     * `map2dHandle?.isPlacedIn(paneEl) ?? false`, so a surface still inside its dynamic
+     * `import()` reported itself POSITIVELY MISPLACED — and the correction branch below then
+     * started a SECOND mount of the one map, racing the first (§L-412's second-map risk) and
+     * printing `'site-map-2d' (maplibre) is NOT in the pane the layout gives it` on every
+     * settle pass until the import landed. A mounter that cannot answer yet must say so.
      */
-    isPlacedIn?(paneEl: HTMLElement): boolean;
+    isPlacedIn?(paneEl: HTMLElement): boolean | undefined;
 }
 
 /** What one pane's placement re-assertion did. Returned so a caller (and a spec) can see it. */
@@ -156,8 +164,13 @@ export class PaneHost {
         // parent changes. Synchronous by contract: there is nothing to construct.
         if (opts.relocate && typeof mounter.relocate === 'function') {
             try {
-                mounter.relocate(this.el);
-                return;
+                // §UNKNOWN-IS-NOT-MISPLACED (L-13053) — a relocation that has to BUILD its
+                // surface (the map was disposed, so `relocate` falls back to opening it) is
+                // async, and its promise is returned so `applyLayout` waits for it before the
+                // authoritative placement pass. Dropping it is what made that pass run against
+                // a surface that did not exist yet.
+                const r = mounter.relocate(this.el);
+                return r instanceof Promise ? r : undefined;
             } catch (e) {
                 console.warn(`[pane-host][${this.paneId}] relocate threw — falling back to mount:`, e);
             }
@@ -245,11 +258,19 @@ export class PaneHost {
             this.resize();
             return { paneId: this.paneId, viewType, unknown: true, corrected: false };
         }
-        let placed = true;
+        let placed: boolean | undefined = true;
         try {
             placed = mounter.isPlacedIn(this.el);
         } catch (e) {
             console.warn(`[pane-host][${this.paneId}] isPlacedIn threw — treating as unknown:`, e);
+            this.resize();
+            return { paneId: this.paneId, viewType, unknown: true, corrected: false };
+        }
+        // §UNKNOWN-IS-NOT-MISPLACED (L-13053) — the mounter's surface is still being built, so
+        // it can say neither "here" nor "elsewhere". That is the SAME case as a mounter with no
+        // predicate at all: reflow, correct nothing. Reading it as `false` is what turned one
+        // in-flight mount into a second one.
+        if (placed === undefined) {
             this.resize();
             return { paneId: this.paneId, viewType, unknown: true, corrected: false };
         }
@@ -262,7 +283,7 @@ export class PaneHost {
             `(${mounter.rendererKind}) is NOT in the pane the layout gives it — putting it back.`,
         );
         try {
-            if (typeof mounter.relocate === 'function') mounter.relocate(this.el);
+            if (typeof mounter.relocate === 'function') void mounter.relocate(this.el);
             else void mounter.mount(this.el);
         } catch (e) {
             console.warn(`[pane-host][${this.paneId}] placement correction threw:`, e);

@@ -325,6 +325,31 @@ declare global {
          *  2D map disposes and the single Cesium viewer re-homes to `#container` + hides
          *  (never disposed). Idempotent. Registered by GISAreaLayout. */
         pryzmUnmountSiteAuthoringPanes?: () => void;
+        /** §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — WHAT THE LIVE PANE SHELL IS SHOWING, as a
+         *  reading of its layout store: `'absent'` (no shell), `'single'` (the shell is up with
+         *  exactly ONE pane occupied — the other pane and the divider are collapsed by
+         *  `SiteAuthoringPaneShell.applyFraction`), or `'split'`.
+         *
+         *  ⚠ IT EXISTS BECAUSE "IS THE SHELL UP?" IS NOT THE SAME QUESTION. Every split control
+         *  used to observe the shell's root id, which cannot tell a single view from a split —
+         *  and could not, before this, because "single view" meant "no shell". Registered by
+         *  GISAreaLayout. */
+        pryzmGetSiteAuthoringPaneMode?: () => 'absent' | 'single' | 'split';
+        /** §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — move the LIVE pane shell between split and
+         *  single WITHOUT tearing it down (C59 §1.4: *"`view.pane.solo` vacates the other
+         *  pane(s); the shell then collapses the empty pane and the divider so the SURVIVOR
+         *  fills the shell — carrying its picker with it"*).
+         *
+         *  ⛔ This is what "go to single view" must call INSTEAD of
+         *  `pryzmUnmountSiteAuthoringPanes`. The teardown disposes the 2D map and hides the one
+         *  Cesium viewer, leaving the Analysis workspace's half-width `#container` holding an
+         *  empty BIM canvas — the founder's white screen.
+         *
+         *  `'single'` solos onto the environment's declared single view (`singleViewForPreset`
+         *  — the 2D plan in the Parcel Law opening); `'split'` restores the remembered split,
+         *  falling back to the host's declared opening when an assignment superseded it.
+         *  RETURNS true iff the layout actually moved. Registered by GISAreaLayout. */
+        pryzmSetSiteAuthoringPaneMode?: (mode: 'split' | 'single') => boolean;
         /** PRYZM-EARTH-ONBOARDING PRD §22 (§17.4 "Split-screen fades in") — bring the
          *  just-mounted site-authoring split in with a CSS opacity transition instead of a hard
          *  cut over the full-screen globe. Presentation only: it gates nothing, and the mount

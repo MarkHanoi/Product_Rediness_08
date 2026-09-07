@@ -18,7 +18,7 @@
 // same primitive `halfCanvasResizer` and `SplitViewManager` already coalesce their drags
 // with, and the 'overlay' phase is the C11 §6.1 slot for viewport/HUD work.
 import { deferWork, getFrameScheduler } from '@pryzm/frame-scheduler';
-import { EMPTY_LR_LAYOUT, LEFT_PANE, RIGHT_PANE, type PaneId } from './paneViewModel';
+import { EMPTY_LR_LAYOUT, isSoloLayout, LEFT_PANE, RIGHT_PANE, type PaneId } from './paneViewModel';
 import { PaneHost, MultiPaneController } from './PaneHost';
 import { PaneLayoutStore } from './paneLayoutStore';
 import { mountPaneViewPicker, type PaneViewPickerHandle } from './PaneViewPicker';
@@ -311,7 +311,12 @@ export function mountSiteAuthoringPaneShell(
         const layout = store.getLayout();
         const leftEmpty = layout[LEFT_PANE] == null;
         const rightEmpty = layout[RIGHT_PANE] == null;
-        const solo = leftEmpty !== rightEmpty; // exactly one occupied → full screen.
+        // §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — ONE RULE, ONE COPY. This read
+        // `leftEmpty !== rightEmpty` inline, and `pryzmGetSiteAuthoringPaneMode` now has to
+        // answer the SAME question for the split toggle. Two independent expressions of one
+        // predicate is how a control ends up describing a screen the user is not looking at,
+        // so the shell and the reading share `isSoloLayout`.
+        const solo = isSoloLayout(layout); // exactly one occupied → full screen.
 
         divider.style.display = solo ? 'none' : '';
         if (solo && leftEmpty) {
@@ -464,9 +469,20 @@ export function mountSiteAuthoringPaneShell(
                 for (const p of pickers) p.refresh();
             },
         } as const;
+        // ⭐ §PANE-DROPDOWN-CENTRED (founder 2026-09-07, verbatim: *"THEY NEED TO BE
+        // CENTERED."*). The mirrored top-left / top-right pair is retired: each pane's dropdown
+        // now sits at the TOP CENTRE OF ITS OWN PANE, which is what C59's card text already
+        // promised — *"Switch the view, or split it, from the bar centred on the view itself."*
+        //
+        // ⛔ CENTRED ON THE PANE, NOT ON THE CANVAS (C59 §2.10.3 clause 4 / L-13027). The
+        // picker is `position:absolute` inside `paneEl`, so `left:50%` + `translateX(-50%)` is
+        // arithmetic on its own pane. That is the whole difference from the bar this replaced,
+        // which centred on `--shell-canvas-cx` and so drifted off its view the moment the split
+        // collapsed — and it is why a SOLO layout needs no special case here: the survivor pane
+        // becomes the region, and 50% of it follows for free.
         pickers.push(
-            mountPaneViewPicker({ paneId: LEFT_PANE, paneEl: leftPaneEl, store, corner: 'top-left', panel }),
-            mountPaneViewPicker({ paneId: RIGHT_PANE, paneEl: rightPaneEl, store, corner: 'top-right', panel }),
+            mountPaneViewPicker({ paneId: LEFT_PANE, paneEl: leftPaneEl, store, corner: 'top-center', panel }),
+            mountPaneViewPicker({ paneId: RIGHT_PANE, paneEl: rightPaneEl, store, corner: 'top-center', panel }),
         );
     }
 

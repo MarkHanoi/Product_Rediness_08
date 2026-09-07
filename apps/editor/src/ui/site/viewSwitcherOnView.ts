@@ -85,6 +85,7 @@ import {
     describeSplitToggle,
     SPLIT_TOGGLE_UNAVAILABLE_TEXT,
 } from '../../engine/views/siteAuthoringPaneDecisions';
+import type { SitePaneMode } from '../../engine/views/paneViewModel';
 
 const _tracer = trace.getTracer('pryzm.site.viewSwitcherOnView');
 
@@ -102,6 +103,19 @@ export const SITE_AUTHORING_PANES_ROOT_ID = 'pryzm-site-authoring-panes';
 export interface SplitLayoutHost {
     pryzmMountSiteAuthoringPanes?: (opts?: { readonly layout?: SplitLayoutPreset }) => void;
     pryzmUnmountSiteAuthoringPanes?: () => void;
+    /**
+     * §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — the three-state READING of the live pane
+     * shell. Optional: a host that does not register it is read two-state exactly as before.
+     */
+    pryzmGetSiteAuthoringPaneMode?: () => SitePaneMode;
+    /**
+     * §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — go single / go split WITHOUT tearing the
+     * shell down. This is what the toggle calls in place of
+     * `pryzmUnmountSiteAuthoringPanes` once it is registered, and it is why the founder's
+     * "single view" no longer blanks the region: the survivor pane fills the shell and keeps
+     * its own dropdown (C59 §1.4). Optional — see `paintSplit` for the fallback.
+     */
+    pryzmSetSiteAuthoringPaneMode?: (mode: 'split' | 'single') => boolean;
 }
 
 /**
@@ -201,16 +215,39 @@ export function mountViewSwitcherOnView(
     split.className = 'vsw-split';
     split.setAttribute('data-testid', VIEW_SWITCHER_SPLIT_TESTID);
 
+    /**
+     * §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — the THREE-state reading, when the host can
+     * make one. Falls back to the two-state DOM observation, which is what every caller meant
+     * before a live shell could be showing a SINGLE pane.
+     *
+     * ⚠ THE DOM WINS ON EXISTENCE; THE STORE ANSWERS ONLY SPLIT-vs-SINGLE. `isSplitOpen`
+     * observes the shell's own root element — what the user can actually see — so a store
+     * reporting a layout for a shell that is gone could not resurrect it here.
+     */
+    const readPaneMode = (open: boolean): SitePaneMode => {
+        if (!open) return 'absent';
+        const read = opts.host.pryzmGetSiteAuthoringPaneMode;
+        if (typeof read !== 'function') return 'split';
+        try {
+            return read() === 'single' ? 'single' : 'split';
+        } catch {
+            return 'split';
+        }
+    };
+
     const paintSplit = (): void => {
         if (disposed) return;
         const open = (() => {
             try { return isSplitOpen(); } catch { return false; }
         })();
+        const mode = readPaneMode(open);
         // L-13001 — the shared decision answers label / enabled / pressed / refusal. The
         // two richer ENABLED titles below stay here because they are about THIS host's
         // layout ("with this panel on the right"), which the pure model cannot know.
         const shown = describeSplitToggle({
             open,
+            mode,
+            canSetMode: typeof opts.host.pryzmSetSiteAuthoringPaneMode === 'function',
             canOpen: typeof opts.host.pryzmMountSiteAuthoringPanes === 'function',
             canClose: typeof opts.host.pryzmUnmountSiteAuthoringPanes === 'function',
         });
@@ -246,15 +283,24 @@ export function mountViewSwitcherOnView(
         split.disabled = !live;
         split.setAttribute('aria-pressed', shown.pressed ? 'true' : 'false');
         split.toggleAttribute('data-split-open', open);
+        // The three-state reading, published on the element so a spec asserts the STATE the
+        // control is in rather than inferring it from a label.
+        split.setAttribute('data-pane-mode', mode);
         if (!live) {
             split.setAttribute('data-view-segment-unavailable', 'true');
+            split.title = shown.title;
+        } else if (mode === 'single') {
+            // §SINGLE-VIEW-IS-A-LAYOUT-FACT — the shell is UP, showing one pane. That pane
+            // carries its own dropdown, which is why the six segments are still not here.
+            split.removeAttribute('data-view-segment-unavailable');
             split.title = shown.title;
         } else {
             split.removeAttribute('data-view-segment-unavailable');
             split.title = open
-                ? 'Close the split and go back to a single view.\n\n'
-                + 'Read from the document (the split shell\'s own root element), not from '
-                + 'pryzmGetSiteViewState — that snapshot carries no field for pane layout.'
+                ? shown.title + '\n\n'
+                + 'Read from the document (the split shell\'s own root element) plus the pane '
+                + 'layout store, not from pryzmGetSiteViewState — that snapshot carries no '
+                + 'field for pane layout.'
                 : (splitLayout === 'parcel-law'
                     ? 'Show two views side by side on the left, with this panel on the right. '
                     + 'It opens as the plan on the left and the 3D Site on the right; each pane '
@@ -267,8 +313,25 @@ export function mountViewSwitcherOnView(
     split.addEventListener('click', () => {
         if (split.disabled || disposed) return;
         try {
-            if (isSplitOpen()) opts.host.pryzmUnmountSiteAuthoringPanes?.();
-            else opts.host.pryzmMountSiteAuthoringPanes?.({ layout: splitLayout });
+            const mode = readPaneMode((() => {
+                try { return isSplitOpen(); } catch { return false; }
+            })());
+            const setMode = opts.host.pryzmSetSiteAuthoringPaneMode;
+            if (mode === 'absent') {
+                opts.host.pryzmMountSiteAuthoringPanes?.({ layout: splitLayout });
+            } else if (typeof setMode === 'function') {
+                // ⭐ §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — THE LINE THAT STOPS THE BLANK
+                // REGION. This was `pryzmUnmountSiteAuthoringPanes()`, which DISPOSES the whole
+                // shell: the 2D map goes with it and the one Cesium viewer re-homes to
+                // `#container` and hides itself, so in the Analysis workspace the left half was
+                // left holding an empty BIM canvas — the founder's white screen. Soloing keeps
+                // the shell, the surviving view, and that pane's own dropdown (C59 §1.4).
+                setMode(mode === 'split' ? 'single' : 'split');
+            } else {
+                // No mode capability registered (an older host, or a spec's bare fake): the
+                // historical open/close pair is still the honest thing to do here.
+                opts.host.pryzmUnmountSiteAuthoringPanes?.();
+            }
         } catch (e) {
             console.warn('[view-switcher-on-view] split dispatch failed (non-fatal):', e);
         }

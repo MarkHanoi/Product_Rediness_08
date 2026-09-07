@@ -673,8 +673,13 @@ describe('§VIEW-PANEL-PER-PANE — it ADDS a route and removes none', () => {
         // The 2026-08 brief: "Do not delete that menu — it carries real refusals with reasons."
         const src = read(SHELL);
         expect(src).toContain('mountPaneViewPicker');
-        expect(src).toMatch(/paneId: LEFT_PANE[\s\S]{0,80}corner: 'top-left'/);
-        expect(src).toMatch(/paneId: RIGHT_PANE[\s\S]{0,80}corner: 'top-right'/);
+        // ⭐ RE-POINTED 2026-09-07 (§PANE-DROPDOWN-CENTRED) — FOUNDER RULING, not drift.
+        // These read `'top-left'` / `'top-right'`, the C59 mirrored pair. Asked where the two
+        // dropdowns belong, he answered verbatim: *"THEY NEED TO BE CENTERED."* What the arm
+        // exists to prove is unchanged — BOTH panes still mount a picker, from this shell, with
+        // an explicit position — so it is re-pointed at the ruling rather than deleted.
+        expect(src).toMatch(/paneId: LEFT_PANE[\s\S]{0,80}corner: 'top-center'/);
+        expect(src).toMatch(/paneId: RIGHT_PANE[\s\S]{0,80}corner: 'top-center'/);
         expect(read('apps/editor/src/engine/views/PaneViewPicker.ts')).toContain('reasonEl');
     });
 

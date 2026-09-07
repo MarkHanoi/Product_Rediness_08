@@ -428,6 +428,93 @@ export function parcelLawDefaultLayout(
  */
 export type PaneLayoutPreset = 'site-authoring' | 'parcel-law';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — "single view" is a LAYOUT, not a teardown
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Founder 2026-09-07: *"WHEN HAVING ANALYSIS — PARCEL LAW ACTIVE — THEN IT IS ON SPLIT ON —
+// WORKS WELL. BUT IF WE GO TO SINGLE VIEW, SOMEHOW IT GETS A WHITE SCREEN."*
+//
+// ⛔ THE MEASURED ROOT WAS NOT A RACE AND NOT A PLACEMENT BUG. "Single view" was wired to
+// `pryzmUnmountSiteAuthoringPanes()` — it DISPOSED the whole pane shell. Its teardown
+// disposes the MapLibre map and re-homes the ONE Cesium viewer to `#container` with
+// `setVisible(false)`, so in the Analysis workspace (`canvas:'half'`) the left region was
+// left holding an empty BIM canvas: the founder's white screen, and the reason the retired
+// whole-screen six-segment bar came back in the same gesture (it re-appears exactly when the
+// shell root is gone).
+//
+// C59 §1.4 already states the rule: *"`view.pane.solo` vacates the other pane(s); the shell
+// then collapses the empty pane and the divider so the SURVIVOR fills the shell — carrying
+// its picker with it. That is how 'in each view, split OR complete, change to another view'
+// holds without a second switcher."* These two helpers are that sentence, made computable.
+
+/** What a pane shell is showing, stated as a fact about the LAYOUT, never about the DOM. */
+export type SitePaneMode = 'absent' | 'single' | 'split';
+
+/**
+ * Is `layout` a SOLO (full-screen) layout — exactly one pane occupied in a shell that has
+ * more than one pane?
+ *
+ * ⭐ THIS IS THE SHELL'S OWN RULE, LIFTED SO THERE IS ONE COPY. `SiteAuthoringPaneShell`'s
+ * `applyFraction()` collapses the vacated pane and the divider on `leftEmpty !== rightEmpty`,
+ * which for its two panes is exactly this predicate. The mode a control REPORTS and the
+ * geometry the shell APPLIES must not be two independent readings of the same thing.
+ */
+export function isSoloLayout(layout: PaneLayout): boolean {
+    const paneIds = Object.keys(layout);
+    if (paneIds.length < 2) return false;
+    let occupied = 0;
+    for (const paneId of paneIds) if (layout[paneId] != null) occupied++;
+    return occupied === 1;
+}
+
+/**
+ * The mode a LIVE shell showing `layout` is in. `'absent'` is not derivable from a layout —
+ * it is the caller's reading of whether a shell exists at all — so this returns only the two
+ * a live shell can be in.
+ */
+export function describeSitePaneMode(layout: PaneLayout): Exclude<SitePaneMode, 'absent'> {
+    return isSoloLayout(layout) ? 'single' : 'split';
+}
+
+/** Where a "go to single view" lands: which pane survives, and what it must be handed first. */
+export interface SingleViewTarget {
+    /** The pane that will be soloed. */
+    readonly paneId: PaneId;
+    /**
+     * The view to ASSIGN into `paneId` before soloing it, or `null` when that pane already
+     * holds the preferred view and the solo alone is the whole move.
+     */
+    readonly assign: ViewType | null;
+}
+
+/**
+ * §26.6 / L-13053 requirement 3 — founder: *"AND BY DEFAULT RENDER 2D PLAN VIEW ON THIS
+ * ENVIRONMENT."* Decide which pane survives a "go to single view" in an environment whose
+ * declared single view is `preferred`.
+ *
+ * ⭐ PREFER THE PANE THAT ALREADY HOLDS IT. Then the move is one `view.pane.solo` and the
+ * user's own arrangement is respected — "by default" means the default when he has not said
+ * otherwise, not an override of what he chose. Only when NO pane holds the preferred view is
+ * it assigned, into the first pane, and the assignment happens BEFORE the solo so the solo's
+ * remembered split (`_splitMemory`) is a real two-pane layout and `◧ Back to split` still has
+ * somewhere to go.
+ *
+ * Returns `null` for a shell with no panes at all — there is nothing to solo, and inventing a
+ * pane id here would be a decision this model cannot make.
+ */
+export function describeSingleViewTarget(
+    layout: PaneLayout,
+    preferred: ViewType,
+): SingleViewTarget | null {
+    const paneIds = Object.keys(layout);
+    if (paneIds.length === 0) return null;
+    for (const paneId of paneIds) {
+        if (layout[paneId] === preferred) return { paneId, assign: null };
+    }
+    return { paneId: paneIds[0]!, assign: preferred };
+}
+
 /** Resolve a declared preset to its layout. Unknown presets fall back to site authoring. */
 export function paneLayoutForPreset(
     preset: PaneLayoutPreset | undefined,
@@ -436,4 +523,21 @@ export function paneLayoutForPreset(
     return preset === 'parcel-law'
         ? parcelLawDefaultLayout(registry)
         : siteAuthoringDefaultLayout(registry);
+}
+
+/**
+ * §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — the view a preset's SINGLE (full-screen) state
+ * shows by default.
+ *
+ * Founder 2026-09-07, about the Analysis · Parcel Law screen: *"AND BY DEFAULT RENDER 2D PLAN
+ * VIEW ON THIS ENVIRONMENT."* `bim-plan-2d` is `paneHostable: true` above with a registered
+ * mounter (`createSvpPlanPaneMounter`), so this is a DEFAULT, not new plumbing.
+ *
+ * ⛔ IT IS PER-PRESET, exactly as `paneLayoutForPreset` is, and for the same reason: the
+ * onboarding host opens on a plot that does not exist yet, where the useful single view is the
+ * 2D map the guided flow makes you draw on — the plan of an unbuilt building is a blank sheet.
+ * *"This environment"* is the Parcel Law tab, not every single-view state.
+ */
+export function singleViewForPreset(preset: PaneLayoutPreset | undefined): ViewType {
+    return preset === 'parcel-law' ? 'bim-plan-2d' : 'site-map-2d';
 }

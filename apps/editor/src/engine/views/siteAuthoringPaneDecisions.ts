@@ -21,6 +21,10 @@
 //      the SAME plot (zoning recompute, layout changes, an identical re-commit) fall back
 //      to the no-re-fly path so continuous edits never yank the camera (L-416).
 
+// §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — a TYPE-ONLY import of the pure layout vocabulary.
+// This file stays pure: `paneViewModel.ts` is itself a no-DOM / no-renderer module.
+import type { SitePaneMode } from './paneViewModel';
+
 /** The parcel-commit event that first defines the plot extent (worth framing to). */
 export const PARCEL_BOUNDARY_SET_EVENT = 'site.parcel-boundary-set';
 
@@ -295,12 +299,28 @@ export interface SplitTogglePresentation {
 
 /** What a split toggle can observe about the split and about its own wiring. */
 export interface SplitToggleState {
-    /** Is the site-authoring split on screen? A READING, never a remembered command. */
+    /** Is the site-authoring PANE SHELL on screen? A READING, never a remembered command. */
     readonly open: boolean;
     /** `pryzmMountSiteAuthoringPanes` is registered in this session. */
     readonly canOpen: boolean;
     /** `pryzmUnmountSiteAuthoringPanes` is registered in this session. */
     readonly canClose: boolean;
+    /**
+     * §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — the THREE-state reading, for a host that can
+     * make it. `open` alone cannot distinguish the two states a live shell has once "single
+     * view" stops meaning "no shell": a shell showing ONE pane is up (so `open` is true) and
+     * is not a split.
+     *
+     * ⚠ ABSENT ⇒ DERIVED FROM `open`, which is exactly what every caller meant before a shell
+     * could be up with one pane. The site-phase pill still reads two states and is unchanged.
+     */
+    readonly mode?: SitePaneMode;
+    /**
+     * The host can move between `'split'` and `'single'` THROUGH THE LAYOUT STORE
+     * (`pryzmSetSiteAuthoringPaneMode`) instead of tearing the shell down. When false the
+     * toggle falls back to its historical open/close pair.
+     */
+    readonly canSetMode?: boolean;
 }
 
 /** The sentence a split toggle shows when it cannot act. Named, never a silent no-op. */
@@ -318,15 +338,41 @@ export const SPLIT_TOGGLE_UNAVAILABLE_TEXT =
  * is the authority; this is.
  */
 export function describeSplitToggle(state: SplitToggleState): SplitTogglePresentation {
-    const enabled = state.open ? state.canClose : state.canOpen;
+    const mode: SitePaneMode = state.mode ?? (state.open ? 'split' : 'absent');
+
+    // §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — the shell is UP and showing ONE pane. The
+    // button is therefore NOT pressed (there is no split), and pressing it asks for the split
+    // back. This state only exists for a host that can set the mode; without that capability
+    // `mode` is never 'single' and this arm is unreachable rather than half-wired.
+    if (mode === 'single') {
+        return {
+            label: '◧ Split',
+            enabled: state.canSetMode === true,
+            pressed: false,
+            title: state.canSetMode === true
+                ? 'Show two views side by side again — the pane you are on keeps its view and '
+                    + 'the one it was split with comes back.'
+                : SPLIT_TOGGLE_UNAVAILABLE_TEXT,
+        };
+    }
+
+    // The shell is up and split: pressing collapses it to ONE pane, which keeps that pane's
+    // own dropdown on screen (C59 §1.4). Only a host WITHOUT the mode capability still closes
+    // the whole shell here.
+    const enabled = mode === 'split'
+        ? (state.canSetMode === true || state.canClose)
+        : state.canOpen;
     return {
-        label: state.open ? '◧ Split — on' : '◧ Split',
+        label: mode === 'split' ? '◧ Split — on' : '◧ Split',
         enabled,
-        pressed: state.open,
+        pressed: mode === 'split',
         title: !enabled
             ? SPLIT_TOGGLE_UNAVAILABLE_TEXT
-            : state.open
-                ? 'Close the split and go back to a single view.'
+            : mode === 'split'
+                ? (state.canSetMode === true
+                    ? 'Go to a single view. The pane you keep fills the region and keeps its own '
+                        + 'view dropdown — nothing is torn down, so this is reversible.'
+                    : 'Close the split and go back to a single view.')
                 : 'Show two views side by side — the 2D site map and the 3D Site. '
                     + 'Each pane keeps its own view picker, so you choose what goes in each.',
     };

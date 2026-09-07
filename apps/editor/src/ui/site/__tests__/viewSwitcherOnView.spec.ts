@@ -122,6 +122,16 @@ describe('§VIEW-SWITCHER-ON-THE-VIEW — SPLIT is a LAYOUT choice, not a sevent
         expect(calls).toEqual(['unmountPanes']);
     });
 
+    it('closes the whole shell ONLY when the host cannot re-lay-it-out (the fallback)', () => {
+        // ⛔ The historical pair survives for a host that has not registered the mode
+        // capability — an older surface, or a spec's bare fake. Nothing is lost; the newer
+        // route is simply not offered where it does not exist (C19 §5.6 clause 4).
+        const { host, calls } = makeHost();
+        const h = (handle = mountViewSwitcherOnView({ host, isSplitOpen: () => true }));
+        splitBtn(h).click();
+        expect(calls).toEqual(['unmountPanes']);
+    });
+
     it('reads the split from the DOCUMENT, because no snapshot field reports it', () => {
         // ⚠ `pryzmGetSiteViewState` carries segment / formaMode / buildingFidelity (+ basemap)
         // and none of them says whether the panes are up. Inventing a predicate over the
@@ -279,5 +289,91 @@ describe('§THE-BAR-IS-NOT-ON-THE-VIEW (L-13003) — the bar is bounded by the v
         expect(bar).toContain('left: var(--shell-canvas-cx');
         expect(bar).toContain('max-width: calc(var(--shell-canvas-w');
         expect(bar).not.toMatch(/left:\s*50%/);
+    });
+});
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — "single view" must not tear the shell down
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// Founder 2026-09-07: *"BUT IF WE GO TO SINGLE VIEW, SOMEHOW IT GETS A WHITE SCREEN — WITH
+// MASSIVE PANEL."* This control is where that gesture starts. It called
+// `pryzmUnmountSiteAuthoringPanes()`, which DISPOSES the pane shell — so the 2D map went with
+// it, the one Cesium viewer re-homed to `#container` and hid itself, and in the Analysis
+// workspace (`canvas: 'half'`) the left half was left holding an empty BIM canvas. The SAME
+// event re-inserted the six-segment bar, because that only happens when the shell is gone:
+// one action, both symptoms.
+
+describe('§SINGLE-VIEW-IS-A-LAYOUT-FACT — the toggle re-lays-out, it does not tear down', () => {
+    /** A host that ALSO registers the C59 §1.4 mode pair, and records which route was taken. */
+    function makeModeHost(mode: 'split' | 'single'): {
+        host: ViewSwitcherOnViewHost;
+        calls: string[];
+    } {
+        const calls: string[] = [];
+        const base = makeHost().host;
+        const host: ViewSwitcherOnViewHost = {
+            ...base,
+            pryzmMountSiteAuthoringPanes: () => { calls.push('mountPanes'); },
+            pryzmUnmountSiteAuthoringPanes: () => { calls.push('unmountPanes'); },
+            pryzmGetSiteAuthoringPaneMode: () => mode,
+            pryzmSetSiteAuthoringPaneMode: (next) => { calls.push(`setMode:${next}`); return true; },
+        };
+        return { host, calls };
+    }
+
+    it('⭐ SPLIT → SINGLE solos the shell — it NEVER reaches the teardown', () => {
+        const { host, calls } = makeModeHost('split');
+        const h = (handle = mountViewSwitcherOnView({ host, isSplitOpen: () => true }));
+        splitBtn(h).click();
+        expect(calls).toEqual(['setMode:single']);
+        // ⛔ THE LINE THAT PINS THE DEFECT. `unmountPanes` here is the white screen.
+        expect(calls).not.toContain('unmountPanes');
+    });
+
+    it('SINGLE → SPLIT asks for the split back, through the same one write path', () => {
+        const { host, calls } = makeModeHost('single');
+        const h = (handle = mountViewSwitcherOnView({ host, isSplitOpen: () => true }));
+        splitBtn(h).click();
+        expect(calls).toEqual(['setMode:split']);
+    });
+
+    it('SINGLE is not "pressed" — the shell is up and there is no split to be on', () => {
+        const { host } = makeModeHost('single');
+        const h = (handle = mountViewSwitcherOnView({ host, isSplitOpen: () => true }));
+        const b = splitBtn(h);
+        expect(b.getAttribute('data-pane-mode')).toBe('single');
+        expect(b.getAttribute('aria-pressed')).toBe('false');
+        expect(b.disabled).toBe(false);
+    });
+
+    it('the six-segment bar stays AWAY in single view — the pane keeps its own dropdown', () => {
+        // ⛔ THE FOUNDER'S SECOND SYMPTOM. *"WITH MASSIVE PANEL — THIS SHOULD STILL BE A DROP
+        // DOWN OCCUPYING WAY SMALLER SPACE."* The segments belong to the PANELESS surface; a
+        // shell showing one pane still has a pane, and that pane carries the dropdown.
+        const { host } = makeModeHost('single');
+        const h = (handle = mountViewSwitcherOnView({ host, isSplitOpen: () => true }));
+        expect(h.element.querySelector(`[data-testid="${VIEW_SEGMENT_SWITCHER_TESTID}"]`)).toBeNull();
+        expect(h.element.querySelectorAll(`button[${VIEW_SEGMENT_ATTR}]`)).toHaveLength(0);
+    });
+
+    it('with no shell at all the segments come BACK — a paneless surface keeps its route', () => {
+        // ⛔ L-13025 / L-942: the honest "current view is not reported…" sentence and the six
+        // rows live here, and this is their only host. Hiding them where there is no pane
+        // dropdown would leave the surface with no way to change the view at all.
+        const { host } = makeModeHost('split');
+        const h = (handle = mountViewSwitcherOnView({ host, isSplitOpen: () => false }));
+        expect(splitBtn(h).getAttribute('data-pane-mode')).toBe('absent');
+        expect(h.element.querySelector(`[data-testid="${VIEW_SEGMENT_SWITCHER_TESTID}"]`)).not.toBeNull();
+    });
+
+    it('the DOM wins on existence — a store that reports a layout cannot resurrect a gone shell', () => {
+        // `isSplitOpen` observes the shell's own root element, which is what the user can
+        // actually see. The store answers only the split-vs-single half.
+        const { host, calls } = makeModeHost('split');
+        const h = (handle = mountViewSwitcherOnView({ host, isSplitOpen: () => false }));
+        splitBtn(h).click();
+        expect(calls).toEqual(['mountPanes']);
     });
 });

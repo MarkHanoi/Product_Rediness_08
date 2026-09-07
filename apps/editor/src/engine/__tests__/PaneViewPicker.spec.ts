@@ -9,6 +9,8 @@
 //   • a rejected intent surfaces its reason instead of failing silently.
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { mountSiteAuthoringPaneShell } from '../views/SiteAuthoringPaneShell';
 import { mountPaneViewPicker } from '../views/PaneViewPicker';
 import { PaneLayoutStore } from '../views/paneLayoutStore';
@@ -320,5 +322,71 @@ describe('§ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN — one dropdown per pane,
         expect(row.getAttribute('data-option-state')).toBe('moves-singleton');
         expect(row.textContent).toMatch(/right pane/i);
         expect(row.disabled).toBe(false); // a consequence, not a refusal
+    });
+});
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// §PANE-DROPDOWN-CENTRED (founder 2026-09-07) — "THEY NEED TO BE CENTERED."
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// C59's own card text already promised it: *"Switch the view, or split it, from the bar
+// centred on the view itself."*
+//
+// ⛔ AND THE WHOLE QUESTION IS *CENTRED ON WHAT*. L-13027: the retired whole-screen bar
+// centred itself with `--shell-canvas-cx` / `--shell-canvas-w`, which are CANVAS-relative, so
+// when the split collapsed it re-centred on a region that was no longer a view. C59 §2.10.3
+// clause 4 settles it — every pane control is positioned relative to ITS PANE. These arms
+// assert the mechanism, not the pixel: `position:absolute` inside the pane element, `left:50%`
+// with a `translateX(-50%)`, and NO canvas variable and NO fixed positioning anywhere.
+
+describe('§PANE-DROPDOWN-CENTRED — centred on the PANE, never on the canvas', () => {
+    it('both pickers are centred at the top of their own pane', () => {
+        const { shell } = buildShell();
+        for (const pane of [LEFT_PANE, RIGHT_PANE]) {
+            const el = document.querySelector<HTMLElement>(`[data-testid="pane-view-picker-${pane}"]`)!;
+            expect(shell.getPaneElement(pane)!.contains(el)).toBe(true);
+            expect(el.style.position).toBe('absolute');
+            expect(el.style.left).toBe('50%');
+            expect(el.style.right).toBe('auto');
+            expect(el.style.transform).toContain('translateX(-50%)');
+        }
+    });
+
+    it('the popup is centred on the same axis, and clamps to the PANE it opens in', () => {
+        const { shell } = buildShell();
+        const paneEl = shell.getPaneElement(LEFT_PANE)!;
+        // A narrow pane — reachable by dragging the divider to MIN_FRACTION on a small screen.
+        Object.defineProperty(paneEl, 'clientWidth', { value: 256, configurable: true });
+        Object.defineProperty(paneEl, 'clientHeight', { value: 700, configurable: true });
+        trigger(LEFT_PANE).click();
+        const p = popup(LEFT_PANE);
+        expect(p.style.left).toBe('50%');
+        expect(p.style.transform).toContain('translateX(-50%)');
+        // ⛔ A centred popup WIDER than its pane is the same defect wearing a different hat.
+        expect(parseInt(p.style.maxWidth, 10)).toBeLessThanOrEqual(256);
+    });
+
+    it('⛔ NO canvas variable and NO fixed positioning — that is the L-13027 defect returning', () => {
+        // The SOURCE is the authority for "it never reaches for the window": an inline-style
+        // read cannot prove the absence of something this file does not write.
+        //
+        // ⚠ CODE ONLY. The header EXPLAINS the L-13027 defect and therefore NAMES
+        // `--shell-canvas-cx`; an arm that matched comments would fail on the very sentence
+        // that records why the rule exists — and the fix for that would be to delete the
+        // explanation, which is the wrong direction.
+        const src = readFileSync(
+            resolve(process.cwd(), 'apps/editor/src/engine/views/PaneViewPicker.ts'),
+            'utf8',
+        )
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .split('\n')
+            .filter((l) => !l.trim().startsWith('//'))
+            .join('\n');
+        expect(src).not.toMatch(/--shell-canvas/);
+        expect(src).not.toMatch(/'fixed'/);
+        expect(src).not.toMatch(/window\.inner/);
+        // ...and it IS centred, in the pane's own coordinates.
+        expect(src).toMatch(/translateX\(-50%\)/);
     });
 });

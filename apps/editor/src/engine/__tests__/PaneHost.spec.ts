@@ -485,3 +485,114 @@ describe('§PANE-PLACEMENT-AFTER-MODE-SWITCH — the shell settles ONCE per tran
         shell.dispose();
     });
 });
+
+
+// ════════════════════════════════════════════════════════════════════════════════
+// §UNKNOWN-IS-NOT-MISPLACED (L-13053) — a mounter still BUILDING is not "in the wrong pane"
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// THE MEASURED DEFECT. `GISAreaLayout`'s MapLibre mounter opens the map behind a dynamic
+// `import()`, `mount()` returned `void`, and its predicate read
+// `map2dHandle?.isPlacedIn(paneEl) ?? false`. So the authoritative placement pass ran when the
+// CESIUM promise settled — before the MapLibre chunk had loaded — asked where the map was, and
+// got `false` for a map that did not exist yet. `PaneHost` read that as POSITIVELY MISPLACED,
+// printed `'site-map-2d' (maplibre) is NOT in the pane the layout gives it — putting it back`
+// (the line repeating throughout the founder's console) and called `relocate`, whose no-handle
+// branch starts ANOTHER mount. ⛔ Two dynamic imports racing for one singleton surface: the
+// §L-412 second-map risk, arrived at through a `??`.
+
+describe('§UNKNOWN-IS-NOT-MISPLACED (L-13053)', () => {
+    /** A mounter whose surface is built asynchronously, like the lazy-imported MapLibre map. */
+    class LazyMounter implements PaneRendererMounter {
+        readonly rendererKind: RendererKind = 'maplibre';
+        mountCount = 0;
+        relocateCount = 0;
+        /** null until the (fake) import resolves — exactly `map2dHandle`'s shape. */
+        surface: HTMLElement | null = null;
+        building = false;
+        private release: (() => void) | null = null;
+        mount(paneEl: HTMLElement): Promise<void> {
+            this.mountCount++;
+            this.building = true;
+            return new Promise<void>((resolve) => {
+                this.release = () => {
+                    this.surface = document.createElement('div');
+                    paneEl.appendChild(this.surface);
+                    this.building = false;
+                    resolve();
+                };
+            });
+        }
+        land(): void { this.release?.(); this.release = null; }
+        relocate(paneEl: HTMLElement): void | Promise<void> {
+            this.relocateCount++;
+            if (this.surface) { paneEl.appendChild(this.surface); return undefined; }
+            return this.mount(paneEl);
+        }
+        // ⭐ THREE ANSWERS. `undefined` is "ask me again when it lands" — NOT a falsy `false`.
+        isPlacedIn(paneEl: HTMLElement): boolean | undefined {
+            if (this.surface) return this.surface.parentElement === paneEl;
+            if (this.building) return undefined;
+            return false;
+        }
+        unmount(): void { this.surface?.remove(); this.surface = null; }
+        resize(): void { /* noop */ }
+    }
+
+    it('an in-flight mount is NOT corrected — no second mount of a singleton surface', () => {
+        const { controller, left } = makeController();
+        const lazy = new LazyMounter();
+        controller.registerMounter(lazy);
+        void controller.applyLayout({ [LEFT_PANE]: 'site-map-2d', [RIGHT_PANE]: null });
+        expect(lazy.mountCount).toBe(1);
+
+        // The placement pass runs while the import is still in flight — repeatedly, exactly as
+        // the founder's settle passes did.
+        for (let i = 0; i < 5; i++) {
+            const checks = controller.reassertPlacement();
+            const leftCheck = checks.find((c) => c.paneId === LEFT_PANE)!;
+            expect(leftCheck.unknown).toBe(true);
+            expect(leftCheck.corrected).toBe(false);
+        }
+        // ⛔ THE LINE THAT PINS IT: still ONE mount and ZERO corrections.
+        expect(lazy.mountCount).toBe(1);
+        expect(lazy.relocateCount).toBe(0);
+
+        lazy.land();
+        const after = controller.reassertPlacement().find((c) => c.paneId === LEFT_PANE)!;
+        expect(after.unknown).toBe(false);
+        expect(after.corrected).toBe(false);
+        expect(lazy.surface!.parentElement).toBe(left);
+    });
+
+    it('a POSITIVE misplacement is still corrected — the predicate keeps its job', () => {
+        // ⛔ `undefined` must not become a blanket amnesty. Once the surface exists and is in
+        // the wrong pane, the pass still puts it back — that is L-12988, unchanged.
+        const { controller, left, right } = makeController();
+        const lazy = new LazyMounter();
+        controller.registerMounter(lazy);
+        void controller.applyLayout({ [LEFT_PANE]: 'site-map-2d', [RIGHT_PANE]: null });
+        lazy.land();
+        expect(lazy.surface!.parentElement).toBe(left);
+
+        right.appendChild(lazy.surface!); // a transition moved it out from under the layout.
+        const check = controller.reassertPlacement().find((c) => c.paneId === LEFT_PANE)!;
+        expect(check.unknown).toBe(false);
+        expect(check.corrected).toBe(true);
+        expect(lazy.surface!.parentElement).toBe(left);
+    });
+
+    it('an async mount is AWAITED by applyLayout — the placement pass runs after it lands', async () => {
+        // The other half of the same fix: `mount()` returning `void` is what let the pass run
+        // before the surface existed at all. A mounter that returns its promise is waited for.
+        const { controller, left } = makeController();
+        const lazy = new LazyMounter();
+        controller.registerMounter(lazy);
+        const pending = controller.applyLayout({ [LEFT_PANE]: 'site-map-2d', [RIGHT_PANE]: null });
+        expect(pending).toBeInstanceOf(Promise);
+        lazy.land();
+        await pending;
+        expect(lazy.surface!.parentElement).toBe(left);
+        expect(lazy.mountCount).toBe(1);
+    });
+});

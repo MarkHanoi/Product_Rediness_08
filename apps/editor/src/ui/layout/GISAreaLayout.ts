@@ -214,9 +214,13 @@ import { getLoadingOverlay } from '../overlays/LoadingOverlayController';
 // Cesium viewer is RE-TARGETED into the right pane element (never cloned).
 import { mountSiteAuthoringPaneShell, type SiteAuthoringPaneShell } from '../../engine/views/SiteAuthoringPaneShell';
 import {
+    describeSingleViewTarget,
+    describeSitePaneMode,
     paneLayoutForPreset,
     RIGHT_PANE,
+    singleViewForPreset,
     type PaneLayoutPreset,
+    type SitePaneMode,
 } from '../../engine/views/paneViewModel';
 // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — the deferred subscription helper. Used here
 // rather than a bare `runtime?.events?.on(...)` because the LIVE boot path constructs this
@@ -559,6 +563,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
     // retained for the console fallback (pryzmStartBoundaryDraw3D) only.
     let map2dHandle: SiteBoundaryMap2DHandle | null = null;
+    /**
+     * §UNKNOWN-IS-NOT-MISPLACED (L-13053) — the ONE start of that map that is currently in
+     * flight (the dynamic `import()` plus the mount), or null when nothing is being built.
+     *
+     * ⛔ IT IS A THIRD STATE, not a lock. `map2dHandle === null` conflated "there is no map"
+     * with "the map is still being constructed", and every reader that treated the second as
+     * the first started a rival mount of a singleton surface. This variable is what lets
+     * `isPlacedIn` answer `undefined` — *"ask me again when it lands"* — instead of `false`.
+     */
+    let map2dStarting: Promise<void> | null = null;
     // §VIEW-PANEL-PER-PANE (founder 2026-09-06) — the basemap the user has ASKED for.
     //
     // ⚠ It is a REQUEST, not a reading, and the two are different facts. The map is
@@ -581,6 +595,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // area — "a point not in the original circle") re-frames; an in-place re-commit / zoning /
     // layout edit falls back to the no-re-fly path (no jitter). Reset to null on every (re)mount.
     let siteAuthoringPaneLastFramedCentroid: { x: number; z: number } | null = null;
+    /**
+     * §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — WHICH declared opening the LIVE shell was
+     * mounted (or last re-seeded) with. Read only by `setSiteAuthoringPaneMode`'s restore
+     * fallback: `view.pane.restore-split` remembers the split it collapsed, but an explicit
+     * assignment afterwards supersedes that memory by design (`PaneLayoutStore.reduce`), so
+     * "back to split" needs a declared layout to fall back to — and it must be THIS host's,
+     * not a constant. A name, never a layout object: `paneLayoutForPreset` stays the one
+     * place a default lives.
+     */
+    let siteAuthoringPanePreset: PaneLayoutPreset = 'site-authoring';
     // A.8.c.f.2 (defect 1) — remember the LAST geocoded result so the 2D map can
     // fit its exact bbox (the Site location store keeps only lat/lon — the bbox is
     // otherwise lost, leaving the 2D map at a coarse point zoom). Set in the
@@ -665,7 +689,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // A.8.c.f — open the Hektar-style 2D cream/shadow boundary-draw map overlay
     // (NOT the Cesium 3D draw). Mounts on #container; on commit/cancel it disposes
     // + closes. Lazy-imports the MapLibre chunk so it is not in the main bundle.
-    const startBoundaryDraw = (drawOpts?: { overlayOnly?: boolean; parent?: HTMLElement }): void => {
+    const startBoundaryDraw = (
+        drawOpts?: { overlayOnly?: boolean; parent?: HTMLElement },
+    ): Promise<void> => {
         if (map2dHandle) {
             // §MAP-IS-A-SINGLETON-TOO (L-12992, founder 2026-09-06: *"if i clicked 2d map view
             // it would render on the left hand side"*, with the pane that asked for it BLACK).
@@ -687,10 +713,38 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             const nextHost = drawOpts?.parent ?? null;
             if (nextHost && !map2dHandle.isPlacedIn(nextHost)) {
                 map2dHandle.reparentTo(nextHost);
-                return;
+                return Promise.resolve();
             }
             console.log('[gis] map2d already open');
-            return;
+            return Promise.resolve();
+        }
+        // ⭐ §UNKNOWN-IS-NOT-MISPLACED (L-13053) — A START ALREADY IN FLIGHT IS NOT "NO MAP".
+        //
+        // THE MEASURED DEFECT. This function opens the map behind a dynamic `import()` and used
+        // to return `void`, so `mapMounter.mount` handed `MultiPaneController.applyLayout`
+        // nothing to await; the authoritative placement pass therefore ran when the CESIUM
+        // promise settled — before the MapLibre chunk had even loaded — and asked
+        // `isPlacedIn`, which answered `false` because `map2dHandle` was still null. `PaneHost`
+        // read that as POSITIVELY MISPLACED, logged
+        // `'site-map-2d' (maplibre) is NOT in the pane the layout gives it — putting it back`
+        // (the line repeating throughout the founder's console) and called `relocate`, whose
+        // no-handle branch lands right back here. With no guard that started a SECOND import
+        // and a SECOND `mountSiteBoundaryMap2D`, and whichever resolved first was orphaned by
+        // the second's assignment to `map2dHandle` — a leaked MapLibre map with a live WebGL
+        // context, which is precisely the §L-412 second-map risk.
+        //
+        // ⛔ NOT A DEBOUNCE (C59 §2.10.2 names that as a forbidden fix). This is not a timing
+        // window being papered over: the in-flight start IS the answer to "where is the map",
+        // so the later caller JOINS it and re-targets the one map when it lands, rather than
+        // building a rival.
+        if (map2dStarting) {
+            const nextHost = drawOpts?.parent ?? null;
+            console.log('[gis] map2d: a start is already in flight — joining it (never a second map).');
+            return map2dStarting.then(() => {
+                if (nextHost && map2dHandle && !map2dHandle.isPlacedIn(nextHost)) {
+                    map2dHandle.reparentTo(nextHost);
+                }
+            });
         }
         // §L-412 (C59 Phase 1b) — the MapLibre 2D map mounts into its assigned PANE
         // element (LEFT pane) when the site-authoring split is active, instead of the
@@ -699,9 +753,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const viewport = drawOpts?.parent ?? document.getElementById('container');
         if (!viewport) {
             console.error('[gis] map2d: #container not found');
-            return;
+            return Promise.resolve();
         }
-        void import('../geospatial/SiteBoundaryMap2D').then(({ mountSiteBoundaryMap2D }) => {
+        const started: Promise<void> = import('../geospatial/SiteBoundaryMap2D').then(({ mountSiteBoundaryMap2D }) => {
             map2dHandle = mountSiteBoundaryMap2D({
                 parent: viewport,
                 runtime: runtime ?? null,
@@ -745,7 +799,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }).catch((err: unknown) => {
             console.error('[gis] map2d: failed to open', err);
             runtime?.events?.emit('pryzm:toast', { message: 'Could not open the 2D boundary map — see console.', severity: 'error' });
+        }).finally(() => {
+            // Only THIS start clears the flag: a later one that superseded it owns it now.
+            if (map2dStarting === started) map2dStarting = null;
         });
+        map2dStarting = started;
+        return started;
     };
     const cancelBoundaryDraw = (): void => {
         if (map2dHandle) {
@@ -961,7 +1020,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     // pryzmStartBoundaryDraw() now opens the Hektar 2D map
                     // (the draw surface); pryzmStartBoundaryDraw3D() keeps the
                     // legacy Cesium-globe draw as a fallback.
-                    window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
+                    window.pryzmStartBoundaryDraw = () => { void startBoundaryDraw(); };
                     window.pryzmStartBoundaryDraw3D = () => boundaryTool?.start();
                     window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
                     console.log('[gis] site-authoring surfaces ready (geocode search + 2D Hektar boundary map). Run pryzmStartBoundaryDraw() for the 2D draw, pryzmStartBoundaryDraw3D() for the Cesium draw.');
@@ -1808,12 +1867,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // the Cesium mount) so the 2D draw surface is independent of the Cesium viewer:
     // the user can draw a parcel on the clean cream plan-view map without first
     // mounting the 3D globe. (Re-registered inside the mount too, harmlessly.)
-    window.pryzmStartBoundaryDraw = () => startBoundaryDraw();
+    window.pryzmStartBoundaryDraw = () => { void startBoundaryDraw(); };
     window.pryzmCancelBoundaryDraw = () => cancelBoundaryDraw();
     // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — open the 2D map in OVERLAY-ONLY mode (draw
     // disarmed) for the PDF/image import path. The onboarding overlay branch calls this
     // instead of pryzmStartBoundaryDraw so no boundary can be traced + no generate is armed.
-    window.pryzmStartSitePlanOverlayImport = () => startBoundaryDraw({ overlayOnly: true });
+    window.pryzmStartSitePlanOverlayImport = () => { void startBoundaryDraw({ overlayOnly: true }); };
     // §FIX-SITE-OVERLAY-ENTER-CANVAS (L-78) — land the user in a BIM editor view (activateView
     // EXITS GIS first, then routes through ViewController) so the site-plan underlay they just
     // imported is actually on screen. The overlay-import "✓ Finish" calls this with 'Top' (plan
@@ -5608,7 +5667,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.log('[gis][forma] switching to 2D Map (MapLibre cream draw map).');
             disposeFormaAnalysis(); // FORMA.5 — clean up analysis chrome on exit.
             if (_gisActive) toggleGIS(false);
-            if (!map2dHandle) startBoundaryDraw();
+            if (!map2dHandle) void startBoundaryDraw();
         }
         refreshFormaButtons();
     };
@@ -6679,6 +6738,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // happens to be up would otherwise get whatever the previous host left behind.
             // Seed through the STORE, the one write path (C59 §2 invariant 3).
             console.log(`[gis][panes] §L-412 site-authoring split already mounted — re-seeding '${preset}'.`);
+            siteAuthoringPanePreset = preset;
             const already = siteAuthoringPanes.store.dispatch({
                 type: 'view.pane.set-layout',
                 layout: paneLayoutForPreset(preset),
@@ -6716,6 +6776,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
 
         const shell = mountSiteAuthoringPaneShell({ parent: container, initialLeftFraction: 0.5 });
         siteAuthoringPanes = shell;
+        siteAuthoringPanePreset = preset;
 
         // §22 (PRYZM-EARTH-ONBOARDING PRD §17.4 "Split-screen FADES in") — the split must not
         // hard-cut over the full-screen globe the user has just been flown across. Mount it
@@ -6746,17 +6807,33 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // ── MapLibre mounter (LEFT pane) — the 2D draw/select surface ──
         const mapMounter: PaneRendererMounter = {
             rendererKind: 'maplibre',
-            mount: (paneEl) => { startBoundaryDraw({ parent: paneEl }); },
+            // §UNKNOWN-IS-NOT-MISPLACED (L-13053) — RETURN THE PROMISE. `startBoundaryDraw`
+            // opens the map behind a dynamic `import()`; returning `void` here is what made
+            // `MultiPaneController.applyLayout` run its authoritative placement pass BEFORE the
+            // map existed, and then "correct" a placement it could not read.
+            mount: (paneEl) => startBoundaryDraw({ parent: paneEl }),
             // §MAP-IS-A-SINGLETON-TOO (L-12992) — a pane-to-pane MOVE is not a departure.
             // `unmount` below DISPOSES (that is how the map goes away at generate-time), so
             // without this a move destroyed the map and rebuilt it in the other pane: tiles
             // refetched, the in-progress boundary lost, and the draw watchdog left spinning on
             // a readiness stamp the disposer had cleared. `PaneHost` calls this instead.
             relocate: (paneEl) => {
-                if (map2dHandle) map2dHandle.reparentTo(paneEl);
-                else startBoundaryDraw({ parent: paneEl }); // never opened / already disposed.
+                if (map2dHandle) { map2dHandle.reparentTo(paneEl); return undefined; }
+                return startBoundaryDraw({ parent: paneEl }); // never opened / already disposed.
             },
-            isPlacedIn: (paneEl) => map2dHandle?.isPlacedIn(paneEl) ?? false,
+            // ⭐ THREE ANSWERS, NOT TWO (§UNKNOWN-IS-NOT-MISPLACED, L-13053). This read
+            // `map2dHandle?.isPlacedIn(paneEl) ?? false`, which reported a map still inside its
+            // dynamic import as POSITIVELY MISPLACED — the founder's repeating
+            // `'site-map-2d' (maplibre) is NOT in the pane the layout gives it — putting it
+            // back`, each one starting another mount of a singleton surface. `undefined` says
+            // "not yet knowable"; `false` is kept for the case that genuinely IS a misplacement
+            // (a live handle in another pane) and for a disposed map that must be re-opened,
+            // so the recovery path this predicate exists for is unchanged.
+            isPlacedIn: (paneEl) => {
+                if (map2dHandle) return map2dHandle.isPlacedIn(paneEl);
+                if (map2dStarting) return undefined;
+                return false;
+            },
             unmount: () => { if (map2dHandle) { try { map2dHandle.dispose(); } catch { /* gone */ } map2dHandle = null; } },
             // MapLibre auto-reflows via its own ResizeObserver (trackResize:true) — but that
             // observer only fires when the BOX changes, and a re-parent between two equally
@@ -7102,6 +7179,125 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     window.pryzmUnmountSiteAuthoringPanes = () => {
         try { unmountSiteAuthoringPanes(); }
         catch (e) { console.error('[gis][panes] pryzmUnmountSiteAuthoringPanes failed:', e); }
+    };
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // §SINGLE-VIEW-IS-A-LAYOUT-FACT (L-13053) — "SINGLE VIEW" IS A LAYOUT, NOT A TEARDOWN.
+    //
+    // Founder 2026-09-07: *"WHEN HAVING ANALYSIS — PARCEL LAW ACTIVE — THEN IT IS ON SPLIT ON
+    // — WORKS WELL. BUT IF WE GO TO SINGLE VIEW, SOMEHOW IT GETS A WHITE SCREEN — WITH MASSIVE
+    // PANEL — THIS SHOULD STILL BE A DROP DOWN OCCUPYING WAY SMALLER SPACE — AND BY DEFAULT
+    // RENDER 2D PLAN VIEW ON THIS ENVIRONMENT."*
+    //
+    // ⛔ THE ROOT WAS NOT A RACE. "Single view" dispatched `pryzmUnmountSiteAuthoringPanes()`,
+    // which DISPOSES the shell: `mapMounter.unmount()` disposes the MapLibre map and
+    // `cesiumMounter.unmount()` re-homes the ONE viewer to `#container` and hides it. In the
+    // Analysis workspace `#container` is the LEFT HALF (`canvas: 'half'`), so what was left in
+    // it was an empty BIM canvas — the founder's white screen. And the same gesture brought the
+    // retired whole-screen six-segment bar back, because `viewSwitcherOnView` re-inserts it
+    // exactly when the shell root is gone. ⭐ ONE ACTION, BOTH SYMPTOMS.
+    //
+    // C59 §1.4 already states the rule this broke: *"`view.pane.solo` vacates the other
+    // pane(s); the shell then collapses the empty pane and the divider so the SURVIVOR fills
+    // the shell — carrying its picker with it."* So single view SOLOS. The shell stays up, the
+    // survivor keeps its dropdown (which is the founder's requirement 2, answered by the same
+    // change rather than by a second one), and `◧ Back to split` still has somewhere to go.
+    //
+    // ⚠ P6 / C59 §2 invariant 3 — every move here goes through `PaneLayoutStore.dispatch`.
+    // Nothing below touches `MultiPaneController`, a mounter, or a style.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /** The three-state READING of the live shell: no shell · one pane · two panes. */
+    const getSiteAuthoringPaneMode = (): SitePaneMode => {
+        if (!siteAuthoringPanes || siteAuthoringPanes.isDisposed) return 'absent';
+        return describeSitePaneMode(siteAuthoringPanes.store.getLayout());
+    };
+
+    /** Move the LIVE shell between split and single. `false` when nothing changed. */
+    const setSiteAuthoringPaneMode = (mode: 'split' | 'single'): boolean => {
+        const shell = siteAuthoringPanes;
+        if (!shell || shell.isDisposed) {
+            console.warn('[gis][panes] §SINGLE-VIEW-IS-A-LAYOUT-FACT: no live pane shell — nothing to re-lay-out.');
+            return false;
+        }
+        const store = shell.store;
+
+        if (mode === 'split') {
+            const restored = store.dispatch({ type: 'view.pane.restore-split' });
+            if (restored.ok) {
+                restored.pending?.catch((err) => console.error('[gis][panes] restore-split apply (async) failed:', err));
+                return true;
+            }
+            // No memory to restore — an explicit assignment in the single pane supersedes it by
+            // design. Fall back to THIS host's declared opening rather than to a constant.
+            console.log(
+                `[gis][panes] restore-split had nothing to restore (${restored.rejected}) — `
+                + `re-seeding the declared '${siteAuthoringPanePreset}' opening.`,
+            );
+            const seeded = store.dispatch({
+                type: 'view.pane.set-layout',
+                layout: paneLayoutForPreset(siteAuthoringPanePreset),
+            });
+            if (!seeded.ok) {
+                console.warn('[gis][panes] re-seed rejected (the single view stands):', seeded.rejected);
+                return false;
+            }
+            seeded.pending?.catch((err) => console.error('[gis][panes] re-seed apply (async) failed:', err));
+            return true;
+        }
+
+        // ── single ──────────────────────────────────────────────────────────────
+        const preferred = singleViewForPreset(siteAuthoringPanePreset);
+        const target = describeSingleViewTarget(store.getLayout(), preferred);
+        if (!target) return false;
+        if (target.assign) {
+            // ASSIGN BEFORE SOLO, deliberately: the solo remembers the layout it collapsed, so
+            // doing it in this order leaves `◧ Back to split` a real two-pane split to return
+            // to. (A singleton assign SWAPS rather than vacates — §SWAP-NOT-VACATE.)
+            const assigned = store.dispatch({
+                type: 'view.pane.assign',
+                paneId: target.paneId,
+                viewType: target.assign,
+            });
+            if (assigned.ok) {
+                assigned.pending?.catch((err) => console.error('[gis][panes] single-view assign (async) failed:', err));
+            } else {
+                console.warn(
+                    `[gis][panes] the declared single view '${target.assign}' was refused `
+                    + `(${assigned.rejected}) — soloing whatever the panes already hold instead.`,
+                );
+            }
+        }
+        // Solo the target when it actually holds something; otherwise solo a pane that does.
+        // ⛔ Never solo an empty pane: that IS the blank screen this whole block removes.
+        const live = store.getLayout();
+        const soloPane = live[target.paneId] != null
+            ? target.paneId
+            : Object.keys(live).find((p) => live[p] != null) ?? null;
+        if (soloPane == null) {
+            console.warn('[gis][panes] every pane is empty — refusing to go single (that is the blank screen).');
+            return false;
+        }
+        const soloed = store.dispatch({ type: 'view.pane.solo', paneId: soloPane });
+        if (!soloed.ok) {
+            console.warn('[gis][panes] solo rejected (the split stands):', soloed.rejected);
+            return false;
+        }
+        soloed.pending?.catch((err) => console.error('[gis][panes] solo apply (async) failed:', err));
+        console.log(
+            `[gis][panes] §SINGLE-VIEW-IS-A-LAYOUT-FACT — single view on '${soloPane}' `
+            + `(${live[soloPane]}); the shell stays up and that pane keeps its dropdown.`,
+        );
+        return true;
+    };
+
+    window.pryzmGetSiteAuthoringPaneMode = () => getSiteAuthoringPaneMode();
+    window.pryzmSetSiteAuthoringPaneMode = (mode) => {
+        try { return setSiteAuthoringPaneMode(mode); }
+        catch (e) {
+            console.error('[gis][panes] pryzmSetSiteAuthoringPaneMode failed:', e);
+            return false;
+        }
     };
 
     // ════════════════════════════════════════════════════════════════════════
