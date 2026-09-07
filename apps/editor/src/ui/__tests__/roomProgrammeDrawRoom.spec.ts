@@ -24,9 +24,11 @@
  * and the order. A drawn rectangle contributes an AREA and a POSITION IN THE ORDER, and one test
  * below pins that the panel SAYS the room lands where those put it rather than on the rectangle.
  *
- * ⛔ NOR PERSISTENCE OR UNDO. The programme is a session brief whose own header says *"NOTHING
- * HERE PERSISTS"*; the bus is reached by "Place envelopes in 3D". One test pins that the panel
- * says Ctrl+Z will not take a drawn room back, rather than letting the user assume it will.
+ * ⛔ NOR CROSS-SESSION PERSISTENCE. The programme is a session brief whose own header says it
+ * does not survive a load; the bus is reached by "Place envelopes in 3D".
+ * ⭐ UNDO, HOWEVER, IS NOW REAL (§ROOM-BRIEF-UNDO, L-13120) and lives in
+ * `roomProgrammeUndo.spec.ts`. One test below pins that the panel's own sentence says so — it
+ * used to assert the opposite admission, which was true when it was written.
  *
  * ── THE SPLIT BETWEEN THE TWO HALVES, STATED ─────────────────────────────────────────────────
  * The TAXONOMY is proven against the pure asker, where every number is chosen by this file. The
@@ -614,8 +616,11 @@ describe('§ROOM-DRAW-NEW — a real pointer gesture reaches the reducer with th
     // handed the panel. 20 m², within the centimetre-squared the gesture rounds to.
     expect(p.entries.at(-1)!.targetAreaM2).toBeCloseTo(20, 1);
     expect(statusText(host)).toContain('Added a living');
-    // ⛔ THE ADMISSION IS IN THE SENTENCE, not left for the user to discover.
-    expect(statusText(host)).toContain('Ctrl+Z will not take it back');
+    // ⭐ §ROOM-BRIEF-UNDO (L-13120) — this asserted the ADMISSION `'Ctrl+Z will not take it
+    // back'`. The limit it admitted is closed, so the sentence now names the way back, and
+    // `roomProgrammeUndo.spec.ts` proves the gesture behind it actually works. A message that
+    // outlived its limit is the same defect as a message that hid one.
+    expect(statusText(host)).toContain('Press Undo — Ctrl+Z — to take the room back out');
     panel.dispose();
   });
 

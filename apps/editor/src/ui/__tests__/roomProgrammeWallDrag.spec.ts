@@ -21,9 +21,11 @@
  * so an arbitrary authored ring would be re-solved away on the user's next keystroke, which is
  * the very defect L-13079 names. No assertion below pretends a room can be drawn vertex by vertex.
  *
- * ⛔ NOR DOES IT CLAIM PERSISTENCE OR UNDO. The programme is a session brief whose own header says
- * *"NOTHING HERE PERSISTS"*; the bus is reached by "Place envelopes in 3D". A wall move is
- * therefore not on the undo stack, and one test below pins that the panel SAYS so.
+ * ⛔ NOR DOES IT CLAIM CROSS-SESSION PERSISTENCE — the programme is a session brief, and the bus
+ * is reached by "Place envelopes in 3D".
+ * ⭐ IT NO LONGER DENIES UNDO EITHER. §ROOM-BRIEF-UNDO (L-13120) gave the brief its own history,
+ * so a wall move is ONE step on it; the test below pins the panel's sentence, and
+ * `roomProgrammeUndo.spec.ts` pins the gesture.
  *
  * ── THE SPLIT BETWEEN THE TWO HALVES OF THIS FILE, STATED ────────────────────────────────────
  * The ARITHMETIC and every REFUSAL are proven against the pure reducer, where every number is
@@ -450,8 +452,10 @@ describe('§ROOM-WALL-DRAG — a real pointer gesture moves the metres the pixel
     panel.dispose();
   });
 
-  it('the panel states that Ctrl+Z will not take a wall move back', () => {
-    // ⚠ The brief is not the undo stack. Saying so is cheaper than the support ticket that isn't.
+  it('the panel names the way back — Ctrl+Z takes a wall move back (§ROOM-BRIEF-UNDO)', () => {
+    // ⭐ THIS TEST'S NAME USED TO BE ITS OPPOSITE: *"Ctrl+Z will not take a wall move back"*. The
+    // brief now keeps its own history (L-13120), so the sentence names the way back instead of
+    // admitting there is none; `roomProgrammeUndo.spec.ts` proves the gesture itself.
     seedProgramme();
     const panel = mountRoomProgrammePanel(host, deps());
     dragWall(host, seams(host)[0]!, 3);

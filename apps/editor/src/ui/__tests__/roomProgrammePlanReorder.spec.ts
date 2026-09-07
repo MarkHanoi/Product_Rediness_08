@@ -248,10 +248,11 @@ describe('§ROOM-PIN — a refused move is SPOKEN, never a silent no-op', () => 
     panel.dispose();
   });
 
-  it('the pin states that Ctrl+Z will not release it — the brief is not the undo stack', () => {
-    // ⚠ `roomProgrammeModel.ts` argues P6 in full: a programme is a session BRIEF, not a domain
-    // store, and the bus is reached when it is COMMITTED. So the panel must not let the user
-    // believe a pin is undoable. Saying it is cheaper than the support ticket that isn't.
+  it('the pin names Ctrl+Z as the way to take the move back (§ROOM-BRIEF-UNDO)', () => {
+    // ⭐ THIS TEST USED TO ASSERT THE OPPOSITE — *"Ctrl+Z will not release it — the brief is not
+    // the undo stack"*. The brief is STILL not the bus (`roomProgrammeModel.ts` argues P6 in
+    // full) and it now keeps its OWN history (L-13120), which are two different facts that were
+    // being run as one. So the panel names a way back rather than denying one.
     seedProgramme();
     const panel = mountRoomProgrammePanel(host, deps());
     dragOnto(host, idsInOrder(host)[3]!, idsInOrder(host)[0]!);

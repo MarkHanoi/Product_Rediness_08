@@ -33,9 +33,19 @@
  *     `HouseLayoutExecutor` → `wall.batch.create`. That chain is real, reachable and
  *     wired — and it produces exactly the thing this stage forbids.
  *
- * ⛔ NOTHING HERE PERSISTS. A brief restored on next load would present a programme
- * nobody asked for as though the product had decided something — the same rule
+ * ⛔ NOTHING HERE PERSISTS ACROSS LOADS. A brief restored on next load would present a
+ * programme nobody asked for as though the product had decided something — the same rule
  * `GISAreaLayout`'s massing-option set states for itself.
+ *
+ * ⭐ WITHIN THE SESSION IT IS FULLY UNDOABLE, AND THAT IS NOT THE SAME CLAIM (§ROOM-BRIEF-UNDO,
+ * L-13120). The two were run together — *"no persistence"* was written as one limit and read as
+ * one — and they are different facts with different arguments. Cross-session restore is REFUSED
+ * on the ground above. Taking back the gesture you just made is a USER EXPECTATION, not a
+ * feature: a gesture that cannot be reversed makes people afraid to use the tool, and an
+ * un-undoable gesture sitting beside undoable ones (place envelopes IS on the bus) is worse than
+ * either, because the user cannot predict which of his actions are reversible. So this stash
+ * keeps its OWN bounded history — see §ROOM-BRIEF-UNDO at the bottom of this file for why that
+ * is a history and not a bus command, and `roomProgrammePanel.ts` for who presses it.
  */
 
 import {
@@ -622,15 +632,43 @@ export function getRoomProgramme(): RoomProgramme {
  * Apply an intent. Returns `true` iff the state actually changed, so a caller can skip
  * a re-solve it does not need — the reducer's referential-identity contract is what
  * makes that a cheap and honest test.
+ *
+ * ⭐ AND IT IS THE ONE PLACE THE HISTORY IS WRITTEN. Every mutation of the brief in this
+ * repo goes through this function — the panel has fourteen call sites and no other route —
+ * so recording the previous state HERE makes "one gesture, one undo step" a property of the
+ * choke point rather than a discipline fourteen call sites have to keep (C84 EI-8a).
  */
-export function applyRoomProgrammeIntent(intent: RoomProgrammeIntent): boolean {
-  const next = reduceRoomProgramme(_programme, intent);
-  if (next === _programme) return false;
+export function applyRoomProgrammeIntent(
+  intent: RoomProgrammeIntent,
+  opts?: ApplyRoomProgrammeOptions,
+): boolean {
+  const prev = _programme;
+  const next = reduceRoomProgramme(prev, intent);
+  // ⛔ A REFUSED INTENT IS NOT AN UNDO STEP. The reducer returns the state referentially
+  // unchanged when it refuses, so a refused draw leaves the top of the history pointing at
+  // the last gesture that DID something — which is what the next Ctrl+Z should take back.
+  if (next === prev) return false;
+  if (opts?.undoable === false) {
+    // ⚠ INVISIBLE TO THE HISTORY, NOT A HISTORY RESET. The one caller is the panel's
+    // mount-time load of the project's own rooms: the user did not ask for it, so it must not
+    // be what his first Ctrl+Z takes back, and it must not erase the gestures underneath it.
+    _future = [];
+  } else {
+    _past.push({ state: prev, label: describeProgrammeIntent(prev, next, intent) });
+    if (_past.length > ROOM_PROGRAMME_HISTORY_LIMIT) _past.shift();
+    // A new branch invalidates the old one — the standard rule, stated so nobody re-adds a
+    // redo that would re-apply a state reached from a programme that no longer exists.
+    _future = [];
+  }
   _programme = next;
+  _notify();
+  return true;
+}
+
+function _notify(): void {
   for (const fn of [..._listeners]) {
     try { fn(); } catch (e) { console.warn('[room-programme] listener threw (non-fatal):', e); }
   }
-  return true;
 }
 
 /** Subscribe to programme changes. Returns the unsubscribe. */
@@ -639,8 +677,190 @@ export function subscribeRoomProgramme(fn: () => void): () => void {
   return () => { _listeners.delete(fn); };
 }
 
-/** Drop the brief (e.g. a project switch). Notifies. */
+/**
+ * Drop the brief (e.g. a project switch). Notifies.
+ *
+ * ⛔ IT DROPS THE HISTORY TOO, AND THAT IS THE POINT OF DOING IT HERE. An undo that reached
+ * back across a project switch would restore ANOTHER project's brief onto this plate —
+ * rooms measured against a footprint that is no longer on screen. The states are dropped
+ * rather than kept-and-guarded because a guard is a second thing to get right.
+ */
 export function clearRoomProgramme(): void {
-  if (_programme.entries.length === 0 && _programme.links.length === 0) return;
-  applyRoomProgrammeIntent({ type: 'programme.reset', next: EMPTY_ROOM_PROGRAMME });
+  const had = _past.length > 0 || _future.length > 0;
+  _past = [];
+  _future = [];
+  if (_programme.entries.length === 0 && _programme.links.length === 0) {
+    // The brief was already empty, but the history may not have been — notify so a panel
+    // showing enabled Undo/Redo buttons repaints them disabled.
+    if (had) _notify();
+    return;
+  }
+  applyRoomProgrammeIntent({ type: 'programme.reset', next: EMPTY_ROOM_PROGRAMME }, { undoable: false });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §ROOM-BRIEF-UNDO (L-13120) — TAKING BACK THE GESTURE YOU JUST MADE
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ⭐ WHY IT WAS NOT UNDOABLE, STATED BEFORE THE FIX. Two independent reasons, and only the
+// second one is a defect:
+//
+//   1. THE BRIEF IS NOT ON EITHER GLOBAL UNDO STACK, BY DESIGN. `performUndo()`
+//      (`apps/editor/src/engine/undo/performUndoRedo.ts`) consults exactly two: the
+//      CommandBus ring buffer and the legacy `commandManager`. A programme edit reaches
+//      neither, because it is not a bus command — this file's header argues that in full and
+//      C52 §3 is the discipline. ⛔ THIS IS NOT A P6 BREACH. P6 governs the DOMAIN stores
+//      (persisted, exported, rendered, collaborated); a session brief is none of those, and
+//      the blessed precedent is the `activeRoom*Overrides` family.
+//   2. THE STASH KEPT NO HISTORY. `applyRoomProgrammeIntent` overwrote `_programme` and
+//      dropped the previous value on the floor. So even a panel-local Ctrl+Z had nothing to
+//      restore. THAT is the defect, and it is the one fixed here: the missing thing was a
+//      history, not a command.
+//
+// ⛔ THE ALTERNATIVE — MINT BUS COMMANDS FOR THE BRIEF — WAS REJECTED, NOT OVERLOOKED. It
+// would put a session brief into the ring buffer, whose entries carry `affectedStores` and
+// drive inverse PATCHES against real stores (C03 §4.8); a brief has no store to patch, so the
+// entry would be uncoverable — the `stranded` case `performUndo` reports when an entry cannot
+// be applied. It would also interleave brief edits with element edits on ONE stack, so a
+// Ctrl+Z aimed at a wall would take back a room's area. A separate history for a separate
+// subject is the smaller and more honest structure; what it costs is the ordering question
+// the panel answers, and answers explicitly.
+//
+// ⭐ ONE GESTURE = ONE STEP IS INHERITED, NOT ARRANGED (C114 §6a). It holds because the
+// gestures were already atomic INTENTS: `programme.draw-room` is one intent for one rectangle
+// (that argument is at the intent), `programme.resize-pair` is one for one wall drag, and the
+// list's inputs dispatch on `change`, not `input`, so typing an area is one step and not one
+// per keystroke. No coalescing window, no clock, no debounce — and therefore nothing that can
+// merge two gestures the user made separately.
+
+/** How many programme states back one session remembers. Snapshots are small (ids + numbers). */
+export const ROOM_PROGRAMME_HISTORY_LIMIT = 100;
+
+export interface ApplyRoomProgrammeOptions {
+  /**
+   * `false` ⇒ this change is invisible to the undo history. For changes the USER DID NOT
+   * MAKE — today, exactly one: the panel's automatic mount-time load of the project's rooms.
+   */
+  readonly undoable?: boolean;
+}
+
+/** What one step of the history holds: the state to return to, and the words for it. */
+interface RoomProgrammeHistoryStep {
+  readonly state: RoomProgramme;
+  readonly label: string;
+}
+
+export interface RoomProgrammeHistoryDepth {
+  readonly past: number;
+  readonly future: number;
+}
+
+export interface ProgrammeHistoryOutcome {
+  readonly ok: boolean;
+  /** What was taken back / put back — the SAME words the control offered beforehand. */
+  readonly label: string | null;
+}
+
+let _past: RoomProgrammeHistoryStep[] = [];
+let _future: RoomProgrammeHistoryStep[] = [];
+
+/**
+ * Name the change an intent makes, in words a user can check against what he just did.
+ *
+ * ⭐ IT IS DERIVED HERE AND NOWHERE ELSE. An undo control that says only *"Undo"* asks the
+ * user to remember; one that says *"takes back the Bedroom 2 you drew"* can be checked before
+ * it is pressed — the same rule C83 §1.2 states for refusals, applied to the reverse gesture.
+ * Deriving it at the choke point (rather than passing a label in from fourteen call sites)
+ * is what stops the words and the state disagreeing.
+ *
+ * Pure: `prev` names rooms the intent removes, `next` names rooms it creates.
+ */
+export function describeProgrammeIntent(
+  prev: RoomProgramme,
+  next: RoomProgramme,
+  intent: RoomProgrammeIntent,
+): string {
+  const nameIn = (p: RoomProgramme, id: string): string =>
+    p.entries.find((e) => e.id === id)?.name ?? 'a room';
+  switch (intent.type) {
+    case 'programme.add-room':
+      return `adding ${nameIn(next, intent.id)}`;
+    case 'programme.draw-room':
+      return `the ${nameIn(next, intent.id)} you drew`;
+    case 'programme.remove-room':
+      return `removing ${nameIn(prev, intent.id)}`;
+    case 'programme.rename-room':
+      return `renaming ${nameIn(prev, intent.id)} to ${nameIn(next, intent.id)}`;
+    case 'programme.set-area':
+      return `resizing ${nameIn(prev, intent.id)} to ${intent.targetAreaM2.toFixed(2)} m²`;
+    case 'programme.link':
+      return `linking ${nameIn(prev, intent.aId)} to ${nameIn(prev, intent.bId)}`;
+    case 'programme.unlink':
+      return `unlinking ${nameIn(prev, intent.aId)} from ${nameIn(prev, intent.bId)}`;
+    case 'programme.pin-room':
+      return `moving ${nameIn(prev, intent.id)} to position ${intent.order + 1}`;
+    case 'programme.unpin-room':
+      return `unpinning ${nameIn(prev, intent.id)}`;
+    case 'programme.resize-pair':
+      return `the wall you moved between ${nameIn(prev, intent.aId)} and ${nameIn(prev, intent.bId)}`;
+    case 'programme.reset':
+      return `replacing the programme with ${intent.next.entries.length} room`
+        + `${intent.next.entries.length === 1 ? '' : 's'}`;
+    default:
+      // Unreachable while the union is exhausted above; a NAME is still better than a throw.
+      return 'that change';
+  }
+}
+
+/** What the next undo would take back, or `null` when there is nothing to take back. */
+export function peekRoomProgrammeUndo(): string | null {
+  return _past.length > 0 ? _past[_past.length - 1]!.label : null;
+}
+
+/** What the next redo would put back, or `null` when there is nothing to put back. */
+export function peekRoomProgrammeRedo(): string | null {
+  return _future.length > 0 ? _future[_future.length - 1]!.label : null;
+}
+
+export function roomProgrammeHistoryDepth(): RoomProgrammeHistoryDepth {
+  return { past: _past.length, future: _future.length };
+}
+
+/**
+ * Take back the last gesture. Notifies exactly as an intent does, so every subscriber
+ * repaints through the ONE path it already has.
+ *
+ * ⛔ IT RESTORES A SNAPSHOT, IT DOES NOT INVERT AN INTENT. A brief is a handful of ids,
+ * names and numbers, so the whole state is cheaper to keep than an inverse is to derive —
+ * and an inverse that is derived can be WRONG, which is the failure mode a restore does not
+ * have. The ring buffer pays for inverse patches because it is undoing megabytes of geometry.
+ */
+export function undoRoomProgramme(): ProgrammeHistoryOutcome {
+  const step = _past.pop();
+  if (!step) return { ok: false, label: null };
+  _future.push({ state: _programme, label: step.label });
+  _programme = step.state;
+  _notify();
+  return { ok: true, label: step.label };
+}
+
+/** Put back what the last undo took. Mirror of {@link undoRoomProgramme}. */
+export function redoRoomProgramme(): ProgrammeHistoryOutcome {
+  const step = _future.pop();
+  if (!step) return { ok: false, label: null };
+  _past.push({ state: _programme, label: step.label });
+  _programme = step.state;
+  _notify();
+  return { ok: true, label: step.label };
+}
+
+/**
+ * Forget the history, keeping the brief. For a caller that has just replaced the brief by a
+ * route this module cannot see, and for specs that need a known starting depth.
+ */
+export function resetRoomProgrammeHistory(): void {
+  if (_past.length === 0 && _future.length === 0) return;
+  _past = [];
+  _future = [];
+  _notify();
 }

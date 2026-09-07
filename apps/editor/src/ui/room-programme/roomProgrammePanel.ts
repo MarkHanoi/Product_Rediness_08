@@ -75,7 +75,11 @@ import {
   defaultResidentialProgramme,
   describePairResize,
   getRoomProgramme,
+  peekRoomProgrammeRedo,
+  peekRoomProgrammeUndo,
+  redoRoomProgramme,
   subscribeRoomProgramme,
+  undoRoomProgramme,
   type RoomProgramme,
 } from './roomProgrammeModel';
 import {
@@ -119,6 +123,17 @@ export const ROOM_PROGRAMME_REPORT_TESTID = 'room-programme-report';
 export const ROOM_PROGRAMME_PLACE_BTN_TESTID = 'room-programme-place';
 export const ROOM_PROGRAMME_STATUS_TESTID = 'room-programme-status';
 export const ROOM_PROGRAMME_SEED_BTN_TESTID = 'room-programme-seed';
+/**
+ * §ROOM-BRIEF-UNDO (L-13120) — the two controls that take a brief gesture back.
+ *
+ * ⭐ THEY EXIST BECAUSE A KEYSTROKE IS NOT A CONTROL. Ctrl+Z is bound below and is what a user
+ * reaches for first, but it is invisible, it is unavailable to a user who cannot hold two keys,
+ * and — the reason that decides it — the keyboard has to DEFER when a newer bus command is the
+ * thing chronology says to undo. A button that names its subject never has to defer, because
+ * pressing it is the user saying which stack he meant.
+ */
+export const ROOM_PROGRAMME_UNDO_TESTID = 'room-programme-undo';
+export const ROOM_PROGRAMME_REDO_TESTID = 'room-programme-redo';
 /** §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — "load / re-read the project's rooms". */
 export const ROOM_PROGRAMME_LOAD_BTN_TESTID = 'room-programme-load-project';
 export const ROOM_PROGRAMME_NODE_ATTR = 'data-room-node';
@@ -341,8 +356,12 @@ export function mountRoomProgrammePanel(
   host: HTMLElement,
   deps: RoomProgrammePanelDeps = defaultRoomProgrammePanelDeps(),
 ): RoomProgrammePanelHandle {
-  const root = el('div', 'display:flex;flex-direction:column;gap:2px;padding:8px;');
+  const root = el('div', 'display:flex;flex-direction:column;gap:2px;padding:8px;outline:none;');
   root.setAttribute('data-testid', ROOM_PROGRAMME_ROOT_TESTID);
+  // §ROOM-BRIEF-UNDO (L-13120) — programmatically focusable, never in the tab ORDER. A panel
+  // that stole a tab stop from the controls inside it would trade one keyboard defect for
+  // another; `-1` is exactly "can hold focus, is not a stop".
+  root.tabIndex = -1;
 
   let disposed = false;
   let status = '';
@@ -366,6 +385,101 @@ export function mountRoomProgrammePanel(
     // Any programme change invalidates a pending replace confirmation — the count it
     // quoted was about a layout that no longer exists.
     if (fn()) { pendingReplace = null; render(); }
+  };
+
+  // ── §ROOM-BRIEF-UNDO (L-13120) — WHO PRESSES UNDO, AND WHEN IT DEFERS ──────
+  //
+  // The history itself lives in `roomProgrammeModel.ts`, which also states why the brief is
+  // not on either global undo stack and why that is not a P6 breach. What lives HERE is the
+  // one question a second stack forces: WHICH stack does a Ctrl+Z mean?
+  //
+  // ⭐ THE ANSWER IS THE ONE `performUndoRedo.ts` ALREADY GIVES — reverse chronological order
+  // across the stacks (§UNDO-CROSS-STACK-ORDER), applied with the only two facts this panel
+  // can actually establish:
+  //
+  //   1. FOCUS. A Ctrl+Z is answered by the brief only while focus is inside this panel. With
+  //      focus in the viewport it is the scene's, and this handler never sees a reason to
+  //      consume it. That is the platform's own scoping rule for undo, not an invention.
+  //   2. THE PLACEMENT DEBT. "Place envelopes in 3D" dispatches bus commands that ARE on the
+  //      ring buffer and ARE newer than every brief edit before them. So each dispatch adds
+  //      one to `busUndoDebt`, and while that debt is unpaid the keyboard DECLINES — one
+  //      keypress per command, in the order they were made — letting `performUndo()` take
+  //      them. The next brief edit clears the debt, because it is now the newest thing.
+  //
+  // ⛔ WHAT THIS DOES NOT ESTABLISH, SAID PLAINLY. A bus command dispatched by some OTHER
+  // surface while focus sat in this panel is invisible here, so a Ctrl+Z could take back a
+  // brief edit that is older than it. Closing that needs one clock shared by the ring buffer
+  // and this history, which is a change to the undo module, not to this panel. The residual is
+  // bounded by the focus rule (the user's hands were in this panel) and the buttons are exact
+  // in every case, which is why the buttons exist and are not decoration.
+  //
+  // ⛔ AND IT NEVER SWALLOWS A KEYPRESS IT DID NO WORK FOR (§UNDO-NO-PHANTOM, L-691): with an
+  // empty history it returns without `preventDefault`, so the global handler still runs and
+  // the user gets the scene's undo rather than a keystroke that did nothing.
+
+  /** Bus commands dispatched from this panel since the last brief change. See above. */
+  let busUndoDebt = 0;
+
+  /** Is the keyboard's owner inside this panel right now? */
+  function focusIsInPanel(): boolean {
+    const a = typeof document !== 'undefined' ? document.activeElement : null;
+    return !!a && (a === root || root.contains(a));
+  }
+
+  function runBriefUndo(direction: 'undo' | 'redo'): boolean {
+    const r = direction === 'undo' ? undoRoomProgramme() : redoRoomProgramme();
+    if (!r.ok) return false;
+    pendingReplace = null;
+    say(
+      direction === 'undo'
+        ? `Took back ${r.label}. The plan is re-solved from the brief as it was; press Redo — or `
+          + 'Ctrl+Y — to put it back.'
+        : `Put back ${r.label}.`,
+      false);
+    render();
+    return true;
+  }
+
+  /**
+   * Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y, in the CAPTURE phase on `window` so a keypress this panel
+   * answers never also reaches `initUI`'s global handler on the same window (which listens in
+   * the bubble phase and would then undo a scene edit for the same press).
+   */
+  const onUndoKey = (ev: KeyboardEvent): void => {
+    if (disposed) return;
+    if (!(ev.ctrlKey || ev.metaKey)) return;
+    const k = ev.key.toLowerCase();
+    const isUndo = k === 'z' && !ev.shiftKey;
+    const isRedo = (k === 'z' && ev.shiftKey) || k === 'y';
+    if (!isUndo && !isRedo) return;
+    // ⛔ A TEXT FIELD OWNS ITS OWN UNDO. Taking Ctrl+Z away from a half-typed room name would
+    // be a worse bug than the one this closes — and it is the same guard `initUI` uses.
+    const t = ev.target;
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return;
+    if (!focusIsInPanel()) return;
+    if (busUndoDebt > 0) {
+      // The newest thing is an envelope command, not a brief edit. Decline exactly once per
+      // command and let the global undo have this keypress.
+      busUndoDebt -= 1;
+      return;
+    }
+    if ((isUndo ? peekRoomProgrammeUndo() : peekRoomProgrammeRedo()) === null) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    runBriefUndo(isUndo ? 'undo' : 'redo');
+  };
+
+  /**
+   * Give the panel the focus a keyboard shortcut needs.
+   *
+   * ⚠ SVG CELLS ARE NOT FOCUSABLE, so after drawing a room `document.activeElement` is still
+   * `<body>` and the focus rule above would hand every Ctrl+Z to the scene. The root takes
+   * focus on a pointer press inside it — and ONLY when focus is not already inside, so a click
+   * into the area field or the room-name input still lands where the browser would put it.
+   */
+  const onPanelPointerDown = (): void => {
+    if (disposed || focusIsInPanel()) return;
+    try { root.focus({ preventScroll: true }); } catch { root.focus(); }
   };
 
   // ── LIBRARY ────────────────────────────────────────────────────────────────
@@ -397,7 +511,14 @@ export function mountRoomProgrammePanel(
     return safe(() => deps.readProjectRooms(), [] as readonly ProjectRoomLike[]).length;
   }
 
-  function loadProjectRooms(announce: boolean): boolean {
+  /**
+   * @param undoable §ROOM-BRIEF-UNDO (L-13120) — `false` for the ONE automatic mount-time load.
+   * A change the user did not ask for must not be what his first Ctrl+Z takes back: he would
+   * press it expecting his own last gesture and watch the panel empty instead. The two BUTTONS
+   * that do the same read are gestures, so they pass `true` and are fully reversible — which
+   * matters most for the one whose own tooltip warns *"Relationships you plugged are cleared"*.
+   */
+  function loadProjectRooms(announce: boolean, undoable = true): boolean {
     const rooms = safe(() => deps.readProjectRooms(), [] as readonly ProjectRoomLike[]);
     const levelId = safe(() => deps.readActiveLevelId(), null);
     // Prefer the ACTIVE storey; fall back to the whole project when the active storey
@@ -413,7 +534,8 @@ export function mountRoomProgrammePanel(
       if (announce) say(describeProjectRoomsImport(imp, scope), false);
       return false;
     }
-    const changed = applyRoomProgrammeIntent({ type: 'programme.reset', next: imp.programme });
+    const changed = applyRoomProgrammeIntent(
+      { type: 'programme.reset', next: imp.programme }, { undoable });
     if (announce || changed) say(describeProjectRoomsImport(imp, scope), false);
     return changed;
   }
@@ -743,9 +865,13 @@ export function mountRoomProgrammePanel(
   // link · unlink). It is deliberately NOT a bus command: `roomProgrammeModel.ts`'s header makes
   // the P6 argument in full — a programme is a session BRIEF, not a domain store, and its
   // blessed precedent is the `activeRoom*Overrides` family (C52 §3). The bus is reached when the
-  // brief is COMMITTED, by "Create room envelopes", and that is the gesture that is undoable.
-  // ⚠ SO: A PIN IS NOT ON THE UNDO STACK, and this panel must not imply that it is. Ctrl+Z does
-  // not unpin — dragging the room back, or double-clicking it, does.
+  // brief is COMMITTED, by "Create room envelopes", and that is the gesture that is on the BUS.
+  // ⭐ CORRECTED 2026-09-07 (§ROOM-BRIEF-UNDO, L-13120). This read *"A PIN IS NOT ON THE UNDO
+  // STACK, and this panel must not imply that it is. Ctrl+Z does not unpin"*. It was accurate
+  // and it was a limit, not a design: the brief now keeps its OWN history
+  // (`roomProgrammeModel.ts` §ROOM-BRIEF-UNDO), so a pin is taken back by Undo or Ctrl+Z like
+  // every other brief gesture. NOT being a bus command and NOT being undoable were run together
+  // as one fact; they are two, and only the first of them was ever a decision.
 
   /** Where a reorder gesture began: the room under the pointer at `pointerdown`. */
   let reorderFrom: { readonly id: string; readonly name: string; readonly order: number } | null = null;
@@ -838,9 +964,8 @@ export function mountRoomProgrammePanel(
       pendingReplace = null;
       say(
         `${from.name} is pinned to position ${toOrder + 1}. It stays there while the rooms you `
-        + 'have not pinned re-solve around it. Double-click it to hand it back to the solver. '
-        + '(A pin is part of this session\'s brief, not the undo stack — Ctrl+Z will not '
-        + 'release it.)', false);
+        + 'have not pinned re-solve around it. Double-click it to hand it back to the solver, '
+        + 'or press Undo — Ctrl+Z — to take the move back.', false);
     } else {
       // The reducer's one remaining refusal at this point is an out-of-range order, which the
       // strip cannot produce: it only offers positions that exist. Said anyway rather than
@@ -880,8 +1005,8 @@ export function mountRoomProgrammePanel(
   // ⚠ AND, EXACTLY AS §ROOM-PIN STATES: this writes the session BRIEF through
   // `applyRoomProgrammeIntent`, not the bus. `roomProgrammeModel.ts`'s header argues P6 in full —
   // a programme is a brief, not a domain store, and the bus is reached by "Place envelopes in
-  // 3D", which is the undoable gesture (C114 §6a, one `spaceEnvelope.batch.create`). So Ctrl+Z
-  // does not undo a wall drag, and the panel says so rather than letting him assume it.
+  // 3D" (C114 §6a, one `spaceEnvelope.batch.create`). ⭐ AND SINCE §ROOM-BRIEF-UNDO (L-13120) a
+  // wall drag IS undoable — one drag, one step, by the same argument that makes it one intent.
 
   /** A wall drag in flight. `null` between gestures. */
   let seamDrag: {
@@ -1019,8 +1144,8 @@ export function mountRoomProgrammePanel(
         say(
           `${aName} is now ${cand.aAreaM2.toFixed(2)} m² and ${bName} ${cand.bAreaM2.toFixed(2)} m² — `
           + `${Math.abs(cand.transferM2).toFixed(2)} m² moved across the wall between them. The plan `
-          + 'is re-solved from those two areas, so the wall lands where they put it. (A wall move '
-          + 'is part of this session\'s brief, not the undo stack — Ctrl+Z will not take it back.)',
+          + 'is re-solved from those two areas, so the wall lands where they put it. Press Undo — '
+          + 'Ctrl+Z — to put both areas back where they were.',
           false);
       } else {
         // ⛔ SPOKEN, NEVER SWALLOWED. A drag that appears to do nothing is the "did my change
@@ -1312,8 +1437,7 @@ export function mountRoomProgrammePanel(
         + `${v.freeAreaM2.toFixed(2)} m² this storey had unallocated, leaving `
         + `${(v.freeAreaM2 - v.drawnAreaM2).toFixed(2)} m². The plan is re-solved from that area `
         + 'and that position, so the room lands where they put it rather than on the rectangle '
-        + 'you drew. (A drawn room is part of this session\'s brief, not the undo stack — Ctrl+Z '
-        + 'will not take it back; remove it from the list instead.)',
+        + 'you drew. Press Undo — Ctrl+Z — to take the room back out.',
         false);
       // ⛔ DISARMED ON SUCCESS. A drawing mode that silently stays on turns the user's next click
       // — a click meant to select a room — into a refusal about a zero-area rectangle.
@@ -1542,8 +1666,11 @@ export function mountRoomProgrammePanel(
       + 'To add a room that is not there yet, press "Draw a room" and drag a rectangle on the '
       + 'plan: its AREA becomes that room\'s target and where you draw it decides its position, '
       + 'and it takes its floor from what this storey has NOT allocated — never from its '
-      + 'neighbours. None of the three gestures is undoable with Ctrl+Z; all three are part of '
-      + 'this session\'s brief.',
+      // §ROOM-BRIEF-UNDO (L-13120) — this sentence used to read "None of the three gestures is
+      // undoable with Ctrl+Z". It was true, and it was the limit worth closing rather than
+      // documenting: a gesture that cannot be taken back is one users avoid.
+      + 'neighbours. All three gestures are undoable: press Undo below, or Ctrl+Z while this '
+      + 'panel has focus.',
     ));
     // ⛔ THE ARM SITS UNDER THE HINT THAT EXPLAINS IT, and renders DISABLED WITH ITS REASON
     // PRINTED when the storey has less unallocated floor than the smallest room in the library —
@@ -1625,6 +1752,7 @@ export function mountRoomProgrammePanel(
 
   function renderActions(layout: ProgrammeLayoutResult): void {
     const box = el('div', 'margin-top:8px;display:flex;flex-direction:column;gap:5px;');
+    box.appendChild(renderHistoryControls());
     const btn = el('button');
     btn.type = 'button';
     btn.setAttribute('data-testid', ROOM_PROGRAMME_PLACE_BTN_TESTID);
@@ -1648,6 +1776,58 @@ export function mountRoomProgrammePanel(
     st.setAttribute('data-testid', ROOM_PROGRAMME_STATUS_TESTID);
     box.appendChild(st);
     slots.actions.replaceChildren(box);
+  }
+
+  /**
+   * §ROOM-BRIEF-UNDO (L-13120) — Undo and Redo, each NAMING what it would do.
+   *
+   * ⭐ THE LABEL IS THE FEATURE. `describeProgrammeIntent` derives it from the intent that made
+   * the change, at the one choke point, so the button cannot promise a gesture other than the
+   * one it will actually take back. A disabled control still prints its reason — the
+   * §SiteEntryPanel idiom this panel uses for every other unavailable action.
+   */
+  function renderHistoryControls(): HTMLElement {
+    const row = el('div', 'display:flex;flex-wrap:wrap;align-items:center;gap:6px;');
+    const undoLabel = peekRoomProgrammeUndo();
+    const redoLabel = peekRoomProgrammeRedo();
+    const make = (
+      testid: string,
+      text: string,
+      label: string | null,
+      what: 'takes back' | 'puts back',
+      run: () => void,
+    ): HTMLButtonElement => {
+      const b = el('button') as HTMLButtonElement;
+      b.type = 'button';
+      b.setAttribute('data-testid', testid);
+      b.textContent = text;
+      b.disabled = label === null;
+      b.style.cssText = [
+        'padding:3px 9px', 'border-radius:6px', 'font-size:10.5px',
+        'border:1px solid var(--app-border,#dde3ef)',
+        'background:var(--app-surface,#fff)',
+        label === null ? 'color:#a5a5b5' : 'color:#6600FF',
+        label === null ? 'cursor:not-allowed' : 'cursor:pointer',
+      ].join(';');
+      b.title = label === null
+        ? (what === 'takes back'
+          ? 'Nothing to take back yet — this session\'s brief is as you found it.'
+          : 'Nothing to put back — nothing has been taken back.')
+        : `${what === 'takes back' ? 'Takes back' : 'Puts back'} ${label}. Ctrl+Z and Ctrl+Y do `
+          + 'the same while this panel has focus.';
+      b.addEventListener('click', run);
+      return b;
+    };
+    row.appendChild(make(ROOM_PROGRAMME_UNDO_TESTID, 'Undo', undoLabel, 'takes back',
+      () => { runBriefUndo('undo'); }));
+    row.appendChild(make(ROOM_PROGRAMME_REDO_TESTID, 'Redo', redoLabel, 'puts back',
+      () => { runBriefUndo('redo'); }));
+    // ⛔ THE SUBJECT IS NAMED. Two undo stacks are in play on this screen, and a control that
+    // does not say which one it drives is how a user comes to expect the wrong one.
+    row.appendChild(el('span', `${NOTE_CSS}margin:0;`,
+      'Undo/Redo act on the room programme — the rooms, areas, links and positions on this '
+      + 'panel. Envelopes already placed in 3D are undone with Ctrl+Z in the scene.'));
+    return row;
   }
 
   function say(text: string, refusal: boolean): void {
@@ -1696,6 +1876,11 @@ export function mountRoomProgrammePanel(
     if (!plan.ok) { say(plan.statement, true); render(); return; }
     try {
       bus.executeCommand(plan.command, plan.payload);
+      // §ROOM-BRIEF-UNDO (L-13120) — these commands are on the ring buffer and are NEWER than
+      // every brief edit before them, so the next `removed + 1` Ctrl+Z presses belong to them.
+      // The keyboard handler declines exactly that many times; the Undo BUTTON never does,
+      // because pressing a button that names the programme is the user saying which he meant.
+      busUndoDebt = removed + 1;
       // ⛔ §ENVELOPE-FACE-DRAG (L-13065) — THE SENTENCE NAMES THE SURFACE, BECAUSE THE GESTURE
       // IS BOUND TO ONE. This read `"They are draggable by face and their profiles are editable
       // on double-click."` — flat, with no surface named — and that was FALSE wherever the reader
@@ -1731,6 +1916,9 @@ export function mountRoomProgrammePanel(
         + '3D opens its profile for editing. (On the 2D Site map they are drawn, not dragged — a '
         + 'plan has no height axis.)', false);
     } catch (e) {
+      // The deletes DID reach the bus even though the create did not — the debt is real and is
+      // exactly what the sentence below tells the user to spend.
+      busUndoDebt = removed;
       say(
         `PRYZM could not create the room envelopes: ${String((e as Error)?.message ?? e)}. `
         + (removed > 0
@@ -1786,7 +1974,17 @@ export function mountRoomProgrammePanel(
   makeDropTarget(root);
   host.appendChild(root);
 
-  const unsubProgramme = subscribeRoomProgramme(() => render());
+  // §ROOM-BRIEF-UNDO (L-13120) — the two bindings the history needs to be reachable.
+  root.addEventListener('pointerdown', onPanelPointerDown, true);
+  if (typeof window !== 'undefined') window.addEventListener('keydown', onUndoKey, true);
+
+  const unsubProgramme = subscribeRoomProgramme(() => {
+    // ⭐ ANY brief change — from this panel, from an undo, from anywhere — makes the brief the
+    // newest thing again, so the placement debt is paid off. One place, because the fourteen
+    // dispatch sites all arrive here.
+    busUndoDebt = 0;
+    render();
+  });
   // Re-render when the envelope store moves — the level envelope may have just been
   // created by the "Fit this on the ground floor" control on the other panel.
   let unsubStore: (() => void) | null = null;
@@ -1806,7 +2004,8 @@ export function mountRoomProgrammePanel(
   if (!autoLoadTried) {
     autoLoadTried = true;
     try {
-      if (getRoomProgramme().entries.length === 0) loadProjectRooms(false);
+      // §ROOM-BRIEF-UNDO (L-13120) — NOT undoable: see `loadProjectRooms`.
+      if (getRoomProgramme().entries.length === 0) loadProjectRooms(false, false);
     } catch (e) {
       console.warn('[room-programme] project-room load failed (non-fatal):', e);
     }
@@ -1822,6 +2021,12 @@ export function mountRoomProgrammePanel(
       disposed = true;
       try { unsubProgramme(); } catch { /* teardown is best-effort */ }
       try { unsubStore?.(); } catch { /* teardown is best-effort */ }
+      // ⛔ THE WINDOW LISTENER OUTLIVES THE PANEL UNLESS IT IS REMOVED — and a disposed panel
+      // still answering Ctrl+Z would take the keypress away from the scene for good.
+      try { root.removeEventListener('pointerdown', onPanelPointerDown, true); } catch { /* best-effort */ }
+      try {
+        if (typeof window !== 'undefined') window.removeEventListener('keydown', onUndoKey, true);
+      } catch { /* teardown is best-effort */ }
       root.remove();
     },
   };
