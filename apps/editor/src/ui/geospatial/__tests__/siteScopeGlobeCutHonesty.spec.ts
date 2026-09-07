@@ -334,3 +334,64 @@ describe('§SITE-SCOPE globe — ARM G: the APPLIED line is self-contained', () 
         expect(BODY.slice(at, at + 260)).toContain('this.formaTerrainCity');
     });
 });
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * ARM H — §SITE-SCOPE-ANCHOR-IS-THE-PARCEL (L-13082, founder 2026-09-07: *"the 3d view should not
+ * change the scope as you move on the view — not anymore — now it always would center statically
+ * the scope depending on the parcel that has been selected on plan view"*).
+ *
+ * ⭐ THE DRIFT WAS REAL, AND IT WAS ESTABLISHED BEFORE ANYTHING WAS CHANGED — which is the whole
+ * discipline here, because an anchor implemented against a drift that does not exist is a new
+ * defect wearing a founder quote. The mechanism, by file:line:
+ *   1. `maybeRefreshContextOnPan` fires after the camera leaves the loaded area and called
+ *      `loadContextBuildings(camLat, camLon, true)` — the CAMERA ground point.
+ *   2. `loadContextBuildings` sets `this.contextBuildingsAt = { lat, lon }`.
+ *   3. …then calls `applySiteScopeClip(lat, lon)`, which is what raises the globe cut and the slab
+ *      side, and which every per-layer geometric clip keys on through `scopeClipperFor`.
+ * So the whole scope followed the view. Raising the slider max makes it fire MORE often, because a
+ * wider slab has to be viewed from further out — the ask and the defect are the same change.
+ */
+describe('§SITE-SCOPE — ARM H: the scope is anchored to the parcel, not to the camera', () => {
+    /** The body of `maybeRefreshContextOnPan`, comments stripped. */
+    function panBody(): string {
+        const at = SRC.indexOf('private maybeRefreshContextOnPan(');
+        expect(at, 'maybeRefreshContextOnPan was renamed or removed').toBeGreaterThan(-1);
+        const rest = SRC.slice(at);
+        const next = /\n  (?:public|private|protected)[ \t]/.exec(rest);
+        return codeOnly(rest.slice(0, next ? next.index : rest.length));
+    }
+
+    it('⛔ the pan refresh no longer reloads about the CAMERA point', () => {
+        expect(
+            panBody(),
+            'the pan refresh re-centres the context — and therefore the scope cut — on the camera again',
+        ).not.toContain('this.loadContextBuildings(camLat, camLon, true)');
+    });
+
+    it('in Forma it pins to the parcel origin, falling back to the loaded centre', () => {
+        const BODY = panBody();
+        expect(BODY).toMatch(/const pinned = this\.formaMode \? \(this\.formaMassingOrigin \?\? this\.contextBuildingsAt\) : null;/);
+        expect(BODY).toContain('void this.loadContextBuildings(to.lat, to.lon, true);');
+    });
+
+    it('the camera point is still PRINTED, so a pinned reload can be told from a stationary one', () => {
+        // Silently ignoring the camera would make "the anchor held" and "the refresh never fired"
+        // the same observation — the §CONTEXT-DATA-HONESTY shape this whole file exists for.
+        const BODY = panBody();
+        expect(BODY).toContain('camera was at');
+        expect(BODY).toContain('PINNED the reload to the selected parcel');
+    });
+
+    it('OUTSIDE Forma the camera is still the centre — the fix does not disable the globe path', () => {
+        expect(panBody()).toContain('no Forma parcel anchor, so the camera IS the centre here');
+    });
+
+    it('the premise still holds: the clip really is raised from loadContextBuildings\u2019 own centre', () => {
+        // Guards the reasoning above. If the cut stops being armed off that method's (lat, lon),
+        // this arm's rationale changes and must be re-derived rather than left asserting a stale one.
+        const at = SRC.indexOf('public loadContextBuildings(');
+        expect(at).toBeGreaterThan(-1);
+        expect(SRC).toContain('this.contextBuildingsAt = { lat, lon };');
+    });
+});

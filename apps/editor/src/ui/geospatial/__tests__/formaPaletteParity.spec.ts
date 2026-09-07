@@ -338,16 +338,26 @@ describe('§PALETTE-PARITY-2D-3D — ARM E: the gaps stay NAMED, and a SUPERSEDE
  * in front of a sky; the founder's reference reads as a model standing on clean empty paper.
  */
 describe('§SITE-SCOPE-CITYWEFT — the backdrop outside the cut', () => {
-    it('the horizon IS the ground paper — a reference, so the two can never drift apart again', () => {
-        // ⛔ Deliberately compared against the palette, NOT against a hex. Two literals authored to
-        // agree have already drifted here twice (L-12965 urban ground, L-12987 rural ground), and a
-        // hex in this line would be the third instance of the same mistake.
-        expect(FORMA_QUALITY.skyHorizon).toBe(FORMA_PALETTE_V2.land);
-        expect(FORMA_QUALITY.skyHorizon).toBe(FORMA_GROUND_URBAN);
+    it('BOTH stops are flat white — "make the background completely white", in his words', () => {
+        // ⚠ An intermediate version of this arm asserted `skyHorizon === FORMA_PALETTE_V2.land`,
+        // pinning the horizon to the ground paper so the cut edge stood on continuous ground. The
+        // founder's NEXT sentence superseded it ("the 3d site view is better — make the background
+        // completely white if you can"), and the reasoning is preserved in `skyHorizon`'s comment
+        // rather than deleted, because it is still why the ORIGINAL grey was wrong.
+        expect(FORMA_QUALITY.skyTop).toBe('#FFFFFF');
+        expect(FORMA_QUALITY.skyHorizon).toBe('#FFFFFF');
     });
 
-    it('the top lifts to white — the founder asked for a white background, in those words', () => {
-        expect(FORMA_QUALITY.skyTop).toBe('#FFFFFF');
+    it('⛔ the SLAB SIDE is what still carries the silhouette, so it may not be whitened too', () => {
+        // With the backdrop flat white, the vertical cut face is the only thing separating the slab
+        // from the void. It is FLAT-shaded (PerInstanceColorAppearance flat:true), so it holds this
+        // value at every sun angle — which is exactly why it can be relied on as the silhouette.
+        const viewportSrc = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        expect(viewportSrc).toContain('flat: true');
+        const side = FORMA_PALETTE_V2.land;
+        // The ground paper is itself off-white; the SIDE must be darker than the ground, or the
+        // edge reads as one flat field from top to backdrop.
+        expect(parseInt(side.slice(1), 16)).toBeLessThan(0xffffff);
     });
 
     it('⛔ neither backdrop tone reintroduces COLOUR beyond the cut — grey/paper only, never a sky', () => {

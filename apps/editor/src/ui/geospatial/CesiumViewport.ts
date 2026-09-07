@@ -137,7 +137,10 @@ import {
   type CapVerdict,
   type LonLat as ScopeLonLat,
 } from "./scopeClip";
-import { SITE_SCOPE_RANGE, groundFetchHalfDeg, CTX_SCOPE_READ_COMPLETE_CEILING_M } from "./contextExtentBudget";
+import { SITE_SCOPE_RANGE, groundFetchHalfDeg } from "./contextExtentBudget";
+// §SITE-SCOPE D2 — the completeness ceiling MEASURED AT THIS SITE rather than read off the
+// mid-latitude constant. See the module header for the Oslo/Reykjavík over-claim it removes.
+import { scopeReadCompleteCeilingM } from "./scopeReadCeiling";
 /**
  * §SITE-SCOPE — is the GLOBE CUT + SLAB SIDE armed? **ARMED 2026-09-07.**
  *
@@ -2144,6 +2147,9 @@ export class CesiumViewport {
   private scopeCapReports = new Map<string, { readonly eligible: number; readonly cap: number }>();
   /** One-time guard for the "clipping polygons unsupported" warning. */
   private siteScopeUnsupportedWarned = false;
+  /** §SITE-SCOPE D2 — the last completeness-ceiling sentence printed, so the per-site measurement
+   *  is stated once rather than on every slider repaint. Never used as a cache of the VALUE. */
+  private scopeReadCeilingSaid: string | null = null;
   /** §SITE-SCOPE — TRUE while `globe.cartographicLimitRectangle` is ours, so the teardown knows
    *  to put `Rectangle.MAX_VALUE` back rather than leaving the globe bounded for good. */
   private siteScopeLimitRectApplied = false;
@@ -2272,10 +2278,29 @@ export class CesiumViewport {
     const layers = [...this.scopeCapReports].map(([layer, r]) => ({ layer, eligible: r.eligible, cap: r.cap }));
     // ⭐ THE READ CEILING IS PASSED IN, NOT LOOKED UP THERE (lane SCOPE-CUT, 2026-09-07).
     // `scopeClip.ts` is a pure leaf that must not learn a tile-fan-out constant; this file already
-    // owns the budget import. The mark is now min(measured cap densities, the z16 read ceiling) —
-    // so the tick on the founder's track is where completeness ACTUALLY ends, not merely where the
-    // last measured cap would bite. See `CTX_SCOPE_READ_COMPLETE_CEILING_M`.
-    return completeScopeRadiusM(this.contextScope, layers, CTX_SCOPE_READ_COMPLETE_CEILING_M);
+    // owns the budget import. The mark is min(measured cap densities, the z16 read ceiling) — so the
+    // tick on the founder's track is where completeness ACTUALLY ends, not merely where the last
+    // measured cap would bite.
+    //
+    // ⛔ AND THE CEILING IS MEASURED AT THIS SITE, NOT READ OFF THE CONSTANT (lane SCOPE-CUT-2).
+    // `CTX_SCOPE_READ_COMPLETE_CEILING_M` = 1781 m was measured on Barcelona / Madrid / Córdoba /
+    // Lisbon and is true there. Re-measured with the repo's own tile arithmetic, the SAME scope
+    // needs 169 tiles at Oslo and 225 at Reykjavík against the 112 cap — so those reads have
+    // ALREADY stepped below z16 at the DEFAULT scope, while the slider said "Complete at this
+    // scope". `1/cos φ` is ×2.01 at Oslo and ×2.30 at Reykjavík, and a Mercator tile spans a fixed
+    // number of longitude degrees, so the widening lands one-for-one on the tile count. A mark that
+    // over-claims is §CONTEXT-DATA-HONESTY's politest failure: it tells the founder the data he is
+    // missing is there. The origin is the one the context actually loaded about.
+    const at = this.contextBuildingsAt ?? this.formaMassingOrigin;
+    const ceiling = scopeReadCompleteCeilingM(at?.lat ?? Number.NaN, at?.lon ?? Number.NaN);
+    // Said ONCE per distinct verdict. This getter is called on every slider repaint, so an
+    // unguarded log would bury the §SITE-SCOPE lines it is meant to be read beside — but a ceiling
+    // that is never printed is a number the founder cannot check against his own console.
+    if (ceiling.line !== this.scopeReadCeilingSaid) {
+      this.scopeReadCeilingSaid = ceiling.line;
+      console.log(`[CesiumViewport][forma] §SITE-SCOPE ${ceiling.line}`);
+    }
+    return completeScopeRadiusM(this.contextScope, layers, ceiling.radiusM);
   }
 
   /**
@@ -12488,11 +12513,35 @@ export class CesiumViewport {
     this.contextPanRefreshTimer = setTimeout(() => {
       this.contextPanRefreshTimer = null;
       if (!this.viewer) return;
+      // ⛔ §SITE-SCOPE-ANCHOR-IS-THE-PARCEL (L-13082, founder 2026-09-07: *"the 3d view should not
+      // change the scope as you move on the view — not anymore — now it always would center
+      // statically the scope depending on the parcel that has been selected on plan view"*).
+      //
+      // THE DRIFT IS REAL AND THIS LINE WAS IT. `loadContextBuildings(lat, lon)` sets
+      // `this.contextBuildingsAt = { lat, lon }` and then calls `applySiteScopeClip(lat, lon)` —
+      // so a pan refresh centred on the CAMERA re-centred the globe cut, the slab side and every
+      // per-layer geometric clip on wherever the founder happened to be looking. The wider the
+      // scope, the further out he must fly to see its rim, so the raise to 7 071 m makes this fire
+      // MORE often, not less: the ask and the defect are the same change.
+      //
+      // ⚠ THE REFRESH ITSELF IS KEPT, AND ON PURPOSE. It exists for a real founder report
+      // ("buildings stop showing as I move") on the pre-scope fixed bbox. What is wrong is the
+      // CENTRE, not the reload. In Forma the parcel origin is the anchor and the scope IS the
+      // extent, so re-reading about the anchor is idempotent (same bbox ⇒ the §CTX-ONE-READ-PER-BBOX
+      // cache answers it) — which is the correct behaviour, not a disabled feature: outside the
+      // scope there is nothing to show, because the cut removed it.
+      const pinned = this.formaMode ? (this.formaMassingOrigin ?? this.contextBuildingsAt) : null;
+      const to = pinned ?? { lat: camLat, lon: camLon };
       console.log(
         `[CesiumViewport][forma] §A.21.D-GLOBE pan-refresh — reloading context buildings ` +
-          `around LAT ${camLat.toFixed(5)} LON ${camLon.toFixed(5)} (camera left the loaded area).`,
+          `around LAT ${to.lat.toFixed(5)} LON ${to.lon.toFixed(5)} (camera left the loaded area` +
+          (pinned
+            ? `; camera was at ${camLat.toFixed(5)},${camLon.toFixed(5)} — §SITE-SCOPE-ANCHOR-IS-THE-PARCEL ` +
+              'PINNED the reload to the selected parcel so the scope cannot follow the view)'
+            : ' — no Forma parcel anchor, so the camera IS the centre here)') +
+          '.',
       );
-      void this.loadContextBuildings(camLat, camLon, true);
+      void this.loadContextBuildings(to.lat, to.lon, true);
     }, 1200);
   }
 

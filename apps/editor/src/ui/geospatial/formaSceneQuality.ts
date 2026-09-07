@@ -1,7 +1,7 @@
 /**
  * formaSceneQuality.ts — §FORMA-SCENE-QUALITY (ADR-0089)
  *
- * Small helpers for the "professional architectural model" look
+ * Small, dependency-free helpers for the "professional architectural model" look
  * of the Forma (Cesium flat-ground) site view — the Spacio / Autodesk-Forma
  * reference: clean neutral light-grey massing, soft gradient shadowing, a subtle
  * ground, and a soft vertical sky/background gradient.
@@ -9,18 +9,13 @@
  * This module is intentionally Cesium-free and DOM-light: it only owns the
  * tuned palette/quality CONSTANTS and the pure CSS-gradient string builder, so
  * the heavy scene wiring stays in CesiumViewport.ts. No THREE, no `(window as
- * any)`, no I/O. Its ONE import is the pure 2D/3D colour table (`formaPaletteV2`),
- * because the backdrop's horizon must EQUAL the ground paper rather than agree
- * with it by hand — see `skyHorizon`. The single exported function carries no OpenTelemetry span by
+ * any)`, no I/O — and no imports at all: the backdrop is now flat white at both
+ * stops, so it references nothing (see `skyHorizon` for the two founder sentences
+ * that took it there, and for what carries the silhouette instead). The single exported function carries no OpenTelemetry span by
  * design — it is a pure string builder with no side effects and no async work
  * (the file's CesiumViewport callers are themselves span-free UI methods, per
  * the existing convention in that file).
  */
-
-// §SITE-SCOPE-CITYWEFT — the backdrop's horizon is the SAME paper as the ground inside the cut, so
-// the scope edge stands on continuous empty ground rather than in front of a grey sky. One value,
-// referenced, never copied (L-12965 / L-12987 are two recorded drifts of exactly this tone).
-import { FORMA_PALETTE_V2 } from './formaPaletteV2';
 
 /**
  * §FORMA-SCENE-QUALITY — the refined "architectural model" quality constants.
@@ -46,13 +41,26 @@ export const FORMA_QUALITY = {
    * distant horizon, it is THE SURFACE THE CUT EDGE STANDS ON. #E4E3E0 read as a grey sky behind a
    * floating model; the founder's reference reads as a model standing on clean empty ground.
    *
-   * So the horizon is now the SAME paper as the ground inside the scope (`FORMA_PALETTE_V2.land`,
-   * the one the 2D map and `FORMA_GROUND_URBAN` already share), and the top lifts to white. A
-   * REFERENCE, not a copied literal — three tones authored to agree have drifted here twice
-   * already (L-12965, L-12987).
+   * ⭐⭐ AND IT IS NOW FLAT WHITE, BOTH STOPS — founder 2026-09-07, second sentence, after seeing the
+   * cut: *"the 3d site view is better — make the background completely white if you can"*. The
+   * intermediate step (top #FFFFFF, horizon = the ground paper #F5F2EA) is superseded by his own
+   * next instruction. Kept in this comment because the reasoning behind it is still the reason the
+   * OLD grey was wrong, and because it is the fallback if the risk below turns out to bite.
+   *
+   * ⚠ THE RISK, NAMED BEFORE IT WAS TAKEN — DOES THE SLAB LOSE ITS SILHOUETTE AGAINST WHITE?
+   * Measured against the three tones that actually meet the backdrop at the cut edge:
+   *   · slab TOP  — `FORMA_PALETTE_V2.land` #F5F2EA, ΔL* ≈ 3.5 against white. Faint, and it is the
+   *     face the camera sees least at the rim.
+   *   · slab SIDE — `SITE_SCOPE_SLAB_SIDE_CSS` #E6E6E3, ΔL* ≈ 8.6 against white, FLAT-shaded so it
+   *     holds that value at every sun angle. This is the vertical face the cut edge is MADE of, and
+   *     it is what keeps the silhouette. It is why the side may not be whitened with the backdrop.
+   *   · context BUILDINGS — #E8E1D4 and darker. Never at risk.
+   * ⛔ SO THE SIDE IS THE SILHOUETTE AND MUST STAY DARKER THAN THE BACKDROP. If the founder reports
+   * the edge disappearing, deepen `SITE_SCOPE_SLAB_SIDE_CSS`, do NOT re-grey the backdrop — a grey
+   * backdrop is the thing he has now asked twice to remove.
    */
   skyTop: '#FFFFFF',
-  skyHorizon: FORMA_PALETTE_V2.land,
+  skyHorizon: '#FFFFFF',
   /**
    * Subtle ground-contact fog tint - a touch of the horizon grey so building
    * bases melt softly into the ground plane instead of meeting a hard line.

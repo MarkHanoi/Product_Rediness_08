@@ -148,9 +148,32 @@ export const METRES_PER_DEG_LAT = 111_320;
  * DELIBERATELY PAST THE READ-COMPLETE CEILING BELOW, and that is only honest because the ceiling is
  * now a published number the slider prints rather than a silent clamp.** See
  * `CTX_SCOPE_READ_COMPLETE_CEILING_M`.
+ *
+ * ⭐⭐ RAISED AGAIN 3562 → 7071 m on 2026-09-07 (lane SCOPE-CUT-2), founder: *"the scope of the
+ * rectangle or circle should be 4x bigger — it is too small — allow to go up to 10.000"*.
+ *
+ * WHY 7071 AND NOT 10000, AND THE TWO READINGS AGREE — WHICH IS WHY THIS NUMBER IS SAFE TO PICK.
+ * The slider drives ONE value for both shapes: the CIRCUMSCRIBING radius. So "up to 10 000" has to
+ * be resolved against what the readout actually shows him, and both of his sentences land on the
+ * same figure:
+ *   · "allow to go up to 10.000" — his screenshot's rectangle reads `5035 × 5035 m`, which is this
+ *     constant's OLD value through `side = r·√2` (3562·√2 = 5037). A side of 10 000 m is therefore
+ *     `r = 10000/√2 = 7071` m. That is the number he will SEE reach 10 000.
+ *   · "4x bigger" — 4× the AREA is 2× the linear size in both shapes: the rectangle's side
+ *     5037 → 10 074, the circle's radius 3562 → 7124. 7071 is within 0.8 % of the circle reading
+ *     and exact on the rectangle reading, which is the one he photographed.
+ * ⛔ Do NOT "simplify" this to 10000. That would be a 14 142 × 14 142 m rectangle — 2× his ask in
+ * side and 4× in area — and every read/render cost below scales with the AREA.
+ *
+ * ⚠ THE READ DOES NOT REACH THIS FAR, AND SAYING SO IS THE CONDITION OF THE RAISE. At 7071 m the
+ * buildings fetch bbox needs ~1 156 z16 tiles at Barcelona against the 112-tile cap, so the read
+ * steps to z14 and the bake has DELETED footprints from dense cores. The slab crops exactly where
+ * the founder sets it; the CONTENT inside it does not fill it past the per-site ceiling that
+ * `scopeReadCeiling.ts` measures (Barcelona 2165 m, Oslo 1441 m). That gap is L-13081 and it is
+ * stated in the slider's own caption, never inferred.
  */
 export const CTX_SCOPE_MIN_RADIUS_M = 150;
-export const CTX_SCOPE_MAX_RADIUS_M = 3562;
+export const CTX_SCOPE_MAX_RADIUS_M = 7071;
 
 /**
  * ⛔ THE LARGEST SCOPE AT WHICH THE BUILDING READ IS STILL COMPLETE — 1 781 m, AND IT IS A DATA
@@ -173,10 +196,18 @@ export const CTX_SCOPE_MAX_RADIUS_M = 3562;
  * Barcelona 3562 m read 272 and is 289. The old numbers were taken over the un-grown box, so they
  * omitted the ~4.5 % the lattice adds — which is a whole tile row at these extents.
  *
+ * ⚠⚠ AND THE RE-MEASUREMENT ITSELF CARRIED ONE — CORRECTED 2026-09-07 (lane SCOPE-CUT-2), which is
+ * the whole argument for re-running the arithmetic rather than reading the table. **Barcelona at
+ * 2 519 m is 156 tiles, not 144.** Every other cell of both tables below was reproduced EXACTLY by
+ * an independent run of `farFetchHalfDeg` → `contextFetchBbox` → `tileCountCovering` /
+ * `zoomForExtent` over the same six cities, so the tables are sound — and the one cell that was not
+ * was wrong LOW, again, in the same direction the notice above names as the one that matters.
+ * ⛔ Do not transcribe this table into a commit message, a doc or an issue row. Re-run it.
+ *
  * | radius | Barcelona | Madrid | Córdoba | Lisbon | Oslo | Reykjavík | zoom the reader picks |
  * |--------|-----------|--------|---------|--------|------|-----------|-----------------------|
  * | 1781 m |    81     |   81   |   64    |   81   | 169  |    225    | z16 — Oslo/Reykjavík z15 |
- * | 2519 m |   144     |  144   |  144    |  132   | 324  |    420    | **z15** — Reykjavík z14 |
+ * | 2519 m |   156     |  144   |  144    |  132   | 324  |    420    | **z15** — Reykjavík z14 |
  * | 3562 m |   289     |  272   |  256    |  272   | 600  |    784    | **z15** — Oslo/Reykjavík z14 |
  *
  * ⛔ SO PAST 1 781 m *EVERY* CITY LEAVES z16. That is the sentence the slider has to carry: not
@@ -200,8 +231,10 @@ export const CTX_SCOPE_MAX_RADIUS_M = 3562;
  * ⭐ **A 3×3 z16 STITCH REACHES THE FOUNDER'S FULL 4× AREA IN EVERY TEST CITY AT THE EXISTING 112
  * CAP — NO CAP RAISE IS NEEDED.** The cost is the tile COUNT: total tiles read at 3×3 / 3 562 m are
  * Barcelona 361, Madrid 342, Córdoba 324, Lisbon 342, Oslo 702, Reykjavík 900 — against 81 / 81 /
- * 64 / 81 / 169 / 225 today, i.e. **4.0–4.5× the building read**, which is what quadrupling the area
- * costs when the zoom is held. In bytes, using L-579's own measured z16 buildings tiles (20–32 KB):
+ * 64 / 81 / 169 / 225 today, i.e. **4.0–5.1× the building read** (the ratios are 4.46 / 4.22 / 5.06
+ * / 4.22 / 4.15 / 4.00; this line read "4.0–4.5×", which excluded Córdoba — the worst of the six —
+ * because its 64-tile baseline is the smallest denominator, not because its cost is lowest), which
+ * is what quadrupling the area costs when the zoom is held. In bytes, using L-579's own measured z16 buildings tiles (20–32 KB):
  * Barcelona goes from ~1.6–2.6 MB to ~7.2–11.6 MB for the buildings layer.
  *
  * ⛔ 4×4 IS THE BETTER SHAPE IF IT LANDS: its worst sub-box fits the DEFAULT 64 cap everywhere, so
@@ -216,6 +249,40 @@ export const CTX_SCOPE_MAX_RADIUS_M = 3562;
  * slider now says exactly that, with the metre figure, in `completenessCaption` (C12 §13.5). The
  * mark on its track is `min(measured cap densities, this ceiling)`, via `completeScopeRadiusM`'s
  * `readCompleteCeilingM` argument, which `CesiumViewport.getCompleteScopeMark()` passes.
+ */
+/*
+ * ⭐⭐ SUPERSEDED AS THE SLIDER'S MARK — 2026-09-07, lane SCOPE-CUT-2. STILL THE FALLBACK, AND STILL
+ * CORRECT FOR THE THREE CONSUMERS BELOW. What changed is what this number was being used FOR.
+ *
+ * IT IS THE DEFAULT SCOPE RADIUS, NOT A MEASURED MAXIMUM, and driving the completeness mark off it
+ * was wrong in BOTH directions at once — which is why neither direction was noticed:
+ *
+ *   | city       | flat constant | MEASURED z16 ceiling | tiles at it | error                |
+ *   |------------|---------------|----------------------|-------------|----------------------|
+ *   | Barcelona  |     1781 m    |       2165 m         |   110/112   | 384 m PESSIMISTIC    |
+ *   | Madrid     |     1781 m    |       2191 m         |   110/112   | 410 m PESSIMISTIC    |
+ *   | Córdoba    |     1781 m    |       2347 m         |   110/112   | 566 m PESSIMISTIC    |
+ *   | Lisbon     |     1781 m    |       2183 m         |   110/112   | 402 m PESSIMISTIC    |
+ *   | Oslo       |     1781 m    |       1441 m         |   110/112   | 340 m OPTIMISTIC ⛔  |
+ *   | Reykjavík  |     1781 m    |       1222 m         |   110/112   | 559 m OPTIMISTIC ⛔  |
+ *
+ * · PESSIMISTIC in the south costs the founder real reach: 1 781 m needs only 81 of the 112 tiles at
+ *   Barcelona, so ~28 % of the cap was going unused and the mark under-sold the slab by 384 m —
+ *   ×1.48 the area, all of it at FULL z16 detail.
+ * · OPTIMISTIC in the north is the serious half: at Oslo and Reykjavík the DEFAULT scope is already
+ *   169 and 225 tiles, over the cap, so the read had ALREADY stepped below z16 before the user
+ *   touched the slider, while the caption read "Complete at this scope". `1/cos φ` is ×2.01 and
+ *   ×2.30 there, and a Mercator tile spans a fixed span of longitude, so the widening lands
+ *   one-for-one on the tile count.
+ *
+ * THE MARK IS NOW MEASURED PER SITE — `scopeReadCeiling.ts`, which bisects the same
+ * `farFetchHalfDeg` → `contextFetchBbox` → `tileCountCovering` chain the reader itself calls, and
+ * which `CesiumViewport.getCompleteScopeMark()` consumes. This constant remains:
+ *   · the FALLBACK when there is no site origin yet (an admission, and it says so), and
+ *   · the ceiling for `scopeReadFanOutCap` / `CTX_TREES_RADIUS_CEILING_M` /
+ *     `CTX_STREET_LIFE_RADIUS_CEILING_M`, where being CONSERVATIVE is the safe direction.
+ * ⛔ Do not "simplify" by pointing those at the per-site function: a cap grant that moves with the
+ * camera's latitude would make a read's zoom depend on where the user flew from.
  */
 export const CTX_SCOPE_READ_COMPLETE_CEILING_M = 1781;
 

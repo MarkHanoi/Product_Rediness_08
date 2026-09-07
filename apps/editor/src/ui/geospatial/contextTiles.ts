@@ -1011,6 +1011,40 @@ function isTileReadFailure(v: ContextTileFeature[] | TileReadFailure): v is Tile
 const tileInFlight = new Map<string, Promise<ContextTileFeature[] | TileReadFailure>>();
 
 /**
+ * §CTX-READ-PROVENANCE (founder 2026-09-07, live build `cd5bcbb9`) — what one read actually PAID
+ * FOR, as opposed to how long it waited.
+ *
+ * ⭐ THE MISREADING THIS EXISTS TO END, IN THE FOUNDER'S OWN NUMBERS. His Barcelona console shows
+ * `parks: 800 green area(s) from 81 baked tile(s)` THREE times — at 5672 ms, 3401 ms and 3400 ms —
+ * and `landuse: 2265 area(s) from 30 baked tile(s)` three times at 3754 / 1486 / 1486 ms. Read
+ * naively that is ~9 s of duplicated parks work, and it was escalated as exactly that.
+ *
+ * ⛔ IT IS NOT. Those are THREE CALLERS SHARING ONE DOWNLOAD. The three lines carry the SAME feature
+ * count and the SAME tile count, so they resolve to the SAME (version, layer, z, x, y) keys by
+ * construction — and `tileCache` + `tileInFlight` (directly above) already de-duplicate at that
+ * exact granularity, registering the in-flight promise BEFORE it settles. Callers 2 and 3 started
+ * ~2.27 s after caller 1 and finished at the SAME INSTANT as it: 5672 − 3401 ≈ 5672 − 3400. Three
+ * equal end-times is the signature of one download, not three.
+ *
+ * What `ms` measures is each caller's own elapsed WALL-CLOCK, which for callers 2 and 3 is almost
+ * entirely WAITING on caller 1's read. Their marginal cost is the per-read bbox crop — milliseconds.
+ * A duration printed without its provenance reads as a price, and this one is not one
+ * (§CONTEXT-DATA-HONESTY: the number was true and the thing it was taken to mean was false).
+ *
+ * ⚠ THE REAL COST IS STILL REAL, AND THIS DOES NOT HIDE IT: caller 1's 5672 ms for 81 tiles —
+ * ~2 coalesced range requests after §CTX-RANGE-COALESCE — is same-origin QUEUEING behind Cesium's
+ * terrain stream and the other layers, not decode time. That is the number worth attacking.
+ */
+export interface TileReadProvenance {
+    /** Tiles this read actually fetched and decoded — the only ones it PAID for. */
+    downloaded: number;
+    /** Tiles already decoded by an earlier read — free. */
+    fromCache: number;
+    /** Tiles another read had already put in the air — this read WAITED, it did not pay. */
+    sharedInFlight: number;
+}
+
+/**
  * Bound on the decoded-tile cache. A cache is only a cache if it is BOUNDED (§L-273 learned this
  * the expensive way, when an unbounded per-bbox localStorage cache filled the origin and took
  * autosave's project index down with it). 512 tiles ≈ 14 far-extent reads' worth of distinct
@@ -1480,8 +1514,25 @@ async function readContextTilesOnce(
         };
     }
 
-    const perTile = await Promise.all(tiles.map(({ x, y }) => loadTile(archive, layer, z, x, y, signal)));
+    // §CTX-READ-PROVENANCE — count what this read pays for, so the duration below can be read
+    // correctly. See `TileReadProvenance`.
+    const provenance: TileReadProvenance = { downloaded: 0, fromCache: 0, sharedInFlight: 0 };
+    const perTile = await Promise.all(
+        tiles.map(({ x, y }) => loadTile(archive, layer, z, x, y, signal, provenance)),
+    );
     if (signal?.aborted) return { status: 'aborted' };
+    if (provenance.downloaded === 0 && tiles.length > 0) {
+        // ⭐ THE LINE THAT STOPS THE PHANTOM. A read that downloaded NOTHING must say so beside its
+        // duration, or its `ms` is read as a price it did not pay — which is precisely how the
+        // founder's three parks lines were escalated as "~9 s of duplicate decode" when they were
+        // one 5.7 s download with two callers waiting on it.
+        console.log(
+            `[gis] §CTX-READ-PROVENANCE ${layer}: this read PAID FOR NOTHING — ${provenance.fromCache} ` +
+            `tile(s) already decoded + ${provenance.sharedInFlight} already in the air, 0 downloaded ` +
+            'of ' + tiles.length + ` covering tile(s). Its elapsed ms is WAITING on the read ahead of ` +
+            'it, NOT duplicated work; the tile cache and the in-flight map already de-duplicated it.',
+        );
+    }
 
     const features: ContextTileFeature[] = [];
     const failures: TileReadFailure[] = [];
@@ -1542,15 +1593,19 @@ async function loadTile(
     x: number,
     y: number,
     signal?: AbortSignal,
+    /** §CTX-READ-PROVENANCE — incremented in place so the caller can say what the read actually
+     *  PAID FOR. Optional: callers that do not care pass nothing. */
+    provenance?: TileReadProvenance,
 ): Promise<ContextTileFeature[] | TileReadFailure> {
     const key = tileCacheKey(layer, z, x, y);
     const cached = tileCache.get(key);
-    if (cached) return cached;
+    if (cached) { if (provenance) provenance.fromCache++; return cached; }
     const pending = tileInFlight.get(key);
     // ⚠ The shared read deliberately takes NO abort signal — same reasoning as
     // §CTX-ONE-READ-PER-BBOX in contextBuildings.ts: one caller's cancellation must not empty a
     // download that other callers are awaiting. Callers still honour their own signal after the await.
-    if (pending) return pending;
+    if (pending) { if (provenance) provenance.sharedInFlight++; return pending; }
+    if (provenance) provenance.downloaded++;
 
     const shared = (async (): Promise<ContextTileFeature[] | TileReadFailure> => {
         let data: ArrayBuffer | null;
