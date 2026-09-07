@@ -886,10 +886,30 @@ export function mountRoomProgrammePanel(
     if (!plan.ok) { say(plan.statement, true); render(); return; }
     try {
       bus.executeCommand(plan.command, plan.payload);
+      // ⛔ §ENVELOPE-FACE-DRAG (L-13065) — THE SENTENCE NAMES THE SURFACE, BECAUSE THE GESTURE
+      // IS BOUND TO ONE. This read `"They are draggable by face and their profiles are editable
+      // on double-click."` — flat, with no surface named — and that was FALSE wherever the reader
+      // was standing on a SITE view. `initTools.ts:2101-2105` installs the whole gesture on
+      // `world.renderer.three.domElement`, the THREE/WebGPU BIM canvas: `pointerdown`,
+      // `pointermove`, `pointerup` AND the `dblclick` that opens the profile editor are all
+      // registered on that one element by `installSpaceEnvelopeFaceDragOnSurface`
+      // (`spaceEnvelopeDragSurface.ts`). The 3D Site (Cesium) and the 2D Site map (MapLibre) draw
+      // these same envelopes from the same store — `CesiumViewport.renderSpaceEnvelopes` and
+      // `SiteBoundaryMap2D.envelopeFeatureCollection` — but NO drag surface is installed on
+      // either, so on those views BOTH halves of the old sentence were promises the surface could
+      // not keep.
+      //
+      // ⛔ THE PROMISE IS NARROWED, NOT DELETED, AND THE ROUTE IS GIVEN. A capability sentence
+      // that names no surface cannot be checked by the reader and cannot be falsified by a test;
+      // one that names the view is true everywhere it is read and tells the user where to go.
+      // ⭐ When the Cesium / MapLibre adapters land (the ports are already extracted — four
+      // methods, `spaceEnvelopeDragSurface.ts`), WIDEN THIS SENTENCE IN THE SAME COMMIT. A
+      // capability that ships with its claim left behind is the same defect pointed the other way.
       say(
         (removed > 0 ? `Replaced ${removed}. ` : '')
-        + `Created — ${plan.statement} They are draggable by face and their profiles are editable `
-        + 'on double-click.', false);
+        + `Created — ${plan.statement} To reshape them, open the PRYZM 3D view: there each face is `
+        + 'draggable and a double-click opens its profile for editing. (On the Site views they are '
+        + 'drawn, but not yet editable by pointer.)', false);
     } catch (e) {
       say(
         `PRYZM could not create the room envelopes: ${String((e as Error)?.message ?? e)}. `
