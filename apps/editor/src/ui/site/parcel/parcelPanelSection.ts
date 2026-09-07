@@ -73,6 +73,7 @@ import {
     PARCEL_NO_BOUNDARY_TEXT,
     PARCEL_PROVENANCE_ABSENT_TEXT,
     type ParcelCardAction,
+    type ParcelCardDetailFold,
     type ParcelCardExtraFact,
     type ParcelCardRowHighlight,
 } from './parcelCard.js';
@@ -133,6 +134,23 @@ export interface ParcelSectionExtras {
      * parcel hyperlink. Passed through to `buildParcelCard`; never decided here.
      */
     readonly areaHighlight?: ParcelCardRowHighlight;
+    /**
+     * §STAGE-01-DENSITY (C115 §1.4 `C115-111`) — the host rows that belong to the TECHNICAL
+     * half: rendered inside the *"View full parcel data"* disclosure when `detailFold` is
+     * supplied, and inline directly after `facts` when it is not.
+     *
+     * ⛔ A PLACEMENT FIELD, NOT A FILTER. `C115-40` forbids row-level withholding, and this
+     * section withholds nothing: a host that supplies no fold gets every row it always got, in
+     * the order it always got them.
+     */
+    readonly detailFacts?: readonly ParcelCardExtraFact[];
+    /**
+     * §STAGE-01-DENSITY (C115 §1.4 `C115-111` · §11 `C115-93`) — the disclosure itself, when
+     * the host wants one. Supplied today only by the Parcel Law panel, whose section ① the
+     * founder asked to make smaller; the GIS rail section, the PARCEL rail panel and the 2D map
+     * overlay pass none and render the flat card unchanged.
+     */
+    readonly detailFold?: ParcelCardDetailFold;
 }
 
 /**
@@ -154,11 +172,16 @@ export function buildParcelSectionBody(
     const extraFacts = extras?.facts ?? [];
     const extraFactsNote = extras?.note;
     const areaHighlight = extras?.areaHighlight;
+    // §STAGE-01-DENSITY (C115 §1.4 `C115-111`) — pass-through only. This section decides nothing
+    // about what is technical and nothing about what a fold says: the host that holds the model
+    // decides, the ONE card producer typesets. Undefined for every host but the Parcel Law panel.
+    const detailFacts = extras?.detailFacts ?? [];
+    const detailFold = extras?.detailFold;
     const polygon = site?.parcel?.boundary?.polygon;
     const hasBoundary = Array.isArray(polygon) && polygon.length >= 3;
     if (!site || !hasBoundary) {
         return buildParcelCard(null, {
-            absentText: PARCEL_NO_BOUNDARY_TEXT, actions, extraFacts, extraFactsNote,
+            absentText: PARCEL_NO_BOUNDARY_TEXT, actions, extraFacts, extraFactsNote, detailFacts,
         });
     }
 
@@ -169,7 +192,7 @@ export function buildParcelSectionBody(
         // where the ring came from, not how big it is. Showing the area here is not a
         // softening of the absence — the absence sentence sits directly above it.
         const card = buildParcelCard(null, {
-            absentText: PARCEL_PROVENANCE_ABSENT_TEXT, actions, extraFacts, extraFactsNote,
+            absentText: PARCEL_PROVENANCE_ABSENT_TEXT, actions, extraFacts, extraFactsNote, detailFacts,
         });
         const area = site.parcel.area;
         if (Number.isFinite(area) && area > 0) {
@@ -200,7 +223,7 @@ export function buildParcelSectionBody(
 
     return buildParcelCard(
         parcelProvenanceToCardModel(provenance, site.parcel.area),
-        { actions, extraFacts, extraFactsNote, areaHighlight },
+        { actions, extraFacts, extraFactsNote, areaHighlight, detailFacts, detailFold },
     );
 }
 

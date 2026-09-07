@@ -21,6 +21,7 @@ import { resolve, join } from 'node:path';
 
 import {
     buildEnvelopeAxesControlHtml,
+    buildEnvelopeAxesControlEl,
     wireEnvelopeAxesControl,
     envelopeAxesCaption,
     ENVELOPE_VOLUME_TOGGLE_TESTID,
@@ -28,6 +29,12 @@ import {
     ENVELOPE_AXES_CAPTION_TESTID,
     ENVELOPE_AXES_DRAG_EXCLUDE,
 } from '../envelopeVisibilityControl.js';
+import {
+    claimPlotDisplayControls,
+    releasePlotDisplayControls,
+    plotDisplayControlsClaimed,
+    __resetPlotDisplayControlsHostForTests,
+} from '../plotDisplayControlsHost.js';
 
 const REPO = resolve(__dirname, '../../../../../..');
 const read = (p: string): string => readFileSync(join(REPO, p), 'utf8');
@@ -207,5 +214,106 @@ describe('§ENVELOPE-AXES-CONTROL — brand + purity', () => {
         expect(src).toContain('buildEnvelopeAxesControlHtml(getBuildableEnvelopeAxes())');
         // The old single-button literal is gone; a survivor would be a second producer.
         expect(src).not.toContain('Envelope: ${on ? \'ON\' : \'OFF\'}');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 `C115-151` … `C115-154`, founder 2026-09-07:
+// the SHOW ON THE PLOT switches belong in section ① of the Parcel Law panel).
+// ═══════════════════════════════════════════════════════════════════════════════════════
+
+describe('§PLOT-DISPLAY-CONTROLS-HOST — the DOM producer is the SAME control, not a twin', () => {
+    it('renders both switches and the caption, identically to the string producer', () => {
+        // ⛔ THE POINT OF THE ARM. A hand-built DOM twin is what this repo pays for twice
+        // (C06 §13.3): two producers of one control drift the moment either is edited. The
+        // element form parses the ONE markup authority, so this arm fails the day someone
+        // "optimises" it into a second builder.
+        for (const axes of ALL_FOUR) {
+            const el = buildEnvelopeAxesControlEl(axes);
+            expect(el.getAttribute('data-testid')).toBe('envelope-axes-control');
+            const vol = el.querySelector(`[data-testid="${ENVELOPE_VOLUME_TOGGLE_TESTID}"]`);
+            const fp = el.querySelector(`[data-testid="${ENVELOPE_FOOTPRINT_TOGGLE_TESTID}"]`);
+            expect(vol, 'the volume switch must survive the DOM form').not.toBeNull();
+            expect(fp, 'the footprint switch must survive the DOM form').not.toBeNull();
+            expect(vol!.getAttribute('aria-checked')).toBe(axes.volume ? 'true' : 'false');
+            expect(fp!.getAttribute('aria-checked')).toBe(axes.footprint ? 'true' : 'false');
+            expect(
+                el.querySelector(`[data-testid="${ENVELOPE_AXES_CAPTION_TESTID}"]`)?.textContent?.trim(),
+                'the §L-616 confidence qualifier travels with the shade in every form',
+            ).toBe(envelopeAxesCaption(axes));
+        }
+    });
+
+    it('the element form is wireable by the SAME wiring function — one axis per click', () => {
+        const el = buildEnvelopeAxesControlEl({ volume: true, footprint: true });
+        const onToggleVolume = vi.fn();
+        const onToggleFootprint = vi.fn();
+        wireEnvelopeAxesControl(el, { onToggleVolume, onToggleFootprint });
+        (el.querySelector(`[data-testid="${ENVELOPE_VOLUME_TOGGLE_TESTID}"]`) as HTMLElement).click();
+        expect(onToggleVolume).toHaveBeenCalledTimes(1);
+        expect(onToggleFootprint, 'one click may never write both axes (L-1188)').not.toHaveBeenCalled();
+    });
+});
+
+describe('§PLOT-DISPLAY-CONTROLS-HOST — the claim, and why it can never lose the control', () => {
+    it('is unclaimed by default, so the envelope card carries the switches', () => {
+        __resetPlotDisplayControlsHostForTests();
+        expect(plotDisplayControlsClaimed()).toBe(false);
+    });
+
+    it('a CONNECTED claimant takes the job; releasing it hands the job back', () => {
+        __resetPlotDisplayControlsHostForTests();
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        claimPlotDisplayControls(host, 'spec');
+        expect(plotDisplayControlsClaimed()).toBe(true);
+        releasePlotDisplayControls(host);
+        expect(plotDisplayControlsClaimed()).toBe(false);
+        host.remove();
+        __resetPlotDisplayControlsHostForTests();
+    });
+
+    it('⭐ A CLAIM WHOSE ELEMENT LEFT THE DOCUMENT IS NOT A CLAIM — it self-heals', () => {
+        // This is the arm that makes the whole design safe. The failure everyone fears is a
+        // claimant torn down without releasing, leaving the switches nowhere — the founder losing
+        // a control, which is strictly worse than seeing it in the wrong section. The claim is
+        // held by ELEMENT precisely so the next card render finds it stale and takes the job back.
+        __resetPlotDisplayControlsHostForTests();
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        claimPlotDisplayControls(host, 'spec-that-dies');
+        expect(plotDisplayControlsClaimed()).toBe(true);
+        host.remove(); // no release — the failure mode under test
+        expect(
+            plotDisplayControlsClaimed(),
+            'a detached claimant must not keep the switches off the card forever',
+        ).toBe(false);
+        __resetPlotDisplayControlsHostForTests();
+    });
+
+    it('⛔ releasing from a DIFFERENT element cannot evict the current claimant', () => {
+        // C19 §5.7 clause 2, by its reason: a host that releases unconditionally evicts whichever
+        // other surface claimed since. The Parcel Law tab's conditional hand-back of the envelope
+        // card exists for the same reason; this is that rule for the switches.
+        __resetPlotDisplayControlsHostForTests();
+        const a = document.createElement('div');
+        const b = document.createElement('div');
+        document.body.appendChild(a);
+        document.body.appendChild(b);
+        claimPlotDisplayControls(a, 'a');
+        releasePlotDisplayControls(b);
+        expect(plotDisplayControlsClaimed()).toBe(true);
+        a.remove(); b.remove();
+        __resetPlotDisplayControlsHostForTests();
+    });
+
+    it('GISAreaLayout ASKS the arbiter, and re-renders when the job comes back', () => {
+        // ⭐ THE REACHABILITY ARM, and it is the shape [[authored-but-unwired-is-the-bottleneck]]
+        // warns about: an arbiter nobody consults is a module, not a behaviour. Two halves are
+        // pinned — the card yields the control while the job is taken, AND it subscribes, so a
+        // release is not invisible until some unrelated repaint happens to run (`C115-153`).
+        const src = read('apps/editor/src/ui/layout/GISAreaLayout.ts');
+        expect(src).toContain("if (plotDisplayControlsClaimed()) return '';");
+        expect(src).toContain('subscribePlotDisplayControlsHost(');
     });
 });

@@ -159,16 +159,45 @@ import {
   parcelRingMeasuredFacts,
   type ParcelLawFactsOptions,
 } from './parcelLawFacts';
-// §PL-IA-Q (STR §26.3, L-12998) — THE SIX PERSONA QUESTIONS, as containers. The founder:
+// §PL-IA-Q (STR §26.3, L-12998) — THE PERSONA QUESTIONS, as containers. SIX at mint; SEVEN
+// since §STAGE-05-SECTION split the room programme out of question 3 (C115-06). The founder:
 // *"thing as a persona architect of land developer how it would go thoutght the workflow."*
 // ⛔ This module computes NOTHING and this tab still computes nothing; the groups only decide
 // WHERE an already-produced section lands, and each group's collapsed digest is a MIRROR of a
 // row inside its own body (C58 §1.2 — a hidden confidence is a broken figure).
 import {
   buildQuestionGroup,
+  questionGroupFoldIsOpen,
+  setQuestionGroupFoldOpen,
   PARCEL_LAW_QUESTION_GROUPS,
   type QuestionGroupHandle,
 } from './parcelLawQuestionGroup';
+// ⭐ §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 `C115-151`, founder 2026-09-07: the SHOW ON THE PLOT
+// switches belong in section ①). The control is the ONE producer's, rendered as DOM because this
+// file has no HTML sink (C08 §3.1); the writes are the ONE authority's setters, exactly the pair
+// `GISAreaLayout` calls; and the claim is what stops the envelope card — which this tab re-parents
+// into question 2 — from drawing a second, un-subscribed copy one screen further down.
+//
+// ⚠ THIS IS THE ONE PLACE THIS TAB WRITES ANYTHING, and it is not a store and not a command (P6
+// is untouched): it is a persisted VIEW preference about what is drawn on the plot, owned by
+// `envelopeVisibility.ts`, whose subscribers repaint themselves. This file renders the switches
+// and reports the click; it decides nothing and pokes no renderer (L-1170).
+import {
+  buildEnvelopeAxesControlEl,
+  wireEnvelopeAxesControl,
+} from '../site/envelopeVisibilityControl';
+import {
+  getBuildableEnvelopeAxes,
+  isBuildableEnvelopeFootprintVisible,
+  isBuildableEnvelopeVisible,
+  setBuildableEnvelopeFootprintVisible,
+  setBuildableEnvelopeVisible,
+  subscribeBuildableEnvelopeVisibility,
+} from '../site/envelopeVisibility';
+import {
+  claimPlotDisplayControls,
+  releasePlotDisplayControls,
+} from '../site/plotDisplayControlsHost';
 // §PL-LIVE-QUANTITIES (STR §25.7) — the live room/level/total figures and the adjustable cost
 // per m². It owns its own LIVE subscription to the space-envelope store's dirty channel — the
 // same channel the 3D scene renders from — so the panel and the scene cannot show different
@@ -281,7 +310,7 @@ export const PARCEL_LAW_CREATE_HOUSE_HOST_TESTID = 'analysis-parcel-law-create-h
 export const PARCEL_LAW_CHAT_HOST_TESTID = 'analysis-parcel-law-chat-slot';
 /** §PL-ROOM-PROGRAMME — `data-testid` on the slot the ROOM PROGRAMME panel is re-hosted into. */
 export const PARCEL_LAW_ROOM_PROGRAMME_HOST_TESTID = 'analysis-parcel-law-room-programme-slot';
-/** §PL-IA-Q — `data-testid` on the ladder that holds the six question groups, in order. */
+/** §PL-IA-Q — `data-testid` on the ladder that holds the seven question groups, in order. */
 export const PARCEL_LAW_LADDER_TESTID = 'analysis-parcel-law-ladder';
 /** §PL-IA-Q — `data-testid` on the slot question 1 renders the plot half of the model into. */
 export const PARCEL_LAW_FACTS_PLOT_SLOT_TESTID = 'analysis-parcel-law-facts-plot';
@@ -296,6 +325,42 @@ export const PARCEL_LAW_COST_HOST_TESTID = 'analysis-parcel-law-cost-slot';
  * where plot selection actually happens, shown in place of the button once a plot IS committed.
  */
 export const PARCEL_LAW_PLOT_ROUTE_TESTID = 'analysis-parcel-law-plot-route';
+
+/**
+ * ⭐ §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 `C115-151`) — `data-testid` on question 1's slot for
+ * the SHOW ON THE PLOT switches.
+ *
+ * Founder 2026-09-07: the group belongs in section ① — *"What is this plot?"* — not beside the
+ * Stage-02 determination. He is right about the model as well as the screen: the two axes are
+ * VIEW CHROME about the plot (`envelopeVisibility.ts`'s own header refuses `projectScopeRegistry`
+ * for exactly that reason), and §1.4.1 already makes Stage 01 the panel's view-painting stage —
+ * every figure in it is a hyperlink that paints on the site view. A control that decides what is
+ * DRAWN on the plot sits with the controls that decide what is HIGHLIGHTED on it.
+ */
+export const PARCEL_LAW_PLOT_DISPLAY_TESTID = 'analysis-parcel-law-plot-display';
+
+/**
+ * §STAGE-01-DENSITY (C115 §1.4 `C115-111` · §11 `C115-93`) — the summary of question 1's
+ * *"View full parcel data"* disclosure. `C115-93` names the affordance in these words; they are
+ * reproduced verbatim rather than paraphrased.
+ */
+export const PARCEL_LAW_DETAIL_FOLD_SUMMARY = 'View full parcel data';
+
+/**
+ * `C115-92` — the second, muted summary line. A collapsed fold MUST state what is inside, so the
+ * reader can tell whether the row they want is behind it without opening it to find out.
+ */
+export const PARCEL_LAW_DETAIL_FOLD_CONTENTS =
+  'Perimeter · bounding box · boundary edges · zone pack · source CRS · retrieval date · how the '
+  + 'ring was measured · where plot selection happens.';
+
+/**
+ * §STAGE-01-DENSITY — the disclosure's key in the panel's ONE session-scoped open-state map
+ * (`parcelLawQuestionGroup.ts`). ⛔ It is the fold's own `data-testid`, not a position: `C115-92`
+ * and PR-H-07 — an untagged `<details>` is not a disclosure, because it cannot remember, and this
+ * card is rebuilt whole on every site-store notification.
+ */
+export const PARCEL_LAW_DETAIL_FOLD_TESTID = 'parcel-full-technical-detail';
 
 /**
  * §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — what question 1 says instead of carrying the
@@ -325,11 +390,59 @@ export const PARCEL_LAW_HIGHLIGHT_WIRED_ATTR = 'data-parcel-law-highlight-wired'
 export const PARCEL_LAW_DUPLICATE_REMOVED_ATTR = 'data-duplicate-removed';
 
 /**
+ * ⭐ §ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202 · C115 §2.5 `C115-17`) — the RELOCATION STAMP.
+ *
+ * `C115-17` makes it mandatory: every block this refactor relocates leaves a machine-readable
+ * stamp on the surface it LEFT, naming where it went. Its value is the id of the question that now
+ * hosts the block, so a reader — and a spec — can tell *"the block moved"* from *"the block is
+ * gone"*, which are opposite facts that an empty element alone conflates.
+ *
+ * ⛔ It is distinct from `PARCEL_LAW_DUPLICATE_REMOVED_ATTR` deliberately, and the difference is
+ * the whole point of having two. That one says *"this rendering was DELETED because another
+ * surface already owned the figure"*; this one says *"this rendering still exists and is now over
+ * there"*. Collapsing them would make *"we removed a duplicate"* and *"we moved a control"*
+ * indistinguishable — the same conflation C115 §2.5 exists to prevent.
+ */
+export const PARCEL_LAW_RELOCATED_TO_ATTR = 'data-relocated-to';
+
+/**
+ * `data-testid` on the sentence question 3 renders where the create controls used to be.
+ *
+ * ⛔ A CONTROL THAT VANISHES WITHOUT A POINTER HAS MOVED THE USER'S PROBLEM, NOT SOLVED IT — the
+ * rule `PARCEL_LAW_PLOT_ROUTE_NOTE` above already applies to the *Select parcel* button, reused
+ * here rather than re-invented. A machine-readable attribute alone would satisfy a spec and tell
+ * the founder nothing, so the stamp and the sentence ship together.
+ */
+export const PARCEL_LAW_AUTHORING_MOVED_TESTID = 'parcel-law-authoring-moved-note';
+
+/**
+ * ⭐ The sentence itself. Founder 2026-09-07: *"SECTION 3 SHALL HAVE ONLY THIS SCOPE"* — the
+ * intent-vs-ceiling ledger, 3.1 and 3.2 — and, on the create block, *"THIS HAS BEEN DONE ALREADY
+ * ON SECTION 2."*
+ *
+ * It names the DESTINATION and the REASON, because a pointer that only says "moved" makes the
+ * reader hunt. The reason is the IA rule this lane wrote into `C115-12`: question 2 is where you
+ * ACT on the parcel, question 3 is the ledger that READS what you declared against what you are
+ * allowed.
+ */
+export const PARCEL_LAW_AUTHORING_MOVED_NOTE =
+  'Creating the envelope moved to ② What can I build here? — it now sits directly under the '
+  + 'buildable envelope it is measured against, beside Massing options and Fit this on the ground '
+  + 'floor. Nothing was removed: the footprint ladder, the storey count, Create envelope, Discard '
+  + 'the drawn perimeter and the per-storey Edit perimeter rows are all there. This section is the '
+  + 'ledger of what you declared, beside what you are allowed.';
+
+/**
  * The lede sentence. It names the ROUTE (the switcher and the producers) rather than the
  * data, because the tab's empty state is the common one for existing projects.
+ *
+ * ⚠ IT SAID *"Six"* UNTIL 2026-09-07. `C115-08` makes rewriting it MANDATORY in the same PR that
+ * changes the count, precisely so the tab cannot tell the reader there are six ladder rungs
+ * while rendering seven. §STAGE-05-SECTION split the room programme out of question 3 into its
+ * own question 4 (`C115-06`), so the count is now **seven**.
  */
 export const PARCEL_LAW_NOTE =
-  'Six questions, in the order an architect asks them. Every figure below is produced elsewhere '
+  'Seven questions, in the order an architect asks them. Every figure below is produced elsewhere '
   + 'and only placed here — nothing on this tab is re-derived, and each one still states its own '
   + 'source and confidence. Switch the view, or split it, from the bar centred on the view itself.';
 
@@ -559,7 +672,11 @@ export function mountParcelLawTab(
   /** §SELECT-PARCEL-IS-A-VIEW-ACTION (L-13004) — question 1's pointer, shown only when the
    *  button it replaces is suppressed. Assigned on the successful build arm. */
   let plotRouteNote: HTMLParagraphElement | null = null;
-  /** §PL-IA-Q — the six question groups, by id, in the order STR §26.3 states them. */
+  /** §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 C115-151) — question 1's SHOW ON THE PLOT slot. */
+  let plotDisplaySlot: HTMLDivElement | null = null;
+  /** The visibility-authority subscription that keeps those switches honest. Released on dispose. */
+  let unsubPlotDisplay: (() => void) | null = null;
+  /** §PL-IA-Q — the seven question groups, by id, in the order STR §26.3 (+ C115-06) states them. */
   const groups = new Map<string, QuestionGroupHandle>();
 
   const holdsEnvelopeCard = (): boolean =>
@@ -650,8 +767,71 @@ export function mountParcelLawTab(
       // screen (a panel showing both the button and "selection happens elsewhere" is worse than
       // either alone).
       if (plotRouteNote) plotRouteNote.hidden = model.identityAbsence !== 'none';
+      // §STAGE-01-DENSITY — the cadastral card rebuilt on the SAME store signal a moment ago and
+      // only its full arm carries the disclosure, so the sentence's home may have just changed.
+      placeRouteNote();
     } catch (e) {
       console.warn('[analysis][parcel-law] fact section render failed (non-fatal):', e);
+    }
+  };
+
+  /**
+   * ⭐ §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 C115-151) — paint question 1's SHOW ON THE PLOT
+   * switches from the ONE authority, and bind them to the ONE pair of setters.
+   *
+   * ⛔ IT RENDERS THE AXES IT READS, IT DOES NOT REMEMBER THEM. The producer is pure and is handed
+   * `getBuildableEnvelopeAxes()` on every pass, so this surface can never display a state the
+   * viewports disagree with — the L-1170 rule ("the control only writes the answer"), which is
+   * also why the two handlers below do nothing except call a setter. No renderer is poked from
+   * here: `envelopeVisibility.ts` notifies, and every subscribed view repaints itself.
+   *
+   * Idempotent: `wireEnvelopeAxesControl` assigns `onclick` rather than adding a listener, and the
+   * markup is rebuilt each pass, so no handler can stack and no click can toggle twice.
+   */
+  const renderPlotDisplay = (): void => {
+    if (disposed || !plotDisplaySlot) return;
+    try {
+      const control = buildEnvelopeAxesControlEl(getBuildableEnvelopeAxes());
+      plotDisplaySlot.replaceChildren(control);
+      wireEnvelopeAxesControl(plotDisplaySlot, {
+        onToggleVolume: () => setBuildableEnvelopeVisible(!isBuildableEnvelopeVisible()),
+        onToggleFootprint: () => setBuildableEnvelopeFootprintVisible(!isBuildableEnvelopeFootprintVisible()),
+      });
+    } catch (e) {
+      console.warn('[analysis][parcel-law] plot-display control render failed (non-fatal):', e);
+    }
+  };
+
+  /**
+   * §STAGE-01-DENSITY — keep `PARCEL_LAW_PLOT_ROUTE_NOTE` inside question 1, wherever the card's
+   * current arm leaves room for it.
+   *
+   * ⚠ THIS IS A RE-ASSERTION, NOT A SECOND PLACEMENT RULE, AND IT IS NEEDED FOR ONE REASON: the
+   * cadastral card is rebuilt WHOLE on every site-store notification, and only its full arm builds
+   * the disclosure. On the two absence arms there is no fold at all, so a node the previous render
+   * had placed inside one would be discarded with the card it lived in — present in memory, gone
+   * from the screen. That is the stranded-chrome failure this file's own teardown exists to
+   * prevent, arriving from the other direction.
+   *
+   * ⛔ IT MOVES ONE DECLARED NODE AND NOTHING ELSE. The card DECLARES the fold as a host slot
+   * (`ParcelCardDetailFold.hostNodes`), so this is not a host reaching into a producer's private
+   * DOM; it is the host re-asserting the placement the producer offered it, idempotently, after a
+   * rebuild it does not control. Never into `panelSlot` — see the append site.
+   */
+  const placeRouteNote = (): void => {
+    const note = plotRouteNote;
+    if (!note) return;
+    try {
+      const foldBody = root.querySelector(
+        `[data-testid="${PARCEL_LAW_DETAIL_FOLD_TESTID}"] .pryzm-parcel-card-fold-body`,
+      );
+      // The fallback is question 1's own body — the same slot the append site used before the
+      // fold existed. `groups` is read live rather than captured, so a rebuild cannot strand it.
+      const q1 = groups.get('plot')?.body ?? root;
+      const target: HTMLElement = foldBody instanceof HTMLElement ? foldBody : q1;
+      if (note.parentElement !== target) target.appendChild(note);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] route-note placement failed (non-fatal):', e);
     }
   };
 
@@ -727,7 +907,7 @@ export function mountParcelLawTab(
       splitLayout: 'parcel-law',
     });
 
-    // ── 2. The note: six questions, in the order the persona asks them. ───────────
+    // ── 2. The note: the questions, in the order the persona asks them. ───────────
     const note = document.createElement('p');
     note.className = 'anl-parcel-law-note';
     note.setAttribute('data-testid', PARCEL_LAW_NOTE_TESTID);
@@ -744,7 +924,8 @@ export function mountParcelLawTab(
     // ⛔ NOT ONE NEW FIGURE IS ADDED BELOW, AND NOT ONE IS REMOVED. Every producer this tab
     // mounted before it still mounts, with the same deps, the same subscriptions and the same
     // refusal sentences. What changed is the ORDER and the WEIGHT: the flat stack of peer-level
-    // sections becomes six groups named after the six questions §26.3 states, and each group is
+    // sections becomes groups named after the questions §26.3 states — six at mint, seven since
+    // the programme became its own question 4 — and each group is
     // a `<details>` whose COLLAPSED summary still carries the headline AND its confidence
     // (C58 §1.2 — a disclosure that hides whether a figure is solved, estimated or an
     // unreviewed suggestion has broken the contract even though it deleted nothing).
@@ -790,6 +971,17 @@ export function mountParcelLawTab(
     panelSlot.className = 'anl-parcel-law-panel';
     panelSlot.setAttribute('data-testid', PARCEL_LAW_PANEL_SLOT_TESTID);
     bodyOf('plot').appendChild(panelSlot);
+    // The pointer that replaces the map button once a plot IS committed. Created BEFORE the panel,
+    // because the extras thunk below hands this very node to the card's disclosure and the thunk
+    // runs during `buildParcelPanel` — a note created afterwards would miss the first render.
+    plotRouteNote = document.createElement('p');
+    plotRouteNote.className = 'anl-parcel-law-note';
+    plotRouteNote.setAttribute('data-testid', PARCEL_LAW_PLOT_ROUTE_TESTID);
+    plotRouteNote.style.cssText = 'margin:4px 0 0;font-size:10px;line-height:1.5;color:#8a83a0;';
+    // textContent — no HTML sink in this file (C08 §3.1)
+    plotRouteNote.textContent = PARCEL_LAW_PLOT_ROUTE_NOTE;
+    plotRouteNote.hidden = true;
+
     panel = deps.buildParcelPanel(deps.runtime, {
       // ⚠ A THUNK, READ ON EVERY CARD RENDER — never a snapshot taken here. The card re-renders
       // on its own site-store notification, and a captured array would leave the measured rows
@@ -802,7 +994,39 @@ export function mountParcelLawTab(
       // fire in an order nothing guarantees, and a stale measurement is exactly the failure.
       extraFacts: () => {
         try {
-          return parcelRingMeasuredFacts(readModelNow());
+          const measured = parcelRingMeasuredFacts(readModelNow());
+          if (!measured) return null;
+          // ── §STAGE-01-DENSITY (C115 §1.4 C115-111 / C115-152) ─────────────────────────────
+          //
+          // Founder 2026-09-07: section ① is too tall. C115-111 had already prescribed the
+          // answer and recorded it as unbuilt — the technical detail sits behind *"View full
+          // parcel data"* — and C115-95 states the rule the build has to honour: this is
+          // progressive disclosure, NOT data removal, and nothing shrinks on the way.
+          //
+          // ⭐ ONE PRIMITIVE, NOT A SIXTH. The `<details>` is produced by the ONE card producer
+          // and its open state is remembered by the SAME session map the question groups
+          // use, through the accessor `parcelLawQuestionGroup.ts` exports for exactly this
+          // (C115-90 / C115-91; the shape `envelopeCardFoldIsOpen` established for the card's
+          // string-built folds). The card holds no state of its own — it is handed `open` and
+          // reports the toggle back — so a fold cannot snap shut on a store notification.
+          //
+          // ⛔ AND THE ROUTE SENTENCE GOES WITH IT. `PARCEL_LAW_PLOT_ROUTE_NOTE` is the largest
+          // single block of prose in this section (~5 wrapped lines) and it is a POINTER, not a
+          // control: the route it names lives on the view, and §4.4 clause 4 protects the
+          // section that carries *the only route*, which this is not — the map button itself
+          // still renders, unfolded, on both parcel-less arms. The node is MOVED, never copied,
+          // so `renderFacts` keeps toggling the one element and no second sentence can drift.
+          return {
+            ...measured,
+            detailFold: {
+              testId: PARCEL_LAW_DETAIL_FOLD_TESTID,
+              summary: PARCEL_LAW_DETAIL_FOLD_SUMMARY,
+              contents: PARCEL_LAW_DETAIL_FOLD_CONTENTS,
+              open: questionGroupFoldIsOpen(PARCEL_LAW_DETAIL_FOLD_TESTID, false),
+              onToggle: (open: boolean) => setQuestionGroupFoldOpen(PARCEL_LAW_DETAIL_FOLD_TESTID, open),
+              hostNodes: plotRouteNote ? [plotRouteNote] : [],
+            },
+          };
         } catch (e) {
           console.warn('[analysis][parcel-law] ring-measurement projection failed (non-fatal):', e);
           return null;
@@ -834,22 +1058,46 @@ export function mountParcelLawTab(
       actions: (host) =>
         plotIsCommitted() ? [] : [buildOpenMapAction(host)],
     });
-    // The pointer that replaces it. A panel that drops an affordance and says nothing has moved
-    // the user's problem rather than solved it, so question 1 states where selection now happens
-    // — in the same words the tab's lede uses for the view bar.
-    plotRouteNote = document.createElement('p');
-    plotRouteNote.className = 'anl-parcel-law-note';
-    plotRouteNote.setAttribute('data-testid', PARCEL_LAW_PLOT_ROUTE_TESTID);
-    plotRouteNote.style.cssText = 'margin:4px 0 0;font-size:10px;line-height:1.5;color:#8a83a0;';
-    // textContent — no HTML sink in this file (C08 §3.1)
-    plotRouteNote.textContent = PARCEL_LAW_PLOT_ROUTE_NOTE;
-    plotRouteNote.hidden = true;
     panelSlot.appendChild(panel.element);
-    // ⛔ APPENDED TO THE QUESTION BODY, NOT INTO `panelSlot`. That slot holds the producer's
-    // element and nothing else — `parcelLawTab.spec.ts` ARM A asserts its text is exactly the
-    // panel's, which is the assertion that keeps a host from smuggling its own chrome into a
-    // producer's slot. This sentence is the TAB's, so it hangs beside the slot, not inside it.
-    bodyOf('plot').appendChild(plotRouteNote);
+    // ⛔ NEVER INTO `panelSlot`. That slot holds the producer's element and nothing else —
+    // `parcelLawTab.spec.ts` ARM A asserts its text is exactly the panel's, which is the
+    // assertion that keeps a host from smuggling its own chrome into a producer's slot. The
+    // sentence is the TAB's: it lives inside the card's *"View full parcel data"* disclosure when
+    // the card built one, and directly in question 1's body when it did not. `placeRouteNote`
+    // below owns that decision and re-asserts it after every render.
+    placeRouteNote();
+
+    // ── ⭐ SHOW ON THE PLOT — §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 C115-151) ──────────────
+    //
+    // Founder 2026-09-07: these two switches belong in section ①. They were never in this tab at
+    // all — they are string-concatenated into the singleton buildable-envelope card, which this
+    // tab re-parents into QUESTION 2, so what he was looking at was a Stage-02 control and what
+    // he asked for was a Stage-01 one.
+    //
+    // ⭐ IT IS THE SAME CONTROL AND THE SAME AUTHORITY, MOVED — not a second one. The markup is
+    // the ONE producer's (`buildEnvelopeAxesControlEl` parses `buildEnvelopeAxesControlHtml`), the
+    // writes are the ONE authority's setters — the very pair `GISAreaLayout` calls — and while
+    // this slot is claimed the card renders none, so there is exactly one pair of switches on the
+    // panel. Two would have been worse than the placement complaint: the card does not subscribe
+    // to the authority, so its copy would have gone on reading ON after a write made here.
+    plotDisplaySlot = document.createElement('div');
+    plotDisplaySlot.className = 'anl-parcel-law-plot-display';
+    plotDisplaySlot.setAttribute('data-testid', PARCEL_LAW_PLOT_DISPLAY_TESTID);
+    bodyOf('plot').appendChild(plotDisplaySlot);
+    renderPlotDisplay();
+    // ⛔ THE CLAIM IS NOT MADE HERE, AND THE REASON IS THE SELF-HEALING RULE ITSELF. This body is
+    // still DETACHED at this point — `host.appendChild(root)` is several sections below — and a
+    // claim held by an element that is not in the document is, by that rule, not a claim: the
+    // very next `plotDisplayControlsClaimed()` would drop it and nothing would re-make it. So the
+    // claim is taken at the bottom of this build, immediately after the body is in the DOM and
+    // BEFORE the microtask on which the envelope card's own claim lands — which is what makes the
+    // card's FIRST render already see the job as taken, with no flash of a second control.
+    // The authority notifies on every write from every surface, so the switches here can never
+    // show a state a viewport disagrees with — the subscription the envelope card never had.
+    unsubPlotDisplay = subscribeBuildableEnvelopeVisibility(() => {
+      if (disposed) return;
+      renderPlotDisplay();
+    });
     // §ONE-PARCEL-BLOCK — this slot now carries only what a CARD ROW cannot say: the sentence
     // for a ring that could not be read. When the ring reads, the rendering is empty and stamps
     // `data-parcel-rows-merged-into="card"`, so "the rows moved" is distinguishable from "the
@@ -872,13 +1120,61 @@ export function mountParcelLawTab(
     if (envelopeSlot) bodyOf('law').appendChild(envelopeSlot);
     bodyOf('law').appendChild(factsLawSlot);
 
-    // ── Q3 · "What do I want to build?" ─────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ §ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — THE CREATE BLOCK MOVES INTO QUESTION 2
+    // ════════════════════════════════════════════════════════════════════════════════════════
     // §PL-ENVELOPE-AUTHORING (STR §25.2 / §25.6) — the ONE create verb C114 §6a declares, the
     // storey count, and the per-storey `Edit perimeter` controls.
+    //
+    // ⭐ THE FOUNDER RULED THIS, TWICE, ON 2026-09-07. Over a shot of this block inside question 3:
+    // *"REVIEW THIS SECTION — THIS HAS BEEN DONE ALREADY ON SECTION 2 — AND KEEP THE SECTION 02
+    // INTACT AFTER HAVING CREATED THE MASSING ENVELOPE."* And over a shot of question 3 holding
+    // only the ledger: *"SECTION 3 SHALL HAVE ONLY THIS SCOPE."*
+    //
+    // ⛔ THIS OVERRIDES THE READING C115 §1's STAGE TABLE INVITES, AND THE CONTRACT WAS AMENDED
+    // RATHER THAN QUIETLY DISOBEYED. §1 puts *"draw your own · drag/edit the envelope · add/remove
+    // levels"* under Stage 03, on which reading origination would belong here. `C115-12`'s
+    // canonical-home table now carries the ruling with its reasoning (C115 §2.2, §6) so nobody
+    // re-opens it: **question 2 is where you ACT on the parcel; question 3 READS what you declared
+    // against what you are allowed.**
+    //
+    // ⭐ AND THE COMPLAINT WAS STRUCTURAL, NOT AESTHETIC — two measurements, either of which alone
+    // settles it:
+    //   1. Question 2's *"Create it myself"* sends the user to DRAW on the view
+    //      (`massingAuthoredOptionSection.ts` → `window.pryzmOpenSiteEnvelopeTool`), and the ONLY
+    //      control that consumes the drawn ring — and the ONLY *Discard the drawn perimeter* —
+    //      was in question 3. A gesture BEGUN in 2 could only be FINISHED in 3.
+    //   2. `data-stage-control="massing"` is set on three envelope-card elements and on NOTHING in
+    //      this block, so the design-stage strip's own "do this next" pill already jumped into
+    //      question 2 and could never reach `Create envelope`.
+    //
+    // ⛔ IT IS A RE-PARENT, NOT A REBUILD. One `mountParcelLawEnvelopeAuthoring`, one subscription
+    // set, one plan producer, every testid unchanged — `parcelLawChat.ts` drives both creation
+    // routes BY TESTID (PR-H-03), so relocating is safe and renaming would break it silently.
     const authoringSlot = document.createElement('div');
     authoringSlot.className = 'anl-parcel-law-authoring-host';
     authoringSlot.setAttribute('data-testid', PARCEL_LAW_AUTHORING_HOST_TESTID);
-    bodyOf('intent').appendChild(authoringSlot);
+    bodyOf('law').appendChild(authoringSlot);
+
+    // ── Q3 · "What do I want to build?" ─────────────────────────────────────
+    //
+    // ⛔ §C115-17 — THE RELOCATION STAMP AND ITS SENTENCE. A control that disappears with no
+    // pointer has moved the reader's problem, not solved it (the rule this file already applies to
+    // the *Select parcel on the 2D map* button). The stamp is for a spec; the sentence is for the
+    // founder; neither substitutes for the other.
+    //
+    // ⛔ AND IT IS NOT A GATE. `C115-130` forbids Stage 02 gating Stage 03: this question renders
+    // its ledger's own §4.1 states whether or not an envelope exists, and a null envelope is a
+    // state to render, not a branch to skip (C58 §1.20). The note below is additive.
+    const authoringMovedNote = document.createElement('p');
+    authoringMovedNote.className = 'anl-parcel-law-note';
+    authoringMovedNote.setAttribute('data-testid', PARCEL_LAW_AUTHORING_MOVED_TESTID);
+    authoringMovedNote.setAttribute(PARCEL_LAW_RELOCATED_TO_ATTR, 'law');
+    authoringMovedNote.style.cssText =
+      'margin:2px 0 6px;font-size:10px;line-height:1.5;color:#8a83a0;';
+    // textContent — no HTML sink in this file (C08 §3.1)
+    authoringMovedNote.textContent = PARCEL_LAW_AUTHORING_MOVED_NOTE;
+    bodyOf('intent').appendChild(authoringMovedNote);
 
     // §26.6 rule 3 / §26.6.3 — 3.1 levels and heights · 3.2 areas, each BESIDE its ceiling,
     // directly after the control that declares them. ⛔ Nothing here is derived: the intent is
@@ -888,13 +1184,22 @@ export function mountParcelLawTab(
     intentSlot.setAttribute('data-testid', PARCEL_LAW_INTENT_HOST_TESTID);
     bodyOf('intent').appendChild(intentSlot);
 
-    // §PL-ROOM-PROGRAMME (L-13024 clause 3, STR §25.5) — the ROOM PROGRAMME, re-hosted.
+    // ── Q4 · "What can I fit inside it?" ──────────────────────────────────────
     //
-    // ⭐ IN QUESTION 3, AND THAT PLACEMENT IS THE ASK. Q3 is *"What do I want to build?"*
-    // and Q6 is *"Take me into BIM."*; the founder asked for the programme to be usable
-    // *"beforehand — to add rooms beforehand"* rather than generating a house and then
-    // correcting it. Putting it here means the reader declares rooms, sees them solved into
-    // envelopes, and only then reaches Create house — the §25.5 contract that *"the graph
+    // §PL-ROOM-PROGRAMME (L-13024 clause 3, STR §25.5) — the ROOM PROGRAMME.
+    // §STAGE-05-SECTION (C115 §8.1 `C115-170`, L-13176) — and it is now its OWN question.
+    //
+    // ⭐ IT WAS IN QUESTION 3 AND IT IS NOW QUESTION 4 — a SPLIT, not a move between panels.
+    // Founder 2026-09-07: *"THE ROOMS SHOULD BE THE NEW SECTION 4."* `C115-06` requires exactly
+    // this shape (*"the refactor MUST SPLIT group 3, not build two groups from nothing"*), and
+    // `C115-07` says stage 05 must not be orphaned by the split — question 4 is the question it
+    // acquires. The slot moves one parent; the panel instance, its producers, its subscriptions
+    // and every sentence in it are untouched.
+    //
+    // ⭐ THE ORDERING CLAIM SURVIVES THE MOVE. Q4 is *"What can I fit inside it?"* and Q7 is
+    // *"Take me into BIM."*; the founder asked for the programme to be usable *"beforehand — to
+    // add rooms beforehand"* rather than generating a house and then correcting it. Declaring
+    // rooms still comes THREE questions before Create house — the §25.5 contract that *"the graph
     // drives the initial layout generation"*, in the ladder's own order.
     //
     // ⛔ IT IS THE ONE INSTANCE, MOVED. The rail's PROGRAMME section used to mount it and no
@@ -908,9 +1213,9 @@ export function mountParcelLawTab(
     const roomProgrammeSlot = document.createElement('div');
     roomProgrammeSlot.className = 'anl-parcel-law-room-programme-host';
     roomProgrammeSlot.setAttribute('data-testid', PARCEL_LAW_ROOM_PROGRAMME_HOST_TESTID);
-    bodyOf('intent').appendChild(roomProgrammeSlot);
+    bodyOf('rooms').appendChild(roomProgrammeSlot);
 
-    // ── Q4 · "How much of my allowance have I used?" ───────────────────────────
+    // ── Q5 · "How much of my allowance have I used?" ───────────────────────────
     //
     // ⭐ THE LEDGER LEAVES THE AUTHORING SECTION AND BECOMES ITS OWN ANSWER.
     // `buildBrutAllocationHtml` is headed *"How much of the allowance have you used?"* — which is
@@ -963,7 +1268,7 @@ export function mountParcelLawTab(
     // ── §PL-CHAT (STR §25.4) — "A CHAT BOT ON THE PARCEL LAW PANEL". ──────────────────
     //
     // ⭐ DELIBERATELY OUTSIDE THE NUMBERED LADDER, and this is the one placement §26.3 does not
-    // decide for us. The chat answers NONE of the six questions by itself — it answers WHICHEVER
+    // decide for us. The chat answers NONE of the questions by itself — it answers WHICHEVER
     // of them you ask, by typing into the sections above and reading their status lines back.
     // §26.3 says *"any section that answers none of them is in the wrong place or belongs behind a
     // disclosure"*; putting the chat behind a disclosure would hide the only control that spans
@@ -980,6 +1285,12 @@ export function mountParcelLawTab(
     root.appendChild(chatSlot);
 
     host.appendChild(root);
+    // ⭐ §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 C115-151) — CLAIMED THE INSTANT THE BODY IS IN THE
+    // DOM. Held by ELEMENT, so it goes stale on its own the moment this body leaves the document
+    // (`plotDisplayControlsClaimed`): a teardown that never reached `dispose()` costs the envelope
+    // card ONE render, never the control. Synchronous, and therefore ahead of the microtask the
+    // envelope card's own claim is scheduled on — so the card's first render already yields.
+    if (plotDisplaySlot) claimPlotDisplayControls(plotDisplaySlot, 'analysis:parcel-law:question-1');
     renderFacts();
     // §26.6 rule 2 — the cadastral card and the plot facts are in the DOM; wire their controls
     // now, and keep every control under this body painted from the ONE store from here on, so a
@@ -1053,7 +1364,7 @@ export function mountParcelLawTab(
 
     // ── 5. The design-stage strip — after the claim lands (it is scheduled on a microtask). ──
     // §26.6 rule 2 — and the highlight controls the claimed card brought with it, on the same tick.
-    queueMicrotask(() => { wireStrip(); wireHighlights(); });
+    queueMicrotask(() => { wireStrip(); wireHighlights(); placeRouteNote(); });
     // …and again whenever the site store moves, because the rail panel rebuilds the card's
     // host chrome on the same signal and the card itself re-renders on a determination.
     const store = resolveSiteStore(deps.runtime);
@@ -1068,7 +1379,7 @@ export function mountParcelLawTab(
           refreshDigests();
           // The cadastral card has ALREADY rebuilt by now (its subscription predates this one), so
           // its fresh controls are wired on this microtask together with the strip.
-          queueMicrotask(() => { wireStrip(); wireHighlights(); });
+          queueMicrotask(() => { wireStrip(); wireHighlights(); placeRouteNote(); });
         });
       } catch (e) {
         console.warn('[analysis][parcel-law] site-store subscribe failed — the strip is wired once, at mount:', e);
@@ -1106,6 +1417,15 @@ export function mountParcelLawTab(
       try { roomsPerLevel?.refresh(); } catch { /* same */ }
       wireStrip();
       wireHighlights();
+      // §PLOT-DISPLAY-CONTROLS-HOST / §STAGE-01-DENSITY — the two pieces of question-1 chrome this
+      // tab owns. Re-asserted here for the same reason the strip is: a producer re-render between
+      // repaints can have replaced the DOM they hang on.
+      // Idempotent for the same element, and the insurance that matters: a body detached and
+      // re-attached (a tab switch away and back) would have let its claim go stale, and nothing
+      // else would re-take it.
+      if (plotDisplaySlot) claimPlotDisplayControls(plotDisplaySlot, 'analysis:parcel-law:question-1');
+      renderPlotDisplay();
+      placeRouteNote();
       refreshDigests();
     },
     holdsEnvelopeCard,
@@ -1115,6 +1435,18 @@ export function mountParcelLawTab(
       const held = holdsEnvelopeCard();
       try { unsub?.(); } catch { /* teardown is best-effort */ }
       unsub = null;
+      // ⭐ §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 C115-151/C115-153) — RELEASED FIRST, AND BEFORE
+      // THE HAND-BACK BELOW. The release notifies the card's host, which re-renders the card with
+      // the SHOW ON THE PLOT switches back on it; doing it after the hand-back would re-render the
+      // card once with no control on it and leave that state until some later repaint. The
+      // release is guarded on identity inside the arbiter, so a tab disposing after another
+      // surface has claimed the job cannot evict it (C19 §5.7 clause 2, by its reason).
+      try { unsubPlotDisplay?.(); } catch { /* teardown is best-effort */ }
+      unsubPlotDisplay = null;
+      if (plotDisplaySlot) {
+        try { releasePlotDisplayControls(plotDisplaySlot); } catch { /* teardown is best-effort */ }
+      }
+      plotDisplaySlot = null;
       // §26.6 rule 2 — a highlight listener that outlived this body would repaint a detached tree.
       try { unsubHighlight?.(); } catch { /* teardown is best-effort */ }
       unsubHighlight = null;
@@ -1145,7 +1477,7 @@ export function mountParcelLawTab(
       // its bar over the canvas is the stranded-chrome failure this body's teardown exists for.
       try { onView?.dispose(); } catch { /* teardown is best-effort */ }
       onView = null;
-      // §PL-IA-Q — the six groups own MutationObservers on their own bodies; leaving one connected
+      // §PL-IA-Q — the groups own MutationObservers on their own bodies; leaving one connected
       // to a detached tree is a listener that outlives the surface that put it up.
       for (const g of groups.values()) {
         try { g.dispose(); } catch { /* teardown is best-effort */ }

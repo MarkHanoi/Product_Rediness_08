@@ -71,6 +71,28 @@ import { buildSiteHighlightLabelEl } from '../siteHighlightRowControl.js';
 export const PARCEL_CARD_TESTID = 'parcel-info-card';
 /** The `data-testid` on the stated-absence variant. */
 export const PARCEL_CARD_ABSENT_TESTID = 'parcel-info-absent';
+/**
+ * §STAGE-01-DENSITY (C115 §1.4 `C115-111`, L-13139) — the `data-testid` on the card's PRIMARY
+ * area row: `Area (registry)` where the source publishes one, else `Area (from ring)`, else the
+ * `not determinable from this ring` row.
+ *
+ * ⭐ IT EXISTS BECAUSE A DIGEST HAD NOTHING TO MIRROR. Since the §ONE-PARCEL-BLOCK merge
+ * (L-13005) the plot area is typeset by THIS card, and question 1's collapsed digest probed
+ * `[data-testid="parcel-law-fact-parcel-area"] .anl-plaw-val` — a class this card has never
+ * emitted. Both probes missed, so a committed plot collapsed to the words *"no plot committed"*
+ * (L-13139 / C115 §15 D-10). C115-99: a probe MUST move with the rendering it mirrors; this is
+ * the handle that lets it.
+ */
+export const PARCEL_CARD_AREA_ROW_TESTID = 'parcel-card-area';
+/**
+ * §STAGE-01-DENSITY (C115 §1.4 `C115-111` / §11 `C115-93`) — the `data-testid` on the
+ * *"View full parcel data"* disclosure, when a host asks for one.
+ *
+ * ⚠ THE KEY IS THE MEMORY. `C115-92`: an untagged `<details>` is not a disclosure — it cannot
+ * remember, and this card is rebuilt whole on every site-store notification, so a fold with no
+ * key would snap shut under the reader's cursor several times a minute.
+ */
+export const PARCEL_CARD_DETAIL_FOLD_TESTID = 'parcel-full-technical-detail';
 
 // ── The exact strings. Named constants so a test can assert them verbatim and so the
 //    two surfaces cannot render two different wordings of the same fact. ────────────
@@ -193,6 +215,66 @@ export interface ParcelCardOptions {
      * the only host whose views subscribe to the highlight store.
      */
     readonly areaHighlight?: ParcelCardRowHighlight;
+    /**
+     * §STAGE-01-DENSITY (C115 §1.4 `C115-111` / `C115-152`) — host rows that belong to the
+     * TECHNICAL half of the parcel: shown inside the *"View full parcel data"* disclosure when
+     * `detailFold` is supplied, and inline directly after `extraFacts` when it is not.
+     *
+     * ⛔ THE SPLIT IS ABOUT PLACEMENT, NEVER ABOUT TRUTH. `C115-40` forbids row-level
+     * withholding: nothing here is dropped in either arm, and a host that asks for no fold gets
+     * exactly the card it got before this field existed, row for row and in the same order.
+     */
+    readonly detailFacts?: readonly ParcelCardExtraFact[];
+    /**
+     * §STAGE-01-DENSITY (C115 §1.4 `C115-111` · §11 `C115-93`) — ⭐ the *"View full parcel data"*
+     * disclosure the founder asked for, as a HOST-DRIVEN option.
+     *
+     * Supplied only by the Parcel Law panel today. Every other host (the 2D map overlay, the GIS
+     * rail section, the PARCEL rail panel) passes none and renders the flat card unchanged.
+     */
+    readonly detailFold?: ParcelCardDetailFold;
+}
+
+/**
+ * §STAGE-01-DENSITY (C115 §1.4 `C115-111`) — the *"View full parcel data"* disclosure.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * ⭐ THE CARD HOLDS NO FOLD STATE, AND THAT IS WHY THIS IS NOT A SIXTH MECHANISM
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * C115 §11 measured FIVE rival disclosure mechanisms on this one surface, and `C115-91` forbids
+ * fixing that by adding a third open-state map. So this card mints none: `open` arrives from the
+ * host and `onToggle` reports back to it. The Parcel Law panel backs both with the SAME
+ * session-scoped map its six question groups already use (`parcelLawQuestionGroup.ts`), which is
+ * one of the two map-backed implementations §11 names — one map, one key space (`data-testid`),
+ * one session scope. That is the pattern `envelopeCardFoldIsOpen` established for the envelope
+ * card's cost fold, applied to a DOM producer instead of a string one.
+ *
+ * ⛔ WHAT MAY NEVER GO BEHIND IT. `C115-152`: density may be bought with disclosure, never with
+ * de-weighting an honesty string. The kind banner (footprint / hand-drawn), the size review, the
+ * `Match` tier, the incomplete-geometry warning, every area row with its basis, and the C57 §1.9
+ * `Source:` attribution stay on the VISIBLE FACE in every arm — the caller cannot move them,
+ * because this card decides their placement, not the caller.
+ */
+export interface ParcelCardDetailFold {
+    /** Stable `data-testid` on the `<details>`. Defaults to `PARCEL_CARD_DETAIL_FOLD_TESTID`. */
+    readonly testId?: string;
+    /** The summary line. `C115-92`: it MUST name what is inside, not merely a category. */
+    readonly summary: string;
+    /** A second, muted summary line listing the contents, so a collapsed fold stays navigable. */
+    readonly contents?: string;
+    /** Whether it opens expanded. Read from the host's ONE open-state map. */
+    readonly open: boolean;
+    /** Reports the reader's toggle back to the host's map. */
+    readonly onToggle?: (open: boolean) => void;
+    /**
+     * Host nodes appended INSIDE the fold, after the technical rows.
+     *
+     * ⚠ THE NODES ARE MOVED, NOT COPIED. The Parcel Law panel hands in the one
+     * `PARCEL_LAW_PLOT_ROUTE_NOTE` element it owns and keeps its reference; `appendChild` re-homes
+     * that same node on every card render, so the panel's own `hidden` logic keeps working and
+     * there is never a second copy of the sentence to drift.
+     */
+    readonly hostNodes?: readonly Node[];
 }
 
 /**
@@ -411,9 +493,12 @@ function fact(
     opts?: {
         readonly highlight?: ParcelCardRowHighlight;
         readonly inlineNote?: { readonly text: string; readonly testId: string };
+        /** §STAGE-01-DENSITY — a stable handle on one of the card's OWN rows (L-13139). */
+        readonly testId?: string;
     },
 ): HTMLDivElement {
     const row = el('div', 'pryzm-parcel-card-row');
+    if (opts?.testId) row.setAttribute('data-testid', opts.testId);
     row.appendChild(keyCell(label, undefined, opts?.highlight));
     row.appendChild(el('span', 'pryzm-parcel-card-val', value));
     if (opts?.inlineNote) {
@@ -454,6 +539,38 @@ function appendExtraFacts(
         n.setAttribute('data-testid', 'parcel-card-extra-facts-note');
         root.appendChild(n);
     }
+}
+
+/**
+ * §STAGE-01-DENSITY (C115 §1.4 `C115-111` · §11 `C115-92`/`C115-93`) — the *"View full parcel
+ * data"* disclosure, or `null` when the host asked for none.
+ *
+ * The card holds no open-state map (see `ParcelCardDetailFold`): `open` comes in, the `toggle`
+ * event goes back out, and the host — which survives the card's own `replaceChildren` rebuilds —
+ * is what remembers.
+ */
+function buildDetailFold(spec: ParcelCardDetailFold): { root: HTMLDetailsElement; body: HTMLElement } {
+    const details = document.createElement('details');
+    details.className = 'pryzm-parcel-card-fold';
+    details.setAttribute('data-testid', spec.testId ?? PARCEL_CARD_DETAIL_FOLD_TESTID);
+    details.open = spec.open;
+    const summary = document.createElement('summary');
+    summary.className = 'pryzm-parcel-card-fold-summary';
+    summary.appendChild(el('span', 'pryzm-parcel-card-fold-label', spec.summary));
+    // `C115-92` — a collapsed fold must still be navigable, so it names its own contents rather
+    // than making the reader open it to find out whether the row they want is inside.
+    if (spec.contents) {
+        summary.appendChild(el('span', 'pryzm-parcel-card-note', spec.contents));
+    }
+    details.appendChild(summary);
+    const body = el('div', 'pryzm-parcel-card-fold-body');
+    details.appendChild(body);
+    if (spec.onToggle) {
+        // `onToggle` is ASSIGNED via addEventListener on a freshly created node — the card is
+        // rebuilt whole, so there is exactly one listener per element and no stacking is possible.
+        details.addEventListener('toggle', () => spec.onToggle?.(details.open));
+    }
+    return { root: details, body };
 }
 
 function m2(n: number): string {
@@ -508,7 +625,19 @@ export function buildParcelCard(
         // whose attribution was never recorded still has a ring, and how big / how long / how
         // many edges it is remains a fact we hold when where it came from is not (the same
         // reasoning `buildParcelSectionBody` states for the area row it adds to this arm).
-        appendExtraFacts(root, opts.extraFacts ?? [], opts.extraFactsNote);
+        //
+        // ⛔ NO FOLD ON THE ABSENCE ARM, DELIBERATELY. This card is a SENTENCE plus whatever ring
+        // measurements survive; folding two or three rows under a disclosure would cost a click
+        // and save nothing, and `C115-39` clause 1 is explicit that a stated absence has
+        // something to say. `detailFacts` therefore render inline here, never behind a control.
+        //
+        // ⚠ THE NOTE FOLLOWS THE LAST NON-EMPTY GROUP, so a host that supplies `extraFacts` and
+        // no `detailFacts` keeps the attribution line it has always had. `appendExtraFacts`
+        // returns early on an empty list, so the note is rendered exactly once either way — and
+        // dropping it would be the C57 §1.9 attribution loss the merge was forbidden to cause.
+        const absentDetail = opts.detailFacts ?? [];
+        appendExtraFacts(root, opts.extraFacts ?? [], absentDetail.length === 0 ? opts.extraFactsNote : undefined);
+        appendExtraFacts(root, absentDetail, opts.extraFactsNote);
         appendActions(root, opts.actions ?? []);
         return root;
     }
@@ -565,9 +694,16 @@ export function buildParcelCard(
     //    When both exist they are both shown; the row label always states the basis.
     //    §26.6 rule 2 — each area row is the parcel hyperlink when the host supplied one; the
     //    two rows point at the SAME plot, because they are two measurements of one ring.
+    //
+    // §STAGE-01-DENSITY (L-13139) — the PRIMARY area row carries `PARCEL_CARD_AREA_ROW_TESTID`.
+    // Since the §ONE-PARCEL-BLOCK merge this card is the only surface that prints the plot's
+    // area, and question 1's collapsed digest had no handle on it, so a committed plot summarised
+    // itself as "no plot committed". A digest is a mirror; a mirror needs something to point at.
     const highlight = opts.areaHighlight;
     if (model.areaSource === 'registry-declared' && model.areaOfficialM2 !== null) {
-        root.appendChild(fact('Area (registry)', m2(model.areaOfficialM2), { highlight }));
+        root.appendChild(fact('Area (registry)', m2(model.areaOfficialM2), {
+            highlight, testId: PARCEL_CARD_AREA_ROW_TESTID,
+        }));
         if (model.areaSigM2 !== null) {
             root.appendChild(fact('Area (from ring)', m2(model.areaSigM2), { highlight }));
         }
@@ -575,19 +711,46 @@ export function buildParcelCard(
         // §26.6.1 — the derivation note sits ON THE SAME LINE as the figure it qualifies.
         root.appendChild(fact('Area (from ring)', m2(model.areaSigM2), {
             highlight,
+            testId: PARCEL_CARD_AREA_ROW_TESTID,
             inlineNote: { text: PARCEL_AREA_DERIVED_NOTE, testId: 'parcel-area-derived-note' },
         }));
     } else {
-        root.appendChild(fact('Area', 'not determinable from this ring'));
+        // ⚠ THE HANDLE IS ON THIS ARM TOO. "not determinable from this ring" is an ANSWER, and a
+        // digest that mirrored only the numeric arms would fall back to "no plot committed" on a
+        // plot that is committed and whose area we honestly cannot state — failure and emptiness
+        // collapsing into one value (C84 EI-1b), which is the very defect L-13139 is.
+        root.appendChild(fact('Area', 'not determinable from this ring', {
+            testId: PARCEL_CARD_AREA_ROW_TESTID,
+        }));
     }
 
-    // ── §ONE-PARCEL-BLOCK (L-13005) — the host's ring measurements, HERE and not in a second
-    //    block beside this one. After the areas because they measure the same ring; before
-    //    `Zone pack` / `Match` because those are classification, not measurement.
-    appendExtraFacts(root, opts.extraFacts ?? [], opts.extraFactsNote);
+    // ── §STAGE-01-DENSITY (C115 §1.4 `C115-111`) — WHERE THE TECHNICAL HALF GOES ────────────
+    //
+    // Founder 2026-09-07: section ① is too tall. `C115-111` already prescribed the answer and
+    // recorded it as unbuilt — the full technical detail sits behind *"View full parcel data"*.
+    // This is where it is built, and `C115-152` is the budget it is built to: density may be
+    // bought with disclosure, NEVER with row-level withholding (`C115-40`), NEVER by de-weighting
+    // an honesty string (`C115-37`), and NEVER by hiding attribution (C57 §1.9).
+    //
+    // So the fold takes CLASSIFICATION and PROVENANCE-DETAIL only — zone pack, source CRS,
+    // retrieval date, and the host's ring measurements with their attribution line. Everything
+    // that is a claim about the land or a caveat on it stays on the face: the kind banner, the
+    // size review, both areas with their bases, `Match`, the incomplete-geometry warning, and
+    // `Source:`.
+    const fold = opts.detailFold ? buildDetailFold(opts.detailFold) : null;
+    // With no fold this is the card root, so every append below lands exactly where it always
+    // did — the flat card, row for row, for the 2D map overlay and both rail hosts.
+    const technical: HTMLElement = fold ? fold.body : root;
 
-    if (model.jurisdictionId) root.appendChild(fact('Zone pack', model.jurisdictionId));
-    if (model.sourceCrs) root.appendChild(fact('Source CRS', model.sourceCrs));
+    // ── §ONE-PARCEL-BLOCK (L-13005) — the host's ring measurements. The FACE half (the
+    //    scene-measured area, which is an AREA and stays with the other two) is appended here;
+    //    the measurement half travels into the fold with the note that attributes it.
+    const detailFacts = opts.detailFacts ?? [];
+    appendExtraFacts(root, opts.extraFacts ?? [], detailFacts.length === 0 ? opts.extraFactsNote : undefined);
+    appendExtraFacts(technical, detailFacts, opts.extraFactsNote);
+
+    if (model.jurisdictionId) technical.appendChild(fact('Zone pack', model.jurisdictionId));
+    if (model.sourceCrs) technical.appendChild(fact('Source CRS', model.sourceCrs));
     if (model.matchTier) {
         // C57 §2.4 — the tier is built from categorical facts only. Rendering it as a WORD
         // rather than a percentage keeps it that way: a percentage invites a reader to
@@ -611,10 +774,30 @@ export function buildParcelCard(
     attribution.setAttribute('data-testid', 'parcel-source-attribution');
     root.appendChild(attribution);
     if (model.license) {
+        // ⛔ ON THE FACE, NOT IN THE FOLD. C57 §1.9 — attribution is a LICENCE OBLIGATION, not a
+        // technical detail, and *"a provider whose license requires specific attribution text
+        // MUST carry that exact text"* wherever the data is displayed. A licence line one click
+        // away is a licence line that was not displayed.
         root.appendChild(el('div', 'pryzm-parcel-card-source', `Licence: ${model.license}`));
     }
     if (model.ingestTimestamp) {
-        root.appendChild(el('div', 'pryzm-parcel-card-source', `Retrieved: ${model.ingestTimestamp}`));
+        // The retrieval DATE is provenance detail rather than attribution — it says how old the
+        // reading is, which the reader asks second, after who published it. It goes in the fold
+        // when there is one, and stays exactly where it was when there is not.
+        technical.appendChild(el('div', 'pryzm-parcel-card-source', `Retrieved: ${model.ingestTimestamp}`));
+    }
+
+    if (fold) {
+        // The host's own nodes last, inside the fold — see `ParcelCardDetailFold.hostNodes`:
+        // MOVED, never copied, so the host keeps its reference and there is no second copy.
+        for (const n of opts.detailFold?.hostNodes ?? []) {
+            try {
+                fold.body.appendChild(n);
+            } catch (e) {
+                console.warn('[gis][parcel-card] host node could not be placed in the fold (non-fatal):', e);
+            }
+        }
+        root.appendChild(fold.root);
     }
 
     appendActions(root, opts.actions ?? []);

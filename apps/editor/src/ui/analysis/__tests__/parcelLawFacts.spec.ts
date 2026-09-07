@@ -324,10 +324,16 @@ describe('§ONE-PARCEL-BLOCK — the ring measurements travel to the card, and n
             envelope: envelope(),
         });
 
+    // ⚠ CHANGED DELIBERATELY 2026-09-07 (lane PLOT-SECTION-1 · §STAGE-01-DENSITY · C115 §1.4
+    // `C115-111`/`C115-155`): these three rows now arrive on `detailFacts` rather than `facts`,
+    // because the founder asked for section ① to be shorter and `C115-111` had already named the
+    // answer — the technical detail sits behind "View full parcel data". The ASSERTIONS ARE NOT
+    // WEAKENED: the same values, the same testids and the same highlight subjects are asserted, at
+    // the new address. `C115-155` is the fact-by-fact mapping this pair of arms defends.
     it('projects perimeter, bounding box and boundary edges onto the card row shape', () => {
         const extras = parcelRingMeasuredFacts(withIdentity())!;
         expect(extras).not.toBeNull();
-        const byId = new Map(extras.facts.map((f) => [f.testId, f]));
+        const byId = new Map((extras.detailFacts ?? []).map((f) => [f.testId, f]));
         expect(byId.get(`${PARCEL_LAW_FACT_PREFIX}parcel-perimeter`)?.value).toContain('120');
         expect(byId.get(`${PARCEL_LAW_FACT_PREFIX}parcel-bbox`)?.value).toBe('40.0 × 20.0 m');
         expect(byId.get(`${PARCEL_LAW_FACT_PREFIX}parcel-edges`)?.value).toBe('4 (1 street frontage)');
@@ -336,8 +342,31 @@ describe('§ONE-PARCEL-BLOCK — the ring measurements travel to the card, and n
     it('⭐ keeps the testids the retired block used — no figure loses its handle in the move', () => {
         const extras = parcelRingMeasuredFacts(withIdentity())!;
         for (const key of ['parcel-perimeter', 'parcel-bbox', 'parcel-edges']) {
-            expect(extras.facts.some((f) => f.testId === `${PARCEL_LAW_FACT_PREFIX}${key}`)).toBe(true);
+            expect((extras.detailFacts ?? []).some((f) => f.testId === `${PARCEL_LAW_FACT_PREFIX}${key}`)).toBe(true);
         }
+    });
+
+    it('⭐ C115-156 — the three folded rows are STILL highlight controls, with their subjects intact', () => {
+        // `C115-113` F-2 / F-3 / F-4. Progressive disclosure moves a control one click away; it
+        // does not turn it into text. A row that lost `highlight` on the way into the fold would
+        // be `C115-116`'s named regression ("a figure that is already a control must not become
+        // plain text when it moves") arriving through a densification instead of a relocation.
+        const detail = parcelRingMeasuredFacts(withIdentity())!.detailFacts ?? [];
+        const subjects = new Map(detail.map((f) => [f.testId, f.highlight?.subject]));
+        expect(subjects.get(`${PARCEL_LAW_FACT_PREFIX}parcel-perimeter`)).toBe('boundary');
+        expect(subjects.get(`${PARCEL_LAW_FACT_PREFIX}parcel-bbox`)).toBe('bbox');
+        expect(subjects.get(`${PARCEL_LAW_FACT_PREFIX}parcel-edges`)).toBe('frontage');
+    });
+
+    it('⛔ C115-155 — the SCENE-MEASURED AREA stays on the face, never in the fold', () => {
+        // It is one of the three §2.3(a) areas, and it exists ONLY when the committed ring
+        // disagrees with the published one — a finding, not a technicality. A disagreement a
+        // reader has to open a fold to discover is a disagreement they will not discover.
+        const extras = parcelRingMeasuredFacts(withIdentity({
+            confidence: { ...CADASTRAL_PROVENANCE.confidence, areaSigM2: 803 },
+        }))!;
+        expect(extras.facts.some((f) => f.label === PARCEL_LAW_SCENE_AREA_LABEL)).toBe(true);
+        expect((extras.detailFacts ?? []).some((f) => f.label === PARCEL_LAW_SCENE_AREA_LABEL)).toBe(false);
     });
 
     it('states HOW they were measured — a third provenance in the block, named (C57 §1.9)', () => {

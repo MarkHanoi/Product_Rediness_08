@@ -107,9 +107,29 @@ import {
     wireEnvelopeAxesControl,
     ENVELOPE_AXES_DRAG_EXCLUDE,
 } from '../site/envelopeVisibilityControl';
+// §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 `C115-151`) — WHICH surface displays those two switches.
+// The Parcel Law panel shows them in question 1 ("What is this plot?"); while it does, this card
+// renders none, so the reader never sees the same pair twice on one panel — and never sees the
+// stale one, because this card does not subscribe to the visibility authority.
+import {
+    plotDisplayControlsClaimed,
+    subscribePlotDisplayControlsHost,
+} from '../site/plotDisplayControlsHost';
 
 /** §L-676-B — scope name + audit-probe key for this file's per-project closure state. */
 const GIS_LAYOUT_SCOPE = 'gis.areaLayout';
+
+/**
+ * §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 `C115-153`) — this layout's live subscription to the
+ * SHOW ON THE PLOT claim, so the card repaints the moment the switches become its job again.
+ *
+ * ⛔ MODULE-SCOPE AND SINGLE, ON PURPOSE. `mountGISArea` can run more than once in a session
+ * (project switch), and each run builds a fresh `refreshEnvelopePanel` closure. A per-run
+ * subscription that was never dropped would leave the PREVIOUS run's closure repainting a card
+ * that belongs to a project the user has left — a stale-renderer defect this file has already
+ * paid for once (§L-676-B). Re-mounting releases the old subscription before taking a new one.
+ */
+let plotDisplayHostSub: (() => void) | null = null;
 
 // ── ADR-0298 §2 (amended) — MODULE-SCOPE PRESENCE via a delegate ─────────────
 //
@@ -637,6 +657,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * install a SECOND set on the new canvas.
      */
     let envelopeFaceDrag3dDispose: (() => void) | null = null;
+    /**
+     * §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — this surface's row in the face-drag register, so the
+     * Parcel Law panel can ask THIS adapter whether a *Drag face* is possible and print ITS reason
+     * when it is not. ⛔ Unregistered on teardown: a torn-down viewer left in the register would keep
+     * answering *"yes, you can drag"* for a canvas that no longer exists (C115-27's dead click,
+     * arrived at from the other side).
+     */
+    let envelopeFaceDrag3dUnregister: (() => void) | null = null;
     // A.8.c.f — the Hektar-style 2D cream/shadow boundary-draw map. This REPLACES
     // the Cesium-3D draw surface for the DRAW step (Cesium stays for 3D render):
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
@@ -1002,7 +1030,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // ever needed once a Cesium scene exists. ⛔ It imports no THREE (P2), so pulling it in
             // here costs the site bundle nothing but the gesture itself.
             import('../../engine/spaceEnvelopeDragSurface'),
-        ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }, { SiteEnvelopeDrawCesium }, { registerEnvelopeDrawSurface }, { installSpaceEnvelopeFaceDragOnSurface, emitSpaceEnvelopeFaceMoved, dispatchSpaceEnvelopeFaceMove }]) => {
+            // ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (lane FACE-DRAG-BUTTON, L-13236) — the storey the
+            // panel selected, and the register that lets the panel ask this surface whether a drag
+            // is possible at all. Same batch, same reason: both are meaningless without a scene.
+            import('../site/spaceEnvelopeFaceDragFocusState'),
+            import('../site/spaceEnvelopeFaceDragSurfaces'),
+        ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }, { SiteEnvelopeDrawCesium }, { registerEnvelopeDrawSurface }, { installSpaceEnvelopeFaceDragOnSurface, emitSpaceEnvelopeFaceMoved, dispatchSpaceEnvelopeFaceMove }, { getSpaceEnvelopeFaceDragFocus }, { registerSpaceEnvelopeFaceDragSurface }]) => {
             if (!cesiumViewport) {
                 // §L-446 — resolve CAPTURED-THEN-WINDOW, the pattern §L-412 already established
                 // here and `getFormaBoundary` uses for the store. The captured `runtime` is NULL
@@ -1162,6 +1195,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                         envelopeDraw3dUnregister?.();
                         envelopeFaceDrag3dDispose?.();
                         envelopeFaceDrag3dDispose = null;
+                        // §ENVELOPE-FACE-DRAG-PER-LEVEL — the previous adapter's register row AND its
+                        // arrow entities go with it. Without the second call the old adapter keeps a
+                        // live focus subscription and repaints arrows into a viewer it no longer owns.
+                        envelopeFaceDrag3dUnregister?.();
+                        envelopeFaceDrag3dUnregister = null;
+                        try { envelopeDraw3d?.disposeFaceDragAffordance(); }
+                        catch (e) { console.warn('[gis] §ENVELOPE-FACE-DRAG affordance teardown failed (non-fatal):', e); }
                         envelopeDraw3d = new SiteEnvelopeDrawCesium({
                             viewer,
                             Cesium,
@@ -1222,6 +1262,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                         });
                         envelopeDraw3dUnregister = registerEnvelopeDrawSurface(envelopeDraw3d);
                         console.log('[gis] §ENVELOPE-DRAW 3D Site registered as an envelope-perimeter draw surface.');
+                        // ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL — AND AS A FACE-DRAG SURFACE, so the panel's
+                        // per-storey *Drag face* button can ask THIS adapter and print ITS OWN reason
+                        // (torn down / ports not wired / no frame seated) instead of inventing one on
+                        // its behalf. `cannotDragReason()` has existed since lane FACE-DRAG-2 and,
+                        // until this line, reached nothing but `console.log`.
+                        envelopeFaceDrag3dUnregister = registerSpaceEnvelopeFaceDragSurface(envelopeDraw3d);
 
                         // ── ⭐ §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS — INSTALL THE GESTURE ──────────
                         //
@@ -1251,6 +1297,36 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                             // guessing.
                             const notYet = envelopeDraw3d.cannotDragReason();
                             if (notYet) console.log(`[gis] §ENVELOPE-FACE-DRAG installing now; not usable yet — ${notYet}`);
+                            // ── ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL — THE LIVE METRE READOUT ────────
+                            // C08 §3.1 — createElement + textContent, no `innerHTML` sink. It sits
+                            // over the canvas, is hidden until a drag produces a number, and hides
+                            // again a beat after the last one. ⚠ Its parent is the canvas's own
+                            // parent, so it inherits the viewport's stacking and cannot outlive it.
+                            const readoutHost = dragCanvas.parentElement;
+                            let faceDragReadout: HTMLDivElement | null = null;
+                            let faceDragReadoutTimer: ReturnType<typeof setTimeout> | null = null;
+                            const showFaceDragReadout = (text: string): void => {
+                                if (!readoutHost) return;
+                                if (!faceDragReadout) {
+                                    faceDragReadout = document.createElement('div');
+                                    faceDragReadout.setAttribute('data-testid', 'site-face-drag-readout');
+                                    faceDragReadout.style.cssText =
+                                        'position:absolute;left:50%;bottom:18px;transform:translateX(-50%);'
+                                        + 'z-index:40;pointer-events:none;padding:5px 10px;border-radius:7px;'
+                                        + 'font:700 12px system-ui;color:#fff;background:rgba(102,0,255,0.92);'
+                                        + 'box-shadow:0 2px 10px rgba(0,0,0,0.25);white-space:nowrap;';
+                                    readoutHost.appendChild(faceDragReadout);
+                                }
+                                faceDragReadout.textContent = text;
+                                faceDragReadout.hidden = false;
+                                if (faceDragReadoutTimer !== null) clearTimeout(faceDragReadoutTimer);
+                                // ⚠ A TIMER, NOT A pointerup HOOK. The gesture ends on release, on
+                                // cancel AND on teardown; hooking one of the three would leave the
+                                // number standing after the other two.
+                                faceDragReadoutTimer = setTimeout(() => {
+                                    if (faceDragReadout) faceDragReadout.hidden = true;
+                                }, 900);
+                            };
                             // ⚠ No dispose-before-install here: the previous one was already
                             // disposed and nulled with the adapter it belonged to, a few lines up.
                             // A second `?.()` would be dead code the compiler can prove dead.
@@ -1305,6 +1381,41 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                                     // ⭐ THE REFUSAL IS THE PRODUCT — forwarded VERBATIM with both
                                     // numbers the planner read off the geometry (C83 §1.2).
                                     liveRuntime()?.events?.emit('pryzm:toast', { message, severity: 'warning' });
+                                },
+                                // ⭐ §ENVELOPE-FACE-DRAG-PER-LEVEL (L-13236) — WHICH STOREY IS THE
+                                // SUBJECT. Read lazily on every pick, never captured: the founder
+                                // presses *Drag face* on a panel row long after this install ran.
+                                // ⛔ `null` here is the ordinary state and means NO restriction —
+                                // the gesture stays exactly as live as it was before this lane.
+                                readFocus: () => getSpaceEnvelopeFaceDragFocus(),
+                                // ⭐ DOUBLE-CLICK OPENS THE OUTLINE EDITOR ON THIS SURFACE TOO
+                                // (C114 §11 item 7). It worked on BIM 3-D and did nothing here,
+                                // for want of this one line — the core supports it, the tool is
+                                // registered globally, and nothing was passing the two together.
+                                onProfileEdit: (spaceEnvelopeId: string) => {
+                                    const tool = window.spaceEnvelopeTool;
+                                    if (!tool || typeof tool.enterProfileEditMode !== 'function') {
+                                        console.warn('[gis] §ENVELOPE-FACE-DRAG double-click asked for the '
+                                            + 'outline editor, but no space-envelope tool is registered in this '
+                                            + 'session. Nothing was opened and nothing changed.');
+                                        return;
+                                    }
+                                    try { tool.enterProfileEditMode(spaceEnvelopeId); }
+                                    catch (e) { console.warn('[gis] §ENVELOPE-FACE-DRAG enterProfileEditMode threw:', e); }
+                                },
+                                // ⭐ THE LIVE READOUT — *"+1.35 m"* while the face is moving.
+                                // ⛔ IT WRITES TO A REAL ELEMENT, NOT TO AN EVENT NOBODY LISTENS
+                                // FOR. `onPreview` has existed since lane FACE-DRAG-2 and was
+                                // passed by NEITHER wiring, so the figure was computed on every
+                                // frame and dropped. Emitting it onto a bus with no subscriber
+                                // would have looked like a fix and changed nothing on screen —
+                                // the [[authored-but-unwired-is-the-bottleneck]] shape. The
+                                // element below is created next to the canvas, written here, and
+                                // hidden by the disposer.
+                                onPreview: (deltaM: number, faceLabel: string) => {
+                                    showFaceDragReadout(
+                                        `${faceLabel} · ${deltaM >= 0 ? '+' : ''}${deltaM.toFixed(2)} m`,
+                                    );
                                 },
                                 // §ENVELOPE-DRAG-CONSEQUENCE — the hook BIM-FROM-DESIGN needs.
                                 onCommitted: (ev) => {
@@ -3316,6 +3427,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // the four axis combinations is pinned by `envelopeVisibilityControl.spec.ts` rather than
         // asserted in a comment here — the §GIS-ENVELOPE-FULL-SECTIONS lesson applied to chrome.
         // This closure reads the authority ONCE and hands it over; the producer reads no global.
+        //
+        // ⭐ §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 `C115-151`, founder 2026-09-07) — UNLESS
+        // ANOTHER SURFACE IS ALREADY SHOWING THEM. The Parcel Law panel displays these switches
+        // in question 1, and it re-parents THIS card into question 2, so without the claim the
+        // reader would see the same pair twice on one scrolling panel, one screen apart — and
+        // only one of them would be telling the truth, because this card has never subscribed to
+        // the visibility authority (it repaints from its own click handler, below).
+        //
+        // ⛔ IT IS A CLAIM, NOT A HOST TEST. This closure does not ask "am I in the analysis
+        // surface?" — that would be the C115-88 clause 1 shape (a host branch inside the card's
+        // renderer) and it would be one re-home away from wrong. It asks whether the job is
+        // taken, which is C19 §5.7 clause 1's own remedy for a two-host mode. The claim is held
+        // by ELEMENT and goes stale the moment that element leaves the document, so the worst
+        // failure available here is one render without the switches, never a lost control.
+        if (plotDisplayControlsClaimed()) return '';
         return buildEnvelopeAxesControlHtml(getBuildableEnvelopeAxes());
     };
 
@@ -6895,9 +7021,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * the 2D map BY DESIGN (ADR-0115), so the second would carry a frame bug as well.
      *
      * ⚠ HOSTED ON THE GIS AREA, NOT ON ONE VIEW'S SURFACE, so it covers BOTH site views — the 2D
-     * MapLibre overlay and the Cesium 3D Site both render inside this container. The 2D map also
-     * carries the button in its own strip; both routes drive the same singleton, which RE-TARGETS
-     * rather than opening a second panel.
+     * MapLibre overlay and the Cesium 3D Site both render inside this container.
+     *
+     * ⭐ AND SINCE §COMMITTED-MAP-IS-ONE-ACTION (L-13187, 2026-09-07) THIS IS THE ONLY ROUTE ON A
+     * COMMITTED SITE. The 2D map still carries an `Envelope` button in its own strip BEFORE a
+     * boundary is committed, but `freezeDraw` hides that strip once one is — the founder asked for
+     * the committed split view to carry one action (`↺ Redraw boundary`) and nothing else. Both
+     * routes drive the same singleton, which RE-TARGETS rather than opening a second panel, so
+     * nothing was lost by the removal; this comment is the record that the surviving route is
+     * load-bearing rather than a duplicate, and it must not be "tidied away" as redundant chrome.
      *
      * ⚠ NOT GATED ON AN ENVELOPE EXISTING (C58 §1.20 clause 1) — the panel is exactly where a user
      * with no solved envelope is told what is missing and what would supply it.
@@ -6973,6 +7105,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  than overstate on real land (§L-616 / C58 §1.16), and an UNKNOWN constraint rendered as
      *  a zero is the EI-1b defect where failure and emptiness become the same value. This hook
      *  moves the existing card; it does not get to soften what the card refuses to say. */
+    // §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 `C115-153`) — when the Parcel Law panel releases the
+    // SHOW ON THE PLOT switches (it disposes, or its body leaves the document), this card is the
+    // surface that must carry them again. Without this the release would be invisible until some
+    // unrelated repaint happened to run, which is the [[authored-but-unwired-is-the-bottleneck]]
+    // shape: the claim is correct, the state is correct, and no surface redraws.
+    try { plotDisplayHostSub?.(); } catch { /* releasing a dead subscription is best-effort */ }
+    plotDisplayHostSub = subscribePlotDisplayControlsHost(() => {
+        try {
+            refreshEnvelopePanel();
+        } catch (e) {
+            console.warn('[gis][envelope-card] §PLOT-DISPLAY-CONTROLS-HOST repaint failed (non-fatal):', e);
+        }
+    });
+
     window.pryzmMountEnvelopeCard = (host: HTMLElement | null): boolean => {
         envelopeCardPreferredHost = host;
         try {
@@ -8183,6 +8329,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // listener anywhere left to re-enable it.
         try { envelopeFaceDrag3dDispose?.(); envelopeFaceDrag3dDispose = null; }
         catch (e) { console.warn('[gis] §ENVELOPE-FACE-DRAG dispose during project teardown failed (non-fatal):', e); }
+        // §ENVELOPE-FACE-DRAG-PER-LEVEL — and the register row, and the arrow entities. Unregistering
+        // the LAST surface also releases the per-storey focus (see the register), so a storey selected
+        // in Project A cannot silently restrict the pick in Project B.
+        try { envelopeFaceDrag3dUnregister?.(); envelopeFaceDrag3dUnregister = null; }
+        catch (e) { console.warn('[gis] §ENVELOPE-FACE-DRAG unregister during project teardown failed (non-fatal):', e); }
+        try { envelopeDraw3d?.disposeFaceDragAffordance(); }
+        catch (e) { console.warn('[gis] §ENVELOPE-FACE-DRAG affordance teardown failed (non-fatal):', e); }
         _layoutOwningProjectId = null;
         console.log('[gis] §L-676-B GIS layout project scope cleared (geocode frame + placement caches dropped).');
     };

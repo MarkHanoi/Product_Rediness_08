@@ -27,16 +27,37 @@ import {
     PARCEL_LAW_NOTE,
     PARCEL_LAW_PLOT_ROUTE_NOTE,
     PARCEL_LAW_PLOT_ROUTE_TESTID,
+    PARCEL_LAW_PLOT_DISPLAY_TESTID,
+    PARCEL_LAW_DETAIL_FOLD_TESTID,
+    PARCEL_LAW_DETAIL_FOLD_SUMMARY,
     PARCEL_LAW_STRIP_WIRED_ATTR,
     PARCEL_LAW_HIGHLIGHT_WIRED_ATTR,
     PARCEL_LAW_AUTHORING_HOST_TESTID,
+    PARCEL_LAW_AUTHORING_MOVED_TESTID,
+    PARCEL_LAW_RELOCATED_TO_ATTR,
     PARCEL_LAW_INTENT_HOST_TESTID,
     ENVELOPE_CARD_TESTID,
     type ParcelLawTabDeps,
     type ParcelLawCapabilityHost,
 } from '../parcelLawTab';
 import { buildParcelRailPanel, PARCEL_RAIL_ENVELOPE_SLOT_TESTID } from '../../site/parcel/parcelRailPanel';
-import { QUESTION_GROUP_TESTID_PREFIX } from '../parcelLawQuestionGroup';
+import { QUESTION_GROUP_TESTID_PREFIX, resetQuestionGroupOpenState } from '../parcelLawQuestionGroup';
+// §ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — the create block's OWN root, asserted inside
+// question 2's host so 'the slot moved' cannot pass while the section inside it is gone.
+import { AUTHORING_SLOT_TESTID } from '../parcelLawEnvelopeAuthoring';
+import {
+    ENVELOPE_VOLUME_TOGGLE_TESTID,
+    ENVELOPE_FOOTPRINT_TOGGLE_TESTID,
+    ENVELOPE_AXES_CAPTION_TESTID,
+} from '../../site/envelopeVisibilityControl';
+import {
+    getBuildableEnvelopeAxes,
+    __resetBuildableEnvelopeVisibilityForTests,
+} from '../../site/envelopeVisibility';
+import {
+    plotDisplayControlsClaimed,
+    __resetPlotDisplayControlsHostForTests,
+} from '../../site/plotDisplayControlsHost';
 import { VIEW_SEGMENT_SWITCHER_TESTID, VIEW_SEGMENT_ATTR, VIEW_SEGMENTS } from '../../site/viewSegmentSwitcher';
 import { VIEW_SWITCHER_ON_VIEW_TESTID, VIEW_SWITCHER_SPLIT_TESTID } from '../../site/viewSwitcherOnView';
 import { buildParcelLawModel } from '../../site/parcel/parcelLawModel';
@@ -790,8 +811,8 @@ describe('§26.6.2 — THE SETBACK REGISTER lands in question 2, per edge, each 
     });
 });
 
-describe('§26.6 rule 3 — the intent-beside-ceiling section is hosted in question 3, after the control that declares the intent', () => {
-    it('mounts in question 3 and, with no store, prints the admission rather than zeros', async () => {
+describe('§ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — question 3 is the LEDGER, question 2 is where you ACT', () => {
+    it('question 3 holds the ledger and NOTHING that creates, and question 2 holds the create block', async () => {
         const seam = fakeEnvelopeSeam();
         const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
         const hostEl = document.createElement('div');
@@ -803,11 +824,248 @@ describe('§26.6 rule 3 — the intent-beside-ceiling section is hosted in quest
         expect(slot).not.toBeNull();
         expect(slot.querySelector(`[data-testid="${INTENT_CEILING_TESTID}"]`)).not.toBeNull();
         expect(slot.querySelector(`[data-testid="${INTENT_CEILING_UNREADABLE_TESTID}"]`)).not.toBeNull();
-        // It sits AFTER the authoring slot (declare, then see it beside the ceiling).
-        const order = [...q3.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid'));
-        expect(order.indexOf(PARCEL_LAW_AUTHORING_HOST_TESTID)).toBeLessThan(order.indexOf(PARCEL_LAW_INTENT_HOST_TESTID));
+
+        // ⭐ THE FOUNDER'S RULING, AS AN ASSERTION. *"SECTION 3 SHALL HAVE ONLY THIS SCOPE"* — the
+        // intent-vs-ceiling ledger. ⛔ This is the arm that FAILS if a later lane puts a create
+        // verb back into question 3, which is the regression the ruling exists to prevent.
+        expect(
+            q3.querySelector(`[data-testid="${PARCEL_LAW_AUTHORING_HOST_TESTID}"]`),
+            'the create block is back inside question 3 — the founder ruled it into question 2 twice',
+        ).toBeNull();
+
+        // ⛔ AND IT IS IN QUESTION 2, NOT MERELY ABSENT FROM 3. An assertion that only proved the
+        // absence would pass just as happily on a tab that DELETED the block, which is the exact
+        // failure mode C115 §3 (`C115-18`) forbids: every register row stays reachable.
+        const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
+        const authoringHost = q2.querySelector(`[data-testid="${PARCEL_LAW_AUTHORING_HOST_TESTID}"]`);
+        expect(authoringHost, 'the create block is in neither question — it was LOST, not moved').not.toBeNull();
+        expect(authoringHost!.querySelector(`[data-testid="${AUTHORING_SLOT_TESTID}"]`)).not.toBeNull();
+
+        // §C115-17 — the relocation stamp AND its sentence. A machine-readable attribute alone
+        // satisfies a spec and tells the founder nothing; a sentence alone cannot be asserted on.
+        const moved = q3.querySelector(`[data-testid="${PARCEL_LAW_AUTHORING_MOVED_TESTID}"]`);
+        expect(moved, 'question 3 lost a control and left no pointer').not.toBeNull();
+        expect(moved!.getAttribute(PARCEL_LAW_RELOCATED_TO_ATTR)).toBe('law');
+        expect(moved!.textContent).toContain('What can I build here?');
+
+        // ⛔ `C115-130` — STAGE 02 MUST NOT GATE STAGE 03. The ledger renders its own state with
+        // no envelope in the project; the note is additive, never a branch that skips the section.
+        expect(slot.textContent!.length).toBeGreaterThan(0);
+
         h.dispose();
         hostEl.remove();
         seam.restore();
+    });
+
+    it('inside question 2 the create block sits AFTER the determination it is measured against', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
+        const order = [...q2.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid'));
+        // Read the ceiling and its setbacks, THEN act on them. The design-stage strip's massing
+        // pill targets the card, so a create block placed above it would leave the pill jumping
+        // past the control it is meant to lead to.
+        expect(order.indexOf(PARCEL_LAW_FACTS_LAW_SLOT_TESTID))
+            .toBeLessThan(order.indexOf(PARCEL_LAW_AUTHORING_HOST_TESTID));
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §PLOT-DISPLAY-CONTROLS-HOST + §STAGE-01-DENSITY — C115 §1.4 `C115-151` … `C115-157`.
+//
+// Founder 2026-09-07, on the Parcel Law panel: the SHOW ON THE PLOT group belongs in section
+// ① — *"What is this plot?"* — and section ① is too tall.
+//
+// ⛔ THESE ARMS DRIVE THE MOUNTED TAB, NOT A BUILDER. The whole failure this lane had to avoid
+// is [[committed-is-not-reachable]]: a control that exists in a module and reaches no surface.
+// So each arm mounts the real tab over the real rail panel and reads the DOM the reader gets.
+// ═══════════════════════════════════════════════════════════════════════════════════════
+
+describe('§PLOT-DISPLAY-CONTROLS-HOST — SHOW ON THE PLOT is in question 1', () => {
+    afterEach(() => {
+        __resetPlotDisplayControlsHostForTests();
+        __resetBuildableEnvelopeVisibilityForTests();
+        resetQuestionGroupOpenState();
+    });
+
+    it('⭐ question 1 carries BOTH switches and the caption — the founder\'s ask, at the layer he sees', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        const slot = q1.querySelector(`[data-testid="${PARCEL_LAW_PLOT_DISPLAY_TESTID}"]`);
+        expect(slot, 'the group the founder asked for is not in section ①').not.toBeNull();
+        expect(slot!.querySelector(`[data-testid="${ENVELOPE_VOLUME_TOGGLE_TESTID}"]`)).not.toBeNull();
+        expect(slot!.querySelector(`[data-testid="${ENVELOPE_FOOTPRINT_TOGGLE_TESTID}"]`)).not.toBeNull();
+        // C58 §1.2 / §L-616 — the confidence qualifier travels with the shade wherever it is drawn.
+        expect(slot!.querySelector(`[data-testid="${ENVELOPE_AXES_CAPTION_TESTID}"]`)?.textContent ?? '')
+            .toMatch(/buildable/i);
+
+        h.dispose(); hostEl.remove(); seam.restore();
+    });
+
+    it('⭐ a click writes the ONE authority and the switch repaints from it — not from a local mirror', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        const vol = () => q1.querySelector<HTMLElement>(`[data-testid="${ENVELOPE_VOLUME_TOGGLE_TESTID}"]`)!;
+        expect(getBuildableEnvelopeAxes().volume).toBe(true);
+        expect(vol().getAttribute('aria-checked')).toBe('true');
+
+        vol().click();
+
+        // ⛔ THE AUTHORITY, NOT A FLAG THIS FILE OWNS. `envelopeVisibility.ts` is what every
+        // viewport reads; a control that flipped its own label without writing here is the
+        // L-1170 defect, and it is exactly what a screenshot cannot tell you apart from a fix.
+        expect(getBuildableEnvelopeAxes().volume).toBe(false);
+        expect(
+            getBuildableEnvelopeAxes().footprint,
+            'one click may never write BOTH axes — that would delete the L-1188 distinction',
+        ).toBe(true);
+        // …and the surface repainted from the subscription, so it cannot show a state the
+        // viewports disagree with.
+        expect(vol().getAttribute('aria-checked')).toBe('false');
+
+        h.dispose(); hostEl.remove(); seam.restore();
+    });
+
+    it('⛔ the claim is LIVE by the time the envelope card first renders — no flash of a second control', async () => {
+        // ⭐ WHAT THIS PINS, AND — HONESTLY — WHAT IT DOES NOT.
+        //
+        // It pins that the job is ALREADY taken at the moment the envelope card first asks, which
+        // is the exact moment `envelopeToggleHtml()` asks in production. Move the claim after the
+        // microtask the card's own claim lands on, or drop it, and this arm goes red — the reader
+        // would otherwise see a second, un-subscribed pair of switches for one render.
+        //
+        // ⚠ IT DID NOT FIND THE ORDERING BUG THIS FIX ALSO CORRECTS, and saying so is the point.
+        // The first draft claimed while this body was still DETACHED, and a claim held by an
+        // element that is not in the document is — by the arbiter's own self-healing rule — not a
+        // claim. That was found by READING, not by this arm: by the time any test can observe the
+        // claim the body is attached, so the arm passes either way. What would falsify it is a
+        // read of `plotDisplayControlsClaimed()` taken between the claim and the attach, and no
+        // surface in this harness makes one. Recorded rather than dressed up.
+        __resetPlotDisplayControlsHostForTests();
+        const seam = fakeEnvelopeSeam();
+        const seen: boolean[] = [];
+        const inner = window.pryzmMountEnvelopeCard!;
+        window.pryzmMountEnvelopeCard = (h: HTMLElement | null): boolean => {
+            seen.push(plotDisplayControlsClaimed());
+            return inner(h);
+        };
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        expect(seen.length, 'the rail panel must have claimed the card at least once').toBeGreaterThan(0);
+        expect(
+            seen[0],
+            'the card asked before question 1 owned the switches — it would render a second, un-subscribed pair',
+        ).toBe(true);
+
+        h.dispose(); hostEl.remove(); seam.restore();
+    });
+
+    it('⭐ while the panel is mounted the job is CLAIMED, and dispose hands it back', async () => {
+        // The claim is what stops the envelope card — re-parented into question 2 by this very
+        // tab — from drawing a second, un-subscribed pair of switches one screen further down.
+        __resetPlotDisplayControlsHostForTests();
+        expect(plotDisplayControlsClaimed()).toBe(false);
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        expect(plotDisplayControlsClaimed(), 'question 1 must own the switches while it is on screen').toBe(true);
+
+        h.dispose();
+        // ⛔ AND IT MUST COME BACK. A tab that kept the claim after teardown would leave the
+        // viewport card with no way to hide the envelope — a lost capability, which is strictly
+        // worse than the placement complaint this lane started from.
+        expect(plotDisplayControlsClaimed()).toBe(false);
+        hostEl.remove(); seam.restore();
+    });
+});
+
+describe('§STAGE-01-DENSITY — "View full parcel data" (C115 §1.4 `C115-111`/`C115-155`)', () => {
+    afterEach(() => {
+        __resetPlotDisplayControlsHostForTests();
+        resetQuestionGroupOpenState();
+    });
+
+    it('⭐ the technical rows are BEHIND the disclosure, and the disclosure is IN question 1', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        const fold = q1.querySelector<HTMLDetailsElement>(`[data-testid="${PARCEL_LAW_DETAIL_FOLD_TESTID}"]`);
+        expect(fold, 'C115-111 names this control by these words').not.toBeNull();
+        expect(fold!.open, 'collapsed by default — that is what makes the section shorter').toBe(false);
+        expect(fold!.textContent).toContain(PARCEL_LAW_DETAIL_FOLD_SUMMARY);
+
+        // ⛔ SMALLER IS NOT FEWER. Each row is still in the DOM, still carries the testid it had,
+        // and is one click away — `C115-155`'s mapping, asserted rather than asserted-in-prose.
+        for (const id of ['parcel-law-fact-parcel-perimeter', 'parcel-law-fact-parcel-bbox', 'parcel-law-fact-parcel-edges']) {
+            const row = q1.querySelector(`[data-testid="${id}"]`);
+            expect(row, `${id} must survive the densification`).not.toBeNull();
+            expect(fold!.contains(row!), `${id} belongs behind the disclosure`).toBe(true);
+        }
+        // …and the route sentence went with them, still one element, still the same words.
+        const note = q1.querySelector<HTMLElement>(`[data-testid="${PARCEL_LAW_PLOT_ROUTE_TESTID}"]`)!;
+        expect(note).not.toBeNull();
+        expect(note.textContent).toBe(PARCEL_LAW_PLOT_ROUTE_NOTE);
+        expect(fold!.contains(note)).toBe(true);
+        expect(
+            q1.querySelectorAll(`[data-testid="${PARCEL_LAW_PLOT_ROUTE_TESTID}"]`).length,
+            'the node is MOVED, never copied — two sentences could drift',
+        ).toBe(1);
+
+        h.dispose(); hostEl.remove(); seam.restore();
+    });
+
+    it('⛔ the FACE keeps every honesty string and the attribution — C115-152', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        const fold = q1.querySelector<HTMLDetailsElement>(`[data-testid="${PARCEL_LAW_DETAIL_FOLD_TESTID}"]`)!;
+        // C57 §1.9 — attribution is a licence obligation, and a licence line one click away was
+        // not displayed. The area rows and the match tier are the reader's confidence signals.
+        const attribution = q1.querySelector('[data-testid="parcel-source-attribution"]');
+        expect(attribution).not.toBeNull();
+        expect(fold.contains(attribution!), 'Source: may never go behind a fold').toBe(false);
+        const area = q1.querySelector('[data-testid="parcel-card-area"]');
+        expect(area, 'the plot area is the answer to question 1').not.toBeNull();
+        expect(fold.contains(area!)).toBe(false);
+        expect(q1.textContent).toContain('Licence:');
+        expect(q1.textContent).toContain('Match');
+
+        h.dispose(); hostEl.remove(); seam.restore();
     });
 });

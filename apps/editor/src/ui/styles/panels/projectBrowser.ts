@@ -1518,6 +1518,42 @@ export const PROJECT_BROWSER_STYLES = `
     min-width: 0;
     font-weight: 400;
 }
+/* §STAGE-01-DENSITY (C115 §1.4 C115-111 / §11 C115-93) — the "View full parcel data"
+   disclosure. ⛔ NOT A SECOND CARD STYLE: the fold body inherits the card's own row typography,
+   so a row reads identically whether it is on the face or one click behind it. Tokens only —
+   the L-1361 no-colour-literal rule this card's producer states for itself. */
+.pryzm-parcel-card-fold { margin-top: 2px; }
+.pryzm-parcel-card-fold-summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 4px 0;
+    user-select: none;
+    border-top: 1px solid var(--app-border-light);
+}
+.pryzm-parcel-card-fold-summary::-webkit-details-marker { display: none; }
+.pryzm-parcel-card-fold-label {
+    color: var(--pryzm-accent, #6600FF);
+    font-size: var(--pryzm-panel-font-size-meta);
+    font-weight: 700;
+}
+/* The affordance, stated in the label rather than left to a marker glyph the reset removes. */
+.pryzm-parcel-card-fold-label::before { content: '▸ '; }
+.pryzm-parcel-card-fold[open] > .pryzm-parcel-card-fold-summary .pryzm-parcel-card-fold-label::before {
+    content: '▾ ';
+}
+.pryzm-parcel-card-fold-summary:focus-visible {
+    outline: 2px solid var(--pryzm-accent, #6600FF);
+    outline-offset: 2px;
+}
+.pryzm-parcel-card-fold-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 0 2px;
+}
 .pryzm-parcel-card-source {
     color: var(--app-text-muted);
     font-size: var(--pryzm-panel-font-size-meta);

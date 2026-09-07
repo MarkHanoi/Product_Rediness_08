@@ -267,7 +267,7 @@ technical detail **MUST** sit behind the **"View full parcel data"** disclosure 
 > **PR-A-04 is `createHouseSection.ts`**, the §BIM-FROM-THE-DESIGN fourth arm — it has never had
 > anything to do with this control. ⚠ The same wrong citation is repeated in §2.2's canonical-home
 > table and is NOT corrected here (that table is outside this lane's ownership); it is logged as
-> **L-13191**. What is preserved is unchanged: the absence was never a licence to drop the detail,
+> **L-13234**. What is preserved is unchanged: the absence was never a licence to drop the detail,
 > and neither is the disclosure — see `C115-152` and §1.4.2 for the fact-by-fact mapping.
 
 `C115-112` Every honesty string this stage already speaks **MUST** survive: the amber
@@ -330,7 +330,7 @@ unfixed property; the arbiter only guarantees that **one** of them draws the swi
 render it on every host that has not been superseded, so the CONTROL is preserved — but the wording
 no longer describes the panel arm precisely, and §3 is outside this lane's ownership (§1 clauses
 only). `C115-19` requires a register row to move in the commit that changes it; this amendment
-therefore records the discrepancy rather than leaving it silent, and it is logged as **L-13192**.
+therefore records the discrepancy rather than leaving it silent, and it is logged as **L-13235**.
 
 #### §1.4.2 — ⭐ THE STAGE-01 FACE/FOLD MAPPING (NORMATIVE — THE PRESERVATION PROOF)
 
@@ -1154,7 +1154,7 @@ shape, not bugs to tidy: PR-C-18's `rival` arm exists for exactly this and is a 
 excluded by design — a plan has no vertical axis) and a per-storey *Edit perimeter* route into the
 profile editor, disabled **with the resolver's own per-element reason** when unreachable.
 
-⭐ **AMENDED 2026-09-07 (lane FACE-DRAG-BUTTON · L-13176) — THE FACE-DRAG HALF NOW HAS AN ENTRY
+⭐ **AMENDED 2026-09-07 (lane FACE-DRAG-BUTTON · L-13236) — THE FACE-DRAG HALF NOW HAS AN ENTRY
 POINT AS WELL AS A GESTURE.** `C115-151` The first clause is satisfied by a *gesture*, and until
 this lane that was **all** it was satisfied by: the drag was installed on both 3-D surfaces,
 complete and correct, with **no affordance on the 3-D Site at all** — no arrows, no hover
@@ -1749,6 +1749,39 @@ half beside a live site view **in a browser**. The founder-visible half is there
 fall-through — a structural hazard for every future mode), `L-13183` (landing in Site after
 location selection), `L-13184` (`AnalysisSurface`'s persisted keys for a retired tab are never
 garbage-collected).
+
+### 2026-09-07 · lane PLOT-SECTION-1 · §1.4 IMPLEMENTED — `L-13230` · `L-13231` · `L-13232`
+
+**What the founder asked for, in two sentences:** the **SHOW ON THE PLOT** switches belong in
+section ① (*"What is this plot?"*), and section ① is too tall.
+
+**What shipped, and the one thing worth reading twice.** The switches were **never in this panel**:
+they are string-concatenated into the singleton buildable-envelope card, which the tab re-parents
+into **question 2**. Rendering a second pair in question 1 was contract-legal (§2.3(g)) and was
+**refused**, because only one of the two would have been true — `subscribeBuildableEnvelopeVisibility`
+had **no** call site in `GISAreaLayout`, so the card's switches would have gone on reading `ON`
+after a write made one screen above them. The fix is the **host arbiter** C19 §5.7 clause 1 and
+`C115-87` both prescribe: one claim, held by ELEMENT so it self-heals, and `envelopeToggleHtml()`
+renders nothing while the job is taken. **`C115-89` is NOT fixed by it and must not be described as
+fixed.**
+
+**Section ① went from ~24 text lines to ~11 with ZERO facts removed.** `C115-111`'s
+*"View full parcel data"* disclosure now exists, built as an instance of the ONE §11 primitive
+(`C115-91` — the card holds no fold state; the panel's existing session map remembers it). The
+fact-by-fact mapping is **normative at §1.4.2 `C115-155`** and a PR that changes the face **MUST**
+update it.
+
+**Clauses minted:** `C115-151` … `C115-157`. **Clauses corrected:** `C115-111` (from *gap* to
+*built*, and its `(§3, PR-A-04)` citation was pointing at `createHouseSection.ts` — the same wrong
+citation survives in §2.2, logged `L-13234`).
+
+⚠ **NOT SEEN IN A BROWSER.** Every claim above is DOM-level, driven through the mounted tab over the
+real rail panel; the line counts are arithmetic on an assumed ~52-character line. **§14.14 / AC-18
+stands.**
+
+⚠ **§3.A PR-A-03 and §3.G PR-G-07 now under-describe the panel arm** (*"all four card render
+arms"*). Nothing is lost — the control is one section higher on that surface — but the wording is
+debt, recorded at `C115-154` and logged `L-13235` rather than left silent (`C115-19`).
 
 ### 2026-09-07 · lane COST-ONE-PLACE · §9 IMPLEMENTED — `L-13145`
 The first code this contract has caused. The founder reported the duplication §9 predicted

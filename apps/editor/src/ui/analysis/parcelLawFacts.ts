@@ -198,6 +198,23 @@ export const PARCEL_LAW_SCENE_AREA_LABEL = 'Area (measured in scene)';
  * on a tolerance somebody chose: two figures that a reader cannot tell apart on screen are one
  * row, and two a reader CAN tell apart are two rows. No arbitrary epsilon is involved.
  *
+ * ⭐ AMENDED 2026-09-07 (§STAGE-01-DENSITY · C115 §1.4 `C115-111`/`C115-155`) — THE RETURN NOW
+ * HAS TWO HALVES, AND THE SPLIT IS PLACEMENT, NEVER TRUTH.
+ *
+ *   · `facts`       — the FACE. Today that is the scene-measured AREA row and nothing else: it is
+ *                     one of the three §2.3(a) areas, and it exists only when the committed ring
+ *                     DISAGREES with the published one. A disagreement a reader must open a fold
+ *                     to discover is a disagreement they will not discover.
+ *   · `detailFacts` — behind *"View full parcel data"*: perimeter, bounding box, boundary edges.
+ *                     Same values, same hints, same `parcel-law-fact-*` testids, same highlight
+ *                     subjects (`C115-113` F-2/F-3/F-4 — still controls that paint, one click
+ *                     away instead of zero), and `PARCEL_LAW_MEASURED_NOTE` travels WITH them so
+ *                     the C57 §1.9 attribution never separates from the figures it attributes.
+ *
+ * ⛔ A HOST THAT ASKS FOR NO FOLD LOSES NOTHING. `buildParcelCard` renders `detailFacts` inline
+ * directly after `facts` when no `detailFold` is supplied, in the order they have always had, so
+ * the GIS rail section, the PARCEL rail panel and the 2D map overlay are byte-identical.
+ *
  * Returns `null` — never an empty-but-present block — when there is no geometry to state.
  */
 export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExtras | null {
@@ -239,13 +256,34 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
         });
     }
 
-    facts.push({
+    // ── §STAGE-01-DENSITY (C115 §1.4 `C115-111` / `C115-152`) — THE TECHNICAL HALF ──────────
+    //
+    // Founder 2026-09-07: section ① is too tall. `C115-111` had already prescribed the answer
+    // and recorded it as unbuilt — the full technical detail sits behind *"View full parcel
+    // data"*. These three rows are that detail: they are MEASUREMENTS OF THE RING the reader
+    // already has an area for, and they are the three the founder does not read on arrival.
+    //
+    // ⛔ NOTHING IS WITHHELD AND NOTHING IS RE-WORDED. Same values, same hints, same
+    // `parcel-law-fact-*` testids, same highlight subjects (`C115-113` F-2 / F-3 / F-4: each is
+    // still a control that paints its own geometry, one click behind a disclosure instead of
+    // zero). `C115-40` forbids row-level withholding and this withholds no row — it moves three
+    // of them, together, behind a named control, and `PARCEL_LAW_MEASURED_NOTE` travels WITH
+    // them so the C57 §1.9 attribution never separates from the figures it attributes.
+    //
+    // ⚠ THE AREA ROW ABOVE DELIBERATELY DOES NOT COME. It is an AREA — one of the three
+    // §2.3(a) areas — and `C115-110` puts all three on the stage's face. It also exists ONLY
+    // when the committed ring disagrees with the published one, which is a finding, not a
+    // technicality: a disagreement the reader has to open a fold to discover is a disagreement
+    // they will not discover.
+    const detailFacts: ParcelCardExtraFact[] = [];
+
+    detailFacts.push({
         testId: `${PARCEL_LAW_FACT_PREFIX}parcel-perimeter`,
         label: 'Perimeter',
         value: `${geo.perimeterM.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m`,
         highlight: { subject: 'boundary', availability: avail.boundary },
     });
-    facts.push({
+    detailFacts.push({
         testId: `${PARCEL_LAW_FACT_PREFIX}parcel-bbox`,
         label: 'Bounding box',
         value: `${geo.bboxWidthM.toFixed(1)} × ${geo.bboxDepthM.toFixed(1)} m`,
@@ -254,7 +292,7 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
             + 'so this is deliberately labelled a bounding box.',
         highlight: { subject: 'bbox', availability: avail.bbox },
     });
-    facts.push({
+    detailFacts.push({
         testId: `${PARCEL_LAW_FACT_PREFIX}parcel-edges`,
         label: 'Boundary edges',
         value: `${geo.edgeCount}${geo.frontageClause}`,
@@ -270,6 +308,11 @@ export function parcelRingMeasuredFacts(model: ParcelLawModel): ParcelSectionExt
 
     return {
         facts,
+        detailFacts,
+        // ⚠ THE NOTE BELONGS TO `detailFacts`, and the card places it with them — inside the fold
+        // when there is one, inline beneath them when there is not. Three provenances in one block
+        // with only two of them stated is the C57 §1.9 loss the merge was forbidden to cause, and a
+        // fold that separated the attribution from the measurement would cause it a click later.
         note: PARCEL_LAW_MEASURED_NOTE,
         // The card's OWN `Area (registry)` / `Area (from ring)` rows: the same plot, so the same
         // subject and the same decision as the scene-measured row above.

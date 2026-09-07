@@ -74,6 +74,21 @@
 // GISAreaLayout.ts:2307). Because the control is rendered INTO that card by its one
 // template, all three hosts get the same control and the same state by construction —
 // there is no second copy to keep in sync.
+//
+// ⭐ AMENDED 2026-09-07 (§PLOT-DISPLAY-CONTROLS-HOST · C115 §1.4 `C115-151`) — THERE IS NOW A
+// FOURTH HOST, AND STILL NO SECOND COPY. The Parcel Law panel displays these switches in
+// question 1 (*"What is this plot?"*): a control that decides what is drawn ON the plot belongs
+// beside the plot, not inside the Stage-02 determination card the tab re-parents into question
+// 2. It renders from `buildEnvelopeAxesControlEl` below — the SAME markup authority, parsed —
+// and it writes the SAME two setters on `envelopeVisibility.ts`.
+//
+// ⛔ WHAT KEEPS IT ONE CONTROL RATHER THAN TWO IS A CLAIM, NOT A COPY.
+// `plotDisplayControlsHost.ts` arbitrates which surface DISPLAYS the switches; the envelope
+// card's host asks it and renders nothing when the panel has claimed the job. So exactly one
+// pair of switches is on screen at a time, and the pair on screen is the one the reader is
+// looking at. Both instances would otherwise be a problem this file can name precisely: the
+// card does NOT subscribe to the authority (it repaints from its own click handler), so a write
+// made anywhere else leaves its switches reading a state that is no longer true.
 
 import type { EnvelopeVisibilityAxes } from '@pryzm/site-parcel-data';
 
@@ -186,6 +201,39 @@ export function buildEnvelopeAxesControlHtml(axes: EnvelopeVisibilityAxes): stri
           ${escHtml(envelopeAxesCaption(axes))}
         </div>
       </div>`;
+}
+
+/**
+ * ⭐ THE SAME CONTROL, AS DOM — for a host that has no HTML sink and may not acquire one.
+ *
+ * §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 `C115-151`). The Parcel Law tab now displays these
+ * switches in question 1 (*"What is this plot?"*), because a control that decides what is drawn
+ * ON the plot belongs beside the plot, not inside the Stage-02 determination card. That tab's
+ * own header commits it to `textContent` only (C08 §3.1 §XSS-SINK-SCAN), so it cannot take a
+ * string.
+ *
+ * ⛔ IT IS NOT A SECOND PRODUCER, AND THE IMPLEMENTATION IS WHAT GUARANTEES THAT. It parses the
+ * output of `buildEnvelopeAxesControlHtml` — there is still exactly ONE markup authority, one
+ * set of labels, one caption and one pair of testids, so the card and the tab cannot render two
+ * different versions of one control. A hand-built DOM twin here would be precisely the rival
+ * this module's header spends its length forbidding.
+ *
+ * ⚠ THE `innerHTML` IS DELIBERATE AND IT IS SAFE HERE RATHER THAN THERE. Every character of that
+ * markup is this file's own literal; the only runtime values that reach it are the two booleans
+ * and the caption those booleans select, all of which pass through `escHtml`. No host string,
+ * no provider string and no user string is interpolated. Moving the parse into the module that
+ * owns the literal is what keeps the sink in one auditable place instead of spreading it to
+ * every host that wants the control.
+ *
+ * Returns a detached element. Throws nothing: a parse that somehow yields no element returns an
+ * empty `<div>` rather than `null`, so a caller can always append the result.
+ */
+export function buildEnvelopeAxesControlEl(axes: EnvelopeVisibilityAxes): HTMLElement {
+    const frame = document.createElement('div');
+    // eslint-disable-next-line no-unsanitized/property -- see the block above: static literal
+    frame.innerHTML = buildEnvelopeAxesControlHtml(axes);
+    const first = frame.firstElementChild;
+    return first instanceof HTMLElement ? first : document.createElement('div');
 }
 
 /**
