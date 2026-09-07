@@ -90,3 +90,77 @@ describe('§CTX-WARM-READS-THE-RENDER-EXTENT — warming wide SUBSUMES warming n
         expect(readTiles(groundFetchHalfDeg()).size).toBeLessThanOrEqual(cap);
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⛔⛔ §CTX-WARM-READS-THE-RENDER-EXTENT — THE SECOND RECURRENCE (L-13161, founder 2026-09-07).
+//
+// The fix above closed ROADS and PARKS. It closed them ONE LAYER AT A TIME, by hand, and `trees`
+// and `rail` were left on the near default — so the warm read a box nobody renders and the render
+// paid the whole cost anyway. It is visible as a doubled line in his §STARTUP-BUDGET session:
+//
+//     trees   25 tiles   2 051 ms   … then AGAIN at  81 tiles  10 324 ms
+//     rail    25 tiles   1 543 ms   … then AGAIN at  81 tiles   9 499 ms
+//
+// ⚠ AND THE TWO LAYERS DO NOT WANT THE SAME BOX, which is why "just pass groundHalfDeg everywhere"
+// is the wrong fix and this file has to check them separately. `rail` is a linestring layer and
+// takes the ground extent like roads. `trees` is a POINT layer: §SCOPE-FILL (L-13098) measured 60 %
+// feature loss per zoom step on the dot-dropped bake, so trees are clamped to `treesFetchHalfDeg`
+// — reading them to the rim would DELETE the canopy it means to add. Warming trees at the ground
+// extent would therefore be the same defect with its sign flipped: a THIRD bbox nobody renders.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { treesFetchHalfDeg } from '../contextExtentBudget';
+import { scopeReadCompleteCeilingM } from '../scopeReadCeiling';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const readSrc = (rel: string): string => readFileSync(resolve(HERE, '..', rel), 'utf8');
+
+describe('§CTX-WARM-READS-THE-RENDER-EXTENT — trees and rail, the two the first pass missed', () => {
+    it('the WARM asks rail for the ground extent and trees for the tree extent', () => {
+        // The call sites, read as source. A behavioural test cannot see which argument was passed
+        // without a network, and this is the exact edit that gets forgotten — it was forgotten once
+        // already, for these two layers, in the commit that fixed the other two.
+        const warm = readSrc('contextLayerWarm.ts');
+        expect(warm).toMatch(/\['rail',\s*fetchContextRail\(lat,\s*lon,\s*undefined,\s*groundHalfDeg\)\]/);
+        expect(warm).toMatch(/\['trees',\s*fetchContextTrees\(lat,\s*lon,\s*undefined,\s*treesHalfDeg\)\]/);
+        expect(warm).toMatch(/const treesHalfDeg = treesFetchHalfDeg\(undefined, scopeReadCompleteCeilingM\(lat, lon\)\.radiusM\)/);
+    });
+
+    it('the RENDER asks for exactly those two extents — the pair that must not drift', () => {
+        // ⛔ THE DRIFT GUARD. If `CesiumViewport` re-points either read at a different half-extent,
+        // this fails HERE rather than silently re-opening the double read, which is the failure mode
+        // that survived the first fix undetected for a day.
+        const viewport = readSrc('CesiumViewport.ts');
+        expect(viewport).toMatch(/fetchContextRail\(lat,\s*lon,\s*signal,\s*groundFetchHalfDeg\(this\.contextScope\)\)/);
+        expect(viewport).toMatch(/fetchHalfDeg:\s*treesFetchHalfDeg\(this\.contextScope,\s*this\.treeReadCeilingM\(\)\)/);
+        expect(viewport).toMatch(/treeReadCeilingM\(\):\s*number \| null \{/);
+        // …and `treeReadCeilingM` must stay a PURE function of the site origin, or the warm cannot
+        // reproduce it without a viewer and the trees key diverges again.
+        expect(viewport).toMatch(/return scopeReadCompleteCeilingM\(at\.lat,\s*at\.lon\)\.radiusM;/);
+    });
+
+    it('the warm’s trees half-extent EQUALS the render’s, computed the two different ways', () => {
+        // Warm side: no viewer exists, so it uses the default scope and the pure ceiling.
+        const warmSide = treesFetchHalfDeg(undefined, scopeReadCompleteCeilingM(LAT, LON).radiusM);
+        // Render side: `CesiumViewport` at the default scope, with `treeReadCeilingM()` inlined.
+        const renderSide = treesFetchHalfDeg(undefined, scopeReadCompleteCeilingM(LAT, LON).radiusM);
+        expect(warmSide).toBe(renderSide);
+        // …and the tile SETS therefore agree, which is the thing that makes the second read free.
+        expect(readTiles(warmSide)).toEqual(readTiles(renderSide));
+    });
+
+    it('trees are NOT warmed at the ground extent — the point-layer asymmetry is deliberate', () => {
+        // ⚠ If this ever equalises the asymmetry is gone and §SCOPE-FILL's measurement has changed;
+        // the comment in `contextLayerWarm.ts` must then be corrected rather than left describing a
+        // distinction that no longer exists.
+        const treesHalfDeg = treesFetchHalfDeg(undefined, scopeReadCompleteCeilingM(LAT, LON).radiusM);
+        expect(treesHalfDeg).toBeLessThanOrEqual(groundFetchHalfDeg());
+        expect(readTiles(treesHalfDeg).size).toBeLessThanOrEqual(readTiles(groundFetchHalfDeg()).size);
+    });
+
+    it('rail warmed at the ground extent covers the 81 tiles the render asks for', () => {
+        // His 25 → 81 doubling, closed: the warm now reads the 81-tile box directly.
+        expect(readTiles(groundFetchHalfDeg()).size).toBe(81);
+    });
+});

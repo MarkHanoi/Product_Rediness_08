@@ -46,6 +46,25 @@ import { trace } from '@opentelemetry/api';
 
 const _tracer = trace.getTracer('pryzm.site-entry.site-reveal-sequence');
 
+/**
+ * ⛔⛔ §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT (L-13160, founder 2026-09-07: *"THIS NEEDS TO BE 10X
+ * QUICKER"*) — **THE LONGEST A CONTEXT READ MAY HOLD THE SPLIT VIEW SHUT.**
+ *
+ * The number is chosen from the two cases it has to serve, not from taste:
+ *   · a WARM read (a revisited site, a second search) resolves in single-digit milliseconds, so
+ *     any deadline at all preserves the whole benefit of §REVEAL-CONTENT-READY — the split still
+ *     mounts fully populated, exactly as before;
+ *   · a COLD first read of `buildings` measured **22 544 ms for 81 tiles** at Barcelona on the
+ *     live build, so no deadline in the seconds range changes that case's OUTCOME — it only
+ *     decides how much of it the user spends staring at a globe. 1.5 s is therefore the largest
+ *     value that is still inside the founder's ~2.3 s target for `geocode:end → split-mounted`.
+ *
+ * ⚠ IT IS A CEILING, NOT A DELAY. A gate that resolves at 4 ms mounts at 4 ms; nothing here
+ * introduces a minimum wait, and turning it into one would be the §REVEAL-CONTENT-READY mistake
+ * inverted (that dep's own note already forbids a timer standing in for a readiness signal).
+ */
+export const REVEAL_GATE_DEADLINE_MS = 1_500;
+
 /** The resolved location the reveal is anchored to — the `search()` outcome's `picked`. */
 export interface SiteRevealTarget {
     readonly lat: number;
@@ -85,15 +104,52 @@ export interface SiteRevealDeps {
      * introduces NO new fetch and no second readiness concept — it only stops discarding the
      * knowledge of when that fetch finished.
      *
-     * ⚠ NO WATCHDOG IS NEEDED HERE, and adding one would be worse than not. The production signal
-     * is `fetchContextBuildingsNearAndFar`, which never throws and carries its own per-mirror
-     * timeouts, so it always settles. A rejection is treated as "ready" — a context read that
-     * failed must not strand the user on the globe forever; the split's own honest-empty handling
-     * is the right place for that failure to surface, not this gate.
+     * ⛔⛔ §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT (L-13160, founder 2026-09-07) — **THIS PARAGRAPH
+     * USED TO READ *"NO WATCHDOG IS NEEDED HERE, AND ADDING ONE WOULD BE WORSE THAN NOT"*, AND
+     * THAT SENTENCE COST THE FOUNDER 22.7 SECONDS ON EVERY FIRST LOAD.** Its reasoning was
+     * *"`fetchContextBuildingsNearAndFar` never throws and carries its own per-mirror timeouts, so
+     * it always settles"* — every clause of which is TRUE, and the conclusion drawn from it is
+     * still wrong: **"it always settles" is not "it settles soon".** A gate with no deadline
+     * inherits the worst case of whatever it waits on, and the worst case here is a cold 81-tile
+     * range read of a 23.79 GB archive.
+     *
+     * ⭐ **THE PROOF IS TWO ADJACENT MARKS IN HIS OWN §STARTUP-BUDGET (live build, Barcelona):**
+     *     geocode:end            t+6 459
+     *     reveal:flight-settled  t+6 497
+     *     context-warm:done      t+29 183   (+22 686 ms)
+     *     reveal:content-ready   t+29 183   (**+0 ms**)
+     *     reveal:split-mounted   t+29 288
+     * `reveal:content-ready` landing in the SAME MILLISECOND as `context-warm:done` is not a
+     * coincidence to be interpreted — it is the gate, printing itself. The camera had settled at
+     * t+6 497 and the user then watched a globe for 22.7 s more. Founder, verbatim: *"IT ACTUALLY
+     * REACHES - BUT IT TAKES TOOOOOOOOO LONG - THIS NEEDS TO BE 10X QUICKER"*.
+     *
+     * ⭐ **SO THE GATE IS NOW DEADLINED, NOT DELETED, AND THE DIFFERENCE MATTERS.** Deleting it
+     * would throw away the case it was built for — a warm or cached read resolves in single-digit
+     * milliseconds, and mounting a split that is about to be fully populated one tick later is
+     * strictly better than mounting an empty one. Deadlining keeps that and caps the pathological
+     * case: after `revealGateDeadlineMs` (default `REVEAL_GATE_DEADLINE_MS`) the reveal proceeds,
+     * the read keeps running, and the layers stream into a split the user is already looking at.
+     *
+     * ⚠ **AND THE STREAMING-IN MUST STAY HONEST.** A layer still loading when the split mounts is
+     * reported by the 3D pane's own activation line (§STARTUP-QUIET-ACTIVATION,
+     * `viewActivationLoading.ts`), and a layer that failed still answers `unavailable`
+     * (§CONTEXT-DATA-HONESTY — failure and empty are different values). This deadline moves WHEN
+     * the user sees the view; it must never change WHAT the view claims about the data in it.
+     *
+     * A rejection is still treated as "ready" — a context read that failed must not strand the user
+     * on the globe either.
      *
      * Optional: when absent the reveal mounts immediately, which is exactly the pre-gate behaviour.
      */
     readonly awaitContentReady?: () => Promise<unknown>;
+    /**
+     * §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT (L-13160, founder 2026-09-07) — how long BOTH gates
+     * above may hold the reveal before the split mounts anyway. Injectable ONLY so the specs can
+     * pin the behaviour in milliseconds instead of seconds; production omits it and takes
+     * `REVEAL_GATE_DEADLINE_MS`. `0` means "mount as soon as the preconditions are met".
+     */
+    readonly revealGateDeadlineMs?: number;
     /**
      * §REVEAL-FLIGHT-COMPLETE (founder 2026-08-06: "START ZOOMING … SLOWLY … take 3–4 seconds,
      * THEN transition to the split view") — THE OTHER HALF OF THE GATE.
@@ -151,6 +207,13 @@ export type SiteRevealStopReason =
 export interface SiteRevealResult {
     /** True only when the split was actually mounted (both preconditions satisfied). */
     readonly mounted: boolean;
+    /**
+     * §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT (L-13160) — true when the content gate did NOT settle
+     * inside its deadline and the reveal proceeded without it. Reported rather than inferred: the
+     * defect this closes was invisible for a month precisely because "the reveal waited" and "the
+     * read had finished" were indistinguishable from the outside.
+     */
+    readonly gateDeadlineExpired?: boolean;
     /** The steps that ran, in the order they ran. The ordering contract, observable. */
     readonly steps: readonly SiteRevealStep[];
     /** Present iff `mounted === false` — which precondition stopped the sequence. */
@@ -237,16 +300,53 @@ export async function runSiteRevealSequence(
         // the flight after the content resolved, and a flight that finished in between would be
         // observed as "already settled" only by luck of ordering. Concurrent by construction:
         // the reveal fires when the LATER of the two lands, which is the whole choreography.
+        //
+        // ⛔⛔ §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT (L-13160) — AND IT IS DEADLINED. This step is
+        // the ONLY one that can take real time, so it is the only place a slow dependency can hold
+        // the whole product shut — which is exactly what it did: 22.7 s of the founder's 22.8 s
+        // `geocode:end → split-mounted` was spent here, waiting on a cold `buildings` read.
+        //
+        // ⚠ THE DEADLINE COVERS **BOTH** GATES, ON PURPOSE. Deadlining only the content gate would
+        // fix the one dependency that is known to be slow and leave the invariant unstated — and
+        // the invariant is the point: **no reveal gate, present or future, may hold the split
+        // longer than `REVEAL_GATE_DEADLINE_MS`.** A rule that names one caller is a patch; a rule
+        // that bounds the STEP is a property the next dependency inherits for free.
+        let gateDeadlineExpired = false;
         if (deps.awaitContentReady || deps.awaitFlightComplete) {
+            const deadlineMs =
+                typeof deps.revealGateDeadlineMs === 'number' && Number.isFinite(deps.revealGateDeadlineMs)
+                    ? Math.max(0, deps.revealGateDeadlineMs)
+                    : REVEAL_GATE_DEADLINE_MS;
+            let timer: ReturnType<typeof setTimeout> | undefined;
             try {
-                await Promise.all([
+                const gates = Promise.all([
                     deps.awaitContentReady?.(),
                     deps.awaitFlightComplete?.(),
+                ]).then(() => false as const);
+                const expired = await Promise.race([
+                    gates,
+                    new Promise<true>((resolve) => { timer = setTimeout(() => resolve(true), deadlineMs); }),
                 ]);
+                gateDeadlineExpired = expired === true;
             } catch (e) {
                 // Ready-enough. See the deps' notes: neither a failed context read nor a refused
                 // camera may strand the user on the globe.
                 console.warn('[site-reveal] a reveal gate rejected — revealing anyway (non-fatal):', e);
+            } finally {
+                if (timer !== undefined) clearTimeout(timer);
+            }
+            if (gateDeadlineExpired) {
+                // ⚠ SAY IT OUT LOUD. The console line this replaces claimed the layers were loading
+                // "behind the reveal" while the reveal was waiting on one of them; a reveal that
+                // proceeds without its content must announce that, or the next reader is left to
+                // infer it from two timestamps again.
+                console.log(
+                    `[site-reveal] §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT: the context read had not `
+                    + `landed within ${deadlineMs} ms — mounting the split now and letting it stream `
+                    + 'in. The read is NOT cancelled and NOT reported as empty: the 3D pane carries its own '
+                    + 'activation line says what is still arriving (§STARTUP-QUIET-ACTIVATION), and a '
+                    + 'layer that fails still answers `unavailable` (§CONTEXT-DATA-HONESTY).',
+                );
             }
             if (deps.awaitContentReady) steps.push('await-content-ready');
             if (deps.awaitFlightComplete) steps.push('await-flight-complete');
@@ -263,7 +363,7 @@ export async function runSiteRevealSequence(
             mounted = deps.mountSplit() !== false;
         } catch (e) {
             console.error('[site-reveal] mountSplit threw — the split did not open:', e);
-            return { mounted: false, steps, stoppedBecause: 'split-mount-threw' };
+            return { mounted: false, steps, gateDeadlineExpired, stoppedBecause: 'split-mount-threw' };
         }
         if (!mounted) {
             console.warn(
@@ -271,7 +371,7 @@ export async function runSiteRevealSequence(
                 + 'full-screen on the globe. Its own console line above says why; this sequence '
                 + 'ran its preconditions in order:', steps.join(' → '),
             );
-            return { mounted: false, steps, stoppedBecause: 'split-mount-declined' };
+            return { mounted: false, steps, gateDeadlineExpired, stoppedBecause: 'split-mount-declined' };
         }
         steps.push('mount-split');
 
@@ -285,7 +385,7 @@ export async function runSiteRevealSequence(
             }
         }
 
-        return { mounted: true, steps };
+        return { mounted: true, steps, gateDeadlineExpired };
     } finally {
         span.end();
     }

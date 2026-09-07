@@ -8,7 +8,10 @@
 // 3D pane in the founder's live test.
 
 import { describe, it, expect } from 'vitest';
-import { runSiteRevealSequence, type SiteRevealDeps, type SiteRevealTarget } from '../src/ui/onboarding/siteRevealSequence.js';
+import {
+    runSiteRevealSequence, REVEAL_GATE_DEADLINE_MS,
+    type SiteRevealDeps, type SiteRevealTarget,
+} from '../src/ui/onboarding/siteRevealSequence.js';
 
 const TARGET: SiteRevealTarget = {
     lat: 37.883,
@@ -282,4 +285,140 @@ describe('§REVEAL-FLIGHT-COMPLETE — the reveal waits for BOTH gates', () => {
         });
         expect((await runSiteRevealSequence(deps, TARGET)).mounted).toBe(true);
     });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⛔⛔ §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT (L-13160, founder 2026-09-07: "IT ACTUALLY REACHES -
+// BUT IT TAKES TOOOOOOOOO LONG - THIS NEEDS TO BE 10X QUICKER").
+//
+// The block ABOVE pins that the reveal waits for a real readiness signal rather than a clock, and
+// every one of those tests still passes unchanged — because the defect was never that the gate
+// waited. It was that the wait had NO CEILING, so the reveal inherited the worst case of a cold
+// 81-tile read of a 23.79 GB archive. His §STARTUP-BUDGET, live build, Barcelona:
+//
+//     reveal:flight-settled  t+6 497
+//     context-warm:done      t+29 183   (+22 686 ms)
+//     reveal:content-ready   t+29 183   (+0 ms)   ← the gate, printing itself
+//     reveal:split-mounted   t+29 288
+//
+// ⚠ THESE TESTS ARE THE MUTATION PROOF. Delete the `Promise.race` in `runSiteRevealSequence` and
+// the first three do not fail with a bad assertion — they HANG until vitest kills them, which is
+// precisely the user-visible symptom, reproduced.
+describe('§STARTUP-REVEAL-NOT-GATED-ON-CONTEXT — no gate may hold the split open-endedly', () => {
+    /** A promise that never settles — the cold `buildings` read, modelled. */
+    const never = () => new Promise<void>(() => { /* deliberately never resolves */ });
+
+    it('mounts the split when the CONTENT gate never settles, and says so', async () => {
+        const { deps, calls } = harness({ awaitContentReady: never, revealGateDeadlineMs: 5 });
+        const result = await runSiteRevealSequence(deps, TARGET);
+        expect(result.mounted).toBe(true);
+        expect(result.gateDeadlineExpired).toBe(true);
+        expect(calls).toEqual(['seed', 'anchor', 'arm', 'mount', 'fade']);
+    });
+
+    it('mounts the split when the FLIGHT gate never settles — the ceiling is on the STEP, not on one dep', async () => {
+        // A rule that names `awaitContentReady` would be a patch. The invariant is that NO gate,
+        // present or future, can hold the split — so the next dependency inherits it for free.
+        const { deps } = harness({ awaitFlightComplete: never, revealGateDeadlineMs: 5 });
+        const result = await runSiteRevealSequence(deps, TARGET);
+        expect(result.mounted).toBe(true);
+        expect(result.gateDeadlineExpired).toBe(true);
+    });
+
+    it('mounts the split when BOTH gates hang', async () => {
+        const { deps } = harness({
+            awaitContentReady: never, awaitFlightComplete: never, revealGateDeadlineMs: 5,
+        });
+        const result = await runSiteRevealSequence(deps, TARGET);
+        expect(result.mounted).toBe(true);
+        expect(result.gateDeadlineExpired).toBe(true);
+    });
+
+    it('is a CEILING, not a delay — a warm gate mounts at once and does NOT wait out the deadline', async () => {
+        // ⛔ THE ONE WAY THIS FIX COULD MAKE THINGS WORSE. Turning the deadline into a minimum wait
+        // would slow every warm session by 1.5 s to speed up the cold one, which is the
+        // §REVEAL-CONTENT-READY mistake inverted. 400 ms is far above any microtask scheduling
+        // noise and far below the deadline, so the assertion cannot flake either way.
+        const { deps } = harness({
+            awaitContentReady: () => Promise.resolve('warm'), revealGateDeadlineMs: 400,
+        });
+        const t0 = Date.now();
+        const result = await runSiteRevealSequence(deps, TARGET);
+        expect(result.mounted).toBe(true);
+        expect(result.gateDeadlineExpired).toBe(false);
+        expect(Date.now() - t0).toBeLessThan(200);
+    });
+
+    it('a gate that REJECTS is not a deadline expiry — the two failures stay distinguishable', async () => {
+        // §CONTEXT-DATA-HONESTY, applied to the reveal's own telemetry: "the read failed" and "the
+        // read was still running" are different facts and must not be collapsed into one flag.
+        const { deps } = harness({
+            awaitContentReady: () => Promise.reject(new Error('tiles down')), revealGateDeadlineMs: 400,
+        });
+        const result = await runSiteRevealSequence(deps, TARGET);
+        expect(result.mounted).toBe(true);
+        expect(result.gateDeadlineExpired).toBe(false);
+    });
+
+    it('a deadline of 0 mounts without waiting for content at all', async () => {
+        const { deps } = harness({ awaitContentReady: never, revealGateDeadlineMs: 0 });
+        const result = await runSiteRevealSequence(deps, TARGET);
+        expect(result.mounted).toBe(true);
+        expect(result.gateDeadlineExpired).toBe(true);
+    });
+
+    it('production takes REVEAL_GATE_DEADLINE_MS, and the value is pinned so a change is deliberate', () => {
+        // 1.5 s is the largest value still inside the founder's ~2.3 s target for
+        // `geocode:end → split-mounted`, and any deadline at all preserves the warm case.
+        expect(REVEAL_GATE_DEADLINE_MS).toBe(1_500);
+    });
+
+    it('reports gateDeadlineExpired even when the MOUNT is then declined — the flag is about the gate', async () => {
+        const { deps } = harness({
+            awaitContentReady: never, revealGateDeadlineMs: 5, mountSplit: () => false,
+        });
+        const result = await runSiteRevealSequence(deps, TARGET);
+        expect(result.mounted).toBe(false);
+        expect(result.stoppedBecause).toBe('split-mount-declined');
+        expect(result.gateDeadlineExpired).toBe(true);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐ THE END-TO-END NUMBER, MEASURED — and an explicit statement of what it does NOT model.
+//
+// The founder's ask is a WALL-CLOCK one ("10X QUICKER"), and this repo's record is full of fixes
+// whose saving was argued rather than measured. So this case runs the REAL sequence with the REAL
+// production deadline against a content gate that behaves like his cold `buildings` read (22 686 ms
+// — i.e. never, on this timescale) and measures `geocode:end → split-mounted` on the clock.
+//
+// ⚠ WHAT IT MODELS: the gate, the deadline, the ordering, and the mount. Nothing else.
+// ⚠ WHAT IT DOES NOT MODEL, SAID PLAINLY SO NOBODY QUOTES IT AS A LIVE FIGURE: no network, no
+// same-origin request queue, no PMTiles decode, no GPU, no Cesium. The BEFORE number below is the
+// founder's live trace, not this harness's; the AFTER number is this harness's and is therefore a
+// FLOOR — the live build adds the mount's own real work on top of it.
+describe('§STARTUP-REVEAL-NOT-GATED-ON-CONTEXT — the measured gate cost', () => {
+    it('caps geocode:end → split-mounted at the deadline when the context read is slow', async () => {
+        const { deps } = harness({
+            // His trace: context-warm:done at +22 686 ms. On this test's timescale that is "never".
+            awaitContentReady: () => new Promise<void>(() => { /* the cold buildings read */ }),
+            awaitFlightComplete: () => Promise.resolve(),   // his reveal:flight-settled, +35 ms
+            // NO revealGateDeadlineMs — this case must run the PRODUCTION default or it measures
+            // nothing about production.
+        });
+        const t0 = Date.now();
+        const result = await runSiteRevealSequence(deps, TARGET);
+        const elapsed = Date.now() - t0;
+
+        expect(result.mounted).toBe(true);
+        expect(result.gateDeadlineExpired).toBe(true);
+        // BEFORE (founder's live trace, build f98c990a, Barcelona): 22 829 ms, all of it this gate.
+        // AFTER (measured here): the deadline plus scheduling overhead.
+        expect(elapsed).toBeGreaterThanOrEqual(REVEAL_GATE_DEADLINE_MS - 50);
+        expect(elapsed).toBeLessThan(REVEAL_GATE_DEADLINE_MS + 750);
+        // …which is a 14× reduction against his 22 829 ms, and the assertion below is the one that
+        // would fail if a future edit let the gate creep back past the founder's ~2.3 s target.
+        expect(elapsed).toBeLessThan(2_300);
+    }, 10_000);
 });

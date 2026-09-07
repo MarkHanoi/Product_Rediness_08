@@ -31,7 +31,8 @@ import { fetchContextTrees } from './contextTrees';
 import { fetchContextFurniture } from './contextFurniture';
 import { fetchContextBakedCanopy } from './contextCanopyBaked';
 import { CONTEXT_WIDE_HALF_DEG, CONTEXT_SEA_HALF_DEG } from './contextExtents';
-import { groundFetchHalfDeg } from './contextExtentBudget';
+import { groundFetchHalfDeg, treesFetchHalfDeg } from './contextExtentBudget';
+import { scopeReadCompleteCeilingM } from './scopeReadCeiling';
 import { primeContextTilesetManifest } from './contextTiles';
 
 const _tracer = trace.getTracer('pryzm.gis.context-layer-warm');
@@ -79,6 +80,37 @@ export function warmAllContextLayers(lat: number, lon: number): void {
         // warms only that subset — fewer tiles warmed, never wrong ones, because a subset of a
         // per-tile cache is always valid.
         const groundHalfDeg = groundFetchHalfDeg();
+        // ⛔⛔ §CTX-WARM-READS-THE-RENDER-EXTENT, SECOND RECURRENCE (L-13161, founder 2026-09-07)
+        // — **THE FIX ABOVE COVERED ROADS AND PARKS AND STOPPED THERE. `trees` AND `rail` KEPT
+        // WARMING A BOX THE RENDER NEVER ASKS FOR, SO THE WARM BOUGHT THEM NOTHING AT ALL AND THE
+        // RENDER PAID TWICE.** It is visible as a doubled line in his §STARTUP-BUDGET session:
+        //     trees   25 tiles  2 051 ms   … then AGAIN at  81 tiles  10 324 ms
+        //     rail    25 tiles  1 543 ms   … then AGAIN at  81 tiles   9 499 ms
+        // Two reads, two bboxes, ONE of which nobody renders. The §CTX-TILE-DECODE-CACHE is keyed
+        // per tile so the 25 are re-used inside the 81 — but the collection cache is keyed by BBOX,
+        // so the whole crop + build ran again over 81 tiles on the render path.
+        //
+        // WHAT THE RENDER ACTUALLY ASKS FOR, read off the two call sites rather than assumed:
+        //   · `CesiumViewport.loadContextRail`   → `fetchContextRail(…, groundFetchHalfDeg(scope))`
+        //   · `CesiumViewport.loadContextTrees`  → `fetchContextCanopySet(…, { fetchHalfDeg:
+        //      treesFetchHalfDeg(scope, treeReadCeilingM()) })`, which forwards that half-extent
+        //      straight into `fetchContextTrees`.
+        // So rail takes the ground box like roads and parks; trees take their OWN, narrower box —
+        // §SCOPE-FILL L-13098's measured asymmetry (a point layer loses 60 % of its features per
+        // zoom step, so reading trees to the rim would DELETE the canopy it means to add). Warming
+        // trees at `groundHalfDeg` would therefore be the same defect with the sign flipped: a
+        // third bbox nobody reads.
+        //
+        // ⚠ `treeReadCeilingM()` IS REPRODUCIBLE HERE, WHICH IS WHY THIS IS POSSIBLE AT ALL.
+        // `CesiumViewport` computes it as `scopeReadCompleteCeilingM(originLat, originLon).radiusM`
+        // — a PURE function of the site origin (`scopeReadCeiling.ts`), not of any viewer state —
+        // and the origin is the lat/lon this warm was handed. No viewport, same number, same key.
+        //
+        // ⚠ SAME CAVEAT AS THE BLOCK ABOVE, RESTATED BECAUSE IT NOW APPLIES TO FOUR LAYERS: the
+        // warm runs before any viewport exists, so it uses the DEFAULT scope. A persisted wider
+        // scope still reads wider at render time and warms only that subset — fewer tiles warmed,
+        // never wrong ones, because a subset of a per-tile cache is always valid.
+        const treesHalfDeg = treesFetchHalfDeg(undefined, scopeReadCompleteCeilingM(lat, lon).radiusM);
         const layers: Array<[string, Promise<unknown>]> = [
             ['roads', fetchContextRoads(lat, lon, undefined, groundHalfDeg)],
             ['water', fetchContextWater(lat, lon)],
@@ -86,8 +118,8 @@ export function warmAllContextLayers(lat: number, lon: number): void {
             ['water(sea)', fetchContextWater(lat, lon, undefined, CONTEXT_SEA_HALF_DEG)],
             ['parks', fetchContextParks(lat, lon, undefined, groundHalfDeg)],
             ['landuse', fetchContextLanduse(lat, lon, undefined, CONTEXT_WIDE_HALF_DEG)],
-            ['rail', fetchContextRail(lat, lon)],
-            ['trees', fetchContextTrees(lat, lon)],
+            ['rail', fetchContextRail(lat, lon, undefined, groundHalfDeg)],
+            ['trees', fetchContextTrees(lat, lon, undefined, treesHalfDeg)],
             // §STREET-LIFE (L-12936) — mapped street lamps; an un-baked archive is memoised absent
             // by §CTX-KNOWN-MISSING on this one probe, so the render path pays no second round-trip.
             ['furniture', fetchContextFurniture(lat, lon)],
@@ -97,10 +129,29 @@ export function warmAllContextLayers(lat: number, lon: number): void {
             // §CTX-KNOWN-MISSING on this one probe and the woods-fill synthesis carries the site.
             ['canopy', fetchContextBakedCanopy(lat, lon)],
         ];
+        // ⛔⛔ §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT (L-13160, founder 2026-09-07) — THIS LINE USED TO
+        // END *"(parallel, behind the reveal)"*, AND ON 2026-09-07 THAT WAS A FALSE STATEMENT PRINTED
+        // BY THE CODE IT DESCRIBED. The founder's console read
+        // `§CTX-WARM-ALL-LAYERS water warmed in 36039 ms (parallel, behind the reveal)` in a session
+        // where the split view had not appeared — because the reveal DID wait, on the tenth layer
+        // (`buildings`, held by `OnboardingStepController.contextWarm` and awaited by
+        // `siteRevealSequence`'s content gate with no deadline). The nine layers here were indeed
+        // fire-and-forget; what the sentence got wrong is that being off the gate is not the same as
+        // being off the critical path, because all ten share one origin's connection pool.
+        //
+        // ⚠ A SENTENCE ASSERTING NON-BLOCKING BEHAVIOUR, PRINTED BY CODE ON THE BLOCKING PATH, IS
+        // WORSE THAN NO SENTENCE — it is why nobody read the two adjacent §STARTUP-BUDGET marks that
+        // said so. The gate is now deadlined (`REVEAL_GATE_DEADLINE_MS`), so the claim is true again;
+        // it is stated below in terms of what this module can actually KNOW, which is that it does
+        // not await anything and does not hold the reveal.
         for (const [name, p] of layers) {
             void p.then(() => {
                 const dt = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
-                console.log(`[gis] §CTX-WARM-ALL-LAYERS ${name} warmed in ${dt.toFixed(0)} ms (parallel, behind the reveal).`);
+                console.log(
+                    `[gis] §CTX-WARM-ALL-LAYERS ${name} warmed in ${dt.toFixed(0)} ms (parallel; not `
+                    + 'awaited here and not a reveal gate — §STARTUP-REVEAL-NOT-GATED-ON-CONTEXT bounds '
+                    + 'the one gate there is, so a slow layer delays only itself).',
+                );
             }).catch(() => { /* best-effort warm — the render path re-asks and reports honestly */ });
         }
     } finally {

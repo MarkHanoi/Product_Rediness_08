@@ -103,8 +103,17 @@ import { warmAllContextLayers } from '../geospatial/contextLayerWarm.js';
 import {
     showStartupProjectNameCard,
     dismissStartupProjectNameCard,
+    commitStartupProjectNameCard,
     startupProjectNameDefault,
+    STARTUP_NAME_CARD_SLOT_ID,
 } from './startupProjectNameCard.js';
+// §ONE-CARD-AT-A-TIME (L-13130) — the ONE modal onboarding slot. The location card and the name
+// card change places through `handOffOnboardingModalCard`, in one synchronous transition.
+import {
+    handOffOnboardingModalCard,
+    markOnboardingModalCard,
+    unmarkOnboardingModalCard,
+} from './onboardingCardSlot.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
 import { markStartupPhase } from '../../engine/startupBudget';
 // §UX-COMPACT-TYPE-PILL (L-11131) — the confirm pill is placed BESIDE the view-mode bar,
@@ -431,6 +440,21 @@ export class OnboardingStepController {
     private splitRevealed = false;
 
     /**
+     * §ONE-CARD-AT-A-TIME (L-13130) — true once the LOCATION CARD has been taken down at parcel
+     * arrival. ⛔ It is NOT "the location step is over": the step has TWO halves that leave at
+     * DIFFERENT moments, and conflating them is precisely why nothing dismissed the card.
+     *   · the CARD ("Where is your project?") must go the instant the location is accepted —
+     *     its question has been answered and the name card is taking its place;
+     *   · the GLOBE (`globeHero`) must stay until `revealInFlight` has resolved, because the split
+     *     re-parents that very viewport (§REVEAL-FLIGHT-COMPLETE) — `leaveLocationStep()` owns
+     *     that half, and only that half.
+     * The flag also makes the card's own controls inert, so the undesigned "Skip — no location
+     * AFTER a location was accepted" state cannot be reached even if a future edit un-hides the
+     * overlay.
+     */
+    private locationCardRetired = false;
+
+    /**
      * §REVEAL-CONTENT-READY — the in-flight context prefetch started at the `city` stage of the
      * camera descent, held so the reveal can WAIT on it rather than mounting the split over a load
      * that has not landed. `null` until the warm-up fires (and if it never fires, the reveal does
@@ -618,6 +642,10 @@ export class OnboardingStepController {
         this.addCleanup(makeDraggable(overlay, '.os-header', ['button', 'input', 'a']));
         this.addCleanup(makeResizable(overlay, grip, { minWidth: 300, minHeight: 220 }));
 
+        // §ONE-CARD-AT-A-TIME (L-13130) — the overlay is born MODAL (every step but the docked
+        // banner is), so it claims the slot from its first paint rather than from whichever step
+        // happens to render first. `setDrawingPresentation()` moves it in and out from here on.
+        markOnboardingModalCard(overlay, 'onboarding-step');
         document.body.appendChild(overlay);
         this.overlay = overlay;
     }
@@ -659,8 +687,26 @@ export class OnboardingStepController {
         // it sits beside an interactive map, so drop the dialog role while drawing.
         if (drawing) {
             this.overlay.setAttribute('role', 'region');
+            // §ONE-CARD-AT-A-TIME (L-13130) — the docked banner and the confirm pill are NOT modal
+            // cards: they have no scrim, pointer events fall through, and they are DESIGNED to
+            // share the screen with a live surface (and with the name card, which the load
+            // finishing must never retire). So the overlay leaves the slot here.
+            unmarkOnboardingModalCard(this.overlay);
         } else {
             this.overlay.setAttribute('role', 'dialog');
+            // §ONE-CARD-AT-A-TIME (L-13130) — a MODAL step is a card in the slot, and a card in
+            // the slot is on screen: `enterDrawPhaseWhenSurfaceReady()` hides the overlay and only
+            // `renderDrawingStep()` un-hid it, so a modal step reached from the draw phase came up
+            // invisible. Releasing `hidden` here makes "modal presentation" and "visible" one fact.
+            this.overlay.hidden = false;
+            // ⚠ THE USER WALKING ON IS NOT THE LOAD WINNING. §STARTUP-NAME-CARD is deliberately
+            // never auto-dismissed by the load finishing — but a naming card left standing under a
+            // LATER modal step is the two-cards defect again, so it is retired here by SAVING what
+            // is typed (the same route its own "Save name" button takes; nothing is lost).
+            // ⇒ the draw banner and the confirm pill take the `drawing` arm above and leave the
+            // card alone, which is exactly the behaviour the founder asked for.
+            commitStartupProjectNameCard();
+            markOnboardingModalCard(this.overlay, 'onboarding-step');
         }
     }
 
@@ -689,6 +735,10 @@ export class OnboardingStepController {
     private renderLocationStep(): void {
         this.step = 'location';
         markStartupPhase('location-step:open'); // §STARTUP-BUDGET
+        // §ONE-CARD-AT-A-TIME (L-13130) — a FRESH location card. Reached on first mount and on the
+        // plot step's "← Back", both of which put the question back on screen, so the retirement
+        // latch (and the control guards that read it) re-arm here.
+        this.locationCardRetired = false;
         this.setDrawingPresentation(false);
         this.setStepIndicator(1, 'Location');
         const body = this.clearBody();
@@ -880,22 +930,46 @@ export class OnboardingStepController {
                 // specifically so he could WATCH it (§STARTUP-SLOW-DESCENT), so the globe stays
                 // visible and live around the card. Escape or "Skip" commits the geocoded default
                 // (§REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH, L-942 — it can always be closed).
+                //
+                // ⛔ §ONE-CARD-AT-A-TIME (L-13130) — AND THE LOCATION CARD LEAVES IN THE SAME
+                // BREATH. As first shipped this block raised the name card and nothing took the
+                // "Where is your project?" card down, so the founder got BOTH: the location card
+                // still holding his query, still printing "Found: Barcelona, …", still offering a
+                // live "Skip — no location", and — at z-index 2147483000 against the name card's
+                // 88 870 — sitting ON TOP of the button he was being asked to press. That was not
+                // a race to lose: the location card's DOM was only replaced by the NEXT step's
+                // `clearBody()`, which runs after `await this.revealInFlight`, i.e. after the whole
+                // ~18 s reveal this card exists to cover. It overlapped on every single run.
+                // ⛔ THE FIX IS A TRANSITION, NOT A TIMER AND NOT A Z-INDEX: retire-then-raise
+                // inside ONE synchronous `handOffOnboardingModalCard` call, with the slot proving
+                // itself empty in between. A `setTimeout` would have left the same missing hand-off
+                // with a delay bolted on; a z-index bump would have left a live Skip button under a
+                // card asking a different question.
                 const defaultName = startupProjectNameDefault(picked.address);
-                if (defaultName) {
-                    showStartupProjectNameCard({
-                        defaultName,
-                        onCommit: (name) => {
-                            // The SAME `runtime.persistence.client.rename` path the hub's rename
-                            // modal uses — best-effort, never gating, never a second naming write.
-                            void this.applyProjectName(name).catch((e) => {
-                                console.warn('[onboarding-step] §STARTUP-NAME-CARD rename failed (non-fatal):', e);
-                            });
-                        },
-                    });
-                    // The card outlives this step's own DOM (it floats on `document.body` over the
-                    // split that is about to mount), so it is torn down with the CONTROLLER.
-                    this.addCleanup(() => dismissStartupProjectNameCard());
-                }
+                handOffOnboardingModalCard({
+                    from: 'onboarding-step',
+                    // ⚠ An address with no usable place name raises NO card, and that leaves the
+                    // slot legitimately EMPTY — the loading overlay owns the screen from there. The
+                    // location card still goes: its question has been answered either way.
+                    to: defaultName ? STARTUP_NAME_CARD_SLOT_ID : null,
+                    retire: () => this.retireLocationCard('parcel-arrival'),
+                    raise: () => {
+                        if (!defaultName) return;
+                        showStartupProjectNameCard({
+                            defaultName,
+                            onCommit: (name) => {
+                                // The SAME `runtime.persistence.client.rename` path the hub's rename
+                                // modal uses — best-effort, never gating, never a second naming write.
+                                void this.applyProjectName(name).catch((e) => {
+                                    console.warn('[onboarding-step] §STARTUP-NAME-CARD rename failed (non-fatal):', e);
+                                });
+                            },
+                        });
+                        // The card outlives this step's own DOM (it floats on `document.body` over
+                        // the split that is about to mount), so it is torn down with the CONTROLLER.
+                        this.addCleanup(() => dismissStartupProjectNameCard());
+                    },
+                });
             },
             entries: siteEntryCoverageEntries(),
             // §STARTUP-BUDGET — the same geocoder, with phase marks around the round-trip.
@@ -928,10 +1002,32 @@ export class OnboardingStepController {
 
         const onSubmit = (e: Event): void => {
             e.preventDefault();
+            // §ONE-CARD-AT-A-TIME (L-13130) — the card is gone once a location is accepted, so this
+            // is unreachable today. It is a guard and not an assertion because the cost of being
+            // wrong is a SECOND geocode + a second reveal racing the first one, over a split that
+            // has already mounted.
+            if (this.locationCardRetired) {
+                console.warn('[onboarding-step] §ONE-CARD-AT-A-TIME: search submitted after the location was accepted — ignored.');
+                return;
+            }
             void this.handleLocationEntry(input.value, status, submit, altRow);
         };
         form.addEventListener('submit', onSubmit);
         skip.addEventListener('click', () => {
+            // ⛔ §ONE-CARD-AT-A-TIME (L-13130) — "SKIP AFTER A SUCCESSFUL GEOCODE" IS A STATE
+            // NOBODY DESIGNED, AND BEFORE THIS IT WAS ONE CLICK AWAY. While the location card
+            // lingered over the name card, its Skip button stayed live: clicking it ran
+            // `this.picked = null` — discarding a location the reveal had ALREADY anchored with
+            // `dispatchSiteLocation` — then `leaveLocationStep()` while `revealInFlight` was still
+            // running (disposing, with `splitRevealed` still false, the very globe the split was
+            // about to adopt: the §22 black-3D-pane hazard), and finally raised a SECOND naming
+            // prompt beside the floating one. The card is now retired at parcel arrival, so the
+            // button no longer exists; this guard is what makes that a property of the STATE rather
+            // than of the DOM happening to be gone.
+            if (this.locationCardRetired) {
+                console.warn('[onboarding-step] §ONE-CARD-AT-A-TIME: "Skip — no location" clicked after a location was accepted — ignored (the site is already anchored).');
+                return;
+            }
             // §UX1-SKIP-TO-CANVAS (founder 2026-08-19). This USED to go to
             // `renderSiteStep()` — "Step 2 of 4 · Your plot". The founder's point is
             // that a user who has just said "no location" is telling us they do not
@@ -949,9 +1045,47 @@ export class OnboardingStepController {
         try { input.focus(); } catch { /* ignore */ }
     }
 
+    /**
+     * §ONE-CARD-AT-A-TIME (L-13130) — take the LOCATION CARD down. Idempotent.
+     *
+     * ⛔ THIS IS THE HALF `leaveLocationStep()` NEVER OWNED, AND THE WHOLE DEFECT IS THAT NOBODY
+     * ELSE DID EITHER. `leaveLocationStep()` reads like the step's teardown, but its body disposes
+     * the GLOBE HERO and nothing else — and it MUST stay that way, because the globe cannot go
+     * until `revealInFlight` has resolved and the split has adopted that viewport
+     * (§REVEAL-FLIGHT-COMPLETE; disposing it early is the §22 "black 3D pane" hazard). The card,
+     * by contrast, must go the moment the location is ACCEPTED, which is ~18 s earlier. Two halves,
+     * two moments, and before this method only one of them had an owner.
+     *
+     * ⚠ THE OVERLAY IS HIDDEN, NOT DESTROYED. It is a shell every later step re-uses (drag/resize
+     * chrome, header, step indicator), so this clears the BODY — which takes the "→" submit and the
+     * "Skip — no location" button out of the document with it — and sets the `hidden` attribute,
+     * the same mechanism §UX1-DRAW-PHASE-GATE already uses and which `onboardingStyles.ts` backs
+     * with `display: none !important`. `setDrawingPresentation(false)` releases it again for the
+     * next modal step.
+     *
+     * ⚠ SAFE BY CONSTRUCTION AT THIS CALL SITE: `GlobeHeroSearch` fires `onParcelArrival` ONLY on
+     * the statement before `return { ok: true, … }` (`descendAndHandOff`), so there is no path on
+     * which the card is retired and the user is then handed back to it to retry.
+     */
+    private retireLocationCard(why: string): void {
+        if (this.locationCardRetired) return;
+        this.locationCardRetired = true;
+        // `clearBody()` also drops the `--location` dark presentation and runs the body's own
+        // cleanups; it throws only if the overlay was never mounted, which is not fatal here.
+        try { this.clearBody(); } catch { /* overlay not mounted — nothing to retire */ }
+        if (this.overlay) this.overlay.hidden = true;
+        console.log(
+            `[onboarding-step] §ONE-CARD-AT-A-TIME: the location card is retired (${why}). The `
+            + 'GLOBE stays live — `leaveLocationStep()` releases it only once the reveal has '
+            + 'adopted the viewport.',
+        );
+    }
+
     /** Dismiss the globe presentation when the `location` step is left by any path (skip, a
      *  resolved search, empty-query-treated-as-skip) — the globe must not stay live once the
-     *  flow has moved on to the plot step. Idempotent (`GlobeHeroSearch.dispose()` is). */
+     *  flow has moved on to the plot step. Idempotent (`GlobeHeroSearch.dispose()` is).
+     *  ⛔ It does NOT touch the location CARD — see `retireLocationCard()` for why those are two
+     *  different moments, and for the defect that followed from assuming they were one. */
     private leaveLocationStep(): void {
         // PRD §22 — once the reveal has mounted the split, the SINGLE Cesium viewport has been
         // re-parented into its RIGHT pane. Releasing the hero must NOT toggle the globe off, or
