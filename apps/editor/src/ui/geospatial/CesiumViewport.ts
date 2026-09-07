@@ -138,15 +138,41 @@ import {
 } from "./scopeClip";
 import { SITE_SCOPE_RANGE, groundFetchHalfDeg } from "./contextExtentBudget";
 /**
- * §SITE-SCOPE — is the GLOBE CUT + SLAB SIDE armed? ⛔ FALSE until EVERY layer class pre-clips
- * (C12 §13.3). As of 2026-09-07 roads, parks, trees, lamps and people are cut to the scope polygon;
- * the building tiers, rail, inland water, land-use and the sea are NOT yet. Cutting the globe while
- * those still extend past the rim would re-create the retired §CTX-EARTH-SLAB's picture — entities
- * floating over a void — which is the one outcome this design exists to prevent. Flip to `true` in
- * the commit that lands the last pre-clip; `applySiteScopeClip` and its settle rebuild are complete
- * and gated on this one constant.
+ * §SITE-SCOPE — is the GLOBE CUT + SLAB SIDE armed? **ARMED 2026-09-07.**
+ *
+ * ⛔ THE RULE THIS CONSTANT EXISTS FOR, RESTATED SO IT IS NOT LOST NOW THAT IT IS `true`: cutting
+ * the globe while any visible layer still extends past the rim re-creates the RETIRED
+ * §CTX-EARTH-SLAB's picture — entity ground and extruded neighbours floating over a void — which
+ * is the one outcome this design exists to prevent (C12 §13.6 forbids the globe-clip-only slab BY
+ * NAME). So it flips only when EVERY layer class pre-clips, and it flips back the moment one stops.
+ *
+ * EVERY CLASS NOW CUTS (C12 §13.3), and each is checkable at its own call site:
+ *   · class C, rings      — land-use, parks, sea, inland-water areas   (`scopeClipRings`)
+ *   · class C, polylines  — roads, rails, waterway centre-lines        (`scopeClipLines`)
+ *   · class D, footprints — near shadowed, near demoted, far instanced (`scopeClipRings`, and a
+ *                            straddler becomes the clean vertical SECTION, never a drop)
+ *   · class E, points     — trees/canopies (`filterPointsLonLat`), lamps + people
+ *                            (`StreetLifeLayer.scopeContains`)
+ *   · class A + B         — `applySiteScopeClip`: the globe by `globe.clippingPolygons`
+ *                            (`inverse:true`, feature-detected) and the flat-shaded neutral side
+ *   · class F             — the photoreal tileset is NOT scoped (ADR-0382 D6): it keeps its parcel
+ *                            void, and one tileset holds ONE `inverse`
+ *   · class G             — the subject (parcel, massing, envelopes, the BIM model) is NEVER cut
+ *
+ * ⚠ NAMED, STILL-OPEN LIMITS — armed in spite of them, and each is stated where it lives rather
+ * than hidden behind this flag:
+ *   1. SEA ISLAND HOLES are still dropped (AUDIT F-3) — pre-existing, unchanged by the cut, and a
+ *      correct holed cut needs `renderContextSeaRings`' single-argument `PolygonHierarchy` fixed
+ *      first. An island inside the slab paints blue exactly as it did before.
+ *   2. TREES BEYOND ~891 m are read at a coarser zoom, and the bake's `--drop-densest-as-needed`
+ *      DELETES footprints rather than coarsening them, so a wide scope thins the canopy at the rim.
+ *      No constant fixes that; the tree cap verdict prints the numbers (C12 §13.5).
+ *   3. NOTHING HERE IS BROWSER-VERIFIED. `ClippingPolygonCollection.isSupported` (WebGL 2) and the
+ *      flat-shaded side's appearance under the Forma key light cannot be asserted headlessly
+ *      (AUDIT §7.1/§7.2). On ANY failure `applySiteScopeClip` leaves the globe WHOLE and draws NO
+ *      side — never a half-slab.
  */
-const SITE_SCOPE_CLIP_ARMED = false;
+const SITE_SCOPE_CLIP_ARMED = true;
 // §CTX-SITE-SCOPE / §CTX-EXTENT-BUDGET (L-13058 x L-645) - the ONE tunable table every 3D-Site
 // context radius and cap derives from. Leaf module (imports nothing) so it cannot close a cycle.
 import {
@@ -10955,13 +10981,21 @@ export class CesiumViewport {
     const farSplit = this.plotClearSplit(farScoped, parcelLonLat);
     this.renderContextFarTierInstanced([...farSplit.kept, ...demotedToFar], lat, lon, viewer);
 
-    // §CTX-EARTH-SLAB (L-645) — RETIRED. The globe-clip "cut slab" is defensively torn down on every
-    // load (heals any stale clip from an older cached bundle) but NEVER re-applied: a globe clip cannot
-    // touch the flat entity ground layers that make up the visible "outside terrain", so it could never
-    // produce the founder's clean floating disc, and its skirt read as the "red ring". The feature is
-    // back to LOGGED-NOT-BUILT pending a SPEC + contract + terrain-aware clip mechanism (see
-    // clearContextEarthSlab). Forma-only; no-op on the photoreal path.
-    this.clearContextEarthSlab();
+    // ── §SITE-SCOPE (L-645; C12 §13.3 classes A + B) — THE SLAB, AFTER THE LAYERS IT FRAMES ───
+    //
+    // ⛔ THIS LINE WAS `this.clearContextEarthSlab()` WITH A "RETIRED / NEVER RE-APPLIED" COMMENT,
+    // AND LEAVING IT WOULD HAVE SILENTLY UNDONE THE WHOLE FEATURE: the globe cut is raised at the
+    // top of this method (before the swap, so the cut never lags its context), and this ran ~400
+    // lines later on the SAME load and tore it straight back down. A teardown that fires after the
+    // build it is supposed to protect is indistinguishable from "the clip does not work".
+    //
+    // What replaces it is the same call, re-asserted: `applySiteScopeClip` is idempotent (it
+    // early-outs when its key — scope × origin × θ × terrain base — is unchanged and the primitive is
+    // up), so running it here costs nothing on a settled scene and REBUILDS the slab side if the
+    // terrain base moved while the tiers were placing, which is exactly when the ring's own sampled
+    // heights change. Forma-only; no-op on the photoreal path (ADR-0382 D6).
+    if (SITE_SCOPE_CLIP_ARMED) void this.applySiteScopeClip(lat, lon);
+    else this.clearContextEarthSlab();   // disarmed: heal any stale clip from an older cached bundle.
 
     // §CTX-USE-COLOUR (L-599) — if the use MODE is on, colour the freshly-placed set (and refresh
     // the legend counts, which describe THIS scene). No-op when the mode is off.
