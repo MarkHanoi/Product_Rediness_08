@@ -1056,6 +1056,23 @@ user can add rooms but not relationships (OPEN DEFECT D-9).
 
 ## §9 — STAGE 06: COST
 
+> ⭐ **SHIPPED 2026-09-07 — lane COST-ONE-PLACE, row `L-13145`. THIS SECTION'S DUPLICATION IS
+> CLOSED, AND THE DESCRIPTION BELOW IS NOW THE RECORD OF WHAT WAS TRUE BEFORE THE FIX.**
+> Surface A no longer renders on the envelope card: `GISAreaLayout` emits the §2.5 relocation
+> stamp (`data-duplicate-removed="parcel-law-question-5-cost"`) where the fold stood, and the
+> fold itself — **renamed *"Maximum potential"*** per `C115-14` — is mounted by the Parcel Law
+> tab's question 5, **beneath** the design's own cost, by
+> `apps/editor/src/ui/analysis/parcelLawPermittedMaximumCost.ts`. That module **computes
+> nothing**: it calls the same `permittedStudyFiguresOf` → `envelopeStudyBuiltArea` →
+> `estimateBuildingCost` chain the card called, so `C115-11`'s *"remove a rendering, never add a
+> computation"* is satisfied by construction.
+> **`C115-79` is now met on the terms §9.1 sets:** Stage 06 **ASSERTS** one cost answer, the
+> user's rate over the declared design; the permitted maximum stands under it as context.
+> ⚠ `C115-85` **is discharged** — the fold's doc comment said *five* arms and now says **four**.
+> ⛔ **Read the fix, not this description.** The paragraphs below are kept because a contract that
+> silently rewrites its own diagnosis leaves no record of what the defect was; they describe
+> **HEAD before `L-13145`**.
+
 **Cost exists. It exists TWICE, and that is the duplication.** ⛔ *"If cost does not exist"* is not
 the situation here, and this contract will not describe it as one:
 
@@ -1092,6 +1109,29 @@ estimated`) plus an error path. Its own doc comment says five, and two call site
 number. `C115-85` The comment **MUST** be corrected in the same PR that touches the fold.
 
 ### §9.1 — ⭐ THE PERMITTED-MAXIMUM ESTIMATE SURVIVES, AS AN OPTIONAL SECOND LINE (PR-E-51)
+
+> ⭐ **IMPLEMENTED 2026-09-07 (`L-13145`) — and this is the clause that made the fix safe.** The
+> critic finding this section was written for (*"implementing `C115-79` literally would DELETE a
+> rendered, published, cited figure while `C115-01` forbids exactly that"*) was the one thing
+> standing between the founder's *"all in point 5"* and a lossy refactor. `C115-138`…`C115-140`
+> were followed clause by clause and each is pinned by a test rather than asserted:
+>
+> | Clause | How it shipped | Pinned by |
+> |---|---|---|
+> | `C115-138` retained, re-homed, **not** stamped off the surface | mounted inside question 5, ordered **after** the design's cost part | `parcelLawCostOnePlace.spec.ts` — `compareDocumentPosition` |
+> | `C115-139` 1 · different SUBJECT in words | renamed *"Maximum potential"*; `PERMITTED_MAXIMUM_SUBJECT_TEXT`; `data-cost-subject="permitted-maximum"` | both specs, every arm |
+> | `C115-139` 2 · different WEIGHT, neither strengthened (`C115-38`) nor hidden (`C115-37`) | figure 19 px → **12 px** amber, and it is in the `<summary>`, readable with the fold shut | `envelopeCostSection.spec.ts` asserts the 19 px is **gone** and the figure is still in the summary |
+> | `C115-139` 3 · own provenance, unchanged | all of PR-F-10 behind *"Cost assumptions & source"* (`C115-93`'s named affordance, now a real instance of the ONE primitive) | both specs |
+> | `C115-139` 4 · the SAME refusals | `no-module` · `no-gfa` · `no-typology` all reach the **mounted** DOM with their sentences | `parcelLawCostOnePlace.spec.ts`, three arms |
+> | `C115-140` optional to SHOW, never to HOLD | it is a `<details>` the reader may collapse; it is computed on every pass | the repaint test |
+>
+> ⚠ **ONE DEVIATION, STATED RATHER THAN HIDDEN.** `C115-80` says the published-rate machinery
+> migrates into *"Cost assumptions & source"*. The **provenance** did (`C115-84`'s PR-F-10 list).
+> The **two selects did not**: they sit one layer up, in the DETAILS layer, because `C115-82`
+> requires the assumption to be one the user can *see and change* and the `no-typology` arm's whole
+> purpose is to ASK — burying the control that removes the refusal two folds deep would make it
+> *"an obstacle, not a dropdown"* (§11). `C115-84` is unaffected: nothing in PR-F-10 left the
+> disclosure.
 
 **The collision this clause resolves.** `C115-79` says the cost **MUST** be based on the proposed
 design, *"never the theoretical maximum"*. Surface A renders a **published, cited, licensed**
@@ -1406,9 +1446,9 @@ them; it does not log them.
 
 | # | Defect | Clause |
 |---|---|---|
-| **D-1** | A real source URL rendered as unclickable plain text (*"Verify at"*), in two places | PR-F-04, `C115-25` |
-| **D-2** | The headline source line drops a non-http citation entirely, with no plain-text fallback, contradicting its own comment | PR-F-05, `C115-26` |
-| **D-3** | Two honesty caveats emit untagged `<details>` and cannot remember their open state | PR-H-07, §11 |
+| **D-1** | A real source URL rendered as unclickable plain text (*"Verify at"*), in two places | PR-F-04, `C115-25` · **L-13130** · ⭐ **FIXED IN THE COST PLACE 2026-09-07 (`L-13145`)** — `buildSourceToChaseHtml` anchors the URL **and keeps the prose after it** (`C115-24` forbids both failure modes); the three-way fallback is pinned. ⚠ **The Mediciones bucket is the OTHER place and is still OPEN** |
+| **D-2** | The headline source line drops a non-http citation entirely, with no plain-text fallback, contradicting its own comment | PR-F-05, `C115-26` · **L-13131** · ⭐ **FIXED 2026-09-07 (`L-13145`)** — three arms, matching the per-row path, **and on the generic-provider arm too**, which is the wider half `C115-26` asks for |
+| **D-3** | Two honesty caveats emit untagged `<details>` and cannot remember their open state | PR-H-07, §11 · **L-13132** · ⚠ **PARTIAL 2026-09-07 (`L-13145`)** — the cost section's own untagged nested `<details>` (one of §11's five rivals) is tagged and now reads the ONE session map through the new `envelopeCardFoldIsOpen`. **The two honesty caveats in the layout closure are untouched and the row stays OPEN** |
 | **D-4** | A hand-edited generated plate keeps `computed` provenance and is deleted by the next generated option; **no test covers it** | §5.3, `C115-45` |
 | **D-5** | Room envelope specs carry no provenance at all | §5.3, `C115-46` |
 | **D-6** | The three-envelope legend has one call site, inside another section; the scene renderers omit its orientative sentence | §5.5 |
@@ -1435,6 +1475,19 @@ them; it does not log them.
 ---
 
 ## §17 — STATUS (living record — appended, never rewritten)
+
+### 2026-09-07 · lane COST-ONE-PLACE · §9 IMPLEMENTED — `L-13145`
+The first code this contract has caused. The founder reported the duplication §9 predicted
+(*"Indicative cost is still under point 2 … no duplication and all in point 5"*) and the fix is
+§9.1's, clause by clause: the permitted-maximum estimate is **retained, re-homed and demoted**,
+not deleted. **0 data points lost** — walked against the §3 register, not asserted: PR-G-18 ·
+PR-G-19 · PR-E-33 · PR-E-34 · PR-E-35 · PR-F-10 (all 8 exclusions) · the estimator's own
+statement. **D-1 and D-2 close in the cost place** and D-3 closes partially; `C115-85` discharges.
+⚠ **THREE THINGS THIS LANE DID NOT DO, SO NOBODY READS MORE INTO IT THAN HAPPENED:** it did not
+build §10's host arbiter (the card is still a `innerHTML`-rebuilt singleton; the cost section
+simply stopped being one of its nine); it did not unify §11's remaining rival disclosures (it made
+the cost fold an instance of the existing map, `C115-91`, and added no third); and **nothing here
+has been seen in a browser** — §14.14 still stands for this contract as a whole.
 
 ### 2026-09-07 · lane PARCEL-LAW-IA · MINTED
 Written from the founder's 2026-09-07 brief plus a five-part audit dossier, **every part of which

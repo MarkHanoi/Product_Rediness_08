@@ -58,6 +58,13 @@ import {
     subscribeIndicativeRate,
 } from '../site/indicativeRateState';
 import { readLevelCandidates } from '../site/adoptProposalAsEnvelope';
+import { wireEnvelopeCardFoldMemory } from '../site/envelopeCardSections';
+import {
+    buildPermittedMaximumCostHtml,
+    defaultPermittedMaximumCostDeps,
+    wirePermittedMaximumCostSelects,
+    type PermittedMaximumCostDeps,
+} from './parcelLawPermittedMaximumCost';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawQuantities');
 
@@ -69,6 +76,14 @@ export const PARCEL_LAW_COST_SLOT_TESTID = 'analysis-parcel-law-cost';
 export const PARCEL_LAW_QUANTITIES_LIVE_ATTR = 'data-live-repaints';
 /** `'yes'` when the store's dirty channel was subscribed; `'no'` (with a reason) when not. */
 export const PARCEL_LAW_QUANTITIES_SUBSCRIBED_ATTR = 'data-live-subscribed';
+/**
+ * §COST-ONE-PLACE — `data-testid` on the wrapper holding the PERMITTED-MAXIMUM second line.
+ *
+ * ⛔ ITS OWN WRAPPER, BENEATH `LIVE_QUANTITIES_COST_PART_TESTID`, because `C115-138` puts the
+ * second line *"BENEATH the proposed-design cost"* and a spec has to be able to assert that
+ * ordering rather than infer it from source order.
+ */
+export const PARCEL_LAW_MAX_POTENTIAL_SLOT_TESTID = 'analysis-parcel-law-max-potential';
 
 /**
  * The space-envelope store, as this control needs it. STRUCTURAL, so no import edge is owed to
@@ -92,6 +107,16 @@ export interface ParcelLawQuantitiesDeps {
     readonly readLevels: () => unknown;
     /** Production: `() => new Date().toISOString()`. Injected so a spec pins the statement. */
     readonly nowIso: () => string;
+    /**
+     * §COST-ONE-PLACE (C115 §9.1 · L-13145) — the seams the PERMITTED-MAXIMUM second line reads.
+     *
+     * ⚠ OPTIONAL, and that is deliberate. Omitting it takes the production wiring
+     * (`defaultPermittedMaximumCostDeps`), so every existing caller and every existing spec keeps
+     * working unchanged; a spec that wants to drive the second line supplies plain objects. It is
+     * never a switch that turns the line off: with no envelope the producer returns `''` because
+     * there is no permitted maximum to price, which is a finding, not a configuration.
+     */
+    readonly permittedMaximumCost?: PermittedMaximumCostDeps;
 }
 
 /**
@@ -121,6 +146,7 @@ export function defaultParcelLawQuantitiesDeps(): ParcelLawQuantitiesDeps {
             try { return w.bimManager?.getLevels?.() ?? []; } catch { return []; }
         },
         nowIso: () => new Date().toISOString(),
+        permittedMaximumCost: defaultPermittedMaximumCostDeps(),
     };
 }
 
@@ -198,6 +224,33 @@ export function mountParcelLawQuantities(
         return collectIntendedAreas(store, levels);
     };
 
+    /**
+     * §COST-ONE-PLACE (C115 §9.1 · L-13145) — ⭐ THE PERMITTED-MAXIMUM SECOND LINE, BENEATH THE
+     * DESIGN'S OWN COST.
+     *
+     * ⛔ IT IS APPENDED, NEVER INTERLEAVED. `C115-138` places the maximum *"beneath the
+     * proposed-design cost"* and `C115-139` clause 2 makes the design's figure the ANSWER and this
+     * one the CONTEXT; putting it above, or merging it into the same box, inverts both.
+     *
+     * ⛔ AND IT IS IN THE SAME `innerHTML` WRITE AS THE HALF ABOVE IT. Two writes would be two
+     * vintages the first time a face drag landed between them — the exact defect this control was
+     * created to remove (see the header).
+     *
+     * `''` means one of two honest things and neither is an error: no permitted determination
+     * exists (question 2 already says so, and repeating it here would be the duplication this
+     * lane removes), or the read threw and the producer logged it. Question 5's own answer stands
+     * either way.
+     */
+    const maxPotentialHtml = (): string => {
+        const html = buildPermittedMaximumCostHtml(
+            deps.permittedMaximumCost ?? defaultPermittedMaximumCostDeps(),
+        );
+        return html.length === 0
+            ? ''
+            : `<div data-testid="${PARCEL_LAW_MAX_POTENTIAL_SLOT_TESTID}" `
+              + `style="min-width:0;max-width:100%;">${html}</div>`;
+    };
+
     const render = (): void => {
         if (disposed) return;
         try {
@@ -205,13 +258,13 @@ export function mountParcelLawQuantities(
             const rate: IndicativeRate | null = getIndicativeRate();
             const outcome: IndicativeCostOutcome = estimateAtIndicativeRate(rate, model.area);
             if (costRoot === null) {
-                root.innerHTML = buildLiveQuantitiesSection(model, rate, outcome);
+                root.innerHTML = buildLiveQuantitiesSection(model, rate, outcome) + maxPotentialHtml();
             } else {
                 // ⭐ SAME MODEL, SAME OUTCOME, TWO PLACES. The pair is written in ONE pass, so the
                 // quantities and the cost can never show different vintages of one envelope — the
                 // property the store subscription below exists to guarantee.
                 root.innerHTML = buildLiveQuantitiesQuantitiesPart(model);
-                costRoot.innerHTML = buildLiveQuantitiesCostPart(rate, outcome);
+                costRoot.innerHTML = buildLiveQuantitiesCostPart(rate, outcome) + maxPotentialHtml();
             }
             if (pendingStatus !== null) {
                 const status = q<HTMLElement>(LIVE_QUANTITIES_STATUS_TESTID);
@@ -239,6 +292,26 @@ export function mountParcelLawQuantities(
      * the same convention `GISAreaLayout`'s `wireStudyHeightEntry` follows for the card.
      */
     const wireControls = (): void => {
+        // §COST-ONE-PLACE — the moved block's own controls and its ONE disclosure primitive.
+        //
+        // ⭐ `wireEnvelopeCardFoldMemory` is the SAME primitive the envelope card uses (C115 §11
+        // `C115-90`/`C115-91`), reading and writing the SAME session map that `envelopeCostSection`
+        // emits `open` from. Re-attached after every `innerHTML` swap, exactly as the card does —
+        // without it a fold the reader opened would snap shut on the next store notification,
+        // which C115 §11 calls *"an obstacle, not a dropdown"*. No scroll is restored: this
+        // control writes into a host it does not own and must not move somebody else's scroller.
+        for (const host of [root, costRoot]) {
+            if (host === null) continue;
+            wireEnvelopeCardFoldMemory(host);
+            wirePermittedMaximumCostSelects(
+                host,
+                deps.permittedMaximumCost ?? defaultPermittedMaximumCostDeps(),
+                // ⛔ A REPAINT, NOT A SECOND RENDERER. The choice is persisted by the writer above;
+                // this simply re-runs the ONE pass so the figure, the selects and the digest above
+                // them all move together.
+                render,
+            );
+        }
         const input = q<HTMLInputElement>(LIVE_QUANTITIES_RATE_INPUT_TESTID);
         const select = q<HTMLSelectElement>(LIVE_QUANTITIES_CURRENCY_TESTID);
         const btn = q<HTMLButtonElement>(LIVE_QUANTITIES_APPLY_BTN_TESTID);

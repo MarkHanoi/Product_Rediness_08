@@ -17,8 +17,26 @@
 //      whole section exists to avoid.
 //   5. The study area is the NAMED fourth proxy and contributes NO take-off lines
 //      — an empty `lineCodes` is the fact "nothing was measured", asserted.
+//
+// ⭐ AMENDED BY §COST-ONE-PLACE (lane COST-ONE-PLACE, 2026-09-07 · L-13145 · C115 §9.1). The
+// block is no longer *"the indicative cost"* on the envelope card: it is the PERMITTED-MAXIMUM
+// SECOND LINE under the Parcel Law tab's question 5, beneath the design's own cost. Three things
+// changed and each is asserted below rather than assumed:
+//
+//   · the summaries are renamed *"Maximum potential — …"* (`C115-139` clause 1 / `C115-14`:
+//     disambiguate by RENAMING, never by deleting). Two blocks called "Indicative cost" in one
+//     question group is the founder's own complaint;
+//   · the subject is said in words and marked machine-readably, so the two figures cannot be
+//     read as one value rendered twice (C115 §2.3);
+//   · *"Verify at"* is a REAL ANCHOR (L-13130 / C115 D-1 / `C115-25`), with the prose after the
+//     URL kept — `C115-24` forbids BOTH a plain-text URL and a truncated citation.
+//
+// ⛔ EVERY PRESERVATION ASSERTION BELOW IS UNCHANGED, and that is the point of amending rather
+// than rewriting this file: the four arms, their sentences, the estimator's statement, the study
+// caveat, the provenance and the 8 exclusions are the C115 §3 register rows this move had to
+// carry, and they are still checked by the same expectations.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
     ES_BARCELONA_ICIO_2026,
     estimateBuildingCost,
@@ -27,12 +45,23 @@ import {
 } from '@pryzm/core-app-model';
 import {
     buildIndicativeCostFold,
+    buildEnvelopeCostRelocationStamp,
+    buildSourceToChaseHtml,
     envelopeStudyBuiltArea,
     ENVELOPE_COST_SECTION_TESTID,
     ENVELOPE_COST_GROUP_SELECT_TESTID,
+    ENVELOPE_COST_CORRECTION_SELECT_TESTID,
     ENVELOPE_COST_AMOUNT_TESTID,
+    ENVELOPE_COST_ASSUMPTIONS_TESTID,
+    ENVELOPE_COST_NOT_COVERED_TESTID,
+    ENVELOPE_COST_RELOCATED_ATTR,
+    ENVELOPE_COST_RELOCATED_TO,
+    ENVELOPE_COST_SUBJECT_ATTR,
+    ENVELOPE_COST_VERIFY_LINK_TESTID,
     ENVELOPE_STUDY_AREA_CAVEAT,
+    PERMITTED_MAXIMUM_SUBJECT_TEXT,
 } from '../envelopeCostSection';
+import { resetEnvelopeCardFoldState } from '../envelopeCardSections';
 
 const COVERED: ResolvedBuildingCostModels = {
     tier: 'jurisdiction',
@@ -81,6 +110,8 @@ describe('envelopeStudyBuiltArea', () => {
     });
 });
 
+beforeEach(() => { resetEnvelopeCardFoldState(); });
+
 describe('buildIndicativeCostFold — the four arms', () => {
     it('no-module: prints the RESOLVER\'s own sentence, and refuses to substitute a neighbour', () => {
         const none = resolveBuildingCostModels({
@@ -110,7 +141,7 @@ describe('buildIndicativeCostFold — the four arms', () => {
         const html = buildIndicativeCostFold(COVERED, null, NO_CHOICE, null);
         expect(stateOf(html)).toBe('no-gfa');
         // The summary carries the fact for a user who never unfolds.
-        expect(html).toMatch(/<summary[^>]*>Indicative cost — no buildable area to price yet/);
+        expect(html).toMatch(/<summary[^>]*>Maximum potential — no permitted area to price yet/);
         expect(html).toMatch(/did not derive a storey count/);
         // It states that a module DOES cover this place — the two facts are separate.
         expect(html).toContain(ES_BARCELONA_ICIO_2026.displayName);
@@ -188,5 +219,131 @@ describe('buildIndicativeCostFold — the four arms', () => {
         }
         // Four arms, four DISTINCT states — the point of the whole file.
         expect(states.size).toBe(4);
+    });
+});
+
+describe('§COST-ONE-PLACE — the permitted-maximum SECOND LINE (C115 §9.1, PR-E-51)', () => {
+    const area = envelopeStudyBuiltArea(800, 4, 200);
+    const group = ES_BARCELONA_ICIO_2026.groups[0]!;
+    const estimated = (): string => buildIndicativeCostFold(
+        COVERED, area, { groupId: group.groupId, correctionId: null },
+        estimateBuildingCost(ES_BARCELONA_ICIO_2026, group.groupId, area, null),
+    );
+
+    it('every arm names a DIFFERENT SUBJECT — the permitted envelope, not the design', () => {
+        // `C115-139` clause 1. Without this, two figures stand in question 5 with no stated
+        // difference and a reader takes the larger one for a correction of the smaller.
+        const arms = [
+            buildIndicativeCostFold(resolveBuildingCostModels(null), area, NO_CHOICE, null),
+            buildIndicativeCostFold(COVERED, null, NO_CHOICE, null),
+            buildIndicativeCostFold(COVERED, area, NO_CHOICE, null),
+            estimated(),
+        ];
+        for (const html of arms) {
+            expect(html).toContain(`${ENVELOPE_COST_SUBJECT_ATTR}="permitted-maximum"`);
+            expect(html).toMatch(/<summary[^>]*>Maximum potential — /);
+            // The subject is said in WORDS, not only in an attribute a user cannot read.
+            expect(html).toContain('This prices the PERMITTED ENVELOPE, not the design above it');
+            // ⛔ And the old name is gone from the summary, which is the duplication the founder
+            // read: two blocks called "Indicative cost", one under question 2 and one under 5.
+            expect(html).not.toMatch(/<summary[^>]*>Indicative cost/);
+        }
+    });
+
+    it('the subject sentence is the exported constant, so a reword is a deliberate edit', () => {
+        expect(estimated()).toContain(PERMITTED_MAXIMUM_SUBJECT_TEXT);
+    });
+
+    it('DE-WEIGHTED, NEVER HIDDEN — the figure is in the summary and is not typeset as the answer', () => {
+        const html = estimated();
+        // `C115-37`: de-weighting must not hide it. The number is readable with the fold shut.
+        expect(html).toMatch(/<summary[^>]*>Maximum potential — ≈ [\d,.\s]+ EUR \(estimate\)</);
+        // `C115-139` clause 2 / PR-E-51: a ceiling figure MUST NOT be typeset like the proposed
+        // design's cost. The design's figure is 13 px purple; this one was 19 px and is now 12 px
+        // amber. Asserting the 19 px is GONE is the half that catches a revert.
+        expect(html).not.toMatch(/font-size:19px/);
+        expect(html).toMatch(/data-testid="envelope-cost-amount"[^>]*font-size:12px/);
+    });
+
+    it('⭐ D-1 — "Verify at" is a real anchor, and the prose after the URL is NOT truncated', () => {
+        const html = estimated();
+        const src = ES_BARCELONA_ICIO_2026.provenance.sourceToChase;
+        const url = src.split(/\s/)[0]!;
+        expect(url.startsWith('https://')).toBe(true);
+        // The founder's screenshot showed this URL as dead text. `C115-24` forbids both a
+        // plain-text URL and a citation truncated into an unusable link, so BOTH halves are
+        // asserted: the anchor exists with the exact href, and every word after it survives.
+        expect(html).toContain(`<a data-testid="${ENVELOPE_COST_VERIFY_LINK_TESTID}" href="${url}"`);
+        expect(html).toContain('rel="noopener noreferrer"');
+        expect(html).toContain('Re-read Annex A each January');
+        expect(html).toContain('CVE 202610021075');
+    });
+
+    it('D-1 — the three-way fallback survives: anchor · escaped plain text · nothing', () => {
+        // PR-F-03. Most `ordinanceRef`-shaped citations are article references, and the rule is
+        // read against `safeHttpUrl`, never against a wish that everything be a link.
+        expect(buildSourceToChaseHtml('https://example.org/x.pdf — Annex A'))
+            .toContain('<a data-testid=');
+        const plain = buildSourceToChaseHtml('Ordenança fiscal núm. 2.1, Annex A §1');
+        expect(plain).not.toContain('<a ');
+        expect(plain).toContain('Ordenan');
+        expect(buildSourceToChaseHtml('')).toBe('');
+        expect(buildSourceToChaseHtml(null)).toBe('');
+        // ⛔ A javascript: URL is never an href — it falls to the plain-text arm.
+        const evil = buildSourceToChaseHtml('javascript:alert(1) — see the annex');
+        expect(evil).not.toContain('<a ');
+        expect(evil).not.toMatch(/href="javascript:/);
+    });
+
+    it('PR-F-10 stays reachable behind ONE named disclosure — "Cost assumptions & source"', () => {
+        const html = estimated();
+        // `C115-80` / `C115-84` / `C115-93`: the founder named this affordance, and every
+        // provenance field plus all 8 exclusions must be behind it.
+        expect(html).toContain(`data-testid="${ENVELOPE_COST_ASSUMPTIONS_TESTID}"`);
+        expect(html).toMatch(/<summary[^>]*>Cost assumptions &amp; source/);
+        expect(html).toContain(ES_BARCELONA_ICIO_2026.provenance.database);
+        expect(html).toContain(ES_BARCELONA_ICIO_2026.provenance.edition);
+        expect(html).toContain(ES_BARCELONA_ICIO_2026.provenance.itemCode!);
+        expect(html).toContain('CLEARED FOR REDISTRIBUTION');
+        expect(html).toContain('RDLeg 1/1996');
+        expect(html).toContain(
+            `What this €/m² does NOT include (${ES_BARCELONA_ICIO_2026.notCovered.length})`,
+        );
+    });
+
+    it('D-3 — every <details> carries a data-testid, so the ONE memory can key it', () => {
+        // PR-H-07 / C115 §11: fold state is keyed by `data-testid`; an untagged `<details>` is
+        // skipped and therefore forgets on every repaint. This file used to emit one.
+        const html = estimated();
+        const opens = html.match(/<details[^>]*>/g) ?? [];
+        expect(opens.length).toBeGreaterThanOrEqual(3);
+        for (const tag of opens) expect(tag).toContain('data-testid=');
+        expect(html).toContain(`data-testid="${ENVELOPE_COST_NOT_COVERED_TESTID}"`);
+    });
+
+    it('the two published selects survive on both arms that can offer them (PR-G-18 · PR-G-19)', () => {
+        for (const html of [buildIndicativeCostFold(COVERED, area, NO_CHOICE, null), estimated()]) {
+            expect(html).toContain(ENVELOPE_COST_GROUP_SELECT_TESTID);
+            expect(html).toContain(ENVELOPE_COST_CORRECTION_SELECT_TESTID);
+            expect(html).toContain('New build — no correction');
+            // The published groups and corrections, plus the two un-chosen options. The count IS
+            // the assertion (C115 §3.C) — a select that quietly ships nine rows has lost a rate.
+            const options = html.match(/<option value="/g) ?? [];
+            expect(options.length).toBe(
+                ES_BARCELONA_ICIO_2026.groups.length + ES_BARCELONA_ICIO_2026.corrections.length + 2,
+            );
+        }
+    });
+
+    it('⭐ the CARD keeps a §2.5 relocation stamp — a move must not read as a deletion', () => {
+        const stamp = buildEnvelopeCostRelocationStamp();
+        expect(stamp).toContain(`${ENVELOPE_COST_RELOCATED_ATTR}="${ENVELOPE_COST_RELOCATED_TO}"`);
+        // `C115-17`: the stamp NAMES the owning stage, so a reader can tell "moved" from "gone".
+        expect(stamp).toContain('What does it cost?');
+        expect(stamp).toContain('Nothing was dropped');
+        // ⛔ It is a REFERENCE (C115 §2.1), never a second rendering: no figure, no control.
+        expect(stamp).not.toContain(ENVELOPE_COST_AMOUNT_TESTID);
+        expect(stamp).not.toContain(ENVELOPE_COST_GROUP_SELECT_TESTID);
+        expect(stamp).not.toContain('<select');
     });
 });

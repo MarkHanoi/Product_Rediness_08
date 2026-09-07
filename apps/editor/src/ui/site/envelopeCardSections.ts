@@ -147,6 +147,21 @@ export function resetEnvelopeCardFoldState(): void {
 }
 
 /**
+ * §COST-ONE-PLACE (C115 §11 `C115-90`/`C115-91`) — ⭐ READ THIS SESSION'S REMEMBERED STATE FOR
+ * ONE FOLD, so a disclosure built OUTSIDE this file can still be an instance of the ONE
+ * primitive rather than a sixth mechanism.
+ *
+ * ⛔ IT IS A READER, NOT A SECOND MAP. C115 §11 measured FIVE rival disclosure mechanisms on
+ * this surface and named the cost section's *"private copy of a fold helper"* as one of them;
+ * `C115-91` forbids fixing that by adding a third map. `envelopeCostSection.ts` therefore emits
+ * its `open` attribute from THIS map, and `wireEnvelopeCardFoldMemory` writes back into it — one
+ * map, one key space (`data-testid`), one session scope, whichever host mounts the markup.
+ */
+export function envelopeCardFoldIsOpen(testid: string): boolean {
+    return foldOpenState.get(testid) === true;
+}
+
+/**
  * Re-attach the memory after a `panel.innerHTML = …` swap.
  *
  * Call it ONCE per swap, with the panel as `root`. It listens on every `<details>` the card

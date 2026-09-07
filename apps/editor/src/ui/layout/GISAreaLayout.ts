@@ -5,10 +5,13 @@ import {
     // lifecycle wiring at all; see the owner block at the end of mountGISArea().
     projectScopeRegistry,
     registerProjectScopeProbe,
-    // §RESI-ORCH-COST — the L2 cost engine. The SAME two functions the 5D tab calls, so the
-    // envelope card and the Data Workbench cannot state two different €/m² for one building.
-    resolveBuildingCostModels,
-    estimateBuildingCost,
+    // §COST-ONE-PLACE (2026-09-07, L-13145) — ⛔ `resolveBuildingCostModels` and
+    // `estimateBuildingCost` WERE imported here for the card's indicative-cost fold and are not
+    // any more. Cost has ONE home now (C115 §2.2) and it is the Parcel Law tab's question 5;
+    // `parcelLawPermittedMaximumCost.ts` calls the same two L2 functions from there, so the
+    // "one producer, two renderers" property this comment used to assert still holds — with one
+    // renderer instead of two. ⛔ Do not re-add them here: a second cost rendering on this card
+    // is the defect the founder reported.
 } from '@pryzm/core-app-model';
 import type { CesiumThreeBridge } from '@pryzm/plugin-geospatial';
 import type { UIProps } from '../Layout';
@@ -361,22 +364,18 @@ import { getEnvelopeResolutionPhase } from '../site/envelopeResolutionState';
 // helper below, and the commit message + the plan both recorded the fold as "mounted and its
 // typology select wired". ⛔ IT WAS NOT: the helper was dead code and NOTHING in this file
 // referenced the builder, so §15's indicative cost was EXISTS-BUT-UNWIRED — the exact
-// `committed ≠ reachable` shape this repo keeps re-learning. This import block, the
-// `safeCostSection` const in `refreshEnvelopePanel` and `wireEnvelopeCostSelects` below are the
-// wire that makes the claim true.
-import {
-    buildIndicativeCostFold,
-    envelopeStudyBuiltArea,
-    ENVELOPE_COST_GROUP_SELECT_TESTID,
-    ENVELOPE_COST_CORRECTION_SELECT_TESTID,
-} from '../site/envelopeCostSection';
-import {
-    loadBuildingChoice,
-    saveBuildingChoice,
-} from '../dataworkbench/buckets/buildingTypologyChoice';
-// The SAME jurisdiction binding + ladder the 5D tab uses (C06 §13.3 — one producer of the
-// answer, two renderers). A second resolver here is how one product states two costs.
-import { currentCostJurisdiction } from '../dataworkbench/buckets/resolveCostJurisdiction';
+// `committed ≠ reachable` shape this repo keeps re-learning.
+//
+// ⭐ SUPERSEDED BY §COST-ONE-PLACE (2026-09-07, L-13145 · C115 §2.2 / §9). That wiring was
+// correct and it is now in the WRONG PLACE: the founder read a full cost block under question 2
+// (*"Indicative cost is still under point 2 … no duplication and all in point 5"*), and C115 §2.2
+// assigns cost's canonical home to Stage 06. So the card renders the §2.5 RELOCATION STAMP where
+// the fold used to be, and the fold itself is mounted by the Parcel Law tab's question 5.
+// ⛔ NOTHING WAS DELETED — `C115-138` / PR-E-51 keep the permitted-maximum figure, its selects,
+// its provenance and all 8 exclusions; they moved. Re-adding the fold here re-creates the
+// duplication, and the stamp is what makes the move readable rather than a disappearance
+// (`C115-17`; L-13026 is the row this repo opened last time a section silently stopped showing).
+import { buildEnvelopeCostRelocationStamp } from '../site/envelopeCostSection';
 // §RESI-ORCH-HIGHLIGHT (STR §3) — the SUBJECT vocabulary shared by the card that names a number
 // and the scene that owns the geometry. This file only names subjects and writes the store;
 // `ParcelBoundarySceneRenderer` subscribes and draws. See that module's header for why a new
@@ -3658,44 +3657,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         });
     };
 
-    /**
-     * §RESI-ORCH-COST (2026-09-03) — the two selects on the indicative-cost fold.
-     *
-     * A no-op when the fold is not on this render (it is built only on the full-determination
-     * arm — a refusal card has no permitted GFA to price, and offering a cost input there would
-     * imply buildability the ordinance has just denied).
-     *
-     * ⛔ AN EMPTY VALUE CLEARS THE CHOICE BACK TO "not chosen", which REMOVES the figure rather
-     * than falling back to a default group. There is no default group and there must not be one:
-     * Barcelona's own published table spans a factor of nine between its cheapest and dearest
-     * rows, so a default would turn `estimateBuildingCost`'s honest `null` into a guess wearing a
-     * BOPB citation. Same store as the 5D tab (`buildingTypologyChoice.ts`), so a user who
-     * answers here sees their answer there and vice versa.
-     */
-    const wireEnvelopeCostSelects = (panel: HTMLDivElement): void => {
-        const groupSel = panel.querySelector(
-            `[data-testid="${ENVELOPE_COST_GROUP_SELECT_TESTID}"]`,
-        ) as HTMLSelectElement | null;
-        const corrSel = panel.querySelector(
-            `[data-testid="${ENVELOPE_COST_CORRECTION_SELECT_TESTID}"]`,
-        ) as HTMLSelectElement | null;
-        if (groupSel) {
-            groupSel.onchange = (ev) => {
-                ev.stopPropagation();
-                const v = groupSel.value;
-                saveBuildingChoice(runtime, { ...loadBuildingChoice(runtime), groupId: v || null });
-                refreshEnvelopePanel();
-            };
-        }
-        if (corrSel) {
-            corrSel.onchange = (ev) => {
-                ev.stopPropagation();
-                const v = corrSel.value;
-                saveBuildingChoice(runtime, { ...loadBuildingChoice(runtime), correctionId: v || null });
-                refreshEnvelopePanel();
-            };
-        }
-    };
+    // §COST-ONE-PLACE (2026-09-07, L-13145) — ⛔ `wireEnvelopeCostSelects` STOOD HERE AND IS GONE
+    // WITH THE FOLD IT WIRED. Its two selects (PR-G-18 · PR-G-19) and every word of its rationale
+    // — *"an empty value clears the choice back to 'not chosen', which REMOVES the figure rather
+    // than falling back to a default group … Barcelona's own published table spans a factor of
+    // nine"* — moved intact to `wirePermittedMaximumCostSelects` in
+    // `apps/editor/src/ui/analysis/parcelLawPermittedMaximumCost.ts`, which writes the SAME
+    // per-project store (`buildingTypologyChoice.ts`), so a user who answers on the Parcel Law
+    // tab still sees their answer on the 5D tab and vice versa. ⛔ A copy here would be a second
+    // writer of one choice; C06 §13.3 and `C115-11` both forbid it.
 
     /**
      * L-445 — the REDUCED card, shown when the buildable ring was read back from persistence
@@ -5050,6 +5020,25 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // link is protocol-validated and all interpolated text is escaped. A non-http(s) ref is
         // rendered as plain text, never as an anchor href.
         const ordHref = safeHttpUrl(ordRef);
+        // ⭐ §COST-ONE-PLACE / L-13131 · C115 **D-2** · PR-F-05 · `C115-26` — THE PLAIN-TEXT ARM,
+        // WHICH THIS LINE DID NOT HAVE.
+        //
+        // The comment three lines up has always said *"a non-http(s) ref is rendered as plain
+        // text"*. ⛔ IT WAS NOT: the headline printed the citation ONLY inside `ordHref ? … : ''`,
+        // so a `ordinanceRef` that is an ARTICLE REFERENCE — *"PGM Art. 242.2"*, which PR-F-03
+        // records as the MAJORITY shape — was dropped on the floor with no fallback at all. The
+        // per-row citation path at the `report` fold below already has all three arms; the
+        // header had two, and one of them was silence. A citation that silently disappears is
+        // the same defect class as an unclickable URL, one step more deniable.
+        //
+        // ⛔ THREE ARMS, MATCHING THE PER-ROW PATH EXACTLY (PR-F-03): safe http(s) ⇒ an anchor ·
+        // a non-URL reference ⇒ escaped plain text · absent ⇒ nothing is claimed.
+        const safeOrdRefSuffix =
+            ordHref !== null
+                ? ` · <a href="${escHtml(ordHref)}" target="_blank" rel="noopener noreferrer" style="color:#6600FF;text-decoration:underline;">plan document</a>`
+                : typeof ordRef === 'string' && ordRef.trim().length > 0
+                ? ` · ${escHtml(ordRef.trim())}`
+                : '';
         const safeSourceLine =
             // L-630 — a real published envelope whose `estimated-ruleset` scalar came from the
             // zone-extent footprint (NOT a default pack) must NEVER show the "Default rule pack"
@@ -5073,8 +5062,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 // L-583-class mis-citation on a real determination. See the builder's header.
                 ? `<span style="color:#8a83a0;font-size:10.5px;">${escHtml(resolveBlockConstructedSourceText(env.derivation))}</span>`
                 : sourceId === 'plandata-dk'
-                ? `<span style="color:#8a83a0;font-size:10.5px;">Source: Plandata.dk${ordHref ? ` · <a href="${escHtml(ordHref)}" target="_blank" rel="noopener noreferrer" style="color:#6600FF;text-decoration:underline;">plan document</a>` : ''}</span>`
-                : `<span style="color:#8a83a0;font-size:10.5px;">Source: ${escHtml(sourceId || 'zoning provider')}</span>`;
+                ? `<span style="color:#8a83a0;font-size:10.5px;">Source: Plandata.dk${safeOrdRefSuffix}</span>`
+                // ⛔ THE GENERIC ARM CARRIES THE CITATION TOO. It used to print the source id and
+                // nothing else, so every non-Plandata provider lost its `ordinanceRef` from the
+                // headline whatever its shape — the wider half of D-2 (`C115-26`: the two paths
+                // MUST be made consistent, not one of them).
+                : `<span style="color:#8a83a0;font-size:10.5px;">Source: ${escHtml(sourceId || 'zoning provider')}${safeOrdRefSuffix}</span>`;
 
         // ── L-402 slice 2 — the EXPLAIN-WHY report ────────────────────────────
         // Every number above is only trustworthy if the user can see WHERE it came from
@@ -5258,41 +5251,28 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // Calling `buildSiteDataBlock` twice would re-read the store between the two halves of one
         // card and is precisely how a headline comes to disagree with the fold beneath it.
         const safeSiteDataBlock = siteData.fold;
-        // ── §RESI-ORCH-COST (2026-09-03) — THE INDICATIVE COST FOLD, at the ENVELOPE stage. ──
+        // ── §COST-ONE-PLACE (2026-09-07, L-13145 · C115 §2.2 / §2.5 / §9) — THE STAMP, NOT THE FOLD. ──
         //
-        // STR §15 wants an approximate €/m² figure *before* anything is drawn. The engine for it
-        // has shipped since L-9100 and was reachable only from the 5D tab, whose area comes from
-        // a TAKE-OFF — i.e. only once slabs exist, which is exactly when an indicative number has
-        // stopped being the question. This is the join, and it is deliberately three lines of
-        // plumbing over four existing pure functions rather than a second estimator:
+        // ⭐ WHAT THE FOUNDER REPORTED: *"Indicative cost is still under point 2 — but there is a
+        // cost section specific for this: the information should be all well structured, well
+        // concatenated, no duplication and all in point 5."* Cost rendered TWICE — a published,
+        // cited estimate here (Stage 02, keyed to the theoretical maximum) and a user-rate
+        // estimate on the Parcel Law tab (Stage 06, keyed to the declared design). C115 §2.2
+        // gives cost exactly ONE canonical home and it is Stage 06.
         //
-        //   `permittedStudyFigures` (this card's ONE producer of footprint + GFA)
-        //     → `envelopeStudyBuiltArea`  (the named `'envelope-study-gfa'` proxy + its caveat)
-        //       → `estimateBuildingCost`  (the SAME estimator the 5D tab uses; `null`, never 0)
-        //         → `buildIndicativeCostFold` (five `data-state` arms, one per refusal)
+        // ⛔ SO THIS IS A REMOVED RENDERING, NOT A REMOVED FIGURE — `C115-11` (*"a duplication
+        // MUST be fixed by REMOVING A RENDERING"*) and `C115-138` (*"the permitted-maximum
+        // estimate is RETAINED, as an optional second line beneath the proposed-design cost"*)
+        // read together. The whole block — the 10-group published module select, the correction
+        // factors in the ordinance's verbatim wording, the ESTIMATE panel and its derivation, the
+        // estimator's own honesty statement, Source · Licence · Verify at, and the 8-item
+        // exclusions fold — is mounted under question 5 by `parcelLawPermittedMaximumCost.ts`.
+        // ⛔ Zero data points lost, zero citations lost, and the *"verify at"* URL is now a real
+        // anchor (L-13130 / C115 D-1), which it was not while it rendered here.
         //
-        // ⚠ EVERY REFUSAL SURVIVES. No module for this location ⇒ the resolver's own sentence.
-        // No derived storey count ⇒ no GFA ⇒ no figure, stated in words. No typology ⇒ no figure,
-        // and the fold ASKS. A `try` guard wraps only the store/geography reads, and its catch
-        // yields `''` — the one arm that renders nothing — because a cost fold that cannot even
-        // resolve a jurisdiction has no fact to state, and the card must never be taken down by
-        // an optional section.
-        const safeCostSection = ((): string => {
-            try {
-                const figures = permittedStudyFigures(env);
-                const area = envelopeStudyBuiltArea(figures.gfaM2, env.maxFloors, figures.footprintM2);
-                const resolved = resolveBuildingCostModels(currentCostJurisdiction());
-                const choice = loadBuildingChoice(runtime);
-                const model = resolved.models[0];
-                const estimate = model
-                    ? estimateBuildingCost(model, choice.groupId, area, choice.correctionId)
-                    : null;
-                return buildIndicativeCostFold(resolved, area, choice, estimate);
-            } catch (e) {
-                console.warn('[gis][envelope-card] indicative cost fold failed (non-fatal):', e);
-                return '';
-            }
-        })();
+        // ⚠ THE STAMP IS MANDATORY, NOT DECORATION (`C115-17`). A block that moved must not read
+        // as a block that was deleted; L-13026 is what that costs when it happens silently.
+        const safeCostSection = buildEnvelopeCostRelocationStamp();
         // ── §RESI-ORCH-TARGET-AREA (STR §5) — the target GROUND-FLOOR AREA entry. ──
         //
         // Only on THIS arm (a full determination), never on the refusal card: §5's ask is
@@ -5449,7 +5429,6 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
         restoreEnvelopeCardDisclosure(panel, envScrollBefore);
-        wireEnvelopeCostSelects(panel);
         wireSiteHighlightRows(panel);
         wireTargetAreaEntry(panel);
         // §RESI-ORCH-ADOPT — the CONFIRM step. Only ever wired when the button was rendered, and
