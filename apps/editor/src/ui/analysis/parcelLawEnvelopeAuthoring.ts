@@ -120,7 +120,12 @@ import { collectIntendedAreas, type IntendedAreaSnapshot } from '../site/intende
 import { readLevelCandidates, type AdoptLevelCandidate } from '../site/adoptProposalAsEnvelope';
 import {
     buildEnvelopeAuthoringPlan,
+    // §ENVELOPE-CREATE-DEADEND (L-13086) — the ARITHMETIC behind the refusal's offer. The decision
+    // of what to create lives in the pure planner beside the refusal that names the shortfall; this
+    // file only renders it and dispatches it. ⛔ No second "where does the next storey go" rule.
+    buildMissingStoreyPlan,
     type EnvelopeAuthoringResult,
+    type MissingStoreyResult,
 } from '../site/envelopeAuthoringPlan';
 import {
     buildBrutAllocation,
@@ -188,6 +193,19 @@ export const AUTHORING_CREATED_TESTID = 'parcel-law-authoring-created';
  * feature's clothes.
  */
 export const AUTHORING_DISCARD_DRAWN_TESTID = 'parcel-law-authoring-discard-drawn';
+/**
+ * ⭐ §ENVELOPE-CREATE-DEADEND (L-13086) — THE REFUSAL'S YES. Present ONLY while the last gesture
+ * was refused for want of storeys and PRYZM can say exactly which ones are missing; absent in every
+ * other state, including a refusal it cannot fix.
+ *
+ * ⛔ IT IS AN OFFER, NEVER AN AUTO-CREATE. The refusal exists because PRYZM will not invent storeys
+ * to hold a number; a button the user presses, having read what it will make, is a HUMAN inventing
+ * them, which is a different act. `data-missing-storeys` carries the count so a spec reads the
+ * value rather than the label.
+ */
+export const AUTHORING_ADD_LEVELS_BTN_TESTID = 'parcel-law-authoring-add-levels-btn';
+/** What that button will create — names, elevations, height source and the undo truth. */
+export const AUTHORING_ADD_LEVELS_NOTE_TESTID = 'parcel-law-authoring-add-levels-note';
 /** The live BRUT/NET law-check slot. */
 export const AUTHORING_LAWCHECK_TESTID = 'parcel-law-authoring-lawcheck';
 /** How the law-check table must be read — see the header. */
@@ -286,6 +304,16 @@ export interface ParcelLawEnvelopeAuthoringDeps {
     readonly subscribeDrawn?: (fn: () => void) => () => void;
     /** Production: `createId('spaceEnvelope')`. Injected so a spec can pin the ids (C16 CA-2). */
     readonly mintId: () => string;
+    /**
+     * §ENVELOPE-CREATE-DEADEND (L-13086) — one LEVEL id per storey the offer creates.
+     *
+     * ⚠ NOT `createId` — `'level'` is not in `ElementType`, so a level id cannot be a branded
+     * `<prefix>_<ulid>`. The production shape is `LevelManagerPanel._addLevel`'s exactly
+     * (`L<index>-<epoch>`), because the two controls create the same kind of thing and an id shape
+     * that differed by which panel made it is a distinction the model does not have.
+     * ⚠ OPTIONAL, so every spec literal written before this seam existed keeps compiling.
+     */
+    readonly mintLevelId?: (nextIndex: number) => string;
     /** Production: `window`. */
     readonly capabilityHost: AuthoringCapabilityHost;
     /**
@@ -353,6 +381,8 @@ export function defaultParcelLawEnvelopeAuthoringDeps(): ParcelLawEnvelopeAuthor
         readDrawnFootprint: getDrawnEnvelopeFootprint,
         subscribeDrawn: subscribeDrawnEnvelopeFootprint,
         mintId: () => createId('spaceEnvelope'),
+        // §ENVELOPE-CREATE-DEADEND (L-13086) — `LevelManagerPanel._addLevel`'s id shape, verbatim.
+        mintLevelId: (nextIndex) => `L${nextIndex}-${Date.now()}`,
         capabilityHost: w,
     };
 }
@@ -683,6 +713,22 @@ export function mountParcelLawEnvelopeAuthoring(
     statusLine.setAttribute('data-testid', AUTHORING_STATUS_TESTID);
     statusLine.setAttribute('data-state', 'idle');
 
+    // ── §ENVELOPE-CREATE-DEADEND (L-13086) — THE REFUSAL'S YES ────────────────────────────────
+    // ⛔ THE OFFER LIVES ON THE REFUSAL, NOT BESIDE THE CREATE BUTTON. A permanent "Add levels"
+    // control would be a second level-management surface competing with `LevelManagerPanel`; this
+    // appears only when the user has just been told they cannot proceed without storeys, and
+    // disappears the moment that is no longer true.
+    const addLevelsBtn = document.createElement('button');
+    addLevelsBtn.type = 'button';
+    addLevelsBtn.setAttribute('data-testid', AUTHORING_ADD_LEVELS_BTN_TESTID);
+    addLevelsBtn.style.cssText =
+        'margin-top:5px;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:5px 9px;'
+        + 'border-radius:7px;font:600 10px system-ui;background:#ffffff;color:#6600FF;';
+    addLevelsBtn.hidden = true;
+    const addLevelsNote = H('div', 'margin-top:3px;font-size:9px;line-height:1.4;color:#8a83a0;');
+    addLevelsNote.setAttribute('data-testid', AUTHORING_ADD_LEVELS_NOTE_TESTID);
+    addLevelsNote.hidden = true;
+
     const advisoryLine = H('div', 'margin-top:5px;font-size:9.5px;line-height:1.45;');
     advisoryLine.setAttribute('data-testid', AUTHORING_ADVISORY_TESTID);
     advisoryLine.hidden = true;
@@ -716,7 +762,13 @@ export function mountParcelLawEnvelopeAuthoring(
     // given the pair stays inside this section, exactly as before, and every existing caller and
     // spec is unaffected.
     const lawCheckHost = opts?.lawCheckHost ?? null;
-    root.append(heading, sourceLine, discardDrawnBtn, entryRow, intentLine, statusLine, advisoryLine, createdList);
+    root.append(
+        heading, sourceLine, discardDrawnBtn, entryRow, intentLine, statusLine,
+        // §ENVELOPE-CREATE-DEADEND — directly UNDER the refusal it answers, so the sentence and its
+        // way out are read as one thing rather than two controls that happen to be near each other.
+        addLevelsBtn, addLevelsNote,
+        advisoryLine, createdList,
+    );
     (lawCheckHost ?? root).append(lawLede, lawSlot);
 
     /** Read everything this section shows, from the ONE producer of each figure. */
@@ -923,6 +975,48 @@ export function mountParcelLawEnvelopeAuthoring(
                 );
             }
 
+            // ── §ENVELOPE-CREATE-DEADEND (L-13086) — THE REFUSAL'S YES ────────────────────────
+            // ⛔ OFFERED ONLY WHERE IT IS THE ACTUAL FIX. `missingStoreys` is present on exactly the
+            // refusals adding storeys would clear (`not-enough-storeys`, `no-levels`,
+            // `no-ground-level`), and pointedly ABSENT from `not-enough-storeys-above-start`, whose
+            // fix is to start lower — offering "add levels" there would send the user to build
+            // storeys they already own. A dispatch failure withdraws it too: it has nothing to say
+            // about PRYZM's own wiring.
+            const refusal = dispatchError === null && lastResult !== null && !lastResult.ok ? lastResult : null;
+            const missingStoreys = refusal?.missingStoreys ?? 0;
+            const offerStoreys = missingStoreys > 0 ? missingStoreys : 0;
+            addLevelsBtn.hidden = offerStoreys === 0;
+            addLevelsNote.hidden = offerStoreys === 0;
+            if (offerStoreys === 0) addLevelsBtn.disabled = false;
+            if (offerStoreys > 0) {
+                addLevelsBtn.textContent =
+                    `Add ${offerStoreys} level${offerStoreys === 1 ? '' : 's'} and create the envelope`;
+                addLevelsBtn.setAttribute('data-missing-storeys', String(offerStoreys));
+                // ⛔ WHAT IT WILL MAKE, STATED BEFORE THE CLICK — from the SAME planner the click
+                // runs, with placeholder ids that are never dispatched (C16 CA-2 mints the real
+                // ones at the click). One producer for "what will happen" and "what happened".
+                const previewIds: string[] = [];
+                for (let i = 0; i < offerStoreys; i++) previewIds.push(`preview-level-${i}`);
+                const preview = buildMissingStoreyPlan({
+                    levels,
+                    ordinance: {
+                        maxHeightM: model.ordinance?.maxHeightM ?? null,
+                        maxFloors: model.ordinance?.maxFloors ?? null,
+                    },
+                    missingStoreys: offerStoreys,
+                    mintedLevelIds: previewIds,
+                });
+                addLevelsNote.textContent = preview.ok
+                    ? `${preview.statement} The envelope itself is created straight after, in ONE undo.`
+                    : preview.statement;
+                addLevelsBtn.title = preview.ok
+                    ? 'Creates the storeys named below, then creates the envelope on them.'
+                    : 'PRYZM cannot describe these storeys — see the line below.';
+                addLevelsBtn.disabled = !preview.ok;
+                addLevelsBtn.style.opacity = preview.ok ? '1' : '0.55';
+                addLevelsBtn.style.cursor = preview.ok ? 'pointer' : 'not-allowed';
+            }
+
             const advisory = lastResult !== null && lastResult.ok ? lastResult.advisory : null;
             advisoryLine.hidden = advisory === null;
             if (advisory !== null) {
@@ -963,9 +1057,15 @@ export function mountParcelLawEnvelopeAuthoring(
         }
     };
 
-    createBtn.onclick = (ev): void => {
-        ev.preventDefault();
-        ev.stopPropagation();
+    /**
+     * ⭐ THE CREATE, EXTRACTED SO THERE IS EXACTLY ONE OF IT (C84 EI-9).
+     *
+     * §ENVELOPE-CREATE-DEADEND (L-13086) — the refusal's offer finishes by CREATING THE ENVELOPE,
+     * and it must be the same create the button runs: same planner call, same minted-id rule, same
+     * `existing` read in the same beat, same dispatch. A second copy inside the offer would be a
+     * second create path that drifts, on the one journey the founder could not complete.
+     */
+    const runCreate = (): void => {
         dispatchError = null;
         created = [];
         try {
@@ -1019,6 +1119,93 @@ export function mountParcelLawEnvelopeAuthoring(
             created = [];
         }
         render();
+    };
+
+    createBtn.onclick = (ev): void => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        runCreate();
+    };
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐ §ENVELOPE-CREATE-DEADEND (L-13086) — THE REFUSAL'S YES, TAKEN
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⛔ IT DISPATCHES `level.add` PER STOREY AND THAT IS N UNDO ENTRIES, NOT ONE — and the note
+    // above the button says so before the click. `level.createMultiple` is declared in the bus's
+    // payload table with NO handler anywhere in the repo (L-13087), so dispatching it would be a
+    // silent no-op — the [[authored-but-unwired-is-the-bottleneck]] shape, and the one thing worse
+    // here than N undo entries. ⛔ The ENVELOPE half is untouched: still ONE
+    // `spaceEnvelope.batch.create`, still one Ctrl+Z (C114 §6a).
+    //
+    // ⛔ AND THE CREATE IS NOT ASSUMED TO SUCCEED. The storeys are created, the levels are RE-READ,
+    // and `runCreate` runs the SAME planner over them — so if the model still cannot seat the
+    // envelope the user reads the same honest refusal rather than a success that made storeys and
+    // no envelope.
+    addLevelsBtn.onclick = (ev): void => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const missing = lastResult !== null && !lastResult.ok ? (lastResult.missingStoreys ?? 0) : 0;
+        if (missing <= 0) return;
+        addLevelsBtn.disabled = true;
+        void (async (): Promise<void> => {
+            dispatchError = null;
+            try {
+                const { model, levels } = readAll();
+                const mint = deps.mintLevelId ?? ((i: number) => `L${i}-${Date.now()}`);
+                const ids: string[] = [];
+                for (let i = 0; i < missing; i++) ids.push(mint(levels.length + i));
+                const storeyPlan: MissingStoreyResult = buildMissingStoreyPlan({
+                    levels,
+                    ordinance: {
+                        maxHeightM: model.ordinance?.maxHeightM ?? null,
+                        maxFloors: model.ordinance?.maxFloors ?? null,
+                    },
+                    missingStoreys: missing,
+                    mintedLevelIds: ids,
+                });
+                if (!storeyPlan.ok) {
+                    dispatchError = storeyPlan.statement;
+                    render();
+                    return;
+                }
+                const bus = deps.runtime()?.bus;
+                if (!bus || typeof bus.executeCommand !== 'function') {
+                    dispatchError =
+                        'This surface has no command bus, so PRYZM cannot add the storeys. Nothing was '
+                        + 'created and nothing changed — this is a gap in the wiring, not a refusal about '
+                        + 'your design.';
+                    render();
+                    return;
+                }
+                // ⛔ P6 — the ONLY mutation path. AWAITED one at a time: `runCreate` below re-reads
+                // `bimManager.getLevels()`, and a fire-and-forget dispatch would have it read the
+                // storeys that do not exist yet — the §STAIR-LEVEL race `StairLevelRequiredPanel`
+                // records verbatim ("the panel re-appeared and the level was never visible").
+                let addedCount = 0;
+                for (const lvl of storeyPlan.levels) {
+                    await bus.executeCommand(storeyPlan.command, {
+                        levelId: lvl.levelId,
+                        name: lvl.name,
+                        elevation: lvl.elevation,
+                        height: lvl.height,
+                    });
+                    addedCount += 1;
+                }
+                console.log(
+                    `[analysis][parcel-law][authoring] §ENVELOPE-CREATE-DEADEND added ${addedCount} `
+                    + `storey(s): ${storeyPlan.levels.map((l) => l.name).join(', ')}.`,
+                );
+                runCreate();
+            } catch (e) {
+                dispatchError =
+                    `PRYZM could not add the storeys: ${String((e as Error)?.message ?? e)}. Some may `
+                    + 'have been created before it failed — check the level list before trying again.';
+                render();
+            }
+            // ⛔ NO `finally` RE-ENABLE. Every branch above ends in `render()`, and render is the
+            // ONE place that decides whether this button is offered and whether it is pressable —
+            // a re-enable here would be a second opinion that fires after it.
+        })();
     };
 
     try {

@@ -151,6 +151,144 @@ export function isSiteCommittedInModel(
     return false;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════
+// §PARCEL-COMMITTED-IS-ONE-FACT (L-13086, founder 2026-09-07) — THE DRAW-SURFACE PIN
+// RELEASES ON THE COMMITTED BOUNDARY, NOT ON THE GESTURE THAT PRODUCED IT.
+// ══════════════════════════════════════════════════════════════════════════════════════
+//
+// HIS ASK, verbatim: *"pLEASE AS SOON AS THE PARCEL IS SELECTED ENABLE THE USER TO GO TO
+// PRYZM 3D AND PRYZM 2D VIEWS"* — sent with the pane switcher open, `2D PRYZM` greyed, and
+// his own console reading `site.parcel-boundary-set … area 802.7 m²
+// provenance=cadastral/catastro refcat=3332402DF3833C`.
+//
+// ⛔ THE GATE WAS STALE, NOT REAL, AND ITS OWN COPY SAID SO. The pin
+// (§ONBOARDING-STEP-PINS-ITS-SURFACE, L-10720) declares the 2D map load-bearing with the
+// sentence *"it stays on screen until you have drawn one or skipped drawing"* — and then
+// released on NEITHER of those two events. Its only release was
+// `onAppPhaseChanged(() => appPhase() !== 'onboarding-globe')`, i.e. the END OF THE WHOLE
+// WIZARD. So between "boundary committed" and "wizard finished" — the entire confirm /
+// generate stretch the founder was standing in — the pin refused every choice that would
+// move the map out of its pane, printing a reason that had already been satisfied.
+// ⭐ A NOTE THAT STILL SAYS "until you have drawn one" AFTER HE HAS DRAWN ONE IS WORSE
+// THAN NO NOTE, which is why the copy below moved here with the predicate: one place, so
+// the sentence and the condition cannot drift again.
+//
+// ⚠ THE CADASTRAL-vs-DRAWN ASYMMETRY WAS THE SUSPECT AND IS NOT THE CULPRIT — MEASURED.
+// Both routes end at `SiteBoundaryMap2D.commit()` → `dispatchParcelBoundary`, which emits
+// `site.parcel-boundary-set` synchronously and writes the SAME `parcel.boundary.polygon`;
+// the founder's own log line carries `provenance=cadastral/catastro` on that very event.
+// So "parcel committed" IS one fact however the ring arrived — the defect was that NOTHING
+// asked it. {@link isParcelBoundaryCommittedInModel} reads the committed ring (route-blind
+// by construction: it reads the MODEL, never a gesture, an event source or a provenance),
+// and the caller ALSO releases on the event, so a boundary committed after the pin was
+// taken releases it too.
+//
+// ⭐ TWO HALVES, DELIBERATELY, and neither is redundant:
+//   · {@link shouldPinDrawSurface} answers "take the pin AT ALL?" — a split mounted when a
+//     boundary already exists (re-entering the site, `paneLayoutForPreset('parcel-law')`)
+//     must never take a pin it would have to release one tick later.
+//   · the caller's `site.parcel-boundary-set` subscription releases a pin ALREADY taken.
+// Reading the store alone would miss the founder's case (he committed AFTER the split
+// mounted); listening alone would miss the re-entry case. The pair is total.
+
+/** The one field of the runtime the `parcelCommitted` question needs. */
+export interface ParcelStoreHolder {
+    readonly siteModelStore?: { getSite?: () => unknown } | null;
+}
+
+/** The minimum a polygon needs before it bounds any land at all. */
+const MIN_BOUNDARY_VERTICES = 3;
+
+/**
+ * §PARCEL-COMMITTED-IS-ONE-FACT — is there a COMMITTED parcel boundary in the model?
+ *
+ * ⚠ "A Site exists" is NOT the same question {@link isSiteCommittedInModel} answers, and
+ * the difference is the founder's whole complaint. `ensureSite()` seeds a Site with an
+ * EMPTY `parcel.boundary.polygon` on purpose (the "Draw it on the map" path with no
+ * location), so a Site-exists test is `true` at STEP 2 — before any plot is drawn — and
+ * would release the pin at exactly the moment the pin exists to hold it.
+ *
+ * ⛔ AND IT READS THE RING, NOT A PROVENANCE, A FLAG OR AN EVENT SOURCE. A cadastral SELECT
+ * and a free DRAW write the same `polygon`; keying on anything else is how the two routes
+ * would drift apart again.
+ *
+ * ⚠ EITHER HOLDER COUNTS — the same measured discipline as {@link isSiteCommittedInModel},
+ * and for the same reason: the live boot path captures a `null` runtime
+ * (`createMainLayout(props, null)`), while the commit resolves `captured ?? window`. A
+ * reader that consulted only the captured holder would answer `false` on every production
+ * session, which is §SITE-CHECK-RUNS-BEFORE-THE-SITE-IS-ANCHORED (L-13002) exactly.
+ *
+ * Pure (P8 span-exempt): no `window` access of its own — both holders are parameters.
+ */
+export function isParcelBoundaryCommittedInModel(
+    capturedRuntime: ParcelStoreHolder | null | undefined,
+    windowRuntime: ParcelStoreHolder | null | undefined,
+): boolean {
+    for (const holder of [capturedRuntime, windowRuntime]) {
+        const store = holder?.siteModelStore;
+        const getSite = store?.getSite;
+        if (typeof getSite !== 'function') continue;
+        let site: unknown = null;
+        try {
+            site = getSite.call(store) ?? null;
+        } catch {
+            // A store that throws is not a store that holds a boundary. Try the other holder.
+            continue;
+        }
+        if (polygonVertexCount(site) >= MIN_BOUNDARY_VERTICES) return true;
+    }
+    return false;
+}
+
+/** `site.parcel.boundary.polygon.length`, defensively — 0 for every shape that is not one. */
+function polygonVertexCount(site: unknown): number {
+    if (site === null || typeof site !== 'object') return 0;
+    const parcel = (site as { parcel?: unknown }).parcel;
+    if (parcel === null || typeof parcel !== 'object') return 0;
+    const boundary = (parcel as { boundary?: unknown }).boundary;
+    if (boundary === null || typeof boundary !== 'object') return 0;
+    const polygon = (boundary as { polygon?: unknown }).polygon;
+    return Array.isArray(polygon) ? polygon.length : 0;
+}
+
+/**
+ * §ONBOARDING-STEP-PINS-ITS-SURFACE (L-10720) — the sentence the pin shows the user,
+ * verbatim, on every row it refuses.
+ *
+ * ⛔ IT LIVES BESIDE ITS PREDICATE ON PURPOSE (L-13086). The copy and the release condition
+ * were written in two different places and drifted: the sentence promised release on the
+ * drawn plot, the code released on the end of the wizard. Anyone changing WHEN the pin
+ * lifts now has to walk past the sentence that promises it.
+ *
+ * ⚠ IT NAMES BOTH ROUTES. "Drawn" alone reads as a refusal to a user who PICKED his plot
+ * off the cadastre — which is what the founder did, and what made a satisfied condition
+ * look like a broken one.
+ */
+export const DRAW_SURFACE_PIN_REASON =
+    'The 2D site map is where you set your plot — it stays on screen until a plot is '
+    + 'committed (drawn, or picked from the cadastre) or you skip drawing. The 3D Site is '
+    + 'live beside it.';
+
+/** The two facts that decide whether the 2D draw map is still load-bearing. */
+export interface DrawSurfacePinState {
+    /** `panelDefaults.appPhase() === 'onboarding-globe'` — the guided flow is running. */
+    readonly onboardingGlobePhase: boolean;
+    /** A committed parcel boundary exists (see {@link isParcelBoundaryCommittedInModel}). */
+    readonly parcelCommitted: boolean;
+}
+
+/**
+ * §PARCEL-COMMITTED-IS-ONE-FACT (L-13086) — should the 2D draw map be PINNED right now?
+ *
+ * Only while the guided flow is running AND no plot has been committed yet. Outside the
+ * guided flow the map is ordinary editor chrome (the L-10720 rule was always phase-scoped);
+ * once a plot exists the step no longer depends on the drawing surface, so pinning it only
+ * refuses choices the user is entitled to make.
+ */
+export function shouldPinDrawSurface(state: DrawSurfacePinState): boolean {
+    return state.onboardingGlobePhase && !state.parcelCommitted;
+}
+
 /** A point in the scene's XZ ground plane (metres, LTP-local). */
 export interface XZPoint {
     readonly x: number;

@@ -396,10 +396,14 @@ export function buildEnvelopeAuthoringPlan(
         const asked = rawStoreys;
 
         if (input.levels.length === 0) {
+            // §ENVELOPE-CREATE-DEADEND — the shortfall travels as a VALUE here too. See the
+            // `not-enough-storeys` arm: a refusal that names a fix carries what the fix needs.
             span.setAttribute('pryzm.authoring.refusal', 'no-levels');
             return {
                 ok: false,
                 reason: 'no-levels',
+                seatable: [],
+                missingStoreys: asked,
                 statement:
                     'This project has no storeys yet, so there is nothing to seat a level envelope on. '
                     + 'Create a level first; PRYZM will not invent one.',
@@ -411,6 +415,8 @@ export function buildEnvelopeAuthoringPlan(
             return {
                 ok: false,
                 reason: 'no-ground-level',
+                seatable: [],
+                missingStoreys: asked,
                 statement:
                     `Every one of the ${input.levels.length} storeys in this project sits below the datum, so `
                     + 'there is no ground floor to start the envelope from. Add a storey at or above 0 m.',
@@ -667,6 +673,215 @@ export function buildEnvelopeAuthoringPlan(
             advisory,
             statement,
         };
+    } finally {
+        span.end();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-CREATE-DEADEND (lane ENVELOPE-CREATE-DEADEND, 2026-09-07) — THE REFUSAL'S YES
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// L-13086 · §REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH (L-942) · C114 §12 · C16 CA-2 · P6.
+//
+// THE FOUNDER, ON THE 3D SITE WITH THE ENVELOPE PANEL OPEN: *"i CANT STILL CREATE THE PROFILE — I
+// DEFINE THE POINTS … CLICK ENTER — BUT EVEN WITH THE LEVELS PROVIDED DOESNT WORK."* The panel
+// refused him with `not-enough-storeys`, and that refusal is CORRECT: he asked for 3 floor levels
+// and a fresh project carries exactly ONE storey (`BimKernel` seeds `L0 "Ground"` at 0 m and
+// committing a parcel creates none — the ordinance's derived 6 is a STUDY, not a model fact, and
+// minting storeys from it would be the fabrication C58 §1.4 / L-616 keeps logging).
+//
+// ⛔ WHAT WAS WRONG IS THE SENTENCE'S SECOND HALF, NOT ITS VERDICT. It said *"Add the missing
+// levels first, then create the envelope"* — and from the 3D Site with this panel open there was no
+// control that adds a level. L-942 names that exact shape: *a gate whose "yes" branch the user
+// cannot reach is a regression with a citation attached.*
+//
+// ⭐ SO THE REFUSAL KEEPS ITS NO AND GAINS A YES THE USER TAKES ON PURPOSE. This function is the
+// arithmetic behind that offer, and nothing else: WHICH storeys are missing, WHERE each one seats,
+// HOW TALL it is and WHERE that height came from. It creates nothing, dispatches nothing and is
+// never called on a render — the surface calls it to DESCRIBE the offer, and again when the user
+// clicks it. ⛔ It is never called silently to "top up" the project: PRYZM still will not invent a
+// storey; a human does, having read what they are about to make.
+//
+// ⛔ THE STACKING RULE IS `LevelManagerPanel._addLevel`'s, EXTENDED TO N — NOT A SECOND ONE.
+// That control (the ONE existing "add a storey" surface) seats a new level at
+// `topElevation + topHeight`, names it `Level <count>` and defaults 3 m. Two rules for "where does
+// the next storey go" would put the envelope panel's storeys at different elevations from the
+// level panel's, which is C84 EI-9 in the one place a user would read as the model being wrong.
+// The ONE improvement is the height ladder: `resolveStoreyHeight` (the SAME producer the envelope
+// plan above uses) replaces the hard 3.0, so the height a new storey gets and the height its
+// envelope gets cannot disagree, and an ASSUMED height says so.
+
+/** One storey the offer would create. Exactly a `level.add` payload, plus why it is that tall. */
+export interface MissingStoreySpec {
+    readonly levelId: string;
+    readonly name: string;
+    readonly elevation: number;
+    readonly height: number;
+    /** Where `height` came from — carried so the offer can admit an ASSUMED 3 m before the click. */
+    readonly heightSource: AdoptHeightSource;
+}
+
+/** Why the offer could not be described. Closed — a new arm is a type error at every switch. */
+export type MissingStoreyRefusalReason =
+    /** Nothing is missing, or the shortfall arrived as something that is not a whole count. */
+    | 'nothing-missing'
+    /** More storeys than one gesture may mint, the same ceiling the envelope batch carries. */
+    | 'missing-above-batch-limit'
+    /** The caller minted fewer level ids than storeys. A wiring fault, surfaced not swallowed. */
+    | 'too-few-level-ids';
+
+export interface MissingStoreyPlan {
+    readonly ok: true;
+    /**
+     * ⚠ THE BUS VERB, AND IT IS SINGULAR ON PURPOSE. `level.add` is the ONE registered level-create
+     * verb (`initBusHandlers.ts` → `AddLevelCommand`); `level.createMultiple` is DECLARED in
+     * `packages/command-bus/src/commands.ts` and has NO handler anywhere — dispatching it would be
+     * a silent no-op (L-13087). So N storeys are N dispatches and therefore N undo entries, and the
+     * surface SAYS so rather than promising a single Ctrl+Z it cannot keep. The ENVELOPE half stays
+     * exactly one undo (C114 §6a) — that invariant is untouched by this.
+     */
+    readonly command: 'level.add';
+    readonly levels: readonly MissingStoreySpec[];
+    /** True when the storey height had to be assumed — the surface admits it before the click. */
+    readonly anyHeightAssumed: boolean;
+    /** Plain language: what will be created, where, how tall, and what it is NOT. */
+    readonly statement: string;
+}
+
+export interface MissingStoreyRefusal {
+    readonly ok: false;
+    readonly reason: MissingStoreyRefusalReason;
+    readonly statement: string;
+}
+
+export type MissingStoreyResult = MissingStoreyPlan | MissingStoreyRefusal;
+
+export interface MissingStoreyInput {
+    /** The project's storeys, from the SAME `readLevelCandidates` the envelope plan reads. */
+    readonly levels: readonly AdoptLevelCandidate[];
+    /** The ordinance figures, for the height ladder's second rung. `null` ⇒ not published. */
+    readonly ordinance: {
+        readonly maxHeightM: number | null;
+        readonly maxFloors: number | null;
+    };
+    /**
+     * How many storeys are missing — the VALUE off the refusal (`EnvelopeAuthoringRefusal.
+     * missingStoreys`), never re-derived by parsing its sentence.
+     */
+    readonly missingStoreys: number;
+    /** One level id per missing storey, minted by the CALLER (C16 CA-2 — redo must reuse them). */
+    readonly mintedLevelIds: readonly string[];
+}
+
+/**
+ * ⭐ DESCRIBE THE STOREYS THE REFUSAL'S OFFER WOULD CREATE. Pure; total; never throws.
+ *
+ * @param input the project's storeys, the ordinance, the shortfall and the caller's minted ids.
+ */
+export function buildMissingStoreyPlan(input: MissingStoreyInput): MissingStoreyResult {
+    const span = _tracer.startSpan('pryzm.site.buildMissingStoreyPlan');
+    try {
+        const n = input.missingStoreys;
+        if (!isWholePositive(n)) {
+            span.setAttribute('pryzm.missingStorey.refusal', 'nothing-missing');
+            return {
+                ok: false,
+                reason: 'nothing-missing',
+                statement:
+                    'PRYZM was asked to add storeys without being told how many are missing, so it added '
+                    + 'none. Nothing changed — this is a gap in PRYZM wiring, not a refusal about your design.',
+            };
+        }
+        if (n > AUTHORING_MAX_STOREYS) {
+            span.setAttribute('pryzm.missingStorey.refusal', 'missing-above-batch-limit');
+            return {
+                ok: false,
+                reason: 'missing-above-batch-limit',
+                statement:
+                    `That would add ${n} storeys at once; PRYZM adds at most ${AUTHORING_MAX_STOREYS} in one `
+                    + 'gesture. Nothing was created. This is a limit on the GESTURE, not a statement about '
+                    + 'what this parcel allows.',
+            };
+        }
+        if (input.mintedLevelIds.length < n) {
+            span.setAttribute('pryzm.missingStorey.refusal', 'too-few-level-ids');
+            return {
+                ok: false,
+                reason: 'too-few-level-ids',
+                statement:
+                    `PRYZM was handed ${input.mintedLevelIds.length} level id(s) for ${n} storeys, so it did `
+                    + 'not create anything. This is a gap in PRYZM wiring, not a refusal about your design.',
+            };
+        }
+
+        // ── WHERE THE STACK CONTINUES FROM ────────────────────────────────────────────────────
+        // ⛔ THE SEATABLE TOP, NOT SIMPLY THE TOP. A project whose storeys ALL sit below the datum
+        // is the `no-ground-level` refusal, and stacking three storeys above a basement at −10 m
+        // could land every one of them still below 0 — an offer that runs, reports success and
+        // leaves the SAME refusal standing. When there is no ground floor the first new storey IS
+        // the ground floor, at the datum.
+        const seatable = seatableStoreys(input.levels);
+        const topSeatable = seatable.length > 0 ? seatable[seatable.length - 1]! : null;
+        const byElevation = [...input.levels].sort((a, b) => a.elevation - b.elevation);
+        const topAny = byElevation.length > 0 ? byElevation[byElevation.length - 1]! : null;
+        const heightReference: Pick<AdoptLevelCandidate, 'height'> = topSeatable ?? topAny ?? { height: null };
+        const { heightM: ftf, heightSource } = resolveStoreyHeight(heightReference, input.ordinance);
+
+        // ⛔ NAMES ARE TAKEN FROM THE PROJECT, NOT COUNTED BLIND. `LevelManagerPanel` names the
+        // next storey `Level <count>`; doing that N times in a row would mint N storeys called
+        // "Level 1" on a project that already has one. Skip every name already in use.
+        const taken = new Set<string>();
+        for (const l of input.levels) if (l.name !== null) taken.add(l.name);
+        let nextNumber = input.levels.length;
+        const nextName = (): string => {
+            for (;;) {
+                const candidate = `Level ${nextNumber}`;
+                nextNumber += 1;
+                if (!taken.has(candidate)) { taken.add(candidate); return candidate; }
+            }
+        };
+
+        const levels: MissingStoreySpec[] = [];
+        for (let i = 0; i < n; i++) {
+            const elevation = topSeatable !== null
+                ? topSeatable.elevation + (i + 1) * ftf
+                : i * ftf;
+            levels.push({
+                levelId: input.mintedLevelIds[i]!,
+                name: nextName(),
+                elevation,
+                height: ftf,
+                heightSource,
+            });
+        }
+
+        const anyHeightAssumed = heightSource === 'assumed-3m';
+        const whereFrom = topSeatable !== null
+            ? `stacked above ${labelOf(topSeatable)} at ${topSeatable.elevation.toFixed(2)} m`
+            : 'starting at the datum (0.00 m), because this project has no storey at or above it yet';
+        const heightWhy = heightSource === 'level-record'
+            ? `each ${ftf.toFixed(2)} m tall — the floor-to-floor your top storey already records`
+            : heightSource === 'derived-floor-to-floor'
+                ? `each ${ftf.toFixed(2)} m tall — the ordinance's max height divided by its derived storey `
+                  + 'count, an even division for study and not a regulated storey height'
+                : `each an ASSUMED ${ftf.toFixed(2)} m tall, because neither your storeys nor the ordinance `
+                  + 'supplied a floor-to-floor';
+        const undoNote = n === 1
+            ? 'It is one undo.'
+            : `Each storey is its own undo entry, so ${n} undos remove them all.`;
+        const roster = levels
+            .map((l) => `${l.name} at ${l.elevation.toFixed(2)} m`)
+            .join(', ');
+        const statement =
+            `Adds ${n} storey${n === 1 ? '' : 's'} to this project — ${roster} — ${whereFrom}, ${heightWhy}. `
+            + '⚠ This is a change to your MODEL, and it says nothing about how many floors this parcel '
+            + 'permits — PRYZM is not deciding you may build them; you are asking for somewhere to put the '
+            + `envelope. ${undoNote}`;
+
+        span.setAttribute('pryzm.missingStorey.count', n);
+        span.setAttribute('pryzm.missingStorey.heightSource', heightSource);
+        span.setAttribute('pryzm.missingStorey.fromDatum', topSeatable === null);
+        return { ok: true, command: 'level.add', levels, anyHeightAssumed, statement };
     } finally {
         span.end();
     }

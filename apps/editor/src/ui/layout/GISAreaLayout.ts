@@ -248,6 +248,12 @@ import {
     isSiteCommittedInModel,
     ringCentroidXZ,
     resolveLiveUpdateEventBus,
+    // §PARCEL-COMMITTED-IS-ONE-FACT (L-13086) — the draw-surface pin's WHETHER and its
+    // copy, beside each other so the sentence and the condition cannot drift again.
+    DRAW_SURFACE_PIN_REASON,
+    PARCEL_BOUNDARY_SET_EVENT,
+    isParcelBoundaryCommittedInModel,
+    shouldPinDrawSurface,
     type LiveUpdateEventBus,
     type SiteStoreHolder,
 } from '../../engine/views/siteAuthoringPaneDecisions';
@@ -7550,19 +7556,72 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // ⚠ The pin only refuses a DISPATCH. Shell teardown (`unmountSiteAuthoringPanes`
         // at generate-time, project close) does not dispatch, so the normal end of the
         // flow is untouched — verified in `onboardingDrawSurfaceNotEvictable.spec.ts`.
+        //
+        // ⛔ §PARCEL-COMMITTED-IS-ONE-FACT (L-13086, founder 2026-09-07) — THE PIN RELEASES
+        // ON THE COMMITTED BOUNDARY, HOWEVER THE RING ARRIVED. This block used to take the
+        // pin on the phase alone and release it ONLY when the whole wizard ended, while its
+        // own copy promised release *"until you have drawn one or skipped drawing"*. The
+        // founder committed an 802.7 m² cadastral parcel and `2D PRYZM` stayed greyed,
+        // printing a condition he had already met. Both halves below are needed and neither
+        // is redundant: `shouldPinDrawSurface` refuses to TAKE a pin over a plot that
+        // already exists (re-entering the site, the Parcel Law preset), and the
+        // `site.parcel-boundary-set` subscription RELEASES one already taken — which is the
+        // founder's own case, since he committed after the split had mounted.
+        //
+        // ⚠ THE SUBSCRIPTION IS ROUTE-BLIND ON PURPOSE. A cadastral SELECT and a free DRAW
+        // both end at `SiteBoundaryMap2D.commit()` → `dispatchParcelBoundary`, which emits
+        // this ONE event and writes the SAME `parcel.boundary.polygon`; keying the release
+        // on a draw-completed gesture is how the two routes would drift apart again.
         try {
-            if (appPhase() === 'onboarding-globe') {
-                const release = shell.store.pinView(
-                    'site-map-2d',
-                    'The 2D site map is where you draw your plot — it stays on screen until you '
-                    + 'have drawn one or skipped drawing. The 3D Site is live beside it.',
-                );
+            const parcelCommitted = isParcelBoundaryCommittedInModel(
+                runtime as unknown as SiteStoreHolder | null,
+                (typeof window !== 'undefined')
+                    ? ((window as { runtime?: unknown }).runtime as SiteStoreHolder | undefined) ?? null
+                    : null,
+            );
+            if (shouldPinDrawSurface({
+                onboardingGlobePhase: appPhase() === 'onboarding-globe',
+                parcelCommitted,
+            })) {
+                const release = shell.store.pinView('site-map-2d', DRAW_SURFACE_PIN_REASON);
+                let released = false;
+                const releaseOnce = (why: string): void => {
+                    if (released) return;
+                    released = true;
+                    release();
+                    console.log(`[gis][panes] §PARCEL-COMMITTED-IS-ONE-FACT draw-surface pin released — ${why}.`);
+                };
                 // Released the moment the guided flow ends (the wizard's `dispose()` is
                 // the ONE place that sets `'canvas'`), so nothing about the editor's
                 // normal pane behaviour is changed by this.
                 const unsubPhase = onAppPhaseChanged(() => {
-                    if (appPhase() !== 'onboarding-globe') { release(); unsubPhase(); }
+                    if (appPhase() !== 'onboarding-globe') {
+                        releaseOnce('the guided flow ended');
+                        unsubPhase();
+                    }
                 });
+                // …AND the moment a plot is committed, by EITHER route. Resolved through the
+                // same captured-then-window bus every other §L-412 subscription uses: the
+                // live boot path captures a null runtime, so a `runtime?.events` read alone
+                // would silently never subscribe (the L-412 root cause, sixth recurrence).
+                const bus = resolveFormaEvents();
+                if (bus) {
+                    const unsubParcel = bus.on(PARCEL_BOUNDARY_SET_EVENT, () => {
+                        releaseOnce('a parcel boundary was committed');
+                        try { unsubParcel(); } catch { /* already gone */ }
+                    });
+                } else {
+                    console.warn(
+                        '[gis][panes] §PARCEL-COMMITTED-IS-ONE-FACT: no runtime event bus — the '
+                        + 'draw-surface pin can only be released by the end of the guided flow in '
+                        + 'this session.',
+                    );
+                }
+            } else {
+                console.log(
+                    '[gis][panes] §PARCEL-COMMITTED-IS-ONE-FACT: draw-surface NOT pinned '
+                    + `(onboarding=${appPhase() === 'onboarding-globe'} · parcelCommitted=${parcelCommitted}).`,
+                );
             }
         } catch (e) {
             console.warn('[gis][panes] §ONBOARDING-STEP-PINS-ITS-SURFACE pin failed (non-fatal — the split still mounts):', e);
