@@ -425,6 +425,11 @@ import {
     // §FOLD-MEMORY (L-13078) — re-attach the disclosure memory after the card's innerHTML swap.
     wireEnvelopeCardFoldMemory,
 } from '../site/envelopeCardSections';
+// §26.6.7 (L-13085) — THE ONE SPELLING OF THE FOUR CEILINGS. The card's headline and question 3's
+// intent/ceiling pairs must name them identically or the reader is comparing two vocabularies;
+// `intentAgainstCeilingModel` already owned the names, so the headline reads them rather than
+// re-typing four strings that would then drift one rename at a time.
+import { CEILING_LABEL } from '../site/intentAgainstCeilingModel';
 import {
     enumerateMassingOptions,
     // §CREATE-IT-MYSELF (L-13039) — the ground storey's authored state, resolved on every render
@@ -587,6 +592,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      */
     let envelopeDraw3d: import('../site/siteEnvelopeDrawCesium').SiteEnvelopeDrawCesium | null = null;
     let envelopeDraw3dUnregister: (() => void) | null = null;
+    /**
+     * ⭐ §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS (lane FACE-DRAG-2, 2026-09-07) — the disposer for the
+     * FACE-DRAG gesture installed on the 3D Site canvas, or `null` when it is not installed.
+     *
+     * ⛔ IT IS A SECOND LIFECYCLE ON THE SAME ADAPTER, NOT A SECOND ADAPTER. `SiteEnvelopeDrawCesium`
+     * implements BOTH ports (draw and drag); this holds only the pointer listeners the gesture
+     * registers on `viewer.scene.canvas`. Dropping it on teardown is not optional — listeners that
+     * outlive their viewer keep picking against a dead scene (L-7801), and the next mount would
+     * install a SECOND set on the new canvas.
+     */
+    let envelopeFaceDrag3dDispose: (() => void) | null = null;
     // A.8.c.f — the Hektar-style 2D cream/shadow boundary-draw map. This REPLACES
     // the Cesium-3D draw surface for the DRAW step (Cesium stays for 3D render):
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
@@ -947,7 +963,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // a dep and imports it `type`-only (P2).
             import('../site/siteEnvelopeDrawCesium'),
             import('../site/siteEnvelopeDrawArming'),
-        ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }, { SiteEnvelopeDrawCesium }, { registerEnvelopeDrawSurface }]) => {
+            // ⭐ §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS (lane FACE-DRAG-2, 2026-09-07) — the
+            // RENDERER-FREE gesture. Lazy-loaded in the SAME batch for the same reason: it is only
+            // ever needed once a Cesium scene exists. ⛔ It imports no THREE (P2), so pulling it in
+            // here costs the site bundle nothing but the gesture itself.
+            import('../../engine/spaceEnvelopeDragSurface'),
+        ]).then(async ([{ CesiumViewport }, Cesium, { CesiumThreeBridge }, { mountSiteGeocodeSearchBox }, { SiteBoundaryDrawTool }, { SiteEnvelopeDrawCesium }, { registerEnvelopeDrawSurface }, { installSpaceEnvelopeFaceDragOnSurface, emitSpaceEnvelopeFaceMoved, dispatchSpaceEnvelopeFaceMove }]) => {
             if (!cesiumViewport) {
                 // §L-446 — resolve CAPTURED-THEN-WINDOW, the pattern §L-412 already established
                 // here and `getFormaBoundary` uses for the store. The captured `runtime` is NULL
@@ -1074,8 +1095,39 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     // report / ISSUE-LOG row). Until it does, a draw click ALSO runs the viewport's
                     // own selection pick — the drawing works, the selection side-effect fires
                     // alongside it, and the adapter LOGS that rather than pretending otherwise.
+                    /**
+                     * ⭐ §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS — EVERY AUTHORED ENVELOPE, read LAZILY
+                     * from the ONE store, defined ONCE.
+                     *
+                     * ⛔ THE PICK AND THE CONTEXTUAL PLANNER READ THE SAME FUNCTION, deliberately.
+                     * Two readers of "which envelopes exist" would let the set that is GRABBABLE
+                     * and the set the preview is JUDGED against drift apart — and the drift is
+                     * invisible until a drag is refused for a containment against a level the pick
+                     * could not see (C84 EI-9).
+                     *
+                     * ⚠ `liveRuntime()`, never the captured `runtime` prop: it is null on the live
+                     * boot path BY DESIGN (§L-12916), and reading it alone is exactly the defect
+                     * that made the envelope card say "unavailable" on every production session.
+                     */
+                    const readAuthoredEnvelopes = (): ReadonlyArray<
+                        import('../../engine/spaceEnvelopeDragSurface').DraggableSpaceEnvelope
+                    > => {
+                        try {
+                            const store = liveRuntime()?.stores?.spaceEnvelope as
+                                | { getState?: () => ReadonlyMap<string, unknown> }
+                                | undefined;
+                            const state = store?.getState?.();
+                            if (!state) return [];
+                            return [...state.values()] as ReadonlyArray<
+                                import('../../engine/spaceEnvelopeDragSurface').DraggableSpaceEnvelope
+                            >;
+                        } catch { return []; }
+                    };
+
                     try {
                         envelopeDraw3dUnregister?.();
+                        envelopeFaceDrag3dDispose?.();
+                        envelopeFaceDrag3dDispose = null;
                         envelopeDraw3d = new SiteEnvelopeDrawCesium({
                             viewer,
                             Cesium,
@@ -1102,9 +1154,136 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                             setScenePickingEnabled: (on: boolean) => {
                                 cesiumViewport?.setScenePickingEnabled(on);
                             },
+
+                            // ── ⭐ §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS (lane FACE-DRAG-2) ─────────
+                            // The founder: *"The buildable envelope should be draggable — each
+                            // face — the user should be able to drag each face."* These five deps
+                            // are the whole surface-specific quarter of that gesture; the gesture
+                            // itself is renderer-free and installed below.
+
+                            // ⛔ THE FRAME THE RASTERISER DREW IN, not the frame the DRAW resolves.
+                            // The two agree today and would diverge on a terrain re-seat, and a
+                            // pick that lands in a plausible neighbour of the painted frame grabs
+                            // the wrong face while looking like a sensitivity bug (§L-430).
+                            getSceneFrame: () => cesiumViewport?.getSpaceEnvelopeSceneFrame() ?? null,
+                            // ⭐ THE SAME SET `renderSpaceEnvelopes` DRAWS FROM, read LAZILY. That
+                            // is what makes "visible ⇒ grabbable" true by construction rather than
+                            // by care, and §L-12916 is why it is `liveRuntime()` and never the
+                            // captured prop (which is null on the live boot path BY DESIGN).
+                            getEnvelopes: () => readAuthoredEnvelopes(),
+                            setEnvelopePreview: (id, geometry) => {
+                                cesiumViewport?.setSpaceEnvelopePreview(id, geometry);
+                            },
+                            clearEnvelopePreview: (id) => {
+                                cesiumViewport?.clearSpaceEnvelopePreview(id);
+                            },
+                            // ⛔ NOT `setScenePickingEnabled` — CesiumViewport's own header forbids
+                            // merging the two, and the two gestures want them at OPPOSITE moments:
+                            // the draw keeps the camera live and suspends the pick; the drag
+                            // suspends the camera (or every face pull also orbits the globe) and
+                            // leaves the pick alone.
+                            setNavigationEnabled: (on: boolean) => {
+                                cesiumViewport?.setNavigationEnabled(on);
+                            },
                         });
                         envelopeDraw3dUnregister = registerEnvelopeDrawSurface(envelopeDraw3d);
                         console.log('[gis] §ENVELOPE-DRAW 3D Site registered as an envelope-perimeter draw surface.');
+
+                        // ── ⭐ §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS — INSTALL THE GESTURE ──────────
+                        //
+                        // ⛔ THE GESTURE IS NOT BUILT HERE AND MUST NOT BE. Grab resolution, the
+                        // `maximumBuildable` role refusal, the contextual planner call, the
+                        // neighbour preview, the 1e-3 m no-op drop, the ONE dispatch per gesture and
+                        // the camera hand-back on cancel AND on teardown all live once in
+                        // `spaceEnvelopeDragSurface.ts`. This hands it the adapter and the store
+                        // reads and nothing else — a second copy of any of those rules is the C84
+                        // EI-9 hazard the port extraction exists to prevent.
+                        const dragCanvas = envelopeDraw3d.dragDomElement();
+                        if (!dragCanvas) {
+                            // ⛔ SAID, NEVER SILENT. D7 was this defect pointed the other way: a
+                            // panel promising a gesture the surface did not have, with nothing
+                            // anywhere saying otherwise.
+                            console.warn('[gis] §ENVELOPE-FACE-DRAG the 3D Site has no canvas to bind to, so face-drag is NOT installed.');
+                        } else {
+                            // ⚠ THE FRAME NOT BEING SEATED YET IS NOT A REASON NOT TO INSTALL, and
+                            // conflating the two would be a real defect: at this moment the viewer
+                            // has just mounted and `formaMassingOrigin` is seated LATER, when the
+                            // site renders. `cannotDragReason()` answers the user's question *"can
+                            // I drag right now?"* and correctly says no until then; the INSTALL
+                            // question is different, and gating on the transient answer would mean
+                            // the gesture is never installed on any session at all — the
+                            // §UNSATISFIABLE-GATE shape (L-716). The ports handle it: with no frame
+                            // `rayInSceneFrame` returns `null`, and the core HOLDS rather than
+                            // guessing.
+                            const notYet = envelopeDraw3d.cannotDragReason();
+                            if (notYet) console.log(`[gis] §ENVELOPE-FACE-DRAG installing now; not usable yet — ${notYet}`);
+                            // ⚠ No dispose-before-install here: the previous one was already
+                            // disposed and nulled with the adapter it belonged to, a few lines up.
+                            // A second `?.()` would be dead code the compiler can prove dead.
+                            envelopeFaceDrag3dDispose = installSpaceEnvelopeFaceDragOnSurface({
+                                domElement: dragCanvas,
+                                surface: envelopeDraw3d,
+                                surfaceId: 'site-3d',
+                                // ⛔ LAZY, EVERY TIME — a record captured at install time is one
+                                // the store may no longer hold (§L-545-SITE-CAPTURE).
+                                getRecord: (id: string) => {
+                                    try {
+                                        const store = liveRuntime()?.stores?.spaceEnvelope as
+                                            | { getState?: () => ReadonlyMap<string, unknown> }
+                                            | undefined;
+                                        return store?.getState?.().get(id) as
+                                            | import('../../engine/spaceEnvelopeDragSurface').DraggableSpaceEnvelope
+                                            | undefined;
+                                    } catch { return undefined; }
+                                },
+                                // §RESI-STAGE-G — the WHOLE store per pointer move, so the preview
+                                // is judged by the SAME contextual planner the commit uses: a room
+                                // face that would leave its level is refused DURING the drag with
+                                // both numbers, and the neighbour sharing the face is previewed
+                                // moving with it. ⛔ It is the SAME reader the pick uses, so the set
+                                // that is grabbable and the set that is judged cannot diverge.
+                                getWorld: () => readAuthoredEnvelopes(),
+                                // P6 — THE ONLY mutation path, exactly ONE per gesture.
+                                dispatch: (payload) => {
+                                    const bus = liveRuntime()?.bus;
+                                    if (!bus) {
+                                        console.error('[gis] §ENVELOPE-FACE-DRAG no command bus — the face move was NOT committed.');
+                                        return;
+                                    }
+                                    // ⛔ THE VERB IS NOT SPELLED HERE. It travels on the ONE
+                                    // exported dispatcher beside the gesture, so this file and
+                                    // `initTools` cannot drift apart about which command a face
+                                    // drag is — the same rule the create path already follows by
+                                    // carrying its verb on the plan.
+                                    void dispatchSpaceEnvelopeFaceMove(bus, payload)
+                                        .catch((e: unknown) => {
+                                            // The planner already refused DURING the drag with both
+                                            // numbers, so reaching here means the store moved under
+                                            // the gesture. The user still hears about it.
+                                            console.error('[gis] §ENVELOPE-FACE-DRAG moveFace failed:', e);
+                                            liveRuntime()?.events?.emit('pryzm:toast', {
+                                                message: `Couldn't move that face — ${e instanceof Error ? e.message : String(e)}`,
+                                                severity: 'error',
+                                            });
+                                        });
+                                },
+                                onRefusal: (message: string) => {
+                                    // ⭐ THE REFUSAL IS THE PRODUCT — forwarded VERBATIM with both
+                                    // numbers the planner read off the geometry (C83 §1.2).
+                                    liveRuntime()?.events?.emit('pryzm:toast', { message, severity: 'warning' });
+                                },
+                                // §ENVELOPE-DRAG-CONSEQUENCE — the hook BIM-FROM-DESIGN needs.
+                                onCommitted: (ev) => {
+                                    emitSpaceEnvelopeFaceMoved(
+                                        liveRuntime()?.events as unknown as
+                                            import('../../engine/spaceEnvelopeDragSurface').SpaceEnvelopeFaceMoveEventSink
+                                            | undefined,
+                                        ev,
+                                    );
+                                },
+                            });
+                            console.log('[gis] §ENVELOPE-FACE-DRAG the 3D Site is now a FACE-DRAG surface — grab a face of an authored envelope and pull it along its own normal.');
+                        }
                     } catch (e) {
                         console.warn('[gis] §ENVELOPE-DRAW could not register the 3D Site draw surface (non-fatal) — '
                             + 'the Draw button on the envelope panel will SAY SO rather than doing nothing:', e);
@@ -3786,8 +3965,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // §PARCEL-LAW-MODEL — moved to `resolveDepthTerm` so the tab prints the SAME local term.
     const depthTermFor = resolveDepthTerm;
 
-    const buildSiteDataBlock = (env: ReturnType<typeof getLastBuildableEnvelope>): string => {
-        if (!env) return '';
+    /**
+     * §26.6.7 (L-13085) — THE ONE PRODUCER OF THE `front / side / rear` TRIPLE.
+     *
+     * Hoisted here because the triple moved OUT of the card's headline (the four ceilings replaced
+     * it) and INTO the fold's ordinance block, which is built in a different scope. Extracting it
+     * rather than writing a second copy is the same rule the block below applies to every other
+     * figure: one producer, or the two surfaces eventually disagree about a setback, which is a
+     * disagreement that reaches the user's land (C06 §13.3).
+     *
+     * ⛔ A DASH IS AN ABSENCE, NEVER A ZERO. A setback the pack did not derive prints `—`; printing
+     * `0.0 m` would state that the zone requires no setback on that side, which is a claim about
+     * the ordinance that nothing here has read (C58 §1.4).
+     */
+    const setbackTriple = (env: NonNullable<ReturnType<typeof getLastBuildableEnvelope>>): string => {
+        const one = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
+            const e = env.derivation.find((d) => d.constraint === c);
+            return typeof e?.value === 'number' ? `${e.value.toFixed(1)} m` : '—';
+        };
+        return `${one('setback.front')} / ${one('setback.side')} / ${one('setback.rear')}`;
+    };
+
+    const buildSiteDataBlock = (
+        env: ReturnType<typeof getLastBuildableEnvelope>,
+    ): { readonly headline: string; readonly fold: string } => {
+        if (!env) return { headline: '', fold: '' };
         // §MURCIA-CARD-PARCEL-RING (L-676) — read the ONE committed boundary through the SHARED
         // resolver, not `runtime?.siteModelStore` directly. See `getCommittedParcelBoundary`.
         const committed = getCommittedParcelBoundary();
@@ -3925,15 +4127,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 dRow('alignment.depthBinding') !== undefined
                     ? 'Block-granularity: PGM Art. 242.2 derives this from the whole manzana, so neighbouring parcels on the same block share it.'
                     : 'Parcel-granularity: the ordinance states this depth directly for the zone — see the citation below.') : '')
-            // §RESI-ORCH-HIGHLIGHT — "Max height → the vertical limit". The plane is drawn only
-            // from a DERIVED height; when the pack derived none the row is un-clickable and says so.
-            // §26.6.2 (L-13046) — THE FOUR FIGURES, NAMED AS THE FOUNDER NAMES THEM: Maximum height ·
-            // Maximum levels · Maximum implantation area · Maximum buildable area. Present as rows
-            // whether or not the pack derived them; `not derived` stays and is never inferred.
-            + row('Maximum height', env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED,
-                undefined, 'height')
-            + row('Maximum levels', env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
-                'Storeys. Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
+            // §26.6.7 (L-13085, FOUNDER RULING 2026-09-07) — `Maximum height` and `Maximum levels`
+            // USED TO BE HERE and are now in the card's HEADLINE, with the other two of the four.
+            // ⛔ THEY ARE NOT IN BOTH PLACES, AND THAT IS THE POINT. §26.6.0 rule 1 is *"one place"*;
+            // lifting a figure without removing it from the fold would re-create the duplication
+            // rule 1 exists to end, one edit after the rule was applied. See `ceilingHeadline`.
+            //
+            // §26.6.7 — THE SETBACK TRIPLE MOVED THE OTHER WAY, INTO THIS BLOCK. It was in the
+            // headline the four figures replaced, and it appears NOWHERE else on the card, so
+            // dropping it with the rest of that headline would have DELETED data rather than
+            // relocated it. It belongs here on the merits too: it is an ordinance limit, read off
+            // the derivation trace exactly like the two rows below it.
+            + row('Setbacks (F/S/R)', setbackTriple(env),
+                'Front / side / rear, as the rule pack derived them. A dash is a setback the pack '
+                + 'did not derive — never a statement that the zone requires none. Per-edge, with '
+                + 'its own citation, this is the setback register.')
             + row('Max FAR', env.maxFAR !== null ? env.maxFAR.toFixed(2) : NOT_DERIVED,
                 'Floor-area ratio — buildable floor area per m² of parcel. A blank here is a gap in our '
                 + 'rule pack for this zone, never a statement that the zone caps no floor area.')
@@ -3953,22 +4161,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const massBody =
             // §RESI-ORCH-HIGHLIGHT — "Max footprint → the buildable envelope" and
             // "Max GFA → the resulting potential", the last two rows of STR §3's own table.
-            // §26.6.2 (L-13046) — "Maximum implantation area": in PLAN, the GROUND floor only.
-            row('Maximum implantation area (ground, plan)', footprint > 0 ? num(footprint, 'm²', 0) : NOT_DERIVED,
-                'The buildable footprint — the most any single storey may cover, in plan.', 'footprint')
-            + (coverPct !== null ? row('Footprint / parcel', `${coverPct.toFixed(0)} %`) : '')
+            // §26.6.7 (L-13085) — `Maximum implantation area` and `Maximum buildable area` USED TO
+            // LEAD THIS BLOCK and are now in the HEADLINE, with the other two of the four. Removed
+            // here rather than repeated there: see the note in `ordBody`.
+            (coverPct !== null ? row('Footprint / parcel', `${coverPct.toFixed(0)} %`) : '')
             + (inset.length >= 3 ? row('Footprint perimeter', num(polyPerimeterM(inset), 'm')) : '')
-            // §26.6.2 — "Maximum buildable area": across ALL floors (GFA).
-            + row('Maximum buildable area (all floors, GFA)',
-                // §PARCEL-LAW-MODEL — read from the MODEL, not from the raw `gfa` local, for one
-                // narrow but real reason: with a zero footprint `permittedStudyFigures` returns
-                // `0 × storeys = 0`, and this row printed "0 m²" directly under a "not derived"
-                // footprint — two spellings of one absence, the numeric one being a claim about the
-                // user's land (C58 §1.4). `law.massing.gfaM2` is null whenever the footprint is,
-                // so the card and the Parcel Law tab state the same thing on that arm.
-                law.massing?.gfaM2 != null ? num(law.massing.gfaM2, 'm²', 0) : NOT_DERIVED,
-                'Footprint × storeys. Deliberately blank when the storey count was not derived — a guessed storey count would become a guessed sellable area.',
-                'gfa')
             + row('Study volume', env.maxVolumeM3 !== null ? num(env.maxVolumeM3, 'm³', 0) : NOT_DERIVED,
                 'Footprint × max height. A massing study volume, not a permitted volume.');
         const massBlock = group('Massing potential',
@@ -4051,10 +4248,66 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 + row('Source', cap.citation))
             : '';
 
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // §26.6.7 — THE FOUR CEILINGS, LIFTED TO THE CARD'S HEADLINE (L-13085)
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        //
+        // FOUNDER RULING 2026-09-07, closing the *"decision pending"* §26.6.7 recorded: lift the
+        // four named figures to the headline and DROP them from the fold. The headline previously
+        // read `Setbacks (F/S/R) · Max height · Max FAR · Buildable`.
+        //
+        // ⭐ IT IS A RULE-1 MOVE, SO IT IS ONE PLACE — the four rows above are DELETED, not copied.
+        // Three of the old headline's four lines were already duplicates of fold rows under
+        // different names (`Max height` / `Maximum height`, `Max FAR` / `Max FAR`, `Buildable` /
+        // `Maximum buildable area`), so the lift removes a duplication that predates it.
+        //
+        // ⭐ AND IT CORRECTS A MISLABEL THE DUPLICATION WAS HIDING. The old headline's `Buildable`
+        // rendered `gfaTxt`, which is the string `"<insetArea> m² footprint"` — a FOOTPRINT under a
+        // label a reader takes for buildable floor area. The headline now states both quantities
+        // under their own names, from the model.
+        //
+        // ⛔ THEY ARE BUILT BY THE SAME `row()` AS THE FOLD, SO RULE 2 SURVIVES THE MOVE. `height`,
+        // `footprint` and `gfa` keep their highlight subjects and therefore stay CONTROLS —
+        // `buildSiteHighlightLabelHtml` is still the one builder, `wireSiteHighlightRows(panel)`
+        // still wires them (it takes the whole panel, and the headline is inside it), and the ◉ is
+        // still painted from the store. A figure that became plain text in the headline would be a
+        // rule-2 REGRESSION dressed as a rule-1 fix.
+        //
+        // ⛔ `Maximum levels` CARRIES NO HIGHLIGHT SUBJECT, HERE AS BEFORE. There is no geometry
+        // for "storeys" to light; §3's own rule is that a row whose geometry does not exist must
+        // NOT render as a control, because a dead click is indistinguishable from a broken product.
+        //
+        // ⛔ EVERY ABSENCE ARM SURVIVES. A ceiling the pack did not derive prints `NOT_DERIVED` in
+        // the headline exactly as it did in the fold (C58 §1.4 · L-13048) — never a blank, never a
+        // zero, and never silently dropped so the headline shows three of four.
+        //
+        // ⛔ ONE HEADLINE FOR ALL THREE HOSTS. The card is a re-homed singleton and C19 §5.7
+        // forbids a host branch inside its renderer, so this is produced once, here, for the GIS
+        // rail PARCEL panel, the floating GIS card and the Parcel Law tab alike.
+        const ceilingHeadline =
+            row(CEILING_LABEL.levels, env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
+                'Storeys. Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
+            + row(CEILING_LABEL.height, env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED,
+                undefined, 'height')
+            + row(CEILING_LABEL.implantation, footprint > 0 ? num(footprint, 'm²', 0) : NOT_DERIVED,
+                'The buildable footprint — the most any single storey may cover, in plan.', 'footprint')
+            + row(CEILING_LABEL.buildable,
+                // §PARCEL-LAW-MODEL — read from the MODEL, not from the raw `gfa` local, for one
+                // narrow but real reason: with a zero footprint `permittedStudyFigures` returns
+                // `0 × storeys = 0`, and this row printed "0 m²" directly under a "not derived"
+                // footprint — two spellings of one absence, the numeric one being a claim about the
+                // user's land (C58 §1.4). `law.massing.gfaM2` is null whenever the footprint is,
+                // so the card and the Parcel Law tab state the same thing on that arm.
+                law.massing?.gfaM2 != null ? num(law.massing.gfaM2, 'm²', 0) : NOT_DERIVED,
+                'Footprint × storeys. Deliberately blank when the storey count was not derived — a guessed storey count would become a guessed sellable area.',
+                'gfa');
+
         // §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — a first-class fold of the card (no longer
         // nested inside a "Site data & capacity" wrapper); min/max-width contain it in the
         // narrow GIS rail.
-        return `<details data-testid="envelope-section-site-data" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;overflow-wrap:break-word;">
+        return {
+            headline: ceilingHeadline,
+            fold: `<details data-testid="envelope-section-site-data" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;overflow-wrap:break-word;">
                   <summary style="cursor:pointer;font-weight:700;font-size:10.5px;color:#6600FF;list-style:none;">Full site &amp; massing data</summary>
                   <div style="font-size:10.5px;margin-top:4px;min-width:0;max-width:100%;">
                     ${parcelBlock}${ordBlock}${massBlock}${perLevel}${capacityBlock}
@@ -4064,7 +4317,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                       derived one on this card.
                     </div>
                   </div>
-                </details>`;
+                </details>`,
+        };
     };
 
     /**
@@ -4689,10 +4943,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             if (hydratedAtIso) wireStoredDeterminationRefresh(panel, hydratedAtIso);
             return;
         }
-        const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
-            const e = env.derivation.find((d) => d.constraint === c);
-            return typeof e?.value === 'number' ? `${e.value.toFixed(1)} m` : '—';
-        };
+        // §26.6.7 (L-13085) — the local `setback()` STOOD HERE and is gone: its only reader was the
+        // old headline, and the triple now has ONE producer, `setbackTriple`, which the fold's
+        // ordinance block calls. A second copy left behind for a caller that no longer exists is how
+        // two surfaces come to print different setbacks for one parcel.
         // §L-518 — the `block-constructed` tier (Barcelona PGM Art. 242.2) is REAL data, so it must
         // NOT wear the ESTIMATED badge — but it is a CONSTRUCTED determination, not an official
         // certificate, so the badge says "Real · constructed" (not a bare "verified"), per the
@@ -4756,14 +5010,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // read its weakest input. Red, never the green certificate pill, and permanent until a
             // human signs off (the tier graduates only via a recorded verification event).
                 : `<span style="flex:none;white-space:nowrap;display:inline-block;padding:2px 8px;border-radius:999px;background:#eef7ee;color:#2e7d32;font-weight:700;font-size:10px;text-transform:uppercase;">${escHtml(env.confidence)}</span>`;
-        const heightTxt = env.maxHeight_m !== null ? `${env.maxHeight_m.toFixed(1)} m` : '—';
-        const farTxt = env.maxFAR !== null ? env.maxFAR.toFixed(2) : '—';
-        const gfaTxt =
-            env.maxVolumeM3 !== null
-                ? `${Math.round(env.insetAreaM2).toLocaleString()} m² footprint`
-                : env.status === 'degenerate'
-                ? 'no buildable area'
-                : '—';
+        // §26.6.7 (L-13085) — `heightTxt`, `farTxt` and `gfaTxt` STOOD HERE and are gone with the
+        // headline that was their only reader. ⭐ `gfaTxt` is worth naming on the way out: under
+        // the label `Buildable` it rendered `"<insetArea> m² footprint"` — a FOOTPRINT, printed
+        // where a reader takes the number for buildable floor area. The headline now states both
+        // quantities under their own names (`Maximum implantation area` · `Maximum buildable
+        // area`), from the model, so the mislabel cannot be restored by re-adding one line.
         // L-399a — cite the source. An estimated envelope keeps the "default rule
         // pack" note; a real (structured) DK envelope cites Plandata.dk + its plan
         // document (C58 §1.3 explain-why). `ordinanceRef` is the plan `doklink`.
@@ -4914,24 +5166,44 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // "empty / not filled in" (founder). When the envelope is alignment-governed (an
         // `alignment.depth` derivation row is present), surface the fields that ACTUALLY govern —
         // buildable DEPTH + alignment offset + area — instead of three dashes.
+        // §26.6.7 (L-13085) — ONE CALL, TWO PARTS. `buildSiteDataBlock` now returns the card's
+        // HEADLINE (the four ceilings) alongside its fold, so the two cannot be built from
+        // different reads of the same envelope — the failure C06 §13.3 names. It is hoisted here
+        // because the headline is assembled a few lines below, before the fold's own slot.
+        // §XSS-SINK-SCAN — both halves escape every runtime string they interpolate via the
+        // local `escHtml` (its `row` / `group` helpers).
+        const siteData = buildSiteDataBlock(env);
         const alignDepthRow = env.derivation.find((d) => d.constraint === 'alignment.depth');
         const alignOffsetRow = env.derivation.find((d) => d.constraint === 'alignment.offset');
         const isAlignmentZone = typeof alignDepthRow?.value === 'number';
         const depthSummaryTxt = isAlignmentZone ? `${(alignDepthRow!.value as number).toFixed(1)} m` : '—';
         const offsetSummaryTxt =
             typeof alignOffsetRow?.value === 'number' ? `${(alignOffsetRow!.value as number).toFixed(1)} m` : '—';
+        // ⭐ §26.6.7 (L-13085) — THE HEADLINE IS NOW THE FOUR CEILINGS, on every arm that HAS them.
+        // Built above by `buildSiteDataBlock`, so there is exactly one producer and the figures
+        // keep their rule-2 highlight controls. See the block comment at `ceilingHeadline`.
+        //
+        // ⛔ THE DEGENERATE ARM IS UNCHANGED, AND DELIBERATELY. Setbacks that consume the parcel
+        // mean there IS no buildable envelope, so the four ceilings would print a footprint and a
+        // buildable area for land that has neither. The refusal sentence stays exactly as it was —
+        // it is the answer on that arm, not a placeholder for one (L-550 · C58 §1.4).
+        //
+        // ⛔ THE ALIGNMENT ARM KEEPS ITS OWN TWO ROWS *IN ADDITION*, NOT INSTEAD. §L-518c added
+        // them because an alignment zone (Barcelona 13a) has NULL setbacks/height/FAR BY DESIGN —
+        // the "rear setback" IS the profunditat edificable — so the four ceilings alone would read
+        // as three dashes and a footprint. The ceilings state what is known, the depth/offset pair
+        // states what actually governs, and the caveat says which is which. Deleting either half
+        // would restore the founder's original "empty / not filled in" complaint from one side or
+        // the other.
         const safeRows =
             env.status === 'degenerate'
                 ? `<div style="color:#b23b3b;font-weight:600;">Setbacks consume the whole parcel — no buildable envelope.</div>`
                 : isAlignmentZone
-                ? `<div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#6b6480;">Buildable depth</span><span style="font-weight:600;text-align:right;">${depthSummaryTxt}</span></div>
+                ? `${siteData.headline}
+                   <div style="display:flex;justify-content:space-between;gap:8px;margin-top:3px;"><span style="color:#6b6480;">Buildable depth</span><span style="font-weight:600;text-align:right;">${depthSummaryTxt}</span></div>
                    <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Alignment offset</span><span style="font-weight:600;">${offsetSummaryTxt}</span></div>
-                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Buildable</span><span style="font-weight:600;">${gfaTxt}</span></div>
                    <div style="color:#a49dbb;font-size:9.5px;margin-top:3px;">Alignment zone — setbacks/height/FAR set by the ${escHtml(depthTermFor(alignDepthRow?.ordinanceRef))}, not a numeric triple.</div>`
-                : `<div style="display:flex;justify-content:space-between;"><span style="color:#6b6480;">Setbacks (F/S/R)</span><span style="font-weight:600;">${setback('setback.front')} / ${setback('setback.side')} / ${setback('setback.rear')}</span></div>
-                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max height</span><span style="font-weight:600;">${heightTxt}</span></div>
-                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Max FAR</span><span style="font-weight:600;">${farTxt}</span></div>
-                   <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="color:#6b6480;">Buildable</span><span style="font-weight:600;">${gfaTxt}</span></div>`;
+                : siteData.headline;
         // §L-619 / §CONTEXT-DATA-HONESTY — the honest caveat for an upper-bound footprint. States,
         // in words, that the footprint == the whole parcel BECAUSE the ordinance publishes no
         // setbacks (so it could not be reduced), that a real building will therefore be smaller, and
@@ -4958,9 +5230,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  real, published values; only the footprint is an upper bound. A real building will be smaller.
                </div>`
             : '';
-        // §XSS-SINK-SCAN — `buildSiteDataBlock` escapes every runtime string it interpolates
-        // via the local `escHtml` (its `row`/`group` helpers); close/toggle are static markup.
-        const safeSiteDataBlock = buildSiteDataBlock(env);
+        // §26.6.7 (L-13085) — the SAME `siteData` the headline came from, never a second call.
+        // Calling `buildSiteDataBlock` twice would re-read the store between the two halves of one
+        // card and is precisely how a headline comes to disagree with the fold beneath it.
+        const safeSiteDataBlock = siteData.fold;
         // ── §RESI-ORCH-COST (2026-09-03) — THE INDICATIVE COST FOLD, at the ENVELOPE stage. ──
         //
         // STR §15 wants an approximate €/m² figure *before* anything is drawn. The engine for it
@@ -7689,6 +7962,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // B, and neither may the adapter that would keep picking against A's scene.
         try { envelopeDraw3d?.disarm(); }
         catch (e) { console.warn('[gis] §ENVELOPE-DRAW disarm during project teardown failed (non-fatal):', e); }
+        // §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS — and neither may the FACE-DRAG listeners. ⛔ The
+        // disposer is also the one that hands the camera back if a drag was live when the project
+        // was swapped; skipping it would leave the 3D Site permanently un-navigable with no
+        // listener anywhere left to re-enable it.
+        try { envelopeFaceDrag3dDispose?.(); envelopeFaceDrag3dDispose = null; }
+        catch (e) { console.warn('[gis] §ENVELOPE-FACE-DRAG dispose during project teardown failed (non-fatal):', e); }
         _layoutOwningProjectId = null;
         console.log('[gis] §L-676-B GIS layout project scope cleared (geocode frame + placement caches dropped).');
     };
