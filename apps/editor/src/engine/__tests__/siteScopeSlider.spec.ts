@@ -38,7 +38,7 @@ interface Recorder extends SiteScopeSliderPorts {
     readonly commits: SiteScope[];
     scope: SiteScope | null;
     commitOk: boolean;
-    mark: { radiusM: number; boundBy: string } | null;
+    mark: { radiusM: number; boundBy: string; kind: 'cap' | 'read' | 'none' } | null;
     verdicts: Array<{ layer: string; complete: boolean; line: string }>;
     floor: number | null;
 }
@@ -125,13 +125,13 @@ describe('§SITE-SCOPE §13.5 — completeness is one of THREE facts, never two'
     });
 
     it('measured and holding says complete, with the number it was measured to', () => {
-        const c = completenessCaption(scope, { radiusM: 1400, boundBy: 'buildings' }, []);
+        const c = completenessCaption(scope, { radiusM: 1400, boundBy: 'buildings', kind: 'cap' }, []);
         expect(c).toMatch(/^Complete at this scope/);
         expect(c).toContain('1 400 m');
     });
 
     it('⛔ a biting cap prints the LAYER LINE with its numbers, never a bare "some were dropped"', () => {
-        const c = completenessCaption(scope, { radiusM: 960, boundBy: 'trees' }, [
+        const c = completenessCaption(scope, { radiusM: 960, boundBy: 'trees', kind: 'cap' }, [
             { layer: 'trees', complete: false, line: 'trees: 3000 of 10300 inside the scope drawn — 7300 dropped by the cap; complete at a scope of ~960 m' },
             { layer: 'buildings', complete: true, line: 'buildings: 900 of 900 inside the scope drawn (cap 14000 not reached)' },
         ]);
@@ -142,7 +142,7 @@ describe('§SITE-SCOPE §13.5 — completeness is one of THREE facts, never two'
     });
 
     it('past the mark with no per-layer verdict still names the mark and what binds it', () => {
-        const c = completenessCaption(scope, { radiusM: 900, boundBy: 'trees' }, []);
+        const c = completenessCaption(scope, { radiusM: 900, boundBy: 'trees', kind: 'cap' }, []);
         expect(c).toContain('900 m');
         expect(c).toContain('trees');
     });
@@ -241,7 +241,7 @@ describe('§SITE-SCOPE — the control states its own availability', () => {
         const ports = recorder();
         const { markEl, handle } = mountInto(ports);
         expect(markEl.style.display).toBe('none');
-        ports.mark = { radiusM: 966, boundBy: 'trees' };   // (966-150)/(1781-150) = 50.03 %
+        ports.mark = { radiusM: 966, boundBy: 'trees', kind: 'cap' };   // (966-150)/(1781-150) = 50.03 %
         handle.refresh();
         expect(markEl.style.display).toBe('block');
         expect(markEl.style.left).toContain('50.0');
@@ -306,5 +306,58 @@ describe('§SITE-SCOPE — the SHELL wires one per pane and tears both down', ()
         expect(slider).not.toContain('document.body.appendChild');
         expect(slider).not.toMatch(/position:\s*'fixed'/);
         expect(slider).toContain('paneEl.appendChild(root)');
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════
+/**
+ * ⭐ §SITE-SCOPE D2 (lane SCOPE-CUT, 2026-09-07) — WHAT THE SLIDER SAYS AT THE EDGE OF THE
+ * FOUNDER'S OWN ASK. He asked for 4x the area (2x the length): a 2 519 m square becomes a 5 038 m
+ * square, i.e. a circumscribing radius of 3 562 m, and `CTX_SCOPE_MAX_RADIUS_M` now reaches it.
+ * That raise is DELIBERATELY past the measured z16 read ceiling of 1 781 m, and the only thing
+ * that makes it honest rather than a silent regression is this caption.
+ *
+ * ⛔ THE TWO CEILINGS ARE NOT THE SAME FACT AND THE ORDER MATTERS. A render cap THINS the rim; past
+ * the read ceiling the bake's `--drop-densest-as-needed` has already DELETED footprints, so a
+ * wider slab draws FEWER buildings. The read sentence therefore leads, and a biting cap is appended
+ * to it rather than replacing it — a plain "if (biting) return" would have hidden the worse fact
+ * behind the lesser one at exactly the scope he asked for.
+ */
+describe('§SITE-SCOPE §13.5 — the READ ceiling is a different sentence from a cap', () => {
+    const wide = scopeAtRadius(3562, 'rectangle');
+
+    it('past the read ceiling it says the read COARSENS and the bake DELETED — not "thinned"', () => {
+        const c = completenessCaption(wide, { radiusM: 1781, boundBy: 'the zoom-16 building + canopy read', kind: 'read' }, []);
+        expect(c).toContain('1 781 m');
+        expect(c).toContain('zoom-16 building + canopy read');
+        expect(c).toMatch(/FEWER buildings/);
+        expect(c, 'a deletion must never be described as a thinning').not.toMatch(/thins the rim/);
+    });
+
+    it('⛔ a biting cap is APPENDED to the read sentence, never substituted for it', () => {
+        const c = completenessCaption(wide, { radiusM: 1781, boundBy: 'the zoom-16 building + canopy read', kind: 'read' }, [
+            { layer: 'trees', complete: false, line: 'trees: 10000 of 11391 inside the scope drawn — 1391 dropped by the cap; complete at a scope of ~1669 m' },
+        ]);
+        expect(c).toMatch(/FEWER buildings/);
+        expect(c).toContain('1391 dropped by the cap');
+    });
+
+    it('INSIDE the read ceiling the read sentence does not appear at all', () => {
+        const tight = scopeAtRadius(900, 'rectangle');
+        const c = completenessCaption(tight, { radiusM: 1781, boundBy: 'the zoom-16 building + canopy read', kind: 'read' }, []);
+        expect(c).toMatch(/^Complete at this scope/);
+        expect(c).not.toMatch(/FEWER buildings/);
+    });
+
+    it('the tick tooltip distinguishes the two ceilings', () => {
+        const ports = recorder();
+        const { markEl, handle } = mountInto(ports);
+        ports.mark = { radiusM: 1781, boundBy: 'the zoom-16 building + canopy read', kind: 'read' };
+        handle.refresh();
+        expect(markEl.title).toContain('already deleted footprints');
+        ports.mark = { radiusM: 966, boundBy: 'trees', kind: 'cap' };
+        handle.refresh();
+        expect(markEl.title).not.toContain('already deleted footprints');
+        handle.dispose();
     });
 });

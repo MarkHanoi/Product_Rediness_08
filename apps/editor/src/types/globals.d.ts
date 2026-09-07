@@ -446,7 +446,12 @@ declare global {
             readonly source: string;
         };
         previewSiteScope?(scope: import('@pryzm/schemas').SiteScope | null): void;
-        getCompleteScopeMark?(): { readonly radiusM: number; readonly boundBy: string } | null;
+        getCompleteScopeMark?(): {
+          readonly radiusM: number;
+          readonly boundBy: string;
+          /** §SITE-SCOPE — a render CAP thins the rim; the z16 READ ceiling DELETES from it. */
+          readonly kind: 'cap' | 'read' | 'none';
+        } | null;
         getScopeCapVerdicts?(): ReadonlyArray<{
             readonly layer: string;
             readonly complete: boolean;

@@ -388,7 +388,22 @@ describe('GISAreaLayout actually reaches the enumerator', () => {
     });
 
     it('⛔ a picked option writes the ONE §5 proposal channel — no second store', () => {
-        expect(card).toContain('setTargetFootprintProposal(option.proposal)');
+        // ⚠ ASSERTED AS A PREFIX, DELIBERATELY. This read `…(option.proposal)` — a closed literal —
+        // and went red the moment L-13078's fix added the chosen option's id as a second argument.
+        // The invariant this test exists for is ONE CHANNEL, written from the option's OWN proposal;
+        // the argument LIST is not the invariant, and pinning it made a correct change look like a
+        // regression. The id is asserted separately below, as its own fact.
+        expect(card).toContain('setTargetFootprintProposal(option.proposal');
+        // …and exactly one channel: no sibling store gained a write on the same click.
+        expect(card.match(/setTargetFootprintProposal\(option\./g) ?? []).toHaveLength(1);
+    });
+
+    it('⛔ carries the CHOSEN option id, so the list can mark it and stay pickable (L-13078)', () => {
+        // The founder: *"when I click 'use this plate' I want to still be kept on the massing
+        // options — so that I can select another one."* Nothing recorded WHICH option was chosen,
+        // so the card could not mark it. Option ids are stable and RNG-free by design
+        // (`massingOptionModel.ts` — "a pick survives a repaint"), which is what makes this safe.
+        expect(card).toContain('setTargetFootprintProposal(option.proposal, option.id)');
     });
 
     it('⛔ carries a staleness gate, so options never outlive the envelope they measured', () => {

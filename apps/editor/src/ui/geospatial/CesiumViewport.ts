@@ -131,12 +131,13 @@ import {
   createScopeClipTally,
   capVerdict,
   completeScopeRadiusM,
+  type ScopeCompleteMark,
   type ScopeClipper,
   type ScopeClipTally,
   type CapVerdict,
   type LonLat as ScopeLonLat,
 } from "./scopeClip";
-import { SITE_SCOPE_RANGE, groundFetchHalfDeg } from "./contextExtentBudget";
+import { SITE_SCOPE_RANGE, groundFetchHalfDeg, CTX_SCOPE_READ_COMPLETE_CEILING_M } from "./contextExtentBudget";
 /**
  * §SITE-SCOPE — is the GLOBE CUT + SLAB SIDE armed? **ARMED 2026-09-07.**
  *
@@ -2267,9 +2268,14 @@ export class CesiumViewport {
   }
 
   /** §SITE-SCOPE (C12 §13.5) — the largest scope at which every mapped cap holds, from the last load. */
-  public getCompleteScopeMark(): { readonly radiusM: number; readonly boundBy: string } | null {
+  public getCompleteScopeMark(): ScopeCompleteMark | null {
     const layers = [...this.scopeCapReports].map(([layer, r]) => ({ layer, eligible: r.eligible, cap: r.cap }));
-    return completeScopeRadiusM(this.contextScope, layers);
+    // ⭐ THE READ CEILING IS PASSED IN, NOT LOOKED UP THERE (lane SCOPE-CUT, 2026-09-07).
+    // `scopeClip.ts` is a pure leaf that must not learn a tile-fan-out constant; this file already
+    // owns the budget import. The mark is now min(measured cap densities, the z16 read ceiling) —
+    // so the tick on the founder's track is where completeness ACTUALLY ends, not merely where the
+    // last measured cap would bite. See `CTX_SCOPE_READ_COMPLETE_CEILING_M`.
+    return completeScopeRadiusM(this.contextScope, layers, CTX_SCOPE_READ_COMPLETE_CEILING_M);
   }
 
   /**

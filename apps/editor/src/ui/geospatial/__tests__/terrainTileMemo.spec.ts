@@ -163,7 +163,16 @@ describe('§TERRAIN-TILE-MEMO — the wrapper is a VIEW of the provider, not a f
             availability: { max: 14 },
             _requestVertexNormals: true,
             loadTileDataAvailability(): undefined { return undefined; },
-            requestTileGeometry(): Promise<unknown> { return Promise.resolve({ ok: true }); },
+            // ⛔ THE ARITY IS PART OF THE CONTRACT, NOT DECORATION. Cesium calls
+            // `requestTileGeometry(x, y, level)` (three args), and `memoiseTerrainTiles` keys its
+            // memo on exactly those, so a zero-arg fixture is not a stand-in for the real provider —
+            // it is a DIFFERENT interface that happens to return the same value. It typechecked
+            // nowhere: the call at the foot of this test passes three arguments, and root tsc read
+            // `Expected 0 arguments, but got 3`. Declared honestly so the fixture can only diverge
+            // from Cesium by failing, never by being wrong in silence.
+            requestTileGeometry(_x: number, _y: number, _level: number): Promise<unknown> {
+                return Promise.resolve({ ok: true });
+            },
         };
         const original = provider.requestTileGeometry;
         const memo = new TerrainTileMemo();

@@ -19,6 +19,7 @@
 
 import { trace } from '@opentelemetry/api';
 import type { CreateHouseOutcome } from './createHousePlan';
+import type { BuildFromDesignOutcome } from './buildFromDesignPlan';
 
 const _tracer = trace.getTracer('pryzm.site.createHouseSection');
 
@@ -107,6 +108,122 @@ export function buildCreateHouseSection(outcome: CreateHouseOutcome): string {
             + `style="margin-top:6px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;`
             + `padding:7px 10px;border-radius:8px;font:700 11px system-ui;background:#6600FF;color:#fff;">`
             + `${escHtml(CREATE_HOUSE_LABEL)}</button>`
+            + `<div data-testid="${CREATE_HOUSE_STATUS_TESTID}" style="min-height:13px;margin-top:4px;`
+            + `font-size:9.5px;color:#8a83a0;line-height:1.45;"></div></div>`;
+    } finally {
+        span.end();
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §BIM-FROM-THE-DESIGN (lane BIM-FROM-DESIGN, 2026-09-07 · L-13080) — THE FOURTH ARM
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// Founder, with 7 authored envelopes on screen: *"WHEN WE SAY — CREATE BIM — EXCLUDE THIS — WE
+// ALREADY HAVE THE DESIGN."*
+//
+// ⛔ EXTENDS THE SECTION, DOES NOT REPLACE IT. Same `escHtml`, same `list`, same `fmt2`, same
+// button testid, and — critically — the SAME status-slot testid on BOTH arms, because the host
+// writes the pipeline's outcome into that slot and then re-renders, and a slot that exists on one
+// arm only is exactly how the founder's crash became silent (L-13011 defect 3).
+//
+// ⛔ THE THREE ARMS ARE MUTUALLY EXCLUSIVE AND THE HOST DECIDES BETWEEN THEM, NOT THIS FILE:
+//   1. `planCreateHouse` REFUSES (C80 `already-built` among them) → the refusal arm above, first
+//      and unconditional. Nothing here can weaken it.
+//   2. It permits AND room envelopes exist → THIS arm.
+//   3. It permits and there are NO room envelopes → the generator arm above, word for word,
+//      including today's *"the room envelopes you have drawn are NOT used as the room programme"*
+//      advisory. That sentence is still true on that path and is not deleted.
+
+export const BUILD_FROM_DESIGN_TESTID = 'build-from-design-section';
+export const BUILD_FROM_DESIGN_PLAN_TESTID = 'build-from-design-plan';
+export const BUILD_FROM_DESIGN_ROOMS_TESTID = 'build-from-design-rooms';
+export const BUILD_FROM_DESIGN_REFUSED_ROOMS_TESTID = 'build-from-design-refused-rooms';
+export const BUILD_FROM_DESIGN_REFUSAL_TESTID = 'build-from-design-refusal';
+export const BUILD_FROM_DESIGN_WILLNOT_TESTID = 'build-from-design-will-not';
+export const BUILD_FROM_DESIGN_LABEL = 'Create BIM from this design';
+
+/**
+ * The fourth arm. Pure markup.
+ *
+ * The sentence before the click names, in this order: the envelope it builds from and its area,
+ * the storey, every room with its area, what IS created with its counts, and what is NOT —
+ * including *"no generated layout, because you drew one"*, which is the whole point of the arm.
+ */
+export function buildBuildFromDesignSection(outcome: BuildFromDesignOutcome): string {
+    const span = _tracer.startSpan('pryzm.site.buildBuildFromDesignSection');
+    try {
+        span.setAttribute('pryzm.buildFromDesign.arm', outcome.ok ? 'ok' : outcome.refusal.code);
+        const head =
+            `<div style="font-weight:700;font-size:11px;color:#2b2740;">Create BIM from your design</div>`
+            + `<div style="margin-top:2px;margin-bottom:6px;font-size:9.5px;color:#8a83a0;line-height:1.45;">`
+            + `You have drawn a level envelope and room envelopes, so PRYZM builds THOSE — it does not `
+            + `ask you to design a house it already has. Nothing is generated and nothing is proposed.</div>`;
+
+        if (!outcome.ok) {
+            return `<div data-testid="${BUILD_FROM_DESIGN_TESTID}" data-arm="build-from-design-refused" `
+                + `data-refusal-code="${escHtml(outcome.refusal.code)}" `
+                + `style="margin-top:10px;padding-top:8px;border-top:1px solid #efecf7;min-width:0;max-width:100%;">`
+                + head
+                + `<div data-testid="${BUILD_FROM_DESIGN_REFUSAL_TESTID}" style="color:#8a5a00;background:#fff6e8;`
+                + `border-radius:6px;padding:6px 8px;font-size:9.5px;line-height:1.5;">`
+                + `${escHtml(outcome.refusal.text)}</div>`
+                + `<button type="button" disabled data-testid="${CREATE_HOUSE_BTN_TESTID}" `
+                + `style="margin-top:6px;width:100%;appearance:none;border:1px solid #d8d3e6;cursor:not-allowed;`
+                + `padding:7px 10px;border-radius:8px;font:700 11px system-ui;background:#f5f4f8;color:#a09aae;">`
+                + `${escHtml(BUILD_FROM_DESIGN_LABEL)}</button>`
+                + `<div data-testid="${CREATE_HOUSE_STATUS_TESTID}" style="min-height:13px;margin-top:4px;`
+                + `font-size:9.5px;color:#8a83a0;line-height:1.45;"></div></div>`;
+        }
+
+        const p = outcome.plan;
+        const source = p.sourceEnvelopeName ?? p.sourceEnvelopeId;
+        const roomRows = p.rooms.map((r) => (
+            `<li style="margin:1px 0;">${escHtml(r.name)} — ${escHtml(fmt2(r.areaM2))} m², `
+            + `${r.partitionEdgeCount} partition${r.partitionEdgeCount === 1 ? '' : 's'}`
+            + `${r.edgesOnShellCount > 0
+                ? ` (${r.edgesOnShellCount} edge${r.edgesOnShellCount === 1 ? '' : 's'} on the perimeter)`
+                : ''}`
+            + `</li>`
+        )).join('');
+
+        // ⛔ NEVER A SILENT SUBSET. A room that could not be materialised is named here with its
+        // numbers, on the ENABLED arm, beside the rooms that will build. Hiding it until after the
+        // click would be the "a cap that drops something must say so" defect at its own doorstep.
+        const refused = p.refusedRooms.length === 0 ? '' :
+            `<div data-testid="${BUILD_FROM_DESIGN_REFUSED_ROOMS_TESTID}" style="margin-top:5px;font-size:9px;`
+            + `color:#8a5a00;background:#fff6e8;border-radius:6px;padding:5px 7px;line-height:1.5;">`
+            + `<strong>${p.refusedRooms.length} room${p.refusedRooms.length === 1 ? '' : 's'} will NOT be `
+            + `built:</strong><ul style="margin:2px 0 0;padding-left:14px;">`
+            + p.refusedRooms.map((r) => `<li style="margin:1px 0;">${escHtml(r.text)}</li>`).join('')
+            + `</ul></div>`;
+
+        const advisories = p.advisories.length === 0 ? '' :
+            `<div style="margin-top:5px;font-size:9px;color:#6b6580;background:#faf9fd;border:1px solid #efecf7;`
+            + `border-radius:6px;padding:5px 7px;line-height:1.5;"><ul style="margin:0;padding-left:14px;">`
+            + `${list(p.advisories)}</ul></div>`;
+
+        return `<div data-testid="${BUILD_FROM_DESIGN_TESTID}" data-arm="build-from-design" `
+            + `style="margin-top:10px;padding-top:8px;border-top:1px solid #efecf7;min-width:0;max-width:100%;">`
+            + head
+            + `<div data-testid="${BUILD_FROM_DESIGN_PLAN_TESTID}" style="padding:6px 8px;border-radius:6px;`
+            + `background:#faf9fd;border:1px solid #efecf7;font-size:9.5px;color:#2b2740;line-height:1.5;">`
+            + `<div><strong>From:</strong> ${escHtml(source)} — ${escHtml(fmt2(p.footprintAreaM2))} m² `
+            + `footprint, ${p.shellWallCount} edge${p.shellWallCount === 1 ? '' : 's'}</div>`
+            + `<div><strong>Builds:</strong> ${p.storeyCount} storey at `
+            + `${escHtml(fmt2(p.floorToFloorM))} m floor-to-floor</div>`
+            + `<div data-testid="${BUILD_FROM_DESIGN_ROOMS_TESTID}" style="margin-top:4px;color:#6b6580;">`
+            + `Your ${p.rooms.length} room${p.rooms.length === 1 ? '' : 's'} `
+            + `(${escHtml(fmt2(p.roomsAreaM2))} m²):<ul style="margin:2px 0 0;padding-left:14px;">`
+            + `${roomRows}</ul></div>`
+            + `<div style="margin-top:4px;color:#6b6580;">Creates:<ul style="margin:2px 0 0;padding-left:14px;">`
+            + `${list(p.willCreate)}</ul></div>`
+            + `<div data-testid="${BUILD_FROM_DESIGN_WILLNOT_TESTID}" style="margin-top:4px;color:#8a5a00;">`
+            + `Does NOT create:<ul style="margin:2px 0 0;padding-left:14px;">${list(p.willNotCreate)}</ul></div>`
+            + `</div>${refused}${advisories}`
+            + `<button type="button" data-testid="${CREATE_HOUSE_BTN_TESTID}" `
+            + `style="margin-top:6px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;`
+            + `padding:7px 10px;border-radius:8px;font:700 11px system-ui;background:#6600FF;color:#fff;">`
+            + `${escHtml(BUILD_FROM_DESIGN_LABEL)}</button>`
             + `<div data-testid="${CREATE_HOUSE_STATUS_TESTID}" style="min-height:13px;margin-top:4px;`
             + `font-size:9.5px;color:#8a83a0;line-height:1.45;"></div></div>`;
     } finally {

@@ -170,6 +170,16 @@ export default defineConfig({
       // ALLOWLIST (§L-851): a spec outside it is never discovered, and "never ran"
       // and "passed" print the same value.
       'apps/editor/src/ui/component-preview/__tests__/**/*.spec.ts',
+      // ⭐ §BIM-3D-CHROME-QUIET (L-13027 / L-13084 · C59 §2.10.3) — the founder's *"clean the
+      // rest on the top"* for the PRYZM 3D split. Pins the retirement of the canvas-centred
+      // segmented view strip AND — the arm that earns the file — that the `#container`
+      // positioning invariant the strip used to assert AS A SIDE EFFECT now has a named owner
+      // (`ensureViewportPositioned`). Retiring the strip without moving that assertion would
+      // have re-anchored the pane shell and every floating panel to the wrong ancestor: L-13027
+      // reintroduced by the change made to remove it. ⚠ ADDED IN THE SAME COMMIT AS THE FILE —
+      // this list is an ALLOWLIST (§L-851): a spec outside it is never discovered, and
+      // "never ran" and "passed" print the same value.
+      'apps/editor/src/ui/layout/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

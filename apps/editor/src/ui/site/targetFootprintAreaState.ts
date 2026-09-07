@@ -30,6 +30,24 @@ const listeners = new Set<Listener>();
 /** `null` ⇒ the user has proposed nothing and only the permitted footprint is on the ground. */
 let proposal: TargetFootprintProposal | null = null;
 
+/**
+ * §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078, founder 2026-09-07: *"when I click 'use this plate' I
+ * want to still be kept on the massing options — so that I can select another one"*) — WHICH
+ * generated option the live proposal came from, or `null` when it came from anywhere else.
+ *
+ * ⛔ IT IS A SECOND SLOT, NOT A FIELD ON `TargetFootprintProposal`, and that is deliberate. A
+ * proposal is also produced by the TYPED-AREA solver, which knows nothing about massing options
+ * and would have to carry a permanently-null id; and `adoptProposalAsEnvelope` reads the
+ * proposal as geometry. The option id is a fact about the CHOICE, not about the plate — so it
+ * lives beside the plate and travels with the same write.
+ *
+ * ⭐ IT CANNOT GO STALE, BECAUSE IT IS WRITTEN BY THE SAME FUNCTION THAT WRITES THE PLATE. Every
+ * existing caller passes no second argument and therefore CLEARS it — typing an area, or the
+ * staleness gate withdrawing the proposal, both leave no chosen option marked. There is no seam
+ * at which a card could show "chosen" against a plate the user did not choose.
+ */
+let chosenOptionId: string | null = null;
+
 function notify(): void {
     for (const fn of [...listeners]) {
         try {
@@ -53,16 +71,40 @@ export function getTargetFootprintProposal(): TargetFootprintProposal | null {
  * to ask "what shape does a refusal have?", and the answer it would invent is exactly the shape the
  * refusal exists to withhold.
  */
-export function setTargetFootprintProposal(next: TargetFootprintProposal | null): void {
+export function setTargetFootprintProposal(
+    next: TargetFootprintProposal | null,
+    /**
+     * §USE-THIS-PLATE-KEEPS-THE-LOOP — the generated massing option this plate came from.
+     * DEFAULTS TO NULL so every caller that does not choose an option clears the mark rather
+     * than inheriting the previous one (see `chosenOptionId`'s note).
+     */
+    chosenId: string | null = null,
+): void {
     const span = _tracer.startSpan('pryzm.site.setTargetFootprintProposal');
     try {
-        if (proposal === next) return;
+        if (proposal === next && chosenOptionId === chosenId) return;
         proposal = next;
+        // ⛔ A CHOSEN ID WITHOUT A PLATE IS NOT A STATE. Withdrawing the proposal withdraws the
+        // mark with it, so no surface can render "chosen" beside nothing.
+        chosenOptionId = next === null ? null : chosenId;
         span.setAttribute('pryzm.targetFootprint.present', next !== null);
+        span.setAttribute('pryzm.targetFootprint.chosenOption', chosenOptionId ?? 'none');
         notify();
     } finally {
         span.end();
     }
+}
+
+/**
+ * THE ONE READ of the choice. `null` ⇒ the live plate did not come from a generated option (it
+ * was typed, or there is no plate at all).
+ *
+ * ⚠ NOT STALENESS-GATED ON ITS OWN. Ask `resolveLiveTargetFootprintProposal` FIRST, exactly as
+ * every surface already does for the plate: a mark rendered beside a withdrawn plate would be
+ * the §VERIFICATION-ARTIFACT-CAN-PREDATE-SUBJECT shape wearing a tick.
+ */
+export function getChosenMassingOptionId(): string | null {
+    return chosenOptionId;
 }
 
 /** Subscribe a surface. Returns its own unsubscribe. */
@@ -87,6 +129,7 @@ export function clearTargetFootprintProposal(): void {
 /** Test-only reset — clears the slot and drops every subscriber. */
 export function __resetTargetFootprintProposalForTests(): void {
     proposal = null;
+    chosenOptionId = null;
     listeners.clear();
 }
 

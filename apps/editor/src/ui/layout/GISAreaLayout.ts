@@ -400,6 +400,8 @@ import {
     getTargetFootprintProposal,
     setTargetFootprintProposal,
     clearTargetFootprintProposal,
+    // §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078) — which generated option the live plate came from.
+    getChosenMassingOptionId,
 } from '../site/targetFootprintAreaState';
 import { describeDesignStages } from '../site/designStageModel';
 import {
@@ -420,6 +422,8 @@ import {
     MASSING_OPTIONS_GENERATE_BTN_TESTID,
     MASSING_OPTIONS_CLEAR_BTN_TESTID,
     MASSING_PICK_ATTR,
+    // §FOLD-MEMORY (L-13078) — re-attach the disclosure memory after the card's innerHTML swap.
+    wireEnvelopeCardFoldMemory,
 } from '../site/envelopeCardSections';
 import {
     enumerateMassingOptions,
@@ -1457,6 +1461,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // a building is placed (hasFormaMassingPlaced); disabled while a tour runs.
     let globeTourBtn: HTMLButtonElement | null = null;
 
+    /**
+     * §BIM-3D-CHROME-QUIET (founder 2026-09-07 · L-13027 · C59 §2.10.3) — THE ONE OWNER OF
+     * `#container`'s POSITIONING CONTEXT.
+     *
+     * ⚠ THIS EXISTS BECAUSE A TEARDOWN MOVED AN INVARIANT. `mountResultToggleBar` used to be
+     * the de-facto asserter of `#container { position: relative }` on the BIM path — an
+     * accident of it needing an offset parent for its own `position: absolute` bar. The
+     * segmented strip no longer mounts on the PRYZM 3D split (below), and `#container` is the
+     * mount parent of `mountSiteAuthoringPaneShell` (`position: absolute; inset: 0`) and of
+     * every floating panel in this file. A static `#container` would silently re-anchor all of
+     * them to the nearest positioned ANCESTOR — the founder's chrome-lands-in-the-wrong-place
+     * defect class (L-13027), which is precisely what this lane is retiring.
+     *
+     * So the assertion is now a NAMED, CALLED function rather than a side effect of a control
+     * that may or may not be built. `absolute` is left alone deliberately: it is also a
+     * containing block, and the workspace layout sets it in half-canvas modes.
+     */
+    const ensureViewportPositioned = (viewport: HTMLElement): void => {
+        if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
+            viewport.style.position = 'relative';
+        }
+    };
+
     const removeResultToggle = (): void => {
         if (resultToggle?.parentElement) resultToggle.parentElement.removeChild(resultToggle);
         resultToggle = null;
@@ -1522,6 +1549,56 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         } catch (err) {
             console.warn('[gis] applyBimDualPane: split-view activate failed (non-fatal):', err);
         }
+        // ══════════════════════════════════════════════════════════════════════
+        // §BIM-3D-CHROME-QUIET (founder 2026-09-07 · L-13027 · L-13084)
+        //
+        // *"The PRYZM 3D view shall have just the two dropdowns to switch to other view — as
+        //  we have on the initial layout — same principle — clean the rest on the top — make
+        //  it simple."*
+        //
+        // The segmented `[◧ 3D + plan][◉ 3D globe][◉ 3D Site]` strip is `position: absolute;
+        // top: 64px; left: 50%` on `#container` at `zIndex: 30` — CENTRED ON THE CANVAS, not
+        // on a view. That is the L-13027 defect class verbatim (*"a control anchored to the
+        // canvas cannot be 'centred on the view' once the view stops being the canvas"*), and
+        // the BIM dual pane is exactly the layout where it stops being one: the plan pane
+        // takes the right 40 %, so the strip's 50 % centre lands off the 3D view it names.
+        //
+        // ⭐ IT IS TORN DOWN HERE AND ONLY HERE — the ONE place the BIM dual pane becomes the
+        // view — rather than by a guard inside `mountResultToggleBar`. A guard would have to
+        // read "which view is current" at MOUNT time, and every re-entry to the globe/site
+        // (`showSiteResultView('3D')`) mounts the strip BEFORE `applyResultView` moves that
+        // state — so the guard would read the stale previous view and refuse the mount the
+        // user just asked for. A teardown at the transition has no such window.
+        //
+        // ⛔ `mountResultToggleBar` IS NOT DELETED, and must not be: `ensureResultToggle()`
+        // (the Forma "3D Site" sub-bar) and `showSiteResultView('3D')` (the photoreal globe)
+        // both build it, and on THOSE views it is still the switch. This retires it from ONE
+        // view, which is the one the founder named.
+        //
+        // ⭐ WHERE THE THREE FUNCTIONS STILL LIVE, so nothing becomes unreachable (the whole
+        // point — and the reason this is not a delete):
+        //   · `◉ 3D Site`     → `GIS_ACTIONS['site.earth']`      · `pryzmEnterSiteView('3d')`
+        //   · `◉ 3D globe`    → `GIS_ACTIONS['site.globe']`      · `pryzmShowSiteResultView('3D')`
+        //   · `◧ 3D + plan`   → `GIS_ACTIONS['site.bim-split']`  · this very function
+        // all three RENDERED, live, by `renderGisActions(window)` in the Project Browser's GIS
+        // tab (`ProjectBrowserPanel._buildGISPanel`, `:989`) — and `gisActionRegistry.test.ts`
+        // fails the build if a declared action's entry point stops being registered, so the
+        // route cannot silently rot. ⚠ THIS IS A REAL COST, STATED: it is a rail-panel route,
+        // not a one-gesture on-view switch. The on-view replacement the founder asked for is
+        // the two per-pane dropdowns, and those need a `PaneLayoutStore` for this split, which
+        // it does not have (`paneViewModel.ts:142-149` refuses `bim-3d` per-pane BY NAME —
+        // C59 Phase 3). That is deferred architecture, reported to the founder, not guessed at
+        // here.
+        // ══════════════════════════════════════════════════════════════════════
+        removeResultToggle();
+        const viewport = document.getElementById('container');
+        if (viewport) ensureViewportPositioned(viewport);
+        console.log(
+            '[gis] §BIM-3D-CHROME-QUIET — segmented view-mode strip retired on the PRYZM 3D split '
+            + '(L-13027: it centres on #container, which this layout no longer fills). The three '
+            + 'views stay reachable as GIS_ACTIONS site.earth / site.globe / site.bim-split in the '
+            + 'GIS panel. #container positioning re-asserted by ensureViewportPositioned().',
+        );
     };
 
     /**
@@ -1681,9 +1758,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.error('[gis] mountResultToggleBar: #container not found');
             return;
         }
-        if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
-            viewport.style.position = 'relative';
-        }
+        ensureViewportPositioned(viewport);
         // (Re)build the floating control so it sits ABOVE the Cesium overlay (z 20).
         removeResultToggle();
         const bar = document.createElement('div');
@@ -1890,7 +1965,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // live plan map); this is the ONLY place it is disposed — reached exclusively
         // via the onboarding "Generate" action's pryzmShowSiteResultView() handoff.
         closeBoundaryMap2D();
-        mountResultToggleBar();
+        // §BIM-3D-CHROME-QUIET — the '2D' landing IS the PRYZM 3D split, which no longer
+        // carries the strip (`applyBimDualPane` tears it down). Mounting it here first would
+        // paint a bar for one frame and then remove it — a flash, and a control the user can
+        // see and cannot click. '3D' (the photoreal globe) still mounts it: that is a view
+        // where it is the switch, and the pre-mount is what makes it visible during the
+        // seconds-long Cesium activation below.
+        if (initial !== '2D') mountResultToggleBar();
         console.log(`[gis] showSiteResultView: landing on "${initial}".`);
         // §FIX-GLOBE-CLICK-NAVIGATES-OUT (L-318) — onboarding "Generate" landing; contain any
         // activation failure so it surfaces in-editor retry rather than ejecting the user to /projects.
@@ -2967,6 +3048,27 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 </details>`;
     };
 
+    /**
+     * §FOLD-MEMORY (L-13078, FOUNDER RULING 2026-09-07: *"every fold on the card remembers"*) —
+     * the two things the `panel.innerHTML = …` swap destroys and this puts back.
+     *
+     * The card is rebuilt WHOLE on every repaint, so before this every `<details>` came back
+     * collapsed and the scroll offset came back at 0. That is what closed the compare loop the
+     * massing feature exists for: picking a plate repaints the card, and the option list slammed
+     * shut under the founder's cursor.
+     *
+     * ⛔ THE OPEN STATE ITSELF LIVES IN `envelopeCardSections.ts`, NOT HERE, because that is
+     * where `fold()` decides whether to emit `open` — one owner for one fact. This function only
+     * re-attaches the listeners the swap threw away and hands back the scroll offset the caller
+     * captured a line before the swap.
+     *
+     * ⚠ CALL IT AFTER EVERY SWAP, and capture `panel.scrollTop` BEFORE the swap — the assignment
+     * has already zeroed it by the time this runs.
+     */
+    const restoreEnvelopeCardDisclosure = (panel: HTMLDivElement, priorScrollTop: number): void => {
+        wireEnvelopeCardFoldMemory(panel, { scroller: panel, scrollTop: priorScrollTop });
+    };
+
     const wireEnvelopeClose = (panel: HTMLDivElement): void => {
         const btn = panel.querySelector('[data-testid="envelope-close"]') as HTMLButtonElement | null;
         if (!btn) return;
@@ -3333,7 +3435,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 if (option === null || option.proposal === null) return;
                 // ⛔ ONE PROPOSAL CHANNEL. The picked plate becomes THE §5 proposal, so the card's
                 // target-area section, the scene and the adopt step all read one answer.
-                setTargetFootprintProposal(option.proposal);
+                //
+                // §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078, founder 2026-09-07: *"when I click
+                // 'use this plate' I want to still be kept on the massing options — so that I
+                // can select another one"*). Three things now hold across the repaint this click
+                // causes, and none of them existed before:
+                //   1. the OPTION ID travels with the plate (second argument), so the row he
+                //      clicked can be marked and the summary can name it;
+                //   2. the massing fold STAYS OPEN — `fold()` re-emits `open` from the session
+                //      memory §FOLD-MEMORY installs (founder ruling: every fold remembers);
+                //   3. the card's SCROLL OFFSET survives the `innerHTML` swap, so the row does
+                //      not jump out from under the cursor.
+                // ⛔ AND THE PICK IS STILL A PLAIN RE-PICK. Nothing is disabled, nothing is
+                // consumed: clicking a different option here overwrites the same one slot.
+                setTargetFootprintProposal(option.proposal, option.id);
                 targetAreaTyped = Math.round(option.proposal.achievedAreaM2);
                 targetAreaStatement =
                     `${option.label} — ${option.proposal.statement} `
@@ -3572,6 +3687,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             recomputeAvailable: unavailableReason === null,
             unavailableReason,
         });
+        // §FOLD-MEMORY (L-13078) — CAPTURED BEFORE THE SWAP, because the assignment on the next
+        // line zeroes it. The card scrolls inside its own `maxHeight`, and with folds now
+        // remembering their open state it can be tall — losing the offset on every repaint
+        // would push the row under the cursor out of reach, which is the consequence the
+        // founder was warned about when he ruled that every fold remembers.
+        const envScrollBefore = panel.scrollTop;
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>
@@ -3585,6 +3706,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
+        restoreEnvelopeCardDisclosure(panel, envScrollBefore);
         // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1974) — the route OUT of this arm, which is the
         // half L-1652 did not build: naming the withheld sections told the founder what he was
         // missing without telling him how to get it, and the only route the copy did name
@@ -4115,6 +4237,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             + `letter-spacing:.03em;text-transform:uppercase;">${escHtml(chip.label)}</span>`;
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
+        // §FOLD-MEMORY (L-13078) — CAPTURED BEFORE THE SWAP, because the assignment on the next
+        // line zeroes it. The card scrolls inside its own `maxHeight`, and with folds now
+        // remembering their open state it can be tall — losing the offset on every repaint
+        // would push the row under the cursor out of reach, which is the consequence the
+        // founder was warned about when he ruled that every fold remembers.
+        const envScrollBefore = panel.scrollTop;
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
                <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${safeChip}${safeCloseBtn}
@@ -4126,6 +4254,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
+        restoreEnvelopeCardDisclosure(panel, envScrollBefore);
         wireStudyHeightEntry(panel);
         wireEnvelopeAbsenceSolve(panel);
         // §RESI-ORCH-STAGE-WIRE — the "Do this next" pill. On THIS arm the massing control is the
@@ -4518,6 +4647,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 : '';
             const safeCloseBtn = envelopeCloseButtonHtml();
             const safeEnvToggle = envelopeToggleHtml();
+            // §FOLD-MEMORY (L-13078) — CAPTURED BEFORE THE SWAP, because the assignment on the next
+            // line zeroes it. The card scrolls inside its own `maxHeight`, and with folds now
+            // remembering their open state it can be tall — losing the offset on every repaint
+            // would push the row under the cursor out of reach, which is the consequence the
+            // founder was warned about when he ruled that every fold remembers.
+            const envScrollBefore = panel.scrollTop;
             panel.innerHTML =
                 `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
                    <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${safeChip}${safeCloseBtn}
@@ -4540,6 +4675,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  ${safeEnvToggle}`;
             wireEnvelopeToggle(panel);
             wireEnvelopeClose(panel);
+            restoreEnvelopeCardDisclosure(panel, envScrollBefore);
             wireManualZoneButton(panel);
             wireStudyHeightEntry(panel);
             // §RESI-ORCH-STAGE-WIRE — the "do this next" pill. On THIS arm the massing control is
@@ -4942,9 +5078,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 } catch (err) {
                     console.warn('[gis][envelope-card] authored-massing state failed (non-fatal):', err);
                 }
+                // §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078) — WHICH option the live plate came
+                // from, so the row he clicked says so instead of the pick vanishing into a
+                // second collapsed fold. ⚠ THE STALENESS GATE IS ASKED FIRST, exactly as the
+                // target-area section does: a mark rendered beside a WITHDRAWN plate would be a
+                // tick on a claim that has been retracted. `resolveLiveTargetFootprintProposal`
+                // clears the slot when it withdraws, and clearing the slot clears the id.
+                const liveForMark = resolveLiveTargetFootprintProposal(nowFootprintM2);
+                const chosenId = liveForMark === null ? null : getChosenMassingOptionId();
                 return buildMassingOptionsFold(
                     massingOptions === null ? { kind: 'idle' } : { kind: 'computed', set: massingOptions },
                     authoredState,
+                    chosenId,
                 );
             } catch (err) {
                 console.warn('[gis][envelope-card] massing options fold failed (non-fatal):', err);
@@ -4974,6 +5119,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // sections at all. The card now carries FOUR first-class, default-collapsed folds:
         // Designed vs permitted · How these were measured · Full site & massing data · Why
         // these numbers? — each summary carrying its fact (§UX1-PROSE-ALTITUDE).
+        // §FOLD-MEMORY (L-13078) — CAPTURED BEFORE THE SWAP, because the assignment on the next
+        // line zeroes it. The card scrolls inside its own `maxHeight`, and with folds now
+        // remembering their open state it can be tall — losing the offset on every repaint
+        // would push the row under the cursor out of reach, which is the consequence the
+        // founder was warned about when he ruled that every fold remembers.
+        const envScrollBefore = panel.scrollTop;
         panel.innerHTML =
             `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:8px;cursor:grab;">
                <span style="font-weight:600;font-size:var(--pryzm-panel-font-size-title);color:#6600FF;">Buildable envelope</span>${safeBadge}${safeCloseBtn}
@@ -5000,6 +5151,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
+        restoreEnvelopeCardDisclosure(panel, envScrollBefore);
         wireEnvelopeCostSelects(panel);
         wireSiteHighlightRows(panel);
         wireTargetAreaEntry(panel);
@@ -5805,9 +5957,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.error('[gis][forma] mountFormaViewToggle: #container not found');
             return;
         }
-        if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
-            viewport.style.position = 'relative';
-        }
+        ensureViewportPositioned(viewport);
         if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
         // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — the Forma view is NO LONGER a rival
         // bar that hides/replaces the segmented switch. Guarantee the ONE top-level
@@ -6687,9 +6837,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // action; see `window.pryzmResetPanelLayout` below.
             const viewport = document.getElementById('container');
             if (!viewport) return;
-            if (viewport.style.position !== 'absolute' && viewport.style.position !== 'relative') {
-                viewport.style.position = 'relative';
-            }
+            ensureViewportPositioned(viewport);
 
             // ── §UX1-PANEL-DEFAULTS — `Reset panel layout` ────────────────────────
             // D2's obligation: whatever the persistence rule is, the user must be able to

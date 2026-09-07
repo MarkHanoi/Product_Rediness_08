@@ -482,6 +482,46 @@ export function isReadableGlobeSurfaceHeight(h: number | null | undefined): h is
     return typeof h === 'number' && Number.isFinite(h) && Math.abs(h) <= GLOBE_SURFACE_HEIGHT_BAND_M;
 }
 
+/**
+ * §GLOBE-HEIGHT-READABLE (L-13078 / D10, founder Barcelona 2026-09-07) — how a `globe.getHeight`
+ * reading must be PRINTED, so a probe can never again report an artefact as a measurement.
+ *
+ * ⭐ WHY A FORMATTER AND NOT JUST THE PREDICATE ABOVE. The predicate landed on the two arms that
+ * DECIDE something (`§COARSE-VS-DETAILED`'s difference and the below-terrain count) and not on the
+ * field the founder actually quoted. So `centroidTerrainSurface=-6328484.2m` still printed beside a
+ * `✓ buildings on/above surface` that the SAME artefact had made unfailable, and the two together
+ * are worse than no probe at all: they read as "the terrain is 6,328 km out AND the buildings are
+ * fine", which is not a state the world can be in. A diagnostic's job is to be READ, so the guard
+ * has to reach the string, not only the arithmetic.
+ *
+ * THREE OUTCOMES, KEPT DISTINCT (§CONTEXT-DATA-HONESTY — failure and empty are different values):
+ *   · a reading inside the band          → the number, in metres.
+ *   · a finite reading OUTSIDE the band  → named as the artefact it is, WITH the raw value, so a
+ *                                          reader can still recognise the Z-axis ray-origin
+ *                                          signature. ⛔ The number is never hidden and never
+ *                                          "corrected" — it is labelled.
+ *   · `undefined` / `null` / `NaN`       → "not streamed": Cesium had no tessellated mesh here.
+ *
+ * Pure; no Cesium, no DOM.
+ */
+export function describeGlobeSurfaceHeight(h: number | null | undefined): string {
+    // ⛔ DO NOT branch off `isReadableGlobeSurfaceHeight` here, however natural it reads. That
+    // predicate is typed `h is number`, so TypeScript narrows the FAILING branch to
+    // `null | undefined` — and that narrowing is a LIE about this function's domain: a finite
+    // reading OUTSIDE the band fails the predicate and is still very much a number. Written that
+    // way the artefact arm below became unreachable by type (`Property 'toFixed' does not exist on
+    // type 'never'`, root tsc) — i.e. the one branch that exists to NAME the −6 328 484 m artefact
+    // could never have run. Widen to a plain number first, then decide, so "not readable" and
+    // "not a number" stay the different things they are.
+    const n: number | null = typeof h === 'number' && Number.isFinite(h) ? h : null;
+    if (n === null) return 'undefined(not streamed)';
+    if (Math.abs(n) <= GLOBE_SURFACE_HEIGHT_BAND_M) return `${n.toFixed(1)}m`;
+    return (
+        `UNREADABLE(${n.toFixed(1)}m — outside ±${GLOBE_SURFACE_HEIGHT_BAND_M} m; this is the ` +
+        'Cesium Z-axis ray-origin artefact, NOT an elevation, and NOT a geoid/datum error)'
+    );
+}
+
 export function resolveGroundSample(sampled: number | null | undefined, centroidBaseM: number): number {
     // §GLOBE-HEIGHT-READABLE (L-13078) — ⚠ THIS USED TO READ `Number.isFinite(sampled)`, and that is
     // the guard the −6 328 484 m artefact walks straight through. The rule the doc comment above

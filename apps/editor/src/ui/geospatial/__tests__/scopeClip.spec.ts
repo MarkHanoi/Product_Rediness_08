@@ -11,6 +11,7 @@ import { latLonToSceneXZ, sceneXZToLatLon } from '../../site/boundaryProjection'
 import {
     capVerdict,
     completeScopeRadiusM,
+    SCOPE_READ_CEILING_LABEL,
     createScopeClipTally,
     createScopeClipper,
     type LonLat,
@@ -300,5 +301,56 @@ describe('tally + cap verdict — the honesty line carries the numbers', () => {
         expect(all?.radiusM).toBe(891);
         expect(all?.boundBy).toMatch(/every cap holds/);
         expect(completeScopeRadiusM(measured, [])).toBeNull();
+    });
+
+    /**
+     * ⭐ §SITE-SCOPE D2 (lane SCOPE-CUT, 2026-09-07) — THE READ CEILING IS A SECOND, DIFFERENT
+     * CEILING, and the founder's "4x the area" ask runs into it long before any render cap.
+     *
+     * MEASURED with this repo's own `tileCountCovering` / `zoomForExtent` over the real lattice
+     * bbox (`contextFetchBbox`) at the buildings fan-out cap of 112, on 2026-09-07:
+     *
+     *   radius   Barcelona   Madrid   Cordoba   Lisbon   Oslo   Reykjavik   zoom the reader picks
+     *   1781 m       81        81        64        81     169      225      z16 (Oslo/Reykjavik z15)
+     *   2519 m      144       144       144       132     324      420      z15 EVERYWHERE
+     *   3562 m      289       272       256       272     600      784      z15 (north: z14)
+     *
+     * So past 1781 m EVERY city drops below z16 — and the bake's `--drop-densest-as-needed` has
+     * already DELETED footprints at z15. A cap thins; this DELETES. The mark must therefore report
+     * the read ceiling when it is the tighter of the two, and must report it even when NO density
+     * has been measured yet, because it is knowable before any load.
+     */
+    it('⛔ the READ ceiling wins the mark when it is tighter, and says so with kind:"read"', () => {
+        const measured: SiteScope = { shape: 'circle', radiusM: 3562 };
+        const r = completeScopeRadiusM(measured, [{ layer: 'buildings', eligible: 5440, cap: 14000 }], 1781);
+        expect(r?.kind).toBe('read');
+        expect(r?.radiusM).toBe(1781);
+        expect(r?.boundBy).toBe(SCOPE_READ_CEILING_LABEL);
+    });
+
+    it('a TIGHTER cap still wins — the read ceiling does not mask a biting cap', () => {
+        const measured: SiteScope = { shape: 'circle', radiusM: 891 };
+        const r = completeScopeRadiusM(measured, [{ layer: 'trees', eligible: 2462, cap: 1500 }], 1781);
+        expect(r?.kind).toBe('cap');
+        expect(r?.boundBy).toBe('trees');
+        expect(r?.radiusM).toBeCloseTo(891 * Math.sqrt(1500 / 2462), 6);
+    });
+
+    it('⛔ it reports the read ceiling even with NOTHING measured — "not measured" must not read as "clean"', () => {
+        const measured: SiteScope = { shape: 'circle', radiusM: 3562 };
+        expect(completeScopeRadiusM(measured, [], 1781)).toEqual({
+            radiusM: 1781, boundBy: SCOPE_READ_CEILING_LABEL, kind: 'read',
+        });
+        // …and with no ceiling supplied the old behaviour is byte-for-byte unchanged.
+        expect(completeScopeRadiusM(measured, [])).toBeNull();
+    });
+
+    it('an absent / nonsense ceiling is ignored rather than treated as 0 (a 0 mark would read as "nothing is complete")', () => {
+        const measured: SiteScope = { shape: 'circle', radiusM: 891 };
+        for (const bad of [null, undefined, 0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+            const r = completeScopeRadiusM(measured, [{ layer: 'trees', eligible: 2462, cap: 3000 }], bad as number | null);
+            expect(r?.kind, `ceiling ${String(bad)}`).toBe('none');
+            expect(r?.radiusM).toBe(891);
+        }
     });
 });

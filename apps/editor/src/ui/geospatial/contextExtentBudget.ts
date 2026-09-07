@@ -163,34 +163,59 @@ export const CTX_SCOPE_MAX_RADIUS_M = 3562;
  * exactly what the founder's *"within the scope should be sound — really detailed and completed"*
  * forbids. So the slider may now REACH 3 562 m, and past this line it SAYS what it costs.
  *
- * ⭐ MEASURED 2026-09-07 with this repo's own `tileCountCovering` / `zoomForExtent`, over the
- * longitude-honest bbox (`scopeFetchHalfDeg`), against `CTX_BUILDINGS_MAX_TILES_PER_FETCH` = 112:
+ * ⭐ RE-MEASURED 2026-09-07 (lane SCOPE-CUT) with this repo's own `tileCountCovering` /
+ * `zoomForExtent` over the bbox THE READER ACTUALLY USES — `contextFetchBbox`, i.e. the lattice
+ * box, which is `contextBboxAround` (already 1/cos φ longitude-honest) GROWN by 0.55 × the 0.001°
+ * snap. Against `CTX_BUILDINGS_MAX_TILES_PER_FETCH` = 112. Reykjavík added.
  *
- * | radius | Barcelona | Madrid | Córdoba | Lisbon | Oslo | zoom the reader picks |
- * |--------|-----------|--------|---------|--------|------|-----------------------|
- * | 1781 m |    81     |   81   |   64    |   72   | 156  | z16 everywhere but Oslo (z15) |
- * | 2519 m |   144     |  144   |  144    |  132   | 306  | **z15** — over the cap |
- * | 3562 m |   272     |  256   |  256    |  256   | 576  | **z15** — 2.4× over the cap |
- * | 5038 m |   529     |  529   |  484    |  484   | 1156 | **z14** |
+ * ⚠ SEVERAL CELLS OF THE FIRST TABLE WERE WRONG, LOW, and a tile table that under-reads is the one
+ * direction that matters: Lisbon 1781 m read 72 and is 81; Oslo 1781 m read 156 and is 169;
+ * Barcelona 3562 m read 272 and is 289. The old numbers were taken over the un-grown box, so they
+ * omitted the ~4.5 % the lattice adds — which is a whole tile row at these extents.
  *
- * ⭐ AND THE HONEST ROUTE TO THE FOUNDER'S FULL ASK IS A STITCH, NOT A COARSER READ — also measured.
- * Splitting the same bbox into N×N sub-boxes and reading EACH at z16 keeps every sub-read inside
- * the 112 cap:
+ * | radius | Barcelona | Madrid | Córdoba | Lisbon | Oslo | Reykjavík | zoom the reader picks |
+ * |--------|-----------|--------|---------|--------|------|-----------|-----------------------|
+ * | 1781 m |    81     |   81   |   64    |   81   | 169  |    225    | z16 — Oslo/Reykjavík z15 |
+ * | 2519 m |   144     |  144   |  144    |  132   | 324  |    420    | **z15** — Reykjavík z14 |
+ * | 3562 m |   289     |  272   |  256    |  272   | 600  |    784    | **z15** — Oslo/Reykjavík z14 |
  *
- * | radius | 2×2 worst sub-box | 3×3 | 4×4 | verdict |
- * |--------|-------------------|-----|-----|---------|
- * | 3562 m | 81 (Oslo 169 ✗)   | 42–81 ✓ | 25–49 ✓ | **3×3 works in every test city** |
- * | 5038 m | 144 ✗             | 81 ✓ (Oslo 144 ✗) | 49–100 ✓ | **4×4 works in every test city** |
+ * ⛔ SO PAST 1 781 m *EVERY* CITY LEAVES z16. That is the sentence the slider has to carry: not
+ * "a bigger slab with a thinner neighbourhood" but a bigger slab with FEWER BUILDINGS IN IT, because
+ * the bake's `--drop-densest-as-needed` DELETES from a dense core rather than coarsening it.
  *
- * So the full 4× area IS reachable at z16 — the cost is the tile count: 272 tiles at 3 562 m and
- * 529 at 5 038 m against 81 today at Barcelona, i.e. ~3.4× and ~6.5× the building read.
+ * ⚠ AND "5 038 m" IS A SIDE, NOT A RADIUS. The founder's ask is 4× the AREA of the default
+ * 2 519 × 2 519 m rectangle → a 5 038 m square → a CIRCUMSCRIBING radius of 3 562 m, which is what
+ * `CTX_SCOPE_MAX_RADIUS_M` now reaches. The old table's "5038 m" row measured a 5 038 m RADIUS —
+ * twice the ask — and is dropped rather than corrected, because it answered a question nobody asked.
+ *
+ * ⭐ THE HONEST ROUTE TO THE FULL ASK IS A STITCH, NOT A COARSER READ — measured the same way.
+ * Split the bbox into N×N sub-boxes and read EACH at z16; the binding number is the WORST sub-box:
+ *
+ * | at 3562 m | Barcelona | Madrid | Córdoba | Lisbon | Oslo | Reykjavík | verdict at cap 112 |
+ * |-----------|-----------|--------|---------|--------|------|-----------|--------------------|
+ * | 2×2 worst |    81     |   81   |   81    |   81   | 169 ✗|   225 ✗   | fails in the north |
+ * | 3×3 worst |    49     |   42   |   36    |   42   |  81 ✓|   100 ✓   | **✓ EVERY test city** |
+ * | 4×4 worst |    25     |   25   |   25    |   25   |  49 ✓|    64 ✓   | ✓, and inside the 64 default |
+ *
+ * ⭐ **A 3×3 z16 STITCH REACHES THE FOUNDER'S FULL 4× AREA IN EVERY TEST CITY AT THE EXISTING 112
+ * CAP — NO CAP RAISE IS NEEDED.** The cost is the tile COUNT: total tiles read at 3×3 / 3 562 m are
+ * Barcelona 361, Madrid 342, Córdoba 324, Lisbon 342, Oslo 702, Reykjavík 900 — against 81 / 81 /
+ * 64 / 81 / 169 / 225 today, i.e. **4.0–4.5× the building read**, which is what quadrupling the area
+ * costs when the zoom is held. In bytes, using L-579's own measured z16 buildings tiles (20–32 KB):
+ * Barcelona goes from ~1.6–2.6 MB to ~7.2–11.6 MB for the buildings layer.
+ *
+ * ⛔ 4×4 IS THE BETTER SHAPE IF IT LANDS: its worst sub-box fits the DEFAULT 64 cap everywhere, so
+ * every scope-derived layer (roads, parks, rail, water, trees, furniture) could stitch too without
+ * borrowing the buildings' cap — at 400 sub-reads for Barcelona, 756 for Oslo, 961 for Reykjavík.
  *
  * ⛔ THE STITCH IS NOT IMPLEMENTED HERE, ON PURPOSE. It belongs in `contextTiles.ts` /
  * `contextBuildings.ts`, which lane STARTUP-61S is concurrently rewriting to cut a 61 s start-up —
- * and a 3.4–6.5× read is the exact opposite of that lane's goal, so it is a trade for the two lanes'
+ * and a 4.0–4.5× read is the exact opposite of that lane's goal, so it is a trade for the two lanes'
  * owner to make with these numbers in hand, not a constant for this file to bump behind their back.
- * Until it lands, a scope past this ceiling is a BIGGER SLAB WITH A THINNER NEIGHBOURHOOD, and the
- * slider says so in words (C12 §13.5).
+ * Until it lands, a scope past this ceiling draws FEWER BUILDINGS, not a thinner rim — and the
+ * slider now says exactly that, with the metre figure, in `completenessCaption` (C12 §13.5). The
+ * mark on its track is `min(measured cap densities, this ceiling)`, via `completeScopeRadiusM`'s
+ * `readCompleteCeilingM` argument, which `CesiumViewport.getCompleteScopeMark()` passes.
  */
 export const CTX_SCOPE_READ_COMPLETE_CEILING_M = 1781;
 

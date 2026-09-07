@@ -132,13 +132,48 @@ export function parseProxyResponse(json: unknown): ParcelFeature | null {
  * ask" (§CONTEXT-DATA-HONESTY). Never throws.
  */
 export async function fetchParcelByRefcat(refcat: string): Promise<ParcelFeature | null> {
+    const outcome = await lookupParcelByRefcat(refcat);
+    return outcome.status === 'ok' ? outcome.parcel : null;
+}
+
+/**
+ * §CADASTRAL-UNREACHABLE-IS-NOT-A-MISS (D-CAD-A, founder 2026-09-07: *"make sure this works
+ * sound"* about cadastral entry) — the SAME lookup, with its three outcomes kept apart.
+ *
+ * ⭐ WHY THIS EXISTS. `fetchParcelByRefcat`'s own doc comment has said since it was written that
+ * *"the caller MUST NOT collapse those into one message — the miss is 'Catastro was asked and had
+ * no such parcel', which is a different answer from 'we could not ask' (§CONTEXT-DATA-HONESTY)"*.
+ * It then returned a bare `null` for both, so the caller COULD not honour it: the onboarding panel
+ * told a user with no network *"Catastro (Spain) has no parcel with reference 1722706DF3812B —
+ * check the reference"*, which is the product asserting the user's correct reference is wrong. The
+ * instruction was right and unenforceable; this makes it enforceable. (Its sibling message,
+ * *"Could not reach Catastro…"*, was authored on a `catch` around a function documented never to
+ * throw — the one honest string in the feature, wired to nothing. It is now reachable.)
+ *
+ * ⛔ THE THREE OUTCOMES ARE NOT RANKED, THEY ARE DIFFERENT:
+ *   · `ok`          — Catastro answered with a parcel.
+ *   · `miss`        — Catastro answered, and there is no such parcel. An ANSWER.
+ *   · `unreachable` — nobody answered (offline, proxy 5xx, non-JSON). NOT an answer, and never
+ *                     to be rendered as one. `reason` carries which, for the console.
+ *
+ * Never throws.
+ */
+export type RefcatLookupOutcome =
+    | { readonly status: 'ok'; readonly parcel: ParcelFeature }
+    | { readonly status: 'miss' }
+    | { readonly status: 'unreachable'; readonly reason: string };
+
+export async function lookupParcelByRefcat(refcat: string): Promise<RefcatLookupOutcome> {
     const span = _tracer.startSpan('pryzm.parcel.fetchParcelByRefcat');
     span.setAttribute('pryzm.parcel.provider', 'catastro');
     try {
         const rc = (refcat ?? '').trim().toUpperCase();
         if (rc.length === 0) {
             span.setAttribute('pryzm.parcel.hit', false);
-            return null;
+            // An empty reference is not a network failure and it is not Catastro's answer either
+            // — nothing was asked. It reaches the same "no parcel" branch it always did, because
+            // the sniffer never produces one; the caller's copy names the reference it read.
+            return { status: 'miss' };
         }
         span.setAttribute('pryzm.parcel.refcat', rc);
 
@@ -150,12 +185,12 @@ export async function fetchParcelByRefcat(refcat: string): Promise<ParcelFeature
         } catch (err) {
             console.warn('[gis] catastro: network error (refcat lookup)', err);
             span.setAttribute('pryzm.parcel.hit', false);
-            return null;
+            return { status: 'unreachable', reason: `network error: ${String(err)}` };
         }
         if (!res.ok) {
             console.warn('[gis] catastro: proxy returned', res.status, res.statusText, '(refcat lookup)');
             span.setAttribute('pryzm.parcel.hit', false);
-            return null;
+            return { status: 'unreachable', reason: `proxy returned ${res.status} ${res.statusText}` };
         }
 
         let json: unknown;
@@ -164,7 +199,7 @@ export async function fetchParcelByRefcat(refcat: string): Promise<ParcelFeature
         } catch (err) {
             console.warn('[gis] catastro: response was not JSON (refcat lookup)', err);
             span.setAttribute('pryzm.parcel.hit', false);
-            return null;
+            return { status: 'unreachable', reason: `response was not JSON: ${String(err)}` };
         }
 
         const parcel = parseProxyResponse(json);
@@ -174,10 +209,12 @@ export async function fetchParcelByRefcat(refcat: string): Promise<ParcelFeature
                 `[gis] catastro: refcat ${parcel.refcat} → parcel (~${parcel.areaM2.toFixed(0)} m², ` +
                 `${parcel.ring.length} pts)`,
             );
-        } else {
-            console.log(`[gis] catastro: no parcel for refcat ${rc}`);
+            return { status: 'ok', parcel };
         }
-        return parcel;
+        // ⚠ A 200 that parses to no parcel is Catastro's ANSWER — asked, and there is no such
+        // reference. That is the ONE case that may be told to the user as "no such parcel".
+        console.log(`[gis] catastro: no parcel for refcat ${rc}`);
+        return { status: 'miss' };
     } finally {
         span.end();
     }

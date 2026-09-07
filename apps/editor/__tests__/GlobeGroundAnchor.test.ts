@@ -42,6 +42,9 @@ import {
     classifyTileGroundPicks,
     SLOPE_RAMP_MIN_SPAN_M,
     ROOF_GAP_M,
+    isReadableGlobeSurfaceHeight,
+    describeGlobeSurfaceHeight,
+    GLOBE_SURFACE_HEIGHT_BAND_M,
 } from '../src/ui/geospatial/globeGroundAnchor';
 
 /** Menorca (the founder's site): ground ≈ 5 m above mean sea level, geoid separation ≈ +49 m,
@@ -479,5 +482,78 @@ describe('§GLOBE-SLOPE-SEAT (L-12919) — a hillside seats at the ring MEDIAN, 
         const few = [150, 160, 170, 180];
         expect(classifyTileGroundPicks(few).arm).toBe('few');
         expect(reduceTileGroundHeight(few, null, 0)).toBe(150);
+    });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────────────
+// §GLOBE-HEIGHT-READABLE (D10 / L-13078, founder Barcelona 2026-09-07) — THE 6,328 km PROBE.
+//
+// ⭐ THE ADJUDICATION THESE ARMS PIN. The founder's console printed
+// `centroidTerrainSurface=-6328484.2m` and `§COARSE-VS-DETAILED mean|Δ|=6328546.71m` in the SAME
+// line as `of 120 sampled footprints: 0 BELOW terrain … ✓ buildings on/above surface`, while the
+// buildings rendered correctly. Verdict: **the PROBE was wrong, not the terrain.**
+// `Globe.prototype.getHeight` (Cesium 1.143 `Cesium.js:218354`) places its pick-ray origin ON THE
+// Z AXIS (:218399) and returns `cartesianToCartographic(intersection).height` (:218429); when the
+// only tessellated mesh is a coarse/degenerate root, the pick returns the ray ORIGIN and the
+// "height" is a pure function of LATITUDE — −6 328 484.24 m at Barcelona's lat 41.3825.
+//
+// ⛔ AND `Number.isFinite` PASSES IT, which is why every arm below is a VALUE-DOMAIN test.
+// Subtracting the artefact from a real detailed height gives an Earth radius of "terrain error";
+// comparing a real base against it makes `base − surf > 0` UNCONDITIONALLY true, which is exactly
+// how a `✓ buildings on/above surface` got printed by the same artefact as the 6,328 km alarm.
+// A probe that cannot fail is not evidence (Shape D — worse than no probe).
+describe('§GLOBE-HEIGHT-READABLE — the Z-axis ray-origin artefact is never reported as an elevation', () => {
+    it('rejects the exact Barcelona reading from the founder console', () => {
+        expect(isReadableGlobeSurfaceHeight(-6328484.2)).toBe(false);
+        expect(describeGlobeSurfaceHeight(-6328484.2)).toContain('UNREADABLE');
+    });
+
+    it('STILL PRINTS THE RAW VALUE — the artefact is LABELLED, never hidden and never corrected', () => {
+        // A reader must still be able to recognise the ~Earth-radius signature in a paste. Deleting
+        // the number would trade one unreadable probe for a silent one (§CONTEXT-DATA-HONESTY).
+        expect(describeGlobeSurfaceHeight(-6328484.2)).toContain('-6328484.2m');
+        expect(describeGlobeSurfaceHeight(-6328484.2)).toContain('NOT an elevation');
+    });
+
+    it('keeps the THREE outcomes distinct — measured / artefact / not streamed', () => {
+        expect(describeGlobeSurfaceHeight(62.5)).toBe('62.5m');
+        expect(describeGlobeSurfaceHeight(-6328484.2)).toContain('UNREADABLE');
+        expect(describeGlobeSurfaceHeight(undefined)).toBe('undefined(not streamed)');
+        expect(describeGlobeSurfaceHeight(null)).toBe('undefined(not streamed)');
+        expect(describeGlobeSurfaceHeight(Number.NaN)).toBe('undefined(not streamed)');
+    });
+
+    it('is NOT the geoid class (L-12975): the band is 20 km, five orders above the ±107 m geoid swing', () => {
+        // L-12975 (§GEOID-CONSTANT-CANNOT-SPAN-A-NATION) is bounded by the global geoid separation.
+        // Every value in that class must stay READABLE, or this guard would suppress a real defect.
+        expect(GLOBE_SURFACE_HEIGHT_BAND_M).toBe(20_000);
+        for (const geoidish of [-107, -51, -7.62, 36.5, 49, 53.77, 107]) {
+            expect(isReadableGlobeSurfaceHeight(geoidish)).toBe(true);
+            expect(describeGlobeSurfaceHeight(geoidish)).not.toContain('UNREADABLE');
+        }
+    });
+
+    it('never rejects a real elevation — Challenger Deep to Everest, both signs, and the band edges', () => {
+        for (const real of [-10935, -420, 0, 8849]) expect(isReadableGlobeSurfaceHeight(real)).toBe(true);
+        expect(isReadableGlobeSurfaceHeight(GLOBE_SURFACE_HEIGHT_BAND_M)).toBe(true);
+        expect(isReadableGlobeSurfaceHeight(-GLOBE_SURFACE_HEIGHT_BAND_M)).toBe(true);
+        expect(isReadableGlobeSurfaceHeight(GLOBE_SURFACE_HEIGHT_BAND_M + 0.1)).toBe(false);
+    });
+
+    it('rejects the POSITIVE twin too — the artefact is a function of latitude, so its sign follows the hemisphere', () => {
+        expect(isReadableGlobeSurfaceHeight(6328484.2)).toBe(false);
+        expect(isReadableGlobeSurfaceHeight(-6356752.3)).toBe(false);   // polar radius
+        expect(isReadableGlobeSurfaceHeight(-6378137)).toBe(false);     // equatorial radius
+    });
+
+    it('§COARSE-VS-DETAILED cannot difference an artefact against a real sample', () => {
+        // The whole 6,328 km "terrain error" was `detailed − coarse` with a broken coarse side.
+        // Guarding the coarse side is what makes the difference meaningful — or absent.
+        const detailed = 62.5;
+        const coarse = -6328484.2;
+        expect(isReadableGlobeSurfaceHeight(coarse)).toBe(false);
+        // And the arithmetic that produced the founder's headline number, so nobody re-derives it:
+        expect(detailed - coarse).toBeCloseTo(6328546.7, 1);
     });
 });

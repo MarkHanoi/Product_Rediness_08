@@ -69,7 +69,19 @@ export interface SiteScopeSliderPorts {
     commit(scope: SiteScope): boolean;
     /** §13.5 — the largest scope at which every MAPPED cap holds, from the last load's measured
      *  densities. `null` = nothing has been measured yet, which is said rather than assumed clean. */
-    getCompleteMark?(): { readonly radiusM: number; readonly boundBy: string } | null;
+    getCompleteMark?(): {
+        readonly radiusM: number;
+        readonly boundBy: string;
+        /**
+         * WHY the mark sits there — and the two are NOT interchangeable to a user:
+         *   `cap`  — a render cap: past the mark the rim is THINNED (the nearest N are drawn).
+         *   `read` — the z16 tile read: past the mark the bake has already DELETED features from
+         *            dense cores, so the rim is MISSING, not thinned. A bigger slab draws FEWER
+         *            buildings. This is the ceiling the founder's "4x the area" ask runs into.
+         *   `none` — nothing bites at the measured scope.
+         */
+        readonly kind: 'cap' | 'read' | 'none';
+    } | null;
     /** §13.5 — the per-layer cap verdicts for the CURRENT scope. */
     getCapVerdicts?(): ReadonlyArray<{ readonly layer: string; readonly complete: boolean; readonly line: string }>;
 }
@@ -152,15 +164,37 @@ export function describeScope(scope: SiteScope): string {
  */
 export function completenessCaption(
     scope: SiteScope,
-    mark: { readonly radiusM: number; readonly boundBy: string } | null,
+    mark: {
+        readonly radiusM: number;
+        readonly boundBy: string;
+        readonly kind: 'cap' | 'read' | 'none';
+    } | null,
     verdicts: ReadonlyArray<{ readonly layer: string; readonly complete: boolean; readonly line: string }>,
 ): string {
+    const r = scopeOuterRadiusM(scope);
     const biting = verdicts.filter((v) => !v.complete);
-    if (biting.length > 0) return biting.map((v) => v.line).join(' · ');
+    const parts: string[] = [];
+
+    // ⭐ THE READ SENTENCE COMES FIRST AND IS NEVER REPLACED BY A CAP LINE (lane SCOPE-CUT,
+    // 2026-09-07). It reports a WORSE fact than any cap: a cap THINS the rim (the nearest N are
+    // still the nearest N), while past the read ceiling the bake's `--drop-densest-as-needed` has
+    // already DELETED footprints from dense cores, so a wider slab draws FEWER buildings than a
+    // narrower one. Ordering it behind the cap lines — which is what a plain `if (biting) return`
+    // did — would have hidden the only sentence that answers the founder's own constraint,
+    // "within the scope should be sound", at exactly the scope he asked for.
+    if (mark !== null && mark.kind === 'read' && r > mark.radiusM + 0.5) {
+        parts.push(
+            `Past ~${formatMetres(mark.radiusM)} m, ${mark.boundBy} steps to a coarser zoom — and the bake ` +
+                'deletes footprints from dense cores rather than coarsening them, so a wider slab draws FEWER ' +
+                'buildings, not more. The slab still crops exactly where you set it.',
+        );
+    }
+    if (biting.length > 0) parts.push(...biting.map((v) => v.line));
+    if (parts.length > 0) return parts.join(' · ');
+
     if (mark === null) {
         return 'Completeness inside the scope has not been measured yet — it is reported after the context loads.';
     }
-    const r = scopeOuterRadiusM(scope);
     if (r <= mark.radiusM + 0.5) {
         return `Complete at this scope — every mapped feature inside it is drawn (measured to ~${formatMetres(mark.radiusM)} m).`;
     }
@@ -349,7 +383,11 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
             const t = (completeMark.radiusM - floor) / Math.max(1, range.maxRadiusM - floor);
             mark.style.display = 'block';
             mark.style.left = `calc(${(t * 100).toFixed(2)}% - 1px)`;
-            mark.title = `Complete to ~${formatMetres(completeMark.radiusM)} m (bound by ${completeMark.boundBy})`;
+            mark.title =
+                completeMark.kind === 'read'
+                    ? `Complete to ~${formatMetres(completeMark.radiusM)} m — bound by ${completeMark.boundBy}; ` +
+                      'past it the tile read coarsens and the bake has already deleted footprints from dense cores'
+                    : `Complete to ~${formatMetres(completeMark.radiusM)} m (bound by ${completeMark.boundBy})`;
         } else {
             mark.style.display = 'none';
         }

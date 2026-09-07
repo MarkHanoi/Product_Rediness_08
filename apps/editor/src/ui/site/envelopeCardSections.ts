@@ -98,13 +98,107 @@ const FOLD_STYLE =
 const FOLD_SUMMARY_STYLE =
     'cursor:pointer;font-weight:700;font-size:10.5px;color:#6600FF;list-style:none;';
 
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// §FOLD-MEMORY (L-13078, FOUNDER RULING 2026-09-07: *"every fold on the card remembers"*)
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// ⚠ THIS REVERSES A STATED CONTRACT, AND THE CONTRACT IS KEPT HERE RATHER THAN DELETED so a
+// future reader sees the DECISION and not an absence. `fold()`'s doc comment used to read:
+//
+//     *"Deliberately NEVER emits `open`: default-collapsed is the card's contract with the
+//      narrow rail."*
+//
+// That was a real design position and it had a real cost. The card is destroyed and rebuilt via
+// `panel.innerHTML = …` on EVERY repaint (`GISAreaLayout.ts`), so a fold with no memory re-opens
+// collapsed on every store notification. The founder hit it on the compare loop the massing
+// feature exists for: *"when I click 'use this plate' I want to still be kept on the massing
+// options — so that I can select another one."* Picking a plate writes the proposal slot, which
+// repaints the card, which slammed the option list shut under his cursor — four plates picked in
+// a row (190.2 → 275.8 → 451.9 → 150.7 m²) meant re-opening the same fold four times.
+//
+// He was asked whether to scope the memory to the massing fold or to give it to the whole card,
+// and he ruled: EVERY fold on the card remembers. So the DEFAULT is still collapsed — a cold
+// arrival is unchanged, which is the half of the old contract that was about first impressions —
+// and what changes is that a fold the READER opened stays open across the repaints the card does
+// to itself.
+//
+// ⛔ NOT A SECOND MECHANISM. This is the `openState` Map already shipped two files away at
+// `parcelLawQuestionGroup.ts` (`openState` / `resetQuestionGroupOpenState` / the `toggle`
+// listener), for the same reason there: session view state, keyed by a stable id, deliberately
+// NOT persisted, so a new session gets the designed defaults back. P7 is not touched — this is
+// disclosure state on a panel, not a visibility INTENT about the model.
+//
+// ⚠ THE CONSEQUENCE HE WAS WARNED ABOUT is the card growing tall in a narrow pane. The shell
+// already carries `maxHeight: var(--pryzm-panel-col-max-height-top)` + `overflowY:auto`, so the
+// card scrolls inside itself rather than off the viewport; what the memory ADDS is that the
+// `innerHTML` swap now discards a scroll position that actually matters. `wireEnvelopeCardFoldMemory`
+// therefore restores `scrollTop` as well, so an open fold cannot push the row under the cursor
+// out of reach.
+
 /**
- * One default-collapsed fold. `safeSummary` / `safeBody` are already-escaped markup by this
- * file's `safe*` convention (§XSS-SINK-SCAN, C08 §3.1). Deliberately NEVER emits `open`:
- * default-collapsed is the card's contract with the narrow rail.
+ * Open/closed state, per fold testid, for THIS page session. Module-level and not persisted —
+ * see the §FOLD-MEMORY block above for why, and why it is this Map and not a new one.
+ */
+const foldOpenState = new Map<string, boolean>();
+
+/** Forget every remembered fold. Exported for the specs; never called in production. */
+export function resetEnvelopeCardFoldState(): void {
+    foldOpenState.clear();
+}
+
+/**
+ * Re-attach the memory after a `panel.innerHTML = …` swap.
+ *
+ * Call it ONCE per swap, with the panel as `root`. It listens on every `<details>` the card
+ * carries — the `fold()` sections AND the host's own disclosure blocks — keyed by `data-testid`,
+ * and it restores the panel's scroll offset, which the swap would otherwise reset to 0.
+ *
+ * ⛔ A `<details>` WITHOUT A `data-testid` IS SKIPPED RATHER THAN KEYED BY POSITION. An index key
+ * would silently move a reader's disclosure onto a different section the moment the card's
+ * section plan changes, which is worse than not remembering it.
+ */
+export function wireEnvelopeCardFoldMemory(
+    root: ParentNode,
+    opts?: { readonly scroller?: { scrollTop: number } | null; readonly scrollTop?: number },
+): void {
+    const span = _tracer.startSpan('pryzm.site.wireEnvelopeCardFoldMemory');
+    try {
+        let wired = 0;
+        for (const node of root.querySelectorAll('details[data-testid]')) {
+            const d = node as HTMLDetailsElement;
+            const key = d.getAttribute('data-testid');
+            if (key === null || key.length === 0) continue;
+            wired += 1;
+            d.addEventListener('toggle', () => { foldOpenState.set(key, d.open); });
+        }
+        span.setAttribute('pryzm.envelopeCard.foldsWired', wired);
+        // The swap reset it; put it back. Guarded because a shorter card legitimately clamps it.
+        const scroller = opts?.scroller;
+        const top = opts?.scrollTop;
+        if (scroller && typeof top === 'number' && Number.isFinite(top) && top > 0) {
+            scroller.scrollTop = top;
+        }
+    } catch (e) {
+        // A card that renders is worth more than a remembered disclosure.
+        console.warn('[site][envelope-card] §FOLD-MEMORY wiring failed (non-fatal):', e);
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * One fold, COLLAPSED BY DEFAULT and open if this session's reader opened it before.
+ *
+ * `safeSummary` / `safeBody` are already-escaped markup by this file's `safe*` convention
+ * (§XSS-SINK-SCAN, C08 §3.1).
+ *
+ * ⚠ The `open` attribute is emitted ONLY from `foldOpenState` — see §FOLD-MEMORY above for the
+ * contract this reverses and the founder ruling that reversed it. Nothing else may pass `open`
+ * in: a caller-supplied default would be a second mechanism deciding the same thing.
  */
 function fold(testid: string, state: string, safeSummary: string, safeBody: string): string {
-    return `<details data-testid="${escHtml(testid)}" data-state="${escHtml(state)}" style="${FOLD_STYLE}">`
+    const open = foldOpenState.get(testid) === true ? ' open' : '';
+    return `<details data-testid="${escHtml(testid)}" data-state="${escHtml(state)}"${open} style="${FOLD_STYLE}">`
         + `<summary style="${FOLD_SUMMARY_STYLE}">${safeSummary}</summary>`
         + `<div style="font-size:11px;margin-top:4px;min-width:0;max-width:100%;">${safeBody}</div>`
         + `</details>`;
@@ -422,6 +516,14 @@ export const MASSING_OPTIONS_GENERATE_BTN_TESTID = 'envelope-massing-generate-bt
 export const MASSING_OPTIONS_CLEAR_BTN_TESTID = 'envelope-massing-clear-btn';
 /** The attribute a per-option "use this plate" button carries. One name, both sides. */
 export const MASSING_PICK_ATTR = 'data-massing-pick';
+/**
+ * §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078) — marks the option the LIVE plate came from.
+ *
+ * ⛔ IT IS A MARK, NOT A LOCK. Every other option keeps its button, and so does this one: the
+ * founder's ask is *"so that I can select another one"*, and a chosen row that stopped being
+ * pickable would end the compare loop one step later than losing the fold did.
+ */
+export const MASSING_CHOSEN_ATTR = 'data-chosen';
 
 /**
  * The massing-options fold.
@@ -446,6 +548,12 @@ export function buildMassingOptionsFold(
     state: { readonly kind: 'idle' } | { readonly kind: 'computed'; readonly set: MassingOptionSet },
     /** §CREATE-IT-MYSELF (L-13039) — the ground storey's authored state; `null` ⇒ the route is offered. */
     authored: AuthoredMassingState | null = null,
+    /**
+     * §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078) — the id of the option the LIVE plate came from,
+     * or `null`. The caller has already asked the staleness gate; this file renders the answer
+     * and never re-decides whether a plate is still live.
+     */
+    chosenId: string | null = null,
 ): string {
     const span = _tracer.startSpan('pryzm.site.buildMassingOptionsFold');
     try {
@@ -484,7 +592,8 @@ export function buildMassingOptionsFold(
         }
         span.setAttribute('pryzm.massing.foldArm', 'computed');
         span.setAttribute('pryzm.massing.foldOptions', set.options.length);
-        const cards = set.options.map((o) => buildMassingOptionCard(o, authored)).join('');
+        span.setAttribute('pryzm.massing.chosenOption', chosenId ?? 'none');
+        const cards = set.options.map((o) => buildMassingOptionCard(o, authored, chosenId)).join('');
         const caveat =
             `<div style="margin-top:7px;padding-top:5px;border-top:1px dashed #ece9f4;color:#8a83a0;`
             + `font-size:9px;line-height:1.45;">${escHtml(set.caveat)}</div>`;
@@ -493,10 +602,18 @@ export function buildMassingOptionsFold(
             + `style="margin-top:6px;width:100%;appearance:none;border:1px solid #d8d3e6;cursor:pointer;`
             + `padding:5px 10px;border-radius:8px;font:600 10px system-ui;background:#ffffff;color:#8a83a0;">`
             + `Hide these options</button>`;
+        // §USE-THIS-PLATE-KEEPS-THE-LOOP — the summary STATES the choice, so a collapsed fold is
+        // still an answer. Before this, the only trace of a pick was prose inside a SECOND
+        // default-collapsed fold: the user had to open two folds to find out what he had just
+        // clicked. The label comes from the option itself — never re-typed here.
+        const chosen = chosenId === null ? null : (set.options.find((o) => o.id === chosenId) ?? null);
+        const summary = chosen === null
+            ? `Massing options — ${escHtml(String(set.options.length))} generated`
+            : `Massing options — using ${escHtml(chosen.label)} of ${escHtml(String(set.options.length))}`;
         return fold(
             MASSING_OPTIONS_SECTION_TESTID,
             'computed',
-            `Massing options — ${escHtml(String(set.options.length))} generated`,
+            summary,
             intro + authoredCard + cards + caveat + clear,
         );
     } finally {
@@ -505,7 +622,16 @@ export function buildMassingOptionsFold(
 }
 
 /** One option card: what it is, why, its axes as facts, its limitations, and its pick button. */
-function buildMassingOptionCard(o: MassingOption, authored: AuthoredMassingState | null = null): string {
+function buildMassingOptionCard(
+    o: MassingOption,
+    authored: AuthoredMassingState | null = null,
+    chosenId: string | null = null,
+): string {
+    // §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078) — is THIS the option the live plate came from?
+    // ⭐ The comparison is safe because `MassingOption.id` is stable and RNG-free BY DESIGN
+    // (`massingOptionModel.ts`: *"a re-render of the same envelope yields the same ids, so a pick
+    // survives a repaint"*). That property existed and nothing consumed it until now.
+    const isChosen = chosenId !== null && o.id === chosenId;
     const axes = o.scores
         .map((a) => {
             // ⛔ A NULL AXIS PRINTS "not derived", NEVER A ZERO-LENGTH BAR. An empty bar is read as
@@ -538,18 +664,39 @@ function buildMassingOptionCard(o: MassingOption, authored: AuthoredMassingState
 
     // ⛔ NO PROPOSAL ⇒ NO BUTTON. Not a disabled one: a control that can only fail is a dead click
     // with a label on it, and the reason is already printed above it as a limitation.
+    //
+    // ⛔ AND THE CHOSEN OPTION KEEPS ITS BUTTON. `aria-pressed` says it is the one in use — that
+    // is what a toggle button MEANS to a screen reader — and the label changes to name the act
+    // that is still available. Disabling it would close the compare loop this whole change
+    // exists to keep open (*"so that I can select another one"*).
     const pick = o.proposal === null
         ? ''
         : `<button type="button" ${MASSING_PICK_ATTR}="${escHtml(o.id)}" `
+          + `aria-pressed="${isChosen ? 'true' : 'false'}" `
+          + `title="${isChosen
+              ? 'This plate is on the ground now. Pick another option to compare — nothing is locked.'
+              : 'Put this plate on the ground. The options stay open so you can compare another.'}" `
           + `style="margin-top:5px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;`
-          + `padding:5px 9px;border-radius:7px;font:600 10px system-ui;background:#ffffff;color:#6600FF;">`
-          + `Use this plate</button>`;
+          + `padding:5px 9px;border-radius:7px;font:600 10px system-ui;`
+          + `background:${isChosen ? '#f3ecff' : '#ffffff'};color:#6600FF;">`
+          + `${isChosen ? 'Using this plate — pick another to compare' : 'Use this plate'}</button>`;
+
+    // The mark beside the label, so the row states it without the reader parsing a button.
+    const chosenTag = isChosen
+        ? `<span data-testid="massing-option-chosen-tag" style="font-size:8.5px;font-weight:700;`
+          + `letter-spacing:.06em;text-transform:uppercase;color:#6600FF;background:#f3ecff;`
+          + `border-radius:4px;padding:1px 4px;white-space:nowrap;">in use</span>`
+        : '';
 
     return `<div data-massing-option="${escHtml(o.id)}" data-refused="${o.refused ? '1' : '0'}" `
-        + `style="margin-top:7px;padding:6px 7px;border:1px solid #efecf7;border-radius:8px;`
+        + (isChosen ? `${MASSING_CHOSEN_ATTR}="1" ` : '')
+        + `style="margin-top:7px;padding:6px 7px;border:1px solid ${isChosen ? '#6600FF' : '#efecf7'};border-radius:8px;`
         + `background:${o.refused ? '#fbfafd' : '#ffffff'};min-width:0;max-width:100%;">`
         + `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">`
+        + `<span style="display:flex;gap:5px;align-items:baseline;min-width:0;">`
         + `<span style="font-weight:700;font-size:10.5px;color:${o.refused ? '#8a83a0' : '#6600FF'};">${escHtml(o.label)}</span>`
+        + chosenTag
+        + `</span>`
         + `<span style="font-size:9px;color:#8a83a0;">`
         + `${o.footprintAreaM2 === null ? 'no plate' : `${escHtml(o.footprintAreaM2.toFixed(0))} m²`}</span></div>`
         + `<div style="margin-top:3px;font-size:9.5px;line-height:1.45;color:#6b6480;">${escHtml(o.statement)}</div>`

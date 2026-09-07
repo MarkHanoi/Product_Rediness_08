@@ -398,15 +398,52 @@ export function capVerdict(layer: string, eligibleInside: number, cap: number, s
     return { layer, eligible, cap, dropped, complete, completeRadiusM, line };
 }
 
+/** Where the slider's "complete" mark sits, and WHY it sits there. */
+export interface ScopeCompleteMark {
+    readonly radiusM: number;
+    /** The layer whose cap decides it, or the label of the read ceiling. */
+    readonly boundBy: string;
+    /**
+     * `cap`  — a per-layer RENDER cap bites first: past the mark the rim is THINNED.
+     * `read` — the z16 READ ceiling bites first: past the mark the tile read steps to a coarser
+     *          zoom and the bake has already DELETED features, so the rim is not thinned, it is
+     *          MISSING — a different fact, and a worse one (see `readCompleteCeilingM` below).
+     * `none` — nothing bites at the measured scope; the mark is a lower bound, not a maximum.
+     */
+    readonly kind: 'cap' | 'read' | 'none';
+}
+
+/** The label the `read` arm reports itself under. One string, so a caption and a tooltip agree. */
+export const SCOPE_READ_CEILING_LABEL = 'the zoom-16 building + canopy read';
+
 /**
- * The largest circumscribing radius at which EVERY given cap holds, from measured densities —
- * the slider's "complete" mark. `null` when no layer reports. Each entry is a MAPPED layer's
- * (eligible inside the measured scope, cap); the measured scope is the one the counts were taken in.
+ * The largest circumscribing radius at which the scope is COMPLETE — the slider's "complete" mark.
+ * `null` when nothing is known. Each `layers` entry is a MAPPED layer's (eligible inside the
+ * measured scope, cap); the measured scope is the one the counts were taken in.
+ *
+ * ⭐ TWO DIFFERENT CEILINGS, AND COLLAPSING THEM WOULD HIDE THE WORSE ONE (added 2026-09-07, lane
+ * SCOPE-CUT, for the founder's "4x the area" ask).
+ *
+ *   · a RENDER CAP is a density fact measured at run time: past it the nearest-first sort keeps the
+ *     nearest N and the rim THINS. Every one of these is knowable only after a load.
+ *
+ *   · the READ ceiling (`readCompleteCeilingM`) is a DATA fact, knowable before any load and true
+ *     of every city: past it `zoomForExtent` steps the buildings/canopy read below z16, and the
+ *     bake runs `tippecanoe --drop-densest-as-needed`, which does not COARSEN a dense core — it
+ *     DELETES features from it. So a wider scope returns FEWER buildings than a narrower one. That
+ *     is L-579 ("a lot of buildings are not coming through anymore") arriving through a zoom step,
+ *     and it is exactly what the founder's "within the scope should be sound — really detailed and
+ *     completed" forbids.
+ *
+ * The read ceiling therefore wins the mark whenever it is the tighter of the two, AND it is
+ * reported even when no density has been measured yet — a caption that says "not measured" while a
+ * known data ceiling is already breached is the §CONTEXT-DATA-HONESTY failure in its politest form.
  */
 export function completeScopeRadiusM(
     measured: SiteScope,
     layers: ReadonlyArray<{ readonly layer: string; readonly eligible: number; readonly cap: number }>,
-): { readonly radiusM: number; readonly boundBy: string } | null {
+    readCompleteCeilingM?: number | null,
+): ScopeCompleteMark | null {
     let best: { radiusM: number; boundBy: string } | null = null;
     const outer = scopeOuterRadiusM(measured);
     for (const l of layers) {
@@ -414,7 +451,20 @@ export function completeScopeRadiusM(
         const r = l.eligible <= l.cap ? Infinity : outer * Math.sqrt(l.cap / l.eligible);
         if (best === null || r < best.radiusM) best = { radiusM: r, boundBy: l.layer };
     }
-    if (best === null) return null;
-    if (!Number.isFinite(best.radiusM)) return { radiusM: outer, boundBy: 'none (every cap holds at the measured scope)' };
-    return best;
+    const capMark: ScopeCompleteMark | null =
+        best === null
+            ? null
+            : Number.isFinite(best.radiusM)
+              ? { radiusM: best.radiusM, boundBy: best.boundBy, kind: 'cap' }
+              : { radiusM: outer, boundBy: 'none (every cap holds at the measured scope)', kind: 'none' };
+
+    const ceiling =
+        typeof readCompleteCeilingM === 'number' && Number.isFinite(readCompleteCeilingM) && readCompleteCeilingM > 0
+            ? readCompleteCeilingM
+            : null;
+    if (ceiling === null) return capMark;
+    if (capMark === null || ceiling < capMark.radiusM) {
+        return { radiusM: ceiling, boundBy: SCOPE_READ_CEILING_LABEL, kind: 'read' };
+    }
+    return capMark;
 }

@@ -11,6 +11,7 @@ import {
     catastroParcelProvider,
     parseProxyResponse,
     fetchParcelByRefcat,
+    lookupParcelByRefcat,
 } from '../src/ui/site/parcel/CatastroParcelProvider.js';
 
 const PROXY_OK = {
@@ -143,5 +144,70 @@ describe('fetchParcelByRefcat', () => {
         await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.toBeNull();
         mockFetch(PROXY_OK, { badJson: true });
         await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.toBeNull();
+    });
+});
+
+
+// §CADASTRAL-UNREACHABLE-IS-NOT-A-MISS (D-CAD-A, founder 2026-09-07: "make sure this works sound"
+// about cadastral entry).
+//
+// ⭐ THE DEFECT THESE ARMS PIN. `fetchParcelByRefcat`'s doc comment has always said the caller
+// "must not collapse those into one message" — and then returned a bare `null` for BOTH an honest
+// Catastro miss and for offline / proxy 5xx / non-JSON, which made obeying it impossible. The
+// onboarding panel therefore told a user with no network *"Catastro (Spain) has no parcel with
+// reference … — check the reference"*: the product asserting a correct reference is wrong.
+// Failure and empty are DIFFERENT VALUES (§CONTEXT-DATA-HONESTY, C57 §1.5).
+describe('§CADASTRAL-UNREACHABLE-IS-NOT-A-MISS — lookupParcelByRefcat keeps the three outcomes apart', () => {
+    it('a parcel is `ok`, and carries it', async () => {
+        mockFetch(PROXY_OK);
+        const r = await lookupParcelByRefcat('0229720DF3802G');
+        expect(r.status).toBe('ok');
+        expect(r.status === 'ok' && r.parcel.refcat).toBe('0229720DF3802G');
+    });
+
+    it('a 200 that parses to no parcel is `miss` — Catastro was ASKED and answered', async () => {
+        mockFetch({ parcel: null, queriedRefcat: '0229720DF3802G' });
+        await expect(lookupParcelByRefcat('0229720DF3802G')).resolves.toEqual({ status: 'miss' });
+    });
+
+    it('⛔ offline / proxy 5xx / non-JSON are `unreachable`, NEVER `miss` — this is the defect', async () => {
+        mockFetch(PROXY_OK, { throwErr: true });
+        const net = await lookupParcelByRefcat('0229720DF3802G');
+        expect(net.status).toBe('unreachable');
+        expect(net.status === 'unreachable' && net.reason).toContain('network error');
+
+        mockFetch(PROXY_OK, { ok: false, status: 502 });
+        const bad = await lookupParcelByRefcat('0229720DF3802G');
+        expect(bad.status).toBe('unreachable');
+        expect(bad.status === 'unreachable' && bad.reason).toContain('502');
+
+        mockFetch(PROXY_OK, { badJson: true });
+        const nj = await lookupParcelByRefcat('0229720DF3802G');
+        expect(nj.status).toBe('unreachable');
+        expect(nj.status === 'unreachable' && nj.reason).toContain('not JSON');
+    });
+
+    it('an empty field never reaches the registry, and is not reported as unreachable', async () => {
+        const impl = mockFetch(PROXY_OK);
+        await expect(lookupParcelByRefcat('   ')).resolves.toEqual({ status: 'miss' });
+        expect(impl).not.toHaveBeenCalled();
+    });
+
+    it('never throws on any of the four failure modes', async () => {
+        for (const opts of [{ throwErr: true }, { ok: false, status: 502 }, { badJson: true }] as const) {
+            mockFetch(PROXY_OK, opts);
+            await expect(lookupParcelByRefcat('0229720DF3802G')).resolves.toBeTruthy();
+        }
+    });
+
+    it('⚠ the OLD `fetchParcelByRefcat` shape is unchanged — every existing caller and test still reads null', async () => {
+        // The narrowing is ADDITIVE. The bare-`null` function stays exactly as documented, so the
+        // map-click path and this file's own older arms are untouched.
+        mockFetch({ parcel: null, queriedRefcat: 'X' });
+        await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.toBeNull();
+        mockFetch(PROXY_OK, { ok: false, status: 502 });
+        await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.toBeNull();
+        mockFetch(PROXY_OK);
+        await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.not.toBeNull();
     });
 });
