@@ -9414,3 +9414,17 @@ function dispatchEnvelope(
     );
     ctx.rt.events?.emit('site.zoning-updated', res.event);
 }
+
+
+/**
+ * §SITE-SCOPE (L-645; C12 §13.1 / §13.4; ADR-0382 D1/D8) — RE-EXPORT, not a definition.
+ *
+ * `dispatchSiteScope` is the `dispatchSiteTrueNorth` shape and belongs in this family, but its
+ * CALLER is `engine/views/SiteAuthoringPaneShell` — and §LINK-ACTIVE-PID-EXTRACT (L-3160, above)
+ * records what happened the last time an engine module imported this 9,400-line module for one
+ * function: a dependent panel's `await import(...)` exceeded a 120 s budget under vitest. The
+ * remedy then was to move the function to a leaf and re-export it here; this is the same remedy,
+ * applied before it bites. The body lives in `./siteScopeDispatch`, whose graph is
+ * `@pryzm/stores` + `@pryzm/schemas` + `../geospatial/siteScope` and nothing else.
+ */
+export { dispatchSiteScope, siteScopeFloorRadiusM } from './siteScopeDispatch';

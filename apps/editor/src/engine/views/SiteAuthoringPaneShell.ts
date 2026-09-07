@@ -23,6 +23,14 @@ import { PaneHost, MultiPaneController } from './PaneHost';
 import { PaneLayoutStore } from './paneLayoutStore';
 import { mountPaneViewPicker, type PaneViewPickerHandle } from './PaneViewPicker';
 import { mountPaneEmptyState, type PaneEmptyStateHandle } from './PaneEmptyState';
+// §SITE-SCOPE (L-645; C12 §13; ADR-0382 D8) — the founder's scope slider, per pane. Same shape
+// as the picker above: this composition file RESOLVES ITS PORTS and the control itself reads no
+// global, so it stays headless-testable (P1/P4).
+import { mountSiteScopeSlider, type SiteScopeSliderHandle, type SiteScopeSliderPorts } from './SiteScopeSlider';
+// §SITE-SCOPE — the ONE measured slider range (a leaf module: it imports nothing) and the write
+// path + parcel floor (a leaf too — see its header for why it is NOT inside `siteDispatch.ts`).
+import { SITE_SCOPE_RANGE } from '../../ui/geospatial/contextExtentBudget';
+import { dispatchSiteScope, siteScopeFloorRadiusM } from '../../ui/site/siteScopeDispatch';
 // §SITE-VIEW-QUICK-TOGGLE (L-5110) — the founder's 3D globe / 3D site control. ⭐ TYPES
 // ONLY SINCE §ONE-PANEL-PER-PANE-AND-MAKE-IT-A-DROPDOWN (L-13015): this shell no longer
 // MOUNTS it, it RESOLVES ITS PORTS and hands them to each pane's dropdown, which hosts the
@@ -93,6 +101,12 @@ export interface SiteAuthoringPaneShellOptions {
      * declared typed globals). Tests pass recorders.
      */
     basemap?: SiteViewBasemapPorts;
+    /**
+     * §SITE-SCOPE (L-645) — the ports the per-pane scope slider drives. Defaults to
+     * `defaultSiteScopePorts()` (the declared typed global GISAreaLayout registers). Tests pass
+     * recorders. Mounted on the same `viewPicker !== false` flag as the rest of the pane chrome.
+     */
+    scopePorts?: SiteScopeSliderPorts;
 }
 
 /**
@@ -171,6 +185,45 @@ export function defaultSiteViewBasemapPorts(): SiteViewBasemapPorts {
         setBasemap: (next) => { window.pryzmSetSiteBasemap?.(next); },
         getBasemap: () => window.pryzmGetSiteBasemap?.() ?? null,
         canSetBasemap: () => typeof window.pryzmSetSiteBasemap === 'function',
+    };
+}
+
+/**
+ * §SITE-SCOPE (L-645; C12 §13; ADR-0382 D8) — resolve the scope slider's ports. This is the whole
+ * production wiring, and it is the same idiom as the two port factories above.
+ *
+ * ⭐ NO NEW MACHINERY, and that is checkable rather than claimed:
+ *   · the value, the preview ring and the cap measurements come off the ONE Cesium viewport
+ *     `window.pryzmGetSiteEntryCameraHost()` already returns (`GISAreaLayout` registers it as
+ *     `() => cesiumViewport`, verbatim) — the SAME host `frameGlobe` above flies;
+ *   · the RELEASE goes through `dispatchSiteScope` → `site.setScope` → `site.scope-changed`, the
+ *     ONE mutation path for `SiteModel.scope` (P6), which is also the reload trigger;
+ *   · the FLOOR is read from the committed parcel (`siteScopeFloorRadiusM`), never re-derived here.
+ *
+ * ⚠ RESOLVED LAZILY, ON EVERY CALL. This shell mounts BEFORE GIS activates — `pryzmToggleGIS(true)`
+ * constructs the Cesium viewport inside a lazy import — so capturing the host at mount time would
+ * freeze the control against a viewport that did not exist yet and the slider would read "not
+ * available" for the rest of the session. Each accessor asks again.
+ *
+ * ⛔ THE DEGRADED ANSWERS ARE DIFFERENT FACTS AND ARE KEPT APART: `getScope()` → `null` ("no
+ * 3D-Site surface"), `commit()` → `false` ("nothing to store it on"), `getCompleteMark()` → `null`
+ * ("not measured yet"). None of them is a zero — a fabricated zero is what the slider would draw.
+ */
+export function defaultSiteScopePorts(): SiteScopeSliderPorts {
+    const host = () => window.pryzmGetSiteEntryCameraHost?.() ?? null;
+    return {
+        getScope: () => host()?.getResolvedSiteScope?.()?.scope ?? null,
+        // The RANGE is the ONE measured object (`contextExtentBudget.ts`, a leaf that imports
+        // nothing), not two numbers re-stated here — C12 §13.1 forbids a second range.
+        getRange: () => ({
+            minRadiusM: SITE_SCOPE_RANGE.minRadiusM,
+            maxRadiusM: SITE_SCOPE_RANGE.maxRadiusM,
+        }),
+        getFloorRadiusM: () => siteScopeFloorRadiusM(null, host()?.getContextScope?.()?.shape ?? 'rectangle'),
+        preview: (scope) => { host()?.previewSiteScope?.(scope); },
+        commit: (scope) => dispatchSiteScope(null, scope),
+        getCompleteMark: () => host()?.getCompleteScopeMark?.() ?? null,
+        getCapVerdicts: () => host()?.getScopeCapVerdicts?.() ?? [],
     };
 }
 
@@ -486,6 +539,26 @@ export function mountSiteAuthoringPaneShell(
         );
     }
 
+    // ── §SITE-SCOPE (L-645; C12 §13.4; ADR-0382 D8) — THE SCOPE SLIDER, ONE PER PANE ───────
+    //
+    // Founder: *"I want to have a slide of the scope on 3D Site view — like cityweft does."*
+    //
+    // ⚠ ONE VALUE, TWO CONTROLS — the same rule as the globe framing above, for the same reason.
+    // Two panes drive ONE Cesium viewer (C59 §2 invariant 1), so the scope is a property of the
+    // SITE, not of a pane; both sliders read it through the SAME ports and each repaints from the
+    // store. A per-pane scope is forbidden by name (C12 §13.6).
+    //
+    // Each slider hides itself unless ITS pane holds `site-3d`, so the split shows one and a solo
+    // 3D Site shows one — by the same mechanism as the pickers, not by a second behaviour.
+    const scopeSliders: SiteScopeSliderHandle[] = [];
+    if (opts.viewPicker !== false) {
+        const ports = opts.scopePorts ?? defaultSiteScopePorts();
+        scopeSliders.push(
+            mountSiteScopeSlider({ paneId: LEFT_PANE, paneEl: leftPaneEl, store, ports }),
+            mountSiteScopeSlider({ paneId: RIGHT_PANE, paneEl: rightPaneEl, store, ports }),
+        );
+    }
+
     // ── §SWAP-NOT-VACATE (L-12999 clause 4) — EVERY PANE STATES ITSELF ──────────
     //
     // Founder ruling: *"pane A must end holding SOMETHING IT CAN STATE — a 2D view, or an
@@ -551,6 +624,9 @@ export function mountSiteAuthoringPaneShell(
         unsubscribeLayout();
         for (const p of pickers) {
             try { p.dispose(); } catch { /* chrome already gone */ }
+        }
+        for (const sl of scopeSliders) {
+            try { sl.dispose(); } catch { /* chrome already gone */ }
         }
         for (const e of emptyStates) {
             try { e.dispose(); } catch { /* chrome already gone */ }

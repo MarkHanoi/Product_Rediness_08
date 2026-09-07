@@ -164,7 +164,23 @@ export const CTX_SCOPE_MAX_RADIUS_M = 1781;
  * 2× (0.022°), with the per-city tile arithmetic that decided it.
  */
 const DEFAULT_SCOPE_RADIUS_M = 1781;
-export const DEFAULT_SITE_CONTEXT_SCOPE: SiteContextScope = { shape: 'circle', radiusM: DEFAULT_SCOPE_RADIUS_M };
+/**
+ * ⭐ THE DEFAULT SHAPE IS A RECTANGLE (ADR-0382 D2 / §Q-5; C12 §13). It is what the founder's
+ * reference shows, it matches the parcel's own frame (the frame walls are orthogonal in), and it
+ * has no sagitta question. The circle remains a first-class choice on the slider's toggle.
+ *
+ * ⚠ THE REACH IS UNCHANGED, AND THAT IS THE POINT OF THE √2. The half-extents are
+ * `DEFAULT_SCOPE_RADIUS_M / √2`, so the CIRCUMSCRIBING radius — the one number every `f(scope)`
+ * radius below reduces the scope to, and the number `CTX_FAR_HALF_DEG` derives the read from — is
+ * still exactly 1781 m. Nothing downstream moves: the far tier still culls at 1781 m, the tile
+ * arithmetic is the same 81/72 tiles per city, and the measured range keeps its meaning. What
+ * changes is the SHAPE the geometric clip cuts to: a 2 519 m square instead of a 3 562 m disc.
+ */
+export const DEFAULT_SITE_CONTEXT_SCOPE: SiteContextScope = {
+    shape: 'rectangle',
+    halfWidthM: DEFAULT_SCOPE_RADIUS_M / Math.SQRT2,
+    halfDepthM: DEFAULT_SCOPE_RADIUS_M / Math.SQRT2,
+};
 
 /**
  * §SITE-SCOPE — THE ONE RANGE OBJECT: what `resolveSiteScope(stored, range)` (`siteScope.ts`) is

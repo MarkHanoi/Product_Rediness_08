@@ -394,7 +394,32 @@ declare global {
          *  forgot it, and a silently dropped surface swap is exactly the defect this closes —
          *  the founder's beige triangular shard. `CesiumViewport.setViewFraming` implements it and
          *  `GISAreaLayout` returns that viewport verbatim. */
-        setViewFraming(framing: 'site' | 'world'): void } | null;
+        setViewFraming(framing: 'site' | 'world'): void;
+        /** §SITE-SCOPE (L-645; C12 §13; ADR-0382 D8) — the four scope READS the per-pane scope
+         *  slider drives. `GISAreaLayout` returns the `CesiumViewport` VERBATIM from this getter
+         *  (`window.pryzmGetSiteEntryCameraHost = () => cesiumViewport`), and that viewport is the
+         *  ONE owner of the live scope, the preview ring and the cap measurements — so the slider
+         *  reaches them here rather than through a fifth registered global.
+         *
+         *  ⚠ OPTIONAL, unlike `setViewFraming` above, and for the opposite reason: a MISSING
+         *  framing swap is a silent visual defect (the founder's beige shard), whereas a missing
+         *  scope read is a control that DISABLES ITSELF and says why. The slider's degraded answers
+         *  are all distinct facts — `null` scope = "no 3D-Site surface", `null` mark = "not
+         *  measured yet" — and none of them is a fabricated zero.
+         *
+         *  ⛔ `previewSiteScope` MUST NOT load (C12 §13.4): it re-positions one polyline. */
+        getResolvedSiteScope?(): {
+            readonly scope: import('@pryzm/schemas').SiteScope;
+            readonly source: string;
+        };
+        previewSiteScope?(scope: import('@pryzm/schemas').SiteScope | null): void;
+        getCompleteScopeMark?(): { readonly radiusM: number; readonly boundBy: string } | null;
+        getScopeCapVerdicts?(): ReadonlyArray<{
+            readonly layer: string;
+            readonly complete: boolean;
+            readonly line: string;
+        }>;
+        getContextScope?(): import('@pryzm/schemas').SiteScope } | null;
         /** PRYZM-EARTH-ONBOARDING PRD §16 (Milestone 2 polish) — resolves once the ONE Cesium
          *  viewport `pryzmGetSiteEntryCameraHost()` returns is actually live and accepting
          *  camera commands (i.e. `pryzmToggleGIS(true)`'s first activation has finished
