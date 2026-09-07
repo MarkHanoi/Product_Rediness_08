@@ -273,10 +273,26 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         // already honours it (it drops only a half-finished loop anchor or arc midpoint).
         const modeBar = new DrawingModeBar();
 
+        /**
+         * ⛔ THE STRIP CAN BE REFUSED, AND A SILENT REFUSAL IS THE WHOLE FAILURE MODE THIS LANE
+         * EXISTS TO CLOSE. `DrawingModeBar.show` calls `refuseElementAuthoring` (§AUTHORING-CONTEXT-
+         * GATE, L-5103), which blocks the `onboarding-globe` phase — and the phase only latches to
+         * `'canvas'` when a BIM view is activated. A user who reaches the 3-D Site and this panel
+         * without ever opening a BIM view therefore gets NO STRIP AND NO SENTENCE, which is exactly
+         * *"I still cannot see the mode bar"* with nothing in the UI to act on
+         * ([[committed-is-not-reachable]]).
+         *
+         * ⛔ THE GATE IS NOT BYPASSED. It exists to keep a stray strip off the parcel map, and this
+         * lane does not get to punch a hole in a safety gate on its way past. What changes is that
+         * the refusal becomes VISIBLE: the draw row says the modes are keyboard-only right now and
+         * names the six keys, so the gesture still works and the user knows why the pills are absent.
+         */
+        let modeBarRefused = false;
+
         /** Raise the strip when the draw is armed, take it down when it is not. Idempotent. */
         const paintModeBar = (): void => {
             const armed = getEnvelopeDrawStatus().armed;
-            if (!armed) { modeBar.dismiss(); return; }
+            if (!armed) { modeBar.dismiss(); modeBarRefused = false; return; }
             if (modeBar.isVisible()) { modeBar.setMode(resolveEnvelopeDrawMode()); return; }
             modeBar.show({
                 // ⛔ THE WALL'S OWN WORD, NOT A SECOND ONE — the same note `ToolsAreaLayout` carries
@@ -294,9 +310,23 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
                 // per-tool hint is exactly why `escHint` exists.
                 escHint: 'ENTER closes · ESC cancels',
             });
+            // ⛔ ASKED, NOT ASSUMED. `show()` returns void and refuses by returning early, so the
+            // ONLY way to know whether the strip is on screen is to read it back.
+            modeBarRefused = !modeBar.isVisible();
+            if (modeBarRefused) {
+                console.warn(
+                    '[site] §ENVELOPE-MODE-BAR the mode strip was REFUSED by the authoring-context gate '
+                    + '(§AUTHORING-CONTEXT-GATE / L-5103 blocks the onboarding-globe phase). The six draw '
+                    + 'modes are still reachable by keyboard — L / O / C / Q / I / E — and the draw row '
+                    + 'says so. This is a PHASE state, not a broken bar.',
+                );
+            }
         };
 
         const paintDraw = (): void => {
+            // §ENVELOPE-MODE-BAR — FIRST, not last: the armed sentence below reports whether the strip
+            // made it on screen, so it has to be composed AFTER the attempt rather than before it.
+            paintModeBar();
             const status = getEnvelopeDrawStatus();
             const drawn = getDrawnEnvelopeFootprint();
             drawBtn.setAttribute('aria-pressed', status.armed ? 'true' : 'false');
@@ -320,10 +350,17 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
                 text = refusal;
             } else if (status.armed) {
                 state = 'armed';
-                text = status.refusal !== null
+                // §ENVELOPE-MODE-BAR — the strip's absence is REPORTED, with the way to work without
+                // it, rather than leaving the user hunting for pills that were refused in silence.
+                const modeNote = modeBarRefused
+                    ? ' ⚠ The mode strip is not available on this screen yet, so the shapes are on the '
+                      + 'keyboard instead: L linear · O orthogonal · C curved · Q rectangular · '
+                      + 'I circular · E elliptical.'
+                    : '';
+                text = (status.refusal !== null
                     ? `${status.refusal} ${status.hint}`
                     : `Drawing on ${status.surfaces} site view${status.surfaces === 1 ? '' : 's'} — `
-                      + `whichever you click first owns the gesture. ${status.hint}`;
+                      + `whichever you click first owns the gesture. ${status.hint}`) + modeNote;
             } else if (drawn !== null) {
                 state = 'drawn';
                 text =
@@ -345,9 +382,6 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
             drawStatus.style.borderLeft = state === 'refused' ? '2px solid #c9973a' : '';
             drawStatus.style.padding = state === 'refused' ? '4px 6px' : '';
             drawStatus.style.borderRadius = state === 'refused' ? '0 5px 5px 0' : '';
-            // §ENVELOPE-MODE-BAR — driven from the SAME reading as the button and the status line, so
-            // the strip cannot be up while the row says idle. One subscription, one repaint.
-            paintModeBar();
         };
 
         drawBtn.addEventListener('click', (ev) => {
