@@ -29,7 +29,17 @@
 
 import { trace, type Tracer } from '@opentelemetry/api';
 import { checkEnvelopeContainment, type XZ } from '@pryzm/site-parcel-data';
-import { footprintAreaM2, prismVerticalExtent, type EnvelopePoint } from './SpaceEnvelopeGeometry.js';
+// ⭐ `pointInRing` MOVED to SpaceEnvelopeGeometry (2026-09-07, lane FACE-DRAG) and is imported
+// rather than kept private here: the ray/plan face PICKER needs the identical test, and two
+// crossing-number implementations of "is this point inside this ring?" is the C84 EI-9 defect —
+// the pick would disagree with the containment relation on exactly the boundary cases where it
+// matters. One definition, both callers.
+import {
+    footprintAreaM2,
+    pointInRing,
+    prismVerticalExtent,
+    type EnvelopePoint,
+} from './SpaceEnvelopeGeometry.js';
 import type { SpaceEnvelopePrism } from './SpaceEnvelopeTypes.js';
 
 let tracer: Tracer | undefined;
@@ -341,16 +351,3 @@ function bounds(ring: readonly EnvelopePoint[]): {
     return { minX, maxX, minZ, maxZ };
 }
 
-function pointInRing(p: EnvelopePoint, ring: readonly EnvelopePoint[]): boolean {
-    let inside = false;
-    const n = ring.length;
-    for (let i = 0, j = n - 1; i < n; j = i, i += 1) {
-        const a = ring[i]!;
-        const b = ring[j]!;
-        if ((a.z > p.z) !== (b.z > p.z)
-            && p.x < ((b.x - a.x) * (p.z - a.z)) / (b.z - a.z) + a.x) {
-            inside = !inside;
-        }
-    }
-    return inside;
-}

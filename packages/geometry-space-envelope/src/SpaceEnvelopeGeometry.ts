@@ -231,3 +231,40 @@ export function ringIsDegenerate(ring: readonly EnvelopePoint[]): boolean {
 export function ringIsOnLevelPlane(ring: readonly EnvelopePoint[]): boolean {
     return ring.every((p) => p.y === 0);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POINT-IN-RING — one definition, two callers (2026-09-07, lane FACE-DRAG)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Crossing-number point-in-polygon on the XZ plane.
+ *
+ * ⭐ IT LIVES HERE RATHER THAN INSIDE ONE CALLER BECAUSE THERE ARE NOW TWO. It was
+ * private to `SpaceEnvelopeRelations` (footprint overlap); the face PICKER needs the
+ * identical test to decide whether a ray that crossed the top plane crossed it INSIDE
+ * the ring. Two crossing-number implementations would be the C84 EI-9 defect in its
+ * most expensive form: they would agree everywhere except on the boundary cases that
+ * decide whether a click lands on a face or on nothing.
+ *
+ * ⚠ THE BOUNDARY IS NOT DEFINED, AND NEITHER CALLER MAY DEPEND ON IT. A point exactly
+ * on an edge is reported by the parity of the crossings, which is an artefact of the
+ * half-open `(a.z > p.z) !== (b.z > p.z)` test rather than a decision. A caller that
+ * needs the boundary INCLUDED must widen its own ring or add its own tolerance — the
+ * picker does exactly that, with a named epsilon, rather than asking this function for
+ * a guarantee it does not make.
+ *
+ * `y` is ignored: this is a plan test.
+ */
+export function pointInRing(p: { readonly x: number; readonly z: number }, ring: readonly EnvelopePoint[]): boolean {
+    let inside = false;
+    const n = ring.length;
+    for (let i = 0, j = n - 1; i < n; j = i, i += 1) {
+        const a = ring[i]!;
+        const b = ring[j]!;
+        if ((a.z > p.z) !== (b.z > p.z)
+            && p.x < ((b.x - a.x) * (p.z - a.z)) / (b.z - a.z) + a.x) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}

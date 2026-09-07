@@ -57,6 +57,7 @@ export {
 export {
     footprintAreaM2,
     outwardNormal,
+    pointInRing,
     prismVerticalExtent,
     recomputeSpaceEnvelopeMetrics,
     ringCentroid,
@@ -68,6 +69,23 @@ export {
     type EnvelopePoint,
     type SpaceEnvelopeMetrics,
 } from './SpaceEnvelopeGeometry.js';
+
+// §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS (lane FACE-DRAG, 2026-09-07) — WHICH FACE IS UNDER
+// THE POINTER, as arithmetic. ⭐ This is what removes L-13045's dominant cost line: a
+// ray/prism intersection answers the `pickFace` port on EVERY surface, so no rasteriser
+// has to mint n + 2 pickable primitives per envelope and no second "which face?" rule
+// exists to drift. Pure, and therefore provable in `node` — unlike the RAY, which each
+// surface must build at its own edge and which no headless test can falsify.
+export {
+    FACE_BOUNDS_EPSILON_M,
+    RAY_PLANE_PARALLEL_EPSILON,
+    pickNearestSpaceEnvelopeFace,
+    pickNearestSpaceEnvelopeSideFaceInPlan,
+    pickSpaceEnvelopeFace,
+    pickSpaceEnvelopeSideFaceInPlan,
+    type SpaceEnvelopeFaceHit,
+    type SpaceEnvelopeFacePickResult,
+} from './SpaceEnvelopeFacePick.js';
 
 export {
     computeSpaceEnvelopeFaceMoveCensus,
