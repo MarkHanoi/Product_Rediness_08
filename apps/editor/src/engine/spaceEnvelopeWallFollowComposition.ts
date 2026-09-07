@@ -83,6 +83,15 @@ export function createSpaceEnvelopeWallFollowDeps(
                         { x: a.x, y: a.y, z: a.z },
                         { x: b.x, y: b.y, z: b.z },
                     ] as const,
+                    // ⭐ §ENVELOPE-TOP-FACE-HEIGHT — the evidence the height analogue of the C80
+                    // test is decided on (`Wall.ts:100`, *"Wall height in metres"*).
+                    // ⛔ SPREAD, NOT DEFAULTED. A record with no readable height reports NO height,
+                    // and the planner names that wall `height-not-recorded` and leaves it alone —
+                    // substituting `2.5` (the schema default) here would re-height a wall from a
+                    // number nobody wrote, which is the silent overwrite C80 forbids.
+                    ...(typeof w.height === 'number' && Number.isFinite(w.height)
+                        ? { heightM: w.height }
+                        : {}),
                 };
             },
 

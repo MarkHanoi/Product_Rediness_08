@@ -134,6 +134,7 @@
 
 import { trace } from '@opentelemetry/api';
 import {
+    groupWallFollowHeightEntries,
     mergeSpaceEnvelopeWallFollowPlans,
     planSpaceEnvelopeWallFollow,
     type SpaceEnvelopeWallFollowPlan,
@@ -150,6 +151,18 @@ const _tracer = trace.getTracer('pryzm.engine.spaceEnvelopeWallFollow');
 /** The command this consequence dispatches. ONE spelling, for the same reason the verb beside the
  *  gesture has one: a mis-spelled verb reaches the bus as an unknown command, not as a refusal. */
 export const WALL_CASCADE_BASELINE_COMMAND = 'wall.cascadeBaseline';
+
+/**
+ * ⭐ §ENVELOPE-TOP-FACE-HEIGHT (L-13118) — THE SECOND VERB, and the one the row said already
+ * existed: *"`wall.updateHeightBatch` already exists and already costs ONE undo entry; what does
+ * not exist is `height` / `baseOffset` on `SpaceEnvelopeFaceMoveCommitted`."* Both now do.
+ *
+ * ⛔ ITS PAYLOAD IS `{wallIds, height}` — ONE height for N walls (`UpdateWallsHeightBatch.ts:74-79`)
+ * — which is why the planner groups by target height and this file dispatches once per group. It
+ * bridges to `UpdateWallHeightCommand`, which already takes `wallIds: string[]`, already writes the
+ * AUTHORITATIVE `wallStore`, and already lands as ONE entry on the legacy history stack.
+ */
+export const WALL_UPDATE_HEIGHT_BATCH_COMMAND = 'wall.updateHeightBatch';
 
 /** The narrowest event channel this needs. Structural, so no runtime import. */
 export interface SpaceEnvelopeWallFollowEvents {
@@ -201,13 +214,46 @@ const followableRows = (
 ): readonly WallFollowLinkRow[] => rows.filter((r) => r.claim !== 'also');
 
 /**
+ * §ENVELOPE-TOP-FACE-HEIGHT — the four readings that bracket one envelope's move, lifted off the
+ * event in ONE place. The subject and every adapted room carry the same shape, so lifting them
+ * twice would be two spellings of one fact (C84 EI-9).
+ */
+const bracketOf = (e: {
+    readonly ringBefore: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    readonly ringAfter: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    readonly heightBefore?: number;
+    readonly heightAfter?: number;
+    readonly baseOffsetBefore?: number;
+    readonly baseOffsetAfter?: number;
+}): EnvelopeMoveBracket => ({
+    ringBefore: e.ringBefore,
+    ringAfter: e.ringAfter,
+    ...(e.heightBefore !== undefined ? { heightBefore: e.heightBefore } : {}),
+    ...(e.heightAfter !== undefined ? { heightAfter: e.heightAfter } : {}),
+    ...(e.baseOffsetBefore !== undefined ? { baseOffsetBefore: e.baseOffsetBefore } : {}),
+    ...(e.baseOffsetAfter !== undefined ? { baseOffsetAfter: e.baseOffsetAfter } : {}),
+});
+
+/**
  * Plan ONE envelope's move. Never throws — a reader that explodes is a reader that could not
  * answer, which is exactly the `null` (unreadable) case and never the empty (no walls) one.
  */
+/**
+ * The two rings AND the two heights that bracket ONE envelope's move. §ENVELOPE-TOP-FACE-HEIGHT —
+ * the subject and every adapted room carry the same four readings, so one function plans both.
+ */
+interface EnvelopeMoveBracket {
+    readonly ringBefore: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    readonly ringAfter: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    readonly heightBefore?: number;
+    readonly heightAfter?: number;
+    readonly baseOffsetBefore?: number;
+    readonly baseOffsetAfter?: number;
+}
+
 function planOneEnvelope(
     envelopeId: string,
-    ringBefore: ReadonlyArray<{ readonly x: number; readonly z: number }>,
-    ringAfter: ReadonlyArray<{ readonly x: number; readonly z: number }>,
+    move: EnvelopeMoveBracket,
     deps: SpaceEnvelopeWallFollowDeps,
 ): SpaceEnvelopeWallFollowPlan {
     let links: readonly WallFollowLinkRow[] | null;
@@ -219,8 +265,15 @@ function planOneEnvelope(
     }
     return planSpaceEnvelopeWallFollow({
         spaceEnvelopeId: envelopeId,
-        ringBefore,
-        ringAfter,
+        ringBefore: move.ringBefore,
+        ringAfter: move.ringAfter,
+        // ⛔ SPREAD, NOT DEFAULTED. An absent height means "this surface did not report one", and
+        // substituting a number here would turn that into "the height did not change" — the
+        // §CONTEXT-DATA-HONESTY collapse the planner's own contract forbids.
+        ...(move.heightBefore !== undefined ? { heightBefore: move.heightBefore } : {}),
+        ...(move.heightAfter !== undefined ? { heightAfter: move.heightAfter } : {}),
+        ...(move.baseOffsetBefore !== undefined ? { baseOffsetBefore: move.baseOffsetBefore } : {}),
+        ...(move.baseOffsetAfter !== undefined ? { baseOffsetAfter: move.baseOffsetAfter } : {}),
         links: links === null || links === undefined ? null : followableRows(links),
         wallState: (wallId) => {
             try {
@@ -258,14 +311,14 @@ export function applySpaceEnvelopeWallFollow(
         // keeps the FIRST plan's refusal when the whole gesture produced nothing — so a top/bottom
         // drag still reads `ring-unchanged` and still stays out of the user's face.
         const plans: SpaceEnvelopeWallFollowPlan[] = [
-            planOneEnvelope(ev.spaceEnvelopeId, ev.ringBefore, ev.ringAfter, deps),
+            planOneEnvelope(ev.spaceEnvelopeId, bracketOf(ev), deps),
         ];
         // ⚠ A ROOM IS SKIPPED, NOT REFUSED, WHEN IT NAMES THE SUBJECT. Belt and braces: the
         // contextual planner never puts the subject in its own `adapted` list, and if it ever did,
         // planning it twice would make every one of its walls contest itself.
         for (const a of ev.adapted ?? []) {
             if (!a || a.envelopeId === ev.spaceEnvelopeId) continue;
-            plans.push(planOneEnvelope(a.envelopeId, a.ringBefore, a.ringAfter, deps));
+            plans.push(planOneEnvelope(a.envelopeId, bracketOf(a), deps));
         }
 
         const plan = mergeSpaceEnvelopeWallFollowPlans(plans);
@@ -274,6 +327,8 @@ export function applySpaceEnvelopeWallFollow(
         span.setAttribute('pryzm.wallFollow.envelopes', plans.length);
         span.setAttribute('pryzm.wallFollow.moved', plan.entries.length);
         span.setAttribute('pryzm.wallFollow.stayed', plan.stayed.length);
+        span.setAttribute('pryzm.wallFollow.heightMoved', plan.heightEntries.length);
+        span.setAttribute('pryzm.wallFollow.heightStayed', plan.heightStayed.length);
 
         // ⚠ A `ring-unchanged` refusal is the ORDINARY outcome of a top/bottom drag, so it is
         // logged rather than toasted — a warning on every roof-height drag would be noise. Every
@@ -294,51 +349,130 @@ export function applySpaceEnvelopeWallFollow(
         for (const s of plan.stayed) {
             console.log(`[spaceEnvelopeWallFollow] wall '${s.wallId}' stayed (${s.reason}) — ${s.detail}`);
         }
+        for (const s of plan.heightStayed) {
+            console.log(`[spaceEnvelopeWallFollow] wall '${s.wallId}' kept its height (${s.reason}) — ${s.detail}`);
+        }
 
-        if (plan.entries.length === 0) {
+        if (plan.entries.length === 0 && plan.heightEntries.length === 0) {
             console.log(`[spaceEnvelopeWallFollow] ${plan.summary}`);
             // The C80 case is worth telling the user about even when nothing moved: they dragged a
             // face and the building did not follow, and they are owed the reason.
             if (plan.stayed.some((s) => s.reason === 'authored-since-generation'
-                || s.reason === 'contested-by-two-envelopes')) {
+                || s.reason === 'contested-by-two-envelopes')
+                || plan.heightStayed.some((s) => s.reason === 'height-authored-since-generation'
+                    || s.reason === 'height-contested-by-two-envelopes'
+                    || s.reason === 'envelope-base-moved')) {
                 deps.notify?.(plan.summary, 'info');
             }
             return plan;
         }
 
-        try {
-            // P6 — the ONE mutation, and exactly one per committed drag, however many envelopes
-            // moved inside it (C114 §6a).
-            const result = deps.dispatch(WALL_CASCADE_BASELINE_COMMAND, {
-                entries: plan.entries.map((e) => ({
-                    wallId: e.wallId,
-                    newBaseLine: e.newBaseLine,
-                    prevBaseLine: e.prevBaseLine,
-                })),
-                cause: plan.cause,
-            });
-            // ⛔ THE ATOMIC REFUSAL ARRIVES HERE, ASYNCHRONOUSLY, AND IS THE LIKELIEST REAL FAILURE
-            // — one wall crossing an opening refuses all N (header). `Promise.resolve` because the
-            // bus's composed handle is declared `unknown`; dropping the `.catch` to satisfy the
-            // compiler would make the refusal an unhandled rejection.
-            void Promise.resolve(result).catch((e: unknown) => {
-                console.error('[spaceEnvelopeWallFollow] the wall cascade was REFUSED:', e);
+        // ⭐ §ENVELOPE-TOP-FACE-HEIGHT — THE HEIGHT LEG, DISPATCHED AFTER THE BASELINE ONE.
+        //
+        // ⛔ ON A SINGLE-FACE GESTURE ONLY ONE OF THE TWO EVER RUNS — a face move changes the ring
+        // XOR the height (`SpaceEnvelopeFaceMove.ts:216-241` vs `:340-341`). So a top drag costs
+        // ONE wall command, exactly as a side drag does, and the honest undo count for the gesture
+        // is TWO on two stacks: the same INHERITED C85 W-P-3 shape the baseline leg already carries
+        // (see the header), not a new violation.
+        //
+        // ⚠ BOTH LEGS FIRE ONLY IN ONE CASE, AND IT IS NAMED RATHER THAN HIDDEN: an adapted room
+        // that had to shrink horizontally AND vertically in the same commit
+        // (`SpaceEnvelopeContext.ts:305-363` runs both loops). That gesture costs one more entry,
+        // and the alternative — dropping a real consequence to protect a count that is already two
+        // — would leave the user with walls whose plan followed and whose height did not, which is
+        // exactly the half-working state L-13118 exists to close.
+        //
+        // ⚠ ORDER IS FIXED: baselines first. Both plans were computed from the SAME store read
+        // BEFORE either dispatch, so neither can see the other's writes — but a fixed order is what
+        // makes a test of the dispatch sequence meaningful at all.
+        const heightGroups = groupWallFollowHeightEntries(plan.heightEntries);
+        span.setAttribute('pryzm.wallFollow.heightGroups', heightGroups.length);
+        if (heightGroups.length > 1) {
+            // Said out loud, because it is the one case in which this feature costs more than one
+            // wall command. It needs a level top pushed DOWN onto rooms that clip to different
+            // heights; the founder's gesture (pull the top UP) strands nobody and is always 1.
+            console.warn(
+                `[spaceEnvelopeWallFollow] this drag needs ${heightGroups.length} height commands — the `
+                + 'walls it moved do not all end at the same height, and wall.updateHeightBatch carries '
+                + 'ONE height per dispatch. That is one undo entry each.',
+            );
+        }
+        const dispatchHeightGroups = (): void => {
+            for (const group of heightGroups) {
+                try {
+                    // P6 — through the bus, never a store write.
+                    const result = deps.dispatch(WALL_UPDATE_HEIGHT_BATCH_COMMAND, {
+                        wallIds: group.wallIds,
+                        height: group.heightM,
+                    });
+                    // ⛔ THE REFUSAL ARRIVES HERE. `wall.updateHeightBatch` refuses out loud, with
+                    // BOTH numbers, outside `WALL_HEIGHT_CONSTRAINTS`
+                    // (`UpdateWallsHeightBatch.ts:131-145`).
+                    // ⭐ THIS FILE DELIBERATELY DOES NOT PRE-CHECK THAT RANGE: copying the two
+                    // numbers here would be a second spelling of a limit that already has one
+                    // (C84 EI-9), and a copy is what goes stale. The command owns the limit and
+                    // owns the sentence the user reads.
+                    void Promise.resolve(result).catch((e: unknown) => {
+                        console.error('[spaceEnvelopeWallFollow] the wall height change was REFUSED:', e);
+                        deps.notify?.(
+                            'The envelope’s height changed, but PRYZM could not carry it through to the '
+                            + `walls — ${e instanceof Error ? e.message : String(e)}. Every wall is the `
+                            + 'height it was.',
+                            'error',
+                        );
+                    });
+                } catch (e) {
+                    console.error('[spaceEnvelopeWallFollow] the wall height change was NOT dispatched:', e);
+                    deps.notify?.(
+                        'The envelope’s height changed but PRYZM could not carry it through to the walls. '
+                        + 'They are the height they were.',
+                        'error',
+                    );
+                }
+            }
+        };
+
+        if (plan.entries.length > 0) {
+            try {
+                // P6 — the ONE baseline mutation, however many envelopes moved inside the gesture
+                // (C114 §6a).
+                const result = deps.dispatch(WALL_CASCADE_BASELINE_COMMAND, {
+                    entries: plan.entries.map((e) => ({
+                        wallId: e.wallId,
+                        newBaseLine: e.newBaseLine,
+                        prevBaseLine: e.prevBaseLine,
+                    })),
+                    cause: plan.cause,
+                });
+                // ⛔ THE ATOMIC REFUSAL ARRIVES HERE, ASYNCHRONOUSLY, AND IS THE LIKELIEST REAL
+                // FAILURE — one wall crossing an opening refuses all N (header). `Promise.resolve`
+                // because the bus's composed handle is declared `unknown`; dropping the `.catch` to
+                // satisfy the compiler would make the refusal an unhandled rejection.
+                void Promise.resolve(result).catch((e: unknown) => {
+                    console.error('[spaceEnvelopeWallFollow] the wall cascade was REFUSED:', e);
+                    deps.notify?.(
+                        'The envelope face moved, but PRYZM could not move the walls with it — '
+                        + `${e instanceof Error ? e.message : String(e)}. Every wall is where it was; the `
+                        + 'cascade is all-or-nothing.',
+                        'error',
+                    );
+                });
+            } catch (e) {
+                console.error('[spaceEnvelopeWallFollow] the wall cascade was NOT dispatched:', e);
                 deps.notify?.(
-                    'The envelope face moved, but PRYZM could not move the walls with it — '
-                    + `${e instanceof Error ? e.message : String(e)}. Every wall is where it was; the `
-                    + 'cascade is all-or-nothing.',
+                    'The envelope face moved but PRYZM could not move the walls with it. The walls are '
+                    + 'where they were.',
                     'error',
                 );
-            });
-        } catch (e) {
-            console.error('[spaceEnvelopeWallFollow] the wall cascade was NOT dispatched:', e);
-            deps.notify?.(
-                'The envelope face moved but PRYZM could not move the walls with it. The walls are '
-                + 'where they were.',
-                'error',
-            );
-            return plan;
+                // ⚠ THE HEIGHT LEG STILL RUNS. The two are independent consequences of one gesture,
+                // and suppressing a height change the planner approved because a BASELINE dispatch
+                // failed would be one failure silently taking a second, unrelated one with it.
+                dispatchHeightGroups();
+                return plan;
+            }
         }
+
+        dispatchHeightGroups();
 
         console.log(`[spaceEnvelopeWallFollow] ${plan.summary}`);
         deps.notify?.(plan.summary, 'info');

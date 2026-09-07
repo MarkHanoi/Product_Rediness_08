@@ -7,9 +7,11 @@
 // ✅ ESTABLISHES: a wall still sitting on its generated edge FOLLOWS, with its `y` and its own
 //    direction preserved; a wall the user moved by hand STAYS and is NAMED (the C80 branch); an
 //    unreadable link graph REFUSES and is never read as "no walls"; a link row whose wall is gone
-//    is skipped, not crashed on; a top/bottom drag plans nothing because the ring did not change;
-//    a changed vertex COUNT refuses rather than matching the wrong wall; and one committed drag
-//    dispatches EXACTLY ONE `wall.cascadeBaseline` (C114 §6a) rather than one command per wall.
+//    is skipped, not crashed on; a top/bottom drag plans no BASELINE because the ring did not
+//    change; a changed vertex COUNT refuses rather than matching the wrong wall; one committed drag
+//    dispatches EXACTLY ONE `wall.cascadeBaseline` (C114 §6a) rather than one command per wall;
+//    and — §ENVELOPE-TOP-FACE-HEIGHT, L-13118 — a TOP drag makes the walls TALLER in exactly one
+//    `wall.updateHeightBatch`, without overwriting a height the user set by hand.
 //
 // ⛔ DOES NOT ESTABLISH: that any wall moves on screen, that `CascadeWallBaselineCommand` accepts
 //    these payloads, or that the semantic graph really holds the rows in a live project. This file
@@ -19,11 +21,14 @@
 import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_AUTHORED_TOLERANCE_M,
+    groupWallFollowHeightEntries,
     mergeSpaceEnvelopeWallFollowPlans,
     planSpaceEnvelopeWallFollow,
     WALL_FOLLOW_CAUSE,
     type SpaceEnvelopeWallFollowPlan,
+    type SpaceEnvelopeWallFollowRequest,
     type WallFollowBaseline,
+    type WallFollowHeightEntry,
     type WallFollowLinkRow,
     type WallFollowRingPoint,
     type WallFollowWallState,
@@ -32,6 +37,7 @@ import {
     applySpaceEnvelopeWallFollow,
     registerSpaceEnvelopeWallFollow,
     WALL_CASCADE_BASELINE_COMMAND,
+    WALL_UPDATE_HEIGHT_BATCH_COMMAND,
     type SpaceEnvelopeWallFollowDeps,
 } from '../spaceEnvelopeWallFollow';
 import {
@@ -711,6 +717,405 @@ describe('⭐ the cost of N envelopes, measured', () => {
         expect(plan.entries).toHaveLength(112);
         console.log(`[perf] §ENVELOPE-PARTITIONS-FOLLOW — 13 envelopes / 112 rows / 112 entries: `
             + `${ms.toFixed(2)} ms, once, at pointer-up (0 ms per pointer-move).`);
+        expect(ms).toBeLessThan(50);
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §ENVELOPE-TOP-FACE-HEIGHT (L-13118) — DRAG THE ROOF, THE WALLS GET TALLER
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// ✅ ESTABLISHES: a top-face drag (ring IDENTICAL, height changed) produces height entries and no
+//    baseline entries; the HEIGHT ANALOGUE of the C80 test — a wall whose height the user changed
+//    by hand KEEPS it and is NAMED with both numbers; a wall whose height cannot be READ is never
+//    re-heighted from a default; a BOTTOM drag is refused by name because no verb here moves a
+//    wall's base; `edgeIndex: -1` still follows the height because a height needs no edge; N walls
+//    at ONE target height cost ONE `wall.updateHeightBatch`; two envelopes wanting two heights for
+//    one wall contest and DROP; and a side drag is bit-for-bit what it was.
+//
+// ⛔ DOES NOT ESTABLISH: that `wall.updateHeightBatch` accepts these payloads in a live runtime,
+//    that any wall grows on screen, or that the founder's gesture works in a browser. This drives
+//    the PLANNER and the WIRE with hand-written readers. Nothing here is browser-verified
+//    (C114 §14d).
+
+/** The envelope was 3 m tall and the roof was pulled to 4.2 m. */
+const H_BEFORE = 3;
+const H_AFTER = 4.2;
+
+/** A reader that reports a baseline AND a height. Absent height ⇒ the field is OMITTED, not 0. */
+const readerOfHeights = (
+    walls: ReadonlyMap<string, WallFollowBaseline>,
+    heights: ReadonlyMap<string, number>,
+): ((wallId: string) => WallFollowWallState | null) =>
+    (wallId) => {
+        const baseLine = walls.get(wallId);
+        if (!baseLine) return null;
+        const h = heights.get(wallId);
+        return h === undefined ? { wallId, baseLine } : { wallId, baseLine, heightM: h };
+    };
+
+/** Every wall standing at the envelope's generated height — the state a top drag starts from. */
+const pristineHeights = (h = H_BEFORE): Map<string, number> =>
+    new Map([['W0', h], ['W1', h], ['W2', h], ['W3', h]]);
+
+/** A TOP-face drag: the ring is the SAME ring, and only the height moved. */
+const topDrag = (over: Partial<SpaceEnvelopeWallFollowRequest> = {}): SpaceEnvelopeWallFollowPlan =>
+    planSpaceEnvelopeWallFollow({
+        spaceEnvelopeId: 'E-ground',
+        // ⛔ THE SAME VERTICES, deliberately. `SpaceEnvelopeFaceMove.ts:78` — *"For top/bottom moves
+        // this is unchanged"* — so a fixture whose ring differed would be testing a side drag.
+        ringBefore: RING_BEFORE,
+        ringAfter: RING_BEFORE.map((p) => ({ x: p.x, z: p.z })),
+        links: ALL_LINKS,
+        wallState: readerOfHeights(pristineWalls(), pristineHeights()),
+        heightBefore: H_BEFORE,
+        heightAfter: H_AFTER,
+        baseOffsetBefore: 0,
+        baseOffsetAfter: 0,
+        ...over,
+    });
+
+describe('⭐⭐ the TOP face makes the walls taller (L-13118)', () => {
+    it('⭐ THE FOUNDER’S GESTURE: the ring did not move, and every wall follows the new HEIGHT', () => {
+        const plan = topDrag();
+
+        expect(plan.ok).toBe(true);
+        expect(plan.refusal).toBeNull();
+        // ⛔ NO BASELINE MOVED, and that is correct rather than a shortfall: the footprint is
+        // identical, so there is no new edge for any wall to land on.
+        expect(plan.entries).toEqual([]);
+        expect(plan.stayed).toEqual([]);
+        expect(plan.heightEntries).toHaveLength(4);
+        for (const e of plan.heightEntries) {
+            expect(e.newHeightM).toBeCloseTo(H_AFTER, 9);
+            expect(e.prevHeightM).toBeCloseTo(H_BEFORE, 9);
+        }
+        expect(plan.heightEntries.map((e) => e.wallId).sort()).toEqual(['W0', 'W1', 'W2', 'W3']);
+    });
+
+    it('⛔⭐ THE HEIGHT ANALOGUE OF THE C80 BRANCH — a hand-set height KEEPS it, with BOTH numbers', () => {
+        const heights = pristineHeights();
+        heights.set('W2', 2.4); // the user shortened this one by hand
+        const plan = topDrag({ wallState: readerOfHeights(pristineWalls(), heights) });
+
+        expect(plan.heightEntries.map((e) => e.wallId).sort()).toEqual(['W0', 'W1', 'W3']);
+        const stay = plan.heightStayed.find((s) => s.wallId === 'W2')!;
+        expect(stay.reason).toBe('height-authored-since-generation');
+        // ⭐ BOTH NUMBERS, read off the geometry — C114 §12a. A refusal that names neither is a
+        // shrug with a citation attached.
+        expect(stay.detail).toContain('2.40 m');
+        expect(stay.detail).toContain('3.00 m');
+        expect(stay.detail).toContain(`${DEFAULT_AUTHORED_TOLERANCE_M.toFixed(2)} m`);
+    });
+
+    it('the SAME tolerance governs both axes — drift inside it is still the generated wall', () => {
+        const heights = pristineHeights();
+        heights.set('W2', H_BEFORE + DEFAULT_AUTHORED_TOLERANCE_M * 0.5);
+        const plan = topDrag({ wallState: readerOfHeights(pristineWalls(), heights) });
+        expect(plan.heightEntries).toHaveLength(4);
+        // ⭐ AND IT IS THE ENVELOPE'S NEW HEIGHT, NOT `prev + delta`. The verb carries ONE height
+        // for N walls, so a per-wall arithmetic result would need N dispatches.
+        expect(plan.heightEntries.every((e) => e.newHeightM === H_AFTER)).toBe(true);
+    });
+
+    it('⛔ a wall whose height cannot be READ is never re-heighted from a default', () => {
+        const heights = pristineHeights();
+        heights.delete('W1');
+        const plan = topDrag({ wallState: readerOfHeights(pristineWalls(), heights) });
+        expect(plan.heightEntries.map((e) => e.wallId).sort()).toEqual(['W0', 'W2', 'W3']);
+        const stay = plan.heightStayed.find((s) => s.wallId === 'W1')!;
+        expect(stay.reason).toBe('height-not-recorded');
+    });
+
+    it('⭐ `edgeIndex: -1` STILL follows the height — a height needs no edge, a baseline does', () => {
+        const plan = topDrag({ links: [{ wallId: 'W1', edgeIndex: -1 }] });
+        expect(plan.heightEntries).toHaveLength(1);
+        expect(plan.heightEntries[0]!.wallId).toBe('W1');
+        // The same row on a SIDE drag is `edge-index-unrecoverable` and moves nothing.
+        const side = planSpaceEnvelopeWallFollow({
+            spaceEnvelopeId: 'E-ground',
+            ringBefore: RING_BEFORE,
+            ringAfter: RING_AFTER,
+            links: [{ wallId: 'W1', edgeIndex: -1 }],
+            wallState: readerOf(pristineWalls()),
+        });
+        expect(side.stayed[0]!.reason).toBe('edge-index-unrecoverable');
+    });
+
+    it('a row whose wall is GONE is named on the height axis too, never crashed on', () => {
+        const plan = topDrag({ wallState: readerOfHeights(new Map(), new Map()) });
+        expect(plan.heightEntries).toEqual([]);
+        expect(plan.heightStayed.every((s) => s.reason === 'wall-no-longer-exists')).toBe(true);
+    });
+
+    it('⛔ THE BOTTOM FACE IS REFUSED BY NAME — PRYZM moves a wall’s height, not its base', () => {
+        // A bottom drag: `SpaceEnvelopeFaceMove.ts:220-221` writes BOTH a new height and a new base.
+        const plan = topDrag({ heightAfter: 4, baseOffsetBefore: 0, baseOffsetAfter: -1 });
+        expect(plan.ok).toBe(false);
+        expect(plan.refusal?.code).toBe('envelope-base-moved');
+        // Both numbers, again.
+        expect(plan.refusal?.message).toContain('0.00 m');
+        expect(plan.refusal?.message).toContain('-1.00 m');
+        expect(plan.heightEntries).toEqual([]);
+        expect(plan.entries).toEqual([]);
+    });
+
+    it('⛔ a surface that reports NO height behaves exactly as it did before this leg existed', () => {
+        const plan = planSpaceEnvelopeWallFollow({
+            spaceEnvelopeId: 'E-ground',
+            ringBefore: RING_BEFORE,
+            ringAfter: RING_BEFORE.map((p) => ({ x: p.x, z: p.z })),
+            links: ALL_LINKS,
+            wallState: readerOfHeights(pristineWalls(), pristineHeights()),
+        });
+        expect(plan.refusal?.code).toBe('ring-unchanged');
+        expect(plan.heightEntries).toEqual([]);
+        // ⛔ AND THE OLD SENTENCE IS GONE. It said *"PRYZM does not yet carry that through to wall
+        // heights"*, which became FALSE the day this shipped — a stale refusal is a wrong answer
+        // with a citation attached.
+        expect(plan.refusal?.message).not.toContain('does not yet');
+        expect(plan.refusal?.message).not.toMatch(/wall heights/i);
+    });
+
+    it('⛔ ONE READING IS NOT A CHANGE — a half-reported height is treated as unreported', () => {
+        const plan = topDrag({ heightAfter: undefined });
+        expect(plan.refusal?.code).toBe('ring-unchanged');
+        expect(plan.heightEntries).toEqual([]);
+    });
+
+    it('⭐ A SIDE DRAG IS BIT-FOR-BIT WHAT IT WAS — the height leg adds nothing to it', () => {
+        const plan = planSpaceEnvelopeWallFollow({
+            spaceEnvelopeId: 'E-ground',
+            ringBefore: RING_BEFORE,
+            ringAfter: RING_AFTER,
+            links: ALL_LINKS,
+            wallState: readerOfHeights(pristineWalls(), pristineHeights()),
+            // The height is REPORTED and UNCHANGED — the ordinary side-drag reading.
+            heightBefore: H_BEFORE,
+            heightAfter: H_BEFORE,
+            baseOffsetBefore: 0,
+            baseOffsetAfter: 0,
+        });
+        expect(plan.entries.map((e) => e.wallId).sort()).toEqual(['W0', 'W1', 'W2']);
+        expect(plan.heightEntries).toEqual([]);
+        expect(plan.heightStayed).toEqual([]);
+    });
+
+    it('the summary of a pure height gesture talks about HEIGHT, not about "0 walls followed"', () => {
+        const plan = topDrag();
+        expect(plan.summary).toContain('followed the envelope’s new height');
+        expect(plan.summary).not.toContain('0 walls');
+    });
+});
+
+describe('⭐ groupWallFollowHeightEntries — the verb takes ONE height, so the plan groups', () => {
+    const entry = (wallId: string, newHeightM: number): WallFollowHeightEntry =>
+        ({ wallId, newHeightM, prevHeightM: 3 });
+
+    it('⭐ N walls at ONE height are ONE group — the founder’s gesture is exactly this', () => {
+        const groups = groupWallFollowHeightEntries([entry('A', 4.2), entry('B', 4.2), entry('C', 4.2)]);
+        expect(groups).toHaveLength(1);
+        expect(groups[0]!.heightM).toBe(4.2);
+        expect(groups[0]!.wallIds).toEqual(['A', 'B', 'C']);
+    });
+
+    it('two target heights are two groups, in ASCENDING order — deterministic, not incidental', () => {
+        const groups = groupWallFollowHeightEntries([entry('A', 4.2), entry('B', 2.5), entry('C', 4.2)]);
+        expect(groups.map((g) => g.heightM)).toEqual([2.5, 4.2]);
+        expect(groups[0]!.wallIds).toEqual(['B']);
+        expect(groups[1]!.wallIds).toEqual(['A', 'C']);
+    });
+
+    it('an empty plan groups to nothing — no empty dispatch', () => {
+        expect(groupWallFollowHeightEntries([])).toEqual([]);
+    });
+});
+
+describe('⭐ the height leg merges across envelopes on the same rules as the ring leg', () => {
+    const planWith = (
+        heightAfter: number,
+        wallId: string,
+    ): SpaceEnvelopeWallFollowPlan => planSpaceEnvelopeWallFollow({
+        spaceEnvelopeId: `E-${heightAfter}`,
+        ringBefore: RING_BEFORE,
+        ringAfter: RING_BEFORE.map((p) => ({ x: p.x, z: p.z })),
+        links: [{ wallId, edgeIndex: 0 }],
+        wallState: readerOfHeights(pristineWalls(), pristineHeights()),
+        heightBefore: H_BEFORE,
+        heightAfter,
+        baseOffsetBefore: 0,
+        baseOffsetAfter: 0,
+    });
+
+    it('two envelopes AGREEING about a height move the wall ONCE — agreement is not a conflict', () => {
+        const merged = mergeSpaceEnvelopeWallFollowPlans([planWith(4.2, 'W0'), planWith(4.2, 'W0')]);
+        expect(merged.heightEntries).toHaveLength(1);
+        expect(merged.heightStayed).toEqual([]);
+    });
+
+    it('⛔ two envelopes wanting TWO heights DROP the wall and NAME it — never last-write-wins', () => {
+        const merged = mergeSpaceEnvelopeWallFollowPlans([planWith(4.2, 'W0'), planWith(2.6, 'W0')]);
+        expect(merged.heightEntries).toEqual([]);
+        expect(merged.heightStayed).toHaveLength(1);
+        expect(merged.heightStayed[0]!.reason).toBe('height-contested-by-two-envelopes');
+        expect(merged.heightStayed[0]!.wallId).toBe('W0');
+    });
+
+    it('⛔ a wall whose HEIGHT followed is never also reported as having kept it', () => {
+        const merged = mergeSpaceEnvelopeWallFollowPlans([planWith(4.2, 'W0'), planWith(4.2, 'W1')]);
+        const moved = new Set(merged.heightEntries.map((e) => e.wallId));
+        expect(merged.heightStayed.every((s) => !moved.has(s.wallId))).toBe(true);
+    });
+
+    it('⛔ a `ring-unchanged` subject with a HEIGHT change is NOT a refusal — it is a height change', () => {
+        const merged = mergeSpaceEnvelopeWallFollowPlans([planWith(4.2, 'W0'), planWith(4.2, 'W1')]);
+        expect(merged.refusal).toBeNull();
+        expect(merged.ok).toBe(true);
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// THE WIRE, ON THE HEIGHT AXIS
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/** The committed event a TOP-face drag raises: identical rings, a new height. */
+const COMMITTED_TOP: SpaceEnvelopeFaceMoveCommitted = {
+    spaceEnvelopeId: 'E-ground',
+    face: { kind: 'top' },
+    deltaM: 1.2,
+    ringBefore: RING_BEFORE,
+    ringAfter: RING_BEFORE.map((p) => ({ x: p.x, z: p.z })),
+    heightBefore: H_BEFORE,
+    heightAfter: H_AFTER,
+    baseOffsetBefore: 0,
+    baseOffsetAfter: 0,
+    surfaceId: 'site-3d',
+};
+
+function heightDepsOver(
+    walls: ReadonlyMap<string, WallFollowBaseline>,
+    heights: ReadonlyMap<string, number>,
+    links: readonly WallFollowLinkRow[] | null,
+): { deps: SpaceEnvelopeWallFollowDeps; rec: Recorded } {
+    const rec: Recorded = { dispatched: [], notices: [] };
+    return {
+        rec,
+        deps: {
+            readLinks: () => links,
+            readWall: readerOfHeights(walls, heights),
+            dispatch: (command, payload) => { rec.dispatched.push({ command, payload }); return undefined; },
+            notify: (message, severity) => { rec.notices.push({ message, severity }); },
+        },
+    };
+}
+
+describe('⭐⭐ one roof drag → EXACTLY ONE wall.updateHeightBatch (C114 §6a)', () => {
+    it('⭐ THE CLOSE OF L-13118: forty walls get taller in ONE command, and NO cascade runs', () => {
+        const { deps, rec } = heightDepsOver(pristineWalls(), pristineHeights(), ALL_LINKS);
+        applySpaceEnvelopeWallFollow(COMMITTED_TOP, deps);
+
+        expect(rec.dispatched).toHaveLength(1);
+        expect(rec.dispatched[0]!.command).toBe(WALL_UPDATE_HEIGHT_BATCH_COMMAND);
+        // ⛔ ASSERTED AGAINST THE EXPORTED CONSTANT **AND** THE LITERAL: a spec that re-spelled it
+        // would pass while production and the bus disagreed.
+        expect(WALL_UPDATE_HEIGHT_BATCH_COMMAND).toBe('wall.updateHeightBatch');
+        const payload = rec.dispatched[0]!.payload as { wallIds: string[]; height: number };
+        expect([...payload.wallIds].sort()).toEqual(['W0', 'W1', 'W2', 'W3']);
+        expect(payload.height).toBeCloseTo(H_AFTER, 9);
+        // ⛔ And NOT a baseline cascade — a top drag has no new edge to land any wall on.
+        expect(rec.dispatched.some((d) => d.command === WALL_CASCADE_BASELINE_COMMAND)).toBe(false);
+    });
+
+    it('⭐ the user is TOLD what got taller — a silent success is still a silent outcome', () => {
+        const { deps, rec } = heightDepsOver(pristineWalls(), pristineHeights(), ALL_LINKS);
+        applySpaceEnvelopeWallFollow(COMMITTED_TOP, deps);
+        expect(rec.notices[0]?.severity).toBe('info');
+        expect(rec.notices[0]?.message).toContain('new height');
+    });
+
+    it('⛔ A SIDE DRAG DISPATCHES NO HEIGHT COMMAND — the regression guard for the existing path', () => {
+        const { deps, rec } = heightDepsOver(pristineWalls(), pristineHeights(), ALL_LINKS);
+        applySpaceEnvelopeWallFollow(
+            { ...COMMITTED, heightBefore: H_BEFORE, heightAfter: H_BEFORE, baseOffsetBefore: 0, baseOffsetAfter: 0 },
+            deps,
+        );
+        expect(rec.dispatched).toHaveLength(1);
+        expect(rec.dispatched[0]!.command).toBe(WALL_CASCADE_BASELINE_COMMAND);
+    });
+
+    it('⛔ nothing is dispatched when every wall’s height was authored — and the user hears why', () => {
+        const heights = new Map([['W0', 2.4], ['W1', 2.4], ['W2', 2.4], ['W3', 2.4]]);
+        const { deps, rec } = heightDepsOver(pristineWalls(), heights, ALL_LINKS);
+        applySpaceEnvelopeWallFollow(COMMITTED_TOP, deps);
+        expect(rec.dispatched).toHaveLength(0);
+        expect(rec.notices[0]?.message).toContain('by hand');
+    });
+
+    it('⛔ a BOTTOM drag IS surfaced — unlike `ring-unchanged`, it is not the ordinary outcome', () => {
+        const { deps, rec } = heightDepsOver(pristineWalls(), pristineHeights(), ALL_LINKS);
+        applySpaceEnvelopeWallFollow(
+            { ...COMMITTED_TOP, face: { kind: 'bottom' }, heightAfter: 4, baseOffsetAfter: -1 },
+            deps,
+        );
+        expect(rec.dispatched).toHaveLength(0);
+        expect(rec.notices[0]?.severity).toBe('warning');
+        expect(rec.notices[0]?.message).toContain('Drag the TOP face');
+    });
+
+    it('⭐ THE MIXED GESTURE — baselines FIRST, then heights, and both really happen', () => {
+        // A room that had to shrink in plan AND in height in the same commit
+        // (`SpaceEnvelopeContext.ts:305-363` runs both loops). Rare, real, and named.
+        const { deps, rec } = heightDepsOver(pristineWalls(), pristineHeights(), ALL_LINKS);
+        applySpaceEnvelopeWallFollow(
+            {
+                ...COMMITTED,
+                heightBefore: H_BEFORE,
+                heightAfter: 2.6,
+                baseOffsetBefore: 0,
+                baseOffsetAfter: 0,
+            },
+            deps,
+        );
+        expect(rec.dispatched.map((d) => d.command)).toEqual([
+            WALL_CASCADE_BASELINE_COMMAND,
+            WALL_UPDATE_HEIGHT_BATCH_COMMAND,
+        ]);
+    });
+
+    it('⛔ a REFUSED height batch reaches the USER — never an unhandled rejection', async () => {
+        const notices: { message: string; severity: string }[] = [];
+        const deps: SpaceEnvelopeWallFollowDeps = {
+            readLinks: () => ALL_LINKS,
+            readWall: readerOfHeights(pristineWalls(), pristineHeights()),
+            dispatch: () => Promise.reject(new Error('A wall cannot be taller than 20 m; 42 m was requested.')),
+            notify: (message, severity) => { notices.push({ message, severity }); },
+        };
+        applySpaceEnvelopeWallFollow(COMMITTED_TOP, deps);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(notices.some((n) => n.severity === 'error' && n.message.includes('20 m'))).toBe(true);
+    });
+
+    it('⭐ the cost of the height leg, MEASURED — 112 walls, one dispatch, once at pointer-up', () => {
+        const walls = new Map<string, WallFollowBaseline>();
+        const heights = new Map<string, number>();
+        const links: WallFollowLinkRow[] = [];
+        for (let i = 0; i < 112; i++) {
+            walls.set(`H${i}`, edgeBaseline(RING_BEFORE, i % 4));
+            heights.set(`H${i}`, H_BEFORE);
+            links.push(primary(`H${i}`, i % 4));
+        }
+        const { deps, rec } = heightDepsOver(walls, heights, links);
+
+        const t0 = performance.now();
+        const plan = applySpaceEnvelopeWallFollow(COMMITTED_TOP, deps)!;
+        const ms = performance.now() - t0;
+
+        expect(plan.heightEntries).toHaveLength(112);
+        expect(rec.dispatched).toHaveLength(1);
+        console.log(`[perf] §ENVELOPE-TOP-FACE-HEIGHT — 112 walls / 1 wall.updateHeightBatch: `
+            + `${ms.toFixed(2)} ms, once, at pointer-up (0 ms per pointer-move).`);
+        // A REGRESSION TRIPWIRE, not a bench — see the note on the sibling perf test.
         expect(ms).toBeLessThan(50);
     });
 });

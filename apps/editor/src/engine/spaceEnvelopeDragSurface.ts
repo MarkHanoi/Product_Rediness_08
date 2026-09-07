@@ -266,6 +266,32 @@ export interface SpaceEnvelopeFaceMoveCommitted {
      * is stranded by a larger level, so no room moves, so no partition has anything to follow.
      */
     readonly adapted?: readonly SpaceEnvelopeAdaptedRing[];
+    /**
+     * ⭐ §ENVELOPE-TOP-FACE-HEIGHT (lane TOP-FACE-HEIGHT, L-13118) — THE SECOND AXIS. The
+     * subject's height as the drag STARTED, metres.
+     *
+     * ⛔ IT IS THE FIELD L-13118 NAMED AS THE WHOLE OF THE GAP: *"WHAT IS MISSING IS THE EVENT
+     * FIELD, NOT THE VERB."* `SpaceEnvelopeFaceMove.ts:78` — *"The new footprint ring. For
+     * top/bottom moves this is unchanged"* — so a top drag changes ONLY `height` (and, on the
+     * bottom face, `baseOffset`), and an event carrying rings alone could describe it only as "no
+     * change". `wall.updateHeightBatch` already existed and already cost one undo entry; this pair
+     * is what reaches it.
+     *
+     * ⚠ OPTIONAL, AND ABSENT MEANS *"this surface does not report height"* — never "the height did
+     * not change". Same §CONTEXT-DATA-HONESTY rule as `adapted`. Every surface built on
+     * `installSpaceEnvelopeFaceDragOnSurface` reports both, because both are read off the SAME
+     * plan object that produced `ringAfter`.
+     */
+    readonly heightBefore?: number;
+    /** The height the SAME commit was asked to write. Same lockstep rule as `ringAfter`. */
+    readonly heightAfter?: number;
+    /** The subject's base offset as the drag started, metres. */
+    readonly baseOffsetBefore?: number;
+    /**
+     * The base offset the same commit was asked to write. ⛔ A CHANGE here is a BOTTOM-face drag,
+     * and the wall cascade refuses it by name — see `spaceEnvelopeWallFollowPlan.ts`.
+     */
+    readonly baseOffsetAfter?: number;
     /** Which surface the gesture ran on — `'bim-3d'`, `'site-3d'`, … Free-form by design. */
     readonly surfaceId?: string;
 }
@@ -280,6 +306,22 @@ export interface SpaceEnvelopeAdaptedRing {
     readonly ringBefore: ReadonlyArray<{ readonly x: number; readonly z: number }>;
     /** The footprint the SAME commit was asked to write for it. */
     readonly ringAfter: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    /**
+     * §ENVELOPE-TOP-FACE-HEIGHT — its height as the store held it when the gesture started.
+     *
+     * ⛔ AN ADAPTED ROOM CAN CHANGE HEIGHT AS WELL AS RING, and that is not hypothetical:
+     * `SpaceEnvelopeContext.ts:344-363` runs a VERTICAL adaptation (top, then bottom) after the
+     * horizontal one, so a room the moved storey would strand vertically is clipped to it. Carrying
+     * only its rings would move its partitions in plan and leave them poking through the storey
+     * above.
+     */
+    readonly heightBefore?: number;
+    /** The height the SAME commit was asked to write for it. */
+    readonly heightAfter?: number;
+    /** Its base offset before the commit, metres. */
+    readonly baseOffsetBefore?: number;
+    /** The base offset the same commit was asked to write for it. */
+    readonly baseOffsetAfter?: number;
 }
 
 /**
@@ -426,12 +468,27 @@ interface ActiveDrag {
      */
     lastPlannedRing: ReadonlyArray<{ readonly x: number; readonly z: number }> | null;
     /**
-     * §ENVELOPE-PARTITIONS-FOLLOW — each adapted envelope's PRE-DRAG ring, captured the first
+     * §ENVELOPE-TOP-FACE-HEIGHT — the height and base the LAST accepted plan produced, written in
+     * the SAME statement as `lastPlannedRing`. ⛔ One statement, three fields: a top drag leaves the
+     * ring alone and moves these, a side drag does the opposite, and the committed event must never
+     * be able to carry a ring from one frame of the drag and a height from another.
+     */
+    lastPlannedHeight: number | null;
+    lastPlannedBaseOffset: number | null;
+    /**
+     * §ENVELOPE-PARTITIONS-FOLLOW — each adapted envelope's PRE-DRAG geometry, captured the first
      * time the plan names it and never overwritten. ⛔ Captured during the drag, because the only
      * window in which the store is guaranteed to still hold the pre-drag geometry closes at
      * `deps.dispatch` — which runs before the committed event is raised.
+     *
+     * ⭐ ONE MAP FOR ALL THREE READINGS (ring, height, base), so the first-sight rule below is
+     * written ONCE and the three can never be captured on different frames.
      */
-    readonly adaptedRingBefore: Map<string, ReadonlyArray<{ readonly x: number; readonly z: number }>>;
+    readonly adaptedBefore: Map<string, {
+        readonly ring: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+        readonly height: number;
+        readonly baseOffset: number;
+    }>;
     /**
      * The adapted rings the LAST accepted plan produced — the same lockstep rule as
      * `lastPlannedRing`, and computed from the SAME plan object, so the subject's ring and the
@@ -496,7 +553,13 @@ export function installSpaceEnvelopeFaceDragOnSurface(
             startRecord: record,
             lastDeltaM: 0,
             lastPlannedRing: null,
-            adaptedRingBefore: new Map<string, ReadonlyArray<{ readonly x: number; readonly z: number }>>(),
+            lastPlannedHeight: null,
+            lastPlannedBaseOffset: null,
+            adaptedBefore: new Map<string, {
+                readonly ring: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+                readonly height: number;
+                readonly baseOffset: number;
+            }>(),
             lastAdapted: null,
             previewedNeighbourIds: new Set<string>(),
         };
@@ -591,6 +654,10 @@ export function installSpaceEnvelopeFaceDragOnSurface(
         // the committed event can never carry a delta from one frame and a ring from another.
         active.lastDeltaM = reading.deltaM;
         active.lastPlannedRing = plannedRing;
+        // §ENVELOPE-TOP-FACE-HEIGHT — the other two thirds of the same plan, written here so a
+        // top drag (ring identical, height moved) is as fully described as a side drag.
+        active.lastPlannedHeight = plan.entry.height;
+        active.lastPlannedBaseOffset = plan.entry.baseOffset;
         deps.onPreview?.(reading.deltaM, reading.faceLabel);
         // PREVIEW ONLY — the store is untouched until release (P6).
         const previewed = {
@@ -623,16 +690,25 @@ export function installSpaceEnvelopeFaceDragOnSurface(
             // every frame would silently start returning the COMMITTED ring the moment a future
             // change made the dispatch synchronous, and a `ringBefore` equal to `ringAfter` reads
             // as "this room did not move" rather than as a bug.
-            if (!active.adaptedRingBefore.has(e.envelopeId)) {
-                active.adaptedRingBefore.set(
-                    e.envelopeId,
-                    rec.footprint.map((p) => ({ x: p.x, z: p.z })),
-                );
+            if (!active.adaptedBefore.has(e.envelopeId)) {
+                active.adaptedBefore.set(e.envelopeId, {
+                    ring: rec.footprint.map((p) => ({ x: p.x, z: p.z })),
+                    height: rec.height,
+                    baseOffset: rec.baseOffset,
+                });
             }
+            const capturedBefore = active.adaptedBefore.get(e.envelopeId)!;
             adaptedRings.push({
                 envelopeId: e.envelopeId,
-                ringBefore: active.adaptedRingBefore.get(e.envelopeId)!,
+                ringBefore: capturedBefore.ring,
                 ringAfter,
+                // §ENVELOPE-TOP-FACE-HEIGHT — an adapted room shrinks VERTICALLY as well as in plan
+                // (`SpaceEnvelopeContext.ts:344-363`), so its partitions need both axes or they end
+                // up through the storey above.
+                heightBefore: capturedBefore.height,
+                heightAfter: e.height,
+                baseOffsetBefore: capturedBefore.baseOffset,
+                baseOffsetAfter: e.baseOffset,
             });
             surface.previewDraw({
                 ...rec,
@@ -692,6 +768,25 @@ export function installSpaceEnvelopeFaceDragOnSurface(
                     deltaM: drag.lastDeltaM,
                     ringBefore: drag.startRecord.footprint.map((p) => ({ x: p.x, z: p.z })),
                     ringAfter: drag.lastPlannedRing,
+                    // ⭐ §ENVELOPE-TOP-FACE-HEIGHT (L-13118) — THE FIELD THAT WAS MISSING. Sent on
+                    // EVERY committed drag, not only a top one: "the height did not change" is a
+                    // fact the consumer is entitled to read, and omitting it on side drags would
+                    // make absence ambiguous between "unchanged" and "not reported".
+                    // ⚠ CHECKED, NOT ASSERTED, for the same reason `lastPlannedRing` is: these three
+                    // are written in one statement, so a null here would mean they had drifted, and
+                    // an invented height is worse than an omitted one.
+                    ...(drag.lastPlannedHeight !== null
+                        ? {
+                            heightBefore: drag.startRecord.height,
+                            heightAfter: drag.lastPlannedHeight,
+                        }
+                        : {}),
+                    ...(drag.lastPlannedBaseOffset !== null
+                        ? {
+                            baseOffsetBefore: drag.startRecord.baseOffset,
+                            baseOffsetAfter: drag.lastPlannedBaseOffset,
+                        }
+                        : {}),
                     // ⭐ §ENVELOPE-PARTITIONS-FOLLOW — the rooms the SAME commit moved. Omitted
                     // rather than sent empty when nothing adapted, so a consumer can tell "no room
                     // moved" from "this surface does not report rooms" (§CONTEXT-DATA-HONESTY).
