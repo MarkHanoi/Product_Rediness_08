@@ -317,36 +317,81 @@ describe('§SITE-SCOPE — the SHELL wires one per pane and tears both down', ()
  * That raise is DELIBERATELY past the measured z16 read ceiling of 1 781 m, and the only thing
  * that makes it honest rather than a silent regression is this caption.
  *
- * ⛔ THE TWO CEILINGS ARE NOT THE SAME FACT AND THE ORDER MATTERS. A render cap THINS the rim; past
- * the read ceiling the bake's `--drop-densest-as-needed` has already DELETED footprints, so a
- * wider slab draws FEWER buildings. The read sentence therefore leads, and a biting cap is appended
- * to it rather than replacing it — a plain "if (biting) return" would have hidden the worse fact
- * behind the lesser one at exactly the scope he asked for.
+ * ⛔ THE TWO CEILINGS ARE NOT THE SAME FACT AND THE ORDER MATTERS. A render cap THINS the rim; a
+ * read ceiling is about what the archive can hand back at all. The read sentence therefore leads,
+ * and a biting cap is appended to it rather than replacing it — a plain "if (biting) return" would
+ * have hidden the worse fact behind the lesser one at exactly the scope he asked for.
+ *
+ * ⛔⛔ CORRECTED 2026-09-07 (lane SCOPE-FILL, L-13098) — THIS BLOCK ASSERTED A FOLKLORE THAT WAS
+ * MEASURED AND FOUND FALSE, AND THESE TWO TESTS FAILED BECAUSE THE CAPTION WAS FIXED AND THEY WERE
+ * NOT. It used to read: *"past the read ceiling the bake's `--drop-densest-as-needed` has already
+ * DELETED footprints, so a wider slab draws FEWER buildings"*, and the caption said so to the
+ * founder in the product's own voice. Measured against the actual archive, **features are INTACT
+ * from z16 to z13** — the step down is a SIMPLIFICATION OF VERTICES, not a loss of features. So the
+ * limit being apologised for did not exist for buildings, roads, rail, water or parks, and the
+ * caption now says the true thing: those layers FILL THE WHOLE SLAB.
+ *
+ * ⭐ WHAT SURVIVED THE CORRECTION IS THE PART THAT WAS ALWAYS REAL: **TREES**. The canopy tiles do
+ * genuinely coarsen and drop ~60 % of their points across the WHOLE box — including beside the
+ * user's own site, which is why the tree ring is held at the last radius that reads complete
+ * instead of being allowed to grow thin. That is a real deletion and it is still described as one.
+ *
+ * ⚠ SO THE ASSERTIONS BELOW CHANGED SUBJECT, NOT STANDARD. They no longer pin "FEWER buildings",
+ * because saying that to the founder would now be a lie; they pin that the corrected sentence is
+ * present, that the tree deletion is still called a deletion rather than a thinning, and — new —
+ * that the disproved claim can never come back silently.
+ *
+ * ⚠ `boundBy` IS DELIBERATELY NOT ECHOED ON THE `read` PATH ANY MORE. A read ceiling now names the
+ * layers it actually binds (`SiteScopeSlider.ts:212`), which a generic label cannot do; the label
+ * is still consumed by the `cap` path (`:234`) and by the complete-mark sentences (`:421`/`:423`).
+ * A test asserting the label appears in a read caption is asserting the old generic sentence.
  */
 describe('§SITE-SCOPE §13.5 — the READ ceiling is a different sentence from a cap', () => {
     const wide = scopeAtRadius(3562, 'rectangle');
 
-    it('past the read ceiling it says the read COARSENS and the bake DELETED — not "thinned"', () => {
+    it('past the read ceiling TREES are named as the deletion, and the solid layers as complete', () => {
         const c = completenessCaption(wide, { radiusM: 1781, boundBy: 'the zoom-16 building + canopy read', kind: 'read' }, []);
         expect(c).toContain('1 781 m');
-        expect(c).toContain('zoom-16 building + canopy read');
-        expect(c).toMatch(/FEWER buildings/);
+        // The corrected fact: the solid layers are NOT limited by the read ceiling.
+        expect(c).toContain('fill the whole slab');
+        // …and the one that always was: the canopy tiles really do drop points, everywhere in the
+        // box, which is why the ring is HELD rather than allowed to grow thin.
+        expect(c).toMatch(/Trees stop at/);
         expect(c, 'a deletion must never be described as a thinning').not.toMatch(/thins the rim/);
+        expect(c, 'a deletion must be given its measured size, not left vague').toMatch(/drop ~?60 ?%/);
+        // ⛔ THE REGRESSION GUARD FOR THE CORRECTION ITSELF. "a wider slab draws FEWER buildings" was
+        // measured FALSE (features are intact z16→z13). If it ever returns to this caption the
+        // founder is being told something untrue about his own data, so it fails here rather than
+        // in his console.
+        expect(c, 'the disproved folklore must never come back').not.toMatch(/FEWER buildings/);
     });
 
     it('⛔ a biting cap is APPENDED to the read sentence, never substituted for it', () => {
         const c = completenessCaption(wide, { radiusM: 1781, boundBy: 'the zoom-16 building + canopy read', kind: 'read' }, [
             { layer: 'trees', complete: false, line: 'trees: 10000 of 11391 inside the scope drawn — 1391 dropped by the cap; complete at a scope of ~1669 m' },
         ]);
-        expect(c).toMatch(/FEWER buildings/);
+        // The read sentence SURVIVES the cap rather than being replaced by it — that is the whole
+        // point of this test, and it is asserted on the corrected sentence rather than the old one.
+        expect(c).toContain('fill the whole slab');
+        expect(c).toMatch(/Trees stop at/);
         expect(c).toContain('1391 dropped by the cap');
+        // …and in that order: read first, cap appended.
+        expect(c.indexOf('Trees stop at')).toBeLessThan(c.indexOf('1391 dropped by the cap'));
     });
 
     it('INSIDE the read ceiling the read sentence does not appear at all', () => {
         const tight = scopeAtRadius(900, 'rectangle');
         const c = completenessCaption(tight, { radiusM: 1781, boundBy: 'the zoom-16 building + canopy read', kind: 'read' }, []);
         expect(c).toMatch(/^Complete at this scope/);
-        expect(c).not.toMatch(/FEWER buildings/);
+        // ⛔ THIS LINE USED TO READ `expect(c).not.toMatch(/FEWER buildings/)` AND IT HAD BECOME
+        // VACUOUS — the caption stopped containing that phrase anywhere, for any scope, when the
+        // folklore was corrected, so the assertion passed no matter what this function returned.
+        // A check that runs, passes, and could never have failed is the shape this repo keeps
+        // finding (a rAF gate that counted comment lines; a setStyle guard counting a comment; the
+        // vacuous backdrop guard L-13100 found this morning). Re-pointed at the sentence that
+        // ACTUALLY must be absent inside the ceiling.
+        expect(c, 'the read sentence must not appear inside the read ceiling').not.toContain('fill the whole slab');
+        expect(c).not.toMatch(/Trees stop at/);
     });
 
     it('the tick tooltip distinguishes the two ceilings', () => {
