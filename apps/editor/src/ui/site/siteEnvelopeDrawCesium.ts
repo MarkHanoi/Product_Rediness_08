@@ -111,6 +111,40 @@ const _tracer = trace.getTracer('pryzm.site.siteEnvelopeDrawCesium');
 
 const VIOLET_CSS = '#6600FF';
 
+/**
+ * §ENVELOPE-DRAW-PREVIEW-LINE (L-13088) — the memo key for a picked vertex's ground height.
+ *
+ * ⚠ MILLIMETRE PRECISION, DELIBERATELY, AND IT IS THE LOOSE END OF THIS DESIGN. Scene XZ is metres,
+ * so 3 decimals key a corner to the millimetre — tight enough that two genuinely different corners
+ * never collide, loose enough to survive the float noise of a round-trip through
+ * `projectXZToLatLon`. A vertex the ortho rule has MOVED is a different key and misses on purpose;
+ * `groundHeightFor` documents why that miss is safe.
+ */
+function vertexKey(p: { readonly x: number; readonly z: number }): string {
+    return `${p.x.toFixed(3)}|${p.z.toFixed(3)}`;
+}
+
+/**
+ * §ENVELOPE-DRAW-PREVIEW-LINE (L-13088) — how many picked ground heights to remember.
+ *
+ * A gesture is tens of corners; a hover is thousands of pointer-moves, and only the pointer-moves
+ * that PICK write here. 256 is far above any real perimeter and small enough that the map cannot
+ * become a leak inside one long draw. Eviction is oldest-first (insertion order), because the
+ * corners a preview re-reads are the recent ones.
+ */
+const PICK_HEIGHT_MEMO_MAX = 256;
+
+/**
+ * §ENVELOPE-DRAW-PREVIEW-LINE (L-13088) — how far above its seat the preview line and dots sit.
+ *
+ * Half a metre: enough to clear z-fighting against the §SITE-SCOPE slab top (which itself sits on
+ * sampled relief + 0.3 m) at parcel scale, small enough that the line still reads as lying ON the
+ * ground rather than floating over it. The dots additionally disable the depth test, so they stay
+ * visible through context massing; the LINE deliberately does not, so a corner behind a neighbour
+ * reads as behind it.
+ */
+const PREVIEW_LIFT_M = 0.5;
+
 export interface SiteEnvelopeDrawCesiumDeps {
     readonly viewer: CesiumNS.Viewer;
     readonly Cesium: typeof CesiumNS;
@@ -205,9 +239,24 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
     /** The frame LATCHED at arm — one origin and one θ for the whole gesture (R6). */
     private frame: SiteDrawFrame | null = null;
 
-    /** Pooled preview entities: the vertex dots and the single ring polyline. */
+    /** Pooled preview entities: the vertex dots, the committed edges and the rubber-band tail. */
     private readonly pointEntities: CesiumNS.Entity[] = [];
+    /** §ENVELOPE-DRAW-PREVIEW-LINE — the SOLID line through the corners the user has placed. */
     private lineEntity: CesiumNS.Entity | null = null;
+    /*
+     * §ENVELOPE-DRAW-PREVIEW-LINE (L-13088) — a SEPARATE DASHED entity for the rubber-band tail
+     * (last corner → cursor, plus the closing edge) was declared here and never built. It is not
+     * missing FUNCTION: `drawPreview` already draws the tail, as the last segments of the one
+     * polyline (`all = [...committed, ...tail]`). What a second entity would add is that the tail
+     * READS differently from the committed edges, so the user can tell what they have placed from
+     * what is merely following the pointer. That is a real refinement and it is not built; the
+     * field is removed rather than left declared-and-unread, because an unused private field is
+     * exactly the shape that gets deleted later by someone who assumes it was dead all along.
+     */
+    /** §ENVELOPE-DRAW-PREVIEW-LINE — ground height per picked vertex; see `groundHeightFor`. */
+    private readonly groundHeightAtVertex = new Map<string, number>();
+    /** The height the most recent successful pick landed on, or `null` before the first one. */
+    private lastGroundHeightM: number | null = null;
 
     constructor(deps: SiteEnvelopeDrawCesiumDeps) {
         this.deps = deps;
@@ -280,10 +329,48 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
         }
         if (!cartesian || !C.defined(cartesian)) return null;
         const carto = C.Cartographic.fromCartesian(cartesian);
-        return latLonToProjectXZ(
+        const p = latLonToProjectXZ(
             { lat: C.Math.toDegrees(carto.latitude), lon: C.Math.toDegrees(carto.longitude) },
             frame,
         );
+        // ⭐ §ENVELOPE-DRAW-PREVIEW-LINE (L-13088) — REMEMBER THE GROUND HEIGHT THIS PICK LANDED ON.
+        // The port hands the preview 2-D points, so the adapter would otherwise have to invent a
+        // seat for them. It does not have to: `carto.height` IS the height of the surface the user
+        // just clicked, measured on the pixels that were actually painted, and remembering it is
+        // strictly better than re-sampling terrain (which needs the globe shown) or falling back to
+        // one scalar for the whole ring. See `drawPreview` for why an absolute seat is required.
+        if (Number.isFinite(carto.height)) {
+            this.lastGroundHeightM = carto.height;
+            this.groundHeightAtVertex.set(vertexKey(p), carto.height);
+            // A gesture is tens of corners; a hover is thousands of moves. Cap the memo so a long
+            // draw cannot grow it without bound — the newest entries are the ones a preview reads.
+            if (this.groundHeightAtVertex.size > PICK_HEIGHT_MEMO_MAX) {
+                const oldest = this.groundHeightAtVertex.keys().next();
+                if (!oldest.done) this.groundHeightAtVertex.delete(oldest.value);
+            }
+        }
+        return p;
+    }
+
+    /**
+     * §ENVELOPE-DRAW-PREVIEW-LINE — the ground height to seat a preview vertex on: the height the
+     * PICK that placed it landed on when PRYZM has it, then the most recent pick, then the seat the
+     * rasteriser used for the envelopes themselves, then the ellipsoid.
+     *
+     * ⚠ A CONSTRAINED CORNER IS NOT A PICKED ONE. `BoundaryPathAuthor`'s ortho rule moves a corner
+     * onto the perpendicular foot, so its XZ is not the XZ any pick produced and the memo misses on
+     * purpose. The fallback is the most recent pick — a metre or two of relief away at parcel scale,
+     * which the line is lifted clear of — never a silent zero.
+     */
+    private groundHeightFor(p: { readonly x: number; readonly z: number }): number {
+        const exact = this.groundHeightAtVertex.get(vertexKey(p));
+        if (exact !== undefined) return exact;
+        if (this.lastGroundHeightM !== null) return this.lastGroundHeightM;
+        try {
+            const seat = this.deps.getSceneFrame?.()?.baseHeightM;
+            if (typeof seat === 'number' && Number.isFinite(seat)) return seat;
+        } catch { /* a host that throws tells us nothing; fall through */ }
+        return 0;
     }
 
     private resolveFrameNow(): SiteDrawFrame | null {
@@ -303,9 +390,15 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
         try {
             const C = this.C;
             const all = [...committed, ...tail];
+            // ⭐ SEATED ABSOLUTELY, NOT CLAMPED — the reason is `groundHeightFor`'s own note, and it
+            // is the whole point of the pick-height memo. `clampToGround` asks Cesium to drape the
+            // line on the GLOBE, and the 3D Site runs in FORMA mode with the globe's imagery and
+            // photoreal surface hidden. A clamped line therefore has nothing dependable to clamp to
+            // exactly where the founder draws. Every vertex is placed at the height the PICK that
+            // created it landed on, lifted clear of the ground so it is not z-fighting the slab.
             const positions = all.map((p) => {
                 const ll = projectXZToLatLon(p, frame);
-                return C.Cartesian3.fromDegrees(ll.lon, ll.lat);
+                return C.Cartesian3.fromDegrees(ll.lon, ll.lat, this.groundHeightFor(p) + PREVIEW_LIFT_M);
             });
 
             // ⭐ THE DOTS ARE POOLED, NOT REBUILT. A move event fires per animation frame at
@@ -349,7 +442,9 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
                     polyline: {
                         positions: ring,
                         width: 3,
-                        clampToGround: true,
+                        // ⛔ NOT `clampToGround` — see the seat note above. The positions already
+                        // carry their own absolute height, and asking Cesium to clamp them as well
+                        // would hand the line back to the hidden globe this seat exists to avoid.
                         material: C.Color.fromCssColorString(VIOLET_CSS),
                     },
                 });

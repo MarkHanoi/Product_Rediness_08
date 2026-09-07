@@ -89,12 +89,19 @@
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // ⛔ WHAT THIS PLANNER DOES NOT DO, SO NOBODY READS IT AS DOING IT
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-//  1. **TOP / BOTTOM face drags move NO wall.** `SpaceEnvelopeFaceMove.ts:78` — *"The new footprint
-//     ring. For top/bottom moves this is unchanged."* Only `height` and `baseOffset` change, and
-//     the committed event carries RINGS only. Identical rings therefore plan zero entries, which is
-//     CORRECT for this input and INCOMPLETE for the founder's ask: dragging the roof up does not
-//     make the walls taller. The verb that would (`wall.updateHeightBatch`, one undo entry) exists;
-//     what does not exist is height on the event. Named in the report, not silently absent.
+//  1. ⭐ **CORRECTED 2026-09-07 (lane TOP-FACE-HEIGHT, L-13118) — THIS ITEM SAID A TOP DRAG MOVES
+//     NO WALL. THE WALLS NOW GET TALLER.** It read: *"Only `height` and `baseOffset` change, and
+//     the committed event carries RINGS only … dragging the roof up does not make the walls
+//     taller. The verb that would (`wall.updateHeightBatch`, one undo entry) exists; what does not
+//     exist is height on the event."* That was an exact diagnosis and the event was the only thing
+//     in the way. `SpaceEnvelopeFaceMoveCommitted` now carries `heightBefore` / `heightAfter` /
+//     `baseOffsetBefore` / `baseOffsetAfter` for the subject AND for every adapted room, and this
+//     planner grew a SECOND consequence beside the ring one — see the height section below.
+//     ⚠ WHAT IS STILL TRUE: `SpaceEnvelopeFaceMove.ts:78` still says *"The new footprint ring. For
+//     top/bottom moves this is unchanged"*, and `:216-241` vs `:340-341` still make the two
+//     mutually exclusive on one face — a face move changes the ring XOR the height. That is why
+//     the two legs are independent rather than two views of one delta.
+//     ⛔ THE **BOTTOM** FACE IS STILL REFUSED, BY NAME (`envelope-base-moved`). See below.
 //  2. ⭐ **CORRECTED 2026-09-07 (lane WALLS-FOLLOW-WIRE) — THIS ITEM SAID PARTITIONS COULD NOT
 //     FOLLOW. THEY NOW DO.** It read: *"the committed event carries only the SUBJECT's two rings,
 //     so the adapted rooms' new rings never reach a consumer. Until they do, a level drag moves the
@@ -111,6 +118,86 @@
 //  3. **A row is not proof of a wall.** `buildFromDesignExecutor.ts:26-33` measured that undoing a
 //     wall batch LEAVES THE LINK ROWS BEHIND, pointing at ids no longer in the store. Every row is
 //     resolved through `wallState` and a `null` is `wall-no-longer-exists`, never a crash.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §ENVELOPE-TOP-FACE-HEIGHT (L-13118) — THE SECOND CONSEQUENCE, AND WHY IT IS A SECOND ONE
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// A top-face drag changes the envelope's HEIGHT and leaves its ring alone. The ring cascade
+// therefore has nothing to say about it — correctly — and the founder's *"THE ENVLOPE BEING
+// EXTENDED … WALLS SHALL FOLLOW"* is only half answered by it.
+//
+// ⛔ HEIGHT DOES **NOT** FOLD INTO THE RING PLAN, AND THE REASON IS THE VERB, NOT TASTE:
+//   · the ring consequence is `{wallId, newBaseLine, prevBaseLine}` × N → `wall.cascadeBaseline`;
+//   · the height consequence is `{wallIds[], height}` → `wall.updateHeightBatch`
+//     (`UpdateWallsHeightBatch.ts:74-79`) — **ONE height for N walls**, a different arity.
+// A single entry list carrying both would need a verb that commits a baseline batch and a height
+// batch together, and NO such verb exists in this tree. Minting one is a C67/C68 change and is not
+// this lane's authority — the `buildFromDesignExecutor.ts:13-16` finding, verbatim: *"Two truthful
+// steps beat one invented verb."* So the plan carries `entries` + `heightEntries` side by side,
+// and the wire dispatches the verbs each list actually has.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ THE HEIGHT ANALOGUE OF THE C80 TEST — STATED, NOT IMPLIED
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//   ⭐ A WALL FOLLOWS THE HEIGHT IFF ITS CURRENT HEIGHT IS STILL THE ENVELOPE'S HEIGHT AS IT
+//     STOOD AT THE START OF THIS DRAG — within the SAME declared `toleranceM` (0.05 m).
+//
+// It is the exact structural analogue of the plan-space rule. Plan space asks *"is this baseline
+// still the whole of the edge it came from?"*; height space asks *"is this wall still the height
+// it was given?"* A wall whose height the user changed by hand is no longer the envelope's height,
+// so it is treated as theirs and left alone — NAMED, with both numbers, exactly as the drifted
+// baseline is.
+//
+// ⭐ AND IT IS MORE THAN AN ANALOGY — IT IS THE PRECONDITION THAT MAKES THE VERB TRUTHFUL.
+// `wall.updateHeightBatch` takes ONE `height` for N `wallIds`. That payload is a lie unless every
+// wall in it currently stands at the same height. The C80 predicate is precisely that guarantee:
+// every wall that passes it reads `heightBefore`, so writing `heightAfter` to all of them is
+// exactly right, and every wall that does not is excluded by the same test that protects it. The
+// protection and the verb's shape coincide; the rule is not a tax on the batch, it is what the
+// batch needs.
+//
+// ⛔ AND IT IS KEYED ON THE VALUE, NOT ON THE ENVELOPE'S ROLE, BECAUSE OF A MEASURED FACT:
+// `buildFromDesignPlan.ts:526` and `:668` give BOTH the shell walls AND the partitions
+// `heightM: floorToFloorM`, which is `ground.height` — the LEVEL envelope's height (`:515`). No
+// wall in this tree was ever built at a ROOM's height. A value-keyed test handles that with no
+// special case: a room whose height differs from the storey has partitions that read `heightBefore`
+// ≠ the room's height, so they fail the test and STAY, named. That is the honest answer, because
+// nothing in the model says a room's height ever determined a wall's.
+//
+// ⛔ THE HEIGHT LEG IGNORES `edgeIndex` ENTIRELY, and that is deliberate rather than an oversight.
+// Which EDGE a wall came from is what a baseline needs; a height does not. So a row with
+// `edgeIndex: -1` — unrecoverable ring provenance — still follows the height. The height leg is
+// MORE permissive than the ring leg about provenance and EQUALLY strict about authorship.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⛔ THE **BOTTOM** FACE IS REFUSED, BY NAME — `envelope-base-moved`
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// `SpaceEnvelopeFaceMove.ts:220-221` — a bottom drag writes `newHeight = height + delta` AND
+// `newBase = baseOffset - delta`. A wall carries its own vertical offset (`Wall.ts:105`,
+// *"Vertical offset from level base"*), and `wall.updateHeightBatch` changes HEIGHT ONLY. Carrying
+// the height without the base would grow every wall UPWARD while the user pulled the floor DOWN —
+// a well-formed wrong answer, which is the one outcome this family refuses to ship. There is no
+// base-elevation batch verb in this tree. ⇒ the height leg refuses whenever the base moved, and
+// unlike `ring-unchanged` it is TOASTED: a bottom drag is rare, and the user is owed the reason.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⚠ TALLER WALLS, NOT A NEW STOREY — THE PRODUCT DECISION, MADE AND RECORDED
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The founder's words are *"THE ENVLOPE BEING **EXTENDED** … THE CONTEXT WALLS - PERIMETER WALLS
+// SHALL **FOLLOW**"*. Extending, and following. So the walls get taller and no storey is added.
+// ⛔ The alternative is not a variant of this one, it is a different product: a storey needs a
+// level record, a slab, a stair and a floor-to-floor, none of which a drag delta contains — a 3 m
+// top drag is either "one taller storey" or "a second storey", and ONLY the user knows which.
+// Inferring it from the delta would be exactly the invented answer C114 §12a exists against. The
+// storey verb is separate work, named in `SPEC-ENVELOPE-WALLS-FOLLOW.md §9`.
+//
+// ⚠ K DISPATCHES FOR K DISTINCT TARGET HEIGHTS, AND K IS **1** FOR THE FOUNDER'S GESTURE. Because
+// the verb takes one height, walls wanting different heights cannot share a dispatch. They are
+// grouped by target ({@link groupWallFollowHeightEntries}) in a deterministic order. A level-top
+// drag produces exactly ONE group: rooms only enter `adapted` when the level would STRAND them
+// (`SpaceEnvelopeContext.ts:421`), and pulling the top UP strands nobody. K > 1 needs a level top
+// pushed DOWN onto rooms that then clip to different heights — it is possible, it is counted, and
+// it is said out loud rather than hidden.
 //
 // P8 — a span per exported function.
 
@@ -170,6 +257,17 @@ export interface WallFollowLinkRow {
 export interface WallFollowWallState {
     readonly wallId: string;
     readonly baseLine: WallFollowBaseline;
+    /**
+     * §ENVELOPE-TOP-FACE-HEIGHT — the wall's CURRENT height in metres, the evidence the height
+     * analogue of the C80 test is decided on.
+     *
+     * ⛔ ABSENT IS NOT ZERO AND NOT "unchanged". It means *the reader did not report a height*,
+     * which is the §CONTEXT-DATA-HONESTY distinction this family is written around: a wall whose
+     * height is unknown is named `height-not-recorded` and STAYS, never silently re-heighted from
+     * a default. Optional so that a reader written before this leg existed keeps compiling and
+     * keeps behaving exactly as it did — it simply reports no height and moves no height.
+     */
+    readonly heightM?: number;
 }
 
 /** Why a linked wall did NOT move. Closed union — a new reason is a code change, not a string. */
@@ -190,7 +288,23 @@ export type WallFollowStayReason =
      * it is and named, because moving it to one of two contradictory positions is a well-formed
      * wrong answer and there is nothing in the model that says which is right.
      */
-    | 'contested-by-two-envelopes';
+    | 'contested-by-two-envelopes'
+    /**
+     * ⭐ §ENVELOPE-TOP-FACE-HEIGHT — THE HEIGHT ANALOGUE OF THE C80 BRANCH. This wall no longer
+     * stands at the height PRYZM built it at, so the user changed it and PRYZM will not overwrite
+     * that. Reported with BOTH numbers, exactly as the baseline branch is.
+     */
+    | 'height-authored-since-generation'
+    /**
+     * ⛔ The wall reader reported no height at all. NOT "its height is 0" and NOT "its height did
+     * not change" — the two are different facts, and re-heighting a wall whose current height is
+     * unknown is precisely the silent overwrite C80 forbids.
+     */
+    | 'height-not-recorded'
+    /** The envelope's BASE moved too (a bottom-face drag), and no verb here moves a wall's base. */
+    | 'envelope-base-moved'
+    /** Two envelopes that both moved in this commit want this wall at two different heights. */
+    | 'height-contested-by-two-envelopes';
 
 /** Why NO wall moved and the cascade was not attempted at all. */
 export type WallFollowRefusalCode =
@@ -201,13 +315,41 @@ export type WallFollowRefusalCode =
     /** A ring with fewer than 3 vertices bounds nothing. */
     | 'ring-too-small'
     /** Top/bottom face drag, or a no-op: the ring is unchanged, so no baseline can follow. */
-    | 'ring-unchanged';
+    | 'ring-unchanged'
+    /**
+     * ⛔ §ENVELOPE-TOP-FACE-HEIGHT — a BOTTOM-face drag. The envelope's base moved, so carrying the
+     * height alone would grow every wall upward while the user pulled the floor down. See the
+     * header. Unlike `ring-unchanged` this one IS surfaced: it is rare, and it is not what the
+     * user asked for.
+     */
+    | 'envelope-base-moved';
 
 /** One wall to move — the exact shape `wall.cascadeBaseline` takes per entry. */
 export interface WallFollowEntry {
     readonly wallId: string;
     readonly newBaseLine: WallFollowBaseline;
     readonly prevBaseLine: WallFollowBaseline;
+}
+
+/**
+ * §ENVELOPE-TOP-FACE-HEIGHT — one wall to re-height.
+ *
+ * ⛔ `newHeightM` IS THE ENVELOPE'S NEW HEIGHT, NOT `prevHeightM + delta`. It has to be: the verb
+ * takes ONE height for N walls, so a per-wall arithmetic result would produce N heights and N
+ * dispatches. It is also CORRECT rather than merely convenient — every wall that reaches this list
+ * passed the C80 height test, which is exactly the statement *"this wall stands at the envelope's
+ * old height"*, so the envelope's new height is its new height.
+ */
+export interface WallFollowHeightEntry {
+    readonly wallId: string;
+    readonly newHeightM: number;
+    readonly prevHeightM: number;
+}
+
+/** N walls that share ONE target height — the exact shape one `wall.updateHeightBatch` takes. */
+export interface WallFollowHeightGroup {
+    readonly heightM: number;
+    readonly wallIds: readonly string[];
 }
 
 /** One wall that did not move, and why. Always surfaced — never dropped. */
@@ -231,6 +373,25 @@ export interface SpaceEnvelopeWallFollowPlan {
     readonly entries: readonly WallFollowEntry[];
     /** Every linked wall that did NOT move, with a typed reason. */
     readonly stayed: readonly WallFollowStay[];
+    /**
+     * ⭐ §ENVELOPE-TOP-FACE-HEIGHT — the walls that get TALLER (or shorter), a SECOND consequence
+     * beside `entries` rather than a fold into them. See the header for why the two cannot share a
+     * list: `wall.cascadeBaseline` takes N baselines, `wall.updateHeightBatch` takes ONE height for
+     * N walls, and no verb in this tree commits both.
+     *
+     * ⚠ ON A SINGLE-FACE GESTURE EXACTLY ONE OF THESE TWO LISTS IS EVER NON-EMPTY — a face move
+     * changes the ring XOR the height. Both are populated only when an adapted room had to shrink
+     * horizontally AND vertically in the same commit.
+     */
+    readonly heightEntries: readonly WallFollowHeightEntry[];
+    /**
+     * Every linked wall whose HEIGHT did not follow, with a typed reason. ⛔ It is a SEPARATE list
+     * from `stayed` on purpose: a wall can legitimately move in plan and hold its height in the
+     * same gesture, and putting both facts in one list would report a wall as having "moved" and
+     * "stayed" at once — the contradiction `mergeSpaceEnvelopeWallFollowPlans` already guards
+     * against on the ring axis.
+     */
+    readonly heightStayed: readonly WallFollowStay[];
     /** The `cause` tag `wall.cascadeBaseline` records for diagnostics. */
     readonly cause: string;
     /** Plain language for the user: what followed, what stayed, and what this cannot do yet. */
@@ -253,6 +414,21 @@ export interface SpaceEnvelopeWallFollowRequest {
     readonly wallState: (wallId: string) => WallFollowWallState | null;
     /** See the header. Injectable because it is declared, not measured. */
     readonly toleranceM?: number;
+    /**
+     * ⭐ §ENVELOPE-TOP-FACE-HEIGHT — the envelope's height BEFORE the gesture, metres.
+     *
+     * ⛔ ABSENT MEANS *the surface did not report a height*, and is NOT "the height did not
+     * change". A caller that omits these gets exactly the behaviour this planner had before the
+     * height leg existed — the ring cascade and nothing else — which is what keeps every earlier
+     * assertion about that path true.
+     */
+    readonly heightBefore?: number;
+    /** The height the SAME commit was asked to write. Same units, same frame. */
+    readonly heightAfter?: number;
+    /** The envelope's base offset before the gesture, metres. See {@link heightBefore} for absent. */
+    readonly baseOffsetBefore?: number;
+    /** The base offset the same commit was asked to write. A CHANGE here refuses the height leg. */
+    readonly baseOffsetAfter?: number;
 }
 
 /** Below any deliberate hand-move, above weld/float noise. DECLARED, not measured — see header. */
@@ -319,9 +495,53 @@ function refuse(code: WallFollowRefusalCode, message: string, cause: string): Sp
         refusal: { code, message },
         entries: [],
         stayed: [],
+        heightEntries: [],
+        heightStayed: [],
         cause,
         summary: message,
     };
+}
+
+/**
+ * Below this, two heights are the same height. ⚠ It is a FLOAT-NOISE epsilon — *"did this number
+ * change at all?"* — and is deliberately NOT {@link DEFAULT_AUTHORED_TOLERANCE_M}, which answers
+ * the entirely different question *"did a human touch this?"* Conflating the two would make a
+ * 3 cm roof drag read as no drag.
+ */
+export const HEIGHT_CHANGE_EPSILON_M = 1e-9;
+
+/** A finite, positive metre reading, or `null`. One spelling of "is this a usable dimension?" */
+const finiteM = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null;
+
+/**
+ * ⭐ §ENVELOPE-TOP-FACE-HEIGHT — N entries → the FEWEST `wall.updateHeightBatch` dispatches that
+ * can express them, because the verb carries ONE height for N walls.
+ *
+ * Pure, total, and ORDER-STABLE: groups come back in ascending target height, and the ids inside a
+ * group keep the order the planner produced them in — so one gesture always dispatches the same
+ * commands in the same order, which is what makes a test of the dispatch count meaningful.
+ *
+ * ⚠ THE GROUP COUNT IS THE UNDO COST, AND IT IS RETURNED RATHER THAN HIDDEN. For the founder's
+ * gesture it is 1. See the header for the case in which it is not.
+ */
+export function groupWallFollowHeightEntries(
+    entries: readonly WallFollowHeightEntry[],
+): readonly WallFollowHeightGroup[] {
+    const byHeight = new Map<string, { heightM: number; wallIds: string[] }>();
+    for (const e of entries) {
+        // A STRING key, because two `0.1 + 0.2` results are the same height to a user and are not
+        // the same `number` to a Map. Six decimals is a micrometre — below any real dimension.
+        const key = e.newHeightM.toFixed(6);
+        const bucket = byHeight.get(key);
+        if (bucket) bucket.wallIds.push(e.wallId);
+        else byHeight.set(key, { heightM: e.newHeightM, wallIds: [e.wallId] });
+    }
+    return Object.freeze(
+        [...byHeight.values()]
+            .sort((a, b) => a.heightM - b.heightM)
+            .map((g) => Object.freeze({ heightM: g.heightM, wallIds: Object.freeze(g.wallIds) })),
+    );
 }
 
 /**
@@ -383,21 +603,71 @@ export function planSpaceEnvelopeWallFollow(
             edgeMoved.push(moved);
             if (moved) anyEdgeMoved = true;
         }
-        if (!anyEdgeMoved) {
-            // The honest name for a top/bottom drag, and for a side drag that planned to nothing.
+        // ── §ENVELOPE-TOP-FACE-HEIGHT — THE SECOND AXIS, read before either leg runs ──────────
+        // ⛔ BOTH READINGS OR NEITHER. One number alone cannot say whether a height changed, and
+        // inventing the missing half from a default is how "no data" becomes "no change".
+        const hBefore = finiteM(req.heightBefore);
+        const hAfter = finiteM(req.heightAfter);
+        const heightReported = hBefore !== null && hAfter !== null;
+        const heightChanged = heightReported && Math.abs(hAfter - hBefore) > HEIGHT_CHANGE_EPSILON_M;
+        const bBefore = finiteM(req.baseOffsetBefore);
+        const bAfter = finiteM(req.baseOffsetAfter);
+        const baseMoved = bBefore !== null && bAfter !== null
+            && Math.abs(bAfter - bBefore) > HEIGHT_CHANGE_EPSILON_M;
+
+        if (!anyEdgeMoved && !heightChanged) {
+            // The honest name for a no-op, and for a top/bottom drag on a surface that reports no
+            // height at all. ⚠ It no longer says "PRYZM does not yet carry that through to wall
+            // heights" — that sentence became FALSE the day the height leg shipped, and a stale
+            // refusal message is a wrong answer with a citation attached.
+            // ⛔ IT MUST NAME BOTH, BECAUSE THIS BRANCH REQUIRES BOTH. The guard is
+            // `!anyEdgeMoved && !heightChanged`, so a message mentioning only the footprint
+            // describes half its own condition — and it read that way while the sibling spec
+            // ("a TOP/BOTTOM drag plans nothing, and the message says why rather than staying
+            // silent") demanded the height be named. The spec was right: a user who has just
+            // dragged the TOP face is told about the FOOTPRINT and left to infer the rest.
             return refuse(
                 'ring-unchanged',
-                'The envelope’s footprint did not change, so no wall baseline follows it. Dragging the '
-                + 'top or bottom face changes the envelope’s height, and PRYZM does not yet carry that '
-                + 'through to wall heights.',
+                'The envelope’s footprint did not change, and neither did its height, '
+                + 'so no wall baseline follows it.',
+                cause,
+            );
+        }
+        if (!anyEdgeMoved && baseMoved) {
+            // A BOTTOM-face drag: base AND height moved together. See the header — carrying the
+            // height alone grows the walls upward while the user pulled the floor down.
+            return refuse(
+                'envelope-base-moved',
+                `The envelope’s base moved from ${fmt(bBefore!)} to ${fmt(bAfter!)}, and PRYZM can change a `
+                + 'wall’s height but not the level it starts at — so it left the walls alone rather than '
+                + 'making them taller upward when you pulled the floor down. Drag the TOP face to make '
+                + 'the walls follow.',
                 cause,
             );
         }
 
         const entries: WallFollowEntry[] = [];
         const stayed: WallFollowStay[] = [];
+        const heightEntries: WallFollowHeightEntry[] = [];
+        const heightStayed: WallFollowStay[] = [];
 
         for (const row of req.links) {
+            // ⭐ ONE STORE READ PER ROW, SHARED BY BOTH LEGS. The baseline and the height are two
+            // questions about ONE record; asking twice would double the reads for a gesture whose
+            // whole cost budget is one pass at pointer-up, and could see two different records.
+            const shared = req.wallState(row.wallId);
+
+            // ── LEG 2: THE HEIGHT. Independent of `edgeIndex` by design — see the header. ──────
+            if (heightChanged) {
+                const h = planOneWallHeight(row.wallId, shared, hBefore!, hAfter!, baseMoved, tol);
+                if ('entry' in h) heightEntries.push(h.entry);
+                else heightStayed.push(h.stay);
+            }
+
+            // ── LEG 1: THE BASELINE. Skipped entirely when no edge moved, so a top drag never
+            //    fills `stayed` with `edge-did-not-move` for every wall in the building. ──────────
+            if (!anyEdgeMoved) continue;
+
             const idx = row.edgeIndex;
             if (!Number.isInteger(idx) || idx < 0) {
                 stayed.push({
@@ -417,7 +687,7 @@ export function planSpaceEnvelopeWallFollow(
                 continue;
             }
 
-            const state = req.wallState(row.wallId);
+            const state = shared;
             if (!state) {
                 // Not an error: undoing the wall batch leaves the link rows behind by design.
                 stayed.push({
@@ -465,18 +735,72 @@ export function planSpaceEnvelopeWallFollow(
 
         span.setAttribute('pryzm.wallFollow.entries', entries.length);
         span.setAttribute('pryzm.wallFollow.stayed', stayed.length);
+        span.setAttribute('pryzm.wallFollow.heightEntries', heightEntries.length);
+        span.setAttribute('pryzm.wallFollow.heightStayed', heightStayed.length);
 
         return {
-            ok: entries.length > 0,
+            ok: entries.length > 0 || heightEntries.length > 0,
             refusal: null,
             entries: Object.freeze(entries),
             stayed: Object.freeze(stayed),
+            heightEntries: Object.freeze(heightEntries),
+            heightStayed: Object.freeze(heightStayed),
             cause,
-            summary: summarise(entries.length, stayed),
+            summary: summarise(entries.length, stayed, heightEntries.length, heightStayed),
         };
     } finally {
         span.end();
     }
+}
+
+/**
+ * ⭐ §ENVELOPE-TOP-FACE-HEIGHT — THE HEIGHT ANALOGUE OF THE C80 TEST, for ONE wall.
+ *
+ *   ⭐ IT FOLLOWS IFF ITS CURRENT HEIGHT IS STILL THE ENVELOPE'S HEIGHT AS THE DRAG STARTED.
+ *
+ * Returns EITHER an entry OR a named stay — never both, never neither. Pure and total.
+ */
+function planOneWallHeight(
+    wallId: string,
+    state: WallFollowWallState | null,
+    heightBefore: number,
+    heightAfter: number,
+    baseMoved: boolean,
+    tol: number,
+): { readonly entry: WallFollowHeightEntry } | { readonly stay: WallFollowStay } {
+    const stay = (reason: WallFollowStayReason, detail: string) =>
+        ({ stay: { wallId, reason, detail } }) as const;
+
+    if (baseMoved) {
+        // Reached only when the RING also moved — a bottom drag with no ring change refused above.
+        return stay('envelope-base-moved',
+            'The envelope’s base moved as well as its height, and PRYZM can change a wall’s height but '
+            + 'not the level it starts at — so this wall kept the height it had rather than growing '
+            + 'upward when the floor went down.');
+    }
+    if (!state) {
+        return stay('wall-no-longer-exists',
+            'The record of this wall is still here but the wall is not — it was deleted or undone since '
+            + 'it was built.');
+    }
+    const current = finiteM(state.heightM);
+    if (current === null || current <= 0) {
+        // ⛔ NOT a default. An unknown height re-heighted from a guess is the silent overwrite C80
+        // exists to prevent, arriving through the back door.
+        return stay('height-not-recorded',
+            'PRYZM could not read this wall’s current height, so it did not change it. A height it '
+            + 'cannot read is a height it cannot safely replace.');
+    }
+    const drift = Math.abs(current - heightBefore);
+    if (drift > tol) {
+        // ⭐ THE C80 HEIGHT BRANCH. Both numbers, exactly as the baseline branch reports both.
+        return stay('height-authored-since-generation',
+            `This wall stands at ${fmt(current)} and the envelope was ${fmt(heightBefore)} tall `
+            + `(the limit is ${fmt(tol)}), so PRYZM treats the height as yours and left it alone. A wall `
+            + 'whose height you set by hand is no longer the envelope’s height, and changing it would '
+            + 'discard that work.');
+    }
+    return { entry: { wallId, newHeightM: heightAfter, prevHeightM: current } };
 }
 
 /**
@@ -523,6 +847,8 @@ export function mergeSpaceEnvelopeWallFollowPlans(
                 refusal: null,
                 entries: Object.freeze([]),
                 stayed: Object.freeze([]),
+                heightEntries: Object.freeze([]),
+                heightStayed: Object.freeze([]),
                 cause: WALL_FOLLOW_CAUSE,
                 summary: 'No envelope moved, so no wall had anything to follow.',
             };
@@ -569,19 +895,65 @@ export function mergeSpaceEnvelopeWallFollowPlans(
             });
         }
 
+        // ── §ENVELOPE-TOP-FACE-HEIGHT — THE SAME MERGE, ON THE HEIGHT AXIS ────────────────────
+        // ⛔ AND FOR THE SAME REASON. `wall.updateHeightBatch` writes its entries in order, so one
+        // wall in two groups at two heights is a silent last-write-wins — the shape C80 forbids,
+        // arriving by the back door. Two envelopes AGREEING about a height (within
+        // {@link MERGE_AGREEMENT_TOLERANCE_M}) is not a conflict and travels once.
+        const firstHeight = new Map<string, WallFollowHeightEntry>();
+        const heightContested = new Set<string>();
+        for (const plan of plans) {
+            for (const e of plan.heightEntries) {
+                const seen = firstHeight.get(e.wallId);
+                if (!seen) { firstHeight.set(e.wallId, e); continue; }
+                if (Math.abs(seen.newHeightM - e.newHeightM) > MERGE_AGREEMENT_TOLERANCE_M) {
+                    heightContested.add(e.wallId);
+                }
+            }
+        }
+        const heightEntries: WallFollowHeightEntry[] = [];
+        for (const [wallId, e] of firstHeight) {
+            if (!heightContested.has(wallId)) heightEntries.push(e);
+        }
+        const heightMovedIds = new Set(heightEntries.map((e) => e.wallId));
+        const heightStayedByWall = new Map<string, WallFollowStay>();
+        for (const plan of plans) {
+            for (const s of plan.heightStayed) {
+                if (heightMovedIds.has(s.wallId)) continue;
+                if (heightContested.has(s.wallId)) continue;
+                if (!heightStayedByWall.has(s.wallId)) heightStayedByWall.set(s.wallId, s);
+            }
+        }
+        const heightStayed: WallFollowStay[] = [...heightStayedByWall.values()];
+        for (const wallId of heightContested) {
+            heightStayed.push({
+                wallId,
+                reason: 'height-contested-by-two-envelopes',
+                detail: 'Two envelopes that both moved in this edit want this wall at two different '
+                    + 'heights, so PRYZM left its height alone rather than picking one of them.',
+            });
+        }
+
         // The SUBJECT's refusal survives only when the whole gesture produced nothing — which keeps
         // a top/bottom drag reading `ring-unchanged` exactly as it did before rooms were consulted.
+        // ⚠ "Nothing" now spans BOTH axes: a gesture whose ring plan refused but whose height leg
+        // has something to say is not a refusal, it is a height change.
         const refusal = entries.length === 0 && stayed.length === 0
+            && heightEntries.length === 0 && heightStayed.length === 0
             ? plans[0]!.refusal
             : null;
 
         return {
-            ok: entries.length > 0,
+            ok: entries.length > 0 || heightEntries.length > 0,
             refusal,
             entries: Object.freeze(entries),
             stayed: Object.freeze(stayed),
+            heightEntries: Object.freeze(heightEntries),
+            heightStayed: Object.freeze(heightStayed),
             cause: WALL_FOLLOW_CAUSE,
-            summary: refusal ? refusal.message : summarise(entries.length, stayed),
+            summary: refusal
+                ? refusal.message
+                : summarise(entries.length, stayed, heightEntries.length, heightStayed),
         };
     } finally {
         span.end();
@@ -606,14 +978,28 @@ function sameBaseline(a: WallFollowBaseline, b: WallFollowBaseline): boolean {
  * The sentence the user reads. It names the C80 outcome explicitly whenever one occurred, because
  * a wall that quietly did not move is exactly the silent outcome this design exists to prevent.
  */
-function summarise(moved: number, stayed: readonly WallFollowStay[]): string {
+function summarise(
+    moved: number,
+    stayed: readonly WallFollowStay[],
+    heightMoved = 0,
+    heightStayed: readonly WallFollowStay[] = [],
+): string {
     const authored = stayed.filter((s) => s.reason === 'authored-since-generation').length;
     const gone = stayed.filter((s) => s.reason === 'wall-no-longer-exists').length;
     const unknown = stayed.filter((s) => s.reason === 'edge-index-unrecoverable'
         || s.reason === 'edge-index-out-of-range').length;
     const contested = stayed.filter((s) => s.reason === 'contested-by-two-envelopes').length;
 
-    if (moved === 0 && stayed.length === 0) return 'No walls are linked to this envelope yet.';
+    if (moved === 0 && stayed.length === 0 && heightMoved === 0 && heightStayed.length === 0) {
+        return 'No walls are linked to this envelope yet.';
+    }
+
+    // ⭐ A PURE HEIGHT GESTURE GETS A HEIGHT SENTENCE, not "0 walls followed the envelope face"
+    // followed by a height footnote. A top drag moves no baseline BY CONSTRUCTION, and reporting
+    // that as a zero would read as a failure of the thing the user just watched work.
+    if (moved === 0 && stayed.length === 0 && (heightMoved > 0 || heightStayed.length > 0)) {
+        return summariseHeight(heightMoved, heightStayed);
+    }
 
     const parts: string[] = [];
     parts.push(moved === 1 ? '1 wall followed the envelope face.' : `${moved} walls followed the envelope face.`);
@@ -631,6 +1017,51 @@ function summarise(moved: number, stayed: readonly WallFollowStay[]): string {
     if (contested > 0) {
         parts.push(`${contested} wall${contested === 1 ? '' : 's'} stayed because two envelopes that both `
             + `moved place ${contested === 1 ? 'it' : 'them'} differently, and PRYZM will not pick one.`);
+    }
+    // The mixed gesture — a room that had to shrink in plan AND in height in the same commit.
+    if (heightMoved > 0 || heightStayed.length > 0) {
+        parts.push(summariseHeight(heightMoved, heightStayed));
+    }
+    return parts.join(' ');
+}
+
+/**
+ * ⭐ §ENVELOPE-TOP-FACE-HEIGHT — the height half of the sentence. Split out because a top drag
+ * produces ONLY this half, and gluing it after "0 walls followed the envelope face" would tell the
+ * user a gesture that worked had done nothing.
+ */
+function summariseHeight(moved: number, stayed: readonly WallFollowStay[]): string {
+    const authored = stayed.filter((s) => s.reason === 'height-authored-since-generation').length;
+    const unread = stayed.filter((s) => s.reason === 'height-not-recorded').length;
+    const gone = stayed.filter((s) => s.reason === 'wall-no-longer-exists').length;
+    const based = stayed.filter((s) => s.reason === 'envelope-base-moved').length;
+    const contested = stayed.filter((s) => s.reason === 'height-contested-by-two-envelopes').length;
+
+    const parts: string[] = [];
+    parts.push(moved === 1
+        ? '1 wall followed the envelope’s new height.'
+        : `${moved} walls followed the envelope’s new height.`);
+    if (authored > 0) {
+        parts.push(authored === 1
+            ? '1 wall whose height you had already set by hand kept it — PRYZM will not overwrite your edit.'
+            : `${authored} walls whose heights you had already set by hand kept them — PRYZM will not `
+              + 'overwrite your edits.');
+    }
+    if (based > 0) {
+        parts.push(`${based} wall${based === 1 ? '' : 's'} kept ${based === 1 ? 'its' : 'their'} height `
+            + 'because the envelope’s base moved too, and PRYZM can change a wall’s height but not the '
+            + 'level it starts at.');
+    }
+    if (unread > 0) {
+        parts.push(`${unread} wall${unread === 1 ? '' : 's'} had no readable height, so PRYZM did not `
+            + `change ${unread === 1 ? 'it' : 'them'}.`);
+    }
+    if (gone > 0) {
+        parts.push(`${gone} recorded wall${gone === 1 ? '' : 's'} no longer exist${gone === 1 ? 's' : ''}.`);
+    }
+    if (contested > 0) {
+        parts.push(`${contested} wall${contested === 1 ? '' : 's'} kept ${contested === 1 ? 'its' : 'their'} `
+            + 'height because two envelopes that both moved want two different ones.');
     }
     return parts.join(' ');
 }
