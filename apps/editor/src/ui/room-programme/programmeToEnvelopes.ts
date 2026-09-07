@@ -550,7 +550,7 @@ function subdivideByArea(
 // THE SOLVE
 // ─────────────────────────────────────────────────────────────────────────────
 
-const RESIDUAL_KEY = ' residual';
+const RESIDUAL_KEY = '\u0000residual';
 
 /**
  * Solve the programme against a level footprint. Pure; total; never throws.
