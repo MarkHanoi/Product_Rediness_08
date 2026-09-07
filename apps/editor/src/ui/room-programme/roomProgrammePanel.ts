@@ -86,6 +86,11 @@ import {
   type ProgrammeRoomSeam,
 } from './programmeToEnvelopes';
 import {
+  describeDrawnRoom,
+  type DrawnRoomVerdict,
+} from './roomDrawPlan';
+import type { EnvelopePoint } from '@pryzm/geometry-space-envelope';
+import {
   buildRoomEnvelopePlan,
   describeReplacement,
   pickHostLevelEnvelope,
@@ -154,9 +159,36 @@ export const ROOM_SEAM_LENGTH_ATTR = 'data-room-seam-length';
  */
 export const ROOM_SEAM_NORMAL_ATTR = 'data-room-seam-normal';
 
+// ── §ROOM-DRAW-NEW (L-13120) — THE DRAWING SURFACE'S OWN IDENTITY ────────────
+//
+// The third instance of the same reasoning §ROOM-PIN records: a gesture cannot be built on a
+// shape whose identity has to be recovered by parsing a sentence, and a spec cannot drive one.
+
+/** The arm/disarm control for the draw gesture. Armed state is on `aria-pressed`. */
+export const ROOM_DRAW_TOGGLE_TESTID = 'room-programme-draw-toggle';
+/** The kind the next drawn rectangle becomes. A `<select>`, so it is reachable by keyboard. */
+export const ROOM_DRAW_KIND_TESTID = 'room-programme-draw-kind';
+/** Present on the rubber-band rectangle while a drawing is in flight. */
+export const ROOM_DRAW_RECT_ATTR = 'data-room-draw-rect';
+/** That rectangle's WORLD area in m², as a string — the number the gesture is really about. */
+export const ROOM_DRAW_AREA_ATTR = 'data-room-draw-area';
+/** The verdict code the live rectangle is currently carrying, or `"ok"`. */
+export const ROOM_DRAW_VERDICT_ATTR = 'data-room-draw-verdict';
+
 /** The drag payload. A prefixed `text/plain` mirrors `FurnitureCarousel`'s idiom. */
 export const ROOM_DRAG_MIME = 'application/x-pryzm-room-kind';
 export const ROOM_DRAG_PREFIX = 'pryzm-room:';
+
+/**
+ * §ROOM-DRAW-NEW (L-13120) — the smallest floor any room in the library has, m².
+ *
+ * ⭐ DERIVED FROM THE LIBRARY, NEVER TRANSCRIBED. It is the threshold below which NO rectangle of
+ * any kind can be accepted, so it is what decides whether the draw arm is offered at all. Writing
+ * the number here would make it a second copy of a fact the library owns — and one that goes
+ * stale silently the first time a kind is added with a smaller minimum.
+ */
+const SMALLEST_ROOM_FLOOR_M2 = RESIDENTIAL_ROOM_LIBRARY.reduce(
+  (m, e) => Math.min(m, e.minAreaM2), Infinity);
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -1085,9 +1117,281 @@ export function mountRoomProgrammePanel(
     }
   }
 
+  // ── §ROOM-DRAW-NEW (L-13120) — DRAWING A ROOM THAT DOES NOT EXIST YET ──────
+  //
+  // Founder: *"This room locator needs to be more flexible and more dynamic — I shall be able to
+  // reorganize also the rooms on the plan view — draw them etc."*
+  //
+  // ⭐ THE THIRD AND LAST OF THE THREE GESTURES, AND THE ONLY ONE THAT CREATES. §ROOM-PIN moves a
+  // room in the ORDER; §ROOM-WALL-DRAG moves the WALL between two rooms that already exist; this
+  // one draws a room that does not. Together they are what *"reorganize … draw them"* asks for,
+  // in the three currencies `solveProgrammeLayout` can actually keep.
+  //
+  // ⛔ THE DECISION IS NOT THE GESTURE, IT IS WHAT HAPPENS WHEN THE SHAPE IS WRONG, and every one
+  // of those decisions lives in `roomDrawPlan.ts` — read its header for the taxonomy and the
+  // argument. This file draws a rubber band, converts pixels to metres, and dispatches the intent
+  // THAT MODULE RETURNS. It never builds an intent of its own, so it cannot authorise a drawing
+  // the verdict refused (C84 EI-8a, taken past discipline to a mechanism).
+  //
+  // ⚠ AND THE SAME HONESTY THE OTHER TWO CARRY: the rectangle is how the user SAYS an area and a
+  // position. It is not a boundary that gets stored — the solver partitions the plate, so the
+  // room lands where its area and its position put it. The hint text says exactly that, because a
+  // control that looks live and is not is the one outcome this lane was told to avoid.
+
+  /** The kind the next drawn rectangle becomes. */
+  let drawKind: ResidentialRoomKind = RESIDENTIAL_ROOM_LIBRARY[0]?.kind ?? 'bedroom';
+  /** Is the draw gesture armed? A mode the user cannot see is a trap, so the button shows it. */
+  let drawArmed = false;
+
+  /** A drawing in flight. `null` between gestures. */
+  let drawDrag: {
+    readonly startX: number;
+    readonly startZ: number;
+    readonly rectEl: SVGRectElement;
+    /** Client px → world metres on the level's plane. Captured at pointerdown, never re-read. */
+    readonly unproject: (clientX: number, clientY: number) => { readonly x: number; readonly z: number };
+    /** World metres → viewBox units, for painting the band where the pointer actually is. */
+    readonly project: (x: number, z: number) => { readonly sx: number; readonly sz: number };
+    readonly levelRing: readonly EnvelopePoint[];
+    readonly layout: ProgrammeLayout;
+    /** The last verdict, so RELEASE dispatches the very thing MOVE was describing. */
+    verdict: DrawnRoomVerdict | null;
+  } | null = null;
+
+  /**
+   * Ask the ONE asker about the rectangle between the drag's origin and this pointer.
+   *
+   * ⛔ THE ID IS MINTED PER CALL AND MOSTLY THROWN AWAY, WHICH IS CORRECT AND CHEAP. `mintId` is a
+   * pure counter/uuid supplied by the caller (C16 CA-2); the verdict needs an id because it
+   * REDUCES the real intent to find out what would happen, and a reducer that had to invent one
+   * would be minting inside a pure function. Only the id on the verdict the user RELEASES on is
+   * ever dispatched.
+   */
+  function drawVerdict(d: NonNullable<typeof drawDrag>, clientX: number, clientY: number): DrawnRoomVerdict {
+    const p = d.unproject(clientX, clientY);
+    return describeDrawnRoom({
+      levelRing: d.levelRing,
+      programme: getRoomProgramme(),
+      layout: d.layout,
+      kind: drawKind,
+      rect: { x0: d.startX, z0: d.startZ, x1: p.x, z1: p.z },
+      id: deps.mintId('room'),
+    });
+  }
+
+  /** Paint the band, and let it carry its own verdict so a spec can read the decision off it. */
+  function paintDrawBand(d: NonNullable<typeof drawDrag>, clientX: number, clientY: number, v: DrawnRoomVerdict): void {
+    const p = d.unproject(clientX, clientY);
+    const a = d.project(Math.min(d.startX, p.x), Math.min(d.startZ, p.z));
+    const b = d.project(Math.max(d.startX, p.x), Math.max(d.startZ, p.z));
+    d.rectEl.setAttribute('x', a.sx.toFixed(2));
+    d.rectEl.setAttribute('y', a.sz.toFixed(2));
+    d.rectEl.setAttribute('width', Math.max(0, b.sx - a.sx).toFixed(2));
+    d.rectEl.setAttribute('height', Math.max(0, b.sz - a.sz).toFixed(2));
+    d.rectEl.setAttribute('stroke', v.ok ? '#6600FF' : '#c2410c');
+    d.rectEl.setAttribute('fill', v.ok ? '#6600FF' : '#c2410c');
+    d.rectEl.setAttribute(ROOM_DRAW_AREA_ATTR, v.drawnAreaM2.toFixed(3));
+    d.rectEl.setAttribute(ROOM_DRAW_VERDICT_ATTR, v.ok ? 'ok' : (v.code ?? 'refused'));
+  }
+
+  /**
+   * The three halves of the gesture, installed on the `<svg>` root.
+   *
+   * ⛔ POINTERDOWN IS ON THE ROOT IN THE **CAPTURE** PHASE, AND THAT IS THE WHOLE ARBITRATION
+   * BETWEEN THREE GESTURES SHARING ONE POINTER. The cells carry §ROOM-PIN's reorder listener and
+   * the party walls carry §ROOM-WALL-DRAG's, both in the bubble phase on descendants. A capture
+   * listener on the root runs BEFORE either, so `stopPropagation()` there means an ARMED draw
+   * starts exactly one gesture — and a DISARMED one is invisible to the other two, which keep
+   * working untouched. Arbitrating in the descendants instead would have put "is draw mode on?"
+   * in three places.
+   *
+   * ⛔ MOVE AND UP ARE ON THE ROOT FOR THE REASON THE OTHER TWO STATE: without pointer capture the
+   * browser fires them at whatever element is under the pointer, which during a drawing is
+   * whichever cell the band has been pulled across — never the surface the gesture began on.
+   */
+  function wireDrawRoot(
+    svg: SVGSVGElement,
+    layout: ProgrammeLayout,
+    levelRing: readonly EnvelopePoint[],
+    sx: (v: number) => number,
+    sz: (v: number) => number,
+    x0: number,
+    z0: number,
+    vbPerMx: number,
+    vbPerMz: number,
+    W: number,
+  ): void {
+    svg.addEventListener('pointerdown', (ev) => {
+      if (!drawArmed || drawDrag) return;
+      const e = ev as PointerEvent;
+      const rect = svg.getBoundingClientRect();
+      // ⛔ AN UNMEASURABLE SURFACE REFUSES THE GESTURE RATHER THAN GUESSING A SCALE — the rule
+      // `drawSeams` states. A zero-width rect makes every pixel of travel an infinite number of
+      // metres, and a room drawn from that number would be a fabrication.
+      if (!(rect.width > 0)) {
+        sayLive('This plan is not laid out yet, so PRYZM cannot tell where you drew. Open the '
+          + 'panel fully and try again — nothing was changed.', true);
+        return;
+      }
+      // ⛔ ONE POINTER, ONE GESTURE. See the block comment above.
+      e.stopPropagation();
+      e.preventDefault();
+      // Client px → viewBox units → world metres. ONE factor for both axes, exactly as the seam
+      // drag measures it: `preserveAspectRatio` is the default, so the viewBox maps uniformly.
+      const vbPerPx = W / rect.width;
+      const unproject = (cx: number, cy: number): { readonly x: number; readonly z: number } => ({
+        x: ((cx - rect.left) * vbPerPx - 4) / vbPerMx + x0,
+        z: ((cy - rect.top) * vbPerPx - 4) / vbPerMz + z0,
+      });
+      const start = unproject(e.clientX, e.clientY);
+      const rectEl = svgEl('rect');
+      rectEl.setAttribute(ROOM_DRAW_RECT_ATTR, '1');
+      rectEl.setAttribute('fill-opacity', '0.18');
+      rectEl.setAttribute('stroke-width', '1.4');
+      rectEl.setAttribute('stroke-dasharray', '4 3');
+      rectEl.style.pointerEvents = 'none';
+      svg.appendChild(rectEl);
+      drawDrag = {
+        startX: start.x,
+        startZ: start.z,
+        rectEl,
+        unproject,
+        project: (x, z) => ({ sx: sx(x), sz: sz(z) }),
+        levelRing,
+        layout,
+        verdict: null,
+      };
+      const v = drawVerdict(drawDrag, e.clientX, e.clientY);
+      paintDrawBand(drawDrag, e.clientX, e.clientY, v);
+      drawDrag.verdict = v;
+    }, true);
+
+    svg.addEventListener('pointermove', (ev) => {
+      const d = drawDrag;
+      if (!d) return;
+      const e = ev as PointerEvent;
+      const v = drawVerdict(d, e.clientX, e.clientY);
+      d.verdict = v;
+      paintDrawBand(d, e.clientX, e.clientY, v);
+      // ⛔ THE LIMIT IS MET WHILE DRAWING, NOT DISCOVERED ON RELEASE — the rule the wall drag set.
+      sayLive(v.statement, !v.ok);
+    });
+
+    svg.addEventListener('pointerup', (ev) => {
+      const d = drawDrag;
+      drawDrag = null;
+      if (!d) return;
+      const e = ev as PointerEvent;
+      const v = drawVerdict(d, e.clientX, e.clientY);
+      if (!v.ok || !v.intent) {
+        // ⛔ SPOKEN, NEVER SWALLOWED, AND THE ARM STAYS ON. §REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH
+        // (L-942): the verdict's statement always ends in a reachable way out, and leaving the
+        // gesture armed puts that way out exactly one drag away instead of behind a second click.
+        say(v.statement, true);
+        render();
+        return;
+      }
+      const changed = applyRoomProgrammeIntent(v.intent);
+      if (!changed) {
+        // The reducer and the verdict disagreed. Say so; never pretend a room was added.
+        say('PRYZM could not add that room and nothing changed. This is a gap in the drawing '
+          + 'check, not a statement about your rectangle.', true);
+        render();
+        return;
+      }
+      pendingReplace = null;
+      // ⭐ ONE GESTURE, ONE INTENT, ONE SENTENCE — and the sentence is the OUTCOME, not the
+      // request: `pinnedOrder` is read back off the verdict, which read it off the reduced state,
+      // so a pin the drawing asked for and did not get is reported as not got.
+      const seat = v.pinnedOrder !== null
+        ? `at position ${v.pinnedOrder + 1}, where you drew it`
+        : 'in the position the graph gives it — drag it onto another room to pin it there';
+      say(
+        `Added a ${residentialRoomEntry(drawKind)?.label.toLowerCase() ?? drawKind} of `
+        + `${v.drawnAreaM2.toFixed(2)} m², ${seat}. It came out of the `
+        + `${v.freeAreaM2.toFixed(2)} m² this storey had unallocated, leaving `
+        + `${(v.freeAreaM2 - v.drawnAreaM2).toFixed(2)} m². The plan is re-solved from that area `
+        + 'and that position, so the room lands where they put it rather than on the rectangle '
+        + 'you drew. (A drawn room is part of this session\'s brief, not the undo stack — Ctrl+Z '
+        + 'will not take it back; remove it from the list instead.)',
+        false);
+      // ⛔ DISARMED ON SUCCESS. A drawing mode that silently stays on turns the user's next click
+      // — a click meant to select a room — into a refusal about a zero-area rectangle.
+      drawArmed = false;
+      render();
+    });
+
+    svg.addEventListener('pointerleave', () => {
+      if (!drawDrag) return;
+      drawDrag = null;
+      render();
+    });
+  }
+
+  /** The arm: a toggle and the kind it will draw. Rendered under the plan it acts on. */
+  function drawArmControls(enabled: boolean, freeAreaM2: number): HTMLElement {
+    const wrap = el('div', 'display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;');
+    const btn = el('button');
+    btn.type = 'button';
+    btn.setAttribute('data-testid', ROOM_DRAW_TOGGLE_TESTID);
+    btn.setAttribute('aria-pressed', drawArmed ? 'true' : 'false');
+    btn.disabled = !enabled;
+    btn.textContent = drawArmed ? 'Drawing — drag on the plan' : 'Draw a room';
+    btn.style.cssText = [
+      'padding:4px 9px', 'border-radius:6px', 'font-size:11px', 'font-weight:600',
+      enabled ? 'cursor:pointer' : 'cursor:not-allowed',
+      drawArmed ? 'background:#6600FF;color:#fff;border:none'
+        : 'background:var(--app-surface,#fff);color:var(--app-text,#22223a);border:1px solid var(--app-border,#dde3ef)',
+    ].join(';');
+    // ⛔ AN UNAVAILABLE ACTION RENDERS WITH ITS REASON PRINTED — the §SiteEntryPanel idiom this
+    // file already follows for "Place envelopes in 3D". A greyed control with no reason is a
+    // dead end the user has to guess at.
+    btn.title = enabled
+      ? 'Arm the gesture, then drag a rectangle on the plan. Its AREA becomes the room\'s target '
+        + 'and where you drew it decides its position — the plan then re-solves, so the room lands '
+        + 'where those two put it, not on the rectangle.'
+      : `This storey has ${freeAreaM2.toFixed(2)} m² unallocated, which is less than the floor of `
+        + 'the smallest room in the library — there is nothing left to draw into. Shrink a room in '
+        + 'the list, drag a party wall, or grow the level envelope first.';
+    btn.addEventListener('click', () => {
+      drawArmed = !drawArmed;
+      if (!drawArmed) drawDrag = null;
+      say(drawArmed
+        ? `Drawing a ${residentialRoomEntry(drawKind)?.label.toLowerCase() ?? drawKind}: drag a `
+          + `rectangle on the plan. There is ${freeAreaM2.toFixed(2)} m² unallocated on this `
+          + 'storey, and a drawn room takes its floor from that — never from its neighbours.'
+        : 'Drawing off. The plan\'s rooms and party walls are draggable again.', false);
+      render();
+    });
+    wrap.appendChild(btn);
+
+    const sel = el('select');
+    sel.setAttribute('data-testid', ROOM_DRAW_KIND_TESTID);
+    sel.style.cssText = 'font-size:11px;padding:3px 5px;border-radius:6px;'
+      + 'border:1px solid var(--app-border,#dde3ef);background:var(--app-surface,#fff);color:var(--app-text,#22223a);';
+    sel.title = 'The kind of room the next rectangle becomes. Its floor is what a too-small '
+      + 'rectangle is refused against.';
+    for (const entry of RESIDENTIAL_ROOM_LIBRARY) {
+      const opt = el('option');
+      opt.value = entry.kind;
+      opt.textContent = `${entry.label} — min ${entry.minAreaM2} m²`;
+      if (entry.kind === drawKind) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener('change', () => {
+      if (isResidentialRoomKind(sel.value)) drawKind = sel.value;
+      render();
+    });
+    wrap.appendChild(sel);
+    return wrap;
+  }
+
   // ── PLAN PREVIEW + LEGEND ──────────────────────────────────────────────────
 
-  function renderPreview(layout: ProgrammeLayoutResult): void {
+  function renderPreview(
+    layout: ProgrammeLayoutResult,
+    levelRing: readonly EnvelopePoint[] | null,
+  ): void {
     const box = el('div');
     box.setAttribute('data-testid', ROOM_PROGRAMME_PREVIEW_TESTID);
     box.appendChild(el('div', LABEL_CSS, 'Plan — solved from the graph'));
@@ -1134,6 +1438,12 @@ export function mountRoomProgrammePanel(
     // §ROOM-WALL-DRAG (L-13096) — the move + release halves of the wall gesture. Also on the root,
     // and for the same reason: the pointer leaves the line the moment the wall starts moving.
     wireSeamDragRoot(svg, layout);
+    // §ROOM-DRAW-NEW (L-13120) — the third gesture. Its pointerdown is on the root in the CAPTURE
+    // phase, which is what keeps one pointer press from starting two of these three at once; see
+    // `wireDrawRoot` for why the arbitration lives there and not in the three descendants.
+    if (levelRing) {
+      wireDrawRoot(svg, layout, levelRing, sx, sz, x0, z0, vbPerMx, vbPerMz, W);
+    }
 
     const drawRing = (
       ring: readonly { x: number; z: number }[],
@@ -1225,8 +1535,23 @@ export function mountRoomProgrammePanel(
       // Saying the wall goes where you drop it would be a control that looks live and is not.
       + 'Drag the purple line between two rooms to move floor area across that wall: the two '
       + 'areas change by exactly what crosses it, and the plan re-solves from them — so the wall '
-      + 'lands where those areas put it, not under the cursor. Neither gesture is undoable with '
-      + 'Ctrl+Z; both are part of this session\'s brief.',
+      + 'lands where those areas put it, not under the cursor. '
+      // §ROOM-DRAW-NEW (L-13120) — the third sentence, and it makes the same admission as the
+      // second, for the same reason: a rectangle is how you SAY an area and a position, not a
+      // boundary that gets kept. Promising otherwise would be a control that looks live and is not.
+      + 'To add a room that is not there yet, press "Draw a room" and drag a rectangle on the '
+      + 'plan: its AREA becomes that room\'s target and where you draw it decides its position, '
+      + 'and it takes its floor from what this storey has NOT allocated — never from its '
+      + 'neighbours. None of the three gestures is undoable with Ctrl+Z; all three are part of '
+      + 'this session\'s brief.',
+    ));
+    // ⛔ THE ARM SITS UNDER THE HINT THAT EXPLAINS IT, and renders DISABLED WITH ITS REASON
+    // PRINTED when the storey has less unallocated floor than the smallest room in the library —
+    // a dead end named as one beats a control that arms and then refuses every rectangle drawn
+    // into it (§REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH, from the other end).
+    box.appendChild(drawArmControls(
+      layout.levelAreaM2 - layout.programmeAreaM2 + 1e-9 >= SMALLEST_ROOM_FLOOR_M2,
+      layout.levelAreaM2 - layout.programmeAreaM2,
     ));
 
     // ── LEGEND — STR §10 asks for colour-coded categories WITH a legend ────────
@@ -1434,11 +1759,16 @@ export function mountRoomProgrammePanel(
     const layout: ProgrammeLayoutResult = pick.ok
       ? solveProgrammeLayout({ levelRing: pick.level.footprint, programme: p })
       : { ok: false, code: 'no-level-ring', statement: pick.statement };
+    // §ROOM-DRAW-NEW (L-13120) — the plate the drawing is measured against. It is the SAME ring
+    // the solve above was run on, handed down rather than re-read: a gesture validated against a
+    // different footprint from the one on screen would refuse legal rectangles and accept illegal
+    // ones, and the two reads could differ by one store update (§25.11 clause 1).
+    const drawRing = pick.ok ? pick.level.footprint : null;
     try {
       renderLibrary();
       renderGraph(p);
       renderList(p);
-      renderPreview(layout);
+      renderPreview(layout, drawRing);
       renderReport(layout, p);
       renderActions(layout);
     } catch (e) {

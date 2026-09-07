@@ -149,6 +149,45 @@ export type RoomProgrammeIntent =
       readonly aId: string; readonly aAreaM2: number;
       readonly bId: string; readonly bAreaM2: number;
     }
+  /**
+   * §ROOM-DRAW-NEW (L-13120, founder 2026-09-07: *"This room locator needs to be more flexible
+   * and more dynamic — I shall be able to reorganize also the rooms on the plan view — draw them
+   * etc."*) — ADD A ROOM BY DRAWING IT. One rectangle on the plan becomes one room, at the area
+   * that rectangle measures and, when the drawing points at one position unambiguously, at that
+   * position in the solved order.
+   *
+   * ⭐ WHY THIS IS ONE INTENT AND NOT `add-room` + `set-area` + `pin-room`. Those three exist and
+   * would compose to the same END state — through TWO intermediate states the solver would be run
+   * on and the panel would repaint: first a room at the LIBRARY'S PRESET area (the wrong size,
+   * briefly drawn), then that room at the drawn area but in the SOLVER'S position (the wrong
+   * place, briefly drawn). Worse than the flicker: when the preset area does not fit the free
+   * plate, the FIRST of the three refuses — so a draw that is perfectly legal at the size the user
+   * drew would be rejected at a size he never asked for. Atomic is therefore not tidiness here; it
+   * is what makes the intent mean *"this room"* rather than *"three edits"*. It is the same
+   * argument `programme.resize-pair` makes for the party wall, arriving from the other direction.
+   *
+   * ⛔ `targetAreaM2` MUST ALREADY CLEAR THE LIBRARY FLOOR, AND THIS CASE REFUSES IT OTHERWISE.
+   * That floor is the SAME number `solveProgrammeLayout` refuses `room-below-minimum` on, so a
+   * draw this reducer accepts can never produce a layout the solver then rejects for that reason
+   * — the sibling guarantee `describePairResize` gives the wall drag.
+   *
+   * ⚠ `atOrder` IS A REQUEST, NOT A GUARANTEE, AND THE DIFFERENCE IS REPORTED RATHER THAN HIDDEN.
+   * A position already held by another PINNED room is not taken from it — `programme.pin-room`
+   * refuses that too, and for the reason it states: displacing someone else's pin without saying
+   * so is a silent overwrite in a nicer costume. The room is then added UNPINNED, which is the
+   * documented default; and because `describeDrawnRoom` REDUCES THIS VERY INTENT before the panel
+   * dispatches it, the sentence the user reads reports the pin the room actually got, not the one
+   * the drawing asked for.
+   */
+  | {
+      readonly type: 'programme.draw-room';
+      readonly id: string;
+      readonly kind: ResidentialRoomKind;
+      readonly name?: string;
+      readonly targetAreaM2: number;
+      /** The position the drawing points at. Absent ⇒ the solver's choice, as for any new room. */
+      readonly atOrder?: number;
+    }
   | { readonly type: 'programme.reset'; readonly next: RoomProgramme };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -389,6 +428,49 @@ export function reduceRoomProgramme(
       if (state.entries.some((e) => e.id !== id && e.pinnedOrder === order)) return state;
       return {
         entries: state.entries.map((e) => (e.id === id ? { ...e, pinnedOrder: order } : e)),
+        links: state.links,
+      };
+    }
+
+    case 'programme.draw-room': {
+      // ⛔ EVERY TEST THIS CASE APPLIES IS ONE THE SOLVER WOULD OTHERWISE APPLY LATER, AND THAT IS
+      // THE POINT. A drawn room that entered the brief and then made `solveProgrammeLayout` refuse
+      // would replace the user's whole plan with a refusal card — one bad rectangle costing him
+      // the drawing he was working on. Refusing the INTENT leaves the plan exactly as it was.
+      if (!isResidentialRoomKind(intent.kind)) return state;
+      if (typeof intent.id !== 'string' || intent.id.length === 0) return state;
+      if (state.entries.some((e) => e.id === intent.id)) return state;
+      const v = intent.targetAreaM2;
+      if (!Number.isFinite(v) || v <= 0) return state;
+      const lib = residentialRoomEntry(intent.kind)!;
+      // ⛔ REFUSED, NEVER RAISED TO THE FLOOR (C83). Seating a drawn room at the minimum would
+      // report an area nobody drew under a gesture the user believes he controlled — and it is
+      // the SAME floor `solveProgrammeLayout` refuses `room-below-minimum` on, so accepting one
+      // below it merely moves the refusal to where it destroys more.
+      if (v < lib.minAreaM2) return state;
+      const name = (intent.name ?? '').trim() || nextRoomName(state.entries, intent.kind);
+      // The drawn room is appended, so the positions a pin may address run `0 … entries.length`
+      // INCLUSIVE — the new last slot exists only because this room does.
+      const n = state.entries.length + 1;
+      const wants = intent.atOrder;
+      const seatable =
+        wants !== undefined
+        && Number.isInteger(wants)
+        && wants >= 0
+        && wants < n
+        // ⛔ ONE ROOM PER SLOT, the rule `programme.pin-room` states. A drawing that lands on a
+        // slot someone else pinned does not evict them; the room arrives unpinned instead, and
+        // the panel says which of the two happened because it reads THIS state back.
+        && !state.entries.some((e) => e.pinnedOrder === wants);
+      const added: RoomProgrammeEntry = seatable
+        ? { id: intent.id, kind: intent.kind, name, targetAreaM2: v, pinnedOrder: wants }
+        : { id: intent.id, kind: intent.kind, name, targetAreaM2: v };
+      return {
+        entries: [...state.entries, added],
+        // ⭐ A DRAWN ROOM ARRIVES WITH NO RELATIONSHIPS, AND THAT IS AN ANSWER, NOT AN OMISSION.
+        // Guessing a link from adjacency would put an edge in the graph the user never plugged,
+        // and the graph is the INPUT to the layout (§25.5) — an invented edge would then move
+        // rooms he did not touch. He plugs the relationships he wants, as for any other room.
         links: state.links,
       };
     }
