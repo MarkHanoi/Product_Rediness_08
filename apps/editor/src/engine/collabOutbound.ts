@@ -66,6 +66,27 @@ export function isDeliverable(v: OutboundVerdict): boolean {
 }
 
 /**
+ * Is this verdict a LOSS, or merely "collaboration is not running"?
+ *
+ * ⛔ THE DISTINCTION MATTERS MORE THAN THE DETECTION, and getting it wrong would have shipped a
+ * worse defect than the one this module fixes. `socket-missing` and `no-project` mean there is no
+ * collaboration session at all — the founder working solo, offline, or before a project is open.
+ * Those commands were never meant to go over a wire, nothing is waiting for them, and
+ * `project_command_log` is explicitly NOT the persistence path (C08 §3.3: *"The log MUST NOT be
+ * the sole persistence mechanism; it supplements snapshots"*). Reporting them as losses would
+ * print a red console error on EVERY EDIT of a single-user session — an alarm that is wrong every
+ * time it fires, which is how a real alarm gets ignored.
+ *
+ * A GAP is the narrow case where collaboration WAS established and the edit still did not leave:
+ * the socket exists but is down (`not-connected`), or its transport has gone non-writable while
+ * socket.io still believes it is connected (`transport-not-writable` — the CLOSING window from
+ * the founder's trace). Those are the two that cost a peer an edit and the log a row.
+ */
+export function isCollaborationGap(v: OutboundVerdict): boolean {
+    return v === 'not-connected' || v === 'transport-not-writable';
+}
+
+/**
  * Classify an outbound emit BEFORE attempting it.
  *
  * `transport-not-writable` is the CLOSING-socket window the founder's trace was full of:

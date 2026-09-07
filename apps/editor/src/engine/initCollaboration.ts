@@ -51,6 +51,7 @@ import { RemoteCommandDispatcher, type SuppressBroadcastRef } from './RemoteComm
 import {
     classifyOutbound,
     createCursorEmitter,
+    isCollaborationGap,
     isDeliverable,
     UndeliveredCommandLedger,
     volatileEmit,
@@ -1043,17 +1044,26 @@ export function initCollaboration(params: {
         // catch-up line stop reporting a clean slate on top of it.
         const verdict = classifyOutbound(socket, currentProjectId);
         if (!isDeliverable(verdict)) {
-            const seen = undeliveredCommands.record(cmd.type, verdict);
-            console.error(
-                `[initCollaboration] §OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET — '${cmd.type}' was ` +
-                `NOT SENT (${verdict}). It is absent from every peer AND from project_command_log, ` +
-                `so no catch-up can recover it. ${seen} undelivered command(s) this session.`,
-            );
-            try {
-                window.dispatchEvent(new CustomEvent('pryzm-collab-command-undelivered', {
-                    detail: { commandType: cmd.type, verdict, undeliveredThisSession: seen },
-                }));
-            } catch { /* no DOM (headless) — the console line is still the record */ }
+            // ⛔ A LOSS IS NOT THE SAME AS "COLLABORATION IS NOT RUNNING", and conflating them
+            // would be a worse defect than the one this fixes. `socket-missing` / `no-project` —
+            // solo, offline, or before a project is open — mean the command was never meant to
+            // reach a wire; reporting those would print a red error on EVERY EDIT of a
+            // single-user session, and an alarm that is wrong every time it fires is an alarm
+            // nobody reads. Only `not-connected` and `transport-not-writable` cost a peer an edit
+            // and the log a row. See `isCollaborationGap`.
+            if (isCollaborationGap(verdict)) {
+                const seen = undeliveredCommands.record(cmd.type, verdict);
+                console.error(
+                    `[initCollaboration] §OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET — '${cmd.type}' was ` +
+                    `NOT SENT (${verdict}). It is absent from every peer AND from project_command_log, ` +
+                    `so no catch-up can recover it. ${seen} undelivered command(s) this session.`,
+                );
+                try {
+                    window.dispatchEvent(new CustomEvent('pryzm-collab-command-undelivered', {
+                        detail: { commandType: cmd.type, verdict, undeliveredThisSession: seen },
+                    }));
+                } catch { /* no DOM (headless) — the console line is still the record */ }
+            }
             return;
         }
 

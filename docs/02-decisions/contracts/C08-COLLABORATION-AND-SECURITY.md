@@ -222,6 +222,16 @@ same value (§CONTEXT-DATA-HONESTY). This is the same class of harm as §3.2's
    The report MUST name the command and the verdict, and MUST be retained for the session.
 3. **An UNREADABLE transport is DELIVERABLE, not a failure.** Fabricating a loss that did not happen
    is the mirror image of hiding one that did. Only a positive `writable === false` counts.
+3a. ⛔ **A LOSS IS NOT THE SAME AS "COLLABORATION IS NOT RUNNING", and only a LOSS may be reported.**
+   *"No socket"* and *"no project open"* mean the command was never meant to reach a wire — a
+   single-user session, offline work, or the moment before a project loads — and §3.3 already
+   states that the log **is not the persistence path**. Reporting those would print an error on
+   **every edit of a solo session**, and an alarm that is wrong every time it fires is an alarm
+   nobody reads: that is the same defect this section exists to remove, wearing the opposite
+   clothes. **Only two verdicts are reportable losses:** the socket exists but is down
+   (`not-connected`), and the transport has gone non-writable while socket.io still believes it
+   is connected (`transport-not-writable` — the CLOSING window). Implementation:
+   `isCollaborationGap()`.
 4. **The catch-up line MUST NOT claim a clean slate over a local gap.** It reports the INBOUND
    direction and must say so; when local commands were refused, the line carries them.
 5. **A durable emit MUST NOT be blind-replayed on reconnect.** A client-side replay mints a SECOND

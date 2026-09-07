@@ -27,6 +27,7 @@ import { join } from 'node:path';
 import {
     classifyOutbound,
     createCursorEmitter,
+    isCollaborationGap,
     isDeliverable,
     UndeliveredCommandLedger,
     volatileEmit,
@@ -141,6 +142,26 @@ describe('§OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET — classifying an emit bef
     });
 });
 
+describe('§OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET — a LOSS is not "collaboration is off"', () => {
+    it('reports ONLY the two verdicts that cost a peer an edit and the log a row', () => {
+        // ⛔ THE ALARM MUST NOT FIRE ON EVERY EDIT OF A SOLO SESSION. Conflating "no socket" with
+        // "the write vanished" would print a red console error for every command the founder
+        // executes offline — an alarm that is wrong every time it fires is an alarm nobody reads,
+        // which is the same failure this module exists to remove, wearing the opposite clothes.
+        expect(isCollaborationGap('transport-not-writable')).toBe(true);
+        expect(isCollaborationGap('not-connected')).toBe(true);
+        expect(isCollaborationGap('socket-missing')).toBe(false);
+        expect(isCollaborationGap('no-project')).toBe(false);
+        expect(isCollaborationGap('deliverable')).toBe(false);
+    });
+
+    it('a solo session classifies as socket-missing, and that is not a gap', () => {
+        const verdict = classifyOutbound(null, 'p1');
+        expect(isDeliverable(verdict)).toBe(false);   // nothing is sent…
+        expect(isCollaborationGap(verdict)).toBe(false); // …and nothing was lost
+    });
+});
+
 describe('§OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET — the undelivered ledger', () => {
     it('returns null when nothing was lost, so a clean session cannot print a false measurement', () => {
         // ⚠ Deliberately null, not "0 undelivered": DELIVERY IS NOT MEASURED here (there is no
@@ -198,6 +219,8 @@ describe('§OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET — the production wiring',
         // §AUTHORED-BUT-UNWIRED — the ledger only matters if the command path consults it.
         expect(src).toMatch(/const verdict = classifyOutbound\(socket, currentProjectId\)/);
         expect(src).toMatch(/undeliveredCommands\.record\(cmd\.type, verdict\)/);
+        // …and it must report ONLY a real gap, never every edit of a solo session.
+        expect(src).toMatch(/if \(isCollaborationGap\(verdict\)\) \{/);
         expect(src).toMatch(/§OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET/);
         // The old silent guard, immediately after the echo-loop check, must be gone.
         expect(src).not.toMatch(
