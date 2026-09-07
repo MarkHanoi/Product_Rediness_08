@@ -14,7 +14,7 @@
  * arguments and the assertions read them.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
     planCreateHouse,
     readLevelEnvelopes,
@@ -38,6 +38,14 @@ import {
     type HouseBuildResult,
     type ParcelLawCreateHouseDeps,
 } from '../parcelLawCreateHouse';
+import {
+    BUILD_FROM_DESIGN_TESTID,
+    BUILD_FROM_DESIGN_ROOMS_TESTID,
+    BUILD_FROM_DESIGN_REFUSED_ROOMS_TESTID,
+    BUILD_FROM_DESIGN_LABEL,
+} from '../../site/createHouseSection';
+import type { BuildFromDesignResult } from '../../site/buildFromDesignExecutor';
+import type { BuildFromDesignPlan } from '../../site/buildFromDesignPlan';
 import {
     mountParcelLawTab,
     PARCEL_LAW_CREATE_HOUSE_HOST_TESTID,
@@ -390,5 +398,380 @@ describe('ARM D — the renderer, and REACHABILITY from the tab', () => {
         expect(deps.runtime()).toBeFalsy();
         expect(deps.activeLevelId()).toBeFalsy();
         expect(deps.authoredWallCount('L0')).toBe(0);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §BIM-FROM-THE-DESIGN (L-13080) — ARM E: THE FOURTH ARM, AND THE ORDER BETWEEN THE ARMS
+// ═══════════════════════════════════════════════════════════════════════════
+// Founder, with 7 authored envelopes on screen: *"WHEN WE SAY — CREATE BIM — EXCLUDE THIS — WE
+// ALREADY HAVE THE DESIGN."* He had drawn a level envelope and six rooms, and the click opened
+// "Design your house — live" and asked him to design a house he had already designed.
+//
+// ⭐ THE THREE TESTS THAT CARRY THIS BLOCK ARE THE ORDER, AND THEY ARE ORDER TESTS ON PURPOSE.
+// The fourth arm is only correct if it CANNOT weaken the two guarantees that already exist:
+// C80's `already-built` still fires first on a level with walls, and the generator is still what
+// a project with NO drawn rooms gets, advisory word for word. An arm that answered the founder by
+// taking those away would be a worse defect than the one it closes.
+
+describe('ARM E — §BIM-FROM-THE-DESIGN: build from the envelopes he already drew', () => {
+    const PLATE = [{ x: 0, z: 0 }, { x: 15, z: 0 }, { x: 15, z: 12.682 }, { x: 0, z: 12.682 }];
+    const rect = (x0: number, z0: number, x1: number, z1: number) =>
+        [{ x: x0, y: 0, z: z0 }, { x: x1, y: 0, z: z0 }, { x: x1, y: 0, z: z1 }, { x: x0, y: 0, z: z1 }];
+
+    const groundEnv: [string, Record<string, unknown>] = ['E-g', {
+        id: 'E-g', role: 'level', levelId: 'L0', name: 'Ground envelope',
+        baseOffset: 0, height: 3, footprintAreaM2: 190.23,
+        footprint: PLATE.map((p) => ({ x: p.x, y: 0, z: p.z })),
+    }];
+
+    /** Six rooms in a 3 × 2 grid — the founder's own case, 76.8 m² inside 190.23 m². */
+    const SIX_ROOMS: Array<[string, Record<string, unknown>]> = ([
+        ['R1', 1, 1, 5, 4.2], ['R2', 5, 1, 9, 4.2], ['R3', 9, 1, 13, 4.2],
+        ['R4', 1, 4.2, 5, 7.4], ['R5', 5, 4.2, 9, 7.4], ['R6', 9, 4.2, 13, 7.4],
+    ] as Array<[string, number, number, number, number]>).map(([id, x0, z0, x1, z1]) => [id, {
+        id, role: 'room', levelId: 'L0', name: `Room ${id.slice(1)}`, withinId: 'E-g',
+        baseOffset: 0, height: 3, footprintAreaM2: 12.8, footprint: rect(x0, z0, x1, z1),
+    }] as [string, Record<string, unknown>]);
+
+    function armDeps(
+        envelopes: ReadonlyArray<[string, Record<string, unknown>]> | null,
+        opts: {
+            wallCount?: number;
+            design?: BuildFromDesignResult;
+            /** Omitted on purpose in one test — an unwired host must SAY so, not fall back. */
+            wireDesign?: boolean;
+        } = {},
+    ): {
+        deps: ParcelLawCreateHouseDeps;
+        generatorCalls: unknown[];
+        designCalls: BuildFromDesignPlan[];
+    } {
+        const state = new Map<string, unknown>(envelopes ?? []);
+        const store = envelopes === null ? null : { getState: () => state };
+        const generatorCalls: unknown[] = [];
+        const designCalls: BuildFromDesignPlan[] = [];
+        const deps: ParcelLawCreateHouseDeps = {
+            runtime: () => ({ stores: { spaceEnvelope: store } } as unknown as PryzmRuntime),
+            activeLevelId: () => 'L0',
+            authoredWallCount: () => opts.wallCount ?? 0,
+            buildHouse: async (_rt, storeyCount, o) => {
+                generatorCalls.push({ storeyCount, ...o });
+                return { ok: true } as HouseBuildResult;
+            },
+            ...(opts.wireDesign === false ? {} : {
+                buildFromDesign: async (_rt, plan) => {
+                    designCalls.push(plan);
+                    return opts.design ?? {
+                        ok: true, wallIds: plan.walls.map((_, i) => `WA-${i}`),
+                        shellWallCount: plan.shellWallCount,
+                        partitionWallCount: plan.partitionWallCount,
+                        slabId: 'SL-1', slabRefusal: null, refusedRoomNames: [],
+                        link: { wallsLinked: plan.walls.length, edgesWritten: plan.walls.length * 2, unlinked: [] },
+                    };
+                },
+            }),
+        };
+        return { deps, generatorCalls, designCalls };
+    }
+
+    const mount = (deps: ParcelLawCreateHouseDeps) => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        return mountParcelLawCreateHouse(host, deps);
+    };
+
+    // ── THE ORDER ──────────────────────────────────────────────────────────────────────────────
+
+    it('⭐ WITH ROOMS DRAWN, the generator does NOT open — the fourth arm is taken', () => {
+        const { deps, generatorCalls, designCalls } = armDeps([groundEnv, ...SIX_ROOMS]);
+        const h = mount(deps);
+
+        expect(h.lastArm()?.mode).toBe('build-from-design');
+        expect(q(h.element, BUILD_FROM_DESIGN_TESTID)?.getAttribute('data-arm')).toBe('build-from-design');
+        expect(h.element.textContent).toContain(BUILD_FROM_DESIGN_LABEL);
+        // ⛔ And the generator's own advisory is NOT on screen, because it is not what happens.
+        expect(h.element.textContent).not.toContain('NOT used as the room programme');
+
+        (q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).click();
+        expect(generatorCalls, 'the house generator must not run when he has a design').toHaveLength(0);
+        expect(designCalls).toHaveLength(1);
+        expect(designCalls[0]!.shellWallCount).toBe(4);
+        expect(designCalls[0]!.partitionWallCount).toBe(17);
+        expect(designCalls[0]!.slabs).toHaveLength(1);
+        h.dispose();
+    });
+
+    it('⛔ WITH NO ROOMS the generator arm is kept, word for word, advisory included', () => {
+        const { deps, generatorCalls, designCalls } = armDeps([groundEnv]);
+        const h = mount(deps);
+
+        expect(h.lastArm()?.mode).toBe('create-house');
+        expect(q(h.element, CREATE_HOUSE_TESTID)?.getAttribute('data-arm')).toBe('ok');
+        expect(h.element.textContent).toContain('NOT used as the room programme');
+        expect(q(h.element, BUILD_FROM_DESIGN_TESTID)).toBeNull();
+
+        (q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).click();
+        expect(generatorCalls, 'a project with no design still gets the generator').toHaveLength(1);
+        expect(designCalls).toHaveLength(0);
+        h.dispose();
+    });
+
+    it('⛔ C80 FIRST AND UNCONDITIONAL — a level carrying walls refuses, rooms or no rooms', () => {
+        const { deps, generatorCalls, designCalls } = armDeps([groundEnv, ...SIX_ROOMS], { wallCount: 31 });
+        const h = mount(deps);
+
+        expect(h.lastArm()?.mode).toBe('create-house');
+        expect(q(h.element, CREATE_HOUSE_TESTID)?.getAttribute('data-arm')).toBe('already-built');
+        expect(q(h.element, CREATE_HOUSE_REFUSAL_TESTID)?.textContent).toContain('31 authored walls');
+        const btn = q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement;
+        expect(btn.disabled).toBe(true);
+        btn.click();
+        expect(generatorCalls).toHaveLength(0);
+        expect(designCalls).toHaveLength(0);
+        h.dispose();
+    });
+
+    it('⛔ an unreadable store gives ONE answer — the wiring refusal, never a second opinion', () => {
+        const { deps } = armDeps(null);
+        const h = mount(deps);
+        expect(h.lastArm()?.mode).toBe('create-house');
+        expect(h.element.textContent).toContain('space-envelope store');
+        expect((q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).disabled).toBe(true);
+        h.dispose();
+    });
+
+    // ── WHAT THE SENTENCE SAYS BEFORE THE CLICK ────────────────────────────────────────────────
+
+    it('⭐ names the source envelope and its area, the storey, and every room with its area', () => {
+        const { deps } = armDeps([groundEnv, ...SIX_ROOMS]);
+        const h = mount(deps);
+        const text = h.element.textContent ?? '';
+        expect(text).toContain('Ground envelope');
+        expect(text).toContain('190.23 m²');
+        expect(text).toContain('1 storey');
+        expect(q(h.element, BUILD_FROM_DESIGN_ROOMS_TESTID)?.textContent).toContain('Your 6 rooms');
+        expect(q(h.element, BUILD_FROM_DESIGN_ROOMS_TESTID)?.textContent).toContain('Room 1 — 12.8 m²');
+        expect(text).toContain('4 exterior shell walls');
+        expect(text).toContain('17 interior partitions');
+        expect(text).toContain('1 floor slab');
+        h.dispose();
+    });
+
+    it('⛔ and names what it does NOT create, above all the layout it will not generate', () => {
+        const { deps } = armDeps([groundEnv, ...SIX_ROOMS]);
+        const h = mount(deps);
+        const text = h.element.textContent ?? '';
+        expect(text).toContain('you drew one');
+        expect(text).toContain('roof');
+        expect(text).toContain('stairs');
+        expect(text).toContain('doors or windows');
+        expect(text).toContain('columns or beams');
+        h.dispose();
+    });
+
+    it('⛔ a room that cannot be built is NAMED BEFORE THE CLICK, and the rest stay buildable', () => {
+        const broken: [string, Record<string, unknown>] = ['R9', {
+            id: 'R9', role: 'room', levelId: 'L0', name: 'Utility', withinId: 'E-g',
+            baseOffset: 0, height: 3, footprintAreaM2: 0.2, footprint: rect(1, 9, 1.4, 9.4),
+        }];
+        const { deps, designCalls } = armDeps([groundEnv, ...SIX_ROOMS, broken]);
+        const h = mount(deps);
+        const refused = q(h.element, BUILD_FROM_DESIGN_REFUSED_ROOMS_TESTID);
+        expect(refused, 'the refused room must be on the ENABLED arm, before the click').not.toBeNull();
+        expect(refused!.textContent).toContain('Utility');
+        expect(refused!.textContent).toContain('0.16 m²');
+        expect((q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).disabled).toBe(false);
+
+        (q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).click();
+        expect(designCalls[0]!.rooms).toHaveLength(6);
+        expect(designCalls[0]!.refusedRooms).toHaveLength(1);
+        h.dispose();
+    });
+
+    // ── THE CLICK ──────────────────────────────────────────────────────────────────────────────
+
+    it('⭐ the status names both counts, the slab, the link and the TWO-step undo', async () => {
+        const { deps } = armDeps([groundEnv, ...SIX_ROOMS]);
+        const h = mount(deps);
+        (q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).click();
+        await new Promise((r) => setTimeout(r, 0));
+        const status = q(h.element, CREATE_HOUSE_STATUS_TESTID)?.textContent ?? '';
+        expect(status).toContain('4 shell walls');
+        expect(status).toContain('17 partitions');
+        expect(status).toContain('1 floor slab');
+        expect(status).toContain('21 walls recorded as derived from your envelope');
+        expect(status).toContain('Undo takes two steps');
+        h.dispose();
+    });
+
+    it('⛔ a refused SLAB keeps the walls and says so — the walls ARE the design', async () => {
+        const { deps } = armDeps([groundEnv, ...SIX_ROOMS], {
+            design: {
+                ok: true, wallIds: ['WA-0'], shellWallCount: 4, partitionWallCount: 17,
+                slabId: null, slabRefusal: 'the boundary self-intersects.',
+                refusedRoomNames: [], link: { wallsLinked: 21, edgesWritten: 42, unlinked: [] },
+            },
+        });
+        const h = mount(deps);
+        (q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).click();
+        await new Promise((r) => setTimeout(r, 0));
+        const status = q(h.element, CREATE_HOUSE_STATUS_TESTID)?.textContent ?? '';
+        expect(status).toContain('the boundary self-intersects.');
+        expect(status).toContain('were not removed');
+        h.dispose();
+    });
+
+    it('⛔ a link that was NOT recorded is reported — a silent one is a cascade that never fires', async () => {
+        const { deps } = armDeps([groundEnv, ...SIX_ROOMS], {
+            design: {
+                ok: true, wallIds: ['WA-0'], shellWallCount: 4, partitionWallCount: 17,
+                slabId: 'SL-1', slabRefusal: null, refusedRoomNames: [], link: null,
+            },
+        });
+        const h = mount(deps);
+        (q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).click();
+        await new Promise((r) => setTimeout(r, 0));
+        expect(q(h.element, CREATE_HOUSE_STATUS_TESTID)?.textContent)
+            .toContain('will not follow the envelope when you move a face');
+        h.dispose();
+    });
+
+    it("⛔ the executor's OWN refusal is printed verbatim, not replaced", async () => {
+        const { deps } = armDeps([groundEnv, ...SIX_ROOMS], {
+            design: { ok: false, reason: 'The wall batch was refused: WallDimensionsError.' },
+        });
+        const h = mount(deps);
+        (q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).click();
+        await new Promise((r) => setTimeout(r, 0));
+        expect(q(h.element, CREATE_HOUSE_STATUS_TESTID)?.textContent)
+            .toContain('The wall batch was refused: WallDimensionsError.');
+        h.dispose();
+    });
+
+    it('⛔ AN UNWIRED HOST SAYS SO — it does not quietly run the generator instead', () => {
+        const { deps, generatorCalls } = armDeps([groundEnv, ...SIX_ROOMS], { wireDesign: false });
+        const h = mount(deps);
+        (q(h.element, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).click();
+        expect(generatorCalls, 'falling back to the generator IS the defect this arm closes').toHaveLength(0);
+        expect(q(h.element, CREATE_HOUSE_STATUS_TESTID)?.textContent)
+            .toContain('not wired to the build-from-design pipeline');
+        h.dispose();
+    });
+
+    it('⭐ LIVE — drawing the first room envelope switches the arm with no other event', () => {
+        const state = new Map<string, unknown>([groundEnv]);
+        const listeners = new Set<() => void>();
+        const store = {
+            getState: () => state,
+            subscribeDirty(l: () => void): () => void { listeners.add(l); return () => { listeners.delete(l); }; },
+        };
+        const deps: ParcelLawCreateHouseDeps = {
+            runtime: () => ({ stores: { spaceEnvelope: store } } as unknown as PryzmRuntime),
+            activeLevelId: () => 'L0',
+            authoredWallCount: () => 0,
+            buildHouse: async () => ({ ok: true }),
+            buildFromDesign: async () => ({ ok: true }),
+        };
+        const h = mount(deps);
+        expect(h.lastArm()?.mode).toBe('create-house');
+
+        state.set(SIX_ROOMS[0]![0], SIX_ROOMS[0]![1]);
+        for (const l of listeners) l();
+
+        expect(h.lastArm()?.mode).toBe('build-from-design');
+        expect(q(h.element, BUILD_FROM_DESIGN_TESTID)).not.toBeNull();
+        h.dispose();
+        expect(listeners.size).toBe(0);
+    });
+
+    it('the production deps expose the build-from-design producer', () => {
+        expect(typeof defaultParcelLawCreateHouseDeps().buildFromDesign).toBe('function');
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ REACHABILITY — the founder's OWN gesture, through the PRODUCTION deps
+// ═══════════════════════════════════════════════════════════════════════════
+// [[committed-is-not-reachable]] / [[authored-but-unwired-is-the-bottleneck]]: this repo's
+// dominant defect shape is a correct producer nothing reaches. Every test above this line drives
+// `mountParcelLawCreateHouse` with INJECTED deps — which proves the arm works, and proves nothing
+// about whether the founder can get to it. He does not call a function: he opens question 6,
+// *"Take me into BIM."*, and clicks the button in its body.
+//
+// So this block mounts the WHOLE TAB with `mountCreateHouse` deliberately NOT provided, forcing
+// `defaultParcelLawCreateHouseDeps()` — the production wiring, resolving `window.runtime` and the
+// house pipeline's own active-level resolver — and asserts the fourth arm is what lands in Q6's
+// slot when room envelopes exist.
+describe('⭐ REACHABILITY — Q6 "Take me into BIM." reaches the FOURTH arm, not the generator', () => {
+    interface WindowUnderTest {
+        runtime?: unknown;
+        projectContext?: { activeLevelId?: string };
+    }
+    const w = window as unknown as WindowUnderTest;
+    let savedRuntime: unknown;
+    let savedContext: { activeLevelId?: string } | undefined;
+
+    const tabDeps = (): ParcelLawTabDeps => ({
+        capabilityHost: {
+            pryzmGetSiteViewState: () => ({ segment: '2D', formaMode: 'plan', buildingFidelity: 'real' }),
+        } as ParcelLawCapabilityHost,
+        runtime: null,
+        buildParcelPanel: () => ({ element: document.createElement('div'), dispose: () => { /* noop */ } }),
+        mountSwitcher: () => ({ element: document.createElement('div'), repaint: () => { /* noop */ }, dispose: () => { /* noop */ } }),
+        wireStrip: () => 0,
+        readParcelLawModel: () => ({ kind: 'absent' } as never),
+        renderParcelLawFacts: () => document.createElement('div'),
+        // ⛔ `mountCreateHouse` is NOT provided — the tab must fall through to production.
+    });
+
+    const seed = (rows: ReadonlyArray<[string, Record<string, unknown>]>): void => {
+        const state = new Map<string, unknown>(rows);
+        w.runtime = { stores: { spaceEnvelope: { getState: () => state } } };
+        w.projectContext = { activeLevelId: 'L0' };
+    };
+
+    beforeEach(() => { savedRuntime = w.runtime; savedContext = w.projectContext; });
+    afterEach(() => { w.runtime = savedRuntime; w.projectContext = savedContext; });
+
+    const PLATE_ROW: [string, Record<string, unknown>] = ['E-g', {
+        id: 'E-g', role: 'level', levelId: 'L0', name: 'Ground envelope',
+        baseOffset: 0, height: 3, footprintAreaM2: 190.23,
+        footprint: [{ x: 0, y: 0, z: 0 }, { x: 15, y: 0, z: 0 }, { x: 15, y: 0, z: 12.682 }, { x: 0, y: 0, z: 12.682 }],
+    }];
+    const ROOM_ROW: [string, Record<string, unknown>] = ['R1', {
+        id: 'R1', role: 'room', levelId: 'L0', name: 'Kitchen', withinId: 'E-g',
+        baseOffset: 0, height: 3, footprintAreaM2: 12.8,
+        footprint: [{ x: 1, y: 0, z: 1 }, { x: 5, y: 0, z: 1 }, { x: 5, y: 0, z: 4.2 }, { x: 1, y: 0, z: 4.2 }],
+    }];
+
+    it('⭐ WITH a room drawn, Q6\'s slot carries "Create BIM from this design"', () => {
+        seed([PLATE_ROW, ROOM_ROW]);
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const h = mountParcelLawTab(host, tabDeps());
+
+        const slot = q(host, PARCEL_LAW_CREATE_HOUSE_HOST_TESTID)!;
+        const arm = q(slot, BUILD_FROM_DESIGN_TESTID);
+        expect(arm, 'the fourth arm must be reachable from question 6').not.toBeNull();
+        expect(arm!.getAttribute('data-arm')).toBe('build-from-design');
+        expect(slot.textContent).toContain(BUILD_FROM_DESIGN_LABEL);
+        expect((q(slot, CREATE_HOUSE_BTN_TESTID) as HTMLButtonElement).disabled).toBe(false);
+        // ⛔ And the generator's advisory is not on this path.
+        expect(slot.textContent).not.toContain('NOT used as the room programme');
+        h.dispose();
+    });
+
+    it('⛔ WITHOUT a room drawn, the SAME slot still carries the generator — unchanged', () => {
+        seed([PLATE_ROW]);
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const h = mountParcelLawTab(host, tabDeps());
+
+        const slot = q(host, PARCEL_LAW_CREATE_HOUSE_HOST_TESTID)!;
+        expect(q(slot, BUILD_FROM_DESIGN_TESTID)).toBeNull();
+        expect(q(slot, CREATE_HOUSE_TESTID)?.getAttribute('data-arm')).toBe('ok');
+        expect(slot.textContent).toContain('NOT used as the room programme');
+        h.dispose();
     });
 });

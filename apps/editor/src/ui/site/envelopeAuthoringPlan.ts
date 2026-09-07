@@ -129,7 +129,20 @@ export type EnvelopeAuthoringRefusalReason =
     /** §ENVELOPE-DRAW R8 — the space-envelope store could not be READ. Creating blind is how rivals accumulate. */
     | 'envelopes-unreadable'
     /** §ENVELOPE-DRAW R8 — a target storey carries a level envelope this control did not author. Refused, nothing deleted. */
-    | 'rival-envelope-not-authored';
+    | 'rival-envelope-not-authored'
+    /**
+     * ⭐ §ENVELOPE-PER-LEVEL (lane FACE-DRAG-2, 2026-09-07) — the caller named a starting storey
+     * that is not one of the seatable ones. ⛔ A NAMED start that does not resolve must REFUSE and
+     * never fall back to the lowest: silently seating the envelope somewhere other than where the
+     * user pointed is a confidently wrong answer about which floor they are designing.
+     */
+    | 'start-storey-not-seatable'
+    /**
+     * ⭐ §ENVELOPE-PER-LEVEL — there are enough seatable storeys in the project, but not enough
+     * AT OR ABOVE the one the user chose. A different fact from `not-enough-storeys`, and it needs
+     * a different sentence: the fix is to start lower, not to add levels.
+     */
+    | 'not-enough-storeys-above-start';
 
 /**
  * ⭐ THE STOREY-COUNT DISAGREEMENT — REPORTED, BUILT ANYWAY. See the header: C114 §12 rules this
@@ -207,6 +220,22 @@ export interface EnvelopeAuthoringRefusal {
     readonly ok: false;
     readonly reason: EnvelopeAuthoringRefusalReason;
     readonly statement: string;
+    /**
+     * ⭐ §ENVELOPE-PER-LEVEL — the storeys this gesture COULD have seated on, whenever the refusal
+     * happened late enough to know them (`null` before the levels are read).
+     *
+     * ⛔ IT IS ON THE REFUSAL, NOT ONLY ON THE PLAN, AND THAT IS THE POINT. `AuthoredStoreyRow`'s
+     * own doc has always said it exists so a surface can list the storeys BEFORE the click — but
+     * only `.length` was ever read, so a user refused for *"you asked for 4, this project has 1"*
+     * was told a number and shown nothing. A roster on the refusal is what lets the surface name
+     * the storeys that DO exist and offer the way out ([[refusing-half-needs-its-escape-hatch]]).
+     */
+    readonly seatable?: readonly AuthoredStoreyRow[] | null;
+    /**
+     * §ENVELOPE-PER-LEVEL / D3 — how many storeys are MISSING, when that is the refusal. Carried as
+     * a VALUE so the escape hatch states what it will create without parsing the sentence.
+     */
+    readonly missingStoreys?: number;
 }
 
 export type EnvelopeAuthoringResult = EnvelopeAuthoringPlan | EnvelopeAuthoringRefusal;
@@ -250,6 +279,22 @@ export interface EnvelopeAuthoringInput {
      * `ringSourceLabel`, so provenance is never blank even when a caller says nothing more.
      */
     readonly provenanceDetail?: string;
+    /**
+     * ⭐ §ENVELOPE-PER-LEVEL (lane FACE-DRAG-2, 2026-09-07) — WHICH STOREY THE ENVELOPE STARTS ON.
+     * The founder: *"we shall have an independent buildable envelope for each level."*
+     *
+     * ⛔ THE GAP THIS CLOSES WAS UNCHOOSEABILITY, NOT THE SCHEMA. `SpaceEnvelope` has carried
+     * `levelId` and `role:'level'` all along and this planner has always emitted ONE record PER
+     * STOREY; what it did was `seatable.slice(0, asked)` — always the LOWEST n, with no way to say
+     * otherwise. A user with a 4-storey project who wanted an envelope on floors 2–4 could not
+     * express it, and nothing on the surface said the choice existed.
+     *
+     * `null` / omitted keeps the previous behaviour exactly — start at the lowest seatable storey —
+     * so every existing caller and spec is unaffected. A named id that is NOT seatable REFUSES
+     * (`start-storey-not-seatable`) rather than falling back, because a silent fallback puts the
+     * building on a different floor than the user pointed at and says nothing.
+     */
+    readonly startStoreyId?: string | null;
 }
 
 const isWholePositive = (n: number): boolean => Number.isFinite(n) && n > 0 && Number.isInteger(n);
@@ -266,6 +311,29 @@ export function seatableStoreys(
 
 const labelOf = (l: AdoptLevelCandidate): string =>
     l.name ?? `storey at ${l.elevation.toFixed(2)} m`;
+
+/**
+ * ⭐ §ENVELOPE-PER-LEVEL (lane FACE-DRAG-2, 2026-09-07) — THE STOREYS AN ENVELOPE MAY BE SEATED
+ * ON, described: label, elevation, the height it would get and WHERE that height came from.
+ *
+ * ⛔ ONE PRODUCER, TWO READERS, AND THAT IS WHY IT IS EXPORTED. The plan builds its storey rows
+ * from this, and the surface builds its storey SELECTOR from it. A surface that computed its own
+ * labels would be a second answer to *"what are this project's storeys called?"* — and the list the
+ * user chooses from would be free to disagree with the list the plan seats on, which is a bug that
+ * only appears on projects with unnamed or oddly-elevated levels (C84 EI-9).
+ *
+ * ⚠ `heightSource` is carried, not just the number: a storey PRYZM assumed 3 m for is a different
+ * fact from one the model states, and the selector says so before the click rather than after.
+ */
+export function describeSeatableStoreys(
+    levels: readonly AdoptLevelCandidate[],
+    ordinance: { readonly maxHeightM: number | null; readonly maxFloors: number | null },
+): readonly AuthoredStoreyRow[] {
+    return seatableStoreys(levels).map((l) => {
+        const { heightM, heightSource } = resolveStoreyHeight(l, ordinance);
+        return { levelId: l.id, label: labelOf(l), elevation: l.elevation, heightM, heightSource };
+    });
+}
 
 /**
  * ⭐ BUILD THE PLAN. Pure; total; never throws.
@@ -348,13 +416,24 @@ export function buildEnvelopeAuthoringPlan(
                     + 'there is no ground floor to start the envelope from. Add a storey at or above 0 m.',
             };
         }
+        // ⭐ §ENVELOPE-PER-LEVEL — the roster EVERY late refusal carries, built once, so a surface
+        // can list the storeys that DO exist instead of being handed only a count.
+        const seatableRows = describeSeatableStoreys(input.levels, input.ordinance);
+
         if (seatable.length < asked) {
             // ⛔ BOTH NUMBERS, and the fix named. This is NOT a judgement about the design — it is
             // an admission that the model has nowhere to put the record.
+            // ⭐ AND THE WAY OUT TRAVELS WITH IT (D3 / §REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH,
+            // L-942). The SENTENCE is unchanged — it was already right — but the refusal now also
+            // carries the storey roster and the shortfall as VALUES, so the surface can offer a
+            // control that CREATES the missing storeys instead of telling the user to go and find
+            // one. A gate whose "yes" branch the user cannot reach is a regression with a citation.
             span.setAttribute('pryzm.authoring.refusal', 'not-enough-storeys');
             return {
                 ok: false,
                 reason: 'not-enough-storeys',
+                seatable: seatableRows,
+                missingStoreys: asked - seatable.length,
                 statement:
                     `You asked for ${asked} floor levels, but this project has ${seatable.length} storey`
                     + `${seatable.length === 1 ? '' : 's'} at or above the datum to seat them on. PRYZM will `
@@ -363,7 +442,52 @@ export function buildEnvelopeAuthoringPlan(
                     + 'nothing about how many floors this parcel permits.',
             };
         }
-        const used = seatable.slice(0, asked);
+
+        // ── ⭐ §ENVELOPE-PER-LEVEL — WHICH STOREY THIS ENVELOPE STARTS ON ────────────────────
+        //
+        // ⛔ A NAMED START THAT DOES NOT RESOLVE REFUSES; it never falls back to the lowest. A
+        // fallback would seat the building on a floor the user did not point at and would look
+        // exactly like a success.
+        let startIndex = 0;
+        const wantedStart = typeof input.startStoreyId === 'string' && input.startStoreyId !== ''
+            ? input.startStoreyId
+            : null;
+        if (wantedStart !== null) {
+            startIndex = seatable.findIndex((l) => l.id === wantedStart);
+            if (startIndex < 0) {
+                span.setAttribute('pryzm.authoring.refusal', 'start-storey-not-seatable');
+                return {
+                    ok: false,
+                    reason: 'start-storey-not-seatable',
+                    seatable: seatableRows,
+                    statement:
+                        `PRYZM was asked to start the envelope on a storey it cannot seat one on. The storeys `
+                        + `available are: ${seatableRows.map((s) => s.label).join(', ')}. Nothing was created — `
+                        + 'choose one of those and try again. (A storey below the datum is excluded on purpose: '
+                        + 'a level envelope is measured from its own storey datum upwards.)',
+                };
+            }
+            const above = seatable.length - startIndex;
+            if (above < asked) {
+                // ⛔ A DIFFERENT FACT FROM `not-enough-storeys`, WITH A DIFFERENT FIX. The project
+                // HAS the storeys; there are not enough at or above the chosen start. Telling the
+                // user to "add levels" here would send them to build storeys they already own.
+                span.setAttribute('pryzm.authoring.refusal', 'not-enough-storeys-above-start');
+                return {
+                    ok: false,
+                    reason: 'not-enough-storeys-above-start',
+                    seatable: seatableRows,
+                    missingStoreys: asked - above,
+                    statement:
+                        `You asked for ${asked} floor levels starting at ${seatableRows[startIndex]!.label}, but `
+                        + `only ${above} storey${above === 1 ? '' : 's'} sit${above === 1 ? 's' : ''} at or above `
+                        + `it — this project has ${seatable.length} seatable storey`
+                        + `${seatable.length === 1 ? '' : 's'} in all. Start lower, ask for fewer, or add `
+                        + `${asked - above} more storey${asked - above === 1 ? '' : 's'} above it. Nothing was created.`,
+                };
+            }
+        }
+        const used = seatable.slice(startIndex, startIndex + asked);
         if (input.mintedIds.length < asked) {
             span.setAttribute('pryzm.authoring.refusal', 'too-few-ids');
             return {
@@ -428,7 +552,23 @@ export function buildEnvelopeAuthoringPlan(
             ?? `user extruded ${input.ringSourceLabel} over ${asked} storey${asked === 1 ? '' : 's'} `
                + 'from the envelope authoring control';
 
-        const footprint = ring.map((p) => ({ x: p.x, y: 0 as const, z: p.z }));
+        /**
+         * ⛔ §ENVELOPE-PER-LEVEL — ONE RING OBJECT PER STOREY, NEVER ONE SHARED BY ALL OF THEM.
+         *
+         * This built the ring ONCE and assigned the SAME array — and the same vertex objects —
+         * into every storey's spec. The storeys were then independent RECORDS sharing ONE
+         * GEOMETRY, which is the difference between "an independent envelope for each level" and a
+         * copy of one envelope wearing n level ids. Anything downstream that mutated a vertex in
+         * place — a face drag's planner output written back, a profile edit, a normalising pass —
+         * would move every storey at once, and the user would see the whole stack shift while
+         * dragging one floor's wall. It has not bitten yet only because nothing has mutated it in
+         * place; that is an accident of the current callers, not a property of the design.
+         *
+         * ⚠ THE VERTICES ARE COPIED TOO, not just the array. A `slice()` of shared objects is a
+         * second array over the SAME points and would keep exactly this defect while looking fixed.
+         */
+        const footprintFor = (): { x: number; y: 0; z: number }[] =>
+            ring.map((p) => ({ x: p.x, y: 0 as const, z: p.z }));
 
         const storeys: AuthoredStoreyRow[] = [];
         const envelopes: AuthoredEnvelopeSpec[] = [];
@@ -448,7 +588,9 @@ export function buildEnvelopeAuthoringPlan(
             envelopes.push({
                 spaceEnvelopeId: input.mintedIds[i]!,
                 levelId: level.id,
-                footprint,
+                // ⛔ ITS OWN ring — see `footprintFor`. Storeys that share geometry are not
+                // independent envelopes, whatever their ids say.
+                footprint: footprintFor(),
                 baseOffset: 0,
                 height: heightM,
                 role: 'level',
