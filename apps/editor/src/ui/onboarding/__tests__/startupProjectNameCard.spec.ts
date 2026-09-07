@@ -42,23 +42,19 @@ describe('§STARTUP-NAME-CARD — it must never become a gate', () => {
         expect(startupProjectNameCardIsNonGating()).toBe(true);
     });
 
-    it('the background load has ALREADY STARTED before the card can be committed', () => {
-        // Mirrors the controller's statement order: the reveal is kicked off, THEN the card is
-        // raised. The card's commit therefore cannot be what starts anything.
-        const order: string[] = [];
-        order.push('context-warm:start');
-        order.push('reveal:kicked-off');
-        let committedAt = -1;
-        showStartupProjectNameCard({
-            defaultName: 'Barcelona',
-            onCommit: () => { committedAt = order.push('name:commit') - 1; },
-        });
-        // The user takes their time; the load is already running.
-        expect(order).toEqual(['context-warm:start', 'reveal:kicked-off']);
-        input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        expect(order.indexOf('context-warm:start')).toBeLessThan(committedAt);
-        expect(order.indexOf('reveal:kicked-off')).toBeLessThan(committedAt);
-    });
+    // ⛔ REMOVED 2026-09-07 (lane STARTUP-PROVE): `the background load has ALREADY STARTED before
+    // the card can be committed`. Its body built its OWN `order` array, pushed
+    // 'context-warm:start' and 'reveal:kicked-off' into it two lines apart with no production code
+    // between them, and then asserted that the literal pushed first had a lower index than the
+    // literal pushed third. It would have printed PASS with the card wired as a hard gate on the
+    // load, with `warmContextCache` deleted, or with `GlobeHeroSearch` deleted — a check that runs,
+    // passes, and could never have failed, standing in for the ONE invariant the whole feature
+    // rests on.
+    //
+    // ⭐ THE REAL PROOF NOW LIVES IN `startupNameCardLoadOrdering.spec.ts`, which drives the REAL
+    // `GlobeHeroSearch` stage chain and requires that the context warm SETTLES while this card is
+    // still open and uncommitted — an assertion a gating card cannot reach. Do not restore a
+    // self-pushed-array ordering test here.
 
     it('paints NO backdrop — the globe behind it stays visible and live', () => {
         showStartupProjectNameCard({ defaultName: 'Barcelona', onCommit: () => {} });
