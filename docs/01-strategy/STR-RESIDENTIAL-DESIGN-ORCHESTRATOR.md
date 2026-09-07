@@ -1150,3 +1150,83 @@ they land.**
 named figures · clamping a user's intent instead of refusing with both numbers · removing any
 existing refusal sentence in order to tidy the card. **Every refusal quoted in this section is load-
 bearing and was hard-won; the restructure moves them, it does not delete them.**
+
+### §26.6.7 — Implementation record (lane CARD-26.6, 2026-09-07) — what landed, what the spec got wrong, what is still open
+
+⭐ **Read this before re-litigating any of the four rules.** It is the record of the first
+implementation pass, written so the next reader finds decisions and measurements rather than
+re-deriving them.
+
+**The rule-2 finding, with lines (why "selectable but doesn't render on the views" was true).**
+Three separate facts, not one:
+
+1. **Question 1's figures were never controls at all.** `parcelCard.ts:361-381` (`appendExtraFacts`)
+   emitted a plain `.pryzm-parcel-card-key` with no `data-site-highlight`, and the only
+   `wireSiteHighlightRows` call in the repo was `GISAreaLayout.ts:4877` on the envelope card's own
+   `panel` — never on the tab. The founder's *"already hyperlinked"* was the fold inside the card;
+   §1 had nothing to click.
+2. **Both view subscribers EXIST at HEAD and are UNDEPLOYED.** `CesiumViewport.ts:2043` and
+   `SiteBoundaryMap2D.ts:3627` subscribe and register (`9dd3cf55`, 2026-09-06 22:57), 145 commits
+   past LIVE `6cc8ed80`. His screenshots show the deployed build, where only
+   `ParcelBoundarySceneRenderer` (BIM 3D) subscribed. §26.6.0 rule 2's *"(b) make following it
+   actually paint"* was therefore already closed in code for the six original subjects; what was
+   missing in code was (1) above and (3) below.
+3. **Two of his named subjects had no vocabulary.** `Bounding box` had no subject
+   (`GISAreaLayout.ts:3669` passed none) and a single EDGE could not be named — the union at
+   `siteGeometryHighlight.ts:74` was six fixed members. The spec's *"half of this is already
+   built"* undercounted: the per-edge half of rule 2 (and all of the setback register's links)
+   needed a new, parametrised subject.
+
+**What landed (commits `27d3c93b` + the register/rule-3 commit that follows it):**
+
+- **Rule 1** — the tab's second rendering of ORDINANCE LIMITS · MASSING POTENTIAL · PER STOREY ·
+  CAPACITY (`buildParcelLawFacts` scope `law`) is gone; question 2's slot is stamped
+  `data-duplicate-removed="envelope-card-site-data-fold"`. The owner is the card's fold. No refusal
+  was deleted — the refusal and absence arms live on the card (C58 §1.13 · L-13048). A spec counts
+  the triple in the mounted tab's DOM and requires exactly one.
+- **Rule 2** — `bbox` (seventh fixed subject) and `edge:<n>` (parametrised; one constructor, one
+  parser) through the ONE store; cue arms in all three renderers; `buildSiteHighlightLabelEl` as
+  THE control builder (DOM, so the card keeps C08 §3.1); question 1's rows carry a highlight
+  DECISION from `parcelRingMeasuredFacts`; the tab wires every control under its root and keeps the
+  ◉ painted from the store (`keepSiteHighlightRowsPainted`).
+- **Rule 3** — `beyondCeilingStatement` in `brutAreaAllocation.ts` is now the ONE producer of the
+  founder's sentence (the allocation arm calls it; byte-identical, pinned); `intentAgainstCeilingModel.ts`
+  pairs levels · total height · ground area · per-level area · total area with Maximum levels ·
+  Maximum height · Maximum implantation area · Maximum buildable area, each ceiling a hyperlink to
+  its owner; `parcelLawIntentAgainstCeiling.ts` mounts it live in question 3 on the store's dirty
+  channel. An intent over its ceiling is REFUSED with both numbers and left untouched; a ceiling the
+  pack did not derive reads *not checkable*, never a pass. `collectIntendedAreas` now carries each
+  storey's height (`heightM`, `baseOffsetM`) so the total height is measured from the same records
+  as the areas.
+- **§26.6.1** — the shoelace note is an inline cell of the area ROW (same testid); the OSM warning,
+  Match, source and timestamp are pinned by spec.
+- **§26.6.2** — renamed to *"What can I build here?"*; the card's ✕ is withheld INSIDE the tab by a
+  scoped stylesheet rule (`.anl-parcel-law [data-testid="envelope-close"]`) — the producer is
+  untouched, so the GIS hosts with a launcher pill keep theirs (C19 §5.7: no host branch inside the
+  singleton's renderer); the fold's four figures are named as he names them; **the setback
+  register** (`setbackRegisterModel.ts` + `setbackRegisterSection.ts`) renders one row per edge
+  with six verdict arms — `applied` · `alignment-governed` · `not-derived` · `class-unknown` ·
+  `no-determination` · `refused` — where an unknown class is said PER EDGE in two spellings
+  (never recorded vs recorded as `unclassified`) and never inferred (C19 §10.1 pending).
+  `ParcelLawModel` carries `geometry.edges` and `ordinance.rules` (each setback constraint with
+  ITS OWN citation, C58 §1.3) as the register's inputs.
+
+**Open, and why (not a lane's convenience — the architecture):**
+
+- **§26.6.3 (3.3) massing options and §26.6.4's `Designed vs permitted` table stay INSIDE the
+  singleton card, which sits in question 2.** The card is one element re-homed between hosts and
+  re-rendered as one `innerHTML`; its folds cannot be parented into questions 3 and 4 without a
+  MutationObserver re-moving nodes on every render — a shortcut — or a host arbiter that renders
+  the card's sections as separately mountable producers (C19 §5.7 clause 1's prescribed fix). The
+  founder's section list is honoured where the tab owns the producer and NOT where the card does.
+  ⚠ **Founder decision pending:** lift the four named figures to the card's HEADLINE (replacing
+  `Setbacks (F/S/R) · Max height · Max FAR · Buildable`) and drop them from the fold, or keep the
+  headline as is. Lifting them is a rule-1 move (one place) that also makes them visible without
+  opening the fold; it is a GISAreaLayout edit this lane did not make because it changes what
+  three hosts' headline says.
+- **Rooms DRAW on the open view (§26.6.4).** Not done. It needs a `room:<id>` parametrised subject
+  and a cue arm in the three renderers reading the space-envelope store's room footprints — the
+  same shape as `edge:<n>`, one more kind. MASSING-SHAPES' `roomsPerLevelSection` is mounted in
+  question 3 by that lane; the link column is the hook.
+- **Rule 4** is MASSING-SHAPES' (`905b655f`); this lane's card does not contradict it and the
+  two-rival-storeys refusal is pinned at its producer.
