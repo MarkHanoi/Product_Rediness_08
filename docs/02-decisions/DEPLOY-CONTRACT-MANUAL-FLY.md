@@ -1327,3 +1327,28 @@ lane — §6.9.2 load-bearing again. `DOCKER_CONFIG=C:/pryzm-deploy/empty-docker
 SHA. Payload: L-13053 single-view-is-a-layout-fact (`d5f9d38d`) + L-13057 onboarding location panel
 (`722403a1`). Launched while seven GitHub Actions runs (six staged bakes + a merge measurement) were
 in flight — the manual path and Actions do not contend.
+
+---
+
+## 6.9.12 FOURTEENTH EXECUTION — 2026-09-07 (`19b0220c`), bundle proof 6/6, first try
+
+Payload: six lanes' work in one build (extent ×2 L-13058 · massing shapes + create-it-myself + rooms
+per level · card rules 1–3 + setback register · envelope C1–C3 authored provenance + replace ·
+site-scope phase 1 · USAS seq-write fix). Smoke booted in 1,929 ms; blue-green + DNS verified; proof
+chunk `main-BBoZey9E.js`, `/version` matched the expanded SHA.
+
+⭐ **§6.9.2 CAUGHT A BROKEN HEAD — the strongest case for the rule yet, because the break was IN A
+COMMIT, not in the working tree.** The first `tsc` on the worktree at `c1b3c732` failed with five
+`TS1005`/`TS1109` **syntax** errors at `parcelLawTab.ts:516` — a lane's private-index commit had
+applied its hunks with zero context and nested a property initialiser inside an `interface`. HEAD did
+not build. The main tree's working copy of that one file was correct, so the fault was invisible
+there; only the worktree, checked out from the commit, showed it. Two lanes then fixed it forward
+(`0db834e0`, `097fa597`) and the re-check read **RC=0**. **A deploy launched from the main tree would
+have hard-failed the build ~20 minutes in.** §6.9.2 is now load-bearing for a third consecutive
+execution, and the failure mode has moved from *uncommitted neighbours* to *a bad commit* — the rule
+covers both, and nothing else does.
+
+⚠ **Sequel — `26396bb8` deployed immediately after** (SCOPE-SLAB phase 2, recovered from a
+rate-limited lane; its `readContextTilesOnce` fan-out threading was half-applied and would likewise
+not have built). Same recipe, no incident. **Read the §6.9.11 note on the token and `DOCKER_CONFIG`;
+neither changed.**

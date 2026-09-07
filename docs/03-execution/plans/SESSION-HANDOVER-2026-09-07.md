@@ -1,9 +1,11 @@
 # SESSION HANDOVER — 2026-09-07 (orchestrator close)
 
-**LIVE:** `722403a1` proven (bundle proof 6/6). **DEPLOYING at close:** `19b0220c` (tree == `097fa597`,
-root tsc RC=0 on the detached worktree) — if the next session finds `/version` ≠ `19b0220c`, run
-`tools/deploy/fly-bundle-proof.sh 19b0220c`; if it fails, redeploy per `DEPLOY-CONTRACT-MANUAL-FLY.md`
-(§6.9.11 has the exact recipe; token at `~/.fly/pryzm_deploy_token`, `DOCKER_CONFIG=C:/pryzm-deploy/empty-docker-config`).
+**LIVE AND PROVEN:** `19b0220c` — deployed 2026-09-07 10:50Z, bundle proof **6/6 PASS**
+(chunk `main-BBoZey9E.js`, `/version` matched). `722403a1` before it, also proven.
+**DEPLOYING at close:** `26396bb8` (SCOPE-SLAB phase 2, see below) — if the next session finds
+`/version` ≠ `26396bb8`, run `tools/deploy/fly-bundle-proof.sh 26396bb8`; if it fails, redeploy per
+`DEPLOY-CONTRACT-MANUAL-FLY.md` (§6.9.11 has the exact recipe; token at `~/.fly/pryzm_deploy_token`,
+`DOCKER_CONFIG=C:/pryzm-deploy/empty-docker-config`, deploy worktree `C:/pryzm-deploy/tree`).
 
 ## What 19b0220c carries (test these first)
 - L-13053 single view = layout fact · L-13057 onboarding "Where is your project?" + cadastral ref (already live in 722403a1)
@@ -14,8 +16,18 @@ root tsc RC=0 on the detached worktree) — if the next session finds `/version`
 - §SITE-SCOPE phase 1: `SiteModel.scope` schema + command + pure clip (no slider yet)
 - USAS seq-write fix (context-bake only)
 
-## OPEN LANES CUT MID-FLIGHT (their disk work is uncommitted or absent)
-- **SCOPE-SLAB phase 2** (slider + render wiring, F-1/F-2/F-8 fixes) — check `git status` for geospatial/* modifications; if present and green, commit them; else the SPEC §7.6 work list in `docs/03-execution/specs/SPEC-3D-SITE-PRODUCTION-CONTEXT.md` §7 is the plan.
+## OPEN LANES CUT MID-FLIGHT
+- **SCOPE-SLAB phase 2 — WIRING RECOVERED AND LANDED (`26396bb8`), SLIDER STILL NOT BUILT.**
+  The lane was killed by a session rate limit mid-edit, leaving `opts` declared on
+  `readContextTileFeatures` and consumed inside `readContextTilesOnce`, which never received it
+  (TS6133 + TS2304 — HEAD would not have built). Completed as that parameter's own doc comment
+  specifies (threaded as `fanOutCapOverride`, one argument, no new policy) and verified: root tsc
+  RC=0 · geospatial 31 files / 469 tests · four P-gates RC=0. What landed: `site.scope-changed` on
+  the runtime event map, `setContextScope` as the ONE entry point, `scopeFetchHalfDeg` (**F-1**),
+  `scopeReadFanOutCap` threaded through 19 call sites (**F-2**), `applySiteScopeClip`.
+  **Still to build:** the per-pane `SiteScopeSlider.ts`, the globe clip + slab side, and **F-8**
+  (`setContextScope` must SWAP, not clear before the fetch resolves — the L-635 blank-Madrid shape).
+  Nothing scope-related is browser-verified. Plan: `SPEC-3D-SITE-PRODUCTION-CONTEXT.md` §7.6.
 - **ENVELOPE-DRAW C4–C8** — plan `docs/03-execution/plans/PLAN-ENVELOPE-DRAW-ON-SITE-VIEWS.md`; corrections: R5 wrong (port frame is PROJECT frame, adapters `enuToSceneXZ` at the edge); C8 already declared `fc32f235` (add `supersedes` to its reason); `pnpm --filter @pryzm/geometry-slab typecheck` is red at HEAD (use root tsc).
 
 ## R2 CHAIN (founder authorised; repo is PUBLIC so Actions is free)
@@ -36,4 +48,12 @@ Dispatch helper: `scratchpad/gh-dispatch.mjs` pattern = POST `/actions/workflows
 L-13034 house-shell sizing · massing: opaque vs 0.55 · keep plate ladder? · card: lift the four figures to the headline? · envelope: may a drawing replace a fitted plate? clear the drawn ring on parcel redraw?
 
 ## NEXT-SESSION PROMPT (paste verbatim)
-> Resume from docs/03-execution/plans/SESSION-HANDOVER-2026-09-07.md. (1) Prove the live build: `bash tools/deploy/fly-bundle-proof.sh 19b0220c`; redeploy per DEPLOY-CONTRACT-MANUAL-FLY.md if it fails. (2) `git status` — commit any green SCOPE-SLAB phase-2 work with explicit paths (never bare, never stash). (3) Re-arm the R2 rollout: read the six bake runs listed in the handover; when green, dispatch the buildings publish with the inputs in the handover, then the other six layers serially, then bump CONTEXT_TILESET_VERSION L663a→L664a and deploy — and tell me "🚀 LIVE — test Sète heights". (4) Dispatch lanes: ENVELOPE-DRAW C4–C8 (Draw button reachable first), SCOPE-SLAB phase 2 (slider + clip wiring), CARD rooms-draw-on-view + massing preview on 2D/3D site (L-13022), the cited-paths ratchet clean-up. Same rules: architecturally sound, no shortcuts, scoped commits, read the gates never the docs.
+> Resume from docs/03-execution/plans/SESSION-HANDOVER-2026-09-07.md.
+>
+> **(1) Prove the live build.** `bash tools/deploy/fly-bundle-proof.sh 26396bb8` — if it does not pass, redeploy per DEPLOY-CONTRACT-MANUAL-FLY.md §6.9.11 (detached worktree `C:/pryzm-deploy/tree`, `FLY_API_TOKEN` from `~/.fly/pryzm_deploy_token`, `DOCKER_CONFIG=C:/pryzm-deploy/empty-docker-config`) and prove it again. Then `git status` and commit anything green with explicit paths (never bare, never stash).
+>
+> **(2) Re-arm the R2 rollout — this is the founder-visible one (Sète still renders ghosts).** The cron died with the last session. Read these six bake runs via the GitHub API (PAT from `git credential fill`): massachusetts 34106885030 · california 34106888476 · texas 34106892241 · illinois 34106895725 · newyork 34106900276 · gccstates 34101679682. For a failure, read the failed job's log and diagnose the FIRST real error (ignore `[36;1m` script echoes). When all six are green, dispatch `context-merge-publish.yml` with `{"layer":"buildings","expect":"all","engine":"tile-join","publish":"true","allow_unknown_regions":"true","allow_region_removal":"sanfrancisco,chicago,austin,houston,boston,riyadh,jeddah,dubai,abudhabi"}` (headroom measured 99 GB — it fits; the removal list is only legitimate in the run that carries the five successors + newyork). Then verify the manifest reads `regions.france.heightJoin == "mnh_fr"`, probe Sète with `node tools/context-height-probe/probe.mjs --at 43.39655,3.67554 --name sete`, publish roads → parks → water → landuse → rail → trees ONE AT A TIME, bump `CONTEXT_TILESET_VERSION` L663a→L664a, deploy, and tell me **"🚀 LIVE — test Sète heights"**. Whole-France coverage needs ~5 more `region=france stage=true` bakes; read `mnhFrNationalStamp.mjs`'s header first — successive runs do NOT accumulate today.
+>
+> **(3) Then dispatch these lanes** (architecturally sound, no shortcuts, scoped commits, read the gates never the docs): **ENVELOPE-DRAW C4–C8** — C4 first, because it is the commit that makes drawing REACHABLE (the founder's top priority; today he can extrude a ring but not draw one); **SCOPE-SLAB** — the per-pane slider, the globe clip + slab side, and F-8; **CARD** — rooms draw on the view (`room:<id>` subject + three cue arms, the `edge:<n>` shape) and the massing preview on the 2D/3D site views (L-13022, `targetFootprintAreaState` has zero importers in either viewport); **the cited-paths ratchet** — `check-contract-cited-paths.ts` is RC=3 at 507/490 and is NOT absorbable.
+>
+> **(4) Founder questions are queued in the rows** — put them to me before building past them.
