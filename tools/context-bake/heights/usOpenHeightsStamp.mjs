@@ -37,11 +37,12 @@
 // KEYLESS: anonymous Socrata SODA (NYC, SF) and an anonymous ArcGIS FeatureServer (Boston) — no key,
 // no app token, no repo secret. Licences per adapter row (NYC Terms of Use · SF PDDL · Boston PDDL).
 // ─────────────────────────────────────────────────────────────────────────────
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   MEASURED_HEIGHT_SRC_TAG, MEASURED_HEIGHT_SRC_VALUE, loadJoinFootprintsBounded,
   footprintFromFeature, stampAreasFor, inAnyArea, bucketRecords, httpGetSafe, statsOf,
+  appendFeaturesSeq,
 } from '../heightSources.mjs';
 import { US_OPEN_HEIGHTS, parseUsOpenPage, usOpenComponents, usOpenHeightForFootprint, usOpenMetroForPoint, usOpenPageUrl } from './usOpenHeights.mjs';
 
@@ -144,7 +145,7 @@ export async function stampUsOpenHeightsOnGeojsonseq(inPath, outPath, bbox, {
   } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
 
   // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
-  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  if (records.length) appendFeaturesSeq(outPath, records.map((r) => r.feat));
   const measured = heights.length;
   heights.sort((a, b) => a - b);
   const emptyTiles = Math.max(0, nx * ny - buckets.size);
