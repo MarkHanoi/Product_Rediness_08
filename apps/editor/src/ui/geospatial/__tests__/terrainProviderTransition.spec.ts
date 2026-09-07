@@ -87,7 +87,10 @@ describe('§TERRAIN-RELOCATION-DETACH — resolveTerrainTransition', () => {
         // published falls THROUGH to a published neighbour instead of dropping the site to flat
         // ground. Porto sits inside `portugal` (margin 0.719) AND inside Spain's coarse rectangle
         // (0.681), so the tail is non-empty and pinned here rather than left as `[slug]`.
-        expect(t).toEqual({ action: 'attach', city: slug, candidates: [slug, 'spain'], replaces: 'barcelona' });
+        // §TERRAIN-SLUG-SCOPE (L-13170) — the verdict now carries WHICH TABLE the primary slug came
+        // from, so the console can stop printing a region under the word `city=`. Porto's primary is a
+        // REGION row ('portugal'), which is exactly the shape the founder's `city=gccstates` mislabelled.
+        expect(t).toEqual({ action: 'attach', city: slug, scope: 'region', candidates: [slug, 'spain'], replaces: 'barcelona' });
     });
 
     it('first attach on a flat viewer names no replacement', () => {

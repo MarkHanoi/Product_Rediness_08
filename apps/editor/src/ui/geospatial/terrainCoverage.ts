@@ -14,7 +14,9 @@
 // code change the moment CI publishes it — the same self-correcting philosophy as the PMTiles
 // context reader (`contextTiles.ts`).
 //
-// §TERRAIN-EVERYWHERE (2026-09-04, terrain.mjs §11) — TWO TABLES, resolved CITY FIRST, then REGION.
+// §TERRAIN-EVERYWHERE (2026-09-04, terrain.mjs §11) — THREE TABLES, resolved CITY → REGION → LEGACY.
+// ⚠ It read "TWO TABLES" until 2026-09-07; `TERRAIN_LEGACY_BBOXES` (§TERRAIN-PUBLISHED-ORPHAN,
+// L-13170) is the third and is the ONLY candidate that answers HTTP 200 in the Gulf today.
 // `TERRAIN_CITY_BBOXES` are the per-city tilesets baked from NATIONAL DTM adapters (0.5 m base error,
 // legal-grade sources). `TERRAIN_REGION_BBOXES` are the whole-region tilesets (`terrain.mjs`
 // NATIONAL_REGIONS — whole countries in Europe, metro rows for USA/Middle East, states for Australia)
@@ -870,6 +872,76 @@ export const TERRAIN_REGION_BBOXES: ReadonlyArray<{ readonly region: string; rea
     { region: 'southkorea', bbox: [124.5, 32.9, 131.95, 38.65] },
 ];
 
+/**
+ * §TERRAIN-PUBLISHED-ORPHAN (L-13170, 2026-09-07, lane GULF-TERRAIN-SLUG) — tilesets that ARE LIVE
+ * ON R2 but whose row was deleted from the tables above when a wider row replaced them, BEFORE the
+ * wider row was ever baked. These are the last-resort candidates: tried only after the city and
+ * region rows, so the intended winner still wins the day it is published.
+ *
+ * THE DEFECT THIS RETIRES — measured, not inferred. The founder placed a site in Business Bay, Dubai
+ * (55.25983, 25.18451). His console:
+ *     `[CesiumViewport][terrain] evaluate lat=25.18451 lon=55.25983 → city=gccstates`
+ *     `relief=off` · `baseSource=ellipsoid-flat-ground` · `seat[finite=0 fallback=163]`
+ * — every one of the 163 near-ring buildings fell back to a synthesised ground height. Abu Dhabi
+ * (54.36988, 24.48723) reported the identical shape with `fallback=620`.
+ *
+ * `gccstates` is the row §ME-NATIONAL added on 2026-09-06, and it DELETED the five metro rows
+ * (riyadh · jeddah · dubai · abudhabi · doha) in the same commit, on the correct reasoning that
+ * `mostInterior` makes a metro row unreachable once a national row contains it. What that reasoning
+ * omitted is that the national tileset HAD NOT BEEN BAKED — and the five metro tilesets it declared
+ * redundant were, and still are, SERVED. Probed against production 2026-09-07:
+ *     GET /api/context-tiles/terrain/gccstates/layer.json   → HTTP 404
+ *     GET /api/context-tiles/terrain/dubai/layer.json       → HTTP 200 · bounds [54.95, 24.85, 55.45, 25.35]
+ *     GET /api/context-tiles/terrain/abudhabi/layer.json    → HTTP 200 · bounds [54.28, 24.33, 54.75, 24.62]
+ *     GET /api/context-tiles/terrain/riyadh/layer.json      → HTTP 200 · bounds [46.60, 24.58, 46.83, 24.80]
+ *     GET /api/context-tiles/terrain/jeddah/layer.json      → HTTP 200 · bounds [39.10, 21.45, 39.28, 21.62]
+ *     GET /api/context-tiles/terrain/doha/layer.json        → HTTP 200 · bounds [51.35, 25.15, 51.65, 25.45]
+ * So these sites had real relief on 2026-09-05 and flat ellipsoid on 2026-09-06, with no bake, no
+ * deletion from R2 and no error — only a table edit. §BAKE-US-STATES did the same thing on the same
+ * day to sanfrancisco · chicago · austin · houston · boston (all five HTTP 200, all five rowless).
+ *
+ * ⛔ THIS IS NOT A NAMESPACE COLLISION, and it must not be "fixed" as one. There is exactly ONE
+ * terrain namespace — every slug in all three tables resolves to `terrain/<slug>/` on R2, and the
+ * context bake's region names are the SAME strings by construction. `gccstates` was not the wrong
+ * KIND of name; it was a name for a tileset that does not exist yet.
+ *
+ * ⛔ NOTHING HERE IS INVENTED COVERAGE. Every row's `slug` answered HTTP 200 and every `bbox` is the
+ * tileset's OWN `layer.json` `bounds`, copied verbatim on 2026-09-07 — so the resolver can never emit
+ * a legacy candidate that §TERRAIN-TILESET-BOUNDS-CHECK (L-12923) would then have to refuse. A site
+ * outside these small metro rectangles still gets flat ground, and that is the honest answer.
+ *
+ * ⭐ THE REAL FIX IS A PUBLISH, NOT THIS TABLE. 87 of the 704 slugs these tables can emit answered
+ * HTTP 404 on 2026-09-07 (the whole USA/Canada/Mexico block, the whole middleeast block, japan,
+ * southkorea, the eleven §EU-EVERY-COUNTRY rows, and the two apikey cities helsinki + stockholm) —
+ * see ISSUE-LOG L-13170 for the full sweep. Every row below is DELETABLE the day its replacement is
+ * dispatched and published; until then it is the difference between real relief and a flat plate.
+ *
+ * ⚠ The key is `slug:`, deliberately NOT `city:` or `region:` — `terrain.mjs --check-client-coverage`
+ * parses those two keys and asserts the client set EQUALS the bake set in both directions. These rows
+ * describe tilesets that are on R2 and NOT in the bake tables, which is precisely the state that gate
+ * is built to reject; naming the key differently keeps the gate's invariant intact and true.
+ */
+export const TERRAIN_LEGACY_BBOXES: ReadonlyArray<{ readonly slug: string; readonly bbox: TerrainBbox }> = [
+    // Middle East — orphaned by §ME-NATIONAL's unbaked `gccstates` row (2026-09-06).
+    { slug: 'dubai', bbox: [54.95, 24.85, 55.45, 25.35] },
+    { slug: 'abudhabi', bbox: [54.28, 24.33, 54.75, 24.62] },
+    { slug: 'riyadh', bbox: [46.60, 24.58, 46.83, 24.80] },
+    { slug: 'jeddah', bbox: [39.10, 21.45, 39.28, 21.62] },
+    { slug: 'doha', bbox: [51.35, 25.15, 51.65, 25.45] },
+    // USA — orphaned by §BAKE-US-STATES' unbaked state rows (2026-09-06). `newyork` is NOT here: it
+    // still HAS a row (it kept its slug when the bbox widened Manhattan → the whole state). ⚠ But the
+    // tileset R2 serves under that slug is STILL the Manhattan patch — its layer.json bounds read
+    // [-74.03, 40.70, -73.91, 40.82], probed 2026-09-07 — so anywhere in New York State outside
+    // Manhattan resolves to `newyork`, is correctly refused by §TERRAIN-TILESET-BOUNDS-CHECK, and
+    // goes flat. That is the SAME defect wearing a 200, and it is recorded in L-13170 rather than
+    // papered over: the cure is publishing the state bake, not widening a claim we cannot serve.
+    { slug: 'sanfrancisco', bbox: [-122.52, 37.70, -122.36, 37.83] },
+    { slug: 'chicago', bbox: [-87.94, 41.64, -87.52, 42.05] },
+    { slug: 'austin', bbox: [-97.95, 30.10, -97.56, 30.52] },
+    { slug: 'houston', bbox: [-95.80, 29.52, -95.06, 30.14] },
+    { slug: 'boston', bbox: [-71.20, 42.22, -70.98, 42.40] },
+];
+
 /** True when `lon,lat` falls inside `bbox` (inclusive). */
 function inBbox(lon: number, lat: number, bbox: TerrainBbox): boolean {
     const [w, s, e, n] = bbox;
@@ -972,15 +1044,62 @@ function regionsForLonLat(lon: number, lat: number): readonly string[] {
         .map((r) => r.region);
 }
 
-export function terrainSlugCandidates(lon: number, lat: number): readonly string[] {
-    const out: string[] = [];
+/**
+ * §TERRAIN-PUBLISHED-ORPHAN (L-13170) — every LEGACY tileset whose live `layer.json` bounds contain
+ * the point, most-interior first. LAST in the candidate order on purpose: `gccstates` is still tried
+ * before `dubai`, so the day the national bake is published it wins and this table goes quiet without
+ * a second code change. Until then it is the only candidate that answers HTTP 200 in the Gulf.
+ */
+function legacySlugsForLonLat(lon: number, lat: number): readonly string[] {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return [];
+    return TERRAIN_LEGACY_BBOXES
+        .filter((r) => inBbox(lon, lat, r.bbox))
+        .map((r) => ({ slug: r.slug, margin: interiorMarginDeg(lon, lat, r.bbox) }))
+        .sort((a, b) => b.margin - a.margin)
+        .map((r) => r.slug);
+}
+
+/**
+ * §TERRAIN-SLUG-SCOPE (L-13170) — which TABLE a candidate came from.
+ *
+ * ⛔ There is ONE terrain namespace: every scope resolves to `terrain/<slug>/` on R2, so this is NOT
+ * a "city name vs region name" distinction and no caller may branch the URL on it. It exists so the
+ * console can stop printing a region under the word `city=` — the line the founder read as
+ * `→ city=gccstates` was a REGION slug in a field named `city`, and that single mislabel is what made
+ * a missing-tileset defect look like a resolver returning the wrong kind of name (it was not).
+ */
+export type TerrainSlugScope = 'city' | 'region' | 'legacy';
+
+export interface TerrainSlugCandidate {
+    readonly slug: string;
+    readonly scope: TerrainSlugScope;
+}
+
+/**
+ * Every tileset slug that could serve `lon,lat`, MOST DETAILED FIRST, each labelled with the table it
+ * came from: city (national-DTM bake) → region (Mapterhorn national/state bake) → legacy (a published
+ * orphan, §TERRAIN-PUBLISHED-ORPHAN). The caller attaches the first whose `layer.json` loads.
+ */
+export function terrainSlugCandidatesDetailed(lon: number, lat: number): readonly TerrainSlugCandidate[] {
+    const out: TerrainSlugCandidate[] = [];
+    const seen = new Set<string>();
+    const push = (slug: string, scope: TerrainSlugScope): void => {
+        if (seen.has(slug)) return;
+        seen.add(slug);
+        out.push({ slug, scope });
+    };
     const city = cityForLonLat(lon, lat);
-    if (city) out.push(city);
-    for (const region of regionsForLonLat(lon, lat)) if (!out.includes(region)) out.push(region);
+    if (city) push(city, 'city');
+    for (const region of regionsForLonLat(lon, lat)) push(region, 'region');
+    for (const legacy of legacySlugsForLonLat(lon, lat)) push(legacy, 'legacy');
     return out;
 }
 
-/** The single best tileset slug for `lon,lat` (city first, then region), or `null` outside both. */
+export function terrainSlugCandidates(lon: number, lat: number): readonly string[] {
+    return terrainSlugCandidatesDetailed(lon, lat).map((c) => c.slug);
+}
+
+/** The single best tileset slug for `lon,lat` (city first, then region, then legacy), or `null` outside all three. */
 export function terrainSlugForLonLat(lon: number, lat: number): string | null {
     return terrainSlugCandidates(lon, lat)[0] ?? null;
 }
@@ -1000,8 +1119,13 @@ export function terrainSlugForLonLat(lon: number, lat: number): string | null {
  *                       (`cesiumSurfaceFraming.ts`) decides this; the gate only obeys it.
  *   • photoreal       — the paid Google-3D-tiles path (non-Forma) already carries its own
  *                       ground; draping our mesh under it double-grounds / z-fights.
- *   • no-baked-city   — the site is outside every baked-terrain bbox (city AND region) → keep flat.
- *   • attach          — a tileset applies (`city` = the slug, city first then region — §TERRAIN-EVERYWHERE;
+ *   • no-baked-city   — the site is outside every baked-terrain bbox (city, region AND legacy) → keep
+ *                       flat. ⭐ This is the HONEST-EMPTY reason and is NOT the same fact as
+ *                       `tileset-unavailable` (terrainProviderTransition.ts), which means candidates
+ *                       existed and every one of their layer.json's 404'd. §CONTEXT-DATA-HONESTY —
+ *                       a missing tileset and a site with no relief must never print the same line.
+ *   • attach          — a tileset applies (`city` = the PRIMARY slug — ⚠ NOT necessarily a city, read
+ *                       `scope`; city first, then region, then legacy — §TERRAIN-EVERYWHERE;
  *                       `candidates` lists every applicable slug most-detailed-first so the caller can
  *                       fall through to the region when a listed city's layer.json 404s); caller still
  *                       guards on the tileset actually loading.
@@ -1026,7 +1150,16 @@ export interface TerrainAttachInputs {
 
 export type TerrainAttachDecision =
     | { readonly attach: false; readonly reason: 'toggle-off' | 'world-framing' | 'photoreal' | 'no-baked-city' }
-    | { readonly attach: true; readonly city: string; readonly scope: 'city' | 'region'; readonly candidates: readonly string[] };
+    | {
+        readonly attach: true;
+        /** The PRIMARY slug — the first candidate. ⚠ NOT necessarily a city: read `scope`. */
+        readonly city: string;
+        /** §TERRAIN-SLUG-SCOPE (L-13170) — which table `city` came from, so the log can say so. */
+        readonly scope: TerrainSlugScope;
+        readonly candidates: readonly string[];
+        /** Every candidate with its scope, most-detailed-first — `candidates` is this, slugs only. */
+        readonly scoped: readonly TerrainSlugCandidate[];
+    };
 
 export function decideBakedTerrainAttach(inp: TerrainAttachInputs): TerrainAttachDecision {
     if (!inp.terrainEnabled) return { attach: false, reason: 'toggle-off' };
@@ -1037,10 +1170,20 @@ export function decideBakedTerrainAttach(inp: TerrainAttachInputs): TerrainAttac
     // Skip our terrain ONLY on the true photoreal (non-Forma) path; in Forma the photoreal
     // tileset is hidden and the globe is shown, so draping baked terrain is correct.
     if (inp.photorealActive && !inp.formaMode) return { attach: false, reason: 'photoreal' };
-    const candidates = terrainSlugCandidates(inp.lon, inp.lat);
-    const slug = candidates[0];
-    if (!slug) return { attach: false, reason: 'no-baked-city' };
-    return { attach: true, city: slug, scope: cityForLonLat(inp.lon, inp.lat) === slug ? 'city' : 'region', candidates };
+    const scoped = terrainSlugCandidatesDetailed(inp.lon, inp.lat);
+    const primary = scoped[0];
+    if (!primary) return { attach: false, reason: 'no-baked-city' };
+    // §TERRAIN-SLUG-SCOPE (L-13170) — the scope is READ OFF the candidate that produced the slug, not
+    // re-derived by comparing it to `cityForLonLat`. The old line did the latter and could only ever
+    // answer 'city' or 'region', so a legacy slug would have been labelled a region — the same class
+    // of mislabel (a name printed under the wrong kind) that this section exists to remove.
+    return {
+        attach: true,
+        city: primary.slug,
+        scope: primary.scope,
+        candidates: scoped.map((c) => c.slug),
+        scoped,
+    };
 }
 
 /**
@@ -1058,8 +1201,12 @@ export function decideBakedTerrainAttach(inp: TerrainAttachInputs): TerrainAttac
  * cache for the whole tileset. BUMP this whenever the terrain BAKE changes so clients pull fresh tiles.
  */
 export const TERRAIN_TILESET_VERSION = 'L639k';
-export function terrainTilesetUrl(city: string): string | null {
+export function terrainTilesetUrl(slug: string): string | null {
+    // §TERRAIN-SLUG-SCOPE (L-13170) — the parameter was named `city` and was routinely handed a
+    // REGION slug (`gccstates`, `spain`) and now a LEGACY one. Renamed rather than left, because the
+    // name was the whole reason a missing tileset read as a resolver returning the wrong kind of
+    // name. There is ONE namespace here: `terrain/<slug>/` — the scope never changes the URL.
     const base = contextTilesBaseUrl();
     if (!base) return null;
-    return `${base}terrain/${city}?v=${TERRAIN_TILESET_VERSION}`;
+    return `${base}terrain/${slug}?v=${TERRAIN_TILESET_VERSION}`;
 }
