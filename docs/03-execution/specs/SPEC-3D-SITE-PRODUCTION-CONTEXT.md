@@ -133,4 +133,72 @@ scheduler.
 Audit **L-642** · MISSING-CONTRACTS §GAP L-642 · `CONTEXT-3D-PERFORMANCE-ARCHITECTURE.md` ·
 `CONTEXT-LOD-BUILD-PLAN.md` · `CONTEXT-VIEW-DESIGN.md` · `SPEC-FORMA-SITE-VIEW.md` ·
 `CITY-REPLICATION-STANDARD.md` §5 (the L7/L8 render pipeline) · ADR-0094 · C12 · C58 §1.14 · C59 · C10 ·
-related L-637 (sea), L-639 (terrain), L-454 (near-cap).
+related L-637 (sea), L-639 (terrain), L-454 (near-cap) · **§7 below — the SCOPE (L-645, C12 §13, ADR-0382)**.
+
+---
+
+## 7 — The SCOPE: the slab the tiers live in (L-645 absorbed, 2026-09-07)
+
+> **Founder:** *"a slide of the scope on 3D Site view — like cityweft does — circular or rectangular —
+> crop everything — absolutely everything — but within the scope should be sound — really detailed
+> and completed."* **Authority:** [C12 §13](../../02-decisions/contracts/C12-GEOSPATIAL.md) (normative) ·
+> [ADR-0382](../../02-decisions/adrs/ADR-0382-site-scope-one-value-cut-per-layer-class.md) (the rulings) ·
+> [`AUDIT-3D-SITE-SCOPE-CROP`](../plans/AUDIT-3D-SITE-SCOPE-CROP.md) (every layer, every mechanism).
+> L-645 said this SPEC should absorb the cut-slab; this section is that. **Status: Phase 1 landed
+> (value, polygon, geometric clip, command — 74 tests); Phase 2 (wiring + slider) PLANNED, gated on
+> the extent lane (L-13058).**
+
+### 7.1 — What changes in the mental model of §0
+
+The concentric tiers of §0 (T0 terrain · Tsea · T1 solid · T2 far) all live INSIDE one bounded
+**scope** — a circle or a rectangle about the site frame origin, 150–1781 m today — and nothing at
+all is drawn outside it: the terrain is cut on a vertical edge with a neutral slab side, the ground
+layers and the sea stop at the edge, a building on the edge is sectioned, trees and people beyond it
+are not placed, and the outside is the flat pale backdrop. The scope is ONE persisted value
+(`SiteModel.scope`, written by `site.setScope`) and every tier's radius AND read derive from it —
+the five separate limits L-13058 measured (600 · 891 · 890 · 1225 · footprint read) are now
+`min(scope, ceiling)` for the expensive tiers and `= scope` for the cheap ones.
+
+### 7.2 — Why the retired slab failed, so nobody rebuilds it
+
+`scene.globe.clippingPolygons` clips the globe surface ONLY (Cesium 1.143.0: `Globe`,
+`Cesium3DTileset`, `Model` own `clippingPolygons`; no `Primitive`, no entity). Every ground layer
+here is an entity at absolute height and every instanced tier is a `Primitive`, so the visible
+outside stayed. The tan skirt was a LIT entity and read as the "red ring". And the disc was cut at
+the far radius while every layer stopped at its own. C12 §13.6 forbids all three by name.
+
+### 7.3 — The mechanism per class (summary of C12 §13.3)
+
+globe → `globe.clippingPolygons` (`inverse:true`) · slab side/floor → a flat-shaded neutral
+`Primitive` · flat entities → geometric pre-clip (`scopeClip.ts`: rings via `intersectPolygons2D`,
+corridors via segment split) · footprints → pre-clip the ring, extrude to height · points →
+centre-in-scope · photoreal → not applied (one `inverse` per tileset) · the subject → never cut.
+
+### 7.4 — Completeness inside the scope
+
+Caps on mapped layers are completeness facts: when one bites inside the scope the console line says
+`layer: drawn of eligible — dropped by the cap; complete at ~N m`, and the slider carries the
+"complete" mark. Barcelona, today's caps: ~891 m (bound by the near READ — roads/parks/trees are
+read at 891 m while the far tier reaches 1781 m), ~960 m once every read derives from the scope
+(tree cap 3,000), ~1,420 m once trees are raised to ~10,000 (building budget 14,000). Beyond 1,781 m
+the building read leaves z16 and the bake's `--drop-densest-as-needed` deletes footprints. The
+default scope is the computed complete mark (founder Q-1 in ADR-0382).
+
+### 7.5 — The slider
+
+Per pane, inside its pane (C59 §2.10.3 clause 4), bottom-centre; both panes show the ONE value.
+Range from `contextExtentBudget.ts`; floor = the smallest scope containing the parcel + 25 m.
+Pointer moves re-position a preview ring; release dispatches `site.setScope`; the reload swaps the
+new layers in — never clears first. Shape toggle circle / rectangle (rectangle by default, ADR-0382
+D2). Not on the undo stack (D8).
+
+### 7.6 — Phase 2 work list (file by file; the functions that must read the scope)
+
+1. `contextExtentBudget.ts` — DONE in Phase 1: `SiteContextScope = SiteScope`, one outer-radius body, `SITE_SCOPE_RANGE`. Left: `farFetchHalfDeg` → `scopeFetchHalfDeg(scope, lat)` with an ASYMMETRIC bbox (lon-half ≠ lat-half) or a latitude-aware ceiling, because a symmetric longitude-honest box at 1781 m is 144 tiles at Barcelona and leaves z16 (ADR-0382 consequences); every `*RadiusM(scope)` stays.
+2. `CesiumViewport.ts` — `site.scope-changed` → `setContextScope(resolveSiteScope(store.getScope(), SITE_SCOPE_RANGE).scope)` is the ONE entry of the value into the context load; `setContextScope` swaps instead of clearing (C12 §13.4); `loadContextBuildingsUncoalesced` / `renderContextBuildingsFarRing` / `buildContextFarTierPrimitive` pre-clip each footprint ring; `loadContextLanduse` / `loadContextParks` / `loadContextWaterInner` / `renderContextSeaRings` (outer + holes) / `loadContextRoads` / `loadContextRail` pre-clip rings and corridors; `loadContextTrees` and `contextStreetLifeRender.buildPeople` / `buildLamps` filter by centre; a new `applySiteScopeClip` (globe clip + slab side + fog) on the `renderFormaMassing` funnel after `ensureGroundBaseForContext`, rebuilt on terrain settle beside `rebuildContextFarTierForBase`, cleared in `clearContextBuildings` where `clearContextEarthSlab` sits today; `maybeRefreshContextOnPan`'s 1500 m follows the scope.
+3. `contextBuildings.ts` — `fetchContextBuildingsNearAndFar` takes the scope's half-degree; `selectNearRingRenderTiers` / `selectFarRingFootprints` unchanged (distance from the origin is already right).
+4. `contextTrees.ts` / `contextRoads.ts` / `contextParks.ts` / `contextWater.ts` / `contextRail.ts` / `contextLanduse.ts` / `contextFurniture.ts` / `contextLayerWarm.ts` — the fetch bbox from `scopeFetchHalfDeg` (and the warm-up keeps hitting the same keys).
+5. `SiteAuthoringPaneShell.ts` — mount `SiteScopeSlider` per pane beside `mountPaneViewPicker`; hold the shared value like `globeFraming`.
+6. `siteDispatch.ts` — `dispatchSiteScope` calling `siteSetScope` and emitting `site.scope-changed` (the existing `siteUpdateZoning` shape).
+7. `ProjectSerializer.ts` — nothing: `site` already round-trips the whole `SiteModel`.
+8. `docs/02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md` §2.1 — the `scope` field row (owed).

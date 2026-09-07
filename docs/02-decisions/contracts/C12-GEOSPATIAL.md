@@ -847,9 +847,65 @@ Cesium's one-time `"Entity corridor, ellipse, polygon or rectangle with heightRe
 
 ---
 
+## §13 — The 3D-Site SCOPE: one value, every layer cut to it, complete inside it (§SITE-SCOPE, L-645)
+
+> Added 2026-09-07. Founder, verbatim: *"I want to have a slide of the scope on 3D Site view — like cityweft does — basically we have a scope — could be circular or rectangular whatever is easier for you — and then we crop everything — absolutely everything — but within the scope should be sound — really detailed and completed."* Decided by [ADR-0382](../adrs/ADR-0382-site-scope-one-value-cut-per-layer-class.md); grounded in [`AUDIT-3D-SITE-SCOPE-CROP`](../../03-execution/plans/AUDIT-3D-SITE-SCOPE-CROP.md). **Status: Phase 1 (value, polygon, geometric clip, command) LANDED; Phase 2 (render-path wiring + the slider) PLANNED.**
+
+The 3D-Site (Forma) view presents the site as a bounded SLAB: a scope — a circle or a rectangle about the site frame origin — inside which every context layer is drawn and outside which NOTHING is drawn. The retired §CTX-EARTH-SLAB (2026-07-30) is the reason this section exists: it cut one thing (the globe surface) to one disc that no other layer knew about, and it could never have worked, because — measured against the shipped Cesium 1.143.0 — `clippingPolygons` exists on `Globe`, `Cesium3DTileset` and `Model` **only**, while every ground layer here is an entity and every instanced tier is a `Primitive`.
+
+### §13.1 — ONE owner of the scope value; every layer reads it; no layer keeps a private extent
+
+The scope is `SiteModel.scope` (`packages/schemas/src/site/SiteScope.ts` — `circle { radiusM }` | `rectangle { halfWidthM, halfDepthM }`, project frame, centred on the §9 site frame origin; `null` = not authored). It is written ONLY by `site.setScope` (`packages/stores/src/site-commands/siteSetScope.ts`, P6) and read through `SiteModelStore.getScope()` → `resolveSiteScope` (`apps/editor/src/ui/geospatial/siteScope.ts`), which is total: never "no scope".
+
+**Every radial limit and every FETCH extent of every 3D-Site context layer MUST derive from this value.** The runtime projection the loaders read (`SiteContextScope` / `CesiumViewport.setContextScope`, `apps/editor/src/ui/geospatial/contextExtentBudget.ts`) IS a type alias of the schema (reconciled 2026-09-07, same day the two were minted), its outer-radius wraps the one body in `siteScope.ts`, and its range is exported ONCE as `SITE_SCOPE_RANGE`; `setContextScope` is the value's single entry point into the context load. A second shape, or a second range, is non-conformant. A stored scope wider than the measured fetch ceiling MUST be clamped with the number stated (`resolveSiteScope` → `source: 'clamped'` + note), never silently. A layer with a private extent — the pre-§13 state, where land-use read 8 km, the sea 11 km, roads/parks/rail/trees 891 m and the far tier 1781 m — is non-conformant: it is exactly what made the retired slab show buildings past the edge of its roads. The fetch half-degree is `scopeFetchHalfDeg`, the LONGITUDE-honest value (a latitude-degree half-extent applied to longitude reads a disc 25 % short east–west at Barcelona; §AUDIT F-1).
+
+### §13.2 — ONE polygon: a circle IS its n-gon, and every cut and every test uses the same ring
+
+The scope's geometry is the polygon `scopePolygonXZ` emits (a circle → an n-gon from a 0.25 m sagitta bound; a rectangle → its four corners), rotated onto true north ONCE at the frame boundary (`sceneXZToEnu`, §9 clause 2) and projected to WGS84 ONCE (`sceneXZToLatLon`, the parcel-ring projection — never a second one). The globe clip, the geometric clip, the instance-centre test, the fetch bbox and the slider's preview ring MUST all consume that one ring. A test against the analytic circle is FORBIDDEN: it disagrees with the polygon by up to r·(1 − cos π/n) at the rim, which is a tree floating past the cut.
+
+### §13.3 — Nothing outside the scope is CONSTRUCTED: the mechanism is per layer class
+
+| Class | Mechanism | Owner |
+|---|---|---|
+| Globe surface (baked terrain, flat fallback, base colour) | `globe.clippingPolygons`, ONE polygon, `inverse:true`, feature-detected; a failed clip leaves the full terrain AND draws no slab side | Phase 2 in `CesiumViewport.ts` |
+| Slab side + floor | a `Primitive` (`WallGeometry` on the ring + floor cap), `PerInstanceColorAppearance({ flat: true })`, neutral grey `#E6E6E3`, shadowless. **A LIT material on the slab side is FORBIDDEN** — that is the "red ring" | Phase 2 |
+| Flat ground entities (land-use, sea + island holes, parks, water areas, waterways, roads, rails) | GEOMETRIC pre-clip at build: `clipRingLonLat` / `clipPolylineLonLat` (`apps/editor/src/ui/geospatial/scopeClip.ts`, on `@pryzm/geometry-kernel`'s `intersectPolygons2D` / `intersectSegments2D`) | each loader |
+| Extruded footprints (near shadowed, near demoted, far instanced) | GEOMETRIC pre-clip of the footprint ring; extruded to the feature's own height — a straddler becomes the clean vertical section | each tier |
+| Instanced points (trees, canopies, lamps, people, furniture) | centre-in-scope `filterPointsLonLat`; dropped count printed | each builder |
+| Photoreal tileset | NOT applied — a tileset holds ONE `ClippingPolygonCollection` with ONE `inverse`, so the §7 parcel void and a scope are mutually exclusive; the scope is a Forma feature | — |
+| The subject (parcel ring, massing, envelopes, the BIM model, analysis overlays) | NEVER cut; the slider floor (`minimumScopeContainingRing`) keeps it inside | — |
+
+A feature that STRADDLES the edge MUST be cut, never dropped. A ring the boolean refuses (self-intersecting input) MUST be kept whole and counted as `refused` — an honest overshoot beats a missing building. A feature wholly inside MUST be passed through untouched (the same reference), so the pre-clip cannot drift a vertex that was never near the edge.
+
+### §13.4 — The slider previews live and commits on release; the reload SWAPS, never blanks
+
+Pointer moves drive a preview ring only. Release dispatches `site.setScope`; the loaders reload on `site.scope-changed`. The reload MUST build the replacement before removing what is on screen — a path that clears first and fetches second (the L-635 "blanked Madrid" shape, present today in `setContextScope` → `loadContextBuildings(force)` → `clearContextBuildings()` before the fetch resolves) is non-conformant. The control is mounted PER PANE inside its pane (C59 §2.10.3 clause 4), never on `document.body`, and both panes show the ONE value.
+
+### §13.5 — Inside the scope is COMPLETE, or the product says what was dropped, with the numbers
+
+Every tier is nearest-first then capped, so inside a scope a cap thins the RIM silently unless it is reported. Therefore: a cap on a MAPPED layer (buildings, trees, mapped lamps) that bites inside the scope MUST print `capVerdict(...).line` — the eligible count, the drawn count, the dropped count and the scope at which the cap would hold — and the slider MUST carry that "complete" mark (`completeScopeRadiusM`). A cap on a SYNTHESISED layer (people, synthetic lamps, canopy fill) is a density parameter and MUST be labelled as such, never as "features dropped". Raising a cap or an extent is a measured trade (ADR-0094, `contextExtentBudget.ts`), never a silent constant bump.
+
+### §13.6 — FORBIDDEN by name
+
+- **The globe-clip-only slab** (`scene.globe.clippingPolygons` with no geometric clip of the entity layers) — the retired §CTX-EARTH-SLAB. It cannot cut what is visible.
+- **A lit-material slab side** (an entity `wall` with a `Color` material under the Forma light).
+- **A second scope type or a private per-layer extent** (§13.1).
+- **Testing a circle as a circle** (§13.2).
+- **A shader/material discard "cut"**: the geometry outside is still built, seated and held.
+- **A per-pane scope** (one viewer, C59 §2 invariant 1).
+
+### §13.7 — What the scope state may NOT touch
+
+`depthTestAgainstTerrain` (four writers today) and `globe.enableLighting` (three, by design) gain NO writer from the scope. The scope MAY set `fog.enabled = false` while active (the outside has no fragments; the rim must not fade) and MUST restore it on clear.
+
+- **Reference (read-only):** `packages/schemas/src/site/SiteScope.ts` · `packages/stores/src/site-commands/siteSetScope.ts` · `apps/editor/src/ui/geospatial/siteScope.ts` · `apps/editor/src/ui/geospatial/scopeClip.ts` · `apps/editor/src/ui/geospatial/__tests__/siteScope.spec.ts` · `apps/editor/src/ui/geospatial/__tests__/scopeClip.spec.ts` · `apps/editor/src/ui/geospatial/contextExtentBudget.ts` (the range + the runtime radii) · `apps/editor/src/ui/geospatial/CesiumViewport.ts` (`clearContextEarthSlab` — the retired teardown; `applyParcelClipToPhotorealTiles` — the §7 sibling) · PLANNED: `apps/editor/src/engine/views/SiteScopeSlider.ts` (Phase 2).
+
+---
+
 ## §6 — Contract History
 
 | Date | Change |
+| 2026-09-07 | **§13 The 3D-Site SCOPE added (§SITE-SCOPE, L-645 re-opened, ADR-0382).** The founder's *"a slide of the scope … crop everything … within the scope should be sound"*. The retired §CTX-EARTH-SLAB's root cause is CONFIRMED against Cesium 1.143.0 source (`clippingPolygons` on Globe / Cesium3DTileset / Model only) and the approach is FORBIDDEN by name; the scope becomes ONE persisted value (`SiteModel.scope`, `site.setScope`) every layer's read and cut derive from; a circle IS its n-gon; entities and primitives are cut GEOMETRICALLY at build; the slab side is flat-shaded neutral; inside is complete or the cap verdict prints the numbers. Phase 1 landed (schema, command, pure modules, 53 + 21 tests); Phase 2 (wiring + slider) planned. NOT browser-verified. |
 |---|---|
 | 2026-05-03 | Initial contract created — Wave A17 geospatial track (A17-T1). |
 | 2026-07-12 | §1.4 The ONE Datum Boundary added (ratified from §FIX-CESIUM-GLOBE-ELEVATION-AND-GEOREF / L-259). |
