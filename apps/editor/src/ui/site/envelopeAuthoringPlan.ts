@@ -162,7 +162,60 @@ export interface AuthoredEnvelopeSpec {
     readonly spaceEnvelopeId: string;
     readonly levelId: string;
     readonly footprint: readonly { readonly x: number; readonly y: 0; readonly z: number }[];
-    readonly baseOffset: 0;
+    /**
+     * ⭐⭐ §ENVELOPE-STOREY-SEAT (lane ENVELOPE-DRAW-AND-STOREYS, 2026-09-07 · L-13146) —
+     * WHERE THIS STOREY'S PRISM SITS, AND IT IS **NOT** ZERO ANY MORE.
+     *
+     * The founder set 5 storeys, PRYZM created 5 records on 5 different levels, and he reported
+     * *"created it but only ground floor"*. His own log agreed with him and with PRYZM at the same
+     * time: `drew 5/5 authored envelope(s) [level@3.0m, level@3.0m, level@2.6m, level@15.3m,
+     * level@3.0m] · base=90.22 m`. **ONE base for all five.** Five prisms with the same footprint
+     * and the same base are five prisms in the same place — the stack read as one ground plate.
+     *
+     * ⛔ THE VALUE WAS A TYPE LITERAL `0`, SO THE DEFECT WAS UNREPRESENTABLE AS A BUG AND
+     * UNFIXABLE AS A VALUE. It was correct exactly once — when this family's only producer was
+     * `adoptProposalAsEnvelope`, which mints ONE plate on the GROUND storey, whose elevation IS 0.
+     * The day a gesture minted a SECOND storey the literal became a lie, and nothing could catch
+     * it because `0` was the type.
+     *
+     * ⛔⭐ THE DATUM, STATED — AND IT IS A DELIBERATE DEPARTURE FROM C114 §"Datum".
+     * C114 says *"level-relative: `baseOffset` and `height` are measured from the owning level's
+     * datum"*, which would make `0` right and put the storey elevation in the RENDER TRANSFORM
+     * (C114's own field table says `baseOffset` is *"TRANSFORMED → prism base Y"*). **Every
+     * rasteriser in this repo implements the identity transform instead:**
+     *   · `apps/editor/src/engine/SpaceEnvelopeMeshBuilder.ts` `_faceGeometry`:
+     *       `const baseY = prism.baseOffset;`                      ← no level elevation
+     *   · `apps/editor/src/ui/geospatial/CesiumViewport.ts` `renderSpaceEnvelopes`:
+     *       `const bottom = baseHeight + baseOffset;`              ← terrain seat, no level elevation
+     *   · `apps/editor/src/engine/SpaceEnvelopePlanSymbolBuilder.ts`:
+     *       `const y = entry.baseElevation ?? entry.baseOffset;`   ← the two as ALTERNATIVES for
+     *         one quantity, which is only coherent if `baseOffset` already IS the base
+     *   · `apps/editor/src/ui/room-programme/roomEnvelopePlan.ts`:
+     *       `baseOffset: level.baseOffset` — a room COPIES its host level envelope's seat rather
+     *         than deriving one from the storey, which again only works if the seat is absolute.
+     * ⇒ Four consumers, one convention: **`baseOffset` is the prism's base above the PROJECT
+     * datum** (scene-Y 0 on the BIM canvas, the terrain seat on the 3-D Site). The prose is the
+     * outlier, not the code, and this field now follows the four things that draw it.
+     *
+     * ⛔ THE ALTERNATIVE WAS REJECTED FOR A REASON, NOT FOR CONVENIENCE. "Leave `0` and teach the
+     * renderers to add `level.elevation`" is the C114-literal fix — but it cannot be done to ONE
+     * rasteriser at a time, and the two site rasterisers are owned by different lanes. A tree in
+     * which the BIM canvas adds the storey elevation and the 3-D Site does not is TWO answers to
+     * *"where is this envelope"*, and the face-drag pick reads the 3-D Site's frame while the
+     * gizmo draws in the BIM one — so the half-migrated state is a grab that lands on nothing
+     * (§L-430 / L-10740), which is strictly worse than the bug being fixed. **L-13147 files the
+     * reconciliation of C114's datum sentence and `packages/schemas/src/elements/SpaceEnvelope.ts`'s
+     * matching doc comment; it is a prose change and it is not this lane's to make.**
+     *
+     * ⛔ IT IS THE STOREY'S OWN `elevation`, NEVER AN ACCUMULATION OF THE STOREY HEIGHTS.
+     * Summing `height` up the stack would be a SECOND answer to *"where is storey N"* — one this
+     * module invented — and it would disagree with the level records the moment a floor-to-floor
+     * is edited without the levels above it moving (which is a real state: `SetLevelHeightCommand`
+     * and `level.update` write them independently). The model already knows where each storey is.
+     * If two storeys share an elevation their envelopes still coincide — that is the MODEL saying
+     * so, and reporting it faithfully is the honest answer (C84 EI-9).
+     */
+    readonly baseOffset: number;
     readonly height: number;
     readonly role: 'level';
     readonly withinId: null;
@@ -597,7 +650,13 @@ export function buildEnvelopeAuthoringPlan(
                 // ⛔ ITS OWN ring — see `footprintFor`. Storeys that share geometry are not
                 // independent envelopes, whatever their ids say.
                 footprint: footprintFor(),
-                baseOffset: 0,
+                // ⭐ §ENVELOPE-STOREY-SEAT — THE STOREY'S OWN ELEVATION. See `baseOffset`'s doc:
+                // a literal 0 here put every storey of a 5-storey stack on the ground, which is
+                // exactly what the founder saw and what his log printed (`base=90.22 m` × 5).
+                // ⛔ `level.elevation` comes from `readLevelCandidates` — the SAME producer the
+                // storey row below reports — so the seat this record is drawn at and the elevation
+                // the panel prints cannot disagree.
+                baseOffset: level.elevation,
                 height: heightM,
                 role: 'level',
                 withinId: null,

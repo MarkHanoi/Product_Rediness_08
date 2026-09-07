@@ -81,13 +81,76 @@ describe('buildEnvelopeAuthoringPlan — the create gesture', () => {
         expect(r.payload.envelopes.map((e) => e.levelId)).toEqual(['lvl-0', 'lvl-1', 'lvl-2']);
         for (const e of r.payload.envelopes) {
             expect(e.role).toBe('level');
-            expect(e.baseOffset).toBe(0);
             expect(e.withinId).toBeNull();
             expect(e.footprint).toHaveLength(4);
             expect(e.footprint[0]).toEqual({ x: 0, y: 0, z: 0 });
             expect(e.height).toBeGreaterThan(0);
         }
         expect(r.totalIntendedM2).toBe(600);
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ §ENVELOPE-STOREY-SEAT (L-13146) — N STOREYS ARE N ENVELOPES AT N DISTINCT SEATS
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // The founder set 5 storeys, PRYZM created 5 records on 5 levels, and he reported *"only ground
+    // floor"*. Both were true: `baseOffset` was the TYPE LITERAL `0`, so five prisms with the same
+    // ring stood in the same place and read as one plate (`drew 5/5 … base=90.22 m` — ONE base).
+    //
+    // ⛔ THE COUNT WAS NEVER THE BUG AND A COUNT ASSERTION WOULD NEVER HAVE CAUGHT IT. `toHaveLength
+    // (3)` above passed throughout. What was missing is an assertion about WHERE they are, so these
+    // cases assert the SEATS — distinct, ascending, and equal to the storey elevations the plan
+    // itself reports.
+    it('⭐ seats each storey envelope at ITS OWN storey elevation — never all at zero', () => {
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 3 }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.payload.envelopes.map((e) => e.baseOffset)).toEqual([0, 3, 6]);
+    });
+
+    it('⭐ N storeys produce N DISTINCT base offsets — the "only ground floor" invariant', () => {
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 3 }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        const seats = r.payload.envelopes.map((e) => e.baseOffset);
+        expect(new Set(seats).size).toBe(seats.length);
+        // Ascending, because `seatableStoreys` sorts by elevation and the seat IS the elevation.
+        expect([...seats].sort((a, b) => a - b)).toEqual(seats);
+    });
+
+    it('⛔ the seat is the elevation the STOREY ROW reports, not a second answer derived here', () => {
+        // One producer: whatever the plan PRINTS as the storey elevation is where it SEATS the
+        // prism. A stack summed from the heights would drift from the level records the moment a
+        // floor-to-floor is edited without the storeys above it moving — note lvl-1 is 3 m tall and
+        // lvl-2 sits at 6 m, so a height-sum and an elevation-read agree here only by luck.
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 3 }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        for (let i = 0; i < r.storeys.length; i++) {
+            expect(r.payload.envelopes[i]!.baseOffset).toBe(r.storeys[i]!.elevation);
+            expect(r.payload.envelopes[i]!.levelId).toBe(r.storeys[i]!.levelId);
+        }
+    });
+
+    it('⛔ seats from the CHOSEN start storey, so a stack that starts high is not dropped to 0', () => {
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 2, startStoreyId: 'lvl-1' }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.payload.envelopes.map((e) => e.levelId)).toEqual(['lvl-1', 'lvl-2']);
+        expect(r.payload.envelopes.map((e) => e.baseOffset)).toEqual([3, 6]);
+    });
+
+    it('⚠ two storeys recorded at the SAME elevation still coincide — the MODEL says so, not PRYZM', () => {
+        // ⛔ This is not a defect to paper over. Reporting the level records faithfully is the
+        // honest answer; inventing a gap would be PRYZM asserting a stack the project does not have.
+        const twins: readonly AdoptLevelCandidate[] = [
+            { id: 'a', name: 'A', elevation: 0, height: 3 },
+            { id: 'b', name: 'B', elevation: 0, height: 3 },
+        ];
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 2, levels: twins }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.payload.envelopes.map((e) => e.baseOffset)).toEqual([0, 0]);
+        expect(r.payload.envelopes.map((e) => e.levelId)).toEqual(['a', 'b']);
     });
 
     it('never mints the same element id twice — the batch handler refuses a duplicate', () => {
