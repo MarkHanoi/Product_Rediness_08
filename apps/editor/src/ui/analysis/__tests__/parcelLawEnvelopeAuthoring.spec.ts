@@ -406,6 +406,9 @@ describe('buildLiveLawCheck — what is DRAWN becomes the allocation', () => {
                     elevation: 0,
                     levelEnvelopeCount: 1,
                     intendedAreaM2: 200,
+                    // §26.6 rule 3 — the channel now carries the storey's height (L-13046).
+                    heightM: null,
+                    baseOffsetM: null,
                     rooms: [],
                     roomsSubtotalM2: 0,
                 }],
