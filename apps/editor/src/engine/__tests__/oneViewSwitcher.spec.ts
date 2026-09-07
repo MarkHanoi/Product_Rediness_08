@@ -44,7 +44,7 @@
  * top bar is not established by this file.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 
@@ -57,9 +57,14 @@ import {
     legacyNonViewControls,
     legacyViewBarsAllowedIn,
     legacyViewSwitches,
+    pryzmViewPillLabel,
     shouldRetireLegacyViewBars,
     type ViewSwitcherPhase,
 } from '../views/legacyViewSwitcherRetirement';
+import {
+    VIEW_SWITCHER_PILL_UNKNOWN_LABEL,
+    mountViewSwitcherPill,
+} from '../views/ViewSwitcherPill';
 import { viewPanelOptions } from '../views/viewPanelOptions';
 import { GIS_ACTIONS } from '../../ui/gis/gisActionRegistry';
 import { DRAW_SURFACE_PIN_REASON } from '../views/siteAuthoringPaneDecisions';
@@ -312,5 +317,218 @@ describe('§ONE-VIEW-SWITCHER · ARM H — the honesty this lane inherited is no
     it('⚠ `596dfe21`\'s draw-surface pin still names BOTH commit routes (do not undo it)', () => {
         expect(DRAW_SURFACE_PIN_REASON).toMatch(/drawn, or picked from the cadastre/);
         expect(DRAW_SURFACE_PIN_REASON).toMatch(/The 3D Site is live beside it\./);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════
+// ARM I — THE REPLACEMENT IS REAL DOM, NOT A PLAN.
+//
+// ⭐ The other arms read source text; these MOUNT the control. §COMMITTED-IS-NOT-REACHABLE:
+// a retirement whose replacement was only described would leave the founder with a quieter
+// screen and no way to switch — which is a worse product than the two rows.
+// ═════════════════════════════════════════════════════════════════════════════════════════
+describe('§ONE-VIEW-SWITCHER · ARM I — the PRYZM view keeps a REAL dropdown', () => {
+    const region = (): HTMLElement => {
+        const el = document.createElement('div');
+        el.id = 'test-view-region';
+        el.style.position = 'relative';
+        document.body.appendChild(el);
+        return el;
+    };
+
+    afterEach(() => { document.body.replaceChildren(); });
+
+    /** A menu body that records what the pill did to it. */
+    const recordingMenu = () => {
+        const calls = { mounted: 0, repaints: 0, disposes: 0 };
+        return {
+            calls,
+            mountMenu: (body: HTMLElement) => {
+                calls.mounted += 1;
+                const row = document.createElement('button');
+                row.setAttribute('data-testid', 'fake-menu-row');
+                row.textContent = '3D Site';
+                body.appendChild(row);
+                return {
+                    repaint: () => { calls.repaints += 1; },
+                    dispose: () => { calls.disposes += 1; },
+                };
+            },
+        };
+    };
+
+    it('mounts inside its REGION, positioned relative to it — never fixed to the window (L-13027)', () => {
+        const parent = region();
+        const m = recordingMenu();
+        const pill = mountViewSwitcherPill({ parent, label: () => '3D PRYZM', mountMenu: m.mountMenu });
+        expect(pill.element.parentElement).toBe(parent);
+        expect(pill.element.style.position).toBe('absolute');
+        // Centred on the REGION — 50% of this box, not of the canvas or the viewport.
+        expect(pill.element.style.left).toBe('50%');
+        expect(pill.element.style.transform).toBe('translateX(-50%)');
+        // The same band `PaneViewPicker` claims, so the two read as one chrome language.
+        expect(pill.element.style.zIndex).toBe('60');
+        pill.dispose();
+    });
+
+    it('the trigger NAMES the current view, re-read on every repaint — never a remembered click', () => {
+        const parent = region();
+        const m = recordingMenu();
+        let mode: string | null = 'Top';
+        const pill = mountViewSwitcherPill({
+            parent, label: () => pryzmViewPillLabel(mode), mountMenu: m.mountMenu,
+        });
+        const trigger = parent.querySelector('[data-testid="view-switcher-pill-trigger"]')!;
+        expect(trigger.textContent).toBe('2D PRYZM ▾');
+        mode = '3D';
+        pill.refresh();
+        expect(trigger.textContent).toBe('3D PRYZM ▾');
+        pill.dispose();
+    });
+
+    it('⛔ an unreportable view prints a NEUTRAL word, never a guessed view name (C84 EI-1b)', () => {
+        const parent = region();
+        const m = recordingMenu();
+        const pill = mountViewSwitcherPill({ parent, label: () => null, mountMenu: m.mountMenu });
+        expect(parent.querySelector('[data-testid="view-switcher-pill-trigger"]')!.textContent)
+            .toBe(`${VIEW_SWITCHER_PILL_UNKNOWN_LABEL} ▾`);
+        pill.dispose();
+    });
+
+    it('opens on the trigger, closes on Escape and on an outside click', () => {
+        const parent = region();
+        const m = recordingMenu();
+        const pill = mountViewSwitcherPill({ parent, label: () => 'X', mountMenu: m.mountMenu });
+        const trigger = parent.querySelector<HTMLButtonElement>('[data-testid="view-switcher-pill-trigger"]')!;
+        const popup = parent.querySelector<HTMLElement>('[data-testid="view-switcher-pill-popup"]')!;
+
+        expect(popup.style.display).toBe('none');
+        trigger.click();
+        expect(popup.style.display).toBe('block');
+        expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        expect(popup.style.display).toBe('none');
+
+        trigger.click();
+        expect(popup.style.display).toBe('block');
+        document.body.click();
+        expect(popup.style.display).toBe('none');
+        pill.dispose();
+    });
+
+    it('⛔ the popup body is INJECTED, mounted ONCE, and repainted on every open', () => {
+        const parent = region();
+        const m = recordingMenu();
+        const pill = mountViewSwitcherPill({ parent, label: () => 'X', mountMenu: m.mountMenu });
+        expect(m.calls.mounted).toBe(1);
+        expect(parent.querySelector('[data-testid="fake-menu-row"]')).not.toBeNull();
+
+        const trigger = parent.querySelector<HTMLButtonElement>('[data-testid="view-switcher-pill-trigger"]')!;
+        trigger.click();
+        trigger.click();
+        trigger.click();
+        // Two opens ⇒ two repaints, and STILL one mount: the pill re-hosts a control, it
+        // does not rebuild one (which is how a second option table gets born).
+        expect(m.calls.mounted).toBe(1);
+        expect(m.calls.repaints).toBe(2);
+        pill.dispose();
+        expect(m.calls.disposes).toBe(1);
+        expect(parent.querySelector('[data-testid="view-switcher-pill"]')).toBeNull();
+    });
+
+    it('⭐ the C59 Phase-3 limit is PRINTED in the popup, not buried in a title (STR §26.1.1)', () => {
+        const parent = region();
+        const m = recordingMenu();
+        const pill = mountViewSwitcherPill({
+            parent, label: () => '3D PRYZM', mountMenu: m.mountMenu,
+            limitNote: PRYZM_VIEW_PANE_LIMIT_NOTE,
+        });
+        const note = parent.querySelector('[data-testid="view-switcher-pill-note"]');
+        expect(note).not.toBeNull();
+        expect(note!.textContent).toBe(PRYZM_VIEW_PANE_LIMIT_NOTE);
+        pill.dispose();
+    });
+
+    it('idempotent per region — a re-mount never leaves two pills over one view', () => {
+        const parent = region();
+        const a = mountViewSwitcherPill({ parent, label: () => 'A', mountMenu: recordingMenu().mountMenu });
+        const b = mountViewSwitcherPill({ parent, label: () => 'B', mountMenu: recordingMenu().mountMenu });
+        expect(parent.querySelectorAll('[data-testid="view-switcher-pill"]').length).toBe(1);
+        expect(parent.querySelector('[data-testid="view-switcher-pill-trigger"]')!.textContent).toBe('B ▾');
+        a.dispose();
+        b.dispose();
+    });
+
+    it('a menu that throws does not take the pill with it — it says so instead', () => {
+        const parent = region();
+        const pill = mountViewSwitcherPill({
+            parent,
+            label: () => '3D PRYZM',
+            mountMenu: () => { throw new Error('menu exploded'); },
+        });
+        expect(parent.querySelector('[data-testid="view-switcher-pill"]')).not.toBeNull();
+        expect(parent.querySelector('[data-testid="view-switcher-pill-trigger"]')!.textContent).toBe('3D PRYZM ▾');
+        const err = parent.querySelector('[data-testid="view-switcher-pill-menu-error"]');
+        expect(err).not.toBeNull();
+        expect(err!.textContent).toMatch(/GIS panel/);
+        pill.dispose();
+    });
+
+    it('`pryzmViewPillLabel` uses the founder\'s spelling, and refuses to name what it cannot map', () => {
+        expect(pryzmViewPillLabel('3D')).toBe('3D PRYZM');
+        expect(pryzmViewPillLabel('Top')).toBe('2D PRYZM');
+        // ⚠ An elevation is a real PRYZM view and is NOT one of the six — it gets an honest
+        // label rather than being folded into "3D PRYZM" to fit the panel.
+        expect(pryzmViewPillLabel('Front')).toBe('PRYZM elevation — Front');
+        expect(pryzmViewPillLabel('Ceiling')).toBe('PRYZM reflected ceiling');
+        expect(pryzmViewPillLabel(null)).toBeNull();
+        expect(pryzmViewPillLabel('something-else')).toBeNull();
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════
+// ARM J — SWITCHER COUNT == VISIBLE VIEW-REGION COUNT (L-13015), as WIRING.
+// The pill goes up exactly where the legacy rows come down, and stands down wherever another
+// switcher owns the region. Source-text, for the same reason the other GIS arms are.
+// ═════════════════════════════════════════════════════════════════════════════════════════
+describe('§ONE-VIEW-SWITCHER · ARM J — the pill is mounted where the rows retire, and nowhere else', () => {
+    it('the retirement mounts it in the same breath', () => {
+        const body = GIS.slice(GIS.indexOf('const retireLegacyViewBars ='));
+        expect(body.slice(0, body.indexOf('\n    };'))).toContain('ensurePryzmViewPill()');
+    });
+
+    it('⛔ it injects the SHIPPED option host — no seventh copy of the founder\'s six', () => {
+        const body = GIS.slice(GIS.indexOf('const ensurePryzmViewPill ='));
+        const fn = body.slice(0, body.indexOf('\n    };'));
+        expect(fn).toContain('mountViewSegmentSwitcher(window)');
+        expect(fn).toContain('limitNote: PRYZM_VIEW_PANE_LIMIT_NOTE');
+        // A READING of the authority that performed the switch, never a remembered dispatch.
+        expect(fn).toContain('props._viewController?.currentMode');
+    });
+
+    it('every surface that brings its OWN switcher stands the pill down', () => {
+        // Same-indent terminator, the idiom `bim3dChromeQuiet.spec.ts` uses: brace-counting is
+        // defeated by the template literals and comments these closures are full of, and a
+        // fixed character window would silently read into the NEXT function and pass on its
+        // call instead of this one's.
+        const closure = (name: string): string => {
+            const at = GIS.indexOf(`const ${name} = `);
+            expect(at, `${name} not found in GISAreaLayout`).toBeGreaterThan(-1);
+            const end = GIS.indexOf('\n    };', at);
+            expect(end, `${name} has no same-indent terminator`).toBeGreaterThan(at);
+            return GIS.slice(at, end);
+        };
+        for (const owner of [
+            'mountResultToggleBar',
+            'mountFormaViewToggle',
+            'toggleGIS',
+            'mountSiteAuthoringPanes',
+        ]) {
+            expect(
+                closure(owner).includes('removePryzmViewPill()'),
+                `${owner} owns the region's switcher, so it must stand the pill down (L-13015)`,
+            ).toBe(true);
+        }
     });
 });

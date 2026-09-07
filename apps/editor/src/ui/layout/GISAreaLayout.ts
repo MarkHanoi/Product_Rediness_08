@@ -235,8 +235,18 @@ import {
 // which are Cesium-surface controls that must NOT be swept up with them).
 import {
     LEGACY_VIEW_BAR_RETIREMENT_REASON,
+    PRYZM_VIEW_PANE_LIMIT_NOTE,
+    pryzmViewPillLabel,
     shouldRetireLegacyViewBars,
 } from '../../engine/views/legacyViewSwitcherRetirement';
+// §ONE-VIEW-SWITCHER (L-13160) — the DROPDOWN the PRYZM views keep once the legacy rows go.
+// ⛔ It owns NO options: `mountViewSegmentSwitcher` (the shipped host of `viewPanelOptions()`,
+// the ONE panel definition) is injected as its popup body below. Three hosts, one definition.
+import {
+    mountViewSwitcherPill,
+    type ViewSwitcherPillHandle,
+} from '../../engine/views/ViewSwitcherPill';
+import { mountViewSegmentSwitcher } from '../site/viewSegmentSwitcher';
 // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — the deferred subscription helper. Used here
 // rather than a bare `runtime?.events?.on(...)` because the LIVE boot path constructs this
 // layout with `runtime === null` (`createMainLayout(props, null)` in initUI.ts), which is the
@@ -1351,6 +1361,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
 
         if (active) {
             console.log("GIS: Activating geospatial view...");
+            // §ONE-VIEW-SWITCHER (L-13160) — SWITCHER COUNT == VISIBLE VIEW-REGION COUNT
+            // (L-13015). A Cesium surface is taking the region, and it brings its OWN
+            // switcher (the legacy bars on the whole-screen site views, `PaneViewPicker` in
+            // the pane shell). The PRYZM pill must go, or the founder gets the stacked
+            // switchers he photographed, with the roles reversed.
+            removePryzmViewPill();
             viewport.style.position = 'relative';
             viewport.style.overflow = 'hidden';
 
@@ -1748,8 +1764,67 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // floating panel and the pane shell keep their offset parent (L-13027).
         const viewport = document.getElementById('container');
         if (viewport) ensureViewportPositioned(viewport);
+        // ⭐ AND THE REPLACEMENT GOES UP IN THE SAME BREATH. Retiring the rows without this
+        // is the degradation `bim3dChromeQuiet.spec.ts` ARM C recorded rather than blessed —
+        // *"a rail-panel route is not the one-gesture on-view switch the founder asked for"*.
+        ensurePryzmViewPill();
         if (hadAny) {
             console.log(`[gis] ${LEGACY_VIEW_BAR_RETIREMENT_REASON} (retired at: ${where})`);
+        }
+    };
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // §ONE-VIEW-SWITCHER (L-13160) — THE PRYZM VIEWS KEEP THE DROPDOWN.
+    //
+    // *"I want to keep the same all through."* On the site views the switcher is
+    // `PaneViewPicker` (one per pane, `view.pane.*` into `PaneLayoutStore`). On a PRYZM view
+    // there is no pane and there must not be one — `VIEW_TYPE_REGISTRY` refuses `bim-3d`
+    // per-pane BY NAME because the WebGPU renderer owns `#container` (C59 Phase 3). ⭐ THAT
+    // BLOCKS PANING, NOT SWITCHING: the same DROPDOWN sits on the view region and dispatches
+    // the DECLARED whole-screen routes instead of pane intents.
+    //
+    // ⛔ NO OPTION TABLE IS ADDED HERE. The popup body is `mountViewSegmentSwitcher(window)` —
+    // the shipped host of `viewPanelOptions()` (the founder's six), which is itself a HOST of
+    // `GIS_ACTIONS` and contributes no handler. So this is a change of PLACEMENT, not a new
+    // control, and the six cannot drift into a seventh copy.
+    //
+    // ⚠ THE LABEL IS A READING, NEVER A MEMORY. `props._viewController.currentMode` is the
+    // authority that just performed the switch; a pill that remembered its own last dispatch
+    // would assert a view it never checked (the L-13002 shape). Unrecognised ⇒ the pill prints
+    // a neutral word rather than naming a view it cannot establish (C84 EI-1b).
+    // ══════════════════════════════════════════════════════════════════════════
+    let pryzmViewPill: ViewSwitcherPillHandle | null = null;
+
+    const removePryzmViewPill = (): void => {
+        if (!pryzmViewPill) return;
+        try { pryzmViewPill.dispose(); } catch (e) { console.warn('[gis] §ONE-VIEW-SWITCHER pill dispose failed (non-fatal):', e); }
+        pryzmViewPill = null;
+    };
+
+    const ensurePryzmViewPill = (): void => {
+        const viewport = document.getElementById('container');
+        if (!viewport) return;
+        if (pryzmViewPill?.element.isConnected) { pryzmViewPill.refresh(); return; }
+        removePryzmViewPill(); // a stale handle whose node was torn out with a rebuild.
+        try {
+            pryzmViewPill = mountViewSwitcherPill({
+                parent: viewport,
+                corner: 'top-center', // founder 2026-09-07: *"THEY NEED TO BE CENTERED."*
+                idSuffix: 'pryzm',
+                label: () => pryzmViewPillLabel(props._viewController?.currentMode ?? null),
+                limitNote: PRYZM_VIEW_PANE_LIMIT_NOTE,
+                mountMenu: (body) => {
+                    const h = mountViewSegmentSwitcher(window);
+                    body.appendChild(h.element);
+                    return { repaint: () => h.repaint(), dispose: () => h.dispose() };
+                },
+            });
+            console.log('[gis] §ONE-VIEW-SWITCHER (L-13160) — PRYZM view dropdown mounted on #container.');
+        } catch (e) {
+            // A pill that cannot build must not break the view activation that asked for it;
+            // the GIS panel route still reaches every declared view.
+            console.warn('[gis] §ONE-VIEW-SWITCHER pill mount failed (non-fatal):', e);
+            pryzmViewPill = null;
         }
     };
 
@@ -2012,6 +2087,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.error('[gis] mountResultToggleBar: #container not found');
             return;
         }
+        // §ONE-VIEW-SWITCHER (L-13160) — this bar IS the switch on the views that build it,
+        // so the PRYZM pill stands down. One region, one switcher (L-13015).
+        removePryzmViewPill();
         ensureViewportPositioned(viewport);
         // (Re)build the floating control so it sits ABOVE the Cesium overlay (z 20).
         removeResultToggle();
@@ -6292,6 +6370,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             console.error('[gis][forma] mountFormaViewToggle: #container not found');
             return;
         }
+        // §ONE-VIEW-SWITCHER (L-13160) — the Forma sub-bar means a Cesium site view owns the
+        // region; the PRYZM pill stands down (L-13015: one region, one switcher).
+        removePryzmViewPill();
         ensureViewportPositioned(viewport);
         if (formaToggle?.parentElement) formaToggle.parentElement.removeChild(formaToggle);
         // §FIX-VIEWMODE-BAR-CONSOLIDATE (L-166) — the Forma view is NO LONGER a rival
@@ -7383,6 +7464,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // §L-412 (Req 2) — fresh mount → the pane has not been framed yet; the first
         // parcel commit (or an already-committed boundary below) will frame it once.
         siteAuthoringPaneLastFramedCentroid = null;
+
+        // §ONE-VIEW-SWITCHER (L-13160) — the pane shell mounts `PaneViewPicker` on EVERY pane,
+        // which is the switcher for this phase. The PRYZM pill is a `#container` child and the
+        // shell covers `#container` (`position:absolute; inset:0`), so leaving it would be a
+        // switcher stacked under (or over) the pane's own — exactly L-13015. It comes back the
+        // next time `retireLegacyViewBars` runs, i.e. the next time a PRYZM view is activated.
+        removePryzmViewPill();
 
         const shell = mountSiteAuthoringPaneShell({ parent: container, initialLeftFraction: 0.5 });
         siteAuthoringPanes = shell;

@@ -465,6 +465,44 @@ export const PRYZM_VIEW_PANE_LIMIT_NOTE =
     + 'view here replaces this one instead of splitting beside it. Use ◧ Split once you are '
     + 'on a site view.';
 
+/**
+ * The BIM `ViewMode` values a PRYZM view can be in (`@pryzm/core-app-model`'s `ViewMode`).
+ *
+ * ⚠ SPELLED, NOT IMPORTED. This module is pure `engine/views` and takes a plain string so a
+ * caller can hand it `props._viewController?.currentMode` without this file acquiring a
+ * dependency on the navigation package — the same reason `viewPanelOptions.ts` holds its
+ * action ids as strings.
+ */
+export type PryzmViewModeName =
+    '3D' | 'Top' | 'Ceiling' | 'ceiling-plan' | 'Front' | 'Back' | 'Left' | 'Right';
+
+/**
+ * ⭐ WHAT THE PILL SAYS IT IS SHOWING, in the founder's own spelling.
+ *
+ * ⛔ `null` FOR ANYTHING NOT RECOGNISED, and the caller prints a neutral word rather than a
+ * guessed view name. C84 EI-1b — *"failure and emptiness becoming one value is this repo's
+ * most expensive recurring defect"* — applied to a label: a pill that names the wrong view is
+ * worse than one that names none, because it is the thing the user reads to know where he is.
+ *
+ * ⚠ THE ELEVATIONS GET AN HONEST LABEL, NOT ONE OF THE SIX. `Front`/`Back`/`Left`/`Right` are
+ * real PRYZM views and are NOT rows on `viewPanelOptions()` (C59 §1.1 — `bim-elevation-2d`
+ * needs per-pane view state, Phase 3). Calling one of them "3D PRYZM" to fit the panel would
+ * be the same defect one level down.
+ */
+export function pryzmViewPillLabel(mode: string | null | undefined): string | null {
+    switch (mode) {
+        case '3D': return '3D PRYZM';
+        case 'Top': return '2D PRYZM';
+        case 'Ceiling':
+        case 'ceiling-plan': return 'PRYZM reflected ceiling';
+        case 'Front':
+        case 'Back':
+        case 'Left':
+        case 'Right': return `PRYZM elevation — ${mode}`;
+        default: return null;
+    }
+}
+
 /** What view-switching chrome a phase mounts, and how many of it. */
 export interface ViewSwitcherSurface {
     /**
