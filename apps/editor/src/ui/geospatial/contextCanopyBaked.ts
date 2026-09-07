@@ -234,6 +234,22 @@ export function supersedesSynthesis(sampledCount: number, minCells = 50): boolea
 /** Per-bbox cache — one read per site per session, exactly like contextTrees. */
 const cache = new Map<string, BakedCanopyCollection>();
 
+/**
+ * §CTX-ONE-READ-PER-BBOX (L-585) EXTENDED TO CANOPY (L-13110, lane STARTUP-FIX 2026-09-07).
+ *
+ * ⚠ NOTHING IS CACHED HERE ON A NON-`ok` READ — which is exactly why this layer needed the guard
+ * MORE than the ones that do. `canopy` is `optIn: true` in the bake and is absent from the live
+ * tileset today, so every read is a non-`ok` read, and the cache above never fills. Before this
+ * guard, `warmAllContextLayers` and `fetchContextCanopySet` (the canopy join, which reads trees +
+ * parks + canopy in one `Promise.all`) each ran their own full `readContextTileFeatures`.
+ * §CTX-KNOWN-MISSING bounds the SECOND one to a memo lookup — but only once the first has returned,
+ * and the two overlap by construction.
+ *
+ * ⚠ THE SHARED READ TAKES NO ABORT SIGNAL (L-585); each caller honours its own after the await, so
+ * an abort cancels the RENDER and not a read the other callers are awaiting (§L-579).
+ */
+const inFlight = new Map<string, Promise<BakedCanopyCollection>>();
+
 function bboxKey(b: Bbox): string { return 'canopy:' + b.map((n) => n.toFixed(4)).join(','); }
 
 /**
@@ -252,7 +268,22 @@ export async function fetchContextBakedCanopy(
     const hit = cache.get(key);
     if (hit) return hit;
 
-    const tiled = await readContextTileFeatures('canopy', bbox, signal);
+    // §CTX-ONE-READ-PER-BBOX (L-585 / L-13110) — de-duplicate ABOVE the tile read, see `inFlight`.
+    let shared = inFlight.get(key);
+    if (!shared) {
+        shared = readCanopyForBbox(bbox, key).finally(() => { inFlight.delete(key); });
+        inFlight.set(key, shared);
+    }
+    const collection = await shared;
+    // ⚠ EACH CALLER HONOURS ITS OWN SIGNAL, AFTER THE SHARED READ (§L-579).
+    if (signal?.aborted) return emptyBakedCanopy();
+    return collection;
+}
+
+/** The ONE read for a bbox. Called only through `fetchContextBakedCanopy`, which owns the cache and
+ *  the one-read-per-bbox guarantee. Never throws. ⚠ Takes NO `AbortSignal` by design — see `inFlight`. */
+async function readCanopyForBbox(bbox: Bbox, key: string): Promise<BakedCanopyCollection> {
+    const tiled = await readContextTileFeatures('canopy', bbox, undefined);
     if (tiled.status === 'ok') {
         const collection = canopyFromTileFeatures(tiled.features);
         cache.set(key, collection);
@@ -272,5 +303,6 @@ export async function fetchContextBakedCanopy(
     return emptyBakedCanopy();
 }
 
-/** Test seam: clear the per-bbox cache. */
-export function __clearBakedCanopyCache(): void { cache.clear(); }
+/** Test seam: clear the per-bbox cache AND the §CTX-ONE-READ-PER-BBOX in-flight map — a test that
+ *  cleared only the first would still be handed the previous test's shared read. */
+export function __clearBakedCanopyCache(): void { cache.clear(); inFlight.clear(); }

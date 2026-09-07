@@ -42,6 +42,26 @@ const RAIL_CLASSES = new Set([
 
 const cache = new Map<string, ContextRailCollection>();
 
+/**
+ * §CTX-ONE-READ-PER-BBOX (L-585) EXTENDED TO RAIL (L-13110, lane STARTUP-FIX 2026-09-07).
+ *
+ * The same gap contextParks/contextLanduse closed one file over, and the reason it is worth closing
+ * here too: a resolved-value cache is populated on COMPLETION, so it cannot help a caller issued
+ * while the first read is still IN FLIGHT — and on the onboarding flow they always are
+ * (`warmAllContextLayers` at the `city` stage, then `CesiumViewport.loadContextRail` at pane mount).
+ * Each duplicate call paid a full `readContextTileFeatures`: a tile-list computation, a `Promise.all`
+ * over the covering tiles, a per-read bbox CROP of every feature in them, and a full collection build.
+ *
+ * ⚠ NOT the tile bytes — `contextTiles.tileInFlight` already shares those, which is why the founder's
+ * three parks lines ended at the SAME INSTANT. This guard removes the work ABOVE the tiles, and only
+ * that; claiming it saves downloads would be the misreading §CTX-READ-PROVENANCE exists to end.
+ *
+ * ⚠ THE SHARED READ TAKES NO ABORT SIGNAL, deliberately (L-585): one caller's abort must not hand
+ * the others an empty result for a read that was nearly done. Each caller honours its OWN signal
+ * after the await, so an abort still cancels the RENDER (§L-579).
+ */
+const inFlight = new Map<string, Promise<ContextRailCollection>>();
+
 function bboxKey(b: Bbox): string { return 'rail:' + b.map((n) => n.toFixed(4)).join(','); }
 
 export function emptyRailCollection(): ContextRailCollection {
@@ -86,7 +106,22 @@ export async function fetchContextRail(
     const hit = cache.get(key);
     if (hit) return hit;
 
-    const tiled = await readContextTileFeatures('rail', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) }); // §SITE-SCOPE F-2
+    // §CTX-ONE-READ-PER-BBOX (L-585 / L-13110) — de-duplicate ABOVE the tile read, see `inFlight`.
+    let shared = inFlight.get(key);
+    if (!shared) {
+        shared = readRailForBbox(bbox, key, halfDeg).finally(() => { inFlight.delete(key); });
+        inFlight.set(key, shared);
+    }
+    const collection = await shared;
+    // ⚠ EACH CALLER HONOURS ITS OWN SIGNAL, AFTER THE SHARED READ (§L-579).
+    if (signal?.aborted) return emptyRailCollection();
+    return collection;
+}
+
+/** The ONE read for a bbox. Called only through `fetchContextRail`, which owns the cache and the
+ *  one-read-per-bbox guarantee. Never throws. ⚠ Takes NO `AbortSignal` by design — see `inFlight`. */
+async function readRailForBbox(bbox: Bbox, key: string, halfDeg: number): Promise<ContextRailCollection> {
+    const tiled = await readContextTileFeatures('rail', bbox, undefined, { fanOutCap: scopeReadFanOutCap(halfDeg) }); // §SITE-SCOPE F-2
     if (tiled.status === 'ok') {
         const collection = railFromTileFeatures(tiled.features);
         cache.set(key, collection);

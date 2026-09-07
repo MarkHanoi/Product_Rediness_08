@@ -56,6 +56,23 @@ export interface ContextFurnitureCollection {
 
 const cache = new Map<string, ContextFurnitureCollection>();
 
+/**
+ * §CTX-ONE-READ-PER-BBOX (L-585) EXTENDED TO FURNITURE (L-13110, lane STARTUP-FIX 2026-09-07).
+ *
+ * Same shape and same reason as parks/landuse/rail/trees: the resolved-value cache is populated on
+ * COMPLETION and cannot serve a caller issued while the first read is still in flight.
+ *
+ * ⚠ AND THE MARGINAL COST HERE IS NOT ZERO WHILE THE LAYER IS ABSENT — it is the part that made this
+ * worth doing rather than skipping. Only `ok` and `absent` are cached (`unavailable` deliberately is
+ * NOT — a transient blip must not become a session-long "no lamps"), so before this guard two
+ * overlapping callers of an UNREADABLE layer each ran a full read. `§CTX-KNOWN-MISSING` bounds the
+ * repeat cost to a memo lookup, not to zero work, and it only arms AFTER the first probe returns.
+ *
+ * ⚠ THE SHARED READ TAKES NO ABORT SIGNAL (L-585). A caller that aborted still gets its honest
+ * `aborted` state back — the state is per CALLER, decided after the await, not per read (§L-579).
+ */
+const inFlight = new Map<string, Promise<ContextFurnitureCollection>>();
+
 function bboxKey(b: Bbox): string { return 'furniture:' + b.map((n) => n.toFixed(4)).join(','); }
 
 export function emptyFurnitureCollection(state: FurnitureLayerState, reason?: string): ContextFurnitureCollection {
@@ -125,8 +142,26 @@ export async function fetchContextFurniture(
     const hit = cache.get(key);
     if (hit) return hit;
 
+    // §CTX-ONE-READ-PER-BBOX (L-585 / L-13110) — de-duplicate ABOVE the tile read, see `inFlight`.
+    let shared = inFlight.get(key);
+    if (!shared) {
+        shared = readFurnitureForBbox(bbox, key, halfDeg).finally(() => { inFlight.delete(key); });
+        inFlight.set(key, shared);
+    }
+    const collection = await shared;
+    // ⚠ EACH CALLER HONOURS ITS OWN SIGNAL, AFTER THE SHARED READ (§L-579). `aborted` is this
+    // caller's state; the shared read still completes for the callers still watching.
+    if (signal?.aborted) return emptyFurnitureCollection('aborted');
+    return collection;
+}
+
+/** The ONE read for a bbox. Called only through `fetchContextFurniture`, which owns the cache and
+ *  the one-read-per-bbox guarantee. Never throws. ⚠ Takes NO `AbortSignal` by design — see `inFlight`. */
+async function readFurnitureForBbox(
+    bbox: Bbox, key: string, halfDeg: number,
+): Promise<ContextFurnitureCollection> {
     let tiled: Awaited<ReturnType<typeof readContextTileFeatures>>;
-    try { tiled = await readContextTileFeatures('furniture', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) }); } // §SITE-SCOPE F-2
+    try { tiled = await readContextTileFeatures('furniture', bbox, undefined, { fanOutCap: scopeReadFanOutCap(halfDeg) }); } // §SITE-SCOPE F-2
     catch (e) { return emptyFurnitureCollection('unavailable', String((e as Error)?.message ?? e)); }
 
     if (tiled.status === 'ok') {

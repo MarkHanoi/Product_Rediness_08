@@ -35,12 +35,19 @@ const tileReads: string[] = [];
 /** Released by the test, so N callers are genuinely concurrent (the first read is still in flight). */
 let releaseRead: (() => void) | null = null;
 
+/** When set, the mocked read resolves to this instead of `ok` — used to prove the guard still holds
+ *  for the layers whose archive is ABSENT today (canopy / furniture), where nothing is cached. */
+let readOutcome: { status: string; reason?: string } | null = null;
+
 vi.mock('../contextTiles', () => ({
     readContextTileFeatures: async (layer: string) => {
         tileReads.push(layer);
         await new Promise<void>((r) => { releaseRead = r; });
+        if (readOutcome) return readOutcome;
         return { status: 'ok', features: [], tilesRead: 81, ms: 5672 };
     },
+    // §STREET-LIFE — contextFurniture imports this to tell "not baked" from "read failed".
+    isArchiveMissingError: (m: string) => /Bad response code: 40[34]\b/.test(m),
 }));
 
 // The Overpass fallback must never be reached on an `ok` tile read; if it ever is, this throws
@@ -55,6 +62,10 @@ vi.mock('../contextBuildings', async () => {
 
 import { fetchContextParks } from '../contextParks';
 import { fetchContextLanduse } from '../contextLanduse';
+import { fetchContextRail } from '../contextRail';
+import { fetchContextTrees } from '../contextTrees';
+import { fetchContextFurniture } from '../contextFurniture';
+import { fetchContextBakedCanopy } from '../contextCanopyBaked';
 
 // ⚠ EVERY CASE GETS ITS OWN COORDINATES. The layer readers' resolved-value caches are MODULE
 // state and there is no reset seam; a shared lat/lon would make case 2 onwards a cache hit and the
@@ -69,6 +80,7 @@ function coldSite(): [number, number] {
 beforeEach(() => {
     tileReads.length = 0;
     releaseRead = null;
+    readOutcome = null;
 });
 
 /** Let the one in-flight read settle, then drain the microtask queue for the awaiting callers. */
@@ -186,6 +198,153 @@ describe('§CTX-ONE-READ-PER-BBOX — the guard releases, so a session is not pi
     });
 });
 
+// ── THE FOUR LAYERS THE FIRST PASS LEFT OPEN (lane STARTUP-FIX, 2026-09-07) ───────────────────
+//
+// L-13110 closed parks + landuse and recorded, by name, that `contextRail`, `contextTrees`,
+// `contextFurniture` and `contextCanopyBaked` carried the SAME gap — "same fix, same shape". These
+// cases are that closure. Two of them are worth calling out because the naive reading says they
+// cannot matter:
+//   · TREES has a THIRD concurrent caller the others do not: `fetchContextCanopySet` reads trees +
+//     parks + canopy in one `Promise.all` for the canopy join, on top of the warm and the pane mount.
+//   · FURNITURE and CANOPY are ABSENT from the live tileset, and their readers deliberately do NOT
+//     cache a non-`ok` result (a transient blip must never become a session-long "no lamps"). So the
+//     resolved-value cache never fills for them at all, and WITHOUT this guard every overlapping
+//     caller ran a full read. §CTX-KNOWN-MISSING bounds the repeat to a memo lookup — but it only
+//     arms after the first probe RETURNS, which is precisely the window these callers overlap in.
+
+describe('§CTX-ONE-READ-PER-BBOX — rail', () => {
+    it('THREE concurrent callers of the same bbox make ONE tile read, not three', async () => {
+        const [lat, lon] = coldSite();
+        const a = fetchContextRail(lat, lon);
+        const b = fetchContextRail(lat, lon);
+        const c = fetchContextRail(lat, lon);
+        expect(tileReads).toEqual(['rail']);
+        await settle();
+        const [ra, rb, rc] = await Promise.all([a, b, c]);
+        expect(tileReads).toEqual(['rail']);
+        expect(ra).toBe(rb);
+        expect(rb).toBe(rc);
+    });
+
+    it('an aborting caller gets nothing and the shared read still completes for the others', async () => {
+        const [lat, lon] = coldSite();
+        const ctrl = new AbortController();
+        const aborting = fetchContextRail(lat, lon, ctrl.signal);
+        const watching = fetchContextRail(lat, lon);
+        ctrl.abort();
+        await settle();
+        expect((await aborting).ways).toEqual([]);
+        expect((await watching).type).toBe('ContextRailCollection');
+        expect(tileReads).toEqual(['rail']);
+    });
+});
+
+describe('§CTX-ONE-READ-PER-BBOX — trees', () => {
+    it('THREE concurrent callers of the same bbox make ONE tile read, not three', async () => {
+        const [lat, lon] = coldSite();
+        const a = fetchContextTrees(lat, lon);
+        const b = fetchContextTrees(lat, lon);
+        const c = fetchContextTrees(lat, lon);
+        expect(tileReads).toEqual(['trees']);
+        await settle();
+        const [ra, rb, rc] = await Promise.all([a, b, c]);
+        expect(tileReads).toEqual(['trees']);
+        expect(ra).toBe(rb);
+        expect(rb).toBe(rc);
+    });
+
+    it('an aborting caller gets nothing and the shared read still completes for the others', async () => {
+        const [lat, lon] = coldSite();
+        const ctrl = new AbortController();
+        const aborting = fetchContextTrees(lat, lon, ctrl.signal);
+        const watching = fetchContextTrees(lat, lon);
+        ctrl.abort();
+        await settle();
+        expect((await aborting).trees).toEqual([]);
+        expect((await watching).type).toBe('ContextTreeCollection');
+        expect(tileReads).toEqual(['trees']);
+    });
+});
+
+describe('§CTX-ONE-READ-PER-BBOX — furniture (the layer that is ABSENT today)', () => {
+    it('THREE concurrent callers of the same bbox make ONE tile read, not three', async () => {
+        const [lat, lon] = coldSite();
+        const a = fetchContextFurniture(lat, lon);
+        const b = fetchContextFurniture(lat, lon);
+        const c = fetchContextFurniture(lat, lon);
+        expect(tileReads).toEqual(['furniture']);
+        await settle();
+        const [ra, rb, rc] = await Promise.all([a, b, c]);
+        expect(tileReads).toEqual(['furniture']);
+        expect(ra).toBe(rb);
+        expect(rb).toBe(rc);
+    });
+
+    it('⭐ an ABSENT archive still costs ONE read for N callers — and stays `absent`, not `unavailable`', async () => {
+        // The live case: `furniture.pmtiles` 404s its header, so nothing is ever put in the
+        // resolved-value cache by the `ok` branch. The guard is the only thing between two
+        // overlapping callers and two full reads.
+        readOutcome = { status: 'unavailable', reason: 'header read failed: Bad response code: 404' };
+        const [lat, lon] = coldSite();
+        const a = fetchContextFurniture(lat, lon);
+        const b = fetchContextFurniture(lat, lon);
+        expect(tileReads).toEqual(['furniture']);
+        await settle();
+        const [ra, rb] = await Promise.all([a, b]);
+        expect(tileReads).toEqual(['furniture']);
+        // ⛔ §CONTEXT-DATA-HONESTY — de-duplicating the READ must not collapse the two states.
+        // ABSENT ("not baked for this tileset version") is an honest EMPTY; `unavailable` is not.
+        expect(ra.state).toBe('absent');
+        expect(rb.state).toBe('absent');
+    });
+
+    it('a caller that aborts keeps its own `aborted` state — the state is per CALLER, not per read', async () => {
+        const [lat, lon] = coldSite();
+        const ctrl = new AbortController();
+        const aborting = fetchContextFurniture(lat, lon, ctrl.signal);
+        const watching = fetchContextFurniture(lat, lon);
+        ctrl.abort();
+        await settle();
+        expect((await aborting).state).toBe('aborted');
+        expect((await watching).state).toBe('ok');
+        expect(tileReads).toEqual(['furniture']);
+    });
+});
+
+describe('§CTX-ONE-READ-PER-BBOX — canopy (opt-in bake, absent from the live tileset)', () => {
+    it('THREE concurrent callers of the same bbox make ONE tile read, not three', async () => {
+        const [lat, lon] = coldSite();
+        const a = fetchContextBakedCanopy(lat, lon);
+        const b = fetchContextBakedCanopy(lat, lon);
+        const c = fetchContextBakedCanopy(lat, lon);
+        expect(tileReads).toEqual(['canopy']);
+        await settle();
+        const [ra, rb, rc] = await Promise.all([a, b, c]);
+        expect(tileReads).toEqual(['canopy']);
+        expect(ra).toBe(rb);
+        expect(rb).toBe(rc);
+    });
+
+    it('⭐ an UNREADABLE archive — the live case — still costs ONE read for N callers', async () => {
+        // Canopy caches NOTHING on a non-`ok` read, by design. Two overlapping callers therefore
+        // meant two full reads before this guard, every time, for a layer that is never there.
+        readOutcome = { status: 'unavailable', reason: 'header read failed: Bad response code: 404' };
+        const [lat, lon] = coldSite();
+        const a = fetchContextBakedCanopy(lat, lon);
+        const b = fetchContextBakedCanopy(lat, lon);
+        expect(tileReads).toEqual(['canopy']);
+        await settle();
+        await Promise.all([a, b]);
+        expect(tileReads).toEqual(['canopy']);
+        // ⚠ And the guard RELEASES: a later call re-reads rather than being pinned to the failure.
+        // A failure that memoised itself here would be §CONTEXT-DATA-HONESTY's exact defect.
+        const again = fetchContextBakedCanopy(lat, lon);
+        expect(tileReads).toEqual(['canopy', 'canopy']);
+        await settle();
+        expect((await again).points).toEqual([]);
+    });
+});
+
 // ── §MUTATION PROOF (lane STARTUP-PROVE, 2026-09-07) ──────────────────────────────────────────
 //
 // The parks guard was removed (`await readParksForBbox(...)` called directly, no `inFlight`) and
@@ -196,3 +355,18 @@ describe('§CTX-ONE-READ-PER-BBOX — the guard releases, so a session is not pi
 //     → AssertionError: expected [ 'parks', 'parks' ] to deeply equal [ 'parks' ]
 // The mutation was reverted. THREE is the number the founder's console printed; this file is the
 // reason it cannot come back silently.
+//
+// ── §MUTATION PROOF, THE FOUR LATER LAYERS (lane STARTUP-FIX, 2026-09-07) ─────────────────────
+// Re-run for the layers added above, one file at a time, guard removed (`await readXForBbox(...)`
+// called directly), BEFORE commit:
+//   · contextRail.ts      → 2 failed | 14 passed
+//       × THREE concurrent callers … → expected [ 'rail', 'rail', 'rail' ] to deeply equal [ 'rail' ]
+//       × an aborting caller … does NOT cancel the read the others are awaiting (hung to the 10 s
+//         timeout: with no shared read, the second caller's own read never got released)
+//   · contextFurniture.ts → 3 failed | 13 passed
+//       × THREE concurrent callers …    → expected [ 'furniture', 'furniture', 'furniture' ] …
+//       × ⭐ an ABSENT archive still costs ONE read → expected [ 'furniture', 'furniture' ] …
+//       × a caller that aborts keeps its own `aborted` state (hung, same cause)
+// Both mutations were reverted and the file re-run: 16 passed. The absent-archive case failing is
+// the one worth naming — it is the case a reviewer would assume could not matter, because "the
+// layer 404s anyway", and it is the case where nothing is cached and every caller paid in full.

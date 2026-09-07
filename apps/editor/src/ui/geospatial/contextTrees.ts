@@ -34,6 +34,22 @@ export interface ContextTreeCollection {
 
 const cache = new Map<string, ContextTreeCollection>();
 
+/**
+ * §CTX-ONE-READ-PER-BBOX (L-585) EXTENDED TO TREES (L-13110, lane STARTUP-FIX 2026-09-07).
+ *
+ * Same shape, same reason as contextParks/contextLanduse/contextRail: the resolved-value cache above
+ * is populated on COMPLETION, so it cannot serve a caller issued while the first read is still in
+ * flight — and trees have THREE such callers by construction (`warmAllContextLayers`,
+ * `CesiumViewport.loadContextTrees`, and `fetchContextCanopySet`, which reads trees + parks + canopy
+ * together for the canopy join). Each duplicate paid a full tile-list computation, `Promise.all`,
+ * per-read bbox crop and collection build.
+ *
+ * ⚠ NOT the tile bytes — `contextTiles.tileInFlight` already shares those (§CTX-READ-PROVENANCE).
+ * ⚠ THE SHARED READ TAKES NO ABORT SIGNAL (L-585); each caller honours its own after the await, so
+ * an abort cancels the RENDER and never a download the other callers are awaiting (§L-579).
+ */
+const inFlight = new Map<string, Promise<ContextTreeCollection>>();
+
 function bboxKey(b: Bbox): string { return 'trees:' + b.map((n) => n.toFixed(4)).join(','); }
 
 export function emptyTreeCollection(): ContextTreeCollection {
@@ -72,9 +88,24 @@ export async function fetchContextTrees(
     const hit = cache.get(key);
     if (hit) return hit;
 
+    // §CTX-ONE-READ-PER-BBOX (L-585 / L-13110) — de-duplicate ABOVE the tile read, see `inFlight`.
+    let shared = inFlight.get(key);
+    if (!shared) {
+        shared = readTreesForBbox(bbox, key, halfDeg).finally(() => { inFlight.delete(key); });
+        inFlight.set(key, shared);
+    }
+    const collection = await shared;
+    // ⚠ EACH CALLER HONOURS ITS OWN SIGNAL, AFTER THE SHARED READ (§L-579).
+    if (signal?.aborted) return emptyTreeCollection();
+    return collection;
+}
+
+/** The ONE read for a bbox. Called only through `fetchContextTrees`, which owns the cache and the
+ *  one-read-per-bbox guarantee. Never throws. ⚠ Takes NO `AbortSignal` by design — see `inFlight`. */
+async function readTreesForBbox(bbox: Bbox, key: string, halfDeg: number): Promise<ContextTreeCollection> {
     // §SITE-SCOPE F-2 — trees are baked z14–16 with `--drop-densest-as-needed`: a read stepped below
     // z16 DELETES trees. The scope-range cap keeps the read at z16 out to the slab's rim.
-    const tiled = await readContextTileFeatures('trees', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) });
+    const tiled = await readContextTileFeatures('trees', bbox, undefined, { fanOutCap: scopeReadFanOutCap(halfDeg) });
     if (tiled.status === 'ok') {
         const collection = treesFromTileFeatures(tiled.features);
         cache.set(key, collection);
