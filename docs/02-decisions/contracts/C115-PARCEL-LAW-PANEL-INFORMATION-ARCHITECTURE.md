@@ -124,6 +124,226 @@ far the project has got*. A PR that reconciles them **MUST** amend this clause f
 
 ---
 
+### §1.3 — ⭐ WHERE EACH STAGE'S NORMATIVE SECTION LIVES
+
+`C115-108` The seven stages of `C115-05` are each governed by exactly one section. The mapping is
+stated here because **it is not the numeric order of this file, and a reader who assumes it is will
+conclude that three stages are ungoverned** — which is exactly what happened between the mint and
+this amendment.
+
+| Stage | Its normative section | Minted |
+|---|---|---|
+| **01 PARCEL** | **§1.4** | this amendment |
+| **02 BUILDABILITY** | **§1.5** | this amendment |
+| **03 DESIGN ENVELOPE** | §6 | at mint |
+| **04 FEASIBILITY** | §7 | at mint |
+| **05 PROGRAMME** | §8 | at mint |
+| **06 COST** | §9 | at mint |
+| **07 BIM** | **§1.6** | this amendment |
+
+⚠ **WHY THE NUMBERING IS ASYMMETRIC, STATED RATHER THAN TIDIED.** Stages 03–06 took §6–§9 at mint;
+stages 01, 02 and 07 had no section at all — the completeness gap this amendment closes. Renumbering
+§6–§17 to make the stages contiguous would move every one of this file's internal `§N`
+cross-references, the acceptance criteria that cite them, and both gates' citation baselines, **to
+buy nothing but tidiness.** `C115-109` A PR that renumbers **MUST** move every cross-reference in the
+same commit and **MUST** amend this table; nothing else licenses it.
+⛔ **§1.5 is the most important section in this document and its number is the smallest.** Do not
+read weight off the ordinal.
+
+---
+
+### §1.4 — STAGE 01: PARCEL — *"What is this site?"*
+
+`C115-110` Stage 01 **MUST** render, from the parcel producers and never re-derived here (C19 §5.6
+clause 1): cadastral reference · address · **all three areas as three facts** (registry · from-ring ·
+measured-in-scene, §2.3(a)) · perimeter · bounding box · boundary edges with the street-frontage
+clause · planning zone · source · retrieval date · confidence/match tier. `C115-111` The full
+technical detail **MUST** sit behind the **"View full parcel data"** disclosure of §11 — which does
+not exist yet (§3, PR-A-04) and whose absence is a gap, not a licence to drop the detail.
+
+`C115-112` Every honesty string this stage already speaks **MUST** survive: the amber
+*"⚠ Building footprint (OSM) — NOT a legal cadastral parcel … carries no cadastral reference"*, the
+`Match: low` row, `PARCEL_PROVENANCE_ABSENT_TEXT`, `PARCEL_NO_BOUNDARY_TEXT`, `PARCEL_USER_DRAWN_NOTE`
+and `PARCEL_AREA_DERIVED_NOTE` — the last ⭐ **on the same line as the figure** (STR §26.6.1, the
+founder's own correction), never as an orphaned caption beneath it. §3.E PR-E-03 … PR-E-08.
+
+#### §1.4.1 — ⭐⭐ THE FOUNDER'S RULE 2, MADE NORMATIVE HERE — *"EVERY FIGURE IS A HYPERLINK"*
+
+**This clause exists because the mint had nowhere to put rule 2.** STR §26.6.0 rule 2
+([`STR-RESIDENTIAL-DESIGN-ORCHESTRATOR.md`](../../01-strategy/STR-RESIDENTIAL-DESIGN-ORCHESTRATOR.md))
+reads: *"IF THE USER SELECTS AREA IT WORKS LIKE A HYPERLINK … THE AREA IN THE LEFT HAND SIDE 2D MAP
+VIEW OR 3D SITE VIEW SHOULD HIGHLIGHT THE AREA (IN PRYZM VIOLET COLOUR)"*, and it names its own two
+halves: *"(a) move that behaviour up to §1 where the figure lives, and (b) make following it actually
+paint on the view."*
+⛔ **AT MINT THIS BECAME PR-G-26 ALONE, AND THAT WAS WRONG.** PR-G-26 is a **preservation** row over
+the **six existing** highlight-row control call sites. *Preserving six call sites* and *every
+Stage-01 figure being a link that paints* are different obligations, and only the first was written
+down. The second is written down here.
+
+`C115-113` ⭐ **THE FIVE FIGURE FAMILIES THE FOUNDER ENUMERATES — *"Applies to: `Area`, `Perimeter`,
+`Bounding box`, `Boundary edges`, and every setback vector"* — MUST each be a real focusable control
+that, when followed, PAINTS its own geometry on whichever site view is open**, in PRYZM violet:
+
+| # | Figure family | What it paints | Subject |
+|---|---|---|---|
+| **F-1** | **Area** (all three of §2.3(a)) | the parcel ring, filled | the parcel-area subject |
+| **F-2** | **Perimeter** | the ring as a ring, not a fill | its own subject |
+| **F-3** | **Bounding box** | the box — ⚠ **not** the ring; a box is a different claim | `bbox` |
+| **F-4** | **Boundary edges** | the edge set, and ⭐ **one edge alone when one edge is followed** | parametrised `edge:<n>` |
+| **F-5** | **Every setback vector** | that edge's setback, per edge, from the setback register | per-edge, `apps/editor/src/ui/site/setbackRegisterSection.ts` |
+
+`C115-114` ⛔ **ONE HIGHLIGHT PATH, NOT TWO.** The paint **MUST** go through the existing
+`apps/editor/src/ui/site/siteGeometryHighlight.ts` +
+`apps/editor/src/ui/site/siteHighlightRowControl.ts` layer (STR §26.6.6; C58 §1.19 clause 2). The 2D
+map and Cesium are different renderers in different frames — ADR-0115: the plan draws the AUTHORING
+frame, de-rotated by θ — so a second implementation is a divergence with a legal consequence, not a
+duplication of effort.
+
+`C115-115` ⛔ **A FIGURE THAT CANNOT PAINT MUST SAY SO AND MUST NOT BE A CONTROL.** §3.G's
+three-state rule applies unchanged: a real control where the geometry exists, ordinary text or a
+disabled control **carrying the reason** where it does not (the ~15 unavailability sentences of
+PR-A-13), **never a dead click**. ⭐ `Maximum levels` is the worked example and it is CORRECT as it
+stands: storeys have no geometry to light, so it carries no subject.
+
+`C115-116` ⛔ **A FIGURE THAT IS ALREADY A CONTROL MUST NOT BECOME PLAIN TEXT WHEN IT MOVES.** This
+is the named regression of the relocation: rule 2 and §2.5 collide on every block this refactor
+lifts, and the ceiling-headline lift shipped with exactly that risk attached to it in writing.
+`C115-117` A PR that moves a figure between hosts **MUST** re-assert its highlight wiring in the same
+PR — the `wireSiteHighlightRows(panel)`-after-`innerHTML` ordering is load-bearing and is destroyed
+by a whole-panel repaint.
+
+⚠ **NOT-YET-TRUE, AND THE HONEST STATE IS A MATRIX NOBODY HAS BUILT.** The standing ask was the
+audit before the construction — *"establish what the click actually does today per figure and per
+view, and report the matrix (figure × view → highlights / does nothing / throws) BEFORE building"* —
+and **that matrix does not exist.** What IS measured: question 1's rows were never controls
+(`apps/editor/src/ui/site/parcel/parcelCard.ts`; the only wire was on the envelope panel), both view
+subscribers exist at HEAD, and `bbox` + parametrised `edge:<n>` subjects have landed.
+`C115-118` The matrix **MUST** be produced before **AC-19** may be reported as met; a passing spec on
+one view is not the criterion.
+
+---
+
+### §1.5 — ⭐⭐ STAGE 02: BUILDABILITY — THE CANONICAL HOME OF THE PERMITTED ENVELOPE
+
+**This is the stage §1's own table calls *"the canonical home for the maximum permitted envelope"*,
+and at mint its entire normative guidance was one *"should"* in a file that says MUST 107 times.** It
+is also the stage §2.2 assigns the most values to, and the stage whose figures are cited to ordinance
+articles. It gets clauses.
+
+`C115-119` Stage 02 **MUST** contain, as its own rows, the values §2.2's table assigns to **02**: max
+implantation/footprint · max GFA · max height · max levels · buildable depth · alignment offset ·
+setbacks and boundary conditions · max FAR · max site coverage · permitted uses · density/dwelling
+limits · other constraints. `C115-120` It **MUST NOT** re-derive any of them (C19 §5.6 clause 1);
+every one is read from the determination producer that already owns it.
+
+`C115-121` ⭐ **THE FOUR NAMED CEILINGS MUST BE PRESENT AS ROWS WHETHER OR NOT THEY CARRY A VALUE.**
+STR §26.6.2, the founder's own names for them: **Maximum buildable area** (all floors, GFA) ·
+**Maximum implantation area** (in plan, ground floor only) · **Maximum height** · **Maximum levels**.
+⭐ *"The requirement is that the four are NAMED and PRESENT as rows, not that they are filled."*
+A `not derived` row is the answer; an absent row is an overstatement (§4.1, PR-E-17).
+
+#### §1.5.1 — ⛔ THE PER-ROW SHAPE IS A MUST, NOT A STYLE PREFERENCE
+
+`C115-122` ⛔ **EVERY REGULATORY ROW IN STAGE 02 MUST CARRY FOUR THINGS, IN THIS ORDER, ON THE ROW
+ITSELF:**
+
+| Slot | Obligation | Where it comes from today |
+|---|---|---|
+| **VALUE** | the figure, or one of §4.1's seven states — ⛔ **never an empty field, never `0` standing in for an unknown** | the determination producer |
+| **STATUS** | which §4.1 state this row is in, spelled with the **one** minted vocabulary of §4.2 | `C115-33` |
+| **SOURCE / CONFIDENCE** | the basis badge (`FactBasis`: ceiling · derived · assumed, PR-C-30) **and** the confidence tier, weakest-wins (PR-C-28) | `apps/editor/src/ui/analysis/parcelLawFacts.ts` |
+| **"Why?"** | a per-value disclosure opening the derivation, the legal text, the calculation and the citations | §11, `C115-94` |
+
+`C115-123` This is the founder's own worked example and it is normative as written: *"19.0 m —
+Buildable depth · PUB · DERIVED · Why? → opens the existing detailed derivation, legal text,
+calculation and citations."* `C115-124` ⛔ **A row that carries a VALUE and no STATUS is the defect
+this contract exists to prevent** — it is how *"`Max height 22.4 m` (a hard legal ceiling) reads
+exactly like `Footprint perimeter 85.7 m` (a derived convenience)"* (L-13018, §4.3).
+
+`C115-125` ⭐ **PROMOTED FROM `C115-101`, WHICH SAID *"should"*: the unreachable law-scope rendering
+(`apps/editor/src/ui/analysis/parcelLawFacts.ts`, `scope: 'law'`) MUST be the BASIS of the new
+Buildability block.** It is a **MUST** because it is the **only** implementation of the four-slot
+shape above that exists: three setbacks as **separate rows each with its own not-derived state**
+(against the card's one collapsed triple string), a named buildable-footprint row, a max-GFA row, and
+the `FactBasis` badges. ⛔ **Rebuilding that shape beside it, rather than reaching it, mints the
+second producer §2.1 and C06 §13.3 forbid** — and leaves the Q2 digest probes
+(`apps/editor/src/ui/analysis/parcelLawQuestionGroup.ts`, PR-H-02, D-10) pointing at a rendering
+nothing mounts.
+
+#### §1.5.2 — The setback register lands here, and it is the largest single addition
+
+`C115-126` The per-edge setback register (`apps/editor/src/ui/site/setbackRegisterModel.ts` +
+`apps/editor/src/ui/site/setbackRegisterSection.ts`, PR-A-12) **MUST** be hosted by Stage 02, as the
+**Details** layer of §2.3(b)'s Summary → Details → Evidence ladder. `C115-127` Each row **MUST** keep
+its edge length, edge class, verdict arm (6, PR-C-03) and per-edge citation, and `C115-128` ⛔ **where
+an edge's class is unknown the register MUST SAY SO PER EDGE and MUST NOT infer one** — C19 §2.3
+`edgeClassifications` authoring is C19 §10.1-pending, and *"a setback PRYZM guesses is a fabricated
+legal fact"* (L-12993). The two spellings of unknown (PR-C-04) do not merge.
+
+#### §1.5.3 — The stage's own honesty obligations
+
+`C115-129` The refusal arms (PR-B-03) and the absence arms (PR-B-02) belong to this stage and
+**MUST** render here rather than being pushed to a later one: a parcel whose envelope is **refused
+with citations** has been answered, and `C115-130` ⛔ **Stage 02 MUST NOT gate Stage 03** — C58 §1.20
+and the founder's ruling, *"having an envelope should not be the single pre-requisite to advance on
+going through the parcel law process — the user still should be able to"* (L-13032). A `null`
+envelope is **a state to render, not a branch to skip** (C58 §1.20 clause 4), and the next-step
+affordance survives it (L-13041).
+
+---
+
+### §1.6 — STAGE 07: BIM — *"Am I ready for BIM?"*
+
+`C115-131` Stage 07 **MUST** state, before the user commits to a build, **what transfers**: parcel
+context · regulatory envelope · selected design envelope · levels · programme · room envelopes ·
+quantities and assumptions. `C115-132` The **"Continue to BIM"** affordance and the existing
+**"Create house"** route **MUST** both remain reachable — §3.G PR-G-24 and PR-G-25 are two routes,
+not one, and C19 §5.6 clause 4 is the standing rule: *a route is added, never removed*.
+
+`C115-133` The **8** will-create items, the **2** will-not-create items (columns, beams —
+*"the difference between a capability and a claim"*), the **6** build-from-design will-not items, the
+`refusedRooms` block and the per-room skip codes (§3.A PR-A-04/PR-A-05, §3.C PR-C-24/PR-C-25)
+**MUST** all remain reachable from this stage. They are the only place the product says what a
+"Create" will NOT do.
+
+#### §1.6.1 — ⛔⛔ THE STOREY LOSS MUST BE STATED ON THIS STAGE, TODAY
+
+**The gap this closes, in one sentence: a user who face-drags five storeys in Stage 03 reaches
+Stage 07 and silently gets one.** §6.3(3) establishes the fact —
+`apps/editor/src/ui/site/buildFromDesignPlan.ts` declares `storeyCount` under the doc comment
+*"Always 1. This pass builds the ground plate; see the header."* — and `C115-57` puts the obligation
+on *"a PR claiming per-storey massing"*. ⛔ **So nothing required the product to tell the user TODAY,
+and a limitation nobody is told about is indistinguishable from a bug.**
+
+`C115-134` ⛔ **STAGE 07 MUST RENDER WHAT DOES *NOT* TRANSFER, WITH BOTH NUMBERS, BEFORE THE BUILD IS
+DISPATCHED — not after it, and not only inside a refusal arm.** The sentence shape is the one §6.1
+already pins and STR §26.6.0 rule 3 supplies: *"Your design has **5** storeys. This build creates
+**1** — the ground plate. The other 4 level envelopes are kept and are not deleted."*
+
+`C115-135` The statement **MUST** hold all three of:
+
+1. **BOTH NUMBERS** — designed storeys and built storeys, never *"multi-storey is not supported"*
+   alone. A count the user can compare against his own design is the whole point (C83 / C74).
+2. **WHAT HAPPENS TO THE REST** — ⛔ the level envelopes that do not transfer are **kept**, and the
+   sentence says so. `INTENT_REFUSAL_CONSEQUENCE`'s *"Nothing was trimmed"* (PR-E-23) is the model:
+   the product states the consequence rather than leaving the user to infer a deletion.
+3. **THE WAY OUT, OR ITS HONEST ABSENCE** — C82 §1.2 and the `refusing-half-needs-its-escape-hatch`
+   record. Where there is no way out today, the stage says that, and **MUST NOT** offer a control
+   that cannot deliver one (§3.G's *"never a dead click"*).
+
+`C115-136` ⛔ **A ONE-STOREY BUILD MUST NOT BE PRESENTED AS THE DESIGN.** The *"Create BIM from this
+design"* affordance names the design; if it builds a fraction of it, the fraction is named on the
+same surface, at the same weight. This is `C115-01`'s preservation rule applied to a **claim** rather
+than to a figure: silently shipping one storey where five were authored loses four storeys of
+information in the one place the user would look for them.
+
+⚠ **NOT-YET-TRUE — THE PRODUCT DOES NOT SAY THIS TODAY, SO THIS CLAUSE IS AN OBLIGATION, NOT A
+DESCRIPTION.** What ships is *"this pass builds only the lowest"* as an advisory, and an **ambiguous**
+refusal when more than one level envelope exists (§6.3(3)) — the refusal names the *rivalry*, not the
+*loss*, and the advisory carries **no numbers**. `C115-137` The clause above is met when the
+**designed** count and the **built** count both appear on Stage 07 in the NON-refusing case; a
+passing spec on the refusal arm does not meet it.
+
 ## §2 — THE ONE-PLACE RULE, AND THE CANONICAL-HOME TABLE
 
 ### §2.1 — The rule, in the founder's words, made normative
