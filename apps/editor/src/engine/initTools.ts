@@ -2078,6 +2078,35 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     + 'undoable and saved; only the 3-D leg is absent.',
                 );
             } else {
+                // ⭐ §ENVELOPE-WALLS-FOLLOW / §ENVELOPE-PARTITIONS-FOLLOW — THE CONSUMER.
+                // Founder: *"THE ENVELOPE BEING EXTENDED ON PRYZM 3D VIEW SHOULD MEANS THE CONTEXT
+                // WALLS - PERIMETER WALLS SHALL FOLLOW AND THEE INTERIOR PARTITIONS TOO."*
+                //
+                // ⭐ INSTALLED ONCE, ON THE RUNTIME — NOT ONCE PER SURFACE. The event is raised by
+                // the GESTURE, on whichever surface it ran, so this ONE registration covers the
+                // BIM 3-D viewport below AND the 3-D Site's own `installSpaceEnvelopeFaceDragOnSurface`
+                // in `GISAreaLayout.ts`, and a third surface will need no wiring at all. Installing
+                // it per surface would be N copies of the C80 decision (C84 EI-9) and N cascades
+                // for one drag.
+                //
+                // ⛔⛔ MOVED TO THE TOP OF THIS BRANCH 2026-09-07 (lane WALLS-FOLLOW-WIRE), AND THE
+                // ORDER IS THE WHOLE POINT. It used to sit BELOW `attachSpaceEnvelopeRender`, which
+                // dereferences `world.scene.three`, `world.renderer.three.domElement` and
+                // `world.camera.three` with no `try`. ⇒ ANY boot where the THREE world is not fully
+                // up — a lost WebGPU device, a renderer that has not attached, a project restore
+                // racing the viewport — threw there and the cascade NEVER INSTALLED. On the 3-D
+                // Site, which needs no THREE at all, the founder would then drag a face, watch the
+                // envelope move, watch the building NOT follow, and be told NOTHING: the drag would
+                // emit `pryzm:spaceEnvelope:faceMoved` into an empty listener set.
+                // That is [[authored-but-unwired]] with a renderer failure as its trigger. This
+                // consumer needs `runtime.events` and NOTHING else, so it is armed FIRST, and the
+                // 3-D Site's gesture no longer depends on the BIM viewport having booted.
+                //
+                // ⚠ The runtime is passed as a THUNK, never captured: §L-545-SITE-CAPTURE /
+                // §L-12916 — a reference held across a project switch is a reference to a runtime
+                // that no longer exists.
+                installSpaceEnvelopeWallFollow(() => runtime as unknown as WallFollowRuntimeLike);
+
                 // ⭐⭐ §RESI-STAGE-G (2026-09-06) · C114 §10b / §11 item 7 — THE FOOTPRINT
                 // BECOMES EDITABLE, in the outline editor this app already builds for walls.
                 //
@@ -2184,7 +2213,8 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     //
                     // ⭐ UPDATED 2026-09-07 (lane FACE-DRAG-FINISH, §ENVELOPE-WALLS-FOLLOW). This
                     // comment used to end *"There are ZERO consumers in the tree today"*. There is
-                    // now exactly ONE: `installSpaceEnvelopeWallFollow` (below), which reads the
+                    // now exactly ONE: `installSpaceEnvelopeWallFollow` (armed at the TOP of this
+                    // branch, deliberately ahead of this render attach — see the note there), which reads the
                     // `wall —boundedBy→ envelope` edges and dispatches ONE `wall.cascadeBaseline`.
                     // The founder ruling that lane was waiting on is MADE and lives in
                     // `spaceEnvelopeWallFollowPlan.ts`: a wall that no longer spans the edge PRYZM
@@ -2199,21 +2229,6 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 });
                 console.log('[initTools] §FEAT-SPACE-ENVELOPE: store→mesh subscriber and face drag installed.');
 
-                // ⭐ §ENVELOPE-WALLS-FOLLOW (lane FACE-DRAG-FINISH, 2026-09-07) — THE CONSUMER.
-                // Founder: *"THE ENVELOPE BEING EXTENDED ON PRYZM 3D VIEW SHOULD MEANS THE CONTEXT
-                // WALLS - PERIMETER WALLS SHALL FOLLOW AND THEE INTERIOR PARTITIONS TOO."*
-                //
-                // ⭐ INSTALLED ONCE, ON THE RUNTIME — NOT ONCE PER SURFACE. The event is raised by
-                // the GESTURE, on whichever surface it ran, so this ONE registration covers the
-                // BIM 3-D viewport here AND the 3-D Site's own `installSpaceEnvelopeFaceDragOnSurface`
-                // in `GISAreaLayout.ts`, and a third surface will need no wiring at all. Installing
-                // it per surface would be N copies of the C80 decision (C84 EI-9) and N cascades
-                // for one drag.
-                //
-                // ⚠ The runtime is passed as a THUNK, never captured: §L-545-SITE-CAPTURE /
-                // §L-12916 — a reference held across a project switch is a reference to a runtime
-                // that no longer exists.
-                installSpaceEnvelopeWallFollow(() => runtime as unknown as WallFollowRuntimeLike);
             }
         }
 
