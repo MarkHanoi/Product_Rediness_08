@@ -25,10 +25,22 @@ never `does-not-exist`.
 | **Volume** | **100,209 plot polygons** across **209 named projects** |
 | **Carries** | plot polygon · `PLOT_NUMBER` · area · **GFA** · **max height in floors** · **per-side building & podium setbacks** · land use |
 | **Licence** | ⛔ **RESTRICTIVE — DDA T&C forbid copying, distributing and automated scraping.** See §5. **Do not bake to R2 without a written DDA licence.** |
-| **Coverage gap** | master-developer / free-zone land only. The Dubai Municipality-governed historic core (Deira, Bur Dubai) is **absent**. |
+| **Coverage gap** | master-developer / free-zone land only. The Dubai Municipality-governed historic core (Deira, Bur Dubai) is **absent from DDA** — but ⚠ **it is NOT absent from Dubai**, see the correction box below and §9. |
 
 **The access verdict and the licence verdict point in opposite directions.** That is the single most
 important sentence in this document. The data is trivially fetchable and legally encumbered.
+
+> ⛔ **CORRECTED 2026-09-07 by the adversarial re-test (§9) — the same day this survey was written.**
+> This document said the Dubai Municipality historic core was reachable only through the geo-fenced,
+> token-bearing Makani service, and listed "who holds the historic-core cadastre in machine-readable
+> form?" as an open question needing *"a UAE-egress probe … a VPN endpoint, a UAE-based contractor,
+> or a colleague on the ground."* **That was wrong.** The emirate-wide Dubai Municipality parcel
+> cadastre — **219,323 polygons, 214,883 of them inside the Dubai bbox, 11,457 in the Deira/Bur Dubai
+> core where DDA has 7** — is served by an **open, unauthenticated ArcGIS Online FeatureServer**
+> requiring no VPN and no token, and it has a **working 21 MB bulk download** as well.
+> ⛔ **This does NOT improve the legal position — it makes it worse.** That service carries **no
+> licence statement of any kind** and **146,383 named private landowners**. See §9 before acting on
+> any part of it. **Nothing in §9 is bakeable.**
 
 ---
 
@@ -407,3 +419,115 @@ curl -s -G "https://gis.dda.gov.ae/server/rest/services/DDA/BASIC_LAND_BASE/MapS
 
 ⚠ Running the harvest loop against this endpoint is the act clause 5.2 prohibits. The commands above
 are single verification probes. **Do not loop them without a licence.**
+
+---
+
+## 9. Adversarial re-test — 2026-09-07
+
+A second lane re-ran this survey under instruction to **assume every `does-not-exist` and
+`exists-but-gated` above is wrong until the untried access shapes have been tried**. One negative
+was overturned, and the overturn is large. Every probe below was run from this lane's own egress.
+
+### 9.1 OVERTURNED — the emirate-wide Dubai Municipality parcel cadastre is open
+
+§6.1 concluded the municipality-governed core reaches the public only through Makani
+(geo-fenced + token), and §7 Q3 asked who holds it "in machine-readable form". **It is on an open,
+unauthenticated ArcGIS Online FeatureServer.**
+
+```
+https://services7.arcgis.com/SITZ4PscFMpPlDb2/arcgis/rest/services/Landbase/FeatureServer/0
+```
+
+**The probe that overturned it.** The survey searched ArcGIS Online only inside the Smart Dubai org
+(`orgid:2lzWODtLAfYXzk2g`) and only tested `tiles.arcgis.com`. Re-running the AGOL catalogue search
+**unscoped** — `GET https://www.arcgis.com/sharing/rest/search?f=json&num=100&q=<8 Dubai land
+queries>` → 200, **143 distinct items** — surfaced an item titled `Landbase`, owner
+`jaya.arora_DEWA`, whose real `url` field points at `services7.arcgis.com`, a host never probed.
+
+| probe | result |
+|---|---|
+| `GET .../Landbase/FeatureServer?f=json` | 200 · layers `PARCELS`, `Community` · desc *"Layers will be used to create Tracker Dashboard"* |
+| `GET .../FeatureServer/0?f=json` | 200 · `esriGeometryPolygon` · maxRecordCount 1000 · 18 fields |
+| `.../0/query?where=1=1&returnCountOnly=true` | `{"count":219323}` |
+| `.../0/query` bbox `54.85,24.75,55.65,25.35` (Dubai emirate) | `{"count":214883}` — 98 % |
+| bbox `55.28,25.25,55.34,25.29` (Deira / Bur Dubai core) | `{"count":11457}` — **DDA returns 7** |
+| bbox `55.12,25.06,55.16,25.10` (Marina) | `{"count":2321}` — DDA returns 216 |
+| bbox `55.26,25.18,55.30,25.21` (Downtown) | `{"count":1259}` — DDA returns 179 |
+| bbox Abu Dhabi island / Al Ain | `{"count":0}` / `{"count":0}` — it is Dubai, not Abu Dhabi |
+| `resultOffset=219000&f=geojson&outSR=4326` | 200 · real WGS84 polygon — deep paging works; full harvest approx 220 requests |
+| `GET /sharing/rest/content/items/2472ac12a93f42308243e24514f47ab8/data` | **200, 21,025,985 bytes** — a working **bulk download** (Service Definition) |
+
+**It is genuinely the DM cadastre, not a lookalike.** `PARCEL_ID` values are the Dubai Municipality
+community-plot land number (`321-0175`, `127-1028`), `DMPARCEL_ID` is the concatenated integer form
+(`3210175`) — the same key space as DLD's `land_number` / `parcel_id` in §4.1, so the join in §7 Q1
+now has a **geometry partner that covers the whole emirate**. `PARCELID_TYPE=1` accounts for 147,214
+of the 219,323. `REMARKS` cite real operational provenance (*"Updated boundary asper Trakhees
+siteplan dt:17-07-2018; CSD ref - 1143132"*).
+
+Attribute fill across all 219,323: `PARCEL_ID` 218,204 (99.5 %) · `DMPARCEL_ID` 150,642 (68.7 %) ·
+`OWNER_OF_TITLE_E` 146,383 (66.7 %) · `ENTITLEMENT_E` 143,177 (65.3 %) · `LANDUSE_DESC` 399 (0.2 %) ·
+`AREA>0` **4**. Note the shape of that: this layer is **geometry + identity + tenure**, and carries
+**none of the envelope ruleset** the DDA layer does. It is the complement of DDA, not a replacement.
+
+### 9.2 The overturn makes the legal position WORSE, not better
+
+**Do not read §9.1 as a route to shipping.** Three findings, in ascending order of seriousness:
+
+1. **No licence exists at all.** The item's `licenseInfo` and `accessInformation` are both **empty
+   strings**. DDA at least has published T&C to read (§5); this has nothing.
+2. **It is an internal operational upload, not a publication.** Owner is a **DEWA** staff account;
+   the description is *"Layers will be used to create Tracker Dashboard"*; created 2020-04-07,
+   modified 2025-07-25. No authority has published this as open data. Technical openness here is
+   even weaker evidence of permission than it was for DDA — and §6.2 already established that DDA's
+   own openness is plausibly a configuration oversight.
+3. **It contains personal data.** `OWNER_OF_TITLE_E` holds **146,383 named private individuals**
+   (e.g. *"Ali Mohamed Ahmad Bin Mesmar Alshamsi"*). Harvesting and redistributing a register of
+   named landowners engages UAE Federal Decree-Law 45/2021 (PDPL) irrespective of any copyright
+   question. **This is a categorical stop, not a cost.**
+
+This lane deliberately did **not** harvest the layer, and did not retain the 21 MB bulk file. The
+counts above are `returnCountOnly` aggregates and a handful of single-record probes.
+
+⭐ **The right characterisation is: `EXISTS AND OPEN` on access, `PROHIBITED` on use, and probably
+an inadvertent public exposure that should be reported to DEWA/DM rather than consumed.**
+
+### 9.3 UPHELD — negatives re-probed and confirmed
+
+| survey verdict | re-probe | outcome |
+|---|---|---|
+| Smart Dubai AGOL org gated | all **219** items enumerated (not 4), each item's **real** `url` read, `tiles.arcgis.com` services re-hit, and the untried **`/sharing/rest/content/items/<id>/data`** download shape tried on the Scene Package, Service Definition and File Geodatabase | **UPHELD** — services `{"code":499,"message":"Token Required."}`, all five downloads **403**. A sibling host `services5.arcgis.com/2lzWODtLAfYXzk2g` *is* open (30 FeatureServers) but holds no parcel layer. |
+| 14 DDA folders token-gated | added the route the survey missed — the **ArcGIS Enterprise portal** at `gis.dda.gov.ae/portal`: `GET /portal/sharing/rest/search?q=*&f=json&num=100` → 200 `{"total":0}` | **UPHELD** — no public items; no way to enumerate the gated service names |
+| `gis.dubailand.gov.ae` no GIS | `/` → 200 (Apache default), `/arcgis/rest/services?f=json` → **404**, `/server/rest/services?f=json` → **404** | **UPHELD** |
+| Makani / Dubai Pulse geo-fenced | `WebFetch https://www.makani.ae/` → **ECONNREFUSED 213.42.50.142:443**; `curl https://www.dubaipulse.gov.ae/` → **000**. Counter-example strengthened: `rta.ae` → **200 from 213.42.51.106**, same Etisalat range | **UPHELD** — per-host policy, not an outage, and correctly never recorded as absent |
+| DDA T&C restrictive | fetched `dda.gov.ae/terms-and-conditions` independently — cl. 1.2 enumeration, cl. 5.1 *"All rights not expressly granted are reserved"*, cl. 5.2 *"may not copy, modify, distribute, sell, or lease"* / *"may not 'scrape' … through automated means"* | **UPHELD verbatim**, including that `gis.dda.gov.ae` is not itself named in cl. 1.2 |
+| DDA `Plot` = 100,209 | `returnCountOnly` re-run | **UPHELD** — `{"count":100209}` |
+
+### 9.4 Checked and empty — recorded so nobody re-walks them
+
+- **UAE national portal `bayanat.ae`** (200, the shape §3.6 never tried) — a Vue SPA, **not CKAN**:
+  `/api/3/action/package_search`, `/package_list` all return the portal's own 404 page.
+- **`geostat.fcsa.gov.ae/gisserver/rest/services?f=json`** (federal statistics GIS server, found via
+  the unscoped AGOL search) → returns an HTML shell, no service directory.
+- **GISTEC "Dubai Public View"** `services.arcgis.com/46fmtvwhb4064lMg/...` → 200, layers `Parcels`,
+  `Zones`, `Overlays`, `LOD1Buildings` — an **empty ArcGIS Urban template**: `Parcels`, `Zones` and
+  `Overlays` all `{"count":0}`.
+- **`services7.arcgis.com/SITZ4PscFMpPlDb2`** also holds ~40 `*_Plots` layers (ADQ, AADC, ADPorts,
+  Masdar, TwoFour54, SEHA) — those are **Abu Dhabi**, out of scope here but a live lead for an
+  Abu Dhabi lane.
+- Host sweep, all no-service: `gis.rta.ae`, `maps.rta.ae`, `opendata.rta.ae`, `gis.dewa.gov.ae`,
+  `gis.trakhees.ae`, `gis.pcfc.ae`, `maps.dmcc.ae`, `3d.dm.gov.ae` (all connect-fail/NXDOMAIN);
+  `api.dubailand.gov.ae` 200 but swagger paths 404.
+
+### 9.5 What changes in the recommendation
+
+§8 stands, with two amendments:
+
+- **§7 Q1 (the DLD↔DDA join) is now the wrong question.** The better join is DLD `parcel_id` ↔
+  **`DMPARCEL_ID`**, which is emirate-wide on both sides rather than DDA's 46 %. But **do not run
+  it on harvested data** — §9.2(3) means the owner column must not be pulled at all.
+- **§8.2 gains a third counterparty and a different ask.** The licence conversation is with **DDA**
+  (envelope rules), **DM** (Makani / the emirate cadastre) — and DEWA/DM should be told that
+  `Landbase` is publicly exposing 146,383 named landowners. That is a disclosure, not a negotiation.
+
+**§8.4 is unchanged and is the operative instruction: keep the honest OSM-footprint warning.** The
+re-test found more data, not more permission.
