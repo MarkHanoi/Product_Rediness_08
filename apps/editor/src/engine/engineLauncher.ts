@@ -57,6 +57,10 @@ import { semanticGraphManager } from '@pryzm/core-app-model';
 // which stage to attack. These marks name it. Passive: one `performance.now()` and one
 // array push per stage — no phase is gated, delayed or skipped because of a mark.
 import { markStartupPhase } from './startupBudget';
+// §STARTUP-BUILDERS-LEG — the tiled profile of the `boot:scene-done → boot:builders-done` span.
+// `markStartupPhase` gives ONE number for that whole span; this gives the per-step table plus
+// the own/foreign split that says whether the boot was running or waiting.
+import { beginBootLeg, bootStep, endBootLeg } from './bootStepProfile';
 import { initScene }          from './initScene';
 import { initDataPlatform }   from './initDataPlatform';
 import { initBuilders }       from './initBuilders';
@@ -296,13 +300,23 @@ export async function bootstrap(
     } = await initScene(container, runtime ?? null);
     markStartupPhase('boot:scene-done'); // §STARTUP-BUDGET
 
+    // §STARTUP-BUILDERS-LEG — open the tiled profile of the `boot:scene-done →
+    // boot:builders-done` span. That span read +18 626 ms on the founder's trace and was
+    // universally read as "`initBuilders` is 18.6 s", but SEVEN other things run inside it
+    // before `initBuilders` is even called, and a measured harness puts every store/builder
+    // constructor `initBuilders` runs at 11.4 ms combined. See `bootStepProfile.ts` for why a
+    // `markStartupPhase` delta cannot tell "our CPU" from "somebody else's, while we awaited".
+    beginBootLeg('builders');
+
     const highlighter = components.get(OBCF.Highlighter);
     highlighter.setup({ world }); highlighter.enabled = true;
+    bootStep('highlighter.setup');
 
     const {
         viewpoints, viewpointsTable, viewsTable,
         createViewpoint, updateViewsTable,
     } = initViewpointsPanel({ components, world });
+    bootStep('initViewpointsPanel');
 
     if (!world.renderer || !world.camera) throw new Error('World renderer or camera not initialized');
     {
@@ -316,8 +330,10 @@ export async function bootstrap(
         transformControls, levelPlaneConstraint,
         hostedDragController, wallTransformController, stairTransformController, wallEndpointController,
     } = createTransformControllers(world);
+    bootStep('createTransformControllers');
 
     const { zoomToAll } = initViewSetup({ components, world, viewController });
+    bootStep('initViewSetup');
 
     // ── Inspector (TDZ-lazy: selectionManager captured after initTools) ────────
     const materialMap = new Map(STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m]));
@@ -330,6 +346,7 @@ export async function bootstrap(
         materialMap,
         getCurrentVisualStyle: () => currentVisualStyle,
     }, runtime ?? null); // R4 fix: inject runtime so _bindGridSelectedEvent uses typed path
+    bootStep('new PropertyPanelAdapter');
     const bimViewport = container.querySelector('bim-viewport') as HTMLElement | null;
     const viewPropertiesPanel = new ViewPropertiesPanel({
         onViewUpdate: () => {},
@@ -350,6 +367,7 @@ export async function bootstrap(
     // was repaired and this one was not, which is exactly how an optional-chain
     // dispatch site stays dead: `?.` turns a wiring defect into silence.
     }, runtime ?? null);
+    bootStep('new ViewPropertiesPanel');
     window.viewPropertiesPanel = viewPropertiesPanel;
     window.runtime?.events?.on('view-selected', (payload: unknown) => { // F.events.8
         const view = (payload as { view?: object })?.view;
@@ -386,6 +404,7 @@ export async function bootstrap(
 
     // ── WASM (non-blocking) + HDRI (lazy) ─────────────────────────────────────
     (fragments as any)._initPromise = fragments.init('/fragments-worker.mjs');
+    bootStep('fragments.init (kickoff, not awaited)');
     let currentVisualStyle = VisualStyle.CONSISTENT_COLORS;
     let _hdriCache: Promise<THREE.Texture | null> | null = null;
     const getHdriTexture = (): Promise<THREE.Texture | null> => {
@@ -425,6 +444,9 @@ export async function bootstrap(
         columnBuilder, roofBuilder,
     } = await initBuilders({ scene: world.scene.three as THREE.Scene, bimManager, projectContext });
     markStartupPhase('boot:builders-done'); // §STARTUP-BUDGET
+    // §STARTUP-BUILDERS-LEG — prints the tiled table for the whole span above, with the
+    // own / foreign / idle split. Read THAT before believing the `+Nms` on the mark.
+    endBootLeg('builders');
     bimManager.setRoofStore(roofStore);
     bimManager.setGridStore(gridStore); // OI-044: inject GridStore into BimManager
     spatialAuthority.setRoofStore(roofStore);

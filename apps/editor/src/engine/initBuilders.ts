@@ -33,6 +33,12 @@ import type { CommandManager } from '@pryzm/command-registry';
 import type { BimManager } from '@pryzm/core-app-model';
 import type { ProjectContext } from '@pryzm/core-app-model';
 import { storeEventBus } from '@pryzm/core-app-model';
+// §STARTUP-BUILDERS-LEG — per-subsystem tiling of this function, so "builders took 18.6 s" can
+// be checked against WHICH subsystem, and against whether the boot was running or suspended.
+// The leg is opened/closed by `engineLauncher.ts` around the whole `boot:scene-done →
+// boot:builders-done` span; a `bootStep` with no open leg is a no-op, so calling `initBuilders`
+// from a test or a second boot path is unaffected.
+import { bootStep } from './bootStepProfile';
 // §C13-BUILDER-SCENE-CLEAR — the one owner of the project-switch scene sweep.
 import {
     clearProjectScopedBuilderGeometry,
@@ -332,6 +338,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
         if (column) columnBuilder.updateColumn(column);
     });
     console.log('[initBuilders] Column subsystem initialised');
+    bootStep('column');
 
     // ── Curtain Wall subsystem — stores only ──────────────────────────────────
     // CurtainWallBuilder and ColumnBuilder are owned by their respective tools
@@ -346,6 +353,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     const curtainPanelSyncHandler = new CurtainPanelSyncHandler(curtainWallStore, curtainPanelStore);
     curtainPanelSyncHandler.activate();
     console.log('[initBuilders] CurtainWall subsystem stores initialised');
+    bootStep('curtain-wall');
 
     // ── Slab subsystem ────────────────────────────────────────────────────────
     // §ADR-0318-ELEMENTS-SLOT (per-kind adoption, slab) — adopt the module
@@ -394,6 +402,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
         slabBuilder.removeSlab(id);
     });
     console.log('[initBuilders] Slab subsystem initialised');
+    bootStep('slab');
 
     // ── Ceiling subsystem ─────────────────────────────────────────────────────
     const ceilingStore = new CeilingStore();
@@ -425,6 +434,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
         ceilingBuilder.removeCeiling(id);
     });
     console.log('[initBuilders] Ceiling subsystem initialised');
+    bootStep('ceiling');
 
     // ── Floor subsystem ───────────────────────────────────────────────────────
     const floorStore = new FloorStore();
@@ -458,6 +468,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     const floorSlabBindingHandler = new FloorSlabBindingHandler({ floorStore, bimManager });
     floorSlabBindingHandler.attach();
     console.log('[initBuilders] Floor finish subsystem initialised');
+    bootStep('floor-finish');
 
     // ── Room subsystem ────────────────────────────────────────────────────────
     // §ADR-0318-ELEMENTS-SLOT (per-kind adoption, room) — adopt the module
@@ -472,11 +483,19 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // §13 / C3 fix: explicit DI for the boundary builder. workspaceController
     // and hierarchyStore are module singletons safe to import here; passing
     // them directly removes the implicit window-global runtime lookup.
+    bootStep('room (stores + builders, pre-DI)');
     try {
+        // §STARTUP-BUILDERS-LEG — MEASURED NOT TO BE A CHUNK DOWNLOAD. Both specifiers are
+        // already in the engine chunk: `@app/ui/WorkspaceController` is a STATIC import in
+        // `engineLauncher.ts:23`, and `@pryzm/core-app-model` is a static import at the top of
+        // this file and is routed to the `domain-engine` manual chunk by `vite.config.ts`. So
+        // this `await` costs a microtask, not a round trip — but it does YIELD the main thread,
+        // which is why it gets its own `await:` step rather than being folded into `room`.
         const [{ workspaceController }, { hierarchyStore }] = await Promise.all([
             import('@app/ui/WorkspaceController'),
             import('@pryzm/core-app-model'),
         ]);
+        bootStep('await:WorkspaceController + core-app-model');
         roomBoundaryBuilder.attachDependencies({
             roomStore,
             workspaceController,
@@ -542,6 +561,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     window.roomContentsService = roomContentsService;
 
     console.log('[initBuilders] Room subsystem initialised');
+    bootStep('room');
 
     // ── Door / Window singleton stores ────────────────────────────────────────
     // doorStore and windowStore are module-level singletons (not instantiated here).
@@ -549,6 +569,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     window.doorStore   = doorStore; // TODO(TASK-08)
     window.windowStore = windowStore; // TODO(TASK-08)
     console.log('[initBuilders] Door/Window singleton stores exposed on window');
+    bootStep('door/window stores');
 
     // ── Wall Store ────────────────────────────────────────────────────────────
     // WallTool wraps this store; wallTool.getWallStore() returns this instance.
@@ -571,18 +592,22 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // ── Wall + Slab type stores — async parallel import ───────────────────────
     // These are module-level singletons from their respective files; the dynamic
     // import avoids a heavy static import at bootstrap top level (PERF-FIX-#2).
+    bootStep('wall (store + plan-symbol builder)');
     const [{ wallSystemTypeStore }, { slabSystemTypeStore }] = await Promise.all([
         import('@pryzm/geometry-wall'),
         import('@pryzm/geometry-slab'),
     ]);
+    bootStep('await:geometry-wall + geometry-slab type stores');
     window.wallSystemTypeStore = wallSystemTypeStore; // TODO(TASK-08)
     window.slabSystemTypeStore = slabSystemTypeStore; // TODO(TASK-08)
     // §CW90 item 5 — publish the curtain-wall type catalogue for the chat
     // bridge's ctx.catalogues['curtain-wall'] row (ZeroTokenChatBridge
     // buildCatalogueChannel reads window.curtainWallTypeStore).
     const { curtainWallTypeStore } = await import('@pryzm/core-app-model/stores');
+    bootStep('await:curtainWallTypeStore');
     window.curtainWallTypeStore = curtainWallTypeStore; // TODO(TASK-08)
     console.log('[initBuilders] Wall + Slab system type stores loaded');
+    bootStep('wall');
 
     // ── Roof subsystem ────────────────────────────────────────────────────────
     // §ROOF-SYSTEM-AUDIT-2026 §10.2: retain the cleanup handler reference so its
@@ -606,8 +631,10 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // `SlabBuilderDeps.materialMap` is typed `Map`, not `ReadonlyMap`, so it gets
     // its own binding rather than a cast. Injected at the setDeps call below.
     let _slabMaterialMap: Map<string, any> | undefined;
+    bootStep('roof (store + cleanup handler)');
     try {
         const matLib = await import('@pryzm/core-app-model/material-library');
+        bootStep('await:material-library');
         _roofMaterialMap = new Map(matLib.STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m] as const));
         _slabMaterialMap = new Map(matLib.STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m] as const));
     } catch (err) {
@@ -644,6 +671,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
             .forEach(a => annotationStore.remove(a.id));
     });
     console.log('[initBuilders] Roof subsystem initialised');
+    bootStep('roof');
 
     // ── Plumbing subsystem ────────────────────────────────────────────────────
     const plumbingStore = new PlumbingStore();
@@ -695,6 +723,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
         }
     });
     console.log('[initBuilders] Plumbing subsystem initialised');
+    bootStep('plumbing');
 
     // ── Opening subsystem ─────────────────────────────────────────────────────
     const openingStore = new OpeningStore(projectContext);
@@ -736,6 +765,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // makes the feature exist for the user rather than only for the store.
     roofBuilder.setDeps({ openingStore });
     console.log('[initBuilders] Opening subsystem initialised — openingStore injected into slabBuilder + roofBuilder');
+    bootStep('opening');
 
     // ── Door + Window builders ─────────────────────────────────────────────────
     // Both builders self-subscribe to their respective stores via activate().
@@ -770,6 +800,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     new WindowLevelCleanupHandler(wallStore, commandManagerRef);
 
     console.log('[initBuilders] Door + Window builders activated (with dependency trackers)');
+    bootStep('door+window builders');
 
     // ── Furniture subsystem ───────────────────────────────────────────────────
     const furnitureStore = new FurnitureStore();
@@ -876,6 +907,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     });
 
     console.log('[initBuilders] Furniture subsystem initialised');
+    bootStep('furniture');
 
     // ── Lighting subsystem ────────────────────────────────────────────────────
     const lightingStore = new LightingStore();
@@ -917,6 +949,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     }
 
     console.log('[initBuilders] Lighting subsystem initialised');
+    bootStep('lighting');
 
     // ── Handrail subsystem ────────────────────────────────────────────────────
     const handrailStore = new HandrailStore(projectContext);
@@ -966,6 +999,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     window.addEventListener('bim-handrail-removed',
         (e: any) => { const id = e.detail?.id ?? e.detail?.handrailId; if (typeof id === 'string') handrailBuilder.removeHandrail(id); });
     console.log('[initBuilders] Handrail subsystem initialised');
+    bootStep('handrail');
 
     // ── Stair subsystem ───────────────────────────────────────────────────────
     const stairStore = new StairStore(projectContext);
@@ -1004,6 +1038,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     }
 
     console.log('[initBuilders] Stair subsystem initialised');
+    bootStep('stair');
 
     // ── Lift / vertical-circulation subsystem ──────────────────────────────────
     // Peer of the stair subsystem (mirror of the StairStore/StairMeshBuilder wiring
@@ -1030,6 +1065,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     const liftTypeStore = new LiftTypeStore();
 
     console.log('[initBuilders] Lift subsystem initialised');
+    bootStep('lift');
 
     // ── Beam subsystem ────────────────────────────────────────────────────────
     const beamStore = new BeamStore(projectContext);
@@ -1049,6 +1085,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     }
     beamStore.setBuilder(beamBuilder);
     console.log('[initBuilders] Beam subsystem initialised');
+    bootStep('beam');
 
     // §6.4 Room Containment Query Contract — finalise the contents service
     // now that every element store has been instantiated. From this point on,
@@ -1082,6 +1119,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     const gridStore = new GridStore(projectContext);
     window.gridStore = gridStore; // TODO(TASK-08)
     console.log('[initBuilders] Grid subsystem initialised');
+    bootStep('grid');
 
     // ── Room Bounding Line subsystem ──────────────────────────────────────────
     // Store is a module-level singleton (roomBoundingLineStore) — no constructor args.
@@ -1117,6 +1155,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
         if (data?.id) roomBoundingLineBuilder.delete(data.id);
     });
     console.log('[initBuilders] RoomBoundingLine subsystem initialised');
+    bootStep('room-bounding-line');
 
     // ── Room finish sync service ──────────────────────────────────────────────
     // Propagates room finish assignments to corresponding floor/ceiling records.
@@ -1128,6 +1167,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     });
     roomFinishSyncService.start();
     console.log('[initBuilders] RoomFinishSyncService started');
+    bootStep('room-finish-sync');
 
     // ── §C13-BUILDER-SCENE-CLEAR — the project-switch scene sweep ─────────────
     //
@@ -1205,6 +1245,7 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
 
     // ─────────────────────────────────────────────────────────────────────────
     console.log('[initBuilders] All builder subsystems fully initialised.');
+    bootStep('teardown wiring + window publish');
     // ─────────────────────────────────────────────────────────────────────────
 
     return {
