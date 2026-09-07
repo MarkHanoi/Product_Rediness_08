@@ -1532,6 +1532,29 @@ export const TARGET_AREA_STATUS_TESTID = 'envelope-target-area-status';
 /** §RESI-ORCH-ADOPT — the button that turns a session STUDY into a real, undoable element. */
 export const TARGET_AREA_ADOPT_BTN_TESTID = 'envelope-target-area-adopt-btn';
 export const TARGET_AREA_ADOPT_STATUS_TESTID = 'envelope-target-area-adopt-status';
+/**
+ * §L-13038 — what THIS click will do, stated BEFORE it happens. `data-state` is
+ * `create` · `replace` · `refuse`, carried from the planner and never sniffed out of the prose.
+ */
+export const TARGET_AREA_ADOPT_INTENT_TESTID = 'envelope-target-area-adopt-intent';
+
+/**
+ * §KEEPING-A-MASSING-OPTION-ACCUMULATES-INSTEAD-OF-REPLACING (L-13038, 2026-09-07) — the
+ * pre-click statement, as a VALUE.
+ *
+ * ⛔ WHY IT IS CARRIED AND NOT DERIVED HERE. The card cannot know whether a press will create,
+ * replace or refuse: that answer depends on what is in the space-envelope store and on the
+ * provenance of what is there (`levelEnvelopeSupersession.ts`). Deciding it from the sentence
+ * would be the same defect as sniffing a refusal out of prose, which the `refused` flag three
+ * fields up already exists to prevent.
+ *
+ * ⭐ `refuse` WITHHOLDS THE BUTTON AND PRINTS THE REASON, the same doctrine the `no-footprint`
+ * arm of this entry keeps: a control that can only fail is a dead click with a label on it.
+ */
+export interface AdoptIntent {
+    readonly kind: 'create' | 'replace' | 'refuse';
+    readonly text: string;
+}
 
 /**
  * The target-area entry, plus the standing statement of whatever is currently proposed.
@@ -1559,14 +1582,20 @@ export const TARGET_AREA_ADOPT_STATUS_TESTID = 'envelope-target-area-adopt-statu
  *                         disabled button: a control that can only refuse is a dead click with a
  *                         label on it. `statement` is whatever the last adopt attempt said —
  *                         plan, refusal or confirmation — and `failed` says which, carried rather
- *                         than sniffed out of the prose.
+ *                         than sniffed out of the prose. §L-13038 adds `intent`: what the NEXT
+ *                         press will do, printed before it happens, so a user about to lose an
+ *                         envelope reads that first.
  */
 export function buildTargetAreaEntryHtml(
     permittedAreaM2: number | null,
     statement: string | null,
     refused: boolean,
     currentTargetM2: number | null,
-    adopt: { readonly statement: string | null; readonly failed: boolean } | null = null,
+    adopt: {
+        readonly statement: string | null;
+        readonly failed: boolean;
+        readonly intent: AdoptIntent;
+    } | null = null,
     allocation: BrutAllocationModel | null = null,
 ): string {
     const span = _tracer.startSpan('pryzm.site.buildTargetAreaEntryHtml');
@@ -1622,16 +1651,40 @@ export function buildTargetAreaEntryHtml(
         // §20 loop is Generate → Explain → Compare → Edit → Recompute → **Confirm** — a study
         // that silently became a durable element would have skipped every step after the first.
         // The button states, before the click, exactly what will be created (`plan.statement`).
+        //
+        // ⭐ §L-13038 — AND IT SAYS *WHICH* GESTURE IT IS BEFORE IT HAPPENS. Choosing a second
+        // massing option for a storey REPLACES the plate already there, and the sentence that
+        // says so has to be readable with the button still unpressed: a user who has hand-edited
+        // an envelope must be able to see what they are about to lose. On the `refuse` arm the
+        // button is withheld entirely and only the reason is printed — the `no-footprint`
+        // doctrine at the top of this function, applied to the same kind of dead click.
+        const intentHtml = adopt === null
+            ? ''
+            : `<div data-testid="${TARGET_AREA_ADOPT_INTENT_TESTID}" data-state="${adopt.intent.kind}" `
+              + `style="margin-top:5px;font-size:9.5px;line-height:1.45;`
+              + `color:${adopt.intent.kind === 'create' ? '#6b6480' : '#8a5a00'};`
+              + `background:${adopt.intent.kind === 'create' ? '#faf9fd' : '#fdf8ee'};`
+              + `border-left:2px solid ${adopt.intent.kind === 'create' ? '#6600FF' : '#c9973a'};`
+              + `padding:4px 6px;border-radius:0 5px 5px 0;">${escHtml(adopt.intent.text)}</div>`;
         const adoptHtml = adopt === null
             ? ''
             : `<div style="margin-top:6px;padding-top:5px;border-top:1px dashed #ece9f4;">`
-              + `<button type="button" data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}" `
-              + `style="width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:6px 10px;`
-              + `border-radius:8px;font:600 11px system-ui;background:#6600FF;color:#ffffff;">`
-              + `Keep this as a level envelope</button>`
-              + `<div style="margin-top:3px;color:#8a83a0;font-size:9px;line-height:1.4;">`
-              + `Records what you INTEND to build as a real element you can undo, move and measure. `
-              + `It does not change the permitted envelope and it is still not a permit.</div>`
+              + (adopt.intent.kind === 'refuse'
+                  ? intentHtml
+                  : `<button type="button" data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}" `
+                    + `style="width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:6px 10px;`
+                    + `border-radius:8px;font:600 11px system-ui;background:#6600FF;color:#ffffff;">`
+                    // ⚠ COUNT-NEUTRAL WORDING on the replace arm: the intent line under the
+                    // button states exactly how many envelopes go and what they are, so the
+                    // label must not commit to "the level envelope" and be wrong at N > 1.
+                    + (adopt.intent.kind === 'replace'
+                        ? 'Put this level envelope on the storey — replaces what is there'
+                        : 'Keep this as a level envelope')
+                    + `</button>`
+                    + intentHtml
+                    + `<div style="margin-top:3px;color:#8a83a0;font-size:9px;line-height:1.4;">`
+                    + `Records what you INTEND to build as a real element you can undo, move and measure. `
+                    + `It does not change the permitted envelope and it is still not a permit.</div>`)
               + (adopt.statement === null
                   ? `<div data-testid="${TARGET_AREA_ADOPT_STATUS_TESTID}" data-state="idle" style="min-height:12px;"></div>`
                   : `<div data-testid="${TARGET_AREA_ADOPT_STATUS_TESTID}" data-state="${adopt.failed ? 'refused' : 'done'}" `

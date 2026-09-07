@@ -40,6 +40,7 @@ import {
     STAGE_GATE_ATTR,
     TARGET_AREA_ADOPT_BTN_TESTID,
     TARGET_AREA_ADOPT_STATUS_TESTID,
+    TARGET_AREA_ADOPT_INTENT_TESTID,
     INTENDED_AREA_SECTION_TESTID,
 } from '../envelopeCardSections';
 import { collectIntendedAreas } from '../intendedAreaChannel';
@@ -274,14 +275,63 @@ describe('wireDesignStageStrip — click it', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('buildTargetAreaEntryHtml — the adopt (keep) step', () => {
+    /** §L-13038 — the ordinary arm: nothing on the storey yet, so the press CREATES. */
+    const CREATE_INTENT = { kind: 'create', text: 'Creates ONE level envelope of 118 m² on Ground.' } as const;
+
     it('⛔ NO adopt button when there is no live proposal — withheld, not disabled', () => {
         document.body.innerHTML = buildTargetAreaEntryHtml(400, null, false, null, null);
         expect(document.querySelector(`[data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}"]`)).toBeNull();
     });
 
+    // ── §KEEPING-A-MASSING-OPTION-ACCUMULATES-INSTEAD-OF-REPLACING (L-13038) ──────────────
+    //
+    // ⭐ THE STANDING RULE THIS PINS: the card SAYS WHAT THE CLICK WILL DO, BEFORE THE CLICK.
+    // A user who has hand-edited an envelope and then picks a massing option must be able to
+    // read that they are about to lose that edit — never discover it afterwards.
+
+    it('⭐ states the REPLACEMENT before the click, and the button says so too', () => {
+        document.body.innerHTML = buildTargetAreaEntryHtml(
+            400, 'Fitted 118 m².', false, 120,
+            {
+                statement: null,
+                failed: false,
+                intent: {
+                    kind: 'replace',
+                    text: 'Replaces the level envelope already on this storey (Proposed ground floor · 431 m²).',
+                },
+            },
+        );
+        const line = document.querySelector(`[data-testid="${TARGET_AREA_ADOPT_INTENT_TESTID}"]`)!;
+        expect(line.getAttribute('data-state')).toBe('replace');
+        expect(line.textContent ?? '').toContain('Replaces the level envelope already on this storey');
+        // The button is still offered — replacing IS the gesture the founder asked for.
+        const btn = document.querySelector(`[data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}"]`);
+        expect(btn).not.toBeNull();
+        expect(btn!.textContent).toContain('replaces what is there');
+    });
+
+    it('⛔ WITHHOLDS the button when the press could only refuse, and prints the reason', () => {
+        document.body.innerHTML = buildTargetAreaEntryHtml(
+            400, 'Fitted 118 m².', false, 120,
+            {
+                statement: null,
+                failed: false,
+                intent: {
+                    kind: 'refuse',
+                    text: 'This storey already carries a level envelope PRYZM cannot prove it generated.',
+                },
+            },
+        );
+        expect(document.querySelector(`[data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}"]`)).toBeNull();
+        const line = document.querySelector(`[data-testid="${TARGET_AREA_ADOPT_INTENT_TESTID}"]`)!;
+        expect(line.getAttribute('data-state')).toBe('refuse');
+        expect(line.textContent ?? '').toContain('cannot prove it generated');
+    });
+
     it('offers the button, and says what it will record, when a proposal is live', () => {
         document.body.innerHTML = buildTargetAreaEntryHtml(
-            400, 'Fitted 118 m².', false, 120, { statement: null, failed: false },
+            400, 'Fitted 118 m².', false, 120,
+            { statement: null, failed: false, intent: CREATE_INTENT },
         );
         const btn = document.querySelector(`[data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}"]`);
         expect(btn).not.toBeNull();
@@ -292,7 +342,7 @@ describe('buildTargetAreaEntryHtml — the adopt (keep) step', () => {
     it('⛔ a failed adopt renders in the REFUSAL arm, carried — never sniffed out of the prose', () => {
         document.body.innerHTML = buildTargetAreaEntryHtml(
             400, 'Fitted 118 m².', false, 120,
-            { statement: 'This project has no storeys yet.', failed: true },
+            { statement: 'This project has no storeys yet.', failed: true, intent: CREATE_INTENT },
         );
         const st = document.querySelector(`[data-testid="${TARGET_AREA_ADOPT_STATUS_TESTID}"]`)!;
         expect(st.getAttribute('data-state')).toBe('refused');
@@ -301,7 +351,7 @@ describe('buildTargetAreaEntryHtml — the adopt (keep) step', () => {
     it('a successful adopt renders in the DONE arm', () => {
         document.body.innerHTML = buildTargetAreaEntryHtml(
             400, 'Fitted 118 m².', false, 120,
-            { statement: 'Created — one undo removes it.', failed: false },
+            { statement: 'Created — one undo removes it.', failed: false, intent: CREATE_INTENT },
         );
         expect(
             document.querySelector(`[data-testid="${TARGET_AREA_ADOPT_STATUS_TESTID}"]`)!
@@ -494,8 +544,18 @@ describe('GISAreaLayout actually calls the wires', () => {
         expect(card).toContain('describeEnvelopeCardSections(designStages)');
     });
 
-    it('wires the stage strip on BOTH card arms', () => {
-        expect(card.split('wireDesignStageStrip(panel)').length - 1).toBe(2);
+    it('wires the stage strip on EVERY arm that renders it', () => {
+        // ⚠ WAS `toBe(2)` — a literal count of the two arms that existed when this was written
+        // (full determination + refusal). §ENVELOPE-NOT-A-GATE (L-13041 · C58 §1.20) added a
+        // THIRD: the NO-ENVELOPE card, which is precisely the arm whose strip matters most, since
+        // its "Do this next" button is the affordance a null envelope used to delete. A hard-coded
+        // arm count makes adding an honest arm look like a regression, so the invariant is stated
+        // as what it actually is — every arm that RENDERS the strip also WIRES it — and the count
+        // is read off the file rather than transcribed into it.
+        const rendered = card.split('${safeDesignStageStrip}').length - 1;
+        const wired = card.split('wireDesignStageStrip(panel)').length - 1;
+        expect(rendered).toBeGreaterThanOrEqual(3);
+        expect(wired).toBe(rendered);
     });
 
     it('renders the intended-area channel and wires the adopt button', () => {

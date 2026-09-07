@@ -201,7 +201,7 @@ Namespace `spaceEnvelope.*` (C69 §3.6). Lineage bands are C84 §4A's L1–L6.
 
 | Verb | Purpose | Stores written | Restored on undo | Equal? | Reaching control |
 |---|---|---|---|---|---|
-| `spaceEnvelope.batch.create` | ⭐ **the ONLY create path.** N envelopes, ONE undo entry | element store | element store | MUST be | 3D/2D draw tool; RAC |
+| `spaceEnvelope.batch.create` | ⭐ **the ONLY create path.** N envelopes, ONE undo entry; optionally REPLACES what it `supersedes` (§6d) | element store | element store | MUST be | 3D/2D draw tool; RAC |
 | `spaceEnvelope.delete` | remove; clears dangling `withinId` on children | element store | element store | MUST be | selection → delete |
 | `spaceEnvelope.move` | translate the whole prism | element store | element store | MUST be | 3D gizmo; 2D drag |
 | `spaceEnvelope.moveFace` | ⭐ move ONE face along its own normal; neighbours adapt | element store | element store | MUST be | 3D face gizmo (§10) |
@@ -223,6 +223,39 @@ Namespace `spaceEnvelope.*` (C69 §3.6). Lineage bands are C84 §4A's L1–L6.
 > copy is to have no second string). No UI surface offers the role, which is the half EI-3 polices.
 
 > **§6c — MUST: every handler carries ≥1 OpenTelemetry span (P8 ZONE A, zero tolerance).**
+
+> ⭐ **§6d — REPLACEMENT IS A CREATE WITH `supersedes`, NEVER A DELETE FOLLOWED BY A CREATE**
+> (§KEEPING-A-MASSING-OPTION-ACCUMULATES-INSTEAD-OF-REPLACING, L-13038, 2026-09-07).
+>
+> Founder: *"WHEN I SELECT ANOTHER MASSING OPTION THE PREVIOUS ONE SHALL BE REMOVED."* Every press
+> of "Keep this as a level envelope" minted a rival on the same storey, and `pickLevelEnvelope`
+> then refused to guess which one the rooms belonged inside — **a correct refusal about a state the
+> user never meant to create.** The fix is at the MINT.
+>
+> **Normative:**
+> 1. **`CreateSpaceEnvelopeBatchPayload.supersedes?: readonly string[]`** — the envelopes this
+>    batch REPLACES. They are removed in the **same `produceCommand`** as the creations, which is
+>    the only thing that buys ONE undo entry: §6a's warning applies verbatim, `runBatch` is
+>    undo-NEUTRAL, so a `delete` + `batch.create` pair is TWO ring entries and a torn empty-storey
+>    state between them.
+> 2. **Every id MUST exist, and one that does not is a REFUSAL** — asked by `canExecute` AND by
+>    `execute`, from one producer, so the gate and the mutation cannot disagree (C84 EI-9.2). A
+>    batch may not supersede an id it is also creating.
+> 3. **Removal follows §8 exactly** — children naming a superseded envelope are **not** cascaded,
+>    their `withinId` is cleared, and both halves are in the one patch pair. `spaceEnvelope.delete`
+>    and this field share ONE implementation (`handlers/removeEnvelopes.ts`); two copies of §8
+>    would be C84 EI-9.
+> 4. ⛔ **THE HANDLER NEVER DECIDES *WHETHER* TO REPLACE.** It is handed ids. A create verb that
+>    removed what it judged to be "the old one" would be the accumulation defect pointed the other
+>    way — and its victim would be a volume the architect drew.
+> 5. ⭐ **`CreateSpaceEnvelopeSpec.provenance?`** — carried through untouched onto the record
+>    (C75). This is what makes clause 4 workable: the SURFACE stamps `computed` on a plate its
+>    solver fitted, so a later press can tell that plate from a hand-drawn envelope
+>    (`isReplaceableByGeneratedMassing`, C58 §1.19 clause 3). ⛔ **An UNKNOWN origin is treated as
+>    the user's, never as PRYZM's** — C75 §1.4, and the §CONTEXT-DATA-HONESTY rule that a value
+>    PRYZM cannot establish is not a value PRYZM may act destructively on. The handler itself
+>    stamps nothing: `authored` is unrepresentable to a system pass (C75 §2.2) and a create verb
+>    that defaulted an origin would defeat that by hand.
 
 ---
 
@@ -611,6 +644,32 @@ STR §25.0's *"guide this process WITHOUT BUILDING THE HOUSE IN ONE CLICK"*.
   silence.** Where the ordinance is untranscribed (the founder's Córdoba parcel) the section is
   fully authorable and every compliance figure reports UNKNOWN with its named reason — never zero,
   never unbounded (C58 §1.4 / L-616).
+
+---
+
+### 2026-09-07 · lane MASSING-REPLACE — choosing another massing option REPLACES (L-13038)
+
+Appended per §14's own rule. **Anything not listed here is NOT shipped.**
+
+| Delta | State | Proof |
+|---|---|---|
+| `supersedes` on `spaceEnvelope.batch.create` (§6d) | ✅ **SHIPPED** | `spaceEnvelopeRoundTrip.test.ts` — *"replaces the previous envelope and spends exactly ONE undo entry"* asserts `undoStack.size` **2, not 3**, then undoes ONCE and finds the previous envelope back and the new one gone |
+| `provenance` passthrough on the create spec (§6d clause 5) | ✅ **SHIPPED** | same suite: a caller's `computed` reaches the record; a caller that says nothing lands on `predates-provenance`, never an invented origin |
+| Removal shares ONE implementation with `spaceEnvelope.delete` (§8) | ✅ **SHIPPED** | `removeEnvelopesFromDraft`; the room survives its level being superseded with `withinId` cleared |
+| The REPLACE-vs-REFUSE judgement | ✅ **SHIPPED (surface side)** | `apps/editor/src/ui/site/levelEnvelopeSupersession.ts` + its spec: generated ⇒ replace · authored ⇒ **refuse, delete nothing** · unknown origin ⇒ **refuse** · other storeys untouched · unreadable store ⇒ refuse |
+| The card states the consequence BEFORE the click | ✅ **SHIPPED** | `designStageWire.spec.ts` — the `replace` intent line, and the `refuse` arm that WITHHOLDS the button and prints the reason |
+
+⚠ **NOT SHIPPED, and named so it is not mistaken for done:**
+
+- **The multi-storey authoring control (`parcelLawEnvelopeAuthoring.ts` → `envelopeAuthoringPlan.ts`)
+  still ACCUMULATES.** It dispatches the same verb and now *could* pass `supersedes`, but it does
+  not: pressing "Create" twice leaves two level envelopes per storey. Same founder ruling, same
+  plumbing, different surface — logged rather than half-done.
+- **`spaceEnvelope.setFootprint` / `moveFace` / `move` do NOT stamp `authored`.** So an envelope
+  PRYZM generated and the user then hand-edited still reads `computed` and **is replaceable**. The
+  §6d clause-4 protection is therefore complete only for envelopes the user *created*, not for ones
+  they *edited*. ⛔ Until those verbs record the human decision (C75 §2.2), a hand-edited plate can
+  be replaced by a later massing option, which is precisely the loss §6d exists to prevent.
 
 ---
 

@@ -24,12 +24,34 @@
 // the source travels with the spec and the statement prints it, and the envelope's NAME carries it
 // too, because the name is the one field that follows the element into every panel.
 //
+// ── ⭐ CHOOSING A DIFFERENT MASSING OPTION *REPLACES*, IT DOES NOT ACCUMULATE ────────────────
+// §KEEPING-A-MASSING-OPTION-ACCUMULATES-INSTEAD-OF-REPLACING (L-13038, 2026-09-07). Founder:
+// *"WHEN I SELECT ANOTHER MASSING OPTION THE PREVIOUS ONE SHALL BE REMOVED."* Every press used to
+// mint a rival on the same storey, and the room solver then refused to guess between them — a
+// correct refusal about a state the user never meant to create.
+//
+// So this planner now takes WHAT IS ALREADY ON THE STOREY and returns the ids to supersede with
+// the creation, in ONE `spaceEnvelope.batch.create` (C114 §6a — one gesture, one Ctrl+Z; a
+// separate delete would be a second ring entry). ⛔ THE JUDGEMENT IS NOT MADE HERE: whether an
+// existing envelope is PRYZM's own generated plate or the user's drawing is
+// `levelEnvelopeSupersession.ts`'s single rule, keyed on `provenance` and never on the name.
+//
 // PURE: no store, no DOM, no bus, no clock, no RNG (the id is minted by the CALLER — C16 CA-2:
 // `execute()` runs again on REDO, so an id minted anywhere near the handler would differ the
 // second time). Never throws.
 
 import { trace } from '@opentelemetry/api';
+import {
+    regeneratedProvenance,
+    systemProvenance,
+    type ValueProvenance,
+} from '@pryzm/schemas/provenance';
 import type { TargetFootprintProposal } from './targetFootprintAreaSolver';
+import {
+    resolveLevelEnvelopeSupersession,
+    type ExistingLevelEnvelope,
+    type LevelEnvelopeReadResult,
+} from './levelEnvelopeSupersession';
 
 const _tracer = trace.getTracer('pryzm.site.adoptProposalAsEnvelope');
 
@@ -51,7 +73,17 @@ export type AdoptRefusalReason =
     /** The project has no storeys at all. */
     | 'no-levels'
     /** Every storey is below the datum — there is no ground floor to seat a ground-floor plate on. */
-    | 'no-ground-level';
+    | 'no-ground-level'
+    /**
+     * §L-13038 — PRYZM could not READ what is already on the storey. ⛔ Creating anyway is what
+     * produced three rivals; an unreadable store is not an empty one (§CONTEXT-DATA-HONESTY).
+     */
+    | 'envelopes-unreadable'
+    /**
+     * §L-13038 — the storey already carries a level envelope PRYZM cannot prove it generated.
+     * Refusing protects a hand-drawn or hand-edited volume from a silent delete (C58 §1.19).
+     */
+    | 'rival-envelope-not-generated';
 
 /** The exact `spaceEnvelope.batch.create` spec shape (C114 §6), spelled locally so this module
  *  needs no import from the plugin it consumes — the bus is the boundary. */
@@ -64,15 +96,30 @@ export interface AdoptEnvelopeSpec {
     readonly role: 'level';
     readonly withinId: null;
     readonly name: string;
+    /**
+     * §L-13038 — WHO made this envelope, carried into the record so a LATER press can tell this
+     * plate from a volume the architect drew. `computed` when it is the first on its storey,
+     * `regenerated` (carrying what it replaced, C75 §2.7) when it supersedes one.
+     */
+    readonly provenance: ValueProvenance;
 }
 
 export interface AdoptProposalPlan {
     readonly ok: true;
     readonly command: 'spaceEnvelope.batch.create';
-    readonly payload: { readonly envelopes: readonly [AdoptEnvelopeSpec] };
+    readonly payload: {
+        readonly envelopes: readonly [AdoptEnvelopeSpec];
+        /**
+         * §L-13038 — the level envelopes this creation REPLACES, removed in the same command so
+         * the swap is ONE undo (C114 §6a). Empty when the storey was clear.
+         */
+        readonly supersedes: readonly string[];
+    };
     readonly level: AdoptLevelCandidate;
     readonly heightSource: AdoptHeightSource;
     readonly heightM: number;
+    /** §L-13038 — what is being replaced, as VALUES, so a surface renders them without parsing prose. */
+    readonly replaces: readonly ExistingLevelEnvelope[];
     /** Plain language: what will be created, on which storey, at what height and why that height. */
     readonly statement: string;
 }
@@ -167,18 +214,31 @@ export function pickGroundLevel(levels: readonly AdoptLevelCandidate[]): AdoptLe
 }
 
 /**
+ * §L-13038 — the detail every plate this planner produces carries in its provenance. ONE string,
+ * so the create arm and the replace arm cannot describe the same producer two ways (C84 EI-8a).
+ */
+const PLATE_PROVENANCE_DETAIL =
+    'fitted inside the permitted footprint by the target-area / massing-option solver, and kept by '
+    + 'the user from the buildable-envelope card';
+
+/**
  * Build the plan. Pure; total; never throws.
  *
  * @param proposal   the LIVE proposal (already passed `resolveLiveTargetFootprintProposal`), or null
  * @param levels     the project's storeys
  * @param ordinance  the card's derived height figures, for the second rung of the height ladder
  * @param mintedId   the `spaceEnvelope_<ulid>` id the CALLER minted (C16 CA-2)
+ * @param existing   §L-13038 — what is ALREADY in the space-envelope store, as the READ returned
+ *                   it. ⛔ Required, and it is the read RESULT rather than a bare array, because
+ *                   *"the store could not be read"* and *"the storey is empty"* must not arrive
+ *                   here as the same value — the first refuses, the second creates.
  */
 export function buildAdoptProposalPlan(
     proposal: TargetFootprintProposal | null,
     levels: readonly AdoptLevelCandidate[],
     ordinance: { readonly maxHeightM: number | null; readonly maxFloors: number | null },
     mintedId: string,
+    existing: LevelEnvelopeReadResult,
 ): AdoptProposalResult {
     const span = _tracer.startSpan('pryzm.site.buildAdoptProposalPlan');
     try {
@@ -211,6 +271,26 @@ export function buildAdoptProposalPlan(
             };
         }
 
+        // ⭐ §L-13038 — WHAT IS ALREADY ON THIS STOREY, asked AFTER the storey is known and never
+        // before: the supersession is scoped to the storey this option targets, so every other
+        // storey is untouched by construction rather than by care.
+        if (!existing.readable) {
+            span.setAttribute('pryzm.adopt.refusal', 'envelopes-unreadable');
+            return { ok: false, reason: 'envelopes-unreadable', statement: existing.text };
+        }
+        const onStorey = existing.rows.filter((e) => e.levelId === level.id);
+        const supersession = resolveLevelEnvelopeSupersession(onStorey);
+        if (supersession.kind === 'blocked') {
+            span.setAttribute('pryzm.adopt.refusal', 'rival-envelope-not-generated');
+            return {
+                ok: false,
+                reason: 'rival-envelope-not-generated',
+                statement: supersession.sentence,
+            };
+        }
+        const supersedes = supersession.kind === 'replace' ? supersession.ids : [];
+        const replaces = supersession.kind === 'replace' ? supersession.targets : [];
+
         const { heightM, heightSource, heightWhy } = resolveStoreyHeight(level, ordinance);
 
         const levelLabel = level.name ?? `storey at ${level.elevation.toFixed(2)} m`;
@@ -218,6 +298,19 @@ export function buildAdoptProposalPlan(
         const name = heightSource === 'assumed-3m'
             ? `Proposed ground floor · ${achieved} m² · height assumed`
             : `Proposed ground floor · ${achieved} m²`;
+
+        // ⛔ C75 §2.7 — A REPLACEMENT CARRIES WHAT IT REPLACED. The prior taken is the first
+        // target's: every target passed `isReplaceableByGeneratedMassing`, so they are all
+        // PRYZM's own output and the first is representative of what was overwritten. The COUNT
+        // is in the detail, so an N > 1 heal is not reported as a single swap.
+        const prior = replaces[0]?.provenance ?? null;
+        const provenance: ValueProvenance = prior === null
+            ? systemProvenance('computed', PLATE_PROVENANCE_DETAIL)
+            : regeneratedProvenance(
+                prior,
+                `${PLATE_PROVENANCE_DETAIL}; replaced ${replaces.length} generated level `
+                + `envelope${replaces.length === 1 ? '' : 's'} on this storey`,
+            );
 
         const spec: AdoptEnvelopeSpec = {
             spaceEnvelopeId: mintedId,
@@ -228,21 +321,31 @@ export function buildAdoptProposalPlan(
             role: 'level',
             withinId: null,
             name,
+            provenance,
         };
 
         span.setAttribute('pryzm.adopt.heightSource', heightSource);
         span.setAttribute('pryzm.adopt.levelId', level.id);
+        span.setAttribute('pryzm.adopt.supersedes', supersedes.length);
+        // ⭐ THE REPLACEMENT HALF COMES FIRST, AND IT COMES FROM ONE PRODUCER. A user about to
+        // lose an envelope must read that before the verb that creates the new one — and the
+        // sentence is `resolveLevelEnvelopeSupersession`'s, never a second copy of it here.
+        const statement = supersession.kind === 'replace'
+            ? `${supersession.sentence} In its place: ONE level envelope of ${achieved} m² on `
+              + `${levelLabel}, ${heightM.toFixed(2)} m high — the height is ${heightWhy}. It records what `
+              + 'you INTEND to build; it is not the permitted envelope and does not change it.'
+            : `Creates ONE level envelope of ${achieved} m² on ${levelLabel}, ${heightM.toFixed(2)} m high — `
+              + `the height is ${heightWhy}. It records what you INTEND to build; it is not the permitted `
+              + `envelope and does not change it. One undo removes it.`;
         return {
             ok: true,
             command: 'spaceEnvelope.batch.create',
-            payload: { envelopes: [spec] },
+            payload: { envelopes: [spec], supersedes },
             level,
             heightSource,
             heightM,
-            statement:
-                `Creates ONE level envelope of ${achieved} m² on ${levelLabel}, ${heightM.toFixed(2)} m high — `
-                + `the height is ${heightWhy}. It records what you INTEND to build; it is not the permitted `
-                + `envelope and does not change it. One undo removes it.`,
+            replaces,
+            statement,
         };
     } finally {
         span.end();

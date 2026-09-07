@@ -29,6 +29,7 @@ import { SpaceEnvelopeGeometryError } from '../errors.js';
 import {
     containmentOutcomeFor, containmentRefusalFor, contextEntryOf, contextWorldOf,
 } from './containmentGate.js';
+import { removeEnvelopesFromDraft } from './removeEnvelopes.js';
 
 type Stores = Readonly<{ spaceEnvelope: SpaceEnvelopesState } & Record<string, unknown>>;
 
@@ -85,20 +86,13 @@ implements CommandHandler<DeleteSpaceEnvelopePayload, Stores> {
 
     execute(ctx: HandlerContext<Stores>, cmd: DeleteSpaceEnvelopePayload): HandlerResult {
         return withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, () => {
-            const orphans = Object.values(ctx.stores.spaceEnvelope)
-                .filter((e) => e.withinId === cmd.spaceEnvelopeId)
-                .map((e) => e.id);
             const [next, forward, inverse] = produceCommand<SpaceEnvelopesState>(
                 ctx.stores.spaceEnvelope,
-                (draft) => {
-                    const d = draft as Record<string, SpaceEnvelopeData>;
-                    delete d[cmd.spaceEnvelopeId];
-                    // Clear, never cascade. Both halves are in ONE patch pair, so undo
-                    // restores the parent AND re-points its children in one Ctrl+Z.
-                    for (const id of orphans) {
-                        if (d[id]) d[id] = { ...d[id]!, withinId: null };
-                    }
-                },
+                // ⭐ §L-13038 — the removal rule (clear the children's `withinId`, never cascade;
+                // both halves in ONE patch pair) now lives in `removeEnvelopesFromDraft`, because
+                // `spaceEnvelope.batch.create`'s `supersedes` must remove an envelope EXACTLY as
+                // this verb does. Two copies of C114 §8 would be C84 EI-9.
+                (draft) => removeEnvelopesFromDraft(draft as SpaceEnvelopesState, [cmd.spaceEnvelopeId]),
             );
             return { forward, inverse, nextStates: { spaceEnvelope: next } };
         });

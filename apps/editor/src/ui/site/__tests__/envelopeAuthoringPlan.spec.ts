@@ -281,11 +281,15 @@ describe('buildAdoptProposalPlan — unchanged by the extraction', () => {
             LEVELS,
             { maxHeightM: 12, maxFloors: 4 },
             'se-adopt-1',
+            // §L-13038 — an EMPTY storey, read successfully. ⛔ Not the same value as a store
+            // that could not be read: that arm refuses, and has its own suite.
+            { readable: true, rows: [] },
         );
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.payload.envelopes).toHaveLength(1);
         expect(r.payload.envelopes[0]!.levelId).toBe('lvl-0');
+        expect(r.payload.supersedes).toEqual([]);
         expect(r.heightSource).toBe('level-record');
         expect(r.statement).toContain("the storey's own recorded floor-to-floor");
     });

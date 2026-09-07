@@ -324,6 +324,24 @@ import {
     STUDY_HEIGHT_SAVE_BTN_TESTID,
     STUDY_HEIGHT_STATUS_TESTID,
 } from '../site/envelopeCardSections';
+// ⭐ §ENVELOPE-NOT-A-GATE (L-13041 · C58 §1.20, founder ruling L-13032) — the NO-ENVELOPE card.
+// `refreshEnvelopePanel`'s no-envelope branch used to REMOVE the card element, and the design-
+// stage strip's "Do this next" button is a fold of that card — so a null envelope took the whole
+// next-step affordance with it, which is the founder's complaint executed literally. §1.20 clause
+// 4: a `null` envelope is a STATE TO RENDER, not a branch to skip. These are its six arms, told
+// apart AT THE READ (the L-13002 lesson) and pinned by `envelopeAbsenceCard.spec.ts`.
+import {
+    buildEnvelopeAbsenceBodyHtml,
+    classifyEnvelopeAbsence,
+    ENVELOPE_ABSENCE_CHIP,
+    ENVELOPE_ABSENCE_SOLVE_BTN_TESTID,
+    ENVELOPE_ABSENCE_STATUS_TESTID,
+    type EnvelopeAbsenceKind,
+} from '../site/envelopeAbsenceCard';
+// §PARCEL-ALL-INFO (L-6900..) — the in-flight window this subsystem already models. Read here so
+// the CARD itself distinguishes "resolving" from "nothing computed"; before §ENVELOPE-NOT-A-GATE
+// that distinction lived only in the Parcel panel's slot, which the card's absence used to reveal.
+import { getEnvelopeResolutionPhase } from '../site/envelopeResolutionState';
 // §RESI-ORCH-COST (lane RESI-ORCHESTRATOR, 2026-09-03) — THE MOUNT. `envelopeCostSection.ts`
 // and `buildingTypologyChoice.ts` landed in 875775bc together with the `permittedStudyFigures`
 // helper below, and the commit message + the plan both recorded the fold as "mounted and its
@@ -365,6 +383,11 @@ import { buildSiteHighlightLabelHtml, wireSiteHighlightRows } from '../site/site
 import { solveTargetFootprintArea } from '../site/targetFootprintAreaSolver';
 import {
     resolveLiveTargetFootprintProposal,
+    // §ENVELOPE-NOT-A-GATE (L-13041) — the NON-DESTRUCTIVE peek. `resolveLiveTargetFootprintProposal`
+    // is a staleness GATE that CLEARS the slot when it is handed a null permitted area, which is
+    // right when a determination has settled without one — and wrong when PRYZM could not read the
+    // model, or is still resolving. See its use in `renderEnvelopeAbsencePanel`.
+    getTargetFootprintProposal,
     setTargetFootprintProposal,
     clearTargetFootprintProposal,
 } from '../site/targetFootprintAreaState';
@@ -413,7 +436,13 @@ import { collectIntendedAreas } from '../site/intendedAreaChannel';
 import {
     buildAdoptProposalPlan,
     readLevelCandidates,
+    type AdoptProposalResult,
 } from '../site/adoptProposalAsEnvelope';
+// §KEEPING-A-MASSING-OPTION-ACCUMULATES-INSTEAD-OF-REPLACING (L-13038) — the READ half of
+// *"when I select another massing option the previous one shall be removed"*. The DECISION is
+// `resolveLevelEnvelopeSupersession`, called inside the planner; this file only supplies what is
+// in the store, and supplies the READ RESULT so "could not read" cannot arrive as "storey empty".
+import { readLevelEnvelopes } from '../site/levelEnvelopeSupersession';
 import { createId } from '@pryzm/schemas';
 
 /**
@@ -2968,6 +2997,46 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * from the bus — each states what happened and that nothing was created. A create button whose
      * click evaporates is the dead click this whole lane exists to remove.
      */
+    /**
+     * §L-13038 — THE ONE RESOLVER, asked by the RENDER (to state what the next press will do)
+     * and by the CLICK (to do it).
+     *
+     * ⭐ ONE PRODUCER, TWO READERS. The card's pre-click sentence and the command it dispatches
+     * must never be able to disagree — a button that says "creates" and then replaces, or says
+     * "replaces" and then refuses, is worse than either behaviour on its own. So both call this.
+     *
+     * ⚠ THE ID IS MINTED PER CALL AND THE PREVIEW'S IS DISCARDED. `createId` is a ULID and costs
+     * nothing; what matters is C16 CA-2 — the id that reaches the bus is minted at the CLICK, in
+     * the same call that builds the payload, so a REDO replays the same id it executed.
+     */
+    const resolveAdoptResult = (): AdoptProposalResult => {
+        const env = getLastBuildableEnvelope();
+        const figures = env ? permittedStudyFigures(env) : null;
+        // The SAME staleness gate the card and the scene ask, so all three agree about whether
+        // the plate on the ground is still a live answer to a live envelope.
+        const live = resolveLiveTargetFootprintProposal(
+            figures && figures.footprintM2 > 0 ? figures.footprintM2 : null,
+        );
+        let levels: ReturnType<typeof readLevelCandidates> = [];
+        try {
+            levels = readLevelCandidates(
+                (window.bimManager as { getLevels?: () => unknown[] } | undefined)?.getLevels?.() ?? [],
+            );
+        } catch (err) {
+            console.warn('[gis][envelope-card] level read failed during adopt (non-fatal):', err);
+        }
+        return buildAdoptProposalPlan(
+            live,
+            levels,
+            { maxHeightM: env?.maxHeight_m ?? null, maxFloors: env?.maxFloors ?? null },
+            createId('spaceEnvelope'),
+            // §L-13038 — what is ALREADY on the storey. ⛔ The READ RESULT, not an array: a store
+            // PRYZM could not read must refuse, never be treated as an empty storey (§L-12916 is
+            // why this resolves the live runtime rather than trusting the null prop).
+            readLevelEnvelopes(liveRuntime()?.stores?.spaceEnvelope ?? null),
+        );
+    };
+
     const wireTargetAreaAdopt = (panel: HTMLDivElement): void => {
         const btn = panel.querySelector(
             `[data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}"]`,
@@ -2976,27 +3045,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         btn.onclick = (ev) => {
             ev.stopPropagation();
             ev.preventDefault();
-            const env = getLastBuildableEnvelope();
-            const figures = env ? permittedStudyFigures(env) : null;
-            // The SAME staleness gate the card and the scene ask, so all three agree about whether
-            // the plate on the ground is still a live answer to a live envelope.
-            const live = resolveLiveTargetFootprintProposal(
-                figures && figures.footprintM2 > 0 ? figures.footprintM2 : null,
-            );
-            let levels: ReturnType<typeof readLevelCandidates> = [];
-            try {
-                levels = readLevelCandidates(
-                    (window.bimManager as { getLevels?: () => unknown[] } | undefined)?.getLevels?.() ?? [],
-                );
-            } catch (err) {
-                console.warn('[gis][envelope-card] level read failed during adopt (non-fatal):', err);
-            }
-            const plan = buildAdoptProposalPlan(
-                live,
-                levels,
-                { maxHeightM: env?.maxHeight_m ?? null, maxFloors: env?.maxFloors ?? null },
-                createId('spaceEnvelope'),
-            );
+            const plan = resolveAdoptResult();
             if (!plan.ok) {
                 adoptStatement = plan.statement;
                 adoptFailed = true;
@@ -3016,7 +3065,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             }
             try {
                 bus.executeCommand(plan.command, plan.payload);
-                adoptStatement = `Created — one undo removes it. ${plan.statement}`;
+                // §L-13038 — the lede names the gesture that actually happened. "Created" over a
+                // replacement would hide the removal the user has just authorised, and a user who
+                // then reached for Ctrl+Z would not know what it was going to bring back.
+                adoptStatement = plan.payload.supersedes.length === 0
+                    ? `Created — one undo removes it. ${plan.statement}`
+                    : `Replaced — ONE undo puts the previous back. ${plan.statement}`;
                 adoptFailed = false;
             } catch (err) {
                 adoptStatement =
@@ -3721,6 +3775,199 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 </details>`;
     };
 
+    /**
+     * §ENVELOPE-NOT-A-GATE (L-13041) — THE ONE MEASUREMENT OF THE AUTHORED MODEL.
+     *
+     * Hoisted out of `refreshEnvelopePanel`'s `capacityJoin` because the NO-ENVELOPE card needs
+     * the same `designedStoreyCount` / `hasRooms` / `measurementFailed` evidence to derive its
+     * design-stage strip, and a second copy of the snapshot read is exactly how two arms of one
+     * card come to disagree about whether a project has storeys (C06 §13.3 — one producer).
+     *
+     * ⛔ `failed` IS NOT `measurement === null`. A throw means PRYZM does not know what is
+     * authored; reporting an empty model from it would manufacture a finding out of an error
+     * (`designStageModel.ts`'s `measurementFailed` arm exists for exactly this).
+     */
+    const measureAuthoredModelSafely = (): {
+        measurement: ReturnType<typeof measureAuthoredDesign> | null;
+        failed: boolean;
+    } => {
+        try {
+            return {
+                measurement: measureAuthoredDesign(collectAuthoredModelSnapshot({
+                    // The authoritative storey datums for the AUTHORED model (BimKernel levels).
+                    // A declared global, not `(window as any)` — P4 holds.
+                    levels: (window.bimManager as { getLevels?: () => unknown[] } | undefined) ?? null,
+                    slabs: storeRegistry.getStoreForType('slab') ?? null,
+                    rooms: storeRegistry.getStoreForType('room') ?? null,
+                    walls: storeRegistry.getStoreForType('wall') ?? null,
+                })),
+                failed: false,
+            };
+        } catch {
+            return { measurement: null, failed: true };
+        }
+    };
+
+    /**
+     * §ENVELOPE-NOT-A-GATE (L-13041) — wire the absence card's "solve it now" escape hatch.
+     *
+     * A no-op query on every other render template (none of them emit this button), exactly like
+     * `wireLegacyRecompute` and `wireStudyHeightEntry` above. On failure the STATUS LINE speaks
+     * rather than the button silently re-enabling: "I pressed it and nothing happened" is the
+     * defect this button exists to end, not one it may reintroduce (L-1187).
+     */
+    const wireEnvelopeAbsenceSolve = (panel: HTMLDivElement): void => {
+        const btn = panel.querySelector(
+            `[data-testid="${ENVELOPE_ABSENCE_SOLVE_BTN_TESTID}"]`,
+        ) as HTMLButtonElement | null;
+        if (!btn || btn.disabled) return;
+        btn.onclick = (ev) => {
+            ev.stopPropagation(); // never bubble into the header's drag-start handler
+            btn.disabled = true;
+            btn.textContent = 'Solving…';
+            // A successful solve repaints the WHOLE card via `refreshEnvelopePanel`, so only the
+            // failure path has anything to say here.
+            if (recomputeEnvelopeDetermination()) return;
+            const status = panel.querySelector(
+                `[data-testid="${ENVELOPE_ABSENCE_STATUS_TESTID}"]`,
+            ) as HTMLElement | null;
+            if (!status) return;
+            status.textContent =
+                'The determination engine could not resolve a site context for this project in this '
+                + 'session — a PRYZM-side failure, not a fact about your land. Nothing was changed, and '
+                + 'nothing here says the plot is unbuildable.';
+        };
+    };
+
+    /**
+     * ⭐ §ENVELOPE-NOT-A-GATE (L-13041 · C58 §1.20 · founder ruling L-13032) — RENDER THE ABSENCE.
+     *
+     * Founder: *"having an envelope should not be the single pre-requisite to advance on going
+     * through the parcel law process — the user still should be able to."*
+     *
+     * ⛔ THIS FUNCTION REPLACES A `removeChild`. The branch it stands in used to delete the card
+     * element outright, and the design-stage strip's `Do this next: {stage} →` button is a FOLD OF
+     * THAT CARD — so the entire next-step affordance vanished with the envelope. §1.20 clause 4: a
+     * `null` envelope is a STATE TO RENDER, not a branch to skip.
+     *
+     * WHAT SURVIVES, and why each piece is here rather than "later":
+     *   · the DESIGN-STAGE STRIP, so `Do this next` still exists — `describeDesignStages` needs
+     *     only a committed parcel to offer a step, and `hasResolvedEnvelope: false` is passed BY
+     *     MEASUREMENT, not by a branch someone remembered;
+     *   · the STUDY-HEIGHT ENTRY (§MANUALENV159), which is the on-card `massing` control the strip
+     *     jumps to and is deliberately UNGATED on an envelope — it is literally "what would supply
+     *     it" for a user who knows the height they want to study;
+     *   · the VISIBILITY TOGGLE and the CLOSE button, so a card that is on screen is always
+     *     controllable.
+     *
+     * ⛔ NOTHING NUMERIC IS RENDERED. No zeros, no dashes standing in for values, no held-over
+     * figure from the previous parcel (C58 §1.16 / §L-616 — an unknown constraint drawn as a value
+     * is an overstatement on real land). This card states a STATE and offers ACTIONS; that is all.
+     */
+    const renderEnvelopeAbsencePanel = (
+        viewport: HTMLElement,
+        env: ReturnType<typeof getLastBuildableEnvelope>,
+    ): void => {
+        const panel = ensureEnvelopePanel(viewport);
+        // ⛔ THE THREE-NULLS READ (§1.20 clause 4, and the L-13002 root cause in one line).
+        // `liveRuntime()` is `runtime ?? window.runtime` — NEVER the captured prop alone, which is
+        // NULL BY DESIGN on the live boot path (`createMainLayout(props, null)`). Reading the prop
+        // here would answer "PRYZM cannot see your project" on every production session.
+        const runtimeReachable = liveRuntime() !== null;
+        const committedRing = runtimeReachable ? (getCommittedParcelBoundary()?.polygon ?? []) : [];
+        const hasCommittedParcel = committedRing.length >= 3;
+        const kind: EnvelopeAbsenceKind = classifyEnvelopeAbsence({
+            runtimeReachable,
+            hasCommittedParcel,
+            resolutionPhase: getEnvelopeResolutionPhase(),
+            // `env` reaching here is non-null ONLY on the `status:'none'` + no-refusal arm — the
+            // determination answered and did not say why. `null` means nothing ever ran.
+            envelopeReturnedNoneWithoutReason: env !== null,
+        });
+
+        const unavailableReason = legacyRecomputeUnavailableReason();
+        const safeAbsenceBody = buildEnvelopeAbsenceBodyHtml(kind, {
+            solveAvailable: unavailableReason === null,
+            solveUnavailableReason: unavailableReason,
+        });
+
+        // The strip, from the SAME evidence the full card derives it from. `hasProgramme: null`
+        // for the same reason as there: this panel genuinely cannot read a programme store, and a
+        // `false` would print a finding about the user's project out of a gap in PRYZM's wiring.
+        const m = measureAuthoredModelSafely();
+        // ⛔ AND THE PLATE IS NOT WITHDRAWN ON "WE DO NOT KNOW". `resolveLiveTargetFootprintProposal`
+        // is a staleness GATE, not a getter: handed a null permitted area it CLEARS the user's
+        // fitted plate, which is exactly right once a determination has SETTLED without one (the
+        // plate's whole meaning was "this fits in that"). It is exactly wrong on the two arms where
+        // PRYZM has not finished asking — an unreadable runtime and an in-flight resolve are both
+        // *"we do not know yet"*, and destroying the user's study on "we do not know" is the
+        // §CONTEXT-DATA-HONESTY conflation with teeth: a failure to read, acted on as a finding.
+        const cannotJudgeStaleness = kind === 'runtime-unreachable' || kind === 'resolving';
+        const hasMassingProposal = cannotJudgeStaleness
+            ? getTargetFootprintProposal() !== null
+            : resolveLiveTargetFootprintProposal(null) !== null;
+        const safeDesignStageStrip = ((): string => {
+            try {
+                return buildDesignStageStripHtml(describeDesignStages({
+                    hasCommittedParcel,
+                    hasResolvedEnvelope: false,
+                    hasMassingProposal,
+                    hasProgramme: null,
+                    designedStoreyCount: m.measurement?.designedStoreyCount ?? 0,
+                    hasRooms: m.measurement?.design.netFloorAreaM2 != null,
+                    measurementFailed: m.failed,
+                }));
+            } catch (err) {
+                console.warn('[gis][envelope-card] absence-arm design-stage strip failed (non-fatal):', err);
+                return '';
+            }
+        })();
+
+        // §MANUALENV159 — offered whenever there is a boundary to build a study inside. Withheld
+        // on `no-parcel` and `runtime-unreachable` because `applyUserSuppliedStudyHeight` would
+        // refuse, and an input that can only refuse is the dead click the strip exists to end.
+        const studySite = hasCommittedParcel ? (resolveSiteContext(runtime ?? null)?.store.getSite() ?? null) : null;
+        const safeStudyHeightEntry = studySite
+            ? buildStudyHeightEntryHtml(getUserSuppliedStudyHeight(studySite.id))
+            : '';
+        // ⛔ AND THE STUDY THE ENTRY PRODUCES MUST BE VISIBLE FROM HERE. `applyUserSuppliedStudyHeight`
+        // writes the session study slot, NOT `_lastEnvelope` — so a user who types a height on this
+        // card lands back on this same arm. Without this section their saved study would be
+        // invisible and the button would read as inert: the dead click, one step later.
+        const safeContextStudySection = studySite
+            ? buildContextStudySectionHtml(getContextDerivedStudyEnvelope(studySite.id), m.measurement)
+            : '';
+
+        const chip = ENVELOPE_ABSENCE_CHIP[kind];
+        const safeChip =
+            `<span title="${escHtml(chip.title)}" style="flex:none;white-space:nowrap;display:inline-block;`
+            + `padding:2px 8px;border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:10px;`
+            + `letter-spacing:.03em;text-transform:uppercase;">${escHtml(chip.label)}</span>`;
+        const safeCloseBtn = envelopeCloseButtonHtml();
+        const safeEnvToggle = envelopeToggleHtml();
+        panel.innerHTML =
+            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:9px;cursor:grab;">
+               <span style="font-weight:700;font-size:12.5px;color:#6600FF;">Buildable envelope</span>${safeChip}${safeCloseBtn}
+             </div>
+             ${safeAbsenceBody}
+             ${safeContextStudySection}
+             ${safeStudyHeightEntry}
+             ${safeDesignStageStrip}
+             ${safeEnvToggle}`;
+        wireEnvelopeToggle(panel);
+        wireEnvelopeClose(panel);
+        wireStudyHeightEntry(panel);
+        wireEnvelopeAbsenceSolve(panel);
+        // §RESI-ORCH-STAGE-WIRE — the "Do this next" pill. On THIS arm the massing control is the
+        // study-height entry (`data-stage-control="massing"`); when the arm does not host it the
+        // jump prints WHERE the control is rather than doing nothing.
+        wireDesignStageStrip(panel);
+        console.log(
+            `[gis][envelope-card] §ENVELOPE-NOT-A-GATE (C58 §1.20) no envelope → state="${kind}" `
+            + `rendered (card KEPT; the parcel-law process is not gated on an envelope).`,
+        );
+    };
+
     /** Mount/refresh the "Estimated" facts card + on/off toggle (SPEC §2). */
     const refreshEnvelopePanel = (): void => {
         const viewport = getForma3dHostEl();
@@ -3759,10 +4006,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 return;
             }
         }
-        // No envelope (no parcel / cleared) → drop the card entirely.
-        if (!viewport || !env || isNoneWithoutRefusal(env)) {
+        // ⭐ §ENVELOPE-NOT-A-GATE (L-13041 · C58 §1.20 · founder ruling L-13032) — NO ENVELOPE IS
+        // A STATE, AND THE CARD STAYS.
+        //
+        // ⛔ THIS BRANCH USED TO READ: `if (!viewport || !env || isNoneWithoutRefusal(env)) {
+        // envelopePanel.parentElement.removeChild(envelopePanel); envelopePanel = null; return; }`
+        // — it REMOVED the card element, and the design-stage strip's `Do this next: {stage} →`
+        // button is a FOLD OF THAT CARD. So a null envelope deleted the entire next-step
+        // affordance, which is the founder's ruling violated verbatim: *"having an envelope should
+        // not be the single pre-requisite to advance on going through the parcel law process."*
+        // §1.20 clause 4 names the shape in advance — a `null` envelope is a STATE TO RENDER, not
+        // a branch to skip — and `renderEnvelopeAbsencePanel` is that state, in six arms told
+        // apart at the read.
+        if (!viewport) {
+            // ⚠ NOT the §1.20 branch-skip, and the ONLY surviving `removeChild`. There is no DOM
+            // host to render INTO this instant (no Forma viewport, no claimed pane, no
+            // `#container`), so there is nowhere for ANY state — determination, refusal or absence
+            // — to live; the card is re-created by the next refresh once a host exists. Removing
+            // an element that has no home is not the same act as refusing to render a state that
+            // does, which is what this branch used to do to every null envelope.
             if (envelopePanel?.parentElement) envelopePanel.parentElement.removeChild(envelopePanel);
             envelopePanel = null;
+            return;
+        }
+        if (!env || isNoneWithoutRefusal(env)) {
+            renderEnvelopeAbsencePanel(viewport, env);
             return;
         }
         // (shell creation + re-homing is shared with the reduced card — see ensureEnvelopePanel)
@@ -3799,19 +4067,17 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             measurement: ReturnType<typeof measureAuthoredDesign> | null;
             joinFailed: boolean;
         } => {
+            // §ENVELOPE-NOT-A-GATE (L-13041) — the MEASUREMENT half is `measureAuthoredModelSafely`
+            // now, shared with the no-envelope arm so both derive their design stage from ONE read
+            // of the authored model (C06 §13.3). The JUDGEMENT half stays here: it needs `env`,
+            // which the absence arm by definition does not have.
+            const m = measureAuthoredModelSafely();
+            if (m.failed || !m.measurement) return { comparison: null, measurement: null, joinFailed: true };
             try {
-                const measurement = measureAuthoredDesign(collectAuthoredModelSnapshot({
-                    // The authoritative storey datums for the AUTHORED model (BimKernel levels).
-                    // A declared global, not `(window as any)` — P4 holds.
-                    levels: (window.bimManager as { getLevels?: () => unknown[] } | undefined) ?? null,
-                    slabs: storeRegistry.getStoreForType('slab') ?? null,
-                    rooms: storeRegistry.getStoreForType('room') ?? null,
-                    walls: storeRegistry.getStoreForType('wall') ?? null,
-                }));
-                const comparison = buildCapacityComparison(env, measurement.design, {
+                const comparison = buildCapacityComparison(env, m.measurement.design, {
                     maxFloors: env.maxFloors ?? null,
                 });
-                return { comparison, measurement, joinFailed: false };
+                return { comparison, measurement: m.measurement, joinFailed: false };
             } catch {
                 return { comparison: null, measurement: null, joinFailed: true };
             }
@@ -4445,6 +4711,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     // or the card would narrate geometry that is no longer on the ground.
                     if (targetAreaStatement !== null && !targetAreaRefused) targetAreaStatement = null;
                 }
+                // ⭐ §L-13038 — WHAT THE NEXT PRESS WILL DO, RESOLVED BEFORE IT IS PRESSED, from
+                // the SAME resolver the click uses. A second massing option for a storey that
+                // already carries a generated plate REPLACES it, and the user reads that first;
+                // an envelope PRYZM cannot prove it generated blocks the press instead, and the
+                // reason is printed where the button would have been.
+                const preview = live === null ? null : resolveAdoptResult();
                 return buildTargetAreaEntryHtml(
                     figures.footprintM2 > 0 ? figures.footprintM2 : null,
                     targetAreaStatement,
@@ -4453,7 +4725,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     // ⛔ THE KEEP BUTTON EXISTS ONLY WHEN THERE IS SOMETHING LIVE TO KEEP. `null`
                     // withholds the affordance rather than rendering a disabled control that could
                     // only ever refuse — see the builder's own `@param adopt`.
-                    live === null ? null : { statement: adoptStatement, failed: adoptFailed },
+                    preview === null ? null : {
+                        statement: adoptStatement,
+                        failed: adoptFailed,
+                        intent: {
+                            // Carried from the planner's own verdict — never sniffed out of its
+                            // prose, the same rule `refused` three lines up already keeps.
+                            kind: !preview.ok
+                                ? 'refuse'
+                                : preview.payload.supersedes.length > 0 ? 'replace' : 'create',
+                            text: preview.statement,
+                        },
+                    },
                 );
             } catch (err) {
                 console.warn('[gis][envelope-card] target-area entry failed (non-fatal):', err);
@@ -5903,12 +6186,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  Pass the element it should render into; pass `null` to release it back to the viewport.
      *  Returns whether a card is actually present afterwards.
      *
-     *  ⚠ THE RETURN VALUE IS LOAD-BEARING AND MUST NOT BE IGNORED. `false` does not mean
-     *  "failed to mount" — it means the C58 render decided there is NOTHING HONEST TO SHOW
-     *  (no parcel, no solved envelope, no persisted ring). A caller that renders an empty
-     *  container on `false` produces a blank panel, and a blank panel reads as a crash rather
-     *  than as "we could not determine this" — the L-553 defect. The caller must say so in
-     *  words instead.
+     *  ⛔ THE RETURN VALUE'S MEANING CHANGED AT §ENVELOPE-NOT-A-GATE (L-13041 · C58 §1.20), AND
+     *  THE OLD DOC HERE IS KEPT AS THE RECORD OF WHAT IT USED TO SAY, BECAUSE CALLERS BRANCH ON IT.
+     *  It read: *"`false` does not mean 'failed to mount' — it means the C58 render decided there
+     *  is NOTHING HONEST TO SHOW (no parcel, no solved envelope, no persisted ring)."* That was an
+     *  accurate description of a BREACH: "nothing honest to show" was implemented by DELETING the
+     *  card element, and the design-stage strip's `Do this next` button is a fold of that card, so
+     *  a null envelope removed the user's route forward — the founder's ruling (L-13032) violated
+     *  verbatim.
+     *
+     *  ⭐ TODAY: a null envelope is a STATE THE CARD RENDERS (§1.20 clause 4, six arms, see
+     *  `renderEnvelopeAbsencePanel`), so `false` now means only **there was no DOM host to render
+     *  into** — the Forma/site viewport is not mounted this instant. It is NOT a verdict about the
+     *  parcel, and a caller must not read it as one.
+     *
+     *  ⚠ IT IS STILL LOAD-BEARING. A caller that renders an empty container on `false` produces a
+     *  blank panel, and a blank panel reads as a crash rather than as "we could not determine
+     *  this" — the L-553 defect. `parcelEnvelopeSlotState.ts` is the shipped example of saying so
+     *  in words; its non-card arms are now reached only when there is genuinely no host.
      *
      *  ⛔ It must NEVER be turned into "show zeros". A 0/0/0 envelope REFUSES to draw rather
      *  than overstate on real land (§L-616 / C58 §1.16), and an UNKNOWN constraint rendered as
@@ -5933,7 +6228,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         }
         console.log(
             `[gis][envelope-card] §GIS-ENVELOPE-REHOST host=${host ? (host.className || host.id || 'element') : 'viewport'} ` +
-                `→ card ${present ? 'PRESENT' : 'ABSENT (nothing determinable — caller must say so in words)'}.`,
+                `→ card ${present ? 'PRESENT' : 'ABSENT (no DOM host to render into — NOT a verdict about the parcel, C58 §1.20)'}.`,
         );
         return present;
     };

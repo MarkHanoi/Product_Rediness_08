@@ -78,43 +78,21 @@ interface CebAction {
     action:      () => void;
 }
 
-const TYPE_DISPLAY: Record<string, string> = {
-    wall:           'Wall',
-    slab:           'Slab',
-    floor:          'Floor',
-    ceiling:        'Ceiling',
-    column:         'Column',
-    beam:           'Beam',
-    door:           'Door',
-    window:         'Window',
-    furniture:      'Furniture',
-    roof:           'Roof',
-    stair:          'Stair',
-    stairs:         'Stair',
-    railing:        'Railing',
-    'curtain-wall':       'Curtain Wall',
-    curtainwall:          'Curtain Wall',
-    plumbing:             'Plumbing',
-    floor_plan_underlay:  'Import Overlay',
-};
+// ⭐ §FIX-ELEMENT-TYPE-KEY-CASING (L-13045) — the element-type TABLES and the ONE lookup
+// that reads them now live in a dependency-free module so a test can EXERCISE them. This
+// file is not importable by a unit test (its transitive graph times out at 10 s), which is
+// why every test around it reads its source with a regex — and a regex proved the
+// envelope's resolver row EXISTED while the read never matched it. See elementTypeKey.ts.
+import {
+    TYPE_DISPLAY,
+    lookupByElementType,
+    resolveProfileEditTool,
+    type ProfileEditCapableTool,
+    type ProfileEditToolBag,
+} from './elementTypeKey';
 
 // Phase B.8 (S73-WIRE) — runtime threading per S72 §16.2 row B.8.
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
-
-/**
- * §FEAT-WALL-PROFILE-EDIT-MATRIX — what a tool must expose to have "Edit Profile" offered.
- *
- * `enterProfileEditMode` is the FLOOR: without it the button is not shown at all, which is
- * the §FIX-DEAD-EDIT-PROFILE-BUTTON rule and is unchanged. `profileEditAvailability` is
- * OPTIONAL and is the per-variant refinement (L-1065): a tool that has it gets its button
- * enabled or disabled per element, a tool that lacks it keeps the old all-or-nothing
- * behaviour. Optional rather than required so slab — whose editor has no variant axes —
- * needs no change to keep working.
- */
-interface ProfileEditCapableTool {
-    enterProfileEditMode?: (id: string) => unknown;
-    profileEditAvailability?: (id: string) => { ok: boolean; reason?: string };
-}
 
 export class ContextualEditBar {
     private readonly _el: HTMLElement;
@@ -578,7 +556,7 @@ export class ContextualEditBar {
             }
             // Back to 0 or 1 — restore the single-element presentation from the
             // identity the element channel last gave us.
-            const displayName = TYPE_DISPLAY[this._elementType] ?? 'Element';
+            const displayName = lookupByElementType(TYPE_DISPLAY, this._elementType) ?? 'Element';
             this._el.dataset.elementType = this._selectedObj ? this._elementType : '';
             this._el.title = this._selectedObj ? displayName : '';
             this._refreshButtonVisibility(this._elementType);
@@ -604,7 +582,7 @@ export class ContextualEditBar {
                 : '';
 
             if (obj) {
-                const displayName = TYPE_DISPLAY[this._elementType] ?? 'Element';
+                const displayName = lookupByElementType(TYPE_DISPLAY, this._elementType) ?? 'Element';
                 this._el.dataset.elementType = this._elementType;
                 this._el.title = displayName;
             } else {
@@ -1456,9 +1434,8 @@ export class ContextualEditBar {
         if (!id) return;
         const type = this._elementType;
 
-        // Cast through `unknown`: globals.d.ts types floorTool/ceilingTool as
-        // `unknown` and slabTool with an `(slab: object)` signature — a local
-        // shape keeps this call site clean without touching the global decl.
+        // The SAME resolver the button's visibility uses (`ProfileEditToolBag` explains why
+        // the window shape is declared locally rather than read from globals.d.ts).
         const tool = this._profileEditToolFor(type);
         if (tool) {
             // §FEAT-WALL-PROFILE-EDIT-MATRIX — the disabled button is a hint, not the
@@ -1507,38 +1484,22 @@ export class ContextualEditBar {
      * (`packages/geometry-wall/src/WallTool.ts`, opening `WallProfileEditor` on the wall's
      * own elevation and committing through `element.updateParameters`), so the condition
      * that justified the absence no longer holds. The rule itself is unchanged and still
-     * binding: a type is listed here IF AND ONLY IF its tool implements the method — which
-     * the `typeof … === 'function'` guard below enforces at runtime regardless of this map,
-     * so a wrong entry disables the button rather than resurrecting a dead one.
+     * binding: a type is listed there IF AND ONLY IF its tool implements the method — which
+     * the `typeof … === 'function'` guard in `resolveProfileEditTool` enforces at runtime
+     * regardless of the map, so a wrong entry disables the button rather than resurrecting a
+     * dead one.
+     *
+     * ⭐ THE TABLE AND THE RESOLVER NOW LIVE AT MODULE SCOPE — `profileEditCandidates()` and
+     * `resolveProfileEditTool()` — so a test can enumerate the whole table instead of
+     * asserting one hard-coded row. That is not cosmetic: the envelope's row was certified
+     * PRESENT by a source-assertion test and was still dead, because nothing ever exercised
+     * the READ (§FIX-ELEMENT-TYPE-KEY-CASING, L-13045). This method is now the window seam
+     * and nothing else.
      */
     private _profileEditToolFor(
         type: string | null | undefined,
     ): ProfileEditCapableTool | null {
-        if (!type) return null;
-        const w = window as unknown as {
-            slabTool?:           ProfileEditCapableTool;
-            floorTool?:          ProfileEditCapableTool;
-            ceilingTool?:        ProfileEditCapableTool;
-            wallTool?:           ProfileEditCapableTool;
-            spaceEnvelopeTool?:  ProfileEditCapableTool;
-        };
-        const candidates: Record<string, ProfileEditCapableTool | undefined> = {
-            slab:    w.slabTool,
-            floor:   w.floorTool,
-            ceiling: w.ceilingTool,
-            wall:    w.wallTool,
-            // ⭐ §RESI-STAGE-G (2026-09-06) — THE ROW C114 §10b ASKS FOR, and the whole of
-            // what that section permits: *"The envelope adds a row to that resolver. ⛔ A new
-            // outline surface is forbidden."* `SpaceEnvelopeProfileEditTool` implements BOTH
-            // methods, so the button is shown, and is enabled or disabled per element by its
-            // `profileEditAvailability` — a degenerate footprint or a `maximumBuildable`
-            // study disables it with the reason as the tooltip rather than opening nothing.
-            // The `typeof … === 'function'` guard below still enforces the rule regardless of
-            // this map, so a wrong entry hides the button rather than resurrecting a dead one.
-            spaceEnvelope: w.spaceEnvelopeTool,
-        };
-        const tool = candidates[type];
-        return tool && typeof tool.enterProfileEditMode === 'function' ? tool : null;
+        return resolveProfileEditTool(type, window as unknown as ProfileEditToolBag);
     }
 
     /**

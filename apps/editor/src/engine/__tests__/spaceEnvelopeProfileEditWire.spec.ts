@@ -17,6 +17,7 @@
 //    this lane is browser-verified (C114 §14d).
 
 import { describe, expect, it } from 'vitest';
+import { resolveProfileEditTool } from '../../ui/elementTypeKey';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,13 +26,37 @@ const EDITOR_SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 const read = (rel: string): string => fs.readFileSync(path.join(EDITOR_SRC, rel), 'utf8');
 
 describe('(1) the BUTTON is offered — the resolver lists the family', () => {
-    const bar = read('ui/ContextualEditBar.ts');
+    const table = read('ui/elementTypeKey.ts');
 
     it('maps the `spaceEnvelope` element type to window.spaceEnvelopeTool', () => {
         // The dispatch table's own row. Visibility and the click handler both read THIS,
         // which is what stops an offered affordance and an implemented action drifting apart.
-        expect(bar).toMatch(/spaceEnvelope:\s*w\.spaceEnvelopeTool/);
-        expect(bar).toMatch(/spaceEnvelopeTool\?:\s*ProfileEditCapableTool/);
+        //
+        // ⚠ REPOINTED 2026-09-07 (§FIX-ELEMENT-TYPE-KEY-CASING · L-13045). The table moved
+        // out of `ContextualEditBar.ts` into the dependency-free `ui/elementTypeKey.ts`
+        // *because of what this assertion could not see*: it went GREEN on a row that was
+        // DEAD. The bar lowercases the element type before the lookup, the key is camelCase,
+        // and `candidates['spaceenvelope']` was `undefined` on every selection — so the
+        // button this file certifies as "offered" was HIDDEN. Source proved the ROW; nothing
+        // proved the READ. The behavioural arm below is now the primary assertion and this
+        // regex is demoted to a spelling check on the handle name.
+        expect(table).toMatch(/spaceEnvelope:\s*w\.spaceEnvelopeTool/);
+        expect(table).toMatch(/spaceEnvelopeTool\?:\s*ProfileEditCapableTool/);
+    });
+
+    it('⭐ RESOLVES the type the PRODUCER stamps, after the bar lowercases it', () => {
+        // The end-to-end casing contract, DERIVED rather than hard-coded: take the literal
+        // `SpaceEnvelopeMeshBuilder` actually stamps on `userData.elementType`, put it
+        // through the same `.toLowerCase()` the `bim-selection-changed` handler applies, and
+        // require the resolver to still find the tool. This is the assertion whose absence
+        // let the dead row ship — and it fails at the parent commit.
+        const builder = read('engine/SpaceEnvelopeMeshBuilder.ts');
+        const stamped = /group\.userData\['elementType'\] = '([^']+)'/.exec(builder)?.[1];
+        expect(stamped).toBeTruthy();
+
+        const spaceEnvelopeTool = { enterProfileEditMode: () => undefined };
+        expect(resolveProfileEditTool(stamped!.toLowerCase(), { spaceEnvelopeTool }))
+            .toBe(spaceEnvelopeTool);
     });
 });
 

@@ -334,3 +334,120 @@ describe('serialisation round-trip (C114 §11 item 5)', () => {
         expect(revived.baseOffset).toBeCloseTo(1.5, 9);
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// §KEEPING-A-MASSING-OPTION-ACCUMULATES-INSTEAD-OF-REPLACING (L-13038, 2026-09-07)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Founder: *"WHEN I SELECT ANOTHER MASSING OPTION THE PREVIOUS ONE SHALL BE REMOVED."*
+//
+// ⭐ THE ARM THAT MATTERS IS THE UNDO **DEPTH**, NOT THE FINAL STATE. A delete followed by
+// a create leaves exactly the same store as a supersede — and costs the user TWO Ctrl+Z,
+// with a torn empty-storey state in between. `batchCoordinator.runBatch` is undo-NEUTRAL
+// (C114 §6a), so the only way to buy one entry is one `produceCommand`, and only a
+// depth assertion can tell the two implementations apart.
+
+describe('batch.create supersedes — replacing a massing option is ONE undo', () => {
+    it('⭐ replaces the previous envelope and spends exactly ONE undo entry', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [{ ...squareSpec(ULID_A), role: 'level' }],
+        });
+        expect(env.undoStack.size).toBe(1);
+
+        const ev = await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [{ ...squareSpec(ULID_B, 0, 0), role: 'level' }],
+            supersedes: [ULID_A],
+        });
+        // One gesture, one ring entry — NOT two (delete + create).
+        expect(env.undoStack.size).toBe(2);
+        expect(env.spaceEnvelope.get(ULID_A)).toBeUndefined();
+        expect(env.spaceEnvelope.get(ULID_B)).toBeDefined();
+
+        // …and ONE undo brings the previous one back, with the new one gone.
+        undoLast(env.spaceEnvelope, ev);
+        expect(env.spaceEnvelope.get(ULID_A)).toBeDefined();
+        expect(env.spaceEnvelope.get(ULID_B)).toBeUndefined();
+    });
+
+    it('⭐ heals an ACCUMULATED storey — three rivals go in one gesture', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [
+                { ...squareSpec(ULID_A), role: 'level' },
+                { ...squareSpec(ULID_B), role: 'level' },
+            ],
+        });
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [{ ...squareSpec(ULID_C), role: 'level' }],
+            supersedes: [ULID_A, ULID_B],
+        });
+        expect(env.spaceEnvelope.byLevel('level-1').map((e) => e.id)).toEqual([ULID_C]);
+    });
+
+    it('⛔ a superseded LEVEL does not cascade to its rooms — withinId is CLEARED (C114 §8)', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [
+                { ...squareSpec(ULID_A), role: 'level' },
+                { ...squareSpec(ULID_B), role: 'room', withinId: ULID_A },
+            ],
+        });
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [{ ...squareSpec(ULID_C), role: 'level' }],
+            supersedes: [ULID_A],
+        });
+        // The room SURVIVES its level being replaced — an architect's layout is not collateral.
+        expect(env.spaceEnvelope.get(ULID_B)).toBeDefined();
+        expect(env.spaceEnvelope.get(ULID_B)!.withinId).toBeNull();
+    });
+
+    it('⛔ REFUSES a supersede id that is not in the store — never a silent skip', async () => {
+        const env = buildEnv();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.batch.create', {
+                envelopes: [{ ...squareSpec(ULID_A), role: 'level' }],
+                supersedes: ['spaceEnvelope_01J000000000000000000000ZZ'],
+            }),
+        ).rejects.toThrow(/no such space envelope to supersede/);
+        // Nothing was created: a refusal is not a partial write.
+        expect(env.spaceEnvelope.ids()).toHaveLength(0);
+    });
+
+    it('⛔ REFUSES a batch that supersedes an id it is also creating', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [{ ...squareSpec(ULID_A), role: 'level' }],
+        });
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.batch.create', {
+                envelopes: [{ ...squareSpec(ULID_B), role: 'level' }],
+                supersedes: [ULID_B],
+            }),
+        ).rejects.toThrow(/cannot supersede an envelope it is also creating|no such space envelope/);
+    });
+
+    it('carries the caller PROVENANCE onto the record — the stamp that makes replacement safe', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [{
+                ...squareSpec(ULID_A),
+                role: 'level',
+                provenance: { origin: 'computed', detail: 'fitted by the massing solver' },
+            }],
+        });
+        expect(env.spaceEnvelope.get(ULID_A)!.provenance).toEqual({
+            origin: 'computed', detail: 'fitted by the massing solver',
+        });
+    });
+
+    it('⛔ a caller that says NOTHING gets the schema default, never an invented origin', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [{ ...squareSpec(ULID_A), role: 'level' }],
+        });
+        const p = env.spaceEnvelope.get(ULID_A)!.provenance;
+        expect(p.origin).toBeNull();
+        expect(p.unknownReason).toBe('predates-provenance');
+    });
+});
