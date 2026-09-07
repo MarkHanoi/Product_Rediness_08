@@ -16,9 +16,20 @@
 // repaints from). Both are subscribed here; the host's `refresh()` is a third, explicit route for
 // a repaint the host already performs. No polling.
 //
-// ── ⛔ ROOMS DRAWING ON THE VIEW IS NOT DONE HERE. §26.6.4 rule 2 puts that on the ONE
-// `siteGeometryHighlight` wiring (CARD-26.6's scope); a second highlight path from this section
-// is exactly what C58 §1.19 clause 2 forbids.
+// ── ⭐ ROOMS DRAW ON THE VIEWS THROUGH THE ONE HIGHLIGHT PATH (lane DRAW-ON-VIEWS, 2026-09-07) ──
+// Founder: *"THAT SHOULD BE THERE — AND SHALL RENDER ON THE VIEWS."* This section's header used to
+// read *"ROOMS DRAWING ON THE VIEW IS NOT DONE HERE"* — correct as a boundary, and it has been
+// honoured rather than reversed: nothing here draws, nothing here knows what a scene is, and no
+// second channel was minted. Each room row's NAME is built by `buildSiteHighlightLabelEl` — the ONE
+// control builder question 1's rows already use — over a `room:<id>` subject in the ONE store
+// (`siteGeometryHighlight`), and the three renderers answer it with their own `room-outline` cue
+// arm. That is C58 §1.19 clause 2 satisfied by reuse, which is what the clause asks for; a second
+// highlight path is what it forbids.
+//
+// ⛔ A ROOM WITH NO DRAWABLE OUTLINE SAYS SO, PER ROOM. `describeRoomHighlightAvailability` decides
+// (no id · no outline recorded · an outline that is not a polygon — three different sentences), and
+// this file only renders the decision it is handed. A room row that silently failed to paint would
+// be the §CONTEXT-DATA-HONESTY conflation wearing an affordance.
 //
 // DOM via the DOM API (textContent, never innerHTML with runtime strings — C08 §3.1).
 
@@ -31,7 +42,20 @@ import {
     groupRoomsPerLevel,
     type RoomsPerLevelGroup,
     type RoomsPerLevelModel,
+    type RoomsPerLevelRoom,
 } from './roomsPerLevelModel';
+// §26.6.4 — the ONE subject vocabulary and the ONE control builder. This file draws nothing and
+// subscribes to nothing but the repaint channel; see the header.
+import {
+    describeRoomHighlightAvailability,
+    getSiteHighlight,
+    roomHighlightSubject,
+} from './siteGeometryHighlight';
+import {
+    buildSiteHighlightLabelEl,
+    keepSiteHighlightRowsPainted,
+    wireSiteHighlightRows,
+} from './siteHighlightRowControl';
 
 const _tracer = trace.getTracer('pryzm.site.roomsPerLevelSection');
 
@@ -41,6 +65,12 @@ export const ROOMS_PER_LEVEL_GROUP_ATTR = 'data-rooms-level';
 export const ROOMS_PER_LEVEL_UNPLACED_TESTID = 'rooms-per-level-unplaced';
 export const ROOMS_PER_LEVEL_ROOM_ATTR = 'data-rooms-level-room';
 export const ROOMS_PER_LEVEL_STATUS_TESTID = 'rooms-per-level-status';
+/**
+ * §26.6.4 — how many room rows under this section were wired as highlight controls on the last
+ * render. Stamped so *"wired nothing"* and *"wired six"* are distinguishable without inferring it
+ * from silence, which is the [[committed-is-not-reachable]] hop this attribute exists to close.
+ */
+export const ROOMS_PER_LEVEL_WIRED_ATTR = 'data-rooms-level-highlight-wired';
 
 export interface RoomsPerLevelDeps {
     readonly readRooms: () => readonly ProjectRoomLike[];
@@ -137,6 +167,32 @@ function el(tag: string, style: string, text?: string): HTMLElement {
     return e;
 }
 
+/**
+ * ⭐ §26.6.4 — ONE ROOM'S LABEL CELL: the room's NAME as the highlight control, then the rest of
+ * the row's words as plain text beside it.
+ *
+ * The name is the hyperlink and the kind is not, deliberately: a subject is a THING, and "bedroom"
+ * is a classification of the thing rather than a second thing to point at. Following the link
+ * lights THAT room; there is nothing a `· bedroom` link could light that this one does not.
+ *
+ * Everything about whether it is a control is decided elsewhere — `roomHighlightSubject` (can it be
+ * NAMED?) and `describeRoomHighlightAvailability` (is there a SHAPE?). This function types the
+ * answer and holds no rule of its own.
+ */
+function roomLabelCell(room: RoomsPerLevelRoom, trailing: string): HTMLElement {
+    const cell = el('span', 'min-width:0;');
+    const subject = roomHighlightSubject(room.id);
+    const avail = describeRoomHighlightAvailability(room.id, room.outlineVertices, room.name);
+    cell.appendChild(buildSiteHighlightLabelEl(
+        room.name ?? '(unnamed room)',
+        subject,
+        avail,
+        subject !== null && getSiteHighlight() === subject,
+    ));
+    if (trailing.length > 0) cell.appendChild(document.createTextNode(trailing));
+    return cell;
+}
+
 function renderGroup(g: RoomsPerLevelGroup): HTMLElement {
     const box = el('div', 'margin-top:7px;padding:6px 7px;border:1px solid #efecf7;border-radius:8px;background:#ffffff;min-width:0;');
     box.setAttribute(ROOMS_PER_LEVEL_GROUP_ATTR, g.levelId);
@@ -182,7 +238,7 @@ function renderGroup(g: RoomsPerLevelGroup): HTMLElement {
         for (const r of g.rooms) {
             const row = el('div', 'display:flex;justify-content:space-between;gap:8px;padding:1px 0;font-size:9.5px;color:#4b4460;');
             row.setAttribute(ROOMS_PER_LEVEL_ROOM_ATTR, r.id ?? '');
-            row.appendChild(el('span', '', `${r.name ?? '(unnamed room)'} · ${r.kind}`));
+            row.appendChild(roomLabelCell(r, ` · ${r.kind}`));
             row.appendChild(el('span', `color:${r.areaM2 === null ? '#8a5a00' : '#6b6480'};`, fmtArea(r.areaM2)));
             list.appendChild(row);
         }
@@ -230,7 +286,11 @@ function renderModel(root: HTMLElement, model: RoomsPerLevelModel): void {
         for (const u of model.unplaced) {
             const row = el('div', 'display:flex;justify-content:space-between;gap:8px;padding:1px 0;font-size:9.5px;color:#4b4460;');
             row.setAttribute(ROOMS_PER_LEVEL_ROOM_ATTR, u.room.id ?? '');
-            row.appendChild(el('span', '', `${u.room.name ?? '(unnamed room)'} · ${u.room.kind} — ${describeUnplacedReason(u)}`));
+            // ⭐ AN UNPLACED ROOM IS STILL POINTABLE. Its STOREY is unknown; its OUTLINE may be
+            // perfectly well recorded, and lighting it on the plan is exactly how a reader finds
+            // out where the thing actually is. Withholding the link here because one OTHER field
+            // is missing would be a second, unstated availability rule.
+            row.appendChild(roomLabelCell(u.room, ` · ${u.room.kind} — ${describeUnplacedReason(u)}`));
             row.appendChild(el('span', `color:${u.room.areaM2 === null ? '#8a5a00' : '#6b6480'};`, fmtArea(u.room.areaM2)));
             list.appendChild(row);
         }
@@ -259,12 +319,32 @@ export function mountRoomsPerLevelSection(host: HTMLElement, deps: RoomsPerLevel
                 model = groupRoomsPerLevel([], null, { readable: false, reason: 'store-threw', text: 'read failed' });
             }
             renderModel(root, model);
+            // ⭐ §26.6.4 — WIRE ON EVERY RENDER, and it must be here rather than at the host.
+            // `renderModel` calls `replaceChildren`, so every row rebuilt by a room event or an
+            // envelope event is a row whose handler has just been thrown away. The Parcel Law tab
+            // re-wires its whole body on the SITE store's notification — a different signal, which
+            // does not fire when a room is renamed. Idempotent (`onclick` is assigned), so the two
+            // callers cannot double-bind. `wireSiteHighlightRows` is the ONE wire; nothing here
+            // writes the store itself.
+            try {
+                const n = wireSiteHighlightRows(root);
+                root.setAttribute(ROOMS_PER_LEVEL_WIRED_ATTR, String(n));
+            } catch (e) {
+                console.warn('[site][rooms-per-level] highlight wiring failed (non-fatal):', e);
+            }
         };
         render();
 
         const offs: Array<() => void> = [];
         try { if (deps.subscribeRooms) offs.push(deps.subscribeRooms(render)); } catch { /* the host refresh still repaints */ }
         try { if (deps.subscribeEnvelopes) offs.push(deps.subscribeEnvelopes(render)); } catch { /* same */ }
+        // ⭐ §26.6.4 — KEEP THE ◉ HONEST. A click on question 1's `Area` row, or on an edge row in
+        // the setback register, writes the SAME store; without this, a room row that was pressed
+        // would keep asserting an emphasis the views have already moved off. This subscribes to
+        // repaint state ONLY — it is NOT a drawing surface and deliberately does NOT call
+        // `registerSiteHighlightSurface` (counting a panel as a viewport is the
+        // [[fake-more-capable-than-real]] shape the reach registry refuses).
+        try { offs.push(keepSiteHighlightRowsPainted(root)); } catch { /* the next render repaints */ }
 
         return {
             element: root,

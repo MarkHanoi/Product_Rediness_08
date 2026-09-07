@@ -100,8 +100,30 @@ export type SiteHighlightFixedSubject =
  */
 export type SiteHighlightEdgeSubject = `edge:${number}`;
 
-/** Every subject the store can hold: the fixed seven, or one ring edge by index. */
-export type SiteHighlightSubject = SiteHighlightFixedSubject | SiteHighlightEdgeSubject;
+/**
+ * ⭐ §26.6.4 (L-13046, lane DRAW-ON-VIEWS 2026-09-07) — ONE ROOM OF THE PROJECT, BY ITS OWN ID.
+ *
+ * Founder, on the rooms-per-level list: *"THAT SHOULD BE THERE — AND SHALL RENDER ON THE VIEWS."*
+ * A room row must light THAT ROOM on whichever view is open, and a room is not a fixed member any
+ * more than an edge is: a project has as many as it has. So it is the SECOND parametrised subject,
+ * carried through the SAME store, the SAME attribute and the SAME subscribers as the fixed seven.
+ *
+ * ⛔ NOT A SECOND HIGHLIGHT MECHANISM (C58 §1.19 clause 2, §26.6.6), and `roomsPerLevelSection.ts`'s
+ * own header said so before this lane existed. `roomHighlightSubject` is the ONE constructor and
+ * `parseRoomHighlightSubject` the ONE parser, so no renderer ever splits the string itself.
+ *
+ * ⚠ A ROOM ID IS AN OPAQUE STRING, NOT AN INDEX — that is the one shape difference from `edge:<n>`.
+ * `RoomData.id` is minted by `createId` and is stable across renames (`RoomStore.ts`), which is
+ * exactly why the subject is keyed on it rather than on a display name: two rooms may legitimately
+ * be called "Bedroom", and a name-keyed subject would light the wrong one silently.
+ */
+export type SiteHighlightRoomSubject = `room:${string}`;
+
+/** Every subject the store can hold: the fixed seven, one ring edge, or one room. */
+export type SiteHighlightSubject =
+    | SiteHighlightFixedSubject
+    | SiteHighlightEdgeSubject
+    | SiteHighlightRoomSubject;
 
 /** Iteration order for tests and for any future legend. The FIXED subjects only — edges are
  *  as many as the ring has, and are enumerated from the ring, never from this table. */
@@ -130,11 +152,41 @@ export function parseEdgeHighlightSubject(subject: string | null | undefined): n
     return m ? Number(m[1]) : null;
 }
 
+/** The prefix of a room subject. One spelling, owned here. */
+export const SITE_HIGHLIGHT_ROOM_PREFIX = 'room:';
+
+/**
+ * THE constructor of a room subject. `id` is the room record's own `RoomData.id`.
+ *
+ * ⛔ AN EMPTY ID IS NOT A SUBJECT and this returns `null` for one, rather than minting `room:` —
+ * a subject nothing can resolve is the dead click `describeRoomHighlightAvailability` exists to
+ * prevent, one blank field away.
+ */
+export function roomHighlightSubject(id: string | null | undefined): SiteHighlightRoomSubject | null {
+    if (typeof id !== 'string') return null;
+    const trimmed = id.trim();
+    if (trimmed.length === 0) return null;
+    return `${SITE_HIGHLIGHT_ROOM_PREFIX}${trimmed}` as SiteHighlightRoomSubject;
+}
+
+/**
+ * THE parser. `null` for anything that is not a well-formed room subject — including the fixed
+ * subjects and `edge:<n>`, so a renderer can write `parseRoomHighlightSubject(subject) ?? …`
+ * without a second check. Never throws.
+ */
+export function parseRoomHighlightSubject(subject: string | null | undefined): string | null {
+    if (typeof subject !== 'string') return null;
+    if (!subject.startsWith(SITE_HIGHLIGHT_ROOM_PREFIX)) return null;
+    const id = subject.slice(SITE_HIGHLIGHT_ROOM_PREFIX.length);
+    return id.length > 0 ? id : null;
+}
+
 /** Type guard: is this string one of the subjects the store accepts? */
 export function isSiteHighlightSubject(value: string | null | undefined): value is SiteHighlightSubject {
     if (typeof value !== 'string') return false;
     return (SITE_HIGHLIGHT_SUBJECTS as readonly string[]).includes(value)
-        || parseEdgeHighlightSubject(value) !== null;
+        || parseEdgeHighlightSubject(value) !== null
+        || parseRoomHighlightSubject(value) !== null;
 }
 
 /** The DOM attribute a clickable card row carries. One name, so the panel and its wiring agree. */
@@ -154,6 +206,15 @@ export const SITE_HIGHLIGHT_MEANING: Readonly<Record<SiteHighlightFixedSubject, 
 /** What the user is told an EDGE row will light. Same sentence shape as the fixed seven. */
 export function edgeHighlightMeaning(index: number): string {
     return `Lights edge ${Math.trunc(index) + 1} of the parcel ring — the one vector this setback applies to.`;
+}
+
+/**
+ * §26.6.4 — what the user is told a ROOM row will light. Same sentence shape as the seven above.
+ * The name is the user's own word for the room; `null` falls back to the honest "(unnamed room)"
+ * rather than to the id, which means nothing to a reader.
+ */
+export function roomHighlightMeaning(name: string | null): string {
+    return `Lights ${name ?? 'this room'} — the detected outline of that space on its own storey.`;
 }
 
 /** Whether a subject can be shown, and — when it cannot — why not, in the user's words. */
@@ -297,6 +358,68 @@ export function describeEdgeHighlightAvailability(
             };
         }
         return { available: true, reason: edgeHighlightMeaning(edgeIndex) };
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * ⭐ §26.6.4 — THE availability decision for ONE ROOM. Pure; total; never throws.
+ *
+ * ⛔ THREE ARMS, AND THE FIRST TWO STATE DIFFERENT FACTS. The founder's instruction is that a room
+ * row paints on the view; the honesty rule this module opens with is that a row which CANNOT paint
+ * says so, per row, with its reason. A room can fail to be pointable for two unrelated reasons and
+ * collapsing them is the §CONTEXT-DATA-HONESTY conflation this file exists to refuse:
+ *
+ *   · the record carries no OUTLINE AT ALL (`outlineVertices === null`) — nothing has detected this
+ *     room's shape from the walls yet, or the record predates room detection. A GAP in PRYZM.
+ *   · the record carries an outline of fewer than three vertices — a DEGENERATE shape. PRYZM DID
+ *     look, and what it found is not a polygon. A finding about the model, not a missing read.
+ *   · no id — the record cannot even be NAMED as a subject, so no click could address it.
+ *
+ * @param roomId          the record's own id, or `null` when it carried none
+ * @param outlineVertices vertex count of `boundary.polygon`, or `null` when the record carries no
+ *                        polygon array at all. ⛔ Do NOT pre-default this to `0` — that would turn
+ *                        "never detected" into "detected and degenerate", which is a different and
+ *                        much more alarming statement about the user's model.
+ * @param name            the room's display name, for the available arm's sentence
+ */
+export function describeRoomHighlightAvailability(
+    roomId: string | null,
+    outlineVertices: number | null,
+    name: string | null,
+): SiteHighlightAvailability {
+    const span = _tracer.startSpan('pryzm.site.describeRoomHighlightAvailability');
+    try {
+        if (roomId === null || roomId.trim().length === 0) {
+            return {
+                available: false,
+                reason:
+                    'This room record carries no id, so PRYZM has no way to name it to the views. It is '
+                    + 'listed here as it was read — this is a gap in the record, not a finding about the room.',
+            };
+        }
+        if (outlineVertices === null) {
+            return {
+                available: false,
+                reason:
+                    'PRYZM has no detected outline for this room, so there is no shape to light on the '
+                    + 'views. Room outlines are detected from the walls that enclose them; a room declared '
+                    + 'in the programme before its walls exist has none yet. This is a missing measurement '
+                    + '— NOT a finding that the room has no shape.',
+            };
+        }
+        if (outlineVertices < 3) {
+            return {
+                available: false,
+                reason:
+                    `This room's outline was recorded with ${outlineVertices} `
+                    + `${outlineVertices === 1 ? 'vertex' : 'vertices'}, which is not a polygon. PRYZM DID read an `
+                    + 'outline and what it found cannot be drawn — a finding about the model, not a gap in '
+                    + 'the data. Nothing is drawn rather than a shape invented to fill it.',
+            };
+        }
+        return { available: true, reason: roomHighlightMeaning(name) };
     } finally {
         span.end();
     }
@@ -595,13 +718,24 @@ export type SiteHighlightCue =
     /** §26.6 rule 2 — the axis-aligned box the `Bounding box` row describes. Never on screen otherwise. */
     | 'bbox'
     /** §26.6 rule 2 — ONE segment of the ring, the edge a setback-register row names. */
-    | 'boundary-edge';
+    | 'boundary-edge'
+    /**
+     * §26.6.4 — the detected outline of ONE ROOM, at that room's own storey height.
+     *
+     * ⚠ A CUE LIKE THE OTHERS, not "the room mesh brightened". The BIM scene DOES draw room floor
+     * fills (`RoomBoundaryBuilder`), but the two SITE views draw no rooms at all, and a subject
+     * whose emphasis existed on one surface and not the others would make the row's ◉ mean
+     * something different per view. Constructing the outline in all three keeps one meaning.
+     */
+    | 'room-outline';
 
 /** See `SiteHighlightCue`. Total; pure. */
 export function siteHighlightCue(subject: SiteHighlightSubject): SiteHighlightCue | null {
     // An edge is answered by ONE constructed segment; the rest of the ring recedes around it so
     // the edge is legible AS a part of the ring (the frontage rule, per edge).
     if (parseEdgeHighlightSubject(subject) !== null) return 'boundary-edge';
+    // §26.6.4 — a room is answered by its own detected outline, on its own storey.
+    if (parseRoomHighlightSubject(subject) !== null) return 'room-outline';
     switch (subject as SiteHighlightFixedSubject) {
         case 'frontage': return 'front-edges';
         case 'footprint': return 'inset-ring';
@@ -644,6 +778,11 @@ export function siteHighlightEmphasis(
     // An edge is a CONSTRUCTED cue like frontage: the authored ring recedes so the one lit
     // segment reads as a part of it, never as a second outline.
     if (parseEdgeHighlightSubject(subject) !== null) return 'recede';
+    // §26.6.4 — a ROOM is the same shape of answer. Every authored site surface recedes, including
+    // the to-be-built plate the room sits inside: the question "where is the kitchen" is not
+    // answered by also lighting the massing, and a plate at 0.45 alpha over a thin outline is
+    // exactly how the outline becomes unreadable.
+    if (parseRoomHighlightSubject(subject) !== null) return 'recede';
     switch (subject as SiteHighlightFixedSubject) {
         case 'parcel':
             return role === 'parcel-fill' || role === 'parcel-line' ? 'subject' : 'recede';

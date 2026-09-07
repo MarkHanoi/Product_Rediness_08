@@ -98,19 +98,30 @@ const OFF_RULE = '#c3bdd6';
  * `buildSiteHighlightLabelHtml` below is its serialisation, so the two hosts render one control.
  *
  * @param label      the row's user-facing label ("Max footprint")
- * @param subject    which subject this row points at — one of the fixed seven, or one ring edge
+ * @param subject    which subject this row points at — one of the fixed seven, one ring edge, or
+ *                   one room. ⛔ `null` IS A REAL CASE, NOT A CONVENIENCE: §26.6.4's room rows are
+ *                   built from records that may carry no id, and a record with no id cannot be
+ *                   NAMED as a subject at all. Such a row must still render — as text, with its
+ *                   reason — because dropping it would make the per-level count disagree with the
+ *                   programme's, and rendering it as a silent plain label would hide the fact that
+ *                   PRYZM cannot address it. A `null` subject can never take the button arm.
  * @param avail      the availability DECISION for that subject — computed once per render by
- *                   `describeSiteHighlightAvailability` / `describeEdgeHighlightAvailability`,
- *                   never re-derived here
+ *                   `describeSiteHighlightAvailability` / `describeEdgeHighlightAvailability` /
+ *                   `describeRoomHighlightAvailability`, never re-derived here
  * @param isOn       whether this subject is the one currently emphasised
  */
 export function buildSiteHighlightLabelEl(
     label: string,
-    subject: SiteHighlightSubject,
+    subject: SiteHighlightSubject | null,
     avail: SiteHighlightAvailability,
     isOn: boolean,
 ): HTMLElement {
-    if (avail.available) {
+    // ⛔ NO SUBJECT ⇒ NO CONTROL, whatever the availability decision says. A button carrying an
+    // empty `data-site-highlight` would be wired by nothing (`wireSiteHighlightRows` rejects any
+    // value the vocabulary does not know) and would swallow the click — the dead click this whole
+    // module exists to prevent. The two conditions are checked together so the button arm below is
+    // reachable ONLY with a real subject in hand.
+    if (avail.available && subject !== null) {
         // §SITE-HIGHLIGHT-REACH — read here rather than passed in, so the call sites in the card
         // need no signature change and cannot forget it. See the block above for why this informs
         // rather than gates.
@@ -139,7 +150,10 @@ export function buildSiteHighlightLabelEl(
     wrap.style.color = OFF_INK;
     wrap.appendChild(document.createTextNode(label));
     const marker = document.createElement('span');
-    marker.setAttribute(SITE_HIGHLIGHT_UNAVAILABLE_ATTR, subject);
+    // `''` when there is no subject at all — the attribute still marks the row as the un-clickable
+    // arm (which is what a test asserts on), and its EMPTY value says the row could not be named,
+    // which is a different fact from a named subject whose geometry is missing.
+    marker.setAttribute(SITE_HIGHLIGHT_UNAVAILABLE_ATTR, subject ?? '');
     marker.title = avail.reason;
     marker.style.cssText = 'color:#ddd8ea;cursor:help;';
     marker.textContent = ' ◎';
@@ -155,7 +169,7 @@ export function buildSiteHighlightLabelEl(
  */
 export function buildSiteHighlightLabelHtml(
     label: string,
-    subject: SiteHighlightSubject,
+    subject: SiteHighlightSubject | null,
     avail: SiteHighlightAvailability,
     isOn: boolean,
 ): string {

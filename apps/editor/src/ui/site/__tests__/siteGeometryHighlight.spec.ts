@@ -39,6 +39,9 @@ import {
     boundingBoxRingXZ,
     edgeHighlightSubject,
     parseEdgeHighlightSubject,
+    describeRoomHighlightAvailability,
+    roomHighlightSubject,
+    parseRoomHighlightSubject,
     isSiteHighlightSubject,
     siteHighlightCue,
     siteHighlightEmphasis,
@@ -424,6 +427,110 @@ describe('§26.6 rule 2 / §26.6.2 — every ring edge is a subject, by index', 
             expect(src, `${name} lacks the boundary-edge arm`).toContain("'boundary-edge'");
             expect(src, `${name} does not draw the ONE box`).toContain('boundingBoxRingXZ(');
             expect(src, `${name} parses the edge itself`).toContain('parseEdgeHighlightSubject(');
+        }
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §26.6.4 / §ROOMS-ON-THE-VIEWS (L-13046) — `room:<id>`, the SECOND parametrised subject
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ⭐ WHAT THESE ARMS ARE FOR. The founder's ask is *"THAT SHOULD BE THERE — AND SHALL RENDER ON
+// THE VIEWS"*, and the failure mode a naive suite would miss is the one this module opens with:
+// a room row that is CLICKABLE with nothing to point at. A room can fail to be pointable for
+// THREE unrelated reasons, and two of them are the §CONTEXT-DATA-HONESTY pair — *"nothing has
+// detected this room's outline yet"* (a missing measurement) versus *"an outline WAS recorded and
+// it is not a polygon"* (a finding about the model). A `?? 0` at the call site collapses the first
+// into the second, so an arm below passes `null` and demands the "missing measurement" wording.
+describe('§26.6.4 — one ROOM as a subject', () => {
+    it('round-trips through ONE constructor and ONE parser, and refuses an empty id', () => {
+        expect(roomHighlightSubject('r-42')).toBe('room:r-42');
+        expect(parseRoomHighlightSubject('room:r-42')).toBe('r-42');
+        // ⛔ An id that cannot name anything is NOT a subject — never `room:`.
+        expect(roomHighlightSubject('')).toBeNull();
+        expect(roomHighlightSubject('   ')).toBeNull();
+        expect(roomHighlightSubject(null)).toBeNull();
+        expect(parseRoomHighlightSubject('room:')).toBeNull();
+        // The two parametrised subjects never answer for each other.
+        expect(parseRoomHighlightSubject('edge:3')).toBeNull();
+        expect(parseEdgeHighlightSubject('room:3')).toBeNull();
+        expect(parseRoomHighlightSubject('parcel')).toBeNull();
+        expect(parseRoomHighlightSubject(undefined)).toBeNull();
+        // A room id containing a colon still round-trips — ids are OPAQUE, not parsed further.
+        expect(parseRoomHighlightSubject('room:a:b')).toBe('a:b');
+    });
+
+    it('the type guard admits a room subject, and still refuses the near-miss "rooms"', () => {
+        expect(isSiteHighlightSubject('room:r1')).toBe(true);
+        expect(isSiteHighlightSubject('room:')).toBe(false);
+        expect(isSiteHighlightSubject('rooms')).toBe(false);
+    });
+
+    it('⛔ THREE availability arms, each a DIFFERENT fact — never one sentence for two causes', () => {
+        const ok = describeRoomHighlightAvailability('r1', 5, 'Kitchen');
+        expect(ok.available).toBe(true);
+        expect(ok.reason).toContain('Kitchen');
+
+        // 1. no outline recorded at all — a MISSING MEASUREMENT, and it says so in those terms.
+        const none = describeRoomHighlightAvailability('r1', null, 'Kitchen');
+        expect(none.available).toBe(false);
+        expect(none.reason).toContain('missing measurement');
+        expect(none.reason).toContain('NOT a finding');
+
+        // 2. an outline WAS recorded and is not a polygon — a FINDING about the model.
+        const degenerate = describeRoomHighlightAvailability('r1', 2, 'Kitchen');
+        expect(degenerate.available).toBe(false);
+        expect(degenerate.reason).toContain('2 vertices');
+        expect(degenerate.reason).toContain('finding about the model');
+        // ⛔ The two must not print the same sentence.
+        expect(degenerate.reason).not.toBe(none.reason);
+
+        // 3. no id — the record cannot be NAMED, which is neither of the above.
+        const nameless = describeRoomHighlightAvailability(null, 6, 'Kitchen');
+        expect(nameless.available).toBe(false);
+        expect(nameless.reason).toContain('no id');
+        expect(nameless.reason).not.toBe(none.reason);
+        expect(nameless.reason).not.toBe(degenerate.reason);
+    });
+
+    it('every arm states a non-empty reason — an empty one re-creates the dead-click ambiguity', () => {
+        for (const a of [
+            describeRoomHighlightAvailability('r', 4, 'Bath'),
+            describeRoomHighlightAvailability('r', 4, null),
+            describeRoomHighlightAvailability('r', null, null),
+            describeRoomHighlightAvailability('r', 0, null),
+            describeRoomHighlightAvailability(null, null, null),
+        ]) {
+            expect(a.reason.length).toBeGreaterThan(20);
+        }
+    });
+
+    it('goes through the ONE store like every other subject', () => {
+        setSiteHighlight('room:r9');
+        expect(getSiteHighlight()).toBe('room:r9');
+        expect(toggleSiteHighlight('room:r9')).toBeNull();
+    });
+
+    it('is answered by the room-outline cue and RECEDES every authored surface — including the plate', () => {
+        expect(siteHighlightCue('room:r1')).toBe('room-outline');
+        for (const r of ROLES_266.filter((x) => x !== 'cue')) {
+            expect(siteHighlightEmphasis('room:r1', r), r).toBe('recede');
+        }
+        // ⛔ The to-be-built plate recedes too: "where is the kitchen" is not answered by also
+        // lighting the massing, and a 0.45-alpha plate over a thin outline hides the outline.
+        expect(siteHighlightEmphasis('room:r1', 'proposal')).toBe('recede');
+        expect(siteHighlightEmphasis('room:r1', 'cue')).toBe('subject');
+    });
+
+    it('⛔ ALL THREE renderers carry the room-outline arm, and all three read the ONE outline source', () => {
+        const scene = readFileSync(resolve(__dirname, '../ParcelBoundarySceneRenderer.ts'), 'utf8');
+        const cesium = readFileSync(resolve(__dirname, '../../geospatial/CesiumViewport.ts'), 'utf8');
+        const map = readFileSync(resolve(__dirname, '../../geospatial/SiteBoundaryMap2D.ts'), 'utf8');
+        for (const [name, src] of [['scene', scene], ['cesium', cesium], ['map2d', map]] as const) {
+            expect(src, `${name} lacks the room-outline arm`).toContain("'room-outline'");
+            expect(src, `${name} parses the room subject itself`).toContain('parseRoomHighlightSubject(');
+            // ⛔ ONE producer of the ring, or three views light three different shapes for one row.
+            expect(src, `${name} does not read the ONE outline source`).toContain('resolveRoomOutline(');
         }
     });
 });

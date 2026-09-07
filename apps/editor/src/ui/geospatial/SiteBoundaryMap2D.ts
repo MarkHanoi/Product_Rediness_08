@@ -99,8 +99,35 @@ import {
     // §26.6 rule 2 (L-13046) — the two cues that answer `Bounding box` and a setback-register edge.
     boundingBoxRingXZ,
     parseEdgeHighlightSubject,
+    // §26.6.4 (L-13046) — the cue that answers a rooms-per-level row.
+    parseRoomHighlightSubject,
     type SiteHighlightRole,
 } from '../site/siteGeometryHighlight.js';
+// §ROOMS-ON-THE-VIEWS (§26.6.4) — the ONE read of a room's detected outline, shared with the BIM
+// scene and the globe so the three views cannot light three different shapes for one row.
+import { resolveRoomOutline } from '../site/roomOutlineSource.js';
+// ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022 · STR §26.6.3, lane DRAW-ON-VIEWS 2026-09-07) — THE MASSING
+// CANDIDATE THE FOUNDER PICKED, ON THE VIEW HE IS ON.
+//
+// Measured gap: `grep -c targetFootprintAreaState SiteBoundaryMap2D.ts` returned **0**. The plate
+// drew only in the THREE plan/BIM scene, so on the 2D Site Map — the view a plan comparison
+// actually happens in — picking an option changed the card and nothing on the ground.
+// [[authored-but-unwired-is-the-bottleneck]]: audit REACHABILITY, not existence.
+//
+// ⛔ ONE SLOT, SO ONE PLATE. `resolveLiveProposedPlate` reads the SAME single session slot the BIM
+// scene and the globe read, through the SAME staleness gate, so "only one massing renders at a
+// time" is a property of the data, not a rule this map has to enforce. Never
+// `getTargetFootprintProposal()` here — that read skips the gate.
+import { resolveLiveProposedPlate } from '../site/liveProposedPlate.js';
+import { subscribeTargetFootprintProposal } from '../site/targetFootprintAreaState.js';
+// The ONE owner of the to-be-built envelope's colour. ⛔ No second style table, and deliberately
+// OUTSIDE the C58 §5.2 confidence family (violet solved / grey estimated / amber unreviewed) and
+// outside the study teal: this plate is the user's INTENT, not a claim about what the law permits.
+import {
+    TO_BE_BUILT_FILL_CSS,
+    TO_BE_BUILT_INK_CSS,
+    TO_BE_BUILT_GROUND_FILL_ALPHA,
+} from '../site/toBeBuiltEnvelopeStyle.js';
 // §PARCEL-VISIBLE-EVERYWHERE — the ONE scene-XZ → WGS84 read for the committed C19 ring, shared
 // with `GISAreaLayout.getMapInitial` so the picture and the camera cannot be built about different
 // origins. Three arms: a ring, an honest `absent`, or a REFUSAL that says why (never an empty).
@@ -374,6 +401,16 @@ const COMMITTED_PARCEL_LINE_WIDTH = 2.5;
  */
 const HIGHLIGHT_CUE_SOURCE = 'pryzm-site-highlight-cue';
 const HIGHLIGHT_CUE_LINE_LAYER = 'pryzm-site-highlight-cue-line';
+
+// ── §MASSING-ON-THE-SITE-VIEWS (L-13022) — THE TO-BE-BUILT PLATE, ON ITS OWN SOURCE ──────────
+// ⛔ ITS OWN SOURCE, NOT A FEATURE ON `ENVELOPE_SOURCE`. The permitted envelope's paint reads
+// `['get','hue']` off each feature and its emphasis pass multiplies `['get','fillAlpha']`; sharing
+// the source would make the user's INTENT recede and repaint under rules written for a legal
+// determination, and one careless `['get','hue']` would hand it a confidence colour. Two objects,
+// two sources — the same separation `SPACE_ENVELOPE_SOURCE` already makes one block down.
+const PROPOSED_PLATE_SOURCE = 'pryzm-target-footprint-proposal';
+const PROPOSED_PLATE_FILL_LAYER = 'pryzm-target-footprint-proposal-fill';
+const PROPOSED_PLATE_LINE_LAYER = 'pryzm-target-footprint-proposal-line';
 
 // ── §SPACE-ENVELOPE-ON-2D-MAP (L-13017) — the AUTHORED prism, not the permitted study ────────
 // ⛔ `pryzm-buildable-envelope` above is the SOLVED legal ceiling; this is what the user AUTHORS
@@ -1614,6 +1651,49 @@ export function mountSiteBoundaryMap2D(
             return [ll.lon, ll.lat];
         };
 
+        // ── ⭐ §26.6.4 / §ROOMS-ON-THE-VIEWS (L-13046) — ONE ROOM'S DETECTED OUTLINE ───────────
+        //
+        // Founder: *"THAT SHOULD BE THERE — AND SHALL RENDER ON THE VIEWS."* Following a room row
+        // in the Parcel Law tab's rooms-per-level list lights that room's outline here.
+        //
+        // ⛔ THE RING COMES FROM THE ONE READER (`resolveRoomOutline`), shared with the BIM scene
+        // and the globe, and it is projected through the SAME `toLonLat` the parcel cue uses — a
+        // room polygon is in the SAME scene-XZ frame as the committed ring (`RoomDetectionEngine`
+        // builds it from WallGraph world positions), so no second projection is minted.
+        //
+        // ⚠ HEIGHT IS NOT A QUESTION ON A PITCH-LOCKED PLAN, so unlike the two 3D views this arm
+        // needs no `worldY` branch: a first-floor room and a ground-floor room project to the same
+        // place here, correctly, because a plan IS that projection. (Contrast `limit-plane` above,
+        // which is refused for precisely the reason that its projection would be a DIFFERENT
+        // subject's shape.) The room's storey is stated on its row in the panel, in words.
+        if (cue === 'room-outline') {
+            const roomId = parseRoomHighlightSubject(subject);
+            if (roomId === null) return emptyFC();
+            const outline = resolveRoomOutline(runtime ?? null, roomId);
+            if (outline === null) {
+                console.log(
+                    `[gis] map2d §ROOMS-ON-THE-VIEWS cue 'room-outline' — NOT drawn: no drawable `
+                    + `outline resolved for room "${roomId}". Nothing is drawn rather than the parcel `
+                    + 'lit instead.',
+                );
+                return emptyFC();
+            }
+            const coords = outline.ring.map(toLonLat);
+            console.log(
+                `[gis] map2d §ROOMS-ON-THE-VIEWS cue 'room-outline' — ${outline.ring.length}-corner `
+                + `outline for "${outline.name ?? outline.id}"`
+                + (outline.levelId === null ? ' (its storey is not recorded).' : ` on storey ${outline.levelId}.`),
+            );
+            return {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: { type: 'LineString', coordinates: [...coords, coords[0]!] },
+                    properties: { cue, roomId: outline.id },
+                }],
+            };
+        }
+
         // ── §26.6 rule 2 (L-13046) — the two cues that need ONLY the committed ring. ──────────
         // 'bbox' — the axis-aligned extent the `Bounding box` row's two numbers describe, from the
         // ONE producer (`boundingBoxRingXZ`) the 3D views draw from, so the three views light the
@@ -1696,6 +1776,71 @@ export function mountSiteBoundaryMap2D(
         return { type: 'FeatureCollection', features };
     }
 
+    /**
+     * ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022) — the LIVE massing candidate as a ground plate, or the
+     * honest empty.
+     *
+     * ⛔ THE EMPTY IS HOW A WITHDRAWN PLATE COMES OFF THE MAP. `resolveLiveProposedPlate` returns
+     * null when the user withdrew the proposal AND when the staleness gate withdrew it for them (the
+     * envelope was re-solved, so a plate solved inside the old permitted footprint is a drawing of a
+     * claim that no longer stands). Both cases push an empty FeatureCollection into this source, so
+     * there is no path on which a stale plate survives a parcel or determination change.
+     *
+     * ⚠ REFUSES AT THE SAME FRAME GATE THE CUE AND THE ENVELOPE USE. No origin or no θ ⇒ nothing is
+     * drawn: a correctly-shaped plate at a guessed bearing is the §L-446 defect, and on a rotated
+     * site (Barcelona θ ≈ 45°) it would be a picture of the user's massing on the wrong land.
+     */
+    function buildProposedPlateFC(): GeoJSON.FeatureCollection {
+        const plate = resolveLiveProposedPlate();
+        if (plate === null) return emptyFC();
+        const origin = getOrigin();
+        const store = resolveSiteContext(runtime ?? null)?.store ?? null;
+        const site = store?.getSite() ?? null;
+        const thetaRad = Number.isFinite(site?.location?.trueNorth) ? site!.location!.trueNorth : null;
+        if (!origin || thetaRad === null) {
+            console.warn(
+                '[gis] map2d §MASSING-ON-THE-SITE-VIEWS — REFUSING to draw the massing candidate: the '
+                + 'site frame ORIGIN or θ could not be read. ⚠ Assuming θ = 0 would draw the right '
+                + 'shape at the wrong bearing (§L-446). Nothing is drawn.',
+            );
+            return emptyFC();
+        }
+        const coords = plate.ring.map((p) => {
+            const { east, north } = sceneXZToEnu(p.x, p.z, thetaRad);
+            const ll = sceneXZToLatLon({ x: east, z: -north }, origin.lat, origin.lon);
+            return [ll.lon, ll.lat] as [number, number];
+        });
+        console.log(
+            `[gis] map2d §MASSING-ON-THE-SITE-VIEWS — drawing the to-be-built plate: `
+            + `${plate.achievedAreaM2.toFixed(1)} m² achieved against ${plate.targetAreaM2.toFixed(1)} m² `
+            + `asked (inset ${plate.insetM.toFixed(2)} m, ${plate.ring.length} corners). ORIENTATIVE — `
+            + 'an intent, not what the ordinance permits and not a permit.',
+        );
+        return {
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
+                properties: {
+                    role: 'to-be-built',
+                    achievedAreaM2: plate.achievedAreaM2,
+                    targetAreaM2: plate.targetAreaM2,
+                },
+            }],
+        };
+    }
+
+    /** Push the live plate (or the honest empty) into its own source. */
+    function refreshProposedPlate(): void {
+        const src = map.getSource(PROPOSED_PLATE_SOURCE) as GeoJSONSource | undefined;
+        if (!src) return; // style is mid-swap; `installSiteHighlightLayers` re-adds + repaints.
+        try {
+            src.setData(buildProposedPlateFC());
+        } catch (e) {
+            console.warn('[gis] map2d §MASSING-ON-THE-SITE-VIEWS plate refresh failed (non-fatal):', e);
+        }
+    }
+
     /** Push the cue (or the honest empty) into its source. */
     function refreshHighlightCue(): void {
         const src = map.getSource(HIGHLIGHT_CUE_SOURCE) as GeoJSONSource | undefined;
@@ -1751,6 +1896,15 @@ export function mountSiteBoundaryMap2D(
             set(ENVELOPE_FILL_LAYER, 'fill-opacity',
                 volume === 1 ? ['get', 'fillAlpha'] : ['*', ['get', 'fillAlpha'], volume]);
             set(ENVELOPE_LINE_LAYER, 'line-opacity', volume);
+            // §MASSING-ON-THE-SITE-VIEWS (L-13022) — the to-be-built plate is the `proposal` role.
+            // ⛔ It is NEVER the subject of one of the card's figures (`siteHighlightEmphasis`
+            // returns 'recede' for it unconditionally): every one of those numbers is a fact about
+            // the PARCEL or the ORDINANCE, and lighting the user's own plate when they click "Max
+            // footprint" would answer a question about the law with a picture of a wish. Painted
+            // here so it recedes WITH the rest instead of staying bright over receded surfaces.
+            const proposal = k('proposal');
+            set(PROPOSED_PLATE_FILL_LAYER, 'fill-opacity', TO_BE_BUILT_GROUND_FILL_ALPHA * proposal);
+            set(PROPOSED_PLATE_LINE_LAYER, 'line-opacity', 0.95 * proposal);
         } catch (e) {
             console.warn('[gis] map2d §PARCEL-VISIBLE-EVERYWHERE emphasis failed (non-fatal):', e);
         }
@@ -1805,6 +1959,32 @@ export function mountSiteBoundaryMap2D(
                 paint: { 'line-color': ['get', 'hue'], 'line-width': 2 },
             }, map.getLayer(FILL_LAYER) ? FILL_LAYER : undefined);
         }
+        // §MASSING-ON-THE-SITE-VIEWS (L-13022) — the to-be-built plate, ABOVE the permitted study
+        // (an intent is read AGAINST the legal ceiling, so it must be legible on top of it) and
+        // still below the boundary line and its vertex handles, exactly like the authored prisms.
+        if (!map.getSource(PROPOSED_PLATE_SOURCE)) {
+            map.addSource(PROPOSED_PLATE_SOURCE, { type: 'geojson', data: emptyFC() });
+            map.addLayer({
+                id: PROPOSED_PLATE_FILL_LAYER,
+                type: 'fill',
+                source: PROPOSED_PLATE_SOURCE,
+                // ⛔ CONSTANTS FROM THE ONE OWNER, never `['get','hue']`: a plate whose colour came
+                // off its own feature could be handed a confidence hue by a future producer, and
+                // this envelope carries no confidence at all (STR §25.2 — it is an INTENT).
+                paint: {
+                    'fill-color': TO_BE_BUILT_FILL_CSS,
+                    'fill-opacity': TO_BE_BUILT_GROUND_FILL_ALPHA,
+                },
+            }, map.getLayer(FILL_LAYER) ? FILL_LAYER : undefined);
+            map.addLayer({
+                id: PROPOSED_PLATE_LINE_LAYER,
+                type: 'line',
+                source: PROPOSED_PLATE_SOURCE,
+                // The INK: a near-white fill has no silhouette on a light basemap, and colour must
+                // never be the only channel that distinguishes the three envelopes.
+                paint: { 'line-color': TO_BE_BUILT_INK_CSS, 'line-width': 2, 'line-opacity': 0.95 },
+            }, map.getLayer(FILL_LAYER) ? FILL_LAYER : undefined);
+        }
         if (!map.getSource(HIGHLIGHT_CUE_SOURCE)) {
             map.addSource(HIGHLIGHT_CUE_SOURCE, { type: 'geojson', data: emptyFC() });
             map.addLayer({
@@ -1816,6 +1996,7 @@ export function mountSiteBoundaryMap2D(
         }
         refreshCommittedParcel();
         refreshSpaceEnvelopes();
+        refreshProposedPlate();
         refreshHighlightCue();
         applySiteHighlightEmphasis();
     }
@@ -3569,6 +3750,11 @@ export function mountSiteBoundaryMap2D(
         siteHighlightSub = null;
         try { siteHighlightSurfaceReg?.(); } catch { /* ignore */ }
         siteHighlightSurfaceReg = null;
+        // §MASSING-ON-THE-SITE-VIEWS (L-13022) — drop the massing-slot listener. One left behind
+        // would hold this whole closure (and its dead map) alive and repaint into a removed source
+        // the next time the user picked an option.
+        try { proposedPlateSub?.(); } catch { /* ignore */ }
+        proposedPlateSub = null;
         // §SPACE-ENVELOPE-ON-2D-MAP — drop the store's dirty listener. One left behind would hold
         // this whole closure (and its dead map) alive and repaint into a removed source.
         try { spaceEnvelopeSub?.(); } catch { /* ignore */ }
@@ -3669,6 +3855,23 @@ export function mountSiteBoundaryMap2D(
         siteHighlightSurfaceReg = registerSiteHighlightSurface('siteBoundaryMap2d', '2D Site Map');
     } catch (e) {
         console.warn('[gis] map2d §PARCEL-VISIBLE-EVERYWHERE: could not subscribe to the site-highlight store (non-fatal):', e);
+    }
+
+    // ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022) — SUBSCRIBE TO THE ONE MASSING SLOT.
+    //
+    // Same PUSH-not-poll contract as the two subscriptions above, and the same shape: the card
+    // writes ONE session slot when the user picks an option and pokes no renderer. This is also the
+    // TEARDOWN path — the notification that carries a withdrawal is the notification that takes the
+    // plate off the map, so a plate cannot outlive the proposal it draws.
+    let proposedPlateSub: (() => void) | null = null;
+    try {
+        proposedPlateSub = subscribeTargetFootprintProposal(() => {
+            if (disposed) return;
+            try { refreshProposedPlate(); } catch { /* style may be mid-swap; installSiteHighlightLayers repaints */ }
+            try { applySiteHighlightEmphasis(); } catch { /* ignore */ }
+        });
+    } catch (e) {
+        console.warn('[gis] map2d §MASSING-ON-THE-SITE-VIEWS: could not subscribe to the massing slot (non-fatal):', e);
     }
 
     // ⭐ §SPACE-ENVELOPE-ON-2D-MAP (L-13017) — SUBSCRIBE TO THE STORE'S DIRTY CHANNEL, not to a bus

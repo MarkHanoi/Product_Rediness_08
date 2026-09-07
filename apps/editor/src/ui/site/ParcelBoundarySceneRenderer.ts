@@ -128,9 +128,14 @@ import {
     // §26.6 rule 2 (L-13046) — the two cues that answer `Bounding box` and a setback-register edge.
     boundingBoxRingXZ,
     parseEdgeHighlightSubject,
+    // §26.6.4 (L-13046) — the cue that answers a rooms-per-level row.
+    parseRoomHighlightSubject,
     type SiteHighlightSubject,
     type SiteHighlightRole,
 } from './siteGeometryHighlight';
+// §ROOMS-ON-THE-VIEWS (§26.6.4) — the ONE read of a room's detected outline, shared with the two
+// site viewports so the three views cannot light three different shapes for one row.
+import { resolveRoomOutline } from './roomOutlineSource';
 // §RESI-ORCH-HIGHLIGHT — the frontage cue reads the SAME determination the card's frontage clause
 // and the highlight-availability rule read (three arms: unrecorded / landlocked / n > 0).
 // Re-deriving "which edges are front" here would be a second answer to a question that already has
@@ -143,10 +148,11 @@ import {
 // plate. The card solves it; this renderer puts it on the ground. Asked through the STALENESS GATE
 // (`resolveLiveTargetFootprintProposal`), never `getTargetFootprintProposal`, so the scene and the
 // card cannot disagree about whether the plate still describes the current permitted footprint.
-import {
-    resolveLiveTargetFootprintProposal,
-    subscribeTargetFootprintProposal,
-} from './targetFootprintAreaState';
+import { subscribeTargetFootprintProposal } from './targetFootprintAreaState';
+// §MASSING-ON-THE-SITE-VIEWS (L-13022) — the ONE resolver of "which massing candidate is live",
+// shared with CesiumViewport and SiteBoundaryMap2D. It owns the permitted-area derivation and the
+// staleness gate, so the three surfaces cannot disagree about whether the plate is still valid.
+import { resolveLiveProposedPlate } from './liveProposedPlate';
 // §TOBE-ENVELOPE (STR §25.2, lane PL-TOBE-ENVELOPE 2026-09-06) — the TO-BE-BUILT envelope's ONE
 // colour, shared with `spaceEnvelopeAppearance` (the adopted C114 level prism) and the card legend.
 // The proposed plate and the element it becomes are THE SAME THING at two moments of its life, so
@@ -204,24 +210,14 @@ interface XZPoint {
     readonly z: number;
 }
 
-/**
- * Shoelace area (m²) of a scene-XZ ring, sign-independent.
- *
- * ⚠ USED FOR EXACTLY ONE THING: the §RESI-ORCH-TARGET-AREA staleness read, and only as the FALLBACK
- * when `insetAreaM2` is absent — the envelope's own field is preferred so this renderer and the
- * card compare the same number. It is deliberately NOT a general measurement helper: the card's
- * `permittedStudyFigures` is the ONE producer of the footprint figure the user sees (C06 §13.3).
- */
-function ringAreaM2XZ(ring: ReadonlyArray<XZPoint>): number {
-    if (ring.length < 3) return 0;
-    let twice = 0;
-    for (let i = 0; i < ring.length; i++) {
-        const a = ring[i]!;
-        const b = ring[(i + 1) % ring.length]!;
-        twice += a.x * b.z - b.x * a.z;
-    }
-    return Math.abs(twice) / 2;
-}
+// ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022, 2026-09-07) — THE SHOELACE THAT USED TO LIVE HERE MOVED.
+// This file carried a private `ringAreaM2XZ` for exactly one caller: the §RESI-ORCH-TARGET-AREA
+// staleness read, as the fallback when the envelope carries no `insetAreaM2`. Two more surfaces now
+// draw that plate, so the derivation moved to `liveProposedPlate.ts` and is asked once rather than
+// copied three times — three copies would be three chances for one view to keep drawing a massing
+// the other two had already withdrawn, on a float difference nobody could see. ⛔ Do not re-add a
+// local area helper here: `permittedStudyFigures` is the ONE producer of the footprint figure the
+// user sees (C06 §13.3), and this renderer must compare against the same number the card shows.
 
 /**
  * Draws (and keeps in sync) the committed C19 parcel boundary as a subtle
@@ -491,15 +487,15 @@ export class ParcelBoundarySceneRenderer {
      */
     private buildProposedPlate(): THREE.Object3D | null {
         try {
-            const env = getLastBuildableEnvelope();
-            const permittedRing = (env?.insetPolygon ?? []) as XZPoint[];
-            const permittedAreaM2 = env
-                ? (env.insetAreaM2 || ringAreaM2XZ(permittedRing))
-                : null;
-            const live = resolveLiveTargetFootprintProposal(permittedAreaM2);
+            // ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022, 2026-09-07) — ASKED THROUGH THE ONE RESOLVER.
+            // This block used to derive the permitted area itself (`insetAreaM2 || shoelace`) and
+            // call the staleness gate directly. Two more surfaces now draw this plate, and three
+            // copies of that derivation are three chances for one view to keep drawing a massing
+            // the other two have already withdrawn — on a float difference nobody could see.
+            // `resolveLiveProposedPlate` is that derivation, once, and it applies the same gate.
+            const live = resolveLiveProposedPlate();
             if (live === null) return null;
             const ring = live.ring as ReadonlyArray<XZPoint>;
-            if (ring.length < 3) return null;
 
             const group = new THREE.Group();
             group.name = 'pryzm-target-footprint-proposal';
@@ -638,8 +634,61 @@ export class ParcelBoundarySceneRenderer {
             case 'limit-plane': return this.buildLimitPlaneCue();
             case 'bbox': return this.buildBboxCue(polygon);
             case 'boundary-edge': return this.buildBoundaryEdgeCue(polygon, parseEdgeHighlightSubject(subject));
+            case 'room-outline': return this.buildRoomOutlineCue(parseRoomHighlightSubject(subject));
             case null: return null;
         }
+    }
+
+    /**
+     * ⭐ §26.6.4 (L-13046) — ONE ROOM'S DETECTED OUTLINE, at that room's own storey.
+     *
+     * Founder: *"THAT SHOULD BE THERE — AND SHALL RENDER ON THE VIEWS."* A row in the rooms-per-
+     * level list names a room; this is what following that link lights in the BIM 3D scene.
+     *
+     * ⚠ THIS SCENE ALREADY DRAWS ROOM FLOOR FILLS (`RoomBoundaryBuilder`), AND THIS IS STILL A CUE.
+     * Emphasising the existing fill would work here and nowhere else — the two SITE views draw no
+     * rooms at all — so the row's ◉ would mean "brightened" on one view and "outlined" on two.
+     * One constructed outline in all three keeps one meaning, and it costs this scene nothing: the
+     * cue is disposed with the group on the next refresh, so a cleared highlight leaves no residue.
+     *
+     * ⛔ DRAWN AT THE ROOM'S OWN HEIGHT, OR NOT AT ITS OWN HEIGHT AND SAID SO. `worldY` is `null`
+     * when the storey's elevation could not be read (no `bimManager` in this session); the outline
+     * is then drawn at the ground cue height and the console says which of the two happened. A
+     * first-floor room silently drawn on the ground is the §L-446 ambiguity in geometry — the
+     * picture gives the reader no way to tell it apart from a ground-floor room.
+     */
+    private buildRoomOutlineCue(roomId: string | null): THREE.Object3D | null {
+        if (roomId === null) return null;
+        const outline = resolveRoomOutline(this.runtime as unknown as { stores?: unknown }, roomId);
+        if (outline === null) {
+            // The store moved between render and draw, or the record's outline is not a polygon.
+            // The row has already refused to be a button in the second case
+            // (`describeRoomHighlightAvailability`), so this is not a dead click — and nothing is
+            // drawn rather than the parcel lit instead.
+            console.log(
+                `[ParcelBoundarySceneRenderer] §ROOMS-ON-THE-VIEWS cue 'room-outline' → NOT drawn: no `
+                + `drawable outline resolved for room "${roomId}".`,
+            );
+            return null;
+        }
+        const y = outline.worldY === null
+            ? HIGHLIGHT_CUE_Y
+            : outline.worldY + HIGHLIGHT_CUE_Y;
+        const line = this.buildClosedCueLine(outline.ring, y, 'pryzm-site-highlight-room-outline');
+        if (line) {
+            line.userData.siteHighlightSubject = `room:${outline.id}`;
+            line.userData.siteHighlightRoomId = outline.id;
+            line.userData.siteHighlightRoomStoreyResolved = outline.worldY !== null;
+        }
+        console.log(
+            `[ParcelBoundarySceneRenderer] §ROOMS-ON-THE-VIEWS cue 'room-outline' → ${outline.ring.length}`
+            + `-corner outline for "${outline.name ?? outline.id}"`
+            + (outline.worldY === null
+                ? ', drawn AT GROUND: this room\'s storey elevation could not be read, so its true '
+                  + 'height is unknown — not a finding that the room is on the ground floor.'
+                : ` at ${outline.worldY.toFixed(2)} m (its storey's elevation + base offset).`),
+        );
+        return line;
     }
 
     /**

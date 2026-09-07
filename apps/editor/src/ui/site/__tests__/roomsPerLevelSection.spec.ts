@@ -14,13 +14,22 @@ import {
     ROOMS_PER_LEVEL_UNPLACED_TESTID,
     ROOMS_PER_LEVEL_ROOM_ATTR,
     ROOMS_PER_LEVEL_STATUS_TESTID,
+    ROOMS_PER_LEVEL_WIRED_ATTR,
     type RoomsPerLevelDeps,
 } from '../roomsPerLevelSection';
+import {
+    SITE_HIGHLIGHT_ATTR,
+    getSiteHighlight,
+    setSiteHighlight,
+    __resetSiteHighlightForTests,
+} from '../siteGeometryHighlight';
+import { SITE_HIGHLIGHT_UNAVAILABLE_ATTR } from '../siteHighlightRowControl';
 import type { AdoptLevelCandidate } from '../adoptProposalAsEnvelope';
 import type { ExistingLevelEnvelope } from '../levelEnvelopeSupersession';
 
 afterEach(() => {
     document.body.innerHTML = '';
+    __resetSiteHighlightForTests();
 });
 
 const L0: AdoptLevelCandidate = { id: 'L0', name: 'Ground', elevation: 0, height: 3 };
@@ -139,5 +148,139 @@ describe('mountRoomsPerLevelSection', () => {
         expect(src).toContain('mountRoomsPerLevelSection(');
         expect(src).toContain('roomsPerLevel?.refresh()');
         expect(src).toContain('roomsPerLevel?.dispose()');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §26.6.4 / §ROOMS-ON-THE-VIEWS (L-13046) — "AND SHALL RENDER ON THE VIEWS"
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ⭐ THE HOP THESE ARMS CLOSE is [[committed-is-not-reachable]] at the exact place the founder
+// experiences it: a store that toggles perfectly in a unit test and a room row nobody has ever
+// proven flips it. So these mount the REAL section, find the REAL control and CLICK it, and assert
+// the value that lands in the store the three renderers subscribe to — not a spy, not an intent.
+//
+// ⛔ AND THE THREE UN-CLICKABLE ARMS ARE ASSERTED SEPARATELY. A room with no detected outline, a
+// room whose outline is not a polygon and a room with no id must each render as TEXT with its own
+// reason — never as a control that swallows a click, and never as three copies of one sentence.
+const SQ = [{ x: 0, z: 0 }, { x: 4, z: 0 }, { x: 4, z: 3 }, { x: 0, z: 3 }];
+
+describe('§26.6.4 — a room row is the ONE highlight control', () => {
+    it('⭐ a room WITH a detected outline is a real button, and CLICKING it writes the ONE store', () => {
+        const { d } = deps({
+            rooms: [{ id: 'r1', name: 'Living', levelId: 'L0', computed: { area: 24 }, boundary: { polygon: SQ } }],
+        });
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const h = mountRoomsPerLevelSection(host, d);
+        try {
+            const btn = host.querySelector<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}="room:r1"]`)!;
+            expect(btn, 'the room row is not a control').not.toBeNull();
+            expect(btn.textContent).toContain('Living');
+            expect(btn.getAttribute('aria-pressed')).toBe('false');
+            // ⭐ THE CLICK, on the real markup, through the real wire.
+            btn.click();
+            expect(getSiteHighlight()).toBe('room:r1');
+            expect(btn.getAttribute('aria-pressed')).toBe('true');
+            expect(btn.querySelector('[data-hl-glyph]')!.textContent).toContain('◉');
+            // Clicking the same row again clears it — one emphasis at a time, by the store's rule.
+            btn.click();
+            expect(getSiteHighlight()).toBeNull();
+        } finally { h.dispose(); }
+    });
+
+    it('⭐ the ◉ is repainted from the STORE, so another surface click cannot leave it stale', () => {
+        const { d } = deps({
+            rooms: [{ id: 'r1', name: 'Living', levelId: 'L0', boundary: { polygon: SQ } }],
+        });
+        const host = document.createElement('div');
+        const h = mountRoomsPerLevelSection(host, d);
+        try {
+            const btn = host.querySelector<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}="room:r1"]`)!;
+            btn.click();
+            expect(btn.getAttribute('aria-pressed')).toBe('true');
+            // Somebody else — question 1's `Area` row — takes the emphasis. This row must let go.
+            setSiteHighlight('parcel');
+            expect(btn.getAttribute('aria-pressed')).toBe('false');
+            expect(btn.querySelector('[data-hl-glyph]')!.textContent).toContain('◎');
+        } finally { h.dispose(); }
+    });
+
+    it('⛔ THREE un-clickable arms, three DIFFERENT reasons — never a dead click, never one sentence', () => {
+        const { d } = deps({
+            rooms: [
+                // 1. no outline recorded at all
+                { id: 'r1', name: 'Planned study', levelId: 'L0' },
+                // 2. an outline WAS recorded and is not a polygon
+                { id: 'r2', name: 'Broken', levelId: 'L0', boundary: { polygon: [{ x: 0, z: 0 }, { x: 1, z: 1 }] } },
+                // 3. no id — the record cannot be named to the views at all
+                { name: 'Nameless', levelId: 'L0', boundary: { polygon: SQ } },
+            ],
+        });
+        const host = document.createElement('div');
+        const h = mountRoomsPerLevelSection(host, d);
+        try {
+            expect(host.querySelectorAll(`button[${SITE_HIGHLIGHT_ATTR}]`).length).toBe(0);
+            const markers = [...host.querySelectorAll<HTMLElement>(`[${SITE_HIGHLIGHT_UNAVAILABLE_ATTR}]`)];
+            expect(markers.length).toBe(3);
+            expect(markers.map((m) => m.getAttribute(SITE_HIGHLIGHT_UNAVAILABLE_ATTR)))
+                .toEqual(['room:r1', 'room:r2', '']);
+            const reasons = markers.map((m) => m.getAttribute('title') ?? '');
+            expect(reasons[0]).toContain('missing measurement');
+            expect(reasons[1]).toContain('finding about the model');
+            expect(reasons[2]).toContain('no id');
+            // ⛔ Three causes, three sentences.
+            expect(new Set(reasons).size).toBe(3);
+            // The rooms are still LISTED — an un-pointable room is not a dropped room.
+            expect(host.textContent).toContain('Planned study');
+            expect(host.textContent).toContain('Nameless');
+        } finally { h.dispose(); }
+    });
+
+    it('⭐ an UNPLACED room is still pointable — its storey is unknown, its outline is not', () => {
+        const { d } = deps({
+            rooms: [{ id: 'r9', name: 'Hall', boundary: { polygon: SQ } }],
+        });
+        const host = document.createElement('div');
+        const h = mountRoomsPerLevelSection(host, d);
+        try {
+            const unplaced = host.querySelector(`[data-testid="${ROOMS_PER_LEVEL_UNPLACED_TESTID}"]`)!;
+            const btn = unplaced.querySelector<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}="room:r9"]`)!;
+            expect(btn, 'an unplaced room lost its link for an unrelated missing field').not.toBeNull();
+            btn.click();
+            expect(getSiteHighlight()).toBe('room:r9');
+        } finally { h.dispose(); }
+    });
+
+    it('⭐ RE-WIRED ON EVERY RENDER — a row rebuilt by a room event is still a live control', () => {
+        const { d, state, fire } = deps({
+            rooms: [{ id: 'r1', name: 'Living', levelId: 'L0', boundary: { polygon: SQ } }],
+        });
+        const host = document.createElement('div');
+        const h = mountRoomsPerLevelSection(host, d);
+        try {
+            const root = host.querySelector(`[data-testid="${ROOMS_PER_LEVEL_ROOT_TESTID}"]`)!;
+            expect(root.getAttribute(ROOMS_PER_LEVEL_WIRED_ATTR)).toBe('1');
+            // A room is renamed / added: `replaceChildren` throws every handler away.
+            state.rooms = [
+                { id: 'r1', name: 'Living', levelId: 'L0', boundary: { polygon: SQ } },
+                { id: 'r2', name: 'Kitchen', levelId: 'L0', boundary: { polygon: SQ } },
+            ];
+            fire();
+            expect(root.getAttribute(ROOMS_PER_LEVEL_WIRED_ATTR)).toBe('2');
+            const btn = host.querySelector<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}="room:r2"]`)!;
+            btn.click();
+            expect(getSiteHighlight()).toBe('room:r2');
+        } finally { h.dispose(); }
+    });
+
+    it('dispose drops the store subscription — a disposed section never repaints a detached row', () => {
+        const { d } = deps({ rooms: [{ id: 'r1', name: 'Living', levelId: 'L0', boundary: { polygon: SQ } }] });
+        const host = document.createElement('div');
+        const h = mountRoomsPerLevelSection(host, d);
+        const btn = host.querySelector<HTMLButtonElement>(`button[${SITE_HIGHLIGHT_ATTR}="room:r1"]`)!;
+        btn.click();
+        h.dispose();
+        expect(() => setSiteHighlight('parcel')).not.toThrow();
     });
 });

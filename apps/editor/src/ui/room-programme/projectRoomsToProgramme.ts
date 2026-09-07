@@ -60,6 +60,23 @@ export interface ProjectRoomLike {
   readonly computed?: { readonly area?: unknown } | undefined;
   /** Some records carry a flat area instead; read as a fallback, never preferred. */
   readonly area?: unknown;
+  /**
+   * §26.6.4 (L-13046) — the room's DETECTED FOOTPRINT, `RoomBoundary` in `@pryzm/room-topology`
+   * (`RoomTypes.ts:158-181`): `polygon` is a closed-by-implication CCW ring of `{ x, z }` in world
+   * XZ metres, ≥ 3 vertices by schema.
+   *
+   * ⚠ DECLARED HERE ONLY SO A ROW CAN SAY WHETHER THERE IS A SHAPE TO POINT AT. This module still
+   * reads nothing from it — the programme is about counts and areas — but `roomsPerLevelModel`
+   * needs the VERTEX COUNT to decide, per room, between *"nothing has detected this room's outline
+   * yet"* and *"an outline was recorded and it is not a polygon"*. Those are different facts and
+   * the row prints a different sentence for each (§CONTEXT-DATA-HONESTY).
+   *
+   * ⛔ `unknown`, not a typed polygon: this interface's whole contract is that it assumes NOTHING
+   * about a record that arrives from the legacy `window.roomStore`, and the one consumer counts
+   * the array through `roomOutlineVertexCount`, which treats "no array" and "empty array" as
+   * different answers.
+   */
+  readonly boundary?: { readonly polygon?: unknown } | undefined;
 }
 
 /** The smallest positive area an imported room may carry, m². Below this the record is

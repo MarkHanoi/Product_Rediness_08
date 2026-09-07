@@ -212,10 +212,15 @@ import {
   // §26.6 rule 2 (L-13046) — the two cues that answer `Bounding box` and a setback-register edge.
   boundingBoxRingXZ,
   parseEdgeHighlightSubject,
+  // §26.6.4 (L-13046) — the cue that answers a rooms-per-level row.
+  parseRoomHighlightSubject,
   SITE_HIGHLIGHT_RECEDE_FACTOR,
   type SiteHighlightRole,
   type SiteHighlightSubject,
 } from "../site/siteGeometryHighlight";
+// §ROOMS-ON-THE-VIEWS (§26.6.4) — the ONE read of a room's detected outline, shared with the BIM
+// scene and the 2D site map so the three views cannot light three different shapes for one row.
+import { resolveRoomOutline } from "../site/roomOutlineSource";
 // §PARCEL-VISIBLE-EVERYWHERE — the frontage cue reads the SAME three-arm determination the card's
 // frontage clause and the availability rule read (unrecorded / landlocked / n > 0). Re-deriving
 // "which edges are front" here would be a second answer to a question that already has an owner.
@@ -290,6 +295,27 @@ import { terrainTilesetCoversSite } from './terrainTilesetCoverage';
 // `toBeBuiltEnvelopeStyle.ts` for why a LEVEL envelope is deliberately NOT confident violet.
 import { resolveSpaceEnvelopeAppearance } from '../../engine/spaceEnvelopeAppearance';
 import type { DirtySpaceEnvelopeStore } from '../../engine/attachSpaceEnvelopeRender';
+// ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022 · STR §26.6.3, lane DRAW-ON-VIEWS 2026-09-07) — THE MASSING
+// CANDIDATE THE FOUNDER PICKED, ON THE VIEW HE IS ON.
+//
+// Measured gap: `grep -c targetFootprintAreaState CesiumViewport.ts` returned **0**. The plate drew
+// only in the THREE plan/BIM scene, so on 3D Site — the view he compares options in — picking an
+// option changed the card and nothing on the ground. [[authored-but-unwired-is-the-bottleneck]].
+//
+// ⛔ ONE SLOT, SO ONE PLATE. `resolveLiveProposedPlate` reads the SAME single session slot the other
+// two surfaces read, through the same staleness gate, so "only one massing renders at a time" is a
+// property of the data rather than a rule this viewport has to enforce. Never call
+// `getTargetFootprintProposal()` here — that read skips the gate.
+import { resolveLiveProposedPlate } from '../site/liveProposedPlate';
+// The ONE owner of the to-be-built envelope's colour (pale solid `#e8e8ee`, ink rim `#5c5c6e`).
+// ⛔ No second style table: these values are C58 §5.2-adjacent and deliberately OUTSIDE the
+// confidence family (violet solved / grey estimated / amber unreviewed) — this plate is an INTENT.
+import {
+  TO_BE_BUILT_FILL_CSS,
+  TO_BE_BUILT_INK_CSS,
+  TO_BE_BUILT_GROUND_FILL_ALPHA,
+} from '../site/toBeBuiltEnvelopeStyle';
+import { subscribeTargetFootprintProposal } from '../site/targetFootprintAreaState';
 // §GLOBE-INHERITS-THE-CITY-TERRAIN (L-12991) — the pure table of every SHARED-VIEWER write that
 // differs between the two framings of the ONE viewer (§L-412 / C60 §6.5). Read its header before
 // touching any `scene.globe.*` / imagery / sky assignment in this file: the whole point is that the
@@ -1293,6 +1319,11 @@ export class CesiumViewport {
    *  repaints, which is the one claim the registry exists to prevent. */
   private siteHighlightSub: (() => void) | null = null;
   private siteHighlightSurfaceReg: (() => void) | null = null;
+  /** §MASSING-ON-THE-SITE-VIEWS (L-13022) — this viewport's subscription to the ONE session slot
+   *  holding the massing candidate the user picked. Same PUSH contract as the four above: the card
+   *  writes the slot and pokes no renderer, and every surface repaints itself from here — which is
+   *  also what takes a WITHDRAWN plate off the globe rather than leaving it standing. */
+  private targetFootprintSub: (() => void) | null = null;
   /** When true, the NEXT `site.location-changed` does not re-fly the camera — set
    *  by a caller (GISAreaLayout's geocode `onFlyTo`) that has ALREADY framed the
    *  exact plot bbox, so the event-driven point-flyTo doesn't override the better
@@ -2445,6 +2476,30 @@ export class CesiumViewport {
       this.siteHighlightSurfaceReg = registerSiteHighlightSurface('cesiumSiteViewport', '3D Site');
     } catch (e) {
       console.warn('[CesiumViewport][forma] §PARCEL-VISIBLE-EVERYWHERE subscribe failed (non-fatal):', e);
+    }
+
+    // ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022) — repaint when the user PICKS a massing option, and
+    // when they withdraw one. Same PUSH-not-poll discipline as the four subscriptions above, and
+    // the SAME replay guards (`frameCentroid:false` + `_skipTerrainClamp:true`) so choosing an
+    // option never re-flies the camera or re-samples terrain out from under the user mid-compare.
+    //
+    // ⛔ THE TEARDOWN IS THE HALF THAT MATTERS. `renderFormaMassing` rebuilds `formaMassingEntities`
+    // from scratch, so a proposal that has been cleared — withdrawn by the user, or withdrawn by the
+    // staleness gate when the envelope was re-solved — takes its plate off the globe on this very
+    // notification. Without the subscription the plate would survive its own withdrawal, which is a
+    // picture of a claim that has been retracted (§VERIFICATION-ARTIFACT-CAN-PREDATE-SUBJECT).
+    try {
+      this.targetFootprintSub = subscribeTargetFootprintProposal(() => {
+        const input = this.formaLastMassingInput;
+        if (!input) return; // nothing placed on this globe — nothing to repaint.
+        try {
+          this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+        } catch (e) {
+          console.warn('[CesiumViewport][forma] §MASSING-ON-THE-SITE-VIEWS repaint failed (non-fatal):', e);
+        }
+      });
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §MASSING-ON-THE-SITE-VIEWS subscribe failed (non-fatal):', e);
     }
 
     // This is the LAST statement of the constructor: a viewport that threw part-way
@@ -6717,6 +6772,74 @@ export class CesiumViewport {
       }
     }
 
+    // ── ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022 · STR §26.6.3) — THE MASSING CANDIDATE, ON THIS VIEW ──
+    //
+    // Founder: the massing option he picks must render, ONE AT A TIME, on the view he is on. Until
+    // this lane it drew in the THREE plan/BIM scene only — `targetFootprintAreaState` was imported
+    // ZERO times by this file — so on 3D Site, picking an option changed the card and left the
+    // ground exactly as it was.
+    //
+    // ⛔ ONE SLOT, SO ONE PLATE, AND NO SECOND RULE. `resolveLiveProposedPlate` reads the SAME single
+    // session slot the BIM scene and the 2D map read, through the SAME staleness gate. There is
+    // nowhere for a second candidate to live, so "one massing at a time" cannot be violated by a
+    // renderer forgetting to clear the previous one.
+    //
+    // ⛔ AND IT IS TAKEN DOWN BY BEING REBUILT. This block runs inside `renderFormaMassing`, which
+    // rebuilds `formaMassingEntities` from scratch; a withdrawn proposal simply draws nothing on the
+    // next pass, and `clearFormaMassing()` on a parcel change takes it with everything else. That is
+    // why no explicit "remove the plate" path exists — one would be a second answer to "what is on
+    // screen" (C84 EI-9).
+    //
+    // ⚠ ITS COLOUR IS THE ONE OWNER'S. `toBeBuiltEnvelopeStyle` — pale solid `#e8e8ee` with a slate
+    // ink rim — deliberately OUTSIDE the C58 §5.2 confidence family (violet solved / grey estimated
+    // / amber unreviewed) and outside the study teal: this plate is the user's INTENT, not a claim
+    // about what the law permits, and a hue that carried confidence would say otherwise. The
+    // three-line legend on the card stays; nothing here mints a second style table.
+    try {
+      const plate = resolveLiveProposedPlate();
+      if (plate !== null) {
+        // Lifted just clear of the ground plane and of the highlight cues, so the plate the user
+        // just asked for is never hidden under the surfaces it was solved against.
+        const PROPOSED_PLATE_LIFT_M = 0.4;
+        const positions = plate.ring.map((p) => toCartesian(p.x, p.z, baseHeight + PROPOSED_PLATE_LIFT_M));
+        const fill = viewer.entities.add({
+          name: 'pryzm-target-footprint-proposal',
+          polygon: {
+            hierarchy: new Cesium.PolygonHierarchy(positions),
+            height: baseHeight + PROPOSED_PLATE_LIFT_M,
+            material: Cesium.Color.fromCssColorString(TO_BE_BUILT_FILL_CSS)
+              .withAlpha(TO_BE_BUILT_GROUND_FILL_ALPHA),
+            outline: false,
+            shadows: Cesium.ShadowMode.DISABLED,
+            perPositionHeight: false,
+          },
+        });
+        this.formaMassingEntities.push(fill);
+        this.formaSiteOverlayEntities.add(fill);
+        // The INK, not the fill: a near-white plate has no silhouette of its own on a light ground
+        // or on photoreal tiles, and colour must never be the only channel.
+        const rim = viewer.entities.add({
+          name: 'pryzm-target-footprint-proposal-rim',
+          polyline: {
+            positions: [...positions, positions[0]!],
+            width: 3,
+            clampToGround: false,
+            material: Cesium.Color.fromCssColorString(TO_BE_BUILT_INK_CSS).withAlpha(0.95),
+          },
+        });
+        this.formaMassingEntities.push(rim);
+        this.formaSiteOverlayEntities.add(rim);
+        console.log(
+          `[CesiumViewport][forma] §MASSING-ON-THE-SITE-VIEWS drew the to-be-built plate: `
+          + `${plate.achievedAreaM2.toFixed(1)} m² achieved against ${plate.targetAreaM2.toFixed(1)} m² asked `
+          + `(inset ${plate.insetM.toFixed(2)} m, ${plate.ring.length} corners). ORIENTATIVE — an intent, `
+          + 'not what the ordinance permits and not a permit.',
+        );
+      }
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §MASSING-ON-THE-SITE-VIEWS plate failed (non-fatal):', e);
+    }
+
     // ── §CESIUMENV167 (L-12760) — INDICATIVE STUDY MASSING, the Cesium arm of §ENV3D164 ──────────
     //
     // The founder tested "3D Site" (THIS viewport) and his console showed the plan-backed rasteriser
@@ -7207,6 +7330,58 @@ export class CesiumViewport {
     // Drawn just clear of the ground plane so it is never z-fighting the parcel fill it sits over.
     const CUE_LIFT_M = 0.35;
     const CUE_CSS = CONFIDENT_VIOLET_CSS;
+
+    // ── ⭐ §26.6.4 / §ROOMS-ON-THE-VIEWS (L-13046) — ONE ROOM'S DETECTED OUTLINE ───────────────
+    //
+    // Founder: *"THAT SHOULD BE THERE — AND SHALL RENDER ON THE VIEWS."* A room row in the Parcel
+    // Law tab's rooms-per-level list names a room; this is what following that link lights here.
+    //
+    // ⛔ THE RING COMES FROM THE ONE READER (`resolveRoomOutline`), which is the same reader the
+    // BIM scene and the 2D map use, so three views cannot light three different shapes for one row.
+    // Projected through THIS viewport's own `toCartesian` — the room polygon is in the SAME
+    // scene-XZ frame as the parcel ring and the envelope (`RoomDetectionEngine` builds it from
+    // WallGraph world positions), so no second projection is minted.
+    //
+    // ⛔ AND ITS HEIGHT IS EITHER THE ROOM'S OR IS SAID NOT TO BE. `worldY` is null when the
+    // storey's elevation could not be read; the outline then draws at the ground lift and the
+    // console names that, because a first-floor room silently drawn on the ground looks exactly
+    // like a ground-floor room (§L-446, in geometry).
+    if (cue === 'room-outline') {
+      const roomId = parseRoomHighlightSubject(subject);
+      if (roomId === null) return;
+      const outline = resolveRoomOutline(this.runtime as unknown as { stores?: unknown }, roomId);
+      if (outline === null) {
+        console.log(
+          `[CesiumViewport][forma] §ROOMS-ON-THE-VIEWS cue 'room-outline' → NOT drawn: no drawable `
+          + `outline resolved for room "${roomId}". Nothing is drawn rather than the parcel lit instead.`,
+        );
+        return;
+      }
+      const up = outline.worldY === null
+        ? baseHeight + CUE_LIFT_M
+        : baseHeight + outline.worldY + CUE_LIFT_M;
+      const positions = outline.ring.map((p) => toCartesian(p.x, p.z, up));
+      const ent = viewer.entities.add({
+        name: 'pryzm-site-highlight-room-outline',
+        polyline: {
+          positions: [...positions, positions[0]!],
+          width: 5,
+          clampToGround: false,
+          material: Cesium.Color.fromCssColorString(CUE_CSS).withAlpha(0.95),
+        },
+      });
+      this.formaMassingEntities.push(ent);
+      this.formaSiteOverlayEntities.add(ent);
+      console.log(
+        `[CesiumViewport][forma] §ROOMS-ON-THE-VIEWS cue 'room-outline' → ${outline.ring.length}-corner `
+        + `outline for "${outline.name ?? outline.id}"`
+        + (outline.worldY === null
+          ? ', drawn AT GROUND: this room\'s storey elevation could not be read, so its true height '
+            + 'is unknown — NOT a finding that the room is on the ground floor.'
+          : ` at ${outline.worldY.toFixed(2)} m above the site datum (its storey's elevation + base offset).`),
+      );
+      return;
+    }
 
     // ── §26.6 rule 2 (L-13046) — the two cues that need ONLY the committed ring. ──────────────
     // 'bbox' — "Bounding box → the box": the axis-aligned extent the row's two numbers describe,
@@ -11810,14 +11985,18 @@ export class CesiumViewport {
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    // §SITE-SCOPE (C12 §13.3 class C) — every track is CUT to the scope polygon first (a line that
+    // leaves and re-enters becomes two pieces); nothing outside the slab is seated or built.
+    const railWays = this.scopeClipLines('rail', collection.ways, (w) => w.coords, lat, lon)
+      .map((p) => ({ ...p.item, coords: p.coords }));
     // §GROUND-DRAPE-ON-RELIEF (L-12924) — per-track seat (split down a hill), resolved before the clear.
     const drape = await this.resolveGroundDrapePieces(
-      'rail', collection.ways.map((w) => ({ coords: w.coords, kind: 'corridor' as const })), lat, lon,
+      'rail', railWays.map((w) => ({ coords: w.coords, kind: 'corridor' as const })), lat, lon,
     );
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
     this.clearContextRail();
-    if (collection.ways.length === 0) return; // honest no-op when the layer is un-baked/empty.
+    if (railWays.length === 0) return; // honest no-op when the layer is un-baked/empty or wholly outside the scope.
 
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(
       Cesium.Cartesian3.fromDegrees(lon, lat, 0),
@@ -11840,8 +12019,8 @@ export class CesiumViewport {
     };
 
     let placed = 0;
-    for (let wi = 0; wi < collection.ways.length; wi++) {
-      const way = collection.ways[wi]!;
+    for (let wi = 0; wi < railWays.length; wi++) {
+      const way = railWays[wi]!;
       for (const piece of drape.pieces[wi] ?? []) {
         try {
           const positions = piece.coords.map(([flon, flat]) => {
@@ -11870,7 +12049,7 @@ export class CesiumViewport {
     viewer.scene.requestRender();
     console.log(
       `[CesiumViewport][forma] §FORMA-CTX-RAIL flat ground rail ribbon(s) rendered: ${placed} piece(s) of ` +
-        `${collection.ways.length} track(s). §GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
+        `${railWays.length} in-scope track(s) (${collection.ways.length} read). §GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
     );
   }
 
@@ -11945,9 +12124,15 @@ export class CesiumViewport {
     // §12.5 duplicate test moves up here so a dropped centre-line is never sampled.
     const drawnWays = collection.ways.filter((w) => !waterwayDuplicatesArea(w, collection.areas));
     const waysDroppedAsDuplicate = collection.ways.length - drawnWays.length;
+    // §SITE-SCOPE (C12 §13.3 class C) — lakes are cut as RINGS, centre-lines as POLYLINES, and the
+    // §12.5 duplicate test above runs FIRST so a dropped centre-line is never clipped or seated.
+    const waterAreas = this.scopeClipRings('water-areas', collection.areas, (a) => a.ring, lat, lon)
+      .map((p) => ({ ...p.item, ring: p.ring }));
+    const waterWays = this.scopeClipLines('waterways', drawnWays, (w) => w.coords, lat, lon)
+      .map((p) => ({ ...p.item, coords: p.coords }));
     const drape = await this.resolveGroundDrapePieces('water', [
-      ...collection.areas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })),
-      ...drawnWays.map((w) => ({ coords: w.coords, kind: 'corridor' as const })),
+      ...waterAreas.map((a) => ({ coords: a.ring, kind: 'polygon' as const })),
+      ...waterWays.map((w) => ({ coords: w.coords, kind: 'corridor' as const })),
     ], lat, lon);
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
@@ -16793,6 +16978,18 @@ export class CesiumViewport {
         console.warn('[CesiumViewport] site-highlight surface registration dispose failed:', e);
       }
       this.siteHighlightSurfaceReg = null;
+    }
+
+    // §MASSING-ON-THE-SITE-VIEWS (L-13022) — same reasoning as the study subscription above: a
+    // listener left behind would hold this whole viewport alive and repaint into a destroyed viewer
+    // the next time the user picked a massing option.
+    if (this.targetFootprintSub) {
+      try {
+        this.targetFootprintSub();
+      } catch (e) {
+        console.warn('[CesiumViewport] target-footprint subscription dispose failed:', e);
+      }
+      this.targetFootprintSub = null;
     }
 
     if (this.handler) {

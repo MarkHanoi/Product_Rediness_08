@@ -32,6 +32,7 @@ import {
 } from '../room-programme/projectRoomsToProgramme';
 import type { ResidentialRoomKind } from '../room-programme/residentialRoomLibrary';
 import type { AdoptLevelCandidate } from './adoptProposalAsEnvelope';
+import { roomOutlineVertexCount } from './roomOutlineSource';
 import type { ExistingLevelEnvelope, LevelEnvelopeReadResult } from './levelEnvelopeSupersession';
 
 const _tracer = trace.getTracer('pryzm.site.roomsPerLevelModel');
@@ -45,6 +46,17 @@ export interface RoomsPerLevelRoom {
     readonly areaM2: number | null;
     /** The raw level id on the record, or `null` when it carried none. Kept so the reason is exact. */
     readonly levelIdRaw: string | null;
+    /**
+     * §26.6.4 (L-13046) — vertex count of the room's DETECTED OUTLINE, or `null` when the record
+     * carries no polygon array at all.
+     *
+     * ⛔ `null` IS NOT `0`, AND THE ROW SAYS SOMETHING DIFFERENT FOR EACH. `null` = nothing has
+     * detected this room's shape from the walls yet (a missing measurement); a number below 3 = an
+     * outline WAS recorded and is not a polygon (a finding about the model). Collapsing them would
+     * make a room that has simply not been drawn yet read as a broken one. Counted by
+     * `roomOutlineVertexCount`, the ONE reader of that field.
+     */
+    readonly outlineVertices: number | null;
 }
 
 /** The level envelope situation on one storey. */
@@ -111,6 +123,9 @@ function toRoom(room: ProjectRoomLike): RoomsPerLevelRoom {
         kind: residentialKindForRoom(room),
         areaM2: readArea(room),
         levelIdRaw: typeof room.levelId === 'string' && room.levelId.length > 0 ? room.levelId : null,
+        // §26.6.4 — asked through the ONE reader, so this model and the three renderers agree on
+        // what "has an outline" means. `null` survives untouched; see the field's doc.
+        outlineVertices: roomOutlineVertexCount(room),
     };
 }
 
