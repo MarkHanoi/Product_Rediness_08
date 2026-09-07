@@ -485,3 +485,52 @@ describe('§STARTUP-DIRECT-DESCENT — the chain is dispatched pass-through, no 
         expect(settled).toBe(true);
     });
 });
+
+// §WHERE-IS-YOUR-PROJECT (L-13057 item 4) — the CADASTRAL entry point's flight.
+//
+// The rule these pin is "one choreography, not two": a reference that has already been resolved
+// to real registry geometry must reach the parcel stage, the hand-off and the §22 reveal gate
+// through the SAME body a place search takes — and must NOT re-enter the geocoder to get there.
+describe('GlobeHeroSearch.flyToResolved', () => {
+    it('flies the SAME staged chain as search(), without calling the geocoder at all', async () => {
+        const arrivals: Array<{ lat: number; lon: number; address: string }> = [];
+        const { hero, flights, geocode } = harness({
+            onParcelArrival: (p) => { arrivals.push({ lat: p.lat, lon: p.lon, address: p.address }); },
+        });
+        const out = await hero.flyToResolved({
+            lat: 37.883,
+            lon: -4.78,
+            displayName: 'Parcel 2947201UG4924N · Catastro (Spain)',
+            bbox: [-4.7805, 37.8825, -4.7795, 37.8835],
+        });
+        expect(out.ok).toBe(true);
+        // ⛔ The geometry came from the registry. Round-tripping it through a place-name lookup
+        // would be strictly worse-resolved data reached by a longer path.
+        expect(geocode).not.toHaveBeenCalled();
+        // The identical 5-flight chain search() produces (see the whenFlightSettled test above).
+        expect(flights.length).toBe(5);
+        // The §22 reveal gate fired, carrying the PARCEL's own coordinates and extent.
+        expect(arrivals).toHaveLength(1);
+        expect(arrivals[0]!.lat).toBeCloseTo(37.883, 6);
+        expect(arrivals[0]!.address).toContain('2947201UG4924N');
+    });
+
+    it('forwards the parcel bbox so the 2D pane opens on the PLOT, not the city', async () => {
+        let bbox: [number, number, number, number] | undefined;
+        const { hero } = harness({ onParcelArrival: (p) => { bbox = p.bbox; } });
+        await hero.flyToResolved({
+            lat: 41.3925,
+            lon: 2.16492,
+            displayName: 'Parcel 0229720DF3802G',
+            bbox: [2.1645, 41.3922, 2.1653, 41.3929],
+        });
+        expect(bbox).toEqual([2.1645, 41.3922, 2.1653, 41.3929]);
+    });
+
+    it('refuses non-finite coordinates rather than flying somewhere arbitrary', async () => {
+        const { hero, flights } = harness();
+        const out = await hero.flyToResolved({ lat: Number.NaN, lon: 2.1, displayName: 'x' });
+        expect(out.ok).toBe(false);
+        expect(flights).toHaveLength(0);
+    });
+});

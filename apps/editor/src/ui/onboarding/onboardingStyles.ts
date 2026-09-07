@@ -850,6 +850,165 @@ export const ONBOARDING_STYLES = `
    to the sibling it was never applied to. */
 .os-onboarding-overlay .os-footer[hidden] { display: none; }
 
+/* ── §WHERE-IS-YOUR-PROJECT — the LOCATION step's own presentation (L-13057 item 3) ──────────
+   Founder 2026-09-07: "MAKE THIS PANEL A BIT MORE MODERN, MORE 'REACT' TYPE — SEMI TRANSPARENT
+   — MOSTLY BLACK AND WHITE — JUST ONE OR TWO TOUCHES OF PURPLE PRYZM … MODERN BUT ELEGANT."
+
+   ⚠ THIS BLOCK IS IN TENSION WITH THE STANDING BRAND NOTE "white + purple, NO black", AND THE
+   TENSION IS RESOLVED BY SCOPE, NOT BY GENERALISING. The founder's instruction is newer and more
+   specific, and it governs HERE for a reason that is site-specific and worth writing down: this
+   card — alone in the product — floats over the globe's BLACK STARFIELD. A white glass surface on
+   that backdrop is the brightest object on screen and reads as a dialog interrupting the globe; a
+   dark translucent one reads as part of it. Every other onboarding surface (the drawing banner,
+   the confirm card, the typology chooser, the resi/office panels) sits over the WHITE app chrome
+   and keeps the standing white glass.
+
+   ⛔ THE SCOPING IS THE SAFETY, AND IT IS ENFORCED IN TWO PLACES. Every rule below is prefixed
+   with .os-onboarding-overlay--location, a class that is added by renderLocationStep() and
+   REMOVED by clearBody() — i.e. by the one function every other step render calls before it
+   builds anything. There is no path on which a later step inherits this. Do not lift any of these
+   declarations out of this block, and do not add the class to another surface.
+
+   THE PALETTE IS ONE TOKEN OVERRIDE, NOT A SECOND STYLESHEET. The card's descendants already read
+   --app-text / --app-border / --app-panel-bg etc., so re-pointing those variables on this one
+   element flips the whole card and leaves the rest of the sheet untouched. Purple appears TWICE
+   and only twice, as instructed: the submit control, and the focus ring. */
+.os-onboarding-overlay.os-onboarding-overlay--location {
+  --app-panel-glass: rgba(10, 11, 16, 0.58);
+  --app-panel-glass-blur: blur(26px) saturate(1.2);
+  --app-text: #ffffff;
+  --app-text-2: rgba(255, 255, 255, 0.66);
+  --app-text-muted: rgba(255, 255, 255, 0.28);
+  --app-border: rgba(255, 255, 255, 0.12);
+  --app-panel-bg: rgba(255, 255, 255, 0.06);
+  --app-violet-soft: rgba(102, 0, 255, 0.22);
+  width: min(376px, 94vw);
+  border-radius: 18px;
+  color: var(--app-text);
+}
+/* The 100vmax scrim is deliberately NOT inherited here. It exists to hold attention on a card
+   over a busy app; on this step the thing behind the card is the globe the user is being asked
+   to fly, and dimming the whole planet both fights the "semi transparent" instruction and hides
+   the drag affordance the copy now points at. Shadow only — no wash. */
+.os-onboarding-overlay.os-onboarding-overlay--location {
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55), 0 1px 0 0 rgba(255, 255, 255, 0.06) inset;
+}
+/* THE TEXT THE FOUNDER REMOVED. The nodes stay so the header remains the drag handle and the
+   step model is unchanged — only this step hides them. */
+.os-onboarding-overlay.os-onboarding-overlay--location .os-title,
+.os-onboarding-overlay.os-onboarding-overlay--location .os-step-chip {
+  display: none;
+}
+/* What is left of the header is a grab strip: no border, no label, a 2px hairline handle that
+   says "draggable" without saying anything. */
+.os-onboarding-overlay.os-onboarding-overlay--location .os-header {
+  justify-content: center;
+  padding: 9px 10px 3px;
+  border-bottom: none;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-header::after {
+  content: '';
+  width: 26px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-body {
+  padding: 6px 20px 20px;
+  gap: 12px;
+}
+/* THE ONE LINE. Generous, quiet, and the only type on the card that carries weight. */
+.os-onboarding-overlay.os-onboarding-overlay--location .os-prompt--hero {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--app-text);
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-input-row--hero {
+  gap: 8px;
+  margin-top: 0;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-input {
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 11px;
+  border: 1px solid var(--app-border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--app-text);
+  font-size: 13px;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-input:focus-visible {
+  outline: none;
+  border-color: var(--app-accent);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(102, 0, 255, 0.35);
+}
+/* PURPLE, USE 1 OF 2 — the submit control. A square glyph button, not a labelled one. */
+.os-onboarding-overlay.os-onboarding-overlay--location .os-btn--go {
+  min-height: 42px;
+  width: 42px;
+  padding: 0;
+  border-radius: 11px;
+  background: var(--app-accent);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-btn--go:hover {
+  background: var(--app-accent-hover);
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-btn--go:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* The globe-drag signpost — six words, at hint weight, deliberately below the field it is an
+   alternative to. This is the ONLY statement in the product that the globe behind the card is
+   live; see the note at its construction site in OnboardingStepController. */
+.os-onboarding-overlay.os-onboarding-overlay--location .os-hint--affordance {
+  margin: -4px 0 0;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.005em;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-status {
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 500;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-btn--ghost {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  font-weight: 500;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-btn--ghost:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.06);
+}
+/* PURPLE, USE 2 OF 2 — the focus ring, so keyboard users get the accent where it matters most. */
+.os-onboarding-overlay.os-onboarding-overlay--location .os-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-footer {
+  margin-top: 0;
+}
+.os-onboarding-overlay.os-onboarding-overlay--location .os-footer--alt-reading {
+  margin-top: -4px;
+}
+/* The resize grip is chrome the founder did not ask to see on a card this quiet. The panel is
+   still resizable — the grip's hit area is unchanged, only its paint. */
+.os-onboarding-overlay.os-onboarding-overlay--location .os-resize-grip {
+  opacity: 0.18;
+}
+
 /* ── DRAW phase — NON-BLOCKING presentation (tested defect fix) ─────────────────
    During "DRAW YOUR PLOT" the user must SEE and CLICK the map. The overlay stops
    being a centered modal-with-backdrop and becomes a slim instruction banner

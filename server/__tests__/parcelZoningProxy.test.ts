@@ -135,6 +135,10 @@ describe('§PARCEL-PROXY parsers', () => {
 // NEAREST (by reference-point dis) to A — the exact wrong-parcel shape L-641 fixes.
 const PARCEL_A = '0229720DF3802G'; // nearest by dis; lon [2.16520, 2.16540]
 const PARCEL_B = '0229721DF3802G'; // second   by dis; lon [2.16540, 2.16560]
+/** §WHERE-IS-YOUR-PROJECT — a well-formed reference the fake registry deliberately does NOT hold. */
+const UNKNOWN_REFCAT_PREFIX = '9999999';
+const EMPTY_FEATURE_COLLECTION =
+    '<?xml version="1.0"?><wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0"/>';
 
 /** Build a rectangle-parcel GML for a refcat. posList is EPSG:4326 "lat lon" pairs (closed ring). */
 function gmlFor(refcat: string): string {
@@ -181,6 +185,12 @@ describe('§PARCEL-PROXY /api/catastro/parcel', () => {
             wfsCalls++;
             const m = s.match(/REFCAT=([^&]+)/i);
             const refcat = m ? decodeURIComponent(m[1]!) : PARCEL_A;
+            // §WHERE-IS-YOUR-PROJECT — a WELL-FORMED reference the registry does not hold.
+            // Catastro answers an empty FeatureCollection, not an error, so "asked and had
+            // nothing" is a real response shape the handler has to distinguish from a failure.
+            if (refcat.startsWith(UNKNOWN_REFCAT_PREFIX)) {
+                return new Response(EMPTY_FEATURE_COLLECTION, { status: 200 });
+            }
             return new Response(gmlFor(refcat), { status: 200 });
         }
         return new Response('', { status: 404 });
@@ -267,5 +277,70 @@ describe('§PARCEL-PROXY /api/catastro/parcel', () => {
     it('missing/NaN coords → 400', async () => {
         const r = await fetch(`${url}${CATASTRO_PARCEL_PATH}?lon=abc`);
         expect(r.status).toBe(400);
+    });
+
+    // §WHERE-IS-YOUR-PROJECT (L-13057 item 4) — the SAME route, keyed by the cadastral
+    // reference the user typed instead of by a map click. What these pin is that it is the SAME
+    // resolver: one WFS GetParcel call, served from the SAME refcat-keyed cache the click path
+    // fills — and that the click-only signals are NOT invented for a lookup that had no click.
+    const getRef = (refcat: string) =>
+        fetch(`${url}${CATASTRO_PARCEL_PATH}?refcat=${encodeURIComponent(refcat)}`);
+
+    it('?refcat= → the parcel, with ONE WFS call and NO reverse-geocode', async () => {
+        const r = await getRef(PARCEL_B);
+        expect(r.status).toBe(200);
+        const body = await r.json();
+        expect(body.parcel).not.toBeNull();
+        expect(body.parcel.refcat).toBe(PARCEL_B);
+        expect(body.parcel.source).toBe('catastro');
+        expect(body.parcel.matchedBy).toBe('refcat');
+        expect(body.parcel.ring.length).toBeGreaterThanOrEqual(4);
+        expect(rcCalls).toBe(0); // a reference needs no point→refcat hop
+        expect(wfsCalls).toBe(1);
+    });
+
+    it('§CONTEXT-DATA-HONESTY — a by-reference hit reports NO click signals rather than fake ones', async () => {
+        const body = await (await getRef(PARCEL_A)).json();
+        // There was no click, so there is no click→parcel distance. 0 would assert a spatial
+        // verification that never happened; null is the honest "not applicable".
+        expect(body.parcel.pointToParcelM).toBeNull();
+        expect(body.parcel.candidateMarginM).toBeNull();
+        expect(body.parcel.clickInside).toBeNull();
+        // GetParcel returns geometry, not a postal address — so none is claimed.
+        expect(body.parcel.address).toBeNull();
+    });
+
+    it('shares the click path’s refcat cache — a reference already fetched by a click is free', async () => {
+        await get(INSIDE_A.lon, INSIDE_A.lat);
+        expect(wfsCalls).toBe(1);
+        const body = await (await getRef(PARCEL_A)).json();
+        expect(body.parcel.refcat).toBe(PARCEL_A);
+        expect(wfsCalls).toBe(1); // ONE cache, ONE resolver
+    });
+
+    it('a 20-character UNIT reference is narrowed to its 14-character PARCEL', async () => {
+        const body = await (await getRef(`${PARCEL_A}0001WX`)).json();
+        expect(body.parcel).not.toBeNull();
+        expect(body.parcel.refcat).toBe(PARCEL_A);
+    });
+
+    it('a WELL-FORMED reference the registry does not hold → 200 { parcel: null }, asked and answered', async () => {
+        const r = await getRef('9999999ZZ9999Z');
+        expect(r.status).toBe(200);
+        const body = await r.json();
+        expect(body.parcel).toBeNull();
+        expect(body.queriedRefcat).toBe('9999999ZZ9999Z');
+        expect(r.headers.get('X-Catastro-Cache')).toBe('REFCAT-MISS');
+        expect(wfsCalls).toBe(1); // the registry WAS asked — that is what makes this a miss
+    });
+
+    it('a MALFORMED reference never reaches the registry (and still never 500s)', async () => {
+        const r = await getRef('TOOSHORT');
+        expect(r.status).toBe(200);
+        const body = await r.json();
+        expect(body.parcel).toBeNull();
+        expect(body.queriedRefcat).toBe('TOOSHORT');
+        expect(wfsCalls).toBe(0);
+        expect(rcCalls).toBe(0);
     });
 });

@@ -111,6 +111,79 @@ export function parseProxyResponse(json: unknown): ParcelFeature | null {
 }
 
 /**
+ * §WHERE-IS-YOUR-PROJECT (L-13057) — the SAME provider, addressed by cadastral REFERENCE
+ * instead of by a map point.
+ *
+ * ⚠ NOT A SECOND RESOLVER. Same endpoint (`CATASTRO_PARCEL_ENDPOINT`), same response contract,
+ * same `parseProxyResponse` — only the query key changes (`?refcat=` instead of `?lon=&lat=`).
+ * The proxy answers it from the identical `GetParcel&REFCAT=` call + refcat-keyed cache the
+ * click path already uses for its second hop; see `server/jurisdiction/parcelZoningProxy.js`
+ * (`fetchParcelByRefcat`). Nothing about the geometry chain is duplicated on either side.
+ *
+ * Kept as a free function rather than added to the `ParcelProvider` interface deliberately: a
+ * cadastral reference is REGISTRY-SHAPED (a Spanish `refcat` is 14 or 20 characters; other
+ * registries are shaped differently and most are not implemented here), so "look up by
+ * reference" is not a capability every provider in the registry can honour. Widening the shared
+ * interface would assert a capability that, for every other provider, does not exist.
+ *
+ * Resolves to null on: empty/whitespace reference, network error, non-OK, non-JSON, or an
+ * honest Catastro miss. **The caller must not collapse those into one message** — the miss is
+ * "Catastro was asked and had no such parcel", which is a different answer from "we could not
+ * ask" (§CONTEXT-DATA-HONESTY). Never throws.
+ */
+export async function fetchParcelByRefcat(refcat: string): Promise<ParcelFeature | null> {
+    const span = _tracer.startSpan('pryzm.parcel.fetchParcelByRefcat');
+    span.setAttribute('pryzm.parcel.provider', 'catastro');
+    try {
+        const rc = (refcat ?? '').trim().toUpperCase();
+        if (rc.length === 0) {
+            span.setAttribute('pryzm.parcel.hit', false);
+            return null;
+        }
+        span.setAttribute('pryzm.parcel.refcat', rc);
+
+        const url = `${CATASTRO_PARCEL_ENDPOINT}?refcat=${encodeURIComponent(rc)}`;
+
+        let res: Response;
+        try {
+            res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+        } catch (err) {
+            console.warn('[gis] catastro: network error (refcat lookup)', err);
+            span.setAttribute('pryzm.parcel.hit', false);
+            return null;
+        }
+        if (!res.ok) {
+            console.warn('[gis] catastro: proxy returned', res.status, res.statusText, '(refcat lookup)');
+            span.setAttribute('pryzm.parcel.hit', false);
+            return null;
+        }
+
+        let json: unknown;
+        try {
+            json = await res.json();
+        } catch (err) {
+            console.warn('[gis] catastro: response was not JSON (refcat lookup)', err);
+            span.setAttribute('pryzm.parcel.hit', false);
+            return null;
+        }
+
+        const parcel = parseProxyResponse(json);
+        span.setAttribute('pryzm.parcel.hit', parcel !== null);
+        if (parcel) {
+            console.log(
+                `[gis] catastro: refcat ${parcel.refcat} → parcel (~${parcel.areaM2.toFixed(0)} m², ` +
+                `${parcel.ring.length} pts)`,
+            );
+        } else {
+            console.log(`[gis] catastro: no parcel for refcat ${rc}`);
+        }
+        return parcel;
+    } finally {
+        span.end();
+    }
+}
+
+/**
  * The Spain (Catastro) parcel provider. `fetchParcelAtPoint` GETs the same-origin
  * proxy for the parcel under a WGS84 point. Resolves to null on empty query,
  * network error, non-OK, non-JSON, or a miss — never throws (P8 OTel span opened).

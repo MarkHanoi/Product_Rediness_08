@@ -437,6 +437,68 @@ export async function fetchParcelAtPoint(lon, lat, deps = {}) {
     return buildParcelResult(fallback.cand, fallback.geom, rc, /* clickInside */ false);
 }
 
+/**
+ * §WHERE-IS-YOUR-PROJECT (L-13057) — the SAME parcel, reached by its cadastral REFERENCE
+ * instead of by a map click.
+ *
+ * ⚠ THIS ADDS AN ENTRY POINT, NOT A RESOLVER. `resolveParcelGeometry()` — the INSPIRE
+ * `GetParcel&REFCAT=` call, its 2-attempt fetch, its GML parse and its refcat-keyed LRU cache —
+ * is the one already used by `fetchParcelAtPoint()` step 2 and by the block route, unchanged and
+ * uncopied. Point→parcel resolves point→refcat→geometry; this simply starts at the middle,
+ * because the user typed the refcat that OVC would otherwise have been asked to derive.
+ *
+ * WHAT IS DELIBERATELY *NOT* INVENTED (§CONTEXT-DATA-HONESTY):
+ *   - `pointToParcelM` / `candidateMarginM` / `clickInside` are **null**, not 0/true. Those are
+ *     CLICK signals — "how far was the user's point from the parcel it got". A by-reference
+ *     lookup has no click, so there is no distance to report, and reporting 0 would assert a
+ *     spatial verification that never happened. Null is the honest "not applicable here"; the
+ *     client's confidence model already treats a null signal as unmeasured rather than good.
+ *   - `address` is **null**. `GetParcel` returns geometry (GML), not a postal address — the
+ *     address on the click path comes from OVC's reverse geocode, which is not in this chain.
+ *     A caller that wants a label has the refcat, which IS the parcel's identity.
+ *   - `cp`/`cm` (the OVC `loine` municipality identity) are null for the same reason.
+ * `matchedBy: 'refcat'` is carried so a client can tell the two provenances apart rather than
+ * inferring it from which fields happen to be null.
+ *
+ * A 20-character reference (the full *referencia catastral* of a property UNIT — 14 parcel
+ * chars + 4 for the unit within it + 2 control chars) is truncated to its first 14, which is
+ * the PARCEL, because a parcel is what this route returns.
+ *
+ * @param {string} refcat  A 14- or 20-character Spanish cadastral reference.
+ * @param {{ fetchImpl?: typeof fetch, timeoutMs?: number }} [deps]
+ * @returns {Promise<ParcelResult|null>} null when the reference does not resolve — never throws.
+ */
+export async function fetchParcelByRefcat(refcat, deps = {}) {
+    const raw = typeof refcat === 'string' ? refcat.trim().toUpperCase() : '';
+    if (raw.length !== 14 && raw.length !== 20) return null;
+    if (!/^[0-9A-Z]+$/.test(raw)) return null;
+    const parcelRc = raw.slice(0, 14);
+
+    const geom = await resolveParcelGeometry(parcelRc, deps);
+    if (!geom) {
+        console.log(`[catastro-proxy] refcat ${parcelRc}: Catastro GetParcel returned no geometry.`);
+        return null;
+    }
+    console.log(
+        `[catastro-proxy] refcat ${parcelRc}: parcel resolved (${geom.ring.length} pts, ` +
+        `~${(geom.areaOfficialM2 != null ? geom.areaOfficialM2 : geom.areaSigM2).toFixed(0)} m²).`,
+    );
+    return {
+        ring: geom.ring,
+        refcat: parcelRc,
+        areaM2: geom.areaOfficialM2 != null ? geom.areaOfficialM2 : geom.areaSigM2,
+        areaOfficialM2: geom.areaOfficialM2,
+        areaSigM2: geom.areaSigM2,
+        pointToParcelM: null,
+        candidateMarginM: null,
+        clickInside: null,
+        address: null,
+        cp: null,
+        cm: null,
+        matchedBy: 'refcat',
+    };
+}
+
 /** Set permissive same-origin cache headers on a parcel proxy response. */
 function setProxyCacheHeaders(res) {
     // A week — parcels change slowly; the shared server cache is the primary layer.
@@ -446,11 +508,16 @@ function setProxyCacheHeaders(res) {
 }
 
 /**
- * Express handler for GET /api/catastro/parcel?lon=<>&lat=<>.
+ * Express handler for GET /api/catastro/parcel?lon=<>&lat=<>  **or**  ?refcat=<>.
  *
  * Serves a cached-by-refcat parcel instantly; otherwise resolves point→refcat→parcel
  * once, normalises GML → a WGS84 ring, caches, and returns
  *   `{ parcel: { ring, refcat, areaM2, address, source: 'catastro' } }`.
+ *
+ * §WHERE-IS-YOUR-PROJECT (L-13057) — `?refcat=` is the SAME route reached by identity instead
+ * of by position (see `fetchParcelByRefcat`), so onboarding's one search field can accept a
+ * cadastral reference without a second endpoint, a second cache or a second parse. `refcat`
+ * wins when both are supplied: a reference names ONE parcel, a coordinate only points near one.
  *
  * NEVER crashes: bad/absent coords → 400; no parcel / upstream failure → 200
  * `{ parcel: null }` (the client then falls back to manual draw).
@@ -459,10 +526,33 @@ function setProxyCacheHeaders(res) {
  */
 export function makeCatastroParcelHandler(deps = {}) {
     return async function catastroParcelHandler(req, res) {
+        const refcatQuery = typeof req.query?.refcat === 'string' ? req.query.refcat.trim() : '';
+        if (refcatQuery) {
+            let byRef = null;
+            try {
+                byRef = await fetchParcelByRefcat(refcatQuery, deps);
+            } catch (err) {
+                console.warn('[catastro-proxy] refcat lookup error:', err?.message ?? err);
+                byRef = null;
+            }
+            setProxyCacheHeaders(res);
+            if (!byRef) {
+                // §CONTEXT-DATA-HONESTY — 200 + `{ parcel: null }` is "Catastro was ASKED and
+                // had nothing", which is a different answer from a transport failure; the header
+                // records which of the two the client is looking at.
+                res.setHeader('X-Catastro-Cache', 'REFCAT-MISS');
+                return res.status(200).json({ parcel: null, queriedRefcat: refcatQuery.toUpperCase() });
+            }
+            res.setHeader('X-Catastro-Cache', 'REFCAT-HIT-OR-FETCH');
+            return res.status(200).json({ parcel: { ...byRef, source: 'catastro' } });
+        }
+
         const lon = Number.parseFloat(String(req.query?.lon ?? ''));
         const lat = Number.parseFloat(String(req.query?.lat ?? ''));
         if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
-            return res.status(400).json({ error: 'lon and lat query params (EPSG:4326) are required.' });
+            return res.status(400).json({
+                error: 'lon and lat query params (EPSG:4326), or a refcat query param, are required.',
+            });
         }
         // Guard the Spanish national bbox loosely so a click on another continent
         // short-circuits without a pointless gov round-trip (−18.5…5.3 lon / 26.2…44.8 lat).

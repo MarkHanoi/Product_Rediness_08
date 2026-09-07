@@ -84,9 +84,17 @@ import { runSiteRevealSequence, type SiteRevealTarget } from './siteRevealSequen
 // `wait` or `offer` and nothing else: a watchdog may offer, it may never author domain data.
 import { decideDrawIdleAction, DRAW_IDLE_OFFER_MS as DRAW_IDLE_OFFER_MS_DEFAULT } from './drawIdleWatchdog.js';
 import { siteEntryCoverageEntries } from '../../engine/views/siteEntryCoverage';
-// §FLYIN165 — the demo fly-in button reuses the model's OWN declared world framing + the
-// parcel-stage altitude/pitch (never hand-typed here), same idiom as `worldFramingTarget()`.
-import { WORLD_HOME, SITE_ENTRY_ALTITUDE_M, SITE_ENTRY_PITCH_DEG } from '../../engine/views/siteEntryModel';
+// §WHERE-IS-YOUR-PROJECT (L-13057 item 4) — the PURE "is this a place or a registry reference?"
+// decision, and the EXISTING Catastro client reached by reference instead of by map click. The
+// resolver itself is untouched: `fetchParcelByRefcat` is the same endpoint/parse the map-click
+// provider uses, and the proxy answers it from the same `GetParcel&REFCAT=` call + cache.
+import {
+    sniffCadastralRef,
+    describeCadastralReading,
+    describeCadastralMiss,
+    type CadastralRefReading,
+} from './cadastralRefSniff.js';
+import { fetchParcelByRefcat } from '../site/parcel/CatastroParcelProvider.js';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { warmAllContextLayers } from '../geospatial/contextLayerWarm.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
@@ -158,40 +166,21 @@ const OFFICE_DEFAULT_RADIUS_M = 22;
 const DRAW_IDLE_OFFER_MS = DRAW_IDLE_OFFER_MS_DEFAULT;
 
 /**
- * §FLYIN165 (founder 2026-08-27: "a fly-by from the initial PRYZM Earth screen going to the
- * parcel in Amsterdam SLOWLY … create a small button fly-in in the little panel where the
- * user ADDS THE LOCATION") — DECLARED duration of the demo-only cinematic descent, seconds.
+ * ⛔ §FLYIN165 IS REMOVED (L-13057 item 1, founder 2026-09-07: "REMOVE THE FLY DEMO").
  *
- * ⚠ THIS IS NOT `SITE_ENTRY_FLIGHT_DURATION_S`. The real search path (`GlobeHeroSearch.search()`)
- * deliberately passes THROUGH every intermediate stage in one synchronous dispatch chain
- * (§STARTUP-DIRECT-DESCENT) — each `camera.flyTo` supersedes the previous one before Cesium
- * renders a single frame at that altitude, so what the user actually sees today is a CUT: the
- * budget trace shows `flight:parcel-arrival` landing ~2ms after the previous mark, and
- * `reveal:flight-settled` ~9ms after that — nowhere near a flight. That is CORRECT for a normal
- * search (founder ruled "speed wins" on 2026-08-07) and this constant must never be applied to
- * it. This button is the ONE place in the product that flies the camera slowly ON PURPOSE, as a
- * demo affordance the founder chooses to press — it never auto-fires.
- *
- * 8s sits in the founder's stated 6–10s band. One continuous `camera.flyTo` (Cesium's own
- * default arc/easing — no `easingFunction` override, same as `flyToGeographic`'s other callers)
- * from the untouched world view down to the parcel altitude/pitch already declared by the model
- * (`SITE_ENTRY_ALTITUDE_M.parcel` / `SITE_ENTRY_PITCH_DEG.parcel`, pitch −60° so it arrives
- * oriented at the parcel rather than snapping top-down).
+ * WHAT WENT WITH IT, RECORDED BECAUSE A ROUTE DISAPPEARING SILENTLY IS THE DEFECT (C19 §5.6):
+ * the button was an OPT-IN cinematic 8-second descent to a hard-coded Amsterdam point
+ * (52.3676, 4.9041), added 2026-08-27 for demos. It never auto-fired, was never on any user's
+ * critical path, and had no test or E2E coverage (`onboarding-location-demo-flyin` appeared in
+ * exactly one file — the one that created it). It was NOT the only route to a working state for
+ * a new user: it shared its hand-off (`revealSplitAtParcel` → `startDrawThenGenerate`) with the
+ * ordinary search path, so typing "Amsterdam" reaches the identical destination through the
+ * identical choreography. **The one thing genuinely lost is the SLOW flight**: the normal search
+ * path passes through the intermediate stages in a single synchronous dispatch chain
+ * (§STARTUP-DIRECT-DESCENT — founder ruled "speed wins", 2026-08-07), so nothing in the product
+ * now flies the camera deliberately slowly. If a demo needs that back, it is the 8-second
+ * `flyToGeographic` leg, not the button, that must be restored.
  */
-const DEMO_FLYIN_DURATION_S = 8;
-
-/**
- * §FLYIN165 — the demo fly-in's fixed destination: a point in Amsterdam's registered
- * jurisdiction (CBS/BAG gemeente 0363), well inside `AMSTERDAM_BBOX`
- * (`packages/site-parcel-data/src/providers/amsterdamBbox.ts`) and away from any municipal
- * edge, so §JURISDICTION-SPECIFICITY ambiguity is not in play. Hard-coded deliberately: a demo
- * affordance is not a search, and does not go through the geocoder.
- */
-const DEMO_FLYIN_TARGET: SiteRevealTarget = {
-    lat: 52.3676,
-    lon: 4.9041,
-    address: 'Amsterdam, Netherlands (demo fly-in)',
-};
 
 /** The narrowed location result we thread into `createSiteFromRect`. */
 interface PickedLocation {
@@ -202,6 +191,42 @@ interface PickedLocation {
      *  threaded to the 2D map (via `pryzmSetGeocodeFrame`) so it `fitBounds` to the
      *  exact plot on open instead of opening at world zoom (tested zoom defect). */
     readonly bbox?: [number, number, number, number];
+}
+
+/**
+ * §WHERE-IS-YOUR-PROJECT (L-13057) — a cadastral parcel's own centroid + `[W,S,E,N]` extent, so
+ * a resolved reference lands on THE PARCEL rather than on the city around it. Pure; returns null
+ * for a ring with no usable vertices or no extent (a degenerate outline is a different answer
+ * from a missing parcel and the caller says so).
+ *
+ * ⚠ WHY NOT ONE OF THE EXISTING HELPERS — checked first, both are near-misses of the WRONG kind:
+ * `ringBounds` (`@pryzm/site-parcel-data`) is over scene `{x,z}` metres, and `ringCentroidLatLon`
+ * (`ui/geospatial/globeGroundAnchor`) takes GeoJSON `[lon,lat]` PAIRS. This ring is `LatLon`
+ * objects in WGS84. Adapting either would mean a coordinate re-shuffle at the call site, which is
+ * exactly where axis-swap bugs live; six lines of explicit min/max is the safer reuse decision.
+ */
+function parcelFrameFromRing(
+    ring: ReadonlyArray<{ readonly lat: number; readonly lon: number }>,
+): { lat: number; lon: number; bbox: [number, number, number, number] } | null {
+    let sumLat = 0;
+    let sumLon = 0;
+    let n = 0;
+    let west = Infinity;
+    let south = Infinity;
+    let east = -Infinity;
+    let north = -Infinity;
+    for (const p of ring) {
+        if (!Number.isFinite(p?.lat) || !Number.isFinite(p?.lon)) continue;
+        sumLat += p.lat;
+        sumLon += p.lon;
+        n++;
+        if (p.lon < west) west = p.lon;
+        if (p.lon > east) east = p.lon;
+        if (p.lat < south) south = p.lat;
+        if (p.lat > north) north = p.lat;
+    }
+    if (n === 0 || !Number.isFinite(west) || !Number.isFinite(south)) return null;
+    return { lat: sumLat / n, lon: sumLon / n, bbox: [west, south, east, north] };
 }
 
 export interface OnboardingStepControllerOptions {
@@ -403,14 +428,6 @@ export class OnboardingStepController {
      * (`revealSplitAtParcel` handles its own failures), so awaiting it can only resolve.
      */
     private revealInFlight: Promise<void> | null = null;
-
-    /**
-     * §FLYIN165 — true for the duration of the demo fly-in button's own flight/reveal.
-     * Cleared the instant a REAL user action (submit, skip) fires, so a demo flight still
-     * settling in the background can never race the real path into a second reveal — the
-     * continuation checks this flag after every `await` and bails out silently if it is gone.
-     */
-    private demoFlightActive = false;
 
     /** Current step — drives the indicator + guards re-entry into generate. */
     private step: StepId = 'location';
@@ -637,6 +654,11 @@ export class OnboardingStepController {
         // observers go with the pill; left behind they would keep re-placing a node that is gone.
         this.compactPillCleanup?.();
         this.compactPillCleanup = null;
+        // §WHERE-IS-YOUR-PROJECT (L-13057 item 3) — the dark presentation belongs to the LOCATION
+        // step and to nothing else. Dropping it here, at the one place every step render passes
+        // through, is what guarantees it cannot leak onto a surface that sits over the white app
+        // chrome; `renderLocationStep()` re-adds it immediately after its own `clearBody()`.
+        this.overlay?.classList.remove('os-onboarding-overlay--location');
         while (body.firstChild) body.removeChild(body.firstChild);
         return body;
     }
@@ -653,34 +675,62 @@ export class OnboardingStepController {
         this.setDrawingPresentation(false);
         this.setStepIndicator(1, 'Location');
         const body = this.clearBody();
+        // §WHERE-IS-YOUR-PROJECT (L-13057 item 3) — the ONE dark, semi-transparent presentation,
+        // and it is SCOPED TO THIS STEP by this class. `clearBody()` removes it, so every other
+        // step (and the drawing banner, and the confirm card, all of which sit over the WHITE app
+        // chrome) keeps the standing white-glass panel. The reconciliation with the standing
+        // "white + purple, NO black" brand note is contextual and belongs on the record: this card
+        // — alone in the product — floats over the globe's BLACK STARFIELD, so a dark translucent
+        // surface here is site-specific and must NOT be propagated. See onboardingStyles.ts.
+        this.overlay?.classList.add('os-onboarding-overlay--location');
 
+        // ⭐ THE ONE LINE (founder 2026-09-07: "LIKE 'WHERE IS YOUR PROJECT?' THAT'S ALL").
+        // The three lines that used to sit around it — the "Set up your project" header, the
+        // "STEP 1 OF 4 · LOCATION" chip and the sub-paragraph — are gone from this step: the
+        // first two are hidden by the --location class (their NODES stay, so the header remains
+        // the drag handle and the step model is unchanged), the third is replaced below.
         const prompt = document.createElement('p');
-        prompt.className = 'os-prompt';
-        prompt.textContent = "Where's your project?";
+        prompt.className = 'os-prompt os-prompt--hero';
+        prompt.textContent = 'Where is your project?';
         body.appendChild(prompt);
 
-        const hint = document.createElement('p');
-        hint.className = 'os-hint';
-        hint.textContent =
-            'Search a city or address to fly the globe there, or drag it yourself. You can skip this.';
-        body.appendChild(hint);
-
         const form = document.createElement('form');
-        form.className = 'os-input-row';
+        form.className = 'os-input-row os-input-row--hero';
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'os-input';
         input.setAttribute('data-testid', 'onboarding-location-input');
-        input.placeholder = 'e.g. 10 Downing Street, London';
+        // ⭐ THE PLACEHOLDER IS NOW THE FEATURE'S ONLY SIGNPOST (L-13057 item 4). One field, no
+        // mode picker — the input sniffs what was typed (`cadastralRefSniff.ts`). Naming the
+        // three accepted things here is what makes the cadastral route discoverable without
+        // spending a paragraph on it.
+        input.placeholder = 'City, address, or cadastral reference';
+        input.setAttribute('aria-label', 'City, address, or cadastral reference');
         input.autocomplete = 'off';
         if (this.seedAddress) input.value = this.seedAddress;
         const submit = document.createElement('button');
         submit.type = 'submit';
-        submit.className = 'os-btn os-btn--primary';
-        submit.textContent = 'Find location';
+        submit.className = 'os-btn os-btn--primary os-btn--go';
+        // A glyph, not a sentence — but never an unlabelled control: the accessible name and the
+        // tooltip both carry the verb the removed label used to.
+        submit.textContent = '→';
+        submit.setAttribute('aria-label', 'Find this location');
+        submit.title = 'Find this location';
         form.appendChild(input);
         form.appendChild(submit);
         body.appendChild(form);
+
+        // ⛔ THE DRAG ROUTE MUST NOT VANISH WITH THE PARAGRAPH IT WAS BURIED IN. "…or drag it
+        // yourself" was the ONLY statement anywhere in the product that the globe behind this
+        // card is live and can be flown by hand (it always was — the card's backdrop is a
+        // box-shadow, which cannot take pointer events, so every drag already reached Cesium).
+        // Deleting the sentence without replacing the signpost would have removed a real route
+        // (C19 §5.6 clause 4) while looking like a copy edit. It survives as six words.
+        const dragHint = document.createElement('p');
+        dragHint.className = 'os-hint os-hint--affordance';
+        dragHint.setAttribute('data-testid', 'onboarding-location-drag-hint');
+        dragHint.textContent = 'or drag the globe to your site';
+        body.appendChild(dragHint);
 
         const status = document.createElement('p');
         status.className = 'os-status';
@@ -688,17 +738,18 @@ export class OnboardingStepController {
         status.hidden = true;
         body.appendChild(status);
 
+        // §WHERE-IS-YOUR-PROJECT (L-13057 item 4, C57 §1.5) — where the ALTERNATIVE reading is
+        // offered. One field that sniffs its input is a GUESS, and a guess the user cannot
+        // overturn is the silent-default defect. Whenever the input is read as a cadastral
+        // reference, this row carries the other reading as a real control.
+        const altRow = document.createElement('div');
+        altRow.className = 'os-footer os-footer--alt-reading';
+        altRow.setAttribute('data-testid', 'onboarding-location-alt-reading');
+        altRow.hidden = true;
+        body.appendChild(altRow);
+
         const skipRow = document.createElement('div');
         skipRow.className = 'os-footer';
-        // §FLYIN165 — the demo fly-in button. A small, OPT-IN affordance (never auto-fires):
-        // a slow, deliberate cinematic descent to a fixed Amsterdam parcel, for demo purposes.
-        const demoFlyIn = document.createElement('button');
-        demoFlyIn.type = 'button';
-        demoFlyIn.className = 'os-btn os-btn--ghost';
-        demoFlyIn.setAttribute('data-testid', 'onboarding-location-demo-flyin');
-        demoFlyIn.title = 'Cinematic demo: fly slowly to a parcel in Amsterdam';
-        demoFlyIn.textContent = '✈ Fly-in demo (Amsterdam)';
-        skipRow.appendChild(demoFlyIn);
         const skip = document.createElement('button');
         skip.type = 'button';
         skip.className = 'os-btn os-btn--ghost';
@@ -823,11 +874,7 @@ export class OnboardingStepController {
 
         const onSubmit = (e: Event): void => {
             e.preventDefault();
-            // §FLYIN165 — a REAL search always wins the race against a still-settling demo
-            // fly-in (see `runDemoFlyIn`'s header on why clearing this here, not just there,
-            // is what makes the two paths race-free).
-            this.demoFlightActive = false;
-            void this.handleGeocode(input.value, status, submit);
+            void this.handleLocationEntry(input.value, status, submit, altRow);
         };
         form.addEventListener('submit', onSubmit);
         skip.addEventListener('click', () => {
@@ -838,13 +885,9 @@ export class OnboardingStepController {
             // step is the product not listening. Skip now asks for a NAME and opens
             // the canvas.
             console.log('[onboarding-step] location skipped (no location) -> name, then canvas.');
-            this.demoFlightActive = false; // §FLYIN165 — Skip abandons any in-flight demo too.
             this.picked = null;
             this.leaveLocationStep();
             this.renderNameThenCanvasStep();
-        });
-        demoFlyIn.addEventListener('click', () => {
-            void this.runDemoFlyIn(status, demoFlyIn);
         });
         this.addCleanup(() => form.removeEventListener('submit', onSubmit));
 
@@ -861,132 +904,6 @@ export class OnboardingStepController {
         // the 3D Site pane the user just flew into goes black (`setVisible(false)`).
         this.globeHero?.dispose(this.splitRevealed ? { keepGlobe: true } : undefined);
         this.globeHero = null;
-    }
-
-    /**
-     * §FLYIN165 (founder 2026-08-27) — the demo fly-in button's own flight, driven directly
-     * against the ONE Cesium camera host (the same structural port `GlobeHeroSearch` uses,
-     * `flyToGeographic`) rather than through the reducer's stage machine. It does not need
-     * `SiteEntryStore`'s world→country→city→parcel intents — those exist to make coverage
-     * verdicts and panel copy correct at every stage a REAL search can land on; a fixed demo
-     * destination has none of that to decide. What it MUST reuse, and does, is:
-     *   - the same camera primitive (`flyToGeographic`) — no second tween, no new rAF (P3);
-     *   - the same context-warm calls `warmContextCache` makes for a real search — so tiles
-     *     resolve DURING the descent instead of after it lands on blurry proxy tiles;
-     *   - the same reveal hand-off (`revealSplitAtParcel`) → `reveal:split-mounted` — never
-     *     re-implemented, never raced against a real search's own `revealInFlight`.
-     *
-     * RACE SAFETY: `demoFlightActive` is set here and checked after every `await`; `onSubmit`
-     * and the Skip handler clear it immediately, so a user who acts for real while this is
-     * still descending gets exactly one reveal — theirs — and this continuation quietly no-ops.
-     *
-     * TILE READINESS: this does NOT gate the reveal on any "tiles loaded" flag. §L-716 is the
-     * reason — a hidden/degenerate tileset can leave such a flag permanently false, and a flight
-     * that waits forever is worse than one that lands on whatever resolved so far. The one
-     * bounded wait is `contextWarm` (buildings), which never throws and always settles
-     * (`fetchContextBuildingsNearAndFar`'s own contract) — the imagery/terrain tiles Cesium is
-     * streaming underneath are given the WHOLE descent to resolve (started before the flight,
-     * per the hard constraint) but are not, and cannot honestly be, awaited to completion.
-     *
-     * REDUCED MOTION: `prefers-reduced-motion` swaps the descent for an instant `setView` — the
-     * warm-up and reveal hand-off are unchanged, only the camera tween is skipped.
-     */
-    private async runDemoFlyIn(status: HTMLElement, demoBtn: HTMLButtonElement): Promise<void> {
-        const hero = this.globeHero;
-        if (!hero || this.disposed || this.demoFlightActive) return;
-        this.demoFlightActive = true;
-        demoBtn.disabled = true;
-        status.hidden = false;
-        status.textContent = 'Flying to Amsterdam…';
-
-        // A superseded/failed run must not leave the button permanently disabled.
-        const releaseButton = (): void => {
-            demoBtn.disabled = false;
-        };
-        // True once we've handed off to the reveal (or bailed) — used only to decide whether
-        // to re-enable the button on the way out (a handed-off run tears the whole step down).
-        let handedOff = false;
-
-        try {
-            const target = DEMO_FLYIN_TARGET;
-            let reducedMotion = false;
-            try {
-                reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-            } catch { /* no matchMedia (test env) — treat as full motion */ }
-
-            // §CTX-PREFETCH-ON-LOCATION — START THE WARM NOW, before/alongside the descent
-            // (the hard constraint: `context-warm` measures ~1.4s cold, and a slow flight that
-            // only starts warming on arrival would land on blurry proxy tiles).
-            try { warmAllContextLayers(target.lat, target.lon); } catch { /* best-effort */ }
-            this.contextWarm = fetchContextBuildingsNearAndFar(target.lat, target.lon).catch(() => null);
-
-            const w = window as unknown as {
-                pryzmGetSiteEntryCameraHost?: () => import('../../engine/views/siteEntryStore').GlobeCameraHost | null;
-                pryzmGetSiteEntryCameraHostReady?: () => Promise<void>;
-            };
-            try { await (w.pryzmGetSiteEntryCameraHostReady?.() ?? Promise.resolve()); } catch { /* best-effort */ }
-            if (this.disposed || this.globeHero !== hero || !this.demoFlightActive) return;
-
-            const host = w.pryzmGetSiteEntryCameraHost?.() ?? null;
-            if (!host) {
-                console.warn('[onboarding-step] §FLYIN165: no camera host resolved — cannot fly.');
-                status.textContent = 'The globe is still loading — try again in a moment.';
-                return;
-            }
-
-            // Start WIDE — snap to the untouched world view first (a mount, not a navigation,
-            // hence `instant`), so the demo reads the same regardless of where the camera
-            // happens to be sitting (a prior search, a dragged globe).
-            try {
-                await host.flyToGeographic({
-                    lat: WORLD_HOME.lat,
-                    lon: WORLD_HOME.lon,
-                    altitudeM: SITE_ENTRY_ALTITUDE_M.world,
-                    pitchDeg: SITE_ENTRY_PITCH_DEG.world,
-                    instant: true,
-                });
-            } catch { /* best-effort reset — proceed to the descent regardless */ }
-            if (this.disposed || this.globeHero !== hero || !this.demoFlightActive) return;
-
-            // THE flight. One continuous descent, Cesium's own default arc/easing (no
-            // `easingFunction` override), landing at the parcel stage's declared pitch
-            // (−60°) — oriented at the parcel, not a top-down snap. `flyToGeographic`
-            // resolves on cancel as well as complete, so a click/scroll that grabs the
-            // globe — or the user acting on the panel — yields to them immediately; we
-            // never end up waiting out an animation the user has already overridden.
-            try {
-                await host.flyToGeographic({
-                    lat: target.lat,
-                    lon: target.lon,
-                    altitudeM: SITE_ENTRY_ALTITUDE_M.parcel,
-                    pitchDeg: SITE_ENTRY_PITCH_DEG.parcel,
-                    durationS: DEMO_FLYIN_DURATION_S,
-                    instant: reducedMotion,
-                });
-            } catch (e) {
-                console.warn('[onboarding-step] §FLYIN165: flight failed (non-fatal):', e);
-            }
-            if (this.disposed || this.globeHero !== hero || !this.demoFlightActive) return;
-
-            status.textContent = 'Arrived — loading the site…';
-            await (this.contextWarm ?? Promise.resolve());
-            if (this.disposed || this.globeHero !== hero || !this.demoFlightActive) return;
-
-            this.demoFlightActive = false;
-            this.picked = { lat: target.lat, lon: target.lon, address: target.address };
-            handedOff = true;
-            // Hand off to the EXISTING reveal path (§22) — never re-implemented, never raced:
-            // by construction only one of {a real search, this demo} can still be `active` at
-            // this point, so `revealInFlight` is never assigned twice concurrently.
-            this.revealInFlight = this.revealSplitAtParcel(target);
-            await this.revealInFlight;
-            if (this.disposed) return;
-            this.leaveLocationStep();
-            void this.startDrawThenGenerate();
-        } finally {
-            this.demoFlightActive = false;
-            if (!handedOff) releaseButton();
-        }
     }
 
     // ── PRD §22: the zoom-then-split reveal ───────────────────────────────────
@@ -1120,6 +1037,167 @@ export class OnboardingStepController {
         this.addCleanup(cleanup);
     }
 
+    /**
+     * §WHERE-IS-YOUR-PROJECT (L-13057 item 4) — ⭐ THE ONE FIELD'S DECISION.
+     *
+     * The founder's requirement is a single input that accepts a CITY, an ADDRESS **or a
+     * CADASTRAL REFERENCE**, with no mode picker. The user never declares which they typed;
+     * this method decides by SHAPE and then says which way it read them.
+     *
+     * THE THREE OUTCOMES, WHICH ARE THREE DIFFERENT ANSWERS AND MUST NOT COLLAPSE INTO ONE:
+     *   1. **No registry pattern matched** → the string is treated as a place and goes to the
+     *      geocoder, exactly as before this change. Nothing is said about cadastral references,
+     *      because nothing about them was decided. A reference from a registry PRYZM has not
+     *      implemented lands here — a place search that misses, never an error claiming the
+     *      user's reference is invalid.
+     *   2. **A pattern matched but the registry has no such parcel** → the failure NAMES THE
+     *      REGISTRY THAT WAS ASKED (`describeCadastralMiss`). "Not found" alone would be
+     *      indistinguishable from "we never asked" (§CONTEXT-DATA-HONESTY).
+     *   3. **The reference resolved** → the user lands on THAT PARCEL — its own centroid and its
+     *      own extent — not merely the city it sits in.
+     *
+     * And in every case where a reference reading was taken, the OTHER reading stays one click
+     * away (`showAltReadingOffer`), because a sniff is a guess and C57 §1.5 forbids a silent one.
+     */
+    private async handleLocationEntry(
+        raw: string,
+        status: HTMLElement,
+        submitBtn: HTMLButtonElement,
+        altRow: HTMLElement,
+    ): Promise<void> {
+        // A fresh submit retracts any offer left over from the previous one.
+        this.clearAltReadingOffer(altRow);
+        const reading = sniffCadastralRef(raw);
+        if (!reading) {
+            await this.handleGeocode(raw, status, submitBtn);
+            return;
+        }
+        await this.handleCadastralEntry(reading, status, submitBtn, altRow);
+    }
+
+    /**
+     * Show the OTHER reading as a control. Never a sentence telling the user what they could
+     * have done — a button that does it.
+     */
+    private showAltReadingOffer(
+        altRow: HTMLElement,
+        raw: string,
+        status: HTMLElement,
+        submitBtn: HTMLButtonElement,
+    ): void {
+        this.clearAltReadingOffer(altRow);
+        const alt = document.createElement('button');
+        alt.type = 'button';
+        alt.className = 'os-btn os-btn--ghost';
+        alt.setAttribute('data-testid', 'onboarding-location-search-as-place');
+        alt.textContent = 'Search as a place instead';
+        alt.addEventListener('click', () => {
+            this.clearAltReadingOffer(altRow);
+            // The geocoder is handed the RAW string, not the normalised reference — the user
+            // typed it, and normalisation is a cadastral operation that has no meaning here.
+            void this.handleGeocode(raw, status, submitBtn);
+        });
+        altRow.appendChild(alt);
+        altRow.hidden = false;
+    }
+
+    private clearAltReadingOffer(altRow: HTMLElement): void {
+        while (altRow.firstChild) altRow.removeChild(altRow.firstChild);
+        altRow.hidden = true;
+    }
+
+    /**
+     * The cadastral branch. ⚠ IT RESOLVES NOTHING ITSELF — `fetchParcelByRefcat` is the EXISTING
+     * Catastro client (`CatastroParcelProvider.ts`), hitting the EXISTING same-origin proxy route,
+     * which answers from the EXISTING `GetParcel&REFCAT=` call and its refcat-keyed cache. What
+     * is new here is only the entry point and the copy around it.
+     */
+    private async handleCadastralEntry(
+        reading: CadastralRefReading,
+        status: HTMLElement,
+        submitBtn: HTMLButtonElement,
+        altRow: HTMLElement,
+    ): Promise<void> {
+        status.hidden = false;
+        status.textContent = describeCadastralReading(reading);
+        submitBtn.disabled = true;
+        // Offered BEFORE the lookup returns, not after it fails: the user should never be left
+        // waiting on a reading they did not choose and cannot overturn.
+        this.showAltReadingOffer(altRow, reading.raw, status, submitBtn);
+        console.log(
+            `[onboarding-step] §WHERE-IS-YOUR-PROJECT: read "${reading.raw}" as a ` +
+            `${reading.registry.fullName} ${reading.kind} reference → parcel ${reading.parcelRef}.`,
+        );
+
+        let parcel: Awaited<ReturnType<typeof fetchParcelByRefcat>> = null;
+        try {
+            parcel = await fetchParcelByRefcat(reading.parcelRef);
+        } catch (err) {
+            // The client is documented never to throw; this is a backstop, and it is reported as
+            // what it is — a lookup that could not complete — never as "no such parcel".
+            console.warn('[onboarding-step] cadastral lookup threw (non-fatal):', err);
+            if (this.disposed) return;
+            status.textContent =
+                `Could not reach ${reading.registry.fullName} to look up ${reading.parcelRef}. ` +
+                'Try again, or search for the place by name.';
+            submitBtn.disabled = false;
+            return;
+        }
+        if (this.disposed) return;
+
+        if (!parcel) {
+            // OUTCOME 2 — asked, and answered "no such parcel". Names the registry.
+            status.textContent = describeCadastralMiss(reading);
+            submitBtn.disabled = false;
+            return;
+        }
+
+        const frame = parcelFrameFromRing(parcel.ring);
+        if (!frame) {
+            // Resolved, but the geometry cannot be framed (a degenerate ring). Distinct from a
+            // miss, and said so — the parcel exists, its outline is the part we cannot use.
+            console.warn(`[onboarding-step] parcel ${parcel.refcat} resolved with an unusable ring.`);
+            status.textContent =
+                `${reading.registry.fullName} returned parcel ${parcel.refcat}, but its outline ` +
+                'could not be read. Search for the place by name instead.';
+            submitBtn.disabled = false;
+            return;
+        }
+
+        const hero = this.globeHero;
+        if (!hero) {
+            console.warn('[onboarding-step] handleCadastralEntry: no GlobeHeroSearch mounted.');
+            status.textContent = 'The globe is still loading — try again in a moment.';
+            submitBtn.disabled = false;
+            return;
+        }
+
+        // OUTCOME 3 — land on THE PARCEL. The destination is the parcel's own vertex-mean
+        // centroid and the bbox is its own extent, so the reveal seeds the 2D pane's opening
+        // frame (`pryzmSetGeocodeFrame`) to the plot itself rather than to a city-wide view; the
+        // split then mounts with the parcel-select tool already armed over it. `flyToResolved`
+        // is the SAME descend/hand-off/reveal body a place search takes — see GlobeHeroSearch.
+        const label = parcel.address ?? `Parcel ${parcel.refcat} · ${reading.registry.fullName}`;
+        const outcome = await hero.flyToResolved({
+            lat: frame.lat,
+            lon: frame.lon,
+            displayName: label,
+            bbox: frame.bbox,
+        });
+        if (this.disposed) return;
+        if (!outcome.ok) {
+            console.warn('[onboarding-step] cadastral parcel flight failed:', outcome.message);
+            status.textContent = outcome.message;
+            submitBtn.disabled = false;
+            return;
+        }
+        this.clearAltReadingOffer(altRow);
+        this.picked = outcome.picked;
+        status.textContent = `Parcel ${parcel.refcat} · ~${Math.round(parcel.areaM2)} m²`;
+        console.log('[onboarding-step] cadastral reference resolved to a parcel', this.picked);
+        await this.completeResolvedLocation();
+    }
+
     private async handleGeocode(
         query: string,
         status: HTMLElement,
@@ -1157,6 +1235,22 @@ export class OnboardingStepController {
             this.picked = outcome.picked;
             console.log('[onboarding-step] location resolved', this.picked);
             status.textContent = outcome.message;
+            await this.completeResolvedLocation();
+        } catch (err) {
+            console.warn('[onboarding-step] geocode threw (non-fatal) — allowing skip:', err);
+            if (this.disposed) return;
+            status.textContent = 'Location lookup failed — you can skip to use the default site.';
+            submitBtn.disabled = false;
+        }
+    }
+
+    /**
+     * The shared terminal of EVERY resolved-location route (a place search, and — since L-13057
+     * — a cadastral reference). Extracted rather than duplicated so the second entry point could
+     * not drift from the first: the reveal ordering below is load-bearing and has been re-broken
+     * once already (§21 revert).
+     */
+    private async completeResolvedLocation(): Promise<void> {
             // §REVEAL-FLIGHT-COMPLETE — let the reveal finish before tearing the hero down.
             // `leaveLocationStep()` disposes the globe hero and only passes `keepGlobe` once
             // `splitRevealed` is true; with an async reveal that flag is set inside the promise
@@ -1189,12 +1283,6 @@ export class OnboardingStepController {
             // resolved-location path. It is still reachable via skip. Whether it deserves a
             // permanent affordance on the map surface is a founder call, not one to make silently.
             void this.startDrawThenGenerate();
-        } catch (err) {
-            console.warn('[onboarding-step] geocode threw (non-fatal) — allowing skip:', err);
-            if (this.disposed) return;
-            status.textContent = 'Location lookup failed — you can skip to use the default site.';
-            submitBtn.disabled = false;
-        }
     }
 
     // ── Step 2: Site (draw-or-skip) ────────────────────────────────────────────

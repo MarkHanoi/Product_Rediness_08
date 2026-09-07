@@ -10,6 +10,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import {
     catastroParcelProvider,
     parseProxyResponse,
+    fetchParcelByRefcat,
 } from '../src/ui/site/parcel/CatastroParcelProvider.js';
 
 const PROXY_OK = {
@@ -100,5 +101,47 @@ describe('catastroParcelProvider.fetchParcelAtPoint', () => {
         mockFetch(PROXY_OK, { badJson: true });
         await expect(catastroParcelProvider.fetchParcelAtPoint(2, 41)).resolves.toBeNull();
         await expect(catastroParcelProvider.fetchParcelAtPoint(NaN, 41)).resolves.toBeNull();
+    });
+});
+
+// §WHERE-IS-YOUR-PROJECT (L-13057 item 4) — the SAME provider, reached by cadastral REFERENCE.
+// These pin that it is the same route and the same parse (no second resolver), and that every
+// failure mode still resolves to null rather than throwing into the onboarding step.
+describe('fetchParcelByRefcat', () => {
+    it('GETs the SAME same-origin route, keyed by refcat instead of by coordinates', async () => {
+        const impl = mockFetch(PROXY_OK);
+        const f = await fetchParcelByRefcat('0229720DF3802G');
+        expect(f).not.toBeNull();
+        expect(f!.refcat).toBe('0229720DF3802G');
+        expect(f!.ring).toHaveLength(4);
+        const calledUrl = String(impl.mock.calls[0]![0]);
+        // ⚠ The route is the one the click path already uses — a second endpoint here would be
+        // the "second resolver" this feature was explicitly not allowed to grow.
+        expect(calledUrl).toContain('/api/catastro/parcel');
+        expect(calledUrl).toContain('refcat=0229720DF3802G');
+        expect(calledUrl).not.toContain('lat=');
+    });
+
+    it('upper-cases and trims what the user typed before asking', async () => {
+        const impl = mockFetch(PROXY_OK);
+        await fetchParcelByRefcat('  0229720df3802g ');
+        expect(String(impl.mock.calls[0]![0])).toContain('refcat=0229720DF3802G');
+    });
+
+    it('→ null on an honest registry miss (the caller turns this into a REGISTRY-NAMED message)', async () => {
+        mockFetch({ parcel: null, queriedRefcat: '0229720DF3802G' });
+        await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.toBeNull();
+    });
+
+    it('→ null on empty input / network error / non-OK / bad JSON, never throwing', async () => {
+        const impl = mockFetch(PROXY_OK);
+        await expect(fetchParcelByRefcat('   ')).resolves.toBeNull();
+        expect(impl).not.toHaveBeenCalled(); // an empty field must not reach the registry at all
+        mockFetch(PROXY_OK, { throwErr: true });
+        await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.toBeNull();
+        mockFetch(PROXY_OK, { ok: false, status: 502 });
+        await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.toBeNull();
+        mockFetch(PROXY_OK, { badJson: true });
+        await expect(fetchParcelByRefcat('0229720DF3802G')).resolves.toBeNull();
     });
 });

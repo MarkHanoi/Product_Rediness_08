@@ -265,7 +265,53 @@ export class GlobeHeroSearch {
                 return { ok: false, message: 'No matches — check the spelling, or skip to use the default site.' };
             }
             const best = results[0]!;
+            return await this.descendAndHandOff(best);
+        } finally {
+            span.end();
+        }
+    }
 
+    /**
+     * §WHERE-IS-YOUR-PROJECT (L-13057) — fly to a location that has ALREADY been resolved by
+     * something other than the geocoder, and take the identical path from there.
+     *
+     * The one caller today is the onboarding location step's CADASTRAL REFERENCE branch: the
+     * user typed a `refcat`, the existing Catastro provider returned the real parcel ring, and
+     * the parcel's own centroid/extent is the destination. That is a BETTER-resolved hit than a
+     * geocode — it is the registry's own geometry — so it must not be round-tripped back through
+     * a place-name search to reach the camera.
+     *
+     * ⚠ NOT A SECOND FLIGHT PATH. Everything after the coordinates — the world→country→city→
+     * parcel reducer chain, the city-stage context warm, the terminal `select-parcel` hand-off
+     * and the §22 reveal gate — is the SAME private body `search()` runs (`descendAndHandOff`),
+     * so a reference entry and a place search land through one choreography, not two.
+     */
+    async flyToResolved(hit: GlobeHeroSearchGeocodeResult): Promise<GlobeHeroSearchOutcome> {
+        const span = _tracer.startSpan('pryzm.site-entry.globe-hero-search.flyToResolved');
+        try {
+            if (!Number.isFinite(hit.lat) || !Number.isFinite(hit.lon)) {
+                return { ok: false, message: 'That parcel has no usable coordinates.' };
+            }
+            if (this.disposed) return { ok: false, message: 'Search cancelled.' };
+            // Fresh chain, for the same reason `search()` resets: a second entry must never
+            // start mid-stage from wherever the previous one landed.
+            this.store.dispatch({ type: 'site.entry.reset' });
+            return await this.descendAndHandOff(hit);
+        } finally {
+            span.end();
+        }
+    }
+
+    /**
+     * The shared tail of every entry route: descend the stage chain to `parcel`, warm the context
+     * cache once the chain reaches `city`, take the terminal hand-off intent, and fire the §22
+     * reveal gate. Extracted (L-13057) so the cadastral-reference route above reuses it verbatim
+     * instead of copying the choreography — the body below is unchanged from when it lived inline
+     * in `search()`.
+     */
+    private async descendAndHandOff(best: GlobeHeroSearchGeocodeResult): Promise<GlobeHeroSearchOutcome> {
+        const span = _tracer.startSpan('pryzm.site-entry.globe-hero-search.descend');
+        try {
             // The cinematic chain: one `descend` per intermediate stage, each a real reducer
             // transition producing exactly one `camera` effect (PRD §7 — never a bespoke tween).
             let guard = 0;
