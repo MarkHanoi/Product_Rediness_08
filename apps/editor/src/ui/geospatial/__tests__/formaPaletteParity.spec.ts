@@ -323,3 +323,40 @@ describe('§PALETTE-PARITY-2D-3D — ARM E: the gaps stay NAMED, and a SUPERSEDE
         expect(src).toMatch(/^\s*proposedFill: '#F4F4F2',\s*$/m);
     });
 });
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * §SITE-SCOPE-CITYWEFT — WHAT THE VIEWER SEES *OUTSIDE* THE CUT (founder 2026-09-07:
+ * *"white background clean cut"*).
+ *
+ * ⭐ THE BACKDROP CHANGED ROLE, WHICH IS WHY ITS OLD TONE STOPPED BEING RIGHT. Before the globe
+ * cut, `FORMA_QUALITY.skyTop/skyHorizon` were a distant HORIZON that far terrain melted into, and
+ * a slightly cool grey (#F2F3F6 → #E4E3E0) was the correct choice for that. With
+ * `globe.cartographicLimitRectangle` applied, everything past the scope is a fragment `discard`
+ * and the canvas clears TRANSPARENT (`cesiumSurfaceWrites().backgroundColourCss === null`), so the
+ * same gradient is now THE GROUND THE CUT EDGE STANDS ON. A grey there reads as a model floating
+ * in front of a sky; the founder's reference reads as a model standing on clean empty paper.
+ */
+describe('§SITE-SCOPE-CITYWEFT — the backdrop outside the cut', () => {
+    it('the horizon IS the ground paper — a reference, so the two can never drift apart again', () => {
+        // ⛔ Deliberately compared against the palette, NOT against a hex. Two literals authored to
+        // agree have already drifted here twice (L-12965 urban ground, L-12987 rural ground), and a
+        // hex in this line would be the third instance of the same mistake.
+        expect(FORMA_QUALITY.skyHorizon).toBe(FORMA_PALETTE_V2.land);
+        expect(FORMA_QUALITY.skyHorizon).toBe(FORMA_GROUND_URBAN);
+    });
+
+    it('the top lifts to white — the founder asked for a white background, in those words', () => {
+        expect(FORMA_QUALITY.skyTop).toBe('#FFFFFF');
+    });
+
+    it('⛔ neither backdrop tone reintroduces COLOUR beyond the cut — grey/paper only, never a sky', () => {
+        for (const css of [FORMA_QUALITY.skyTop, FORMA_QUALITY.skyHorizon, FORMA_QUALITY.fogColor]) {
+            const n = parseInt(css.replace('#', ''), 16);
+            const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+            // Chroma proxy: the max-min channel spread. A blue sky or a tan skirt blows past this.
+            expect(Math.max(r, g, b) - Math.min(r, g, b), `${css} carries colour`).toBeLessThanOrEqual(14);
+            expect(Math.min(r, g, b), `${css} is too dark to read as empty ground`).toBeGreaterThan(220);
+        }
+    });
+});

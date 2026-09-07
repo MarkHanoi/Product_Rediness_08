@@ -103,6 +103,38 @@ export interface CesiumSurfaceWrites {
      * raise it. On the global surface there is no such second writer.
      */
     readonly globeEnableLighting: boolean;
+    /**
+     * §SITE-SCOPE-CITYWEFT (founder 2026-09-07: *"white background clean cut — also for the
+     * terrain"*) — `scene.globe.lambertDiffuseMultiplier` and `scene.globe.vertexShadowDarkness`,
+     * the TWO uniforms that decide how dark a shaded slope of terrain is allowed to get.
+     *
+     * ⭐ MEASURED, NOT GUESSED. Cesium's globe fragment shader, under `ENABLE_VERTEX_LIGHTING`
+     * (the define raised when `enableLighting` meets baked per-vertex normals — i.e. every city
+     * with relief), is exactly this, at `CesiumUnminified/index.js:207493`:
+     *
+     *     float diffuseIntensity = clamp(
+     *         czm_getLambertDiffuse(czm_lightDirectionEC, normalize(v_normalEC))
+     *           * u_lambertDiffuseMultiplier + u_vertexShadowDarkness, 0.0, 1.0);
+     *     vec4 finalColor = vec4(color.rgb * czm_lightColor * diffuseIntensity, color.a);
+     *
+     * `czm_getLambertDiffuse` is `max(dot(l, n), 0)` ∈ [0, 1], so the intensity band is
+     * `[vertexShadowDarkness, lambertDiffuseMultiplier + vertexShadowDarkness]`. Cesium's Globe
+     * defaults (`index.js:214856` / `:214880`) are **0.9 and 0.3** → a band of **[0.30, 1.00]**,
+     * i.e. a shaded slope keeps 30 % of its colour.
+     *
+     * ⛔ THAT IS THE FOUNDER'S "BROWN TERRAIN", ARITHMETICALLY. The Forma ground base is
+     * `FORMA_PALETTE_V2.land` = #F5F2EA = rgb(245, 242, 234). At 0.30 that paints
+     * **rgb(74, 73, 70) = #4A4946** — a dark brown-grey. No amount of re-picking the BASE colour
+     * fixes it: the multiplier is what makes a near-white paper read brown on a north slope.
+     *
+     * ⭐ THE SITE ROW THEREFORE NARROWS THE BAND RATHER THAN KILLING THE LIGHT. Turning
+     * `enableLighting` off would flat-light every slope and bring back L-636's "white mask" (relief
+     * with no form), which is the opposite defect and was fixed on purpose. Narrowing keeps the
+     * form and bounds the darkness.
+     */
+    readonly globeLambertDiffuseMultiplier: number;
+    /** See `globeLambertDiffuseMultiplier` — the FLOOR of the shading band. */
+    readonly globeVertexShadowDarkness: number;
     /** `scene.globe.dynamicAtmosphereLighting`. */
     readonly globeDynamicAtmosphereLighting: boolean;
     /** `scene.globe.showGroundAtmosphere`. */
@@ -150,6 +182,14 @@ export function cesiumSurfaceWrites(
             globeShown: 'always',
             globeBaseColourCss: palette.formaGroundCss,
             globeEnableLighting: false,          // flat-lit study (§2); the terrain attach raises it on relief.
+            // §SITE-SCOPE-CITYWEFT — band [0.82, 1.00] instead of Cesium's [0.30, 1.00]. The darkest
+            // slope now paints #F5F2EA × 0.82 = rgb(201, 198, 192) = #C9C6C0, a pale warm grey, and
+            // the sunlit face still reaches the full paper (0.18 + 0.82 = 1.00 exactly, so the band
+            // is used end to end and the shader's clamp never clips). 18 % of contrast is what the
+            // relief has to read with — deliberately, and it is the whole knob: raise it and the
+            // hills go brown again, drop it to 0 and you are back to L-636's white mask.
+            globeLambertDiffuseMultiplier: 0.18,
+            globeVertexShadowDarkness: 0.82,
             globeDynamicAtmosphereLighting: false,
             globeShowGroundAtmosphere: false,
             globeTranslucency: false,
@@ -166,6 +206,10 @@ export function cesiumSurfaceWrites(
         globeShown: 'unless-tileset-shown',
         globeBaseColourCss: palette.globeLoadingCss,
         globeEnableLighting: true,
+        // The Earth keeps Cesium's own defaults (index.js:214856 / :214880) — a planet with a
+        // 18 % shading band would have no terminator. This row is NOT the cityweft look.
+        globeLambertDiffuseMultiplier: 0.9,
+        globeVertexShadowDarkness: 0.3,
         globeDynamicAtmosphereLighting: true,
         globeShowGroundAtmosphere: true,
         globeTranslucency: false,

@@ -124,3 +124,65 @@ describe('describeCesiumSurface — the log names BOTH facts', () => {
         expect(line).toContain('bounded');
     });
 });
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * §SITE-SCOPE-CITYWEFT — THE SHADING BAND (founder 2026-09-07, on build `2c12b8d5`:
+ * *"the cut is not correct… it should look like cityweft — white background clean cut — ALSO FOR
+ * THE TERRAIN"*).
+ *
+ * ⭐ THESE ARE ARITHMETIC, NOT TASTE, WHICH IS WHY THEY ARE TESTABLE. Cesium's globe fragment
+ * shader under `ENABLE_VERTEX_LIGHTING` (`CesiumUnminified/index.js:207493`) is:
+ *
+ *     diffuseIntensity = clamp(lambert * u_lambertDiffuseMultiplier + u_vertexShadowDarkness, 0, 1)
+ *     finalColor.rgb   = color.rgb * czm_lightColor * diffuseIntensity
+ *
+ * with `lambert = max(dot(l, n), 0) ∈ [0, 1]`. So the intensity band is exactly
+ * `[vertexShadowDarkness, multiplier + vertexShadowDarkness]`, and the DARKEST the ground can ever
+ * paint is `baseColour × vertexShadowDarkness`. At Cesium's defaults (0.9 / 0.3, `index.js:214856`
+ * and `:214880`) that is #F5F2EA × 0.3 = #4A4946 — the founder's brown hillside, computed.
+ */
+describe('§SITE-SCOPE-CITYWEFT — the terrain shading band', () => {
+    /** The darkest colour the shader can paint a ground of `css`, given the band's floor. */
+    function darkest(css: string, floor: number): { r: number; g: number; b: number } {
+        const n = parseInt(css.replace('#', ''), 16);
+        return {
+            r: Math.round(((n >> 16) & 255) * floor),
+            g: Math.round(((n >> 8) & 255) * floor),
+            b: Math.round((n & 255) * floor),
+        };
+    }
+
+    it('⛔ the SITE never lets a shaded slope drop below a pale grey — the brown is arithmetic', () => {
+        const site = writes(true, 'site');
+        const d = darkest(PALETTE.formaGroundCss, site.globeVertexShadowDarkness);
+        // Every channel stays well inside the top third of the range. At Cesium's default floor of
+        // 0.3 this same assertion reads (74, 73, 70) and fails, which is the point of the number.
+        expect(Math.min(d.r, d.g, d.b)).toBeGreaterThan(180);
+    });
+
+    it('the band is used END TO END — the sunlit face reaches the full paper, and the clamp never clips', () => {
+        const site = writes(true, 'site');
+        expect(site.globeLambertDiffuseMultiplier + site.globeVertexShadowDarkness).toBeCloseTo(1, 6);
+    });
+
+    it('⛔ it is a NARROWED band, not a killed light — a zero multiplier is L-636\u2019s white mask', () => {
+        // enableLighting stays available (the terrain attach raises it on relief). What must never
+        // happen is the multiplier going to 0: every slope would then paint the identical flat
+        // baseColor and the relief would lose its form entirely — the defect L-636 fixed.
+        const site = writes(true, 'site');
+        expect(site.globeLambertDiffuseMultiplier).toBeGreaterThan(0.1);
+    });
+
+    it('the EARTH keeps Cesium\u2019s own defaults — a planet with an 18 % band has no terminator', () => {
+        const globe = writes(false, 'world');
+        expect(globe.globeLambertDiffuseMultiplier).toBe(0.9);
+        expect(globe.globeVertexShadowDarkness).toBe(0.3);
+    });
+
+    it('⛔ the two rows really DIFFER — otherwise this whole block passes vacuously', () => {
+        expect(writes(true, 'site').globeVertexShadowDarkness).not.toBe(
+            writes(false, 'world').globeVertexShadowDarkness,
+        );
+    });
+});

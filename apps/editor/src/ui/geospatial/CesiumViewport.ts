@@ -2333,6 +2333,18 @@ export class CesiumViewport {
       console.log(`[CesiumViewport][forma] §SITE-SCOPE globe — ${verdict}: ${detail}`);
     };
     const viewer = this.viewer;
+    // ⛔ THE DISARMED CASE IS A DECLINE LIKE ANY OTHER, AND IT USED TO BE THE ONLY SILENT ONE LEFT
+    // (lane SCOPE-CUT-2, 2026-09-07). The check lived at the CALL SITES as `if (SITE_SCOPE_CLIP_ARMED)
+    // void this.applySiteScopeClip(...)`, so a build with the constant false printed nothing at all
+    // — the exact shape §CONTEXT-DATA-HONESTY forbids, and indistinguishable from the founder's
+    // 2026-09-07 symptom. The decision now has ONE owner, and that owner speaks. It also HEALS: a
+    // stale `cartographicLimitRectangle` from a previously-armed cached bundle would otherwise
+    // survive the disarm, leaving a cut nobody could turn off.
+    if (!SITE_SCOPE_CLIP_ARMED) {
+      say('SKIPPED', 'SITE_SCOPE_CLIP_ARMED is false in this build — the globe is left WHOLE on purpose, and any stale clip from an older cached bundle is healed.');
+      this.clearContextEarthSlab();
+      return;
+    }
     if (!viewer) { say('SKIPPED', 'no viewer.'); return; }
     if (!this.formaMode) {
       say('SKIPPED', 'not in Forma (3D Site) mode — the scope is a 3D-Site feature (ADR-0382 D6).');
@@ -2379,6 +2391,12 @@ export class CesiumViewport {
       typeof CP.ClippingPolygon === 'function' && typeof CP.ClippingPolygonCollection === 'function'
       && Cesium.ClippingPolygonCollection.isSupported(viewer.scene);
     let polygonApplied = false;
+    // ⛔ THE REASON TRAVELS WITH THE VERDICT (lane SCOPE-CUT-2). The `DEGRADED` line below is fired
+    // ONCE per session (`siteScopeUnsupportedWarned`), so on every later load the APPLIED line said
+    // only `polygon leg OFF` and the WHY was scrolled away — a founder reading his console mid-session
+    // could not tell an unsupported GPU from a thrown constructor from a build that never tried.
+    // Every APPLIED line now carries its own reason, and the one-shot guard stays for the noise.
+    let polygonWhy = 'not attempted';
     if (polygonSupported) {
       try {
         const positions = ring.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0));
@@ -2387,12 +2405,19 @@ export class CesiumViewport {
           inverse: true,
         });
         polygonApplied = !!viewer.scene.globe.clippingPolygons;   // READ BACK; do not assume.
+        polygonWhy = polygonApplied
+          ? 'applied'
+          : 'the collection was constructed but globe.clippingPolygons READ BACK empty';
       } catch (e) {
+        polygonWhy = `the exact polygon clip threw — ${String(e)}`;
         say('DEGRADED', `the exact polygon clip threw (${String(e)}); the rectangle bound above still stands.`);
       }
-    } else if (!this.siteScopeUnsupportedWarned) {
-      this.siteScopeUnsupportedWarned = true;
-      say('DEGRADED', 'ClippingPolygonCollection.isSupported === false (WebGL 2 required) — the cut is the BOUNDING RECTANGLE only.');
+    } else {
+      polygonWhy = 'ClippingPolygonCollection.isSupported === false on this machine (WebGL 2 required)';
+      if (!this.siteScopeUnsupportedWarned) {
+        this.siteScopeUnsupportedWarned = true;
+        say('DEGRADED', 'ClippingPolygonCollection.isSupported === false (WebGL 2 required) — the cut is the BOUNDING RECTANGLE only.');
+      }
     }
 
     if (!rectApplied && !polygonApplied) {
@@ -2419,14 +2444,22 @@ export class CesiumViewport {
       ? `${Cesium.Math.toDegrees(rectLive.west).toFixed(5)},${Cesium.Math.toDegrees(rectLive.south).toFixed(5)} → ` +
         `${Cesium.Math.toDegrees(rectLive.east).toFixed(5)},${Cesium.Math.toDegrees(rectLive.north).toFixed(5)}`
       : 'unset';
+    // ⭐ WHAT IS BEING CUT, not only that a cut was made (lane SCOPE-CUT-2). A cut globe carrying no
+    // baked terrain is a real, applied cut with NO relief inside it — visually close to "the feature
+    // did nothing", and the founder has no way to tell the two apart from a screenshot. `globe.show`
+    // is on the same line for the same reason: the cut is a no-op on a hidden globe.
+    const reliefText = this.groundReliefAttached()
+      ? `baked relief ON ('${this.formaTerrainCity ?? 'untracked'}')`
+      : 'FLAT ellipsoid — NO baked terrain attached, so the cut is real but there is no relief inside it';
     say(
       'APPLIED',
       `${this.contextScope.shape} of ${Math.round(rScope)} m about ${lat.toFixed(5)},${lon.toFixed(5)} — ` +
         `rectangle leg ${rectApplied ? 'ON' : 'OFF'} (live bbox ${rectText}) · ` +
-        `polygon leg ${polygonApplied ? `ON (${ring.length}-gon, inverse)` : 'OFF'} · ` +
+        `polygon leg ${polygonApplied ? `ON (${ring.length}-gon, inverse)` : `OFF (${polygonWhy})`} · ` +
         (polygonApplied
           ? 'the cut is the EXACT scope polygon.'
           : `the cut is the BOUNDING BOX — up to ${Math.max(0, Math.round(rBox - rScope))} m wider than the scope at the corners (NAMED degradation, never silent).`) +
+        ` globe.show=${String(viewer.scene.globe.show)} · ${reliefText}.` +
         ' fog off. Building the slab side next.',
     );
     // B · the side + floor, seated on the terrain sampled along the ring (ONE batched flight —
@@ -4782,6 +4815,14 @@ export class CesiumViewport {
       globe.show = w.globeShown === 'always' ? true : !tilesetShown;
       globe.baseColor = Cesium.Color.fromCssColorString(w.globeBaseColourCss);
       globe.enableLighting = w.globeEnableLighting;
+      // §SITE-SCOPE-CITYWEFT (founder 2026-09-07: "white background clean cut — also for the
+      // terrain"). These two OUTLIVE the `enableLighting` write above: the terrain attach raises
+      // `enableLighting` later (§TERRAIN-NORMALS, L-636) and does NOT touch the band, so setting the
+      // band here — once, per framing — is what bounds how dark a shaded slope may get on relief.
+      // The arithmetic and the Cesium shader line are in `CesiumSurfaceWrites`; the short version is
+      // that Cesium's default floor of 0.3 paints the #F5F2EA ground as #4A4946 on a north slope.
+      globe.lambertDiffuseMultiplier = w.globeLambertDiffuseMultiplier;
+      globe.vertexShadowDarkness = w.globeVertexShadowDarkness;
       globe.dynamicAtmosphereLighting = w.globeDynamicAtmosphereLighting;
       globe.showGroundAtmosphere = w.globeShowGroundAtmosphere;
       globe.translucency.enabled = w.globeTranslucency;
@@ -11039,8 +11080,10 @@ export class CesiumViewport {
     this.noteProjectScopeOwner(); // §L-676 — record WHICH project this context load belongs to.
     // §SITE-SCOPE (C12 §13.3 class A/B) — the base is resolved (awaited above), so cut the globe and
     // raise the slab side NOW, before the buildings swap: the cut never lags the context it frames.
-    // Gated on `SITE_SCOPE_CLIP_ARMED` until every layer class pre-clips (see the constant's doc).
-    if (SITE_SCOPE_CLIP_ARMED) void this.applySiteScopeClip(lat, lon);
+    // ⛔ THIS LINE WAS `if (SITE_SCOPE_CLIP_ARMED) void this.applySiteScopeClip(lat, lon);` — a
+    // decline that printed nothing when the constant is false. `applySiteScopeClip` now owns that
+    // decision, states it, and heals a stale clip on the way out (see its first branch).
+    void this.applySiteScopeClip(lat, lon);
 
     if (collection.features.length === 0) {
       this.clearContextBuildings();
@@ -11464,8 +11507,10 @@ export class CesiumViewport {
     // up), so running it here costs nothing on a settled scene and REBUILDS the slab side if the
     // terrain base moved while the tiers were placing, which is exactly when the ring's own sampled
     // heights change. Forma-only; no-op on the photoreal path (ADR-0382 D6).
-    if (SITE_SCOPE_CLIP_ARMED) void this.applySiteScopeClip(lat, lon);
-    else this.clearContextEarthSlab();   // disarmed: heal any stale clip from an older cached bundle.
+    // ⛔ THE `else this.clearContextEarthSlab()` THAT STOOD HERE HAS MOVED INSIDE
+    // `applySiteScopeClip` — same heal, but now it also PRINTS why it healed. Two call sites each
+    // carrying half of one decision is how the disarmed path came to be the last silent one.
+    void this.applySiteScopeClip(lat, lon);
 
     // §CTX-USE-COLOUR (L-599) — if the use MODE is on, colour the freshly-placed set (and refresh
     // the legend counts, which describe THIS scene). No-op when the mode is off.

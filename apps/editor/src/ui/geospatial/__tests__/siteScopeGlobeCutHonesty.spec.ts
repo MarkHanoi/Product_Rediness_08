@@ -261,3 +261,76 @@ describe('§SITE-SCOPE globe — ARM E: the rebuild leg says what it did', () =>
         expect(BODY).toContain("say('RUNNING'");
     });
 });
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * ARM F — THE DISARM DECISION HAS ONE OWNER, AND IT SPEAKS (lane SCOPE-CUT-2, 2026-09-07).
+ *
+ * ARM A guarantees that no exit FROM `applySiteScopeClip` is silent. It could not see the one
+ * decline that never entered the method: the buildings funnel held
+ * `if (SITE_SCOPE_CLIP_ARMED) void this.applySiteScopeClip(lat, lon);` at two sites, so a build
+ * with the constant false printed nothing whatsoever — the same "indistinguishable from not
+ * implemented" shape this file exists for, one call frame further out. Worse, only ONE of the two
+ * sites carried the `else this.clearContextEarthSlab()` heal, so a disarm after an armed session
+ * could leave a `cartographicLimitRectangle` nobody could turn off.
+ */
+describe('§SITE-SCOPE globe — ARM F: the disarmed path prints, and heals', () => {
+    it('⛔ no call site gates the cut behind the arm constant any more', () => {
+        // ⚠ SCANNED WITH THE COMMENTS STRIPPED, and the first draft of this arm was RED because of
+        // it: the fix's own comment QUOTES the line it removed ("THIS LINE WAS `if
+        // (SITE_SCOPE_CLIP_ARMED) void this.applySiteScopeClip(...)`"), and a raw-source scan cannot
+        // tell a quoted defect from a live one. The same distinction `codeOnly` exists for in ARM A.
+        expect(
+            codeOnly(SRC),
+            'a call site is gating on SITE_SCOPE_CLIP_ARMED again — that decline prints nothing',
+        ).not.toMatch(/if \(SITE_SCOPE_CLIP_ARMED\) void this\.applySiteScopeClip\(/);
+    });
+
+    it('the method itself owns the decision, says so, and heals a stale clip', () => {
+        const BODY = codeOnly(applyBody());
+        const at = BODY.indexOf('if (!SITE_SCOPE_CLIP_ARMED)');
+        expect(at, 'applySiteScopeClip no longer owns the arm decision').toBeGreaterThan(-1);
+        const branch = BODY.slice(at, BODY.indexOf('return;', at));
+        expect(branch).toMatch(/\bsay\('SKIPPED'/);
+        expect(branch, 'the disarmed path leaves a stale cut behind').toContain('this.clearContextEarthSlab();');
+    });
+
+    it('the arm constant is still READ somewhere, so this arm is not asserting about a dead symbol', () => {
+        expect([...SRC.matchAll(/SITE_SCOPE_CLIP_ARMED/g)].length).toBeGreaterThan(2);
+    });
+});
+
+/**
+ * ARM G — THE `APPLIED` LINE CARRIES ITS OWN REASONS.
+ *
+ * Two facts were reachable only by scrollback or not at all:
+ *   · WHY the polygon leg is off. The `DEGRADED` line fires ONCE per session
+ *     (`siteScopeUnsupportedWarned`), so every later load said a bare `polygon leg OFF` and the
+ *     founder could not tell an unsupported GPU from a thrown constructor mid-session.
+ *   · WHETHER THERE IS ANY TERRAIN TO CUT. A cut globe with no baked relief is an applied cut with
+ *     nothing inside it — on a screenshot that is very close to "the feature did nothing", and it
+ *     is the single most likely next question after the cut starts working.
+ */
+describe('§SITE-SCOPE globe — ARM G: the APPLIED line is self-contained', () => {
+    const BODY = codeOnly(applyBody());
+
+    it('the polygon-off reason travels with the verdict rather than living in a one-shot warning', () => {
+        expect(BODY).toContain('polygonWhy');
+        expect(BODY).toMatch(/polygon leg \$\{polygonApplied \? `ON \(\$\{ring\.length\}-gon, inverse\)` : `OFF \(\$\{polygonWhy\}\)`\}/);
+        // The unsupported case must name the predicate it failed, not merely say "unsupported".
+        expect(BODY).toContain('ClippingPolygonCollection.isSupported === false');
+    });
+
+    it('the line states whether any baked relief is attached, and whether the globe is even shown', () => {
+        expect(BODY).toMatch(/this\.groundReliefAttached\(\)/);
+        expect(BODY).toContain('NO baked terrain attached');
+        expect(BODY).toMatch(/globe\.show=\$\{String\(viewer\.scene\.globe\.show\)\}/);
+    });
+
+    it('⛔ the relief fact is MEASURED off the viewport, never inferred from the scope request', () => {
+        // Same rule the rectangle leg already follows: report what IS, not what was asked for.
+        const at = BODY.indexOf('const reliefText =');
+        expect(at).toBeGreaterThan(-1);
+        expect(BODY.slice(at, at + 260)).toContain('this.formaTerrainCity');
+    });
+});
