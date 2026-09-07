@@ -886,7 +886,7 @@ envelope is **one artefact produced along the way**, not the turnstile at its en
 
 ## §2 — Schema
 
-Pure Zod (L0), `packages/schemas/src/elements/site/zoning/` (per **P5**).
+Pure Zod (L0), `packages/schemas/src/site/zoning/` (per **P5**).
 
 ### §2.1 — `ZoningRecord`
 
@@ -906,7 +906,7 @@ What a `ZoningProvider` returns — the raw zoning at a parcel, before the engin
 The per-jurisdiction pack that fills PDF-trapped numbers (§1.6). Pure Zod (L0). Structure grounded in the scoping doc §7.
 
 ```ts
-// packages/schemas/src/elements/site/zoning/JurisdictionZoningContract.ts  (proposed)
+// packages/schemas/src/site/zoning/JurisdictionZoningContract.ts  (proposed)
 JurisdictionZoningContract = {
   jurisdictionId: string;                 // 'es-barcelona' | 'es-madrid' | 'dk' | 'ch-zh-8001'
   displayName: string;
@@ -1048,10 +1048,10 @@ Algorithm (deterministic): resolve numbers per §1.2 (structured fields → else
 
 | Component | Package | Layer |
 |---|---|---|
-| `ZoningRecord` / `JurisdictionZoningContract` / `BuildableEnvelope` / `DerivationTrace` (pure Zod) | `packages/schemas/src/elements/site/zoning/` | **L0** |
+| `ZoningRecord` / `JurisdictionZoningContract` / `BuildableEnvelope` / `DerivationTrace` (pure Zod) | `packages/schemas/src/site/zoning/` | **L0** |
 | `ZoningProvider` interface + adapters + `ZoningRulesEngine` (pure) | `packages/site-parcel-data/` (shared with C57) | **L2** |
 | Envelope → `site.updateZoning` dispatch; envelope → generator constraint | `packages/site-runtime` + `stores` + editor executor | **L2–L3 / L5** |
-| Zoning fetch proxy route(s) | `server/parcelZoningProxy.js` | server (BFF) |
+| Zoning fetch proxy route(s) | `server/jurisdiction/parcelZoningProxy.js` | server (BFF) |
 | Turf (negative buffer / area) | new dependency (**not currently in tree** — verified `grep '@turf'` = ∅) | — |
 
 > **New dependency flag**: Turf.js (MIT) is the setback-inset geometry engine and is **not yet a dependency**. Adding it requires the lockfile-sync discipline (pnpm-lock updated in the same commit) per the build/deploy governance. This is a build-sequence note, not a value claim.

@@ -304,7 +304,7 @@ Default `LayerMapTable` (AIA / NCS standard) ships in `packages/schemas/src/dxf/
 >
 > | Shipped at HEAD | The §3 row that orders it built again |
 > |---|---|
-> | `packages/file-format/src/DxfParser.ts` + `src/import/dxf/DxfParserExt.ts` | §3.1 `DxfImporter` |
+> | `packages/file-format/src/DxfParser.ts` + `packages/file-format/src/import/dxf/DxfParserExt.ts` | §3.1 `DxfImporter` |
 > | `packages/file-format/src/DxfGeometryBuilder.ts` | §3.1 |
 > | `packages/file-format/src/import/dxf/DwgImportAdapter.ts` | §3.3 `DwgImporter` |
 > | `packages/file-format/src/import/dxf/DxfLayerStore.ts` | §3.4 `LayerMapStore` |
@@ -329,9 +329,14 @@ Default `LayerMapTable` (AIA / NCS standard) ships in `packages/schemas/src/dxf/
 > `* as THREE from '@pryzm/renderer-three/three'`; the §2 rule as written scoped only to
 > `plugins/dxf/` and did not anticipate this host.
 >
-> ⚠ **A SECOND DEFECT THIS EXPOSES, IN THE CODE:** `DxfParser.ts` and `DxfGeometryBuilder.ts`
-> exist **TWICE** — at `packages/file-format/src/` and again under `src/import/dxf/`. Reconciling
-> that pair is prerequisite to any §3 work.
+> ⚠ **A SECOND DEFECT THIS EXPOSES, IN THE CODE — RE-MEASURED 2026-09-07, and it is HALF what
+> this box said.** The legacy ~~`src/import/dxf/`~~ tree named here **no longer exists** (`src/` now
+> holds 7 entry-shim files and nothing else), so that half of the finding is discharged. What
+> DOES still duplicate is **`DxfGeometryBuilder.ts` alone**, present at both
+> `packages/file-format/src/DxfGeometryBuilder.ts` and
+> `packages/file-format/src/import/dxf/DxfGeometryBuilder.ts`. `DxfParser.ts` exists once
+> (flat) and `DxfParserExt.ts` once (under `import/dxf/`) — neither is duplicated. Reconciling
+> the one real pair is prerequisite to any §3 work.
 >
 > *Exit condition:* §3 is rewritten to name `packages/file-format/src/import/dxf/` as the host,
 > the duplicate pair is reconciled, and the DWG section is re-decided as APS or explicitly

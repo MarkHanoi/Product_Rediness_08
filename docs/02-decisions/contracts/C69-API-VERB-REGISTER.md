@@ -244,7 +244,7 @@ identifier, which excludes both.
 ### §5.4 — a verb outside the chat gate's field of view
 
 `cube.move` is registered from `plugins/toy-cube/src/MoveCubeCommand.ts`, which is not
-under `src/handlers/`, so `check-chat-capability-coverage.ts` never sees it and its
+under the gate's scanned root (`plugins/*/src/handlers/*.ts`), so `check-chat-capability-coverage.ts` never sees it and its
 "UNDECLARED: 0" is over a set that excludes it. Small verb; general hole.
 
 ---

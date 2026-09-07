@@ -222,7 +222,7 @@ Findings (binding context):
 | `levels.create-n` | `CreateMultipleLevelsCommand` · `levels/` | `{ count, baseElevation, heightPerLevel }` | — (intent `CREATE_MULTIPLE_LEVELS`) | `count`,`heightPerLevel` params; `baseElevation` = topLevel.elevation + (topLevel.height ‖ heightPerLevel) |
 | `grid.create-system` | `CreateGridSystemCommand` · `grids/` | `{ xCount=5, yCount=5, xSpacing=8, ySpacing=8, xOrigin=0, yOrigin=0 }` | — | params with defaults |
 
-All classes verified exported from the `@pryzm/command-registry` barrel (`src/index.ts` lines 53,54,94,115,118,184,187 + walls/slabs).
+All classes verified exported from the `@pryzm/command-registry` barrel (`packages/command-registry/src/index.ts` lines 53,54,94,115,118,184,187 + walls/slabs).
 
 ### §10.3 — Scope / selection resolution (normative)
 

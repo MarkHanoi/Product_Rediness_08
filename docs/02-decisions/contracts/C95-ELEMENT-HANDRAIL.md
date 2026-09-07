@@ -51,7 +51,7 @@ would have marked four live defects closed.
 |---|---|
 | `1c22b4ec` | `docs(ADR-0332)` — the audit |
 | `db7e62d5` | `test(Z9/§HANDRAIL-BRIDGE-PROBE)` — **1 file, +221 lines, characterisation only** |
-| `6e049a7b` | `wip(Z9)` — `packages/geometry-stair/src/HandrailRunGeometry.ts`, **NOT WIRED** |
+| `6e049a7b` | `wip(Z9)` — `packages/geometry-handrail/src/HandrailRunGeometry.ts`, **NOT WIRED** |
 
 > ### ⚠ §C95-A-GREEN-PROBE-IS-NOT-A-FIX
 > `HandrailBridgeDivergenceProbe.spec.ts` **asserts the defective behaviour as expected**:
@@ -76,7 +76,7 @@ capability is written, specified, tested and unreachable** — [C72 §0.1](C72-P
 
 | Axis | AS-IS (measured) | TO-BE (normative) |
 |---|---|---|
-| 3D mesh tag | **`'Handrail'`** — `packages/geometry-stair/src/HandrailFragmentBuilder.ts:175` (`:174` also sets `type:'Handrail'`) | **`'Handrail'` frozen**, consumers normalise per [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) |
+| 3D mesh tag | **`'Handrail'`** — `packages/geometry-handrail/src/HandrailFragmentBuilder.ts:175` (`:174` also sets `type:'Handrail'`) | **`'Handrail'` frozen**, consumers normalise per [C15 §12](C15-HOSTED-ELEMENT-CONTRACT.md) |
 | stair-railing mesh tag | **`'stair-railing'`** — `StairRailingBuilder.ts:1114,1120,1134` | ✅ **a DIFFERENT FAMILY, correctly tagged** — see §1.1 |
 | storeEventBus tag | `'handrail'` — `packages/core-app-model/src/stores/HandrailStore.ts:112` | ✅ casing only — C15 §12 compliant |
 | Delete branch label | `'handrail'` — `DeleteElementCommand.ts:517` | ✅ casing only |
@@ -100,7 +100,7 @@ family.** Its readings for handrail MUST NOT be quoted as a denominator.
 
 | Concept | Live? | What it can do | Site |
 |---|---|---|---|
-| **`HandrailFragmentBuilder`** — **THIS FAMILY** | ✅ LIVE, `initBuilders.ts:876` | **strictly horizontal**; 2-point only; one Y rotation (`:189`) | `packages/geometry-stair/src/HandrailFragmentBuilder.ts` |
+| **`HandrailFragmentBuilder`** — **THIS FAMILY** | ✅ LIVE, `initBuilders.ts:876` | **strictly horizontal**; 2-point only; one Y rotation (`:189`) | `packages/geometry-handrail/src/HandrailFragmentBuilder.ts` |
 | `StairRailingBuilder` — **a DIFFERENT family** | ✅ LIVE, `initBuilders.ts:926` | **slopes correctly** — quaternion from the full 3-D direction, `:1127` `end.clone().sub(start).normalize()`, `:1129` `setFromUnitVectors` | `packages/geometry-stair/src/StairRailingBuilder.ts:1122-1139` |
 | `produceHandrail` + `HandrailCommitter` | ⛔ **DEAD** | **slope AND N-point curve** — `producers/handrail.ts:94-96` reads `p.y` per point; `:100-116` averages interior tangents; `:73-79` handles a vertical tangent | `packages/geometry-kernel/src/producers/handrail.ts:81` |
 
@@ -606,7 +606,7 @@ that pins the authored-pitch case at its old mesh count.
 |---|---|
 | **Stack A (live)** | `HandrailFragmentBuilder.ts` — `:135` destructures `baseLine` to **exactly two points**; `:136-137` `dx`/`dz` **only**; `:138` planar length; `:189` `root.rotation.y = -angle` — **one rotation axis, no pitch** |
 | **Stack B (dead)** | `producers/handrail.ts:81` — slope (`:94-96`, reads `p.y`), N-point sweep (`:100-126`), vertical-tangent frame (`:73-79`) |
-| **Third stack (unwired)** | `packages/geometry-stair/src/HandrailRunGeometry.ts` — 338 lines, 282 lines of spec, **one importer: its own test** |
+| **Third stack (unwired)** | `packages/geometry-handrail/src/HandrailRunGeometry.ts` — 338 lines, 282 lines of spec, **one importer: its own test** |
 | **Proven to agree?** | ⛔ **NO, and they cannot be** — Stack A is 2-point planar, Stack B is N-point sloped. `tests/parity/handrail/cw-snapshot.test.ts:7` imports **`produceHandrail`** — it snapshots the **DEAD** stack against itself. **[C84 §8.e](C84-ELEMENT-INTEGRITY.md): a parity test that compares a stack to itself does not satisfy EI-11.** It cannot catch D1-D4 |
 | **Datum** | `HandrailFragmentBuilder.ts:143-145` — **Y = `level.elevation + (handrail.baseOffset ?? 0)`**, set on the root group at `:186`; members placed in the group's local frame (`:222` rail at `y = handrail.height`, i.e. **height is top-of-rail from the base**). **`baseLine[i].y` is carried into the record and never read** |
 

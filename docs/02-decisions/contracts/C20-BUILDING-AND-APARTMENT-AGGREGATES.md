@@ -284,7 +284,7 @@ Project (C13)
 
 ## §3 — Stores & API surface
 
-The four aggregate stores live in `packages/stores/src/aggregates/`. Two already exist (Apartment, Room); two are new (Building, Level). All four extend `Store<T>` from `@pryzm/plugin-sdk` and follow the project-scoped lifecycle.
+The four aggregate stores live in `packages/stores/src/`. Two already exist (Apartment, Room); two are new (Building, Level). All four extend `Store<T>` from `@pryzm/plugin-sdk` and follow the project-scoped lifecycle.
 
 ### §3.1 — `BuildingStore` (NEW)
 
@@ -299,11 +299,11 @@ class BuildingStore extends Store<Building> {
 }
 ```
 
-File: `packages/stores/src/aggregates/BuildingStore.ts` (NEW). Mutations only via the registered `building.*` command handlers (§4.1).
+File: `packages/stores/src/BuildingStore.ts` (NEW). Mutations only via the registered `building.*` command handlers (§4.1).
 
 ### §3.2 — `LevelStore` (NEW)
 
-Today's `plugins/plan-view/src/LevelStore.ts` is a transitional plugin-local store. C20 promotes it to `packages/stores/src/aggregates/LevelStore.ts` with the schema in §2.2 and the typed-id brand (§1.8).
+Today's `plugins/plan-view/src/LevelStore.ts` is a transitional plugin-local store. C20 promotes it to `packages/stores/src/LevelStore.ts` with the schema in §2.2 and the typed-id brand (§1.8).
 
 ```typescript
 class LevelStore extends Store<Level> {
@@ -521,8 +521,8 @@ C20 is mostly codification of existing surfaces. The new constructions are `Buil
 
 ### §8.2 — Stage M2 — store construction (≈ 1.5 dev-weeks)
 
-- New `BuildingStore` in `packages/stores/src/aggregates/BuildingStore.ts` per §3.1.
-- Promote `plugins/plan-view/src/LevelStore.ts` → `packages/stores/src/aggregates/LevelStore.ts` per §3.2. Keep a re-export shim in the old path with a deprecation warning for one release; remove the shim once `plan-view` is rewired.
+- New `BuildingStore` in `packages/stores/src/BuildingStore.ts` per §3.1.
+- Promote `plugins/plan-view/src/LevelStore.ts` → `packages/stores/src/LevelStore.ts` per §3.2. Keep a re-export shim in the old path with a deprecation warning for one release; remove the shim once `plan-view` is rewired.
 - New `ApartmentStore` per §3.3 wrapping the existing `ApartmentParametersStore`.
 - New `RoomStore` per §3.4 wrapping the existing `RoomParametersStore`.
 

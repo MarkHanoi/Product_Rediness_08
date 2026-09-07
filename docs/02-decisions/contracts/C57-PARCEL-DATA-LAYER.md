@@ -5,7 +5,7 @@
 > **Scope**: governs the **parcel data subsystem** — the provider-agnostic ingestion of real cadastral **geometry + attributes** for a plot the user selects on the map, its canonical data model, the adapter contract (one per jurisdiction/source), the same-origin proxy + secret-handling rules, EPSG handling, coverage-miss degradation, and the hand-off of a selected parcel into [C19](./C19-SITE-MODEL-AND-PARCEL.md)'s one-shot immutable site-boundary. Companion to [C58 Zoning Rules & Buildable Envelope](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (which turns the parcel + zoning into a compliant envelope) and to [C12 Geospatial](./C12-GEOSPATIAL.md) (which owns coordinate transforms).
 > **Depends on**: [C03](./C03-SCHEMAS-COMMANDS-AND-STATE.md), [C12](./C12-GEOSPATIAL.md), [C19](./C19-SITE-MODEL-AND-PARCEL.md), [C10](./C10-PERFORMANCE-AND-OBSERVABILITY.md), [C23](./C23-PROVENANCE-AND-AI-AUDIT.md).
 > **Downstream**: [C58 Zoning Rules & Buildable Envelope](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) (consumes the fetched parcel ring + jurisdiction id); [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md) (renders parcel provenance); [SPEC-PARCEL-SELECTION](../../03-execution/specs/SPEC-PARCEL-SELECTION.md) (proposed — the map interaction).
-> **Key principles**: **P5** (schemas pure — no THREE / no I/O in `packages/schemas/src/elements/site/parcel/`), **P1** (providers are wired once, not re-instantiated ad hoc), **P4** (no `(window as any)` reach-through for the fetch), **P8** (every exported provider / proxy fn opens an OTel span `pryzm.parcel.<verb>`).
+> **Key principles**: **P5** (schemas pure — no THREE / no I/O in `packages/schemas/src/site/`), **P1** (providers are wired once, not re-instantiated ad hoc), **P4** (no `(window as any)` reach-through for the fetch), **P8** (every exported provider / proxy fn opens an OTel span `pryzm.parcel.<verb>`).
 > **Strategy**: [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) (compliance-authoring pillar; Denmark-first reference, jurisdiction-agnostic core).
 > **Audit context**: ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md (audit removed 2026-08-09 — recoverable from git history) (G-DATA-1..5), [PARCEL-ZONING-FEATURE-SCOPING.md](../../04-reference/geospatial/PARCEL-ZONING-FEATURE-SCOPING.md) §3/§6.1, [DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md](../../04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md) §2/§4. This contract fills the reserved slot C19 §9 ("jurisdiction-specific building-code databases — future contract; §10.2 registry pending") jointly with C58.
 
@@ -26,7 +26,7 @@ Every adapter MUST normalise its source (GML, ArcGIS-JSON, Shapefile, CityJSON, 
 
 ### §1.2 — All upstream access goes through the same-origin server proxy; keys are server-side only
 
-An adapter MUST NOT fetch a government/cadastral endpoint directly from the browser. Every network call goes through the same-origin proxy (`server/parcelZoningProxy.js` — already mounted, route `/api/catastro/parcel`, `server.js:363`), which forwards once, normalises, caches, and returns same-origin JSON.
+An adapter MUST NOT fetch a government/cadastral endpoint directly from the browser. Every network call goes through the same-origin proxy (`server/jurisdiction/parcelZoningProxy.js` — already mounted, route `/api/catastro/parcel`, `server.js:363`), which forwards once, normalises, caches, and returns same-origin JSON.
 
 - **Secrets rule (hard)**: any API key, service-user credential, or OAuth token (e.g. the Denmark **Datafordeler** service-user key — §3.2) lives **only** in server-side env / Fly secrets. It MUST NOT appear in client code, the repo, a bundled string, or a response body. The browser never sees a key; the proxy is the only key holder (mirrors how the Cesium/Google token is server-gated today).
 - The proxy is the CSP boundary: because all fetches are same-origin, no `connect-src` change is required. If a direct-fetch fallback to a gov origin is ever added, the CSP change MUST be **surfaced explicitly** in review, never made silently (per the scoping §6.4 discipline).
@@ -168,7 +168,7 @@ An adapter's output ring, and any BLOCK assembled from adapter output, MUST be t
 
 ### §1.12 — The *manzana* prefix is an OBSERVED heuristic with a measured failure rate, and MUST be labelled as one
 
-The 5-character *referencia catastral* prefix used to collect a block's parcels (`server/parcelZoningProxy.js`, which already documents it as "an observed pattern, not a documented guarantee") is a heuristic, not a published relation. Measured limits, all from live data:
+The 5-character *referencia catastral* prefix used to collect a block's parcels (`server/jurisdiction/parcelZoningProxy.js`, which already documents it as "an observed pattern, not a documented guarantee") is a heuristic, not a published relation. Measured limits, all from live data:
 
 - **8 of 9** sampled parcels across 3 cities yielded ≥ 3 parcels for the prefix (`SPAIN-CADASTRAL-DISSOLVE-PROBE.md`); the single failure was honest — a car park whose masa genuinely contains one parcel, refused by the `< 3` guard.
 - **~7 of the 82 manzanas still refused after §1.11** are the prefix collecting **two genuinely separate polygons** — a *prefix* defect, not a geometry one (`SPAIN-DISSOLVE-FAILURE-TAXONOMY.md`).
@@ -193,7 +193,7 @@ An adapter or block assembler MUST NOT present a prefix-collected masa as a lega
 
 ## §2 — Schema
 
-The schemas below live in `packages/schemas/src/elements/site/parcel/` — **pure Zod**, no THREE / DOM / I/O (per **P5**).
+The schemas below live in `packages/schemas/src/site/` — **pure Zod**, no THREE / DOM / I/O (per **P5**).
 
 ### §2.1 — `ParcelFeature`
 
@@ -292,7 +292,7 @@ The active provider for the current pilot is a single `defaultParcelProvider` ex
 
 | Adapter | Jurisdiction | Access | CRS | Status |
 |---|---|---|---|---|
-| `CatastroParcelProvider` | Spain (Dirección General del Catastro) | **keyless** — OVC `Consulta_RCCOOR` reverse-geocode → INSPIRE WFS `cp:CadastralParcel` `GetParcel` by REFCAT (WFS has **no BBOX** — point→ref→geometry) | EPSG:4326/25830-31 | **BUILT** (`apps/editor/src/ui/site/parcel/CatastroParcelProvider.ts` + `server/parcelZoningProxy.js`) |
+| `CatastroParcelProvider` | Spain (Dirección General del Catastro) | **keyless** — OVC `Consulta_RCCOOR` reverse-geocode → INSPIRE WFS `cp:CadastralParcel` `GetParcel` by REFCAT (WFS has **no BBOX** — point→ref→geometry) | EPSG:4326/25830-31 | **BUILT** (`apps/editor/src/ui/site/parcel/CatastroParcelProvider.ts` + `server/jurisdiction/parcelZoningProxy.js`) |
 | `DkParcelProvider` | Denmark (Matriklen2 `jordstykke`) | **keyed** — Datafordeler service-user API-key, **server-side only** (§1.2) | EPSG:25832 | proposed (§3.2) |
 | `OerebParcelProvider` | Switzerland (geodienste `ms:RESF` + api3.geo.admin identify → EGRID) | mostly OGD; a few cantons meter | EPSG:2056 | proposed |
 | `TerraraParcelProvider` | Switzerland (premium) | commercial (buy-vs-build — ADR-0269, UNVERIFIED API) | — | proposed / gated |
@@ -307,9 +307,9 @@ Denmark's Matriklen requires a Datafordeler service-user API-key (free self-serv
 
 | Package | Layer | Responsibility |
 |---|---|---|
-| `packages/schemas/src/elements/site/parcel/` | **L0** | `ParcelFeature` / `ParcelProvenance` Zod schemas (§2). No I/O, no THREE, no DOM. |
+| `packages/schemas/src/site/` | **L0** | `ParcelFeature` / `ParcelProvenance` Zod schemas (§2). No I/O, no THREE, no DOM. |
 | `packages/site-parcel-data/` | **L2** | `ParcelProvider` interface + adapters + jurisdiction registry (shared with C58). Pure fetch+parse. |
-| `server/parcelZoningProxy.js` | server (BFF) | forward-once + GML→GeoJSON normalise + LRU cache + non-fatal empty fallback + **server-side keys**. |
+| `server/jurisdiction/parcelZoningProxy.js` | server (BFF) | forward-once + GML→GeoJSON normalise + LRU cache + non-fatal empty fallback + **server-side keys**. |
 | `packages/geospatial/` | **L2** | C12 — the single `proj4` projector reused for edge reprojection (§1.6). |
 | `apps/editor/src/ui/geospatial/` + `.../site/parcel/` | **L5** | the "Select parcel" map mode + info card; the transitional home of the shipped Spain adapter (§1.7). |
 
@@ -321,7 +321,7 @@ Adding parcel-select for a new country is this fixed, modular sequence — **not
 
 1. **Routing predicate** — reuse (or add) the point-in-jurisdiction predicate the C58 zoning dispatch already uses (`providers/<cc>Bbox.ts` → `isIn<CC>`). Parcel + zoning MUST share ONE predicate per jurisdiction (§1.13.2); do not fork it.
 2. **Adapter** — implement the §2.3 `ParcelProvider` by cloning `CatastroParcelProvider`: point → real cadastral polygon, normalise to a WGS84 ring at the edge (§1.1), `null`-never-throw on any miss (§1.5), open `pryzm.parcel.*` spans (§1.8), emit full provenance incl. `sourceCrs` + `license` (§1.4). Pure fetch+parse, no THREE/DOM/store (§1.7).
-3. **Proxy route** — add `/api/parcel/<cc>` in `server/parcelZoningProxy.js` cloning the forward-once + LRU + non-fatal-empty template (§1.2). If the source is **keyed** (e.g. DK Datafordeler), the key lives server-side only (§3.2) — the browser MUST NOT see it, and a keyed source MUST look identical to a keyless one from the client (§1.2).
+3. **Proxy route** — add `/api/parcel/<cc>` in `server/jurisdiction/parcelZoningProxy.js` cloning the forward-once + LRU + non-fatal-empty template (§1.2). If the source is **keyed** (e.g. DK Datafordeler), the key lives server-side only (§3.2) — the browser MUST NOT see it, and a keyed source MUST look identical to a keyless one from the client (§1.2).
 4. **Register** — add the adapter to the `resolveParcelProvider` registry keyed by `jurisdictionId`, routed by the step-1 predicate. This is the ONLY wiring edit; there is no UI change (§1.13.2).
 5. **Attribution** — supply the provider `label` + `license` attribution string, surfaced on the info card (§1.9 / §5.2).
 6. **Tests** — a fixture test from a captured real feature (never live network) + the `check-parcel-never-throws` and `check-parcel-wgs84` gates (§6). Prove the select behaves identically to the Spain reference (§1.13.1) in the E2E (§6.1) generalised to the new jurisdiction.
@@ -385,7 +385,7 @@ Per [C10](./C10-PERFORMANCE-AND-OBSERVABILITY.md).
 
 Per [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) §sequence (L-398 → L-404). C57's slice:
 
-1. **L-400 (partial, shipped)** — `CatastroParcelProvider` + `server/parcelZoningProxy.js` + Spain parcel-select. Already in prod (input side only).
+1. **L-400 (partial, shipped)** — `CatastroParcelProvider` + `server/jurisdiction/parcelZoningProxy.js` + Spain parcel-select. Already in prod (input side only).
 2. **L-400** — lift the provider layer to `packages/site-parcel-data/` (L2); land the L0 `ParcelFeature` Zod schema + provenance; extend the C19 `ProvenanceRecord.source` enum. Introduce the `jurisdictionId` registry (§10.1).
 3. **L-400** — `DkParcelProvider` (Matriklen, server-side Datafordeler key) as the Denmark-reference parcel adapter; `OerebParcelProvider` (CH EGRID) as the third.
 4. **Ratify** — DRAFT → CANONICAL once the L2 package + §6 gates are green and a second adapter (DK) is live.
@@ -449,7 +449,7 @@ External (non-contract): ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md (a
 | 2026-07-17 | Initial DRAFT — fills the C57 reserved slot (compliance-authoring foundation, L-398/L-400/L-403). Grounds on the shipped Spain/Catastro parcel-select + the Denmark reference. Author: compliance-authoring governance track. |
 | 2026-07-21 | Added **§1.11** (cadastral publication quantum + tolerant block assembly, L-539) and **§1.12** (the manzana-prefix heuristic's measured limits, L-535/L-539/L-525). Added **§13 Known violations**. All grounded in the live-data probes listed there; no invariant is claimed conformant on documentation alone. |
 | 2026-07-24 | Added **§1.13** (provider-invariant parcel-select + one dispatch registry routed by the shared C58 predicates + Catastro as the reference clone + universal footprint fallback) and **§3.4** (the standardized add-a-jurisdiction recipe). Promoted **§10.1** from open-question to RESOLVED. Grounds on the founder-confirmed "Spain works 100%" reference + L-613 (parcel-select was Catastro-only, blocking every non-Spanish demo). Author: geospatial rollout track. |
-| 2026-07-29 | **§L-640 Phase 1 — `ParcelFeature.metrics` + `ParcelFeature.confidence` schema addition (§2.4); KV-3 RESOLVED.** Added `ParcelGeometryMetrics` and `ParcelConfidence` to the `ParcelFeature` schema (§2.1 updated, §2.4 new). All three shipped adapters (`CatastroParcelProvider`, `WfsParcelProvider`, footprint-fallback via `footprintPick`) now attach `metrics` + `confidence`. The match tier is built ONLY from categorical facts; raw numeric fields (`pointToParcelM`, `candidateMarginM`, `areaDeltaPct`) are shipped untiered with an explicit Phase-1 limitation recorded in §2.4. Server-side fix: `server/parcelZoningProxy.js` returns `areaOfficialM2` + `areaSigM2` separately, plus `pointToParcelM`/`candidateMarginM` (no longer discarded). Verified by `apps/editor/__tests__/parcelConfidence.test.ts` (15 tests, all passing). KV-3 (area-collapse honesty violation) marked RESOLVED in §13. |
+| 2026-07-29 | **§L-640 Phase 1 — `ParcelFeature.metrics` + `ParcelFeature.confidence` schema addition (§2.4); KV-3 RESOLVED.** Added `ParcelGeometryMetrics` and `ParcelConfidence` to the `ParcelFeature` schema (§2.1 updated, §2.4 new). All three shipped adapters (`CatastroParcelProvider`, `WfsParcelProvider`, footprint-fallback via `footprintPick`) now attach `metrics` + `confidence`. The match tier is built ONLY from categorical facts; raw numeric fields (`pointToParcelM`, `candidateMarginM`, `areaDeltaPct`) are shipped untiered with an explicit Phase-1 limitation recorded in §2.4. Server-side fix: `server/jurisdiction/parcelZoningProxy.js` returns `areaOfficialM2` + `areaSigM2` separately, plus `pointToParcelM`/`candidateMarginM` (no longer discarded). Verified by `apps/editor/__tests__/parcelConfidence.test.ts` (15 tests, all passing). KV-3 (area-collapse honesty violation) marked RESOLVED in §13. |
 
 ---
 
@@ -465,14 +465,14 @@ External (non-contract): ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md (a
 
 ### KV-2 (L-539) — `parseParcelGml` discards `<gml:interior>` rings
 
-`server/parcelZoningProxy.js`'s parser keeps only the first `<posList>`, so a parcel with a hole loses it. Measured: **30 of 33,865** features (0.1 %) carry an interior ring, and **0 of the 220** nested-loop failure manzanas contains one — so this is *not* the L-539 defect and was correctly excluded from it. Real, tiny, latent, and now written down rather than left as a silent parser behaviour. **Status: OPEN, unprioritised.**
+`server/jurisdiction/parcelZoningProxy.js`'s parser keeps only the first `<posList>`, so a parcel with a hole loses it. Measured: **30 of 33,865** features (0.1 %) carry an interior ring, and **0 of the 220** nested-loop failure manzanas contains one — so this is *not* the L-539 defect and was correctly excluded from it. Real, tiny, latent, and now written down rather than left as a silent parser behaviour. **Status: OPEN, unprioritised.**
 
 ### KV-3 (L-640) — §2.1 `areaM2` silently reports a DERIVED area as if published
 
 §2.1 defines `areaM2` as "**published area where the source supplies it; else 0 (client may derive)**" — i.e. the official-vs-derived distinction is a contract intent. But `parseParcelGml` (`server/parcelZoningProxy.js:175-181`) extracted the INSPIRE `areaValue` (official registry area) when present **and** fell back to the shoelace `ringAreaM2` (derived), then **collapsed both into a single `areaM2`** with no flag for which it is. A consumer could not tell an authoritative registry area from a polygon-derived one — a §1.4 honesty violation.
 
 **Status: RESOLVED (2026-07-29, §L-640 Phase 1).** Verified by `apps/editor/__tests__/parcelConfidence.test.ts` (15 tests, all passing) against both a real Spanish cadastral fixture (with registry-declared area) and a footprint-fallback fixture (always 'low'). The fix:
-- `server/parcelZoningProxy.js` now returns `areaOfficialM2` and `areaSigM2` separately (never collapsed); `pointToParcelM` and `candidateMarginM` are no longer discarded.
+- `server/jurisdiction/parcelZoningProxy.js` now returns `areaOfficialM2` and `areaSigM2` separately (never collapsed); `pointToParcelM` and `candidateMarginM` are no longer discarded.
 - `apps/editor/src/ui/site/parcel/parcelConfidence.ts` — new pure module: `computeParcelMetrics()` (geometry diagnostics) + `computeParcelConfidence()` (honesty-gated tier built ONLY from categorical facts, per C58 §16 explainability; see §2.4 for the complete schema and the stated Phase-1 limitations on raw numeric fields).
 - All three shipped adapters (`CatastroParcelProvider`, `WfsParcelProvider`, `footprintPick`) attach `metrics` + `confidence` to their `ParcelFeature` output. Footprint-fallback parcels unconditionally yield `match:'low'` by construction.
 - `areaM2` remains for backward-compat; consumers needing the honesty distinction MUST use `confidence.areaSource` + `confidence.areaOfficialM2`/`confidence.areaSigM2` (§2.1, §2.4).

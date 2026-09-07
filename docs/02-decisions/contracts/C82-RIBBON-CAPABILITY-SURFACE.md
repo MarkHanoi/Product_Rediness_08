@@ -187,7 +187,7 @@ deduction from it — "refused" can never be misread as "fixed".
 > **§5.4 — what the instrument does NOT measure, carried from its own output so this contract
 > is never read as coverage:** keyboard shortcuts (the CREATE rail activates TOOLS, not
 > commands), the command palette, context menus, the ~120 panel `executeCommand` sites, the
-> legacy `src/ui` toolbar, handler-write **correctness** (`check-verb-liveness` owns it), and
+> legacy ~~`src/ui`~~ toolbar (that tree is gone), handler-write **correctness** (`check-verb-liveness` owns it), and
 > mount as **rendered DOM** (the probe's mount evidence is static import evidence). Each of
 > those surfaces earns this contract's protection only when an instrument of the same class
 > reaches it.

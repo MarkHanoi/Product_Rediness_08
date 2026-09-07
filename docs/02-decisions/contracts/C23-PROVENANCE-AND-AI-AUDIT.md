@@ -476,7 +476,7 @@ The Ed25519 signature uses the same key-management surface as the plugin marketp
 
 ### §3.1 — `ProvenanceStore` (append-only)
 
-Implementation: `packages/provenance/src/ProvenanceStore.ts` (NEW L2 package, follows the L2 doctrine — pure domain logic, no I/O at construction, takes a `ProvenanceBackend` port for persistence).
+Implementation: `packages/stores/src/ProvenanceStore.ts` — **shipped at L3, not as the NEW L2 `packages/provenance/` package this section originally prescribed.** It follows the same doctrine (pure domain logic, no I/O at construction, takes a `ProvenanceBackend` port for persistence); only the home changed.
 
 ```ts
 export interface ProvenanceBackend {

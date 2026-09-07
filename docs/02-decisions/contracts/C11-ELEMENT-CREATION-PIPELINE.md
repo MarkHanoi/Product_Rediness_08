@@ -491,7 +491,7 @@ EXPORT store.
 - Call `window.dispatchEvent()` — use `runtime.events.emit()` instead.
 - Access DOM (`document.querySelector`, etc.).
 - Call `requestAnimationFrame()` directly — use `FrameScheduler` (P3).
-- Import from `src/engine/` or `src/ui/` — handlers live in `plugins/` or `packages/` and obey the layer boundary matrix (C01 §2).
+- Import from `apps/editor/src/`, or from the now-deleted legacy client roots ~~`src/engine/`~~ / ~~`src/ui/`~~ — handlers live in `plugins/` or `packages/` and obey the layer boundary matrix (C01 §2).
 - Mutate stores of other element families (e.g. a wall handler MUST NOT write to `stores.elements.rooms`). Cross-element effects are achieved through event subscribers.
 
 ### §5.4 — Element-type DOMAIN RULES resolve at the command, NEVER in the tool (NORMATIVE)
@@ -654,7 +654,7 @@ FrameScheduler 'pre-render' slot
 - Geometry build MUST NOT block the main thread for > 16 ms per element for a single wall.
 - For batch creation (AI-generated floor plans), geometry build MUST be spread across multiple frames via the scheduler — not run as a single synchronous loop.
 - The `FrameScheduler` is the single rAF owner (P3). Geometry builders MUST NOT call `requestAnimationFrame()` directly.
-- **§PERF-ADAPTIVE-DRAIN**: Geometry builders that drain a per-frame queue SHOULD implement an adaptive budget rather than a fixed constant. The `CurtainWallBuilder` is the reference implementation: instance variable `_buildsPerFrame` starts at 5, increments by 1 (cap 12) when the previous drain took < 8 ms, decrements by 1 (floor 2) when it took > 14 ms. Target is ≤ 10 ms per drain cycle. The budget resets to the baseline at builder construction (project open). All three builders (`WallFragmentBuilder`, `CurtainWallBuilder`, `SlabFragmentBuilder`) SHOULD adopt this pattern. Source: `src/engine/subsystems/curtainwalls/CurtainWallBuilder.ts` — `_buildsPerFrame` field; Sprint A37.
+- **§PERF-ADAPTIVE-DRAIN**: Geometry builders that drain a per-frame queue SHOULD implement an adaptive budget rather than a fixed constant. The `CurtainWallBuilder` is the reference implementation: instance variable `_buildsPerFrame` starts at 5, increments by 1 (cap 12) when the previous drain took < 8 ms, decrements by 1 (floor 2) when it took > 14 ms. Target is ≤ 10 ms per drain cycle. The budget resets to the baseline at builder construction (project open). All three builders (`WallFragmentBuilder`, `CurtainWallBuilder`, `SlabFragmentBuilder`) SHOULD adopt this pattern. Source: `packages/geometry-curtain-wall/src/CurtainWallBuilder.ts` — `_buildsPerFrame` field; Sprint A37.
 
 ### §6.2 — Plan-view update (ACTUAL mechanism — 2026-05-19 rewrite)
 
@@ -949,8 +949,8 @@ Twenty-five production-breaking defects in the element creation pipeline (and it
 
 | File | Line(s) | Violation | Target | Status |
 |---|---|---|---|---|
-| `src/engine/subsystems/walls/WallTool.ts` | 1535 | `commandManager.execute(new CreateWallsFromSlabCommand(...))` — user clicks "Create walls from slab" in a UI gesture | `runtime.commandBus.dispatch('wall.batch.create', ...)` | ⚠️ Active — design-fallback path, tracked TODO E.1 |
-| `src/engine/subsystems/walls/WallTool.ts` | 1605 | `commandManager.execute(new CreateWallCommand(...))` — user draws a single wall segment | `runtime.commandBus.dispatch('wall.create', ...)` | ⚠️ Active — tracked TODO E.1 |
+| `packages/geometry-wall/src/WallTool.ts` | 1535 | `commandManager.execute(new CreateWallsFromSlabCommand(...))` — user clicks "Create walls from slab" in a UI gesture | `runtime.commandBus.dispatch('wall.batch.create', ...)` | ⚠️ Active — design-fallback path, tracked TODO E.1 |
+| `packages/geometry-wall/src/WallTool.ts` | 1605 | `commandManager.execute(new CreateWallCommand(...))` — user draws a single wall segment | `runtime.commandBus.dispatch('wall.create', ...)` | ⚠️ Active — tracked TODO E.1 |
 
 The deprecation header of `WallTool.ts` (lines 34–55) already names these as `E-bus.1` violations. The plugin replacement (`plugins/wall/src/tool.ts`) is wired with `runtime.bus.executeCommand` — the legacy `WallTool.ts` must be retired (TODO E.1).
 
@@ -978,11 +978,11 @@ These gaps apply to **all element creation handlers across all families**, not j
 
 | File | Line | Context | Category | Blocker |
 |---|---|---|---|---|
-| `src/engine/engineLauncher.ts` | ~1437 | CustomEvent bridge fallback dispatching `commandManager.execute()` inside `pryzm-bus-rooms-redetect` handler (was line 1306 pre-§P2-A39 insertions) | Legacy bridge | Replace with `runtime.events.on('rooms.redetect', ...)` subscriber in P2f completion |
-| `src/engine/subsystems/RemoteCommandDispatcher.ts` | 96 | `this.commandManager.execute(command, { source: 'REMOTE' })` — Entry Point C from §2 (remote collaboration path) is still going through legacy | Legacy bridge | Should use `runtime.commandBus.dispatch(command.type, command.payload, { source: 'remote' })` |
-| `src/engine/engineLauncher.ts` | ~1475 | `commandManager.execute(command)` inside `curtain-wall.create-on-all-slabs` bus handler (§P2-A39 structural registration) | Intentional dual-write bridge | Full migration deferred to Wave A16 once `CreateCurtainWallsOnAllSlabsCommand` moves to plugins |
-| `src/engine/engineLauncher.ts` | ~1505 | `commandManager.execute(command)` inside `wall.create-on-all-slabs` bus handler (§A40-W03 structural registration) | Intentional dual-write bridge | Full migration deferred to Wave A16 |
-| `src/engine/engineLauncher.ts` | ~1536 | `commandManager.execute(command)` inside `slab.create-on-all-floors` bus handler (§A41-S04 structural registration) | Intentional dual-write bridge | Full migration deferred to Wave A21 |
+| `apps/editor/src/engine/engineLauncher.ts` | ~1437 | CustomEvent bridge fallback dispatching `commandManager.execute()` inside `pryzm-bus-rooms-redetect` handler (was line 1306 pre-§P2-A39 insertions) | Legacy bridge | Replace with `runtime.events.on('rooms.redetect', ...)` subscriber in P2f completion |
+| `apps/editor/src/engine/RemoteCommandDispatcher.ts` | 96 | `this.commandManager.execute(command, { source: 'REMOTE' })` — Entry Point C from §2 (remote collaboration path) is still going through legacy | Legacy bridge | Should use `runtime.commandBus.dispatch(command.type, command.payload, { source: 'remote' })` |
+| `apps/editor/src/engine/engineLauncher.ts` | ~1475 | `commandManager.execute(command)` inside `curtain-wall.create-on-all-slabs` bus handler (§P2-A39 structural registration) | Intentional dual-write bridge | Full migration deferred to Wave A16 once `CreateCurtainWallsOnAllSlabsCommand` moves to plugins |
+| `apps/editor/src/engine/engineLauncher.ts` | ~1505 | `commandManager.execute(command)` inside `wall.create-on-all-slabs` bus handler (§A40-W03 structural registration) | Intentional dual-write bridge | Full migration deferred to Wave A16 |
+| `apps/editor/src/engine/engineLauncher.ts` | ~1536 | `commandManager.execute(command)` inside `slab.create-on-all-floors` bus handler (§A41-S04 structural registration) | Intentional dual-write bridge | Full migration deferred to Wave A21 |
 
 Down from 214 (pre-P0) → 117 bridged (P0–P11) → **2 legacy-bridge** + **3 intentional-dual-write** = **5 remaining** (updated 2026-05-09). TSC clean throughout.
 
@@ -1338,8 +1338,8 @@ pnpm run ci:check-spans                                        # → 0 missing s
 | Full 214-site migration plan (P1–P11) | `docs/archive/pryzm3-internal/04-PLAN-FORWARD/33-PHASE-E5X-COMMANDMANAGER-FULL-MIGRATION.md` |
 | Wall/curtain-wall/room hot path task (file 32) | `docs/archive/pryzm3-internal/04-PLAN-FORWARD/32-TASK-WALL-CURTAINWALL-CMD-BUS-AUDIT.md` |
 | Layer boundary matrix (handler package placement) | `C01-ARCHITECTURE-AND-GOVERNANCE.md §2`, `docs/01-strategy/STR-04-architecture.md §2` |
-| `BatchCoordinator` source | `src/engine/subsystems/core/batch/BatchCoordinator.ts` |
-| `WallTool` E-bus.1 deprecation notice | `src/engine/subsystems/walls/WallTool.ts:34–55` |
+| `BatchCoordinator` source | `packages/core-app-model/src/batch/BatchCoordinator.ts` |
+| `WallTool` E-bus.1 deprecation notice | `packages/geometry-wall/src/WallTool.ts:34–55` |
 | Live LONGTASK evidence diary entry | `docs/archive/pryzm3-internal/03-CURRENT-STATE.md §10 2026-05-03d` |
 | Bridge pattern invariants (C14) | `C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md` |
 | Per-element pipeline compliance | §11 (this document) |
@@ -1612,7 +1612,7 @@ End-to-end audit of wall creation, stage by stage:
 
 **Phase 2 verdict**: wall is the **reference pipeline** — the most battle-tested element. `CreateWallHandler` is the canonical handler shape other element handlers should match. All four historical wall defects (FIX-WALL-ID, FIX-PLAN-VDT-BIMMANAGER, FIX-NAN-Y, FIX-VIEWSWITCH-DROP) are fixed. **No new defect found.**
 
-**Open Phase-2 follow-up** (tracked, not creation-blocking): §7.1 — the legacy 3D `src/engine/subsystems/walls/WallTool.ts` still has 2 `commandManager.execute()` sites (lines 1535, 1605). The bus-wired replacement is `plugins/wall/src/tool.ts`; retiring the legacy `WallTool.ts` is tracked as TODO E.1.
+**Open Phase-2 follow-up** (tracked, not creation-blocking): §7.1 — the legacy 3D `packages/geometry-wall/src/WallTool.ts` still has 2 `commandManager.execute()` sites (lines 1535, 1605). The bus-wired replacement is `plugins/wall/src/tool.ts`; retiring the legacy `WallTool.ts` is tracked as TODO E.1.
 
 ### §11.6 — Curtain Wall creation pipeline — Phase 3 audit (2026-05-19)
 

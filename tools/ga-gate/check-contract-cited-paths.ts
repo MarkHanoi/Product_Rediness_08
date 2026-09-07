@@ -101,8 +101,28 @@ const CONTRACT_DIR = path.join(REPO_ROOT, 'docs', '02-decisions', 'contracts');
  * SHRINK-ONLY. Raising this number is choosing to ship a known-false citation.
  * ⛔ Do NOT discharge findings by bulk-adding `PLANNED`; that is laundering and
  * arm B prints the evidence of it as a number that moves.
+ *
+ * ⭐ **RATCHETED 491 → 490 (2026-08-20) → 462 (2026-09-07, lane RATCHET-CITED-PATHS).**
+ * That lane found the gate at **507 / 490 — RC=3, ratchet EXCEEDED**, and closed 45 findings
+ * WITHOUT adding a single new `PLANNED` marker:
+ *   • ~31 were **MOVED** — a real file relocated out from under a correct sentence, so the
+ *     citation was repointed at the shipped path (`scripts/*.mjs` into
+ *     `scripts/{migrate,scan,build,check,one-offs}/`; `server/parcelZoningProxy.js` into
+ *     `server/jurisdiction/`; `packages/schemas/src/elements/site/` flattened to
+ *     `packages/schemas/src/site/`; the four aggregate stores flattened out of a never-built
+ *     `src/aggregates/`; the handrail builders out of `geometry-stair` into
+ *     `geometry-handrail`; the whole legacy `src/engine/**` client tree into
+ *     `apps/editor/src/engine/` + `packages/*`).
+ *   • 7 were **genuinely deleted** legacy roots (`src/ui/`, `src/engine/`, `src/import/dxf/`,
+ *     `src/engine/EngineBootstrap.ts`, …) and were STRUCK in the suite's own retraction idiom
+ *     (C84 §6) — which is why arm B moved 8 → 19. That rise is disclosure, not laundering:
+ *     every one of them names a tree that `ls` confirms is gone.
+ *   • the rest were **never PRYZM paths at all** — C108's left column is an EXTERNAL brief's
+ *     tree, and C69/README abbreviated a gate's real scan root `plugins/*∕src/handlers/*.ts`
+ *     down to `src/handlers/`. Those sentences were rewritten to say what is true.
+ * ⛔ The forbidden fix — raising this number, or a `gate-debt.json` entry — was not used.
  */
-const BASELINE_UNRESOLVED = 490;
+const BASELINE_UNRESOLVED = 462;
 
 // F0 floors. A run below any of these has not asked the question.
 const MIN_CONTRACT_FILES = 90;

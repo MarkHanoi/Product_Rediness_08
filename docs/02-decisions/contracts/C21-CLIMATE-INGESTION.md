@@ -319,7 +319,7 @@ Workflows that catch climate errors MUST exhaustively switch on `kind` (a TypeSc
 
 ### §3.1 — `ClimateStore` (L3, per C01 layering)
 
-`ClimateStore` lives in `packages/climate-host/src/ClimateStore.ts`. Constructed once by `composeRuntime()` (per P1); consumed by every workflow via `runtime.climate`.
+`ClimateStore` lives in `packages/stores/src/ClimateStore.ts`. Constructed once by `composeRuntime()` (per P1); consumed by every workflow via `runtime.climate`.
 
 ```typescript
 interface ClimateStore {

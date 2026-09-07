@@ -40,7 +40,7 @@ The fallback hierarchy MUST be transparent to callers — the same API works aga
 **Invariants:**
 
 1. The `IndexedDBStore` MUST be populated on every successful project load from tiers 1 or 2.
-2. When the app falls back to tier 2.5, the `OfflineBanner` (`src/ui/OfflineBanner.ts`) MUST be shown with the text `"Offline — read only. Changes will not be saved until reconnected."`.
+2. When the app falls back to tier 2.5, the `OfflineBanner` (`apps/editor/src/ui/OfflineBanner.ts`) MUST be shown with the text `"Offline — read only. Changes will not be saved until reconnected."`.
 3. In offline mode, all write operations (save, create, delete) MUST be silently rejected with a user-visible toast — not silently dropped.
 4. IndexedDB is scoped per project (`projectId` key) so multiple projects can be cached independently.
 5. The `PatchEmitter` → `EventLog` → `IndexedDbBackend` pipeline (via `attachEventLog`) provides the event-level delta log. The `IndexedDBStore` provides the project-snapshot cache. They are **complementary, not overlapping** — the event log is for collaboration catch-up; the snapshot cache is for offline access.
@@ -49,7 +49,7 @@ The fallback hierarchy MUST be transparent to callers — the same API works aga
 - `packages/persistence-client/src/IndexedDBStore.ts` — snapshot read/write/delete
 - `packages/persistence-client/src/backends/IndexedDbBackend.ts` — event-log backend (idb-based)
 - `packages/persistence-client/src/attachEventLog.ts` — PatchEmitter wiring
-- `src/ui/OfflineBanner.ts` — offline indicator UI
+- `apps/editor/src/ui/OfflineBanner.ts` — offline indicator UI
 
 #### §1.2.1a — localStorage version-history cache + §QUOTA-EVICT (2026-05-29)
 

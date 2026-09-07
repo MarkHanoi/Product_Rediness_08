@@ -541,14 +541,14 @@ Scripts in `scripts/` and `tools/` are **not shipped code** but can introduce re
 
 | Script | Status | Risk |
 |---|---|---|
-| `scripts/wave10-fix-placeholder-stores.mjs` | Historical — do not re-run | Could reintroduce placeholder patterns if re-executed |
-| `scripts/wave10-migrate-core.mjs` | Historical — do not re-run | Targeted a migration that is now complete |
-| `scripts/codemod-restructure-2026-04-30.mjs` | Historical | Import paths it updated may have changed again |
-| `scripts/retarget-todo-b.mjs` | **Active** — tags TODO(B) markers with `(window as any)` context | Produces valid TODO metadata; safe to re-run |
-| `scripts/track-window-cast-count.mjs` | **Active** — used by CI to enforce cast ratchet | Must be updated when `window-dev-augment.d.ts` adds new slots |
-| `scripts/write-prod-shim.mjs` | **Active** — generates prod-mode window shim | Must be kept in sync with `window-shim.ts` typed augmentation |
+| `scripts/migrate/wave10-fix-placeholder-stores.mjs` | Historical — do not re-run | Could reintroduce placeholder patterns if re-executed |
+| `scripts/migrate/wave10-migrate-core.mjs` | Historical — do not re-run | Targeted a migration that is now complete |
+| `scripts/migrate/codemod-restructure-2026-04-30.mjs` | Historical | Import paths it updated may have changed again |
+| `scripts/one-offs/retarget-todo-b.mjs` | **Active** — tags TODO(B) markers with `(window as any)` context | Produces valid TODO metadata; safe to re-run |
+| `scripts/scan/track-window-cast-count.mjs` | **Active** — used by CI to enforce cast ratchet | Must be updated when `window-dev-augment.d.ts` adds new slots |
+| `scripts/build/write-prod-shim.mjs` | **Active** — generates prod-mode window shim | Must be kept in sync with `window-shim.ts` typed augmentation |
 | `tools/ga-gate/check-no-commandmanager.ts` | **Active** ⚠️ aliasing loophole | **Needs update** per G-NEW-01 above |
-| `scripts/check-pryzm3-exists.ts` | **Active** — checks convergence booleans | Update to also verify `cmdMgr.execute` count is shrinking |
+| `scripts/check/check-pryzm3-exists.ts` | **Active** — checks convergence booleans | Update to also verify `cmdMgr.execute` count is shrinking |
 | `packages/legacy-shim/` | ⛔ **DROP RESCINDED** | ~~Zero importers; delete in Wave 12 cleanup sprint~~ — live via workspace manifest, lint scope block and **2 gate exclusion paths**. See the LP-09 banner. |
 
 ---

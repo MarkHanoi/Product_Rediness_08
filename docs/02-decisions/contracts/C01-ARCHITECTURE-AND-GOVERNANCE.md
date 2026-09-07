@@ -246,7 +246,7 @@ they were worded.**
 | 9 | `marketplace_live == true` | false (Phase F) | ⛔ **FAIL — DNS, not downtime** | `curl https://marketplace.pryzm.app` → `code=000 err="Could not resolve host"`; control `curl https://pryzm.app` → **302**, same shell, same minute |
 
 ⛔ **#1 AND #2 ARE REWORDED ABOVE, NOT JUST RE-SCORED, AND THE REASON IS THE POINT.** Both were
-satisfied by **the absence of a directory**, not by clean code. `src/ui/` no longer exists: `src/`
+satisfied by **the absence of a directory**, not by clean code. ~~`src/ui/`~~ no longer exists: `src/`
 holds **7 loose files and 0 subdirectories**. So #1's target of `== 1` names a folder that is gone —
 **it was never true and cannot become true as worded** — and #2's `0` is the count of casts in a
 directory that is not there. **Absence of the folder and absence of the defect are the same value.**

@@ -88,7 +88,7 @@ narrower and now gated: every DECLARED creation family must have a registered ac
 
 ### §1.2 — Typed window globals
 
-All `window.*` access in `src/ui/` MUST go through typed declarations in `src/types/global-window.d.ts`. **Zero `(window as any)` reaches are permitted in `src/ui/`** (verified at `03-CURRENT-STATE.md §1`: 0 ✅).
+All `window.*` access in `apps/editor/src/ui/` MUST go through typed declarations in `src/global-window.d.ts`. **Zero `(window as any)` reaches are permitted in `apps/editor/src/ui/`** (verified at `03-CURRENT-STATE.md §1`: 0 ✅).
 
 ---
 
@@ -226,7 +226,7 @@ Section views and elevation views are produced by the drawing engine (`packages/
 
 > ⛔ **CORRECTED 2026-08-22 (lane DATA3) — BOTH PATHS IN THE FIRST BULLET WERE DEAD.**
 > Measured, `ls`:
-> `src/engine/subsystems/styles/` → **MISSING** · `src/styles/AppTheme.ts` → **MISSING** ·
+> ~~`src/engine/subsystems/styles/`~~ → **MISSING** · ~~`src/styles/AppTheme.ts`~~ → **MISSING** ·
 > `apps/editor/src/ui/styles/tokens.ts` → **EXISTS** · `apps/editor/src/ui/styles/AppTheme.ts` →
 > **EXISTS** · `packages/wcag-audit/` → **EXISTS**.
 > The bullet is rewritten to the measured paths below. This is the C01 §6 Rule 6 shape at a
@@ -394,7 +394,7 @@ chrome elements in the SAME region MUST NOT be placed at overlapping coordinates
 - New or edited UI-chrome code MUST NOT introduce a raw `z-index` literal — always
   the token (`Z_LAYERS`/`zCss()` in TS, `var(--z-*)` in CSS).
 - Adding a stacking tier means adding a NAMED token to BOTH mirrors, not a literal.
-- Until a lint rule lands, reviewers enforce this on any diff touching `src/ui/`.
+- Until a lint rule lands, reviewers enforce this on any diff touching `apps/editor/src/ui/`.
 
 ### §7.4 — Audit & phased migration (the ~325 sites)
 

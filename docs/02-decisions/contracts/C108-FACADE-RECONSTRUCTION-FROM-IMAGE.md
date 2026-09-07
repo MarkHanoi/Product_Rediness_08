@@ -603,13 +603,13 @@ used.** Brief §20 is written as a precondition, and this clause keeps it one.
 > Brief §21: *"Keep the reconstruction engine independent from the UI … The UI is only a client of
 > this engine."*
 
-| Brief §21 path | PRYZM home | Layer |
+| Brief §21 path *(the external brief's own tree — NOT a PRYZM repo path)* | PRYZM home | Layer |
 |---|---|---|
-| `src/contracts` | `packages/facade-reconstruction/src/contracts/` | L1 |
-| `src/reconstruction/*` | `packages/facade-reconstruction/src/reconstruction/*` | L1 |
-| `src/bim` | `packages/facade-reconstruction/src/bim/` (**Milestone 2**, L-11006) | L1 |
-| `src/ui` | `apps/editor/src/ui/facade/` | L7 |
-| `src/workers` | deferred — the engine is synchronous and pure, so a worker is a *wrapper*, not an architecture (L-11007) |  |
+| src/contracts | `packages/facade-reconstruction/src/contracts/` | L1 |
+| src/reconstruction/* | `packages/facade-reconstruction/src/reconstruction/*` | L1 |
+| src/bim | `packages/facade-reconstruction/src/bim/` (**Milestone 2**, L-11006) | L1 |
+| src/ui | `apps/editor/src/ui/facade/` | L7 |
+| src/workers | deferred — the engine is synchronous and pure, so a worker is a *wrapper*, not an architecture (L-11007) |  |
 
 **Layer placement — `packages/facade-reconstruction` is L1**, `[floor] leaf`: it imports `zod` and
 nothing from `@pryzm/*` above L0, and has no consumers below L7. L1 is the strictest correct

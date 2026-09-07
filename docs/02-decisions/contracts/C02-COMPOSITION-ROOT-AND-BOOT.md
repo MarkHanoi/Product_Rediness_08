@@ -115,7 +115,7 @@ export function composeRuntime(input: ComposeRuntimeInput): Promise<ComposedRunt
 - `composeRuntime()` MUST be called exactly once per application session.
 - It MUST return a fully initialised `PryzmRuntime` synchronously, or throw.
 - It MUST register all plugin contributions passed via `registries` before returning.
-- It MUST NOT read from `window` directly; typed globals live in `src/types/global-window.d.ts`.
+- It MUST NOT read from `window` directly; typed globals live in `src/global-window.d.ts`.
 - After `dispose()` is called, all subscriptions MUST be torn down and the handle MUST NOT be used again.
 
 ---
@@ -145,7 +145,7 @@ The production startup flow is divided into three immutable architectural stages
 - Triggered by `runtime.persistence.openProject(id)`.
 - Brings up `packages/renderer-three/` and the full viewport pipeline.
 - **MUST NOT execute before the user opens a project** (§01 §1.1 deferred boot contract).
-- `src/engine/EngineBootstrap.ts` is **permanently deleted** (S87-WIRE, 2026-05-01 ✅). The `pryzm/no-engine-bootstrap-shim` ESLint rule guards against regression.
+- ~~`src/engine/EngineBootstrap.ts`~~ is **permanently deleted** (S87-WIRE, 2026-05-01 ✅). The `pryzm/no-engine-bootstrap-shim` ESLint rule guards against regression.
 
 ---
 

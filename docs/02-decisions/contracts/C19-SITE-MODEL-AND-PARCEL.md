@@ -5,7 +5,7 @@
 > **Scope**: governs the **Site / Parcel / BuildingFootprint / ContextBuilding** schemas, runtime stores, command surface, UI surface, and IFC mapping. Companion to [C12](./C12-GEOSPATIAL.md) (which owns coordinate transforms only) — C19 owns the Site as a domain element above C12's CRS substrate.
 > **Depends on**: [C03](./C03-SCHEMAS-COMMANDS-AND-STATE.md), [C12](./C12-GEOSPATIAL.md), [C13](./C13-PROJECT-LIFECYCLE-AND-ISOLATION.md), [C11](./C11-ELEMENT-CREATION-PIPELINE.md), [C16](./C16-COMMAND-AUTHORING-PROTOCOL.md).
 > **Downstream**: [C20 Building & Apartment Aggregates](./C20-BUILDING-AND-APARTMENT-AGGREGATES.md) (proposed — consumes the Site as the outermost element); [C21 Climate Ingestion](./C21-CLIMATE-INGESTION.md) (proposed — populates `SiteModel.climate` cache); [C22 Privacy & PII Tier](./C22-PRIVACY-AND-PII-TIER.md) (proposed — gates `SiteModel.location` storage); [C23 Provenance & AI Audit](./C23-PROVENANCE-AND-AI-AUDIT.md) (proposed — every site-derived datum carries provenance); [C25 IFC Export](./C25-IFC-EXPORT-PRODUCTION.md) §1.4 (`IfcSite` already shipped at α-1 against this schema); apartment-layout AI workflows (climate-aware after C21 ratifies); the `apps/editor/src/ui/site/` authoring surface (PG0.7 deliverable).
-> **Key principles**: **P5** (schemas pure — no THREE / no I/O in `packages/schemas/src/elements/site/`), **P6** (every Site mutation goes through `commandBus`; no direct store writes from UI), **P8** (every public site op opens an OTel span `pryzm.site.<verb>`), **P1** (single composition root — `SiteModelStore` is wired in `composeRuntime` only).
+> **Key principles**: **P5** (schemas pure — no THREE / no I/O in `packages/schemas/src/site/`), **P6** (every Site mutation goes through `commandBus`; no direct store writes from UI), **P8** (every public site op opens an OTel span `pryzm.site.<verb>`), **P1** (single composition root — `SiteModelStore` is wired in `composeRuntime` only).
 > **Master plan**: [geospatial-foundation.md](../../03-execution/plans/geospatial-foundation.md) §13 (PG0.1, PG0.2, PG0.4, PG0.7, PG0.10, PG0.11) and [geospatial-and-site-intelligence.md](../../03-execution/plans/geospatial-and-site-intelligence.md) §5, §13 (GS0.1, GS0.2, GS0.3, GS0.6, GS0.8, GS0.9).
 > **Audit context**: MISSING-CONTRACTS-AUDIT-2026-06-01.md §3.1 (audit removed 2026-08-09 — recoverable from git history) — C19 is the first of the five Phase-3.5 reserved-slot fills.
 
@@ -189,7 +189,7 @@ real cadastral ring (WGS84)
 
 ## §2 — Schema
 
-The schemas below live in `packages/schemas/src/elements/site/`. They are **pure Zod** — no THREE, no DOM, no I/O (per **P5**).
+The schemas below live in `packages/schemas/src/site/`. They are **pure Zod** — no THREE, no DOM, no I/O (per **P5**).
 
 ### §2.1 — `SiteModel`
 
@@ -208,7 +208,7 @@ The schemas below live in `packages/schemas/src/elements/site/`. They are **pure
 | `schemaVersion` | `number` | `1` | bumped on breaking change | C47 (proposed) |
 
 ```ts
-// packages/schemas/src/elements/site/SiteModel.ts
+// packages/schemas/src/site/SiteModel.ts
 export const SiteModel = defineElement('site', {
   id: SiteIdSchema,
   projectId: ProjectIdSchema,
@@ -326,10 +326,10 @@ These run as `.refine()` blocks on `SiteModel`:
 
 ### §3.1 — `SiteModelStore` (L3)
 
-Lives in `packages/stores/src/site/SiteModelStore.ts`. Single per-runtime Zustand slice constructed inside `composeRuntime` (per **P1**).
+Lives in `packages/stores/src/SiteModelStore.ts`. Single per-runtime Zustand slice constructed inside `composeRuntime` (per **P1**).
 
 ```ts
-// packages/stores/src/site/SiteModelStore.ts
+// packages/stores/src/SiteModelStore.ts
 export interface SiteModelStore {
   // Read API (subscribable)
   getSite(): SiteModel | null;
@@ -373,9 +373,9 @@ The service is read-only. All mutation flows through the §4 command surface. Wo
 
 | Package | Layer | Responsibility |
 |---|---|---|
-| `packages/schemas/src/elements/site/` | L0 | Zod schemas only (§2). No I/O, no THREE, no DOM. |
+| `packages/schemas/src/site/` | L0 | Zod schemas only (§2). No I/O, no THREE, no DOM. |
 | `packages/site-runtime/` | L2 | Command handlers, validations, `SiteContextService`. |
-| `packages/stores/src/site/` | L3 | `SiteModelStore` slice; L3-canonical wiring. |
+| `packages/stores/src/SiteModelStore.ts` | L3 | `SiteModelStore` slice; L3-canonical wiring. |
 | `packages/geospatial/` | L2 | C12 — receives `SiteLocation` updates and recentres LTP-ENU. |
 | `apps/editor/src/ui/site/` | L5 | Site authoring UI (Cesium-backed parcel drawing). |
 | `plugins/geospatial/` | L7 | Cesium bridge + ingestion adapter for context buildings. |
@@ -721,12 +721,12 @@ This per [C47 File-Format Versioning](./C47-FILE-FORMAT-VERSIONING.md) (proposed
 
 | Existing | Wraps to |
 |---|---|
-| `ProjectLocation` schema in `packages/schemas/src/elements/Project.ts` | `SiteLocation` in `packages/schemas/src/elements/site/SiteLocation.ts` — 1:1 field mapping |
+| `ProjectLocation` schema in `packages/schemas/src/elements/Project.ts` | `SiteLocation` in `packages/schemas/src/site/SiteLocation.ts` — 1:1 field mapping |
 | `RealSunService.subscribeToProjectLocation()` | `RealSunService.subscribeToSiteLocation()` (rename) — same Vec3 input |
 | `LTPENURebase.setOrigin(lat, lon, elev)` (C12 §1.1) | Unchanged; called by `site.updateLocation` handler instead of by `project.updateLocation` handler |
-| `plugins/ifc-import/IfcProjectedCRSReader` (C12 §1.2) | Constructs a `SiteModel` instead of patching `Project.location` |
-| `plugins/ifc-export/hierarchy.ts` (C25 §1.4) | Reads `SiteModel` instead of `Project.location` — already gap-fill IFC-α-1 in C25 master plan |
-| `plugins/geospatial/CesiumThreeBridge.ts` | Unchanged — visualization-only; receives a `SiteContextService` handle to subscribe to context changes |
+| `plugins/ifc-import/src/IfcProjectedCRSReader.ts` (C12 §1.2) | Constructs a `SiteModel` instead of patching `Project.location` |
+| `plugins/ifc-export/src/hierarchy.ts` (C25 §1.4) | Reads `SiteModel` instead of `Project.location` — already gap-fill IFC-α-1 in C25 master plan |
+| `plugins/geospatial/src/CesiumThreeBridge.ts` | Unchanged — visualization-only; receives a `SiteContextService` handle to subscribe to context changes |
 | `apps/editor/src/ui/geospatial/CesiumViewport.ts` | Unchanged for visualisation; gains the §5.2 parcel-drawing tool overlay |
 
 ### §8.4 — Migration steps
