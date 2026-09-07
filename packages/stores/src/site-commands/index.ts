@@ -45,9 +45,14 @@ export { siteLinkClimate } from './siteLinkClimate.js';
 export { siteLinkBuilding } from './siteLinkBuilding.js';
 export { siteReplace } from './siteReplace.js';
 export { siteDelete } from './siteDelete.js';
+// §SITE-SCOPE (L-645, C12 §13) — the ONLY write path for `SiteModel.scope`.
+export { siteSetScope } from './siteSetScope.js';
 
 export {
     SiteCreatePayloadSchema,
+    SiteSetScopePayloadSchema,
+    type SiteSetScopePayload,
+    type SiteScopeChangedEvent,
     SiteUpdateLocationPayloadSchema,
     SiteSetParcelBoundaryPayloadSchema,
     SiteUpdateZoningPayloadSchema,

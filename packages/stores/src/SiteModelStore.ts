@@ -32,6 +32,7 @@ import type {
     ContextBuilding,
     Parcel,
     SiteLocation,
+    SiteScope,
 } from '@pryzm/schemas';
 
 /**
@@ -71,6 +72,16 @@ export class SiteModelStore {
     /** Returns the site's geographic origin (lat/lon/elev/true-north/CRS). */
     getLocation(): SiteLocation | null {
         return this._site?.location ?? null;
+    }
+
+    /**
+     * §SITE-SCOPE (L-645, C12 §13) — the persisted 3D-Site scope, or `null` when no site is set
+     * OR the site has not authored one. The two nulls are deliberately the same value here: both
+     * mean "resolve the product default at read time" (`resolveSiteScope` in the editor), and
+     * nothing downstream needs to tell them apart. Written ONLY by `site.setScope`.
+     */
+    getScope(): SiteScope | null {
+        return this._site?.scope ?? null;
     }
 
     // ── Write API ──────────────────────────────────────────────────────────

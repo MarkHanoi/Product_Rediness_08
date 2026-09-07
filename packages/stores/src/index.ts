@@ -299,6 +299,11 @@ export {
     siteLinkBuilding,
     siteReplace,
     siteDelete,
+    // §SITE-SCOPE (L-645, C12 §13) — the persisted 3D-Site scope's ONLY write path.
+    siteSetScope,
+    SiteSetScopePayloadSchema,
+    type SiteSetScopePayload,
+    type SiteScopeChangedEvent,
     deterministicSiteId,
     SiteCreatePayloadSchema,
     SiteUpdateLocationPayloadSchema,

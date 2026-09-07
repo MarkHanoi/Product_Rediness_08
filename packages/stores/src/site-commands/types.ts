@@ -27,6 +27,7 @@ import {
     ParcelProvenanceSchema,
     PtSchema,
     BuildableDeterminationRecordSchema,
+    SiteScopeSchema,
     type SiteModel,
 } from '@pryzm/schemas';
 import type { ContainmentReport, FARReport } from '@pryzm/site-validators';
@@ -304,9 +305,24 @@ export const SiteReplacePayloadSchema = z.object({
         climateRef: ClimateRefIdSchema.nullable().optional(),
         buildingRef: BuildingIdSchema.nullable().optional(),
         provenance: ProvenanceRecordSchema,
+        /** §SITE-SCOPE (C12 §13) — permissive here like the other nested fields; the handler's
+         *  `SiteModelSchema.parse` validates it. Omitted ⇒ `null` (a whole-site replace that
+         *  does not carry a scope has not authored one). */
+        scope: z.unknown().optional(),
     }),
 });
 export type SiteReplacePayload = z.infer<typeof SiteReplacePayloadSchema>;
+
+/**
+ * `site.setScope` payload — §SITE-SCOPE (L-645, C12 §13 / ADR-0382).
+ * Sets the persisted 3D-Site scope, or clears it with `null` (= "not authored; use the
+ * product default"). The ONLY mutation path for `SiteModel.scope` (P6).
+ */
+export const SiteSetScopePayloadSchema = z.object({
+    siteId: SiteIdSchema,
+    scope: SiteScopeSchema.nullable(),
+});
+export type SiteSetScopePayload = z.infer<typeof SiteSetScopePayloadSchema>;
 
 /**
  * `site.delete` payload — per [C19 §4.1] + §1.1.
@@ -408,6 +424,15 @@ export interface SiteZoningUpdatedEvent {
     readonly type: 'site.zoning-updated';
     readonly siteId: string;
     readonly parcel: SiteModel['parcel'];
+}
+
+/** §SITE-SCOPE (C12 §13) — emitted after `site.setScope`; the 3D-Site pane reloads its context
+ *  layers to the new extent on this event, never on the slider's pointer moves. */
+export interface SiteScopeChangedEvent {
+    readonly type: 'site.scope-changed';
+    readonly siteId: string;
+    /** The post-write scope, or `null` when cleared (= product default resolves at read time). */
+    readonly scope: SiteModel['scope'];
 }
 
 export interface SiteFootprintSetEvent {

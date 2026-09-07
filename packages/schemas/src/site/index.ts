@@ -22,6 +22,9 @@
 
 export * from './types.js';
 export * from './SiteLocation.js';
+// §SITE-SCOPE (L-645, C12 §13 / ADR-0382) — the persisted 3D-Site scope: ONE extent every context
+// layer reads, cuts to, and is complete within.
+export * from './SiteScope.js';
 export * from './Parcel.js';
 // §L-1580 (C57 §1.4 / §2.2) — the persisted cadastral provenance of a committed parcel.
 export * from './ParcelProvenance.js';

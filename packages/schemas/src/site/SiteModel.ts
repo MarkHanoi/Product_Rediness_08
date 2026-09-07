@@ -13,6 +13,7 @@ import {
     BuildingIdSchema,
 } from './types.js';
 import { SiteLocationSchema } from './SiteLocation.js';
+import { SiteScopeSchema } from './SiteScope.js';
 import { ParcelSchema } from './Parcel.js';
 import { BuildingFootprintSchema } from './BuildingFootprint.js';
 import { ContextBuildingSchema } from './ContextBuilding.js';
@@ -25,6 +26,10 @@ import { ProvenanceRecordSchema } from './ProvenanceRecord.js';
  *   - projectId       ProjectId (back-reference for isolation per C13)
  *   - name            human label; default 'Site'
  *   - location        SiteLocation (lat/lon/elev/true-north/CRS/address)
+ *   - scope           SiteScope | null — §SITE-SCOPE (L-645, C12 §13): the 3D-Site context
+ *                     extent the layers load, cut to, and are complete within. `null` = not
+ *                     authored → the render resolves the product default at read time.
+ *                     ADDITIVE with a null default (C47): every pre-scope snapshot parses.
  *   - parcel          Parcel (boundary polygon + setbacks + zoning)
  *   - footprint       BuildingFootprint | null (the project's own outline)
  *   - contextBuildings  ContextBuilding[] (reference-only neighbours)
@@ -38,6 +43,7 @@ export const SiteModelSchema = z.object({
     projectId: ProjectIdSchema,
     name: z.string().min(1).default('Site'),
     location: SiteLocationSchema,
+    scope: SiteScopeSchema.nullable().default(null),
     parcel: ParcelSchema,
     footprint: BuildingFootprintSchema.nullable().default(null),
     contextBuildings: z.array(ContextBuildingSchema).default([]),
