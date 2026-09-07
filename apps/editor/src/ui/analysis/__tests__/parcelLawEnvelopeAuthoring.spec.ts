@@ -757,13 +757,23 @@ describe('§ENVELOPE-DRAW R8 — pressing Create twice replaces instead of accum
         const first = (h.executed[0]!.payload as { envelopes: { spaceEnvelopeId: string }[] }).envelopes.map((e) => e.spaceEnvelopeId);
         expect(h.state.size).toBe(2);
 
-        // The intent line now says REPLACE, before the click, and the button says so too.
+        // The intent line now says REPLACE, before the click.
         h.fire();
         const intent = byTestId<HTMLElement>(AUTHORING_INTENT_TESTID)!;
         expect(intent.getAttribute('data-intent')).toBe('replace');
         expect(intent.textContent).toContain('you authored earlier');
         expect(intent.textContent).toContain('ONE undo');
-        expect(byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.textContent).toBe('Replace and create envelope');
+        // ⭐ §ENVELOPE-BUTTON-SAYS-WHAT-IT-DOES (L-13149) — the BUTTON says what pressing it does,
+        // in the founder's own units, and the replacement stays in the BODY above it plus the
+        // tooltip and `data-intent`. He read *"Replace and Create Envelope"* as *"no sense"*: it
+        // answered a question he was not asking, mid-gesture. ⛔ The honesty did not move — the
+        // three assertions directly above are what carries it, and they are unchanged.
+        const btn = byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!;
+        expect(btn.textContent).toBe('Create envelope · 2 storeys');
+        expect(btn.textContent).not.toContain('Replace');
+        expect(btn.getAttribute('data-intent')).toBe('replace');
+        expect(btn.title).toContain('replaces the level envelope(s) you authored earlier');
+        expect(btn.title).toContain('one undo brings them back');
 
         byTestId<HTMLButtonElement>(AUTHORING_CREATE_BTN_TESTID)!.click();
         expect(h.executed).toHaveLength(2);                                   // ⛔ one command per press

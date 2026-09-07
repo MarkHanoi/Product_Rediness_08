@@ -951,9 +951,30 @@ export function mountParcelLawEnvelopeAuthoring(
             intentLine.style.borderLeft = intent === 'refuse' ? '2px solid #c9973a' : intent === 'replace' ? '2px solid #6600FF' : '';
             intentLine.style.padding = intent === 'idle' ? '' : '4px 6px';
             intentLine.style.borderRadius = intent === 'idle' ? '' : '0 5px 5px 0';
-            createBtn.textContent = intent === 'replace' ? 'Replace and create envelope' : 'Create envelope';
+            // ── ⭐ §ENVELOPE-BUTTON-SAYS-WHAT-IT-DOES (L-13149) — THE LABEL IS THE VERB ─────────
+            //
+            // The founder, mid-gesture: *"then i clicked 'Replace and Create Envelope' which is no
+            // sense"*. The label was TECHNICALLY TRUE — a previous envelope existed and this click
+            // removes it — and it still read as nonsense, because "Replace" answers a question he
+            // was not asking. He had just drawn a perimeter and typed a storey count; the thing he
+            // wanted the button to confirm was WHAT HE IS ABOUT TO GET.
+            //
+            // ⛔ THE HONESTY DOES NOT MOVE, ONLY THE SENTENCE THAT CARRIES IT. `intentLine`
+            // directly above still leads with the replacement, storey by storey, in
+            // `resolveLevelEnvelopeSupersession`'s own words, and still ends *"ONE undo — Ctrl+Z
+            // brings the previous one back"*. The founder called that body excellent. The button is
+            // the only thing that changes, and `data-intent` + the tooltip keep the replacement
+            // machine-readable and hover-readable. ⛔ Never drop the storey count to shorten it: the
+            // count is precisely what tells him a 5-storey ask became a 5-storey create, which is
+            // the confusion L-13146 was about.
+            const plannedStoreys = preview !== null && preview.ok ? preview.storeys.length : null;
+            createBtn.textContent = plannedStoreys !== null
+                ? `Create envelope · ${plannedStoreys} storey${plannedStoreys === 1 ? '' : 's'}`
+                : 'Create envelope';
+            createBtn.setAttribute('data-intent', intent);
             createBtn.title = intent === 'replace'
-                ? 'Replaces the level envelope(s) you authored earlier on these storeys — one undo brings them back.'
+                ? 'Creates the envelope on these storeys. It also replaces the level envelope(s) you '
+                  + 'authored earlier on them — listed above the button, and one undo brings them back.'
                 : intent === 'refuse'
                     ? 'Withheld — see the reason above the button.'
                     : '';
