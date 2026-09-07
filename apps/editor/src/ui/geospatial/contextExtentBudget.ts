@@ -279,10 +279,45 @@ export const CTX_SCOPE_MAX_RADIUS_M = 7071;
  * `farFetchHalfDeg` → `contextFetchBbox` → `tileCountCovering` chain the reader itself calls, and
  * which `CesiumViewport.getCompleteScopeMark()` consumes. This constant remains:
  *   · the FALLBACK when there is no site origin yet (an admission, and it says so), and
- *   · the ceiling for `scopeReadFanOutCap` / `CTX_TREES_RADIUS_CEILING_M` /
- *     `CTX_STREET_LIFE_RADIUS_CEILING_M`, where being CONSERVATIVE is the safe direction.
- * ⛔ Do not "simplify" by pointing those at the per-site function: a cap grant that moves with the
- * camera's latitude would make a read's zoom depend on where the user flew from.
+ *   · nothing else. ⛔ CORRECTED 2026-09-07 (lane SCOPE-FILL, L-13098): these two lines used to
+ *     read *"the ceiling for `scopeReadFanOutCap` / `CTX_TREES_RADIUS_CEILING_M` /
+ *     `CTX_STREET_LIFE_RADIUS_CEILING_M`, where being CONSERVATIVE is the safe direction"*, and
+ *     **all three of those consumers are gone.** `scopeReadFanOutCap` now guards on the SLIDER
+ *     MAX (a read past 1 781 m used to be handed a SMALLER budget than one inside it — the cliff
+ *     this lane removed); `CTX_TREES_RADIUS_CEILING_M` is the slider max with the real bound passed
+ *     in per site; `CTX_STREET_LIFE_RADIUS_CEILING_M` is 2 500 m for a cost reason of its own.
+ *     ⚠ "Conservative is safe" was itself the error: a ceiling that under-claims does not merely
+ *     cost reach, it makes the product refuse to load data it could have loaded, and then apologise
+ *     for the gap in its own copy.
+ * ⛔ Do not "simplify" the per-site function into a constant: a ceiling measured at Barcelona
+ * over-claims by 340 m at Oslo and 559 m at Reykjavík, in the OPTIMISTIC direction.
+ */
+/*
+ * ⛔⛔ AND THE PREMISE OF EVERY PARAGRAPH ABOVE IS FALSE — MEASURED 2026-09-07, LANE SCOPE-FILL
+ * (L-13098). Kept whole, because the arithmetic in it is correct and still used; what is wrong is
+ * the CONSEQUENCE it attaches to the arithmetic, and that is the more dangerous half.
+ *
+ * Every sentence above of the form *"past it `zoomForExtent` steps the buildings read from z16 to
+ * z15, and because the bake runs `--drop-densest-as-needed` … a wider single-box read returns FEWER
+ * buildings than a narrower one"* is **FOLKLORE**. Decoded from the shipped archive
+ * (`buildings.pmtiles?v=L663a`), one z15 tile against its four z16 children over identical ground:
+ * Barcelona **953 vs 953** footprints, Madrid **1 305 vs 1 305**, clipped footprint area agreeing
+ * to 0.02 %, height-provenance histograms identical to the last unit. It holds two steps further
+ * (z14 5 420 vs 5 422; z13 17 154 vs 17 021). The cliff is at **z12**, and only there.
+ *
+ * The mechanism is simply that `--drop-densest-as-needed` FIRES ONLY ON A TILE THAT WOULD EXCEED
+ * tippecanoe's ~500 KB limit, and no z15 or z14 buildings tile comes near it: largest sampled z15
+ * **67 104 B (13 %)**, largest z14 **171 917 B (34 %)**. The flag was passed; it never fired.
+ *
+ * ⚠ IT IS TRUE FOR THE **CANOPY** HALF OF THE SENTENCE, FOR A DIFFERENT REASON — see
+ * `CTX_SCOPE_READ_MAX_TILES_POINTS`. Point layers lose a measured 60 % per zoom step to
+ * tippecanoe's DEFAULT `--drop-rate 2.5`, which is unconditional. So the claim was half right, and
+ * the half that was right had the wrong cause attached, which is why the fix aimed at the wrong
+ * layer for months: it capped the BUILDINGS radius (no loss) and let the TREE read step (60 % loss).
+ *
+ * WHAT THIS CONSTANT STILL MEANS: the largest scope whose buildings fetch bbox reads at z16 with
+ * the OLD 112 cap. That is a real number about REQUEST COUNT and VERTEX RESOLUTION. It is no longer
+ * a completeness ceiling for buildings, and no caption may present it as one.
  */
 export const CTX_SCOPE_READ_COMPLETE_CEILING_M = 1781;
 
@@ -377,17 +412,70 @@ export const CTX_NEAR_SOLID_RADIUS_CEILING_M = 891;
  * geometry in the scene (instanced, shadowless), and the tile read is the same z16 bbox the
  * buildings already pay for.
  */
-/**
- * ⛔ CORRECTED 2026-09-07 WITH THE MAX RAISE — these were `CTX_SCOPE_MAX_RADIUS_M`, and leaving
- * them there while the max went 1781 → 3562 would have been the silent half of the founder's own
- * constraint. Trees are baked z14–16 with `--drop-densest-as-needed`: past the READ-COMPLETE
- * ceiling the canopy read steps to z15 and the bake has already DELETED the dense cores, so a
- * 3 562 m tree ring would draw a THINNER canopy than a 1 781 m one and call it more. Pinning both
- * to `CTX_SCOPE_READ_COMPLETE_CEILING_M` means a slab wider than the honest read keeps the widest
- * canopy the data actually supports, instead of spreading a deleted one over twice the area.
+/*
+ * ⛔ SUPERSEDED 2026-09-07 (lane SCOPE-FILL, L-13098) — KEPT AS THE RECORD OF WHY THE PIN WAS
+ * WRONG, because the reasoning was sound and the CONCLUSION still did not follow. It read:
+ *
+ *   "CORRECTED 2026-09-07 WITH THE MAX RAISE — these were `CTX_SCOPE_MAX_RADIUS_M` … Trees are
+ *    baked z14–16 with `--drop-densest-as-needed`: past the READ-COMPLETE ceiling the canopy read
+ *    steps to z15 and the bake has already DELETED the dense cores, so a 3 562 m tree ring would
+ *    draw a THINNER canopy than a 1 781 m one and call it more."
+ *
+ * ⭐ THE MISSING STEP IS THE CAP, AND IT REVERSES THE ANSWER. `CTX_TREES_MAX_INSTANCES` is 10 000
+ * and the selection is NEAREST-FIRST. At Barcelona's ~1 035 mapped trees/km² a 1 781 m disc already
+ * holds ~10 300 eligible, so the cap is ALREADY saturated at the pinned radius: widening the ring
+ * cannot thin what is drawn, because what is drawn is the nearest 10 000 either way. The pin was
+ * therefore costing nothing in a dense city — and costing EVERYTHING in a sparse one, where a
+ * 7 000 m rural slab holds far fewer than 10 000 trees and the pin drew a green disc a quarter of
+ * the way across an otherwise bare slab. That is the founder's sentence exactly: *"no matter
+ * whether is circular or rectangular — all the scope should have buildings + water + trees +
+ * roads + train + terrain + trees + everything!"*
  */
-export const CTX_TREES_RADIUS_CEILING_M = CTX_SCOPE_READ_COMPLETE_CEILING_M;
-export const CTX_STREET_LIFE_RADIUS_CEILING_M = CTX_SCOPE_READ_COMPLETE_CEILING_M;
+/**
+ * ⭐ §SCOPE-FILL (L-13098) — TREES FOLLOW THE SLIDER, BOUNDED BY TWO THINGS THAT ARE BOTH MEASURED
+ * AND NEITHER OF WHICH IS THIS CONSTANT.
+ *
+ *   1. THE NEAREST-FIRST INSTANCE CAP (`CTX_TREES_MAX_INSTANCES`, 10 000). At Barcelona's
+ *      ~1 035 mapped trees/km² a 1 781 m disc already holds ~10 300 eligible, so the cap was
+ *      ALREADY saturated at the old pinned radius: widening the ring cannot thin what is drawn,
+ *      because what is drawn is the nearest 10 000 either way. The pin cost nothing in a dense city
+ *      and cost EVERYTHING in a sparse one, where a 7 km rural slab holds far fewer than 10 000
+ *      trees and the pin drew a green disc a quarter of the way across an otherwise bare slab.
+ *   2. THE z16 READ CEILING, measured PER SITE and passed in — see `treesRadiusM`. That is the real
+ *      bound, and it is the reason this constant is the slider maximum (i.e. `min` is the identity)
+ *      rather than a number of its own: a second static radius here could only disagree with the
+ *      measurement.
+ *
+ * ⛔ WHY THE SUPERSEDED PIN'S REASONING WAS SOUND AND ITS PREMISE WAS WRONG. It read: *"Trees are
+ * baked z14–16 with `--drop-densest-as-needed`: past the READ-COMPLETE ceiling the canopy read
+ * steps to z15 and the bake has already DELETED the dense cores."* The CONCLUSION (a coarser tree
+ * read loses trees) is correct and is the only one of this file's four zoom-loss claims that
+ * survived measurement. The CAUSE named is not: the z15 trees tile is 2 020 B, 0.4 % of
+ * tippecanoe's size limit, so `--drop-densest-as-needed` cannot have fired. The loss is
+ * tippecanoe's **default `--drop-rate 2.5`** dot-dropping, which is unconditional and needs no
+ * dense tile — measured 0.400 z15/z16 at Barcelona AND Madrid AND z14/z15, three times the same
+ * constant. That distinction is load-bearing: a size-triggered drop could be dodged by a narrower
+ * box, an unconditional dot-drop can only be dodged by HOLDING THE ZOOM, which is what
+ * `CTX_SCOPE_READ_MAX_TILES_POINTS` + the clamp in `treesRadiusM` now do.
+ */
+export const CTX_TREES_RADIUS_CEILING_M = CTX_SCOPE_MAX_RADIUS_M;
+
+/**
+ * ⛔ STREET LIFE DOES **NOT** FOLLOW THE SLIDER, AND THE REASON IS COST SHAPE, NOT TASTE
+ * (§SCOPE-FILL, L-13098). Lamps and pedestrians are SYNTHESISED along the road network before they
+ * are capped — `contextStreetLife` walks every road strand at `LAMP_SPACING_M` and only then takes
+ * the nearest N. So unlike the trees (a point layer where the cap bounds both the work and the
+ * draw), widening this radius multiplies CPU work that the cap then throws away. A 7 071 m slab in
+ * Barcelona is ~40× the road length of the 1 781 m one, to draw the same 2 400 lamps and 1 600
+ * people.
+ *
+ * 2 500 m, not 1 781, and not the slider max: it is comfortably past the far edge of what a lamp
+ * or a person occupies more than one pixel of at the 3D-Site camera, so the ceiling is not visible
+ * as an edge — the cap thins the rim long before the radius does. ⚠ The slider's caption STATES
+ * this rather than letting a bare slab imply the city has no street furniture in it
+ * (§CONTEXT-DATA-HONESTY: an unstated bound and an empty street are the same picture).
+ */
+export const CTX_STREET_LIFE_RADIUS_CEILING_M = 2500;
 
 /**
  * ⭐ THE FAR TIER IS THE ONLY LAYER WHOSE RADIUS *IS* THE SCOPE. It is ONE batched, shadowless,
@@ -412,9 +500,47 @@ export function nearSolidRadiusM(scope: SiteContextScope = DEFAULT_SITE_CONTEXT_
 export function shadowRadiusM(scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE): number {
     return Math.min(scopeOuterRadiusM(scope), CTX_SHADOW_RADIUS_CEILING_M);
 }
-/** Instanced tree canopies. `min(scope, ceiling)`. */
-export function treesRadiusM(scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE): number {
-    return Math.min(scopeOuterRadiusM(scope), CTX_TREES_RADIUS_CEILING_M);
+/**
+ * Instanced tree canopies. `min(scope, the MEASURED z16 read ceiling, the static ceiling)`.
+ *
+ * ⭐ §SCOPE-FILL (L-13098) — `z16CeilingM` IS THE WHOLE POINT AND IT IS PASSED IN, NOT LOOKED UP.
+ * A point layer loses 60 % of its features per zoom step (tippecanoe's default `--drop-rate 2.5`
+ * — measured, see `CTX_SCOPE_READ_MAX_TILES_POINTS`), and a step applies to the WHOLE box, so a
+ * wider slab would thin the canopy at the founder's own site. Clamping the tree radius — and the
+ * tree READ that feeds it — to the largest extent this site still reads at z16 makes the slider
+ * MONOTONE for trees: widening it only ever adds a canopy, never removes one.
+ *
+ * ⛔ THE CEILING IS PER SITE AND IS THEREFORE A PARAMETER. `scopeReadCompleteCeilingM(lat, lon,
+ * CTX_SCOPE_READ_MAX_TILES_POINTS)` bisects the real fetch bbox at the real latitude; the answer is
+ * 5 225 m at Barcelona and 3 032 m at Reykjavík for the SAME budget, because `1/cos φ` widens the
+ * box ×2.30 there. A static constant here would over-claim in the north — the exact
+ * §CONTEXT-DATA-HONESTY failure `scopeReadCeiling.ts` was written to close. Omitted ⇒ the static
+ * ceiling alone, which is an admission that nothing was measured, never a claim that it was.
+ */
+export function treesRadiusM(
+    scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE,
+    z16CeilingM?: number | null,
+): number {
+    const measured =
+        typeof z16CeilingM === 'number' && Number.isFinite(z16CeilingM) && z16CeilingM > 0
+            ? z16CeilingM
+            : Infinity;
+    return Math.min(scopeOuterRadiusM(scope), CTX_TREES_RADIUS_CEILING_M, measured);
+}
+
+/**
+ * §SCOPE-FILL (L-13098) — the half-extent (degrees of latitude) the TREE read takes: the tree
+ * RADIUS, so the read and the draw are the same disc by construction.
+ *
+ * ⚠ THIS IS THE ONE LAYER WHOSE FETCH IS NARROWER THAN `groundFetchHalfDeg`, and the asymmetry is
+ * the measurement, not an oversight: reading trees past the z16 ceiling would not add the outer
+ * canopy, it would delete 60 % of the inner one.
+ */
+export function treesFetchHalfDeg(
+    scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE,
+    z16CeilingM?: number | null,
+): number {
+    return Math.max(CTX_NEAR_HALF_DEG, treesRadiusM(scope, z16CeilingM) / METRES_PER_DEG_LAT);
 }
 /** Street lamps + pedestrians. `min(scope, ceiling)`. */
 export function streetLifeRadiusM(scope: SiteContextScope = DEFAULT_SITE_CONTEXT_SCOPE): number {
@@ -442,6 +568,122 @@ export function groundFetchHalfDeg(scope: SiteContextScope = DEFAULT_SITE_CONTEX
 }
 
 /**
+ * §SCOPE-FILL (L-13098) — WHICH TILE BUDGET A SCOPE-DERIVED READ TAKES.
+ *
+ * ⭐ THE TWO CLASSES ARE A MEASURED FACT ABOUT THE BAKE, NOT A PREFERENCE. See the constants:
+ * an AREA layer's feature set is zoom-invariant from z16 down to z13; a POINT layer loses 60 % of
+ * its features at EVERY zoom step. One budget could never have been right for both.
+ */
+export type ScopeReadClass = 'area' | 'points';
+
+/**
+ * ⭐⭐ §SCOPE-FILL (L-13098) — THE TILE BUDGET FOR EVERY POLYGON / LINESTRING SCOPE READ: **192**.
+ *
+ * Founder, verbatim: *"the scope of the rectangle or circle should be 4x bigger — it is too small
+ * — allow to go up to 10.000 — also — no matter whether is circular or rectangular — all the plat
+ * — all the scope should have buildings + water + trees + roads + train + terrain + trees +
+ * everything! at the moment is still contrain to the original radiours — now it should cover the
+ * full scope"*.
+ *
+ * ⛔ THE CENTRAL FINDING OF THIS LANE, AND IT DELETES A CLAIM THIS FILE HAS SHIPPED FOR MONTHS.
+ * Every sentence in this module about a coarser buildings read — *"below z16
+ * `--drop-densest-as-needed` removes footprints, not just vertices"*, *"a wider single-box read
+ * returns FEWER buildings than a narrower one"*, *"a wider slab draws FEWER buildings, not more"*
+ * — was **FOLKLORE. It is FALSE.** Measured 2026-09-07 against the SHIPPED archive
+ * (`buildings.pmtiles?v=L663a`, 27.47 GB) by decoding a z15 tile and its four z16 children over
+ * the identical ground and counting footprints with an own-bounds partition (no ids exist in these
+ * tiles — see the ledger row — so a centroid dedup double-counts seam pieces and had to be
+ * replaced by an anchor-vertex count cross-checked against clipped footprint AREA):
+ *
+ * | region                       | z15   | z16 (4 children) | area ratio | height provenance |
+ * |------------------------------|-------|------------------|------------|-------------------|
+ * | Barcelona 15/16581/12238     |   953 |              953 |   0.9998   | 908/38/7 identical |
+ * | Madrid    15/16046/12355     | 1 305 |            1 305 |   0.9998   | 1234/15/56 identical |
+ * | Barcelona z14 vs z15         | 5 420 |            5 422 |   1.0001   | — |
+ * | Barcelona z13 vs z14         |17 154 |           17 021 |   0.9908   | — |
+ * | Barcelona z12 vs z13 ⛔       |19 578 |           51 357 | **0.20**   | — |
+ *
+ * Roads, the same way: z15 1 253 vs z16 1 254 strands, clipped centreline 53 818 m vs 53 819 m.
+ * **`--drop-densest-as-needed` never fired at z15 or z14 because there was nothing to drop**: the
+ * largest z15 buildings tile sampled is 67 104 B, **13 % of tippecanoe's 500 000 B limit**; the
+ * largest z14 is 171 917 B (34 %). The only tile that approaches it is z13/4145/3059 at 471 071 B
+ * (94 %), which is exactly where the z12 cliff comes from. **The buildings and the linework survive
+ * intact from z16 to z13. The step down is a simplification of vertices, not a loss of features.**
+ *
+ * ⭐ SO THE BUDGET IS SMALL ON PURPOSE, AND A BIGGER ONE WOULD BE WORSE. `zoomForExtent` picks the
+ * FINEST zoom that FITS, so raising this number does not buy fidelity that is already zoom-
+ * invariant — it buys REQUESTS. Measured on the same archive: the 10 km box is 529 tiles at z16
+ * and 144 at z15, for the same features and roughly the same total bytes. **A coarser read is 73 %
+ * fewer HTTP range requests at identical data.**
+ *
+ * 225 is then the SMALLEST budget that keeps every one of the founder's six reference cities at
+ * **z14 or finer at the slider's maximum** — two full steps above the measured z13→z12 cliff. It
+ * also removes the cliff: past 1 781 m these layers used to fall to the **64** default, i.e. a
+ * wider slab was handed a third of the budget.
+ *
+ * ⛔ THIS CONSTANT READ **192** AND THE PARAGRAPH ABOVE IT TRANSCRIBED *"Reykjavík 2 970 → z14/187"*.
+ * BOTH WERE WRONG, AND THE FILE'S OWN SPEC IS WHAT CAUGHT IT — `scopeFill.spec.ts`'s
+ * *"the AREA budget keeps every reference city at z14 or finer at the slider MAXIMUM"* failed with
+ * `Reykjavík at the slider max: expected 13 to be greater than or equal to 14`. The doc even said
+ * *"re-run it; do not transcribe"*, and the transcription is exactly what rotted.
+ *
+ * ⭐ WHY REYKJAVÍK AND NOT OSLO — the mechanism, so the next reader does not re-derive it. The read
+ * box is squared in METRES, so its longitude span widens by 1/cos(lat) while its latitude span also
+ * stretches in Mercator by 1/cos(lat): the tile count grows with the SQUARE of that factor. At the
+ * 7 071 m disc: Barcelona (41.4°, 1/cos = 1.33) → 81 tiles at z14 · Oslo (59.9°, 1.99) → 169 ·
+ * Reykjavík (64.1°, 2.29) → **225**. Oslo fitted under 192 with 23 tiles to spare, which is very
+ * likely how 192 came to look sufficient.
+ *
+ * ⚠ RAISING 192 → 225 COSTS NOTHING ANYWHERE ELSE, and that is checked rather than assumed:
+ * `zoomForExtent` picks the finest zoom that FITS, and the next step up is 4× the tiles — Barcelona
+ * z15 = 324 and Oslo z15 = 676, both still over 225 — so every other city stays exactly where it
+ * was. Only Reykjavík moves, z13 → z14.
+ *
+ * ⭐ AND NOTE WHAT WAS **NOT** AT STAKE: per the measurement above, features are intact from z16 to
+ * z13, so Reykjavík at z13 was never missing buildings — it was carrying simplified vertices. The
+ * bar being restored here is PRECISION, not completeness. Anyone tempted to lower this constant
+ * again should know that the honest cost of doing so is coarser geometry at high latitude, not
+ * absent geometry, and should change the spec's stated guarantee rather than let it drift.
+ */
+export const CTX_SCOPE_READ_MAX_TILES_AREA = 225;
+
+/**
+ * ⛔ §SCOPE-FILL (L-13098) — THE TILE BUDGET FOR A **POINT** SCOPE READ: **576**, and this class
+ * exists because the measurement above came out the OPPOSITE WAY for points.
+ *
+ * `trees`, over the same regions and the same method:
+ *
+ * | region                    | z15 | z16 | ratio |
+ * |---------------------------|-----|-----|-------|
+ * | Barcelona 15/16581/12238  | 285 | 711 | 0.401 |
+ * | Madrid    15/16046/12355  | 326 | 816 | 0.400 |
+ * | Barcelona z14 vs z15      | 571 |1 429| 0.400 |
+ *
+ * **A point layer loses 60 % of its features at EVERY zoom step, in both cities, at every step.**
+ * The constant 0.400 = 1/2.5 identifies the cause exactly, and it is NOT the flag this file has
+ * been blaming: it is tippecanoe's **default `--drop-rate 2.5` dot-dropping for point layers**,
+ * which `tools/context-bake/bake.mjs` passes no `-r` override against. The z15 trees tile is
+ * **2 020 bytes** — 0.4 % of the size limit — so `--drop-densest-as-needed` demonstrably did not
+ * fire. Dot-dropping is unconditional; it does not need a dense tile.
+ *
+ * ⭐ SO POINTS GET THE BIG BUDGET AND AREAS GET THE SMALL ONE — THE EXACT INVERSE OF WHAT THIS
+ * FILE ASSUMED. And it is affordable precisely because trees tiles are tiny: measured z16 mean
+ * 1 366 B, so the 529-tile 10 km read is **0.7 MB**, against 7.9–14 MB for the buildings layer.
+ *
+ * 576 = 24×24 holds z16 to a measured 5 225 m at Barcelona, 5 389 Madrid, 5 712 Córdoba, 5 432
+ * Lisbon, 3 512 Oslo, 3 032 Reykjavík (bisected with `scopeReadCompleteCeilingM`). ⚠ It also lifts
+ * Oslo and Reykjavík to z16 at the DEFAULT scope, where they read z15 today — i.e. the northern
+ * canopy has been 60 % thin since it shipped, and this is the first budget that notices.
+ *
+ * ⛔ PAST THAT RADIUS THE READ MUST BE CLAMPED, NOT STEPPED. A zoom step thins the canopy
+ * EVERYWHERE IN THE BOX, including the trees at the founder's own site — so a wider slab really
+ * would make the near view worse, which is the thing the (false) buildings folklore was invented
+ * to prevent and which is TRUE here. `treesRadiusM(scope, ceiling)` takes the measured per-site
+ * ceiling and clamps; widening the slider then only ever ADDS trees, never removes one.
+ */
+export const CTX_SCOPE_READ_MAX_TILES_POINTS = 576;
+
+/**
  * §SITE-SCOPE F-2 — the per-read tile fan-out cap for a scope-derived read. Every baked layer is
  * built with `--drop-densest-as-needed` (`tools/context-bake/bake.mjs` LAYERS), so a read that
  * `zoomForExtent` steps below z16 does not coarsen a dense tile, it DELETES features from it — the
@@ -453,14 +695,33 @@ export function groundFetchHalfDeg(scope: SiteContextScope = DEFAULT_SITE_CONTEX
  * only buys a finer zoom nobody looks at (3.3× the requests to tint the same ground).
  * `undefined` = the layer's own default cap.
  */
-export function scopeReadFanOutCap(halfDeg: number): number | undefined {
-    // ⛔ THE CEILING IS THE READ-COMPLETE ONE, NOT THE SLIDER MAX (corrected 2026-09-07 with the
-    // raise). 112 was measured at 0.016° with ~28 % headroom; a 0.032° read is 272 tiles at
-    // Barcelona, so handing it the 112 cap would not keep it at z16 — it would just step to z15
-    // one cap later, which is the same silent deletion wearing a bigger number. Past the ceiling
-    // the layer takes its own default and the slider states the cost.
-    const ceiling = farFetchHalfDeg({ shape: 'circle', radiusM: CTX_SCOPE_READ_COMPLETE_CEILING_M });
-    return halfDeg <= ceiling + 1e-9 ? CTX_BUILDINGS_MAX_TILES_PER_FETCH : undefined;
+export function scopeReadFanOutCap(
+    halfDeg: number,
+    /** §SCOPE-FILL — which budget applies. `area` (default) is every polygon/linestring layer;
+     *  `points` is the DOT-DROPPED layers. The two are measured facts, not preferences — see the
+     *  constants. */
+    cls: ScopeReadClass = 'area',
+): number | undefined {
+    if (!Number.isFinite(halfDeg) || halfDeg <= 0) return undefined;
+    // ⭐ §SCOPE-FILL (L-13098) — THE GUARD IS THE SLIDER MAX, NOT THE READ-COMPLETE CEILING, AND
+    // THE INVERSION IS THE POINT OF THE LANE. It used to read:
+    //
+    //     const ceiling = farFetchHalfDeg({ shape: 'circle', radiusM: CTX_SCOPE_READ_COMPLETE_CEILING_M });
+    //     return halfDeg <= ceiling + 1e-9 ? CTX_BUILDINGS_MAX_TILES_PER_FETCH : undefined;
+    //
+    // i.e. a read INSIDE 1 781 m got the 112 cap and every read OUTSIDE it fell back to the layer's
+    // own default — **64**. That is a CLIFF, and it falls the wrong way: the wider the founder set
+    // his slab, the SMALLER the tile budget the read was handed, so the zoom stepped down twice as
+    // fast as the extent grew. Widening the scope actively degraded the read that was supposed to
+    // fill it.
+    //
+    // Past the slider's own maximum the caller is not a scope read at all: it is the 8 km land-use
+    // wash (0.072°) or the 11 km sea (0.10°). Those keep their own default — for them a bigger cap
+    // buys only a finer zoom nobody looks at (measured: landuse z13/30 tiles at cap 64 → z14/100
+    // tiles at cap 144, 3.3× the range requests to tint the same ground).
+    const sliderCeiling = farFetchHalfDeg({ shape: 'circle', radiusM: CTX_SCOPE_MAX_RADIUS_M });
+    if (halfDeg > sliderCeiling + 1e-9) return undefined;
+    return cls === 'points' ? CTX_SCOPE_READ_MAX_TILES_POINTS : CTX_SCOPE_READ_MAX_TILES_AREA;
 }
 
 // ── fetch half-extents (degrees of latitude) ────────────────────────────────────────────────
@@ -589,6 +850,86 @@ export const CTX_TOTAL_MAX_BUILDINGS = 14000;
  * the drawn count and this cap, so the console says which one bound.
  */
 export const CTX_FAR_TIER_MAX_INSTANCES = 8000;
+
+/**
+ * ⭐⭐ §SCOPE-FILL (L-13098) — THE SECOND CEILING, AND FIXING ONLY THE READ WOULD HAVE LEFT IT
+ * BINDING. This repo has the scar (`three-invalidation-gates-in-series`, L-813): an upstream gate
+ * hid two downstream fixes, and the fix that landed measured nothing.
+ *
+ * THE ARITHMETIC, at the founder's own Barcelona density (16 633 footprints in his 3 562 m box =
+ * 12.7 km² → ~1 310 /km²):
+ *
+ * | scope radius | disc area | eligible far footprints | drawn at cap 8 000 | effective radius |
+ * |--------------|-----------|-------------------------|--------------------|------------------|
+ * |  1 781 m     |  10.0 km² |         ~13 000         |        8 000       |     ~1 400 m     |
+ * |  3 562 m     |  39.9 km² |         ~52 000         |        8 000       |     ~1 400 m     |
+ * |  7 071 m     | 157.1 km² |        ~206 000         |        8 000       |     ~1 400 m     |
+ *
+ * ⛔ READ THE LAST COLUMN. A nearest-first count cap does not thin a disc uniformly — it re-imposes
+ * a FIXED radius, so with the cap unchanged the founder's 10 km slab would have drawn buildings to
+ * exactly the same ~1.4 km it draws today, and the whole read fix would have been invisible to him.
+ * That is the failure this constant exists to not repeat.
+ *
+ * ⭐ SO THE CAP FOLLOWS THE SCOPE'S AREA, AND THE DEFAULT SCOPE IS BYTE-IDENTICAL TO BEFORE. That
+ * property is the point: nobody who does not touch the slider pays anything, so this is an
+ * unmeasured cost only where the user has explicitly asked for more, and it is reversible by
+ * dragging back. `k = (r / 1781)²` — the area ratio, because that is what the footprint count
+ * scales with — clamped to [1, ceiling/base].
+ *
+ * WHY 24 000 IS THE CEILING AND WHY IT IS SAFER THAN IT LOOKS. The far tier is ONE
+ * `Cesium.Primitive` with ONE `PerInstanceColorAppearance`, `ShadowMode.DISABLED`, and
+ * **`asynchronous: true`** (`CesiumViewport.ts` §FEAT-FORMA-CONTEXT-EXTENT-LOD) — so the
+ * per-footprint triangulation that dominates the build runs on Cesium's own worker, off the single
+ * rAF (P3), and what reaches the GPU is one draw call of ~24 000 clamped extruded boxes ≈ 380 k
+ * triangles. 3× the instances is 3× the worker time, not 3× the frame time.
+ *
+ * ⚠ STILL NOT A MEASURED FRAME-TIME BUDGET — no GPU capture stands behind 24 000, exactly as none
+ * stood behind 8 000. What is different is that the console now prints which of the two bounds
+ * bit (`the CAP is binding … / the RADIUS is binding …`), so the founder can answer it from his own
+ * log instead of from this comment. ⭐ IF FRAME TIME DEGRADES, THIS IS THE FIRST NUMBER TO BRING
+ * DOWN.
+ */
+export const CTX_FAR_TIER_MAX_INSTANCES_CEILING = 24_000;
+
+/**
+ * §SCOPE-FILL — the whole-scene footprint budget's ceiling, derived from the parts exactly as
+ * `CTX_TOTAL_MAX_BUILDINGS` is: ≤1 600 shadow casters + ~3 840 demoted true-height near entities
+ * (both unchanged, both bounded by `CTX_NEAR_SOLID_RADIUS_CEILING_M` which does NOT follow the
+ * slider) + up to 24 000 in the instanced far tier ≈ 29 440. 30 000 sits just above the sum of the
+ * tiers it governs rather than being an independent guess.
+ */
+export const CTX_TOTAL_MAX_BUILDINGS_CEILING = 30_000;
+
+/** The area ratio of a scope of `radiusM` to the DEFAULT scope, floored at 1. PURE. */
+function scopeAreaRatio(radiusM: number): number {
+    if (!Number.isFinite(radiusM) || radiusM <= 0) return 1;
+    const k = (radiusM / DEFAULT_SCOPE_RADIUS_M) ** 2;
+    return k > 1 ? k : 1;
+}
+
+/**
+ * §SCOPE-FILL — the instanced far tier's nearest-first count cap AT THIS SCOPE.
+ * `base × area-ratio`, clamped to the ceiling. `radiusM` is the far tier's own radius
+ * (`farTierRadiusM(scope)`), not a fetch extent.
+ */
+export function farTierMaxInstances(radiusM: number): number {
+    return Math.min(
+        CTX_FAR_TIER_MAX_INSTANCES_CEILING,
+        Math.round(CTX_FAR_TIER_MAX_INSTANCES * scopeAreaRatio(radiusM)),
+    );
+}
+
+/**
+ * §SCOPE-FILL — the whole-scene near+far footprint budget AT THIS SCOPE. The near tiers do not grow
+ * with it (`CTX_NEAR_SOLID_RADIUS_CEILING_M` and `CTX_SHADOW_RADIUS_CEILING_M` are fixed), so every
+ * footprint this adds lands in the ONE shadowless instanced primitive.
+ */
+export function totalMaxBuildings(radiusM: number): number {
+    return Math.min(
+        CTX_TOTAL_MAX_BUILDINGS_CEILING,
+        Math.round(CTX_TOTAL_MAX_BUILDINGS * scopeAreaRatio(radiusM)),
+    );
+}
 
 /**
  * §CTX-EXTENT-BUDGET — mapped tree canopies in the ONE instanced tree primitive: **1500 → 3000.**

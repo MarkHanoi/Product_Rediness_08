@@ -153,7 +153,8 @@ related L-637 (sea), L-639 (terrain), L-454 (near-cap) · **§7 below — the SC
 ### 7.1 — What changes in the mental model of §0
 
 The concentric tiers of §0 (T0 terrain · Tsea · T1 solid · T2 far) all live INSIDE one bounded
-**scope** — a circle or a rectangle about the site frame origin, 150–1781 m today — and nothing at
+**scope** — a circle or a rectangle about **the anchor of §7.7** (the committed parcel; the site
+frame origin before one exists), 150–1781 m today — and nothing at
 all is drawn outside it: the terrain is cut on a vertical edge with a neutral slab side, the ground
 layers and the sea stop at the edge, a building on the edge is sectioned, trees and people beyond it
 are not placed, and the outside is the flat pale backdrop. The scope is ONE persisted value
@@ -204,3 +205,73 @@ D2). Not on the undo stack (D8).
 6. `siteDispatch.ts` — `dispatchSiteScope` calling `siteSetScope` and emitting `site.scope-changed` (the existing `siteUpdateZoning` shape).
 7. `ProjectSerializer.ts` — nothing: `site` already round-trips the whole `SiteModel`.
 8. `docs/02-decisions/contracts/C19-SITE-MODEL-AND-PARCEL.md` §2.1 — the `scope` field row (owed).
+
+
+### 7.7 — WHERE the slab is centred: the anchor (L-13082 + L-13086, 2026-09-07)
+
+> **Founder:** *"the 3d view should not change the scope as you move on the view — not anymore —
+> now it always would center statically the scope depending on the parcel that has been selected on
+> plan view."*
+
+That sentence carries **two** requirements with **two different histories**. They are recorded
+separately because closing them as one would leave the second undone behind a plausible fix.
+
+**(1) The scope must not follow the camera. REAL, and it was a genuine defect — L-13082, fixed in
+`ff60ce85` (lane SCOPE-CUT-2).** `maybeRefreshContextOnPan` reloaded about the CAMERA ground point;
+`loadContextBuildings(lat, lon)` sets `contextBuildingsAt` and then arms `applySiteScopeClip(lat,
+lon)`, which raises the globe cut, the slab side and every per-layer geometric clip through
+`scopeClipperFor` — so the whole slab followed the view. Widening the slider makes it fire MORE
+often, because a wider slab must be viewed from further out: the ask and the defect were the same
+change. The refresh itself is KEPT (it exists for a real report — "buildings stop showing as I
+move"); only the CENTRE moved.
+
+**(2) The centre must be the PARCEL. Not closed by (1) — L-13086.** Every trigger of a scope rebuild
+was enumerated before concluding this, because an anchor built for a drift that does not exist is a
+new defect wearing a founder quote:
+
+| trigger | site | origin it passes | verdict |
+|---|---|---|---|
+| `camera.moveEnd` → `maybeRefreshContextOnPan` | `CesiumViewport.ts` | pinned to `formaMassingOrigin ?? contextBuildingsAt` | **was the camera — fixed, L-13082** |
+| terrain settle → `rebuildSiteScopeClipForBase` | `CesiumViewport.ts` | `siteScopeClipAt ?? contextBuildingsAt` | derived |
+| scope slider → `setContextScope` | `CesiumViewport.ts` | `contextBuildingsAt` | derived |
+| terrain ON/OFF → `setFormaTerrainEnabled` | `CesiumViewport.ts` | `contextBuildingsAt ?? formaMassingOrigin` | derived |
+| photoreal restore | `CesiumViewport.ts` | `readSiteLocation()` = LTP ?? address | frame-first |
+| massing render → `renderFormaMassing` | `CesiumViewport.ts` | the LTP-ENU origin | frame |
+| **`site.location-changed`** | `CesiumViewport.ts` | **the RAW EVENT ADDRESS** | **the one live gap — L-13086** |
+
+The last row is the only path that centred the slab on a point that is not the site frame — and the
+SAME handler, eleven lines above it, already refuses to do this for the CAMERA (§L-259 defect (ii),
+*"the camera must follow the BUILDING whenever one is placed"*) and prints
+`originSeparationMeters` for it. The camera got that fix in June; the scope never did. After a
+post-commit address edit the slab jumped to the address while the parcel and the building stayed
+put, so the parcel could sit off-centre in — or outside — its own scope.
+
+**Hypothesis (B) is FALSIFIED, and the falsification is worth keeping.** A camera-derived CONTENT
+radius against a location-derived SLAB would produce the same complaint and needs the opposite fix.
+It does not exist here: every per-layer clip keys on the loader's `(lat, lon)` through
+`scopeClipperFor`, never on the camera, and `contextExtentBudget.ts` states the prohibition in its
+own words — *"a cap grant that moves with the camera's latitude would make a read's zoom depend on
+where the user flew from."*
+
+**The anchor.** `scopeAnchor.ts` (pure; no Cesium/THREE/DOM) decides it, strongest first:
+
+1. **the committed parcel's AREA centroid** (`committedParcelLonLat`), then
+2. **the site frame origin** — which is the parcel's **FIRST VERTEX**, because `parcelFrameOrigin`
+   deliberately returns it so the project-origin datum lands ON the boundary at scene (0,0). A corner
+   is the right answer for that datum and the wrong one for a centre; `CesiumViewport`'s own
+   §SITE-FRAME-PROBE names this "the anchor-vs-parcel-centroid split" and prints its metres. Tens of
+   metres on a city lot, hundreds on a rural or industrial parcel, then
+3. **the caller's own point** — the honest **pre-parcel** case, stated as such.
+
+A candidate is adopted only when it is within the **scope's own circumscribing radius** of the
+requested centre — no constant is minted for "same site". Beyond it, the address wins, and that is
+required, not a hedge: on a real site move `site.location-changed` fires BEFORE
+`renderFormaMassing` re-seats the anchor, so both parcel candidates still hold the PREVIOUS parcel,
+and adopting one would rebuild every layer at the old site (§CTX-RESEAT-ANCHOR-IS-CURRENT-SITE,
+L-12964). An unusable requested centre (non-finite, or `0,0`) is returned **unchanged** so
+`applySiteScopeClip`'s existing refusal is what speaks — an anchor must never substitute for a
+missing origin. Every outcome prints its source and its reason, so "the anchor held" and "there was
+no anchor" can never be read as the same observation.
+
+Pinned by `apps/editor/src/ui/geospatial/__tests__/scopeAnchor.spec.ts`, including a source-text arm
+on the one production call site (the unit arms all pass against a module nobody calls).

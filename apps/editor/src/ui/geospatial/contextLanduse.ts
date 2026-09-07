@@ -56,6 +56,31 @@ export function classifyLanduse(v: string | undefined): LanduseKind | null {
 }
 
 const cache = new Map<string, ContextLanduseCollection>();
+
+/**
+ * §CTX-ONE-READ-PER-BBOX (L-585) EXTENDED TO LANDUSE (L-13110, founder Barcelona 2026-09-07).
+ *
+ * ⭐ THE MEASURED DEFECT. The founder's first Barcelona load prints
+ * `§CTX-PMTILES-READER landuse: 2265 area(s) from 30 baked tile(s)` **THREE TIMES** — 3754 ms, then
+ * twice at 1486 ms. Same feature count, same tile count, three lines, and the two later ones end at
+ * the same instant as the first.
+ *
+ * ⚠ WHAT IS AND IS NOT DUPLICATED, both halves stated (§CONTEXT-DATA-HONESTY):
+ *   · THE BYTES ARE NOT. `contextTiles`' `tileInFlight` shares each tile's promise before it settles,
+ *     so callers 2 and 3 WAITED on caller 1's download rather than paying for a second one.
+ *   · THE READ ABOVE THE TILES WAS. This module had a resolved-value cache and no in-flight map, so
+ *     three overlapping callers each ran a full `readContextTileFeatures` — three tile-list
+ *     computations, three `Promise.all` over 30 tiles, three per-read bbox CROPS, and three
+ *     `landuseFromTileFeatures` passes building 2,265 areas. The cache is only populated on
+ *     COMPLETION, so it cannot help callers issued while the first read is still in flight — and on
+ *     the onboarding flow they always are (`warmAllContextLayers` at the `city` stage, the 3D-Site
+ *     pane mount, and the re-render after the terrain sample lands).
+ *
+ * ⛔ THE SAME DEFECT L-585 FIXED FOR BUILDINGS AND NEVER PROPAGATED — see `contextParks.inFlight`
+ * for the full note. The shared read deliberately takes NO abort signal; each caller honours its own
+ * after the await (§L-579), so an abort cancels the RENDER, never a download others are awaiting.
+ */
+const inFlight = new Map<string, Promise<ContextLanduseCollection>>();
 let warnedOnce = false;
 
 function bboxKey(b: Bbox): string { return 'landuse:' + b.map((n) => n.toFixed(4)).join(','); }
@@ -145,10 +170,28 @@ export async function fetchContextLanduse(
     const hit = cache.get(key);
     if (hit) return hit;
 
+    // §CTX-ONE-READ-PER-BBOX (L-585 / L-13110) — de-duplicate ABOVE the tile read, see `inFlight`.
+    let shared = inFlight.get(key);
+    if (!shared) {
+        shared = readLanduseForBbox(bbox, key, halfDeg).finally(() => { inFlight.delete(key); });
+        inFlight.set(key, shared);
+    }
+    const collection = await shared;
+    // ⚠ EACH CALLER HONOURS ITS OWN SIGNAL, AFTER THE SHARED READ (§L-579).
+    if (signal?.aborted) return emptyLanduseCollection();
+    return collection;
+}
+
+/** The ONE read for a bbox — tiles first, Overpass as the failure fallback. Called only through
+ *  `fetchContextLanduse`, which owns the cache and the one-read-per-bbox guarantee. Never throws.
+ *  ⚠ Takes NO `AbortSignal` by design — see `inFlight`. */
+async function readLanduseForBbox(
+    bbox: Bbox, key: string, halfDeg: number,
+): Promise<ContextLanduseCollection> {
     // Baked tiles FIRST (mirrors contextParks); Overpass only on a real read failure.
     // §SITE-SCOPE F-2 — a scope-range read (the near/scope call) takes the z16-safe cap; the 8 km
     // wash keeps the default (a finer zoom nobody looks at).
-    const tiled = await readContextTileFeatures('landuse', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) });
+    const tiled = await readContextTileFeatures('landuse', bbox, undefined, { fanOutCap: scopeReadFanOutCap(halfDeg) });
     if (tiled.status === 'ok') {
         const collection = landuseFromTileFeatures(tiled.features);
         cache.set(key, collection);
@@ -168,8 +211,7 @@ export async function fetchContextLanduse(
 
     const query = overpassLanduseQuery(bbox);
 
-    const viaProxy = await fetchOverpassViaProxy<OverpassEl>(query, signal);
-    if (signal?.aborted) return emptyLanduseCollection();
+    const viaProxy = await fetchOverpassViaProxy<OverpassEl>(query);
     if (viaProxy) {
         const collection = landuseFromElements(viaProxy.elements ?? []);
         cache.set(key, collection);
@@ -184,8 +226,6 @@ export async function fetchContextLanduse(
             () => ctrl.abort(new DOMException(`Overpass timeout after ${OVERPASS_TIMEOUT_MS}ms (mirror slow/rate-limited)`, 'TimeoutError')),
             OVERPASS_TIMEOUT_MS,
         );
-        const onAbort = (): void => ctrl.abort(new DOMException('caller cancelled (view/location change)', 'AbortError'));
-        signal?.addEventListener('abort', onAbort, { once: true });
         try {
             const res = await fetch(endpoint, {
                 method: 'POST',
@@ -202,11 +242,9 @@ export async function fetchContextLanduse(
             console.log(`[gis] context landuse: ${collection.areas.length} area(s) for bbox ${key} via ${new URL(endpoint).host}.`);
             return collection;
         } catch (e) {
-            if (signal?.aborted) return emptyLanduseCollection();
             console.warn(`[gis] context landuse: ${endpoint} fetch failed — next mirror:`, e);
         } finally {
             clearTimeout(timer);
-            signal?.removeEventListener('abort', onAbort);
         }
     }
     if (!warnedOnce) {

@@ -75,9 +75,15 @@ export interface SiteScopeSliderPorts {
         /**
          * WHY the mark sits there — and the two are NOT interchangeable to a user:
          *   `cap`  — a render cap: past the mark the rim is THINNED (the nearest N are drawn).
-         *   `read` — the z16 tile read: past the mark the bake has already DELETED features from
-         *            dense cores, so the rim is MISSING, not thinned. A bigger slab draws FEWER
-         *            buildings. This is the ceiling the founder's "4x the area" ask runs into.
+         *   `read` — the z16 tile read. ⛔ CORRECTED 2026-09-07 (lane SCOPE-FILL, L-13098): this
+         *            read *"past the mark the bake has already DELETED features from dense cores,
+         *            so the rim is MISSING, not thinned. A bigger slab draws FEWER buildings"* —
+         *            measured false for buildings and for every polygon/linestring layer, whose
+         *            feature sets are identical from z16 down to z13. It is TRUE for the POINT
+         *            layers (trees), which lose 60 % per zoom step to tippecanoe's default
+         *            `--drop-rate 2.5` — so the tree read is CLAMPED at this radius rather than
+         *            stepped, and what this mark now means is "the trees stop here", not "the
+         *            buildings thin out here".
          *   `none` — nothing bites at the measured scope.
          */
         readonly kind: 'cap' | 'read' | 'none';
@@ -176,17 +182,37 @@ export function completenessCaption(
     const parts: string[] = [];
 
     // ⭐ THE READ SENTENCE COMES FIRST AND IS NEVER REPLACED BY A CAP LINE (lane SCOPE-CUT,
-    // 2026-09-07). It reports a WORSE fact than any cap: a cap THINS the rim (the nearest N are
-    // still the nearest N), while past the read ceiling the bake's `--drop-densest-as-needed` has
-    // already DELETED footprints from dense cores, so a wider slab draws FEWER buildings than a
-    // narrower one. Ordering it behind the cap lines — which is what a plain `if (biting) return`
-    // did — would have hidden the only sentence that answers the founder's own constraint,
-    // "within the scope should be sound", at exactly the scope he asked for.
+    // 2026-09-07). It reports a DIFFERENT fact from any cap and the two must not queue behind each
+    // other: a cap THINS a rim that is present, a read ceiling says a layer is not there at all.
+    //
+    // ⛔⛔ THE SENTENCE ITSELF WAS REPLACED 2026-09-07 (lane SCOPE-FILL, L-13098) BECAUSE IT WAS
+    // FALSE, AND FALSE IN THE ONE DIRECTION THAT COSTS THE PRODUCT ITS OWN FEATURE. It read:
+    //
+    //   "Past ~1 781 m, the zoom-16 building + canopy read steps to a coarser zoom — and the bake
+    //    deletes footprints from dense cores rather than coarsening them, so a wider slab draws
+    //    FEWER buildings, not more. The slab still crops exactly where you set it."
+    //
+    // Measured against the SHIPPED tiles (`buildings.pmtiles?v=L663a`), one z15 tile against its
+    // four z16 children over identical ground: Barcelona **953 footprints vs 953**, Madrid
+    // **1 305 vs 1 305**, clipped footprint area agreeing to 0.02 %, height provenance identical to
+    // the last unit; and it holds down to z13. `--drop-densest-as-needed` fires only above
+    // tippecanoe's ~500 KB tile limit, and the largest z15 buildings tile sampled is 13 % of it. The
+    // flag was passed and never fired. **A wider slab does not draw fewer buildings.** The product
+    // was apologising, in its own copy, for a limit it did not have — and the apology had been
+    // hard-wired into the READ as well, which is why the founder's 5 035 m slab really was empty:
+    // not because the bake had deleted anything, but because the fetch bbox was frozen at 1 781 m.
+    //
+    // WHAT IS TRUE, and is what this sentence now says: the CANOPY is a point layer, and a point
+    // layer loses a measured 60 % of its features per zoom step to tippecanoe's DEFAULT
+    // `--drop-rate 2.5` (0.400 at Barcelona AND Madrid AND at z14/z15 — three pairs, one constant).
+    // A zoom step thins the trees in the WHOLE box, including beside the site, so the tree read is
+    // CLAMPED at this ceiling rather than stepped. The trees therefore stop; nothing is thinned.
     if (mark !== null && mark.kind === 'read' && r > mark.radiusM + 0.5) {
         parts.push(
-            `Past ~${formatMetres(mark.radiusM)} m, ${mark.boundBy} steps to a coarser zoom — and the bake ` +
-                'deletes footprints from dense cores rather than coarsening them, so a wider slab draws FEWER ' +
-                'buildings, not more. The slab still crops exactly where you set it.',
+            `Buildings, roads, rail, water and parks fill the whole slab. Trees stop at ` +
+                `~${formatMetres(mark.radiusM)} m — past that the canopy tiles coarsen and drop ~60 % of their ` +
+                'points everywhere in the box, including beside your site, so the tree ring is held at the ' +
+                'last radius that reads complete instead. Street furniture and people stop at 2 500 m.',
         );
     }
     if (biting.length > 0) parts.push(...biting.map((v) => v.line));
@@ -196,11 +222,18 @@ export function completenessCaption(
         return 'Completeness inside the scope has not been measured yet — it is reported after the context loads.';
     }
     if (r <= mark.radiusM + 0.5) {
+        // ⚠ THE WORD "COMPLETE" IS A PROMISE AND IT IS SCOPED TO WHAT WAS MEASURED. `mark` is
+        // min(the measured per-layer cap densities from the LAST load, the per-site z16 canopy
+        // ceiling). It says nothing about a layer that has never reported a density — which is why
+        // the `mark === null` branch above says "not measured yet" rather than "complete"
+        // (§CONTEXT-DATA-HONESTY: a failure and an empty are different values, and so are an
+        // unmeasured and a clean one).
         return `Complete at this scope — every mapped feature inside it is drawn (measured to ~${formatMetres(mark.radiusM)} m).`;
     }
     return (
-        `Past the complete mark: beyond ~${formatMetres(mark.radiusM)} m the ${mark.boundBy} cap thins the rim. ` +
-        'Drag back to the mark, or read the per-layer numbers in the console.'
+        `Past the complete mark: beyond ~${formatMetres(mark.radiusM)} m the ${mark.boundBy} cap thins the rim — ` +
+        'the nearest are kept, so nothing near you is lost. Drag back to the mark, or read the per-layer ' +
+        'numbers in the console.'
     );
 }
 

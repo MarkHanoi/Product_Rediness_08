@@ -7,7 +7,7 @@
 import { ctxbldRead, ctxbldWrite } from './contextBuildingsCache';
 // §CTX-PMTILES-READER (L-513b) — the baked-tiles source that REPLACES live Overpass on the hot
 // path. See `contextTiles.ts` for why Overpass could never be made reliable from the client.
-import { readContextTileFeatures, contextTilesEnabled, type ContextTileFeature } from './contextTiles';
+import { readContextTileFeatures, contextTilesEnabled, tileReadStepsBelowFullZoom, type ContextTileFeature } from './contextTiles';
 // §CTX-USE-COLOUR (L-599) — the pure "what does OSM say this building IS" resolver. Applied at
 // collection-build time so BOTH source paths (Overpass + baked tiles) carry the same raw tag.
 import { resolveUseTag } from './contextBuildingUse';
@@ -27,8 +27,11 @@ import {
     CTX_FAR_HALF_DEG,
     CTX_FAR_MIN_BUILDINGS,
     CTX_TOTAL_MAX_BUILDINGS,
+    METRES_PER_DEG_LAT,
+    totalMaxBuildings,
     CTX_NEAR_SHADOW_RADIUS_M,
     CTX_NEAR_MAX_SHADOW_CASTERS,
+    scopeReadFanOutCap,
 } from './contextExtentBudget';
 //
 // WHY THIS EXISTS
@@ -1096,12 +1099,24 @@ async function fetchForBboxUncached(bbox: Bbox): Promise<ContextBuildingCollecti
     // re-asking a flaky third party for a second opinion on it would reintroduce the very
     // failure-looks-like-empty conflation this whole change exists to remove
     // (§CONTEXT-DATA-HONESTY, L-422/457/467/469).
-    const tiled = await readContextTileFeatures('buildings', bbox, signal);
+    // §SCOPE-FILL (L-13098) — THE FAN-OUT CAP IS DERIVED FROM THE BBOX, NOT PASSED IN, and that is
+    // deliberate: this function is the §CTX-ONE-READ-PER-BBOX chokepoint and its cache key IS the
+    // bbox, so a cap carried alongside the bbox could differ between two callers who share one
+    // cached read — the same read would then be attributed two different zooms. Recovering the
+    // half-extent from the box makes the cap a pure function of the cache key and cannot drift.
+    // At the default scope this is the 112 the buildings layer already had; past it, it is the
+    // measured ramp in `scopeReadFanOutCap`, which is what keeps a widened slab at z16.
+    const bboxHalfDeg = Math.abs(bbox[3] - bbox[1]) / 2;
+    const tiled = await readContextTileFeatures('buildings', bbox, signal, {
+        fanOutCap: scopeReadFanOutCap(bboxHalfDeg),
+    });
     if (tiled.status === 'ok') {
         const collection = tilesToCollection(tiled.features);
         console.log(
             `[gis] §CTX-PMTILES-READER buildings: ${collection.features.length} footprint(s) from ` +
-                `${tiled.tilesRead} baked tile(s) in ${tiled.ms} ms — no Overpass call.`,
+                `${tiled.tilesRead} baked tile(s) in ${tiled.ms} ms — no Overpass call ` +
+                `(§SCOPE-FILL half-extent ${bboxHalfDeg.toFixed(4)}°, fan-out cap ` +
+                `${String(scopeReadFanOutCap(bboxHalfDeg) ?? 'layer default')}).`,
         );
         // §CTX-TILE-READ-HONESTY (L-778) — a PARTIAL read (some tiles failed but footprints were
         // recovered) renders now but must NOT be memoised: caching it would pin a transient
@@ -1701,6 +1716,22 @@ export async function fetchContextBuildingsNearAndFar(
     lon: number,
     signal?: AbortSignal,
     cap: number = CONTEXT_FAR_MAX_BUILDINGS,
+    /**
+     * §SCOPE-FILL (L-13098, 2026-09-07) — THE FAR HALF-EXTENT, AND ITS ABSENCE WAS THE WHOLE
+     * DEFECT. Until this parameter existed the far bbox was `CONTEXT_BBOX_FAR_HALF_DEG`, a
+     * MODULE-LOAD constant frozen at `farFetchHalfDeg(DEFAULT_SITE_CONTEXT_SCOPE)` = 0.016°
+     * (1 781 m). The site-scope slider therefore reached the far tier's RENDER cull
+     * (`farTierRadiusM(scope)`) and the globe clip, but **never the read** — so a 5 035 m slab
+     * cropped where the founder set it and was filled with the 1 781 m of buildings that were the
+     * only ones ever downloaded. Founder, verbatim: *"all the scope should have buildings + water +
+     * trees + roads + train + terrain … at the moment is still contrain to the original radiours"*.
+     *
+     * ⚠ THE DEFAULT IS THE OLD CONSTANT, ON PURPOSE. Six callers (the onboarding prefetch, the
+     * 2D map, the location-change warm) legitimately want the default neighbourhood and must not
+     * start paying a slider they cannot see. Only `CesiumViewport.loadContextBuildings` — the one
+     * caller that HAS a scope — passes `groundFetchHalfDeg(this.contextScope)`.
+     */
+    farHalfDeg: number = CONTEXT_BBOX_FAR_HALF_DEG,
 ): Promise<ContextBuildingsNearFar> {
     const empty: ContextBuildingsNearFar = {
         near: emptyContextCollection(),
@@ -1747,11 +1778,55 @@ export async function fetchContextBuildingsNearAndFar(
     // of data, and a slower first paint, to protect against a failure mode that no longer exists.
     // So on the tiles path we go straight to the single far read and partition it.
     if (contextTilesEnabled()) {
-        const full = await fetchForBbox(contextFetchBbox(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+        const farBbox = contextFetchBbox(lat, lon, farHalfDeg);
+        // ⭐ §SCOPE-FILL (L-13098) — TWO READS WHEN, AND ONLY WHEN, THE WIDE ONE WOULD COARSEN.
+        //
+        // The near ring is extruded to true height, OUTLINED and shadow-casting; the far ring is one
+        // batched shadowless primitive of clamped boxes. Before the site-scope slider both came out
+        // of ONE 0.016° read that always resolved to z16, so they never had to want different
+        // things. At a 10 km slab the same single read resolves to z14 and the NEAR ring silently
+        // inherits it — the founder would have bought his extent by making the buildings around his
+        // own site coarser. So when `tileReadStepsBelowFullZoom` says the wide read will not be
+        // served at z16, the near box (0.008°, ~25 tiles, always inside the cap) is read separately
+        // at full zoom and the near tier is taken from THAT.
+        //
+        // ⚠ THIS IS ABOUT VERTICES, NOT FOOTPRINT COUNT, and the distinction is measured. A coarser
+        // buildings read loses NO footprints (Barcelona 953 at z15 vs 953 across its four z16
+        // children, area to 0.02 %, identical down to z13) — the `--drop-densest-as-needed` story
+        // this file used to tell was folklore, and the extent is safe to widen because of it. What a
+        // coarser read does lose is vertex resolution (median footprint 366 → 351 m², smallest
+        // 6.5 → 6.1 m²), and that IS visible on an outlined building 30 m from the camera.
+        //
+        // ⛔ IT COSTS NOTHING AT THE DEFAULT SCOPE. 81 tiles is inside the budget, the predicate says
+        // z16, and no second read is issued — the §CTX-PMTILES-READER decision to skip the near
+        // hedge on the tiles path is preserved exactly where it was right.
+        const farHedgeCoarse = tileReadStepsBelowFullZoom(
+            'buildings',
+            farBbox as [number, number, number, number],
+            scopeReadFanOutCap(Math.abs(farBbox[3]! - farBbox[1]!) / 2),
+        );
+        const [full, nearRead] = await Promise.all([
+            fetchForBbox(farBbox, signal),
+            farHedgeCoarse
+                ? fetchForBbox(contextFetchBbox(lat, lon, CONTEXT_BBOX_HALF_DEG), signal)
+                : Promise.resolve(null),
+        ]);
         if (signal?.aborted) return empty;
         const nearBbox = contextBboxAround(lat, lon, CONTEXT_BBOX_HALF_DEG);
-        const nearFeatures = selectNearFootprints({ farFeatures: full.features, nearBbox });
-        const nearOsmIds = new Set<number>(nearFeatures.map((f) => f.properties.osmId));
+        const nearFeatures = selectNearFootprints({
+            farFeatures: (nearRead ?? full).features,
+            nearBbox,
+        });
+        // ⛔ EMPTY WHEN THE NEAR RING CAME FROM ITS OWN READ, AND THIS IS NOT AN OPTIMISATION.
+        // `osmId` is `syntheticId * 8 + part`, and `syntheticId` is stable only per (tile, feature
+        // index) — so ids from a z16 near read and a z14 far read COLLIDE by construction, and
+        // handing this set to the far selector would delete real far footprints that happened to
+        // land on a near id. The bbox test below is the exact complement of `selectNearFootprints`
+        // on its own (centroid in / centroid out), so the id set is redundant here, not merely
+        // unsafe. When both tiers come from ONE read it is kept, exactly as it was.
+        const nearOsmIds = nearRead
+            ? new Set<number>()
+            : new Set<number>(nearFeatures.map((f) => f.properties.osmId));
         // §L-579 — spend the WHOLE-SCENE budget the near ring left over rather than a
         // fixed 900 that hard-truncated the far ring in dense fabric. `Math.max` keeps
         // this MONOTONE: it can only ever draw more than before, never less.
@@ -1759,7 +1834,13 @@ export async function fetchContextBuildingsNearAndFar(
         // EFFECTIVE cap. It used to print `cap`, the 900 FLOOR, which on the founder's run
         // coincided with the effective value and made a hard cap bite (900 of 9,902) read as
         // an untouched cap — the misreading that had the far tier filed as radius-bound.
-        const effectiveFarCap = Math.max(cap, resolveFarRingCap(nearFeatures.length));
+        // §SCOPE-FILL (L-13098) — the whole-scene budget follows the READ EXTENT, so a wide slab is not
+        // handed the default scope's budget and then blamed on its radius. `farHalfDeg` is the one
+        // number this function already holds that means "how wide is this scope".
+        const effectiveFarCap = Math.max(
+            cap,
+            resolveFarRingCap(nearFeatures.length, totalMaxBuildings(farHalfDeg * METRES_PER_DEG_LAT)),
+        );
         const farFeatures = selectFarRingFootprints({
             farFeatures: full.features,
             centerLat: lat, centerLon: lon,
@@ -1769,7 +1850,8 @@ export async function fetchContextBuildingsNearAndFar(
         });
         const farCandidates = full.features.length - nearFeatures.length;
         console.log(
-            `[gis] §CTX-PMTILES-READER near+far from ONE baked-tile read: ${nearFeatures.length} near ` +
+            `[gis] §CTX-PMTILES-READER near+far from ${nearRead ? 'TWO baked-tile reads (§SCOPE-FILL: ' +
+                'the wide read would not be served at z16, so the near ring was read separately at full zoom)' : 'ONE baked-tile read'}: ${nearFeatures.length} near ` +
                 `+ ${farFeatures.length} far of ${full.features.length} footprint(s) ` +
                 `(§CTX-EXTENT-BUDGET: far cap ${effectiveFarCap} EFFECTIVE = max(floor ${cap}, ` +
                 `total ${CONTEXT_TOTAL_MAX_BUILDINGS} − near ${nearFeatures.length}); ` +
@@ -1814,7 +1896,7 @@ export async function fetchContextBuildingsNearAndFar(
     let full: Fetched;
     if (nearFirst.features.length > 0) {
         const farPromise = fetchForBbox(
-            contextFetchBbox(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG),
+            contextFetchBbox(lat, lon, farHalfDeg),
             signal,
             // Swallow — a failed BONUS must never reject the whole context fetch, and letting it
             // run on unattended would otherwise be an unhandled rejection.
@@ -1840,7 +1922,7 @@ export async function fetchContextBuildingsNearAndFar(
     } else {
         // Near came back empty, so the far ring is no longer a bonus — it is the only chance of
         // any context at all. Wait for it, as before.
-        full = await fetchForBbox(contextFetchBbox(lat, lon, CONTEXT_BBOX_FAR_HALF_DEG), signal);
+        full = await fetchForBbox(contextFetchBbox(lat, lon, farHalfDeg), signal);
     }
     if (signal?.aborted) return empty;
 
@@ -1866,7 +1948,13 @@ export async function fetchContextBuildingsNearAndFar(
     const nearOsmIds = new Set<number>(nearFeatures.map((f) => f.properties.osmId));
     // §L-579 / §CTX-EXTENT-BUDGET (L-13058) — see the tiles path above for why the EFFECTIVE cap,
     // not the `cap` floor, is the number the log must carry.
-    const effectiveFarCap = Math.max(cap, resolveFarRingCap(nearFeatures.length));
+    // §SCOPE-FILL (L-13098) — the whole-scene budget follows the READ EXTENT, so a wide slab is not
+        // handed the default scope's budget and then blamed on its radius. `farHalfDeg` is the one
+        // number this function already holds that means "how wide is this scope".
+        const effectiveFarCap = Math.max(
+            cap,
+            resolveFarRingCap(nearFeatures.length, totalMaxBuildings(farHalfDeg * METRES_PER_DEG_LAT)),
+        );
     const farFeatures = selectFarRingFootprints({
         farFeatures: full.features,
         centerLat: lat, centerLon: lon,
@@ -1876,7 +1964,7 @@ export async function fetchContextBuildingsNearAndFar(
     });
     const farCandidates = full.features.length - nearFeatures.length;
     console.log(
-        `[gis] §PERF-CTX-SINGLE-FETCH near+far from ONE ${CONTEXT_BBOX_FAR_HALF_DEG}° fetch: ` +
+        `[gis] §PERF-CTX-SINGLE-FETCH near+far from ONE ${farHalfDeg}° fetch: ` +
             `${nearFeatures.length} near (extruded+shadows) + ${farFeatures.length} far ` +
             `(flat/shadowless) of ${full.features.length} footprint(s) ` +
             `(§CTX-EXTENT-BUDGET: far cap ${effectiveFarCap} EFFECTIVE = max(floor ${cap}, ` +

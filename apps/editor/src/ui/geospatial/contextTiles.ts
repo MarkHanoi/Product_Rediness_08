@@ -561,6 +561,41 @@ export function tileCountCovering(bbox: TileBbox, z: number): number {
     return (x1 - x0 + 1) * (y1 - y0 + 1);
 }
 
+/**
+ * §SCOPE-FILL (L-13098) — the zoom this layer's bake carries its UNSIMPLIFIED, UNDROPPED feature
+ * set at. Exported so a caller can ask, before paying for a read, whether the extent it wants will
+ * be served at full detail. PURE.
+ */
+export function layerFullZoom(layer: ContextTileLayer): number {
+    return LAYER_ZOOM[layer];
+}
+
+/**
+ * §SCOPE-FILL (L-13098) — WOULD A READ OF `bbox` STEP BELOW `layer`'s FULL ZOOM?
+ *
+ * ⭐ THIS IS THE PREDICATE THAT MAKES A WIDE SCOPE SAFE, AND IT EXISTS BECAUSE THE SITE-SCOPE
+ * SLIDER MADE ONE READ SERVE TWO TIERS THAT WANT DIFFERENT THINGS. The near ring is extruded to
+ * true height, outlined and shadow-casting — it wants z16 outlines. The far ring is one batched
+ * shadowless primitive of clamped boxes — a z14 outline is indistinguishable in it. Before the
+ * slider both tiers came out of ONE 0.016° read that always resolved to z16, so the question never
+ * arose. At a 10 km slab the same single read resolves to z14/z13, and the NEAR ring would silently
+ * inherit it: the founder would have bought his extent by making the buildings around his own site
+ * worse. This predicate lets a caller notice that and read the near box separately.
+ *
+ * ⚠ It uses `minZoom = 0` rather than the archive's real floor ON PURPOSE. The question is only
+ * "does the cap force a step below full zoom", and the archive floor can only make the answer MORE
+ * coarse, never less — so a 0 floor cannot produce a false NO. It is also PURE (no header read),
+ * which is what lets a caller ask before committing to a fetch.
+ */
+export function tileReadStepsBelowFullZoom(
+    layer: ContextTileLayer,
+    bbox: TileBbox,
+    fanOutCap?: number,
+): boolean {
+    const full = LAYER_ZOOM[layer];
+    return zoomForExtent(bbox, full, 0, fanOutCap ?? tileFanOutCap(layer)) < full;
+}
+
 /** Every tile covering `bbox` at zoom `z`, row-major. PURE + testable. */
 export function tilesCovering(bbox: TileBbox, z: number): Array<{ x: number; y: number }> {
     const [w, s, e, n] = bbox;
@@ -577,6 +612,60 @@ export function tilesCovering(bbox: TileBbox, z: number): Array<{ x: number; y: 
             out.push({ x, y });
         }
     }
+    return out;
+}
+
+/**
+ * §SCOPE-FILL (L-13098, 2026-09-07) — HOW MANY TILE RANGE REQUESTS MAY BE IN THE AIR AT ONCE.
+ *
+ * ⚠ THIS IS NOT A TUNING KNOB, IT IS WHAT MAKES A BIGGER FAN-OUT CAP SAFE. The fan-out was
+ * `await Promise.all(tiles.map(loadTile))` — UNBOUNDED. That was fine while every read was capped
+ * at 64–112 tiles. The site-scope slider now reaches a 10 km slab, where the buildings bbox needs
+ * **1 056 z16 tiles at Barcelona and 2 970 at Reykjavík** (re-run the arithmetic; do not transcribe
+ * these). Issuing 1 056 simultaneous range requests does not go faster — it goes SLOWER and then
+ * fails: the browser queues them behind a per-connection stream limit, every one holds a decode
+ * buffer alive at the same time, and a partial failure takes the whole `Promise.all` down the
+ * `tilesFailed` path at once. Raising the cap without bounding the concurrency would have bought
+ * the founder his extent and handed him the 80-second read §CTX-RANGE-URL-SOURCE exists to have
+ * removed.
+ *
+ * 24 is chosen from the measurement already in this file: §CTX-RANGE-URL-SOURCE measured 36–42
+ * concurrent ranges completing in ~800 ms direct / ~955 ms proxied, i.e. ~24 ms of wall clock per
+ * tile at that width — so a pool of 24 keeps the pipe as full as that measurement ever saw it
+ * while bounding live buffers to 24 tiles instead of the whole bbox.
+ *
+ * ⚠ IT CHANGES NOTHING AT THE DEFAULT SCOPE. 25–81 tiles run in 2–4 waves of 24 with the same
+ * total round trips; the tile cache and `tileInFlight` de-duplication are untouched, so a warm
+ * read still pays nothing (§CTX-READ-PROVENANCE).
+ */
+export const CTX_TILE_READ_CONCURRENCY = 24;
+
+/**
+ * `Promise.all` with a bound. Preserves INPUT ORDER in the result array — the caller indexes
+ * `perTile` against `tiles`, so an order-of-completion result would silently mis-attribute
+ * failures to the wrong tile. PURE over its callback; never throws on its own account.
+ */
+export async function mapWithConcurrency<T, R>(
+    items: readonly T[],
+    limit: number,
+    fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+    const n = items.length;
+    const out = new Array<R>(n);
+    if (n === 0) return out;
+    const width = Math.max(1, Math.min(Math.floor(limit) || 1, n));
+    let next = 0;
+    const workers: Array<Promise<void>> = [];
+    for (let w = 0; w < width; w++) {
+        workers.push((async () => {
+            for (;;) {
+                const i = next++;
+                if (i >= n) return;
+                out[i] = await fn(items[i]!, i);
+            }
+        })());
+    }
+    await Promise.all(workers);
     return out;
 }
 
@@ -1517,8 +1606,8 @@ async function readContextTilesOnce(
     // §CTX-READ-PROVENANCE — count what this read pays for, so the duration below can be read
     // correctly. See `TileReadProvenance`.
     const provenance: TileReadProvenance = { downloaded: 0, fromCache: 0, sharedInFlight: 0 };
-    const perTile = await Promise.all(
-        tiles.map(({ x, y }) => loadTile(archive, layer, z, x, y, signal, provenance)),
+    const perTile = await mapWithConcurrency(tiles, CTX_TILE_READ_CONCURRENCY, ({ x, y }) =>
+        loadTile(archive, layer, z, x, y, signal, provenance),
     );
     if (signal?.aborted) return { status: 'aborted' };
     if (provenance.downloaded === 0 && tiles.length > 0) {

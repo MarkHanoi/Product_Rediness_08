@@ -59,6 +59,40 @@ export interface ContextParkCollection {
 }
 
 const cache = new Map<string, ContextParkCollection>();
+
+/**
+ * §CTX-ONE-READ-PER-BBOX (L-585) EXTENDED TO PARKS (L-13110, founder Barcelona 2026-09-07).
+ *
+ * ⭐ THE MEASURED DEFECT, IN THE FOUNDER'S OWN CONSOLE. His first Barcelona load prints
+ * `§CTX-PMTILES-READER parks: 800 green area(s) from 81 baked tile(s)` **THREE TIMES** — at
+ * 5672 ms, 3401 ms and 3400 ms. Same feature count, same tile count, three lines.
+ *
+ * ⚠ WHAT IS AND IS NOT DUPLICATED — say both, because the naive reading is wrong in one half and
+ * right in the other (§CONTEXT-DATA-HONESTY: a true number, taken to mean the wrong thing).
+ *   · THE BYTES ARE NOT DUPLICATED. `contextTiles`' `tileInFlight` registers each tile's promise
+ *     BEFORE it settles, so callers 2 and 3 share caller 1's download — which is why all three end
+ *     at the SAME INSTANT (5672 − 3401 ≈ 5672 − 3400 ≈ 2.27 s of stagger). That is §CTX-READ-PROVENANCE's
+ *     finding and it stands.
+ *   · THE READ ABOVE THE TILES IS DUPLICATED, AND THAT PART WAS NEVER CLOSED HERE. `fetchContextParks`
+ *     had a RESOLVED-VALUE cache and no in-flight map, so three overlapping callers each ran a full
+ *     `readContextTileFeatures` — three tile-list computations, three `Promise.all` over 81 tiles,
+ *     three per-read bbox CROPS of every feature in those tiles, and three `parksFromTileFeatures`
+ *     passes building 800 rings. The cache is populated on COMPLETION, so it could not help: the
+ *     second and third calls are issued while the first is still in flight.
+ *
+ * ⛔ THIS IS THE SAME DEFECT L-585 FIXED FOR BUILDINGS AND NEVER PROPAGATED. `contextBuildings.fetchForBbox`
+ * carries the identical guard with the identical reasoning ("DE-DUPLICATE **BEFORE** THE TILE READ,
+ * NOT AFTER IT"); `contextRoads`/`contextWater` carry the older §L-323 FIX B form. Parks, landuse,
+ * rail, trees, furniture and canopy carried neither. Three callers overlap on the onboarding flow
+ * by construction — `warmAllContextLayers` at the `city` stage, `CesiumViewport.loadContextParks`
+ * when the 3D-Site pane mounts, and the re-render after the terrain sample lands.
+ *
+ * ⚠ THE SHARED READ DELIBERATELY TAKES NO ABORT SIGNAL, for the reason L-585 states: one caller's
+ * abort must not hand the others an empty result for a read that was nearly done. Each caller still
+ * honours its OWN signal after the await, so a caller that navigated away still renders nothing
+ * (§L-579) — the abort cancels the RENDER, which is what it was always for.
+ */
+const inFlight = new Map<string, Promise<ContextParkCollection>>();
 let warnedOnce = false;
 
 function bboxKey(b: Bbox): string { return 'parks:' + b.map((n) => n.toFixed(4)).join(','); }
@@ -153,11 +187,31 @@ export async function fetchContextParks(
     const hit = cache.get(key);
     if (hit) return hit;
 
+    // §CTX-ONE-READ-PER-BBOX (L-585 / L-13110) — de-duplicate ABOVE the tile read, see `inFlight`.
+    let shared = inFlight.get(key);
+    if (!shared) {
+        shared = readParksForBbox(bbox, key, halfDeg).finally(() => { inFlight.delete(key); });
+        inFlight.set(key, shared);
+    }
+    const collection = await shared;
+    // ⚠ EACH CALLER HONOURS ITS OWN SIGNAL, AFTER THE SHARED READ (§L-579). A caller that navigated
+    // away renders nothing; the shared read still completes and populates the cache for the callers
+    // that are still watching, instead of being thrown away and started again.
+    if (signal?.aborted) return emptyParkCollection();
+    return collection;
+}
+
+/** The ONE read for a bbox — tiles first, Overpass as the failure fallback. Called only through
+ *  `fetchContextParks`, which owns the cache and the one-read-per-bbox guarantee. Never throws.
+ *  ⚠ Takes NO `AbortSignal` by design — see `inFlight`. */
+async function readParksForBbox(
+    bbox: Bbox, key: string, halfDeg: number,
+): Promise<ContextParkCollection> {
     // §CTX-PMTILES-READER (L-513b) — THE BAKED TILES COME FIRST, mirroring contextBuildings. Fall
     // back to Overpass ONLY on `unavailable` (a real read failure); an honest empty `ok` is an ANSWER
     // (§CONTEXT-DATA-HONESTY). `aborted` = caller cancelled → render nothing (§L-579); `disabled`
     // falls through to the Overpass path below unchanged.
-    const tiled = await readContextTileFeatures('parks', bbox, signal, { fanOutCap: scopeReadFanOutCap(halfDeg) }); // §SITE-SCOPE F-2
+    const tiled = await readContextTileFeatures('parks', bbox, undefined, { fanOutCap: scopeReadFanOutCap(halfDeg) }); // §SITE-SCOPE F-2
     if (tiled.status === 'ok') {
         const collection = parksFromTileFeatures(tiled.features);
         cache.set(key, collection);
@@ -179,8 +233,7 @@ export async function fetchContextParks(
 
     // §OVERPASS-PROXY — same-origin proxy FIRST (shared server cache dodges the
     // per-browser 429). `null` = proxy unreachable → direct-mirror fallback below.
-    const viaProxy = await fetchOverpassViaProxy<OverpassEl>(query, signal);
-    if (signal?.aborted) return emptyParkCollection();
+    const viaProxy = await fetchOverpassViaProxy<OverpassEl>(query);
     if (viaProxy) {
         const collection = parksFromElements(viaProxy.elements ?? []);
         cache.set(key, collection);
@@ -197,8 +250,6 @@ export async function fetchContextParks(
             () => ctrl.abort(new DOMException(`Overpass timeout after ${OVERPASS_TIMEOUT_MS}ms (mirror slow/rate-limited)`, 'TimeoutError')),
             OVERPASS_TIMEOUT_MS,
         );
-        const onAbort = (): void => ctrl.abort(new DOMException('caller cancelled (view/location change)', 'AbortError'));
-        signal?.addEventListener('abort', onAbort, { once: true });
         try {
             const res = await fetch(endpoint, {
                 method: 'POST',
@@ -215,11 +266,9 @@ export async function fetchContextParks(
             console.log(`[gis] context parks: ${collection.areas.length} green area(s) for bbox ${key} via ${new URL(endpoint).host}.`);
             return collection;
         } catch (e) {
-            if (signal?.aborted) return emptyParkCollection();
             console.warn(`[gis] context parks: ${endpoint} fetch failed — next mirror:`, e);
         } finally {
             clearTimeout(timer);
-            signal?.removeEventListener('abort', onAbort);
         }
     }
     if (!warnedOnce) {

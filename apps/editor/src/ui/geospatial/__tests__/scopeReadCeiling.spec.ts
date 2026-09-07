@@ -27,7 +27,7 @@ import {
     CTX_SCOPE_READ_COMPLETE_CEILING_M,
     CTX_SCOPE_MIN_RADIUS_M,
     CTX_SCOPE_MAX_RADIUS_M,
-    CTX_BUILDINGS_MAX_TILES_PER_FETCH,
+    CTX_SCOPE_READ_MAX_TILES_POINTS,
 } from '../contextExtentBudget';
 
 const BARCELONA = [41.3874, 2.1686] as const;
@@ -36,24 +36,44 @@ const OSLO = [59.9139, 10.7522] as const;
 const REYKJAVIK = [64.1466, -21.9426] as const;
 
 describe('§SITE-SCOPE D2 — the read ceiling is measured per site', () => {
-    it('the mid-latitude cities keep the constant that was measured on them', () => {
-        // The reference is not wrong — it is wrong OUTSIDE the cities it was measured on. Pinning
-        // that keeps this suite from reading as "the old number was nonsense".
+    it('the mid-latitude cities are never tighter than the reference they define', () => {
         for (const [lat, lon] of [BARCELONA, MADRID]) {
             const c = scopeReadCompleteCeilingM(lat, lon);
-            expect(c.radiusM).toBeGreaterThanOrEqual(CTX_SCOPE_READ_COMPLETE_CEILING_M);
+            // §SCOPE-FILL — the reference is now the SAME BUDGET at the reference latitude, not the
+            // flat 1 781 m. A southern city can only ever tie or beat it.
             expect(c.tighterThanReference).toBe(false);
+            expect(c.radiusM).toBeGreaterThan(CTX_SCOPE_READ_COMPLETE_CEILING_M);
         }
     });
 
-    it('⛔ the NORTH is tighter, and the flat constant over-claimed there', () => {
-        for (const [lat, lon] of [OSLO, REYKJAVIK]) {
-            const c = scopeReadCompleteCeilingM(lat, lon);
-            expect(c.tighterThanReference, `${lat}° should be tighter than the reference`).toBe(true);
-            expect(c.radiusM).toBeLessThan(CTX_SCOPE_READ_COMPLETE_CEILING_M);
-            // The over-claim is not marginal — it is the whole point.
-            expect(CTX_SCOPE_READ_COMPLETE_CEILING_M - c.radiusM).toBeGreaterThan(200);
+    it('⛔ the NORTH is tighter, at EVERY budget — which the flat constant could not express', () => {
+        // ⭐ THE REGRESSION THIS PINS (lane SCOPE-FILL, L-13098). `tighterThanReference` used to be
+        // `radiusM < CTX_SCOPE_READ_COMPLETE_CEILING_M`, i.e. against a hard 1 781 m — the ceiling
+        // the BUILDINGS cap happens to yield in southern Europe. At the 576-tile POINT budget every
+        // one of the six reference cities clears 1 781 m, so that comparison would have reported
+        // Reykjavík as NOT tighter: the flag would have flipped to the exact opposite of the fact it
+        // exists to carry, silently, on a budget change. Comparing to the same budget's ceiling at a
+        // fixed reference latitude is cap-independent, so the property holds at both.
+        for (const cap of [CTX_SCOPE_READ_MAX_TILES_POINTS, 112, 64]) {
+            for (const [lat, lon] of [OSLO, REYKJAVIK]) {
+                const here = scopeReadCompleteCeilingM(lat, lon, cap);
+                const ref = scopeReadCompleteCeilingM(...BARCELONA, cap);
+                expect(here.tighterThanReference, `${lat}° at cap ${cap}`).toBe(true);
+                expect(here.radiusM).toBeLessThan(ref.radiusM);
+                // The over-claim is not marginal — it is the whole point.
+                expect(ref.radiusM - here.radiusM).toBeGreaterThan(200);
+            }
         }
+    });
+
+    it('⭐ the POINT budget is the default, and it reaches materially further than the old one', () => {
+        // The lane's own finding, pinned as a number rather than a sentence: `trees` is the only
+        // layer a coarser read actually costs (tippecanoe's default --drop-rate 2.5, measured 0.400
+        // per step), so the ceiling is bisected for ITS budget — and that budget reaches ~2.4× the
+        // old buildings-cap ceiling at Barcelona.
+        const c = scopeReadCompleteCeilingM(...BARCELONA);
+        expect(c.capTiles).toBe(CTX_SCOPE_READ_MAX_TILES_POINTS);
+        expect(c.radiusM).toBeGreaterThan(2 * CTX_SCOPE_READ_COMPLETE_CEILING_M);
     });
 
     it('Reykjavík is tighter than Oslo, which is tighter than Barcelona — the 1/cos φ ordering', () => {
@@ -69,7 +89,7 @@ describe('§SITE-SCOPE D2 — the read ceiling is measured per site', () => {
         // a monotonicity mistake shows up as a failure rather than as a plausible number.
         const c = scopeReadCompleteCeilingM(...OSLO);
         expect(c.tilesAtCeiling).toBeLessThanOrEqual(c.capTiles);
-        expect(c.capTiles).toBe(CTX_BUILDINGS_MAX_TILES_PER_FETCH);
+        expect(c.capTiles).toBe(CTX_SCOPE_READ_MAX_TILES_POINTS);
         const justOver = scopeReadCompleteCeilingM(...OSLO, c.tilesAtCeiling - 1);
         expect(justOver.radiusM).toBeLessThanOrEqual(c.radiusM);
     });
@@ -97,7 +117,11 @@ describe('§SITE-SCOPE D2 — the read ceiling is measured per site', () => {
         expect(c.line).toContain(`z${SCOPE_READ_FULL_ZOOM}`);
         // ⛔ A cap that drops something must SAY so, with the metre figure it drops from.
         expect(c.line).toContain('TIGHTER');
-        expect(c.line).toContain(String(CTX_SCOPE_READ_COMPLETE_CEILING_M - c.radiusM));
+        // The shortfall is quoted against the reference the flag was ACTUALLY compared to, so the
+        // sentence and the boolean can never disagree.
+        const ref = scopeReadCompleteCeilingM(...BARCELONA).radiusM;
+        expect(c.line).toContain(String(ref - c.radiusM));
+        expect(c.line).toContain(String(ref));
     });
 
     it('⛔ NEGATIVE CONTROL — an absurdly small cap makes even the floor refuse, and it says so', () => {
@@ -108,6 +132,9 @@ describe('§SITE-SCOPE D2 — the read ceiling is measured per site', () => {
         expect(c.neverCompleteHere).toBe(true);
         expect(c.radiusM).toBe(CTX_SCOPE_MIN_RADIUS_M);
         expect(c.line).toContain('NEVER COMPLETE HERE');
-        expect(c.line).toContain('NOT a completeness promise');
+        expect(c.line).toContain('NOT a canopy-completeness promise');
+        // ⛔ AND IT MUST NOT LIBEL THE LAYERS THAT ARE FINE. A refusal that reads as "no context
+        // here" would be the §CONTEXT-DATA-HONESTY failure this whole module exists to close.
+        expect(c.line).toContain('Buildings and linework are unaffected');
     });
 });

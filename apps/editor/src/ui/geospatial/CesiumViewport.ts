@@ -137,10 +137,14 @@ import {
   type CapVerdict,
   type LonLat as ScopeLonLat,
 } from "./scopeClip";
-import { SITE_SCOPE_RANGE, groundFetchHalfDeg } from "./contextExtentBudget";
+import { SITE_SCOPE_RANGE, groundFetchHalfDeg, treesFetchHalfDeg } from "./contextExtentBudget";
 // §SITE-SCOPE D2 — the completeness ceiling MEASURED AT THIS SITE rather than read off the
 // mid-latitude constant. See the module header for the Oslo/Reykjavík over-claim it removes.
 import { scopeReadCompleteCeilingM } from "./scopeReadCeiling";
+// §SITE-SCOPE-ANCHOR-IS-THE-PARCEL (L-13086) — WHERE the slab is centred, as a pure decision. The
+// module header carries the full enumeration of every scope-rebuild trigger and which one this
+// closes; read it before adding a second caller.
+import { resolveScopeAnchor } from "./scopeAnchor";
 /**
  * §SITE-SCOPE — is the GLOBE CUT + SLAB SIDE armed? **ARMED 2026-09-07.**
  *
@@ -188,11 +192,16 @@ import {
   shadowRadiusM,
   treesRadiusM,
   CTX_FAR_TIER_MAX_INSTANCES,
+  CTX_FAR_TIER_MAX_INSTANCES_CEILING,
+  farTierMaxInstances,
+  totalMaxBuildings,
   CTX_TREES_MAX_INSTANCES,
   CTX_CANOPIES_MAX_SYNTHESISED,
-  // §SITE-SCOPE (C12 §13.5) — the whole-scene building budget, reported against the in-scope
-  // eligible count so the slider's "complete" mark is a MEASURED number, not an assumption.
-  CTX_TOTAL_MAX_BUILDINGS,
+  // ⛔ `CTX_TOTAL_MAX_BUILDINGS` (the FIXED whole-scene budget) is deliberately NOT imported here
+  // any more. §SCOPE-FILL (L-13098) replaced it with `totalMaxBuildings(farTierRadiusM(scope))`
+  // above — the budget the slider's "complete" mark is measured against must be the one THIS scope
+  // is actually given, or the mark reports a cap that is not the cap. Re-importing the constant to
+  // "restore" a cap would silently reinstate the 1781 m ceiling the founder asked us to remove.
 } from "./contextExtentBudget";
 import { fetchContextRoads, type ContextRoadCollection } from "./contextRoads";
 import {
@@ -413,7 +422,7 @@ import { FORMA_CONTEXT_3D, formaContextRoadColour } from './formaPaletteV2';
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
-import { FORMA_QUALITY, buildFormaSkyGradientCss } from "./formaSceneQuality";
+import { FORMA_QUALITY, buildFormaSkyGradientCss, formaBackdropClearCss } from "./formaSceneQuality";
 // A.21.D24 — pure 3D climate-overlay geometry generators (no THREE/Cesium/DOM)
 // + the pure wind-rose chart helper. The Cesium placement below anchors these
 // ENU points with the SAME eastNorthUpToFixedFrame used for the massing.
@@ -836,12 +845,22 @@ const FORMA_PALETTE = {
    *  farmland from a city block either. Both sentences and the smallest in-palette way back are in
    *  `formaPaletteV2.ts`'s SUPERSEDED block. Do not re-mint a brown here to "fix" it. */
   ground: FORMA_GROUND_RURAL,
-  /** Scene background — soft neutral (§2 Sky / background). §FORMA-SCENE-QUALITY:
-   *  this is now the FALLBACK flat fill; the visible backdrop is the soft vertical
-   *  sky GRADIENT painted on the container (buildFormaSkyGradientCss) showing
-   *  through the alpha canvas. Kept here so a no-alpha GPU still gets a clean
-   *  neutral clear colour instead of black. */
-  background: '#E9EAEC',
+  /** Scene background — the flat clear colour behind the Forma study.
+   *
+   *  ⚠ CORRECTED 2026-09-07 (§SITE-SCOPE-CITYWEFT-CLEAR, L-13100). This entry read `'#E9EAEC'`
+   *  and its comment claimed it was *"the FALLBACK flat fill … kept here so a no-alpha GPU still
+   *  gets a clean neutral clear colour instead of black"*. **BOTH HALVES WERE FALSE.** Measured:
+   *  `grep -rn 'FORMA_PALETTE.background\|E9EAEC'` over apps/packages/plugins/src returned ONE
+   *  definition and TWO comments — **zero reads**. Nothing ever assigned it to anything, so it was
+   *  not a fallback; and because `applyCesiumSurface` cleared TRANSPARENT unconditionally on this
+   *  row, the ACTUAL fallback on a context that ignores `alpha:true` was the container's
+   *  `style.background = "#000"` (:2695) — i.e. exactly the black §GLOBE-FIRST-FRAME-COLOUR exists
+   *  to prevent, documented as its own cure.
+   *
+   *  It is now a REFERENCE to the backdrop's own top stop, not a second literal authored to agree
+   *  with it — the drift shape this file has already paid for twice (L-12965, L-12987) — and the
+   *  site row now genuinely clears to it (`formaBackdropClearCss()` → `backgroundColourCss`). */
+  background: FORMA_QUALITY.skyTop,
   /** Crisp graphite silhouette outline (§2) — dark enough for strong edge
    *  definition + contrast (founder: "stronger contrast"), not pure black. */
   silhouette: '#2B2B2B',
@@ -1064,14 +1083,20 @@ function seaFractionOfBbox(
     }
     return total / bboxArea;
 }
-/**
- * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — hard COUNT backstop on the instanced far tier.
- * The tier is cheap-by-construction (ONE primitive, one shared material, shadowless) and already
- * bounded upstream by the far-ring budget cap + the radial cull above; this is a runaway guard so a
- * pathologically dense district can never hand the batch an unbounded geometry set. Nearest-first, so
- * when it bites it drops the FARTHEST footprints (least visible), never an arbitrary slice.
+/*
+ * §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — the hard COUNT backstop on the instanced far
+ * tier USED to live here as `const CONTEXT_FAR_TIER_MAX_INSTANCES = CTX_FAR_TIER_MAX_INSTANCES`,
+ * a fixed number. §SCOPE-FILL (L-13098) replaced it with `farTierMaxInstances(farTierRadiusM(scope))`
+ * — the same runaway guard, but SCALED to the scope the user actually set, clamped by
+ * `CTX_FAR_TIER_MAX_INSTANCES_CEILING`.
+ *
+ * ⛔ THE ALIAS IS GONE ON PURPOSE, NOT BY ACCIDENT. A fixed backstop is precisely what made the
+ * founder's 5 035 m slab draw no more buildings than his 1 781 m one; re-introducing a constant
+ * here to satisfy a "declared but never read" warning would reinstate that ceiling while looking
+ * like tidying. The tier is still bounded — nearest-first, so when the cap bites it drops the
+ * FARTHEST footprints, never an arbitrary slice — and the render log says which of the radius or
+ * the cap is binding, so a user who widens the scope and sees nothing new is told why.
  */
-const CONTEXT_FAR_TIER_MAX_INSTANCES = CTX_FAR_TIER_MAX_INSTANCES;
 
 /**
  * §FORMA-CTX-TREES (L-642 Phase C) — hard NEAREST-FIRST cap on the instanced tree canopies. Trees are
@@ -2301,6 +2326,28 @@ export class CesiumViewport {
       console.log(`[CesiumViewport][forma] §SITE-SCOPE ${ceiling.line}`);
     }
     return completeScopeRadiusM(this.contextScope, layers, ceiling.radiusM);
+  }
+
+  /**
+   * ⭐ §SCOPE-FILL (L-13098) — THE LARGEST EXTENT **THIS SITE** STILL READS TREES AT z16.
+   *
+   * The tree read and the tree ring are both clamped to it (`treesRadiusM` / `treesFetchHalfDeg`),
+   * because a point layer loses a measured 60 % of its features per zoom step — tippecanoe's
+   * DEFAULT `--drop-rate 2.5`, which is unconditional — and a step applies to the WHOLE box, so a
+   * wider slab would thin the canopy at the founder's own site rather than extend it. Clamping
+   * makes the slider MONOTONE for trees: widening it can only ever add one.
+   *
+   * ⚠ MEASURED PER SITE, NEVER A CONSTANT. The same 576-tile budget bisects to 5 225 m at Barcelona
+   * and 3 032 m at Reykjavík, because `contextBboxAround` widens longitude by `1/cos φ` (×2.30
+   * there) and a Mercator tile spans a fixed span of longitude, so the widening lands one-for-one
+   * on the tile count. A flat constant would over-claim in the north — the §CONTEXT-DATA-HONESTY
+   * failure `scopeReadCeiling.ts` exists to close. `null` when no origin has loaded yet, which
+   * `treesRadiusM` reads as "not measured" (the static ceiling alone), never as "zero".
+   */
+  private treeReadCeilingM(): number | null {
+    const at = this.contextBuildingsAt ?? this.formaMassingOrigin;
+    if (!at || !Number.isFinite(at.lat) || !Number.isFinite(at.lon)) return null;
+    return scopeReadCompleteCeilingM(at.lat, at.lon).radiusM;
   }
 
   /**
@@ -4623,7 +4670,44 @@ export class CesiumViewport {
       // site (only while the Forma massing canvas is active; in photoreal the
       // Google/ESRI tiles already show real buildings). Best-effort, guarded.
       if (this.formaMode) {
-        void this.loadContextBuildings(loc.latitude, loc.longitude, true);
+        // ⛔ §SITE-SCOPE-ANCHOR-IS-THE-PARCEL (L-13086, founder 2026-09-07: *"now it always would
+        // center statically the scope depending on the parcel that has been selected on plan
+        // view"*). THIS LINE WAS `loadContextBuildings(loc.latitude, loc.longitude, true)` — the
+        // RAW EVENT ADDRESS — and that is the last surviving way the slab is centred on a point
+        // that is not the parcel.
+        //
+        // WHY IT MATTERS, AND WHY THE CAMERA IS ALREADY IMMUNE TO IT. `loadContextBuildings(lat,
+        // lon)` sets `contextBuildingsAt` and then arms `applySiteScopeClip(lat, lon)`, which
+        // raises the globe cut, the slab side and every per-layer geometric clip through
+        // `scopeClipperFor`. Eleven lines ABOVE this one, the same handler already refuses to frame
+        // the CAMERA on the address when a building is placed — §L-259 defect (ii), *"the camera
+        // must follow the BUILDING whenever one is placed — the building IS the site"* — and prints
+        // `originSeparationMeters` to say how far apart they are. The camera got that fix in June.
+        // The scope never did, so after a post-commit address edit the slab jumped to the address
+        // while the parcel and the building stayed put, and the parcel could sit off-centre in — or
+        // outside — its own scope.
+        //
+        // ⚠ THE ADDRESS STILL WINS WHEN IT IS A GENUINELY DIFFERENT SITE, and that is not a
+        // hedge — it is required. On a real site change this event fires BEFORE `renderFormaMassing`
+        // re-seats `formaMassingOrigin` / `committedParcelLonLat`, so both still hold the PREVIOUS
+        // parcel; adopting them would rebuild every layer at the old site
+        // (§CTX-RESEAT-ANCHOR-IS-CURRENT-SITE, L-12964). `resolveScopeAnchor` settles it with the
+        // scope's own radius: a parcel inside the slab we are about to cut IS this site; one
+        // outside it is not. Both outcomes print, so "the anchor held" and "there was no anchor"
+        // can never be read as the same observation.
+        const anchor = resolveScopeAnchor({
+          requested: { lat: loc.latitude, lon: loc.longitude },
+          parcelRingLonLat: this.committedParcelLonLat,
+          frameOrigin: this.formaMassingOrigin
+            ? { lat: this.formaMassingOrigin.lat, lon: this.formaMassingOrigin.lon }
+            : null,
+          sameSiteRadiusM: scopeOuterRadiusUnclampedM(this.contextScope),
+        });
+        console.log(
+          `[CesiumViewport][forma] §SITE-SCOPE-ANCHOR-IS-THE-PARCEL site.location-changed — ` +
+            `${anchor.source}: ${anchor.note}`,
+        );
+        void this.loadContextBuildings(anchor.lat, anchor.lon, true);
       } else {
         // §CTX-PREFETCH-ON-LOCATION (L-470) — WARM THE CACHE THE MOMENT THE LOCATION IS KNOWN.
         //
@@ -4812,6 +4896,9 @@ export class CesiumViewport {
     const w: CesiumSurfaceWrites = cesiumSurfaceWrites(kind, {
       formaGroundCss: FORMA_PALETTE.ground,
       globeLoadingCss: GLOBE_LOADING_COLOUR,
+      // §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — the pure decision lives in formaSceneQuality; this
+      // file only passes it in, because the surface table owns no colours (its own header §).
+      formaBackdropCss: formaBackdropClearCss(),
     });
 
     try {
@@ -4883,10 +4970,15 @@ export class CesiumViewport {
         scene.fog.enabled = false;
       }
 
-      // §FORMA-SCENE-QUALITY — the soft VERTICAL SKY GRADIENT backdrop. Cesium's WebGL canvas
-      // clears to `backgroundColor` (a single flat colour), so a true gradient sky is painted as a
-      // CSS background on the container and revealed through the (alpha) canvas: the clear colour
-      // therefore goes TRANSPARENT while `FORMA_PALETTE.background` stays the no-alpha fallback.
+      // §FORMA-SCENE-QUALITY — the backdrop. Cesium's WebGL canvas clears to `backgroundColor`, a
+      // single flat colour, so a GRADIENT sky has to be a CSS background on the container revealed
+      // through the (alpha) canvas — which is why this row cleared TRANSPARENT.
+      // ⭐ §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — THE FOUNDER'S "COMPLETELY WHITE" REMOVED THE
+      // GRADIENT AND THEREFORE THE REASON. `formaBackdropClearCss()` returns the flat colour when
+      // both stops agree with the radial lift, and `null` the moment a real gradient returns — so
+      // the table below carries both behaviours. The CSS backdrop stays applied either way: behind
+      // an opaque canvas it is belt-and-braces, and it is what covers the frames BEFORE this runs
+      // (the container's own base is `#000`, :2695).
       // ⛔ ON THE GLOBE THAT TRANSPARENT CLEAR IS THE WHITE THE SHARD FLOATED ON — an Earth needs an
       // opaque brand-safe clear (§GLOBE-FIRST-FRAME-COLOUR), never the page showing through.
       scene.backgroundColor = w.backgroundColourCss === null
@@ -5165,9 +5257,27 @@ export class CesiumViewport {
         : this.formaAoStage
           ? ', AO (gradient shadowing)'
           : ', AO=unavailable (GPU → fog+shadow gradient)';
+    // ⭐ §SITE-SCOPE-CITYWEFT-CLEAR (L-13100) — THE LINE NAMES ALL THREE SURFACES, SEPARATELY.
+    // The founder's ask was *"make the background completely white"*, and "background" is ambiguous
+    // across three tones that all meet the eye at once: the BACKDROP behind the cut, the slab TOP
+    // (the ground paper), and the slab SIDE/FLOOR. This line previously printed ONE hex — the
+    // ground — and described the backdrop as a bare *"soft sky-gradient backdrop"* with no value,
+    // so a screenshot of a colour change could not say which surface had changed, or whether it had.
+    // ⚠ AND THE SILHOUETTE VERDICT RIDES ALONGSIDE IT DELIBERATELY. The thinnest value step in the
+    // scene is the PROPOSED massing against the backdrop (#F4F4F2 vs #FFFFFF = ΔL* 3.86); its edge
+    // is carried by the graphite post-process, which this same line reports as possibly
+    // `silhouette=unavailable`. White backdrop + no silhouette is the combination that loses the
+    // subject, and it is one `console` line away from being diagnosable instead of guessed at.
+    const backdropClear = formaBackdropClearCss();
+    const backdropLabel =
+      backdropClear === null
+        ? `gradient ${FORMA_QUALITY.skyTop}→${FORMA_QUALITY.skyHorizon} on the container (canvas clears TRANSPARENT)`
+        : `FLAT ${backdropClear}, cleared OPAQUE by the canvas (+ same tone on the container)`;
     console.log(
-      '[CesiumViewport] FORMA mode applied: neutral ground ' + FORMA_PALETTE.ground +
-        ', soft sky-gradient backdrop, fog ground-AO, soft shadows 2048@600m (§FORMA-GRAZING-BANDING-FIX)' +
+      '[CesiumViewport] FORMA mode applied — backdrop ' + backdropLabel +
+        '; slab TOP (ground) ' + FORMA_PALETTE.ground +
+        '; slab SIDE/FLOOR ' + SITE_SCOPE_SLAB_SIDE_CSS +
+        '; fog ground-AO, soft shadows 2048@600m (§FORMA-GRAZING-BANDING-FIX)' +
         aoLabel +
         (this.formaSilhouetteComposite && !this.formaPostProcessFaulted ? ', silhouette' : ', silhouette=unavailable') + '.'
     );
@@ -10155,7 +10265,11 @@ export class CesiumViewport {
       // second copy of the rule in this call would be free to disagree with it (C84 EI-1).
       boundedTerrainPermitted: cesiumSurfaceWrites(
         cesiumSurfaceKind({ formaMode: this.formaMode, framing: this.viewFraming }),
-        { formaGroundCss: FORMA_PALETTE.ground, globeLoadingCss: GLOBE_LOADING_COLOUR },
+        {
+          formaGroundCss: FORMA_PALETTE.ground,
+          globeLoadingCss: GLOBE_LOADING_COLOUR,
+          formaBackdropCss: formaBackdropClearCss(),
+        },
       ).boundedTerrainPermitted,
       lon, lat,
     });
@@ -11049,7 +11163,13 @@ export class CesiumViewport {
       // BEFORE the placement loop below reads it via `resolveContextSafeBase`. Flat/keyless/terrain-off
       // resolves to 0 immediately (no regression).
       const [split] = await Promise.all([
-        fetchContextBuildingsNearAndFar(lat, lon, signal),
+        // ⭐ §SCOPE-FILL (L-13098) — THE SLIDER REACHES THE BUILDINGS READ. Until this argument
+        // existed the far bbox was `CONTEXT_BBOX_FAR_HALF_DEG`, frozen at module load to the
+        // DEFAULT scope (0.016° / 1 781 m), so the scope reached the far tier's radial cull and the
+        // globe clip but never the download: a 5 035 m slab cropped where the founder set it and
+        // was filled with 1 781 m of buildings. His words: *"all the scope should have buildings …
+        // at the moment is still contrain to the original radiours"*.
+        fetchContextBuildingsNearAndFar(lat, lon, signal, undefined, groundFetchHalfDeg(this.contextScope)),
         this.ensureGroundBaseForContext(lat, lon),
       ]);
       near = split.near;
@@ -11247,7 +11367,9 @@ export class CesiumViewport {
     // rather than an assumption. Eligible = every extrudable footprint the scope contains.
     this.scopeCapReports.set('buildings', {
       eligible: nearShadowedScoped.length + nearDemotedScoped.length + farScoped.length,
-      cap: CTX_TOTAL_MAX_BUILDINGS,
+      // §SCOPE-FILL (L-13098) — the budget the slider's mark is measured against must be the one
+      // this scope is actually given, or the mark reports a cap that is not the cap.
+      cap: totalMaxBuildings(farTierRadiusM(this.contextScope)),
     });
 
     // §CTX-PERFOOTPRINT-SAMPLE (L-635) — batch-sample the REAL terrain height under EVERY footprint about
@@ -12285,7 +12407,8 @@ export class CesiumViewport {
    *   • ONE shared appearance/material (`PerInstanceColorAppearance`, every instance the same colour),
    *   • SHADOWLESS (`ShadowMode.DISABLED` — the shadow pass is the perf driver the founder flagged),
    *   • RADIALLY culled to a disc (`farTierRadiusM(scope)` — the ONE scope value, §CTX-SITE-SCOPE)
-   *     plus a hard nearest-first count backstop (`CONTEXT_FAR_TIER_MAX_INSTANCES`).
+   *     plus a hard nearest-first count backstop (`farTierMaxInstances(farTierRadiusM(scope))` —
+   *     scope-scaled since §SCOPE-FILL/L-13098, not the retired fixed `CONTEXT_FAR_TIER_MAX_INSTANCES`).
    *
    * It is kept OUT of `contextBuildingEntities`/`contextBuildingPlacements`, so the near ring's pick +
    * in-place terrain re-seat are untouched; this primitive owns its own clear + rebuild. Never throws.
@@ -12305,8 +12428,15 @@ export class CesiumViewport {
     const culled = features
       .filter((f) => (f.properties.distM ?? Infinity) <= farR)
       .sort((a, b) => (a.properties.distM ?? 0) - (b.properties.distM ?? 0));
-    const bounded = culled.length > CONTEXT_FAR_TIER_MAX_INSTANCES
-      ? culled.slice(0, CONTEXT_FAR_TIER_MAX_INSTANCES) : culled;
+    // ⭐ §SCOPE-FILL (L-13098) — THE COUNT CAP FOLLOWS THE SCOPE'S AREA, OR IT SILENTLY REPLACES
+    // THE RADIUS. A nearest-first cap does not thin a disc uniformly; it re-imposes a FIXED radius.
+    // At the founder's own Barcelona density (~1 310 footprints/km²) a flat 8 000 draws to ~1.4 km
+    // whether the slab is 1 781 m or 10 000 m — so widening the read without widening this would
+    // have changed NOTHING he could see, which is this repo's `three-invalidation-gates-in-series`
+    // scar exactly. `farTierMaxInstances` is base × area-ratio clamped at 24 000, and it is the
+    // IDENTITY at the default scope: nobody who leaves the slider alone pays for this.
+    const farCap = farTierMaxInstances(farR);
+    const bounded = culled.length > farCap ? culled.slice(0, farCap) : culled;
     // Cache the inputs so the terrain-settle re-seat can rebuild this primitive on the risen ground
     // (no re-fetch — the same in-place principle as reseatContextPlacementsForBase for the near ring).
     this.contextFarTierState = { features: bounded, lat, lon };
@@ -12377,8 +12507,9 @@ export class CesiumViewport {
       `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642) instanced far tier: ${instances.length} ` +
         `low-poly footprint(s) in ONE shadowless shared-material primitive ` +
         `(§CTX-SITE-SCOPE radial ≤${Math.round(farTierRadiusM(this.contextScope))} m, ` +
-        `cap ${CONTEXT_FAR_TIER_MAX_INSTANCES} — ` +
-        `${features.length >= CONTEXT_FAR_TIER_MAX_INSTANCES ? 'the CAP is binding, so raising the scope will not add more' : 'the RADIUS is binding, so the cap has headroom'}).`,
+        `cap ${farTierMaxInstances(farTierRadiusM(this.contextScope))} (§SCOPE-FILL: base ` +
+        `${CTX_FAR_TIER_MAX_INSTANCES} × this scope's area ratio, ceiling ${CTX_FAR_TIER_MAX_INSTANCES_CEILING}) — ` +
+        `${features.length >= farTierMaxInstances(farTierRadiusM(this.contextScope)) ? 'the CAP is binding, so raising the scope will not add more' : 'the RADIUS is binding, so the cap has headroom'}).`,
     );
   }
 
@@ -12731,7 +12862,9 @@ export class CesiumViewport {
     const signal = this.contextRailAbort.signal;
 
     let collection: ContextRailCollection;
-    try { collection = await fetchContextRail(lat, lon, signal); }
+    // §SCOPE-FILL (L-13098) — the rail read followed the 0.008° NEAR default (≈891 m) whatever the
+    // slider said, so the founder's "train" stopped a fifth of the way across a 10 km slab.
+    try { collection = await fetchContextRail(lat, lon, signal, groundFetchHalfDeg(this.contextScope)); }
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
@@ -12865,7 +12998,9 @@ export class CesiumViewport {
     const signal = this.contextWaterAbort.signal;
 
     let collection: ContextWaterCollection;
-    try { collection = await fetchContextWater(lat, lon, signal); }
+    // §SCOPE-FILL (L-13098) — same defect as rail: rivers and lakes read the 0.008° NEAR default
+    // (≈891 m) at every scope. (The SEA is a separate, already-wide read — see loadContextSeaMask.)
+    try { collection = await fetchContextWater(lat, lon, signal, groundFetchHalfDeg(this.contextScope)); }
     catch { return; }
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
@@ -13704,8 +13839,17 @@ export class CesiumViewport {
       // wall-clock (it overlaps the PMTiles read) and is coalesced with every sibling's call.
       [collection] = await Promise.all([
         fetchContextCanopySet(lat, lon, {
-          maxRadiusM: treesRadiusM(this.contextScope),   // §CTX-SITE-SCOPE — min(scope, ceiling); the ceiling is the scope ceiling since F-2.
-          fetchHalfDeg: groundFetchHalfDeg(this.contextScope), // §SITE-SCOPE F-2 — the read follows the scope to the rim.
+          // ⭐ §SCOPE-FILL (L-13098) — TREES ARE THE ONE LAYER THAT MUST **NOT** FOLLOW THE SLIDER
+          // ALL THE WAY, and it is the only one of this file's four zoom-loss claims that survived
+          // measurement. A point layer loses a measured 60 % of its features per zoom step to
+          // tippecanoe's DEFAULT `--drop-rate 2.5` (0.400 at Barcelona AND Madrid AND z14/z15), and
+          // a step applies to the WHOLE box — so reading trees to a 10 km rim would thin the canopy
+          // at the founder's own site. Both the read and the ring are therefore clamped to the
+          // largest extent THIS SITE still reads at z16 (bisected per site: 5 225 m at Barcelona,
+          // 3 032 m at Reykjavík for the same budget). Widening the slider then only ever ADDS
+          // trees. The slider's caption states where they stop.
+          maxRadiusM: treesRadiusM(this.contextScope, this.treeReadCeilingM()),
+          fetchHalfDeg: treesFetchHalfDeg(this.contextScope, this.treeReadCeilingM()),
           maxMapped: CONTEXT_TREES_MAX_INSTANCES,
           maxSynthetic: CONTEXT_CANOPIES_MAX_SYNTHESISED,
         }, signal),
