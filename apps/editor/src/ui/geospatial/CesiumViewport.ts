@@ -298,6 +298,8 @@ import {
   georefOriginsDiverge,
   resolveGroundSample,
   isReadableGlobeSurfaceHeight,
+  // §GLOBE-HEIGHT-READABLE (D10) — the ONE way a `globe.getHeight` reading may be printed.
+  describeGlobeSurfaceHeight,
   ringCentroidLatLon,
   // §TERRAIN-BASE-PROVENANCE (C12 §1.4) — the baked-terrain path's provenance reduction,
   // so a FAILED centroid sample is no longer the same value as a real 0 m ground.
@@ -1517,6 +1519,27 @@ export class CesiumViewport {
   private spaceEnvelopeEntities: Cesium.Entity[] = [];
   /** §SPACE-ENVELOPE-IN-CESIUM — the store's dirty-channel unsubscribe, or null while unsubscribed. */
   private spaceEnvelopeSub: (() => void) | null = null;
+  /**
+   * §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS (lane FACE-DRAG, 2026-09-07) — THE PREVIEW CHANNEL, and it
+   * is deliberately the SMALLEST correct one: a per-id override consulted inside the existing
+   * render loop.
+   *
+   * ⛔ IT IS NOT A STORE AND MUST NEVER BECOME ONE (P6). While a face is being dragged the user
+   * must see the geometry the commit WILL write, and the commit has not happened — so the store
+   * still holds the pre-drag solid and is the only authority. An override map lets the drag say
+   * *"draw THIS for id X instead"* without a rival entity list, without a second render path, and
+   * without one byte written anywhere a `Ctrl+Z` would have to reverse.
+   *
+   * ⚠ EVERY ENTRY IS TRANSIENT AND OWNED BY THE GESTURE THAT SET IT. `previewRestore(id)` drops
+   * one; the drag core calls it on release, on cancel and on teardown, so a preview cannot outlive
+   * the pointer that produced it. A preview left standing after a commit would show the user a
+   * shape the store does not hold, which is the one failure mode a preview channel can have.
+   */
+  private spaceEnvelopePreviews = new Map<string, {
+    readonly footprint: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+    readonly baseOffset: number;
+    readonly height: number;
+  }>();
   /** The last-known site lat/lon (= ENU anchor) + the boundary centroid (in ENU
    *  metres) + plot area the massing was placed against — used by the
    *  "Zoom to Site" / "Reset View" affordance to repeat the NW oblique flyTo. */
@@ -2295,7 +2318,11 @@ export class CesiumViewport {
    * form - it cost this feature a whole founder test cycle. The APPLIED line READS THE PROPERTIES
    * BACK off the globe rather than reporting what was assigned, so it is a measurement, not a claim.
    */
-  private async applySiteScopeClip(lat: number, lon: number): Promise<void> {
+  private async applySiteScopeClip(
+    lat: number,
+    lon: number,
+    opts?: { readonly skipSide?: boolean },
+  ): Promise<void> {
     const say = (verdict: string, detail: string): void => {
       console.log(`[CesiumViewport][forma] §SITE-SCOPE globe — ${verdict}: ${detail}`);
     };
@@ -2398,6 +2425,15 @@ export class CesiumViewport {
     );
     // B · the side + floor, seated on the terrain sampled along the ring (ONE batched flight —
     //     the ring's points land in tiles the buildings already pulled).
+    if (opts?.skipSide === true) {
+      say(
+        'APPLIED (globe only)',
+        'the SIDE is deferred by request of this call site — a ring terrain sample here would queue ' +
+          'ahead of the context reads in the ONE-flight ground FIFO. The buildings funnel draws the ' +
+          'side on the same load, once the terrain base has settled.',
+      );
+      return;
+    }
     try {
       await this.sampleContextGroundsBatch(ring.map((p) => ({ lat: p.lat, lon: p.lon })));
     } catch { /* falls back to the safe base below — never a stray 0 */ }
@@ -2465,9 +2501,18 @@ export class CesiumViewport {
 
   /** §SITE-SCOPE — rebuild the slab on the settled terrain base (the ring's own heights moved). */
   private rebuildSiteScopeClipForBase(): void {
-    if (!SITE_SCOPE_CLIP_ARMED) return;
+    // ⛔ THESE THREE EXITS WERE SILENT (fixed 2026-09-07, lane SCOPE-CUT). This is the leg that
+    // re-seats the slab side after the terrain base settles, so when it declines the founder sees
+    // a side hanging at the OLD base — or no side at all — with nothing in the console to say
+    // which of the three reasons it was. Same rule as `applySiteScopeClip`: every decline prints.
+    const say = (verdict: string, detail: string): void => {
+      console.log(`[CesiumViewport][forma] §SITE-SCOPE rebuild — ${verdict}: ${detail}`);
+    };
+    if (!SITE_SCOPE_CLIP_ARMED) { say('SKIPPED', 'SITE_SCOPE_CLIP_ARMED is false in this build.'); return; }
     const at = this.siteScopeClipAt ?? this.contextBuildingsAt;
-    if (!at || !this.viewer) return;
+    if (!at) { say('SKIPPED', 'no cut and no context origin to rebuild about yet — the buildings funnel arms it.'); return; }
+    if (!this.viewer) { say('SKIPPED', 'no viewer.'); return; }
+    say('RUNNING', `re-asserting the cut + side about ${at.lat.toFixed(5)},${at.lon.toFixed(5)} on the settled terrain base.`);
     void this.applySiteScopeClip(at.lat, at.lon);
   }
   private contextTreesPrimitive: Cesium.Primitive | null = null;
@@ -4290,7 +4335,22 @@ export class CesiumViewport {
       if (this.isViewerLive() && v) {
         const provider = v.terrainProvider as Cesium.TerrainProvider | undefined;
         if (provider && this.terrainProviderHasElevationData(provider)) {
-          const [r] = await Cesium.sampleTerrainMostDetailed(provider, [Cesium.Cartographic.fromDegrees(lon, lat)]);
+          // §TERRAIN-TILE-MEMO (L-13077 / D9 lane STARTUP, 2026-09-07) — ⚠ THIS CALL USED THE RAW
+          // PROVIDER AND WAS THEREFORE INVISIBLE TO BOTH GUARANTEES THE START-UP TERRAIN PATH
+          // RESTS ON. `§GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME` caps the sampler at ONE flight in the
+          // air because "two calls in the air re-download the same tiles" — but its FIFO only
+          // governs calls made THROUGH `GroundSampleBatcher`, so a bare
+          // `Cesium.sampleTerrainMostDetailed` beside it is a second concurrent flight that the
+          // `maxConcurrentFlights` counter cannot see and duly reports as 1. And with no memo it
+          // re-downloaded the site-centroid tile that every drape flight then downloads again.
+          // FOUR such calls fire during one start-up (here, `resolveGroundBaseForContext`,
+          // `§CAMERA-UNDERGROUND-FIX` at the attach, and the seat-first clamp) and they sample the
+          // SAME centroid, i.e. the same tile, four times.
+          // ⛔ THE FIX IS THE MEMO, NOT THE FIFO. These are single-point reads on the camera/seat
+          // critical path; making them queue behind a 5 s drape flight would be a latency
+          // REGRESSION. Sampling THROUGH the memo is behaviour-identical — the same real
+          // `TerrainData`, the same measured height — and simply stops paying for the tile twice.
+          const [r] = await Cesium.sampleTerrainMostDetailed(this.samplingTerrainProvider(provider), [Cesium.Cartographic.fromDegrees(lon, lat)]);
           const h = r?.height;
           if (typeof h === 'number' && Number.isFinite(h)) groundBase = h;
         }
@@ -7486,6 +7546,26 @@ export class CesiumViewport {
           // §SITE-SCOPE (C12 §13.1) — the persisted scope becomes the live scope BEFORE any loader
           // reads it, so the first paint is already cut to the slab (no reload).
           this.syncScopeFromStore(false);
+          // ⭐ §SITE-SCOPE — CUT THE GLOBE HERE, NOT ONLY ON THE BUILDINGS FUNNEL (2026-09-07,
+          // lane SCOPE-CUT). Before this line the ONLY arming sites were inside
+          // `loadContextBuildingsUncoalesced`, i.e. AFTER `Promise.all([fetchContextBuildings…,
+          // ensureGroundBaseForContext])` had resolved. So every way that read can fail — an
+          // offline tile host, an abort, a 429, a sparse site with no footprints, a throw in the
+          // ground-base resolve — left the terrain UNCUT and printed nothing about it, which is
+          // the founder's exact 2026-09-07 symptom (a continent of hill-shaded beige with the
+          // context floating in it) reachable through a SECOND, entirely different cause. The
+          // globe legs need neither footprints nor a settled terrain base: they are a rectangle
+          // bound and a vertical curtain, both height-independent. So they run on the render
+          // funnel, and the crop is up on the FIRST paint.
+          //
+          // `skipSide: true` is the whole reason this is safe to fire here. The slab SIDE is
+          // seated on terrain sampled along the ring, and `GroundSampleBatcher` serialises
+          // flights behind a FIFO mutex (§GROUND-SAMPLE-TILE-ATTRIBUTION, and the measured 61 s
+          // startup where parks waited 10,978 ms of its 10,989 ms in exactly that queue). Firing
+          // a ring sample HERE would queue it ahead of the context reads for no visual gain — the
+          // side is drawn by the buildings-funnel call, once the base has settled and the ring's
+          // tiles are already in the cache. Idempotent either way (`UNCHANGED`).
+          void this.applySiteScopeClip(originLat, originLon, { skipSide: true });
           void this.loadContextBuildings(originLat, originLon);
           void this.loadContextRoads(originLat, originLon);   // FORMA-CTX §22.2
           void this.loadContextWater(originLat, originLon);   // FORMA-CTX-WATER
@@ -7873,6 +7953,70 @@ export class CesiumViewport {
     );
   }
 
+  /**
+   * ⭐ §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS (lane FACE-DRAG, 2026-09-07) — THE FRAME THE PRISMS ARE
+   * ACTUALLY DRAWN IN, handed out so the drag adapter converts a screen ray into the SAME frame
+   * rather than into a plausible neighbour of it.
+   *
+   * ⛔ THIS IS WHY IT EXISTS AND WHY THE ADAPTER MUST NOT RE-DERIVE ANY OF THE THREE. The draw
+   * adapter resolves its own frame from `resolveSiteFrameOrigin` + `SiteLocation.trueNorth`, which
+   * is correct for a gesture that PRODUCES coordinates. A PICK is different: it must land on the
+   * pixels `renderSpaceEnvelopes` painted, so it has to read the origin THIS rasteriser used
+   * (`formaMassingOrigin`), the θ THIS rasteriser used (`readProjectNorthRad`) and the terrain
+   * seat THIS rasteriser used (`formaTerrainBaseHeight`). Two frames that agree today and diverge
+   * on a re-seat would produce a drag that grabs nothing, or worse, grabs the wrong face — and
+   * both read as "the gesture is broken" rather than as a frame bug (§L-430 / L-10740).
+   *
+   * @returns `null` when no site frame origin is seated — the SAME condition under which
+   *          `renderSpaceEnvelopes` draws nothing, so "there is nothing on screen" and "there is
+   *          nothing to pick" can never disagree.
+   */
+  public getSpaceEnvelopeSceneFrame(): {
+    readonly originLat: number;
+    readonly originLon: number;
+    readonly thetaRad: number;
+    readonly baseHeightM: number;
+  } | null {
+    const origin = this.formaMassingOrigin;
+    if (!origin) return null;
+    return {
+      originLat: origin.lat,
+      originLon: origin.lon,
+      thetaRad: this.readProjectNorthRad(),
+      baseHeightM: this.formaTerrainBaseHeight,
+    };
+  }
+
+  /**
+   * §ENVELOPE-FACE-DRAG — draw THIS geometry for `id` instead of the stored geometry, until
+   * {@link clearSpaceEnvelopePreview} drops it. ⛔ Writes NOTHING to any store (P6): this is the
+   * `previewDraw` port, and the whole gesture costs exactly one `spaceEnvelope.moveFace` on
+   * release. Idempotent — the same id may be re-previewed on every pointer move.
+   */
+  public setSpaceEnvelopePreview(
+    id: string,
+    geometry: {
+      readonly footprint: ReadonlyArray<{ readonly x: number; readonly z: number }>;
+      readonly baseOffset: number;
+      readonly height: number;
+    },
+  ): void {
+    if (typeof id !== 'string' || id.length === 0) return;
+    this.spaceEnvelopePreviews.set(id, geometry);
+    this.renderSpaceEnvelopes();
+  }
+
+  /**
+   * §ENVELOPE-FACE-DRAG — drop the preview for `id` so the AUTHORITATIVE geometry shows again.
+   * The `previewRestore` port. ⚠ It re-renders even when there was nothing to drop, because the
+   * caller's reason for calling is *"show me the truth"* and a no-op that skipped the redraw
+   * would leave a stale frame standing after an unrelated preview elsewhere cleared.
+   */
+  public clearSpaceEnvelopePreview(id: string): void {
+    this.spaceEnvelopePreviews.delete(id);
+    this.renderSpaceEnvelopes();
+  }
+
   /** §SPACE-ENVELOPE-IN-CESIUM — drop every authored-envelope entity. Idempotent, never throws. */
   private clearSpaceEnvelopes(): void {
     const viewer = this.viewer;
@@ -7941,9 +8085,15 @@ export class CesiumViewport {
     const roles: string[] = [];
     for (const [id, raw] of records) {
       const rec = raw as CesiumSpaceEnvelopeRecord | null | undefined;
-      const ring = rec?.footprint;
-      const height = rec?.height;
-      const baseOffset = rec?.baseOffset;
+      // ⭐ §ENVELOPE-FACE-DRAG — THE ONE HUNK THE PREVIEW CHANNEL COSTS THIS RASTERISER.
+      // While a face is being dragged the geometry on screen must be what the commit WILL write,
+      // and the store still holds the pre-drag solid. The override supplies GEOMETRY ONLY —
+      // colour, name, role, occupancy and opacity keep coming from the record, so a previewed
+      // envelope cannot change identity mid-gesture and a stale override cannot invent one.
+      const preview = this.spaceEnvelopePreviews.get(id);
+      const ring = preview?.footprint ?? rec?.footprint;
+      const height = preview?.height ?? rec?.height;
+      const baseOffset = preview?.baseOffset ?? rec?.baseOffset;
       // A malformed row is SKIPPED and COUNTED, never guessed at and never fatal — one bad record
       // must not take the scene down (the same totality `resolveSpaceEnvelopeAppearance` promises).
       if (!Array.isArray(ring) || ring.length < 3
@@ -8894,7 +9044,11 @@ export class CesiumViewport {
     let sampleFailed = false;
     try {
       const carto = Cesium.Cartographic.fromDegrees(sampleLon, sampleLat);
-      const [result] = await Cesium.sampleTerrainMostDetailed(provider, [carto]);
+      // §TERRAIN-TILE-MEMO (L-13077 / D9) — through the decoded-tile memo, like every other
+      // sampler call on this path. See the note at `frameSiteLocationOnResolvedGround`: four
+      // single-centroid reads fire per start-up over the SAME tile, and each raw one both paid
+      // for it again and ran as a flight the one-flight FIFO could not see.
+      const [result] = await Cesium.sampleTerrainMostDetailed(this.samplingTerrainProvider(provider), [carto]);
       const h = result?.height;
       if (typeof h === 'number' && Number.isFinite(h)) {
         rawHeight = h;
@@ -9366,7 +9520,12 @@ export class CesiumViewport {
           const g = viewer.scene.globe.getHeight(
             Cesium.Cartographic.fromDegrees(this.contextBuildingsAt.lon, this.contextBuildingsAt.lat),
           );
-          out.globeGetHeightAtSite = typeof g === 'number' ? Number(g.toFixed(1)) : 'undefined(tile not streamed)';
+          // §GLOBE-HEIGHT-READABLE (D10) — same guard as `§CTX-TERRAIN-GAP`: a finite
+          // out-of-band reading is the Z-axis ray-origin artefact, not an elevation, and a
+          // diagnostic dump that hands it over as a plain number is a probe that cannot fail.
+          out.globeGetHeightAtSite = isReadableGlobeSurfaceHeight(g)
+            ? Number(g.toFixed(1))
+            : describeGlobeSurfaceHeight(g);
         }
       }
       // First context entity: its seated base/top + whether the camera can see it.
@@ -9423,7 +9582,17 @@ export class CesiumViewport {
           for (let iy = -1; iy <= 1; iy++) {
             for (let ix = -1; ix <= 1; ix++) {
               const h = globe.getHeight(Cesium.Cartographic.fromDegrees(cLon + ix * dLon, cLat + iy * dLat));
-              grid.push(typeof h === 'number' ? Number(h.toFixed(1)) : 'undef');
+              // §GLOBE-HEIGHT-READABLE (D10) — ⚠ THE WORST OF THE THREE LEAKS, because nine
+              // artefacts in a row render as a PLAUSIBLE relief profile: uniform, smooth and
+              // completely fabricated. `undef` already meant "not tessellated"; an out-of-band
+              // reading is a different failure and gets its own token, never a number.
+              grid.push(
+                isReadableGlobeSurfaceHeight(h)
+                  ? Number(h.toFixed(1))
+                  : typeof h === 'number' && Number.isFinite(h)
+                    ? 'UNREADABLE'
+                    : 'undef',
+              );
             }
           }
           out.reliefGrid3x3 = grid;                                   // [NW,N,NE, W,C,E, SW,S,SE]
@@ -10053,7 +10222,10 @@ export class CesiumViewport {
       // (Coastal cities <600 m ground never tripped it — the camera stayed above.) Now that the real terrain
       // is attached, sample the ground here and, if the camera is at/below it, RE-FRAME above the terrain.
       try {
-        const [gr] = await Cesium.sampleTerrainMostDetailed(provider, [Cesium.Cartographic.fromDegrees(lon, lat)]);
+        // §TERRAIN-TILE-MEMO (L-13077 / D9) — through the memo. This one is the worst of the four:
+        // it fires immediately after the attach, i.e. exactly when the drape flights are starting,
+        // so its duplicate download competed with them for the same connections.
+        const [gr] = await Cesium.sampleTerrainMostDetailed(this.samplingTerrainProvider(provider), [Cesium.Cartographic.fromDegrees(lon, lat)]);
         const gh = gr?.height;
         const camH = viewer.camera.positionCartographic.height;
         if (typeof gh === 'number' && Number.isFinite(gh) && camH < gh + 5 && !this.formaUserMovedCamera) {
@@ -10665,7 +10837,9 @@ export class CesiumViewport {
     }
     try {
       const carto = Cesium.Cartographic.fromDegrees(lon, lat);
-      const [result] = await Cesium.sampleTerrainMostDetailed(provider, [carto]);
+      // §TERRAIN-TILE-MEMO (L-13077 / D9) — through the memo; the seat-first clamp samples the
+      // very centroid the framing pass and the attach's underground check already sampled.
+      const [result] = await Cesium.sampleTerrainMostDetailed(this.samplingTerrainProvider(provider), [carto]);
       const h = result?.height;
       if (typeof h === 'number' && Number.isFinite(h)) {
         this.formaTerrainBaseHeight = h;
@@ -11495,7 +11669,15 @@ export class CesiumViewport {
             // `centroidTerrainSurface` and `seatBase` cannot be compared: they are only the same
             // ground when they name the same lat/lon and the base was actually measured there.
             `at LAT ${lat.toFixed(5)} LON ${lon.toFixed(5)} ` +
-            `centroidTerrainSurface=${typeof centroidSurface === 'number' ? centroidSurface.toFixed(1) + 'm' : 'undefined(not streamed)'} ` +
+            // §GLOBE-HEIGHT-READABLE (D10, founder Barcelona 2026-09-07) — ⚠ THIS FIELD WAS THE
+            // LAST UNGUARDED ONE, AND IT IS THE ONE THE FOUNDER QUOTED. `typeof === 'number'`
+            // admits the −6 328 484 m Z-axis ray-origin artefact, so this line printed a
+            // 6,328 km "terrain surface" in the same breath as a `✓ buildings on/above surface`
+            // that the SAME artefact had made unfailable. Adjudicated: the PROBE was wrong, the
+            // terrain was right (the detailed sample and every rendered building were correct all
+            // along). `describeGlobeSurfaceHeight` labels the artefact and still prints its raw
+            // value — it is never hidden and never "corrected".
+            `centroidTerrainSurface=${describeGlobeSurfaceHeight(centroidSurface)} ` +
             `seatBase=${this.formaTerrainBaseHeight.toFixed(1)}m(${this.formaTerrainBaseSource}${this.formaTerrainBaseMeasured ? '' : ',UNMEASURED'}` +
             `${this.formaTerrainSampledAt ? ` @${this.formaTerrainSampledAt.lat.toFixed(5)},${this.formaTerrainSampledAt.lon.toFixed(5)}` : ' @never-sampled'}) ` +
             `| of ${checked} sampled footprints: ` +
@@ -17428,6 +17610,11 @@ export class CesiumViewport {
       this.spaceEnvelopeSub = null;
     }
     try { this.clearSpaceEnvelopes(); } catch { /* viewer already gone */ }
+    // §ENVELOPE-FACE-DRAG — a viewport torn down MID-DRAG must not hand its successor a preview.
+    // The drag core restores on release, on cancel and on its own disposer, but a viewport
+    // destroyed under a held pointer reaches none of those: the map would survive on the instance
+    // and the next `renderSpaceEnvelopes` would draw a shape no store holds.
+    this.spaceEnvelopePreviews.clear();
 
     // §ENVELOPE-ONE-VISIBILITY (L-1170) — a destroyed viewport must not stay subscribed:
     // the authority would keep a strong reference and the repaint would run against a dead

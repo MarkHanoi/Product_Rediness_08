@@ -167,3 +167,97 @@ describe('§SITE-SCOPE globe — ARM C: the rectangle leg is unconditional, and 
         expect(clearBody).toContain('this.siteScopeLimitRectApplied');
     });
 });
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * ARM D — THE CUT MUST NOT DEPEND ON THE CONTEXT READ SUCCEEDING (lane SCOPE-CUT, 2026-09-07).
+ *
+ * The root cause ARM B pins (a sticky flag) was ONE of two ways the founder's terrain could stay
+ * whole with nothing in the console. The other is structural and survived the ARM-B fix: every
+ * arming site lived inside `loadContextBuildingsUncoalesced`, AFTER its
+ * `Promise.all([fetchContextBuildingsNearAndFar, ensureGroundBaseForContext])`. An offline tile
+ * host, an abort, a 429, a sparse site with no footprints or a throw in the ground-base resolve
+ * therefore left the globe UNCUT — and, because the method was never entered, printed none of the
+ * verdict lines ARM A guarantees. "No line" would have read as "the feature is broken again".
+ *
+ * The globe legs need neither footprints nor a settled base (a rectangle bound and a vertical
+ * curtain are both height-independent), so they are armed on the render funnel as well.
+ */
+describe('§SITE-SCOPE globe — ARM D: armed on the render funnel, not only on the buildings read', () => {
+    it('renderFormaMassing arms the cut, and does it BEFORE the context loaders it may outlive', () => {
+        const kickoff = SRC.indexOf('this.syncScopeFromStore(false);');
+        expect(kickoff, 'the Forma context kickoff moved — re-derive this arm').toBeGreaterThan(-1);
+        const window = SRC.slice(kickoff, kickoff + 3000);
+        const armAt = window.indexOf('void this.applySiteScopeClip(originLat, originLon');
+        const loadAt = window.indexOf('void this.loadContextBuildings(originLat, originLon)');
+        expect(armAt, 'the render funnel no longer arms the globe cut — a failed context read now ' +
+            'leaves the terrain whole AND silent, which is the defect this file exists for').toBeGreaterThan(-1);
+        expect(loadAt).toBeGreaterThan(-1);
+        expect(armAt, 'the cut is armed after the context loaders — it must not queue behind them').toBeLessThan(loadAt);
+    });
+
+    /**
+     * ⚠ WHY `skipSide` IS PART OF THE INVARIANT AND NOT AN IMPLEMENTATION DETAIL. The slab SIDE is
+     * seated on terrain sampled along the scope ring, and `GroundSampleBatcher` serialises flights
+     * behind a FIFO mutex whose queue is the measured 61 s startup (parks waited 10,978 ms of its
+     * 10,989 ms in it). A ring sample fired on the render funnel would sit AHEAD of the context
+     * reads for no visual gain, because the side has to be rebuilt on the settled base anyway.
+     */
+    it('the render-funnel arm defers the SIDE, so it cannot queue ahead of the context reads', () => {
+        const kickoff = SRC.indexOf('this.syncScopeFromStore(false);');
+        const window = SRC.slice(kickoff, kickoff + 3000);
+        expect(window).toMatch(/void this\.applySiteScopeClip\(originLat, originLon, \{ skipSide: true \}\)/);
+    });
+
+    it('the deferral is PRINTED — a globe cut with no side must never be inferred from silence', () => {
+        const BODY = codeOnly(applyBody());
+        const at = BODY.indexOf('opts?.skipSide === true');
+        expect(at, 'the skipSide branch is gone from applySiteScopeClip').toBeGreaterThan(-1);
+        const branch = BODY.slice(at, BODY.indexOf('return;', at));
+        expect(branch, 'the deferral returns without saying so').toMatch(/\bsay\(/);
+    });
+});
+
+/**
+ * ARM E — the REBUILD leg is held to the same rule. It is what re-seats the side once the terrain
+ * base settles, so a silent decline shows as a side hanging at the old base (or none at all) with
+ * nothing to say which of its three reasons it was.
+ */
+describe('§SITE-SCOPE globe — ARM E: the rebuild leg says what it did', () => {
+    function rebuildBody(): string {
+        const at = SRC.indexOf('private rebuildSiteScopeClipForBase(): void {');
+        expect(at, 'rebuildSiteScopeClipForBase was renamed or removed').toBeGreaterThan(-1);
+        const rest = SRC.slice(at);
+        const next = /\n  (?:public|private|protected)[ \t]/.exec(rest);
+        return codeOnly(rest.slice(0, next ? next.index : rest.length));
+    }
+
+    it('⛔ every `return` in the rebuild leg is preceded by a printed verdict', () => {
+        const BODY = rebuildBody();
+        const defAt = BODY.indexOf('const say = ');
+        expect(defAt, 'the say() helper was renamed — re-derive this arm').toBeGreaterThan(-1);
+        const defEnd = BODY.indexOf('};', defAt);
+        const scanned = BODY.slice(defEnd + 2);
+        const speaks = /\bsay\(|console\.(?:log|warn|error)\(/;
+        const returns = [...scanned.matchAll(/\breturn;/g)].map((m) => m.index ?? -1);
+        expect(returns.length, 'no `return;` found — the arm would pass vacuously').toBeGreaterThan(2);
+        const offenders: string[] = [];
+        let windowStart = 0;
+        for (const at of returns) {
+            if (!speaks.test(scanned.slice(windowStart, at))) {
+                const from = scanned.lastIndexOf('\n', at) + 1;
+                offenders.push(scanned.slice(from, scanned.indexOf('\n', at)).trim());
+            }
+            windowStart = at;
+        }
+        expect(offenders, 'a `return` in rebuildSiteScopeClipForBase has no printed verdict before it').toEqual([]);
+    });
+
+    it('it distinguishes its three declines — one token each, so a console can be grepped', () => {
+        const BODY = rebuildBody();
+        expect(BODY).toContain('SITE_SCOPE_CLIP_ARMED is false');
+        expect(BODY).toContain('no context origin to rebuild about');
+        expect(BODY).toContain("say('SKIPPED', 'no viewer.')");
+        expect(BODY).toContain("say('RUNNING'");
+    });
+});
