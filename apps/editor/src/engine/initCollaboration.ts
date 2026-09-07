@@ -46,7 +46,15 @@ import { apiFetch, getStoredToken, getCurrentUserId } from '@pryzm/core-app-mode
 import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import type { VisibilityIntent } from '@pryzm/core-app-model';
+import { getFrameScheduler, deferWork } from '@pryzm/frame-scheduler';
 import { RemoteCommandDispatcher, type SuppressBroadcastRef } from './RemoteCommandDispatcher';
+import {
+    classifyOutbound,
+    createCursorEmitter,
+    isDeliverable,
+    UndeliveredCommandLedger,
+    volatileEmit,
+} from './collabOutbound';
 import type { TypedEventEmitter, RuntimeEvents } from '@pryzm/runtime-composer/types';
 
 // ── Cursor color palette ────────────────────────────────────────────────────
@@ -312,6 +320,19 @@ export function initCollaboration(params: {
 
     /** Unsubscribe function returned by CommandManager.onCommandExecuted(). */
     let unsubscribeCommands: (() => void) | null = null;
+
+    /**
+     * §OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET (L-13208 · C08 §3.3.1) — every local command
+     * this client REFUSED TO PUT ON THE WIRE, for the whole session.
+     *
+     * `command-executed` is not a notification: server-side it is BOTH the peer broadcast AND
+     * the only writer of `project_command_log`, the table catch-up replays from. An emit
+     * dropped here is therefore absent from every peer AND from the log, so no catch-up by
+     * anyone can ever recover it — and `_triggerCatchUp` (inbound-only, `excludeSelf=1`) is
+     * structurally incapable of noticing. Before this ledger, "nothing was lost" and "eleven of
+     * your edits never left the browser" printed the same line.
+     */
+    const undeliveredCommands = new UndeliveredCommandLedger();
 
     // ── §FIX-DB-SATURATION-RESILIENCE (L-137/L-136) — bounded join retry ────────
     // When the server can't VERIFY project access because the DB is transiently
@@ -752,17 +773,50 @@ export function initCollaboration(params: {
         });
 
         // ── Local cursor emission ───────────────────────────────────────────
-        // Emits viewport-relative pointer coordinates to the server on every
-        // mousemove inside the 3D container.
+        // §PRESENCE-IS-A-SAMPLE-STREAM (L-13207 · C08 §3.4.1). This used to emit one socket
+        // packet per RAW mousemove — unthrottled, uncoalesced. Dragging the multi-pane divider
+        // (which lives inside this same `container`) therefore produced a write per pointer
+        // event, and when the transport went CLOSING mid-drag every one of them printed
+        // `WebSocket is already in CLOSING or CLOSED state.` and was silently fake-drained by
+        // engine.io. ~40 warnings ≈ 0.7 s of drag.
+        //
+        // TWO changes, each fixing a different half, neither of them a console suppression:
+        //   · COALESCE to at most ONE emit per frame. ⛔ Not a debounce and not a throttle —
+        //     see `createCursorEmitter`: it is a FOLD (latest sample wins) that always fires on
+        //     the next frame, so latency is bounded by one frame even during continuous motion.
+        //   · VOLATILE. A cursor position is a lossy SAMPLE superseded by the next one, and
+        //     `socket.volatile` is socket.io's own primitive for exactly that: it DISCARDS the
+        //     packet when `io.engine.transport.writable` is false instead of calling
+        //     `ws.send()` on a closing socket. That is what removes the warning AT THE SOURCE.
+        //
+        // The container rect is measured in the FLUSH, not per event: one forced layout read
+        // per frame instead of one per mousemove, and it measures the pane box as it is at the
+        // moment the sample is actually sent (the box is moving — that is the whole scenario).
+        const cursorEmitter = createCursorEmitter({
+            schedule: (flush) => {
+                // P3 / ADR-003 — `requestAnimationFrame` may only be called inside
+                // `packages/frame-scheduler`. Same shape the Cesium reflow and the pane-shell
+                // settle already use: the frame bus when the pump runs, `deferWork(…, 0)`
+                // (also frame-scheduler-owned) when it does not, so a headless / pre-compose
+                // sample is coalesced rather than silently dropped.
+                const scheduler = getFrameScheduler();
+                if (scheduler.isRunning) scheduler.scheduleOnce('collab-cursor-emit', flush, 'overlay');
+                else deferWork(flush, 0);
+            },
+            emit: (sample) => {
+                if (!socket?.connected || !currentProjectId) return;
+                const rect = container.getBoundingClientRect();
+                volatileEmit(socket, 'cursor-move', {
+                    projectId: currentProjectId,
+                    x: sample.clientX - rect.left,
+                    y: sample.clientY - rect.top,
+                });
+            },
+        });
 
         const onMouseMove = (e: MouseEvent): void => {
             if (!socket?.connected || !currentProjectId) return;
-            const rect = container.getBoundingClientRect();
-            socket.emit('cursor-move', {
-                projectId: currentProjectId,
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top,
-            });
+            cursorEmitter.sample({ clientX: e.clientX, clientY: e.clientY });
         };
 
         container.addEventListener('mousemove', onMouseMove);
@@ -874,13 +928,23 @@ export function initCollaboration(params: {
                 if (next && next !== lastSync) sessionStorage.setItem(storageKey, next);
             };
 
+            // §OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET (L-13208) — ⚠ THIS LINE USED TO BE A
+            // LIE BY OMISSION. Catch-up is INBOUND-ONLY and queries with `excludeSelf=1`: it asks
+            // what OTHER users did while we were away. It can therefore say "no missed commands"
+            // in full honesty while this client's own edits were dropped on the floor by the
+            // outbound guard — which is precisely the state the founder's trace was in. Naming
+            // the direction, and appending the local gap when there is one, is what stops
+            // "nothing was lost" and "your edits never left" from printing the same value.
+            const localGap = undeliveredCommands.summary();
+            const gapSuffix = localGap ? ` — ⛔ BUT ${localGap}` : '';
+
             if (cmds.length === 0) {
-                console.log('[initCollaboration] Catch-up: no missed commands');
+                console.log(`[initCollaboration] Catch-up: no missed commands FROM PEERS${gapSuffix}`);
                 advanceBaseline();
                 return;
             }
 
-            console.log(`[initCollaboration] Catch-up: replaying ${cmds.length} missed command(s)`);
+            console.log(`[initCollaboration] Catch-up: replaying ${cmds.length} missed command(s) from peers${gapSuffix}`);
 
             // Re-attach delivery provenance to each SerializedCommand so the
             // dispatcher can enforce E-2 (own-origin) and E-4 (at-most-once).
@@ -957,10 +1021,41 @@ export function initCollaboration(params: {
     unsubscribeCommands = commandManager.onCommandExecuted((cmd: Command) => {
         // Echo-loop prevention: skip re-broadcast of remotely-applied commands
         if (suppressBroadcast.value) return;
-        if (!socket?.connected || !currentProjectId) return;
 
         // §COLLAB-FILTER: skip auto-generated and L2-bus-handled commands.
+        // ⚠ ORDER MATTERS AND IT CHANGED. The deliverability check below now REPORTS a drop, so
+        // it must run AFTER the filter — otherwise every intentionally-unbroadcast command would
+        // be recorded as an undelivered one. A filtered command is not lost; it is not sent.
         if (COLLAB_BROADCAST_SKIP.has(cmd.type)) return;
+
+        // §OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET (L-13208 · C08 §3.3.1). This was
+        // `if (!socket?.connected || !currentProjectId) return;` — a SILENT return that dropped a
+        // real BIM edit from the peer broadcast AND from `project_command_log` at once, leaving
+        // no trace anywhere that it had happened. It also could not see the window that actually
+        // produced the founder's warnings: during a CLOSING transport `socket.connected` is
+        // still true, so the guard passed and the write went into a dead socket.
+        //
+        // ⛔ NOT FIXED BY QUEUEING. A client-side replay on reconnect would mint a SECOND
+        // `commandLogId` for the same edit, and §FIX-REPLAY-AT-MOST-ONCE (L-814) keys its
+        // dedupe on exactly that id — so the "fix" would replace a silent loss with a silent
+        // DUPLICATE. Reliable delivery needs a server ack; that is L-13211, its own lane.
+        // What is correct from the client alone is to make the loss LOUD, and to make the
+        // catch-up line stop reporting a clean slate on top of it.
+        const verdict = classifyOutbound(socket, currentProjectId);
+        if (!isDeliverable(verdict)) {
+            const seen = undeliveredCommands.record(cmd.type, verdict);
+            console.error(
+                `[initCollaboration] §OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET — '${cmd.type}' was ` +
+                `NOT SENT (${verdict}). It is absent from every peer AND from project_command_log, ` +
+                `so no catch-up can recover it. ${seen} undelivered command(s) this session.`,
+            );
+            try {
+                window.dispatchEvent(new CustomEvent('pryzm-collab-command-undelivered', {
+                    detail: { commandType: cmd.type, verdict, undeliveredThisSession: seen },
+                }));
+            } catch { /* no DOM (headless) — the console line is still the record */ }
+            return;
+        }
 
         // Serialize the full command payload for over-wire transmission
         let serialized: SerializedCommand | null = null;
