@@ -332,6 +332,164 @@ describe('the siting axes are unknown-or-measured, never zero-for-unknown', () =
     });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐ §LARGEST-FIT (L-13037) — a shape BEFORE a size. When no ground-floor area has been named,
+// each family is solved at the largest outline that fits, SAYS so, and carries no invented target.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LARGEST: MassingShapeInputs = { ...BASE, targetAreaM2: null, whenNoTarget: 'largest-fit' };
+
+describe('§LARGEST-FIT — no named area ⇒ each family at its own ceiling, and it says so', () => {
+    it('⛔ the DEFAULT is still refusal — a caller that omits `whenNoTarget` sees no behaviour change', () => {
+        for (const o of outcomes({ ...BASE, targetAreaM2: null })) {
+            expect(o.ok).toBe(false);
+            if (!o.ok) expect(o.reason).toBe('no-target-area');
+        }
+    });
+
+    it('produces I, L and U on the rectangle, each sized to its largest fit, with a null target', () => {
+        for (const fam of ['bar-i', 'ell', 'u-court'] as const) {
+            const c = candidateFor(LARGEST, fam);
+            expect(c.sizedBy).toBe('largest-fit');
+            expect(c.targetAreaM2).toBeNull();
+            expect(c.areaM2).toBeGreaterThan(100);
+            expect(c.areaM2).toBeLessThanOrEqual(1000 + 1e-6);
+        }
+    });
+
+    it('⭐ the I bar is the LARGEST bar — the full 40 m long side at the 8 m wing depth, 320 m²', () => {
+        const bar = candidateFor(LARGEST, 'bar-i');
+        expect(Math.abs(bar.areaM2 - 40 * DEFAULT_WING_DEPTH_M)).toBeLessThan(1);
+    });
+
+    it('the L and U at largest fit are still genuinely re-entrant and still inside the outline', () => {
+        for (const fam of ['ell', 'u-court'] as const) {
+            const c = candidateFor(LARGEST, fam);
+            expect(hasReflexCorner(c.ring)).toBe(true);
+            const cx = c.ring.reduce((s, p) => s + p.x, 0) / c.ring.length;
+            const cz = c.ring.reduce((s, p) => s + p.z, 0) / c.ring.length;
+            for (const v of c.ring) {
+                expect(inRing({ x: v.x + (cx - v.x) * 0.02, z: v.z + (cz - v.z) * 0.02 }, RECT)).toBe(true);
+            }
+        }
+    });
+
+    it('⛔ carries `sized-to-largest-fit` with BOTH numbers and the action — never a silent default', () => {
+        const ell = candidateFor(LARGEST, 'ell');
+        const n = ell.notes.find((x) => x.code === 'sized-to-largest-fit');
+        expect(n).toBeTruthy();
+        expect(n!.severity).toBe('warning');
+        expect(n!.text).toContain('1000 m²');                          // the footprint it fits
+        expect(n!.text).toContain(`${ell.areaM2.toFixed(0)} m²`);       // the size it landed at
+        expect(n!.text).toContain('Propose a ground floor');            // the action that sizes it
+        expect(n!.text).toContain('not a size PRYZM chose');
+        expect(ell.statement).toContain('largest');
+    });
+
+    it('a named area does NOT carry that note — the two sizings are different facts', () => {
+        const ell = candidateFor(BASE, 'ell');
+        expect(ell.sizedBy).toBe('target');
+        expect(ell.targetAreaM2).toBe(180);
+        expect(ell.notes.some((x) => x.code === 'sized-to-largest-fit')).toBe(false);
+    });
+
+    it('the non-orthogonal L is STILL refused by name on the rectangle at largest fit', () => {
+        const o = outcomes(LARGEST).find((x) => !x.ok && x.family === 'ell-non-orthogonal');
+        expect(o).toBeTruthy();
+        if (o && !o.ok) expect(o.reason).toBe('no-non-orthogonal-frame');
+    });
+
+    it('is deterministic at largest fit too', () => {
+        expect(JSON.stringify(outcomes(LARGEST))).toBe(JSON.stringify(outcomes(LARGEST)));
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⛔ §WING-WIDTH-MEASURED (L-13037) — "COHERENT SHAPES … never ship a sliver". The wing that is
+// BUILT is template ∩ outline; on an irregular outline it thins. It is measured, and a sliver is
+// refused with its numbers.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A 40 × 1.5 m strip — 60 m². Everything placed in it is 1.5 m wide. */
+const STRIP = [
+    { x: 0, z: 0 },
+    { x: 40, z: 0 },
+    { x: 40, z: 1.5 },
+    { x: 0, z: 1.5 },
+];
+
+/**
+ * A 40 × 25 m plate with a notch: the south band z ∈ [17, 23.5] is cut away for x < 30, leaving a
+ * 1.5 m strip along the south boundary for 30 m. A bar hugging that boundary is 8 m wide for its
+ * last 10 m and 1.5 m wide for the 30 m before — a sliver in its body.
+ */
+const NOTCHED = [
+    { x: 0, z: 0 },
+    { x: 40, z: 0 },
+    { x: 40, z: 25 },
+    { x: 0, z: 25 },
+    { x: 0, z: 23.5 },
+    { x: 30, z: 23.5 },
+    { x: 30, z: 17 },
+    { x: 0, z: 17 },
+];
+
+describe('§WING-WIDTH-MEASURED — a wing is measured on the BUILT outline, and a sliver is refused', () => {
+    it('⛔ on a 1.5 m strip every family that can be placed is REFUSED as a sliver, with the numbers', () => {
+        const got = outcomes({ buildableRing: STRIP, buildableAreaM2: 60, targetAreaM2: 50, siting: null });
+        const bar = got.find((o) => !o.ok && o.family === 'bar-i');
+        expect(bar).toBeTruthy();
+        if (bar && !bar.ok) {
+            expect(bar.reason).toBe('family-wings-sliver');
+            expect(bar.text).toContain('1.5 m');            // the measured width
+            expect(bar.text).toContain('below the 2 m minimum');
+            expect(bar.text).toContain('will not ship a sliver');
+            expect(bar.text).toContain('50 m²');            // the area it reached only on paper
+        }
+        // Nothing on the strip may come back as a shipped candidate.
+        expect(got.some((o) => o.ok)).toBe(false);
+    });
+
+    it('…and at largest fit the same strip is refused the same way — size does not launder width', () => {
+        const got = outcomes({
+            buildableRing: STRIP, buildableAreaM2: 60, targetAreaM2: null, whenNoTarget: 'largest-fit', siting: null,
+        });
+        const bar = got.find((o) => !o.ok && o.family === 'bar-i');
+        expect(bar).toBeTruthy();
+        if (bar && !bar.ok) expect(bar.reason).toBe('family-wings-sliver');
+    });
+
+    it('⭐ on the notched plate the sliver PLACEMENT is excluded and COUNTED; a full-width bar is shipped', () => {
+        const bar = candidateFor({
+            buildableRing: NOTCHED, buildableAreaM2: 805, targetAreaM2: null, whenNoTarget: 'largest-fit', siting: null,
+        }, 'bar-i');
+        // The winner holds its width — it is the bar on the intact north side.
+        expect(bar.narrowestWingM).not.toBeNull();
+        expect(bar.narrowestWingM!).toBeGreaterThanOrEqual(DEFAULT_WING_DEPTH_M - 0.2);
+        // The south-hugging bar (1.5 m for 30 m of its body) was excluded, and the exclusion is printed.
+        expect(bar.sliverPlacementsExcluded).toBeGreaterThan(0);
+        const n = bar.notes.find((x) => x.code === 'sliver-placements-excluded');
+        expect(n).toBeTruthy();
+        expect(n!.text).toContain('thinner than 2 m');
+        expect(bar.statement).toContain('excluded as slivers');
+    });
+
+    it('a shape on the plain rectangle measures its full wing depth and carries NO width note', () => {
+        const ell = candidateFor(BASE, 'ell');
+        expect(ell.narrowestWingM).not.toBeNull();
+        expect(ell.narrowestWingM!).toBeGreaterThanOrEqual(DEFAULT_WING_DEPTH_M - 0.2);
+        expect(ell.sliverPlacementsExcluded).toBe(0);
+        expect(ell.notes.some((x) => x.code === 'wings-thin' || x.code === 'wings-sliver')).toBe(false);
+    });
+
+    it('⛔ the measured width is a number or null, never 0 standing in for "not measured"', () => {
+        for (const o of outcomes(BASE)) {
+            if (!o.ok) continue;
+            if (o.candidate.narrowestWingM !== null) expect(o.candidate.narrowestWingM).toBeGreaterThan(0);
+        }
+    });
+});
+
 describe('determinism (C58 §1.1 — deterministic, no AI/ML/LLM)', () => {
     it('two runs of the same inputs are byte-identical', () => {
         const a = JSON.stringify(outcomes({ ...BASE, siting: siting({ neighbours: [SOUTH_TOWER] }) }));

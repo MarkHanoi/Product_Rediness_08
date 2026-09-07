@@ -36,12 +36,27 @@
 // not of a check someone remembered to write.
 //
 // So this module now enumerates **TWO KINDS of option**, and they answer different questions:
-//   • **COVERAGE families** (below) — *how much of the permitted plate do you cover?* They need no
-//     input beyond the envelope, so they are always available.
-//   • **SHAPE families** (`massingShapeOptions.ts`) — *given a ground-floor area you have named,
-//     what BUILDINGS fit, and which one is better sited?* I · L · U · non-orthogonal L, each with
-//     sun, orientation, overlooking, outlook, street frontage and forecourt as COMPUTED numbers.
-//     They require a target area, and they say so instead of appearing empty.
+//   • **SHAPE families** (`massingShapeOptions.ts`) — *what BUILDINGS fit, and which one is better
+//     sited?* I · L · U · non-orthogonal L, each with sun, orientation, overlooking, outlook, street
+//     frontage and forecourt as COMPUTED numbers. Sized to the ground-floor area the user named —
+//     or, when none has been named, to the LARGEST of each family that fits (§LARGEST-FIT below).
+//   • **COVERAGE families** (below) — *how much of the permitted plate do you cover?* The same
+//     outline at four sizes: the plate family's own size ladder.
+//
+// ⭐ **AMENDED AGAIN 2026-09-07 (lane MASSING-SHAPES, L-13037 / L-13039). THE SHAPES COME FIRST, AND
+//    THEY NO LONGER WAIT FOR A TYPED AREA.** Measured at HEAD before this change: the card's
+//    Generate button (`GISAreaLayout.wireMassingOptions`) omits `targetGroundFloorAreaM2`, so this
+//    function read the §5 channel (`resolveLiveTargetGroundFloorAreaM2`), found it EMPTY on every
+//    parcel where the user had not first typed an area into "Propose a ground floor", and WITHHELD
+//    every shape — the founder's screenshot of four plate fractions and no I/L/U was this branch,
+//    not a missing engine. The shape engine existed (`212d1486`) and was reachable only through a
+//    precondition set in a different section that nothing on the fold named as a precondition:
+//    [[authored-but-unwired-is-the-bottleneck]], one module up from where it was last fixed.
+//
+//    The fix is not to invent an area. Each family is solved to its LARGEST FIT inside the
+//    permitted footprint — a computed geometric ceiling, exactly what "Full plate" is for the
+//    coverage family — and the option SAYS it was sized that way and names the action that sizes
+//    it. An architect chooses a shape before a size (L-13037), so the shapes lead the list.
 //
 // ⛔ THE OLD DISCIPLINE IS NOT RELAXED, IT IS EXTENDED. A non-orthogonal L is REFUSED BY NAME on a
 // plot whose own boundaries are orthogonal, because there would be no angle to derive it from —
@@ -110,6 +125,15 @@ import {
     resolveLiveMassingSitingContext,
     resolveLiveTargetGroundFloorAreaM2,
 } from './massingSitingContext';
+// §CREATE-IT-MYSELF (L-13039) — the ONE rule that says whether PRYZM may replace what is on the
+// storey lives next door and is keyed on provenance. This module asks it; it never re-decides it.
+import {
+    describeLevelEnvelope,
+    resolveLevelEnvelopeSupersession,
+    type ExistingLevelEnvelope,
+    type LevelEnvelopeReadResult,
+} from './levelEnvelopeSupersession';
+import { mayBePresentedAsAuthored } from '@pryzm/schemas/provenance';
 
 const _tracer = trace.getTracer('pryzm.site.massingOptionModel');
 
@@ -180,19 +204,28 @@ export const MASSING_FAMILY_MEANING: Readonly<Record<MassingCoverageFamily, stri
  * other way. What remains unsolved is named instead of the whole sentence being deleted.
  */
 export const MASSING_FAMILIES_NOT_YET_SOLVED =
-    'The first options vary how much of the permitted footprint you cover; the shape options are '
-    + 'real I, L, U and non-orthogonal outlines fitted inside it. PRYZM still will not draw a '
-    + 'rectangle and call it an L: a non-orthogonal L is refused on a plot whose own boundaries are '
-    + 'square, and every shape is clipped to the permitted footprint rather than approximated onto '
-    + 'it. Not yet offered: courtyards enclosed on all four sides, and shapes that step in plan '
-    + 'between storeys.';
+    'The shape options are real I, L, U and non-orthogonal outlines fitted inside the permitted '
+    + 'footprint, sized to the ground-floor area you named; the plate options after them vary how '
+    + 'much of the permitted footprint you cover. PRYZM still will not draw a rectangle and call it '
+    + 'an L: a non-orthogonal L is refused on a plot whose own boundaries are square, a shape whose '
+    + 'wing thins below 2 m where the outline cuts it is refused rather than shipped, and every '
+    + 'shape is clipped to the permitted footprint rather than approximated onto it. Not yet '
+    + 'offered: courtyards enclosed on all four sides, and shapes that step in plan between storeys.';
 
-/** The caveat shown when shape options were withheld for want of a target ground-floor area. */
-export const MASSING_SHAPES_NEED_A_TARGET_AREA =
-    'Shape options — I, L, U and non-orthogonal L, each scored for sun, orientation, overlooking, '
-    + 'outlook, street frontage and forecourt — are NOT shown because no target ground-floor area '
-    + 'has been set. Type one in "Propose a ground floor" above and generate again; a shape needs an '
-    + 'area to be a shape of.';
+/**
+ * ⭐ §LARGEST-FIT (L-13037) — the caveat when NO ground-floor area has been named. The shapes are
+ * shown at their largest fit and the sentence says so; typing an area is named as the action that
+ * sizes them. It replaces `MASSING_SHAPES_NEED_A_TARGET_AREA`, which WITHHELD the shapes — the
+ * branch the founder's four-plates screenshot was taken on.
+ */
+export const MASSING_SHAPES_SIZED_TO_LARGEST_FIT =
+    'The shape options — I, L, U and non-orthogonal L, each scored for sun, orientation, '
+    + 'overlooking, outlook, street frontage and forecourt — are shown at the LARGEST size of each '
+    + 'shape that fits the permitted footprint, because no ground-floor area has been named. That '
+    + 'is each shape\'s ceiling, not a size PRYZM chose. Type an area in "Propose a ground floor" and '
+    + 'generate again to size them; a shape whose wing thins below 2 m where the outline cuts it is '
+    + 'refused rather than shipped, and a non-orthogonal L is refused on a square plot. The plate '
+    + 'options after them vary how much of the permitted footprint you cover.';
 
 /** A coded reason attached to one option. Mirrors `LayoutLimitation` in the floor-plan layer:
  *  a machine code the renderer keys on, a severity, and one plain sentence carrying BOTH numbers
@@ -334,6 +367,32 @@ export type MassingOptionSet =
 const DEDUPE_TOLERANCE_M2 = 1;
 
 /**
+ * ⭐ §ONE-RING-ONE-OPTION — the same rule ACROSS families, decided on GEOMETRY. On a strip
+ * narrower than a wing the largest bar IS the full plate; listing "I — single bar · 240 m²" and
+ * "Full plate · 240 m²" is one rectangle under two names. Equal AREA is not enough across
+ * families (an L of 180 m² and a ¾ plate of 180 m² are different buildings), so this compares
+ * the rings: same vertex count, same area within the tolerance above, every vertex of one within
+ * 5 cm of a vertex of the other. The option listed FIRST survives — shapes lead the list.
+ */
+function sameRing(a: readonly Pt[], b: readonly Pt[]): boolean {
+    if (a.length !== b.length || a.length < 3) return false;
+    const areaOf = (r: readonly Pt[]): number => {
+        let s = 0;
+        for (let i = 0; i < r.length; i++) {
+            const p = r[i]!;
+            const q = r[(i + 1) % r.length]!;
+            s += p.x * q.z - q.x * p.z;
+        }
+        return Math.abs(s / 2);
+    };
+    if (Math.abs(areaOf(a) - areaOf(b)) > DEDUPE_TOLERANCE_M2) return false;
+    for (const p of a) {
+        if (!b.some((q) => Math.hypot(p.x - q.x, p.z - q.z) <= 0.05)) return false;
+    }
+    return true;
+}
+
+/**
  * THE enumerator. Pure; total; deterministic; never throws.
  *
  * ⭐ ORDERED BY COVERAGE, DESCENDING. That is a stable presentation order, NOT a ranking — see the
@@ -356,6 +415,36 @@ export function enumerateMassingOptions(inputs: MassingOptionInputs): MassingOpt
         }
 
         const out: MassingOption[] = [];
+
+        // ── ⭐ THE SHAPE FAMILIES (STR §25.3 · L-13037) — FIRST, because an architect chooses a ──
+        // ── shape before a size, and the coverage plates below are one shape's size ladder.   ──
+        const target = inputs.targetGroundFloorAreaM2 === undefined
+            ? resolveLiveTargetGroundFloorAreaM2(permitted)
+            : inputs.targetGroundFloorAreaM2;
+        const siting = inputs.siting === undefined
+            ? resolveLiveMassingSitingContext()
+            : inputs.siting;
+        const hasTarget = target !== null && target > 0;
+        // §LARGEST-FIT — no named area ⇒ each family at its own ceiling, and the caveat says so.
+        // ⛔ NOT a default: the option carries `sized-to-largest-fit` with both numbers.
+        const caveat = hasTarget ? MASSING_FAMILIES_NOT_YET_SOLVED : MASSING_SHAPES_SIZED_TO_LARGEST_FIT;
+        const shapes = enumerateMassingShapes({
+            buildableRing: inputs.permittedRing,
+            buildableAreaM2: permitted,
+            targetAreaM2: hasTarget ? target : null,
+            whenNoTarget: 'largest-fit',
+            siting,
+            ...(inputs.wingDepthM !== undefined ? { wingDepthM: inputs.wingDepthM } : {}),
+        });
+        for (const outcome of shapes) {
+            // ⛔ A REFUSED SHAPE IS LISTED, NOT DROPPED — the same rule the coverage families
+            // follow. A user who asked for an L is entitled to know that PRYZM refused to
+            // invent a non-orthogonal one, or to ship a sliver, and why.
+            out.push(buildShapeOption(outcome, inputs, permitted, hasTarget ? target : null));
+        }
+        span.setAttribute('pryzm.massing.shapeCount', shapes.length);
+        span.setAttribute('pryzm.massing.shapesSizedBy', hasTarget ? 'target' : 'largest-fit');
+
         const seenAreas: number[] = [];
         for (const family of MASSING_OPTION_FAMILIES) {
             const fraction = MASSING_FAMILY_COVERAGE[family];
@@ -376,43 +465,15 @@ export function enumerateMassingOptions(inputs: MassingOptionInputs): MassingOpt
                 if (seenAreas.some((a) => Math.abs(a - area) <= DEDUPE_TOLERANCE_M2)) continue;
                 seenAreas.push(area);
             }
-            out.push(option);
-        }
-
-        // ── ⭐ THE SHAPE FAMILIES (STR §25.3) ─────────────────────────────────────────────────
-        // Appended AFTER the coverage families, deliberately: the coverage list answers a question
-        // that needs no input, so it is what a user sees before they have decided anything. The
-        // shapes answer *"given the area I named, what buildings fit?"* and cannot exist before
-        // that area does.
-        const target = inputs.targetGroundFloorAreaM2 === undefined
-            ? resolveLiveTargetGroundFloorAreaM2(permitted)
-            : inputs.targetGroundFloorAreaM2;
-        const siting = inputs.siting === undefined
-            ? resolveLiveMassingSitingContext()
-            : inputs.siting;
-
-        let caveat = MASSING_FAMILIES_NOT_YET_SOLVED;
-        if (target === null || !(target > 0)) {
-            // ⛔ WITHHELD, AND SAID SO. Emitting four refused shape cards here would bury the ONE
-            // action that unblocks them under four repetitions of the same sentence; the caveat
-            // slot already renders on every computed fold and names the action instead.
-            caveat = MASSING_SHAPES_NEED_A_TARGET_AREA;
-            span.setAttribute('pryzm.massing.shapesWithheld', 'no-target-area');
-        } else {
-            const shapes = enumerateMassingShapes({
-                buildableRing: inputs.permittedRing,
-                buildableAreaM2: permitted,
-                targetAreaM2: target,
-                siting,
-                ...(inputs.wingDepthM !== undefined ? { wingDepthM: inputs.wingDepthM } : {}),
-            });
-            for (const outcome of shapes) {
-                // ⛔ A REFUSED SHAPE IS LISTED, NOT DROPPED — the same rule the coverage families
-                // follow. A user who asked for an L is entitled to know that PRYZM refused to
-                // invent a non-orthogonal one, and why.
-                out.push(buildShapeOption(outcome, inputs, permitted, target));
+            // ⭐ §ONE-RING-ONE-OPTION — and against the SHAPES already listed, by geometry.
+            if (option.proposal !== null) {
+                const ring = option.proposal.ring;
+                if (out.some((o) => o.proposal !== null && sameRing(o.proposal.ring, ring))) {
+                    span.setAttribute(`pryzm.massing.dedupedAgainstShape.${family}`, true);
+                    continue;
+                }
             }
-            span.setAttribute('pryzm.massing.shapeCount', shapes.length);
+            out.push(option);
         }
 
         span.setAttribute('pryzm.massing.optionCount', out.length);
@@ -685,7 +746,8 @@ function buildShapeOption(
     outcome: MassingShapeOutcome,
     inputs: MassingOptionInputs,
     permitted: number,
-    target: number,
+    /** The named ground-floor area, or `null` when the shapes were sized to their largest fit. */
+    target: number | null,
 ): MassingOption {
     if (!outcome.ok) {
         // ⭐ A REFUSED FAMILY IS AN OPTION CARD WITH NO PICK BUTTON, exactly like `plate-unreachable`.
@@ -709,9 +771,12 @@ function buildShapeOption(
             }]),
             scores: Object.freeze([]),
             statement:
-                `PRYZM did not produce a ${MASSING_SHAPE_LABEL[outcome.family]} for a `
-                + `${target.toFixed(0)} m² ground floor on this outline. The family is shown refused rather `
-                + `than dropped, so the absence is a stated finding and not a gap in the list.`,
+                `PRYZM did not produce a ${MASSING_SHAPE_LABEL[outcome.family]} `
+                + (target === null
+                    ? 'on this outline. '
+                    : `for a ${target.toFixed(0)} m² ground floor on this outline. `)
+                + 'The family is shown refused rather than dropped, so the absence is a stated finding '
+                + 'and not a gap in the list.',
             refused: true,
         });
     }
@@ -724,11 +789,16 @@ function buildShapeOption(
     // that produced this ring"; a shape is not an erosion, so the honest value is zero erosion, and
     // no sentence built here claims otherwise. (The `shape-approximated` limitation, which DOES
     // print an inset distance, belongs to the coverage families and is never attached to a shape.)
+    //
+    // ⚠ §LARGEST-FIT — `targetAreaM2` is the CHANNEL's "what was asked for". When the shape was
+    // sized to its largest fit nobody asked for a number, and the honest value on the channel is
+    // the area the user is now choosing (picking it is what names an area) — the same thing a
+    // picked coverage plate writes. The candidate itself keeps `targetAreaM2: null`.
     const proposal: TargetFootprintProposal = {
         ok: true,
         ring: c.ring.map((p) => ({ x: p.x, z: p.z })),
         achievedAreaM2: area,
-        targetAreaM2: target,
+        targetAreaM2: target ?? area,
         permittedAreaM2: permitted,
         insetM: 0,
         statement: c.statement,
@@ -859,4 +929,117 @@ function buildShapeOption(
         // same false-refusal argument the coverage arm's header makes.
         refused: false,
     });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CREATE-IT-MYSELF (L-13039, STR §25.3 / §26.6.3) — THE OPTION THAT IS NOT GENERATED.
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Founder: *"MORE IMPORTANT I NEED TO HAVE CREATE MYSELF MASSING OPTION!"* The massing list carries
+// a first-class entry the user AUTHORS rather than picks. Selecting it opens the site envelope
+// tool (the ONE authoring route, `window.pryzmOpenSiteEnvelopeTool` → `siteEnvelopeTool.ts` →
+// `spaceEnvelope.batch.create`, P6); once the user's own level envelope exists on the ground
+// storey, the list shows it AS the chosen massing and the generated options are offered as
+// alternatives that CANNOT silently replace it (C58 §1.19 clause 3 · `levelEnvelopeSupersession`).
+//
+// ⛔ THE AXIS IS PROVENANCE, NEVER THE NAME. `mayBePresentedAsAuthored` (C75) decides "yours";
+// `resolveLevelEnvelopeSupersession` decides "replaceable" — and its sentence is used VERBATIM
+// here so the card cannot say one thing before the click and the planner another after it
+// (C84 EI-8a). An envelope whose origin PRYZM cannot establish is a THIRD state, not folded into
+// either: it blocks (the conservative direction) and is described as exactly that.
+
+/** Where the "create it myself" entry stands, resolved BEFORE any click. */
+export type AuthoredMassingState =
+    /** Nothing on the ground storey stops a generated option: offer the authoring route. */
+    | { readonly kind: 'offer' }
+    /**
+     * ⭐ The user's OWN level envelope is on the ground storey — it IS the chosen massing.
+     * `blockSentence` is the supersession rule's own refusal, printed on every generated card
+     * so their selection is stated as refused before it is attempted.
+     */
+    | {
+        readonly kind: 'chosen';
+        readonly envelope: ExistingLevelEnvelope;
+        readonly label: string;
+        /** Other level envelopes ALSO on the storey (generated or otherwise), by count. */
+        readonly othersOnStorey: number;
+        readonly blockSentence: string;
+    }
+    /**
+     * Level envelopes of an origin PRYZM cannot establish are on the storey (e.g. saved before
+     * provenance was recorded — `predates-provenance`). They block a generated option and are
+     * NOT presented as the user's own: "PRYZM does not know" is its own answer.
+     */
+    | {
+        readonly kind: 'blocked-unknown';
+        readonly envelopes: readonly ExistingLevelEnvelope[];
+        readonly blockSentence: string;
+    }
+    /** No ground storey to look at — the authoring route is still offered; the state is not known. */
+    | { readonly kind: 'no-ground-level'; readonly text: string }
+    /** The store could not be read. NOT an empty storey (§CONTEXT-DATA-HONESTY). */
+    | { readonly kind: 'unreadable'; readonly text: string };
+
+/**
+ * Resolve the "create it myself" entry's state from what is ALREADY on the ground storey.
+ *
+ * PURE: no store, no DOM. The read result and the storey id are the caller's — the same
+ * `readLevelEnvelopes` + `pickGroundLevel` the adopt planner uses, so the option list and the
+ * Keep button describe the same storey.
+ */
+export function resolveAuthoredMassingState(
+    existing: LevelEnvelopeReadResult,
+    groundLevelId: string | null,
+): AuthoredMassingState {
+    const span = _tracer.startSpan('pryzm.site.resolveAuthoredMassingState');
+    try {
+        if (!existing.readable) {
+            span.setAttribute('pryzm.authoredMassing.kind', 'unreadable');
+            return { kind: 'unreadable', text: existing.text };
+        }
+        if (groundLevelId === null) {
+            span.setAttribute('pryzm.authoredMassing.kind', 'no-ground-level');
+            return {
+                kind: 'no-ground-level',
+                text: 'This project has no storey at or above the datum, so PRYZM cannot say what is on the '
+                    + 'ground floor. Draw your own massing and PRYZM will tell you where it can be seated.',
+            };
+        }
+        const onStorey = existing.rows.filter((e) => e.levelId === groundLevelId);
+        const supersession = resolveLevelEnvelopeSupersession(onStorey);
+        if (supersession.kind !== 'blocked') {
+            span.setAttribute('pryzm.authoredMassing.kind', 'offer');
+            return { kind: 'offer' };
+        }
+        const authored = supersession.blockers.filter(
+            (b) => b.provenance !== null && mayBePresentedAsAuthored(b.provenance),
+        );
+        if (authored.length > 0) {
+            // The first authored one is the chosen massing; the rest are counted, never hidden.
+            const chosen = authored[0]!;
+            span.setAttribute('pryzm.authoredMassing.kind', 'chosen');
+            span.setAttribute('pryzm.authoredMassing.othersOnStorey', onStorey.length - 1);
+            return {
+                kind: 'chosen',
+                envelope: chosen,
+                label: `Your own — ${chosen.footprintAreaM2 === null ? 'area not recorded' : `${chosen.footprintAreaM2.toFixed(0)} m²`}`,
+                othersOnStorey: onStorey.length - 1,
+                blockSentence: supersession.sentence,
+            };
+        }
+        span.setAttribute('pryzm.authoredMassing.kind', 'blocked-unknown');
+        span.setAttribute('pryzm.authoredMassing.blockers', supersession.blockers.length);
+        return {
+            kind: 'blocked-unknown',
+            envelopes: supersession.blockers,
+            blockSentence: supersession.sentence,
+        };
+    } finally {
+        span.end();
+    }
+}
+
+/** How a blocking envelope reads in a sentence — the supersession module's own wording. */
+export function describeAuthoredMassingEnvelope(e: ExistingLevelEnvelope): string {
+    return describeLevelEnvelope(e);
 }

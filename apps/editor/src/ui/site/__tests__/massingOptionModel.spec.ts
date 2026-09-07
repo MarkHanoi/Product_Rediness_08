@@ -39,7 +39,7 @@ import {
     MASSING_OPTION_FAMILIES,
     MASSING_FAMILY_COVERAGE,
     MASSING_FAMILIES_NOT_YET_SOLVED,
-    MASSING_SHAPES_NEED_A_TARGET_AREA,
+    MASSING_SHAPES_SIZED_TO_LARGEST_FIT,
     type MassingCoverageFamily,
     type MassingOptionInputs,
 } from '../massingOptionModel';
@@ -84,6 +84,15 @@ function ok(inputs: MassingOptionInputs) {
     return set;
 }
 
+const SHAPE_FAMILIES = ['bar-i', 'ell', 'ell-non-orthogonal', 'u-court'] as const;
+const isCoverage = (f: string): f is MassingCoverageFamily =>
+    (MASSING_OPTION_FAMILIES as readonly string[]).includes(f);
+
+/** The COVERAGE options only — the plate family's size ladder, in its own order. */
+function plates(inputs: MassingOptionInputs) {
+    return ok(inputs).options.filter((o) => isCoverage(o.family));
+}
+
 describe('enumerateMassingOptions — the four coverage options', () => {
     it('refuses, with a reason, when there is no permitted footprint', () => {
         const set = enumerateMassingOptions({ ...BASE, permittedRing: [], permittedFootprintM2: 0 });
@@ -94,14 +103,22 @@ describe('enumerateMassingOptions — the four coverage options', () => {
     });
 
     it('produces one option per family, in descending coverage, with stable ids', () => {
-        const set = ok(BASE);
-        expect(set.options.length).toBe(MASSING_OPTION_FAMILIES.length);
-        expect(set.options.map((o) => o.family)).toEqual([...MASSING_OPTION_FAMILIES]);
-        expect(set.options.map((o) => o.id)).toEqual(
+        const ps = plates(BASE);
+        expect(ps.length).toBe(MASSING_OPTION_FAMILIES.length);
+        expect(ps.map((o) => o.family)).toEqual([...MASSING_OPTION_FAMILIES]);
+        expect(ps.map((o) => o.id)).toEqual(
             MASSING_OPTION_FAMILIES.map((f) => `massing-${f}`),
         );
-        const areas = set.options.map((o) => o.footprintAreaM2!);
+        const areas = ps.map((o) => o.footprintAreaM2!);
         for (let i = 1; i < areas.length; i++) expect(areas[i]!).toBeLessThan(areas[i - 1]!);
+    });
+
+    // ⭐ L-13037 — *"an architect chooses among shapes before choosing among sizes"*: the SHAPE
+    // families lead the list and the four plates follow as one shape's size ladder.
+    it('⭐ lists the SHAPE families FIRST and the four plates after them', () => {
+        const families = ok(BASE).options.map((o) => o.family);
+        expect(families.slice(0, 4)).toEqual([...SHAPE_FAMILIES]);
+        expect(families.slice(4)).toEqual([...MASSING_OPTION_FAMILIES]);
     });
 
     it('⛔ is DETERMINISTIC — the same inputs give byte-identical options', () => {
@@ -109,7 +126,7 @@ describe('enumerateMassingOptions — the four coverage options', () => {
     });
 
     it('the full plate IS the permitted footprint — no erosion, no drift', () => {
-        const full = ok(BASE).options[0]!;
+        const full = plates(BASE)[0]!;
         expect(full.family).toBe('full-plate');
         expect(full.footprintAreaM2).toBeCloseTo(1000, 0);
         expect(full.proposal!.insetM).toBe(0);
@@ -117,16 +134,16 @@ describe('enumerateMassingOptions — the four coverage options', () => {
     });
 
     it('each eroded plate lands near its coverage fraction', () => {
-        for (const o of ok(BASE).options.slice(1)) {
+        for (const o of plates(BASE).slice(1)) {
             const want = MASSING_FAMILY_COVERAGE[o.family as MassingCoverageFamily];
             expect(Math.abs(o.coverageOfPermitted! - want), o.family).toBeLessThan(0.05);
         }
     });
 
     it('every eroded option carries `shape-approximated` — it is a study, not a setback rule', () => {
-        const set = ok(BASE);
-        expect(set.options[0]!.limitations.some((l) => l.code === 'shape-approximated')).toBe(false);
-        for (const o of set.options.slice(1)) {
+        const ps = plates(BASE);
+        expect(ps[0]!.limitations.some((l) => l.code === 'shape-approximated')).toBe(false);
+        for (const o of ps.slice(1)) {
             const l = o.limitations.find((x) => x.code === 'shape-approximated');
             expect(l, o.family).toBeTruthy();
             expect(l!.severity).toBe('warning');
@@ -136,11 +153,11 @@ describe('enumerateMassingOptions — the four coverage options', () => {
 
 describe('the storey arithmetic', () => {
     it('states the storeys the permitted floor area takes on each plate', () => {
-        const set = ok(BASE); // 3000 m² permitted over 1000 / 750 / 500 / 333 m² plates
-        expect(set.options[0]!.storeysToRealisePermittedGfa).toBe(3);
-        expect(set.options[1]!.storeysToRealisePermittedGfa).toBe(4);
-        expect(set.options[2]!.storeysToRealisePermittedGfa).toBe(6);
-        expect(set.options[3]!.storeysToRealisePermittedGfa).toBe(9);
+        const ps = plates(BASE); // 3000 m² permitted over 1000 / 750 / 500 / 333 m² plates
+        expect(ps[0]!.storeysToRealisePermittedGfa).toBe(3);
+        expect(ps[1]!.storeysToRealisePermittedGfa).toBe(4);
+        expect(ps[2]!.storeysToRealisePermittedGfa).toBe(6);
+        expect(ps[3]!.storeysToRealisePermittedGfa).toBe(9);
     });
 
     it('⛔ a sub-square-metre plate wobble does NOT add a whole storey', () => {
@@ -179,7 +196,7 @@ describe('the storey arithmetic', () => {
 
     it('⛔ NO derived GFA ⇒ no storey figure at all, and the reason is stated', () => {
         const set = ok({ ...BASE, permittedGfaM2: null, maxFloors: null });
-        for (const o of set.options) {
+        for (const o of set.options.filter((x) => !x.refused)) {
             expect(o.storeysToRealisePermittedGfa, o.family).toBeNull();
             expect(o.realisedGfaM2, o.family).toBeNull();
             expect(o.limitations.some((l) => l.code === 'gfa-not-derived'), o.family).toBe(true);
@@ -188,7 +205,7 @@ describe('the storey arithmetic', () => {
 
     it('⛔ NO derived max height ⇒ no height, and the reason says why one is not divided out', () => {
         const set = ok({ ...BASE, maxHeightM: null });
-        for (const o of set.options) {
+        for (const o of set.options.filter((x) => !x.refused)) {
             expect(o.heightM, o.family).toBeNull();
             const l = o.limitations.find((x) => x.code === 'height-not-derived');
             expect(l, o.family).toBeTruthy();
@@ -197,15 +214,15 @@ describe('the storey arithmetic', () => {
     });
 
     it('states a height only by an even division, and says so in the statement', () => {
-        const full = ok(BASE).options[0]!;
+        const full = plates(BASE)[0]!;
         expect(full.heightM).toBeCloseTo(10.5, 3); // 3 storeys × (10.5 / 3)
         expect(full.statement).toContain('not a regulated storey height');
     });
 });
 
 describe('the axes are FACTS, never a ranking', () => {
-    it('every option carries the same five axes, each with a meaning', () => {
-        for (const o of ok(BASE).options) {
+    it('every PLATE option carries the same five axes, each with a meaning', () => {
+        for (const o of plates(BASE)) {
             expect(o.scores.map((a) => a.key)).toEqual([
                 'coverage', 'open-ground', 'storeys', 'gfa-realised', 'storey-headroom',
             ]);
@@ -215,7 +232,7 @@ describe('the axes are FACTS, never a ranking', () => {
 
     it('⛔ an axis that cannot be derived is NULL, never 0 — a 0 bar reads as a measured worst case', () => {
         const set = ok({ ...BASE, parcelAreaM2: null, permittedGfaM2: null, maxFloors: null });
-        for (const o of set.options) {
+        for (const o of set.options.filter((x) => isCoverage(x.family))) {
             for (const key of ['open-ground', 'storeys', 'gfa-realised', 'storey-headroom'] as const) {
                 const a = o.scores.find((x) => x.key === key)!;
                 expect(a.normalised, `${o.family}/${key}`).toBeNull();
@@ -239,11 +256,28 @@ describe('the axes are FACTS, never a ranking', () => {
     // solve an L, and §RESI-ORCH-MASSING-SHAPES now does. A test that pins a stale limitation is a
     // ratchet holding the product back, so it is corrected rather than deleted: the RULE it existed
     // to defend (never draw a rectangle and call it an L) is still asserted, on the new wording.
-    it('with NO target area the shape families are WITHHELD, and the caveat names the action', () => {
-        const set = ok(BASE); // BASE carries no targetGroundFloorAreaM2
-        expect(set.options.length).toBe(MASSING_OPTION_FAMILIES.length);
-        expect(set.caveat).toBe(MASSING_SHAPES_NEED_A_TARGET_AREA);
-        expect(set.caveat).toContain('a shape needs an area to be a shape of');
+    // ⭐ REWRITTEN AGAIN 2026-09-07 (lane MASSING-SHAPES, L-13037). This test pinned
+    //   expect(set.options.length).toBe(MASSING_OPTION_FAMILIES.length);
+    //   expect(set.caveat).toBe(MASSING_SHAPES_NEED_A_TARGET_AREA);
+    // i.e. it CERTIFIED THE BRANCH THE FOUNDER'S FOUR-PLATES SCREENSHOT WAS TAKEN ON — the shapes
+    // withheld for want of an area typed in a different section. The shapes are now sized to their
+    // largest fit, listed, and say so; the caveat names the action that sizes them.
+    it('⭐ with NO target area the shape families are STILL LISTED, at their largest fit, and say so', () => {
+        const set = ok(BASE); // BASE carries a null targetGroundFloorAreaM2
+        expect(set.options.length).toBe(MASSING_OPTION_FAMILIES.length + SHAPE_FAMILIES.length);
+        expect(set.caveat).toBe(MASSING_SHAPES_SIZED_TO_LARGEST_FIT);
+        expect(set.caveat).toContain('LARGEST size');
+        expect(set.caveat).toContain('Propose a ground floor');
+        const ell = set.options.find((o) => o.family === 'ell')!;
+        expect(ell.refused).toBe(false);
+        expect(ell.proposal).not.toBeNull();
+        // The option carries the fact of its sizing as a CODED limitation, with both numbers.
+        const l = ell.limitations.find((x) => x.code === 'sized-to-largest-fit')!;
+        expect(l).toBeTruthy();
+        expect(l.text).toContain('1000 m²');
+        expect(l.text).toContain(`${ell.footprintAreaM2!.toFixed(0)} m²`);
+        // ⛔ The channel's "asked for" is the area the user is choosing — never a fabricated target.
+        expect(ell.proposal!.targetAreaM2).toBeCloseTo(ell.footprintAreaM2!, 6);
     });
 
     it('the caveat still states the rule, and names what is STILL not solved', () => {
@@ -262,10 +296,26 @@ describe('dedupe — two targets that erode to one ring are ONE option', () => {
             ...BASE, permittedRing: thin, permittedFootprintM2: 240, permittedGfaM2: 480,
         });
         if (!set.ok) return; // a total refusal is also honest for a degenerate ring
-        const areas = set.options.map((o) => o.footprintAreaM2).filter((a): a is number => a !== null);
+        const areas = set.options.filter((o) => isCoverage(o.family))
+            .map((o) => o.footprintAreaM2).filter((a): a is number => a !== null);
         for (let i = 1; i < areas.length; i++) {
             expect(Math.abs(areas[i]! - areas[i - 1]!)).toBeGreaterThan(1);
         }
+        // ⭐ §ONE-RING-ONE-OPTION — and ACROSS families: on a 4 m strip the largest bar IS the
+        // full plate, so exactly one of them is listed, and the L / U — which clip to that same
+        // bar — are REFUSED by name rather than listed as a rectangle wearing a letter.
+        const rings = set.options.filter((o) => o.proposal !== null).map((o) => o.proposal!.ring);
+        for (let i = 0; i < rings.length; i++) {
+            for (let j = i + 1; j < rings.length; j++) {
+                const a = rings[i]!; const b = rings[j]!;
+                const same = a.length === b.length
+                    && a.every((p) => b.some((q) => Math.hypot(p.x - q.x, p.z - q.z) <= 0.05));
+                expect(same, `options ${i} and ${j} share one ring`).toBe(false);
+            }
+        }
+        const ell = set.options.find((o) => o.family === 'ell')!;
+        expect(ell.refused).toBe(true);
+        expect(ell.limitations[0]!.text).toContain('clips to a plain bar');
     });
 });
 
@@ -288,8 +338,9 @@ describe('buildMassingOptionsFold', () => {
     it('renders one card per option, each with a pick button, and states that PRYZM picks none', () => {
         document.body.innerHTML = buildMassingOptionsFold({ kind: 'computed', set: ok(BASE) });
         expect(arm()).toBe('computed');
-        expect(document.querySelectorAll('[data-massing-option]').length).toBe(4);
-        expect(document.querySelectorAll(`[${MASSING_PICK_ATTR}]`).length).toBe(4);
+        // 4 shapes + 4 plates; the non-orthogonal L is refused on the rectangle and has no button.
+        expect(document.querySelectorAll('[data-massing-option]').length).toBe(8);
+        expect(document.querySelectorAll(`[${MASSING_PICK_ATTR}]`).length).toBe(7);
         expect(document.body.textContent ?? '').toContain('PRYZM does not pick one');
     });
 
@@ -367,11 +418,11 @@ const WITH_TARGET: MassingOptionInputs = {
 };
 
 describe('the shape families reach the card', () => {
-    it('appends I, L, U and the non-orthogonal L after the four coverage options', () => {
+    it('leads with I, L, the non-orthogonal L and U, and the four coverage options follow', () => {
         const set = ok(WITH_TARGET);
         const families = set.options.map((o) => o.family);
-        expect(families.slice(0, 4)).toEqual([...MASSING_OPTION_FAMILIES]);
-        expect(families.slice(4)).toEqual(['bar-i', 'ell', 'ell-non-orthogonal', 'u-court']);
+        expect(families.slice(0, 4)).toEqual(['bar-i', 'ell', 'ell-non-orthogonal', 'u-court']);
+        expect(families.slice(4)).toEqual([...MASSING_OPTION_FAMILIES]);
         expect(set.caveat).toBe(MASSING_FAMILIES_NOT_YET_SOLVED);
     });
 
@@ -416,7 +467,7 @@ describe('the shape families reach the card', () => {
     });
 
     it('a shape that reaches the target is NEVER marked refused, even when it cannot use the whole GFA', () => {
-        for (const o of ok(WITH_TARGET).options.filter((x) => x.family !== 'ell-non-orthogonal').slice(4)) {
+        for (const o of ok(WITH_TARGET).options.filter((x) => x.family !== 'ell-non-orthogonal').slice(0, 3)) {
             expect(o.refused, o.family).toBe(false);
             expect(o.proposal, o.family).not.toBeNull();
         }

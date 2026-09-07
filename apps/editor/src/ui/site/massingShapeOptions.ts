@@ -146,10 +146,31 @@ export interface MassingShapeNote {
         | 'frontage-is-heuristic'
         /** The wing depth is a study assumption this engine states rather than a rule it read. */
         | 'wing-depth-assumed'
-        /** The solved wings are thinner than a habitable room depth. */
+        /**
+         * The built wing is thinner than a habitable room depth SOMEWHERE along its length —
+         * MEASURED on the clipped ring (§WING-WIDTH-MEASURED), not read off the assumed depth.
+         */
         | 'wings-thin'
-        /** §WING-DEPTH-LADDER — below MIN_WING_M the wing is a sliver, not accommodation. */
-        | 'wings-sliver';
+        /**
+         * §WING-DEPTH-LADDER — the ASSUMED depth itself is below MIN_WING_M (an input problem).
+         * A sliver PRODUCED BY CLIPPING is a different fact and is a REFUSAL of the whole family
+         * (`family-wings-sliver`), never a note on a shipped shape.
+         */
+        | 'wings-sliver'
+        /**
+         * ⭐ §LARGEST-FIT (L-13037) — no ground-floor area was named, so this shape is the
+         * LARGEST of its family that fits the permitted footprint at the stated wing depth.
+         * That is the family's own ceiling — a computed geometric fact, exactly as "Full plate"
+         * is the coverage family's — and NOT a default number PRYZM chose. Both figures travel
+         * with it, and the action that sizes it is named.
+         */
+        | 'sized-to-largest-fit'
+        /**
+         * §WING-WIDTH-MEASURED — N placements of this family reached the area but were
+         * excluded because clipping to the outline thinned a wing below MIN_WING_M. Printed so
+         * an exclusion is a stated finding, not a silent shrink of the candidate list.
+         */
+        | 'sliver-placements-excluded';
     readonly severity: 'error' | 'warning';
     readonly text: string;
 }
@@ -171,7 +192,24 @@ export type MassingShapeRefusalReason =
     /** No placement of this family reached the target area inside this footprint. */
     | 'family-cannot-reach-target'
     /** Every placement clipped into disjoint pieces — the family does not fit this outline. */
-    | 'family-does-not-fit';
+    | 'family-does-not-fit'
+    /**
+     * ⛔ §WING-WIDTH-MEASURED (L-13037: *"COHERENT SHAPES … never ship a sliver"*). Every
+     * placement that reached the area did so only because clipping to the outline left a wing
+     * thinner than MIN_WING_M somewhere along its body. The narrowest measured width, the
+     * minimum, and the wing it was measured on all travel with the refusal (C58 §1.13).
+     */
+    | 'family-wings-sliver'
+    /**
+     * ⛔ §NOT-A-RECTANGLE-WEARING-THE-LETTER — every L / U placement that fits clipped to a ring
+     * with NO re-entrant corner: on this outline the family collapses to the bar. The bar family
+     * already offers that ring; listing it again under another letter would be the exact defect
+     * `massingOptionModel`'s header was written to prevent.
+     */
+    | 'family-collapses-to-bar';
+
+/** How a candidate's SIZE was decided. See `MassingShapeInputs.whenNoTarget`. */
+export type MassingShapeSizing = 'target' | 'largest-fit';
 
 export interface MassingShapeCandidate {
     readonly family: MassingShapeFamily;
@@ -179,7 +217,21 @@ export interface MassingShapeCandidate {
     /** The footprint, scene-XZ metres. ⊆ the buildable ring by construction (intersection). */
     readonly ring: readonly Pt[];
     readonly areaM2: number;
-    readonly targetAreaM2: number;
+    /**
+     * The area the user NAMED, or `null` when the shape was sized to its largest fit because
+     * none was named. ⛔ Never the achieved area standing in for an unnamed target — "asked for
+     * 320" and "the biggest that fits happened to be 320" are different facts.
+     */
+    readonly targetAreaM2: number | null;
+    readonly sizedBy: MassingShapeSizing;
+    /**
+     * §WING-WIDTH-MEASURED — the narrowest wing width found on the CLIPPED ring, metres,
+     * measured at stations along each wing's body (tip zones excluded). `null` only when no
+     * station could be measured (a wing shorter than one station), never 0 for "not measured".
+     */
+    readonly narrowestWingM: number | null;
+    /** Placements that reached the area but were EXCLUDED as slivers. Printed, never silent. */
+    readonly sliverPlacementsExcluded: number;
     /** The wing / bar depth used, metres. Disclosed because it is an assumption (see the note). */
     readonly wingDepthM: number;
     /** Which corner / side the shape was anchored on, in plain words. */
@@ -235,8 +287,25 @@ export interface MassingShapeInputs {
     readonly buildableRing: readonly Pt[];
     /** The card's ONE producer of this figure. Never re-derived here (C06 §13.3). */
     readonly buildableAreaM2: number;
-    /** ⭐ The founder's *"180 sqm brut in ground floor"*. `null` ⇒ every family refuses, by name. */
+    /**
+     * ⭐ The founder's *"180 sqm brut in ground floor"*. `null` ⇒ see `whenNoTarget`: by default
+     * every family refuses, by name.
+     */
     readonly targetAreaM2: number | null;
+    /**
+     * ⭐ §LARGEST-FIT (L-13037) — what to do when NO ground-floor area has been named.
+     *
+     *   • `'refuse'` (default) — every family refuses with `no-target-area`. The engine's
+     *     original contract, kept so no existing caller changes behaviour by omission.
+     *   • `'largest-fit'` — each family is solved at the LARGEST outline of that family that
+     *     fits the permitted footprint at the stated wing depth (scale 1 of the plot extent,
+     *     clipped). That is the family's own ceiling — the same fact "Full plate" states for
+     *     the coverage family — so a user can choose a SHAPE before choosing a SIZE, which is
+     *     the order an architect works in. ⛔ It is NOT a default area: the candidate says
+     *     `sizedBy: 'largest-fit'`, carries `targetAreaM2: null`, and its `sized-to-largest-fit`
+     *     note names the number and the action that sizes it.
+     */
+    readonly whenNoTarget?: 'refuse' | 'largest-fit';
     /** Site facts. `null` ⇒ shapes are still generated; the siting axes report `null`, not 0. */
     readonly siting: MassingSitingContext | null;
     /** Override the assumed wing depth (metres). Omit for {@link DEFAULT_WING_DEPTH_M}. */
@@ -258,8 +327,33 @@ export const DEFAULT_WING_DEPTH_M = 8;
 /** Below this a "wing" is a corridor, not accommodation. A warning, not a refusal — see the note. */
 const THIN_WING_M = 4.5;
 
-/** Below this the shape is a sliver and the family is refused outright. */
+/**
+ * Below this the shape is a sliver and the family is refused outright.
+ *
+ * ⭐ §WING-WIDTH-MEASURED (L-13037) — applied to the CLIPPED ring, not only to the assumed depth.
+ * A template wing is `wingDepth` deep by construction; the wing that is actually BUILT is that
+ * wing ∩ the permitted outline, and on an irregular plot the outline cuts across it, tapering an
+ * 8 m wing to nothing. That taper is exactly the *"slivers, re-entrant corners narrower than a
+ * room, and wings too thin to build"* the founder named, and no check on the input depth can see
+ * it. So every solved placement's wings are measured at stations along their bodies, and a
+ * placement thinner than this anywhere in a wing's body is excluded — the family is refused when
+ * none survives, with the narrowest width printed.
+ */
 const MIN_WING_M = 2;
+
+/** Stations along a wing's body are this far apart, metres. */
+const WING_STATION_M = 2;
+
+/** Each station measures the wing across a slice this long along the wing, metres. */
+const WING_SLICE_M = 1;
+
+/**
+ * The tip zone: the last `wingDepth` metres at each end of a wing are NOT measured. A wing may
+ * end in a splay or a diagonal where the outline cuts it — squaring that off is a detailing
+ * decision, not a sliver — but its BODY must hold the minimum width. One wing depth is the
+ * length of the corner block a wing shares with its neighbour, so the rule has a shape to it.
+ */
+const WING_TIP_TOLERANCE_FACTOR = 1;
 
 /** Façade probes are spaced no further apart than this along the perimeter. */
 const FACADE_SAMPLE_SPACING_M = 3;
@@ -325,6 +419,26 @@ function signedAreaXZ(ring: readonly Pt[]): number {
 
 function ringAreaM2(ring: readonly Pt[]): number {
     return ring.length < 3 ? 0 : Math.abs(signedAreaXZ(ring));
+}
+
+/**
+ * Does the ring have a RE-ENTRANT corner? An L or a U must; a ring without one is a bar however
+ * it was templated. Cross-product sign at each vertex, both signs present ⇒ reflex somewhere.
+ * Near-collinear vertices (|cross| below 0.05 m²) are ignored so a clipped edge that merely
+ * bends by a hair cannot pass a rectangle off as an L.
+ */
+function hasReflexCorner(ring: readonly Pt[]): boolean {
+    let pos = false;
+    let neg = false;
+    for (let i = 0; i < ring.length; i++) {
+        const a = ring[i]!;
+        const b = ring[(i + 1) % ring.length]!;
+        const c = ring[(i + 2) % ring.length]!;
+        const cross = (b.x - a.x) * (c.z - b.z) - (b.z - a.z) * (c.x - b.x);
+        if (cross > 0.05) pos = true;
+        if (cross < -0.05) neg = true;
+    }
+    return pos && neg;
 }
 
 /** Distance from a point to a segment, metres. */
@@ -464,7 +578,24 @@ interface Extent { readonly aMin: number; readonly aMax: number; readonly bMin: 
  */
 interface Placement {
     readonly label: string;
+    readonly frame: Frame;
     readonly build: (scale: number) => Pt[];
+    /**
+     * §WING-WIDTH-MEASURED — the wings this placement is made of, in FRAME coordinates, at the
+     * same scale `build` uses. Each is the rectangle the template wing occupies; the width
+     * check measures what the CLIPPED ring keeps of it.
+     */
+    readonly wings: (scale: number) => WingRect[];
+}
+
+/** One template wing in frame coordinates. `along` is the axis the wing runs down. */
+interface WingRect {
+    readonly label: string;
+    readonly aMin: number;
+    readonly aMax: number;
+    readonly bMin: number;
+    readonly bMax: number;
+    readonly along: 'a' | 'b';
 }
 
 /**
@@ -498,12 +629,19 @@ function barPlacements(f: Frame, e: Extent, depth: number): Placement[] {
     for (const side of sides) {
         out.push({
             label: `${f.label}, ${side.label}`,
+            frame: f,
             build: (s: number) => {
                 const [a0, a1, b0, b1] = side.at(s);
                 return [
                     frameForward(f, a0, b0), frameForward(f, a1, b0),
                     frameForward(f, a1, b1), frameForward(f, a0, b1),
                 ];
+            },
+            wings: (s: number) => {
+                const [a0, a1, b0, b1] = side.at(s);
+                // The bar runs down whichever of its two extents is the LONG one.
+                const along = (a1 - a0) >= (b1 - b0) ? 'a' : 'b';
+                return [{ label: `the bar ${side.label}`, aMin: a0, aMax: a1, bMin: b0, bMax: b1, along }];
             },
         });
     }
@@ -524,27 +662,53 @@ function ellPlacements(f: Frame, e: Extent, depth: number): Placement[] {
         { label: `wings on the ${negU} and ${posW} boundaries`, sa: 1, sb: -1 },
         { label: `wings on the ${posU} and ${posW} boundaries`, sa: -1, sb: -1 },
     ];
-    return corners.map((c) => ({
-        label: `${f.label}, ${c.label}`,
-        build: (s: number): Pt[] => {
+    return corners.map((c) => {
+        const geom = (s: number) => {
             const a0 = c.sa === 1 ? e.aMin : e.aMax;
             const b0 = c.sb === 1 ? e.bMin : e.bMax;
-            const la = c.sa * s * A;
-            const lb = c.sb * s * B;
-            const da = c.sa * depth;
-            const db = c.sb * depth;
-            // Corner at (a0,b0); one wing runs `la` along u with depth `db`, the other `lb` along
-            // v with depth `da`. Written as a 6-gon so the re-entrant corner is explicit.
-            return [
-                frameForward(f, a0, b0),
-                frameForward(f, a0 + la, b0),
-                frameForward(f, a0 + la, b0 + db),
-                frameForward(f, a0 + da, b0 + db),
-                frameForward(f, a0 + da, b0 + lb),
-                frameForward(f, a0, b0 + lb),
-            ];
-        },
-    }));
+            return {
+                a0, b0,
+                la: c.sa * s * A, lb: c.sb * s * B,
+                da: c.sa * depth, db: c.sb * depth,
+            };
+        };
+        return {
+            label: `${f.label}, ${c.label}`,
+            frame: f,
+            build: (s: number): Pt[] => {
+                const { a0, b0, la, lb, da, db } = geom(s);
+                // Corner at (a0,b0); one wing runs `la` along u with depth `db`, the other `lb` along
+                // v with depth `da`. Written as a 6-gon so the re-entrant corner is explicit.
+                return [
+                    frameForward(f, a0, b0),
+                    frameForward(f, a0 + la, b0),
+                    frameForward(f, a0 + la, b0 + db),
+                    frameForward(f, a0 + da, b0 + db),
+                    frameForward(f, a0 + da, b0 + lb),
+                    frameForward(f, a0, b0 + lb),
+                ];
+            },
+            wings: (s: number): WingRect[] => {
+                const { a0, b0, la, lb, da, db } = geom(s);
+                const wingAlongU = `the wing along the ${c.sb === 1 ? negW : posW} boundary`;
+                const wingAlongW = `the wing along the ${c.sa === 1 ? negU : posU} boundary`;
+                return [
+                    { label: wingAlongU, ...span(a0, a0 + la), ...spanB(b0, b0 + db), along: 'a' },
+                    { label: wingAlongW, ...span(a0, a0 + da), ...spanB(b0, b0 + lb), along: 'b' },
+                ];
+            },
+        };
+    });
+}
+
+/** Ordered a-span, whichever way the wing was written. */
+function span(p: number, q: number): { aMin: number; aMax: number } {
+    return p <= q ? { aMin: p, aMax: q } : { aMin: q, aMax: p };
+}
+
+/** Ordered b-span, whichever way the wing was written. */
+function spanB(p: number, q: number): { bMin: number; bMax: number } {
+    return p <= q ? { bMin: p, bMax: q } : { bMin: q, bMax: p };
 }
 
 /** A U: three wings of `depth` round a court, open on one of the four sides. */
@@ -557,14 +721,19 @@ function uPlacements(f: Frame, e: Extent, depth: number): Placement[] {
     ];
     const out: Placement[] = [];
     for (const o of opens) {
+        const geom = (s: number) => {
+            const la = s * A;
+            const lb = o.sb * s * B;
+            const db = o.sb * depth;
+            const a0 = e.aMin + (A - la) / 2; // centred on the frame extent
+            const b0 = o.sb === 1 ? e.bMin : e.bMax;
+            return { la, lb, db, a0, b0 };
+        };
         out.push({
             label: `${f.label}, ${o.label}`,
+            frame: f,
             build: (s: number): Pt[] => {
-                const la = s * A;
-                const lb = o.sb * s * B;
-                const db = o.sb * depth;
-                const a0 = e.aMin + (A - la) / 2; // centred on the frame extent
-                const b0 = o.sb === 1 ? e.bMin : e.bMax;
+                const { la, lb, db, a0, b0 } = geom(s);
                 return [
                     frameForward(f, a0, b0),
                     frameForward(f, a0 + la, b0),
@@ -574,6 +743,15 @@ function uPlacements(f: Frame, e: Extent, depth: number): Placement[] {
                     frameForward(f, a0 + depth, b0 + db),
                     frameForward(f, a0 + depth, b0 + lb),
                     frameForward(f, a0, b0 + lb),
+                ];
+            },
+            wings: (s: number): WingRect[] => {
+                const { la, lb, db, a0, b0 } = geom(s);
+                const base = `the closed side of the court (${compassName(o.sb === 1 ? { x: -f.w.x, z: -f.w.z } : f.w)})`;
+                return [
+                    { label: base, ...span(a0, a0 + la), ...spanB(b0, b0 + db), along: 'a' },
+                    { label: `the ${compassName({ x: -f.u.x, z: -f.u.z })} wing of the court`, ...span(a0, a0 + depth), ...spanB(b0, b0 + lb), along: 'b' },
+                    { label: `the ${compassName(f.u)} wing of the court`, ...span(a0 + la - depth, a0 + la), ...spanB(b0, b0 + lb), along: 'b' },
                 ];
             },
         });
@@ -602,6 +780,139 @@ interface SolvedPlacement {
     readonly areaM2: number;
     readonly templateAreaM2: number;
     readonly scale: number;
+}
+
+/**
+ * ⭐ §LARGEST-FIT — one placement at scale 1: the largest outline of its family that the
+ * permitted footprint holds at this wing depth. No bisection — there is no target to hit; the
+ * plot's extent IS the size. `null` when even the full-extent template clips to nothing usable.
+ */
+function solveLargest(placement: Placement, buildable: readonly Pt[]): SolvedPlacement | null {
+    const tpl = placement.build(1);
+    const clipped = clipToBuildable(tpl, buildable);
+    if (clipped === null) return null;
+    const areaM2 = ringAreaM2(clipped);
+    if (!(areaM2 > 0.5)) return null;
+    return { label: placement.label, ring: clipped, areaM2, templateAreaM2: ringAreaM2(tpl), scale: 1 };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §WING-WIDTH-MEASURED (L-13037) — is the wing that was BUILT still a wing?
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Area kept by `poly ∩ probe`, summed over every positive loop. 0 when the boolean fails. */
+function keptAreaM2(probe: readonly Pt[], poly: readonly Pt[]): number {
+    const res = intersectPolygons2D(
+        probe.map((p) => [p.x, p.z] as [number, number]),
+        poly.map((p) => [p.x, p.z] as [number, number]),
+    );
+    if (!res.ok) return 0;
+    let total = 0;
+    for (const loop of res.loops) {
+        let a = 0;
+        for (let i = 0; i < loop.length; i++) {
+            const p = loop[i]!;
+            const q = loop[(i + 1) % loop.length]!;
+            a += p[0] * q[1] - q[0] * p[1];
+        }
+        total += Math.abs(a / 2);
+    }
+    return total;
+}
+
+interface WingWidthReading {
+    readonly wingLabel: string;
+    /** The narrowest body width measured on this wing, metres. */
+    readonly minWidthM: number;
+    /** Distance along the wing at which it was measured, metres from the wing's start. */
+    readonly atM: number;
+}
+
+/**
+ * Measure one wing of a solved placement on the CLIPPED ring.
+ *
+ * Stations every `WING_STATION_M` down the wing's long axis; at each, a slice `WING_SLICE_M`
+ * long and the wing's full depth across is intersected with the clipped ring, and the kept
+ * area ÷ slice length is the wing's mean width there. The tip zone at each end of the built
+ * run is skipped (see `WING_TIP_TOLERANCE_FACTOR`); when the run is shorter than two tip zones
+ * the single middle station is measured, so a short wing is still judged rather than skipped.
+ *
+ * Returns `null` when no station lands on built ring at all (the wing was clipped away), which
+ * the caller treats as "this wing was not built", a different fact from "this wing is thin".
+ */
+function measureWing(
+    frame: Frame,
+    wing: WingRect,
+    clipped: readonly Pt[],
+    wingDepth: number,
+): WingWidthReading | null {
+    const alongMin = wing.along === 'a' ? wing.aMin : wing.bMin;
+    const alongMax = wing.along === 'a' ? wing.aMax : wing.bMax;
+    const length = alongMax - alongMin;
+    if (!(length > WING_SLICE_M)) return null;
+    // A hair of margin across, so a wing that exactly coincides with the outline is not lost to
+    // an edge-on boolean; the margin lies OUTSIDE the wing, where the template has nothing.
+    const acrossMin = (wing.along === 'a' ? wing.bMin : wing.aMin) - 0.05;
+    const acrossMax = (wing.along === 'a' ? wing.bMax : wing.aMax) + 0.05;
+
+    const stations: Array<{ atM: number; widthM: number }> = [];
+    const n = Math.max(1, Math.floor((length - WING_SLICE_M) / WING_STATION_M));
+    for (let k = 0; k <= n; k++) {
+        const at = n === 0 ? length / 2 : WING_SLICE_M / 2 + (k * (length - WING_SLICE_M)) / n;
+        const s0 = alongMin + at - WING_SLICE_M / 2;
+        const s1 = alongMin + at + WING_SLICE_M / 2;
+        const probe: Pt[] = wing.along === 'a'
+            ? [
+                frameForward(frame, s0, acrossMin), frameForward(frame, s1, acrossMin),
+                frameForward(frame, s1, acrossMax), frameForward(frame, s0, acrossMax),
+            ]
+            : [
+                frameForward(frame, acrossMin, s0), frameForward(frame, acrossMax, s0),
+                frameForward(frame, acrossMax, s1), frameForward(frame, acrossMin, s1),
+            ];
+        // The frame need not be orthonormal (the non-orthogonal L), so the slice's true length
+        // along the wing is measured in scene metres rather than assumed to be WING_SLICE_M.
+        const p0 = wing.along === 'a' ? frameForward(frame, s0, 0) : frameForward(frame, 0, s0);
+        const p1 = wing.along === 'a' ? frameForward(frame, s1, 0) : frameForward(frame, 0, s1);
+        const sliceLenM = Math.hypot(p1.x - p0.x, p1.z - p0.z) || WING_SLICE_M;
+        const kept = keptAreaM2(probe, clipped);
+        stations.push({ atM: at, widthM: kept / sliceLenM });
+    }
+
+    // The BUILT run: the stations that actually landed on ring.
+    const built = stations.filter((st) => st.widthM > 0.05);
+    if (built.length === 0) return null;
+    const runStart = built[0]!.atM;
+    const runEnd = built[built.length - 1]!.atM;
+    const tip = wingDepth * WING_TIP_TOLERANCE_FACTOR;
+    let body = built.filter((st) => st.atM - runStart >= tip && runEnd - st.atM >= tip);
+    if (body.length === 0) body = [built[Math.floor(built.length / 2)]!];
+
+    let min = body[0]!;
+    for (const st of body) if (st.widthM < min.widthM) min = st;
+    return { wingLabel: wing.label, minWidthM: min.widthM, atM: min.atM };
+}
+
+interface WingWidthVerdict {
+    /** The narrowest body width over every measured wing, or `null` when none could be measured. */
+    readonly narrowestM: number | null;
+    readonly narrowest: WingWidthReading | null;
+    /** `true` when some wing's body is below MIN_WING_M — the placement is a sliver. */
+    readonly sliver: boolean;
+}
+
+function judgeWings(placement: Placement, solved: SolvedPlacement, wingDepth: number): WingWidthVerdict {
+    let narrowest: WingWidthReading | null = null;
+    for (const w of placement.wings(solved.scale)) {
+        const r = measureWing(placement.frame, w, solved.ring, wingDepth);
+        if (r === null) continue;
+        if (narrowest === null || r.minWidthM < narrowest.minWidthM) narrowest = r;
+    }
+    return {
+        narrowestM: narrowest === null ? null : narrowest.minWidthM,
+        narrowest,
+        sliver: narrowest !== null && narrowest.minWidthM < MIN_WING_M,
+    };
 }
 
 /** Solve one placement's scale so the CLIPPED area hits `target`. `null` when it cannot. */
@@ -963,8 +1274,9 @@ export function enumerateMassingShapes(inputs: MassingShapeInputs): readonly Mas
             );
         }
 
-        const target = inputs.targetAreaM2;
-        if (target === null || !Number.isFinite(target) || !(target > 0)) {
+        const rawTarget = inputs.targetAreaM2;
+        const hasTarget = rawTarget !== null && Number.isFinite(rawTarget) && rawTarget > 0;
+        if (!hasTarget && inputs.whenNoTarget !== 'largest-fit') {
             span.setAttribute('pryzm.massingShape.refusal', 'no-target-area');
             return MASSING_SHAPE_FAMILIES.map((f) =>
                 refusal(f, 'no-target-area',
@@ -973,8 +1285,11 @@ export function enumerateMassingShapes(inputs: MassingShapeInputs): readonly Mas
                     + `own worked example is 180 m² brut on the ground floor.`),
             );
         }
-        const tol = toleranceFor(target);
-        if (target > buildableArea + tol) {
+        // ⭐ §LARGEST-FIT — `null` from here on MEANS "size each family to its largest fit".
+        const target: number | null = hasTarget ? rawTarget : null;
+        span.setAttribute('pryzm.massingShape.sizedBy', target === null ? 'largest-fit' : 'target');
+        const tol = target === null ? 0 : toleranceFor(target);
+        if (target !== null && target > buildableArea + tol) {
             span.setAttribute('pryzm.massingShape.refusal', 'target-exceeds-buildable');
             return MASSING_SHAPE_FAMILIES.map((f) =>
                 refusal(f, 'target-exceeds-buildable',
@@ -1070,17 +1385,61 @@ export function enumerateMassingShapes(inputs: MassingShapeInputs): readonly Mas
                 continue;
             }
 
-            const solved: SolvedPlacement[] = [];
+            const solved: Array<{ placement: Placement; s: SolvedPlacement }> = [];
             for (const p of placements) {
-                const s = solvePlacement(p, buildable, target);
-                if (s !== null) solved.push(s);
+                const s = target === null ? solveLargest(p, buildable) : solvePlacement(p, buildable, target);
+                if (s !== null) solved.push({ placement: p, s });
             }
             if (solved.length === 0) {
-                out.push(refusal(family, 'family-cannot-reach-target',
-                    `No placement of the ${MASSING_SHAPE_LABEL[family]} family reaches ${target.toFixed(0)} m² `
-                    + `inside this ${buildableArea.toFixed(0)} m² buildable footprint at a ${wingDepth.toFixed(1)} m `
-                    + `wing depth — every one either fell short or broke into disjoint pieces when clipped to the `
-                    + `outline. Try a smaller ground-floor area, or a different shape.`));
+                out.push(target === null
+                    ? refusal(family, 'family-does-not-fit',
+                        `No placement of the ${MASSING_SHAPE_LABEL[family]} family fits inside this `
+                        + `${buildableArea.toFixed(0)} m² buildable footprint at a ${wingDepth.toFixed(1)} m wing `
+                        + `depth — every one broke into disjoint pieces or vanished when clipped to the outline.`)
+                    : refusal(family, 'family-cannot-reach-target',
+                        `No placement of the ${MASSING_SHAPE_LABEL[family]} family reaches ${target.toFixed(0)} m² `
+                        + `inside this ${buildableArea.toFixed(0)} m² buildable footprint at a ${wingDepth.toFixed(1)} m `
+                        + `wing depth — every one either fell short or broke into disjoint pieces when clipped to the `
+                        + `outline. Try a smaller ground-floor area, or a different shape.`));
+                continue;
+            }
+
+            // ⛔ §NOT-A-RECTANGLE-WEARING-THE-LETTER — an L or U whose clipped ring has no re-entrant
+            // corner IS a bar. Such placements are dropped here; if none of the family survives, the
+            // family is refused by name rather than listed as a second copy of the bar.
+            const mustBeReentrant = family !== 'bar-i';
+            const shaped = mustBeReentrant ? solved.filter((x) => hasReflexCorner(x.s.ring)) : solved;
+            if (shaped.length === 0) {
+                out.push(refusal(family, 'family-collapses-to-bar',
+                    `Every ${MASSING_SHAPE_LABEL[family]} that ${target === null ? 'fits' : `reaches ${target.toFixed(0)} m²`} `
+                    + `inside this ${buildableArea.toFixed(0)} m² outline clips to a plain bar — the outline leaves no `
+                    + `room for a second wing at ${wingDepth.toFixed(1)} m depth. The I option already offers that `
+                    + `ring; PRYZM will not list the same rectangle again under another letter.`));
+                continue;
+            }
+
+            // ⛔ §WING-WIDTH-MEASURED — a placement that reached the area by leaving a wing thinner
+            // than MIN_WING_M is NOT a candidate. It is measured on the clipped ring, excluded, and
+            // COUNTED; when nothing survives the family is refused with the narrowest width printed.
+            const judged = shaped.map((x) => ({ ...x, wings: judgeWings(x.placement, x.s, wingDepth) }));
+            const usable = judged.filter((x) => !x.wings.sliver);
+            const sliverCount = judged.length - usable.length;
+            if (usable.length === 0) {
+                let worst: WingWidthReading | null = null;
+                for (const x of judged) {
+                    const r = x.wings.narrowest;
+                    if (r !== null && (worst === null || r.minWidthM < worst.minWidthM)) worst = r;
+                }
+                const where = worst === null
+                    ? ''
+                    : ` The narrowest is ${worst.minWidthM.toFixed(1)} m, on ${worst.wingLabel}, `
+                      + `${worst.atM.toFixed(0)} m along it — below the ${MIN_WING_M} m minimum.`;
+                out.push(refusal(family, 'family-wings-sliver',
+                    `Every ${MASSING_SHAPE_LABEL[family]} that ${target === null ? 'fits' : `reaches ${target.toFixed(0)} m²`} `
+                    + `inside this ${buildableArea.toFixed(0)} m² outline does so only by leaving a wing too thin to `
+                    + `build where the outline cuts across it.${where} PRYZM will not ship a sliver and call it a `
+                    + `wing: ${sliverCount} placement${sliverCount === 1 ? '' : 's'} refused. Try a different shape, `
+                    + `or a smaller ground-floor area.`));
                 continue;
             }
 
@@ -1090,9 +1449,9 @@ export function enumerateMassingShapes(inputs: MassingShapeInputs): readonly Mas
             // runner-up's figure is printed so the choice is legible rather than asserted. This is
             // NOT a ranking across families: `massingOptionModel`'s header explains why that one
             // stays the architect's.
-            const ranked = solved
-                .map((s) => ({ s, south: southFacadeFraction(sampleFacade(s.ring)) }))
-                .sort((p, q) => (q.south - p.south) || (p.s.label < q.s.label ? -1 : 1));
+            const ranked = usable
+                .map((x) => ({ x, south: southFacadeFraction(sampleFacade(x.s.ring)) }))
+                .sort((p, q) => (q.south - p.south) || (p.x.s.label < q.x.s.label ? -1 : 1));
             const winner = ranked[0]!;
             const runnerUp = ranked.length > 1 ? ranked[1]!.south : null;
 
@@ -1100,11 +1459,14 @@ export function enumerateMassingShapes(inputs: MassingShapeInputs): readonly Mas
                 ok: true,
                 candidate: buildCandidate({
                     family,
-                    solved: winner.s,
+                    solved: winner.x.s,
                     southFraction: winner.south,
                     runnerUpSouthFraction: runnerUp,
-                    placementsConsidered: solved.length,
+                    placementsConsidered: usable.length,
+                    sliverPlacementsExcluded: sliverCount,
+                    narrowestWing: winner.x.wings.narrowest,
                     target,
+                    buildableArea,
                     wingDepth,
                     buildable,
                     fronts,
@@ -1136,7 +1498,10 @@ function buildCandidate(args: {
     southFraction: number;
     runnerUpSouthFraction: number | null;
     placementsConsidered: number;
-    target: number;
+    sliverPlacementsExcluded: number;
+    narrowestWing: WingWidthReading | null;
+    target: number | null;
+    buildableArea: number;
     wingDepth: number;
     buildable: readonly Pt[];
     fronts: readonly FrontEdge[];
@@ -1155,6 +1520,31 @@ function buildCandidate(args: {
             + `dimension it read from a rule: it is the depth at which a room can be daylit from one side `
             + `and still leave circulation. Change it and every figure below changes with it.`,
     });
+
+    if (target === null) {
+        // ⭐ §LARGEST-FIT — both numbers, and the action that sizes it. Not a default.
+        notes.push({
+            code: 'sized-to-largest-fit',
+            severity: 'warning',
+            text:
+                `No ground-floor area has been named, so this is the LARGEST ${MASSING_SHAPE_LABEL[family]} `
+                + `that fits the ${args.buildableArea.toFixed(0)} m² permitted footprint at ${wingDepth.toFixed(1)} m `
+                + `wings — ${solved.areaM2.toFixed(0)} m². It is this shape's ceiling, not a size PRYZM chose for `
+                + `you. Type a ground-floor area in "Propose a ground floor" and generate again to size it.`,
+        });
+    }
+
+    if (args.sliverPlacementsExcluded > 0) {
+        notes.push({
+            code: 'sliver-placements-excluded',
+            severity: 'warning',
+            text:
+                `${args.sliverPlacementsExcluded} other placement${args.sliverPlacementsExcluded === 1 ? '' : 's'} `
+                + `of this shape ${target === null ? 'fit' : 'reached the area'} only by leaving a wing thinner than `
+                + `${MIN_WING_M} m where the outline cuts across it, and ${args.sliverPlacementsExcluded === 1 ? 'was' : 'were'} `
+                + `excluded rather than offered. The one shown holds its width.`,
+        });
+    }
 
     const clipLoss = solved.templateAreaM2 > 0 ? 1 - solved.areaM2 / solved.templateAreaM2 : 0;
     if (clipLoss > 0.15) {
@@ -1318,6 +1708,11 @@ function buildCandidate(args: {
     // was then read by nothing, which `tsc` caught as TS6133 (declared but never read) — a promise in
     // a doc comment that the code did not keep. Deleting the constant would have silenced the compiler
     // by dropping the rule; wiring it keeps the rule and satisfies the compiler for the right reason.
+    //
+    // ⭐ §WING-WIDTH-MEASURED (L-13037) — the ladder now has a MEASURED rung. The ASSUMED depth is
+    // judged here as before; the BUILT width (`narrowestWing`, measured on the clipped ring) is
+    // judged below it. A placement whose built width fell under MIN_WING_M never reaches this
+    // function — it was excluded in the enumerator — so the measured rung here can only be THIN.
     if (wingDepth < MIN_WING_M) {
         notes.push({
             code: 'wings-sliver',
@@ -1334,18 +1729,36 @@ function buildCandidate(args: {
                 `A ${wingDepth.toFixed(1)} m wing is shallower than a habitable room plus circulation. This `
                 + `shape reaches the area asked for, but it would build as a corridor.`,
         });
+    } else if (args.narrowestWing !== null && args.narrowestWing.minWidthM < THIN_WING_M) {
+        notes.push({
+            code: 'wings-thin',
+            severity: 'warning',
+            text:
+                `Where the outline cuts across it, ${args.narrowestWing.wingLabel} narrows to `
+                + `${args.narrowestWing.minWidthM.toFixed(1)} m (${args.narrowestWing.atM.toFixed(0)} m along it) — `
+                + `above the ${MIN_WING_M} m minimum, but shallower than a habitable room plus circulation. `
+                + `Measured on the built outline, not on the ${wingDepth.toFixed(1)} m template.`,
+        });
     }
 
     const lead = sun !== null
         ? `${(sun.value * 100).toFixed(0)} % of equinox daylight reaches its façade`
         : `${(args.southFraction * 100).toFixed(0)} % of its façade faces south`;
 
+    const sized = target === null
+        ? `PRYZM solved the largest ${MASSING_SHAPE_LABEL[family]} that fits — a ${solved.areaM2.toFixed(0)} m² `
+          + `footprint, no ground-floor area having been named — `
+        : `PRYZM solved a ${solved.areaM2.toFixed(0)} m² footprint against your ${target.toFixed(0)} m² target, `;
     const statement =
         `${MASSING_SHAPE_MEANING[family]} `
-        + `PRYZM solved a ${solved.areaM2.toFixed(0)} m² footprint against your ${target.toFixed(0)} m² target, `
+        + sized
         + `${solved.label}, with ${wingDepth.toFixed(1)} m wings. `
         + `Chosen from ${args.placementsConsidered} placement${args.placementsConsidered === 1 ? '' : 's'} of this `
-        + `shape that fit, by south-facing façade`
+        + `shape that fit`
+        + (args.sliverPlacementsExcluded > 0
+            ? ` (${args.sliverPlacementsExcluded} more excluded as slivers)`
+            : '')
+        + `, by south-facing façade`
         + (args.runnerUpSouthFraction === null
             ? ''
             : ` — ${(args.southFraction * 100).toFixed(0)} % against ${(args.runnerUpSouthFraction * 100).toFixed(0)} % `
@@ -1358,6 +1771,9 @@ function buildCandidate(args: {
         ring: Object.freeze(solved.ring.map((p) => ({ x: p.x, z: p.z }))),
         areaM2: solved.areaM2,
         targetAreaM2: target,
+        sizedBy: target === null ? 'largest-fit' as const : 'target' as const,
+        narrowestWingM: args.narrowestWing === null ? null : args.narrowestWing.minWidthM,
+        sliverPlacementsExcluded: args.sliverPlacementsExcluded,
         wingDepthM: wingDepth,
         placementLabel: solved.label,
         placementsConsidered: args.placementsConsidered,
