@@ -32,6 +32,7 @@ import { fetchContextFurniture } from './contextFurniture';
 import { fetchContextBakedCanopy } from './contextCanopyBaked';
 import { CONTEXT_WIDE_HALF_DEG, CONTEXT_SEA_HALF_DEG } from './contextExtents';
 import { groundFetchHalfDeg } from './contextExtentBudget';
+import { primeContextTilesetManifest } from './contextTiles';
 
 const _tracer = trace.getTracer('pryzm.gis.context-layer-warm');
 
@@ -45,6 +46,14 @@ export function warmAllContextLayers(lat: number, lon: number): void {
     const span = _tracer.startSpan('pryzm.gis.context-layer-warm.warmAll');
     try {
         if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return;
+        // §CTX-MANIFEST-KNOWN-MISSING (L-13111) — ⛔ FIRST LINE, AND THE ORDER IS THE POINT. The nine
+        // reads below are created synchronously and each would otherwise be the one to start the
+        // manifest read, putting it BEHIND their own requests in the same-origin queue. Issued here
+        // it goes out first, and the layers that are not published (`canopy`, `sea`, `furniture` —
+        // measured 404s costing ~2 requests each per session) never probe their archive headers at
+        // all. Not awaited: `readContextTilesOnce` holds the deadlined gate, and `buildings` — the
+        // one read the reveal waits on — is exempt from it by name.
+        void primeContextTilesetManifest();
         const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
         // §CTX-WARM-READS-THE-RENDER-EXTENT (L-13079, founder Barcelona 2026-09-07) — ⚠ THE WARM
         // AND THE RENDER MUST ASK FOR THE SAME BOX, and for ROADS and PARKS they had stopped doing so.

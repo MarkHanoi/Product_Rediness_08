@@ -73,6 +73,12 @@ import {
 // §CTX-EXTENT-BUDGET (L-13058) — the ONE tunable table for every 3D-Site context radius and cap.
 // Leaf module (imports nothing), so this cannot close an import cycle.
 import { CTX_BUILDINGS_MAX_TILES_PER_FETCH, CTX_MAX_CACHED_TILES } from './contextExtentBudget';
+// §CTX-MANIFEST-KNOWN-MISSING (L-13111). ⚠ THE ARROW POINTS ONE WAY ON PURPOSE: that module does NOT
+// import this one (it takes the base URL as an argument), so the two cannot close a cycle and be
+// resolved at load with one half undefined (memory `scc-no-barrel-access-at-module-load`).
+import {
+    readTilesetManifest, tilesetManifestUrl, type TilesetManifestReading,
+} from './contextTilesetManifest';
 
 /** A lon/lat bounding box `[west, south, east, north]` — same shape as `contextBuildings.Bbox`. */
 export type TileBbox = readonly [number, number, number, number];
@@ -501,6 +507,11 @@ export function __setContextTilesBaseUrl(url: string | null): void {
     baseUrlOverride = url;
     archives.clear();
     missingArchives.clear(); // §CTX-KNOWN-MISSING — a new base may well HAVE the layer.
+    // §CTX-MANIFEST-KNOWN-MISSING (L-13111) — the manifest, the seed it produced and the proof that
+    // outranks it all belong to the OLD base URL. Carrying any of them over would let one tileset's
+    // manifest decide what another tileset publishes.
+    provenArchives.clear();
+    manifestRead = null;
     // §CTX-TILE-DECODE-CACHE — the decoded tiles belong to the OLD base URL. Keeping them would
     // serve one tileset's features under another's configuration.
     tileCache.clear();
@@ -1011,6 +1022,157 @@ const archives = new Map<string, PMTiles>();
  */
 const missingArchives = new Map<string, string>();
 
+/**
+ * §CTX-MANIFEST-KNOWN-MISSING (L-13111) — archive URLs whose header read has SUCCEEDED this session.
+ *
+ * ⛔ THIS IS THE SAFETY INTERLOCK ON THE MANIFEST SEED, AND WITHOUT IT THE SEED IS A LOADED GUN.
+ * The manifest lands asynchronously, so it can resolve AFTER a layer has already been read
+ * successfully. A stale or narrow manifest — one written by a merge that has not yet carried a layer
+ * forward — would then seed a layer that is DEMONSTRABLY LIVE as missing, and every later read of it
+ * (a different bbox, a wider extent) would short-circuit to `unavailable`. A measurement beats a
+ * document: an archive whose header we have actually read is never suppressed by a manifest.
+ */
+const provenArchives = new Set<string>();
+
+/**
+ * §CTX-MANIFEST-KNOWN-MISSING (L-13111) — the session-singleton manifest read, and the gate that
+ * bounds how long a layer read may wait for it.
+ *
+ * ⭐ WHY A GATE AND NOT A FIRE-AND-FORGET. A prime that nobody waits for cannot save the very probes
+ * it exists to remove: `warmAllContextLayers` issues the manifest read and the nine layer reads in
+ * the SAME TICK, so an un-awaited manifest lands after the 404s it was meant to prevent, and the
+ * whole module would be §AUTHORED-BUT-UNWIRED with extra steps.
+ *
+ * ⛔ WHY `buildings` IS EXEMPT, AND WHY THAT IS NOT AN ARBITRARY SPECIAL CASE. The onboarding reveal
+ * gates on the NEAR BUILDINGS read and on nothing else (`OnboardingStepController.contextWarm`;
+ * `contextLayerWarm.ts`'s header says so). Every other layer is fire-and-forget BEHIND the reveal.
+ * So the gate costs the user zero on the path they are watching, and it is paid only in the stream
+ * that lands after it — which is where the founder's §STARTUP-BUDGET puts the 4.4 s of tiles landing
+ * after the scene settled, and where these six wasted requests live.
+ *
+ * ⚠ AND IT IS DEADLINED. A hung manifest must not stall the context stream: after
+ * `CONTEXT_MANIFEST_GATE_MS` every waiter proceeds and probes exactly as it would have. The read
+ * itself keeps running and still seeds whatever it establishes, for the reads that come later.
+ */
+const MANIFEST_UNGATED_LAYER: ContextTileLayer = 'buildings';
+export const CONTEXT_MANIFEST_GATE_MS = 700;
+let manifestRead: Promise<TilesetManifestReading> | null = null;
+
+/**
+ * Start the session's manifest read if it has not started, and return it. Idempotent and never
+ * throws. Safe to call before any tile read — `warmAllContextLayers` does, so the request is issued
+ * BEFORE the nine layer reads queue their own behind it on the same origin.
+ */
+export function primeContextTilesetManifest(): Promise<TilesetManifestReading> | null {
+    if (manifestRead) return manifestRead;
+    const url = tilesetManifestUrl(contextTilesBaseUrl());
+    if (!url) return null; // tiles disabled — nothing to read, nothing to seed.
+    manifestRead = readTilesetManifest(url).then((reading) => { seedFromManifest(reading); return reading; });
+    return manifestRead;
+}
+
+/**
+ * §CTX-MANIFEST-KNOWN-MISSING — why one layer was, or was not, seeded as missing from a manifest.
+ * Exported as a PURE seam so the interlocks below can be pinned without a network or an archive
+ * fixture; `seedFromManifest` is the only production caller.
+ */
+export type ManifestSeedVerdict =
+    /** The manifest does not name it and nothing contradicts that — memoise it as missing. */
+    | 'seed'
+    /** The manifest names it: it is published, probe it normally. */
+    | 'listed'
+    /** ⛔ Its header has already been READ this session. Proof outranks a document; never suppress. */
+    | 'proven-present'
+    /** Already memoised by its own 403/404 — keep THAT reason, which is the stronger evidence. */
+    | 'already-memoised'
+    /** The manifest established nothing. Seed nothing. */
+    | 'manifest-unreadable';
+
+export function manifestSeedVerdict(
+    layer: ContextTileLayer,
+    reading: TilesetManifestReading,
+    state: { readonly provenPresent: boolean; readonly alreadyMemoised: boolean },
+): ManifestSeedVerdict {
+    if (reading.status !== 'ok') return 'manifest-unreadable';
+    if (reading.layers.has(layer)) return 'listed';
+    // ⛔ ORDER MATTERS: proof first. A layer we have successfully read the header for is live, and a
+    // manifest that disagrees is stale or narrow — the one way this feature could delete a working
+    // layer from the map, which is a strictly worse outcome than the six requests it saves.
+    if (state.provenPresent) return 'proven-present';
+    if (state.alreadyMemoised) return 'already-memoised';
+    return 'seed';
+}
+
+/** The memo reason a manifest-sourced absence carries. It NAMES the manifest, so no console line can
+ *  present it as a mystery — and §CTX-KNOWN-MISSING appends its own "(known missing this session…)"
+ *  suffix, which is what keeps `contextFurniture`'s honest `absent` state reachable. */
+export function manifestMissingReason(reading: TilesetManifestReading): string {
+    const named = [...reading.layers].sort().join(', ');
+    return `not listed by ${reading.url} (§CTX-MANIFEST-KNOWN-MISSING L-13111 — the manifest names `
+        + `${reading.layers.size} layer(s): ${named}), so the archive is not published under this tileset`;
+}
+
+/**
+ * §CTX-MANIFEST-KNOWN-MISSING — turn a manifest reading into §CTX-KNOWN-MISSING memo entries.
+ *
+ * ⛔ THE `unavailable` VERDICT IS UNCHANGED — ONLY THE ROUND TRIP GOES. A seeded layer answers with
+ * the SAME status the 404 would have produced, and the reason NAMES the manifest as its source, so
+ * a console line can never read as "this city has no street lighting" (§CONTEXT-DATA-HONESTY).
+ * An `unreadable` manifest seeds NOTHING.
+ */
+function seedFromManifest(reading: TilesetManifestReading): void {
+    if (reading.status !== 'ok') {
+        console.warn(
+            `[contextTiles] §CTX-MANIFEST-KNOWN-MISSING: manifest UNREADABLE (${reading.reason}) — `
+            + 'every layer is probed exactly as before. A slow path, not a wrong answer.',
+        );
+        return;
+    }
+    const named = [...reading.layers].sort().join(', ');
+    const seeded: string[] = [];
+    const refused: string[] = [];
+    for (const layer of CONTEXT_TILE_LAYERS) {
+        const url = contextTilesetUrl(layer);
+        if (!url) continue;
+        const verdict = manifestSeedVerdict(layer, reading, {
+            provenPresent: provenArchives.has(url),
+            alreadyMemoised: missingArchives.has(url),
+        });
+        if (verdict === 'proven-present') { refused.push(layer); continue; }
+        if (verdict !== 'seed') continue;
+        missingArchives.set(url, manifestMissingReason(reading));
+        seeded.push(layer);
+    }
+    console.log(
+        `[contextTiles] §CTX-MANIFEST-KNOWN-MISSING: manifest read in ${reading.ms} ms names `
+        + `${reading.layers.size} layer(s) [${named}]. Skipping the archive-header probe for `
+        + `${seeded.length}: [${seeded.join(', ') || 'none'}] — each was costing ~2 requests per session `
+        + '(§CTX-RANGE-COALESCE span + per-member re-issue). ⚠ Those layers still answer `unavailable`, '
+        + 'which is NOT the same value as an empty answer; only the round trip is gone.'
+        + (refused.length ? ` ⛔ NOT seeded, header already read OK this session: [${refused.join(', ')}].` : ''),
+    );
+}
+
+/**
+ * Wait for the manifest, but never longer than `CONTEXT_MANIFEST_GATE_MS`. Resolves immediately once
+ * the read has settled, so this costs nothing after the first pass.
+ */
+async function awaitManifestGate(): Promise<void> {
+    const pending = primeContextTilesetManifest();
+    if (!pending) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+        pending.then(() => undefined),
+        new Promise<void>((resolve) => { timer = setTimeout(resolve, CONTEXT_MANIFEST_GATE_MS); }),
+    ]);
+    if (timer !== undefined) clearTimeout(timer);
+}
+
+/** Every layer the manifest verdict is applied to. Order is the console line's order. */
+const CONTEXT_TILE_LAYERS: readonly ContextTileLayer[] = [
+    'buildings', 'roads', 'water', 'parks', 'landuse', 'rail', 'trees', 'sea', 'furniture', 'canopy',
+];
+
 /** TRUE when a reader `unavailable.reason` proves the ARCHIVE is absent (403/404 on its header), as
  *  opposed to any other failure. Exported so a layer whose absence is an honest EMPTY (§STREET-LIFE:
  *  `furniture` not yet baked) can tell "not baked" from "read failed" without re-parsing HTTP. */
@@ -1492,6 +1654,14 @@ async function readContextTilesOnce(
     const archive = archiveFor(layer);
     if (!archive) return { status: 'disabled' };
 
+    // §CTX-MANIFEST-KNOWN-MISSING (L-13111) — one manifest read tells us which layers are published,
+    // so an unpublished one never pays a header probe at all. Deadlined, and `buildings` never waits
+    // because it is the reveal gate; see `awaitManifestGate`.
+    if (layer !== MANIFEST_UNGATED_LAYER) {
+        await awaitManifestGate();
+        if (signal?.aborted) return { status: 'aborted' };
+    }
+
     // §CTX-KNOWN-MISSING — an archive that 403/404'd its header this session is not going to
     // materialise; answer `unavailable` immediately instead of paying the round trips again.
     const archiveUrl = contextTilesetUrl(layer);
@@ -1517,6 +1687,9 @@ async function readContextTilesOnce(
     let minZoom = 0;
     try {
         const header = await archive.getHeader();
+        // §CTX-MANIFEST-KNOWN-MISSING (L-13111) — a header we have actually READ is proof the archive
+        // exists, and proof outranks the manifest: a late or narrow manifest can never suppress it.
+        if (archiveUrl) provenArchives.add(archiveUrl);
         // Clamp to what the tileset ACTUALLY holds — a re-bake at a different zoom would otherwise
         // read tiles that do not exist and look exactly like "no context here".
         z = Math.min(z, header.maxZoom);
@@ -1769,6 +1942,9 @@ export function __createRangeSourceForTest(url: string): Source {
 export function clearContextTileArchives(): void {
     archives.clear();
     missingArchives.clear(); // §CTX-KNOWN-MISSING — tests must never inherit a prior test's 404 memo.
+    // §CTX-MANIFEST-KNOWN-MISSING — nor a prior test's manifest reading, nor its proven archives.
+    provenArchives.clear();
+    manifestRead = null;
     tileCache.clear();
     tileInFlight.clear();
 }
