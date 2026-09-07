@@ -1,0 +1,460 @@
+// §ENVELOPE-DRAW-ON-THE-SITE-VIEWS (lane ENVELOPE-DRAW, 2026-09-07) — THE ARMING REGISTRY, THE
+// GESTURE DRIVER AND THE MODE STORE. One module, because they are one lifecycle.
+//
+// PLAN-ENVELOPE-DRAW-ON-SITE-VIEWS §2 "Arming registry" / "ESC / finish" / "Mode vocabulary" ·
+// L-13050 · C58 §1.19 · C16 CA-18 · P6 · P8.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ ARM EVERY ATTACHED SURFACE; THE FIRST CLICK WINS AND DISARMS THE REST
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// This is `activatePlanOnlyTool.ts:139-167` transposed, and it SIDESTEPS the missing active-view
+// accessor (L-5106, `elementAuthoringContext.ts:67-83`) entirely: nobody asks "which pane is
+// active". Every registered surface is armed, the count of surfaces that accepted is returned, and
+// when none did the refusal names WHY and the route back (C16 CA-18). The surface that receives the
+// first click becomes the owner and the others are disarmed in that same call, so a user in the
+// site-authoring split (2D map LEFT · 3D Site RIGHT) draws on whichever pane they clicked in.
+//
+// ⛔ THE DISARM SHIPS IN THE SAME MODULE AS THE ARM (plan §7 rule 12). L-7801 recorded what happens
+// otherwise: arming had a function, disarming had none, Escape unwound the chrome and left the
+// handler live, and the next click created another element. Every exit — finish, cancel, an
+// explicit `disarmEnvelopeDraw()`, an unregister while armed — passes through `disarmAll()`.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⛔ THE GESTURE IS NOT FORKED (plan §7 rule 3)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// `BoundaryPathAuthor` IS the ortho rule (the founder-ruled perpendicular foot), the 3-click arc and
+// the undo semantics for the whole slab family. `boundaryLoopVertices` IS the rectangle / circle /
+// ellipse generator. This module OWNS one instance of the first and CALLS the second; it re-derives
+// neither. `SlabTool.ts:175` is already a diverged fourth polyline machine — this is not the fifth.
+//
+// ⛔ AND THE MODE TABLE IS NOT MINTED A SECOND TIME (plan §7 rule 6). `EnvelopeDrawMode` is the UNION
+// of the two existing slab-family unions (`BoundaryDrawMode` + `BoundaryLoopMode`), spelled by
+// their own type guards. It is deliberately NOT merged with `SiteBoundaryMap2D`'s
+// `SiteBoundaryGesture` — that draws a PARCEL in lat/lon, this authors an ELEMENT in model space
+// (L-1322: *"merging two things because they share three words is how the five spellings happened"*).
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ ESC CANCELS · DOUBLE-CLICK / ENTER FINISHES · LOOP MODES FINISH ON THE SECOND CLICK
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// Both site surfaces already agree on this (Cesium `SiteBoundaryDrawTool`, MapLibre `onDblClick` +
+// the overlay `keyListener`), and `BOUNDARY_LOOP_GESTURE` already declares the two-click loop. The
+// slab's four-ESC-owner layering is deliberately NOT inherited (plan §7 rule 9).
+//
+// ⛔ P6 — THIS MODULE DISPATCHES NOTHING. Its one output is `setDrawnEnvelopeFootprint`; the create
+// panel reads that slot and dispatches the ONE `spaceEnvelope.batch.create` through the ONE plan.
+// ⛔ MODE IS READ FRESH ON EVERY CLICK (the `activeSlabDrawMode.ts:59-63` rule): switching mode
+// mid-draw applies to the next click and never re-arms — re-arming is what destroyed the slab's
+// in-progress polyline and produced the founder's complaint the shared mode bar exists to remove.
+//
+// No DOM, no THREE, no renderer. Module-local state + listener sets only.
+
+import { trace } from '@opentelemetry/api';
+import {
+    BoundaryPathAuthor,
+    isBoundaryDrawMode,
+    type ArcVertex2D,
+} from '@pryzm/geometry-slab/boundary-path';
+import {
+    BOUNDARY_LOOP_GESTURE,
+    boundaryLoopRefusal,
+    boundaryLoopVertices,
+    isBoundaryLoopMode,
+} from '@pryzm/geometry-slab/boundary-loops';
+// §C73-AREA-CANONICAL — the kernel's ONE shoelace, behind accessors. ⛔ Not a fourth private
+// `signedAreaAbs` (plan §7 rule 8: `SiteBoundaryDrawTool` and `SiteBoundaryMap2D` each carry one
+// already; this lane consumes the canonical body instead of adding a copy).
+import { polygonSignedAreaOrdinates } from '@pryzm/geometry-kernel';
+import type { EnvelopeDrawSink, EnvelopeDrawSurface, SceneXZPoint } from './envelopeDrawSurface';
+import {
+    setDrawnEnvelopeFootprint,
+    type EnvelopeDrawMode,
+} from './drawnEnvelopeFootprintState';
+
+const _tracer = trace.getTracer('pryzm.site.siteEnvelopeDrawArming');
+
+export type { EnvelopeDrawMode } from './drawnEnvelopeFootprintState';
+
+/** Bar order. The three path constraints first, then the three closed loops — the slab strip's order. */
+export const ENVELOPE_DRAW_MODES: readonly EnvelopeDrawMode[] = Object.freeze([
+    'linear', 'ortho', 'curved', 'rectangular', 'circular', 'elliptical',
+]);
+
+/** Narrows an arbitrary picker string to one of the six. Spelled by the two existing guards. */
+export function isEnvelopeDrawMode(v: unknown): v is EnvelopeDrawMode {
+    return isBoundaryDrawMode(v) || isBoundaryLoopMode(v);
+}
+
+// ── THE MODE STORE ──────────────────────────────────────────────────────────────────────────────
+
+/** LINEAR is the default — the freeform polyline. A user who never opens the strip gets that. */
+let _mode: EnvelopeDrawMode = 'linear';
+const modeListeners = new Set<() => void>();
+
+/** Record the selected mode. From ANY strip instance; the value outlives every strip. Never re-arms. */
+export function setEnvelopeDrawMode(mode: unknown): void {
+    const span = _tracer.startSpan('pryzm.site.setEnvelopeDrawMode');
+    try {
+        const applied = isEnvelopeDrawMode(mode);
+        if (applied && mode !== _mode) {
+            _mode = mode;
+            // A pending loop anchor or arc midpoint from the OLD mode would be misread by the new
+            // one (a rectangle's corner A is not an arc's midpoint). Drop the half-gesture, keep the
+            // committed vertices — the next click continues the path under the new constraint.
+            loopFirst = null;
+            if (author.pendingArcMidpoint !== null) author.undo();
+            repaintPreview();
+            for (const fn of [...modeListeners]) { try { fn(); } catch { /* listener's problem */ } }
+        }
+        span.setAttribute('pryzm.envelopeDraw.mode', _mode);
+        span.setAttribute('pryzm.envelopeDraw.applied', applied);
+    } finally {
+        span.end();
+    }
+}
+
+/** Read fresh on every click / move — the `WallModePicker.getActiveMode()` contract. */
+export function resolveEnvelopeDrawMode(): EnvelopeDrawMode {
+    return _mode;
+}
+
+export function subscribeEnvelopeDrawMode(fn: () => void): () => void {
+    modeListeners.add(fn);
+    return () => { modeListeners.delete(fn); };
+}
+
+// ── THE REGISTRY ────────────────────────────────────────────────────────────────────────────────
+
+/** Every surface currently mounted, in registration order. */
+const registered: EnvelopeDrawSurface[] = [];
+/** The subset currently armed (their sinks are honoured). */
+const armed = new Set<EnvelopeDrawSurface>();
+/** The surface that received the first click of this gesture, or null before it. */
+let owner: EnvelopeDrawSurface | null = null;
+
+const author = new BoundaryPathAuthor();
+/** Loop modes: the first click (corner A / centre), or null while awaiting it. */
+let loopFirst: SceneXZPoint | null = null;
+/** The last pointer position over ground, for the rubber-band. */
+let cursor: SceneXZPoint | null = null;
+
+/** What the gesture is doing, in the user's words — read by the panel's status line. */
+export interface EnvelopeDrawStatus {
+    readonly armed: boolean;
+    /** How many surfaces are currently armed (0 when idle). */
+    readonly surfaces: number;
+    /** The surface that owns the gesture in progress, once a first click has landed. */
+    readonly owner: EnvelopeDrawSurface['surfaceId'] | null;
+    readonly mode: EnvelopeDrawMode;
+    /** Vertices placed so far (path modes) — 0 or 1 in loop modes. */
+    readonly vertices: number;
+    /** The next thing to do, in one sentence. Empty when idle. */
+    readonly hint: string;
+    /** The last refusal (a degenerate loop, a close with too few corners), or null. Cleared on the next click. */
+    readonly refusal: string | null;
+}
+
+const statusListeners = new Set<() => void>();
+let lastRefusal: string | null = null;
+
+function notifyStatus(): void {
+    for (const fn of [...statusListeners]) {
+        try { fn(); } catch (e) { console.warn('[site][envelope-draw] status listener threw (non-fatal):', e); }
+    }
+}
+
+/** Subscribe to arm/disarm/click state — the Draw button paints its pressed state from it. */
+export function subscribeEnvelopeDrawStatus(fn: () => void): () => void {
+    statusListeners.add(fn);
+    return () => { statusListeners.delete(fn); };
+}
+
+function hintFor(): string {
+    if (armed.size === 0) return '';
+    const mode = _mode;
+    if (isBoundaryLoopMode(mode)) {
+        const g = BOUNDARY_LOOP_GESTURE[mode];
+        return loopFirst === null
+            ? `${g.first} · Esc cancels.`
+            : `${g.second} — the shape closes on this click · Backspace re-picks the first · Esc cancels.`;
+    }
+    if (author.pendingArcMidpoint !== null) {
+        return 'Click the arc END — the last click was the arc midpoint · Backspace re-picks the bulge · Esc cancels.';
+    }
+    if (author.pointCount === 0) {
+        return 'Click to place the first corner of the envelope perimeter · Esc cancels.';
+    }
+    return author.canClose()
+        ? 'Click the next corner · double-click or Enter closes the perimeter · Backspace removes the last corner · Esc cancels.'
+        : 'Click the next corner (a perimeter needs three) · Backspace removes the last corner · Esc cancels.';
+}
+
+export function getEnvelopeDrawStatus(): EnvelopeDrawStatus {
+    return {
+        armed: armed.size > 0,
+        surfaces: armed.size,
+        owner: owner?.surfaceId ?? null,
+        mode: _mode,
+        vertices: isBoundaryLoopMode(_mode) ? (loopFirst === null ? 0 : 1) : author.pointCount,
+        hint: hintFor(),
+        refusal: lastRefusal,
+    };
+}
+
+export function isEnvelopeDrawArmed(): boolean {
+    return armed.size > 0;
+}
+
+/**
+ * A surface announces itself on mount. Returns its unregister, which a dispose MUST call: an
+ * unregister while armed disarms that surface first, so a torn-down map can never be the owner of
+ * a gesture the user is still making on the other pane.
+ */
+export function registerEnvelopeDrawSurface(surface: EnvelopeDrawSurface): () => void {
+    const span = _tracer.startSpan('pryzm.site.registerEnvelopeDrawSurface');
+    try {
+        if (!registered.includes(surface)) registered.push(surface);
+        span.setAttribute('pryzm.envelopeDraw.surface', surface.surfaceId);
+        span.setAttribute('pryzm.envelopeDraw.registered', registered.length);
+        return () => {
+            const i = registered.indexOf(surface);
+            if (i >= 0) registered.splice(i, 1);
+            if (armed.has(surface)) {
+                armed.delete(surface);
+                try { surface.disarm(); } catch { /* mid-teardown */ }
+                if (owner === surface) {
+                    // The gesture's owner is gone: there is nothing left to finish it on.
+                    resetGesture();
+                    disarmAll();
+                }
+                notifyStatus();
+            }
+        };
+    } finally {
+        span.end();
+    }
+}
+
+/** How many surfaces are registered right now (mounted, whether or not armed). */
+export function registeredEnvelopeDrawSurfaces(): number {
+    return registered.length;
+}
+
+export interface EnvelopeDrawActivation {
+    readonly ok: boolean;
+    /** How many surfaces accepted the arm. `0` whenever `ok` is false. */
+    readonly surfaces: number;
+    /** Present iff `!ok`. Names the reason AND the route back (C16 CA-18). */
+    readonly reason?: string;
+}
+
+/** The refusal when no site surface is mounted — the route back is the site-authoring split. */
+export const ENVELOPE_DRAW_NO_SURFACE_REASON =
+    'Drawing the envelope perimeter needs a site view under the pointer, and none is attached '
+    + 'right now. Open the 2D Site Map or 3D Site (the site-authoring split shows both), then press '
+    + 'Draw again. This is a wiring state in PRYZM, not a finding about your parcel — you can still '
+    + 'extrude the permitted footprint or your fitted plate from this panel.';
+
+function resetGesture(): void {
+    author.reset();
+    loopFirst = null;
+    cursor = null;
+    owner = null;
+}
+
+function disarmAll(): void {
+    for (const s of [...armed]) {
+        armed.delete(s);
+        try { s.disarm(); } catch (e) { console.warn('[site][envelope-draw] disarm threw (non-fatal):', e); }
+        try { s.clearPreview(); } catch { /* surface may be mid-teardown */ }
+    }
+}
+
+/**
+ * Arm the draw on EVERY registered surface. Re-arming while armed restarts the gesture (the
+ * previous half-drawn ring is dropped — it was never stored). Never throws.
+ *
+ * P8: `pryzm.site.armEnvelopeDraw`.
+ */
+export function armEnvelopeDraw(): EnvelopeDrawActivation {
+    const span = _tracer.startSpan('pryzm.site.armEnvelopeDraw');
+    try {
+        if (armed.size > 0) { resetGesture(); disarmAll(); }
+        lastRefusal = null;
+        let accepted = 0;
+        for (const surface of registered) {
+            let ok = false;
+            try { ok = surface.arm(makeSink(surface)); }
+            catch (e) { console.warn(`[site][envelope-draw] ${surface.surfaceId}.arm threw (non-fatal):`, e); }
+            if (ok) { armed.add(surface); accepted++; }
+        }
+        span.setAttribute('pryzm.envelopeDraw.registered', registered.length);
+        span.setAttribute('pryzm.envelopeDraw.accepted', accepted);
+        if (accepted === 0) {
+            console.warn(
+                `[site][envelope-draw] §ENVELOPE-DRAW arm REFUSED — ${registered.length} surface(s) registered, `
+                + '0 accepted. ' + ENVELOPE_DRAW_NO_SURFACE_REASON,
+            );
+            notifyStatus();
+            return { ok: false, surfaces: 0, reason: ENVELOPE_DRAW_NO_SURFACE_REASON };
+        }
+        console.log(
+            `[site][envelope-draw] §ENVELOPE-DRAW armed on ${accepted} surface(s) `
+            + `(${[...armed].map((s) => s.surfaceId).join(', ')}) · mode=${_mode} · the first click wins.`,
+        );
+        notifyStatus();
+        return { ok: true, surfaces: accepted };
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * Disarm every armed surface and drop the in-progress ring. The stored (finished) drawing, if any,
+ * is NOT touched — cancelling a redraw must not destroy the drawing already handed to the panel.
+ *
+ * @returns how many surfaces were disarmed.
+ * P8: `pryzm.site.disarmEnvelopeDraw`.
+ */
+export function disarmEnvelopeDraw(): number {
+    const span = _tracer.startSpan('pryzm.site.disarmEnvelopeDraw');
+    try {
+        const n = armed.size;
+        resetGesture();
+        disarmAll();
+        span.setAttribute('pryzm.envelopeDraw.disarmed', n);
+        if (n > 0) console.log(`[site][envelope-draw] §ENVELOPE-DRAW disarmed ${n} surface(s).`);
+        notifyStatus();
+        return n;
+    } finally {
+        span.end();
+    }
+}
+
+// ── THE GESTURE ─────────────────────────────────────────────────────────────────────────────────
+
+function repaintPreview(): void {
+    const target = owner;
+    if (!target || !armed.has(target)) return;
+    const mode = _mode;
+    try {
+        if (isBoundaryLoopMode(mode)) {
+            if (loopFirst === null) { target.drawPreview([], [], false); return; }
+            const ring = cursor ? boundaryLoopVertices(mode, loopFirst, cursor) : [];
+            // Below the loop's minimum extent the generator returns []; show the anchor alone.
+            target.drawPreview(ring.length >= 3 ? [] : [loopFirst], ring, ring.length >= 3);
+            return;
+        }
+        const committed = author.points;
+        const tail = author.previewTail(mode, cursor);
+        target.drawPreview(committed, tail, committed.length + tail.length >= 3);
+    } catch (e) {
+        console.warn('[site][envelope-draw] preview draw threw (non-fatal):', e);
+    }
+}
+
+function finish(ring: readonly ArcVertex2D[], mode: EnvelopeDrawMode): void {
+    const from = owner;
+    if (!from) return;
+    const areaM2 = Math.abs(polygonSignedAreaOrdinates(ring.length, (i) => ring[i]!.x, (i) => ring[i]!.z));
+    const stored = ring.map((p) => ({ x: p.x, z: p.z }));
+    resetGesture();
+    disarmAll();
+    setDrawnEnvelopeFootprint({ ring: stored, areaM2, surfaceId: from.surfaceId, mode });
+    console.log(
+        `[site][envelope-draw] §ENVELOPE-DRAW finished on ${from.surfaceId}: ${stored.length} corners · `
+        + `${areaM2.toFixed(1)} m² · mode=${mode}. Handed to the create panel — nothing is dispatched here (P6).`,
+    );
+    notifyStatus();
+}
+
+function makeSink(surface: EnvelopeDrawSurface): EnvelopeDrawSink {
+    const live = (): boolean => armed.has(surface);
+    return {
+        onPoint(p: SceneXZPoint): void {
+            if (!live()) return;
+            lastRefusal = null;
+            if (owner === null) {
+                // ⭐ THE FIRST CLICK WINS. Every other surface is disarmed in this same call.
+                owner = surface;
+                for (const s of [...armed]) {
+                    if (s === surface) continue;
+                    armed.delete(s);
+                    try { s.disarm(); } catch { /* mid-teardown */ }
+                    try { s.clearPreview(); } catch { /* ditto */ }
+                }
+            } else if (owner !== surface) {
+                return; // a late event from a surface that lost the race
+            }
+            const mode = _mode; // ⛔ read fresh per click, never latched at arm
+            cursor = p;
+            if (isBoundaryLoopMode(mode)) {
+                if (loopFirst === null) {
+                    loopFirst = { x: p.x, z: p.z };
+                    repaintPreview();
+                    notifyStatus();
+                    return;
+                }
+                const refusal = boundaryLoopRefusal(mode, loopFirst, p);
+                if (refusal !== null) {
+                    lastRefusal = refusal;
+                    repaintPreview();
+                    notifyStatus();
+                    return;
+                }
+                finish(boundaryLoopVertices(mode, loopFirst, p), mode);
+                return;
+            }
+            author.click(mode, { x: p.x, z: p.z });
+            repaintPreview();
+            notifyStatus();
+        },
+        onMove(p: SceneXZPoint | null): void {
+            if (!live()) return;
+            if (owner !== null && owner !== surface) return;
+            cursor = p;
+            if (owner === surface) repaintPreview();
+        },
+        onFinish(): void {
+            if (!live() || owner !== surface) return;
+            const mode = _mode;
+            if (isBoundaryLoopMode(mode)) return; // loops close on their second click
+            if (!author.canClose()) {
+                lastRefusal = author.pendingArcMidpoint !== null
+                    ? 'The perimeter cannot close while an arc is half-drawn: click the arc END first, '
+                      + 'or press Backspace to drop the midpoint.'
+                    : `A perimeter needs at least three corners — ${author.pointCount} placed so far. `
+                      + 'Nothing was closed.';
+                notifyStatus();
+                return;
+            }
+            finish(author.points, mode);
+        },
+        onUndo(): void {
+            if (!live() || owner !== surface) return;
+            if (isBoundaryLoopMode(_mode)) loopFirst = null;
+            else author.undo();
+            lastRefusal = null;
+            repaintPreview();
+            notifyStatus();
+        },
+        onCancel(): void {
+            if (!live()) return;
+            // The stored drawing (if any) survives — see `disarmEnvelopeDraw`.
+            resetGesture();
+            disarmAll();
+            console.log(`[site][envelope-draw] §ENVELOPE-DRAW cancelled from ${surface.surfaceId} — nothing stored.`);
+            notifyStatus();
+        },
+    };
+}
+
+/** Test-only reset — drops surfaces, listeners, the gesture and the mode. */
+export function __resetEnvelopeDrawArmingForTests(): void {
+    resetGesture();
+    for (const s of [...armed]) { armed.delete(s); try { s.disarm(); } catch { /* ignore */ } }
+    registered.length = 0;
+    statusListeners.clear();
+    modeListeners.clear();
+    lastRefusal = null;
+    _mode = 'linear';
+}
