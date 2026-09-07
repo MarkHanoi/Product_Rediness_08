@@ -24,12 +24,35 @@ import {
     SITE_ENVELOPE_PANEL_TESTID,
     SITE_ENVELOPE_TOOL_BTN_TESTID,
     SITE_ENVELOPE_CLOSE_TESTID,
+    SITE_ENVELOPE_DRAW_BTN_TESTID,
+    SITE_ENVELOPE_DRAW_STATUS_TESTID,
     buildSiteEnvelopeToolButton,
     closeSiteEnvelopeTool,
     isSiteEnvelopeToolOpen,
     openSiteEnvelopeTool,
     toggleSiteEnvelopeTool,
 } from '../siteEnvelopeTool';
+// §ENVELOPE-DRAW C4 — the registry the button arms, the slot the gesture writes, and the panel
+// attributes that say which rung of the footprint ladder answered.
+import {
+    ENVELOPE_DRAW_NO_SURFACE_REASON,
+    __resetEnvelopeDrawArmingForTests,
+    getEnvelopeDrawStatus,
+    registerEnvelopeDrawSurface,
+    registeredEnvelopeDrawSurfaces,
+} from '../siteEnvelopeDrawArming';
+import {
+    __resetDrawnEnvelopeFootprintForTests,
+    getDrawnEnvelopeFootprint,
+    setDrawnEnvelopeFootprint,
+} from '../drawnEnvelopeFootprintState';
+import {
+    AUTHORING_CREATE_BTN_TESTID,
+    AUTHORING_DISCARD_DRAWN_TESTID,
+    AUTHORING_DRAWN_SUBSCRIBED_ATTR,
+    AUTHORING_SLOT_TESTID,
+    AUTHORING_SOURCE_TESTID,
+} from '../../analysis/parcelLawEnvelopeAuthoring';
 
 const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 
@@ -184,5 +207,170 @@ describe('§ENVELOPE-TOOL-ON-THE-SITE-VIEWS — the tool BUTTON', () => {
         const btn = buildSiteEnvelopeToolButton(() => null);
         expect(() => btn.click()).not.toThrow();
         expect(isSiteEnvelopeToolOpen()).toBe(false);
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §ENVELOPE-DRAW C4 (lane ENVELOPE-DRAW-2, 2026-09-07) — THE MILESTONE ARM: A DRAWN RING IS
+// REACHABLE FROM THE PANEL THE FOUNDER ALREADY OPENS.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// ⭐ WHAT THESE CASES PIN, AND WHY THEY ARE NOT DOM DECORATION. The founder's top-priority sentence
+// is *"THE CAPACITY TO CREATE — DRAW — DESIGN BUILDABLE ENVELOPES IN THE 2D SITE VIEW AND 3D SITE
+// VIEW."* Everything downstream of a ring already shipped, so the whole feature turns on ONE join:
+// a ring in the session slot must become the footprint this panel names and extrudes. That join is
+// exactly the [[authored-but-unwired-is-the-bottleneck]] shape — a slot written by one module and
+// read by another — and the failure mode is silent: the ring lands, the panel keeps naming the
+// plate, and nobody notices until the founder does.
+//
+// ⛔ AND THE REFUSAL IS PINNED AS HARD AS THE SUCCESS. With no adapter registered the Draw button
+// must print `ENVELOPE_DRAW_NO_SURFACE_REASON` — the reason AND the route back (C16 CA-18). A
+// button that silently no-ops is L-1187; a button hidden until the adapters land hides the
+// milestone from the person who asked for it.
+
+describe('§ENVELOPE-DRAW C4 — the Draw button and the drawn-perimeter route', () => {
+    afterEach(() => {
+        __resetEnvelopeDrawArmingForTests();
+        __resetDrawnEnvelopeFootprintForTests();
+    });
+
+    const drawBtnOf = (h: HTMLElement): HTMLButtonElement =>
+        h.querySelector<HTMLButtonElement>(`[data-testid="${SITE_ENVELOPE_DRAW_BTN_TESTID}"]`)!;
+    const drawStatusOf = (h: HTMLElement): HTMLElement =>
+        h.querySelector<HTMLElement>(`[data-testid="${SITE_ENVELOPE_DRAW_STATUS_TESTID}"]`)!;
+
+    it('the panel renders a Draw button — the entry point exists on the surface the founder opens', () => {
+        const h = host();
+        openSiteEnvelopeTool(h);
+        const btn = drawBtnOf(h);
+        expect(btn).not.toBeNull();
+        expect(btn.disabled).toBe(false);
+        expect(btn.textContent).toContain('Draw the perimeter');
+        expect(drawStatusOf(h).getAttribute('data-draw-state')).toBe('idle');
+    });
+
+    it('with NO surface attached it REFUSES OUT LOUD, naming the route back — not a stub, not a no-op', () => {
+        const h = host();
+        openSiteEnvelopeTool(h);
+        expect(registeredEnvelopeDrawSurfaces()).toBe(0);
+        drawBtnOf(h).click();
+        const status = drawStatusOf(h);
+        expect(status.getAttribute('data-draw-state')).toBe('refused');
+        // ⛔ The SENTENCE, verbatim from the registry — so this module and the registry cannot
+        // drift into two spellings of one refusal.
+        expect(status.textContent).toBe(ENVELOPE_DRAW_NO_SURFACE_REASON);
+        // …and it carries the route back, not merely the complaint.
+        expect(status.textContent).toContain('2D Site Map or 3D Site');
+        expect(status.textContent).toContain('extrude the permitted footprint');
+        // Nothing armed, so nothing is left live to consume the user's next click (L-7801).
+        expect(getEnvelopeDrawStatus().armed).toBe(false);
+    });
+
+    it('with a surface attached it ARMS, and pressing again CANCELS — arm and disarm both reachable', () => {
+        const h = host();
+        openSiteEnvelopeTool(h);
+        let armedWith: unknown = null;
+        const unregister = registerEnvelopeDrawSurface({
+            surfaceId: 'site-map-2d',
+            groundPointFromPointer: () => null,
+            drawPreview: () => { /* headless */ },
+            clearPreview: () => { /* headless */ },
+            arm: (sink) => { armedWith = sink; return true; },
+            disarm: () => { armedWith = null; },
+        });
+        try {
+            drawBtnOf(h).click();
+            expect(armedWith).not.toBeNull();
+            expect(drawStatusOf(h).getAttribute('data-draw-state')).toBe('armed');
+            expect(drawBtnOf(h).getAttribute('aria-pressed')).toBe('true');
+            expect(drawBtnOf(h).textContent).toContain('Cancel');
+            drawBtnOf(h).click();
+            expect(armedWith).toBeNull();
+            expect(getEnvelopeDrawStatus().armed).toBe(false);
+        } finally {
+            unregister();
+        }
+    });
+
+    it('CLOSING the panel disarms the draw — the chrome and the handler come down together (L-7801)', () => {
+        const h = host();
+        openSiteEnvelopeTool(h);
+        let armedNow = false;
+        const unregister = registerEnvelopeDrawSurface({
+            surfaceId: 'site-3d',
+            groundPointFromPointer: () => null,
+            drawPreview: () => { /* headless */ },
+            clearPreview: () => { /* headless */ },
+            arm: () => { armedNow = true; return true; },
+            disarm: () => { armedNow = false; },
+        });
+        try {
+            drawBtnOf(h).click();
+            expect(armedNow).toBe(true);
+            closeSiteEnvelopeTool();
+            expect(armedNow).toBe(false);
+            expect(getEnvelopeDrawStatus().armed).toBe(false);
+        } finally {
+            unregister();
+        }
+    });
+
+    // ⭐ THE MILESTONE CASE. A ring in the slot IS the footprint the panel names and extrudes.
+    it('seeding the drawn ring makes the SOURCE LINE read "the perimeter you drew" and enables Create', () => {
+        const h = host();
+        openSiteEnvelopeTool(h);
+        const source = h.querySelector<HTMLElement>(`[data-testid="${AUTHORING_SOURCE_TESTID}"]`)!;
+        const create = h.querySelector<HTMLButtonElement>(`[data-testid="${AUTHORING_CREATE_BTN_TESTID}"]`)!;
+        // BEFORE: this happy-dom session has no runtime, no solved massing and no fitted plate, so
+        // the ladder is on its last rung and the control correctly cannot create.
+        expect(source.getAttribute('data-source-kind')).toBe('none');
+        expect(create.disabled).toBe(true);
+
+        // The gesture's ONE write — a 10 m x 10 m square, ring and area from one producer.
+        setDrawnEnvelopeFootprint({
+            ring: [{ x: 0, z: 0 }, { x: 10, z: 0 }, { x: 10, z: 10 }, { x: 0, z: 10 }],
+            areaM2: 100,
+            surfaceId: 'site-map-2d',
+            mode: 'linear',
+        });
+
+        // ⛔ NO REPAINT IS CALLED HERE ON PURPOSE. The panel must hear the write on its own
+        // subscription — that channel IS the feature, and asserting after a manual repaint would
+        // pass with the wire cut.
+        expect(source.getAttribute('data-source-kind')).toBe('drawn');
+        expect(source.textContent).toContain('perimeter you drew');
+        expect(source.textContent).toContain('100 m²');
+        expect(source.textContent).toContain('4 corners');
+        expect(create.disabled).toBe(false);
+        // The draw row says the same thing in its own voice, from the same slot.
+        expect(drawStatusOf(h).getAttribute('data-draw-state')).toBe('drawn');
+        expect(drawStatusOf(h).textContent).toContain('100 m²');
+    });
+
+    it('the drawn route is REVERSIBLE — Discard hands the ladder back, so it is not a one-way door', () => {
+        const h = host();
+        openSiteEnvelopeTool(h);
+        setDrawnEnvelopeFootprint({
+            ring: [{ x: 0, z: 0 }, { x: 8, z: 0 }, { x: 8, z: 8 }, { x: 0, z: 8 }],
+            areaM2: 64,
+            surfaceId: 'site-3d',
+            mode: 'rectangular',
+        });
+        const discard = h.querySelector<HTMLButtonElement>(`[data-testid="${AUTHORING_DISCARD_DRAWN_TESTID}"]`)!;
+        expect(discard).not.toBeNull();
+        expect(discard.hidden).toBe(false);
+        discard.click();
+        const source = h.querySelector<HTMLElement>(`[data-testid="${AUTHORING_SOURCE_TESTID}"]`)!;
+        expect(source.getAttribute('data-source-kind')).toBe('none');
+        expect(getDrawnEnvelopeFootprint()).toBeNull();
+        // …and the control is offered only where it has a subject.
+        expect(discard.hidden).toBe(true);
+    });
+
+    it('the drawn-perimeter CHANNEL is subscribed — the attribute a silent regression would flip', () => {
+        const h = host();
+        openSiteEnvelopeTool(h);
+        const panel = h.querySelector<HTMLElement>(`[data-testid="${AUTHORING_SLOT_TESTID}"]`)!;
+        expect(panel.getAttribute(AUTHORING_DRAWN_SUBSCRIBED_ATTR)).toBe('yes');
     });
 });

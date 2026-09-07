@@ -139,6 +139,17 @@ import {
 } from '../site/contextDerivedStudyEnvelopeState';
 import type { ParcelLawModel } from '../site/parcel/parcelLawModel';
 import { resolveLiveTargetFootprintProposal } from '../site/targetFootprintAreaState';
+// §ENVELOPE-DRAW C4 (lane ENVELOPE-DRAW-2, 2026-09-07) — THE PERIMETER THE USER DREW ON A SITE
+// VIEW. The gesture writes ONE session slot and this section READS it; nothing here draws, picks or
+// projects. That slot carries its ring and its area from the SAME producer (the kernel's one
+// shoelace), which is why this file can name a figure it did not compute without risking the
+// *"a card states a figure the scene disagrees with"* defect (C84 EI-9).
+import {
+    clearDrawnEnvelopeFootprint,
+    getDrawnEnvelopeFootprint,
+    subscribeDrawnEnvelopeFootprint,
+    type DrawnEnvelopeFootprint,
+} from '../site/drawnEnvelopeFootprintState';
 // §ENVELOPE-DRAW R8 (L-13047's tail) — WHAT IS ALREADY ON EACH STOREY, read through the same
 // channel the massing-option adopt reads, so this control and that card cannot disagree about
 // what is in the store (C84 EI-9). The judgement is the planner's; this file only reads.
@@ -169,6 +180,14 @@ export const AUTHORING_INTENT_TESTID = 'parcel-law-authoring-intent';
 export const AUTHORING_EDIT_PERIMETER_ATTR = 'data-authoring-edit-perimeter';
 /** The list of created storeys with their perimeter-edit buttons. */
 export const AUTHORING_CREATED_TESTID = 'parcel-law-authoring-created';
+/**
+ * §ENVELOPE-DRAW C4 — the way OUT of the drawn route. Present ONLY while the drawn perimeter is
+ * the source; discarding it hands the ladder back to the plate / permitted ring / study below it.
+ * ⛔ Without this the drawn ring would be a one-way door for the session: it outranks every other
+ * route, so a user who drew once could never return to their fitted plate — a dead end wearing a
+ * feature's clothes.
+ */
+export const AUTHORING_DISCARD_DRAWN_TESTID = 'parcel-law-authoring-discard-drawn';
 /** The live BRUT/NET law-check slot. */
 export const AUTHORING_LAWCHECK_TESTID = 'parcel-law-authoring-lawcheck';
 /** How the law-check table must be read — see the header. */
@@ -177,6 +196,12 @@ export const AUTHORING_LAWCHECK_LEDE_TESTID = 'parcel-law-authoring-lawcheck-led
 export const AUTHORING_SUBSCRIBED_ATTR = 'data-live-subscribed';
 /** `'yes'` / `'no:threw'` — whether the USER-SUPPLIED study channel was subscribed (L-12993). */
 export const AUTHORING_STUDY_SUBSCRIBED_ATTR = 'data-study-subscribed';
+/**
+ * §ENVELOPE-DRAW C4 — `'yes'` / `'no:threw'` / `'no:not-wired'`: whether the DRAWN-PERIMETER
+ * channel was subscribed. Pinned by a spec because this attribute is the difference between the
+ * gesture being REACHABLE and the ring landing in a slot nobody reads.
+ */
+export const AUTHORING_DRAWN_SUBSCRIBED_ATTR = 'data-drawn-subscribed';
 /** How many repaints the STORE channel has driven. Read by the liveness spec. */
 export const AUTHORING_LIVE_ATTR = 'data-live-repaints';
 
@@ -240,6 +265,25 @@ export interface ParcelLawEnvelopeAuthoringDeps {
      * ⚠ Optional for the same reason as `readStudyFootprint`.
      */
     readonly subscribeStudy?: (fn: () => void) => () => void;
+    /**
+     * §ENVELOPE-DRAW C4 — the perimeter the user DREW on a site view, or `null`.
+     * Production: `getDrawnEnvelopeFootprint`.
+     *
+     * ⚠ OPTIONAL, and omitted means "nothing was drawn" — never "assume the module slot". A spec
+     * written before this seam existed must not start reading a session singleton another spec in
+     * the same file seeded; that is how a suite acquires order-dependence it cannot see.
+     */
+    readonly readDrawnFootprint?: () => DrawnEnvelopeFootprint | null;
+    /**
+     * §ENVELOPE-DRAW C4 — THE CHANNEL THAT MAKES THE GESTURE REACHABLE.
+     * Production: `subscribeDrawnEnvelopeFootprint`.
+     *
+     * ⭐ WITHOUT THIS THE FEATURE IS [[authored-but-unwired-is-the-bottleneck]] AGAIN: the ring
+     * would land in the slot and the panel would show it only on some later unrelated repaint —
+     * i.e. the founder draws a perimeter and the panel keeps naming the plate. The gesture writes,
+     * this section repaints itself, in the same beat. Same pub/sub shape as the study channel above.
+     */
+    readonly subscribeDrawn?: (fn: () => void) => () => void;
     /** Production: `createId('spaceEnvelope')`. Injected so a spec can pin the ids (C16 CA-2). */
     readonly mintId: () => string;
     /** Production: `window`. */
@@ -304,6 +348,10 @@ export function defaultParcelLawEnvelopeAuthoringDeps(): ParcelLawEnvelopeAuthor
             }
         },
         subscribeStudy: subscribeContextDerivedStudyEnvelope,
+        // §ENVELOPE-DRAW C4 — the ONE drawn-perimeter slot and its ONE push channel. Module
+        // functions, not a captured value: the gesture may finish long after this dep set is built.
+        readDrawnFootprint: getDrawnEnvelopeFootprint,
+        subscribeDrawn: subscribeDrawnEnvelopeFootprint,
         mintId: () => createId('spaceEnvelope'),
         capabilityHost: w,
     };
@@ -335,6 +383,12 @@ export interface ParcelLawEnvelopeAuthoringHandle {
 
 /** The footprint this gesture will extrude, and the honest name of where it came from. */
 interface FootprintSource {
+    /**
+     * WHICH rung of the ladder answered. A machine-readable name beside the prose, so a surface can
+     * offer a route-specific affordance (the drawn route's discard) without sniffing it back out of
+     * `label` — [[confident-register-rows-are-the-wrong-ones]]: prose is for the user, not for code.
+     */
+    readonly kind: 'drawn' | 'plate' | 'permitted' | 'study' | 'none';
     readonly ring: readonly { x: number; z: number }[] | null;
     readonly areaM2: number | null;
     readonly label: string;
@@ -346,6 +400,20 @@ interface FootprintSource {
      */
     readonly provenanceDetail: string;
 }
+
+/**
+ * §ENVELOPE-DRAW C4 — how each gesture reads in a sentence. ⛔ A LABEL TABLE, NOT A SECOND MODE
+ * TABLE: the six keys ARE `EnvelopeDrawMode`, spelled by that type, so a seventh mode is a compile
+ * error here rather than a silently un-named shape (plan §7 rule 6).
+ */
+const DRAWN_MODE_NOUN: Readonly<Record<DrawnEnvelopeFootprint['mode'], string>> = Object.freeze({
+    linear: 'freehand polyline',
+    ortho: 'orthogonal polyline',
+    curved: 'polyline with arcs',
+    rectangular: 'rectangle',
+    circular: 'circle',
+    elliptical: 'ellipse',
+});
 
 /**
  * Decide which ring the create gesture extrudes. PURE over its inputs.
@@ -369,13 +437,51 @@ export function resolveFootprintSource(
     model: ParcelLawModel,
     permittedRing: readonly { x: number; z: number }[] | null,
     study: UserSuppliedStudyFootprint | null = null,
+    drawn: DrawnEnvelopeFootprint | null = getDrawnEnvelopeFootprint(),
 ): FootprintSource {
+    // ── §ENVELOPE-DRAW C4 — THE PERIMETER HE DREW, AND IT OUTRANKS ALL THREE SOLVED ROUTES ────
+    //
+    // ⭐ THE FOUNDER'S TOP-PRIORITY SENTENCE ENDS HERE: *"THE MOST IMPORTANT IS THE CAPACITY TO
+    // CREATE — DRAW — DESIGN BUILDABLE ENVELOPES IN THE 2D SITE VIEW AND 3D SITE VIEW."* Everything
+    // downstream of a ring already worked; this branch is what a ring he drew CONNECTS to.
+    //
+    // It ranks FIRST for the same reason the fitted plate outranks the permitted ring (below): it
+    // is the most recent decision the USER made, and the two rungs beneath it are things PRYZM
+    // solved or he typed earlier. Extruding a plate while a perimeter he just drew sits on the
+    // ground would silently discard the gesture — the exact defect the plate rung exists to avoid,
+    // one rung up. ⛔ The way back is not implicit: the section renders a DISCARD control while
+    // this rung answers (`AUTHORING_DISCARD_DRAWN_TESTID`), so the ranking is reversible in one
+    // click rather than a one-way door for the session.
+    //
+    // ⛔ THE AREA IS NOT RECOMPUTED HERE. The gesture computed it once, through the kernel's one
+    // shoelace, and stored it beside the ring it was computed from. A second area routine at this
+    // seam is how a card comes to state a figure the scene disagrees with (C84 EI-9).
+    if (drawn !== null && drawn.ring.length >= 3) {
+        const where = drawn.surfaceId === 'site-3d' ? 'the 3D Site view' : 'the 2D Site Map';
+        const shape = DRAWN_MODE_NOUN[drawn.mode] ?? drawn.mode;
+        return {
+            kind: 'drawn',
+            ring: drawn.ring,
+            areaM2: drawn.areaM2,
+            label: 'the perimeter you drew on this view',
+            provenanceDetail:
+                `user drew the envelope perimeter on ${where} (${shape}, ${drawn.ring.length} corners) `
+                + 'and extruded it from the envelope authoring control',
+            text:
+                `Extrudes the ${drawn.areaM2.toFixed(0)} m² perimeter you drew on ${where} — ${drawn.ring.length} `
+                + `corners, ${shape}. ⭐ This is YOUR design intent, not a statement of what the law permits: `
+                + 'PRYZM is drawing what you asked for and checking it against whatever allowance it does know, '
+                + 'below. Every storey gets this same ring; you can then edit any storey’s perimeter on its own. '
+                + 'Draw again to replace this perimeter, or discard it to go back to the footprint PRYZM solved.',
+        };
+    }
     const permittedAreaM2 = model.massing?.footprintM2 ?? null;
     const plate = resolveLiveTargetFootprintProposal(
         permittedAreaM2 !== null && permittedAreaM2 > 0 ? permittedAreaM2 : null,
     );
     if (plate !== null) {
         return {
+            kind: 'plate',
             ring: plate.ring,
             areaM2: plate.achievedAreaM2,
             label: 'the ground-floor plate you fitted',
@@ -389,6 +495,7 @@ export function resolveFootprintSource(
     if (permittedRing !== null && permittedAreaM2 !== null && permittedAreaM2 > 0) {
         const upperBound = model.massing?.footprintIsUpperBound === true;
         return {
+            kind: 'permitted',
             ring: permittedRing,
             areaM2: permittedAreaM2,
             provenanceDetail: upperBound
@@ -410,6 +517,7 @@ export function resolveFootprintSource(
     if (study !== null && study.ring.length >= 3) {
         const zeroSetback = study.setbackM <= 0;
         return {
+            kind: 'study',
             ring: study.ring,
             areaM2: study.areaM2,
             label: `the ${study.setbackM.toFixed(1)} m setback you supplied`,
@@ -428,6 +536,7 @@ export function resolveFootprintSource(
         };
     }
     return {
+        kind: 'none',
         ring: null,
         areaM2: null,
         label: 'nothing',
@@ -504,6 +613,8 @@ export function mountParcelLawEnvelopeAuthoring(
     let unsubStore: (() => void) | null = null;
     /** §NO-RULE-PACK-STILL-AUTHORS — the study channel's own unsubscribe. */
     let unsubStudy: (() => void) | null = null;
+    /** §ENVELOPE-DRAW C4 — the drawn-perimeter channel's own unsubscribe. */
+    let unsubDrawn: (() => void) | null = null;
     /** What the user last typed, so a live repaint never blanks their entry. */
     let typedStoreys = '';
     /** The last gesture's outcome — carried, never sniffed back out of prose. */
@@ -517,6 +628,30 @@ export function mountParcelLawEnvelopeAuthoring(
     const heading = H('div', 'font-weight:700;font-size:10.5px;color:#6600FF;', 'Create the envelope');
     const sourceLine = H('div', 'margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;');
     sourceLine.setAttribute('data-testid', AUTHORING_SOURCE_TESTID);
+    /** Which rung answered, as an attribute — so a surface and a spec agree without reading prose. */
+    const sourceKindAttr = 'data-source-kind';
+
+    // §ENVELOPE-DRAW C4 — THE WAY BACK OUT OF THE DRAWN ROUTE. Rendered only while the drawn
+    // perimeter is the source; see `AUTHORING_DISCARD_DRAWN_TESTID`. ⛔ It clears the SESSION SLOT
+    // only — an envelope already created from that ring is an element, and elements are removed by
+    // undo or by the store, never by a panel quietly dropping a reference (P6).
+    const discardDrawnBtn = document.createElement('button');
+    discardDrawnBtn.type = 'button';
+    discardDrawnBtn.textContent = 'Discard the drawn perimeter';
+    discardDrawnBtn.setAttribute('data-testid', AUTHORING_DISCARD_DRAWN_TESTID);
+    discardDrawnBtn.title =
+        'Forgets the perimeter you drew, so this control goes back to the footprint PRYZM solved. '
+        + 'Envelopes you already created from it are NOT removed — use undo for those.';
+    discardDrawnBtn.style.cssText =
+        'margin-top:4px;appearance:none;border:1px solid #d8d3e6;cursor:pointer;padding:3px 7px;'
+        + 'border-radius:6px;font:600 9.5px system-ui;background:#faf9fd;color:#6600FF;';
+    discardDrawnBtn.hidden = true;
+    discardDrawnBtn.onclick = (ev): void => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        clearDrawnEnvelopeFootprint();
+        render();
+    };
 
     const entryRow = H('div', 'display:flex;gap:6px;margin-top:6px;align-items:flex-end;');
     const entryCol = H('div', 'flex:1;min-width:0;');
@@ -581,7 +716,7 @@ export function mountParcelLawEnvelopeAuthoring(
     // given the pair stays inside this section, exactly as before, and every existing caller and
     // spec is unaffected.
     const lawCheckHost = opts?.lawCheckHost ?? null;
-    root.append(heading, sourceLine, entryRow, intentLine, statusLine, advisoryLine, createdList);
+    root.append(heading, sourceLine, discardDrawnBtn, entryRow, intentLine, statusLine, advisoryLine, createdList);
     (lawCheckHost ?? root).append(lawLede, lawSlot);
 
     /** Read everything this section shows, from the ONE producer of each figure. */
@@ -599,7 +734,12 @@ export function mountParcelLawEnvelopeAuthoring(
         let study: UserSuppliedStudyFootprint | null = null;
         try { study = deps.readStudyFootprint?.(rt) ?? null; }
         catch (e) { console.warn('[analysis][parcel-law][authoring] study read threw (non-fatal):', e); }
-        const source = resolveFootprintSource(model, deps.readEnvelopeRing(rt), study);
+        // §ENVELOPE-DRAW C4 — same rule as the study read: a slot that throws must not blank the
+        // section, and its absence is a VALUE the resolver already handles (the next rung answers).
+        let drawn: DrawnEnvelopeFootprint | null = null;
+        try { drawn = deps.readDrawnFootprint?.() ?? null; }
+        catch (e) { console.warn('[analysis][parcel-law][authoring] drawn-ring read threw (non-fatal):', e); }
+        const source = resolveFootprintSource(model, deps.readEnvelopeRing(rt), study, drawn);
         const levels = readLevelCandidates(deps.readLevels());
         const store = resolveEnvelopeStore(rt);
         const snapshot = collectIntendedAreas(
@@ -710,6 +850,9 @@ export function mountParcelLawEnvelopeAuthoring(
             const { model, source, levels, snapshot, existing } = readAll();
 
             sourceLine.textContent = source.text;
+            sourceLine.setAttribute(sourceKindAttr, source.kind);
+            // §ENVELOPE-DRAW C4 — the discard is offered exactly when it has a subject.
+            discardDrawnBtn.hidden = source.kind !== 'drawn';
             input.value = typedStoreys;
             const derived = model.ordinance?.maxFloors ?? null;
             input.placeholder = derived !== null && derived > 0
@@ -931,6 +1074,26 @@ export function mountParcelLawEnvelopeAuthoring(
         } else {
             root.setAttribute(AUTHORING_STUDY_SUBSCRIBED_ATTR, 'no:not-wired');
         }
+        // ── THE DRAWN-PERIMETER CHANNEL (§ENVELOPE-DRAW C4) — the founder clicks the last corner
+        // on the 2D Site Map or 3D Site, `siteEnvelopeDrawArming` stores ring + area, and THIS
+        // section must name it as the source in that same beat. Without the subscription the panel
+        // would keep announcing the plate it was going to extrude a moment ago, which is the
+        // [[committed-is-not-reachable]] shape: the ring exists, the wire does not.
+        if (deps.subscribeDrawn) {
+            try {
+                unsubDrawn = deps.subscribeDrawn(() => {
+                    if (disposed || !root.isConnected) return;
+                    render();
+                });
+                root.setAttribute(AUTHORING_DRAWN_SUBSCRIBED_ATTR, 'yes');
+            } catch (e) {
+                root.setAttribute(AUTHORING_DRAWN_SUBSCRIBED_ATTR, 'no:threw');
+                console.warn('[analysis][parcel-law][authoring] drawn-ring subscribe threw — a perimeter '
+                    + 'drawn on a site view will not appear here until this section repaints:', e);
+            }
+        } else {
+            root.setAttribute(AUTHORING_DRAWN_SUBSCRIBED_ATTR, 'no:not-wired');
+        }
         span.setAttribute('pryzm.analysis.parcelLawAuthoring.mounted', true);
     } catch (e) {
         span.setAttribute('pryzm.analysis.parcelLawAuthoring.mounted', false);
@@ -950,6 +1113,8 @@ export function mountParcelLawEnvelopeAuthoring(
             unsubStore = null;
             try { unsubStudy?.(); } catch { /* teardown is best-effort */ }
             unsubStudy = null;
+            try { unsubDrawn?.(); } catch { /* teardown is best-effort */ }
+            unsubDrawn = null;
             root.remove();
             // §PL-IA-Q — the law-check pair is this mount's, wherever it was placed. `root.remove()`
             // reaches it only when it lives inside `root`; a mount that left a live ledger standing

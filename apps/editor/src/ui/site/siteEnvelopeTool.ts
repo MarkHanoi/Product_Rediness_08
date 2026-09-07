@@ -31,11 +31,30 @@
 // second, the same §MAP-IS-A-SINGLETON-TOO (L-12992) rule the map itself follows.
 //
 // ── WHAT IT DELIBERATELY DOES NOT DO, STATED SO IT IS NOT MISTAKEN FOR DONE ────────────────
-// ⚠ THIS IS THE **CREATE** HALF. Direct manipulation — drawing the footprint vertex-by-vertex on
-// the map, and the arrow FACE-DRAG the founder names in L-13007 (*"it should STRETCH THE ENVELOPE
-// LIVE WITH THE ARROWS"*) — is the EDIT half and is NOT here. It is not a stub and it is not
-// pretended: the panel says what it extrudes and where that ring came from, in its own words, so
-// a user is never left guessing which geometry they just committed.
+// ⚠ THE ARROW FACE-DRAG the founder names in L-13007 (*"it should STRETCH THE ENVELOPE LIVE WITH
+// THE ARROWS"*) is the EDIT half and is NOT here. It is not a stub and it is not pretended: the
+// panel says what it extrudes and where that ring came from, in its own words, so a user is never
+// left guessing which geometry they just committed.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-DRAW C4 (lane ENVELOPE-DRAW-2, 2026-09-07) — DRAWING THE PERIMETER IS NOW *HERE*
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The paragraph above used to open *"Direct manipulation — drawing the footprint vertex-by-vertex
+// on the map — is NOT here"*, and that half is what this commit closes. The founder's top-priority
+// sentence, stated three times: *"THE MOST IMPORTANT IS THE CAPACITY TO CREATE — DRAW — DESIGN
+// BUILDABLE ENVELOPES IN THE 2D SITE VIEW AND 3D SITE VIEW."*
+//
+// ⛔ AND THE DRAW BUTTON STILL CARRIES NO GESTURE, NO PROJECTION AND NO COMMAND. It calls
+// `armEnvelopeDraw()`, which arms every site surface attached to the registry; the gesture lives in
+// `siteEnvelopeDrawArming.ts` over `BoundaryPathAuthor`, and the ring it finishes lands in the ONE
+// session slot the panel below already reads as its first footprint route. This module stays what
+// its header says it is: an ENTRY POINT.
+//
+// ⭐ WITH NO ADAPTER ATTACHED THE BUTTON REFUSES OUT LOUD, AND THAT IS THE CORRECT INTERMEDIATE
+// STATE — NOT A STUB. `ENVELOPE_DRAW_NO_SURFACE_REASON` names why nothing armed AND the route back
+// (open the site-authoring split; you can still extrude the permitted footprint from this panel).
+// A button that silently did nothing would be L-1187 again; a button hidden until the adapters land
+// would hide the milestone from the person who asked for it.
 //
 // ⚠ AND THE TOOL IS NEVER GATED ON AN ENVELOPE EXISTING (C58 §1.20). The action is reachable
 // whether or not a rule pack solved anything: the panel's own `FootprintSource` ladder already
@@ -50,6 +69,19 @@ import {
     mountParcelLawEnvelopeAuthoring,
     type ParcelLawEnvelopeAuthoringHandle,
 } from '../analysis/parcelLawEnvelopeAuthoring';
+// §ENVELOPE-DRAW C4 — the arm/disarm pair and the status the button paints itself from. ⛔ Both
+// halves in the same import for the same reason they live in the same module: L-7801.
+import {
+    armEnvelopeDraw,
+    disarmEnvelopeDraw,
+    getEnvelopeDrawStatus,
+    subscribeEnvelopeDrawStatus,
+    ENVELOPE_DRAW_NO_SURFACE_REASON,
+} from './siteEnvelopeDrawArming';
+import {
+    getDrawnEnvelopeFootprint,
+    subscribeDrawnEnvelopeFootprint,
+} from './drawnEnvelopeFootprintState';
 
 const _tracer = trace.getTracer('pryzm.site.siteEnvelopeTool');
 
@@ -59,6 +91,14 @@ export const SITE_ENVELOPE_PANEL_TESTID = 'site-envelope-tool-panel';
 export const SITE_ENVELOPE_TOOL_BTN_TESTID = 'site-envelope-tool-btn';
 /** The panel's close affordance. */
 export const SITE_ENVELOPE_CLOSE_TESTID = 'site-envelope-tool-close';
+/** §ENVELOPE-DRAW C4 — the button that arms the perimeter draw on every attached site surface. */
+export const SITE_ENVELOPE_DRAW_BTN_TESTID = 'site-envelope-draw-btn';
+/**
+ * §ENVELOPE-DRAW C4 — the line under that button. It carries, in order of what is true: the
+ * REFUSAL when no surface armed, the live hint while drawing, or what was drawn. `data-draw-state`
+ * says which — `refused` / `armed` / `drawn` / `idle`.
+ */
+export const SITE_ENVELOPE_DRAW_STATUS_TESTID = 'site-envelope-draw-status';
 
 const VIOLET = '#6600FF';
 
@@ -74,7 +114,14 @@ export interface SiteEnvelopeToolHandle {
  * `siteGeometryHighlight`'s store is, and for the same reason: a surface that opened a second copy
  * would have two panels reading one runtime and disagreeing on the next repaint.
  */
-let live: { root: HTMLElement; authoring: ParcelLawEnvelopeAuthoringHandle } | null = null;
+let live: {
+    root: HTMLElement;
+    authoring: ParcelLawEnvelopeAuthoringHandle;
+    /** §ENVELOPE-DRAW C4 — the draw-status and drawn-ring subscriptions this panel opened. */
+    unsubs: readonly (() => void)[];
+    /** Repaint the draw row (button pressed state + status line) from the READING. */
+    paintDraw: () => void;
+} | null = null;
 
 /** Whether the tool panel is open right now. Surfaces paint their button's pressed state from it. */
 export function isSiteEnvelopeToolOpen(): boolean {
@@ -86,6 +133,14 @@ export function closeSiteEnvelopeTool(): void {
     const current = live;
     live = null;
     if (!current) return;
+    // ⛔ §ENVELOPE-DRAW C4 — CLOSING THE PANEL DISARMS THE DRAW. L-7801 is exactly this: the chrome
+    // came down and the handler stayed live, so the next click on the map kept authoring. The
+    // FINISHED drawing survives (`disarmEnvelopeDraw` only drops the in-progress ring), so
+    // re-opening the panel still finds the perimeter the user drew.
+    try { disarmEnvelopeDraw(); } catch { /* a disarm must not block the close */ }
+    for (const un of current.unsubs) {
+        try { un(); } catch { /* teardown is best-effort */ }
+    }
     try { current.authoring.dispose(); } catch { /* a disposed panel must not block the close */ }
     try { current.root.remove(); } catch { /* already detached */ }
     console.log('[site] §ENVELOPE-TOOL-ON-THE-SITE-VIEWS panel closed.');
@@ -110,6 +165,7 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
                 console.log('[site] §ENVELOPE-TOOL-ON-THE-SITE-VIEWS panel re-targeted (ONE panel, no second mount).');
             }
             live.authoring.repaint();
+            live.paintDraw();
             const held = live;
             return {
                 element: held.root,
@@ -159,6 +215,99 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
             + 'is one envelope and one undo. Dragging a face to stretch it is not built yet.';
         root.appendChild(lede);
 
+        // ── §ENVELOPE-DRAW C4 — THE DRAW ROW ──────────────────────────────────────────────────
+        // One button and one sentence. The button ARMS; the sentence says what is true right now,
+        // and never invents a fourth state: refused / armed / drawn / idle, painted from the
+        // registry's own READING (`getEnvelopeDrawStatus`), never from a flag this module remembers.
+        const drawRow = document.createElement('div');
+        drawRow.style.cssText = 'margin-bottom:8px;';
+        const drawBtn = document.createElement('button');
+        drawBtn.type = 'button';
+        drawBtn.setAttribute('data-testid', SITE_ENVELOPE_DRAW_BTN_TESTID);
+        drawBtn.textContent = 'Draw the perimeter on this view';
+        drawBtn.title =
+            'Click corner by corner on the site view; double-click or Enter closes the perimeter, '
+            + 'Backspace removes the last corner, Esc cancels. The height comes from the number of '
+            + 'floor levels below — a plan map has no vertical axis.';
+        const drawStatus = document.createElement('div');
+        drawStatus.setAttribute('data-testid', SITE_ENVELOPE_DRAW_STATUS_TESTID);
+        drawStatus.setAttribute('data-draw-state', 'idle');
+        drawStatus.style.cssText = 'margin-top:4px;font-size:9.5px;line-height:1.45;color:#6b6480;';
+        drawRow.appendChild(drawBtn);
+        drawRow.appendChild(drawStatus);
+        root.appendChild(drawRow);
+
+        /** The last refusal, held until the next arm — a refusal the user never read is a no-op. */
+        let refusal: string | null = null;
+
+        const paintDraw = (): void => {
+            const status = getEnvelopeDrawStatus();
+            const drawn = getDrawnEnvelopeFootprint();
+            drawBtn.setAttribute('aria-pressed', status.armed ? 'true' : 'false');
+            drawBtn.textContent = status.armed
+                ? 'Cancel the perimeter draw'
+                : drawn !== null
+                    ? 'Draw the perimeter again'
+                    : 'Draw the perimeter on this view';
+            drawBtn.style.cssText = [
+                'appearance:none', 'cursor:pointer', 'border-radius:8px', 'padding:6px 10px',
+                'font:600 11px/1 system-ui, sans-serif', 'width:100%', 'box-sizing:border-box',
+                `border:1px solid ${VIOLET}`,
+                status.armed ? `background:${VIOLET}` : 'background:#faf9fd',
+                status.armed ? 'color:#ffffff' : `color:${VIOLET}`,
+            ].join(';');
+
+            let state: 'refused' | 'armed' | 'drawn' | 'idle';
+            let text: string;
+            if (refusal !== null) {
+                state = 'refused';
+                text = refusal;
+            } else if (status.armed) {
+                state = 'armed';
+                text = status.refusal !== null
+                    ? `${status.refusal} ${status.hint}`
+                    : `Drawing on ${status.surfaces} site view${status.surfaces === 1 ? '' : 's'} — `
+                      + `whichever you click first owns the gesture. ${status.hint}`;
+            } else if (drawn !== null) {
+                state = 'drawn';
+                text =
+                    `You drew a ${drawn.ring.length}-corner perimeter of ${drawn.areaM2.toFixed(0)} m² on `
+                    + `${drawn.surfaceId === 'site-3d' ? 'the 3D Site view' : 'the 2D Site Map'}. It is the `
+                    + 'footprint the control below will extrude — set the number of floor levels and press '
+                    + 'Create. ⛔ Nothing is committed until you do.';
+            } else {
+                state = 'idle';
+                text =
+                    'Click corner by corner on the site view; double-click or Enter closes the perimeter, '
+                    + 'Backspace removes the last corner, Esc cancels. ⚠ A perimeter has no HEIGHT: the '
+                    + 'storeys below supply it, on both site views.';
+            }
+            drawStatus.textContent = text;
+            drawStatus.setAttribute('data-draw-state', state);
+            drawStatus.style.color = state === 'refused' ? '#8a5a00' : '#6b6480';
+            drawStatus.style.background = state === 'refused' ? '#fdf8ee' : '';
+            drawStatus.style.borderLeft = state === 'refused' ? '2px solid #c9973a' : '';
+            drawStatus.style.padding = state === 'refused' ? '4px 6px' : '';
+            drawStatus.style.borderRadius = state === 'refused' ? '0 5px 5px 0' : '';
+        };
+
+        drawBtn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            refusal = null;
+            if (getEnvelopeDrawStatus().armed) {
+                disarmEnvelopeDraw();
+                paintDraw();
+                return;
+            }
+            // ⛔ THE REFUSAL IS THE PRODUCT WHEN NO SURFACE IS ATTACHED — printed verbatim, with the
+            // route back inside it. `ENVELOPE_DRAW_NO_SURFACE_REASON` is imported so this module and
+            // the registry cannot drift into two spellings of one sentence.
+            const activation = armEnvelopeDraw();
+            if (!activation.ok) refusal = activation.reason ?? ENVELOPE_DRAW_NO_SURFACE_REASON;
+            paintDraw();
+        });
+
         const slot = document.createElement('div');
         root.appendChild(slot);
         parent.appendChild(root);
@@ -167,7 +316,16 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         // runtime per call (§L-545) and it dispatches through the bus itself, so this module holds
         // no runtime handle, no id minting and no command string.
         const authoring = mountParcelLawEnvelopeAuthoring(slot);
-        live = { root, authoring };
+        // §ENVELOPE-DRAW C4 — the two READ channels this row paints from. ⛔ The panel below
+        // subscribes to the drawn-ring slot ITSELF, so this row never repaints it: one producer,
+        // one subscriber each, no chain where a missed hop leaves half the panel stale.
+        const unsubs: (() => void)[] = [];
+        try { unsubs.push(subscribeEnvelopeDrawStatus(() => paintDraw())); }
+        catch (e) { console.warn('[site] §ENVELOPE-DRAW status subscribe threw (non-fatal):', e); }
+        try { unsubs.push(subscribeDrawnEnvelopeFootprint(() => paintDraw())); }
+        catch (e) { console.warn('[site] §ENVELOPE-DRAW ring subscribe threw (non-fatal):', e); }
+        paintDraw();
+        live = { root, authoring, unsubs, paintDraw };
         span.setAttribute('pryzm.siteEnvelopeTool.opened', true);
         console.log(
             '[site] §ENVELOPE-TOOL-ON-THE-SITE-VIEWS panel opened over a site view — ONE command '
@@ -233,5 +391,11 @@ export function buildSiteEnvelopeToolButton(getHost: () => HTMLElement | null): 
 
 /** Test-only reset — drops the singleton without touching the DOM the spec owns. */
 export function __resetSiteEnvelopeToolForTests(): void {
+    const current = live;
     live = null;
+    // §ENVELOPE-DRAW C4 — a dropped singleton whose subscriptions stayed live would repaint a
+    // detached row on the NEXT spec's gesture. Same rule as the close path, minus the DOM.
+    for (const un of current?.unsubs ?? []) {
+        try { un(); } catch { /* teardown is best-effort */ }
+    }
 }
