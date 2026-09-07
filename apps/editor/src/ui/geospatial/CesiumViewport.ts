@@ -546,6 +546,9 @@ import {
 // finer ground heatmap (esp. the per-cell sun-hours raycast) fills in progressively
 // across frames instead of freezing the WebGPU viewport on one synchronous build.
 import { deferWork, getFrameScheduler, type DeferWorkCanceller } from "@pryzm/frame-scheduler";
+// §REFLOW-NO-OP-IS-NOT-WORK (L-13205 · C59 §2.10.5) — the reflow DECISION lives in its own pure
+// module so it can be spec'd at CALL-COUNT level against the production path, never a re-implementation.
+import { ReflowGate, runReflow, type MeasuredBox, type ReflowMode, type ReflowPort } from './reflowGate';
 
 // H7 (07-BIM-SECURITY-CONTRACT §6.1): Cesium Ion token MUST be loaded from the
 // VITE_CESIUM_TOKEN environment variable and MUST NOT be hardcoded in source.
@@ -18053,42 +18056,91 @@ export class CesiumViewport {
     );
   }
 
-  /** Force a Cesium resize + render now and again on the next frame — a viewer
-   *  mounted into a 0-size / freshly-shown container otherwise renders nothing
-   *  until the next user-driven resize. */
-  private forceResizeAndRender(reason: string): void {
-    if (!this.viewer) return;
+  /**
+   * §REFLOW-NO-OP-IS-NOT-WORK (L-13205 · C59 §2.10.5) — the remembered box + skip count.
+   *
+   * ⛔ NOT A DEBOUNCE, NOT A THROTTLE, NOT AN `if (alreadyApplied) return` LATCH, and C59
+   * §2.10.2's forbidden-fix list does not reach it. That list forbids a TIMER or a latch used to
+   * settle a FEEDBACK LOOP between two rival writers of one property — it makes the oscillation
+   * settle faster while leaving the writers disagreeing, so it returns the first time a
+   * transition is slower than the guard window. There is no rival writer here and nothing
+   * oscillates: this is ONE renderer being asked to re-measure a box that has not moved. See
+   * `reflowGate.ts` and C59 §2.10.5 for the full distinction, which is normative.
+   */
+  private readonly reflowGate = new ReflowGate();
+
+  /**
+   * The canvas box as the DOM reports it RIGHT NOW — the same three quantities Cesium's own
+   * `CesiumWidget.resize()` compares before deciding to re-allocate. `null` when it cannot be
+   * measured, and `null` never compares equal, so an unmeasurable viewer always takes the full
+   * path rather than being silently skipped.
+   */
+  private measuredCanvasBox(): MeasuredBox | null {
     try {
-      this.viewer.resize();
-      this.viewer.scene.requestRender();
-      console.log(
-        `[gis][cesium] resize (${reason}) — canvas ${this.viewer.canvas.clientWidth}x${this.viewer.canvas.clientHeight}, ` +
-        `container ${this.container.clientWidth}x${this.container.clientHeight}.`
-      );
-    } catch (e) {
-      console.warn('[gis][cesium] forceResizeAndRender failed:', e);
+      const canvas = this.viewer?.canvas;
+      if (!canvas) return null;
+      const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+      const dpr = Number.isFinite(rawDpr) && (rawDpr as number) > 0 ? (rawDpr as number) : 1;
+      return { w: canvas.clientWidth, h: canvas.clientHeight, dpr };
+    } catch {
+      return null;
     }
-    // One more after layout flushes — the container often gets its real size a
-    // frame after display flips from none → block.
-    // ADR-003 / P3 — `requestAnimationFrame` may only be called inside
-    // `packages/frame-scheduler`. This is the canonical one-shot "next frame"
-    // deferral, which `FrameScheduler.scheduleOnce()` exists to replace; the
-    // 'overlay' phase is the C11 §6.1 slot for viewport/HUD work. When the pump
-    // is not running (headless / before composeRuntime starts it) we fall back to
-    // `deferWork(…, 0)` — also frame-scheduler-owned — so the second resize still
-    // happens after layout flushes instead of being silently dropped.
-    const secondPass = (): void => {
-      // §GLOBE-CRASH-GUARD — the viewport can be disposed between this being
-      // scheduled and firing; gate on isViewerLive() (destroyed-but-non-null safe).
-      if (!this.isViewerLive()) return;
-      try {
+  }
+
+  /**
+   * The seam between the reflow DECISION (`reflowGate.ts` — pure, spec'd at call-count level)
+   * and this live viewer. Everything that touches Cesium, the console or the frame bus is here;
+   * nothing else is. `runReflow` is the production path AND the path the spec drives — a spec
+   * that re-implemented it could not falsify it (§FAKE-MORE-CAPABLE-THAN-REAL).
+   */
+  private reflowPort(): ReflowPort {
+    return {
+      measure: () => this.measuredCanvasBox(),
+      resizeAndRender: () => {
         this.viewer!.resize();
         this.viewer!.scene.requestRender();
-      } catch { /* viewer torn down mid-frame */ }
+      },
+      log: (reason, skipped) => {
+        console.log(
+          `[gis][cesium] resize (${reason}) — canvas ${this.viewer!.canvas.clientWidth}x${this.viewer!.canvas.clientHeight}, ` +
+          `container ${this.container.clientWidth}x${this.container.clientHeight}` +
+          (skipped > 0 ? ` (+${skipped} no-op reflow(s) dropped since the last real one).` : '.')
+        );
+      },
+      warn: (e) => console.warn('[gis][cesium] forceResizeAndRender failed:', e),
+      scheduleSecondPass: (fn) => {
+        // One more after layout flushes — the container often gets its real size a frame after
+        // display flips from none → block.
+        // ADR-003 / P3 — `requestAnimationFrame` may only be called inside
+        // `packages/frame-scheduler`. `FrameScheduler.scheduleOnce()` is the canonical one-shot
+        // "next frame" deferral; the 'overlay' phase is the C11 §6.1 slot for viewport/HUD work.
+        // When the pump is not running (headless / before composeRuntime starts it) we fall back
+        // to `deferWork(…, 0)` — also frame-scheduler-owned — so the second resize still happens
+        // after layout flushes instead of being silently dropped.
+        const scheduler = getFrameScheduler();
+        if (scheduler.isRunning) scheduler.scheduleOnce('cesium-force-resize', fn, 'overlay');
+        else deferWork(fn, 0);
+      },
+      // §GLOBE-CRASH-GUARD — the viewport can be disposed between the second pass being
+      // scheduled and firing; destroyed-but-non-null safe.
+      isLive: () => this.isViewerLive(),
     };
-    const scheduler = getFrameScheduler();
-    if (scheduler.isRunning) scheduler.scheduleOnce('cesium-force-resize', secondPass, 'overlay');
-    else deferWork(secondPass, 0);
+  }
+
+  /** Force a Cesium resize + render now and again on the next frame — a viewer
+   *  mounted into a 0-size / freshly-shown container otherwise renders nothing
+   *  until the next user-driven resize.
+   *
+   *  `mode`:
+   *   · `'force'` (default) — always resize + render. The "the container was hidden, 0-size, or
+   *     has just been MOVED in the DOM, make it paint" primitive that mount / setVisible(true) /
+   *     warm-hidden / re-parent depend on. Never skipped.
+   *   · `'if-changed'` — a pure re-measure request from a layout host. Does nothing at all when
+   *     the measured box is identical to the last effective reflow (§REFLOW-NO-OP-IS-NOT-WORK).
+   */
+  private forceResizeAndRender(reason: string, mode: ReflowMode = 'force'): void {
+    if (!this.viewer) return;
+    runReflow(this.reflowPort(), this.reflowGate, reason, mode);
   }
 
   /**
@@ -18101,8 +18153,13 @@ export class CesiumViewport {
    * idempotent (no-ops when the viewer is not live). This is the resize primitive
    * C59 §1.3 requires for hosting the ONE Cesium viewer in an arbitrary pane.
    */
-  public reflowContainer(): void {
-    this.forceResizeAndRender('external-reflow (multi-pane host)');
+  public reflowContainer(opts?: { force?: boolean }): void {
+    // §REFLOW-NO-OP-IS-NOT-WORK (L-13205) — the DEFAULT is 'if-changed'. This is the entry point
+    // the multi-pane host calls on every settle pass, i.e. on every mousemove of a divider drag,
+    // and a reflow to a box that has not moved is work for nothing. `force: true` is for callers
+    // who changed something the measured box CANNOT report — today only a DOM re-parent, which
+    // can land in an identically-sized pane.
+    this.forceResizeAndRender('external-reflow (multi-pane host)', opts?.force ? 'force' : 'if-changed');
   }
 
   /**
@@ -18129,6 +18186,12 @@ export class CesiumViewport {
         `[gis][cesium] §L-412 reparentContainerTo #${paneEl.id || '(no-id)'} — ` +
         `single container re-targeted into a pane (no new viewer).`,
       );
+      // §REFLOW-NO-OP-IS-NOT-WORK (L-13205) — a DOM MOVE is not a size change. The new pane can be
+      // exactly as wide as the old one, in which case the measured box is identical and the no-op
+      // guard would skip a reflow the move genuinely needs. FORCE it. The already-parented path
+      // below stays 'if-changed': that call is pure idempotence.
+      this.reflowContainer({ force: true });
+      return;
     }
     this.reflowContainer();
   }

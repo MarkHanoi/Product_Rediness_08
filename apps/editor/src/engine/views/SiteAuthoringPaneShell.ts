@@ -481,8 +481,19 @@ export function mountSiteAuthoringPaneShell(
         const withPlacement = settleNeedsPlacement;
         settleNeedsPlacement = false;
         applyFraction();
+        // §REFLOW-NO-OP-IS-NOT-WORK (L-13206 · C59 §2.10.5) — ⛔ THIS WAS TWO REFLOWS PER PANE,
+        // BY CONSTRUCTION, and it read as one. `MultiPaneController.reassertPlacement()` fans out
+        // to `PaneHost.reassertPlacement()`, and EVERY return path of that method already ends in
+        // `this.resize()` (placed / not-placed-and-corrected / unknown / no-predicate). Following
+        // it with `controller.resize()` therefore reflowed every host a SECOND time, to the same
+        // box, on every placement settle — a divider drag is one settle per frame, so this was a
+        // guaranteed doubling of the Cesium buffer work for the whole drag.
+        //
+        // The ordering comment above still holds exactly: geometry (applyFraction) → placement →
+        // measurement. Placement JUST DOES the measurement itself; the two branches below are the
+        // same three steps, not a shortcut past one of them.
         if (withPlacement) controller.reassertPlacement();
-        controller.resize();
+        else controller.resize();
         opts.onResize?.();
     };
     /** Ask for a settle pass. `placement` also re-asserts which pane owns which renderer. */
