@@ -35,6 +35,17 @@
  * still typing, the split simply appears BEHIND the card and the user confirms in their own time.
  * Yanking a focused text field out from under a cursor is worse than the wait it saves.
  *
+ * ⛔ IT IS ALSO NEVER ON SCREEN BESIDE ANOTHER ONBOARDING CARD — §ONE-CARD-AT-A-TIME (L-13130).
+ * As first shipped it was, and the founder photographed it: the *"Where is your project?"* card
+ * stayed live and ON TOP (its overlay's z-index is 2147483000 against this card's 88 870), partly
+ * covering this card's own confirm button, because NOTHING owned its dismissal — the location
+ * step's card was only replaced by the NEXT step's `clearBody()`, which runs after the whole reveal
+ * this card exists to cover. The two are now ONE transition
+ * (`onboardingCardSlot.handOffOnboardingModalCard`), not two independently-timed events. ⚠ That is
+ * a different question from the paragraph above: the LOAD finishing never retires this card; the
+ * USER moving on to a later modal step does, through `commitStartupProjectNameCard`, which keeps
+ * whatever they had typed.
+ *
  * ⚠ THE NAME IS A REAL WRITE. The caller commits it through `applyProjectName`, which is the SAME
  * `runtime.persistence.client.rename(projectId, name)` path the hub's rename modal uses. This
  * module deliberately owns NO persistence: it collects a string and hands it over, so there can
@@ -45,11 +56,31 @@
  */
 
 import { trace } from '@opentelemetry/api';
+// §ONE-CARD-AT-A-TIME (L-13130) — this card takes THE onboarding modal slot; the location card
+// leaves it in the same transition. See `onboardingCardSlot.ts` for why that is a hand-off and not
+// a z-index.
+import { markOnboardingModalCard } from './onboardingCardSlot.js';
 
 const _tracer = trace.getTracer('pryzm.onboarding.startup-name-card');
 
 const EL_ID = 'pryzm-startup-name-card';
 const STYLE_ID = 'pryzm-startup-name-card-style';
+
+/** The card's id in the ONE modal onboarding slot (`ONBOARDING_MODAL_CARD_ATTR`). */
+export const STARTUP_NAME_CARD_SLOT_ID = 'startup-name';
+
+/**
+ * The live card's two handles, module-level because there is only ever ONE card
+ * (`showStartupProjectNameCard` supersedes rather than stacks).
+ *
+ * ⚠ `detach` EXISTS BECAUSE `dismissStartupProjectNameCard` USED TO LEAK ITS DOCUMENT LISTENER.
+ * The Escape handler is registered on `document` in the capture phase so it works with focus off
+ * the field; `commit()` removed it, but the plain `dismiss()` route — which the controller
+ * registers as a CLEANUP — did not. A dismissed card therefore left a captured Escape handler
+ * behind that would fire `onCommit` (a real `persistence.client.rename`) long after the flow had
+ * moved on. Both routes now detach.
+ */
+let _active: { detach: () => void; commitTyped: () => void } | null = null;
 
 /**
  * ⛔ The z-index contract, in one place so it cannot drift.
@@ -88,14 +119,51 @@ export interface StartupProjectNameCardOptions {
     readonly onCommit: (name: string) => void;
 }
 
-/** Remove the card if it is up. Idempotent; safe with no DOM. */
+/**
+ * Remove the card if it is up, WITHOUT committing a name. Idempotent; safe with no DOM.
+ *
+ * ⚠ This is the TEARDOWN route (controller disposal, supersession by a second geocode). A user who
+ * has moved on to a later step should be retired through {@link commitStartupProjectNameCard}
+ * instead, which keeps whatever they typed.
+ */
 export function dismissStartupProjectNameCard(): void {
     const span = _tracer.startSpan('pryzm.onboarding.startup-name-card.dismiss');
     try {
+        try { _active?.detach(); } catch { /* listener teardown is never fatal */ }
+        _active = null;
         if (typeof document === 'undefined') return;
         document.getElementById(EL_ID)?.remove();
     } catch {
         /* presentation only */
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * Retire the card by SAVING what is in the field — the same route its own "Save name" button takes
+ * (an emptied field still falls back to the geocoded default; the one-commit guard still holds).
+ *
+ * ⭐ WHY THIS EXISTS, AND WHY IT IS NOT THE "LOAD FINISHED" HOOK. §STARTUP-NAME-CARD is
+ * deliberately NOT auto-dismissed when the load wins the race — the split reveals BEHIND the card
+ * and the user confirms in their own time, because yanking a focused text field out from under a
+ * cursor is worse than the wait it saves. That invariant is about the LOAD. This function is for
+ * the other thing entirely: the user themself walking on to a later MODAL step, at which point a
+ * naming card competing with the step's own card is the §ONE-CARD-AT-A-TIME defect again
+ * (L-13130). Committing rather than discarding means moving on can never lose their typing.
+ *
+ * Returns true iff a card was up.
+ */
+export function commitStartupProjectNameCard(): boolean {
+    const span = _tracer.startSpan('pryzm.onboarding.startup-name-card.commit-active');
+    try {
+        const active = _active;
+        if (!active) return false;
+        active.commitTyped();
+        return true;
+    } catch (e) {
+        console.warn('[startup-name-card] commit-active threw (non-fatal):', e);
+        return false;
     } finally {
         span.end();
     }
@@ -108,6 +176,12 @@ function ensureStyles(): void {
     // §PREVIEW-COLOR-UNIFIED-PRYZM-PURPLE — #6600FF is the one brand accent; white + purple, no
     // black (founder brand rule, `preview-color-unified-pryzm-purple`).
     style.textContent = `
+        /* §ONE-CARD-AT-A-TIME (L-13130) — the slot retires a leftover card with the \`hidden\`
+           ATTRIBUTE. The UA rule for it would be enough here today (this block sets no
+           \`display\`), but the onboarding overlay next door learned the hard way that an id/class
+           rule with its own \`display\` silently outranks the UA one (§UX1-DRAW-PHASE-GATE), so the
+           gate is authored rather than inherited and cannot become decorative later. */
+        #${EL_ID}[hidden] { display: none !important; }
         #${EL_ID} {
             position: fixed;
             left: 50%;
@@ -213,6 +287,9 @@ export function showStartupProjectNameCard(opts: StartupProjectNameCardOptions):
         card.id = EL_ID;
         card.setAttribute('data-testid', EL_ID);
         card.setAttribute('role', 'dialog');
+        // §ONE-CARD-AT-A-TIME (L-13130) — claim THE modal onboarding slot. The location card
+        // relinquishes it in the same `handOffOnboardingModalCard` call that raises this one.
+        markOnboardingModalCard(card, STARTUP_NAME_CARD_SLOT_ID);
         // ⚠ `aria-modal` is deliberately NOT set: this is explicitly NOT modal — the globe behind
         // it stays live and reachable. Claiming modality to a screen reader would be a lie about
         // the surface, and would tell it to hide the very content the founder asked to watch.
@@ -257,10 +334,11 @@ export function showStartupProjectNameCard(opts: StartupProjectNameCardOptions):
         // ⚠ ONE commit, whichever route fires. Enter, Save, Skip and Escape all land here, and the
         // guard means a double-tap or an Enter-then-Escape cannot write twice.
         let committed = false;
+        const detach = (): void => { document.removeEventListener('keydown', onDocKey, true); };
         const commit = (name: string): void => {
             if (committed) return;
             committed = true;
-            document.removeEventListener('keydown', onDocKey, true);
+            detach();
             dismissStartupProjectNameCard();
             try {
                 opts.onCommit(name);
@@ -291,6 +369,10 @@ export function showStartupProjectNameCard(opts: StartupProjectNameCardOptions):
         skip.addEventListener('click', () => { commit(opts.defaultName); });
 
         document.body.appendChild(card);
+        // The live card's handles, for the two routes that arrive from OUTSIDE the card: a plain
+        // teardown (`dismissStartupProjectNameCard`) and "the user walked on to a later modal step"
+        // (`commitStartupProjectNameCard`, which keeps what is typed).
+        _active = { detach, commitTyped: () => { commit(input.value.trim() || opts.defaultName); } };
         try { input.focus(); input.select(); } catch { /* focus is a nicety, never load-bearing */ }
 
         console.log(
