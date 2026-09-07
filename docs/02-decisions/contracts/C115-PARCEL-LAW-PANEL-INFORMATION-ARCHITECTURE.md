@@ -605,6 +605,19 @@ the `PARCEL_LAW_PLOT_ROUTE_NOTE` · PR-E-48 `PARCEL_LAW_FACTS_NOTE` · PR-E-49 t
 line (*"solved <date>. Nothing has been re-derived to show it."*) · PR-E-50 the six
 `HEARD_NOT_DRIVEN_TEXT` sentences.
 
+⭐ **PR-E-51 — THE PERMITTED-MAXIMUM INDICATIVE ESTIMATE, AND IT IS A REGISTER ROW BECAUSE
+`C115-79` WOULD OTHERWISE DELETE IT.** Surface A's estimate is keyed to the **theoretical maximum**
+(the permitted study GFA) and is **rendered, published, cited and licensed** today
+(`apps/editor/src/ui/site/envelopeCostSection.ts` +
+`packages/core-app-model/src/quantities/RegionalBuildingCost.ts`, PR-A-17, PR-F-10). At mint **no
+§3 row stood over it**, so `C115-79`'s *"never the theoretical maximum"* and `C115-01`'s *"a block
+that disappears is a contract violation"* pointed at the same figure and disagreed. ⛔ **The
+disagreement is resolved in favour of PRESERVATION: the figure is RETAINED, RE-HOMED and DEMOTED —
+it is not retired, so no §2.5 relocation stamp may be used to see it off the surface.** Its new home
+and its exact standing are `C115-138` (§9.1). ⚠ Its **basis label** travels with it: an estimate
+against the permitted maximum is a *ceiling* figure and **MUST NOT** be typeset like the proposed
+design's cost (§4.3, PR-C-30).
+
 ### §3.F — CITATIONS, PROVENANCE AND HYPERLINKS
 
 `C115-23` **THE HYPERLINK RULE.** Compact source labels in the main UI; the **complete** citation in
@@ -672,8 +685,8 @@ renderer) · PR-G-27 the on-view view switcher.
 ### §3.I — REGISTER SIZE, STATED
 
 **22 producer rows (§3.A) · 4 render arms (§3.B) · 35 vocabulary rows (§3.C) · 16 unbounded
-families (§3.D) · 50 named sentences (§3.E) · 14 citation/hyperlink rows (§3.F) · 27 control rows
-(§3.G) · 7 machine-state couplings (§3.H) = 175 register entries**, standing over roughly **370+
+families (§3.D) · 51 named sentences (§3.E) · 14 citation/hyperlink rows (§3.F) · 27 control rows
+(§3.G) · 7 machine-state couplings (§3.H) = 176 register entries**, standing over roughly **370+
 rendered data points**, **≈130 citation/provenance-bearing fields** and **≈300 enumerated union
 arms**. `C115-30` A reviewer **MUST** be able to hold a refactored panel against this list; a claim
 of *"0 data points lost"* that does not walk it is unsupported.
@@ -729,8 +742,12 @@ hand-walked list in the dossier was incomplete.
 
 `C115-36` The basis→typography mapping **MUST NOT** be normalised away by a visual redesign. Weight,
 opacity and padding are how a *legal ceiling* is told from a *derived convenience* from an
-*assumption* — the founder's own complaint that *"Max height 22.4 m reads exactly like Footprint
-perimeter 85.7 m."*
+*assumption* — the founder's own complaint that *"`Max height 22.4 m` (a hard legal ceiling) reads
+exactly like `Footprint perimeter 85.7 m` (a derived convenience)"*. ⚠ **That sentence is
+`L-13018`'s, and this clause quoted it verbatim at mint without citing the row.** The row is the
+third report of one shape — *"this tab's producers emit CORRECT, WELL-SOURCED CONTENT IN
+UNDIFFERENTIATED TYPOGRAPHY"* — and its own instruction is to fix **the class, not the block**, which
+is what §4.3 and §1.5.1 together are. See §12.5 for its disposition.
 `C115-37` ⛔ **An unknown ceiling MUST NOT shrink.** De-weighting it hides it as effectively as
 deleting it, one step more deniably.
 `C115-38` ⛔ **Emphasis may never strengthen a claim.** Highlighting dims non-subjects; it never
@@ -876,6 +893,42 @@ a repaint. Disabling the chosen control closes the compare loop.
 *"a control that can only fail is a dead click with a label on it."*
 `C115-55` The user's own massing **MUST** be offered as a first-class option, first, on both arms.
 
+#### §6.2.1 — ⛔⛔ THE FOUNDER'S RULE 4, RESTATED HERE BECAUSE IT APPEARED IN THIS CONTRACT ZERO TIMES
+
+**At mint, `grep -i 'one at a time\|one massing\|13038'` over this file returned nothing.** §12's
+disposition table disposed of STR §26.6.0 rule 4 with five words — *"rule 4 stays with its own
+lane"* — naming **neither the lane nor the L-id**, while §1's Stage 03, `C115-53` and `C115-54` all
+work in precisely the neighbourhood where a multi-render regression lands. A rule that is somebody
+else's job, with nobody named, is nobody's.
+
+`C115-142` ⭐ **ONE MASSING RENDERS AT A TIME.** The founder, verbatim: *"THE MASSING OPTIONS SHOULD
+RENDER — ONE AT A TIME — CANNOT HAVE MULTIPLE RENDERING."* A pick **MUST** leave exactly one massing
+volume drawn on the view. `C115-143` ⛔ **A pick MUST NOT ACCUMULATE** — pressing pick twice, or
+picking a second option, **MUST NOT** leave two study volumes standing.
+
+**WHERE THIS RULE LIVES, NAMED, SO NOBODY HAS TO GUESS AGAIN:**
+
+| | |
+|---|---|
+| **Issue-log row** | **L-13038** — *"KEEPING A MASSING OPTION ACCUMULATES INSTEAD OF REPLACING"* |
+| **Lane** | **MASSING-SHAPES** (STR §25.3.1, amended 2026-09-07 · L-13037 / L-13039 / §26.6 rule 4) |
+| **Founder text** | STR §26.6.0 rule 4 and §26.6.3 (3.3) |
+| **The MINT half** | ⭐ **ADDRESSED** — L-13047 (`905b655f`): `spaceEnvelope.batch.create` gained `supersedes`, removed in the SAME `produceCommand` as the creations (it could not be delete-then-create: `runBatch` is undo-neutral, so that is two ring entries with a torn empty-storey state between them), and the card states `create` / `replace` / `refuse` **before** the click |
+| **The RENDER half** | ⚠ **OPEN** — rule 4 is a rendering rule *as well as* a mint rule, and the two are not the same claim |
+
+`C115-144` ⚠ **NOT-YET-TRUE, AND THE DISTINCTION IS THE WHOLE POINT: A STORE THAT HOLDS ONE PLATE IS
+NOT THE SAME FACT AS A VIEW THAT DRAWS ONE.** The supersession work fixed *what gets minted*. Whether
+each of the three renderers — the BIM 3D scene, `CesiumViewport` and `SiteBoundaryMap2D` — draws
+exactly one study volume after a pick was **not measured by this contract** (§14). ⛔ **A PR MUST NOT
+report rule 4 as met on the strength of L-13047**, and `C115-145` a PR that touches massing rendering
+**MUST** state, per renderer, how many volumes stand after two consecutive picks.
+
+`C115-146` ⛔ **THE REFUSALS RULE 4 PRODUCES ARE CORRECT ANSWERS AND MUST SURVIVE.** The founder's own
+screenshots show the product refusing *because* of this rule, twice — *"3 level envelopes are
+candidates … PRYZM will not choose for you"* and *"Two level envelopes sit at the same base height
+(0 m) with different footprints — 430.9 m² and 300.6 m²"*. Those are `C115-54`'s listed-with-a-reason
+shape, not bugs to tidy: PR-C-18's `rival` arm exists for exactly this and is a register row.
+
 ### §6.3 — Per-level envelope editing
 
 `C115-56` Per-storey editing **MUST** remain available: face drag on the 3D views (the 2D map is
@@ -1015,7 +1068,9 @@ the situation here, and this contract will not describe it as one:
   explicit currencies and a rate the user sets.
 
 `C115-79` Stage 06 **MUST** be **ONE** cost answer, based on the **ACTUAL PROPOSED design**, never
-the theoretical maximum.
+the theoretical maximum. ⚠ **Read this with §9.1, which is the clause that stops it deleting a
+rendered figure.** *"One cost ANSWER"* is a rule about **which number the stage asserts**; it is not
+a licence to unrender the permitted-maximum estimate, and at mint it read as one.
 `C115-80` The published-rate machinery **MUST MIGRATE** into **"Cost assumptions & source"** — it
 **MUST NOT** be deleted. It is the only thing that satisfies the founder's ASK rule.
 `C115-81` ⛔ **When no valid PRYZM rate applies to the location or the building type, the panel MUST
@@ -1035,6 +1090,50 @@ is shipped, not aspirational.
 ⚠ **Count correction:** the cost fold has **FOUR** return arms (`no-module · no-gfa · no-typology ·
 estimated`) plus an error path. Its own doc comment says five, and two call sites repeat the stale
 number. `C115-85` The comment **MUST** be corrected in the same PR that touches the fold.
+
+### §9.1 — ⭐ THE PERMITTED-MAXIMUM ESTIMATE SURVIVES, AS AN OPTIONAL SECOND LINE (PR-E-51)
+
+**The collision this clause resolves.** `C115-79` says the cost **MUST** be based on the proposed
+design, *"never the theoretical maximum"*. Surface A renders a **published, cited, licensed**
+estimate keyed to the **permitted** study GFA. `C115-01` says a rendered figure that disappears is a
+contract violation. **At mint the register held no row for that figure, so this contract
+simultaneously forbade losing it and mandated dropping it.** Two of its own clauses cannot both be
+obeyed, and a reader who resolved the tie by reading only §9 would delete a cited figure.
+
+`C115-138` ⛔ **THE PERMITTED-MAXIMUM ESTIMATE IS RETAINED, AS AN OPTIONAL SECOND LINE BENEATH THE
+PROPOSED-DESIGN COST — it is NOT retired, and NO §2.5 relocation stamp may be used to remove it from
+the surface.** The founder's own Stage-06 brief keeps it in exactly that position — the designed
+cost first, *"then optionally: Maximum potential €X"* — so `C115-79`'s *"never the theoretical
+maximum"* governs **which figure the stage ASSERTS**, not which figures it may show.
+
+`C115-139` The second line **MUST** carry all of:
+
+1. **A DIFFERENT SUBJECT, SAID IN WORDS** — it costs the **permitted** envelope, not the design. The
+   two numbers answer two questions and §2.3's test therefore classifies them as **NOT a duplication**
+   (they are BUILT/INTENDED-vs-PERMITTED on the cost axis, §5, C114 §3a).
+2. **A DIFFERENT WEIGHT** — the proposed-design cost is the answer; the maximum is context.
+   ⛔ `C115-38` still binds: de-emphasis **MUST NOT** strengthen the maximum, and `C115-37` still
+   binds the other way — de-weighting **MUST NOT** hide it.
+3. **ITS OWN PROVENANCE, UNCHANGED** — everything in PR-F-10 (database · publisher · edition ·
+   priceDate · itemCode · licence status · licence note · the 8 exclusion items each citing an
+   article) stays reachable behind **"Cost assumptions & source"** (`C115-80`, `C115-84`).
+4. **THE SAME REFUSALS** — where no published rate applies, the second line **REFUSES AND ASKS** on
+   the same terms as the first (`C115-81`, `C115-83`). ⛔ A maximum PRYZM cannot price does not
+   silently vanish; it says so.
+
+`C115-140` ⚠ **THE SECOND LINE IS OPTIONAL TO SHOW, NEVER OPTIONAL TO HOLD.** *"Optional"* here
+means the user may collapse it, and a stage with no permitted determination has none to render. It
+does **not** license a build that stops computing it.
+
+⚠ **THE PROVENANCE OF THE WORD *"optionally"*, STATED RATHER THAN IMPLIED — this is the one clause
+in this contract whose founder source is NOT a repository document.** STR §26.6.5 is his recorded
+text on this stage and it says only *"Keep the last three sections with the relevant numbers"* plus
+the cost refusal that must survive; the **seven-stage brief this contract's §1 is built from — with
+its Stage-06 line — reached the lane as a transmission and was never captured into a repo doc.**
+That violates the standing *capture-founder-research-to-repo* rule, and `C115-141` **the transmission
+MUST be captured into STR §26.6 (or a successor section) by the next lane that touches this stage**,
+so §9.1 stops resting on a quotation no reader here can check. Until then this clause is normative on
+the strength of this contract alone, exactly as the header records for §10 and §12.
 
 ---
 
@@ -1120,7 +1219,7 @@ other on one question (C84 EI-9).
 
 | Document | Disposition | What it keeps owning |
 |---|---|---|
-| **STR §26.6** (the complete Parcel Law card spec) | ⭐ **RETAINED AND AMENDED — NOT SUPERSEDED** | It remains the founder-transmission record and the implementation ledger (§26.6.7). **AMENDED on exactly two axes:** its **six**-section list is superseded by §1's **seven** stages; and its four cross-cutting rules are **absorbed and extended** here — rule 1 (one figure, one place) becomes §2, rule 2 (every figure is a hyperlink to its geometry) becomes PR-G-26 + §3.G, rule 3 (one both-numbers producer) becomes §6.1, rule 4 stays with its own lane. ⛔ **Its §26.6.7 status ledger is NOT re-litigated here** — in particular *"Card-vs-tab ownership"* is a **STANDING CONSTRAINT, not open work**, and §10 states the prescribed fix rather than re-opening the question |
+| **STR §26.6** (the complete Parcel Law card spec) | ⭐ **RETAINED AND AMENDED — NOT SUPERSEDED** | It remains the founder-transmission record and the implementation ledger (§26.6.7). **AMENDED on exactly two axes:** its **six**-section list is superseded by §1's **seven** stages; and its four cross-cutting rules are **absorbed and extended** here — rule 1 (one figure, one place) becomes §2; rule 2 (every figure is a hyperlink to its geometry) becomes **§1.4.1 `C115-113`…`C115-118`** — ⚠ **CORRECTED: this row read *"becomes PR-G-26 + §3.G"*, and that was a demotion. PR-G-26 preserves SIX EXISTING call sites; rule 2 obliges EVERY Stage-01 figure to be a link that PAINTS. Different obligations; the register row keeps the first, §1.4.1 states the second**; rule 3 (one both-numbers producer) becomes §6.1; rule 4 (one massing renders at a time) becomes **§6.2.1 `C115-142`…`C115-146`** — ⚠ **CORRECTED: this row read *"rule 4 stays with its own lane"* and named NEITHER the lane NOR the row. It is lane **MASSING-SHAPES**, row **L-13038**; its MINT half is addressed by L-13047 and its RENDER half is OPEN, and §6.2.1 keeps the two apart. ⛔ **Its §26.6.7 status ledger is NOT re-litigated here** — in particular *"Card-vs-tab ownership"* is a **STANDING CONSTRAINT, not open work**, and §10 states the prescribed fix rather than re-opening the question |
 | **C58** | **RETAINED — outranks this document on every legal question** | What the determination says; refusals (§1.13); the transient/absent distinction (§1.13.8); the authoring provenance rules (§1.19, ⚠ with the clause-3 correction §5.4 records as OWED); the envelope-is-not-a-gate ruling (§1.20) |
 | **C19 §5.6–§5.8** | **RETAINED** | The tab re-derives nothing; the singleton/mount-per-host mechanics; the named-state rule for the parcel-before-envelope gap. §10 applies its §5.7 clause 1 remedy |
 | **C57** | **RETAINED** | Parcel provenance, the three-area separation, the mandatory attribution line |
@@ -1148,7 +1247,10 @@ relocation stamp and PR-H-02 exist to prevent, and it will recur on every block 
 production.** It carries the three setbacks as **separate rows each with its own not-derived state**
 (vs the card's one collapsed triple string), a named buildable-footprint row, a max-GFA row and the
 `FactBasis` badges. ⛔ **It MUST NOT be deleted as dead code: it is the only implementation of the
-founder's per-row VALUE + STATUS shape and should be the BASIS of the new Buildability block.**
+founder's per-row VALUE + STATUS shape, and `C115-125` (§1.5.1) MAKES IT THE BASIS of the new
+Buildability block.** ⚠ **This clause read *"should be the BASIS"* at mint — a *should* carrying the
+whole of Stage 02, in a document that says MUST elsewhere. It is now a MUST, stated where the stage
+is governed.**
 
 ### §12.2 — Specs that will and will not catch a lossy refactor
 
