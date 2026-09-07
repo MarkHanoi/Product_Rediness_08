@@ -419,3 +419,132 @@ same tiles, which is the whole §STARTUP-GROUND-SAMPLE-COALESCE finding. That in
 pinned in `groundSampleBatcher.spec.ts`; **do not weaken it.** Neither priority-jumping nor
 splitting the big sample may land without a per-flight reading of *tiles requested* vs *tiles served
 from the browser HTTP cache*, which nothing measures today.
+
+---
+
+## 9 — §SOLID-OR-WIREFRAME: the silhouette IS the data state (L-13143, founder 2026-09-07)
+
+> *"still not building complete plate - the scope of the rectangle or the circle of the 3d site view
+> shall have completed with buildings and actually it is! but they are really transparent - now they
+> all be solid if the height is known and wireframe if not - just this - do it!"*
+
+⭐ **THIS IS AN HONESTY RULE, NOT A STYLING ONE, AND THE DISTINCTION DECIDES EVERY CHOICE BELOW.** A
+uniformly translucent city says nothing. Solid-vs-wireframe makes the DATA STATE visible at a glance:
+the user can see, without opening anything, which neighbours PRYZM actually holds a height for. Same
+doctrine as every refusal in this repo (`§CONTEXT-DATA-HONESTY`, C58 §1.4) — **an unknown must look
+DIFFERENT from a known, never like a washed-out version of it**, which is exactly what a global alpha
+made it.
+
+### 9.1 — What was measured first, because it contradicts the obvious diagnosis
+
+`tools/context-height-probe/probe.mjs` against the **shipped** tiles
+(`buildings.pmtiles?v=L663a`, 2026-09-07), at the founder's own Barcelona site:
+
+| extent | footprints | `measured-lidar` | `tagged` | `derived-levels` | `assumed` |
+|---|---|---|---|---|---|
+| ±0.008° (near ring) | 6 331 | **6 064 (95.8%)** | 0 | 234 (3.7%) | **33 (0.5%)** |
+| ±0.03° (far tier) | 46 866 | **44 126 (94.2%)** | 59 | 1 893 (4.0%) | **788 (1.7%)** |
+
+**The plate he called "really transparent" is 95.8% real measured height.** It read translucent
+because the TIERS were translucent by construction at every provenance, not because heights were
+missing. ⛔ **Never diagnose this from the render.** Run the probe.
+
+### 9.2 — The rule (binding)
+
+The classification is `contextHeightRenderTier(provenance)` in
+`apps/editor/src/ui/geospatial/contextBuildings.ts`. It is **pure**, it takes **only the provenance**
+— the metres are not an argument, so the height value can never influence the silhouette — and it is
+read by **all three render tiers**, so the plate cannot classify one building "known" in one ring and
+"unknown" in the next.
+
+| provenance | verdict | drawn as |
+|---|---|---|
+| `measured-lidar` | `solid` | **OPAQUE** `contextFill` extruded prism, casts + receives shadows |
+| `tagged` | `solid` | as above |
+| `derived-levels` | `estimated` | **OPAQUE** `contextEstimatedHeight` (#B8B6B0) prism, **also shadow-casting** |
+| `assumed` | `wireframe` | **footprint outline on the ground. No fill, NO extrusion.** |
+| *absent* (`undefined`) | `wireframe` | as above — a pre-L-459 cached collection is UNKNOWN, never `tagged` |
+
+**R-9.1 — A DEFAULTED HEIGHT RENDERS AS A WIREFRAME AND A REAL ONE AS A SOLID.** This is the
+founder's sentence and it is the invariant.
+
+**R-9.2 — THE CLASSIFICATION MAY NOT SILENTLY FALL THROUGH TO EITHER BRANCH.** `undefined` is named
+explicitly, and the `default` arm assigns to `never` — **adding a rung to `ContextHeightProvenance`
+breaks the build** rather than being absorbed into `solid`. The failure mode of an honesty gate is a
+new unclassified value drawn as if it were known; that is closed at compile time and pinned at
+runtime in `contextSolidOrWireframe.spec.ts`.
+
+**R-9.3 — `derived-levels` IS ITS OWN RUNG AND IS DELIBERATELY NOT WIREFRAME.** A real storey COUNT
+is a real height input; drawing it as "no height" would OVERSTATE our ignorance. And it would not
+merely be imprecise: on a city with no measured bake (Madrid is mostly `derived-levels`) that rung
+alone empties the plate back into the blank §FULL-PLATE (L-13123) had just fixed. **The hue carries
+the claim; the silhouette does not.**
+
+**R-9.4 — A WIREFRAME USES NO HEIGHT.** It is the footprint outline on its own sampled ground, lifted
+`CTX_WIREFRAME_GROUND_LIFT_M` (15 cm) purely so the line does not z-fight the terrain. ⛔ **A
+wireframe BOX at the 9 m `DEFAULT_BUILDING_HEIGHT_M` is forbidden** — it asserts 9 m in edges instead
+of faces and reintroduces the exact lie this removes (§CTX-ASSUMED-HEIGHT-VISIBLE: *"deliberately NOT
+done: inventing a better-looking number"*).
+
+**R-9.5 — NO CONTEXT BUILDING IS TRANSLUCENT, IN ANY TIER.** The three alphas this replaced were
+**0.50** (T0 estimated), **0.82** (T1 demoted — one flat value for every footprint, no provenance
+split at all) and **0.60** (T2 instanced far — likewise). 7 947 of the founder's ~9 547 drawn
+footprints were in T1+T2, so **~83% of the plate was washed out for a reason unrelated to the data.**
+
+### 9.3 — The translucency was load-bearing, and what replaced it
+
+Both far tiers' comments state the job the alpha was doing: *"a hair MORE transparent … so the
+distant massing reads as clearly secondary (aerial-perspective)"*. That is a real requirement and it
+is **kept**, on the channel it belongs on. Alpha is the wrong instrument: real aerial perspective is
+a loss of CONTRAST toward the haze, not see-through-ness. So each tier's colour is lerped toward
+`FORMA_QUALITY.fogColor` by `CTX_TIER_HAZE` — **near 0 · demoted 0.10 · far 0.22** — and every alpha
+goes to 1. Distance still recedes; nothing is see-through.
+
+⛔ **AND OPAQUE ALONE IS A KNOWN TRAP.** §CTX-SOLID-CONTEXT (L-636) is the record of an opaque-but-
+UNLIT context reading as a flat white slab. Two consequences are binding:
+
+- **`estimated` now CASTS SHADOWS.** It did not while it was alpha-0.5, and that was correct then —
+  a translucent surface does not self-shadow, which IS the L-636 defect. Turning it opaque without
+  turning shading on would rebuild that defect for every `derived-levels` city.
+- **The instanced far tier's appearance is `flat: false`.** The geometry already carried normals
+  (`PerInstanceColorAppearance.VERTEX_FORMAT` is `POSITION_AND_NORMAL`) and was discarding them, so
+  lighting the far plate costs a lambert term in the fragment shader and **no extra vertex data**.
+  An opaque unlit plate is the same "flat white" defect arriving from the other direction.
+
+### 9.4 — The performance envelope (ADR-0094 budget)
+
+**R-9.6 — THE FAR TIER IS AT MOST TWO PRIMITIVES, NEVER ONE PER FOOTPRINT.**
+
+- **Solids + estimated: still ONE batched `Cesium.Primitive`, one draw call, one appearance.** The
+  solid/estimated distinction rides the **per-instance colour ATTRIBUTE** `PerInstanceColorAppearance`
+  already batches into the same vertex buffer — it costs nothing. `translucent` also flips **true →
+  false**, moving the whole batch out of the sorted translucent pass: **cheaper than before**, not
+  dearer.
+- **Wireframes: ONE additional `SimplePolylineGeometry` batch.** A line and a solid cannot share a
+  geometry type, so the second primitive is structural. `SimplePolylineGeometry` is deliberate — it
+  emits `GL_LINES` (one vertex per ring point, no quad expansion), so a wireframe footprint is
+  **cheaper than the solid it replaces**. It is `null` entirely when every far footprint has a height,
+  which is the normal case on a measured city.
+
+Net vertex work on the founder's Barcelona read **falls**: 1.7% of the far tier drops from a 12-vertex
+extruded prism to an 8-vertex line loop, the batch leaves the blend pass, and the only addition is a
+per-fragment lambert term.
+
+### 9.5 — What the console must now be able to tell you
+
+Each tier reports its OWN split (`summariseContextRenderTiers`), because one total cannot distinguish
+"the plate is translucent" from "the plate is unknown-height". ⚠ The near ring's line previously ended
+`${FORMA_PALETTE.contextFill}@0.92, shadows on` — **a stale literal**: the alpha had been 1.0 since
+§A.21.D-FORMA2 and half the ring had not used `contextFill` at all since L-647. That is where the
+founder read "0.92". **A material constant may not be transcribed into a log line; print what was
+drawn.**
+
+### 9.6 — What this does NOT re-open
+
+The founder rejected a wireframe on **2026-07-30** — *"a weird orange"*, a spiky mess of line-edges.
+That rejection stands and is not contradicted here: what he rejected was an **AMBER** wireframe
+applied to the **whole not-accurate set** (on a `derived-levels` city, most of it). This draws
+**neutral grey** edges, and only for footprints with **no height input at all** — 33 of 6 331 on his
+own read. `FORMA_PALETTE.contextUncertainHeight` (#E8973A) remains referenced by **no render site**
+and is kept only as the record of what not to do. ⛔ **Do not re-point a render site at it to "make
+the wireframes visible".**

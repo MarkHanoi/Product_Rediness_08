@@ -34,6 +34,11 @@ import {
     // §CTX-PAN-DEBOUNCE (L-402c) — pure gate for the pan-driven REFETCH (never gates the
     // initial load, which is a direct loadContextBuildings call in renderFormaMassing).
     shouldRefetchContextOnPan,
+    // §SOLID-OR-WIREFRAME (L-13143, founder 2026-09-07) — the ONE render-silhouette decision,
+    // read by ALL THREE context tiers (near shadow-casting, demoted solid, instanced far) so the
+    // plate cannot say "height known" in one ring and "unknown" in the next for the same datum.
+    contextHeightRenderTier,
+    summariseContextRenderTiers,
     type ContextBuildingCollection,
     type ContextBuildingFeature,
 } from "./contextBuildings";
@@ -886,16 +891,25 @@ const FORMA_PALETTE = {
   /** Subtle graphite outline for context massing (lighter than proposed). */
   contextOutline: FORMA_CONTEXT_3D.buildingEdge,
   /** §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder) — accent for context buildings whose HEIGHT is
-   *  NOT accurate (heightProvenance ≠ 'tagged': derived-levels / assumed / unknown). These render as
-   *  a see-through WIREFRAME in this amber so the SOLID white buildings read as the trustworthy
-   *  LOD200 (true boundary + true height) set and the amber wireframes read as "estimated height".
-   *  Amber = a caution/provisional tone, distinct from white context / purple massing / green / blue. */
+   *  NOT accurate. It rendered them as a see-through WIREFRAME in this amber.
+   *  ⛔ REJECTED BY THE FOUNDER 2026-07-30 ("a weird orange", a spiky mess of line-edges) and
+   *  UNREFERENCED BY ANY RENDER SITE since — measured: `grep -rn contextUncertainHeight` returns this
+   *  definition and one comment, zero reads. KEPT AS THE RECORD OF WHAT NOT TO DO, because
+   *  §SOLID-OR-WIREFRAME (L-13143) brings a wireframe BACK and the distinction matters: what he
+   *  rejected was a LOUD COLOUR applied to the whole not-accurate set (which on a derived-levels city
+   *  is most of it). L-13143 draws NEUTRAL grey edges, and only where there is no height input at
+   *  all. ⛔ Do not re-point a render site at this amber to "make the wireframes visible". */
   contextUncertainHeight: '#E8973A',
   /** §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder 2026-07-30) — the ESTIMATED-height treatment: a
    *  NEUTRAL grey a touch DARKER than the solid `contextFill`, rendered as a TRANSLUCENT
    *  massing (not a wireframe, not amber). Estimated buildings read as soft, slightly-darker ghost
    *  blocks — the honest "height not surveyed" signal, in the Forma palette, replacing the founder-
    *  rejected orange wireframe. Solid/measured buildings keep the opaque `contextFill`.
+   *  ⚠ §SOLID-OR-WIREFRAME (L-13143, founder 2026-09-07) KEEPS THE HUE AND DROPS THE TRANSLUCENCY.
+   *  "Really transparent" was the complaint; the ghost alpha (0.5) was part of it. This grey now
+   *  paints an OPAQUE, SHADED block for the `derived-levels` rung — a real storey count, our metres —
+   *  so the hue alone carries the claim. It applies to `derived-levels` ONLY now, not to every
+   *  not-accurate provenance: `assumed` has no height input at all and gets no volume.
    *  §PALETTE-PARITY-2D-3D (L-12965) — this parenthetically quoted `contextFill` as #D9D8D3; it is now
    *  the 2D map's warm #E8E1D4, so this grey reads a touch COOLER as well as darker. It stays a 3D-ONLY
    *  hex on purpose: it is a height-PROVENANCE signal (C57 honesty), not a context colour the founder
@@ -967,6 +981,100 @@ const FORMA_PALETTE = {
    *  DEEPER/cooler than the park fill so individual street trees read as foliage volumes
    *  sitting on the ground rather than dissolving into the flat park green. */
   tree: FORMA_CONTEXT_3D.tree,
+} as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §SOLID-OR-WIREFRAME (L-13143, founder 2026-09-07) — THE CONTEXT MATERIALS.
+//
+// The founder: *"the scope of the rectangle or the circle of the 3d site view shall have completed
+// with buildings and actually it is! but they are really transparent - now they all be solid if the
+// height is known and wireframe if not - just this - do it!"*
+//
+// ⭐ WHAT WAS ACTUALLY WRONG — AND IT WAS NOT THE HEIGHTS. Measured on his own Barcelona read
+// (`tools/context-height-probe/probe.mjs --at 41.3874,2.1686`, shipped tiles, 2026-09-07):
+//   near ring ±0.008°  6 331 footprints — 6 064 measured-lidar · 0 tagged · 234 derived-levels · 33 ASSUMED
+//   wide      ±0.03°  46 866 footprints — 44 126 measured-lidar · 59 tagged · 1 893 derived-levels · 788 ASSUMED
+// i.e. **95.8% of the plate he was looking at has a REAL measured height**, and 0.5% has none at all.
+// The city read translucent because the TIERS were translucent BY CONSTRUCTION, at every provenance:
+//   T0 near shadow-casting  `contextFill` OPAQUE for accurate · `contextEstimatedHeight`@**0.50** otherwise
+//   T1 demoted solid        ONE `contextFill`@**0.82** for EVERY footprint — no provenance split at all
+//   T2 instanced far        ONE `contextFill`@**0.60** for EVERY footprint — no provenance split at all
+// 7 947 of his ~9 547 drawn footprints were in T1+T2, so ~83% of the plate was washed out for a
+// reason that had nothing to do with what we know. That is the defect.
+//
+// ⚠ THE TRANSLUCENCY WAS LOAD-BEARING, AND IT IS NOT SILENTLY DROPPED. Both far comments state the
+// job it was doing: *"a hair MORE transparent … so the distant massing reads as clearly secondary
+// (aerial-perspective)"*. Alpha is the WRONG instrument for that — real aerial perspective is a loss
+// of CONTRAST toward the haze, not see-through-ness — so the depth cue is preserved and moved onto
+// the channel it belongs on: each tier's colour is lerped toward `FORMA_QUALITY.fogColor` by
+// `CTX_TIER_HAZE`. Distance still recedes; nothing is see-through.
+//
+// ⛔ AND OPAQUE ALONE IS A KNOWN TRAP. §CTX-SOLID-CONTEXT (L-636) is the record of an opaque-but-
+// UNLIT context reading as a flat white slab, which is why T2's appearance also flips `flat: false`
+// (the geometry already carried normals for `PerInstanceColorAppearance.VERTEX_FORMAT` and threw
+// them away) — an opaque plate MUST shade, or "solid" just means "blank".
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * How far each tier's colour is pulled toward the scene haze (0 = full contrast, 1 = pure haze).
+ * REPLACES the old per-tier alphas 1.00 / 0.82 / 0.60 — same intent (aerial perspective), on the
+ * channel that does not make the city see-through. Deliberately gentle: the founder's complaint is
+ * that distance looked like ABSENCE, so recession must read as distance, never as missing data.
+ */
+const CTX_TIER_HAZE = {
+  /** T0 near shadow-casting — the site's own neighbours, full contrast. */
+  near: 0.0,
+  /** T1 demoted solid — inside the near disc but shadowless. */
+  demoted: 0.10,
+  /** T2 instanced far — one batched primitive out to the scope edge. */
+  far: 0.22,
+} as const;
+
+/**
+ * §SOLID-OR-WIREFRAME (L-13143) — a tier's OPAQUE colour: the authored hex, hazed toward
+ * `FORMA_QUALITY.fogColor` by the tier's recession. **Always alpha 1.** There is no alpha parameter
+ * on purpose: an alpha here is how the see-through plate came back last time.
+ */
+function ctxTierColour(cssHex: string, haze: number): Cesium.Color {
+  const base = Cesium.Color.fromCssColorString(cssHex);
+  if (haze <= 0) return base.withAlpha(1.0);
+  const out = Cesium.Color.lerp(base, Cesium.Color.fromCssColorString(FORMA_QUALITY.fogColor), haze, new Cesium.Color());
+  return out.withAlpha(1.0);
+}
+
+/**
+ * §SOLID-OR-WIREFRAME (L-13143) — WHAT HEIGHT A WIREFRAME USES: **none. It sits on the ground.**
+ *
+ * ⛔ THE ONE DECISION THAT MATTERS HERE. A wireframe BOX at the 9 m `DEFAULT_BUILDING_HEIGHT_M`
+ * would still be asserting 9 m — in edges instead of faces — and would reintroduce the exact lie
+ * this feature exists to remove (§CTX-ASSUMED-HEIGHT-VISIBLE: *"deliberately NOT done: inventing a
+ * better-looking number"*). So an unknown-height footprint is drawn as its OUTLINE ON THE GROUND and
+ * nothing else: we have the plan, we do not have the height, and that is exactly what it looks like.
+ *
+ * This is the lift above the sampled ground that keeps the outline off the terrain surface it would
+ * otherwise z-fight. It is a SEAT, not a height claim — 15 cm, far below anything readable as a storey.
+ */
+const CTX_WIREFRAME_GROUND_LIFT_M = 0.15;
+
+/**
+ * §SOLID-OR-WIREFRAME (L-13143) — the entity names, as CONSTANTS rather than repeated literals.
+ *
+ * ⚠ WHY. `applyContextUseColouring` matched `'pryzm-forma-context-building-assumed-height'`, a name
+ * NOTHING has emitted since L-647 renamed it `-estimated-height`. The comparison had silently been
+ * false for every entity in the scene, so the "preserve the honesty channel" branch it guarded was
+ * dead code that read as live. One literal, one place, or the drift comes back.
+ */
+const CTX_ENTITY_NAME = {
+  /** Height KNOWN (measured-lidar / tagged) — opaque solid, shadow-casting in T0. */
+  solid: 'pryzm-forma-context-building',
+  /** Height ESTIMATED (derived-levels) — opaque solid in the distinct estimated grey. */
+  estimated: 'pryzm-forma-context-building-estimated-height',
+  /** Height UNKNOWN (assumed / absent) — ground outline only, no fill, no extrusion. */
+  wireframe: 'pryzm-forma-context-building-unknown-height',
+  /** T1 demoted tier, height known or estimated. */
+  far: 'pryzm-forma-context-building-far',
+  /** T1 demoted tier, height unknown — ground outline only. */
+  farWireframe: 'pryzm-forma-context-building-far-unknown-height',
 } as const;
 
 /**
@@ -2051,6 +2159,13 @@ export class CesiumViewport {
    *  are untouched; this primitive has its own clear + rebuild path. `contextFarTierState` caches the
    *  render inputs so the terrain-settle re-seat can rebuild it on the risen ground with no re-fetch. */
   private contextFarTierPrimitive: Cesium.Primitive | null = null;
+  /** §SOLID-OR-WIREFRAME (L-13143) — the far tier's SECOND and LAST primitive: every unknown-height
+   *  footprint's ground outline, batched into ONE GL_LINES draw (`SimplePolylineGeometry` + one shared
+   *  flat `PerInstanceColorAppearance`). It exists because a line and a solid cannot share a geometry
+   *  type — NOT because the tier fragmented: the budget rule is "a bounded number of primitives for the
+   *  whole tier, never one per footprint" (ADR-0094), and two satisfies it. Null when every far
+   *  footprint has a height, which is the normal case on a measured city (Barcelona: 1.7%). */
+  private contextFarTierWirePrimitive: Cesium.Primitive | null = null;
   private contextFarTierState:
     | { features: readonly ContextBuildingFeature[]; lat: number; lon: number }
     | null = null;
@@ -4181,10 +4296,19 @@ export class CesiumViewport {
   private applyContextUseColouring(): void {
     const viewer = this.viewer;
     if (!viewer) return;
-    let coloured = 0, leftUncoloured = 0;
+    let coloured = 0, leftUncoloured = 0, wireframeSkipped = 0;
     for (const { entity, feature } of this.contextBuildingPlacements) {
       const poly = entity.polygon;
       if (!poly) continue;
+      // §SOLID-OR-WIREFRAME (L-13143) — an UNKNOWN-HEIGHT footprint is a bare ground outline with
+      // `fill: false`. Painting a use colour into a material nothing renders would be a no-op that
+      // LOOKS like a claim in the count, so it is skipped and counted SEPARATELY — not folded into
+      // `leftUncoloured`, which means something different ("this building has no use tag").
+      // Two absences, two numbers (§CONTEXT-DATA-HONESTY).
+      if (entity.name === CTX_ENTITY_NAME.wireframe || entity.name === CTX_ENTITY_NAME.farWireframe) {
+        wireframeSkipped++;
+        continue;
+      }
       const cls = classifyContextUse(feature.properties.useTag);
       const css = CONTEXT_USE_STYLE[cls].colorCss;
       if (css === null) {
@@ -4197,14 +4321,17 @@ export class CesiumViewport {
       if (!this.contextUseMaterialBackup.has(entity)) {
         this.contextUseMaterialBackup.set(entity, poly.material);
       }
-      // Preserve the §CTX-ASSUMED-HEIGHT-VISIBLE channel: an unknown-HEIGHT building stays
-      // translucent even while it is coloured by use, and the far ring stays aerially recessive.
-      // The two honesty signals ride different channels (alpha vs hue) so they compose.
-      const alpha = entity.name === 'pryzm-forma-context-building-assumed-height' ? 0.55
-        : entity.name === 'pryzm-forma-context-building-far' ? 0.82
-        : 1.0;
+      // ⚠ §SOLID-OR-WIREFRAME (L-13143) — THIS BLOCK WAS PARTLY DEAD AND IS NOW OPAQUE THROUGHOUT.
+      // It read `entity.name === 'pryzm-forma-context-building-assumed-height' ? 0.55 : … 'far' ?
+      // 0.82 : 1.0`, and the first arm matched NOTHING: L-647 renamed that entity `-estimated-height`
+      // and the comparison had been false for every entity in the scene ever since — a preserved
+      // "honesty channel" that preserved nothing. Both arms are gone rather than repaired, because
+      // the channel itself moved: the height signal is now the SILHOUETTE (solid vs bare outline) and
+      // the far tier's recession is a COLOUR haze, so neither survives on alpha. Use-colouring is
+      // therefore a straight opaque repaint of a solid building, and the two signals still compose:
+      // hue = what it IS, silhouette = whether we know how tall it is.
       poly.material = new Cesium.ColorMaterialProperty(
-        Cesium.Color.fromCssColorString(css).withAlpha(alpha),
+        Cesium.Color.fromCssColorString(css).withAlpha(1.0),
       );
       coloured++;
     }
@@ -4212,7 +4339,8 @@ export class CesiumViewport {
     viewer.scene.requestRender();
     console.log(
       `[CesiumViewport][ctx-use] §CTX-USE-COLOUR ON — ${coloured} building(s) coloured by ACTUAL ` +
-        `OSM use, ${leftUncoloured} left UNCOLOURED (no use tag — the absence is the signal). ` +
+        `OSM use, ${leftUncoloured} left UNCOLOURED (no use tag — the absence is the signal), ` +
+        `${wireframeSkipped} skipped as UNKNOWN-HEIGHT wireframes (no fill to colour; §SOLID-OR-WIREFRAME). ` +
         `This is what a building IS, not what the land MAY BE (clau/MUC zoning is a separate layer).`,
     );
   }
@@ -9616,19 +9744,28 @@ export class CesiumViewport {
     for (const { entity, feature } of this.contextBuildingPlacements) {
       try {
         const poly = entity.polygon;
-        if (!poly || !poly.height || !poly.extrudedHeight) continue;
+        // ⚠ §SOLID-OR-WIREFRAME (L-13143) — A WIREFRAME ENTITY HAS NO `extrudedHeight`, AND THE
+        // OLD GUARD (`!poly.extrudedHeight` → continue) WOULD HAVE SKIPPED IT SILENTLY. On a relief
+        // city the whole ring lifts onto the settled ground while the bare outlines stay at their
+        // load-time seat — i.e. they sink under the terrain or float over it, and read as a render
+        // fault rather than as "we do not know this height". The re-seat now handles both shapes:
+        // an unextruded footprint simply moves its `height`, and its own ground LIFT is preserved
+        // (it seats at `fGround + CTX_WIREFRAME_GROUND_LIFT_M`, not at the buried `fBase`).
+        if (!poly || !poly.height) continue;
         const curBase = poly.height.getValue(now) as number | undefined;
-        const curTop = poly.extrudedHeight.getValue(now) as number | undefined;
-        if (typeof curBase !== 'number' || typeof curTop !== 'number') continue;
-        const thickness = curTop - curBase;                // the footprint's own height, clamp-agnostic.
+        if (typeof curBase !== 'number') continue;
+        const isWire = !poly.extrudedHeight;
+        const curTop = isWire ? undefined : (poly.extrudedHeight!.getValue(now) as number | undefined);
+        if (!isWire && typeof curTop !== 'number') continue;
+        const thickness = isWire ? 0 : (curTop as number) - curBase;  // the footprint's own height, clamp-agnostic.
         const ring = feature.geometry.coordinates[0];
         const c = ring ? ringCentroidLatLon(ring) : null;
         // Per-point relief where its tile has streamed, else the settled safe base (never a culling ~0).
         const fGround = c ? this.sampleGround(c.lat, c.lon, safeBase) : safeBase;
-        const fBase = fGround - FORMA_BASE_SINK_M;
+        const fBase = isWire ? fGround + CTX_WIREFRAME_GROUND_LIFT_M : fGround - FORMA_BASE_SINK_M;
         if (Math.abs(fBase - curBase) < 1e-3) continue;    // already seated at this ground.
         poly.height = new Cesium.ConstantProperty(fBase);
-        poly.extrudedHeight = new Cesium.ConstantProperty(fBase + thickness);
+        if (!isWire) poly.extrudedHeight = new Cesium.ConstantProperty(fBase + thickness);
         reseated++;
       } catch {
         // Skip a single entity; the re-seat must never break the whole pass.
@@ -11301,12 +11438,22 @@ export class CesiumViewport {
     // §A.21.D-FORMA2 — fully OPAQUE context (was 0.92) so nothing in the Forma
     // scene reads as transparent; the white proposed mass still stands out against
     // the muted off-white context.
-    const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill);
+    // §SOLID-OR-WIREFRAME (L-13143) — T0 is the FULL-CONTRAST tier (`CTX_TIER_HAZE.near` = 0):
+    // these are the site's own neighbours, so nothing is pulled toward the haze here. The two tiers
+    // beyond it recede by colour, never by alpha.
+    const fill = ctxTierColour(FORMA_PALETTE.contextFill, CTX_TIER_HAZE.near);
     // §CTX-SOLID-CONTEXT (L-636) — the translucent "assumed height" fill was REMOVED: on a city whose
     // OSM heights are mostly guessed (Madrid), a scene of 55%-alpha brightened boxes doesn't self-shadow
     // and reads as flat white, while a real-height city (Barcelona) rendered opaque + shaded. Per founder
     // direction (visual parity), ALL context renders with the opaque `fill`. Honest "unknown height" is
     // deferred to the height DATA (re-bake), not a washed material (C58 §1.4 trade-off, logged in L-636).
+    // ⚠ §SOLID-OR-WIREFRAME (L-13143) SUPERSEDES THE SECOND HALF, and the reversal is stated rather
+    // than hidden. L-636's "defer honesty to the DATA" was the right call WHILE the only honest
+    // material was a washed one — and the wash is what made Madrid flat. The data half then landed:
+    // Barcelona now reads 95.8% `measured-lidar` from the shipped tiles. So honesty no longer costs
+    // opacity: KNOWN and ESTIMATED are both opaque and both shade, and only a footprint with NO
+    // height input at all loses its volume. L-636's actual defect (unshaded translucent boxes) is
+    // fixed HARDER by this, not re-opened — there is no translucent context building left anywhere.
     const outline = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.6);
 
     // §PLOT-CLEAR-ENVELOPE (L-402c) — drop any OSM footprint sitting ON the committed
@@ -11561,27 +11708,49 @@ export class CesiumViewport {
         // orange", spiky mess of line-edges) — the distinction is opacity + a subtle darkening in the
         // Forma neutral palette, NOT a loud colour and NOT bare edges. Drive PURELY off provenance, never
         // off the height value (a tall derived-levels block must still read as uncertain).
-        const heightAccurate = f.properties.heightProvenance === 'tagged' || f.properties.heightProvenance === 'measured-lidar';
-        const estimatedFill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextEstimatedHeight).withAlpha(0.5);
+        // §SOLID-OR-WIREFRAME (L-13143, founder 2026-09-07: *"now they all be solid if the height is
+        // known and wireframe if not"*) — the ONE shared verdict, taken from PROVENANCE and never
+        // from the height value (a tall `derived-levels` block is still an estimate). Three arms:
+        //   solid     — measured-lidar / tagged  → OPAQUE extruded prism, casts + receives shadows.
+        //   estimated — derived-levels           → OPAQUE extruded prism in the estimated grey, and
+        //                                          it CASTS TOO (see the shadow note below).
+        //   wireframe — assumed / absent         → GROUND OUTLINE ONLY. No fill, no extrusion.
+        // ⚠ SUPERSEDES the §CTX-HEIGHT-FIDELITY-RENDER (L-647) alpha-0.5 ghost for `estimated`, and
+        // the founder's 2026-07-30 rejection of a wireframe is NOT re-opened by this: what he rejected
+        // was an AMBER see-through wireframe over the whole not-accurate set ("a weird orange, spiky
+        // mess of line-edges"). This draws NEUTRAL grey edges, and only for footprints with no height
+        // input at all — on his own Barcelona read that is 33 of 6 331 (0.5%), not the city.
+        const renderTier = contextHeightRenderTier(f.properties.heightProvenance);
+        const estimatedFill = ctxTierColour(FORMA_PALETTE.contextEstimatedHeight, CTX_TIER_HAZE.near);
         const estimatedEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextEstimatedHeight).withAlpha(0.85);
+        // The unknown-height outline: the neutral context edge at full strength, so a bare footprint
+        // reads as a deliberate drawing rather than as a faded building.
+        const unknownEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.9);
         const ent = viewer.entities.add({
-          name: heightAccurate
-            ? 'pryzm-forma-context-building'
-            : 'pryzm-forma-context-building-estimated-height',
+          name: CTX_ENTITY_NAME[renderTier],
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: fBase,
-            // Top preserved above ground: this footprint's own ground + its height.
-            extrudedHeight: fTop + Math.max(0.1, h),
-            // Accurate → opaque solid (self-shadows, LOD200). Estimated → a slightly-darker TRANSLUCENT
-            // GREY massing (alpha 0.5), so it reads as a soft ghost block, never as surveyed solid.
-            fill: true,
-            material: heightAccurate ? fill : estimatedFill,
+            // ⛔ A WIREFRAME HAS NO EXTRUSION AND NO INVENTED SEAT. It is lifted 15 cm off its own
+            // sampled ground purely so the line does not z-fight the terrain; `h` (the 9 m
+            // §CTX-MISSING-HEIGHT-FALLBACK) is deliberately NOT used — drawing that default as edges
+            // instead of faces would keep the fabrication and merely restyle it.
+            height: renderTier === 'wireframe' ? fGround + CTX_WIREFRAME_GROUND_LIFT_M : fBase,
+            ...(renderTier === 'wireframe' ? {} : { extrudedHeight: fTop + Math.max(0.1, h) }),
+            // Known and estimated are BOTH opaque now — the founder's "they are really transparent".
+            fill: renderTier !== 'wireframe',
+            material: renderTier === 'estimated' ? estimatedFill : fill,
             outline: true,
-            outlineColor: heightAccurate ? outline : estimatedEdge,
+            outlineColor: renderTier === 'solid' ? outline
+              : renderTier === 'estimated' ? estimatedEdge
+              : unknownEdge,
             outlineWidth: 1,
-            // Accurate casts+receives; estimated buildings do NOT cast confident shadows.
-            shadows: heightAccurate ? Cesium.ShadowMode.ENABLED : Cesium.ShadowMode.DISABLED,
+            // ⚠ `estimated` NOW CASTS. It did not while it was alpha-0.5, and that was correct then:
+            // a translucent surface does not self-shadow, which is exactly the §CTX-SOLID-CONTEXT
+            // (L-636) "Madrid renders FLAT WHITE while Barcelona renders SHADED" defect. Turning it
+            // opaque without turning shading on would rebuild that defect for every derived-levels
+            // city. The honesty signal for `estimated` is its HUE, which survives the shading.
+            // A wireframe casts nothing: there is no volume to cast.
+            shadows: renderTier === 'wireframe' ? Cesium.ShadowMode.DISABLED : Cesium.ShadowMode.ENABLED,
             perPositionHeight: false,
             closeBottom: true,
           },
@@ -11599,10 +11768,22 @@ export class CesiumViewport {
     }
 
     viewer.scene.requestRender();
+    // §SOLID-OR-WIREFRAME (L-13143) — the tier split is REPORTED, not assumed. ⚠ THIS LINE USED TO
+    // END `${FORMA_PALETTE.contextFill}@0.92, shadows on` — a STALE LITERAL: the alpha had been 1.0
+    // since §A.21.D-FORMA2 and half the ring had not used `contextFill` at all since L-647. The
+    // founder read "0.92" out of his console and reasonably concluded the near ring was translucent.
+    // It now prints what was actually drawn, per silhouette, so the plate's data state is legible
+    // from the log alone (§CONTEXT-DATA-HONESTY: an unknown must never be quotable as a known).
+    const nearTierSplit = summariseContextRenderTiers(nearShadowedScoped);
     console.log(
-      `[CesiumViewport][forma] context buildings rendered: ${placed} extruded footprint(s) ` +
+      `[CesiumViewport][forma] context buildings rendered: ${placed} footprint(s) ` +
         `around LAT ${lat} LON ${lon} (§SITEFRAME-GROUND per-footprint seat, centroid base ` +
-        `${base.toFixed(1)} m${this.groundReliefAttached() ? ', relief ON' : ', flat'}, ${FORMA_PALETTE.contextFill}@0.92, shadows on).`,
+        `${base.toFixed(1)} m${this.groundReliefAttached() ? ', relief ON' : ', flat'}) — ` +
+        `§SOLID-OR-WIREFRAME: ${nearTierSplit.solid} SOLID (height known — opaque ` +
+        `${FORMA_PALETTE.contextFill}, shadows on) · ${nearTierSplit.estimated} ESTIMATED (storey ` +
+        `count real, metres ours — opaque ${FORMA_PALETTE.contextEstimatedHeight}) · ` +
+        `${nearTierSplit.wireframe} WIREFRAME (no height at all — ground outline, NO extrusion, ` +
+        `${Math.round(nearTierSplit.wireframeFraction * 100)}% of this ring).`,
     );
     // §CTX-DIAG (L-635) — THE FOUNDER-READABLE STABILITY LINE. Everything needed to tell
     // "buildings placed but culled" from "no data" from "still fetching" in ONE line:
@@ -12390,14 +12571,27 @@ export class CesiumViewport {
     // §SITEFRAME-GROUND (T1) — each far footprint is re-seated on its OWN sampled ground in the
     // loop (per-point relief), falling back to the centroid base where no relief is loaded, so
     // the wider ring tracks the terrain instead of z-fighting one flat centroid plane.
-    // A hair MORE transparent + no outline than the near ring so the distant massing reads
-    // as clearly secondary (aerial-perspective) and stays cheap.
-    const fill = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.82);
+    // ⚠ §SOLID-OR-WIREFRAME (L-13143) — THIS TIER WAS THE FOUNDER'S "really transparent", AND IT
+    // HAD NO PROVENANCE SPLIT AT ALL. Its comment read *"a hair MORE transparent + no outline than
+    // the near ring so the distant massing reads as clearly secondary (aerial-perspective)"*, and one
+    // `contextFill`@**0.82** was handed to EVERY footprint — 3 226 of them on his Barcelona read —
+    // whether we had measured its height or invented it. So the tier said nothing about the data and
+    // washed out the 95.8% we DO know.
+    // The aerial-perspective job it was doing is real and is KEPT, on the honest channel: the colour
+    // is hazed toward `FORMA_QUALITY.fogColor` by `CTX_TIER_HAZE.demoted`, which is what aerial
+    // perspective actually is (contrast falling off with distance), while the alpha goes to 1.
+    const fill = ctxTierColour(FORMA_PALETTE.contextFill, CTX_TIER_HAZE.demoted);
+    const estimatedFill = ctxTierColour(FORMA_PALETTE.contextEstimatedHeight, CTX_TIER_HAZE.demoted);
+    // Unknown-height footprints in this tier get the SAME treatment as the near ring: a ground
+    // outline, no fill, no extrusion. This tier normally draws no outline at all (budget), so the
+    // outline is switched on ONLY for the wireframe arm — which is the entire point of it.
+    const unknownEdge = ctxTierColour(FORMA_PALETTE.contextOutline, CTX_TIER_HAZE.demoted).withAlpha(0.9);
 
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — same safe base as the near ring: an un-tessellated far
     // footprint under attached relief must fall back to the settled ground, never a culling ~0.
     const contextSafeBase = this.resolveContextSafeBase(lat, lon);
     let placed = 0;
+    let wireframed = 0;   // §SOLID-OR-WIREFRAME (L-13143) — counted, so the log states the split.
     for (const f of far.features) {
       try {
         const ring = f.geometry.coordinates[0];
@@ -12423,14 +12617,25 @@ export class CesiumViewport {
         const rawFarHeightM = f.properties.heightM;
         const trueH = (Number.isFinite(rawFarHeightM) && rawFarHeightM >= 2) ? rawFarHeightM : 9;
         const h = heightClampM === null ? trueH : Math.min(heightClampM, trueH);
+        // §SOLID-OR-WIREFRAME (L-13143) — the SAME verdict function as the near ring and the
+        // instanced far tier. One decision, three tiers: the plate cannot classify the same
+        // building as "known" in one ring and "unknown" in the next.
+        const renderTier = contextHeightRenderTier(f.properties.heightProvenance);
+        const isWire = renderTier === 'wireframe';
+        if (isWire) wireframed++;
         const ent = viewer.entities.add({
-          name: 'pryzm-forma-context-building-far',
+          name: isWire ? CTX_ENTITY_NAME.farWireframe : CTX_ENTITY_NAME.far,
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            height: fBase,
-            extrudedHeight: fTop + h,
-            material: fill,
-            outline: false,
+            // ⛔ No extrusion and no invented seat for an unknown height — see
+            // CTX_WIREFRAME_GROUND_LIFT_M. The 9 m `trueH` fallback above is deliberately unused
+            // on this arm; restyling a fabricated number does not stop it being fabricated.
+            height: isWire ? fGround + CTX_WIREFRAME_GROUND_LIFT_M : fBase,
+            ...(isWire ? {} : { extrudedHeight: fTop + h }),
+            fill: !isWire,
+            material: renderTier === 'estimated' ? estimatedFill : fill,
+            outline: isWire,
+            ...(isWire ? { outlineColor: unknownEdge, outlineWidth: 1 } : {}),
             shadows: Cesium.ShadowMode.DISABLED,   // far ring never casts/receives (budget)
             perPositionHeight: false,
             closeBottom: false,
@@ -12450,7 +12655,11 @@ export class CesiumViewport {
     console.log(
       `[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD ${label} rendered: ${placed} ` +
         `shadowless footprint(s) (nearest-first, capped; height ` +
-        `${heightClampM === null ? 'TRUE (unclamped)' : `clamped ${heightClampM} m`}).`,
+        `${heightClampM === null ? 'TRUE (unclamped)' : `clamped ${heightClampM} m`}) — ` +
+        `§SOLID-OR-WIREFRAME: ${placed - wireframed} OPAQUE solid/estimated (hazed ` +
+        `${Math.round(CTX_TIER_HAZE.demoted * 100)}% toward ${FORMA_QUALITY.fogColor} for aerial ` +
+        `perspective, NOT alpha — this tier was one flat @0.82 before L-13143) · ` +
+        `${wireframed} WIREFRAME (no height input — ground outline only).`,
     );
   }
 
@@ -12514,10 +12723,26 @@ export class CesiumViewport {
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — same safe base as the near/far rings: an un-tessellated
     // footprint under attached relief falls back to the settled ground, never a depth-culling ~0.
     const contextSafeBase = this.resolveContextSafeBase(lat, lon);
-    // A hair MORE transparent than the near ring so the distant massing reads as clearly secondary
-    // (aerial perspective) — and, critically, ONE colour shared by every instance (single material).
-    const farColor = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextFill).withAlpha(0.6);
+    // §SOLID-OR-WIREFRAME (L-13143) — ⚠ THIS TIER CARRIED 4 721 OF THE FOUNDER'S ~9 547 DRAWN
+    // FOOTPRINTS AND PAINTED EVERY ONE OF THEM `contextFill`@**0.60**, whatever we knew. Its comment
+    // said *"a hair MORE transparent than the near ring so the distant massing reads as clearly
+    // secondary (aerial perspective)"* — a real job, done with the wrong instrument. Now:
+    //   • aerial perspective moves to the COLOUR (hazed by `CTX_TIER_HAZE.far`), alpha goes to 1;
+    //   • the solid and estimated rungs get DIFFERENT per-instance colours — which costs NOTHING,
+    //     because `PerInstanceColorAppearance` batches a per-instance colour ATTRIBUTE into the
+    //     same vertex buffer. It is still ONE primitive, ONE draw call, ONE material. The
+    //     honesty signal rides the attribute the batch already had.
+    const farSolid = ctxTierColour(FORMA_PALETTE.contextFill, CTX_TIER_HAZE.far);
+    const farEstimated = ctxTierColour(FORMA_PALETTE.contextEstimatedHeight, CTX_TIER_HAZE.far);
+    const farUnknownEdge = ctxTierColour(FORMA_PALETTE.contextOutline, CTX_TIER_HAZE.far).withAlpha(0.9);
     const instances: Cesium.GeometryInstance[] = [];
+    // §SOLID-OR-WIREFRAME (L-13143) — the unknown-height footprints go into a SECOND batch, because a
+    // line and a solid cannot share a geometry type. It is still ONE extra primitive for the whole
+    // tier — NOT one per footprint, which is the failure mode the budget forbids (ADR-0094; memory
+    // `webgpu-heavy-scene-crash-and-instancing`: per-element unique materials defeat instancing).
+    // `SimplePolylineGeometry` is deliberate: it emits GL_LINES (one vertex per ring point, no quad
+    // expansion), so a wireframe footprint is CHEAPER than the solid it replaces, not dearer.
+    const wireInstances: Cesium.GeometryInstance[] = [];
     for (const f of features) {
       try {
         const ring = f.geometry.coordinates[0];
@@ -12525,8 +12750,27 @@ export class CesiumViewport {
         const fCentroid = ringCentroidLatLon(ring);
         const fGround = fCentroid ? this.sampleGround(fCentroid.lat, fCentroid.lon, contextSafeBase) : contextSafeBase;
         const fBase = fGround - FORMA_BASE_SINK_M;
+        const renderTier = contextHeightRenderTier(f.properties.heightProvenance);
+        if (renderTier === 'wireframe') {
+          // ⛔ Ground outline only. The 9 m default below is NOT applied here — an unknown height is
+          // drawn as no height, never as a wireframe box at an invented one.
+          const wirePositions = ring.map(([flon, flat]) =>
+            Cesium.Cartesian3.fromDegrees(flon!, flat!, fGround + CTX_WIREFRAME_GROUND_LIFT_M));
+          wireInstances.push(new Cesium.GeometryInstance({
+            geometry: new Cesium.SimplePolylineGeometry({
+              positions: wirePositions,
+              arcType: Cesium.ArcType.NONE,   // straight chords: the ring is already dense enough.
+            }),
+            attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(farUnknownEdge) },
+          }));
+          continue;
+        }
         // §CTX-MISSING-HEIGHT-FALLBACK (L-636) — a 0-height footprint → the legible 9 m default; then
-        // the far LOW-POLY clamp (24 m) so no stray distant tower dominates the wireframe far ring.
+        // the far LOW-POLY clamp (24 m) so no stray distant tower dominates the far ring.
+        // ⚠ This fallback now only ever fires for a footprint whose provenance says we DO have a
+        // height input (a `tagged`/`derived-levels` value that failed the >= 2 m sanity check), which
+        // is the only case where inventing a legible block is defensible. The no-input case took the
+        // wireframe branch above and never reaches here.
         const rawH = f.properties.heightM;
         const trueH = (Number.isFinite(rawH) && rawH >= 2) ? rawH : 9;
         const h = Math.min(24, trueH);
@@ -12542,21 +12786,48 @@ export class CesiumViewport {
         });
         instances.push(new Cesium.GeometryInstance({
           geometry: geom,
-          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(farColor) },
+          attributes: {
+            color: Cesium.ColorGeometryInstanceAttribute.fromColor(
+              renderTier === 'estimated' ? farEstimated : farSolid,
+            ),
+          },
         }));
       } catch { /* skip a malformed far footprint */ }
     }
-    if (instances.length === 0) { viewer.scene.requestRender(); return; }
+    if (instances.length === 0 && wireInstances.length === 0) { viewer.scene.requestRender(); return; }
     try {
-      const prim = new Cesium.Primitive({
-        geometryInstances: instances,
-        // ONE shared appearance for the whole batch; `flat` = no lighting/shadow shading → cheap.
-        appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: true, closed: false }),
-        asynchronous: true,            // build off the main thread (single-rAF friendly; no jank).
-        shadows: Cesium.ShadowMode.DISABLED,
-      });
-      viewer.scene.primitives.add(prim);
-      this.contextFarTierPrimitive = prim;
+      if (instances.length > 0) {
+        const prim = new Cesium.Primitive({
+          geometryInstances: instances,
+          // ONE shared appearance for the whole batch — the per-instance COLOUR attribute carries the
+          // solid/estimated distinction without a second material.
+          // ⚠ §SOLID-OR-WIREFRAME (L-13143) — `translucent` was TRUE and `flat` was TRUE. Both change:
+          //   • translucent → false: this tier is opaque now, and saying so moves the whole batch out
+          //     of the translucent pass (no back-to-front sorting, no blend) — CHEAPER, not dearer.
+          //   • flat → false: an opaque UNLIT plate is a flat beige slab with no articulation, which
+          //     is the §CTX-SOLID-CONTEXT (L-636) "flat white" defect arriving from the other
+          //     direction. The geometry ALREADY carried normals (`PerInstanceColorAppearance.
+          //     VERTEX_FORMAT` is POSITION_AND_NORMAL) and was throwing them away, so lighting the
+          //     far plate costs a lambert term in the fragment shader and NO extra vertex data.
+          appearance: new Cesium.PerInstanceColorAppearance({ flat: false, translucent: false, closed: false }),
+          asynchronous: true,            // build off the main thread (single-rAF friendly; no jank).
+          shadows: Cesium.ShadowMode.DISABLED,
+        });
+        viewer.scene.primitives.add(prim);
+        this.contextFarTierPrimitive = prim;
+      }
+      if (wireInstances.length > 0) {
+        // The SECOND (and last) primitive of this tier: every unknown-height footprint's ground
+        // outline, batched into one GL_LINES draw with one shared flat appearance.
+        const wirePrim = new Cesium.Primitive({
+          geometryInstances: wireInstances,
+          appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: false, closed: false }),
+          asynchronous: true,
+          shadows: Cesium.ShadowMode.DISABLED,
+        });
+        viewer.scene.primitives.add(wirePrim);
+        this.contextFarTierWirePrimitive = wirePrim;
+      }
     } catch (e) {
       console.warn('[CesiumViewport][forma] §FEAT-FORMA-CONTEXT-EXTENT-LOD far-tier primitive build failed:', e);
     }
@@ -12567,7 +12838,12 @@ export class CesiumViewport {
         `(§CTX-SITE-SCOPE radial ≤${Math.round(farTierRadiusM(this.contextScope))} m, ` +
         `cap ${farTierMaxInstances(farTierRadiusM(this.contextScope))} (§SCOPE-FILL: base ` +
         `${CTX_FAR_TIER_MAX_INSTANCES} × this scope's area ratio, ceiling ${CTX_FAR_TIER_MAX_INSTANCES_CEILING}) — ` +
-        `${features.length >= farTierMaxInstances(farTierRadiusM(this.contextScope)) ? 'the CAP is binding, so raising the scope will not add more' : 'the RADIUS is binding, so the cap has headroom'}).`,
+        `${features.length >= farTierMaxInstances(farTierRadiusM(this.contextScope)) ? 'the CAP is binding, so raising the scope will not add more' : 'the RADIUS is binding, so the cap has headroom'}) ` +
+        `— §SOLID-OR-WIREFRAME: OPAQUE (was ${FORMA_PALETTE.contextFill}@0.60 for every footprint), ` +
+        `hazed ${Math.round(CTX_TIER_HAZE.far * 100)}% toward ${FORMA_QUALITY.fogColor} for aerial ` +
+        `perspective, lit (flat:false) so the plate articulates; ${wireInstances.length} unknown-height ` +
+        `footprint(s) in a ${wireInstances.length > 0 ? 'SECOND' : 'suppressed second'} GL_LINES ` +
+        `primitive — ${wireInstances.length > 0 ? 2 : 1} primitive(s) for this tier, never one per footprint.`,
     );
   }
 
@@ -12591,13 +12867,19 @@ export class CesiumViewport {
   }
 
   /** §FEAT-FORMA-CONTEXT-EXTENT-LOD (L-642 Phase B) — remove the instanced far-tier primitive
-   *  (idempotent; `primitives.remove` also destroys it). */
+   *  (idempotent; `primitives.remove` also destroys it).
+   *  §SOLID-OR-WIREFRAME (L-13143) — BOTH primitives are dropped here. A clear that forgot the
+   *  wireframe batch would leave a ghost lattice of the PREVIOUS site's unknown footprints hanging
+   *  over the new one, which is exactly the class of leak `clearContextFarTier` exists to prevent. */
   public clearContextFarTier(): void {
     const viewer = this.viewer;
-    if (viewer && this.contextFarTierPrimitive) {
-      try { viewer.scene.primitives.remove(this.contextFarTierPrimitive); } catch { /* gone / destroyed with viewer */ }
+    for (const prim of [this.contextFarTierPrimitive, this.contextFarTierWirePrimitive]) {
+      if (viewer && prim) {
+        try { viewer.scene.primitives.remove(prim); } catch { /* gone / destroyed with viewer */ }
+      }
     }
     this.contextFarTierPrimitive = null;
+    this.contextFarTierWirePrimitive = null;
   }
 
   /**

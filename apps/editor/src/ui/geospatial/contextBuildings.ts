@@ -771,6 +771,97 @@ export function contextHeightConfidence(provenance: ContextHeightProvenance): Do
     }
 }
 
+
+/**
+ * §SOLID-OR-WIREFRAME (L-13143, founder 2026-09-07) — the ONE render-silhouette decision every
+ * 3D-Site context tier reads: *"now they all be solid if the height is known and wireframe if not"*.
+ *
+ * ⭐ THIS IS AN HONESTY RULE WEARING A MATERIAL. A uniformly translucent city says nothing; a
+ * solid-vs-wireframe city says, at a glance and without opening anything, WHICH neighbours PRYZM
+ * actually holds a height for. Same doctrine as every refusal in this codebase (§CONTEXT-DATA-HONESTY,
+ * C58 §1.4): an UNKNOWN must look DIFFERENT from a known, never like a washed-out version of it —
+ * which is precisely what a global alpha made it.
+ *
+ * THE THREE RUNGS, AND WHY `derived-levels` IS NOT LUMPED WITH EITHER EXTREME:
+ *
+ *  - `solid`     — `measured-lidar` (a real measured metre value: LiDAR/nDSM/3DBAG/BD TOPO) and
+ *                  `tagged` (an explicit surveyed-ish OSM `height`). We hold a HEIGHT NUMBER for
+ *                  this building that somebody else measured. **Renders OPAQUE.**
+ *  - `estimated` — `derived-levels`: a REAL storey COUNT × our assumed 3.2 m storey. The height is
+ *                  ours, the storey count is not. **Renders OPAQUE TOO — in the distinct
+ *                  `contextEstimatedHeight` grey.** ⛔ It is deliberately NOT wireframe: we do hold
+ *                  a defensible height input, so drawing it as "no height" would OVERSTATE our
+ *                  ignorance — and in a city with no measured bake (Madrid: mostly `derived-levels`)
+ *                  a wireframe rung here would empty the whole plate back into the blank the
+ *                  §FULL-PLATE work just fixed. The hue carries the claim; the silhouette does not.
+ *  - `wireframe` — `assumed`, and **`undefined`**. Nothing was tagged at all: the 9 m is
+ *                  `DEFAULT_BUILDING_HEIGHT_M`, i.e. FABRICATED. There is no height to draw, so
+ *                  nothing is drawn above the ground: the footprint outline ONLY.
+ *
+ * ⛔ THE CLASSIFICATION CANNOT SILENTLY FALL THROUGH. `undefined` is named EXPLICITLY (a collection
+ * cached before L-459 is pessimistically unknown — never `tagged`), and the `default` arm asserts
+ * `never`, so ADDING A RUNG TO `ContextHeightProvenance` BREAKS THE BUILD instead of being quietly
+ * absorbed into `solid`. That is the whole point: the failure mode of an honesty gate is a new,
+ * unclassified value being drawn as if it were known.
+ *
+ * PURE. No Cesium, no DOM — the render sites map the verdict onto their own materials.
+ */
+export type ContextHeightRenderTier = 'solid' | 'estimated' | 'wireframe';
+
+export function contextHeightRenderTier(
+    provenance: ContextHeightProvenance | undefined,
+): ContextHeightRenderTier {
+    switch (provenance) {
+        case 'measured-lidar':
+        case 'tagged':
+            return 'solid';
+        case 'derived-levels':
+            return 'estimated';
+        case 'assumed':
+        case undefined:
+            return 'wireframe';
+        default: {
+            // Exhaustiveness: a new provenance rung must be classified HERE, deliberately, or this
+            // line stops compiling. It must never default into `solid` (a guess drawn as a fact).
+            const unclassified: never = provenance;
+            void unclassified;
+            return 'wireframe';
+        }
+    }
+}
+
+/** §SOLID-OR-WIREFRAME (L-13143) — how a set of footprints splits across the three silhouettes. */
+export interface ContextRenderTierSummary {
+    readonly total: number;
+    readonly solid: number;
+    readonly estimated: number;
+    readonly wireframe: number;
+    /** Share drawn as a bare footprint outline because NO height input exists at all, 0-1. */
+    readonly wireframeFraction: number;
+}
+
+/**
+ * §SOLID-OR-WIREFRAME (L-13143) — tally the render silhouettes across any footprint set.
+ *
+ * Takes the minimal shape rather than a whole `ContextBuildingCollection` so every render tier can
+ * report its OWN split (near / demoted / instanced-far), which is the only way to tell "the plate is
+ * translucent" from "the plate is unknown-height" from a console line. PURE.
+ */
+export function summariseContextRenderTiers(
+    features: readonly { readonly properties: { readonly heightProvenance?: ContextHeightProvenance } }[],
+): ContextRenderTierSummary {
+    let solid = 0, estimated = 0, wireframe = 0;
+    for (const f of features) {
+        switch (contextHeightRenderTier(f.properties.heightProvenance)) {
+            case 'solid': solid++; break;
+            case 'estimated': estimated++; break;
+            default: wireframe++; break;
+        }
+    }
+    const total = features.length;
+    return { total, solid, estimated, wireframe, wireframeFraction: total > 0 ? wireframe / total : 0 };
+}
+
 /** Tally of how a collection's heights were arrived at (§CTX-HEIGHT-PROVENANCE, L-459). */
 export interface ContextHeightProvenanceSummary {
     readonly total: number;
