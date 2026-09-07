@@ -345,11 +345,24 @@ export class BimManager {
         color?: string;
         childrenIds?: string[];
     }): void {
+        // ⛔ §ONE-RULE-FOR-THE-NEXT-STOREY (L-13151) — `height` IS RESOLVED AFTER THE SPREAD, NOT
+        // BEFORE IT. It used to sit above `...level` as a default, and `{ height: 3.0, ...{ height:
+        // undefined } }` is `{ height: undefined }`: a present-but-undefined key WINS over a
+        // default. `AddLevelCommand.execute` always materialises the key (`height: this.payload.
+        // height`), and neither its `canExecute` nor the `level.add` bus validator checks it — so
+        // any caller that omitted a height minted a storey whose `height` was `undefined` rather
+        // than 3.0. Downstream `readLevelCandidates` maps that to `null`, which drops the storey off
+        // `resolveStoreyHeight`'s first rung and onto `maxHeightM / maxFloors`: a MISSING field
+        // silently changed which SOURCE a storey height came from.
+        // ⚠ `isVisible` and `order` keep their original position deliberately — no caller
+        // materialises those keys, and moving them would widen this fix past what is measured.
         const safeLevel: Level = {
-            height: 3.0,
             isVisible: true,
             order: level.elevation,
             ...level,
+            height: typeof level.height === 'number' && Number.isFinite(level.height) && level.height > 0
+                ? level.height
+                : 3.0,
             childrenIds: level.childrenIds || []
         };
         this.levels.set(safeLevel.id, safeLevel);

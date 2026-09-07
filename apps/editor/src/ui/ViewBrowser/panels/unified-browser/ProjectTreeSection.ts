@@ -159,12 +159,36 @@ export function buildProjectCard(bag: UBPBag): HTMLElement {
             return;
         }
         const currentLevels = getLevels();
-        const elevations    = currentLevels.map((l: any) => l.elevation ?? 0);
-        const maxElev       = elevations.length > 0 ? Math.max(...elevations) : 0;
-        const prevDiff      = elevations.length >= 2
-            ? Math.abs(elevations[elevations.length - 1] - elevations[elevations.length - 2])
-            : 3;
-        const floorH  = Math.max(prevDiff, 3);
+        // ════════════════════════════════════════════════════════════════════════
+        // ⭐⭐ §ONE-RULE-FOR-THE-NEXT-STOREY (L-13151) - THIS WROTE A STACK SPAN AS A FLOOR-TO-FLOOR
+        // ════════════════════════════════════════════════════════════════════════
+        // It read `Math.abs(elevations[n-1] - elevations[n-2])` — the gap between the last two
+        // entries of `bimManager.getLevels()`, which is `Array.from(this.levels.values())` and is
+        // therefore INSERTION ORDER, not elevation order — and dispatched that difference as the
+        // new level's `height`.
+        //
+        // ⛔ AN ELEVATION DIFFERENCE BETWEEN TWO ARBITRARY STOREYS IS NOT A FLOOR-TO-FLOOR. On a
+        // project whose last two inserted records straddle the stack (Ground at 0 and a storey near
+        // the top) that difference is the WHOLE-BUILDING SPAN, and it was written into a single
+        // storey's height record and then persisted. From there `resolveStoreyHeight`'s first rung
+        // reads it back forever, and every level envelope seated on that storey is minted that tall
+        // — which is how the founder's five-storey stack came to hold one 15.3 m envelope beside
+        // four of 3.0 / 3.0 / 2.6 (the log line in L-13146).
+        //
+        // ⛔ AND IT WAS THE ODD ONE OUT OF FOUR CONTROLS DOING THE SAME JOB. `LevelManagerPanel.
+        // _addLevel`, `GridsLevelsRailPanel` and `PlanViewToolOverlay` all take the TOP STOREY BY
+        // ELEVATION's own recorded height, defaulting to 3.0 — and `buildMissingStoreyPlan`'s header
+        // already names that as the one rule, verbatim: *"THE STACKING RULE IS `LevelManagerPanel.
+        // _addLevel`'s, EXTENDED TO N — NOT A SECOND ONE."* This is now that rule, not a fourth
+        // one (C84 EI-9).
+        const top = currentLevels.reduce(
+            (max: any, l: any) => (!max || (l.elevation ?? 0) > (max.elevation ?? 0) ? l : max),
+            null as any,
+        );
+        const floorH = typeof top?.height === 'number' && Number.isFinite(top.height) && top.height > 0
+            ? top.height
+            : 3.0;
+        const maxElev = typeof top?.elevation === 'number' && Number.isFinite(top.elevation) ? top.elevation : 0;
         const newElev = Math.round((maxElev + floorH) * 100) / 100;
         const newId   = `L${Date.now()}`;
         const newName = `Level ${currentLevels.length}`;

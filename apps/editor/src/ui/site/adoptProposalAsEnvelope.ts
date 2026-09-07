@@ -169,7 +169,18 @@ export function resolveStoreyHeight(
         heightSource = 'level-record';
     } else if (
         ordinance.maxHeightM !== null && ordinance.maxHeightM > 0
-        && ordinance.maxFloors !== null && ordinance.maxFloors > 0
+        // ⛔ §ONE-RULE-FOR-THE-NEXT-STOREY (L-13151) — AT LEAST TWO FLOORS, NOT "MORE THAN ZERO".
+        // This read `maxFloors > 0`, so an ordinance publishing a single permitted floor made the
+        // quotient `maxHeightM / 1` — the ENTIRE permitted building height — and labelled it
+        // `'derived-floor-to-floor'`, a name that asserts it IS a storey height. Dividing by one is
+        // not a division; it is a whole-building height wearing a storey's label. Rule packs that
+        // publish `maxFloors: 1` ship today (`esTeldePgo2003`: E1P 4.3 m, CO-UN2 5 m, R3 4.5 m), and
+        // the founder's own parcel is a Telde one.
+        // ⚠ THIS IS ARITHMETIC, NOT A PLAUSIBILITY BAND, AND NO UPPER LIMIT IS IMPOSED. A genuine
+        // double-height storey is a real building, and replacing a possibly-right figure with an
+        // invented 3.0 would be the fabrication this ladder exists to avoid. What is removed is only
+        // the case where the division does nothing at all.
+        && ordinance.maxFloors !== null && ordinance.maxFloors >= 2
     ) {
         heightM = ordinance.maxHeightM / ordinance.maxFloors;
         heightSource = 'derived-floor-to-floor';

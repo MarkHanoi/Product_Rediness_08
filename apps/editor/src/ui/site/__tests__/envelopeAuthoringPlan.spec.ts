@@ -473,6 +473,43 @@ describe('resolveStoreyHeight — the extracted ladder, all three rungs', () => 
         expect(d.heightSource).toBe('assumed-3m');
         expect(d.heightWhy).toContain('an ASSUMED 3.0 m');
     });
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐ §ONE-RULE-FOR-THE-NEXT-STOREY (L-13151) — RUNG 2 MUST HAVE SOMETHING TO DIVIDE BY
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    it('⛔ maxFloors 1 does NOT make the whole permitted height a storey height', () => {
+        // The guard is arithmetic, not taste: `15.3 / 1` is the WHOLE BUILDING, and calling it
+        // `'derived-floor-to-floor'` is a name that asserts it is a storey. Rule packs publishing
+        // `maxFloors: 1` ship today (esTeldePgo2003 E1P / CO-UN2 / R3).
+        const d = resolveStoreyHeight({ height: null }, { maxHeightM: 15.3, maxFloors: 1 });
+        expect(d.heightM).toBe(3);
+        expect(d.heightSource).toBe('assumed-3m');
+        expect(d.heightWhy).toContain('an ASSUMED 3.0 m');
+    });
+
+    it('✅ maxFloors 2 still divides — the guard removes only the division that does nothing', () => {
+        const d = resolveStoreyHeight({ height: null }, { maxHeightM: 15.3, maxFloors: 2 });
+        expect(d.heightM).toBeCloseTo(7.65, 6);
+        expect(d.heightSource).toBe('derived-floor-to-floor');
+    });
+
+    it('⚠ NO upper plausibility band — a real double-height storey is not overwritten by 3.0', () => {
+        // ⛔ Replacing a possibly-right figure with an invented one would be the fabrication this
+        // ladder exists to avoid. The guard is about arithmetic, never about architecture.
+        const d = resolveStoreyHeight({ height: null }, { maxHeightM: 24, maxFloors: 2 });
+        expect(d.heightM).toBe(12);
+        expect(d.heightSource).toBe('derived-floor-to-floor');
+    });
+
+    it('⭐ the founder\u2019s numbers reproduce his log: 15.3 over 6 floors reads as 2.6 m', () => {
+        // `[level@3.0m, level@3.0m, level@2.6m, level@15.3m, level@3.0m]` — the 2.6 is rung 2 at
+        // 15.3 / 6 = 2.55, printed to one decimal. That is what identifies 15.3 as the WHOLE
+        // permitted height already in play on that parcel, and therefore as a stack figure that
+        // reached a single storey record (L-13151), not a floor-to-floor anyone typed.
+        const d = resolveStoreyHeight({ height: null }, { maxHeightM: 15.3, maxFloors: 6 });
+        expect(d.heightSource).toBe('derived-floor-to-floor');
+        expect(d.heightM.toFixed(1)).toBe('2.6');
+    });
 });
 
 describe('buildAdoptProposalPlan — unchanged by the extraction', () => {
