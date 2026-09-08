@@ -173,6 +173,30 @@ export {
   LEVEL_NOUN_SRC,
 } from './intents/SpatialScopeTail.js';
 export type { SpatialTailReading } from './intents/SpatialScopeTail.js';
+// §RAC-BUILD-FROM-ENVELOPE (L-13176) — the verb literal and the DEFERRED-PART
+// copy, exported so the editor side can PIN them.
+//
+// ⭐ THE EXPORT EXISTS FOR THE PIN, and that is the point rather than a
+// convenience. `DEFERRED_PART_REASON`'s roof and room-record sentences are
+// LICENSED COPIES of `BUILD_FROM_DESIGN_WILL_NOT_CREATE`, which lives in
+// `apps/editor` and cannot be imported from this L2 package (the layer runs one
+// way). Exporting the copy lets `apps/editor/src/ui/ai/__tests__/
+// buildFromEnvelopeChatSeam.spec.ts` — the one place that sees BOTH — assert
+// they still say the same thing, so the planner narrowing its list turns a test
+// red instead of leaving the chat promising a refusal that no longer applies
+// (C84 EI-8a: a licensed copy is pinned by a test, never by a comment).
+export {
+  BUILD_FROM_ENVELOPE_VERB,
+  BUILDABLE_PARTS,
+  DEFERRED_PART_REASON,
+  DEFERRED_PART_WORD,
+  PART_WORD,
+  readParts,
+} from './intents/BuildFromEnvelope.js';
+export type {
+  BuildFromEnvelopePart,
+  BuildFromEnvelopeDeferredPart,
+} from './intents/BuildFromEnvelope.js';
 // RAC U8 — the filter grammar's COPY, so the editor-side resolver speaks the
 // same words the pure layer does (one vocabulary, never two).
 export {

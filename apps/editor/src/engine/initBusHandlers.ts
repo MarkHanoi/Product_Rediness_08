@@ -2981,7 +2981,8 @@ export function initBusHandlers(
     // different preconditions (a site boundary vs a closed shell) and the
     // capability registry declares them separately.
     const __generationVerbs: Array<{
-        type: 'generation.building' | 'generation.apartment' | 'generation.rooms' | 'generation.finish-chain';
+        type: 'generation.building' | 'generation.apartment' | 'generation.rooms' | 'generation.finish-chain'
+            | 'generation.from-envelope';
         validate: (cmd: any) => string | null;
         run: (cmd: any) => Promise<void>;
     }> = [
@@ -3046,6 +3047,51 @@ export function initBusHandlers(
             run: async (cmd: any) => {
                 const m = await import('../ui/generation/roomFinishChatSeam.js');
                 await m.runGenerationFinishChain(cmd);
+            },
+        },
+        // ── §RAC-BUILD-FROM-ENVELOPE (L-13176) ───────────────────────────────
+        //
+        // The founder's "From Envelopes create walls, slabs, floors, ceilings,
+        // and roofs". A FIFTH generation verb on the SAME seam discipline, and
+        // for the same reason the four above exist: the builder had shipped
+        // (Parcel Law → "Create BIM from this design" → planBuildFromDesign +
+        // executeBuildFromDesign, 50 green tests) and the chat could reach none
+        // of it — C67 §4 rule 14 exactly.
+        //
+        // ⛔ IT IS NOT `wall.batch.create` / `slab.batch.create`. Those two are
+        // classified C — internal machinery ("exposing the raw batch verb to
+        // chat would be a footgun") and C68 §5.b makes the three declaration
+        // surfaces DISJOINT: a verb on two of them fails the coverage gate. An
+        // OUTCOME verb over them is the shape, and the seam it calls dispatches
+        // exactly those two — it mints no third.
+        //
+        // `stores: []` and no patches, as above: the executor owns every
+        // mutation. ⚠ Undo is TWO entries here, not one, and every surface says
+        // so — there is no verb that commits walls and slabs together and
+        // runBatch is undo-NEUTRAL (ADR-0314).
+        {
+            type: 'generation.from-envelope',
+            // C16 CA-3 / CA-18 — validate domain invariants BEFORE any mutation,
+            // and refuse with a NAMED reason. An unknown part is named back
+            // rather than silently ignored (which would build something other
+            // than what was asked for).
+            validate: (cmd: any) => {
+                const known = ['walls', 'floor-plate'];
+                const parts = cmd?.parts;
+                if (parts === undefined) return null;
+                if (!Array.isArray(parts) || parts.length === 0) {
+                    return `parts, when given, must be a non-empty list of ${known.join(' | ')}`;
+                }
+                const bad = parts.filter((p: unknown) => !known.includes(String(p)));
+                if (bad.length > 0) {
+                    return `this pass does not build ${bad.map(String).join(', ')} — it builds `
+                        + `${known.join(' and ')}`;
+                }
+                return null;
+            },
+            run: async (cmd: any) => {
+                const m = await import('../ui/generation/buildFromEnvelopeChatSeam.js');
+                await m.runBuildFromEnvelope(cmd);
             },
         },
     ];

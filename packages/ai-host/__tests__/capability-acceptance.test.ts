@@ -1101,7 +1101,44 @@ const U6_ACCEPTANCE: readonly AcceptanceCase[] = [
   },
 ];
 
-const ACCEPTANCE: readonly AcceptanceCase[] = [...BASE_ACCEPTANCE, ...U5C_ACCEPTANCE, ...U6_ACCEPTANCE];
+// §RAC-BUILD-FROM-ENVELOPE (L-13176) — the founder's "From Envelopes create
+// walls, slabs, floors, ceilings, and roofs". Appended rather than inlined for
+// the same reason U5C is: the family sits next to the block that pins its
+// refusals and its three disambiguations.
+const BUILD_FROM_ENVELOPE_ACCEPTANCE: readonly AcceptanceCase[] = [
+  {
+    id: 'build-from-envelope',
+    ctx: {},
+    phrasings: [
+      // THE FOUNDER'S OWN TITLE FIRST, in his capitalisation. A paraphrase that
+      // happens to work is not acceptance evidence (§RAC-APARTMENT-IN-ROOM
+      // rule 19.b, applied here).
+      'Create Walls and Slabs from Envelope',
+      'create walls and slabs from my envelope',
+      'create walls and slabs from envelope',
+      // FOUNDER DOCTRINE — open language in. Several different phrasings must
+      // reach the SAME capability; a magic phrase is the failure mode.
+      'build the walls from my envelopes',
+      'build my design',
+      'build what i drew',
+      'turn my envelopes into bim',
+      'create bim from this design',
+      'make it real',
+      'make this real',
+      // His full five-noun sentence. It RESOLVES (it is not refused): walls and
+      // the floor plate are built, and floor finishes, ceilings and the roof are
+      // named back in the summary rather than silently dropped.
+      'create walls slabs floors ceilings and roofs from envelopes',
+      // A place phrase naming the level being viewed — read through the ONE
+      // shared SpatialScopeTail parser (C67 §4 rule 16), not a regex of its own.
+      'build the walls from my envelope on level 0',
+    ],
+  },
+];
+
+const ACCEPTANCE: readonly AcceptanceCase[] = [
+  ...BASE_ACCEPTANCE, ...U5C_ACCEPTANCE, ...U6_ACCEPTANCE, ...BUILD_FROM_ENVELOPE_ACCEPTANCE,
+];
 
 describe('capability acceptance — a family of phrasings per capability', () => {
   for (const c of ACCEPTANCE) {
@@ -1583,6 +1620,25 @@ describe('adversarial — command-shaped utterances that must never mutate', () 
     'Done — undo with Ctrl+Z. (resolved without AI tokens)',
     'Created 3 rooms and 12 walls',
     'Furnished 22 of 24 rooms',
+    // §RAC-BUILD-FROM-ENVELOPE (L-13176) — the SAME paste-back shape aimed at
+    // the new capability, in the words its OWN report prints. A user who copies
+    // the reply back into the chat must not build a second storey of walls on
+    // top of the first.
+    'Built 24 walls (18 shell + 6 partitions) and the floor plate from Level envelope',
+    'Created 24 walls and 1 slab from your design',
+    // Its negation and hypothetical: the verbs and the anchor are exactly the
+    // ones the grammar claims, so these are the rows that would catch an opener
+    // regex that forgot to anchor.
+    "don't build walls from my envelope",
+    'never build the walls from my design',
+    'what would happen if I built walls from my envelope?',
+    // §GATE-VIS-INTENT / C68 §5.j.1 — A VISIBILITY OPENER MAY NEVER REACH A
+    // MUTATION, and this is the shape that would have: the sentence carries the
+    // envelope anchor and a wall noun, which is everything the new grammar looks
+    // for, and only the verb says it is about SEEING rather than BUILDING.
+    'highlight the walls from my envelope',
+    'show the walls from my design',
+    'isolate everything I drew',
     // §FIX-CHAT-STOPWORD-CORRECTION — the SECOND founder repro. This was
     // answered with "Nothing is selected — select an element first, then set
     // its width": tier-1 rewrote the function word "with" into "width".
@@ -2958,5 +3014,201 @@ describe('§PLAN — compound sentences run as one confirmed, ordered plan', () 
     expect(three.kind === 'commands' && three.plan!.steps.length).toBe(3);
     expect(three.kind === 'commands' && three.plan!.undoCost)
       .toBe('3 steps, 4 undo entries — Ctrl+Z four times');
+  });
+});
+
+// ─── §RAC-BUILD-FROM-ENVELOPE (L-13176) ──────────────────────────────────────
+//
+// The founder: "From Envelopes create walls, slabs, floors, ceilings, and
+// roofs: 'Create Walls and Slabs from Envelope'".
+//
+// ⭐ WHAT THESE PINS ARE FOR. The capability sits between three LIVE
+// neighbours that share its verbs — `generate-building` (create/build/make +
+// house/office/building), `generate-apartment-layout` and
+// `generate-room-finishes` — and C68 §5.j names the failure exactly: "a
+// capability that claims a sentence it had no right to claim, and then
+// confidently does the wrong thing", with 29 measured live instances. BOTH
+// directions are asserted for each neighbour, because a one-way pin catches
+// only half of a collision.
+describe('RAC-BUILD-FROM-ENVELOPE — the founder "create walls and slabs from envelope"', () => {
+  it('his own title dispatches ONE bus command, and it is the seam verb', () => {
+    const r = resolveFull('Create Walls and Slabs from Envelope', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('build-from-envelope');
+    // ⛔ ONE command, and NOT a raw batch verb. `wall.batch.create` and
+    // `slab.batch.create` are classified C — internal machinery, and C68 §5.b
+    // makes the three declaration surfaces disjoint: naming either here would
+    // put one verb on two of them and fail the coverage gate.
+    expect(r.commands.map((c) => c.type)).toEqual(['generation.from-envelope']);
+    expect(r.commands[0]!.payload).toEqual({ parts: ['walls', 'floor-plate'], deferred: [] });
+    // C67 §4 rule 8 — the truthful undo cost is stated BEFORE consent.
+    expect(r.destructive).toBe(true);
+    // ⭐ THE COST IS COMPUTED FROM THE PARTS, AND THE PARTS ARE NAMED BESIDE IT.
+    // This read the literal 'TWO undo steps, not one' while a parallel lane was
+    // adding a third batch verb — a Confirm card understating undo depth is the
+    // one place the understatement is acted on. Asserting the LIST as well as the
+    // number is what stops the two drifting apart again.
+    expect(r.summary).toContain('2 batch commands — walls and the floor plate — so 2 undo steps, not one');
+  });
+
+  it('OPEN LANGUAGE IN — several unrelated phrasings reach the same capability', () => {
+    // Founder doctrine, recorded: RAC accepts open language; safety comes from
+    // rule gates that refuse with both numbers, never from a magic phrase.
+    for (const u of [
+      'create walls and slabs from my envelope',
+      'build the walls from my envelopes',
+      'build what i drew',
+      'turn my envelopes into bim',
+      'create bim from this design',
+      'make it real',
+      'build my design',
+    ]) {
+      expect(intentOf(resolveFull(u, ctxOf())), u).toBe('build-from-envelope');
+    }
+  });
+
+  it('his FIVE nouns are all answered — THREE built, two named as not built', () => {
+    const r = resolveFull('create walls slabs floors ceilings and roofs from envelopes', ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands[0]!.payload).toEqual({
+      // ⭐ `ceilings` MOVED FROM `deferred` TO `parts` when §BIM-FROM-THE-DESIGN
+      // taught the executor `ceiling.batch.create`. His sentence did not change;
+      // what PRYZM can do about it did.
+      parts: ['walls', 'floor-plate', 'ceilings'],
+      // ⛔ "floors" beside "slabs" is the FINISH layer — his own list separates
+      // them — so it is carried as deferred rather than silently absorbed into
+      // the plate he already named. C84 EI-2: telling a user about one of the
+      // two things he asked for is narrowing.
+      deferred: ['floor-finishes', 'roof'],
+    });
+    // Named BY NAME, with the reason and the LIVE route (C16 CA-18).
+    expect(r.summary).toContain('does NOT build floor finishes and a roof');
+    expect(r.summary).toContain('add floor finishes to all rooms');
+    expect(r.summary).toContain('No space envelope carries a roof form');
+  });
+
+  it('an ask that names no WALLS refuses — the pass cannot omit them', () => {
+    // ⛔ THIS ARM USED TO READ "an ask for ONLY the things it cannot build".
+    // `create ceilings and a roof` was that ask until ceilings became buildable.
+    // It is STILL a refusal, and for a sharper reason: the seam's part projection
+    // can drop the plate and the ceilings but never the walls, so honouring a
+    // ceilings-only ask would have built a whole storey of walls he did not name.
+    const r = resolveFull('create ceilings and a roof from my envelope', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.intent).toBe('build-from-envelope');
+    expect(r.reason).toContain('Ceilings is cut from the same level envelope the walls are built from');
+    expect(r.reason).toContain('no ceilings-only mode');
+    // And a route out, so the refusal can be acted on.
+    expect(r.suggestions).toContain('create walls and slabs from my envelope');
+  });
+
+  it('a plate-only ask refuses BEFORE the Confirm card, naming the real route', () => {
+    // MEASURED: `executeBuildFromDesign` refuses a plan with no walls in its own
+    // words. Dispatching would spend a destructive Confirm card on a certain
+    // refusal, so it is refused here instead.
+    const r = resolveFull('create the slabs from my envelope', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('no plate-only mode');
+  });
+
+  it('a level other than the one being viewed refuses BY NAME, naming the switch', () => {
+    // The builder lands on the ACTIVE level and creates no level. Building on a
+    // different storey than the one named is the widening C68 §7.d forbids.
+    const r = resolveFull('build the walls from my envelope on level 2', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('Level 0');
+    expect(r.reason).toContain('Level 2');
+    expect(r.reason).toContain('this pass creates');
+    // The level being VIEWED is honoured rather than refused.
+    expect(intentOf(resolveFull('build the walls from my envelope on level 0', ctxOf())))
+      .toBe('build-from-envelope');
+  });
+
+  it('an unknown level names the real ones instead of guessing', () => {
+    const r = resolveFull('build the walls from my envelope on level 9', ctxOf());
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason).toContain('Level 0, Level 1 and Level 2');
+  });
+
+  // ── The three neighbours, BOTH directions ──────────────────────────────────
+
+  it('does not steal generate-building, and is not stolen by it', () => {
+    // A building TYPOLOGY noun stands this grammar down, even with the anchor
+    // present: `generate-building` BUILDS for that sentence today, and standing
+    // in front of a path that works is the FIX-CHAT-HIDE-IS-NOT-NAVIGATE error.
+    expect(intentOf(resolveFull('build a house from the envelope', ctxOf())))
+      .toBe('generate-building');
+    expect(intentOf(resolveFull('generate a 3-storey residential building', ctxOf())))
+      .toBe('generate-building');
+    // And the reverse: no envelope anchor ⇒ never ours; anchor ⇒ never theirs.
+    expect(intentOf(resolveFull('create walls and slabs from my envelope', ctxOf())))
+      .not.toBe('generate-building');
+  });
+
+  it('does not steal generate-apartment-layout, and is not stolen by it', () => {
+    expect(intentOf(resolveFull('create a 3 bedroom apartment', ctxOf())))
+      .toBe('generate-apartment-layout');
+    expect(intentOf(resolveFull('build my design', ctxOf())))
+      .not.toBe('generate-apartment-layout');
+  });
+
+  it('does not steal generate-room-finishes — which is the route its own refusal offers', () => {
+    // The refusal above points the user at "add ceilings to every room". If this
+    // grammar claimed that sentence, the refusal would be sending him in a
+    // circle — the L-942 shape, one step removed.
+    expect(intentOf(resolveFull('add ceilings to every room', ctxOf())))
+      .toBe('generate-room-finishes');
+    expect(intentOf(resolveFull('add ceilings to every room in my design', ctxOf())))
+      .not.toBe('build-from-envelope');
+  });
+
+  it('does not steal create-wall (coordinates, and the word "from")', () => {
+    expect(intentOf(resolveFull('create a wall from (0,0) to (5,0)', ctxOf())))
+      .toBe('create-wall');
+  });
+
+  it('a VISIBILITY opener carrying the anchor never reaches the mutation (C68 5.j.1)', () => {
+    for (const u of [
+      'highlight the walls from my envelope',
+      'show the walls from my design',
+      'isolate everything I drew',
+    ]) {
+      const r = resolveFull(u, ctxOf());
+      expect(r.kind === 'commands', u).toBe(false);
+      expect(intentOf(r), u).not.toBe('build-from-envelope');
+    }
+  });
+
+  it('the report paste-back MISSES rather than re-running the build (L-996 shape)', () => {
+    for (const u of [
+      'Built 24 walls (18 shell + 6 partitions) and the floor plate from Level envelope',
+      'Created 24 walls and 1 slab from your design',
+    ]) {
+      expect(resolveFull(u, ctxOf()).kind, u).toBe('miss');
+    }
+  });
+
+  it('the registry row and the resolver arm agree by construction — THE JOIN', () => {
+    // C68 §5.f: the id the registry exposes must be the id an arm exists for. A
+    // row whose intent nothing resolves is a pill that does nothing; an intent
+    // no row declares is invisible to the "Chat can…" list, the refusal copy and
+    // the LLM prompt vocabulary alike. Asserting the JOIN — not each half — is
+    // what stops the two drifting apart.
+    const cap = allChatCapabilities().find((c) => c.id === 'build-from-envelope');
+    expect(cap, 'build-from-envelope is not in the capability registry').toBeDefined();
+    if (cap === undefined) return;
+    expect(cap.busCommand).toBe('generation.from-envelope');
+    expect(cap.examples.length).toBeGreaterThan(0);
+    const r = resolveFull(cap.examples[0]!, ctxOf());
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe(cap.id);
+    expect(r.commands.map((c) => c.type)).toEqual([cap.busCommand]);
   });
 });

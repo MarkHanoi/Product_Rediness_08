@@ -3594,6 +3594,113 @@ const CAPABILITIES: readonly ChatCapability[] = [
     ],
   },
   {
+    id: 'build-from-envelope',
+    // §RAC-BUILD-FROM-ENVELOPE (L-13176) — the founder's own ask, verbatim:
+    // "From Envelopes create walls, slabs, floors, ceilings, and roofs:
+    // 'Create Walls and Slabs from Envelope'".
+    //
+    // ⭐ C67 §4 rule 14 IN ITS PUREST FORM — "a capability the EDITOR can perform
+    // and the REGISTRY does not declare is a C67 DEFECT". The editor has built
+    // walls and a floor plate from drawn space envelopes since 2026-09-07: the
+    // Parcel Law panel's "Create BIM from this design" button runs
+    // `planBuildFromDesign` + `executeBuildFromDesign`, and 50 tests across the
+    // pair are green. The chat could reach NONE of it. This row is that fix, and
+    // it MINTS NO BUILDER — `generation.from-envelope` dispatches into the SAME
+    // planner and the SAME executor the button drives, through the panel's own
+    // `defaultParcelLawCreateHouseDeps()` wiring object (C84 EI-9: one
+    // implementation, two entry points).
+    //
+    // ⛔ IT DOES NOT NAME `wall.batch.create` / `slab.batch.create` AS ITS VERB,
+    // and that is a hard constraint. Both are classified C — internal machinery
+    // ("exposing the raw batch verb to chat would be a footgun") and C68 §5.b
+    // makes the three declaration surfaces DISJOINT — the coverage gate fails a
+    // verb that appears in two. An OUTCOME verb over the batch verbs is the
+    // `generation.*` shape this repo already uses for every generation flow.
+    //
+    // ⚠ THE NAME COVERS WHAT IT DOES. The founder's title promises two nouns
+    // while his sentence enumerates five; the description below names the two
+    // this pass really builds, and the resolver refuses the other three BY NAME
+    // with the live route for each. C67 §4 rule 10 — the registry describes what
+    // the editor does, never what we wish it did. When the builder learns
+    // ceilings, floor finishes or a roof, this description widens and the
+    // resolver's deferred list shrinks IN THE SAME COMMIT.
+    description: 'build walls and the floor plate from the space envelopes you have drawn',
+    verbs: ['create', 'build', 'make', 'generate', 'turn', 'construct'],
+    aliases: [
+      'envelope', 'envelopes', 'space envelope', 'my design', 'this design',
+      'what i drew', 'walls and slabs', 'floor plate', 'bim from my design',
+    ],
+    // targets:'global' — the builder reads the space-envelope STORE for the
+    // active level, never the element selection, so there is no element target
+    // set to prove. The same ruling as generate-building, generate-apartment-
+    // layout and set-rhino-material.
+    targets: 'global',
+    parameters: [
+      {
+        name: 'parts',
+        description:
+          'which parts to build, in your own words — "walls and slabs", "just the walls", '
+          + '"everything". Omitted means all of it. Parts this pass does not build (ceilings, '
+          + 'floor finishes, a roof) are named back with the reason and the live route, never '
+          + 'silently dropped.',
+        required: false,
+        valueSource: 'user-text',
+        example: 'walls and slabs',
+      },
+      {
+        name: 'level',
+        description:
+          'the level to build on — must be the level being viewed ("on ground level"); a '
+          + 'different level refuses naming the switch, because this pass creates no level and '
+          + 'moves nothing between them',
+        required: false,
+        valueSource: 'project-levels',
+        example: 'on level 0',
+      },
+    ],
+    scope: 'global',
+    // ⚠ destructive:true, and the Confirm card carries the HONEST UNDO COST.
+    // `buildFromDesignExecutor.ts`'s own header states it: no verb in this repo
+    // commits walls and slabs together, and `batchCoordinator.runBatch` is
+    // undo-NEUTRAL (ADR-0314 / BatchCoordinator.ts:233), so the gesture is TWO
+    // history entries. C67 §4 rule 8 requires the card to say N before consent,
+    // and the claim is pinned against the executor's real dispatch count by
+    // buildFromEnvelopeChatSeam.spec.ts — a third batch verb turns the pin red.
+    destructive: true,
+    busCommand: 'generation.from-envelope',
+    probe: { intent: 'build-from-envelope', parts: ['walls', 'floor-plate', 'ceilings'], deferred: [] },
+    // Not gate-validated for a 'global' capability, but recorded so the claim is
+    // source-anchored anyway — and this one is the whole point of the lane: the
+    // proof file is the EXISTING executor, and the literals are the three batch
+    // verbs it dispatches. `apps/editor/**` is an accepted LIVE proof root
+    // (C68 §5.a).
+    commandProof: [
+      {
+        file: 'apps/editor/src/ui/site/buildFromDesignExecutor.ts',
+        mustMention: ['wall.batch.create', 'slab.batch.create', 'ceiling.batch.create'],
+        note: 'The chat verb dispatches into the SAME executor the panel button drives; it mints no builder, and these three batch commands are the only mutation it performs.',
+      },
+      {
+        file: 'apps/editor/src/ui/generation/buildFromEnvelopeChatSeam.ts',
+        mustMention: ['planBuildFromDesign', 'executeBuildFromDesign', 'defaultParcelLawCreateHouseDeps'],
+        note: 'The seam calls the panel\'s OWN deps object — same runtime, same active-level resolver, same wall census, same executor — so the two entry points cannot drift.',
+      },
+    ],
+    examples: [
+      // THE FOUNDER'S OWN SENTENCE FIRST. It is the "Chat can…" pill's query
+      // (AIPanel renders examples[0] with autoSend), the acceptance family's
+      // first phrasing and the pin — so a pill that stops working is a test
+      // that stops passing.
+      'create walls and slabs from my envelope',
+      'create walls and slabs from envelope',
+      'build the walls from my envelopes',
+      'turn my envelopes into bim',
+      'build what i drew',
+      'create bim from this design',
+      'make it real',
+    ],
+  },
+  {
     id: 'finish-apartment-chain',
     // §GEN-CHAIN (RAC U5c.2) — the auto-chain (apartment → ceilings + floor
     // finishes → furniture → lighting) as a conversational flow. The chain is

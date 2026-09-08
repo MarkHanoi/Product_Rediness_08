@@ -34,6 +34,10 @@
 
 import { trace, type Tracer } from '@opentelemetry/api';
 import { nonImperativeReason } from '../capabilities/CapabilityRefusal.js';
+// §RAC-BUILD-FROM-ENVELOPE (L-13176) — imported from the family module rather
+// than re-exported through ZeroTokenResolver, so the grammar has ONE declaring
+// site and the two rungs provably run the SAME parser (C67 §4 rule 2).
+import { parseBuildFromEnvelopeIntent } from './BuildFromEnvelope.js';
 import {
   applySemanticIntent,
   boundedLevenshtein,
@@ -1237,6 +1241,30 @@ function classify(
       confidence: 0.95,
       evidence: ['noun:layer', `side:${wallLayer.side}`, `scope:${scopeTag(wallLayer.scope)}`],
       si: wallLayer,
+    });
+  }
+
+  // build-from-envelope (§RAC-BUILD-FROM-ENVELOPE, L-13176) — the SAME shared
+  // parser tier 0 runs, off `n.plain`, so "build what I drew" and "turn my
+  // envelopes into BIM" reach the capability by the natural rung too. Founder
+  // doctrine: open language in; the hard stoppers are the plan's own refusals
+  // and the destructive Confirm card, never a narrowed vocabulary.
+  //
+  // BEFORE the generation pushes below, so a tie at 0.95 goes to the grammar
+  // that REQUIRED the envelope anchor (`classify` keeps the first candidate on
+  // a tie — strict `>`). They are disjoint by construction anyway: this parser
+  // stands down on every building-typology noun, and those two require one.
+  const fromEnvelope = parseBuildFromEnvelopeIntent(n.plain, ctx);
+  if (fromEnvelope !== null && fromEnvelope.intent === 'build-from-envelope') {
+    push({
+      intent: 'build-from-envelope',
+      confidence: 0.95,
+      evidence: [
+        'noun:envelope',
+        `parts:${fromEnvelope.parts.length === 0 ? 'all' : fromEnvelope.parts.join('+')}`,
+        `deferred:${fromEnvelope.deferred.length}`,
+      ],
+      si: fromEnvelope,
     });
   }
 

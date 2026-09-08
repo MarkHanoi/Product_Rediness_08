@@ -129,6 +129,26 @@ import {
   applyCreateStairShape,
   parseCreateStairShapeIntent,
 } from './StairCreateShape.js';
+// §RAC-BUILD-FROM-ENVELOPE (L-13176) — the founder's "From Envelopes create
+// walls, slabs, floors, ceilings, and roofs".
+// ⭐ A SECOND ENTRY POINT, NOT A SECOND BUILDER: the verb it emits is dispatched
+// into the SAME `planBuildFromDesign` + `executeBuildFromDesign` pair the Parcel
+// Law panel's "Create BIM from this design" button drives (C84 EI-9). Routed by
+// MEMBERSHIP below rather than as a case arm — the arm ratchet reads 30/30 and a
+// raise to make room for one's own change is the one forbidden fix.
+import {
+  applyBuildFromEnvelope,
+  parseBuildFromEnvelopeIntent,
+  // ⛔ THE PART VOCABULARY IS IMPORTED, NEVER RE-SPELLED. The variant below used
+  // to hard-code `'walls' | 'floor-plate'` and `'floor-finishes' | 'ceilings' |
+  // 'roof'` as literals. When `ceilings` moved from deferred to buildable, the
+  // two spellings disagreed and every `probe` in the capability registry failed
+  // to typecheck at once — which is the good outcome, but only because the
+  // registry happened to name the part. A type-only import cannot cycle at
+  // runtime and makes `BuildFromEnvelope.ts` the single source of the words.
+  type BuildFromEnvelopePart,
+  type BuildFromEnvelopeDeferredPart,
+} from './BuildFromEnvelope.js';
 // §REFUSE-RAC-REPLICATE (L-1542) — "create same stair in ground in level 1".
 // Copy-by-reference has no command underneath it on ANY element kind (measured;
 // see the module header's route table), so this is an honest refusal that
@@ -1091,6 +1111,32 @@ export type SemanticIntent =
       readonly anchorRef?: string;
     }
   /**
+   * §RAC-BUILD-FROM-ENVELOPE (L-13176) — the founder's *"From Envelopes create
+   * walls, slabs, floors, ceilings, and roofs"*.
+   *
+   * ⭐ A SECOND ENTRY POINT TO A BUILDER THAT ALREADY SHIPS, never a second
+   * builder: the Parcel Law panel's "Create BIM from this design" button drives
+   * `planBuildFromDesign` + `executeBuildFromDesign`, and the seam behind
+   * `generation.from-envelope` calls the SAME pair through the panel's own deps
+   * object (C84 EI-9). See `BuildFromEnvelope.ts` for the whole ruling —
+   * including why it is routed by MEMBERSHIP before the switch rather than as a
+   * thirty-first case arm.
+   */
+  | {
+      readonly intent: 'build-from-envelope';
+      /** The BUILDABLE parts the sentence named. EMPTY means it named none at
+       *  all ("make it real") ⇒ the arm builds everything the pass can. */
+      readonly parts: readonly BuildFromEnvelopePart[];
+      /** The parts it named that this pass does NOT build. Carried rather than
+       *  dropped so the arm can name them back — C84 EI-2 narrowing is telling
+       *  a user about one of the two things he asked for. */
+      readonly deferred: readonly BuildFromEnvelopeDeferredPart[];
+      /** A level the sentence named, read through `SpatialScopeTail` (C67 §4
+       *  rule 16). The pass builds on the ACTIVE level only, so a different one
+       *  is refused BY NAME rather than silently ignored. */
+      readonly levelQuery?: string;
+    }
+  /**
    * §REFUSE-RAC-REPLICATE (L-1542) — "create same stair in ground in level 1".
    * COPY BY REFERENCE, parsed in order to refuse accurately: the target level
    * is RESOLVED (so the reply proves it read the sentence) even though the
@@ -1696,6 +1742,17 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
   // resolver for the whole package (C84 EI-9), never a second lookup.
   if (si.intent === 'create-stair-shape') return applyCreateStairShape(si, ctx);
   if (si.intent === 'replicate-element') return applyReplicateElementRefusal(si, ctx, findLevel);
+  // §RAC-BUILD-FROM-ENVELOPE (L-13176) — routed here for the SAME reason the two
+  // lines above are, and the reason is still measured rather than stylistic: the
+  // hand-written case-arm ratchet reads **30/30** (gate 31 check 8, measured
+  // 2026-09-07 at HEAD 0cb27a25 — AT the ceiling, zero headroom). A thirty-first
+  // arm is exit 3, which §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7 / L-836) makes
+  // non-absorbable, and raising the ceiling to fit one's own change is the one
+  // forbidden fix. So this family took the seam C67 §4 rule 5 and C68 §5.i ask
+  // for anyway — "a capability of a known shape is a TABLE ROW … zero new
+  // resolver case arms." `findLevel` is passed IN so there is ONE level-name
+  // resolver for the package (C84 EI-9) and no cycle back into this module.
+  if (si.intent === 'build-from-envelope') return applyBuildFromEnvelope(si, ctx, findLevel);
   switch (si.intent) {
     case 'undo':
       return { kind: 'local', intent: 'undo', summary: 'Undid the last action', action: 'undo' };
@@ -5293,6 +5350,10 @@ const matchStairPart: Matcher = (text) => parseStairPartIntent(text);
 
 // §FEAT-RAC-STAIR-SHAPE (L-1541) — see StairCreateShape.ts.
 const matchStairShape: Matcher = (text) => parseCreateStairShapeIntent(text);
+// §RAC-BUILD-FROM-ENVELOPE (L-13176) — see BuildFromEnvelope.ts. `ctx` is
+// threaded because the place phrase reads through the ONE shared parser, which
+// needs the level list to classify "this floor" (C67 §4 rule 16).
+const matchBuildFromEnvelope: Matcher = (text, ctx) => parseBuildFromEnvelopeIntent(text, ctx);
 // §REFUSE-RAC-REPLICATE (L-1542) — see ElementReplication.ts.
 const matchReplicateElement: Matcher = (text) => parseReplicateElementIntent(text);
 
@@ -6100,6 +6161,23 @@ const MATCHERS: readonly Matcher[] = [
   // §GEN-CHAIN (RAC U5c.2) BEFORE §GEN-ROOMS: "finish this apartment and light
   // it" names a room-scale engine too, but the chain word is the stronger
   // claim — the user asked for the whole flow, not one stage of it.
+  // §RAC-BUILD-FROM-ENVELOPE (L-13176) — "create walls and slabs from my
+  // envelope". BEFORE the three generation grammars below, and disjoint from
+  // every one of them BY CONSTRUCTION rather than by ordering luck:
+  //
+  //   · it REQUIRES the envelope/design anchor ("from my envelope", "what I
+  //     drew", "this design"), which none of them carries;
+  //   · it STANDS DOWN on a building-typology noun, so "build a house from the
+  //     envelope" stays `generate-building`'s and "create a 3 bedroom apartment"
+  //     stays `generate-apartment-layout`'s — both of which BUILD for those
+  //     sentences today, and standing in front of a path that works is the
+  //     §FIX-CHAT-HIDE-IS-NOT-NAVIGATE error;
+  //   · it STANDS DOWN on an all-rooms scope, so "add ceilings to every room"
+  //     stays `generate-room-finishes`' — which is the very route this
+  //     capability's own refusal points the user at.
+  //
+  // Both directions are pinned in capability-acceptance.test.ts.
+  matchBuildFromEnvelope,
   matchFinishChain,
   // §GEN-ROOMS (RAC U5c.1) — "furnish all rooms" / "add ceilings to every
   // room". BEFORE the apartment/building grammars: "furnish an apartment" is

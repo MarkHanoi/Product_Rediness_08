@@ -1611,6 +1611,23 @@ export const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         // within its budget says so rather than being quietly dropped.
     'generation.rooms': 'pryzm-generation-report',
     'generation.finish-chain': 'pryzm-generation-report',
+    // §RAC-BUILD-FROM-ENVELOPE (L-13176) — THE SAME OMISSION L-996 RECORDS
+    // THREE TIMES, in the ONE place its guard cannot see.
+    //
+    // `batchReportEventsCompleteness.spec.ts` derives the required keys from
+    // `plugins/**` sources, so an `apps/`-side seam verb missing from this table
+    // trips NOTHING: `expectsReport` would be false, `classifyDispatch` would
+    // return `{kind:'applied', lines:[]}`, and the transcript would print the
+    // resolver's PLANNED summary plus "Done" over a plan REFUSAL that named both
+    // numbers. This capability's most interesting outcomes are exactly those
+    // refusals ("you have drawn no room envelopes", "this level already carries
+    // 42 walls"), so an unheard report would turn every one of them into a
+    // cheerful build that did not happen.
+    //
+    // The row and the emitter move together, and `ui/ai/__tests__/buildFromEnvelopeChatSeam.spec.ts`
+    // asserts this pairing directly rather than leaving it to a guard that
+    // cannot reach here.
+    'generation.from-envelope': 'pryzm-generation-report',
 };
 
 /** The bus surface this module dispatches through (P6). */
