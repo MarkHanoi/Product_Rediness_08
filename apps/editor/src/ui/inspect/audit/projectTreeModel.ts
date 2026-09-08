@@ -122,7 +122,48 @@ export type FamilyRead =
  * must not become the sentence "this project has no handrails" — the same distinction
  * `determineCategoryElements` draws for the left-rail browser (C78 §5).
  */
-export function readFamilyRecords(storeKey: string): FamilyRead {
+export function readFamilyRecords(
+    storeKey: string,
+    opts: { readonly runtimeStoreKey?: string; readonly roleFilter?: string } = {},
+): FamilyRead {
+    // ⭐ §ENVELOPES-ARE-CATEGORIES (L-13252) — THE NEW-STYLE READ, FIRST.
+    // A plugin DTO store lives at `runtime.stores[key]` and exposes `getState(): Map`, not the
+    // `window.<x>Store.getAll(): []` every legacy family uses. Families wired that way were
+    // UNREADABLE here and therefore absent from the Project Browser and Inspect entirely.
+    // ⛔ The `unreadable` vs `[]` distinction is preserved on this path too, and it matters more
+    // here: a runtime that has not composed yet must never render as "this project has no level
+    // envelopes" (C78 §5 / [[context-data-honesty-family]] — a failure and an empty result are
+    // not the same value).
+    if (opts.runtimeStoreKey !== undefined) {
+        const rt = (window as unknown as {
+            runtime?: { stores?: Record<string, { getState?(): ReadonlyMap<string, unknown> } | undefined> };
+        }).runtime;
+        if (!rt?.stores) {
+            return { kind: 'unreadable', detail: 'the composed runtime has no stores slot yet' };
+        }
+        const rtStore = rt.stores[opts.runtimeStoreKey];
+        if (!rtStore || typeof rtStore.getState !== 'function') {
+            return {
+                kind: 'unreadable',
+                detail: `runtime.stores.${opts.runtimeStoreKey} is not readable yet`,
+            };
+        }
+        let state: ReadonlyMap<string, unknown>;
+        try {
+            state = rtStore.getState();
+        } catch (e) {
+            return {
+                kind: 'unreadable',
+                detail: `reading runtime.stores.${opts.runtimeStoreKey} threw: ${String((e as Error)?.message ?? e)}`,
+            };
+        }
+        const all = [...state.values()];
+        // The role split is what makes `level` and `room` two categories out of one store.
+        const kept = opts.roleFilter === undefined
+            ? all
+            : all.filter((r) => (r as { role?: unknown } | null)?.role === opts.roleFilter);
+        return { kind: 'read', records: kept };
+    }
     // TODO(E.<family>.S): legacy per-family window store reach — replace with
     // `runtime.stores.<family>` when the family stores are exposed via runtime.
     const store = (window as unknown as Record<string, { getAll?(): unknown[] } | undefined>)[storeKey];
@@ -184,7 +225,9 @@ export function buildProjectTreeModel(
     let totalUnfiltered = 0;
 
     for (const cat of INSPECT_CATEGORIES as readonly InspectCategoryDef[]) {
-        const read = readFamilyRecords(cat.storeKey);
+        const read = readFamilyRecords(cat.storeKey, {
+            runtimeStoreKey: cat.runtimeStoreKey, roleFilter: cat.roleFilter,
+        });
         if (read.kind === 'unreadable') {
             unreadable.push(cat.storeKey);
             continue;
@@ -435,7 +478,9 @@ export function buildRoomTreeModel(
     const unreadable: string[] = [];
     for (const cat of INSPECT_CATEGORIES as readonly InspectCategoryDef[]) {
         if (cat.id === 'rooms') continue;
-        const read = readFamilyRecords(cat.storeKey);
+        const read = readFamilyRecords(cat.storeKey, {
+            runtimeStoreKey: cat.runtimeStoreKey, roleFilter: cat.roleFilter,
+        });
         if (read.kind === 'unreadable') { unreadable.push(cat.storeKey); continue; }
         familyRecords.set(cat.id, read.records as any[]);
         const byId = new Map<string, any>();

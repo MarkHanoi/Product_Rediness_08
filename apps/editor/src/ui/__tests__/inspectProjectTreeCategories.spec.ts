@@ -184,6 +184,52 @@ describe('ARM B — the header total is the sum of what the tree lists (§CONTEX
         expect(read.kind).toBe('read');
         expect(read.kind === 'read' && read.records).toEqual([]);
     });
+
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ §ENVELOPES-ARE-CATEGORIES (L-13252) — the founder's "true categories, turned on and off"
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // `spaceEnvelope` is a plugin DTO store on `runtime.stores`, publishing NO `window` global —
+    // so the legacy `window[storeKey].getAll()` read could not see it and the family was absent
+    // from the Project Browser and Inspect entirely, with the coverage gate blind to the gap.
+    it('⭐ reads level + room envelopes off runtime.stores and SPLITS them by role', () => {
+        (window as unknown as { runtime?: unknown }).runtime = {
+            stores: {
+                spaceEnvelope: {
+                    getState: () => new Map<string, unknown>([
+                        ['e1', { id: 'e1', role: 'level', levelId: 'L0' }],
+                        ['e2', { id: 'e2', role: 'room',  levelId: 'L0' }],
+                        ['e3', { id: 'e3', role: 'room',  levelId: 'L0' }],
+                    ]),
+                },
+            },
+        };
+        const levels = readFamilyRecords('spaceEnvelopeStore',
+            { runtimeStoreKey: 'spaceEnvelope', roleFilter: 'level' });
+        const rooms = readFamilyRecords('spaceEnvelopeStore',
+            { runtimeStoreKey: 'spaceEnvelope', roleFilter: 'room' });
+        expect(levels.kind === 'read' && levels.records.map((r) => r.id)).toEqual(['e1']);
+        expect(rooms.kind === 'read' && rooms.records.map((r) => r.id)).toEqual(['e2', 'e3']);
+        delete (window as unknown as { runtime?: unknown }).runtime;
+    });
+
+    it('⛔ a runtime that has not composed is UNREADABLE, never "no envelopes"', () => {
+        // The distinction that matters most on this path: before compose, the honest answer is
+        // "unknown". Rendering it as an empty category would tell the founder he drew nothing.
+        delete (window as unknown as { runtime?: unknown }).runtime;
+        const r = readFamilyRecords('spaceEnvelopeStore',
+            { runtimeStoreKey: 'spaceEnvelope', roleFilter: 'level' });
+        expect(r.kind).toBe('unreadable');
+    });
+
+    it('⭐ both envelope families are DECLARED categories, so every derived surface lists them', () => {
+        const ids = INSPECT_CATEGORIES.map((c) => c.id);
+        expect(ids).toContain('levelEnvelopes');
+        expect(ids).toContain('roomEnvelopes');
+        // ⚠ `permitted` (the purple BUILDABLE study volume) is deliberately NOT a row — one solved
+        // study per parcel is not a set of selectable instances. Recorded so a future reader sees
+        // a decision, not an oversight.
+        expect(ids).not.toContain('buildableEnvelope');
+    });
 });
 
 // ── ARM C — selection identity and row naming survive ─────────────────────────

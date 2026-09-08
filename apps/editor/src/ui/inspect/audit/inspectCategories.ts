@@ -69,6 +69,33 @@ export interface InspectCategoryDef {
      * difference between "focus that family in 3D" and "focus nothing, silently".
      */
     readonly meshType: string;
+    /**
+     * ⭐ §ENVELOPES-ARE-CATEGORIES (L-13252) — READ FROM `runtime.stores[key]` INSTEAD OF
+     * `window[storeKey]`, for families wired the NEW way.
+     *
+     * ⛔ THIS FIELD EXISTS BECAUSE ITS ABSENCE WAS A SILENT HOLE, NOT FOR CONVENIENCE.
+     * `InspectCategoryCoverage.test.ts` is the gate that stops a new element family reaching
+     * `main` without being inspectable — and it enumerates families by scanning
+     * `window.<x>Store =` assignments in the engine bootstrap. `spaceEnvelope` is a plugin DTO
+     * store on `runtime.stores` and publishes NO window global (`composeRuntime.ts` says so by
+     * name: *"no `window.spaceEnvelopeStore` exists for this instance to fork against"*), so the
+     * gate could not see it, never failed, and the family was absent from every element-facing
+     * surface with nothing anywhere saying so. That is the C84 promise — *"every element family
+     * is a first class citizen of every element-facing surface"* — going UNMEASURED for exactly
+     * the family the founder was asking about.
+     *
+     * When set, `storeKey` remains the DECLARED name for logs and the coverage ledger; this is
+     * the accessor. A runtime store exposes `getState(): Map`, not `getAll(): []`.
+     */
+    readonly runtimeStoreKey?: string;
+    /**
+     * Keep only records whose `role` equals this. Used where ONE store carries more than one
+     * user-facing category — `spaceEnvelope` holds both `role:'level'` and `role:'room'`, and
+     * they are two different things to an architect (§ENVELOPE_LEGEND: a level envelope is what
+     * you DESIGN, a room envelope is what goes inside it). Splitting them in the taxonomy is
+     * what makes each independently listable and toggleable.
+     */
+    readonly roleFilter?: string;
 }
 
 /**
@@ -80,6 +107,29 @@ export interface InspectCategoryDef {
  * fittings, i.e. the order an architect reads a model in.
  */
 export const INSPECT_CATEGORIES = [
+    // ⭐⭐ §ENVELOPES-ARE-CATEGORIES (L-13252) — FOUNDER, twice: *"i want: Buildable envelope /
+    // Level envelope / and rooms / as separate categories: they should be present everywhere - in
+    // the project browser - on the inspect and analysis tabs"*, then *"make sure the envelope and
+    // level envelope are true categories that can be turned on and off"*.
+    //
+    // ⛔ THE VOCABULARY IS NOT INVENTED HERE. `ENVELOPE_LEGEND` (`site/toBeBuiltEnvelopeStyle.ts`)
+    // has named these for months — `to-be-built` ("what you decided to build inside the permitted
+    // volume") and `room` ("spaces inside a to-be-built level") — and was consumed by ONE legend
+    // on ONE card. This makes the SAME three reachable everywhere the other families are; it adds
+    // no fourth name and no second definition.
+    //
+    // ⚠ THE THIRD LEGEND ENTRY — `permitted`, the purple BUILDABLE envelope — IS DELIBERATELY NOT
+    // A ROW HERE, and that is a judgement worth stating rather than an omission. It is ONE SOLVED
+    // STUDY VOLUME PER PARCEL, not a set of instances: a tree row with a count implies things you
+    // can select and inspect one by one, which it is not, and `ENVELOPE_LEGEND` marks it as the
+    // only entry that `carriesConfidenceBadge` precisely because it is a determination rather than
+    // an authored object. It keeps its visibility toggle on the site card, where its confidence
+    // colour means something. ⭐ FLAGGED FOR THE FOUNDER rather than decided silently — if he wants
+    // it listed too, it needs a row shape that can say "1 study" instead of a element count.
+    { id: 'levelEnvelopes', label: 'Level envelopes', icon: '⬓', storeKey: 'spaceEnvelopeStore',
+      runtimeStoreKey: 'spaceEnvelope', roleFilter: 'level', meshType: 'spaceEnvelope' },
+    { id: 'roomEnvelopes',  label: 'Room envelopes',  icon: '⬔', storeKey: 'spaceEnvelopeStore',
+      runtimeStoreKey: 'spaceEnvelope', roleFilter: 'room',  meshType: 'spaceEnvelope' },
     { id: 'rooms',         label: 'Rooms',          icon: '▪', storeKey: 'roomStore',         meshType: 'room' },
     { id: 'walls',         label: 'Walls',          icon: '▬', storeKey: 'wallStore',         meshType: 'wall' },
     { id: 'curtainWalls',  label: 'Curtain Walls',  icon: '▦', storeKey: 'curtainWallStore',  meshType: 'curtain-wall' },
