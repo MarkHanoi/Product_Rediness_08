@@ -84,6 +84,90 @@ The founder's Phase-2 ask, verbatim: *"in each view (either split view or comple
 
 ---
 
+### §1.5 — The VIEW REGION census, and why "one picker" was not enough (§ONE-REGION-SWITCHER, L-13257)
+
+> ⚠ **Added 2026-09-08 because §1.4 above was satisfied and the founder was still right.** §1.4
+> requires *"**one** picker component, mounted on **every** pane"*. That was measured green, by
+> `oneViewSwitcher.spec.ts`, for the whole period the founder was photographing the opposite.
+> The gap is exact and worth stating rather than smoothing over: **§1.4 counts pickers per
+> PANE, and two of the app's five view regions are not panes.**
+
+**The founder's ask, verbatim (2026-09-08, two screenshots):** *"I need the most possible robust
+architecture for views … the way the user can change a view should always be robust and the same
+— drop down on the middle of the view already implemented but not always implemented — on pryzm
+view we still have the legacy style … I want this absolutely standardized."*
+
+#### §1.5.1 — The audit: five hosts, two option tables
+
+| # | Host | Region | Shape | Options from |
+|---|---|---|---|---|
+| 1 | `PaneViewPicker` | site panes (L/R) | centred pill | `describePaneViewOptions` (registry) |
+| 2 | `ViewSwitcherPill` | `#container` | centred pill | `viewPanelOptions()` |
+| 3 | `viewSegmentSwitcher` | whole-screen site | segmented bar | `viewPanelOptions()` |
+| 4 | `viewSwitcherOnView` | Analysis / Parcel Law | body-level bar | `viewPanelOptions()` |
+| 5 | `svp-view-select` | `#svp-secondary-pane` | ⛔ native `<select>` | `viewDefinitionStore` |
+
+Two findings, both structural:
+
+- **⭐ A COUNT INVARIANT CANNOT SEE A FORM DIVERGENCE.** Every region had exactly one control,
+  which is what §1.4 and `oneViewSwitcher.spec.ts` ARM K measured — ARM K blesses row 5 **by
+  name**. The founder's question was not *how many* but *is it the same one*, and nothing
+  measured that axis.
+- **⭐ THE TWO OPTION TABLES DISAGREE.** `describePaneViewOptions` derives from
+  `VIEW_TYPE_REGISTRY` and therefore models neither **3D Globe** (a Cesium camera altitude,
+  §2.9) nor **2D Satellite** (a MapLibre style). `viewPanelOptions()` models both as VARIANTS.
+  So the same gesture offered a **different set** depending on the region it was made in.
+
+#### §1.5.2 — The model (normative)
+
+`apps/editor/src/engine/views/viewRegionSwitcher.ts` declares **`VIEW_REGION_REGISTRY`** — the
+census of view regions. A **view region** is *a rectangle of screen showing ONE view, which
+therefore needs exactly ONE way to change it*. It is deliberately **neither a `PaneId` nor a
+`ViewType`**: `PaneId` names a slot in `PaneLayoutStore` (which only the site shell has), and
+`ViewType` names what may be shown. The region is the third fact, and it is the one no file
+owned — which is how `#svp-secondary-pane` came to be reasoned about in one file and not at all
+in three others.
+
+Each row declares `shape` · `anchorSelector` · `offersTheSix` · `offersViewDefinitions` ·
+`dispatch` · `limitNote` · `visibleIn`.
+
+1. **`SwitcherShape` has NO `'select'` and NO `'segmented-bar'` member.** A shape that must not
+   appear is **unspellable**, not merely discouraged — a future region cannot declare a native
+   control and still typecheck.
+2. **Every region offers the founder's six.** `offersTheSix` is typed `true`, so a row cannot
+   say otherwise. The six are `viewPanelOptions()`, the ONE definition (C06 §13: a panel is a
+   HOST; the action is the AUTHORITY).
+3. **Placement is MEASURED, never constant.** `resolveSwitcherTopPx(region, obstacles)` is pure
+   and decides the top offset from real boxes. A zero-area box is an **absence**, not an
+   obstacle at the origin — happy-dom returns all-zero rects, and a fake obstacle producing a
+   real displacement is the defect shape, not a test artefact.
+4. **A region that shares its phase and dispatches whole-screen MUST print its limit** (STR
+   §26.1.1). Derived via `sharesItsPhase()`, **not** a declared flag a row could forget.
+   ⭐ This predicate is the one the coverage gate corrected on its **first run**: the naive rule
+   ("dispatch is whole-screen ⇒ must warn") fired on `site-whole-screen`, which is *already* the
+   whole screen and has no layout to lose — a false warning, i.e. the very defect the adjacent
+   rule forbids.
+5. **`viewRegionSwitcherCoverage()` checks both directions** and is asserted clean by
+   `viewRegionSwitcher.spec.ts`.
+
+#### §1.5.3 — Status, stated honestly
+
+**LANDED:** rows 1, 2 and 5 are one shape. The plan pane carries the shared pill; its
+`<select>` is **re-parented into the pill's popup**, never rebuilt (rebuilding would be a
+second definition of the view-definition list, arriving inside its own fix). The `#container`
+pill is placed clear of `.wmb-toplevel-wrapper` — ⭐ **it was always mounted; it was underneath
+the mode bar**, which is why the founder's PRYZM screenshot shows no dropdown and his site
+screenshot shows two.
+
+**NOT DONE, and the census now says so:** rows 3 and 4 remain their own shapes.
+`viewRegionSwitcherCoverage()` fails if a region regresses, but retiring those two hosts is a
+later increment. **Also not done:** a uniform split/single toggle across all four workspaces —
+`PaneLayoutStore` (`view.pane.solo`, §1.4) and `SplitViewManager` are still two layout owners,
+and the founder's *"split or not split, no matter whether the user is in Site / Author / Inspect
+/ Analyse"* is satisfied only on the site shell.
+
+---
+
 ## §2 — Invariants (normative)
 
 1. **One instance per singleton renderer.** At most one pane may host a `cesium` view and at most one may host a `webgpu-three` view at any time. Enforced by `assignViewToPane` and asserted by `validatePaneLayout`. No code path constructs a second Cesium viewer or WebGPU device for a pane.
@@ -99,6 +183,9 @@ The founder's Phase-2 ask, verbatim: *"in each view (either split view or comple
 9. **A REGISTRY-DERIVED SURFACE MAY ONLY OFFER VIEWS. Anything else is modelled BESIDE it, as an action** (§2.9, L-6800..L-6809). A control whose contents are derived from `VIEW_TYPE_REGISTRY` can, by construction, offer nothing that is not a `ViewType` — so the fix for "this derived bar is missing X" is **never** to mint a `ViewType` for X. Camera framings, layout restores and reframes are **actions**; they carry a label, an `enabled`, and a **reason whenever `enabled` is false**, and they return their intents as **DATA** (invariant 3). See §2.9.
 
 10. **THE VIEW REGION HAS EXACTLY ONE OWNER. The workspace mode SIZES it; the split DIVIDES it; no other code writes its box** (§2.10, L-13030, STR §26.1.2). A workspace mode (Analysis / Inspect / Data) and a split are **not siblings competing for the shell** — they are two levels of one hierarchy. The mode decides how much of the shell is view region; the split decides how that region is partitioned into panes; a pane decides which view it hosts. Each level reads the level above and writes only its own. **Normative consequence:** `#container.style.width` (and `maxWidth` / `flexGrow` / `flexBasis`) has exactly ONE writer. A second module writing that box — for any reason, including "restoring" it — is a violation of this invariant, not a workaround for a timing problem, and MUST NOT be repaired with a debounce, a re-assert pass, or a settle guard. See §2.10.
+
+
+11. **EVERY VIEW REGION CARRIES THE SAME SWITCHER, IN THE SAME SHAPE, OFFERING THE SAME SET** (§1.5, L-13257). A view region is a rectangle showing one view; it is not necessarily a pane, and invariant "one picker per pane" does **not** reach the two regions that are not panes (`#container`, `#svp-secondary-pane`). **Normative consequence:** a region MUST be declared in `VIEW_REGION_REGISTRY`, MUST carry a pill (the `SwitcherShape` type admits no native `<select>` and no segmented bar), MUST offer `viewPanelOptions()` in full, and MUST place that pill by measurement rather than by a constant offset. ⭐ **A count invariant cannot see a form divergence** — this one is checked on shape, set and placement precisely because §1.4's count stayed green while the divergence shipped.
 
 ---
 
