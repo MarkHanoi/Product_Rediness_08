@@ -779,6 +779,55 @@ export class ViewsRailPanel {
             obcId = VIEW_TYPE_TO_OBC[viewType];
         }
 
+        // ══════════════════════════════════════════════════════════════════════════════════
+        // ⭐⭐ §ONE-ORCHESTRATOR (L-13253) — EXIT GIS FIRST, THROUGH THE DECLARED CHOKE POINT.
+        // ══════════════════════════════════════════════════════════════════════════════════
+        // FOUNDER: *"selecting on the views&sheets would not work: i clicked 3rd view but would
+        // not open - we need to have a single orchestrator"*.
+        //
+        // ⛔ THE VIEW WAS OPENING. HE COULD NOT SEE IT. His log says
+        // `✅ View switch to "3D" completed in 5.9ms` — three times, once per click. What it does
+        // NOT say, on this route, is `GIS: Deactivating geospatial view`: the Cesium canvas sits at
+        // `z-index:15` and the BIM WebGPU canvas at `z-index:2` (its own log line states both), so
+        // the freshly activated BIM view was rendering UNDERNEATH the site view. A no-op and a
+        // covered success are indistinguishable to the user, which is why this read as "dead".
+        //
+        // ⭐ AND THE ORCHESTRATOR HE ASKED FOR ALREADY EXISTS — this route just never used it.
+        // `activateView` in `GISAreaLayout` calls itself *"THE CHOKE POINT. This is the ONE
+        // function every route into a PRYZM view lands on"* and names its four callers. This rail
+        // was a FIFTH route, and it went straight to `ViewController` — so it inherited neither
+        // the GIS exit (`if (_gisActive) toggleGIS(false)`) nor the legacy-bar retirement that
+        // choke point performs. Adding the exit here as a second copy would have made a sixth
+        // opinion about entering a BIM view; dispatching the declared global keeps ONE.
+        //
+        // ⚠ CALLED UNCONDITIONALLY AND THAT IS SAFE BY CONSTRUCTION: `activateView` opens with
+        // `if (_gisActive) toggleGIS(false)`, so when GIS is already off this contributes nothing
+        // but the view switch the rail wanted anyway. `ViewController`'s own re-entry guard (the
+        // one above this block) is what stops the pair double-activating.
+        //
+        // ⛔ THE DEFINITION ID IS STILL SET HERE, AFTER. `activateView` routes by MODE ('3D' /
+        // 'Top') and knows nothing about WHICH definition the user picked — the 3rd view and the
+        // 1st are both mode '3D'. Dropping this call would open a 3D view but lose the identity of
+        // the one he clicked.
+        const targetBimMode: 'Top' | '3D' | null =
+            (['plan', 'ceiling-plan', 'structural-plan'] as ReadonlyArray<ViewDefinition['viewType']>)
+                .includes(viewType) ? 'Top'
+                : viewType === '3d' ? '3D'
+                : null;
+        if (targetBimMode !== null && typeof window.pryzmActivateBimView === 'function') {
+            try {
+                void Promise.resolve(window.pryzmActivateBimView(targetBimMode)).catch((e: unknown) => {
+                    console.warn('[ViewsRailPanel] §ONE-ORCHESTRATOR the GIS exit rejected — the '
+                        + 'view switch below still ran, but the site surface may still be on top:', e);
+                });
+            } catch (e) {
+                // ⛔ NEVER BLOCK THE SWITCH ON THE EXIT. A throw here must not cost the user the
+                // view they clicked; it is reported and the ordinary route continues.
+                console.warn('[ViewsRailPanel] §ONE-ORCHESTRATOR pryzmActivateBimView threw '
+                    + '(non-fatal, continuing to the view switch):', e);
+            }
+        }
+
         window.viewController?.setActiveViewDefinitionId(viewId); // TODO(D.4): legacy viewController — replace with runtime.viewRegistry controller
         this._props.onViewSelect(obcId);
         this._activeViewId = viewId;
