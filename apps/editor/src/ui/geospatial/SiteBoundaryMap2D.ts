@@ -2848,6 +2848,42 @@ export function mountSiteBoundaryMap2D(
         hideParcelCard();
         refreshRing();
         commit();
+        // ⭐⭐ §PARCEL-OPENS-THE-SITE-TAB (L-13255) — FOUNDER: *"when the user select the parcel the
+        // site tab (top) shall open to start the first iteration of reviewing the parcel data"*.
+        //
+        // ⛔ GATED ON `committed`, NEVER ON REACHING THIS LINE. `commit()` has four refusal arms
+        // above it — fewer than three corners, no site context, the C19 §1.4 one-shot already
+        // authored elsewhere, a rejected boundary dispatch — and it sets `committed` only on the
+        // path that actually landed. Navigating unconditionally would take him to a tab to review
+        // a parcel that was never committed, which is worse than staying put: the Site tab would
+        // be showing the PREVIOUS plot's data under a gesture that appeared to succeed.
+        //
+        // ⛔ AND IT IS A TAB SWITCH, NOT A LAYOUT DECISION. `setMode` runs its own `_applyLayout()`
+        // (see `landInBimAfterCreateHouse.ts`, the precedent this follows) — this deliberately does
+        // NOT also arrange panes. The founder asked to be TAKEN to the review surface, not to have
+        // his split rearranged underneath him.
+        if (committed) {
+            try {
+                const w = window as unknown as {
+                    workspaceController?: { setMode?(mode: string): void };
+                };
+                if (typeof w.workspaceController?.setMode === 'function') {
+                    w.workspaceController.setMode('site');
+                    console.log('[gis] map2d §PARCEL-OPENS-THE-SITE-TAB — parcel committed; '
+                        + 'opening the Site tab for the first review pass.');
+                } else {
+                    // ⛔ NAMED, NEVER SILENT. A missing controller means the founder stays on the
+                    // tab he was on with no explanation, and the next reader needs to know why.
+                    console.warn('[gis] map2d §PARCEL-OPENS-THE-SITE-TAB — the parcel committed but '
+                        + '`window.workspaceController.setMode` is not registered in this '
+                        + 'workspace, so the Site tab was not opened. The commit itself stands.');
+                }
+            } catch (e) {
+                // A navigation convenience must never be able to break the commit it follows.
+                console.warn('[gis] map2d §PARCEL-OPENS-THE-SITE-TAB — opening the Site tab threw '
+                    + '(non-fatal; the parcel is committed):', e);
+            }
+        }
     }
 
     // ── MAP-DATA-OVERTURE — load richer OSM/Overture footprints for the centre. ──

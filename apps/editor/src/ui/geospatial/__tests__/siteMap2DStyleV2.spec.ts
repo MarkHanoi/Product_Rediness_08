@@ -384,6 +384,27 @@ describe('§MAP2D-PASTEL — ARM 2: the parcel + boundary path is untouched', ()
      * `chip.textContent =` therefore leaves the top stack measured against the WRONG banner state
      * and the pill off-centre — exactly the defect §PANE-CENTRED-REDRAW removed.
      */
+    /**
+     * ⭐⭐ §PARCEL-OPENS-THE-SITE-TAB (L-13255) — the navigation must be GATED ON THE COMMIT.
+     *
+     * FOUNDER: *"when the user select the parcel the site tab (top) shall open"*. `commit()` has
+     * four refusal arms — under three corners, no site context, the C19 §1.4 one-shot already
+     * authored elsewhere, a rejected boundary dispatch — and sets `committed` only on the path
+     * that landed. An UNGATED `setMode('site')` would take him to a review surface showing the
+     * PREVIOUS plot's data after a gesture that appeared to succeed, which is worse than staying
+     * put. The byte pin above goes green the moment this commits; this arm is what survives it.
+     */
+    it('⭐ the Site-tab open is gated on `committed`, and cannot precede the commit', () => {
+        const fn = extractFunction(workingSource, 'useSelectedParcel');
+        expect(fn).toContain("setMode('site')");
+        // The guard exists, and the commit happens BEFORE it — a navigation that ran first would
+        // be reading `committed` from the PREVIOUS gesture.
+        expect(fn).toMatch(/commit\(\);[\s\S]*if \(committed\)/);
+        // ⛔ And it is not reachable on any other path through this function.
+        const guardAt = fn.indexOf('if (committed)');
+        expect(fn.indexOf("setMode('site')")).toBeGreaterThan(guardAt);
+    });
+
     it('⛔ every chip write goes through setChip() — only the constructor may assign directly', () => {
         const writes = workingSource.match(/chip\.textContent\s*=/g) ?? [];
         // Two, and only two: the element's initial text at construction, and setChip's own line.
