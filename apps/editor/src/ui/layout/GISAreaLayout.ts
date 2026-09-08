@@ -266,6 +266,7 @@ import {
     mountViewSwitcherPill,
     type ViewSwitcherPillHandle,
 } from '../../engine/views/ViewSwitcherPill';
+import { resolveSwitcherTopPx, type Box } from '../../engine/views/viewRegionSwitcher';
 import { mountViewSegmentSwitcher } from '../site/viewSegmentSwitcher';
 // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — the deferred subscription helper. Used here
 // rather than a bare `runtime?.events?.on(...)` because the LIVE boot path constructs this
@@ -1918,6 +1919,36 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // ══════════════════════════════════════════════════════════════════════════
     let pryzmViewPill: ViewSwitcherPillHandle | null = null;
 
+    /**
+     * §ONE-REGION-SWITCHER (L-13257) — where the pill clears the app's floating chrome.
+     *
+     * The DECISION is pure and lives in `resolveSwitcherTopPx`; this function only supplies
+     * the MEASUREMENTS, which is the split that keeps the rule testable. The obstacle list is
+     * the two pieces of chrome that float over `#container`'s top band: the centred mode-bar
+     * wrapper and the platform toolbar.
+     *
+     * ⚠ A missing node contributes NOTHING, not a zero box at the origin — an absent obstacle
+     * that reads as "present at y=0" would displace every pill by the clearance for no reason.
+     * `resolveSwitcherTopPx` also rejects zero-area boxes, so this is belt AND braces: in
+     * happy-dom every rect is all-zero and the pill must still sit at its default.
+     */
+    const pryzmPillTopPx = (viewport: HTMLElement): number => {
+        const boxOf = (sel: string): Box | null => {
+            const el = document.querySelector(sel);
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            return { top: r.top, bottom: r.bottom, left: r.left, right: r.right };
+        };
+        const v = viewport.getBoundingClientRect();
+        const obstacles = ['.wmb-toplevel-wrapper', '.plat-toolbar']
+            .map(boxOf)
+            .filter((b): b is Box => b !== null);
+        return resolveSwitcherTopPx(
+            { top: v.top, bottom: v.bottom, left: v.left, right: v.right },
+            obstacles,
+        );
+    };
+
     const removePryzmViewPill = (): void => {
         if (!pryzmViewPill) return;
         try { pryzmViewPill.dispose(); } catch (e) { console.warn('[gis] §ONE-VIEW-SWITCHER pill dispose failed (non-fatal):', e); }
@@ -1933,6 +1964,27 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             pryzmViewPill = mountViewSwitcherPill({
                 parent: viewport,
                 corner: 'top-center', // founder 2026-09-07: *"THEY NEED TO BE CENTERED."*
+                // ══════════════════════════════════════════════════════════════
+                // §ONE-REGION-SWITCHER (founder 2026-09-08 · L-13257)
+                //
+                // ⭐⭐ THE PILL WAS ALWAYS HERE. THE FOUNDER COULD NOT SEE IT.
+                // His screenshot of the PRYZM split shows NO dropdown on the model
+                // half, and the natural reading — "it was never mounted on this
+                // view" — is WRONG. It mounts, at `top: 10` of `#container`. But
+                // `#container` starts at the WINDOW's top edge, and
+                // `.wmb-toplevel-wrapper` (`Site · Author · Inspect · Analysis ·
+                // Data`, `DockingLayout.ts:195`) floats over that same band,
+                // horizontally CENTRED — exactly where a `top-center` pill sits.
+                // The site panes escape this only because they BEGIN below that
+                // bar, which is why his second screenshot shows both pills.
+                //
+                // ⛔ SO THIS IS NOT A CONSTANT. `resolveSwitcherTopPx` is handed
+                // the MEASURED boxes and decides; a number tuned to today's mode
+                // bar would rot the moment the bar gains a row, and Inspect mode
+                // already re-centres that wrapper to `left: 25%`, which changes
+                // whether it overlaps at all.
+                // ══════════════════════════════════════════════════════════════
+                topPx: pryzmPillTopPx(viewport),
                 idSuffix: 'pryzm',
                 label: () => pryzmViewPillLabel(props._viewController?.currentMode ?? null),
                 limitNote: PRYZM_VIEW_PANE_LIMIT_NOTE,

@@ -35,6 +35,11 @@ import { getFrameScheduler } from '@pryzm/frame-scheduler';
 // split DECLARES its fraction of the view region; the owner derives every box from it.
 // ⛔ Nothing in this file may write `#container`'s box again. See `_buildDOM`.
 import { setViewRegionSplit } from '@app/ui/layout/viewRegionGeometry';
+// §ONE-REGION-SWITCHER (L-13257) — the ONE switcher component and the region census.
+import { mountViewSwitcherPill, type ViewSwitcherPillHandle } from './ViewSwitcherPill';
+import { resolveSwitcherTopPx, PRYZM_PLAN_PANE_LIMIT_NOTE } from './viewRegionSwitcher';
+import { mountViewSegmentSwitcher } from '@app/ui/site/viewSegmentSwitcher';
+import type { GisCapabilityHost } from '@app/ui/gis/gisActionRegistry';
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
 import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 import { DEFAULT_PLAN_VIEW_ID } from '@pryzm/core-app-model';
@@ -107,6 +112,8 @@ export class SplitViewManager implements ISplitViewManager {
     private _gridToggleBtn:   HTMLElement | null = null;
     /** View-type selector — lets the user switch between plan/section/elevation/RCP. */
     private _viewSelect:      HTMLSelectElement | null = null;
+    /** §ONE-REGION-SWITCHER (L-13257) — this region's ONE view control. */
+    private _regionPill: ViewSwitcherPillHandle | null = null;
     private _viewHeaderHandle: ViewHeaderButtonsHandle | null = null;
     /** Public accessor — used by remote-sync handlers to refresh header state. */
     get viewHeaderHandle(): ViewHeaderButtonsHandle | null { return this._viewHeaderHandle; }
@@ -460,9 +467,24 @@ export class SplitViewManager implements ISplitViewManager {
         // §ONE-VIEW-SWITCHER gives the `ViewSwitcherPill`, and THIS pane, which has carried
         // this select since it replaced the static "Floor Plan" label.
         //
-        // ⛔ SO NO SECOND DROPDOWN IS ADDED HERE, DELIBERATELY. Mounting the founder's six
-        // beside this one would put two view controls over one pane — the exact stack he
-        // photographed and ruled on (*"keep the one, the formal and more robust only"*).
+        // ⛔⛔ SUPERSEDED 2026-09-08 BY §ONE-REGION-SWITCHER (L-13257). THE PARAGRAPH BELOW
+        // WAS RIGHT ABOUT THE COUNT AND WRONG ABOUT THE FORM, AND THAT DISTINCTION IS THE
+        // WHOLE LESSON. It read: *"SO NO SECOND DROPDOWN IS ADDED HERE, DELIBERATELY.
+        // Mounting the founder's six beside this one would put two view controls over one
+        // pane — the exact stack he photographed and ruled on."* Adding a second control
+        // WAS the wrong move and still is. But the conclusion drawn from it — leave this
+        // one as it is — left this region carrying a NATIVE `<select>` sunk in a grey
+        // uppercase 36 px header while every other region carried a white/violet centred
+        // pill. The founder photographed exactly that and named it *"the legacy style"*.
+        //
+        // ⭐ THE FIX IS NEITHER "ADD A PILL BESIDE IT" NOR "LEAVE IT": the select is
+        // RE-PARENTED INTO the pill's popup. The count stays ONE, the form becomes the
+        // shared one, and the pane gains the founder's six — which it never had, so
+        // reaching 2D Site Map from the plan pane needed a different surface entirely.
+        //
+        // ⚠ A COUNT INVARIANT CANNOT SEE A FORM DIVERGENCE. `oneViewSwitcher.spec.ts`
+        // ARM K asserted the count and passed throughout. `viewRegionSwitcherCoverage()`
+        // (`viewRegionSwitcher.ts`) adds the second axis so the next one fails a spec.
         //
         // ⚠ AND IT SWITCHES AT A DIFFERENT GRANULARITY, WHICH IS WHY IT IS NOT REDUNDANT
         // WITH THE PILL. The pill chooses among the founder's six top-level views; this
@@ -489,7 +511,22 @@ export class SplitViewManager implements ISplitViewManager {
         this._viewSelect = viewSel;
 
         titleGroup.appendChild(dot);
-        titleGroup.appendChild(viewSel);
+        // ══════════════════════════════════════════════════════════════════════
+        // §ONE-REGION-SWITCHER (founder 2026-09-08 · L-13257) — THE SELECT MOVES
+        // INTO THE PILL. It is NOT appended to `titleGroup` any more; `_mountRegionPill()`
+        // (called once the pane is in the document) re-parents it into the pill's popup
+        // under a "This pane" group. The header keeps the dot and the PROPERTIES toolbar
+        // (Grid · IFC · V/G · Intent · Range), which switches no view — C59 §6, a
+        // different concern, untouched by this lane exactly as `oneViewSwitcher.spec.ts`
+        // ARM K requires.
+        //
+        // ⚠ THE ELEMENT IS REUSED, NOT REBUILT. `_buildViewSelectOptions`,
+        // `viewSelectRepopulate`, the `.value` syncs in `setPlanViewId` and the
+        // store-driven refresh all address `this._viewSelect` and keep working
+        // unchanged. Rebuilding the control as pill rows would have been a SECOND
+        // definition of the view-definition list, which is the defect this lane exists
+        // to remove, arriving under its own fix.
+        // ══════════════════════════════════════════════════════════════════════
 
         // ══════════════════════════════════════════════════════════════════════
         // §BIM-3D-CHROME-QUIET (founder 2026-09-07 · L-13027 · L-13084 · C59 §2.10.3)
@@ -600,6 +637,11 @@ export class SplitViewManager implements ISplitViewManager {
         pane.appendChild(canvasWrap);
         document.body.appendChild(pane);
 
+        // §ONE-REGION-SWITCHER (L-13257) — the pane is IN the document, so the header has a
+        // real box and the pill can be placed below it by measurement rather than by a
+        // constant that would rot the moment the header gains a row.
+        this._mountRegionPill(pane, header);
+
         // ── Divider ───────────────────────────────────────────────────────────
         const divider = document.createElement('div');
         divider.className = 'svp-divider';
@@ -651,6 +693,86 @@ export class SplitViewManager implements ISplitViewManager {
         this._resizeObserver.observe(pane);
     }
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // §ONE-REGION-SWITCHER (founder 2026-09-08 · L-13257 · C59 §1.4 / §6)
+    //
+    // *"the way the user can change a view should always be robust and the same - drop down
+    // on the middle of the view already implemented but not always implemented - on pryzm
+    // view (check first image) we still have the legacy style"*.
+    //
+    // ⭐ THIS PANE IS THE "LEGACY STYLE" IN THAT SCREENSHOT, and it is now the same pill as
+    // every other view region — `VIEW_REGION_REGISTRY['pryzm-plan-pane']` declares it.
+    //
+    // TWO GROUPS IN ONE POPUP, because this region genuinely switches at TWO granularities
+    // and the founder named both in the same sentence (*"3d pryzm views, plan view pryzm,
+    // elevations, sections etc... per level"*):
+    //   · THE SIX — `mountViewSegmentSwitcher`, the ONE definition of the founder's views,
+    //     already hosted by `ViewSwitcherPill` on `#container`. Same rows, same order, same
+    //     dispatch. This pane could not reach them at all before.
+    //   · THIS PANE — the existing `<select>`, RE-PARENTED. Which plan, which section, which
+    //     elevation. C59 §1.1 records that per-pane view state is Phase 3; until then this
+    //     select is where a view-definition id lives, and moving it is cheaper AND safer than
+    //     minting pill rows that would be a second copy of the same list.
+    //
+    // ⛔ THE LIMIT IS PRINTED, NOT HIDDEN (STR §26.1.1). Choosing 3D Site here leaves the
+    // split, because this pane is Canvas2D and not a `PaneHost` (C59 §3 Phase 4). The pill
+    // says so under the menu rather than surprising the user after the click.
+    // ═════════════════════════════════════════════════════════════════════════
+    private _mountRegionPill(pane: HTMLElement, header: HTMLElement): void {
+        try {
+            const paneBox = pane.getBoundingClientRect();
+            const hdr = header.getBoundingClientRect();
+            const top = resolveSwitcherTopPx(
+                { top: paneBox.top, bottom: paneBox.bottom, left: paneBox.left, right: paneBox.right },
+                [{ top: hdr.top, bottom: hdr.bottom, left: hdr.left, right: hdr.right }],
+            );
+            this._regionPill = mountViewSwitcherPill({
+                parent: pane,
+                corner: 'top-center',
+                topPx: top,
+                idSuffix: 'svp',
+                // ⚠ A READING OF THE ONE CONTROL, never a remembered string. The select's own
+                // selected option is the authority for what this pane is drawing; a pill that
+                // cached its last click would assert a view it never checked (L-13002).
+                label: () => {
+                    const sel = this._viewSelect;
+                    const text = sel?.selectedOptions?.[0]?.textContent?.trim();
+                    return text && text.length > 0 ? text : null;
+                },
+                limitNote: PRYZM_PLAN_PANE_LIMIT_NOTE,
+                mountMenu: (body) => {
+                    const six = mountViewSegmentSwitcher(window as unknown as GisCapabilityHost);
+                    body.appendChild(six.element);
+                    const group = document.createElement('div');
+                    group.setAttribute('data-testid', 'svp-region-pill-definitions');
+                    group.style.cssText =
+                        'margin-top:8px;padding-top:8px;border-top:1px solid #efecf7;'
+                        + 'display:flex;flex-direction:column;gap:5px;';
+                    const cap = document.createElement('div');
+                    // No px font size — §ONE-TYPE-BASE; the pill's root sets the base and a
+                    // WCAG 2.2 AA floor already sits under it (the `panelFold.ts` lesson).
+                    cap.style.cssText = 'font-weight:600;color:#6600FF;';
+                    cap.textContent = 'This pane';
+                    group.appendChild(cap);
+                    if (this._viewSelect) group.appendChild(this._viewSelect);
+                    body.appendChild(group);
+                    return { repaint: () => six.repaint(), dispose: () => six.dispose() };
+                },
+            });
+        } catch (e) {
+            // ⛔ A pill that cannot build must not take the plan pane down with it. The pane
+            // still renders and the select still exists — it is simply not re-parented, so
+            // the fallback below puts it back on the face of the header rather than orphaning
+            // the only view-definition control this pane has.
+            console.warn('[svp] §ONE-REGION-SWITCHER pill mount failed (non-fatal):', e);
+            this._regionPill = null;
+            const title = header.querySelector('.svp-header-title');
+            if (title && this._viewSelect && !this._viewSelect.isConnected) {
+                title.appendChild(this._viewSelect);
+            }
+        }
+    }
+
     private _teardownDOM(): void {
         this._canvas?.removeEventListener('wheel', this._boundWheel);
         this._canvas?.removeEventListener('mousedown', this._boundMouseDown);
@@ -677,6 +799,10 @@ export class SplitViewManager implements ISplitViewManager {
         this._pane           = null;
         this._canvas         = null;
         this._gridToggleBtn  = null;
+        // §ONE-REGION-SWITCHER (L-13257) — dispose BEFORE dropping the select reference:
+        // the select now lives inside the pill's popup, so the pill owns that subtree.
+        try { this._regionPill?.dispose(); } catch (e) { console.warn('[svp] region pill dispose failed (non-fatal):', e); }
+        this._regionPill     = null;
         this._viewSelect     = null;
         this._divider        = null;
 

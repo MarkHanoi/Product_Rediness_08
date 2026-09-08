@@ -559,10 +559,13 @@ describe('§ONE-VIEW-SWITCHER · ARM J — the pill is mounted where the rows re
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════
-// ARM K — THE RIGHT-HAND BAR IS VIEW **PROPERTIES**, AND THE PLAN PANE ALREADY HAS ITS ONE
-// DROPDOWN. Both are DECISIONS this lane took and did not act on; an arm keeps them from
-// being quietly reversed in either direction — a future "consolidation" deleting the plan
-// pane's select, or a future "uniformity" pass stacking a second switcher beside it.
+// ARM K — THE RIGHT-HAND BAR IS VIEW **PROPERTIES**, AND THE PLAN PANE KEEPS ONE VIEW
+// CONTROL. An arm keeps both from being quietly reversed — a future "consolidation" deleting
+// the plan pane's select, or a future "uniformity" pass stacking a second switcher beside it.
+//
+// ⚠ AMENDED 2026-09-08 (§ONE-REGION-SWITCHER, L-13257). The properties half is UNCHANGED and
+// still holds. The plan-pane half said the select should stay AS IT WAS; the founder overruled
+// that on FORM, and the select now lives inside the shared pill. See the note on the arm.
 // ═════════════════════════════════════════════════════════════════════════════════════════
 describe('§ONE-VIEW-SWITCHER · ARM K — the plan pane keeps ONE view control, and its toolbar is properties', () => {
     const SVM = read('apps/editor/src/engine/views/SplitViewManager.ts');
@@ -573,15 +576,46 @@ describe('§ONE-VIEW-SWITCHER · ARM K — the plan pane keeps ONE view control,
         expect(built.length).toBe(1);
     });
 
-    it('⛔ and NO second switcher is mounted into it (that is the L-13015 stack, one level down)', () => {
-        for (const rival of [
-            'mountViewSwitcherPill',
-            'mountSiteViewQuickToggle',
-            'mountViewSegmentSwitcher',
-            'mountPaneViewPicker',
-        ]) {
+    // ═════════════════════════════════════════════════════════════════════════════════════
+    // ⛔ AMENDED 2026-09-08 BY §ONE-REGION-SWITCHER (L-13257) — THE INTENT SURVIVES, THE
+    // CONCLUSION DOES NOT, AND THE DIFFERENCE IS THE LESSON.
+    //
+    // This arm used to read: *"NO second switcher is mounted into it"*, enforced by asserting
+    // that `SplitViewManager` contains none of `mountViewSwitcherPill`,
+    // `mountSiteViewQuickToggle`, `mountViewSegmentSwitcher`, `mountPaneViewPicker`.
+    //
+    // ⭐ THE INTENT — never TWO view controls over one region — IS STILL RIGHT AND IS STILL
+    // ENFORCED, below. What was wrong was inferring from it that the pane's control must stay
+    // as it was. The founder photographed the result: every other region carried a centred
+    // white/violet pill and this one carried a native `<select>` sunk in a grey uppercase
+    // header — *"we still have the legacy style"*.
+    //
+    // ⛔ THE ORIGINAL ASSERTION COULD NOT HAVE CAUGHT THAT, BY CONSTRUCTION. It measured the
+    // COUNT of controls; the defect was their FORM. A count invariant is blind to a form
+    // divergence, so this arm passed for the whole period the divergence shipped. The second
+    // axis lives in `viewRegionSwitcher.spec.ts` (`viewRegionSwitcherCoverage`), and the
+    // amendment here is to measure the count in a way that survives the select MOVING.
+    // ═════════════════════════════════════════════════════════════════════════════════════
+    it('⛔ still exactly ONE view control — the select is RE-PARENTED, not duplicated', () => {
+        // The stack this originally guarded against (L-13015) is a pill mounted BESIDE a
+        // select that stays in the header. That is still forbidden, and this is what it
+        // would look like: the header append coming back while the pill also mounts.
+        expect(SVM).toContain('mountViewSwitcherPill');
+        expect(SVM).not.toContain('titleGroup.appendChild(viewSel)');
+        // And still only one select is BUILT — a pill that minted its own rows for the same
+        // view definitions would be a second list of the same thing.
+        expect((SVM.match(/viewSel\.className = 'svp-view-select'/g) ?? []).length).toBe(1);
+    });
+
+    it('⛔ and no OTHER switcher component is stacked into the pane', () => {
+        for (const rival of ['mountSiteViewQuickToggle', 'mountPaneViewPicker']) {
             expect(SVM.includes(rival), `SplitViewManager must not host ${rival}`).toBe(false);
         }
+        // `mountViewSegmentSwitcher` IS hosted now — but INSIDE the pill's popup, which is
+        // the same re-hosting `ViewSwitcherPill` already does on `#container`. Pinned so the
+        // exception stays deliberate rather than becoming a loophole.
+        expect(SVM).toContain('mountViewSegmentSwitcher');
+        expect(SVM).toContain('_mountRegionPill');
     });
 
     it('the DECISION is written where the control is, not only in a report', () => {
@@ -589,6 +623,9 @@ describe('§ONE-VIEW-SWITCHER · ARM K — the plan pane keeps ONE view control,
         // Both halves of it: why one is enough, and what this pane genuinely cannot do.
         expect(SVM).toMatch(/SWITCHER COUNT == VISIBLE VIEW-REGION COUNT/);
         expect(SVM).toMatch(/cannot host the 3D Site/);
+        // ⭐ And the supersession is recorded beside the superseded reasoning, not only here.
+        expect(SVM).toContain('§ONE-REGION-SWITCHER');
+        expect(SVM).toMatch(/SUPERSEDED 2026-09-08/);
     });
 
     it('⭐ the right-hand toolbar switches NO view — it is Grid / IFC / V-G / Range / Close', () => {
