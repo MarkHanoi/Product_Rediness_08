@@ -1795,6 +1795,40 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // and undispatchable at the composed runtime — the trap that hid pool (L-5200),
     // lift (L-5700), lighting, section (L-9922) and bathroomPod (§BATH102).
     const spaceEnvelopeStore: PluginDtoStoreHandle | undefined = inner.stores?.['spaceEnvelope'];
+    // ⛔⛔ §PLUGIN-DTO-STORES-ARE-PROJECT-SCOPED (L-13247 · C13 §3 · C45) — THE EIGHT
+    // FAMILIES BELOW WERE CLEARED BY NOTHING ON A PROJECT SWITCH, AND THE SERIALIZER
+    // WROTE THEM INTO WHATEVER PROJECT WAS OPEN NEXT.
+    //
+    // `ClearProjectCommand` clears ~16 hand-written element stores and then calls
+    // `projectScopeRegistry.clearAll()` — which C45 added precisely to close the gap
+    // between the serializer's ~34 stores and that hand-written list. These eight are
+    // in NEITHER: not hand-written (they are new-style plugin DTO stores, not
+    // `window.<x>Store` globals) and never registered here. Measured on the founder's
+    // Dubai session: a BRAND-NEW project logged `Loading 0 walls` / `Load complete: 0
+    // loaded` and then drew `15/15 authored envelope(s)` from the PREVIOUS project,
+    // the C13 audit reported `scene.foreignElement×16`, and the very next auto-save
+    // wrote `Snapshot created: 15 elements` — so the leak did not stay on screen, it
+    // was PERSISTED into the new project. A render artefact would have been a bug; a
+    // save is data loss in the other project's file.
+    //
+    // ⭐ REGISTERED HERE, WHERE THE EIGHT KEYS ALREADY LIVE, so the list cannot rot:
+    // this is the same array the UNREADABLE warning below iterates, so a ninth family
+    // added to it is project-scoped on the same line that makes it reachable. That is
+    // the "derive, not re-list" shape C45 asked for — a second hand-written list in
+    // `ClearProjectCommand` would be the ninth rival list, and the reason this class
+    // of defect keeps recurring.
+    //
+    // ⚠ `clear()` COMES FROM THE `Store` BASE, NOT FROM `PluginDtoStoreHandle` — that
+    // interface declares only `getState()`, so the capability is probed rather than
+    // assumed. A store that cannot clear is NAMED at boot instead of silently skipped:
+    // a family that stays dirty across a switch is exactly this bug again, and it must
+    // not be able to arrive quietly a second time.
+    // ⚠ THE SUBPATH, NOT THE BARREL — `@pryzm/core-app-model/persistence`, the same
+    // shape as the `…/store-registry` import above. Reaching the package root here
+    // would pull the whole barrel onto the compose path at module load, which is the
+    // circular-import → `undefined` → white-screen failure recorded in
+    // [[scc-no-barrel-access-at-module-load]].
+    const { projectScopeRegistry } = await import('@pryzm/core-app-model/persistence');
     if (inner.stores !== undefined) {
       for (const [key, value] of [
         ['bathroomPod', bathroomPodStore],
@@ -1806,6 +1840,22 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         ['component', componentStore],
         ['spaceEnvelope', spaceEnvelopeStore],
       ] as const) {
+        if (value !== undefined) {
+          const clearable = value as unknown as { clear?: () => void };
+          if (typeof clearable.clear === 'function') {
+            projectScopeRegistry.register({
+              scopeName: `pluginDtoStore:${key}`,
+              clear: () => { clearable.clear!(); },
+            });
+          } else {
+            console.error(
+              `[runtime-composer] §PLUGIN-DTO-STORES-ARE-PROJECT-SCOPED: the \`${key}\` store ` +
+              'exposes no clear(), so it CANNOT be registered as project-scoped and its records ' +
+              'will survive a project switch and be written into the next project by the ' +
+              'serializer (L-13247). This is a leak, not a limitation — give the store a clear().',
+            );
+          }
+        }
         if (value === undefined) {
           // The data half ran and still did not contribute the key — that is a
           // missing `PluginRegistry` descriptor, not a headless stub. Named at boot,
