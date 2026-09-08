@@ -186,3 +186,59 @@ user opens on demand"* ask, and it is the thing he has now asked for twice:
 - The three-envelope-category taxonomy (§4c) — needs the founder's ruling on whether `permitted`
   belongs in the Project Browser tree.
 - True-height buildings adapting to the scope bar (§4d).
+
+---
+
+## 8. ⭐⭐ §ONE-VIEW-SWITCHER — THE FOUNDER'S #1 ASK, DIAGNOSED TO THE LINE, NOT BUILT
+
+**He has now asked THREE times** (*"I requested that already - i want always the same drop
+down"*). Do this first. The diagnosis below is complete — no re-investigation needed.
+
+### What he wants (his four screenshots)
+- **WRONG (images 1–2):** in the PRYZM/BIM canvas he gets a horizontal SEGMENTED STRIP —
+  `[2D Site Map][2D Satellite][3D Site][3D Globe][3D PRYZM][2D PRYZM]` + a `Current view: … (read
+  at 11:57:38 AM — a snapshot…)` line + a full-width `⊞ Split` button — plus the legacy top bar
+  (`Level 6` · Grid · IFC · V/G · INTENT · Architectural Docume… · Range · ✕).
+- **RIGHT (images 3–4):** the PILL — a small centred `▪ 2D Site Map ▾` on the left pane and
+  `● 3D Site ▾` on the right — opening the rich popup: **SHOW IN THIS PANE** (the six, each with
+  its own explanation, including the honest "there is only one cesium instance, so the two panes
+  SWAP" note), **MORE VIEWS** (Elevation, Section), then ⇄ Swap panes · ⛶ Full screen · ◧ Back to
+  split · × Empty this pane.
+- **And he wants it EXTENDED:** *"on pryzm view this drop down shall extend to level views also
+  and elevations"*.
+
+### The measured cause — THREE different switchers, and the retirement only covers two
+1. **The pill (correct)** is `mountPaneViewPicker` (`engine/views/PaneViewPicker.ts`), mounted
+   **ONLY** by `engine/views/SiteAuthoringPaneShell.ts:606-607` (`corner:'top-center'`, one per
+   pane). That is why it exists during site authoring and nowhere else.
+2. **`§ONE-VIEW-SWITCHER` (L-13160) ALREADY SHIPPED, PARTIALLY.**
+   `engine/views/legacyViewSwitcherRetirement.ts` is a complete, excellent model of this exact ask
+   (it quotes the founder verbatim) and IS wired — `GISAreaLayout.ts:1649` calls
+   `retireLegacyViewBars` from `activateView`, and `:2053` from `applyBimDualPane`; it mounts a
+   centred `ViewSwitcherPill` via `ensurePryzmViewPill` (`GISAreaLayout.ts:1930+`).
+   ⛔ **But `retireLegacyViewBars` only removes `resultToggle` and `formaToggle`.**
+3. **THE STRIP IN HIS SCREENSHOT IS NEITHER OF THOSE.** It is `viewSegmentSwitcher.ts` (its
+   `Current view: … a snapshot; press a segment` copy is at `viewSegmentSwitcher.ts:334`), and it
+   is mounted by **`ui/analysis/parcelLawTab.ts`** — `mountSwitcher: mountViewSegmentSwitcher`
+   (`:607`), invoked at `:882-892` under a comment that reads *"SAME CONTROL, DIFFERENT PLACE"*.
+   **Nothing retires it**, so it rides into the PRYZM views with the Parcel Law panel.
+
+### The work
+- Make the Parcel Law tab's switcher placement use the PILL, not the segmented strip — or have
+  `retireLegacyViewBars` also stand the strip down on `pryzm-view` (it already stands the pill
+  down when a bar owns the region: `mountResultToggleBar` calls `removePryzmViewPill()` at
+  `GISAreaLayout.ts:2215`, so the "one region, one switcher" convention to follow is established).
+- Extend the popup to LEVEL views and ELEVATIONS. `paneViewOptions.ts` already has a **MORE VIEWS**
+  section carrying Elevation and Section, and `PaneViewPicker.ts:567` renders it — so this is
+  extending an existing section, NOT a new table. ⛔ `viewPanelOptions()` is the ONE definition of
+  the six; do not mint a seventh copy (the retirement file says so explicitly).
+- ⛔ **KEEP** `SplitViewManager.ts:454-462`'s `Ground Fl…` view-definition select until the
+  dropdown genuinely reaches sections/elevations — it is currently the ONLY route to them, and
+  `shellFloatBudget.spec.ts:317-320` fails closed on it.
+- The guard suite already exists: `engine/__tests__/oneViewSwitcher.spec.ts`.
+
+### Why it was not built this session
+Diagnosed at the very end, with the session's credit budget essentially spent. Starting the edit
+without room to run `oneViewSwitcher.spec.ts` + the shell-float budget spec + a deploy would have
+left a half-wired switcher on the founder's critical path — the same "authored but unwired" shape
+this file already records twice. **The analysis above is the expensive part and it is done.**
