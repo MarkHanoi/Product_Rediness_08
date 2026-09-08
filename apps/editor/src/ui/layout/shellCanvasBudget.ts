@@ -47,6 +47,11 @@
  * defect shape this file was extracted to avoid.
  */
 
+import {
+    VIEW_REGION_REGISTRY,
+    listViewRegions,
+} from '../../engine/views/viewRegionSwitcher';
+
 /** Fallbacks when there is no measurable canvas — see `NO CANVAS` below. */
 const VIEWPORT_CENTRE = '50%';
 const VIEWPORT_WIDTH = '100vw';
@@ -74,23 +79,52 @@ export function publishShellCanvasRegion(): void {
         const body = document.body;
         if (!body) return;
 
-        const canvas = document.getElementById('container');
         const vw = typeof window === 'undefined' ? 0 : window.innerWidth || 0;
 
         let cx = VIEWPORT_CENTRE;
         let w = VIEWPORT_WIDTH;
 
-        // `getBoundingClientRect` is absent on some non-element hosts and in
-        // trimmed test DOMs; treat its absence as "unmeasurable", not as a fault.
-        if (canvas && vw > 0 && typeof canvas.getBoundingClientRect === 'function') {
-            const r = canvas.getBoundingClientRect();
-            // A hidden or not-yet-laid-out canvas measures 0 and must NOT produce
-            // a budget of `0%` — every bar would pile up on the left edge.
-            // Falling back is the honest answer to "there is no canvas region".
-            if (r.width > 0) {
-                cx = `${(((r.left + r.width / 2) / vw) * 100).toFixed(3)}%`;
-                w = `${((r.width / vw) * 100).toFixed(3)}vw`;
-            }
+        // ══════════════════════════════════════════════════════════════════
+        // §SHELL-CX-IS-THE-WHOLE-REGION (founder 2026-09-08 · L-13259 · C59 §2.10)
+        //
+        // *"please center on the view the full scope under the green rectangle"* — his
+        // green box is the mode bar, sitting over the LEFT HALF of a 3D + plan split
+        // instead of over the pair.
+        //
+        // ⛔ THE CAUSE: this function measured `#container` ALONE. `#container` is the
+        // BIM canvas, and under a split `SplitViewManager` sizes it to the split ratio —
+        // so the bar centred on 60% of the region and drifted left by design. That is
+        // right for a whole-screen canvas and wrong for every split, which is why it
+        // looked correct until the founder opened one.
+        //
+        // ⭐ THE VIEW REGION IS THE UNION OF THE VISIBLE VIEW REGIONS, and C59 §2.10
+        // already says so: the mode SIZES the region, the split DIVIDES it. A bar that
+        // centres on one pane is centring on a DIVISION, one level too low.
+        //
+        // ⛔ AND THE SET IS READ FROM `VIEW_REGION_REGISTRY`, NOT LISTED HERE. A second
+        // hardcoded list of pane selectors is the census this file's own header calls the
+        // defect shape (C01 §6 rule 6) — and the region census exists precisely so a new
+        // region joins every consumer at once.
+        // ══════════════════════════════════════════════════════════════════
+        const selectors = listViewRegions().map((id) => VIEW_REGION_REGISTRY[id].anchorSelector);
+        let left = Number.POSITIVE_INFINITY;
+        let right = Number.NEGATIVE_INFINITY;
+        for (const sel of selectors) {
+            let el: Element | null = null;
+            try { el = document.querySelector(sel); } catch { el = null; }
+            if (!el || typeof el.getBoundingClientRect !== 'function') continue;
+            const r = el.getBoundingClientRect();
+            // A hidden or not-yet-laid-out region measures 0 and must NOT widen the union
+            // to the left edge — an absent region is an ABSENCE, not a rectangle at x=0.
+            if (!(r.width > 0)) continue;
+            if (r.left < left) left = r.left;
+            if (r.right > right) right = r.right;
+        }
+
+        if (vw > 0 && right > left) {
+            const width = right - left;
+            cx = `${(((left + width / 2) / vw) * 100).toFixed(3)}%`;
+            w = `${((width / vw) * 100).toFixed(3)}vw`;
         }
 
         body.style.setProperty('--shell-canvas-cx', cx);

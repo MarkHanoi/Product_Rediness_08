@@ -512,6 +512,34 @@ export class SplitViewManager implements ISplitViewManager {
         });
         this._viewSelect = viewSel;
 
+        // ══════════════════════════════════════════════════════════════════════
+        // §PLAN-PANE-HEADING-RETIRED (founder 2026-09-08 · L-13260 · C59 §6)
+        //
+        // *"remove the heading on the plan view - not needed anymore"*.
+        //
+        // ⭐ "NOT NEEDED ANYMORE" IS LITERAL, AND THIS LANE IS WHY. The heading's job was to
+        // say WHICH VIEW this pane draws — it was the `svp-view-select`, sitting beside this
+        // dot. §ONE-REGION-SWITCHER (L-13257) moved that select into the pill centred on the
+        // pane, and the pill's trigger now prints the same name. What was left here was a
+        // bare blue dot labelling nothing: a heading whose subject had moved out from under
+        // it. So the title group is retired rather than the toolbar beside it.
+        //
+        // ⛔ THE PROPERTIES TOOLBAR IS NOT TOUCHED, AND THE DISTINCTION IS LOAD-BEARING.
+        // `Grid · IFC · V/G · Intent · Range · Close` switches NO view — it is view
+        // PROPERTIES (C59 §6), a different concern, and `oneViewSwitcher.spec.ts` ARM K
+        // pins that it stays. Deleting a working control because it sits beside a redundant
+        // one is the exact defect §ONE-VIEW-SWITCHER's classification table exists to stop.
+        // If the founder wants the properties row gone too, that is a separate ruling on a
+        // different subject — it is not implied by "the heading".
+        //
+        // ⚠ THE DOT AND THE GROUP ARE STILL BUILT, and that is deliberate rather than
+        // sloppy: `.svp-header-title` is the flex child that ABSORBS the squeeze
+        // (§SHELL-TOPBAR-BAND — `splitView.ts` gives the level group `flex-shrink: 0`
+        // against it), so removing the node would hand the squeeze to a group declared
+        // never to take it. It is emptied and hidden, so it still holds its side of the
+        // row and shows nothing.
+        // ══════════════════════════════════════════════════════════════════════
+        dot.hidden = true;
         titleGroup.appendChild(dot);
         // ══════════════════════════════════════════════════════════════════════
         // §ONE-REGION-SWITCHER (founder 2026-09-08 · L-13257) — THE SELECT MOVES

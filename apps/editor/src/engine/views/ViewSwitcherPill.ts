@@ -151,6 +151,26 @@ export interface ViewSwitcherPillHandle {
 export const VIEW_SWITCHER_PILL_UNKNOWN_LABEL = 'View';
 
 /**
+ * §POPUP-SURVIVES-ITS-OWN-CONTROLS (L-13258) — does this click belong to a control whose
+ * interaction OUTLIVES the click itself?
+ *
+ * A `<select>` opens a native option list on mousedown and resolves on a LATER event; closing
+ * its container in between destroys the list before the user can choose. The same is true of
+ * text inputs (focus + typing), checkboxes and radios (a `<label>` forwards to them), and any
+ * widget a host marks `data-keep-popup-open`.
+ *
+ * ⛔ A ROW-BUTTON IS NOT ONE OF THESE and must keep closing the popup: its whole interaction
+ * IS the click, and leaving the popup open over a view that just changed is the L-13002 shape
+ * (a control asserting a state it never re-read).
+ *
+ * PURE: reads the DOM it is handed, mutates nothing.
+ */
+export function clickOwnsItsOwnInteraction(target: Element): boolean {
+    const owning = 'select, input, textarea, option, optgroup, label, [data-keep-popup-open]';
+    return target.closest(owning) !== null;
+}
+
+/**
  * Mount the pill into `parent`. Idempotent per region: an existing pill with the same test id
  * is removed first, so a re-mount after a view change never leaves two.
  */
@@ -319,10 +339,32 @@ export function mountViewSwitcherPill(opts: ViewSwitcherPillOptions): ViewSwitch
             e.stopPropagation();
             setOpen(!open);
         });
-        // A click on a menu row dispatches and the view changes under us; close so the pill
+        // ══════════════════════════════════════════════════════════════════════
+        // A click on a menu ROW dispatches and the view changes under us; close so the pill
         // re-reads its label on the next paint instead of standing open over a new view.
-        body.addEventListener('click', () => {
+        //
+        // ⛔⛔ BUT NOT EVERY CLICK IN THE BODY IS A DISPATCH — §POPUP-SURVIVES-ITS-OWN-CONTROLS
+        // (founder 2026-09-08, L-13258): *"When i try to click the pane dropdown to access to
+        // other levels, elevations etc... it doesnt get static - it appears and goes off."*
+        //
+        // MEASURED CAUSE: this handler fired on a click ANYWHERE in the body, and
+        // §ONE-REGION-SWITCHER (L-13257) had just moved the plan pane's view-definition
+        // `<select>` INTO that body. So reaching for a level or an elevation closed the popup
+        // and tore the native option list away with it — the founder's exact words, and a
+        // defect this lane introduced into a control that worked before it.
+        //
+        // ⭐ THE RULE IS ABOUT THE CONTROL, NOT ABOUT A LIST OF CALLERS. A `<select>`, a text
+        // input, a checkbox and a `<label>` all own an interaction that OUTLIVES the click
+        // that started it; a row-button's interaction IS the click. So the close is keyed on
+        // that property — which means the next control a host puts in a popup is handled
+        // without editing this file, and a host cannot forget to opt out.
+        //
+        // `data-keep-popup-open` is the explicit escape hatch for anything this predicate
+        // cannot see (a custom widget built from divs).
+        // ══════════════════════════════════════════════════════════════════════
+        body.addEventListener('click', (e) => {
             if (!open) return;
+            if (e.target instanceof Element && clickOwnsItsOwnInteraction(e.target)) return;
             setOpen(false);
             paintTrigger();
         });

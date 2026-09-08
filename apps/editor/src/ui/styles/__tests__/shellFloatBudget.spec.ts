@@ -123,7 +123,19 @@ describe('§SHELL-FLOAT-BUDGET — ARM A: the budget is DECLARED and PUBLISHED',
     // Every write is in the publisher (index 2) and nowhere else.
     expect(new Set(writers)).toEqual(new Set([2]));
     expect(PUBLISHER).toContain('getBoundingClientRect()');
-    expect(PUBLISHER).toContain("getElementById('container')");
+    // ⚠ AMENDED 2026-09-08 (§SHELL-CX-IS-THE-WHOLE-REGION, L-13259). This required
+    // `getElementById('container')`. The INVARIANT it guards — the budget MEASURES rather
+    // than enumerating modes — is unchanged and is asserted by the `matchAll` above; what
+    // changed is WHAT is measured. `#container` alone is the BIM canvas, and under a split
+    // `SplitViewManager` sizes it to the split ratio, so the mode bar centred on 60% of the
+    // region (the founder's *"center on the view the full scope"*). The publisher now unions
+    // the VISIBLE VIEW REGIONS, read from `VIEW_REGION_REGISTRY` — which is still one
+    // measurement and still no census, because the region set is declared once elsewhere.
+    expect(PUBLISHER).toContain('VIEW_REGION_REGISTRY');
+    expect(PUBLISHER).toContain('anchorSelector');
+    // ⛔ AND STILL NOT A SECOND HARDCODED LIST OF PANE SELECTORS HERE.
+    expect(codeOnly(PUBLISHER)).not.toContain('svp-secondary-pane');
+    expect(codeOnly(PUBLISHER)).not.toContain('data-pane-id');
   });
 
   it('both call sites CALL the publisher rather than computing a value', () => {
@@ -140,8 +152,15 @@ describe('§SHELL-FLOAT-BUDGET — ARM A: the budget is DECLARED and PUBLISHED',
     // Data mode is `canvas: 'hidden'` — `#container` measures 0x0. Publishing
     // `0%` would pile every bar on the left edge; the mode bar must stay
     // reachable over the full-width workbench or the mode cannot be left.
-    expect(PUBLISHER).toMatch(/if \(r\.width > 0\)/);
+    // ⚠ The guard moved from `if (r.width > 0) { … }` to a `continue` inside the union
+    // loop (§SHELL-CX-IS-THE-WHOLE-REGION, L-13259) — same invariant, and it now matters
+    // MORE: an absent region must not widen the union to the left edge, which would drag
+    // the centre of every bar toward x=0. An absent region is an ABSENCE, not a rectangle
+    // at the origin — the same rule `resolveSwitcherTopPx` applies to obstacles.
+    expect(PUBLISHER).toMatch(/if \(!\(r\.width > 0\)\) continue;/);
     expect(PUBLISHER).toMatch(/VIEWPORT_CENTRE = '50%'/);
+    // The union only publishes when it actually spans something.
+    expect(PUBLISHER).toMatch(/right > left/);
   });
 
   it('the registry really has half-canvas modes for the budget to serve', () => {
