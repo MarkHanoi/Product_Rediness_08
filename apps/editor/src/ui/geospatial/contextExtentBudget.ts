@@ -932,6 +932,62 @@ export function totalMaxBuildings(radiusM: number): number {
 }
 
 /**
+ * ⭐⭐ §PLATE-FILLS (L-13244) — THE FAR RING'S FLOOR IS THE FAR TIER'S OWN BUDGET, NOT A FLAT 900.
+ *
+ * ⛔ THE DEFECT, AND IT IS LIVE AT THE **DEFAULT** SCOPE WITH NOBODY REPORTING IT.
+ * `resolveFarRingCap(nearCount, total) = max(900, total − nearCount)` subtracts an **UNCAPPED**
+ * near count from a shared whole-scene budget. `selectNearRingRenderTiers` caps only the 1 600
+ * shadow casters; `demoted` is documented *"DEMOTED, NEVER DROPPED"* — correctly, because dropping
+ * it punches a donut hole in the fabric. So in dense fabric the near ring eats the budget and the
+ * far ring falls through to the FLOOR. Measured on the shipped tiles at 48.8566, 2.3522 (Île de la
+ * Cité — an ordinary central-Paris site, **DEFAULT** scope):
+ *
+ *     near = 13 216 of a 14 000 total ⇒ max(900, 784) = **the 900 FLOOR**
+ *     18 353 far footprints on the plate · **900 drawn = 4.9 %** · 17 453 dropped · corners **0**
+ *
+ * That is L-13058's exact defect (`near=5440 far=900 (cap 900) of 9902`) recurring one budget
+ * revision later at a higher density, and `CONTEXT_TOTAL_MAX_BUILDINGS`'s own comment predicted it
+ * in writing — *"the whole-scene total simply became the new fixed 900"*. Nothing guarded it.
+ *
+ * ⭐ WHY THE FAR **TIER'S** CAP IS THE RIGHT FLOOR FOR THE FAR **RING**, rather than a new constant.
+ * There are TWO caps in series on the same footprints: this one (the reader's whole-scene residual)
+ * and `farTierMaxInstances` (the ONE instanced primitive's own budget, which is what actually
+ * reaches the GPU). Reading FEWER than the primitive can draw is pure loss — the footprints are
+ * already downloaded, decoded and centroided, and the tier that would have drawn them has headroom
+ * sitting idle. So the floor is *"never read less than the one primitive can draw"*, which is a
+ * derivation rather than a taste value and cannot drift from the thing it must agree with.
+ *
+ * ⛔ IT RAISES NO CEILING AND CLAIMS NO NEW CAPACITY (C66 §1). The far tier already draws up to
+ * `farTierMaxInstances(r)` today — Barcelona ships exactly that at the default scope every load —
+ * so this can only ever move a scene UP TO shipping behaviour, never past it. And it is MONOTONE:
+ * `Math.max` against the old 900 keeps the L-579 property that a regression here is impossible by
+ * construction.
+ */
+export function farRingReadFloor(radiusM: number): number {
+    return Math.max(CTX_FAR_MIN_BUILDINGS, farTierMaxInstances(radiusM));
+}
+
+/**
+ * ⭐ §PLATE-FILLS (L-13243) — HOW A COUNT CAP IS SPENT, WHICH IS THE FOUNDER'S ACTUAL DEFECT.
+ *
+ * Every cap in this file is *"nearest-first, then truncated"*, and over a RECTANGLE that is the
+ * definition of *"keep a disc, shed the corners"* — the corners are a rectangle's farthest points.
+ * `plateFill.ts` replaces the truncation with **a full-density core plus a UNIFORM-RATE rim across
+ * the whole plate**; these are the two knobs it is given. They live here because this file is *the
+ * one place every 3D-Site radius and cap is tuned*, and a spending policy is a cap fact.
+ *
+ * ⚠ THE CORE SHARE IS A BALANCE OF TWO FAILURES, NOT A TUNED NUMBER. At 0 the immediate
+ * neighbourhood thins as hard as the rim, and the founder's camera is IN the near field; at 1 it
+ * degenerates back into the nearest-first disc that is the whole defect. 0.5 leaves the rim a rate
+ * of `(cap/2) / (candidates − cap/2)` — which the console prints, per load, rather than implying.
+ */
+export const CTX_PLATE_FILL_CORE_SHARE = 0.5;
+/** Target grid cell edge for the rim's uniform decimation, metres — a block or two, so a cell's
+ *  count is statistically meaningful rather than 0/1 noise, and small enough that a corner cell and
+ *  an axis cell are genuinely different places. */
+export const CTX_PLATE_FILL_CELL_TARGET_M = 150;
+
+/**
  * §CTX-EXTENT-BUDGET — mapped tree canopies in the ONE instanced tree primitive: **1500 → 3000.**
  *
  * Purely a CAP fix, and the cleanest one in the file: the founder's run drew 1,500 OF 2,462 BAKED

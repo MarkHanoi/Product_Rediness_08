@@ -144,9 +144,18 @@ describe('§FULL-PLATE-READ — the plate cull runs before the cap', () => {
         });
         expect(kept.length).toBe(cap);
         // Nearest-first over the BOX keeps a DISC: πR'² ≈ f·(2R)² with f < π/4 ⇒ R' < R.
+        // ⛔ THE "IT KEEPS A DISC" CLAIM IS GONE, AND ONLY THAT CLAIM. This arm read
+        // `expect(reach).toBeLessThan(R)` on the reasoning that nearest-first over the box keeps a
+        // disc of radius R' < R. §PLATE-FILLS changed HOW the cap is SPENT — part of the budget now
+        // goes to a spatial spread instead of to the nearest N — so the kept set REACHES 2 461 m,
+        // past the plate's 1 800 m corner radius. Both facts are pinned below, because the old
+        // single assertion would now be satisfied by a policy that had stopped culling entirely.
         const reach = Math.max(...kept.map(distM));
-        expect(reach).toBeLessThan(R);                       // it does not even reach the corners
-        // …and most of the corner band is simply gone.
+        expect(reach).toBeGreaterThan(R);
+        // ⭐ REACHING THE CORNERS AND FILLING THEM ARE DIFFERENT THINGS, AND THAT IS THE DEFECT
+        // THIS ARM EXISTS FOR: measured 129 of 328 corner buildings kept — 39% — with a cap that is
+        // EXACTLY the number the plate needs. Spent on the read box, the right budget still empties
+        // the founder's corners; the next arm shows the same cap keeping every one of them.
         expect(cornersKept(kept)).toBeLessThan(cornersAvailable * 0.5);
     });
 

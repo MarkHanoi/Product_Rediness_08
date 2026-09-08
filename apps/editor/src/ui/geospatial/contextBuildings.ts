@@ -32,7 +32,15 @@ import {
     CTX_NEAR_SHADOW_RADIUS_M,
     CTX_NEAR_MAX_SHADOW_CASTERS,
     scopeReadFanOutCap,
+    farRingReadFloor,
+    CTX_PLATE_FILL_CORE_SHARE,
+    CTX_PLATE_FILL_CELL_TARGET_M,
 } from './contextExtentBudget';
+// ⭐ §PLATE-FILLS (L-13243) — HOW a count cap is spent. A nearest-first cap over a rectangle draws a
+// DISC; this spends the same budget so the kept set has the SHAPE OF THE PLATE. Leaf, pure, no
+// Cesium — and it is the SAME module the instanced far tier's second cap uses, deliberately: two
+// caps in series with two orderings would re-draw the disc at the second one (L-813).
+import { selectPlateFill, type PlateFillReport } from './plateFill';
 //
 // WHY THIS EXISTS
 // ---------------
@@ -150,6 +158,18 @@ export interface ContextBuildingFeature {
         /** §FEAT-FORMA-CONTEXT-EXTENT-LOD — planar distance (m) of the footprint centroid
          *  from the site origin; drives the nearest-N cap + the LOD ring split. */
         readonly distM?: number;
+        /**
+         * ⭐ §PLATE-FILLS (L-13243) — the centroid's EAST / NORTH offset in metres from the SAME
+         * origin `distM` was measured against. Stamped beside it by the same selectors so the
+         * SECOND cap (the instanced far tier) spends its budget on the same coordinates the FIRST
+         * one did, instead of re-deriving them per footprint on the render path.
+         *
+         * ⚠ ABSENT ⇒ NOT STAMPED (the legacy near-only path, or a collection cached before this
+         * landed) — never `(0, 0)`, which is a real position on the plate. A consumer that needs
+         * them must recompute from the ring, not read a zero (§CONTEXT-DATA-HONESTY).
+         */
+        readonly offsetEM?: number;
+        readonly offsetNM?: number;
     };
 }
 
@@ -403,13 +423,29 @@ export const CONTEXT_TOTAL_MAX_BUILDINGS = CTX_TOTAL_MAX_BUILDINGS;
  *
  * PURE + testable. Never returns less than `CONTEXT_FAR_MAX_BUILDINGS`, so this can only ever
  * draw MORE than the previous behaviour — a regression here is impossible by construction.
+ *
+ * ⭐⭐ §PLATE-FILLS (L-13244) — `floor` IS THE FIX, AND THE DEFECT IT CLOSES IS LIVE AT THE
+ * **DEFAULT** SCOPE. `nearCount` is subtracted from a shared whole-scene budget and is itself
+ * **UNCAPPED** (`selectNearRingRenderTiers` bounds only the 1 600 shadow casters; `demoted` is
+ * *"DEMOTED, NEVER DROPPED"*, correctly). So a dense near ring starves the far ring to the flat 900:
+ * measured on the shipped tiles at 48.8566, 2.3522 (Île de la Cité, DEFAULT scope) **near = 13 216 of
+ * a 14 000 total ⇒ max(900, 784) = the 900 FLOOR — 900 of 18 353 on-plate far footprints drawn,
+ * 4.9 %, 17 453 dropped, corners 0.** That is L-13058's defect one budget revision later, exactly as
+ * `CONTEXT_TOTAL_MAX_BUILDINGS`'s own comment predicted in writing.
+ *
+ * The caller passes `farRingReadFloor(farTierRadiusM(scope))` — *"never read less than the ONE
+ * instanced primitive downstream can actually draw"*. A derivation, not a taste value, and it raises
+ * no ceiling: the far tier already draws that many at the default scope on every Barcelona load.
+ * ⚠ THE THREE-WAY `Math.max` IS DELIBERATE: the L-579 floor stays in the expression even though the
+ * new floor dominates it, so the monotonicity guarantee is readable in the code and not inferred.
  */
 export function resolveFarRingCap(
     nearCount: number,
     totalBudget: number = CONTEXT_TOTAL_MAX_BUILDINGS,
+    floor: number = CONTEXT_FAR_MAX_BUILDINGS,
 ): number {
     const remaining = totalBudget - Math.max(0, nearCount);
-    return Math.max(CONTEXT_FAR_MAX_BUILDINGS, remaining);
+    return Math.max(CONTEXT_FAR_MAX_BUILDINGS, Math.max(0, floor), remaining);
 }
 
 /**
@@ -1500,6 +1536,14 @@ export function selectFarRingFootprints(input: {
      * the edge survives to be SECTIONED by the clip rather than deleted here.
      */
     readonly onPlate?: (lon: number, lat: number) => boolean;
+    /**
+     * ⭐ §PLATE-FILLS (L-13243) — the plate's CIRCUMSCRIBING radius in metres, used ONLY to size and
+     * place the decimation grid. Omitted ⇒ the largest candidate distance, so the grid still covers
+     * every candidate and the selection is still plate-uniform; nothing is ever culled by it.
+     */
+    readonly plateRadiusM?: number;
+    /** §PLATE-FILLS — receives the spend report so the caller can print it. Never throws. */
+    readonly onReport?: (report: PlateFillReport) => void;
 }): ContextBuildingFeature[] {
     const cap = input.cap ?? CONTEXT_FAR_MAX_BUILDINGS;
     const [w, s, e, n] = input.nearBbox;
@@ -1524,13 +1568,64 @@ export function selectFarRingFootprints(input: {
         // footprints the clip is about to discard.
         if (input.onPlate && !input.onPlate(clon, clat)) continue;
         const distM = planarMetres(input.centerLat, input.centerLon, clat, clon);
+        // §PLATE-FILLS — stamp the EAST/NORTH components beside the scalar distance. The second cap
+        // (the instanced far tier) reads them rather than re-deriving a centroid per footprint, so
+        // both caps spend their budget on exactly the same coordinates.
+        const nM = (clat - input.centerLat) * 111_320;
+        const eM = (clon - input.centerLon) * 111_320 * Math.cos((input.centerLat * Math.PI) / 180);
         tagged.push({
             ...f,
-            properties: { ...f.properties, ring: 'far', distM },
+            properties: { ...f.properties, ring: 'far', distM, offsetEM: eM, offsetNM: nM },
         });
     }
-    tagged.sort((a, b) => (a.properties.distM ?? 0) - (b.properties.distM ?? 0));
-    return cap > 0 && tagged.length > cap ? tagged.slice(0, cap) : tagged;
+    // ⭐⭐ §PLATE-FILLS (L-13243) — THE ORDERING IS THE FIX, NOT THE VALUE.
+    //
+    // This was `sort(distM asc)` then `slice(0, cap)`. Over a RECTANGLE that is the definition of
+    // *"keep a disc, shed the corners"* — the corners are the plate's farthest points — and it is the
+    // circle the founder can see inside his square plate. Measured at his own Paris default scope:
+    // 23 388 on plate, 13 120 drawn, and the drawn set is a DISC of radius **1 264 m** against a plate
+    // half-side of 1 259 m; radial keep-rate 100 % to 1 247 m, 8 % to 1 425 m, and **0 of 4 954 beyond
+    // it**; the four corner triangles held 10 380 eligible and kept **112**.
+    //
+    // ⛔ AND RAISING THE CAP DOES NOT FIX IT. At Paris r=3 562 m the budget is already pinned at BOTH
+    // ceilings and the corners are still 0 of 34 282; at Dubai r=7 000 m, same. A bigger budget draws
+    // a BIGGER DISC. `selectPlateFill` spends the identical budget as a full-density core plus a
+    // uniform-rate rim across the whole plate, so the drawn set is plate-shaped at every scope.
+    const spent = selectPlateFill(
+        tagged,
+        (f) => ({
+            eM: f.properties.offsetEM ?? 0,
+            nM: f.properties.offsetNM ?? 0,
+            distM: f.properties.distM ?? 0,
+            weight: footprintPlanWeight(f),
+        }),
+        {
+            cap,
+            plateRadiusM: input.plateRadiusM,
+            tuning: { coreShareOfCap: CTX_PLATE_FILL_CORE_SHARE, cellTargetM: CTX_PLATE_FILL_CELL_TARGET_M },
+        },
+    );
+    try { input.onReport?.(spent.report); } catch { /* a diagnostic must never break a load */ }
+    return spent.kept;
+}
+
+/**
+ * §PLATE-FILLS — a COMPARABLE plan-size proxy for a footprint: twice the shoelace area of its outer
+ * ring, in degrees². PURE.
+ *
+ * ⚠ DELIBERATELY NOT IN METRES². The comparison is only ever made between two footprints in the SAME
+ * grid cell (a ~150 m square), where the `cos(lat)` factor that would convert it is constant to six
+ * figures — so a metre conversion would buy an identical ordering for a trig call per footprint on
+ * the render path. It is named `weight`, not `areaM2`, so nothing downstream mistakes it for an area.
+ */
+export function footprintPlanWeight(f: ContextBuildingFeature): number {
+    const ring = f.geometry.coordinates[0];
+    if (!ring || ring.length < 3) return 0;
+    let a = 0;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        a += (ring[j]![0]! * ring[i]![1]!) - (ring[i]![0]! * ring[j]![1]!);
+    }
+    return Math.abs(a);
 }
 
 /**
@@ -1607,21 +1702,30 @@ export function selectNearRingRenderTiers(input: {
 
     // Stamp distance once, then order nearest-first so both the radius test and the backstop
     // act on the same ranking (the far ring's proven pattern).
+    const cosLat = Math.cos((input.centerLat * Math.PI) / 180);
     const ranked = input.features.map((f) => {
         const [clon, clat] = ringCentroidLonLat(f);
-        return { f, distM: planarMetres(input.centerLat, input.centerLon, clat, clon) };
+        return {
+            f,
+            distM: planarMetres(input.centerLat, input.centerLon, clat, clon),
+            // §PLATE-FILLS (L-13243) — the near ring's overflow (`demotedToFar`) joins the instanced
+            // far tier, whose cap is plate-uniform. Stamping the components here is what lets that
+            // cap place a demoted footprint without re-deriving its centroid.
+            eM: (clon - input.centerLon) * 111_320 * cosLat,
+            nM: (clat - input.centerLat) * 111_320,
+        };
     });
     ranked.sort((a, b) => a.distM - b.distM);
 
     const shadowed: ContextBuildingFeature[] = [];
     const demoted: ContextBuildingFeature[] = [];
-    for (const { f, distM } of ranked) {
+    for (const { f, distM, eM, nM } of ranked) {
         // `cap <= 0` means "no backstop" (matches the far ring's `cap > 0` convention).
         const withinCap = cap <= 0 || shadowed.length < cap;
         const tier = distM <= shadowRadiusM && withinCap ? 'near' : 'far';
         const tagged: ContextBuildingFeature = {
             ...f,
-            properties: { ...f.properties, ring: tier, distM },
+            properties: { ...f.properties, ring: tier, distM, offsetEM: eM, offsetNM: nM },
         };
         if (tier === 'near') shadowed.push(tagged); else demoted.push(tagged);
     }
@@ -1973,10 +2077,21 @@ export async function fetchContextBuildingsNearAndFar(
         // §SCOPE-FILL (L-13098) — the whole-scene budget follows the READ EXTENT, so a wide slab is not
         // handed the default scope's budget and then blamed on its radius. `farHalfDeg` is the one
         // number this function already holds that means "how wide is this scope".
+        // ⭐⭐ §PLATE-FILLS (L-13244) — THE FLOOR. `resolveFarRingCap` subtracts an UNCAPPED near count
+        // from a shared budget, so a dense near ring starved this ring to the flat 900 (Île de la
+        // Cité, DEFAULT scope: near 13 216 of 14 000 ⇒ the floor ⇒ 900 of 18 353 on-plate drawn).
+        // The floor is now the ONE instanced primitive's own budget — never read less than the tier
+        // downstream can draw, when the footprints are already downloaded and decoded.
+        const scopeRadiusM = farHalfDeg * METRES_PER_DEG_LAT;
         const effectiveFarCap = Math.max(
             cap,
-            resolveFarRingCap(nearFeatures.length, totalMaxBuildings(farHalfDeg * METRES_PER_DEG_LAT)),
+            resolveFarRingCap(
+                nearFeatures.length,
+                totalMaxBuildings(scopeRadiusM),
+                farRingReadFloor(scopeRadiusM),
+            ),
         );
+        let plateFillLine = '';
         const farFeatures = selectFarRingFootprints({
             farFeatures: full.features,
             centerLat: lat, centerLon: lon,
@@ -1984,6 +2099,8 @@ export async function fetchContextBuildingsNearAndFar(
             nearOsmIds,
             cap: effectiveFarCap,
             onPlate,
+            plateRadiusM: scopeRadiusM,
+            onReport: (r) => { plateFillLine = r.line; },
         });
         const farCandidates = full.features.length - nearFeatures.length;
         // ⭐ §FULL-PLATE-READ (L-13123) — the SAME cull, counted, so the two drops can be told
@@ -2026,9 +2143,11 @@ export async function fetchContextBuildingsNearAndFar(
                       "plate's circumscribing disc, so a rectangular plate reads ~2× what it draws), " +
                       `${farOnPlateBeforeCap} ON the plate, of which ${droppedByCap} DROPPED BY THE CAP` +
                       (droppedByCap > 0
-                          ? ' — ⛔ THESE ARE HOLES IN THE PLATE: downloaded, decoded and not drawn.'
+                          ? ' — ⛔ downloaded, decoded and not drawn. §PLATE-FILLS: they are shed at a ' +
+                            'UNIFORM RATE across the whole plate, corners included, NOT nearest-first — ' +
+                            'so this is a thinner plate, never an emptied rim.'
                           : ' — the cap does not bite at this scope; every on-plate footprint is drawn.')) +
-                ')',
+                ')' + (plateFillLine ? ` · ${plateFillLine}` : ''),
         );
         return {
             near: { type: 'FeatureCollection', features: nearFeatures },

@@ -39,9 +39,18 @@ import {
     // plate cannot say "height known" in one ring and "unknown" in the next for the same datum.
     contextHeightRenderTier,
     summariseContextRenderTiers,
+    // §PLATE-FILLS (L-13243) — the size proxy the plate-uniform thinning orders by INSIDE a cell,
+    // so the rim sheds garages and sheds before it sheds blocks. Shared with the reader's own cap
+    // deliberately: two caps in series ordering by two different rules re-draws the disc (L-813).
+    footprintPlanWeight,
+    ringCentroidLonLat,
     type ContextBuildingCollection,
     type ContextBuildingFeature,
 } from "./contextBuildings";
+// ⭐ §PLATE-FILLS (L-13243) — HOW a count cap is spent. A nearest-first cap over a rectangle draws
+// a DISC by definition (the corners are the plate's farthest points); this spends the identical
+// budget as a full-density core plus a UNIFORM-RATE rim, so the drawn set has the SHAPE OF THE PLATE.
+import { selectPlateFill, type PlateFillReport } from "./plateFill";
 // §OFFICIAL-FOOTPRINTS (L-12939) — the PURE draw decider, shared with the 2D plan so the two
 // surfaces can never draw the same building twice: the massing takes the register's PARTS (a
 // 2-storey wing beside a 3-storey block reads as two volumes), the plan takes the OUTLINES.
@@ -207,9 +216,13 @@ import {
   CTX_FAR_TIER_MAX_INSTANCES,
   CTX_FAR_TIER_MAX_INSTANCES_CEILING,
   farTierMaxInstances,
-  totalMaxBuildings,
   CTX_TREES_MAX_INSTANCES,
   CTX_CANOPIES_MAX_SYNTHESISED,
+  // §PLATE-FILLS (L-13243) — HOW the two building caps spend their budget. They live in the budget
+  // table because a spending policy is a cap fact, and both caps read the SAME two knobs so they
+  // cannot disagree about the shape of the set they keep.
+  CTX_PLATE_FILL_CORE_SHARE,
+  CTX_PLATE_FILL_CELL_TARGET_M,
   // ⛔ `CTX_TOTAL_MAX_BUILDINGS` (the FIXED whole-scene budget) is deliberately NOT imported here
   // any more. §SCOPE-FILL (L-13098) replaced it with `totalMaxBuildings(farTierRadiusM(scope))`
   // above — the budget the slider's "complete" mark is measured against must be the one THIS scope
@@ -434,11 +447,11 @@ import {
 import { formaFallbackKeyDirectionEcef } from "./formaFallbackKey";
 // §FORMA-GROUND-URBAN-WHITE (L-12922) — off-white ground base in and beside urban land, light brown
 // in open country; decided from the loaded landuse (pure).
-import { formaGroundBaseColour, shouldPaintFormaGroundBase, FORMA_GROUND_RURAL } from "./formaGroundColour";
+import { formaGroundBaseColour, shouldPaintFormaGroundBase, shouldLoadFormaSea, FORMA_GROUND_RURAL } from "./formaGroundColour";
 // §PALETTE-PARITY-2D-3D (L-12965) — the 2D map's palette is the SINGLE SOURCE for the 3D context
 // layers (buildings / streets / green / water / landuse / rail / trees). `FORMA_CONTEXT_3D` is a pure
 // ALIAS TABLE over `FORMA_PALETTE_V2`; no 3D context colour has its own hex any more.
-import { FORMA_CONTEXT_3D, formaContextRoadColour } from './formaPaletteV2';
+import { FORMA_CONTEXT_3D, formaContextRoadColour, FORMA_KEY_LIGHT_CSS, cssChromaSpread } from './formaPaletteV2';
 // §FORMA-SCENE-QUALITY (ADR-0089) — tuned "architectural model" quality constants
 // (clean neutral massing, soft gradient shadowing/fog, sky-gradient backdrop) +
 // the pure CSS sky-gradient builder. Cesium-free helper; see formaSceneQuality.ts.
@@ -1065,6 +1078,45 @@ function ctxTierColour(cssHex: string, haze: number): Cesium.Color {
  * otherwise z-fight. It is a SEAT, not a height claim — 15 cm, far below anything readable as a storey.
  */
 const CTX_WIREFRAME_GROUND_LIFT_M = 0.15;
+
+/**
+ * ⭐⭐ §PLATE-FILLS PART B (L-13245) — **AN UNKNOWN-HEIGHT BUILDING IS A CAGE, NOT A FLAT OUTLINE.**
+ *
+ * ⛔ THE COMMENT ABOVE THIS ONE IS SUPERSEDED, AND IT IS KEPT VERBATIM BECAUSE ITS REASONING IS
+ * SOUND AND ITS CONCLUSION STILL DOES NOT FOLLOW. It reads: *"A wireframe BOX at the 9 m
+ * `DEFAULT_BUILDING_HEIGHT_M` would still be asserting 9 m — in edges instead of faces."* The
+ * premise is right — a drawn top IS a claim. What it missed is that **the alternative is not
+ * neutrality, it is INVISIBILITY**, and an invisible building is a claim too: it says *"there is
+ * nothing here"*, which is false about real land (§CONTEXT-DATA-HONESTY — a failure and an empty
+ * must never be the same value; here an UNKNOWN and an EMPTY had become the same picture).
+ *
+ * ⭐ THE MEASUREMENT THAT DECIDES IT. A `SimplePolylineGeometry` ground ring lifted 0.15 m is
+ * invisible at the 3D-Site camera. Probed against the SHIPPED tiles with one method for all three
+ * cities (`tools/context-height-probe/probe.mjs`, the client's own ladder), share of the PLATE that
+ * is unknown-height: **Barcelona 0.8 % · Paris 39.3 % · Dubai 79.8 % at the default scope and
+ * 95.1 % at the founder's 9 899 m rectangle.** The instruction that produced the flat outline
+ * (*"solid if the height is known and wireframe if not"*) was given while looking at Barcelona,
+ * where it costs 0.8 %. Applied to Dubai it deletes the city: **24 764 footprints drawn, 1 992
+ * visible.** That is not the distinction he asked for; it is the loss of one.
+ *
+ * ⭐ SO THE DISTINCTION IS KEPT AND MADE LEGIBLE. `contextHeightRenderTier` is untouched — the same
+ * three rungs, driven by PROVENANCE only. What changes is what the `wireframe` rung DRAWS: a
+ * **wireframe box** — bottom ring, top ring, vertical edges, no fill — which is what "wireframe"
+ * means and what he asked for. It cannot be confused with a measured building, because every solid
+ * in the scene is a shaded opaque mass and no cage is.
+ *
+ * ⛔ AND THE HEIGHT IS A DRAWING CONVENTION, WHICH IS WHY IT IS A CONSTANT. Every unknown footprint
+ * in the scene gets the SAME nominal, so a field of identical-height cages is self-evidently a
+ * convention rather than a survey — the reading a per-building varied guess would have destroyed.
+ * It is the repo's existing legible nominal (`DEFAULT_BUILDING_HEIGHT_M`, 9 m), so there is ONE
+ * number for *"what we draw when we know nothing"*, and:
+ *   · it is NEVER written into `heightM`, `heightProvenance`, or any analysis input — no shadow,
+ *     daylight, party-wall or density study can read it;
+ *   · the per-load console line states it as ASSUMED, with the count, beside the measured tiers.
+ * ⛔ It must NOT become a SOLID at 9 m. A solid at an invented height is data; a cage at a stated
+ * nominal is a drawing. That is the whole line, and §SOLID-OR-WIREFRAME exists to hold it.
+ */
+const CTX_UNKNOWN_HEIGHT_CAGE_M = 9;
 
 /**
  * §SOLID-OR-WIREFRAME (L-13143) — the entity names, as CONSTANTS rather than repeated literals.
@@ -2179,6 +2231,10 @@ export class CesiumViewport {
   private contextFarTierState:
     | { features: readonly ContextBuildingFeature[]; lat: number; lon: number }
     | null = null;
+  /** §PLATE-FILLS (L-13243) — how the instanced tier's cap was SPENT on the last build: core kept,
+   *  rim rate, cells, and the count NOT drawn. `null` = this tier has not been built yet, never
+   *  "nothing was dropped" (§CONTEXT-DATA-HONESTY). Read by the far-tier log line. */
+  private contextFarTierPlateFill: PlateFillReport | null = null;
   /** §FORMA-CTX-PARKS — OSM park / green-space polygons (visual-only context). */
   private contextParkEntities: Cesium.Entity[] = [];
   private contextParkAbort: AbortController | null = null;
@@ -4722,7 +4778,15 @@ export class CesiumViewport {
     // shows a location with terrain, the coast is present without a parcel select. Forma-only (the sea is
     // a flat-ground Forma feature; on the photoreal globe the 3D tiles already carry the water). Guarded,
     // cached + an HONEST no-op inland. `void`-fired so a slow coastline fetch never blocks the framing.
-    if (this.formaMode && !this.photorealTilesActive) {
+    //
+    // ⛔ §SEA-LOAD-GATE-STALE-FLAG (L-13191) — THIS GATE READ `this.formaMode && !this.photorealTilesActive`
+    // AND THAT WAS THE LAST UNCORRECTED COPY OF THE EXPRESSION L-12948 REMOVED FROM THE GROUND-PAINT GATE
+    // TWO HUNDRED LINES AWAY. `photorealTilesActive` latches TRUE on the first photoreal tile load and
+    // clears only on dispose ("it is not reset on Forma re-entry", this file, twice), and the founder's
+    // onboarding flies the photoreal globe BEFORE the 3D Site — so on his machine this branch never ran
+    // and the standing sea never loaded on the funnel. The rule now lives in ONE named place
+    // (`shouldLoadFormaSea`, beside its sibling) so a fourth copy cannot drift in.
+    if (shouldLoadFormaSea({ formaMode: this.formaMode, photorealActive: this.photorealTilesActive })) {
       void this.loadContextSea(lat, lon);
     }
   }
@@ -5678,6 +5742,13 @@ export class CesiumViewport {
       '[CesiumViewport] FORMA mode applied — backdrop ' + backdropLabel +
         '; slab TOP (ground) ' + FORMA_PALETTE.ground +
         '; slab SIDE/FLOOR ' + SITE_SCOPE_SLAB_SIDE_CSS +
+        // ⭐ §ILLUMINANT-IS-A-COLOUR-SOURCE (L-13190) — THE FOURTH SURFACE, AND THE ONE THAT MULTIPLIES
+        // THE OTHER THREE. Three hexes were already printed here and the founder still could not tell
+        // from a screenshot why the ground read brown, because the number that made it brown was the
+        // KEY LIGHT and nothing named it. An achromatic key is what makes every hex above a promise
+        // about pixels rather than about a constant.
+        '; key light ' + FORMA_KEY_LIGHT_CSS +
+        ' (chroma spread ' + cssChromaSpread(FORMA_KEY_LIGHT_CSS) + ' — achromatic, so every colour above renders as authored)' +
         '; fog ground-AO, soft shadows 2048@600m (§FORMA-GRAZING-BANDING-FIX)' +
         aoLabel +
         (this.formaSilhouetteComposite && !this.formaPostProcessFaulted ? ', silhouette' : ', silhouette=unavailable') + '.'
@@ -5702,8 +5773,15 @@ export class CesiumViewport {
    *     is correct at the real globe location, not just at lon/lat 0.
    *
    * Night / no-location fallback: when the sun is below the horizon, or no site
-   * location is known, we use a fixed warm ~10:00 NE→SW key so the scene is
+   * location is known, we use a fixed ~10:00 NE→SW key DIRECTION so the scene is
    * never unlit (graceful degradation — SPEC §6 "no data" discipline).
+   *
+   * ⚠ §ILLUMINANT-IS-A-COLOUR-SOURCE (L-13190) — this sentence said "a fixed WARM ~10:00 key", and
+   * the word carried a real amber (#FFE9CC) that no branch ever cleared: `let warm = true` was
+   * reassigned ONLY inside the sun-above-horizon arm, so the below-horizon fallback, a `solarSample`
+   * throw and a site with no location ALL kept it. The key colour is now the single achromatic
+   * `FORMA_KEY_LIGHT_CSS`; only the DIRECTION still has a fallback, which is all this note ever
+   * meant to describe.
    */
   private applyFormaSunLight(): void {
     const viewer = this.viewer;
@@ -5722,7 +5800,6 @@ export class CesiumViewport {
     }
 
     let direction: Cesium.Cartesian3;
-    let warm = true;
     let solved: { altitudeDeg: number; azimuthDeg: number; isAboveHorizon: boolean } | null = null;
 
     if (latLon) {
@@ -5745,8 +5822,10 @@ export class CesiumViewport {
           );
           const ecef = Cesium.Matrix4.multiplyByPointAsVector(enu, localDir, new Cesium.Cartesian3());
           direction = Cesium.Cartesian3.normalize(ecef, new Cesium.Cartesian3());
-          // Warm when low, cooler near noon — matches the sun-path intuition.
-          warm = altDeg < 25;
+          // §ILLUMINANT-IS-A-COLOUR-SOURCE (L-13190) — `warm = altDeg < 25` USED TO LIVE HERE, picking
+          // an amber key at low sun and a near-white one near noon. The KEY COLOUR is gone (see
+          // `FORMA_KEY_LIGHT_CSS`); the ALTITUDE is not, and is still reported to the scrubber
+          // through `solved` below, so the sun-path readout is unaffected by the deletion.
         } else {
           // Sun below horizon — keep a soft fixed key so the massing stays visible.
           direction = this.formaFallbackSunDirection(latLon);
@@ -5759,9 +5838,35 @@ export class CesiumViewport {
       direction = this.formaFallbackSunDirection(latLon);
     }
 
+    // ⭐ §ILLUMINANT-IS-A-COLOUR-SOURCE (L-13190, founder 2026-09-07 Barcelona, the THIRD
+    // "match ALL COLOURS" ruling and the FOURTH "light brown ground" report).
+    //
+    // THIS LINE READ `color: ...(warm ? '#FFE9CC' : '#FFF6EC')` AND IT WAS THE REASON THE GROUND KEPT
+    // COMING BACK BROWN. `czm_lightColor` is `normalise-by-max(color x intensity)`, so the INTENSITY
+    // cancels out and what reaches the shader is the light's PURE CHROMA — (1.0000, 0.9137, 0.8000)
+    // for the amber key. The globe fragment shader under `ENABLE_VERTEX_LIGHTING` multiplies the
+    // terrain base by it DIRECTLY (`color.rgb * czm_lightColor * diffuseIntensity`), so the off-white
+    // #F5F2EA that L-12922 / L-12948 / L-12987 fought three times to install rendered as **#F5DDBB
+    // — a tan, dE76 17.02.** Every context ground drape is an entity polygon, whose Cesium batch
+    // builds a `PerInstanceColorAppearance` with `flat` defaulting to FALSE, so those were tinted
+    // too (dE76 6.13–8.39 across the palette). NO ALBEDO EDIT CAN REACH ANY OF THAT.
+    //
+    // A WHITE KEY MAKES `czm_lightColor` (1,1,1): the terrain base renders its authored hex exactly,
+    // and at nadir `czm_phong` collapses to `0.5*C + 0.5*C*1*1 = C` — byte-identical to the
+    // `flat: true` path the slab side and the canopies already take. dE76 0.00 for every layer.
+    //
+    // ⚠ NOT A LOOK REGRESSION, AND NOT A REVERSAL OF §A.21.D-FORMA2. `FORMA_LIGHT_INTENSITY` 2.3 is
+    // UNTOUCHED; the founder's words there were "strong WHITE + stronger contrast", which an amber
+    // key contradicts. And because `czm_lightColor` is normalised by its MAX component (red = 1.0 in
+    // all three candidates), white RAISES green and blue to 1.0 and lowers nothing: the scene gets
+    // neutral and marginally brighter, never darker.
+    //
+    // ⛔ DO NOT RE-INTRODUCE A TINTED KEY TO "WARM UP" THE VIEW. A tint here is a second definition
+    // of every colour in `FORMA_PALETTE_V2`, one stage further down the pipeline than the alias table
+    // that exists to stop exactly that. Warmth belongs in the palette, where 2D can carry it too.
     scene.light = new Cesium.DirectionalLight({
       direction,
-      color: Cesium.Color.fromCssColorString(warm ? '#FFE9CC' : '#FFF6EC'),
+      color: Cesium.Color.fromCssColorString(FORMA_KEY_LIGHT_CSS),
       intensity: FORMA_LIGHT_INTENSITY,
     });
 
@@ -5778,7 +5883,9 @@ export class CesiumViewport {
     }
   }
 
-  /** Warm ~10:00 NE→SW key, used when the sun is below the horizon or no site is known.
+  /** Fixed ~10:00 NE→SW key DIRECTION, used when the sun is below the horizon or no site is known.
+   *  (It was described as the "warm" key until §ILLUMINANT-IS-A-COLOUR-SOURCE, L-13190 — the colour
+   *  it named is gone; this helper only ever returned a direction.)
    *  §FORMA-FALLBACK-KEY-IS-LOCAL (L-12920) — the key is a LOCAL direction expressed in the
    *  site's ENU frame and rotated into ECEF (pure helper), exactly as the real sun is. The old
    *  fixed ECEF vector lit the hemisphere centred near lon 52° E / lat 27° N only: Sète and
@@ -11943,12 +12050,14 @@ export class CesiumViewport {
     // measure the limit. The far half now uses the reader's PRE-CAP on-plate count when it has one,
     // and falls back to the post-cap figure — labelled — when it does not.
     const farEligible = farOnPlateBeforeCap ?? farScoped.length;
-    this.scopeCapReports.set('buildings', {
-      eligible: nearShadowedScoped.length + nearDemotedScoped.length + farEligible,
-      // §SCOPE-FILL (L-13098) — the budget the slider's mark is measured against must be the one
-      // this scope is actually given, or the mark reports a cap that is not the cap.
-      cap: totalMaxBuildings(farTierRadiusM(this.contextScope)),
-    });
+    // ⛔⛔ §PLATE-FILLS (L-13246) — THE REPORT IS SET **AFTER THE FAR TIER IS BUILT**, AND THAT MOVE
+    // IS THE FIX. It stood here, and it compared an eligible count against
+    // `totalMaxBuildings(...)` — the READER's budget. There are TWO caps on these footprints, and
+    // this report could see only the first: the instanced tier's own `farTierMaxInstances` truncation
+    // was invisible to it. Measured under-report of the drop: Paris default **880**, Paris r=2 607 m
+    // **7 736**, Dubai r=7 000 m **5 236** footprints silently absent from a verdict that called the
+    // scope complete. A budget compared against a budget cannot measure what was DRAWN, which is the
+    // only number that means "a hole in the founder's plate". See the set below.
 
     // §CTX-PERFOOTPRINT-SAMPLE (L-635) — batch-sample the REAL terrain height under EVERY footprint about
     // to be placed (near shadowed + demoted + far), in ONE sampleTerrainMostDetailed round-trip, so each
@@ -12103,12 +12212,20 @@ export class CesiumViewport {
           name: CTX_ENTITY_NAME[renderTier],
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            // ⛔ A WIREFRAME HAS NO EXTRUSION AND NO INVENTED SEAT. It is lifted 15 cm off its own
-            // sampled ground purely so the line does not z-fight the terrain; `h` (the 9 m
-            // §CTX-MISSING-HEIGHT-FALLBACK) is deliberately NOT used — drawing that default as edges
-            // instead of faces would keep the fabrication and merely restyle it.
+            // ⭐ §PLATE-FILLS PART B (L-13245) — A WIREFRAME IS A CAGE, NOT A GROUND RING. This arm
+            // read `height: fGround + lift` with NO `extrudedHeight`, i.e. a flat outline on the
+            // terrain — invisible at the 3D-Site camera, which at Paris deleted 39.3 % of the plate
+            // and at Dubai 79.8 %. It now extrudes to the STATED NOMINAL with `fill:false`, so
+            // Cesium's `PolygonOutlineGeometry` emits bottom ring + top ring + verticals: a
+            // see-through box that cannot be mistaken for one of the shaded opaque solids beside it.
+            // The 15 cm lift stays as the seat that keeps the bottom ring off the mesh it would
+            // otherwise z-fight. ⛔ `h` (the §CTX-MISSING-HEIGHT-FALLBACK 9 m) is STILL not used
+            // here: the cage's top is `CTX_UNKNOWN_HEIGHT_CAGE_M`, a constant drawing convention
+            // that never enters `heightM` or any study.
             height: renderTier === 'wireframe' ? fGround + CTX_WIREFRAME_GROUND_LIFT_M : fBase,
-            ...(renderTier === 'wireframe' ? {} : { extrudedHeight: fTop + Math.max(0.1, h) }),
+            extrudedHeight: renderTier === 'wireframe'
+              ? fGround + CTX_UNKNOWN_HEIGHT_CAGE_M
+              : fTop + Math.max(0.1, h),
             // Known and estimated are BOTH opaque now — the founder's "they are really transparent".
             fill: renderTier !== 'wireframe',
             material: renderTier === 'estimated' ? estimatedFill : fill,
@@ -12155,8 +12272,10 @@ export class CesiumViewport {
         `§SOLID-OR-WIREFRAME: ${nearTierSplit.solid} SOLID (height known — opaque ` +
         `${FORMA_PALETTE.contextFill}, shadows on) · ${nearTierSplit.estimated} ESTIMATED (storey ` +
         `count real, metres ours — opaque ${FORMA_PALETTE.contextEstimatedHeight}) · ` +
-        `${nearTierSplit.wireframe} WIREFRAME (no height at all — ground outline, NO extrusion, ` +
-        `${Math.round(nearTierSplit.wireframeFraction * 100)}% of this ring).`,
+        `${nearTierSplit.wireframe} WIREFRAME (no height input at all — an OPEN CAGE to an ASSUMED ` +
+        `${CTX_UNKNOWN_HEIGHT_CAGE_M} m, ${Math.round(nearTierSplit.wireframeFraction * 100)}% of this ` +
+        'ring; §PLATE-FILLS PART B: the nominal is a DRAWING CONVENTION, identical for every unknown ' +
+        'footprint, never written to heightM and never read by a study — the height is NOT measured).',
     );
     // §CTX-DIAG (L-635) — THE FOUNDER-READABLE STABILITY LINE. Everything needed to tell
     // "buildings placed but culled" from "no data" from "still fetching" in ONE line:
@@ -12251,7 +12370,21 @@ export class CesiumViewport {
     await farGroundSample;
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return; // superseded during the far sample.
     const farSplit = this.plotClearSplit(farScoped, parcelLonLat);
-    this.renderContextFarTierInstanced([...farSplit.kept, ...demotedToFar], lat, lon, viewer);
+    const farTierDrawn = this.renderContextFarTierInstanced([...farSplit.kept, ...demotedToFar], lat, lon, viewer);
+    // ⭐ §PLATE-FILLS (L-13246) — THE BUILDINGS VERDICT, MEASURED AT THE END OF THE PIPELINE.
+    //   eligible = every footprint ON THE PLATE this load could have drawn:
+    //              near shadow-casting + demoted-solid + demoted-to-far + the reader's PRE-CAP
+    //              on-plate far count (§FULL-PLATE-READ's number, which is the only pre-cap one).
+    //   cap      = every footprint actually DRAWN, after BOTH caps.
+    // `capVerdict`'s `dropped = eligible − cap` is then the true hole count rather than the
+    // difference between two budgets, and `complete` is true exactly when nothing was dropped.
+    // ⚠ `farEligible` is LABELLED when it is the post-cap fallback (no plate predicate was built),
+    // and that case is already carried by `farOnPlateBeforeCap === undefined` upstream — an
+    // unmeasured denominator and a clean one must not read the same (§CONTEXT-DATA-HONESTY).
+    this.scopeCapReports.set('buildings', {
+      eligible: nearShadowedScoped.length + demotedSolid.length + demotedToFar.length + farEligible,
+      cap: nearShadowedScoped.length + demotedSolid.length + farTierDrawn,
+    });
 
     // ── §SITE-SCOPE (L-645; C12 §13.3 classes A + B) — THE SLAB, AFTER THE LAYERS IT FRAMES ───
     //
@@ -13006,11 +13139,12 @@ export class CesiumViewport {
           name: isWire ? CTX_ENTITY_NAME.farWireframe : CTX_ENTITY_NAME.far,
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
-            // ⛔ No extrusion and no invented seat for an unknown height — see
-            // CTX_WIREFRAME_GROUND_LIFT_M. The 9 m `trueH` fallback above is deliberately unused
-            // on this arm; restyling a fabricated number does not stop it being fabricated.
+            // ⭐ §PLATE-FILLS PART B (L-13245) — the SAME cage as the near ring and the instanced
+            // tier. One decision, three tiers: an unknown-height building must not be a box here and
+            // a flat ring there. `trueH` (the §CTX-MISSING-HEIGHT-FALLBACK 9 m) is still unused on
+            // this arm — the cage top is the stated nominal, which never enters the data.
             height: isWire ? fGround + CTX_WIREFRAME_GROUND_LIFT_M : fBase,
-            ...(isWire ? {} : { extrudedHeight: fTop + h }),
+            extrudedHeight: isWire ? fGround + CTX_UNKNOWN_HEIGHT_CAGE_M : fTop + h,
             fill: !isWire,
             material: renderTier === 'estimated' ? estimatedFill : fill,
             outline: isWire,
@@ -13038,7 +13172,8 @@ export class CesiumViewport {
         `§SOLID-OR-WIREFRAME: ${placed - wireframed} OPAQUE solid/estimated (hazed ` +
         `${Math.round(CTX_TIER_HAZE.demoted * 100)}% toward ${FORMA_QUALITY.fogColor} for aerial ` +
         `perspective, NOT alpha — this tier was one flat @0.82 before L-13143) · ` +
-        `${wireframed} WIREFRAME (no height input — ground outline only).`,
+        `${wireframed} WIREFRAME (no height input — an OPEN CAGE to an ASSUMED ` +
+        `${CTX_UNKNOWN_HEIGHT_CAGE_M} m; §PLATE-FILLS PART B: a drawing convention, never data).`,
     );
   }
 
@@ -13061,19 +13196,17 @@ export class CesiumViewport {
    */
   private renderContextFarTierInstanced(
     features: readonly ContextBuildingFeature[], lat: number, lon: number, viewer: Cesium.Viewer,
-  ): void {
-    if (!this.viewer || this.viewer !== viewer) return;
+  ): number {
+    if (!this.viewer || this.viewer !== viewer) return 0;
     // A newer near/far load or a dispose superseded us, or the site moved (mirrors the far-ring guard).
     if (!this.contextBuildingsAt
       || Math.abs(this.contextBuildingsAt.lat - lat) > 1e-9
-      || Math.abs(this.contextBuildingsAt.lon - lon) > 1e-9) return;
+      || Math.abs(this.contextBuildingsAt.lon - lon) > 1e-9) return 0;
     // RADIAL (circle) cull + nearest-first count cap → bounded by construction (the "not square" disc).
     // §CTX-SITE-SCOPE — this tier is the ONLY one whose radius IS the scope (it is one shadowless
     // instanced primitive, so it is the one that can afford to follow the slider all the way out).
     const farR = farTierRadiusM(this.contextScope);
-    const culled = features
-      .filter((f) => (f.properties.distM ?? Infinity) <= farR)
-      .sort((a, b) => (a.properties.distM ?? 0) - (b.properties.distM ?? 0));
+    const culled = features.filter((f) => (f.properties.distM ?? Infinity) <= farR);
     // ⭐ §SCOPE-FILL (L-13098) — THE COUNT CAP FOLLOWS THE SCOPE'S AREA, OR IT SILENTLY REPLACES
     // THE RADIUS. A nearest-first cap does not thin a disc uniformly; it re-imposes a FIXED radius.
     // At the founder's own Barcelona density (~1 310 footprints/km²) a flat 8 000 draws to ~1.4 km
@@ -13082,11 +13215,42 @@ export class CesiumViewport {
     // scar exactly. `farTierMaxInstances` is base × area-ratio clamped at 24 000, and it is the
     // IDENTITY at the default scope: nobody who leaves the slider alone pays for this.
     const farCap = farTierMaxInstances(farR);
-    const bounded = culled.length > farCap ? culled.slice(0, farCap) : culled;
+    // ⭐⭐ §PLATE-FILLS (L-13243) — THE SECOND CAP, AND IT HAD THE SAME ORDERING DEFECT AS THE FIRST.
+    // This was `.sort(distM asc)` then `.slice(0, farCap)`. A nearest-first truncation over a
+    // RECTANGLE keeps a DISC — the corners are the plate's farthest points — so fixing only the
+    // reader's cap (§FULL-PLATE-READ, L-13123 fixed its DENOMINATOR) would have left the disc drawn
+    // right here, which is this repo's `three-invalidation-gates-in-series` scar (L-813) exactly.
+    // Measured drops at THIS cap alone: Paris default 880 · Barcelona default 525 · Paris r=2 607 m
+    // 7 736 · Dubai r=7 000 m 5 236 — and `capVerdict` could not see one of them (fixed below).
+    // Same budget, same draw calls, same triangles; the kept set now has the SHAPE OF THE PLATE.
+    const spent = selectPlateFill(
+      culled,
+      (f) => {
+        const p = f.properties;
+        if (typeof p.offsetEM === 'number' && typeof p.offsetNM === 'number') {
+          return { eM: p.offsetEM, nM: p.offsetNM, distM: p.distM ?? 0, weight: footprintPlanWeight(f) };
+        }
+        // ⚠ ABSENT OFFSETS ARE RECOMPUTED, NEVER READ AS (0,0). A zero here is a real position on the
+        // plate — the site origin — so defaulting to it would pile every unstamped footprint into
+        // the centre cell and starve the rim it belongs to (§CONTEXT-DATA-HONESTY).
+        const [clon, clat] = ringCentroidLonLat(f);
+        const nM = (clat - lat) * 111_320;
+        const eM = (clon - lon) * 111_320 * Math.cos((lat * Math.PI) / 180);
+        return { eM, nM, distM: p.distM ?? Math.hypot(eM, nM), weight: footprintPlanWeight(f) };
+      },
+      {
+        cap: farCap,
+        plateRadiusM: farR,
+        tuning: { coreShareOfCap: CTX_PLATE_FILL_CORE_SHARE, cellTargetM: CTX_PLATE_FILL_CELL_TARGET_M },
+      },
+    );
+    const bounded = spent.kept;
+    this.contextFarTierPlateFill = spent.report;
     // Cache the inputs so the terrain-settle re-seat can rebuild this primitive on the risen ground
     // (no re-fetch — the same in-place principle as reseatContextPlacementsForBase for the near ring).
     this.contextFarTierState = { features: bounded, lat, lon };
     this.buildContextFarTierPrimitive(bounded, lat, lon, viewer);
+    return bounded.length;
   }
 
   /**
@@ -13119,8 +13283,13 @@ export class CesiumViewport {
     // line and a solid cannot share a geometry type. It is still ONE extra primitive for the whole
     // tier — NOT one per footprint, which is the failure mode the budget forbids (ADR-0094; memory
     // `webgpu-heavy-scene-crash-and-instancing`: per-element unique materials defeat instancing).
-    // `SimplePolylineGeometry` is deliberate: it emits GL_LINES (one vertex per ring point, no quad
-    // expansion), so a wireframe footprint is CHEAPER than the solid it replaces, not dearer.
+    // ⭐ §PLATE-FILLS PART B (L-13245) — `PolygonOutlineGeometry`, NOT `SimplePolylineGeometry`.
+    // The old ground ring was invisible at the 3D-Site camera (Dubai drew 24 764 footprints and
+    // showed 1 992). An EXTRUDED polygon OUTLINE emits bottom ring + top ring + one vertical per
+    // vertex — a see-through box — and it is STILL GL_LINES, STILL ONE primitive, STILL no
+    // triangles and no shadow pass. Cost is ~3× the line segments of the ring it replaces
+    // (measured mean outer-ring vertices: Paris 8.58 / Dubai 8.27 ⇒ ~8 segments → ~25), which is
+    // cheaper per unit than the solid instance it stands in for, exactly as before.
     const wireInstances: Cesium.GeometryInstance[] = [];
     for (const f of features) {
       try {
@@ -13131,14 +13300,17 @@ export class CesiumViewport {
         const fBase = fGround - FORMA_BASE_SINK_M;
         const renderTier = contextHeightRenderTier(f.properties.heightProvenance);
         if (renderTier === 'wireframe') {
-          // ⛔ Ground outline only. The 9 m default below is NOT applied here — an unknown height is
-          // drawn as no height, never as a wireframe box at an invented one.
-          const wirePositions = ring.map(([flon, flat]) =>
-            Cesium.Cartesian3.fromDegrees(flon!, flat!, fGround + CTX_WIREFRAME_GROUND_LIFT_M));
+          // ⭐ §PLATE-FILLS PART B (L-13245) — an OPEN CAGE to the STATED NOMINAL. The `trueH`
+          // fallback below is still NOT applied here: the cage top is `CTX_UNKNOWN_HEIGHT_CAGE_M`,
+          // one constant for every unknown footprint in the scene, so a field of them reads as a
+          // convention rather than as a survey. It never enters `heightM` and no study can read it.
+          const wirePositions = ring.map(([flon, flat]) => Cesium.Cartesian3.fromDegrees(flon!, flat!));
           wireInstances.push(new Cesium.GeometryInstance({
-            geometry: new Cesium.SimplePolylineGeometry({
-              positions: wirePositions,
-              arcType: Cesium.ArcType.NONE,   // straight chords: the ring is already dense enough.
+            geometry: new Cesium.PolygonOutlineGeometry({
+              polygonHierarchy: new Cesium.PolygonHierarchy(wirePositions),
+              height: fGround + CTX_WIREFRAME_GROUND_LIFT_M,
+              extrudedHeight: fGround + CTX_UNKNOWN_HEIGHT_CAGE_M,
+              perPositionHeight: false,
             }),
             attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(farUnknownEdge) },
           }));
@@ -13217,12 +13389,16 @@ export class CesiumViewport {
         `(§CTX-SITE-SCOPE radial ≤${Math.round(farTierRadiusM(this.contextScope))} m, ` +
         `cap ${farTierMaxInstances(farTierRadiusM(this.contextScope))} (§SCOPE-FILL: base ` +
         `${CTX_FAR_TIER_MAX_INSTANCES} × this scope's area ratio, ceiling ${CTX_FAR_TIER_MAX_INSTANCES_CEILING}) — ` +
-        `${features.length >= farTierMaxInstances(farTierRadiusM(this.contextScope)) ? 'the CAP is binding, so raising the scope will not add more' : 'the RADIUS is binding, so the cap has headroom'}) ` +
+        `${features.length >= farTierMaxInstances(farTierRadiusM(this.contextScope)) ? 'the CAP is binding — ⭐ §PLATE-FILLS: it is now spent PLATE-UNIFORMLY, so the plate thins EVENLY to its corners instead of collapsing to a disc, and raising the scope still will not add more' : 'the RADIUS is binding, so the cap has headroom'}) ` +
+        `${this.contextFarTierPlateFill ? `— ${this.contextFarTierPlateFill.line} ` : ''}` +
         `— §SOLID-OR-WIREFRAME: OPAQUE (was ${FORMA_PALETTE.contextFill}@0.60 for every footprint), ` +
         `hazed ${Math.round(CTX_TIER_HAZE.far * 100)}% toward ${FORMA_QUALITY.fogColor} for aerial ` +
         `perspective, lit (flat:false) so the plate articulates; ${wireInstances.length} unknown-height ` +
         `footprint(s) in a ${wireInstances.length > 0 ? 'SECOND' : 'suppressed second'} GL_LINES ` +
-        `primitive — ${wireInstances.length > 0 ? 2 : 1} primitive(s) for this tier, never one per footprint.`,
+        `primitive — ${wireInstances.length > 0 ? 2 : 1} primitive(s) for this tier, never one per footprint` +
+        `; §PLATE-FILLS PART B: each is an OPEN CAGE to an ASSUMED ${CTX_UNKNOWN_HEIGHT_CAGE_M} m ` +
+        '(bottom ring + top ring + verticals, no fill) — the height is NOT measured, the nominal is a ' +
+        'drawing convention identical for every unknown footprint, and it is never written to heightM.',
     );
   }
 
@@ -14012,11 +14188,25 @@ export class CesiumViewport {
     this.contextSeaRingsLonLat = [...collection.sea.map((a) => a.ring), ...supplementalSea];
     const seaPlaced = this.renderContextSeaRings(lat, lon, seaRings, seaDrape.pieces, viewer);
     viewer.scene.requestRender();
+    // ⚠ §SEA-PROVENANCE-IN-THE-LINE (L-13192) — THE ZERO CASE USED TO NAME ONE CAUSE AND THERE ARE
+    // THREE, WHICH IS §CONTEXT-DATA-HONESTY EXACTLY: "HONEST no-op (inland / no coastline)" is a
+    // CLAIM ABOUT THE WORLD, and the same zero is produced by a coastline that was found and then
+    // REFUSED by the left-hand walk (one free end anywhere in the bbox drops the whole build — the
+    // founder's `chains=23 strands=24 kept=0`), and by a coastline that survived the walk and was
+    // then cut away entirely by the §SITE-SCOPE slab. Those are three different bugs and they were
+    // reported as one sentence about geography. The line now says which of the three it is, and
+    // labels the supplement as the LIVE READ it is — never as baked data.
+    const seaWhy =
+      seaPlaced > 0
+        ? 'always-on with terrain/location'
+        : seaReadRings.length === 0
+          ? 'no rings from EITHER source — inland, or the coastline walk REFUSED (look for a §SEA-LEFT-HAND-WALK warning above)'
+          : `${seaReadRings.length} ring(s) were found and the §SITE-SCOPE cut removed all of them`;
     console.log(
       `[CesiumViewport][forma] §FEAT-FORMA-SEA-CONTEXT standing sea: ${seaPlaced} surface(s) ` +
-        `(${collection.sea.length} baked + ${supplementalSea.length} live-coastline supplement, ` +
-        `${seaRings.length} in-scope piece(s) after the §SITE-SCOPE cut) — ` +
-        `${seaPlaced === 0 ? 'HONEST no-op (inland / no coastline)' : 'always-on with terrain/location'}.`,
+        `(${collection.sea.length} from the BAKED water layer + ${supplementalSea.length} from a LIVE Overpass ` +
+        `natural=coastline read — SUPPLEMENT, never presented as baked data; ` +
+        `${seaRings.length} in-scope piece(s) after the §SITE-SCOPE cut) — ${seaWhy}.`,
     );
     // Re-clip the land-use drape against the freshly-loaded sea. This makes the sea→land-use
     // ordering irrelevant — whichever loads first, the grey ends at the coast.
@@ -14391,8 +14581,17 @@ export class CesiumViewport {
     this.contextLanduseSeaClipRemoved = 0;
     viewer.scene.requestRender();
     console.log(
+      // ⚠ §RURAL-BROWN-IS-NOT-A-COLOUR (L-13194) — this line printed `(N urban-grey, M rural-brown)`
+      // for a full day AFTER §RURAL-MATCHES-2D-PAGE (L-12987) aliased the rural drape to
+      // `FORMA_PALETTE_V2.land`. The log ASSERTED brown while the render was cream, which is the same
+      // class of untruth as a stale gate number in a doc: a reader debugging the founder's "light
+      // brown ground" would have read this line as CONFIRMATION. The classification is still a real,
+      // reported fact (the two arms differ in provenance even where they no longer differ in hue), so
+      // it stays — it just names the hex it actually painted instead of a colour that was deleted.
       `[CesiumViewport][forma] §FORMA-CTX-LANDUSE rendered: ${placed} piece(s) of ${scopedAreas.length} in-scope area(s) (${keptAreas.length} kept after the sea clip) ` +
-        `(${urbanPlaced} urban-grey, ${placed - urbanPlaced} rural-brown)${clippedBySea > 0 ? `, ${clippedBySea} clipped off the sea` : ''}. ` +
+        `(${urbanPlaced} urban ${FORMA_PALETTE.urban}, ${placed - urbanPlaced} rural ${FORMA_PALETTE.rural} ` +
+        `— rural is the 2D PAGE tone since §RURAL-MATCHES-2D-PAGE, not a brown)` +
+        `${clippedBySea > 0 ? `, ${clippedBySea} clipped off the sea` : ''}. ` +
         `§GROUND-DRAPE-ON-RELIEF: ${drape.summary}.`,
     );
     // §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — the sea may have landed WHILE this pass was

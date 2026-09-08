@@ -42,6 +42,8 @@ import {
     FORMA_CONTEXT_3D,
     FORMA_CONTEXT_3D_ROAD_MAJOR,
     formaContextRoadColour,
+    FORMA_KEY_LIGHT_CSS,
+    cssChromaSpread,
 } from '../formaPaletteV2';
 import {
     PASTEL_ROAD_CLASSES,
@@ -55,7 +57,7 @@ import {
     buildPastelLanduseLayers,
     buildPastelBackgroundLayer,
 } from '../siteMap2DStyle';
-import { FORMA_GROUND_URBAN, FORMA_GROUND_RURAL } from '../formaGroundColour';
+import { FORMA_GROUND_URBAN, FORMA_GROUND_RURAL, shouldLoadFormaSea } from '../formaGroundColour';
 import { FORMA_QUALITY, formaBackdropClearCss, FORMA_BACKDROP_RADIAL_LIFT_CSS } from '../formaSceneQuality';
 import { SITE_SCOPE_SLAB_SIDE_CSS } from '../siteScope';
 
@@ -255,7 +257,14 @@ describe('§PALETTE-PARITY-2D-3D — ARM C: no context colour may be re-typed as
             // The same key must NOT also carry a hex literal anywhere in the block.
             expect(block).not.toMatch(new RegExp(`^\\s*${key}: '#`, 'm'));
         }
-        expect(src).toContain("import { FORMA_CONTEXT_3D, formaContextRoadColour } from './formaPaletteV2';");
+        // ⚠ §ILLUMINANT-IS-A-COLOUR-SOURCE (L-13190) — this asserted the WHOLE import statement
+        // verbatim, so adding the key-light constant beside the alias table broke a test about a
+        // completely different subject. Assert the SPECIFIERS, which is what the arm cares about.
+        const importLine = src.match(/^import \{([^}]*)\} from '\.\/formaPaletteV2';$/m)?.[1];
+        expect(importLine, "CesiumViewport must import from './formaPaletteV2'").toBeTruthy();
+        const specifiers = (importLine as string).split(',').map((t) => t.trim());
+        expect(specifiers).toContain('FORMA_CONTEXT_3D');
+        expect(specifiers).toContain('formaContextRoadColour');
     });
 
     it('the 3D street ribbon paints per class, not one tone for every street', () => {
@@ -322,12 +331,36 @@ describe('§PALETTE-PARITY-2D-3D — ARM E: the gaps stay NAMED, and a SUPERSEDE
         }
     });
 
+    /**
+     * ⛔⛔ CORRECTED 2026-09-07 (§ILLUMINANT-IS-A-COLOUR-SOURCE, L-13193) — THIS TEST'S PROSE WAS
+     * FALSE, AND IT IS THE MOST EXPENSIVE KIND OF FALSE: A CONFIDENT, MEASURED-SOUNDING SENTENCE
+     * INSIDE A GREEN TEST, ON EXACTLY THE SUBJECT THE FOUNDER KEPT RE-REPORTING.
+     *
+     * It read: *"the draped context entities … never set `shadows`, and Cesium's PolygonGraphics
+     * default is ShadowMode.DISABLED — **so every draped layer is FLAT-LIT and renders its 2D hex
+     * exactly, like the 2D map**."* The premise is true and the conclusion does not follow.
+     * `ShadowMode.DISABLED` means the geometry neither CASTS nor RECEIVES a shadow. It says nothing
+     * about whether the surface is LIT. An entity polygon with a plain `Color` material is batched by
+     * `StaticGeometryColorBatch`, which builds `new AppearanceType({ translucent, closed })` and
+     * never passes `flat` — and `PerInstanceColorAppearance`'s `flat` DEFAULTS TO FALSE
+     * (`cesium/Build/CesiumUnminified/index.js`, `:179007` and `:38907`). So every drape ran
+     * `czm_phong` and was multiplied by `czm_lightColor`, which carried the key light's chroma.
+     *
+     * ⭐ THE COST OF THE WRONG SENTENCE: it told every subsequent reader that the ONLY residual
+     * 2D/3D difference was shadow DARKNESS, so three separate lanes fixed the ground's ALBEDO
+     * (L-12922, L-12948, L-12987) and the founder reported *"light brown"* after every one of them,
+     * because the amber illuminant was rendering `#F5F2EA` as `#F5DDBB` and no albedo edit could
+     * reach it. Memory `confident-register-rows-are-the-wrong-ones`, exactly.
+     *
+     * The SHADOW half of the claim was always right and is kept. The FLAT-LIT half is deleted and
+     * replaced by ARM F below, which measures the illuminant instead of asserting it away.
+     */
     it('THE LIGHTING TERM IS NOT A PALETTE TERM — pinned here so nobody fixes it with a hex', () => {
         // The founder's screenshot ALSO shows dark bands north of the buildings, and NO colour change
-        // touches those. Measured: the draped context entities (land-use, parks, water, roads, rail)
-        // never set `shadows`, and Cesium's PolygonGraphics default is ShadowMode.DISABLED — so every
-        // draped layer is FLAT-LIT and renders its 2D hex exactly, like the 2D map. The GLOBE is
-        // ShadowMode.RECEIVE_ONLY by default, so terrain in a building's shadow renders at
+        // touches those. The draped context entities (land-use, parks, water, roads, rail) never set
+        // `shadows`, and Cesium's PolygonGraphics default is ShadowMode.DISABLED — so no drape CASTS
+        // or RECEIVES a shadow. (It is NOT therefore unlit — see the correction note above.) The GLOBE
+        // is ShadowMode.RECEIVE_ONLY by default, so terrain in a building's shadow renders at
         // `shadowDarkness` of its lit value: #F5F2EA (L* 95.5) becomes L* 34.9 at 0.34. That is a
         // LIGHTING deliverable (shadow strength / AO / ambient), not a colour one.
         expect(FORMA_QUALITY.shadowDarkness).toBe(0.34);
@@ -348,6 +381,214 @@ describe('§PALETTE-PARITY-2D-3D — ARM E: the gaps stay NAMED, and a SUPERSEDE
     it('the 3D proposed-massing fill is NOT a context colour and is not aliased here', () => {
         const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
         expect(src).toMatch(/^\s*proposedFill: '#F4F4F2',\s*$/m);
+    });
+});
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * §PALETTE-PARITY-2D-3D — ARM F: THE ILLUMINANT (L-13190, founder 2026-09-07 at Barcelona).
+ *
+ * ⭐ THE THIRD VARIABLE, AND THE ONE ARMS A–E ARE STRUCTURALLY BLIND TO. 2D↔3D agreement is not one
+ * claim, it is three — **PALETTE · ILLUMINANT · COVERAGE** — and every arm above measures only the
+ * first. A renderer does not draw an albedo; it draws `albedo × illuminant`. The Forma key light was
+ * `warm ? '#FFE9CC' : '#FFF6EC'`, i.e. a SECOND DEFINITION of every colour in `FORMA_PALETTE_V2`,
+ * authored in `CesiumViewport.applyFormaSunLight`, one stage further down the pipeline than any
+ * `toBe` over a hex string can reach. That is the identical defect shape the whole module exists to
+ * remove — two literals for one colour — and it survived precisely because the spec compared strings.
+ *
+ * ⚠ WHY THIS COST FOUR FOUNDER REPORTS. `#F5F2EA` under that key rendered `#F5DDBB` — which IS
+ * "light brown". L-12922 painted the urban base off-white, L-12948 made the write actually run,
+ * L-12987 aliased rural to the same tone; he reported *"light brown"* after all three, because none
+ * of them touched the number that made it brown.
+ *
+ * ⛔ THIS ARM IS A CALCULATION, NOT A SCREENSHOT, AND IT REIMPLEMENTS THE SHIPPED SHADERS RATHER
+ * THAN A MODEL OF THEM. `czmLightColor`, `phongDrape` and `globeBase` below are transcriptions of
+ * `UniformState` (`index.js:202591`), `czm_phong` (`:45305`) and the globe FS's
+ * `ENABLE_VERTEX_LIGHTING` branch (`:207494`) in `node_modules/cesium`. Line references are in each
+ * helper so a Cesium upgrade that changes the maths is re-checkable rather than silently stale.
+ *
+ * ⛔ AND IT IS NOT VACUOUS: every arm derives its expectation from `FORMA_KEY_LIGHT_CSS` itself and
+ * ALSO asserts the OLD ambers fail the same test — so setting the constant back to `'#FFE9CC'` turns
+ * this block red rather than merely changing a number nobody checks.
+ */
+describe('§PALETTE-PARITY-2D-3D — ARM F: the ILLUMINANT is achromatic, so an albedo is a pixel', () => {
+    /** Cesium `UniformState.update` (index.js:202591): `czm_lightColor` = normalise-by-max(colour × intensity).
+     *  ⭐ THE INTENSITY CANCELS — which is why `FORMA_LIGHT_INTENSITY` 2.3 is NOT what tinted the scene. */
+    const czmLightColor = (css: string, intensity: number): [number, number, number] => {
+        const n = parseInt(css.replace('#', ''), 16);
+        const c: [number, number, number] = [
+            (((n >> 16) & 255) / 255) * intensity,
+            (((n >> 8) & 255) / 255) * intensity,
+            ((n & 255) / 255) * intensity,
+        ];
+        const m = Math.max(...c);
+        return m > 1 ? (c.map((v) => v / m) as [number, number, number]) : c;
+    };
+    /** `czm_phong` (index.js:45305): `0.5*C + 0.5*C*diffuse*czm_lightColor`. `diffuse` = 1 at nadir. */
+    const phongDrape = (hex: string, light: [number, number, number], diffuse = 1): [number, number, number] => {
+        const n = parseInt(hex.replace('#', ''), 16);
+        const C: [number, number, number] = [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+        return C.map((c, i) => 0.5 * c + 0.5 * c * diffuse * light[i]!) as [number, number, number];
+    };
+    /** Globe FS, `ENABLE_VERTEX_LIGHTING` (index.js:207494): `color.rgb * czm_lightColor * diffuseIntensity`. */
+    const globeBase = (hex: string, light: [number, number, number], diffuseIntensity = 1): [number, number, number] => {
+        const n = parseInt(hex.replace('#', ''), 16);
+        const C: [number, number, number] = [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+        return C.map((c, i) => c * light[i]! * diffuseIntensity) as [number, number, number];
+    };
+    const toHex = (c: [number, number, number]): string =>
+        '#' + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+    /** CIE Lab from sRGB, D65 — the same companding `lStar` above uses. */
+    const labOf = (c: [number, number, number]): [number, number, number] => {
+        const lin = (u: number): number => (u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4));
+        const [R, G, B] = c.map(lin) as [number, number, number];
+        const X = (0.4124564 * R + 0.3575761 * G + 0.1804375 * B) / 0.95047;
+        const Y = 0.2126729 * R + 0.7151522 * G + 0.0721750 * B;
+        const Z = (0.0193339 * R + 0.1191920 * G + 0.9503041 * B) / 1.08883;
+        const f = (t: number): number => (t > 0.008856 ? Math.cbrt(t) : (903.3 * t + 16) / 116);
+        return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))];
+    };
+    const hexRgb = (hex: string): [number, number, number] => {
+        const n = parseInt(hex.replace('#', ''), 16);
+        return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+    };
+    const dE76 = (a: [number, number, number], b: [number, number, number]): number => {
+        const A = labOf(a), B = labOf(b);
+        return Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]);
+    };
+
+    /** The keys this replaced, kept ONLY here so every arm can prove they would fail it. */
+    const OLD_WARM_KEY = '#FFE9CC';
+    const OLD_COOL_KEY = '#FFF6EC';
+    const INTENSITY = 2.3;
+
+    const stripComments = (t: string): string =>
+        t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+
+    it('the key light is ACHROMATIC — and the instrument that says so can say no', () => {
+        expect(cssChromaSpread(FORMA_KEY_LIGHT_CSS)).toBe(0);
+        // ⛔ NOT VACUOUS: the same instrument reads the two hexes this replaced as coloured.
+        expect(cssChromaSpread(OLD_WARM_KEY)).toBe(51);
+        expect(cssChromaSpread(OLD_COOL_KEY)).toBe(19);
+    });
+
+    it('⭐ THE TERRAIN BASE: the founder’s "light brown" was the LIGHT, and it is measured here', () => {
+        const base = FORMA_PALETTE_V2.land;                      // #F5F2EA, the 2D page
+        const shipped = globeBase(base, czmLightColor(FORMA_KEY_LIGHT_CSS, INTENSITY));
+        // Ships at ΔE76 0.00 — the globe renders the authored hex, byte for byte.
+        expect(toHex(shipped)).toBe(base);
+        expect(dE76(shipped, hexRgb(base))).toBeCloseTo(0, 6);
+        // ⛔ AND THE DEFECT IS NAMED, so this arm cannot be satisfied by a tinted key.
+        const warm = globeBase(base, czmLightColor(OLD_WARM_KEY, INTENSITY));
+        expect(toHex(warm)).toBe('#F5DDBB');                     // ← what he photographed
+        expect(dE76(warm, hexRgb(base))).toBeGreaterThan(16);     // measured 17.02
+    });
+
+    it('⭐ EVERY GROUND DRAPE renders its 2D hex exactly at nadir — none did under the amber key', () => {
+        // A drape is an entity polygon → StaticGeometryColorBatch → PerInstanceColorAppearance with
+        // `flat` DEFAULTING TO FALSE, so it runs czm_phong. At nadir `diffuse` = 1 and a WHITE key
+        // collapses czm_phong to exactly `C` — identical to the `flat: true` path the slab side and
+        // the canopies take. That identity is the whole reason a white key beats a re-tuned hex.
+        const white = czmLightColor(FORMA_KEY_LIGHT_CSS, INTENSITY);
+        const warm = czmLightColor(OLD_WARM_KEY, INTENSITY);
+        const DRAPES = [
+            FORMA_CONTEXT_3D.water, FORMA_CONTEXT_3D.park, FORMA_CONTEXT_3D.landuseUrban,
+            FORMA_CONTEXT_3D.roadMajor, FORMA_CONTEXT_3D.roadMinor, FORMA_CONTEXT_3D.rail,
+            FORMA_CONTEXT_3D.buildingFill, FORMA_CONTEXT_3D.tree, FORMA_PALETTE_V2.land,
+        ];
+        for (const hex of DRAPES) {
+            expect(toHex(phongDrape(hex, white)), `${hex} under the shipped key`).toBe(hex);
+            // …and the amber key moved every one of them well past the JND (measured 6.13–8.39).
+            expect(dE76(phongDrape(hex, warm), hexRgb(hex)), `${hex} under the OLD amber key`)
+                .toBeGreaterThan(5);
+        }
+    });
+
+    it('⚠ WHAT IS **NOT** CLAIMED: exposure. At the fly-in pitch a drape is still ~15% brighter', () => {
+        // czm_phong sums TWO hard-coded eye-space lambert terms, so at ~22° off nadir `diffuse`
+        // ≈ 1.302 and the composite is ≈1.151·C under ANY key. It is a LUMINANCE term shared by every
+        // layer — it cannot tint one layer against another — and it is logged as L-13196, not hidden
+        // by darkening a hex. Pinned so a later reader does not mistake ARM F for a pixel guarantee.
+        const white = czmLightColor(FORMA_KEY_LIGHT_CSS, INTENSITY);
+        const oblique = phongDrape(FORMA_PALETTE_V2.water, white, 1.302);
+        expect(dE76(oblique, hexRgb(FORMA_PALETTE_V2.water))).toBeGreaterThan(5);
+        // …but it stays ACHROMATIC, which is the property this arm actually buys: the same drape
+        // under the amber key is a further ΔE76 10.49 away, and ALL of that is hue.
+        const obliqueWarm = phongDrape(FORMA_PALETTE_V2.water, czmLightColor(OLD_WARM_KEY, INTENSITY), 1.302);
+        expect(dE76(oblique, obliqueWarm)).toBeGreaterThan(5);
+    });
+
+    it('REACHABILITY: CesiumViewport installs THIS constant, and no tinted key survives in the file', () => {
+        // §AUTHORED-BUT-UNWIRED — a neutral constant nobody installs changes nothing on screen.
+        const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        expect(src).toContain('color: Cesium.Color.fromCssColorString(FORMA_KEY_LIGHT_CSS),');
+        const code = stripComments(src);
+        // The ternary and both hexes are gone from CODE (the comments quote them deliberately).
+        expect(code).not.toContain(OLD_WARM_KEY);
+        expect(code).not.toContain(OLD_COOL_KEY);
+        expect(code).not.toMatch(/warm \?/);
+        // Exactly ONE illuminant is authored in the Forma path; the other write is the RESTORE.
+        const assignments = [...code.matchAll(/^\s*scene\.light = /gm)];
+        expect(assignments.length).toBe(2);
+    });
+
+    it('the INTENSITY half of §A.21.D-FORMA2 is untouched — this reversed the tint, not the look', () => {
+        const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        expect(src).toMatch(/^const FORMA_LIGHT_INTENSITY = 2\.3;$/m);
+        // And because czm_lightColor normalises by its MAX component (red = 1.0 in all three
+        // candidates), white raises green/blue and lowers nothing: never a darker scene.
+        const white = czmLightColor(FORMA_KEY_LIGHT_CSS, INTENSITY);
+        const warm = czmLightColor(OLD_WARM_KEY, INTENSITY);
+        for (let i = 0; i < 3; i++) expect(white[i]!).toBeGreaterThanOrEqual(warm[i]!);
+    });
+
+    it('the applied console line NAMES the illuminant, so a screenshot is diagnosable', () => {
+        // Three hexes were printed there already and he still could not tell why the ground read
+        // brown — because the number that made it brown had no name in any line he could read.
+        const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        expect(src).toContain("'; key light ' + FORMA_KEY_LIGHT_CSS +");
+        expect(src).toContain('cssChromaSpread(FORMA_KEY_LIGHT_CSS)');
+    });
+});
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────────────────────
+ * §SEA-LOAD-GATE-STALE-FLAG (L-13191) — the 2D pane gets its ocean from a GLOBAL BASEMAP; the 3D
+ * pane has no basemap at all and must derive one. That asymmetry is not a colour defect and no
+ * palette arm can see it, which is why it is pinned in the parity spec: "the panes agree" is false
+ * while one of them is missing a layer the other renders for free.
+ */
+describe('§SEA-LOAD-GATE-STALE-FLAG — the standing sea actually loads on the framing funnel', () => {
+    it('the rule is Forma-mode, and the stale photoreal latch is IGNORED by construction', () => {
+        // `photorealTilesActive` latches true on the first photoreal tile load and clears only on
+        // dispose. The founder's onboarding flies the photoreal globe BEFORE the 3D Site, so on his
+        // machine it is true for the whole session — and the old gate
+        // `formaMode && !photorealTilesActive` meant the standing sea never loaded on the funnel.
+        // Same defect, same shape, same file as L-12948; this was its last uncorrected copy.
+        expect(shouldLoadFormaSea({ formaMode: true, photorealActive: true })).toBe(true);
+        expect(shouldLoadFormaSea({ formaMode: true, photorealActive: false })).toBe(true);
+        // …and it still refuses OFF the Forma path, where Google's tiles carry the water themselves.
+        expect(shouldLoadFormaSea({ formaMode: false, photorealActive: true })).toBe(false);
+        expect(shouldLoadFormaSea({ formaMode: false, photorealActive: false })).toBe(false);
+    });
+
+    it('REACHABILITY: the funnel calls the predicate, and the stale expression is gone', () => {
+        const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+        expect(code).toContain('shouldLoadFormaSea({ formaMode: this.formaMode, photorealActive: this.photorealTilesActive })');
+        // ⛔ THE RATCHET. This exact expression has now been wrong three times in this one file.
+        expect(code).not.toMatch(/this\.formaMode && !this\.photorealTilesActive/);
+    });
+
+    it('the sea line LABELS its provenance and names WHICH of the three zero causes it hit', () => {
+        // §CONTEXT-DATA-HONESTY: a live-Overpass sea must never read as baked data, and "inland" must
+        // never be printed for a coastline that was found and then refused or cut away.
+        const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        expect(src).toContain('SUPPLEMENT, never presented as baked data');
+        expect(src).toContain('the coastline walk REFUSED');
+        expect(src).toContain('cut removed all of them');
+        // The old single-cause sentence must be gone, or the honest branch is dead code beside it.
+        expect(src).not.toContain("'HONEST no-op (inland / no coastline)'");
     });
 });
 

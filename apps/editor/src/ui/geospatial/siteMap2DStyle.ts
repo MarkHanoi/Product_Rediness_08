@@ -41,7 +41,27 @@
 // maplibre, no DOM) so the 3D Forma context layers can read the SAME object. Re-exported below.
 import { FORMA_PALETTE_V2 } from './formaPaletteV2';
 
-/** Hektar palette — single source of truth for the cream/shadow look. */
+/**
+ * Hektar palette — the ORIGINAL cream/shadow look.
+ *
+ * ⚠ §RIVAL-PALETTE-CONSUMERS (L-13190 lane, 2026-09-07) — THIS IS NOT THE LIVE CARTOGRAPHY PALETTE
+ * AND HAS NOT BEEN SINCE `FORMA_PALETTE_V2`. Read that one for anything a viewer sees as context.
+ * Kept because it is NOT dead, and a table with live consumers must be labelled rather than deleted
+ * (deleting it silently changes the two things below; leaving it unlabelled is a trap for the next
+ * reader looking for "the map palette"). MEASURED, whole repo, 2026-09-07:
+ *
+ *   · `SiteBoundaryMap2D.ts:294` — `HEKTAR_PALETTE.violet` -> `const VIOLET`, the vertex-handle
+ *     colour. BRAND + SELECTION, not cartography, which is exactly the category
+ *     `FORMA_PALETTE_V2.parcelAccent` is reserved for; C58 §1.2 keeps those hues out of the
+ *     context palette on purpose.
+ *   · `buildSiteMap2DStyle()` below — whose only remaining callers are `siteMap2DStyleV2.spec.ts`
+ *     and this module's own raster helper's doc comment. NO PRODUCTION CALLER.
+ *
+ * ⛔ So the FIELDS other than `violet` are reachable only from a spec. They are not deleted here
+ * because `buildSiteMap2DStyle` is the DIFFERENTIAL the v2 spec measures v2 against ("does NOT
+ * disturb v1"); deleting the table without deleting that comparison would make the spec assert
+ * nothing. Whoever retires `buildSiteMap2DStyle` retires this table with it, in one commit.
+ */
 export const HEKTAR_PALETTE = {
     /** Cream page background behind/around everything (shows at edges + load). */
     cream: '#f4f1ea',
@@ -369,9 +389,26 @@ export const SATELLITE_SOURCE = 'esri-world-imagery';
 // needed to honour the Forma palette (only the cartography differs).
 
 /**
- * Forma palette — single source of truth for the minimal-vector site basemap
- * (SPEC-FORMA-SITE-VIEW §3). Quiet, abstract, off-white; the green is the drawn
- * boundary colour, kept consistent with the eventual 3D site boundary.
+ * Forma palette v1 — the minimal-vector site basemap (SPEC-FORMA-SITE-VIEW §3).
+ *
+ * ⛔⛔ THIS IS THE SUPERSEDED PALETTE. `FORMA_PALETTE_V2` (`./formaPaletteV2`) is the live one, and
+ * it is ALSO the source the 3D Forma context reads through `FORMA_CONTEXT_3D`. Reading a colour out
+ * of THIS table for anything a viewer sees is how `FORMA_GROUND_URBAN` came to be pinned to
+ * `#F0EDE8` while the map had been rendering `#F5F2EA` for weeks (§PALETTE-PARITY-2D-3D, L-12965).
+ *
+ * ⚠ §RIVAL-PALETTE-CONSUMERS (L-13190 lane) — IT SURVIVES FOR TWO FIELDS, NAMED SO THE REST READS
+ * AS THE HISTORY IT IS. MEASURED, whole repo, 2026-09-07:
+ *
+ *   · `SiteBoundaryMap2D.ts:292-293` — `FORMA_PALETTE.boundary` + `.boundaryFill`, the DRAWN
+ *     SITE-BOUNDARY line and fill. Those are a drawing-tool affordance, not cartography: v2
+ *     deliberately does not define them, because a boundary must contrast with WHATEVER the context
+ *     palette becomes rather than belong to it.
+ *   · `buildFormaMap2DStyle()` below — NO PRODUCTION CALLER (only `siteMap2DStyleV2.spec.ts`,
+ *     which uses it as the v1 differential; `SiteBoundaryMap2D` calls `buildFormaMap2DStyleV2`).
+ *
+ * ⛔ The `land` / `road` / `water` / `landuse` / `building*` / `label*` fields here are therefore
+ * REACHABLE ONLY FROM A SPEC. Do not read them, do not "fix" them to match v2 — `siteMap2DStyleV2.spec.ts`
+ * asserts `FORMA_PALETTE.land === '#F0EDE8'` precisely so the v1/v2 difference stays visible.
  */
 export const FORMA_PALETTE = {
     /** Off-white land / page background behind everything. */

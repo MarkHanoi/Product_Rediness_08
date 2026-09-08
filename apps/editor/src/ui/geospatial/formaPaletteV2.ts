@@ -37,6 +37,15 @@
 // what ships here; "pixel-identical" is not achievable while the 3D view has a sun, and no hex is
 // re-tuned to fake it — a silently re-tuned hex would recreate exactly the drift this file removes.
 //
+// ⛔⛔ AND THE CAVEAT ABOVE HID THE SECOND HALF OF THE PROBLEM FOR A DAY — §ILLUMINANT-IS-A-COLOUR-SOURCE
+// (L-13190). "Directionally lit" was read here as a LUMINANCE story ("darker on a shaded face"), and
+// it was a CHROMA story: the key light was AMBER (#FFE9CC), so the 3D pane's every colour was
+// `albedo × amber` — a second colour definition, living in `CesiumViewport.applyFormaSunLight`, that
+// no `toBe` over hex strings can reach. Measured: the terrain base #F5F2EA rendered #F5DDBB, dE76
+// 17.02, which is exactly the "light brown" the founder reported after THREE separate fixes had
+// already made the authored value off-white. The illuminant is now `FORMA_KEY_LIGHT_CSS` below,
+// achromatic, and it is declared HERE with the other colours precisely because it IS one.
+//
 // PURE. No imports, no DOM, no THREE, no Cesium — testable anywhere.
 
 /**
@@ -196,6 +205,77 @@ export const FORMA_CONTEXT_3D = {
      *  at all, so there is no edge to equal and this takes the fill, as `landuseUrbanEdge` does. */
     landuseRuralEdge: FORMA_PALETTE_V2.land,
 } as const;
+
+/**
+ * §ILLUMINANT-IS-A-COLOUR-SOURCE (L-13190, founder 2026-09-07 at Barcelona — the THIRD time he has
+ * ruled that the two panes must agree: *"3d site view needs to match ALL COLOURS to 2d maps view.
+ * DO IT!"*, and the FOURTH report of a *"light brown"* ground).
+ *
+ * ⭐ THE COLOUR OF THE LIGHT IS A SECOND DEFINITION OF EVERY COLOUR IN THE SCENE, AND IT WAS THE ONE
+ * THIS MODULE COULD NOT SEE. Everything above makes the 2D and 3D ALBEDOS one value. A renderer does
+ * not draw an albedo: it draws `albedo x illuminant`. The Forma key light was
+ * `warm ? '#FFE9CC' : '#FFF6EC'`, so every context hex was multiplied by an amber before it reached
+ * a pixel — a colour authored in `CesiumViewport.applyFormaSunLight` and nowhere near this palette,
+ * which is the identical defect shape (`two literals for one colour`) that the header above exists
+ * to remove, moved one stage down the pipeline where no `toBe` could reach it.
+ *
+ * ⚠ THIS IS WHY THE GROUND KEPT COMING BACK BROWN AFTER THREE FIXES. L-12922 painted the urban base
+ * off-white, L-12948 made that write actually run, L-12987 aliased rural to the same page tone — and
+ * the founder reported *"light brown"* again after all three, because the ground he was looking at
+ * was never `#F5F2EA`. MEASURED against the SHIPPED shaders (not an estimate):
+ *
+ *   `czm_lightColor` = normalise-by-max(`light.color` x `light.intensity`)  [UniformState]
+ *      warm  #FFE9CC @2.3 -> (1.0000, 0.9137, 0.8000)   <- INTENSITY CANCELS; pure chroma survives
+ *      cool  #FFF6EC @2.3 -> (1.0000, 0.9647, 0.9255)
+ *      white #FFFFFF @2.3 -> (1.0000, 1.0000, 1.0000)
+ *
+ *   TERRAIN BASE — globe FS, `ENABLE_VERTEX_LIGHTING`: `color.rgb * czm_lightColor * diffuseIntensity`
+ *      `#F5F2EA` under the warm key renders **`#F5DDBB` — dE76 17.02. That hex IS "light brown".**
+ *      Under the cool key `#F5E9D9`, dE76 6.14. Under white, `#F5F2EA`, dE76 **0.00**.
+ *
+ *   GROUND DRAPES — `PerInstanceColorAppearance` (`flat` defaults to FALSE, and an entity polygon has
+ *   no way to ask for `flat`), i.e. `czm_phong`: `0.5*C + 0.5*C*diffuse*czm_lightColor`. At nadir
+ *   `diffuse` = 1, so a WHITE key returns exactly `C` — byte-identical to the `flat:true` path the
+ *   slab side and the canopies already take. Under the warm key, dE76: land 8.39 - landuse 8.19 -
+ *   water 8.26 - buildings 7.74 - roadMinor 7.92 - parks 7.55 - roadMajor 7.29 - rail 6.96 -
+ *   woodland 6.85 - trees 6.13. Under white: **0.00 for every one of them.**
+ *
+ * For scale: every 2D-vs-3D ALPHA difference this lane measured composites to dE76 <= 1.28, at or
+ * below the JND. The illuminant was between 5x and 13x larger than the largest thing the palette
+ * spec could see.
+ *
+ * ⚠⚠ SUPERSEDED, NOT DELETED — the ruling that minted the amber key, kept in full so the reversal is
+ * DELIBERATE AND REVERSIBLE (the discipline §RURAL-MATCHES-2D-PAGE established above):
+ *   - `FORMA_LIGHT_INTENSITY` 1.8 -> 2.3 came from §A.21.D-FORMA2, founder: *"strong white + stronger
+ *     contrast"*. ⭐ **THE INTENSITY HALF SURVIVES UNCHANGED AND IS NOT WHAT MOVED HERE.** Note that
+ *     his words were "strong WHITE" — an amber key is the one thing that instruction rules out, so
+ *     this is less a reversal of that ruling than the correction of a drift away from it.
+ *   - The `warm` flag itself carried no founder ruling at all. It was `let warm = true`, reassigned
+ *     to `altDeg < 25` ONLY inside the sun-above-horizon branch, so a below-horizon session, a
+ *     solver throw, or a site with no location kept the AMBER key. The founder's console is an
+ *     evening session. That branch was a bug on its own terms before it was a parity defect.
+ *
+ * ⛔ WHAT THIS DOES **NOT** CLAIM. It removes the illuminant's CHROMA, not its EXPOSURE. `czm_phong`
+ * sums two hard-coded eye-space lambert terms, so at the Forma fly-in pitch (~22 deg off nadir,
+ * `diffuse` ~= 1.302) a drape still renders ~15% BRIGHTER than its hex under any light, white
+ * included. That is a luminance term shared by every layer, it cannot tint one layer against
+ * another, and it is logged as L-13196 rather than papered over with a darkened hex — which would be
+ * exactly the re-tuning this module forbids.
+ */
+export const FORMA_KEY_LIGHT_CSS = '#FFFFFF';
+
+/**
+ * The max-min channel spread of an `#RRGGBB`, 0..255 — a CHROMA PROXY, and the instrument the
+ * illuminant arm measures with. Pure. Exported (rather than left in the spec) because
+ * `FORMA_KEY_LIGHT_CSS` is a claim about neutrality and a claim needs an instrument that ships
+ * beside it; `formaBackdropClearCss`'s neighbours in the parity spec use the same proxy for the
+ * same reason.
+ */
+export function cssChromaSpread(css: string): number {
+    const n = parseInt(css.replace('#', ''), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return Math.max(r, g, b) - Math.min(r, g, b);
+}
 
 /**
  * §PALETTE-PARITY-2D-3D — the OSM `highway` classes the 3D street ribbon paints with

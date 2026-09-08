@@ -87,6 +87,44 @@ export function shouldPaintFormaGroundBase(input: {
     return true;                                  // in Forma the globe is the ground, photoreal hidden
 }
 
+/**
+ * §SEA-LOAD-GATE-STALE-FLAG (L-13191, 2026-09-07) — THE THIRD AND LAST COPY OF THE SAME STALE FLAG,
+ * and this one was costing the founder the OCEAN.
+ *
+ * THE STANDING pre-plot sea load (`CesiumViewport.frameSiteLocation`, the framing funnel every
+ * initial location / geocode / project-restore / pre-plot reframe passes through) was gated
+ *
+ *     if (this.formaMode && !this.photorealTilesActive) { void this.loadContextSea(lat, lon); }
+ *
+ * — character-for-character the expression `shouldPaintFormaGroundBase` above was minted to replace
+ * (L-12948). `photorealTilesActive` is set TRUE the moment the photoreal tileset finishes its first
+ * load and is cleared ONLY on dispose; CesiumViewport says so twice in its own words ("it is not
+ * reset on Forma re-entry"), and the founder's onboarding flies the photoreal GLOBE before it enters
+ * the 3D Site. So on his machine the flag is true for the rest of the session and the sea NEVER
+ * LOADED on the funnel — it could only arrive later, if a massing kickoff happened to call
+ * `loadContextSea` again. A coastal site framed and never touched again showed bare ground where the
+ * 2D pane, which gets its ocean free from the OpenFreeMap basemap, shows sea.
+ *
+ * THE RULE IS THE SAME RULE, so it is expressed the same way and beside its sibling rather than
+ * open-coded a third time: in FORMA the photoreal tileset is `show = false` and the globe IS the
+ * ground, so Forma's flat-ground features apply; on the true photoreal path Google's tiles carry
+ * both the ground and the water and Forma must not draw over them.
+ *
+ * ⚠ IT IS A SEPARATE PREDICATE, NOT A SECOND CALLER OF `shouldPaintFormaGroundBase`, DELIBERATELY.
+ * The ground-paint gate additionally refuses while the camera is framed on the WHOLE EARTH
+ * (`worldFraming`), because painting `globe.baseColor` then would colour the PLANET. The sea load has
+ * no such hazard — it is a per-site fetch that caches and drapes site-local polygons — and refusing
+ * it during the globe leg would silently re-introduce the very "sea never loads on the funnel" defect
+ * this fixes, since the funnel can run while the globe is still up. Two questions, two answers, both
+ * stated; folding them together would trade one stale flag for one over-eager one.
+ */
+export function shouldLoadFormaSea(input: {
+    readonly formaMode: boolean;
+    readonly photorealActive: boolean;
+}): boolean {
+    return input.formaMode;   // `photorealActive` is accepted and IGNORED — see the note above.
+}
+
 export interface LanduseAreaLike {
     readonly kind: 'urban' | 'rural';
     /** Closed ring as [lon, lat]. */

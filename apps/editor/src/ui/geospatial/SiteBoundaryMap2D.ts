@@ -360,6 +360,48 @@ const ENVELOPE_LINE_LAYER = 'pryzm-buildable-envelope-line';
 //
 // ⛔ NONE OF THEM IS A NEW CONTROL. They are the words on controls that already exist.
 
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// §PANE-CENTRED-REDRAW (L-13185 · C59 §2.10.3 clause 4) — the two numbers the top column's
+// LEFT inset is built from. Exported so the guard reads them rather than retyping them: a spec
+// that keeps its own copy of `12` and `168` stays green against a reverted layout, which is the
+// "a fake built from the header cannot falsify the header" defect this repo has already paid for.
+// ─────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The column's own left inset — the floor its left edge may never fall below, and the same 12px
+ * margin every other float on this overlay keeps off the pane edge.
+ *
+ * ⛔ IT IS ALSO HALF OF `--map2d-top-stack-right`'s `192px` FLOOR (that floor is the 180px
+ * readable-banner minimum PLUS this inset), which `map2dTopStackGutter.spec.ts` asserts as an
+ * identity. Changing it here without changing the stylesheet breaks that identity, and both halves
+ * would still be green on their own.
+ */
+export const TOP_STACK_LEFT_PX = 12;
+
+/**
+ * ⭐ THE WIDTH A PANE MUST BE ABLE TO SPARE BEFORE `↺ Redraw boundary` MAY BE PANE-CENTRED.
+ *
+ * Founder 2026-09-07, arrow drawn from the pill pointing RIGHT: *"Aligne pane"*. He is right and
+ * the arithmetic reproduces his measurement exactly — the column is `left:12px; right:176px`, so
+ * `align-items:center` centres its children on `W/2 − 82`, not on `W/2`. At the 948px pane he
+ * marked up that is x=392, the pixel he drew from, and the 82px gap is precisely his arrow.
+ *
+ * ⛔ THE FIX IS A SYMMETRIC RESERVATION, NEVER A PIXEL NUDGE. A hard `+82px` offset is wrong at
+ * every other split ratio and re-breaks the moment he drags the splitter or the parcel card
+ * changes the right gutter — which is the exact class of defect `--map2d-top-stack-right` was
+ * minted to end. Mirroring the right gutter onto the left keeps the centre ON the pane at EVERY
+ * width, in pure CSS percentage arithmetic that re-evaluates on every drag with no JS.
+ *
+ * ⚠ AND THE MIRROR IS AFFORDABLE ONLY WHILE THE PANE IS WIDE ENOUGH. Reserving the gutter on both
+ * sides leaves `W − 2G` for the pill; below that the pill overflows the column and lands ON the
+ * Map|Satellite toggle it was reserving against — two controls stacked, one of them unclickable.
+ * So the left inset gives up exactly as much mirroring as the pane cannot afford and not a pixel
+ * more, and this is the number it must keep affording: `↺ Redraw boundary` at `600 13px/1
+ * system-ui` (≈122px of text) + `8px 16px` of padding + 2×1px of border ≈ 156px, rounded up to
+ * 168px so a wider system font never starts the collision this exists to prevent.
+ */
+export const REDRAW_PILL_RESERVE_PX = 168;
+
 /** The instruction chip while SELECT is armed on a site that already has a committed boundary. */
 export const PARCEL_RESELECT_CHIP =
     'Click a plot to read its cadastral facts — and to continue with it instead of the plot '
@@ -693,8 +735,11 @@ export function mountSiteBoundaryMap2D(
     Object.assign(topStack.style, {
         position: 'absolute',
         top: '52px',
-        left: '12px',
-        // Re-written by `refreshTopStack()` — see there for the two states and why they differ.
+        // ⭐ BOTH insets are re-written by `refreshTopStack()` — it is the ONE writer of this box,
+        // and since §PANE-CENTRED-REDRAW (below) the LEFT one carries meaning too: the column is
+        // asymmetric while it holds a sentence and symmetric while it holds only the pill, so a
+        // literal here would be a second opinion about a value that has two regimes.
+        left: `${TOP_STACK_LEFT_PX}px`,
         right: '176px',
         zIndex: '23',
         display: 'flex',
@@ -2346,7 +2391,65 @@ export function mountSiteBoundaryMap2D(
         const cardMoved = parcelCard.getAttribute(DRAG_PINNED_ATTR) === '1';
         const state = !cardUp ? 'off' : (cardMoved ? 'moved' : 'on');
         overlay.setAttribute('data-parcel-card', state);
-        topStack.style.right = state === 'on' ? 'var(--map2d-top-stack-right)' : '176px';
+        const gutter = state === 'on' ? 'var(--map2d-top-stack-right)' : '176px';
+        topStack.style.right = gutter;
+
+        // ⭐ §PANE-CENTRED-REDRAW (L-13185) — THE LEFT INSET MIRRORS THE RIGHT ONE, SO THE COLUMN'S
+        // CENTRE IS THE PANE'S CENTRE. `align-items: center` centres on the COLUMN; an asymmetric
+        // column therefore centres nothing on the pane, and that is the whole of the founder's
+        // *"Aligne pane"* arrow (see `REDRAW_PILL_RESERVE_PX` for the arithmetic that reproduces
+        // his measured 392px). Mirroring is pure percentage CSS, so it re-centres on every splitter
+        // drag and in all three gutter states above, with nothing to re-measure in JS.
+        //
+        // ⛔ TEXT WIDTH BEATS CENTRING, AND THAT PRIORITY IS WHY THIS IS A CONDITIONAL. Mirroring
+        // costs the column the same width on the left that the card costs it on the right, which a
+        // 150px pill does not notice and a two-clause SENTENCE cannot survive — it is exactly the
+        // shredded ribbon §BANNER-NEVER-STARVES exists to prevent, arriving by the other side. So
+        // while the banner is up the column keeps today's asymmetric box and its measured
+        // clearance arithmetic UNCHANGED; only a column carrying nothing but pills is centred.
+        // The two never contend in practice — `freezeDraw` hides the banner and shows the pill,
+        // `rearmDraw` does the reverse — but the rule is stated rather than assumed, because "they
+        // cannot both be up" is exactly the kind of invariant that quietly stops being true.
+        //
+        // ⚠ AND THE MIRROR IS CLAMPED. `clamp(12px, <what the pane can spare>, <the full gutter>)`
+        // hands the left side the full mirror whenever `W − 2G ≥ 168px`, and gives up exactly the
+        // shortfall below that — degrading toward today's left-biased placement rather than
+        // shoving the pill onto the Map|Satellite toggle it is reserving against.
+        const bannerUp = chip.style.display !== 'none';
+        topStack.style.left = bannerUp
+            ? `${TOP_STACK_LEFT_PX}px`
+            : `clamp(${TOP_STACK_LEFT_PX}px, calc(100% - ${gutter} - ${REDRAW_PILL_RESERVE_PX}px), ${gutter})`;
+    }
+
+    /**
+     * ⭐ §COMMITTED-MAP-IS-ONE-ACTION (L-13186) — the ONE writer of the banner's TEXT **and** of
+     * its visibility, because after 2026-09-07 those are one decision rather than two.
+     *
+     * Founder, red cross drawn straight through the banner in the committed split view:
+     * *"we dont need: 'click a plot....'"*. That sentence is `PARCEL_RESELECT_CHIP` and it is the
+     * ONLY thing this pill ever says on a committed site — every other string it carries is either
+     * a live DRAWING instruction (impossible while committed) or TRANSIENT PROGRESS
+     * (*"Fetching parcel…"*, *"Large holding — looking for the building outline…"*, the
+     * no-cadastral-source notice), which he did not cross out and which would be a real loss.
+     *
+     * So the rule is stated as what it is — *hide the sentence he crossed out, keep the rest* —
+     * and it is DERIVED FROM THE SENTENCE ITSELF rather than from a `committed` flag mirrored
+     * beside it. `refreshTopStack`'s own header records why this file works that way: a mirrored
+     * boolean is how two pieces of chrome come to disagree about which of them is on screen.
+     *
+     * ⛔ NO CAPABILITY IS ATTACHED TO THIS NODE. It arms nothing and dispatches nothing; the
+     * plot-clicking it described is armed by `interactionMode === 'select'`, which `freezeDraw`
+     * sets unconditionally, and the route it named is still stated on the parcel card itself by
+     * `PARCEL_LAW_PLOT_ROUTE_NOTE` (§SELECT-PARCEL-IS-A-VIEW-ACTION).
+     */
+    function setChip(text: string): void {
+        chip.textContent = text;
+        // §FIX-SITE-OVERLAY-IMPORT-TERMINAL (L-70) — overlay-only mode has no boundary to trace,
+        // so the pill is hidden there whatever it is carrying.
+        chip.style.display = opts.overlayOnly || text === PARCEL_RESELECT_CHIP ? 'none' : '';
+        // The column's box reads the banner's visibility (§PANE-CENTRED-REDRAW), so changing one
+        // without re-reading the other is how the pill would stay off-centre after the banner went.
+        refreshTopStack();
     }
 
     /** Hide + empty the parcel info card. */
@@ -2384,9 +2487,9 @@ export function mountSiteBoundaryMap2D(
         oversizeHolding = null;
         try { refreshParcelHighlight(); } catch { /* style may be swapping */ }
         hideParcelCard();
-        chip.textContent = committed
+        setChip(committed
             ? PARCEL_RESELECT_CHIP
-            : 'Click a plot to select its real cadastral parcel · Esc to cancel';
+            : 'Click a plot to select its real cadastral parcel · Esc to cancel');
         try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* ignore */ }
         console.log(`[gis] §RESELECT-PARCEL (L-13094): selection cleared, picking re-armed — ${reason}.`);
     }
@@ -2549,7 +2652,7 @@ export function mountSiteBoundaryMap2D(
         }));
         parcelCard.style.display = 'block';
         refreshTopStack();
-        chip.textContent = 'No cadastral source is connected here — draw the boundary instead · Esc to cancel';
+        setChip('No cadastral source is connected here — draw the boundary instead · Esc to cancel');
     }
 
     /** Highlight the active interaction-mode segment (violet). */
@@ -2595,10 +2698,9 @@ export function mountSiteBoundaryMap2D(
             modeBar.style.display = 'none';
             // §CONTINUE-WITH-THIS-PARCEL — after a commit there is nothing to "cancel", and the
             // consequence of proceeding is different. Say which state the reader is in.
-            chip.textContent = committed
+            setChip(committed
                 ? PARCEL_RESELECT_CHIP
-                : 'Click a plot to select its real cadastral parcel · Esc to cancel';
-            refreshTopStack();
+                : 'Click a plot to select its real cadastral parcel · Esc to cancel');
         } else {
             // Back to DRAW — drop the parcel highlight + card (+ any displaced holding, §L-12912).
             selectedParcel = null;
@@ -2630,7 +2732,7 @@ export function mountSiteBoundaryMap2D(
         // provider, L-380 P0/P1). Never a silent no-op — the user sees exactly what's pending.
         if (!parcelProvider) { showStubParcelCard(); return; }
         parcelFetchInFlight = true;
-        chip.textContent = 'Fetching parcel…';
+        setChip('Fetching parcel…');
         try { map.getCanvas().style.cursor = 'progress'; } catch { /* ignore */ }
         void parcelProvider.fetchParcelAtPoint(lng, lat).then((parcel) => {
             // §L-12912 — the in-flight guard is released in the FINAL `.then` below, after the
@@ -2657,12 +2759,12 @@ export function mountSiteBoundaryMap2D(
                     return null;
                 })
                 : Promise.resolve(null);
-            if (preview.status === 'oversize') chip.textContent = 'Large holding — looking for the building outline under your click…';
+            if (preview.status === 'oversize') setChip('Large holding — looking for the building outline under your click…');
             return footprintP.then((footprint) => {
                 parcelFetchInFlight = false;
                 if (disposed || interactionMode !== 'select') return;
                 const choice = showParcelCard(parcel, footprint);
-                chip.textContent = choice.chip;
+                setChip(choice.chip);
                 console.log(
                     `[gis] §L-12912 parcel candidate: primary=${choice.primary}` +
                     (choice.holding ? ` holding=${choice.holding.refcat} (${Math.round(choice.holding.areaM2)} m²)` : '') +
@@ -3467,26 +3569,26 @@ export function mountSiteBoundaryMap2D(
         try { refreshTopStack(); } catch { /* pre-mount — the initial paint below runs it again */ }
         switch (uiMode) {
             case 'rectangle':
-                chip.textContent = 'Click two opposite corners · Esc to cancel';
+                setChip('Click two opposite corners · Esc to cancel');
                 break;
             case 'linear':
-                chip.textContent = 'Click each corner (free angles) · double-click or Enter to close · Esc to cancel';
+                setChip('Click each corner (free angles) · double-click or Enter to close · Esc to cancel');
                 break;
             case 'orthogonal':
-                chip.textContent = '⟂ 90°-locked · click each corner · double-click or Enter to close · Esc to cancel';
+                setChip('⟂ 90°-locked · click each corner · double-click or Enter to close · Esc to cancel');
                 break;
             case 'curved':
                 // §BND-MODE-STRIP — no curved/arc boundary geometry yet → falls back to
                 // a straight polyline; tell the user so the result isn't a surprise.
-                chip.textContent = 'Curved not available yet — drawing straight segments · double-click or Enter to close · Esc';
+                setChip('Curved not available yet — drawing straight segments · double-click or Enter to close · Esc');
                 break;
             case 'circle':
                 // §CIRCLE-BOUNDARY — click centre, then a point on the circumference.
-                chip.textContent = 'Click the centre, then a point on the edge (radius shown) · Esc to cancel';
+                setChip('Click the centre, then a point on the edge (radius shown) · Esc to cancel');
                 break;
             case 'ellipse':
                 // §ELLIPSE-BOUNDARY — click centre, then a bounding-box corner (two radii shown).
-                chip.textContent = 'Click the centre, then a corner of the bounding box (Rx × Ry shown) · Esc to cancel';
+                setChip('Click the centre, then a corner of the bounding box (Rx × Ry shown) · Esc to cancel');
                 break;
         }
     }
@@ -3560,7 +3662,7 @@ export function mountSiteBoundaryMap2D(
     // branch's chrome is applied here explicitly, in the same order it applies it.
     if (interactionMode === 'select') {
         modeBar.style.display = 'none';
-        chip.textContent = 'Click a plot to select its real cadastral parcel · Esc to cancel';
+        setChip('Click a plot to select its real cadastral parcel · Esc to cancel');
         try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* map style may still be loading */ }
     }
     // §TOP-STACK (L-13090) — the column's box must agree with the opening chrome for the same
@@ -3671,10 +3773,25 @@ export function mountSiteBoundaryMap2D(
 
         // 3) Restore chrome.
         redrawBtn.style.display = 'none';
-        chip.style.display = '';
+        // §COMMITTED-MAP-IS-ONE-ACTION — the banner comes back through `setChip`, its single
+        // owner, when `refreshModeChrome()` below writes the draw instruction. Restoring
+        // `chip.style.display` here as well would be a second opinion about the same pixel.
         closeBtn.style.display = '';
         if (!opts.overlayOnly && interactionMode === 'draw') modeBar.style.display = '';
-        if (!opts.overlayOnly) interToggle.style.display = '';
+        // ⭐ §COMMITTED-MAP-IS-ONE-ACTION (L-13186 · L-13187) — EVERYTHING `freezeDraw` HID COMES
+        // BACK HERE, in the one function that clears the boundary those removals were justified by.
+        // The select/draw strip is the only on-screen route into DRAW mode before a commit, so its
+        // restoration is not cosmetic; and the envelope button is un-gated again the moment the
+        // site stops being a committed one, exactly as it was before (C58 §1.20 clause 1: the panel
+        // is where a user with NO solved envelope is told what is missing).
+        //
+        // ⚠ `'flex'`, NOT `''` — a defect found while writing this (L-13188). Both strips declare
+        // `display:flex` INLINE, so clearing the property does not restore that value, it falls
+        // back to `block`: the two segments would come back stacked one above the other rather
+        // than as a segmented control. Restoring the value the strip was built with is the only
+        // reading that survives.
+        if (!opts.overlayOnly) interToggle.style.display = 'flex';
+        if (!opts.overlayOnly) envelopeToolBar.style.display = 'flex';
         // §CONTINUE-WITH-THIS-PARCEL (L-13026) — the draw segment `freezeDraw` refused is
         // available again the instant the boundary it refused for is cleared. Undoing the
         // refusal HERE, in the one function that clears the boundary, is what stops the two
@@ -3789,13 +3906,47 @@ export function mountSiteBoundaryMap2D(
             chip.style.display = 'none';
             interToggle.style.display = 'none';
         } else {
-            interToggle.style.display = '';
+            // ⭐⭐ §COMMITTED-MAP-IS-ONE-ACTION (L-13186 · L-13187) — ON A COMMITTED SITE THE 2D MAP
+            // CARRIES EXACTLY ONE ACTION: `↺ Redraw boundary`. Founder 2026-09-07, red crosses over
+            // the floating cluster: *"exclude - remove 'Envelope/Select a parce....'"*.
+            //
+            // ⛔ REMOVING A CONTROL REMOVES WHAT IT DOES, SO EACH ONE IS ANSWERED BEFORE IT GOES,
+            // AND THE ANSWER IS WHY THIS IS GATED ON `committed` RATHER THAN DONE AT BUILD TIME:
+            //
+            //   · `Select parcel` — a NO-OP in this state, provably. `setInteractionMode`
+            //     early-returns when the mode already matches, and the line below forces `select`
+            //     unconditionally. The capability it names — clicking a plot to read its cadastral
+            //     facts and continue with it — is armed by that assignment plus the `click`
+            //     handler this function DELIBERATELY leaves bound (see the note above), not by the
+            //     segment. It survives the segment's removal intact, and `PARCEL_LAW_PLOT_ROUTE_NOTE`
+            //     on the parcel card still names the true route (the pane's view bar, then a click).
+            //
+            //   · `Draw boundary` — already `disabled` here, and C19 §1.4 is why: the boundary is a
+            //     one-shot and `↺ Redraw boundary`, which stays, is the only route that clears it.
+            //     The segment kept its refusal REASON in `title` (set below) so nothing is lost if
+            //     it is ever shown again; `rearmDraw` brings the whole strip back the instant the
+            //     boundary it refused for is gone.
+            //
+            //   · `Envelope` — the panel it toggles is a RE-TARGETING SINGLETON, and the same
+            //     singleton is opened by `Create Envelope` in the Project Browser
+            //     (`gisActionRegistry` row `site.create-envelope` → `window.pryzmOpenSiteEnvelopeTool`,
+            //     registered in `GISAreaLayout` over `#container`) and by the Parcel Law tab. The
+            //     `#container` host spans BOTH site views, so the surviving route covers strictly
+            //     more ground than this strip did. Nothing here is the only way to reach it.
+            //
+            // ⛔ AND IT IS GATED ON `committed` FOR A MEASURED REASON, NOT FROM CAUTION. PRE-commit
+            // the `Draw boundary` segment is the ONLY route into DRAW mode that is on screen
+            // unconditionally: the default mode is `select`, and a click that MISSES a parcel shows
+            // a toast and no card at all, so the card's own "Draw instead" is not reachable from
+            // there. Removing the strip globally would strand a user in any location whose cadastre
+            // answers but whose click missed — a silent capability regression wearing a tidier view.
+            interToggle.style.display = 'none';
+            envelopeToolBar.style.display = 'none';
             drawModeBtn.disabled = true;
             drawModeBtn.style.cursor = 'not-allowed';
             drawModeBtn.title = DRAW_FROZEN_TITLE;
             interactionMode = 'select';
-            chip.style.display = '';
-            chip.textContent = PARCEL_RESELECT_CHIP;
+            setChip(PARCEL_RESELECT_CHIP);
             paintInteractionToggle();
         }
         refreshTopStack();

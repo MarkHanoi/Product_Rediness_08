@@ -370,6 +370,28 @@ describe('§MAP2D-PASTEL — ARM 2: the parcel + boundary path is untouched', ()
         });
     }
 
+    /**
+     * ⛔ THE BYTE PIN ABOVE COMPARES THE WORKING TREE TO HEAD, SO IT GOES GREEN THE MOMENT A
+     * DELIBERATE CHANGE IS COMMITTED. That is by design — it is a mid-flight gate that makes a
+     * cartography lane STOP and justify a touch of the parcel ladder — but it means the thing it
+     * was protecting has no guard left afterwards. This arm is that guard, and it exists because
+     * the pin fired for real: §PANE-CENTRED-REDRAW migrated `handleParcelSelectClick`'s three
+     * `chip.textContent = …` writes to `setChip(…)`.
+     *
+     * ⭐ THE MIGRATION WAS NOT COSMETIC, WHICH IS WHY IT IS WORTH A PERMANENT ARM. `setChip` is not
+     * a wrapper around an assignment: it also hides the pill in overlay-only mode and calls
+     * `refreshTopStack()`, because the column's box reads the banner's visibility. A direct
+     * `chip.textContent =` therefore leaves the top stack measured against the WRONG banner state
+     * and the pill off-centre — exactly the defect §PANE-CENTRED-REDRAW removed.
+     */
+    it('⛔ every chip write goes through setChip() — only the constructor may assign directly', () => {
+        const writes = workingSource.match(/chip\.textContent\s*=/g) ?? [];
+        // Two, and only two: the element's initial text at construction, and setChip's own line.
+        expect(writes.length).toBe(2);
+        expect(extractFunction(workingSource, 'handleParcelSelectClick'))
+            .not.toMatch(/chip\.textContent\s*=/);
+    });
+
     it('adds exactly ONE map click binding and ONE boundary dispatch — no rival path', () => {
         const clicks = workingSource.match(/map\.on\('click',/g) ?? [];
         expect(clicks.length).toBe(1);

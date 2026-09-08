@@ -128,9 +128,14 @@ describe('§TOP-STACK ARM A — the gutter token is declared on the banner\'s OW
 
 describe('§TOP-STACK ARM B — the banner reads the TOKEN, and sits under the pane dropdown', () => {
     it('sets `right` from the token in the card-up state, never a hard-coded px', () => {
+        // ⚠ The gutter is now named once and READ TWICE — `right` takes it, and the mirrored
+        // `left` of §PANE-CENTRED-REDRAW is derived from the same local. Asserting the literal
+        // ternary (as this arm did before L-13185) would forbid exactly that sharing and push the
+        // two sides back to two independent copies of one number.
         expect(MAP_SRC).toContain(
-            "topStack.style.right = state === 'on' ? 'var(--map2d-top-stack-right)' : '176px'",
+            "const gutter = state === 'on' ? 'var(--map2d-top-stack-right)' : '176px'",
         );
+        expect(MAP_SRC).toContain('topStack.style.right = gutter;');
     });
 
     it('has exactly ONE writer of the stack box, so two states cannot disagree', () => {
@@ -138,6 +143,8 @@ describe('§TOP-STACK ARM B — the banner reads the TOKEN, and sits under the p
         // let the banner and the card each believe they owned the top-right row.
         expect(MAP_SRC.match(/topStack\.style\.right\s*=/g) ?? []).toHaveLength(1);
         expect(MAP_SRC.match(/topStack\.style\.top\s*=/g) ?? []).toHaveLength(1);
+        // …and since L-13185 the LEFT inset carries meaning too, so it gets the same rule.
+        expect(MAP_SRC.match(/topStack\.style\.left\s*=/g) ?? []).toHaveLength(1);
     });
 
     it('starts at 52px — as far up as a MAP float may go without painting over a PANE control', () => {
@@ -305,5 +312,294 @@ describe('§RESELECT-PARCEL ARM D — the founder\'s third exit reaches the EXIS
         // Three exits off the card: commit, draw instead, and now re-select.
         expect(MAP_SRC).toContain("testId: 'parcel-draw-btn'");
         expect(MAP_SRC).toContain("onClick: () => setInteractionMode('draw')");
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §PANE-CENTRED-REDRAW + §COMMITTED-MAP-IS-ONE-ACTION — L-13185 / L-13186 / L-13187 / L-13188.
+//
+// Founder 2026-09-07 on the committed split view, four marks on one screenshot:
+//   ❌ over the instruction banner             → "we dont need: 'click a plot....'"
+//   ❌ over the Envelope + Select/Draw cluster  → "exclude - remove"
+//   ➡️ from the `↺ Redraw boundary` pill, pointing RIGHT → "Aligne pane"
+//   🔲 round the Scope panel                    → "the panel should be 50%" (SiteScopeSlider)
+//
+// ⭐ THE ARROW IS REPRODUCIBLE ARITHMETIC, NOT AN IMPRESSION, AND THAT IS WHY IT IS FIXED WITH A
+// RESERVATION RATHER THAN AN OFFSET. `align-items: center` centres children on the COLUMN. The
+// column was `left:12px; right:176px`, so its centre is `W/2 − 82` — at the 948px pane he marked
+// up, x=392, the pixel his arrow starts from, and the 82px is the arrow. A hard `+82px` nudge
+// would be right at 948px and wrong at every other split ratio; mirroring the gutter onto the
+// left is right at all of them and costs no JS.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A sibling source file, located the same way `readSubject()` locates the subject. */
+function readSibling(repoRelPath: string): string {
+    for (let dir = process.cwd(); ; dir = dirname(dir)) {
+        const candidate = resolve(dir, repoRelPath);
+        if (existsSync(candidate)) return readFileSync(candidate, 'utf8');
+        if (dirname(dir) === dir) throw new Error(`[§TOP-STACK spec] cannot locate ${repoRelPath}`);
+    }
+}
+
+/** The two numbers the left inset is built from, read from the subject — never retyped. */
+function readCentringModel(): { left: number; pillReserve: number } {
+    const left = /export const TOP_STACK_LEFT_PX = (\d+);/.exec(MAP_SRC);
+    const pill = /export const REDRAW_PILL_RESERVE_PX = (\d+);/.exec(MAP_SRC);
+    if (!left || !pill) throw new Error('[§PANE-CENTRED-REDRAW spec] the centring constants are gone');
+    return { left: Number(left[1]), pillReserve: Number(pill[1]) };
+}
+
+const CENTRING = readCentringModel();
+
+/** The gutter reserved on the right, by card state — the same two values `refreshTopStack` picks. */
+function gutterPx(paneWidthPx: number, cardState: 'off' | 'on' | 'moved'): number {
+    return cardState === 'on' ? topStackRightPx(paneWidthPx) : 176;
+}
+
+/**
+ * The column's LEFT inset, evaluated: `clamp(12px, calc(100% - gutter - reserve), gutter)`.
+ * `clamp(a, b, c)` is `max(a, min(b, c))` — the browser's own definition, not a paraphrase.
+ */
+function stackLeftPx(paneWidthPx: number, cardState: 'off' | 'on' | 'moved', bannerUp: boolean): number {
+    const g = gutterPx(paneWidthPx, cardState);
+    if (bannerUp) return CENTRING.left;
+    return Math.max(CENTRING.left, Math.min(paneWidthPx - g - CENTRING.pillReserve, g));
+}
+
+/** Where a centred child of the column actually lands. */
+function columnCentrePx(paneWidthPx: number, cardState: 'off' | 'on' | 'moved', bannerUp: boolean): number {
+    const g = gutterPx(paneWidthPx, cardState);
+    return (stackLeftPx(paneWidthPx, cardState, bannerUp) + (paneWidthPx - g)) / 2;
+}
+
+describe('§PANE-CENTRED-REDRAW — the pill centres on its PANE, at every split ratio', () => {
+    it('reproduces the founder measurement of the OLD placement, so the fix aims at his defect', () => {
+        // His pane spans x ∈ [0, 948] and he marked the pill at x ≈ 392. The old column was
+        // `left:12; right:176`, i.e. centre = 12 + (948 − 188)/2 = 392. To the pixel.
+        const OLD_CENTRE_AT_948 = CENTRING.left + (948 - 176 - CENTRING.left) / 2;
+        expect(OLD_CENTRE_AT_948).toBe(392);
+        // …and the pane centre, which is where his arrow points, is 82px to its right.
+        expect(948 / 2 - OLD_CENTRE_AT_948).toBe(82);
+    });
+
+    const CENTRABLE = FOUNDER_PANE_WIDTHS_PX.filter((w) => w >= 2 * 176 + 168);
+
+    it.each(CENTRABLE)('pane %i px — with the banner gone the pill sits EXACTLY on the pane centre', (pane) => {
+        expect(columnCentrePx(pane, 'off', false)).toBe(pane / 2);
+    });
+
+    it('holds with the parcel CARD up too — the card changes the gutter, not the centre', () => {
+        // The card-up state uses a different (wider) reservation. Mirroring is defined against
+        // whichever gutter is live, so centring survives a state change that moves the right edge.
+        expect(gutterPx(948, 'on')).not.toBe(gutterPx(948, 'off'));
+        expect(columnCentrePx(948, 'on', false)).toBe(474);
+        expect(columnCentrePx(948, 'moved', false)).toBe(474);
+    });
+
+    it('⛔ centring NEVER crosses into the reserved gutter — the pill cannot land on the basemap toggle', () => {
+        // The whole safety argument in one assertion: the left inset is capped AT the gutter, so
+        // the column's own right edge IS the reservation, and a child centred inside it is inside
+        // the reservation by construction. That is what a `+82px` offset could not promise.
+        for (const pane of [...FOUNDER_PANE_WIDTHS_PX, 380, 448, 520, 1800]) {
+            for (const state of ['off', 'on', 'moved'] as const) {
+                const g = gutterPx(pane, state);
+                const left = stackLeftPx(pane, state, false);
+                expect(left).toBeLessThanOrEqual(g);
+                // …and the column still has room for the pill, or has degraded to today's inset.
+                const content = pane - g - left;
+                expect(content >= CENTRING.pillReserve || left === CENTRING.left).toBe(true);
+            }
+        }
+    });
+
+    it('degrades toward TODAY placement below the break-even, and never past it', () => {
+        // 520px = 2×176 + 168. Above it the mirror is affordable; below it the column gives up
+        // exactly the shortfall and bottoms out at the 12px inset the banner has always used —
+        // so narrow-pane behaviour is never WORSE than what shipped, only less centred.
+        const BREAK_EVEN = 2 * 176 + CENTRING.pillReserve;
+        expect(BREAK_EVEN).toBe(520);
+        expect(stackLeftPx(459, 'off', false)).toBe(459 - 176 - CENTRING.pillReserve);
+        expect(stackLeftPx(459, 'off', false)).toBeGreaterThan(CENTRING.left);
+        expect(stackLeftPx(300, 'off', false)).toBe(CENTRING.left);
+        // Monotonic in the pane width: a wider pane is never less centred than a narrower one.
+        const offsets = [300, 400, 459, 520, 742, 948].map((w) => w / 2 - columnCentrePx(w, 'off', false));
+        for (let i = 1; i < offsets.length; i += 1) expect(offsets[i]!).toBeLessThanOrEqual(offsets[i - 1]!);
+    });
+
+    it('⛔ TEXT WIDTH BEATS CENTRING — with the banner up the column keeps its 12px inset', () => {
+        // ARM C's whole arithmetic (and §BANNER-NEVER-STARVES with it) is computed against a 12px
+        // left inset. Mirroring the gutter while a two-clause SENTENCE is up would shred it from
+        // the other side. So the banner regime is unchanged, and this is the assertion that says
+        // the two regimes were not flattened into one.
+        for (const pane of FOUNDER_PANE_WIDTHS_PX) {
+            expect(stackLeftPx(pane, 'off', true)).toBe(STACK_LEFT_PX);
+            expect(stackLeftPx(pane, 'on', true)).toBe(STACK_LEFT_PX);
+        }
+        expect(CENTRING.left).toBe(STACK_LEFT_PX);
+    });
+
+    it('is written as pane-relative CSS, so a splitter drag re-centres with no JS (C59 §2.10)', () => {
+        // `100%` inside the clamp resolves against the OVERLAY, which is `inset:0` inside the pane.
+        // A JS-measured pixel would be stale the instant the founder dragged the splitter — the
+        // defect class this replaces, not a variant of it.
+        expect(MAP_SRC).toContain('clamp(${TOP_STACK_LEFT_PX}px, calc(100% - ${gutter} - ${REDRAW_PILL_RESERVE_PX}px), ${gutter})');
+        const stackBlock = MAP_SRC.slice(
+            MAP_SRC.indexOf('Object.assign(topStack.style, {'),
+            MAP_SRC.indexOf('overlay.appendChild(topStack)'),
+        );
+        expect(stackBlock).toContain("alignItems: 'center'");
+        // The pill contributes NO position of its own — it is centred by the column or not at all.
+        const pillBlock = MAP_SRC.slice(
+            MAP_SRC.indexOf('const redrawBtn = document.createElement'),
+            MAP_SRC.indexOf('topStack.insertBefore(redrawBtn'),
+        );
+        // ⛔ COMMENTS ARE STRIPPED BEFORE THESE MATCH, AND THAT IS NOT A LOOSENING.
+        // This is §RAF-GATE-COMMENT-BLIND all over again (CLAUDE.md P3): a source assertion that
+        // counts SENTENCES rather than CODE. The pill's block carries a note saying it "was
+        // `position:absolute; top:12px; left:50%`" — the historical record of the very defect
+        // these three lines exist to prevent — so the arm went red because someone DOCUMENTED the
+        // fix. Matching the stripped code keeps the arm exactly as strict about declarations while
+        // making it impossible to fail by explaining yourself.
+        const pillCode = pillBlock.replace(/\/\/[^\n]*/g, '');
+        expect(pillCode).not.toMatch(/position: 'absolute'/);
+        expect(pillCode).not.toMatch(/transform:/);
+        expect(pillCode).not.toMatch(/left:/);
+    });
+});
+
+describe('§COMMITTED-MAP-IS-ONE-ACTION — what was removed, and where it still lives', () => {
+    /** `freezeDraw`'s non-overlay-only branch: the state the founder screenshotted. */
+    function committedBranch(): string {
+        const at = MAP_SRC.indexOf('function freezeDraw(');
+        expect(at, 'freezeDraw must exist — it is the committed arm').toBeGreaterThan(-1);
+        const body = MAP_SRC.slice(at, MAP_SRC.indexOf('function commit(', at));
+        const elseAt = body.indexOf('} else {');
+        expect(elseAt).toBeGreaterThan(-1);
+        return body.slice(elseAt);
+    }
+
+    it('hides BOTH crossed-out strips on a committed site', () => {
+        const b = committedBranch();
+        expect(b).toContain("interToggle.style.display = 'none'");
+        expect(b).toContain("envelopeToolBar.style.display = 'none'");
+    });
+
+    it('⛔ hides them ONLY there — the pre-commit map keeps its only on-screen route into DRAW', () => {
+        // The capability argument, asserted rather than asserted-about. Before a commit the
+        // default mode is SELECT and a click that misses a parcel shows a toast and no card, so
+        // the card's own "Draw instead" is unreachable from that state: the `Draw boundary`
+        // segment is the last route in. A build-time removal would strand the user there.
+        const build = MAP_SRC.slice(
+            MAP_SRC.indexOf('const interToggle = document.createElement'),
+            MAP_SRC.indexOf('// ── §PARCEL-SELECT — the parcel info card'),
+        );
+        // The only build-time hide is the overlay-only import surface, which authors nothing.
+        const hides = build.match(/(?:interToggle|envelopeToolBar)\.style\.display = 'none'/g) ?? [];
+        expect(hides).toHaveLength(2);
+        expect(build).toContain("if (opts.overlayOnly) interToggle.style.display = 'none'");
+        expect(build).toContain("if (opts.overlayOnly) envelopeToolBar.style.display = 'none'");
+        expect(MAP_SRC).toContain("clearParcelSelection('no-parcel-here')");
+    });
+
+    it('⛔ restores BOTH in rearmDraw — with the value they were built with, never a bare reset', () => {
+        const at = MAP_SRC.indexOf('function rearmDraw(');
+        const body = MAP_SRC.slice(at, MAP_SRC.indexOf('function freezeDraw(', at));
+        expect(body).toContain("if (!opts.overlayOnly) interToggle.style.display = 'flex'");
+        expect(body).toContain("if (!opts.overlayOnly) envelopeToolBar.style.display = 'flex'");
+        // Both strips declare `display:flex` INLINE, so clearing the property falls back to
+        // `block` and the segmented control comes back as a vertical stack (L-13188). Asserting
+        // the VALUE is what stops the tidier-looking empty string returning.
+        expect(body).not.toMatch(/interToggle\.style\.display = '';/);
+        expect(body).not.toMatch(/envelopeToolBar\.style\.display = '';/);
+        // ⛔ SLICED TO THE END OF THE `Object.assign` BLOCK, NEVER TO A CHARACTER COUNT. This read
+        // `built.slice(0, 900)` and went red when the strip gained a comment — 900 characters is a
+        // guess about how much prose sits between the element and its styles, so the arm was
+        // measuring COMMENT LENGTH and would equally have gone GREEN if a later declaration had
+        // drifted into the window. The block's own closing brace is the honest boundary.
+        const builtAt = MAP_SRC.indexOf('const interToggle = document.createElement');
+        const assignAt = MAP_SRC.indexOf('Object.assign(interToggle.style, {', builtAt);
+        const built = MAP_SRC.slice(builtAt, MAP_SRC.indexOf('});', assignAt));
+        expect(built).toContain("display: 'flex'");
+    });
+
+    it('the DRAW segment keeps its refusal REASON, so nothing is lost if the strip returns', () => {
+        expect(committedBranch()).toContain('drawModeBtn.title = DRAW_FROZEN_TITLE');
+        expect(MAP_SRC).toContain('export const DRAW_FROZEN_TITLE');
+    });
+
+    it('the Envelope capability survives on a route that spans BOTH site views', () => {
+        // Read from the surviving owner, not from this file: `GISAreaLayout` registers
+        // `window.pryzmOpenSiteEnvelopeTool` over `#container`, which hosts the 2D overlay AND the
+        // Cesium 3D Site, and `gisActionRegistry` renders it as `Create Envelope` in the Project
+        // Browser. Removing the map's own button narrowed the ENTRY POINTS, never the capability.
+        const gis = readSibling('apps/editor/src/ui/layout/GISAreaLayout.ts');
+        expect(gis).toContain('window.pryzmOpenSiteEnvelopeTool = () => {');
+        expect(gis).toContain("document.getElementById('container')");
+        const registry = readSibling('apps/editor/src/ui/gis/gisActionRegistry.ts');
+        expect(registry).toContain("id: 'site.create-envelope'");
+        expect(registry).toContain("label: 'Create Envelope'");
+        expect(registry).toContain('h.pryzmOpenSiteEnvelopeTool?.()');
+    });
+
+    it('⛔ the sentence that pointed at the removed strip was CORRECTED, not left to rot', () => {
+        // `GISAreaLayout`'s note used to say the 2D map "also carries the button in its own
+        // strip" — flatly, with no state. On a committed site it no longer does, and a comment
+        // that describes a route the code has stopped taking is how the next reader deletes the
+        // surviving one as a duplicate.
+        const gis = readSibling('apps/editor/src/ui/layout/GISAreaLayout.ts');
+        expect(gis).toContain('THIS IS THE ONLY ROUTE ON A');
+        expect(gis).toContain('L-13187');
+    });
+});
+
+describe('§COMMITTED-MAP-IS-ONE-ACTION — the banner folds on its SENTENCE, not on a flag', () => {
+    it('has exactly ONE owner of the banner text, and it owns the visibility with it', () => {
+        // Every runtime write goes through `setChip`. The lone survivors are the construction-time
+        // initial value (which cannot call it: `setChip` reaches `refreshTopStack`, which reads
+        // `modeBar` and `parcelCard`, both still in their temporal dead zone there) and the
+        // assignment inside `setChip` itself.
+        expect(MAP_SRC).toContain('function setChip(text: string): void {');
+        const runtimeWrites = MAP_SRC.match(/chip\.textContent = /g) ?? [];
+        expect(runtimeWrites).toHaveLength(2);
+        expect(MAP_SRC).toContain("    chip.textContent = 'Click two opposite corners · Esc to cancel';");
+        expect(MAP_SRC).toContain('        chip.textContent = text;');
+    });
+
+    it('hides EXACTLY the sentence the founder crossed out, and nothing else', () => {
+        // ⭐ The rule is a reading of the sentence itself — not `committed`, not a remembered
+        // boolean. That matters because the committed map still carries TRANSIENT strings he did
+        // not cross out ("Fetching parcel…", the oversize-holding note, the no-cadastral-source
+        // notice), and a `committed`-keyed hide would have silently taken those too.
+        const at = MAP_SRC.indexOf('function setChip(text: string): void {');
+        const body = MAP_SRC.slice(at, MAP_SRC.indexOf('\n    }', at));
+        expect(body).toContain("chip.style.display = opts.overlayOnly || text === PARCEL_RESELECT_CHIP ? 'none' : ''");
+        expect(body).toContain('refreshTopStack()');
+        // The transient strings still reach it, so they still show.
+        expect(MAP_SRC).toContain("setChip('Fetching parcel…')");
+        expect(MAP_SRC).toContain("setChip('No cadastral source is connected here — draw the boundary instead · Esc to cancel')");
+    });
+
+    it('⛔ NO CAPABILITY LEFT WITH IT — plot-clicking is armed by the mode, which freezeDraw forces', () => {
+        // The brief's trap, answered from the source: the banner armed nothing. What arms the
+        // click is `interactionMode === 'select'`, set unconditionally on commit, and the `click`
+        // handler that `freezeDraw` deliberately does not detach.
+        const at = MAP_SRC.indexOf('function freezeDraw(');
+        const body = MAP_SRC.slice(at, MAP_SRC.indexOf('function commit(', at));
+        expect(body).toContain("interactionMode = 'select';");
+        expect(body).not.toMatch(/map\.off\('click'/);
+        expect(MAP_SRC).toContain("if (interactionMode === 'select') { handleParcelSelectClick(e); return; }");
+    });
+
+    it('the route the parcel card NAMES is the pane view bar — and it stays true', () => {
+        // ⚠ The brief flagged this sentence as possibly about to become false. It names the pane's
+        // own view bar, never the removed toggle, so the removal leaves it exact. Read from the
+        // panel that carries it, so a re-wording there fails HERE rather than in production.
+        const tab = readSibling('apps/editor/src/ui/analysis/parcelLawTab.ts');
+        const at = tab.indexOf('export const PARCEL_LAW_PLOT_ROUTE_NOTE');
+        expect(at).toBeGreaterThan(-1);
+        const note = tab.slice(at, tab.indexOf(';', at));
+        expect(note).toContain('ON THE VIEW');
+        expect(note).toContain('from the bar centred on the view and click another plot');
+        expect(note).not.toMatch(/Select parcel|Draw boundary|toggle/);
     });
 });
