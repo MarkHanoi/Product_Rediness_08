@@ -138,6 +138,10 @@ export const BUILD_FROM_DESIGN_TESTID = 'build-from-design-section';
 export const BUILD_FROM_DESIGN_PLAN_TESTID = 'build-from-design-plan';
 export const BUILD_FROM_DESIGN_ROOMS_TESTID = 'build-from-design-rooms';
 export const BUILD_FROM_DESIGN_REFUSED_ROOMS_TESTID = 'build-from-design-refused-rooms';
+/** ⛔ Level envelopes that will NOT be built, named on the ENABLED arm beside the ones that will. */
+export const BUILD_FROM_DESIGN_REFUSED_STOREYS_TESTID = 'build-from-design-refused-storeys';
+/** The per-storey line: every storey, its elevation, its floor-to-floor and its room count. */
+export const BUILD_FROM_DESIGN_STOREYS_TESTID = 'build-from-design-storeys';
 export const BUILD_FROM_DESIGN_REFUSAL_TESTID = 'build-from-design-refusal';
 export const BUILD_FROM_DESIGN_WILLNOT_TESTID = 'build-from-design-will-not';
 export const BUILD_FROM_DESIGN_LABEL = 'Create BIM from this design';
@@ -177,14 +181,35 @@ export function buildBuildFromDesignSection(outcome: BuildFromDesignOutcome): st
 
         const p = outcome.plan;
         const source = p.sourceEnvelopeName ?? p.sourceEnvelopeId;
+        // ⭐ EVERY ROOM NAMES ITS STOREY. The founder's two reproductions were both "all my rooms
+        // are on one upper storey and none of them built"; a room list that does not say which floor
+        // a room lands on cannot show him that the answer changed.
+        const storeyOf = (i: number): string => {
+            const st = p.storeys[i];
+            return st ? (st.plateName ?? st.plateEnvelopeId) : 'an unnamed storey';
+        };
+        const multiStorey = p.storeys.length > 1;
         const roomRows = p.rooms.map((r) => (
             `<li style="margin:1px 0;">${escHtml(r.name)} — ${escHtml(fmt2(r.areaM2))} m², `
             + `${r.partitionEdgeCount} partition${r.partitionEdgeCount === 1 ? '' : 's'}`
             + `${r.edgesOnShellCount > 0
                 ? ` (${r.edgesOnShellCount} edge${r.edgesOnShellCount === 1 ? '' : 's'} on the perimeter)`
                 : ''}`
+            + `${multiStorey ? ` &middot; on ${escHtml(storeyOf(r.storeyIndex))}` : ''}`
             + `</li>`
         )).join('');
+
+        // ⛔ A LEVEL ENVELOPE THAT COULD NOT BE BUILT IS NAMED, ON THE ENABLED ARM, BESIDE THE
+        // STOREYS THAT WILL BUILD. Dropping a storey silently is the same defect class as dropping
+        // a room silently, one scale up.
+        const refusedStoreys = p.refusedStoreys.length === 0 ? '' :
+            `<div data-testid="${BUILD_FROM_DESIGN_REFUSED_STOREYS_TESTID}" style="margin-top:5px;`
+            + `font-size:9px;color:#8a5a00;background:#fff6e8;border-radius:6px;padding:5px 7px;`
+            + `line-height:1.5;"><strong>${p.refusedStoreys.length} level envelope`
+            + `${p.refusedStoreys.length === 1 ? '' : 's'} will NOT be built:</strong>`
+            + `<ul style="margin:2px 0 0;padding-left:14px;">`
+            + p.refusedStoreys.map((r) => `<li style="margin:1px 0;">${escHtml(r.text)}</li>`).join('')
+            + `</ul></div>`;
 
         // ⛔ NEVER A SILENT SUBSET. A room that could not be materialised is named here with its
         // numbers, on the ENABLED arm, beside the rooms that will build. Hiding it until after the
@@ -209,8 +234,12 @@ export function buildBuildFromDesignSection(outcome: BuildFromDesignOutcome): st
             + `background:#faf9fd;border:1px solid #efecf7;font-size:9.5px;color:#2b2740;line-height:1.5;">`
             + `<div><strong>From:</strong> ${escHtml(source)} — ${escHtml(fmt2(p.footprintAreaM2))} m² `
             + `footprint, ${p.shellWallCount} edge${p.shellWallCount === 1 ? '' : 's'}</div>`
-            + `<div><strong>Builds:</strong> ${p.storeyCount} storey at `
-            + `${escHtml(fmt2(p.floorToFloorM))} m floor-to-floor</div>`
+            + `<div data-testid="${BUILD_FROM_DESIGN_STOREYS_TESTID}"><strong>Builds:</strong> `
+            + `${p.storeyCount} storey${p.storeyCount === 1 ? '' : 's'} — `
+            + `${p.storeys.map((st) => `${escHtml(st.plateName ?? st.plateEnvelopeId)} at `
+                + `${escHtml(fmt2(st.baseOffsetM))} m, ${escHtml(fmt2(st.floorToFloorM))} m `
+                + `floor-to-floor, ${st.roomCount} room${st.roomCount === 1 ? '' : 's'}`).join('; ')}`
+            + `</div>`
             + `<div data-testid="${BUILD_FROM_DESIGN_ROOMS_TESTID}" style="margin-top:4px;color:#6b6580;">`
             + `Your ${p.rooms.length} room${p.rooms.length === 1 ? '' : 's'} `
             + `(${escHtml(fmt2(p.roomsAreaM2))} m²):<ul style="margin:2px 0 0;padding-left:14px;">`
@@ -219,7 +248,7 @@ export function buildBuildFromDesignSection(outcome: BuildFromDesignOutcome): st
             + `${list(p.willCreate)}</ul></div>`
             + `<div data-testid="${BUILD_FROM_DESIGN_WILLNOT_TESTID}" style="margin-top:4px;color:#8a5a00;">`
             + `Does NOT create:<ul style="margin:2px 0 0;padding-left:14px;">${list(p.willNotCreate)}</ul></div>`
-            + `</div>${refused}${advisories}`
+            + `</div>${refusedStoreys}${refused}${advisories}`
             + `<button type="button" data-testid="${CREATE_HOUSE_BTN_TESTID}" `
             + `style="margin-top:6px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;`
             + `padding:7px 10px;border-radius:8px;font:700 11px system-ui;background:#6600FF;color:#fff;">`

@@ -68,6 +68,38 @@ export const CEILING_ROW_ATTR = 'data-ceiling';
  */
 export const CEILING_DERIVED_ATTR = 'data-derived';
 
+/**
+ * ⭐ §SECTION-2-MIRRORS-ITS-OWN-DETERMINATION (L-13202 · C115 §12.1 `C115-99`/`C115-100`) —
+ * the class on EVERY read-out row's VALUE span, so the value can be read WITHOUT the label beside
+ * it.
+ *
+ * The Parcel Law tab's question 2 states its collapsed digest by MIRRORING what its own body
+ * already renders — it derives nothing (`parcelLawQuestionGroup.ts`). Its only source for *"what
+ * can I build here?"* is this headline, and until this class existed the four figures had no hook
+ * of their own: a probe could reach the ROW (`[data-ceiling="height"]`) but its text is
+ * `"Maximum height 22.4 m"` with the ⓘ affordance folded in, which is a caption, not a figure.
+ *
+ * ⛔ IT IS A HOOK, NOT A RULE. Nothing in the repo styles this class and nothing may — the row's
+ * typography is the inline style beside it. Adding a stylesheet rule here would make a digest
+ * probe load-bearing for the card's appearance, which is the inverse of what it is for.
+ */
+export const CARD_ROW_VALUE_CLASS = 'anl-card-row-val';
+
+/**
+ * ⭐ Attribute on the headline ROOT: how many of the four ceilings the rule pack actually derived,
+ * as a sentence (`"4 of 4 derived"` · `"0 of 4 derived"`).
+ *
+ * C58 §1.2 makes confidence part of the figure, so question 2's collapsed digest may not state a
+ * ceiling without stating what stands behind it. This is the honest, ALREADY-COMPUTED answer: the
+ * headline counts `derived` to build the rows, and this publishes that count rather than a second
+ * derivation of it. ⚠ It is deliberately NOT the card's provenance badge (*"Real · constructed"* /
+ * *"Estimated"* / *"⚠ Unverified · machine-extracted"*), which is a stronger statement and is built
+ * in `GISAreaLayout.ts`; giving that badge a stable hook is the follow-up this lane could not take
+ * (a sibling lane holds that file uncommitted). A count of derived ceilings under-claims; it never
+ * over-claims, which is the direction an honest fallback must fail in.
+ */
+export const CEILING_HEADLINE_DERIVED_ATTR = 'data-ceilings-derived';
+
 /** The four keys, in the order the headline prints them. */
 export const CEILING_KEYS = Object.freeze(['levels', 'height', 'implantation', 'buildable'] as const);
 
@@ -143,7 +175,7 @@ export function buildEnvelopeCardRowHtml(input: EnvelopeCardRowInput): string {
         span.setAttribute('pryzm.card.row.control', Boolean(highlight && avail));
         return `<div${attrs ? ` ${attrs}` : ''} style="display:flex;justify-content:space-between;gap:10px;padding:2.5px 0;">
                <span>${labelHtml}${hint ? `<span title="${escHtml(hint)}" style="color:#c3bdd6;cursor:help;"> ⓘ</span>` : ''}</span>
-               <span style="font-weight:600;text-align:right;">${value}</span>
+               <span class="${CARD_ROW_VALUE_CLASS}" style="font-weight:600;text-align:right;">${value}</span>
              </div>`;
     } finally {
         span.end();
@@ -227,7 +259,10 @@ export function buildCeilingHeadlineHtml(input: CeilingHeadlineInput): string {
             });
         }).join('');
         span.setAttribute('pryzm.card.ceilings.derived', derived);
-        return `<div data-testid="${CEILING_HEADLINE_TESTID}">${rows}</div>`;
+        // §SECTION-2-MIRRORS-ITS-OWN-DETERMINATION (L-13202) — published, not re-derived: `derived`
+        // was counted above to build the rows, and question 2's collapsed digest reads it here so a
+        // ceiling never appears in that digest without what stands behind it (C58 §1.2).
+        return `<div data-testid="${CEILING_HEADLINE_TESTID}" ${CEILING_HEADLINE_DERIVED_ATTR}="${derived} of ${CEILING_KEYS.length} derived">${rows}</div>`;
     } finally {
         span.end();
     }

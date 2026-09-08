@@ -295,10 +295,34 @@ export function mountParcelLawCreateHouse(
         });
         if (!houseOutcome.ok) return { mode: 'create-house', outcome: houseOutcome };
 
+        // ⭐ §BUILD-EVERY-STOREY — C80 §3 IS NOW ASKED PER STOREY, so the census has to be taken
+        // per storey. One key for every project level any level envelope names, plus the active
+        // one. ⛔ A build that asked only about the ACTIVE level would thread new walls through a
+        // storey the user has already built on — the precise failure C80 exists to prevent,
+        // re-created by the fix for a different defect.
+        const envelopes = readDesignEnvelopes(store);
+        const byLevel: Record<string, number> = {};
+        try {
+            // ⛔ `activeLevelId` is `string | null` — seeding the set with it unguarded put a
+            // `null` key in a `Set<string>` and `authoredWallCount(null)` would have censused a
+            // storey that does not exist. With no active level the census covers the envelopes'
+            // own storeys alone, which is the honest set rather than a fabricated one.
+            const targets = new Set<string>();
+            if (activeLevelId) targets.add(activeLevelId);
+            for (const e of envelopes ?? []) {
+                if (e.role === 'level' && e.levelId.length > 0) targets.add(e.levelId);
+            }
+            for (const lid of targets) byLevel[lid] = deps.authoredWallCount(lid);
+        } catch (e) {
+            console.warn('[analysis][create-house] per-storey wall census failed — C80 falls back '
+                + 'to the active level alone:', e);
+        }
+
         const design = planBuildFromDesign({
-            envelopes: readDesignEnvelopes(store),
+            envelopes,
             activeLevelId,
             authoredWallCountOnActiveLevel: wallCount,
+            authoredWallCountByLevelId: byLevel,
         });
         if (!design.ok && design.refusal.code === 'no-room-envelopes') {
             return { mode: 'create-house', outcome: houseOutcome };
@@ -357,25 +381,38 @@ export function mountParcelLawCreateHouse(
                 }
                 setStatus(`Creating ${plan.shellWallCount} shell wall`
                     + `${plan.shellWallCount === 1 ? '' : 's'}, ${plan.partitionWallCount} partition`
-                    + `${plan.partitionWallCount === 1 ? '' : 's'} and 1 floor slab from your design…`);
+                    + `${plan.partitionWallCount === 1 ? '' : 's'}, ${plan.slabs.length} floor slab`
+                    + `${plan.slabs.length === 1 ? '' : 's'} and ${plan.ceilings.length} ceiling`
+                    + `${plan.ceilings.length === 1 ? '' : 's'} across ${plan.storeyCount} storey`
+                    + `${plan.storeyCount === 1 ? '' : 's'} from your design…`);
                 void run(rtd, plan).then((res) => {
                     building = false;
                     if (disposed) return;
                     if (!res.ok) {
                         setStatus(`PRYZM could not build from your design: ${res.reason ?? 'no reason given'}`);
                     } else {
+                        const storeyCount = res.storeyCount ?? plan.storeyCount;
+                        const slabsMade = res.slabIds?.length ?? 0;
+                        const ceilingsMade = res.ceilingIds?.length ?? 0;
                         const parts: string[] = [
-                            `Built from your design: ${res.shellWallCount ?? plan.shellWallCount} shell `
+                            `Built from your design across ${storeyCount} storey`
+                            + `${storeyCount === 1 ? '' : 's'}: `
+                            + `${res.shellWallCount ?? plan.shellWallCount} shell `
                             + `wall${(res.shellWallCount ?? plan.shellWallCount) === 1 ? '' : 's'}, `
                             + `${res.partitionWallCount ?? plan.partitionWallCount} partition`
-                            + `${(res.partitionWallCount ?? plan.partitionWallCount) === 1 ? '' : 's'}`
-                            + `${res.slabId ? ' and 1 floor slab' : ''}.`,
+                            + `${(res.partitionWallCount ?? plan.partitionWallCount) === 1 ? '' : 's'}, `
+                            + `${slabsMade} floor slab${slabsMade === 1 ? '' : 's'} and `
+                            + `${ceilingsMade} ceiling${ceilingsMade === 1 ? '' : 's'}.`,
                         ];
-                        // ⛔ A SLAB THAT WAS REFUSED AFTER THE WALLS COMMITTED IS SAID, WITH ITS
+                        // ⛔ A SLAB OR CEILING REFUSED AFTER THE WALLS COMMITTED IS SAID, WITH ITS
                         // OWN REASON. The walls are the design and are deliberately kept.
                         if (res.slabRefusal) {
-                            parts.push(`The floor slab was refused: ${res.slabRefusal} Your walls are on `
-                                + 'the level and were not removed.');
+                            parts.push(`The floor slabs were refused: ${res.slabRefusal} Your walls are on `
+                                + 'their storeys and were not removed.');
+                        }
+                        if (res.ceilingRefusal) {
+                            parts.push(`The ceilings were refused: ${res.ceilingRefusal} Your walls and `
+                                + 'slabs were not removed.');
                         }
                         if (res.refusedRoomNames && res.refusedRoomNames.length > 0) {
                             parts.push(`${res.refusedRoomNames.length} room envelope`
@@ -396,7 +433,21 @@ export function mountParcelLawCreateHouse(
                             parts.push('⚠ The envelope→wall link was NOT recorded in this session, so '
                                 + 'these walls will not follow the envelope when you move a face.');
                         }
-                        parts.push('Undo takes two steps — the slab, then the walls.');
+                        // ⛔ COUNTED FROM THE RESULT, NEVER FROM THE PLAN. This sentence is printed
+                        // AFTER the build, so it must describe what actually committed.
+                        // `plan.undoStepCount` is a PREDICTION made before dispatch: when the slab or
+                        // ceiling batch is refused after the walls commit (`slabRefusal` /
+                        // `ceilingRefusal`, both of which this arm reports two lines up), the
+                        // prediction stays 3 while the stack holds 2 — and the user presses undo a
+                        // third time and removes something they did not build in this gesture.
+                        const undoBatches = ['ceiling', 'slab', 'wall'].filter((k) => (
+                            k === 'ceiling' ? (res.ceilingIds?.length ?? 0) > 0
+                                : k === 'slab' ? (res.slabIds?.length ?? 0) > 0
+                                    : (res.wallIds?.length ?? 0) > 0));
+                        parts.push(`Undo takes ${undoBatches.length} step`
+                            + `${undoBatches.length === 1 ? '' : 's'} — `
+                            + `${undoBatches.map((k) => `the ${k}s`).join(', then ')}. Each is one `
+                            + 'command however many storeys it covers.');
                         setStatus(parts.join(' '));
                     }
                     render();

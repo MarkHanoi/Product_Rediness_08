@@ -178,6 +178,21 @@ import {
     takeSpaceEnvelopeFaceDragFocus,
     type SpaceEnvelopeFaceDragAvailability,
 } from '../site/spaceEnvelopeFaceDragSurfaces';
+// ⭐ §ONE-TYPE-BASE (L-13077 founder ruling · L-13201 · C115 §4.3 `C115-36`/`C115-37`) — the
+// panel's ONE type base, ADOPTED rather than re-invented. Founder 2026-09-07: *"MAKE IT WITH THE
+// CORRECT TEXT AND SIZE TEXT OF PRYZM: LIKE THE OTHER SECTIONS."* This file carried 15 inline `px`
+// literals, 12 of them BELOW the `MIN_FONT_PX = 10` legibility floor and every one of them past
+// `uiScale.ts` (§UI-DENSITY-SCALE transforms the assembled STYLESHEET only). ⛔ The fix is to
+// import the base the sections he reads correctly already use — a second hand-tuned set of
+// numbers is how this panel became inconsistent in the first place.
+import {
+    PLAW_CONTROL_FONT_FAMILY,
+    PLAW_SCALE_BASE_PX,
+    PLAW_SCALE_FIGURE,
+    PLAW_SCALE_HEADING,
+    PLAW_SCALE_LABEL,
+    PLAW_SCALE_PROSE,
+} from './parcelLawTypeScale';
 import { resolveEnvelopeStore, type LiveEnvelopeStore } from './parcelLawQuantities';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawEnvelopeAuthoring');
@@ -699,7 +714,10 @@ export function mountParcelLawEnvelopeAuthoring(
     const root = document.createElement('div');
     root.className = 'anl-parcel-law-authoring';
     root.setAttribute('data-testid', AUTHORING_SLOT_TESTID);
-    root.style.cssText = 'margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;';
+    // §ONE-TYPE-BASE — the ONE `px` font-size in this section. Every size below is an `em` ratio
+    // of it, so the hierarchy is one number and nothing lands under the 10 px floor.
+    root.style.cssText = 'margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;'
+        + `max-width:100%;font-size:${PLAW_SCALE_BASE_PX}px;line-height:1.45;`;
 
     let disposed = false;
     let liveRepaints = 0;
@@ -720,8 +738,8 @@ export function mountParcelLawEnvelopeAuthoring(
     let created: readonly CreatedStorey[] = [];
 
     // ── the fixed chrome, built ONCE (C08 §3.1 — createElement + textContent only) ────────────
-    const heading = H('div', 'font-weight:700;font-size:10.5px;color:#6600FF;', 'Create the envelope');
-    const sourceLine = H('div', 'margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;');
+    const heading = H('div', `font-weight:700;font-size:${PLAW_SCALE_HEADING};color:#6600FF;`, 'Create the envelope');
+    const sourceLine = H('div', `margin-top:3px;color:#8a83a0;font-size:${PLAW_SCALE_PROSE};line-height:1.45;`);
     sourceLine.setAttribute('data-testid', AUTHORING_SOURCE_TESTID);
     /** Which rung answered, as an attribute — so a surface and a spec agree without reading prose. */
     const sourceKindAttr = 'data-source-kind';
@@ -739,7 +757,8 @@ export function mountParcelLawEnvelopeAuthoring(
         + 'Envelopes you already created from it are NOT removed — use undo for those.';
     discardDrawnBtn.style.cssText =
         'margin-top:4px;appearance:none;border:1px solid #d8d3e6;cursor:pointer;padding:3px 7px;'
-        + 'border-radius:6px;font:600 9.5px system-ui;background:#faf9fd;color:#6600FF;';
+        + `border-radius:6px;font-weight:600;font-size:${PLAW_SCALE_PROSE};`
+        + `font-family:${PLAW_CONTROL_FONT_FAMILY};background:#faf9fd;color:#6600FF;`;
     discardDrawnBtn.hidden = true;
     discardDrawnBtn.onclick = (ev): void => {
         ev.preventDefault();
@@ -750,7 +769,7 @@ export function mountParcelLawEnvelopeAuthoring(
 
     const entryRow = H('div', 'display:flex;gap:6px;margin-top:6px;align-items:flex-end;');
     const entryCol = H('div', 'flex:1;min-width:0;');
-    const label = H('label', 'display:block;font-size:9px;color:#8a83a0;', 'Number of floor levels');
+    const label = H('label', `display:block;font-size:${PLAW_SCALE_LABEL};color:#8a83a0;`, 'Number of floor levels');
     const input = document.createElement('input');
     input.type = 'number';
     input.min = '1';
@@ -758,7 +777,7 @@ export function mountParcelLawEnvelopeAuthoring(
     input.setAttribute('data-testid', AUTHORING_STOREYS_INPUT_TESTID);
     input.style.cssText =
         'width:100%;box-sizing:border-box;padding:5px 6px;border-radius:6px;border:1px solid #d8d3e6;'
-        + 'font:600 11px system-ui;';
+        + `font-weight:600;font-size:${PLAW_SCALE_FIGURE};font-family:${PLAW_CONTROL_FONT_FAMILY};`;
     // §ENVELOPE-DRAW R8 — the intent line answers the storey count the user is TYPING, so it
     // re-renders per keystroke rather than on the next store event (which may never come).
     input.addEventListener('input', () => { typedStoreys = input.value; render(); });
@@ -770,11 +789,12 @@ export function mountParcelLawEnvelopeAuthoring(
     createBtn.setAttribute('data-testid', AUTHORING_CREATE_BTN_TESTID);
     createBtn.style.cssText =
         'flex:none;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:6px 10px;border-radius:8px;'
-        + 'font:600 11px system-ui;background:#6600FF;color:#ffffff;';
+        + `font-weight:600;font-size:${PLAW_SCALE_FIGURE};font-family:${PLAW_CONTROL_FONT_FAMILY};`
+        + 'background:#6600FF;color:#ffffff;';
     entryRow.appendChild(entryCol);
     entryRow.appendChild(createBtn);
 
-    const statusLine = H('div', 'margin-top:5px;font-size:9.5px;line-height:1.45;min-height:12px;');
+    const statusLine = H('div', `margin-top:5px;font-size:${PLAW_SCALE_PROSE};line-height:1.5;min-height:12px;`);
     statusLine.setAttribute('data-testid', AUTHORING_STATUS_TESTID);
     statusLine.setAttribute('data-state', 'idle');
 
@@ -788,18 +808,19 @@ export function mountParcelLawEnvelopeAuthoring(
     addLevelsBtn.setAttribute('data-testid', AUTHORING_ADD_LEVELS_BTN_TESTID);
     addLevelsBtn.style.cssText =
         'margin-top:5px;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:5px 9px;'
-        + 'border-radius:7px;font:600 10px system-ui;background:#ffffff;color:#6600FF;';
+        + `border-radius:7px;font-weight:600;font-size:${PLAW_SCALE_PROSE};`
+        + `font-family:${PLAW_CONTROL_FONT_FAMILY};background:#ffffff;color:#6600FF;`;
     addLevelsBtn.hidden = true;
-    const addLevelsNote = H('div', 'margin-top:3px;font-size:9px;line-height:1.4;color:#8a83a0;');
+    const addLevelsNote = H('div', `margin-top:3px;font-size:${PLAW_SCALE_PROSE};line-height:1.45;color:#8a83a0;`);
     addLevelsNote.setAttribute('data-testid', AUTHORING_ADD_LEVELS_NOTE_TESTID);
     addLevelsNote.hidden = true;
 
-    const advisoryLine = H('div', 'margin-top:5px;font-size:9.5px;line-height:1.45;');
+    const advisoryLine = H('div', `margin-top:5px;font-size:${PLAW_SCALE_PROSE};line-height:1.5;`);
     advisoryLine.setAttribute('data-testid', AUTHORING_ADVISORY_TESTID);
     advisoryLine.hidden = true;
 
     // §ENVELOPE-DRAW R8 — what the NEXT click does, before it. Hidden until a storey count is typed.
-    const intentLine = H('div', 'margin-top:4px;font-size:9.5px;line-height:1.45;color:#6b6480;');
+    const intentLine = H('div', `margin-top:4px;font-size:${PLAW_SCALE_PROSE};line-height:1.5;color:#6b6480;`);
     intentLine.setAttribute('data-testid', AUTHORING_INTENT_TESTID);
     intentLine.setAttribute('data-intent', 'idle');
     intentLine.hidden = true;
@@ -808,7 +829,7 @@ export function mountParcelLawEnvelopeAuthoring(
     createdList.setAttribute('data-testid', AUTHORING_CREATED_TESTID);
 
     const lawLede = H('div',
-        'margin-top:9px;font-size:9px;line-height:1.4;color:#8a83a0;', LAWCHECK_LEDE);
+        `margin-top:9px;font-size:${PLAW_SCALE_PROSE};line-height:1.45;color:#8a83a0;`, LAWCHECK_LEDE);
     lawLede.setAttribute('data-testid', AUTHORING_LAWCHECK_LEDE_TESTID);
     const lawSlot = H('div', 'margin-top:2px;');
     lawSlot.setAttribute('data-testid', AUTHORING_LAWCHECK_TESTID);
@@ -1249,13 +1270,13 @@ export function mountParcelLawEnvelopeAuthoring(
             if (!snapshot.readable) {
                 // ⛔ FAILURE IS NOT EMPTINESS. An unreadable store renders the channel's own
                 // sentence, never a table of zeros that looks like a finding.
-                lawSlot.replaceChildren(H('div', 'font-size:9.5px;line-height:1.45;color:#8a5a00;', snapshot.text));
+                lawSlot.replaceChildren(H('div', `font-size:${PLAW_SCALE_PROSE};line-height:1.5;color:#8a5a00;`, snapshot.text));
             } else {
                 lawSlot.innerHTML = buildBrutAllocationHtml(buildLiveLawCheck(model, levels, snapshot));
             }
         } catch (e) {
             console.warn('[analysis][parcel-law][authoring] render failed (non-fatal):', e);
-            root.replaceChildren(H('div', 'font-size:9.5px;line-height:1.45;color:#8a5a00;',
+            root.replaceChildren(H('div', `font-size:${PLAW_SCALE_PROSE};line-height:1.5;color:#8a5a00;`,
                 'The envelope-authoring section could not render this pass. This is a failure of THIS '
                 + 'section, not a finding about your project.'));
             // ⛔ THE LEDGER GOES WITH IT. When it was placed in another host, `replaceChildren`
@@ -1264,7 +1285,7 @@ export function mountParcelLawEnvelopeAuthoring(
             // statement of its own vintage. It states the same failure instead.
             if (lawCheckHost !== null) {
                 lawLede.remove();
-                lawSlot.replaceChildren(H('div', 'font-size:9.5px;line-height:1.45;color:#8a5a00;',
+                lawSlot.replaceChildren(H('div', `font-size:${PLAW_SCALE_PROSE};line-height:1.5;color:#8a5a00;`,
                     'The allowance ledger could not be re-read this pass, because the section that '
                     + 'produces it failed to render. The figures above it are from the last pass '
                     + 'that succeeded.'));

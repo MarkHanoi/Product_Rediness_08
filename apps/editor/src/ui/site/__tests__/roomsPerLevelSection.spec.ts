@@ -15,6 +15,7 @@ import {
     ROOMS_PER_LEVEL_ROOM_ATTR,
     ROOMS_PER_LEVEL_STATUS_TESTID,
     ROOMS_PER_LEVEL_WIRED_ATTR,
+    ROOMS_PER_LEVEL_ARM_ATTR,
     type RoomsPerLevelDeps,
 } from '../roomsPerLevelSection';
 import {
@@ -104,6 +105,73 @@ describe('mountRoomsPerLevelSection', () => {
             expect(status.getAttribute('data-state')).toBe('empty');
             expect(status.textContent).toContain('No rooms yet');
         } finally { h.dispose(); }
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // §STAGE-05-DENSITY (C115 §8.1 `C115-175` · L-13237) — "MAKE THE 'ROOMS PER LEVEL' SECTION
+    // SMALLER AND MORE DISCREET". The founder photographed five storeys, zero rooms, five
+    // bordered three-line cards. Every one of those cards carries a REAL fact — the level
+    // envelope and its area — so C115 §4.4 permits none of it to be withheld, only compressed.
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    it('⭐ a storey with an envelope and NO rooms is ONE line — and still says all three things', () => {
+        const E1: ExistingLevelEnvelope = {
+            id: 'e1', levelId: 'L1', name: 'Level envelope - Level 1', footprintAreaM2: 366,
+            provenance: systemProvenance('computed', 'test'),
+        };
+        const { d } = deps({ rooms: [], envelopes: [E0, E1] });
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const h = mountRoomsPerLevelSection(host, d);
+        try {
+            const groups = [...host.querySelectorAll(`[${ROOMS_PER_LEVEL_GROUP_ATTR}]`)];
+            expect(groups.map((g) => g.getAttribute(ROOMS_PER_LEVEL_GROUP_ATTR))).toEqual(['L0', 'L1']);
+            // ⭐ THE FALSIFIABLE HALF. happy-dom has no layout engine, so the compaction is proven
+            // by the ARM that ran, not by a pixel. Restore the bordered card and this fails.
+            expect(groups.every((g) => g.getAttribute(ROOMS_PER_LEVEL_ARM_ATTR) === 'compact')).toBe(true);
+            // ⛔ AND NOT ONE DATUM WENT WITH THE CARD. C115 §4.4 clause 1 — a named absence has
+            // something to say — and C115-40: withholding is at SECTION level, never at ROW level.
+            const l1 = groups[1]!;
+            expect(l1.textContent).toContain('Level 1');
+            expect(l1.textContent).toContain('Level envelope: Level envelope - Level 1');
+            expect(l1.textContent).toContain('366 m²');
+            expect(l1.textContent).toContain('No rooms on this storey yet.');
+        } finally { h.dispose(); host.remove(); }
+    });
+
+    it('⛔ a storey WITH rooms keeps the full card — the compaction is for empty storeys only', () => {
+        const { d } = deps();
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const h = mountRoomsPerLevelSection(host, d);
+        try {
+            const l0 = host.querySelector(`[${ROOMS_PER_LEVEL_GROUP_ATTR}="L0"]`)!;
+            expect(l0.getAttribute(ROOMS_PER_LEVEL_ARM_ATTR)).toBe('full');
+            expect(l0.textContent).toContain('Living');
+            expect(l0.textContent).toContain('24.0 m²');
+        } finally { h.dispose(); host.remove(); }
+    });
+
+    it('⛔ RIVAL envelopes keep the FULL card even with no rooms — a warning is not made discreet', () => {
+        // C115-39 clause 3 and C115-76: the four envelope arms all survive, and the two that
+        // report a problem (`rival`, `unreadable`) may not be compressed into a one-liner.
+        const A: ExistingLevelEnvelope = {
+            id: 'a', levelId: 'L1', name: 'Generated massing', footprintAreaM2: 300,
+            provenance: systemProvenance('computed', 'test'),
+        };
+        const B: ExistingLevelEnvelope = {
+            id: 'b', levelId: 'L1', name: 'Drawn by hand', footprintAreaM2: 280,
+            provenance: systemProvenance('computed', 'test'),
+        };
+        const { d } = deps({ rooms: [], envelopes: [A, B] });
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const h = mountRoomsPerLevelSection(host, d);
+        try {
+            const l1 = host.querySelector(`[${ROOMS_PER_LEVEL_GROUP_ATTR}="L1"]`)!;
+            expect(l1.getAttribute(ROOMS_PER_LEVEL_ARM_ATTR)).toBe('full');
+            expect(l1.textContent).toContain('2 level envelopes sit on this storey');
+            expect(l1.textContent).toContain('PRYZM will not choose');
+        } finally { h.dispose(); host.remove(); }
     });
 
     it('⛔ unreadable storeys are stated as unreadable, and every room is still listed', () => {

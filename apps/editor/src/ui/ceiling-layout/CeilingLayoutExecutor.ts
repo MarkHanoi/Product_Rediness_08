@@ -24,42 +24,16 @@ import { getStairVoidsForLevel } from '../house-layout/houseStairVoids.js';
 
 interface Pt { x: number; z: number }
 
-// §RESI-CEILING-CLEARHEIGHT (2026-06-25) — the finished ceiling sits at the room's CLEAR
-// height, NOT the structural floor-to-floor (ftf). Previously the executor passed `level.height`
-// (the ftf, e.g. 3.0 m) verbatim as the ceiling-height override, so the ceiling slab was placed
-// at the full storey height instead of a realistic finished-ceiling level — visually wrong and
-// it left no service zone for the floor build-up / ducts / down-stand above.
+// §RESI-CEILING-CLEARHEIGHT — the clear-height solver MOVED to `./clearCeilingHeight.ts` and is
+// RE-EXPORTED here, so every existing importer of `clearCeilingHeightFromFtf` from this module is
+// unchanged and there is still exactly ONE implementation and ONE set of constants (C84 EI-9).
 //
-// We reserve a service/structure zone below the slab above and place the ceiling at
-// `ftf - SERVICE_ZONE_M`, clamped to a sane band. A typical UK/EU residential ftf of 3.0 m with
-// a ~0.6 m zone gives the standard ~2.4 m clear ceiling.
-const CEILING_SERVICE_ZONE_M = 0.6;   // floor build-up + structure + MEP service void below the slab above
-// §RESI-CEILING-DOOR-HEAD (audit 2026-06-25 D3) — the ceiling must clear the door HEAD, never sit
-// flush on / below it. Standard residential door leaves are 2.1 m (every CreateWallOpenings door in
-// the resi pipeline uses height 2.1), so the minimum clear ceiling is the door head + a small gap.
-// Before this the floor was a bare 2.1 m, so a short storey (ftf ≤ ~2.7 m) clamped the ceiling to
-// exactly 2.1 m = flush on the door head (visual/physical clash). 2.15 m keeps the ceiling above it.
-const DOOR_HEAD_M = 2.1;               // standard residential door leaf height (matches the door builders)
-const CEILING_DOOR_CLEARANCE_M = 0.05; // keep the ceiling strictly above the door head
-const MIN_CLEAR_CEILING_M = DOOR_HEAD_M + CEILING_DOOR_CLEARANCE_M; // 2.15 — clear the door head, never flush
-const DEFAULT_CLEAR_CEILING_M = 2.4;  // fallback clear height when the level reports no ftf
-
-/** §RESI-CEILING-CLEARHEIGHT — convert a floor-to-floor height to a finished clear ceiling
- *  height. `undefined`/invalid ftf (level didn't report one) → `DEFAULT_CLEAR_CEILING_M` so the
- *  ceiling still lands at a realistic finished height (never the raw storey height). A reported
- *  ftf is reduced by the service zone and clamped to [MIN_CLEAR_CEILING_M, ftf). On a very short
- *  storey the ceiling sits just above the door head (MIN_CLEAR_CEILING_M) but never exceeds the
- *  ftf itself. Exported for unit test. */
-export function clearCeilingHeightFromFtf(ftf: number | undefined): number {
-    if (typeof ftf !== 'number' || !Number.isFinite(ftf) || ftf <= 0) return DEFAULT_CLEAR_CEILING_M;
-    const clear = ftf - CEILING_SERVICE_ZONE_M;
-    if (clear < MIN_CLEAR_CEILING_M) {
-        // Very low storey — sit just above the door head (§RESI-CEILING-DOOR-HEAD) but never exceed
-        // the ftf itself. A storey so short that even the door head doesn't fit is an upstream defect.
-        return Math.min(ftf, MIN_CLEAR_CEILING_M);
-    }
-    return clear;
-}
+// ⭐ WHY IT MOVED. Its second consumer is `../site/buildFromDesignPlan.ts`
+// (§BIM-FROM-THE-DESIGN), a PURE planner — no store, no DOM, no THREE. Importing THIS module
+// would have dragged `@pryzm/core-app-model`, `@pryzm/ai-host` and THREE into it, and copying the
+// numbers over would have been the second copy of a solved problem.
+export { clearCeilingHeightFromFtf } from './clearCeilingHeight.js';
+import { clearCeilingHeightFromFtf } from './clearCeilingHeight.js';
 
 interface RoomLike {
     id: string;

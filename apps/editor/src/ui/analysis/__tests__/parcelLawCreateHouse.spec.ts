@@ -466,7 +466,7 @@ describe('ARM E — §BIM-FROM-THE-DESIGN: build from the envelopes he already d
                         ok: true, wallIds: plan.walls.map((_, i) => `WA-${i}`),
                         shellWallCount: plan.shellWallCount,
                         partitionWallCount: plan.partitionWallCount,
-                        slabId: 'SL-1', slabRefusal: null, refusedRoomNames: [],
+                        slabIds: ['SL-1'], slabRefusal: null, refusedRoomNames: [],
                         link: { wallsLinked: plan.walls.length, edgesWritten: plan.walls.length * 2, unlinked: [] },
                     };
                 },
@@ -601,7 +601,11 @@ describe('ARM E — §BIM-FROM-THE-DESIGN: build from the envelopes he already d
         expect(status).toContain('17 partitions');
         expect(status).toContain('1 floor slab');
         expect(status).toContain('21 walls recorded as derived from your envelope');
-        expect(status).toContain('Undo takes two steps');
+        // ⭐ COUNTED FROM THE RESULT. This fixture commits walls and ONE slab and no ceiling, so the
+        // honest depth is 2 — and the batches are NAMED in the order undo will pop them. Asserting
+        // the names, not just the digit, is what keeps a future third batch from silently landing
+        // inside a sentence that still says two.
+        expect(status).toContain('Undo takes 2 steps — the slabs, then the walls');
         h.dispose();
     });
 
@@ -609,7 +613,7 @@ describe('ARM E — §BIM-FROM-THE-DESIGN: build from the envelopes he already d
         const { deps } = armDeps([groundEnv, ...SIX_ROOMS], {
             design: {
                 ok: true, wallIds: ['WA-0'], shellWallCount: 4, partitionWallCount: 17,
-                slabId: null, slabRefusal: 'the boundary self-intersects.',
+                slabIds: [], slabRefusal: 'the boundary self-intersects.',
                 refusedRoomNames: [], link: { wallsLinked: 21, edgesWritten: 42, unlinked: [] },
             },
         });
@@ -626,7 +630,7 @@ describe('ARM E — §BIM-FROM-THE-DESIGN: build from the envelopes he already d
         const { deps } = armDeps([groundEnv, ...SIX_ROOMS], {
             design: {
                 ok: true, wallIds: ['WA-0'], shellWallCount: 4, partitionWallCount: 17,
-                slabId: 'SL-1', slabRefusal: null, refusedRoomNames: [], link: null,
+                slabIds: ['SL-1'], slabRefusal: null, refusedRoomNames: [], link: null,
             },
         });
         const h = mount(deps);

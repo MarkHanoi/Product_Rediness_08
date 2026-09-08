@@ -9,13 +9,24 @@
 //     atomicity is why the planner had to catch short edges: an all-or-nothing handler with no
 //     per-room diagnosis would have failed the founder's whole design over one bad room.
 //   · `slab.batch.create` — same shape, one undo entry, its own command.
+//   · `ceiling.batch.create` — same shape again, one undo entry.
 //
-// ⚠ SO THE HONEST UNDO COUNT IS **TWO**, NOT ONE, and the panel says so before the click. There is
-// no verb in this repo that commits walls and slabs together, `batchCoordinator.runBatch` is
-// undo-NEUTRAL by its own declaration (`BatchCoordinator.ts:233`), and inventing a third would be
-// a new command family for a cosmetic undo count. Two truthful steps beat one invented verb.
+// ⭐ §BUILD-EVERY-STOREY — ALL THREE BATCHES ARE ONE COMMAND EACH, HOWEVER MANY STOREYS.
+// Every one of these handlers reads a PER-ENTRY `levelId` and falls back to the batch default
+// only when an entry omits it (`CreateWallBatch.ts:132`, `CreateSlabBatch.ts:125`,
+// `CreateCeilingBatch.ts:121`). So a five-storey building costs exactly the same THREE undo
+// entries a one-storey building costs. ⛔ A LOOP OVER STOREYS WOULD HAVE COST ONE ENTRY PER
+// FLOOR FOR NO GEOMETRIC GAIN, and `batchCoordinator.runBatch` would not have helped: it is
+// undo-NEUTRAL by its own declaration (`BatchCoordinator.ts:233`) — N commands inside it are
+// still N entries (C114 §6a).
 //
-// ⛔ WALLS FIRST, AND A FAILED SLAB DOES NOT ROLL THEM BACK. `generateHouseFromBoundary` deletes
+// ⚠ SO THE HONEST UNDO COUNT IS **THREE**, NOT ONE — and it is COMPUTED, never asserted:
+// `plan.undoStepCount` counts the batches this plan actually dispatches, and the panel prints
+// that number before the click (C16 §8.6 B-6). There is no verb in this repo that commits walls,
+// slabs and ceilings together, and inventing one would be a new command family for a cosmetic
+// undo count. Three truthful steps beat one invented verb.
+//
+// ⛔ WALLS FIRST, AND A FAILED SLAB OR CEILING DOES NOT ROLL THEM BACK. `generateHouseFromBoundary` deletes
 // its shell when a later stage fails, and that is right THERE: the shell was drawn only in order
 // to ask the user a question, and a shell with no house is debris. Here the walls ARE the
 // deliverable — they are the design the founder drew. Deleting them because a floor plate was
@@ -61,13 +72,18 @@ export interface BuildFromDesignResult {
     readonly wallIds?: readonly string[];
     readonly shellWallCount?: number;
     readonly partitionWallCount?: number;
-    readonly slabId?: string | null;
+    readonly slabIds?: readonly string[];
+    readonly ceilingIds?: readonly string[];
+    /** How many storeys this build put geometry on. */
+    readonly storeyCount?: number;
     /** Named, per room, exactly as the plan named them. Repeated here so the post-build report
      *  says the same thing the pre-click sentence said. */
     readonly refusedRoomNames?: readonly string[];
     readonly link?: EnvelopeWallLinkReport | null;
-    /** ⚠ A slab that was refused AFTER the walls committed. The walls are still on the level. */
+    /** ⚠ Slabs refused AFTER the walls committed. The walls are still on their storeys. */
     readonly slabRefusal?: string | null;
+    /** ⚠ Ceilings refused after the walls and slabs committed. Both are kept. */
+    readonly ceilingRefusal?: string | null;
 }
 
 export interface BuildFromDesignExecutorDeps {
@@ -76,7 +92,7 @@ export interface BuildFromDesignExecutorDeps {
     /** Production: `semanticGraphManager`. `null` disables the link leg and SAYS so in the report. */
     readonly graph: () => EnvelopeWallLinkGraph | null;
     /** Production: `createId`. Injected so a spec can assert the id→plan-row pairing. */
-    readonly mintId: (prefix: 'wall' | 'slab') => string;
+    readonly mintId: (prefix: 'wall' | 'slab' | 'ceiling') => string;
 }
 
 /** The production wiring. */
@@ -130,7 +146,10 @@ export async function executeBuildFromDesign(
                     ],
                     height: w.heightM,
                     thickness: w.thicknessM,
-                    levelId: plan.levelId,
+                    // ⭐ THE WALL'S OWN STOREY. `CreateWallBatchHandler` reads this first and
+                    // only falls back to the batch default when an entry omits it, which is
+                    // what makes a whole multi-storey shell ONE undo entry.
+                    levelId: w.levelId,
                 })),
             });
         } catch (e) {
@@ -171,39 +190,74 @@ export async function executeBuildFromDesign(
                 + '(non-fatal; the walls exist, but they will NOT follow the envelope):', e);
         }
 
-        // ── 3. THE FLOOR PLATE — a SECOND command, and a failure here keeps the walls ──────────
-        let slabId: string | null = null;
+        // ── 3. THE FLOOR PLATES — ONE COMMAND FOR EVERY STOREY ────────────────────────────────
+        // A failure here keeps the walls: they ARE the design the founder drew, and deleting them
+        // to tidy up a floor plate he did not ask about would destroy the thing he did ask for.
+        let slabIds: string[] = [];
         let slabRefusal: string | null = null;
-        const slab = plan.slabs[0];
-        if (slab) {
-            slabId = deps.mintId('slab');
+        if (plan.slabs.length > 0) {
+            const ids = plan.slabs.map(() => deps.mintId('slab'));
             try {
                 await bus.executeCommand('slab.batch.create', {
                     levelId: plan.levelId,
-                    slabs: [{
-                        id: slabId,
-                        levelId: plan.levelId,
-                        thickness: slab.thicknessM,
-                        baseOffset: slab.baseOffsetM,
-                        boundary: slab.boundary.map((p) => ({ x: p.x, y: 0, z: p.z })),
-                    }],
+                    slabs: plan.slabs.map((s, i) => ({
+                        id: ids[i]!,
+                        // ⭐ PER-SLAB STOREY — one plate per floor, all in one undo entry.
+                        levelId: s.levelId,
+                        thickness: s.thicknessM,
+                        baseOffset: s.baseOffsetM,
+                        boundary: s.boundary.map((p) => ({ x: p.x, y: 0, z: p.z })),
+                    })),
                 });
+                slabIds = ids;
             } catch (e) {
                 slabRefusal = String(e);
-                slabId = null;
                 console.warn('[site][build-from-design] slab.batch.create refused — the walls stay:', e);
             }
         }
 
+        // ── 4. THE CEILINGS — ONE COMMAND FOR EVERY ROOM ON EVERY STOREY ──────────────────────
+        // ⛔ NOT ROOM-RECORD DRIVEN, and that is the whole reason this leg can exist at all. The
+        // resi pipeline's `CeilingLayoutExecutor` reads the room store because it runs AFTER a
+        // detect pass. Here the room the user DREW is the boundary, so no room record is needed
+        // and none is pre-empted.
+        let ceilingIds: string[] = [];
+        let ceilingRefusal: string | null = null;
+        if (plan.ceilings.length > 0) {
+            const ids = plan.ceilings.map(() => deps.mintId('ceiling'));
+            try {
+                await bus.executeCommand('ceiling.batch.create', {
+                    levelId: plan.levelId,
+                    ceilings: plan.ceilings.map((c, i) => ({
+                        id: ids[i]!,
+                        levelId: c.levelId,
+                        ceilingHeight: c.ceilingHeightM,
+                        thickness: c.thicknessM,
+                        boundary: c.boundary.map((p) => ({ x: p.x, y: 0, z: p.z })),
+                    })),
+                });
+                ceilingIds = ids;
+            } catch (e) {
+                ceilingRefusal = String(e);
+                console.warn('[site][build-from-design] ceiling.batch.create refused — the walls and '
+                    + 'slabs stay:', e);
+            }
+        }
+
         span.setAttribute('pryzm.buildFromDesign.walls', wallIds.length);
-        span.setAttribute('pryzm.buildFromDesign.slab', slabId !== null);
+        span.setAttribute('pryzm.buildFromDesign.storeys', plan.storeyCount);
+        span.setAttribute('pryzm.buildFromDesign.slabs', slabIds.length);
+        span.setAttribute('pryzm.buildFromDesign.ceilings', ceilingIds.length);
         return {
             ok: true,
             wallIds,
             shellWallCount: plan.shellWallCount,
             partitionWallCount: plan.partitionWallCount,
-            slabId,
+            storeyCount: plan.storeyCount,
+            slabIds,
+            ceilingIds,
             slabRefusal,
+            ceilingRefusal,
             refusedRoomNames: plan.refusedRooms.map((r) => r.name),
             link,
         };

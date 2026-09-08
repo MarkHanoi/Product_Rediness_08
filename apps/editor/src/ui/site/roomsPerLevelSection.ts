@@ -193,9 +193,92 @@ function roomLabelCell(room: RoomsPerLevelRoom, trailing: string): HTMLElement {
     return cell;
 }
 
+/**
+ * ⭐ §STAGE-05-DENSITY (C115 §8.1 `C115-175`, L-13237) — ONE STOREY'S ENVELOPE SENTENCE AND COLOUR.
+ *
+ * Lifted out of `renderGroup` unchanged so the COMPACT arm below and the FULL card can print the
+ * SAME sentence in the same colour. Two copies of these four arms is exactly how a compression
+ * pass loses a `rival` warning: the full card would keep it and the compact one would quietly
+ * paraphrase it. There is one producer of the words, and the arms decide the layout, not the text.
+ */
+function envelopeLine(g: RoomsPerLevelGroup): { text: string; colour: string } {
+    switch (g.envelope.kind) {
+        case 'one':
+            return {
+                text: `Level envelope: ${g.envelope.name ?? g.envelope.id}`
+                    + (g.envelope.areaM2 === null ? ' · area not recorded' : ` · ${g.envelope.areaM2.toFixed(0)} m²`),
+                colour: '#6b6480',
+            };
+        case 'none':
+            return {
+                text: 'No level envelope on this storey yet — choose a massing option above, or draw your own.',
+                colour: '#8a83a0',
+            };
+        case 'rival':
+            return {
+                text: `${g.envelope.count} level envelopes sit on this storey — PRYZM will not choose which one `
+                    + 'the rooms belong inside. Keep the one you want; choosing a massing option replaces generated ones.',
+                colour: '#8a5a00',
+            };
+        case 'unreadable':
+        default:
+            return { text: g.envelope.kind === 'unreadable' ? g.envelope.text : '', colour: '#8a5a00' };
+    }
+}
+
+/**
+ * ⭐ §STAGE-05-DENSITY (C115 §8.1 `C115-175`, L-13237) — A STOREY WITH NO ROOMS IS ONE LINE.
+ *
+ * Founder 2026-09-07: *"MAKE IT SMALLER AND MORE DISCREET — BOTH THE ROOM GRAPH AND THE 'ROOMS
+ * PER LEVEL' SECTION."* His screenshot is five storeys, zero rooms, five bordered three-line
+ * cards. Every one of those cards carries a REAL fact — the level envelope and its area — so
+ * C115 §4.4 permits none of it to be withheld. It permits it to be COMPRESSED, which is what this
+ * is: the same label, the same envelope sentence in the same colour, and the same absence
+ * sentence, on one wrapping line with no card chrome around it.
+ *
+ * ⛔ IT APPLIES TO **ONE** OF THE FOUR ENVELOPE ARMS, AND THE OTHER THREE ARE NOT AN OVERSIGHT.
+ *   · `one`        — the compact arm. This is the founder's screenshot: five storeys, one level
+ *                    envelope each, no rooms.
+ *   · `rival`      — FULL CARD, deliberately. Two envelopes contending for one storey is a
+ *                    warning, and a warning is not a thing to make discreet (`C115-39` clause 3).
+ *   · `none`       — cannot occur here: `groupRoomsPerLevel` skips a storey with no rooms AND no
+ *                    envelope (`roomsPerLevelModel.ts`, `if (lvlRooms.length === 0 && !hasEnvelope)
+ *                    continue`), so a 0-room `none` storey never reaches this function at all.
+ *   · `unreadable` — cannot occur here either, for the same reason (`hasEnvelope` is false when the
+ *                    envelope store could not be read), and it takes the full card when it does
+ *                    appear beside rooms — `C115-39` clause 3: a failure to READ must render.
+ * `C115-76` requires all four arms to survive; the arm that ran is stamped on the node so a spec
+ * proves which one did rather than inferring it from text.
+ *
+ * ⛔ WHAT IS DROPPED, NAMED: the head's literal `"0 rooms"` chip. It is the SAME datum as *"No
+ * rooms on this storey yet."*, which is kept verbatim — one spelling of zero, not two, and the
+ * sentence is the more informative spelling. No other row, figure or sentence moves.
+ */
+export const ROOMS_PER_LEVEL_ARM_ATTR = 'data-rooms-level-arm';
+
+function renderCompactGroup(g: RoomsPerLevelGroup): HTMLElement {
+    const row = el('div', 'margin-top:3px;padding:1px 2px;display:flex;flex-wrap:wrap;align-items:baseline;gap:5px;min-width:0;');
+    row.setAttribute(ROOMS_PER_LEVEL_GROUP_ATTR, g.levelId);
+    row.setAttribute(ROOMS_PER_LEVEL_ARM_ATTR, 'compact');
+    row.appendChild(el('span', 'font-weight:700;font-size:10px;color:#6600FF;', g.label));
+    const env = envelopeLine(g);
+    if (env.text.length > 0) {
+        row.appendChild(el('span', `font-size:9px;line-height:1.4;color:${env.colour};min-width:0;`, env.text));
+    }
+    row.appendChild(el('span', 'font-size:9px;color:#8a83a0;', 'No rooms on this storey yet.'));
+    return row;
+}
+
 function renderGroup(g: RoomsPerLevelGroup): HTMLElement {
-    const box = el('div', 'margin-top:7px;padding:6px 7px;border:1px solid #efecf7;border-radius:8px;background:#ffffff;min-width:0;');
+    // §STAGE-05-DENSITY — the compact arm, for a storey that holds no rooms and whose envelope
+    // state was READ successfully. Everything else takes the full card below, unchanged.
+    if (g.rooms.length === 0 && g.envelope.kind === 'one') {
+        return renderCompactGroup(g);
+    }
+
+    const box = el('div', 'margin-top:6px;padding:6px 7px;border:1px solid #efecf7;border-radius:8px;background:#ffffff;min-width:0;');
     box.setAttribute(ROOMS_PER_LEVEL_GROUP_ATTR, g.levelId);
+    box.setAttribute(ROOMS_PER_LEVEL_ARM_ATTR, 'full');
 
     const head = el('div', 'display:flex;justify-content:space-between;gap:8px;align-items:baseline;');
     head.appendChild(el('span', 'font-weight:700;font-size:10.5px;color:#6600FF;', g.label));
@@ -206,30 +289,10 @@ function renderGroup(g: RoomsPerLevelGroup): HTMLElement {
     head.appendChild(el('span', 'font-size:9px;color:#8a83a0;', `${n} room${n === 1 ? '' : 's'}${sum}`));
     box.appendChild(head);
 
-    // The level envelope this storey's rooms are designed inside.
-    let envText: string;
-    let envColour = '#6b6480';
-    switch (g.envelope.kind) {
-        case 'one':
-            envText = `Level envelope: ${g.envelope.name ?? g.envelope.id}`
-                + (g.envelope.areaM2 === null ? ' · area not recorded' : ` · ${g.envelope.areaM2.toFixed(0)} m²`);
-            break;
-        case 'none':
-            envText = 'No level envelope on this storey yet — choose a massing option above, or draw your own.';
-            envColour = '#8a83a0';
-            break;
-        case 'rival':
-            envText = `${g.envelope.count} level envelopes sit on this storey — PRYZM will not choose which one `
-                + 'the rooms belong inside. Keep the one you want; choosing a massing option replaces generated ones.';
-            envColour = '#8a5a00';
-            break;
-        case 'unreadable':
-        default:
-            envText = g.envelope.kind === 'unreadable' ? g.envelope.text : '';
-            envColour = '#8a5a00';
-            break;
-    }
-    box.appendChild(el('div', `margin-top:3px;font-size:9px;line-height:1.45;color:${envColour};`, envText));
+    // The level envelope this storey's rooms are designed inside — ONE producer, shared with the
+    // compact arm above so the two can never paraphrase each other.
+    const env = envelopeLine(g);
+    box.appendChild(el('div', `margin-top:3px;font-size:9px;line-height:1.45;color:${env.colour};`, env.text));
 
     if (n === 0) {
         box.appendChild(el('div', 'margin-top:4px;font-size:9.5px;color:#8a83a0;', 'No rooms on this storey yet.'));

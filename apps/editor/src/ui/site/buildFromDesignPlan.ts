@@ -35,10 +35,41 @@
 //  · IT DOES NOT WEAKEN C80. `planCreateHouse`'s `already-built` arm is consulted FIRST by the
 //    host and this planner carries its own copy of the same refusal, so a level already carrying
 //    authored walls refuses on BOTH paths and the count is named on both.
-//  · IT CREATES NO LEVEL. The walls and the slab land on the ACTIVE level. `AddLevelCommand`
-//    executes synchronously while the bus is async (C02 §257-274), so a pass that minted a storey
-//    and then read it back in the same beat would read STALE — that is a separate lane's problem
-//    and this one does not open it. `willCreate` says so.
+//  · IT CREATES NO LEVEL, AND IT NO LONGER NEEDS TO. `AddLevelCommand` executes synchronously
+//    while the bus is async (C02 §257-274), so a pass that minted a storey and read it back in
+//    the same beat would read STALE. It does not have to: every storey a level envelope names
+//    ALREADY EXISTS by the time this runs — `envelopeAuthoringPlan` mints one `role:'level'`
+//    envelope per project storey and writes `levelId: level.id` onto it. So the geometry is
+//    seated on the PLATE'S OWN storey, and a plate naming a storey PRYZM cannot see is refused
+//    by name rather than having a level invented under it. `willCreate` says so.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⛔ §BUILD-EVERY-STOREY (2026-09-07, L-13185..L-13189) — WHAT THIS MODULE USED TO GET WRONG
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The founder hit `not ready to build` TWICE, with two different designs:
+//   A — 7 rooms, all seated on "Level envelope · Level 4 · 366 m²" at 12 m;
+//   B — 8 rooms, all seated on "Level envelope · Level 1 · 92 m²" at 3 m.
+// Both were refused in FULL, and instance B is what killed the working theory. It is not the
+// last-created level, not the area and not the design. The invariant was simply: THE ROOM
+// PROGRAMME SEATS ROOMS ON THE PLATE OF THE ACTIVE STOREY (`pickHostLevelEnvelope` rung 2), AND
+// THIS BUILDER BUILT THE PLATE OF THE LOWEST STOREY (`const ground = sortedLevels[0]!`). They
+// coincide only when the active storey happens to be Ground, and after the storey-creation offer
+// it never is — `AddLevelCommand.execute` re-points `projectContext.activeLevelId` at every
+// storey it mints, and nothing ever `level.add`s L0 "Ground" because BimKernel seeds it.
+//
+// Three defects, kept separate because they have three different fixes:
+//   A — the refusal CONTRADICTED ITSELF. See `roomSetOutcomeSentence`.
+//   B — the refusal named a cause that WAS NOT THE CAUSE: *"Upper storeys need levels PRYZM does
+//       not create here."* The levels existed as project storeys AND as `role:'level'` envelopes
+//       — the refusal string was BUILT from one of them (it interpolated the seat's own name and
+//       base offset). A misleading diagnostic is a real defect here, not cosmetics: it sends
+//       every future reader after a level-creation bug that does not exist.
+//   C — the build was GROUND-ONLY. Now every plate is a storey; see `PlannedStorey`.
+//
+// ⚠ THE UPSTREAM DEFECT IS LOGGED, NOT FIXED HERE (L-13189). `AddLevelCommand` writing
+// `projectContext.activeLevelId` makes the off-ground seat UNAVOIDABLE, but it is not what made
+// it a failure: a user who deliberately authors rooms on Level 2 — which the room programme
+// fully supports — was refused just the same. That is this module's bug, and it is fixed here.
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // ⚠ THE HAZARD THIS PLANNER EXISTS TO CATCH: ONE SHORT EDGE KILLS THE WHOLE BATCH
@@ -67,6 +98,10 @@ import {
     WALL_MIN_BASELINE_M,
     type WeldPoint,
 } from '../house-layout/weldFootprintForWalls';
+// ⭐ THE RESI PIPELINE'S OWN CLEAR-HEIGHT SOLVER, NOT A SECOND COPY (C84 EI-9). It lives in its
+// own pure module precisely so this planner can reach it without dragging `@pryzm/core-app-model`,
+// `@pryzm/ai-host` and THREE in behind `CeilingLayoutExecutor`.
+import { clearCeilingHeightFromFtf } from '../ceiling-layout/clearCeilingHeight';
 
 const _tracer = trace.getTracer('pryzm.site.buildFromDesignPlan');
 
@@ -103,14 +138,32 @@ export interface BuildFromDesignInput {
     readonly envelopes: readonly DesignEnvelopeDatum[] | null;
     /** The active level id. The walls and slab land here; no new level is created. */
     readonly activeLevelId: string | null | undefined;
-    /** C80's question is decided from this number, and the refusal prints it. */
+    /**
+     * C80's question for the ACTIVE storey, and the answer for any storey the map below does
+     * not carry a key for. Kept because `planCreateHouse` is asked the same question in the
+     * same words and the two arms must not disagree about whether a level is empty.
+     */
     readonly authoredWallCountOnActiveLevel: number;
+    /**
+     * ⭐ C80 §3, PER STOREY — `levelId` → authored wall count on that project level.
+     *
+     * ⛔ REQUIRED THE MOMENT THIS PASS TOUCHES MORE THAN ONE STOREY. A multi-storey build that
+     * asked only about the ACTIVE level would thread new walls through a storey the user has
+     * already built on — the precise failure C80 exists to prevent, re-created by the fix for a
+     * different defect. Optional in the TYPE so a harness that builds one storey need not
+     * restate the census, never optional in production: `parcelLawCreateHouse` supplies a key
+     * for every storey it can see. A level absent from the map reads 0 — the same permissive
+     * direction `countAuthoredWallsOnLevel` already declares for a store that throws.
+     */
+    readonly authoredWallCountByLevelId?: Readonly<Record<string, number>>;
     /** Metres. Default 0.2 — the same default `generateHouseFromBoundary` draws its shell at. */
     readonly shellThicknessM?: number;
     /** Metres. Default 0.1 — `DEFAULT_CONSTRAINTS.wallThickness` in the house pipeline is 100 mm. */
     readonly partitionThicknessM?: number;
     /** Metres. Default 0.2 — `CreateSlabBatchHandler`'s own default. */
     readonly slabThicknessM?: number;
+    /** Metres. Default 0.05 — `CreateCeilingBatchHandler`'s own default. */
+    readonly ceilingThicknessM?: number;
 }
 
 export type BuildFromDesignRefusalCode =
@@ -119,6 +172,7 @@ export type BuildFromDesignRefusalCode =
     | 'no-active-level'
     | 'no-room-envelopes'
     | 'ambiguous-ground-plate'
+    | 'storeys-share-a-level'
     | 'degenerate-footprint'
     | 'already-built'
     | 'every-room-refused';
@@ -170,11 +224,25 @@ export interface PlannedWall {
     readonly lengthM: number;
     readonly heightM: number;
     readonly thicknessM: number;
+    /**
+     * ⭐ THE PROJECT STOREY THIS WALL LANDS ON — carried PER WALL, never inherited from the batch
+     * default. `CreateWallBatchHandler` reads `w.levelId ?? defaultLevelId`
+     * (`CreateWallBatch.ts:132`), which is what lets EVERY storey of a multi-storey design be
+     * built by ONE `wall.batch.create` and therefore ONE undo entry. A loop over storeys would
+     * have cost one entry per floor for no geometric gain.
+     */
+    readonly levelId: string;
+    /** Index into {@link BuildFromDesignPlan.storeys}. */
+    readonly storeyIndex: number;
     /** THE PRIMARY LINK. See {@link DerivedEdgeRef}. */
     readonly derivedFrom: DerivedEdgeRef;
     /**
      * The OTHER envelope edges that are the SAME segment — a boundary shared between two rooms is
      * ONE wall, and both rooms' claims on it are recorded. Empty for an unshared edge.
+     *
+     * ⛔ SCOPED TO ONE STOREY. Two rooms on DIFFERENT storeys whose rings are identical — the
+     * ordinary case for a stacked building — are two different walls, and merging them would put
+     * the upper floor's partitions on the ground floor and leave the upper floor open.
      */
     readonly alsoBounds: readonly DerivedEdgeRef[];
 }
@@ -183,7 +251,33 @@ export interface PlannedSlab {
     /** OPEN ring, XZ metres — `validateSlabBoundary` refuses a duplicated closing vertex. */
     readonly boundary: readonly DesignVertex[];
     readonly thicknessM: number;
+    /**
+     * Relative to the STOREY's own datum, so it is 0 on every floor. World Y is resolved from the
+     * level's elevation at projection — the same convention
+     * `HouseLayoutExecutor._createStorageSlab` builds its per-storey plates on.
+     */
     readonly baseOffsetM: number;
+    readonly levelId: string;
+    readonly storeyIndex: number;
+    readonly derivedFrom: DerivedEdgeRef;
+}
+
+/**
+ * One finished ceiling, over ONE room envelope.
+ *
+ * ⭐ IT NEEDS NO ROOM RECORD. `CeilingLayoutExecutor` reads the room store because it runs AFTER a
+ * detect pass; here the room the user DREW is the boundary, so the ceiling is a direct geometric
+ * consequence of the ring and the storey height and nothing is invented. The clear height comes
+ * from `clearCeilingHeightFromFtf` — the SAME producer the resi pipeline uses (C84 EI-9), never
+ * the raw floor-to-floor, which would put the ceiling flush against the slab above.
+ */
+export interface PlannedCeiling {
+    readonly boundary: readonly DesignVertex[];
+    /** The finished CLEAR height above the storey datum — always ≤ the storey's floor-to-floor. */
+    readonly ceilingHeightM: number;
+    readonly thicknessM: number;
+    readonly levelId: string;
+    readonly storeyIndex: number;
     readonly derivedFrom: DerivedEdgeRef;
 }
 
@@ -196,31 +290,93 @@ export interface PlannedRoom {
     readonly partitionEdgeCount: number;
     /** How many of its edges were dropped because they lie on the shell. */
     readonly edgesOnShellCount: number;
+    readonly storeyIndex: number;
+    readonly levelId: string;
+}
+
+/**
+ * ⭐ ONE STOREY OF THE BUILD — the unit this pass now works in.
+ *
+ * Until 2026-09-07 there was no such thing: `ground = sortedLevels[0]` bound the LOWEST plate and
+ * every later stage read only that one, so a design whose rooms sat on any other storey was
+ * refused in full. Two founder reproductions (7 rooms on Level 4 @ 12 m; 8 rooms on Level 1 @ 3 m)
+ * failed identically, which is what proved the pin was structural rather than design-specific.
+ */
+export interface PlannedStorey {
+    readonly index: number;
+    readonly plateEnvelopeId: string;
+    readonly plateName: string | null;
+    /** The PROJECT level the geometry lands on. */
+    readonly levelId: string;
+    /**
+     * `plate` — the level envelope's own `levelId`, which `envelopeAuthoringPlan` writes as
+     * `level.id` (one envelope per storey). `active-level` — the plate carried none and there is
+     * exactly ONE plate, so the active storey is the only defensible seat; it is REPORTED, because
+     * seating geometry on a storey the user did not name is something they must be able to see.
+     */
+    readonly levelIdSource: 'plate' | 'active-level';
+    readonly baseOffsetM: number;
+    readonly floorToFloorM: number;
+    readonly footprintAreaM2: number;
+    readonly shellWallCount: number;
+    readonly partitionWallCount: number;
+    readonly roomCount: number;
+}
+
+/**
+ * A level envelope that could NOT become a storey. Its rooms are refused BY NAME carrying THIS
+ * reason, so the user is never told that a room failed for a reason belonging to its plate.
+ */
+export interface RefusedStorey {
+    readonly plateEnvelopeId: string;
+    readonly plateName: string | null;
+    readonly baseOffsetM: number;
+    readonly code: 'degenerate-plate-ring' | 'already-built';
+    readonly text: string;
 }
 
 export interface BuildFromDesignPlan {
-    /** The ACTIVE level. Everything lands here; no level is created. */
+    /**
+     * The batch DEFAULT level — the lowest built storey's. Every wall, slab and ceiling also
+     * carries its own `levelId`, and the handlers read the per-entry field first, so this is a
+     * fallback that production never depends on.
+     */
     readonly levelId: string;
+    /** The lowest built storey's plate. */
     readonly sourceEnvelopeId: string;
     readonly sourceEnvelopeName: string | null;
+    /** The lowest built storey's enclosed area. Per-storey areas are on {@link storeys}. */
     readonly footprintAreaM2: number;
+    /** The lowest built storey's floor-to-floor. Per-storey heights are on {@link storeys}. */
     readonly floorToFloorM: number;
-    /** Always 1. This pass builds the ground plate; see the header. */
+    /** How many storeys this pass builds. NOT hard-coded — one per built level envelope. */
     readonly storeyCount: number;
-    /** Shell first, then partitions, in a deterministic order. ONE `wall.batch.create`. */
+    /** ⭐ Every storey this pass builds, lowest first. */
+    readonly storeys: readonly PlannedStorey[];
+    /** Level envelopes that could NOT be built, each with its own reason. Never a silent drop. */
+    readonly refusedStoreys: readonly RefusedStorey[];
+    /** ALL shells (storey by storey) first, then ALL partitions. ONE `wall.batch.create`. */
     readonly walls: readonly PlannedWall[];
     readonly shellWallCount: number;
     readonly partitionWallCount: number;
-    /** Room edges dropped because they coincide with a shell edge (reduction a). */
+    /** Room edges dropped because they coincide with their OWN storey's shell edge (reduction a). */
     readonly droppedOnShellCount: number;
-    /** Room edges merged into an existing partition — a shared boundary (reduction b). */
+    /** Room edges merged into an existing partition ON THE SAME STOREY — a shared boundary (b). */
     readonly dedupedPartitionCount: number;
-    /** Exactly one — the floor plate. ONE `slab.batch.create`. */
+    /** One per built storey. ONE `slab.batch.create`. */
     readonly slabs: readonly PlannedSlab[];
+    /** One per built room. ONE `ceiling.batch.create`. */
+    readonly ceilings: readonly PlannedCeiling[];
     readonly rooms: readonly PlannedRoom[];
     /** ⛔ NEVER a silent subset. Every room that could not be built is named here with numbers. */
     readonly refusedRooms: readonly RoomRefusal[];
     readonly roomsAreaM2: number;
+    /**
+     * ⛔ COMPUTED PER PLAN, NEVER A CONSTANT (C16 §8.6 B-6). It was the literal "TWO" while the
+     * pass emitted exactly two commands; it is now one per batch actually dispatched, so the
+     * number the panel prints before the click cannot drift from the number of commands.
+     */
+    readonly undoStepCount: number;
     /** Computed per plan — it carries the actual counts, not a generic list. */
     readonly willCreate: readonly string[];
     readonly willNotCreate: readonly string[];
@@ -240,8 +396,20 @@ export type BuildFromDesignOutcome =
  */
 export const BUILD_FROM_DESIGN_WILL_NOT_CREATE: readonly string[] = Object.freeze([
     'a generated layout — you drew one, and PRYZM builds THAT rather than proposing its own',
-    'a roof — the roof form is a separate decision this pass does not take for you',
-    'stairs — a single storey needs none, and PRYZM will not invent a second one',
+    'new project levels — every storey your plates name already exists, so this pass builds onto '
+        + 'them. A plate that names a storey PRYZM cannot find is refused BY NAME rather than '
+        + 'having a level invented under it',
+    'a ROOF — no space envelope carries a roof form. `SpaceEnvelope` has footprint, base offset, '
+        + 'height, role and occupancy and no shape, pitch or overhang field, so any roof built here '
+        + 'would be PRYZM choosing a form you did not draw. Ask for one on the house arm, where the '
+        + 'form is an input you give',
+    'FLOOR FINISHES — `floor.create` is a SINGULAR verb (there is no `floor.batch.create` in this '
+        + 'repo), so one finish per room would cost one undo step per room, and the finish spec is '
+        + 'chosen from a room\'s occupancy, which needs room RECORDS this pass deliberately does '
+        + 'not create',
+    'STAIRS, and no void is punched through the slabs — a room you named "Stair" becomes four '
+        + 'partitions and a solid plate above it. PRYZM will not invent a stair geometry you did '
+        + 'not draw, and it says so rather than leaving you to find the closed shaft where your stairs should be',
     'doors or windows — no opening is implied by an envelope edge, and guessing where one goes '
         + 'would put holes in walls you did not ask for',
     'columns or beams — PRYZM has no structural-frame engine on this path (the same gap the '
@@ -255,6 +423,7 @@ const MIN_ROOM_AREA_M2 = 1;
 const DEFAULT_SHELL_THICKNESS_M = 0.2;
 const DEFAULT_PARTITION_THICKNESS_M = 0.1;
 const DEFAULT_SLAB_THICKNESS_M = 0.2;
+const DEFAULT_CEILING_THICKNESS_M = 0.05;
 
 /**
  * How close a room edge must lie to a shell edge to be treated as the SAME line (reduction a).
@@ -409,13 +578,59 @@ function minEdgeM(ring: readonly DesignVertex[]): number {
 }
 
 /**
+ * ⭐ THE ONE PRODUCER OF THE SET-LEVEL SENTENCE — "how did the ROOM SET as a whole fare?"
+ *
+ * ⛔ THIS EXISTS BECAUSE THE ANSWER USED TO BE WRITTEN FIVE TIMES, PER ROOM, AS AN EXCEPTION.
+ * Every per-room refusal ended with the literal *"This room was not built; the others were."* —
+ * five copies at what were lines 564 / 574 / 595 / 605 / 617 (C84 EI-9, one fact, one producer).
+ * The clause is a statement about the SET, and it was attached to a member of the set, so in the
+ * all-fail case the founder read *"None of the 7 room envelopes … can be built"* followed by seven
+ * assertions that the others were. It was false N times, and worse than untidy: it told him to
+ * *"Fix or delete the named room envelopes"* while implying the rest had succeeded, so it
+ * misdirected the repair.
+ *
+ * A `RoomRefusal.text` now states ONLY what is wrong with THAT room and its numbers. The set-level
+ * fact is composed HERE, once, and is correct in all three cases — none refused, some refused, and
+ * every one refused.
+ */
+export function roomSetOutcomeSentence(refusedCount: number, totalRooms: number): string {
+    if (refusedCount <= 0) {
+        return `Every one of your ${totalRooms} room envelope${totalRooms === 1 ? '' : 's'} will be built.`;
+    }
+    if (refusedCount >= totalRooms) {
+        return `None of the ${totalRooms} room envelope${totalRooms === 1 ? '' : 's'} you drew can be built.`;
+    }
+    return `${refusedCount} of your ${totalRooms} room envelopes cannot be built and `
+        + `${refusedCount === 1 ? 'is' : 'are'} named below. The rest still build.`;
+}
+
+/** A level envelope that resolved into a buildable storey, plus everything the emit stages need. */
+interface StoreyBuild {
+    readonly plate: DesignEnvelopeDatum;
+    readonly index: number;
+    readonly levelId: string;
+    readonly levelIdSource: 'plate' | 'active-level';
+    readonly ring: readonly DesignVertex[];
+    readonly welded: boolean;
+    readonly originalIndex: readonly number[];
+    readonly areaM2: number;
+    readonly floorToFloorM: number;
+    /** Index into `walls` of this storey's FIRST shell wall. Shell walls are contiguous. */
+    shellStart: number;
+    /** Segment key → index into `walls`. ⛔ PER STOREY — see `PlannedWall.alsoBounds`. */
+    readonly partitionByKey: Map<string, number>;
+    partitionCount: number;
+    readonly rooms: PlannedRoom[];
+}
+
+/**
  * Decide whether "Create BIM from this design" may run, and with exactly what. Pure; total;
  * never throws.
  *
  * ⭐ THE ORDER OF THE ARMS MIRRORS `planCreateHouse` DELIBERATELY, so the two planners cannot
  * disagree about which finding wins. `envelope-store-unreadable` is first because it is the only
- * arm about PRYZM rather than about the project; `already-built` is last of the blocking arms so
- * its sentence can name the plate it would have built — and the host consults `planCreateHouse`
+ * arm about PRYZM rather than about the project; the C80 arm is asked PER STOREY and only becomes
+ * a whole-gesture refusal when it has refused every storey — the host consults `planCreateHouse`
  * FIRST regardless, so C80 fires before this arm is ever offered.
  */
 export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesignOutcome {
@@ -442,8 +657,8 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
         const activeLevelId = input.activeLevelId ?? null;
         if (!activeLevelId) {
             return refuse('no-active-level',
-                'There is no active level, and the walls and slab are created on the active one. '
-                + 'Open or create a project level first. Nothing has been created.');
+                'There is no active level, and a plate that does not name its own storey is built on '
+                + 'the active one. Open or create a project level first. Nothing has been created.');
         }
 
         const rooms = input.envelopes.filter((e) => e.role === 'room');
@@ -455,95 +670,210 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
                 + 'PRYZM to build. The house generator can propose one.');
         }
 
-        // The GROUND plate: lowest by `baseOffset`, then by id, so two envelopes at the same height
-        // resolve deterministically rather than by store iteration order. Same rule as
-        // `planCreateHouse` — a second rule here would let the two arms build different plates.
+        // Storeys are walked LOWEST FIRST, then by id so two plates at one height resolve
+        // deterministically rather than by store iteration order.
         const sortedLevels = [...levels].sort((a, b) => (
             a.baseOffset !== b.baseOffset
                 ? a.baseOffset - b.baseOffset
                 : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
         ));
-        const ground = sortedLevels[0]!;
 
-        const rivals = sortedLevels.filter((e) =>
-            e.id !== ground.id
-            && e.baseOffset === ground.baseOffset
-            && Math.abs(e.footprintAreaM2 - ground.footprintAreaM2) > 0.5);
-        if (rivals.length > 0) {
-            const r = rivals[0]!;
+        // ── ⛔ TWO PLATES AT ONE ELEVATION IS A RIVALRY, NOT A STACK ───────────────────────────
+        // Storeys are distinguished by their elevation. Two level envelopes at the SAME elevation
+        // are two answers to one question, and PRYZM will not pick.
+        //
+        // ⭐ WIDENED 2026-09-07. The old rule only refused when the two areas differed by more than
+        // 0.5 m²; two plates at one height with the SAME area fell through and only `sortedLevels[0]`
+        // was built, so the second authored plate was DROPPED SILENTLY. A cap that drops something
+        // must say so (§CONTEXT-DATA-HONESTY), and "identical" is exactly the case where building
+        // the wrong one is invisible.
+        for (let i = 1; i < sortedLevels.length; i++) {
+            const prev = sortedLevels[i - 1]!;
+            const here = sortedLevels[i]!;
+            if (Math.abs(here.baseOffset - prev.baseOffset) > 0.001) continue;
             return refuse('ambiguous-ground-plate',
-                `Two level envelopes sit at the same base height (${round1(ground.baseOffset)} m) with `
-                + `different footprints — ${round1(ground.footprintAreaM2)} m² and `
-                + `${round1(r.footprintAreaM2)} m². PRYZM will not choose between them, because building `
-                + 'the wrong one is indistinguishable from building the right one until you look. Delete '
-                + 'or move one, then try again.');
-        }
-
-        const groundRing = ground.footprint ?? [];
-        const groundArea = ringAreaM2(groundRing);
-        if (groundRing.length < 3 || groundArea < MIN_FOOTPRINT_AREA_M2) {
-            return refuse('degenerate-footprint',
-                `The level envelope's footprint has ${groundRing.length} vertices and encloses `
-                + `${round1(groundArea)} m², which is below the ${MIN_FOOTPRINT_AREA_M2} m² a shell can `
-                + 'be drawn from. A ring this small is a defect in the envelope, not a small building.');
-        }
-
-        const shell = wallReady(groundRing);
-        if (!shell.ok) {
-            return refuse('degenerate-footprint',
-                'The level envelope\'s footprint cannot become wall baselines: ' + shell.statement);
-        }
-        const shellRing = shell.value.ring;
-
-        // ⛔ C80 — the decisive refusal, unchanged in wording and in force from `planCreateHouse`.
-        // It protects the model the user is looking at, and it names the count it refused on.
-        if (input.authoredWallCountOnActiveLevel > 0) {
-            return refuse('already-built',
-                `The active level already carries ${input.authoredWallCountOnActiveLevel} authored `
-                + `wall${input.authoredWallCountOnActiveLevel === 1 ? '' : 's'}, and building from your `
-                + `design draws a NEW ${round1(groundArea)} m² shell with `
-                + `${rooms.length} room envelope${rooms.length === 1 ? '' : 's'} inside it rather than `
-                + 'adapting what is there. Running it here would thread a second set of walls through '
-                + 'the model you have already built, and PRYZM cannot tell which of the two you meant '
-                + 'to keep. Build on an empty level, or delete the existing walls first. Nothing has '
-                + 'been created.');
+                `Two level envelopes sit at the same base height (${round1(prev.baseOffset)} m) — `
+                + `"${prev.name ?? prev.id}" enclosing ${round1(prev.footprintAreaM2)} m² and `
+                + `"${here.name ?? here.id}" enclosing ${round1(here.footprintAreaM2)} m². A storey is `
+                + 'one plate, and PRYZM will not choose between them, because building the wrong one is '
+                + 'indistinguishable from building the right one until you look. Delete or move one, '
+                + 'then try again. Nothing has been created.');
         }
 
         const shellThickness = input.shellThicknessM ?? DEFAULT_SHELL_THICKNESS_M;
         const partitionThickness = input.partitionThicknessM ?? DEFAULT_PARTITION_THICKNESS_M;
         const slabThickness = input.slabThicknessM ?? DEFAULT_SLAB_THICKNESS_M;
-        const floorToFloorM = ground.height > 0 ? ground.height : 3;
+        const ceilingThickness = input.ceilingThicknessM ?? DEFAULT_CEILING_THICKNESS_M;
 
-        // ── 1. THE SHELL — one wall per level-envelope edge ────────────────────────────────────
+        /**
+         * C80's question, asked PER STOREY.
+         *
+         * ⛔ THE PERMISSIVE DIRECTION IS STATED, not hidden. A level whose wall census the host
+         * could not take is absent from the map and reads 0 here, which means the C80 arm does NOT
+         * fire for it — the same direction `countAuthoredWallsOnLevel` already documents for a
+         * store that is absent or throws. Production supplies a key for every storey it can see.
+         */
+        const byLevel = input.authoredWallCountByLevelId;
+        const authoredWallsOn = (levelId: string): number => {
+            if (byLevel && Object.prototype.hasOwnProperty.call(byLevel, levelId)) {
+                const v = byLevel[levelId];
+                return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0;
+            }
+            return levelId === activeLevelId ? input.authoredWallCountOnActiveLevel : 0;
+        };
+
+        // ── 1. EVERY PLATE BECOMES A STOREY, OR IS REFUSED BY NAME WITH ITS OWN REASON ─────────
+        const built: StoreyBuild[] = [];
+        const builtByPlateId = new Map<string, StoreyBuild>();
+        const refusedStoreys: RefusedStorey[] = [];
+        const refusedStoreyByPlateId = new Map<string, RefusedStorey>();
+        const weldedPlateNotes: string[] = [];
+
+        for (const plate of sortedLevels) {
+            const label = plate.name ?? plate.id;
+            const declineStorey = (code: RefusedStorey['code'], text: string): void => {
+                const row: RefusedStorey = {
+                    plateEnvelopeId: plate.id,
+                    plateName: plate.name,
+                    baseOffsetM: round1(plate.baseOffset),
+                    code,
+                    text,
+                };
+                refusedStoreys.push(row);
+                refusedStoreyByPlateId.set(plate.id, row);
+            };
+
+            const raw = plate.footprint ?? [];
+            const area = ringAreaM2(raw);
+            if (raw.length < 3 || area < MIN_FOOTPRINT_AREA_M2) {
+                declineStorey('degenerate-plate-ring',
+                    `"${label}" at ${round1(plate.baseOffset)} m has ${raw.length} vertices and encloses `
+                    + `${round1(area)} m², which is below the ${MIN_FOOTPRINT_AREA_M2} m² a shell can be `
+                    + 'drawn from. A ring this small is a defect in the envelope, not a small building.');
+                continue;
+            }
+            const ready = wallReady(raw);
+            if (!ready.ok) {
+                declineStorey('degenerate-plate-ring',
+                    `"${label}" at ${round1(plate.baseOffset)} m cannot become wall baselines: `
+                    + ready.statement);
+                continue;
+            }
+            if (ready.value.note !== null) weldedPlateNotes.push(`"${label}": ${ready.value.note}`);
+
+            // ⭐ THE STOREY THE GEOMETRY LANDS ON IS THE PLATE'S OWN, NOT THE ACTIVE ONE.
+            // `envelopeAuthoringPlan` writes `levelId: level.id` — one level envelope per project
+            // storey — so the plate already knows its floor. Reading the ACTIVE storey instead is
+            // how the whole design used to land on whichever level was last created.
+            const levelIdSource: 'plate' | 'active-level' =
+                plate.levelId.length > 0 ? 'plate' : 'active-level';
+            const levelId = levelIdSource === 'plate' ? plate.levelId : activeLevelId;
+
+            // ⛔ C80 §3 — ASKED PER STOREY, and this is required rather than tidy: a build that
+            // asked once about the active level would thread new walls through a storey the user
+            // has already built on, which is the precise failure C80 exists to prevent, re-created
+            // by the fix for a different defect.
+            const priorWalls = authoredWallsOn(levelId);
+            if (priorWalls > 0) {
+                declineStorey('already-built',
+                    `"${label}" at ${round1(plate.baseOffset)} m sits on a level that already carries `
+                    + `${priorWalls} authored wall${priorWalls === 1 ? '' : 's'}. Building here would `
+                    + 'thread a second set of walls through the model you have already built, and PRYZM '
+                    + 'cannot tell which of the two you meant to keep. Build on an empty storey, or '
+                    + 'delete the existing walls on this one first.');
+                continue;
+            }
+
+            const storey: StoreyBuild = {
+                plate,
+                index: built.length,
+                levelId,
+                levelIdSource,
+                ring: ready.value.ring,
+                welded: ready.value.welded,
+                originalIndex: ready.value.originalIndex,
+                areaM2: area,
+                floorToFloorM: plate.height > 0 ? plate.height : 3,
+                shellStart: -1,
+                partitionByKey: new Map<string, number>(),
+                partitionCount: 0,
+                rooms: [],
+            };
+            built.push(storey);
+            builtByPlateId.set(plate.id, storey);
+        }
+
+        // ⛔ TWO STOREYS MAY NOT LAND ON ONE PROJECT LEVEL. Reachable when two plates at different
+        // elevations both name the same level, or when more than one plate carries no level of its
+        // own and falls back to the active storey. Stacking them would put two floors of walls at
+        // one elevation and report success.
+        const seenLevelIds = new Map<string, StoreyBuild>();
+        for (const s of built) {
+            const rival = seenLevelIds.get(s.levelId);
+            if (rival) {
+                return refuse('storeys-share-a-level',
+                    `"${s.plate.name ?? s.plate.id}" at ${round1(s.plate.baseOffset)} m and `
+                    + `"${rival.plate.name ?? rival.plate.id}" at ${round1(rival.plate.baseOffset)} m `
+                    + `both build on project level "${s.levelId}". Two storeys cannot share one level — `
+                    + 'the second would land on top of the first at the same elevation and PRYZM would '
+                    + 'report success. Seat each level envelope on its own storey, then try again. '
+                    + 'Nothing has been created.');
+            }
+            seenLevelIds.set(s.levelId, s);
+        }
+
+        // ⛔ NO STOREY AT ALL — the whole gesture refuses, carrying every plate's OWN reason. The
+        // code is chosen by what actually stopped them, so the sentence never names a cause that is
+        // not the cause.
+        if (built.length === 0) {
+            const allAlreadyBuilt = refusedStoreys.every((r) => r.code === 'already-built');
+            const reasons = refusedStoreys.map((r) => r.text).join(' ');
+            if (allAlreadyBuilt) {
+                return refuse('already-built',
+                    `Every level envelope you drew sits on a storey that already carries authored walls, `
+                    + `so PRYZM will not build. ${reasons} Nothing has been created.`);
+            }
+            return refuse('degenerate-footprint',
+                `None of the ${sortedLevels.length} level envelope${sortedLevels.length === 1 ? '' : 's'} `
+                + `on this site can become a shell. ${reasons} Nothing has been created.`);
+        }
+
+        // ── 2. THE SHELLS — one wall per level-envelope edge, on EVERY built storey ────────────
+        // All shells are emitted before any partition, so `walls.slice(0, shellWallCount)` is the
+        // shell set and a storey's shell edges are contiguous from `shellStart`.
         const walls: PlannedWall[] = [];
-        for (let i = 0; i < shellRing.length; i++) {
-            const a = shellRing[i]!;
-            const b = shellRing[(i + 1) % shellRing.length]!;
-            walls.push({
-                kind: 'shell',
-                a, b,
-                lengthM: round3(Math.hypot(a.x - b.x, a.z - b.z)),
-                heightM: floorToFloorM,
-                thicknessM: shellThickness,
-                derivedFrom: {
-                    envelopeId: ground.id,
-                    envelopeRole: 'level',
-                    edgeIndex: shell.value.originalIndex[i] ?? -1,
-                    ringWelded: shell.value.welded,
-                },
-                alsoBounds: Object.freeze([]),
-            });
+        for (const s of built) {
+            s.shellStart = walls.length;
+            for (let i = 0; i < s.ring.length; i++) {
+                const a = s.ring[i]!;
+                const b = s.ring[(i + 1) % s.ring.length]!;
+                walls.push({
+                    kind: 'shell',
+                    a, b,
+                    lengthM: round3(Math.hypot(a.x - b.x, a.z - b.z)),
+                    heightM: s.floorToFloorM,
+                    thicknessM: shellThickness,
+                    levelId: s.levelId,
+                    storeyIndex: s.index,
+                    derivedFrom: {
+                        envelopeId: s.plate.id,
+                        envelopeRole: 'level',
+                        edgeIndex: s.originalIndex[i] ?? -1,
+                        ringWelded: s.welded,
+                    },
+                    alsoBounds: Object.freeze([]),
+                });
+            }
         }
         const shellWallCount = walls.length;
 
-        // ── 2. THE PARTITIONS — room-envelope edges, after TWO reductions ──────────────────────
+        // ── 3. THE PARTITIONS — room-envelope edges, after TWO reductions, ON THEIR OWN STOREY ─
         // Rooms are walked in a deterministic order (by id) so that which of two rooms "owns" a
         // shared boundary — and therefore which claim lands in `derivedFrom` rather than
         // `alsoBounds` — is stable across runs and across store iteration order.
         const orderedRooms = [...rooms].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
         const refusedRooms: RoomRefusal[] = [];
         const builtRooms: PlannedRoom[] = [];
-        const partitionByKey = new Map<string, number>();   // segment key → index into `walls`
         let droppedOnShellCount = 0;
         let dedupedPartitionCount = 0;
         const weldedRoomNotes: string[] = [];
@@ -551,8 +881,9 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
         for (const room of orderedRooms) {
             const label = room.name ?? room.id;
 
-            // 2a. WHERE DOES IT SIT? An unresolvable seat is a refusal, never a guess.
+            // 3a. WHICH PLATE DOES IT SIT ON? An unresolvable seat is a refusal, never a guess.
             const declared = room.withinId !== null && room.withinId.length > 0 ? room.withinId : null;
+            let seatPlateId: string;
             if (declared !== null) {
                 const seat = levels.find((l) => l.id === declared);
                 if (!seat) {
@@ -560,39 +891,46 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
                         envelopeId: room.id, name: label, code: 'within-unresolved',
                         text: `"${label}" declares that it sits within envelope "${declared}", and no level `
                             + `envelope with that id exists on this site (there ${levels.length === 1 ? 'is' : 'are'} `
-                            + `${levels.length}). PRYZM will not seat it on a plate it was not assigned to. `
-                            + 'This room was not built; the others were.',
+                            + `${levels.length}). PRYZM will not seat it on a plate it was not assigned to.`,
                     });
                     continue;
                 }
-                if (seat.id !== ground.id) {
-                    refusedRooms.push({
-                        envelopeId: room.id, name: label, code: 'within-not-on-the-built-plate',
-                        text: `"${label}" sits within "${seat.name ?? seat.id}" at `
-                            + `${round1(seat.baseOffset)} m, and this pass builds only the ground plate `
-                            + `"${ground.name ?? ground.id}" at ${round1(ground.baseOffset)} m. Upper storeys `
-                            + 'need levels PRYZM does not create here. This room was not built; the others were.',
-                    });
-                    continue;
-                }
-            } else if (levels.length > 1) {
+                seatPlateId = seat.id;
+            } else if (levels.length === 1) {
+                seatPlateId = levels[0]!.id;
+            } else {
                 refusedRooms.push({
                     envelopeId: room.id, name: label, code: 'within-ambiguous',
                     text: `"${label}" does not declare which level envelope it sits within, and this site has `
                         + `${levels.length}. PRYZM will not pick one for you, because seating it on the wrong `
-                        + 'plate is indistinguishable from seating it on the right one until you look. This '
-                        + 'room was not built; the others were.',
+                        + 'plate is indistinguishable from seating it on the right one until you look.',
                 });
                 continue;
             }
 
-            // 2b. IS IT A RING AT ALL?
+            // ⭐ THE ARM THAT USED TO REFUSE THE FOUNDER'S ENTIRE DESIGN, AND WHAT IT NOW MEANS.
+            // It read `if (seat.id !== ground.id)` — every room not on the LOWEST plate — and told
+            // the user *"Upper storeys need levels PRYZM does not create here."* Both halves were
+            // false: the storeys existed as project levels and the plates existed as `role:'level'`
+            // envelopes, and the sentence was BUILT from one of them. It now fires only when the
+            // room's own plate could not become a storey, and it carries THAT plate's real reason.
+            const storey = builtByPlateId.get(seatPlateId);
+            if (!storey) {
+                const why = refusedStoreyByPlateId.get(seatPlateId);
+                refusedRooms.push({
+                    envelopeId: room.id, name: label, code: 'within-not-on-the-built-plate',
+                    text: `"${label}" sits within a level envelope that could not be built, so it has no `
+                        + `plate to stand on. ${why?.text ?? 'That envelope was refused by this pass.'}`,
+                });
+                continue;
+            }
+
+            // 3b. IS IT A RING AT ALL?
             const raw = room.footprint ?? [];
             if (raw.length < 3) {
                 refusedRooms.push({
                     envelopeId: room.id, name: label, code: 'ring-too-few-vertices',
-                    text: `"${label}" has ${raw.length} vertices — a wall ring needs at least 3. `
-                        + 'This room was not built; the others were.',
+                    text: `"${label}" has ${raw.length} vertices — a wall ring needs at least 3.`,
                 });
                 continue;
             }
@@ -602,27 +940,27 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
                     envelopeId: room.id, name: label, code: 'area-below-floor',
                     text: `"${label}" encloses ${round2(roomArea)} m², below the ${MIN_ROOM_AREA_M2} m² `
                         + 'PRYZM will draw partitions around. A ring this small is a defect in the envelope, '
-                        + 'not a small room. This room was not built; the others were.',
+                        + 'not a small room.',
                 });
                 continue;
             }
 
-            // 2c. ⚠ THE ONE THAT WOULD OTHERWISE KILL THE WHOLE BATCH. See the header.
+            // 3c. ⚠ THE ONE THAT WOULD OTHERWISE KILL THE WHOLE BATCH. See the header.
             const ready = wallReady(raw);
             if (!ready.ok) {
                 refusedRooms.push({
                     envelopeId: room.id, name: label, code: 'edges-below-wall-minimum',
                     text: `"${label}" cannot become wall baselines — its shortest edge is `
                         + `${round3(minEdgeM(raw))} m against the ${WALL_MIN_BASELINE_M} m minimum a wall `
-                        + `may be. ${ready.statement} This room was not built; the others were — refusing `
-                        + 'it here is what stops one bad edge rejecting the entire batch at dispatch.',
+                        + `may be. ${ready.statement} Refusing it here is what stops one bad edge `
+                        + 'rejecting the entire batch at dispatch.',
                 });
                 continue;
             }
             const ring = ready.value.ring;
             if (ready.value.note !== null) weldedRoomNotes.push(`"${label}": ${ready.value.note}`);
 
-            // 2d. THE TWO REDUCTIONS.
+            // 3d. THE TWO REDUCTIONS — both scoped to THIS ROOM'S OWN STOREY.
             let onShell = 0;
             let own = 0;
             for (let i = 0; i < ring.length; i++) {
@@ -636,23 +974,28 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
                 };
                 const k = segmentKey(a, b);
 
-                // (a) collinear-and-coincident with a shell edge → the shell already carries it.
-                // ⭐ THE SAME TEST DECIDES THE DROP AND NAMES THE WALL THAT ABSORBS THE CLAIM.
-                // Shell walls were pushed in ring order, so ring edge `i` IS `walls[i]` — which is
-                // why the room's claim can be recorded on a shell wall it only PARTLY covers.
-                const shellIdx = shellEdgeIndexOf(a, b, shellRing);
+                // (a) collinear-and-coincident with a shell edge OF THIS STOREY → the shell already
+                // carries it. ⭐ THE SAME TEST DECIDES THE DROP AND NAMES THE WALL THAT ABSORBS THE
+                // CLAIM. This storey's shell walls were pushed in ring order from `shellStart`, so
+                // ring edge `i` IS `walls[shellStart + i]` — which is why the room's claim can be
+                // recorded on a shell wall it only PARTLY covers.
+                const shellIdx = shellEdgeIndexOf(a, b, storey.ring);
                 if (shellIdx >= 0) {
                     onShell++;
                     droppedOnShellCount++;
-                    const w = walls[shellIdx];
+                    const w = walls[storey.shellStart + shellIdx];
                     if (w && w.kind === 'shell') {
-                        walls[shellIdx] = { ...w, alsoBounds: Object.freeze([...w.alsoBounds, ref]) };
+                        walls[storey.shellStart + shellIdx] =
+                            { ...w, alsoBounds: Object.freeze([...w.alsoBounds, ref]) };
                     }
                     continue;
                 }
 
-                // (b) a boundary shared with a room already walked → ONE wall, both claims kept.
-                const existing = partitionByKey.get(k);
+                // (b) a boundary shared with a room already walked ON THE SAME STOREY → ONE wall,
+                // both claims kept. ⛔ The key map is the STOREY's, never the plan's: two rooms with
+                // identical rings on different floors are two walls, and merging them would leave
+                // the upper floor open.
+                const existing = storey.partitionByKey.get(k);
                 if (existing !== undefined) {
                     dedupedPartitionCount++;
                     const w = walls[existing]!;
@@ -660,138 +1003,223 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
                     continue;
                 }
 
-                partitionByKey.set(k, walls.length);
+                storey.partitionByKey.set(k, walls.length);
                 walls.push({
                     kind: 'partition',
                     a, b,
                     lengthM: round3(Math.hypot(a.x - b.x, a.z - b.z)),
-                    heightM: floorToFloorM,
+                    heightM: storey.floorToFloorM,
                     thicknessM: partitionThickness,
+                    levelId: storey.levelId,
+                    storeyIndex: storey.index,
                     derivedFrom: ref,
                     alsoBounds: Object.freeze([]),
                 });
                 own++;
+                storey.partitionCount++;
             }
 
-            builtRooms.push({
+            const plannedRoom: PlannedRoom = {
                 envelopeId: room.id,
                 name: label,
                 areaM2: round2(roomArea),
                 partitionEdgeCount: own,
                 edgesOnShellCount: onShell,
-            });
+                storeyIndex: storey.index,
+                levelId: storey.levelId,
+            };
+            builtRooms.push(plannedRoom);
+            storey.rooms.push(plannedRoom);
         }
 
         // ⛔ IF NOTHING HE DREW CAN BE BUILT, REFUSE THE GESTURE — never emit a bare shell. A shell
         // with no partitions is not "part of his design", it is the generator's starting plate
         // wearing his design's name, and shipping it would answer the founder's objection with the
         // very thing he objected to.
+        //
+        // ⭐ THE SENTENCE IS COMPOSED ONCE. See `roomSetOutcomeSentence` for why five per-room
+        // copies of the set-level clause was the defect and not the style.
         if (builtRooms.length === 0) {
             return refuse('every-room-refused',
-                `None of the ${rooms.length} room envelope${rooms.length === 1 ? '' : 's'} you drew can be `
-                + 'built, so PRYZM will not build the shell on its own — a bare plate is not the design you '
-                + 'drew. ' + refusedRooms.map((r) => r.text).join(' ')
+                `${roomSetOutcomeSentence(refusedRooms.length, rooms.length)} PRYZM will not build the `
+                + 'shell on its own — a bare plate is not the design you drew. '
+                + refusedRooms.map((r) => r.text).join(' ')
                 + ' Fix or delete the named room envelope'
-                + `${refusedRooms.length === 1 ? '' : 's'} and try again.`);
+                + `${refusedRooms.length === 1 ? '' : 's'} and try again. Nothing has been created.`);
         }
 
         const partitionWallCount = walls.length - shellWallCount;
         const roomsAreaM2 = round2(builtRooms.reduce((s, r) => s + r.areaM2, 0));
 
-        // ── 3. THE FLOOR PLATE ─────────────────────────────────────────────────────────────────
-        const slabs: readonly PlannedSlab[] = Object.freeze([{
-            boundary: Object.freeze([...shellRing]),
+        // ── 4. THE FLOOR PLATES — one per built storey, on the storey's own level ─────────────
+        const slabs: readonly PlannedSlab[] = Object.freeze(built.map((s) => ({
+            boundary: Object.freeze([...s.ring]),
             thicknessM: slabThickness,
             baseOffsetM: 0,
+            levelId: s.levelId,
+            storeyIndex: s.index,
             derivedFrom: {
-                envelopeId: ground.id,
+                envelopeId: s.plate.id,
                 envelopeRole: 'level' as const,
                 edgeIndex: -1,   // the SLAB derives from the whole ring, not from one edge.
-                ringWelded: shell.value.welded,
+                ringWelded: s.welded,
             },
-        }]);
+        })));
 
-        // ── 4. WHAT THE SENTENCE BEFORE THE CLICK SAYS ─────────────────────────────────────────
+        // ── 5. THE CEILINGS — one per built room, at its storey's CLEAR height ────────────────
+        // ⛔ NOT THE RAW FLOOR-TO-FLOOR. `clearCeilingHeightFromFtf` is the resi pipeline's own
+        // producer and reserves the service zone below the slab above; passing the storey height
+        // verbatim is the exact defect §RESI-CEILING-CLEARHEIGHT was written to remove.
+        const ceilings: readonly PlannedCeiling[] = Object.freeze(builtRooms.map((r) => {
+            const s = built[r.storeyIndex]!;
+            const src = orderedRooms.find((e) => e.id === r.envelopeId)!;
+            const ready = wallReady(src.footprint ?? []);
+            const boundary = ready.ok ? ready.value.ring : (src.footprint ?? []);
+            return {
+                boundary: Object.freeze([...boundary]),
+                ceilingHeightM: round3(clearCeilingHeightFromFtf(s.floorToFloorM)),
+                thicknessM: ceilingThickness,
+                levelId: s.levelId,
+                storeyIndex: s.index,
+                derivedFrom: {
+                    envelopeId: r.envelopeId,
+                    envelopeRole: 'room' as const,
+                    edgeIndex: -1,   // a ceiling derives from the whole ring, not from one edge.
+                    ringWelded: ready.ok ? ready.value.welded : false,
+                },
+            };
+        }));
+
+        const storeys: readonly PlannedStorey[] = Object.freeze(built.map((s) => ({
+            index: s.index,
+            plateEnvelopeId: s.plate.id,
+            plateName: s.plate.name,
+            levelId: s.levelId,
+            levelIdSource: s.levelIdSource,
+            baseOffsetM: round1(s.plate.baseOffset),
+            floorToFloorM: s.floorToFloorM,
+            footprintAreaM2: round2(s.areaM2),
+            shellWallCount: s.ring.length,
+            partitionWallCount: s.partitionCount,
+            roomCount: s.rooms.length,
+        })));
+
+        const lowest = built[0]!;
+        const storeyLabel = (s: PlannedStorey): string =>
+            `"${s.plateName ?? s.plateEnvelopeId}" (${s.footprintAreaM2} m²) at ${s.baseOffsetM} m `
+            + `on level "${s.levelId}"`;
+
+        // ⛔ ONE ENTRY PER BATCH ACTUALLY DISPATCHED — computed, never the literal "TWO". Walls,
+        // slabs and ceilings are each ONE command however many storeys, because all three batch
+        // handlers honour a PER-ENTRY `levelId`.
+        const undoStepCount =
+            (walls.length > 0 ? 1 : 0) + (slabs.length > 0 ? 1 : 0) + (ceilings.length > 0 ? 1 : 0);
+
+        // ── 6. WHAT THE SENTENCE BEFORE THE CLICK SAYS ────────────────────────────────────────
         const willCreate: readonly string[] = Object.freeze([
-            `1 storey — the ACTIVE level "${activeLevelId}". No new level is created; everything lands here.`,
-            `${shellWallCount} exterior shell wall${shellWallCount === 1 ? '' : 's'}, one per edge of `
-                + `"${ground.name ?? ground.id}" (${round2(groundArea)} m²), ${round2(shellThickness)} m thick `
-                + `× ${round1(floorToFloorM)} m high`,
+            `${storeys.length} storey${storeys.length === 1 ? '' : 's'} — `
+                + `${storeys.map(storeyLabel).join(', ')}. No NEW project level is created: every storey `
+                + 'you drew already exists, and this pass builds onto the ones your plates name.',
+            `${shellWallCount} exterior shell wall${shellWallCount === 1 ? '' : 's'} across `
+                + `${storeys.length} storey${storeys.length === 1 ? '' : 's'}, one per edge of each level `
+                + `envelope, ${round2(shellThickness)} m thick`,
             `${partitionWallCount} interior partition${partitionWallCount === 1 ? '' : 's'} from `
                 + `${builtRooms.length} room envelope${builtRooms.length === 1 ? '' : 's'} `
                 + `(${round1(roomsAreaM2)} m²), ${round2(partitionThickness)} m thick`,
-            `1 floor slab on the level footprint, ${round2(slabThickness)} m thick`,
+            `${slabs.length} floor slab${slabs.length === 1 ? '' : 's'} — one on each storey's own `
+                + `footprint, ${round2(slabThickness)} m thick`,
+            `${ceilings.length} ceiling${ceilings.length === 1 ? '' : 's'} — one over each room you drew, `
+                + `at its storey's finished clear height (${round2(ceilings[0]?.ceilingHeightM ?? 0)} m on `
+                + `the lowest storey), ${round2(ceilingThickness)} m thick`,
         ]);
 
         const advisories: string[] = [];
         advisories.push(
             'PRYZM builds the design you drew and proposes nothing of its own — no layout is '
             + 'generated, because you already made one.');
+        if (storeys.length > 1) {
+            advisories.push(
+                `Every storey you drew is built, each on its own project level and at its own `
+                + `floor-to-floor: ${storeys.map((s) => `${s.plateName ?? s.plateEnvelopeId} `
+                    + `(${s.roomCount} room${s.roomCount === 1 ? '' : 's'}, ${round1(s.floorToFloorM)} m)`)
+                    .join(', ')}.`);
+        }
         if (droppedOnShellCount > 0) {
             advisories.push(
                 `${droppedOnShellCount} room edge${droppedOnShellCount === 1 ? '' : 's'} `
-                + `${droppedOnShellCount === 1 ? 'lies' : 'lie'} on the level envelope's perimeter and `
+                + `${droppedOnShellCount === 1 ? 'lies' : 'lie'} on their level envelope's perimeter `
+                + `and `
                 + `${droppedOnShellCount === 1 ? 'is' : 'are'} already carried by a shell wall — `
                 + 'they do not become a second wall in the same place.');
         }
         if (dedupedPartitionCount > 0) {
             advisories.push(
-                `${dedupedPartitionCount} boundary shared between two rooms became ONE partition rather `
-                + 'than two walls face to face. Two rooms whose shared edge was drawn more than 1 mm '
-                + 'apart are NOT merged — PRYZM will not move your geometry to tidy it.');
+                `${dedupedPartitionCount} boundary shared between two rooms on the same storey became ONE `
+                + 'partition rather than two walls face to face. Two rooms whose shared edge was drawn '
+                + 'more than 1 mm apart are NOT merged — PRYZM will not move your geometry to tidy it. '
+                + 'Rooms on DIFFERENT storeys are never merged, however identical their rings.');
         }
-        if (weldedRoomNotes.length > 0) {
+        if (weldedPlateNotes.length > 0 || weldedRoomNotes.length > 0) {
             advisories.push(
                 'Some rings were simplified so their edges could become wall baselines — '
-                + weldedRoomNotes.join(' '));
+                + [...weldedPlateNotes, ...weldedRoomNotes].join(' '));
         }
         if (refusedRooms.length > 0) {
-            advisories.push(
-                `${refusedRooms.length} of your ${rooms.length} room envelopes cannot be built and `
-                + `${refusedRooms.length === 1 ? 'is' : 'are'} named below. The rest still build.`);
+            advisories.push(roomSetOutcomeSentence(refusedRooms.length, rooms.length));
         }
-        if (sortedLevels.length > 1) {
-            const others = sortedLevels.slice(1).map((l) => `"${l.name ?? l.id}" at ${round1(l.baseOffset)} m`);
+        if (refusedStoreys.length > 0) {
             advisories.push(
-                `This site has ${sortedLevels.length} level envelopes and this pass builds only the `
-                + `lowest. ${others.join(', ')} ${others.length === 1 ? 'is' : 'are'} not built — upper `
-                + 'storeys need levels PRYZM does not create here.');
+                `${refusedStoreys.length} of your ${sortedLevels.length} level envelopes `
+                + `${refusedStoreys.length === 1 ? 'is' : 'are'} NOT built: `
+                + refusedStoreys.map((r) => r.text).join(' '));
         }
-        if (ground.levelId && ground.levelId !== activeLevelId) {
+        const seatedOnActive = storeys.filter((s) => s.levelIdSource === 'active-level');
+        if (seatedOnActive.length > 0) {
             advisories.push(
-                `The level envelope is seated on level "${ground.levelId}", but the walls and slab are `
-                + `created on the ACTIVE level "${activeLevelId}". If those are different storeys, switch `
+                `${seatedOnActive.length} level envelope${seatedOnActive.length === 1 ? '' : 's'} `
+                + `${seatedOnActive.length === 1 ? 'names' : 'name'} no storey of its own, so it is built `
+                + `on the ACTIVE level "${activeLevelId}". If that is not the storey you meant, switch `
                 + 'the active level before building.');
         }
         advisories.push(
-            'Undo takes TWO steps, not one: the slab is one command and the walls are another. '
-            + 'PRYZM has no batch wall delete, so this is the smallest honest number.');
+            `Undo takes ${undoStepCount === 1 ? 'ONE step' : `${undoStepCount} steps`}, not one gesture: `
+            + 'the walls are one command, the slabs are another and the ceilings are a third. Each is a '
+            + 'single batch however many storeys it covers, so the count does not grow with the '
+            + 'building. This is the smallest honest number.');
         advisories.push(
             'Your envelopes are left exactly where they are, so the panel can go on comparing what you '
             + 'intended with what has been built.');
 
         span.setAttribute('pryzm.buildFromDesign.arm', 'ok');
+        span.setAttribute('pryzm.buildFromDesign.storeys', storeys.length);
         span.setAttribute('pryzm.buildFromDesign.shellWalls', shellWallCount);
         span.setAttribute('pryzm.buildFromDesign.partitions', partitionWallCount);
+        span.setAttribute('pryzm.buildFromDesign.slabs', slabs.length);
+        span.setAttribute('pryzm.buildFromDesign.ceilings', ceilings.length);
         span.setAttribute('pryzm.buildFromDesign.roomsRefused', refusedRooms.length);
+        span.setAttribute('pryzm.buildFromDesign.storeysRefused', refusedStoreys.length);
         return {
             ok: true,
             plan: {
-                levelId: activeLevelId,
-                sourceEnvelopeId: ground.id,
-                sourceEnvelopeName: ground.name,
-                footprintAreaM2: round2(groundArea),
-                floorToFloorM,
-                storeyCount: 1,
+                levelId: lowest.levelId,
+                sourceEnvelopeId: lowest.plate.id,
+                sourceEnvelopeName: lowest.plate.name,
+                footprintAreaM2: round2(lowest.areaM2),
+                floorToFloorM: lowest.floorToFloorM,
+                storeyCount: storeys.length,
+                storeys,
+                refusedStoreys: Object.freeze(refusedStoreys),
                 walls: Object.freeze(walls),
                 shellWallCount,
                 partitionWallCount,
                 droppedOnShellCount,
                 dedupedPartitionCount,
                 slabs,
+                ceilings,
                 rooms: Object.freeze(builtRooms),
                 refusedRooms: Object.freeze(refusedRooms),
                 roomsAreaM2,
+                undoStepCount,
                 willCreate,
                 willNotCreate: BUILD_FROM_DESIGN_WILL_NOT_CREATE,
                 advisories: Object.freeze(advisories),
