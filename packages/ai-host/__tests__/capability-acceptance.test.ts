@@ -3089,30 +3089,39 @@ describe('RAC-BUILD-FROM-ENVELOPE — the founder "create walls and slabs from e
     expect(r.summary).toContain('No space envelope carries a roof form');
   });
 
-  it('an ask that names no WALLS refuses — the pass cannot omit them', () => {
-    // ⛔ THIS ARM USED TO READ "an ask for ONLY the things it cannot build".
-    // `create ceilings and a roof` was that ask until ceilings became buildable.
-    // It is STILL a refusal, and for a sharper reason: the seam's part projection
-    // can drop the plate and the ceilings but never the walls, so honouring a
-    // ceilings-only ask would have built a whole storey of walls he did not name.
+  it('⭐ an ask that names no WALLS builds those parts alone (§PART-ONLY-BUILDS L-13256)', () => {
+    // ⛔ THIS ARM HAS NOW BEEN REVERSED TWICE, AND BOTH REVERSALS ARE THE SAME LESSON.
+    // It first read "an ask for ONLY the things it cannot build" and asserted a REFUSAL —
+    // correct while ceilings were unbuildable. When the executor learned
+    // `ceiling.batch.create` it became "an ask that names no WALLS refuses", still a refusal,
+    // on the then-true measurement that the executor rejected a walls-free plan. Both refusals
+    // were derived from a CAPABILITY LIMIT, and each survived past the limit it described.
+    // ⭐ The capability is now real, so the assertion follows it: ceilings build, the roof is
+    // still named as not built, and NO walls are added to a sentence that did not ask for them.
     const r = resolveFull('create ceilings and a roof from my envelope', ctxOf());
-    expect(r.kind).toBe('refusal');
-    if (r.kind !== 'refusal') return;
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
     expect(r.intent).toBe('build-from-envelope');
-    expect(r.reason).toContain('Ceilings is cut from the same level envelope the walls are built from');
-    expect(r.reason).toContain('no ceilings-only mode');
-    // And a route out, so the refusal can be acted on.
-    expect(r.suggestions).toContain('create walls and slabs from my envelope');
+    expect(r.commands[0]!.payload).toEqual({ parts: ['ceilings'], deferred: ['roof'] });
+    // The roof is STILL refused BY NAME with its live route — C16 CA-18.
+    expect(r.summary).toContain('does NOT build a roof');
+    expect(r.summary).toContain('No space envelope carries a roof form');
   });
 
-  it('a plate-only ask refuses BEFORE the Confirm card, naming the real route', () => {
-    // MEASURED: `executeBuildFromDesign` refuses a plan with no walls in its own
-    // words. Dispatching would spend a destructive Confirm card on a certain
-    // refusal, so it is refused here instead.
+  // ⭐⭐ §PART-ONLY-BUILDS (L-13256) — REVERSED ON THE FOUNDER'S REPORT.
+  // This asserted a plate-only ask REFUSES, on the then-true measurement that the executor
+  // refused a plan with no walls. He built 70 shell walls, asked *"Create slabs on envelope"*,
+  // and was told to "ask for the walls too" — which would have re-dispatched a whole storey of
+  // walls onto a level that already had his. The executor now builds a walls-free plan that
+  // carries a plate, so the honest answer is a BUILD.
+  it('⭐ a plate-only ask BUILDS the plate alone — walls are projected off, not silently added', () => {
     const r = resolveFull('create the slabs from my envelope', ctxOf());
-    expect(r.kind).toBe('refusal');
-    if (r.kind !== 'refusal') return;
-    expect(r.reason).toContain('no plate-only mode');
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands.map((c) => c.type)).toEqual(['generation.from-envelope']);
+    // ⛔ THE PART LIST IS THE SAFETY. `applyPartSelection` projects the walls off the plan for
+    // this ask; without that, retiring the refusal would have built walls he did not name.
+    expect(r.commands[0]!.payload).toEqual({ parts: ['floor-plate'], deferred: [] });
   });
 
   it('a level other than the one being viewed refuses BY NAME, naming the switch', () => {

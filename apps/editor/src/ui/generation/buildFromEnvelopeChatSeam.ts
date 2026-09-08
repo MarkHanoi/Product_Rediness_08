@@ -170,8 +170,18 @@ function applyPartSelection(
     // CEILINGS, and the report counted an undo step the user was never offered.
     // A projection that covers some of the parts is worse than none: it reads as
     // honouring the ask while quietly ignoring half of it.
+    // ⭐⭐ §PART-ONLY-BUILDS (L-13256) — THE WALLS ARE PROJECTED TOO, AND THAT IS THE HALF THAT
+    // MAKES A PLATE-ONLY ASK SAFE RATHER THAN MERELY POSSIBLE.
+    //
+    // FOUNDER: *"create walls on envelope works - but slab doesnt"*. He had 70 shell walls
+    // standing and asked for the plate alone. The resolver used to refuse that outright; removing
+    // the refusal WITHOUT this line would have been worse than the refusal — it would have
+    // re-dispatched a full storey of walls onto a level that already had his, which is the silent
+    // widening C68 §7.d forbids and precisely what his "ask for the walls too" advice would have
+    // caused.
     return {
         ...plan,
+        walls: parts.includes('walls') ? plan.walls : [],
         slabs: parts.includes('floor-plate') ? plan.slabs : [],
         ceilings: parts.includes('ceilings') ? plan.ceilings : [],
     };

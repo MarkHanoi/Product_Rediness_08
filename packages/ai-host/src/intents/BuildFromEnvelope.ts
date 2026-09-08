@@ -415,35 +415,28 @@ export function applyBuildFromEnvelope(
     };
   }
 
-  // ── REFUSAL 2 — anything that does not name the WALLS ─────────────────────
+  // ── REFUSAL 2 — RETIRED (§PART-ONLY-BUILDS, L-13256) ──────────────────────
   //
-  // MEASURED, not assumed: `executeBuildFromDesign` refuses a plan with no walls
-  // in its own words — "The plan carries no walls, so there is nothing to build."
-  // Dispatching a walls-free ask would spend a Confirm card on a certain refusal,
-  // so it is refused HERE, before the card, naming the real route.
+  // ⛔ THIS REFUSED A BUILD THE PRODUCT CAN PERFORM, AND THE FOUNDER HIT IT IMMEDIATELY.
+  // He built 70 shell walls, then asked *"Create slabs on envelope"* and was told
+  // *"it has no plate-only mode. Ask for the walls too"* — advice that would have
+  // re-dispatched walls onto a level that already had his.
   //
-  // ⛔ THIS USED TO TEST `parts[0] === 'floor-plate'` AND THAT WAS ONLY SAFE
-  // WHILE THE PLATE WAS THE SOLE NON-WALL PART. `ceilings` becoming buildable
-  // opened a hole: the seam's `applyPartSelection` projects the plate and the
-  // ceilings off a plan but NEVER the walls, so "add ceilings from my envelope"
-  // would have sailed past this guard and quietly built a whole storey of walls
-  // the user never named — the silent widening C68 §7.d forbids, arriving
-  // through a Confirm card that did not mention them.
-  if (si.parts.length > 0 && !si.parts.includes('walls')) {
-    const named = speakList(si.parts.map((p) => PART_WORD[p]));
-    const modeName = si.parts.length > 1 ? 'walls-free'
-      : si.parts[0] === 'floor-plate' ? 'plate' : 'ceilings';
-    return {
-      kind: 'refusal',
-      intent: 'build-from-envelope',
-      reason:
-        `${capitalise(named)} ${si.parts.length === 1 ? 'is' : 'are'} cut from the same level `
-        + 'envelope the walls are built from, and this pass dispatches them in that order — it has '
-        + `no ${modeName}-only mode. Ask for the walls too ("create walls and slabs from my `
-        + 'envelope") and I will build the walls first, then the rest.',
-      suggestions: ['create walls and slabs from my envelope'],
-    };
-  }
+  // The refusal was written from a MEASURED fact that has since changed: the executor
+  // used to refuse a plan with no walls in its own words. It no longer does. Slabs are
+  // cut from the level plate's own ring and ceilings from the room envelopes; neither
+  // reads a wall, so a plate-only or ceiling-only dispatch is well-formed, is ONE batch,
+  // and is exactly what "add the floor to what I just built" means.
+  //
+  // ⭐ WHAT REPLACED IT IS A CAPABILITY, NOT A LOOSENED GATE: `applyPartSelection` now
+  // projects the walls off the plan too, so an ask that names only the plate dispatches
+  // only `slab.batch.create`. Removing the refusal WITHOUT that projection would have
+  // silently built walls he did not ask for — the widening C68 §7.d forbids — which is
+  // why the two land together.
+  //
+  // ⚠ The genuinely impossible case is still refused, one layer down and by the party
+  // that can actually see it: the executor answers "no walls, no floor plates and no
+  // ceilings, so there is nothing to build" when the projection leaves the plan empty.
 
   // ── REFUSAL 3 — a level other than the one being viewed ───────────────────
   //

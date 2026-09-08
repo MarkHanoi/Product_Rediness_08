@@ -266,11 +266,36 @@ describe('the refusals — every one is a sentence carrying the store\'s OWN wor
         expect(res.reason).toContain('wiring failure, not a finding about your design');
     });
 
-    it('a plan with no walls refuses rather than dispatching an empty batch', async () => {
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ §PART-ONLY-BUILDS (L-13256) — REVERSED DELIBERATELY, ON THE FOUNDER'S REPORT.
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // This asserted that ANY plan with no walls refuses. He built 70 shell walls, asked
+    // *"Create slabs on envelope"*, and was told to "ask for the walls too" — advice that would
+    // have re-dispatched a storey of walls onto a level that already had his. Slabs are cut from
+    // the level plate's own ring; they do not read a wall. So a walls-free plan that still
+    // carries a plate is BUILDABLE.
+    // ⭐ THE INTENT OF THE OLD ARM SURVIVES AND IS ASSERTED BELOW: no empty batch is dispatched.
+    it('⭐ no walls but a PLATE builds — and dispatches ONLY the slab verb, never an empty wall batch', async () => {
         const { deps, calls } = harness();
         const res = await executeBuildFromDesign(RT, { ...PLAN, walls: [] }, deps);
+        expect(res.ok).toBe(true);
+        // ⛔ The wall verb is SKIPPED, not sent empty: an empty batch commits nothing and still
+        // spends an undo entry, so a plate-only build would cost two Ctrl+Z for one gesture.
+        expect(calls.map((c) => c.type)).not.toContain('wall.batch.create');
+        expect(calls.map((c) => c.type)).toContain('slab.batch.create');
+        expect(res.wallIds ?? []).toHaveLength(0);
+    });
+
+    it('⛔ a plan with NOTHING to build still refuses, and says which three it looked for', async () => {
+        // The genuinely impossible case, still refused — by the party that can see it.
+        const { deps, calls } = harness();
+        const res = await executeBuildFromDesign(
+            RT, { ...PLAN, walls: [], slabs: [], ceilings: [] }, deps,
+        );
         expect(res.ok).toBe(false);
         expect(res.reason).toContain('no walls');
+        expect(res.reason).toContain('no floor plates');
+        expect(res.reason).toContain('no ceilings');
         expect(calls).toHaveLength(0);
     });
 

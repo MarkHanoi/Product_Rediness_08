@@ -124,9 +124,20 @@ export async function executeBuildFromDesign(
             return { ok: false, reason: 'The command bus is unavailable, so no element can be created. '
                 + 'This is a wiring failure, not a finding about your design. Nothing has been created.' };
         }
-        if (plan.walls.length === 0) {
-            return { ok: false, reason: 'The plan carries no walls, so there is nothing to build. '
-                + 'Nothing has been created.' };
+        // ⛔⛔ §PART-ONLY-BUILDS (L-13256) — "NOTHING TO BUILD" IS NOT THE SAME AS "NO WALLS".
+        //
+        // FOUNDER: *"create walls on envelope works - but slab doesnt"*. He had already built
+        // 70 shell walls and then asked for the plate on its own; this guard refused, because it
+        // read an empty WALL list as an empty PLAN. It is not: slabs are cut from the level
+        // plate's own ring and ceilings from the room envelopes, and neither reads a wall. A
+        // walls-free dispatch is a perfectly well-formed one-batch build.
+        //
+        // ⭐ THE HONEST TEST IS WHETHER *ANYTHING* WOULD BE DISPATCHED. Refusing on the wall count
+        // made "add the plate to what I already built" unreachable by construction — the one thing
+        // a user does immediately after the walls land.
+        if (plan.walls.length === 0 && plan.slabs.length === 0 && plan.ceilings.length === 0) {
+            return { ok: false, reason: 'The plan carries no walls, no floor plates and no '
+                + 'ceilings, so there is nothing to build. Nothing has been created.' };
         }
 
         const wallIds = plan.walls.map(() => deps.mintId('wall'));
@@ -136,7 +147,14 @@ export async function executeBuildFromDesign(
         // them would make undo take three steps instead of two and would let a partition batch
         // fail over a shell that had already committed.
         try {
-            await bus.executeCommand('wall.batch.create', {
+            // §PART-ONLY-BUILDS (L-13256) — SKIP the verb entirely when the projection left no
+            // walls, rather than dispatching an empty batch. `CreateWallBatchHandler` validates
+            // every entry before touching the store; handing it `walls: []` asks it to commit
+            // nothing and still spends an undo entry on it, so a plate-only build would cost the
+            // user two Ctrl+Z for one gesture. The slab arm below already guards the same way
+            // (`const slab = plan.slabs[0]; if (slab) {…}`) — this makes the wall arm its peer.
+            if (plan.walls.length > 0) {
+                await bus.executeCommand('wall.batch.create', {
                 levelId: plan.levelId,
                 walls: plan.walls.map((w, i) => ({
                     id: wallIds[i]!,
@@ -151,7 +169,8 @@ export async function executeBuildFromDesign(
                     // what makes a whole multi-storey shell ONE undo entry.
                     levelId: w.levelId,
                 })),
-            });
+                });
+            }
         } catch (e) {
             console.error('[site][build-from-design] wall.batch.create refused:', e);
             return {
