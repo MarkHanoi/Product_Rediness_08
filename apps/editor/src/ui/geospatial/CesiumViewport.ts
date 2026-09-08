@@ -2424,15 +2424,57 @@ export class CesiumViewport {
   private scopeClipRings<T>(
     layer: string, items: ReadonlyArray<T>, ringOf: (t: T) => ReadonlyArray<readonly [number, number]>,
     lat: number, lon: number, tally: ScopeClipTally = createScopeClipTally(),
+    opts: { readonly keepWhole?: boolean } = {},
   ): Array<{ readonly item: T; readonly ring: ReadonlyArray<readonly [number, number]> }> {
     const clipper = this.scopeClipperFor(lat, lon);
     const out: Array<{ readonly item: T; readonly ring: ReadonlyArray<readonly [number, number]> }> = [];
+    let keptWhole = 0;
     for (const item of items) {
-      const res = clipper.clipRingLonLat(ringOf(item) as ReadonlyArray<ScopeLonLat>);
+      const ring = ringOf(item);
+      const res = clipper.clipRingLonLat(ring as ReadonlyArray<ScopeLonLat>);
       tally.add(layer, res.verdict);
-      for (const ring of res.rings) out.push({ item, ring });
+      // ══════════════════════════════════════════════════════════════════════
+      // §BUILDINGS-ARE-NOT-SLICED (founder 2026-09-08 · L-13264 · C12 §13.5)
+      //
+      // *"SOMETIMES THE BUILDINGS ARE 'CUT' BY DIAGONAL LINES - AND THIS IMPACTS THE
+      // GEOMETRY."*
+      //
+      // ⭐ THE DIAGONAL IS THE SCOPE RIM. The scope is a rectangle rotated by θ (Córdoba
+      // −44°, Barcelona −45°), so on screen its edge runs diagonally — and a footprint
+      // straddling it was being CUT THERE, producing a half-building with a straight false
+      // wall. His own log counts them: `§SITE-SCOPE clip — buildings-far: 4041 inside · 289
+      // cut · 1450 outside`. Two hundred and eighty-nine invented geometries per load.
+      //
+      // ⛔ CLIPPING IS RIGHT FOR A SURFACE AND WRONG FOR AN OBJECT, and that distinction is
+      // the whole fix. Landuse, roads, water and parks are CONTINUOUS GROUND: the plate has
+      // to end somewhere and cutting them at the rim is what makes the plate read as a
+      // plate. A BUILDING is an ATOMIC PHYSICAL OBJECT. Half of one is not a smaller
+      // building — it is a building that does not exist, drawn at full confidence beside
+      // real ones, which is the §CONTEXT-DATA-HONESTY failure (a fabrication presented as
+      // measured data), not a cosmetic edge.
+      //
+      // ⭐ SO A CUT BUILDING IS KEPT **WHOLE**, on its ORIGINAL ring. It already passed the
+      // scope's membership test — the cut is only how much of it lies inside — and the
+      // vocabulary is already in this file: the drape budget says *"0 feature(s) beyond it
+      // kept WHOLE on their own seat"*. Slightly overhanging the rim is the honest cost, and
+      // it is invisible: the rim is 1 781 m out and a building is tens of metres wide.
+      // ══════════════════════════════════════════════════════════════════════
+      if (opts.keepWhole && res.verdict === 'cut') {
+        keptWhole++;
+        out.push({ item, ring });
+        continue;
+      }
+      for (const r of res.rings) out.push({ item, ring: r });
     }
     for (const line of tally.lines()) console.log(`[CesiumViewport][forma] §SITE-SCOPE clip — ${line}`);
+    if (keptWhole > 0) {
+      console.log(
+        `[CesiumViewport][forma] §BUILDINGS-ARE-NOT-SLICED (L-13264) — ${layer}: ${keptWhole} ` +
+        'footprint(s) straddling the scope rim were kept WHOLE instead of cut. A building is an ' +
+        'atomic object; half of one is a geometry that does not exist. They overhang the rim by ' +
+        'their own width, which is tens of metres against a 1 781 m plate.',
+      );
+    }
     return out;
   }
 
@@ -12089,13 +12131,13 @@ export class CesiumViewport {
       return { ...item, geometry: { ...item.geometry, coordinates: [out] } } as unknown as T;
     };
     const nearShadowedScoped = this.scopeClipRings(
-      'buildings-shadowed', nearTiers.shadowed, scopeRingOf, lat, lon,
+      'buildings-shadowed', nearTiers.shadowed, scopeRingOf, lat, lon, createScopeClipTally(), { keepWhole: true },
     ).map(({ item, ring }) => scopeFeature(item, ring));
     const nearDemotedScoped = this.scopeClipRings(
-      'buildings-demoted', nearDemotedExtrudable, scopeRingOf, lat, lon,
+      'buildings-demoted', nearDemotedExtrudable, scopeRingOf, lat, lon, createScopeClipTally(), { keepWhole: true },
     ).map(({ item, ring }) => scopeFeature(item, ring));
     const farScoped = this.scopeClipRings(
-      'buildings-far', farExtrudable, scopeRingOf, lat, lon,
+      'buildings-far', farExtrudable, scopeRingOf, lat, lon, createScopeClipTally(), { keepWhole: true },
     ).map(({ item, ring }) => scopeFeature(item, ring));
     // §SITE-SCOPE (C12 §13.5) — record what the whole-scene building budget is being asked to hold
     // INSIDE the scope, so the slider's "complete" mark and the cap verdict speak measured numbers
