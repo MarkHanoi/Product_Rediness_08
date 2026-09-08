@@ -366,6 +366,39 @@ describe('§ENVELOPE-DRAW R8 — the SECOND press REPLACES what this control aut
         }
     });
 
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ §ENVELOPE-CARD-COMPACT (L-13248) — ONE SENTENCE FOR N STOREYS, NOT N PARAGRAPHS
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // The founder's own screenshot: a 6-storey replace printed SIX near-identical paragraphs, each
+    // closing "The replacement is ONE undo — Ctrl+Z brings the previous one back" — true of a single
+    // supersede command, wrong read six times over when all six land in the SAME
+    // `spaceEnvelope.batch.create`. This is the regression pin: it would have FAILED against the
+    // prior implementation, which repeated that exact clause once per replaced storey.
+    it('⛔ N replaced storeys produce ONE summary clause, never the per-storey undo clause repeated', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 2,
+            existing: readable([
+                // ⚠ Bare names — `describeLevelEnvelope` appends `· {area} m²` itself whenever
+                // `footprintAreaM2` is set, so a name that ALSO embeds an area string would double
+                // it up. That is a property of the shared describer, unrelated to this fix, and
+                // this fixture is deliberately shaped to exercise it correctly rather than mask it.
+                existingRow({ id: 'old-g', levelId: 'lvl-0', name: 'Ground plate' }),
+                existingRow({ id: 'old-1', levelId: 'lvl-1', name: 'Level 1 plate' }),
+            ]),
+        }));
+        if (!r.ok) throw new Error(r.statement);
+        // The N-storey summary form, naming both storeys and both envelopes by their REAL names —
+        // never re-derived, read off the same `ExistingLevelEnvelope` records `supersedes` carries.
+        expect(r.statement).toContain('Replaces the level envelope already authored on 2 storeys');
+        expect(r.statement).toContain('Ground (Ground plate · 200 m²)');
+        expect(r.statement).toContain('Level 1 (Level 1 plate · 200 m²)');
+        // ⛔ THE PHRASE THIS PIN EXISTS TO KILL. The old per-storey sentence closed with this exact
+        // clause; a regression that re-introduces the N-times join would fail here first.
+        expect(r.statement).not.toContain('brings the previous one back');
+        // The undo claim survives — stated ONCE, by `createHalf`, correctly for the whole gesture.
+        expect(r.statement).toContain('brings back what it replaced and removes all of this');
+    });
+
     it('⭐ PER STOREY — an authored envelope on a storey OUTSIDE the ask is left alone', () => {
         const r = buildEnvelopeAuthoringPlan(input({
             requestedStoreys: 1,

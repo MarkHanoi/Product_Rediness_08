@@ -90,6 +90,7 @@ import type { Pt } from '@pryzm/schemas';
 import { authoredProvenance, type ValueProvenance } from '@pryzm/schemas/provenance';
 import {
     OWN_AUTHORING_RULE,
+    describeLevelEnvelope,
     resolveLevelEnvelopeSupersession,
     type ExistingLevelEnvelope,
     type LevelEnvelopeReadResult,
@@ -568,7 +569,6 @@ export function buildEnvelopeAuthoringPlan(
         const supersedes: string[] = [];
         const replaces: ExistingLevelEnvelope[] = [];
         const replacedCountByLevel = new Map<string, number>();
-        const replaceSentences: string[] = [];
         const blockedSentences: string[] = [];
         for (const level of used) {
             const onStorey = input.existing.rows.filter((e) => e.levelId === level.id);
@@ -579,7 +579,6 @@ export function buildEnvelopeAuthoringPlan(
                 supersedes.push(...s.ids);
                 replaces.push(...s.targets);
                 replacedCountByLevel.set(level.id, s.ids.length);
-                replaceSentences.push(`On ${labelOf(level)} — ${s.sentence}`);
             }
         }
         if (blockedSentences.length > 0) {
@@ -708,11 +707,44 @@ export function buildEnvelopeAuthoringPlan(
                 ? 'The replacement is ONE undo — Ctrl+Z brings back what it replaced and removes all of this.'
                 : 'One undo removes all of it.')
             + heightNote;
-        // ⭐ THE REPLACEMENT HALF COMES FIRST. A user about to lose an envelope reads that before the
-        // verb that creates the new one — and the sentence is `resolveLevelEnvelopeSupersession`'s,
-        // never a second copy of it here (the `adoptProposalAsEnvelope` precedent).
+        // ⛔⛔ §ENVELOPE-CARD-COMPACT (L-13248) — ONE SENTENCE FOR N STOREYS, NOT N PARAGRAPHS.
+        //
+        // This used to join N COPIES of `resolveLevelEnvelopeSupersession`'s own sentence, one per
+        // replaced storey — and that sentence is written for a SINGLE supersede command, closing
+        // "The replacement is ONE undo — Ctrl+Z brings the previous one back." Correct once; wrong
+        // read six times. This planner dispatches every replacement AND every create in the SAME
+        // `spaceEnvelope.batch.create` (§ENVELOPE-DRAW R8 / C114 §6a — see `command` below), so
+        // there is exactly ONE undo for the whole gesture, and `createHalf` already states that,
+        // once, correctly, a few lines down. Six near-identical paragraphs each restating "ONE
+        // undo" told the founder there were six — the panel's own worst offender, measured at
+        // ~350 characters × 6 in his screenshot.
+        //
+        // The WHICH is unchanged — `replaces`/`supersedes` still come from
+        // `resolveLevelEnvelopeSupersession` exactly as before; only how many times the fact gets
+        // SPOKEN changes, from reading the STRUCTURED records rather than joining their prose.
+        const replacedByLevel = new Map<string, ExistingLevelEnvelope[]>();
+        for (const r of replaces) {
+            const arr = replacedByLevel.get(r.levelId) ?? [];
+            arr.push(r);
+            replacedByLevel.set(r.levelId, arr);
+        }
+        const replacedStoreyLines = used
+            .filter((level) => replacedByLevel.has(level.id))
+            .map((level) => `${labelOf(level)} (${
+                replacedByLevel.get(level.id)!.map(describeLevelEnvelope).join(', ')
+            })`);
+        const replaceSummary = replacedStoreyLines.length === 0
+            ? ''
+            : replacedStoreyLines.length === 1
+                ? `Replaces the level envelope already on ${replacedStoreyLines[0]}, which `
+                  + `${OWN_AUTHORING_RULE.replacedClause}. `
+                : `Replaces the level envelope already authored on ${replacedStoreyLines.length} `
+                  + `storeys — ${replacedStoreyLines.join('; ')} — because ${OWN_AUTHORING_RULE.replacedClause} `
+                  + 'on each. ';
+        // ⭐ THE REPLACEMENT HALF STILL COMES FIRST. A user about to lose an envelope reads that
+        // before the verb that creates the new one.
         const statement = intent === 'replace'
-            ? `${replaceSentences.join(' ')} ${createHalf}`
+            ? `${replaceSummary}${createHalf}`
             : createHalf;
 
         span.setAttribute('pryzm.authoring.storeys', asked);
