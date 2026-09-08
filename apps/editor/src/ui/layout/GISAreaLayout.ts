@@ -1952,16 +1952,60 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     const removePryzmViewPill = (): void => {
+        pryzmViewPillHostEl = null;
         if (!pryzmViewPill) return;
         try { pryzmViewPill.dispose(); } catch (e) { console.warn('[gis] §ONE-VIEW-SWITCHER pill dispose failed (non-fatal):', e); }
         pryzmViewPill = null;
     };
 
+    /**
+     * ⭐⭐ §PILL-MOUNTS-ON-THE-VISIBLE-SURFACE (founder 2026-09-08 · L-13265) — WHICH element the
+     * ONE pill is parented to, which is NOT always `#container`.
+     *
+     * ⛔ THIS IS A REGRESSION §ONE-SWITCHER-ON-EVERY-VIEW (L-13261) INTRODUCED, CAUGHT BY THE
+     * FOUNDER'S NEXT SCREENSHOT. That lane retired the three view segments from the legacy bar
+     * on EVERY phase and called `ensurePryzmViewPill()` as the replacement — correctly, in the
+     * same breath. But the pill mounted into `#container`, the BIM canvas, and on a site/globe
+     * view Cesium's own container is raised to `CESIUM_Z = 15` ABOVE it. Everything inside
+     * `#container` is then underneath Cesium regardless of its own z-index, because that
+     * z-index is resolved INSIDE `#container`'s stacking context.
+     *
+     * ⛔ SO THE SEGMENTS CAME DOWN AND THE REPLACEMENT WAS INVISIBLE — the L-942 shape
+     * (a retirement whose replacement is only nominally there) arriving inside the very lane
+     * whose commit message claimed to avoid it. The count invariant would have read "1
+     * switcher" and the user would have had none.
+     *
+     * ⭐ THE HOST IS A READING OF WHAT IS ON TOP, not a phase flag: the Cesium container when
+     * it is mounted and displayed, `#container` otherwise. Both anchors are the ones
+     * `VIEW_REGION_REGISTRY` already declares for `site-whole-screen` and `pryzm-canvas`.
+     */
+    const pryzmViewPillHost = (): HTMLElement | null => {
+        const cesium = document.getElementById('cesium-viewport-container');
+        if (cesium && cesium.isConnected) {
+            // ⚠ MEASURED, not assumed from `_gisActive`: the flag and the DOM can disagree during
+            // a transition, and the pill must follow the pixels the user is looking at.
+            const hidden = cesium.style.display === 'none' || cesium.offsetParent === null;
+            if (!hidden) return cesium;
+        }
+        return document.getElementById('container');
+    };
+
+    /** The host the live pill is parented to, so a phase change RE-MOUNTS instead of keeping a
+     *  pill attached to a surface that is now underneath another one. */
+    let pryzmViewPillHostEl: HTMLElement | null = null;
+
     const ensurePryzmViewPill = (): void => {
-        const viewport = document.getElementById('container');
+        const viewport = pryzmViewPillHost();
         if (!viewport) return;
-        if (pryzmViewPill?.element.isConnected) { pryzmViewPill.refresh(); return; }
-        removePryzmViewPill(); // a stale handle whose node was torn out with a rebuild.
+        // ⛔ `isConnected` IS NOT ENOUGH. A pill still attached to `#container` while Cesium now
+        // owns the screen is connected AND invisible — exactly the regression above. The host
+        // must match too, or the "already mounted" early-out preserves the defect.
+        if (pryzmViewPill?.element.isConnected && pryzmViewPillHostEl === viewport) {
+            pryzmViewPill.refresh();
+            return;
+        }
+        removePryzmViewPill(); // a stale handle, or one parented to the wrong surface.
+        pryzmViewPillHostEl = viewport;
         try {
             pryzmViewPill = mountViewSwitcherPill({
                 parent: viewport,
@@ -6685,12 +6729,37 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // FORMA-PLAN-OBLIQUE — 3-way group: [ 2D Map ] [ Plan ] [ 3D ]. "2D Map"
         // is the MapLibre exit (boundary drawing); "Plan" + "3D" are the Cesium-
         // Forma canvas at different pitches (plan-oblique vs NW oblique).
+        // ══════════════════════════════════════════════════════════════════════
+        // §ONE-SWITCHER-ON-EVERY-VIEW PART 2 (founder 2026-09-08 · L-13266)
+        //
+        // *"PLEASE CHECK ALSO THE LEGACY PANEL ON 3D SITE VIEW AFTER SELECTING FROM PRYZM
+        // VIEW - MAYBE YOU HAVE FIXED THIS ALREADY."*
+        //
+        // ⛔ HE HAD NOT, AND HIS SCREENSHOT SHOWS WHY: THERE WERE **TWO** LEGACY BARS, NOT ONE.
+        // L-13261 retired the three segments on the RESULT bar (`3D + plan · 3D globe ·
+        // 3D Site`) and I recorded row 3 of the audit as closed. This is the SECOND bar — the
+        // FORMA sub-bar — and it carries three MORE view switches: `2D Map · Plan · 3D`. The
+        // audit table counted HOSTS OF `viewSegmentSwitcher`; these two bars are hand-built
+        // and were never in it, so "four hosts of one shape" was measured against the wrong
+        // population. A census that does not include a thing cannot report it missing.
+        //
+        // ⛔ THE NON-VIEW CONTROLS STAY, on the same sort-by-SUBJECT rule as L-13261:
+        // `⤢ Zoom to Site`, `☀ Analysis`, `◉ Real`, `▢ Massing` and the floor filter all act
+        // on the Cesium site surface, which IS on screen here. Only the three that put a
+        // DIFFERENT VIEW on screen go.
+        //
+        // ⚠ `2D Map` IS A VIEW SWITCH, and the least obvious of the three: it drops to the
+        // MapLibre draw map. The pill offers it as `2D Site Map`, so it is not lost — it is
+        // spelled the founder's way instead of this bar's way (C84 EI-8, one spelling).
+        //
+        // ⚠ BUILT, NOT APPENDED — `refreshFormaViewButtons` paints all three from
+        // `formaViewMode` and is called from several places; keeping the refs real means this
+        // retirement touches the bar and nothing else.
+        // ══════════════════════════════════════════════════════════════════════
         formaMap2dBtn = mkBtn('map2d', '▦ 2D Map', 'Drop to the 2D draw map (MapLibre) to draw or edit the boundary');
         formaPlanBtn = mkBtn('plan', '◳ Plan', 'Forma plan-oblique — near-top-down shadowed massing (the Forma signature look)');
         formaThreeBtn = mkBtn('3d', '◉ 3D', 'Forma 3D — NW oblique massing study (depth view)');
-        bar.appendChild(formaMap2dBtn);
-        bar.appendChild(formaPlanBtn);
-        bar.appendChild(formaThreeBtn);
+        ensurePryzmViewPill();
 
         // "Zoom to Site" / reset affordance — repeats the flyTo for the active
         // Cesium preset (plan-oblique while in Plan, NW oblique while in 3D).
