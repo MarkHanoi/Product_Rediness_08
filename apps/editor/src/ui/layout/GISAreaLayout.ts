@@ -267,6 +267,7 @@ import {
     type ViewSwitcherPillHandle,
 } from '../../engine/views/ViewSwitcherPill';
 import { resolveSwitcherTopPx, type Box } from '../../engine/views/viewRegionSwitcher';
+import { buildPryzmSplitRow, resolvePryzmSplitPort } from '../../engine/views/pryzmSplitRow';
 import { mountViewSegmentSwitcher } from '../site/viewSegmentSwitcher';
 // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — the deferred subscription helper. Used here
 // rather than a bare `runtime?.events?.on(...)` because the LIVE boot path constructs this
@@ -1991,7 +1992,18 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 mountMenu: (body) => {
                     const h = mountViewSegmentSwitcher(window);
                     body.appendChild(h.element);
-                    return { repaint: () => h.repaint(), dispose: () => h.dispose() };
+                    // §ONE-REGION-SWITCHER (L-13257) — the founder's SECOND option, which did
+                    // not exist on a PRYZM view at all: the 3D+plan split could be OPENED only
+                    // by the post-generate landing and CLOSED only from the plan pane's own ×.
+                    // ⚠ A DIFFERENT LAYOUT OWNER from the site panes' `view.pane.solo`, so it
+                    // is a different decision (`describePryzmSplitToggle`) rendered in the SAME
+                    // vocabulary — C59 §1.5.3 records collapsing the two owners as still open.
+                    const splitRow = buildPryzmSplitRow(resolvePryzmSplitPort());
+                    body.appendChild(splitRow.element);
+                    return {
+                        repaint: () => { h.repaint(); splitRow.repaint(); },
+                        dispose: () => h.dispose(),
+                    };
                 },
             });
             console.log('[gis] §ONE-VIEW-SWITCHER (L-13160) — PRYZM view dropdown mounted on #container.');

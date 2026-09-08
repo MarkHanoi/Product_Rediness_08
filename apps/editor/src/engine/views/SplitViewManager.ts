@@ -38,6 +38,7 @@ import { setViewRegionSplit } from '@app/ui/layout/viewRegionGeometry';
 // §ONE-REGION-SWITCHER (L-13257) — the ONE switcher component and the region census.
 import { mountViewSwitcherPill, type ViewSwitcherPillHandle } from './ViewSwitcherPill';
 import { resolveSwitcherTopPx, PRYZM_PLAN_PANE_LIMIT_NOTE } from './viewRegionSwitcher';
+import { buildPryzmSplitRow, resolvePryzmSplitPort } from './pryzmSplitRow';
 import { mountViewSegmentSwitcher } from '@app/ui/site/viewSegmentSwitcher';
 import type { GisCapabilityHost } from '@app/ui/gis/gisActionRegistry';
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
@@ -756,7 +757,14 @@ export class SplitViewManager implements ISplitViewManager {
                     group.appendChild(cap);
                     if (this._viewSelect) group.appendChild(this._viewSelect);
                     body.appendChild(group);
-                    return { repaint: () => six.repaint(), dispose: () => six.dispose() };
+                    // §ONE-REGION-SWITCHER (L-13257) — the SAME split row the model half
+                    // carries, so "single view" is one gesture from either half of the split.
+                    const splitRow = buildPryzmSplitRow(resolvePryzmSplitPort());
+                    body.appendChild(splitRow.element);
+                    return {
+                        repaint: () => { six.repaint(); splitRow.repaint(); },
+                        dispose: () => six.dispose(),
+                    };
                 },
             });
         } catch (e) {

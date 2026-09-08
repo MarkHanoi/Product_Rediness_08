@@ -59,6 +59,12 @@ import {
     type Box,
     type ViewRegionId,
 } from '../views/viewRegionSwitcher';
+import { describePryzmSplitToggle, PRYZM_SPLIT_UNAVAILABLE_TEXT } from '../views/viewRegionSwitcher';
+import {
+    PRYZM_SPLIT_ROW_TESTID,
+    buildPryzmSplitRow,
+    type PryzmSplitPort,
+} from '../views/pryzmSplitRow';
 import { viewPanelOptions } from '../views/viewPanelOptions';
 import type { ViewSwitcherPhase } from '../views/legacyViewSwitcherRetirement';
 
@@ -272,5 +278,92 @@ describe('§ONE-REGION-SWITCHER — ARM F · the limits are printed, not hidden'
         const withDefs = listViewRegions()
             .filter((id) => VIEW_REGION_REGISTRY[id].offersViewDefinitions);
         expect(withDefs).toEqual(['pryzm-plan-pane']);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════
+// ARM G — SPLIT / SINGLE, the founder's SECOND option, on the regions that had none.
+//
+// *"the user could have the views split ... or not split - single view"*, in every workspace.
+// MEASURED: on a PRYZM view there was NO split control at all — `.vsw-split` reasons about the
+// SITE-AUTHORING pane shell, and the 3D+plan split could be opened only by the post-generate
+// landing and closed only from the plan pane's own × button.
+// ═════════════════════════════════════════════════════════════════════════════════════════
+describe('§ONE-REGION-SWITCHER — ARM G · split / single is one gesture from either half', () => {
+    const portFor = (state: { open: boolean }): PryzmSplitPort & { opened: number; closed: number } => {
+        const p = {
+            opened: 0, closed: 0,
+            isOpen: () => state.open,
+            open: () => { p.opened += 1; state.open = true; },
+            close: () => { p.closed += 1; state.open = false; },
+        };
+        return p;
+    };
+
+    it('closed ⇒ offers Split; open ⇒ offers Single view', () => {
+        expect(describePryzmSplitToggle({ open: false, canToggle: true }).label).toBe('◧ Split');
+        expect(describePryzmSplitToggle({ open: true, canToggle: true }).label).toBe('▣ Single view');
+    });
+
+    it('⛔ no split owner ⇒ DISABLED with the reason ON it, never hidden (STR §26.1.1)', () => {
+        // A control that vanishes when it cannot act teaches the user it does not exist.
+        const shown = describePryzmSplitToggle({ open: false, canToggle: false });
+        expect(shown.enabled).toBe(false);
+        expect(shown.title).toBe(PRYZM_SPLIT_UNAVAILABLE_TEXT);
+        const row = buildPryzmSplitRow(null);
+        const btn = row.element.querySelector<HTMLButtonElement>(
+            `[data-testid="${PRYZM_SPLIT_ROW_TESTID}-toggle"]`,
+        );
+        expect(btn).not.toBeNull();          // ⭐ RENDERED, not omitted.
+        expect(btn?.disabled).toBe(true);
+        expect(btn?.title).toBe(PRYZM_SPLIT_UNAVAILABLE_TEXT);
+    });
+
+    it('⭐ the row ACTS on the port — clicking opens, clicking again closes', () => {
+        const state = { open: false };
+        const port = portFor(state);
+        const row = buildPryzmSplitRow(port);
+        const btn = row.element.querySelector<HTMLButtonElement>(
+            `[data-testid="${PRYZM_SPLIT_ROW_TESTID}-toggle"]`,
+        );
+        expect(btn?.textContent).toBe('◧ Split');
+        btn?.click();
+        expect(port.opened).toBe(1);
+        expect(btn?.textContent).toBe('▣ Single view');  // repainted from the PORT, not a memory.
+        btn?.click();
+        expect(port.closed).toBe(1);
+        expect(btn?.textContent).toBe('◧ Split');
+    });
+
+    it('⚠ the port is RE-READ on click — the pane can be closed from its own header meanwhile', () => {
+        const state = { open: false };
+        const port = portFor(state);
+        const row = buildPryzmSplitRow(port);
+        const btn = row.element.querySelector<HTMLButtonElement>(
+            `[data-testid="${PRYZM_SPLIT_ROW_TESTID}-toggle"]`,
+        );
+        state.open = true;               // something else opened it after the popup painted.
+        btn?.click();
+        expect(port.closed).toBe(1);     // it CLOSES, rather than acting on the stale reading.
+        expect(port.opened).toBe(0);
+    });
+
+    it('a throwing port does not take the popup down', () => {
+        const bad: PryzmSplitPort = {
+            isOpen: () => { throw new Error('gone'); },
+            open: () => {}, close: () => {},
+        };
+        expect(() => buildPryzmSplitRow(bad)).not.toThrow();
+    });
+
+    it('⭐ BOTH PRYZM regions mount the SAME row — they cannot drift into two buttons', () => {
+        expect(GIS).toContain('buildPryzmSplitRow');
+        expect(SVM).toContain('buildPryzmSplitRow');
+    });
+
+    it('the row carries NO px font size — §ONE-TYPE-BASE, the panelFold lesson', () => {
+        const ROW = read('apps/editor/src/engine/views/pryzmSplitRow.ts');
+        const body = ROW.slice(ROW.indexOf('export function buildPryzmSplitRow'));
+        expect(body).not.toMatch(/font-size\s*:\s*\d/);
     });
 });

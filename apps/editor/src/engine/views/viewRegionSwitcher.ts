@@ -337,6 +337,68 @@ export function resolveSwitcherTopPx(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// ⭐ SPLIT / SINGLE — the founder's SECOND option, on the PRYZM regions
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * *"I want to have two options - no matter whether the user is in Site / Author / Inspect /
+ * Analyse - the user could have the views split ... or not split - single view."*
+ *
+ * ⛔ THE MEASURED GAP: that toggle existed in exactly ONE place — `.vsw-split`, on the Analysis
+ * on-view bar (`viewSwitcherOnView.ts`) — plus the site panes' own layout actions inside
+ * `PaneViewPicker`. On a PRYZM view there was **no split control at all**: the 3D+plan split
+ * could only be opened by the post-generate landing or by closing the pane from its header.
+ *
+ * ⚠ AND IT CANNOT REUSE `describeSplitToggle` — THE TWO SPLITS ARE DIFFERENT OBJECTS, WHICH IS
+ * THE DEBT C59 §1.5.3 NAMES RATHER THAN HIDES. `describeSplitToggle` reasons about the
+ * SITE-AUTHORING PANE SHELL (`PaneLayoutStore`, `view.pane.solo`). The PRYZM split is
+ * `SplitViewManager` — a different owner, with a different lifecycle. Rendering the site
+ * decision on a BIM view would offer to split something that is not on screen.
+ *
+ * ⭐ SO: TWO OWNERS, ONE VOCABULARY. This returns the SAME `SplitTogglePresentation` the site
+ * toggle returns, so both hosts render one shape of control and the user cannot tell which
+ * layout owner is underneath — which is the whole of what the founder asked for. Collapsing
+ * the two OWNERS is a later increment and is recorded as such.
+ */
+export interface PryzmSplitToggleState {
+    /** Is the PRYZM plan pane on screen? A READING of `SplitViewManager`, never a memory. */
+    readonly open: boolean;
+    /** `window.splitViewManager` exposes `activate`/`deactivate` in this session. */
+    readonly canToggle: boolean;
+}
+
+/** The sentence the PRYZM split toggle shows when it cannot act (STR §26.1.1). */
+export const PRYZM_SPLIT_UNAVAILABLE_TEXT =
+    'Split is not available from here in this session: the PRYZM plan pane '
+    + '(SplitViewManager) has not registered. Open a PRYZM view once, then return.';
+
+/**
+ * The PRYZM split/single decision. Pure, so the pill on `#container` and the pill on the plan
+ * pane render ONE decision rather than two drifting copies of it.
+ */
+export function describePryzmSplitToggle(
+    state: PryzmSplitToggleState,
+): { readonly label: string; readonly enabled: boolean; readonly pressed: boolean; readonly title: string } {
+    if (!state.canToggle) {
+        return {
+            label: '◧ Split', enabled: false, pressed: state.open,
+            title: PRYZM_SPLIT_UNAVAILABLE_TEXT,
+        };
+    }
+    return state.open
+        ? {
+            label: '▣ Single view', enabled: true, pressed: true,
+            title: 'Close the plan pane and let the PRYZM model fill the screen. '
+                + 'The plan keeps the view definition it is showing.',
+        }
+        : {
+            label: '◧ Split', enabled: true, pressed: false,
+            title: 'Show the PRYZM model and its plan side by side. Each half keeps its own '
+                + 'view dropdown, so you choose what goes in each.',
+        };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // ⭐ THE COVERAGE GATE — the axis `oneViewSwitcher.spec.ts` could not see
 // ═════════════════════════════════════════════════════════════════════════════
 
