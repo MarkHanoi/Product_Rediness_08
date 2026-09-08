@@ -17,6 +17,8 @@ import {
     INTENT_CEILING_VERDICT_ATTR,
     mountParcelLawIntentAgainstCeiling,
     type ParcelLawIntentDeps,
+    INTENT_CEILING_BREACH_ATTR,
+    INTENT_CEILING_INTENT_FIGURE_ATTR,
 } from '../parcelLawIntentAgainstCeiling';
 import { buildParcelLawModel } from '../../site/parcel/parcelLawModel';
 import { __resetSiteHighlightForTests, getSiteHighlight, SITE_HIGHLIGHT_ATTR } from '../../site/siteGeometryHighlight';
@@ -87,6 +89,23 @@ describe('§26.6 rule 3 — mounted: every intent beside its ceiling, refusal wi
         // 3.1 — the height pair is within (3 m of 9 m), the level count within (1 of 3).
         expect(root.querySelector(`[data-testid="${INTENT_CEILING_ROW_PREFIX}total-height"]`)!.getAttribute(INTENT_CEILING_VERDICT_ATTR)).toBe('within');
         expect(root.querySelector(`[data-testid="${INTENT_CEILING_ROW_PREFIX}levels"]`)!.getAttribute(INTENT_CEILING_VERDICT_ATTR)).toBe('within');
+
+        // ⭐⭐ §BREACH-READS-RED (L-13251) — founder, dragging a face on the 3-D Site: *"if the
+        // data is not compliant ... it should be highlighted in red"*. The verdict was already
+        // computed and stated in words; what was missing was that it SURVIVES A GLANCE down a
+        // column of storeys. The INTENT figure is the one that reddens — it is the number his drag
+        // moved. ⛔ The CEILING figure must NOT: it is the limit, and it is not the thing in breach.
+        const breached = ground.querySelector(`[${INTENT_CEILING_BREACH_ATTR}="exceeds"]`);
+        expect(breached, 'the exceeded intent figure carries the breach attribute').not.toBeNull();
+        expect(breached!.getAttribute(INTENT_CEILING_INTENT_FIGURE_ATTR)).toBe('present');
+        // ⚠ THE COLOUR ITSELF IS NOT ASSERTED, AND THAT IS DELIBERATE. happy-dom's CSS parser
+        // DISCARDS a `var(--token, #fallback)` value — `style.color` reads back `''` however the
+        // panel is written — so asserting it would measure the PARSER, not the panel, and would
+        // pass on a row that had dropped its colour entirely. The ATTRIBUTE is the declared
+        // contract; the ink is read off `BREACH_INK` in the source, one line above where it is set.
+        // ⛔ A WITHIN row carries NO breach mark anywhere — the signal has to mean something.
+        const heightRow = root.querySelector(`[data-testid="${INTENT_CEILING_ROW_PREFIX}total-height"]`)!;
+        expect(heightRow.querySelector(`[${INTENT_CEILING_BREACH_ATTR}]`)).toBeNull();
         h.dispose();
     });
 

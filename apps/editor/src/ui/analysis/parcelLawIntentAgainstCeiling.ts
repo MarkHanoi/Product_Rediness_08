@@ -63,6 +63,24 @@ export const INTENT_CEILING_INTENT_FIGURE_ATTR = 'data-intent-figure';
 /** Marks the CEILING figure of a pair — the other half of the same proof. */
 export const INTENT_CEILING_CEILING_FIGURE_ATTR = 'data-ceiling-figure';
 
+/**
+ * §BREACH-READS-RED (L-13251) — set to `'exceeds'` on the INTENT figure of a row whose verdict is
+ * `exceeds`, and on nothing else.
+ *
+ * ⛔ A SEPARATE ATTRIBUTE, NOT A NEW VALUE ON `data-intent-figure`. That one answers "does PRYZM
+ * hold this measurement?" (`present` / `absent`) and a spec reads it to prove a figure is not
+ * fabricated; overloading it with a compliance state would make one attribute answer two
+ * unrelated questions and break that proof.
+ */
+export const INTENT_CEILING_BREACH_ATTR = 'data-intent-breach';
+
+/**
+ * The ONE red. `--app-status-error-ink` (#b91c1c) is the darker of the status-error pair — the
+ * one chosen for INK rather than for a fill — and is the same token §HUB-MODAL-DANGER re-pointed
+ * the delete dialog to, so a breach here and a destructive action there read as one product.
+ */
+const BREACH_INK = 'var(--app-status-error-ink, #b91c1c)';
+
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // §PAIR-IS-ALIGNMENT-NOT-A-WORD (L-13077, founder 2026-09-07: *"there is still text on the
 // incorrect format"*) — THE PAIR IS EXPRESSED BY THE LAYOUT. THE WORD IS NOT PRINTED.
@@ -253,19 +271,44 @@ export function buildIntentAgainstCeilingSection(
             // ── the INTENT line ──
             const intent = pairLine('transparent');
             intent.appendChild(labelCell(el('span', 'anl-plaw-key', p.label)));
-            intent.appendChild(figure(
+            const intentFigure = figure(
                 p.intent === null ? '—' : `${p.intent.toFixed(p.dp)} ${p.unit}`,
                 INTENT_CEILING_INTENT_FIGURE_ATTR,
                 p.intent === null,
-            ));
+            );
+            // ⭐⭐ §BREACH-READS-RED (L-13251) — THE FIGURE THAT IS TOO BIG IS THE ONE THAT TURNS RED.
+            //
+            // FOUNDER, dragging an envelope face on the 3-D Site: *"if the data is not compliant —
+            // for example i am building more on a level than what i want — it should be highlighted
+            // in red"*. The verdict was ALREADY computed (`kind === 'exceeds'`) and the row already
+            // said so in a full sentence — but the only colour it carried was an amber tint on a
+            // 2 px rule and a bold weight on the prose. On his screen, scanning a column of eight
+            // storeys, that is invisible: he asked because he could not SEE it, not because PRYZM
+            // did not know.
+            //
+            // ⛔ THE INTENT FIGURE, NOT THE CEILING FIGURE. The ceiling is not in breach — it is the
+            // limit, and it is correct. Reddening it would say the ordinance is wrong. What is out
+            // of bounds is the number the USER drove with the drag, so that is the one that changes.
+            //
+            // ⛔ AND IT ADDS NO CLAIM. The refusal sentence below already states both numbers in
+            // words (§26.6 rule 3 — refused, never clamped); this is the same verdict rendered so it
+            // survives a glance. `data-intent-figure` keeps its `present`/`absent` meaning
+            // untouched — the breach is carried on its OWN attribute so a spec can read the two
+            // apart, and so a colour-blind reader still has the sentence, the weight and the rule.
+            if (p.verdict.kind === 'exceeds') {
+                intentFigure.setAttribute(INTENT_CEILING_BREACH_ATTR, 'exceeds');
+                intentFigure.style.color = BREACH_INK;
+            }
+            intent.appendChild(intentFigure);
             head.appendChild(intent);
 
             // ── the CEILING line, directly beneath and bracketed to it ──
             // An exceeded ceiling takes the warning ink on its rule: the REFUSAL is already stated
             // in full below, so this only makes the row findable — it adds no claim of its own.
-            const ceiling = pairLine(p.verdict.kind === 'exceeds'
-                ? 'var(--app-status-warning-ink, #b45309)'
-                : PAIR_RULE);
+            // §BREACH-READS-RED (L-13251) — the rule was amber; a breach is an ERROR state, not a
+            // caution, and the two must not read alike on one surface. Same token family the hub's
+            // destructive dialog uses (§HUB-MODAL-DANGER), so PRYZM has ONE red.
+            const ceiling = pairLine(p.verdict.kind === 'exceeds' ? BREACH_INK : PAIR_RULE);
             // §26.6 rule 2 — the ceiling's NAME is the link to its owner.
             const subject: SiteHighlightFixedSubject | null = p.ceilingSubject;
             if (subject !== null) {
@@ -284,7 +327,13 @@ export function buildIntentAgainstCeilingSection(
 
             const verdict = el('div', 'anl-plaw-intent-verdict', p.verdict.sentence);
             verdict.style.cssText = `font-size:${SCALE_PROSE};line-height:1.5;margin-top:3px;padding-left:8px;`;
-            if (p.verdict.kind === 'exceeds') verdict.style.fontWeight = '600';
+            if (p.verdict.kind === 'exceeds') {
+                verdict.style.fontWeight = '600';
+                // §BREACH-READS-RED (L-13251) — the sentence carries the two numbers, so it is the
+                // one piece of the row that must stay legible: `--app-status-error-ink` (#b91c1c)
+                // is the DARKER of the pair, chosen for body copy rather than the fill red.
+                verdict.style.color = BREACH_INK;
+            }
             if (p.verdict.kind === 'ceiling-not-derived' || p.verdict.kind === 'no-intent' || p.verdict.kind === 'intent-unmeasurable') {
                 verdict.style.fontStyle = 'italic';
             }
