@@ -86,6 +86,9 @@ import {
     SPLIT_TOGGLE_UNAVAILABLE_TEXT,
 } from '../../engine/views/siteAuthoringPaneDecisions';
 import type { SitePaneMode } from '../../engine/views/paneViewModel';
+// §ONE-VIEW-SWITCHER (L-13160) — the pill's testid, so this bar can tell whether a PRYZM view
+// already owns the region. Type-free import of a constant; no cycle.
+import { VIEW_SWITCHER_PILL_TESTID } from '../../engine/views/ViewSwitcherPill';
 
 const _tracer = trace.getTracer('pryzm.site.viewSwitcherOnView');
 
@@ -205,6 +208,41 @@ export function mountViewSwitcherOnView(
     root.setAttribute('data-testid', VIEW_SWITCHER_ON_VIEW_TESTID);
     root.setAttribute('role', 'group');
     root.setAttribute('aria-label', 'View');
+
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ §ONE-VIEW-SWITCHER (L-13160) — THE PRYZM PILL OWNS THE REGION. THIS BAR STANDS DOWN.
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // FOUNDER, three times, most recently: *"I requested that already - i want always the same
+    // drop down ... on pryzm view this drop down shall extend to level views also"* — with four
+    // screenshots contrasting the PILL (right) against THIS segmented strip (wrong).
+    //
+    // ⛔ WHY TWO EARLIER LANES BOTH "FIXED" THIS AND HE STILL SAW THE STRIP. There are THREE
+    // switchers, not one. `retireLegacyViewBars` (`GISAreaLayout.ts`) already retires the two it
+    // knows about — `resultToggle` and `formaToggle` — and mounts `ViewSwitcherPill` in their
+    // place. This bar is the THIRD, and it is not GIS's to retire: it is mounted by the PARCEL
+    // LAW TAB (`parcelLawTab.ts` — "SAME CONTROL, DIFFERENT PLACE"), so it rode into the PRYZM
+    // views with the panel, untouched, every time.
+    //
+    // ⭐ THE CONVENTION IS ALREADY ESTABLISHED AND THIS IS ITS OTHER HALF. `mountResultToggleBar`
+    // calls `removePryzmViewPill()` — "one region, one switcher" (L-13015). The inverse was
+    // missing: nothing stopped a bar mounting UNDER a pill that already owned the region. The
+    // check is on the PILL'S PRESENCE rather than on a phase flag, deliberately — presence is
+    // the same fact both directions read, so the two can never disagree about who is in charge,
+    // and no third party has to be told the phase.
+    if (document.querySelector(`[data-testid="${VIEW_SWITCHER_PILL_TESTID}"]`) !== null) {
+        console.log(
+            '[site] §ONE-VIEW-SWITCHER — the on-view segmented bar stood down: a PRYZM view is '
+            + 'active and `ViewSwitcherPill` already owns this region. One region, one switcher.',
+        );
+        span.setAttribute('pryzm.viewSwitcherOnView.stoodDownForPill', true);
+        span.end();
+        return {
+            element: root,          // never parented — a handle the caller can dispose safely.
+            dispose: (): void => { disposed = true; },
+            repaint: (): void => { /* nothing on screen to repaint */ },
+        };
+    }
+
 
     let switcher: ViewSegmentSwitcherHandle | null = null;
     let disposed = false;
