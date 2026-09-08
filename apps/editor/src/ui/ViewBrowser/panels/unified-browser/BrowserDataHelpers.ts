@@ -491,6 +491,15 @@ export function determineCategoryElements(
     // confident "0 Lifts" — and "the runtime is not up yet" and "there are no lifts"
     // would be the same value on screen, which is exactly the class of defect this
     // whole `determined` / `undetermined` split exists to prevent.
+    // §ENVELOPES-ARE-CATEGORIES (L-13252) — same distinction as the lift arm below: a runtime that
+    // has not composed is UNKNOWN, never "you have drawn no envelopes" (C78 §5).
+    if ((catLabel === 'Level envelopes' || catLabel === 'Room envelopes') && !_spaceEnvelopeStore(bag)) {
+        return {
+            kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
+            detail: 'runtime.stores.spaceEnvelope is not available yet — the store was never ' +
+                    'read, so an empty category was NOT determined',
+        };
+    }
     if (catLabel === 'Lifts' && !_liftCompoundStore(bag)) {
         return {
             kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
@@ -546,6 +555,29 @@ function _liftCompoundStore(bag: UBPBag): { getState?(): Map<string, any> } | un
 }
 
 /**
+ * ⭐ §ENVELOPES-ARE-CATEGORIES (L-13252) — the space-envelope store, on the runtime bag.
+ *
+ * FOUNDER: *"Envelope is still not present as an element type"*, after the same two categories
+ * were added to `INSPECT_CATEGORIES`. They were — but THIS rail is a DIFFERENT registry, and it
+ * is the third one: `inspectCategories.ts` (Inspect + the mini tree), `ElementsSummarySection`'s
+ * hand-written label list (this card), and the switches in this file.
+ *
+ * ⛔ IT IS NOT A `window.*Store`. `composeRuntime` declines this family a window global BY NAME,
+ * so it follows the `Lifts` precedent above — read off the runtime bag — for exactly the reason
+ * that row records. `role` then splits ONE store into the two categories an architect sees.
+ */
+function _spaceEnvelopeStore(bag: UBPBag): { getState?(): Map<string, any> } | undefined {
+    const stores = bag.runtime?.stores as unknown as Record<string, unknown> | undefined;
+    return stores?.['spaceEnvelope'] as { getState?(): Map<string, any> } | undefined;
+}
+
+/** The records of ONE envelope role, in store order. */
+function _envelopesOfRole(bag: UBPBag, role: 'level' | 'room'): any[] {
+    const all = [...(_spaceEnvelopeStore(bag)?.getState?.()?.values() ?? [])];
+    return all.filter((r) => (r as { role?: unknown } | null)?.role === role);
+}
+
+/**
  * The raw switch. Kept private and UNGUARDED: `determineCategoryElements` owns
  * the try/catch, so the discrimination happens in exactly one place.
  */
@@ -571,6 +603,8 @@ function _rawCategoryElements(bag: UBPBag, catLabel: string): any[] {
         // exposes `getState(): ReadonlyMap`, not the legacy `getAll()` the fifteen rows
         // above rely on. Reading the map is the store's real interface, not a shim.
         case 'Lifts':             return [...(_liftCompoundStore(bag)?.getState?.()?.values() ?? [])];
+        case 'Level envelopes':   return _envelopesOfRole(bag, 'level');
+        case 'Room envelopes':    return _envelopesOfRole(bag, 'room');
         case 'Handrails':         return window.handrailStore?.getAll?.()     ?? [];
         case 'Columns':           return window.columnStore?.getAll?.()       ?? [];
         case 'Beams':             return window.beamStore?.getAll?.()         ?? [];
@@ -614,6 +648,8 @@ export function getSubType(catLabel: string, el: any): string {
         // the field a user would group by. `liftTypeId` is the catalogue reference
         // (C104 §6's 6-person default), preferred when set.
         case 'Lifts':             return el.liftTypeId      || el.enclosureType || 'Standard';
+        case 'Level envelopes':
+        case 'Room envelopes':    return el.occupancy || el.name || 'Envelope';
         case 'Handrails':         return el.handrailType    || el.type || 'Standard';
         case 'Columns':           return el.columnType      || el.type || 'Standard';
         case 'Beams':             return el.beamType        || el.type || 'Standard';

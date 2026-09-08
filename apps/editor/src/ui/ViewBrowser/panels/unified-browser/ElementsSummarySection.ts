@@ -52,6 +52,26 @@ export function buildElementsCard(bag: UBPBag): HTMLElement {
         { label: 'Beams',             icon: `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="5" width="11" height="3" rx="0.5" stroke="#888" stroke-width="1.1"/><line x1="3" y1="8" x2="3" y2="10" stroke="#888" stroke-width="1"/><line x1="10" y1="8" x2="10" y2="10" stroke="#888" stroke-width="1"/></svg>` },
         { label: 'Plumbing',          icon: `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="7.5" r="3" stroke="#888" stroke-width="1.1"/><line x1="6.5" y1="1" x2="6.5" y2="4.5" stroke="#888" stroke-width="1.1" stroke-linecap="round"/><line x1="4" y1="1" x2="9" y2="1" stroke="#888" stroke-width="1" stroke-linecap="round"/></svg>` },
         { label: 'Rooms',             icon: `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="1.5" width="10" height="10" rx="0.5" stroke="#888" stroke-width="1.1"/><path d="M1.5 6h5.5v5.5" stroke="#888" stroke-width="1" stroke-linecap="round"/></svg>` },
+        // ⭐⭐ §ENVELOPES-ARE-CATEGORIES (L-13252) — FOUNDER: *"Envelope is still not present as
+        // an element type"*, said AFTER the same two categories were added to
+        // `INSPECT_CATEGORIES`. They were — and this card is a DIFFERENT registry. There are
+        // THREE: `inspectCategories.ts` (the Inspect tab + its mini tree), this hand-written
+        // label list, and the switches in `BrowserDataHelpers`. Adding a family to one is not
+        // adding it to the product, which is precisely the trap the `Lifts` row above records
+        // ("lift is not in the model elements within the project browser" — the same sentence,
+        // about a different family, and the same three-registry cause).
+        //
+        // ⛔ THEY READ OFF `runtime.stores.spaceEnvelope`, NOT a window global — the `Lifts`
+        // precedent, for the reason that row states. ONE store, split by `role`, because a level
+        // envelope (what you design) and a room envelope (what goes inside it) are two different
+        // things to an architect — `ENVELOPE_LEGEND` has named them apart for months.
+        //
+        // ⚠ The purple BUILDABLE envelope is deliberately NOT here: one solved study volume per
+        // parcel is not a set of selectable instances, and a count beside it would misread it as
+        // one. It keeps its visibility toggle on the site card. Flagged to the founder, not
+        // decided quietly.
+        { label: 'Level envelopes',   icon: `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5l5 2.5-5 2.5-5-2.5 5-2.5z" stroke="#6600FF" stroke-width="1.1" stroke-linejoin="round"/><path d="M1.5 6.5l5 2.5 5-2.5" stroke="#6600FF" stroke-width="1" stroke-linejoin="round"/><path d="M1.5 9l5 2.5 5-2.5" stroke="#6600FF" stroke-width="1" stroke-linejoin="round"/></svg>` },
+        { label: 'Room envelopes',    icon: `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5l5 2.5v5l-5 2.5-5-2.5v-5l5-2.5z" stroke="#6600FF" stroke-width="1.1" stroke-linejoin="round"/><path d="M6.5 6.5l5-2.5M6.5 6.5v5M6.5 6.5l-5-2.5" stroke="#6600FF" stroke-width="1" stroke-linejoin="round"/></svg>` },
         // §FEAT-PROJECT-ORIGIN (L-109) — the always-on blue-sphere coordination datum,
         // toggleable ON/OFF from the View Intent settings like any element (P7).
         { label: 'Project Origin',    icon: `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="3" stroke="#1e6bff" stroke-width="1.1"/><circle cx="6.5" cy="6.5" r="0.9" fill="#1e6bff"/><line x1="6.5" y1="1" x2="6.5" y2="3" stroke="#1e6bff" stroke-width="1" stroke-linecap="round"/><line x1="6.5" y1="10" x2="6.5" y2="12" stroke="#1e6bff" stroke-width="1" stroke-linecap="round"/><line x1="1" y1="6.5" x2="3" y2="6.5" stroke="#1e6bff" stroke-width="1" stroke-linecap="round"/><line x1="10" y1="6.5" x2="12" y2="6.5" stroke="#1e6bff" stroke-width="1" stroke-linecap="round"/></svg>` },
