@@ -55,6 +55,19 @@ export interface ViewTypeDescriptor {
     readonly viewType: ViewType;
     readonly rendererKind: RendererKind;
     /**
+     * ⭐ §PRYZM-3D-FROM-THE-DROPDOWN (L-13254) — the DECLARED whole-screen route for a view that
+     * `paneHostable: false` refuses to put in a pane.
+     *
+     * ⛔ IT IS A VIEW MODE, NOT A HANDLER. The value is what `window.pryzmActivateBimView` takes,
+     * which is the ONE choke point every route into a PRYZM view already lands on
+     * (`GISAreaLayout.activateView` — it exits GIS, retires the legacy bars and calls
+     * `ViewController.activate`). Declaring the MODE here rather than a callback keeps this
+     * registry pure and stops the picker growing a second opinion about how to enter a BIM view.
+     *
+     * Absent ⇒ there is no route and a non-pane-hostable row stays genuinely unavailable.
+     */
+    readonly fullScreenRoute?: 'Top' | '3D';
+    /**
      * True when the backing renderer is a heavyweight app-wide singleton (one Cesium
      * viewer / one WebGPU device). A singleton view MUST NOT be mounted into two
      * panes at once (that would require a second GPU device / Cesium instance — the
@@ -143,10 +156,14 @@ export const VIEW_TYPE_REGISTRY: Readonly<Record<ViewType, ViewTypeDescriptor>> 
         viewType: 'bim-3d', rendererKind: 'webgpu-three', singleton: true,
         // §VIEW-PANEL-PER-PANE — the founder's word ("3D PRYZM"), replacing "3D Model".
         label: '3D PRYZM', glyph: '◧', paneHostable: false, panelPromoted: true,
+        fullScreenRoute: '3D',
+        // ⚠ REWORDED WITH THE ROUTE (L-13254): this sentence used to end "(the panel offers that
+        // route)" — pointing at a door the dropdown would not open. It now describes what
+        // CHOOSING THIS ROW DOES, because the row does it.
         unavailableReason:
             'The PRYZM 3D renderer still owns the whole viewport (#container) and cannot be ' +
-            're-targeted into a pane yet — that is C59 Phase 3. It opens FULL SCREEN instead ' +
-            '(the panel offers that route), which leaves this split.',
+            're-targeted into a pane yet — that is C59 Phase 3. Choosing it opens PRYZM 3D ' +
+            'FULL SCREEN, which leaves this split.',
     },
     'bim-plan-2d': {
         // ⚠ `singleton: true` — the SAME correction as `site-map-2d` above, and for the same

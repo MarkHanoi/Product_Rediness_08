@@ -44,7 +44,18 @@ import {
  * displaced view is handed back, so nothing goes blank. The consequence is still stated
  * before the click; only the consequence changed.
  */
-export type PaneViewOptionState = 'current' | 'available' | 'moves-singleton' | 'unavailable';
+/**
+ * ⭐ `opens-fullscreen` (§PRYZM-3D-FROM-THE-DROPDOWN, L-13254) — FOUNDER: *"we need to enable
+ * PRYZM 3d access from the drop down"*.
+ *
+ * It is NOT `available` (choosing it does not put a view in this pane — there will BE no pane)
+ * and it is NOT `unavailable` (there is a real, declared route and it works). Modelling it as
+ * either would make the picker lie in one direction or the other: `available` promises a pane
+ * the renderer cannot give, `unavailable` denies a route the product already has. A THIRD state
+ * is the honest shape, and it is what lets the row be ENABLED while the pane refusal stays true.
+ */
+export type PaneViewOptionState =
+    | 'current' | 'available' | 'moves-singleton' | 'unavailable' | 'opens-fullscreen';
 
 export interface PaneViewOption {
     readonly viewType: ViewType;
@@ -58,6 +69,13 @@ export interface PaneViewOption {
     readonly reason?: string;
     /** For `moves-singleton`: the pane the singleton would move OUT of. */
     readonly movesFromPane?: PaneId;
+    /**
+     * §PRYZM-3D-FROM-THE-DROPDOWN (L-13254) — for `opens-fullscreen`: the whole-screen mode to
+     * dispatch. ⭐ Carried ON THE OPTION so the picker never reaches into `VIEW_TYPE_REGISTRY`:
+     * the option IS this module's contract with the picker, and a view that reads the registry
+     * directly is a second reader of the same fact.
+     */
+    readonly fullScreenRoute?: 'Top' | '3D';
     /**
      * §SWAP-NOT-VACATE — for `moves-singleton`: the view THIS pane would hand back to
      * `movesFromPane`. Absent ⇒ this pane is empty, so there is nothing to hand back and
@@ -134,6 +152,29 @@ export function describePaneViewOptions(input: PaneViewOptionsInput): PaneViewOp
         }
 
         if (!d.paneHostable) {
+            // ⭐⭐ §PRYZM-3D-FROM-THE-DROPDOWN (L-13254) — A VIEW THAT CANNOT BE A PANE CAN STILL
+            // BE REACHED, AND THE ROW NOW OFFERS THAT ROUTE INSTEAD OF ONLY NAMING IT.
+            //
+            // FOUNDER: *"we need to enable PRYZM 3d access from the drop down"*. The row was
+            // greyed with a reason that ENDED BY DESCRIBING A WORKING ROUTE — "It opens FULL
+            // SCREEN instead (the panel offers that route)" — so the dropdown told him where to
+            // go and then refused to take him. ⛔ That is the §REFUSING-HALF-NEEDS-ITS-ESCAPE-HATCH
+            // shape (L-942): a refusal whose own text names the way out, with no way to take it.
+            //
+            // ⛔ THE PANE REFUSAL IS UNCHANGED AND STILL TRUE. C59 Phase 3 stands: the WebGPU
+            // renderer owns `#container` and cannot be re-targeted into a pane. What changes is
+            // only that choosing the row DISPATCHES the declared whole-screen route rather than a
+            // pane intent, and the reason says so plainly BEFORE the click — the split is left,
+            // which is a consequence the user must read first, not discover.
+            if (d.fullScreenRoute !== undefined) {
+                return {
+                    ...base,
+                    state: 'opens-fullscreen',
+                    enabled: true,
+                    fullScreenRoute: d.fullScreenRoute,
+                    reason: d.unavailableReason ?? 'Opens full screen, leaving this split.',
+                };
+            }
             return {
                 ...base,
                 state: 'unavailable',

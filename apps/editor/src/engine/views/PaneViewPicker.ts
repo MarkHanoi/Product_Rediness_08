@@ -411,6 +411,41 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
             });
             btn.addEventListener('click', () => {
                 if (o.state === 'current') { setOpen(false); return; }
+                // ⭐⭐ §PRYZM-3D-FROM-THE-DROPDOWN (L-13254) — a row that cannot be a PANE is still
+                // a row that can be REACHED. Founder: *"we need to enable PRYZM 3d access from the
+                // drop down"*.
+                //
+                // ⛔ IT MUST NOT GO THROUGH `dispatchAssign`. That writes a pane intent into
+                // `PaneLayoutStore`, and this view has `paneHostable: false` — the layout would be
+                // unrealisable and `validatePaneLayout` exists to reject exactly that. The route is
+                // the DECLARED whole-screen one, `window.pryzmActivateBimView`, which is the same
+                // choke point Views & Sheets and the GIS dropdown already use (it exits GIS,
+                // retires the legacy bars, then activates). One orchestrator, three callers.
+                if (o.state === 'opens-fullscreen') {
+                    const mode = o.fullScreenRoute;
+                    const go = (window as { pryzmActivateBimView?: (m?: 'Top' | '3D') => unknown })
+                        .pryzmActivateBimView;
+                    if (mode === undefined || typeof go !== 'function') {
+                        // ⛔ NAMED, NEVER A SILENT NO-OP. A dropdown row that does nothing on click
+                        // is the defect this whole picker was built to end.
+                        console.warn(
+                            '[PaneViewPicker] §PRYZM-3D-FROM-THE-DROPDOWN — cannot open '
+                            + `"${o.label}" full screen: `
+                            + `${mode === undefined ? 'no fullScreenRoute is declared for it' : 'window.pryzmActivateBimView is not registered in this workspace'}.`,
+                        );
+                        return;
+                    }
+                    setOpen(false);
+                    try {
+                        void Promise.resolve(go(mode)).catch((e: unknown) => {
+                            console.warn('[PaneViewPicker] §PRYZM-3D-FROM-THE-DROPDOWN the '
+                                + 'full-screen route rejected:', e);
+                        });
+                    } catch (e) {
+                        console.warn('[PaneViewPicker] §PRYZM-3D-FROM-THE-DROPDOWN threw:', e);
+                    }
+                    return;
+                }
                 dispatchAssign(o.viewType);
             });
         }
