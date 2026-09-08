@@ -4815,7 +4815,42 @@ export class CesiumViewport {
       pitch: Cesium.Math.toRadians(SITE_FRAME_PITCH_DEG),
       roll: 0,
     };
-    if (opts.instant) {
+    // ══════════════════════════════════════════════════════════════════════════
+    // §STARTUP-ARRIVES-DIRECTLY (founder 2026-09-08 · L-13262)
+    //
+    // *"From the moment the user clicks the location — e.g. Madrid — until the moment the
+    // user is on the initial split view it takes a few seconds. Remove the legacy zoom in
+    // part from the globe to zone — exclude this — architecturally sound — and try to go as
+    // quick as possible, ideally 1 second to the location."*
+    //
+    // ⚠⚠ THIS REVERSES §STARTUP-SLOW-DESCENT (2026-09-07, ONE DAY OLD) AND THE REVERSED
+    // RULING IS KEPT IN FULL ABOVE, because it was won for a real reason and the reason has
+    // not gone away. Yesterday: *"do the zoom in to the location way slower — to ideally not
+    // have the loading page at all"*, and 12 s was chosen to COVER the opening of a measured
+    // 61 s tile stream with a shot instead of a splash.
+    //
+    // ⛔ SO THE COST IS REAL AND IS STATED RATHER THAN HIDDEN: with the descent gone, the
+    // wait it was covering becomes VISIBLE again. It does not become LONGER — nothing
+    // sequences on the flight, and §STARTUP-QUIET-ACTIVATION's in-view line already carries
+    // the wait without a splash. What the founder loses is the cinematic; what he gains is
+    // being ON the plot in ~0 s instead of watching a 12 s glide before he can act.
+    //
+    // ⭐ AND IT IS CONSISTENT WITH §STARTUP-DIRECT-DESCENT (2026-08-07), NOT A SECOND
+    // REVERSAL. That ruling was *"do not PARK the camera at altitudes nobody looks at"* —
+    // three wasted LOD streams competing with the context read. A direct `setView` parks at
+    // NO intermediate altitude at all, so it satisfies 08-07 more completely than the glide
+    // did: the `SITE_ARRIVAL_HIGH_ALT_M` (9 000 m) establishing vantage is exactly the
+    // "globe to zone" leg the founder asked to exclude, and it is now never entered on this
+    // route. One frustum, at the destination.
+    //
+    // ⛔ IT REUSES THE EXISTING `instant` BRANCH RATHER THAN ADDING A THIRD PATH. That branch
+    // already lands on the SAME `destination` and `orientation`, and already disarms and
+    // settles the one-shot descent promise — so the quiet-activation window cannot be left
+    // waiting on an animation that now never runs. A new "fast flight" branch would be a
+    // second arrival implementation to keep in step with the seat.
+    // ══════════════════════════════════════════════════════════════════════════
+    const arriveDirectly = opts.instant === true || this.startupDescentArmed;
+    if (arriveDirectly) {
       // §STARTUP-SLOW-DESCENT — an INSTANT framing is not a descent. Disarm and settle, so a
       // start-up arming that lands on the mount-framing path resolves rather than dangling.
       if (this.startupDescentArmed) {
@@ -4823,6 +4858,14 @@ export class CesiumViewport {
         const resolve = this.resolveStartupDescent;
         this.resolveStartupDescent = null;
         resolve?.();
+        console.log(
+          '[CesiumViewport] §STARTUP-ARRIVES-DIRECTLY (L-13262) — the start-up arrival is a ' +
+          `direct setView onto the site seat: no ${SITE_ARRIVAL_HIGH_ALT_M} m establishing ` +
+          `vantage and no ${STARTUP_DESCENT_FLY_DURATION_S}s glide. Founder 2026-09-08: ` +
+          '"remove the legacy zoom in part from the globe to zone". Same seat, one frustum. ' +
+          'The tile wait this used to cover is now visible — §STARTUP-QUIET-ACTIVATION ' +
+          'carries it in view, without a splash.',
+        );
       }
       viewer.camera.setView({ destination, orientation });
     } else {
