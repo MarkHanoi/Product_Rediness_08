@@ -197,10 +197,25 @@ question and ending in one affordance that moves the architect to the next.
 | **06** | **COST** | *What will it roughly cost?* | designed GFA × a cost assumption the user can see and change; published rates, categories, correction factors, source, legal basis, exclusions, licence and citation behind **"Cost assumptions & source"** | proceed to BIM |
 | **07** | **BIM** | *Am I ready for BIM?* | what transfers: parcel context · regulatory envelope · selected design envelope · levels · programme · room envelopes · quantities and assumptions | **"Continue to BIM"** (and the existing **"Create house"** remains available) |
 
-### §1.1 — ⚠ THE SHIPPED LADDER HAS SIX GROUPS, NOT SEVEN — NOT-YET-TRUE
+### §1.1 — ⚠ THE SHIPPED LADDER HAD SIX GROUPS, NOT SEVEN — ⭐ **THE SPLIT IS DONE (2026-09-07)**
 
-`PARCEL_LAW_QUESTION_GROUPS` ships `plot(1) · law(2) · intent(3) · allowance(4) · cost(5) · bim(6)`.
-The founder's Stage 03 **and** Stage 05 are both inside group 3 (`intent`): the tab appends the
+> ⭐ **STATUS CORRECTED 2026-09-07 · lane SECTION-4-ROOMS · `L-13237`.** `C115-06` and `C115-07`
+> are **CLOSED**: `PARCEL_LAW_QUESTION_GROUPS` now ships **SEVEN** —
+> `plot(1) · law(2) · intent(3) · rooms(4) · allowance(5) · cost(6) · bim(7)` — and the room
+> programme plus `Rooms per level` moved out of `bodyOf('intent')` into `bodyOf('rooms')`. The
+> normative clauses for the new group are **§8.1 `C115-170`…`C115-176`**.
+> ⚠ **What is NOT closed:** the `C115-05` **stage ORDER**. The table below still reads 04
+> FEASIBILITY / 05 PROGRAMME while the shipped ladder puts PROGRAMME at 4 — the founder's explicit
+> instruction and the only zero-content-movement option. `C115-171` holds that open and forbids
+> shipping §7's table against the table silently. ⛔ **This box corrects a status, not the stage
+> table; amending that table needs the founder's ruling, not a lane's.**
+> ⚠ **STR §26.3 still lists SIX questions and does not contain PROGRAMME.** It outranks this
+> contract in the conflict order and has **not** been amended. `L-13237` carries that too.
+
+The paragraph below is the state at mint, kept as the record of what the split was fixing.
+
+`PARCEL_LAW_QUESTION_GROUPS` shipped `plot(1) · law(2) · intent(3) · allowance(4) · cost(5) · bim(6)`.
+The founder's Stage 03 **and** Stage 05 were both inside group 3 (`intent`): the tab appended the
 authoring slot, the intent slot **and** the whole room programme into `bodyOf('intent')`.
 
 `C115-06` The refactor **MUST SPLIT** group 3, not build two groups from nothing.
@@ -601,6 +616,74 @@ other rendering becomes; it never states "delete".
 | Cost methodology, rates, factors, licence, exclusions | **06 → "Cost assumptions & source"** | — | ⛔ YES — **two competing cost answers**, different bases, different rates, both mounted |
 | "study, not a permit" | **one statement per stage boundary** | — | ⛔ YES — **6+ renderings, four wordings**; ⚠ see §2.4 |
 | What transfers to BIM | **07** | — | — |
+| ⭐ **Envelope CREATION** — the footprint ladder, the storey count, `Create envelope`, `Discard the drawn perimeter`, the per-storey `Edit perimeter` / `Drag face` rows | ⭐ **02 BUILDABILITY** (founder ruling 2026-09-07 — see §2.2.1) | a **reference** from 03, carried by the relocation stamp `data-relocated-to="law"` and its sentence | no — one mount, re-parented `L-13202` |
+
+### §2.2.1 — ⭐⭐ ENVELOPE CREATION IS A STAGE-02 VERB (FOUNDER RULING, 2026-09-07 · `L-13202`)
+
+> ⛔ **DO NOT RE-OPEN THIS FROM §1's STAGE TABLE.** `C115-05` lists *"generate massing options ·
+> select one · **draw your own** · drag/edit the envelope · modify footprint · … · add/remove
+> levels"* under **03 DESIGN ENVELOPE**, and on that reading origination belongs in question 3.
+> **The founder has ruled against that reading, twice, in one sitting**, and he is the authority on
+> his own product's information architecture. The row above and `C115-158`…`C115-161` are the
+> ruling; §6 is amended to match. A contract that disagrees with a ruling given twice is the thing
+> that is wrong.
+
+His words, over a screenshot of the `Create the envelope` block sitting inside question 3:
+
+> *"REVIEW THIS SECTION — THIS HAS BEEN DONE ALREADY ON SECTION 2 — AND KEEP THE SECTION 02 INTACT
+> AFTER HAVING CREATED THE MASSING ENVELOPE — CHECK IMAGE 2."*
+
+and, over a screenshot of question 3 holding only *"What I want to build — beside what I can"* with
+`3.1 · LEVELS AND HEIGHTS` and `3.2 · AREAS`:
+
+> *"SECTION 3 SHALL HAVE ONLY THIS SCOPE — BUT MAKE IT WITH THE CORRECT TEXT AND SIZE TEXT OF
+> PRYZM: LIKE THE OTHER SECTIONS."*
+
+`C115-158` Envelope CREATION **MUST** be hosted in **02 BUILDABILITY**, directly beneath the
+determination it is measured against and beside *Massing options* and *Fit this on the ground
+floor*. **03 DESIGN ENVELOPE MUST contain only the intent-vs-ceiling ledger** — its title, `3.1
+Levels and heights` and `3.2 Areas`.
+
+`C115-159` ⭐ **THE REASONING, RECORDED SO IT IS NOT RE-LITIGATED: 02 is where you ACT on the
+parcel; 03 is a READ surface** — the ledger of what you declared against what you are allowed. The
+two questions are not *"the law"* and *"the design"*; they are *"the parcel and what may be done to
+it"* and *"the account of what you did"*.
+
+`C115-160` ⛔ **AND THE COMPLAINT WAS STRUCTURAL, NOT AESTHETIC.** Two measurements, either of which
+alone settles it, both taken 2026-09-07 against `HEAD`:
+
+1. **A gesture begun in 02 could only be finished in 03.** Question 2's *"Create it myself"*
+   (`apps/editor/src/ui/site/massingAuthoredOptionSection.ts`) opens the draw tool via
+   `window.pryzmOpenSiteEnvelopeTool`, and the **only** control that consumes the drawn ring — and
+   the **only** *Discard the drawn perimeter* — was in question 3
+   (`apps/editor/src/ui/analysis/parcelLawEnvelopeAuthoring.ts`, the `drawn` rung of
+   `resolveFootprintSource`).
+2. **The product's own design-stage strip already treated 02 as the home of the massing verb.**
+   `data-stage-control="massing"` is set on **three** envelope-card elements and on **nothing** in
+   the authoring block, so the strip's *"do this next"* pill jumped into question 2 and could never
+   reach `Create envelope` (`apps/editor/src/ui/site/designStagePanel.ts`,
+   `designStageStripControl.ts`).
+
+`C115-161` ⭐ **THE TWO CREATION ROUTES IN 02 ARE NOT RIVALS, AND A PR MUST NOT "DE-DUPLICATE" THEM.**
+`C115-13`'s test answers this directly — they do not answer the same question:
+
+- *Fit this on the ground floor* (`envelopeCardSections.ts`, `buildTargetAreaEntryHtml`) solves a
+  **session STUDY plate** of a typed area. **It mints nothing.**
+- `Create envelope · N storeys` (`envelopeAuthoringPlan.ts`) extrudes a **resolved RING over N
+  storeys** as N `role: 'level'` space envelopes in one `spaceEnvelope.batch.create`.
+
+The fitted plate is **rung 2 of the very ladder the create button consumes** (`resolveFootprintSource`:
+drawn > plate > permitted > study > none), so 02's output is 02's own input, one step later. They
+**MUST** be presented as consecutive rungs of one ladder — choose a ground plate, then extrude it —
+never stacked as two similar-looking buttons.
+
+⚠ **NOT-YET-TRUE, and it is the real duplication in this area: ADOPT vs CREATE.** `Keep this as a
+level envelope` (`adoptProposalAsEnvelope.ts`) mints **one** level envelope on the **ground** storey;
+`Create envelope · N storeys` mints **N over N**. Both dispatch the same command with the same
+one-undo and supersession discipline, so adopt is create's `N = 1`-on-the-ground special case.
+`C115-57`'s `startStoreyId` (D-7, accepted, refuses rather than falling back, **zero production
+callers**) is the lever that would unify them. **Retiring the adopt button would delete PR-G-11
+material and therefore requires a §3 amendment in the same commit** — it is not a quiet drop.
 
 ### §2.3 — ⭐ THE TEST THAT SEPARATES A DUPLICATION FROM TWO DIFFERENT FACTS (L-13005)
 
@@ -877,6 +960,17 @@ renderer) · PR-G-27 the on-view view switcher · **PR-G-28 per-storey *Drag fac
 (disabled **with the 3-D surfaces' own verbatim reason**, composed by `composeFaceDragRefusal()`;
 `data-focused` carries the state so the row is read by value, not by label).
 
+> ⭐ **HOST CHANGE, 2026-09-07 — lane SECTIONS-2-AND-3, row `L-13202`. NO ROW LEAVES THIS
+> REGISTER.** `C115-158` moved envelope CREATION into question 2, so **PR-G-13** (storeys input ·
+> dynamic label · *Create envelope* · intent line · advisory · status), **PR-G-14** (*Discard the
+> drawn perimeter*), **PR-G-15** (per-storey *Edit perimeter*) and **PR-G-28** (*Drag face*) are now
+> rendered inside **02 BUILDABILITY**. **Their testids, labels, tooltips, three-state arms and
+> refusal sentences are unchanged, byte for byte** — the DOM was re-parented, not rebuilt, because
+> `parcelLawChat.ts` drives both creation routes **by testid** (PR-H-03) and a rename would break it
+> silently. `C115-18` is therefore satisfied by relocation, and this note is the `C115-17` stamp's
+> written half; the machine-readable half is `data-relocated-to="law"` on question 3's pointer
+> sentence (`PARCEL_LAW_AUTHORING_MOVED_TESTID`).
+
 ⭐ **PR-G-28 IS A SUBJECT SELECTOR, NOT AN ARMING CONTROL, AND THE DISTINCTION IS NORMATIVE.**
 `C115-149` The face-drag gesture is installed unconditionally on both 3-D surfaces and **MUST**
 remain live whether or not this control was ever pressed. A future change that gates the *gesture*
@@ -1083,6 +1177,24 @@ says every surface drawing it must print (OPEN DEFECT D-6).
 ---
 
 ## §6 — STAGE 03: THE DESIGN INTERACTION
+
+> ⭐⭐ **AMENDED 2026-09-07 — lane SECTIONS-2-AND-3, row `L-13202`. READ §2.2.1 BEFORE THIS SECTION.**
+> The founder has ruled envelope **CREATION** into **Stage 02** (`C115-158`), so this section no
+> longer describes where the create verbs live. **Stage 03 hosts the intent-vs-ceiling ledger — its
+> title, `3.1 Levels and heights`, `3.2 Areas` — and the per-storey EDIT gestures that operate on
+> envelopes that already exist.** Origination — the footprint ladder, the storey count,
+> `Create envelope`, `Discard the drawn perimeter` — is Stage 02's, beneath the determination it is
+> measured against.
+>
+> ⛔ **EVERY CLAUSE BELOW SURVIVES UNCHANGED IN SUBSTANCE — only its HOST moved.** `C115-50`
+> (no silent clamping), `C115-51` (both numbers), `C115-52` (*"not checkable"*, never *"pass"*),
+> `C115-57` (`startStoreyId`) and the whole §6.2 compare loop are binding wherever the control is
+> rendered. A clause is not weakened by being read in a different question, and **nothing in §6 may
+> be deleted on the strength of this move** (`C115-19`).
+>
+> ⛔ **AND STAGE 02 MUST NOT GATE STAGE 03** — `C115-130` is unchanged and is now load-bearing:
+> question 3 renders its ledger's own §4.1 states whether or not an envelope exists. A null envelope
+> is a state to render, not a branch to skip (C58 §1.20).
 
 `C115-49` Stage 03 **MUST** offer, on whichever site view is open: generate massing options · select
 one · **draw your own** · drag/edit the envelope · modify the footprint · modify individual storeys ·
@@ -1616,6 +1728,59 @@ typesets the parcel value in a different class than the probe selects. `C115-100
 move with the rendering they mirror, in the same PR** — this is exactly the failure §2.5's
 relocation stamp and PR-H-02 exist to prevent, and it will recur on every block this refactor moves.
 
+> ⭐⭐ **Q2's HALF IS CLOSED, 2026-09-07 — lane SECTIONS-2-AND-3, row `L-13202`. Q1's HALF REMAINS
+> OPEN.** Do not read this box as closing `C115-99` entirely: only the **law** group was re-pointed.
+>
+> **THE CAUSE, MEASURED RATHER THAN INFERRED, AND IT WAS WORSE THAN THIS CLAUSE STATED.** The clause
+> says *"the digest probes"*; the measurement is that **ALL SEVEN of Q2's probes were unreachable —
+> four headline and three confidence — and had been since `27d3c93b`.** Every one is emitted by
+> `buildParcelLawFacts` on its `wantLaw` arm alone, and that commit (§26.6 rules 1+2, `L-13046`)
+> deleted `factsLawSlot.replaceChildren(renderModel(model, { scope: 'law' }))`. `parcelLawTab.ts`
+> now has exactly ONE production call to that producer and it passes `{ scope: 'plot' }`, into
+> question 1. ⛔ **So the digest was not wrong about the parcel — it was reading a rendering that no
+> longer exists.** It could not have mirrored anything, on any parcel, in any state, which also
+> disposes of the founder's *"after having created the massing envelope"*: the emptiness is
+> unconditional, and authoring only made it VISIBLE, because a digest is only shown when its group
+> is collapsed.
+>
+> ⛔ **THREE PLAUSIBLE THEORIES WERE TESTED AND ALL THREE WERE FALSE**, recorded because a wrong
+> diagnosis is a future regression: it was **NOT** the authored envelope (C114,
+> `confidence: 'authored'`) overwriting the solved determination (C58); **NOT** a C06 §13.3
+> two-producer collision; **NOT** a digest computed from a different source than the body renders
+> (the digest *is* a `MutationObserver` mirror over its own body — that mechanism was never at
+> fault).
+>
+> ⭐ **WHY RE-POINTED, NOT RESTORED — THIS RESOLVES A COLLISION BETWEEN TWO MUSTs IN THIS FILE.**
+> `C115-125` (§1.5.1) makes the unreachable law-scope renderer the **MUST** basis of Stage 02, and
+> `L-13139` prescribes the fix as *"the rendering coming back, not re-pointing"*. ⛔ **That collides
+> head-on with founder rule 1 (`L-13046`), which is what DELETED that rendering as a duplicate of
+> the envelope card's own fold** — and with `C115-11`, which forbids fixing a duplication by adding
+> a rendering back. The determination is **already in Q2's body**: the card's ceiling headline is
+> mounted there and states the same four figures from the same model. So the mirror was pointed at
+> **the rendering that survived** — `[data-ceiling="…"][data-derived="yes"] .anl-card-row-val`, in
+> `CEILING_KEYS` order, with `[data-testid="envelope-ceiling-headline"]`'s new
+> `data-ceilings-derived` count as the C58 §1.2 confidence half.
+>
+> `C115-162` ⛔ **A PR THAT RESTORES THE LAW-SCOPE RENDERING (`C115-125`) MUST NOT ALSO LEAVE THE
+> LIVE PROBES POINTING AT THE CARD.** The four dead selectors are deliberately retained BELOW the
+> live ones so a restoration resolves without a further edit; the restoring PR **MUST** decide which
+> rendering is canonical (`C115-10`) and delete the other set in the same commit. Two live probe
+> sets over two renderings of one determination is `C115-99` with the sign flipped.
+>
+> `C115-163` ⚠ **NOT-YET-TRUE, AND NAMED SO IT IS NOT MISTAKEN FOR DONE: the digest's confidence
+> half UNDER-CLAIMS.** `data-ceilings-derived` says *"4 of 4 derived"*; the parcel's real C58 §1.2
+> confidence is the card's provenance badge — *"Real · constructed"* / *"Estimated"* / *"⚠ Unverified
+> · machine-extracted"* / *"Max extent — setbacks unpublished"* / *"Zone extent — upper bound"* —
+> which is built inline in `apps/editor/src/ui/layout/GISAreaLayout.ts` with **no stable hook**.
+> A PR giving that badge a `data-testid` **MUST** move this probe onto it. Under-claiming is the
+> only direction a fallback may fail in. `L-13203` holds it open.
+>
+> `C115-164` ⚠ **NOT-YET-TRUE: the REFUSAL arm of Q2 has no digest hook at all.** When the rule pack
+> refuses, `GISAreaLayout.ts` returns the refusal card early and never renders the ceiling headline,
+> so every live probe misses and the digest falls to *"no determination held"* — which is **wrong in
+> a new way**: a refusal IS a determination-shaped answer (*"PRYZM will not state one, because X"*),
+> not an absence. Closing `C115-164` needs a stable hook on that arm. `L-13203` covers it.
+
 `C115-101` **A full second law-scope rendering — richer than the card's — is unreachable in
 production.** It carries the three setbacks as **separate rows each with its own not-derived state**
 (vs the card's one collapsed triple string), a named buildable-footprint row, a max-GFA row and the
@@ -1726,7 +1891,7 @@ Each is derived from the founder's own list.
 | **AC-13** | **Progressive by project state, without an honesty regression** | §4.4's four-part test; the cold-start view is one line; every failure arm still renders |
 | **AC-14** | **One disclosure primitive** | §11; no untagged `<details>` remains; scroll and fold state survive every repaint |
 | **AC-15** | **A host arbiter, not a MutationObserver** | §10's eight sub-clauses |
-| **AC-16** | **Probes and testids moved with their renderings** | §12.1; no digest mirrors nothing; the chat still drives the controls it drives today |
+| **AC-16** | **Probes and testids moved with their renderings** | §12.1; no digest mirrors nothing; the chat still drives the controls it drives today. ⭐ **PARTIALLY MET 2026-09-07 (`L-13202`)**: Q2's and Q3's digests both mirror their own bodies and are pinned by `parcelLawSectionTwoIntact.spec.ts` (ARM 0 reproduces the defect with the retired probe set; ARM 3 proves the arms can fail). ⚠ **Q1's half of `C115-99` is still OPEN**, and so are `C115-163` (the confidence half under-claims) and `C115-164` (the refusal arm has no hook) |
 | **AC-17** | **An exhaustiveness gate exists** | §12.2; the register has a mechanical guard |
 | **AC-18** | ⚠ **Seen in a browser** | STR §26.6.7's one genuinely open row. A DOM-level proof is not a pixel-level proof |
 
@@ -1808,6 +1973,27 @@ them; it does not log them.
 ---
 
 ## §17 — STATUS (living record — appended, never rewritten)
+
+### 2026-09-07 · lane SECTION-4-ROOMS · §8.1 ADDED — STAGE 05 IS QUESTION 4 — `L-13237` · `L-13238`
+`C115-06`'s split is **DONE**: the room programme and `Rooms per level` left question 3 and became
+question **4**, built from `buildQuestionGroup` — the same primitive as ①②③, not a lookalike — with
+`C115-05`'s stage-05 question verbatim. The tab's lede moved from *"Six questions"* to *"Seven"* in
+the same commit (`C115-08`), and `parcelLawQuestionGroup.ts`'s verbatim six-question quotation was
+**annotated, not edited**, as that clause requires.
+⚠ **The 04/05 ORDER is NOT settled and is not this lane's to settle** — `C115-171` records that
+§7's feasibility table will land after PROGRAMME on the shipped ladder, which contradicts
+`C115-05`. **Not amended here:** the `C115-05` stage table (§1, needs the founder's ruling) and
+**STR §26.3**, which lists SIX questions, does not contain PROGRAMME, and outranks this contract in
+the conflict order — a seven-group ladder makes that strategy section stale and it has NOT been
+amended by this lane.
+⛔ **NOT SEEN IN A BROWSER** — §14.14 still stands. What IS measured: the seven graph behaviours of
+`C115-74`, the compaction's two states driven by a real drop and a real chip click, the sixteen
+chips, the actions of image 4, the four `Rooms per level` envelope arms including `rival`'s full
+card, and the seven-rung ladder with the programme host asserted **inside** question 4 and
+**absent** from question 3.
+⭐ **One shipped defect was found by the proof rather than by the brief** (`L-13238`): four nested
+`makeDropTarget` nodes plus a bubbling `drop` made one chip release add **two** rooms. Every earlier
+spec dropped on the ROOT, the one position where it is invisible.
 
 ### 2026-09-07 · lane SITE-TAB · §0.3 ADDED — THE HOST CHANGED — `L-13180`
 

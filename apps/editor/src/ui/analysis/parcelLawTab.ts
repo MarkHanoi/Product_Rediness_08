@@ -1187,7 +1187,7 @@ export function mountParcelLawTab(
     // ── Q4 · "What can I fit inside it?" ──────────────────────────────────────
     //
     // §PL-ROOM-PROGRAMME (L-13024 clause 3, STR §25.5) — the ROOM PROGRAMME.
-    // §STAGE-05-SECTION (C115 §8.1 `C115-170`, L-13176) — and it is now its OWN question.
+    // §STAGE-05-SECTION (C115 §8.1 `C115-170`, L-13237) — and it is now its OWN question.
     //
     // ⭐ IT WAS IN QUESTION 3 AND IT IS NOW QUESTION 4 — a SPLIT, not a move between panels.
     // Founder 2026-09-07: *"THE ROOMS SHOULD BE THE NEW SECTION 4."* `C115-06` requires exactly

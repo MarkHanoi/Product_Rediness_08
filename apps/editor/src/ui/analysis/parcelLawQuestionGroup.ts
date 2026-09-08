@@ -19,7 +19,7 @@
  * quantities, then cost — which is the order a PROGRAMMER discovers them in. An architect or a
  * land developer arrives with QUESTIONS, in a fixed order, and this module is them.
  *
- * ⚠ IT WAS SIX AND IT IS NOW **SEVEN** (§STAGE-05-SECTION, 2026-09-07, L-13176). Founder:
+ * ⚠ IT WAS SIX AND IT IS NOW **SEVEN** (§STAGE-05-SECTION, 2026-09-07, L-13237). Founder:
  * *"THE ROOMS SHOULD BE THE NEW SECTION 4."* The room programme and `Rooms per level` were both
  * inside question 3 — the founder's Stage 03 and Stage 05 sharing one question — and `C115-06`
  * requires that to be fixed by SPLITTING group 3, which is what question 4 below is. Every
@@ -297,7 +297,7 @@ export const PARCEL_LAW_QUESTION_GROUPS: readonly QuestionGroupSpec[] = Object.f
         emptyDigest: 'nothing declared yet',
     }),
     // ═════════════════════════════════════════════════════════════════════════════════════
-    // ⭐ QUESTION 4 — §STAGE-05-SECTION (C115 §8.1 `C115-170`…`C115-176`, L-13176)
+    // ⭐ QUESTION 4 — §STAGE-05-SECTION (C115 §8.1 `C115-170`…`C115-176`, L-13237)
     // ═════════════════════════════════════════════════════════════════════════════════════
     // Founder 2026-09-07: *"THE ROOMS SHOULD BE THE NEW SECTION 4 — BUT MAKE IT SMALLER AND
     // MORE DISCREET — BOTH THE ROOM GRAPH AND THE 'ROOMS PER LEVEL' SECTION."*
@@ -318,7 +318,7 @@ export const PARCEL_LAW_QUESTION_GROUPS: readonly QuestionGroupSpec[] = Object.f
     // duplication between Designed vs permitted, How much allowance have I used?, Live
     // quantities"*, so it is not that table yet. The founder asked for rooms at **4**, which is
     // also the option that moves no content at all: the surface keeps the DOM position it
-    // already occupied. `C115-170` records the divergence and L-13176 holds it open.
+    // already occupied. `C115-170` records the divergence and L-13237 holds it open.
     Object.freeze({
         id: 'rooms',
         ordinal: 4,

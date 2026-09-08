@@ -1,6 +1,13 @@
 /**
  * §PL-IA-Q (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §26.2 / §26.3 / §26.5 · L-12998) —
- * THE PARCEL LAW TAB IS ORDERED BY THE SIX QUESTIONS, AND NOTHING WAS DROPPED TO ACHIEVE IT.
+ * THE PARCEL LAW TAB IS ORDERED BY THE PERSONA'S QUESTIONS, AND NOTHING WAS DROPPED TO ACHIEVE IT.
+ *
+ * ⚠ SIX AT MINT, SEVEN SINCE §STAGE-05-SECTION (2026-09-07 · C115 §8.1 · L-13237). The founder:
+ * *"THE ROOMS SHOULD BE THE NEW SECTION 4."* `C115-06` requires that to be a SPLIT of question 3,
+ * which had been carrying both his Stage 03 and his Stage 05; `C115-07` gives stage 05 the
+ * question it never had. Every count in this file moved in the same commit as the code —
+ * `C115-08` — because a spec asserting six against a ladder of seven is a spec that certifies the
+ * defect it was written to catch.
  *
  * Founder 2026-09-06: *"honestly a lot is done — i can see most of the pieces working and i am
  * impressed — is just that is not well organize."*
@@ -9,7 +16,7 @@
  * organised' is not verifiable. A lane taking §26 must state what it is optimising and how it
  * knows it improved."* So this file measures the four things that were promised:
  *
- *   ARM A — the SEQUENCE is the persona's, not the model's (§26.3, six groups, in order).
+ *   ARM A — the SEQUENCE is the persona's, not the model's (§26.3 + C115-06, seven groups, in order).
  *   ARM B — ⭐ NOTHING WAS SILENTLY DROPPED. Every section the flat tab rendered is still in the
  *           body, and each is asserted INSIDE the question it answers. This is the arm that
  *           matters most: a re-organisation that loses a determination has not tidied the tab,
@@ -33,6 +40,7 @@ import {
     PARCEL_LAW_FACTS_PLOT_SLOT_TESTID,
     PARCEL_LAW_FACTS_LAW_SLOT_TESTID,
     PARCEL_LAW_AUTHORING_HOST_TESTID,
+    PARCEL_LAW_ROOM_PROGRAMME_HOST_TESTID,
     PARCEL_LAW_ALLOWANCE_HOST_TESTID,
     PARCEL_LAW_QUANTITIES_HOST_TESTID,
     PARCEL_LAW_COST_HOST_TESTID,
@@ -87,7 +95,7 @@ beforeEach(() => {
 
 // ══════════════════════════════════════════════════════════════════════════════
 describe('ARM A — the sequence is the PERSONA\'s (STR §26.3), not the model\'s', () => {
-    it('renders exactly six groups, in the founder\'s order, each with a question a human asks', () => {
+    it('renders exactly seven groups, in the founder\'s order, each with a question a human asks', () => {
         const { host, handle } = mountReal();
         const ladder = host.querySelector(`[data-testid="${PARCEL_LAW_LADDER_TESTID}"]`);
         expect(ladder, 'the tab has no ladder').not.toBeNull();
@@ -96,12 +104,12 @@ describe('ARM A — the sequence is the PERSONA\'s (STR §26.3), not the model\'
         // `parcel-law-q-digest-<id>`, which also starts with the group prefix. A bare `^=` counts
         // twelve nodes and would have "passed" a tab with three groups and nine digests.
         const groups = [...ladder!.querySelectorAll(`details[data-testid^="${QUESTION_GROUP_TESTID_PREFIX}"]`)];
-        expect(groups).toHaveLength(6);
+        expect(groups).toHaveLength(7);
 
         // ⭐ THE ORDER IS ASSERTED FROM THE DOM, not from the spec table — a table that agreed
         // with itself would prove nothing about what the reader sees.
         expect(groups.map((g) => g.getAttribute(QUESTION_GROUP_ORDINAL_ATTR)))
-            .toEqual(['1', '2', '3', '4', '5', '6']);
+            .toEqual(['1', '2', '3', '4', '5', '6', '7']);
 
         const questions = groups.map((g) => g.querySelector('.anl-plaw-q-title')?.textContent ?? '');
         expect(questions).toEqual([
@@ -109,6 +117,9 @@ describe('ARM A — the sequence is the PERSONA\'s (STR §26.3), not the model\'
             // §26.6.2 (L-13046) — renamed by the founder: *"What CAN I build here?"*, his words.
             'What can I build here?',
             'What do I want to build?',
+            // §STAGE-05-SECTION (C115-170) — the founder's "NEW SECTION 4". The title is
+            // `C115-05`'s stage-05 question, transcribed verbatim rather than written to taste.
+            'What can I fit inside it?',
             'How much of my allowance have I used?',
             'What does it cost?',
             'Take me into BIM.',
@@ -122,8 +133,10 @@ describe('ARM A — the sequence is the PERSONA\'s (STR §26.3), not the model\'
         const openIds = [...host.querySelectorAll<HTMLDetailsElement>(`details[data-testid^="${QUESTION_GROUP_TESTID_PREFIX}"]`)]
             .filter((d) => d.open)
             .map((d) => d.getAttribute('data-testid'));
-        // §26.5 asks WHAT IS ABOVE THE FOLD and why. A cold arrival has no envelope, so 3–6 have
+        // §26.5 asks WHAT IS ABOVE THE FOLD and why. A cold arrival has no envelope, so 3–7 have
         // nothing of their own to say yet — and their collapsed digests say exactly that.
+        // ⭐ Question 4 (`rooms`) closed is the single biggest half of the founder's *"smaller and
+        // more discreet"*: an entire stage folds to one row that still states what is inside it.
         expect(openIds).toEqual([
             `${QUESTION_GROUP_TESTID_PREFIX}plot`,
             `${QUESTION_GROUP_TESTID_PREFIX}law`,
@@ -160,8 +173,19 @@ describe('ARM B — ⭐ NOTHING WAS DROPPED, and each section is in the question
         [PARCEL_LAW_PANEL_SLOT_TESTID, 'plot'],
         [PARCEL_LAW_FACTS_PLOT_SLOT_TESTID, 'plot'],
         [PARCEL_LAW_FACTS_LAW_SLOT_TESTID, 'law'],
-        [PARCEL_LAW_AUTHORING_HOST_TESTID, 'intent'],
-        [AUTHORING_SLOT_TESTID, 'intent'],
+        // ⭐ §ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — the create block's host, now in
+        // question 2 rather than 3. Founder 2026-09-07: *"SECTION 3 SHALL HAVE ONLY THIS SCOPE"*
+        // (the ledger), and of the create block *"THIS HAS BEEN DONE ALREADY ON SECTION 2."*
+        // ⛔ THE ROW MOVED, IT WAS NOT DELETED. That is the whole discipline of this table: a
+        // relocation that removes its inventory row stops being checkable, which is how a
+        // "tidier" tab loses a control and every spec stays green.
+        [PARCEL_LAW_AUTHORING_HOST_TESTID, 'law'],
+        [AUTHORING_SLOT_TESTID, 'law'],
+        // ⭐ §STAGE-05-SECTION — the room programme's host, now in question 4 rather than 3.
+        // ⛔ THIS ROW IS THE POINT OF THE SPLIT. Without it, moving the slot to a group that does
+        // not exist would fall through `bodyOf`'s ladder fallback and the programme would render
+        // OUTSIDE every question with every other assertion still green.
+        [PARCEL_LAW_ROOM_PROGRAMME_HOST_TESTID, 'rooms'],
         [PARCEL_LAW_ALLOWANCE_HOST_TESTID, 'allowance'],
         [AUTHORING_LAWCHECK_TESTID, 'allowance'],
         [PARCEL_LAW_QUANTITIES_HOST_TESTID, 'allowance'],
@@ -173,14 +197,23 @@ describe('ARM B — ⭐ NOTHING WAS DROPPED, and each section is in the question
 
     it('every section from the flat tab is still rendered, INSIDE the question it answers', () => {
         const { host, handle } = mountReal();
+        // ⭐ EVERY ROW IS REPORTED, NOT THE FIRST ONE THAT FAILS. This loop used to `expect`
+        // inside the body, so the first bad row aborted the test and the remaining rows went
+        // unmeasured — which is how a lane can "fix" one placement and never learn that its own
+        // row was never reached. The failures are collected and asserted as a SET.
+        const lost: string[] = [];
         for (const [testid, questionId] of INVENTORY) {
             const group = host.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}${questionId}"]`);
-            expect(group, `question "${questionId}" is not on the tab`).not.toBeNull();
-            expect(
-                group!.querySelector(`[data-testid="${testid}"]`),
-                `SILENT DROP: "${testid}" is not inside question "${questionId}"`,
-            ).not.toBeNull();
+            if (group === null) { lost.push(`question "${questionId}" is not on the tab`); continue; }
+            if (group.querySelector(`[data-testid="${testid}"]`) === null) {
+                const elsewhere = host.querySelector(`[data-testid="${testid}"]`) !== null;
+                lost.push(
+                    `SILENT DROP: "${testid}" is not inside question "${questionId}"`
+                    + (elsewhere ? ' (it IS on the tab — it moved to another question)' : ' (it is not on the tab at all)'),
+                );
+            }
         }
+        expect(lost, lost.join(' | ')).toEqual([]);
         handle.dispose();
         host.remove();
     });
@@ -303,7 +336,7 @@ describe('ARM C — ⛔ a COLLAPSED group still states its headline AND its conf
         g.dispose();
     });
 
-    it('every one of the six groups states something in its collapsed summary on a cold tab', () => {
+    it('every one of the seven groups states something in its collapsed summary on a cold tab', () => {
         const { host, handle } = mountReal();
         for (const spec of PARCEL_LAW_QUESTION_GROUPS) {
             const digest = host.querySelector(

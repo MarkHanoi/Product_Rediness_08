@@ -116,7 +116,39 @@ export const ROOM_PROGRAMME_ROOT_TESTID = 'room-programme';
 export const ROOM_PROGRAMME_LIBRARY_TESTID = 'room-programme-library';
 export const ROOM_PROGRAMME_CHIP_ATTR = 'data-room-kind';
 export const ROOM_PROGRAMME_GRAPH_TESTID = 'room-programme-graph';
+/**
+ * §STAGE-05-SECTION (C115 §8.1 `C115-173`, L-13237) — which HEIGHT ARM the graph canvas is on:
+ * `compact` (no rooms declared — a drop rail) or `full` (the 300 × 190 layout box).
+ *
+ * ⭐ STAMPED SO THE TWO STATES ARE DISTINGUISHABLE WITHOUT A LAYOUT ENGINE. happy-dom has none,
+ * so a spec cannot measure the rendered height; without this attribute *"the empty graph got
+ * smaller"* would be unfalsifiable, and a later edit could quietly restore the full canvas with
+ * every spec still green ([[committed-is-not-reachable]]).
+ */
+export const ROOM_PROGRAMME_GRAPH_EMPTY_ATTR = 'data-graph-arm';
 export const ROOM_PROGRAMME_LIST_TESTID = 'room-programme-list';
+/**
+ * §STAGE-05-SECTION (C115 §8.1 `C115-172`, L-13237) — the programme HEADLINE, addressably.
+ *
+ * ⭐ `C115-73` requires this stage to open with a **Programme summary** (rooms · area ·
+ * relationships) and the panel has never had one: it opens with the room library. The summary the
+ * contract asks for is now the question-4 digest — and a digest is a MIRROR, so it needs a stable
+ * selector to mirror THROUGH. This is that selector; the text under it is the same line
+ * `renderList` already printed, so nothing is counted twice (C19 §5.6 clause 1).
+ *
+ * ⛔ IT IS NOT A SECOND RENDERING. Adding a summary BLOCK above the library would have grown the
+ * surface the founder asked to shrink, and would have been a second place for the room count to
+ * be wrong. The digest costs no body height at all and is visible whether the group is open or
+ * closed.
+ */
+export const ROOM_PROGRAMME_SUMMARY_TESTID = 'room-programme-summary';
+/**
+ * The standing of the programme, on the summary node, for the digest to mirror as its
+ * CONFIDENCE (C58 §1.2). ⚠ `C115-77` — the programme is SESSION-ONLY while the room envelopes it
+ * places persist, and putting it on the ladder presents it as project state. The asymmetry is
+ * stated here rather than left for the reader to discover on the next reload.
+ */
+export const ROOM_PROGRAMME_SUMMARY_STATE_ATTR = 'data-state';
 export const ROOM_PROGRAMME_PREVIEW_TESTID = 'room-programme-preview';
 export const ROOM_PROGRAMME_LEGEND_TESTID = 'room-programme-legend';
 export const ROOM_PROGRAMME_REPORT_TESTID = 'room-programme-report';
@@ -340,8 +372,15 @@ function svgEl<K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameM
   return document.createElementNS(SVG_NS, tag);
 }
 
-const LABEL_CSS = 'font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--app-text-muted,#8a8a99);margin:10px 0 4px;';
-const NOTE_CSS = 'font-size:10.5px;line-height:1.45;color:var(--app-text-muted,#77778a);margin:0 0 8px;';
+// ⭐ §STAGE-05-SECTION (C115 §8.1 `C115-174`, L-13237) — the density pass, and WHERE IT IS NOT
+// TAKEN FROM. Founder: *"SLIGHTLY SMALLER."* The type scale is already 9–11.5 px and C115 §4.3
+// (`C115-36`/`C115-37`) makes weight and size part of the honesty vocabulary — a figure whose
+// ceiling is unknown MUST NOT be de-weighted — so not one font-size below is reduced. The
+// reduction is taken from WHITESPACE and from COLLAPSE: the label rhythm goes 10 → 6 px, the note
+// gutter 8 → 6 px, and the empty graph canvas becomes a rail (see `renderGraph`). Nothing a
+// reader can read gets smaller; the gaps between the things they read do.
+const LABEL_CSS = 'font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--app-text-muted,#8a8a99);margin:6px 0 3px;';
+const NOTE_CSS = 'font-size:10.5px;line-height:1.4;color:var(--app-text-muted,#77778a);margin:0 0 6px;';
 const CARD_CSS = 'border:1px solid var(--app-border,#dde3ef);border-radius:8px;padding:8px;background:var(--app-surface,#fff);';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -356,7 +395,7 @@ export function mountRoomProgrammePanel(
   host: HTMLElement,
   deps: RoomProgrammePanelDeps = defaultRoomProgrammePanelDeps(),
 ): RoomProgrammePanelHandle {
-  const root = el('div', 'display:flex;flex-direction:column;gap:2px;padding:8px;outline:none;');
+  const root = el('div', 'display:flex;flex-direction:column;gap:2px;padding:6px 2px;outline:none;');
   root.setAttribute('data-testid', ROOM_PROGRAMME_ROOT_TESTID);
   // §ROOM-BRIEF-UNDO (L-13120) — programmatically focusable, never in the tab ORDER. A panel
   // that stole a tab stop from the controls inside it would trade one keyboard defect for
@@ -600,7 +639,19 @@ export function mountRoomProgrammePanel(
       const raw = dt.getData('text/plain') || '';
       if (raw.startsWith(ROOM_DRAG_PREFIX)) kind = raw.slice(ROOM_DRAG_PREFIX.length);
     }
-    if (isResidentialRoomKind(kind)) addRoom(kind);
+    if (!isResidentialRoomKind(kind)) return;
+    // ⛔ §DROP-ADDS-TWO (L-13238) — ONE DROP IS ONE ROOM. `makeDropTarget` is applied to FOUR
+    // nested nodes — the graph SVG, the programme list, the plan preview and the panel ROOT — and
+    // `drop` bubbles, so a chip released on any of the inner three ran this handler twice and
+    // added TWO rooms with two undo steps behind them. Found by §STAGE-05-DENSITY's *"the compact
+    // rail is still a drop target"* arm, which is the first spec to drop on an INNER target rather
+    // than on the root; every earlier spec dropped on the root and could not see it.
+    //
+    // ⭐ CONSUMED, THEN STOPPED — never stopped unconditionally. A drop carrying something this
+    // panel does not recognise must keep bubbling, or an inner node would silently swallow a
+    // payload an ancestor (or the page) knows what to do with.
+    ev.stopPropagation();
+    addRoom(kind);
   }
 
   function makeDropTarget(node: HTMLElement | SVGElement): void {
@@ -625,23 +676,53 @@ export function mountRoomProgrammePanel(
 
     const W = 300;
     const H = 190;
+    // ⭐ §STAGE-05-SECTION (C115 §8.1 `C115-173`, L-13237) — DISCREET WHEN EMPTY, GENEROUS WHEN FULL.
+    //
+    // Founder 2026-09-07: *"MAKE IT SMALLER AND MORE DISCREET — BOTH THE ROOM GRAPH AND THE
+    // 'ROOMS PER LEVEL' SECTION."* The empty canvas was the single largest block on a cold panel
+    // and it is measurable rather than a matter of taste: the `<svg>` declares a viewBox and
+    // `width:100%` and NO height, so a browser sizes it by intrinsic ratio — 190/300 = 0.633 ×
+    // the content width. In a ~400 px panel that is roughly 250 px of blank card carrying one
+    // 50-character sentence.
+    //
+    // ⛔ IT IS A HEIGHT, NOT A DELETION, and it applies to the EMPTY arm only. `C115-72` — the
+    // graph is the INPUT to the solver and must remain fully functional; `C115-74` names seven
+    // behaviours that must survive. All seven live on the POPULATED path below, which is
+    // byte-identical to what it was: `layoutND` is still called with `[W - 40, H - 40]`, so a
+    // graph with rooms in it returns to the full 300 × 190 aspect the moment the first room
+    // exists. And the rail is still a DROP TARGET (`makeDropTarget` runs above this branch for
+    // both arms), so *"drop a library chip onto the graph"* — behaviour 5 — never stops working
+    // at any height.
+    const EMPTY_H = 44;
+    const empty = p.entries.length === 0;
+    const vbH = empty ? EMPTY_H : H;
     const svg = svgEl('svg');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('viewBox', `0 0 ${W} ${vbH}`);
     svg.setAttribute('width', '100%');
+    // ⭐ The height is stated ONLY on the empty arm. Leaving it unset on the populated arm keeps
+    // the intrinsic-ratio sizing the layout was tuned against — a fixed height there would
+    // letterbox the nodes `layoutND` positioned in the 300 × 190 box.
+    if (empty) svg.setAttribute('height', String(EMPTY_H));
+    else svg.removeAttribute('height');
     svg.setAttribute('role', 'group');
     svg.setAttribute('aria-label',
       `Room relationship graph: ${p.entries.length} rooms, ${p.links.length} relationships.`);
-    svg.style.cssText = `${CARD_CSS}display:block;touch-action:none;`;
+    svg.style.cssText = `${CARD_CSS}display:block;touch-action:none;`
+      + (empty ? 'padding:4px 8px;' : '');
+    svg.setAttribute(ROOM_PROGRAMME_GRAPH_EMPTY_ATTR, empty ? 'compact' : 'full');
     svg.setAttribute('data-testid', ROOM_PROGRAMME_GRAPH_TESTID);
     makeDropTarget(svg);
 
-    if (p.entries.length === 0) {
+    if (empty) {
       const t = svgEl('text');
       t.setAttribute('x', String(W / 2));
-      t.setAttribute('y', String(H / 2));
+      t.setAttribute('y', String(EMPTY_H / 2 + 4));
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('font-size', '11');
       t.setAttribute('fill', '#8a8a99');
+      // ⛔ THE SENTENCE IS NOT FILLER. C115 §4.4 clause 1 — a named absence has something to say —
+      // and clause 4 — the escape hatch survives: this line is the only place the panel tells a
+      // reader that a chip CLICK adds a room, which is the one non-pointer route in (C115-78/D-9).
       t.textContent = 'No rooms yet — drag one in, or click a chip above.';
       svg.appendChild(t);
       box.appendChild(svg);
@@ -740,7 +821,16 @@ export function mountRoomProgrammePanel(
     box.setAttribute('data-testid', ROOM_PROGRAMME_LIST_TESTID);
     makeDropTarget(box);
     const total = p.entries.reduce((s, e) => s + e.targetAreaM2, 0);
-    box.appendChild(el('div', LABEL_CSS, `Programme — ${p.entries.length} rooms, ${total.toFixed(1)} m²`));
+    // §STAGE-05-SECTION (C115-172) — the SAME line, now addressable, so question 4's digest can
+    // mirror it instead of counting the rooms a second time.
+    const headline = el('div', LABEL_CSS,
+      `Programme — ${p.entries.length} rooms, ${total.toFixed(1)} m²`);
+    headline.setAttribute('data-testid', ROOM_PROGRAMME_SUMMARY_TESTID);
+    // ⚠ C115-77, stated where a reader looks for a figure's standing rather than buried.
+    headline.setAttribute(ROOM_PROGRAMME_SUMMARY_STATE_ATTR, p.entries.length === 0
+      ? 'nothing declared yet'
+      : `declared by you · ${p.links.length} plugged · this session only`);
+    box.appendChild(headline);
     if (p.entries.length === 0) {
       const row = el('div', 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;');
       // §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — when the PROJECT holds rooms, the
