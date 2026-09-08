@@ -4,6 +4,11 @@
 Abu Dhabi only (Dubai and the wider Gulf are sibling lanes).
 **Status:** **DATA FOUND, OPEN, AND PRODUCTION-SHAPED — but `LICENCE UNREAD`, so NOT cleared to bake.**
 
+> ⚠ **RE-TESTED ADVERSARIALLY 2026-09-07 — see [Appendix A](#appendix-a--adversarial-re-test-2026-09-07-independent-lane).**
+> **Five verdicts moved**, including a third ArcGIS context (`agsimage`) carrying a **0.5 m DTM/DSM**
+> and a working **raster bulk export**. The licence blocker **survives and is reinforced**:
+> `licenseInfo` is present-and-empty, not absent. **Nothing here is cleared to bake.**
+
 > **Founder's ask:** *"gather cadastral parcel at middle east — dubai and abu dhabi not just osm
 > buildings — i need parcels — cadastral data."* Today an Abu Dhabi site falls back to an OSM
 > building footprint and the panel honestly says *"⚠ Building footprint (OSM) — NOT a legal cadastral
@@ -328,3 +333,221 @@ POST/GET https://arcgis.sdi.abudhabi.ae/agspublish/rest/services/Pub/Generic_Sea
 | AD-SDI open-data service | `.../agspublish/rest/services/OpenData/ADSDI_OpenData/MapServer` |
 | SDI portal | `https://sdi.gov.abudhabi/sdi/` |
 | ⛔ dead (documented everywhere) | `https://arcgis.sdi.abudhabi.ae/arcgis/rest/services` → 404 |
+
+---
+
+# APPENDIX A — ADVERSARIAL RE-TEST (2026-09-07, independent lane)
+
+**Mandate:** treat every negative above as wrong until re-probed. **Five verdicts moved.** The
+headline verdict — *data open, licence unread, DO NOT BAKE* — **survives, and is now better
+evidenced.** Every probe below was run from this machine (Windows/curl, US egress) unless marked
+otherwise; HTTP status is quoted for each.
+
+## A.1 — OVERTURNED
+
+### A.1.1 🔴→🟢 The open-data portal is **DKAN**, and its API is live. ("undetermined" was premature)
+The prior sweep tried CKAN `/api/3/action/*`, got **404**, wrote *"not CKAN"*, and stopped at
+`undetermined`. **It is DKAN**, and the catalogue API answers keyless:
+
+```
+GET https://data.abudhabi/opendata/api/1/metastore/schemas   → HTTP 200, 35,920 bytes
+  {"catalog":{"@context":"https://project-open-data.cio.gov/v1.1/schema/catalog.jsonld", …
+```
+Discovered by grepping the portal's own JS bundle (`js_4AGubwd-…js`, 13,384,822 bytes) for API
+paths — **not** from documentation. This is the same shape as the nine blockers this project lost
+last time: *the wrong product was asked for, refused, and recorded as absent.*
+
+**And it names the licence.** The DKAN dataset schema carries a single-value licence enum:
+```
+"license":{"ui:options":{"widget":"list","source":{
+  "enum":["https://data.abudhabi/opendata/addata_open_license"],
+  "enumNames":["Abu Dhabi Government Open Data License"]}}}
+```
+So the licence **has a name and a canonical URL**. It was previously recorded only as a dead end.
+
+*Still failing:* `/api/1/search` and `/api/1` → **HTTP 500**; `/api/1/metastore/schemas/dataset/items`
+→ times out (**HTTP 000** at 120 s); `/opendata/data.json` and `/opendata/sitemap.xml` → **HTTP 200
+with a BIG-IP ASM `Request Rejected` body**. The catalogue *contents* remain unenumerated.
+
+### A.1.2 🔴→🟢 A **third ArcGIS context** exists: `agsimage`. The prior sweep found only two.
+Recovered from the same JS bundle (`…/agsimage/rest/services/Sat/IMG_SAT_50CM_GCS/MapServer`).
+```
+GET https://arcgis.sdi.abudhabi.ae/agsimage/rest/services?f=json → HTTP 200
+  {"currentVersion":10.91,"folders":["ImageService","Sat","Utilities"],"services":[]}
+```
+It holds **31 services** the prior survey never saw, including **elevation and imagery**:
+`ImageService/IMGSER_AUH_DTM_50CM`, `IMGSER_AUH_DSM1…7_50CM`, `Sat/15CM_AD_URBAN_AREAS`,
+`Sat/30CM_ABUDHABI_EMIRATE`, and **KhalifaSat 70 cm covering Dubai, Sharjah, Ajman, RAK, UAQ and
+Fujairah** — i.e. *other emirates*, on an Abu Dhabi server.
+
+### A.1.3 🔴→🟢 **Bulk download is NOT uniformly unavailable — it works for the RASTER data.**
+`hasBulk=no` was correct for the *vector* plots and **wrong as a general statement**. The DTM
+ImageServer serves raw float pixels:
+```
+GET …/IMGSER_AUH_DTM_50CM/ImageServer/exportImage?bbox=6056400,2814200,6056600,2814400
+    &bboxSR=102100&size=100,100&format=tiff&pixelType=F32&f=image
+→ HTTP 200 · content-type image/tiff · 66,706 bytes
+  file(1): "TIFF image data, little-endian, width=100, height=100, bps=32, compression=none"
+```
+`maxImageWidth: 15000` × `maxImageHeight: 4100` per request ⇒ **7.5 km × 2.05 km of 0.5 m terrain
+per call**. `allowRasterFunction: true`. That is a bulk raster extraction path.
+
+### A.1.4 🔴→🟢 **Abu Dhabi has 0.5 m TERRAIN and DERIVABLE BUILDING HEIGHTS.** Never found before.
+```
+GET …/IMGSER_AUH_DTM_50CM/ImageServer?f=json → HTTP 200
+  pixelSizeX/Y 0.5 · pixelType F32 · SR 102100 · capabilities "Image,Metadata,Pixels,Mensuration"
+  minValues [-9999] · maxValues [1168.6046142578]
+```
+Point sample at Al Reem Island (54.4064, 24.4986):
+```
+DTM  …/IMGSER_AUH_DTM_50CM/ImageServer/identify  → HTTP 200  value "4.01106"
+DSM3 …/IMGSER_AUH_DSM3_50CM/ImageServer/identify → HTTP 200  value "27.3164"
+⇒ surface-above-ground ≈ 23.31 m
+```
+**Numerically validated**, `computeStatisticsHistograms` over a 1 km × 1 km envelope there:
+```
+min 1.0e-06 · max 9.4652929 · mean 3.4421838 · median 3.1922171 · stdDev 2.9255015 · count 4,000,000
+```
+**4,000,000 pixels over exactly 1 km² is 2000×2000 — the 0.5 m cell size is confirmed by the pixel
+count, not merely asserted by the header.** Mean 3.44 m on a low-lying coastal island is plausible;
+`maxValues` 1168.6 m is consistent with Jebel Hafeet at the emirate's edge.
+
+⚠ This bears directly on **L-584 (terrain/rasant is a LEGAL defect — sampling ONE centroid point
+where the ordinance measures at the façade)**. A 0.5 m DTM with a point-`identify` API is the exact
+instrument that defect needs. **It is not licensed — see A.3.**
+
+### A.1.5 🔴→🟢 Hidden folders are **not all "empty"** — one is explicitly token-gated.
+The prior sweep reported hidden folders as *"HTTP 200 with an empty services array"*. That is not
+the only shape:
+```
+GET https://arcgis.sdi.abudhabi.ae/agshost/rest/services/GeoHUB?f=json → HTTP 200
+  {"error":{"code":499,"message":"Token Required","details":[]}}
+```
+**`code 499 Token Required`** is `exists-but-access-gated`, not `empty`. Per this project's
+identity-bootstrap pattern that is a recorded dataset behind a gate, not an absence.
+
+## A.2 — UPHELD, but on a STRONGER probe than the one originally used
+
+### A.2.1 WFS and WMS: still NO — now proven from service metadata, not from one guessed URL
+The prior sweep guessed two `…/WFSServer` URLs and got HTTP 400. That is weak evidence (a wrong
+path also yields 400). The authoritative field is `supportedExtensions`, read per service:
+```
+Pub/Generic_Search      → capabilities "Map,Query,Data"   supportedExtensions ""
+Pub/Generic_Search_WM   → capabilities "Query,Map,Data"   supportedExtensions ""
+OpenData/ADSDI_OpenData → capabilities "Query,Map,Data"   supportedExtensions ""
+DGE_POI/POI             → capabilities "Query,Map,Data"   supportedExtensions ""
+Pub/AD_Navigable_Roads  → capabilities "Query,Map,Data"   supportedExtensions "NAServer"
+```
+**No OGC extension is deployed anywhere on this server.** Because WMS is absent entirely, the
+`DescribeLayer` hidden-layer technique (25-of-47 on a prior project) has no surface. The equivalent
+discipline was applied instead by enumerating **all 17 `agspublish` folders + all 8 `agshost`
+folders + the 3 new `agsimage` folders** directly. **Not a blocker** — ArcGIS REST `/query` strictly
+supersedes WFS here.
+
+### A.2.2 Bulk download of the **vector plots**: still NO
+```
+Pub/Generic_Search/FeatureServer      → HTTP 200 body {"error":{"code":500,…}}  (no such service)
+Pub/Generic_Search_WM/FeatureServer   → HTTP 200 body {"error":{"code":500,…}}
+SDI_APPS/SmartMap/FeatureServer       → HTTP 200 · capabilities "Query" · syncEnabled false
+                                        · supportsDisconnectedEditing false (health/education data)
+```
+No FeatureServer, no Extract, no Sync ⇒ no `createReplica`. **The paged `/query` remains the only
+route to the full 425,975 rows** (2,000/page, 213 pages). Upheld.
+
+### A.2.3 The parcel data itself: **independently re-verified at a different point**
+I did not trust the prior sweep's coordinates. A fresh point-in-polygon at **Al Reem Island**:
+```
+GET …/Pub/Generic_Search/MapServer/10/query
+    &geometry={"x":54.4064,"y":24.4986,…}&geometryType=esriGeometryPoint&inSR=4326
+    &spatialRel=esriSpatialRelIntersects&returnGeometry=true&outSR=4326&f=geojson
+→ HTTP 200 · 3,285 bytes · 1 feature · a real MULTI-VERTEX polygon (not a rectangle)
+  "properties":{"PLOTID":"488501","PLOTNUMBER":"C4_to_C9","DISTRICTENG":"AL REEM ISLAND",
+                "COMMUNITYENG":"RT3","MUNICIPALITYENG":"ADM","PRIMARYUSEENG":2}
+GET …/10/query?where=1=1&returnCountOnly=true → HTTP 200 {"count":425975}   (exact match)
+```
+**The find is real and live.** Note `PRIMARYUSEENG: 2` on a residential tower district — first-hand
+confirmation of the documented code-2 collision (commercial *and* residential). Land use here is
+**indicative, never normative zoning.**
+
+### A.2.4 DMT and Abu Dhabi City Municipality: still undetermined — the WAF is path-based, not UA-based
+I hypothesised the BIG-IP rejections were User-Agent filtering and retried with full browser headers
+(Chrome UA + Accept + Referer). **The hypothesis was wrong and is recorded as wrong:**
+```
+dmt.gov.ae/arcgis/rest/services?f=json           → HTTP 200, body "Request Rejected" (ASM)
+dmt.gov.ae/server/rest/services?f=json           → HTTP 200, body "Request Rejected" (ASM)
+sdi.gov.abudhabi/dev_datacatalogue_API/…         → HTTP 200, body "Request Rejected" (ASM)
+ssdi.gov.abudhabi/dev_datacatalogue_API/…        → HTTP 000 (no route)
+gis.adm.gov.ae/                                   → HTTP 403 (host alive)
+gis.adm.gov.ae/{arcgis,agspublish}/rest/services  → HTTP 404
+```
+`undetermined`, not `does-not-exist`. Re-probe from a UAE-region egress.
+
+### A.2.5 Two access shapes newly closed (real negatives, fully probed)
+- **AD-SDI on ArcGIS Online** — org `HZaOojVCdfEiKlFc`, owner `adsdi.admin`, reached keyless via
+  `arcgis.com/sharing/rest/search?q=orgid:HZaOojVCdfEiKlFc` → **HTTP 200, total 91 items**, all
+  enumerated. **No parcel, plot or cadastral item** — overwhelmingly Year-of-Zayed story maps.
+  `licenseInfo: null` on items checked. Shape closed: **AGO is not a route to AD parcels.**
+- **`geoportal.abudhabi.ae`** — a host not previously known, found in the AGO item's `url`
+  (`https://geoportal.abudhabi.ae/rest/services/BaseMapArabic/MapServer`). **HTTP 000 from this
+  egress AND `getaddrinfo ENOTFOUND` from WebFetch's independent egress** ⇒ it does not resolve
+  publicly. A **dead legacy host in a 2017 item**, not a gate.
+
+## A.3 — 🔴 LICENCE: THE BLOCKER STANDS, AND IS NOW HARDER TO EXPLAIN AWAY
+
+The prior sweep said *"portal item: `licenseInfo` ABSENT, `accessInformation` ABSENT"*. It probed
+the **portal item** only. The **service item** answers, and says more:
+```
+GET …/Pub/Generic_Search/MapServer/info/iteminfo?f=json → HTTP 200, 928 bytes
+  "accessInformation":"Copyright:© 2018 AD-SDI, DPM"      ← PRESENT (prior sweep said absent)
+  "licenseInfo":""                                        ← PRESENT AND DELIBERATELY EMPTY
+GET …/Pub/Generic_Search/MapServer/info/metadata?f=xml  → HTTP 200, 22,661 bytes
+  <resConst><Consts><useLimit/>                           ← ISO use-limitation element, EMPTY
+```
+**This is worse for us, not better.** The publisher populated `accessInformation` with a copyright
+*assertion* and left the licence *grant* blank, in both the Esri item model and the ISO metadata.
+There is no grant to read because none was published.
+
+Licence text attempts, all reported:
+- `data.abudhabi/addata_open_license` → **HTTP 200, 2,789 bytes**, a Drupal shell; body renders
+  client-side. `?_format=json`, the `/opendata/` prefix, and `/ar/` (→ HTTP 404) all return the same
+  shell. **WebFetch (independent egress) confirmed: header only, no licence body.** Unread.
+- `data.abudhabi/en/addata_open_license` → HTTP 200 `Request Rejected` (ASM).
+- **`AD-Gov-Data-Management-Policy-EN-v1.0.pdf` → HTTP 200, 576,314 bytes, 22 pages, extracted with
+  `pdftotext` (46,922 chars) — READ IN FULL.** §5.10 *Open Data* is an **internal governance
+  obligation**, not a public grant: *"Treat data as being 'open by default'… Ensure that all
+  published data is covered by an appropriate legal authority."* **It confers nothing on a third
+  party and does not license redistribution.**
+- `bayanat.ae/en/Copyright` → **read via WebFetch: CC BY 4.0**, redistribution and commercial use
+  permitted with attribution. ⚠ **But Bayanat is the UAE FEDERAL portal and that grant is scoped to
+  datasets published ON Bayanat.** The Abu Dhabi Plots layer is **not** on Bayanat, and is **not**
+  in the branded `OpenData/ADSDI_OpenData` service either — it sits in the `Pub` folder. **The chain
+  does not reach layer 10.** Do not borrow this licence.
+- The 0.5 m DTM/DSM and all satellite services carry **`copyrightText: ""`** — not even a copyright
+  assertion, and no licence.
+
+### VERDICT — unchanged and reinforced
+**Fetchable ≠ redistributable. PRYZM bakes context into R2 tiles and serves them to users; that is
+redistribution.** Nothing in this appendix may be baked:
+
+| Asset | Access | Licence read? | Bake? |
+|---|---|---|---|
+| Plots (layer 10) | open, keyless | **NO** — `licenseInfo:""` | ⛔ NO |
+| Main Buildings (layer 8) | open, keyless | **NO** — same service | ⛔ NO |
+| DTM 0.5 m / DSM 0.5 m | open, keyless | **NO** — `copyrightText:""` | ⛔ NO |
+| 15/30/50 cm imagery, KhalifaSat | open, keyless | **NO** — `copyrightText:""` | ⛔ NO |
+
+**LIVE QUERY ONLY** until AD-SDI / DGE confirm redistribution in writing. The named instrument to
+ask them about is the **"Abu Dhabi Government Open Data License"** (A.1.1) — that name is the one
+concrete thing this re-test added to the legal conversation.
+
+## A.4 — Follow-ups this re-test opened
+1. **The 0.5 m DTM/DSM may be a bigger prize than the parcels** for PRYZM (L-584 façade-level
+   rasant, plus building heights without OSM). Put it in the same written licence request.
+2. `agsimage` **KhalifaSat 70 cm covers Dubai and five other emirates** — hand to the Dubai lane.
+3. DKAN `/api/1/metastore/schemas/dataset/items` times out at 120 s; retry paged / in-region to
+   enumerate the catalogue and confirm whether Plots is formally classified Open Data.
+4. `GeoHUB` (**499 Token Required**) is a gated folder of unknown size — an account may open it.
+5. `Hosted/ZayedCityMasterPlotPlan2023` VectorTileServer exposes **19 land-use style classes**
+   (root.json → HTTP 200, 4,349 bytes) but **its tile attributes were NOT decoded** (z14 tile →
+   HTTP 404, indexedVector overzoom). Zoning remains **unsolved**; do not assume these tiles carry
+   usable attributes — the sibling `Plots_AD` cache proves the bake strips them.
