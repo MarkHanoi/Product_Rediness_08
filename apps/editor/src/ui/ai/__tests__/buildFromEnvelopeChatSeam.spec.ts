@@ -207,9 +207,12 @@ describe('build-from-envelope seam — ONE command path, two entry points', () =
     it('relays the plan\'s OWN refusal verbatim, and dispatches NOTHING', async () => {
         window.addEventListener('pryzm-generation-report', onReport);
         try {
-            // No room envelopes ⇒ `planBuildFromDesign` refuses with
-            // `no-room-envelopes` in its own words.
-            await runBuildFromEnvelope({}, depsFor(runtimeWith([LEVEL_ENVELOPE])));
+            // ⚠ THE SUBJECT MOVED, THE BEHAVIOUR DID NOT. This used a plate with no rooms,
+            // which §SHELL-WITHOUT-ROOMS (L-13250) now BUILDS — the founder's *"it should work
+            // for walls/slabs, minimum"*. The relay is still exactly what this arm is for, so it
+            // is re-pointed at a refusal that is still a refusal: NO level envelope at all, where
+            // there is genuinely no plate to build on.
+            await runBuildFromEnvelope({}, depsFor(runtimeWith([])));
         } finally {
             window.removeEventListener('pryzm-generation-report', onReport);
         }
@@ -223,7 +226,7 @@ describe('build-from-envelope seam — ONE command path, two entry points', () =
         const { planBuildFromDesign, readDesignEnvelopes } =
             await import('../../site/buildFromDesignPlan');
         const outcome = planBuildFromDesign({
-            envelopes: readDesignEnvelopes(envelopeStoreOf([LEVEL_ENVELOPE])),
+            envelopes: readDesignEnvelopes(envelopeStoreOf([])),
             activeLevelId: 'L0',
             authoredWallCountOnActiveLevel: 0,
         });

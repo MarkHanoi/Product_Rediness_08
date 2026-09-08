@@ -282,10 +282,24 @@ describe('THE REFUSALS — every one names its numbers, and none is a silent fal
         expect(refusal({ activeLevelId: null }).code).toBe('no-active-level');
     });
 
-    it('⭐ a plate with NO rooms refuses with `no-room-envelopes` — the code the host falls through to the generator on', () => {
-        const r = refusal({ envelopes: [GROUND] });
-        expect(r.code).toBe('no-room-envelopes');
-        expect(r.text).toContain('generator');
+    // ⭐⭐ §SHELL-WITHOUT-ROOMS (L-13250) — REVERSED DELIBERATELY, ON THE FOUNDER'S REPORT.
+    // This asserted that a plate with NO rooms REFUSES (`no-room-envelopes`). He hit that refusal
+    // from chat — *"Create perimeter wall on envelope"* → *"there is no design for PRYZM to
+    // build"* — and said *"it should work for walls/slabs, minimum"*. He is right: shell walls come
+    // off the plate's own ring and slabs are one per storey, so a roomless plate is a buildable
+    // design. The panel's generator fall-through moved to `plan.rooms.length === 0`
+    // (`parcelLawCreateHouse.ts`) so THAT surface is unchanged; see its own spec.
+    it('⭐ a plate with NO rooms BUILDS the shell and the plate — no partitions, no ceilings, no refusal', () => {
+        const r = planBuildFromDesign(input({ envelopes: [GROUND] }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        // The shell is the plate's own ring; the slab is one per storey. Neither needs a room.
+        expect(r.plan.shellWallCount).toBeGreaterThan(0);
+        expect(r.plan.slabs.length).toBeGreaterThan(0);
+        // …and the two things that DO need rooms are absent, which is a correct answer, not a gap.
+        expect(r.plan.partitionWallCount).toBe(0);
+        expect(r.plan.ceilings).toHaveLength(0);
+        expect(r.plan.rooms).toHaveLength(0);
     });
 
     it('⛔ C80 — a level already carrying walls refuses, and the sentence names the COUNT', () => {

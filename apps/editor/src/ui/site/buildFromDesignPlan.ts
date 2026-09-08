@@ -662,13 +662,29 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
         }
 
         const rooms = input.envelopes.filter((e) => e.role === 'room');
-        if (rooms.length === 0) {
-            // ⛔ NOT A DEAD END, AND NOT AN ERROR. The host falls through to the generator arm on
-            // this code — which is the correct answer for a project with a plate and no design.
-            return refuse('no-room-envelopes',
-                'You have drawn a level envelope but no room envelopes, so there is no design for '
-                + 'PRYZM to build. The house generator can propose one.');
-        }
+        // ⛔⛔ §SHELL-WITHOUT-ROOMS (L-13250) — A PLATE WITH NO ROOMS IS A BUILDABLE DESIGN, AND
+        // REFUSING IT WAS WRONG.
+        //
+        // This used to `refuse('no-room-envelopes')` outright. FOUNDER, via chat: *"Create
+        // perimeter wall on envelope"* → *"Nothing was changed — You have drawn a level envelope
+        // but no room envelopes, so there is no design for PRYZM to build"* → *"but doesnt work -
+        // it should work for walls/slabs, minimum"*. He is right, and the code below already
+        // proves it: SHELL WALLS are `s.ring.length` off the LEVEL plate's own ring, and SLABS are
+        // one per built STOREY off that same ring. Neither reads a room. Only PARTITIONS
+        // (`walls.length - shellWallCount`) and CEILINGS (`builtRooms.map`) need rooms, and zero of
+        // either is a correct answer, not a failure — a shell and a floor plate is exactly what
+        // "minimum" means.
+        //
+        // ⭐ THE PANEL'S GENERATOR FALL-THROUGH IS PRESERVED, AND DELIBERATELY MOVED RATHER THAN
+        // DROPPED. `parcelLawCreateHouse.ts` offered the house generator on this refusal code —
+        // the right product answer for a plate with no design on THAT surface, and not something
+        // this lane should change silently. It now reads `plan.rooms.length === 0` instead, so the
+        // panel behaves exactly as before while every other caller (the chat seam, which is where
+        // the founder was) gets the shell it asked for. A refusal is the wrong carrier for
+        // "this surface prefers a different offer": it denied the build to everyone.
+        //
+        // `willNotCreate` below already names partitions and ceilings as not built, so nothing is
+        // silently absent — the plan states the shell it IS building and what it is not.
 
         // Storeys are walked LOWEST FIRST, then by id so two plates at one height resolve
         // deterministically rather than by store iteration order.
@@ -1039,7 +1055,15 @@ export function planBuildFromDesign(input: BuildFromDesignInput): BuildFromDesig
         //
         // ⭐ THE SENTENCE IS COMPOSED ONCE. See `roomSetOutcomeSentence` for why five per-room
         // copies of the set-level clause was the defect and not the style.
-        if (builtRooms.length === 0) {
+        // ⭐ §SHELL-WITHOUT-ROOMS (L-13250) — `rooms.length > 0` IS THE WHOLE OF THE CHANGE HERE.
+        // The guard above is RIGHT when the user DREW rooms and every one of them failed: building
+        // a bare shell then really would be the generator's plate wearing his design's name. It is
+        // WRONG when he drew NONE — there is no design being substituted, the shell IS the ask
+        // (founder: *"it should work for walls/slabs, minimum"*), and `0 of 0 rooms refused` is not
+        // a failure to report. Note the old sentence it produced: *"Every one of your 0 room
+        // envelopes will be built"* — the arithmetic was already telling us this branch was being
+        // asked a question that did not apply.
+        if (rooms.length > 0 && builtRooms.length === 0) {
             return refuse('every-room-refused',
                 `${roomSetOutcomeSentence(refusedRooms.length, rooms.length)} PRYZM will not build the `
                 + 'shell on its own — a bare plate is not the design you drew. '

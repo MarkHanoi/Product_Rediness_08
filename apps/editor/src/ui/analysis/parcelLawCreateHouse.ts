@@ -324,7 +324,14 @@ export function mountParcelLawCreateHouse(
             authoredWallCountOnActiveLevel: wallCount,
             authoredWallCountByLevelId: byLevel,
         });
-        if (!design.ok && design.refusal.code === 'no-room-envelopes') {
+        // ⭐ §SHELL-WITHOUT-ROOMS (L-13250) — READ THE PLAN, NOT A REFUSAL CODE.
+        // This tested `design.refusal.code === 'no-room-envelopes'`, which only worked because the
+        // planner REFUSED a plate with no rooms outright — denying the build on every surface in
+        // order to change the offer on this one. The planner now builds the shell and the plate
+        // (the founder's *"it should work for walls/slabs, minimum"*), so the fall-through asks the
+        // question it always meant: has the user drawn a design yet? No rooms ⇒ no design ⇒ this
+        // panel still offers the generator, with today's copy and today's advisory, unchanged.
+        if (design.ok && design.plan.rooms.length === 0) {
             return { mode: 'create-house', outcome: houseOutcome };
         }
         return { mode: 'build-from-design', outcome: design };

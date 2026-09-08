@@ -1224,6 +1224,15 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   'generation.apartment':     { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER: payload is a BRIEF (`bedrooms`, `bathrooms`, `masterEnSuite`). See generation.building.' },
   'generation.rooms':         { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER (§L-937 — one of the two verbs the founder saw warn live): payload is a room BRIEF with no element subject; the rooms it produces are dispatched as their own commands. See generation.building.' },
   'generation.finish-chain':  { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER: chains ceiling → furnish → light over an already-generated layout. No element subject; every mutation is a downstream command. See generation.building.' },
+  // §RAC-BUILD-FROM-ENVELOPE (L-13176) — declared after the founder saw this warn LIVE in his own
+  // console: "command type 'generation.from-envelope' has NO sync disposition". The verb shipped in
+  // `32233c79` without one, which is the gap this table exists to catch, and it caught it.
+  // ⭐ NOT-SYNCED IS THE RIGHT ANSWER, NOT THE CONVENIENT ONE, AND IT IS SAFE FOR A DIFFERENT
+  // REASON THAN ITS SIBLINGS: this trigger is not non-deterministic — but it needs none of that
+  // argument, because it dispatches `wall.batch.create` / `slab.batch.create` /
+  // `ceiling.batch.create`, and THOSE are synced. Every element it produces replicates as its own
+  // command with its own ids; replicating the trigger too would build the shell TWICE on a peer.
+  'generation.from-envelope': { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER: payload is `{parts?, deferred?}` — a PART SELECTION with no element subject. It dispatches wall.batch.create / slab.batch.create / ceiling.batch.create, each of which IS synced and carries the real geometry and ids, so the elements replicate through them. Replicating this trigger as well would re-run the build on the peer and duplicate the shell. See generation.building.' },
   'generative.applyLayout':   { kind: 'not-synced', reason: 'ORCHESTRATION TRIGGER: payload is `{layout, levelId, levelHeight}` — a whole layout DTO plus a level, not an element. The elements it materialises carry their own commands. See generation.building.' },
   'room.regenerate':          { kind: 'not-synced', reason: 'DERIVED RECOMPUTE with a LEVEL subject: `{levelId, roomIds?, generator?}` re-derives rooms from wall geometry. Identical reasoning to room.redetect — a level is not an element, and a recompute trigger is an instruction, not state.' },
   'room.recomputeBoundary':   { kind: 'not-synced', reason: 'DERIVED RECOMPUTE: `{roomId, cascadedFrom?, wallId?}` carries NO boundary — the new geometry is derived inside from the walls. The payload is provenance, so the generic path would replicate `cascadedFrom` and `wallId` as properties of the room. See room.redetect.' },
