@@ -114,6 +114,8 @@
 // `buildBrutAllocationHtml`, which is the existing card renderer and escapes its own values.
 
 import { trace } from '@opentelemetry/api';
+// §ENVELOPE-CARD-FOLDS (L-13249) — the ONE disclosure the floating Site panels use.
+import { buildPanelFold } from '../site/panelFold';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import { collectIntendedAreas, type IntendedAreaSnapshot } from '../site/intendedAreaChannel';
@@ -198,6 +200,10 @@ import { resolveEnvelopeStore, type LiveEnvelopeStore } from './parcelLawQuantit
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawEnvelopeAuthoring');
 
 /** `data-testid` on the section root. */
+/** §ENVELOPE-CARD-FOLDS (L-13249) — the footprint-source disclosure, and its fold-memory key. */
+export const AUTHORING_SOURCE_FOLD_TESTID = 'authoring-source-fold';
+/** §ENVELOPE-CARD-FOLDS (L-13249) — the allowance-ledger disclosure. Only when self-hosted. */
+export const AUTHORING_LEDGER_FOLD_TESTID = 'authoring-ledger-fold';
 export const AUTHORING_SLOT_TESTID = 'analysis-parcel-law-authoring';
 /** The storey-count entry. */
 export const AUTHORING_STOREYS_INPUT_TESTID = 'parcel-law-authoring-storeys';
@@ -848,14 +854,56 @@ export function mountParcelLawEnvelopeAuthoring(
     // given the pair stays inside this section, exactly as before, and every existing caller and
     // spec is unaffected.
     const lawCheckHost = opts?.lawCheckHost ?? null;
+    // ⭐⭐ §ENVELOPE-CARD-FOLDS (L-13249) — TWO BLOCKS FOLD, AND ONLY TWO.
+    //
+    // FOUNDER, three times: *"drop down menus that the usser opens on deman and the card
+    // expands - it is too large"*. The two folded here are the two that EXPLAIN:
+    //   · `sourceLine` — the "Extrudes the 452 m² permitted buildable footprint — a STUDY, not a
+    //     permit …" paragraph. It states where the ring came from, which matters once and is then
+    //     re-read on every open.
+    //   · the LEDGER (`lawLede` + `lawSlot`) — "How much of the allowance have you used?" and
+    //     "Where these allowances come from". §PL-IA-Q already calls this A DIFFERENT QUESTION
+    //     from the gesture; a different question is exactly what a disclosure is for.
+    //
+    // ⛔ AND THE LIST OF WHAT DOES **NOT** FOLD IS THE LOAD-BEARING HALF. `intentLine` (what the
+    // next click will do), `statusLine` (what the last one did), `advisoryLine`, the
+    // `addLevelsBtn`/`addLevelsNote` pair (§ENVELOPE-CREATE-DEADEND's way out of a refusal) and
+    // the create controls all stay on the face of the card. C58 §1.2 makes a figure's confidence
+    // part of the figure, and `panelFold`'s own header states the rule: a fold may hide
+    // EXPLANATION, never a refusal, a warning, or the route out of one. Folding a dead end is how
+    // a smaller card becomes a card that lies.
+    //
+    // ⚠ `lawSlot` KEEPS ITS IDENTITY AND ITS WRITER. `render()` writes to whichever host holds it
+    // (`lawCheckHost ?? root`), so putting it inside a fold changes WHERE it sits and nothing
+    // about what fills it — the ledger and the create controls still cannot show different
+    // vintages of one envelope, which is the property §PL-IA-Q bought with one mount.
+    const sourceFold = buildPanelFold({
+        id: AUTHORING_SOURCE_FOLD_TESTID,
+        summary: 'Where this footprint comes from',
+        open: false,
+    });
+    sourceFold.body.appendChild(sourceLine);
+
     root.append(
-        heading, sourceLine, discardDrawnBtn, entryRow, intentLine, statusLine,
+        heading, sourceFold.el, discardDrawnBtn, entryRow, intentLine, statusLine,
         // §ENVELOPE-CREATE-DEADEND — directly UNDER the refusal it answers, so the sentence and its
         // way out are read as one thing rather than two controls that happen to be near each other.
         addLevelsBtn, addLevelsNote,
         advisoryLine, createdList,
     );
-    (lawCheckHost ?? root).append(lawLede, lawSlot);
+    if (lawCheckHost !== null) {
+        // A host that asked for the ledger gets it unwrapped, exactly as before — it has its own
+        // placement and its own chrome, and a fold inside someone else's panel would be ours.
+        lawCheckHost.append(lawLede, lawSlot);
+    } else {
+        const ledgerFold = buildPanelFold({
+            id: AUTHORING_LEDGER_FOLD_TESTID,
+            summary: 'How much of the allowance have you used?',
+            open: false,
+        });
+        ledgerFold.body.append(lawLede, lawSlot);
+        root.appendChild(ledgerFold.el);
+    }
 
     /** Read everything this section shows, from the ONE producer of each figure. */
     const readAll = (): {

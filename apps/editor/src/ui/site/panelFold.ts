@@ -84,9 +84,19 @@ export function buildPanelFold(spec: PanelFoldSpec): PanelFoldHandle {
         el.style.cssText = 'margin-top:6px;border-top:1px solid #efecf7;padding-top:5px;';
 
         const summary = document.createElement('summary');
+        // ⛔ NO `px` FONT SIZE ANYWHERE IN THIS FOLD, AND NO SIZE AT ALL — IT INHERITS.
+        // §ONE-TYPE-BASE gives each host root ONE px base and requires every descendant to be an
+        // `em` ratio of it; C43 / WCAG 2.2 AA then puts a 10 px floor under the resolved result.
+        // `parcelLawSectionTwoIntact.spec.ts` enforces both, and it caught this file twice: a
+        // `10.5px` literal in the summary, and a 9 px marker — BELOW the floor, i.e. an actual
+        // accessibility regression, not a style nit.
+        // ⭐ INHERITING RATHER THAN PICKING AN `em` IS THE STRONGER FIX: the host's base is already
+        // guaranteed ≥ 10 px by that contract, so a fold can never be the thing that breaks the
+        // floor, on this panel or on the next one that adopts it. Hierarchy is carried by WEIGHT
+        // and COLOUR, which cost no legibility.
         summary.style.cssText = [
             'cursor:pointer', 'list-style:none', 'display:flex', 'align-items:baseline',
-            'gap:6px', 'font-weight:600', 'font-size:10.5px', `color:${VIOLET}`,
+            'gap:6px', 'font-weight:600', `color:${VIOLET}`,
             'user-select:none', 'outline:none',
         ].join(';');
 
@@ -95,7 +105,7 @@ export function buildPanelFold(spec: PanelFoldSpec): PanelFoldHandle {
         // so a caller-visible affordance must not depend on it.
         const marker = document.createElement('span');
         marker.setAttribute('aria-hidden', 'true');
-        marker.style.cssText = `flex:none;font-size:9px;color:${VIOLET};transition:none;`;
+        marker.style.cssText = `flex:none;color:${VIOLET};transition:none;`;
         const paintMarker = (): void => { marker.textContent = el.open ? '▾' : '▸'; };
         paintMarker();
 
@@ -106,7 +116,7 @@ export function buildPanelFold(spec: PanelFoldSpec): PanelFoldHandle {
         /** The one fact that survives collapsing (C58 §1.2). Empty until a caller writes it. */
         const note = document.createElement('span');
         note.setAttribute('data-testid', `${spec.id}-note`);
-        note.style.cssText = 'flex:none;font-weight:600;font-size:9.5px;color:#8a83a0;';
+        note.style.cssText = 'flex:none;font-weight:600;color:#8a83a0;';
 
         summary.append(marker, label, note);
 

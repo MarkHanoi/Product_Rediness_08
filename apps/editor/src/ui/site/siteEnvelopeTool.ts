@@ -86,6 +86,8 @@ import {
 // this is the shared successor to the four hand-maintained HUDs, already reused by pool, balcony and
 // boundary-line. See `ENVELOPE_DRAW_BAR_MODES` for why the pills are declared beside the mode store.
 import { DrawingModeBar } from '../DrawingModeBar';
+// §ENVELOPE-CARD-FOLDS (L-13249) — the ONE disclosure these floating Site panels use.
+import { buildPanelFold } from './panelFold';
 import {
     getDrawnEnvelopeFootprint,
     subscribeDrawnEnvelopeFootprint,
@@ -95,6 +97,8 @@ const _tracer = trace.getTracer('pryzm.site.siteEnvelopeTool');
 
 /** The floating panel's root. One name, so a surface and a test agree. */
 export const SITE_ENVELOPE_PANEL_TESTID = 'site-envelope-tool-panel';
+/** §ENVELOPE-CARD-FOLDS (L-13249) — the lede disclosure. Also its key in the shared fold memory. */
+export const SITE_ENVELOPE_LEDE_FOLD_TESTID = 'site-envelope-lede-fold';
 /** The tool BUTTON a site surface renders to arm this. */
 export const SITE_ENVELOPE_TOOL_BTN_TESTID = 'site-envelope-tool-btn';
 /** The panel's close affordance. */
@@ -195,7 +199,22 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         const root = document.createElement('div');
         root.setAttribute('data-testid', SITE_ENVELOPE_PANEL_TESTID);
         root.style.cssText = [
-            'position:absolute', 'top:64px', 'right:16px', 'width:340px', 'max-width:calc(100% - 32px)',
+            // ⭐⭐ §ENVELOPE-CARD-FOLDS (L-13249) — FOUNDER, three times: *"we need to make is 20%
+            // of the space with drop down menus that the usser opens on deman and the card
+            // expands - it is too large"*.
+            //
+            // ⚠ "20%" IS READ AS 20% OF THE PANE THIS PANEL FLOATS OVER, not of the whole window,
+            // and the difference is not pedantry: this card is absolutely positioned inside the
+            // RIGHT (3-D) pane of a split, so on his 2 037 px screen a window-relative 20% would
+            // be ~407 px — WIDER than the 340 px he called too large. `20%` of the pane, clamped,
+            // is the reading under which his sentence and his screenshot agree.
+            //
+            // ⛔ THE CLAMPS ARE NOT DECORATION. `min(…)` alone would let a wide monitor make it
+            // huge again and a narrow pane crush it to unreadable; `max(240px, …)` keeps the
+            // storey rows and the create control legible, and 340 px stays the ceiling so this can
+            // only ever shrink from what shipped. The 32 px subtraction is the existing gutter.
+            'position:absolute', 'top:64px', 'right:16px',
+            'width:clamp(240px, 20%, 340px)', 'max-width:calc(100% - 32px)',
             'max-height:calc(100% - 96px)', 'overflow:auto', 'z-index:40',
             'background:#ffffff', `border:1px solid ${VIOLET}`, 'border-radius:10px',
             'box-shadow:0 6px 22px rgba(60,52,40,0.22)', 'padding:12px 13px 13px',
@@ -225,13 +244,31 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         // drag does not yet" is something he READS rather than discovers. C58 §1.19 clause 3 also
         // requires that an authored envelope never badge itself as a solved one — the panel below
         // already labels its own footprint source, and this line names the object being made.
+        // ⭐ §ENVELOPE-CARD-FOLDS (L-13249) — THE LEDE FOLDS. It is the single largest block of
+        // prose on a cold arrival and it explains rather than reports: nobody needs to re-read
+        // "this is design intent, not what the law permits" on every open. ⛔ NOT DELETED — the
+        // C58 §1.19 clause 3 point it makes (an authored envelope is never a solved one) is why
+        // the card is honest, so it collapses to a summary the reader can open, and the fold
+        // remembers what they chose for this session.
+        const ledeFold = buildPanelFold({
+            id: SITE_ENVELOPE_LEDE_FOLD_TESTID,
+            summary: 'What this tool makes',
+            open: false,
+        });
         const lede = document.createElement('div');
-        lede.style.cssText = 'font-size:10.5px;color:#6b6480;margin-bottom:8px;';
+        lede.style.cssText = 'font-size:10.5px;color:#6b6480;';
         lede.textContent =
             'Creates a LEVEL envelope — your own design intent, not a statement of what the law '
             + 'permits. It is committed through the same command the Parcel Law tab uses, so there '
-            + 'is one envelope and one undo. Dragging a face to stretch it is not built yet.';
-        root.appendChild(lede);
+            + 'is one envelope and one undo.';
+        // ⛔ ONE SENTENCE WAS DROPPED, NOT SHORTENED, AND IT WAS FALSE: *"Dragging a face to
+        // stretch it is not built yet."* Face drag SHIPPED (§ENVELOPE-FACE-DRAG-PER-LEVEL,
+        // L-13236) and the 3-D Site installs it — this very panel's own console line says
+        // *"the 3D Site is now a FACE-DRAG surface"*. `roomProgrammePanel.ts` had its copy of
+        // that claim corrected when the gesture landed; this one was missed, so the card was
+        // telling the founder a shipped feature did not exist. Removed as a CORRECTION.
+        ledeFold.body.appendChild(lede);
+        root.appendChild(ledeFold.el);
 
         // ── §ENVELOPE-DRAW C4 — THE DRAW ROW ──────────────────────────────────────────────────
         // One button and one sentence. The button ARMS; the sentence says what is true right now,
