@@ -24,6 +24,7 @@ import {
     scopeAtRadius,
     describeScope,
     completenessCaption,
+    captionNeedsAttention,
     resolveFloorRadiusM,
     type SiteScopeSliderPorts,
 } from '../views/SiteScopeSlider';
@@ -404,5 +405,307 @@ describe('§SITE-SCOPE §13.5 — the READ ceiling is a different sentence from 
         handle.refresh();
         expect(markEl.title).not.toContain('already deleted footprints');
         handle.dispose();
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════
+// §SCOPE-PANEL-50 (L-13189 · C12 §13.5 · §CONTEXT-DATA-HONESTY) — HALF THE FOOTPRINT,
+// AND THE HONESTY SENTENCE STILL REACHABLE.
+//
+// Founder 2026-09-07, red box drawn round this panel: *"Make the panel Scope Rectangular or
+// circular smaller - the panel should be 50%"*.
+//
+// ⚠ "50%" IS HALF THE CURRENT FOOTPRINT, NOT 50% OF THE PANE, and that reading is a MEASUREMENT
+// rather than a preference: the house precedent points the other way and would have made the
+// panel BIGGER. `--map2d-parcel-card-w` read his earlier *"20%"* as 20% of the pane; 50% of the
+// ~948px pane in his screenshot is ~474px, wider than the 420px this panel already was, which
+// contradicts *"smaller"* in the same sentence.
+//
+// ⭐ WHY THE FOOTPRINT IS COMPUTED FROM DECLARED BOXES RATHER THAN FROM `getBoundingClientRect`.
+// happy-dom performs no layout: every rect it returns is zero, so a "measurement" taken there
+// would be a measurement of nothing that prints the same green as a real one (§L-851). What CAN
+// be read faithfully is what the code DECLARED, and in the folded state that is the whole box —
+// the caption leaves the flow entirely, so the only term this suite cannot see is the range
+// input's UA height, and that is declared here too, precisely so it stops being unknowable.
+//
+// ⛔ THE SIZE ARM IS USELESS WITHOUT THE HONESTY ARM AND THEY SHIP TOGETHER. Any panel can be
+// halved by deleting its sentence; the arms below assert that the sentence is byte-for-byte
+// `completenessCaption`'s output, that the fold is refused on every reading that names a limit or
+// an absence, and that the refusal is decided by the SAME judgement the caption uses.
+// ═════════════════════════════════════════════════════════════════════════════════
+
+/** One declared box, in the terms the panel declares it. */
+interface Box {
+    readonly widthPx: number;
+    readonly padTopPx: number;
+    readonly padBottomPx: number;
+    readonly headPx: number;
+    readonly headMarginPx: number;
+    readonly trackPx: number;
+}
+
+/** Height of the panel with the caption folded away — every term declared, none guessed. */
+function foldedHeightPx(b: Box): number {
+    return b.padTopPx + b.headPx + b.headMarginPx + b.trackPx + b.padBottomPx;
+}
+
+function footprintPx2(b: Box): number {
+    return b.widthPx * foldedHeightPx(b);
+}
+
+/**
+ * ⛔ THE "BEFORE", WITH ITS PROVENANCE — every number is the value this file declared at
+ * `git show 690fba9c:apps/editor/src/engine/views/SiteScopeSlider.ts`, and each is named by the
+ * declaration it came from so a reader can check it rather than trust it:
+ *
+ *   width          `width: 'min(420px, calc(100% - 24px))'`
+ *   padding        `padding: '10px 14px 8px'`                        → 10 top, 8 bottom
+ *   head           shape button `padding: '6px 9px'` + `font: '600 13px/1 …'` = 6+13+6, plus the
+ *                  1px `shapeWrap` border top and bottom              → 27
+ *   head margin    `marginBottom: '6px'`
+ *   track          `trackWrap` `padding: '2px 0 4px'` + an UNDECLARED `input[type=range]`, whose
+ *                  UA box is ~21px tall with ~2px of UA margin above and below → 2 + 25 + 4 = 31
+ *
+ * ⚠ AND THE CAPTION IS COUNTED AT ITS MINIMUM, WHICH UNDERSTATES THE SAVING ON PURPOSE. In the
+ * founder's own screenshot the sentence wraps to two lines inside a 392px content box; this
+ * charges the old panel for ONE line (`font: '500 11px/1.4'` + `marginTop: '2px'` = 17.4px). If
+ * the ratio below still clears 50% against the most generous possible reading of the old panel,
+ * it clears it against the real one.
+ */
+/** The panel's own source. Read ONCE — the width declaration is the one term happy-dom cannot
+ *  hand back (see `readBox`), so it is measured here instead of being invented. */
+const SLIDER_SRC = readFileSync(resolve(__dirname, '../views/SiteScopeSlider.ts'), 'utf8');
+
+const BEFORE: Box = {
+    widthPx: 420,
+    padTopPx: 10,
+    padBottomPx: 8,
+    headPx: 6 + 13 + 6 + 2,
+    headMarginPx: 6,
+    trackPx: 2 + (21 + 2 + 2) + 4,
+};
+const BEFORE_MIN_CAPTION_PX = 11 * 1.4 + 2;
+
+/** `'7px 10px 6px'` → `{ top: 7, bottom: 6 }`. Shorthand only; the panel writes no long-hand. */
+function readPadding(el: HTMLElement): { top: number; bottom: number } {
+    const parts = el.style.padding.trim().split(/\s+/).map((p) => Number.parseFloat(p));
+    if (parts.length === 3) return { top: parts[0]!, bottom: parts[2]! };
+    if (parts.length === 2) return { top: parts[0]!, bottom: parts[0]! };
+    if (parts.length === 1) return { top: parts[0]!, bottom: parts[0]! };
+    return { top: parts[0]!, bottom: parts[2]! };
+}
+
+function px(v: string): number {
+    const n = Number.parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+}
+
+/** Read the AFTER box off the REAL mounted control — declarations, not a replica of them. */
+function readBox(paneEl: HTMLElement): Box {
+    const root = paneEl.querySelector<HTMLElement>(`[data-pane-scope-slider="${LEFT_PANE}"]`)!;
+    const shapeBtn = paneEl.querySelector<HTMLElement>(`[data-testid="site-scope-shape-rectangle-${LEFT_PANE}"]`)!;
+    const input = paneEl.querySelector<HTMLElement>(`[data-testid="site-scope-range-${LEFT_PANE}"]`)!;
+    const trackWrap = input.parentElement!;
+    const head = root.firstElementChild as HTMLElement;
+
+    // ⛔ THE WIDTH IS READ FROM THE SOURCE AND EVERY OTHER TERM FROM THE DOM, AND THE SPLIT IS
+    // FORCED BY THE ENVIRONMENT, NOT CHOSEN. happy-dom's CSS parser DISCARDS any `min(…)` value —
+    // measured, not assumed: `el.style.width = 'min(300px, 90%)'` reads back as `''`, while the
+    // `padding` set in the same `Object.assign` survives intact. So `root.style.width` here is
+    // empty no matter what the panel declares, and a DOM read would be measuring the parser rather
+    // than the panel — it would go green on a panel that had DELETED its width, which is the one
+    // regression this arm exists to catch.
+    const widthMatch = /width:\s*'min\((\d+)px,\s*calc\(100% - 24px\)\)'/.exec(SLIDER_SRC);
+    if (!widthMatch) {
+        throw new Error('[§SCOPE-PANEL-50] the panel width is no longer a '
+            + "`min(<n>px, calc(100% - 24px))` declaration in SiteScopeSlider.ts — re-read the "
+            + `declaration before trusting this suite. DOM said "${root.style.width}".`);
+    }
+
+    const btnPad = shapeBtn.style.padding.trim().split(/\s+/).map((p) => Number.parseFloat(p));
+    // ⚠ THE SPACES AROUND THE SLASH ARE THE ENVIRONMENT'S, NOT THE PANEL'S. The source writes
+    // `600 12px/1 system-ui, sans-serif`; happy-dom re-serialises the `font` shorthand as
+    // `600 12px / 1 system-ui, sans-serif`. Pinning the tight spelling would fail on a panel that
+    // had changed nothing — a test that reports the serialiser as a regression in the subject.
+    const btnFont = /(\d+)px\s*\/\s*(\d+(?:\.\d+)?)/.exec(shapeBtn.style.font);
+    if (!btnFont) throw new Error(`[§SCOPE-PANEL-50] the shape button font is unreadable: ${shapeBtn.style.font}`);
+    // `600 12px/1 …` — a unitless line-height multiplies the font size.
+    const btnLine = Number(btnFont[1]) * Number(btnFont[2]);
+
+    const rootPad = readPadding(root);
+    const trackPad = readPadding(trackWrap);
+    // ⭐ THE UA HEIGHT IS DECLARED NOW, WHICH IS THE POINT — an undeclared range input contributes
+    // a number this suite would have to invent. If the declaration is ever dropped, this throws
+    // rather than silently substituting a guess.
+    if (!input.style.height || input.style.margin !== '0px') {
+        throw new Error(`[§SCOPE-PANEL-50] the track must declare its own height AND zero the UA margin, got height="${input.style.height}" margin="${input.style.margin}"`);
+    }
+    return {
+        widthPx: Number(widthMatch[1]),
+        padTopPx: rootPad.top,
+        padBottomPx: rootPad.bottom,
+        headPx: btnPad[0]! * 2 + btnLine + 2,
+        headMarginPx: px(head.style.marginBottom),
+        trackPx: trackPad.top + px(input.style.height) + trackPad.bottom,
+    };
+}
+
+describe('§SCOPE-PANEL-50 — the footprint, MEASURED from what the panel declares', () => {
+    it('⭐ folds to at most HALF the footprint it had, charged against the old panel at its smallest', () => {
+        const { paneEl } = mountInto(recorder());
+        const after = readBox(paneEl);
+        const beforePx2 = BEFORE.widthPx * (foldedHeightPx(BEFORE) + BEFORE_MIN_CAPTION_PX);
+        const afterPx2 = footprintPx2(after);
+        // The founder's number, as an inequality rather than as a claim about pixels nobody read.
+        expect(afterPx2 / beforePx2).toBeLessThanOrEqual(0.5);
+        // …and the two axes separately, so a regression says WHICH one moved.
+        expect(after.widthPx).toBeLessThanOrEqual(BEFORE.widthPx * 0.75);
+        expect(foldedHeightPx(after)).toBeLessThanOrEqual(foldedHeightPx(BEFORE) * 0.75);
+    });
+
+    it('every axis moved DOWN — no term of the box grew to pay for another', () => {
+        const { paneEl } = mountInto(recorder());
+        const after = readBox(paneEl);
+        expect(after.widthPx).toBeLessThan(BEFORE.widthPx);
+        expect(after.padTopPx).toBeLessThan(BEFORE.padTopPx);
+        expect(after.padBottomPx).toBeLessThan(BEFORE.padBottomPx);
+        expect(after.headPx).toBeLessThan(BEFORE.headPx);
+        expect(after.headMarginPx).toBeLessThan(BEFORE.headMarginPx);
+        expect(after.trackPx).toBeLessThan(BEFORE.trackPx);
+    });
+
+    it('stays a PANE float — the shrink did not move it off its pane (C59 §2.10.3 clause 4)', () => {
+        const { paneEl } = mountInto(recorder());
+        const root = paneEl.querySelector<HTMLElement>(`[data-pane-scope-slider="${LEFT_PANE}"]`)!;
+        expect(root.style.position).toBe('absolute');
+        expect(root.style.left).toBe('50%');
+        expect(root.style.transform).toBe('translateX(-50%)');
+        // Narrow panes still clamp it inside their own edges rather than overflowing them.
+        // ⛔ ASSERTED ON THE SOURCE for the reason `readBox` records: happy-dom discards `min(…)`,
+        // so `root.style.width` is `''` here however the panel is written.
+        expect(SLIDER_SRC).toContain("width: 'min(300px, calc(100% - 24px))'");
+    });
+});
+
+describe('§SCOPE-PANEL-50 — the honesty sentence is FOLDED, never shortened, never lost', () => {
+    const readingScope = scopeAtRadius(1200, 'circle');
+
+    it('⛔ the caption is byte-for-byte `completenessCaption` — the shrink cost it no words', () => {
+        const r = recorder(readingScope);
+        r.mark = { radiusM: 1600, boundBy: 'canopy read', kind: 'read' };
+        const { caption } = mountInto(r);
+        expect(caption.textContent).toBe(completenessCaption(readingScope, r.mark, []));
+    });
+
+    it('folds only the plainly-COMPLETE reading, and one click brings it back', () => {
+        const r = recorder(readingScope);
+        r.mark = { radiusM: 1600, boundBy: 'canopy read', kind: 'read' };
+        const { paneEl, caption } = mountInto(r);
+        const toggle = paneEl.querySelector<HTMLButtonElement>(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)!;
+        // Inside the mark: a reassurance. It starts folded — this is the founder's 50%.
+        expect(caption.style.display).toBe('none');
+        expect(toggle.disabled).toBe(false);
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        toggle.click();
+        expect(caption.style.display).toBe('block');
+        expect(toggle.getAttribute('aria-expanded')).toBe('true');
+        expect(caption.textContent).toMatch(/^Complete at this scope/);
+        toggle.click();
+        expect(caption.style.display).toBe('none');
+    });
+
+    it('⛔⛔ a reading that names a LIMIT cannot be folded away — not even by clicking', () => {
+        const r = recorder(scopeAtRadius(1700, 'circle'));
+        r.mark = { radiusM: 900, boundBy: 'canopy read', kind: 'read' };
+        const { paneEl, caption } = mountInto(r);
+        const toggle = paneEl.querySelector<HTMLButtonElement>(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)!;
+        expect(caption.style.display).toBe('block');
+        expect(toggle.disabled).toBe(true);
+        // The refusal STATES ITS REASON rather than vanishing — a control that disappears teaches
+        // nothing about why the panel will not get smaller here.
+        expect(toggle.title).toMatch(/stays open/);
+        toggle.click();
+        toggle.click();
+        expect(caption.style.display).toBe('block');
+    });
+
+    it('⛔ an UNMEASURED reading is pinned open too — unmeasured and clean are different values', () => {
+        const r = recorder(readingScope);
+        r.mark = null;
+        const { paneEl, caption } = mountInto(r);
+        const toggle = paneEl.querySelector<HTMLButtonElement>(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)!;
+        expect(caption.textContent).toMatch(/has not been measured yet/);
+        expect(caption.style.display).toBe('block');
+        expect(toggle.disabled).toBe(true);
+    });
+
+    it('a BITING cap is pinned open with its numbers, inside the mark or not', () => {
+        const r = recorder(readingScope);
+        r.mark = { radiusM: 1600, boundBy: 'canopy read', kind: 'read' };
+        r.verdicts = [{ layer: 'buildings', complete: false, line: 'buildings: 12 000 eligible, 8 000 drawn, 4 000 dropped.' }];
+        const { paneEl, caption } = mountInto(r);
+        const toggle = paneEl.querySelector<HTMLButtonElement>(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)!;
+        expect(caption.style.display).toBe('block');
+        expect(toggle.disabled).toBe(true);
+        expect(caption.textContent).toContain('4 000 dropped');
+    });
+
+    it('the "no site yet" and "could not be saved" readings are never foldable either', () => {
+        const noSite = mountInto(recorder(null));
+        expect(noSite.caption.style.display).toBe('block');
+        expect(noSite.caption.textContent).toMatch(/not showing a site yet/);
+
+        const r = recorder(readingScope);
+        r.mark = { radiusM: 1600, boundBy: 'canopy read', kind: 'read' };
+        const m = mountInto(r);
+        r.commitOk = false;
+        drag(m.input, 800);
+        m.input.dispatchEvent(new Event('change'));
+        expect(m.caption.textContent).toMatch(/could not be saved/);
+        expect(m.caption.style.display).toBe('block');
+    });
+
+    it('drops its listener on dispose, like every other control in this panel', () => {
+        const { paneEl, handle } = mountInto(recorder());
+        expect(paneEl.querySelector(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)).not.toBeNull();
+        handle.dispose();
+        expect(paneEl.querySelector(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)).toBeNull();
+    });
+});
+
+describe('§SCOPE-PANEL-50 — the fold judgement and the SENTENCE cannot drift apart', () => {
+    /**
+     * ⭐⭐ THE EQUIVALENCE ARM, AND IT IS THE REASON A SECOND JUDGEMENT WAS ALLOWED TO EXIST.
+     *
+     * `captionNeedsAttention` is a rival of `completenessCaption`: both weigh the same three
+     * §CONTEXT-DATA-HONESTY facts. Rival solvers are how this repo has repeatedly ended up with
+     * two answers to one question (three disagreeing commandManager counters, rival compose
+     * roots), so the rival is PINNED to the original rather than trusted beside it: the fold is
+     * refused if and ONLY IF the sentence is not one of the two "Complete at this scope" arms.
+     *
+     * Move an arm boundary in EITHER function and this fails by name — which is exactly what a
+     * lane rewriting the caption's text (as one is, next door) needs it to do.
+     */
+    const CASES = [
+        { name: 'unmeasured', scope: scopeAtRadius(1200, 'circle'), mark: null, verdicts: [] },
+        { name: 'inside a cap mark', scope: scopeAtRadius(900, 'circle'), mark: { radiusM: 1600, boundBy: 'building density', kind: 'cap' as const }, verdicts: [] },
+        { name: 'inside a read mark', scope: scopeAtRadius(900, 'circle'), mark: { radiusM: 1600, boundBy: 'canopy read', kind: 'read' as const }, verdicts: [] },
+        { name: 'every cap holds', scope: scopeAtRadius(900, 'circle'), mark: { radiusM: 900, boundBy: 'none (every cap holds)', kind: 'none' as const }, verdicts: [{ layer: 'buildings', complete: true, line: 'buildings: all drawn.' }] },
+        { name: 'exactly on the mark', scope: scopeAtRadius(1600, 'circle'), mark: { radiusM: 1600, boundBy: 'canopy read', kind: 'read' as const }, verdicts: [] },
+        { name: 'past a read mark', scope: scopeAtRadius(1700, 'circle'), mark: { radiusM: 900, boundBy: 'canopy read', kind: 'read' as const }, verdicts: [] },
+        { name: 'past a cap mark', scope: scopeAtRadius(1700, 'circle'), mark: { radiusM: 900, boundBy: 'building density', kind: 'cap' as const }, verdicts: [] },
+        { name: 'a cap bites inside the mark', scope: scopeAtRadius(900, 'circle'), mark: { radiusM: 1600, boundBy: 'canopy read', kind: 'read' as const }, verdicts: [{ layer: 'trees', complete: false, line: 'trees: 40 000 eligible, 16 000 drawn.' }] },
+    ];
+
+    it.each(CASES)('$name — the fold is refused if and only if the sentence is not "Complete at this scope"', (c) => {
+        const sentence = completenessCaption(c.scope, c.mark, c.verdicts);
+        const reassuring = sentence.startsWith('Complete at this scope');
+        expect(captionNeedsAttention(c.scope, c.mark, c.verdicts)).toBe(!reassuring);
+    });
+
+    it('the table exercises BOTH sides of the biconditional, so it cannot pass vacuously', () => {
+        const verdictsOf = CASES.map((c) => captionNeedsAttention(c.scope, c.mark, c.verdicts));
+        expect(verdictsOf).toContain(true);
+        expect(verdictsOf).toContain(false);
     });
 });

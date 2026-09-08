@@ -262,6 +262,42 @@ export function completenessCaption(
     );
 }
 
+/**
+ * ⭐⭐ §SCOPE-PANEL-50 (L-13189 · C12 §13.5 · §CONTEXT-DATA-HONESTY) — MAY THE COMPLETENESS
+ * SENTENCE BE FOLDED AWAY, OR MUST THE USER SEE IT?
+ *
+ * Founder 2026-09-07, red box drawn round this panel: *"Make the panel Scope … smaller - the panel
+ * should be 50%"*. Measured, the panel cannot lose half its footprint while the caption stays in
+ * flow — the caption IS most of the height. Progressive disclosure is the only way to pay for it,
+ * and progressive disclosure applied to an honesty statement is how a product quietly stops
+ * disclosing. So the fold is not offered on every reading; it is offered on exactly the readings
+ * that are REASSURANCES, and refused on every reading that carries a limit or an absence.
+ *
+ * THE THREE THAT MUST STAY OPEN, and each is read off a fact the producer already computed rather
+ * than re-judged here:
+ *   · `mark === null`                   — nothing has been measured. An unmeasured layer and a
+ *                                         clean one are DIFFERENT VALUES, and a folded "not
+ *                                         measured yet" is a panel that looks complete and is not.
+ *   · a verdict with `complete: false`  — a cap is biting. Its line carries the numbers.
+ *   · the scope is past the mark        — the rim is thinned, or the canopy has stopped.
+ *
+ * ⛔ IT IS A RIVAL OF `completenessCaption` AND IT IS PINNED AS ONE, NOT LEFT TO DRIFT. Two
+ * routines that judge the same three facts is the rival-solver shape this repo has paid for
+ * repeatedly, so `siteScopeSlider.spec.ts` asserts the BICONDITIONAL against the caption's own
+ * output across every arm — `false` here if and only if the sentence begins "Complete at this
+ * scope". Move an arm boundary in either function and the equivalence arm says so; keeping a
+ * private copy of the rule here and hoping is what that arm exists to forbid.
+ */
+export function captionNeedsAttention(
+    scope: SiteScope,
+    mark: { readonly radiusM: number; readonly kind: 'cap' | 'read' | 'none' } | null,
+    verdicts: ReadonlyArray<{ readonly complete: boolean }>,
+): boolean {
+    if (mark === null) return true;
+    if (verdicts.some((v) => !v.complete)) return true;
+    return scopeOuterRadiusM(scope) > mark.radiusM + 0.5;
+}
+
 /** The floor the control enforces: the measured minimum, raised by the parcel's own when known. */
 export function resolveFloorRadiusM(minRadiusM: number, parcelFloorM: number | null | undefined): number {
     if (parcelFloorM == null || !Number.isFinite(parcelFloorM)) return minRadiusM;
@@ -296,20 +332,33 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
         zIndex: '60',
         display: 'none',
         boxSizing: 'border-box',
-        width: 'min(420px, calc(100% - 24px))',
-        padding: '10px 14px 8px',
-        borderRadius: '12px',
+        // ⭐⭐ §SCOPE-PANEL-50 (L-13189) — HALF THE FOOTPRINT, PAID FOR BY DENSITY, NEVER BY
+        // DELETING THE HONESTY SENTENCE. Founder 2026-09-07, red box round this panel: *"Make the
+        // panel Scope Rectangular or circular smaller - the panel should be 50%"*.
+        //
+        // ⚠ "50%" IS HALF THE CURRENT FOOTPRINT, NOT 50% OF THE PANE — resolved by measurement
+        // against his own screenshot, because the house precedent points the other way and would
+        // have made the panel BIGGER. `--map2d-parcel-card-w` read his earlier *"20%"* as 20% OF
+        // THE PANE; 50% of the ~948px pane he marked up is ~474px, wider than the 420px this
+        // panel already was, which contradicts *"smaller"* in the same sentence. So: half the box.
+        //
+        // Every one of these numbers is a step DOWN from what was here (420 → 300 wide,
+        // 10/14/8 → 7/10/6 padding, 12px → 11px type, 12 → 10 radius), and the height comes off
+        // in the rows below plus the caption's fold. What did NOT change is what the panel SAYS.
+        width: 'min(300px, calc(100% - 24px))',
+        padding: '7px 10px 6px',
+        borderRadius: '10px',
         border: `1px solid ${BORDER}`,
         background: 'rgba(255,255,255,0.94)',
-        boxShadow: '0 8px 24px rgba(20,10,60,0.16)',
-        font: '600 12px/1.35 system-ui, sans-serif',
+        boxShadow: '0 6px 18px rgba(20,10,60,0.16)',
+        font: '600 11px/1.3 system-ui, sans-serif',
         color: INK,
     } satisfies Partial<CSSStyleDeclaration>);
 
-    // ── row 1: the shape toggle + the readout ──────────────────────────────────
+    // ── row 1: the shape toggle + the readout + the caption's disclosure ───────
     const head = document.createElement('div');
     Object.assign(head.style, {
-        display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px',
+        display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px',
     } satisfies Partial<CSSStyleDeclaration>);
 
     const shapeBtns = new Map<SiteScopeShape, HTMLButtonElement>();
@@ -330,7 +379,9 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
         b.setAttribute('data-testid', `site-scope-shape-${shape}-${paneId}`);
         Object.assign(b.style, {
             appearance: 'none', cursor: 'pointer', border: 'none', background: '#ffffff',
-            color: MUTED, font: '600 13px/1 system-ui, sans-serif', padding: '6px 9px',
+            // §SCOPE-PANEL-50 — 13px/6×9 → 12px/3×7. The glyph is still the largest thing in the
+            // row and still reads as a segmented control; it just stops setting the panel's height.
+            color: MUTED, font: '600 12px/1 system-ui, sans-serif', padding: '3px 7px',
         } satisfies Partial<CSSStyleDeclaration>);
         b.addEventListener('click', () => { onShape(shape); });
         shapeWrap.appendChild(b);
@@ -345,26 +396,54 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
     title.textContent = 'Scope';
     Object.assign(title.style, { color: MUTED, letterSpacing: '0.02em' } satisfies Partial<CSSStyleDeclaration>);
 
+    /**
+     * ⭐ §SCOPE-PANEL-50 — THE FOLD, AND THE CONTROL THAT REFUSES TO FOLD.
+     *
+     * This is what buys the founder his 50%: the completeness sentence leaves the flow in the one
+     * state where it is a reassurance, and it is one click away — never edited, never shortened,
+     * never conditional on space. `captionNeedsAttention` decides; when it says the reading carries
+     * a limit or an absence, this control is DISABLED and says why in its own title rather than
+     * disappearing, because a fold that silently stops being offered teaches nothing.
+     */
+    const captionToggle = document.createElement('button');
+    captionToggle.type = 'button';
+    captionToggle.textContent = 'ⓘ';
+    captionToggle.setAttribute('data-testid', `site-scope-caption-toggle-${paneId}`);
+    Object.assign(captionToggle.style, {
+        appearance: 'none', border: 'none', background: 'transparent', padding: '0 1px',
+        font: '600 12px/1 system-ui, sans-serif', color: MUTED, cursor: 'pointer', flex: '0 0 auto',
+    } satisfies Partial<CSSStyleDeclaration>);
+
     head.appendChild(shapeWrap);
     head.appendChild(title);
     head.appendChild(readout);
+    head.appendChild(captionToggle);
 
     // ── row 2: the track, with the COMPLETE mark drawn on it ───────────────────
     const trackWrap = document.createElement('div');
-    Object.assign(trackWrap.style, { position: 'relative', padding: '2px 0 4px' } satisfies Partial<CSSStyleDeclaration>);
+    // §SCOPE-PANEL-50 — `2px 0 4px` → `0 0 2px`; the track's own breathing room came out of the
+    // panel's height without touching the hit target, which the input's height below governs.
+    Object.assign(trackWrap.style, { position: 'relative', padding: '0 0 2px' } satisfies Partial<CSSStyleDeclaration>);
 
     const input = document.createElement('input');
     input.type = 'range';
     input.step = '5';
     input.setAttribute('data-testid', `site-scope-range-${paneId}`);
     input.setAttribute('aria-label', 'Site scope radius in metres');
-    Object.assign(input.style, { width: '100%', accentColor: BRAND, cursor: 'pointer' } satisfies Partial<CSSStyleDeclaration>);
+    // §SCOPE-PANEL-50 — a bare `input[type=range]` carries a UA height of ~21px PLUS ~2px of UA
+    // margin top and bottom, none of it declared here and all of it counted in the panel's box.
+    // Declaring the height and zeroing the margin is the single largest saving in this row.
+    Object.assign(input.style, {
+        width: '100%', accentColor: BRAND, cursor: 'pointer',
+        display: 'block', height: '14px', margin: '0',
+    } satisfies Partial<CSSStyleDeclaration>);
 
     /** §13.5 — the "complete" mark: a tick ON the track at `completeScopeRadiusM`. */
     const mark = document.createElement('div');
     mark.setAttribute('data-testid', `site-scope-complete-mark-${paneId}`);
     Object.assign(mark.style, {
-        position: 'absolute', top: '0', width: '2px', height: '10px',
+        // §SCOPE-PANEL-50 — 10px → 8px, to stay inside the 14px track rather than over-running it.
+        position: 'absolute', top: '3px', width: '2px', height: '8px',
         background: BRAND, borderRadius: '1px', display: 'none', pointerEvents: 'none',
     } satisfies Partial<CSSStyleDeclaration>);
 
@@ -375,7 +454,12 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
     const caption = document.createElement('div');
     caption.setAttribute('data-testid', `site-scope-caption-${paneId}`);
     Object.assign(caption.style, {
-        font: '500 11px/1.4 system-ui, sans-serif', color: MUTED, marginTop: '2px',
+        // ⛔ THE TYPE GOT SMALLER; THE SENTENCE DID NOT. 11px → 10px is the ONLY thing this lane
+        // did to the caption's own box — its text is `completenessCaption`'s and is untouched.
+        font: '500 10px/1.35 system-ui, sans-serif', color: MUTED, marginTop: '3px',
+        // Starts folded. `paintCaption` is the one writer of this property and it re-opens on any
+        // reading that carries a limit or an absence (see `captionNeedsAttention`).
+        display: 'none',
     } satisfies Partial<CSSStyleDeclaration>);
 
     root.appendChild(head);
@@ -391,6 +475,14 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
     let dragRadiusM: number | null = null;
     let shape: SiteScopeShape = 'rectangle';
     let disposed = false;
+    /**
+     * §SCOPE-PANEL-50 — the user's OWN choice about the fold, and nothing else. It is an override
+     * that can only ever OPEN: `paintCaption` ORs it with the pinned reading, so a limit or an
+     * absence stays on screen whatever this holds. Per control, not per pane and not persisted —
+     * the panel is transient chrome and a remembered fold would outlive the reading that justified
+     * it, which is how a stale "everything is fine" gets shown over a scope that has since moved.
+     */
+    let captionOpen = false;
 
     const liveScope = (): SiteScope | null => ports.getScope();
 
@@ -400,6 +492,35 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
         const s = liveScope();
         return s ? scopeOuterRadiusM(s) : null;
     };
+
+    /**
+     * ⭐ §SCOPE-PANEL-50 (L-13189) — THE ONE WRITER OF THE CAPTION'S TEXT **AND** OF ITS FOLD.
+     *
+     * `pinned` means *this reading must be seen*: it is `captionNeedsAttention`'s verdict on the
+     * three §CONTEXT-DATA-HONESTY facts, or `true` outright for the states the caption reports
+     * directly (no site yet, a refused commit) — those are not completeness readings at all and
+     * there is nothing to weigh them against, so they are never folded.
+     *
+     * ⛔ THE FOLD CAN ONLY EVER OPEN. `pinned || captionOpen` — the user's collapse is an override
+     * on a REASSURANCE and has no power over a limit. Wiring it the other way round is how a
+     * panel comes to be small and quiet about a scope that is dropping features.
+     */
+    function paintCaption(text: string, pinned: boolean): void {
+        caption.textContent = text;
+        const open = pinned || captionOpen;
+        caption.style.display = open ? 'block' : 'none';
+        captionToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        // A control that refuses states its reason; one that vanishes teaches nothing.
+        captionToggle.disabled = pinned;
+        captionToggle.style.cursor = pinned ? 'default' : 'pointer';
+        captionToggle.style.color = pinned ? BRAND : MUTED;
+        captionToggle.title = pinned
+            ? 'This reading names a limit or an unmeasured layer, so it stays open.'
+            : open
+                ? 'Hide the completeness reading'
+                : 'Show the completeness reading — what this scope actually draws';
+        captionToggle.setAttribute('aria-label', 'Completeness reading');
+    }
 
     function paint(): void {
         if (disposed) return;
@@ -418,7 +539,7 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
             // the user can act on, and hiding the slider would make it look unavailable for good.
             input.disabled = true;
             readout.textContent = 'not available';
-            caption.textContent = 'The 3D Site view is not showing a site yet — the scope applies once it is.';
+            paintCaption('The 3D Site view is not showing a site yet — the scope applies once it is.', true);
             mark.style.display = 'none';
             return;
         }
@@ -450,10 +571,14 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
             mark.style.display = 'none';
         }
 
-        caption.textContent = completenessCaption(
-            dragRadiusM === null ? scope : scopeAtRadius(dragRadiusM, shape),
-            completeMark,
-            ports.getCapVerdicts?.() ?? [],
+        // ⛔ ONE SCOPE AND ONE VERDICT SET FEED BOTH THE SENTENCE AND THE FOLD. Reading the drag
+        // scope twice, or the verdicts twice, is how the caption comes to describe one radius while
+        // the fold was decided on another — the panel would then hide a limit it is printing.
+        const captionScope = dragRadiusM === null ? scope : scopeAtRadius(dragRadiusM, shape);
+        const verdicts = ports.getCapVerdicts?.() ?? [];
+        paintCaption(
+            completenessCaption(captionScope, completeMark, verdicts),
+            captionNeedsAttention(captionScope, completeMark, verdicts),
         );
     }
 
@@ -476,9 +601,11 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
         ports.preview(null);
         const ok = ports.commit(next);
         if (!ok) {
-            caption.textContent =
+            paintCaption(
                 'The scope could not be saved — no site is loaded, so there is nothing to store it on. ' +
-                'The view is unchanged.';
+                'The view is unchanged.',
+                true,
+            );
             return;
         }
         paint();
@@ -494,12 +621,19 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
         if (dragging) { ports.preview(scopeAtRadius(r, shape)); paint(); return; }
         const ok = ports.commit(scopeAtRadius(r, shape));
         if (!ok) {
-            caption.textContent = 'The scope shape could not be saved — no site is loaded. The view is unchanged.';
+            paintCaption('The scope shape could not be saved — no site is loaded. The view is unchanged.', true);
             return;
         }
         paint();
     }
 
+    /** §SCOPE-PANEL-50 — the fold is a VIEW preference: it never previews and never commits. */
+    function onCaptionToggle(): void {
+        captionOpen = !captionOpen;
+        paint();
+    }
+
+    captionToggle.addEventListener('click', onCaptionToggle);
     input.addEventListener('input', onInput);
     // `change` is the release for a range input in every browser; `pointerup`/`keyup` are the belt
     // and braces for a drag that ends outside the element. `onRelease` is idempotent (it early-outs
@@ -518,6 +652,7 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
             if (disposed) return;
             disposed = true;
             try { unsubscribe(); } catch { /* already gone */ }
+            captionToggle.removeEventListener('click', onCaptionToggle);
             input.removeEventListener('input', onInput);
             input.removeEventListener('change', onRelease);
             input.removeEventListener('pointerup', onRelease);
