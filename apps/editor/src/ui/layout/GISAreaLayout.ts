@@ -2326,10 +2326,43 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             });
             return b;
         };
+        // ══════════════════════════════════════════════════════════════════════
+        // §ONE-SWITCHER-ON-EVERY-VIEW (founder 2026-09-08 · L-13261 · C59 §1.5 / invariant 11)
+        //
+        // *"Testing the dropdown panel - in this case FALLS BACK TO LEGACY WRONG PANEL WHEN
+        // CLICKING ON 3D GLOBE."*
+        //
+        // ⭐ HE IS DESCRIBING ROW 3 OF THIS SESSION'S OWN AUDIT, and C59 §1.5.3 already
+        // recorded it as the increment this lane had NOT done: *"rows 3 and 4 remain their
+        // own shapes."* §ONE-VIEW-SWITCHER (L-13160) retired these three segments on PRYZM
+        // views ONLY — `legacyViewBarsAllowedIn(phase) === phase !== 'pryzm-view'` — because
+        // the OTHER controls on this bar act on the Cesium surface and DO have a subject on
+        // the globe. That reasoning is still exactly right, and it is why this change is a
+        // scalpel rather than a teardown.
+        //
+        // ⛔ THE THREE VIEW SEGMENTS RETIRE ON EVERY PHASE; NOTHING ELSE ON THIS BAR MOVES.
+        // `◉ Real` · `▢ Massing` · `⤢ Zoom to Site` · `▶ Fly tour` are camera / render
+        // controls whose subject is the Cesium globe, and they stay exactly where they were.
+        // Deleting a working control because it sits beside a redundant one is the defect
+        // `LEGACY_BAR_CONTROLS`' classification table exists to prevent — the table sorts by
+        // SUBJECT, not by adjacency, and this edit obeys that sort.
+        //
+        // ⭐ THE REPLACEMENT IS ALREADY ON SCREEN. `ensurePryzmViewPill()` mounts the ONE
+        // pill on `#container`; this call puts it up on the site/globe phases too, so the
+        // region never loses its switcher (the L-942 shape: retiring a control whose
+        // replacement is only described). SWITCHER COUNT == VISIBLE VIEW-REGION COUNT holds
+        // in both directions — the segments come down in the same breath the pill goes up.
+        //
+        // ⚠ `mkBtn` AND THE REFS ARE KEPT. `refreshResultButtons()` paints all three from
+        // `activeSegment` and is called from a dozen places; `styleResultBtn` already
+        // no-ops on null. Deleting the builders would turn one retirement into a refactor
+        // of the paint path, which is how a scalpel becomes a teardown.
+        // ══════════════════════════════════════════════════════════════════════
+        // BUILT, NOT APPENDED — the refs stay real so `refreshResultButtons` is untouched;
+        // only the bar loses them.
         btn2dRef = mkBtn('2D', '◧ 3D + plan');
         btn3dRef = mkBtn('3D', '◉ 3D globe');
-        bar.appendChild(btn2dRef);
-        bar.appendChild(btn3dRef);
+        ensurePryzmViewPill();
 
         // FORMA.3 — a third, prominent entry to the Cesium "massing study" view,
         // right where the founder lands after Generate. Distinct from the BIM
@@ -2360,7 +2393,8 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // Forma sub-bar mounts BELOW (never replacing) this segmented switch.
             mountFormaViewToggle(DEFAULT_3D_SITE_VIEW);
         });
-        bar.appendChild(formaBtn);
+        // §ONE-SWITCHER-ON-EVERY-VIEW (L-13261) — the third view segment, retired with the
+        // other two. Built (so `refreshResultButtons` keeps working) but NOT appended.
         formaBtnRef = formaBtn;
 
         // §GLOBE-FIDELITY — [ ◉ Real ] [ ▢ Massing ] for the photoreal "3D globe".
