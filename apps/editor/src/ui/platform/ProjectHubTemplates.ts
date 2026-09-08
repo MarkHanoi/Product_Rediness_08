@@ -113,7 +113,7 @@ export function renderShell(ctx: PhRenderCtx): string {
             <div class="ph-modal">
                 <div class="ph-modal-header">
                     <span class="ph-modal-title">New Project</span>
-                    <button class="ph-modal-close" id="ph-modal-close">×</button>
+                    <button class="ph-modal-close" id="ph-modal-close" aria-label="Close">×</button>
                 </div>
                 <div class="ph-modal-body">
                     <div class="ph-modal-field">
@@ -121,7 +121,7 @@ export function renderShell(ctx: PhRenderCtx): string {
                         <input class="ph-modal-input" id="ph-new-name" type="text" placeholder="e.g. Riverside Tower" maxlength="80">
                     </div>
                     <div class="ph-modal-field">
-                        <label class="ph-modal-label">Description <span style="font-weight:400;opacity:0.7;">(optional)</span></label>
+                        <label class="ph-modal-label">Description <span style="font-weight:400;opacity:0.8;">(optional)</span></label>
                         <textarea class="ph-modal-input ph-modal-textarea" id="ph-new-description" placeholder="Brief description of this project…" maxlength="280" rows="2"></textarea>
                     </div>
                     <div class="ph-modal-field">
@@ -180,7 +180,7 @@ export function renderShell(ctx: PhRenderCtx): string {
             <div class="ph-modal">
                 <div class="ph-modal-header">
                     <span class="ph-modal-title">Rename Project</span>
-                    <button class="ph-modal-close" data-modal="ph-rename-modal">×</button>
+                    <button class="ph-modal-close" data-modal="ph-rename-modal" aria-label="Close">×</button>
                 </div>
                 <div class="ph-modal-body">
                     <div class="ph-modal-field">
@@ -196,18 +196,34 @@ export function renderShell(ctx: PhRenderCtx): string {
         </div>
 
         <!-- ── Delete confirmation modal ──────────────── -->
+        <!-- §HUB-MODAL-DANGER (L-13240) — the panel is now the shared glass
+             (§HUB-MODAL-GLASS), so the three inline red style="" attributes
+             that used to carry the whole destructive signal are GONE and the
+             signal lives in declared classes instead: .ph-modal--danger on the
+             panel, .ph-modal-danger-note around the irreversibility sentence,
+             .ph-modal-confirm--danger on the button. A styled contract cannot
+             be dropped by the next restyle the way a style attribute can.
+             #ph-delete-msg stays a bare <p> filled with textContent, so the
+             XSS property guarded by platformProjectNameXssEscaping.test.ts is
+             untouched — the warning glyph is a SIBLING, never inner markup. -->
         <div class="ph-modal-overlay" id="ph-delete-modal" style="display:none;">
-            <div class="ph-modal">
-                <div class="ph-modal-header" style="background: linear-gradient(135deg,#e53e3e,#c53030);">
-                    <span class="ph-modal-title">Delete Project</span>
-                    <button class="ph-modal-close" data-modal="ph-delete-modal">×</button>
+            <div class="ph-modal ph-modal--danger" role="alertdialog" aria-modal="true" aria-labelledby="ph-delete-title" aria-describedby="ph-delete-msg">
+                <div class="ph-modal-header">
+                    <span class="ph-modal-title" id="ph-delete-title">
+                        <svg class="ph-modal-title-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        Delete Project
+                    </span>
+                    <button class="ph-modal-close" data-modal="ph-delete-modal" aria-label="Cancel and close">×</button>
                 </div>
                 <div class="ph-modal-body">
-                    <p id="ph-delete-msg" style="margin:0;font-size:14px;color:var(--app-text);line-height:1.55;"></p>
+                    <div class="ph-modal-danger-note">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <p id="ph-delete-msg"></p>
+                    </div>
                 </div>
                 <div class="ph-modal-footer">
-                    <button class="ph-modal-cancel" data-modal="ph-delete-modal">Cancel</button>
-                    <button class="ph-modal-create" id="ph-delete-confirm" style="background:linear-gradient(135deg,#e53e3e,#c53030);box-shadow:0 2px 8px rgba(229,62,62,0.3);">Delete</button>
+                    <button class="ph-modal-cancel" id="ph-delete-cancel" data-modal="ph-delete-modal">Cancel</button>
+                    <button class="ph-modal-create ph-modal-confirm--danger" id="ph-delete-confirm">Delete</button>
                 </div>
             </div>
         </div>
@@ -217,7 +233,7 @@ export function renderShell(ctx: PhRenderCtx): string {
             <div class="ph-modal" style="max-width:540px;width:100%;max-height:80vh;overflow-y:auto;">
                 <div class="ph-modal-header">
                     <span class="ph-modal-title" id="ph-members-modal-title">Team Members</span>
-                    <button class="ph-modal-close" id="ph-members-modal-close">×</button>
+                    <button class="ph-modal-close" id="ph-members-modal-close" aria-label="Close">×</button>
                 </div>
                 <div class="ph-modal-body" id="ph-members-modal-body" style="min-height:160px;">
                     <div class="mp-loading">Loading members…</div>

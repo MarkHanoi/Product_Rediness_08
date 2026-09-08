@@ -746,39 +746,125 @@ export const PROJECT_HUB_STYLES = `
     .ph-card--archived:hover { opacity: 1; }
 
     /* ─── Modals ──────────────────────────────────────────────────────── */
+    /* §HUB-MODAL-GLASS (2026-09-07 · L-13239) — the hub's FOUR modals (New
+       Project, Rename, Delete, Team Members) shared one dated presentation: an
+       opaque white card under a full-bleed saturated gradient header bar. They
+       now share the product's standing glass panel. This is the move
+       §UX1-CONFIRM-GLASS already made on the onboarding confirm card, for the
+       reason stated there: ACCENT AS THE ACCENT, NOT THE SURFACE. Header, body
+       and footer are ONE translucent surface; the colour survives on the CTA,
+       on the danger note and on the focus ring.
+
+       WHITE glass, not the dark --location glass. The dark values at
+       onboardingStyles.ts:877 are SCOPED to the single card that floats over
+       the globe's black starfield, and the code there says in terms that they
+       must not propagate. This hub is light by contract (this file's own header
+       line, CONTRACT §06 §5) and by construction: .ph-shell is #f3f0ff under
+       three pale lavender blobs, .ph-sidebar is #ffffff, and .ph-card at :503
+       is ALREADY white glass over this same backdrop.
+    ────────────────────────────────────────────────────────────────────── */
     .ph-modal-overlay {
         position: fixed;
         inset: 0;
         /* §PANEL-BACKDROP-UNIFY — shared scrim (was rgba(15,20,50,0.45)+blur6). */
         background: var(--pryzm-panel-backdrop);
-        backdrop-filter: var(--pryzm-panel-backdrop-blur);
-        -webkit-backdrop-filter: var(--pryzm-panel-backdrop-blur);
+        /* §HUB-MODAL-GLASS — the scrim keeps its shared COLOUR and gives up its
+           own backdrop-filter. An element with a backdrop-filter is a Backdrop
+           Root; a descendant then samples only what is painted inside that root,
+           so with a blur here .ph-modal would blur the flat scrim rather than
+           the hub, and the glass would be a visual no-op. ONE blur, on the
+           panel. Dropping it is the safe choice under either reading of the
+           spec, because the panel's own blur is what produces the effect in
+           both. The shared tint is untouched: the token is NOT re-pointed. */
         align-items: center;
         justify-content: center;
         z-index: 99998;
         animation: am-fade 0.18s ease;
+
+        /* §HUB-MODAL-GLASS-ALPHA — a SCOPED re-point of the shared surface
+           token, DERIVED here rather than re-guessed, and scoped exactly the
+           way .os-onboarding-overlay--location scopes its own (onboardingStyles
+           .ts:877). Same closed form as tokens.ts:104-110:
+               need (L_bg + 0.05) / (L_fg + 0.05) >= 4.5
+           The shared default 0.92 is solved against a BLACK backdrop with
+           --app-text-2 (L 0.1418) as the weakest foreground. Neither premise
+           holds here, and BOTH were changed on purpose rather than assumed away:
+             * The weakest on-glass foreground is now --app-text #1a2035
+               (L 0.0151). .ph-modal-label and .ph-modal-cancel were darkened
+               from --app-text-2 for exactly this reason (see below), which also
+               makes Cancel the more prominent of the two footer buttons.
+               Floor: L_bg >= 4.5 x (0.0151 + 0.05) - 0.05 = 0.2429.
+             * The worst-case backdrop is not black. The darkest pixel that can
+               sit under this panel is a saturated --app-accent #6600FF avatar,
+               CTA pill or card-thumbnail bar seen through the scrim above:
+               0.26 x rgb(28,12,60) + 0.74 x rgb(102,0,255) = rgb(83,3,204),
+               L 0.0627.
+           White at alpha a over rgb(83,3,204): a = 0.43 IS the floor (L 0.2429).
+           a = 0.72 composites to rgb(207,184,241), L 0.5404 — 9.07:1 for
+           --app-text, and still 5.74:1 for the 0.8-opacity optional hint in the
+           New-Project modal. 0.72 is that floor plus real headroom, and it is
+           what makes the panel read as semi-transparent instead of as a white
+           card with a blur behind it.
+           The BLUR is deliberately NOT re-pointed: var(--app-panel-glass-blur)
+           is reused as declared, so the product keeps ONE blur value and there
+           is no px literal here for scaleCssText to re-scale. */
+        --app-panel-glass: rgba(255,255,255,0.72);
     }
     .ph-modal {
-        background: #fff;
+        background: var(--app-panel-glass);
+        backdrop-filter: var(--app-panel-glass-blur);
+        -webkit-backdrop-filter: var(--app-panel-glass-blur);
+        /* Edge and inset highlight are .ph-card's values verbatim (:503-513),
+           so the hub has ONE glass edge rather than a second that can drift. */
+        border: 1px solid rgba(255,255,255,0.5);
         border-radius: var(--app-radius-lg);
-        box-shadow: 0 20px 60px rgba(30,50,120,0.2);
+        box-shadow: 0 24px 64px rgba(30,50,120,0.22), inset 0 1px 0 rgba(255,255,255,0.4);
         width: 440px;
         max-width: 95vw;
         overflow: hidden;
         animation: am-slide 0.22s ease;
     }
+    /* The opaque escapes. This sheet shipped .ph-card's glass without them; the
+       modal glass brings both, idiom from onboardingStyles.ts:1225 / :1231. */
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .ph-modal { background: var(--app-panel-bg); }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+        .ph-modal {
+            background: var(--app-panel-bg);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+    }
     .ph-modal-header {
-        background: var(--app-gradient);
+        /* ONE surface: the header IS the panel's glass, not a bar laid on it.
+           A hairline replaces the gradient as the only separator. */
+        background: transparent;
+        border-bottom: 1px solid var(--app-border-light);
         padding: 16px 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 10px;
     }
-    .ph-modal-title { font-size: 14px; font-weight: 700; color: #fff; }
+    /* §HUB-MODAL-GLASS — title and close glyph were #fff BECAUSE the header was
+       a saturated gradient. Repaint the header and that becomes white-on-white
+       (~1.1:1) on all four modals. This is the identical latent defect
+       §UX1-CONFIRM-GLASS (3) names for the DRAW banner, and it is removed the
+       same way: recolour the TEXT to --app-text, never restore the bar. */
+    .ph-modal-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--app-text);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
     .ph-modal-close {
-        background: rgba(255,255,255,0.2);
+        background: transparent;
         border: none;
-        color: #fff;
+        color: var(--app-text);
         width: 26px;
         height: 26px;
         border-radius: 50%;
@@ -787,16 +873,21 @@ export const PROJECT_HUB_STYLES = `
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
         font-family: var(--app-font);
-        transition: background 0.15s;
+        transition: background 0.15s, color 0.15s;
     }
-    .ph-modal-close:hover { background: rgba(255,255,255,0.35); }
+    .ph-modal-close:hover { background: var(--app-violet-soft); color: var(--app-accent); }
     .ph-modal-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
     .ph-modal-field { display: flex; flex-direction: column; gap: 5px; }
     .ph-modal-label {
         font-size: 11px;
         font-weight: 700;
-        color: var(--app-text-2);
+        /* Was --app-text-2. On the 0.72 glass that reads 3.08:1 against the
+           worst-case backdrop derived above — below the 4.5:1 this 11px label
+           needs. Weight, size, caps and tracking already carry the hierarchy
+           --app-text-2 was carrying, so the darker ink costs nothing. */
+        color: var(--app-text);
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
@@ -807,6 +898,9 @@ export const PROJECT_HUB_STYLES = `
         font-size: 14px;
         font-family: var(--app-font);
         color: var(--app-text);
+        /* Deliberately OPAQUE on the glass: a field must state where typing
+           lands, and an opaque ground keeps its own contrast independent of
+           whatever sits behind the panel. */
         background: #fafbff;
         outline: none;
         transition: border-color 0.15s;
@@ -825,18 +919,22 @@ export const PROJECT_HUB_STYLES = `
         justify-content: flex-end;
         gap: 10px;
         padding: 16px 24px;
-        border-top: 1px solid var(--app-border);
-        background: #fafbff;
+        border-top: 1px solid var(--app-border-light);
+        /* Was #fafbff. Same reason as the header: one glass surface. */
+        background: transparent;
     }
     .ph-modal-cancel {
-        background: none;
+        /* Cancel is the SAFE path and now reads as a real, opaque target on the
+           glass rather than a ghost outline. Ink darkened from --app-text-2 for
+           the contrast floor derived on .ph-modal-overlay. */
+        background: var(--app-panel-bg);
         border: 1.5px solid var(--app-border);
         border-radius: 8px;
         font-size: 13px;
         font-weight: 600;
         padding: 9px 18px;
         cursor: pointer;
-        color: var(--app-text-2);
+        color: var(--app-text);
         font-family: var(--app-font);
         transition: all 0.15s;
     }
@@ -855,6 +953,61 @@ export const PROJECT_HUB_STYLES = `
         transition: opacity 0.15s, transform 0.15s;
     }
     .ph-modal-create:hover { opacity: 0.9; transform: translateY(-1px); }
+    /* A visible keyboard path. The delete dialog focuses Cancel on open
+       (ProjectHub.openDeleteModal), which is only useful if the ring is seen. */
+    .ph-modal-cancel:focus-visible,
+    .ph-modal-create:focus-visible,
+    .ph-modal-close:focus-visible,
+    .ph-modal-input:focus-visible {
+        outline: 2px solid var(--app-accent);
+        outline-offset: 2px;
+    }
+
+    /* ─── Destructive variant (§HUB-MODAL-DANGER · L-13240) ──────────────
+       The panel modernises; the verdict does not soften. Red moves OFF the
+       decorative header bar and ONTO the two things that actually gate the
+       mistake — the sentence that states the loss, and the button that causes
+       it — so total red AREA falls while red SALIENCE on the irreversible part
+       rises. Both cues are OPAQUE: a safety signal must not depend on whatever
+       happens to sit behind a translucent panel.
+    ────────────────────────────────────────────────────────────────────── */
+    .ph-modal--danger .ph-modal-title-icon { color: var(--app-status-error-ink); flex-shrink: 0; }
+    .ph-modal-danger-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: var(--app-radius-md);
+        /* Opaque tint + ink: --app-status-error-ink #b91c1c on
+           --app-status-error-bg #fef2f2 is 5.91:1, fixed and backdrop-independent. */
+        background: var(--app-status-error-bg);
+        border: 1px solid var(--app-status-error-line);
+        border-left-width: 3px;
+        border-left-color: var(--app-status-error);
+    }
+    .ph-modal-danger-note svg { flex-shrink: 0; margin-top: 1px; color: var(--app-status-error); }
+    .ph-modal-danger-note p {
+        margin: 0;
+        /* 14px, not the 13px of surrounding chrome: this is the sentence that
+           states the loss and it kept the size it had as plain body copy. */
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--app-status-error-ink);
+    }
+    .ph-modal-create.ph-modal-confirm--danger {
+        /* Was an inline linear-gradient(135deg,#e53e3e,#c53030) on the element.
+           Promoted to a declared class so a future restyle cannot drop the
+           destructive signal by dropping a style attribute — and re-pointed to
+           the status tokens, which FIXES a contrast defect the old literal
+           carried: #fff on #e53e3e is 4.13:1, below the 4.5:1 a 13px label
+           needs. #fff on --app-status-error #dc2626 is 4.83:1 and on
+           --app-status-error-ink #b91c1c is 6.47:1, so both ends now pass. */
+        background: linear-gradient(135deg, var(--app-status-error) 0%, var(--app-status-error-ink) 100%);
+        box-shadow: 0 2px 8px rgba(185,28,28,0.35);
+    }
+    .ph-modal-create.ph-modal-confirm--danger:focus-visible {
+        outline-color: var(--app-status-error-ink);
+    }
 
     /* ─── Context menu ────────────────────────────────────────────────── */
     .ph-ctx-menu {

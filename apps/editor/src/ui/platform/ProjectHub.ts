@@ -1066,6 +1066,15 @@ export class ProjectHub {
         // Delete confirm
         el.querySelector('#ph-delete-confirm')!.addEventListener('click', () => this.handleDelete());
 
+        // §HUB-MODAL-ESCAPE (L-13241) — backdrop click cancels the DESTRUCTIVE
+        // dialog, matching #ph-members-modal below. Clicking outside can only
+        // dismiss; it never confirms.
+        el.querySelector('#ph-delete-modal')!.addEventListener('click', (e) => {
+            if (e.target === el.querySelector('#ph-delete-modal')) {
+                (el.querySelector('#ph-delete-modal') as HTMLElement).style.display = 'none';
+            }
+        });
+
         // Members modal close
         el.querySelector('#ph-members-modal-close')!.addEventListener('click', () => this.closeMembersModal());
         el.querySelector('#ph-members-modal')!.addEventListener('click', (e) => {
@@ -1074,6 +1083,8 @@ export class ProjectHub {
 
         // Global click → close context menu
         document.addEventListener('click', this.onDocClick);
+        // Global Escape → close the open hub modal (§HUB-MODAL-ESCAPE, L-13241).
+        document.addEventListener('keydown', this.onDocKeydown);
     }
 
     private attachSidebarListeners(el: HTMLElement): void {
@@ -1565,6 +1576,31 @@ export class ProjectHub {
         }
     };
 
+    /**
+     * §HUB-MODAL-ESCAPE (L-13241) — Escape closes the open hub modal.
+     *
+     * Before this the ONLY exits from the Delete dialog were its two buttons:
+     * no Escape handler existed for any hub modal, and only #ph-members-modal
+     * had a backdrop-click dismissal. A dialog that permanently deletes a
+     * project is the last surface that should be hard to leave, so this adds
+     * ways OUT and never a way in — Escape can only hide a modal, it can never
+     * reach handleDelete().
+     *
+     * It acts only while a hub modal is actually open, so the editor's own
+     * Escape bindings are untouched the rest of the time.
+     */
+    private onDocKeydown = (e: KeyboardEvent): void => {
+        if (e.key !== 'Escape') return;
+        const open = Array.from(
+            this.el.querySelectorAll<HTMLElement>('.ph-modal-overlay'),
+        ).filter(m => m.style.display !== 'none' && m.style.display !== '');
+        if (open.length === 0) return;
+        // Topmost-last in DOM order is the one the user is looking at.
+        open[open.length - 1].style.display = 'none';
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
     private handleContextAction(action: string, projectId: string): void {
         const project = projectRepository.listProjects().find(p => p.id === projectId);
         if (!project) return;
@@ -1917,6 +1953,14 @@ export class ProjectHub {
         msg.textContent = `Are you sure you want to permanently delete "${project.name}"? This action cannot be undone.`;
         confirmBtn.dataset.projectId = project.id;
         modal.style.display = 'flex';
+
+        // §HUB-MODAL-DANGER (L-13240) — the dialog used to open focusing
+        // NOTHING, so the first Tab or Enter landed wherever DOM order put it.
+        // Cancel is the safe path, so Cancel is where focus starts. The ring is
+        // styled at projectHub.ts .ph-modal-cancel:focus-visible, so this is
+        // visible as well as merely true.
+        const cancelBtn = this.el.querySelector('#ph-delete-cancel') as HTMLElement | null;
+        if (cancelBtn) setTimeout(() => cancelBtn.focus(), 0);
     }
 
     /**
@@ -2246,6 +2290,7 @@ export class ProjectHub {
         // before each chunk and report UNDETERMINED rather than stopping silently.
         this._destroyed = true;
         document.removeEventListener('click', this.onDocClick);
+        document.removeEventListener('keydown', this.onDocKeydown);
         this.el.remove();
     }
 }
