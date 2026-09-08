@@ -159,6 +159,21 @@ pill is placed clear of `.wmb-toplevel-wrapper` — ⭐ **it was always mounted;
 the mode bar**, which is why the founder's PRYZM screenshot shows no dropdown and his site
 screenshot shows two.
 
+> ⚠ **AMENDED 2026-09-08 — THE PARAGRAPH BELOW WAS MEASURED AGAINST THE WRONG POPULATION.**
+> It read *"rows 3 and 4 remain their own shapes"* and treated the audit table as the census of
+> view switchers. It was not. That table counted **hosts of `mountViewSegmentSwitcher`**, and the
+> two legacy bars on the site/globe views (`mountResultToggleBar` and `mountFormaViewToggle`) are
+> HAND-BUILT inside `mountGISArea` — they were never in the population at all, so **six further
+> view switches were invisible to the count**: `◧ 3D + plan · ◉ 3D globe · ◉ 3D Site` on the
+> first and `▦ 2D Map · ◳ Plan · ◉ 3D` on the second.
+>
+> ⭐ **A CENSUS CANNOT REPORT A THING MISSING THAT IT NEVER ENUMERATED** (C01 §6 rule 6). Both
+> bars now retire their VIEW segments on every phase and keep every non-view control
+> (L-13261, L-13266); and the replacement pill mounts on the surface that is actually on top
+> rather than on `#container`, which on a site view sits *beneath* Cesium (L-13265 — a
+> regression the first of those two lanes shipped, invisible to a count invariant because the
+> count was right and the reachability was not).
+
 **NOT DONE, and the census now says so:** rows 3 and 4 remain their own shapes.
 `viewRegionSwitcherCoverage()` fails if a region regresses, but retiring those two hosts is a
 later increment. **Also not done:** a uniform split/single toggle across all four workspaces —
