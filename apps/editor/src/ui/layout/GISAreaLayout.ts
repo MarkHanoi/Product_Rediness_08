@@ -268,6 +268,7 @@ import {
 } from '../../engine/views/ViewSwitcherPill';
 import { resolveSwitcherTopPx, type Box } from '../../engine/views/viewRegionSwitcher';
 import { buildPryzmSplitRow, resolvePryzmSplitPort } from '../../engine/views/pryzmSplitRow';
+import { buildViewPillActionsRow } from '../site/viewPillActionsRow';
 import { mountViewSegmentSwitcher } from '../site/viewSegmentSwitcher';
 // §PANE-PLACEMENT-AFTER-MODE-SWITCH (L-12988) — the deferred subscription helper. Used here
 // rather than a bare `runtime?.events?.on(...)` because the LIVE boot path constructs this
@@ -2000,8 +2001,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     // vocabulary — C59 §1.5.3 records collapsing the two owners as still open.
                     const splitRow = buildPryzmSplitRow(resolvePryzmSplitPort());
                     body.appendChild(splitRow.element);
+                    // §ONE-REGION-SWITCHER (L-13257) — founder: *"in the drop down panel add
+                    // zoom the site ... this has already been built - it just needs to be
+                    // accessible here"*. It is `GIS_ACTIONS['site.zoom-to-site']`, and it is
+                    // an ACTION, not a view (C59 invariant 9), so it gets its own group.
+                    const actions = buildViewPillActionsRow(window);
+                    body.appendChild(actions.element);
                     return {
-                        repaint: () => { h.repaint(); splitRow.repaint(); },
+                        repaint: () => { h.repaint(); splitRow.repaint(); actions.repaint(); },
                         dispose: () => h.dispose(),
                     };
                 },

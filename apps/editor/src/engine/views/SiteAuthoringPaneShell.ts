@@ -584,6 +584,23 @@ export function mountSiteAuthoringPaneShell(
             mountableKinds: () => controller.registeredKinds?.() ?? null,
             camera,
             basemap,
+            // ⭐ §ONE-REGION-SWITCHER (L-13257) — THE COMPOSITION LAYER supplies the route, so
+            // the chrome never reads a global (P1; `siteViewQuickToggle.spec.ts` asserts it).
+            // `window.pryzmActivateBimView` is `GISAreaLayout.activateView`, the ONE choke
+            // point every entry into a PRYZM view already lands on.
+            fullScreen: {
+                open: (mode: 'Top' | '3D') => {
+                    const go = window.pryzmActivateBimView;
+                    if (typeof go !== 'function') {
+                        console.warn(
+                            '[site-panes] §ONE-REGION-SWITCHER — window.pryzmActivateBimView is '
+                            + 'not registered, so the full-screen route cannot run.',
+                        );
+                        return;
+                    }
+                    return go(mode);
+                },
+            },
             getFraming: () => globeFraming,
             onFramingChanged: (next: SiteViewGlobeFraming) => {
                 globeFraming = next;

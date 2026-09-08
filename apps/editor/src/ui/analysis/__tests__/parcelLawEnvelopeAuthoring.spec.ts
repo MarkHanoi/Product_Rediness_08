@@ -472,6 +472,7 @@ describe('REACHABILITY — the Parcel Law tab hosts the authoring section', () =
             mountSwitcher: () => ({
                 element: document.createElement('div'),
                 repaint: () => { },
+                activeLabel: () => null, // §ONE-REGION-SWITCHER (L-13257) — the real handle reports this.
                 dispose: () => { },
             }),
             wireStrip: () => 0,

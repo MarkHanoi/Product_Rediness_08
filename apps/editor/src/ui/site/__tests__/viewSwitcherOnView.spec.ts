@@ -225,6 +225,7 @@ describe('§VIEW-SWITCHER-ON-THE-VIEW — teardown', () => {
             mountSwitcher: () => ({
                 element: document.createElement('div'),
                 repaint: () => { /* noop */ },
+                activeLabel: () => null, // §ONE-REGION-SWITCHER (L-13257) — the real handle reports this.
                 dispose: () => { switcherDisposed++; },
             }),
         });

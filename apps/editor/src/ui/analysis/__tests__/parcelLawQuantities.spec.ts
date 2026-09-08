@@ -359,7 +359,7 @@ describe('ARM D — REACHABILITY: the founder\'s click reaches this section', ()
             capabilityHost,
             runtime: null,
             buildParcelPanel: () => ({ element: document.createElement('div'), dispose: () => { /* noop */ } }),
-            mountSwitcher: () => ({ element: document.createElement('div'), repaint: () => { /* noop */ }, dispose: () => { /* noop */ } }),
+            mountSwitcher: () => ({ element: document.createElement('div'), repaint: () => { /* noop */ }, activeLabel: () => null, dispose: () => { /* noop */ } }),
             wireStrip: () => 0,
             readParcelLawModel: () => ({ kind: 'absent' } as never),
             renderParcelLawFacts: () => document.createElement('div'),

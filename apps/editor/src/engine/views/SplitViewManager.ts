@@ -39,6 +39,7 @@ import { setViewRegionSplit } from '@app/ui/layout/viewRegionGeometry';
 import { mountViewSwitcherPill, type ViewSwitcherPillHandle } from './ViewSwitcherPill';
 import { resolveSwitcherTopPx, PRYZM_PLAN_PANE_LIMIT_NOTE } from './viewRegionSwitcher';
 import { buildPryzmSplitRow, resolvePryzmSplitPort } from './pryzmSplitRow';
+import { buildViewPillActionsRow } from '@app/ui/site/viewPillActionsRow';
 import { mountViewSegmentSwitcher } from '@app/ui/site/viewSegmentSwitcher';
 import type { GisCapabilityHost } from '@app/ui/gis/gisActionRegistry';
 import { emitPlanViewMotionEvent } from '@pryzm/core-app-model';
@@ -761,8 +762,12 @@ export class SplitViewManager implements ISplitViewManager {
                     // carries, so "single view" is one gesture from either half of the split.
                     const splitRow = buildPryzmSplitRow(resolvePryzmSplitPort());
                     body.appendChild(splitRow.element);
+                    // §ONE-REGION-SWITCHER (L-13257) — the same declared camera action the
+                    // model half offers, so it is one gesture from either half of the split.
+                    const actions = buildViewPillActionsRow(window as unknown as GisCapabilityHost);
+                    body.appendChild(actions.element);
                     return {
-                        repaint: () => { six.repaint(); splitRow.repaint(); },
+                        repaint: () => { six.repaint(); splitRow.repaint(); actions.repaint(); },
                         dispose: () => six.dispose(),
                     };
                 },

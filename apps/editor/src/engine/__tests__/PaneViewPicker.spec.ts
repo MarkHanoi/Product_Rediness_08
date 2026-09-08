@@ -155,13 +155,29 @@ describe('§C59 Phase 2 — choosing a view dispatches an intent (P6)', () => {
 });
 
 describe('§C59 Phase 2 — disabled options EXPLAIN themselves', () => {
-    it('BIM 3D is disabled and prints the Phase-3 reason in the row', () => {
+    it('BIM 3D is REACHABLE and still prints the Phase-3 reason in the row', () => {
+        // ⚠ AMENDED 2026-09-08 (§ONE-REGION-SWITCHER, L-13257). This asserted `disabled ===
+        // true`. The pane refusal is unchanged — the row still PRINTS why it cannot be a pane
+        // — but it is no longer a dead end: it opens PRYZM 3D full screen, which is what its
+        // own reason text has always said it does.
         buildShell();
         trigger(RIGHT_PANE).click();
         const opt = option(RIGHT_PANE, 'bim-3d');
-        expect(opt.disabled).toBe(true);
-        expect(opt.textContent).toMatch(/Phase 3/i);   // rendered, not just a title=
-        expect(opt.title).toMatch(/Phase 3/i);
+        // ⭐ THE INVARIANT IS "NOT A DEAD END", not a particular state name. This shell wires
+        // a webgpu mounter, so `bim-3d` resolves to plain `available` here; on the founder's
+        // live split it resolves to `opens-fullscreen`. Both are REACHABLE, which is the fact
+        // this arm exists to hold — pinning one state name would make the arm fail on a
+        // correct configuration, which is how the previous version came to assert `disabled`.
+        expect(opt.disabled).toBe(false);
+        expect(['available', 'opens-fullscreen', 'moves-singleton'])
+            .toContain(opt.getAttribute('data-option-state'));
+        // The row still EXPLAINS itself wherever a reason applies (never a bare grey).
+        if (opt.getAttribute('data-option-state') === 'opens-fullscreen') {
+            expect(opt.textContent).toMatch(/Phase 3/i);
+            expect(opt.title).toMatch(/Phase 3/i);
+            // ⛔ the consequence is stated BEFORE the click (STR §26.1.1).
+            expect(opt.textContent).toMatch(/FULL SCREEN|full screen/);
+        }
     });
 
     it('a view with no mounter in this workspace is disabled with a wiring reason', () => {

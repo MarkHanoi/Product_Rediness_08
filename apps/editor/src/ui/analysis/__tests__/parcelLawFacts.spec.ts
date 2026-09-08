@@ -244,7 +244,7 @@ describe('§25.11 — REACHABILITY: the section is really in the tab body', () =
             },
             mountSwitcher: () => {
                 const el = document.createElement('div');
-                return { element: el, repaint: () => { /* noop */ }, dispose: () => { /* noop */ } };
+                return { element: el, repaint: () => { /* noop */ }, activeLabel: () => null, dispose: () => { /* noop */ } };
             },
             wireStrip: () => 0,
             // ⛔ readParcelLawModel / renderParcelLawFacts deliberately OMITTED — the point of

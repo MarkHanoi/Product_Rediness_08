@@ -120,6 +120,22 @@ export interface ViewSwitcherPillOptions {
     readonly topPx?: number;
     /** Suffix for the test ids, when a host mounts more than one. */
     readonly idSuffix?: string;
+    /**
+     * §ONE-REGION-SWITCHER (L-13257) — HOW the pill is positioned, not how it LOOKS.
+     *
+     * · `'region'` (default) — `position: absolute` inside the view region it switches, at
+     *   `corner` / `topPx`. Every region-owning host uses this.
+     * · `'inline'` — `position: relative`, flowing in whatever row its parent lays out. The
+     *   TRIGGER and the POPUP are unchanged; only the root's own box is.
+     *
+     * ⭐ THIS EXISTS SO THE LAST BAR-SHAPED HOST BECOMES A PILL WITHOUT A SECOND COMPONENT.
+     * `viewSwitcherOnView` is a `position: fixed` bar that already measures the band it sits
+     * in and carries a SPLIT button beside the view control. Absolutely positioning a pill
+     * inside it would fight that layout; giving the ONE pill a second placement lets it join
+     * the row it belongs in. ⛔ A separate "inline switcher" component would have been a
+     * FIFTH shape wearing the fourth one's paint — exactly what this lane removes.
+     */
+    readonly placement?: 'region' | 'inline';
 }
 
 export interface ViewSwitcherPillHandle {
@@ -153,12 +169,15 @@ export function mountViewSwitcherPill(opts: ViewSwitcherPillOptions): ViewSwitch
         root.setAttribute('data-testid', rootId);
         root.setAttribute('role', 'group');
         root.setAttribute('aria-label', 'View');
+        // §ONE-REGION-SWITCHER (L-13257) — an INLINE pill flows in its parent's row; it does
+        // not claim a corner of a region, because its host has already placed the row.
+        const inline = opts.placement === 'inline';
         Object.assign(root.style, {
-            position: 'absolute',
-            top: `${top}px`,
-            left: centred ? '50%' : (corner === 'top-left' ? '10px' : 'auto'),
-            right: centred ? 'auto' : (corner === 'top-right' ? '10px' : 'auto'),
-            transform: centred ? 'translateX(-50%)' : '',
+            position: inline ? 'relative' : 'absolute',
+            top: inline ? 'auto' : `${top}px`,
+            left: inline ? 'auto' : (centred ? '50%' : (corner === 'top-left' ? '10px' : 'auto')),
+            right: inline ? 'auto' : (centred ? 'auto' : (corner === 'top-right' ? '10px' : 'auto')),
+            transform: inline ? '' : (centred ? 'translateX(-50%)' : ''),
             // The same band `PaneViewPicker` claims (60) — see its note: 60 clears Cesium's
             // CESIUM_Z=15, the MapLibre overlay's 40 and the retired `.svq-bar--pane`'s 38.
             // One chrome language means one stacking answer too (C06 §6.1).
@@ -197,6 +216,10 @@ export function mountViewSwitcherPill(opts: ViewSwitcherPillOptions): ViewSwitch
             display: 'none',
             position: 'absolute',
             top: '40px',
+            // ⚠ An INLINE root is only as wide as the trigger, so `50% + translateX(-50%)`
+            // still centres the popup ON THE TRIGGER — which is what a dropdown means. The
+            // branch is kept identical rather than special-cased, deliberately: the popup's
+            // own `measureRegion` clamp below is what keeps it on screen either way.
             left: centred ? '50%' : (corner === 'top-left' ? '0' : 'auto'),
             right: centred ? 'auto' : (corner === 'top-right' ? '0' : 'auto'),
             transform: centred ? 'translateX(-50%)' : '',

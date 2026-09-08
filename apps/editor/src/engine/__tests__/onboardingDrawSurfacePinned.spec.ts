@@ -294,17 +294,22 @@ describe('§ONBOARDING-STEP-PINS-ITS-SURFACE — the controls DISABLE-AND-EXPLAI
             canRestoreSplit: store.canRestoreSplit(),
             pinnedViews: store.pinnedViews(),
         });
-        // ⚠ NOT "every row is enabled" — corrected 2026-09-06 (§VIEW-PANEL-PER-PANE). The
-        // panel now carries the founder's six, and `3D PRYZM` is disabled for a REGISTRY
-        // reason (`paneHostable: false`, C59 Phase 3), which has nothing to do with pinning.
-        // Asserting "all enabled" would make this arm fail on an unrelated, correct refusal
-        // and would have to be relaxed again next time the panel grows. What it MEANS is:
-        // no row is refused BY A PIN.
+        // ⚠ NOT "every row is enabled" — corrected 2026-09-06 (§VIEW-PANEL-PER-PANE). What
+        // this arm MEANS is: no row is refused BY A PIN. Asserting "all enabled" would fail
+        // on unrelated, correct refusals and need relaxing every time the panel grows.
         for (const s of model.segments) {
             expect(s.reason, `${s.optionId} refused by a pin with nothing pinned`).not.toBe(REASON);
         }
+        // ⭐ `pryzm-3d` JOINED THIS SET 2026-09-08 (§ONE-REGION-SWITCHER, L-13257). It used to
+        // be absent because `paneHostable: false` greyed it; it is now ENABLED and carries a
+        // `fullScreenRoute`, because a view that cannot be a PANE can still be REACHED —
+        // founder: *"I still don't see 3D PRYZM accessible"*. The pane refusal is unchanged;
+        // what changed is that the row now dispatches the whole-screen route it always named.
         expect(model.segments.filter((s) => s.enabled).map((s) => s.optionId))
-            .toEqual(['site-map', 'site-satellite', 'site-3d', 'site-globe', 'pryzm-2d']);
+            .toEqual(['site-map', 'site-satellite', 'site-3d', 'site-globe', 'pryzm-3d', 'pryzm-2d']);
+        // ⛔ AND IT IS STILL NOT A PANE — the guard that keeps this from being a silent
+        // widening of what a pane may host.
+        expect(model.segments.find((s) => s.optionId === 'pryzm-3d')?.fullScreenRoute).toBe('3D');
         expect(store.dispatch({ type: 'view.pane.solo', paneId: RIGHT_PANE }).ok).toBe(true);
     });
 });

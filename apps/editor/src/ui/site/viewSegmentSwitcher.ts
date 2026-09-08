@@ -175,6 +175,18 @@ export interface ViewSegmentSwitcherHandle {
     readonly element: HTMLElement;
     /** Re-derive live/disabled/active from the host. Cheap; call on every host activation. */
     repaint(): void;
+    /**
+     * §ONE-REGION-SWITCHER (L-13257) — the label of the segment currently ACTIVE, or `null`
+     * when the authority cannot establish one.
+     *
+     * ⭐ RE-DERIVED FROM THE HOST SNAPSHOT ON EVERY CALL, never a remembered string: a pill
+     * that cached its own last dispatch would assert a view it never checked (the L-13002
+     * shape). ⛔ AND `null` IS A REAL ANSWER, NOT AN ERROR — most segments carry no
+     * `activeWhen`, so `GisSiteViewState` has no field to read them from. A caller that
+     * turned `null` into a guessed view name would be inventing the one fact this control
+     * is careful not to invent (C84 EI-1b); the pill prints its neutral word instead.
+     */
+    activeLabel(): string | null;
     dispose(): void;
 }
 
@@ -347,11 +359,28 @@ This segment works. Whether it is the CURRENT view is not `
             }
         };
 
+        /**
+         * The active segment's label, derived the SAME way `paint` derives it — one rule, read
+         * twice, rather than a second opinion about what "active" means.
+         */
+        const activeLabel = (): string | null => {
+            const snapshot = readSnapshot(host);
+            if (!snapshot) return null;
+            for (const def of VIEW_SEGMENTS) {
+                const decl = viewSegmentAction(def);
+                if (!decl) continue;
+                if (resolveGisAction(decl, host) === null) continue;
+                if (isActive(decl, snapshot)) return def.label;
+            }
+            return null;
+        };
+
         paint();
         span.setAttribute('pryzm.viewSegments', VIEW_SEGMENTS.length);
         return {
             element: root,
             repaint: paint,
+            activeLabel,
             dispose(): void {
                 disposed = true;
             },

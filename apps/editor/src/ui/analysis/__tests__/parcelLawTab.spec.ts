@@ -167,7 +167,7 @@ describe('ARM A — the body calls each producer seam exactly as the contract sa
                 seen.push(`mountSwitcher(${h === capabilityHost ? 'THE host' : 'another host'})`);
                 const el = document.createElement('div');
                 el.textContent = 'FAKE SWITCHER';
-                return { element: el, repaint: () => { seen.push('switcher.repaint'); }, dispose: () => { switcherDisposed++; } };
+                return { element: el, repaint: () => { seen.push('switcher.repaint'); }, activeLabel: () => null, dispose: () => { switcherDisposed++; } };
             },
             wireStrip: (root) => {
                 seen.push(`wireStrip(${(root as HTMLElement).getAttribute?.('data-testid') ?? '?'})`);

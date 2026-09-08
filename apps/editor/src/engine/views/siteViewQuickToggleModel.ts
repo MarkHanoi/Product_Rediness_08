@@ -135,6 +135,26 @@ export interface SiteViewSegment {
      * right one — which is the thing STR §26.1.1 clause 3 was written to forbid.
      */
     readonly consequence?: string;
+    /**
+     * ⭐⭐ §ONE-REGION-SWITCHER (founder 2026-09-08 · L-13257) — THE WHOLE-SCREEN ROUTE for a
+     * view that `paneHostable: false` refuses to put in a pane. Present ⇒ `enabled` is TRUE and
+     * a click must dispatch `window.pryzmActivateBimView(this)` INSTEAD of a pane assign.
+     *
+     * ⛔ WHY THIS FIELD EXISTS — THE THIRD COPY OF ONE RULE. §PRYZM-3D-FROM-THE-DROPDOWN
+     * (L-13254) taught `describePaneViewOptions` to offer this route, and the founder still
+     * reported *"I still don't see 3D PRYZM accessible"* with the row greyed in BOTH panes.
+     * The reason is that the rows he clicks are NOT `describePaneViewOptions`' — the popup's
+     * main list is THIS model (it is the only one that carries 2D Satellite and 3D Globe,
+     * which are `viewPanelOptions()` VARIANTS and not registry view types), and this file
+     * carried its OWN copy of the `!paneHostable ⇒ disabled` rule with no knowledge of
+     * `fullScreenRoute`. One rule, three implementations, and the fix landed in the one the
+     * user was not looking at — the same shape as the project-isolation leak, the Inspect
+     * categories, the left-rail categories and the third view switcher this session.
+     *
+     * ⚠ `siteViewQuickToggleAgreesWithPaneOptions()` now checks the two models against each
+     * other so a future divergence fails a spec instead of arriving as a screenshot.
+     */
+    readonly fullScreenRoute?: 'Top' | '3D';
     /** The pane a click would put it in. */
     readonly targetPane: PaneId;
     /**
@@ -169,6 +189,16 @@ export interface SiteViewQuickToggleInput {
     readonly paneId?: PaneId | null;
     /** `store.canRestoreSplit()` — whether a previous split is remembered. */
     readonly canRestoreSplit: boolean;
+    /**
+     * §ONE-REGION-SWITCHER (L-13257) — is a WHOLE-SCREEN route wired in this workspace?
+     *
+     * ⚠ DEFAULTS TO TRUE, and that is deliberate rather than lax: every existing caller of
+     * this model is a live editor surface where `GISAreaLayout` has registered the
+     * orchestrator, and defaulting to false would grey `3D PRYZM` for all of them — which is
+     * the founder's complaint arriving through the fix for it. A caller that genuinely has no
+     * route passes `false` and the row refuses WITH A REASON.
+     */
+    readonly canOpenFullScreen?: boolean;
     /**
      * Renderer kinds with a mounter registered in THIS workspace
      * (`MultiPaneController.registeredKinds()`). `null` ⇒ skip the runtime check.
@@ -368,6 +398,34 @@ export function describeSiteViewQuickToggle(
         // same view through `site.bim-3d`, which fills the canvas. One view, two panels, two
         // honest answers.
         if (!d.paneHostable) {
+            // ⭐⭐ §ONE-REGION-SWITCHER (L-13257) — A VIEW THAT CANNOT BE A PANE CAN STILL BE
+            // REACHED. This is the SAME branch `describePaneViewOptions` grew in L-13254; it
+            // was missing HERE, which is why the founder still saw `3D PRYZM` greyed after
+            // that lane shipped. The comment below is kept because its reasoning about the
+            // PANE is still exactly right — what was wrong was concluding that a row with
+            // nowhere to go in a pane therefore has nowhere to go.
+            if (d.fullScreenRoute !== undefined) {
+                // ⛔ NO ROUTE WIRED ⇒ REFUSE WITH A REASON, never a live-looking button that
+                // logs a warning on click (STR §26.1.1). Same doctrine as the two 2D rows
+                // without a basemap port.
+                if (input.canOpenFullScreen === false) {
+                    return {
+                        ...base,
+                        enabled: false,
+                        reason:
+                            `${opt.label} opens full screen, but the route that opens it is not `
+                            + 'wired into this workspace, so the row stays off rather than '
+                            + 'looking like it worked.',
+                    };
+                }
+                return {
+                    ...base,
+                    enabled: true,
+                    fullScreenRoute: d.fullScreenRoute,
+                    reason: d.unavailableReason
+                        ?? `${opt.label} opens full screen, leaving this split.`,
+                };
+            }
             return {
                 ...base,
                 enabled: false,
@@ -486,6 +544,14 @@ export function segmentClickIntents(
     layout: PaneLayout,
 ): readonly SiteViewIntent[] {
     if (!segment.enabled) return [];
+    // ⛔⛔ §ONE-REGION-SWITCHER (L-13257) — A FULL-SCREEN ROW HAS NO PANE INTENT, AND MUST NOT
+    // FALL THROUGH TO ONE. `enabled` is now TRUE for `bim-3d` (it CAN be reached, just not as a
+    // pane), so without this guard the next lines would emit `view.pane.assign` for a view the
+    // registry refuses per-pane BY NAME — `validatePaneLayout` exists to reject exactly that,
+    // so the click would resolve to a logged refusal and look, to the user, like the greyed row
+    // he was already complaining about. The DOM layer dispatches the declared whole-screen
+    // route instead; returning [] here is what tells it to.
+    if (segment.fullScreenRoute !== undefined) return [];
 
     const out: SiteViewIntent[] = [];
     const alreadyThere = layout[segment.targetPane] === segment.viewType;
@@ -520,4 +586,67 @@ export function isCameraIntent(i: SiteViewIntent): i is SiteViewCameraIntent {
 /** Type guard — the DOM layer forwards these to the basemap port, not to the store. */
 export function isBasemapIntent(i: SiteViewIntent): i is SiteViewBasemapIntent {
     return i.type === 'view.site.basemap';
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ⭐ THE CROSS-MODEL GATE — §ONE-REGION-SWITCHER (L-13257)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** One view type on which the two availability models disagree. */
+export interface QuickToggleAgreementFinding {
+    readonly viewType: ViewType;
+    readonly kind: 'reachability-differs' | 'full-screen-route-differs';
+    readonly detail: string;
+}
+
+/**
+ * Do THIS model and `describePaneViewOptions` agree about whether a view can be REACHED?
+ *
+ * ⛔⛔ WHY THIS EXISTS, AND IT IS THE FIFTH RECURRENCE OF ONE SHAPE THIS SESSION.
+ * There are TWO implementations of "can this view be chosen here", in two files, and the
+ * popup shows BOTH: `describePaneViewOptions` paints the `MORE VIEWS` remainder, and this
+ * model paints the main list (it is the only one that carries `2D Satellite` and `3D Globe`,
+ * which are `viewPanelOptions()` VARIANTS and not registry view types).
+ *
+ * §PRYZM-3D-FROM-THE-DROPDOWN (L-13254) taught ONE of them that a `paneHostable: false` view
+ * with a `fullScreenRoute` is reachable. The founder then reported *"I still don't see 3D
+ * PRYZM accessible"* with the row greyed in BOTH panes — because the fix landed in the model
+ * he was not looking at. That is the same shape as the project-isolation leak, the Inspect
+ * categories, the left-rail categories and the third view switcher: a newer rule invisible to
+ * an older parallel implementation, with the guarding gate silent every time.
+ *
+ * ⭐ MERGING THE TWO MODELS IS THE REAL FIX AND IS NOT THIS LANE. They answer different
+ * questions (one is per-VIEW-TYPE, one is per-PANEL-ROW-WITH-VARIANTS) and collapsing them
+ * needs the pane store to model variants, which C59 §2.9 deliberately refuses. Until then,
+ * agreement is CHECKED rather than assumed — which is the difference between two copies that
+ * drift silently and two copies that cannot.
+ */
+export function siteViewQuickToggleAgreesWithPaneOptions(
+    segments: readonly SiteViewSegment[],
+    paneOptions: readonly { readonly viewType: ViewType; readonly enabled: boolean;
+        readonly state: string; readonly fullScreenRoute?: 'Top' | '3D' }[],
+): readonly QuickToggleAgreementFinding[] {
+    const findings: QuickToggleAgreementFinding[] = [];
+    for (const seg of segments) {
+        const opt = paneOptions.find((o) => o.viewType === seg.viewType);
+        if (!opt) continue;                       // a row with no registry twin: variants.
+        if (opt.state === 'current' || seg.active) continue; // "already here" is not reachability.
+        if (opt.enabled !== seg.enabled) {
+            findings.push({
+                viewType: seg.viewType, kind: 'reachability-differs',
+                detail: `${seg.label}: the pane model says enabled=${opt.enabled} and the quick `
+                    + `toggle says enabled=${seg.enabled}. One of them is greying a row the `
+                    + 'other offers — which is exactly what the founder photographed.',
+            });
+        }
+        if (opt.fullScreenRoute !== seg.fullScreenRoute) {
+            findings.push({
+                viewType: seg.viewType, kind: 'full-screen-route-differs',
+                detail: `${seg.label}: pane model route=${String(opt.fullScreenRoute)}, quick `
+                    + `toggle route=${String(seg.fullScreenRoute)}. A row that opens full screen `
+                    + 'in one panel and refuses in the other is two answers to one question.',
+            });
+        }
+    }
+    return findings;
 }

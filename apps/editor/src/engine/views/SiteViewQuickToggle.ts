@@ -129,6 +129,17 @@ export interface SiteViewBasemapPorts {
     readonly canSetBasemap?: () => boolean;
 }
 
+/**
+ * §ONE-REGION-SWITCHER (L-13257) — the one capability a `fullScreenRoute` row needs.
+ *
+ * ⚠ TYPED TO THE MODE, not to a handler: the value is what the ONE orchestrator
+ * (`GISAreaLayout.activateView`, exposed as `window.pryzmActivateBimView`) already takes, so
+ * this port cannot grow a second opinion about how a BIM view is entered.
+ */
+export interface SiteViewFullScreenPort {
+    readonly open: (mode: 'Top' | '3D') => void | Promise<void>;
+}
+
 export interface SiteViewQuickToggleOptions {
     readonly store: PaneLayoutStore;
     /** Where to mount. Defaults to `document.body` — shell chrome unless `paneId` is set. */
@@ -151,6 +162,19 @@ export interface SiteViewQuickToggleOptions {
      * same doctrine.
      */
     readonly basemap?: SiteViewBasemapPorts;
+    /**
+     * §ONE-REGION-SWITCHER (L-13257) — the WHOLE-SCREEN route, as a PORT.
+     *
+     * ⛔ A PORT AND NOT `window.pryzmActivateBimView`, AND THE SPEC IS WHY. This file is
+     * CHROME: `siteViewQuickToggle.spec.ts` asserts *"the DOM half still reads no globals of
+     * its own"*, because knowing how a PRYZM view is entered is the composition layer's job
+     * (P1). The first cut of this lane reached for the global directly and that arm caught
+     * it — correctly. It takes the same shape as `camera` and `basemap` for the same reason.
+     *
+     * Omitted ⇒ a `fullScreenRoute` row REFUSES WITH A REASON rather than painting a
+     * live-looking button, exactly as the two 2D rows do without a basemap port.
+     */
+    readonly fullScreen?: SiteViewFullScreenPort;
     /**
      * §VIEW-PANEL-PER-PANE — the SHARED globe-framing memory.
      *
@@ -264,6 +288,9 @@ export function mountSiteViewQuickToggle(
             // the row rather than painting a live-looking button.
             canReturnToSite: opts.camera != null && (opts.camera.canFrameSite?.() ?? true),
             canSetBasemap: opts.basemap != null && (opts.basemap.canSetBasemap?.() ?? true),
+            // §ONE-REGION-SWITCHER (L-13257) — no port ⇒ the model REFUSES the row with a
+            // reason, rather than the DOM painting a live button that logs a warning.
+            canOpenFullScreen: opts.fullScreen != null,
         });
 
         painted = model;
@@ -388,6 +415,36 @@ export function mountSiteViewQuickToggle(
                   : seg.title);
 
         btn.addEventListener('click', () => {
+            // ⭐⭐ §ONE-REGION-SWITCHER (L-13257) — THE WHOLE-SCREEN ROUTE, for a row the
+            // registry refuses per-pane. Founder, after L-13254 shipped: *"I still don't see
+            // 3D PRYZM accessible"* — because THIS model, not `describePaneViewOptions`, is
+            // what paints the rows he clicks, and it carried its own copy of the rule.
+            //
+            // ⛔ IT MUST NOT GO THROUGH THE STORE. `view.pane.assign` for a `paneHostable:
+            // false` view is precisely what `validatePaneLayout` rejects. The route is
+            // `window.pryzmActivateBimView` — the ONE choke point every entry into a PRYZM
+            // view already lands on (it exits GIS, retires the legacy bars, then activates).
+            if (seg.fullScreenRoute !== undefined) {
+                const port = opts.fullScreen;
+                if (!port) {
+                    // ⛔ NAMED, NEVER A SILENT NO-OP — a row that does nothing on click is the
+                    // defect this whole panel exists to end. (The model also refuses the row
+                    // when the port is absent, so this is the second of two guards.)
+                    console.warn(
+                        `[site-view-panel] §ONE-REGION-SWITCHER cannot open "${seg.label}" full `
+                        + 'screen: no fullScreen port is wired into this workspace.',
+                    );
+                    return;
+                }
+                try {
+                    void Promise.resolve(port.open(seg.fullScreenRoute)).catch((e: unknown) => {
+                        console.warn(`[site-view-panel] §ONE-REGION-SWITCHER "${seg.label}" threw:`, e);
+                    });
+                } catch (e) {
+                    console.warn(`[site-view-panel] §ONE-REGION-SWITCHER "${seg.label}" threw:`, e);
+                }
+                return;
+            }
             // The model decides; this only forwards. A no-op row returns [].
             for (const intent of segmentClickIntents(seg, opts.store.getLayout())) {
                 if (isCameraIntent(intent)) {

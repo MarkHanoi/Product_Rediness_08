@@ -72,6 +72,7 @@ import {
     type SiteViewBasemapPorts,
     type SiteViewCameraPorts,
     type SiteViewQuickToggleHandle,
+    type SiteViewFullScreenPort,
 } from './SiteViewQuickToggle';
 import type { SiteViewGlobeFraming } from './siteViewQuickToggleModel';
 import { viewPanelOptions } from './viewPanelOptions';
@@ -124,6 +125,11 @@ export interface PaneViewPickerPanelPorts {
     readonly mountableKinds?: () => ReadonlySet<RendererKind> | null;
     readonly camera?: SiteViewCameraPorts;
     readonly basemap?: SiteViewBasemapPorts;
+    /**
+     * §ONE-REGION-SWITCHER (L-13257) — the whole-screen route for a `paneHostable: false`
+     * row. Injected, never reached for: this is chrome (P1). Absent ⇒ the row refuses.
+     */
+    readonly fullScreen?: SiteViewFullScreenPort;
     /** The SHARED globe-framing memory — two panes drive ONE Cesium camera. */
     readonly getFraming?: () => SiteViewGlobeFraming;
     readonly onFramingChanged?: (next: SiteViewGlobeFraming) => void;
@@ -270,6 +276,7 @@ export function mountPaneViewPicker(opts: PaneViewPickerOptions): PaneViewPicker
                 mountableKinds: opts.panel.mountableKinds,
                 camera: opts.panel.camera,
                 basemap: opts.panel.basemap,
+                fullScreen: opts.panel.fullScreen,
                 getFraming: opts.panel.getFraming,
                 onFramingChanged: opts.panel.onFramingChanged,
                 // The panel repaints itself (a basemap swap, a camera move made from the

@@ -77,6 +77,7 @@ import {
     mountViewSegmentSwitcher,
     type ViewSegmentSwitcherHandle,
 } from './viewSegmentSwitcher';
+import { buildViewPillActionsRow } from './viewPillActionsRow';
 // §AFTER-LOCATION-LAND-ON-THE-PASTEL-MAP (L-13001) — the SPLIT control's label,
 // enabled-ness and refusal are now ONE pure decision, shared with the site phase's
 // bottom-left pill. Two hosts, one answer: a copy would drift, and a split toggle that
@@ -88,7 +89,11 @@ import {
 import type { SitePaneMode } from '../../engine/views/paneViewModel';
 // §ONE-VIEW-SWITCHER (L-13160) — the pill's testid, so this bar can tell whether a PRYZM view
 // already owns the region. Type-free import of a constant; no cycle.
-import { VIEW_SWITCHER_PILL_TESTID } from '../../engine/views/ViewSwitcherPill';
+import {
+    VIEW_SWITCHER_PILL_TESTID,
+    mountViewSwitcherPill,
+    type ViewSwitcherPillHandle,
+} from '../../engine/views/ViewSwitcherPill';
 
 const _tracer = trace.getTracer('pryzm.site.viewSwitcherOnView');
 
@@ -245,6 +250,20 @@ export function mountViewSwitcherOnView(
 
 
     let switcher: ViewSegmentSwitcherHandle | null = null;
+    /**
+     * §ONE-REGION-SWITCHER (L-13257) — THE LAST BAR-SHAPED HOST BECOMES A PILL.
+     *
+     * ⭐ THIS WAS THE ONE REMAINING DIVERGENT SHAPE. The audit named five hosts; three of them
+     * turned out to re-host the SAME body (`mountViewSegmentSwitcher`) and only this one still
+     * rendered it as a naked segmented strip. So the fix is not a new control — it is the ONE
+     * pill, in its `'inline'` placement, wrapping the body this bar already mounted.
+     *
+     * ⛔ THE SPLIT BUTTON STAYS OUTSIDE IT, DELIBERATELY. C59 §6: layout is not view switching.
+     * `.vsw-split` is the site-authoring pane shell's control and keeps its own three-state
+     * reading; folding it into a view dropdown would merge two concerns that this contract
+     * separates everywhere else.
+     */
+    let pill: ViewSwitcherPillHandle | null = null;
     let disposed = false;
 
     // ── The SPLIT control — the one thing this file owns ─────────────────────────
@@ -311,10 +330,13 @@ export function mountViewSwitcherOnView(
         // ⚠ A MEASUREMENT OF THE DOCUMENT, NOT AN ENUMERATION OF STATES (C01 §6 rule 6):
         // `isSplitOpen` observes the shell's own root id, the same reading the split button
         // itself is painted from — so the two can never disagree about whether panes exist.
-        if (switcher) {
-            const seg = switcher.element;
-            if (open && seg.parentElement === root) root.removeChild(seg);
-            else if (!open && seg.parentElement !== root) root.insertBefore(seg, split);
+        // §ONE-REGION-SWITCHER (L-13257) — the six now live in the PILL, so it is the pill
+        // that stands down while the panes are up, not a raw segment strip. Same rule, same
+        // reason; only the node it applies to changed.
+        if (pill) {
+            const el = pill.element;
+            if (open && el.parentElement === root) root.removeChild(el);
+            else if (!open && el.parentElement !== root) root.insertBefore(el, split);
         }
 
         split.textContent = shown.label;
@@ -434,8 +456,30 @@ export function mountViewSwitcherOnView(
 
     try {
         const mount = opts.mountSwitcher ?? mountViewSegmentSwitcher;
-        switcher = mount(opts.host);
-        root.appendChild(switcher.element);
+        pill = mountViewSwitcherPill({
+            parent: root,
+            placement: 'inline',
+            idSuffix: 'onview',
+            // ⚠ A READING, re-asked on every repaint. `activeLabel()` re-derives from the host
+            // snapshot; `null` is a REAL answer (most segments carry no `activeWhen`) and the
+            // pill prints its neutral word rather than naming a view it cannot establish.
+            label: () => {
+                try { return switcher?.activeLabel() ?? null; } catch { return null; }
+            },
+            mountMenu: (body) => {
+                switcher = mount(opts.host);
+                body.appendChild(switcher.element);
+                // §ONE-REGION-SWITCHER (L-13257) — the declared camera actions, BESIDE the
+                // views rather than among them (C59 invariant 9). Resolved against THIS
+                // host, so the row reports what this surface can actually do.
+                const actions = buildViewPillActionsRow(opts.host);
+                body.appendChild(actions.element);
+                return {
+                    repaint: () => { switcher?.repaint(); actions.repaint(); },
+                    dispose: () => switcher?.dispose(),
+                };
+            },
+        });
         root.appendChild(split);
         parent.appendChild(root);
         paintSplit();
@@ -453,14 +497,22 @@ export function mountViewSwitcherOnView(
         element: root,
         repaint(): void {
             if (disposed) return;
-            try { switcher?.repaint(); } catch { /* a repaint that throws is one we do not have */ }
+            try { pill?.refresh(); } catch { /* a repaint that throws is one we do not have */ }
             paintSplit();
             placeBelowBandOccupants();
         },
         dispose(): void {
             if (disposed) return;
             disposed = true;
-            try { switcher?.dispose(); } catch { /* teardown is best-effort */ }
+            // ⛔ THE PILL OWNS THE SWITCHER'S LIFETIME — DISPOSE IT ONCE, THROUGH THE PILL.
+            // `switcher` is created inside `mountMenu`, and the handle that returns disposes
+            // it; disposing it AGAIN here made a caller's `dispose` counter read 2, which is
+            // not a cosmetic double-call — a handle whose teardown runs twice is one that can
+            // release something it no longer owns. Caught by
+            // `viewSwitcherOnView.spec.ts` ("dispose removes the bar and the switcher it
+            // hosts"), which is exactly the arm that should have caught it.
+            try { pill?.dispose(); } catch { /* teardown is best-effort */ }
+            pill = null;
             switcher = null;
             root.remove();
         },

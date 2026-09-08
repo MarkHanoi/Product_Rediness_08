@@ -75,6 +75,7 @@ function mountReal(): { host: HTMLElement; handle: ReturnType<typeof mountParcel
         mountSwitcher: () => ({
             element: document.createElement('div'),
             repaint: () => { /* noop */ },
+            activeLabel: () => null, // §ONE-REGION-SWITCHER (L-13257) — the real handle reports this.
             dispose: () => { /* noop */ },
         }),
         wireStrip: () => 0,
@@ -229,6 +230,7 @@ describe('ARM B — ⭐ NOTHING WAS DROPPED, and each section is in the question
             mountSwitcher: () => ({
                 element: document.createElement('div'),
                 repaint: () => { /* noop */ },
+                activeLabel: () => null, // §ONE-REGION-SWITCHER (L-13257) — the real handle reports this.
                 dispose: () => { /* noop */ },
             }),
             wireStrip: () => 0,

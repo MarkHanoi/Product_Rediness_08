@@ -293,13 +293,21 @@ describe('§VIEW-PANEL-PER-PANE — active, soloed and available are THREE facts
         expect(m.segments.map((s) => s.optionId)).toContain('site-3d');
     });
 
-    it('⭐ 3D PRYZM degrades HONESTLY and BY NAME — it cannot be hosted in a pane yet', () => {
-        // The one row that genuinely cannot go in a pane: the WebGPU renderer owns
-        // `#container` (C59 Phase 3). It is rendered, disabled, and the reason NAMES the
-        // renderer and the phase — never a dead-looking live button, and never a hidden row.
+    it('⭐ 3D PRYZM cannot be a PANE, and is REACHABLE anyway (L-13257)', () => {
+        // ⚠ AMENDED 2026-09-08 (§ONE-REGION-SWITCHER). This arm asserted `enabled === false`,
+        // and it passed while the founder was reporting *"I still don't see 3D PRYZM
+        // accessible"* — twice. The pane refusal it describes is STILL TRUE and still tested
+        // below; what was wrong was concluding that a row with nowhere to go IN A PANE
+        // therefore has nowhere to go at all (the L-942 shape: a refusal whose own text names
+        // the way out, with no way to take it).
         const p = row(SPLIT, 'pryzm-3d');
         expect(p.viewType).toBe('bim-3d');
-        expect(p.enabled).toBe(false);
+        // ⭐ REACHABLE — it dispatches the DECLARED whole-screen route.
+        expect(p.enabled).toBe(true);
+        expect(p.fullScreenRoute).toBe('3D');
+        // ⛔ AND STILL NOT A PANE: the reason keeps naming the renderer and the phase, and the
+        // click still produces ZERO pane intents (`view.pane.assign` on a `paneHostable:
+        // false` view is exactly what `validatePaneLayout` rejects).
         expect(p.reason).toContain('#container');
         expect(p.reason).toContain('C59 Phase 3');
         expect(segmentClickIntents(p, SPLIT)).toEqual([]);
