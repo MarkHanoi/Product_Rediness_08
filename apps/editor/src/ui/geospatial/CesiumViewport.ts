@@ -10442,6 +10442,22 @@ export class CesiumViewport {
       // within 30 ms of each other) and the buildings pass; negligible against the 14 s it saves.
       windowMs: 120,
       cache: this.contextGroundCache,
+      // ⭐⭐ §TILE-DEDUP-RETIRES-THE-FIFO (founder 2026-09-08 · L-13263) — every `sample` below
+      // goes through `samplingTerrainProvider()`, which wraps the provider in a
+      // `TerrainTileMemo`. That memo registers a tile's promise SYNCHRONOUSLY, before the
+      // request resolves, so two CONCURRENT flights over the same bbox share one download
+      // instead of racing to make two. De-duplication therefore already happens at the TILE,
+      // which is finer and more exact than the flight-level FIFO that was protecting it.
+      //
+      // ⛔ SO THE FIFO'S OWN JUSTIFICATION — *"MUST be 1 — two calls in the air re-download the
+      // same tiles"* — IS NO LONGER TRUE, and it was costing the founder 6.6 s of a 21.8 s
+      // start-up in pure queuing (two drape layers, ~3.3 s waiting each against ~20 ms of own
+      // work) for a guarantee delivered elsewhere.
+      //
+      // ⚠ A READING, NOT A CONSTANT. It asks whether a memo is installed RIGHT NOW; a sampler
+      // running before one exists still serialises, so this can never become the
+      // duplicate-download regression L-12952 fixed.
+      tileDedupGuaranteed: () => this.terrainTileMemoEntry !== null,
       sample: async (points) => {
         const viewer = this.viewer;
         const provider = viewer?.terrainProvider as Cesium.TerrainProvider | undefined;

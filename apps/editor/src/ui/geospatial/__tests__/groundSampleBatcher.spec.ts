@@ -222,12 +222,16 @@ function makeGatedHarness() {
      *  so a bug in the counter cannot make this test pass. */
     let live = 0;
     let maxLive = 0;
+    let tileDedup = false;
     const batcher = new GroundSampleBatcher({
         windowMs: 100,
         cache,
         schedule: (fn) => { timers.push(fn); },
         scheduleCeiling: () => { /* the degrade path has its own test */ },
         now: () => 0,
+        // §TILE-DEDUP-RETIRES-THE-FIFO (L-13263) — the harness defaults to the SERIALISING
+        // regime, so every arm written before that lane keeps measuring what it measured.
+        tileDedupGuaranteed: () => tileDedup,
         sample: async (points) => {
             batches.push(points.slice());
             live++;
@@ -243,7 +247,10 @@ function makeGatedHarness() {
     };
     /** Let the oldest hanging sampler call return. */
     const release = (): void => { gates.shift()?.(); };
-    return { batcher, cache, batches, tick, drain, release, maxLive: () => maxLive, gates };
+    return {
+        batcher, cache, batches, tick, drain, release, maxLive: () => maxLive, gates,
+        setTileDedup: (v: boolean): void => { tileDedup = v; },
+    };
 }
 
 describe('§GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME — never two sampler calls in the air', () => {
@@ -394,5 +401,97 @@ describe('§GROUND-SAMPLE-TILE-ATTRIBUTION — the TILES are the cost, the point
         expect(seen[0]!.tiles).toBeGreaterThan(0);
         // The number that must go DOWN is `tiles`; `sampled` going down buys nothing.
         expect(seen[0]!.tiles).toBeLessThan(seen[0]!.sampled);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════
+// §TILE-DEDUP-RETIRES-THE-FIFO (founder 2026-09-08 · L-13263)
+//
+// *"try to go as quick as possible ideally 1 second to the location."*
+//
+// ⛔ THE FIFO'S OWN LOG LINE STATES ITS ONLY JUSTIFICATION: *"max concurrent flights 1 (MUST
+// be 1 — two calls in the air re-download the same tiles)."* That was TRUE when
+// §GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME (L-12952) shipped. §TERRAIN-TILE-MEMO (L-13077) then
+// made it FALSE: `TerrainTileMemo.requestTileGeometry` calls `remember(key, tracked)`
+// SYNCHRONOUSLY, before the request resolves, so a second caller for the same tile — even on
+// a concurrent flight — gets the first caller's promise. De-dup moved from the FLIGHT to the
+// TILE, which is finer and exact.
+//
+// ⚠ AND THE SERIALISATION WAS NOT FREE. Founder's Madrid run: two drape layers each reporting
+// `~3.3 s waiting for terrain (shared FIFO), ~20 ms own work`, while the coalescer's own
+// counters read *"0 joined a trip already in flight, 0 answered by the flight ahead of them"*.
+// Full price of serialisation, none of its benefit — the benefit was already collected below.
+// ═════════════════════════════════════════════════════════════════════════════════════════
+describe('§TILE-DEDUP-RETIRES-THE-FIFO — concurrency is allowed only when de-dup is guaranteed', () => {
+    it('⛔ WITHOUT the guarantee the FIFO stands — this is the L-12952 behaviour, unchanged', async () => {
+        const h = makeGatedHarness();
+        h.setTileDedup(false);
+        h.batcher.request([{ lat: 1, lon: 1 }]);
+        await h.drain(2);
+        h.batcher.request([{ lat: 2, lon: 2 }]);
+        await h.drain(2);
+        expect(h.maxLive(), 'a second flight must NOT open while one is in the air').toBe(1);
+        h.release(); await h.drain(2);
+        h.release(); await h.drain(2);
+    });
+
+    it('⭐ WITH the guarantee the second flight runs CONCURRENTLY instead of queuing', async () => {
+        const h = makeGatedHarness();
+        h.setTileDedup(true);
+        h.batcher.request([{ lat: 1, lon: 1 }]);
+        await h.drain(2);
+        h.batcher.request([{ lat: 2, lon: 2 }]);
+        await h.drain(2);
+        // ⭐ THE 6.6 s. Two flights in the air at once, each downloading nothing the other
+        // already has, because the tile memo below joins them at the tile.
+        expect(h.maxLive(), 'the second flight must not wait for the first').toBe(2);
+        expect(h.batcher.stats.flightsRunConcurrently).toBeGreaterThan(0);
+        h.release(); h.release(); await h.drain(2);
+    });
+
+    it('the regime is PROBED PER FLUSH — a provider that loses its memo re-serialises', async () => {
+        // The memo is installed per PROVIDER and a project switch replaces the provider, so a
+        // cached answer would let one city's guarantee license another city's concurrency.
+        const h = makeGatedHarness();
+        h.setTileDedup(true);
+        h.batcher.request([{ lat: 1, lon: 1 }]);
+        await h.drain(2);
+        h.setTileDedup(false);
+        h.batcher.request([{ lat: 2, lon: 2 }]);
+        await h.drain(2);
+        expect(h.maxLive(), 'with the guarantee withdrawn the FIFO must hold again').toBe(1);
+        h.release(); await h.drain(2);
+        h.release(); await h.drain(2);
+    });
+
+    it('a THROWING predicate is treated as NO guarantee — it serialises, never races', async () => {
+        // §CONTEXT-DATA-HONESTY: an unanswerable question is not a yes. Racing on a throw
+        // would turn an unknown into the duplicate-download regression L-12952 fixed.
+        const cache = new Map<string, number>();
+        const timers: Array<() => void> = [];
+        let live = 0; let maxLive = 0;
+        const gates: Array<() => void> = [];
+        const b = new GroundSampleBatcher({
+            windowMs: 100, cache,
+            schedule: (fn) => { timers.push(fn); },
+            scheduleCeiling: () => { /* not under test */ },
+            now: () => 0,
+            tileDedupGuaranteed: () => { throw new Error('provider gone'); },
+            sample: async (points) => {
+                live++; if (live > maxLive) maxLive = live;
+                await new Promise<void>((r) => { gates.push(r); });
+                live--;
+                return points.map(() => 1);
+            },
+        });
+        const drain = async (n = 4): Promise<void> => {
+            for (let i = 0; i < n; i++) { for (const fn of timers.splice(0)) fn(); await Promise.resolve(); await Promise.resolve(); }
+        };
+        b.request([{ lat: 1, lon: 1 }]); await drain(2);
+        b.request([{ lat: 2, lon: 2 }]); await drain(2);
+        expect(maxLive).toBe(1);
+        expect(b.stats.flightsRunConcurrently).toBe(0);
+        gates.shift()?.(); await drain(2);
+        gates.shift()?.(); await drain(2);
     });
 });

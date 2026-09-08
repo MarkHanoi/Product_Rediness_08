@@ -161,6 +161,9 @@ export interface GroundSampleBatcherStats {
     /** Points a flush no longer had to sample because the round-trip it waited for answered
      *  them — the split-piece and late-layer batches paying nothing. */
     readonly pointsResolvedByAnEarlierFlight: number;
+    /** §TILE-DEDUP-RETIRES-THE-FIFO (L-13263) — how many flushes skipped the FIFO because the
+     *  tile memo guarantees each tile downloads once. 0 ⇒ this run serialised, as before. */
+    readonly flightsRunConcurrently: number;
 }
 
 export interface GroundSampleBatcherOptions {
@@ -187,6 +190,31 @@ export interface GroundSampleBatcherOptions {
      *  flight, i.e. the old behaviour) rather than deadlock every later seat behind it.
      *  Defaults to 20 s. */
     readonly serializeMaxWaitMs?: number;
+    /**
+     * ⭐⭐ §TILE-DEDUP-RETIRES-THE-FIFO (founder 2026-09-08 · L-13263) — is DUPLICATE TILE
+     * DOWNLOAD already prevented BELOW this batcher, at the tile level?
+     *
+     * ⛔ THE FIFO EXISTS FOR EXACTLY ONE REASON, and its own log line states it: *"max
+     * concurrent flights 1 (MUST be 1 — two calls in the air re-download the same tiles)."*
+     * That was TRUE when §GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME (L-12952) was written. It stopped
+     * being true when §TERRAIN-TILE-MEMO (L-13077) landed: `TerrainTileMemo.requestTileGeometry`
+     * calls `remember(key, tracked)` SYNCHRONOUSLY, before the request resolves, so a second
+     * caller for the same tile — even one whose flight is concurrent — gets the FIRST caller's
+     * promise back. De-duplication moved from the FLIGHT to the TILE, which is both finer and
+     * exact.
+     *
+     * ⛔ AND THE SERIALISATION IS NOT FREE. The founder's Madrid run: two drape layers each
+     * reporting `~3.3 s waiting for terrain (shared FIFO), ~20 ms own work` — 6.6 s of a 21.8 s
+     * start-up spent QUEUING, while the coalescer's own counters read *"0 joined a trip already
+     * in flight, 0 answered by the flight ahead of them"*. Fifteen callers, five round-trips,
+     * ZERO coalesced: the FIFO was paying the full price of serialisation and collecting none
+     * of its benefit, because the benefit had already been collected one layer down.
+     *
+     * ⚠ INJECTED AND PROBED, NOT ASSUMED. A sampler that does NOT go through the memo must keep
+     * the FIFO, or this becomes the duplicate-download regression L-12952 fixed. Absent or
+     * `false` ⇒ the FIFO stands, unchanged.
+     */
+    readonly tileDedupGuaranteed?: () => boolean;
 }
 
 interface Flush {
@@ -232,6 +260,9 @@ export class GroundSampleBatcher {
     private _pointsJoinedInFlight = 0;
     private _roundTrips = 0;
     private _maxConcurrentFlights = 0;
+    /** §TILE-DEDUP-RETIRES-THE-FIFO (L-13263) — flushes that skipped the FIFO because tile-level
+     *  de-dup was guaranteed below. Reported so a run says WHICH regime it ran in. */
+    private _flightsRunConcurrently = 0;
     private _deferredFlushes = 0;
     private _pointsResolvedByAnEarlierFlight = 0;
 
@@ -248,6 +279,7 @@ export class GroundSampleBatcher {
             pointsJoinedInFlight: this._pointsJoinedInFlight,
             roundTrips: this._roundTrips,
             maxConcurrentFlights: this._maxConcurrentFlights,
+            flightsRunConcurrently: this._flightsRunConcurrently,
             deferredFlushes: this._deferredFlushes,
             pointsResolvedByAnEarlierFlight: this._pointsResolvedByAnEarlierFlight,
         };
@@ -368,7 +400,14 @@ export class GroundSampleBatcher {
 
         const clock = this.opts.now ?? (() => Date.now());
         try {
-            {
+            // §TILE-DEDUP-RETIRES-THE-FIFO (L-13263) — PROBED PER FLUSH, never cached: the memo
+            // is installed per PROVIDER, and a project switch replaces the provider. Asking each
+            // time means a flush that runs while no memo is installed still serialises.
+            let dedupBelow = false;
+            try { dedupBelow = this.opts.tileDedupGuaranteed?.() === true; } catch { dedupBelow = false; }
+            if (dedupBelow) {
+                this._flightsRunConcurrently++;
+            } else {
                 // Only a flush that finds a round-trip ACTUALLY in the air was deferred; a chain
                 // whose head has already released cost nothing and must not inflate the number.
                 if (this.liveFlights > 0) this._deferredFlushes++;
