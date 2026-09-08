@@ -18,7 +18,6 @@ import {
     mountParcelLawIntentAgainstCeiling,
     type ParcelLawIntentDeps,
     INTENT_CEILING_BREACH_ATTR,
-    INTENT_CEILING_INTENT_FIGURE_ATTR,
 } from '../parcelLawIntentAgainstCeiling';
 import { buildParcelLawModel } from '../../site/parcel/parcelLawModel';
 import { __resetSiteHighlightForTests, getSiteHighlight, SITE_HIGHLIGHT_ATTR } from '../../site/siteGeometryHighlight';
