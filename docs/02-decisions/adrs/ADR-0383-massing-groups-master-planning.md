@@ -6,6 +6,31 @@ C83 §2 (roles, not kinds) · C84 EI-1 / EI-8 / EI-9 · C16 CA-2 · P6
 
 ---
 
+> ## ⛔⛔ READ THIS BEFORE ACTING ON D1 — **AMENDED SAME DAY BY [ADR-0385](./ADR-0385-massing-group-projects-into-the-hierarchy-store.md)**
+>
+> **`SpaceEnvelope.group` is the MASSING-STAGE AUTHORING axis. It is NOT the containment
+> authority, and NOTHING downstream may read it to answer *"which building is this element in"*.**
+>
+> That question already has an owner: **`hierarchyStore.BuildingData`** — live, persisted, 143
+> non-test reference sites across 30 files, and declared IFC-aligned in `HierarchyTypes.ts`'s own
+> header (`Building → IfcBuilding`, `Level → IfcBuildingStorey` bridged by `bimLevelId`). **ADR-0328
+> rules it the SOLE hierarchy source of truth** and forbids a second one. A group therefore
+> **PROJECTS** into it, exactly as `partOf` does (`PartOfProjection.ts`) — re-derived at read,
+> reconciled by diff, never accumulated.
+>
+> ⚠ **This does not re-open D1.** D1 rejected *a second store for massing groups* and that
+> reasoning stands. What D1 did not consider is that `hierarchyStore` **already exists and already
+> models N buildings**; ADR-0385 adds the projection edge D1 had no reason to name.
+>
+> **If you are the IFC lane, the inspect-tree lane, or any consumer asking which building an element
+> belongs to: your blocker is resolved and the answer is `hierarchyStore`, via one three-valued
+> resolver (`carried` / `derived` / `unknown` — an element in no building and an unreadable store
+> must never share a value).**
+
+---
+
+---
+
 ## 1 · THE ASK
 
 > *"Build PRYZM Master Planning: select a real/demo U.S. parcel, then create multiple independent
