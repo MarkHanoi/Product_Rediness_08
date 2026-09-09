@@ -3254,6 +3254,17 @@ export interface StoresSlot {
   readonly spaceEnvelope?: PluginDtoStoreHandle | undefined;
 
   /**
+   * C116 / ADR-0384 - the SITEWORKS read channel (roads, parking, pedestrian).
+   *
+   * The no-geometry-twin test is passed BY CONSTRUCTION rather than by measurement
+   * after the fact: C116 2 forbids this family a plugin DTO twin, a
+   * `core-app-model` store and a `packages/stores` entry outright, so there is no
+   * `window.siteworksStore` and nothing for this instance to diverge from.
+   * ADOPTED, NEVER CONSTRUCTED.
+   */
+  readonly siteworks?: PluginDtoStoreHandle | undefined;
+
+  /**
    * §COMPONENT-PLACE (audit §12 Phase 4C) · **ADR-0376 D9** · C84 EI-1 — ⭐⭐ THE
    * JOIN's read channel: the store holding PLACED OCCURRENCES of component
    * definitions.

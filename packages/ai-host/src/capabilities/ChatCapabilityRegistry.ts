@@ -3872,6 +3872,14 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['spaceEnvelope.setFootprint', 'Reshaping an envelope footprint is done in the profile editor with the envelope selected.'],
   ['spaceEnvelope.setParameter', 'Envelope properties (height, base offset, name, programme, colour) are edited in the Properties panel with the envelope selected.'],
   ['spaceEnvelope.setWithin', 'Declaring which level envelope a room envelope belongs to is done in the Properties panel. Note PRYZM reports — and never refuses — a room envelope that sticks out of its level envelope.'],
+  // — SITEWORKS (C116 / ADR-0384) — roads, parking areas, pedestrian areas.
+  // Every verb is CHAT_UNAVAILABLE at this commit (C116 §11 item 5), and every
+  // refusal names the route back to success rather than stopping at "no".
+  ['siteworks.batch.create', 'Laying a road, car park or footway needs the line or the outline you want it on, which I cannot infer from a sentence — draw it with the Master planning tools on the right-hand rail. Once it exists I can change its width, its build-up depth and what it is for.'],
+  ['siteworks.setWidth', 'Setting a carriageway width is done in the Properties panel with the road selected. It applies to roads drawn as a LINE; a car park or plaza drawn as an outline has no single width, and PRYZM says so rather than silently doing nothing.'],
+  ['siteworks.setThickness', 'The build-up depth of a paved surface is edited in the Properties panel with the surface selected. It applies to every siteworks surface, whichever way it was drawn.'],
+  ['siteworks.setRole', 'Changing a surface between road, parking and pedestrian is done in the Properties panel with it selected. The geometry does not move — only what the surface MEANS changes.'],
+  ['siteworks.delete', 'Select the paved surface you want removed and press Delete — I cannot yet tell which one you mean from a description alone.'],
   ['boundaryLine.create', 'Drawing a setting-out line needs the points you want it through, which I cannot infer from a sentence — use the Boundary Line tool under Architecture (Alt+Shift+N).'],
   ['boundaryLine.move', 'Moving a boundary line from chat needs a target position I cannot infer — drag its vertices in plan. Everything attached to it moves with it.'],
   ['boundaryLine.attach', 'Attaching an element to a boundary line needs both of them picked — select the element and the line in plan.'],

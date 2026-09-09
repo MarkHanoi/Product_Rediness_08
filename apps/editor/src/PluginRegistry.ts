@@ -127,6 +127,7 @@ import { BoundaryLineStore, buildBoundaryLineHandlerSet } from '@pryzm/plugin-bo
 // describes on its behalf.
 import { sectionViewPluginRegistration } from '@pryzm/plugin-section-view';
 import { spaceEnvelopePluginRegistration } from '@pryzm/plugin-space-envelope';
+import { siteworksPluginRegistration } from '@pryzm/plugin-siteworks';
 
 // ---- Wave 18: 2 non-element plugins with zero-dep handler factories ----
 import { buildSelectionHandlerSet } from '@pryzm/plugin-selection';
@@ -893,6 +894,11 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
   // zoning envelope and the walls. Self-describing descriptor (§PLUGIN-DESCRIPTOR-AT-L5),
   // so this is a bare reference and `engineLauncher` needs no imperative door.
   spaceEnvelopePluginRegistration,
+  // C116 / ADR-0384 - SITEWORKS: roads, parking areas and pedestrian areas as ONE
+  // kind wearing three roles. Self-describing descriptor
+  // (PLUGIN-DESCRIPTOR-AT-L5), so this is a bare reference and `engineLauncher`
+  // needs no imperative door.
+  siteworksPluginRegistration,
 ] as const;
 
 /** Convenience — the element-family ids in registration order.  Pre-
@@ -931,6 +937,12 @@ export const ELEMENT_PLUGIN_IDS = [
   // descriptor is registered-and-undispatchable, which is the trap that hid pool,
   // lift, lighting, section and bathroomPod.
   'space-envelope',
+  // C116 - contributes a non-empty storeKey AND a handler set, so it belongs in
+  // the list the storeKey assertion iterates and needs no STORE_ONLY_PLUGIN_IDS
+  // exemption. Omitting it here would put `siteworks` in
+  // check-plugin-census-equivalence ARM F (registered, storeKey assertion never
+  // iterates it), which is ALREADY BREACHED at 4/3 by another lane's `component`.
+  'siteworks',
   'door',
   'window',
   'roof',

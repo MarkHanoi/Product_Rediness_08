@@ -342,6 +342,13 @@ export interface ProjectSnapshot {
      */
     spaceEnvelopes?: any[];
     /**
+     * C116 9 - AUTHORED paved surfaces (roads, parking, pedestrian areas).
+     * Omit-when-absent per C47, and no SNAPSHOT_SCHEMA_VERSION bump: an old
+     * snapshot simply LACKS the key, and "no siteworks were authored" IS its
+     * correct reading.
+     */
+    siteworks?: any[];
+    /**
      * §L-1057 / C87 §13.1 CW-P — SPARSE curtain-panel overrides: only the panels a
      * user AUTHORED away from what the grid regenerates. A 20×10 façade with three
      * doors writes 3 entries, not 200; an untouched façade writes none.
@@ -1655,6 +1662,13 @@ export class ProjectSerializer {
         // which is the leg L-11530 was missing for `balcony`, and the reason THAT row
         // could read `persisted` for four days while every record was destroyed.
         const spaceEnvelopes = readPluginStore('spaceEnvelope');
+        // C116 9 / ADR-0384 - the authored paved surfaces, through the SAME lazy
+        // resolver rather than another hand-copied block. `StoresSlot.siteworks` is
+        // declared in runtime-composer types.ts and ADOPTED (never constructed) in
+        // composeRuntime.ts from the `siteworks` PluginRegistry descriptor - the leg
+        // L-11530 was missing for `balcony`, which is how THAT row read `persisted`
+        // for four days while every record was destroyed on reload.
+        const siteworks = readPluginStore('siteworks');
 
         // ── C84 EI-6, THE LOUD HALF: say what is about to be destroyed ────────────
         //
@@ -1779,7 +1793,10 @@ export class ProjectSerializer {
             // unlike a lift its `withinId` children are SIBLING envelopes already in
             // this same slice — a reference, never ownership (C114 §8), so the parent
             // does not carry them.
-            (spaceEnvelopes?.length ?? 0);
+            (spaceEnvelopes?.length ?? 0) +
+            // C116 - counted like the others; a siteworks surface has no member
+            // families and no legacy twin, so nothing here is double-counted.
+            (siteworks?.length ?? 0);
 
         const snapshot: ProjectSnapshot = {
             schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -1820,6 +1837,11 @@ export class ProjectSerializer {
             // SNAPSHOT both mean "this file records no envelopes", while the two stay
             // DISTINGUISHED at the read above so the warning arm can fire.
             spaceEnvelopes: spaceEnvelopes?.length ? spaceEnvelopes : undefined,
+            // C116 9 - omit-when-absent (C47), so an untouched project's snapshot
+            // stays byte-identical. `undefined` (no such store) and `[]` (store
+            // present, empty) collapse to the same omission HERE deliberately, while
+            // staying DISTINGUISHED at the read above so the C84 EI-6 warning can fire.
+            siteworks: siteworks?.length ? siteworks : undefined,
             // §L-1057 — omitted entirely when nothing was authored, so an untouched
             // project's snapshot is byte-identical to a pre-fix one.
             curtainPanels: curtainPanels.length > 0 ? curtainPanels : undefined,

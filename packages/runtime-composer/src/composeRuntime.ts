@@ -1795,6 +1795,11 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // and undispatchable at the composed runtime — the trap that hid pool (L-5200),
     // lift (L-5700), lighting, section (L-9922) and bathroomPod (§BATH102).
     const spaceEnvelopeStore: PluginDtoStoreHandle | undefined = inner.stores?.['spaceEnvelope'];
+    // C116 / ADR-0384 - the siteworks read channel, ADOPTED from the plugin host
+    // and never constructed here. Without this key the family would be registered
+    // and undispatchable at the composed runtime - the L-11530 trap that hid pool
+    // (L-5200), lift (L-5700), lighting, section (L-9922) and bathroomPod.
+    const siteworksStore: PluginDtoStoreHandle | undefined = inner.stores?.['siteworks'];
     // ⛔⛔ §PLUGIN-DTO-STORES-ARE-PROJECT-SCOPED (L-13247 · C13 §3 · C45) — THE EIGHT
     // FAMILIES BELOW WERE CLEARED BY NOTHING ON A PROJECT SWITCH, AND THE SERIALIZER
     // WROTE THEM INTO WHATEVER PROJECT WAS OPEN NEXT.
@@ -1839,6 +1844,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         ['balcony', balconyStore],
         ['component', componentStore],
         ['spaceEnvelope', spaceEnvelopeStore],
+        // PLUGIN-DTO-STORES-ARE-PROJECT-SCOPED (L-13247, C13 3) - a siteworks
+        // surface belongs to ONE project. Omitting this row is how eight families
+        // leaked into whatever project was opened next.
+        ['siteworks', siteworksStore],
       ] as const) {
         if (value !== undefined) {
           const clearable = value as unknown as { clear?: () => void };
@@ -1901,6 +1910,9 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §3 — the space envelope's read channel,
       // landing in the SAME commit as the family so the L-11530 shape cannot recur.
       spaceEnvelope: spaceEnvelopeStore,
+      // C116 3 - the siteworks read channel, landing in the SAME commit as the
+      // family so the L-11530 shape cannot recur.
+      siteworks: siteworksStore,
       registerHydrator(fn: (snapshot: unknown) => void | Promise<void>): void {
         _hydratorFn = fn;
       },

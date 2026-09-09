@@ -81,6 +81,31 @@ const CANONICAL_PREFIXES = new Set([
     // inverse of "when code disagrees with a contract, the code is wrong".
     // Re-spelling them is a C106/C109 amendment first and a code change second.
     'balcony', 'bathroomPod', 'boundaryLine', 'lift',
+    // --- ADDED 2026-09-09 (lane SITE-SURFACE) - ONE genuinely new domain -------
+    //
+    // `siteworks` (C116, ADR-0384 D1) - roads, parking areas and pedestrian areas
+    // as ONE element kind wearing three roles. Measured for rival spellings BEFORE
+    // admission, because that measurement is the only thing separating this file's
+    // sanctioned move from the L-796 defect it exists to catch. Counts as COMMAND
+    // prefixes over plugins/ + packages/ + apps/, 2026-09-09:
+    //
+    //   `'road.`      : 0 hits
+    //   `'pavement.`  : 0 hits
+    //   `'surface.`   : 0 hits
+    //   `'paving.`    : 0 hits
+    //
+    // So this is a NEW DOMAIN, not a second spelling of an existing one.
+    //
+    // camelCase, like `bathroomPod` / `boundaryLine`, and for the same reason the
+    // note above gives: C116 1 declares `siteworks.*` NORMATIVELY as the verb
+    // namespace, and under CLAUDE.md's conflict order a contract outranks a
+    // convention inferred from one kebab sample. (It is single-word anyway.)
+    //
+    // The kind is `siteworks` and NOT `siteSurface`: that spelling was already held
+    // by an unrelated live L7 UI class (apps/editor/src/ui/site/SiteSurface.ts), and
+    // the orchestrator ruled the ELEMENT KIND yields because the UI exists. C116 0.1
+    // carries the correction; `siteSurface` is a FORBIDDEN spelling for this family.
+    'siteworks',
 ]);
 
 /**

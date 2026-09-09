@@ -173,7 +173,7 @@ the list of everything a road engineer would expect and will not find.
 | Branded id | **ABSENT** | `SiteworksId = Id<'siteworks'>`, in `AnyElementId` and `IdFor`. Runtime prefix is derived by `createId('siteworks')` — there is no separate prefix table |
 | Bus verb namespace | **ABSENT** | `siteworks.*` per C69 §3.6 (the namespace is the kind, never an abbreviation). Roster in §6 |
 | Geometry package | **ABSENT** | `packages/geometry-siteworks` — **L2**, THREE-free, declared in `eslint.config.js`'s `layerElements` |
-| Plugin | **ABSENT** | `plugins/siteworks` (`@pryzm/plugin-siteworks`), `storeKey: 'siteworks'` · ⏳ PLANNED — lands stage 4 (plugin) |
+| Plugin | **ABSENT** | `plugins/siteworks` (`@pryzm/plugin-siteworks`), `storeKey: 'siteworks'` |
 | IFC identity | ⛔ **NOT MEASURED.** `IfcCourse` / `IfcPavement` (IFC 4.3 infrastructure) are plausible; neither was verified | resolve before any IFC export claim. ⛔ Until resolved the family is **EXCLUDED** from IFC export rather than guessed into it — C114 §1's precedent for this exact position |
 
 ---
@@ -183,7 +183,7 @@ the list of everything a road engineer would expect and will not find.
 | Representation | Where | Authority? |
 |---|---|---|
 | **L0 record** `Siteworks` | `packages/schemas/src/elements/Siteworks.ts` | **the shape** |
-| **Plugin store** `SiteworksStore extends Store<Siteworks>` | `plugins/siteworks/src/store.ts`, `storeKey: 'siteworks'` | ⭐ **THE AUTHORITY (C84 EI-1).** Reached as `runtime.stores.siteworks` · ⏳ PLANNED — lands stage 4 (plugin) |
+| **Plugin store** `SiteworksStore extends Store<Siteworks>` | `plugins/siteworks/src/store.ts`, `storeKey: 'siteworks'` | ⭐ **THE AUTHORITY (C84 EI-1).** Reached as `runtime.stores.siteworks` |
 | plugin DTO twin | **none, deliberately** | — |
 | legacy geometry store | **none, deliberately** | — |
 | scene `userData` | mesh carries `{ type: 'siteworks', id, levelId }` | **a projection, never a source** |
@@ -219,10 +219,10 @@ AS-IS: **nothing exists.** TO-BE, per C11 §11.2 and the measured `spaceEnvelope
 
 | Leg | File | Note |
 |---|---|---|
-| store | `plugins/siteworks/src/store.ts` | `super('siteworks')` — the ctor arg MUST equal `registration.storeKey` · ⏳ PLANNED — lands stage 4 (plugin) |
-| handlers | `plugins/siteworks/src/handlers/` | each: `readonly type`, `readonly affectedStores`, `canExecute`, `execute` wrapped in `withHandlerSpan` · ⏳ PLANNED — lands stage 4 (plugin) |
-| roster | `plugins/siteworks/src/handlers/index.ts` | `SITEWORKS_HANDLER_TYPES` + `buildSiteworksHandlerSet()` · ⏳ PLANNED — lands stage 4 (plugin) |
-| descriptor | `plugins/siteworks/src/registration.ts` | `satisfies PluginRegistration`, **never a type annotation** · ⏳ PLANNED — lands stage 4 (plugin) |
+| store | `plugins/siteworks/src/store.ts` | `super('siteworks')` — the ctor arg MUST equal `registration.storeKey` |
+| handlers | `plugins/siteworks/src/handlers/` | each: `readonly type`, `readonly affectedStores`, `canExecute`, `execute` wrapped in `withHandlerSpan` |
+| roster | `plugins/siteworks/src/handlers/index.ts` | `SITEWORKS_HANDLER_TYPES` + `buildSiteworksHandlerSet()` |
+| descriptor | `plugins/siteworks/src/registration.ts` | `satisfies PluginRegistration`, **never a type annotation** |
 | composition | `apps/editor/src/PluginRegistry.ts` · `runtime-composer/src/{types,composeRuntime}.ts` · `PluginHost.ts` | ⛔ omitting the `StoresSlot` read-channel is **L-11530**, four days of silent data loss |
 | undo | `apps/editor/src/engine/undo/performUndoRedo.ts` | `buildUndoStoreMap()` row |
 

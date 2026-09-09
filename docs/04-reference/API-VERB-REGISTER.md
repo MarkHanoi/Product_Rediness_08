@@ -15,16 +15,16 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1412 (floor 900) |
-| **Verbs** | **371** (floor 250) |
-| LIVE | 160 |
+| Handler files read | 1449 (floor 900) |
+| **Verbs** | **379** (floor 250) |
+| LIVE | 168 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 0 |
 | UNKNOWN | 174 |
 | — of the LIVE, credited by the §L-946 mirror channel | 12 of 12 level-change verb(s) |
 | authoritative store NONE or UNKNOWN | 211 |
-| sync UNDECLARED (property verbs) | 8 |
-| chat UNDECLARED | 8 |
+| sync UNDECLARED (property verbs) | 3 |
+| chat UNDECLARED | 4 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
 (C64 §2.13) — cite this file.
@@ -181,7 +181,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `furniture.updateParameters` | plugins/furniture | UNKNOWN | UNKNOWN | NONE (empty patch pair) | synced via 'id' (disclose) | classified D |
 | `generation.apartment` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | capability: generate-apartment-layout |
 | `generation.building` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | capability: generate-building |
-| `generation.finish-chain` | apps/editor | LIVE | legacy geometry store (via commandManager) | NONE (empty patch pair) | not-synced (reason declared) | capability: finish-apartment-chain |
+| `generation.finish-chain` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | capability: finish-apartment-chain |
 | `generation.rooms` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | capability: generate-room-finishes |
 | `generative.applyLayout` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `graph.neighbors` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -297,6 +297,11 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `sheet.setSheetMetadata` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
 | `sheet.setTitleBlock` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
 | `sheet.setViewportScale` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
+| `siteworks.batch.create` | plugins/siteworks | LIVE | adopted composed store: siteworks (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → siteworks | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `siteworks.delete` | plugins/siteworks | LIVE | adopted composed store: siteworks (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → siteworks | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `siteworks.setRole` | plugins/siteworks | LIVE | adopted composed store: siteworks (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → siteworks | synced via 'id' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `siteworks.setThickness` | plugins/siteworks | LIVE | adopted composed store: siteworks (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → siteworks | synced via 'id' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `siteworks.setWidth` | plugins/siteworks | LIVE | adopted composed store: siteworks (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → siteworks | synced via 'id' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `slab.addHole` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | not-synced (reason declared) | classified B |
 | `slab.batch.create` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | not-synced (reason declared) | classified C |
 | `slab.changeLevel` | plugins/slab | LIVE | legacy slabStore (via element.level-changed mirror) | patch-pair → slab | not-synced (reason declared) | capability: move-to-level |
@@ -315,13 +320,16 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `slab.updateLayers` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | synced via 'slabId' (disclose) | classified B |
 | `slab.updatePolygon` | plugins/slab | UNKNOWN | UNKNOWN | patch-pair → slab | synced via 'slabId' (disclose) | classified B |
 | `slab.updateSystemTypeBatch` | plugins/slab | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-slab-type |
-| `spaceEnvelope.batch.create` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
-| `spaceEnvelope.delete` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
-| `spaceEnvelope.move` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
-| `spaceEnvelope.moveFace` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
-| `spaceEnvelope.setFootprint` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
-| `spaceEnvelope.setParameter` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
-| `spaceEnvelope.setWithin` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | UNDECLARED | UNDECLARED |
+| `spaceEnvelope.batch.create` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `spaceEnvelope.delete` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `spaceEnvelope.group.dissolve` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
+| `spaceEnvelope.group.rename` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
+| `spaceEnvelope.group.setStoreys` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
+| `spaceEnvelope.move` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `spaceEnvelope.moveFace` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `spaceEnvelope.setFootprint` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | synced via 'spaceEnvelopeId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `spaceEnvelope.setParameter` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | synced via 'spaceEnvelopeId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `spaceEnvelope.setWithin` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | synced via 'spaceEnvelopeId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `stair.batch.create` | plugins/stair | UNKNOWN | UNKNOWN | patch-pair → stair | not-synced (reason declared) | classified C |
 | `stair.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified B |
 | `stair.createRailing` | plugins/stair | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |

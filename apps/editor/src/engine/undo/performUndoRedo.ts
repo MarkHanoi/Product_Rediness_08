@@ -623,6 +623,13 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
     // line in place would leave Ctrl+Z reverting the record while the viewport kept
     // the old solid on screen.
     spaceEnvelope: composedStoreUndoAdapter('spaceEnvelope', resolveComposedStoreFromWindow),
+    // C116 7 / ADR-0384 - the GENERIC adapter is correct for siteworks, and the
+    // reason is load-bearing rather than incidental: the render seam subscribes the
+    // store's DIRTY channel, and `Store.applyPatch` notifies `subscribeDirty` on
+    // EXECUTE, UNDO and REDO alike. A renderer driven by bus EVENTS instead would
+    // need a bespoke adapter (boundaryLine's shape), because `performUndoRedo`
+    // emits no bus events. If the render seam ever changes, this line changes with it.
+    siteworks: composedStoreUndoAdapter('siteworks', resolveComposedStoreFromWindow),
   };
 }
 

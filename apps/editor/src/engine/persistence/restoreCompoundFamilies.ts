@@ -181,10 +181,14 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
     // §FEAT-SPACE-ENVELOPE (L-12900) · C114 §9 — the authored massing volume. See the
     // block at the foot of this function for why a non-compound family is restored here.
     const spaceEnvelopes = readSlice(snapshot, 'spaceEnvelopes');
+    // C116 9 / ADR-0384 - the authored paved surfaces. Third non-compound family in
+    // this file, for the reason `component`'s block states in full: this module is
+    // where the ONE road runs.
+    const siteworksRecords = readSlice(snapshot, 'siteworks');
 
     if (lifts.length + liftParts.length + pools.length + waters.length
         + balconies.length + boundaryLines.length + bathroomPods.length
-        + components.length + spaceEnvelopes.length === 0) {
+        + components.length + spaceEnvelopes.length + siteworksRecords.length === 0) {
         return { restored, errors, total: 0 };
     }
 
@@ -554,6 +558,54 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
             errors.push(
                 `[restoreCompoundFamilies] §FEAT-SPACE-ENVELOPE restore FAILED — the authored space ` +
                 `envelopes are lost: ${String(e)}`,
+            );
+        }
+    }
+
+    // -- SITEWORKS (C116 / ADR-0384) - roads, parking, pedestrian areas ---------
+    //
+    // In the COMMON TAIL, like every leg above. A restore placed inside the
+    // `if (useImportCommandPath) ... else ...` branch is L-11528 - the boundary line
+    // was saved and never read back for weeks because its restore sat on the path
+    // production does not take.
+    //
+    // IT DOES NOT RE-DISPATCH `siteworks.batch.create`. That handler re-parses through
+    // the schema's eight refines, so a record that failed a refine INTRODUCED AFTER it
+    // was saved would be REFUSED at validation and dropped on the floor - data loss
+    // wearing a correctness argument. An `add` patch of the serialized record returns
+    // the SAME surface, which is the property C13 asks for.
+    //
+    // THROUGH THE UNDO ADAPTER - `composedStoreUndoAdapter('siteworks', ...)`, already
+    // registered in performUndoRedo.ts's buildUndoStoreMap(), which applies
+    // `Store.applyPatch()`: the very method the bus calls on execute, resolved LAZILY
+    // so a recomposed runtime cannot leave this writing into a stale store. Reusing it
+    // is what keeps the restore and the undo reading ONE store (C84 EI-9) - and it is
+    // also what makes the render seam fire, since applyPatch notifies subscribeDirty.
+    if (siteworksRecords.length > 0) {
+        try {
+            const store = resolveComposedStoreFromWindow('siteworks');
+            if (store === null) {
+                // LOUD, NEVER SILENT (C84 EI-6). UNREACHABLE and EMPTY are different
+                // facts and must never share a value. This family has no legacy twin
+                // and no member families, so a surface that does not land here leaves
+                // NOTHING on screen to hint at it.
+                errors.push(
+                    `[restoreCompoundFamilies] C116 - runtime.stores.siteworks is not ` +
+                    `reachable, so ${siteworksRecords.length} siteworks surface(s) are in the ` +
+                    `file and NOT in the model: the authored roads, parking and pedestrian ` +
+                    `areas are gone, with nothing left behind.`,
+                );
+            } else {
+                const side = addPatches(siteworksRecords, 'siteworks', errors);
+                if (side.patches.length > 0) {
+                    store.applyPatch(side.patches);
+                    restored['siteworks'] = side.ids.length;
+                }
+            }
+        } catch (e) {
+            errors.push(
+                `[restoreCompoundFamilies] C116 siteworks restore FAILED - the authored ` +
+                `paved surfaces are lost: ${String(e)}`,
             );
         }
     }

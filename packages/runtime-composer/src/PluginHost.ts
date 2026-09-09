@@ -105,6 +105,9 @@ const PLUGIN_CATALOG: readonly PluginDescriptor[] = Object.freeze([
   // record that persists, schedules and hosts other elements.
   desc('boundary-line',     'Boundary Line',          'element'),
   desc('space-envelope',    'Space Envelope',         'element'),
+  // C116 / ADR-0384. `'element'` and not `'overlay'`: a paved surface persists,
+  // is seated on a level and is authored, which is what an element is here.
+  desc('siteworks',         'Siteworks',              'element'),
   desc('ceiling',           'Ceiling',                'element'),
   desc('column',            'Column',                 'element'),
   desc('curtain-wall',      'Curtain Wall',           'element'),

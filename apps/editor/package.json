@@ -70,6 +70,7 @@
     "@pryzm/plugin-sheets": "workspace:*",
     "@pryzm/plugin-slab": "workspace:*",
     "@pryzm/plugin-space-envelope": "workspace:*",
+    "@pryzm/plugin-siteworks": "workspace:*",
     "@pryzm/plugin-stair": "workspace:*",
     "@pryzm/plugin-structural": "workspace:*",
     "@pryzm/plugin-view": "workspace:*",
