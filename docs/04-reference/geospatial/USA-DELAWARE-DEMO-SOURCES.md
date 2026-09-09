@@ -46,6 +46,93 @@ ordinance work, which genuinely does not exist for Delaware yet.
    County zoning has no rule pack at all. §ENVELOPE-NOT-A-GATE means the process still runs, but
    the demo would show "no determination held" where Barcelona shows a solved envelope.
 
+⛔ **A THIRD ONE WAS FOUND BY BAKING IT — see §USAS-IS-EMPTY-IN-SUSSEX below. The bake succeeded,
+every gate passed, and the demo site still renders a fabricated 9 m carpet.** That is not a
+qualification on "it's a bake and a publish"; it is the difference between the map having buildings
+and the buildings having heights, and only a read of the shipped tiles could tell them apart.
+
+---
+
+## ⛔⛔ §USAS-IS-EMPTY-IN-SUSSEX — the demo site has NO measured heights, and the source is why
+
+**Measured 2026-09-09 (lane DELAWARE-R2) against the staged `delaware` bake, run `34397872497`.**
+Nothing here is projected from the statewide figure; every row is a read.
+
+### What every existing check said
+
+| check | reading | verdict |
+|---|---|---|
+| `bake.mjs` §MEASURED-HEIGHT-GATE | `✔ delaware (usas): 21979/112354 footprint(s) measured` | **PASS** (19.6 %) |
+| `context-bake.yml` step "Assert the baked heights are MEASURED" | `checked=0` — all 37 CITIES rows skipped, none is in Delaware | **PASS, vacuously** |
+
+Both are honest. Neither can see the defect, because **both are counts and the defect is a
+distribution.**
+
+### What the shipped tiles say — nine points, N → S, read with the client's own decoders
+
+`node tools/context-height-probe/sweep.mjs --points delaware --base <staging>/delaware/`
+
+| point | verdict | footprints | measured | assumedFrac | **solidFrac** | median h |
+|---|---|---|---|---|---|---|
+| wilmington (New Castle) | measured | 1295 | 1227 | 0.047 | **0.947** | 8.2 m |
+| dover (Kent) | measured | 1416 | 1232 | 0.127 | **0.870** | 6.5 m |
+| newark-de (New Castle) | unmeasured | 1196 | 0 | 0.908 | **0.000** | 9 m |
+| milford (Kent/Sussex line) | unmeasured | 285 | 0 | 0.996 | **0.000** | 9 m |
+| georgetown (Sussex) | unmeasured | 341 | 0 | 0.918 | **0.000** | 9 m |
+| lewes-town (Sussex) | unmeasured | 1166 | 0 | 0.973 | **0.000** | 9 m |
+| ⭐ **lewes-demo — THE SITE** | **unmeasured** | 48 | **0** | 0.667 | **0.000** | **9 m** |
+| rehoboth (Sussex) | unmeasured | 860 | 0 | 0.970 | **0.000** | 9 m |
+| fenwick (Sussex) | unmeasured | 817 | 0 | 0.983 | **0.000** | 9 m |
+
+**Spread 0.000 → 0.947. Seven of nine points UNMEASURED.** Barcelona's control reads
+`solidRenderFraction 0.958` — so northern Delaware genuinely IS at Barcelona parity, and the
+founder's site is at zero, in the same archive on the same day.
+
+### It is the SOURCE, not our join — established independently, not inferred
+
+Read straight off `USA_Structures_View/FeatureServer/0` rather than from our own output, because
+inferring a source gap from our own empty result is exactly the mistake §CONTEXT-DATA-HONESTY names:
+
+| 0.02° cell | all structures | `HEIGHT IS NOT NULL` |
+|---|---|---|
+| Lewes demo `-75.10,38.77,-75.08,38.79` | 43 | **0** |
+| Lewes town `-75.15,38.77,-75.13,38.79` | 1198 | **0** |
+| Wilmington `-75.56,39.74,-75.54,39.76` | 1831 | 1776 (97 %) |
+| Dover `-75.53,39.15,-75.51,39.17` | 1677 | 1457 (87 %) |
+| Rehoboth `-75.07,38.71,-75.05,38.73` | **0** | 0 |
+
+USA Structures carries Sussex County **footprints** and no NGA-LiDAR **HEIGHT** there at all. Our
+stamp writes metres exactly where metres exist and leaves the rest alone — which is the behaviour
+`heightSources.mjs` `usas_national` already promises in writing (*"lidar WHERE AVAILABLE; this row
+never claims measured-lidar for every structure"*, *"an unmeasured footprint gets NOTHING, never a
+neighbour's number"*). **Nothing is broken. The metres do not exist.**
+
+⚠ The `usas_national` note records **`delaware 27.8 %`** as a whole-state figure. That number is
+correct and it is *the reason this was invisible*: it is fully consistent with 97 % in one county
+and 0 % in another, and those are different products. **Quote the spread, never the state mean.**
+
+### What this costs the demo, stated plainly
+
+The client draws an unmeasured footprint in its non-solid style — `solidRenderFraction 0` means
+**nothing at the demo site renders as opaque LOD200 massing**. That is the honest rendering and the
+design working correctly: PRYZM is saying "these buildings exist, we do not know how tall they are."
+It is *not* Barcelona parity, and no amount of publishing will make it so.
+
+⛔ **Do not let "the manifest has a `delaware` key" stand in for this.** They are different claims,
+and the manifest one is true.
+
+### The fix, and it is already named in this document
+
+The route is the **2023 QL1 LiDAR** already listed in the FirstMap table below
+(`.../Boundaries/DE_Index/MapServer/5`, 2,238 tiles, ~1,700 m each) — a DSM−DTM nDSM stamp of
+exactly the shape `heightSources.mjs` already runs for Norway (`ndh_no`), Czechia (`cuzk_cz`),
+Belgium (`be_dhmv`) and Austria (`bev_at`). `usas_national`'s own `lodNext` says the same thing:
+*"a 3DEP-LPC-derived nDSM for the ORNL half"*. **This is a new height channel, not a bug fix** —
+one region-scoped stamp module plus a `heightJoin` change, sized like the four cited above.
+
+⚠ It also inherits this document's own warning: the FirstMap host below is **`firstmaptest`**, and a
+test hostname is not a production contract. Resolve that before wiring anything to it.
+
 ---
 
 ## THE FOUNDER'S RESEARCH — his sources, his rankings
