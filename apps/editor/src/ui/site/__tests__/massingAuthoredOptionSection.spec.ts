@@ -217,6 +217,35 @@ describe('the entry reaches the shipped fold', () => {
         expect(document.querySelector(`[data-testid="${MASSING_OPTIONS_GENERATE_BTN_TESTID}"]`)).not.toBeNull();
     });
 
+    it('⭐ REFUSED arm: the entry SURVIVES a refusal — §CREATE-IT-MYSELF-SURVIVES-A-REFUSAL (L-13280)', () => {
+        // THE ARM THAT DID NOT EXIST, WHICH IS HOW THE DEFECT SHIPPED. This suite already
+        // covered IDLE and COMPUTED, and the fold's own comment claimed the entry was "first on
+        // BOTH arms" — so the prose asserted the invariant and nothing measured the third arm.
+        //
+        // THE FOUNDER-VISIBLE SEQUENCE it protects: on a `degenerate` envelope the card renders
+        // on the FULL arm with the authored entry on screen; pressing Generate refuses; the
+        // panel refreshes onto THIS arm; and the entry vanished — his own click deleting the
+        // only route into the draw tool. *"the massing should be enabled anyways"*.
+        const refused = enumerateMassingOptions({ ...INPUTS, permittedRing: [{ x: 0, z: 0 }, { x: 1, z: 0 }] });
+        expect(refused.ok, 'fixture must actually refuse, or this arm proves nothing').toBe(false);
+        document.body.innerHTML = buildMassingOptionsFold({ kind: 'computed', set: refused }, { kind: 'offer' });
+
+        const entry = document.querySelector(`[data-testid="${MASSING_AUTHOR_OPTION_TESTID}"]`);
+        expect(entry, 'the draw-my-own entry must survive a generation refusal').not.toBeNull();
+
+        // ⛔ AND IT LEADS. A refusal banner above the entry reads as "unavailable, but here is
+        // a consolation"; the authored route is an INDEPENDENT way in, not a fallback.
+        const warning = [...document.querySelectorAll('div')]
+            .find((d) => /\S/.test(d.textContent ?? '') && d.children.length === 0
+                && (d.getAttribute('style') ?? '').includes('#fff6e8'));
+        expect(warning, 'the refusal text must still be shown').toBeTruthy();
+        expect(entry!.compareDocumentPosition(warning!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+        // ⚠ AND NO GENERATE BUTTON. `enumerateMassingOptions` refuses by construction here, so
+        // a Generate control on this arm could only ever refuse again — a dead click.
+        expect(document.querySelector(`[data-testid="${MASSING_OPTIONS_GENERATE_BTN_TESTID}"]`)).toBeNull();
+    });
+
     it('COMPUTED arm: the entry leads, and with an authored envelope every generated card states the refusal', () => {
         const set = enumerateMassingOptions(INPUTS);
         if (!set.ok) throw new Error('expected options');

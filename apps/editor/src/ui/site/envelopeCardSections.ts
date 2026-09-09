@@ -597,11 +597,36 @@ export function buildMassingOptionsFold(
         const set = state.set;
         if (!set.ok) {
             span.setAttribute('pryzm.massing.foldArm', 'refused');
+            // §CREATE-IT-MYSELF-SURVIVES-A-REFUSAL (founder 2026-09-09 · L-13280 · C58 §1.20)
+            //
+            // *"We need to enable massing … even if we dont have all the information to create
+            //   envelopes … the massing should be enabled anyways"*
+            //
+            // ⛔ THIS ARM USED TO RETURN THE WARNING ALONE, AND THAT DELETED A CARD THE USER
+            // WAS ALREADY LOOKING AT. The sequence is entirely user-driven: on a `degenerate`
+            // envelope (the setbacks consumed the parcel) the card renders on the FULL arm, so
+            // the authored card is on screen. Pressing "Generate massing options" reaches
+            // `enumerateMassingOptions`, which refuses because `permittedRing.length < 3`, and
+            // the wiring calls `refreshEnvelopePanel()`. The fold repaints on THIS arm — and
+            // the only on-view route into the draw tool vanishes. His own click removed it.
+            //
+            // ⭐ TWO PLACES ALREADY SAID THIS WAS WRONG, IN WORDS, AND NEITHER WAS TRUE:
+            // the comment three lines above the `authoredCard` declaration says *"first on
+            // BOTH arms"*, and `massingAuthoredOptionSection.ts` says *"Present on every arm —
+            // the tool is never gated"*. Prose asserting an invariant that the code beneath it
+            // breaks is the shape this repo keeps shipping ([[gate-blind-on-the-wrong-axis]]);
+            // the fix is to make the code true, not to soften the comment.
+            //
+            // ⚠ `intro` stays OFF this arm deliberately — it describes what Generate produces,
+            // and Generate is exactly what just refused. The authored route is not a fallback
+            // for a failed generation; it is an independent way in, which is the founder's
+            // whole point. A refusal to SOLVE must not also refuse the user's ability to DRAW.
             return fold(
                 MASSING_OPTIONS_SECTION_TESTID,
                 'refused',
                 'Massing options — unavailable',
-                `<div style="color:#8a5a00;background:#fff6e8;border-radius:6px;padding:6px 8px;`
+                authoredCard
+                + `<div style="color:#8a5a00;background:#fff6e8;border-radius:6px;padding:6px 8px;`
                 + `font-size:10px;line-height:1.5;">${escHtml(set.text)}</div>`,
             );
         }
