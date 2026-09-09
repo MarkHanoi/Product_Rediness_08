@@ -260,6 +260,14 @@ import {
   mountRoomsPerLevelSection,
   type RoomsPerLevelHandle,
 } from '../site/roomsPerLevelSection';
+// ADR-0383 S7 — the master-planning section. Mounted into QUESTION 2 because the founder ruled
+// twice on 2026-09-07 that question 2 is where you ACT on the parcel (C115 §2.2 / §6), and
+// selecting a block and changing its storey count is acting.
+import {
+  defaultMassingGroupSectionDeps,
+  mountMassingGroupSection,
+  type MassingGroupSectionHandle,
+} from '../site/massingGroupSection';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
@@ -588,6 +596,13 @@ export interface ParcelLawTabDeps {
    */
   readonly mountRoomProgramme?: (host: HTMLElement) => RoomProgrammePanelHandle;
   /**
+   * ADR-0383 S7 — Production: `mountMassingGroupSection` with `defaultMassingGroupSectionDeps`.
+   * ⚠ OPTIONAL for the same reason as its siblings: every spec literal written before this seam
+   * existed keeps compiling, and omitting it takes the production mount, which resolves the live
+   * runtime itself and renders its own honest sentences on a runtime with no stores.
+   */
+  readonly mountMassingGroups?: (host: HTMLElement) => MassingGroupSectionHandle;
+  /**
    * §26.6 rule 3 — Production: `mountParcelLawIntentAgainstCeiling` with its production deps.
    * ⚠ OPTIONAL for the same reason as its siblings: spec literals written before this seam
    * existed are complete and must keep compiling. Omitting it yields the production mount, which
@@ -663,6 +678,7 @@ export function mountParcelLawTab(
   let chat: ParcelLawChatHandle | null = null;
   /** §PL-ROOM-PROGRAMME — the re-hosted ROOM PROGRAMME panel's handle. */
   let roomProgramme: RoomProgrammePanelHandle | null = null;
+  let massingGroups: MassingGroupSectionHandle | null = null;
   /** §ROOMS-PER-LEVEL — the per-storey rooms section's handle. */
   let roomsPerLevel: RoomsPerLevelHandle | null = null;
   let unsub: (() => void) | null = null;
@@ -1156,6 +1172,18 @@ export function mountParcelLawTab(
     authoringSlot.setAttribute('data-testid', PARCEL_LAW_AUTHORING_HOST_TESTID);
     bodyOf('law').appendChild(authoringSlot);
 
+    // ⭐ ADR-0383 S7 — MASTER PLANNING, directly beneath the create controls and in the SAME
+    // question, because it acts on the same subject: *"select the envelopes (as a group for all the
+    // levels), get the level data and decide ad-hoc if i want to reduce or increase the levels"*.
+    //
+    // ⛔ NOT AN EIGHTH QUESTION GROUP, and no renumbering — the founder ruled question 2's and
+    // question 3's scopes twice on 2026-09-07 (C115 §2.2 / §6) and this is squarely question 2's.
+    // ⛔ AND NOT A CARD SECTION: the card registry repaints via `panel.innerHTML = …`, which
+    // destroys a typed storey count on every store event. See massingGroupSection.ts's header.
+    const massingGroupSlot = document.createElement('div');
+    massingGroupSlot.className = 'anl-parcel-law-massing-groups-host';
+    bodyOf('law').appendChild(massingGroupSlot);
+
     // ── Q3 · "What do I want to build?" ─────────────────────────────────────
     //
     // ⛔ §C115-17 — THE RELOCATION STAMP AND ITS SENTENCE. A control that disappears with no
@@ -1325,6 +1353,15 @@ export function mountParcelLawTab(
     } catch (e) {
       console.warn('[analysis][parcel-law] intent-beside-ceiling mount failed (non-fatal):', e);
     }
+    // ADR-0383 S7 — mounted through the tab's deps pattern so a spec can inject a double, with a
+    // production default. Non-fatal: a section that cannot mount must not take the tab down.
+    try {
+      const mountMG = deps.mountMassingGroups
+        ?? ((h: HTMLElement) => mountMassingGroupSection(h, defaultMassingGroupSectionDeps(deps.runtime ?? null)));
+      massingGroups = mountMG(massingGroupSlot);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] massing-group section mount failed (non-fatal):', e);
+    }
     try {
       const mountCH = deps.mountCreateHouse
         ?? ((h: HTMLElement) => mountParcelLawCreateHouse(h, defaultParcelLawCreateHouseDeps()));
@@ -1415,6 +1452,7 @@ export function mountParcelLawTab(
       // on refresh, so a house generated while this tab was open shows up on the next repaint.
       try { roomProgramme?.refresh(); } catch { /* same */ }
       try { roomsPerLevel?.refresh(); } catch { /* same */ }
+      try { massingGroups?.refresh(); } catch { /* same */ }
       wireStrip();
       wireHighlights();
       // §PLOT-DISPLAY-CONTROLS-HOST / §STAGE-01-DENSITY — the two pieces of question-1 chrome this
@@ -1466,6 +1504,10 @@ export function mountParcelLawTab(
       // §PL-ROOM-PROGRAMME — the panel holds a programme subscription and an envelope-store
       // subscription; leaving either connected to a detached body is a listener that outlives
       // the surface that put it up.
+      // ADR-0383 S7 — it holds an envelope-store subscription AND the group-selection channel;
+      // a listener that outlived this body would repaint a detached tree on every 3D click.
+      try { massingGroups?.dispose(); } catch { /* teardown is best-effort */ }
+      massingGroups = null;
       try { roomsPerLevel?.dispose(); } catch { /* teardown is best-effort */ }
       roomsPerLevel = null;
       try { roomProgramme?.dispose(); } catch { /* teardown is best-effort */ }
