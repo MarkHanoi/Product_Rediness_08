@@ -253,6 +253,39 @@ export type {
     RosterBuilding,
 } from './hierarchy/BuildingResolver.js';
 
+// ── ADR-0385 §2 point 1 — the WRITE half. A massing group PROJECTS into the
+// hierarchy store: derived, reconciled by DIFF, never accumulated, scoped to the
+// ids it owns. `SpaceEnvelope.group` is the authoring axis; this is the edge that
+// makes `hierarchyStore` say what it authored.
+export {
+    PROJECTED_ID_PREFIX,
+    PROJECTED_SITE_ID,
+    PROJECTED_SITE_NAME,
+    UNREADABLE_MASSING_SUBSTRATE,
+    projectedBuildingId,
+    projectedLevelId,
+    isProjectedHierarchyId,
+    readMassingGroupSubstrate,
+    deriveMassingHierarchy,
+    planMassingGroupProjection,
+    applyMassingGroupProjection,
+} from './hierarchy/MassingGroupProjection.js';
+export type {
+    MassingGroupMemberView,
+    MassingGroupSnapshot,
+    MassingGroupSubstrate,
+    MassingDerivationContext,
+    MassingHierarchyDerivation,
+    MassingProjectionPlan,
+    MassingProjectionReport,
+    ProjectedBuildingSpec,
+    ProjectedLevelSpec,
+    ProjectedSiteSpec,
+    ProjectionClock,
+    ProjectionExistingNode,
+    ProjectionUpdate,
+} from './hierarchy/MassingGroupProjection.js';
+
 export type { CheckResult, SyncCheckResult } from './sync/SyncStateEngine.js';
 export { syncStateEngine } from './sync/SyncStateEngine.js';
 

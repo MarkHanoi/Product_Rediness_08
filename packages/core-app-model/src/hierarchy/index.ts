@@ -59,3 +59,35 @@ export type {
     BuildingRoster,
     RosterBuilding,
 } from './BuildingResolver.js';
+
+// ── ADR-0385 §2 point 1 — the WRITE half: a massing group PROJECTS into the
+// hierarchy store. Derived at read, reconciled by DIFF, never accumulated, and
+// scoped to the ids it owns so a hand-authored building can never be reaped.
+export {
+    PROJECTED_ID_PREFIX,
+    PROJECTED_SITE_ID,
+    PROJECTED_SITE_NAME,
+    UNREADABLE_MASSING_SUBSTRATE,
+    projectedBuildingId,
+    projectedLevelId,
+    isProjectedHierarchyId,
+    readMassingGroupSubstrate,
+    deriveMassingHierarchy,
+    planMassingGroupProjection,
+    applyMassingGroupProjection,
+} from './MassingGroupProjection.js';
+export type {
+    MassingGroupMemberView,
+    MassingGroupSnapshot,
+    MassingGroupSubstrate,
+    MassingDerivationContext,
+    MassingHierarchyDerivation,
+    MassingProjectionPlan,
+    MassingProjectionReport,
+    ProjectedBuildingSpec,
+    ProjectedLevelSpec,
+    ProjectedSiteSpec,
+    ProjectionClock,
+    ProjectionExistingNode,
+    ProjectionUpdate,
+} from './MassingGroupProjection.js';

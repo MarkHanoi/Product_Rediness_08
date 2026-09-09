@@ -290,6 +290,13 @@ import { registerLiftRenderSink } from './undo/liftUndoAdapter.js';
 // §BATH102 (L-11480) — the C109 pod's members become real `plumbing` fixture records,
 // projected off the pod store's OWN dirty diff. See `bathroomPodMemberMirror.ts`.
 import { attachBathroomPodMemberMirror, type DirtyPodStore } from './bathroomPodMemberMirror.js';
+// ⭐ ADR-0385 §2 point 1 (lane MP-PROJECTION) — a massing group PROJECTS into
+// `hierarchyStore`, which is the containment AUTHORITY the IFC exporter and BOTH
+// inspect trees already read. Same `subscribeDirty` shape as the pod mirror above.
+import {
+    attachMassingGroupHierarchy,
+    type DirtyEnvelopeStore,
+} from './attachMassingGroupHierarchy.js';
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -1823,6 +1830,54 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 'members will not reach the plumbing family — no mesh, no plan symbol, no ' +
                 'elevation symbol, no IFC. Check the `bathroomPod` descriptor in ' +
                 'PluginRegistry.ts and the adoption line in composeRuntime.ts.',
+            );
+        }
+    }
+
+    // ⭐⭐ ADR-0385 §2 point 1 (lane MP-PROJECTION) — A MASSING GROUP BECOMES AN
+    // `IfcBuilding`. THE EDGE THE WHOLE MASTER-PLAN FEATURE WAS MISSING.
+    //
+    // ADR-0385 ruled `hierarchyStore` the AUTHORITY for spatial containment and
+    // `SpaceEnvelope.group` the massing-stage AUTHORING axis that PROJECTS into it —
+    // exactly as `partOf` does. Everything downstream was already built and correct
+    // (`BuildingResolver`, `buildingContainment`, the N-building IFC export, both
+    // inspect trees) and all of it reads `hierarchyStore`; measured 2026-09-09,
+    // NOTHING WROTE IT, so a three-block master plan still exported as one building.
+    //
+    // ⛔ IT SUBSCRIBES THE STORE, NOT A BUS EVENT — the pod-mirror argument directly
+    // above, for the same measured reason: `performUndoRedo` emits no bus events, so
+    // off events the buildings would survive an undo of the envelopes that produced
+    // them and become the second source of truth ADR-0328 forbids.
+    //
+    // ⛔ ZERO EXTRA UNDO ENTRIES. A three-block gesture is ONE
+    // `spaceEnvelope.batch.create` (C114 §6a) and stays one Ctrl+Z: this projection is
+    // not a command and mints no patch pair. See `attachMassingGroupHierarchy.ts` for
+    // why it could not have ridden that `produceCommand` even in principle.
+    if (runtime) {
+        const envelopeSlot = (runtime as unknown as {
+            stores?: { spaceEnvelope?: unknown };
+        }).stores?.spaceEnvelope as DirtyEnvelopeStore | undefined;
+        if (envelopeSlot && typeof envelopeSlot.subscribeDirty === 'function') {
+            attachMassingGroupHierarchy(envelopeSlot, {
+                // Best effort: a projected storey reads "Level 03" rather than a ULID.
+                // ⛔ Falls back to the id inside the projection — never to an invented
+                // name (C58 §1.4 / L-616).
+                levelNameOf: (levelId: string) => {
+                    try { return bimManager?.getLevelById?.(levelId)?.name as string | undefined; }
+                    catch { return undefined; }
+                },
+            });
+            console.log('[initTools] ADR-0385: massing-group -> hierarchy projection attached.');
+        } else {
+            // ⛔ NAMED, NEVER SILENT (C84 EI-6), and this one is load-bearing: without
+            // it a master plan authored as N blocks exports as ONE building and shows
+            // ONE row in both inspect trees, with nothing anywhere saying why.
+            console.warn(
+                '[initTools] ADR-0385: runtime.stores.spaceEnvelope is UNREADABLE, so massing ' +
+                'groups will NOT project into hierarchyStore — every block will export as the ' +
+                'single default IfcBuilding and both inspect trees will show one row. Check the ' +
+                '`spaceEnvelope` descriptor in PluginRegistry.ts and the adoption line in ' +
+                'composeRuntime.ts.',
             );
         }
     }
