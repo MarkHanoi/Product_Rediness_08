@@ -133,13 +133,30 @@ describe('the builder — one double-headed arrow per face, in the scene', () =>
         expect(gizmo.handleCount()).toBe(0);
     });
 
-    it("⭐ the founder's 'for each face a little arrow' — six faces, six arrows", () => {
+    it("⭐ the founder's 'for each face a little arrow' — one per VERTICAL face", () => {
         gizmo.setTarget(ROOM);
         expect(gizmo.targetId()).toBe('Kitchen');
-        expect(gizmo.handleCount()).toBe(6); // 4 sides + top + bottom
+        // ⚠ THIS READ 6 (4 sides + top + bottom) UNTIL §HORIZONTAL-FACES-ARE-PINNED
+        // (L-13272). The founder ruled that a cap is owned by its STOREY and must not be
+        // draggable, so offering an arrow on one would promise a gesture the drag surface
+        // then refuses — an affordance that lies. 4 sides, 4 arrows.
+        expect(gizmo.handleCount()).toBe(4);
         // Three meshes each: a shaft and TWO heads — the two directions the founder asked
         // for, made visible rather than merely permitted.
-        expect(gizmoMeshes(gizmo)).toHaveLength(18);
+        expect(gizmoMeshes(gizmo)).toHaveLength(12);
+    });
+
+    it("⛔ NO arrow stands on a cap — asserted by KIND, not by counting to four", () => {
+        // A count is satisfiable by the wrong four faces. This arm reads the face ref each
+        // arrow actually carries, so it still fails if the caps come back under a ring that
+        // happens to have a different vertex count. — [[gate-blind-on-the-wrong-axis]]
+        gizmo.setTarget(ROOM);
+        const kinds = gizmoMeshes(gizmo)
+            .map((m) => (m.userData as { spaceEnvelopeFace?: { kind?: string } })
+                .spaceEnvelopeFace?.kind)
+            .filter((k): k is string => typeof k === 'string');
+        expect(kinds.length).toBeGreaterThan(0);
+        expect(new Set(kinds)).toEqual(new Set(['side']));
     });
 
     it('⛔ every arrow mesh carries the SOLVER\'s face ref, so the pick cannot resolve elsewhere', () => {
@@ -178,8 +195,8 @@ describe('the builder — one double-headed arrow per face, in the scene', () =>
         gizmo.setTarget(ROOM);
         const before = gizmoMeshes(gizmo)[0]!;
         gizmo.setTarget({ ...ROOM, footprint: [{ x: 0, z: 0 }, { x: 9, z: 0 }, { x: 9, z: 4 }, { x: 0, z: 4 }] });
-        expect(gizmo.handleCount()).toBe(6);
-        expect(gizmoMeshes(gizmo)).toHaveLength(18);
+        expect(gizmo.handleCount()).toBe(4);   // §HORIZONTAL-FACES-ARE-PINNED (L-13272)
+        expect(gizmoMeshes(gizmo)).toHaveLength(12);
         // The same mesh object, moved — not a replacement.
         expect(gizmoMeshes(gizmo).includes(before)).toBe(true);
     });
@@ -263,7 +280,7 @@ describe('the controller — hover shows the arrows, and the drag they start is 
         expect(gizmo.handleCount()).toBe(0);
         canvas.fire('pointermove', pointerEvent(CENTRE.x, CENTRE.y));
         expect(gizmo.targetId()).toBe('Kitchen');
-        expect(gizmo.handleCount()).toBe(6);
+        expect(gizmo.handleCount()).toBe(4);   // §HORIZONTAL-FACES-ARE-PINNED (L-13272)
     });
 
     it('⛔ hovering EMPTY space clears them — a handle for nothing the user is aiming at', () => {

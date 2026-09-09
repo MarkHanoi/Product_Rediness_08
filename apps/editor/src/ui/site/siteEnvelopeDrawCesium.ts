@@ -889,7 +889,9 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
                 enu, new C.Cartesian3(east, north, p.y + frame.baseHeightM), new C.Cartesian3(),
             );
         };
-        const handles = spaceEnvelopeFaceHandles(prismOfSpaceEnvelopeRecord(target));
+        // §HORIZONTAL-FACES-ARE-PINNED (L-13272) — same option as the three.js gizmo, because
+        // the two surfaces must offer the SAME set of grabbable faces.
+        const handles = spaceEnvelopeFaceHandles(prismOfSpaceEnvelopeRecord(target), { omitCapFaces: true });
         const segments: { positions: CesiumNS.Cartesian3[]; active: boolean }[] = [];
         for (const h of handles) {
             const active = this.handleActiveKey !== null && this.handleActiveKey === h.key;

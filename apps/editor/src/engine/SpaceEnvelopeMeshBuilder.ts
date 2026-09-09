@@ -464,15 +464,66 @@ export class SpaceEnvelopeMeshBuilder {
             return g;
         }
 
-        // TOP / BOTTOM — a fan from vertex 0. ⚠ Correct for a CONVEX ring only, and
-        // that limit is DECLARED rather than hidden: a concave storey outline draws a
-        // wrong cap while every side face stays right, which is a visible artefact
-        // rather than a silent one. The honest fix is `ShapeGeometry` over a
-        // `THREE.Shape`, which is the same triangulator the floor panels use; it is not
-        // done here because the ring vocabulary this family authors today is a
-        // rectangle, and shipping an untested triangulation path would be a second
-        // answer to a question nothing yet asks.
+        // ── TOP / BOTTOM ────────────────────────────────────────────────────────────────
+        // §CAPS-ARE-EARCUT-NOT-A-FAN (founder 2026-09-09 · L-13271 · C58)
+        //
+        // ⛔ THIS WAS A NAIVE TRIANGLE FAN FROM VERTEX 0, AND IT WAS THE FOUNDER'S
+        // "the envelope is nicely created on 3D Site but on PRYZM the geometry is wrong".
+        //
+        // The fan is a valid triangulation of a CONVEX ring only. The comment that stood here
+        // said so, and justified itself with "the ring vocabulary this family authors today is a
+        // rectangle". ⚠ THAT PRECONDITION WAS ALREADY FALSE WHEN IT WAS WRITTEN DOWN, and two
+        // routes shipped after it made it emphatically false:
+        //   · the "extrude the permitted buildable footprint" route (`parcelLawEnvelopeAuthoring`)
+        //     extrudes `env.insetPolygon` — the founder's own console calls it "the 20-corner
+        //     buildable footprint", and ISSUE-LOG L-428 already recorded these insets as concave;
+        //   · the free-draw surface authors freehand polylines and arcs.
+        // `envelopeAuthoringPlan` copies the one ring into every storey record, so a single
+        // concave outline produced 2 wrong caps × 6 storeys = 12 mangled sheets, drawn
+        // `transparent` + `DoubleSide` + `depthWrite:false` — the founder's "folded, twisted,
+        // self-intersecting purple wedges" sitting inside a side-face fence that was always right.
+        //
+        // ⭐ WHY THE TWO VIEWS DISAGREED ON IDENTICAL DATA. This is the [[same-rule-two-implementations]]
+        // shape again: `CesiumViewport.renderSpaceEnvelopes` hands the SAME ring, in the same
+        // order, to `Cesium.PolygonHierarchy`, and Cesium triangulates with **earcut**. The two
+        // views differed in exactly one algorithm. `THREE.ShapeGeometry` is also earcut, so
+        // adopting it does not merely fix the cap — it makes the two paths agree BY CONSTRUCTION
+        // rather than by coincidence, which is the only reason the agreement will survive.
+        //
+        // ⛔ THE ROTATION SIGN IS LOAD-BEARING. The shape is built at v = −p.z, and
+        // `rotateX(−π/2)` maps (u, v, 0) → (u, 0, −v) = (p.x, y, p.z). `+π/2` maps it to
+        // (p.x, y, −p.z): a cap MIRRORED about the scene X axis, which is §PARCEL-SHADE-NOT-MIRRORED
+        // (L-10740) — a bug that already shipped once in this repo, on this exact idiom, and was
+        // invisible because `DoubleSide` hides the flipped normals. Do not "simplify" the sign.
         const y = face.kind === 'top' ? topY : baseY;
+        if (n < 3) return null;
+
+        try {
+            // Same idiom as `ParcelBoundarySceneRenderer.buildFill` — deliberately, so there is
+            // one cap-triangulation convention in the app rather than two.
+            const shape = new THREE.Shape();
+            shape.moveTo(ring[0]!.x, -ring[0]!.z);
+            for (let i = 1; i < n; i += 1) shape.lineTo(ring[i]!.x, -ring[i]!.z);
+            shape.closePath();
+
+            const geo = new THREE.ShapeGeometry(shape);
+            geo.rotateX(-Math.PI / 2);
+            geo.translate(0, y, 0);
+            geo.computeVertexNormals();
+
+            // A degenerate ring can earcut to nothing. Falling through to the fan is strictly
+            // better than returning null: the face must stay pickable so its drag handle and
+            // `userData.spaceEnvelopeFace` survive, which is what the face-index convention,
+            // the gizmo and `spaceEnvelope.moveFace` all key on.
+            if (geo.getAttribute('position')?.count) return geo;
+            geo.dispose();
+        } catch (err) {
+            // Matches `buildFill`'s posture: a triangulator failure is reported, never fatal.
+            console.warn('[SpaceEnvelopeMeshBuilder] cap triangulation failed, using fan:', err);
+        }
+
+        // ⚠ FALLBACK ONLY — never the primary path. Kept so a ring ShapeGeometry rejects still
+        // draws *something* selectable rather than vanishing mid-drag.
         const tris: number[] = [];
         for (let i = 1; i < n - 1; i += 1) {
             const p0 = ring[0]!;

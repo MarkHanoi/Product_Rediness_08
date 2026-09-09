@@ -394,7 +394,11 @@ describe('⭐ the arrow affordance — the port that turns an invisible gesture 
     it('⛔ SOURCE — NO placement maths is done here; every number is the pure solver\'s', () => {
         // An arrow placed by a second arithmetic would point one way while the drag moved another
         // (C84 EI-9) — and it would look like a sensitivity problem, not a duplication.
-        expect(SOURCE).toContain('spaceEnvelopeFaceHandles(prismOfSpaceEnvelopeRecord(target))');
+        // ⚠ THIS PINNED THE WHOLE CALL STRING, ARGUMENT LIST INCLUDED, and broke the moment
+        // §HORIZONTAL-FACES-ARE-PINNED (L-13272) added an options object. The RULE is
+        // "the anchors come from the pure solver, not from arithmetic in this file" — the
+        // argument list is not part of it. Pin the construct, never the exact spelling.
+        expect(SOURCE).toMatch(/spaceEnvelopeFaceHandles\(\s*prismOfSpaceEnvelopeRecord\(target\)/);
         expect(SOURCE).toContain('h.anchor.x + h.axis.x * h.halfLengthM');
     });
 

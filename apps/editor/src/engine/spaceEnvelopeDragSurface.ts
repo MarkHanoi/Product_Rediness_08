@@ -607,6 +607,32 @@ export function installSpaceEnvelopeFaceDragOnSurface(
             return;
         }
 
+        // §HORIZONTAL-FACES-ARE-PINNED (founder 2026-09-09 · L-13272 · C58)
+        //
+        // *"the envelope should not allow the user to drag the horizontal faces (meaning up
+        //   and down) they should be fixed and tight with the levels"*
+        //
+        // A cap's Y is `level.elevation` (+ `level.height`), a fact owned by the LEVEL. A cap
+        // drag writes that fact a second time, from a second place, with no re-derivation
+        // anywhere — the envelope silently stops matching its storey. So the gesture is
+        // refused and the user is told where the number actually lives.
+        //
+        // ⭐ WHY HERE AND NOWHERE ELSE. This is AFTER the pick — so hover still lights the cap
+        // and the refusal explains itself — and BEFORE `active` is set, so no drag begins.
+        // ⛔ Do NOT move this into `spaceEnvelopeFaceAxis`, `pickSpaceEnvelopeFace` or
+        // `planSpaceEnvelopeFaceMove`: `adaptRoomToMovedLevel` drives cap moves THROUGH the
+        // planner to make rooms follow a storey, and gating there breaks room adaptation.
+        // The affordance half is `omitCapFaces` in the gizmo — both halves are required, or
+        // the arrow promises a gesture that the refusal then denies.
+        if (face.kind !== 'side') {
+            deps.onRefusal?.(
+                'The top and bottom of an envelope are pinned to its storey — they follow the '
+                + 'level height, they are not dragged. Change the storey height in the Envelope '
+                + 'card and this face moves with it. Drag a vertical face to change the outline.',
+            );
+            return;
+        }
+
         const prism = prismOfSpaceEnvelopeRecord(record);
         const axis = spaceEnvelopeFaceAxis(prism, face);
         if (axis === null) {

@@ -149,6 +149,27 @@ export interface SpaceEnvelopeFaceHandleOptions {
     readonly minHalfLengthM?: number;
     readonly maxHalfLengthM?: number;
     readonly standoffFactor?: number;
+    /**
+     * §HORIZONTAL-FACES-ARE-PINNED (founder 2026-09-09 · L-13272 · C58)
+     *
+     * Draw NO handle on the `top` / `bottom` caps. The founder's ruling:
+     *   *"the envelope should not allow the user to drag the horizontal faces (meaning up
+     *     and down) they should be fixed and tight with the levels"*
+     *
+     * A cap's height is owned by its STOREY (`level.elevation` + `level.height`), so a cap
+     * drag is a second writer for a fact that already has an owner — it desynchronises the
+     * envelope from the level silently, and nothing downstream re-derives it.
+     *
+     * ⭐ THE RULE LIVES HERE, IN THE PURE PACKAGE, ON PURPOSE. Filtering at each call site
+     * would be two copies of one policy in two surfaces (three.js and Cesium) that can
+     * drift — which is [[same-rule-two-implementations]], the defect shape this repo keeps
+     * shipping. The gizmo header already forbids it.
+     *
+     * ⚠ THIS IS AN AFFORDANCE FILTER, NOT THE GATE. `planSpaceEnvelopeFaceMove` must still
+     * accept cap moves: `adaptRoomToMovedLevel` drives them to make rooms follow a storey.
+     * The user-gesture refusal lives in `spaceEnvelopeDragSurface.onPointerDown`.
+     */
+    readonly omitCapFaces?: boolean;
 }
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -271,6 +292,10 @@ export function spaceEnvelopeFaceHandles(
             span.setAttribute('spaceEnvelope.id', prism.id);
             const out: SpaceEnvelopeFaceHandle[] = [];
             for (const face of spaceEnvelopeFaces(prism)) {
+                // §HORIZONTAL-FACES-ARE-PINNED (L-13272) — no arrow on a cap when the caller
+                // asks for it. Skipped BEFORE `spaceEnvelopeFaceHandle` so the span's
+                // `handles` count reports what the user can actually grab.
+                if (options?.omitCapFaces && face.kind !== 'side') continue;
                 const h = spaceEnvelopeFaceHandle(prism, face, options);
                 if (h) out.push(h);
             }

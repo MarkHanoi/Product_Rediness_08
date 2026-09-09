@@ -226,7 +226,9 @@ export class SpaceEnvelopeFaceGizmoBuilder {
         const prism = prismOfSpaceEnvelopeRecord({
             id: record.id, footprint: ring, baseOffset: record.baseOffset, height: record.height,
         });
-        const handles = spaceEnvelopeFaceHandles(prism);
+        // §HORIZONTAL-FACES-ARE-PINNED (L-13272) — a cap's height belongs to its STOREY, so
+        // no arrow is offered on one. The matching refusal lives in spaceEnvelopeDragSurface.
+        const handles = spaceEnvelopeFaceHandles(prism, { omitCapFaces: true });
         return handles.length > 0 ? handles : null;
     }
 

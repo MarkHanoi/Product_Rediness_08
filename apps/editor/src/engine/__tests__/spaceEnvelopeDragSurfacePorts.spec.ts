@@ -127,6 +127,8 @@ interface Recorder {
     pickNothing: boolean;
     /** Which record the pick resolves to. */
     picked: DraggableSpaceEnvelope;
+    /** Which FACE the pick resolves to — §HORIZONTAL-FACES-ARE-PINNED needs a cap. */
+    pickedFace: SpaceEnvelopeFaceRef;
 }
 
 function fakeSurface(opts: { handles: boolean }): Recorder {
@@ -140,6 +142,7 @@ function fakeSurface(opts: { handles: boolean }): Recorder {
         blindRay: false,
         pickNothing: false,
         picked: ROOM,
+        pickedFace: FACE_1,
     };
     let handleTarget: string | null = null;
 
@@ -156,7 +159,7 @@ function fakeSurface(opts: { handles: boolean }): Recorder {
         },
         pickFace(_ev: DragPointerLike): FacePick | null {
             if (rec.pickNothing) return null;
-            return { id: rec.picked.id, face: FACE_1, point: { ...GRAB } };
+            return { id: rec.picked.id, face: rec.pickedFace, point: { ...GRAB } };
         },
         previewDraw(record) { rec.drawn.push(record); },
         previewRestore(id) { rec.restored.push(id); },
@@ -266,6 +269,42 @@ describe('⭐ the gesture runs with NO renderer — four functions and it works'
         // ⛔ AND THE CAMERA WAS NEVER TAKEN. A refused grab that suspended navigation would
         // leave the user unable to orbit until they clicked something else.
         expect(rec.camera).toHaveLength(0);
+    });
+
+    it.each([['top'], ['bottom']] as const)(
+        '⭐ §HORIZONTAL-FACES-ARE-PINNED — grabbing the %s cap is refused, and says where the number lives',
+        (kind) => {
+            // THE FOUNDER'S RULING (2026-09-09, L-13272): *"the envelope should not allow the
+            // user to drag the horizontal faces (meaning up and down) they should be fixed and
+            // tight with the levels"*. A cap's Y is owned by `level.elevation`/`level.height`;
+            // dragging it is a second writer for a fact that already has an owner.
+            rec.pickedFace = { kind } as SpaceEnvelopeFaceRef;
+            canvas.fire('pointerdown', pointerEvent(0, 0));
+            canvas.fire('pointermove', pointerEvent(200, 0));
+            canvas.fire('pointerup', pointerEvent(200, 0));
+
+            expect(dispatched).toHaveLength(0);
+            expect(refusals).toHaveLength(1);
+            // ⭐ REFUSED BY NAME, and it names the ALTERNATIVE. A refusal that only says "no"
+            // reads as a bug; this one tells the user the storey height is the control.
+            expect(refusals[0]).toMatch(/pinned to its storey/i);
+            expect(refusals[0]).toMatch(/level height/i);
+            // ⛔ AND THE CAMERA WAS NEVER TAKEN — same posture as the maximumBuildable refusal.
+            expect(rec.camera).toHaveLength(0);
+            // ⛔ AND NOTHING WAS PREVIEWED: a refused gesture must not redraw the envelope.
+            expect(previews).toHaveLength(0);
+        },
+    );
+
+    it('⭐ a SIDE face still drags — the pin must not freeze the whole gesture', () => {
+        // The counterweight to the two arms above. A gate that refuses everything would also
+        // pass them, which is [[gate-blind-on-the-wrong-axis]].
+        rec.pickedFace = FACE_1;
+        canvas.fire('pointerdown', pointerEvent(0, 0));
+        canvas.fire('pointermove', pointerEvent(200, 0));
+        canvas.fire('pointerup', pointerEvent(200, 0));
+        expect(refusals).toHaveLength(0);
+        expect(dispatched).toHaveLength(1);
     });
 
     it('⛔ a face of an envelope the store does not hold refuses to drag', () => {
