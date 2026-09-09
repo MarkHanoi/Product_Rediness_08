@@ -380,6 +380,110 @@ export function nonAuthoritativeTiers(tiers: readonly string[]): string[] {
 // ─────────────────────────────────────────────────────────────────────────────
 // The checks. PURE — source text in, outcomes out. No process.exit, no fs.
 // ─────────────────────────────────────────────────────────────────────────────
+/** Identifiers appearing in CODE (strings/comments masked by `tokenize`). */
+export function codeIdentifiers(text: string): string[] {
+  const mask = tokenize(text).mask;
+  return [...mask.matchAll(/[A-Za-z_$][\w$]*/g)].map((m) => m[0]);
+}
+
+/** `name -> specifier` for every RELATIVE named import in `src`. */
+export function relativeNamedImports(src: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"](\.[^'"]+)['"]/g)) {
+    for (const raw of (m[1] ?? '').split(',')) {
+      const name = raw.trim().split(/\s+as\s+/)[0]!.trim().replace(/^type\s+/, '');
+      if (name) out.set(name, m[2]!);
+    }
+  }
+  return out;
+}
+
+/**
+ * Read a relative import specifier as a file, relative to the importer's own
+ * directory, trying the endings TS resolution would. Returns null when nothing
+ * on disk answers to it — which the caller MUST treat as "could not see", never
+ * as "nothing wrong".
+ */
+export function readRelativeModule(importerRel: string, spec: string): string | null {
+  const stack = importerRel.split('/').slice(0, -1);
+  for (const part of spec.split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') { stack.pop(); continue; }
+    stack.push(part);
+  }
+  const base = stack.join('/').replace(/\.js$/, '');
+  // Two roots on purpose. `ROOT` is derived from `import.meta.url`, which VITEST
+  // REWRITES — under the runner it is not a file: URL and the repo root is the
+  // runner's cwd instead (the spec's own header records this). Resolving from
+  // only one of them made the gate readable from the CLI and blind from the
+  // spec, which is the "same rule, two implementations" split in miniature: T08
+  // would have reported MISCONFIGURED for a subject the CLI read perfectly well.
+  const roots = ROOT === process.cwd() ? [ROOT] : [ROOT, process.cwd()];
+  for (const root of roots) {
+    for (const cand of [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`]) {
+      try { return readFileSync(join(root, ...cand.split('/')), 'utf8'); } catch { /* try next */ }
+    }
+  }
+  return null;
+}
+
+/**
+ * The CONTENT of every single-line string/template literal in `text`, read
+ * through the tokenizer's own mask rather than a second scanner of our own —
+ * a rival comment/string parser beside `tokenize` is the "one rule, two
+ * implementations" defect, and the copies would drift.
+ *
+ * `tokenize` blanks a literal to spaces INCLUDING ITS DELIMITERS, and blanks
+ * comments the same way, so a blanked run alone cannot tell the two apart. The
+ * discriminator is the ORIGINAL text at the run's edges: a literal's run is
+ * bounded by a matching pair of quote characters, a comment's is not (it starts
+ * `/` `/` or `/` `*`). Runs are per-line, which is all this gate needs — the
+ * pills it looks for are short single-line literals.
+ */
+export function stringLiterals(text: string, tok: Tokenized = tokenize(text)): string[] {
+  const mask = tok.mask;
+  const out: string[] = [];
+  let i = 0;
+  while (i < mask.length) {
+    if (mask[i] !== ' ' || text[i] === ' ' || text[i] === '\n') { i++; continue; }
+    let j = i;
+    while (j < mask.length && mask[j] === ' ' && text[j] !== '\n') j++;
+    const open = text[i];
+    const close = text[j - 1];
+    if ((open === "'" || open === '"' || open === '`') && open === close && j - i >= 2) {
+      out.push(text.slice(i + 1, j - 1));
+    }
+    i = j;
+  }
+  return out;
+}
+
+/**
+ * Does this source DECIDE published-vs-estimated provenance? The badge answers
+ * "how much may a reader trust this figure", so the decision must read the
+ * estimate flag AND be able to say both words. A source that can only ever say
+ * one of them is not a decision, it is a label.
+ *
+ * ⛔ COMMENT-BLIND ON PURPOSE. The first cut of this tested the RAW text, and
+ * returned TRUE for a module whose `EST` arm had been deleted — because a
+ * comment three lines up still said *"fell through to the green `PUB` pill"*.
+ * That is the P3 RAF defect exactly: a gate counting SENTENCES and reporting
+ * them as owners. It was caught by the T25 scramble and by nothing else, which
+ * is the argument for shipping the scramble with the classifier. So `isEstimate`
+ * is required in the MASK (comment bodies blanked, identifiers kept), and the
+ * two words must appear as real string LITERALS.
+ *
+ * Matched exactly, in the contract's own vocabulary (C58 §1.4 calls this badge
+ * PUB/EST). If a later design renames the pills this goes RED and asks for a
+ * deliberate amendment — the intended failure mode, not a silent pass.
+ */
+export function decidesProvenance(text: string): boolean {
+  const tok = tokenize(text);
+  if (!/isEstimate/.test(tok.mask)) return false;
+  const lits = new Set(stringLiterals(text, tok).map((l) => l.trim()));
+  return lits.has('EST') && lits.has('PUB');
+}
+
 export function analyze(src: string, schemaSrc: string, rel: string): Analysis {
   const failures: Failure[] = [];
   const misconfigurations: string[] = [];
@@ -411,17 +515,37 @@ export function analyze(src: string, schemaSrc: string, rel: string): Analysis {
   const nonAuth = nonAuthoritativeTiers(tiers);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Locate the confidence-badge assignment region.
-  // `const [safe]Badge = …;` … ends where the next statement (`const heightTxt =`)
-  // begins. Both markers are stable in GISAreaLayout.ts; the start marker is
-  // prefix-tolerant (§FIX-ZONING-GATE-SAFE-PREFIX).
+  // Locate the confidence-badge assignment STATEMENT.
+  //
+  // ⛔ §BADGE-REGION-ENDS-AT-ITS-OWN-SEMICOLON (2026-09-10, lane CI-SIX-RED).
+  // This read `region(src, BADGE_ANCHOR, 'const heightTxt', tok)` — the badge
+  // statement up to wherever a DIFFERENT, NEIGHBOURING statement began. That
+  // second anchor was deleted from the subject by §26.6.7 (L-13085), which
+  // removed `heightTxt` / `farTxt` / `gfaTxt` along with the headline that read
+  // them. `region()` returns null when its end marker is absent, so from that
+  // commit onward this gate reported MISCONFIGURED and **CHECKS A AND B DID NOT
+  // RUN** — the C58 §1.6 / §5.4a badge-ladder invariant was enforced by nothing.
+  // GISAreaLayout.ts:5681 still carries the note saying those consts "STOOD HERE
+  // and are gone"; the gate was the last reader that had not been told.
+  //
+  // ⭐ THE FIX IS NOT A NEW END ANCHOR. Re-pointing this at `const ordRef` would
+  // rebuild the identical trap one statement to the right, and the next lane to
+  // rename THAT would blind the gate again — the same "one rule, two
+  // implementations / anchor rots" shape the repo keeps paying for. A statement
+  // ends at its own semicolon, so ask for the statement: `sliceStatement` is the
+  // helper `refusalArms` (CHECK C) has always used for exactly this, and it
+  // terminates on a `;` in the TOKENIZED MASK, so semicolons inside the badge's
+  // HTML strings and comments cannot end it early. Reused rather than reinvented.
+  //
+  // Start marker stays prefix-tolerant (§FIX-ZONING-GATE-SAFE-PREFIX), and a
+  // MISSING badge statement is still exit 2, never a pass.
   // ─────────────────────────────────────────────────────────────────────────
-  const badge = region(src, BADGE_ANCHOR, 'const heightTxt', tok);
+  const badge = sliceStatement(src, BADGE_ANCHOR, tok);
 
   // ── CHECK A — field-estimate forces an "Estimated" headline (C58 §5.4a) ────
   if (!badge) {
     misconfigurations.push(
-      `${rel}: could not locate the \`const [safe]Badge =\` … \`const heightTxt\` region — the ` +
+      `${rel}: could not locate the \`const [safe]Badge = …;\` statement — the ` +
         `confidence-badge render moved or was removed. CHECKS A and B did not run.`,
     );
   } else {
@@ -491,23 +615,103 @@ export function analyze(src: string, schemaSrc: string, rel: string): Analysis {
   }
 
   // ── CHECK D — a numeric envelope value must carry provenance (PUB/EST) ──────
-  // In the "Why these numbers?" table, `const prov = r.isEstimate ? EST : PUB`
-  // must exist AND be placed next to the value (`<b>${…valueText…}</b> ${prov}`).
-  const provDecl = /const prov\s*=[\s\S]{0,400}?r\.isEstimate[\s\S]{0,400}?(EST|PUB)/.test(src);
-  if (!provDecl) {
+  //
+  // ⛔ §PROVENANCE-IS-A-DECISION-NOT-A-TERNARY (2026-09-10, lane CI-SIX-RED).
+  // This was ONE regex over the whole file:
+  //   /const prov\s*=[\s\S]{0,400}?r\.isEstimate[\s\S]{0,400}?(EST|PUB)/
+  // — i.e. it demanded the INLINE two-way ternary `r.isEstimate ? …EST… : …PUB…`.
+  //
+  // §PACK-CONFIDENCE-CEILING (L-665) then moved that decision OUT of the render
+  // into `describeCitationSlot` and widened it from two arms to FOUR
+  // (STATES NONE · ⚠ MACHINE · EST · PUB), precisely because
+  // `ComplianceReportRow.isEstimate` is `fieldProvenance === 'estimated'` ONLY:
+  // a `pipeline-extracted` row is falsy there and fell through to the green PUB
+  // pill — the strongest affordance the card has, on the weakest real
+  // provenance there is.
+  //
+  // ⭐ SO THE INVARIANT HELD WHILE THIS CHECK READ RED, and the fix its own
+  // message asked for — restore `const prov = r.isEstimate ? EST : PUB` — would
+  // have re-shipped the exact defect L-665 removed. A gate that pins a SHAPE
+  // makes the correct refactor look like a regression, and this one was RED for
+  // a render that had got STRICTLY BETTER. (It was invisible until 2026-09-10
+  // only because the badge-region misconfiguration above was masking it at
+  // exit 2.)
+  //
+  // ⭐ CHECK D NOW MEASURES THE DECISION, NOT ITS SPELLING, and finds it by
+  // FOLLOWING THE SUBJECT'S OWN IMPORTS. ⛔ NOT by allowlisting a helper name:
+  // a name-keyed exemption ("`describeCitationSlot` is fine") is the L-796 /
+  // three-rival-commandManager-counters defect, satisfied by RENAMING. The walk
+  // starts at the `const prov = …;` statement, expands through local `const`
+  // bindings it references, and reads any RELATIVE module those identifiers are
+  // imported from; the decision may live in any of them.
+  //
+  // Placement is still checked separately: a correct decision rendered nowhere
+  // near the value is still a value that reads as authoritative.
+  const PROV_ANCHOR = /const\s+prov\s*=/;
+  const provStmt = sliceStatement(src, PROV_ANCHOR, tok);
+  if (!provStmt) {
     fail(
       'D/provenance-badge-missing',
-      'The "Why these numbers?" table has no `const prov = r.isEstimate ? …EST… : …PUB…` provenance badge — a numeric row could render without provenance (C58 §1.4).',
+      'The "Why these numbers?" table declares no `const prov = …;` provenance badge — a numeric row could render without provenance (C58 §1.4).',
       rel,
     );
-  }
-  const provPlacedNextToValue = /<b>\$\{[^}]*(valueText|value)[^}]*\}<\/b>\s*\$\{prov\}/.test(src);
-  if (provDecl && !provPlacedNextToValue) {
-    fail(
-      'D/provenance-not-adjacent',
-      'The per-field provenance badge `${prov}` is not rendered adjacent to the numeric value `<b>${…}</b>` — the value could read as authoritative without its provenance (C58 §1.4).',
-      rel,
-    );
+  } else {
+    const provPlacedNextToValue =
+      /<b>\$\{[^}]*(valueText|value)[^}]*\}<\/b>\s*\$\{prov\}/.test(src);
+    if (!provPlacedNextToValue) {
+      fail(
+        'D/provenance-not-adjacent',
+        'The per-field provenance badge `${prov}` is not rendered adjacent to the numeric value `<b>${…}</b>` — the value could read as authoritative without its provenance (C58 §1.4).',
+        `${rel}:${lineOf(src, provStmt.at)}`,
+      );
+    }
+
+    let decided = decidesProvenance(provStmt.text);
+    let modulesRead = 0;
+    if (!decided) {
+      const imports = relativeNamedImports(src);
+      const seen = new Set<string>();
+      let frontier = codeIdentifiers(provStmt.text);
+      for (let depth = 0; depth < 4 && frontier.length > 0 && !decided; depth++) {
+        const next: string[] = [];
+        for (const id of frontier) {
+          if (seen.has(id) || decided) continue;
+          seen.add(id);
+          const spec = imports.get(id);
+          if (spec !== undefined) {
+            const modSrc = readRelativeModule(rel, spec);
+            if (modSrc !== null) {
+              modulesRead++;
+              if (decidesProvenance(modSrc)) decided = true;
+            }
+            continue;
+          }
+          const esc = id.replace(/\$/g, '\\$');
+          const local = sliceStatement(src, new RegExp(`const\\s+${esc}\\s*=`), tok);
+          if (local) next.push(...codeIdentifiers(local.text));
+        }
+        frontier = next;
+      }
+    }
+
+    if (!decided && modulesRead === 0) {
+      // "Could not see" is not "nothing wrong" (§CONTEXT-DATA-HONESTY): the
+      // statement is there, but neither it nor anything it reaches was readable,
+      // so the PUB/EST decision was never evaluated.
+      misconfigurations.push(
+        `${rel}: \`const prov = …;\` exists, but neither it nor any relative module it ` +
+          `reaches could be read, so the published-vs-estimated decision was never located. ` +
+          `CHECK D did not run.`,
+      );
+    } else if (!decided) {
+      fail(
+        'D/provenance-badge-missing',
+        'The provenance badge does not distinguish an ESTIMATED value from a PUBLISHED one: ' +
+          `neither \`const prov = …;\` nor any of the ${modulesRead} module(s) it reaches decides ` +
+          'EST vs PUB from `isEstimate`. A numeric row could render without honest provenance (C58 §1.4).',
+        `${rel}:${lineOf(src, provStmt.at)}`,
+      );
+    }
   }
 
   return { failures, misconfigurations };

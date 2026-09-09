@@ -40,6 +40,7 @@ import {
   REQUIRED_ANCHORS,
   SUBJECT_CONFIRM_MARKER,
   SUBJECT_DISCOVERY_PATTERN,
+  decidesProvenance,
 } from '../check-zoning-fidelity-label.js';
 
 // Vitest transforms this module, so `import.meta.url` is not a file: URL here —
@@ -65,7 +66,14 @@ function fixture(reasonArms: string[], opts: { badge?: string } = {}): string {
   const badge = opts.badge ?? "hasEstimatedField ? 'Estimated' : String(env.confidence)";
   return [
     'const badge = ' + badge + ';',
-    "const heightTxt = '';",
+    // ⛔ `const heightTxt = '';` STOOD HERE and is gone (2026-09-10, lane CI-SIX-RED).
+    // It existed only to terminate the badge region, because the gate used to slice
+    // `const [safe]Badge =` … `const heightTxt`. §26.6.7 (L-13085) deleted `heightTxt`
+    // from the REAL render, the end marker stopped resolving, and the gate reported
+    // MISCONFIGURED with CHECKS A and B silently not running. The gate now ends the
+    // badge region at its OWN semicolon (`sliceStatement`), so this fixture line was
+    // encoding the very anchor that rotted — keeping it would have kept a fixture
+    // green against a shape the subject no longer has.
     'const reasonLine = ' + reasonArms.join(' : ') + ';',
     'panel.innerHTML = reasonLine;',
   ].join('\n');
@@ -220,5 +228,83 @@ describe('§SUBJECT-FLOOR — "looked nowhere" is not "found nothing wrong"', ()
     const src = realSrc();
     expect(SUBJECT_DISCOVERY_PATTERN.test(src)).toBe(true);
     expect(src).toContain(SUBJECT_CONFIRM_MARKER);
+  });
+});
+
+// ── §BADGE-REGION-ENDS-AT-ITS-OWN-SEMICOLON — the L-13085 regression guard ───
+//
+// The badge region used to end at the NEXT statement by name (`const heightTxt`).
+// §26.6.7 deleted that statement, the region stopped resolving, and CHECKS A and B
+// did not run for every commit after it — while the gate reported exit 2 rather
+// than a pass, so the invariant was simply unenforced. These arms pin the two facts
+// that fix depends on: the region no longer knows its neighbour's name, and A/B
+// really do fire on the real render.
+describe('§BADGE-REGION-ENDS-AT-ITS-OWN-SEMICOLON — a neighbour rename cannot blind CHECKS A/B', () => {
+  it('T18 — renaming the statement AFTER the badge leaves the render clean', () => {
+    // The old end marker's successor. If the region were still keyed on a
+    // neighbour, this rename would reproduce the L-13085 blindness exactly.
+    const mutated = realSrc().split('const ordRef =').join('const renamedOrdRef =');
+    const out = analyze(mutated, realSchema(), REL);
+    expect(out.misconfigurations).toEqual([]);
+  });
+
+  it('T19 — CHECK A BINDS: removing the estimate-forcing seam fails, it does not pass', () => {
+    const mutated = realSrc().split('headline.hasEstimatedField').join('headline.neverSet');
+    const out = analyze(mutated, realSchema(), REL);
+    expect(out.misconfigurations).toEqual([]);
+    expect(out.failures.map((f) => f.check)).toContain('A/estimate-forcing-seam');
+  });
+
+  it('T20 — CHECK B BINDS: dropping a non-authoritative tier branch fails', () => {
+    const mutated = realSrc()
+      .split("env.confidence === 'pipeline-extracted-unverified'").join('false');
+    const out = analyze(mutated, realSchema(), REL);
+    expect(out.failures.map((f) => f.check)).toContain('B/unbadged-nonauthoritative');
+  });
+});
+
+// ── §PROVENANCE-IS-A-DECISION-NOT-A-TERNARY — CHECK D measures the decision ──
+//
+// CHECK D used to demand the inline `const prov = r.isEstimate ? EST : PUB`.
+// L-665 moved that decision into `describeCitationSlot` and widened it to four
+// arms, so the check read RED against a render that had got strictly BETTER, and
+// the fix it asked for would have restored the two-way ternary L-665 removed.
+describe('§PROVENANCE-IS-A-DECISION-NOT-A-TERNARY — CHECK D', () => {
+  it('T21 — the real render is clean even though the decision is NOT an inline ternary', () => {
+    const src = realSrc();
+    // The premise: the subject genuinely does not contain the old shape.
+    expect(/const prov\s*=[\s\S]{0,400}?r\.isEstimate/.test(src)).toBe(false);
+    const out = analyze(src, realSchema(), REL);
+    expect(out.failures.filter((f) => f.check.startsWith("D/"))).toEqual([]);
+    expect(out.misconfigurations).toEqual([]);
+  });
+
+  it('T22 — CHECK D BINDS on placement: detaching ${prov} from the value fails', () => {
+    const mutated = realSrc().split('</b> ${prov}').join('</b> ');
+    const out = analyze(mutated, realSchema(), REL);
+    expect(out.failures.map((f) => f.check)).toContain('D/provenance-not-adjacent');
+  });
+
+  it('T23 — CHECK D BINDS on presence: removing the prov statement fails', () => {
+    const mutated = realSrc().split('const prov = pillHtml(slot);').join('');
+    const out = analyze(mutated, realSchema(), REL);
+    expect(out.failures.map((f) => f.check)).toContain('D/provenance-badge-missing');
+  });
+
+  it('T24 — the decision module really does decide EST vs PUB from isEstimate', () => {
+    const slots = readFileSync(
+      join(ROOT, 'apps', 'editor', 'src', 'ui', 'site', 'complianceCitationSlots.ts'), 'utf8');
+    expect(decidesProvenance(slots)).toBe(true);
+  });
+
+  it('T25 — SCRAMBLE: a decision module that can no longer say EST is not a decision', () => {
+    const slots = readFileSync(
+      join(ROOT, 'apps', 'editor', 'src', 'ui', 'site', 'complianceCitationSlots.ts'), 'utf8');
+    // Break ONLY the module the subject reaches. Run on disk, this is what turns
+    // the whole gate red at D/provenance-badge-missing — verified 2026-09-10 —
+    // which is the proof the walk follows imports rather than passing by accident.
+    expect(decidesProvenance(slots.split("pill: 'EST',").join("pill: 'ESTIMATEDD',"))).toBe(false);
+    expect(decidesProvenance(slots.split("pill: 'PUB',").join("pill: 'PUBLISHEDD',"))).toBe(false);
+    expect(decidesProvenance(slots.split('isEstimate').join('neverSet'))).toBe(false);
   });
 });
