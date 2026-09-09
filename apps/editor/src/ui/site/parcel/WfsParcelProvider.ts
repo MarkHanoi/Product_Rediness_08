@@ -12,7 +12,8 @@
 
 import { trace } from '@opentelemetry/api';
 import type { LatLon } from '../boundaryProjection.js';
-import type { ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
+import type { ParcelAreaOutcome, ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
+import { fetchParcelAreaFromProxy } from './parcelAreaFetch.js';
 import { computeParcelMetrics, computeParcelConfidence } from './parcelConfidence.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
@@ -210,6 +211,29 @@ export function makeWfsParcelProvider(cfg: {
         }
     }
 
+    /**
+     * C57 §1.14 — the AREA query for every same-origin-proxy cadastre.
+     *
+     * ⭐ THE ROUTE IS DERIVED, NOT CONFIGURED. Every proxy leg in this family is registered as
+     * `/api/parcel/<cc>` and its area sibling as `/api/parcel/<cc>/area` (see
+     * `server/jurisdiction/index.js`, where the `/area` form is registered BEFORE the bare `:cc`
+     * so the param route cannot swallow it). Deriving the route means adding a country stays a
+     * data addition in `@pryzm/site-parcel-data` — §1.13.2 — rather than a second config field
+     * that a new leg can silently forget to set.
+     *
+     * ⛔ IT DOES NOT DECIDE WHETHER THE LEG CAN ANSWER. The SERVER owns that: a leg without
+     * `areaQuery: true` returns `unsupported` and names itself, which this reports verbatim. A
+     * client-side capability table would be a SECOND copy of that declaration and would rot the
+     * first time the server gained a leg — silently, because the chip would simply stay dark.
+     */
+    async function fetchParcelsInArea(
+        lon: number,
+        lat: number,
+        radiusM: number,
+    ): Promise<ParcelAreaOutcome> {
+        return fetchParcelAreaFromProxy(`${cfg.endpoint}/area`, cfg.id, cfg.label, lon, lat, radiusM);
+    }
+
     return {
         id: cfg.id,
         label: cfg.label,
@@ -219,6 +243,7 @@ export function makeWfsParcelProvider(cfg: {
             return outcome.status === 'ok' ? outcome.parcel : null;
         },
         fetchParcelOutcomeAtPoint,
+        fetchParcelsInArea,
     };
 }
 

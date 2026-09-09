@@ -24,7 +24,7 @@ import {
     resolveParcelWithFallback,
     type ParcelJurisdiction,
 } from '@pryzm/site-parcel-data';
-import type { ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
+import type { ParcelAreaOutcome, ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
 import { catastroParcelProvider } from './CatastroParcelProvider.js';
 import { dkMatrikelParcelProvider } from './DkMatrikelParcelProvider.js';
 import { makeWfsParcelProvider } from './WfsParcelProvider.js';
@@ -208,6 +208,62 @@ export const registryParcelProvider: ParcelProvider = {
             span.setAttribute('pryzm.parcel.outcome', footprint.status);
             span.setAttribute('pryzm.parcel.resolvedBy', footprint.status === 'ok' ? 'footprint' : 'none');
             return footprint;
+        } finally {
+            span.end();
+        }
+    },
+
+    /**
+     * ⭐⭐ C57 §1.14 — THE AREA QUERY, ROUTED THE SAME WAY THE CLICK IS.
+     *
+     * ⛔ IT DOES NOT WALK THE FALLBACK CHAIN, AND THAT IS THE DIFFERENCE FROM THE POINT LOOKUP.
+     * `fetchParcelOutcomeAtPoint` above walks every enclosing cadastre most-specific-first, because
+     * a POINT has exactly one right answer and a miss from the specific register is a real signal
+     * to ask the enclosing one (Eindhoven BE→NL, Kirkenes FI→NO). An AREA has no such
+     * convergence: asking two registers for the same box returns TWO overlapping parcel fabrics,
+     * and drawing both would show the user doubled boundary lines with no way to tell which
+     * authority drew which. So the overlay asks the MOST SPECIFIC cadastre and reports its answer,
+     * whatever it is — including `unsupported`.
+     *
+     * ⛔ AND IT NEVER FALLS BACK TO THE FOOTPRINT. `footprintParcelProvider.fetchParcelsInArea`
+     * answers `unsupported` on purpose (see its docblock): a roof outline is not a property
+     * boundary, and an overlay labelled "cadastral parcel boundaries" that drew building outlines
+     * would be wrong in a way the user cannot see.
+     */
+    async fetchParcelsInArea(lon: number, lat: number, radiusM: number): Promise<ParcelAreaOutcome> {
+        const span = _tracer.startSpan('pryzm.parcel.registry.fetchParcelsInArea');
+        try {
+            if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+                span.setAttribute('pryzm.parcel.area.outcome', 'unreachable');
+                return {
+                    status: 'unreachable',
+                    reason: 'PRYZM asked for parcel boundaries around an invalid coordinate.',
+                };
+            }
+            const jurisdiction = resolveParcelJurisdiction(lat, lon);
+            span.setAttribute('pryzm.parcel.region', jurisdiction.regionCode);
+            span.setAttribute('pryzm.parcel.provider', jurisdiction.providerId);
+            span.setAttribute('pryzm.parcel.kind', jurisdiction.kind);
+            const cadastral = cadastralProviderFor(jurisdiction);
+            if (!cadastral) {
+                // A footprint-fallback jurisdiction: there is no open cadastre here at all. The
+                // sentence names the PLACE, because "no cadastre is reachable in this country" is
+                // the fact, and it is not a fact about this plot.
+                span.setAttribute('pryzm.parcel.area.outcome', 'unsupported');
+                return {
+                    status: 'unsupported',
+                    reason: `PRYZM has no open cadastral boundary source for ${jurisdiction.label}, `
+                        + 'so the surrounding parcel lines cannot be drawn here. Selecting a single '
+                        + 'plot still works where a building footprint is available.',
+                };
+            }
+            const outcome = await cadastral.fetchParcelsInArea(lon, lat, radiusM);
+            span.setAttribute('pryzm.parcel.area.outcome', outcome.status);
+            if (outcome.status === 'ok') {
+                span.setAttribute('pryzm.parcel.area.count', outcome.parcels.length);
+                span.setAttribute('pryzm.parcel.area.truncated', outcome.truncated);
+            }
+            return outcome;
         } finally {
             span.end();
         }

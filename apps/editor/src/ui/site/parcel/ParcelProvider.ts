@@ -122,6 +122,44 @@ export type ParcelLookupOutcome =
     | { readonly status: 'miss' }
     | { readonly status: 'unreachable'; readonly reason: string };
 
+
+/**
+ * ⭐⭐ §AREA-IS-A-DECLARED-CAPABILITY (C57 §1.14) — THE FOUR FACTS AN AREA QUERY CAN CARRY.
+ *
+ * The overlay in C57 §5.5 draws the boundary lines of the parcels AROUND the selected one. That is
+ * a different question from `fetchParcelOutcomeAtPoint`, and most cadastres cannot answer it: an
+ * ArcGIS `identify` leg (CH, the AU/US rows) is a POINT service by construction, and no retry, no
+ * key and no wider box will ever make it enumerate an area.
+ *
+ * ⛔ THE THREE STATUSES ARE NOT RANKED, THEY ARE DIFFERENT — and the one this type exists for is
+ * the middle one:
+ *   · `ok`          — the source enumerated the area. `parcels` MAY BE EMPTY: an answered-and-empty
+ *                      area is a FACT about the land, and the overlay says so.
+ *   · `unsupported` — this cadastre publishes NO area query at all. A durable statement about the
+ *                      SOURCE, not about the land and not about today. It will not improve on retry,
+ *                      so the chip is disabled with this `reason` rather than left spinning.
+ *   · `unreachable` — it does publish one, and it did not answer. Transient; the chip stays live.
+ *
+ * ⛔ IF `unsupported` AND AN EMPTY `ok` RENDER THE SAME BLANK MAP, THAT IS §CONTEXT-DATA-HONESTY
+ * (L-581 / L-616) SHIPPED AGAIN AT OVERLAY SCALE — "this country has no boundary service" and
+ * "there are no parcels here" are the two values that must never coincide.
+ */
+export type ParcelAreaOutcome =
+    | {
+        readonly status: 'ok';
+        readonly parcels: ReadonlyArray<ParcelFeature>;
+        /**
+         * ⚠ A FOURTH FACT, AND IT RIDES ON `ok`. Every area service caps its answer (`COUNT=`,
+         * `count=`, a bbox ceiling). "That is all of them" and "that is all we asked for" are
+         * different claims about the same drawing. A provider that cannot tell reports `true` —
+         * the conservative arm, because under-claiming completeness is safe and over-claiming it
+         * tells the user a boundary does not exist when it was merely not requested.
+         */
+        readonly truncated: boolean;
+    }
+    | { readonly status: 'unsupported'; readonly reason: string }
+    | { readonly status: 'unreachable'; readonly reason: string };
+
 /**
  * Provider-agnostic parcel data source. Each jurisdiction implements this once.
  * All network access goes through the same-origin server proxy (never browser →
@@ -150,4 +188,16 @@ export interface ParcelProvider {
      * the defect this interface change exists to remove. MUST never throw.
      */
     fetchParcelOutcomeAtPoint(lon: number, lat: number): Promise<ParcelLookupOutcome>;
+    /**
+     * C57 §1.14 — every parcel whose geometry falls within `radiusM` of the point, for the
+     * boundary-lines overlay. **REQUIRED, not optional.** An optional method would re-create
+     * exactly the split the three-arm lookup above was hoisted onto this interface to remove:
+     * *some providers are honest, some are silent*. A cadastre that cannot enumerate an area
+     * returns `{ status: 'unsupported' }` and says why — which is a real answer, and the only one
+     * that lets a chip render "this cadastre publishes no boundary query" instead of a blank map.
+     *
+     * `radiusM` is bounded by the caller against the SITE SCOPE and a measured payload ceiling
+     * (C57 §1.14.5) — never by the camera. MUST never throw.
+     */
+    fetchParcelsInArea(lon: number, lat: number, radiusM: number): Promise<ParcelAreaOutcome>;
 }

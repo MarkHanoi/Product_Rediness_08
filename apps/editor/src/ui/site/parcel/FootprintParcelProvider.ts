@@ -20,7 +20,7 @@
 // point (an honest "nothing here — draw instead"), and NEVER throws.
 
 import { trace } from '@opentelemetry/api';
-import type { ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
+import type { ParcelAreaOutcome, ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
 import { fetchContextBuildings } from '../../geospatial/contextBuildings.js';
 // The PURE pick lives in footprintPick.ts (type-only context import) so it is testable without
 // dragging in the context-buildings network graph (contextTiles → pmtiles).
@@ -93,5 +93,31 @@ export const footprintParcelProvider: ParcelProvider = {
         } finally {
             span.end();
         }
+    },
+
+    /**
+     * C57 §1.14 — ⛔ `unsupported`, AND THIS IS THE MOST IMPORTANT `unsupported` IN THE SYSTEM.
+     *
+     * The OSM building layer CAN enumerate an area — `fetchContextBuildings` does exactly that,
+     * and this provider could trivially return every footprint in the box. It must not, and the
+     * reason is C57 §1.13.4: a footprint is a BUILDING OUTLINE, not a cadastral parcel, and the
+     * overlay this method serves is called "cadastral parcel boundaries".
+     *
+     * Drawing roof outlines under that label would be the [[fake-more-capable-than-real]] shape at
+     * its most convincing: the lines would look exactly like a plausible parcel fabric, they would
+     * be dense and well-registered, and NOTHING would look wrong — while every boundary shown was
+     * a different legal object from the one claimed. A user measuring a setback against a roof
+     * edge gets a wrong answer with no way to see it is wrong.
+     *
+     * So the honest answer is that PRYZM has no cadastral boundary source here, which is TRUE, and
+     * is a completely different statement from "there are no parcels here".
+     */
+    async fetchParcelsInArea(): Promise<ParcelAreaOutcome> {
+        return {
+            status: 'unsupported',
+            reason: 'No open cadastre is reachable here, so PRYZM has no parcel boundaries to '
+                + 'draw. Building footprints are available for this area, but a roof outline is '
+                + 'not a property boundary and PRYZM will not draw one as though it were.',
+        };
     },
 };

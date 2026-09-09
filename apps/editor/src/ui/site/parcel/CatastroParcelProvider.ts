@@ -12,7 +12,8 @@
 
 import { trace } from '@opentelemetry/api';
 import type { LatLon } from '../boundaryProjection.js';
-import type { ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
+import type { ParcelAreaOutcome, ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
+import { fetchParcelAreaFromProxy } from './parcelAreaFetch.js';
 import { computeParcelMetrics, computeParcelConfidence } from './parcelConfidence.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
@@ -226,7 +227,36 @@ export async function lookupParcelByRefcat(refcat: string): Promise<RefcatLookup
  * proxy for the parcel under a WGS84 point. Resolves to null on empty query,
  * network error, non-OK, non-JSON, or a miss — never throws (P8 OTel span opened).
  */
+
+/**
+ * ⭐ C57 §1.14 — THE AREA ROUTE IS DERIVED FROM THE POINT ROUTE, NOT CONFIGURED SEPARATELY.
+ *
+ * Every cadastral proxy in this app answers its area query at `<pointRoute>/area`:
+ * `/api/catastro/parcel/area`, `/api/parcel/dk/area`, `/api/parcel/<cc>/area`. Deriving it means
+ * the `VITE_CATASTRO_PARCEL_ENDPOINT` override that already exists moves BOTH routes together — a
+ * deployment that repoints the point lookup and silently leaves the area lookup on the old host
+ * would show boundaries from one server and a selection from another, and nothing would look wrong.
+ *
+ * ⚠ THIS CONSTANT WAS `'/api/catastro/parcels'` FOR ABOUT AN HOUR ON 2026-09-09, when Spain's
+ * area leg was the one route that did NOT follow the pattern. It was renamed to the uniform form
+ * the same day. Recorded because a hand-written second endpoint is exactly what that hour cost,
+ * and deriving it is what makes the next rename free.
+ */
+const CATASTRO_PARCEL_AREA_ENDPOINT = `${CATASTRO_PARCEL_ENDPOINT}/area`;
+
+/** C57 §1.14 — every Catastro parcel within `radiusM` of the point, for the boundaries overlay. */
+export async function fetchParcelsInArea(
+    lon: number,
+    lat: number,
+    radiusM: number,
+): Promise<ParcelAreaOutcome> {
+    return fetchParcelAreaFromProxy(
+        CATASTRO_PARCEL_AREA_ENDPOINT, 'catastro', 'Catastro (Spain)', lon, lat, radiusM,
+    );
+}
+
 export const catastroParcelProvider: ParcelProvider = {
+    fetchParcelsInArea,
     id: 'catastro',
     label: 'Catastro (Spain)',
 
