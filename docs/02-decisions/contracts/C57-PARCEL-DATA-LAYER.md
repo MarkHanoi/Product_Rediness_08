@@ -215,6 +215,24 @@ about how a provider is required to SAY so.**
    (`COUNT=`, `count=`, a bbox ceiling). "That is all of them" and "that is all we asked for" are
    different claims about the same drawing, and the overlay must be able to say which it is
    showing. A provider that cannot tell reports `truncated: true` — the conservative arm.
+
+   > ⭐ **Amended 2026-09-09 (lane CADASTRAL, `a7e7c950`+) — THE REGISTER'S OWN COUNT IS THE
+   > AUTHORITY, and inferring truncation from our cap was a guess dressed as a fact.** WFS 2.0
+   > publishes `numberMatched`, and all four target registers emit it. **Measured live the same
+   > day** (200 m / 300 m about the same city centres, cap 400): ES Barcelona **238/238 → complete**,
+   > then **400 of 547 → truncated**; FR Paris **246/246**, then **400 of 667 → truncated**; NL
+   > Amsterdam **399/399** and **392/392 → complete both times**; DK Copenhagen **64/64**, **172/172**.
+   > So the rule is `matchedCount > servedCount` where a count was published, and the cap heuristic
+   > **only** where none was. This is not a refinement — the heuristic is WRONG on a register
+   > holding exactly `cap` parcels (it reports parcels missing when none are), and NL at 399 of a
+   > 400 cap shows how close to that boundary real data sits. An answer additionally carries
+   > `matchedCount` when the register published one, so a UI can say *"400 of 547"* from the
+   > SOURCE's number. ⛔ It is ABSENT, never `0` and never the served count, when the register
+   > published none: filling it in would let a UI write *"3 of 3"* on the strength of our silence.
+   > ⚠ Compare against what is SERVED, not against the raw feature count — a parcel dropped for an
+   > unreadable ring is just as absent from the drawing as one the cap cut off, and the user's
+   > question is *"am I looking at all of them?"*, not *"did the cap bind?"*.
+   > `numberMatched="unknown"` is a legal WFS value and maps to *no count published*, not to zero.
 4. **The area query REUSES the point query's upstream machinery.** ⛔ A second URL builder or a
    second parser for the same cadastre is the dominant defect in this repo (one rule, two
    implementations): the point leg and the area leg differ in `count` and in whether the containing

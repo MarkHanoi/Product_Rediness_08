@@ -45,6 +45,7 @@ import {
     DK_PARCEL_AREA_PATH,
     __resetDkAreaCache,
 } from '../jurisdiction/dkMatrikelProxy.js';
+import { readWfsMatchedCount, isTruncated } from '../jurisdiction/wfsCounts.js';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -468,5 +469,74 @@ describe('Denmark — /api/parcel/dk/area on the keyless DAWA circle', () => {
         // A feature with geometry but no citable identifier is not a parcel we can serve.
         expect(dawaFeatureToParcel({ geometry: { type: 'Polygon', coordinates: [[[1, 1], [1, 2], [2, 2], [1, 1]]] }, properties: {} })).toBeNull();
         expect(dawaFeatureToParcel(null)).toBeNull();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe("C57 §1.14.3 — truncation is the REGISTER’S statement, not our inference", () => {
+    it('reads numberMatched out of GML attributes and GeoJSON members alike', () => {
+        // Both real shapes, both measured live on 2026-09-09.
+        expect(readWfsMatchedCount('<wfs:FeatureCollection numberMatched="547" numberReturned="547">')).toBe(547);
+        expect(readWfsMatchedCount('{"type":"FeatureCollection","numberMatched":667,"numberReturned":400}')).toBe(667);
+        expect(readWfsMatchedCount('{"type":"FeatureCollection"}')).toBeNull();
+        expect(readWfsMatchedCount('')).toBeNull();
+        // ⚠ `unknown` is a LEGAL WFS 2.0 value — a server declining to count. That is not an
+        // answer, so it must not read as one; null sends the caller to the cap heuristic.
+        expect(readWfsMatchedCount('<wfs:FeatureCollection numberMatched="unknown">')).toBeNull();
+    });
+
+    it("prefers the register’s count, and falls back to the cap only when it published none", () => {
+        // The register said 547 exist and we hold 400 → the drawing is incomplete.
+        expect(isTruncated(400, 547, 400)).toBe(true);
+        // The register said 399 exist and we hold 399 → complete, EVEN THOUGH the naive cap
+        // heuristic would also have said complete. The case that matters is the next one.
+        expect(isTruncated(399, 399, 400)).toBe(false);
+        // ⭐ THE CASE THE CAP HEURISTIC GETS WRONG: a register holding EXACTLY `cap` parcels. The
+        // old rule reported truncated=true and told the user parcels were missing when none were.
+        expect(isTruncated(400, 400, 400)).toBe(false);
+        // No published count → fall back, and under-claim completeness on the ambiguous boundary.
+        expect(isTruncated(400, null, 400)).toBe(true);
+        expect(isTruncated(399, null, 400)).toBe(false);
+    });
+
+    it('carries the register count through to the Spain wire body as matchedCount', async () => {
+        const gml = catastroCollection(3).replace('<FeatureCollection', '<FeatureCollection numberMatched="9"');
+        const handler = makeCatastroParcelsAreaHandler({ fetchImpl: fakeFetch(gml) });
+        const res = fakeRes();
+        await handler({ query: { lat: '41.3925', lon: '2.165', radiusM: '200' } } as never, res as never);
+        const body = res._body as { truncated: boolean; matchedCount?: number; parcels: unknown[] };
+        // Nine exist, three are in hand: truncated, and the UI can say "3 of 9" from the SOURCE's
+        // number rather than from one we invented.
+        expect(body.parcels).toHaveLength(3);
+        expect(body.truncated).toBe(true);
+        expect(body.matchedCount).toBe(9);
+    });
+
+    it('omits matchedCount entirely when the register published none', async () => {
+        // ⛔ ABSENT, never 0 and never the served count. A register that did not say how many it
+        // matched has told us nothing, and inventing the field would let a UI write "3 of 3" — a
+        // completeness claim on the strength of our own silence.
+        const handler = makeCatastroParcelsAreaHandler({ fetchImpl: fakeFetch(catastroCollection(3)) });
+        const res = fakeRes();
+        await handler({ query: { lat: '41.3925', lon: '2.165', radiusM: '200' } } as never, res as never);
+        expect(res._body as object).not.toHaveProperty('matchedCount');
+        expect((res._body as { truncated: boolean }).truncated).toBe(false);
+    });
+
+    it('carries it through the EU leg too', async () => {
+        const withCount = frCollection(4).replace('{"type":"FeatureCollection"', '{"numberMatched":31,"type":"FeatureCollection"');
+        const out = await resolveEuParcelsInArea('fr', 2.3522, 48.8566, 200, { fetchImpl: fakeFetch(withCount) });
+        expect(out.parcels).toHaveLength(4);
+        expect(out.truncated).toBe(true);
+        expect((out as { matchedCount?: number }).matchedCount).toBe(31);
+    });
+
+    it('Denmark always knows its own total, because DAWA serves the whole circle', async () => {
+        const out = await fetchDawaParcelsInArea(12.5683, 55.6761, 150, {
+            fetchImpl: fakeFetch(dawaCollection(DK_AREA_COUNT_CAP + 12)),
+        });
+        expect(out.truncated).toBe(true);
+        expect(out.parcels).toHaveLength(DK_AREA_COUNT_CAP);
+        expect((out as { matchedCount?: number }).matchedCount).toBe(DK_AREA_COUNT_CAP + 12);
     });
 });

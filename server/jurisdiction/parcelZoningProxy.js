@@ -44,6 +44,7 @@
  */
 
 import { createHash } from 'crypto';
+import { readWfsMatchedCount, isTruncated } from './wfsCounts.js';
 
 /** The same-origin route the client's CatastroParcelProvider calls. */
 export const CATASTRO_PARCEL_PATH = '/api/catastro/parcel';
@@ -1233,15 +1234,21 @@ export function makeCatastroParcelsAreaHandler(deps = {}) {
                     return { outcome: 'unreachable', parcels: [], truncated: false,
                         reason: `Catastro returned HTTP ${res.status}.` };
                 }
-                const parcels = parseParcelCollectionGml(await res.text());
-                // ⚠ `>=`, not `>`. A response that lands EXACTLY on the cap is indistinguishable
-                // from one the cap truncated, and the honest reading of an indistinguishable pair
-                // is the one that under-claims completeness (C57 §1.14.3).
-                const truncated = parcels.length >= CATASTRO_AREA_COUNT_CAP;
+                const body = await res.text();
+                const parcels = parseParcelCollectionGml(body);
+                // C57 §1.14.3 — the REGISTER'S OWN COUNT decides, and Catastro publishes one.
+                // MEASURED: at 300 m Barcelona it answers `numberMatched="547"` while `&count=400`
+                // holds the answer to 400, so the drawing is short 147 parcels and must say so.
+                // ⚠ Its `numberReturned` is NOT usable — the same response reports 547 there too.
+                const matchedCount = readWfsMatchedCount(body);
+                const served = parcels.map((p2) => ({ ...p2, address: null, source: 'catastro' }));
                 const value = {
                     outcome: 'ok',
-                    parcels: parcels.map((p2) => ({ ...p2, address: null, source: 'catastro' })),
-                    truncated,
+                    parcels: served,
+                    truncated: isTruncated(served.length, matchedCount, CATASTRO_AREA_COUNT_CAP),
+                    // Present only when the register said so — "400 of 547" is a sentence the UI
+                    // can only write if the number came from the source, never from us.
+                    ...(matchedCount === null ? {} : { matchedCount }),
                 };
                 if (areaCache.size >= AREA_CACHE_MAX_ENTRIES) {
                     const oldest = areaCache.keys().next();

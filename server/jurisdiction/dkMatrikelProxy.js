@@ -615,10 +615,18 @@ export async function fetchDawaParcelsInArea(lon, lat, radiusM, deps = {}) {
                 const norm = dawaFeatureToParcel(f);
                 if (norm) all.push({ ...norm, source: 'matrikel-dk' });
             }
-            // ⚠ DAWA serves the WHOLE circle, so the cap is applied HERE and the count it truncated
-            // is a number we actually know — not a guess against an upstream default.
+            // ⚠ DAWA serves the WHOLE circle, so the cap is applied HERE — which makes Denmark the
+            // one register where the matched count needs no `numberMatched` to be exact: we are
+            // holding every parcel it published and choosing to draw the first N. C57 §1.14.3's
+            // "that is all of them" vs "that is all we drew" is therefore answered from a real
+            // total, and `matchedCount` is always present rather than conditional.
             const truncated = all.length > DK_AREA_COUNT_CAP;
-            const value = { outcome: 'ok', parcels: truncated ? all.slice(0, DK_AREA_COUNT_CAP) : all, truncated };
+            const value = {
+                outcome: 'ok',
+                parcels: truncated ? all.slice(0, DK_AREA_COUNT_CAP) : all,
+                truncated,
+                matchedCount: all.length,
+            };
             if (_dkAreaCache.size >= DK_AREA_CACHE_MAX) {
                 const oldest = _dkAreaCache.keys().next();
                 if (!oldest.done) _dkAreaCache.delete(oldest.value);

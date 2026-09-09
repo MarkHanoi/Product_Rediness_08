@@ -119,6 +119,10 @@
  * @see packages/site-parcel-data/src/parcelProviders/registry.ts — the routing registry
  */
 
+// C57 §1.14.3 — the ONE truncation authority, shared with the Spain leg (see wfsCounts.js for
+// why it is a module and not a copied regex).
+import { readWfsMatchedCount, isTruncated } from './wfsCounts.js';
+
 const UPSTREAM_TIMEOUT_MS = 15_000;
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 512;
@@ -3049,10 +3053,17 @@ export async function resolveEuParcelsInArea(cc, lon, lat, radiusM, deps = {}) {
                 const norm = normaliseParcelCandidate(cfg, c);
                 if (norm) parcels.push({ ...norm, source: cfg.source });
             }
-            // ⚠ `>=`, not `>`. A response landing EXACTLY on the cap is indistinguishable from one
-            // the cap truncated, and the honest reading of an indistinguishable pair is the one
-            // that under-claims completeness (C57 §1.14.3).
-            const value = { outcome: 'ok', parcels, truncated: candidates.length >= EU_AREA_COUNT_CAP };
+            // C57 §1.14.3 — the REGISTER'S OWN COUNT decides where it publishes one. MEASURED:
+            // IGN answers `numberMatched: 667` for a 300 m Paris window it caps at 400, so the
+            // drawing is short 267 parcels; PDOK answers `numberMatched: 399` for 399 served, which
+            // is complete. Inferring either from the cap alone would have got one of them wrong.
+            const matchedCount = readWfsMatchedCount(text);
+            const value = {
+                outcome: 'ok',
+                parcels,
+                truncated: isTruncated(parcels.length, matchedCount, EU_AREA_COUNT_CAP),
+                ...(matchedCount === null ? {} : { matchedCount }),
+            };
             if (_areaCache.size >= AREA_CACHE_MAX) {
                 const oldest = _areaCache.keys().next();
                 if (!oldest.done) _areaCache.delete(oldest.value);
