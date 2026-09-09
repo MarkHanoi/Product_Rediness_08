@@ -41,6 +41,26 @@ echo "[autoship] armed — polling every ${POLL}s; every ship runs the FULL cont
 
 while true; do
   git fetch origin --quiet 2>/dev/null || true
+
+  # ⭐ PUSH WHAT THE LANES COMMITTED BUT DID NOT PUSH.
+  # Measured 2026-09-09: four lane commits sat LOCAL-ONLY for ~20 minutes. The ancestor
+  # guard below correctly refused to ship them — but refusing is only half an answer:
+  # a commit that exists on one disk is not backed up, and dies with the machine. The
+  # lanes' own briefs say "push straight to main", so pushing on their behalf completes
+  # an instruction they already have rather than inventing one.
+  # ⛔ It pushes COMMITS, never working-tree state — a half-written file cannot ride along.
+  if [ -n "$(git log --oneline origin/main..HEAD 2>/dev/null)" ]; then
+    N_UNPUSHED="$(git rev-list --count origin/main..HEAD 2>/dev/null || echo '?')"
+    if git push origin main --quiet 2>/dev/null; then
+      echo "[autoship] pushed $N_UNPUSHED stranded lane commit(s) to origin/main"
+      git fetch origin --quiet 2>/dev/null || true
+    else
+      # A rejected push means the remote moved under us. Never force: another writer's
+      # work is not ours to discard. Say so and let the next poll retry after a fetch.
+      echo "[autoship] ⚠ push rejected (remote moved) — will retry next poll, NOT forcing"
+    fi
+  fi
+
   HEAD_SHA="$(git rev-parse --short HEAD)"
   LIVE="$(curl -s --max-time 25 https://pryzm.fly.dev/version \
           | sed -n 's/.*"git_sha":"\([0-9a-f]\{8\}\).*/\1/p')"
