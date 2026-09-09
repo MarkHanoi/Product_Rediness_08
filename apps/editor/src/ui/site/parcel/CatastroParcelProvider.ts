@@ -12,7 +12,7 @@
 
 import { trace } from '@opentelemetry/api';
 import type { LatLon } from '../boundaryProjection.js';
-import type { ParcelFeature, ParcelProvider } from './ParcelProvider.js';
+import type { ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
 import { computeParcelMetrics, computeParcelConfidence } from './parcelConfidence.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
@@ -158,10 +158,11 @@ export async function fetchParcelByRefcat(refcat: string): Promise<ParcelFeature
  *
  * Never throws.
  */
-export type RefcatLookupOutcome =
-    | { readonly status: 'ok'; readonly parcel: ParcelFeature }
-    | { readonly status: 'miss' }
-    | { readonly status: 'unreachable'; readonly reason: string };
+/** ⭐ NOW AN ALIAS, NOT A SECOND DECLARATION. This three-arm shape was minted here and has since
+ *  been hoisted onto `ParcelProvider` so EVERY provider must answer it (§L-13299). Re-exported
+ *  under its original name so the refcat callers that already read it need no edit — but there is
+ *  one type, so a widening cannot land on half the providers. */
+export type RefcatLookupOutcome = ParcelLookupOutcome;
 
 export async function lookupParcelByRefcat(refcat: string): Promise<RefcatLookupOutcome> {
     const span = _tracer.startSpan('pryzm.parcel.fetchParcelByRefcat');
@@ -240,6 +241,10 @@ export const catastroParcelProvider: ParcelProvider = {
         const outcome = await fetchParcelOutcomeAtPoint(lon, lat);
         return outcome.status === 'ok' ? outcome.parcel : null;
     },
+
+    // The honest arm the interface now requires — the free function below, verbatim. No wrapper
+    // logic of any kind lives here, so the method and the function cannot answer differently.
+    fetchParcelOutcomeAtPoint,
 };
 
 /**

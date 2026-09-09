@@ -24,7 +24,7 @@ import {
     resolveParcelWithFallback,
     type ParcelJurisdiction,
 } from '@pryzm/site-parcel-data';
-import type { ParcelFeature, ParcelProvider } from './ParcelProvider.js';
+import type { ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
 import { catastroParcelProvider } from './CatastroParcelProvider.js';
 import { dkMatrikelParcelProvider } from './DkMatrikelParcelProvider.js';
 import { makeWfsParcelProvider } from './WfsParcelProvider.js';
@@ -113,12 +113,37 @@ export const registryParcelProvider: ParcelProvider = {
     // A generic label; the honest per-parcel provenance is `ParcelFeature.source`, which the card renders.
     label: 'Cadastral parcel / building footprint',
 
+    // ⛔ A NARROWING VIEW, NEVER A SECOND WALK (see `ParcelProvider.fetchParcelAtPoint`).
     async fetchParcelAtPoint(lon: number, lat: number): Promise<ParcelFeature | null> {
+        const outcome = await this.fetchParcelOutcomeAtPoint(lon, lat);
+        return outcome.status === 'ok' ? outcome.parcel : null;
+    },
+
+    /**
+     * ⭐⭐ §L-13299 — THE ARM THAT MAKES THE L-13295 FIX REACHABLE.
+     *
+     * `SiteBoundaryMap2D` gained an honest outage branch on 2026-09-09, guarded by
+     * `parcelProvider === catastroParcelProvider`. The map's provider is `defaultParcelProvider`,
+     * which is THIS object — so that identity was false at every click in every country, and the
+     * branch never ran in production. [[committed-is-not-reachable]]. The fix is not to add a
+     * second identity check per provider; it is for the registry to answer the honest question
+     * itself, which is what this does.
+     *
+     * ⛔ AN OUTAGE DOES NOT FALL THROUGH TO THE FOOTPRINT. If a cadastre was asked and did not
+     * answer, substituting an OSM building outline would hand the user a *different kind of
+     * geometry* under the same click and call it a result — the footprint is the honest answer
+     * where no cadastre EXISTS, never where one exists and is merely down. So: any cadastre hit
+     * wins; otherwise, if any cadastre was UNREACHABLE the answer is `unreachable` (the map keeps
+     * the user's selection and names the source); only when every cadastre gave a real MISS does
+     * the universal footprint get its turn.
+     */
+    async fetchParcelOutcomeAtPoint(lon: number, lat: number): Promise<ParcelLookupOutcome> {
         const span = _tracer.startSpan('pryzm.parcel.registry.fetchParcelAtPoint');
         try {
             if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
                 span.setAttribute('pryzm.parcel.hit', false);
-                return null;
+                span.setAttribute('pryzm.parcel.outcome', 'miss');
+                return { status: 'miss' };
             }
             span.setAttribute('pryzm.parcel.lon', lon);
             span.setAttribute('pryzm.parcel.lat', lat);
@@ -133,26 +158,55 @@ export const registryParcelProvider: ParcelProvider = {
             // off to the enclosing LIVE one (Eindhoven BE→NL, Kirkenes FI→NO, Calais GB→FR) instead of
             // dropping straight to the footprint. Footprint-fallback jurisdictions have no cadastral
             // provider → they contribute nothing and the resolver continues.
-            const hit = await resolveParcelWithFallback<ParcelFeature>(lat, lon, (jur) => {
+            //
+            // ⚠ THE WALK IS UNCHANGED — `resolveParcelWithFallback` still decides the ORDER and still
+            // treats a non-hit as "carry on". The only thing added is that a non-hit now says WHY, in
+            // this closure, instead of being erased into a null.
+            const outages: string[] = [];
+            const hit = await resolveParcelWithFallback<ParcelFeature>(lat, lon, async (jur) => {
                 const cadastral = cadastralProviderFor(jur);
-                return cadastral ? cadastral.fetchParcelAtPoint(lon, lat) : null;
+                if (!cadastral) return null;
+                const outcome = await cadastral.fetchParcelOutcomeAtPoint(lon, lat);
+                if (outcome.status === 'ok') return outcome.parcel;
+                if (outcome.status === 'unreachable') {
+                    outages.push(`${jur.label}: ${outcome.reason}`);
+                }
+                return null;
             });
             if (hit) {
                 span.setAttribute('pryzm.parcel.region', hit.jurisdiction.regionCode);
                 span.setAttribute('pryzm.parcel.provider', hit.jurisdiction.providerId);
                 span.setAttribute('pryzm.parcel.kind', hit.jurisdiction.kind);
                 span.setAttribute('pryzm.parcel.hit', true);
+                span.setAttribute('pryzm.parcel.outcome', 'ok');
                 span.setAttribute('pryzm.parcel.resolvedBy', 'cadastral');
-                return hit.parcel;
+                return { status: 'ok', parcel: hit.parcel };
             }
+
+            if (outages.length > 0) {
+                const reason = outages.join(' · ');
+                console.warn(
+                    `[gis] parcel-registry: §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS — a cadastre was `
+                    + `asked at ${lat.toFixed(5)},${lon.toFixed(5)} and did not answer (${reason}). `
+                    + `NOT falling back to the OSM footprint: a footprint is a different kind of `
+                    + `geometry, and offering one here would report an outage as a finding.`,
+                );
+                span.setAttribute('pryzm.parcel.hit', false);
+                span.setAttribute('pryzm.parcel.outcome', 'unreachable');
+                span.setAttribute('pryzm.parcel.resolvedBy', 'none');
+                return { status: 'unreachable', reason };
+            }
+
             console.log(
-                `[gis] parcel-registry: no cadastre answered at ` +
-                `${lat.toFixed(5)},${lon.toFixed(5)} — falling back to the OSM footprint.`,
+                `[gis] parcel-registry: no cadastre answered at `
+                + `${lat.toFixed(5)},${lon.toFixed(5)} — every one of them gave a VERIFIED miss, so `
+                + `the OSM footprint gets its turn.`,
             );
 
-            const footprint = await footprintParcelProvider.fetchParcelAtPoint(lon, lat);
-            span.setAttribute('pryzm.parcel.hit', footprint !== null);
-            span.setAttribute('pryzm.parcel.resolvedBy', footprint ? 'footprint' : 'none');
+            const footprint = await footprintParcelProvider.fetchParcelOutcomeAtPoint(lon, lat);
+            span.setAttribute('pryzm.parcel.hit', footprint.status === 'ok');
+            span.setAttribute('pryzm.parcel.outcome', footprint.status);
+            span.setAttribute('pryzm.parcel.resolvedBy', footprint.status === 'ok' ? 'footprint' : 'none');
             return footprint;
         } finally {
             span.end();

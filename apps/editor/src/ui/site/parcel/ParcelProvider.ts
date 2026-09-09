@@ -101,6 +101,28 @@ export interface ParcelFeature {
 }
 
 /**
+ * ⭐⭐ §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS — THE ONE HONEST LOOKUP SHAPE, FOR EVERY PROVIDER.
+ *
+ * ⛔ THE THREE OUTCOMES ARE NOT RANKED, THEY ARE DIFFERENT:
+ *   · `ok`          — the source answered with a parcel.
+ *   · `miss`        — the source answered, and it holds no parcel here. An ANSWER about the land.
+ *   · `unreachable` — nobody answered (offline, proxy 5xx, non-JSON, upstream timeout). NOT an
+ *                     answer, and never to be rendered as one. `reason` carries which.
+ *
+ * ⚠ WHY IT LIVES HERE AND NOT IN ONE ADAPTER. It was minted in `CatastroParcelProvider.ts`
+ * (L-13057 for the refcat lookup, L-13295 for the click lookup) and stayed there, so exactly ONE
+ * of five providers could tell an outage from an empty plot — and the map's `parcelProvider` is
+ * the ROUTING REGISTRY, never `catastroParcelProvider` itself, so the one honest branch that
+ * existed was UNREACHABLE IN PRODUCTION (§L-13299). One rule, two implementations, with the
+ * honest copy behind an identity check that can never be true. The shape is hoisted onto the
+ * INTERFACE so a dishonest provider cannot compile.
+ */
+export type ParcelLookupOutcome =
+    | { readonly status: 'ok'; readonly parcel: ParcelFeature }
+    | { readonly status: 'miss' }
+    | { readonly status: 'unreachable'; readonly reason: string };
+
+/**
  * Provider-agnostic parcel data source. Each jurisdiction implements this once.
  * All network access goes through the same-origin server proxy (never browser →
  * gov endpoint directly), so no CSP `connect-src` change is needed.
@@ -111,9 +133,21 @@ export interface ParcelProvider {
     /** Human-facing source label for the info card / attribution. */
     readonly label: string;
     /**
-     * Resolve the real cadastral parcel at a WGS84 point (the map click), or null
-     * when there is no parcel there / the source is unavailable. MUST never throw —
-     * a miss falls back to manual draw.
+     * ⛔ A NARROWING VIEW OF `fetchParcelOutcomeAtPoint`, NEVER A SECOND FETCH. Kept because many
+     * callers genuinely do not need the distinction; every implementer MUST derive it from the
+     * three-arm lookup below rather than running its own request, or the two will drift.
+     *
+     * Resolves the real cadastral parcel at a WGS84 point (the map click), or null when there is
+     * no parcel there **or** the source did not answer — the flattening this signature forces, and
+     * the reason any caller that renders a sentence to a user must call the honest one instead.
+     * MUST never throw.
      */
     fetchParcelAtPoint(lon: number, lat: number): Promise<ParcelFeature | null>;
+    /**
+     * THE honest lookup: the same request, with `miss` and `unreachable` kept apart
+     * (§CONTEXT-DATA-HONESTY — a FAILURE and an EMPTINESS must never share a value). Required, not
+     * optional: an optional arm would re-create "some providers are honest, some are not", which is
+     * the defect this interface change exists to remove. MUST never throw.
+     */
+    fetchParcelOutcomeAtPoint(lon: number, lat: number): Promise<ParcelLookupOutcome>;
 }

@@ -12,7 +12,7 @@
 
 import { trace } from '@opentelemetry/api';
 import type { LatLon } from '../boundaryProjection.js';
-import type { ParcelFeature, ParcelProvider } from './ParcelProvider.js';
+import type { ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
 import { computeParcelMetrics, computeParcelConfidence } from './parcelConfidence.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
@@ -110,63 +110,121 @@ export function makeWfsParcelProvider(cfg: {
     readonly label: string;
     readonly endpoint: string;
 }): ParcelProvider {
+    async function fetchParcelOutcomeAtPoint(lon: number, lat: number): Promise<ParcelLookupOutcome> {
+        const span = _tracer.startSpan('pryzm.parcel.fetchParcelAtPoint');
+        span.setAttribute('pryzm.parcel.provider', cfg.id);
+        try {
+            if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+                span.setAttribute('pryzm.parcel.hit', false);
+                span.setAttribute('pryzm.parcel.outcome', 'miss');
+                return { status: 'miss' };
+            }
+            span.setAttribute('pryzm.parcel.lon', lon);
+            span.setAttribute('pryzm.parcel.lat', lat);
+
+            const url =
+                `${cfg.endpoint}?lon=${encodeURIComponent(String(lon))}` +
+                `&lat=${encodeURIComponent(String(lat))}`;
+
+            const unreachable = (reason: string): ParcelLookupOutcome => {
+                console.warn(`[gis] ${cfg.id}: UNREACHABLE (not a miss) — ${reason}`);
+                span.setAttribute('pryzm.parcel.hit', false);
+                span.setAttribute('pryzm.parcel.outcome', 'unreachable');
+                return { status: 'unreachable', reason };
+            };
+
+            let res: Response;
+            try {
+                res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+            } catch (err) {
+                // ⛔ A network error is the SOURCE failing, never the land being empty.
+                return unreachable(`network error contacting the parcel proxy: ${String(err)}`);
+            }
+
+            // ⚠ A non-OK is READ, not discarded: `euCadastreProxy` answers HTTP 503 with a JSON
+            // body carrying `outcome:'unconfigured'` (a key the deployment does not hold). That is
+            // still "we could not ask", so it lands on `unreachable` either way — but reading the
+            // body first is what lets the console name WHICH, instead of a bare status line.
+            let json: unknown = null;
+            let jsonErr: unknown = null;
+            try {
+                json = await res.json();
+            } catch (err) {
+                jsonErr = err;
+            }
+            if (!res.ok) {
+                const named = readServerOutcome(json);
+                return unreachable(
+                    `the parcel proxy returned ${res.status} ${res.statusText}` +
+                    (named ? ` (${named})` : ''),
+                );
+            }
+            if (jsonErr !== null) {
+                return unreachable(`the parcel proxy's response was not JSON: ${String(jsonErr)}`);
+            }
+
+            // ⭐ THE SERVER ALREADY SAID WHICH IT IS — this is the only place that reads it.
+            // `euCadastreProxy.js` has shipped `outcome: 'ok' | 'empty' | 'unreachable' |
+            // 'unconfigured' | 'unknown-source' | 'bad-input' | 'out-of-area'` on this very route
+            // since it was written; the client threw it away and returned `null` for all seven.
+            // Absent (an older server, a cached body minted before this change) ⇒ the conservative
+            // reading: fall through to the parse and treat "no parcel" as the miss it has always
+            // claimed to be. Under-claiming is safe here; over-claiming would put a "source
+            // unavailable" banner over land that is genuinely unregistered.
+            const serverOutcome = readServerOutcome(json);
+            if (serverOutcome === 'unreachable' || serverOutcome === 'unconfigured' ||
+                serverOutcome === 'unknown-source') {
+                const reason = (json && typeof json === 'object')
+                    ? (json as { reason?: unknown }).reason
+                    : undefined;
+                return unreachable(
+                    serverOutcome === 'unconfigured'
+                        // NOT an outage and NOT a miss — the deployment holds no credential for
+                        // this register, so nothing was ever asked. It rides the `unreachable` arm
+                        // because the ONE thing it is not is an answer about the land.
+                        ? `${cfg.label} needs a credential this deployment does not hold`
+                        : typeof reason === 'string' && reason.length > 0
+                            ? `${cfg.label} did not answer: ${reason}`
+                            : `${cfg.label} did not answer.`,
+                );
+            }
+
+            const parcel = parseWfsProxyResponse(json, cfg.id);
+            span.setAttribute('pryzm.parcel.hit', parcel !== null);
+            if (parcel) {
+                span.setAttribute('pryzm.parcel.outcome', 'ok');
+                span.setAttribute('pryzm.parcel.refcat', parcel.refcat);
+                span.setAttribute('pryzm.parcel.areaM2', parcel.areaM2);
+                console.log(
+                    `[gis] ${cfg.id}: parcel ${parcel.refcat} (~${parcel.areaM2.toFixed(0)} m², ${parcel.ring.length} pts)` +
+                    (parcel.address ? ` @ ${parcel.address}` : ''),
+                );
+                return { status: 'ok', parcel };
+            }
+            span.setAttribute('pryzm.parcel.outcome', 'miss');
+            console.log(`[gis] ${cfg.id}: no parcel at ${lat.toFixed(6)}, ${lon.toFixed(6)} `
+                + '(a VERIFIED miss — the source answered and holds nothing here)');
+            return { status: 'miss' };
+        } finally {
+            span.end();
+        }
+    }
+
     return {
         id: cfg.id,
         label: cfg.label,
+        // ⛔ A NARROWING VIEW, NEVER A SECOND FETCH (see `ParcelProvider.fetchParcelAtPoint`).
         async fetchParcelAtPoint(lon: number, lat: number): Promise<ParcelFeature | null> {
-            const span = _tracer.startSpan('pryzm.parcel.fetchParcelAtPoint');
-            span.setAttribute('pryzm.parcel.provider', cfg.id);
-            try {
-                if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
-                    span.setAttribute('pryzm.parcel.hit', false);
-                    return null;
-                }
-                span.setAttribute('pryzm.parcel.lon', lon);
-                span.setAttribute('pryzm.parcel.lat', lat);
-
-                const url =
-                    `${cfg.endpoint}?lon=${encodeURIComponent(String(lon))}` +
-                    `&lat=${encodeURIComponent(String(lat))}`;
-
-                let res: Response;
-                try {
-                    res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
-                } catch (err) {
-                    console.warn(`[gis] ${cfg.id}: network error`, err);
-                    span.setAttribute('pryzm.parcel.hit', false);
-                    return null;
-                }
-                if (!res.ok) {
-                    console.warn(`[gis] ${cfg.id}: proxy returned`, res.status, res.statusText);
-                    span.setAttribute('pryzm.parcel.hit', false);
-                    return null;
-                }
-
-                let json: unknown;
-                try {
-                    json = await res.json();
-                } catch (err) {
-                    console.warn(`[gis] ${cfg.id}: response was not JSON`, err);
-                    span.setAttribute('pryzm.parcel.hit', false);
-                    return null;
-                }
-
-                const parcel = parseWfsProxyResponse(json, cfg.id);
-                span.setAttribute('pryzm.parcel.hit', parcel !== null);
-                if (parcel) {
-                    span.setAttribute('pryzm.parcel.refcat', parcel.refcat);
-                    span.setAttribute('pryzm.parcel.areaM2', parcel.areaM2);
-                    console.log(
-                        `[gis] ${cfg.id}: parcel ${parcel.refcat} (~${parcel.areaM2.toFixed(0)} m², ${parcel.ring.length} pts)` +
-                        (parcel.address ? ` @ ${parcel.address}` : ''),
-                    );
-                } else {
-                    console.log(`[gis] ${cfg.id}: no parcel at ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
-                }
-                return parcel;
-            } finally {
-                span.end();
-            }
+            const outcome = await fetchParcelOutcomeAtPoint(lon, lat);
+            return outcome.status === 'ok' ? outcome.parcel : null;
         },
+        fetchParcelOutcomeAtPoint,
     };
+}
+
+/** The server's own `outcome` discriminator, or null when the body carries none. */
+function readServerOutcome(json: unknown): string | null {
+    if (!json || typeof json !== 'object') return null;
+    const v = (json as { outcome?: unknown }).outcome;
+    return typeof v === 'string' && v.length > 0 ? v : null;
 }

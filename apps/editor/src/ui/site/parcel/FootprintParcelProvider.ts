@@ -20,7 +20,7 @@
 // point (an honest "nothing here — draw instead"), and NEVER throws.
 
 import { trace } from '@opentelemetry/api';
-import type { ParcelFeature, ParcelProvider } from './ParcelProvider.js';
+import type { ParcelFeature, ParcelLookupOutcome, ParcelProvider } from './ParcelProvider.js';
 import { fetchContextBuildings } from '../../geospatial/contextBuildings.js';
 // The PURE pick lives in footprintPick.ts (type-only context import) so it is testable without
 // dragging in the context-buildings network graph (contextTiles → pmtiles).
@@ -39,13 +39,28 @@ export const footprintParcelProvider: ParcelProvider = {
     id: 'footprint',
     label: 'Building footprint (OSM) — not a cadastral parcel',
 
+    // ⛔ A NARROWING VIEW, NEVER A SECOND FETCH (see `ParcelProvider.fetchParcelAtPoint`).
     async fetchParcelAtPoint(lon: number, lat: number): Promise<ParcelFeature | null> {
+        const outcome = await this.fetchParcelOutcomeAtPoint(lon, lat);
+        return outcome.status === 'ok' ? outcome.parcel : null;
+    },
+
+    /**
+     * §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS — the honest arm the interface requires.
+     *
+     * ⭐ THE DISTINCTION IS REAL HERE TOO, and it was previously thrown away at the `catch`: an
+     * OSM tile read that FAILS is not a place with no buildings. The footprint layer is the
+     * universal last resort, so a flattened failure here is the last chance to tell the user their
+     * click found nothing because nothing is there, rather than because a tile read fell over.
+     */
+    async fetchParcelOutcomeAtPoint(lon: number, lat: number): Promise<ParcelLookupOutcome> {
         const span = _tracer.startSpan('pryzm.parcel.fetchParcelAtPoint');
         span.setAttribute('pryzm.parcel.provider', 'footprint');
         try {
             if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
                 span.setAttribute('pryzm.parcel.hit', false);
-                return null;
+                span.setAttribute('pryzm.parcel.outcome', 'miss');
+                return { status: 'miss' };
             }
             span.setAttribute('pryzm.parcel.lon', lon);
             span.setAttribute('pryzm.parcel.lat', lat);
@@ -54,23 +69,27 @@ export const footprintParcelProvider: ParcelProvider = {
             try {
                 collection = await fetchContextBuildings(lat, lon);
             } catch (err) {
-                console.warn('[gis] footprint: context-buildings fetch failed', err);
+                const reason = `the OSM footprint layer could not be read: ${String(err)}`;
+                console.warn(`[gis] footprint: UNREACHABLE (not a miss) — ${reason}`);
                 span.setAttribute('pryzm.parcel.hit', false);
-                return null;
+                span.setAttribute('pryzm.parcel.outcome', 'unreachable');
+                return { status: 'unreachable', reason };
             }
 
             const parcel = pickFootprintAtPoint(collection?.features ?? [], lon, lat);
             span.setAttribute('pryzm.parcel.hit', parcel !== null);
             if (parcel) {
+                span.setAttribute('pryzm.parcel.outcome', 'ok');
                 span.setAttribute('pryzm.parcel.refcat', parcel.refcat);
                 console.log(
                     `[gis] footprint: OSM building outline ${parcel.refcat} (~${parcel.areaM2.toFixed(0)} m², ` +
                     `${parcel.ring.length} pts) — labelled as a footprint, NOT a cadastral parcel.`,
                 );
-            } else {
-                console.log(`[gis] footprint: no OSM building outline at ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+                return { status: 'ok', parcel };
             }
-            return parcel;
+            span.setAttribute('pryzm.parcel.outcome', 'miss');
+            console.log(`[gis] footprint: no OSM building outline at ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+            return { status: 'miss' };
         } finally {
             span.end();
         }

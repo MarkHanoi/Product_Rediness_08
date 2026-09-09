@@ -229,6 +229,14 @@ function pickCandidate(candidates, lat, lon) {
 async function fetchTextOnce(url, deps = {}) {
     const fetchImpl = deps.fetchImpl || fetch;
     const timeoutMs = deps.timeoutMs || UPSTREAM_TIMEOUT_MS;
+    // §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS — the optional failure sink. Every leg in this file
+    // collapsed "the register did not answer" and "the register holds nothing here" into the same
+    // `null`, all the way out to `{ parcel: null }` on the wire, so a Danish click during an
+    // outage told the user their land does not exist. The sink is how the two facts travel out
+    // without changing any exported signature: a leg that FAILS says so here; a leg that answers
+    // empty leaves it untouched. An absent sink is exactly today's behaviour.
+    const failures = Array.isArray(deps.failures) ? deps.failures : null;
+    let lastFailure = null;
     for (let attempt = 0; attempt < 2; attempt++) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -241,16 +249,28 @@ async function fetchTextOnce(url, deps = {}) {
                 },
                 signal: ctrl.signal,
             });
-            if (res.status === 429 || res.status === 503 || res.status === 504) continue;
-            if (!res.ok) { console.warn(`[dk-matrikel] HTTP ${res.status}`); return null; }
+            if (res.status === 429 || res.status === 503 || res.status === 504) {
+                lastFailure = `HTTP ${res.status} (retried)`;
+                continue;
+            }
+            if (!res.ok) {
+                console.warn(`[dk-matrikel] HTTP ${res.status}`);
+                if (failures) failures.push(`HTTP ${res.status}`);
+                return null;
+            }
             const text = await res.text();
+            // ⚠ AN EMPTY BODY IS NOT A FAILURE HERE. The upstream answered; it simply said nothing.
+            // Pushing it to the sink would report every genuinely-unregistered point as an outage,
+            // which is the same defect inverted (over-claiming instead of under-claiming).
             return text && text.length > 0 ? text : null;
         } catch (err) {
-            console.warn(`[dk-matrikel] fetch failed (attempt ${attempt + 1}): ${err?.message ?? err}`);
+            lastFailure = String(err?.message ?? err);
+            console.warn(`[dk-matrikel] fetch failed (attempt ${attempt + 1}): ${lastFailure}`);
         } finally {
             clearTimeout(timer);
         }
     }
+    if (failures && lastFailure !== null) failures.push(lastFailure);
     return null;
 }
 
@@ -372,7 +392,9 @@ export async function fetchDawaParcelAtPoint(lon, lat, deps = {}) {
             via: 'dawa-jordstykker',
         };
     } catch (err) {
+        // A malformed / unparseable body is the SOURCE failing, not the land being empty.
         console.warn('[dk-matrikel] DAWA leg failed (non-fatal):', err?.message ?? err);
+        if (Array.isArray(deps.failures)) deps.failures.push(`DAWA: ${String(err?.message ?? err)}`);
         return null;
     }
 }
@@ -419,22 +441,41 @@ export function makeDkParcelHandler(deps = {}) {
         if (lat < 54.4 || lat > 57.9 || lon < 7.7 || lon > 15.3) {
             setProxyCacheHeaders(res);
             res.setHeader('X-Matrikel-Cache', 'OUT-OF-BOUNDS');
-            return res.status(200).json({ parcel: null });
+            return res.status(200).json({ parcel: null, outcome: 'out-of-area' });
         }
+        // §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS — one sink per request, handed to the legs through
+        // `deps`. It is deliberately NOT part of the cache key or the cached value: a cached parcel
+        // is a HIT, and a failure is never cached (`fetchDkParcelAtPoint` only caches a result).
+        const failures = [];
         let parcel = null;
         try {
-            parcel = await fetchDkParcelAtPoint(lon, lat, deps);
+            parcel = await fetchDkParcelAtPoint(lon, lat, { ...deps, failures });
         } catch (err) {
             console.warn('[dk-matrikel] unexpected error:', err?.message ?? err);
+            failures.push(String(err?.message ?? err));
             parcel = null;
         }
         setProxyCacheHeaders(res);
         if (!parcel) {
+            // ⛔ THE TWO ARMS THAT USED TO BE ONE VALUE. `unreachable` means a leg was asked and did
+            // not answer; the client keeps the user's selection and names the outage. `miss` means
+            // every leg answered and Denmark holds no parcel here — a real finding about the land.
+            if (failures.length > 0) {
+                res.setHeader('X-Matrikel-Cache', 'UPSTREAM-UNREACHABLE');
+                // Never cache an outage — a 7-day CDN entry would turn a 30-second wobble into a
+                // week of "no parcel here" for every user who lands on that tile.
+                res.setHeader('Cache-Control', 'no-store');
+                return res.status(200).json({
+                    parcel: null,
+                    outcome: 'unreachable',
+                    reason: failures.join(' · '),
+                });
+            }
             res.setHeader('X-Matrikel-Cache', 'MISS-EMPTY');
-            return res.status(200).json({ parcel: null });
+            return res.status(200).json({ parcel: null, outcome: 'empty' });
         }
         res.setHeader('X-Matrikel-Cache', 'HIT-OR-FETCH');
-        return res.status(200).json({ parcel: { ...parcel, source: 'matrikel-dk' } });
+        return res.status(200).json({ parcel: { ...parcel, source: 'matrikel-dk' }, outcome: 'ok' });
     };
 }
 

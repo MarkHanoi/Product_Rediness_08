@@ -1086,6 +1086,24 @@ const usMdUrl = arcgisPointUrl(
     'https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_ParcelBoundaries/MapServer/0/query',
     'ACCTID,JURSCODE,GEOGCODE,ADDRESS,CITY,DESCTOWN,ZIPCODE,RESITYP,POLYDATE',
 );
+/**
+ * DELAWARE (lane USA-DELAWARE-DEMO, 2026-09-09) -- FirstMap statewide parcels, the state
+ * aggregation of the three county fabrics.
+ * ⚠ HOST IS enterprise.firstmap.delaware.gov. Two OTHER spellings are wrong and both were probed:
+ *   - `enterprise.firstmapTEST.delaware.gov` answers 200 but is a TEST host (it is the one the
+ *     incoming research named); a demo must not ride it.
+ *   - `firstmap.delaware.gov` WITHOUT the `enterprise.` prefix is HTTP 404 + a meta-refresh to
+ *     delaware.gov/topics/404Error.shtml. Do not "simplify" the URL to it.
+ * ⚠ The Sussex COUNTY server (map.sussexcountyde.gov) is HTTP 403 behind a RedShield WAF on every
+ * path probed, which is WHY this is the state layer -- and it costs nothing, because the state
+ * layer carries each county's own PIN verbatim (three distinct county id grammars measured).
+ * outFields is the layer's COMPLETE attribute set minus the shape columns; there is no address
+ * field to ask for.
+ */
+const usDeUrl = arcgisPointUrl(
+    'https://enterprise.firstmap.delaware.gov/arcgis/rest/services/PlanningCadastre/DE_StateParcels/FeatureServer/0/query',
+    'PIN,ACRES,COUNTY,UPDATED',
+);
 
 /**
  * AUSTRALIA — six state cadastres (lane AU-OPEN, live-probed 2026-09-03; descriptors mirrored from
@@ -2177,6 +2195,31 @@ export const EU_CADASTRE_SOURCES = {
             const refcat = acct && juris ? `${juris}/${acct}` : acct || juris;
             const addr = jsonProp(p, 'ADDRESS');
             return { refcat, areaM2: ringAreaM2(c.ring), address: addr ? String(addr) : null };
+        },
+    },
+    'us-de': {
+        // 3 of 3 counties -- New Castle, Kent, Sussex. Delaware HAS only three, and the per-county
+        // counts sum EXACTLY to the unfiltered 451,344, so this is measured-complete statewide.
+        guard: (lat, lon) => lat >= 38.45 && lat <= 39.85 && lon >= -75.79 && lon <= -74.98,
+        url: usDeUrl,
+        format: 'arcgis',
+        source: 'us-de-firstmap-stateparcels',
+        normalise: (c) => {
+            const p = c.props || {};
+            // PIN is the COUNTY's own parcel id, carried through the state aggregation verbatim --
+            // the three counties' grammars are visibly different (Sussex "335-5.00-12.00", Kent
+            // "2-05-07709-05-0101-00001", New Castle "1802000032"), which is the proof it was never
+            // re-keyed. There is no secondary id; OBJECTID is an ArcGIS row number, NOT a parcel
+            // identifier, and is deliberately not used as a fallback.
+            const refcat = String(jsonProp(p, 'PIN') ?? '').trim();
+            // ⚠ NO ADDRESS EXISTS. The layer's whole field list is OBJECTID/PIN/ACRES/COUNTY/
+            // UPDATED/Shape__Area/Shape__Length. Null is the source's answer, not a parse failure,
+            // and must stay null (CONTEXT-DATA-HONESTY). Layer 1 (centroids) has no street address
+            // either, so there is nothing to join even at the cost of a second round-trip.
+            // ⚠ ACRES is an ASSESSMENT acreage and is NOT used for area -- the US-wide rule. It was
+            // used once as an INDEPENDENT CHECK on the ring parse and agreed to 0.146 % at the demo
+            // parcel (ring 1,935,982 m2 vs ACRES 477.69334699 -> 1,933,156 m2).
+            return { refcat, areaM2: ringAreaM2(c.ring), address: null };
         },
     },
     // ── Lane PROXY-EE-LT-PL (2026-09-02): the E9 registration wave's named residual. The three

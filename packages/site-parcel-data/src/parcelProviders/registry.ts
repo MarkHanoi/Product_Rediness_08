@@ -158,6 +158,19 @@ import {
     US_MD_BBOX,
     isInMaryland,
 } from '../countryAdapters/us/usStatewideParcelsWave2.js';
+// LANE USA-DELAWARE-DEMO (2026-09-09) — DELAWARE, the 22nd US row, on the identical bbox-`contains`
+// + bbox-specificity shape as every US row above. It fills the Mid-Atlantic hole between US-MD,
+// US-NJ and US-VA. ⛔ Its lane evidence is NOT another statewide probe: the parcel door named in the
+// incoming research (the Sussex COUNTY server) is HTTP 403 behind a RedShield WAF on all five paths
+// probed, and the state host named was `firstmapTEST`. See usDelawareParcels.ts for both in full.
+// ⭐ The `note` is READ FROM THE CONFIG rather than re-typed here. Every US row above carries its
+// evidence paragraph TWICE — once in its adapter config and once in this row — and the two copies
+// are already free to drift. One subject, one spelling (C84 EI-9): this row cites the config's.
+import {
+    US_DE_BBOX,
+    US_DE_PARCELS,
+    isInDelaware,
+} from '../countryAdapters/us/usDelawareParcels.js';
 // LANE RO (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Romania row (contains is
 // claimsNation('RO'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
 import { ROMANIA_BBOX } from '../countryAdapters/ro/roJurisdiction.js';
@@ -1022,6 +1035,18 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         contains: isInMaryland,
         note: 'Maryland statewide parcel boundaries — VERIFIED-LIVE 2026-09-06, and it OVERTURNS the US-MD refusal recorded earlier the same day, which read HTTP 503 "Site Maintenance" from geodata.md.gov and called Maryland an OUTAGE. ⚠ THE HOST DID NOT RECOVER: geodata.md.gov is STILL 503 on re-probe. The live iMAP host is mdgeodata.md.gov — an `md` PREFIX, a different hostname — serving PlanningCadastre/MD_ParcelBoundaries/MapServer/0, its own serviceDescription "parcel polygons of the entire state … from the State Department of Assessments and Taxation", native EPSG:102100, 2,288,725 features. Point-intersect @ Baltimore City (39.291530,-76.587071) → HTTP 200, 16196 bytes: ACCTID "0301011738 004", JURSCODE BACI, ADDRESS "2107 E BALTIMORE ST", CITY BALTIMORE, 6-vertex WGS84 ring. COVERAGE MEASURED: returnDistinctValues on `JURSCODE` = 24 — Maryland\'s 23 counties plus Baltimore City. FRESHNESS: max(`POLYDATE`) = "2026JAN" (a YYYYMON string, not an epoch). ⚠ ACCTID IS UNIQUE ONLY WITHIN ITS JURISDICTION — the statewide-unique key is the PAIR JURSCODE+ACCTID, the same shape as OH PIN vs STATEWIDE_PIN and NY PRINT_KEY vs SBL, so JURSCODE rides in the locality fields and must be shown beside the id. Area is geometry-derived; ring verified against `Shape.STArea()` at ratio 1.0000 on two of three sampled parcels — the third read 2.96× because it is MULTI-RING and the client areas the outer ring only (pre-existing on every US row, named not averaged). Zoning/FAR are municipal, NEVER inferred here.',
     },
+    {
+        // US-DE — Delaware FirstMap state parcels, 3 of 3 counties (measured, and the per-county
+        // counts sum EXACTLY to the unfiltered total, so there is no unlabelled residue).
+        regionCode: 'US-DE',
+        countryName: 'United States (Delaware · statewide)',
+        providerId: 'us-de-firstmap-stateparcels',
+        label: 'DE FirstMap State Parcels (Delaware · statewide)',
+        proxyPath: '/api/parcel/us-de',
+        kind: 'cadastral',
+        contains: isInDelaware,
+        note: US_DE_PARCELS.note,
+    },
     // ══════════════════════════════════════════════════════════════════════════════════════
     // LANE AU-OPEN (2026-09-03) — AUSTRALIA, the six OPEN states + two DECLARED DEFERRALS.
     // ══════════════════════════════════════════════════════════════════════════════════════
@@ -1602,6 +1627,11 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     'US-CT': US_CT_BBOX,
     'US-IN': US_IN_BBOX,
     'US-MD': US_MD_BBOX,
+    // Lane USA-DELAWARE-DEMO (2026-09-09). ~1.13 deg^2 -- SMALLER than both rows it overlaps
+    // (US-MD ~8.33, US-NJ ~4.4), so Delaware is tried FIRST on Delaware soil and the enclosing rows
+    // stay the fall-through. The cost is one wasted upstream call per click in southwest New Jersey,
+    // which is the same trade the US-NJ row already documents for NYC_BBOX over the Hudson.
+    'US-DE': US_DE_BBOX,
     // L-12871 batch (2026-09-02). ⚠ These bboxes are the rows' SPECIFICITY metric only — the
     // rows' `contains` is `claimsNation`, never the rectangle. Since the national filter in
     // `resolveParcelCandidates` keeps at most one country on a claim, specificity now orders

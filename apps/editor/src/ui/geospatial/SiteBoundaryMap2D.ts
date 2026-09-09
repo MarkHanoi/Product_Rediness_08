@@ -275,13 +275,9 @@ import {
     type ParcelCandidateChoice,
 } from '../site/parcel/parcelCandidateChoice.js';
 import { footprintParcelProvider } from '../site/parcel/FootprintParcelProvider.js';
-// §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (L-13295) — the honest point lookup, and the provider
-// identity that says when it may be used. Imported as a PAIR deliberately: the narrowing at the
-// call site is only sound while the two refer to the same provider.
-import {
-    catastroParcelProvider,
-    fetchParcelOutcomeAtPoint,
-} from '../site/parcel/CatastroParcelProvider.js';
+// §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (L-13295) — the honest point lookup is no longer imported
+// from ONE adapter here. It is a required method on `ParcelProvider` (L-13299), so this surface
+// asks whichever provider it was given and cannot be right for Spain and wrong everywhere else.
 // §STARTUP-SELECT-IS-NOT-DWELL (L-12931) — the mark that splits the user's dwell on the 2D map
 // from the machine cost of turning her click into a 3D render. A MARK, never a gate.
 import { markStartupPhase } from '../../engine/startupBudget.js';
@@ -2741,21 +2737,26 @@ export function mountSiteBoundaryMap2D(
         parcelFetchInFlight = true;
         setChip('Fetching parcel…');
         try { map.getCanvas().style.cursor = 'progress'; } catch { /* ignore */ }
-        // ⭐ §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (L-13295) — ask the HONEST lookup when we can.
-        // `parcelProvider.fetchParcelAtPoint` narrows three outcomes to `ParcelFeature | null`,
-        // and this handler then reads `null` as "there is no parcel here". For the Catastro
-        // provider we can do better: `fetchParcelOutcomeAtPoint` keeps miss and unreachable
-        // apart, and the `!parcel` branch below refuses to erase the user's selection on the
-        // latter. Any other provider keeps exactly today's behaviour — the narrowing is explicit
-        // and local, never a silent widening of someone else's contract.
+        // ⭐⭐ §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (L-13295, MADE REACHABLE 2026-09-09 · L-13299).
+        //
+        // ⛔ THIS WAS GUARDED BY `parcelProvider === catastroParcelProvider`, AND THAT IDENTITY IS
+        // NEVER TRUE. The mount site (`GISAreaLayout.ts`) passes `defaultParcelProvider`, which is
+        // the ROUTING REGISTRY — so in Spain, in France, in every country, the honest branch below
+        // was dead code and the founder's outage still read as "no parcel found here". The fix
+        // shipped, the guard made it unreachable, and the test that covered the Catastro provider
+        // in isolation stayed green: [[committed-is-not-reachable]] + [[same-rule-two-implementations]]
+        // in one line.
+        //
+        // The three-arm lookup is now on the `ParcelProvider` INTERFACE, so there is nothing left
+        // to narrow to and no provider left to special-case. Every provider — Catastro, the WFS
+        // cadastres (FR/NL/NO/DE/CH/…), Denmark, the OSM footprint and the registry that routes
+        // between them — answers `ok` / `miss` / `unreachable`, and this handler reads it verbatim.
         const lookup: Promise<{ parcel: ParcelFeature | null; unreachable: string | null }> =
-            parcelProvider === catastroParcelProvider
-                ? fetchParcelOutcomeAtPoint(lng, lat).then((o) => (
-                    o.status === 'ok'
-                        ? { parcel: o.parcel, unreachable: null }
-                        : { parcel: null, unreachable: o.status === 'unreachable' ? o.reason : null }
-                ))
-                : parcelProvider.fetchParcelAtPoint(lng, lat).then((pf) => ({ parcel: pf, unreachable: null }));
+            parcelProvider.fetchParcelOutcomeAtPoint(lng, lat).then((o) => (
+                o.status === 'ok'
+                    ? { parcel: o.parcel, unreachable: null }
+                    : { parcel: null, unreachable: o.status === 'unreachable' ? o.reason : null }
+            ));
         void lookup.then(({ parcel, unreachable }) => {
             // §L-12912 — the in-flight guard is released in the FINAL `.then` below, after the
             // optional footprint lookup, so a second click cannot race a half-rendered card.
