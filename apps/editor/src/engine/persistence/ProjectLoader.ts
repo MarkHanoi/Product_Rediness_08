@@ -46,6 +46,7 @@
  */
 
 import { CommandManager } from '@pryzm/command-registry';
+import { SNAPSHOT_FAMILY_COVERAGE } from './snapshotFamilyCoverage';
 // §LOAD-CHUNKED / §PROGRESS-SCHEDULER — the chunked-load yield. Visible: the
 // P3-owned frame bus (progressive paint, unchanged). Hidden: an unclamped
 // macrotask, so the load completes instead of parking at 0 Hz. No new rAF.
@@ -3182,6 +3183,53 @@ export class ProjectLoader {
                 // make the audit accuse every legitimately-restored storey. Incomplete
                 // expectations do not weaken an audit quietly; they make it cry wolf.
                 __pushIds(s.levels);
+
+                // §EXPECTATION-IS-DERIVED-FROM-THE-LEDGER (founder 2026-09-09 · L-13275 · C13 §3.10)
+                //
+                // ⭐ THIS IS THE SIXTH TIME A FAMILY HAS BEEN SERIALIZED, RESTORED, AND LEFT OUT
+                // OF THE LIST ABOVE. The five previous reasons are written out at length in the
+                // comments you just read — §L-711 `lighting`, L-9948 `boundaryLines`, §PERSIST103
+                // the five compounds, §COMPONENT-PLACE `components`, §C13-SCENE-ID-KEY `levels`.
+                // Each one was fixed by adding a line. The SIXTH was `spaceEnvelopes`, and it is
+                // what made the founder's own log read
+                //     `[C13 VIOLATION] scene.foreignElement x7 (spaceEnvelope_...)`
+                // on the same open where `PERSIST103 restored 7 compound record(s):
+                // spaceEnvelope=7` printed. Seven restored, seven accused: the audit was
+                // reporting this project's own envelopes as survivors of a prior project.
+                //
+                // ⛔ A HAND-WRITTEN LIST THAT MUST STAY IN STEP WITH ANOTHER LIST IS THE DEFECT,
+                // NOT THE MISSING LINE. Adding a seventh entry would fix `spaceEnvelopes` and
+                // leave the next family to be discovered the same way — by the founder, in a red
+                // P0 line, about data that was never at risk. `bathroomPods` is already queued
+                // to be that seventh.
+                //
+                // So the expectation is now DERIVED from `SNAPSHOT_FAMILY_COVERAGE`, the ledger
+                // that already declares every persisted family and its snapshot key and is
+                // itself gated in both directions against the plugin stores. The default flips:
+                // a family in the ledger is EXPECTED unless it is explicitly named below as
+                // derived. Omission stops being silent — it becomes impossible.
+                //
+                // ⚠ THE EXCLUSIONS ARE C13 §3.10's, AND THEY ARE NAMED, NOT INFERRED. Redetected
+                // rooms, room-bounding lines and annotations are DERIVED: they are rebuilt at
+                // load rather than restored one-for-one, so their ids legitimately differ from
+                // the snapshot's and auditing them would invert this very defect into false
+                // NEGATIVES. `§C13-DERIVED-NOT-AUDITED` is the reason, stated once.
+                const __DERIVED_NOT_AUDITED: ReadonlySet<string> = new Set([
+                    'rooms',        // redetected by the room solver, new ids every load
+                    'annotations',  // rebuilt from geometry; also the `dimension` twin's key
+                ]);
+                for (const row of SNAPSHOT_FAMILY_COVERAGE) {
+                    if (row.snapshotKey === null) continue;                     // UNPERSISTED / not-model-state
+                    if (__DERIVED_NOT_AUDITED.has(row.snapshotKey)) continue;   // C13 §3.10
+                    __pushIds(s[row.snapshotKey]);
+                }
+                // ⭐ THE EXPLICIT CALLS ABOVE ARE KEPT DELIBERATELY. `__pushIds` dedupes nothing,
+                // but `__expectedIds` is consumed as a membership test, so a duplicate id is
+                // harmless — and keeping both means this change cannot NARROW the expectation
+                // even if a ledger row is wrong. Belt and braces, in the direction that fails
+                // safe: a too-wide expectation misses a real leak in one family; a too-narrow
+                // one cries wolf on every load, which is what just happened.
+
                 (globalThis as unknown as {
                     __pryzmLoadedProjectExpectation?: { projectId: string; elementIds: string[] };
                 }).__pryzmLoadedProjectExpectation = {
