@@ -82,4 +82,31 @@ export class SpaceEnvelopeStore extends Store<SpaceEnvelopeData> {
         for (const e of this.state.values()) if (e.withinId === id) out.push(e);
         return out;
     }
+
+    /**
+     * ⭐ Every envelope belonging to one massing group — ADR-0383 D1 / S1.
+     *
+     * ⭐ A SCAN, NOT AN INDEX, AND FOR EXACTLY THE REASON `childrenOf` GIVES. The edge
+     * is stored on the MEMBER (`group`), which is the direction C84 EI-PROP-d requires
+     * — the record must hold the edge to walk. Answering from the GROUP's side is
+     * therefore O(N), and that is acceptable: a master plan has a handful of blocks and
+     * tens of storeys, not thousands of records. The alternative is a `memberIds` array
+     * held somewhere per group, which would be a SECOND copy of one relationship and
+     * could disagree with the first (C84 EI-9) — and per ADR-0383 D1 there is nowhere
+     * for it to live, because a group is deliberately not an element and not a store.
+     *
+     * ⛔ `null` IS A REAL ARGUMENT, NOT A MISSING ONE: it answers *"which envelopes are
+     * UNGROUPED"*, which is its own bucket under ADR-0383 D3 and the bucket every
+     * envelope written before that ADR sits in. Passing `null` deliberately is how the
+     * single-building flow stays byte-identical; a second hand-rolled
+     * `filter(e => e.group === null)` somewhere else would be the same rule with two
+     * implementations, which is this repository's most-repeated defect.
+     */
+    byGroup(groupId: string | null): readonly SpaceEnvelopeData[] {
+        const out: SpaceEnvelopeData[] = [];
+        for (const e of this.state.values()) {
+            if ((e.group?.id ?? null) === groupId) out.push(e);
+        }
+        return out;
+    }
 }

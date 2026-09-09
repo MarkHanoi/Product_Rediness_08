@@ -57,6 +57,8 @@ const OWN: ExistingLevelEnvelope = {
     name: 'My ground floor',
     footprintAreaM2: 210,
     provenance: authoredProvenance('drawn in the site envelope tool'),
+    // §MASSING-GROUPS (ADR-0383) — the UNGROUPED bucket: this fixture is the single-building flow.
+    group: null,
 };
 const GENERATED: ExistingLevelEnvelope = {
     id: 'spaceEnvelope_gen',
@@ -64,6 +66,7 @@ const GENERATED: ExistingLevelEnvelope = {
     name: 'Proposed ground floor · 301 m²',
     footprintAreaM2: 301,
     provenance: systemProvenance('computed', 'fitted by the massing solver'),
+    group: null,
 };
 const PREDATES: ExistingLevelEnvelope = {
     id: 'spaceEnvelope_old',
@@ -71,6 +74,7 @@ const PREDATES: ExistingLevelEnvelope = {
     name: 'Proposed ground floor · 431 m²',
     footprintAreaM2: 431,
     provenance: provenancePredatingTheField(),
+    group: null,
 };
 const UPSTAIRS: ExistingLevelEnvelope = { ...OWN, id: 'spaceEnvelope_up', levelId: 'L1' };
 

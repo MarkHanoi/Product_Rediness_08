@@ -52,6 +52,32 @@
 // away a generated plate either (that is an open founder decision, refused with the route out).
 // ONE resolver, two rules, two voices — the sentence always says WHO made what it replaces.
 //
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §MASSING-GROUPS (lane MP-SPINE, ADR-0383 D3, 2026-09-09) — THE RULE IS NOW
+// "ON THIS STOREY, **IN THIS GROUP**"
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ADR-0383 §2 measured the defect this closes and called it the whole ADR in one sentence:
+// `SpaceEnvelope` carried exactly TWO identity axes — `levelId` and `role` — so every
+// *"is there already one here?"* question in the product was **`levelId`-only**. §L-13038 made
+// that CORRECT for one building. For a master plan it is exactly wrong: **Block A's Level 1 and
+// Block B's Level 1 are PEERS, not RIVALS**, and drawing the second building either deleted the
+// first (`kind: 'replace'`) or refused (`kind: 'blocked'`). Master planning was not a missing
+// feature bolted onto a working one — it was a feature this deliberately-correct rule FORBADE.
+//
+// ⭐ BACK-COMPATIBILITY FALLS OUT BY CONSTRUCTION, NOT BY CARE. The existing single-building flow
+// is a master plan with exactly ONE unnamed group, so:
+//   · create UNGROUPED on a storey → supersedes only UNGROUPED envelopes → byte-identical to today;
+//   · create in Block B      → supersedes only Block B      → Block A is untouched.
+// The `groupId` parameter DEFAULTS to `null`, and `null` is not "unspecified" — it is the
+// UNGROUPED BUCKET, which is the bucket every envelope written before ADR-0383 sits in. That is
+// why the two existing call sites (`adoptProposalAsEnvelope`, `massingOptionModel`) needed no edit
+// and no longer CAN sweep away a master-plan block by accident.
+//
+// ⛔ THE SCOPING IS INSIDE THIS RESOLVER, NEVER AT THE CALLER. A caller that filtered its own
+// rows would be the second implementation of the group rule, and this repository's most-repeated
+// defect is one rule with two implementations — the fix lands in the copy nobody is looking at.
+// Callers hand over every level envelope on the storey; the bucket is decided here, once.
+//
 // PURE: no store of its own, no DOM, no bus, no clock, no RNG. Never throws.
 
 import { trace } from '@opentelemetry/api';
@@ -60,6 +86,7 @@ import {
     hasKnownOrigin,
     type ValueProvenance,
 } from '@pryzm/schemas/provenance';
+import type { SpaceEnvelopeGroup } from '@pryzm/schemas';
 import type { SpaceEnvelopeReadHandle } from './intendedAreaChannel';
 
 const _tracer = trace.getTracer('pryzm.site.levelEnvelopeSupersession');
@@ -80,6 +107,19 @@ export interface ExistingLevelEnvelope {
     /** `SpaceEnvelope.footprintAreaM2`; `null` when unreadable. ⛔ Never a gross floor area. */
     readonly footprintAreaM2: number | null;
     readonly provenance: ValueProvenance | null;
+    /**
+     * ⭐ WHICH BUILDING this envelope belongs to — ADR-0383 D1. `null` ⇒ UNGROUPED, which is
+     * every envelope written before that ADR and every envelope the single-building flow creates.
+     *
+     * ⛔ `null` HERE MEANS "NO GROUP", AND IT NEVER MEANS "PRYZM COULD NOT READ ONE". A record
+     * carrying a `group` value that is not a readable `{ id, label }` is DROPPED from the read
+     * entirely — the same answer `readLevelEnvelopes` already gives for an unreadable `id` or
+     * `levelId`, and for the same reason: those are IDENTITY fields, and a row PRYZM cannot
+     * identify may not be placed in a bucket by guesswork. (`provenance` is the one field where an
+     * unreadable value BLOCKS instead of dropping the row, because that field authorises a
+     * DELETION.) §CONTEXT-DATA-HONESTY, L-581/L-616: a failure and an emptiness never share a value.
+     */
+    readonly group: SpaceEnvelopeGroup | null;
 }
 
 /** What a new level envelope on this storey should do about what is already there. */
@@ -164,7 +204,22 @@ export function readLevelEnvelopes(
             // — which BLOCKS below, exactly as an authored one does.
             const p = raw.provenance;
             const provenance = isRec(p) && ('origin' in p) ? (p as unknown as ValueProvenance) : null;
-            rows.push({ id, levelId, name, footprintAreaM2, provenance });
+            // §MASSING-GROUPS (ADR-0383 D1) — WHICH BUILDING, read exactly as strictly as `id`.
+            // ⛔ A `group` present but NOT a readable `{id,label}` DROPS THE ROW rather than
+            // reading `null`. `null` is a real bucket ("ungrouped"), so coercing an unreadable
+            // value into it would file a master-plan block under the single-building flow and
+            // make it eligible for supersession by a gesture that never meant to touch it.
+            // A failure and an emptiness must never share a value (§CONTEXT-DATA-HONESTY).
+            const g = raw.group;
+            let group: SpaceEnvelopeGroup | null = null;
+            if (g !== null && g !== undefined) {
+                if (!isRec(g)) continue;
+                const gid = typeof g.id === 'string' && g.id.length > 0 ? g.id : null;
+                const glabel = typeof g.label === 'string' && g.label.length > 0 ? g.label : null;
+                if (gid === null || glabel === null) continue;
+                group = { id: gid, label: glabel };
+            }
+            rows.push({ id, levelId, name, footprintAreaM2, provenance, group });
         }
         span.setAttribute('pryzm.supersede.levelEnvelopes', rows.length);
         return { readable: true, rows: Object.freeze(rows) };
@@ -276,19 +331,41 @@ export function describeLevelEnvelope(e: ExistingLevelEnvelope): string {
  * @param onStorey the level envelopes seated on the TARGET storey — already filtered by the
  *                 caller, because the storey is the caller's decision (`pickGroundLevel`) and
  *                 re-deciding it here would be a second answer to that question.
+ * @param rule     WHO is asking — PRYZM's massing solver, or the user's own authoring control.
+ * @param groupId  ⭐ §MASSING-GROUPS (ADR-0383 D3) — WHICH BUILDING is being created. Only
+ *                 envelopes in the SAME bucket are rivals; every other block on this storey is
+ *                 a PEER and is left completely alone.
+ *
+ *                 ⛔ `null` IS NOT "UNSPECIFIED" — it is the UNGROUPED BUCKET, and it is the
+ *                 bucket every envelope written before ADR-0383 sits in. That is precisely why
+ *                 it is the DEFAULT: the four existing call sites keep their exact behaviour
+ *                 without an edit, and gain the guarantee that they can no longer delete a
+ *                 master-plan block they never knew about.
  */
 export function resolveLevelEnvelopeSupersession(
     onStorey: readonly ExistingLevelEnvelope[],
     rule: SupersessionRule = GENERATED_MASSING_RULE,
+    groupId: string | null = null,
 ): LevelEnvelopeSupersession {
     const span = _tracer.startSpan('pryzm.site.resolveLevelEnvelopeSupersession');
     try {
-        if (onStorey.length === 0) {
+        // ⭐ THE BUCKET IS DECIDED HERE, ONCE, AND NEVER AT THE CALLER. A caller that filtered
+        // its own rows would be the SECOND implementation of the group rule, and one rule with
+        // two implementations is this repository's most-repeated defect — the fix always lands
+        // in the copy nobody is looking at, and the guarding test stays green because it
+        // measured the other one.
+        const inGroup = onStorey.filter((e) => (e.group?.id ?? null) === groupId);
+        span.setAttribute('pryzm.supersede.group', groupId ?? '(ungrouped)');
+        span.setAttribute('pryzm.supersede.onStorey', onStorey.length);
+        span.setAttribute('pryzm.supersede.inGroup', inGroup.length);
+        if (inGroup.length === 0) {
+            // Nothing of OURS here. Peers from other blocks may well be on this storey — they
+            // are not rivals, they are the master plan, and `none` is the honest answer.
             span.setAttribute('pryzm.supersede.kind', 'none');
             return { kind: 'none' };
         }
         span.setAttribute('pryzm.supersede.rule', rule === GENERATED_MASSING_RULE ? 'generated-massing' : 'own-authoring');
-        const blockers = onStorey.filter((e) => !rule.replaceable(e.provenance));
+        const blockers = inGroup.filter((e) => !rule.replaceable(e.provenance));
         if (blockers.length > 0) {
             span.setAttribute('pryzm.supersede.kind', 'blocked');
             span.setAttribute('pryzm.supersede.blockers', blockers.length);
@@ -309,18 +386,32 @@ export function resolveLevelEnvelopeSupersession(
             };
         }
         span.setAttribute('pryzm.supersede.kind', 'replace');
-        span.setAttribute('pryzm.supersede.targets', onStorey.length);
-        const names = onStorey.map(describeLevelEnvelope).join(', ');
-        const one = onStorey.length === 1;
+        span.setAttribute('pryzm.supersede.targets', inGroup.length);
+        const names = inGroup.map(describeLevelEnvelope).join(', ');
+        const one = inGroup.length === 1;
+        // ⭐ THE SENTENCE NAMES THE BUILDING WHENEVER THERE IS MORE THAN ONE. On a single-building
+        // project "on this storey" is unambiguous and the wording is unchanged, byte for byte. On
+        // a master plan it is NOT: a user replacing Block B's Level 1 while Block A also has one
+        // must be able to read WHICH is going away. The clause is added only when the answer could
+        // be more than one thing (§CONTEXT-DATA-HONESTY: say what you actually did).
+        const peers = onStorey.length - inGroup.length;
+        const where = peers > 0
+            ? `on this storey in ${inGroup[0]?.group?.label ?? 'this block'}`
+            : 'on this storey';
+        const peerNote = peers === 0
+            ? ''
+            : ` The ${peers === 1 ? 'other block' : `${peers} other blocks`} on this storey `
+              + `${peers === 1 ? 'is' : 'are'} untouched.`;
         return {
             kind: 'replace',
-            ids: Object.freeze(onStorey.map((e) => e.id)),
-            targets: Object.freeze([...onStorey]),
-            sentence: one
-                ? `Replaces the level envelope already on this storey (${names}), which ${rule.replacedClause}. `
+            ids: Object.freeze(inGroup.map((e) => e.id)),
+            targets: Object.freeze([...inGroup]),
+            sentence: (one
+                ? `Replaces the level envelope already ${where} (${names}), which ${rule.replacedClause}. `
                   + 'The replacement is ONE undo — Ctrl+Z brings the previous one back.'
-                : `Replaces the ${onStorey.length} level envelopes already on this storey (${names}), all of `
-                  + `which ${rule.replacedClause}. The replacement is ONE undo — Ctrl+Z brings them all back.`,
+                : `Replaces the ${inGroup.length} level envelopes already ${where} (${names}), all of `
+                  + `which ${rule.replacedClause}. The replacement is ONE undo — Ctrl+Z brings them all back.`)
+                + peerNote,
         };
     } finally {
         span.end();

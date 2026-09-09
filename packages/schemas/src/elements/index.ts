@@ -79,6 +79,8 @@ export {
     SpaceEnvelope,
     SpaceEnvelopeRoleSchema,
     SpaceEnvelopeBasisSchema,
+    // ⭐ ADR-0383 D1 — the THIRD identity axis (which building), added for master planning.
+    SpaceEnvelopeGroupSchema,
     SPACE_ENVELOPE_ROLES,
     AUTHORABLE_SPACE_ENVELOPE_ROLES,
     SPACE_ENVELOPE_STANDING,
@@ -90,4 +92,5 @@ export type {
     AuthorableSpaceEnvelopeRole,
     SpaceEnvelopeStanding,
     SpaceEnvelopeBasis,
+    SpaceEnvelopeGroup,
 } from './SpaceEnvelope.js';

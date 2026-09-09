@@ -144,6 +144,63 @@ export const SpaceEnvelopeBasisSchema = z.object({
 export type SpaceEnvelopeBasis = z.infer<typeof SpaceEnvelopeBasisSchema>;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// THE THIRD IDENTITY AXIS — ADR-0383 D1 (massing groups / master planning)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ⭐ **WHICH BUILDING THIS ENVELOPE BELONGS TO.** ADR-0383 D1.
+ *
+ * Before this, `SpaceEnvelope` carried exactly two identity axes — `levelId`
+ * (which storey) and `role` (what it means) — so every *"is there already one
+ * here?"* question in the product was **`levelId`-only**. That is correct for one
+ * building and fatally wrong for a master plan: `resolveLevelEnvelopeSupersession`
+ * treats every envelope on a storey as a RIVAL (§L-13038, on the founder's own
+ * instruction), so drawing Block B on Ground either deleted Block A or refused.
+ * Master planning was not a missing feature bolted onto a working one — it was a
+ * feature the current, deliberately-correct rule forbade.
+ *
+ * ⛔ A NEW ELEMENT KIND WAS REJECTED (ADR-0383 D1). C83 §2.1 states the cost
+ * directly — *"a new element kind must not require 30 new decisions"* — and a
+ * massing group has **no geometry of its own**. Its "volume" would be a function
+ * of its members, i.e. a cache, i.e. C84 EI-9, i.e. two answers to *"where is
+ * Block A"*.
+ *
+ * ⛔ A SECOND STORE WAS REJECTED, and that is the load-bearing constraint rather
+ * than a preference. `PluginRegistration` binds ONE plugin to ONE `storeKey` with
+ * one `buildStore`, so a second store means a second plugin registration for one
+ * element family — C84 §1's *"five rival representations per family"* created
+ * deliberately. Keeping the group on the MEMBER keeps *"3 profiles × 5 storeys =
+ * 15 envelopes"* a single `produceCommand` → a single Immer patch pair → a single
+ * Ctrl+Z, which is the entire reason C114 §6a exists.
+ *
+ * ⚠ **THE COST IS NAMED, NOT HIDDEN: `label` is DENORMALISED across the group's
+ * members.** N copies of one string can drift. Three things close it, and none of
+ * them is discipline:
+ *   1. **`spaceEnvelope.group.rename` is the ONLY writer**, and it rewrites every
+ *      member inside one `produceCommand` — a rename is atomic and is one undo.
+ *   2. **A test asserts every `group.id` in a store resolves to exactly one
+ *      distinct `label`** (`spaceEnvelopeGroups.test.ts`).
+ *   3. ⭐ **The READER refuses to paper over a disagreement.** `readMassingGroups`
+ *      (`@pryzm/plugin-space-envelope`) takes the label from the lowest-seated
+ *      member and, when members disagree, REPORTS the disagreement rather than
+ *      silently picking one (§CONTEXT-DATA-HONESTY, L-581/L-616). A drift becomes
+ *      visible, not invisible.
+ *
+ * ⛔ THE ID IS OPAQUE AND MINTED BY THE CALLER (C16 CA-2). `execute()` runs again
+ * on REDO, so a group id minted inside a handler would differ the second time and
+ * orphan every member that named the first. It is deliberately NOT a
+ * `defineElement` branded id: a group is not an element, and giving it an element
+ * id would invite exactly the second store this decision declines.
+ */
+export const SpaceEnvelopeGroupSchema = z.object({
+    /** Stable, caller-minted, opaque. Equality on this is what "same building" means. */
+    id: z.string().min(1),
+    /** The user-facing building name. ⚠ Denormalised — see the schema doc above. */
+    label: z.string().min(1),
+});
+export type SpaceEnvelopeGroup = z.infer<typeof SpaceEnvelopeGroupSchema>;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // THE ELEMENT
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -237,6 +294,30 @@ export const SpaceEnvelope = defineElement('spaceEnvelope', {
      * means the level envelope needs to grow. See C114 §12.
      */
     withinId: z.string().nullable().default(null),
+
+    /**
+     * ⭐ WHICH BUILDING (massing group) this envelope belongs to — ADR-0383 D1.
+     * See {@link SpaceEnvelopeGroupSchema} for the whole ruling and its named cost.
+     *
+     * **`null` ⇒ UNGROUPED, which is every envelope that exists today.** ⛔ That is
+     * the WHOLE migration: no data migration, no backfill, no file-format break — a
+     * record written before ADR-0383 parses with `group: null` and behaves exactly as
+     * it did, because ungrouped is its own supersession bucket (ADR-0383 D3). The
+     * existing single-building flow is a master plan with exactly one unnamed group.
+     *
+     * ⛔ AN EMPTY GROUP IS NOT REPRESENTABLE, AND THAT IS CORRECT, NOT A LIMITATION
+     * (ADR-0383 D2). A group exists because its envelopes carry its id; delete every
+     * member and the group is gone. A group with no envelopes is a profile you have
+     * not built, and the transient authoring roster
+     * (`apps/editor/src/ui/site/drawnEnvelopeFootprintState.ts`) is what holds those.
+     *
+     * ⛔ IT IS NOT `withinId`, AND THE TWO MUST NEVER BE CONFLATED. `withinId` is
+     * CONTAINMENT (a room inside a level envelope) and is refined to `null` for
+     * `role: 'level'`; `group` is IDENTITY (which building), and a level envelope is
+     * exactly the record that carries it. A rule that read one for the other would
+     * make "Block A" mean "inside Block A's ground floor".
+     */
+    group: SpaceEnvelopeGroupSchema.nullable().default(null),
 
     /**
      * Optional programme tag — the same spellings `RoomOccupancyType` uses, held

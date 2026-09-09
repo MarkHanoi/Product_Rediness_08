@@ -26,6 +26,8 @@ const L2: AdoptLevelCandidate = { id: 'L2', name: null, elevation: 6, height: nu
 const env = (levelId: string, id: string, area: number | null): ExistingLevelEnvelope => ({
     id, levelId, name: `Proposed · ${area ?? '?'}`, footprintAreaM2: area,
     provenance: systemProvenance('computed', 'test'),
+    // §MASSING-GROUPS (ADR-0383) — the UNGROUPED bucket: this fixture is the single-building flow.
+    group: null,
 });
 const readable = (rows: readonly ExistingLevelEnvelope[]): LevelEnvelopeReadResult => ({ readable: true, rows });
 

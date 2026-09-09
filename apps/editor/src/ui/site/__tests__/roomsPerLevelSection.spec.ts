@@ -38,6 +38,8 @@ const L1: AdoptLevelCandidate = { id: 'L1', name: 'Level 1', elevation: 3, heigh
 const E0: ExistingLevelEnvelope = {
     id: 'e0', levelId: 'L0', name: 'Proposed ground floor · 301 m²', footprintAreaM2: 301,
     provenance: systemProvenance('computed', 'test'),
+    // §MASSING-GROUPS (ADR-0383) — the UNGROUPED bucket: this fixture is the single-building flow.
+    group: null,
 };
 
 function deps(over: Partial<RoomsPerLevelDeps> & { rooms?: unknown[]; envelopes?: ExistingLevelEnvelope[] } = {}) {
@@ -115,7 +117,7 @@ describe('mountRoomsPerLevelSection', () => {
     // ══════════════════════════════════════════════════════════════════════════════════════
     it('⭐ a storey with an envelope and NO rooms is ONE line — and still says all three things', () => {
         const E1: ExistingLevelEnvelope = {
-            id: 'e1', levelId: 'L1', name: 'Level envelope - Level 1', footprintAreaM2: 366,
+            id: 'e1', levelId: 'L1', name: 'Level envelope - Level 1', footprintAreaM2: 366, group: null,
             provenance: systemProvenance('computed', 'test'),
         };
         const { d } = deps({ rooms: [], envelopes: [E0, E1] });
@@ -155,11 +157,11 @@ describe('mountRoomsPerLevelSection', () => {
         // C115-39 clause 3 and C115-76: the four envelope arms all survive, and the two that
         // report a problem (`rival`, `unreadable`) may not be compressed into a one-liner.
         const A: ExistingLevelEnvelope = {
-            id: 'a', levelId: 'L1', name: 'Generated massing', footprintAreaM2: 300,
+            id: 'a', levelId: 'L1', name: 'Generated massing', footprintAreaM2: 300, group: null,
             provenance: systemProvenance('computed', 'test'),
         };
         const B: ExistingLevelEnvelope = {
-            id: 'b', levelId: 'L1', name: 'Drawn by hand', footprintAreaM2: 280,
+            id: 'b', levelId: 'L1', name: 'Drawn by hand', footprintAreaM2: 280, group: null,
             provenance: systemProvenance('computed', 'test'),
         };
         const { d } = deps({ rooms: [], envelopes: [A, B] });

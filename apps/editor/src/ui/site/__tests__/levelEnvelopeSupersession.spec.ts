@@ -41,6 +41,9 @@ const row = (over: Partial<ExistingLevelEnvelope> = {}): ExistingLevelEnvelope =
     footprintAreaM2: 431,
     provenance: GENERATED,
     ...over,
+    // §MASSING-GROUPS (ADR-0383) — pinned AFTER the spread: `Partial<>` may carry
+    // `group: undefined`, and ungrouped must be `null`, never absent.
+    group: over.group ?? null,
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,5 +317,118 @@ describe('buildAdoptProposalPlan — the press that used to accumulate', () => {
         const first = buildAdoptProposalPlan(PROPOSAL, LEVELS, ORD, 'new-1', { readable: true, rows: [] });
         if (!first.ok) throw new Error('expected a plan');
         expect(isReplaceableByGeneratedMassing(first.payload.envelopes[0].provenance)).toBe(true);
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §MASSING-GROUPS (ADR-0383 D3) — BLOCK A AND BLOCK B ARE PEERS, NOT RIVALS
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ WHY THESE ARMS HAD TO BE WRITTEN SEPARATELY, AND WHY THE 120 GREEN TESTS ABOVE DID NOT COVER
+// THIS. Every fixture above carries `group: null`. They therefore pin ADR-0383 D3's
+// BACK-COMPATIBILITY claim — "ungrouped behaves exactly as before" — which is real and worth
+// pinning, and they pin NOTHING about the new behaviour. A suite that goes green on a feature it
+// never exercises is the shape [[gate-blind-on-the-wrong-axis]] names: green ≠ right.
+//
+// The founder's requirement is one sentence: *"multiple envelopes on a single parcel for
+// masterplanning"*. Before ADR-0383, drawing Block B on a storey Block A already occupied either
+// DELETED Block A (`kind:'replace'`) or refused (`kind:'blocked'`) — because the rule was
+// `levelId`-only. These arms are the ones that would go red if that ever came back.
+
+const grouped = (
+    groupId: string,
+    label: string,
+    over: Partial<ExistingLevelEnvelope> = {},
+): ExistingLevelEnvelope => row({ ...over, group: { id: groupId, label } });
+
+describe('§MASSING-GROUPS — supersession is scoped to ONE building', () => {
+    it('⭐ Block B does NOT touch Block A on the same storey — the whole feature, in one arm', () => {
+        const blockA = grouped('g-a', 'Block A', { id: 'a-ground' });
+        const s = resolveLevelEnvelopeSupersession([blockA], GENERATED_MASSING_RULE, 'g-b');
+        expect(s.kind).toBe('none');
+    });
+
+    it('Block B DOES replace its own earlier envelope on that storey', () => {
+        const blockA = grouped('g-a', 'Block A', { id: 'a-ground' });
+        const blockB = grouped('g-b', 'Block B', { id: 'b-ground' });
+        const s = resolveLevelEnvelopeSupersession([blockA, blockB], GENERATED_MASSING_RULE, 'g-b');
+        expect(s.kind).toBe('replace');
+        if (s.kind !== 'replace') throw new Error('unreachable');
+        // ⛔ ONLY b-ground. If `a-ground` ever appears here, the master plan is being deleted.
+        expect([...s.ids]).toEqual(['b-ground']);
+    });
+
+    it('⭐ the sentence NAMES the block, and says the others are untouched', () => {
+        const s = resolveLevelEnvelopeSupersession(
+            [grouped('g-a', 'Block A', { id: 'a1' }), grouped('g-b', 'Block B', { id: 'b1' })],
+            GENERATED_MASSING_RULE,
+            'g-b',
+        );
+        if (s.kind !== 'replace') throw new Error('expected replace');
+        expect(s.sentence).toContain('Block B');
+        expect(s.sentence).toContain('untouched');
+    });
+
+    it('a single-building project reads EXACTLY as before — no block name, no peer note', () => {
+        const s = resolveLevelEnvelopeSupersession([row({ id: 'only' })], GENERATED_MASSING_RULE, null);
+        if (s.kind !== 'replace') throw new Error('expected replace');
+        expect(s.sentence).toContain('already on this storey');
+        expect(s.sentence).not.toContain('untouched');
+    });
+
+    it('⛔ UNGROUPED is its own bucket — a grouped create never sweeps a pre-ADR-0383 envelope', () => {
+        const legacy = row({ id: 'pre-adr' }); // group: null — every record written before today
+        expect(resolveLevelEnvelopeSupersession([legacy], GENERATED_MASSING_RULE, 'g-a').kind).toBe('none');
+    });
+
+    it('⛔ …and the reverse: an UNGROUPED create never sweeps a master-plan block', () => {
+        const blockA = grouped('g-a', 'Block A', { id: 'a-ground' });
+        expect(resolveLevelEnvelopeSupersession([blockA], GENERATED_MASSING_RULE, null).kind).toBe('none');
+    });
+
+    it('the group bucket is applied BEFORE the provenance rule, so a peer cannot BLOCK either', () => {
+        // An AUTHORED envelope in another block would block a generated create if the buckets were
+        // merged. It must not even be considered — it is not on the table.
+        const otherBlocksDrawing = grouped('g-a', 'Block A', { id: 'a-hand', provenance: authoredProvenance('drew it') });
+        const s = resolveLevelEnvelopeSupersession([otherBlocksDrawing], GENERATED_MASSING_RULE, 'g-b');
+        expect(s.kind).toBe('none');
+    });
+
+    it('within ONE block the provenance rule still governs — grouping is not a licence to delete', () => {
+        const mine = grouped('g-b', 'Block B', { id: 'b-hand', provenance: authoredProvenance('drew it') });
+        const s = resolveLevelEnvelopeSupersession([mine], GENERATED_MASSING_RULE, 'g-b');
+        expect(s.kind).toBe('blocked');
+    });
+});
+
+describe('§MASSING-GROUPS — readLevelEnvelopes reads the group as strictly as the id', () => {
+    const store = (recs: readonly Record<string, unknown>[]) => ({
+        getState: () => new Map(recs.map((r) => [String(r.id), r])),
+    });
+    const base = { role: 'level', levelId: 'L0', name: 'x', footprintAreaM2: 1, provenance: { origin: 'computed' } };
+
+    it('a well-formed group is carried through', () => {
+        const r = readLevelEnvelopes(store([{ ...base, id: 'e1', group: { id: 'g', label: 'Block A' } }]));
+        if (!r.readable) throw new Error('expected readable');
+        expect(r.rows[0]?.group).toEqual({ id: 'g', label: 'Block A' });
+    });
+
+    it('an ABSENT group reads null — ungrouped, the pre-ADR-0383 record', () => {
+        const r = readLevelEnvelopes(store([{ ...base, id: 'e1' }]));
+        if (!r.readable) throw new Error('expected readable');
+        expect(r.rows[0]?.group).toBeNull();
+    });
+
+    it('⛔ a MALFORMED group DROPS the row — it must never be coerced into the ungrouped bucket', () => {
+        // §CONTEXT-DATA-HONESTY (L-581/L-616). Reading `{id:"g"}` (no label) as `null` would file a
+        // master-plan block under the single-building flow and make it eligible for deletion by a
+        // gesture that never meant to touch it. A failure and an emptiness must not share a value.
+        const r = readLevelEnvelopes(store([
+            { ...base, id: 'ok', group: { id: 'g', label: 'Block A' } },
+            { ...base, id: 'bad-no-label', group: { id: 'g' } },
+            { ...base, id: 'bad-not-object', group: 'Block A' },
+        ]));
+        if (!r.readable) throw new Error('expected readable');
+        expect(r.rows.map((x) => x.id)).toEqual(['ok']);
     });
 });

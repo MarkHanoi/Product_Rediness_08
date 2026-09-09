@@ -66,6 +66,8 @@ function existingRow(over: Partial<ExistingLevelEnvelope> = {}): ExistingLevelEn
         footprintAreaM2: 200,
         provenance: authoredProvenance('user extruded the permitted buildable footprint'),
         ...over,
+        // §MASSING-GROUPS (ADR-0383) — pinned AFTER the spread; ungrouped is `null`, not absent.
+        group: over.group ?? null,
     };
 }
 const readable = (rows: readonly ExistingLevelEnvelope[]): LevelEnvelopeReadResult => ({ readable: true, rows });
