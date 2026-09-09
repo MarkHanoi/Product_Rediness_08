@@ -45,6 +45,10 @@ import { createJurisdictionRouter, JURISDICTION_ROUTES } from '../jurisdiction/i
 const EXPECTED: ReadonlyArray<readonly [string, string]> = [
     ['get', '/api/catastro/parcel'],
     ['get', '/api/catastro/block'],
+    // C57 §1.14 §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY — the AREA query behind the §5.5
+    // cadastral-boundaries overlay. Distinct path (`/parcels`, plural), so no ordering hazard
+    // against `/api/catastro/parcel`; listed here because this manifest IS the surface test.
+    ['get', '/api/catastro/parcels'],
     ['get', '/api/muc/zoning'],
     ['get', '/api/muc/instrument'],
     ['get', '/api/bcn-refos/ov'],
@@ -77,7 +81,13 @@ const EXPECTED: ReadonlyArray<readonly [string, string]> = [
     // matches in registration order, so swapping these sends every Danish parcel
     // request into the keyless EU handler with cc="dk" and silently drops the
     // Datafordeler credential.
+    // ⚠ ORDER-CRITICAL, TWICE OVER (C57 §1.14). `/api/parcel/dk/area` precedes BOTH
+    // `/api/parcel/dk` and `/api/parcel/:cc/area`: Express matches in registration order, and the
+    // rule this file already states for `dk` vs `:cc` is the contract, not the current segment
+    // counts. Register the area legs after their point legs and Denmark's circle query is dead.
+    ['get', '/api/parcel/dk/area'],
     ['get', '/api/parcel/dk'],
+    ['get', '/api/parcel/:cc/area'],
     ['get', '/api/parcel/:cc'],
 ];
 

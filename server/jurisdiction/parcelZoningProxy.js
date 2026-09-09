@@ -507,6 +507,7 @@ function setProxyCacheHeaders(res) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
 }
 
+
 /**
  * Express handler for GET /api/catastro/parcel?lon=<>&lat=<>  **or**  ?refcat=<>.
  *
@@ -848,11 +849,21 @@ export function manzanaPrefix(refcat) {
     return typeof refcat === 'string' && refcat.length >= 5 ? refcat.slice(0, 5) : null;
 }
 
-/** Build the BBOX GetFeature URL. Exported so a test can assert the shape with no network. */
-export function buildParcelBboxUrl(lat, lon, halfDeg = BLOCK_BBOX_HALF_DEG) {
+/**
+ * Build the BBOX GetFeature URL. Exported so a test can assert the shape with no network.
+ *
+ * §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY (C57 §1.14.4) — `count` is OPTIONAL and defaults to
+ * ABSENT, so the URL this returns for the *manzana* route is byte-identical to the one it has
+ * always returned. It exists because the AREA route must be able to tell a complete answer from a
+ * truncated one, and truncation is only knowable against a cap we ourselves set. ⛔ Do not give it
+ * a default: a cap silently applied to the block route would drop siblings out of a manzana and
+ * move a *profunditat edificable* with nothing failing.
+ */
+export function buildParcelBboxUrl(lat, lon, halfDeg = BLOCK_BBOX_HALF_DEG, count = undefined) {
     const bbox = `${lat - halfDeg},${lon - halfDeg},${lat + halfDeg},${lon + halfDeg},urn:ogc:def:crs:EPSG::4326`;
     return `${CATASTRO_WFS_ENDPOINT}?service=WFS&version=2.0.0&request=GetFeature` +
-        `&typeNames=cp:CadastralParcel&bbox=${encodeURIComponent(bbox)}`;
+        `&typeNames=cp:CadastralParcel&bbox=${encodeURIComponent(bbox)}` +
+        (Number.isFinite(count) && count > 0 ? `&count=${Math.floor(count)}` : '');
 }
 
 /**
@@ -1080,3 +1091,174 @@ export function makeCatastroBlockHandler(deps = {}) {
 }
 
 export const catastroBlockHandler = makeCatastroBlockHandler();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY (C57 §1.14, lane CADASTRAL 2026-09-09)
+// Spain — the AREA query, on the SAME bbox machine the manzana route already runs
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ⛔ THIS ROUTE ADDS NO PARSER AND NO URL BUILDER. C57 §1.14.4 forbids it, and the reason is
+// measured rather than stylistic: `buildParcelBboxUrl` + `parseParcelCollectionGml` have served
+// the *manzana* route since ADR-0271 P4b, they are already exported for exactly this reason, and a
+// second Catastro GML reader would drift silently — both copies would keep returning plausible
+// rings, and nothing would fail ([[same-rule-two-implementations]]). The ONLY thing this route adds
+// is a different HALF-WINDOW, a COUNT cap, and the honesty envelope around the answer.
+//
+// ⚠ THE BOX ENCLOSES THE CIRCLE — the error direction is a SUPERSET, never a subset. The caller
+// asks for a radius; `buildParcelBboxUrl` takes ONE degree half-width for both axes, and a degree
+// of longitude is shorter than a degree of latitude everywhere but the equator. So the half-width
+// is sized off the LONGITUDE metre-per-degree at this latitude, which over-covers north-south.
+// Returning a few parcels outside the circle is a drawing decision the client can make; MISSING a
+// neighbour the user can see on screen is a defect they cannot.
+
+/** The area route. `?lat=&lon=&radiusM=` → every Catastro parcel in the box enclosing that circle. */
+export const CATASTRO_PARCELS_PATH = '/api/catastro/parcels';
+
+/** Upper bound on a single area request (m). Beyond this the answer is refused, not truncated:
+ *  a 5 km Catastro bbox is a denial-of-service against a shared public register (C57 §7.2). */
+export const CATASTRO_AREA_MAX_RADIUS_M = 1500;
+
+/** The feature cap sent upstream. A parsed count that REACHES it means `truncated: true` — the
+ *  cap is what makes truncation KNOWABLE rather than guessed (C57 §1.14.3). */
+export const CATASTRO_AREA_COUNT_CAP = 400;
+
+/** Metres per degree of latitude (WGS84 mean). The longitude figure is this × cos(lat). */
+const METRES_PER_DEG_LAT = 111_320;
+
+/**
+ * The half-width (degrees) whose bbox ENCLOSES a circle of `radiusM` about `lat`. Sized off the
+ * longitude axis (the short one), so the box is a superset of the circle on both axes.
+ * `cos(lat)` is floored at 0.15 (~81.4°N/S) so a polar query cannot divide by ~0.
+ */
+export function areaHalfDegForRadius(lat, radiusM) {
+    const cosLat = Math.max(Math.cos((lat * Math.PI) / 180), 0.15);
+    return radiusM / (METRES_PER_DEG_LAT * cosLat);
+}
+
+/** Area-answer cache: static cadastral data, keyed by the ROUNDED request, mirroring §BLOCK-CACHE. */
+const AREA_CACHE_TTL_MS = PARCEL_CACHE_TTL_MS;
+const AREA_CACHE_MAX_ENTRIES = 64;
+
+/**
+ * Express handler for GET /api/catastro/parcels?lat=&lon=&radiusM=.
+ *
+ * ⭐ FOUR OUTCOMES, NEVER COLLAPSED (C57 §1.14.2). `ok` + an EMPTY array is an authoritative
+ * finding about the land — Catastro answered and holds nothing in this box. `unreachable` is not a
+ * finding at all and is NEVER cached. `out-of-area` is a fact about the register's territory.
+ * `bad-input` is our own bug and says so. Never throws.
+ */
+export function makeCatastroParcelsAreaHandler(deps = {}) {
+    const fetchImpl = deps.fetchImpl || fetch;
+    const timeoutMs = deps.timeoutMs || CATASTRO_UPSTREAM_TIMEOUT_MS;
+
+    // PER-HANDLER, not module-level — the same reasoning `makeCatastroBlockHandler` records above:
+    // a module-global Map is shared by every handler anyone constructs, and it leaks across tests.
+    const areaCache = new Map();
+    // §ONE-READ-PER-BBOX ([[context-one-read-per-bbox]]) — in-flight de-duplication. Context was
+    // measured being read 2–3× per bbox and then cancelled; two viewports subscribing to the SAME
+    // overlay flag is precisely that shape, so the second caller awaits the first request's promise
+    // instead of minting a second hit on a shared public register.
+    const inFlight = new Map();
+
+    const cacheKey = (lat, lon, radiusM) =>
+        `${lat.toFixed(4)},${lon.toFixed(4)},${Math.round(radiusM)}`;
+
+    async function resolveArea(lat, lon, radiusM) {
+        const key = cacheKey(lat, lon, radiusM);
+        const hit = areaCache.get(key);
+        if (hit && Date.now() - hit.at <= AREA_CACHE_TTL_MS) return { ...hit.value, _cached: true };
+        if (hit) areaCache.delete(key);
+
+        const pending = inFlight.get(key);
+        if (pending) return pending;
+
+        const p = (async () => {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+            try {
+                const halfDeg = areaHalfDegForRadius(lat, radiusM);
+                const url = buildParcelBboxUrl(lat, lon, halfDeg, CATASTRO_AREA_COUNT_CAP);
+                const res = await fetchImpl(url, { signal: ctrl.signal });
+                if (!res.ok) {
+                    return { outcome: 'unreachable', parcels: [], truncated: false,
+                        reason: `Catastro returned HTTP ${res.status}.` };
+                }
+                const parcels = parseParcelCollectionGml(await res.text());
+                // ⚠ `>=`, not `>`. A response that lands EXACTLY on the cap is indistinguishable
+                // from one the cap truncated, and the honest reading of an indistinguishable pair
+                // is the one that under-claims completeness (C57 §1.14.3).
+                const truncated = parcels.length >= CATASTRO_AREA_COUNT_CAP;
+                const value = {
+                    outcome: 'ok',
+                    parcels: parcels.map((p2) => ({ ...p2, address: null, source: 'catastro' })),
+                    truncated,
+                };
+                if (areaCache.size >= AREA_CACHE_MAX_ENTRIES) {
+                    const oldest = areaCache.keys().next();
+                    if (!oldest.done) areaCache.delete(oldest.value);
+                }
+                areaCache.set(key, { at: Date.now(), value });
+                return value;
+            } catch (err) {
+                // An abort/network failure is the SOURCE failing, never the land being empty.
+                return { outcome: 'unreachable', parcels: [], truncated: false,
+                    reason: `Catastro did not answer: ${err?.message ?? String(err)}` };
+            } finally {
+                clearTimeout(timer);
+                inFlight.delete(key);
+            }
+        })();
+        inFlight.set(key, p);
+        return p;
+    }
+
+    return async function catastroParcelsAreaHandler(req, res) {
+        const lat = Number.parseFloat(String(req.query?.lat ?? ''));
+        const lon = Number.parseFloat(String(req.query?.lon ?? ''));
+        const radiusM = Number.parseFloat(String(req.query?.radiusM ?? ''));
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(radiusM) || radiusM <= 0) {
+            return res.status(400).json({
+                outcome: 'bad-input', parcels: [], truncated: false,
+                reason: 'lat, lon and a positive radiusM (EPSG:4326 / metres) are required.',
+            });
+        }
+        if (radiusM > CATASTRO_AREA_MAX_RADIUS_M) {
+            return res.status(400).json({
+                outcome: 'bad-input', parcels: [], truncated: false,
+                reason: `radiusM ${Math.round(radiusM)} exceeds the ${CATASTRO_AREA_MAX_RADIUS_M} m ceiling `
+                    + 'this route places on a shared public register (C57 §7.2).',
+            });
+        }
+        // Peninsular Spain + Balears + Canarias, loose. OUTSIDE is an authoritative statement about
+        // the register's territory — not a failure, and not an empty finding about the land.
+        const inSpain = (lat >= 27.5 && lat <= 44.0 && lon >= -18.5 && lon <= 4.6);
+        if (!inSpain) {
+            setProxyCacheHeaders(res);
+            return res.status(200).json({
+                outcome: 'out-of-area', parcels: [], truncated: false,
+                reason: 'Catastro publishes no parcels outside Spain.',
+            });
+        }
+
+        let out;
+        try {
+            out = await resolveArea(lat, lon, radiusM);
+        } catch (err) {
+            console.warn('[catastro-area] unexpected error:', err?.message ?? err);
+            out = { outcome: 'unreachable', parcels: [], truncated: false,
+                reason: String(err?.message ?? err) };
+        }
+        setProxyCacheHeaders(res);
+        if (out.outcome === 'unreachable') {
+            // Never cache an outage: a 7-day CDN entry turns a 30-second wobble into a week of
+            // "this block has no parcels" for everyone who lands on the tile.
+            res.setHeader('Cache-Control', 'no-store');
+        }
+        res.setHeader('X-Catastro-Area-Outcome', out.outcome);
+        return res.status(200).json(out);
+    };
+}
+
+/** The default production area handler (real `fetch`, real endpoint). */
+export const catastroParcelsAreaHandler = makeCatastroParcelsAreaHandler();
+

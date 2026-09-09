@@ -62,6 +62,9 @@ import express from 'express';
 import {
     CATASTRO_PARCEL_PATH, catastroParcelHandler,
     CATASTRO_BLOCK_PATH, catastroBlockHandler,
+    // C57 §1.14 (lane CADASTRAL) — the AREA query: every Catastro parcel in a window, for the
+    // §5.5 cadastral-boundaries overlay. Same bbox machine as the manzana route, wider window.
+    CATASTRO_PARCELS_PATH, catastroParcelsAreaHandler,
 } from './parcelZoningProxy.js';
 // §MUC-ZONING-PROXY (L-480) — the Catalan clau lookup: the ONE missing input that keeps
 // Barcelona envelopes at 'estimated'. Probed live before it was written (L-473's lesson).
@@ -145,9 +148,9 @@ import { CH_ZURICH_BZO_PATH, zurichBzoHandler } from './chZurichBzoProxy.js';
 // height RENDER; the buildable envelope refuses unless FR_PARIS_PLU_CERTIFIED is signed (emprise PDF-bound).
 import { PARIS_PLU_PATH, parisPluHandler } from './parisPluProxy.js';
 // L-613 — the open, keyless non-Spain cadastres (FR/NL/NO/DE-NRW) under /api/parcel/:cc.
-import { EU_PARCEL_PATH, euParcelHandler } from './euCadastreProxy.js';
+import { EU_PARCEL_PATH, euParcelHandler, euParcelsAreaHandler } from './euCadastreProxy.js';
 // L-613 (Denmark slice) — the Danish Matrikel cadastral proxy (credential-gated Datafordeler).
-import { DK_PARCEL_PATH, dkParcelHandler } from './dkMatrikelProxy.js';
+import { DK_PARCEL_PATH, dkParcelHandler, DK_PARCEL_AREA_PATH, dkParcelsAreaHandler } from './dkMatrikelProxy.js';
 // §CA-BC-PARCEL-PROXY (2026-09-06, lane MEXICO-CANADA) — ParcelMap BC on the BC Data Catalogue's
 // keyless public WFS. Canada has NO national parcel fabric (land titles are provincial), so this is
 // a per-PROVINCE route, not a `/api/parcel/ca`: BC is the province that answers keylessly, and the
@@ -175,6 +178,7 @@ import { KR_PARCEL_PATH, krParcelHandler } from './krParcelProxy.js';
 export const JURISDICTION_ROUTES = Object.freeze([
     ['get', CATASTRO_PARCEL_PATH],
     ['get', CATASTRO_BLOCK_PATH],
+    ['get', CATASTRO_PARCELS_PATH],
     ['get', MUC_ZONING_PATH],
     ['get', MUC_INSTRUMENT_PATH],
     ['get', BCN_REFOS_OV_PATH],
@@ -195,7 +199,9 @@ export const JURISDICTION_ROUTES = Object.freeze([
     ['get', PARIS_PLU_PATH],
     ['get', CA_BC_PARCEL_PATH],
     ['get', KR_PARCEL_PATH],
+    ['get', DK_PARCEL_AREA_PATH],
     ['get', DK_PARCEL_PATH],
+    ['get', `${EU_PARCEL_PATH}/:cc/area`],
     ['get', `${EU_PARCEL_PATH}/:cc`],
 ]);
 
@@ -236,6 +242,13 @@ export function createJurisdictionRouter({ apiLimiter }) {
     // ADR-0271 P4b §CATASTRO-BLOCK — the manzana ring the block-derived depth needs. Same limiter
     // and same posture as the parcel route: resolves to null on any doubt, never fabricates.
     router.get(CATASTRO_BLOCK_PATH, apiLimiter, catastroBlockHandler);
+    // C57 §1.14 §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY — GET /api/catastro/parcels
+    // ?lat=&lon=&radiusM= → EVERY Catastro parcel in the box enclosing that circle, for the §5.5
+    // neighbours overlay. Reuses `buildParcelBboxUrl` + `parseParcelCollectionGml` (the manzana
+    // route's own machine) with a wider window and an explicit count cap, so a truncated answer is
+    // KNOWN rather than guessed. Same limiter, same posture: an outage is `outcome:'unreachable'`
+    // + no-store, never an empty finding about the land.
+    router.get(CATASTRO_PARCELS_PATH, apiLimiter, catastroParcelsAreaHandler);
     router.get(MUC_ZONING_PATH, apiLimiter, mucZoningHandler);
     router.get(MUC_INSTRUMENT_PATH, apiLimiter, mucInstrumentHandler);
     // §BCN-REFOS-OV-PROXY — the clau-18 volumetric-ordering lookup. Same posture as the MUC route:
@@ -339,7 +352,16 @@ export function createJurisdictionRouter({ apiLimiter }) {
     // curl exit 52 to seven probes on 2026-09-06 — so today every call returns { parcel: null } with a
     // named `reason` and the client falls back to the OSM footprint. Never crashes.
     router.get(KR_PARCEL_PATH, apiLimiter, krParcelHandler);
+    // C57 §1.14 — Denmark's AREA query on the KEYLESS DAWA `cirkel` leg. ⚠ Registered BEFORE
+    // `/api/parcel/dk` for the same "specific before param" reason the whole block states, and
+    // before `/api/parcel/:cc/area` so the `:cc` form can never swallow it.
+    router.get(DK_PARCEL_AREA_PATH, apiLimiter, dkParcelsAreaHandler);
     router.get(DK_PARCEL_PATH, apiLimiter, dkParcelHandler);
+    // C57 §1.14 — the EU AREA query. ⚠ BEFORE the bare `:cc` route: `/api/parcel/fr/area` has a
+    // different segment count so Express would not confuse them today, but the ordering rule this
+    // block already states is the contract, not the current path shapes. A leg whose config does
+    // not declare `areaQuery` answers `unsupported` and NAMES itself — never a blank draw.
+    router.get(`${EU_PARCEL_PATH}/:cc/area`, apiLimiter, euParcelsAreaHandler);
     router.get(`${EU_PARCEL_PATH}/:cc`, apiLimiter, euParcelHandler);
 
     return router;

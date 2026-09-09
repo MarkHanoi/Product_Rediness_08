@@ -367,30 +367,13 @@ export async function fetchDawaParcelAtPoint(lon, lat, deps = {}) {
         if (!text) return null;
         const body = JSON.parse(text);
         const feature = Array.isArray(body?.features) ? body.features[0] : null;
-        const geom = feature?.geometry;
-        if (!feature || !geom) return null;
-        // Outer ring of the (Multi)Polygon, [lon, lat] → { lat, lon }.
-        const outer = geom.type === 'Polygon' ? geom.coordinates?.[0]
-            : geom.type === 'MultiPolygon' ? geom.coordinates?.[0]?.[0]
-            : null;
-        if (!Array.isArray(outer) || outer.length < 3) return null;
-        const ring = [];
-        for (const p of outer) {
-            const [x, y] = p;
-            if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-            ring.push({ lat: y, lon: x });
-        }
-        const props = feature.properties ?? {};
-        const refcat = typeof props.matrikelnr === 'string' && props.matrikelnr ? props.matrikelnr : null;
-        if (!refcat) return null;
-        const official = Number(props.registreretareal);
-        return {
-            ring,
-            refcat,
-            areaM2: Number.isFinite(official) && official > 0 ? official : ringAreaM2(ring),
-            address: typeof props.ejerlavnavn === 'string' && props.ejerlavnavn ? props.ejerlavnavn : null,
-            via: 'dawa-jordstykker',
-        };
+        // ⭐ ONE NORMALISER (C57 §1.14.4). This body used to hold its own copy of the ring/identity/
+        // area mapping; the AREA route needs the identical mapping over N features, and two copies
+        // of one rule drift invisibly because both keep returning plausible rings
+        // ([[same-rule-two-implementations]]). §L-12912 rides along: the shared normaliser also
+        // emits `areaOfficialM2` / `areaSigM2` un-collapsed, so a DK card can now tell a
+        // register-declared area from one we measured off the ring, exactly like ES/FR/NL.
+        return dawaFeatureToParcel(feature);
     } catch (err) {
         // A malformed / unparseable body is the SOURCE failing, not the land being empty.
         console.warn('[dk-matrikel] DAWA leg failed (non-fatal):', err?.message ?? err);
@@ -481,3 +464,191 @@ export function makeDkParcelHandler(deps = {}) {
 
 /** The default production handler (real `fetch`, real endpoint, env credentials). */
 export const dkParcelHandler = makeDkParcelHandler();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY (C57 §1.14, lane CADASTRAL 2026-09-09)
+// Denmark — the AREA query, on the KEYLESS DAWA leg that already serves the point
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ⭐ DAWA ANSWERS A CIRCLE DIRECTLY. `/jordstykker?cirkel=lon,lat,radius&format=geojson&srid=4326`
+// is the SAME endpoint, the SAME format and the SAME feature shape the point leg
+// (`fetchDawaParcelAtPoint`) already parses — measured keyless at 34 features for a 150 m circle
+// about central Copenhagen. So this route does not fork a parser: it lifts the single-feature
+// normalise into `dawaFeatureToParcel` and maps it over the collection (C57 §1.14.4).
+//
+// ⛔ THE KEYED DATAFORDELER LEG IS NOT USED HERE, AND THAT IS DELIBERATE. The point leg tries
+// Datafordeler first for its survey-attribute join, then falls back to DAWA. An area answer needs
+// geometry + identity for N parcels, which DAWA serves keylessly and completely — asking a
+// credential-gated WFS for the same rings would make the overlay's availability depend on a secret
+// this deployment may not hold, i.e. it would turn a drawable overlay into `unconfigured` for no
+// gain. The point lookup's provenance is unchanged.
+
+/** The Denmark area route. `?lon=&lat=&radiusM=` → every jordstykke in that circle. */
+export const DK_PARCEL_AREA_PATH = '/api/parcel/dk/area';
+
+/** Upper bound on one area request (m) — a shared public register is not a bulk endpoint (§7.2). */
+export const DK_AREA_MAX_RADIUS_M = 1500;
+
+/** How many parcels one answer may carry. Beyond this the answer is sliced and `truncated: true`. */
+export const DK_AREA_COUNT_CAP = 400;
+
+/** Area cache + in-flight de-duplication, keyed by the ROUNDED request. */
+const _dkAreaCache = new Map();
+const DK_AREA_CACHE_TTL_MS = CACHE_TTL_MS;
+const DK_AREA_CACHE_MAX = 64;
+const _dkAreaInFlight = new Map();
+
+/** Test-only reset for the area cache. */
+export function __resetDkAreaCache() { _dkAreaCache.clear(); _dkAreaInFlight.clear(); }
+
+/**
+ * ⭐ THE ONE DAWA FEATURE NORMALISER — one GeoJSON feature → the wire parcel, or null.
+ *
+ * Extracted from `fetchDawaParcelAtPoint` in the same commit that added the area route, so the
+ * point answer and every member of an area answer are produced by the SAME code. A second copy
+ * would drift invisibly: both would keep returning plausible rings ([[same-rule-two-implementations]]).
+ */
+export function dawaFeatureToParcel(feature) {
+    const geom = feature?.geometry;
+    if (!feature || !geom) return null;
+    // Outer ring of the (Multi)Polygon, [lon, lat] → { lat, lon }.
+    const outer = geom.type === 'Polygon' ? geom.coordinates?.[0]
+        : geom.type === 'MultiPolygon' ? geom.coordinates?.[0]?.[0]
+        : null;
+    if (!Array.isArray(outer) || outer.length < 3) return null;
+    const ring = [];
+    for (const p of outer) {
+        const [x, y] = p;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+        ring.push({ lat: y, lon: x });
+    }
+    const props = feature.properties ?? {};
+    const refcat = typeof props.matrikelnr === 'string' && props.matrikelnr ? props.matrikelnr : null;
+    if (!refcat) return null;
+    const official = Number(props.registreretareal);
+    const areaSigM2 = ringAreaM2(ring);
+    const areaOfficialM2 = Number.isFinite(official) && official > 0 ? official : null;
+    return {
+        ring,
+        refcat,
+        areaM2: areaOfficialM2 ?? areaSigM2,
+        areaOfficialM2,
+        areaSigM2,
+        address: typeof props.ejerlavnavn === 'string' && props.ejerlavnavn ? props.ejerlavnavn : null,
+        via: 'dawa-jordstykker',
+    };
+}
+
+/**
+ * Resolve every Danish jordstykke inside a circle. Never throws.
+ *
+ * ⭐ THREE OUTCOMES, NEVER COLLAPSED (C57 §1.14.2). `ok` with an EMPTY array is an authoritative
+ * finding about the land — DAWA answered and Denmark holds no parcel in this circle (open water,
+ * for instance). `unreachable` is not a finding at all and is never cached. `out-of-area` is a fact
+ * about the register's territory.
+ *
+ * @returns {Promise<{ outcome:'ok'|'unreachable'|'out-of-area'|'bad-input', parcels: object[], truncated: boolean, reason?: string }>}
+ */
+export async function fetchDawaParcelsInArea(lon, lat, radiusM, deps = {}) {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(radiusM) || radiusM <= 0) {
+        return { outcome: 'bad-input', parcels: [], truncated: false,
+            reason: 'lon, lat and a positive radiusM are required.' };
+    }
+    if (lat < 54.4 || lat > 57.9 || lon < 7.7 || lon > 15.3) {
+        return { outcome: 'out-of-area', parcels: [], truncated: false,
+            reason: 'Matriklen publishes no parcels outside Denmark.' };
+    }
+
+    const ck = `${lat.toFixed(4)},${lon.toFixed(4)},${Math.round(radiusM)}`;
+    const hit = _dkAreaCache.get(ck);
+    if (hit && Date.now() - hit.at <= DK_AREA_CACHE_TTL_MS) return hit.value;
+    if (hit) _dkAreaCache.delete(ck);
+    // §ONE-READ-PER-BBOX ([[context-one-read-per-bbox]]) — the second surface awaits the first
+    // surface's request rather than minting a second hit on a shared public register.
+    const pending = _dkAreaInFlight.get(ck);
+    if (pending) return pending;
+
+    const run = (async () => {
+        try {
+            const base = deps.dawaUrl ?? DK_DAWA_JORDSTYKKER_URL;
+            const url = `${base}?cirkel=${encodeURIComponent(`${lon},${lat},${Math.round(radiusM)}`)}` +
+                `&format=geojson&srid=4326`;
+            const text = await fetchTextOnce(url, deps);
+            if (!text) {
+                return { outcome: 'unreachable', parcels: [], truncated: false,
+                    reason: 'DAWA did not answer.' };
+            }
+            const body = JSON.parse(text);
+            const features = Array.isArray(body?.features) ? body.features : null;
+            if (!features) {
+                // A 200 whose body is not a FeatureCollection is the SOURCE failing, not empty land.
+                return { outcome: 'unreachable', parcels: [], truncated: false,
+                    reason: 'DAWA answered with a body that is not a GeoJSON FeatureCollection.' };
+            }
+            const all = [];
+            for (const f of features) {
+                const norm = dawaFeatureToParcel(f);
+                if (norm) all.push({ ...norm, source: 'matrikel-dk' });
+            }
+            // ⚠ DAWA serves the WHOLE circle, so the cap is applied HERE and the count it truncated
+            // is a number we actually know — not a guess against an upstream default.
+            const truncated = all.length > DK_AREA_COUNT_CAP;
+            const value = { outcome: 'ok', parcels: truncated ? all.slice(0, DK_AREA_COUNT_CAP) : all, truncated };
+            if (_dkAreaCache.size >= DK_AREA_CACHE_MAX) {
+                const oldest = _dkAreaCache.keys().next();
+                if (!oldest.done) _dkAreaCache.delete(oldest.value);
+            }
+            _dkAreaCache.set(ck, { at: Date.now(), value });
+            return value;
+        } catch (err) {
+            console.warn('[dk-matrikel] area query failed:', err?.message ?? err);
+            return { outcome: 'unreachable', parcels: [], truncated: false,
+                reason: `DAWA did not answer: ${err?.message ?? String(err)}` };
+        } finally {
+            _dkAreaInFlight.delete(ck);
+        }
+    })();
+    _dkAreaInFlight.set(ck, run);
+    return run;
+}
+
+/**
+ * Express handler for GET /api/parcel/dk/area?lon=&lat=&radiusM=. Never throws; an outage is
+ * 200 + `outcome:'unreachable'` + `no-store`, never an empty finding about the land.
+ */
+export function makeDkParcelsAreaHandler(deps = {}) {
+    return async function dkParcelsAreaHandler(req, res) {
+        const lon = Number.parseFloat(String(req.query?.lon ?? ''));
+        const lat = Number.parseFloat(String(req.query?.lat ?? ''));
+        const radiusM = Number.parseFloat(String(req.query?.radiusM ?? ''));
+        if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(radiusM) || radiusM <= 0) {
+            return res.status(400).json({
+                outcome: 'bad-input', parcels: [], truncated: false,
+                reason: 'lon, lat and a positive radiusM (EPSG:4326 / metres) are required.',
+            });
+        }
+        if (radiusM > DK_AREA_MAX_RADIUS_M) {
+            return res.status(400).json({
+                outcome: 'bad-input', parcels: [], truncated: false,
+                reason: `radiusM ${Math.round(radiusM)} exceeds the ${DK_AREA_MAX_RADIUS_M} m ceiling `
+                    + 'this route places on a shared public register (C57 §7.2).',
+            });
+        }
+        let out;
+        try {
+            out = await fetchDawaParcelsInArea(lon, lat, radiusM, deps);
+        } catch (err) {
+            console.warn('[dk-matrikel] unexpected area error:', err?.message ?? err);
+            out = { outcome: 'unreachable', parcels: [], truncated: false,
+                reason: String(err?.message ?? err) };
+        }
+        setProxyCacheHeaders(res);
+        res.setHeader('X-Matrikel-Area-Outcome', out.outcome);
+        if (out.outcome === 'unreachable') res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json(out);
+    };
+}
+
+/** The default production area handler (real `fetch`, real endpoint). */
+export const dkParcelsAreaHandler = makeDkParcelsAreaHandler();
+

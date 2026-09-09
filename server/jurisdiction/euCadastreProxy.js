@@ -442,17 +442,26 @@ function parseGmlCandidates(text, axis /* 'lonlat' | 'latlon' */) {
 
 const HALF_DEG = 0.00035; // ~±38 m bbox around the click — enough to catch the parcel.
 
-function frUrl(lat, lon) {
-    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+// §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY (C57 §1.14.4) — FR and NL take an OPTIONAL fourth
+// `opts` argument ({ halfDeg, count }) so the AREA route can widen the same window and raise the
+// same cap WITHOUT a second URL builder. ⛔ Both default to today's values, so a point lookup
+// produces the identical URL it always has; the third parameter stays the per-leg secret (`key`),
+// which these two keyless legs ignore.
+function frUrl(lat, lon, _key, opts) {
+    const h = Number.isFinite(opts?.halfDeg) && opts.halfDeg > 0 ? opts.halfDeg : HALF_DEG;
+    const n = Number.isFinite(opts?.count) && opts.count > 0 ? Math.floor(opts.count) : 20;
+    const bbox = `${lat - h},${lon - h},${lat + h},${lon + h},urn:ogc:def:crs:EPSG::4326`;
     return 'https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature' +
         '&TYPENAMES=CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle&SRSNAME=EPSG:4326' +
-        `&COUNT=20&OUTPUTFORMAT=application/json&BBOX=${encodeURIComponent(bbox)}`;
+        `&COUNT=${n}&OUTPUTFORMAT=application/json&BBOX=${encodeURIComponent(bbox)}`;
 }
-function nlUrl(lat, lon) {
-    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+function nlUrl(lat, lon, _key, opts) {
+    const h = Number.isFinite(opts?.halfDeg) && opts.halfDeg > 0 ? opts.halfDeg : HALF_DEG;
+    const n = Number.isFinite(opts?.count) && opts.count > 0 ? Math.floor(opts.count) : 20;
+    const bbox = `${lat - h},${lon - h},${lat + h},${lon + h},urn:ogc:def:crs:EPSG::4326`;
     return 'https://service.pdok.nl/kadaster/kadastralekaart/wfs/v5_0?service=WFS&version=2.0.0&request=GetFeature' +
         '&typeNames=kadastralekaart:Perceel&srsName=urn:ogc:def:crs:EPSG::4326' +
-        `&count=20&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
+        `&count=${n}&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
 }
 function noUrl(lat, lon) {
     const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
@@ -1321,6 +1330,7 @@ function jsonProp(props, ...keys) {
  *   semantic404?:boolean,
  *   timeoutMs?:number,
  *   select?:(candidates:any[])=>any[],
+ *   areaQuery?:boolean,
  *   normalise:(c:any)=>{refcat:string,areaM2:number,address:string|null}
  * }} SourceCfg
  *
@@ -1330,6 +1340,10 @@ function jsonProp(props, ...keys) {
  * 15 s ceiling (BE-VLG). Raising it is a statement about THAT host, never a global loosening.
  * `select` — candidate pre-filter/ordering applied BEFORE pickCandidate (AU-QLD unlinked twins,
  * AU-ACT RETIRED lifecycle) so point-in-polygon can only choose an assertable parcel.
+ * `areaQuery` — C57 §1.14: this leg's `url` builder honours the fourth `{ halfDeg, count }`
+ * argument, so `/api/parcel/:cc/area` may ask it for EVERY parcel in a window. ⛔ Absent/false is
+ * not a silent no-op: the area route answers `unsupported` and NAMES the register, because a
+ * toggle that lights up and draws nothing reads to the user as "there are no parcels here".
  */
 
 /** @type {Record<string, SourceCfg>} */
@@ -1339,6 +1353,9 @@ export const EU_CADASTRE_SOURCES = {
         url: frUrl,
         format: 'geojson',
         source: 'ign-fr',
+        // C57 §1.14 — `frUrl` takes { halfDeg, count }, and IGN's PARCELLAIRE EXPRESS WFS serves a
+        // window. A leg WITHOUT this flag answers `unsupported` and says so; it never draws blank.
+        areaQuery: true,
         normalise: (c) => {
             const p = c.props || {};
             const refcat = String(jsonProp(p, 'idu', 'id') ?? '').trim();
@@ -1352,6 +1369,8 @@ export const EU_CADASTRE_SOURCES = {
         url: nlUrl,
         format: 'geojson',
         source: 'pdok-nl',
+        // C57 §1.14 — `nlUrl` takes { halfDeg, count }; PDOK's Kadastralekaart WFS serves a window.
+        areaQuery: true,
         normalise: (c) => {
             const p = c.props || {};
             const gem = jsonProp(p, 'AKRKadastraleGemeenteCodeWaarde', 'kadastraleGemeenteCode');
@@ -2668,6 +2687,71 @@ export async function resolveEuParcelOutcome(cc, lon, lat, deps = {}) {
     return r;
 }
 
+/**
+ * ⭐ THE ONE CANDIDATE PARSER — the format switch, the projected-CRS conversion and the per-source
+ * pre-filter, in one place, used by BOTH the point leg and the AREA leg (C57 §1.14.4).
+ *
+ * ⛔ EXTRACTED, NOT COPIED. The area leg needs the identical `text → candidates` pipeline that the
+ * point leg runs; forking a second copy is the [[same-rule-two-implementations]] shape, and it is
+ * invisible when it drifts because both copies keep returning plausible rings. The behaviour here
+ * is byte-for-byte the code that lived inline in `resolveEuParcelOutcomeInner`.
+ *
+ * The reproject must happen BEFORE any point-in-polygon test: AT's WMS GetFeatureInfo answers in
+ * EPSG:3857, and comparing a click's degrees against metres makes every containment test fail,
+ * degrading every AT click to "nearest centroid" over an arbitrary ordering.
+ */
+function parseSelectableCandidates(cfg, text, uldkRecords = null) {
+    const candidates = cfg.format === 'geojson'
+        ? parseGeoJsonCandidates(text)
+        : cfg.format === 'esrijson'
+            ? parseEsriJsonCandidates(text)
+            : cfg.format === 'arcgis'
+                ? parseArcgisCandidates(text)
+                : cfg.format === 'uldk'
+                    ? parseUldkCandidates(uldkRecords ?? [])
+                    : cfg.format === 'socrata'
+                        ? parseSocrataCandidates(text)
+                        : parseGmlCandidates(text, cfg.axis);
+    const projected = cfg.reproject === 'epsg3857'
+        ? candidates.map((c) => ({ ...c, ring: c.ring.map((pt) => webMercatorToWgs84(pt.lon, pt.lat)) }))
+        : candidates;
+    // Per-source candidate pre-filter/ordering (AU-QLD id-less "Unlinked parcel" twins, AU-ACT
+    // RETIRED lifecycle) — only assertable parcels may be chosen, or drawn.
+    return typeof cfg.select === 'function' ? cfg.select(projected) : projected;
+}
+
+/**
+ * ⭐ THE ONE NORMALISER — candidate → the wire parcel, with the §L-12912 two-area split. Returns
+ * null when the feature carries no usable identifier (geometry without a citable id is not a
+ * parcel we can serve). Used by BOTH the point leg and the AREA leg (C57 §1.14.4).
+ *
+ * §L-12912 — the two areas are DIFFERENT FACTS (C57 §2.4 / KV-3) and leave this proxy as two
+ * fields, exactly as the Spain proxy has since §L-640. `areaSigM2` is always the shoelace over the
+ * ring served. `areaOfficialM2` is the register's own figure when one was published, else null. A
+ * normaliser may state it explicitly (PT does); otherwise it is read off the ONE fact every
+ * normaliser in this table shares — its only NON-served area is `ringAreaM2(c.ring)` over this same
+ * ring object, so an `areaM2` that is not that exact value was served by the register. ⚠ A
+ * normaliser that ever computes an area any OTHER way must set `areaOfficialM2` explicitly, or its
+ * derived figure will be mis-read as registry-declared.
+ */
+function normaliseParcelCandidate(cfg, chosen) {
+    const meta = cfg.normalise(chosen);
+    if (!meta.refcat) return null;
+    const areaSigM2 = ringAreaM2(chosen.ring);
+    const servedArea = Number.isFinite(meta.areaM2) && meta.areaM2 > 0 ? meta.areaM2 : null;
+    const areaOfficialM2 = meta.areaOfficialM2 !== undefined
+        ? (Number.isFinite(meta.areaOfficialM2) && meta.areaOfficialM2 > 0 ? meta.areaOfficialM2 : null)
+        : (servedArea !== null && servedArea !== areaSigM2 ? servedArea : null);
+    return {
+        ring: chosen.ring,
+        refcat: meta.refcat,
+        areaM2: servedArea ?? areaSigM2,
+        areaOfficialM2,
+        areaSigM2,
+        address: meta.address,
+    };
+}
+
 /** The undecorated resolution — every return site here stays a plain `{ outcome, parcel }`. */
 async function resolveEuParcelOutcomeInner(cc, lon, lat, deps = {}) {
     const cfg = EU_CADASTRE_SOURCES[cc];
@@ -2724,62 +2808,15 @@ async function resolveEuParcelOutcomeInner(cc, lon, lat, deps = {}) {
         uldkRecords = cls.records;
     }
 
-    const candidates = cfg.format === 'geojson'
-        ? parseGeoJsonCandidates(text)
-        : cfg.format === 'esrijson'
-            ? parseEsriJsonCandidates(text)
-            : cfg.format === 'arcgis'
-                ? parseArcgisCandidates(text)
-                : cfg.format === 'uldk'
-                    ? parseUldkCandidates(uldkRecords ?? [])
-                    : cfg.format === 'socrata'
-                        ? parseSocrataCandidates(text)
-                        : parseGmlCandidates(text, cfg.axis);
-    // A source whose ONLY queryable channel answers in a projected CRS (today: AT's WMS
-    // GetFeatureInfo, which must be asked in EPSG:3857 or the ring is rounded to ~110 m and
-    // collapses) is converted to WGS84 HERE — before point-in-polygon, so `pickCandidate` compares
-    // degrees against degrees. ⛔ Reprojecting AFTER selection would silently pick the wrong parcel:
-    // the click's lat/lon would be tested against metre coordinates and every containment test
-    // would fail, degrading every AT click to "nearest centroid" over an arbitrary ordering.
-    const projected = cfg.reproject === 'epsg3857'
-        ? candidates.map((c) => ({ ...c, ring: c.ring.map((pt) => webMercatorToWgs84(pt.lon, pt.lat)) }))
-        : candidates;
-    // Per-source candidate pre-filter/ordering (AU-QLD id-less "Unlinked parcel" twins, AU-ACT
-    // RETIRED lifecycle) — point-in-polygon may only choose among assertable parcels.
-    const selectable = typeof cfg.select === 'function' ? cfg.select(projected) : projected;
+    const selectable = parseSelectableCandidates(cfg, text, uldkRecords);
     const chosen = pickCandidate(selectable, lat, lon);
     if (!chosen) return { outcome: 'empty', parcel: null };
 
-    const meta = cfg.normalise(chosen);
+    const result = normaliseParcelCandidate(cfg, chosen);
     // A feature with geometry but no usable identifier is not a parcel we can cite — treat it as an
     // authoritative empty rather than an outage (the source DID answer).
-    if (!meta.refcat) return { outcome: 'empty', parcel: null };
-    // §L-12912 — the two areas are DIFFERENT FACTS (C57 §2.4 / KV-3) and leave this proxy as two
-    // fields, exactly as the Spain proxy has since §L-640. `areaSigM2` is always the shoelace over
-    // the ring served. `areaOfficialM2` is the register's own figure when one was published, else
-    // null. A normaliser may state it explicitly (PT does); otherwise it is read off the ONE fact
-    // every normaliser in this table shares — its only NON-served area is `ringAreaM2(c.ring)` over
-    // this same ring object, so an `areaM2` that is not that exact value was served by the
-    // register. ⚠ A normaliser that ever computes an area any OTHER way must set `areaOfficialM2`
-    // explicitly, or its derived figure will be mis-read as registry-declared. Before this, every
-    // one of the ~25 legs that read a served area (FR contenance, NL kadastraleGrootteWaarde, DE
-    // flaeche/afl/areaValue, EE pindala, LU/LV area, LT skl_plotas, PT areavalue, …) reached the
-    // client as a bare `areaM2`, and the card said "the source publishes no registry area" over
-    // every one of them.
-    const areaSigM2 = ringAreaM2(chosen.ring);
-    const servedArea = Number.isFinite(meta.areaM2) && meta.areaM2 > 0 ? meta.areaM2 : null;
-    const areaOfficialM2 = meta.areaOfficialM2 !== undefined
-        ? (Number.isFinite(meta.areaOfficialM2) && meta.areaOfficialM2 > 0 ? meta.areaOfficialM2 : null)
-        : (servedArea !== null && servedArea !== areaSigM2 ? servedArea : null);
-    const result = {
-        ring: chosen.ring,
-        refcat: meta.refcat,
-        areaM2: servedArea ?? areaSigM2,
-        areaOfficialM2,
-        areaSigM2,
-        address: meta.address,
-    };
-    cacheSet(`${cc}:${meta.refcat}`, result);
+    if (!result) return { outcome: 'empty', parcel: null };
+    cacheSet(`${cc}:${result.refcat}`, result);
     return { outcome: 'ok', parcel: result };
 }
 
@@ -2864,3 +2901,198 @@ export function makeEuParcelHandler(deps = {}) {
 
 /** The default production handler (real `fetch`, real endpoints). */
 export const euParcelHandler = makeEuParcelHandler();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY (C57 §1.14, lane CADASTRAL 2026-09-09)
+// The AREA query, on the SAME per-source machine the point route already runs
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ⛔ NO SECOND PARSER, NO SECOND URL BUILDER, NO SECOND NORMALISER. This route reuses
+// `parseSelectableCandidates` and `normaliseParcelCandidate` — the two helpers the point leg was
+// refactored onto in the same commit — and it reuses each source's OWN `url(lat, lon, key, opts)`
+// builder, parameterised for half-window and count. The only thing it does differently is skip
+// `pickCandidate`: an area answer is the whole collection, not the one winner.
+//
+// ⛔ AND IT IS OPT-IN PER SOURCE. A leg only answers an area query if its config carries
+// `areaQuery: true`, which today is FR and NL — the two whose builders were parameterised and
+// whose bbox WFS demonstrably serves a window. Every other leg answers `unsupported` with its own
+// name in the reason. That is C57 §1.14.2: a register that cannot serve an area query must SAY so,
+// because the alternative — a toggle that lights up and draws nothing — reads to the user as
+// "there are no parcels here", which is a claim about the LAND made from a gap in our wiring.
+
+/** Upper bound on one area request (m) — a shared public register is not a bulk endpoint (§7.2). */
+export const EU_AREA_MAX_RADIUS_M = 1500;
+
+/** The feature cap sent upstream; a parsed count that REACHES it means `truncated: true`. */
+export const EU_AREA_COUNT_CAP = 400;
+
+const METRES_PER_DEG_LAT = 111_320;
+
+/**
+ * The half-width (degrees) whose bbox ENCLOSES a circle of `radiusM` about `lat`. Sized off the
+ * LONGITUDE axis (the short one), so the box is a superset of the circle on both axes — the error
+ * direction is "a few extra neighbours", never "a missing one the user can see on screen".
+ * `cos(lat)` is floored at 0.15 (~81.4°) so a polar query cannot divide by ~0.
+ */
+export function euAreaHalfDegForRadius(lat, radiusM) {
+    const cosLat = Math.max(Math.cos((lat * Math.PI) / 180), 0.15);
+    return radiusM / (METRES_PER_DEG_LAT * cosLat);
+}
+
+/** Area cache + in-flight de-duplication, keyed by the ROUNDED request. */
+const _areaCache = new Map();
+const AREA_CACHE_TTL_MS = CACHE_TTL_MS;
+const AREA_CACHE_MAX = 64;
+const _areaInFlight = new Map();
+
+/** Test-only reset for the area cache (the point cache has `__resetEuCadastreCache`). */
+export function __resetEuAreaCache() { _areaCache.clear(); _areaInFlight.clear(); }
+
+/**
+ * Resolve EVERY parcel this register publishes inside the box enclosing a circle. Never throws.
+ *
+ * ⭐ FIVE OUTCOMES, NEVER COLLAPSED (C57 §1.14.2):
+ *   · `ok`           — the register answered. An EMPTY `parcels` array here is an authoritative
+ *                      finding about the LAND, not about us.
+ *   · `unsupported`  — this register publishes no area query. A fact about the SOURCE, permanent.
+ *   · `unreachable`  — it does, and it did not answer. Not a finding at all; never cached.
+ *   · `unconfigured` — the leg names a server-side secret this deployment does not hold.
+ *   · `out-of-area`  — the point is outside this register's own territory.
+ *
+ * @returns {Promise<{ outcome: string, parcels: object[], truncated: boolean, reason?: string }>}
+ */
+export async function resolveEuParcelsInArea(cc, lon, lat, radiusM, deps = {}) {
+    const cfg = EU_CADASTRE_SOURCES[cc];
+    if (!cfg) {
+        return { outcome: 'unknown-source', parcels: [], truncated: false,
+            reason: `No cadastre is wired for '${cc}'.` };
+    }
+    if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(radiusM) || radiusM <= 0) {
+        return { outcome: 'bad-input', parcels: [], truncated: false,
+            reason: 'lon, lat and a positive radiusM are required.' };
+    }
+    if (cfg.areaQuery !== true) {
+        // ⚠ THE HONEST SENTENCE, NOT AN EMPTY LIST. This register is served one parcel at a time —
+        // either it publishes no bbox channel, or its builder has not been parameterised for one.
+        // Both are facts about PRYZM's reach into that source, and both must read as "we cannot ask
+        // for the neighbours here", never as "there are no neighbours here".
+        return { outcome: 'unsupported', parcels: [], truncated: false,
+            reason: `${cfg.source} serves one parcel at a time — PRYZM cannot ask it for every `
+                + 'parcel in an area, so the neighbours are not drawn here.' };
+    }
+    if (!cfg.guard(lat, lon)) {
+        return { outcome: 'out-of-area', parcels: [], truncated: false,
+            reason: `${cfg.source} publishes no parcels at this location.` };
+    }
+
+    let key;
+    if (typeof cfg.requiresEnv === 'string' && cfg.requiresEnv) {
+        const raw = typeof cfg.readKey === 'function' ? cfg.readKey(deps) : undefined;
+        key = typeof raw === 'string' ? raw.trim() : '';
+        if (!key) {
+            return { outcome: 'unconfigured', parcels: [], truncated: false,
+                reason: `${cfg.requiresEnv} is not configured on this server (C57 §1.2).` };
+        }
+    }
+
+    const ck = `${cc}:${lat.toFixed(4)},${lon.toFixed(4)},${Math.round(radiusM)}`;
+    const hit = _areaCache.get(ck);
+    if (hit && Date.now() - hit.at <= AREA_CACHE_TTL_MS) return hit.value;
+    if (hit) _areaCache.delete(ck);
+    // §ONE-READ-PER-BBOX ([[context-one-read-per-bbox]]) — two surfaces subscribing to ONE overlay
+    // flag will ask for the same box in the same tick; the second awaits the first.
+    const pending = _areaInFlight.get(ck);
+    if (pending) return pending;
+
+    const run = (async () => {
+        try {
+            const halfDeg = euAreaHalfDegForRadius(lat, radiusM);
+            const url = cfg.url(lat, lon, key, { halfDeg, count: EU_AREA_COUNT_CAP });
+            const text = await fetchTextOnce(url, deps, {
+                headers: cfg.headers,
+                semantic404: cfg.semantic404 === true,
+                timeoutMs: cfg.timeoutMs,
+            });
+            if (text === SEMANTIC_404) {
+                return { outcome: 'ok', parcels: [], truncated: false };
+            }
+            if (!text) {
+                return { outcome: 'unreachable', parcels: [], truncated: false,
+                    reason: `${cfg.source} did not answer.` };
+            }
+            const candidates = parseSelectableCandidates(cfg, text, null);
+            const parcels = [];
+            for (const c of candidates) {
+                const norm = normaliseParcelCandidate(cfg, c);
+                if (norm) parcels.push({ ...norm, source: cfg.source });
+            }
+            // ⚠ `>=`, not `>`. A response landing EXACTLY on the cap is indistinguishable from one
+            // the cap truncated, and the honest reading of an indistinguishable pair is the one
+            // that under-claims completeness (C57 §1.14.3).
+            const value = { outcome: 'ok', parcels, truncated: candidates.length >= EU_AREA_COUNT_CAP };
+            if (_areaCache.size >= AREA_CACHE_MAX) {
+                const oldest = _areaCache.keys().next();
+                if (!oldest.done) _areaCache.delete(oldest.value);
+            }
+            _areaCache.set(ck, { at: Date.now(), value });
+            return value;
+        } catch (err) {
+            console.warn(`[eu-cadastre] area query failed (${cc}):`, err?.message ?? err);
+            return { outcome: 'unreachable', parcels: [], truncated: false,
+                reason: `${cfg.source} did not answer: ${err?.message ?? String(err)}` };
+        } finally {
+            _areaInFlight.delete(ck);
+        }
+    })();
+    _areaInFlight.set(ck, run);
+    return run;
+}
+
+/**
+ * Express handler for GET /api/parcel/:cc/area?lon=&lat=&radiusM=.
+ * `unconfigured` → 503 + no-store (a DEPLOYMENT fact, never readable as "empty"); everything else
+ * → 200 with its own `outcome`, so no arm of C57 §1.14.2 can be read as another. Never throws.
+ */
+export function makeEuParcelsAreaHandler(deps = {}) {
+    return async function euParcelsAreaHandler(req, res) {
+        const cc = String(req.params?.cc ?? '').toLowerCase();
+        const lon = Number.parseFloat(String(req.query?.lon ?? ''));
+        const lat = Number.parseFloat(String(req.query?.lat ?? ''));
+        const radiusM = Number.parseFloat(String(req.query?.radiusM ?? ''));
+        if (!EU_CADASTRE_SOURCES[cc]) return res.status(404).json({ error: `Unknown cadastre '${cc}'.` });
+        if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(radiusM) || radiusM <= 0) {
+            return res.status(400).json({
+                outcome: 'bad-input', parcels: [], truncated: false,
+                reason: 'lon, lat and a positive radiusM (EPSG:4326 / metres) are required.',
+            });
+        }
+        if (radiusM > EU_AREA_MAX_RADIUS_M) {
+            return res.status(400).json({
+                outcome: 'bad-input', parcels: [], truncated: false,
+                reason: `radiusM ${Math.round(radiusM)} exceeds the ${EU_AREA_MAX_RADIUS_M} m ceiling `
+                    + 'this route places on a shared public register (C57 §7.2).',
+            });
+        }
+
+        let out;
+        try {
+            out = await resolveEuParcelsInArea(cc, lon, lat, radiusM, deps);
+        } catch (err) {
+            console.warn(`[eu-cadastre] unexpected area error (${cc}):`, err?.message ?? err);
+            out = { outcome: 'unreachable', parcels: [], truncated: false,
+                reason: String(err?.message ?? err) };
+        }
+        setProxyCacheHeaders(res);
+        res.setHeader('X-Cadastre-Area-Outcome', out.outcome);
+        if (out.outcome === 'unreachable') res.setHeader('Cache-Control', 'no-store');
+        if (out.outcome === 'unconfigured') {
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(503).json(out);
+        }
+        return res.status(200).json(out);
+    };
+}
+
+/** The default production area handler (real `fetch`, real endpoints). */
+export const euParcelsAreaHandler = makeEuParcelsAreaHandler();
+
