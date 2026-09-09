@@ -10,6 +10,12 @@
 #
 #   usage: tools/deploy/fly-ship.sh [<sha>]        # default: origin/main
 #          SKIP_TSC=1 tools/deploy/fly-ship.sh     # only when tsc was JUST run green
+#          DRY_RUN=1  tools/deploy/fly-ship.sh     # everything EXCEPT the deploy + proof
+#
+# ⭐ DRY_RUN EXISTS SO THE PATH IS TESTED BEFORE IT IS NEEDED. Every precondition this script
+#    asserts — token, worktree cleanliness, tsc, builder size — is one that has actually broken a
+#    deploy here at least once. Discovering a bug in the harness at the moment a lane lands and
+#    someone is waiting is the expensive way to find it; DRY_RUN finds it in ~60 seconds.
 #
 # ⛔ THIS SCRIPT DOES NOT REPLACE THE CONTRACT, AND IT IS NOT A LICENCE TO STOP
 #    READING IT. It automates the steps whose ORDER and FLAGS are settled. Every
@@ -106,6 +112,10 @@ else
 fi
 
 # ── 6 · deploy ───────────────────────────────────────────────────────────────
+if [ "${DRY_RUN:-0}" = "1" ]; then
+  say "DRY_RUN=1 — every precondition above PASSED; stopping before the deploy and the §5 proof"
+  exit 0
+fi
 say "deploying (expect ~15 min: ~7 min context upload at ~280 KB/s, then build)"
 bash "$TREE/tools/deploy/fly-manual-deploy.sh" 2>&1 | tee "$LOG"
 RC=${PIPESTATUS[0]}
