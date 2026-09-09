@@ -462,8 +462,39 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
         display: 'none',
     } satisfies Partial<CSSStyleDeclaration>);
 
+    // ── row 3a: §SCOPE-LIMIT-IS-A-LINE-NOT-A-PARAGRAPH (founder 2026-09-09 · L-13293) ──────────
+    //
+    // FOUNDER: *"i want this panel to have all the text as a drop down - the user can choose to
+    // show it or not - otherwise is taking too much space"* — sent with a red box round a panel
+    // whose caption was PINNED OPEN because two caps were biting.
+    //
+    // ⚠⚠ THIS AMENDS §SCOPE-PANEL-50 (L-13189, HIS OWN RULING OF 2026-09-07), AND THE RULING IS
+    // KEPT IN FULL above `captionNeedsAttention`, because its reason has not gone away:
+    //   *"progressive disclosure applied to an honesty statement is how a product quietly stops
+    //    disclosing"*.
+    //
+    // ⭐ SO THE PIN IS NOT REMOVED — IT IS RE-SHAPED. What that ruling actually requires is that
+    // the user CANNOT BE UNAWARE a cap is biting. It does not require a four-line paragraph to say
+    // so. When a reading names a limit, this element carries its FIRST SENTENCE — the verdict —
+    // permanently, un-foldable, in the panel's own accent; the numbers and the explanation move
+    // behind the ⓘ. The limit is still impossible to miss and the panel gets its height back.
+    //
+    // ⛔ IT IS NOT A SECOND JUDGE. It does not re-derive whether a limit exists (that is
+    // `captionNeedsAttention`, still the only authority) and it does not compose its own words:
+    // it takes the FIRST SENTENCE of the caption `completenessCaption` already produced. A rival
+    // sentence here is exactly the rival-solver shape the ruling above spends a paragraph
+    // forbidding, and the biconditional arm in siteScopeSlider.spec.ts would not catch a rival
+    // that only differs in WORDING.
+    const captionLead = document.createElement('div');
+    captionLead.setAttribute('data-testid', `site-scope-caption-lead-${paneId}`);
+    Object.assign(captionLead.style, {
+        font: '600 10px/1.35 system-ui, sans-serif', color: BRAND, marginTop: '3px',
+        display: 'none',
+    } satisfies Partial<CSSStyleDeclaration>);
+
     root.appendChild(head);
     root.appendChild(trackWrap);
+    root.appendChild(captionLead);
     root.appendChild(caption);
     paneEl.appendChild(root);
 
@@ -507,17 +538,33 @@ export function mountSiteScopeSlider(opts: SiteScopeSliderOptions): SiteScopeSli
      */
     function paintCaption(text: string, pinned: boolean): void {
         caption.textContent = text;
-        const open = pinned || captionOpen;
+        // ⭐ §SCOPE-LIMIT-IS-A-LINE-NOT-A-PARAGRAPH (L-13293) — `captionOpen` ALONE now governs the
+        // paragraph. `pinned` no longer forces it open; it decides whether the LEAD line shows.
+        const open = captionOpen;
         caption.style.display = open ? 'block' : 'none';
+
+        // The verdict sentence, lifted from the caption rather than re-worded. Split on the first
+        // full stop that ends a sentence; if there is no such break the whole text IS the verdict.
+        const dot = text.indexOf('. ');
+        const verdict = dot > 0 ? text.slice(0, dot + 1) : text;
+        // ⛔ Shown when the reading names a limit AND the paragraph is folded. Never both at once —
+        // the lead is the paragraph's first sentence, so showing both would print it twice.
+        const showLead = pinned && !open;
+        captionLead.textContent = showLead ? verdict : '';
+        captionLead.style.display = showLead ? 'block' : 'none';
+
         captionToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        // A control that refuses states its reason; one that vanishes teaches nothing.
-        captionToggle.disabled = pinned;
-        captionToggle.style.cursor = pinned ? 'default' : 'pointer';
+        // ⛔ NEVER DISABLED NOW. Under §SCOPE-PANEL-50 this control refused on any reading that
+        // named a limit, which is precisely the reading the founder was looking at when he asked
+        // for the space back. The honesty it was protecting is carried by `captionLead` instead,
+        // so the toggle can always be pressed and the panel can always be small.
+        captionToggle.disabled = false;
+        captionToggle.style.cursor = 'pointer';
         captionToggle.style.color = pinned ? BRAND : MUTED;
-        captionToggle.title = pinned
-            ? 'This reading names a limit or an unmeasured layer, so it stays open.'
-            : open
-                ? 'Hide the completeness reading'
+        captionToggle.title = open
+            ? 'Hide the detail — the reading itself stays on the panel'
+            : pinned
+                ? 'Show the numbers behind this reading — the limit stays named above either way'
                 : 'Show the completeness reading — what this scope actually draws';
         captionToggle.setAttribute('aria-label', 'Completeness reading');
     }

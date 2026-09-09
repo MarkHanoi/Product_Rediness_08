@@ -614,19 +614,58 @@ describe('§SCOPE-PANEL-50 — the honesty sentence is FOLDED, never shortened, 
         expect(caption.style.display).toBe('none');
     });
 
-    it('⛔⛔ a reading that names a LIMIT cannot be folded away — not even by clicking', () => {
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⚠⚠ §SCOPE-LIMIT-IS-A-LINE-NOT-A-PARAGRAPH (founder 2026-09-09 · L-13293) AMENDS THE ARMS
+    // BELOW, WHICH PINNED §SCOPE-PANEL-50 (his own ruling of 2026-09-07, L-13189).
+    //
+    // FOUNDER, red box round a panel whose caption was pinned open by two biting caps:
+    //   *"i want this panel to have all the text as a drop down - the user can choose to show it
+    //    or not - otherwise is taking too much space"*
+    //
+    // ⭐ THE OLD RULING'S REASON SURVIVES AND IS STILL ENFORCED HERE. It was never "a limit needs
+    // four lines"; it was *"the user cannot be unaware a cap is biting"*, and folding an honesty
+    // statement outright is how a product quietly stops disclosing. What changed is the SHAPE of
+    // the guarantee, not the guarantee:
+    //   · the PARAGRAPH is now always foldable, and the toggle is NEVER disabled;
+    //   · the VERDICT SENTENCE moves to `site-scope-caption-lead`, un-foldable, shown exactly when
+    //     the reading names a limit and the paragraph is closed.
+    // The limit is still impossible to miss at the panel's smallest — that is what these arms now
+    // test, and it is why this is an AMENDMENT rather than a repeal.
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    it('⛔⛔ a reading that names a LIMIT is foldable — but its VERDICT never leaves the panel', () => {
         const r = recorder(scopeAtRadius(1700, 'circle'));
         r.mark = { radiusM: 900, boundBy: 'canopy read', kind: 'read' };
         const { paneEl, caption } = mountInto(r);
         const toggle = paneEl.querySelector<HTMLButtonElement>(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)!;
-        expect(caption.style.display).toBe('block');
-        expect(toggle.disabled).toBe(true);
-        // The refusal STATES ITS REASON rather than vanishing — a control that disappears teaches
-        // nothing about why the panel will not get smaller here.
-        expect(toggle.title).toMatch(/stays open/);
+        const lead = paneEl.querySelector<HTMLElement>(`[data-testid="site-scope-caption-lead-${LEFT_PANE}"]`)!;
+
+        // Folded by default now — the founder's space back.
+        expect(caption.style.display).toBe('none');
+        // ⛔ AND THE LIMIT IS STILL ON SCREEN. This is the whole of §SCOPE-PANEL-50's guarantee.
+        expect(lead.style.display).toBe('block');
+        expect(lead.textContent).not.toBe('');
+        // ⛔ The toggle may ALWAYS be pressed — that refusal is what he was looking at.
+        expect(toggle.disabled).toBe(false);
+
         toggle.click();
-        toggle.click();
         expect(caption.style.display).toBe('block');
+        // ⛔ NEVER BOTH: the lead IS the paragraph's first sentence, so it would print twice.
+        expect(lead.style.display).toBe('none');
+        toggle.click();
+        expect(caption.style.display).toBe('none');
+        expect(lead.style.display).toBe('block');
+    });
+
+    it('⭐ the lead is the caption OWN first sentence — never a second, re-worded verdict', () => {
+        const r = recorder(scopeAtRadius(1700, 'circle'));
+        r.mark = { radiusM: 900, boundBy: 'canopy read', kind: 'read' };
+        const { paneEl, caption } = mountInto(r);
+        const lead = paneEl.querySelector<HTMLElement>(`[data-testid="site-scope-caption-lead-${LEFT_PANE}"]`)!;
+        // A rival sentence here is the rival-solver shape §SCOPE-PANEL-50 spends a paragraph
+        // forbidding, and a biconditional on WHETHER a limit exists could not catch a rival that
+        // differs only in wording. So pin containment against the one producer's text.
+        expect(lead.textContent!.length).toBeGreaterThan(0);
+        expect(caption.textContent!.startsWith(lead.textContent!)).toBe(true);
     });
 
     it('⛔ an UNMEASURED reading is pinned open too — unmeasured and clean are different values', () => {
@@ -635,8 +674,13 @@ describe('§SCOPE-PANEL-50 — the honesty sentence is FOLDED, never shortened, 
         const { paneEl, caption } = mountInto(r);
         const toggle = paneEl.querySelector<HTMLButtonElement>(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)!;
         expect(caption.textContent).toMatch(/has not been measured yet/);
-        expect(caption.style.display).toBe('block');
-        expect(toggle.disabled).toBe(true);
+        // §SCOPE-LIMIT-IS-A-LINE-NOT-A-PARAGRAPH — foldable, but "unmeasured" still shows, because
+        // an unmeasured layer and a clean one remain DIFFERENT VALUES and the lead says which.
+        expect(caption.style.display).toBe('none');
+        expect(toggle.disabled).toBe(false);
+        const lead = paneEl.querySelector<HTMLElement>(`[data-testid="site-scope-caption-lead-${LEFT_PANE}"]`)!;
+        expect(lead.style.display).toBe('block');
+        expect(lead.textContent).toMatch(/has not been measured yet/);
     });
 
     it('a BITING cap is pinned open with its numbers, inside the mark or not', () => {
@@ -645,15 +689,26 @@ describe('§SCOPE-PANEL-50 — the honesty sentence is FOLDED, never shortened, 
         r.verdicts = [{ layer: 'buildings', complete: false, line: 'buildings: 12 000 eligible, 8 000 drawn, 4 000 dropped.' }];
         const { paneEl, caption } = mountInto(r);
         const toggle = paneEl.querySelector<HTMLButtonElement>(`[data-testid="site-scope-caption-toggle-${LEFT_PANE}"]`)!;
+        const lead = paneEl.querySelector<HTMLElement>(`[data-testid="site-scope-caption-lead-${LEFT_PANE}"]`)!;
+        // §SCOPE-LIMIT-IS-A-LINE-NOT-A-PARAGRAPH — the NUMBERS may fold; the VERDICT may not.
+        expect(caption.style.display).toBe('none');
+        expect(toggle.disabled).toBe(false);
+        expect(lead.style.display).toBe('block');
+        // ⭐ The numbers are still ONE CLICK away and still exact — not summarised, not rounded.
+        toggle.click();
         expect(caption.style.display).toBe('block');
-        expect(toggle.disabled).toBe(true);
         expect(caption.textContent).toContain('4 000 dropped');
     });
 
     it('the "no site yet" and "could not be saved" readings are never foldable either', () => {
         const noSite = mountInto(recorder(null));
-        expect(noSite.caption.style.display).toBe('block');
+        // These are not completeness readings at all, so they are `pinned` and the LEAD carries
+        // them — the paragraph itself folds like every other.
+        expect(noSite.caption.style.display).toBe('none');
         expect(noSite.caption.textContent).toMatch(/not showing a site yet/);
+        const noSiteLead = noSite.paneEl.querySelector<HTMLElement>(`[data-testid="site-scope-caption-lead-${LEFT_PANE}"]`)!;
+        expect(noSiteLead.style.display).toBe('block');
+        expect(noSiteLead.textContent).toMatch(/not showing a site yet/);
 
         const r = recorder(readingScope);
         r.mark = { radiusM: 1600, boundBy: 'canopy read', kind: 'read' };
@@ -662,7 +717,10 @@ describe('§SCOPE-PANEL-50 — the honesty sentence is FOLDED, never shortened, 
         drag(m.input, 800);
         m.input.dispatchEvent(new Event('change'));
         expect(m.caption.textContent).toMatch(/could not be saved/);
-        expect(m.caption.style.display).toBe('block');
+        expect(m.caption.style.display).toBe('none');
+        const savedLead = m.paneEl.querySelector<HTMLElement>(`[data-testid="site-scope-caption-lead-${LEFT_PANE}"]`)!;
+        expect(savedLead.style.display).toBe('block');
+        expect(savedLead.textContent).toMatch(/could not be saved/);
     });
 
     it('drops its listener on dispose, like every other control in this panel', () => {
