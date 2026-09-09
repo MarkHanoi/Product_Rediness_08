@@ -110,6 +110,7 @@ export {
   normaliseRawIfcType,
   HOST_DERIVED_STOREY_TYPES,
   NO_HOST_INDEX,
+  NO_BUILDING_INDEX,
 } from './tree/adapters.js';
 export type {
   ImportedModelLike,
@@ -117,6 +118,8 @@ export type {
   NativeElementLike,
   HostIndex,
   HostLevelResolution,
+  BuildingIndex,
+  BuildingResolutionLike,
 } from './tree/adapters.js';
 
 export { createIfcTreeView, createTreeToggle } from './tree/ifc-tree-view.js';

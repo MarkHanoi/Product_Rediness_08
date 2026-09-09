@@ -113,6 +113,12 @@ export { produceRoof, type RoofProducer } from './producers/roof.js';
 export {
   offsetPolygon,
   offsetPolygonOrSelf,
+  // The OPEN-polyline half of the same arithmetic - the ribbon sweep behind
+  // `sweepCentrelineToRing` (@pryzm/geometry-siteworks, C116 10b). It lives in
+  // polygonOffset.ts because check-offset-implementations counts INDEPENDENT
+  // offset implementations and its exit target is 0.
+  offsetOpenPolyline,
+  dedupeConsecutive,
   findSelfIntersection,
   signedArea as polygonSignedArea2D,
   // §C73-AREA-CANONICAL — the same shoelace body behind accessors, so any
@@ -122,6 +128,7 @@ export {
   dedupeRing,
   FOLD_CHECK_MAX_VERTS,
   type OffsetResult,
+  type OpenOffsetResult,
   type Pt2,
 } from './pure/polygonOffset.js';
 // §C73-PIP-CANONICAL — THE point-in-polygon. One even-odd ray-cast body for the

@@ -59,6 +59,13 @@ import { resolveElementLevelId } from '../../ViewBrowser/panels/unified-browser/
 // itself backed by `window.roomContentsService`) — the by-room traversal below
 // calls it, it does not re-derive "which room is element X in".
 import type { RoomContentsService, RoomContents, ElementRef } from '@pryzm/room-topology';
+// ADR-0385 - the ONE resolver for "which building is this element in". The IFC
+// exporter calls the same function; this file re-derives nothing.
+import {
+    buildBuildingRoster,
+    readBuildingSubstrate,
+    type BuildingSubstrate,
+} from '@pryzm/core-app-model';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,8 +90,55 @@ export interface LevelTreeGroups {
     readonly listed:  number;
 }
 
+/**
+ * One IfcBuilding rung, with the storeys it owns.
+ *
+ * ADR-0385 (founder ask, 2026-09-09): *"each building should be considered as a
+ * different building entity for the IFC schema AND THE INSPECT TREE"*. The
+ * containment comes from `resolveLevelBuilding()` in `@pryzm/core-app-model` -
+ * the SAME function `packages/file-format`'s IFC exporter calls, so the tree and
+ * the exported file cannot give two answers (C84 EI-9). It is NOT read from
+ * `SpaceEnvelope.group`: ADR-0385 §2 made `hierarchyStore` the authority and
+ * `group` the massing-stage authoring axis that projects into it.
+ */
+export interface BuildingTreeGroup {
+    readonly buildingId: string;
+    readonly name:       string;
+    /**
+     * `carried` - the hierarchy store RECORDS this containment.
+     * `derived` - it records nothing, so every storey falls to the single default
+     *             building. Every project with no hierarchy buildings is `derived`,
+     *             and the renderer uses this to avoid drawing a building row that
+     *             asserts structure the model does not have.
+     */
+    readonly kind:       'carried' | 'derived';
+    /**
+     * ⭐ THE SAME `LevelTreeGroups` OBJECTS AS IN `levels`, BY REFERENCE - never a
+     * second traversal and never a copy. `buildings` is a REGROUPING of `levels`,
+     * so the two cannot drift apart; that is the same discipline `listedTotal`
+     * already follows.
+     */
+    readonly levels:     readonly LevelTreeGroups[];
+    /** Sum of `levels[].listed` - what this building contributes to the header. */
+    readonly listed:     number;
+}
+
 export interface ProjectTreeModel {
     readonly levels: readonly LevelTreeGroups[];
+    /**
+     * ADR-0385 - the IfcBuilding tier above the storeys. NEVER EMPTY: a project
+     * with no hierarchy buildings yields exactly one `derived` building holding
+     * every level, which is the shape this tree drew before ADR-0385.
+     */
+    readonly buildings: readonly BuildingTreeGroup[];
+    /**
+     * Levels whose building could NOT be resolved, with the reason for each.
+     * ⛔ C78 §8.1 / §CONTEXT-DATA-HONESTY: an unreadable hierarchy store and a
+     * project that genuinely has no buildings must not look the same. Both produce
+     * ONE building in the tree - they have to, or the rows would vanish - and this
+     * list is the only thing that tells them apart.
+     */
+    readonly unresolvedBuildings: readonly { readonly levelId: string; readonly why: string }[];
     /**
      * ⭐ The header total. Equal, by construction, to the sum of every group count
      * the renderer draws — it is computed from the same traversal, not from a second
@@ -214,6 +268,8 @@ export function matchesFilter(cat: InspectCategoryDef, el: any, filter: string):
 export function buildProjectTreeModel(
     levelIds: readonly string[],
     filter:   string = '',
+    /** Injectable for tests; defaults to a live `hierarchyStore` read (ADR-0385). */
+    substrate: BuildingSubstrate = readBuildingSubstrate(),
 ): ProjectTreeModel {
     const known = new Set(levelIds.map(String));
     /** levelId → categoryId → records */
@@ -270,7 +326,30 @@ export function buildProjectTreeModel(
         listedTotal += listed;
     }
 
-    return { levels, listedTotal, totalUnfiltered, unplaced, unreadable };
+    // ── ADR-0385: the IfcBuilding tier ────────────────────────────────────
+    // A REGROUPING of `levels`, by reference. `buildBuildingRoster` is the same
+    // call `packages/file-format/src/export/ifc/buildingContainment.ts` makes, so
+    // the tree and the exported IFC file agree by construction rather than by two
+    // careful implementations (C84 EI-9).
+    const roster = buildBuildingRoster(levels.map((l) => l.levelId), substrate);
+    const byLevelId = new Map(levels.map((l) => [l.levelId, l]));
+    const buildings: BuildingTreeGroup[] = roster.buildings.map((b) => {
+        const own = b.levelIds
+            .map((id) => byLevelId.get(id))
+            .filter((l): l is LevelTreeGroups => l !== undefined);
+        return {
+            buildingId: b.id,
+            name: b.name,
+            kind: b.kind,
+            levels: own,
+            listed: own.reduce((n, l) => n + l.listed, 0),
+        };
+    });
+
+    return {
+        levels, buildings, unresolvedBuildings: roster.unknown,
+        listedTotal, totalUnfiltered, unplaced, unreadable,
+    };
 }
 
 /** The groups for a single level — the shape `renderTypesForLevel` consumes. */

@@ -42,12 +42,21 @@ import {
   createIfcTreeView,
   createTreeToggle,
   type HostIndex,
+  type BuildingIndex,
   type HostLevelResolution,
   type IfcTreeSource,
   type IfcTreeView,
   type TreeMode,
 } from '@pryzm/plugin-ifc-inspector';
-import { selectionBus } from '@pryzm/core-app-model';
+// ADR-0385 - the ONE resolver for "which building is this element in". The IFC
+// exporter and the PRYZM tree call the same function; this file re-derives nothing.
+import {
+  selectionBus,
+  readBuildingSubstrate,
+  resolveLevelBuilding,
+  UNREADABLE_SUBSTRATE,
+  type BuildingSubstrate,
+} from '@pryzm/core-app-model';
 
 const HOST_ID = 'pryzm-ifc-tree-host';
 const TOGGLE_ID = 'pryzm-ifc-tree-toggle';
@@ -125,6 +134,39 @@ function buildHostIndex(): HostIndex {
   };
 }
 
+/**
+ * ADR-0385 — back the tree's building rung with the ONE resolver.
+ *
+ * ⛔ This function contains NO RULE. `resolveLevelBuilding()` in
+ * `@pryzm/core-app-model` is the same call `packages/file-format`'s
+ * `buildingContainment.ts` makes and the same one `projectTreeModel.ts` makes, so
+ * the IFC file, the PRYZM tree and the IFC tree cannot give three answers to
+ * "which building is this element in" (C84 EI-9, ADR-0328). Adding a second
+ * derivation here is precisely how this repo's dominant defect recurs.
+ *
+ * The substrate is read ONCE per collection, so every element in one render sees
+ * the same vintage of the hierarchy store.
+ */
+function buildBuildingIndex(): BuildingIndex {
+  let substrate: BuildingSubstrate;
+  try {
+    substrate = readBuildingSubstrate();
+  } catch (err) {
+    // A throw is a FAILURE. Reporting it as "no buildings" would make an
+    // unreadable store indistinguishable from an ungrouped project.
+    warnOnce(`project hierarchy unavailable: ${String(err)}`);
+    substrate = UNREADABLE_SUBSTRATE;
+  }
+  return {
+    resolveLevelBuilding(levelId) {
+      const r = resolveLevelBuilding(levelId, substrate);
+      return r.kind === 'unknown'
+        ? { kind: 'unknown', why: r.why }
+        : { kind: r.kind, buildingId: r.buildingId as string, name: r.name as string };
+    },
+  };
+}
+
 function collectSources(): IfcTreeSource[] {
   const out: IfcTreeSource[] = [];
 
@@ -183,7 +225,10 @@ function collectSources(): IfcTreeSource[] {
         });
       }
     }
-    if (native.length > 0) out.push(adaptNativeElements(native, 'PRYZM model', hosts));
+    // ADR-0385 — the fourth argument is the building rung's authority.
+    if (native.length > 0) {
+      out.push(adaptNativeElements(native, 'PRYZM model', hosts, buildBuildingIndex()));
+    }
   } catch (err) {
     warnOnce(`native stores unavailable: ${String(err)}`);
   }

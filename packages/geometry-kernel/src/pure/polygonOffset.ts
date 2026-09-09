@@ -124,13 +124,27 @@ export function signedArea(poly: ReadonlyArray<Pt2>): number {
     return polygonSignedAreaOrdinates(poly.length, (i) => poly[i]![0], (i) => poly[i]![1]);
 }
 
-/** Drop consecutive (and wrap-around) duplicate vertices within `tol`. */
-export function dedupeRing(poly: ReadonlyArray<Pt2>, tol = 1e-7): Pt2[] {
+/**
+ * Drop CONSECUTIVE duplicate vertices within `tol`. The open-polyline form.
+ *
+ * STOP: this is NOT `dedupeRing` with the wrap check omitted by accident. An open
+ * polyline may legitimately RETURN TO ITS FIRST POINT - a loop road, a roundabout
+ * drawn as one centreline - and `dedupeRing` would silently delete that closing
+ * vertex, shortening the road by one segment. The two are different questions and
+ * `dedupeRing` is written in terms of this one, so there is a single body.
+ */
+export function dedupeConsecutive(poly: ReadonlyArray<Pt2>, tol = 1e-7): Pt2[] {
     const out: Pt2[] = [];
     for (const p of poly) {
         const last = out[out.length - 1];
         if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > tol) out.push([p[0], p[1]]);
     }
+    return out;
+}
+
+/** Drop consecutive (and wrap-around) duplicate vertices within `tol`. */
+export function dedupeRing(poly: ReadonlyArray<Pt2>, tol = 1e-7): Pt2[] {
+    const out = dedupeConsecutive(poly, tol);
     while (out.length >= 2) {
         const first = out[0]!;
         const last = out[out.length - 1]!;
@@ -198,6 +212,94 @@ export function findSelfIntersection(
  * the limit the corner is BEVELLED (two points on the two shifted lines) rather
  * than spiked. 4 is the common default and matches SVG/Clipper convention.
  */
+// -----------------------------------------------------------------------------
+// THE SHARED OFFSET ARITHMETIC - ONE COPY, CALLED BY BOTH OFFSETS
+// -----------------------------------------------------------------------------
+//
+// * `offsetPolygon` (closed rings) and `offsetOpenPolyline` (open polylines - the
+//   ribbon sweep behind `sweepCentrelineToRing` in `@pryzm/geometry-siteworks`)
+//   differ ONLY in their TOPOLOGY: which edges exist, and what happens at the two
+//   ends. The ARITHMETIC - the shifted supporting line, the Cramer solve, the
+//   miter limit - is identical, so it lives here ONCE and both call it.
+//
+// STOP: THIS IS NOT TIDINESS. `tools/ga-gate/check-offset-implementations.ts`
+//   counts INDEPENDENT offset implementations, sits at 0 outside this file, and
+//   has an exit target of 0. Its header records why: the same offset existed in
+//   three places at three levels of correctness, and the UNTOUCHED copy was the
+//   one the shipping committer called - so a user asking for a 300 mm eave got
+//   212 mm, and no test could tell you, because each copy passed its own
+//   package's tests. A second miter written inside `geometry-siteworks` would
+//   have been the fourth recurrence of exactly that.
+
+/** A supporting line `nx*x + nz*z = c`, already shifted outward by `distance`. */
+interface ShiftedLine { readonly nx: number; readonly nz: number; readonly c: number }
+
+/**
+ * The supporting line of edge (a->b), shifted by `distance` along its normal.
+ * `sign` flips the normal so the caller's winding is irrelevant.
+ * Returns `null` for a degenerate (zero-length) edge.
+ */
+function shiftedLineFor(
+    ax: number, az: number, bx: number, bz: number, distance: number, sign: number,
+): ShiftedLine | null {
+    const dx = bx - ax;
+    const dz = bz - az;
+    const len = Math.hypot(dx, dz);
+    // C73-EPSILON-POLICY - the degenerate-length guard consumes the declared
+    // numeric-zero epsilon (the value this file declared locally before the policy
+    // module existed: 1e-9), per C73 2.2/2.4.
+    if (len < EPSILON_ZERO) return null;
+    const nx = (dz / len) * sign;
+    const nz = (-dx / len) * sign;
+    return { nx, nz, c: nx * ax + nz * az + distance };
+}
+
+/**
+ * Push the offset position(s) of the vertex where `prev` and `curr` meet.
+ *
+ * Emits ONE point (the miter), or TWO (a BEVEL) when the corner is sharp enough
+ * that the exact miter would travel further than `|distance| * miterLimit`, or one
+ * point translated exactly along the shared normal when the edges are collinear
+ * and there is therefore no unique miter.
+ */
+function miterVertexInto(
+    out: Pt2[], prev: ShiftedLine, curr: ShiftedLine,
+    vx: number, vz: number, distance: number, miterLimit: number,
+): boolean {
+    const det = prev.nx * curr.nz - curr.nx * prev.nz;
+
+    // C73-EPSILON-POLICY NOTE - this guard is deliberately NOT migrated to
+    // `PARALLEL_RAD` (1e-9): 1e-12 -> 1e-9 would WIDEN the collinear branch
+    // (vertices with sin theta in (1e-12, 1e-9] switch from miter/bevel to exact
+    // translation), changing output geometry and hashes. Aligning it is a recorded
+    // migration hazard for a follow-up that carries its own fixtures; a silent pick
+    // here would be a behaviour change shipped as a refactor (C73 3.7).
+    if (Math.abs(det) < 1e-12) {
+        // Collinear (or antiparallel) edges - no unique miter. The shifted lines
+        // coincide, so the vertex simply translates along the shared normal; that is
+        // exact, not an approximation.
+        //
+        // NOTE THE CONTRAST WITH THE ROUTINE THIS REPLACES. `shrinkPolygon` hit this
+        // same branch and `continue`d - it DELETED the vertex and still returned
+        // success. Here the vertex survives, translated exactly.
+        out.push([vx + curr.nx * distance, vz + curr.nz * distance]);
+        return false;
+    }
+
+    const ix = (prev.c * curr.nz - curr.c * prev.nz) / det;
+    const iz = (prev.nx * curr.c - curr.nx * prev.c) / det;
+
+    // Miter limit: how far did the vertex actually travel?
+    const travel = Math.hypot(ix - vx, iz - vz);
+    if (travel > Math.abs(distance) * miterLimit) {
+        out.push([vx + prev.nx * distance, vz + prev.nz * distance]);
+        out.push([vx + curr.nx * distance, vz + curr.nz * distance]);
+        return true;
+    }
+    out.push([ix, iz]);
+    return false;
+}
+
 export function offsetPolygon(
     poly: ReadonlyArray<Pt2>,
     distance: number,
@@ -216,21 +318,13 @@ export function offsetPolygon(
     const ccw = signedArea(ring) > 0;
     const sign = ccw ? 1 : -1;
 
-    // Shifted supporting line per edge: nx·x + nz·z = c
-    const lines: Array<{ nx: number; nz: number; c: number } | null> = [];
+    // Shifted supporting line per edge. ONE builder, shared with
+    // `offsetOpenPolyline` - see the header above `shiftedLineFor`.
+    const lines: Array<ShiftedLine | null> = [];
     for (let i = 0; i < n; i++) {
         const [x1, z1] = ring[i]!;
         const [x2, z2] = ring[(i + 1) % n]!;
-        const dx = x2 - x1;
-        const dz = z2 - z1;
-        const len = Math.hypot(dx, dz);
-        // §C73-EPSILON-POLICY — the degenerate-length guard consumes the declared
-        // numeric-zero epsilon (same value this file declared locally before the
-        // policy module existed: 1e-9), per C73 §2.2/§2.4.
-        if (len < EPSILON_ZERO) { lines.push(null); continue; }
-        const nx = (dz / len) * sign;
-        const nz = (-dx / len) * sign;
-        lines.push({ nx, nz, c: nx * x1 + nz * z1 + distance });
+        lines.push(shiftedLineFor(x1, z1, x2, z2, distance, sign));
     }
 
     const out: Pt2[] = [];
@@ -241,50 +335,17 @@ export function offsetPolygon(
         const curr = lines[i];
         if (!prev || !curr) continue;
 
-        const det = prev.nx * curr.nz - curr.nx * prev.nz;
         const [vx, vz] = ring[i]!;
-
-        // §C73-EPSILON-POLICY NOTE — this guard is deliberately NOT migrated to
-        // `PARALLEL_RAD` (1e-9) in the policy-introduction PR: 1e-12 → 1e-9 would
-        // WIDEN the collinear branch (vertices with sin θ in (1e-12, 1e-9] switch
-        // from miter/bevel to exact translation), changing output geometry and
-        // hashes. Aligning it is a recorded migration hazard for a follow-up that
-        // carries its own fixtures; a silent pick here would be a behaviour change
-        // shipped as a refactor (C73 §3.7).
-        if (Math.abs(det) < 1e-12) {
-            // Collinear (or antiparallel) edges — no unique miter. For collinear
-            // edges the shifted lines coincide, so the vertex simply translates
-            // along the shared normal; that is exact, not an approximation.
-            //
-            // ⚠ NOTE THE CONTRAST WITH THE ROUTINE THIS REPLACES. `shrinkPolygon`
-            // hit this same branch and `continue`d — it DELETED the vertex and
-            // still returned success. Here the vertex survives, translated exactly.
-            //
-            // ⚠ RETRACTED FIGURE: an earlier draft said this "silently ate half the
-            // boundary (49% near-parallel vertices, measured)". It does not, and 49%
-            // was never measured on this routine — it is `insetPolygon.ts:437`'s
-            // statistic for cadastral vertices turning by less than 1°, which is a
-            // different quantity at a threshold six orders of magnitude looser than
-            // `|det| < 1e-8`. Re-measured on the HEAD implementation: 1–3 vertices
-            // lost in absolute terms, a share that FALLS with tessellation density
-            // (10.0% at 30 verts, 0.1% at 1006). The silent deletion is the defect;
-            // its size was overstated.
-            out.push([vx + curr.nx * distance, vz + curr.nz * distance]);
-            continue;
-        }
-
-        const ix = (prev.c * curr.nz - curr.c * prev.nz) / det;
-        const iz = (prev.nx * curr.c - curr.nx * prev.c) / det;
-
-        // Miter limit: how far did the vertex actually travel?
-        const travel = Math.hypot(ix - vx, iz - vz);
-        if (travel > Math.abs(distance) * miterLimit) {
-            bevelled = true;
-            out.push([vx + prev.nx * distance, vz + prev.nz * distance]);
-            out.push([vx + curr.nx * distance, vz + curr.nz * distance]);
-            continue;
-        }
-        out.push([ix, iz]);
+        // RETRACTED FIGURE, kept because the retraction is the useful part: an
+        // earlier draft said the collinear branch "silently ate half the boundary
+        // (49% near-parallel vertices, measured)". It does not, and 49% was never
+        // measured on this routine - it is `insetPolygon.ts:437`'s statistic for
+        // cadastral vertices turning by less than 1 degree, a different quantity at
+        // a threshold six orders of magnitude looser than `|det| < 1e-8`.
+        // Re-measured on the HEAD implementation: 1-3 vertices lost in absolute
+        // terms, a share that FALLS with tessellation density (10.0% at 30 verts,
+        // 0.1% at 1006). The silent deletion is the defect; its size was overstated.
+        if (miterVertexInto(out, prev, curr, vx, vz, distance, miterLimit)) bevelled = true;
     }
 
     const result = dedupeRing(out);
@@ -335,6 +396,115 @@ export function offsetPolygon(
         degenerate: bevelled,
         reason: bevelled ? 'one or more corners exceeded the miter limit and were bevelled' : undefined,
     };
+}
+
+/**
+ * The result of offsetting an OPEN polyline. Distinct from `OffsetResult`,
+ * deliberately: that one carries a `polygon` and this one carries a `polyline`,
+ * so a caller cannot pass one where the other is meant and have it type-check.
+ */
+export interface OpenOffsetResult {
+    /** The offset polyline, OPEN. Empty when `degenerate`. */
+    readonly polyline: readonly Pt2[];
+    readonly degenerate: boolean;
+    readonly reason?: string;
+    /** True when at least one corner exceeded the miter limit and was bevelled. */
+    readonly bevelled: boolean;
+}
+
+/**
+ * Offset an OPEN polyline by `distance` metres, perpendicular to its direction.
+ *
+ * This is the ribbon half of the offset problem, and it exists HERE rather than in
+ * the package that needs it because the arithmetic is the arithmetic
+ * `offsetPolygon` already owns. See the header above `shiftedLineFor`, and
+ * `tools/ga-gate/check-offset-implementations.ts`.
+ *
+ * WHICH SIDE: the offset normal of edge (a->b) is `(dz, -dx)/len`, so a POSITIVE
+ * `distance` moves the polyline to the RIGHT of its direction of travel (looking
+ * down +Y with +X right and +Z toward the viewer) and a NEGATIVE one moves it
+ * left. There is no winding to infer from - an open polyline has none - so the
+ * side is the caller's, expressed as the SIGN, and it is never guessed.
+ *
+ * ENDS ARE SQUARE-CAPPED. The first and last vertices translate along their one
+ * adjacent edge normal. Round and extended caps are NOT offered: a road end is a
+ * junction with something, and inventing a cap shape would be a road-engineering
+ * claim this repository does not make (C116 12).
+ *
+ * NOT MEASURED, and stated so silence is not read as coverage: this routine does
+ * NOT resolve a self-overlap produced by a corner sharper than the local radius
+ * can accommodate. The caller must run `findSelfIntersection` on the ring it
+ * assembles - which `sweepCentrelineToRing` does - because a fold in a ribbon is
+ * only visible once BOTH sides are joined.
+ */
+export function offsetOpenPolyline(
+    polyline: ReadonlyArray<Pt2>,
+    distance: number,
+    miterLimit = 4,
+): OpenOffsetResult {
+    const pts = dedupeConsecutive(polyline);
+    const n = pts.length;
+    if (n < 2) {
+        return {
+            polyline: [],
+            degenerate: true,
+            bevelled: false,
+            reason: `fewer than 2 distinct vertices (${n}) - a point has no direction to offset perpendicular to`,
+        };
+    }
+    if (!Number.isFinite(distance)) {
+        return { polyline: [], degenerate: true, bevelled: false, reason: 'distance is not finite' };
+    }
+    if (distance === 0) {
+        return { polyline: pts.map((q): Pt2 => [q[0], q[1]]), degenerate: false, bevelled: false };
+    }
+
+    // One shifted supporting line per EDGE. An open polyline of n points has n-1
+    // edges, not n - there is no wrap edge, and that single difference is the whole
+    // of what distinguishes this routine from `offsetPolygon`.
+    const lines: Array<ShiftedLine | null> = [];
+    for (let i = 0; i < n - 1; i++) {
+        const [x1, z1] = pts[i]!;
+        const [x2, z2] = pts[i + 1]!;
+        lines.push(shiftedLineFor(x1, z1, x2, z2, distance, 1));
+    }
+    if (lines.every((l) => l === null)) {
+        return { polyline: [], degenerate: true, bevelled: false, reason: 'every edge was degenerate' };
+    }
+
+    const out: Pt2[] = [];
+    let bevelled = false;
+
+    // FIRST vertex: square cap. It belongs to edge 0 only, so there is nothing to
+    // miter against and it translates along that one normal.
+    const first = lines[0];
+    if (first) out.push([pts[0]![0] + first.nx * distance, pts[0]![1] + first.nz * distance]);
+
+    // INTERIOR vertices: the miter of the two edges that meet there.
+    for (let i = 1; i < n - 1; i++) {
+        const prev = lines[i - 1];
+        const curr = lines[i];
+        if (!prev || !curr) continue;
+        const [vx, vz] = pts[i]!;
+        if (miterVertexInto(out, prev, curr, vx, vz, distance, miterLimit)) bevelled = true;
+    }
+
+    // LAST vertex: square cap against the final edge.
+    const last = lines[n - 2];
+    if (last) {
+        out.push([pts[n - 1]![0] + last.nx * distance, pts[n - 1]![1] + last.nz * distance]);
+    }
+
+    const result = dedupeConsecutive(out);
+    if (result.length < 2) {
+        return {
+            polyline: [],
+            degenerate: true,
+            bevelled,
+            reason: 'the offset collapsed the polyline to fewer than 2 distinct points',
+        };
+    }
+    return { polyline: result, degenerate: false, bevelled };
 }
 
 /**

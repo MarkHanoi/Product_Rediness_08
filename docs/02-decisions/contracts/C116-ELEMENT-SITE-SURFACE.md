@@ -172,7 +172,7 @@ the list of everything a road engineer would expect and will not find.
 | L0 schema | **ABSENT** | `packages/schemas/src/elements/Siteworks.ts` — `defineElement('siteworks', …)` + `.refine()` invariants |
 | Branded id | **ABSENT** | `SiteworksId = Id<'siteworks'>`, in `AnyElementId` and `IdFor`. Runtime prefix is derived by `createId('siteworks')` — there is no separate prefix table |
 | Bus verb namespace | **ABSENT** | `siteworks.*` per C69 §3.6 (the namespace is the kind, never an abbreviation). Roster in §6 |
-| Geometry package | **ABSENT** | `packages/geometry-siteworks` — **L2**, THREE-free, declared in `eslint.config.js`'s `layerElements` · ⏳ PLANNED — lands stage 3 (geometry) |
+| Geometry package | **ABSENT** | `packages/geometry-siteworks` — **L2**, THREE-free, declared in `eslint.config.js`'s `layerElements` |
 | Plugin | **ABSENT** | `plugins/siteworks` (`@pryzm/plugin-siteworks`), `storeKey: 'siteworks'` · ⏳ PLANNED — lands stage 4 (plugin) |
 | IFC identity | ⛔ **NOT MEASURED.** `IfcCourse` / `IfcPavement` (IFC 4.3 infrastructure) are plausible; neither was verified | resolve before any IFC export claim. ⛔ Until resolved the family is **EXCLUDED** from IFC export rather than guessed into it — C114 §1's precedent for this exact position |
 
@@ -452,7 +452,7 @@ tight reversal. The sweep's own header states its limits; §11 item 2.
 
 ### §10c — Layering
 
-`packages/geometry-siteworks` is **L2**: it imports `@pryzm/schemas` (L0) and nothing above.  (⏳ PLANNED — lands stage 3 (geometry))
+`packages/geometry-siteworks` is **L2**: it imports `@pryzm/schemas` (L0) and nothing above.
 ⛔ **THREE-free** (P2) — it must appear in `eslint.config.js`'s `layerElements` or
 `check-layer-boundaries.ts` cannot classify it.
 
@@ -576,6 +576,79 @@ ignored by convention.
 
 ⛔ **STILL NOT REACHABLE.** There is no store, no verb, no handler, no plugin, no renderer and no
 UI control. A registered schema is not a working element — §0.1's standing warning.
+
+### 2026-09-09 · lane SITE-SURFACE · **STAGE 3 — THE L2 GEOMETRY.** Still not reachable.
+
+`packages/geometry-siteworks` — `sweepCentrelineToRing` (the C84 EI-1 named authority),
+`siteworksFootprintRing` (the seam that keeps `form` from leaking to consumers),
+`siteworksAreaM2` and `siteworksDatum`. THREE-free, DOM-free, I/O-free.
+
+#### ⭐ THE SWEEP DOES NOT CONTAIN THE OFFSET ARITHMETIC, AND THAT IS THE MOST IMPORTANT LINE IN THIS ENTRY
+
+The standing instruction was to grep for the existing solver first
+([[grep-for-the-existing-solver-first]]). Measured, and the answer was stronger than *"one exists"*:
+
+- `packages/geometry-kernel/src/pure/polygonOffset.ts` says in its own header that it is *"THE
+  polygon offset for this repo … If you are about to add a third, don't: extend this one and add a
+  fixture."*
+- ⛔ **`tools/ga-gate/check-offset-implementations.ts` COUNTS independent offset implementations.**
+  It reads **0 outside that file, exit target 0**, and its `edge-shift-miter` signature matches the
+  Cramer solve of two shifted supporting lines — **exactly** the arithmetic a ribbon sweep needs. A
+  mitre written inside `geometry-siteworks` would have taken it **0 → 1 = exit 3**.
+- The gate's header records what it is protecting against: the same offset lived in three places at
+  three levels of correctness, the UNTOUCHED copy was the one the shipping committer called, and a
+  user asking for a 300 mm eave got 212 mm. **Each copy passed its own package's tests.**
+
+⭐ **So the kernel gained `offsetOpenPolyline`** — the OPEN half of the arithmetic it already owned —
+and `offsetPolygon` was refactored to share `shiftedLineFor` and `miterVertexInto` with it, so there
+is **one mitre body, called twice**. `dedupeRing` likewise now delegates to a new `dedupeConsecutive`
+(the open-polyline form), because a road may legitimately return to its first point — a loop or a
+roundabout — and `dedupeRing`'s wrap-around drop would silently shorten it by one segment.
+
+| Gate / proof | Reading |
+|---|---|
+| `polygonOffset.oracle.test.ts` | **13 / 13 pass, unchanged** — the proof that extracting the shared mitre altered no closed-ring behaviour |
+| `check-offset-implementations` | **RC=0 · still 0 / 0** outside the canonical file, exit target 0 |
+| `check-three-imports` (P2) | **RC=0** |
+| `check-layer-boundaries` | **RC=0 · unclassified still 13 / 13**, not 14 — `eslint.config.js` gained the `{ type: 'L2', pattern: 'packages/geometry-siteworks/**' }` row in this commit |
+| `check-domain-purity` · `check-contract-cited-paths` | **RC=0** · the stage-3 marker is removed |
+| `@pryzm/geometry-siteworks` vitest | **22 / 22** |
+
+#### ⭐ THE SCRAMBLE CONTROL FOUND DEAD CODE MASQUERADING AS A SAFETY GUARD
+
+| Scramble | Arms RED |
+|---|---|
+| sweep the FULL width each side instead of half | 6 |
+| self-intersection refusal deleted | 2 |
+| **CCW winding normalisation deleted** | ⛔ **0** |
+| hole subtraction removed | 2 |
+| datum inverted (plate extrudes UP) | 3 |
+| refusal replaced by an empty ring | 2 |
+
+An explicit `signedArea > 0 ? ring : reverse(ring)` stood at the end of the sweep. **Deleting it
+changed nothing**, because walking out along the `+normal` side and back along the `−normal` side
+had *already* fixed the winding. ⛔ **A guard that cannot fire reads as protection and provides
+none** — it would have told a future reader that winding was a hazard being handled there, when it
+is an invariant established one line above. The line was REMOVED and the arm rebound onto the
+assembly order, which is live logic: reversing that order now turns **3 arms RED**.
+
+⚠ **A TEST EXPECTATION WAS WRONG AND THE CODE WAS RIGHT** — recorded because the correction is the
+useful part. The L-corner arm expected **651 m²** for two 50 m legs at 7 m, reasoning that a mitre
+must remove the double-counted 7 × 7 corner. Measured: **700 m²**. A *mitred* ribbon around a
+polyline of length L has area **exactly L × w** — at each corner the outer side gains a triangle and
+the inner side loses an equal one, so they cancel. 651 m² is the area of the **union of two
+butt-jointed rectangles**, a different construction. The arm now pins the two exact mitre points
+(53.5, −3.5) and (46.5, 3.5) and a 6-vertex ring, which *discriminates* mitre from butt; a 120°
+bend arm was added so the result is not a coincidence of right angles.
+
+⭐ **C116 §10b's `NOT MEASURED` ON SELF-INTERSECTION IS NOW MEASURED.** The assembled ring is run
+through the kernel's `findSelfIntersection` and a fold is **REFUSED BY NAME** with the two crossing
+edge indices. A folded ribbon rendered as if sound is geometry the user believes.
+⚠ Still `NOT MEASURED`: whether a bevelled hairpin is the shape a road designer wants, and a corner
+whose radius is under half the width but which does not actually cross — that ring is returned and
+may pinch.
+
+⛔ **STILL NOT REACHABLE.** No store, no verb, no handler, no plugin, no renderer, no UI.
 
 ---
 

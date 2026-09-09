@@ -1,0 +1,29 @@
+{
+  "name": "@pryzm/geometry-siteworks",
+  "version": "0.1.0",
+  "description": "PRYZM — SITEWORKS geometry (roads, parking, pedestrian areas). The centreline sweep (the one C84 EI-1 authority that turns a linear surface into a ring), the footprint resolver that hides the linear/areal split from every consumer, and the single area answer. Pure: no THREE, no DOM, no I/O. C116 / ADR-0384.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/geometry-kernel": "workspace:*",
+    "@pryzm/schemas": "workspace:*",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}

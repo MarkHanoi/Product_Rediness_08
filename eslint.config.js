@@ -155,6 +155,7 @@ export const layerElements = [
   { type: 'L2', pattern: 'packages/geometry-roof/**' },         // [family]
   { type: 'L2', pattern: 'packages/geometry-slab/**' },         // [family]
   { type: 'L2', pattern: 'packages/geometry-space-envelope/**' }, // [family] imports schemas (L0), solar-analysis (L1), site-parcel-data (L2)
+  { type: 'L2', pattern: 'packages/geometry-siteworks/**' },      // [family] C116 - imports schemas (L0) + geometry-kernel (L2 anchor) only; THREE-free
   { type: 'L2', pattern: 'packages/geometry-stair/**' },        // [family]
   { type: 'L2', pattern: 'packages/geometry-wall/**' },         // [family]
   { type: 'L2', pattern: 'packages/geometry-window/**' },       // [family]

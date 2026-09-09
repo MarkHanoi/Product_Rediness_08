@@ -162,6 +162,18 @@ export function renderTreeBody(
       `${model.unreadable.join(', ')}.`,
     );
   }
+  // ADR-0385 / §CONTEXT-DATA-HONESTY. A project that genuinely has no hierarchy
+  // buildings and one whose hierarchy store could not be read BOTH draw a single
+  // building row - they must, or the levels would vanish. This is the only thing
+  // that tells them apart, so it is stated rather than swallowed.
+  if (model.unresolvedBuildings.length > 0) {
+    parts.push(`${model.unresolvedBuildings.length} unplaced by building`);
+    notes.push(
+      `The building of ${model.unresolvedBuildings.length} level(s) could not be resolved, ` +
+      `so they are shown under the default building as a FALLBACK, not as a recorded fact: ` +
+      model.unresolvedBuildings.map((u) => `${u.levelId} - ${u.why}`).join('; '),
+    );
+  }
   meta.textContent = parts.join(' · ');
   if (notes.length > 0) meta.title = notes.join('\n');
 
@@ -170,18 +182,29 @@ export function renderTreeBody(
   projectRow.appendChild(meta);
   container.appendChild(projectRow);
 
-  const buildingRow = document.createElement('div');
-  buildingRow.className = 'aud-tree-building-row';
-  buildingRow.innerHTML = `
-    <span class="aud-tree-icon"><svg width="13" height="13" viewBox="0 0 15 15" fill="none"><rect x="2" y="3" width="11" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M5 3V2a2.5 2.5 0 015 0v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="5" y="8" width="2" height="3" rx="0.5" stroke="currentColor" stroke-width="1"/><rect x="8" y="8" width="2" height="3" rx="0.5" stroke="currentColor" stroke-width="1"/><line x1="2" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1"/></svg></span>
-    <span class="aud-tree-row-label">Building</span>
-  `;
-  container.appendChild(buildingRow);
-
+  // ── ADR-0385 - Site -> Building* -> Storey*, and every rung is now DERIVED ──
+  //
+  // WHAT THIS REPLACED, and it is worth naming because it is the failure this
+  // whole lane is about. There used to be exactly two rows here, both hard-coded
+  // string literals with no data behind them:
+  //
+  //     <span>Building</span>      <- one row, always, whatever the model held
+  //     <span>Site</span>          <- indented UNDER it, i.e. inverted
+  //
+  // A master plan of three blocks drew ONE row saying "Building", and the site
+  // appeared to be inside it. The levels were then rendered as FLAT SIBLINGS of
+  // both. So the founder's tree asserted a spatial structure that was fabricated
+  // and, in the site/building order, backwards.
+  //
+  // IFC's containment hierarchy is IfcProject -> IfcSite -> IfcBuilding ->
+  // IfcBuildingStorey (IFC4 ISO 16739-1:2018 §5.1.2, related by
+  // IfcRelAggregates). The rows below follow it, and every building comes from
+  // `resolveLevelBuilding()` - the SAME function the IFC exporter calls, which is
+  // what makes "which building is this element in" have one answer (C84 EI-9).
   const siteRow = document.createElement('div');
   siteRow.className = 'aud-tree-site-row';
   siteRow.innerHTML = `
-    <span class="aud-tree-icon" style="margin-left:10px;"><svg width="13" height="13" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5C5.5 1.5 4 3.2 4 5.5c0 3.3 3.5 7.5 3.5 7.5s3.5-4.2 3.5-7.5c0-2.3-1.5-4-3.5-4z" stroke="currentColor" stroke-width="1.2"/><circle cx="7.5" cy="5.5" r="1.4" stroke="currentColor" stroke-width="1.1"/></svg></span>
+    <span class="aud-tree-icon"><svg width="13" height="13" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5C5.5 1.5 4 3.2 4 5.5c0 3.3 3.5 7.5 3.5 7.5s3.5-4.2 3.5-7.5c0-2.3-1.5-4-3.5-4z" stroke="currentColor" stroke-width="1.2"/><circle cx="7.5" cy="5.5" r="1.4" stroke="currentColor" stroke-width="1.1"/></svg></span>
     <span class="aud-tree-row-label">Site</span>
   `;
   container.appendChild(siteRow);
@@ -199,9 +222,44 @@ export function renderTreeBody(
     }
   }
 
+  // ── Building rows, each owning ITS OWN storeys ─────────────────────────────
+  //
+  // ⭐ ADR-0383 D3 / ADR-0385 §3 - THE BACK-COMPATIBILITY GUARANTEE. A project with
+  // no hierarchy buildings yields exactly one `derived` building, and the row it
+  // draws is labelled "Building" at the same indent the hard-coded row occupied,
+  // so today's view is unchanged for every existing project. Only a project that
+  // actually RECORDS buildings gets several, and only then are they named.
+  const bimLevelById = new Map(levels.map((l: any) => [String(l.id), l]));
+
+  for (const building of model.buildings) {
+    const buildingRow = document.createElement('div');
+    buildingRow.className = 'aud-tree-building-row';
+    const named = building.kind === 'carried';
+    const bMeta = named
+      ? `${building.levels.length} level${building.levels.length !== 1 ? 's' : ''} · ` +
+        `${building.listed} element${building.listed !== 1 ? 's' : ''}`
+      : '';
+    buildingRow.innerHTML = `
+      <span class="aud-tree-icon" style="margin-left:10px;"><svg width="13" height="13" viewBox="0 0 15 15" fill="none"><rect x="2" y="3" width="11" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M5 3V2a2.5 2.5 0 015 0v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="5" y="8" width="2" height="3" rx="0.5" stroke="currentColor" stroke-width="1"/><rect x="8" y="8" width="2" height="3" rx="0.5" stroke="currentColor" stroke-width="1"/><line x1="2" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="aud-tree-row-label"></span>
+      <span class="aud-tree-row-meta"></span>
+    `;
+    // textContent, not innerHTML: a building NAME is user data and must never be
+    // interpolated into markup.
+    (buildingRow.querySelector('.aud-tree-row-label') as HTMLElement).textContent =
+      named ? building.name : 'Building';
+    (buildingRow.querySelector('.aud-tree-row-meta') as HTMLElement).textContent = bMeta;
+    if (!named) {
+      buildingRow.title =
+        'No building is recorded for these levels in the project hierarchy, so they are ' +
+        'shown under a single default building - the same one the IFC export writes.';
+    }
+    container.appendChild(buildingRow);
+
   // ── Level rows ─────────────────────────────────────────────────────────────
-  for (let levelIndex = 0; levelIndex < levels.length; levelIndex++) {
-    const level = levels[levelIndex];
+  for (const levelGroups of building.levels) {
+    const level = bimLevelById.get(levelGroups.levelId);
+    if (!level) continue; // unreachable: the roster is built from these very ids
     const projectCtx = window.projectContext; // TODO(C.3.x): legacy projectContext — replace with runtime.projectContext
     const isActive   = level.id === (projectCtx?.activeLevelId ?? bimManager.getActiveLevelId?.());
     const levelKey   = level.id;
@@ -216,7 +274,9 @@ export function renderTreeBody(
 
     const levelIcon = document.createElement('span');
     levelIcon.className = 'aud-tree-icon';
-    levelIcon.style.marginLeft = '16px';
+    // Indented one rung deeper than the building row above it (10px), so the
+    // Site -> Building -> Storey ladder reads as the containment it now is.
+    levelIcon.style.marginLeft = '22px';
     // §PANEL-BRAND-STANDARD (L-1742) — was `isActive ? '#6600FF' : '#8888aa'`.
     // The <span> wrapper already carries `.aud-tree-icon { color: var(--app-text-muted) }`,
     // so the icons inherit the token via currentColor and the active state names
@@ -266,7 +326,8 @@ export function renderTreeBody(
     // The groups come from the SAME traversal the header total was summed from —
     // passing them in is what makes "the header agrees with the tree" structural
     // rather than a coincidence two scans have to keep re-earning.
-    renderTypesForLevel(typeContainer, level, filter, state, model.levels[levelIndex]?.groups);
+    renderTypesForLevel(typeContainer, level, filter, state, levelGroups.groups);
+  }
   }
 }
 

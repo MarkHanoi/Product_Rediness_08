@@ -168,6 +168,43 @@ export const NO_HOST_INDEX: HostIndex = Object.freeze({
 });
 
 /**
+ * ADR-0385 — which `IfcBuilding` a storey belongs to.
+ *
+ * ⚠ A STRUCTURAL MIRROR of `BuildingResolution` in
+ * `packages/core-app-model/src/hierarchy/BuildingResolver.ts`, deliberately
+ * duck-typed for the same reason `ImportedRecordLike` above is: this module
+ * imports no workspace store and stays testable without a runtime. The editor
+ * wiring (`apps/editor/src/ui/ifc-tree/IfcTreeAttachment.ts`) backs it with the
+ * REAL resolver — the same function `packages/file-format`'s IFC exporter calls,
+ * which is what makes the tree and the exported file give one answer (C84 EI-9).
+ *
+ * ⛔ There is no rule here to get wrong. This interface carries a decision made
+ * elsewhere; it never decides.
+ */
+export type BuildingResolutionLike =
+  | { readonly kind: 'carried' | 'derived'; readonly buildingId: string; readonly name: string }
+  | { readonly kind: 'unknown'; readonly why: string };
+
+export interface BuildingIndex {
+  resolveLevelBuilding(levelId: string | null | undefined): BuildingResolutionLike;
+}
+
+/**
+ * A building index that resolves nothing.
+ *
+ * ⛔ It returns `unknown`, NOT a default building. "No hierarchy store is
+ * reachable" and "this project records no buildings" are different facts, and the
+ * second one is not this index's to assert (§CONTEXT-DATA-HONESTY, L-581/L-616).
+ * Either way no rung is emitted — see {@link adaptNativeElements}.
+ */
+export const NO_BUILDING_INDEX: BuildingIndex = Object.freeze({
+  resolveLevelBuilding: (): BuildingResolutionLike => ({
+    kind: 'unknown',
+    why: 'no building index was supplied to the adapter',
+  }),
+});
+
+/**
  * PRYZM's own elements, PROJECTED into IFC classes.
  *
  * ⭐ THE VALUABLE HALF. Nothing is invented: the class comes from the C25 §2
@@ -199,7 +236,12 @@ export function adaptNativeElements(
   elements: readonly NativeElementLike[],
   projectName = 'PRYZM model',
   hosts: HostIndex = NO_HOST_INDEX,
+  buildings: BuildingIndex = NO_BUILDING_INDEX,
 ): IfcTreeSource {
+  /** Levels whose building the substrate RECORDS — see the rung note below. */
+  let carriedBuildings = 0;
+  let unknownBuildings = 0;
+
   const adapted: IfcTreeElement[] = elements.map((e) => {
     const spatial: SpatialRung[] = [{ level: 'project', id: 'project', name: projectName }];
 
@@ -234,6 +276,31 @@ export function adaptNativeElements(
       storey = NOT_AUTHORED;
     }
 
+    // ---- building ---------------------------------------------------------
+    // ADR-0385. The rung is inserted BETWEEN project and storey (RUNG_ORDER in
+    // groupings.ts is project/site/building/storey/space), so it must be pushed
+    // before the storey rung.
+    //
+    // ⛔ EMITTED ONLY FOR `carried` — i.e. only when the hierarchy store actually
+    // RECORDS which building this storey belongs to. A `derived` resolution is the
+    // single default-building fallback, and drawing "Default Building" for every
+    // ungrouped project would be exactly the padding `groupBySpatial`'s own header
+    // forbids: *"Inventing a 'Building' rung to make the tree look like Revit's
+    // would be fabricating spatial structure that is not in the file"* (C01 §6
+    // rule 6). The IFC FILE still writes one IfcBuilding for that case because the
+    // schema requires one; the TREE declines to name a building PRYZM never named.
+    // Both are reading the same resolution — they differ in what they are allowed
+    // to draw, not in what they believe.
+    if (storeyRung) {
+      const b = buildings.resolveLevelBuilding(storeyRung.id);
+      if (b.kind === 'carried') {
+        carriedBuildings += 1;
+        spatial.push({ level: 'building', id: b.buildingId, name: b.name });
+      } else if (b.kind === 'unknown') {
+        unknownBuildings += 1;
+      }
+    }
+
     if (storeyRung) spatial.push(storeyRung);
 
     // ---- material ---------------------------------------------------------
@@ -262,10 +329,35 @@ export function adaptNativeElements(
     };
   });
 
+  // ⛔ THE DEPTH CLAIM IS LIFTED ONLY WHEN A BUILDING WAS ACTUALLY RESOLVED.
+  // `deepestSpatialRung` is what `groupBySpatial` prints as its honest limit note,
+  // so declaring 'building' on a source that emitted no building rung would make
+  // the note itself a false statement — a padded rung by another route.
+  const capability = carriedBuildings > 0
+    ? {
+        ...NATIVE_CAPABILITY,
+        deepestSpatialRung: 'building' as const,
+        limitNote:
+          NATIVE_CAPABILITY.limitNote +
+          ' Buildings come from the project hierarchy (ADR-0385), the same authority the ' +
+          'IFC export uses; storeys the hierarchy does not place are shown without a ' +
+          'building rung rather than under an invented one.',
+      }
+    : unknownBuildings > 0
+      ? {
+          ...NATIVE_CAPABILITY,
+          limitNote:
+            NATIVE_CAPABILITY.limitNote +
+            ` The building of ${unknownBuildings} element(s) could not be resolved, so no ` +
+            'Building rung is shown for them. That is a failure to read the project ' +
+            'hierarchy, NOT a project with no buildings.',
+        }
+      : NATIVE_CAPABILITY;
+
   return {
     origin: 'native',
     label: projectName,
-    capability: NATIVE_CAPABILITY,
+    capability,
     elements: adapted,
   };
 }
