@@ -103,6 +103,13 @@ const SITE_MODE_ID = 'site';
 /** `id` on the surface root. Read by `halfCanvasResizer`'s per-surface width memory. */
 export const SITE_SURFACE_ID = 'ste-surface';
 
+/**
+ * §SITE-PANEL-IS-A-QUARTER (L-13285) — the Site panel opens at a QUARTER of the shell, not
+ * the shared half. A reading surface beside the drawing should not take half the screen.
+ * Overridden by any width the user has dragged this session; see `_mountResizer`.
+ */
+export const SITE_PANEL_DEFAULT_FRACTION = 0.25;
+
 /** The class that makes it visible. Hidden by class; the element is never detached. */
 export const SITE_SURFACE_VISIBLE_CLASS = 'ste-surface--visible';
 
@@ -333,6 +340,25 @@ export class SiteSurface {
       this._resizer = mountHalfCanvasResizer({
         surface: this._el,
         onCommit: publishShellCanvasRegion,
+        // §SITE-PANEL-IS-A-QUARTER (founder 2026-09-09 · L-13285)
+        //
+        // *"Site panel shall occupy 1/4 of the width of the screen when the parcel is
+        //   selected"*
+        //
+        // The shared default is `SHELL_SPLIT_DEFAULT_RIGHT` = 0.5, which is right for
+        // Analysis and Inspect — those surfaces ARE the work. The Site panel is a READING
+        // surface beside the drawing: the parcel, the map and the 3D are the work, and a
+        // half-screen reading panel takes the room they need.
+        //
+        // ⚠ THIS IS AN INITIAL FRACTION, NOT A LOCK. `mountHalfCanvasResizer` prefers the
+        // fraction this session remembers for `#ste-surface`, so a width the user has
+        // DRAGGED still wins — which is the behaviour they expect and the reason this is
+        // passed as `initialFraction` rather than written to the shared constant. Changing
+        // `SHELL_SPLIT_DEFAULT_RIGHT` would have moved Analysis and Inspect too.
+        //
+        // 0.25 sits inside the existing clamp (`SHELL_SPLIT_MIN_RIGHT` 0.20 … MAX 0.65), so
+        // no bound moves and the drag range is unchanged.
+        initialFraction: SITE_PANEL_DEFAULT_FRACTION,
       });
     } catch (e) {
       // A shell that cannot be resized is still a shell. C06 §14.2 — degrade, never unmount.
