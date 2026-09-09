@@ -85,11 +85,29 @@ on:
       #     layers FREE from its own full bake: neither is `optIn`, so both are in the DEFAULT
       #     layer set (measured: buildings roads water parks landuse rail trees furniture sea).
       #
-      # §STREET-LIFE — `furniture` is optional for the same reason and, VERIFIED 2026-09-06 against
+      # §STREET-LIFE — `furniture` is optional for the same reason. Unlike sea it DOES need a
+      # Geofabrik extract, so group it by extract BYTES.
+      #
+      # ⚠ CORRECTED 2026-09-09 (lane DELAWARE-R2) — this paragraph read: "VERIFIED 2026-09-06 against
       # the staging manifests' own `layers` LIST rather than their existence (L-12982), NO region has
       # ever staged one: all 40 staged sets carry the same seven layers, none carries the
-      # `optionalLayersNotProduced` field at all, and all 393 <region>--{furniture,sea,canopy} slugs
-      # are HTTP 404. Unlike sea it DOES need a Geofabrik extract, so group it by extract BYTES.
+      # `optionalLayersNotProduced` field at all". That was true of 40 staged sets on 2026-09-06 and
+      # is FALSE of the 55 there are now. Re-measured the same way — reading each staged set's own
+      # `layers` list, 141 candidate slugs probed, 55 HTTP 200:
+      #     furniture  7 set(s): california illinois massachusetts newyork texas gccstates southkorea
+      #     sea        6 set(s): california massachusetts newyork texas gccstates southkorea
+      #     canopy     0 set(s)
+      # and `delaware` (staged 2026-09-09, run 34397872497) carries NINE layers with
+      # `optionalLayersNotProduced: ["canopy"]` — the field this paragraph said no set carries.
+      # ⛔ THE SHAPE, not the number, is the lesson: a census written as a literal rots the moment
+      # the next bake lands, and this one was quoted as a VERIFIED fact for three days after it
+      # stopped being one. Re-run the census, never re-read this comment:
+      #     node tools/context-bake/bake.mjs --regions-json    (the region + layer tables)
+      #     then GET tiles-staging/<slug>/staging-manifest.json per slug and read `layers`.
+      # Neither layer has ever been MERGED or PUBLISHED — `furniture`/`sea`/`canopy` are all absent
+      # from the live tileset-manifest.json — and THAT is the claim worth carrying, because it is the
+      # one the merge actually depends on: an optional layer the live manifest does not list has an
+      # empty protected set (merge-tiles.mjs §NO-LOSS), so its first publish can lose nothing.
       layer:
         description: 'Merge only these layers (csv). Blank = ALL of them, resolved from bake.mjs allLayers at run time — never a hand-copied count (buildings, roads, water, parks, landuse, rail, trees, furniture, sea). Use for disk-bounded per-layer publishes of very large sets. `sea` and `furniture` are OPTIONAL: a region with no staged set for one is NAMED and skipped, never refused. ⛔ Stage them in TRANCHES of named regions that ALREADY have a base staged set — never region=blank (see §SEA-IS-NOT-ONE-WORLD-RUN above: it is both slower than the ceiling allows and widens the next merge into a by-name refusal).'
         type: string

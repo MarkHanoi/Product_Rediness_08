@@ -514,11 +514,18 @@ const INLINE_PLACE_RE = new RegExp(
   `\\b${INLINE_PREP_SRC}\\s+(?:the\\s+)?([\\w .-]+?)(?=\\s+${PLACE_STOP_SRC}\\b|$)`,
 );
 
-/** Leading scope/determiner words that are never part of a place NAME. */
-const LEADING_DETERMINERS_RE = /^(?:(?:all|every|each|both|the|these|those|this|selected)\s+)+/;
-/** What is left once they are stripped, when the phrase names no place at all. */
+/** Leading scope/determiner words that are never part of a place NAME.
+ *  ⭐ POSSESSIVES ADDED (L-13303): the panel button says "Create BIM from
+ *  THIS DESIGN", so users type "my design" / "my drawing", and without
+ *  `my|our|your` here the subject-noun test below could never see the noun. */
+const LEADING_DETERMINERS_RE = /^(?:(?:all|every|each|both|the|these|those|this|selected|my|our|your)\s+)+/;
+/** What is left once they are stripped, when the phrase names no place at all.
+ *  ⭐ THE SUBJECT BEING ACTED ON, never a place. `designs?|envelopes?|drawings?|
+ *  massing` added L-13303 for `build-from-envelope`, whose own ANCHOR phrases
+ *  are place-shaped: "create walls IN MY DESIGN" must not read as a room called
+ *  "my design", and must not decline either — it names the default target. */
 const ELEMENT_NOUN_ONLY_RE =
-  /^(?:walls?|wall segments?|building|project|model|site|elements?|sides?|faces?)$/;
+  /^(?:walls?|wall segments?|building|project|model|site|elements?|sides?|faces?|designs?|envelopes?|drawings?|massing)$/;
 
 /**
  * ⛔ "of ALL WALLS" IS NOT A ROOM CALLED "all walls".

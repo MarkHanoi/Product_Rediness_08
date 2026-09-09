@@ -80,7 +80,15 @@ import type {
   SemanticApplication,
   SemanticIntent,
 } from './ZeroTokenResolver.js';
-import { matchTrailingSpatialScope } from './SpatialScopeTail.js';
+import {
+  matchTrailingSpatialScope,
+  isNotAPlace,
+  joinTailPhrase,
+  SPATIAL_PREPOSITION_SRC,
+} from './SpatialScopeTail.js';
+// §CHAT-HAS-NO-BUILDING-AXIS (L-13302) — the ONE table of axes PRYZM
+// recognises but does not have, so the building sentence is written once.
+import { absentAxisFor } from './QualifierAxes.js';
 
 // ─── The verb this capability's bus command is ───────────────────────────────
 
@@ -359,11 +367,58 @@ export function parseBuildFromEnvelopeIntent(
   // C67 §4 rule 16 — a place phrase is read through the ONE shared parser.
   // A grammar MUST NOT write a place-phrase regex of its own; five recurrences
   // are on record.
-  const tail = matchTrailingSpatialScope(text, ctx);
-  const levelQuery =
-    tail !== null && tail.reading.kind === 'scope' && tail.reading.scope.kind === 'level'
-      ? tail.reading.scope.levelQuery
-      : undefined;
+  //
+  // ⭐⭐ §BUILD-FROM-ENVELOPE-KEEPS-THE-PLACE (L-13303) — THIS USED TO KEEP THE
+  // LEVEL AND THROW EVERYTHING ELSE AWAY. Measured before the change:
+  //
+  //   "create walls and slabs from my envelope in block b"    → no place at all
+  //   "create walls and slabs from my envelope in the kitchen" → no place at all
+  //
+  // …and the pass then built the whole active storey. That is the SAME silent
+  // widening L-13301 removed from the window grammar, sitting in the verb the
+  // founder cares most about — a parcel with three blocks, and "build block b"
+  // builds whatever the pass feels like. It is the repo's dominant defect in its
+  // usual form: one rule, two implementations, fixed in the copy nobody read.
+  //
+  // The phrase is now CONSUMED off the remainder in a loop, exactly as the
+  // window and apartment grammars do, and a place this pass cannot honour is
+  // CARRIED so the arm can refuse BY NAME — the same treatment `levelQuery`
+  // already gets one line down.
+  //
+  // ⛔ THE ANCHOR PHRASES OF THIS VERY CAPABILITY ARE PLACE-SHAPED, which is why
+  // the loop leans on the shared `isNotAPlace` rather than on a local list:
+  // "create walls IN MY DESIGN" and "…IN THE ENVELOPE" are its own documented
+  // openers (the panel button reads "Create BIM from this design"). They name
+  // the DEFAULT TARGET, not a different one, so they strip silently and the
+  // sentence stays claimed.
+  let rest = text;
+  let levelQuery: string | undefined;
+  let unscopablePlace: string | undefined;
+  for (let i = 0; i < 3; i++) {
+    const m = matchTrailingSpatialScope(rest, ctx);
+    if (m === null) break;
+    if (m.reading.kind === 'unusable') break;   // ungroundable "here" — the arm
+                                                // already builds on the ACTIVE
+                                                // level, so this is a no-op, not
+                                                // a widen.
+    const scope = m.reading.scope;
+    const before = rest.slice(0, m.start).trim();
+    if (scope.kind === 'level') {
+      if (levelQuery === undefined) levelQuery = scope.levelQuery;
+    } else if (scope.kind === 'room' && isNotAPlace(scope.roomRef)) {
+      rest = before;
+      continue;                                  // the envelope/design itself
+    } else if (unscopablePlace === undefined) {
+      // A room speaks its own ref; anything else (an orientation) is quoted
+      // back from the sentence, minus the preposition that introduced it, so
+      // the refusal says "the south facade" and not "on the south facade".
+      unscopablePlace = scope.kind === 'room'
+        ? scope.roomRef.trim()
+        : joinTailPhrase(rest.slice(m.start), undefined)
+            .replace(new RegExp(String.raw`^${SPATIAL_PREPOSITION_SRC}\s+`, 'i'), '');
+    }
+    rest = before;
+  }
 
   // §WHOSE-FOOTPRINT-IS-THE-SLAB (L-13296) — carried only when SAID. Absent means
   // absent; the arm asks rather than defaulting.
@@ -374,6 +429,7 @@ export function parseBuildFromEnvelopeIntent(
     parts,
     deferred,
     ...(levelQuery !== undefined ? { levelQuery } : {}),
+    ...(unscopablePlace !== undefined ? { unscopablePlace } : {}),
     ...(plateSource !== undefined ? { plateSource } : {}),
   } as SemanticIntent;
 }
@@ -463,6 +519,45 @@ export function applyBuildFromEnvelope(
       suggestions: [
         'create walls and slabs from my envelope',
         'add ceilings to every room',
+      ],
+    };
+  }
+
+  // ── REFUSAL 1b — the sentence named a PLACE this pass cannot build into ───
+  //
+  // §BUILD-FROM-ENVELOPE-KEEPS-THE-PLACE (L-13303). The phrase used to be
+  // dropped and the build ran anyway; a build is the most expensive thing in
+  // this product to undo by hand, so a place PRYZM cannot honour must stop it.
+  //
+  // ⭐ THE BUILDING CASE ANSWERS THE FOUNDER'S ACTUAL QUESTION, and it borrows
+  // §CHAT-HAS-NO-BUILDING-AXIS's ONE absent-axis table (L-13302) rather than
+  // re-wording it here — two sentences about the missing building axis would be
+  // two answers to one question.
+  if (si.unscopablePlace !== undefined) {
+    const absent = absentAxisFor(si.unscopablePlace);
+    const activeLevelName = ctx.levels.find((l) => l.id === ctx.activeLevelId)?.name;
+    return {
+      kind: 'refusal',
+      intent: 'build-from-envelope',
+      reason: absent !== null
+        ? `You asked me to build in "${si.unscopablePlace}", and ${absent.cannot}. `
+          + `The pass builds the storey you are on, from the envelopes on it. `
+          + `Nothing has been created.`
+        : `I can't build into "${si.unscopablePlace}" — this pass builds a whole `
+          + `storey from the envelopes on it, so it takes a level, not a room or a `
+          + `facade. Nothing has been created.`,
+      // ⛔ THE LEVEL SUGGESTION IS BUILT FROM THE ACTIVE LEVEL, NOT TYPED.
+      // A hard-coded "…on level 1" was written here first and this file's own
+      // test caught it: the pass builds the storey you are ON, so naming any
+      // OTHER level is refused by name, and the suggestion would have been a
+      // sentence that fails (C68 §6.3-G2 — an example that does not work is a
+      // lie shipped in the UI). When the active level is unknown, the offer is
+      // simply omitted rather than guessed (§CONTEXT-DATA-HONESTY).
+      suggestions: [
+        'create walls and slabs from my envelope',
+        ...(activeLevelName === undefined
+          ? []
+          : [`create walls and slabs from my envelope on ${activeLevelName}`]),
       ],
     };
   }

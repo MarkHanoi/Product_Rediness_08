@@ -1164,6 +1164,19 @@ export type SemanticIntent =
        *  is refused BY NAME rather than silently ignored. */
       readonly levelQuery?: string;
       /**
+       * ⭐ §BUILD-FROM-ENVELOPE-KEEPS-THE-PLACE (L-13303) — a place phrase the
+       * sentence named that this pass CANNOT scope to ("in block b", "in the
+       * kitchen", "on the south facade").
+       *
+       * Carried for exactly the reason `levelQuery` is carried one line up: the
+       * pass builds what it builds, so a place it cannot honour is refused BY
+       * NAME rather than silently ignored. Before this field the phrase was
+       * DROPPED and the build ran project-wide — the same silent widening
+       * L-13301 removed from the window grammar, in the verb that matters most
+       * for master planning (C68 §7.d).
+       */
+      readonly unscopablePlace?: string;
+      /**
        * ⭐ §WHOSE-FOOTPRINT-IS-THE-SLAB (founder 2026-09-09 · L-13296) — which ring
        * the floor plate is cut from, when the sentence says.
        *
