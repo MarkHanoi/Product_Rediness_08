@@ -96,6 +96,19 @@ export type MassingGroupStoreyRefusalReason =
     | 'no-change'
     /** Not a whole number, or below zero. */
     | 'not-a-count'
+    /**
+     * ⛔ ZERO IS REFUSED, AND IT IS NOT PEDANTRY: it would remove every storey of the building — a
+     * DELETE wearing a resize's name. An empty group is not representable (ADR-0383 D2), so "take
+     * this block to 0 storeys" has no result that can be written; the verb that destroys a building
+     * is `spaceEnvelope.delete`.
+     *
+     * ⭐ AND THIS ARM EXISTS BECAUSE THE HANDLER HAS IT. `SetMassingGroupStoreysHandler.canExecute`
+     * refuses `target < 1` in the same words. Without this arm the surface would render a confident
+     * plan sentence for 0 and the dispatch would be refused underneath it — the exact
+     * [[same-rule-two-implementations]] outcome where the button's label and the store's contents
+     * are two different answers. Found by reading the handler rather than by testing my own side.
+     */
+    | 'zero-storeys'
     /** The ungrouped bucket has no `group.id`, so no group verb can address it. */
     | 'ungrouped'
     /** More storeys than one gesture may mint — the same ceiling the envelope batch carries. */
@@ -209,6 +222,20 @@ export function buildMassingGroupStoreyPlan(
                 ok: false,
                 reason: 'not-a-count',
                 statement: 'A storey count has to be a whole number of storeys, zero or more.',
+            };
+        }
+
+        if (target < 1) {
+            // ⭐ THE SAME REFUSAL THE HANDLER MAKES, IN THE SAME WORDS, one layer earlier — so the
+            // user reads it before the press rather than after a dispatch that silently did nothing.
+            span.setAttribute('pryzm.groupStorey.refusal', 'zero-storeys');
+            return {
+                ok: false,
+                reason: 'zero-storeys',
+                statement:
+                    `A building has at least one storey — 0 would remove every storey of ${group.label}, `
+                    + 'which is a delete wearing a resize’s name. Nothing was changed. Delete the '
+                    + 'block if that is what you meant.',
             };
         }
 
