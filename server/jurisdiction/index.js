@@ -64,7 +64,7 @@ import {
     CATASTRO_BLOCK_PATH, catastroBlockHandler,
     // C57 §1.14 (lane CADASTRAL) — the AREA query: every Catastro parcel in a window, for the
     // §5.5 cadastral-boundaries overlay. Same bbox machine as the manzana route, wider window.
-    CATASTRO_PARCELS_PATH, catastroParcelsAreaHandler,
+    CATASTRO_PARCEL_AREA_PATH, catastroParcelsAreaHandler,
 } from './parcelZoningProxy.js';
 // §MUC-ZONING-PROXY (L-480) — the Catalan clau lookup: the ONE missing input that keeps
 // Barcelona envelopes at 'estimated'. Probed live before it was written (L-473's lesson).
@@ -176,9 +176,9 @@ import { KR_PARCEL_PATH, krParcelHandler } from './krParcelProxy.js';
  * @type {ReadonlyArray<readonly [string, string]>}
  */
 export const JURISDICTION_ROUTES = Object.freeze([
+    ['get', CATASTRO_PARCEL_AREA_PATH],
     ['get', CATASTRO_PARCEL_PATH],
     ['get', CATASTRO_BLOCK_PATH],
-    ['get', CATASTRO_PARCELS_PATH],
     ['get', MUC_ZONING_PATH],
     ['get', MUC_INSTRUMENT_PATH],
     ['get', BCN_REFOS_OV_PATH],
@@ -238,17 +238,18 @@ export function createJurisdictionRouter({ apiLimiter }) {
     // and gentle on the shared gov endpoints. apiLimiter (60 req/min/IP) guards abuse.
     // Same-origin → connect-src 'self' already covers it (NO CSP change). Never crashes:
     // no parcel / upstream failure → 200 { parcel: null } so the client falls back to draw.
+    // C57 §1.14 §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY — GET /api/catastro/parcel/area
+    // ?lat=&lon=&radiusM= → EVERY Catastro parcel in the box enclosing that circle, for the §5.5
+    // neighbours overlay. ⚠ Registered BEFORE the point route: §1.14.6 makes "the area leg comes
+    // first" the rule for this capability, and a rule that is only followed where it currently
+    // matters is a rule that breaks the first time the paths change shape. Reuses
+    // `buildParcelBboxUrl` + `parseParcelCollectionGml` (the manzana route's own machine) with a
+    // wider window and an explicit count cap, so a truncated answer is KNOWN rather than guessed.
+    router.get(CATASTRO_PARCEL_AREA_PATH, apiLimiter, catastroParcelsAreaHandler);
     router.get(CATASTRO_PARCEL_PATH, apiLimiter, catastroParcelHandler);
     // ADR-0271 P4b §CATASTRO-BLOCK — the manzana ring the block-derived depth needs. Same limiter
     // and same posture as the parcel route: resolves to null on any doubt, never fabricates.
     router.get(CATASTRO_BLOCK_PATH, apiLimiter, catastroBlockHandler);
-    // C57 §1.14 §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY — GET /api/catastro/parcels
-    // ?lat=&lon=&radiusM= → EVERY Catastro parcel in the box enclosing that circle, for the §5.5
-    // neighbours overlay. Reuses `buildParcelBboxUrl` + `parseParcelCollectionGml` (the manzana
-    // route's own machine) with a wider window and an explicit count cap, so a truncated answer is
-    // KNOWN rather than guessed. Same limiter, same posture: an outage is `outcome:'unreachable'`
-    // + no-store, never an empty finding about the land.
-    router.get(CATASTRO_PARCELS_PATH, apiLimiter, catastroParcelsAreaHandler);
     router.get(MUC_ZONING_PATH, apiLimiter, mucZoningHandler);
     router.get(MUC_INSTRUMENT_PATH, apiLimiter, mucInstrumentHandler);
     // §BCN-REFOS-OV-PROXY — the clau-18 volumetric-ordering lookup. Same posture as the MUC route:

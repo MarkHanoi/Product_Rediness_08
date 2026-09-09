@@ -2926,6 +2926,16 @@ export const EU_AREA_MAX_RADIUS_M = 1500;
 /** The feature cap sent upstream; a parsed count that REACHES it means `truncated: true`. */
 export const EU_AREA_COUNT_CAP = 400;
 
+/**
+ * ⭐ MEASURED, not chosen (C57 §1.14.5). Live, 2026-09-09, radius 300 m, cap 400:
+ *   · FR — Paris (48.8566, 2.3522): **400 parcels, TRUNCATED**, 0.4 s.
+ *   · NL — Amsterdam (52.3730, 4.8925): **392 parcels**, un-truncated, 0.7 s.
+ * FR truncates at 300 m in central Paris and NL very nearly does, so the recommended radius is the
+ * one that leaves both un-truncated. ⛔ It is a RECOMMENDATION, not a ceiling: a caller that asks
+ * for more still gets an honest `truncated: true` rather than a silently partial drawing.
+ */
+export const EU_AREA_RECOMMENDED_RADIUS_M = 200;
+
 const METRES_PER_DEG_LAT = 111_320;
 
 /**
@@ -2951,25 +2961,32 @@ export function __resetEuAreaCache() { _areaCache.clear(); _areaInFlight.clear()
 /**
  * Resolve EVERY parcel this register publishes inside the box enclosing a circle. Never throws.
  *
- * ⭐ FIVE OUTCOMES, NEVER COLLAPSED (C57 §1.14.2):
- *   · `ok`           — the register answered. An EMPTY `parcels` array here is an authoritative
- *                      finding about the LAND, not about us.
- *   · `unsupported`  — this register publishes no area query. A fact about the SOURCE, permanent.
- *   · `unreachable`  — it does, and it did not answer. Not a finding at all; never cached.
- *   · `unconfigured` — the leg names a server-side secret this deployment does not hold.
- *   · `out-of-area`  — the point is outside this register's own territory.
+ * ⭐ THREE ARMS, NEVER COLLAPSED, AND NEVER A FOURTH WORD (C57 §1.14.2 / §1.14.6):
+ *   · `ok`          — the register answered. An EMPTY `parcels` array here is an authoritative
+ *                     finding about the LAND, not about us.
+ *   · `unsupported` — a DURABLE structural fact about the SOURCE: it publishes no area query, it
+ *                     does not cover this place, or PRYZM has not wired it. No retry changes any
+ *                     of the three, which is exactly what separates this arm from an outage.
+ *   · `unreachable` — it was asked and did not answer, OR it was never asked (a missing credential,
+ *                     a malformed request). Not a finding about the land at all; never cached.
  *
- * @returns {Promise<{ outcome: string, parcels: object[], truncated: boolean, reason?: string }>}
+ * `httpStatus` is an OPTIONAL hint consumed only by the handler, so a missing credential can still
+ * surface as 503 + no-store (a DEPLOYMENT fact) without minting a fourth outcome word for it.
+ *
+ * @returns {Promise<{ outcome:'ok'|'unsupported'|'unreachable', parcels: object[], truncated: boolean, reason?: string, httpStatus?: number }>}
  */
 export async function resolveEuParcelsInArea(cc, lon, lat, radiusM, deps = {}) {
     const cfg = EU_CADASTRE_SOURCES[cc];
     if (!cfg) {
-        return { outcome: 'unknown-source', parcels: [], truncated: false,
-            reason: `No cadastre is wired for '${cc}'.` };
+        // §1.14.6 — PRYZM has wired no cadastre for this code. Durable, structural, about the
+        // SOURCE side of the boundary; it will not improve on retry. NOT an empty answer.
+        return { outcome: 'unsupported', parcels: [], truncated: false,
+            reason: `No cadastre is wired for '${cc}'.`, httpStatus: 404 };
     }
     if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(radiusM) || radiusM <= 0) {
-        return { outcome: 'bad-input', parcels: [], truncated: false,
-            reason: 'lon, lat and a positive radiusM are required.' };
+        // §1.14.6 — the upstream was NEVER ASKED. Our fault, not the register's; the 400 says so.
+        return { outcome: 'unreachable', parcels: [], truncated: false,
+            reason: 'lon, lat and a positive radiusM are required.', httpStatus: 400 };
     }
     if (cfg.areaQuery !== true) {
         // ⚠ THE HONEST SENTENCE, NOT AN EMPTY LIST. This register is served one parcel at a time —
@@ -2981,7 +2998,9 @@ export async function resolveEuParcelsInArea(cc, lon, lat, radiusM, deps = {}) {
                 + 'parcel in an area, so the neighbours are not drawn here.' };
     }
     if (!cfg.guard(lat, lon)) {
-        return { outcome: 'out-of-area', parcels: [], truncated: false,
+        // §1.14.6 — outside the register's own territory is a DURABLE statement about the source,
+        // not an empty finding about the land.
+        return { outcome: 'unsupported', parcels: [], truncated: false,
             reason: `${cfg.source} publishes no parcels at this location.` };
     }
 
@@ -2990,8 +3009,12 @@ export async function resolveEuParcelsInArea(cc, lon, lat, radiusM, deps = {}) {
         const raw = typeof cfg.readKey === 'function' ? cfg.readKey(deps) : undefined;
         key = typeof raw === 'string' ? raw.trim() : '';
         if (!key) {
-            return { outcome: 'unconfigured', parcels: [], truncated: false,
-                reason: `${cfg.requiresEnv} is not configured on this server (C57 §1.2).` };
+            // §1.14.6 — a DEPLOYMENT fact: the upstream was never asked because we hold no key.
+            // It rides `unreachable` (it is not an answer about the land) and keeps its 503, so no
+            // cache and no client can ever read it as "empty".
+            return { outcome: 'unreachable', parcels: [], truncated: false,
+                reason: `${cfg.requiresEnv} is not configured on this server (C57 §1.2).`,
+                httpStatus: 503 };
         }
     }
 
@@ -3050,8 +3073,10 @@ export async function resolveEuParcelsInArea(cc, lon, lat, radiusM, deps = {}) {
 
 /**
  * Express handler for GET /api/parcel/:cc/area?lon=&lat=&radiusM=.
- * `unconfigured` → 503 + no-store (a DEPLOYMENT fact, never readable as "empty"); everything else
- * → 200 with its own `outcome`, so no arm of C57 §1.14.2 can be read as another. Never throws.
+ *
+ * The body speaks ONLY the three C57 §1.14.2 arms; the HTTP status carries the extra detail a
+ * caller may want (404 no such cadastre, 400 malformed, 503 credential unset, 200 otherwise), so
+ * no arm can be read as another and no fourth outcome word has to exist. Never throws.
  */
 export function makeEuParcelsAreaHandler(deps = {}) {
     return async function euParcelsAreaHandler(req, res) {
@@ -3059,16 +3084,9 @@ export function makeEuParcelsAreaHandler(deps = {}) {
         const lon = Number.parseFloat(String(req.query?.lon ?? ''));
         const lat = Number.parseFloat(String(req.query?.lat ?? ''));
         const radiusM = Number.parseFloat(String(req.query?.radiusM ?? ''));
-        if (!EU_CADASTRE_SOURCES[cc]) return res.status(404).json({ error: `Unknown cadastre '${cc}'.` });
-        if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(radiusM) || radiusM <= 0) {
-            return res.status(400).json({
-                outcome: 'bad-input', parcels: [], truncated: false,
-                reason: 'lon, lat and a positive radiusM (EPSG:4326 / metres) are required.',
-            });
-        }
         if (radiusM > EU_AREA_MAX_RADIUS_M) {
             return res.status(400).json({
-                outcome: 'bad-input', parcels: [], truncated: false,
+                outcome: 'unreachable', parcels: [], truncated: false,
                 reason: `radiusM ${Math.round(radiusM)} exceeds the ${EU_AREA_MAX_RADIUS_M} m ceiling `
                     + 'this route places on a shared public register (C57 §7.2).',
             });
@@ -3084,12 +3102,11 @@ export function makeEuParcelsAreaHandler(deps = {}) {
         }
         setProxyCacheHeaders(res);
         res.setHeader('X-Cadastre-Area-Outcome', out.outcome);
+        // Never cache a non-answer: a 7-day CDN entry turns a 30-second wobble, or one unset
+        // secret, into a week of "this block has no parcels" for everyone who lands on the tile.
         if (out.outcome === 'unreachable') res.setHeader('Cache-Control', 'no-store');
-        if (out.outcome === 'unconfigured') {
-            res.setHeader('Cache-Control', 'no-store');
-            return res.status(503).json(out);
-        }
-        return res.status(200).json(out);
+        const { httpStatus, ...body } = out;
+        return res.status(Number.isFinite(httpStatus) ? httpStatus : 200).json(body);
     };
 }
 

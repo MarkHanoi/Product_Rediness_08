@@ -476,6 +476,19 @@ export const dkParcelHandler = makeDkParcelHandler();
 // about central Copenhagen. So this route does not fork a parser: it lifts the single-feature
 // normalise into `dawaFeatureToParcel` and maps it over the collection (C57 §1.14.4).
 //
+//
+// ⭐ ONE WIRE GRAMMAR (C57 §1.14.6). The path is the POINT route plus `/area`, and the body carries
+// exactly ONE of `ok` · `unsupported` · `unreachable` — never a fourth word. The richer internal
+// states are mapped HERE, at the edge, and each mapping is an argument rather than a convenience:
+//   · `out-of-area` / `unknown-source` → **unsupported**. A register that does not cover this place,
+//     or that PRYZM has not wired, is making a DURABLE STRUCTURAL statement about the source.
+//     Retrying will not change it, which is precisely what separates `unsupported` from an outage.
+//   · `unconfigured` / a malformed request → **unreachable**. The upstream was NEVER ASKED. The one
+//     thing neither of them is, is an answer about the land.
+// HTTP status still separates them for a caller that cares: 400 malformed, 503 unconfigured, 200
+// otherwise. ⛔ One capability answered in three grammars forces every reader to learn all three,
+// and the second reader gets one of them wrong.
+//
 // ⛔ THE KEYED DATAFORDELER LEG IS NOT USED HERE, AND THAT IS DELIBERATE. The point leg tries
 // Datafordeler first for its survey-attribute join, then falls back to DAWA. An area answer needs
 // geometry + identity for N parcels, which DAWA serves keylessly and completely — asking a
@@ -491,6 +504,15 @@ export const DK_AREA_MAX_RADIUS_M = 1500;
 
 /** How many parcels one answer may carry. Beyond this the answer is sliced and `truncated: true`. */
 export const DK_AREA_COUNT_CAP = 400;
+
+/**
+ * ⭐ MEASURED, not chosen (C57 §1.14.5). Live DAWA, 2026-09-09, Copenhagen (55.6761, 12.5683):
+ * **172 parcels at 300 m**, un-truncated, 0.4 s — comfortably inside the cap, so Denmark's
+ * recommendation matches the ES/EU one rather than needing its own. Kept as its own constant
+ * anyway: the number is a per-register measurement, and one shared literal across three registers
+ * would be a coincidence presented as a rule.
+ */
+export const DK_AREA_RECOMMENDED_RADIUS_M = 200;
 
 /** Area cache + in-flight de-duplication, keyed by the ROUNDED request. */
 const _dkAreaCache = new Map();
@@ -542,20 +564,23 @@ export function dawaFeatureToParcel(feature) {
 /**
  * Resolve every Danish jordstykke inside a circle. Never throws.
  *
- * ⭐ THREE OUTCOMES, NEVER COLLAPSED (C57 §1.14.2). `ok` with an EMPTY array is an authoritative
- * finding about the land — DAWA answered and Denmark holds no parcel in this circle (open water,
- * for instance). `unreachable` is not a finding at all and is never cached. `out-of-area` is a fact
- * about the register's territory.
+ * ⭐ THREE ARMS, NEVER COLLAPSED, AND NEVER A FOURTH WORD (C57 §1.14.2 / §1.14.6). `ok` with an
+ * EMPTY array is an authoritative finding about the LAND — DAWA answered and Denmark holds no
+ * parcel in this circle (open water, for instance). `unsupported` is the DURABLE statement that
+ * Matriklen does not cover this place at all. `unreachable` is not a finding: it was asked and did
+ * not answer, or it was never asked. Never cached.
  *
- * @returns {Promise<{ outcome:'ok'|'unreachable'|'out-of-area'|'bad-input', parcels: object[], truncated: boolean, reason?: string }>}
+ * @returns {Promise<{ outcome:'ok'|'unsupported'|'unreachable', parcels: object[], truncated: boolean, reason?: string }>}
  */
 export async function fetchDawaParcelsInArea(lon, lat, radiusM, deps = {}) {
     if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(radiusM) || radiusM <= 0) {
-        return { outcome: 'bad-input', parcels: [], truncated: false,
+        // §1.14.6 — the upstream was NEVER ASKED. Not an answer about the land.
+        return { outcome: 'unreachable', parcels: [], truncated: false,
             reason: 'lon, lat and a positive radiusM are required.' };
     }
     if (lat < 54.4 || lat > 57.9 || lon < 7.7 || lon > 15.3) {
-        return { outcome: 'out-of-area', parcels: [], truncated: false,
+        // §1.14.6 — outside the register's territory is DURABLE and structural, about the source.
+        return { outcome: 'unsupported', parcels: [], truncated: false,
             reason: 'Matriklen publishes no parcels outside Denmark.' };
     }
 
@@ -623,13 +648,13 @@ export function makeDkParcelsAreaHandler(deps = {}) {
         const radiusM = Number.parseFloat(String(req.query?.radiusM ?? ''));
         if (!Number.isFinite(lon) || !Number.isFinite(lat) || !Number.isFinite(radiusM) || radiusM <= 0) {
             return res.status(400).json({
-                outcome: 'bad-input', parcels: [], truncated: false,
+                outcome: 'unreachable', parcels: [], truncated: false,
                 reason: 'lon, lat and a positive radiusM (EPSG:4326 / metres) are required.',
             });
         }
         if (radiusM > DK_AREA_MAX_RADIUS_M) {
             return res.status(400).json({
-                outcome: 'bad-input', parcels: [], truncated: false,
+                outcome: 'unreachable', parcels: [], truncated: false,
                 reason: `radiusM ${Math.round(radiusM)} exceeds the ${DK_AREA_MAX_RADIUS_M} m ceiling `
                     + 'this route places on a shared public register (C57 §7.2).',
             });

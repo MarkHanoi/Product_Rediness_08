@@ -43,12 +43,13 @@ import { createJurisdictionRouter, JURISDICTION_ROUTES } from '../jurisdiction/i
  * the contract the deployed clients call.
  */
 const EXPECTED: ReadonlyArray<readonly [string, string]> = [
+    // C57 §1.14.6 — ONE PATH SHAPE for the area capability: the point route plus `/area`, and the
+    // area leg registered FIRST. There is no ordering hazard between these two literals today; the
+    // ordering is here because §1.14.6 makes it the rule, and a rule followed only where it
+    // currently matters breaks the first time a path grows a `:param`.
+    ['get', '/api/catastro/parcel/area'],
     ['get', '/api/catastro/parcel'],
     ['get', '/api/catastro/block'],
-    // C57 §1.14 §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY — the AREA query behind the §5.5
-    // cadastral-boundaries overlay. Distinct path (`/parcels`, plural), so no ordering hazard
-    // against `/api/catastro/parcel`; listed here because this manifest IS the surface test.
-    ['get', '/api/catastro/parcels'],
     ['get', '/api/muc/zoning'],
     ['get', '/api/muc/instrument'],
     ['get', '/api/bcn-refos/ov'],

@@ -1104,6 +1104,19 @@ export const catastroBlockHandler = makeCatastroBlockHandler();
 // rings, and nothing would fail ([[same-rule-two-implementations]]). The ONLY thing this route adds
 // is a different HALF-WINDOW, a COUNT cap, and the honesty envelope around the answer.
 //
+//
+// ⭐ ONE WIRE GRAMMAR (C57 §1.14.6). The path is the POINT route plus `/area`, and the body carries
+// exactly ONE of `ok` · `unsupported` · `unreachable` — never a fourth word. The richer internal
+// states are mapped HERE, at the edge, and each mapping is an argument rather than a convenience:
+//   · `out-of-area` / `unknown-source` → **unsupported**. A register that does not cover this place,
+//     or that PRYZM has not wired, is making a DURABLE STRUCTURAL statement about the source.
+//     Retrying will not change it, which is precisely what separates `unsupported` from an outage.
+//   · `unconfigured` / a malformed request → **unreachable**. The upstream was NEVER ASKED. The one
+//     thing neither of them is, is an answer about the land.
+// HTTP status still separates them for a caller that cares: 400 malformed, 503 unconfigured, 200
+// otherwise. ⛔ One capability answered in three grammars forces every reader to learn all three,
+// and the second reader gets one of them wrong.
+//
 // ⚠ THE BOX ENCLOSES THE CIRCLE — the error direction is a SUPERSET, never a subset. The caller
 // asks for a radius; `buildParcelBboxUrl` takes ONE degree half-width for both axes, and a degree
 // of longitude is shorter than a degree of latitude everywhere but the equator. So the half-width
@@ -1111,8 +1124,9 @@ export const catastroBlockHandler = makeCatastroBlockHandler();
 // Returning a few parcels outside the circle is a drawing decision the client can make; MISSING a
 // neighbour the user can see on screen is a defect they cannot.
 
-/** The area route. `?lat=&lon=&radiusM=` → every Catastro parcel in the box enclosing that circle. */
-export const CATASTRO_PARCELS_PATH = '/api/catastro/parcels';
+/** The area route: the POINT route plus `/area` (C57 §1.14.6 — one path shape for the capability).
+ *  `?lat=&lon=&radiusM=` → every Catastro parcel in the box enclosing that circle. */
+export const CATASTRO_PARCEL_AREA_PATH = '/api/catastro/parcel/area';
 
 /** Upper bound on a single area request (m). Beyond this the answer is refused, not truncated:
  *  a 5 km Catastro bbox is a denial-of-service against a shared public register (C57 §7.2). */
@@ -1121,6 +1135,39 @@ export const CATASTRO_AREA_MAX_RADIUS_M = 1500;
 /** The feature cap sent upstream. A parsed count that REACHES it means `truncated: true` — the
  *  cap is what makes truncation KNOWABLE rather than guessed (C57 §1.14.3). */
 export const CATASTRO_AREA_COUNT_CAP = 400;
+
+/**
+ * ⭐ THE MEASURED PAYLOAD CURVE (C57 §1.14.5 requires the ceiling to come from one, not from
+ * taste). Live Catastro INSPIRE WFS, Barcelona Eixample (41.3925, 2.1650), cap 400, 2026-09-09:
+ *
+ *   | radius | parcels      | bytes   | wall   |
+ *   |--------|--------------|---------|--------|
+ *   | 120 m  | 82           | 187 KB  |  2.7 s |
+ *   | 150 m  | 134          | 303 KB  |  4.3 s |
+ *   | 200 m  | 238          | 537 KB  |  6.0 s |
+ *   | 300 m  | 400 (CAPPED) | 911 KB  | 17.8 s |
+ *   | 500 m  | 400 (CAPPED) | 899 KB  | 11.5 s |
+ *
+ * TWO facts come out of it, and neither was guessable:
+ *
+ * ⛔ **THE 15 s SHARED DEADLINE IS NOT ENOUGH, AND THE FIRST MEASURED RUN PROVED IT.** A 300 m
+ * Barcelona request took **17.8 s** — over `CATASTRO_UPSTREAM_TIMEOUT_MS`, so it aborted and the
+ * overlay would have reported `unreachable` over land that answered perfectly well eighteen seconds
+ * later. Note the curve is NOT monotonic in radius (500 m came back in 11.5 s): the variance is the
+ * shared government host, not the query size, which is precisely why a deadline sized off the
+ * fastest observation is a trap. `CATASTRO_AREA_TIMEOUT_MS` below is a statement about THAT HOST —
+ * the per-source `timeoutMs` precedent `euCadastreProxy` already sets for BE-VLG — and never a
+ * global loosening.
+ *
+ * ⚠ **BEYOND ~250 m IN DENSE URBAN SPAIN THE CAP BINDS, so a wider radius buys nothing.** 300 m and
+ * 500 m both return the same 400 truncated parcels for more upstream work. `MAX_RADIUS_M` stays a
+ * DoS guard; `RECOMMENDED_RADIUS_M` is the largest measured radius that came back UN-truncated, and
+ * is what a caller should ask for unless it has a reason not to.
+ */
+export const CATASTRO_AREA_RECOMMENDED_RADIUS_M = 200;
+
+/** Catastro's own deadline for the AREA route — see the measured curve above (one run at 17.8 s). */
+export const CATASTRO_AREA_TIMEOUT_MS = 40_000;
 
 /** Metres per degree of latitude (WGS84 mean). The longitude figure is this × cos(lat). */
 const METRES_PER_DEG_LAT = 111_320;
@@ -1140,16 +1187,19 @@ const AREA_CACHE_TTL_MS = PARCEL_CACHE_TTL_MS;
 const AREA_CACHE_MAX_ENTRIES = 64;
 
 /**
- * Express handler for GET /api/catastro/parcels?lat=&lon=&radiusM=.
+ * Express handler for GET /api/catastro/parcel/area?lat=&lon=&radiusM=.
  *
- * ⭐ FOUR OUTCOMES, NEVER COLLAPSED (C57 §1.14.2). `ok` + an EMPTY array is an authoritative
- * finding about the land — Catastro answered and holds nothing in this box. `unreachable` is not a
- * finding at all and is NEVER cached. `out-of-area` is a fact about the register's territory.
- * `bad-input` is our own bug and says so. Never throws.
+ * ⭐ THREE ARMS, NEVER COLLAPSED (C57 §1.14.2 / §1.14.6). `ok` + an EMPTY array is an authoritative
+ * finding about the LAND — Catastro answered and holds nothing in this box. `unsupported` is a
+ * durable fact about the REGISTER (outside Spain, Catastro publishes nothing, and no retry changes
+ * that). `unreachable` is not a finding at all and is NEVER cached. Never throws.
  */
 export function makeCatastroParcelsAreaHandler(deps = {}) {
     const fetchImpl = deps.fetchImpl || fetch;
-    const timeoutMs = deps.timeoutMs || CATASTRO_UPSTREAM_TIMEOUT_MS;
+    // ⛔ NOT `CATASTRO_UPSTREAM_TIMEOUT_MS`. See the measured curve: a real 300 m Barcelona request
+    // took 17.8 s, and under the shared 15 s deadline the overlay reported `unreachable` over land
+    // the register answered for. A per-route deadline for a measured-slow host, never a global one.
+    const timeoutMs = deps.timeoutMs || CATASTRO_AREA_TIMEOUT_MS;
 
     // PER-HANDLER, not module-level — the same reasoning `makeCatastroBlockHandler` records above:
     // a module-global Map is shared by every handler anyone constructs, and it leaks across tests.
@@ -1217,14 +1267,16 @@ export function makeCatastroParcelsAreaHandler(deps = {}) {
         const lon = Number.parseFloat(String(req.query?.lon ?? ''));
         const radiusM = Number.parseFloat(String(req.query?.radiusM ?? ''));
         if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(radiusM) || radiusM <= 0) {
+            // §1.14.6 — a malformed request means the upstream was NEVER ASKED, so it rides
+            // `unreachable`; the 400 is what tells a caller it was our own fault, not Catastro's.
             return res.status(400).json({
-                outcome: 'bad-input', parcels: [], truncated: false,
+                outcome: 'unreachable', parcels: [], truncated: false,
                 reason: 'lat, lon and a positive radiusM (EPSG:4326 / metres) are required.',
             });
         }
         if (radiusM > CATASTRO_AREA_MAX_RADIUS_M) {
             return res.status(400).json({
-                outcome: 'bad-input', parcels: [], truncated: false,
+                outcome: 'unreachable', parcels: [], truncated: false,
                 reason: `radiusM ${Math.round(radiusM)} exceeds the ${CATASTRO_AREA_MAX_RADIUS_M} m ceiling `
                     + 'this route places on a shared public register (C57 §7.2).',
             });
@@ -1234,8 +1286,11 @@ export function makeCatastroParcelsAreaHandler(deps = {}) {
         const inSpain = (lat >= 27.5 && lat <= 44.0 && lon >= -18.5 && lon <= 4.6);
         if (!inSpain) {
             setProxyCacheHeaders(res);
+            // §1.14.6 — `unsupported`, not an empty `ok`: "Catastro holds nothing HERE" is a
+            // statement about the REGISTER's territory, and drawing it as an empty map would say
+            // the land has no parcels. Durable — it will not improve on retry.
             return res.status(200).json({
-                outcome: 'out-of-area', parcels: [], truncated: false,
+                outcome: 'unsupported', parcels: [], truncated: false,
                 reason: 'Catastro publishes no parcels outside Spain.',
             });
         }
