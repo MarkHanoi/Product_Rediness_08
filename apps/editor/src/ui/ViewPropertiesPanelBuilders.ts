@@ -312,6 +312,94 @@ export function buildOutputSection(host: OutputSectionHost, def: ViewDefinition)
     }
     content.appendChild(note);
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // §LINE-TYPE-CONTROLS-EXIST-NOW (founder 2026-09-09 · L-13268 · C09 §4.6.4d)
+    //
+    // ⭐ FOUNDER: *"I CHANGE THE LINE TYPE ETC.. DOESNT WORK."*
+    //
+    // ⛔ THE INVERSE DEFECT, AND IT IS THE CHEAPEST ONE ON THE BOARD. `output.beyondLineStyle`
+    // and `output.occlusionDisposition` are READ by the drawing engine on every paint
+    // (`PlanViewCanvas` :418 / :1944 resolve them through `resolveBeyondLineStyle()` and the
+    // occlusion resolver) and were WRITTEN BY NO UI AT ALL. Two complete, resolved,
+    // contract-documented line-type behaviours with no way for a human to reach them.
+    //
+    // ⭐ SO THIS IS NOT A NEW FEATURE — it is the missing half of one that already works.
+    // Both resolvers exist, both fields are persisted on `ViewOutputSettings`, and
+    // `SetViewOutputCommand` already carries the write. Nothing here decides anything: the
+    // defaults still come from the view TYPE via `ViewScope` (elevation/section 'dashed',
+    // plan 'solid'), and '(inherit)' means exactly that.
+    //
+    // ⚠ `patch.X = val || undefined`, NEVER `delete` — the §FIX-VIEW-OUTPUT-NO-BRIDGE (L-289)
+    // rule the neighbouring controls already obey: the store MERGES the output patch, so a
+    // DELETED key is absent from the spread and the old value survives, making '(inherit)' a
+    // silent no-op. An explicit `undefined` is present and overwrites.
+    // ══════════════════════════════════════════════════════════════════════════
+    const mkOutputSelect = (
+        labelText: string,
+        current: string | undefined,
+        options: ReadonlyArray<{ readonly value: string; readonly label: string }>,
+        apply: (patch: ViewOutputSettings, val: string) => void,
+        helpText: string,
+    ): void => {
+        const lab = document.createElement('div');
+        lab.className = 'vpp-label';
+        lab.textContent = labelText;
+        content.appendChild(lab);
+
+        const sel = document.createElement('select');
+        sel.className = 'vpp-input';
+        for (const opt of options) {
+            const el = document.createElement('option');
+            el.value = opt.value;
+            el.textContent = opt.label;
+            if ((current ?? '') === opt.value) el.selected = true;
+            sel.appendChild(el);
+        }
+        sel.addEventListener('change', () => {
+            const patch: ViewOutputSettings = { ...o };
+            apply(patch, sel.value);
+            host._fireSetViewOutput(def.id, patch);
+        });
+        content.appendChild(sel);
+
+        const help = document.createElement('div');
+        help.className = 'vpp-label';
+        help.style.cssText =
+            'grid-column:1/-1;font-size:0.68rem;line-height:1.35;opacity:0.75;margin:-2px 0 4px;';
+        help.textContent = helpText;
+        content.appendChild(help);
+    };
+
+    mkOutputSelect(
+        'Occluded lines',
+        o.occlusionDisposition,
+        [
+            { value: '', label: '(inherit)' },
+            { value: 'remove', label: 'Remove' },
+            { value: 'demote', label: 'Show dashed' },
+        ],
+        (patch, val) => {
+            patch.occlusionDisposition = (val || undefined) as ViewOutputSettings['occlusionDisposition'];
+        },
+        'What happens to a line hidden behind a solid. "Show dashed" is how you see a pipe '
+        + 'behind a wall instead of losing it. Inherit uses the default for this view type.',
+    );
+
+    mkOutputSelect(
+        'Beyond lines',
+        o.beyondLineStyle,
+        [
+            { value: '', label: '(inherit)' },
+            { value: 'solid', label: 'Solid' },
+            { value: 'dashed', label: 'Dashed' },
+        ],
+        (patch, val) => {
+            patch.beyondLineStyle = (val || undefined) as ViewOutputSettings['beyondLineStyle'];
+        },
+        'How geometry past the cut plane is drawn. Inherit means elevation and section dash it, '
+        + 'plan draws it solid.',
+    );
+
     // ── Visual Style ─────────────────────────────────────────────────────
     const vsLabel = document.createElement('div');
     vsLabel.className   = 'vpp-label';
