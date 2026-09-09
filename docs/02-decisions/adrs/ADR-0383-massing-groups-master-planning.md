@@ -29,8 +29,6 @@ C83 §2 (roles, not kinds) · C84 EI-1 / EI-8 / EI-9 · C16 CA-2 · P6
 
 ---
 
----
-
 ## 1 · THE ASK
 
 > *"Build PRYZM Master Planning: select a real/demo U.S. parcel, then create multiple independent
