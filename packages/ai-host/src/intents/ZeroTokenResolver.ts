@@ -179,7 +179,6 @@ import {
 // preposition phrase names a LEVEL or a ROOM. See that module's header for why
 // three hand-written spellings of it existed and what each one cost.
 import {
-  parseTrailingSpatialScope,
   parseInlineSpatialPhrase,
   stripTrailingLevelNoun,
   // §FIX-RAKE-SCOPE-TAIL (L-1372) — the rake grammar carried the FOURTH
@@ -192,6 +191,11 @@ import {
   // the apartment grammar can CONSUME its place phrase(s) through the ONE
   // shared parser instead of writing a fifth spelling of the tail.
   matchTrailingSpatialScope,
+  // §WINDOWS-ALL-WALLS-IS-NOT-A-PLACE (L-13301) — the canonical "is this
+  // captured phrase the ELEMENT NOUN rather than a place?" predicate. The
+  // window grammar consumes its tail through the same matcher and needs the
+  // same answer; a private copy here would have been the fourth spelling.
+  isNotAPlace,
 } from './SpatialScopeTail.js';
 // §RAC-APARTMENT-IN-ROOM (L-1640) — THE room-number ladder (number tiers
 // strictest-first, whole-name fallback with an ambiguity guard), shared with
@@ -5354,11 +5358,66 @@ export function parseWindowsParametricIntent(
   const hyphenLevel = /\b(?:in|on) (?:the )?([\w]+)[- ]floor walls?\b/.exec(text);
   // ⛔ LEVEL ONLY. This capability DECLARES `scopeModes: ['all','selection',
   // 'level']` and Gate 31's symmetric arm caught it over-claiming 'room' once
-  // already. The shared tail can now read a room out of "in the kitchen" — so
-  // a room reading is DROPPED here rather than resolved, and the declaration
-  // stays exactly as narrow as the resolver (C68 §7.d).
-  const tail = hyphenLevel === null ? parseTrailingSpatialScope(text, ctx) : { kind: 'none' as const };
-  const tailLevel = tail.kind === 'scope' && tail.scope.kind === 'level' ? tail.scope : null;
+  // already. The declaration stays exactly as narrow as the resolver (C68 §7.d).
+  //
+  // ⭐⭐ §WINDOWS-ALL-WALLS-IS-NOT-A-PLACE (L-13301, 2026-09-09) — THIS BLOCK
+  // USED TO DROP THE PLACE PHRASE AND CREATE WINDOWS IN THE WHOLE PROJECT.
+  //
+  // The old shape read the tail off the FULL text, kept it only if it was a
+  // level, and then fell through to `scope = 'all'` whenever `isAll` matched.
+  // So "create windows on all walls IN THE KITCHEN" and "…IN BLOCK B" both
+  // dispatched `wallIds: 'all'` and summarised themselves as "a window in the
+  // middle of every wall in the project" — a `destructive: true` mass creation
+  // across every storey of every building on the parcel, from a sentence that
+  // named one room. Measured, not theorised (scratch/probeUtter3.mts).
+  //
+  // ⛔ The comment it replaced called that DROP deliberate — "a room reading is
+  // DROPPED here rather than resolved" — and it was, for the DECLARATION. But
+  // dropping a qualifier the user said out loud, on the one verb in this file
+  // whose mistake CREATES geometry, is precisely the scope-widening C68 §7.d
+  // forbids. Narrow declaration and silent widening are not the same choice.
+  //
+  // The fix is not a fourth regex: it is `parseApartmentLayoutIntent`'s proven
+  // loop (C67 §4 rule 16, one shared parser), which CONSUMES each trailing
+  // place phrase off the remainder instead of reading the whole sentence once.
+  // That distinction is load-bearing, because "on all walls" IS ITSELF a
+  // trailing place phrase — `matchTrailingSpatialScope` reads it as a room
+  // called "all walls". `isNotAPlace` (SpatialScopeTail.ts, the SAME predicate
+  // the inline wall-finish grammar already uses for exactly this) tells the
+  // element noun apart from a real place, so the phrase is stripped and the
+  // scan continues to whatever the user actually named after it.
+  //
+  // A named place this capability cannot scope to now DECLINES the grammar. A
+  // decline is a miss, and a miss is honest; the alternative shipped a
+  // confident project-wide answer to a question about one room.
+  let rest = text;
+  let tailLevel: { readonly kind: 'level'; readonly levelQuery: string } | null = null;
+  if (hyphenLevel === null) {
+    // Two passes: a room/level pair in either order, plus the "all walls"
+    // phrase that has to be stripped before the real place is reachable.
+    for (let i = 0; i < 3; i++) {
+      const m = matchTrailingSpatialScope(rest, ctx);
+      if (m === null) break;
+      // Rule 16: a NAMED place that cannot become a scope declines the grammar.
+      // "on this floor" with no active level lands here, and used to widen.
+      if (m.reading.kind === 'unusable') return null;
+      const scope = m.reading.scope;
+      const before = rest.slice(0, m.start).trim();
+      if (scope.kind === 'level') {
+        if (tailLevel !== null) return null;      // two level phrases — not claimable
+        tailLevel = scope;
+      } else if (scope.kind === 'room' && isNotAPlace(scope.roomRef)) {
+        // "on all walls" / "in every wall segment" / "of the selected walls" —
+        // the ELEMENT this capability already acts on, not a different place.
+        // Stripping it is not a widen: it names the DEFAULT target.
+        rest = before;
+        continue;
+      } else {
+        return null;                              // a room or a facade — DECLINE
+      }
+      rest = before;
+    }
+  }
   if (!isAll && !isSel && tailLevel === null && hyphenLevel === null) return null;
 
   const mode: Extract<SemanticIntent, { intent: 'create-windows-parametric' }>['mode'] =

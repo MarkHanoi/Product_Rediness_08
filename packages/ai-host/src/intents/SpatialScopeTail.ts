@@ -494,10 +494,40 @@ const ELEMENT_NOUN_ONLY_RE =
  * scope — silently narrowing a project-wide ask to a room that does not exist.
  * That would have been the exact defect this file was written to remove,
  * reintroduced by the fix for it.
+ *
+ * ⭐ EXPORTED 2026-09-09 (§WINDOWS-ALL-WALLS-IS-NOT-A-PLACE, L-13301). The
+ * token-based window grammar needs the SAME question answered — "is this
+ * captured place phrase actually the ELEMENT NOUN rather than a place?" — and
+ * the one thing it must not do is answer it with a fourth regex. This is the
+ * canonical answer; `parseInlineSpatialPhrase` above and
+ * `parseWindowsParametricIntent` now share it.
  */
-function isNotAPlace(phrase: string): boolean {
+export function isNotAPlace(phrase: string): boolean {
   const p = phrase.trim().toLowerCase().replace(LEADING_DETERMINERS_RE, '').trim();
-  return p.length === 0 || ELEMENT_NOUN_ONLY_RE.test(p);
+  if (p.length === 0 || ELEMENT_NOUN_ONLY_RE.test(p)) return true;
+  // ⭐ THE POSITIONAL SHAPE — "the middle OF every wall segment" (L-13301).
+  //
+  // Caught by GATE 31, not by the probe that preceded it: this is a SHIPPED
+  // declared example of `create-windows-parametric`, and the first cut of the
+  // window fix turned it into a miss by reading "the middle of every wall
+  // segment" as a room. It is not a room and it is not a place — it says WHERE
+  // IN the element, and the element is the one already being acted on.
+  //
+  // The rule is the exact symmetric twin of the test above: a phrase that IS
+  // the element noun names no place, and neither does a phrase whose
+  // PREPOSITIONAL OBJECT is the element noun. Both callers want that same
+  // answer — "add a limewash finish to the middle of every wall" must not
+  // narrow to a room either — which is why it lives here once rather than as a
+  // positional-word list inside the window grammar.
+  //
+  // ⛔ The LAST "of" wins, and the object is tested WHOLE: "the walls OF THE
+  // KITCHEN" still reads as the kitchen, because "kitchen" is not an element
+  // noun. This can only ever turn an invented room into "no scope"; it can
+  // never turn one real place into a different one.
+  const lastOf = p.lastIndexOf(' of ');
+  if (lastOf === -1) return false;
+  const object = p.slice(lastOf + 4).trim().replace(LEADING_DETERMINERS_RE, '').trim();
+  return object.length > 0 && ELEMENT_NOUN_ONLY_RE.test(object);
 }
 
 /**
