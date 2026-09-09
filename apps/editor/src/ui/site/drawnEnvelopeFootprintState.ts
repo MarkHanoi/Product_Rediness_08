@@ -19,6 +19,58 @@
 // drew, about a site frame that may since have been re-seated.
 //
 // PURE except for one module-local slot and a listener set. No DOM, no THREE, no I/O.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ ADR-0383 S5 (lane MP-UI, 2026-09-09) — THE SLOT IS NOW A **ROSTER**, AND THAT IS A
+//    GENERALISATION OF THIS MODULE, NOT A SECOND MODULE BESIDE IT
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// Founder, on master planning: *"define multiple profiles first — I NEED TO DECIDE HOW MANY — then
+// define the levels and create bulk all the envelopes for all the profiles"*.
+//
+// ADR-0383 D2 rules that "N profiles" is a TRANSIENT AUTHORING STATE, not a persisted record, and
+// names this module as the thing that already holds exactly that for one ring:
+//
+//   > *"That module is GENERALISED from a slot to a roster — not rivalled by a second module. The
+//   >  existing `getDrawnEnvelopeFootprint()` keeps its exact meaning ('the most recent profile'),
+//   >  so every current caller is untouched, and a new `getDrawnEnvelopeProfiles()` returns the
+//   >  whole list."*
+//
+// ⛔ SO THE THREE HISTORIC ENTRY POINTS ARE UNCHANGED IN MEANING, AND THAT IS CHECKED BY THE
+// EXISTING SPECS RATHER THAN ASSERTED HERE:
+//   · `getDrawnEnvelopeFootprint()`   → the LAST profile's footprint, or `null` when the roster is
+//                                       empty. With ≤ 1 profile — which is every session that
+//                                       predates this change — that is byte-identical to the old
+//                                       single slot.
+//   · `setDrawnEnvelopeFootprint(x)`  → REPLACES the most recent profile in place (keeping its id
+//                                       and its label), or seeds the first one when the roster is
+//                                       empty. Drawing again still replaces; the panel's own
+//                                       sentence *"Draw again to replace this perimeter"* stays true.
+//   · `setDrawnEnvelopeFootprint(null)` / `clearDrawnEnvelopeFootprint()`
+//                                     → clears the WHOLE roster. That is the historic meaning of
+//                                       *"nothing has been drawn this session"* and it is kept: the
+//                                       callers are the panel's discard button and the arming
+//                                       module's settled-ring reset, and both mean "forget the
+//                                       exploration", not "pop one entry". Removing ONE profile has
+//                                       its own verb (`removeDrawnEnvelopeProfile`).
+//
+// ⭐ HOW A SECOND PROFILE IS CREATED, AND WHY THERE IS **NO MODE FLAG**. `addDrawnEnvelopeProfile`
+// APPENDS a new entry seeded with the ring passed to it — in practice the ring the user is looking
+// at — and the very next draw replaces that new last entry, because "the draw writes the most
+// recent profile" never changed. So the whole multi-profile flow is two existing rules composed:
+//
+//     draw A            → [P1(A)]
+//     "add another"     → [P1(A), P2(A)]      ← P2 starts as a copy, and the panel SAYS so
+//     draw B            → [P1(A), P2(B)]
+//
+// ⛔ A CAPTURE-MODE FLAG ("the next draw appends instead of replacing") WAS REJECTED. It is hidden
+// state that decides what a gesture means, read by one surface and written by another — the exact
+// shape of [[view-region-one-owner]] (six writers of one property, oscillating). The seeded copy is
+// visible, is stated on the control that makes it, and is undone by drawing.
+//
+// ⛔ AN EMPTY PROFILE IS NOT REPRESENTABLE, deliberately (ADR-0383 D2's stated consequence, applied
+// one level earlier): a profile IS a ring, and a placeholder with no ring would invite the planner
+// to ask *"what does a profile with no perimeter extrude to?"* — the same question the degenerate-
+// ring refusal below exists to withhold an invented answer to.
 
 import { trace } from '@opentelemetry/api';
 import type { EnvelopeDrawSurfaceId, SceneXZPoint } from './envelopeDrawSurface';
@@ -38,12 +90,48 @@ export interface DrawnEnvelopeFootprint {
     readonly mode: EnvelopeDrawMode;
 }
 
+/**
+ * ADR-0383 S5 — ONE entry in the transient roster: a perimeter the user drew, plus the identity a
+ * panel needs to talk about it before any element exists.
+ *
+ * ⛔ `profileId` IS NOT AN ELEMENT ID AND NEVER BECOMES ONE. It names a row in a session-only
+ * exploration. The ids the batch create mints are minted by the CALLER at dispatch time
+ * (C16 CA-2) and have no relationship to this string — reusing this one would put a
+ * session-scoped identifier on a persisted record.
+ */
+export interface DrawnEnvelopeProfile {
+    readonly profileId: string;
+    /**
+     * What the user calls this profile. Defaulted to `Profile N` at mint time and renameable.
+     *
+     * ⚠ THE NUMBER IS THE MINT INDEX, NOT THE POSITION. Delete Profile 1 and the roster reads
+     * `[Profile 2]` rather than silently renumbering — a label that moves under the user is how a
+     * roster and a scene come to disagree about which block is which.
+     */
+    readonly label: string;
+    readonly footprint: DrawnEnvelopeFootprint;
+}
+
+/**
+ * The most profiles one session may hold. A guard against a pasted loop, NOT a design limit on how
+ * many buildings a master plan may have — the same posture as `AUTHORING_MAX_STOREYS`.
+ */
+export const DRAWN_ENVELOPE_MAX_PROFILES = 24;
+
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
 
-/** `null` ⇒ nothing has been drawn this session (or the last drawing was cleared). */
-let drawn: DrawnEnvelopeFootprint | null = null;
+/**
+ * THE ONE STATE. Empty ⇒ nothing has been drawn this session (or the roster was cleared).
+ *
+ * ⛔ ONE ARRAY, NOT "a slot plus a list". Two containers for one exploration would need a rule
+ * about which wins, and that rule is exactly the drift this module was written to make impossible.
+ */
+let profiles: readonly DrawnEnvelopeProfile[] = Object.freeze([]);
+
+/** Monotonic within a session; reset with the roster. Feeds both the id and the default label. */
+let mintCount = 0;
 
 function notify(): void {
     for (const fn of [...listeners]) {
@@ -55,47 +143,93 @@ function notify(): void {
     }
 }
 
-/** THE ONE READ. */
-export function getDrawnEnvelopeFootprint(): DrawnEnvelopeFootprint | null {
-    return drawn;
-}
-
 /**
- * THE ONE WRITE. Pass `null` to clear.
+ * The ONE degeneracy rule, shared by every write.
  *
  * ⛔ ONLY A RING OF THREE OR MORE VERTICES WITH A FINITE POSITIVE AREA MAY BE STORED. A degenerate
  * drawing is a REFUSAL for the user to read (the gesture prints it), never a thing to hand to the
  * planner — storing one would invite the panel to ask "what does a two-point envelope extrude to?",
  * and the answer it would invent is exactly the shape the refusal exists to withhold.
  */
+function isStorable(f: DrawnEnvelopeFootprint): boolean {
+    return f.ring.length >= 3 && Number.isFinite(f.areaM2) && f.areaM2 > 0;
+}
+
+function refuseDegenerate(f: DrawnEnvelopeFootprint, what: string): void {
+    console.warn(
+        `[site][envelope-draw] §ENVELOPE-DRAW refused to store a degenerate ring (${what}: `
+        + `${f.ring.length} vertices, ${f.areaM2} m²). The roster is unchanged.`,
+    );
+}
+
+// ── THE HISTORIC THREE — meaning unchanged, see the header ───────────────────────────────────
+
+/**
+ * THE ONE READ. The MOST RECENT profile's footprint, or `null` when nothing has been drawn.
+ *
+ * ⭐ ADR-0383 S5 keeps this signature and this meaning EXACTLY, so every caller written against
+ * the single slot — `resolveFootprintSource`'s top rung, the site tool's draw-status line, the
+ * arming module's settled-ring reset — is untouched by the roster.
+ */
+export function getDrawnEnvelopeFootprint(): DrawnEnvelopeFootprint | null {
+    const last = profiles[profiles.length - 1];
+    return last === undefined ? null : last.footprint;
+}
+
+/**
+ * THE ONE WRITE OF THE MOST RECENT PROFILE. Pass `null` to clear the WHOLE roster.
+ *
+ * Non-null REPLACES the last profile's footprint in place — its `profileId` and `label` survive,
+ * because redrawing Block B's perimeter does not make it a different block. With an empty roster
+ * it seeds the first profile, which is the pre-ADR-0383 behaviour exactly.
+ *
+ * See the header for why `null` clears everything rather than popping one entry.
+ */
 export function setDrawnEnvelopeFootprint(next: DrawnEnvelopeFootprint | null): void {
     const span = _tracer.startSpan('pryzm.site.setDrawnEnvelopeFootprint');
     try {
-        if (next !== null) {
-            if (next.ring.length < 3 || !Number.isFinite(next.areaM2) || next.areaM2 <= 0) {
-                span.setAttribute('pryzm.envelopeDraw.refused', 'degenerate');
-                console.warn(
-                    '[site][envelope-draw] §ENVELOPE-DRAW refused to store a degenerate ring '
-                    + `(${next.ring.length} vertices, ${next.areaM2} m²). The slot is unchanged.`,
-                );
-                return;
-            }
+        if (next === null) {
+            if (profiles.length === 0) return;
+            profiles = Object.freeze([]);
+            span.setAttribute('pryzm.envelopeDraw.present', false);
+            span.setAttribute('pryzm.envelopeDraw.profiles', 0);
+            notify();
+            return;
         }
-        if (drawn === next) return;
-        drawn = next;
-        span.setAttribute('pryzm.envelopeDraw.present', next !== null);
-        if (next !== null) {
-            span.setAttribute('pryzm.envelopeDraw.vertices', next.ring.length);
-            span.setAttribute('pryzm.envelopeDraw.areaM2', next.areaM2);
-            span.setAttribute('pryzm.envelopeDraw.surface', next.surfaceId);
+        if (!isStorable(next)) {
+            span.setAttribute('pryzm.envelopeDraw.refused', 'degenerate');
+            refuseDegenerate(next, 'replace');
+            return;
         }
+        const last = profiles[profiles.length - 1];
+        if (last !== undefined && last.footprint === next) return;
+        if (last === undefined) {
+            mintCount += 1;
+            profiles = Object.freeze([
+                Object.freeze({
+                    profileId: `dp_${mintCount}`,
+                    label: `Profile ${mintCount}`,
+                    footprint: next,
+                }),
+            ]);
+        } else {
+            profiles = Object.freeze([
+                ...profiles.slice(0, -1),
+                Object.freeze({ profileId: last.profileId, label: last.label, footprint: next }),
+            ]);
+        }
+        span.setAttribute('pryzm.envelopeDraw.present', true);
+        span.setAttribute('pryzm.envelopeDraw.profiles', profiles.length);
+        span.setAttribute('pryzm.envelopeDraw.vertices', next.ring.length);
+        span.setAttribute('pryzm.envelopeDraw.areaM2', next.areaM2);
+        span.setAttribute('pryzm.envelopeDraw.surface', next.surfaceId);
         notify();
     } finally {
         span.end();
     }
 }
 
-/** Subscribe a surface or panel. Returns its own unsubscribe. */
+/** Subscribe a surface or panel. Returns its own unsubscribe. Fires on ANY roster change. */
 export function subscribeDrawnEnvelopeFootprint(fn: Listener): () => void {
     listeners.add(fn);
     return () => {
@@ -103,13 +237,135 @@ export function subscribeDrawnEnvelopeFootprint(fn: Listener): () => void {
     };
 }
 
-/** Drop the drawing. The user redrew, cleared it, or the site frame it was drawn about moved. */
+/**
+ * Drop the exploration. The user redrew, cleared it, or the site frame it was drawn about moved.
+ *
+ * ⛔ CLEARS EVERY PROFILE, not just the newest — see the header. A site frame that moved
+ * invalidates every ring drawn about it, and the panel's discard control means "go back to the
+ * footprint PRYZM solved", which is a statement about the whole exploration.
+ */
 export function clearDrawnEnvelopeFootprint(): void {
     setDrawnEnvelopeFootprint(null);
 }
 
-/** Test-only reset — clears the slot and drops every subscriber. */
+// ── ADR-0383 S5 — THE ROSTER ─────────────────────────────────────────────────────────────────
+
+/**
+ * THE ONE READ OF THE WHOLE ROSTER, oldest first. Empty ⇒ nothing drawn this session.
+ *
+ * ⚠ EMPTY IS AN EMPTINESS, AND THERE IS NO FAILURE ARM HERE — deliberately. §CONTEXT-DATA-HONESTY
+ * demands the two never share a value, and this module cannot fail to read: the roster is a
+ * module-local array, not an I/O. A caller that needs "could not read" is asking the STORE
+ * (`readLevelEnvelopes`), which has its own two-armed result for exactly that reason.
+ */
+export function getDrawnEnvelopeProfiles(): readonly DrawnEnvelopeProfile[] {
+    return profiles;
+}
+
+/** One profile by id, or `null`. Never throws. */
+export function getDrawnEnvelopeProfile(profileId: string): DrawnEnvelopeProfile | null {
+    return profiles.find((p) => p.profileId === profileId) ?? null;
+}
+
+/**
+ * APPEND a new profile, seeded with `footprint`. Returns the profile, or `null` when it was
+ * refused (degenerate ring, or the roster is at `DRAWN_ENVELOPE_MAX_PROFILES`).
+ *
+ * ⭐ THE NEXT DRAW REPLACES THIS ONE. That is not a special case — it is
+ * `setDrawnEnvelopeFootprint`'s unchanged rule ("write the most recent profile") meeting a roster
+ * whose most recent profile is the one just appended. The control that calls this must say so on
+ * its own face; the panel does.
+ */
+export function addDrawnEnvelopeProfile(
+    footprint: DrawnEnvelopeFootprint,
+    label?: string,
+): DrawnEnvelopeProfile | null {
+    const span = _tracer.startSpan('pryzm.site.addDrawnEnvelopeProfile');
+    try {
+        if (!isStorable(footprint)) {
+            span.setAttribute('pryzm.envelopeDraw.refused', 'degenerate');
+            refuseDegenerate(footprint, 'append');
+            return null;
+        }
+        if (profiles.length >= DRAWN_ENVELOPE_MAX_PROFILES) {
+            span.setAttribute('pryzm.envelopeDraw.refused', 'roster-full');
+            console.warn(
+                `[site][envelope-draw] ADR-0383 S5 refused a ${profiles.length + 1}th profile — the `
+                + `session roster holds at most ${DRAWN_ENVELOPE_MAX_PROFILES}. This is a guard `
+                + 'against a runaway caller, not a limit on how many buildings a master plan may '
+                + 'have; remove a profile you no longer want and add again.',
+            );
+            return null;
+        }
+        mintCount += 1;
+        const trimmed = typeof label === 'string' ? label.trim() : '';
+        const profile: DrawnEnvelopeProfile = Object.freeze({
+            profileId: `dp_${mintCount}`,
+            label: trimmed.length > 0 ? trimmed : `Profile ${mintCount}`,
+            footprint,
+        });
+        profiles = Object.freeze([...profiles, profile]);
+        span.setAttribute('pryzm.envelopeDraw.profiles', profiles.length);
+        notify();
+        return profile;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * Rename one profile. Session-only, like everything here.
+ *
+ * ⛔ THIS IS NOT `spaceEnvelope.group.rename` AND MUST NOT BE CONFUSED WITH IT. That verb renames a
+ * GROUP — a persisted value denormalised across N envelope records, rewritten in one
+ * `produceCommand` (ADR-0383 D1). This renames a row in an exploration that no element exists for
+ * yet. An empty or blank name is refused rather than stored; a profile with no name is a row the
+ * roster cannot talk about.
+ */
+export function renameDrawnEnvelopeProfile(profileId: string, label: string): void {
+    const span = _tracer.startSpan('pryzm.site.renameDrawnEnvelopeProfile');
+    try {
+        const trimmed = typeof label === 'string' ? label.trim() : '';
+        if (trimmed.length === 0) {
+            span.setAttribute('pryzm.envelopeDraw.refused', 'blank-label');
+            return;
+        }
+        const idx = profiles.findIndex((p) => p.profileId === profileId);
+        if (idx < 0) return;
+        const current = profiles[idx]!;
+        if (current.label === trimmed) return;
+        const next = [...profiles];
+        next[idx] = Object.freeze({ ...current, label: trimmed });
+        profiles = Object.freeze(next);
+        span.setAttribute('pryzm.envelopeDraw.profiles', profiles.length);
+        notify();
+    } finally {
+        span.end();
+    }
+}
+
+/** Drop ONE profile. A no-op when the id is unknown. */
+export function removeDrawnEnvelopeProfile(profileId: string): void {
+    const span = _tracer.startSpan('pryzm.site.removeDrawnEnvelopeProfile');
+    try {
+        const next = profiles.filter((p) => p.profileId !== profileId);
+        if (next.length === profiles.length) return;
+        profiles = Object.freeze(next);
+        span.setAttribute('pryzm.envelopeDraw.profiles', profiles.length);
+        notify();
+    } finally {
+        span.end();
+    }
+}
+
+/** Drop every profile. The named twin of `clearDrawnEnvelopeFootprint()`, which does the same. */
+export function clearDrawnEnvelopeProfiles(): void {
+    setDrawnEnvelopeFootprint(null);
+}
+
+/** Test-only reset — clears the roster, the mint counter and every subscriber. */
 export function __resetDrawnEnvelopeFootprintForTests(): void {
-    drawn = null;
+    profiles = Object.freeze([]);
+    mintCount = 0;
     listeners.clear();
 }
