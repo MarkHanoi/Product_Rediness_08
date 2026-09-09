@@ -36,7 +36,14 @@ const MEASURED_ZERO = ['alaskaaleutians', 'usvirginislands'];
 describe('§USAS-NATIONAL-HEIGHTS — bake.mjs wires the national stamp for the whole United States', () => {
     it('imports the stamp, the national working set and the swathe constant DIRECTLY from heights/', () => {
         expect(bake).toMatch(/^import \{ stampUsasNationalHeightsOnGeojsonseq \} from '\.\/heights\/usasNationalStamp\.mjs';/m);
-        expect(bake).toMatch(/^import \{ US_NATIONAL_BBOXES, US_OPEN_CITY_BBOXES, USAS_SWATHE_ROWS \} from '\.\/heights\/usOpenHeights\.mjs';/m);
+        // ⚠ CORRECTED 2026-09-09 (lane DELAWARE-R2) — this asserted a THREE-symbol import including
+        // `US_OPEN_CITY_BBOXES`, and had been RED since 6e5d7c5e
+        // (§SIX-GREEN-ARMS-THAT-COULD-NEVER-FIRE) deliberately removed that binding: bake.mjs's
+        // `stampBboxesFor` 'usas' branch returns US_NATIONAL_BBOXES and reads the city list nowhere,
+        // so the import was an unused binding failing lint as a hard error. The comment above the
+        // import in bake.mjs states this; the assertion was simply not moved with it. A test left
+        // red is a test nobody reads, which is how the delaware gap below survived a green suite.
+        expect(bake).toMatch(/^import \{ US_NATIONAL_BBOXES, USAS_SWATHE_ROWS \} from '\.\/heights\/usOpenHeights\.mjs';/m);
     });
 
     it('⭐ 52 rows declare heightJoin:\'usas\' — the whole country, not a metro list', () => {
@@ -200,6 +207,51 @@ describe('§USAS-NATIONAL-HEIGHTS — both CI gates refuse a US bake that only s
             expect(text, wf).toMatch(/^\s*oakpark illinois 41\.8850,-87\.7840 200$/m);
             expect(text, wf).toMatch(/^\s*pasadenatx texas 29\.6910,-95\.2090 200$/m);
         }
+    });
+
+    it('⭐ GENERIC — EVERY usas gate row in either workflow is in BOTH (this arm caught delaware)', () => {
+        // ⚠ WHY THIS REPLACED A LITERAL PAIR. The arm above names `oakpark` and `pasadenatx`, so it
+        // guards those two rows and nothing else. On 2026-09-09 lane DELAWARE-R2 added a THIRD usas
+        // row — `wilmington delaware` — to context-bake.yml only, and every test stayed green: the
+        // exact one-rule-two-implementations defect the arm above was written to stop, walking past
+        // it because the guard was a list of names instead of the rule. A gate that enumerates its
+        // subjects can only ever catch the subjects someone remembered to enumerate.
+        //
+        // The rule is: a CITIES row whose REGION declares heightJoin:'usas' in bake.mjs is a national
+        // -join row, and both gates must carry it — the bake gate guards the region artifact, the
+        // merge gate guards the merged archive that actually publishes, and a row in only one leaves
+        // the other blind. Rows for regions on any OTHER join are deliberately out of scope here:
+        // §PENDING-HEIGHTS parks several on purpose and one of them (ljubljana) is unsatisfiable by
+        // its source's own provenance choice, so demanding symmetry for them would be wrong.
+        const wfText = (wf: string) => readFileSync(resolve(HERE, '../../../.github/workflows', wf), 'utf8');
+        const cities = (text: string) => {
+            const m = text.match(/<<'CITIES'\n([\s\S]*?)\n\s*CITIES\n/);
+            if (!m) return [];
+            return m[1].split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+        };
+        const usasRegion = (region: string) => {
+            const row = rowText(region);
+            return row !== null && /heightJoin: 'usas'/.test(row);
+        };
+
+        const bakeRows = cities(wfText('context-bake.yml'));
+        const mergeRows = cities(wfText('context-merge-publish.yml'));
+        expect(bakeRows.length, 'context-bake.yml CITIES parsed').toBeGreaterThan(10);
+        expect(mergeRows.length, 'context-merge-publish.yml CITIES parsed').toBeGreaterThan(10);
+
+        const usasOf = (rows: string[]) => rows.filter((r) => usasRegion(r.split(/\s+/)[1]));
+        const bakeUsas = usasOf(bakeRows);
+        const mergeUsas = usasOf(mergeRows);
+        // Non-empty, or the parser silently matched nothing and the arm would pass vacuously —
+        // which is the failure mode this whole lane keeps finding.
+        expect(bakeUsas.length, 'usas rows found in context-bake.yml').toBeGreaterThanOrEqual(3);
+
+        const byName = (rows: string[]) => new Map(rows.map((r) => [r.split(/\s+/)[0], r]));
+        const b = byName(bakeUsas);
+        const m2 = byName(mergeUsas);
+        expect([...b.keys()].sort(), 'usas rows only in context-bake.yml').toEqual([...m2.keys()].sort());
+        // and byte-identical, so a floor cannot drift between the two copies
+        for (const [name, row] of b) expect(m2.get(name), `row '${name}' differs between the workflows`).toBe(row);
     });
 
     it('the three CITY-channel rows are still gated too — the national join must not cost them', () => {

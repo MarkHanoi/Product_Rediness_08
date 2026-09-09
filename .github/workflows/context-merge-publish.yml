@@ -476,6 +476,43 @@ jobs:
           # enforcement that did not exist, inside the file whose whole job is enforcement (the L-809
           # shape). Caught by usasNationalWiring.spec.ts, which asserts the rows in BOTH workflows rather
           # than in the one that happened to get them. If you ever delete a row, delete this too.
+          #
+          # §USAS-DELAWARE-ROW (2026-09-09, lane DELAWARE-R2) — `wilmington delaware` is the third USAS
+          # row and it is here for the reason the paragraph above exists: the lane added it to
+          # context-bake.yml first and NOT here, which is this repo's dominant defect (one rule, two
+          # implementations, the fix landing in the copy nobody reads) reproduced inside the very gate
+          # whose comment warns about it. The oakpark/pasadenatx arm did not catch it because it names
+          # those two rows literally; it is now GENERIC — every `heightJoin: 'usas'` row present in one
+          # workflow's CITIES list must be present in the other's.
+          # Live-probed before being written: USAS 0.02° cell at Wilmington -> 1,831 structures, 1,776
+          # with HEIGHT (97 %); the staged archive read back with the client's decoders -> 1,227 of
+          # 1,295 measured, solidRenderFraction 0.947. ⛔ NOT the founder's Lewes demo site 107 km south,
+          # which reads 0 measured of 48 and would fail this gate forever for a height the SOURCE does
+          # not publish (1,198 USAS records in the Lewes cell, ZERO heights). See §USAS-IS-EMPTY-IN-SUSSEX
+          # in docs/04-reference/geospatial/USA-DELAWARE-DEMO-SOURCES.md.
+          #
+          # ⭐ §PENDING-HEIGHTS RE-MEASURED 2026-09-09 — the parked rows above were probed against the
+          # LIVE MERGED buildings archive, and SIXTEEN OF TWENTY now clear their own floors:
+          #   marseille 9,262 · ciudadreal 2,454 · toledo 2,924 · abudhabi 1,289 · berlin 1,890 ·
+          #   hamburg 1,876 · potsdam 3,310 · kiel 1,953 · erfurt 4,767 · mainz 3,368 · schwerin 4,494 ·
+          #   magdeburg 1,239 · hannover 3,520 · stuttgart 4,457 · dresden 683 · nuernberg 4,145
+          # The parking notes say "re-add each when its region bakes with stamps" — that condition is MET
+          # for all sixteen. They are DELIBERATELY NOT un-parked in this lane, because un-parking sixteen
+          # gate rows while a publish chain is mid-flight risks blocking the very publishes the lane
+          # exists to make; the numbers are recorded here so the next lane can do it as its own change
+          # with evidence rather than hope.
+          # The other FOUR must stay parked, and the reasons are DIFFERENT — do not lump them:
+          #   · toronto / vancouver / tokyo-kanda — verdict `not-baked`, 0 of 25 covering tiles. Their
+          #     regions are not in the live merged archive at all, so this gate SKIPS them by region
+          #     scope anyway; adding them would be inert, not protective.
+          #   · ljubljana — verdict `unmeasured`: 2,854 footprints, 101 `tagged`, 944 derived-levels and
+          #     ZERO measured-lidar. ⛔ That row is UNSATISFIABLE BY DESIGN, not merely unbaked:
+          #     heightSources.mjs `gurs_si` states the GURS register is written as `tagged` with NO
+          #     measured-lidar marker, because the register's own accuracy code is "unknown method" for
+          #     96 % of it. `--require-measured` can therefore never pass there however well Slovenia
+          #     bakes. Re-adding it would be a permanently red gate (the L-716 unsatisfiable-gate shape:
+          #     ask "can this ever be true?" first). If Slovenia needs a gate, it needs one that counts
+          #     `tagged`, which is a different assertion and a different flag.
           fail=0
           checked=0
           while read -r name region at min; do
@@ -501,6 +538,7 @@ jobs:
           boston massachusetts 42.3510,-71.0750 500
           oakpark illinois 41.8850,-87.7840 200
           pasadenatx texas 29.6910,-95.2090 200
+          wilmington delaware 39.7459,-75.5466 500
           tallinn estonia 59.4370,24.7536 500
           antwerp belgium 51.2213,4.3997 500
           vienna austria 48.2086,16.3725 500
