@@ -107,7 +107,11 @@ describe('§FIX-GLOBE-3DTILES-CRASH — safeSampleTileHeights swallows sample th
             () => Promise.resolve([{ height: 650.1 }, { height: 651.4 }]),
             (r: { height: number }) => r.height,
         );
-        expect(heights).toEqual([650.1, 651.4]);
+        // §GROUND-PICKS-KEEP-THEIR-POSITION (L-13277) — the sampler now returns the SAMPLE
+        // INDEX beside each height. It has to: ground and roof differ only in whether height
+        // is a function of POSITION, and compacting to a bare `number[]` threw that away
+        // before the classifier ever ran.
+        expect(heights).toEqual([{ idx: 0, h: 650.1 }, { idx: 1, h: 651.4 }]);
     });
 
     it('swallows a REJECTED sampler (tileset not ready) → empty array, no unhandled rejection', async () => {
@@ -137,7 +141,10 @@ describe('§FIX-GLOBE-3DTILES-CRASH — safeSampleTileHeights swallows sample th
                 return 650;
             },
         );
-        expect(heights).toEqual([650, 650]);
+        // ⛔ THE INDICES ARE 0 AND 2, NOT 0 AND 1. The middle item's extract threw and was
+        // dropped, so the surviving picks are NOT contiguous — which is exactly why the index
+        // must be carried explicitly and cannot be inferred from the output's own position.
+        expect(heights).toEqual([{ idx: 0, h: 650 }, { idx: 2, h: 650 }]);
     });
 
     it('drops null / undefined / NaN heights (tiles not height-pickable at this point)', async () => {
@@ -145,7 +152,9 @@ describe('§FIX-GLOBE-3DTILES-CRASH — safeSampleTileHeights swallows sample th
             () => Promise.resolve([{ height: null }, { height: 649.2 }, { height: Number.NaN }]),
             (r: { height: number | null }) => r.height,
         );
-        expect(heights).toEqual([649.2]);
+        // §GROUND-PICKS-KEEP-THEIR-POSITION (L-13277) — idx 1, because the null at 0 was
+        // dropped. The surviving pick's ORIGINAL sample index is the whole point.
+        expect(heights).toEqual([{ idx: 1, h: 649.2 }]);
     });
 
     it('returns [] when the sampler is unavailable (older Cesium build / API missing)', async () => {

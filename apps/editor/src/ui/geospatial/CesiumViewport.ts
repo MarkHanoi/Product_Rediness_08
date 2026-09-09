@@ -345,6 +345,7 @@ import {
   type TerrainBaseSource,
   classifyTileGroundPicks,   // §GLOBE-SLOPE-SEAT (L-12919)
   GROUND_LOW_QUANTILE,
+  OUTLIER_ROBUST_MIN_SAMPLES,   // §GROUND-PICKS-KEEP-THEIR-POSITION (L-13277)
   resolveTerrainClampBase,
 } from "./globeGroundAnchor";
 // FORMA.6 — pure building-fidelity helpers (no THREE/Cesium/DOM): the floor-filter
@@ -1528,6 +1529,31 @@ registerProjectScopeProbe({
         viewports: [..._liveCesiumViewports].map(v => v.describeProjectScopedState()),
     }),
 });
+
+/**
+ * One tile-surface height pick, WITH the index of the sample point that produced it.
+ *
+ * §GROUND-PICKS-KEEP-THEIR-POSITION (founder 2026-09-09 · L-13277 · C12 §1.4)
+ *
+ * ⛔ THIS USED TO BE A BARE `number[]`, AND THAT IS WHY THE GLOBE SEAT CANNOT BE FIXED
+ * STATISTICALLY. `reduceTileGroundHeight` has to tell GROUND from ROOF, and those two differ
+ * only in whether height is a FUNCTION OF POSITION. Compacting the sampler's result into a
+ * sorted list of bare numbers throws the position away before the classifier ever runs, so no
+ * threshold on that list can recover the distinction — which is exactly what
+ * `classifyTileGroundPicks` has been asked to do, and why it has now failed in both
+ * directions: buried Sète's hillside (L-12919), then floated Barcelona's block 13.75 m.
+ *
+ * ⚠ The `idx` is the caller's `samplePts` index. Both Cesium samplers
+ * (`clampToHeightMostDetailed`, `sampleHeightMostDetailed`) answer positionally, one result
+ * per input, so the index is the join back to (lon, lat). Non-finite picks are dropped, which
+ * is precisely why the index cannot be inferred from the output's own position.
+ */
+export interface TileHeightPick {
+  /** Index into the caller's `samplePts`. */
+  readonly idx: number;
+  /** Ellipsoidal WGS-84 height in metres. */
+  readonly h: number;
+}
 
 export class CesiumViewport {
   private container: HTMLDivElement;
@@ -9014,7 +9040,7 @@ export class CesiumViewport {
   static async safeSampleTileHeights<T>(
     sampler: (() => Promise<T[]>) | undefined,
     extract: (item: T) => number | null | undefined,
-  ): Promise<number[]> {
+  ): Promise<TileHeightPick[]> {
     if (typeof sampler !== 'function') return [];
     let items: T[];
     try {
@@ -9022,16 +9048,16 @@ export class CesiumViewport {
     } catch {
       return [];
     }
-    const out: number[] = [];
+    const out: TileHeightPick[] = [];
     if (!Array.isArray(items)) return out;
-    for (const it of items) {
+    for (let idx = 0; idx < items.length; idx += 1) {
       let h: number | null | undefined;
       try {
-        h = extract(it);
+        h = extract(items[idx] as T);
       } catch {
         continue;
       }
-      if (typeof h === 'number' && Number.isFinite(h)) out.push(h);
+      if (typeof h === 'number' && Number.isFinite(h)) out.push({ idx, h });
     }
     return out;
   }
@@ -9360,11 +9386,74 @@ export class CesiumViewport {
     // WGS-84 ELLIPSOID, and with photoreal tiles as the visible ground that is ~50 m BELOW
     // real ground at Menorca (geoid separation ≈ +49 m) — the founder's burial. The sphere
     // ground is a real (coarse) measurement and is allowed; a fabricated 0 is not.
+    // §GROUND-PICKS-KEEP-THEIR-POSITION (founder 2026-09-09 · L-13277 · C12 §1.4)
+    //
+    // *"THE 3D GLOBE MODEL IS NOT ON THE CORRECT HEIGHT - IT IS HEIGHT UP"* — measured at
+    // 10-14 m, and the arithmetic reproduces his console exactly: 58 picks, low-half span
+    // 12.59 m, largest step 2.00 m ⇒ the `slope` arm ⇒ seat = median 78.94 − 0.30 = 78.64,
+    // against a lowest credible pick of 64.89. The whole building sat 13.75 m above the
+    // lowest measured street cell.
+    //
+    // ⭐ THE PICKS WERE NEVER GROUND PICKS. When photoreal tiles are active the IN-PARCEL
+    // samples are deliberately skipped, so every pick comes from the vertex ring pushed 1.7×
+    // outward plus two compass rings at ext+25 m and ext+55 m — i.e. entirely in the
+    // NEIGHBOURS' territory. In a dense wall-to-wall block like the Eixample that is mostly
+    // ROOF. The ring median is then a roof height, and seating on it lifts the building by
+    // roughly one building.
+    //
+    // ⛔ AND NO STATISTIC CAN SEE THAT. Ground and roof differ only in whether height is a
+    // FUNCTION OF POSITION; the sampler used to discard position before the classifier ran.
+    // That is why the same 1-D discriminator has now failed in BOTH directions — it buried
+    // Sète's hillside (L-12919) and then floated Barcelona. Re-tuning it a third time is the
+    // same mistake a third time, so the mask below is semantic, not statistical.
+    //
+    // ⚠ IT MASKS, IT DOES NOT RE-SEAT. Everything downstream is untouched: the surviving
+    // picks still go through `resolveGlobeGroundAnchor` and the same arms. All that changes
+    // is that roofs stop voting. On a genuine hillside with no context buildings loaded the
+    // mask removes nothing and L-12919's behaviour is bit-for-bit preserved.
+    const _pickLonLat = (p: TileHeightPick): { lon: number; lat: number } | null => {
+      const sp = samplePts[p.idx];
+      return sp ? { lon: sp.lon, lat: sp.lat } : null;
+    };
+    let groundPicks: TileHeightPick[] = tileHeights;
+    if (tileHeights.length > 0 && this.contextBuildingPlacements.length > 0) {
+      const onGround: TileHeightPick[] = [];
+      let masked = 0;
+      let unlocatable = 0;
+      for (const p of tileHeights) {
+        const ll = _pickLonLat(p);
+        if (!ll) { unlocatable += 1; onGround.push(p); continue; }
+        if (this.isLonLatOnAContextBuilding(ll.lon, ll.lat)) { masked += 1; continue; }
+        onGround.push(p);
+      }
+      // ⛔ HONEST DEGRADATION, NOT A SILENT ONE. If masking leaves too few picks to reason
+      // about, the mask has told us nothing useful — the ring may be genuinely wall-to-wall,
+      // or the footprints may not have loaded yet. Keep the unmasked set and SAY SO, rather
+      // than seating on two survivors. [[context-data-honesty-family]]: a degraded answer and
+      // a confident one must not look the same in the log.
+      const enough = onGround.length >= OUTLIER_ROBUST_MIN_SAMPLES;
+      if (masked > 0 || unlocatable > 0) {
+        console.log(
+          `[CesiumViewport][globe] §GROUND-PICKS-KEEP-THEIR-POSITION masked ${masked} of ` +
+            `${tileHeights.length} pick(s) as ROOF (inside/within 3 m of a context building ` +
+            `footprint); ${onGround.length} remain` +
+            (unlocatable > 0 ? `, ${unlocatable} could not be located and were kept` : '') +
+            `. ${enough
+              ? 'Seating on the ground picks only.'
+              : `FEWER THAN ${OUTLIER_ROBUST_MIN_SAMPLES} remain — KEEPING THE UNMASKED SET, so this seat is as ` +
+                'roof-contaminated as before. Either the ring is genuinely wall-to-wall or the ' +
+                'context footprints had not loaded when the seat was taken.'}`,
+        );
+      }
+      if (enough) groundPicks = onGround;
+    }
+    const tileHeightValues: number[] = groundPicks.map((p) => p.h);
+
     // §GLOBE-PICK-SPREAD-DIAG (L-479) — print the DISTRIBUTION, not just the min. A single
     // number cannot distinguish "the ground really is 11 m here" from "most rays fell through
     // a hole". A tight cluster is a real surface; a wide spread with a low tail is fall-through.
-    if (tileHeights.length > 0) {
-      const sorted = [...tileHeights].filter((h) => typeof h === 'number' && Number.isFinite(h)).sort((a, b) => a - b);
+    if (tileHeightValues.length > 0) {
+      const sorted = [...tileHeightValues].filter((h) => typeof h === 'number' && Number.isFinite(h)).sort((a, b) => a - b);
       if (sorted.length > 0) {
         const at = (f: number): number => sorted[Math.min(sorted.length - 1, Math.floor(f * sorted.length))];
         console.log(
@@ -9392,7 +9481,7 @@ export class CesiumViewport {
     const anchor = resolveGlobeGroundAnchor({
       photorealTilesActive: this.photorealTilesActive,
       heightPickingAvailable,
-      tileSampleHeights: tileHeights,
+      tileSampleHeights: tileHeightValues,   // §GROUND-PICKS-KEEP-THEIR-POSITION (L-13277)
       tilesetSphereGroundHeightM: this.photorealTilesetGroundHeight(),
       seatEpsilonM: GLOBE_GROUND_SEAT_EPSILON_M, // L-184 — seat flush, no float
     });
@@ -14809,6 +14898,66 @@ export class CesiumViewport {
    *  sea bodies (each its own closed coastline), not the outer-plus-hole rings of one polygon,
    *  so "inside any" is the question — folding them with XOR would make a point inside two
    *  overlapping sea rings read as LAND. Preserved exactly as it was. */
+  /**
+   * §GROUND-PICKS-KEEP-THEIR-POSITION (founder 2026-09-09 · L-13277 · C12 §1.4)
+   *
+   * Is this (lon, lat) on — or within `bufferM` of — a context building footprint we already
+   * hold? Used to drop ROOF picks before the ground seat is reduced.
+   *
+   * ⭐ WHY A SEMANTIC MASK AND NOT ANOTHER THRESHOLD. `classifyTileGroundPicks` has to tell
+   * ground from roof, and those differ only in whether height is a FUNCTION OF POSITION. Once
+   * position is discarded the two are genuinely indistinguishable, and the record proves it:
+   * the same 1-D discriminator buried Sète's hillside (L-12919), and the re-tune to fix that
+   * floated Barcelona's block 13.75 m. A third tuning would be the same mistake a third time.
+   * ⛔ So do NOT "fix" this by adjusting SLOPE_RAMP_MIN_SPAN_M or ROOF_GAP_M.
+   *
+   * The buffer catches the photoreal mesh's FACADE DRAPE: the mesh is one continuous surface
+   * that runs from the kerb up the wall to the cornice, so a pick just outside the footprint
+   * can still be several metres up a wall. That drape is also why the `roof-gap` escape never
+   * fires here — it fills the gap the escape is looking for (measured largest step: 2.00 m).
+   *
+   * ⚠ THE BUFFER IS AN APPROXIMATION AND IS DECLARED AS ONE. It is a metric distance to the
+   * ring's edges, not a true polygon offset; on a sharply reflex corner it under-covers by a
+   * few centimetres. That is immaterial next to a 13.75 m error and honest is better than a
+   * buffered-polygon library imported for this.
+   */
+  private isLonLatOnAContextBuilding(lon: number, lat: number, bufferM = 3): boolean {
+    if (this.contextBuildingPlacements.length === 0) return false;
+    const mPerDegLat = 111320;
+    const mPerDegLon = 111320 * Math.cos((lat * Math.PI) / 180);
+    for (const { feature } of this.contextBuildingPlacements) {
+      const ring = feature?.geometry?.coordinates?.[0];
+      if (!Array.isArray(ring) || ring.length < 3) continue;
+
+      // Cheap reject first — a bbox test skips ~all of the ~10k footprints per pick.
+      let west = Infinity, east = -Infinity, south = Infinity, north = -Infinity;
+      for (const c of ring) {
+        const cx = c[0]!, cy = c[1]!;
+        if (cx < west) west = cx;
+        if (cx > east) east = cx;
+        if (cy < south) south = cy;
+        if (cy > north) north = cy;
+      }
+      const padLon = mPerDegLon > 0 ? bufferM / mPerDegLon : 0;
+      const padLat = bufferM / mPerDegLat;
+      if (lon < west - padLon || lon > east + padLon || lat < south - padLat || lat > north + padLat) continue;
+
+      if (pointInRingEvenOdd(lon, lat, ring.length, (i) => ring[i]![0]!, (i) => ring[i]![1]!)) return true;
+
+      // Outside the ring but possibly on the facade drape — metric distance to each edge.
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+        const ax = (ring[j]![0]! - lon) * mPerDegLon, ay = (ring[j]![1]! - lat) * mPerDegLat;
+        const bx = (ring[i]![0]! - lon) * mPerDegLon, by = (ring[i]![1]! - lat) * mPerDegLat;
+        const dx = bx - ax, dy = by - ay;
+        const len2 = dx * dx + dy * dy;
+        const t = len2 > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+        const px = ax + t * dx, py = ay + t * dy;
+        if (Math.hypot(px, py) <= bufferM) return true;
+      }
+    }
+    return false;
+  }
+
   private isLonLatInSea(lon: number, lat: number): boolean {
     for (const ring of this.contextSeaRingsLonLat) {
       if (pointInRingEvenOdd(lon, lat, ring.length, (i) => ring[i]![0], (i) => ring[i]![1])) return true;
