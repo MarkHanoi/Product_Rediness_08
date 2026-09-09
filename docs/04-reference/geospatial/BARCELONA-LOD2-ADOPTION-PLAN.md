@@ -212,3 +212,133 @@ Behind a flag, Barcelona-only. **Days, not weeks.** If the founder likes it, har
 - Whether product 145's zip ships a **per-product conditions document** ⚠ — the conditions page says affected products carry one. That may answer the licence question in an afternoon, with no email.
 - `TIPUS_POL`'s value domain ⚠ — plausibly distinguishes main body from lift overrun from stair core, which would let us *style* rooftop plant rather than just draw it. Not enumerable from the SceneServer.
 - Whether the founder's screenshot renders the city layer or Esri's own `OpenStreetMap3D_Buildings_v1`, which the same web scene also loads ⚠. Cheap to settle by toggling; it does not change the recommendation.
+---
+
+# ADDENDUM A — first-hand verification, 2026-09-09, in response to the founder's R2 direction
+
+> **FOUNDER, VERBATIM:** *"why is not being deployed to R2? all our data is coming from there
+> for speed on 3d site?"*
+>
+> He is right on architecture, and the plan above under-argued it. Every other context layer is
+> pre-baked PMTiles on R2. A live pass-through proxy is slower, adds a runtime dependency on
+> `geo.bcn.cat`, and makes Barcelona the one layer that behaves differently from the seven
+> beside it. **R2 is the target.** The only reason §5 above recommended a proxy is the licence,
+> and the paragraphs below narrow that considerably.
+
+Everything in this addendum was fetched and read **directly**, not by a subagent.
+
+## A.1 The catalogued product, confirmed from its own metadata sheet
+
+`http://w20.bcn.cat/cartobcn/getFile.ashx?t=bdd&f=18627477547360` → `application/pdf`,
+92,361 bytes, document dated **11/02/2026**. Verbatim from it:
+
+> *"El mapa 3D de Barcelona és el model tridimensional dels volums edificats de la cartografia
+> topogràfica municipal. El model es genera a partir de les dades 3D de la cartografia
+> topogràfica municipal, extrusionant-les per a convertir-les en objectes 3D sobre el Model
+> Digital de Superfícies (MDS) municipal … precisió planimètrica de 0,02 m i precisió
+> altimètrica de 0,025 m."*
+
+- File: **`Ciutat_Model_Edificacions_3D.slpk`** · structure declared as **I3S/SLPK (LOD1)**.
+- ✅ Independently confirms the body of this plan: **LOD1**, extruded municipal cartography
+  over the municipal MDS, 0.02 m / 0.025 m. The "LOD2" in the service item's name is not what
+  the publisher's own documentation says the product is.
+
+## A.2 ⭐ THE ATTRIBUTE SCHEMA — this is the finding that moves the licence question
+
+The sheet enumerates the product's attributes **in full**:
+
+| Attribute | Meaning (from the sheet) |
+|---|---|
+| `NIVELL` | the level the element belongs to |
+| `PERÍMETRE` | perimeter / total length of the geometry |
+| `DISTRICTE` | district |
+| `BARRI` | neighbourhood |
+| **`Z_MIN_VOL`** | *"la cota mínima d'un volum o element 3D"* |
+| **`Z_MAX_VOL`** | *"la cota màxima d'un volum o element 3D"* |
+| `OBJECTID` | unique identifier |
+
+**That is the whole list, and every entry is municipal.** There is no `bldgheight`, no
+`roofform`, no `roofdir`, no `eaveheight`, no `ano_ref`, no `REFCAT` — **no Catastro-joined
+attribute of any kind.**
+
+⭐ **WHY THAT MATTERS.** The geoportal's notice routes to CC BY-**ND** only for *"types of data
+where there is participation by third parties"*. The prior lane **inferred** that this applies,
+and it inferred it **from the Catastro attributes carried by the FeatureServer layer**. That
+inference — never a finding — is the entire reason R2 was ruled out.
+
+The catalogued SLPK product carries **none of those attributes**. So the specific fact the ND
+inference rested on is **absent from the product we would actually bake**.
+
+⚠ **STATED AS AN ARGUMENT, NOT A CONCLUSION.** This is not legal advice and must never be
+quoted as a licence determination. It says only that the *stated reason* for assuming ND does
+not apply to this product's schema. Two things could still route it to ND — the Cartographic
+Act of Catalonia carve-out, and any third-party participation in the underlying survey that the
+attribute list would not reveal. **Only the city can settle it** (§A.5).
+
+⚠ **AND DO NOT MISREAD THE SHEET'S OWN CREATIVE-COMMONS SENTENCE.** It says *"Tant i3S com SLPK
+estan llicenciats sota Creative Commons"* — that is about the **format specifications** being
+open standards, **not** about the data licence. Conflating the two would be exactly the
+confident-and-wrong move this repo keeps logging.
+
+## A.3 ⛔ The bulk download is REGISTRATION-GATED — a real constraint on a CI bake
+
+Every CartoBCN product page carries the same flow, verbatim:
+
+> *"Afegeixi a la cistella. Empleni els camps del formulari i **accepti les condicions d'ús**
+> per donar d'alta el seu usuari. Revisi el seu correu. Rebrà un email amb un enllaç en el que
+> ha de clicar per activar el seu usuari."*
+
+Add to basket → complete a form → **accept the terms of use** → email activation.
+
+Two consequences, and they pull in opposite directions:
+
+- ⭐ **GOOD:** the terms are *knowable* — they are shown at registration, and accepting them is
+  a positive grant rather than an inference from a general portal notice. This is the cheapest
+  route to a definite answer, and it needs no email.
+- ⛔ **BAD FOR CI:** a registration-gated download does not drop into an unattended bake. This
+  is [[identity-bootstrap-gate-offline-legislation-pattern]] again — the same shape as the SE/DK
+  cadastre gates. The realistic pattern is a **human-fetched artefact, staged once**, with the
+  bake reading the staged file. That is acceptable for a one-off pilot city and must be
+  recorded as a deliberate exception in the City Replication Standard, not discovered later as
+  an inconsistency.
+
+## A.4 What this changes about the recommendation
+
+| | Prior plan (§4–§5) | After this addendum |
+|---|---|---|
+| Ship route | live same-origin proxy | **bake to R2**, like every other layer |
+| Source | `FeatureServer/22` (undocumented, `licenseInfo: ""`) | **catalogued SLPK product**, documented, with a metadata sheet and stated terms |
+| Licence basis | inferred ND ⇒ avoid redistribution | **the ND trigger's stated basis is absent from this product's schema** — still to be confirmed by the city |
+| Height | `z_max_vol − z_min_vol` | **unchanged** — and now confirmed as the product's own documented attributes |
+| CI | live query per open | **registration-gated fetch, staged once** ⚠ new constraint |
+
+The proxy survives only as a **same-day demo spike**, not as the ship. Everything else in §4's
+recommendation stands: **multi-volume footprints tiered by radius, articulated inside ~300 m**,
+today's prisms beyond, roofs left alone.
+
+## A.5 The question for the city — still worth asking, now sharper
+
+Registering and reading the terms may answer it outright. If it does not, the email is now a
+much better question than "what licence is this?":
+
+> *Is the catalogued product `Ciutat_Model_Edificacions_3D.slpk` (CartoBCN, Model
+> tridimensional d'edificacions) licensed under CC BY 4.0, or does the Attribution-NoDerivatives
+> routing for third-party data apply to it? We intend to convert the volume geometry and the
+> `Z_MIN_VOL` / `Z_MAX_VOL` attributes into vector tiles hosted on our own CDN, credited to the
+> Ajuntament de Barcelona.*
+
+⛔ **Do not block on the reply.** This repo's precedent for an unlicensed source is to mark it
+blocked and keep moving. The harvester, the ring→GeoJSON converter, the provenance rung and the
+radius tiering are all licence-independent and can be built while the answer is pending.
+
+## A.6 Two claims in the body above that I could NOT reproduce, flagged so nobody inherits them
+
+- The `…/Hosted/BCN_3DtoFeat/FeatureServer/22` host is **elided in the body** and I could not
+  reconstruct it; a guessed ArcGIS org id returned `{"error":{"code":400,"message":"Invalid
+  URL"}}`. ⚠ **The full service URL is not recorded anywhere in this document.** Recover it
+  from the lane transcript before writing any harvester against it — and prefer §A.1's
+  catalogued product regardless.
+- `MTM_GPKG_alçades.zip` (product 118, reported at 126,289,364 bytes) — **not re-verified
+  here.** The two `getFile.ashx` URLs recoverable from the transcript resolve to a PDF and a
+  JPEG, i.e. metadata, not the archive. Treat the GeoPackage as UNVERIFIED until someone
+  downloads it.
