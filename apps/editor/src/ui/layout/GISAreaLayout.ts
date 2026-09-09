@@ -195,7 +195,7 @@ import { toggleSiteEnvelopeTool } from '../site/siteEnvelopeTool';
 // adding a country is a data addition in `@pryzm/site-parcel-data`, not an edit to this L5 file.
 import { defaultParcelProvider } from '../site/parcel';
 // §GR-10/GR-14 — "nobody classified the edges" ≠ "no edge is street frontage".
-// §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — `frontageClause` is no longer imported here: this file's
+// §PARCEL-ROWS-HAVE-ONE-HOME (L-13302) — `frontageClause` is no longer imported here: this file's
 // one caller was the fold's `Boundary edges` row, whose canonical home is question 1 (C115 §2.2).
 // ⛔ The RULE is untouched and still has exactly one implementation; only this reader went.
 import { parcelEdgeClassificationsOrUnknown } from '../site/parcelEdgeClassificationDetermination';
@@ -334,7 +334,7 @@ import {
 import {
     buildParcelLawModel,
     permittedStudyFiguresOf,
-    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — `polygonBboxXZ` is no longer imported here. It is
+    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13302) — `polygonBboxXZ` is no longer imported here. It is
     // still the ONE bounding-box producer; question 1 reaches it through `ParcelLawGeometry`.
     polygonPerimeterXZ,
     resolveDepthTerm,
@@ -478,7 +478,7 @@ import {
     // §RESI-ORCH-MASSING-OPTIONS (STR §7) — N massings of the permitted footprint, each with its
     // reason. The enumerator is pure and lives next door; this file owns the button and the pick.
     buildMassingOptionsFold,
-    // §MASSING-ON-EVERY-ARM (L-13281) — the PURE predicate that decides the fold's third state.
+    // §MASSING-ON-EVERY-ARM (L-13301) — the PURE predicate that decides the fold's third state.
     // It reads the same ring + footprint the Generate press would, so the fold can never promise
     // a generation the press refuses.
     resolveNoPermittedFootprint,
@@ -487,7 +487,7 @@ import {
     MASSING_PICK_ATTR,
     // §FOLD-MEMORY (L-13078) — re-attach the disclosure memory after the card's innerHTML swap.
     wireEnvelopeCardFoldMemory,
-    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — the §2.5 stamp that replaces the fold's PARCEL group.
+    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13302) — the §2.5 stamp that replaces the fold's PARCEL group.
     buildParcelRowsRelocationStamp,
 } from '../site/envelopeCardSections';
 // §26.6.7 (L-13085) — THE ONE SPELLING OF THE FOUR CEILINGS lives in `intentAgainstCeilingModel`'s
@@ -4415,7 +4415,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // migration is one reviewable hunk and every existing reader is unchanged.
     const polyPerimeterM = polygonPerimeterXZ;
     const polyAreaM2 = polygonAreaXZ;
-    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — the `polyBboxM` alias STOOD HERE and is gone with its
+    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13302) — the `polyBboxM` alias STOOD HERE and is gone with its
     // one reader, the fold's `Bounding box` row. ⛔ The FIGURE is not gone: `parcelRingMeasuredFacts`
     // renders it in question 1 from the SAME `polygonBboxXZ` via the parcel-law model, with the
     // *"a non-rectangular parcel has no single width × depth"* caveat attached. An alias kept alive
@@ -4513,7 +4513,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             identity: null,
             envelope: env,
         });
-        // §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — the `frontage` local STOOD HERE, and its only
+        // §PARCEL-ROWS-HAVE-ONE-HOME (L-13302) — the `frontage` local STOOD HERE, and its only
         // reader was the deleted `Boundary edges` row.
         //
         // ⛔ §GR-10/GR-14's THREE OUTCOMES ARE NOT LOST, AND THAT IS THE ONLY REASON THIS MAY GO.
@@ -4582,7 +4582,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              </div>`;
 
         // ═══════════════════════════════════════════════════════════════════════════════════
-        // ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13282 · C115 §2.2 `C115-12` · §2.5 `C115-17`)
+        // ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13302 · C115 §2.2 `C115-12` · §2.5 `C115-17`)
         // ═══════════════════════════════════════════════════════════════════════════════════
         //
         // ⛔ THE `PARCEL` GROUP STOOD HERE AND IS GONE — Area · Perimeter · Bounding box ·
@@ -4834,7 +4834,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
-     * ⭐ §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13281 · C58 §1.20 clauses 1+4) — THE MASSING
+     * ⭐ §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13301 · C58 §1.20 clauses 1+4) — THE MASSING
      * FOLD, BUILT ONCE, FOR ALL THREE CARD ARMS.
      *
      * ═══════════════════════════════════════════════════════════════════════════════════════
@@ -4882,7 +4882,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             const permittedRing = env?.insetPolygon ?? [];
             const figuresM2 = env === null ? null : permittedStudyFigures(env).footprintM2;
             const unavailable = resolveNoPermittedFootprint({
-                hasEnvelope: env !== null,
+                // ⛔ "THERE IS A DETERMINATION TO SPEAK OF", NOT MERELY "THE POINTER IS NON-NULL".
+                // The absence arm hands this a `status:'none'` WITHOUT a refusal as well as a bare
+                // `null` — that status means *the determination ran and did not say why*. Reading
+                // only `env !== null` classified it as a present envelope whose RING was missing,
+                // so the fold said "the envelope carries no permitted footprint ring" when the
+                // truth was "PRYZM holds no buildable envelope for this plot". §CONTEXT-DATA-HONESTY:
+                // a SOURCE THAT ANSWERED NOTHING and a SHAPE THAT IS ABSENT are two different
+                // failures and must not share a sentence.
+                hasEnvelope: env !== null && !(env.status === 'none' && !env.refusal),
                 // A refusal is identified by its refusal OBJECT, never by the status alone — the
                 // same rule `isRefusedEnvelope` and the card's own refusal branch already apply.
                 isRefused: env !== null && !!env.refusal,
@@ -5122,7 +5130,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             + `letter-spacing:.03em;text-transform:uppercase;">${escHtml(chip.label)}</span>`;
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
-        // ⭐ §MASSING-ON-EVERY-ARM (L-13281) — THE ABSENCE ARM CARRIES MASSING TOO, and this is the
+        // ⭐ §MASSING-ON-EVERY-ARM (L-13301) — THE ABSENCE ARM CARRIES MASSING TOO, and this is the
         // arm the founder's own report came from: no envelope at all, and therefore — before this —
         // no way to reach the massing step or the draw tool from the card that had replaced it.
         // `env` is passed through as it arrives (it is `null`, or a `status:'none'` with no reason):
@@ -5150,7 +5158,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         restoreEnvelopeCardDisclosure(panel, envScrollBefore);
         wireStudyHeightEntry(panel);
         wireEnvelopeAbsenceSolve(panel);
-        // §MASSING-ON-EVERY-ARM (L-13281) — the draw route on the arm a founder with an old
+        // §MASSING-ON-EVERY-ARM (L-13301) — the draw route on the arm a founder with an old
         // project actually lands on (C115 §3.B PR-B-03). Generate is not rendered here, so the
         // only live control this wires is the authored one.
         wireMassingOptions(panel);
@@ -5542,7 +5550,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                      🛠️ Set zone manually (admin)
                    </button>`
                 : '';
-            // ⭐ §MASSING-ON-EVERY-ARM (L-13281) — THE REFUSAL ARM'S OWN BUILD, from the ONE
+            // ⭐ §MASSING-ON-EVERY-ARM (L-13301) — THE REFUSAL ARM'S OWN BUILD, from the ONE
             // builder. A separate LOCAL, not a hoist of the full arm's: that constant is declared
             // ~380 lines below this early return, and reaching it from here would be a
             // use-before-declaration, which is the compiler telling us these are two arms.
@@ -5572,7 +5580,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                      'designed-vs-permitted': safeCapacitySection,
                      'how-measured': safeMeasuredSection,
                      'intended-area': safeIntendedSection,
-                     // ⭐ §MASSING-ON-EVERY-ARM (L-13281) — THE REFUSAL ARM CARRIES MASSING.
+                     // ⭐ §MASSING-ON-EVERY-ARM (L-13301) — THE REFUSAL ARM CARRIES MASSING.
                      // A cited "no envelope applies here" is an answer about the LAW; it says
                      // nothing about whether the user may draw a massing and carry on, and
                      // C58 §1.20 clause 1 says they may. The fold renders its
@@ -5588,7 +5596,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             restoreEnvelopeCardDisclosure(panel, envScrollBefore);
             wireManualZoneButton(panel);
             wireStudyHeightEntry(panel);
-            // §MASSING-ON-EVERY-ARM (L-13281) — the authored route's ONE button. Generate/clear/pick
+            // §MASSING-ON-EVERY-ARM (L-13301) — the authored route's ONE button. Generate/clear/pick
             // are simply not in this arm's DOM, and `wireMassingOptions` is a no-op query for each,
             // exactly like `wireStudyHeightEntry` is on the arms that do not host the entry.
             wireMassingOptions(panel);
@@ -8675,6 +8683,20 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         siteAuthoringPaneLastFramedCentroid: siteAuthoringPaneLastFramedCentroid
             ? { ...siteAuthoringPaneLastFramedCentroid } : null,
         gisActive: _gisActive,
+        // ⭐ §CARD-TRANSCRIPT-IS-PROJECT-STATE (C13 §3.10) — THE ENVELOPE CARD'S OWN TRANSCRIPT.
+        // Seven closure slots written by USER GESTURES on project A's card (a typed target area
+        // and its verdict, an adopt result, a generated massing set and the footprint it was
+        // solved for). They are per-project by construction and were reset by NOTHING on a
+        // switch — the audit enumerates OWNERS, and this surface had none, so a leak here
+        // reported `✓ loaded clean`. Described as well as cleared: a probe that cannot SEE a
+        // slot cannot fail on it, which is how this class of leak stays invisible.
+        targetAreaStatement,
+        targetAreaRefused,
+        targetAreaTyped,
+        adoptStatement,
+        adoptFailed,
+        hasMassingOptions: massingOptions !== null,
+        massingOptionsForFootprintM2,
     });
 
     const layoutHoldsProjectState = (): boolean => (
@@ -8684,13 +8706,39 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         formaRealPlaced ||
         globeRealLastSig !== null ||
         formaRealLastSig !== null ||
-        siteAuthoringPaneLastFramedCentroid !== null
+        siteAuthoringPaneLastFramedCentroid !== null ||
+        // §CARD-TRANSCRIPT-IS-PROJECT-STATE — see `describeLayoutProjectState`. Without these
+        // the probe answers "I hold nothing" while project A's typed area and generated massing
+        // are still in the closure, and the isolation audit PASSES on the leak.
+        targetAreaStatement !== null ||
+        targetAreaRefused ||
+        targetAreaTyped !== null ||
+        adoptStatement !== null ||
+        adoptFailed ||
+        massingOptions !== null ||
+        massingOptionsForFootprintM2 !== null
     );
 
     const clearLayoutProjectState = (): void => {
         // THE fix for the founder's stale lat/lon: no project may inherit another
         // project's geocode frame.
         lastGeocodeFrame = null;
+        // ⭐ §CARD-TRANSCRIPT-IS-PROJECT-STATE (C13 §3.10 · founder: a panel "absolutely in the
+        // wrong place" on a new project after an old one) — THE ENVELOPE CARD'S TRANSCRIPT.
+        //
+        // ⛔ THE ONLY WRITERS OF `null` WERE THE CLEAR BUTTON AND A STALENESS GATE, AND NEITHER
+        // RUNS ON A SWITCH. The ≥0.5 m² staleness gate that drops a stale massing set lives on
+        // the FULL-determination arm, so a project-B parcel that REFUSES never reaches it —
+        // project A's generated plates, typed target area and adopt verdict would still be on
+        // the card, narrating a plot the user has left. Clearing them is not cosmetic: the
+        // massing set is geometry solved inside project A's permitted footprint.
+        targetAreaStatement = null;
+        targetAreaRefused = false;
+        targetAreaTyped = null;
+        adoptStatement = null;
+        adoptFailed = false;
+        massingOptions = null;
+        massingOptionsForFootprintM2 = null;
         // ⛔ §PANEL-ABSENT-IS-SKIP-MOUNT (L-13294) — THE OTHER HALF, AND THE GUARD ABOVE IS NOT
         // SUFFICIENT WITHOUT IT. Project A's Parcel Law tab force-clears `envelopeCardHidden`
         // directly (:7330-7332) rather than through `setPanelOpen` — which would have REFUSED,

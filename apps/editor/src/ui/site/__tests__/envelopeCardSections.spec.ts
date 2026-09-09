@@ -57,14 +57,14 @@ import {
     // literal in a file that no longer owns it.
     buildStoredDeterminationNoticeHtml,
     STORED_DETERMINATION_TESTID,
-    // ⭐ §MASSING-ON-EVERY-ARM (L-13281) — the fold's THIRD state and the pure predicate that
+    // ⭐ §MASSING-ON-EVERY-ARM (L-13301) — the fold's THIRD state and the pure predicate that
     // decides it. Imported from the SAME module the card calls, never re-implemented here.
     buildMassingOptionsFold,
     resolveNoPermittedFootprint,
     MASSING_OPTIONS_SECTION_TESTID,
     MASSING_OPTIONS_GENERATE_BTN_TESTID,
     MASSING_OPTIONS_UNAVAILABLE_TESTID,
-    // ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — the §2.5 stamp that replaced the fold's PARCEL group.
+    // ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13302) — the §2.5 stamp that replaced the fold's PARCEL group.
     buildParcelRowsRelocationStamp,
     PARCEL_ROWS_RELOCATED_ATTR,
     PARCEL_ROWS_RELOCATED_TO,
@@ -828,7 +828,7 @@ describe('§MANUALENV159 — SOURCE PINS: the card actually calls these builders
 
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// ⭐ §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13281 · C58 §1.20 clauses 1+4 · C115 §4.1)
+// ⭐ §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13301 · C58 §1.20 clauses 1+4 · C115 §4.1)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 //
 // THE DEFECT, MEASURED BEFORE THE FIX: the `massing-options` fold rendered on ONE of the card's
@@ -941,6 +941,16 @@ describe('§MASSING-ON-EVERY-ARM — the fold states an impossible generation in
         expect((src.match(/wireMassingOptions\(panel\)/g) ?? []).length).toBe(3);
         // ⛔ THE PREDICATE IS MEASURED, NOT DECLARED — the `754bc8fb` outage class.
         expect(src).toContain('resolveNoPermittedFootprint({');
+        // ⭐ §CONTEXT-DATA-HONESTY — "THERE IS A DETERMINATION TO SPEAK OF", not "the pointer is
+        // non-null". The absence arm hands the builder a `status:'none'` WITHOUT a refusal as well
+        // as a bare `null`, and that status means *the determination ran and did not say why*. A
+        // bare `env !== null` classified it as a PRESENT envelope whose RING was missing, so the
+        // fold said "the envelope carries no permitted footprint ring" when the truth was "PRYZM
+        // holds no buildable envelope for this plot". A source that answered nothing and a shape
+        // that is absent are two different failures and may not share a sentence.
+        expect(src).toContain(
+            "hasEnvelope: env !== null && !(env.status === 'none' && !env.refusal),",
+        );
         // ⭐ AND THE OUTAGE GUARD STAYS ON ITS ONE CORRECT RUNG. `754bc8fb` did not delete
         // `panelAbsent('buildable-envelope')`; it moved it OFF the top of `getForma3dHostEl` and
         // onto the LAST rung — the unconditional `#container` fallback, which is the globe during
@@ -957,7 +967,7 @@ describe('§MASSING-ON-EVERY-ARM — the fold states an impossible generation in
 
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13282 · C115 §2.2 `C115-12` · C115 §2.5 `C115-17`)
+// ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13302 · C115 §2.2 `C115-12` · C115 §2.5 `C115-17`)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 //
 // C115 §2.2 is normative and fixes the canonical home of parcel AREA, PERIMETER, BOUNDING BOX and

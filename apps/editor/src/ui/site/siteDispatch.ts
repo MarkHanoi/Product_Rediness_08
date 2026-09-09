@@ -592,6 +592,9 @@ import { fetchContextRoads } from '../geospatial/contextRoads.js';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { latLonToSceneXZ, sceneXZToLatLon, type LatLon } from './boundaryProjection.js';
 import { trace } from '@opentelemetry/api';
+// §RATE-IS-PER-PROJECT (C13 §4) — the setter, deliberately, not `resetIndicativeRateState`:
+// see `resetSiteDispatchProjectState` for why clearing the listeners there is the wrong act.
+import { setIndicativeRate } from './indicativeRateState';
 import { polygonAreaXZ } from './siteInspectorData';
 import {
     isUncertifiedPreviewModeActive,
@@ -757,6 +760,19 @@ export function resetSiteDispatchProjectState(): void {
         // so resetting them here is safe and has no persisted-data consequence.
         resetContextDerivedStudyEnvelopeState();
         resetUserSuppliedStudyHeightState();
+        // ⭐ §RATE-IS-PER-PROJECT (C13 §4 · C38 §1.2) — the user's €/m² cost assumption. It is a
+        // module singleton in `indicativeRateState` and had ZERO production resetters, so a rate
+        // typed for a Barcelona plot stayed IN FORCE on the next project and silently priced it.
+        //
+        // ⛔ `setIndicativeRate(null)` — NOT `resetIndicativeRateState()`, EVEN THOUGH THAT ONE IS
+        // THE FUNCTION NAMED FOR THIS JOB (its own docstring says "C13 §4 — project teardown").
+        // It also does `_listeners.clear()`, which would silently drop the LIVE subscription
+        // `parcelLawQuantities` takes at mount, so the cost control would stop repainting for the
+        // rest of the session — a quieter defect than the leak it fixes. Listener lifetime is
+        // per-MOUNT, not per-project. `setIndicativeRate(null)` nulls the rate AND notifies, so
+        // every mounted control repaints to its honest `no-rate` arm. `resetIndicativeRateState`
+        // stays what it actually is: the full teardown for specs.
+        setIndicativeRate(null);
         _owningProjectId = null;
     } catch (e) {
         console.warn('[gis] §L-676 resetSiteDispatchProjectState failed (non-fatal):', e);

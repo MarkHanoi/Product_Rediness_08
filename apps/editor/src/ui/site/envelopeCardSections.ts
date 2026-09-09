@@ -527,7 +527,7 @@ export function buildStagedSectionsHtml(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * §PARCEL-ROWS-HAVE-ONE-HOME (L-13282 · C115 §2.2 `C115-12` · C115 §2.5 `C115-17`) — the attribute
+ * §PARCEL-ROWS-HAVE-ONE-HOME (L-13302 · C115 §2.2 `C115-12` · C115 §2.5 `C115-17`) — the attribute
  * the site-data fold stamps where its PARCEL group used to render.
  *
  * ⛔ SAME ATTRIBUTE NAME AS EVERY OTHER STAMP IN THIS REPO (`ENVELOPE_COST_RELOCATED_ATTR`,
@@ -584,7 +584,7 @@ export function buildParcelRowsRelocationStamp(): string {
 export const MASSING_OPTIONS_SECTION_TESTID = 'envelope-section-massing-options';
 export const MASSING_OPTIONS_GENERATE_BTN_TESTID = 'envelope-massing-generate-btn';
 export const MASSING_OPTIONS_CLEAR_BTN_TESTID = 'envelope-massing-clear-btn';
-/** §MASSING-ON-EVERY-ARM (L-13281) — the stated non-value on the `no-permitted-footprint` arm. */
+/** §MASSING-ON-EVERY-ARM (L-13301) — the stated non-value on the `no-permitted-footprint` arm. */
 export const MASSING_OPTIONS_UNAVAILABLE_TESTID = 'envelope-massing-unavailable';
 /** The attribute a per-option "use this plate" button carries. One name, both sides. */
 export const MASSING_PICK_ATTR = 'data-massing-pick';
@@ -598,7 +598,7 @@ export const MASSING_PICK_ATTR = 'data-massing-pick';
 export const MASSING_CHOSEN_ATTR = 'data-chosen';
 
 /**
- * §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13281 · C58 §1.20 clauses 1+4 · C115 §4.1) —
+ * §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13301 · C58 §1.20 clauses 1+4 · C115 §4.1) —
  * THE THIRD STATE OF THE MASSING FOLD.
  *
  * ⛔ IT IS NOT A FOURTH SPELLING OF "IDLE". `idle` means *"nothing has been generated yet, and
@@ -752,9 +752,9 @@ export function buildMassingOptionsFold(
             + `floor area and open ground is yours.</div>`;
 
         // §CREATE-IT-MYSELF — first on EVERY arm: the user's own massing is not something Generate
-        // produces, so no state of the generator may withhold it (§MASSING-ON-EVERY-ARM, L-13281).
+        // produces, so no state of the generator may withhold it (§MASSING-ON-EVERY-ARM, L-13301).
         const authoredCard = buildAuthoredMassingOptionHtml(authored);
-        // ⭐ §MASSING-ON-EVERY-ARM (L-13281 · C58 §1.20 clauses 1+4 · C115 §4.1 `C115-31`) —
+        // ⭐ §MASSING-ON-EVERY-ARM (L-13301 · C58 §1.20 clauses 1+4 · C115 §4.1 `C115-31`) —
         // GENERATION IS IMPOSSIBLE HERE, AND THAT IS STATED RATHER THAN HIDDEN.
         //
         // ⛔ THE ORDER IS THE AUTHORED ROUTE FIRST, THE ABSENCE SECOND, for the reason the refused
