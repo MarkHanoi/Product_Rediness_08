@@ -13,6 +13,62 @@ Barcelona-grade context. **Acceptance is `/api/context-tiles/tileset-manifest.js
 
 ---
 
+## ⭐ EXECUTED 2026-09-09 (lane DELAWARE-R2) — what actually happened
+
+**ACCEPTANCE MET.** The live manifest carries `delaware` (merge run `34400724320`, mergedAt
+`2026-09-09T20:31:27Z`):
+
+```
+top-level regions: 47 keys · delaware present: YES
+regions.delaware = { stagedSet: "delaware", bakedAt: "2026-09-09T20:02:05.470Z",
+                     bakeRunId: "34397872497", bakeGitSha: "bcebb042", heightJoin: "usas" }
+```
+
+| step | run | result |
+|---|---|---|
+| bake + stage | `34397872497` | **success**, ~7.5 min. NINE layers staged (7 required + `furniture` 91,682 B + `sea` 305,642 B), `optionalLayersNotProduced: ["canopy"]`, `heightJoinRegions: ["delaware"]` |
+| gate probe (`layer=trees`, `engine=js`, `publish=false`) | `34400307114` | refused exactly as predicted — **only** the trees no-loss gate, naming the nine orphans |
+| **trees publish** | `34400724320` | **success** — `merge complete — 1 layer(s), 47 region(s) in the bytes (47 expected)` |
+| **buildings publish** | `34402000894` | dispatched 20:36Z, merge step began 20:49Z |
+| **terrain** | `34403193933` | **success — LIVE**, `tiles/terrain/delaware/layer.json` 200, z0–10 |
+
+### Corrections to this plan, from executing it
+
+1. **The bake is ~7.5 min, not 25–60.** The repo regression `25 + 30 × pbfGB` over-predicts by ~3.5×
+   at this size. The USAS sweep ran two swathes and did not truncate.
+2. **A layer-scoped merge+publish is ~13 min for a small layer**, not the 8–173 min band — the
+   download filter pulls only that layer's staged bytes. Budget by LAYER SIZE, not by the band.
+   Disk was never close: the trees run reported **97.8 GB free** after its download.
+3. **The Step 3 table was exactly right.** `expect=all` + `allow_unknown_regions=true` resolved to
+   **47 expected**, zero missing-region refusals on any layer, and the only refusal was
+   trees/rail/parks' no-loss gate naming the nine orphans — cured by `allow_region_removal`.
+4. **`sea` and `furniture` are NOT unstaged.** The `layer` input's comment claimed no region had
+   ever staged one; measured today, **7 sets carry furniture and 6 carry sea** (+ delaware = 8/7).
+   Corrected in the workflow.
+5. **The top-level `regions` block is rewritten on EVERY merge** (`merge-tiles.mjs:814`,
+   `shippedRegions` from `participating`), so acceptance was reached on the **first** publish, not
+   the seventh.
+
+### ⛔ AND THE THING THE PLAN COULD NOT HAVE KNOWN — see `USA-DELAWARE-DEMO-SOURCES.md`
+
+`§USAS-IS-EMPTY-IN-SUSSEX`. The bake passed its height gate at 19.6 % statewide and
+`context-bake.yml`'s CITIES spot-check passed **with `checked=0`** — no Delaware row existed, so it
+skipped all 37 and measured nothing. Probing the archive at nine points N→S:
+**`solidRenderFraction` spreads 0.000 → 0.947, and seven of nine points — the founder's demo site
+among them — read `unmeasured`, every height fabricated at the 9 m default.** Wilmington is at
+Barcelona parity (0.947 vs 0.958); Lewes is at zero. USA Structures carries Sussex footprints and
+**no HEIGHT at all** there (1,198 structures, 0 heights, read off the source directly), so this is a
+SOURCING gap, not a defect. **"Barcelona-grade context" is achieved in New Castle and Kent and is
+NOT achievable at the demo site on this height source.**
+
+Instruments added: `tools/context-height-probe/sweep.mjs` (the spread),
+`tools/context-bake/verify-published-region.mjs` (did the merge carry the region's bytes),
+and a `wilmington delaware` row in the CITIES table.
+
+---
+
+---
+
 ## ⭐⭐ THE FINDING THAT CHANGES THE PLAN — "46 regions × 7 layers" IS FALSE
 
 The live manifest was last written by `mergeRunId 34121618245` at 2026-09-07T15:11:28.949Z, and
