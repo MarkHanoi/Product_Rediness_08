@@ -73,6 +73,13 @@ export interface BuildingContainmentReport {
      * not — but counted, so "my third block is missing" has an answer.
      */
     readonly unusedBuildingIds: readonly string[];
+    /**
+     * ⭐ ADR-0385 §3 — PRYZM levels that became SEVERAL `IfcBuildingStorey` entities
+     * because several blocks share them. The normal shape of a master plan, not a
+     * fault; reported so a caller can explain why the storey count exceeds the level
+     * count.
+     */
+    readonly fannedLevelIds: readonly string[];
     /** The substrate note, so a report can say WHY it saw one building. */
     readonly substrateNote: string;
 }
@@ -95,7 +102,14 @@ export function applyBuildingContainment(
     diagnostics?: ExportDiagnostics,
     substrate: BuildingSubstrate = readBuildingSubstrate(),
 ): BuildingContainmentReport {
-    const roster = buildBuildingRoster(model.levels.map((l) => l.id), substrate);
+    // ⛔ THE LEVEL SET IS DE-DUPLICATED BEFORE THE ROSTER IS BUILT, AND THAT IS WHAT
+    // KEEPS THIS FUNCTION IDEMPOTENT AFTER THE FAN-OUT BELOW. A previous call may have
+    // already expanded one PRYZM level into N `ExportLevel` rows sharing an id; feeding
+    // those back in unchanged would fan each of them out again, and three storeys would
+    // become nine and then twenty-seven. Collapsing first means the second call
+    // recomputes exactly the first call's answer (ADR-0328 discipline).
+    const distinctLevels = [...new Map(model.levels.map((l) => [l.id, l])).values()];
+    const roster = buildBuildingRoster(distinctLevels.map((l) => l.id), substrate);
 
     // ── the buildings ──────────────────────────────────────────────────────
     model.buildings = roster.buildings.map((b) => ({
@@ -108,37 +122,77 @@ export function applyBuildingContainment(
     }));
 
     // ── the storeys ────────────────────────────────────────────────────────
-    // levelId -> buildingId, built from the roster so it cannot disagree with the
-    // building list above.
-    const buildingOfLevel = new Map<string, string>();
+    // levelId -> the buildings that own it, built from the roster so it cannot
+    // disagree with the building list above.
+    //
+    // ⭐ ONE-TO-MANY, NOT ONE-TO-ONE, AND THAT WAS THE COLLAPSE. This was a
+    // `Map<string, string>`, so when a master plan's three blocks shared the project's
+    // storey ladder — which is exactly what `masterPlanAuthoringPlan` produces, since
+    // every profile is handed the same `levels` — the last block to be seen won and
+    // three buildings emitted as one. C25 §1.3 as amended: Block A "Level 1" and Block
+    // B "Level 1" are ONE PRYZM levelId and TWO `IfcBuildingStorey` entities.
+    const buildingsOfLevel = new Map<string, string[]>();
     for (const b of roster.buildings) {
-        for (const levelId of b.levelIds) buildingOfLevel.set(levelId, b.id);
+        for (const levelId of b.levelIds) {
+            const row = buildingsOfLevel.get(levelId);
+            if (row) row.push(b.id);
+            else buildingsOfLevel.set(levelId, [b.id]);
+        }
     }
-    for (const level of model.levels) {
-        const buildingId = buildingOfLevel.get(level.id);
+
+    // ⭐ THE FAN-OUT. `IfcSpatialStructure` already keys its storeys by
+    // `storeySlot(buildingId, level.id)`, so N rows sharing an `ExportLevel.id` with
+    // different `buildingId`s become N distinct storeys with N distinct GlobalIds —
+    // the shape `multiBuildingModel` in the validity suite already pins. This is what
+    // finally produces it from a real read instead of from a hand-built fixture.
+    const expanded: typeof model.levels = [];
+    for (const level of distinctLevels) {
+        const owners = buildingsOfLevel.get(level.id) ?? [];
+        if (owners.length > 1) {
+            for (const buildingId of owners) expanded.push({ ...level, buildingId });
+            continue;
+        }
+        const buildingId = owners[0];
         // Leave `undefined` for the default — see the header. An absent field and
         // an explicit `'building-1'` produce the same slot; absence keeps the
         // "nothing claimed this level" intent readable in a dumped model.
         if (buildingId && buildingId !== DEFAULT_BUILDING_ID) level.buildingId = buildingId;
         else delete level.buildingId;
+        expanded.push(level);
     }
+    model.levels = expanded;
 
     // ── the elements ───────────────────────────────────────────────────────
+    // ⛔ AN ELEMENT ON A FANNED LEVEL IS LEFT UNSTAMPED, DELIBERATELY. ADR-0385 §4
+    // names it before it is built: no element schema carries a building axis, so a
+    // wall on a storey two blocks share genuinely cannot be routed to one of them.
+    // Choosing would be the "answer confidently and be wrong" failure C84 §9 records;
+    // `IfcModelBuilder` then places it in the explicit UNASSIGNED storey with a loud
+    // `UNRESOLVED_LEVEL` diagnostic (L-8510), which is visible rather than wrong.
     for (const element of model.elements) {
-        const buildingId = element.levelId ? buildingOfLevel.get(element.levelId) : undefined;
+        const owners = element.levelId ? buildingsOfLevel.get(element.levelId) ?? [] : [];
+        const buildingId = owners.length === 1 ? owners[0] : undefined;
         if (buildingId && buildingId !== DEFAULT_BUILDING_ID) element.buildingId = buildingId;
         else delete element.buildingId;
     }
 
     // ── report every failure, and never as an emptiness ────────────────────
+    const fanned = new Set(roster.fannedLevelIds);
     for (const u of roster.unknown) {
         diagnostics?.add({
             severity: 'warning',
             code: 'UNRESOLVED_BUILDING',
-            message:
-                `${u.why}. The storey is still written, under building ` +
-                `"${DEFAULT_BUILDING_ID}", so nothing is lost — but its building is a ` +
-                `FALLBACK, not a recorded fact.`,
+            message: fanned.has(u.levelId)
+                // ⭐ A FANNED LEVEL IS NOT A FALLBACK, AND SAYING SO WOULD BE A LIE.
+                // Its storeys were written correctly, one per owning building; what
+                // could not be answered is which of them the ELEMENTS belong to.
+                ? `${u.why}. The STOREYS are written correctly — one IfcBuildingStorey per ` +
+                  `owning building, per C25 §1.3 — but ELEMENTS on this level carry no ` +
+                  `building axis and are therefore placed in the explicit UNASSIGNED ` +
+                  `storey rather than guessed into one of the blocks.`
+                : `${u.why}. The storey is still written, under building ` +
+                  `"${DEFAULT_BUILDING_ID}", so nothing is lost — but its building is a ` +
+                  `FALLBACK, not a recorded fact.`,
         });
     }
     if (roster.unusedBuildingIds.length > 0) {
@@ -157,6 +211,7 @@ export function applyBuildingContainment(
         buildingCount: model.buildings.length,
         unresolvedLevels: roster.unknown,
         unusedBuildingIds: roster.unusedBuildingIds,
+        fannedLevelIds: roster.fannedLevelIds,
         substrateNote: substrate.note,
     };
 }

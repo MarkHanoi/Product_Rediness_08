@@ -316,6 +316,17 @@ export interface RosterBuilding {
 
 export interface BuildingRoster {
     /**
+     * ⭐ ADR-0385 §3 — PRYZM level ids that fanned out into SEVERAL buildings.
+     *
+     * A master plan's blocks sit on the PROJECT's shared storey ladder
+     * (`masterPlanAuthoringPlan` hands every profile the same
+     * `levels: AdoptLevelCandidate[]`), so Block A "Level 1" and Block B "Level 1"
+     * are ONE PRYZM `levelId` and — per C25 §1.3 as amended — TWO
+     * `IfcBuildingStorey` entities. Listed here so a caller can EXPAND its own
+     * per-level structures rather than discovering the one-to-many the hard way.
+     */
+    readonly fannedLevelIds: readonly string[];
+    /**
      * ⭐ NEVER EMPTY. A pass with no readable containment still has one building —
      * the default — because "I cannot tell you which building" is not a reason to
      * emit a file with no `IfcBuilding` in it. The honesty lives in `unknown`
@@ -341,6 +352,14 @@ export interface BuildingRoster {
  * bit-for-bit the shape the exporter produced before ADR-0385. A level that
  * resolves `unknown` also lands there, but is additionally listed in `unknown` so
  * the caller can raise a diagnostic. It is never silently absorbed.
+ *
+ * ⭐ ONE LEVEL MAY APPEAR IN SEVERAL BUILDINGS (ADR-0385 §3, C25 §1.3 as amended).
+ * A master plan's blocks share the project's storey ladder, so a `levelId` claimed by
+ * N buildings is emitted into all N and listed in {@link BuildingRoster.fannedLevelIds}.
+ * ⛔ A caller holding a `Map<levelId, …>` MUST expand — see
+ * `packages/file-format/src/export/ifc/buildingContainment.ts`, which turns each such
+ * level into one `ExportLevel` per owning building. A caller that does not expand
+ * silently keeps whichever owner it saw last.
  */
 export function buildBuildingRoster(
     levelIds: readonly string[],
@@ -370,10 +389,47 @@ export function buildBuildingRoster(
         row.levelIds.push(levelId);
     };
 
+    const fannedLevelIds: string[] = [];
+
     for (const levelId of levelIds) {
         const r = resolveLevelBuilding(levelId, substrate);
         if (r.kind === 'unknown') {
             unknown.push({ levelId, why: r.why });
+
+            // ⭐⭐ ADR-0385 §3 — THE STOREY FANS OUT; ONLY THE ELEMENT IS UNROUTABLE.
+            //
+            // ⛔ THIS BRANCH USED TO PUT THE LEVEL IN THE DEFAULT BUILDING AND STOP,
+            // and that collapsed the founder's ACTUAL master plan back to one building.
+            // Measured 2026-09-09 (lane MP-PROJECTION): every profile in
+            // `masterPlanAuthoringPlan` is handed the SAME `levels` — the project's one
+            // storey ladder — so three blocks of three storeys share L1/L2/L3, every
+            // level resolved `unknown`, and a correctly-projected three-building
+            // hierarchy still emitted ONE `IfcBuilding`. The projection was right and
+            // the roster threw the answer away.
+            //
+            // ⛔ AND IT IS NOT A SOFTENING OF `resolveLevelBuilding`, WHICH IS
+            // UNCHANGED. That function answers *"which building is this ELEMENT in"*
+            // and `unknown` is still the only honest answer — no element schema carries
+            // a building axis, so an element on a shared storey genuinely cannot be
+            // routed (ADR-0385 §4). This function answers a DIFFERENT question —
+            // *"which buildings should this pass EMIT"* — and for that, "three" is not
+            // ambiguous at all. The level stays in `unknown` so the element-routing
+            // warning still reaches the caller; it is a fan-out AND a diagnostic, never
+            // one instead of the other.
+            const candidates = r.candidateBuildingIds ?? [];
+            let placed = 0;
+            for (const id of candidates) {
+                const b = substrate.buildings?.find((x) => x.id === id);
+                if (!b) continue; // a dangling candidate is not a building to emit
+                put({ id: b.id, name: b.name, ifcGuid: b.ifcGuid }, levelId, 'carried');
+                placed++;
+            }
+            if (placed > 1) fannedLevelIds.push(levelId);
+            if (placed > 0) continue;
+
+            // No candidates, or every candidate dangled: an unreadable substrate, or a
+            // level naming a building that does not exist. Both fall to the default —
+            // the pre-existing behaviour, byte for byte.
             put({ id: DEFAULT_BUILDING_ID, name: DEFAULT_BUILDING_NAME }, levelId, 'derived');
             continue;
         }
@@ -403,5 +459,6 @@ export function buildBuildingRoster(
         }),
         unknown,
         unusedBuildingIds,
+        fannedLevelIds,
     };
 }
