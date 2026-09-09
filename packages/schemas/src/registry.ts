@@ -48,6 +48,7 @@ import { Component } from './elements/Component.js';
 // preference. ⛔ This does NOT close T9 for `Balcony` / `BoundaryLine` / `Section` /
 // `CurtainPanelVocabulary`, which the registry still omits.
 import { SpaceEnvelope } from './elements/SpaceEnvelope.js';
+import { Siteworks } from './elements/Siteworks.js';
 
 /**
  * The element schemas, addressable by element-type discriminator.
@@ -88,6 +89,7 @@ export const SCHEMA_REGISTRY = {
   component: Component,
   // §FEAT-SPACE-ENVELOPE · C114 · ADR-0380 — see the import above.
   spaceEnvelope: SpaceEnvelope,
+  siteworks: Siteworks,
 } as const;
 
 export type SchemaRegistry = typeof SCHEMA_REGISTRY;

@@ -188,6 +188,14 @@ export type SectionId     = Id<'section'>;
  */
 export type SpaceEnvelopeId = Id<'spaceEnvelope'>;
 
+/**
+ * C116 / ADR-0384 D1 — an AUTHORED flat paved plane on the site: a road, a parking
+ * area or a pedestrian area, discriminated by `role`, NOT by three element kinds.
+ * ⛔ The kind is `siteworks` and never `siteSurface`: that spelling is already held
+ * by an unrelated L7 UI class (`apps/editor/src/ui/site/SiteSurface.ts`).
+ */
+export type SiteworksId = Id<'siteworks'>;
+
 /** Discriminator value the `type` field of a node will hold. */
 export type ElementType =
   | 'wall'
@@ -235,7 +243,10 @@ export type ElementType =
   // §FEAT-SPACE-ENVELOPE (L-12900, C114, ADR-0380) — the authored spatial volume.
   // ONE kind with a `role` union ('level' | 'room' | 'maximumBuildable'), not three
   // kinds: C83 §2.1 — *"A new element kind must not require 30 new decisions"*.
-  | 'spaceEnvelope';
+  | 'spaceEnvelope'
+  // C116 / ADR-0384 — roads · parking · pedestrian areas. ONE kind, three roles:
+  // they differ in what they MEAN, in nothing a geometry pipeline can see.
+  | 'siteworks';
 
 /** All branded IDs the protocol surface exposes. */
 export type AnyElementId =
@@ -245,7 +256,7 @@ export type AnyElementId =
   | ScheduleId | ViewId | ProjectId
   | StructuralId | LightingId | PlumbingId | ProjectOriginId
   | PoolId | WaterId | BalconyId | ComponentId | LiftId | LiftPartId | BathroomPodId | BoundaryLineId
-  | OpeningId | FloorId | SectionId | SpaceEnvelopeId;
+  | OpeningId | FloorId | SectionId | SpaceEnvelopeId | SiteworksId;
 
 /** Map element-type discriminator → typed ID. */
 export type IdFor<T extends ElementType> =
@@ -289,4 +300,6 @@ export type IdFor<T extends ElementType> =
   T extends 'section'    ? SectionId     :
   // §FEAT-SPACE-ENVELOPE (L-12900, C114, ADR-0380).
   T extends 'spaceEnvelope' ? SpaceEnvelopeId :
+  // C116 / ADR-0384.
+  T extends 'siteworks' ? SiteworksId :
   never;

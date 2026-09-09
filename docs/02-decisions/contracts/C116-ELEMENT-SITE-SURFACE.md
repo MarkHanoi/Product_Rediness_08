@@ -169,7 +169,7 @@ the list of everything a road engineer would expect and will not find.
 |---|---|---|
 | Canonical `elementType` tag | **ABSENT** | `'siteworks'` — `Id.ts` (`ElementType` union) + `registry.ts` (`SCHEMA_REGISTRY`) |
 | Every spelling in use (§4E) | **none** | ⛔ **hold the count at ONE**: `siteworks`. `road`, `surface`, `pavement`, `paving`, `siteslab`, `groundSurface` — and ⭐ **`siteSurface`, which is FORBIDDEN for this family because it is already TAKEN by an unrelated one** (`apps/editor/src/ui/site/SiteSurface.ts`, the SITE workspace mode's right-hand panel; see §0.1 and the ruling above) — are FORBIDDEN spellings (C84 EI-8). ⭐ **`siteworks` was verified against the whole tree before it was chosen**: `grep -rn "siteworks\|Siteworks\|SITEWORKS" --include=*.ts --include=*.tsx --include=*.json packages plugins apps src server tools docs` → **0 hits**, 2026-09-09. That check is the step §0.1 skipped |
-| L0 schema | **ABSENT** | `packages/schemas/src/elements/Siteworks.ts` — `defineElement('siteworks', …)` + `.refine()` invariants · ⏳ PLANNED — lands stage 2 (schema) |
+| L0 schema | **ABSENT** | `packages/schemas/src/elements/Siteworks.ts` — `defineElement('siteworks', …)` + `.refine()` invariants |
 | Branded id | **ABSENT** | `SiteworksId = Id<'siteworks'>`, in `AnyElementId` and `IdFor`. Runtime prefix is derived by `createId('siteworks')` — there is no separate prefix table |
 | Bus verb namespace | **ABSENT** | `siteworks.*` per C69 §3.6 (the namespace is the kind, never an abbreviation). Roster in §6 |
 | Geometry package | **ABSENT** | `packages/geometry-siteworks` — **L2**, THREE-free, declared in `eslint.config.js`'s `layerElements` · ⏳ PLANNED — lands stage 3 (geometry) |
@@ -182,7 +182,7 @@ the list of everything a road engineer would expect and will not find.
 
 | Representation | Where | Authority? |
 |---|---|---|
-| **L0 record** `Siteworks` | `packages/schemas/src/elements/Siteworks.ts` | **the shape** · ⏳ PLANNED — lands stage 2 (schema) |
+| **L0 record** `Siteworks` | `packages/schemas/src/elements/Siteworks.ts` | **the shape** |
 | **Plugin store** `SiteworksStore extends Store<Siteworks>` | `plugins/siteworks/src/store.ts`, `storeKey: 'siteworks'` | ⭐ **THE AUTHORITY (C84 EI-1).** Reached as `runtime.stores.siteworks` · ⏳ PLANNED — lands stage 4 (plugin) |
 | plugin DTO twin | **none, deliberately** | — |
 | legacy geometry store | **none, deliberately** | — |
@@ -456,7 +456,7 @@ tight reversal. The sweep's own header states its limits; §11 item 2.
 ⛔ **THREE-free** (P2) — it must appear in `eslint.config.js`'s `layerElements` or
 `check-layer-boundaries.ts` cannot classify it.
 
-`packages/schemas/src/elements/Siteworks.ts` is **L0-pure** (P5): Zod + plain TS, zero I/O, zero  (⏳ PLANNED — lands stage 2 (schema))
+`packages/schemas/src/elements/Siteworks.ts` is **L0-pure** (P5): Zod + plain TS, zero I/O, zero
 THREE, zero DOM, **no OTel span** (a span is I/O).
 
 ---
@@ -530,6 +530,52 @@ land, each entry naming its proof.
 
 ⛔ **NOTHING IS REACHABLE. There is no schema, no store, no verb, no plugin, no renderer and no UI
 control.** §0.1 still governs.
+
+### 2026-09-09 · lane SITE-SURFACE · **STAGE 2 — THE L0 SCHEMA AND ITS FOUR REGISTERS.** Still not reachable.
+
+`packages/schemas/src/elements/Siteworks.ts` — `defineElement('siteworks', …)` with eight
+`.refine()` invariants — plus the four registers ADR-0376 D9 requires **in one commit**:
+`elements/index.ts`, `registry.ts` (`SCHEMA_REGISTRY`), and `types/Id.ts` (brand · `ElementType` ·
+`AnyElementId` · `IdFor`).
+
+| Gate / proof | Reading |
+|---|---|
+| `check-provenance-coverage` | **RC=0 · 33 kinds discovered, 33 covered · ledger EMPTY · hard-0, both directions.** `siteworks` appears in both lists. It read 32/32 before. `provenance` and `confidence` are spelled **literally** at the point of use, because the gate measures the file declaring `defineElement()` and an indirection hides them from its C3 arm |
+| `check-domain-purity` (P5) | **RC=0 · 209 files · 0 impurities.** Zod + plain TS; no I/O, THREE, DOM or OTel span |
+| `check-material-id-required` | ARM A **still 1 / 0 — NOT 2 / 0.** The family declares `materialId` beside `materialColor`, so it adds no new site to a hard-0 arm. Every other arm unchanged at baseline |
+| `check-contract-cited-paths` | **RC=0 · 462 = baseline.** Three stage-2 `⏳ PLANNED` markers REMOVED in this commit, as promised — the schema path now resolves for real |
+| root `tsc --noEmit --skipLibCheck` | **RC=0** |
+| `packages/schemas` vitest | **37 / 37 pass** (`__tests__/siteworks.test.ts`) |
+
+⭐ **THE SCRAMBLE CONTROL (L-586) FOUND A REAL DEFECT — IN THE TEST, WHICH IS THE POINT.**
+Six invariants were deliberately broken in the production schema and the arms re-run:
+
+| Scramble | Arms that went RED |
+|---|---|
+| centreline `y === 0` refine deleted | 1 |
+| linear-carries-no-boundary refine deleted | 2 |
+| open-ring refine deleted | 2 |
+| cited road width changed 7,00 → 7,50 m | 1 |
+| zero-length-segment refine deleted | 1 |
+| **`systemTypeId` re-added to the schema** | ⛔ **0 — the arm did not bind** |
+
+The refusal arms read `expect('systemTypeId' in parsed).toBe(false)`. **An
+`z.string().optional()` that is never supplied produces no key either**, so the assertion was
+true whether or not the field was declared — it measured nothing, and would have reported a
+breached refusal as healthy forever. Rebound to supply the value and assert it is **STRIPPED**;
+re-scrambled with `systemTypeId` + `sourceFeatureId` + `areaM2` re-added → **3 arms RED**.
+
+⚠ **ONE DIVERGENCE FROM ADR-0384 D2, RECORDED RATHER THAN SILENT.** D2 says *"a discriminated
+union on `form`"*. This is a FLAT object with `form` as the discriminant and `.refine()` enforcing
+the pairing, because (a) `defineElement` returns a `z.object` — it mints the branded-id regex and
+`BaseNodeShape` at the object level, and `SCHEMA_REGISTRY` maps one kind to one schema — and (b)
+**no element schema in this repository uses `discriminatedUnion`** (measured:
+`grep -rn "discriminatedUnion" packages/schemas/src/elements/` → no output). ⭐ **D2's semantics
+are fully preserved and ENFORCED**: the wrong-form geometry field is refused by a `.refine()`, not
+ignored by convention.
+
+⛔ **STILL NOT REACHABLE.** There is no store, no verb, no handler, no plugin, no renderer and no
+UI control. A registered schema is not a working element — §0.1's standing warning.
 
 ---
 

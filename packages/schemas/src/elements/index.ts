@@ -94,3 +94,25 @@ export type {
     SpaceEnvelopeBasis,
     SpaceEnvelopeGroup,
 } from './SpaceEnvelope.js';
+
+// C116 / ADR-0384 — SITEWORKS: roads, parking areas and pedestrian areas as ONE
+// kind wearing three roles. ⛔ NOT `Slab` (a car park is not a floor plate and must
+// never enter a floor-area schedule) and ⛔ NOT the zoning `street_width` family (a
+// road the user DREW must never be read as a street that was MEASURED, or an
+// architect raises their own permitted height by widening their own invention).
+export {
+    Siteworks,
+    SiteworksRoleSchema,
+    SiteworksFormSchema,
+    SITEWORKS_ROLES,
+    SITEWORKS_FORMS,
+    SITEWORKS_ROLE_EXPLANATIONS,
+    SITEWORKS_FORM_EXPLANATIONS,
+    SITEWORKS_DEFAULT_WIDTH_M,
+    SITEWORKS_DEFAULT_THICKNESS_M,
+} from './Siteworks.js';
+export type {
+    SiteworksRole,
+    SiteworksForm,
+    CitedDefault,
+} from './Siteworks.js';
